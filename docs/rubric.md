@@ -1,7 +1,12 @@
 # Evaluation rubric — Empires of the Sea
 
-Always-referable quality gate for design, implementation, and review.  
-Requirements source: [`requirements.md`](requirements.md). Agent entry point: [`../AGENTS.md`](../AGENTS.md).
+Always-referable quality gate for design, implementation, and review.
+
+| Source | Role |
+|--------|------|
+| [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics source of truth (P2) |
+| [`requirements.md`](requirements.md) | Product pillars (`REQ-*`) |
+| [`../AGENTS.md`](../AGENTS.md) | Agent entry point |
 
 Use requirement IDs (`REQ-P*-**`) in PRs, reviews, and agent summaries so judgments stay traceable.
 
@@ -51,11 +56,11 @@ Milestone / release reviews should score all pillars (no blanket N/A).
 
 | ID | Criterion | 3 | 2 | 1 | 0 |
 |----|-----------|---|---|---|---|
-| RUB-P2-01 | Source of truth (`REQ-P2-01`) | Rules doc + code cross-linked cleanly | Behavior matches documented ruleset | Behavior partly undocumented | Undocumented or conflicting “truth” |
+| RUB-P2-01 | Source of truth (`REQ-P2-01`) | Wiki page + code cross-linked cleanly | Behavior matches wiki Game rules | Behavior partly undocumented | Undocumented or conflicting “truth” |
 | RUB-P2-02 | Coverage (`REQ-P2-02`) | Domain complete incl. edge cases | All in-scope rules for the change implemented | Major cases only; known holes | Required rules skipped or faked |
 | RUB-P2-03 | No bypass (`REQ-P2-03`) | UI/AI proven to go through rules APIs | Presentation cannot override outcomes | Soft bypasses or dual logic paths | Cheats/shortcuts contradict rules |
 | RUB-P2-04 | Verified (`REQ-P2-04`) | Strong tests for edges + regressions | Meaningful unit tests; CI gate still met | Thin tests / happy-path only | No tests where rules changed, or CI broken |
-| RUB-P2-05 | Docs sync (`REQ-P2-05`) | Rules + rationale updated with change | Ruleset updated in same change | Docs lag with promised follow-up | Behavior changed; docs silent |
+| RUB-P2-05 | Docs sync (`REQ-P2-05`) | Wiki + rationale updated with change | Wiki rules page updated in same change | Wiki lags with promised follow-up | Behavior changed; wiki silent |
 
 ---
 
