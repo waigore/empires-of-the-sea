@@ -49,6 +49,7 @@ Milestone / release reviews should score all pillars (no blanket N/A).
 | RUB-P1-03 | Graphics immersion (`REQ-P1-03`) | Cohesive player-facing art ready for ship | Readable, intentional art for shipped surfaces | Placeholder-heavy on player-facing paths | Clashes, illegible, or throwaway as “final” |
 | RUB-P1-04 | Animation immersion (`REQ-P1-04`) | Motion clarifies state and world feel | Key actions/transitions animated appropriately | Sparse/janky motion; immersion incomplete | No meaningful motion, or motion hides rules/input |
 | RUB-P1-05 | Desktop + mobile UX (`REQ-P1-05`) | Excellent both input modes | Touch + mouse/keyboard both viable | One mode awkward but usable | Critical path fails on a target form factor |
+| RUB-P1-06 | Era music (`REQ-P1-06`) | Cohesive Baroque/Classical (or clearly period) score with player control | Default music is period-fitting; mute/volume work | Placeholder or weakly period tracks on player-facing paths | Modern/anachronistic default soundtrack, or music blocks feedback/controls |
 
 ---
 

@@ -4,7 +4,7 @@ Canonical product requirements for agents and humans. Evaluate work against [`ru
 **Game rules source of truth:** [Empires of the Sea wiki](https://github.com/waigore/empires-of-the-sea/wiki) (Game rules section on Home and linked pages).
 
 **Platforms:** desktop (Windows, macOS, Linux) and mobile (Android, iOS).  
-**Presentation:** 2D Godot 4 gameplay with immersive art and animation.
+**Presentation:** 2D Godot 4 gameplay with immersive art, animation, and era-appropriate music.
 
 ---
 
@@ -12,7 +12,7 @@ Canonical product requirements for agents and humans. Evaluate work against [`ru
 
 | ID | Pillar | Intent |
 |----|--------|--------|
-| P1 | Presentation & immersion | 2D play that feels like 16th–18th century European colonial / Age of Sail worlds |
+| P1 | Presentation & immersion | 2D play—visuals, motion, and music—that feels like 16th–18th century European colonial / Age of Sail worlds |
 | P2 | Rules fidelity | Complete, correct implementation of the game’s rules |
 | P3 | Modular architecture | Composable systems that stay replaceable and testable |
 | P4 | Performance & latency | Smooth play and responsive input on target devices |
@@ -37,6 +37,9 @@ Meaningful motion for ships, weather/sea feel, UI feedback, and state changes. I
 
 ### REQ-P1-05 — Cross-platform presentation
 Layouts, touch targets, and visual scale remain usable on phones and desktops. No hover-only critical UX; resolution-independent UI (anchors, containers, theme scales).
+
+### REQ-P1-06 — Immersive era-appropriate music
+Player-facing music should support immersion with period-fitting repertoire—prefer **Baroque** or **Classical** (roughly contemporaneous with the 16th–18th century setting), not modern pop, electronic, or anachronistic genres as the default soundtrack. Music must not obscure critical UI/audio feedback; volume and mute remain player-controllable.
 
 ---
 
