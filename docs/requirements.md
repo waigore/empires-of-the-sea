@@ -1,6 +1,7 @@
 # High-level requirements — Empires of the Sea
 
-Canonical product requirements for agents and humans. Evaluate work against [`rubric.md`](rubric.md).
+Canonical product requirements for agents and humans. Evaluate work against [`rubric.md`](rubric.md).  
+**Game rules source of truth:** [Empires of the Sea wiki](https://github.com/waigore/empires-of-the-sea/wiki) (Game rules section on Home and linked pages).
 
 **Platforms:** desktop (Windows, macOS, Linux) and mobile (Android, iOS).  
 **Presentation:** 2D Godot 4 gameplay with immersive art and animation.
@@ -42,10 +43,10 @@ Layouts, touch targets, and visual scale remain usable on phones and desktops. N
 ## P2 — Rules fidelity
 
 ### REQ-P2-01 — Single source of truth
-Game rules live in a documented ruleset (under `docs/` or linked design docs). Code implements that document; undocumented house rules are not accepted as “done.”
+Game rules live in the [project wiki](https://github.com/waigore/empires-of-the-sea/wiki). Code implements those pages; undocumented house rules are not accepted as “done.”
 
 ### REQ-P2-02 — Full rules coverage
-All defined rules domains (e.g. turn structure, movement, combat, economy, victory, edge cases) are implemented or explicitly tracked as out-of-scope for a given milestone. “Partial” is only valid when the ruleset marks the rule optional/deferred.
+All wiki-defined rules domains (e.g. turn structure, movement, combat, economy, victory, edge cases) are implemented or explicitly tracked as out-of-scope for a given milestone. “Partial” is only valid when the wiki marks the rule optional/deferred.
 
 ### REQ-P2-03 — Correctness over convenience
 UI shortcuts and AI helpers must not bypass or contradict rules. Simulations, replays, and tests should agree with the same rules engine where practical.
@@ -54,7 +55,7 @@ UI shortcuts and AI helpers must not bypass or contradict rules. Simulations, re
 Rules logic is unit-tested (gd-tools). Coverage of rules modules is expected to meet or exceed the project CI gate (`gd-tools test --coverage --min 80`) with meaningful cases, not only happy paths.
 
 ### REQ-P2-05 — Rules changes are documented
-Changing behavior requires updating the rules source of truth in the same change set (or an immediately linked follow-up that blocks release of that behavior).
+Changing behavior requires updating the relevant wiki rules page in the same change set (or an immediately linked follow-up that blocks release of that behavior).
 
 ---
 
@@ -99,14 +100,15 @@ Performance-sensitive changes should note expected impact and, when feasible, in
 ## Non-goals (current scope)
 
 - Photorealistic or 3D primary gameplay
-- Networked multiplayer unless explicitly added to the ruleset and roadmap
-- Feature parity with unrelated naval games outside the project ruleset
+- Networked multiplayer unless explicitly added to the wiki rules and roadmap
+- Feature parity with unrelated naval games outside the wiki ruleset
 - Hover-only or desktop-exclusive critical UX
 
 ---
 
 ## How to use
 
-1. Map a task to pillar IDs (`P1`–`P4`) and relevant `REQ-*` IDs.
-2. Score or gate the work with [`rubric.md`](rubric.md).
-3. Keep this file high-level; put detailed mechanics in the ruleset docs once they exist.
+1. For mechanics, read the [wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) first.
+2. Map a task to pillar IDs (`P1`–`P4`) and relevant `REQ-*` IDs.
+3. Score or gate the work with [`rubric.md`](rubric.md).
+4. Keep this file high-level; detailed mechanics stay in the wiki.
