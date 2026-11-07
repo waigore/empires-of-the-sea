@@ -1,0 +1,98 @@
+name: Approval gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, dismissed, edited]
+
+concurrency:
+  group: approval-gate-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  approval-gate:
+    name: approval-gate
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Evaluate path-based approval
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.setFailed('No pull_request payload');
+              return;
+            }
+
+            const codePathRegexes = [
+              /^scenes\//,
+              /^scripts\//,
+              /^ui\//,
+              /^assets\//,
+              /^autoload\//,
+              /^tests\//,
+              /^addons\//,
+              /^project\.godot$/,
+              /^icon\.svg$/,
+              /^gd-tools\.toml$/,
+              /^gdlintrc$/,
+              /^gdformatrc$/,
+              /^\.github\/workflows\//,
+              /^\.mergify\.yml$/,
+            ];
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const changed = files.map((f) => f.filename);
+            const needsApproval = changed.some((path) =>
+              codePathRegexes.some((re) => re.test(path))
+            );
+
+            core.info(`Changed files:\n${changed.join('\n')}`);
+            core.info(`Needs approval: ${needsApproval}`);
+
+            if (!needsApproval) {
+              core.info('Docs/non-code-only PR — approval not required.');
+              return;
+            }
+
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const latestByUser = new Map();
+            for (const review of reviews) {
+              if (!review.user || review.state === 'COMMENTED' || review.state === 'PENDING') {
+                continue;
+              }
+              latestByUser.set(review.user.login, review.state);
+            }
+
+            const approvers = [...latestByUser.entries()]
+              .filter(([, state]) => state === 'APPROVED')
+              .map(([login]) => login)
+              .filter((login) => login !== pr.user.login);
+
+            if (approvers.length === 0) {
+              core.setFailed(
+                'This PR touches code, tests, assets, or CI config and needs at least one approving review from a collaborator (not the author).'
+              );
+              return;
+            }
+
+            core.info(`Approvals from: ${approvers.join(', ')}`);

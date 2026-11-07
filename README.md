@@ -1,10 +1,11 @@
 # Empires of the Sea
 
-Naval strategy game built with **Godot 4**, targeting desktop (Windows, macOS, Linux) and mobile (Android, iOS).
+Naval strategy game built with **Godot 4.7**, targeting desktop (Windows, macOS, Linux) and mobile (Android, iOS).
 
 ## Requirements
 
-- [Godot 4.x](https://godotengine.org/download) (standard build)
+- [Godot 4.7.x](https://godotengine.org/download) (standard build)
+- Python 3.10+ and [`gd-tools-cli`](https://pypi.org/project/gd-tools-cli/) for tests/coverage
 - Export templates for your target platforms
 - Android: JDK 17+, Android SDK; iOS: macOS + Xcode
 
@@ -14,6 +15,19 @@ Naval strategy game built with **Godot 4**, targeting desktop (Windows, macOS, L
 2. Run the main scene (F5).
 3. Export via **Project → Export** using the presets for desktop and mobile.
 
+## Development
+
+```bash
+pip install gd-tools-cli
+gd-tools doctor
+gd-tools test --coverage --min 80
+```
+
+- Tests live under `tests/` and extend `GdToolsTest`.
+- CI enforces an **80% line coverage** gate on every PR.
+- Game code, tests, assets, and CI config require at least one collaborator approval.
+- Docs-only PRs (e.g. `docs/`, Markdown) do not require approval and automerge when checks pass.
+
 ## Project layout
 
 ```
@@ -22,7 +36,9 @@ res://
 ├── scripts/      # GDScript (.gd)
 ├── assets/       # Art, audio, fonts
 ├── ui/           # UI scenes and themes
-└── autoload/     # Singletons
+├── autoload/     # Singletons
+├── tests/        # gd-tools unit tests
+└── addons/       # gd-tools test/coverage/editor plugins
 ```
 
 ## Platforms

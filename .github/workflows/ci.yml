@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install gd-tools
+        run: pip install "gd-tools-cli==0.10.0"
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify tooling
+        run: |
+          godot --version
+          gd-tools version
+
+      - name: Import project
+        run: godot --headless --path . --import --quit
+
+      - name: Run tests with 80% coverage gate
+        run: gd-tools test --coverage --min 80 --junit-xml .gd-tools/results.xml
+
+      - name: Upload test & coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage
+          path: |
+            .gd-tools/results.xml
+            .gd-tools/coverage/
+          if-no-files-found: ignore

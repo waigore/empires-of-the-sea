@@ -1,0 +1,36 @@
+# Godot
+.godot/
+*.translation
+export.cfg
+export_presets.cfg
+.import/
+
+# gd-tools
+.gd-tools/
+*.gd.bak
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+*.tmp
+
+# Exports / builds
+build/
+dist/
+*.apk
+*.aab
+*.ipa
+*.exe
+*.x86_64
+*.app/
+*.dmg
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

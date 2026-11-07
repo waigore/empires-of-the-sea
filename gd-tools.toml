@@ -1,0 +1,46 @@
+[godot]
+
+[test]
+test_dirs = [
+    "tests",
+]
+prefix = "test_"
+suffix = ".gd"
+runtime = "native"
+timeout_seconds = 5.0
+retries = 0
+tags = []
+random_order = false
+
+[lint]
+exclude = [
+    "addons",
+    ".godot",
+    ".gd-tools",
+    ".git",
+]
+
+[format]
+exclude = [
+    "addons",
+    ".godot",
+    ".gd-tools",
+    ".git",
+]
+max_line_length = 100
+
+[coverage]
+enabled = true
+min_percent = 80
+format = "lcov"
+output_dir = ".gd-tools/coverage"
+exclude = [
+    "addons",
+    ".godot",
+    ".gd-tools",
+    ".git",
+    "tests",
+]
+test_dirs = [
+    "tests",
+]

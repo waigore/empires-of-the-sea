@@ -1,0 +1,32 @@
+pull_request_rules:
+  - name: Keep PR branch up to date
+    conditions:
+      - -draft
+      - -closed
+      - -conflict
+      - "#commits-behind>0"
+    actions:
+      update:
+
+  - name: Automerge docs / non-code PRs when CI passes
+    conditions:
+      - -draft
+      - check-success=tests
+      - check-success=approval-gate
+      - -files~=^(scenes|scripts|ui|assets|autoload|tests|addons)/
+      - -files~=^(project\.godot|icon\.svg|gd-tools\.toml|gdlintrc|gdformatrc|\.mergify\.yml)$
+      - -files~=^\.github/workflows/
+    actions:
+      merge:
+        method: squash
+
+  - name: Automerge code PRs when CI passes and approved
+    conditions:
+      - -draft
+      - check-success=tests
+      - check-success=approval-gate
+      - "#approved-reviews-by>=1"
+      - "#changes-requested-reviews-by=0"
+    actions:
+      merge:
+        method: squash

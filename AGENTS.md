@@ -4,9 +4,10 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 
 ## Stack
 
-- Engine: Godot 4.x
+- Engine: Godot 4.7.x
 - Language: GDScript (typed where practical)
 - Scenes: `.tscn` + scripts; keep logic in scripts, composition in scenes
+- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI requires `gd-tools test --coverage --min 80`
 
 ## Layout
 
@@ -17,6 +18,8 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | `ui/` | UI scenes, themes, components |
 | `assets/` | Art, audio, fonts |
 | `autoload/` | Singletons only when cross-cutting |
+| `tests/` | Unit tests (`extends GdToolsTest`) |
+| `addons/gd-tools-*` | Vendored gd-tools test/coverage/editor addons |
 
 ## Conventions
 
