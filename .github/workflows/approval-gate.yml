@@ -31,6 +31,8 @@ jobs:
               return;
             }
 
+            // Require approval only for game code, tests, and assets.
+            // Docs, CI/workflows, tooling config, and other non-game paths are exempt.
             const codePathRegexes = [
               /^scenes\//,
               /^scripts\//,
@@ -41,10 +43,6 @@ jobs:
               /^addons\//,
               /^project\.godot$/,
               /^icon\.svg$/,
-              /^gd-tools\.toml$/,
-              /^gdlintrc$/,
-              /^gdformatrc$/,
-              /^\.github\/workflows\//,
             ];
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
@@ -55,15 +53,17 @@ jobs:
             });
 
             const changed = files.map((f) => f.filename);
-            const needsApproval = changed.some((path) =>
+            const matching = changed.filter((path) =>
               codePathRegexes.some((re) => re.test(path))
             );
+            const needsApproval = matching.length > 0;
 
             core.info(`Changed files:\n${changed.join('\n')}`);
+            core.info(`Approval-required paths:\n${matching.join('\n') || '(none)'}`);
             core.info(`Needs approval: ${needsApproval}`);
 
             if (!needsApproval) {
-              core.info('Docs/non-code-only PR — approval not required.');
+              core.info('No code/tests/assets changes — approval not required.');
               return;
             }
 
@@ -89,7 +89,7 @@ jobs:
 
             if (approvers.length === 0) {
               core.setFailed(
-                'This PR touches code, tests, assets, or CI config and needs at least one approving review from a collaborator (not the author).'
+                'This PR touches code, tests, or assets and needs at least one approving review from a collaborator (not the author).'
               );
               return;
             }

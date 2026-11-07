@@ -1,6 +1,5 @@
-# Suggested reviewers for game code, tests, assets, and tooling.
-# Enforcement of "approval required for code paths" is handled by the
-# approval-gate workflow + Automerge action (any write collaborator can approve).
+# Suggested reviewers for game code, tests, and assets.
+# Enforcement is the approval-gate workflow (any write collaborator can approve).
 
 /scenes/ @waigore
 /scripts/ @waigore
@@ -11,7 +10,3 @@
 /addons/ @waigore
 /project.godot @waigore
 /icon.svg @waigore
-/gd-tools.toml @waigore
-/gdlintrc @waigore
-/gdformatrc @waigore
-/.github/workflows/ @waigore
