@@ -13,3 +13,5 @@ static func as_string() -> String:
 
 static func is_compatible_with(required_major: int) -> bool:
 	return MAJOR == required_major
+
+# coverage probe
