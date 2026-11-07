@@ -2,16 +2,13 @@
 
 Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iOS). Prefer reuse and existing project patterns over new abstractions.
 
-## Requirements & rubric
-
-Always-on product bar for design, implementation, and review:
+## Always refer to
 
 | Doc | Use |
 |-----|-----|
-| [`docs/requirements.md`](docs/requirements.md) | High-level requirements (pillars P1–P4, `REQ-*` IDs) |
-| [`docs/rubric.md`](docs/rubric.md) | Evaluation rubric (`RUB-*` scores, pass/fail gate) |
-
-Before shipping a change, map it to pillars and score touched criteria. Cite failing `REQ-*` / `RUB-*` IDs when requesting fixes. Full rules fidelity is measured against the documented ruleset once it exists under `docs/`.
+| [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Rules source of truth (P2) |
+| [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
+| [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
 
 ## Stack
 
