@@ -1,6 +1,6 @@
 # Suggested reviewers for game code, tests, assets, and tooling.
 # Enforcement of "approval required for code paths" is handled by the
-# approval-gate workflow + Mergify (any write collaborator can approve).
+# approval-gate workflow + Automerge action (any write collaborator can approve).
 
 /scenes/ @waigore
 /scripts/ @waigore
@@ -15,4 +15,3 @@
 /gdlintrc @waigore
 /gdformatrc @waigore
 /.github/workflows/ @waigore
-/.mergify.yml @waigore

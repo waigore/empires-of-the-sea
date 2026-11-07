@@ -45,7 +45,6 @@ jobs:
               /^gdlintrc$/,
               /^gdformatrc$/,
               /^\.github\/workflows\//,
-              /^\.mergify\.yml$/,
             ];
 
             const files = await github.paginate(github.rest.pulls.listFiles, {

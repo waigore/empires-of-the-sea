@@ -26,7 +26,7 @@ gd-tools test --coverage --min 80
 - Tests live under `tests/` and extend `GdToolsTest`.
 - CI enforces an **80% line coverage** gate on every PR.
 - Game code, tests, assets, and CI config require at least one collaborator approval.
-- Docs-only PRs (e.g. `docs/`, Markdown) do not require approval and automerge when checks pass.
+- Docs-only PRs (e.g. `docs/`, Markdown) do not require approval and auto-merge (squash) via GitHub Actions when checks pass.
 
 ## Project layout
 
