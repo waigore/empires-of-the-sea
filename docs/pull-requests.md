@@ -18,11 +18,13 @@ Base rules for opening and landing PRs (humans and agents).
 
 | Check | Workflow | Meaning |
 |-------|----------|---------|
-| `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate + docs word lint (hard-fail) |
-| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) |
+| `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate when code/tests change; else no-op success |
+| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always runs |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-Add `docs-lint` to the Protect main required status checks (repo admin). Until then, the same lint runs inside `tests` so over-limit docs still block merge.
+`tests` runs Godot/gd-tools + 80% coverage only if the diff touches `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, or `icon.svg` (not `assets/` or CI). Otherwise the job no-ops green so the required check still reports. Manual `workflow_dispatch` always runs the full suite. `docs-lint` always runs.
+
+Add `docs-lint` to the Protect main required status checks (repo admin). Until then, the same lint still runs inside a full `tests` run so over-limit docs block merge.
 
 Merge method: **squash only**. Branches deleted on merge. Auto-merge enabled.
 

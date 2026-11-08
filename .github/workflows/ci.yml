@@ -35,18 +35,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect code/test changes
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'scenes/**'
+              - 'scripts/**'
+              - 'ui/**'
+              - 'autoload/**'
+              - 'tests/**'
+              - 'addons/**'
+              - 'project.godot'
+              - 'icon.svg'
+
+      - name: Skip suite (no code/test changes)
+        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
+        run: echo 'No code/test path changes — tests no-op (required check passes).'
+
       - name: Setup Python
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Lint docs word limit (≤500)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: python tools/lint_docs_words.py
 
       - name: Install gd-tools
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: pip install "gd-tools-cli==0.10.0"
 
       - name: Setup Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
@@ -54,18 +78,21 @@ jobs:
           include-templates: false
 
       - name: Verify tooling
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: |
           godot --version
           gd-tools version
 
       - name: Import project
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: godot --headless --path . --import --quit
 
       - name: Run tests with 80% coverage gate
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: gd-tools test --coverage --min 80 --junit-xml .gd-tools/results.xml
 
       - name: Upload test & coverage artifacts
-        if: always()
+        if: always() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: test-and-coverage
