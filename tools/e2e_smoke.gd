@@ -1,7 +1,6 @@
 extends SceneTree
-## Headless e2e smoke: boot main.tscn, exercise a short map-screen flow, quit.
-## Budget: ≤2 minutes wall time (CI job timeout 2). Extend asserts for new
-## player paths; leave deep rules to tests/. Run:
+## Headless e2e smoke: boot main.tscn, exercise one player turn across every
+## unit type (civilian / navy; army deferred), quit. Budget ≤2 minutes.
 ##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
 const BOOT_FRAMES: int = 8
@@ -78,6 +77,25 @@ func _run() -> void:
 	)
 	_check(screen.improvements != null, "estates ledger present")
 
+	var home_army: ArmyState = _home_army(screen)
+	_check(home_army != null, "Home Army musters at the capital")
+	if home_army != null:
+		_check(home_army.province == screen.capital_province, "Home Army stands at the capital")
+		screen.army_layer.select(home_army)
+		await process_frame
+		_check(screen.hud.panels.is_army_panel_open(), "army dossier opens")
+		var field_before: int = home_army.count()
+		MapPlayArmies.on_action(screen.play, "detach:%s" % home_army.regiments[0])
+		await process_frame
+		var field: ArmyState = screen.army_layer.selected_army
+		_check(field != null and not field.is_home_army(), "detached army becomes a field army")
+		_check(home_army.count() == field_before - 1, "Home Army keeps its remaining regiments")
+		_check(
+			screen.hud._army_label.text
+			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
+			"troop chip counts every region"
+		)
+
 	var estates_toggle: Button = screen.improvements._toggle
 	_check(estates_toggle != null, "estates toggle present")
 	screen.improvements.open()
@@ -88,6 +106,21 @@ func _run() -> void:
 		"estates ledger builds a snapshot"
 	)
 	screen.improvements.close()
+
+	MapPlayDiplomacy.open(screen.play)
+	await process_frame
+	_check(screen.play.diplomacy != null, "diplomacy state seeded")
+	_check(
+		screen.play.diplomacy.relations.size() >= 81,
+		"same-region relations seeded"
+	)
+	_check(screen.hud.panels.is_diplomacy_open(), "court ledger opens")
+	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
+	_check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
+	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
+	_check(not screen.play.diplomacy.relation(0, 1).at_war, "peace order applies")
+	DiplomacyHud.hide(screen.hud.panels)
+	_check(not screen.hud.panels.is_diplomacy_open(), "court ledger closes")
 
 	var cues_before: int = 0
 	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
@@ -113,17 +146,70 @@ func _run() -> void:
 		_check(screen.selected_province == province_id, "province selection sticks")
 		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
-	var civilian: CivilianState = screen.civilian_layer.units[0]
-	var marker_world: Vector2 = MapGeo.tile_center(
-		civilian.tile.x, civilian.tile.y, MapScreen.TILE_SIZE
+	var works: Dictionary = await _smoke_civilians(screen)
+	await _smoke_navy(screen)
+	_smoke_army_deferred(screen)
+	await _smoke_end_turn(screen, audio, cues_before, works)
+	_finish()
+
+
+## Player civilian path: select → march → work per type → cancel → train.
+## Returns tiles that must resolve on end turn for post-asserts.
+func _smoke_civilians(screen: MapScreen) -> Dictionary:
+	var works: Dictionary = {
+		"improvement": Vector2i(-1, -1),
+		"road": Vector2i(-1, -1),
+		"prospect": Vector2i(-1, -1),
+	}
+	var explorer: CivilianState = _civilian_of(screen, "explorer")
+	var builder: CivilianState = _civilian_of(screen, "builder")
+	var engineer: CivilianState = _civilian_of(screen, "engineer")
+	_check(explorer != null and builder != null and engineer != null, "starting civilians present")
+	if explorer == null or builder == null or engineer == null:
+		return works
+
+	MapPlayInput.on_tapped(
+		screen.play, MapGeo.tile_center(explorer.tile.x, explorer.tile.y, MapScreen.TILE_SIZE)
 	)
-	MapPlayInput.on_tapped(screen.play, marker_world)
 	await process_frame
-	_check(screen.civilian_layer.selected_unit == civilian, "civilian selection sticks")
+	_check(screen.civilian_layer.selected_unit == explorer, "explorer selection sticks")
 	_check(screen.hud.panels.is_civilian_panel_open(), "civilian dossier opens")
 
-	var work_tile: Vector2i = _owned_resource_tile(screen)
-	var builder: CivilianState = screen.civilian_layer.units[1]
+	var march_tiles: Array[Vector2i] = CivilianMovement.valid_tiles(screen.model, explorer)
+	_check(not march_tiles.is_empty(), "explorer has a march tile")
+	if not march_tiles.is_empty():
+		var dest: Vector2i = march_tiles[0]
+		var from: Vector2i = explorer.tile
+		_check(
+			MapPlayCivilians.try_move(
+				screen.play, MapGeo.tile_center(dest.x, dest.y, MapScreen.TILE_SIZE)
+			),
+			"explorer marches"
+		)
+		_check(explorer.tile == dest and explorer.tile != from, "explorer tile advances")
+
+	var explore_tile: Vector2i = _uncharted_land_tile(screen)
+	_check(explore_tile.x >= 0, "uncharted land available")
+	if explore_tile.x >= 0:
+		explorer.tile = explore_tile
+		explorer.moved = false
+		screen.civilian_layer.select(explorer)
+		MapPlayCivilians.on_action(screen.play, "explore")
+		_check(explorer.is_working() and explorer.work_action() == "explore", "explore order starts")
+		MapPlayCivilians.on_cancel(screen.play)
+		_check(explorer.is_idle(), "explore order cancels")
+
+	var mineral: Vector2i = _mineral_tile(screen)
+	_check(mineral.x >= 0, "mineral tile available")
+	if mineral.x >= 0:
+		explorer.tile = mineral
+		screen.civilian_layer.select(explorer)
+		MapPlayCivilians.on_action(screen.play, "prospect")
+		_check(explorer.is_working() and explorer.work_action() == "prospect", "prospect order starts")
+		works["prospect"] = mineral
+
+	var work_tile: Vector2i = _owned_resource_tile(screen, mineral)
+	_check(work_tile.x >= 0, "owned resource tile for builder")
 	if work_tile.x >= 0:
 		builder.tile = work_tile
 		var resource: int = screen.model.resource_at(work_tile.x, work_tile.y)
@@ -133,8 +219,79 @@ func _run() -> void:
 			)
 		screen.civilian_layer.select(builder)
 		MapPlayCivilians.on_action(screen.play, "build_improvement")
-		_check(builder.is_working(), "civilian work order starts")
+		_check(builder.is_working(), "builder improvement starts")
+		works["improvement"] = work_tile
 
+	var road_tile: Vector2i = _owned_roadable_tile(screen, [work_tile, mineral])
+	_check(road_tile.x >= 0, "owned roadable tile for engineer")
+	if road_tile.x >= 0:
+		engineer.tile = road_tile
+		screen.civilian_layer.select(engineer)
+		var options: Array[Dictionary] = CivilianWork.options(
+			screen.model, engineer, screen.land_works, screen.civilian_layer.units,
+			screen.stockpile, screen.visibility
+		)
+		_check(_options_has(options, "build_road"), "engineer offers build_road")
+		_check(_options_has(options, "build_port"), "engineer offers build_port")
+		MapPlayCivilians.on_action(screen.play, "build_road")
+		_check(engineer.is_working() and engineer.work_action() == "build_road", "road order starts")
+		works["road"] = road_tile
+
+	var units_before: int = screen.civilian_layer.units.size()
+	var capital_world: Vector2 = screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
+	MapPlayInput.select_province(screen.play, screen.capital_province, capital_world)
+	await process_frame
+	MapPlayInput.on_panel_action(screen.play, "train_explorer")
+	_check(
+		screen.civilian_layer.units.size() == units_before + 1,
+		"capital trains an explorer"
+	)
+	return works
+
+
+## Player navy path: select a fleet and spend its one move.
+func _smoke_navy(screen: MapScreen) -> void:
+	var ship: Ship = _player_ship_at_sea(screen)
+	_check(ship != null, "player fleet at sea")
+	if ship == null:
+		return
+	var fleet: FleetState = screen.ship_layer.fleet_of(ship)
+	screen.ship_layer.select(ship)
+	await process_frame
+	_check(screen.ship_layer.selected_ship == ship, "fleet selection sticks")
+	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens")
+	var zones: Array = NavalMovement.destination_zones(screen.model, fleet)
+	_check(not zones.is_empty(), "fleet has a sail destination")
+	if zones.is_empty():
+		return
+	var zone: int = int(zones[0])
+	var tile: Vector2i = screen.model.sea_zones[zone].tiles[0]
+	_check(MapPlayFleets.try_order(screen.play, tile), "fleet sails")
+	_check(fleet.sea_zone == zone and fleet.moved, "fleet spends its move")
+
+
+## Army slice is deferred: recruit must toast and place no order.
+func _smoke_army_deferred(screen: MapScreen) -> void:
+	var capital_world: Vector2 = screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
+	MapPlayInput.select_province(screen.play, screen.capital_province, capital_world)
+	var toasts_before: int = screen.hud._toast_box.get_child_count()
+	var civilians_before: int = screen.civilian_layer.units.size()
+	var fleets_before: int = screen.ship_layer.fleets.size()
+	MapPlayInput.on_panel_action(screen.play, "recruit")
+	_check(
+		screen.hud._toast_box.get_child_count() == toasts_before + 1,
+		"recruit regiment stays deferred"
+	)
+	_check(
+		screen.civilian_layer.units.size() == civilians_before
+		and screen.ship_layer.fleets.size() == fleets_before,
+		"recruit places no unit"
+	)
+
+
+func _smoke_end_turn(
+	screen: MapScreen, audio: AudioDirector, cues_before: int, works: Dictionary
+) -> void:
 	var turn_before: int = screen.turn
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
@@ -163,28 +320,62 @@ func _run() -> void:
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"
 	)
-	if work_tile.x >= 0:
+
+	var improvement: Vector2i = works.get("improvement", Vector2i(-1, -1))
+	if improvement.x >= 0:
 		_check(
-			screen.land_works.improvement_at(screen.model, work_tile) == 1,
-			"civilian work completes on end turn"
+			screen.land_works.improvement_at(screen.model, improvement) == 1,
+			"builder work resolves on end turn"
 		)
+	var road: Vector2i = works.get("road", Vector2i(-1, -1))
+	if road.x >= 0:
+		_check(
+			screen.land_works.transport_at(screen.model, road) >= LandWorks.TRANSPORT_ROAD,
+			"engineer road resolves on end turn"
+		)
+	var prospect: Vector2i = works.get("prospect", Vector2i(-1, -1))
+	if prospect.x >= 0:
+		_check(
+			screen.land_works.is_prospected(MapScreen.PLAYER_FACTION, screen.model, prospect),
+			"prospect completes on end turn"
+		)
+
 	if audio != null:
 		_check(audio.sfx_played >= cues_before + 3, "turn cues fired")
-		# A contested zone resolves on turn one, which legitimately hands the
-		# score to the battle bed; either bed is fine, silence is not.
+		# Only war resolves a battle now; either bed is fine, silence is not.
 		var bed: String = audio.current_track_id()
 		_check(
 			bed == MusicPlaylist.AGE_OF_DISCOVERY or bed == MusicPlaylist.BROADSIDES,
 			"music keeps a bed after the turn (%s)" % bed
 		)
 
-	_finish()
-
 
 func _map_screen(main: Node) -> MapScreen:
 	for child in main.get_children():
 		if child is MapScreen:
 			return child as MapScreen
+	return null
+
+
+func _civilian_of(screen: MapScreen, type_id: String) -> CivilianState:
+	for unit: CivilianState in screen.civilian_layer.units:
+		if unit != null and unit.type_id == type_id and unit.owner == MapScreen.PLAYER_FACTION:
+			return unit
+	return null
+
+
+func _player_ship_at_sea(screen: MapScreen) -> Ship:
+	for ship: Ship in screen.ship_layer.ships:
+		var fleet: FleetState = screen.ship_layer.fleet_of(ship)
+		if fleet != null and fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
+			return ship
+	return null
+
+
+func _home_army(screen: MapScreen) -> ArmyState:
+	for army: ArmyState in screen.army_layer.armies:
+		if army.owner == MapScreen.PLAYER_FACTION and army.is_home_army():
+			return army
 	return null
 
 
@@ -197,12 +388,36 @@ func _inland_province(screen: MapScreen) -> int:
 	return int(screen.model.provinces[0].id)
 
 
-func _owned_resource_tile(screen: MapScreen) -> Vector2i:
+func _uncharted_land_tile(screen: MapScreen) -> Vector2i:
+	if screen.visibility == null:
+		return Vector2i(-1, -1)
+	for province: ProvinceState in screen.model.provinces:
+		if screen.visibility.is_province_fully_visible(int(province.id)):
+			continue
+		if province.tiles.is_empty():
+			continue
+		return province.tiles[0]
+	return Vector2i(-1, -1)
+
+
+func _mineral_tile(screen: MapScreen) -> Vector2i:
+	for province: ProvinceState in screen.model.provinces:
+		for tile: Vector2i in province.tiles:
+			var resource: int = screen.model.resource_at(tile.x, tile.y)
+			if CivilianWork.MINERAL_RESOURCES.has(resource):
+				if not screen.land_works.is_prospected(MapScreen.PLAYER_FACTION, screen.model, tile):
+					return tile
+	return Vector2i(-1, -1)
+
+
+func _owned_resource_tile(screen: MapScreen, avoid: Vector2i = Vector2i(-1, -1)) -> Vector2i:
 	var fallback: Vector2i = Vector2i(-1, -1)
 	for province: ProvinceState in screen.model.provinces:
 		if province.owner != MapScreen.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province.tiles:
+			if tile == avoid:
+				continue
 			var resource: int = screen.model.resource_at(tile.x, tile.y)
 			if resource < 0:
 				continue
@@ -213,6 +428,26 @@ func _owned_resource_tile(screen: MapScreen) -> Vector2i:
 			if fallback.x < 0:
 				fallback = tile
 	return fallback
+
+
+func _owned_roadable_tile(screen: MapScreen, avoid: Array[Vector2i]) -> Vector2i:
+	for province: ProvinceState in screen.model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province.tiles:
+			if avoid.has(tile):
+				continue
+			if screen.land_works.transport_at(screen.model, tile) >= LandWorks.TRANSPORT_ROAD:
+				continue
+			return tile
+	return Vector2i(-1, -1)
+
+
+func _options_has(options: Array[Dictionary], action: String) -> bool:
+	for option: Dictionary in options:
+		if String(option.get("action", "")) == action:
+			return true
+	return false
 
 
 func _check(ok: bool, label: String) -> void:

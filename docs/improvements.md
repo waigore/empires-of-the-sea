@@ -46,15 +46,16 @@ estates ledger. **Pillars:** P1, P2 (rules), P3 (rules/view), P4.
   Map actions, cost, turns, level pips, connectivity, tech cap and nearest idle
   Builder.
 
-## Tech cap in this slice
+## Tech cap
 
-No gathering tech tree ships yet, so the default extraction cap **1** applies:
-L1 estates yield their raw commodity; L2–L4 show `Needs Tech`. Transport caps
-are tile-level.
+Extraction caps come from researched techs ([technology.md](technology.md)):
+`min(improvement, tech cap, transport, town development)`. L1 estates yield at
+once; higher levels need the resource's advance (Saw Mill, Land Enclosure, …)
+and orders above it are refused.
 
 ## Deferred (REQ-P2-02)
 
-- Gathering tech tree (unlocks L2–L4 yields), terrain hard caps.
+- Terrain hard caps, transport gates.
 - Path transport caps, improved roads and rail.
 - `upgrade_town` / town development, forts, rival/AI builders.
 

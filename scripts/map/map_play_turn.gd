@@ -5,18 +5,24 @@ extends RefCounted
 
 
 static func end_turn(play: PlaySession) -> void:
+	MapPlayDiplomacy.resolve_turn(play)
 	MapPlayCivilians.resolve_work(play)
+	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
 	play.ship_layer.begin_turn()
+	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
+	play.refresh_research()
 	play.economy.resolve_turn()
 	play.income = play.economy.projected_income()
 	play.prestige += 1
 	play.hud.set_turn(play.turn, year)
 	play.hud.set_prestige(play.prestige)
+	MapPlayDiplomacy.refresh(play)
 	play.hud.toast("Turn %d — %d" % [play.turn, year])
 	var selected: Ship = play.ship_layer.selected_ship
 	if selected != null:
@@ -26,6 +32,9 @@ static func end_turn(play: PlaySession) -> void:
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
 		MapPlayCivilians.refresh_panel(play)
+	if play.army_layer.selected_army != null:
+		MapPlayArmies.refresh_panel(play)
+	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	play.emit_turn_ended(play.turn)
 
@@ -52,7 +61,9 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 ## § Naval Combat). Rules resolve the battle; this only prunes markers and
 ## reports the outcome.
 static func _resolve_naval_combat(play: PlaySession) -> void:
-	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world)
+	var hostile := func(a: int, b: int) -> bool:
+		return _at_war(play, a, b)
+	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
 	if battles.is_empty():
 		return
 	for battle: Dictionary in battles:
@@ -84,3 +95,13 @@ static func _resolve_visibility(play: PlaySession) -> void:
 	var changed: Array = play.visibility.end_of_turn(at_sea, held)
 	if not changed.is_empty():
 		play.overlay.sync_visibility(play.visibility, changed)
+
+
+## Fleets at peace share a sea zone; only war makes them hostile (wiki:
+## diplomacy § War required for hostile actions). Without a court, keep the
+## legacy every-fleet-is-hostile behaviour for isolated fixtures.
+static func _at_war(play: PlaySession, a: int, b: int) -> bool:
+	if play.diplomacy == null:
+		return true
+	var record: DiplomacyRelation = play.diplomacy.relation(a, b)
+	return record != null and record.at_war

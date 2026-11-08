@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/map_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scripts/ui/audio_controls.gd" id="11_sound"]
 [ext_resource type="Script" path="res://scripts/audio/map_soundtrack.gd" id="12_score"]
 [ext_resource type="Script" path="res://scripts/ui/improvement_panel.gd" id="13_improvements"]
+[ext_resource type="Script" path="res://scripts/map/army_layer.gd" id="14_armies"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
 shader = ExtResource("7_sea")
@@ -46,6 +47,9 @@ script = ExtResource("4_ships")
 
 [node name="CivilianLayer" type="Node2D" parent="World"]
 script = ExtResource("7_civilians")
+
+[node name="ArmyLayer" type="Node2D" parent="World"]
+script = ExtResource("14_armies")
 
 [node name="MapCamera" type="Camera2D" parent="World"]
 script = ExtResource("5_camera")

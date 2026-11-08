@@ -1,6 +1,6 @@
 # Evaluation rubric — Empires of the Sea
 
-Quality gate for design, implementation, and review. Cite `REQ-*` / `RUB-*` in PRs.
+Cite `REQ-*`/`RUB-*` in PRs.
 
 | Source | Role |
 |--------|------|
@@ -10,8 +10,8 @@ Quality gate for design, implementation, and review. Cite `REQ-*` / `RUB-*` in P
 
 ## How to apply
 
-1. Identify touched pillars (`P1`–`P4`); others may be **N/A** (N/A ≠ pass).
-2. Score every applicable criterion; compute pillar then overall outcome.
+1. Identify touched pillars (`P1`–`P5`); others **N/A** (≠ pass).
+2. Score applicable criteria; compute pillar then overall.
 3. Cite failing IDs when requesting changes.
 
 ## Score scale
@@ -24,56 +24,69 @@ Quality gate for design, implementation, and review. Cite `REQ-*` / `RUB-*` in P
 | 0 | Fail | Missing, contradicted, or harmful |
 | — | N/A | Outside this change |
 
-**Pillar pass:** all applicable ≥ 2 and none 0. **Overall pass:** every touched pillar passes. Any applicable **0** → fail. Milestone reviews score all pillars.
+**Pass:** applicable ≥ 2, none 0 per touched pillar; overall = all touched pass. Any **0** fails.
 
-## Criteria (pass = score ≥ 2)
+## Criteria (pass ≥ 2)
 
 ### P1 — Presentation & immersion
 
-| ID | Pass bar (`REQ`) |
-|----|------------------|
-| RUB-P1-01 | Clearly 2D-first (`REQ-P1-01`) |
-| RUB-P1-02 | Motifs/UI/art period-aligned 16–18th c. (`REQ-P1-02`) |
-| RUB-P1-03 | Readable, intentional art on shipped surfaces (`REQ-P1-03`) |
-| RUB-P1-04 | Key actions/transitions animated appropriately (`REQ-P1-04`) |
-| RUB-P1-05 | Touch + mouse/keyboard both viable (`REQ-P1-05`) |
-| RUB-P1-06 | Period-fitting default music; mute/volume work (`REQ-P1-06`) |
+| ID | Pass bar |
+|----|----------|
+| RUB-P1-01 | 2D-first (`REQ-P1-01`) |
+| RUB-P1-02 | Period motifs/UI/art 16–18th c. (`REQ-P1-02`) |
+| RUB-P1-03 | Readable intentional art shipped (`REQ-P1-03`) |
+| RUB-P1-04 | Key actions/transitions animated (`REQ-P1-04`) |
+| RUB-P1-05 | Touch + mouse/keyboard viable (`REQ-P1-05`) |
+| RUB-P1-06 | Period default music; mute/volume (`REQ-P1-06`) |
 
 ### P2 — Rules fidelity
 
-| ID | Pass bar (`REQ`) |
-|----|------------------|
-| RUB-P2-01 | Behavior matches wiki Game rules (`REQ-P2-01`) |
-| RUB-P2-02 | All in-scope rules for the change implemented (`REQ-P2-02`) |
+| ID | Pass bar |
+|----|----------|
+| RUB-P2-01 | Matches wiki Game rules (`REQ-P2-01`) |
+| RUB-P2-02 | In-scope rules implemented (`REQ-P2-02`) |
 | RUB-P2-03 | Presentation cannot override outcomes (`REQ-P2-03`) |
-| RUB-P2-04 | Meaningful unit tests; CI gate met (`REQ-P2-04`) |
-| RUB-P2-05 | Wiki rules updated in same change (`REQ-P2-05`) |
+| RUB-P2-04 | Meaningful unit tests; CI gate (`REQ-P2-04`) |
+| RUB-P2-05 | Wiki updated in same change (`REQ-P2-05`) |
 
-### P3 — Modular architecture (SOLID; `arch-lint`)
+### P3 — Modular architecture (`arch-lint`)
 
-| ID | Pass bar (`REQ`) |
-|----|------------------|
-| RUB-P3-01 | **S:** one domain; layout OK; ≤400/25 (allowlist ≤5, shrink-only; hard ≤650/45) (`REQ-P3-01`) |
-| RUB-P3-02 | **I:** no deep `get_node`/`$` (depth ≥3); autoloads only if allowlisted (`REQ-P3-02`) |
-| RUB-P3-03 | **D:** `scripts/rules` is RefCounted/Object-only; view reactive (`REQ-P3-03`) |
-| RUB-P3-04 | Changed rules paired with `tests/` changes (`REQ-P3-04`) |
-| RUB-P3-05 | OS/platform APIs only under `scripts/platform/**` (`REQ-P3-05`) |
+| ID | Pass bar |
+|----|----------|
+| RUB-P3-01 | **S:** one domain; ≤400/25 (allowlist ≤5 shrink-only; hard ≤650/45) (`REQ-P3-01`) |
+| RUB-P3-02 | **I:** no deep `get_node`/`$` (≥3); autoloads allowlisted (`REQ-P3-02`) |
+| RUB-P3-03 | **D:** `scripts/rules` RefCounted/Object-only; view reactive (`REQ-P3-03`) |
+| RUB-P3-04 | Changed rules paired with `tests/` (`REQ-P3-04`) |
+| RUB-P3-05 | OS APIs only under `scripts/platform/**` (`REQ-P3-05`) |
 
 ### P4 — Performance & latency
 
-| ID | Pass bar (`REQ`) |
-|----|------------------|
+| ID | Pass bar |
+|----|----------|
 | RUB-P4-01 | No material hitch on target paths (`REQ-P4-01`) |
 | RUB-P4-02 | Input ack within ~1–2 frames (`REQ-P4-02`) |
 | RUB-P4-03 | Long work does not freeze UI (`REQ-P4-03`) |
 | RUB-P4-04 | Reasonable imports; no obvious leaks (`REQ-P4-04`) |
-| RUB-P4-05 | Impact considered; no known stalls shipped (`REQ-P4-05`) |
+| RUB-P4-05 | No known stalls shipped (`REQ-P4-05`) |
+
+### P5 — Usability & agency
+
+| ID | Pass bar |
+|----|----------|
+| RUB-P5-01 | Clear entry to empire/strategic actions (`REQ-P5-01`) |
+| RUB-P5-02 | Choice primary; bookkeeping batched (`REQ-P5-02`) |
+| RUB-P5-03 | Competitive actions discoverable in scope (`REQ-P5-03`) |
+| RUB-P5-04 | Batch/default/confirm-once for chores (`REQ-P5-04`) |
+| RUB-P5-05 | State-change ack ~1–2 frames; never silent (`REQ-P5-05`) |
+| RUB-P5-06 | Juice non-modal/skippable; no hidden outcomes/hitches (`REQ-P5-06`) |
+| RUB-P5-07 | Phone+tablet↔desktop intent parity; packaging/platform OK (`REQ-P5-07`) |
+
 
 ## Decision record
 
 ```text
 Pillars touched: P_
-RUB scores: P1… P2… P3… P4… (or N/A)
+RUB scores: P1… P2… P3… P4… P5… (or N/A)
 Overall: PASS | FAIL
 Blocking IDs: …
 Notes: …
@@ -81,4 +94,4 @@ Notes: …
 
 ## Maintenance
 
-New high-level needs get matching `REQ-*` + `RUB-*`. Don’t remove IDs—deprecate with a replacement. Keep scores behavioral and observable.
+New needs get `REQ-*`+`RUB-*`. Don’t remove IDs—deprecate.

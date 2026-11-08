@@ -7,7 +7,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | Doc | Use |
 |-----|-----|
 | [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Rules source of truth (P2) |
-| [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
+| [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P5 (`REQ-*`) |
 | [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
 | [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
 | [`docs/android-debug.md`](docs/android-debug.md) | Debug APK via PR into `android-debug` |

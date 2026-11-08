@@ -59,6 +59,20 @@ func map_size() -> Vector2:
 	return MapGeo.world_size(model, TILE_SIZE)
 
 
+## Repaints owner tint and capital colours after a province changes hands.
+func refresh_ownership() -> void:
+	if model == null:
+		return
+	for child_name: String in ["Wash", "Shade"]:
+		var child: Node = get_node_or_null(child_name)
+		if child != null:
+			remove_child(child)
+			child.queue_free()
+	MapWash.build(self, model)
+	_build_glyphs()
+	queue_redraw()
+
+
 # --- build ------------------------------------------------------------------
 
 

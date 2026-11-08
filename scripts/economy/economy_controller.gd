@@ -15,6 +15,7 @@ var capital_tile: Vector2i = CivilianState.NO_TILE
 var works: LandWorks = null
 
 var _ships: ShipLayer = null
+var _armies: ArmyLayer = null
 var _hud: GameHud = null
 
 
@@ -23,6 +24,7 @@ func setup(
 	p_faction: int,
 	p_capital: int,
 	p_ships: ShipLayer,
+	p_armies: ArmyLayer,
 	p_hud: GameHud,
 	p_works: LandWorks = null,
 	p_capital_tile: Vector2i = CivilianState.NO_TILE
@@ -33,6 +35,7 @@ func setup(
 	capital_tile = p_capital_tile
 	works = p_works
 	_ships = p_ships
+	_armies = p_armies
 	_hud = p_hud
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
@@ -43,10 +46,15 @@ func _connect() -> void:
 	if _hud == null:
 		return
 	_hud.economy_pressed.connect(open_panel)
+	_hud.research_pressed.connect(open_research)
 	var panel: EconomyPanel = _hud.panels.economy_panel
 	panel.trade_requested.connect(_on_trade)
 	panel.production_changed.connect(_on_production)
 	panel.recruit_requested.connect(_on_recruit)
+	var research: ResearchPanel = _hud.panels.research_panel
+	research.assign_requested.connect(_on_research_assign)
+	research.cancel_requested.connect(_on_research_cancel)
+	research.funding_requested.connect(_on_research_funding)
 
 
 ## Ships in the player's fleets drive naval food upkeep this turn. Every region
@@ -57,15 +65,28 @@ func fleet_ships() -> int:
 	return _ships.hull_count_all(player_faction)
 
 
+## Extraction ceilings from the researched tech tree (wiki:
+## tech-and-extraction-cap), per commodity.
+func tech_caps() -> Dictionary:
+	return TechCatalog.extraction_caps(economy.tech_unlocked)
+
+
+## Army rations across every region (wiki: economy § Consumption: army first).
+func army_food() -> int:
+	if _armies == null:
+		return 0
+	return _armies.food_upkeep_all(player_faction)
+
+
 func extraction() -> Dictionary:
 	return Extraction.yields(
-		model, player_faction, capital_province, economy.tech_unlocked, works,
+		model, player_faction, capital_province, tech_caps(), works,
 		capital_tile
 	)
 
 
 func projected() -> Dictionary:
-	return EconomyTurn.project(economy, market, extraction(), fleet_ships())
+	return EconomyTurn.project(economy, market, extraction(), fleet_ships(), army_food())
 
 
 func projected_income() -> int:
@@ -76,13 +97,16 @@ func projected_income() -> int:
 func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships()
+		economy, market, extraction(), fleet_ships(), army_food()
 	)
 	if _hud != null:
 		_hud.set_treasury(economy.treasury)
 		_hud.flash_income(economy.treasury - before)
 		_hud.set_fleets(fleet_ships())
+		if _armies != null:
+			_hud.set_armies(_armies.regiment_count_all(player_faction))
 		_hud.toast(summary_line(report))
+	_refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report
 
@@ -107,6 +131,14 @@ func summary_line(report: Dictionary) -> String:
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
 		parts.append("%d on strike" % strikes)
+	var research: Dictionary = report.get("research", {})
+	var researched: Array = research.get("researched", [])
+	for tech_id: Variant in researched:
+		parts.append("%s researched" % TechCatalog.display_name(String(tech_id)))
+	var unpaid: Array = research.get("unpaid", [])
+	if not unpaid.is_empty():
+		var plural: String = "" if unpaid.size() == 1 else "s"
+		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
 	if parts.is_empty():
 		return "The ledgers balance — nothing moved this turn."
 	return "  ·  ".join(parts)
@@ -115,6 +147,39 @@ func summary_line(report: Dictionary) -> String:
 func open_panel() -> void:
 	if _hud != null:
 		_hud.panels.show_economy(economy, market, projected())
+
+
+func open_research() -> void:
+	if _hud != null:
+		_hud.panels.show_research(economy.research, economy.treasury)
+
+
+func _refresh_research_panel() -> void:
+	if _hud == null:
+		return
+	if _hud.panels.is_research_open():
+		_hud.panels.show_research(economy.research, economy.treasury)
+
+
+func _on_research_assign(tech_id: String) -> void:
+	var result: Dictionary = economy.research.assign(tech_id)
+	_after_research(result)
+
+
+func _on_research_cancel(slot: int) -> void:
+	var result: Dictionary = economy.research.cancel(slot)
+	_after_research(result)
+
+
+func _on_research_funding(slot: int) -> void:
+	economy.research.cycle_funding(slot)
+	_refresh_research_panel()
+
+
+func _after_research(result: Dictionary) -> void:
+	if _hud != null:
+		_hud.toast(String(result.get("message", "")))
+	_refresh_research_panel()
 
 
 func _refresh_panel() -> void:

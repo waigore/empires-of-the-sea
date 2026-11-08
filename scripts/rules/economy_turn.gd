@@ -78,6 +78,8 @@ static func _run(
 		int(consumption["idle_labour"]),
 		economy.tech_unlocked
 	)
+	# Research runs last: its gold comes out of the treasury Production left.
+	var research: Dictionary = ResearchTurn.resolve(economy.research, economy)
 	var prices: Dictionary = {}
 	if advance_market:
 		prices = market.advance_prices()
@@ -88,6 +90,7 @@ static func _run(
 		"riches_treasury": riches_total,
 		"consumption": consumption,
 		"production": production,
+		"research": research,
 		"prices": prices,
 		"economy": economy,
 		"market": market,

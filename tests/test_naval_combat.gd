@@ -42,6 +42,30 @@ func test_single_faction_or_port_fleets_do_not_fight() -> void:
 	assert_eq(NavalCombat.contested_zones([spanish, consort, docked]), [])
 
 
+func test_peaceful_fleets_do_not_contest_a_zone() -> void:
+	var spanish: FleetState = _squadron(1, 0, 2, "carrack", 2)
+	var dutch: FleetState = _squadron(2, 1, 2, "fluyte", 1)
+	var peace := func(_a: int, _b: int) -> bool: return false
+	var war := func(_a: int, _b: int) -> bool: return true
+	assert_eq(NavalCombat.contested_zones([spanish, dutch], peace), [])
+	assert_true(NavalCombat.resolve_turn([spanish, dutch], peace).is_empty())
+	assert_eq(NavalCombat.contested_zones([spanish, dutch], war), [2])
+
+
+func test_a_third_party_at_peace_stays_out_of_a_war() -> void:
+	var spanish: FleetState = _squadron(1, 0, 2, "carrack", 3)
+	var dutch: FleetState = _squadron(2, 1, 2, "fluyte", 1)
+	var swede: FleetState = _squadron(3, 5, 2, "carrack", 1)
+	var only_dutch_at_war := func(a: int, b: int) -> bool:
+		return (a == 0 and b == 1) or (a == 1 and b == 0)
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[spanish, dutch, swede], only_dutch_at_war
+	)
+	assert_eq(battles.size(), 1)
+	assert_eq(int(battles[0]["defender"]), 1)
+	assert_eq(swede.ship_count(), 1, "a neutral fleet is untouched")
+
+
 func test_the_moved_fleet_attacks() -> void:
 	var defender: FleetState = _squadron(1, 0, 2, "carrack", 2)
 	var attacker: FleetState = _squadron(2, 1, 2, "sloop", 2)

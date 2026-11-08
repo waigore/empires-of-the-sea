@@ -15,8 +15,6 @@ const TILE_SIZE: float = PlaySession.TILE_SIZE
 const MAP_SEED: int = 1500
 const PLAYER_FACTION: int = PlaySession.PLAYER_FACTION
 const SHIP_COUNT: int = 7
-## Android delivers the back request twice for one press; one layer per press.
-const BACK_DEBOUNCE_MS: int = 300
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
 var play: PlaySession = null
@@ -26,13 +24,12 @@ var map_height: int = 84
 ## When set (tests), skip generation and load this world in `_ready`.
 var preset_world: WorldMap = null
 
-var _last_back_ms: int = -BACK_DEBOUNCE_MS
-
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
 @onready var overlay: MapOverlay = $World/MapOverlay
 @onready var ship_layer: ShipLayer = $World/ShipLayer
 @onready var civilian_layer: CivilianLayer = $World/CivilianLayer
+@onready var army_layer: ArmyLayer = $World/ArmyLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
 @onready var improvements: ImprovementPanel = $HUD/Improvements
@@ -131,13 +128,18 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
-	play.bind_views(ship_layer, civilian_layer, overlay, camera, hud, improvements)
+	play.bind_views(
+		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
+	)
 	if preset_world != null:
 		play.world = preset_world
 	else:
 		play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
 	_load_region(0)
 	_build_hud()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.initialize(play.turn)
+	MapPlayDiplomacy.sync_first_contact(play)
 	_connect()
 	_intro()
 
@@ -159,28 +161,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Android back / iOS back gesture: close the top layer first, quit only from the
-## bare map. Without this the OS kills the session mid-order (RUB-P1-05).
+## bare map. Without this the OS kills the session mid-order (RUB-P5-07).
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
 		return
-	var now: int = Time.get_ticks_msec()
-	if now - _last_back_ms < BACK_DEBOUNCE_MS:
-		return
-	_last_back_ms = now
-	if play == null:
-		get_tree().quit()
-		return
-	if improvements.is_open():
-		improvements.close()
-	elif play.hud.panels.is_economy_open():
-		play.hud.panels.hide_economy()
-	elif (
-		play.hud.panels.is_panel_open()
-		or play.hud.panels.is_fleet_panel_open()
-		or play.hud.panels.is_civilian_panel_open()
-	):
-		MapPlayInput.deselect(play)
-	else:
+	if not BackRequest.handle(play, improvements):
 		get_tree().quit()
 
 
@@ -214,12 +199,14 @@ func _load_region(index: int) -> void:
 		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
 		play.player_present()
 	)
+	army_layer.spawn(play.model)
 	civilian_layer.spawn(play.model, play.capital_province, PLAYER_FACTION, STARTING_CIVILIANS)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
 	_refresh_region_hud(map_size)
 
 
@@ -229,6 +216,8 @@ func _cycle_region() -> void:
 		return
 	MapPlayInput.deselect(play)
 	_load_region((play.region_index + 1) % play.world.region_count())
+	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlayDiplomacy.refresh(play)
 	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
 	RegionBriefing.arrival(hud, play.model, play.region_index)
 	MapPlayInput.on_view_changed(play)
@@ -240,12 +229,14 @@ func _refresh_region_hud(map_size: Vector2) -> void:
 	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
 	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
+	hud.set_armies(army_layer.regiment_count_all(PLAYER_FACTION))
 	if play.economy == null:
 		return
+	play.refresh_research()
 	play.income = play.economy.projected_income()
 	improvements.set_data(
 		play.model, play.land_works, civilian_layer.units, play.stockpile(),
-		play.capital_tile, PLAYER_FACTION, play.economy.economy.tech_unlocked
+		play.capital_tile, PLAYER_FACTION, play.tech_caps()
 	)
 
 
@@ -257,17 +248,18 @@ func _build_hud() -> void:
 	hud.set_prestige(play.prestige)
 	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
+	hud.set_armies(army_layer.regiment_count_all(PLAYER_FACTION))
 	play.economy = EconomyController.new()
 	add_child(play.economy)
 	play.economy.setup(
-		play.model, PLAYER_FACTION, play.capital_province, ship_layer, hud,
+		play.model, PLAYER_FACTION, play.capital_province, ship_layer, army_layer, hud,
 		play.land_works, play.capital_tile
 	)
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	improvements.set_data(
 		play.model, play.land_works, civilian_layer.units, play.stockpile(),
-		play.capital_tile, PLAYER_FACTION, play.economy.economy.tech_unlocked
+		play.capital_tile, PLAYER_FACTION, play.tech_caps()
 	)
 
 
@@ -290,6 +282,12 @@ func _connect() -> void:
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlayTurn.focus_capital(play)
 	)
+	hud.diplomacy_pressed.connect(func() -> void:
+		MapPlayDiplomacy.open(play)
+	)
+	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
+		MapPlayDiplomacy.on_order(play, kind, target, arg)
+	)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)
@@ -304,6 +302,21 @@ func _connect() -> void:
 	)
 	ship_layer.fleet_moved.connect(func(fleet: FleetState, result: Dictionary) -> void:
 		MapPlayFleets.on_moved(play, fleet, result)
+	)
+	army_layer.army_selected.connect(func(army: ArmyState) -> void:
+		if army != null:
+			MapPlayArmies.select(play, army)
+		else:
+			play.hud.panels.hide_army()
+	)
+	army_layer.army_moved.connect(func(army: ArmyState, result: Dictionary) -> void:
+		MapPlayArmies.on_moved(play, army, result)
+	)
+	hud.army_action.connect(func(action: String) -> void:
+		MapPlayArmies.on_action(play, action)
+	)
+	hud.army_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
 	)
 	hud.fleet_closed.connect(func() -> void:
 		MapPlayInput.deselect(play)
@@ -367,3 +380,15 @@ func _bootstrap_region(session: PlaySession) -> void:
 
 func _find_capital() -> int:
 	return play.world.seat_province(play.region_index, PLAYER_FACTION)
+
+
+## Ownership changed outside the map layers (Join Empire): redraw borders,
+## terrain tint, fog and the region chips without respawning units.
+func refresh_political_map() -> void:
+	if play == null or play.model == null:
+		return
+	canvas.build(play.model, play.world)
+	overlay.build(play.model)
+	if play.visibility != null:
+		overlay.sync_visibility(play.visibility)
+	_refresh_region_hud(MapGeo.world_size(play.model, TILE_SIZE))

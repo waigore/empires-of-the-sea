@@ -2,7 +2,7 @@
 
 Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate and ledger orders are live.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate, ledger and court orders are live; economy and diplomacy resolve each turn.
 
 ## Controls
 
@@ -12,16 +12,16 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Zoom | wheel, pinch, `+` / `−`, E / Q | pinch, `+` / `−` |
 | Jump | click / drag minimap | tap / drag minimap |
 | Select | click province or fleet | tap |
-| Switch region | OLD/NEW button | tap |
-| Focus capital | `F` / `Home` | CAPITAL button |
+| Switch region | OLD/NEW | tap |
+| Focus capital | `F` / `Home` | CAPITAL |
 | End turn | `Space` / `Enter`, gold seal | gold seal |
-| Back | `Esc` deselects | system back: closes the top layer, then quits |
+| Back | `Esc` deselects | system back closes the top layer, then quits |
 
-Pan has inertia; zoom anchors under the cursor; the camera clamps with a cover-fit floor. Actions register via `InputActions`.
+Pan has inertia; zoom anchors under the cursor; the camera clamps with a cover-fit floor.
 
 ## Phone layout
 
-On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers with orders first, thumb-sized targets and notch-safe insets. `tests/test_mobile_layout.gd` pins four viewports.
+On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers with orders first, thumb targets, notch-safe insets. `tests/test_mobile_layout.gd` pins the geometry.
 
 ## Architecture
 
@@ -42,6 +42,8 @@ scripts/rules/world_map.gd        two regions + warp-zone pairs
 scripts/rules/visibility.gd per-player fog of war (tested)
 scripts/rules/capital_choice.gd  capital-choice phase (tested)
 scripts/rules/world_bootstrap.gd setup ports, roads, grain farms
+scripts/rules/diplomacy_*.gd relations, war, alliances, overtures
+scripts/ui/diplomacy_panel.gd the court ledger (tested via screen)
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
 scripts/platform/*          display scale + safe area (P3)
 ui/shaders/*                sea, fog, grain, vignette

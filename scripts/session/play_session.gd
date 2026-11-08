@@ -18,6 +18,7 @@ var visibility_by_region: Dictionary = {}
 var bootstrapped_regions: Dictionary = {}
 var land_works: LandWorks = null
 var economy: EconomyController = null
+var diplomacy: DiplomacyState = null
 
 var turn: int = 1
 var prestige: int = 38
@@ -30,6 +31,8 @@ var charted_provinces: Dictionary = {}
 
 var ship_layer: ShipLayer = null
 var civilian_layer: CivilianLayer = null
+var army_layer: ArmyLayer = null
+var canvas: MapCanvas = null
 var overlay: MapOverlay = null
 var camera: MapCamera = null
 var hud: GameHud = null
@@ -46,6 +49,8 @@ func bind_host(p_host: Node) -> void:
 func bind_views(
 	p_ships: ShipLayer,
 	p_civilians: CivilianLayer,
+	p_armies: ArmyLayer,
+	p_canvas: MapCanvas,
 	p_overlay: MapOverlay,
 	p_camera: MapCamera,
 	p_hud: GameHud,
@@ -53,6 +58,8 @@ func bind_views(
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
+	army_layer = p_armies
+	canvas = p_canvas
 	overlay = p_overlay
 	camera = p_camera
 	hud = p_hud
@@ -80,6 +87,24 @@ func stockpile() -> Dictionary:
 	if economy == null or economy.economy == null:
 		return {}
 	return economy.economy.stockpile
+
+
+## Extraction caps this crown's researched techs allow, per commodity
+## (wiki: tech-and-extraction-cap). Empty before the economy exists.
+func tech_caps() -> Dictionary:
+	if economy == null or economy.economy == null:
+		return {}
+	return TechCatalog.extraction_caps(economy.economy.tech_unlocked)
+
+
+## Recomputes which resources the crown has seen, so discovery techs unlock
+## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
+func refresh_research() -> void:
+	if economy == null or economy.economy == null:
+		return
+	economy.economy.research.set_revealed(
+		TechDiscovery.revealed(world, visibility_by_region, land_works, PLAYER_FACTION)
+	)
 
 
 func viewport() -> Viewport:
@@ -111,3 +136,9 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 func emit_turn_ended(p_turn: int) -> void:
 	if host != null:
 		host.emit_signal("turn_ended", p_turn)
+
+
+## Political ownership changed (Join Empire): ask the screen to redraw the map.
+func refresh_map_views() -> void:
+	if host != null and host.has_method("refresh_political_map"):
+		host.call("refresh_political_map")

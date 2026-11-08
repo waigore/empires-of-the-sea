@@ -40,6 +40,17 @@ func test_fleet_dossier_can_dock_left_or_right() -> void:
 	assert_eq(_screen.hud._fleet_wrap.anchor_left, 1.0)
 
 
+func test_transfer_owner_reassigns_a_squadron_and_its_marker() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	var from_id: int = fleet.owner
+	var to_id: int = 1 if from_id != 1 else 2
+	_screen.ship_layer.transfer_owner(from_id, to_id)
+	assert_eq(fleet.owner, to_id)
+	var marker: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(marker)
+	assert_eq(marker.faction, to_id)
+
+
 func test_ordering_a_move_spends_the_turn_and_reveals_the_zone() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
