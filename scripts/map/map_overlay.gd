@@ -74,17 +74,28 @@ func set_fog_rect(rect: Rect2i, state: int) -> void:
 				set_fog_state(model.index_of(x, y), state)
 
 
-func reveal_sea_zone(zone_id: int) -> void:
-	var data: Dictionary = model.sea_zone_data(zone_id)
-	if data.is_empty():
+## Projects rules-engine visibility onto the fog texture (view reads state).
+## `indices` are the tiles that changed; empty means resync the whole map.
+func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
+	if visibility == null or model == null:
 		return
-	for tile: Vector2i in data.get("tiles", []):
-		set_fog_state(model.index_of(tile.x, tile.y), FOG_VISIBLE)
-		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-			var nx: int = tile.x + offset.x
-			var ny: int = tile.y + offset.y
-			if model.is_land(nx, ny):
-				set_fog_state(model.index_of(nx, ny), FOG_VISIBLE)
+	if indices.is_empty():
+		for index in fog.size():
+			set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
+		return
+	for raw: Variant in indices:
+		var index: int = int(raw)
+		set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
+
+
+static func fog_state_for(level: int) -> int:
+	match level:
+		VisibilityModel.Level.FULLY_VISIBLE:
+			return FOG_VISIBLE
+		VisibilityModel.Level.UNKNOWN:
+			return FOG_UNKNOWN
+		_:
+			return FOG_FOGGED
 
 
 ## Jumps the fade animation to the current fog targets (used on first build so

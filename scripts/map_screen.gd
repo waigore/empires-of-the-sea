@@ -9,6 +9,7 @@ const PLAYER_FACTION: int = 0
 const SHIP_COUNT: int = 7
 
 var model: MapModel = null
+var visibility: VisibilityModel = null
 var turn: int = 1
 var treasury: int = 1240
 var prestige: int = 38
@@ -17,6 +18,7 @@ var selected_province: int = -1
 var capital_province: int = -1
 
 var _hover_province: int = -1
+var _charted_provinces: Dictionary = {}
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
@@ -66,7 +68,7 @@ func _build_world() -> void:
 	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3)
 	camera.configure(map_size)
 	capital_province = _find_capital()
-	_build_fog()
+	_build_visibility()
 	overlay.snap_fog()
 
 
@@ -107,25 +109,11 @@ func _intro() -> void:
 	tween.tween_callback(func() -> void: fade.visible = false)
 
 
-func _build_fog() -> void:
-	var capital_tile: Vector2 = model.province_center(capital_province)
-	for y in model.height:
-		for x in model.width:
-			var distance: float = Vector2(float(x), float(y)).distance_to(capital_tile)
-			var state: int = MapOverlay.FOG_UNKNOWN
-			if distance < 34.0:
-				state = MapOverlay.FOG_VISIBLE
-			elif distance < 41.0:
-				state = MapOverlay.FOG_FOGGED
-			overlay.set_fog_state(model.index_of(x, y), state)
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) != PLAYER_FACTION:
-			continue
-		for tile: Vector2i in province["tiles"]:
-			overlay.set_fog_state(model.index_of(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
-		for neighbor: int in model.province_neighbors(int(province["id"])):
-			for tile: Vector2i in model.province_tiles(neighbor):
-				overlay.set_fog_state(model.index_of(tile.x, tile.y), MapOverlay.FOG_FOGGED)
+func _build_visibility() -> void:
+	visibility = VisibilityModel.new()
+	visibility.setup(model, PLAYER_FACTION)
+	visibility.apply_initial()
+	overlay.sync_visibility(visibility)
 
 
 func _find_capital() -> int:
@@ -198,9 +186,28 @@ func _on_view_changed() -> void:
 
 
 func _on_zone_entered(zone_id: int, ship: Ship) -> void:
-	if ship == null or ship.faction != PLAYER_FACTION:
+	if ship == null or ship.faction != PLAYER_FACTION or visibility == null:
 		return
-	overlay.reveal_sea_zone(zone_id)
+	var changed: Array = visibility.reveal_sea_zone(zone_id)
+	if not changed.is_empty():
+		overlay.sync_visibility(visibility, changed)
+	_announce_charted_coast(changed)
+
+
+## First sighting of a province's coast earns a quiet note, once per province.
+func _announce_charted_coast(changed: Array) -> void:
+	for raw: Variant in changed:
+		var index: int = int(raw)
+		var y: int = int(floor(float(index) / float(model.width)))
+		var x: int = index - y * model.width
+		if not model.is_land(x, y):
+			continue
+		var province_id: int = model.province_at(x, y)
+		if province_id == MapModel.NO_ID or _charted_provinces.has(province_id):
+			continue
+		_charted_provinces[province_id] = true
+		hud.toast("The coast of %s is charted" % model.province_name(province_id))
+		return
 
 
 func _on_panel_action(action: String) -> void:
@@ -217,6 +224,7 @@ func _on_panel_action(action: String) -> void:
 
 
 func _on_end_turn() -> void:
+	_resolve_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
 	treasury += income
@@ -226,18 +234,20 @@ func _on_end_turn() -> void:
 	hud.set_prestige(prestige)
 	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
-	_reveal_frontier()
 
 
-func _reveal_frontier() -> void:
-	for zone: Dictionary in model.sea_zones:
-		var tiles: Array = zone.get("tiles", [])
-		if tiles.is_empty():
-			continue
-		var tile: Vector2i = tiles[0]
-		if overlay.fog_state_at(tile.x, tile.y) == MapOverlay.FOG_FOGGED:
-			overlay.reveal_sea_zone(int(zone["id"]))
-			return
+## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at
+## sea stay visible; charted coasts fade until an explorer holds them.
+func _resolve_visibility() -> void:
+	if visibility == null:
+		return
+	var at_sea: Array = []
+	for ship: Ship in ship_layer.ships:
+		if ship.faction == PLAYER_FACTION and ship.zone >= 0:
+			at_sea.append(ship.zone)
+	var changed: Array = visibility.end_of_turn(at_sea)
+	if not changed.is_empty():
+		overlay.sync_visibility(visibility, changed)
 
 
 func _focus_capital() -> void:
@@ -265,6 +275,9 @@ func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:
 	overlay.hover_province = province_id
 	if province_id < 0:
 		hud.hide_tooltip()
+		return
+	if visibility != null and visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
+		hud.show_tooltip("Uncharted land")
 		return
 	var data: Dictionary = model.province_data(province_id)
 	var terrain: int = model.terrain_at(tile.x, tile.y)
