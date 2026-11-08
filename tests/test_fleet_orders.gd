@@ -285,7 +285,7 @@ func _zone_fog(zone_id: int) -> int:
 
 func _roster(region: int) -> Array[FleetState]:
 	var stored: Array[FleetState] = []
-	stored.assign(_screen.ship_layer._fleets_by_region.get(region, []))
+	stored.assign(_screen.ship_layer.regions.value(region, []))
 	return stored
 
 
