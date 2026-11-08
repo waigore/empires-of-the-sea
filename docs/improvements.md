@@ -77,7 +77,7 @@ intents, and MapScreen applies them through `ImprovementOrders`.
 ## Tests
 
 `test_world_bootstrap`, `test_improvement_system`, `test_civilian_work`,
-`test_extraction`, `test_map_screen`, `test_economy_screen`.
+`test_extraction`, `test_map_screen_crown_orders`, `test_economy_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
