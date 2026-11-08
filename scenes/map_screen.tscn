@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/map_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
@@ -6,9 +6,16 @@
 [ext_resource type="Script" path="res://scripts/map/ship_layer.gd" id="4_ships"]
 [ext_resource type="Script" path="res://scripts/map/map_camera.gd" id="5_camera"]
 [ext_resource type="Script" path="res://scripts/ui/game_hud.gd" id="6_hud"]
+[ext_resource type="Script" path="res://scripts/map/civilian_layer.gd" id="7_civilians"]
 [ext_resource type="Shader" path="res://ui/shaders/sea.gdshader" id="7_sea"]
 [ext_resource type="Shader" path="res://ui/shaders/grain.gdshader" id="8_grain"]
 [ext_resource type="Shader" path="res://ui/shaders/vignette.gdshader" id="9_vignette"]
+[ext_resource type="Script" path="res://scripts/audio/audio_director.gd" id="10_audio"]
+[ext_resource type="Script" path="res://scripts/ui/audio_controls.gd" id="11_sound"]
+[ext_resource type="Script" path="res://scripts/audio/map_soundtrack.gd" id="12_score"]
+[ext_resource type="Script" path="res://scripts/ui/improvement_panel.gd" id="13_improvements"]
+[ext_resource type="Script" path="res://scripts/map/army_layer.gd" id="14_armies"]
+[ext_resource type="Script" path="res://scripts/ui/game_menu.gd" id="15_menu"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
 shader = ExtResource("7_sea")
@@ -39,8 +46,20 @@ script = ExtResource("3_overlay")
 [node name="ShipLayer" type="Node2D" parent="World"]
 script = ExtResource("4_ships")
 
+[node name="CivilianLayer" type="Node2D" parent="World"]
+script = ExtResource("7_civilians")
+
+[node name="ArmyLayer" type="Node2D" parent="World"]
+script = ExtResource("14_armies")
+
 [node name="MapCamera" type="Camera2D" parent="World"]
 script = ExtResource("5_camera")
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("10_audio")
+
+[node name="Soundtrack" type="Node" parent="."]
+script = ExtResource("12_score")
 
 [node name="ScreenFx" type="CanvasLayer" parent="."]
 
@@ -73,6 +92,24 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("6_hud")
 
+[node name="AudioControls" type="Control" parent="HUD/HudRoot"]
+z_index = 4
+offset_left = 18.0
+offset_top = 78.0
+offset_right = 64.0
+offset_bottom = 124.0
+script = ExtResource("11_sound")
+
+[node name="Improvements" type="Control" parent="HUD"]
+z_index = 20
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("13_improvements")
+
 [node name="FadeLayer" type="CanvasLayer" parent="."]
 layer = 3
 
@@ -84,3 +121,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="GameMenu" type="CanvasLayer" parent="."]
+layer = 5
+script = ExtResource("15_menu")

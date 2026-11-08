@@ -16,15 +16,15 @@ func before_each() -> void:
 	_model.province[_model.index_of(1, 1)] = 1
 	_model.sea_zone[_model.index_of(2, 1)] = 0
 	_model.sea_zone[_model.index_of(3, 1)] = 0
+	var cadiz_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var coro_tiles: Array[Vector2i] = [Vector2i(1, 1)]
+	var sea_tiles: Array[Vector2i] = [Vector2i(2, 1), Vector2i(3, 1)]
 	_model.provinces = [
-		{"id": 0, "name": "Cádiz", "tiles": [Vector2i(0, 0), Vector2i(1, 0)],
-			"center": Vector2(1.0, 0.5), "area": 2, "owner": 0, "capital": true},
-		{"id": 1, "name": "Coro", "tiles": [Vector2i(1, 1)],
-			"center": Vector2(1.5, 1.5), "area": 1, "owner": 1, "capital": false},
+		ProvinceState.create(0, "Cádiz", cadiz_tiles, Vector2(1.0, 0.5), 2, 0, true),
+		ProvinceState.create(1, "Coro", coro_tiles, Vector2(1.5, 1.5), 1, 1, false),
 	]
 	_model.sea_zones = [
-		{"id": 0, "name": "Mar Caribe", "tiles": [Vector2i(2, 1), Vector2i(3, 1)],
-			"center": Vector2(3.0, 1.5), "area": 2},
+		SeaZoneState.create(0, "Mar Caribe", sea_tiles, Vector2(3.0, 1.5), 2),
 	]
 
 
@@ -35,6 +35,13 @@ func test_setup_sizes_and_clears_arrays() -> void:
 	assert_eq(fresh.province.size(), 35)
 	assert_eq(fresh.province[0], MapModel.NO_ID)
 	assert_eq(fresh.province_count(), 0)
+
+
+func test_capital_tile_follows_the_province_record() -> void:
+	_model.provinces[0].capital_tile = Vector2i(0, 0)
+	assert_eq(_model.capital_tile_of(0), Vector2i(0, 0))
+	assert_eq(_model.capital_tile_of(1), CapitalChoice.NO_TILE)
+	assert_eq(_model.capital_tile_of(-1), CapitalChoice.NO_TILE)
 
 
 func test_land_and_sea_classification() -> void:
@@ -61,10 +68,10 @@ func test_province_lookup_helpers() -> void:
 
 
 func test_coastal_tiles_touch_sea() -> void:
-	assert_true(_model.is_coastal_tile(1, 1))
-	assert_false(_model.is_coastal_tile(1, 0))
-	assert_false(_model.is_coastal_tile(2, 1))
-	assert_eq(_model.coastal_tiles(1), [Vector2i(1, 1)])
+	assert_true(MapGeo.is_coastal_tile(_model, 1, 1))
+	assert_false(MapGeo.is_coastal_tile(_model, 1, 0))
+	assert_false(MapGeo.is_coastal_tile(_model, 2, 1))
+	assert_eq(MapGeo.coastal_tiles(_model, 1), [Vector2i(1, 1)])
 
 
 func test_map_border_is_not_a_coast() -> void:
@@ -72,14 +79,14 @@ func test_map_border_is_not_a_coast() -> void:
 	border.setup(3, 3)
 	for index in border.terrain.size():
 		border.terrain[index] = MapModel.Terrain.PLAINS
-	assert_false(border.is_coastal_tile(0, 0))
-	assert_false(border.is_coastal_tile(2, 2))
+	assert_false(MapGeo.is_coastal_tile(border, 0, 0))
+	assert_false(MapGeo.is_coastal_tile(border, 2, 2))
 
 
 func test_province_neighbors_are_cached_and_sorted() -> void:
-	assert_eq(_model.province_neighbors(0), [1])
-	assert_true(_model.provinces[0].has("neighbors"))
-	assert_eq(_model.province_neighbors(99), [])
+	assert_eq(MapGeo.province_neighbors(_model, 0), [1])
+	assert_true(_model.provinces[0].neighbors_cached)
+	assert_eq(MapGeo.province_neighbors(_model, 99), [])
 
 
 func test_sea_zone_neighbors() -> void:
@@ -88,22 +95,24 @@ func test_sea_zone_neighbors() -> void:
 	second.sea_zone[0] = 0
 	second.sea_zone[1] = 0
 	second.sea_zone[2] = 1
+	var tiles_a: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var tiles_b: Array[Vector2i] = [Vector2i(2, 0)]
 	second.sea_zones = [
-		{"id": 0, "name": "A", "tiles": [Vector2i(0, 0), Vector2i(1, 0)], "center": Vector2.ZERO},
-		{"id": 1, "name": "B", "tiles": [Vector2i(2, 0)], "center": Vector2.ZERO},
+		SeaZoneState.create(0, "A", tiles_a, Vector2.ZERO, 2),
+		SeaZoneState.create(1, "B", tiles_b, Vector2.ZERO, 1),
 	]
-	assert_eq(second.sea_zone_neighbors(0), [1])
-	assert_eq(second.sea_zone_neighbors(99), [])
+	assert_eq(MapGeo.sea_zone_neighbors(second, 0), [1])
+	assert_eq(MapGeo.sea_zone_neighbors(second, 99), [])
 
 
 func test_world_helpers() -> void:
-	assert_eq(_model.world_size(10.0), Vector2(40.0, 30.0))
-	assert_eq(_model.tile_center(0, 0, 10.0), Vector2(5.0, 5.0))
-	assert_eq(_model.tile_at_world(Vector2(15.0, 25.0), 10.0), Vector2i(1, 2))
+	assert_eq(MapGeo.world_size(_model, 10.0), Vector2(40.0, 30.0))
+	assert_eq(MapGeo.tile_center(0, 0, 10.0), Vector2(5.0, 5.0))
+	assert_eq(MapGeo.tile_at_world(Vector2(15.0, 25.0), 10.0), Vector2i(1, 2))
 
 
 func test_land_tile_count() -> void:
-	assert_eq(_model.land_tile_count(), 5)
+	assert_eq(MapGeo.land_tile_count(_model), 5)
 
 
 func test_terrain_labels_cover_every_type() -> void:

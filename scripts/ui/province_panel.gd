@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal action_pressed(action: String)
 signal close_pressed
+signal dock_side_pressed
 
 var _name_label: Label = null
 var _owner_label: Label = null
@@ -14,7 +15,16 @@ var _resource_icon: Icon = null
 var _resource_value: Label = null
 var _population_value: Label = null
 var _port_value: Label = null
+var _capital_value: Label = null
+var _road_value: Label = null
 var _capital_badge: Label = null
+var _training_box: VBoxContainer = null
+var _dock: Button = null
+var _column: VBoxContainer = null
+var _grid: GridContainer = null
+var _orders_box: VBoxContainer = null
+var _orders_index: int = -1
+var _recruit: Button = null
 
 
 func _ready() -> void:
@@ -23,12 +33,30 @@ func _ready() -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
+	get_viewport().size_changed.connect(_fit_to_viewport)
+
+
+## The dossier re-orders itself for the viewport it is actually shown in.
+func _fit_to_viewport() -> void:
+	set_compact(HudLayout.is_compact(get_viewport_rect().size))
 
 
 func _build() -> void:
+	var shell := VBoxContainer.new()
+	shell.add_theme_constant_override("separation", 8)
+	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(shell)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shell.add_child(scroll)
+
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
-	add_child(column)
+	scroll.add_child(column)
+	_column = column
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
@@ -71,56 +99,123 @@ func _build() -> void:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 8)
 	column.add_child(grid)
+	_grid = grid
 
 	_terrain_value = _add_row(grid, "Terrain")
 	_resource_icon = Icon.new("tree", 16, Palette.GOLD)
 	_resource_value = _add_row_with_icon(grid, "Resource", _resource_icon)
 	_population_value = _add_row(grid, "Population")
 	_port_value = _add_row(grid, "Port")
+	_capital_value = _add_row(grid, "Capital")
+	_road_value = _add_row(grid, "Roads")
 
 	column.add_child(_divider())
+
+	_orders_box = VBoxContainer.new()
+	_orders_box.add_theme_constant_override("separation", 8)
+	column.add_child(_orders_box)
+	_orders_index = _orders_box.get_index()
 
 	var orders := Label.new()
 	orders.text = "ORDERS"
 	orders.add_theme_font_size_override("font_size", 11)
 	orders.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(orders)
+	_orders_box.add_child(orders)
 
-	var recruit := _make_button("Recruit Regiment")
-	recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
-	column.add_child(recruit)
+	_recruit = _make_button("Recruit Regiment")
+	_recruit.tooltip_text = "Muster at your capital; the regiment joins the Home Army."
+	_recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
+	_orders_box.add_child(_recruit)
 
 	var build := _make_button("Build Improvement")
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
-	column.add_child(build)
+	_orders_box.add_child(build)
+
+	_training_box = VBoxContainer.new()
+	_training_box.add_theme_constant_override("separation", 6)
+	_training_box.visible = false
+	_orders_box.add_child(_training_box)
+
+	var training := Label.new()
+	training.text = "TRAIN CIVILIANS"
+	training.add_theme_font_size_override("font_size", 11)
+	training.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_training_box.add_child(training)
+
+	for type_id: String in CivilianCatalog.playable_types():
+		var train := _make_button(
+			"Train %s · %s" % [
+				CivilianCatalog.display_name(type_id),
+				CivilianCatalog.training_cost_text(type_id),
+			]
+		)
+		train.add_theme_font_size_override("font_size", 13)
+		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
+		_training_box.add_child(train)
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 4)
 	column.add_child(spacer)
 
 	var hint := Label.new()
-	hint.text = "Demo build — orders are illustrative."
+	hint.text = "Civilians muster at the capital; estates are managed from the ledger."
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.6))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	shell.add_child(footer)
+
+	_dock = _make_button("◀ Dock")
+	_dock.tooltip_text = "Dock left"
+	_dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	footer.add_child(_dock)
+
 	var close := _make_button("Close")
+	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close.pressed.connect(func() -> void: close_pressed.emit())
-	column.add_child(close)
+	footer.add_child(close)
+	_fit_to_viewport()
+
+
+func set_dock_affordance(glyph: String, tip: String) -> void:
+	if _dock == null:
+		return
+	_dock.text = "%s Dock" % glyph
+	_dock.tooltip_text = tip
+
+
+## A phone sheet is short, so orders move above the survey table: every action
+## stays one tap away and only the details scroll. Idempotent.
+func set_compact(compact: bool) -> void:
+	if _orders_box == null or _grid == null or _column == null:
+		return
+	# Recruit is a live order now, so it stays on the phone sheet too.
+	var orders_at: int = _orders_box.get_index()
+	var grid_at: int = _grid.get_index()
+	if compact == (orders_at < grid_at):
+		return
+	_column.move_child(_orders_box, grid_at if compact else _orders_index)
+
+
+func set_training_visible(visible: bool) -> void:
+	_training_box.visible = visible
 
 
 func refresh(model: MapModel, province_id: int) -> void:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
 		return
-	_name_label.text = String(data["name"])
-	_capital_badge.visible = bool(data["capital"])
-	var owner: int = int(data["owner"])
+	_name_label.text = data.name
+	_capital_badge.visible = data.capital
+	var owner: int = data.owner
 	_owner_swatch.color = Palette.faction_color(owner)
-	_owner_label.text = "Crown of %s" % MapGenerator.FACTION_NAMES[owner]
+	_owner_label.text = _owner_caption(owner)
 	_terrain_value.text = _dominant_terrain(model, province_id)
-	var resource: int = int(data["resource"])
+	var resource: int = data.resource
 	if resource >= 0:
 		var info: Dictionary = MapGenerator.resource_info(resource)
 		_resource_icon.kind = String(info.get("icon", "ore"))
@@ -130,13 +225,36 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_resource_icon.kind = "ore"
 		_resource_icon.queue_redraw()
 		_resource_value.text = "None surveyed"
-	_population_value.text = "%s souls" % _thousands(int(data["population"]))
-	var port: Vector2i = data["port_tile"]
+	_population_value.text = "%s souls" % _thousands(data.population)
+	var port: Vector2i = data.port_tile
 	if port.x >= 0:
 		var zone: int = model.sea_zone_at(port.x, port.y)
 		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
 	else:
 		_port_value.text = "Landlocked"
+	var seat: Vector2i = data.capital_tile
+	if seat.x >= 0:
+		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
+	else:
+		_capital_value.text = "—"
+	var road_tiles: int = 0
+	for path: Array in data.road_paths:
+		road_tiles += path.size()
+	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+
+
+## Faction type drives the honorific (wiki: factions — three governing types).
+func _owner_caption(owner: int) -> String:
+	var faction_name: String = FactionCatalog.name_of(owner)
+	match FactionCatalog.type_of(owner):
+		FactionCatalog.Type.GREAT_POWER:
+			return "Crown of %s" % faction_name
+		FactionCatalog.Type.MINOR_NATION:
+			return "Minor nation of %s" % faction_name
+		FactionCatalog.Type.TRIBE:
+			return "Tribe of the %s" % faction_name
+		_:
+			return "Unclaimed territory"
 
 
 func _dominant_terrain(model: MapModel, province_id: int) -> String:

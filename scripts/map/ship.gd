@@ -4,8 +4,10 @@ extends Node2D
 ## fading wake. Purely presentational: the layer owns movement and zones.
 
 var faction: int = 0
+var fleet_id: int = -1
 var zone: int = -1
-var target_zone: int = -1
+var province: int = -1
+var docked: bool = false
 var speed: float = 34.0
 var bob_phase: float = 0.0
 var facing: float = 1.0
@@ -40,13 +42,14 @@ func _draw() -> void:
 	var flag: Color = Palette.faction_color(faction)
 
 	# wake
-	for i in 3:
-		var offset: float = -18.0 - float(i) * 7.0
-		var alpha: float = (0.30 - float(i) * 0.08) * (0.4 + _wake_strength)
-		draw_arc(
-			Vector2(offset, 3.0), 5.0 + float(i) * 2.0, -0.9, 0.9, 10,
-			Color(0.98, 0.96, 0.90, alpha), 1.2, true
-		)
+	if not docked:
+		for i in 3:
+			var offset: float = -18.0 - float(i) * 7.0
+			var alpha: float = (0.30 - float(i) * 0.08) * (0.4 + _wake_strength)
+			draw_arc(
+				Vector2(offset, 3.0), 5.0 + float(i) * 2.0, -0.9, 0.9, 10,
+				Color(0.98, 0.96, 0.90, alpha), 1.2, true
+			)
 
 	# hull
 	draw_colored_polygon(
@@ -62,6 +65,10 @@ func _draw() -> void:
 		ink, 1.2, true
 	)
 	draw_line(Vector2(-15, 0), Vector2(15, 0), ink, 1.4, true)
+	if docked:
+		draw_line(Vector2(0, 1), Vector2(0, 13), ink, 1.4, true)
+		draw_arc(Vector2(0, 11), 5.5, PI * 0.12, PI * 0.88, 14, ink, 1.4, true)
+		draw_circle(Vector2(0, 0), 1.6, ink)
 	# stern castle and bowsprit
 	draw_rect(Rect2(-15, -6, 7, 6), hull)
 	draw_rect(Rect2(-15, -6, 7, 6), ink, false, 1.0)

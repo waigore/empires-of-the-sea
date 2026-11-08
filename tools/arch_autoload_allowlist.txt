@@ -1,0 +1,2 @@
+# Allowed project.godot [autoload] names (one per line). Empty = ban all.
+# Names match the left-hand identifier before '=' in [autoload].

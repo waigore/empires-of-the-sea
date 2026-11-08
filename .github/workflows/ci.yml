@@ -27,26 +27,71 @@ jobs:
       - name: Lint docs word limit (≤500)
         run: python tools/lint_docs_words.py
 
-  tests:
-    name: tests
+  arch-lint:
+    name: arch-lint
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Lint modular architecture (P3 / RUB-P3-*)
+        env:
+          ARCH_LINT_RULES_DIFF: "1"
+        run: python tools/lint_arch.py --require-rules-tests
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    # Hard budget: suite + coverage must finish within 5 minutes (see docs/testing.md).
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect code/test changes
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'scenes/**'
+              - 'scripts/**'
+              - 'ui/**'
+              - 'autoload/**'
+              - 'tests/**'
+              - 'addons/**'
+              - 'project.godot'
+              - 'icon.svg'
+
+      - name: Skip suite (no code/test changes)
+        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
+        run: echo 'No code/test path changes — tests no-op (required check passes).'
+
+      - name: Setup Python
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Lint docs word limit (≤500)
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: python tools/lint_docs_words.py
 
       - name: Install gd-tools
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: pip install "gd-tools-cli==0.10.0"
 
       - name: Setup Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
@@ -54,18 +99,22 @@ jobs:
           include-templates: false
 
       - name: Verify tooling
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: |
           godot --version
           gd-tools version
 
       - name: Import project
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: godot --headless --path . --import --quit
 
       - name: Run tests with 80% coverage gate
-        run: gd-tools test --coverage --min 80 --junit-xml .gd-tools/results.xml
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        # ≤5 min job: parallel workers + shared map fixtures (docs/testing.md).
+        run: gd-tools test --coverage --min 80 --parallel 4 --timeout 240 --junit-xml .gd-tools/results.xml
 
       - name: Upload test & coverage artifacts
-        if: always()
+        if: always() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: test-and-coverage
@@ -73,3 +122,99 @@ jobs:
             .gd-tools/results.xml
             .gd-tools/coverage/
           if-no-files-found: ignore
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect code/test changes
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'scenes/**'
+              - 'scripts/**'
+              - 'ui/**'
+              - 'autoload/**'
+              - 'tests/**'
+              - 'addons/**'
+              - 'project.godot'
+              - 'icon.svg'
+              - 'tools/e2e_smoke.gd'
+
+      - name: Skip suite (no code/test changes)
+        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
+        run: echo 'No code/test path changes — build no-op (required check passes).'
+
+      - name: Setup Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --version
+
+      - name: Import / compile project
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --headless --path . --import --quit
+
+  e2e-smoke:
+    name: e2e-smoke
+    needs: build
+    runs-on: ubuntu-latest
+    # Hard budget: smoke wall time ≤2 minutes (see docs/testing.md).
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect code/test changes
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'scenes/**'
+              - 'scripts/**'
+              - 'ui/**'
+              - 'autoload/**'
+              - 'tests/**'
+              - 'addons/**'
+              - 'project.godot'
+              - 'icon.svg'
+              - 'tools/e2e_smoke.gd'
+
+      - name: Skip suite (no code/test changes)
+        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
+        run: echo 'No code/test path changes — e2e-smoke no-op (required check passes).'
+
+      - name: Setup Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify Godot
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --version
+
+      - name: Import project
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --headless --path . --import --quit
+
+      - name: Run headless e2e smoke
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --headless --path . --script res://tools/e2e_smoke.gd

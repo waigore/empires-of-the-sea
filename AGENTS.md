@@ -7,7 +7,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | Doc | Use |
 |-----|-----|
 | [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Rules source of truth (P2) |
-| [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
+| [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P5 (`REQ-*`) |
 | [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
 | [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
 | [`docs/android-debug.md`](docs/android-debug.md) | Debug APK via PR into `android-debug` |
@@ -22,7 +22,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 
 - Engine: Godot 4.7.x · GDScript (typed where practical)
 - Scenes: `.tscn` + scripts; logic in scripts, composition in scenes
-- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI: `gd-tools test --coverage --min 80`
+- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI: `gd-tools test --coverage --min 80 --parallel 4` (**≤5 min**); e2e smoke **≤2 min** — see [`docs/testing.md`](docs/testing.md)
 
 ## Layout
 
@@ -30,23 +30,27 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 |------|-----|
 | `scenes/` | Gameplay and screen scenes |
 | `scripts/` | Shared / non-scene scripts |
+| `scripts/world/` | Pure map data (`MapModel`, `MapGeo`, province/sea records) |
+| `scripts/session/` | Play context for map play helpers (`PlaySession`) |
+| `scripts/platform/` | Thin OS/platform adapters only |
 | `ui/` | UI scenes, themes, components |
 | `assets/` | Art, audio, fonts |
-| `autoload/` | Singletons only when cross-cutting |
+| `autoload/` | Allowlisted cross-cutting only (`arch-lint`) |
 | `tests/` | Unit tests (`extends GdToolsTest`) |
 | `addons/gd-tools-*` | Vendored gd-tools addons |
 
 ## Conventions
 
-- **Reuse first**; typed GDScript; signals over deep node reach-ins.
+- **Reuse first**; typed GDScript; signals over deep node reach-ins. Scripts ≤400 lines / ≤25 methods; size allowlist ≤5 and shrink-only (`arch-lint`).
 - **Input**: mouse/keyboard + touch via InputMap actions.
 - **UI**: containers + anchors + theme; no fixed pixel layouts; no hover-only critical UX.
-- **Exports**: platform diffs behind feature checks / thin adapters; shared core.
+- **Exports**: platform diffs in `scripts/platform/`; shared core. P3 gated by `arch-lint` (`RUB-P3-*`).
 - **Assets**: intentional import settings; atlases when useful.
 
 ## Do / don’t
 
 - Do keep scenes focused; guard early; shallow nesting.
+- Do run with `tools/run.sh` (imports first); bare `godot --path .` on a fresh clone fails — `class_name` globals come from the editor-generated `.godot/` cache.
 - Do open/merge PRs with `gh`; wait for required checks — see [`docs/pull-requests.md`](docs/pull-requests.md).
 - Don’t commit `.godot/`, export caches, or local overrides.
 - Don’t add plugins/addons without need; don’t hard-code resolutions or OS names in gameplay.

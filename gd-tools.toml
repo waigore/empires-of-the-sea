@@ -7,7 +7,9 @@ test_dirs = [
 prefix = "test_"
 suffix = ".gd"
 runtime = "native"
-timeout_seconds = 5.0
+# Per-test budget. CI runs with --parallel 4 and must finish ≤5 min overall
+# (docs/testing.md). Shared map fixtures keep world gen off the hot path.
+timeout_seconds = 30.0
 retries = 0
 tags = []
 random_order = false

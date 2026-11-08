@@ -11,13 +11,25 @@ Naval strategy game built with **Godot 4.7**, targeting desktop (Windows, macOS,
 
 ## Getting started
 
-1. Open the project in Godot (`project.godot`).
+1. Open the project in Godot (`project.godot`) — the editor imports it on open.
 2. Run the main scene (F5).
 3. Export via **Project → Export** using desktop/mobile presets.
 
+From a terminal, use `tools/run.sh` instead of a bare `godot --path .`:
+
+```bash
+tools/run.sh                    # play
+tools/run.sh --headless --quit-after 300
+```
+
+Godot resolves `class_name` globals from `.godot/global_script_class_cache.cfg`,
+which only an import pass writes. A fresh clone therefore cannot start (every
+script fails with `Identifier "Palette" not declared in the current scope`) until
+the project has been imported once; the wrapper does that import, then runs.
+
 ## Playable map demo
 
-F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique atlas. Design notes: [`docs/ui-demo.md`](docs/ui-demo.md).
+F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique atlas. Design notes: [`docs/ui-demo.md`](docs/ui-demo.md). Score and cues: [`docs/audio.md`](docs/audio.md).
 
 | Action | Desktop | Touch |
 |--------|---------|-------|
@@ -25,20 +37,25 @@ F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique a
 | Zoom | wheel, pinch, `+` / `−`, E / Q | pinch, `+` / `−` |
 | Jump | click minimap | tap / drag minimap |
 | Select | click province or fleet | tap |
+| Sail / dock | select a fleet, click a highlighted zone or friendly port | tap the same highlights |
+| Land army | select a standard, detach regiments, click a highlighted province | tap the same |
 | Focus capital | `F` | — |
+| Improvements | `ESTATES` button or province **Build Improvement** | same |
 | End turn | `Space` / `Enter` or gold seal | gold seal |
+| Sound / mute | bell seal (top-left), `M` mutes | bell seal |
 
 ## Development
 
 ```bash
 pip install gd-tools-cli
 gd-tools doctor
-gd-tools test --coverage --min 80
+gd-tools test --coverage --min 80 --parallel 4
+godot --headless --path . --script res://tools/e2e_smoke.gd
 python tools/lint_docs_words.py
 ```
 
-- Tests under `tests/` extend `GdToolsTest`.
-- CI: **80% coverage** (`tests`) and **docs ≤ 500 words** (`docs-lint`).
+- Tests under `tests/` extend `GdToolsTest`. Budgets: **≤5 min** coverage suite, **≤2 min** e2e smoke ([`docs/testing.md`](docs/testing.md)).
+- CI: **80% coverage** (`tests`), e2e smoke, and **docs ≤ 500 words** (`docs-lint`).
 - Code/tests/assets need collaborator approval when the approval gate is enforced; docs-only PRs auto-merge (squash) when checks pass.
 
 - Android export presets, device builds and release signing: [`docs/android-build.md`](docs/android-build.md).
