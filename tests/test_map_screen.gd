@@ -148,7 +148,7 @@ func _axis_settled(low: float, high: float, map_extent: float) -> bool:
 
 func test_minimap_jump_settles_on_the_requested_point() -> void:
 	var target: Vector2 = _screen.camera.map_size * 0.75
-	_screen._on_minimap_jump(target)
+	_screen.hud.minimap_jump.emit(target)
 	for _step in 20:
 		_screen.camera._process(0.2)
 	var expected: Vector2 = CameraMath.clamp_center(
@@ -334,6 +334,58 @@ func test_training_is_refused_outside_the_capital() -> void:
 	_screen._on_panel_action("train_explorer")
 	assert_eq(_screen.civilian_layer.units.size(), units_before)
 	assert_eq(_screen.treasury, treasury_before)
+
+
+func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	_screen.improvements.open()
+	assert_true(_screen.improvements.is_open())
+	assert_true(int(_screen.improvements._data["counts"]["estates"]) > 0)
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	var lumber_before: int = int(_screen.stockpile["lumber"])
+	_screen._on_improvement_action("build", tile)
+	assert_true(builder.is_working())
+	assert_eq(builder.work_tile(), tile)
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	var row: Dictionary = ImprovementLedger.estate_row(
+		_screen.model, _screen.land_works, _screen.civilian_layer.units,
+		_screen.stockpile, MapScreen.PLAYER_FACTION, tile, _screen.capital_tile
+	)
+	assert_eq(String(row["status"]), "building")
+
+	_screen._on_end_turn()
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
+	assert_true(builder.is_idle())
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before)
+
+
+func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var origin: Vector2i = builder.tile
+	_screen._on_improvement_action("build", tile)
+	assert_true(builder.is_working())
+	_screen._on_improvement_action("cancel", tile)
+	assert_true(builder.is_idle())
+	assert_eq(builder.tile, origin)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
+
+
+func _capital_estate_tile() -> Vector2i:
+	var capital: Vector2i = _screen.capital_tile
+	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+		var tile: Vector2i = capital + offset
+		if not _screen.model.is_land(tile.x, tile.y):
+			continue
+		var province: int = _screen.model.province_at(tile.x, tile.y)
+		if _screen.model.province_owner(province) != MapScreen.PLAYER_FACTION:
+			continue
+		_screen.model.resource[_screen.model.index_of(tile.x, tile.y)] = 0
+		return tile
+	return Vector2i(-1, -1)
 
 
 func _capital_point() -> Vector2:

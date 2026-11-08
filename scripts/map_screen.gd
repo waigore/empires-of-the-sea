@@ -48,6 +48,7 @@ var _charted_provinces: Dictionary = {}
 @onready var civilian_layer: CivilianLayer = $World/CivilianLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
+@onready var improvements: ImprovementPanel = $HUD/Improvements
 @onready var fade: ColorRect = $FadeLayer/Fade
 
 
@@ -108,6 +109,9 @@ func _build_hud() -> void:
 	hud.set_prestige(prestige)
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	improvements.set_data(
+		model, land_works, civilian_layer.units, stockpile, capital_tile, PLAYER_FACTION
+	)
 	income = 90 + _owned_provinces() * 6
 
 
@@ -117,7 +121,9 @@ func _connect() -> void:
 	hud.end_turn_pressed.connect(_on_end_turn)
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(_on_minimap_jump)
+	hud.minimap_jump.connect(func(world_position: Vector2) -> void:
+		camera.focus_on(world_position)
+	)
 	hud.panel_action.connect(_on_panel_action)
 	hud.panel_closed.connect(_deselect)
 	ship_layer.zone_entered.connect(_on_zone_entered)
@@ -129,6 +135,10 @@ func _connect() -> void:
 	hud.civilian_action.connect(_on_civilian_action)
 	hud.civilian_cancel.connect(_on_civilian_cancel)
 	hud.civilian_closed.connect(_deselect)
+	improvements.action_pressed.connect(_on_improvement_action)
+	improvements.focus_pressed.connect(func(tile: Vector2i) -> void:
+		_on_improvement_action("focus", tile)
+	)
 
 
 func _intro() -> void:
@@ -139,12 +149,10 @@ func _intro() -> void:
 	camera.focus_on(_capital_world(), maxf(start_zoom * 1.65, 0.75))
 	hud.toast("The Indies await — Turn 1, 1500")
 	if capital_province >= 0:
+		var crown: String = MapGenerator.FACTION_NAMES[PLAYER_FACTION]
 		hud.toast(
 			"%s holds court at %s"
-			% [
-				MapGenerator.FACTION_NAMES[PLAYER_FACTION],
-				model.province_name(capital_province),
-			]
+			% [crown, model.province_name(capital_province)]
 		)
 	var tween := create_tween()
 	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
@@ -159,21 +167,15 @@ func _build_visibility() -> void:
 
 
 func _find_capital() -> int:
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION and bool(province["capital"]):
+	var owned: Array = model.provinces.filter(func(p): return int(p["owner"]) == PLAYER_FACTION)
+	for province: Dictionary in owned:
+		if bool(province["capital"]):
 			return int(province["id"])
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			return int(province["id"])
-	return 0
+	return int(owned[0]["id"]) if not owned.is_empty() else 0
 
 
 func _owned_provinces() -> int:
-	var total: int = 0
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			total += 1
-	return total
+	return model.provinces.filter(func(p): return int(p["owner"]) == PLAYER_FACTION).size()
 
 
 # --- interaction ------------------------------------------------------------
@@ -354,6 +356,20 @@ func _train_civilian(type_id: String) -> void:
 	hud.toast("%s musters at %s" % [unit.display_name(), model.province_name(capital_province)])
 
 
+func _on_improvement_action(action: String, tile: Vector2i) -> void:
+	if action == "focus":
+		improvements.close()
+		camera.focus_on(model.tile_center(tile.x, tile.y, TILE_SIZE), 0.8)
+		return
+	var result: Dictionary = ImprovementOrders.apply(
+		model, civilian_layer.units, land_works, stockpile, visibility,
+		PLAYER_FACTION, action, tile
+	)
+	hud.toast(String(result.get("message", "")))
+	improvements.refresh()
+	civilian_layer.sync()
+
+
 # --- fleets -----------------------------------------------------------------
 
 
@@ -427,15 +443,9 @@ func _on_fleet_moved(fleet: FleetState, result: Dictionary) -> void:
 	hud.show_fleet(model, fleet, true)
 	_refresh_fleet_options(fleet)
 	var zone: int = int(result.get("entered_zone", -1))
-	if zone >= 0:
-		hud.toast("The fleet enters the %s" % model.sea_zone_name(zone))
-	else:
-		hud.toast("The fleet docks at %s" % model.province_name(fleet.province))
+	var place: String = model.sea_zone_name(zone) if zone >= 0 else model.province_name(fleet.province)
+	hud.toast(("The fleet enters the %s" if zone >= 0 else "The fleet docks at %s") % place)
 	_refresh_fleet_visibility()
-
-
-func _on_minimap_jump(world_position: Vector2) -> void:
-	camera.focus_on(world_position)
 
 
 func _on_view_changed() -> void:
@@ -460,11 +470,7 @@ func _on_zone_entered(zone_id: int, ship: Ship) -> void:
 func _announce_charted_coast(changed: Array) -> void:
 	for raw: Variant in changed:
 		var index: int = int(raw)
-		var y: int = int(floor(float(index) / float(model.width)))
-		var x: int = index - y * model.width
-		if not model.is_land(x, y):
-			continue
-		var province_id: int = model.province_at(x, y)
+		var province_id: int = model.province_at(index % model.width, index / model.width)
 		if province_id == MapModel.NO_ID or _charted_provinces.has(province_id):
 			continue
 		_charted_provinces[province_id] = true
@@ -481,7 +487,7 @@ func _on_panel_action(action: String) -> void:
 		"recruit":
 			hud.toast("A regiment is raised in %s" % name)
 		"build":
-			hud.toast("Works begin in %s" % name)
+			improvements.open(selected_province)
 		"train_explorer", "train_builder", "train_engineer":
 			_train_civilian(action.trim_prefix("train_"))
 		_:
@@ -490,6 +496,11 @@ func _on_panel_action(action: String) -> void:
 
 func _on_end_turn() -> void:
 	_resolve_civilian_work()
+	var yields: Dictionary = ImprovementSystem.collect(
+		model, land_works, PLAYER_FACTION, capital_tile, stockpile
+	)
+	if int(yields.get("producing_tiles", 0)) > 0:
+		hud.toast(ImprovementSystem.summary_line(yields))
 	_resolve_naval_combat()
 	_resolve_visibility()
 	ship_layer.begin_turn()
@@ -504,6 +515,7 @@ func _on_end_turn() -> void:
 	hud.set_prestige(prestige)
 	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
+	improvements.refresh_if_open()
 	var selected: Ship = ship_layer.selected_ship
 	if selected != null:
 		var fleet: FleetState = ship_layer.fleet_of(selected)
@@ -556,16 +568,13 @@ func _focus_capital() -> void:
 func _capital_world() -> Vector2:
 	if capital_tile.x >= 0:
 		return model.tile_center(capital_tile.x, capital_tile.y, TILE_SIZE)
-	if capital_province >= 0:
-		return model.province_center(capital_province) * TILE_SIZE
-	return Vector2.ZERO
+	if capital_province < 0:
+		return Vector2.ZERO
+	return model.province_center(capital_province) * TILE_SIZE
 
 
 func _capital_tile(province_id: int) -> Vector2i:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
-		return CapitalChoice.NO_TILE
-	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	return Vector2i(model.province_data(province_id).get("capital_tile", CapitalChoice.NO_TILE))
 
 
 ## Enemy markers follow fog intel: a fleet is only drawn while its tile is
@@ -573,30 +582,23 @@ func _capital_tile(province_id: int) -> Vector2i:
 func _refresh_fleet_visibility() -> void:
 	for ship: Ship in ship_layer.ships:
 		var fleet: FleetState = ship_layer.fleet_of(ship)
-		if fleet == null:
-			continue
-		ship.visible = _fleet_known(fleet)
+		if fleet != null:
+			ship.visible = _fleet_known(fleet)
 
 
 func _fleet_known(fleet: FleetState) -> bool:
-	if fleet.owner == PLAYER_FACTION or visibility == null:
-		return true
+	if fleet.owner == PLAYER_FACTION or visibility == null: return true
 	var tile: Vector2i = _fleet_tile(fleet)
-	if tile.x < 0:
-		return true
-	return visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
+	return tile.x < 0 or visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
 
 
 func _fleet_tile(fleet: FleetState) -> Vector2i:
 	if fleet.is_at_sea():
 		var zone: Dictionary = model.sea_zone_data(fleet.sea_zone)
 		var tiles: Array = zone.get("tiles", [])
-		if tiles.is_empty():
-			return Vector2i(-1, -1)
-		return tiles[0]
+		return tiles[0] if not tiles.is_empty() else Vector2i(-1, -1)
 	var data: Dictionary = model.province_data(fleet.province)
-	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
-	return port
+	return data.get("port_tile", Vector2i(-1, -1))
 
 
 func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:
@@ -637,8 +639,7 @@ func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:
 
 
 func _clear_hover() -> void:
-	if _hover_province == -1:
-		return
-	_hover_province = -1
-	overlay.hover_province = -1
+	if _hover_province != -1:
+		_hover_province = -1
+		overlay.hover_province = -1
 	hud.hide_tooltip()

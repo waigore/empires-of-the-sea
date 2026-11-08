@@ -4,7 +4,7 @@ Land units that explore, survey and improve the map. This milestone ships the
 three starting civilians; the tech/diplomacy-gated three are catalogued but not
 playable yet.
 
-**Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based, no per-frame sim).
+**Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based).
 
 **Wiki:** [civilian-units](https://github.com/waigore/empires-of-the-sea/wiki/civilian-units),
 [extraction-and-improvements](https://github.com/waigore/empires-of-the-sea/wiki/extraction-and-improvements),
@@ -12,53 +12,45 @@ playable yet.
 
 ## Implemented
 
-- **Roster** (`CivilianCatalog`): all six wiki types with training costs
-  (1,000 cash + 2 paper; 2,000 + 4 for Spy/Merchant/Rail Builder).
+- **Roster** (`CivilianCatalog`): all six wiki types with training costs.
 - **Playable:** Explorer (explore, prospect), Builder (build improvement),
-  Engineer (build road, build port). Three mustered at the capital.
-- **Training** in the capital province spends treasury + paper; only the
-  starting three are available.
-- **Movement:** one orthogonal land tile per turn. Explorers cross any land;
-  Builders/Engineers stay inside their crown's provinces.
-- **Work orders** target the unit's own tile, cost materials at assignment
-  (not refunded on cancel) and resolve during the Build/Work pass at end of
-  turn: explore `ceil(3 × province tiles / largest province)` (≤3 turns),
-  prospect 1 turn (iron/coal/gold, per player), improvement level 1–4
-  (1/1, 4/4, 8/8, 16/16 lumber+cast iron, level turns), road 1/1 (transport 1),
-  port 5 lumber + 5 cast iron (2 turns, one per province).
-- **Presence:** a civilian keeps its province fully visible for its owner, so
-  charted land does not re-fog under an Explorer.
-- **One crew per tile:** a second Builder/Engineer work order on the same tile
-  for the same crown is refused.
-- Panel shows posting, tile works, stores, each order's cost and every refusal
-  reason in text (no hover-only UX).
+  Engineer (road, port). Three muster at the capital.
+- **Training** at the capital spends treasury + paper; starting three only.
+- **Movement:** one orthogonal land tile per turn; Builders/Engineers stay in
+  their crown's provinces.
+- **Work orders** target the unit's tile or, for a Builder, any owned resource
+  tile: the unit records `origin_tile` / `assigned_tile`, relocates and returns
+  on cancel. Costs are paid at assignment and not refunded. Explore ≤3 turns,
+  prospect 1, improvement 1–4 at level turns (1/4/8/16 lumber + cast iron),
+  road 1, port 5 + 5 (2 turns). Mines need prospecting first.
+- **Improvements** are named from the resource (Farm, Lumber camp, Mine,
+  Pasture, Ranch), yield one commodity per level and credit the stockpile at
+  end of turn when connected by road/port/town.
+- **Estates ledger** (`ESTATES`): realm-wide yield, blockers, filters and
+  Build / Cancel / Map. See [`improvements.md`](improvements.md).
+- **Presence** keeps a province visible; one crew per tile per crown.
+- Panel states costs and every refusal reason in text.
 
 ## Deferred (REQ-P2-02)
 
-- **Spy** — needs court reports, counter-spy and rival research intel.
-- **Merchant** — `purchase_land` needs Minor Nations, embassies, at-war checks.
-- **Rail Builder** — needs the transport tech tree and steel production.
-- `upgrade_town`, `build_fort` — no town tiles or siege model yet.
-- Road level 2 (`Road Construction`), relocation with the work order
-  (`originTileKey`/`assignedTileKey`) and rival-owned civilian AI.
+- **Spy** — court reports, counter-spy, rival research intel.
+- **Merchant** — `purchase_land` needs Minor Nations and embassies.
+- **Rail Builder** — transport tech tree and steel production.
+- `upgrade_town`, `build_fort`, road level 2, rival civilian AI.
+- Improvement transport caps, raw → manufactured production, riches conversion.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/civilian_catalog.gd` | roster, training costs, deferred flags |
-| `scripts/rules/civilian_state.gd` | one unit: tile, move flag, work order |
-| `scripts/rules/civilian_movement.gd` | adjacency, travel gates, presence |
-| `scripts/rules/civilian_work.gd` | validation, costs, duration, completion |
-| `scripts/rules/land_works.gd` | per-tile improvements, roads, ports, prospection |
-| `scripts/rules/visibility.gd` | `reveal_province`, explorer-held provinces |
+| `scripts/rules/civilian_*.gd` | roster, state, movement, work validation |
+| `scripts/rules/land_works.gd`, `improvement_*.gd` | tile works, connectivity, extraction, ledger |
 | `scripts/map/civilian_layer.gd` | markers, orders, development drawing |
-| `scripts/map/civilian_marker.gd` | medallion glyphs and progress ring |
-| `scripts/ui/civilian_panel.gd` | dossier, costs, refusal reasons |
+| `scripts/ui/civilian_panel.gd`, `improvement_panel.gd` | dossier and estates ledger |
 | `scripts/map_screen.gd` | intents, training, end-of-turn wiring |
 
-No node deps in rules (`REQ-P3-03`). Orders: panel → `CivilianWork.assign`;
-movement: `CivilianLayer` → `CivilianMovement.apply_move`.
+No node deps in rules (`REQ-P3-03`). Panel → `CivilianWork.assign`; movement →
+`CivilianMovement.apply_move`; estates → `ImprovementOrders`.
 
 ## Controls
 
@@ -67,12 +59,13 @@ movement: `CivilianLayer` → `CivilianMovement.apply_move`.
 | Select | click medallion | tap medallion |
 | March | click glowing neighbour tile | tap glowing neighbour tile |
 | Work order | dossier button | dossier button |
-| Cancel / close | dossier | dossier |
+| Estates ledger | `ESTATES` / province **Build Improvement** | same |
+| Cancel / close | dossier / ledger Close | dossier / ledger Close |
 
 ## Tests
 
 `test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_map_screen` (muster, dossier, work completion, training).
+`test_improvement_system`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
