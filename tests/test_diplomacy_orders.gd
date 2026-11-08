@@ -10,6 +10,7 @@ func before_each() -> void:
 	state = DiplomacyState.new()
 	state.initialize(1)
 	economy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"diplomatic_expertise": true, "empire_building": true}
 
 
 func test_declare_war_sets_war_and_keeps_gp_auto_embassy() -> void:
@@ -120,6 +121,38 @@ func test_overture_chain_pays_once_per_stage_and_turn() -> void:
 	assert_true(third["ok"], third.get("reason", ""))
 	assert_eq(economy.treasury, 1000)
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_NAP)
+
+
+func test_embassy_to_a_minor_requires_diplomatic_expertise() -> void:
+	economy.tech_unlocked = {}
+	var consulate: Dictionary = _apply("overture", 6, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_true(consulate["ok"], consulate.get("reason", ""))
+	state.end_turn()
+	var refused: Dictionary = _apply("overture", 6, DiplomacyCatalog.STAGE_EMBASSY)
+	assert_false(refused["ok"])
+	assert_true(String(refused["reason"]).contains("Diplomatic Expertise"))
+	economy.tech_unlocked = {"diplomatic_expertise": true}
+	var accepted: Dictionary = _apply("overture", 6, DiplomacyCatalog.STAGE_EMBASSY)
+	assert_true(accepted["ok"], accepted.get("reason", ""))
+
+
+func test_gp_join_empire_requires_empire_building() -> void:
+	var world: WorldMap = _world([0, 2, 2, 2])
+	state.relation(0, 2).score = 60.0
+	state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	economy.treasury = 30000
+	economy.tech_unlocked = {"diplomatic_expertise": true}
+	var refused: Dictionary = _apply(
+		"overture", 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, world
+	)
+	assert_false(refused["ok"])
+	assert_true(String(refused["reason"]).contains("Empire Building"))
+	economy.tech_unlocked = {"diplomatic_expertise": true, "empire_building": true}
+	var accepted: Dictionary = _apply(
+		"overture", 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, world
+	)
+	assert_true(accepted["ok"], accepted.get("reason", ""))
 
 
 func test_second_overture_to_a_different_target_is_still_legal() -> void:
@@ -252,7 +285,7 @@ func _apply(
 		order["stage"] = arg
 	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
 		order["amount"] = amount
-	return DiplomacyOrders.apply(state, world, economy, order)
+	return DiplomacyOrders.apply(state, world, economy, order, economy.tech_unlocked)
 
 
 func _first(options: Array[Dictionary], kind: String) -> Dictionary:

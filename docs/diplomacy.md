@@ -9,10 +9,10 @@ panel), P4 (turn-based, no per-frame work).
 
 ## Implemented
 
-- **Relations** (`DiplomacyState`): one decimal score per faction pair in
-  `[0, 100]`, state `AT_PEACE`/`AT_WAR`, `sinceTurn`, `lastInteractionTurn`.
-  Same-region pairs seed at score 50: Old World GP/GP, GP/Minor and Minor/Minor;
-  New World Tribe/Tribe. Cross-region pairs stay absent until first contact.
+- **Relations** (`DiplomacyState`): one score per faction pair in `[0, 100]`,
+  state `AT_PEACE`/`AT_WAR`, `sinceTurn`, `lastInteractionTurn`. Same-region
+  pairs seed at 50: Old World GP/GP, GP/Minor and Minor/Minor; New World
+  Tribe/Tribe. Cross-region pairs wait for first contact.
 - **Auto-embassy:** every GP pair starts at Embassy in both directions and it
   survives war and peace.
 - **Relation bands:** Hostile 0–25, Neutral 26–50, Friendly 51–75, Allied
@@ -27,12 +27,12 @@ panel), P4 (turn-based, no per-frame work).
   former ally and −10 with every other GP. Alliance and war never coexist.
 - **Overture chain:** Trade Consulate £500 → Embassy £1,000 → NAP free → Join
   Empire £5,000 + £2,000 per target province. One overture per target per turn;
-  each stage unlocks the next.
+  Minor/Tribe embassies need Diplomatic Expertise.
 - **Join Empire:** a Minor is absorbed (provinces transfer, faction removed);
   a Tribe becomes a colony without losing provinces; a GP must be nearly
-  defeated (≤3 provinces and no capital) and is absorbed.
+  defeated (≤3 provinces and no capital) and needs Empire Building.
 - **Grant Aid:** £1,000 multiples, needs an embassy, spends the treasury and
-  gives a fixed +5 relation (not scaled by amount).
+  gives a fixed +5 relation.
 - **Set Subsidy:** 5–20% in steps of 5, Minor/Tribe only, embassy required, no
   treasury charge. A subsidy dies on war, loss of embassy, or manual cancel.
 - **First contact:** a Tribe enters the court only when a non-unknown tile is
@@ -44,20 +44,21 @@ panel), P4 (turn-based, no per-frame work).
   planner; AI acceptance thresholds are interim (no AI order flow yet).
 - Market-side subsidy pricing, trade-deal relation boosts, FTP and boycotts
   (the market has no faction counterparty yet).
-- Tech gates (`diplomatic_expertise`, `empire_building`) until research ships.
 - Spy, Merchant `purchase_land`, colony profit share and near-defeat land war.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/diplomacy_catalog.gd` | costs, bands, ladder, order text |
+| `scripts/rules/diplomacy_catalog.gd` | costs, bands, ladder, tech gates |
 | `scripts/rules/diplomacy_relation.gd` | one pair record |
-| `scripts/rules/diplomacy_state.gd` | relations, overtures, subsidies, colonies, events |
-| `scripts/rules/diplomacy_rules.gd` | war, peace, alliance, overture, aid transitions |
-| `scripts/rules/diplomacy_orders.gd` | validation + panel order catalogue |
+| `scripts/rules/diplomacy_state.gd` | relations, overtures, subsidies, events |
+| `scripts/rules/diplomacy_rules.gd` | war, peace, alliance, overture |
+| `scripts/rules/diplomacy_aid.gd` | grant aid and subsidies |
+| `scripts/rules/diplomacy_orders.gd` | validation + order catalogue |
 | `scripts/ui/diplomacy_panel.gd` | the court ledger |
-| `scripts/map/map_play_diplomacy.gd` | screen intents, first contact, phase |
+| `scripts/ui/diplomacy_hud.gd` | court shell assembly |
+| `scripts/map/map_play_diplomacy.gd` | intents, first contact, phase |
 
 No node deps in rules (`REQ-P3-03`). Panel → `DiplomacyOrders.apply`; phase →
 `DiplomacyState.end_turn`.

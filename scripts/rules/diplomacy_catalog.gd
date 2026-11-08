@@ -160,6 +160,25 @@ static func is_valid_subsidy(percent: int) -> bool:
 	)
 
 
+## Tech gate for an overture, or "" when the stage is allowed. GP→GP embassies
+## are exempt; Empire Building gates absorbing a Great Power only
+## (wiki: tech-tree-diplomacy-civilian).
+static func tech_gate(stage: String, target_type: int, tech: Dictionary) -> String:
+	if (
+		stage == STAGE_EMBASSY
+		and target_type != FactionCatalog.Type.GREAT_POWER
+		and not tech.has("diplomatic_expertise")
+	):
+		return "Diplomatic Expertise is required for an embassy."
+	if (
+		stage == STAGE_JOIN_EMPIRE
+		and target_type == FactionCatalog.Type.GREAT_POWER
+		and not tech.has("empire_building")
+	):
+		return "Empire Building is required to absorb a Great Power."
+	return ""
+
+
 static func state_label(at_war: bool) -> String:
 	return "At War" if at_war else "At Peace"
 

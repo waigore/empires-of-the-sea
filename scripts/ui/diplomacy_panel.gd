@@ -11,6 +11,7 @@ var _state: DiplomacyState = null
 var _world: WorldMap = null
 var _player: int = FactionCatalog.PLAYER_FACTION
 var _treasury: int = 0
+var _tech: Dictionary = {}
 var _selected: int = -1
 var _list: VBoxContainer = null
 var _detail: VBoxContainer = null
@@ -94,11 +95,18 @@ func _footer() -> Control:
 	return footer
 
 
-func refresh(state: DiplomacyState, world: WorldMap, player: int, treasury: int) -> void:
+func refresh(
+	state: DiplomacyState,
+	world: WorldMap,
+	player: int,
+	treasury: int,
+	tech: Dictionary = {}
+) -> void:
 	_state = state
 	_world = world
 	_player = player
 	_treasury = treasury
+	_tech = tech
 	if _list == null or _detail == null:
 		return
 	var ids: Array[int] = _known_ids()
@@ -120,7 +128,7 @@ func select_faction(faction_id: int) -> void:
 	if _state == null or not _state.has_relation(_player, faction_id):
 		return
 	_selected = faction_id
-	refresh(_state, _world, _player, _treasury)
+	refresh(_state, _world, _player, _treasury, _tech)
 
 
 func _known_ids() -> Array[int]:
@@ -193,7 +201,7 @@ func _fill_detail() -> void:
 		)
 	_detail.add_child(_caption("COURT ORDERS"))
 	for option: Dictionary in DiplomacyOrders.options(
-		_state, _world, _treasury, _player, _selected
+		_state, _world, _treasury, _player, _selected, _tech
 	):
 		_add_option(option)
 

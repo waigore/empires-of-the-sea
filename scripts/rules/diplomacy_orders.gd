@@ -15,7 +15,12 @@ const KIND_CANCEL_SUBSIDY: String = "cancel_subsidy"
 
 
 static func options(
-	state: DiplomacyState, world: WorldMap, treasury: int, player: int, target: int
+	state: DiplomacyState,
+	world: WorldMap,
+	treasury: int,
+	player: int,
+	target: int,
+	tech: Dictionary = {}
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var record: DiplomacyRelation = state.relation(player, target)
@@ -47,7 +52,7 @@ static func options(
 			_valued(
 				"Offer %s" % DiplomacyCatalog.stage_label(next),
 				DiplomacyRules.can_establish_overture(
-					state, world, player, target, next, treasury
+					state, world, player, target, next, treasury, tech
 				),
 				KIND_OVERTURE,
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
@@ -57,7 +62,7 @@ static func options(
 	if not record.at_war:
 		result.append(
 			_valued(
-				"Grant Aid", DiplomacyRules.can_grant_aid(
+				"Grant Aid", DiplomacyAid.can_grant_aid(
 					state, player, target, DiplomacyCatalog.GRANT_AID_STEP, treasury
 				),
 				KIND_AID,
@@ -78,7 +83,7 @@ static func options(
 					result.append(
 						_valued(
 							"Set Subsidy · %d%%" % percent,
-							DiplomacyRules.can_set_subsidy(state, player, target, percent),
+							DiplomacyAid.can_set_subsidy(state, player, target, percent),
 							KIND_SUBSIDY,
 							"",
 							str(percent)
@@ -88,7 +93,7 @@ static func options(
 				result.append(
 					_valued(
 						"Set Subsidy · 5%",
-						DiplomacyRules.can_set_subsidy(state, player, target, 5),
+						DiplomacyAid.can_set_subsidy(state, player, target, 5),
 						KIND_SUBSIDY,
 						"",
 						"5"
@@ -102,7 +107,8 @@ static func validate(
 	world: WorldMap,
 	treasury: int,
 	player: int,
-	order: Dictionary
+	order: Dictionary,
+	tech: Dictionary = {}
 ) -> Dictionary:
 	var target: int = int(order.get("target", -1))
 	match String(order.get("kind", "")):
@@ -117,14 +123,14 @@ static func validate(
 			return _can_break(record) if record != null else _deny("No envoy has reached that court.")
 		KIND_OVERTURE:
 			return DiplomacyRules.can_establish_overture(
-				state, world, player, target, String(order.get("stage", "")), treasury
+				state, world, player, target, String(order.get("stage", "")), treasury, tech
 			)
 		KIND_AID:
-			return DiplomacyRules.can_grant_aid(
+			return DiplomacyAid.can_grant_aid(
 				state, player, target, int(order.get("amount", 0)), treasury
 			)
 		KIND_SUBSIDY:
-			return DiplomacyRules.can_set_subsidy(
+			return DiplomacyAid.can_set_subsidy(
 				state, player, target, int(order.get("amount", 0))
 			)
 		KIND_CANCEL_SUBSIDY:
@@ -137,12 +143,13 @@ static func apply(
 	state: DiplomacyState,
 	world: WorldMap,
 	economy: PlayerEconomy,
-	order: Dictionary
+	order: Dictionary,
+	tech: Dictionary = {}
 ) -> Dictionary:
 	var player: int = int(order.get("from", FactionCatalog.PLAYER_FACTION))
 	var target: int = int(order.get("target", -1))
 	var treasury: int = economy.treasury if economy != null else 0
-	var check: Dictionary = validate(state, world, treasury, player, order)
+	var check: Dictionary = validate(state, world, treasury, player, order, tech)
 	if not bool(check.get("ok", false)):
 		return check
 	var kind: String = String(order.get("kind", ""))
@@ -157,14 +164,14 @@ static func apply(
 			return DiplomacyRules.break_alliance(state, player, target)
 		KIND_OVERTURE:
 			return DiplomacyRules.establish_overture(
-				state, economy, world, player, target, String(order.get("stage", ""))
+				state, economy, world, player, target, String(order.get("stage", "")), tech
 			)
 		KIND_AID:
-			return DiplomacyRules.grant_aid(
+			return DiplomacyAid.grant_aid(
 				state, economy, player, target, int(order.get("amount", 0))
 			)
 		KIND_SUBSIDY:
-			return DiplomacyRules.set_subsidy(
+			return DiplomacyAid.set_subsidy(
 				state, player, target, int(order.get("amount", 0))
 			)
 		KIND_CANCEL_SUBSIDY:

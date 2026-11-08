@@ -12,7 +12,7 @@ static func open(play: PlaySession) -> void:
 		play.diplomacy.initialize(play.turn)
 	sync_first_contact(play)
 	play.hud.panels.show_diplomacy(
-		play.diplomacy, play.world, PLAYER_FACTION, play.treasury()
+		play.diplomacy, play.world, PLAYER_FACTION, play.treasury(), _tech(play)
 	)
 
 
@@ -20,7 +20,7 @@ static func refresh(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		return
 	play.hud.panels.refresh_diplomacy(
-		play.diplomacy, play.world, PLAYER_FACTION, play.treasury()
+		play.diplomacy, play.world, PLAYER_FACTION, play.treasury(), _tech(play)
 	)
 
 
@@ -33,7 +33,9 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
 		order["amount"] = arg.to_int()
 	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
-	var result: Dictionary = DiplomacyOrders.apply(play.diplomacy, play.world, economy, order)
+	var result: Dictionary = DiplomacyOrders.apply(
+		play.diplomacy, play.world, economy, order, _tech(play)
+	)
 	var message: String = String(result.get("message", ""))
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The court refuses.")))
@@ -93,3 +95,11 @@ static func _sees_tribe(play: PlaySession, tribe: int) -> bool:
 
 static func _rebuild_map(play: PlaySession) -> void:
 	play.refresh_map_views()
+
+
+## Researched techs gate embassy and GP Join Empire orders
+## (wiki: tech-tree-diplomacy-civilian).
+static func _tech(play: PlaySession) -> Dictionary:
+	if play.economy == null or play.economy.economy == null:
+		return {}
+	return play.economy.economy.tech_unlocked

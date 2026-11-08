@@ -83,6 +83,24 @@ func stockpile() -> Dictionary:
 	return economy.economy.stockpile
 
 
+## Extraction caps this crown's researched techs allow, per commodity
+## (wiki: tech-and-extraction-cap). Empty before the economy exists.
+func tech_caps() -> Dictionary:
+	if economy == null or economy.economy == null:
+		return {}
+	return TechCatalog.extraction_caps(economy.economy.tech_unlocked)
+
+
+## Recomputes which resources the crown has seen, so discovery techs unlock
+## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
+func refresh_research() -> void:
+	if economy == null or economy.economy == null:
+		return
+	economy.economy.research.set_revealed(
+		TechDiscovery.revealed(world, visibility_by_region, land_works, PLAYER_FACTION)
+	)
+
+
 func viewport() -> Viewport:
 	if host == null:
 		return null

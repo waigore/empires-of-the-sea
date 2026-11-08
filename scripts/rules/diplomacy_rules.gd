@@ -140,86 +140,6 @@ static func has_embassy(state: DiplomacyState, a: int, b: int) -> bool:
 	return _tier(state.overture(a, b)) >= 2 or _tier(state.overture(b, a)) >= 2
 
 
-static func can_grant_aid(
-	state: DiplomacyState,
-	player: int,
-	target: int,
-	amount: int,
-	treasury: int
-) -> Dictionary:
-	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
-	if state.relation(player, target).at_war:
-		return _deny("Aid cannot be sent to an enemy.")
-	if not has_embassy(state, player, target):
-		return _deny("An embassy is required before aid can be sent.")
-	if not DiplomacyCatalog.is_valid_aid(amount):
-		return _deny("Aid must be a multiple of £1,000.")
-	if treasury < amount:
-		return _deny("The treasury cannot cover that aid.")
-	return _allow()
-
-
-static func grant_aid(
-	state: DiplomacyState,
-	economy: PlayerEconomy,
-	player: int,
-	target: int,
-	amount: int
-) -> Dictionary:
-	var treasury: int = economy.treasury if economy != null else 0
-	var check: Dictionary = can_grant_aid(state, player, target, amount, treasury)
-	if not bool(check["ok"]):
-		return check
-	if not economy.spend_treasury(amount):
-		return _deny("The treasury cannot cover that aid.")
-	state.apply_delta(
-		player, target, DiplomacyCatalog.GRANT_AID_RELATION, "grantAid", {"amount": amount}
-	)
-	return {
-		"ok": true,
-		"reason": "",
-		"message": "%s sends %s in aid to %s." % [
-			FactionCatalog.name_of(player),
-			DiplomacyCatalog.money(amount),
-			FactionCatalog.name_of(target),
-		],
-	}
-
-
-static func can_set_subsidy(
-	state: DiplomacyState, player: int, target: int, percent: int
-) -> Dictionary:
-	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
-	var type: int = FactionCatalog.type_of(target)
-	if type != FactionCatalog.Type.MINOR_NATION and type != FactionCatalog.Type.TRIBE:
-		return _deny("Subsidies are only offered to Minor Nations and Tribes.")
-	if state.relation(player, target).at_war:
-		return _deny("No subsidy can be paid to an enemy.")
-	if not has_embassy(state, player, target):
-		return _deny("An embassy is required before a subsidy can be set.")
-	if not DiplomacyCatalog.is_valid_subsidy(percent):
-		return _deny("A subsidy must be 5–20% in steps of 5.")
-	return _allow()
-
-
-static func set_subsidy(
-	state: DiplomacyState, player: int, target: int, percent: int
-) -> Dictionary:
-	var check: Dictionary = can_set_subsidy(state, player, target, percent)
-	if not bool(check["ok"]):
-		return check
-	state.set_subsidy(player, target, percent)
-	return {
-		"ok": true,
-		"reason": "",
-		"message": "A %d%% subsidy is offered to %s." % [
-			percent, FactionCatalog.name_of(target)
-		],
-	}
-
-
 static func provinces_owned(world: WorldMap, faction: int) -> int:
 	if world == null:
 		return 0
@@ -245,7 +165,8 @@ static func can_establish_overture(
 	player: int,
 	target: int,
 	stage: String,
-	treasury: int
+	treasury: int,
+	tech: Dictionary = {}
 ) -> Dictionary:
 	if player == target:
 		return _deny("A crown cannot treat with itself.")
@@ -255,6 +176,10 @@ static func can_establish_overture(
 		return _deny("No overture can be made while at war.")
 	if not DiplomacyCatalog.knows_stage(stage) or stage == DiplomacyCatalog.STAGE_NONE:
 		return _deny("Unknown overture.")
+	var target_type: int = FactionCatalog.type_of(target)
+	var gate: String = DiplomacyCatalog.tech_gate(stage, target_type, tech)
+	if not gate.is_empty():
+		return _deny(gate)
 	var current: String = state.overture(player, target)
 	if stage != DiplomacyCatalog.next_stage(current):
 		return _deny(
@@ -270,10 +195,7 @@ static func can_establish_overture(
 			return _deny("Join Empire requires Friendly or Allied standing.")
 		if provinces < 1:
 			return _deny("That faction holds no provinces to join.")
-		if (
-			FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
-			and not nearly_defeated(world, target)
-		):
+		if target_type == FactionCatalog.Type.GREAT_POWER and not nearly_defeated(world, target):
 			return _deny("Only a nearly defeated Great Power may be absorbed.")
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
 	if treasury < cost:
@@ -287,11 +209,12 @@ static func establish_overture(
 	world: WorldMap,
 	player: int,
 	target: int,
-	stage: String
+	stage: String,
+	tech: Dictionary = {}
 ) -> Dictionary:
 	var treasury: int = economy.treasury if economy != null else 0
 	var check: Dictionary = can_establish_overture(
-		state, world, player, target, stage, treasury
+		state, world, player, target, stage, treasury, tech
 	)
 	if not bool(check["ok"]):
 		return check
