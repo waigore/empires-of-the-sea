@@ -1,0 +1,1 @@
+# path<TAB>max_lines<TAB>max_methods — ratchet; ≤5 entries; shrink or remove only (never raise). Soft max 400/25.

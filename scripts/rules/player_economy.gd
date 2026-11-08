@@ -1,0 +1,253 @@
+class_name PlayerEconomy
+extends RefCounted
+## One Great Power's economy: central stockpile, treasury, worker pool and the
+## production assignment for the next turn (wiki: stockpiles-and-production).
+## Storage is unbounded by design, so quantities are plain non-negative integers.
+
+## Starting conditions (ruleset-config § Starting stockpiles; treasury is the
+## slice's starting purse). Grain is seeded from peasants x turns of food. The
+## manufactured lines also fund the opening civilian work orders (improvements,
+## roads, training), which used to be a separate demo stockpile.
+const START_TREASURY: int = 2500
+const START_PEASANTS: int = 6
+const START_GRAIN_TURNS: int = 20
+## Materials the opening civilian work orders (improvements, roads, training)
+## draw on; these were a separate demo stockpile before the economy landed.
+const START_WORKS_LUMBER: int = 40
+const START_WORKS_CAST_IRON: int = 40
+## Cloth for the opening muster and worker training; regiments need fabric.
+const START_WORKS_FABRIC: int = 12
+const START_CIVILIAN_WORKS: Dictionary = {
+	"bronze": 12,
+	"steel": 8,
+	"paper": 8,
+}
+
+var treasury: int = 0
+var stockpile: Dictionary = {}
+var workers: WorkerPool = WorkerPool.new()
+## Slots, funding and progress for the Research phase (wiki: research-state).
+var research: ResearchState = ResearchState.new()
+## Researched techs; the research state owns the table so there is one truth.
+var tech_unlocked: Dictionary:
+	get:
+		return research.unlocked
+	set(value):
+		research.unlocked = value
+var _assignments: Array[Dictionary] = []
+
+
+static func starting() -> PlayerEconomy:
+	var econ := PlayerEconomy.new()
+	econ.treasury = START_TREASURY
+	econ.workers = WorkerPool.make(START_PEASANTS)
+	econ.research = ResearchState.make()
+	econ.stockpile = {
+		"grain": START_PEASANTS * START_GRAIN_TURNS,
+		"lumber": START_WORKS_LUMBER,
+		"castIron": START_WORKS_CAST_IRON,
+		"fabric": START_WORKS_FABRIC,
+		"wool": 4,
+		"paper": int(START_CIVILIAN_WORKS["paper"]),
+		"bronze": int(START_CIVILIAN_WORKS["bronze"]),
+		"steel": int(START_CIVILIAN_WORKS["steel"]),
+	}
+	return econ
+
+
+func quantity(id: String) -> int:
+	return int(stockpile.get(id, 0))
+
+
+func add(id: String, amount: int) -> int:
+	if amount > 0:
+		stockpile[id] = quantity(id) + amount
+	return quantity(id)
+
+
+## Removes up to amount; false when the stockpile could not cover all of it.
+func take(id: String, amount: int) -> bool:
+	if amount <= 0:
+		return true
+	var have: int = quantity(id)
+	if have < amount:
+		return false
+	stockpile[id] = have - amount
+	return true
+
+
+func total_units() -> int:
+	var total: int = 0
+	for value: Variant in stockpile.values():
+		total += int(value)
+	return total
+
+
+func add_treasury(amount: int) -> void:
+	treasury += amount
+
+
+func spend_treasury(amount: int) -> bool:
+	if amount < 0 or treasury < amount:
+		return false
+	treasury -= amount
+	return true
+
+
+# --- production assignment ---------------------------------------------------
+
+
+func assignment_units(recipe_id: String) -> int:
+	for entry: Dictionary in _assignments:
+		if String(entry.get("recipe", "")) == recipe_id:
+			return int(entry.get("units", 0))
+	return 0
+
+
+## Desired output units for the next Production phase; 0 or less clears the row.
+func set_assignment(recipe_id: String, units: int) -> void:
+	if not ProductionRecipes.known(recipe_id):
+		return
+	for index in _assignments.size():
+		if String(_assignments[index].get("recipe", "")) == recipe_id:
+			if units <= 0:
+				_assignments.remove_at(index)
+			else:
+				_assignments[index] = {"recipe": recipe_id, "units": units}
+			return
+	if units > 0:
+		_assignments.append({"recipe": recipe_id, "units": units})
+
+
+func assignments() -> Array[Dictionary]:
+	return _assignments.duplicate(true)
+
+
+func clear_assignments() -> void:
+	_assignments.clear()
+
+
+func assigned_labour() -> int:
+	var total: int = 0
+	for entry: Dictionary in _assignments:
+		var recipe_id: String = String(entry.get("recipe", ""))
+		total += int(entry.get("units", 0)) * ProductionRecipes.labour(recipe_id)
+	return total
+
+
+# --- workers -----------------------------------------------------------------
+
+
+## Peasants not yet committed to a trained-tier conversion this phase.
+func available_peasants() -> int:
+	return workers.count(WorkerPool.Tier.PEASANT)
+
+
+## Empty string when the recruit/train row is payable; otherwise the wiki reason.
+func recruit_blocked_reason(tier: int) -> String:
+	if tier < 0 or tier >= WorkerPool.TIER_COUNT:
+		return "Unknown worker tier"
+	if not WorkerPool.techs_unlocked(tier, tech_unlocked):
+		return "Required technology not unlocked"
+	if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] and available_peasants() < 1:
+		return "Insufficient workers"
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	if treasury < int(cost.get("treasury", 0)):
+		return "Insufficient treasury"
+	var materials: Dictionary = cost.get("materials", {})
+	for commodity: Variant in materials.keys():
+		if quantity(String(commodity)) < int(materials[commodity]):
+			return "Insufficient materials"
+	return ""
+
+
+## Recruit or train one worker of the target tier (wiki: workers-and-population).
+func recruit(tier: int) -> Dictionary:
+	var reason: String = recruit_blocked_reason(tier)
+	if not reason.is_empty():
+		return {"ok": false, "reason": reason}
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	treasury -= int(cost.get("treasury", 0))
+	var materials: Dictionary = cost.get("materials", {})
+	for commodity: Variant in materials.keys():
+		stockpile[String(commodity)] = quantity(String(commodity)) - int(materials[commodity])
+	if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier]:
+		workers.remove(WorkerPool.Tier.PEASANT)
+	workers.add(tier, 1)
+	return {"ok": true, "reason": ""}
+
+
+## Demotion to peasant is immediate, pays no refund and skips no tiers.
+func disband(tier: int) -> bool:
+	if tier <= WorkerPool.Tier.PEASANT or tier >= WorkerPool.TIER_COUNT:
+		return false
+	if not workers.remove(tier):
+		return false
+	workers.add(WorkerPool.Tier.PEASANT, 1)
+	return true
+
+
+func copy() -> PlayerEconomy:
+	var clone := PlayerEconomy.new()
+	clone.treasury = treasury
+	clone.stockpile = stockpile.duplicate()
+	clone.workers = workers.copy()
+	clone.research = research.copy()
+	clone._assignments = _assignments.duplicate(true)
+	return clone
+
+
+## Plain data for local saves: ledger, labour pool, research and assignments.
+func snapshot() -> Dictionary:
+	return {
+		"treasury": treasury,
+		"stockpile": stockpile.duplicate(),
+		"workers": workers.counts.duplicate(),
+		"research": {
+			"unlocked": research.unlocked.duplicate(),
+			"progress": research.progress.duplicate(),
+			"slots": research.slots.duplicate(true),
+			"revealed": research.revealed.duplicate(),
+		},
+		"assignments": _assignments.duplicate(true),
+	}
+
+
+## Replaces every field from a snapshot; safe on a freshly started economy.
+func apply_snapshot(data: Dictionary) -> void:
+	treasury = int(data.get("treasury", treasury))
+	stockpile.clear()
+	var saved_stock: Dictionary = data.get("stockpile", {})
+	for key: Variant in saved_stock.keys():
+		stockpile[String(key)] = int(saved_stock[key])
+	var counts: Array = data.get("workers", [])
+	for tier in WorkerPool.TIER_COUNT:
+		workers.set_count(tier, int(counts[tier]) if tier < counts.size() else 0)
+	var research_data: Variant = data.get("research", {})
+	if typeof(research_data) == TYPE_DICTIONARY:
+		_apply_research(research_data)
+	_assignments.clear()
+	for raw: Variant in data.get("assignments", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		var recipe_id: String = String(entry.get("recipe", ""))
+		var units: int = int(entry.get("units", 0))
+		if not recipe_id.is_empty() and units > 0:
+			_assignments.append({"recipe": recipe_id, "units": units})
+
+
+func _apply_research(data: Dictionary) -> void:
+	research = ResearchState.new()
+	research.unlocked = data.get("unlocked", {}).duplicate()
+	research.progress = data.get("progress", {}).duplicate()
+	research.revealed = data.get("revealed", {}).duplicate()
+	for raw: Variant in data.get("slots", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		research.slots.append({
+			"tech": String(entry.get("tech", ResearchState.EMPTY_TECH)),
+			"funding": String(entry.get("funding", ResearchFunding.DEFAULT)),
+		})
+	research.ensure_slots()

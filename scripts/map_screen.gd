@@ -2,58 +2,225 @@ class_name MapScreen
 extends Node2D
 ## Map screen controller: builds the world, wires camera + HUD, and turns input
 ## into intents. Presentation only — no rule outcomes are decided here.
+## Play steps live on MapPlay* against PlaySession (REQ-P3-02).
+## Presentation moments are broadcast as signals; audio/motion listen.
 
-const TILE_SIZE: float = 22.0
+signal province_selected(province_id: int)
+signal selection_cleared
+signal coast_charted(province_id: int)
+signal battle_resolved(battles: Array[Dictionary])
+signal turn_ended(turn: int)
+## The rules decided the campaign; audio/motion may mark the moment.
+signal victory_declared(victory: VictoryState)
+## In-game menu intents; the app router owns screen replacement.
+signal load_slot_requested(slot: int)
+signal main_menu_requested
+
+const TILE_SIZE: float = PlaySession.TILE_SIZE
 const MAP_SEED: int = 1500
-const PLAYER_FACTION: int = 0
+## Kept for callers/tests that assume the default human slot; the live value is
+## play.player_faction.
+const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 const SHIP_COUNT: int = 7
+const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
-var model: MapModel = null
-var turn: int = 1
-var treasury: int = 1240
-var prestige: int = 38
-var income: int = 120
-var selected_province: int = -1
-var capital_province: int = -1
-
-var _hover_province: int = -1
+var play: PlaySession = null
+var map_seed: int = MAP_SEED
+var map_width: int = 128
+var map_height: int = 84
+## Human Great Power chosen in game setup (Spain by default).
+var player_faction: int = FactionCatalog.PLAYER_FACTION
+## When set (load), skip generation and restore this save instead.
+var pending_save: Dictionary = {}
+## Overridable for tests so saves do not touch the player's slots.
+var save_dir: String = SaveStore.DIR
+## When set (tests), skip generation and load this world in `_ready`.
+var preset_world: WorldMap = null
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
 @onready var overlay: MapOverlay = $World/MapOverlay
 @onready var ship_layer: ShipLayer = $World/ShipLayer
+@onready var civilian_layer: CivilianLayer = $World/CivilianLayer
+@onready var army_layer: ArmyLayer = $World/ArmyLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
+@onready var improvements: ImprovementPanel = $HUD/Improvements
+@onready var game_menu: GameMenu = $GameMenu
 @onready var fade: ColorRect = $FadeLayer/Fade
+
+# --- compat accessors for tests / e2e (session is source of truth) -----------
+
+var model: MapModel:
+	get:
+		return play.model if play != null else null
+	set(value):
+		if play != null:
+			play.model = value
+
+var visibility: VisibilityModel:
+	get:
+		return play.visibility if play != null else null
+	set(value):
+		if play != null:
+			play.visibility = value
+
+var economy: EconomyController:
+	get:
+		return play.economy if play != null else null
+	set(value):
+		if play != null:
+			play.economy = value
+
+var turn: int:
+	get:
+		return play.turn if play != null else 1
+	set(value):
+		if play != null:
+			play.turn = value
+
+var prestige: int:
+	get:
+		return play.prestige if play != null else 0
+	set(value):
+		if play != null:
+			play.prestige = value
+
+var income: int:
+	get:
+		return play.income if play != null else 0
+	set(value):
+		if play != null:
+			play.income = value
+
+var selected_province: int:
+	get:
+		return play.selected_province if play != null else -1
+	set(value):
+		if play != null:
+			play.selected_province = value
+
+var capital_province: int:
+	get:
+		return play.capital_province if play != null else -1
+	set(value):
+		if play != null:
+			play.capital_province = value
+
+var capital_tile: Vector2i:
+	get:
+		return play.capital_tile if play != null else CapitalChoice.NO_TILE
+	set(value):
+		if play != null:
+			play.capital_tile = value
+
+var land_works: LandWorks:
+	get:
+		return play.land_works if play != null else null
+	set(value):
+		if play != null:
+			play.land_works = value
+
+var treasury: int:
+	get:
+		return play.treasury() if play != null else 0
+
+var stockpile: Dictionary:
+	get:
+		return play.stockpile() if play != null else {}
+
+var world: WorldMap:
+	get:
+		return play.world if play != null else null
+
+var region_index: int:
+	get:
+		return play.region_index if play != null else 0
 
 
 func _ready() -> void:
 	InputActions.ensure_actions()
-	model = MapGenerator.new().generate(MAP_SEED)
-	_build_world()
-	_build_hud()
+	play = PlaySession.new()
+	play.bind_host(self)
+	play.bind_views(
+		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
+	)
+	var restored: bool = SaveCodec.restore(play, pending_save)
+	if not restored:
+		play.player_faction = player_faction
+		play.map_seed = map_seed
+		play.map_width = map_width
+		play.map_height = map_height
+		if preset_world != null:
+			play.world = preset_world
+		else:
+			play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
+	else:
+		player_faction = play.player_faction
+		map_seed = play.map_seed
+		map_width = play.map_width
+		map_height = play.map_height
+	# The economy is always founded on the Old World, exactly as when the run
+	# started; restore there first, then return to the saved map.
+	var target_region: int = play.region_index
+	if restored:
+		play.region_index = 0
+	load_region(play.region_index)
+	MapPlaySetup.build_hud(play)
+	if restored:
+		SaveCodec.restore_economy(play, pending_save)
+	play.diplomacy = DiplomacyState.new()
+	if restored:
+		SaveCodec.restore_diplomacy(play, pending_save)
+	else:
+		play.diplomacy.initialize(play.turn)
+	if restored and target_region != play.region_index:
+		load_region(target_region)
+	MapPlayDiplomacy.sync_first_contact(play)
 	_connect()
-	_intro()
+	if restored:
+		MapPlaySetup.refresh_after_load(play)
+	MapPlaySetup.intro(play, fade, not restored)
+	pending_save = {}
 
 
 func _process(_delta: float) -> void:
-	_update_hover()
+	MapPlayInput.update_hover(play)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(InputActions.END_TURN):
-		_on_end_turn()
+		MapPlayTurn.end_turn(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.FOCUS_CAPITAL):
-		_focus_capital()
+		MapPlayTurn.focus_capital(play)
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.CANCEL):
+		MapPlayInput.deselect(play)
+		get_viewport().set_input_as_handled()
+
+
+## Android back / iOS back gesture: close the top layer first, quit only from the
+## bare map. Without this the OS kills the session mid-order (RUB-P5-07).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if game_menu != null and game_menu.handle_back():
+		return
+	if not BackRequest.handle(play, improvements):
+		get_tree().quit()
 
 
 # --- setup ------------------------------------------------------------------
 
 
-func _build_world() -> void:
-	var map_size: Vector2 = model.world_size(TILE_SIZE)
+## Swaps the whole view onto one region: canvas, fog, fleets, civilians, works,
+## minimap and camera bounds all follow the active tile map.
+func load_region(index: int) -> void:
+	play.region_index = clampi(index, 0, play.world.region_count() - 1)
+	play.model = play.world.region(play.region_index)
+	ship_layer.world = play.world
+	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
 	sea_backdrop.position = Vector2(-margin, -margin)
 	sea_backdrop.size = map_size + Vector2(margin, margin) * 2.0
@@ -61,226 +228,171 @@ func _build_world() -> void:
 		(sea_backdrop.material as ShaderMaterial).set_shader_parameter(
 			"world_size", sea_backdrop.size
 		)
-	canvas.build(model)
-	overlay.build(model)
-	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3)
+	play.capital_province = MapPlaySetup.find_capital(play)
+	play.capital_tile = MapPlayTurn.capital_tile(play, play.capital_province)
+	# Prepare works first so the post-pass can wire them before units muster.
+	if not play.bootstrapped_regions.has(play.region_index):
+		civilian_layer.spawn(
+			play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS, false
+		)
+		_bootstrap_region(play)
+	canvas.build(play.model, play.world)
+	overlay.build(play.model)
+	ship_layer.spawn(
+		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
+		play.player_present(), play.player_faction
+	)
+	army_layer.spawn(play.model)
+	civilian_layer.spawn(
+		play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS
+	)
+	play.land_works = civilian_layer.works
 	camera.configure(map_size)
-	capital_province = _find_capital()
-	_build_fog()
+	_build_visibility()
 	overlay.snap_fog()
+	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
+	MapPlaySetup.refresh_region_hud(play, map_size)
 
 
-func _build_hud() -> void:
-	hud.set_minimap(model, model.world_size(TILE_SIZE))
-	hud.set_turn(turn, TurnTime.year_for_turn(turn))
-	hud.set_treasury(treasury, false)
-	hud.set_prestige(prestige)
-	hud.set_fleets(SHIP_COUNT)
-	income = 90 + _owned_provinces() * 6
+## Cycles Old World -> New World and back. Intents never change rules state.
+func _cycle_region() -> void:
+	if play.world == null or play.world.region_count() < 2:
+		return
+	MapPlayInput.deselect(play)
+	load_region((play.region_index + 1) % play.world.region_count())
+	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlayDiplomacy.refresh(play)
+	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
+	RegionBriefing.arrival(hud, play.model, play.region_index)
+	MapPlayInput.on_view_changed(play)
 
 
 func _connect() -> void:
-	camera.tapped.connect(_on_tapped)
-	camera.view_changed.connect(_on_view_changed)
-	hud.end_turn_pressed.connect(_on_end_turn)
+	camera.tapped.connect(func(world_position: Vector2) -> void:
+		MapPlayInput.on_tapped(play, world_position)
+	)
+	camera.view_changed.connect(func() -> void:
+		MapPlayInput.on_view_changed(play)
+	)
+	hud.end_turn_pressed.connect(func() -> void:
+		MapPlayTurn.end_turn(play)
+	)
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(_on_minimap_jump)
-	hud.panel_action.connect(_on_panel_action)
-	hud.panel_closed.connect(_deselect)
-	ship_layer.zone_entered.connect(_on_zone_entered)
-	ship_layer.ship_selected.connect(_on_ship_selected)
-
-
-func _intro() -> void:
-	var map_size: Vector2 = model.world_size(TILE_SIZE)
-	var start_zoom: float = camera.min_zoom()
-	camera.zoom = Vector2.ONE * start_zoom
-	camera.position = map_size * 0.5
-	camera.focus_on(
-		model.province_center(capital_province) * TILE_SIZE,
-		maxf(start_zoom * 1.65, 0.75)
+	hud.minimap_jump.connect(func(world_position: Vector2) -> void:
+		MapPlayInput.on_minimap_jump(play, world_position)
 	)
-	hud.toast("The Indies await — Turn 1, 1500")
-	var tween := create_tween()
-	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
-	tween.tween_callback(func() -> void: fade.visible = false)
-
-
-func _build_fog() -> void:
-	var capital_tile: Vector2 = model.province_center(capital_province)
-	for y in model.height:
-		for x in model.width:
-			var distance: float = Vector2(float(x), float(y)).distance_to(capital_tile)
-			var state: int = MapOverlay.FOG_UNKNOWN
-			if distance < 34.0:
-				state = MapOverlay.FOG_VISIBLE
-			elif distance < 41.0:
-				state = MapOverlay.FOG_FOGGED
-			overlay.set_fog_state(model.index_of(x, y), state)
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) != PLAYER_FACTION:
-			continue
-		for tile: Vector2i in province["tiles"]:
-			overlay.set_fog_state(model.index_of(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
-		for neighbor: int in model.province_neighbors(int(province["id"])):
-			for tile: Vector2i in model.province_tiles(neighbor):
-				overlay.set_fog_state(model.index_of(tile.x, tile.y), MapOverlay.FOG_FOGGED)
-
-
-func _find_capital() -> int:
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION and bool(province["capital"]):
-			return int(province["id"])
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			return int(province["id"])
-	return 0
-
-
-func _owned_provinces() -> int:
-	var total: int = 0
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			total += 1
-	return total
-
-
-# --- interaction ------------------------------------------------------------
-
-
-func _on_tapped(world_position: Vector2) -> void:
-	var ship: Ship = ship_layer.ship_at(world_position, 30.0 / maxf(camera.zoom.x, 0.001))
-	if ship != null:
-		ship_layer.select(ship)
-		return
-	var tile: Vector2i = model.tile_at_world(world_position, TILE_SIZE)
-	if not model.in_bounds(tile.x, tile.y):
-		return
-	var province_id: int = model.province_at(tile.x, tile.y)
-	if province_id == MapModel.NO_ID:
-		_deselect()
-		return
-	_select_province(province_id, world_position)
-
-
-func _select_province(province_id: int, world_position: Vector2) -> void:
-	selected_province = province_id
-	overlay.select_province(province_id, world_position)
-	hud.show_province(model, province_id)
-
-
-func _deselect() -> void:
-	selected_province = -1
-	overlay.select_province(-1)
-	hud.hide_province()
-
-
-func _on_ship_selected(ship: Ship) -> void:
-	if ship == null:
-		return
-	_deselect()
-	hud.toast(
-		"Fleet of %s — patrolling the %s"
-		% [MapGenerator.FACTION_NAMES[ship.faction], model.sea_zone_name(ship.zone)]
+	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.focus_capital_pressed.connect(func() -> void:
+		MapPlayTurn.focus_capital(play)
 	)
-
-
-func _on_minimap_jump(world_position: Vector2) -> void:
-	camera.focus_on(world_position)
-
-
-func _on_view_changed() -> void:
-	var viewport: Vector2 = camera.viewport_size()
-	var half: Vector2 = viewport / (2.0 * maxf(camera.zoom.x, 0.001))
-	hud.update_view_rect(Rect2(camera.position - half, half * 2.0))
-	ship_layer.set_zoom(camera.zoom.x)
-
-
-func _on_zone_entered(zone_id: int, ship: Ship) -> void:
-	if ship == null or ship.faction != PLAYER_FACTION:
-		return
-	overlay.reveal_sea_zone(zone_id)
-
-
-func _on_panel_action(action: String) -> void:
-	if selected_province < 0:
-		return
-	var name: String = model.province_name(selected_province)
-	match action:
-		"recruit":
-			hud.toast("A regiment is raised in %s" % name)
-		"build":
-			hud.toast("Works begin in %s" % name)
-		_:
-			hud.toast("Order noted in %s" % name)
-
-
-func _on_end_turn() -> void:
-	turn += 1
-	var year: int = TurnTime.year_for_turn(turn)
-	treasury += income
-	prestige += 1
-	hud.set_turn(turn, year)
-	hud.set_treasury(treasury)
-	hud.set_prestige(prestige)
-	hud.flash_income(income)
-	hud.toast("Turn %d — %d" % [turn, year])
-	_reveal_frontier()
-
-
-func _reveal_frontier() -> void:
-	for zone: Dictionary in model.sea_zones:
-		var tiles: Array = zone.get("tiles", [])
-		if tiles.is_empty():
-			continue
-		var tile: Vector2i = tiles[0]
-		if overlay.fog_state_at(tile.x, tile.y) == MapOverlay.FOG_FOGGED:
-			overlay.reveal_sea_zone(int(zone["id"]))
-			return
-
-
-func _focus_capital() -> void:
-	camera.focus_on(model.province_center(capital_province) * TILE_SIZE, 0.7)
-
-
-func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:
-	if camera.is_dragging():
-		_clear_hover()
-		return
-	if get_viewport().gui_get_hovered_control() != null:
-		_clear_hover()
-		return
-	var mouse: Vector2 = screen_position
-	if mouse == Vector2.INF:
-		mouse = get_viewport().get_mouse_position()
-	var world: Vector2 = CameraMath.screen_to_world(
-		camera.position, camera.zoom.x, mouse, camera.viewport_size()
+	hud.diplomacy_pressed.connect(func() -> void:
+		MapPlayDiplomacy.open(play)
 	)
-	var tile: Vector2i = model.tile_at_world(world, TILE_SIZE)
-	var province_id: int = model.province_at(tile.x, tile.y)
-	if province_id == _hover_province:
-		return
-	_hover_province = province_id
-	overlay.hover_province = province_id
-	if province_id < 0:
-		hud.hide_tooltip()
-		return
-	var data: Dictionary = model.province_data(province_id)
-	var terrain: int = model.terrain_at(tile.x, tile.y)
-	hud.show_tooltip(
-		"%s  ·  %s  ·  %s"
-		% [
-			String(data["name"]),
-			String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
-			MapGenerator.FACTION_NAMES[int(data["owner"])],
-		]
+	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
+		MapPlayDiplomacy.on_order(play, kind, target, arg)
 	)
+	hud.panel_action.connect(func(action: String) -> void:
+		MapPlayInput.on_panel_action(play, action)
+	)
+	hud.panel_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
+	)
+	ship_layer.zone_entered.connect(func(zone_id: int, ship: Ship) -> void:
+		MapPlayFleets.on_zone_entered(play, zone_id, ship)
+	)
+	ship_layer.ship_selected.connect(func(ship: Ship) -> void:
+		MapPlayFleets.select(play, ship)
+	)
+	ship_layer.fleet_moved.connect(func(fleet: FleetState, result: Dictionary) -> void:
+		MapPlayFleets.on_moved(play, fleet, result)
+	)
+	ship_layer.warp_crossed.connect(func(fleet: FleetState, result: Dictionary) -> void:
+		MapPlayWarp.on_crossed(play, fleet, result)
+	)
+	army_layer.army_selected.connect(func(army: ArmyState) -> void:
+		if army != null:
+			MapPlayArmies.select(play, army)
+		else:
+			play.hud.panels.hide_army()
+	)
+	army_layer.army_moved.connect(func(army: ArmyState, result: Dictionary) -> void:
+		MapPlayArmies.on_moved(play, army, result)
+	)
+	hud.army_action.connect(func(action: String) -> void:
+		MapPlayArmies.on_action(play, action)
+	)
+	hud.army_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
+	)
+	hud.fleet_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
+	)
+	civilian_layer.unit_selected.connect(func(unit: CivilianState) -> void:
+		MapPlayCivilians.select(play, unit)
+	)
+	civilian_layer.unit_moved.connect(func(unit: CivilianState, result: Dictionary) -> void:
+		MapPlayCivilians.on_moved(play, unit, result)
+	)
+	hud.civilian_action.connect(func(action: String) -> void:
+		MapPlayCivilians.on_action(play, action)
+	)
+	hud.civilian_cancel.connect(func() -> void:
+		MapPlayCivilians.on_cancel(play)
+	)
+	hud.civilian_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
+	)
+	improvements.action_pressed.connect(func(action: String, tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(play, action, tile)
+	)
+	improvements.focus_pressed.connect(func(tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(play, "focus", tile)
+	)
+	game_menu.save_chosen.connect(_on_save_chosen)
+	game_menu.load_chosen.connect(_on_load_chosen)
+	game_menu.main_menu_chosen.connect(func() -> void: main_menu_requested.emit())
 
 
-func _clear_hover() -> void:
-	if _hover_province == -1:
+func _on_save_chosen(slot: int) -> void:
+	var ok: bool = SaveStore.save_slot(slot, SaveCodec.capture(play), save_dir)
+	game_menu.show_save_result(ok, slot)
+
+
+func _on_load_chosen(slot: int) -> void:
+	load_slot_requested.emit(slot)
+
+
+func _build_visibility() -> void:
+	if play.visibility_by_region.has(play.region_index):
+		play.visibility = play.visibility_by_region[play.region_index]
+		overlay.sync_visibility(play.visibility)
 		return
-	_hover_province = -1
-	overlay.hover_province = -1
-	hud.hide_tooltip()
+	play.visibility = VisibilityModel.new()
+	play.visibility.setup(play.model, play.player_faction)
+	play.visibility.apply_initial()
+	play.visibility_by_region[play.region_index] = play.visibility
+	overlay.sync_visibility(play.visibility)
+
+
+## Setup post-pass per region: capital ports and harbour roads become real
+## LandWorks entries, and Great Powers receive their guaranteed grain farms.
+## Runs once per region, before civilians muster and before the economy reads it.
+func _bootstrap_region(session: PlaySession) -> void:
+	if session.bootstrapped_regions.has(session.region_index):
+		return
+	WorldBootstrap.apply(session.model, session.civilian_layer.works)
+	session.bootstrapped_regions[session.region_index] = true
+
+
+## Ownership changed outside the map layers (Join Empire): redraw borders,
+## terrain tint, fog and the region chips without respawning units.
+func refresh_political_map() -> void:
+	if play == null or play.model == null:
+		return
+	canvas.build(play.model, play.world)
+	overlay.build(play.model)
+	if play.visibility != null:
+		overlay.sync_visibility(play.visibility)
+	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))

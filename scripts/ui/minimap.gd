@@ -29,6 +29,9 @@ func build(p_model: MapModel, map_size: Vector2) -> void:
 			var color: Color = Palette.SEA_MID
 			if terrain != MapModel.Terrain.OCEAN and terrain != MapModel.Terrain.SHALLOW:
 				color = Palette.terrain_color(terrain)
+				var owner: int = model.owner_at(x, y)
+				if owner != MapModel.NO_ID:
+					color = color.lerp(FactionCatalog.color_of(owner), 0.4)
 			elif terrain == MapModel.Terrain.SHALLOW:
 				color = Palette.SEA_PALE
 			image.set_pixel(x, y, color)
@@ -48,11 +51,11 @@ func _draw() -> void:
 	draw_texture_rect(_texture, fit, false)
 	draw_rect(fit, Palette.INK_LINE, false, 1.0)
 	if model != null:
-		for province: Dictionary in model.provinces:
-			if not bool(province["capital"]):
+		for province: ProvinceState in model.provinces:
+			if not province.capital:
 				continue
-			var point: Vector2 = _to_local(Vector2(province["center"]) * 22.0)
-			draw_circle(point, 2.6, Palette.faction_color(int(province["owner"])))
+			var point: Vector2 = _to_local(Vector2(province.center) * 22.0)
+			draw_circle(point, 2.6, Palette.faction_color(province.owner))
 			draw_circle(point, 2.6, Palette.INK, false, 0.8, true)
 	if _view_rect.size != Vector2.ZERO:
 		var top_left: Vector2 = _to_local(_view_rect.position)
