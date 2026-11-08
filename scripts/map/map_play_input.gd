@@ -6,7 +6,7 @@ extends RefCounted
 
 static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	# A decided campaign takes no orders; the map stays for viewing (wiki: victory).
-	if play.victory != null:
+	if play.campaign_over():
 		return
 	# A pending call to arms holds the turn; map intents wait for the answer.
 	if play.turn_suspended:
@@ -138,7 +138,7 @@ static func clear_hover(play: PlaySession) -> void:
 
 
 static func on_panel_action(play: PlaySession, action: String) -> void:
-	if play.victory != null:
+	if play.campaign_over():
 		return
 	if play.turn_suspended:
 		return

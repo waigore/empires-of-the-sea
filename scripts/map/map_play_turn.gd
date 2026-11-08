@@ -5,9 +5,10 @@ extends RefCounted
 
 
 static func end_turn(play: PlaySession) -> void:
-	# A decided campaign accepts no further turns (wiki: victory).
-	if play.victory != null:
-		play.hud.toast("Campaign ended — %s" % play.victory.winner_name())
+	# A decided or calendar-closed campaign accepts no further turns
+	# (wiki: victory § Victory Check, turn-time-mapping § Campaign calendar cap).
+	if play.campaign_over():
+		play.hud.toast(_closed_message(play))
 		return
 	# A consent decision already waiting keeps the calendar shut.
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
@@ -56,6 +57,11 @@ static func _finish_turn(play: PlaySession) -> void:
 	if victory != null:
 		_finish_campaign(play, victory)
 		return
+	# Military victory wins the turn; otherwise the calendar cap closes an
+	# undecided campaign on its last full turn (wiki: turn-time-mapping).
+	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
+		_finish_calendar(play)
+		return
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
@@ -95,12 +101,48 @@ static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
 	play.victory = victory
 	play.hud.show_victory(
 		victory,
-		PlaySession.PLAYER_FACTION,
+		play.player_faction,
 		VictoryRules.old_world_holdings(play.world, victory.winner_player_id)
 	)
 	play.hud.toast(victory.summary())
 	play.emit_turn_ended(play.turn)
 	play.emit_victory(victory)
+
+
+## The calendar closed the age without a military victory: record it, mount the
+## campaign-complete plate, and leave the turn number on the last full turn
+## (wiki: turn-time-mapping § Campaign calendar cap, victory § Calendar end).
+static func _finish_calendar(play: PlaySession) -> void:
+	play.campaign_halted = true
+	var leader: int = declared_leader(play)
+	play.hud.show_campaign_complete(leader, play.turn)
+	play.hud.toast(
+		"Campaign complete — %d" % TurnTime.year_for_turn(play.turn)
+	)
+	play.emit_turn_ended(play.turn)
+
+
+## Strongest crown by power score, or NO_ID when the top score is shared. Reads
+## live regiment and hull counts so the score matches the diplomacy panel
+## (wiki: victory § Calendar campaign end).
+static func declared_leader(play: PlaySession) -> int:
+	var regiments: Dictionary = {}
+	var ships: Dictionary = {}
+	if play.army_layer != null:
+		for army: ArmyState in play.army_layer.armies:
+			if army != null:
+				regiments[army.owner] = int(regiments.get(army.owner, 0)) + army.count()
+	if play.ship_layer != null:
+		for ship: Ship in play.ship_layer.ships:
+			if ship != null:
+				ships[ship.faction] = int(ships.get(ship.faction, 0)) + 1
+	return VictoryRules.declared_leader(play.world, regiments, ships)
+
+
+static func _closed_message(play: PlaySession) -> String:
+	if play.victory != null:
+		return "Campaign ended — %s" % play.victory.winner_name()
+	return "Campaign complete — the age has run its course"
 
 
 static func focus_capital(play: PlaySession) -> void:

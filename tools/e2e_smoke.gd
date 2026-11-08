@@ -443,6 +443,21 @@ func _smoke_victory(screen: MapScreen) -> void:
 	_check(screen.turn == turn_before, "decided campaign refuses another turn")
 	screen.hud.victory_overlay.dismiss()
 	_check(not screen.hud.is_victory_shown(), "final view dismisses the plate")
+	# Calendar cap: an undecided age closes on its last full turn, with the same
+	# sealed plate (wiki: turn-time-mapping § Campaign calendar cap).
+	screen.play.victory = null
+	screen.play.infinite_mode = false
+	screen.play.turn = TurnTime.cap_turn()
+	MapPlayTurn.end_turn(screen.play)
+	await process_frame
+	_check(screen.play.campaign_halted, "calendar cap closes an undecided age")
+	_check(screen.turn == TurnTime.cap_turn(), "cap keeps the last full turn")
+	_check(screen.hud.is_victory_shown(), "campaign-complete plate shows")
+	_check(
+		screen.hud.victory_overlay._title.text == "CAMPAIGN COMPLETE",
+		"plate names the calendar end"
+	)
+	_check(screen.hud._end_turn_button.disabled, "cap keeps the turn seal shut")
 
 
 func _map_screen(main: Node) -> MapScreen:

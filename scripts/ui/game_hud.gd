@@ -163,6 +163,14 @@ func show_victory(state: VictoryState, player_faction: int, holdings: int) -> vo
 		victory_overlay.show_victory(state, player_faction, holdings)
 
 
+## Calendar cap closed the age undecided: same sealed plate, campaign-complete
+## copy instead of a victory (wiki: victory § Calendar campaign end).
+func show_campaign_complete(leader: int, turn: int) -> void:
+	set_campaign_over(true)
+	if victory_overlay != null:
+		victory_overlay.show_campaign_complete(leader, turn)
+
+
 ## Turns never reopen; only the plate may step aside to keep viewing the map.
 func set_campaign_over(over: bool) -> void:
 	campaign_over = over
