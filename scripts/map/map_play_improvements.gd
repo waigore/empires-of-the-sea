@@ -4,17 +4,17 @@ extends RefCounted
 ## Rules and costs stay in ImprovementOrders/CivilianWork (REQ-P2-03).
 
 
-static func on_action(screen: MapScreen, action: String, tile: Vector2i) -> void:
+static func on_action(play: PlaySession, action: String, tile: Vector2i) -> void:
 	if action == "focus":
-		screen.improvements.close()
-		screen.camera.focus_on(
-			MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE), 0.8
+		play.improvements.close()
+		play.camera.focus_on(
+			MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE), 0.8
 		)
 		return
 	var result: Dictionary = ImprovementOrders.apply(
-		screen.model, screen.civilian_layer.units, screen.land_works,
-		screen.stockpile, screen.visibility, MapScreen.PLAYER_FACTION, action, tile
+		play.model, play.civilian_layer.units, play.land_works,
+		play.stockpile(), play.visibility, PlaySession.PLAYER_FACTION, action, tile
 	)
-	screen.hud.toast(String(result.get("message", "")))
-	screen.improvements.refresh()
-	screen.civilian_layer.sync()
+	play.hud.toast(String(result.get("message", "")))
+	play.improvements.refresh()
+	play.civilian_layer.sync()
