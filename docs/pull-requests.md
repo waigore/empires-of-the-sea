@@ -36,14 +36,29 @@ Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-m
 - If checks fail: fix forward on the PR branch, push, and re-check. Do not close/reopen to “clear” failures.
 - Keep the branch current with `main` when strict status policy blocks merge (`gh pr merge` / auto-merge will wait until the branch is updated).
 
-### Approval gate (path-based)
+### Approval (path-based)
 
-`approval-gate` fails on non-draft PRs that touch **game code, tests, or assets** until at least one **non-author** collaborator approves. Paths that require approval:
+Non-draft PRs that touch **game code, tests, or assets** need a **non-author** approving review before merge. Paths:
 
 - `scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`
 - `project.godot`, `icon.svg`
 
-Docs, CI/workflows, and other non-game paths do **not** need that approval for the check to pass. `CODEOWNERS` suggests reviewers; enforcement is the `approval-gate` check (ruleset review count is separate and may be zero).
+Docs, CI/workflows, and other non-game paths do **not** need that approval.
+
+Enforcement is two layers (both must be satisfied for code paths):
+
+1. **Protect main** — `require_code_owner_review` for files listed in [`.github/CODEOWNERS`](../.github/CODEOWNERS). The merge box shows code-owner review required.
+2. **`approval-gate` check** — fails until a non-author collaborator approves. When approval is missing, the workflow **auto-requests** eligible reviewers (CODEOWNERS + write collaborators, excluding the author) and prints how to approve in the check log.
+
+**How to approve** (as a requested write collaborator, not the PR author):
+
+```bash
+gh pr review <number> --approve
+```
+
+Or GitHub UI: **Files changed** → **Review changes** → **Approve**.
+
+The PR author cannot approve their own PR. CODEOWNERS must list at least one write collaborator who is not the usual author so review requests land on someone who can act.
 
 Draft PRs skip the approval-gate job until marked ready for review.
 
