@@ -95,6 +95,8 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 
 
 static func on_action(play: PlaySession, action: String) -> void:
+	if play.victory != null:
+		return
 	var army: ArmyState = play.army_layer.selected_army
 	if army == null or army.owner != play.player_faction:
 		return

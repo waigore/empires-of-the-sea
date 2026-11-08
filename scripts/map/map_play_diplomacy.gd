@@ -33,6 +33,8 @@ static func refresh(play: PlaySession) -> void:
 
 
 static func on_order(play: PlaySession, kind: String, target: int, arg: String) -> void:
+	if play.victory != null:
+		return
 	if play.diplomacy == null:
 		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}

@@ -52,6 +52,8 @@ static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary
 
 
 static func on_action(play: PlaySession, action: String) -> void:
+	if play.victory != null:
+		return
 	var unit: CivilianState = play.civilian_layer.selected_unit
 	if unit == null or unit.owner != play.player_faction:
 		return

@@ -53,6 +53,7 @@ func _bind_screen() -> void:
 	screen.coast_charted.connect(_on_coast_charted)
 	screen.battle_resolved.connect(_on_battle_resolved)
 	screen.turn_ended.connect(_on_turn_ended)
+	screen.victory_declared.connect(_on_victory_declared)
 
 
 func _bind_widgets() -> void:
@@ -73,6 +74,7 @@ func _bind_widgets() -> void:
 		screen.hud.civilian_closed.connect(_on_panel_closed)
 		screen.hud.zoom_in_pressed.connect(_play.bind(AudioEvents.UI_CLICK))
 		screen.hud.zoom_out_pressed.connect(_play.bind(AudioEvents.UI_CLICK))
+		screen.hud.victory_dismissed.connect(_play.bind(AudioEvents.UI_CLICK))
 	var controls := _controls()
 	if controls != null:
 		controls.ui_sound.connect(_play)
@@ -153,6 +155,12 @@ func _on_turn_ended(_turn: int) -> void:
 	if _battle_timer != null and _battle_timer.time_left > 0.0:
 		return
 	_sync_bed()
+
+
+## Campaign decided: the fanfare marks the moment over the running bed.
+func _on_victory_declared(_victory: VictoryState) -> void:
+	if audio != null:
+		audio.play_stinger(MusicPlaylist.VICTORY)
 
 
 # --- battles -----------------------------------------------------------------
