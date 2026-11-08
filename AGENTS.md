@@ -39,7 +39,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 
 ## Conventions
 
-- **Reuse first**; typed GDScript; signals over deep node reach-ins.
+- **Reuse first**; typed GDScript; signals over deep node reach-ins. Scripts ≤400 lines / ≤25 methods; size allowlist ≤5 and shrink-only (`arch-lint`).
 - **Input**: mouse/keyboard + touch via InputMap actions.
 - **UI**: containers + anchors + theme; no fixed pixel layouts; no hover-only critical UX.
 - **Exports**: platform diffs in `scripts/platform/`; shared core. P3 gated by `arch-lint` (`RUB-P3-*`).

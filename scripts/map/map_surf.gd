@@ -45,8 +45,8 @@ func _collect(model: MapModel, path: PackedVector2Array, tile_size: float) -> vo
 			"position": b,
 			"normal": normal,
 			"tangent": (b - a).normalized(),
-			"phase": _hash01(int(b.x), int(b.y)) * TAU,
-			"width": 9.0 + _hash01(int(b.y), int(b.x)) * 10.0,
+			"phase": MapGlyphs.hash01(int(b.x), int(b.y)) * TAU,
+			"width": 9.0 + MapGlyphs.hash01(int(b.y), int(b.x)) * 10.0,
 		})
 		if _dashes.size() >= MAX_DASHES:
 			return
@@ -60,10 +60,10 @@ static func _sea_normal(model: MapModel, a: Vector2, b: Vector2, tile_size: floa
 	var direction: Vector2 = delta.normalized()
 	var normal := Vector2(-direction.y, direction.x)
 	var probe: Vector2 = normal * tile_size * 0.7
-	var tile: Vector2i = model.tile_at_world(b + probe, tile_size)
+	var tile: Vector2i = MapGeo.tile_at_world(b + probe, tile_size)
 	if model.is_sea(tile.x, tile.y):
 		return normal
-	tile = model.tile_at_world(b - probe, tile_size)
+	tile = MapGeo.tile_at_world(b - probe, tile_size)
 	if model.is_sea(tile.x, tile.y):
 		return -normal
 	return Vector2.ZERO
@@ -93,10 +93,3 @@ func _draw() -> void:
 			1.0 + wave * 1.6,
 			true
 		)
-
-
-func _hash01(x: int, y: int) -> float:
-	var h: int = x * 374761393 + y * 668265263
-	h = (h ^ (h >> 13)) * 1274126177
-	h = h ^ (h >> 16)
-	return float(h & 0xFFFF) / 65535.0

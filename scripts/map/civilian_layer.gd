@@ -208,7 +208,7 @@ func _draw_port(point: Vector2) -> void:
 
 
 func _tile_position(tile: Vector2i) -> Vector2:
-	return model.tile_center(tile.x, tile.y, TILE_SIZE)
+	return MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
 
 
 func _marker_scale() -> float:

@@ -34,7 +34,7 @@ Map every change to ≥1 pillar; challenge work that maps to none.
 
 ## P3 — Modular architecture (SOLID; CI: `arch-lint`)
 
-- **REQ-P3-01** (**S**) — One domain per module; agreed layout; no god files (size/method caps). Prefer extending existing modules over new frameworks (**O**); subtypes honor contracts (**L**).
+- **REQ-P3-01** (**S**) — One domain per module; agreed layout; no god files (≤400 lines/≤25 methods; size allowlist ≤5, ratchet shrink-only). Prefer extending existing modules (**O**); subtypes honor contracts (**L**).
 - **REQ-P3-02** (**I**) — Narrow APIs/signals over deep reach-ins; no undeclared autoloads (allowlist only when truly cross-cutting).
 - **REQ-P3-03** (**D**) — Rules/sim usable without visual nodes; view reads state and emits intents.
 - **REQ-P3-04** — Modules testable in isolation; changed `scripts/rules/**` ships tests under `tests/`.

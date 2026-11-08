@@ -1,6 +1,1 @@
-# path<TAB>max_lines<TAB>max_methods — ratchet; shrink when files shrink. Soft max is 400/25.
-scripts/map/map_canvas.gd	454	19
-scripts/map/map_generator.gd	563	22
-scripts/map/map_model.gd	225	27
-scripts/map_screen.gd	638	43
-scripts/ui/game_hud.gd	583	40
+# path<TAB>max_lines<TAB>max_methods — ratchet; ≤5 entries; shrink or remove only (never raise). Soft max 400/25.

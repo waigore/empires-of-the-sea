@@ -252,7 +252,7 @@ func _draw() -> void:
 		_draw_port_marker(province_id, pulse)
 
 	for tile: Vector2i in move_tiles:
-		var point: Vector2 = model.tile_center(tile.x, tile.y, TILE_SIZE)
+		var point: Vector2 = MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
 		draw_arc(
 			point, 8.0 + pulse * 1.6, 0, TAU, 24,
 			Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 1.8, true
@@ -285,7 +285,7 @@ func _draw_port_marker(province_id: int, pulse: float) -> void:
 	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
 	if port.x < 0 or port.y < 0:
 		return
-	var point: Vector2 = model.tile_center(port.x, port.y, TILE_SIZE)
+	var point: Vector2 = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 	draw_arc(
 		point, 13.0 + pulse * 2.0, 0.0, TAU, 28,
 		Color(0.99, 0.93, 0.72, 0.90), 2.0, true
