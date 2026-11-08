@@ -44,3 +44,38 @@ func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 ## Same unordered-pair key as DiplomacyState, so cooldowns cannot drift.
 static func pair_key(a: int, b: int) -> String:
 	return "%d:%d" % [mini(a, b), maxi(a, b)]
+
+
+## Plain data for local saves. Agendas are rolled once per court and cooldowns
+## span turns, so a load must not re-roll a hidden agenda or restart a war
+## cooldown (wiki: hidden-agendas, diplomacy § Cooldowns).
+func to_dict() -> Dictionary:
+	return {
+		"agendas": agendas.duplicate(),
+		"last_war_turn": last_war_turn.duplicate(),
+		"last_overture_turn": last_overture_turn.duplicate(),
+	}
+
+
+static func from_dict(data: Dictionary) -> AiState:
+	var state := AiState.new()
+	var stored_agendas: Dictionary = _dictionary(data.get("agendas", {}))
+	for key: Variant in stored_agendas.keys():
+		state.agendas[int(key)] = String(stored_agendas[key])
+	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
+	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
+	return state
+
+
+static func _turn_dictionary(raw: Variant) -> Dictionary:
+	var turns: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		turns[String(key)] = int(stored[key])
+	return turns
+
+
+static func _dictionary(raw: Variant) -> Dictionary:
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}

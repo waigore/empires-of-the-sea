@@ -45,7 +45,8 @@ var hover_province: int = -1
 var charted_provinces: Dictionary = {}
 ## Last resolved army feeding coverage per faction (fed / demanded rations).
 var feeding: Dictionary = {}
-## Faction -> leaderKey; empty until leader selection ships (wiki: leader-bonuses).
+## Faction -> leaderKey, fixed at game start and serialized with the save
+## (wiki: leader-bonuses § Leader Selection).
 var leaders: Dictionary = {}
 
 var ship_layer: ShipLayer = null
@@ -63,6 +64,18 @@ var host: Node = null
 
 func bind_host(p_host: Node) -> void:
 	host = p_host
+
+
+## Starts a fresh run in this session: generation recipe, human crown and its
+## leaderKey. Rival crowns take their configured leader (wiki: leader-bonuses).
+func configure(
+	faction: int, seed_value: int, width: int, height: int, leader: String = ""
+) -> void:
+	player_faction = faction
+	map_seed = seed_value
+	map_width = width
+	map_height = height
+	leaders = LeaderCatalog.roster(faction, leader)
 
 
 func bind_views(

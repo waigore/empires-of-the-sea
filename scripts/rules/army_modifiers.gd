@@ -26,11 +26,8 @@ const TERRAIN_DEFENCE: Dictionary = {
 	MapModel.Terrain.SWAMP: 1.1,
 }
 
-## leaderKey -> melee multiplier (wiki: leader-bonuses § Bonus Table).
-const LEADER_MULTIPLIERS: Dictionary = {
-	"napoleon": 1.25,
-	"frederick": 1.15,
-}
+## leaderKey -> melee multiplier lives in LeaderCatalog, the roster's single
+## source of truth (wiki: leader-bonuses § Bonus Table).
 
 
 static func medal_aura(medals: int) -> float:
@@ -77,13 +74,7 @@ static func terrain_for(model: MapModel, province: int) -> int:
 
 
 static func leader_multiplier(leader_key: String) -> float:
-	var key: String = leader_key.to_lower()
-	if key.is_empty():
-		return 1.0
-	for known: Variant in LEADER_MULTIPLIERS.keys():
-		if key.contains(String(known)):
-			return float(LEADER_MULTIPLIERS[known])
-	return 1.0
+	return LeaderCatalog.multiplier_for(leader_key)
 
 
 ## Fallback medals when no general is available (wiki: combat § Modifiers).

@@ -26,9 +26,11 @@ static func capture(play: PlaySession) -> Dictionary:
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
 		"diplomacy": _capture_diplomacy(play.diplomacy),
+		"ai": play.ai.to_dict() if play.ai != null else {},
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
+		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
 
 
@@ -44,8 +46,10 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"income": play.income,
 		"capital_province": play.capital_province,
 		"capital_tile": play.capital_tile,
+		"feeding": play.feeding.duplicate(),
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
+		"leaders": play.leaders.duplicate(),
 	}
 
 
@@ -143,8 +147,10 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.income = int(session.get("income", 0))
 	play.capital_province = int(session.get("capital_province", -1))
 	play.capital_tile = _vector(session.get("capital_tile", CapitalChoice.NO_TILE))
+	play.feeding = _fraction_dictionary(session.get("feeding", {}))
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
+	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height
@@ -157,6 +163,10 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	SaveLayers.restore_civilians(play.civilian_layer, data.get("civilians", {}))
 	SaveLayers.restore_fleets(play.ship_layer, data.get("fleets", {}))
 	SaveLayers.restore_armies(play.army_layer, data.get("armies", {}))
+	if play.army_layer != null:
+		play.army_layer.generals = GeneralRoster.from_dict(
+			_dictionary(data.get("generals", {}))
+		)
 	_restore_visibility(play, data.get("visibility", {}))
 	return true
 
@@ -244,12 +254,20 @@ static func restore_economy(play: PlaySession, data: Dictionary) -> void:
 	var market: Variant = data.get("market", {})
 	if typeof(market) == TYPE_DICTIONARY and not market.is_empty():
 		play.economy.market = WorldMarket.from_dict(market)
+	# Legacy saves carried no general pools; rebuild the court from the persisted
+	# tech floors rather than leaving it without commanders (wiki:
+	# military-generals § Persistence and load reconciliation).
+	if play.army_layer != null and play.economy.economy != null:
+		play.army_layer.sync_generals(play.player_faction, play.economy.economy.tech_unlocked)
 
 
 static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 	var snapshot: Variant = data.get("diplomacy", {})
 	if typeof(snapshot) == TYPE_DICTIONARY and not snapshot.is_empty():
 		play.diplomacy = _diplomacy_from(snapshot)
+	var ai: Dictionary = _dictionary(data.get("ai", {}))
+	if not ai.is_empty():
+		play.ai = AiState.from_dict(ai)
 
 
 # --- diplomacy ---------------------------------------------------------------
@@ -311,6 +329,23 @@ static func _flag_dictionary(keys: Variant) -> Dictionary:
 	for raw: Variant in list:
 		flags[int(raw)] = true
 	return flags
+
+
+## Faction -> fraction, tolerating string keys from an older text save.
+static func _fraction_dictionary(raw: Variant) -> Dictionary:
+	var values: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		var value: Variant = stored[key]
+		if typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT:
+			values[int(key)] = float(value)
+	return values
+
+
+static func _dictionary(raw: Variant) -> Dictionary:
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}
 
 
 ## Accepts the two vector shapes a save may carry (Vector2i or [x, y]).

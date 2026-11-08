@@ -90,6 +90,49 @@ func label(owner: int, general_id: String) -> String:
 	return "General %d" % (index + 1)
 
 
+## Plain data for local saves: every pool with its earned medals. The pool size
+## is the persisted effective cap, so a load rebuilds the roster exactly and
+## medals never decrease (wiki: military-generals § Persistence and load
+## reconciliation, § Medals).
+func to_dict() -> Dictionary:
+	var saved: Dictionary = {}
+	for raw: Variant in pools.keys():
+		var owner: int = int(raw)
+		var entries: Array[Dictionary] = []
+		for general: Dictionary in pool(owner):
+			entries.append({
+				"id": String(general["id"]),
+				"medals": clampi(int(general["medals"]), 0, MAX_MEDALS),
+			})
+		saved[owner] = entries
+	return {"pools": saved}
+
+
+static func from_dict(data: Dictionary) -> GeneralRoster:
+	var roster := GeneralRoster.new()
+	var saved: Variant = data.get("pools", {})
+	if typeof(saved) != TYPE_DICTIONARY:
+		return roster
+	for raw: Variant in saved.keys():
+		var entries: Variant = saved[raw]
+		if typeof(entries) != TYPE_ARRAY:
+			continue
+		var stored: Array[Dictionary] = []
+		for entry: Variant in entries:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var general: Dictionary = entry
+			var general_id: String = String(general.get("id", ""))
+			if general_id.is_empty():
+				continue
+			stored.append({
+				"id": general_id,
+				"medals": clampi(int(general.get("medals", 0)), 0, MAX_MEDALS),
+			})
+		roster.pools[int(raw)] = stored
+	return roster
+
+
 ## "2 generals · 3 medals" for the army dossier.
 func summary(owner: int) -> String:
 	var roster: Array[Dictionary] = pool(owner)
