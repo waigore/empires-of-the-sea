@@ -1,0 +1,478 @@
+class_name MapCanvas
+extends Node2D
+## Static map artwork: terrain wash, ink coastline, province borders, glyphs and
+## labels. Drawn once per map build, so the per-frame cost is a command replay.
+
+const TILE_SIZE: float = 22.0
+
+## Marching-squares edge pairs per corner case (1=TL, 2=TR, 4=BR, 8=BL).
+## Edge ids: 0=top, 1=right, 2=bottom, 3=left.
+const MS_TABLE: Array = [
+	[], [[3, 0]], [[0, 1]], [[3, 1]], [[1, 2]], [[3, 0], [1, 2]], [[0, 2]], [[3, 2]],
+	[[2, 3]], [[0, 2]], [[0, 1], [2, 3]], [[1, 2]], [[3, 1]], [[0, 1]], [[3, 0]], [],
+]
+
+var model: MapModel = null
+
+var _terrain_texture: ImageTexture = null
+var _mask_texture: ImageTexture = null
+var _coast: Array[PackedVector2Array] = []
+var _province_borders: Array[PackedVector2Array] = []
+var _sea_borders: Array[PackedVector2Array] = []
+var _labels: Array[Dictionary] = []
+var _glyphs: Array[Dictionary] = []
+var _font: Font = null
+var _font_italic: Font = null
+var _compass_position: Vector2 = Vector2.ZERO
+var _compass_visible: bool = false
+
+
+func build(p_model: MapModel) -> void:
+	model = p_model
+	_font = UiTheme.serif()
+	_font_italic = UiTheme.serif_italic()
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_build_textures()
+	_build_coast()
+	_build_borders()
+	_build_labels()
+	_build_glyphs()
+	_find_compass_spot()
+	queue_redraw()
+
+
+func map_size() -> Vector2:
+	if model == null:
+		return Vector2.ZERO
+	return model.world_size(TILE_SIZE)
+
+
+# --- build ------------------------------------------------------------------
+
+
+func _build_textures() -> void:
+	var w: int = model.width
+	var h: int = model.height
+	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var index: int = model.index_of(x, y)
+			var terrain: int = model.terrain[index]
+			if terrain == MapModel.Terrain.OCEAN:
+				image.set_pixel(x, y, Color(0, 0, 0, 0))
+				mask.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var color: Color = Palette.terrain_color(terrain)
+			var jitter: float = (_hash01(x, y) - 0.5) * 0.055
+			image.set_pixel(x, y, Color(
+				clampf(color.r + jitter, 0.0, 1.0),
+				clampf(color.g + jitter, 0.0, 1.0),
+				clampf(color.b + jitter, 0.0, 1.0),
+				color.a
+			))
+			if terrain == MapModel.Terrain.SHALLOW:
+				mask.set_pixel(x, y, Color(0, 0, 0, 0))
+			else:
+				mask.set_pixel(x, y, Color(1, 1, 1, 1))
+	_terrain_texture = ImageTexture.create_from_image(image)
+	_mask_texture = ImageTexture.create_from_image(mask)
+
+
+func _build_coast() -> void:
+	var raw: Array[PackedVector2Array] = []
+	for y in model.height:
+		for x in model.width:
+			var case_index: int = 0
+			if model.is_land(x, y):
+				case_index |= 1
+			if model.is_land(x + 1, y):
+				case_index |= 2
+			if model.is_land(x + 1, y + 1):
+				case_index |= 4
+			if model.is_land(x, y + 1):
+				case_index |= 8
+			var pairs: Array = MS_TABLE[case_index]
+			for pair: Array in pairs:
+				var a: Vector2 = _edge_point(x, y, int(pair[0]))
+				var b: Vector2 = _edge_point(x, y, int(pair[1]))
+				raw.append(PackedVector2Array([a, b]))
+	_coast = InkPaths.smooth_segments(raw, 2)
+
+
+func _edge_point(x: int, y: int, edge: int) -> Vector2:
+	var point: Vector2 = Vector2.ZERO
+	match edge:
+		0:
+			point = Vector2(float(x) + 0.5, float(y))
+		1:
+			point = Vector2(float(x) + 1.0, float(y) + 0.5)
+		2:
+			point = Vector2(float(x) + 0.5, float(y) + 1.0)
+		_:
+			point = Vector2(float(x), float(y) + 0.5)
+	return point * TILE_SIZE
+
+
+func _build_borders() -> void:
+	var province_raw: Array[PackedVector2Array] = []
+	var sea_raw: Array[PackedVector2Array] = []
+	for y in model.height:
+		for x in model.width:
+			var index: int = model.index_of(x, y)
+			var here: int = model.province[index]
+			var right: int = model.province_at(x + 1, y)
+			var below: int = model.province_at(x, y + 1)
+			if here != MapModel.NO_ID and right != MapModel.NO_ID and here != right:
+				province_raw.append(PackedVector2Array([
+					Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
+					Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+				]))
+			if here != MapModel.NO_ID and below != MapModel.NO_ID and here != below:
+				province_raw.append(PackedVector2Array([
+					Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
+					Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+				]))
+			var zone: int = model.sea_zone[index]
+			var zone_right: int = model.sea_zone_at(x + 1, y)
+			var zone_below: int = model.sea_zone_at(x, y + 1)
+			if zone != MapModel.NO_ID and zone_right != MapModel.NO_ID and zone != zone_right:
+				sea_raw.append(PackedVector2Array([
+					Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
+					Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+				]))
+			if zone != MapModel.NO_ID and zone_below != MapModel.NO_ID and zone != zone_below:
+				sea_raw.append(PackedVector2Array([
+					Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
+					Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+				]))
+	_province_borders = InkPaths.smooth_segments(province_raw, 2)
+	_sea_borders = InkPaths.smooth_segments(sea_raw, 2)
+
+
+func _build_labels() -> void:
+	_labels.clear()
+	for province: Dictionary in model.provinces:
+		if int(province["area"]) < 26:
+			continue
+		_labels.append({
+			"text": String(province["name"]),
+			"position": Vector2(province["center"]) * TILE_SIZE,
+			"size": 22,
+			"kind": "province",
+			"capital": bool(province["capital"]),
+		})
+	for zone: Dictionary in model.sea_zones:
+		if int(zone["area"]) < 260:
+			continue
+		_labels.append({
+			"text": _spaced(String(zone["name"])),
+			"position": Vector2(zone["center"]) * TILE_SIZE,
+			"size": 13,
+			"kind": "sea",
+		})
+
+
+func _build_glyphs() -> void:
+	_glyphs.clear()
+	for y in model.height:
+		for x in model.width:
+			var terrain: int = model.terrain_at(x, y)
+			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+				continue
+			var roll: float = _hash01(x * 3 + 11, y * 7 + 5)
+			var kind: String = ""
+			var chance: float = 0.0
+			match terrain:
+				MapModel.Terrain.MOUNTAINS:
+					kind = "mountain"
+					chance = 0.55
+				MapModel.Terrain.HILLS:
+					kind = "hill"
+					chance = 0.3
+				MapModel.Terrain.FOREST:
+					kind = "tree"
+					chance = 0.4
+				MapModel.Terrain.DESERT:
+					kind = "dune"
+					chance = 0.12
+				MapModel.Terrain.SWAMP:
+					kind = "reed"
+					chance = 0.22
+				_:
+					kind = "grass"
+					chance = 0.06
+			if roll > chance:
+				continue
+			var jitter := Vector2(
+				(_hash01(x + 31, y + 17) - 0.5) * TILE_SIZE * 0.5,
+				(_hash01(x + 71, y + 43) - 0.5) * TILE_SIZE * 0.5
+			)
+			_glyphs.append({
+				"kind": kind,
+				"position": model.tile_center(x, y, TILE_SIZE) + jitter,
+				"size": TILE_SIZE * (0.55 + _hash01(x + 5, y + 9) * 0.3),
+				"flip": _hash01(x + 13, y + 3) > 0.5,
+			})
+	for province: Dictionary in model.provinces:
+		var port: Vector2i = province["port_tile"]
+		if port.x >= 0:
+			_glyphs.append({
+				"kind": "port",
+				"position": model.tile_center(port.x, port.y, TILE_SIZE),
+				"size": TILE_SIZE * 0.8,
+				"flip": false,
+			})
+		if bool(province["capital"]):
+			_glyphs.append({
+				"kind": "capital",
+				"position": Vector2(province["center"]) * TILE_SIZE,
+				"size": TILE_SIZE * 1.1,
+				"flip": false,
+				"owner": int(province["owner"]),
+			})
+
+
+func _find_compass_spot() -> void:
+	_compass_visible = false
+	var target := Vector2(float(model.width) * 0.12, float(model.height) * 0.86)
+	for radius in range(0, 24, 2):
+		for angle in range(0, 360, 30):
+			var offset := Vector2(cos(deg_to_rad(angle)), sin(deg_to_rad(angle))) * radius
+			var tile: Vector2i = model.tile_at_world(target + offset, TILE_SIZE)
+			if model.is_sea(tile.x, tile.y) and model.sea_zone_at(tile.x, tile.y) != MapModel.NO_ID:
+				_compass_position = model.tile_center(tile.x, tile.y, TILE_SIZE)
+				_compass_visible = true
+				return
+
+
+# --- draw -------------------------------------------------------------------
+
+
+func _draw() -> void:
+	if model == null or _terrain_texture == null:
+		return
+	var size: Vector2 = map_size()
+	draw_texture_rect(
+		_mask_texture, Rect2(Vector2(6, 8), size), false, Color(0.10, 0.07, 0.03, 0.32)
+	)
+	draw_texture_rect(_terrain_texture, Rect2(Vector2.ZERO, size), false)
+
+	for path: PackedVector2Array in _sea_borders:
+		draw_polyline(path, Color(0.18, 0.30, 0.33, 0.18), 1.0, true)
+	for path: PackedVector2Array in _province_borders:
+		draw_polyline(path, Color(0.235, 0.184, 0.129, 0.26), 1.1, true)
+	for path: PackedVector2Array in _coast:
+		draw_polyline(path, Color(0.90, 0.84, 0.68, 0.38), 6.0, true)
+		draw_polyline(path, Color(0.24, 0.19, 0.13, 0.14), 6.0, true)
+		draw_polyline(path, Color(0.20, 0.15, 0.10, 0.85), 1.9, true)
+
+	for glyph: Dictionary in _glyphs:
+		_draw_glyph(glyph)
+
+	for label: Dictionary in _labels:
+		_draw_label(label)
+
+	if _compass_visible:
+		_draw_compass(_compass_position, 74.0)
+
+
+func _draw_glyph(glyph: Dictionary) -> void:
+	var position: Vector2 = glyph["position"]
+	var size: float = glyph["size"]
+	var flip: bool = glyph["flip"]
+	match String(glyph["kind"]):
+		"mountain":
+			_draw_mountain(position, size, flip)
+		"hill":
+			_draw_hill(position, size)
+		"tree":
+			_draw_tree(position, size, flip)
+		"dune":
+			_draw_dune(position, size)
+		"reed":
+			_draw_reed(position, size)
+		"grass":
+			_draw_grass(position, size)
+		"port":
+			_draw_anchor(position, size)
+		"capital":
+			_draw_capital(position, size, int(glyph.get("owner", 0)))
+
+
+func _draw_mountain(center: Vector2, size: float, flip: bool) -> void:
+	var half: float = size * 0.5
+	var direction: float = -1.0 if flip else 1.0
+	var peak := center + Vector2(half * 0.15 * direction, -half * 0.8)
+	var left := center + Vector2(-half, half * 0.5)
+	var right := center + Vector2(half, half * 0.5)
+	draw_colored_polygon(PackedVector2Array([left, peak, right]), Color(0.42, 0.35, 0.27, 0.55))
+	draw_colored_polygon(
+		PackedVector2Array([peak, right, center + Vector2(half * 0.1, half * 0.5)]),
+		Color(0.30, 0.24, 0.18, 0.45)
+	)
+	draw_line(peak, center + Vector2(-half * 0.2, half * 0.5), Color(0.20, 0.16, 0.12, 0.5), 1.0, true)
+
+
+func _draw_hill(center: Vector2, size: float) -> void:
+	var radius: float = size * 0.45
+	draw_arc(
+		center + Vector2(0, radius * 0.4), radius, PI, TAU, 12,
+		Color(0.36, 0.29, 0.21, 0.45), 1.4, true
+	)
+	draw_arc(
+		center + Vector2(radius * 0.5, radius * 0.55), radius * 0.6, PI, TAU, 10,
+		Color(0.36, 0.29, 0.21, 0.3), 1.1, true
+	)
+
+
+func _draw_tree(center: Vector2, size: float, flip: bool) -> void:
+	var trunk: float = size * 0.22
+	var crown: float = size * 0.34
+	var lean: float = 0.12 if flip else -0.12
+	draw_line(
+		center + Vector2(0, size * 0.45), center + Vector2(lean * size, -trunk),
+		Color(0.28, 0.22, 0.15, 0.6), 1.2, true
+	)
+	draw_circle(
+		center + Vector2(lean * size, -trunk - crown * 0.4), crown,
+		Color(0.24, 0.34, 0.22, 0.42)
+	)
+	draw_circle(
+		center + Vector2(lean * size - crown * 0.35, -trunk - crown * 0.1), crown * 0.7,
+		Color(0.20, 0.30, 0.19, 0.35)
+	)
+
+
+func _draw_dune(center: Vector2, size: float) -> void:
+	var width: float = size * 0.5
+	draw_arc(
+		center + Vector2(0, size * 0.2), width, PI * 1.1, PI * 1.9, 10,
+		Color(0.55, 0.44, 0.28, 0.4), 1.2, true
+	)
+	draw_arc(
+		center + Vector2(width * 0.4, size * 0.35), width * 0.6, PI * 1.1, PI * 1.9, 8,
+		Color(0.55, 0.44, 0.28, 0.28), 1.0, true
+	)
+
+
+func _draw_reed(center: Vector2, size: float) -> void:
+	for i in 3:
+		var offset: float = (float(i) - 1.0) * size * 0.18
+		draw_line(
+			center + Vector2(offset, size * 0.4),
+			center + Vector2(offset * 1.6, -size * 0.35),
+			Color(0.26, 0.33, 0.22, 0.5), 1.0, true
+		)
+
+
+func _draw_grass(center: Vector2, size: float) -> void:
+	for i in 2:
+		var offset: float = (float(i) - 0.5) * size * 0.2
+		draw_line(
+			center + Vector2(offset, size * 0.3),
+			center + Vector2(offset * 2.0, -size * 0.1),
+			Color(0.42, 0.38, 0.24, 0.35), 1.0, true
+		)
+
+
+func _draw_anchor(center: Vector2, size: float) -> void:
+	var ink := Color(0.20, 0.16, 0.12, 0.75)
+	var radius: float = size * 0.42
+	draw_arc(center + Vector2(0, radius * 0.35), radius, PI * 0.15, PI * 0.85, 12, ink, 1.6, true)
+	draw_line(center + Vector2(0, -radius * 0.9), center + Vector2(0, radius * 0.5), ink, 1.6, true)
+	draw_line(
+		center + Vector2(-radius * 0.45, -radius * 0.45),
+		center + Vector2(radius * 0.45, -radius * 0.45), ink, 1.4, true
+	)
+	draw_circle(center + Vector2(0, -radius * 0.95), 1.8, ink)
+
+
+func _draw_capital(center: Vector2, size: float, owner: int) -> void:
+	var color: Color = Palette.faction_color(owner)
+	var radius: float = size * 0.55
+	draw_circle(center, radius * 1.25, Color(0.96, 0.92, 0.82, 0.55))
+	var star: PackedVector2Array = _star(center, radius, 5, 0.45)
+	draw_colored_polygon(star, color)
+	var outline := star.duplicate()
+	outline.append(star[0])
+	draw_polyline(outline, Color(0.16, 0.12, 0.08, 0.85), 1.0, true)
+
+
+func _draw_label(label: Dictionary) -> void:
+	var text: String = label["text"]
+	var position: Vector2 = label["position"]
+	if bool(label.get("capital", false)):
+		position += Vector2(0, 24)
+	var font_size: int = label["size"]
+	var width: float = 260.0
+	var origin := position - Vector2(width * 0.5, 0.0)
+	if String(label["kind"]) == "sea":
+		draw_string_outline(
+			_font_italic, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, 3,
+			Color(0.93, 0.88, 0.77, 0.28)
+		)
+		draw_string(
+			_font_italic, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size,
+			Color(0.12, 0.26, 0.29, 0.62)
+		)
+		return
+	draw_string_outline(
+		_font, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, 3,
+		Color(0.97, 0.94, 0.86, 0.85)
+	)
+	draw_string(
+		_font, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size,
+		Color(0.11, 0.08, 0.05, 0.96)
+	)
+
+
+func _draw_compass(center: Vector2, radius: float) -> void:
+	var ink := Color(0.16, 0.12, 0.08, 0.42)
+	draw_arc(center, radius, 0, TAU, 64, ink, 1.2, true)
+	draw_arc(center, radius * 0.82, 0, TAU, 64, Color(0.16, 0.12, 0.08, 0.22), 0.8, true)
+	for i in 8:
+		var angle: float = TAU * float(i) / 8.0 - PI * 0.5
+		var length: float = radius * (0.95 if i % 2 == 0 else 0.55)
+		var tip := center + Vector2(cos(angle), sin(angle)) * length
+		var left := center + Vector2(cos(angle - 0.16), sin(angle - 0.16)) * radius * 0.16
+		var right := center + Vector2(cos(angle + 0.16), sin(angle + 0.16)) * radius * 0.16
+		var fill := Color(0.16, 0.12, 0.08, 0.30) if i % 2 == 0 else Color(0.16, 0.12, 0.08, 0.16)
+		draw_colored_polygon(PackedVector2Array([left, tip, right]), fill)
+	draw_circle(center, radius * 0.06, ink)
+	var letters: Array[String] = ["N", "E", "S", "W"]
+	for i in 4:
+		var angle: float = TAU * float(i) / 4.0 - PI * 0.5
+		var spot := center + Vector2(cos(angle), sin(angle)) * (radius + 12.0)
+		draw_string(
+			_font, spot - Vector2(8, -6), letters[i], HORIZONTAL_ALIGNMENT_CENTER, 16, 14,
+			Color(0.16, 0.12, 0.08, 0.5)
+		)
+
+
+# --- helpers ----------------------------------------------------------------
+
+
+func _star(center: Vector2, radius: float, points: int, inner_ratio: float) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for i in points * 2:
+		var angle: float = TAU * float(i) / float(points * 2) - PI * 0.5
+		var length: float = radius if i % 2 == 0 else radius * inner_ratio
+		result.append(center + Vector2(cos(angle), sin(angle)) * length)
+	return result
+
+
+func _spaced(text: String) -> String:
+	var out: String = ""
+	for i in text.length():
+		out += text[i]
+		if i < text.length() - 1:
+			out += " "
+	return out
+
+
+func _hash01(x: int, y: int) -> float:
+	var h: int = x * 374761393 + y * 668265263
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return float(h & 0xFFFF) / 65535.0
