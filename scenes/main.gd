@@ -3,7 +3,14 @@ extends Node
 
 const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
+## Overridable for tests / e2e smoke (set before add_child).
+var map_width: int = 128
+var map_height: int = 84
+
 
 func _ready() -> void:
 	InputActions.ensure_actions()
-	add_child(MAP_SCREEN.instantiate())
+	var screen: MapScreen = MAP_SCREEN.instantiate()
+	screen.map_width = map_width
+	screen.map_height = map_height
+	add_child(screen)

@@ -50,7 +50,8 @@ jobs:
   tests:
     name: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Hard budget: suite + coverage must finish within 5 minutes (see docs/testing.md).
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -109,8 +110,8 @@ jobs:
 
       - name: Run tests with 80% coverage gate
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
-        # 600s: map-screen builds worlds under coverage within one Godot process.
-        run: gd-tools test --coverage --min 80 --timeout 600 --junit-xml .gd-tools/results.xml
+        # ≤5 min job: parallel workers + shared map fixtures (docs/testing.md).
+        run: gd-tools test --coverage --min 80 --parallel 4 --timeout 240 --junit-xml .gd-tools/results.xml
 
       - name: Upload test & coverage artifacts
         if: always() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true')
@@ -171,7 +172,8 @@ jobs:
     name: e2e-smoke
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    # Hard budget: smoke wall time ≤2 minutes (see docs/testing.md).
+    timeout-minutes: 2
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -19,7 +19,7 @@ Notes: <behavior preserved; key splits/moves>
 
 ## Test plan
 - [ ] `python tools/lint_arch.py`
-- [ ] `gd-tools test --coverage --min 80`
+- [ ] `gd-tools test --coverage --min 80 --parallel 4` (≤5 min)
 - [ ] `python tools/lint_docs_words.py` (if docs touched)
 - [ ] `godot --headless --path . --script res://tools/e2e_smoke.gd` (if main-scene composition touched; aim ≤2 min)
 - [ ] Manual: <desktop + touch path if UI/scene graph moved>
