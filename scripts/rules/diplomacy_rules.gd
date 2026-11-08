@@ -18,7 +18,9 @@ static func can_declare_war(
 	return _allow()
 
 
-static func declare_war(state: DiplomacyState, player: int, target: int) -> Dictionary:
+static func declare_war(
+	state: DiplomacyState, player: int, target: int, call_to_arms: bool = true
+) -> Dictionary:
 	var check: Dictionary = can_declare_war(state, player, target)
 	if not bool(check["ok"]):
 		return check
@@ -30,9 +32,15 @@ static func declare_war(state: DiplomacyState, player: int, target: int) -> Dict
 	state.cancel_subsidy(player, target)
 	state.cancel_subsidy(target, player)
 	state.touch(player, target, "warDeclared")
+	# Mutual defence: a declaration drags allies of the defender in (or queues
+	# the human court's consent decision). A call-to-arms join never cascades.
+	var calls: Array[String] = []
+	if call_to_arms:
+		calls = CallToArms.on_war_declared(state, player, target)
 	return {
 		"ok": true,
 		"reason": "",
+		"calls": calls,
 		"message": "%s declares war on %s." % [
 			FactionCatalog.name_of(player), FactionCatalog.name_of(target)
 		],

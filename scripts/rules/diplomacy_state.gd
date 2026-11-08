@@ -13,6 +13,13 @@ var overtures: Dictionary = {}
 var subsidies: Dictionary = {}
 ## Tribe id -> suzerain Great Power id.
 var colonies: Dictionary = {}
+## Human court for consent decisions (call to arms); set by the session.
+var human_faction: int = FactionCatalog.PLAYER_FACTION
+## Pair key -> true for formal alliances at the close of the preceding turn.
+## A treaty signed this turn never grants mutual defence for this turn.
+var alliance_snapshot: Dictionary = {}
+## Calls to arms the human court has not answered: {aggressor, defender, ally}.
+var pending_calls: Array[Dictionary] = []
 ## Append-only recent history for the court and tests.
 var events: Array[Dictionary] = []
 
@@ -38,6 +45,8 @@ func reset(at_turn: int) -> void:
 	subsidies.clear()
 	colonies.clear()
 	events.clear()
+	alliance_snapshot.clear()
+	pending_calls.clear()
 	_modified.clear()
 	_order_counts.clear()
 
@@ -211,6 +220,9 @@ func end_turn() -> Dictionary:
 		)
 		subsidies.erase(key)
 	var decayed: int = apply_decay()
+	# The mutual-defence snapshot is the state at the close of this turn: a
+	# treaty signed next turn cannot be pulled into today's war (wiki: diplomacy).
+	CallToArms.freeze_alliances(self)
 	_modified.clear()
 	_order_counts.clear()
 	turn += 1

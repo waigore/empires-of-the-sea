@@ -30,6 +30,9 @@ var economy: EconomyController = null
 var diplomacy: DiplomacyState = null
 ## Set once the rules decide the campaign (wiki: victory); turns then stay shut.
 var victory: VictoryState = null
+## A consent decision (call to arms) holds turn resolution until answered
+## (wiki: diplomacy § Alliances).
+var turn_suspended: bool = false
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
 ## turn's decision trace (wiki: ai-architecture).
 var ai: AiState = null
