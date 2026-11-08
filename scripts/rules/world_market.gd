@@ -117,3 +117,23 @@ func copy() -> WorldMarket:
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()
 	return clone
+
+
+## Plain data for local saves (current prices and this turn's order book).
+func to_dict() -> Dictionary:
+	return {
+		"prices": prices.duplicate(),
+		"world_depth": world_depth,
+		"bids": _bids.duplicate(),
+		"offers": _offers.duplicate(),
+	}
+
+
+static func from_dict(data: Dictionary) -> WorldMarket:
+	var market := WorldMarket.with_default_prices(int(data.get("world_depth", DEFAULT_WORLD_DEPTH)))
+	var saved: Dictionary = data.get("prices", {})
+	for key: Variant in saved.keys():
+		market.prices[String(key)] = int(saved[key])
+	market._bids = data.get("bids", {}).duplicate()
+	market._offers = data.get("offers", {}).duplicate()
+	return market

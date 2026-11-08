@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/map_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://scripts/audio/map_soundtrack.gd" id="12_score"]
 [ext_resource type="Script" path="res://scripts/ui/improvement_panel.gd" id="13_improvements"]
 [ext_resource type="Script" path="res://scripts/map/army_layer.gd" id="14_armies"]
+[ext_resource type="Script" path="res://scripts/ui/game_menu.gd" id="15_menu"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
 shader = ExtResource("7_sea")
@@ -120,3 +121,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="GameMenu" type="CanvasLayer" parent="."]
+layer = 5
+script = ExtResource("15_menu")

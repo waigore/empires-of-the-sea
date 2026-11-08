@@ -43,7 +43,8 @@ func spawn(
 	count: int,
 	seed_value: int,
 	player_capital: int,
-	player_present: bool = true
+	player_present: bool = true,
+	p_player_faction: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	model = p_model
 	_rng.seed = seed_value
@@ -62,8 +63,8 @@ func spawn(
 	# Hull ids stay unique for the life of the save, so the counter runs on
 	# across regions (wiki: ships-and-naval § Ship instances); never collide.
 	for index in count:
-		var owner: int = _owner_for_index(index, count, player_present)
-		var fleet: FleetState = _make_fleet(index, owner, player_capital, player_present)
+		var owner: int = _owner_for_index(index, count, player_present, p_player_faction)
+		var fleet: FleetState = _make_fleet(index, owner, player_capital, p_player_faction)
 		_assign_hulls(fleet, index)
 		fleets.append(fleet)
 		_make_marker(fleet)
@@ -90,27 +91,26 @@ func _rebuild_markers() -> void:
 		_make_marker(fleet)
 
 
-## Fleets belong to Great Powers only (wiki: factions — Minors/Tribes keep no
-## navy). The player owns squadrons only where it holds provinces.
-static func _owner_for_index(index: int, count: int, player_present: bool) -> int:
+## Fleets belong to Great Powers only; the player owns squadrons where it holds land.
+static func _owner_for_index(
+	index: int, count: int, player_present: bool, player: int
+) -> int:
 	var powers: Array[int] = FactionCatalog.great_power_ids()
 	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0
 	if index < player_count:
-		return FactionCatalog.PLAYER_FACTION
+		return player
 	var rivals: Array[int] = []
 	for power: int in powers:
-		if power != FactionCatalog.PLAYER_FACTION:
+		if power != player:
 			rivals.append(power)
 	if rivals.is_empty():
-		return FactionCatalog.PLAYER_FACTION
+		return player
 	return rivals[(index - player_count) % rivals.size()]
 
 
-func _make_fleet(
-	id: int, owner: int, player_capital: int, player_present: bool
-) -> FleetState:
-	if player_present and owner == 0 and id == 2:
-		var port: int = _player_port(player_capital)
+func _make_fleet(id: int, owner: int, player_capital: int, player: int) -> FleetState:
+	if owner == player and player_capital >= 0 and id == 2:
+		var port: int = _player_port(player_capital, player)
 		if port >= 0:
 			return FleetState.in_port(id, owner, port)
 	var zones: Array[int] = _coastal_zones(owner)
@@ -149,18 +149,18 @@ func _coastal_zones(owner: int) -> Array[int]:
 	return zones
 
 
-func _player_port(player_capital: int) -> int:
+func _player_port(player_capital: int, player: int) -> int:
 	# Sea-going fleets never sit in the capital port (home-fleet rule); prefer a
 	# non-capital harbour, and the capital only when it is the sole option.
 	for province: ProvinceState in model.provinces:
-		if province.owner != 0:
+		if province.owner != player:
 			continue
 		var province_id: int = province.id
 		if province_id == player_capital:
 			continue
 		if NavalMovement.has_harbour(model, province_id):
 			return province_id
-	if player_capital >= 0 and model.province_owner(player_capital) == 0:
+	if player_capital >= 0 and model.province_owner(player_capital) == player:
 		if NavalMovement.has_harbour(model, player_capital):
 			return player_capital
 	return -1

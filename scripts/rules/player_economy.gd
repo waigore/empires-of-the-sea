@@ -195,3 +195,59 @@ func copy() -> PlayerEconomy:
 	clone.research = research.copy()
 	clone._assignments = _assignments.duplicate(true)
 	return clone
+
+
+## Plain data for local saves: ledger, labour pool, research and assignments.
+func snapshot() -> Dictionary:
+	return {
+		"treasury": treasury,
+		"stockpile": stockpile.duplicate(),
+		"workers": workers.counts.duplicate(),
+		"research": {
+			"unlocked": research.unlocked.duplicate(),
+			"progress": research.progress.duplicate(),
+			"slots": research.slots.duplicate(true),
+			"revealed": research.revealed.duplicate(),
+		},
+		"assignments": _assignments.duplicate(true),
+	}
+
+
+## Replaces every field from a snapshot; safe on a freshly started economy.
+func apply_snapshot(data: Dictionary) -> void:
+	treasury = int(data.get("treasury", treasury))
+	stockpile.clear()
+	var saved_stock: Dictionary = data.get("stockpile", {})
+	for key: Variant in saved_stock.keys():
+		stockpile[String(key)] = int(saved_stock[key])
+	var counts: Array = data.get("workers", [])
+	for tier in WorkerPool.TIER_COUNT:
+		workers.set_count(tier, int(counts[tier]) if tier < counts.size() else 0)
+	var research_data: Variant = data.get("research", {})
+	if typeof(research_data) == TYPE_DICTIONARY:
+		_apply_research(research_data)
+	_assignments.clear()
+	for raw: Variant in data.get("assignments", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		var recipe_id: String = String(entry.get("recipe", ""))
+		var units: int = int(entry.get("units", 0))
+		if not recipe_id.is_empty() and units > 0:
+			_assignments.append({"recipe": recipe_id, "units": units})
+
+
+func _apply_research(data: Dictionary) -> void:
+	research = ResearchState.new()
+	research.unlocked = data.get("unlocked", {}).duplicate()
+	research.progress = data.get("progress", {}).duplicate()
+	research.revealed = data.get("revealed", {}).duplicate()
+	for raw: Variant in data.get("slots", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = raw
+		research.slots.append({
+			"tech": String(entry.get("tech", ResearchState.EMPTY_TECH)),
+			"funding": String(entry.get("funding", ResearchFunding.DEFAULT)),
+		})
+	research.ensure_slots()
