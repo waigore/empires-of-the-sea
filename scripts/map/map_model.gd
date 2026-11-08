@@ -107,6 +107,14 @@ func province_data(id: int) -> Dictionary:
 	return provinces[id]
 
 
+## Capital tile picked for the province, or NO_TILE when the map has none.
+func capital_tile_of(province_id: int) -> Vector2i:
+	var data: Dictionary = province_data(province_id)
+	if data.is_empty():
+		return CapitalChoice.NO_TILE
+	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+
+
 func sea_zone_data(id: int) -> Dictionary:
 	if id < 0 or id >= sea_zones.size():
 		return {}

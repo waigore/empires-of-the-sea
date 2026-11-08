@@ -43,13 +43,14 @@ func spawn(
 	model = p_model
 	_rng.seed = seed_value
 	_clear_markers()
+	fleets = []
 	if model.sea_zone_count() == 0:
 		return
 	if _fleets_by_region.has(model.region_id):
 		fleets.assign(_fleets_by_region[model.region_id])
+		_fleets_by_region[model.region_id] = fleets
 		_rebuild_markers()
 		return
-	fleets.clear()
 	_next_hull = 1
 	for index in count:
 		var owner: int = _owner_for_index(index, count, player_present)
@@ -259,8 +260,42 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	return result
 
 
+## Resets readiness in every region: a fleet parked off-screen must still be
+## able to sail when its map is opened again.
 func begin_turn() -> void:
-	NavalMovement.begin_turn(fleets)
+	for stored: Array in _fleets_by_region.values():
+		var region_fleets: Array[FleetState] = []
+		region_fleets.assign(stored)
+		NavalMovement.begin_turn(region_fleets)
+
+
+## Enemy markers follow fog intel: a fleet is only drawn while its tile is
+## fully visible for the player (wiki: fog-and-exploration).
+func refresh_visibility(visibility: VisibilityModel, player: int) -> void:
+	for ship: Ship in ships:
+		var fleet: FleetState = fleet_of(ship)
+		if fleet != null:
+			ship.visible = _known(fleet, visibility, player)
+
+
+func _known(fleet: FleetState, visibility: VisibilityModel, player: int) -> bool:
+	if fleet.owner == player or visibility == null:
+		return true
+	var tile: Vector2i = _fleet_tile(fleet)
+	if tile.x < 0:
+		return true
+	return visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
+
+
+func _fleet_tile(fleet: FleetState) -> Vector2i:
+	if fleet.is_at_sea():
+		var zone: Dictionary = model.sea_zone_data(fleet.sea_zone)
+		var tiles: Array = zone.get("tiles", [])
+		if tiles.is_empty():
+			return Vector2i(-1, -1)
+		return tiles[0]
+	var data: Dictionary = model.province_data(fleet.province)
+	return data.get("port_tile", Vector2i(-1, -1))
 
 
 ## Removes fleets whose last hull has been sunk and frees their map markers.

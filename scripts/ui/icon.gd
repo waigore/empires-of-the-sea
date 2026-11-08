@@ -40,6 +40,8 @@ func _draw() -> void:
 			_draw_crown(center, radius)
 		"compass":
 			_draw_compass(center, radius)
+		"bell":
+			_draw_bell(center, radius)
 		_:
 			draw_circle(center, radius * 0.6, tint)
 
@@ -227,3 +229,17 @@ func _draw_compass(center: Vector2, radius: float) -> void:
 		]),
 		tint
 	)
+
+
+func _draw_bell(center: Vector2, radius: float) -> void:
+	var dome := center + Vector2(0, radius * 0.2)
+	var width := radius * 0.56
+	draw_arc(dome, width, PI, TAU, 20, tint, maxf(1.0, radius * 0.13), true)
+	var lip_y: float = dome.y + radius * 0.3
+	draw_line(dome + Vector2(-width, 0), Vector2(dome.x - width, lip_y), tint,
+		maxf(1.0, radius * 0.13), true)
+	draw_line(dome + Vector2(width, 0), Vector2(dome.x + width, lip_y), tint,
+		maxf(1.0, radius * 0.13), true)
+	draw_line(Vector2(dome.x - width * 1.15, lip_y), Vector2(dome.x + width * 1.15, lip_y),
+		tint, maxf(1.0, radius * 0.13), true)
+	draw_circle(Vector2(dome.x, lip_y + radius * 0.16), radius * 0.12, tint)

@@ -61,3 +61,11 @@ func test_region_labels_and_keys_are_defined() -> void:
 	assert_eq(FactionCatalog.region_label(FactionCatalog.NEW_WORLD), "New World")
 	assert_eq(FactionCatalog.region_key(FactionCatalog.NEW_WORLD), "new_world")
 	assert_eq(FactionCatalog.ids_in_region(FactionCatalog.NEW_WORLD), FactionCatalog.tribe_ids())
+
+
+func test_names_are_indexed_by_faction_id() -> void:
+	var names: Array[String] = FactionCatalog.names()
+	assert_eq(names.size(), FactionCatalog.count())
+	for faction: Dictionary in FactionCatalog.all():
+		var id: int = int(faction["id"])
+		assert_eq(names[id], FactionCatalog.name_of(id))

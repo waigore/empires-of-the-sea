@@ -186,6 +186,14 @@ static func name_of(id: int) -> String:
 	return String(faction["name"])
 
 
+## Display names indexed by faction id (despatches and panels look names up by id).
+static func names() -> Array[String]:
+	var result: Array[String] = []
+	for faction: Dictionary in all():
+		result.append(String(faction["name"]))
+	return result
+
+
 static func color_of(id: int) -> Color:
 	var faction: Dictionary = get_faction(id)
 	if faction.is_empty():

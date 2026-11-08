@@ -66,6 +66,32 @@ func capital_province_of(region_index: int, faction_id: int) -> int:
 	return MapModel.NO_ID
 
 
+## Seat the faction rules from in a region: its capital, else any holding.
+func seat_province(region_index: int, faction_id: int) -> int:
+	var capital: int = capital_province_of(region_index, faction_id)
+	if capital != MapModel.NO_ID:
+		return capital
+	var model: MapModel = region(region_index)
+	if model == null:
+		return MapModel.NO_ID
+	for province: Dictionary in model.provinces:
+		if int(province["owner"]) == faction_id:
+			return int(province["id"])
+	return MapModel.NO_ID
+
+
+## Provinces the faction currently holds in a region.
+func owned_provinces(region_index: int, faction_id: int) -> int:
+	var model: MapModel = region(region_index)
+	if model == null:
+		return 0
+	var total: int = 0
+	for province: Dictionary in model.provinces:
+		if int(province["owner"]) == faction_id:
+			total += 1
+	return total
+
+
 ## Region/zone a warp zone leads to, or an empty dictionary when the zone is
 ## ordinary water.
 func warp_partner(region_index: int, zone_id: int) -> Dictionary:

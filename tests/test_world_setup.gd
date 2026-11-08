@@ -95,6 +95,33 @@ func test_every_faction_gets_exactly_one_capital() -> void:
 			assert_eq(_world.capital_province_of(region_index, faction_id), province_id)
 
 
+func test_seat_is_the_capital_and_falls_back_to_a_holding() -> void:
+	var model: MapModel = _world.region(FactionCatalog.OLD_WORLD)
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var seat: int = _world.seat_province(FactionCatalog.OLD_WORLD, player)
+	assert_eq(seat, _world.capital_province_of(FactionCatalog.OLD_WORLD, player))
+	var capitals: Array[bool] = []
+	for province: Dictionary in model.provinces:
+		capitals.append(bool(province["capital"]))
+		province["capital"] = false
+	var fallback: int = _world.seat_province(FactionCatalog.OLD_WORLD, player)
+	for index in model.provinces.size():
+		model.provinces[index]["capital"] = capitals[index]
+	assert_eq(int(model.province_data(fallback)["owner"]), player)
+	assert_eq(_world.seat_province(FactionCatalog.OLD_WORLD, 9999), MapModel.NO_ID)
+
+
+func test_owned_provinces_counts_the_region_only() -> void:
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var model: MapModel = _world.region(FactionCatalog.OLD_WORLD)
+	var expected: int = 0
+	for province: Dictionary in model.provinces:
+		if int(province["owner"]) == player:
+			expected += 1
+	assert_eq(_world.owned_provinces(FactionCatalog.OLD_WORLD, player), expected)
+	assert_eq(_world.owned_provinces(FactionCatalog.OLD_WORLD, 9999), 0)
+
+
 func test_warp_zones_pair_the_two_maps() -> void:
 	assert_true(_world.warp_links.size() >= 2)
 	for region_index in _world.region_count():

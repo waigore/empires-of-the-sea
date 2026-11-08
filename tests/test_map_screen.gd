@@ -315,6 +315,123 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 
+func test_civilians_muster_at_the_capital() -> void:
+	assert_eq(
+		_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size()
+	)
+	assert_eq(
+		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+	)
+	for unit: CivilianState in _screen.civilian_layer.units:
+		assert_eq(unit.owner, MapScreen.PLAYER_FACTION)
+		assert_eq(
+			_screen.model.province_at(unit.tile.x, unit.tile.y), _screen.capital_province
+		)
+
+
+func test_tapping_a_civilian_opens_its_dossier() -> void:
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	_screen._on_tapped(
+		_screen.model.tile_center(unit.tile.x, unit.tile.y, MapScreen.TILE_SIZE)
+	)
+	assert_eq(_screen.civilian_layer.selected_unit, unit)
+	assert_true(_screen.hud.is_civilian_panel_open())
+	assert_false(_screen.hud.is_panel_open())
+
+
+func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
+	var tile: Vector2i = _owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource tile")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	builder.tile = tile
+	_screen.civilian_layer.select(builder)
+	var lumber_before: int = int(_screen.stockpile["lumber"])
+	_screen._on_civilian_action("build_improvement")
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	assert_true(builder.is_working())
+	_screen._on_end_turn()
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
+	assert_true(builder.is_idle())
+
+
+func test_training_a_civilian_spends_treasury_and_paper() -> void:
+	_screen._select_province(_screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	var treasury_before: int = _screen.treasury
+	var paper_before: int = int(_screen.stockpile["paper"])
+	_screen._on_panel_action("train_explorer")
+	assert_eq(_screen.treasury, treasury_before - 1000)
+	assert_eq(int(_screen.stockpile["paper"]), paper_before - 2)
+	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
+
+
+func test_training_is_refused_outside_the_capital() -> void:
+	var province_id: int = _foreign_province()
+	_screen._select_province(
+		province_id, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
+	var units_before: int = _screen.civilian_layer.units.size()
+	var treasury_before: int = _screen.treasury
+	_screen._on_panel_action("train_explorer")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+	assert_eq(_screen.treasury, treasury_before)
+
+
+func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var resource: Vector2i = _owned_resource_tile()
+	builder.tile = resource
+	_screen.civilian_layer.select(builder)
+	_screen._on_civilian_action("build_improvement")
+	var works: LandWorks = _screen.land_works
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), 0, "no crown holdings in the New World")
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size())
+	assert_true(_screen.civilian_layer.units.has(builder))
+	assert_eq(builder.tile, resource)
+	assert_true(builder.is_working())
+	assert_eq(_screen.land_works, works)
+
+
+func test_each_region_keeps_its_own_fleets() -> void:
+	var old_fleet: FleetState = _screen.ship_layer.fleets[0]
+	var old_zone: int = old_fleet.sea_zone
+
+	_screen._cycle_region()
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		assert_false(fleet == old_fleet, "the New World fields its own squadrons")
+
+	_screen._cycle_region()
+	assert_eq(_screen.ship_layer.fleets[0], old_fleet)
+	assert_eq(old_fleet.sea_zone, old_zone)
+
+
+func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.moved = true
+	_screen._cycle_region()
+	_screen._on_end_turn()
+	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
+
+
+func _capital_point() -> Vector2:
+	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE
+
+
+func _owned_resource_tile() -> Vector2i:
+	for province: Dictionary in _screen.model.provinces:
+		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province["tiles"]:
+			if _screen.model.resource_at(tile.x, tile.y) >= 0:
+				return tile
+	return Vector2i(-1, -1)
+
+
 func _fleet_at_sea(owner: int) -> FleetState:
 	for fleet: FleetState in _screen.ship_layer.fleets:
 		if fleet.owner == owner and fleet.is_at_sea():

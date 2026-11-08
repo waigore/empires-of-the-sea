@@ -13,7 +13,9 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
+| [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
+| [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |
 
 ## Process
 
