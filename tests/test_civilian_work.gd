@@ -156,6 +156,79 @@ func test_engineer_builds_one_road_per_tile() -> void:
 	assert_true(String(again["reason"]).contains("already has a road"))
 
 
+func test_road_construction_raises_a_road_to_level_two() -> void:
+	var tile := Vector2i(0, 1)
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var engineer := _add("engineer", tile)
+	var locked: Dictionary = _validate(engineer, "build_road")
+	assert_false(bool(locked["ok"]))
+	assert_true(String(locked["reason"]).contains("already has a road"))
+	var tech := {"road_construction": true}
+	var check: Dictionary = _validate(engineer, "build_road", tech)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(int(check["duration"]), CivilianTransport.ROAD_TURNS)
+	assert_true(bool(CivilianWork.assign(
+		_model, engineer, "build_road", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_eq(_works.transport_at(_model, tile), LandWorks.TRANSPORT_IMPROVED_ROAD)
+	var capped: Dictionary = _validate(engineer, "build_road", tech)
+	assert_false(bool(capped["ok"]))
+	assert_true(String(capped["reason"]).contains("improved road"))
+
+
+func test_rail_builder_lays_rail_on_a_road() -> void:
+	var tile := Vector2i(0, 1)
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var rail := _add("rail_builder", tile)
+	var locked: Dictionary = _validate(rail, "build_rail")
+	assert_false(bool(locked["ok"]))
+	assert_true(String(locked["reason"]).contains("Early Steam Engine"))
+	var tech := {"early_steam_engine": true}
+	var check: Dictionary = _validate(rail, "build_rail", tech)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(check["cost"], {"lumber": 2, "steel": 2})
+	assert_eq(int(check["duration"]), CivilianTransport.RAIL_TURNS)
+	assert_true(bool(CivilianWork.assign(
+		_model, rail, "build_rail", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	assert_eq(int(_stock["steel"]), 6)
+	var first: Array[Dictionary] = CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_false(bool(first[0]["completed"]))
+	assert_eq(_works.transport_at(_model, tile), LandWorks.TRANSPORT_ROAD)
+	var second: Array[Dictionary] = CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_true(bool(second[0]["completed"]))
+	assert_eq(_works.transport_at(_model, tile), LandWorks.TRANSPORT_RAIL)
+
+
+func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
+	var tile := Vector2i(0, 1)
+	var rail := _add("rail_builder", tile)
+	var tech := {"early_steam_engine": true}
+	var no_road: Dictionary = _validate(rail, "build_rail", tech)
+	assert_false(bool(no_road["ok"]))
+	assert_true(String(no_road["reason"]).contains("existing road"))
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_RAIL)
+	var railed: Dictionary = _validate(rail, "build_rail", tech)
+	assert_false(bool(railed["ok"]))
+	assert_true(String(railed["reason"]).contains("already carries a railroad"))
+
+
+func test_rail_builders_are_exempt_from_tile_exclusivity() -> void:
+	var tile := Vector2i(0, 1)
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var first := _add("rail_builder", tile)
+	var second := _add("rail_builder", tile)
+	var tech := {"early_steam_engine": true}
+	assert_true(bool(CivilianWork.assign(
+		_model, first, "build_rail", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	assert_true(bool(_validate(second, "build_rail", tech)["ok"]))
+
+
 func test_engineer_builds_a_port_only_on_the_coast() -> void:
 	var engineer := _add("engineer", Fixture.IRON_TILE)
 	var inland: Dictionary = _validate(engineer, "build_port")
@@ -165,7 +238,7 @@ func test_engineer_builds_a_port_only_on_the_coast() -> void:
 	engineer.tile = Fixture.COAST_TILE
 	var coastal: Dictionary = _validate(engineer, "build_port")
 	assert_true(bool(coastal["ok"]), String(coastal.get("reason", "")))
-	assert_eq(int(coastal["duration"]), CivilianWork.PORT_TURNS)
+	assert_eq(int(coastal["duration"]), CivilianTransport.PORT_TURNS)
 	assert_eq(_cost_text(coastal["cost"]), "5 lumber + 5 cast iron")
 
 
@@ -297,8 +370,13 @@ func _add(type_id: String, tile: Vector2i) -> CivilianState:
 	return unit
 
 
-func _validate(unit: CivilianState, action: String) -> Dictionary:
-	return CivilianWork.validate(_model, unit, action, _works, _units, _stock, _view)
+func _validate(
+	unit: CivilianState, action: String, tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	return CivilianWork.validate(
+		_model, unit, action, _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech_unlocked
+	)
 
 
 func _cost_text(cost: Dictionary) -> String:

@@ -97,6 +97,13 @@ func tech_caps() -> Dictionary:
 	return TechCatalog.extraction_caps(economy.economy.tech_unlocked)
 
 
+## Researched tech ids, for work-order gates that are not extraction caps.
+func tech_unlocked() -> Dictionary:
+	if economy == null or economy.economy == null:
+		return {}
+	return economy.economy.tech_unlocked
+
+
 ## Recomputes which resources the crown has seen, so discovery techs unlock
 ## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
 func refresh_research() -> void:
