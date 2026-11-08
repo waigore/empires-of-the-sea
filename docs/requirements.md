@@ -32,13 +32,13 @@ Map every change to ≥1 pillar; challenge work that maps to none.
 - **REQ-P2-04** — Rules logic unit-tested; meet CI coverage gate with meaningful cases.
 - **REQ-P2-05** — Behavior changes update the wiki in the same change (or a release-blocking follow-up).
 
-## P3 — Modular architecture
+## P3 — Modular architecture (SOLID; CI: `arch-lint`)
 
-- **REQ-P3-01** — Focused domains with clear APIs; extend existing modules over new frameworks.
-- **REQ-P3-02** — Signals/adapters over deep reach-ins and god-objects; autoloads only when cross-cutting.
-- **REQ-P3-03** — Rules/simulation usable without visual nodes; view reads state and emits intents.
-- **REQ-P3-04** — Modules testable in isolation; new systems ship tests under `tests/`.
-- **REQ-P3-05** — Platform diffs stay in thin adapters; core logic shared.
+- **REQ-P3-01** (**S**) — One domain per module; agreed layout; no god files (size/method caps). Prefer extending existing modules over new frameworks (**O**); subtypes honor contracts (**L**).
+- **REQ-P3-02** (**I**) — Narrow APIs/signals over deep reach-ins; no undeclared autoloads (allowlist only when truly cross-cutting).
+- **REQ-P3-03** (**D**) — Rules/sim usable without visual nodes; view reads state and emits intents.
+- **REQ-P3-04** — Modules testable in isolation; changed `scripts/rules/**` ships tests under `tests/`.
+- **REQ-P3-05** — Platform diffs only in `scripts/platform/**`; core shared.
 
 ## P4 — Performance & latency
 

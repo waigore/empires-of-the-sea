@@ -30,9 +30,10 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 |------|-----|
 | `scenes/` | Gameplay and screen scenes |
 | `scripts/` | Shared / non-scene scripts |
+| `scripts/platform/` | Thin OS/platform adapters only |
 | `ui/` | UI scenes, themes, components |
 | `assets/` | Art, audio, fonts |
-| `autoload/` | Singletons only when cross-cutting |
+| `autoload/` | Allowlisted cross-cutting only (`arch-lint`) |
 | `tests/` | Unit tests (`extends GdToolsTest`) |
 | `addons/gd-tools-*` | Vendored gd-tools addons |
 
@@ -41,7 +42,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 - **Reuse first**; typed GDScript; signals over deep node reach-ins.
 - **Input**: mouse/keyboard + touch via InputMap actions.
 - **UI**: containers + anchors + theme; no fixed pixel layouts; no hover-only critical UX.
-- **Exports**: platform diffs behind feature checks / thin adapters; shared core.
+- **Exports**: platform diffs in `scripts/platform/`; shared core. P3 gated by `arch-lint` (`RUB-P3-*`).
 - **Assets**: intentional import settings; atlases when useful.
 
 ## Do / don’t

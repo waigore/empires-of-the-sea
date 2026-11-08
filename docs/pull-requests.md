@@ -21,14 +21,13 @@ Base rules for opening and landing PRs (humans and agents).
 | `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate when code/tests change; else no-op success |
 | `build` | [CI](../.github/workflows/ci.yml) | Headless import/compile; else no-op |
 | `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; main-scene mini-flow (`tools/e2e_smoke.gd`); else no-op |
-| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always runs |
+| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always |
+| `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 SOLID bars (`tools/lint_arch.py`) — always |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op green. `workflow_dispatch` runs them. `docs-lint` always. Smoke asserts map/HUD/select/end-turn (3 min).
+`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always. Smoke: map/HUD/select/end-turn.
 
-Add `docs-lint`, `build`, and `e2e-smoke` to Protect main (repo admin). Until then, docs lint still runs inside a full `tests` run.
-
-Merge method: **squash only**. Branches deleted on merge. Auto-merge enabled.
+Add `docs-lint`, `arch-lint`, `build`, `e2e-smoke` to Protect main (admin). Merge: **squash only**; delete branches; auto-merge on.
 
 ### Respecting checks
 
@@ -48,7 +47,7 @@ gh pr review <number> --approve
 
 ## Workflow with `gh`
 
-**Before:** up-to-date `main`; branch `feat/…` / `fix/…` / `docs/…`; run `gd-tools test --coverage --min 80` and `python tools/lint_docs_words.py` when relevant; clean `git status`.
+**Before:** up-to-date `main`; branch `feat/…` / `fix/…` / `docs/…`; run tests + `python tools/lint_docs_words.py` + `python tools/lint_arch.py` when relevant; clean `git status`.
 
 **Create:**
 
@@ -85,6 +84,7 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 - [ ] `build` green
 - [ ] `e2e-smoke` green
 - [ ] `docs-lint` green
+- [ ] `arch-lint` green
 - [ ] `approval-gate` green
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass
