@@ -30,6 +30,8 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 |------|-----|
 | `scenes/` | Gameplay and screen scenes |
 | `scripts/` | Shared / non-scene scripts |
+| `scripts/world/` | Pure map data (`MapModel`, `MapGeo`) used by rules |
+| `scripts/session/` | Play context for map play helpers (`PlaySession`) |
 | `scripts/platform/` | Thin OS/platform adapters only |
 | `ui/` | UI scenes, themes, components |
 | `assets/` | Art, audio, fonts |
