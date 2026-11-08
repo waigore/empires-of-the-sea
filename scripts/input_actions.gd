@@ -11,6 +11,7 @@ const ZOOM_IN := "zoom_in"
 const ZOOM_OUT := "zoom_out"
 const END_TURN := "end_turn"
 const FOCUS_CAPITAL := "focus_capital"
+const CANCEL := "cancel"
 
 
 static func ensure_actions() -> void:
@@ -22,6 +23,7 @@ static func ensure_actions() -> void:
 	_bind(ZOOM_OUT, [KEY_Q, KEY_MINUS, KEY_KP_SUBTRACT])
 	_bind(END_TURN, [KEY_SPACE, KEY_ENTER])
 	_bind(FOCUS_CAPITAL, [KEY_F, KEY_HOME])
+	_bind(CANCEL, [KEY_ESCAPE])
 
 
 static func _bind(action: StringName, keys: Array) -> void:
