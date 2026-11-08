@@ -41,6 +41,8 @@ python tools/lint_docs_words.py
 - CI: **80% coverage** (`tests`) and **docs ≤ 500 words** (`docs-lint`).
 - Code/tests/assets need collaborator approval when the approval gate is enforced; docs-only PRs auto-merge (squash) when checks pass.
 
+- Android export presets, device builds and release signing: [`docs/android-build.md`](docs/android-build.md).
+
 ## Project layout
 
 ```
