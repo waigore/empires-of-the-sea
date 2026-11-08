@@ -34,6 +34,9 @@ work), P5 (rivals act without player bookkeeping).
 - **Turn pass** (`AiTurn`): at most one legal order per rival court per turn,
   applied through `DiplomacyRules`, with a per-court trace of candidates and
   factors. War declarations land before naval combat in the same turn.
+- **Persistence:** local saves keep each court's fixed agenda and pair cooldowns
+  (`AiState.to_dict`), so a load cannot re-roll an agenda or restart a war
+  cooldown.
 
 Selection thresholds and biases are implementation defaults in the registry;
 the wiki fixes the factors and cooldown lengths, not the pick. AI peace and

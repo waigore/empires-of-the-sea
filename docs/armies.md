@@ -22,6 +22,8 @@ field battles and unopposed capture.
   `improved_infantry_tactics`, 4 from `nationalism`; rosters only grow. Binding
   runs once per Combat phase — one general per attacking army, then per
   defending army, seeded by turn. Medals 0–4, +1 per win.
+- **Persistence:** saves carry general pools with medals plus feeding coverage;
+  a save without pools rebuilds the court from its tech caps.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier with fallback
@@ -48,8 +50,7 @@ field battles and unopposed capture.
 
 Forts, siege walls, emplaced guns · Quick Battle · difficulty modifiers ·
 per-regiment medals and unit health · minor military parity and in-place
-upgrades · AI marches · naval transport between regions · save-file general
-reconciliation (no save system yet).
+upgrades · AI marches · naval transport between regions.
 
 ## Architecture
 

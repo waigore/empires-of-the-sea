@@ -38,6 +38,38 @@ func test_medals_gain_one_per_win_and_cap_at_four() -> void:
 	assert_eq(roster.summary(0), "1 general · 4 medals")
 
 
+func test_save_dict_round_trip_keeps_pools_and_medals() -> void:
+	var roster := GeneralRoster.new()
+	roster.sync(0, {"nationalism": true})
+	roster.sync(1, {"organised_regiments": true})
+	roster.award(0, "general_1")
+	roster.award(0, "general_1")
+	roster.award(0, "general_3")
+
+	# The save store keeps typed variants, but string keys must also restore.
+	var restored: GeneralRoster = GeneralRoster.from_dict(roster.to_dict())
+	var from_text: GeneralRoster = GeneralRoster.from_dict({
+		"pools": {"0": [{"id": "general_1", "medals": 2}]}
+	})
+
+	assert_eq(restored.count(0), 4, "the persisted cap is the pool size")
+	assert_eq(restored.medals(0, "general_1"), 2, "earned medals survive")
+	assert_eq(restored.medals(0, "general_3"), 1)
+	assert_eq(restored.medals(0, "general_2"), 0)
+	assert_eq(restored.count(1), 2)
+	assert_eq(from_text.count(0), 1, "string keys rebuild the pool")
+	assert_eq(from_text.medals(0, "general_1"), 2)
+
+
+func test_from_dict_tolerates_junk_and_caps_medals() -> void:
+	var roster: GeneralRoster = GeneralRoster.from_dict({"pools": {
+		"2": [{"id": "general_1", "medals": 99}, {"id": ""}, 7],
+		3: "nope",
+	}})
+	assert_eq(roster.count(2), 1, "only usable general rows load")
+	assert_eq(roster.medals(2, "general_1"), GeneralRoster.MAX_MEDALS)
+
+
 func test_binding_gives_one_general_per_attacking_army() -> void:
 	var model := Fixture.build()
 	var world := WorldMap.new()
