@@ -59,7 +59,7 @@ Announce the choice briefly (what + why + primary `REQ-*`), then continue withou
 
 ### 3. Map REQ / RUB
 
-List touched pillars `P1`–`P4` and every applicable `RUB-*`. N/A is allowed only when outside the change; N/A ≠ pass. Plan tests under `tests/` for new rules/logic (`REQ-P2-04`, `REQ-P3-04`).
+List touched pillars `P1`–`P5` and every applicable `RUB-*`. N/A is allowed only when outside the change; N/A ≠ pass. Plan tests under `tests/` for new rules/logic (`REQ-P2-04`, `REQ-P3-04`).
 
 ### 4. Implement
 

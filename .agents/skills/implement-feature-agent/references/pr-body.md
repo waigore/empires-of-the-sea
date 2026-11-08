@@ -11,7 +11,7 @@ Use with `gh pr create`. Keep the title why-focused.
 
 ## Decision record
 Pillars touched: P_
-RUB scores: P1… P2… P3… P4… (or N/A)
+RUB scores: P1… P2… P3… P4… P5… (or N/A)
 Overall: PASS
 Blocking IDs: (none)
 Notes: <brief>
