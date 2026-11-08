@@ -10,6 +10,8 @@ var fleet_wrap: Control = null
 var fleet_panel: FleetPanel = null
 var civilian_wrap: Control = null
 var civilian_panel: CivilianPanel = null
+var army_wrap: Control = null
+var army_panel: ArmyPanel = null
 var economy_wrap: Control = null
 var economy_panel: EconomyPanel = null
 var research_wrap: Control = null
@@ -19,6 +21,7 @@ var dock: PanelDock = null
 var panel_open: bool = false
 var fleet_open: bool = false
 var civilian_open: bool = false
+var army_open: bool = false
 var economy_open: bool = false
 var research_open: bool = false
 
@@ -31,6 +34,8 @@ func bind(hud: GameHud) -> void:
 	fleet_panel = hud._fleet_panel
 	civilian_wrap = hud._civilian_wrap
 	civilian_panel = hud._civilian_panel
+	army_wrap = hud._army_wrap
+	army_panel = hud._army_panel
 	economy_wrap = hud._economy_wrap
 	economy_panel = hud._economy_panel
 	research_wrap = hud._research_wrap
@@ -58,6 +63,7 @@ func show_province(model: MapModel, province_id: int) -> void:
 	hide_research()
 	hide_fleet()
 	hide_civilian()
+	hide_army()
 	panel.refresh(model, province_id)
 	panel_open = true
 	dock.slide_in(host, panel_wrap)
@@ -77,6 +83,7 @@ func is_panel_open() -> bool:
 func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_province()
 	hide_civilian()
+	hide_army()
 	hide_economy()
 	hide_research()
 	fleet_panel.refresh(model, fleet, is_player)
@@ -106,6 +113,7 @@ func show_civilian(
 ) -> void:
 	hide_province()
 	hide_fleet()
+	hide_army()
 	hide_economy()
 	hide_research()
 	civilian_panel.refresh(model, unit, works, units, stockpile, visibility, tech_caps)
@@ -128,12 +136,35 @@ func set_civilian_training(visible: bool) -> void:
 	panel.set_training_visible(visible)
 
 
+func show_army(model: MapModel, army: ArmyState, is_player: bool, can_merge: bool) -> void:
+	hide_province()
+	hide_fleet()
+	hide_civilian()
+	hide_research()
+	hide_economy()
+	army_panel.refresh(model, army, is_player, can_merge)
+	army_open = true
+	dock.slide_in(host, army_wrap)
+
+
+func hide_army() -> void:
+	if not army_open:
+		return
+	army_open = false
+	dock.slide_out(host, army_wrap, func() -> void: army_wrap.visible = false)
+
+
+func is_army_panel_open() -> bool:
+	return army_open
+
+
 func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionary) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	hide_army()
 	hide_research()
 	panel_wrap.visible = false
 	panel_open = false
@@ -141,6 +172,8 @@ func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionar
 	fleet_open = false
 	civilian_wrap.visible = false
 	civilian_open = false
+	army_wrap.visible = false
+	army_open = false
 	economy_panel.refresh(economy, market, report)
 	economy_wrap.visible = true
 	economy_open = true
@@ -164,7 +197,10 @@ func show_research(state: ResearchState, treasury: int) -> void:
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	hide_army()
 	hide_economy()
+	army_wrap.visible = false
+	army_open = false
 	research_panel.refresh(state, treasury)
 	research_wrap.visible = true
 	research_open = true
@@ -184,7 +220,7 @@ func is_research_open() -> bool:
 
 
 func _selection_wraps() -> Array[Control]:
-	return [panel_wrap, fleet_wrap, civilian_wrap]
+	return [panel_wrap, fleet_wrap, civilian_wrap, army_wrap]
 
 
 func _sync_dock_buttons() -> void:
@@ -193,3 +229,4 @@ func _sync_dock_buttons() -> void:
 	fleet_panel.set_dock_affordance(glyph, tip)
 	panel.set_dock_affordance(glyph, tip)
 	civilian_panel.set_dock_affordance(glyph, tip)
+	army_panel.set_dock_affordance(glyph, tip)

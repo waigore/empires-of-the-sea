@@ -304,6 +304,12 @@ func _build_country_borders() -> void:
 		_country_borders[owner] = InkPaths.smooth_segments(raw[owner], 3)
 
 
+func refresh_borders() -> void:
+	if model != null:
+		_build_country_borders()
+		queue_redraw()
+
+
 func _draw_province_outline(id: int, color: Color, width: float) -> void:
 	for path: PackedVector2Array in _province_outline(id):
 		draw_polyline(path, color, width, true)

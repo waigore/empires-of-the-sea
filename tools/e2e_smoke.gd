@@ -77,6 +77,25 @@ func _run() -> void:
 	)
 	_check(screen.improvements != null, "estates ledger present")
 
+	var home_army: ArmyState = _home_army(screen)
+	_check(home_army != null, "Home Army musters at the capital")
+	if home_army != null:
+		_check(home_army.province == screen.capital_province, "Home Army stands at the capital")
+		screen.army_layer.select(home_army)
+		await process_frame
+		_check(screen.hud.panels.is_army_panel_open(), "army dossier opens")
+		var field_before: int = home_army.count()
+		MapPlayArmies.on_action(screen.play, "detach:%s" % home_army.regiments[0])
+		await process_frame
+		var field: ArmyState = screen.army_layer.selected_army
+		_check(field != null and not field.is_home_army(), "detached army becomes a field army")
+		_check(home_army.count() == field_before - 1, "Home Army keeps its remaining regiments")
+		_check(
+			screen.hud._army_label.text
+			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
+			"troop chip counts every region"
+		)
+
 	var estates_toggle: Button = screen.improvements._toggle
 	_check(estates_toggle != null, "estates toggle present")
 	screen.improvements.open()
@@ -335,6 +354,13 @@ func _player_ship_at_sea(screen: MapScreen) -> Ship:
 		var fleet: FleetState = screen.ship_layer.fleet_of(ship)
 		if fleet != null and fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
 			return ship
+	return null
+
+
+func _home_army(screen: MapScreen) -> ArmyState:
+	for army: ArmyState in screen.army_layer.armies:
+		if army.owner == MapScreen.PLAYER_FACTION and army.is_home_army():
+			return army
 	return null
 
 
