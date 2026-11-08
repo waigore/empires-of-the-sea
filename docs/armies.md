@@ -15,15 +15,16 @@ field battles and unopposed capture.
   `ArmyTraining`): 29 regiments with FPN/FPM/RNG/DEF/MVR, era, treasury cost,
   material inputs and one peasant from the pool. Tech-gated per
   `tech-tree-military`; new regiments join the Home Army at the capital.
-  Cavalry inputs follow the published table; other material rows and terrain
-  values are interim config (the wiki names them without numbers).
+  Cavalry inputs follow the published table; other material and terrain values
+  are interim config.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power; cap 2
   from `organised_regiments`, 3 from `national_bureaucracy` or
   `improved_infantry_tactics`, 4 from `nationalism`; rosters only grow. Binding
   runs once per Combat phase — one general per attacking army, then per
   defending army, seeded by turn. Medals 0–4, +1 per win.
-- **Persistence:** saves carry general pools with medals plus feeding coverage;
-  a save without pools rebuilds the court from its tech caps.
+- **Persistence:** saves carry general pools with medals, feeding coverage and
+  every crown's leader key (`LeaderCatalog`, chosen at setup); a save without
+  pools rebuilds the court from its tech caps.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier with fallback
@@ -75,7 +76,7 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
-`test_generals`, `test_army_orders`, `test_map_screen`.
+`test_generals`, `test_leader_catalog`, `test_army_orders`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

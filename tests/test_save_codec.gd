@@ -77,6 +77,7 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	play.army_layer.armies[0].moved = true
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, 1)
 	play.charted_provinces[foreign] = true
+	play.leaders[play.player_faction] = LeaderCatalog.DEFAULT_KEY
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveCodec.is_valid(data), "captured save is valid")
@@ -129,7 +130,34 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 		play.diplomacy.relation(play.player_faction, 1).at_war, "war state restored"
 	)
 	assert_true(play.charted_provinces.has(foreign), "charted provinces restored")
+	assert_eq(
+		String(play.leaders.get(play.player_faction, "")),
+		LeaderCatalog.DEFAULT_KEY,
+		"leader keys restored"
+	)
+	assert_eq(
+		String(play.leaders.get(1, "")),
+		LeaderCatalog.default_key(1),
+		"rival crowns keep their leader"
+	)
 	assert_eq(screen.hud._nation_label.text, "SPAIN", "HUD reads the restored nation")
+
+
+func test_saves_without_leaders_backfill_the_crown_roster() -> void:
+	var play: PlaySession = screen.play
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("leaders")
+	data["session"] = session
+
+	screen.free()
+	screen = _new_screen(data)
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			String(screen.play.leaders.get(faction, "")),
+			LeaderCatalog.default_key(faction),
+			"crown %d gets its configured leader" % faction
+		)
 
 
 func test_medals_and_feeding_survive_a_load() -> void:
