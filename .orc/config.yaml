@@ -49,9 +49,11 @@ providers:
       - --workspace
       - "{workdir}"
       - "{prompt}"
-  # Docs: https://hermes-agent.nousresearch.com/docs/reference/cli-commands — -z oneshot, --yolo, --in, -s
+  # Docs: https://hermes-agent.nousresearch.com/docs/reference/cli-commands — -z oneshot, --yolo, --in
   # Do not pass Hermes -w/--worktree; agent-orc owns worktrees.
   # agent-orc runs `hermes skills trust` on the worktree and repo root before each Hermes run.
+  # Do not pass -s/{skill}: Hermes oneshot preload rejects project skills (unknown_skill).
+  # Prompts must tell the agent to load the named project skill in-session instead.
   hermes:
     command:
       - hermes
@@ -60,8 +62,6 @@ providers:
       - --yolo
       - --in
       - "{workdir}"
-      - -s
-      - "{skill}"
   # Docs: https://opencode.ai/docs/cli/ — `opencode run`; --auto for unattended.
   # Local v2.x has no --dir on run; orchestrator sets process cwd to the worktree.
   # Cheaper Inference DeepSeek V4.1 Flash (not OpenCode Go).
@@ -83,7 +83,8 @@ agents:
     enabled: false
     cooldown_seconds: 30
     prompt: |
-      Run the implement-feature-agent skill unattended.
+      Load and follow the project skill implement-feature-agent (under .agents/skills).
+      Run it unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One feature pass; open a PR if work shipped; then exit.
 
@@ -92,7 +93,8 @@ agents:
     provider: hermes
     enabled: false
     prompt: |
-      Run the hunt-defects-agent skill unattended.
+      Load and follow the project skill hunt-defects-agent (under .agents/skills).
+      Run it unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One defect-hunt pass; open a PR if work shipped; then exit.
 
