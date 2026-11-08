@@ -19,12 +19,14 @@ Base rules for opening and landing PRs (humans and agents).
 | Check | Workflow | Meaning |
 |-------|----------|---------|
 | `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate when code/tests change; else no-op success |
+| `build` | [CI](../.github/workflows/ci.yml) | Headless import/compile; else no-op |
+| `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; main-scene mini-flow (`tools/e2e_smoke.gd`); else no-op |
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always runs |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-`tests` runs Godot/gd-tools + 80% coverage only if the diff touches `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, or `icon.svg` (not `assets/` or CI). Otherwise the job no-ops green so the required check still reports. Manual `workflow_dispatch` always runs the full suite. `docs-lint` always runs.
+`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op green. `workflow_dispatch` runs them. `docs-lint` always. Smoke asserts map/HUD/select/end-turn (3 min).
 
-Add `docs-lint` to the Protect main required status checks (repo admin). Until then, the same lint still runs inside a full `tests` run so over-limit docs block merge.
+Add `docs-lint`, `build`, and `e2e-smoke` to Protect main (repo admin). Until then, docs lint still runs inside a full `tests` run.
 
 Merge method: **squash only**. Branches deleted on merge. Auto-merge enabled.
 
@@ -80,6 +82,8 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 - [ ] Maps to a pillar (`P1`–`P4`) or is docs/tooling-only
 - [ ] Opened/updated with `gh`
 - [ ] `tests` green
+- [ ] `build` green
+- [ ] `e2e-smoke` green
 - [ ] `docs-lint` green
 - [ ] `approval-gate` green
 - [ ] Branch up to date with `main`

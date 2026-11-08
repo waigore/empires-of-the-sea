@@ -83,7 +83,10 @@ func refresh(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	_ships.text = "%d ships · %s" % [fleet.ship_count(), fleet.hull_summary()]
+	var upkeep: int = ShipEconomy.food_upkeep_for_fleet(fleet)
+	_ships.text = "%d ships · %s · upkeep %d food" % [
+		fleet.ship_count(), fleet.hull_summary(), upkeep
+	]
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own fleet."
