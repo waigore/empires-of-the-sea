@@ -173,3 +173,28 @@ func test_fleet_state_defaults_to_one_hull() -> void:
 	assert_eq(port.ship_count(), 2)
 	assert_true(port.is_in_port())
 	assert_false(port.moved)
+
+
+func test_fleet_hulls_keep_their_catalog_types() -> void:
+	var fleet := FleetState.at_sea(6, 0, 0, ["ship_6"], {"ship_6": "sloop"})
+	assert_eq(fleet.type_of("ship_6"), "sloop")
+	# Unmapped and unknown hulls count as the default carrack.
+	assert_eq(fleet.type_of("ship_unknown"), "carrack")
+	var legacy := FleetState.in_port(7, 0, 0, ["ship_7"])
+	assert_eq(legacy.type_of("ship_7"), "carrack")
+	assert_eq(legacy.count_of_type("carrack"), 1)
+
+
+func test_fleet_hulls_can_be_added_removed_and_summarised() -> void:
+	var fleet := FleetState.at_sea(8, 0, 0, ["ship_8"], {"ship_8": "carrack"})
+	fleet.add_hull("ship_9", "galleon")
+	fleet.add_hull("ship_9", "sloop")
+	assert_eq(fleet.ship_count(), 2)
+	assert_eq(fleet.count_of_type("galleon"), 1)
+	assert_eq(fleet.hull_summary(), "1 Carrack · 1 Galleon")
+	assert_true(fleet.remove_hull("ship_8"))
+	assert_false(fleet.remove_hull("ship_8"))
+	assert_eq(fleet.hull_summary(), "1 Galleon")
+	assert_true(fleet.is_afloat())
+	fleet.remove_hull("ship_9")
+	assert_false(fleet.is_afloat())

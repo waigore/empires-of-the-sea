@@ -10,6 +10,16 @@ signal fleet_moved(fleet: FleetState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
 const PLAYER_FLEETS: int = 3
+## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
+const HULL_SETS: Array[Array] = [
+	["carrack", "carrack", "sloop"],
+	["carrack", "fluyte"],
+	["galleon", "carrack", "fluyte"],
+	["sloop", "carrack"],
+	["carrack", "carrack"],
+	["frigate", "carrack"],
+	["fluyte", "fluyte"],
+]
 
 var model: MapModel = null
 var fleets: Array[FleetState] = []
@@ -18,6 +28,7 @@ var selected_ship: Ship = null
 
 var _rng := RandomNumberGenerator.new()
 var _zoom: float = 1.0
+var _next_hull: int = 1
 
 
 func spawn(p_model: MapModel, count: int, seed_value: int, player_capital: int) -> void:
@@ -28,11 +39,13 @@ func spawn(p_model: MapModel, count: int, seed_value: int, player_capital: int) 
 	ships.clear()
 	fleets.clear()
 	selected_ship = null
+	_next_hull = 1
 	if model.sea_zone_count() == 0:
 		return
 	for index in count:
 		var owner: int = _owner_for_index(index, count)
 		var fleet: FleetState = _make_fleet(index, owner, player_capital)
+		_assign_hulls(fleet, index)
 		fleets.append(fleet)
 		var ship := Ship.new()
 		ship.fleet_id = fleet.id
@@ -64,6 +77,19 @@ func _make_fleet(id: int, owner: int, player_capital: int) -> FleetState:
 		return FleetState.at_sea(id, owner, 0)
 	var zone: int = zones[_rng.randi_range(0, zones.size() - 1)]
 	return FleetState.at_sea(id, owner, zone)
+
+
+## Gives the fleet a deterministic starting squadron of typed hull instances.
+func _assign_hulls(fleet: FleetState, index: int) -> void:
+	var types: Array = HULL_SETS[index % HULL_SETS.size()]
+	var hull_ids: Array[String] = []
+	var hull_types: Dictionary = {}
+	for type_id: String in types:
+		var hull_id: String = "ship_%d" % _next_hull
+		_next_hull += 1
+		hull_ids.append(hull_id)
+		hull_types[hull_id] = type_id
+	fleet.set_hulls(hull_ids, hull_types)
 
 
 func _coastal_zones(owner: int) -> Array[int]:
@@ -197,6 +223,31 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 
 func begin_turn() -> void:
 	NavalMovement.begin_turn(fleets)
+
+
+## Removes fleets whose last hull has been sunk and frees their map markers.
+func prune_destroyed() -> void:
+	var alive: Array[FleetState] = []
+	for fleet: FleetState in fleets:
+		if fleet.is_afloat():
+			alive.append(fleet)
+			continue
+		var ship: Ship = ship_for(fleet)
+		if ship != null:
+			if selected_ship == ship:
+				deselect()
+			ships.erase(ship)
+			ship.queue_free()
+	fleets = alive
+
+
+## Hulls still afloat for one faction across every fleet it keeps.
+func hull_count(owner: int) -> int:
+	var total: int = 0
+	for fleet: FleetState in fleets:
+		if fleet.owner == owner:
+			total += fleet.ship_count()
+	return total
 
 
 func at_sea_zones(owner: int) -> Array[int]:

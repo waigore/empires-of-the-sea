@@ -110,7 +110,7 @@ func _build_top_bar() -> void:
 	_prestige_label = prestige["value"]
 	row.add_child(prestige["root"])
 
-	var fleets := _make_chip("ship", "FLEETS")
+	var fleets := _make_chip("ship", "SHIPS")
 	_fleet_label = fleets["value"]
 	row.add_child(fleets["root"])
 

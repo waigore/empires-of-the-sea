@@ -246,6 +246,40 @@ func test_unknown_land_is_reported_without_terrain_or_owner() -> void:
 	assert_eq(_screen.hud._tooltip_label.text, "Uncharted land")
 
 
+func test_end_turn_resolves_a_contested_sea_zone() -> void:
+	var player_fleet: FleetState = _fleet_at_sea(MapScreen.PLAYER_FACTION)
+	var enemy_fleet: FleetState = _fleet_at_sea(2)
+	assert_not_null(player_fleet)
+	assert_not_null(enemy_fleet)
+	# Dock every other squadron so only these two share water.
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet == player_fleet or fleet == enemy_fleet:
+			continue
+		fleet.location = FleetState.Location.IN_PORT
+		fleet.province = int(_screen.model.provinces[0]["id"])
+	player_fleet.set_hulls(["hull_player"], {"hull_player": "carrack"})
+	enemy_fleet.set_hulls(["hull_enemy"], {"hull_enemy": "fluyte"})
+	enemy_fleet.location = FleetState.Location.AT_SEA
+	enemy_fleet.sea_zone = int(_screen.model.sea_zones[0]["id"])
+	player_fleet.location = FleetState.Location.AT_SEA
+	player_fleet.sea_zone = enemy_fleet.sea_zone
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	_screen._on_end_turn()
+
+	assert_eq(enemy_fleet.ship_count(), 0)
+	assert_eq(player_fleet.ship_count(), 1)
+	assert_eq(_screen.ship_layer.hull_count(2), 0)
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+
+
+func _fleet_at_sea(owner: int) -> FleetState:
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet.owner == owner and fleet.is_at_sea():
+			return fleet
+	return null
+
+
 func _foreign_province() -> int:
 	for province: Dictionary in _screen.model.provinces:
 		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
