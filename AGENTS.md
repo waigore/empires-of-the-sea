@@ -46,7 +46,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 
 - Do keep scenes focused; extract reusable sub-scenes.
 - Do guard early; keep nesting shallow.
-- Do open/merge PRs with `gh` and wait for required checks (`tests`, `approval-gate`) — see [`docs/pull-requests.md`](docs/pull-requests.md).
+- Do open/merge PRs with `gh` and wait for required checks (`tests`) — see [`docs/pull-requests.md`](docs/pull-requests.md).
 - Don’t commit `.godot/`, export caches, or local override files.
 - Don’t add editor plugins or third-party addons without a clear need.
 - Don’t hard-code resolutions, aspect ratios, or platform OS names in gameplay code.
