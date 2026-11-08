@@ -27,6 +27,7 @@ static func capture(play: PlaySession) -> Dictionary:
 		"market": play.economy.market.to_dict() if play.economy != null else {},
 		"diplomacy": _capture_diplomacy(play.diplomacy),
 		"ai": play.ai.to_dict() if play.ai != null else {},
+		"victory": _capture_victory(play.victory),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
@@ -93,6 +94,35 @@ static func _capture_economy(play: PlaySession) -> Dictionary:
 	return play.economy.economy.snapshot()
 
 
+## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory
+## § Persistence). An undecided campaign writes an empty entry.
+static func _capture_victory(state: VictoryState) -> Dictionary:
+	if state == null:
+		return {}
+	return {
+		"winner": state.winner_player_id,
+		"type": state.type,
+		"turn": state.turn_number,
+	}
+
+
+## A save from before victory state was captured (or a malformed entry) loads as
+## an undecided campaign, so legacy slots still resume with turns open.
+static func _victory_from(raw: Variant) -> VictoryState:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return null
+	var data: Dictionary = raw
+	var winner: int = int(data.get("winner", MapModel.NO_ID))
+	if not FactionCatalog.can_win(winner):
+		return null
+	if int(data.get("type", VictoryState.Type.MILITARY)) != VictoryState.Type.MILITARY:
+		return null
+	var turn: int = int(data.get("turn", -1))
+	if turn < 0:
+		return null
+	return VictoryState.military(winner, turn)
+
+
 # --- validation --------------------------------------------------------------
 
 
@@ -149,6 +179,9 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.feeding = _fraction_dictionary(session.get("feeding", {}))
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
+	# A decided campaign must come back decided, or the load would hand the
+	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
+	play.victory = _victory_from(data.get("victory", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height
