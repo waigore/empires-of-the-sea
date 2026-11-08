@@ -173,6 +173,7 @@ func _ready() -> void:
 		SaveCodec.restore_diplomacy(play, pending_save)
 	else:
 		play.diplomacy.initialize(play.turn)
+	play.diplomacy.human_faction = play.player_faction
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
@@ -290,7 +291,7 @@ func _connect() -> void:
 		MapPlayDiplomacy.open(play)
 	)
 	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
-		MapPlayDiplomacy.on_order(play, kind, target, arg)
+		MapCourtOrders.apply(play, kind, target, arg)
 	)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)

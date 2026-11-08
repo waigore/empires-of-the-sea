@@ -176,6 +176,81 @@ func test_only_owned_land_can_be_fortified() -> void:
 	assert_true(String(check["reason"]).contains("not held"))
 
 
+func test_a_second_project_cannot_leap_a_fort_level() -> void:
+	# wiki: siege-mechanics § Fort Levels — Stone costs 4 lumber + 4 bronze and
+	# needs Mine Engineering; civilian-units § Work Order Summary — one turn per
+	# level. Tile exclusivity does not stop a second engineer in the same
+	# province, but the completed projects must still leave one Wood fort.
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var first := CivilianFixture.unit("engineer", CivilianFixture.BARE_TILE)
+	var second := CivilianFixture.unit("engineer", Vector2i(2, 1))
+	second.id = 2
+	var units: Array[CivilianState] = [first, second]
+	var stock: Dictionary = CivilianFixture.stockpile()
+	var a: Dictionary = CivilianWork.assign(model, first, "build_fort", works, units, stock)
+	var b: Dictionary = CivilianWork.assign(model, second, "build_fort", works, units, stock)
+	assert_true(bool(a["ok"]), String(a.get("reason", "")))
+	assert_true(bool(b["ok"]), String(b.get("reason", "")))
+	assert_eq(int(stock["bronze"]), 4, "both projects pay their level-1 materials")
+
+	CivilianWork.resolve_turn(model, units, works)
+
+	assert_eq(
+		model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1,
+		"one turn of level-1 materials buys a Wood fort, not a free Stone one"
+	)
+
+
+func test_a_duplicate_upgrade_cannot_leap_the_modern_forts_gate() -> void:
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var first := CivilianFixture.unit("engineer", CivilianFixture.BARE_TILE)
+	var second := CivilianFixture.unit("engineer", Vector2i(2, 2))
+	second.id = 2
+	var units: Array[CivilianState] = [first, second]
+	var stock: Dictionary = CivilianFixture.stockpile()
+	var province: ProvinceState = model.get_province(CivilianFixture.PLAYER_PROVINCE)
+	province.fort_level = 1
+	var tech: Dictionary = {"mine_engineering": true}
+
+	var upgrade: Dictionary = CivilianWork.assign(
+		model, first, "build_fort", works, units, stock, null,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_eq(int(upgrade["duration"]), 2, "a Stone upgrade is a two-turn project")
+	CivilianWork.resolve_turn(model, units, works)
+	assert_eq(province.fort_level, 1, "the Stone upgrade is still in progress")
+	var duplicate: Dictionary = CivilianWork.assign(
+		model, second, "build_fort", works, units, stock, null,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_true(bool(duplicate["ok"]), String(duplicate.get("reason", "")))
+	CivilianWork.resolve_turn(model, units, works)
+	CivilianWork.resolve_turn(model, units, works)
+
+	assert_eq(
+		province.fort_level, 2,
+		"a finished duplicate leaves the Stone fort alone — Modern Forts is unowned"
+	)
+
+
+func test_a_queued_fort_keeps_its_ordered_level_across_a_save() -> void:
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var engineer := CivilianFixture.unit("engineer", CivilianFixture.BARE_TILE)
+	var units: Array[CivilianState] = [engineer]
+	var stock: Dictionary = CivilianFixture.stockpile()
+	CivilianWork.assign(model, engineer, "build_fort", works, units, stock)
+
+	var restored: CivilianState = CivilianState.from_dict(engineer.to_dict())
+	assert_eq(restored.work_detail("fort_level"), 1, "the ordered level rides in work")
+	var reloaded: Array[CivilianState] = [restored]
+	CivilianWork.resolve_turn(model, reloaded, works)
+
+	assert_eq(model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1)
+
+
 func _repeat(type_id: String, count: int) -> Array[String]:
 	var types: Array[String] = []
 	for _index in count:

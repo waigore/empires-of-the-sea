@@ -307,7 +307,6 @@ static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 
 # --- diplomacy ---------------------------------------------------------------
 
-
 static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 	if state == null:
 		return {}
@@ -325,6 +324,8 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"events": state.events.duplicate(true),
 		"modified": state._modified.duplicate(),
 		"order_counts": state._order_counts.duplicate(),
+		"alliance_snapshot": state.alliance_snapshot.duplicate(),
+		"pending_calls": state.pending_calls.duplicate(true),
 	}
 
 
@@ -345,6 +346,8 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 			state.events.append(event.duplicate(true))
 	state._modified = data.get("modified", {}).duplicate()
 	state._order_counts = data.get("order_counts", {}).duplicate()
+	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
+	state.pending_calls.assign(data.get("pending_calls", []))
 	return state
 
 
