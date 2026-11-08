@@ -1,6 +1,8 @@
 extends SceneTree
 ## Headless e2e smoke: boot main.tscn, exercise a short map-screen flow, quit.
-## Run: godot --headless --path . --script res://tools/e2e_smoke.gd
+## Keep fast — aim ≤2 minutes wall time. Extend asserts for new player paths;
+## leave deep rules to tests/. Run:
+##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
 const BOOT_FRAMES: int = 12
 
