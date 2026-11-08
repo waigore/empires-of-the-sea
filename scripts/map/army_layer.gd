@@ -187,8 +187,8 @@ func army_at(world_position: Vector2) -> ArmyState:
 
 
 ## Applies a march through the rules, then animates the standard.
-func order(army: ArmyState, province_id: int) -> Dictionary:
-	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id)
+func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary:
+	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id, at_war)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: ArmyMarker = marker_for(army)
@@ -291,7 +291,9 @@ func begin_turn() -> void:
 
 ## Resolves land battles in every region: a battle must not wait for the player
 ## to open that map (wiki: map-topology § two regions). Generals bind once for
-## the whole Combat phase, before any region resolves.
+## the whole Combat phase, before any region resolves; `context["hostile"]`, when
+## set, is the court's war query so peace never spills blood (wiki: diplomacy §
+## War required for hostile actions).
 func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	var by_region: Dictionary = {}

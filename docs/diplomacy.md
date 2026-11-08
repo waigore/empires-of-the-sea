@@ -19,9 +19,10 @@ per-frame work).
   76–100; the panel shows the ladder, never the score.
 - **Decay:** each non-war pair drifts 4.0 toward 50 at phase end; any score
   event that turn skips decay for that pair. War freezes the score.
-- **War / peace:** war is valid only at peace, freezes the score, clears formal
-  alliances and overtures (GP pairs fall back to Embassy). Minors/Tribes always
-  accept peace; a GP accepts at Neutral (26) or better.
+- **War / peace:** war is valid only at peace and freezes the score, clears
+  formal alliances and overtures (GP pairs fall back to Embassy). Invasion and
+  battles need war. Minors/Tribes always accept peace; a GP accepts at Neutral
+  (26) or better.
 - **Alliances:** offer to a GP at Friendly or better; an AI GP accepts at
   Allied (76). Breaking an alliance (or refusing one) applies −50 with the
   former ally and −10 with other GPs. Alliance and war never coexist.
@@ -31,14 +32,14 @@ per-frame work).
 - **Join Empire:** a Minor is absorbed (provinces transfer, faction removed);
   a Tribe becomes a colony without losing provinces; a GP must be nearly
   defeated (≤3 provinces and no capital) and needs Empire Building.
-- **Grant Aid:** £1,000 multiples, needs an embassy, spends the treasury and
-  gives a fixed +5 relation.
+- **Grant Aid:** £1,000 multiples, needs an embassy, and gives a fixed +5
+  relation.
 - **Set Subsidy:** 5–20% in steps of 5, Minor/Tribe only, embassy required, no
   treasury charge. A subsidy dies on war, loss of embassy, or manual cancel.
 - **First contact:** a Tribe enters the court only when a non-unknown tile is
   visible in one of its provinces. Sea-reach intel alone does not count.
-- **Rival AI courts:** each AI Great Power scores war desire and emits at most
-  one legal order per turn; see [`ai.md`](ai.md).
+- **Rival AI courts:** each AI GP scores war desire and emits at most one legal
+  order per turn; see [`ai.md`](ai.md).
 
 ## Deferred (REQ-P2-02)
 

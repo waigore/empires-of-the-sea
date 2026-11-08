@@ -11,7 +11,9 @@ extends RefCounted
 const NO_PROVINCE: int = MapModel.NO_ID
 
 
-## Legal destinations for the army's one march this turn.
+## Legal destinations for the army's one march this turn. Foreign land is listed
+## but a march into it is refused at order time unless at war with its owner
+## (wiki: diplomacy § War required for hostile actions).
 static func destinations(model: MapModel, army: ArmyState) -> Array[int]:
 	var result: Array[int] = []
 	if not _can_act(model, army):
@@ -55,7 +57,9 @@ static func land_reachable(
 	return found
 
 
-static func can_move(model: MapModel, army: ArmyState, province_id: int) -> Dictionary:
+static func can_move(
+	model: MapModel, army: ArmyState, province_id: int, at_war: bool = true
+) -> Dictionary:
 	if army == null:
 		return _deny("There is no army to order.")
 	if army.home:
@@ -74,21 +78,32 @@ static func can_move(model: MapModel, army: ArmyState, province_id: int) -> Dict
 		return _deny("Own land across open water or foreign land needs a naval transport.")
 	if not MapGeo.province_neighbors(model, army.province).has(province_id):
 		return _deny("Enemy or neutral land may only be entered from an adjacent province.")
+	if not at_war and _is_foreign(model, army, province_id):
+		return _deny(
+			"Peace holds with %s; declare war before invading."
+			% FactionCatalog.name_of(model.province_owner(province_id))
+		)
 	return _allow()
 
 
 ## Validates, then moves every regiment with the army. `attacked` reports that
 ## the destination belongs to another faction.
 static func apply_move(
-	model: MapModel, army: ArmyState, province_id: int
+	model: MapModel, army: ArmyState, province_id: int, at_war: bool = true
 ) -> Dictionary:
-	var check: Dictionary = can_move(model, army, province_id)
+	var check: Dictionary = can_move(model, army, province_id, at_war)
 	if not bool(check.get("ok", false)):
 		return {"ok": false, "reason": String(check.get("reason", "")), "attacked": false}
 	var attacked: bool = model.province_owner(province_id) != army.owner
 	army.province = province_id
 	army.moved = true
 	return {"ok": true, "reason": "", "attacked": attacked}
+
+
+## Land held by another faction; unowned wilderness is not an invasion.
+static func _is_foreign(model: MapModel, army: ArmyState, province_id: int) -> bool:
+	var owner: int = model.province_owner(province_id)
+	return owner != MapModel.NO_ID and owner != army.owner
 
 
 static func begin_turn(armies: Array[ArmyState]) -> void:

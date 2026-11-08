@@ -82,6 +82,52 @@ func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
 	assert_true(_screen.play.diplomacy.has_relation(0, province.owner))
 
 
+func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
+	var army: ArmyState = _field_army()
+	assert_not_null(army, "a field army can be detached from the Home Army")
+	var origin: int = army.province
+	var target: int = _adjacent_foreign_province(army)
+	assert_gt(target, -1, "the capital borders foreign land")
+	var owner: int = _screen.play.model.province_owner(target)
+	_screen.play.diplomacy.ensure_relation(0, owner)
+
+	_screen.play.army_layer.select(army)
+	MapPlayArmies.select(_screen.play, army)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var tile: Vector2i = _screen.play.model.province_data(target).tiles[0]
+	assert_true(MapPlayArmies.try_order(_screen.play, tile))
+	assert_eq(army.province, origin, "peace refuses the invasion")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+
+	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
+	_screen.play.army_layer.select(army)
+	MapPlayArmies.select(_screen.play, army)
+	assert_true(MapPlayArmies.try_order(_screen.play, tile))
+	assert_eq(army.province, target, "war lets the same march through")
+
+
+func _field_army() -> ArmyState:
+	for army: ArmyState in _screen.play.army_layer.armies.duplicate():
+		if army.owner == 0 and army.home and army.count() > 1:
+			var ids: Array[String] = []
+			for regiment: String in army.regiments:
+				ids.append(regiment)
+			_screen.play.army_layer.split(army, ids.slice(0, 1))
+	for army: ArmyState in _screen.play.army_layer.armies:
+		if army.owner == 0 and not army.home:
+			return army
+	return null
+
+
+func _adjacent_foreign_province(army: ArmyState) -> int:
+	var model: MapModel = _screen.play.model
+	for neighbor: int in MapGeo.province_neighbors(model, army.province):
+		var owner: int = model.province_owner(neighbor)
+		if owner != 0 and owner != MapModel.NO_ID:
+			return neighbor
+	return -1
+
+
 func _tribe_province() -> ProvinceState:
 	for province: ProvinceState in _screen.play.world.region(1).provinces:
 		if FactionCatalog.type_of(province.owner) == FactionCatalog.Type.TRIBE:

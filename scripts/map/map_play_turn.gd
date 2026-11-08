@@ -105,7 +105,4 @@ static func _resolve_visibility(play: PlaySession) -> void:
 ## diplomacy § War required for hostile actions). Without a court, keep the
 ## legacy every-fleet-is-hostile behaviour for isolated fixtures.
 static func _at_war(play: PlaySession, a: int, b: int) -> bool:
-	if play.diplomacy == null:
-		return true
-	var record: DiplomacyRelation = play.diplomacy.relation(a, b)
-	return record != null and record.at_war
+	return DiplomacyRules.at_war_with(play.diplomacy, a, b)

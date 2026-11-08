@@ -61,11 +61,26 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 		return false
 	if not ArmyMovement.destinations(play.model, army).has(province_id):
 		return false
-	var result: Dictionary = play.army_layer.order(army, province_id)
+	var result: Dictionary = play.army_layer.order(army, province_id, may_invade(play, province_id))
 	if bool(result.get("ok", false)):
 		return true
 	play.hud.toast(String(result.get("reason", "")))
 	return true
+
+
+## Invading foreign land needs war with its owner; unowned land is not an attack
+## (wiki: diplomacy § War required for hostile actions).
+static func may_invade(play: PlaySession, province_id: int) -> bool:
+	var owner: int = play.model.province_owner(province_id)
+	if owner == MapModel.NO_ID or owner == play.player_faction:
+		return true
+	return DiplomacyRules.at_war_with(play.diplomacy, play.player_faction, owner)
+
+
+## Battles only happen between factions at war.
+static func hostile(play: PlaySession) -> Callable:
+	return func(a: int, b: int) -> bool:
+		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
@@ -162,7 +177,9 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 
 
 ## Feeding coverage, leader keys and the player's techs for this Combat phase;
-## the seed keeps general binding reproducible for a given turn.
+## the seed keeps general binding reproducible for a given turn. `hostile` is the
+## court's war query, so only factions at war meet in battle (wiki: diplomacy §
+## War required for hostile actions).
 static func battle_context(play: PlaySession) -> Dictionary:
 	var tech: Dictionary = {}
 	if play.economy != null and play.economy.economy != null:
@@ -172,6 +189,7 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"leaders": play.leaders,
 		"tech": tech,
 		"seed": play.turn,
+		"hostile": hostile(play),
 	}
 
 
