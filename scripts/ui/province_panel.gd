@@ -14,6 +14,8 @@ var _resource_icon: Icon = null
 var _resource_value: Label = null
 var _population_value: Label = null
 var _port_value: Label = null
+var _capital_value: Label = null
+var _road_value: Label = null
 var _capital_badge: Label = null
 
 
@@ -77,6 +79,8 @@ func _build() -> void:
 	_resource_value = _add_row_with_icon(grid, "Resource", _resource_icon)
 	_population_value = _add_row(grid, "Population")
 	_port_value = _add_row(grid, "Port")
+	_capital_value = _add_row(grid, "Capital")
+	_road_value = _add_row(grid, "Roads")
 
 	column.add_child(_divider())
 
@@ -137,6 +141,15 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
 	else:
 		_port_value.text = "Landlocked"
+	var seat: Vector2i = Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	if seat.x >= 0:
+		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
+	else:
+		_capital_value.text = "—"
+	var road_tiles: int = 0
+	for path: Array in data.get("road_paths", []):
+		road_tiles += path.size()
+	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
 
 
 func _dominant_terrain(model: MapModel, province_id: int) -> String:

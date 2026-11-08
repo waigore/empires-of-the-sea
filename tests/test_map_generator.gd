@@ -83,6 +83,30 @@ func test_ownership_spreads_across_factions_with_one_capital_each() -> void:
 	assert_eq(owners.size(), MapGenerator.FACTION_NAMES.size())
 
 
+func test_capitals_follow_the_capital_choice_rule() -> void:
+	var seen: Dictionary = {}
+	for province: Dictionary in _model.provinces:
+		if not bool(province["capital"]):
+			continue
+		var owner: int = int(province["owner"])
+		assert_false(seen.has(owner), "faction %d has two capitals" % owner)
+		seen[owner] = true
+		var tile: Vector2i = province["capital_tile"]
+		assert_true(_model.is_land(tile.x, tile.y))
+		assert_eq(_model.terrain_at(tile.x, tile.y), MapModel.Terrain.PLAINS)
+		assert_true(CapitalChoice.is_sea_bound(_model, int(province["id"])))
+		assert_eq(
+			int(province["town_development"]), CapitalChoice.CAPITAL_TOWN_DEVELOPMENT
+		)
+		var pick: Dictionary = CapitalChoice.pick_province(_model, owner)
+		assert_eq(int(pick["province_id"]), int(province["id"]))
+		var ports: Dictionary = province["ports"]
+		assert_eq(
+			ports.size(), CapitalChoice.sea_bound_sea_zones(_model, int(province["id"])).size()
+		)
+	assert_eq(seen.size(), MapGenerator.FACTION_NAMES.size())
+
+
 func test_coastal_provinces_have_a_waterfront_port() -> void:
 	for province: Dictionary in _model.provinces:
 		var port: Vector2i = province["port_tile"]

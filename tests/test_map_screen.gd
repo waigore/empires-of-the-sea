@@ -24,6 +24,30 @@ func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_almost_eq(_screen.camera.map_size.x, _screen.model.world_size(MapScreen.TILE_SIZE).x, 1.0)
 
 
+func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
+	var province: Dictionary = _screen.model.province_data(_screen.capital_province)
+	assert_true(bool(province["capital"]))
+	assert_eq(_screen.capital_tile, Vector2i(province["capital_tile"]))
+	assert_true(_screen.model.is_land(_screen.capital_tile.x, _screen.capital_tile.y))
+	assert_eq(
+		_screen.model.terrain_at(_screen.capital_tile.x, _screen.capital_tile.y),
+		MapModel.Terrain.PLAINS
+	)
+
+
+func test_focus_capital_centres_on_the_capital_tile() -> void:
+	_screen._focus_capital()
+	for _step in 20:
+		_screen.camera._process(0.2)
+	var expected: Vector2 = CameraMath.clamp_center(
+		_screen._capital_world(),
+		_screen.camera.zoom.x,
+		_screen.camera.viewport_size(),
+		_screen.camera.map_size
+	)
+	assert_lt(_screen.camera.position.distance_to(expected), 2.0)
+
+
 func test_clicking_a_province_selects_it_and_opens_the_panel() -> void:
 	var province_id: int = _inland_province()
 	var world: Vector2 = _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
