@@ -8,6 +8,7 @@ signal end_turn_pressed
 signal zoom_in_pressed
 signal zoom_out_pressed
 signal minimap_jump(world_position: Vector2)
+signal region_toggle_pressed
 signal panel_action(action: String)
 signal panel_closed
 signal fleet_closed
@@ -15,6 +16,8 @@ signal fleet_closed
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
 
+var _nation_label: Label = null
+var _region_button: Button = null
 var _turn_label: Label = null
 var _treasury_label: Label = null
 var _prestige_label: Label = null
@@ -85,17 +88,25 @@ func _build_top_bar() -> void:
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(title)
 
-	var nation := Label.new()
-	nation.text = "ESPAÑA"
-	nation.add_theme_font_size_override("font_size", 20)
-	nation.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	title.add_child(nation)
+	_nation_label = Label.new()
+	_nation_label.text = "ESPAÑA"
+	_nation_label.add_theme_font_size_override("font_size", 20)
+	_nation_label.add_theme_color_override("font_color", Palette.GOLD_PALE)
+	title.add_child(_nation_label)
 
 	_turn_label = Label.new()
 	_turn_label.text = TurnTime.label_for_turn(1)
 	_turn_label.add_theme_font_size_override("font_size", 13)
 	_turn_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	title.add_child(_turn_label)
+
+	_region_button = Button.new()
+	_region_button.text = "OLD WORLD ›"
+	_region_button.custom_minimum_size = Vector2(0, 38)
+	_region_button.add_theme_font_size_override("font_size", 12)
+	_region_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_region_button.pressed.connect(func() -> void: region_toggle_pressed.emit())
+	row.add_child(_region_button)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -304,6 +315,17 @@ func _build_tooltip() -> void:
 
 func set_turn(turn: int, year: int) -> void:
 	_turn_label.text = "Turn %d  ·  %d" % [turn, year]
+
+
+func set_nation(name: String) -> void:
+	_nation_label.text = name.to_upper()
+
+
+## Region button doubles as the Old World / New World switch (touch + mouse).
+func set_region_label(label: String) -> void:
+	if _region_button == null:
+		return
+	_region_button.text = "%s ›" % label.to_upper()
 
 
 func set_treasury(value: int, animate: bool = true) -> void:

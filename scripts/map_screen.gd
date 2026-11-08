@@ -5,9 +5,12 @@ extends Node2D
 
 const TILE_SIZE: float = 22.0
 const MAP_SEED: int = 1500
-const PLAYER_FACTION: int = 0
+const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 const SHIP_COUNT: int = 7
 
+var world: WorldMap = null
+## Region currently on screen (Old World first).
+var region_index: int = 0
 var model: MapModel = null
 var visibility: VisibilityModel = null
 var map_seed: int = MAP_SEED
@@ -23,6 +26,8 @@ var capital_tile: Vector2i = CapitalChoice.NO_TILE
 
 var _hover_province: int = -1
 var _charted_provinces: Dictionary = {}
+## One fog model per region, kept across map switches.
+var _visibility_by_region: Dictionary = {}
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
@@ -35,8 +40,8 @@ var _charted_provinces: Dictionary = {}
 
 func _ready() -> void:
 	InputActions.ensure_actions()
-	model = MapGenerator.new().generate(map_seed, map_width, map_height)
-	_build_world()
+	world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
+	_load_region(0)
 	_build_hud()
 	_connect()
 	_intro()
@@ -61,7 +66,11 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- setup ------------------------------------------------------------------
 
 
-func _build_world() -> void:
+## Swaps the whole view onto one region of the world: canvas, fog, fleets,
+## minimap and camera bounds all follow the active tile map.
+func _load_region(index: int) -> void:
+	region_index = clampi(index, 0, world.region_count() - 1)
+	model = world.region(region_index)
 	var map_size: Vector2 = model.world_size(TILE_SIZE)
 	var margin: float = 1400.0
 	sea_backdrop.position = Vector2(-margin, -margin)
@@ -70,18 +79,59 @@ func _build_world() -> void:
 		(sea_backdrop.material as ShaderMaterial).set_shader_parameter(
 			"world_size", sea_backdrop.size
 		)
-	canvas.build(model)
+	canvas.build(model, world)
 	overlay.build(model)
 	capital_province = _find_capital()
 	capital_tile = _capital_tile(capital_province)
-	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3, capital_province)
+	ship_layer.spawn(
+		model,
+		SHIP_COUNT,
+		MAP_SEED + 3 + region_index,
+		capital_province,
+		_player_present()
+	)
 	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
 	_refresh_fleet_visibility()
+	if hud != null:
+		hud.set_minimap(model, map_size)
+		hud.set_region_label(FactionCatalog.region_label(region_index))
+		hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
+		income = 90 + _owned_provinces() * 6
+
+
+## Cycles Old World -> New World and back. Intents never change rules state.
+func _cycle_region() -> void:
+	if world == null or world.region_count() < 2:
+		return
+	_deselect()
+	_load_region((region_index + 1) % world.region_count())
+	_intro_region()
+	_on_view_changed()
+
+
+func _intro_region() -> void:
+	var seat: Vector2 = _capital_world()
+	camera.focus_on(seat, maxf(camera.target_zoom, 0.75))
+	hud.toast(
+		"%s — %d provinces"
+		% [FactionCatalog.region_label(region_index), model.province_count()]
+	)
+	if region_index == FactionCatalog.NEW_WORLD:
+		hud.toast(
+			"Lands of the %d tribes — unexplored and uncharted"
+			% FactionCatalog.tribe_ids().size()
+		)
+
+
+func _player_present() -> bool:
+	return _owned_provinces() > 0
 
 
 func _build_hud() -> void:
+	hud.set_nation(FactionCatalog.name_of(PLAYER_FACTION))
+	hud.set_region_label(FactionCatalog.region_label(region_index))
 	hud.set_minimap(model, model.world_size(TILE_SIZE))
 	hud.set_turn(turn, TurnTime.year_for_turn(turn))
 	hud.set_treasury(treasury, false)
@@ -97,6 +147,7 @@ func _connect() -> void:
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
 	hud.minimap_jump.connect(_on_minimap_jump)
+	hud.region_toggle_pressed.connect(_cycle_region)
 	hud.panel_action.connect(_on_panel_action)
 	hud.panel_closed.connect(_deselect)
 	ship_layer.zone_entered.connect(_on_zone_entered)
@@ -112,11 +163,19 @@ func _intro() -> void:
 	camera.position = map_size * 0.5
 	camera.focus_on(_capital_world(), maxf(start_zoom * 1.65, 0.75))
 	hud.toast("The Indies await — Turn 1, 1500")
+	hud.toast(
+		"%d Great Powers, %d minor nations, %d tribes"
+		% [
+			FactionCatalog.great_power_ids().size(),
+			FactionCatalog.minor_ids().size(),
+			FactionCatalog.tribe_ids().size(),
+		]
+	)
 	if capital_province >= 0:
 		hud.toast(
 			"%s holds court at %s"
 			% [
-				MapGenerator.FACTION_NAMES[PLAYER_FACTION],
+				FactionCatalog.name_of(PLAYER_FACTION),
 				model.province_name(capital_province),
 			]
 		)
@@ -126,9 +185,14 @@ func _intro() -> void:
 
 
 func _build_visibility() -> void:
+	if _visibility_by_region.has(region_index):
+		visibility = _visibility_by_region[region_index]
+		overlay.sync_visibility(visibility)
+		return
 	visibility = VisibilityModel.new()
 	visibility.setup(model, PLAYER_FACTION)
 	visibility.apply_initial()
+	_visibility_by_region[region_index] = visibility
 	overlay.sync_visibility(visibility)
 
 
@@ -139,7 +203,7 @@ func _find_capital() -> int:
 	for province: Dictionary in model.provinces:
 		if int(province["owner"]) == PLAYER_FACTION:
 			return int(province["id"])
-	return 0
+	return MapModel.NO_ID
 
 
 func _owned_provinces() -> int:
@@ -203,7 +267,7 @@ func _select_fleet(ship: Ship) -> void:
 	hud.show_fleet(model, fleet, fleet.owner == PLAYER_FACTION)
 	_refresh_fleet_options(fleet)
 	if fleet.owner != PLAYER_FACTION:
-		hud.toast("Fleet of %s — observe only" % MapGenerator.FACTION_NAMES[fleet.owner])
+		hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
 
 
 func _refresh_fleet_options(fleet: FleetState) -> void:
@@ -355,8 +419,8 @@ func _resolve_naval_combat() -> void:
 
 func _battle_report(battle: Dictionary) -> String:
 	var zone: String = model.sea_zone_name(int(battle["zone"]))
-	var attacker: String = MapGenerator.FACTION_NAMES[int(battle["attacker"])]
-	var defender: String = MapGenerator.FACTION_NAMES[int(battle["defender"])]
+	var attacker: String = FactionCatalog.name_of(int(battle["attacker"]))
+	var defender: String = FactionCatalog.name_of(int(battle["defender"]))
 	var sunk: int = 0
 	match int(battle["outcome"]):
 		NavalCombat.Outcome.SIDE1_VICTORY:
@@ -393,7 +457,7 @@ func _capital_world() -> Vector2:
 		return model.tile_center(capital_tile.x, capital_tile.y, TILE_SIZE)
 	if capital_province >= 0:
 		return model.province_center(capital_province) * TILE_SIZE
-	return Vector2.ZERO
+	return model.world_size(TILE_SIZE) * 0.5
 
 
 func _capital_tile(province_id: int) -> Vector2i:
@@ -466,7 +530,7 @@ func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:
 		% [
 			String(data["name"]),
 			String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
-			MapGenerator.FACTION_NAMES[int(data["owner"])],
+			FactionCatalog.name_of(int(data["owner"])),
 		]
 	)
 

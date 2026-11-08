@@ -29,43 +29,81 @@ var selected_ship: Ship = null
 var _rng := RandomNumberGenerator.new()
 var _zoom: float = 1.0
 var _next_hull: int = 1
+## Fleet state per region: switching maps must not reroll or lose squadrons.
+var _fleets_by_region: Dictionary = {}
 
 
-func spawn(p_model: MapModel, count: int, seed_value: int, player_capital: int) -> void:
+func spawn(
+	p_model: MapModel,
+	count: int,
+	seed_value: int,
+	player_capital: int,
+	player_present: bool = true
+) -> void:
 	model = p_model
 	_rng.seed = seed_value
+	_clear_markers()
+	if model.sea_zone_count() == 0:
+		return
+	if _fleets_by_region.has(model.region_id):
+		fleets.assign(_fleets_by_region[model.region_id])
+		_rebuild_markers()
+		return
+	fleets.clear()
+	_next_hull = 1
+	for index in count:
+		var owner: int = _owner_for_index(index, count, player_present)
+		var fleet: FleetState = _make_fleet(index, owner, player_capital, player_present)
+		_assign_hulls(fleet, index)
+		fleets.append(fleet)
+		_make_marker(fleet)
+	_fleets_by_region[model.region_id] = fleets
+
+
+func _clear_markers() -> void:
 	for ship: Ship in ships:
 		ship.queue_free()
 	ships.clear()
-	fleets.clear()
 	selected_ship = null
-	_next_hull = 1
-	if model.sea_zone_count() == 0:
-		return
-	for index in count:
-		var owner: int = _owner_for_index(index, count)
-		var fleet: FleetState = _make_fleet(index, owner, player_capital)
-		_assign_hulls(fleet, index)
-		fleets.append(fleet)
-		var ship := Ship.new()
-		ship.fleet_id = fleet.id
-		ship.faction = fleet.owner
-		ship.bob_phase = _rng.randf() * TAU
-		ship.speed = 26.0 + _rng.randf() * 16.0
-		_place_ship(ship, fleet)
-		add_child(ship)
-		ships.append(ship)
 
 
-static func _owner_for_index(index: int, count: int) -> int:
-	var player_count: int = mini(PLAYER_FLEETS, count)
+func _make_marker(fleet: FleetState) -> void:
+	var ship := Ship.new()
+	ship.fleet_id = fleet.id
+	ship.faction = fleet.owner
+	ship.bob_phase = _rng.randf() * TAU
+	ship.speed = 26.0 + _rng.randf() * 16.0
+	_place_ship(ship, fleet)
+	add_child(ship)
+	ships.append(ship)
+
+
+func _rebuild_markers() -> void:
+	_clear_markers()
+	for fleet: FleetState in fleets:
+		_make_marker(fleet)
+
+
+## Fleets belong to Great Powers only (wiki: factions — Minors/Tribes keep no
+## navy). The player owns squadrons only in regions where it holds provinces.
+static func _owner_for_index(index: int, count: int, player_present: bool) -> int:
+	var powers: Array[int] = FactionCatalog.great_power_ids()
+	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0
 	if index < player_count:
-		return 0
-	return 1 + (index - player_count) % 3
+		return FactionCatalog.PLAYER_FACTION
+	var rivals: Array[int] = []
+	for power: int in powers:
+		if power != FactionCatalog.PLAYER_FACTION:
+			rivals.append(power)
+	if rivals.is_empty():
+		return FactionCatalog.PLAYER_FACTION
+	return rivals[(index - player_count) % rivals.size()]
 
 
-func _make_fleet(id: int, owner: int, player_capital: int) -> FleetState:
-	if owner == 0 and id == 2:
+func _make_fleet(
+	id: int, owner: int, player_capital: int, player_present: bool
+) -> FleetState:
+	if player_present and owner == 0 and id == 2:
 		var port: int = _player_port(player_capital)
 		if port >= 0:
 			return FleetState.in_port(id, owner, port)
@@ -239,6 +277,7 @@ func prune_destroyed() -> void:
 			ships.erase(ship)
 			ship.queue_free()
 	fleets = alive
+	_fleets_by_region[model.region_id] = fleets
 
 
 ## Hulls still afloat for one faction across every fleet it keeps.

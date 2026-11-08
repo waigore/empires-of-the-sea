@@ -21,6 +21,13 @@ const TERRAIN_LABELS: Dictionary = {
 
 var width: int = 0
 var height: int = 0
+## Region this grid belongs to (wiki: map-topology — one tile map per region).
+var region_id: int = FactionCatalog.OLD_WORLD
+var region_key: String = "old_world"
+## Faction ids configured in this region (GPs + Minors, or Tribes).
+var faction_ids: Array[int] = []
+## Setup errors raised while populating this region (empty on success).
+var setup_errors: Array[String] = []
 var terrain: PackedByteArray = PackedByteArray()
 var province: PackedInt32Array = PackedInt32Array()
 var sea_zone: PackedInt32Array = PackedInt32Array()
@@ -132,6 +139,14 @@ func province_owner(id: int) -> int:
 	if data.is_empty():
 		return NO_ID
 	return data.get("owner", NO_ID)
+
+
+## Owner of the province covering a tile, or NO_ID for sea and unclaimed land.
+func owner_at(x: int, y: int) -> int:
+	var id: int = province_at(x, y)
+	if id == NO_ID:
+		return NO_ID
+	return province_owner(id)
 
 
 func province_name(id: int) -> String:

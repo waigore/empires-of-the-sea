@@ -18,6 +18,48 @@ func after_each() -> void:
 	_screen = null
 
 
+func test_world_holds_old_and_new_world() -> void:
+	assert_not_null(_screen.world)
+	assert_eq(_screen.world.region_count(), 2)
+	assert_eq(_screen.region_index, 0)
+	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
+
+
+func test_region_toggle_switches_the_whole_view() -> void:
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 1)
+	assert_eq(_screen.model.region_id, FactionCatalog.NEW_WORLD)
+	assert_eq(_screen.canvas.model, _screen.model)
+	assert_eq(_screen.overlay.model, _screen.model)
+	assert_eq(_screen.ship_layer.model, _screen.model)
+	assert_eq(_screen.visibility.model, _screen.model)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 0)
+	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
+
+
+func test_country_borders_are_built_for_every_owner() -> void:
+	var borders: Dictionary = _screen.overlay._country_borders
+	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
+	for owner: int in borders.keys():
+		assert_true(FactionCatalog.has_faction(owner))
+
+
+func test_region_switch_keeps_fleets_and_chart_state() -> void:
+	var fleet_id: int = _screen.ship_layer.fleets[0].id
+	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+
+	_screen._cycle_region()
+	_screen._cycle_region()
+
+	assert_eq(_screen.ship_layer.fleets[0].id, fleet_id)
+	assert_eq(
+		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+
+
 func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_not_null(_screen.model)
 	assert_gt(_screen.model.province_count(), 0)

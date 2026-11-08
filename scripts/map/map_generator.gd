@@ -1,60 +1,74 @@
 class_name MapGenerator
 extends RefCounted
-## Deterministic Old World map generation (wiki: tile-map-and-generation).
+## Deterministic per-region map generation (wiki: tile-map-and-generation).
 ## Land shape -> terrain blobs -> provinces (Voronoi on land) -> sea zones ->
-## resources -> ports -> faction ownership. Same seed always yields the same map.
+## resources -> ports -> faction ownership -> capitals. Same seed always yields
+## the same map. A world is one map per region joined by warp zones.
 
 const TILE_SIZE: int = 22
-const TILES_PER_PROVINCE: int = 80
 const TILES_PER_SEA_ZONE: int = 620
-const MIN_PROVINCES: int = 18
-const MAX_PROVINCES: int = 56
 const MIN_SEA_ZONES: int = 8
 const MAX_SEA_ZONES: int = 20
 const MIN_ISLAND_TILES: int = 10
 const BORDER_MARGIN: int = 2
+const WORLD_ATTEMPTS: int = 6
 
-const FACTION_NAMES: Array[String] = ["Spain", "England", "France", "Portugal"]
-const FACTION_COLORS: Array[Color] = [
-	Color(0.639, 0.169, 0.169),
-	Color(0.176, 0.267, 0.435),
-	Color(0.435, 0.325, 0.502),
-	Color(0.243, 0.376, 0.267),
-]
-
-const PROVINCE_ROOTS: Array[String] = [
-	"Cádiz", "Marcos", "Cruz", "Rica", "Cartagena", "Veracruz", "Habana", "Domingo",
-	"Trujillo", "Panamá", "Juan", "Cumaná", "Maracaibo", "Coro", "Margarita", "Trinidad",
-	"Santiago", "Isabel", "Fernando", "Agustín", "Miguel", "Cristóbal", "Antonio", "Lucía",
-	"Elena", "Rosa", "Pedro", "Andrés", "Felipe", "Blas", "Jerónimo", "Catalina",
-]
-
-const PROVINCE_PREFIXES: Array[String] = ["San", "Santa", "Puerto", "Villa", "Nueva", "Real"]
-
-const SEA_NAMES: Array[String] = [
-	"Mar del Norte", "Golfo de las Perlas", "Mar Caribe", "Bahía de Cádiz",
-	"Estrecho de Gibraltar", "Mar de las Antillas", "Golfo de México", "Océano Atlántico",
-	"Mar Mediterráneo", "Canal de las Bahamas", "Mar de los Sargazos", "Golfo de Guinea",
-	"Mar Tirreno", "Bahía de Vizcaya", "Canal de la Mancha", "Mar Báltico",
-	"Golfo de León", "Mar de Alborán", "Mar de Azov", "Golfo de Cádiz",
-]
+## Region generation targets (wiki: game-setup configurable values).
+const OLD_WORLD_TILE_TARGET: int = 64
+const NEW_WORLD_TILE_TARGET: int = 40
+const OLD_WORLD_PROVINCES: Vector2i = Vector2i(24, 64)
+const NEW_WORLD_PROVINCES: Vector2i = Vector2i(20, 90)
 
 var _rng := RandomNumberGenerator.new()
 
 
+## Default entry point: one Old World map (6 Great Powers + 3 Minor Nations).
 func generate(seed_value: int, p_width: int = 128, p_height: int = 84) -> MapModel:
+	return generate_region(seed_value, FactionCatalog.OLD_WORLD, p_width, p_height)
+
+
+func generate_region(
+	seed_value: int, region_id: int, p_width: int, p_height: int
+) -> MapModel:
 	_rng.seed = seed_value
 	var model := MapModel.new()
 	model.setup(p_width, p_height)
+	model.region_id = region_id
+	model.region_key = FactionCatalog.region_key(region_id)
+	model.faction_ids = FactionCatalog.ids_in_region(region_id)
 	_build_land(model, seed_value)
-	_build_terrain(model, seed_value)
+	_build_terrain(model, seed_value, region_id)
 	_build_provinces(model)
 	_build_sea_zones(model)
 	_build_resources(model)
 	_build_ports(model)
-	_assign_owners(model)
-	_place_capitals(model)
+	_assign_factions(model, region_id)
+	_place_capitals(model, region_id)
 	return model
+
+
+## Two-region world, regenerated with bumped seeds while ownership is infeasible
+## (wiki: game-setup § Tribe assignment regen-until-pass).
+func generate_world(seed_value: int, p_width: int = 128, p_height: int = 84) -> WorldMap:
+	var new_width: int = maxi(48, int(round(float(p_width) * 0.88)))
+	var new_height: int = maxi(36, int(round(float(p_height) * 0.9)))
+	var world := WorldMap.new()
+	var old_world: MapModel = null
+	var new_world: MapModel = null
+	for attempt in WORLD_ATTEMPTS:
+		var bump: int = attempt * 104729
+		old_world = generate_region(
+			seed_value + bump, FactionCatalog.OLD_WORLD, p_width, p_height
+		)
+		new_world = generate_region(
+			seed_value + bump + 7919, FactionCatalog.NEW_WORLD, new_width, new_height
+		)
+		if old_world.setup_errors.is_empty() and new_world.setup_errors.is_empty():
+			break
+	world.add_region(old_world)
+	world.add_region(new_world)
+	world.warp_links = WorldMap.pair_warp_zones(world.regions)
+	return world
 
 
 # --- land shape -------------------------------------------------------------
@@ -164,7 +178,7 @@ func _seal_border(mask: PackedByteArray, w: int, h: int, margin: int) -> void:
 # --- terrain ----------------------------------------------------------------
 
 
-func _build_terrain(model: MapModel, seed_value: int) -> void:
+func _build_terrain(model: MapModel, seed_value: int, region_id: int) -> void:
 	var elevation := FastNoiseLite.new()
 	elevation.seed = seed_value + 7
 	elevation.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -177,6 +191,7 @@ func _build_terrain(model: MapModel, seed_value: int) -> void:
 	moisture.frequency = 0.038
 	moisture.fractal_octaves = 3
 
+	var new_world: bool = region_id == FactionCatalog.NEW_WORLD
 	for y in model.height:
 		for x in model.width:
 			var index: int = model.index_of(x, y)
@@ -184,17 +199,7 @@ func _build_terrain(model: MapModel, seed_value: int) -> void:
 				continue
 			var height_value: float = elevation.get_noise_2d(float(x), float(y))
 			var wet: float = moisture.get_noise_2d(float(x), float(y))
-			var terrain: int = MapModel.Terrain.PLAINS
-			if height_value > 0.42:
-				terrain = MapModel.Terrain.MOUNTAINS
-			elif height_value > 0.22:
-				terrain = MapModel.Terrain.HILLS
-			elif wet > 0.28:
-				terrain = MapModel.Terrain.FOREST
-			elif wet < -0.34:
-				terrain = MapModel.Terrain.DESERT
-			elif wet > 0.12 and height_value < -0.2:
-				terrain = MapModel.Terrain.SWAMP
+			var terrain: int = _pick_terrain(height_value, wet, new_world)
 			model.terrain[index] = terrain
 
 	for y in model.height:
@@ -204,6 +209,34 @@ func _build_terrain(model: MapModel, seed_value: int) -> void:
 				continue
 			if _near_land(model, x, y, 2):
 				model.terrain[index] = MapModel.Terrain.SHALLOW
+
+
+## Old World keeps temperate blobs; the New World runs wetter and hotter, with
+## more forest and marsh (wiki: tile-map-and-generation § Terrain by region).
+static func _pick_terrain(height_value: float, wet: float, new_world: bool) -> int:
+	if new_world:
+		if height_value > 0.46:
+			return MapModel.Terrain.MOUNTAINS
+		if height_value > 0.26:
+			return MapModel.Terrain.HILLS
+		if wet > 0.10:
+			return MapModel.Terrain.FOREST
+		if wet < -0.40:
+			return MapModel.Terrain.DESERT
+		if wet > -0.06:
+			return MapModel.Terrain.SWAMP
+		return MapModel.Terrain.PLAINS
+	if height_value > 0.42:
+		return MapModel.Terrain.MOUNTAINS
+	if height_value > 0.22:
+		return MapModel.Terrain.HILLS
+	if wet > 0.28:
+		return MapModel.Terrain.FOREST
+	if wet < -0.34:
+		return MapModel.Terrain.DESERT
+	if wet > 0.12 and height_value < -0.2:
+		return MapModel.Terrain.SWAMP
+	return MapModel.Terrain.PLAINS
 
 
 func _near_land(model: MapModel, x: int, y: int, radius: int) -> bool:
@@ -226,7 +259,10 @@ func _build_provinces(model: MapModel) -> void:
 	if land.is_empty():
 		return
 
-	var target: int = clampi(land.size() / TILES_PER_PROVINCE, MIN_PROVINCES, MAX_PROVINCES)
+	var new_world: bool = model.region_id == FactionCatalog.NEW_WORLD
+	var tile_target: int = NEW_WORLD_TILE_TARGET if new_world else OLD_WORLD_TILE_TARGET
+	var bounds: Vector2i = NEW_WORLD_PROVINCES if new_world else OLD_WORLD_PROVINCES
+	var target: int = clampi(land.size() / tile_target, bounds.x, bounds.y)
 	var seeds: Array[Vector2i] = _farthest_point_seeds(model, land, target, true)
 	_grow_regions(model, seeds, true)
 
@@ -257,7 +293,7 @@ func _build_provinces(model: MapModel) -> void:
 				break
 		model.provinces.append({
 			"id": id,
-			"name": _unique_name(used_names, PROVINCE_PREFIXES, PROVINCE_ROOTS),
+			"name": MapNaming.province_name(used_names, model.region_id, _rng),
 			"tiles": tiles,
 			"center": center,
 			"area": tiles.size(),
@@ -399,7 +435,7 @@ func _build_sea_zones(model: MapModel) -> void:
 		var sum: Vector2 = bucket["sum"]
 		model.sea_zones.append({
 			"id": id,
-			"name": _unique_sea_name(used_names),
+			"name": MapNaming.sea_name(used_names, model.region_id),
 			"tiles": tiles,
 			"center": sum / float(tiles.size()) + Vector2(0.5, 0.5),
 			"area": tiles.size(),
@@ -481,100 +517,39 @@ func _build_ports(model: MapModel) -> void:
 		province["port_tile"] = best
 
 
-## Spreads ownership by nearest seed province. Seeds are drawn from sea-bound
-## provinces so every faction can satisfy the capital-choice rule.
-func _assign_owners(model: MapModel) -> void:
-	if model.provinces.is_empty():
+## Region ownership (wiki: game-setup § GP / Minor Nation / Tribe assignment).
+## The rules module grows contiguous territories from sea-bound seeds; here we
+## only pick which faction roster belongs to the region and record failures.
+func _assign_factions(model: MapModel, region_id: int) -> void:
+	var report: Dictionary
+	if region_id == FactionCatalog.NEW_WORLD:
+		report = TerritoryAssignment.assign_new_world(
+			model, FactionCatalog.tribe_ids()
+		)
+	else:
+		report = TerritoryAssignment.assign_old_world(
+			model, FactionCatalog.great_power_ids(), FactionCatalog.minor_ids()
+		)
+	if not bool(report.get("ok", false)):
+		model.setup_errors.append(String(report.get("error", "assignment_failed")))
+
+
+## Capital-choice phase (wiki: capital-choice-phase). Great Powers follow the
+## sea-bound/coastal rule; Minor Nations and Tribes are assigned any owned
+## province during setup.
+func _place_capitals(model: MapModel, region_id: int) -> void:
+	if region_id == FactionCatalog.NEW_WORLD:
+		CapitalChoice.place_all(model, FactionCatalog.tribe_ids(), CapitalChoice.KIND_MINOR)
 		return
-	var faction_count: int = mini(FACTION_NAMES.size(), model.provinces.size())
-	var eligible: Array[int] = _sea_bound_ids(model)
-	if eligible.size() < faction_count:
-		eligible = []
-		for id in model.provinces.size():
-			eligible.append(id)
-	if eligible.is_empty():
-		return
-
-	var seeds: Array[int] = [eligible[_rng.randi_range(0, eligible.size() - 1)]]
-	while seeds.size() < faction_count:
-		var best: int = -1
-		var best_distance: float = -1.0
-		for id: int in eligible:
-			if seeds.has(id):
-				continue
-			var nearest: float = INF
-			for seed: int in seeds:
-				nearest = minf(
-					nearest,
-					model.province_center(id).distance_to(model.province_center(seed))
-				)
-			if nearest > best_distance:
-				best_distance = nearest
-				best = id
-		if best < 0:
-			break
-		seeds.append(best)
-
-	for id in model.provinces.size():
-		var nearest_owner: int = 0
-		var nearest_distance: float = INF
-		for faction in seeds.size():
-			var distance: float = model.province_center(id).distance_to(
-				model.province_center(seeds[faction])
-			)
-			if distance < nearest_distance:
-				nearest_distance = distance
-				nearest_owner = faction
-		var province: Dictionary = model.provinces[id]
-		province["owner"] = nearest_owner
-		province["population"] = 180 + int(province["area"]) * 9 + _rng.randi_range(0, 90)
-
-
-func _sea_bound_ids(model: MapModel) -> Array[int]:
-	var ids: Array[int] = []
-	for province: Dictionary in model.provinces:
-		if CapitalChoice.is_sea_bound(model, int(province["id"])):
-			ids.append(int(province["id"]))
-	return ids
-
-
-## Capital-choice phase (wiki: capital-choice-phase). All four crowns are Great
-## Powers, so each gets the sea-bound capital rule and its ports/roads.
-func _place_capitals(model: MapModel) -> void:
-	var factions: Array[int] = []
-	for faction in mini(FACTION_NAMES.size(), model.provinces.size()):
-		factions.append(faction)
-	CapitalChoice.place_all(model, factions, CapitalChoice.KIND_GREAT_POWER)
+	CapitalChoice.place_all(
+		model, FactionCatalog.great_power_ids(), CapitalChoice.KIND_GREAT_POWER
+	)
+	CapitalChoice.place_all(
+		model, FactionCatalog.minor_ids(), CapitalChoice.KIND_MINOR
+	)
 
 
 # --- names ------------------------------------------------------------------
-
-
-func _unique_name(used: Dictionary, prefixes: Array[String], roots: Array[String]) -> String:
-	for _attempt in 40:
-		var root: String = roots[_rng.randi_range(0, roots.size() - 1)]
-		var roll: float = _rng.randf()
-		var name: String = root
-		if roll < 0.45:
-			name = "%s %s" % [prefixes[_rng.randi_range(0, prefixes.size() - 1)], root]
-		elif roll < 0.6:
-			name = "Nueva %s" % root
-		if not used.has(name):
-			used[name] = true
-			return name
-	var fallback: String = "Tierra %d" % (used.size() + 1)
-	used[fallback] = true
-	return fallback
-
-
-func _unique_sea_name(used: Dictionary) -> String:
-	for name: String in SEA_NAMES:
-		if not used.has(name):
-			used[name] = true
-			return name
-	var fallback: String = "Mar %d" % (used.size() + 1)
-	used[fallback] = true
-	return fallback
 
 
 func _shuffle(items: Array) -> void:

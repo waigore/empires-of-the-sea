@@ -13,8 +13,10 @@ const MS_TABLE: Array = [
 ]
 
 var model: MapModel = null
+var world: WorldMap = null
 
 var _terrain_texture: ImageTexture = null
+var _owner_texture: ImageTexture = null
 var _mask_texture: ImageTexture = null
 var _coast: Array[PackedVector2Array] = []
 var _province_borders: Array[PackedVector2Array] = []
@@ -22,14 +24,16 @@ var _sea_borders: Array[PackedVector2Array] = []
 var _roads: Array[PackedVector2Array] = []
 var _labels: Array[Dictionary] = []
 var _glyphs: Array[Dictionary] = []
+var _passages: Array[Vector2] = []
 var _font: Font = null
 var _font_italic: Font = null
 var _compass_position: Vector2 = Vector2.ZERO
 var _compass_visible: bool = false
 
 
-func build(p_model: MapModel) -> void:
+func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	model = p_model
+	world = p_world
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -38,6 +42,7 @@ func build(p_model: MapModel) -> void:
 	_build_borders()
 	_build_roads()
 	_build_labels()
+	_build_passages()
 	_build_glyphs()
 	_find_compass_spot()
 	queue_redraw()
@@ -57,6 +62,8 @@ func _build_textures() -> void:
 	var h: int = model.height
 	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var owners := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	owners.fill(Color(0, 0, 0, 0))
 	for y in h:
 		for x in w:
 			var index: int = model.index_of(x, y)
@@ -65,6 +72,10 @@ func _build_textures() -> void:
 				image.set_pixel(x, y, Color(0, 0, 0, 0))
 				mask.set_pixel(x, y, Color(0, 0, 0, 0))
 				continue
+			var owner: int = model.owner_at(x, y)
+			if owner != MapModel.NO_ID:
+				var tint: Color = FactionCatalog.color_of(owner)
+				owners.set_pixel(x, y, Color(tint.r, tint.g, tint.b, 0.16))
 			var color: Color = Palette.terrain_color(terrain)
 			var jitter: float = (_hash01(x, y) - 0.5) * 0.055
 			image.set_pixel(x, y, Color(
@@ -78,6 +89,7 @@ func _build_textures() -> void:
 			else:
 				mask.set_pixel(x, y, Color(1, 1, 1, 1))
 	_terrain_texture = ImageTexture.create_from_image(image)
+	_owner_texture = ImageTexture.create_from_image(owners)
 	_mask_texture = ImageTexture.create_from_image(mask)
 
 
@@ -150,6 +162,24 @@ func _build_borders() -> void:
 				]))
 	_province_borders = InkPaths.smooth_segments(province_raw, 2)
 	_sea_borders = InkPaths.smooth_segments(sea_raw, 2)
+
+
+## Warp zones are the only crossings between regions; mark them on the water.
+func _build_passages() -> void:
+	_passages.clear()
+	if world == null:
+		return
+	for zone_id: int in world.warp_zones(model.region_id):
+		var center: Vector2 = model.sea_zone_center(zone_id) * TILE_SIZE
+		if center == Vector2.ZERO:
+			continue
+		_passages.append(center)
+		_labels.append({
+			"text": "Passage",
+			"position": center + Vector2(0, 26),
+			"size": 12,
+			"kind": "passage",
+		})
 
 
 ## Capital roads (wiki: capital-and-connectivity § Capital Setup), drawn as one
@@ -293,6 +323,7 @@ func _draw() -> void:
 		_mask_texture, Rect2(Vector2(6, 8), size), false, Color(0.10, 0.07, 0.03, 0.32)
 	)
 	draw_texture_rect(_terrain_texture, Rect2(Vector2.ZERO, size), false)
+	draw_texture_rect(_owner_texture, Rect2(Vector2.ZERO, size), false)
 
 	for path: PackedVector2Array in _sea_borders:
 		draw_polyline(path, Color(0.18, 0.30, 0.33, 0.18), 1.0, true)
@@ -310,11 +341,24 @@ func _draw() -> void:
 	for glyph: Dictionary in _glyphs:
 		_draw_glyph(glyph)
 
+	for point: Vector2 in _passages:
+		_draw_passage(point)
+
 	for label: Dictionary in _labels:
 		_draw_label(label)
 
 	if _compass_visible:
 		_draw_compass(_compass_position, 74.0)
+
+
+## Two arrows around a ring: the sign of a sea lane between regions.
+func _draw_passage(center: Vector2) -> void:
+	var ink := Color(0.16, 0.12, 0.08, 0.55)
+	var radius: float = 13.0
+	draw_arc(center, radius, 0.0, TAU, 28, ink, 1.6, true)
+	draw_arc(center, radius * 0.62, PI * 0.15, PI * 0.85, 12, ink, 1.4, true)
+	draw_arc(center, radius * 0.62, PI * 1.15, PI * 1.85, 12, ink, 1.4, true)
+	draw_circle(center, 2.2, ink)
 
 
 func _draw_glyph(glyph: Dictionary) -> void:
@@ -447,7 +491,8 @@ func _draw_label(label: Dictionary) -> void:
 	var font_size: int = label["size"]
 	var width: float = 260.0
 	var origin := position - Vector2(width * 0.5, 0.0)
-	if String(label["kind"]) == "sea":
+	var kind: String = String(label["kind"])
+	if kind == "sea" or kind == "passage":
 		draw_string_outline(
 			_font_italic, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, 3,
 			Color(0.93, 0.88, 0.77, 0.28)

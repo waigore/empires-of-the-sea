@@ -12,6 +12,8 @@ and ship catalogs.
 ## Implemented
 
 - Fleet is **at sea** (one zone) or **in port** (one province) — exclusive.
+- Only Great Powers keep fleets; each region hosts its own squadrons, and the
+  map screen swaps them with the Old/New World view.
 - **One move / turn:** S↔S; port → adjacent sea (undock); sea → owned coastal
   province adjacent to the zone (dock). Dock needs ownership + `port_tile`.
 - Entering a zone reveals water + **coastal land ring** via
@@ -29,7 +31,7 @@ and ship catalogs.
 
 Home-fleet merge · Patrol/Blockade/Beachhead/Defend · interception/retreat/raids
 · build deduct + tech unlock · food consumption phase · AI movement · multi-hull
-markers.
+markers · sail through warp zones (Old ↔ New World).
 
 ## Architecture
 
