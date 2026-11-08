@@ -1,0 +1,154 @@
+# Empires of the Sea agent-orc config.
+# Run: uv run agent-orc --repo-root /path/to/empires-of-the-sea --yes
+# Override via config.local.yaml in this directory.
+orchestrator:
+  cooldown_seconds: 10
+  # gate_backoff_initial_seconds omitted: tracks cooldown_seconds after merge.
+  gate_backoff_max_seconds: 60
+  stagger_seconds: 5
+  schedule_poll_seconds: 5
+  worktrees_dir: .orc/worktrees
+  logs_dir: .orc/logs
+  repo_root: .
+  pull_before_run: true
+  default_branch: main
+
+# Agents listed under schedules are schedule-only (no cooldown loop). Cron uses the
+# host local timezone. Overrunning a tick skips missed fires (no catch-up).
+schedules:
+  hourly-refactor:
+    cron: "0 * * * *"
+    agents:
+      - refactor-code-agent
+  bihourly-optimize-tests:
+    cron: "0 */2 * * *"
+    agents:
+      - optimize-tests-agent
+  every-3h-elucidate-design:
+    cron: "0 */3 * * *"
+    agents:
+      - elucidate-design-agent
+  half-hourly-babysit-pr:
+    cron: "*/30 * * * *"
+    agents:
+      - babysit-pr-agent
+  thrice-daily-android-debug:
+    cron: "0 8,12,18 * * *"
+    agents:
+      - export-android-debug
+
+providers:
+  # Prefer cursor-agent: plain `agent` may resolve to Grok's binary on PATH.
+  # Docs: https://cursor.com/docs/cli/using — -p/--print, --workspace, --force/--yolo, --trust
+  cursor:
+    command:
+      - cursor-agent
+      - -p
+      - --force
+      - --trust
+      - --workspace
+      - "{workdir}"
+      - "{prompt}"
+  # Docs: https://hermes-agent.nousresearch.com/docs/reference/cli-commands — -z oneshot, --yolo, --in, -s
+  # Do not pass Hermes -w/--worktree; agent-orc owns worktrees.
+  # agent-orc runs `hermes skills trust` on the worktree and repo root before each Hermes run.
+  hermes:
+    command:
+      - hermes
+      - -z
+      - "{prompt}"
+      - --yolo
+      - --in
+      - "{workdir}"
+      - -s
+      - "{skill}"
+  # Docs: https://opencode.ai/docs/cli/ — `opencode run`; --auto for unattended.
+  # Local v2.x has no --dir on run; orchestrator sets process cwd to the worktree.
+  # Cheaper Inference DeepSeek V4.1 Flash (not OpenCode Go).
+  opencode-cheaperinference-deepseek-v41-flash:
+    command:
+      - opencode
+      - run
+      - --auto
+      - --model
+      - cheaper-inference/deepseek-v4.1-flash-1017
+      - "{prompt}"
+
+agents:
+  # Continuous Hermes chain: implement → (30s) → hunt → (30s) → repeat.
+  # Leaves are disabled standalone; the composite selects them via chain refs.
+  implement-feature-agent:
+    skill: implement-feature-agent
+    provider: hermes
+    enabled: false
+    cooldown_seconds: 30
+    prompt: |
+      Run the implement-feature-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One feature pass; open a PR if work shipped; then exit.
+
+  hunt-defects-agent:
+    skill: hunt-defects-agent
+    provider: hermes
+    enabled: false
+    prompt: |
+      Run the hunt-defects-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One defect-hunt pass; open a PR if work shipped; then exit.
+
+  implement-then-hunt:
+    enabled: true
+    cooldown_seconds: 30
+    chain:
+      - implement-feature-agent
+      - hunt-defects-agent
+
+  refactor-code-agent:
+    skill: refactor-code-agent
+    provider: opencode-cheaperinference-deepseek-v41-flash
+    enabled: true
+    prompt: |
+      Run the refactor-code-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One refactor pass; open a PR if work shipped; then exit.
+
+  optimize-tests-agent:
+    skill: optimize-tests-agent
+    provider: opencode-cheaperinference-deepseek-v41-flash
+    enabled: true
+    prompt: |
+      Run the optimize-tests-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One test-optimization pass; open a PR if work shipped; then exit.
+
+  elucidate-design-agent:
+    skill: elucidate-design-agent
+    provider: opencode-cheaperinference-deepseek-v41-flash
+    enabled: true
+    prompt: |
+      Run the elucidate-design-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One design-elucidation pass; open a PR if work shipped; then exit.
+
+  babysit-pr-agent:
+    skill: babysit-pr-agent
+    provider: cursor
+    enabled: true
+    gate:
+      command:
+        - sh
+        - .agents/skills/babysit-pr-agent/scripts/gate.sh
+    prompt: |
+      Run the babysit-pr-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      Reshape the Actions check queue (~3 active), then one same-repo PR; exit.
+      Skip fork PRs.
+
+  export-android-debug:
+    skill: export-android-debug
+    provider: cursor
+    enabled: true
+    prompt: |
+      Run the export-android-debug skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      Follow docs/android-debug.md; ship a downloadable debug APK release URL; then exit.
