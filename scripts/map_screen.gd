@@ -10,6 +10,8 @@ signal selection_cleared
 signal coast_charted(province_id: int)
 signal battle_resolved(battles: Array[Dictionary])
 signal turn_ended(turn: int)
+## The rules decided the campaign; audio/motion may mark the moment.
+signal victory_declared(victory: VictoryState)
 
 const TILE_SIZE: float = PlaySession.TILE_SIZE
 const MAP_SEED: int = 1500

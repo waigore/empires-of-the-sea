@@ -36,6 +36,8 @@ static func refresh_options(play: PlaySession, fleet: FleetState) -> void:
 
 
 static func try_order(play: PlaySession, tile: Vector2i) -> bool:
+	if play.victory != null:
+		return false
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
 	if fleet == null or fleet.owner != PlaySession.PLAYER_FACTION:
 		return false

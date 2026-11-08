@@ -21,6 +21,8 @@ signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
 signal region_toggle_pressed
 signal focus_capital_pressed
+## The player closed the campaign plate to keep viewing the map.
+signal victory_dismissed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -43,6 +45,10 @@ var bar_font: int = 0
 var minimap_frame: Control = null
 var zoom_box: Control = null
 var end_turn_wrap: Control = null
+## Campaign-end plate (wiki: victory); null until the chrome builds it.
+var victory_overlay: VictoryOverlay = null
+## Turns stay shut once the rules decide the campaign (wiki: victory).
+var campaign_over: bool = false
 
 var _turn_label: Label = null
 var _nation_label: Label = null
@@ -147,6 +153,35 @@ func set_civilians(value: int) -> void:
 
 func set_armies(value: int) -> void:
 	_army_label.text = str(value)
+
+
+## Campaign decided: raise the plate and shut the end-turn seal for good
+## (wiki: victory § Victory Screen).
+func show_victory(state: VictoryState, player_faction: int, holdings: int) -> void:
+	set_campaign_over(true)
+	if victory_overlay != null:
+		victory_overlay.show_victory(state, player_faction, holdings)
+
+
+## Turns never reopen; only the plate may step aside to keep viewing the map.
+func set_campaign_over(over: bool) -> void:
+	campaign_over = over
+	_end_turn_button.disabled = over
+	_end_turn_button.text = "CAMPAIGN ENDED" if over else "END TURN"
+	_glow.visible = not over
+	if not over:
+		return
+	panels.hide_province()
+	panels.hide_fleet()
+	panels.hide_civilian()
+	panels.hide_army()
+	panels.hide_economy()
+	panels.hide_research()
+	DiplomacyHud.hide(panels)
+
+
+func is_victory_shown() -> bool:
+	return victory_overlay != null and victory_overlay.is_shown()
 
 
 func toast(text: String) -> void:

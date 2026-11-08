@@ -18,6 +18,7 @@ static func build(hud: GameHud) -> void:
 	_civilian_panel(hud)
 	ArmyHud.build(hud)
 	_tooltip(hud)
+	_victory_plate(hud)
 
 
 static func _toasts(hud: GameHud) -> void:
@@ -221,6 +222,14 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud._civilian_panel.close_pressed.connect(func() -> void: hud.civilian_closed.emit())
 	hud._civilian_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._civilian_wrap.add_child(hud._civilian_panel)
+
+
+## Campaign-end plate: built last so it covers every dossier (wiki: victory).
+static func _victory_plate(hud: GameHud) -> void:
+	hud.victory_overlay = VictoryOverlay.new()
+	hud.victory_overlay.z_index = 40
+	hud.victory_overlay.dismissed.connect(func() -> void: hud.victory_dismissed.emit())
+	hud.add_child(hud.victory_overlay)
 
 
 static func _tooltip(hud: GameHud) -> void:

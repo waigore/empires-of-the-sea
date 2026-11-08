@@ -150,6 +150,7 @@ func _run() -> void:
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen)
 	await _smoke_end_turn(screen, audio, cues_before, works)
+	await _smoke_victory(screen)
 	_finish()
 
 
@@ -352,6 +353,25 @@ func _smoke_end_turn(
 			bed == MusicPlaylist.AGE_OF_DISCOVERY or bed == MusicPlaylist.BROADSIDES,
 			"music keeps a bed after the turn (%s)" % bed
 		)
+
+
+## Campaign end on the live scene: the plate appears and turns stay shut. The
+## smoke map is too small to win by province count, so the record is seeded.
+func _smoke_victory(screen: MapScreen) -> void:
+	screen.play.victory = VictoryState.military(MapScreen.PLAYER_FACTION, screen.turn)
+	screen.hud.show_victory(
+		screen.play.victory,
+		MapScreen.PLAYER_FACTION,
+		VictoryRules.old_world_holdings(screen.world, MapScreen.PLAYER_FACTION)
+	)
+	await process_frame
+	_check(screen.hud.is_victory_shown(), "campaign plate shows")
+	_check(screen.hud._end_turn_button.disabled, "end turn seal closes")
+	var turn_before: int = screen.turn
+	MapPlayTurn.end_turn(screen.play)
+	_check(screen.turn == turn_before, "decided campaign refuses another turn")
+	screen.hud.victory_overlay.dismiss()
+	_check(not screen.hud.is_victory_shown(), "final view dismisses the plate")
 
 
 func _map_screen(main: Node) -> MapScreen:
