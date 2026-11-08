@@ -8,6 +8,8 @@ signal cancel_pressed(tile: Vector2i)
 signal focus_pressed(tile: Vector2i)
 
 var data: Dictionary = {}
+## Phone rows get thumb-sized actions instead of the atlas 30 px strip.
+var compact: bool = false
 
 var _icon: Icon = null
 var _name: Label = null
@@ -222,7 +224,7 @@ func _status_color(status: String) -> Color:
 func _button(text: String) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(0, 30)
+	button.custom_minimum_size = Vector2(0, 42 if compact else 30)
 	button.add_theme_font_size_override("font_size", 12)
 	return button
 

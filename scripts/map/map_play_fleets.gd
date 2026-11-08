@@ -13,7 +13,9 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.selected_province = -1
 	play.overlay.select_province(-1)
 	play.hud.panels.hide_province()
-	play.hud.panels.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
+	play.hud.panels.show_fleet(
+		play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION, passage_note(play, fleet)
+	)
 	refresh_options(play, fleet)
 	if fleet.owner != PlaySession.PLAYER_FACTION:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
@@ -59,8 +61,7 @@ static func try_sea_order(play: PlaySession, fleet: FleetState, zone_id: int) ->
 		play.hud.toast("This fleet has already moved this turn.")
 		return true
 	if zone_id == fleet.sea_zone:
-		play.hud.toast("The fleet is already in the %s" % play.model.sea_zone_name(zone_id))
-		return true
+		return _try_passage(play, fleet)
 	var result: Dictionary = play.ship_layer.order(fleet, FleetState.Location.AT_SEA, zone_id)
 	if bool(result.get("ok", false)):
 		return true
@@ -68,10 +69,35 @@ static func try_sea_order(play: PlaySession, fleet: FleetState, zone_id: int) ->
 	return true
 
 
+## Clicking the fleet's own zone crosses a passage when that zone is a warp
+## zone; otherwise it stays the old "already there" refusal (wiki:
+## map-topology § Warp zones).
+static func _try_passage(play: PlaySession, fleet: FleetState) -> bool:
+	if bool(WarpTravel.can_cross(play.world, play.region_index, fleet).get("ok", false)):
+		var crossed: Dictionary = play.ship_layer.cross(fleet)
+		if not bool(crossed.get("ok", false)):
+			play.hud.toast(String(crossed.get("reason", "")))
+		return true
+	play.hud.toast("The fleet is already in the %s" % play.model.sea_zone_name(fleet.sea_zone))
+	return true
+
+
+## Dossier hint when the selected fleet sits in a passage it could cross.
+static func passage_note(play: PlaySession, fleet: FleetState) -> String:
+	if fleet == null or fleet.owner != PlaySession.PLAYER_FACTION:
+		return ""
+	var check: Dictionary = WarpTravel.can_cross(play.world, play.region_index, fleet)
+	if not bool(check.get("ok", false)):
+		return ""
+	return "Tap this Passage to cross to the %s." % FactionCatalog.region_label(
+		int(check["to_region"])
+	)
+
+
 static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -> void:
 	if fleet.owner != PlaySession.PLAYER_FACTION:
 		return
-	play.hud.panels.show_fleet(play.model, fleet, true)
+	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
 	if zone >= 0:

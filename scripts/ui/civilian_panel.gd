@@ -114,7 +114,8 @@ func refresh(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> void:
 	if unit == null:
 		return
@@ -128,10 +129,11 @@ func refresh(
 	_fill_detail(model, unit, works)
 	_status.text = _status_text(model, unit)
 	_cancel.visible = unit.is_working()
-	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps)
-	_stock_line.text = "Stores: %d lumber · %d cast iron · %d bronze · %d paper" % [
+	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked)
+	_stock_line.text = "Stores: %d lumber · %d cast iron · %d steel · %d bronze · %d paper" % [
 		int(stockpile.get("lumber", 0)),
 		int(stockpile.get("castIron", 0)),
+		int(stockpile.get("steel", 0)),
 		int(stockpile.get("bronze", 0)),
 		int(stockpile.get("paper", 0)),
 	]
@@ -153,7 +155,11 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 		development.append(
 			ImprovementCatalog.display_name(model.resource_at(unit.tile.x, unit.tile.y), level)
 		)
-	if works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_ROAD:
+	if works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_RAIL:
+		development.append("Railroad")
+	elif works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_IMPROVED_ROAD:
+		development.append("Improved road")
+	elif works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_ROAD:
 		development.append("Road")
 	if works.has_port(model, unit.tile):
 		development.append("Port")
@@ -179,11 +185,12 @@ func _fill_orders(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> void:
 	_clear(_orders)
 	for option: Dictionary in CivilianWork.options(
-		model, unit, works, units, stockpile, visibility, tech_caps
+		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked
 	):
 		var action: String = String(option["action"])
 		var button := _make_button(

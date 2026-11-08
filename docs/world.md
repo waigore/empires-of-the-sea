@@ -26,7 +26,8 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
   province and sea names (Spanish exonyms).
 - New World: wetter and greener terrain, 10 Tribes, Native-flavoured names.
 - `WorldMap` holds both grids. Regions never share grid adjacency; **warp
-  zones** (one edge sea zone per side) pair 1:1, marked “Passage”.
+  zones** (one edge sea zone per side) pair 1:1, marked “Passage”. Fleets
+  cross them as a move to reach the other world.
 - The HUD region button (`OLD WORLD ›` / `NEW WORLD ›`) swaps canvas, fog,
   fleets, civilians, works and camera bounds. Squadrons, civilian rosters and
   land works persist per region, and every region advances on end turn —
@@ -64,13 +65,14 @@ treatment, so colour never bleeds into the sea.
 
 ## Known limits
 
-Naval transit through warp zones, colonisation, Minor/Tribe AI, town-per-province
-roads, regiment parity and market participation are deferred.
+Colonisation, Minor/Tribe AI, town-per-province roads, regiment parity and market
+participation are deferred.
 
 ## Tests
 
 `test_faction_catalog`, `test_world_setup`, `test_world_bootstrap`,
-`test_country_borders`, `test_map_generator`, `test_map_screen`.
+`test_country_borders`, `test_map_generator`, `test_warp_travel`,
+`test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

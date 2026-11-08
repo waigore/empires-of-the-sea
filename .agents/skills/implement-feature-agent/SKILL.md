@@ -31,7 +31,9 @@ One focused feature per run. Deliverable: an open PR on a branch. Do not merge, 
 
 Reuse existing modules and patterns. Prefer smallest change that keeps desktop + mobile playable.
 
-If the wiki target is **unclear / contradictory / underspecified**, hand off to [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md) instead of inventing house rules.
+If the wiki target is **unclear / contradictory / underspecified**, hand off to [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md) instead of inventing house rules. When the gap is a small data-shaped choice (ordering, thresholds, which score wins), use the wiki's Design Records process instead: a `dr-YYYYMMDD-NN` page (Status/Date/Theme/Sources/Ambiguity/Change/Reasoning/Impact/Supersedes), an index row in `design-records.md`, a `design-changelog.md` line, and the clarified page section — in the same effort as the code.
+
+Wiki writes: `git clone https://github.com/waigore/empires-of-the-sea.wiki.git` (full clone; a `--depth 1` clone can fail to merge on push), commit, push to `master`.
 
 ## Workflow
 

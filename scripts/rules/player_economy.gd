@@ -15,6 +15,8 @@ const START_GRAIN_TURNS: int = 20
 ## draw on; these were a separate demo stockpile before the economy landed.
 const START_WORKS_LUMBER: int = 40
 const START_WORKS_CAST_IRON: int = 40
+## Cloth for the opening muster and worker training; regiments need fabric.
+const START_WORKS_FABRIC: int = 12
 const START_CIVILIAN_WORKS: Dictionary = {
 	"bronze": 12,
 	"steel": 8,
@@ -44,6 +46,7 @@ static func starting() -> PlayerEconomy:
 		"grain": START_PEASANTS * START_GRAIN_TURNS,
 		"lumber": START_WORKS_LUMBER,
 		"castIron": START_WORKS_CAST_IRON,
+		"fabric": START_WORKS_FABRIC,
 		"wool": 4,
 		"paper": int(START_CIVILIAN_WORKS["paper"]),
 		"bronze": int(START_CIVILIAN_WORKS["bronze"]),

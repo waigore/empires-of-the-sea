@@ -115,6 +115,40 @@ func test_combining_armies_uses_the_home_army_as_target() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	assert_true(_screen.hud.panels.army_panel._muster_button.visible)
+	var before: int = home.count()
+	var treasury: int = _screen.economy.economy.treasury
+	var fabric: int = _screen.economy.economy.quantity("fabric")
+
+	MapPlayArmies.on_action(_screen.play, "recruit:peasant_levies")
+
+	assert_eq(home.count(), before + 1)
+	assert_eq(home.type_of(home.regiments[home.regiments.size() - 1]), "peasant_levies")
+	assert_eq(
+		_screen.economy.economy.treasury,
+		treasury - RegimentCatalog.treasury_cost("peasant_levies")
+	)
+	assert_eq(_screen.economy.economy.quantity("fabric"), fabric - 1)
+	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
+
+
+func test_the_drill_yard_stacks_below_the_roster() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	assert_eq(panel._muster_box.get_parent(), panel._roster.get_parent())
+	assert_true(panel._muster_box.get_parent() is VBoxContainer)
+
+
+func test_the_drill_yard_is_closed_on_a_field_army() -> void:
+	var field: ArmyState = _detach_one()
+	assert_false(_screen.hud.panels.army_panel._muster_button.visible)
+	assert_eq(field.owner, MapScreen.PLAYER_FACTION)
+
+
 func test_army_rations_enter_the_consumption_projection() -> void:
 	var home: ArmyState = _player_home()
 	var expected: int = _screen.army_layer.food_upkeep_all(MapScreen.PLAYER_FACTION)

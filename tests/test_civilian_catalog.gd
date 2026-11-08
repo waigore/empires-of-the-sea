@@ -28,14 +28,26 @@ func test_training_costs_match_the_wiki() -> void:
 		assert_eq(CivilianCatalog.paper_cost(type_id), 4, type_id)
 
 
-func test_only_the_starting_three_are_playable_this_milestone() -> void:
-	assert_eq(CivilianCatalog.playable_types(), ["explorer", "engineer", "builder"])
-	for type_id: String in ["spy", "merchant", "rail_builder"]:
+func test_the_playable_roster_includes_the_rail_builder() -> void:
+	assert_eq(
+		CivilianCatalog.playable_types(),
+		["explorer", "engineer", "builder", "rail_builder"]
+	)
+	for type_id: String in ["spy", "merchant"]:
 		assert_false(CivilianCatalog.is_implemented(type_id), type_id)
 		assert_true(CivilianCatalog.deferred_reason(type_id) != "", type_id)
 	for type_id: String in CivilianCatalog.playable_types():
-		assert_true(CivilianCatalog.is_starting(type_id), type_id)
+		assert_true(CivilianCatalog.is_implemented(type_id), type_id)
 		assert_eq(CivilianCatalog.deferred_reason(type_id), "")
+
+
+func test_tech_gated_types_unlock_on_research() -> void:
+	assert_eq(CivilianCatalog.unlock_tech("explorer"), "")
+	assert_eq(CivilianCatalog.unlock_tech("rail_builder"), "early_steam_engine")
+	assert_eq(CivilianCatalog.unlock_tech("merchant"), "merchant_companies")
+	assert_true(CivilianCatalog.is_unlocked("explorer"))
+	assert_false(CivilianCatalog.is_unlocked("rail_builder"))
+	assert_true(CivilianCatalog.is_unlocked("rail_builder", {"early_steam_engine": true}))
 
 
 func test_work_lists_match_the_wiki_table() -> void:

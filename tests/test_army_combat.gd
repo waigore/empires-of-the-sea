@@ -119,6 +119,32 @@ func test_cavalry_wins_the_initiative_order() -> void:
 	assert_eq(ArmyCombat.ordered_attackers(armies, 3, MapModel.NO_ID), expected)
 
 
+func test_general_medals_add_to_initiative() -> void:
+	var horse: Array[ArmyState] = [Fixture.army(1, 0, 3, ["squires"])]
+	assert_almost_eq(ArmyCombat.initiative(horse), 50.0, 0.001)
+	assert_almost_eq(ArmyCombat.initiative(horse, 2), 70.0, 0.001)
+
+
+func test_medal_aura_redistributes_casualties() -> void:
+	var defender := Fixture.army(1, 1, 2, _repeat("peasant_levies", 10))
+	var attacker := Fixture.army(2, 0, 2, _repeat("peasant_levies", 10))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var roster := GeneralRoster.new()
+	roster.pool(0)
+	for _index in 4:
+		roster.award(0, "general_1")
+	var context: Dictionary = {"roster": roster, "army_general": {attacker.id: "general_1"}}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies, context)
+
+	assert_eq(int(reports[0]["attacker_medals"]), 4)
+	assert_gt(
+		(reports[0]["defender_lost"] as Array).size(),
+		(reports[0]["attacker_lost"] as Array).size()
+	)
+
+
 func test_mutual_annihilation_recovers_a_garrison_for_the_next_attacker() -> void:
 	var defender := Fixture.army(1, 1, 2, ["guards"], true)
 	var first := Fixture.army(2, 0, 2, ["peasant_levies"])
