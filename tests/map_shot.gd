@@ -8,6 +8,7 @@ var _target := 90
 var _path := "/tmp/map_shot.png"
 var _zoom := 0.0
 var _diplomacy := false
+var _army := false
 var _select := -1
 var _warp := 0
 var _shot_taken := false
@@ -26,6 +27,8 @@ func _initialize() -> void:
 			_zoom = float(arg.substr(5))
 		elif arg.begins_with("diplomacy="):
 			_diplomacy = arg.substr(10) == "1"
+		elif arg.begins_with("army="):
+			_army = arg.substr(5) == "1"
 		elif arg.begins_with("select="):
 			_select = int(arg.substr(7))
 		elif arg.begins_with("warp="):
@@ -46,6 +49,8 @@ func _process(_delta: float) -> bool:
 			_screen.hud.panels.diplomacy_panel.select_faction(_select)
 	if _frames == 4 and _warp > 0 and _screen != null:
 		_warp_shot()
+	if _frames == 4 and _army and _screen != null:
+		MapPlayArmies.open_muster(_screen.play)
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)

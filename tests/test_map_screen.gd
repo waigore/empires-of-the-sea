@@ -130,12 +130,18 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 
-func test_panel_orders_raise_a_toast() -> void:
+func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
 	var province_id: int = _inland_province()
-	MapPlayInput.on_tapped(_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	MapPlayInput.on_tapped(
+		_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
 	MapPlayInput.on_panel_action(_screen.play, "recruit")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_true(_screen.hud.panels.is_army_panel_open())
+	assert_false(_screen.hud.panels.is_panel_open())
+	var army: ArmyState = _screen.army_layer.selected_army
+	assert_not_null(army)
+	assert_true(army.is_home_army())
+	assert_true(_screen.hud.panels.army_panel._muster_box.visible)
 
 
 func test_wheel_zoom_changes_the_camera_scale() -> void:

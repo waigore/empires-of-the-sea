@@ -76,6 +76,8 @@ func test_economy_recruits_peasants_with_fabric() -> void:
 
 func test_recruiting_a_peasant_needs_fabric() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
+	# The opening stock now carries cloth for the muster; drain it to test the gate.
+	economy.stockpile["fabric"] = 0
 	var result: Dictionary = economy.recruit(WorkerPool.Tier.PEASANT)
 	assert_false(bool(result["ok"]))
 	assert_eq(String(result["reason"]), "Insufficient materials")

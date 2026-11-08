@@ -122,9 +122,9 @@ func _build() -> void:
 	orders.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_orders_box.add_child(orders)
 
-	_recruit = _make_button("Recruit Regiment (deferred)")
-	_recruit.disabled = true
-	_recruit.tooltip_text = "Training arrives with the regiment economy slice."
+	_recruit = _make_button("Recruit Regiment")
+	_recruit.tooltip_text = "Muster at your capital; the regiment joins the Home Army."
+	_recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
 	_orders_box.add_child(_recruit)
 
 	var build := _make_button("Build Improvement")
@@ -193,9 +193,7 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 func set_compact(compact: bool) -> void:
 	if _orders_box == null or _grid == null or _column == null:
 		return
-	# A dead placeholder whose only explanation is a hover tooltip stays off the
-	# phone sheet, where it would just push the live orders out of reach.
-	_recruit.visible = not compact
+	# Recruit is a live order now, so it stays on the phone sheet too.
 	var orders_at: int = _orders_box.get_index()
 	var grid_at: int = _grid.get_index()
 	if compact == (orders_at < grid_at):

@@ -28,6 +28,10 @@ var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
 var hover_province: int = -1
 var charted_provinces: Dictionary = {}
+## Last resolved army feeding coverage per faction (fed / demanded rations).
+var feeding: Dictionary = {}
+## Faction -> leaderKey; empty until leader selection ships (wiki: leader-bonuses).
+var leaders: Dictionary = {}
 
 var ship_layer: ShipLayer = null
 var civilian_layer: CivilianLayer = null
