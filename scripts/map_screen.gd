@@ -86,7 +86,7 @@ func _build_hud() -> void:
 	hud.set_turn(turn, TurnTime.year_for_turn(turn))
 	hud.set_treasury(treasury, false)
 	hud.set_prestige(prestige)
-	hud.set_fleets(SHIP_COUNT)
+	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
 	income = 90 + _owned_provinces() * 6
 
 
@@ -319,6 +319,7 @@ func _on_panel_action(action: String) -> void:
 
 
 func _on_end_turn() -> void:
+	_resolve_naval_combat()
 	_resolve_visibility()
 	ship_layer.begin_turn()
 	_refresh_fleet_visibility()
@@ -337,6 +338,34 @@ func _on_end_turn() -> void:
 		if fleet != null:
 			hud.show_fleet(model, fleet, fleet.owner == PLAYER_FACTION)
 			_refresh_fleet_options(fleet)
+
+
+## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
+## § Naval Combat). Rules resolve the battle; this only prunes markers and
+## reports the outcome.
+func _resolve_naval_combat() -> void:
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(ship_layer.fleets)
+	if battles.is_empty():
+		return
+	ship_layer.prune_destroyed()
+	for battle: Dictionary in battles:
+		hud.toast(_battle_report(battle))
+	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
+
+
+func _battle_report(battle: Dictionary) -> String:
+	var zone: String = model.sea_zone_name(int(battle["zone"]))
+	var attacker: String = MapGenerator.FACTION_NAMES[int(battle["attacker"])]
+	var defender: String = MapGenerator.FACTION_NAMES[int(battle["defender"])]
+	var sunk: int = 0
+	match int(battle["outcome"]):
+		NavalCombat.Outcome.SIDE1_VICTORY:
+			sunk = int((battle["defender_lost"] as Array).size())
+			return "%s holds the %s — %s loses %d ships" % [attacker, zone, defender, sunk]
+		NavalCombat.Outcome.SIDE2_VICTORY:
+			sunk = int((battle["attacker_lost"] as Array).size())
+			return "%s repels %s in the %s — %d ships lost" % [defender, attacker, zone, sunk]
+	return "%s and %s trade broadsides in the %s and withdraw" % [attacker, defender, zone]
 
 
 ## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at

@@ -65,6 +65,6 @@ Build ~0.55 s (128×84). Steady state: static canvas once; overlay + ships per f
 ## Known limits
 
 Capitals follow the capital-choice rule (sea-bound province, ports, roads).
-Province orders are toasts. Fleet movement, docking and ship reveal are
-rules-backed ([`fleets.md`](fleets.md)); missions, home-fleet merge and combat
-are deferred. Old World only. No explorers, spies, prospecting, save/load or AI.
+Province orders are toasts. Fleet movement, docking, ship reveal and sea-zone
+combat are rules-backed ([`fleets.md`](fleets.md)); missions, interception,
+home-fleet merge and AI movement are deferred. Old World only. No explorers, spies, prospecting, save/load or AI.
