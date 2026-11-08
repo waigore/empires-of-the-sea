@@ -24,9 +24,11 @@ Base rules for opening and landing PRs (humans and agents).
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always runs |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op green. `workflow_dispatch` runs them. `docs-lint` always. Smoke asserts map/HUD/select/end-turn (3 min).
+`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op green. `workflow_dispatch` runs them. `docs-lint` always.
 
-Add `docs-lint`, `build`, and `e2e-smoke` to Protect main (repo admin). Until then, docs lint still runs inside a full `tests` run.
+Smoke (`tools/e2e_smoke.gd`): main mini-flow; **aim ≤2 min**. Extend on player-path features; deep rules in `tests/`. Job timeout 3 min (setup headroom).
+
+Add `docs-lint`, `build`, `e2e-smoke` to Protect main (admin).
 
 Merge method: **squash only**. Branches deleted on merge. Auto-merge enabled.
 
