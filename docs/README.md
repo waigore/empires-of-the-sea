@@ -19,3 +19,5 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 |-----|---------|
 | [pull-requests.md](pull-requests.md) | PR rules: `gh`, required checks, merge |
 | [android-build.md](android-build.md) | Android export presets, local build, release signing |
+| [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
+| [skills.md](skills.md) | Project skills + Cursor/OpenCode/Grok facades |

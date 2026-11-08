@@ -8,6 +8,8 @@ export.cfg
 *.keystore
 *.jks
 keystore/
+# Stable CI debug key (package com.waigore.empiresofthesea.debug)
+!export/android/debug.keystore
 
 # gd-tools
 .gd-tools/
