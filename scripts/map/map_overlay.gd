@@ -31,6 +31,9 @@ var _fade_active: bool = false
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
 var _zone_outlines: Dictionary = {}
+## Owner id -> smoothed country-border polylines (drawn above fog so political
+## geography stays readable in charted but unexplored lands).
+var _country_borders: Dictionary = {}
 var _ripples: Array[Dictionary] = []
 
 
@@ -41,6 +44,7 @@ func build(p_model: MapModel) -> void:
 	fog.fill(FOG_VISIBLE)
 	_fade.resize(count)
 	_fade.fill(0.0)
+	_build_country_borders()
 	_fog_image = Image.create(model.width, model.height, false, Image.FORMAT_RGBA8)
 	_fog_image.fill(Color(0, 0, 0, 0))
 	_fog_texture = ImageTexture.create_from_image(_fog_image)
@@ -222,6 +226,8 @@ func _draw() -> void:
 	if model == null:
 		return
 
+	_draw_country_borders()
+
 	var pulse: float = 0.5 + 0.5 * sin(_pulse * 3.2)
 	if hover_province >= 0 and hover_province != selected_province:
 		_draw_province_outline(hover_province, Color(0.20, 0.16, 0.10, 0.45), 1.8)
@@ -268,6 +274,34 @@ func _draw() -> void:
 			ripple["position"], radius, 0, TAU, 48,
 			Color(0.99, 0.93, 0.72, alpha), 2.0, true
 		)
+
+
+## Country borders sit on top of the fog texture: one engraved shadow plus the
+## owner's colour, so they read on any terrain without striping.
+func _draw_country_borders() -> void:
+	var owners: Array = _country_borders.keys()
+	owners.sort()
+	for owner: int in owners:
+		var color: Color = FactionCatalog.color_of(owner)
+		var shadow := Color(0.12, 0.09, 0.06, 0.55)
+		var core := Color(
+			clampf(color.r * 1.05, 0.0, 1.0),
+			clampf(color.g * 1.05, 0.0, 1.0),
+			clampf(color.b * 1.05, 0.0, 1.0),
+			1.0
+		)
+		for path: PackedVector2Array in _country_borders[owner]:
+			draw_polyline(path, shadow, 5.0, true)
+			draw_polyline(path, core, 2.8, true)
+
+
+func _build_country_borders() -> void:
+	_country_borders.clear()
+	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE)
+	var owners: Array = raw.keys()
+	owners.sort()
+	for owner: int in owners:
+		_country_borders[owner] = InkPaths.smooth_segments(raw[owner], 3)
 
 
 func _draw_province_outline(id: int, color: Color, width: float) -> void:

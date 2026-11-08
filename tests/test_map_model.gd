@@ -37,6 +37,13 @@ func test_setup_sizes_and_clears_arrays() -> void:
 	assert_eq(fresh.province_count(), 0)
 
 
+func test_capital_tile_follows_the_province_record() -> void:
+	_model.provinces[0]["capital_tile"] = Vector2i(0, 0)
+	assert_eq(_model.capital_tile_of(0), Vector2i(0, 0))
+	assert_eq(_model.capital_tile_of(1), CapitalChoice.NO_TILE)
+	assert_eq(_model.capital_tile_of(-1), CapitalChoice.NO_TILE)
+
+
 func test_land_and_sea_classification() -> void:
 	assert_true(_model.is_land(0, 0))
 	assert_false(_model.is_land(2, 1))

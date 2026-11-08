@@ -70,17 +70,25 @@ func test_province_borders_are_inside_the_map() -> void:
 				assert_true(x >= 0 and y >= 0 and x < WIDTH and y < HEIGHT)
 
 
+func test_default_map_is_the_old_world() -> void:
+	assert_eq(_model.region_id, FactionCatalog.OLD_WORLD)
+	assert_true(_model.setup_errors.is_empty(), "setup errors: %s" % str(_model.setup_errors))
+	assert_eq(_model.faction_ids, FactionCatalog.ids_in_region(FactionCatalog.OLD_WORLD))
+
+
 func test_ownership_spreads_across_factions_with_one_capital_each() -> void:
 	var capitals: int = 0
 	var owners: Dictionary = {}
 	for province: Dictionary in _model.provinces:
 		var owner: int = int(province["owner"])
-		assert_between(owner, 0, MapGenerator.FACTION_NAMES.size() - 1)
+		assert_true(FactionCatalog.has_faction(owner), "owner %d is a faction" % owner)
+		assert_true(FactionCatalog.can_own_region(owner, _model.region_id))
 		owners[owner] = true
 		if bool(province["capital"]):
 			capitals += 1
-	assert_eq(capitals, MapGenerator.FACTION_NAMES.size())
-	assert_eq(owners.size(), MapGenerator.FACTION_NAMES.size())
+	assert_eq(capitals, owners.size())
+	for faction_id: int in _model.faction_ids:
+		assert_true(owners.has(faction_id), "faction %d owns no province" % faction_id)
 
 
 func test_capitals_follow_the_capital_choice_rule() -> void:
@@ -94,17 +102,22 @@ func test_capitals_follow_the_capital_choice_rule() -> void:
 		var tile: Vector2i = province["capital_tile"]
 		assert_true(_model.is_land(tile.x, tile.y))
 		assert_eq(_model.terrain_at(tile.x, tile.y), MapModel.Terrain.PLAINS)
-		assert_true(CapitalChoice.is_sea_bound(_model, int(province["id"])))
-		assert_eq(
-			int(province["town_development"]), CapitalChoice.CAPITAL_TOWN_DEVELOPMENT
+		var kind: int = (
+			CapitalChoice.KIND_GREAT_POWER
+			if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER
+			else CapitalChoice.KIND_MINOR
 		)
-		var pick: Dictionary = CapitalChoice.pick_province(_model, owner)
+		if kind == CapitalChoice.KIND_GREAT_POWER:
+			assert_true(CapitalChoice.is_sea_bound(_model, int(province["id"])))
+		var pick: Dictionary = CapitalChoice.pick_province(_model, owner, kind)
 		assert_eq(int(pick["province_id"]), int(province["id"]))
-		var ports: Dictionary = province["ports"]
-		assert_eq(
-			ports.size(), CapitalChoice.sea_bound_sea_zones(_model, int(province["id"])).size()
-		)
-	assert_eq(seen.size(), MapGenerator.FACTION_NAMES.size())
+		if CapitalChoice.is_sea_bound(_model, int(province["id"])):
+			var ports: Dictionary = province["ports"]
+			assert_eq(
+				ports.size(),
+				CapitalChoice.sea_bound_sea_zones(_model, int(province["id"])).size()
+			)
+	assert_eq(seen.size(), _model.faction_ids.size())
 
 
 func test_coastal_provinces_have_a_waterfront_port() -> void:

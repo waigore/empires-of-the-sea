@@ -5,10 +5,15 @@ extends RefCounted
 ## MapScreen owns the Node tree and signals; helpers talk through this bag.
 
 const TILE_SIZE: float = 22.0
-const PLAYER_FACTION: int = 0
+const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 
+var world: WorldMap = null
+## Region currently on screen (Old World first).
+var region_index: int = 0
 var model: MapModel = null
 var visibility: VisibilityModel = null
+## One fog model per region, kept across map switches.
+var visibility_by_region: Dictionary = {}
 var land_works: LandWorks = null
 var economy: EconomyController = null
 
@@ -57,6 +62,16 @@ func treasury() -> int:
 	if economy == null or economy.economy == null:
 		return 0
 	return economy.economy.treasury
+
+
+## Provinces the player currently holds in the region on screen.
+func owned_provinces() -> int:
+	return world.owned_provinces(region_index, PLAYER_FACTION)
+
+
+## Squadrons, civilians and training exist only where the player holds land.
+func player_present() -> bool:
+	return owned_provinces() > 0
 
 
 func stockpile() -> Dictionary:

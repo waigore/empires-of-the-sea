@@ -15,11 +15,14 @@ signal civilian_action(action: String)
 signal civilian_cancel
 signal civilian_closed
 signal economy_pressed
+signal region_toggle_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
 
 var _turn_label: Label = null
+var _nation_label: Label = null
+var _region_button: Button = null
 var _treasury_label: Label = null
 var _prestige_label: Label = null
 var _fleet_label: Label = null

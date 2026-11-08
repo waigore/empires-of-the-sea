@@ -29,6 +29,9 @@ func build(p_model: MapModel, map_size: Vector2) -> void:
 			var color: Color = Palette.SEA_MID
 			if terrain != MapModel.Terrain.OCEAN and terrain != MapModel.Terrain.SHALLOW:
 				color = Palette.terrain_color(terrain)
+				var owner: int = model.owner_at(x, y)
+				if owner != MapModel.NO_ID:
+					color = color.lerp(FactionCatalog.color_of(owner), 0.4)
 			elif terrain == MapModel.Terrain.SHALLOW:
 				color = Palette.SEA_PALE
 			image.set_pixel(x, y, color)

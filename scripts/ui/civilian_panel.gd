@@ -92,7 +92,7 @@ func refresh(
 		return
 	_title.text = unit.display_name()
 	_subtitle.text = "Crown of %s · %s" % [
-		MapGenerator.FACTION_NAMES[unit.owner],
+		FactionCatalog.name_of(unit.owner),
 		MapModel.TERRAIN_LABELS.get(
 			model.terrain_at(unit.tile.x, unit.tile.y), "Unknown"
 		),

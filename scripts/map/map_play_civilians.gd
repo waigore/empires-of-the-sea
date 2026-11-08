@@ -21,7 +21,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
 	else:
 		play.hud.toast(
-			"Civilian of %s — observe only" % MapGenerator.FACTION_NAMES[unit.owner]
+			"Civilian of %s — observe only" % FactionCatalog.name_of(unit.owner)
 		)
 
 
@@ -89,25 +89,26 @@ static func refresh_panel(play: PlaySession) -> void:
 	play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
 
 
-## Build/Work pass: advance work orders, apply completions and report them.
+## Build/Work pass: the layer advances every region's orders (looking at another
+## map must not pause the empire) and reports completions for the map on screen.
 static func resolve_work(play: PlaySession) -> void:
-	if play.land_works == null:
-		return
-	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
-		play.model, play.civilian_layer.units, play.land_works, play.visibility
-	)
-	var changed: Array = []
-	for report: Dictionary in reports:
+	for report: Dictionary in play.civilian_layer.begin_turn(
+		play.world, play.visibility_by_region
+	):
+		if int(report["region"]) != play.region_index:
+			continue
 		if not bool(report.get("completed", false)):
 			continue
-		changed.append_array(report.get("changed", []))
+		var changed: Array = report.get("changed", [])
+		if not changed.is_empty():
+			play.overlay.sync_visibility(play.visibility, changed)
 		var type_name: String = CivilianCatalog.display_name(String(report["type_id"]))
 		var province: int = int(report["province"])
-		var place: String = play.model.province_name(province) if province >= 0 else "the wilds"
+		var place: String = (
+			play.model.province_name(province) if province >= 0 else "the wilds"
+		)
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
 		play.hud.toast("%s in %s: %s" % [type_name, place, work_name])
-	if not changed.is_empty():
-		play.overlay.sync_visibility(play.visibility, changed)
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
 

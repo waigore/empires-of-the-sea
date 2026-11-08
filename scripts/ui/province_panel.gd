@@ -149,7 +149,7 @@ func refresh(model: MapModel, province_id: int) -> void:
 	_capital_badge.visible = bool(data["capital"])
 	var owner: int = int(data["owner"])
 	_owner_swatch.color = Palette.faction_color(owner)
-	_owner_label.text = "Crown of %s" % MapGenerator.FACTION_NAMES[owner]
+	_owner_label.text = _owner_caption(owner)
 	_terrain_value.text = _dominant_terrain(model, province_id)
 	var resource: int = int(data["resource"])
 	if resource >= 0:
@@ -177,6 +177,20 @@ func refresh(model: MapModel, province_id: int) -> void:
 	for path: Array in data.get("road_paths", []):
 		road_tiles += path.size()
 	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+
+
+## Faction type drives the honorific (wiki: factions — three governing types).
+func _owner_caption(owner: int) -> String:
+	var faction_name: String = FactionCatalog.name_of(owner)
+	match FactionCatalog.type_of(owner):
+		FactionCatalog.Type.GREAT_POWER:
+			return "Crown of %s" % faction_name
+		FactionCatalog.Type.MINOR_NATION:
+			return "Minor nation of %s" % faction_name
+		FactionCatalog.Type.TRIBE:
+			return "Tribe of the %s" % faction_name
+		_:
+			return "Unclaimed territory"
 
 
 func _dominant_terrain(model: MapModel, province_id: int) -> String:

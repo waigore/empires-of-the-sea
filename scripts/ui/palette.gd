@@ -41,14 +41,6 @@ const TERRAIN_COLORS: Array[Color] = [
 	Color(0.663, 0.71, 0.549),
 ]
 
-const FACTION_COLORS: Array[Color] = [
-	Color(0.639, 0.169, 0.169),
-	Color(0.176, 0.267, 0.435),
-	Color(0.435, 0.325, 0.502),
-	Color(0.243, 0.376, 0.267),
-]
-
-
 static func terrain_color(terrain: int) -> Color:
 	if terrain < 0 or terrain >= TERRAIN_COLORS.size():
 		return Color(0.5, 0.5, 0.5)
@@ -56,6 +48,4 @@ static func terrain_color(terrain: int) -> Color:
 
 
 static func faction_color(owner: int) -> Color:
-	if owner < 0 or owner >= FACTION_COLORS.size():
-		return INK_LINE
-	return FACTION_COLORS[owner]
+	return FactionCatalog.color_of(owner)

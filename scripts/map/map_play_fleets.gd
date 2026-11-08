@@ -16,7 +16,7 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.hud.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
 	refresh_options(play, fleet)
 	if fleet.owner != PlaySession.PLAYER_FACTION:
-		play.hud.toast("Fleet of %s — observe only" % MapGenerator.FACTION_NAMES[fleet.owner])
+		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
 
 
 static func refresh_options(play: PlaySession, fleet: FleetState) -> void:

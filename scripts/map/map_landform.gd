@@ -8,9 +8,11 @@ const MIN_ISLAND_TILES: int = 10
 const BORDER_MARGIN: int = 2
 
 
-static func build(model: MapModel, seed_value: int) -> void:
+static func build(
+	model: MapModel, seed_value: int, region_id: int = FactionCatalog.OLD_WORLD
+) -> void:
 	_apply_mask(model, seed_value)
-	_paint_terrain(model, seed_value)
+	_paint_terrain(model, seed_value, region_id)
 
 
 static func _apply_mask(model: MapModel, seed_value: int) -> void:
@@ -114,7 +116,7 @@ static func _seal_border(mask: PackedByteArray, w: int, h: int, margin: int) -> 
 				mask[y * w + x] = 0
 
 
-static func _paint_terrain(model: MapModel, seed_value: int) -> void:
+static func _paint_terrain(model: MapModel, seed_value: int, region_id: int) -> void:
 	var elevation := FastNoiseLite.new()
 	elevation.seed = seed_value + 7
 	elevation.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -127,6 +129,7 @@ static func _paint_terrain(model: MapModel, seed_value: int) -> void:
 	moisture.frequency = 0.038
 	moisture.fractal_octaves = 3
 
+	var new_world: bool = region_id == FactionCatalog.NEW_WORLD
 	for y in model.height:
 		for x in model.width:
 			var index: int = model.index_of(x, y)
@@ -134,18 +137,7 @@ static func _paint_terrain(model: MapModel, seed_value: int) -> void:
 				continue
 			var height_value: float = elevation.get_noise_2d(float(x), float(y))
 			var wet: float = moisture.get_noise_2d(float(x), float(y))
-			var terrain: int = MapModel.Terrain.PLAINS
-			if height_value > 0.42:
-				terrain = MapModel.Terrain.MOUNTAINS
-			elif height_value > 0.22:
-				terrain = MapModel.Terrain.HILLS
-			elif wet > 0.28:
-				terrain = MapModel.Terrain.FOREST
-			elif wet < -0.34:
-				terrain = MapModel.Terrain.DESERT
-			elif wet > 0.12 and height_value < -0.2:
-				terrain = MapModel.Terrain.SWAMP
-			model.terrain[index] = terrain
+			model.terrain[index] = terrain_for(height_value, wet, new_world)
 
 	for y in model.height:
 		for x in model.width:
@@ -154,6 +146,34 @@ static func _paint_terrain(model: MapModel, seed_value: int) -> void:
 				continue
 			if _near_land(model, x, y, 2):
 				model.terrain[index] = MapModel.Terrain.SHALLOW
+
+
+## Old World keeps temperate blobs; the New World runs wetter and hotter, with
+## more forest and marsh (wiki: tile-map-and-generation § Terrain by region).
+static func terrain_for(height_value: float, wet: float, new_world: bool) -> int:
+	if new_world:
+		if height_value > 0.46:
+			return MapModel.Terrain.MOUNTAINS
+		if height_value > 0.26:
+			return MapModel.Terrain.HILLS
+		if wet > 0.10:
+			return MapModel.Terrain.FOREST
+		if wet < -0.40:
+			return MapModel.Terrain.DESERT
+		if wet > -0.06:
+			return MapModel.Terrain.SWAMP
+		return MapModel.Terrain.PLAINS
+	if height_value > 0.42:
+		return MapModel.Terrain.MOUNTAINS
+	if height_value > 0.22:
+		return MapModel.Terrain.HILLS
+	if wet > 0.28:
+		return MapModel.Terrain.FOREST
+	if wet < -0.34:
+		return MapModel.Terrain.DESERT
+	if wet > 0.12 and height_value < -0.2:
+		return MapModel.Terrain.SWAMP
+	return MapModel.Terrain.PLAINS
 
 
 static func _near_land(model: MapModel, x: int, y: int, radius: int) -> bool:
