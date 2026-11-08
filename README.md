@@ -11,9 +11,21 @@ Naval strategy game built with **Godot 4.7**, targeting desktop (Windows, macOS,
 
 ## Getting started
 
-1. Open the project in Godot (`project.godot`).
+1. Open the project in Godot (`project.godot`) — the editor imports it on open.
 2. Run the main scene (F5).
 3. Export via **Project → Export** using desktop/mobile presets.
+
+From a terminal, use `tools/run.sh` instead of a bare `godot --path .`:
+
+```bash
+tools/run.sh                    # play
+tools/run.sh --headless --quit-after 300
+```
+
+Godot resolves `class_name` globals from `.godot/global_script_class_cache.cfg`,
+which only an import pass writes. A fresh clone therefore cannot start (every
+script fails with `Identifier "Palette" not declared in the current scope`) until
+the project has been imported once; the wrapper does that import, then runs.
 
 ## Playable map demo
 
