@@ -28,6 +28,10 @@ var bootstrapped_regions: Dictionary = {}
 var land_works: LandWorks = null
 var economy: EconomyController = null
 var diplomacy: DiplomacyState = null
+## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
+## turn's decision trace (wiki: ai-architecture).
+var ai: AiState = null
+var ai_trace: Array[Dictionary] = []
 
 var turn: int = 1
 var prestige: int = 38
