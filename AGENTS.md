@@ -10,14 +10,17 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
 | [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
 | [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
-| [`docs/README.md`](docs/README.md) | Docs index (product + process) |
+| [`docs/README.md`](docs/README.md) | Docs index |
+
+## Docs policy
+
+Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words** (fenced code excluded). CI job `docs-lint` hard-fails over-limit files (`python tools/lint_docs_words.py`). Prefer tables and short bullets; put long mechanics in the wiki.
 
 ## Stack
 
-- Engine: Godot 4.7.x
-- Language: GDScript (typed where practical)
-- Scenes: `.tscn` + scripts; keep logic in scripts, composition in scenes
-- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI requires `gd-tools test --coverage --min 80`
+- Engine: Godot 4.7.x · GDScript (typed where practical)
+- Scenes: `.tscn` + scripts; logic in scripts, composition in scenes
+- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI: `gd-tools test --coverage --min 80`
 
 ## Layout
 
@@ -29,29 +32,24 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | `assets/` | Art, audio, fonts |
 | `autoload/` | Singletons only when cross-cutting |
 | `tests/` | Unit tests (`extends GdToolsTest`) |
-| `addons/gd-tools-*` | Vendored gd-tools test/coverage/editor addons |
+| `addons/gd-tools-*` | Vendored gd-tools addons |
 
 ## Conventions
 
-- **Reuse first**: extend existing scenes, scripts, and UI before adding new modules.
-- **Typed GDScript**: use type hints on exports, params, and returns.
-- **Signals over tight coupling**: emit/connect; avoid reaching deep into other node trees.
-- **Input**: support mouse/keyboard and touch; use InputMap actions, not hard-coded keys.
-- **UI**: containers + anchors; theme for shared styles; no fixed pixel layouts that break on phones.
-- **Mobile**: assume limited screen size and touch targets; avoid hover-only UX.
-- **Exports**: keep platform differences behind feature checks or small adapters; shared core logic.
-- **Assets**: import settings intentional (filter, compression); prefer atlases for 2D sprites when useful.
+- **Reuse first**; typed GDScript; signals over deep node reach-ins.
+- **Input**: mouse/keyboard + touch via InputMap actions.
+- **UI**: containers + anchors + theme; no fixed pixel layouts; no hover-only critical UX.
+- **Exports**: platform diffs behind feature checks / thin adapters; shared core.
+- **Assets**: intentional import settings; atlases when useful.
 
 ## Do / don’t
 
-- Do keep scenes focused; extract reusable sub-scenes.
-- Do guard early; keep nesting shallow.
-- Do open/merge PRs with `gh` and wait for required checks (`tests`, `approval-gate`) — see [`docs/pull-requests.md`](docs/pull-requests.md).
-- Don’t commit `.godot/`, export caches, or local override files.
-- Don’t add editor plugins or third-party addons without a clear need.
-- Don’t hard-code resolutions, aspect ratios, or platform OS names in gameplay code.
+- Do keep scenes focused; guard early; shallow nesting.
+- Do open/merge PRs with `gh`; wait for required checks — see [`docs/pull-requests.md`](docs/pull-requests.md).
+- Don’t commit `.godot/`, export caches, or local overrides.
+- Don’t add plugins/addons without need; don’t hard-code resolutions or OS names in gameplay.
 - Don’t bypass, force-merge, or skip required PR checks.
 
 ## When unsure
 
-Match neighboring files’ naming, folder placement, and signal/export style. Prefer the smallest change that preserves desktop and mobile playability.
+Match neighboring naming, folders, and signal/export style. Smallest change that keeps desktop and mobile playable.
