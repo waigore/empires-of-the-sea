@@ -18,16 +18,31 @@ var selected_unit: CivilianState = null
 
 var _next_id: int = 1
 var _zoom: float = 1.0
+## Units and works per region: switching maps must not reset orders, work
+## progress or the development already raised (wiki: map-topology).
+var _units_by_region: Dictionary = {}
+var _works_by_region: Dictionary = {}
 
 
-func spawn(
-	p_model: MapModel, p_works: LandWorks, province_id: int, owner: int,
-	types: Array[String]
-) -> void:
-	clear_all()
+## Loads the region's roster (creating it on first visit) and its works record.
+func spawn(p_model: MapModel, province_id: int, owner: int, types: Array[String]) -> void:
 	model = p_model
-	works = p_works
-	if model == null or types.is_empty():
+	_clear_markers()
+	units = []
+	selected_unit = null
+	if model == null:
+		return
+	works = _works_by_region.get(model.region_id, null)
+	if works == null:
+		works = LandWorks.new()
+		_works_by_region[model.region_id] = works
+	if _units_by_region.has(model.region_id):
+		units.assign(_units_by_region[model.region_id])
+		_units_by_region[model.region_id] = units
+		_rebuild_markers()
+		queue_redraw()
+		return
+	if types.is_empty():
 		return
 	var anchor: Vector2i = _capital_tile(province_id)
 	# Keep the capital tile clear so the seat's own marker stays readable.
@@ -41,29 +56,38 @@ func spawn(
 			continue
 		taken[tile] = true
 		add_unit(owner, type_id, tile)
+	_units_by_region[model.region_id] = units
 	queue_redraw()
 
 
-func clear_all() -> void:
+func _clear_markers() -> void:
 	for marker: CivilianMarker in markers:
 		marker.queue_free()
 	markers.clear()
-	units.clear()
-	selected_unit = null
+
+
+func _rebuild_markers() -> void:
+	_clear_markers()
+	for unit: CivilianState in units:
+		_add_marker(unit)
+
+
+func _add_marker(unit: CivilianState) -> void:
+	var marker := CivilianMarker.new()
+	marker.unit_id = unit.id
+	marker.type_id = unit.type_id
+	marker.faction = unit.owner
+	marker.position = _tile_position(unit.tile)
+	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
+	add_child(marker)
+	markers.append(marker)
 
 
 func add_unit(owner: int, type_id: String, tile: Vector2i) -> CivilianState:
 	var unit := CivilianState.create(_next_id, owner, type_id, tile)
 	_next_id += 1
 	units.append(unit)
-	var marker := CivilianMarker.new()
-	marker.unit_id = unit.id
-	marker.type_id = unit.type_id
-	marker.faction = unit.owner
-	marker.position = _tile_position(tile)
-	marker.scale = Vector2.ONE * _marker_scale()
-	add_child(marker)
-	markers.append(marker)
+	_add_marker(unit)
 	return unit
 
 
@@ -116,9 +140,27 @@ func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
 	return result
 
 
-func begin_turn() -> void:
-	CivilianMovement.begin_turn(units)
-	sync()
+## Ticks every region, not just the one on screen: reading another map must not
+## pause work or burn a unit's move. Returns the work reports for the caller.
+func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	for index in world.region_count():
+		var region_units: Array[CivilianState] = []
+		if model != null and index == model.region_id:
+			region_units = units
+		else:
+			region_units.assign(_units_by_region.get(index, []))
+		CivilianMovement.begin_turn(region_units)
+		var region_works: LandWorks = _works_by_region.get(index, null)
+		if region_works == null:
+			continue
+		var region_visibility: VisibilityModel = visibilities.get(index, null)
+		for report: Dictionary in CivilianWork.resolve_turn(
+			world.region(index), region_units, region_works, region_visibility
+		):
+			report["region"] = index
+			reports.append(report)
+	return reports
 
 
 ## Mirrors rules state onto the medallions (selection, work ring, progress and
@@ -147,7 +189,7 @@ func refresh_works() -> void:
 func set_zoom(value: float) -> void:
 	_zoom = maxf(value, 0.001)
 	for marker: CivilianMarker in markers:
-		marker.scale = Vector2.ONE * _marker_scale()
+		marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 
 
 func unit_count(owner: int) -> int:
@@ -266,10 +308,6 @@ func _draw_port(point: Vector2) -> void:
 
 func _tile_position(tile: Vector2i) -> Vector2:
 	return MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
-
-
-func _marker_scale() -> float:
-	return clampf(1.0 / _zoom, 0.62, 1.0)
 
 
 func _capital_tile(province_id: int) -> Vector2i:

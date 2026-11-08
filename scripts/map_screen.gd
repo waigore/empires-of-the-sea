@@ -112,14 +112,22 @@ var stockpile: Dictionary:
 	get:
 		return play.stockpile() if play != null else {}
 
+var world: WorldMap:
+	get:
+		return play.world if play != null else null
+
+var region_index: int:
+	get:
+		return play.region_index if play != null else 0
+
 
 func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
 	play.bind_views(ship_layer, civilian_layer, overlay, camera, hud, improvements)
-	play.model = MapGenerator.new().generate(map_seed, map_width, map_height)
-	_build_world()
+	play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
+	_load_region(0)
 	_build_hud()
 	_connect()
 	_intro()
@@ -144,7 +152,11 @@ func _unhandled_input(event: InputEvent) -> void:
 # --- setup ------------------------------------------------------------------
 
 
-func _build_world() -> void:
+## Swaps the whole view onto one region: canvas, fog, fleets, civilians, works,
+## minimap and camera bounds all follow the active tile map.
+func _load_region(index: int) -> void:
+	play.region_index = clampi(index, 0, play.world.region_count() - 1)
+	play.model = play.world.region(play.region_index)
 	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
 	sea_backdrop.position = Vector2(-margin, -margin)
@@ -153,22 +165,52 @@ func _build_world() -> void:
 		(sea_backdrop.material as ShaderMaterial).set_shader_parameter(
 			"world_size", sea_backdrop.size
 		)
-	canvas.build(play.model)
+	canvas.build(play.model, play.world)
 	overlay.build(play.model)
 	play.capital_province = _find_capital()
 	play.capital_tile = MapPlayTurn.capital_tile(play, play.capital_province)
-	ship_layer.spawn(play.model, SHIP_COUNT, MAP_SEED + 3, play.capital_province)
-	play.land_works = LandWorks.new()
-	civilian_layer.spawn(
-		play.model, play.land_works, play.capital_province, PLAYER_FACTION, STARTING_CIVILIANS
+	ship_layer.spawn(
+		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
+		play.player_present()
 	)
+	civilian_layer.spawn(play.model, play.capital_province, PLAYER_FACTION, STARTING_CIVILIANS)
+	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
+	_refresh_region_hud(map_size)
+
+
+## Cycles Old World -> New World and back. Intents never change rules state.
+func _cycle_region() -> void:
+	if play.world == null or play.world.region_count() < 2:
+		return
+	MapPlayInput.deselect(play)
+	_load_region((play.region_index + 1) % play.world.region_count())
+	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
+	RegionBriefing.arrival(hud, play.model, play.region_index)
+	MapPlayInput.on_view_changed(play)
+
+
+## HUD chips and the estates ledger follow the region on screen.
+func _refresh_region_hud(map_size: Vector2) -> void:
+	hud.set_minimap(play.model, map_size)
+	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
+	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
+	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	if play.economy == null:
+		return
+	play.income = play.economy.projected_income()
+	improvements.set_data(
+		play.model, play.land_works, civilian_layer.units, play.stockpile(),
+		play.capital_tile, PLAYER_FACTION, play.economy.economy.tech_unlocked
+	)
 
 
 func _build_hud() -> void:
+	HudChrome.set_nation(hud, FactionCatalog.name_of(PLAYER_FACTION))
+	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
 	hud.set_minimap(play.model, MapGeo.world_size(play.model, TILE_SIZE))
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.set_prestige(play.prestige)
@@ -203,6 +245,7 @@ func _connect() -> void:
 	hud.minimap_jump.connect(func(world_position: Vector2) -> void:
 		MapPlayInput.on_minimap_jump(play, world_position)
 	)
+	hud.region_toggle_pressed.connect(_cycle_region)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)
@@ -250,30 +293,23 @@ func _intro() -> void:
 	camera.zoom = Vector2.ONE * start_zoom
 	camera.position = map_size * 0.5
 	camera.focus_on(MapPlayTurn.capital_world(play), maxf(start_zoom * 1.65, 0.75))
-	hud.toast("The Indies await — Turn 1, 1500")
-	if play.capital_province >= 0:
-		var crown: String = MapGenerator.FACTION_NAMES[PLAYER_FACTION]
-		hud.toast(
-			"%s holds court at %s"
-			% [crown, play.model.province_name(play.capital_province)]
-		)
+	RegionBriefing.opening(hud, play.model, play.capital_province, PLAYER_FACTION)
 	var tween := create_tween()
 	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(func() -> void: fade.visible = false)
 
 
 func _build_visibility() -> void:
+	if play.visibility_by_region.has(play.region_index):
+		play.visibility = play.visibility_by_region[play.region_index]
+		overlay.sync_visibility(play.visibility)
+		return
 	play.visibility = VisibilityModel.new()
 	play.visibility.setup(play.model, PLAYER_FACTION)
 	play.visibility.apply_initial()
+	play.visibility_by_region[play.region_index] = play.visibility
 	overlay.sync_visibility(play.visibility)
 
 
 func _find_capital() -> int:
-	var owned: Array = play.model.provinces.filter(
-		func(p): return int(p["owner"]) == PLAYER_FACTION
-	)
-	for province: Dictionary in owned:
-		if bool(province["capital"]):
-			return int(province["id"])
-	return int(owned[0]["id"]) if not owned.is_empty() else 0
+	return play.world.seat_province(play.region_index, PLAYER_FACTION)

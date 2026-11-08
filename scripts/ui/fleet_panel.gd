@@ -78,7 +78,7 @@ func refresh(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	if model == null or fleet == null:
 		return
 	_flag.color = Palette.faction_color(fleet.owner)
-	_title.text = "FLEET OF %s" % String(MapGenerator.FACTION_NAMES[fleet.owner]).to_upper()
+	_title.text = "FLEET OF %s" % FactionCatalog.name_of(fleet.owner).to_upper()
 	if fleet.is_at_sea():
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:

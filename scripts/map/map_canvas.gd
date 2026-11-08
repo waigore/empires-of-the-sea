@@ -16,6 +16,8 @@ const MS_TABLE: Array = [
 ]
 
 var model: MapModel = null
+## Owning world (both regions), used to mark the sea-lane passages.
+var world: WorldMap = null
 
 var _coast: Array[PackedVector2Array] = []
 var _province_borders: Array[PackedVector2Array] = []
@@ -23,6 +25,8 @@ var _sea_borders: Array[PackedVector2Array] = []
 var _roads: Array[PackedVector2Array] = []
 var _labels: Array[Dictionary] = []
 var _glyphs: Array[Dictionary] = []
+## Sea-lane rings marking each warp zone toward the other region.
+var _passages: Array[Vector2] = []
 var _font: Font = null
 var _font_italic: Font = null
 var _compass_position: Vector2 = Vector2.ZERO
@@ -31,8 +35,9 @@ var _surf: MapSurf = null
 var _cloud: ColorRect = null
 
 
-func build(p_model: MapModel) -> void:
+func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	model = p_model
+	world = p_world
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -41,6 +46,7 @@ func build(p_model: MapModel) -> void:
 	_build_borders()
 	_build_roads()
 	_build_labels()
+	_build_passages()
 	_build_glyphs()
 	_find_compass_spot()
 	_build_animated_layers()
@@ -161,6 +167,25 @@ func _build_labels() -> void:
 			"position": Vector2(zone["center"]) * TILE_SIZE,
 			"size": 13,
 			"kind": "sea",
+		})
+
+
+## Sea-lane markers: each warp zone gets a ring and a quiet label so the way to
+## the other region is legible on a chart (wiki: map-topology).
+func _build_passages() -> void:
+	_passages.clear()
+	if world == null:
+		return
+	for zone_id: int in world.warp_zones(model.region_id):
+		var center: Vector2 = model.sea_zone_center(zone_id) * TILE_SIZE
+		if center == Vector2.ZERO:
+			continue
+		_passages.append(center)
+		_labels.append({
+			"text": "Passage",
+			"position": center + Vector2(0, 26),
+			"size": 12,
+			"kind": "passage",
 		})
 
 
@@ -312,11 +337,24 @@ func _draw() -> void:
 	for glyph: Dictionary in _glyphs:
 		MapGlyphs.draw(self, glyph)
 
+	for point: Vector2 in _passages:
+		_draw_passage(point)
+
 	for label: Dictionary in _labels:
 		_draw_label(label)
 
 	if _compass_visible:
 		MapGlyphs.compass(self, _compass_position, 74.0, _font)
+
+
+## Two arrows around a ring: the sign of a sea lane between regions.
+func _draw_passage(center: Vector2) -> void:
+	var ink := Color(0.16, 0.12, 0.08, 0.55)
+	var radius: float = 13.0
+	draw_arc(center, radius, 0.0, TAU, 28, ink, 1.6, true)
+	draw_arc(center, radius * 0.62, PI * 0.15, PI * 0.85, 12, ink, 1.4, true)
+	draw_arc(center, radius * 0.62, PI * 1.15, PI * 1.85, 12, ink, 1.4, true)
+	draw_circle(center, 2.2, ink)
 
 
 func _draw_label(label: Dictionary) -> void:
@@ -327,7 +365,7 @@ func _draw_label(label: Dictionary) -> void:
 	var font_size: int = label["size"]
 	var width: float = 260.0
 	var origin := position - Vector2(width * 0.5, 0.0)
-	if String(label["kind"]) == "sea":
+	if String(label["kind"]) == "sea" or String(label["kind"]) == "passage":
 		draw_string_outline(
 			_font_italic, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, 3,
 			Color(0.94, 0.90, 0.80, 0.42)

@@ -9,7 +9,6 @@ static func end_turn(play: PlaySession) -> void:
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
 	play.ship_layer.begin_turn()
-	play.civilian_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
@@ -42,14 +41,11 @@ static func capital_world(play: PlaySession) -> Vector2:
 		return MapGeo.tile_center(play.capital_tile.x, play.capital_tile.y, PlaySession.TILE_SIZE)
 	if play.capital_province >= 0:
 		return play.model.province_center(play.capital_province) * PlaySession.TILE_SIZE
-	return Vector2.ZERO
+	return MapGeo.world_size(play.model, PlaySession.TILE_SIZE) * 0.5
 
 
 static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
-	var data: Dictionary = play.model.province_data(province_id)
-	if data.is_empty():
-		return CapitalChoice.NO_TILE
-	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	return play.model.capital_tile_of(province_id)
 
 
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
@@ -62,7 +58,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	play.ship_layer.prune_destroyed()
 	for battle: Dictionary in battles:
 		var zone: String = play.model.sea_zone_name(int(battle["zone"]))
-		play.hud.toast(BattleReport.describe(battle, zone, MapGenerator.FACTION_NAMES))
+		play.hud.toast(BattleReport.describe(battle, zone, FactionCatalog.names()))
 	play.hud.set_fleets(play.ship_layer.hull_count(PlaySession.PLAYER_FACTION))
 	play.emit_battle_resolved(battles)
 

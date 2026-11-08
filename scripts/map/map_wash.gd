@@ -35,6 +35,10 @@ static func build(canvas: MapCanvas, model: MapModel) -> void:
 				continue
 			color_image.set_pixel(x, y, Color(color.r, color.g, color.b, 1.0))
 			mask.set_pixel(x, y, Color(1, 1, 1, 1))
+			var owner: int = model.owner_at(x, y)
+			if owner != MapModel.NO_ID:
+				var tint: Color = color.lerp(FactionCatalog.color_of(owner), 0.16)
+				color_image.set_pixel(x, y, Color(tint.r, tint.g, tint.b, 1.0))
 			var height: float = TERRAIN_HEIGHT[terrain]
 			height += relief.get_noise_2d(float(x), float(y)) * 0.24
 			height = clampf(height, 0.0, 1.0)

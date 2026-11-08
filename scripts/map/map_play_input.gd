@@ -105,7 +105,7 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		% [
 			String(data["name"]),
 			String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
-			MapGenerator.FACTION_NAMES[int(data["owner"])],
+			FactionCatalog.name_of(int(data["owner"])),
 		]
 	)
 

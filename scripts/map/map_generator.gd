@@ -1,41 +1,71 @@
 class_name MapGenerator
 extends RefCounted
-## Deterministic Old World map generation (wiki: tile-map-and-generation).
+## Deterministic per-region map generation (wiki: tile-map-and-generation).
 ## Land shape -> terrain blobs -> provinces (Voronoi on land) -> sea zones ->
-## resources -> ports -> faction ownership. Same seed always yields the same map.
-## Land, regions, and name tables live in MapLandform, MapRegions, and MapCatalog.
+## resources -> ports -> faction ownership -> capitals. Same seed always yields
+## the same map. A world is one map per region joined by warp zones.
 
 const TILE_SIZE: int = 22
-const TILES_PER_PROVINCE: int = 80
 const TILES_PER_SEA_ZONE: int = 620
-const MIN_PROVINCES: int = 18
-const MAX_PROVINCES: int = 56
 const MIN_SEA_ZONES: int = 8
 const MAX_SEA_ZONES: int = 20
+const WORLD_ATTEMPTS: int = 6
 
-const FACTION_NAMES: Array[String] = ["Spain", "England", "France", "Portugal"]
-const FACTION_COLORS: Array[Color] = [
-	Color(0.639, 0.169, 0.169),
-	Color(0.176, 0.267, 0.435),
-	Color(0.435, 0.325, 0.502),
-	Color(0.243, 0.376, 0.267),
-]
+## Region generation targets (wiki: game-setup configurable values).
+const OLD_WORLD_TILE_TARGET: int = 64
+const NEW_WORLD_TILE_TARGET: int = 40
+const OLD_WORLD_PROVINCES: Vector2i = Vector2i(24, 64)
+const NEW_WORLD_PROVINCES: Vector2i = Vector2i(20, 90)
 
 var _rng := RandomNumberGenerator.new()
 
 
+## Default entry point: one Old World map (6 Great Powers + 3 Minor Nations).
 func generate(seed_value: int, p_width: int = 128, p_height: int = 84) -> MapModel:
+	return generate_region(seed_value, FactionCatalog.OLD_WORLD, p_width, p_height)
+
+
+func generate_region(
+	seed_value: int, region_id: int, p_width: int, p_height: int
+) -> MapModel:
 	_rng.seed = seed_value
 	var model := MapModel.new()
 	model.setup(p_width, p_height)
-	MapLandform.build(model, seed_value)
+	model.region_id = region_id
+	model.region_key = FactionCatalog.region_key(region_id)
+	model.faction_ids = FactionCatalog.ids_in_region(region_id)
+	MapLandform.build(model, seed_value, region_id)
 	_build_provinces(model)
 	_build_sea_zones(model)
 	_build_resources(model)
 	_build_ports(model)
-	_assign_owners(model)
-	_place_capitals(model)
+	_assign_factions(model, region_id)
+	_place_capitals(model, region_id)
 	return model
+
+
+## Two-region world, regenerated with bumped seeds while ownership is infeasible
+## (wiki: game-setup § Tribe assignment regen-until-pass).
+func generate_world(seed_value: int, p_width: int = 128, p_height: int = 84) -> WorldMap:
+	var new_width: int = maxi(48, int(round(float(p_width) * 0.88)))
+	var new_height: int = maxi(36, int(round(float(p_height) * 0.9)))
+	var world := WorldMap.new()
+	var old_world: MapModel = null
+	var new_world: MapModel = null
+	for attempt in WORLD_ATTEMPTS:
+		var bump: int = attempt * 104729
+		old_world = generate_region(
+			seed_value + bump, FactionCatalog.OLD_WORLD, p_width, p_height
+		)
+		new_world = generate_region(
+			seed_value + bump + 7919, FactionCatalog.NEW_WORLD, new_width, new_height
+		)
+		if old_world.setup_errors.is_empty() and new_world.setup_errors.is_empty():
+			break
+	world.add_region(old_world)
+	world.add_region(new_world)
+	world.warp_links = WorldMap.pair_warp_zones(world.regions)
+	return world
 
 
 static func resource_table() -> Array[Dictionary]:
@@ -58,29 +88,20 @@ func _build_provinces(model: MapModel) -> void:
 	if land.is_empty():
 		return
 
-	var target: int = clampi(land.size() / TILES_PER_PROVINCE, MIN_PROVINCES, MAX_PROVINCES)
+	var new_world: bool = model.region_id == FactionCatalog.NEW_WORLD
+	var tile_target: int = NEW_WORLD_TILE_TARGET if new_world else OLD_WORLD_TILE_TARGET
+	var bounds: Vector2i = NEW_WORLD_PROVINCES if new_world else OLD_WORLD_PROVINCES
+	var target: int = clampi(land.size() / tile_target, bounds.x, bounds.y)
 	var seeds: Array[Vector2i] = MapRegions.farthest_seeds(model, land, target, true, _rng)
 	MapRegions.grow(model, seeds, true, _rng)
 
-	var buckets: Dictionary = {}
-	for tile: Vector2i in land:
-		var id: int = model.province_at(tile.x, tile.y)
-		if id == MapModel.NO_ID:
-			continue
-		if not buckets.has(id):
-			buckets[id] = {"tiles": [] as Array[Vector2i], "sum": Vector2.ZERO}
-		var bucket: Dictionary = buckets[id]
-		var tiles: Array[Vector2i] = bucket["tiles"]
-		tiles.append(tile)
-		bucket["sum"] = Vector2(bucket["sum"]) + Vector2(tile)
-
+	var buckets: Dictionary = _tile_buckets(model, land, true)
 	var used_names: Dictionary = {}
 	var ids: Array = buckets.keys()
 	ids.sort()
 	for id: int in ids:
-		var bucket: Dictionary = buckets[id]
-		var tiles: Array[Vector2i] = bucket["tiles"]
-		var sum: Vector2 = bucket["sum"]
+		var tiles: Array[Vector2i] = buckets[id]["tiles"]
+		var sum: Vector2 = buckets[id]["sum"]
 		var center: Vector2 = sum / float(tiles.size()) + Vector2(0.5, 0.5)
 		var coastal: bool = false
 		for tile: Vector2i in tiles:
@@ -89,7 +110,7 @@ func _build_provinces(model: MapModel) -> void:
 				break
 		model.provinces.append({
 			"id": id,
-			"name": MapCatalog.unique_province_name(_rng, used_names),
+			"name": MapNaming.province_name(used_names, model.region_id, _rng),
 			"tiles": tiles,
 			"center": center,
 			"area": tiles.size(),
@@ -122,32 +143,39 @@ func _build_sea_zones(model: MapModel) -> void:
 	var seeds: Array[Vector2i] = MapRegions.farthest_seeds(model, sea, target, false, _rng)
 	MapRegions.grow(model, seeds, false, _rng)
 
+	var buckets: Dictionary = _tile_buckets(model, sea, false)
+	var used_names: Dictionary = {}
+	var ids: Array = buckets.keys()
+	ids.sort()
+	for id: int in ids:
+		var tiles: Array[Vector2i] = buckets[id]["tiles"]
+		var sum: Vector2 = buckets[id]["sum"]
+		model.sea_zones.append({
+			"id": id,
+			"name": MapNaming.sea_name(used_names, model.region_id),
+			"tiles": tiles,
+			"center": sum / float(tiles.size()) + Vector2(0.5, 0.5),
+			"area": tiles.size(),
+		})
+
+
+## Groups tiles by province (land_only) or sea zone into {tiles, sum} buckets.
+func _tile_buckets(model: MapModel, tiles: Array[Vector2i], land_only: bool) -> Dictionary:
 	var buckets: Dictionary = {}
-	for tile: Vector2i in sea:
-		var id: int = model.sea_zone_at(tile.x, tile.y)
+	for tile: Vector2i in tiles:
+		var id: int = (
+			model.province_at(tile.x, tile.y) if land_only
+			else model.sea_zone_at(tile.x, tile.y)
+		)
 		if id == MapModel.NO_ID:
 			continue
 		if not buckets.has(id):
 			buckets[id] = {"tiles": [] as Array[Vector2i], "sum": Vector2.ZERO}
 		var bucket: Dictionary = buckets[id]
-		var tiles: Array[Vector2i] = bucket["tiles"]
-		tiles.append(tile)
+		var group: Array[Vector2i] = bucket["tiles"]
+		group.append(tile)
 		bucket["sum"] = Vector2(bucket["sum"]) + Vector2(tile)
-
-	var used_names: Dictionary = {}
-	var ids: Array = buckets.keys()
-	ids.sort()
-	for id: int in ids:
-		var bucket: Dictionary = buckets[id]
-		var tiles: Array[Vector2i] = bucket["tiles"]
-		var sum: Vector2 = bucket["sum"]
-		model.sea_zones.append({
-			"id": id,
-			"name": MapCatalog.unique_sea_name(used_names),
-			"tiles": tiles,
-			"center": sum / float(tiles.size()) + Vector2(0.5, 0.5),
-			"area": tiles.size(),
-		})
+	return buckets
 
 
 # --- resources, ports, owners ----------------------------------------------
@@ -176,67 +204,28 @@ func _build_ports(model: MapModel) -> void:
 		province["port_tile"] = best
 
 
-## Spreads ownership by nearest seed province. Seeds are drawn from sea-bound
-## provinces so every faction can satisfy the capital-choice rule.
-func _assign_owners(model: MapModel) -> void:
-	if model.provinces.is_empty():
+## Region ownership (wiki: game-setup § GP / Minor Nation / Tribe assignment).
+## The rules module grows contiguous territories from sea-bound seeds; here we
+## only pick which faction roster belongs to the region and record failures.
+func _assign_factions(model: MapModel, region_id: int) -> void:
+	var report: Dictionary
+	if region_id == FactionCatalog.NEW_WORLD:
+		report = TerritoryAssignment.assign_new_world(model, FactionCatalog.tribe_ids())
+	else:
+		report = TerritoryAssignment.assign_old_world(
+			model, FactionCatalog.great_power_ids(), FactionCatalog.minor_ids()
+		)
+	if not bool(report.get("ok", false)):
+		model.setup_errors.append(String(report.get("error", "assignment_failed")))
+
+
+## Capital-choice phase (wiki: capital-choice-phase). Great Powers follow the
+## sea-bound/coastal rule; Minor Nations and Tribes get any owned province.
+func _place_capitals(model: MapModel, region_id: int) -> void:
+	if region_id == FactionCatalog.NEW_WORLD:
+		CapitalChoice.place_all(model, FactionCatalog.tribe_ids(), CapitalChoice.KIND_MINOR)
 		return
-	var faction_count: int = mini(FACTION_NAMES.size(), model.provinces.size())
-	var eligible: Array[int] = _sea_bound_ids(model)
-	if eligible.size() < faction_count:
-		eligible = []
-		for id in model.provinces.size():
-			eligible.append(id)
-	if eligible.is_empty():
-		return
-
-	var seeds: Array[int] = [eligible[_rng.randi_range(0, eligible.size() - 1)]]
-	while seeds.size() < faction_count:
-		var best: int = -1
-		var best_distance: float = -1.0
-		for id: int in eligible:
-			if seeds.has(id):
-				continue
-			var nearest: float = INF
-			for seed: int in seeds:
-				nearest = minf(
-					nearest,
-					model.province_center(id).distance_to(model.province_center(seed))
-				)
-			if nearest > best_distance:
-				best_distance = nearest
-				best = id
-		if best < 0:
-			break
-		seeds.append(best)
-
-	for id in model.provinces.size():
-		var nearest_owner: int = 0
-		var nearest_distance: float = INF
-		for faction in seeds.size():
-			var distance: float = model.province_center(id).distance_to(
-				model.province_center(seeds[faction])
-			)
-			if distance < nearest_distance:
-				nearest_distance = distance
-				nearest_owner = faction
-		var province: Dictionary = model.provinces[id]
-		province["owner"] = nearest_owner
-		province["population"] = 180 + int(province["area"]) * 9 + _rng.randi_range(0, 90)
-
-
-func _sea_bound_ids(model: MapModel) -> Array[int]:
-	var ids: Array[int] = []
-	for province: Dictionary in model.provinces:
-		if CapitalChoice.is_sea_bound(model, int(province["id"])):
-			ids.append(int(province["id"]))
-	return ids
-
-
-## Capital-choice phase (wiki: capital-choice-phase). All four crowns are Great
-## Powers, so each gets the sea-bound capital rule and its ports/roads.
-func _place_capitals(model: MapModel) -> void:
-	var factions: Array[int] = []
-	for faction in mini(FACTION_NAMES.size(), model.provinces.size()):
-		factions.append(faction)
-	CapitalChoice.place_all(model, factions, CapitalChoice.KIND_GREAT_POWER)
+	CapitalChoice.place_all(
+		model, FactionCatalog.great_power_ids(), CapitalChoice.KIND_GREAT_POWER
+	)
+	CapitalChoice.place_all(model, FactionCatalog.minor_ids(), CapitalChoice.KIND_MINOR)

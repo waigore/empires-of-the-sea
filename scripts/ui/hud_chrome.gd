@@ -45,12 +45,22 @@ static func _top_bar(hud: GameHud) -> void:
 	nation.add_theme_font_size_override("font_size", 20)
 	nation.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	title.add_child(nation)
+	hud._nation_label = nation
 
 	hud._turn_label = Label.new()
 	hud._turn_label.text = TurnTime.label_for_turn(1)
 	hud._turn_label.add_theme_font_size_override("font_size", 13)
 	hud._turn_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	title.add_child(hud._turn_label)
+
+	var region := Button.new()
+	region.text = "OLD WORLD ›"
+	region.custom_minimum_size = Vector2(0, 38)
+	region.add_theme_font_size_override("font_size", 12)
+	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
+	row.add_child(region)
+	hud._region_button = region
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -311,6 +321,16 @@ static func show_tooltip(hud: GameHud, text: String) -> void:
 
 static func hide_tooltip(hud: GameHud) -> void:
 	hud._tooltip.visible = false
+
+
+## Cartouche text for the crown in play (the map screen's player faction).
+static func set_nation(hud: GameHud, name: String) -> void:
+	hud._nation_label.text = name.to_upper()
+
+
+## Region button caption: "OLD WORLD ›" / "NEW WORLD ›".
+static func set_region_label(hud: GameHud, label: String) -> void:
+	hud._region_button.text = "%s ›" % label.to_upper()
 
 
 static func format(value: int) -> String:

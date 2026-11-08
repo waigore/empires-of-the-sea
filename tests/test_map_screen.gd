@@ -20,6 +20,48 @@ func after_each() -> void:
 	_screen = null
 
 
+func test_world_holds_old_and_new_world() -> void:
+	assert_not_null(_screen.world)
+	assert_eq(_screen.world.region_count(), 2)
+	assert_eq(_screen.region_index, 0)
+	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
+
+
+func test_region_toggle_switches_the_whole_view() -> void:
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 1)
+	assert_eq(_screen.model.region_id, FactionCatalog.NEW_WORLD)
+	assert_eq(_screen.canvas.model, _screen.model)
+	assert_eq(_screen.overlay.model, _screen.model)
+	assert_eq(_screen.ship_layer.model, _screen.model)
+	assert_eq(_screen.visibility.model, _screen.model)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 0)
+	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
+
+
+func test_country_borders_are_built_for_every_owner() -> void:
+	var borders: Dictionary = _screen.overlay._country_borders
+	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
+	for owner: int in borders.keys():
+		assert_true(FactionCatalog.has_faction(owner))
+
+
+func test_region_switch_keeps_fleets_and_chart_state() -> void:
+	var fleet_id: int = _screen.ship_layer.fleets[0].id
+	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+
+	_screen._cycle_region()
+	_screen._cycle_region()
+
+	assert_eq(_screen.ship_layer.fleets[0].id, fleet_id)
+	assert_eq(
+		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+
+
 func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_not_null(_screen.model)
 	assert_gt(_screen.model.province_count(), 0)
@@ -337,6 +379,46 @@ func test_training_is_refused_outside_the_capital() -> void:
 	MapPlayInput.on_panel_action(_screen.play, "train_explorer")
 	assert_eq(_screen.civilian_layer.units.size(), units_before)
 	assert_eq(_screen.treasury, treasury_before)
+
+
+func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var resource: Vector2i = _owned_resource_tile()
+	builder.tile = resource
+	_screen.civilian_layer.select(builder)
+	MapPlayCivilians.on_action(_screen.play, "build_improvement")
+	var works: LandWorks = _screen.land_works
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), 0, "no crown holdings in the New World")
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size())
+	assert_true(_screen.civilian_layer.units.has(builder))
+	assert_eq(builder.tile, resource)
+	assert_true(builder.is_working())
+	assert_eq(_screen.land_works, works)
+
+
+func test_each_region_keeps_its_own_fleets() -> void:
+	var old_fleet: FleetState = _screen.ship_layer.fleets[0]
+	var old_zone: int = old_fleet.sea_zone
+
+	_screen._cycle_region()
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		assert_false(fleet == old_fleet, "the New World fields its own squadrons")
+
+	_screen._cycle_region()
+	assert_eq(_screen.ship_layer.fleets[0], old_fleet)
+	assert_eq(old_fleet.sea_zone, old_zone)
+
+
+func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.moved = true
+	_screen._cycle_region()
+	MapPlayTurn.end_turn(_screen.play)
+	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
 
 
 func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:

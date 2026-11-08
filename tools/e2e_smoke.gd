@@ -45,6 +45,26 @@ func _run() -> void:
 	_check(screen.capital_province >= 0, "capital province chosen")
 	_check(screen.canvas != null and screen.canvas.model == screen.model, "map canvas wired")
 	_check(screen.hud != null, "HUD present")
+	_check(screen.world != null and screen.world.region_count() == 2, "world has two regions")
+	_check(
+		screen.overlay._country_borders.size() >= 4,
+		"country borders built for every nation"
+	)
+
+	screen._cycle_region()
+	await process_frame
+	_check(screen.region_index == 1, "region switch reaches the New World")
+	_check(
+		screen.model.region_id == FactionCatalog.NEW_WORLD and screen.canvas.model == screen.model,
+		"New World map is drawn"
+	)
+	_check(
+		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
+		"New World fleets spawned"
+	)
+	screen._cycle_region()
+	await process_frame
+	_check(screen.region_index == 0, "region switch returns to the Old World")
 
 	_check(screen.civilian_layer != null, "civilian layer present")
 	_check(
