@@ -107,12 +107,10 @@ func test_tech_caps_lift_the_yield_per_tile() -> void:
 	model.setup(3, 1)
 	model.province[model.index_of(0, 0)] = 0
 	model.province[model.index_of(1, 0)] = 0
-	model.provinces.append({
-		"id": 0,
-		"owner": 0,
-		"tiles": [Vector2i(0, 0), Vector2i(1, 0)],
-		"town_development": 4,
-	})
+	var tiles_a: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var province_a := ProvinceState.create(0, "P0", tiles_a, Vector2.ZERO, 2, 0)
+	province_a.town_development = 4
+	model.provinces.append(province_a)
 	model.resource[model.index_of(0, 0)] = 0
 	model.resource[model.index_of(1, 0)] = 0
 	var base: Dictionary = Extraction.yields(model, 0, -1)
@@ -129,18 +127,13 @@ func _fixture() -> MapModel:
 		model.province[model.index_of(x, 0)] = 0
 	model.province[model.index_of(2, 0)] = 1
 	model.province[model.index_of(0, 1)] = 1
-	model.provinces.append({
-		"id": 0,
-		"owner": 0,
-		"tiles": [Vector2i(0, 0), Vector2i(1, 0)],
-		"town_development": 4,
-	})
-	model.provinces.append({
-		"id": 1,
-		"owner": 1,
-		"tiles": [Vector2i(2, 0), Vector2i(0, 1)],
-		"town_development": 0,
-	})
+	var tiles0: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var tiles1: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 1)]
+	var p0 := ProvinceState.create(0, "P0", tiles0, Vector2.ZERO, 2, 0)
+	p0.town_development = 4
+	var p1 := ProvinceState.create(1, "P1", tiles1, Vector2.ZERO, 2, 1)
+	model.provinces.append(p0)
+	model.provinces.append(p1)
 	model.resource[model.index_of(0, 0)] = 0
 	model.resource[model.index_of(1, 0)] = 4
 	model.resource[model.index_of(2, 0)] = 4

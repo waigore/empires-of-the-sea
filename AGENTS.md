@@ -22,7 +22,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 
 - Engine: Godot 4.7.x · GDScript (typed where practical)
 - Scenes: `.tscn` + scripts; logic in scripts, composition in scenes
-- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI: `gd-tools test --coverage --min 80`
+- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); CI: `gd-tools test --coverage --min 80 --parallel 4` (**≤5 min**); e2e smoke **≤2 min** — see [`docs/testing.md`](docs/testing.md)
 
 ## Layout
 
@@ -30,7 +30,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 |------|-----|
 | `scenes/` | Gameplay and screen scenes |
 | `scripts/` | Shared / non-scene scripts |
-| `scripts/world/` | Pure map data (`MapModel`, `MapGeo`) used by rules |
+| `scripts/world/` | Pure map data (`MapModel`, `MapGeo`, province/sea records) |
 | `scripts/session/` | Play context for map play helpers (`PlaySession`) |
 | `scripts/platform/` | Thin OS/platform adapters only |
 | `ui/` | UI scenes, themes, components |

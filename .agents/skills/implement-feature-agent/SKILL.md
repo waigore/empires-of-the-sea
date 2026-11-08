@@ -72,7 +72,7 @@ If behavior changes rules documentation: update the wiki in the same effort when
 Run the narrowest local proof that covers the change, typically:
 
 ```bash
-gd-tools test --coverage --min 80
+gd-tools test --coverage --min 80 --parallel 4
 python tools/lint_docs_words.py
 ```
 

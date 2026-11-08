@@ -2,23 +2,22 @@ extends GdToolsTest
 ## Integration: the real map screen drives the real director — era beds, cues on
 ## player moments, battle music and the sound seal (REQ-P1-06).
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _screen: MapScreen = null
 var _audio: AudioDirector = null
 var _score: MapSoundtrack = null
 
 
 func before_each() -> void:
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
-	_screen.map_width = 64
-	_screen.map_height = 42
-	add_child(_screen)
+	_screen = Fixture.attach_screen(self)
 	_audio = _screen.get_node("Audio") as AudioDirector
 	_score = _screen.get_node("Soundtrack") as MapSoundtrack
 
 
 func after_each() -> void:
 	if is_instance_valid(_screen):
-		_screen.queue_free()
+		_screen.free()
 	_screen = null
 	_audio = null
 	_score = null
@@ -172,7 +171,7 @@ func test_the_mute_key_is_bound() -> void:
 
 
 func _inland_province() -> int:
-	for province: Dictionary in _screen.model.provinces:
-		if not bool(province["coastal"]) and int(province["area"]) > 30:
-			return int(province["id"])
-	return int(_screen.model.provinces[0]["id"])
+	for province: ProvinceState in _screen.model.provinces:
+		if not province.coastal and province.area > 30:
+			return province.id
+	return int(_screen.model.provinces[0].id)

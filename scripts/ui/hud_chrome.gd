@@ -237,16 +237,17 @@ static func _province_panel(hud: GameHud) -> void:
 	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._panel.action_pressed.connect(func(action: String) -> void: hud.panel_action.emit(action))
 	hud._panel.close_pressed.connect(func() -> void: hud.panel_closed.emit())
+	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._panel_wrap.add_child(hud._panel)
 
 
 static func _fleet_panel(hud: GameHud) -> void:
 	hud._fleet_wrap = Control.new()
-	hud._fleet_wrap.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	hud._fleet_wrap.offset_left = -200.0
-	hud._fleet_wrap.offset_right = 200.0
-	hud._fleet_wrap.offset_top = -244.0
-	hud._fleet_wrap.offset_bottom = -22.0
+	hud._fleet_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	hud._fleet_wrap.offset_left = -GameHud.PANEL_MARGIN
+	hud._fleet_wrap.offset_right = GameHud.PANEL_WIDTH - GameHud.PANEL_MARGIN
+	hud._fleet_wrap.offset_top = 84.0
+	hud._fleet_wrap.offset_bottom = -104.0
 	hud._fleet_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud._fleet_wrap.visible = false
 	hud.add_child(hud._fleet_wrap)
@@ -254,6 +255,7 @@ static func _fleet_panel(hud: GameHud) -> void:
 	hud._fleet_panel = FleetPanel.new()
 	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._fleet_panel.close_pressed.connect(func() -> void: hud.fleet_closed.emit())
+	hud._fleet_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._fleet_wrap.add_child(hud._fleet_panel)
 
 
@@ -270,7 +272,7 @@ static func _economy_panel(hud: GameHud) -> void:
 
 	hud._economy_panel = EconomyPanel.new()
 	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._economy_panel.close_pressed.connect(func() -> void: hud.hide_economy())
+	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
 	hud._economy_wrap.add_child(hud._economy_panel)
 
 
@@ -292,6 +294,7 @@ static func _civilian_panel(hud: GameHud) -> void:
 	)
 	hud._civilian_panel.cancel_pressed.connect(func() -> void: hud.civilian_cancel.emit())
 	hud._civilian_panel.close_pressed.connect(func() -> void: hud.civilian_closed.emit())
+	hud._civilian_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._civilian_wrap.add_child(hud._civilian_panel)
 
 

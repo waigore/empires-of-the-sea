@@ -8,12 +8,12 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 	play.selected_province = -1
 	play.overlay.select_province(-1)
 	play.overlay.clear_tile_options()
-	play.hud.hide_province()
-	play.hud.hide_fleet()
+	play.hud.panels.hide_province()
+	play.hud.panels.hide_fleet()
 	if unit == null:
-		play.hud.hide_civilian()
+		play.hud.panels.hide_civilian()
 		return
-	play.hud.show_civilian(
+	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility
 	)
@@ -81,7 +81,7 @@ static func refresh_panel(play: PlaySession) -> void:
 	var unit: CivilianState = play.civilian_layer.selected_unit
 	if unit == null:
 		return
-	play.hud.show_civilian(
+	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility
 	)

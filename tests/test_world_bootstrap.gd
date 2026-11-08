@@ -65,13 +65,13 @@ func test_the_capital_province_feeds_the_opening_crown() -> void:
 func test_capital_ports_and_harbour_roads_are_real() -> void:
 	assert_gt(_works.ports.size(), 0, "capital ports are seeded")
 	assert_gt(_works.transport.size(), 0, "harbour roads are seeded")
-	for province: Dictionary in _model.provinces:
-		if not bool(province.get("capital", false)):
+	for province: ProvinceState in _model.provinces:
+		if not province.capital:
 			continue
-		if FactionCatalog.type_of(int(province["owner"])) != FactionCatalog.Type.GREAT_POWER:
+		if FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER:
 			continue
 		assert_eq(
-			int(province["town_development"]), WorldBootstrap.CAPITAL_TOWN_DEVELOPMENT
+			province.town_development, WorldBootstrap.CAPITAL_TOWN_DEVELOPMENT
 		)
 
 

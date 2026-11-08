@@ -48,12 +48,13 @@ F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique a
 ```bash
 pip install gd-tools-cli
 gd-tools doctor
-gd-tools test --coverage --min 80
+gd-tools test --coverage --min 80 --parallel 4
+godot --headless --path . --script res://tools/e2e_smoke.gd
 python tools/lint_docs_words.py
 ```
 
-- Tests under `tests/` extend `GdToolsTest`.
-- CI: **80% coverage** (`tests`) and **docs ≤ 500 words** (`docs-lint`).
+- Tests under `tests/` extend `GdToolsTest`. Budgets: **≤5 min** coverage suite, **≤2 min** e2e smoke ([`docs/testing.md`](docs/testing.md)).
+- CI: **80% coverage** (`tests`), e2e smoke, and **docs ≤ 500 words** (`docs-lint`).
 - Code/tests/assets need collaborator approval when the approval gate is enforced; docs-only PRs auto-merge (squash) when checks pass.
 
 - Android export presets, device builds and release signing: [`docs/android-build.md`](docs/android-build.md).

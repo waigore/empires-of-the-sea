@@ -114,8 +114,8 @@ func _make_fleet(
 			return FleetState.in_port(id, owner, port)
 	var zones: Array[int] = _coastal_zones(owner)
 	if zones.is_empty():
-		for zone: Dictionary in model.sea_zones:
-			zones.append(int(zone.get("id", 0)))
+		for zone: SeaZoneState in model.sea_zones:
+			zones.append(zone.id)
 	if zones.is_empty():
 		return FleetState.at_sea(id, owner, 0)
 	var zone: int = zones[_rng.randi_range(0, zones.size() - 1)]
@@ -137,10 +137,10 @@ func _assign_hulls(fleet: FleetState, index: int) -> void:
 
 func _coastal_zones(owner: int) -> Array[int]:
 	var zones: Array[int] = []
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != owner:
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
 			continue
-		var province_id: int = int(province.get("id", MapModel.NO_ID))
+		var province_id: int = province.id
 		for zone: int in NavalMovement.province_sea_zones(model, province_id):
 			if not zones.has(zone):
 				zones.append(zone)
@@ -151,10 +151,10 @@ func _coastal_zones(owner: int) -> Array[int]:
 func _player_port(player_capital: int) -> int:
 	# Sea-going fleets never sit in the capital port (home-fleet rule); prefer a
 	# non-capital harbour, and the capital only when it is the sole option.
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != 0:
+	for province: ProvinceState in model.provinces:
+		if province.owner != 0:
 			continue
-		var province_id: int = int(province.get("id", MapModel.NO_ID))
+		var province_id: int = province.id
 		if province_id == player_capital:
 			continue
 		if NavalMovement.has_harbour(model, province_id):
@@ -167,8 +167,8 @@ func _player_port(player_capital: int) -> int:
 
 func _place_ship(ship: Ship, fleet: FleetState) -> void:
 	if fleet.is_in_port():
-		var data: Dictionary = model.province_data(fleet.province)
-		var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+		var data: ProvinceState = model.province_data(fleet.province)
+		var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
 		ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 		ship.docked = true
 		ship.zone = -1
@@ -344,8 +344,8 @@ func at_sea_zones(owner: int) -> Array[int]:
 
 
 func _port_position(province_id: int) -> Vector2:
-	var data: Dictionary = model.province_data(province_id)
-	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+	var data: ProvinceState = model.province_data(province_id)
+	var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
 	if port.x < 0 or port.y < 0:
 		return model.province_center(province_id) * TILE_SIZE
 	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)

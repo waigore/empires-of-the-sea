@@ -1,19 +1,18 @@
 extends GdToolsTest
 ## Integration: the map screen's ledger drives the real economy (REQ-P2-03).
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _screen: MapScreen = null
 
 
 func before_each() -> void:
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
-	_screen.map_width = 64
-	_screen.map_height = 42
-	add_child(_screen)
+	_screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:
 	if is_instance_valid(_screen):
-		_screen.queue_free()
+		_screen.free()
 	_screen = null
 
 
@@ -30,14 +29,14 @@ func test_the_screen_owns_a_starting_economy() -> void:
 
 
 func test_the_ledger_opens_and_closes() -> void:
-	assert_false(_screen.hud.is_economy_open())
+	assert_false(_screen.hud.panels.is_economy_open())
 	_screen.economy.open_panel()
-	assert_true(_screen.hud.is_economy_open())
-	var panel: EconomyPanel = _screen.hud.economy_panel()
+	assert_true(_screen.hud.panels.is_economy_open())
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	assert_not_null(panel)
 	assert_gt(panel.get_combined_minimum_size().y, 100.0)
-	_screen.hud.hide_economy()
-	assert_false(_screen.hud.is_economy_open())
+	_screen.hud.panels.hide_economy()
+	assert_false(_screen.hud.panels.is_economy_open())
 
 
 func test_buying_moves_treasury_and_stock() -> void:

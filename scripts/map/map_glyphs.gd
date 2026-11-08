@@ -258,16 +258,16 @@ static func spaced(text: String) -> String:
 
 ## Capital seaboards draw a port each; other coastal provinces keep the single
 ## generated waterfront port.
-static func port_tiles(province: Dictionary) -> Array[Vector2i]:
+static func port_tiles(province: ProvinceState) -> Array[Vector2i]:
 	var tiles: Array[Vector2i] = []
-	var ports: Dictionary = province.get("ports", {})
+	var ports: Dictionary = province.ports
 	for zone: int in ports.keys():
 		var tile: Vector2i = ports[zone]
 		if not tiles.has(tile):
 			tiles.append(tile)
 	if not tiles.is_empty():
 		return tiles
-	var fallback: Vector2i = province["port_tile"]
+	var fallback: Vector2i = province.port_tile
 	if fallback.x >= 0:
 		tiles.append(fallback)
 	return tiles

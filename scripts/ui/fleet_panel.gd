@@ -1,12 +1,14 @@
 class_name FleetPanel
 extends PanelContainer
-## Bottom-centre dossier for the selected fleet: colours, station and the
+## Dockable dossier for the selected fleet: colours, station and the
 ## remaining move. Orders happen on the map; this panel only reads state.
 
 signal close_pressed
+signal dock_side_pressed
 
 var _flag: ColorRect = null
 var _title: Label = null
+var _dock: Button = null
 var _location: Label = null
 var _ships: Label = null
 var _status: Label = null
@@ -45,6 +47,14 @@ func _build() -> void:
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title)
 
+	_dock = Button.new()
+	_dock.text = "◀"
+	_dock.tooltip_text = "Dock left"
+	_dock.custom_minimum_size = Vector2(40, 40)
+	_dock.add_theme_font_size_override("font_size", 18)
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	header.add_child(_dock)
+
 	var close := Button.new()
 	close.text = "×"
 	close.custom_minimum_size = Vector2(40, 40)
@@ -72,6 +82,13 @@ func _build() -> void:
 	_hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_hint)
+
+
+func set_dock_affordance(glyph: String, tip: String) -> void:
+	if _dock == null:
+		return
+	_dock.text = glyph
+	_dock.tooltip_text = tip
 
 
 func refresh(model: MapModel, fleet: FleetState, is_player: bool) -> void:

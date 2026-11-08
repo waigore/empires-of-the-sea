@@ -32,8 +32,8 @@ var terrain: PackedByteArray = PackedByteArray()
 var province: PackedInt32Array = PackedInt32Array()
 var sea_zone: PackedInt32Array = PackedInt32Array()
 var resource: PackedInt32Array = PackedInt32Array()
-var provinces: Array[Dictionary] = []
-var sea_zones: Array[Dictionary] = []
+var provinces: Array[ProvinceState] = []
+var sea_zones: Array[SeaZoneState] = []
 
 
 func setup(p_width: int, p_height: int) -> void:
@@ -101,52 +101,61 @@ func sea_zone_count() -> int:
 	return sea_zones.size()
 
 
-func province_data(id: int) -> Dictionary:
+func get_province(id: int) -> ProvinceState:
 	if id < 0 or id >= provinces.size():
-		return {}
+		return null
 	return provinces[id]
+
+
+func get_sea_zone(id: int) -> SeaZoneState:
+	if id < 0 or id >= sea_zones.size():
+		return null
+	return sea_zones[id]
+
+
+## Compatibility alias used by call sites during the typed-record migration.
+func province_data(id: int) -> ProvinceState:
+	return get_province(id)
+
+
+func sea_zone_data(id: int) -> SeaZoneState:
+	return get_sea_zone(id)
 
 
 ## Capital tile picked for the province, or NO_TILE when the map has none.
 func capital_tile_of(province_id: int) -> Vector2i:
-	var data: Dictionary = province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = get_province(province_id)
+	if data == null:
 		return CapitalChoice.NO_TILE
-	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
-
-
-func sea_zone_data(id: int) -> Dictionary:
-	if id < 0 or id >= sea_zones.size():
-		return {}
-	return sea_zones[id]
+	return data.capital_tile
 
 
 func province_tiles(id: int) -> Array:
-	var data: Dictionary = province_data(id)
-	if data.is_empty():
+	var data: ProvinceState = get_province(id)
+	if data == null:
 		return []
-	return data.get("tiles", [])
+	return data.tiles
 
 
 func province_center(id: int) -> Vector2:
-	var data: Dictionary = province_data(id)
-	if data.is_empty():
+	var data: ProvinceState = get_province(id)
+	if data == null:
 		return Vector2.ZERO
-	return data.get("center", Vector2.ZERO)
+	return data.center
 
 
 func sea_zone_center(id: int) -> Vector2:
-	var data: Dictionary = sea_zone_data(id)
-	if data.is_empty():
+	var data: SeaZoneState = get_sea_zone(id)
+	if data == null:
 		return Vector2.ZERO
-	return data.get("center", Vector2.ZERO)
+	return data.center
 
 
 func province_owner(id: int) -> int:
-	var data: Dictionary = province_data(id)
-	if data.is_empty():
+	var data: ProvinceState = get_province(id)
+	if data == null:
 		return NO_ID
-	return data.get("owner", NO_ID)
+	return data.owner
 
 
 ## Owner of the province covering a tile, or NO_ID for sea and unclaimed land.
@@ -158,15 +167,14 @@ func owner_at(x: int, y: int) -> int:
 
 
 func province_name(id: int) -> String:
-	var data: Dictionary = province_data(id)
-	if data.is_empty():
+	var data: ProvinceState = get_province(id)
+	if data == null:
 		return ""
-	return data.get("name", "")
+	return data.name
 
 
 func sea_zone_name(id: int) -> String:
-	var data: Dictionary = sea_zone_data(id)
-	if data.is_empty():
+	var data: SeaZoneState = get_sea_zone(id)
+	if data == null:
 		return ""
-	return data.get("name", "")
-
+	return data.name

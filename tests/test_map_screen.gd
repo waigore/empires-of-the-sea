@@ -2,14 +2,13 @@
 extends GdToolsTest
 ## Integration: the real map screen, driven through its own input handlers.
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _screen: MapScreen = null
 
 
 func before_each() -> void:
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
-	_screen.map_width = 64
-	_screen.map_height = 42
-	add_child(_screen)
+	_screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:
@@ -73,9 +72,9 @@ func test_world_builds_with_map_ships_and_camera() -> void:
 
 
 func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
-	var province: Dictionary = _screen.model.province_data(_screen.capital_province)
-	assert_true(bool(province["capital"]))
-	assert_eq(_screen.capital_tile, Vector2i(province["capital_tile"]))
+	var province: ProvinceState = _screen.model.province_data(_screen.capital_province)
+	assert_true(province.capital)
+	assert_eq(_screen.capital_tile, Vector2i(province.capital_tile))
 	assert_true(_screen.model.is_land(_screen.capital_tile.x, _screen.capital_tile.y))
 	assert_eq(
 		_screen.model.terrain_at(_screen.capital_tile.x, _screen.capital_tile.y),
@@ -101,18 +100,18 @@ func test_clicking_a_province_selects_it_and_opens_the_panel() -> void:
 	var world: Vector2 = _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
 	MapPlayInput.on_tapped(_screen.play, world)
 	assert_eq(_screen.selected_province, province_id)
-	assert_true(_screen.hud.is_panel_open())
+	assert_true(_screen.hud.panels.is_panel_open())
 
 
 func test_clicking_open_water_clears_the_selection() -> void:
 	var province_id: int = _inland_province()
 	MapPlayInput.on_tapped(_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
-	assert_true(_screen.hud.is_panel_open())
+	assert_true(_screen.hud.panels.is_panel_open())
 
-	var sea_tile: Vector2i = _screen.model.sea_zones[0]["tiles"][0]
+	var sea_tile: Vector2i = _screen.model.sea_zones[0].tiles[0]
 	MapPlayInput.on_tapped(_screen.play, MapGeo.tile_center(sea_tile.x, sea_tile.y, MapScreen.TILE_SIZE))
 	assert_eq(_screen.selected_province, -1)
-	assert_false(_screen.hud.is_panel_open())
+	assert_false(_screen.hud.panels.is_panel_open())
 
 
 func test_clicking_a_fleet_selects_it() -> void:
@@ -211,13 +210,13 @@ func _visible_rect() -> Rect2:
 
 
 func test_player_fleet_reveals_only_for_the_player() -> void:
-	var zone: Dictionary = _screen.model.sea_zones[1]
-	var tile: Vector2i = zone["tiles"][0]
+	var zone: SeaZoneState = _screen.model.sea_zones[1]
+	var tile: Vector2i = zone.tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.overlay.set_fog_state(index, MapOverlay.FOG_FOGGED)
 	var enemy := Ship.new()
 	enemy.faction = 1
-	MapPlayFleets.on_zone_entered(_screen.play, int(zone["id"]), enemy)
+	MapPlayFleets.on_zone_entered(_screen.play, int(zone.id), enemy)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 	enemy.free()
 
@@ -265,7 +264,7 @@ func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
 
 func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
-	var zone_tiles: Array = _screen.model.sea_zone_data(ship.zone)["tiles"]
+	var zone_tiles: Array = _screen.model.sea_zone_data(ship.zone).tiles
 	var water: Vector2i = zone_tiles[0]
 	var water_index: int = _screen.model.index_of(water.x, water.y)
 	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
@@ -301,11 +300,11 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 		if fleet == player_fleet or fleet == enemy_fleet:
 			continue
 		fleet.location = FleetState.Location.IN_PORT
-		fleet.province = int(_screen.model.provinces[0]["id"])
+		fleet.province = int(_screen.model.provinces[0].id)
 	player_fleet.set_hulls(["hull_player"], {"hull_player": "carrack"})
 	enemy_fleet.set_hulls(["hull_enemy"], {"hull_enemy": "fluyte"})
 	enemy_fleet.location = FleetState.Location.AT_SEA
-	enemy_fleet.sea_zone = int(_screen.model.sea_zones[0]["id"])
+	enemy_fleet.sea_zone = int(_screen.model.sea_zones[0].id)
 	player_fleet.location = FleetState.Location.AT_SEA
 	player_fleet.sea_zone = enemy_fleet.sea_zone
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
@@ -338,8 +337,8 @@ func test_tapping_a_civilian_opens_its_dossier() -> void:
 		_screen.play, MapGeo.tile_center(unit.tile.x, unit.tile.y, MapScreen.TILE_SIZE)
 	)
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
-	assert_true(_screen.hud.is_civilian_panel_open())
-	assert_false(_screen.hud.is_panel_open())
+	assert_true(_screen.hud.panels.is_civilian_panel_open())
+	assert_false(_screen.hud.panels.is_panel_open())
 
 
 func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
@@ -424,7 +423,7 @@ func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
 func test_battles_resolve_in_the_region_off_screen() -> void:
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 1)
-	var zone: int = int(_screen.model.sea_zones[0]["id"])
+	var zone: int = _screen.model.sea_zones[0].id
 	var first: FleetState = null
 	var second: FleetState = null
 	for fleet: FleetState in _screen.ship_layer.fleets:
@@ -434,7 +433,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 			second = fleet
 		else:
 			fleet.location = FleetState.Location.IN_PORT
-			fleet.province = int(_screen.model.provinces[0]["id"])
+			fleet.province = _screen.model.provinces[0].id
 	assert_not_null(first)
 	assert_not_null(second)
 	for fleet: FleetState in [first, second]:
@@ -536,10 +535,10 @@ func _capital_point() -> Vector2:
 
 
 func _owned_resource_tile() -> Vector2i:
-	for province: Dictionary in _screen.model.provinces:
-		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
+	for province: ProvinceState in _screen.model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
 			continue
-		for tile: Vector2i in province["tiles"]:
+		for tile: Vector2i in province.tiles:
 			if _screen.model.resource_at(tile.x, tile.y) < 0:
 				continue
 			if _screen.land_works.improvement_at(_screen.model, tile) > 0:
@@ -556,14 +555,14 @@ func _fleet_at_sea(owner: int) -> FleetState:
 
 
 func _foreign_province() -> int:
-	for province: Dictionary in _screen.model.provinces:
-		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
-			return int(province["id"])
+	for province: ProvinceState in _screen.model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
+			return province.id
 	return -1
 
 
 func _coastal_land_of(zone_id: int) -> Vector2i:
-	var tiles: Array = _screen.model.sea_zone_data(zone_id).get("tiles", [])
+	var tiles: Array = _screen.model.sea_zone_data(zone_id).tiles
 	for tile: Vector2i in tiles:
 		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
 			var nx: int = tile.x + offset.x
@@ -574,10 +573,10 @@ func _coastal_land_of(zone_id: int) -> Vector2i:
 
 
 func _inland_province() -> int:
-	for province: Dictionary in _screen.model.provinces:
-		if not bool(province["coastal"]) and int(province["area"]) > 30:
-			return int(province["id"])
-	return int(_screen.model.provinces[0]["id"])
+	for province: ProvinceState in _screen.model.provinces:
+		if not province.coastal and province.area > 30:
+			return province.id
+	return int(_screen.model.provinces[0].id)
 
 
 func _mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:

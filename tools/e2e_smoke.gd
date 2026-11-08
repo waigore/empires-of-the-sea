@@ -1,10 +1,13 @@
 extends SceneTree
 ## Headless e2e smoke: boot main.tscn, exercise a short map-screen flow, quit.
-## Keep fast — aim ≤2 minutes wall time. Extend asserts for new player paths;
-## leave deep rules to tests/. Run:
+## Budget: ≤2 minutes wall time (CI job timeout 2). Extend asserts for new
+## player paths; leave deep rules to tests/. Run:
 ##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
-const BOOT_FRAMES: int = 12
+const BOOT_FRAMES: int = 8
+## Smaller than the playable default so smoke stays well under the 2 min budget.
+const SMOKE_WIDTH: int = 64
+const SMOKE_HEIGHT: int = 42
 
 var _failures: PackedStringArray = []
 
@@ -22,6 +25,8 @@ func _run() -> void:
 		return
 
 	var main: Node = packed.instantiate()
+	main.map_width = SMOKE_WIDTH
+	main.map_height = SMOKE_HEIGHT
 	root.add_child(main)
 	for _frame in BOOT_FRAMES:
 		await process_frame
@@ -106,7 +111,7 @@ func _run() -> void:
 		MapPlayInput.on_tapped(screen.play, world)
 		await process_frame
 		_check(screen.selected_province == province_id, "province selection sticks")
-		_check(screen.hud.is_panel_open(), "province panel opens")
+		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
 	var civilian: CivilianState = screen.civilian_layer.units[0]
 	var marker_world: Vector2 = MapGeo.tile_center(
@@ -115,7 +120,7 @@ func _run() -> void:
 	MapPlayInput.on_tapped(screen.play, marker_world)
 	await process_frame
 	_check(screen.civilian_layer.selected_unit == civilian, "civilian selection sticks")
-	_check(screen.hud.is_civilian_panel_open(), "civilian dossier opens")
+	_check(screen.hud.panels.is_civilian_panel_open(), "civilian dossier opens")
 
 	var work_tile: Vector2i = _owned_resource_tile(screen)
 	var builder: CivilianState = screen.civilian_layer.units[1]
@@ -146,14 +151,14 @@ func _run() -> void:
 	)
 	screen.economy.open_panel()
 	await process_frame
-	_check(screen.hud.is_economy_open(), "ledger opens")
+	_check(screen.hud.panels.is_economy_open(), "ledger opens")
 	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
-	screen.hud.hide_economy()
-	_check(not screen.hud.is_economy_open(), "ledger closes")
+	screen.hud.panels.hide_economy()
+	_check(not screen.hud.panels.is_economy_open(), "ledger closes")
 	_check(
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"
@@ -184,20 +189,20 @@ func _map_screen(main: Node) -> MapScreen:
 
 
 func _inland_province(screen: MapScreen) -> int:
-	for province: Dictionary in screen.model.provinces:
-		if not bool(province["coastal"]) and int(province["area"]) > 30:
-			return int(province["id"])
+	for province: ProvinceState in screen.model.provinces:
+		if not province.coastal and province.area > 30:
+			return province.id
 	if screen.model.provinces.is_empty():
 		return -1
-	return int(screen.model.provinces[0]["id"])
+	return int(screen.model.provinces[0].id)
 
 
 func _owned_resource_tile(screen: MapScreen) -> Vector2i:
 	var fallback: Vector2i = Vector2i(-1, -1)
-	for province: Dictionary in screen.model.provinces:
-		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
+	for province: ProvinceState in screen.model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
 			continue
-		for tile: Vector2i in province["tiles"]:
+		for tile: Vector2i in province.tiles:
 			var resource: int = screen.model.resource_at(tile.x, tile.y)
 			if resource < 0:
 				continue

@@ -40,8 +40,8 @@ static func apply(model: MapModel, works: LandWorks) -> Dictionary:
 
 ## Every registered seaboard port becomes a real port tile.
 static func _seed_ports(model: MapModel, works: LandWorks, report: Dictionary) -> void:
-	for province: Dictionary in model.provinces:
-		for raw: Variant in (province.get("ports", {}) as Dictionary).values():
+	for province: ProvinceState in model.provinces:
+		for raw: Variant in province.ports.values():
 			var tile: Vector2i = raw
 			if not model.is_land(tile.x, tile.y):
 				continue
@@ -54,8 +54,8 @@ static func _seed_ports(model: MapModel, works: LandWorks, report: Dictionary) -
 ## The capital-choice roads from a seaboard port to the seat carry transport.
 static func _seed_roads(model: MapModel, works: LandWorks, report: Dictionary) -> void:
 	var seen: Dictionary = {}
-	for province: Dictionary in model.provinces:
-		for raw: Variant in province.get("road_paths", []):
+	for province: ProvinceState in model.provinces:
+		for raw: Variant in province.road_paths:
 			var path: Array = raw
 			for tile: Vector2i in path:
 				var index: int = model.index_of(tile.x, tile.y)
@@ -69,16 +69,14 @@ static func _seed_roads(model: MapModel, works: LandWorks, report: Dictionary) -
 ## Great Power capital provinces start at town development 4 (the map's
 ## generator already sets it; this keeps hand-built maps honest).
 static func _seed_town_development(model: MapModel, report: Dictionary) -> void:
-	for province: Dictionary in model.provinces:
-		if not bool(province.get("capital", false)):
+	for province: ProvinceState in model.provinces:
+		if not province.capital:
 			continue
-		if FactionCatalog.type_of(int(province.get("owner", MapModel.NO_ID))) != (
-			FactionCatalog.Type.GREAT_POWER
-		):
+		if FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER:
 			continue
-		if int(province.get("town_development", 0)) == CAPITAL_TOWN_DEVELOPMENT:
+		if province.town_development == CAPITAL_TOWN_DEVELOPMENT:
 			continue
-		province["town_development"] = CAPITAL_TOWN_DEVELOPMENT
+		province.town_development = CAPITAL_TOWN_DEVELOPMENT
 		report["town_development"] = int(report["town_development"]) + 1
 
 
@@ -112,19 +110,18 @@ static func _seed_grain_farms(
 ## Keep the province dossier's headline resource honest when a bootstrap farm
 ## replaces the tile it pointed at.
 static func _sync_headline(model: MapModel, province_id: int, tile: Vector2i) -> void:
-	var province: Dictionary = model.province_data(province_id)
-	if province.is_empty() or not province.has("resource_tile"):
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null or not province.has_resource_tile():
 		return
-	if Vector2i(province["resource_tile"]) == tile:
-		province["resource"] = GRAIN_RESOURCE
+	if province.resource_tile == tile:
+		province.resource = GRAIN_RESOURCE
 
 
 ## The faction's capital province in this region, or -1.
 static func capital_province(model: MapModel, faction: int) -> int:
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) == faction:
-			if bool(province.get("capital", false)):
-				return int(province.get("id", MapModel.NO_ID))
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction and province.capital:
+			return province.id
 	return MapModel.NO_ID
 
 
@@ -181,10 +178,9 @@ static func _connect(
 		return
 	for tile: Vector2i in path:
 		works.set_transport(model, tile, LandWorks.TRANSPORT_ROAD)
-	var province: Dictionary = model.province_data(province_id)
-	var paths: Array = province.get("road_paths", [])
-	paths.append(path)
-	province["road_paths"] = paths
+	var province: ProvinceState = model.province_data(province_id)
+	if province != null:
+		province.road_paths.append(path)
 
 
 ## Breadth-first walk over land the faction owns; returns [] when unreachable.

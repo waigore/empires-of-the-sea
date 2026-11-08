@@ -17,14 +17,16 @@ func _model_with_owners(owners: Array[int]) -> MapModel:
 		for tile: Vector2i in tiles:
 			model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
 			model.province[model.index_of(tile.x, tile.y)] = province_id
-		model.provinces.append({
-			"id": province_id,
-			"name": "P%d" % province_id,
-			"tiles": tiles,
-			"center": Vector2(float(province_id) * 2.0 + 0.5, 1.5),
-			"area": tiles.size(),
-			"owner": owners[province_id],
-		})
+		model.provinces.append(
+			ProvinceState.create(
+				province_id,
+				"P%d" % province_id,
+				tiles,
+				Vector2(float(province_id) * 2.0 + 0.5, 1.5),
+				tiles.size(),
+				owners[province_id]
+			)
+		)
 	return model
 
 

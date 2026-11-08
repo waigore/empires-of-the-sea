@@ -315,8 +315,10 @@ func _draw_sea_zone_outline(id: int, color: Color, width: float) -> void:
 
 
 func _draw_port_marker(province_id: int, pulse: float) -> void:
-	var data: Dictionary = model.province_data(province_id)
-	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
+		return
+	var port: Vector2i = data.port_tile
 	if port.x < 0 or port.y < 0:
 		return
 	var point: Vector2 = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
@@ -331,8 +333,8 @@ func _sea_zone_outline(id: int) -> Array:
 	if _zone_outlines.has(id):
 		return _zone_outlines[id]
 	var segments: Array[PackedVector2Array] = []
-	var data: Dictionary = model.sea_zone_data(id)
-	for tile: Vector2i in data.get("tiles", []):
+	var data: SeaZoneState = model.sea_zone_data(id)
+	for tile: Vector2i in data.tiles:
 		var x: int = tile.x
 		var y: int = tile.y
 		if model.sea_zone_at(x, y - 1) != id:

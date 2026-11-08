@@ -49,8 +49,10 @@ warp zones (Old ↔ New World).
 | `scripts/rules/visibility.gd` | fog reveal + end of turn |
 | `scripts/map/ship_layer.gd` | markers, orders, all-region battles |
 | `scripts/map/map_overlay.gd` | destination highlights |
-| `scripts/ui/fleet_panel.gd` | station, roster, upkeep, move left |
+| `scripts/ui/fleet_panel.gd` | dockable station/roster dossier |
+| `scripts/ui/panel_dock.gd` | left/right dock side + `user://ui.cfg` |
 | `scripts/economy/economy_controller.gd` | all-region upkeep into Consumption |
+| `scripts/map_screen.gd` | intents + end-of-turn wiring |
 
 No node deps in rules (`REQ-P3-03`). Orders: `ShipLayer.order` →
 `NavalMovement.apply_move`. Combat: `ShipLayer.resolve_battles` →

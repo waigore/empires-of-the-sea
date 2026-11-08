@@ -34,12 +34,12 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	play.civilian_layer.deselect()
 	play.overlay.clear_move_options()
 	play.overlay.clear_tile_options()
-	play.hud.hide_fleet()
-	play.hud.hide_civilian()
+	play.hud.panels.hide_fleet()
+	play.hud.panels.hide_civilian()
 	play.selected_province = province_id
 	play.overlay.select_province(province_id, world_position)
-	play.hud.show_province(play.model, province_id)
-	play.hud.set_civilian_training(province_id == play.capital_province)
+	play.hud.panels.show_province(play.model, province_id)
+	play.hud.panels.set_civilian_training(province_id == play.capital_province)
 	play.emit_province_selected(province_id)
 
 
@@ -51,9 +51,9 @@ static func deselect(play: PlaySession) -> void:
 	play.civilian_layer.deselect()
 	play.overlay.clear_move_options()
 	play.overlay.clear_tile_options()
-	play.hud.hide_province()
-	play.hud.hide_fleet()
-	play.hud.hide_civilian()
+	play.hud.panels.hide_province()
+	play.hud.panels.hide_fleet()
+	play.hud.panels.hide_civilian()
 
 
 static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
@@ -97,15 +97,17 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	):
 		HudChrome.show_tooltip(play.hud, "Uncharted land")
 		return
-	var data: Dictionary = play.model.province_data(province_id)
+	var data: ProvinceState = play.model.province_data(province_id)
+	if data == null:
+		return
 	var terrain: int = play.model.terrain_at(tile.x, tile.y)
 	HudChrome.show_tooltip(
 		play.hud,
 		"%s  ·  %s  ·  %s"
 		% [
-			String(data["name"]),
+			data.name,
 			String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
-			FactionCatalog.name_of(int(data["owner"])),
+			FactionCatalog.name_of(data.owner),
 		]
 	)
 

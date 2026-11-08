@@ -43,7 +43,7 @@ func _connect() -> void:
 	if _hud == null:
 		return
 	_hud.economy_pressed.connect(open_panel)
-	var panel: EconomyPanel = _hud.economy_panel()
+	var panel: EconomyPanel = _hud.panels.economy_panel
 	panel.trade_requested.connect(_on_trade)
 	panel.production_changed.connect(_on_production)
 	panel.recruit_requested.connect(_on_recruit)
@@ -114,14 +114,14 @@ func summary_line(report: Dictionary) -> String:
 
 func open_panel() -> void:
 	if _hud != null:
-		_hud.show_economy(economy, market, projected())
+		_hud.panels.show_economy(economy, market, projected())
 
 
 func _refresh_panel() -> void:
 	if _hud == null:
 		return
-	if _hud.is_economy_open():
-		_hud.show_economy(economy, market, projected())
+	if _hud.panels.is_economy_open():
+		_hud.panels.show_economy(economy, market, projected())
 	_hud.set_treasury(economy.treasury)
 	treasury_changed.emit(economy.treasury)
 

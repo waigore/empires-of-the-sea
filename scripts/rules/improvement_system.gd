@@ -58,10 +58,10 @@ static func connected_tiles(
 				var next_index: int = model.index_of(next.x, next.y)
 				if owned.has(next_index):
 					connected[next_index] = true
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != owner:
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
 			continue
-		var town: Vector2i = town_tile(model, works, int(province["id"]), capital_tile)
+		var town: Vector2i = town_tile(model, works, province.id, capital_tile)
 		if town.x < 0 or not connected.has(model.index_of(town.x, town.y)):
 			continue
 		for offset: Vector2i in NEIGHBORS:
@@ -125,10 +125,10 @@ static func short_inputs(cost: Dictionary, stockpile: Dictionary) -> Dictionary:
 
 static func _owned_indices(model: MapModel, owner: int) -> Dictionary:
 	var owned: Dictionary = {}
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != owner:
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
 			continue
-		for tile: Vector2i in province.get("tiles", []):
+		for tile: Vector2i in province.tiles:
 			owned[model.index_of(tile.x, tile.y)] = true
 	return owned
 

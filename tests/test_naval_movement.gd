@@ -128,7 +128,7 @@ func test_port_fleet_cannot_move_to_another_port() -> void:
 
 
 func test_province_without_a_harbour_cannot_be_entered() -> void:
-	_model.provinces[0]["port_tile"] = Vector2i(-1, -1)
+	_model.provinces[0].port_tile = Vector2i(-1, -1)
 	var fleet := FleetState.at_sea(1, 0, 0)
 	assert_false(NavalMovement.has_harbour(_model, 0))
 	assert_eq(NavalMovement.dockable_provinces(_model, fleet), [])

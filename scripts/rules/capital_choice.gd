@@ -60,13 +60,13 @@ static func place_capital(
 		ports = layout["ports"]
 		road_paths = layout["road_paths"]
 
-	var province: Dictionary = model.province_data(province_id)
-	province["capital"] = true
-	province["capital_tile"] = tile
-	province["ports"] = ports
-	province["road_paths"] = road_paths
+	var province: ProvinceState = model.get_province(province_id)
+	province.capital = true
+	province.capital_tile = tile
+	province.ports = ports
+	province.road_paths = road_paths
 	if kind == KIND_GREAT_POWER:
-		province["town_development"] = CAPITAL_TOWN_DEVELOPMENT
+		province.town_development = CAPITAL_TOWN_DEVELOPMENT
 	return {
 		"ok": true,
 		"error": "",
@@ -107,9 +107,9 @@ static func pick_province(
 
 static func owned_provinces(model: MapModel, faction_id: int) -> Array[int]:
 	var owned: Array[int] = []
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == faction_id:
-			owned.append(int(province["id"]))
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction_id:
+			owned.append(province.id)
 	owned.sort()
 	return owned
 
@@ -218,11 +218,9 @@ static func _convert_to_plains(
 	var converted: bool = model.terrain[index] != MapModel.Terrain.PLAINS
 	model.terrain[index] = MapModel.Terrain.PLAINS
 	model.resource[index] = MapModel.NO_ID
-	var province: Dictionary = model.province_data(province_id)
-	if province.has("resource_tile"):
-		if Vector2i(province["resource_tile"]) == tile:
-			province.erase("resource_tile")
-			province["resource"] = MapModel.NO_ID
+	var province: ProvinceState = model.get_province(province_id)
+	if province != null:
+		province.clear_resource_tile_if(tile)
 	return converted
 
 
@@ -332,14 +330,14 @@ static func _path_to_capital(
 
 
 static func _clear_faction_capitals(model: MapModel, faction_id: int) -> void:
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) != faction_id:
+	for province: ProvinceState in model.provinces:
+		if province.owner != faction_id:
 			continue
-		province["capital"] = false
-		province["capital_tile"] = NO_TILE
-		province["ports"] = {}
-		province["road_paths"] = []
-		province["town_development"] = 0
+		province.capital = false
+		province.capital_tile = NO_TILE
+		province.ports = {}
+		province.road_paths = []
+		province.town_development = 0
 
 
 static func _failure(code: String) -> Dictionary:

@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal action_pressed(action: String)
 signal close_pressed
+signal dock_side_pressed
 
 var _name_label: Label = null
 var _owner_label: Label = null
@@ -18,6 +19,7 @@ var _capital_value: Label = null
 var _road_value: Label = null
 var _capital_badge: Label = null
 var _training_box: VBoxContainer = null
+var _dock: Button = null
 
 
 func _ready() -> void:
@@ -144,9 +146,27 @@ func _build() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	shell.add_child(footer)
+
+	_dock = _make_button("◀ Dock")
+	_dock.tooltip_text = "Dock left"
+	_dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	footer.add_child(_dock)
+
 	var close := _make_button("Close")
+	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close.pressed.connect(func() -> void: close_pressed.emit())
-	shell.add_child(close)
+	footer.add_child(close)
+
+
+func set_dock_affordance(glyph: String, tip: String) -> void:
+	if _dock == null:
+		return
+	_dock.text = "%s Dock" % glyph
+	_dock.tooltip_text = tip
 
 
 func set_training_visible(visible: bool) -> void:
@@ -154,16 +174,16 @@ func set_training_visible(visible: bool) -> void:
 
 
 func refresh(model: MapModel, province_id: int) -> void:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
 		return
-	_name_label.text = String(data["name"])
-	_capital_badge.visible = bool(data["capital"])
-	var owner: int = int(data["owner"])
+	_name_label.text = data.name
+	_capital_badge.visible = data.capital
+	var owner: int = data.owner
 	_owner_swatch.color = Palette.faction_color(owner)
 	_owner_label.text = _owner_caption(owner)
 	_terrain_value.text = _dominant_terrain(model, province_id)
-	var resource: int = int(data["resource"])
+	var resource: int = data.resource
 	if resource >= 0:
 		var info: Dictionary = MapGenerator.resource_info(resource)
 		_resource_icon.kind = String(info.get("icon", "ore"))
@@ -173,20 +193,20 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_resource_icon.kind = "ore"
 		_resource_icon.queue_redraw()
 		_resource_value.text = "None surveyed"
-	_population_value.text = "%s souls" % _thousands(int(data["population"]))
-	var port: Vector2i = data["port_tile"]
+	_population_value.text = "%s souls" % _thousands(data.population)
+	var port: Vector2i = data.port_tile
 	if port.x >= 0:
 		var zone: int = model.sea_zone_at(port.x, port.y)
 		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
 	else:
 		_port_value.text = "Landlocked"
-	var seat: Vector2i = Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	var seat: Vector2i = data.capital_tile
 	if seat.x >= 0:
 		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
 	else:
 		_capital_value.text = "—"
 	var road_tiles: int = 0
-	for path: Array in data.get("road_paths", []):
+	for path: Array in data.road_paths:
 		road_tiles += path.size()
 	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
 

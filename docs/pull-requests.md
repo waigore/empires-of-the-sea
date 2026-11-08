@@ -27,7 +27,7 @@ Base rules for opening and landing PRs (humans and agents).
 
 `tests` / `build` / `e2e-smoke` on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
 
-Smoke: main mini-flow; **aim ≤2 min**; deep rules in `tests/`. Timeout 3 min. Add `docs-lint`, `arch-lint`, `build`, `e2e-smoke` to Protect main (admin). Merge: **squash only**; delete branches; auto-merge on.
+Budgets ([testing.md](testing.md)): `tests` **≤5 min** (`--parallel 4`, 80% coverage); `e2e-smoke` **≤2 min**. Deep rules in `tests/`. Protect main needs `docs-lint`, `arch-lint`, `build`, `e2e-smoke`. Merge: **squash only**; delete branches; auto-merge on.
 
 ### Respecting checks
 

@@ -6,6 +6,7 @@ extends PanelContainer
 signal action_pressed(action: String)
 signal cancel_pressed
 signal close_pressed
+signal dock_side_pressed
 
 var _title: Label = null
 var _subtitle: Label = null
@@ -14,6 +15,7 @@ var _detail: GridContainer = null
 var _orders: VBoxContainer = null
 var _cancel: Button = null
 var _stock_line: Label = null
+var _dock: Button = null
 
 
 func _ready() -> void:
@@ -87,9 +89,22 @@ func _build() -> void:
 	_cancel.pressed.connect(func() -> void: cancel_pressed.emit())
 	footer.add_child(_cancel)
 
+	_dock = _make_button("◀")
+	_dock.tooltip_text = "Dock left"
+	_dock.custom_minimum_size = Vector2(48, 0)
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	footer.add_child(_dock)
+
 	var close := _make_button("Close")
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	footer.add_child(close)
+
+
+func set_dock_affordance(glyph: String, tip: String) -> void:
+	if _dock == null:
+		return
+	_dock.text = glyph
+	_dock.tooltip_text = tip
 
 
 func refresh(
