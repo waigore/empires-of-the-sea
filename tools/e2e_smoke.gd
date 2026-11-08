@@ -52,6 +52,21 @@ func _run() -> void:
 		"civilians muster at the capital"
 	)
 
+	var cues_before: int = 0
+	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
+	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
+	_check(audio != null, "audio director present")
+	_check(controls != null, "sound seal present")
+	if audio != null:
+		_check(audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing")
+		_check(audio._ambience.playing, "sea ambience playing")
+		cues_before = audio.sfx_played
+		_check(audio.play_event(AudioEvents.UI_CLICK), "ui cue fires")
+		_check(audio.sfx_played == cues_before + 1, "ui cue counted")
+		audio.set_muted(true)
+		_check(audio._active_player().volume_db == AudioDirector.SILENT_DB, "mute silences music")
+		audio.set_muted(false)
+
 	var province_id: int = _inland_province(screen)
 	_check(province_id >= 0, "inland province available")
 	if province_id >= 0:
@@ -95,6 +110,15 @@ func _run() -> void:
 		_check(
 			screen.land_works.improvement_at(screen.model, work_tile) == 1,
 			"civilian work completes on end turn"
+		)
+	if audio != null:
+		_check(audio.sfx_played >= cues_before + 3, "turn cues fired")
+		# A contested zone resolves on turn one, which legitimately hands the
+		# score to the battle bed; either bed is fine, silence is not.
+		var bed: String = audio.current_track_id()
+		_check(
+			bed == MusicPlaylist.AGE_OF_DISCOVERY or bed == MusicPlaylist.BROADSIDES,
+			"music keeps a bed after the turn (%s)" % bed
 		)
 
 	_finish()

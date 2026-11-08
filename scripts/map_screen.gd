@@ -2,6 +2,13 @@ class_name MapScreen
 extends Node2D
 ## Map screen controller: builds the world, wires camera + HUD, and turns input
 ## into intents. Presentation only — no rule outcomes are decided here.
+## Presentation moments are broadcast as signals; audio/motion listen (REQ-P3-02).
+
+signal province_selected(province_id: int)
+signal selection_cleared
+signal coast_charted(province_id: int)
+signal battle_resolved(battles: Array[Dictionary])
+signal turn_ended(turn: int)
 
 const TILE_SIZE: float = 22.0
 const MAP_SEED: int = 1500
@@ -206,11 +213,13 @@ func _select_province(province_id: int, world_position: Vector2) -> void:
 	overlay.select_province(province_id, world_position)
 	hud.show_province(model, province_id)
 	hud.set_civilian_training(province_id == capital_province)
+	province_selected.emit(province_id)
 
 
 func _deselect() -> void:
 	selected_province = -1
 	overlay.select_province(-1)
+	selection_cleared.emit()
 	ship_layer.deselect()
 	civilian_layer.deselect()
 	overlay.clear_move_options()
@@ -460,6 +469,7 @@ func _announce_charted_coast(changed: Array) -> void:
 			continue
 		_charted_provinces[province_id] = true
 		hud.toast("The coast of %s is charted" % model.province_name(province_id))
+		coast_charted.emit(province_id)
 		return
 
 
@@ -502,6 +512,7 @@ func _on_end_turn() -> void:
 			_refresh_fleet_options(fleet)
 	if civilian_layer.selected_unit != null:
 		_refresh_civilian_panel()
+	turn_ended.emit(turn)
 
 
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
@@ -513,23 +524,10 @@ func _resolve_naval_combat() -> void:
 		return
 	ship_layer.prune_destroyed()
 	for battle: Dictionary in battles:
-		hud.toast(_battle_report(battle))
+		var zone: String = model.sea_zone_name(int(battle["zone"]))
+		hud.toast(BattleReport.describe(battle, zone, MapGenerator.FACTION_NAMES))
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
-
-
-func _battle_report(battle: Dictionary) -> String:
-	var zone: String = model.sea_zone_name(int(battle["zone"]))
-	var attacker: String = MapGenerator.FACTION_NAMES[int(battle["attacker"])]
-	var defender: String = MapGenerator.FACTION_NAMES[int(battle["defender"])]
-	var sunk: int = 0
-	match int(battle["outcome"]):
-		NavalCombat.Outcome.SIDE1_VICTORY:
-			sunk = int((battle["defender_lost"] as Array).size())
-			return "%s holds the %s — %s loses %d ships" % [attacker, zone, defender, sunk]
-		NavalCombat.Outcome.SIDE2_VICTORY:
-			sunk = int((battle["attacker_lost"] as Array).size())
-			return "%s repels %s in the %s — %d ships lost" % [defender, attacker, zone, sunk]
-	return "%s and %s trade broadsides in the %s and withdraw" % [attacker, defender, zone]
+	battle_resolved.emit(battles)
 
 
 ## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at
