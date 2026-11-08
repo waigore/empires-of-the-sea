@@ -141,8 +141,15 @@ static func modifiers(
 		multiplier *= terrain_multiplier(terrain_for(model, province))
 	var unlocked: Dictionary = tech.get(owner, {}) as Dictionary
 	var nationalism: bool = bool(unlocked.get("nationalism", false))
+	var fort: int = FortRules.level_at(model, province)
 	return {
 		"medals": clampi(medals, 0, GeneralRoster.MAX_MEDALS),
 		"limit": deployment_limit(medals, nationalism),
 		"multiplier": multiplier,
+		"fort": fort,
+		## Sides read one key each: walls spend the attacker's strength, the
+		## battery adds defending strength, the wall shrinks their losses.
+		"wall_hp": 0.0 if is_defender else FortRules.wall_hp(fort),
+		"emplaced": FortRules.emplaced_strength(fort, unlocked) if is_defender else 0.0,
+		"loss_scale": FortRules.loss_scale(fort) if is_defender else 1.0,
 	}
