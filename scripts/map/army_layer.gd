@@ -190,8 +190,8 @@ func army_at(world_position: Vector2) -> ArmyState:
 
 
 ## Applies a march through the rules, then animates the standard.
-func order(army: ArmyState, province_id: int) -> Dictionary:
-	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id)
+func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary:
+	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id, at_war)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: ArmyMarker = marker_for(army)
@@ -255,7 +255,7 @@ func begin_turn() -> void:
 
 ## Resolves land battles in every region: a battle must not wait for the player
 ## to open that map (wiki: map-topology § two regions).
-func resolve_battles(world: WorldMap) -> Array[Dictionary]:
+func resolve_battles(world: WorldMap, hostile: Callable = Callable()) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	for index in world.region_count():
 		var region_armies: Array[ArmyState] = []
@@ -266,7 +266,7 @@ func resolve_battles(world: WorldMap) -> Array[Dictionary]:
 		if region_armies.is_empty():
 			continue
 		var battles: Array[Dictionary] = ArmyCombat.resolve_turn(
-			world.region(index), region_armies
+			world.region(index), region_armies, hostile
 		)
 		if battles.is_empty():
 			continue

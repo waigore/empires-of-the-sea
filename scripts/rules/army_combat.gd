@@ -42,14 +42,22 @@ static func contested_provinces(model: MapModel, armies: Array[ArmyState]) -> Ar
 
 
 ## Resolves every contested province, mutating armies and province ownership.
-static func resolve_turn(model: MapModel, armies: Array[ArmyState]) -> Array[Dictionary]:
+## `hostile(a, b)` says whether faction a may fight faction b; an invalid callable
+## treats every faction as hostile (fixtures), while the map passes the court's
+## war state so peace never spills blood (wiki: diplomacy § War required).
+static func resolve_turn(
+	model: MapModel, armies: Array[ArmyState], hostile: Callable = Callable()
+) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	if model == null:
 		return reports
 	ArmyState.prune(armies)
 	for province: int in contested_provinces(model, armies):
 		var defender: int = model.province_owner(province)
-		var attackers: Array[int] = ordered_attackers(armies, province, defender)
+		var attackers: Array[int] = []
+		for attacker: int in ordered_attackers(armies, province, defender):
+			if _hostile(hostile, attacker, defender):
+				attackers.append(attacker)
 		if attackers.is_empty():
 			continue
 		var defending: Array[ArmyState] = armies_of(armies, province, defender)
@@ -278,6 +286,14 @@ static func has_third_party(
 			continue
 		return true
 	return false
+
+
+## Whether two factions may fight. An unset callable keeps the legacy
+## every-faction-hostile fixture behaviour.
+static func _hostile(hostile: Callable, attacker: int, defender: int) -> bool:
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(attacker, defender))
 
 
 static func band_for(ratio: float) -> Dictionary:

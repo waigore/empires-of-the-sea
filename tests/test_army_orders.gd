@@ -131,6 +131,9 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	var target: int = _adjacent_enemy_province(home.province)
 	assert_gt(target, -1)
 	var tile: Vector2i = _screen.model.province_data(target).tiles[0]
+	var owner: int = _screen.model.province_owner(target)
+	_screen.play.diplomacy.ensure_relation(0, owner, _screen.play.diplomacy.turn)
+	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
 
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(field.province, target)

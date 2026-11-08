@@ -52,11 +52,26 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 		return false
 	if not ArmyMovement.destinations(play.model, army).has(province_id):
 		return false
-	var result: Dictionary = play.army_layer.order(army, province_id)
+	var result: Dictionary = play.army_layer.order(army, province_id, may_invade(play, province_id))
 	if bool(result.get("ok", false)):
 		return true
 	play.hud.toast(String(result.get("reason", "")))
 	return true
+
+
+## Invading foreign land needs war with its owner; unowned land is not an attack
+## (wiki: diplomacy § War required for hostile actions).
+static func may_invade(play: PlaySession, province_id: int) -> bool:
+	var owner: int = play.model.province_owner(province_id)
+	if owner == MapModel.NO_ID or owner == PLAYER:
+		return true
+	return DiplomacyRules.at_war_with(play.diplomacy, PLAYER, owner)
+
+
+## Battles only happen between factions at war.
+static func hostile(play: PlaySession) -> Callable:
+	return func(a: int, b: int) -> bool:
+		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
@@ -123,7 +138,7 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands.
 static func resolve_battles(play: PlaySession) -> void:
-	var battles: Array[Dictionary] = play.army_layer.resolve_battles(play.world)
+	var battles: Array[Dictionary] = play.army_layer.resolve_battles(play.world, hostile(play))
 	if battles.is_empty():
 		return
 	var repaint: bool = false

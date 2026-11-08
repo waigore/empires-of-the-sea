@@ -68,6 +68,23 @@ func test_neutral_or_enemy_land_far_away_is_refused() -> void:
 	assert_true(bool(ArmyMovement.can_move(_model, army, 2)["ok"]))
 
 
+func test_foreign_land_needs_war_but_wilderness_does_not() -> void:
+	var army := Fixture.army(1, 0, 0, ["pikemen"])
+	var refused: Dictionary = ArmyMovement.can_move(_model, army, 2, false)
+	assert_false(bool(refused["ok"]), "province 2 belongs to faction 1")
+	assert_true(String(refused["reason"]).contains("declare war"))
+	assert_true(bool(ArmyMovement.can_move(_model, army, 2, true)["ok"]))
+	var colonist := Fixture.army(2, 0, 1, ["pikemen"])
+	assert_true(
+		bool(ArmyMovement.can_move(_model, colonist, 3, false)["ok"]),
+		"unowned wilderness beside the colony is not an invasion"
+	)
+	var march: Dictionary = ArmyMovement.apply_move(_model, army, 2, false)
+	assert_false(bool(march["ok"]))
+	assert_eq(army.province, 0)
+	assert_false(army.moved)
+
+
 func test_invalid_and_current_provinces_are_refused() -> void:
 	var army := Fixture.army(1, 0, 0, ["pikemen"])
 	assert_false(bool(ArmyMovement.can_move(_model, army, 0)["ok"]))
