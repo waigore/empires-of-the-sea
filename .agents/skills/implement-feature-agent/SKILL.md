@@ -27,6 +27,7 @@ One focused feature per run. Deliverable: an open PR on a branch. Do not merge, 
 | [`docs/rubric.md`](../../../docs/rubric.md) | Pass bar / `RUB-*` |
 | [`AGENTS.md`](../../../AGENTS.md) | Stack, layout, conventions |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
+| [`references/e2e-smoke.md`](references/e2e-smoke.md) | Extend smoke; keep ≤2 min |
 
 Reuse existing modules and patterns. Prefer smallest change that keeps desktop + mobile playable.
 
@@ -74,6 +75,8 @@ Run the narrowest local proof that covers the change, typically:
 gd-tools test --coverage --min 80
 python tools/lint_docs_words.py
 ```
+
+Extend or adjust `tools/e2e_smoke.gd` when the feature has a main-scene / player path the mini-flow can hit — keep it fast (aim ≤2 min); see [references/e2e-smoke.md](references/e2e-smoke.md).
 
 Fix failures before scoring. Do not weaken CI gates.
 
