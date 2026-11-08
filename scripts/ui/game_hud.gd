@@ -14,6 +14,7 @@ signal civilian_action(action: String)
 signal civilian_cancel
 signal civilian_closed
 signal economy_pressed
+signal research_pressed
 signal region_toggle_pressed
 
 const PANEL_WIDTH: float = 360.0
@@ -43,6 +44,8 @@ var _end_turn_button: Button = null
 var _glow: Panel = null
 var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
+var _research_wrap: Control = null
+var _research_panel: ResearchPanel = null
 var _treasury_value: int = 0
 
 

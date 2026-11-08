@@ -24,7 +24,14 @@ const START_CIVILIAN_WORKS: Dictionary = {
 var treasury: int = 0
 var stockpile: Dictionary = {}
 var workers: WorkerPool = WorkerPool.new()
-var tech_unlocked: Dictionary = {}
+## Slots, funding and progress for the Research phase (wiki: research-state).
+var research: ResearchState = ResearchState.new()
+## Researched techs; the research state owns the table so there is one truth.
+var tech_unlocked: Dictionary:
+	get:
+		return research.unlocked
+	set(value):
+		research.unlocked = value
 var _assignments: Array[Dictionary] = []
 
 
@@ -32,6 +39,7 @@ static func starting() -> PlayerEconomy:
 	var econ := PlayerEconomy.new()
 	econ.treasury = START_TREASURY
 	econ.workers = WorkerPool.make(START_PEASANTS)
+	econ.research = ResearchState.make()
 	econ.stockpile = {
 		"grain": START_PEASANTS * START_GRAIN_TURNS,
 		"lumber": START_WORKS_LUMBER,
@@ -181,6 +189,6 @@ func copy() -> PlayerEconomy:
 	clone.treasury = treasury
 	clone.stockpile = stockpile.duplicate()
 	clone.workers = workers.copy()
-	clone.tech_unlocked = tech_unlocked.duplicate()
+	clone.research = research.copy()
 	clone._assignments = _assignments.duplicate(true)
 	return clone
