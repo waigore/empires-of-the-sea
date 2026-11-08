@@ -10,6 +10,9 @@ const SHIP_COUNT: int = 7
 
 var model: MapModel = null
 var visibility: VisibilityModel = null
+var map_seed: int = MAP_SEED
+var map_width: int = 128
+var map_height: int = 84
 var turn: int = 1
 var treasury: int = 1240
 var prestige: int = 38
@@ -32,7 +35,7 @@ var _charted_provinces: Dictionary = {}
 
 func _ready() -> void:
 	InputActions.ensure_actions()
-	model = MapGenerator.new().generate(MAP_SEED)
+	model = MapGenerator.new().generate(map_seed, map_width, map_height)
 	_build_world()
 	_build_hud()
 	_connect()
@@ -50,6 +53,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(InputActions.FOCUS_CAPITAL):
 		_focus_capital()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.CANCEL):
+		_deselect()
+		get_viewport().set_input_as_handled()
 
 
 # --- setup ------------------------------------------------------------------
@@ -66,12 +72,13 @@ func _build_world() -> void:
 		)
 	canvas.build(model)
 	overlay.build(model)
-	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3)
-	camera.configure(map_size)
 	capital_province = _find_capital()
 	capital_tile = _capital_tile(capital_province)
+	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3, capital_province)
+	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
+	_refresh_fleet_visibility()
 
 
 func _build_hud() -> void:
@@ -93,7 +100,9 @@ func _connect() -> void:
 	hud.panel_action.connect(_on_panel_action)
 	hud.panel_closed.connect(_deselect)
 	ship_layer.zone_entered.connect(_on_zone_entered)
-	ship_layer.ship_selected.connect(_on_ship_selected)
+	ship_layer.ship_selected.connect(_select_fleet)
+	ship_layer.fleet_moved.connect(_on_fleet_moved)
+	hud.fleet_closed.connect(_deselect)
 
 
 func _intro() -> void:
@@ -152,6 +161,8 @@ func _on_tapped(world_position: Vector2) -> void:
 	var tile: Vector2i = model.tile_at_world(world_position, TILE_SIZE)
 	if not model.in_bounds(tile.x, tile.y):
 		return
+	if ship_layer.selected_ship != null and _try_fleet_order(tile):
+		return
 	var province_id: int = model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
 		_deselect()
@@ -160,6 +171,9 @@ func _on_tapped(world_position: Vector2) -> void:
 
 
 func _select_province(province_id: int, world_position: Vector2) -> void:
+	ship_layer.deselect()
+	overlay.clear_move_options()
+	hud.hide_fleet()
 	selected_province = province_id
 	overlay.select_province(province_id, world_position)
 	hud.show_province(model, province_id)
@@ -168,17 +182,90 @@ func _select_province(province_id: int, world_position: Vector2) -> void:
 func _deselect() -> void:
 	selected_province = -1
 	overlay.select_province(-1)
+	ship_layer.deselect()
+	overlay.clear_move_options()
 	hud.hide_province()
+	hud.hide_fleet()
 
 
-func _on_ship_selected(ship: Ship) -> void:
+# --- fleets -----------------------------------------------------------------
+
+
+func _select_fleet(ship: Ship) -> void:
 	if ship == null:
 		return
-	_deselect()
-	hud.toast(
-		"Fleet of %s — patrolling the %s"
-		% [MapGenerator.FACTION_NAMES[ship.faction], model.sea_zone_name(ship.zone)]
+	var fleet: FleetState = ship_layer.fleet_of(ship)
+	if fleet == null:
+		return
+	selected_province = -1
+	overlay.select_province(-1)
+	hud.hide_province()
+	hud.show_fleet(model, fleet, fleet.owner == PLAYER_FACTION)
+	_refresh_fleet_options(fleet)
+	if fleet.owner != PLAYER_FACTION:
+		hud.toast("Fleet of %s — observe only" % MapGenerator.FACTION_NAMES[fleet.owner])
+
+
+func _refresh_fleet_options(fleet: FleetState) -> void:
+	overlay.clear_move_options()
+	if fleet == null or fleet.owner != PLAYER_FACTION or fleet.moved:
+		return
+	var options: Dictionary = NavalMovement.valid_destinations(model, fleet)
+	var zones: Array[int] = []
+	for zone: int in options.get("sea_zones", []):
+		zones.append(zone)
+	var provinces: Array[int] = []
+	for province: int in options.get("provinces", []):
+		provinces.append(province)
+	overlay.show_move_options(zones, provinces)
+
+
+func _try_fleet_order(tile: Vector2i) -> bool:
+	var fleet: FleetState = ship_layer.fleet_of(ship_layer.selected_ship)
+	if fleet == null or fleet.owner != PLAYER_FACTION:
+		return false
+	var zone_id: int = model.sea_zone_at(tile.x, tile.y)
+	if zone_id != MapModel.NO_ID:
+		return _try_sea_order(fleet, zone_id)
+	var province_id: int = model.province_at(tile.x, tile.y)
+	if province_id == MapModel.NO_ID:
+		return false
+	if not NavalMovement.dockable_provinces(model, fleet).has(province_id):
+		return false
+	var port_result: Dictionary = ship_layer.order(
+		fleet, FleetState.Location.IN_PORT, province_id
 	)
+	if bool(port_result.get("ok", false)):
+		return true
+	hud.toast(String(port_result.get("reason", "")))
+	return true
+
+
+func _try_sea_order(fleet: FleetState, zone_id: int) -> bool:
+	if fleet.moved:
+		hud.toast("This fleet has already moved this turn.")
+		return true
+	if zone_id == fleet.sea_zone:
+		hud.toast("The fleet is already in the %s" % model.sea_zone_name(zone_id))
+		return true
+	var result: Dictionary = ship_layer.order(fleet, FleetState.Location.AT_SEA, zone_id)
+	if bool(result.get("ok", false)):
+		return true
+	hud.toast(String(result.get("reason", "")))
+	return true
+
+
+func _on_fleet_moved(fleet: FleetState, result: Dictionary) -> void:
+	if fleet.owner != PLAYER_FACTION:
+		return
+	hud.show_fleet(model, fleet, true)
+	_refresh_fleet_options(fleet)
+	var zone: int = int(result.get("entered_zone", -1))
+	if zone >= 0:
+		hud.toast("The fleet enters the %s" % model.sea_zone_name(zone))
+	else:
+		hud.toast("The fleet docks at %s" % model.province_name(fleet.province))
+	_refresh_fleet_visibility()
 
 
 func _on_minimap_jump(world_position: Vector2) -> void:
@@ -199,6 +286,7 @@ func _on_zone_entered(zone_id: int, ship: Ship) -> void:
 	if not changed.is_empty():
 		overlay.sync_visibility(visibility, changed)
 	_announce_charted_coast(changed)
+	_refresh_fleet_visibility()
 
 
 ## First sighting of a province's coast earns a quiet note, once per province.
@@ -232,6 +320,8 @@ func _on_panel_action(action: String) -> void:
 
 func _on_end_turn() -> void:
 	_resolve_visibility()
+	ship_layer.begin_turn()
+	_refresh_fleet_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
 	treasury += income
@@ -241,6 +331,12 @@ func _on_end_turn() -> void:
 	hud.set_prestige(prestige)
 	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
+	var selected: Ship = ship_layer.selected_ship
+	if selected != null:
+		var fleet: FleetState = ship_layer.fleet_of(selected)
+		if fleet != null:
+			hud.show_fleet(model, fleet, fleet.owner == PLAYER_FACTION)
+			_refresh_fleet_options(fleet)
 
 
 ## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at
@@ -276,6 +372,37 @@ func _capital_tile(province_id: int) -> Vector2i:
 	if data.is_empty():
 		return CapitalChoice.NO_TILE
 	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+
+
+## Enemy markers follow fog intel: a fleet is only drawn while its tile is
+## fully visible for the player (wiki: fog-and-exploration).
+func _refresh_fleet_visibility() -> void:
+	for ship: Ship in ship_layer.ships:
+		var fleet: FleetState = ship_layer.fleet_of(ship)
+		if fleet == null:
+			continue
+		ship.visible = _fleet_known(fleet)
+
+
+func _fleet_known(fleet: FleetState) -> bool:
+	if fleet.owner == PLAYER_FACTION or visibility == null:
+		return true
+	var tile: Vector2i = _fleet_tile(fleet)
+	if tile.x < 0:
+		return true
+	return visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
+
+
+func _fleet_tile(fleet: FleetState) -> Vector2i:
+	if fleet.is_at_sea():
+		var zone: Dictionary = model.sea_zone_data(fleet.sea_zone)
+		var tiles: Array = zone.get("tiles", [])
+		if tiles.is_empty():
+			return Vector2i(-1, -1)
+		return tiles[0]
+	var data: Dictionary = model.province_data(fleet.province)
+	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+	return port
 
 
 func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:

@@ -25,6 +25,7 @@ F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique a
 | Zoom | wheel, pinch, `+` / `−`, E / Q | pinch, `+` / `−` |
 | Jump | click minimap | tap / drag minimap |
 | Select | click province or fleet | tap |
+| Sail / dock | select a fleet, click a highlighted zone or friendly port | tap the same highlights |
 | Focus capital | `F` | — |
 | End turn | `Space` / `Enter` or gold seal | gold seal |
 

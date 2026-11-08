@@ -28,12 +28,14 @@ scripts/map/map_canvas.gd   static artwork
 scripts/map/map_overlay.gd  fog, hover, selection
 scripts/map/map_camera.gd   pan / zoom / inertia / clamp
 scripts/map/camera_math.gd  pure camera maths (tested)
-scripts/map/ship_layer.gd   fleets + routes
+scripts/map/ship_layer.gd   fleets, orders, sail animation
 scripts/map/ink_paths.gd    ink line smoothing
 scripts/rules/turn_time.gd  turn → calendar year
 scripts/rules/visibility.gd per-player fog of war (tested)
 scripts/rules/capital_choice.gd  capital-choice phase (tested)
-scripts/ui/*                HUD, dossier, minimap, theme
+scripts/rules/fleet_state.gd     fleet location + move budget
+scripts/rules/naval_movement.gd  movement/docking rules (tested)
+scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
 ui/shaders/*                sea, fog, grain, vignette
 ```
 
@@ -53,6 +55,8 @@ ui/shaders/*                sea, fog, grain, vignette
 | Fog reveal | `MapOverlay` |
 | Selection pulse / ripple | `MapOverlay` |
 | Fleet bob / wake / pennant | `scripts/map/ship.gd` |
+| Fleet sail glide / dock anchor | `ShipLayer`, `Ship` |
+| Destination highlights | `MapOverlay` |
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
 | HUD slides, counts, toasts | `GameHud` |
 
@@ -60,4 +64,7 @@ Build ~0.55 s (128×84). Steady state: static canvas once; overlay + ships per f
 
 ## Known limits
 
-Capitals follow the capital-choice rule (sea-bound province, ports, roads). Orders are toasts only. Old World only. No explorers, spies, prospecting, save/load, AI, or combat.
+Capitals follow the capital-choice rule (sea-bound province, ports, roads).
+Province orders are toasts. Fleet movement, docking and ship reveal are
+rules-backed ([`fleets.md`](fleets.md)); missions, home-fleet merge and combat
+are deferred. Old World only. No explorers, spies, prospecting, save/load or AI.
