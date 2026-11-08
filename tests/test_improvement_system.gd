@@ -166,6 +166,26 @@ func test_upgrades_above_the_tech_cap_are_refused() -> void:
 	assert_eq(int(row["output"]), 1)
 
 
+func test_researched_techs_let_build_orders_pass_the_cap() -> void:
+	_works.set_transport(_model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
+	_works.set_improvement(_model, Fixture.TIMBER_TILE, 1)
+	var builder := Fixture.unit("builder", Fixture.BARE_TILE)
+	builder.id = 1
+	_units.append(builder)
+	var refused: Dictionary = ImprovementOrders.build(
+		_model, _units, _works, _stock, null, 0, Fixture.TIMBER_TILE
+	)
+	assert_false(bool(refused["ok"]))
+	assert_true(String(refused["message"]).contains("tech"))
+	var caps: Dictionary = TechCatalog.extraction_caps({"saw_mill": true})
+	assert_eq(int(caps["timber"]), 2)
+	var allowed: Dictionary = ImprovementOrders.build(
+		_model, _units, _works, _stock, null, 0, Fixture.TIMBER_TILE, caps
+	)
+	assert_true(bool(allowed["ok"]), String(allowed.get("message", "")))
+	assert_true(builder.is_working())
+
+
 func test_ledger_surfaces_an_active_build_and_cancel() -> void:
 	var builder := Fixture.unit("builder", Fixture.TIMBER_TILE)
 	builder.id = 1

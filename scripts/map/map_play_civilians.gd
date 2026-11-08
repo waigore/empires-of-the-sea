@@ -15,7 +15,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility
+		play.stockpile(), play.visibility, play.tech_caps()
 	)
 	if unit.owner == PlaySession.PLAYER_FACTION:
 		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
@@ -57,7 +57,7 @@ static func on_action(play: PlaySession, action: String) -> void:
 		return
 	var result: Dictionary = CivilianWork.assign(
 		play.model, unit, action, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility
+		play.stockpile(), play.visibility, CivilianState.NO_TILE, play.tech_caps()
 	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
@@ -83,7 +83,7 @@ static func refresh_panel(play: PlaySession) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility
+		play.stockpile(), play.visibility, play.tech_caps()
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))

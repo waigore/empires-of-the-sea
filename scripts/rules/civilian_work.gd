@@ -104,13 +104,17 @@ static func options(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	tech_caps: Dictionary = {}
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if unit == null:
 		return result
 	for action: String in CivilianCatalog.works(unit.type_id):
-		var check: Dictionary = validate(model, unit, action, works, units, stockpile, visibility)
+		var check: Dictionary = validate(
+			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
+			tech_caps
+		)
 		var cost: Dictionary = cost_for(action, works.improvement_at(model, unit.tile) + 1)
 		result.append({
 			"action": action,
@@ -132,7 +136,8 @@ static func validate(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
-	target_tile: Vector2i = CivilianState.NO_TILE
+	target_tile: Vector2i = CivilianState.NO_TILE,
+	tech_caps: Dictionary = {}
 ) -> Dictionary:
 	if model == null or unit == null:
 		return _no("No civilian selected")
@@ -149,7 +154,7 @@ static func validate(
 	if province == MapModel.NO_ID:
 		return _no("This tile belongs to no province.")
 	var check: Dictionary = _check_action(
-		model, unit, action, tile, province, works, units, visibility
+		model, unit, action, tile, province, works, units, visibility, tech_caps
 	)
 	if not bool(check.get("ok", false)):
 		return check
@@ -177,10 +182,11 @@ static func assign(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
-	target_tile: Vector2i = CivilianState.NO_TILE
+	target_tile: Vector2i = CivilianState.NO_TILE,
+	tech_caps: Dictionary = {}
 ) -> Dictionary:
 	var check: Dictionary = validate(
-		model, unit, action, works, units, stockpile, visibility, target_tile
+		model, unit, action, works, units, stockpile, visibility, target_tile, tech_caps
 	)
 	if not bool(check.get("ok", false)):
 		return check
@@ -235,7 +241,8 @@ static func _check_action(
 	province: int,
 	works: LandWorks,
 	units: Array[CivilianState],
-	visibility: VisibilityModel
+	visibility: VisibilityModel,
+	tech_caps: Dictionary = {}
 ) -> Dictionary:
 	match action:
 		"explore":
@@ -264,7 +271,7 @@ static func _check_action(
 			):
 				return _no("An Explorer must prospect this tile before a mine can rise.")
 			var commodity: String = ImprovementCatalog.commodity(resource)
-			var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity)
+			var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity, tech_caps)
 			if works.improvement_at(model, tile) + 1 > tech_cap:
 				return _no(
 					"Requires %s extraction tech (cap %d) to raise this estate."

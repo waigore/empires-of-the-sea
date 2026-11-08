@@ -58,6 +58,11 @@ func set_data(
 	tech_caps = p_tech_caps
 
 
+## Research can lift a cap mid-turn; the screen pushes the new table in.
+func set_tech_caps(p_tech_caps: Dictionary) -> void:
+	tech_caps = p_tech_caps
+
+
 func open(province_id: int = -1, filter_key: String = "all") -> void:
 	_province_filter = province_id
 	_filter = filter_key if FILTERS.has(filter_key) else "all"

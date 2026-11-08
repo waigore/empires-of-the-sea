@@ -6,8 +6,8 @@ extends RefCounted
 ## (REQ-P3-03). Names derive from the tile resource, never from the level.
 
 const MAX_LEVEL: int = LandWorks.MAX_IMPROVEMENT
-## No gathering tech tree ships yet; the wiki default cap is 1 and the tech
-## table will lift it (wiki: tech-and-extraction-cap).
+## Cap until a researched tech lifts it (wiki: tech-and-extraction-cap);
+## callers pass TechCatalog.extraction_caps(tech_unlocked).
 const DEFAULT_TECH_CAP: int = 1
 
 ## Resource ids mirror MapGenerator.resource_table().
