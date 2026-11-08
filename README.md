@@ -29,7 +29,7 @@ the project has been imported once; the wrapper does that import, then runs.
 
 ## Playable map demo
 
-F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique atlas. Design notes: [`docs/ui-demo.md`](docs/ui-demo.md).
+F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique atlas. Design notes: [`docs/ui-demo.md`](docs/ui-demo.md). Score and cues: [`docs/audio.md`](docs/audio.md).
 
 | Action | Desktop | Touch |
 |--------|---------|-------|
@@ -40,6 +40,7 @@ F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique a
 | Sail / dock | select a fleet, click a highlighted zone or friendly port | tap the same highlights |
 | Focus capital | `F` | — |
 | End turn | `Space` / `Enter` or gold seal | gold seal |
+| Sound / mute | bell seal (top-left), `M` mutes | bell seal |
 
 ## Development
 
