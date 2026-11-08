@@ -103,7 +103,7 @@ func _run() -> void:
 	_check(province_id >= 0, "inland province available")
 	if province_id >= 0:
 		var world: Vector2 = screen.model.province_center(province_id) * MapScreen.TILE_SIZE
-		MapPlayInput.on_tapped(screen, world)
+		MapPlayInput.on_tapped(screen.play, world)
 		await process_frame
 		_check(screen.selected_province == province_id, "province selection sticks")
 		_check(screen.hud.is_panel_open(), "province panel opens")
@@ -112,7 +112,7 @@ func _run() -> void:
 	var marker_world: Vector2 = MapGeo.tile_center(
 		civilian.tile.x, civilian.tile.y, MapScreen.TILE_SIZE
 	)
-	MapPlayInput.on_tapped(screen, marker_world)
+	MapPlayInput.on_tapped(screen.play, marker_world)
 	await process_frame
 	_check(screen.civilian_layer.selected_unit == civilian, "civilian selection sticks")
 	_check(screen.hud.is_civilian_panel_open(), "civilian dossier opens")
@@ -127,17 +127,17 @@ func _run() -> void:
 				MapScreen.PLAYER_FACTION, screen.model, work_tile
 			)
 		screen.civilian_layer.select(builder)
-		MapPlayCivilians.on_action(screen, "build_improvement")
+		MapPlayCivilians.on_action(screen.play, "build_improvement")
 		_check(builder.is_working(), "civilian work order starts")
 
 	var turn_before: int = screen.turn
-	MapPlayTurn.end_turn(screen)
+	MapPlayTurn.end_turn(screen.play)
 	await process_frame
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
 	_check(screen.economy != null, "economy wired")
 	_check(
 		screen.treasury == screen.economy.economy.treasury,
-		"treasury mirrors the resolved economy"
+		"treasury reads from the economy ledger"
 	)
 	_check(screen.economy.economy.total_units() > 0, "stockpile holds goods")
 	_check(
