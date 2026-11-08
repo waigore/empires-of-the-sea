@@ -16,12 +16,13 @@ var units: Array[CivilianState] = []
 var markers: Array[CivilianMarker] = []
 var selected_unit: CivilianState = null
 
-var _next_id: int = 1
 var _zoom: float = 1.0
 ## Units and works per region: switching maps must not reset orders, work
-## progress or the development already raised (wiki: map-topology).
-var _units_by_region: Dictionary = {}
-var _works_by_region: Dictionary = {}
+## progress or the development already raised (wiki: map-topology). The public
+## table and cursor also give save/load a narrow API (REQ-P3-02).
+var next_id: int = 1
+var regions := MapRegionTable.new()
+var works_regions := MapRegionTable.new()
 
 
 ## Loads the region's roster (creating it on first visit) and its works record.
@@ -37,13 +38,13 @@ func spawn(
 	selected_unit = null
 	if model == null:
 		return
-	works = _works_by_region.get(model.region_id, null)
+	works = works_regions.value(model.region_id, null)
 	if works == null:
 		works = LandWorks.new()
-		_works_by_region[model.region_id] = works
-	if _units_by_region.has(model.region_id):
-		units.assign(_units_by_region[model.region_id])
-		_units_by_region[model.region_id] = units
+		works_regions.set_region(model.region_id, works)
+	if regions.has_region(model.region_id):
+		units.assign(regions.value(model.region_id, []))
+		regions.set_region(model.region_id, units)
 		_rebuild_markers()
 		queue_redraw()
 		return
@@ -66,7 +67,7 @@ func spawn(
 			continue
 		taken[tile] = true
 		add_unit(owner, type_id, tile)
-	_units_by_region[model.region_id] = units
+	regions.set_region(model.region_id, units)
 	queue_redraw()
 
 
@@ -94,8 +95,8 @@ func _add_marker(unit: CivilianState) -> void:
 
 
 func add_unit(owner: int, type_id: String, tile: Vector2i) -> CivilianState:
-	var unit := CivilianState.create(_next_id, owner, type_id, tile)
-	_next_id += 1
+	var unit := CivilianState.create(next_id, owner, type_id, tile)
+	next_id += 1
 	units.append(unit)
 	_add_marker(unit)
 	return unit
@@ -159,9 +160,9 @@ func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
 		if model != null and index == model.region_id:
 			region_units = units
 		else:
-			region_units.assign(_units_by_region.get(index, []))
+			region_units.assign(regions.value(index, []))
 		CivilianMovement.begin_turn(region_units)
-		var region_works: LandWorks = _works_by_region.get(index, null)
+		var region_works: LandWorks = works_regions.value(index, null)
 		if region_works == null:
 			continue
 		var region_visibility: VisibilityModel = visibilities.get(index, null)
@@ -205,7 +206,7 @@ func set_zoom(value: float) -> void:
 ## Civilians owned across every region: the HUD chip is an empire total.
 func unit_count_all(owner: int) -> int:
 	var total: int = 0
-	for raw: Variant in _units_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[CivilianState] = []
 		stored.assign(raw)
 		for unit: CivilianState in stored:

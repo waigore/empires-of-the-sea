@@ -25,10 +25,11 @@ var selected_army: ArmyState = null
 var generals := GeneralRoster.new()
 
 var _zoom: float = 1.0
-var _next_army: int = 1
-var _next_regiment: int = 1
+## Public cursors so save/load never reaches layer privates (REQ-P3-02).
+var next_army: int = 1
+var next_regiment: int = 1
 ## Armies per region: switching maps must not move, heal or reset a muster.
-var _armies_by_region: Dictionary = {}
+var regions := MapRegionTable.new()
 
 
 ## Loads the region's armies (mustering Home Armies on first visit).
@@ -39,9 +40,9 @@ func spawn(p_model: MapModel) -> void:
 	selected_army = null
 	if model == null:
 		return
-	if _armies_by_region.has(model.region_id):
-		armies.assign(_armies_by_region[model.region_id])
-		_armies_by_region[model.region_id] = armies
+	if regions.has_region(model.region_id):
+		armies.assign(regions.value(model.region_id, []))
+		regions.set_region(model.region_id, armies)
 		_rebuild_markers()
 		return
 	for faction: int in model.faction_ids:
@@ -61,7 +62,7 @@ func spawn(p_model: MapModel) -> void:
 			_:
 				roster = TRIBE_ROSTER.duplicate()
 		_muster(faction, capital, true, roster)
-	_armies_by_region[model.region_id] = armies
+	regions.set_region(model.region_id, armies)
 
 
 ## Mints a Home Army (or recovered/field army) and registers its marker.
@@ -69,10 +70,10 @@ func _muster(
 	owner: int, province: int, home: bool, types: Array[String]
 ) -> ArmyState:
 	var army := ArmyState.muster(
-		_next_army, owner, province, home, types, _next_regiment
+		next_army, owner, province, home, types, next_regiment
 	)
-	_next_army += 1
-	_next_regiment += types.size()
+	next_army += 1
+	next_regiment += types.size()
 	armies.append(army)
 	_add_marker(army)
 	return army
@@ -204,10 +205,10 @@ func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary
 
 ## Detaches regiment instances into a new field army (wiki: military-armies).
 func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
-	var result: Dictionary = ArmyState.split(armies, army, regiment_ids, _next_army)
+	var result: Dictionary = ArmyState.split(armies, army, regiment_ids, next_army)
 	if not bool(result.get("ok", false)):
 		return result
-	_next_army += 1
+	next_army += 1
 	_prune_markers()
 	var created: ArmyState = result["army"] as ArmyState
 	_add_marker(created)
@@ -255,11 +256,11 @@ func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 			"type": "",
 			"regiment": "",
 		}
-	var unit_id: String = "unit_%d" % _next_regiment
+	var unit_id: String = "unit_%d" % next_regiment
 	var result: Dictionary = ArmyTraining.recruit(economy, home, type_id, unit_id)
 	if not bool(result.get("ok", false)):
 		return result
-	_next_regiment += 1
+	next_regiment += 1
 	var marker: ArmyMarker = marker_for(home)
 	if marker != null:
 		marker.refresh(home.count(), home.home)
@@ -283,7 +284,7 @@ func command_text(army: ArmyState) -> String:
 
 
 func begin_turn() -> void:
-	for raw: Variant in _armies_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
 		ArmyMovement.begin_turn(stored)
@@ -302,7 +303,7 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		if model != null and index == model.region_id:
 			region_armies = armies
 		else:
-			region_armies.assign(_armies_by_region.get(index, []))
+			region_armies.assign(regions.value(index, []))
 		by_region[index] = region_armies
 	var phase: Dictionary = context.duplicate()
 	phase["roster"] = generals
@@ -322,7 +323,7 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		if battles.is_empty():
 			continue
 		ArmyState.prune(region_armies)
-		_armies_by_region[index] = region_armies
+		regions.set_region(index, region_armies)
 		if model != null and index == model.region_id:
 			armies = region_armies
 			_prune_markers()
@@ -356,7 +357,7 @@ func _prune_markers() -> void:
 ## not hide an army parked on the other map.
 func regiment_count_all(owner: int) -> int:
 	var total: int = 0
-	for raw: Variant in _armies_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
 		for army: ArmyState in stored:
@@ -367,7 +368,7 @@ func regiment_count_all(owner: int) -> int:
 
 func food_upkeep_all(owner: int) -> int:
 	var total: int = 0
-	for raw: Variant in _armies_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
 		for army: ArmyState in stored:
