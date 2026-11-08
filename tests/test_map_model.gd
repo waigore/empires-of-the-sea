@@ -38,7 +38,7 @@ func test_setup_sizes_and_clears_arrays() -> void:
 
 
 func test_capital_tile_follows_the_province_record() -> void:
-	_model.provinces[0]["capital_tile"] = Vector2i(0, 0)
+	_model.provinces[0].capital_tile = Vector2i(0, 0)
 	assert_eq(_model.capital_tile_of(0), Vector2i(0, 0))
 	assert_eq(_model.capital_tile_of(1), CapitalChoice.NO_TILE)
 	assert_eq(_model.capital_tile_of(-1), CapitalChoice.NO_TILE)

@@ -68,7 +68,7 @@ func test_docking_puts_the_fleet_in_port() -> void:
 	var ports: Array[int] = NavalMovement.dockable_provinces(_screen.model, fleet)
 	assert_gt(ports.size(), 0)
 	var province_id: int = ports[0]
-	var port: Vector2i = _screen.model.provinces[province_id]["port_tile"]
+	var port: Vector2i = _screen.model.provinces[province_id].port_tile
 
 	assert_true(MapPlayFleets.try_order(_screen.play, port))
 
@@ -140,7 +140,7 @@ func test_end_turn_reveals_owned_coastal_waters() -> void:
 		if _screen.visibility.owns_coast(zone_id):
 			zones.append(zone_id)
 	assert_gt(zones.size(), 0)
-	var tile: Vector2i = _screen.model.sea_zones[zones[0]]["tiles"][0]
+	var tile: Vector2i = _screen.model.sea_zones[zones[0]].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])

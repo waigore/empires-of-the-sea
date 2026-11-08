@@ -60,9 +60,9 @@ func capital_province_of(region_index: int, faction_id: int) -> int:
 	var model: MapModel = region(region_index)
 	if model == null:
 		return MapModel.NO_ID
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == faction_id and bool(province["capital"]):
-			return int(province["id"])
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction_id and province.capital:
+			return province.id
 	return MapModel.NO_ID
 
 
@@ -74,9 +74,9 @@ func seat_province(region_index: int, faction_id: int) -> int:
 	var model: MapModel = region(region_index)
 	if model == null:
 		return MapModel.NO_ID
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == faction_id:
-			return int(province["id"])
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction_id:
+			return province.id
 	return MapModel.NO_ID
 
 
@@ -86,8 +86,8 @@ func owned_provinces(region_index: int, faction_id: int) -> int:
 	if model == null:
 		return 0
 	var total: int = 0
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == faction_id:
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction_id:
 			total += 1
 	return total
 
