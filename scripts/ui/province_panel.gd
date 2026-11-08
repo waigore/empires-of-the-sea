@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal action_pressed(action: String)
 signal close_pressed
+signal dock_side_pressed
 
 var _name_label: Label = null
 var _owner_label: Label = null
@@ -18,6 +19,7 @@ var _capital_value: Label = null
 var _road_value: Label = null
 var _capital_badge: Label = null
 var _training_box: VBoxContainer = null
+var _dock: Button = null
 
 
 func _ready() -> void:
@@ -132,9 +134,27 @@ func _build() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
 
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 8)
+	column.add_child(footer)
+
+	_dock = _make_button("◀ Dock")
+	_dock.tooltip_text = "Dock left"
+	_dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	footer.add_child(_dock)
+
 	var close := _make_button("Close")
+	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close.pressed.connect(func() -> void: close_pressed.emit())
-	column.add_child(close)
+	footer.add_child(close)
+
+
+func set_dock_affordance(glyph: String, tip: String) -> void:
+	if _dock == null:
+		return
+	_dock.text = "%s Dock" % glyph
+	_dock.tooltip_text = tip
 
 
 func set_training_visible(visible: bool) -> void:
