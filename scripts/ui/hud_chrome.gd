@@ -16,6 +16,7 @@ static func build(hud: GameHud) -> void:
 	_research_panel(hud)
 	DiplomacyHud.build(hud)
 	_civilian_panel(hud)
+	ArmyHud.build(hud)
 	_tooltip(hud)
 
 
@@ -106,6 +107,10 @@ static func _top_bar(hud: GameHud) -> void:
 	var civilians := _chip("compass", "CIVILIANS")
 	hud._civilian_label = civilians["value"]
 	row.add_child(civilians["root"])
+
+	var troops := _chip("crown", "TROOPS")
+	hud._army_label = troops["value"]
+	row.add_child(troops["root"])
 
 
 static func _chip(icon_kind: String, caption: String) -> Dictionary:

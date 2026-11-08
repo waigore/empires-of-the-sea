@@ -15,6 +15,7 @@ var capital_tile: Vector2i = CivilianState.NO_TILE
 var works: LandWorks = null
 
 var _ships: ShipLayer = null
+var _armies: ArmyLayer = null
 var _hud: GameHud = null
 
 
@@ -23,6 +24,7 @@ func setup(
 	p_faction: int,
 	p_capital: int,
 	p_ships: ShipLayer,
+	p_armies: ArmyLayer,
 	p_hud: GameHud,
 	p_works: LandWorks = null,
 	p_capital_tile: Vector2i = CivilianState.NO_TILE
@@ -33,6 +35,7 @@ func setup(
 	capital_tile = p_capital_tile
 	works = p_works
 	_ships = p_ships
+	_armies = p_armies
 	_hud = p_hud
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
@@ -68,6 +71,13 @@ func tech_caps() -> Dictionary:
 	return TechCatalog.extraction_caps(economy.tech_unlocked)
 
 
+## Army rations across every region (wiki: economy § Consumption: army first).
+func army_food() -> int:
+	if _armies == null:
+		return 0
+	return _armies.food_upkeep_all(player_faction)
+
+
 func extraction() -> Dictionary:
 	return Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
@@ -76,7 +86,7 @@ func extraction() -> Dictionary:
 
 
 func projected() -> Dictionary:
-	return EconomyTurn.project(economy, market, extraction(), fleet_ships())
+	return EconomyTurn.project(economy, market, extraction(), fleet_ships(), army_food())
 
 
 func projected_income() -> int:
@@ -87,12 +97,14 @@ func projected_income() -> int:
 func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships()
+		economy, market, extraction(), fleet_ships(), army_food()
 	)
 	if _hud != null:
 		_hud.set_treasury(economy.treasury)
 		_hud.flash_income(economy.treasury - before)
 		_hud.set_fleets(fleet_ships())
+		if _armies != null:
+			_hud.set_armies(_armies.regiment_count_all(player_faction))
 		_hud.toast(summary_line(report))
 	_refresh_research_panel()
 	treasury_changed.emit(economy.treasury)

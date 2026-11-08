@@ -1,0 +1,158 @@
+class_name MapPlayArmies
+extends RefCounted
+## Army selection, march orders, split/combine and land-battle reporting.
+## Rules stay in ArmyMovement/ArmyCombat; this only drives PlaySession views.
+
+const PLAYER: int = PlaySession.PLAYER_FACTION
+
+
+static func select(play: PlaySession, army: ArmyState) -> void:
+	if army == null:
+		return
+	play.selected_province = -1
+	play.overlay.select_province(-1)
+	play.hud.panels.hide_province()
+	play.hud.panels.hide_fleet()
+	play.hud.panels.hide_civilian()
+	show_panel(play, army)
+	refresh_options(play, army)
+	if army.owner != PLAYER:
+		play.hud.toast("Army of %s — observe only" % FactionCatalog.name_of(army.owner))
+
+
+static func show_panel(play: PlaySession, army: ArmyState) -> void:
+	play.hud.panels.show_army(play.model, army, army.owner == PLAYER, can_merge(play, army))
+
+
+static func can_merge(play: PlaySession, army: ArmyState) -> bool:
+	if army == null or army.owner != PLAYER:
+		return false
+	return play.army_layer.armies_in(army.province, army.owner).size() > 1
+
+
+static func refresh_options(play: PlaySession, army: ArmyState) -> void:
+	play.overlay.clear_move_options()
+	if army == null or army.owner != PLAYER:
+		return
+	var provinces: Array[int] = ArmyMovement.destinations(play.model, army)
+	if provinces.is_empty():
+		return
+	var no_zones: Array[int] = []
+	play.overlay.show_move_options(no_zones, provinces)
+
+
+## Taps a province for the selected army. Returns false when the tap is not an
+## army order, so the province dossier can open instead.
+static func try_order(play: PlaySession, tile: Vector2i) -> bool:
+	var army: ArmyState = play.army_layer.selected_army
+	if army == null or army.owner != PLAYER:
+		return false
+	var province_id: int = play.model.province_at(tile.x, tile.y)
+	if province_id == MapModel.NO_ID:
+		return false
+	if not ArmyMovement.destinations(play.model, army).has(province_id):
+		return false
+	var result: Dictionary = play.army_layer.order(army, province_id)
+	if bool(result.get("ok", false)):
+		return true
+	play.hud.toast(String(result.get("reason", "")))
+	return true
+
+
+static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
+	if army.owner != PLAYER:
+		return
+	show_panel(play, army)
+	refresh_options(play, army)
+	if bool(result.get("attacked", false)):
+		play.hud.toast("The army marches on %s" % play.model.province_name(army.province))
+	else:
+		play.hud.toast("The army reaches %s" % play.model.province_name(army.province))
+
+
+static func on_action(play: PlaySession, action: String) -> void:
+	var army: ArmyState = play.army_layer.selected_army
+	if army == null or army.owner != PLAYER:
+		return
+	if action.begins_with("detach:"):
+		var ids: Array[String] = [action.trim_prefix("detach:")]
+		detach(play, army, ids)
+	elif action == "detach_all":
+		detach(play, army, army.regiments.duplicate())
+	elif action == "merge":
+		merge(play, army)
+
+
+## Detaches a batch of regiments in one order (single detach and Detach all
+## share this path, so repeated chores stay batched — REQ-P5-04).
+static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> void:
+	var result: Dictionary = play.army_layer.split(army, ids)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The regiments stay.")))
+		return
+	var created: ArmyState = result["army"] as ArmyState
+	play.army_layer.select(created)
+	if created.count() == 1:
+		play.hud.toast(
+			"%s detaches as a field army in %s"
+			% [
+				RegimentCatalog.display_name(created.type_of(created.regiments[0])),
+				play.model.province_name(created.province),
+			]
+		)
+		return
+	play.hud.toast(
+		"%d regiments form a field army in %s"
+		% [created.count(), play.model.province_name(created.province)]
+	)
+
+
+static func merge(play: PlaySession, army: ArmyState) -> void:
+	var result: Dictionary = play.army_layer.combine(army)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The armies stay apart.")))
+		return
+	var target: ArmyState = result["army"] as ArmyState
+	play.army_layer.select(target)
+	play.hud.toast(
+		"The armies combine under one standard in %s"
+		% play.model.province_name(target.province)
+	)
+
+
+## Land battles resolve in every region, then the map's ownership ink is
+## refreshed when the visible region changed hands.
+static func resolve_battles(play: PlaySession) -> void:
+	var battles: Array[Dictionary] = play.army_layer.resolve_battles(play.world)
+	if battles.is_empty():
+		return
+	var repaint: bool = false
+	for battle: Dictionary in battles:
+		var region: int = int(battle.get("region", play.region_index))
+		var model: MapModel = play.model if region == play.region_index else play.world.region(region)
+		var province: String = model.province_name(int(battle["province"])) if model != null else "—"
+		var prefix: String = ""
+		if region != play.region_index:
+			prefix = "%s — " % FactionCatalog.region_label(region)
+		play.hud.toast(
+			prefix + BattleReport.describe_land(battle, province, FactionCatalog.names())
+		)
+		if region == play.region_index and bool(battle.get("captured", false)):
+			repaint = true
+	if repaint:
+		play.canvas.refresh_ownership()
+		play.overlay.refresh_borders()
+	play.hud.set_armies(play.army_layer.regiment_count_all(PLAYER))
+	if play.army_layer.selected_army != null:
+		show_panel(play, play.army_layer.selected_army)
+		refresh_options(play, play.army_layer.selected_army)
+
+
+static func refresh_visibility(play: PlaySession) -> void:
+	play.army_layer.sync_visibility(play.visibility, PLAYER)
+
+
+static func refresh_panel(play: PlaySession) -> void:
+	var army: ArmyState = play.army_layer.selected_army
+	if army != null:
+		show_panel(play, army)

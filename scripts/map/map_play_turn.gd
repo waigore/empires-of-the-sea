@@ -7,10 +7,13 @@ extends RefCounted
 static func end_turn(play: PlaySession) -> void:
 	MapPlayDiplomacy.resolve_turn(play)
 	MapPlayCivilians.resolve_work(play)
+	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
 	play.ship_layer.begin_turn()
+	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	play.refresh_research()
@@ -29,6 +32,8 @@ static func end_turn(play: PlaySession) -> void:
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
 		MapPlayCivilians.refresh_panel(play)
+	if play.army_layer.selected_army != null:
+		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	play.emit_turn_ended(play.turn)

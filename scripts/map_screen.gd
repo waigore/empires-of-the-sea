@@ -29,6 +29,7 @@ var preset_world: WorldMap = null
 @onready var overlay: MapOverlay = $World/MapOverlay
 @onready var ship_layer: ShipLayer = $World/ShipLayer
 @onready var civilian_layer: CivilianLayer = $World/CivilianLayer
+@onready var army_layer: ArmyLayer = $World/ArmyLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
 @onready var improvements: ImprovementPanel = $HUD/Improvements
@@ -127,7 +128,9 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
-	play.bind_views(ship_layer, civilian_layer, overlay, camera, hud, improvements)
+	play.bind_views(
+		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
+	)
 	if preset_world != null:
 		play.world = preset_world
 	else:
@@ -187,12 +190,14 @@ func _load_region(index: int) -> void:
 		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
 		play.player_present()
 	)
+	army_layer.spawn(play.model)
 	civilian_layer.spawn(play.model, play.capital_province, PLAYER_FACTION, STARTING_CIVILIANS)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
 	_refresh_region_hud(map_size)
 
 
@@ -215,6 +220,7 @@ func _refresh_region_hud(map_size: Vector2) -> void:
 	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
 	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
+	hud.set_armies(army_layer.regiment_count_all(PLAYER_FACTION))
 	if play.economy == null:
 		return
 	play.refresh_research()
@@ -233,10 +239,11 @@ func _build_hud() -> void:
 	hud.set_prestige(play.prestige)
 	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
+	hud.set_armies(army_layer.regiment_count_all(PLAYER_FACTION))
 	play.economy = EconomyController.new()
 	add_child(play.economy)
 	play.economy.setup(
-		play.model, PLAYER_FACTION, play.capital_province, ship_layer, hud,
+		play.model, PLAYER_FACTION, play.capital_province, ship_layer, army_layer, hud,
 		play.land_works, play.capital_tile
 	)
 	hud.set_treasury(play.treasury(), false)
@@ -283,6 +290,21 @@ func _connect() -> void:
 	)
 	ship_layer.fleet_moved.connect(func(fleet: FleetState, result: Dictionary) -> void:
 		MapPlayFleets.on_moved(play, fleet, result)
+	)
+	army_layer.army_selected.connect(func(army: ArmyState) -> void:
+		if army != null:
+			MapPlayArmies.select(play, army)
+		else:
+			play.hud.panels.hide_army()
+	)
+	army_layer.army_moved.connect(func(army: ArmyState, result: Dictionary) -> void:
+		MapPlayArmies.on_moved(play, army, result)
+	)
+	hud.army_action.connect(func(action: String) -> void:
+		MapPlayArmies.on_action(play, action)
+	)
+	hud.army_closed.connect(func() -> void:
+		MapPlayInput.deselect(play)
 	)
 	hud.fleet_closed.connect(func() -> void:
 		MapPlayInput.deselect(play)

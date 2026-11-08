@@ -13,6 +13,8 @@ signal fleet_closed
 signal civilian_action(action: String)
 signal civilian_cancel
 signal civilian_closed
+signal army_action(action: String)
+signal army_closed
 signal economy_pressed
 signal research_pressed
 signal diplomacy_pressed
@@ -31,6 +33,7 @@ var _treasury_label: Label = null
 var _prestige_label: Label = null
 var _fleet_label: Label = null
 var _civilian_label: Label = null
+var _army_label: Label = null
 var _treasury_chip: Control = null
 var _toast_box: VBoxContainer = null
 var _minimap: Minimap = null
@@ -40,6 +43,8 @@ var _fleet_wrap: Control = null
 var _fleet_panel: FleetPanel = null
 var _civilian_wrap: Control = null
 var _civilian_panel: CivilianPanel = null
+var _army_wrap: Control = null
+var _army_panel: ArmyPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
@@ -100,6 +105,10 @@ func set_fleets(value: int) -> void:
 
 func set_civilians(value: int) -> void:
 	_civilian_label.text = str(value)
+
+
+func set_armies(value: int) -> void:
+	_army_label.text = str(value)
 
 
 func toast(text: String) -> void:

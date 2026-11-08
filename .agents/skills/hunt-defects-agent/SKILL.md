@@ -34,7 +34,7 @@ Hill-climb **P2 rules fidelity** (`RUB-P2-01`…`04`). Re-runs sustain the climb
 | [`references/playbook.md`](references/playbook.md) | Playtest tactics |
 | [`references/pr-body.md`](references/pr-body.md) | Defect report + rubric |
 
-**Not this agent:** shipping new wiki domains / unimplemented features → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Architecture-only cleanup → refactor-code. Suite speed → optimize-tests.
+**Not this agent:** shipping new wiki domains / unimplemented features → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Unclear / contradictory wiki that needs a design call → [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). Architecture-only cleanup → refactor-code. Suite speed → optimize-tests.
 
 ## Workflow
 

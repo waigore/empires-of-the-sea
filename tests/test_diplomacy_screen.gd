@@ -30,7 +30,7 @@ func test_court_panel_opens_and_closes() -> void:
 	assert_true(_screen.hud.panels.is_diplomacy_open())
 	assert_false(_screen.hud.panels.is_panel_open())
 	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before)
-	_screen.hud.panels.hide_diplomacy()
+	DiplomacyHud.hide(_screen.hud.panels)
 	assert_false(_screen.hud.panels.is_diplomacy_open())
 
 

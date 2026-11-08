@@ -1,7 +1,7 @@
 class_name DiplomacyHud
 extends RefCounted
-## Builds the court ledger shell for GameHud. Kept out of HudChrome so the
-## shared chrome file stays under the P3 size bar (REQ-P3-01).
+## Builds and opens the court ledger for GameHud. Kept out of HudChrome and
+## HudPanels so those shared files stay under the P3 size bar (REQ-P3-01).
 
 
 static func build(hud: GameHud) -> void:
@@ -17,9 +17,54 @@ static func build(hud: GameHud) -> void:
 
 	hud._diplomacy_panel = DiplomacyPanel.new()
 	hud._diplomacy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._diplomacy_panel.close_pressed.connect(func() -> void: hud.panels.hide_diplomacy())
+	hud._diplomacy_panel.close_pressed.connect(func() -> void: hide(hud.panels))
 	hud._diplomacy_panel.order_pressed.connect(
 		func(kind: String, target: int, arg: String) -> void:
 			hud.diplomacy_order.emit(kind, target, arg)
 	)
 	hud._diplomacy_wrap.add_child(hud._diplomacy_panel)
+
+
+## The court takes the same edge as the economy and college ledgers.
+static func show(
+	panels: HudPanels,
+	state: DiplomacyState,
+	world: WorldMap,
+	player: int,
+	treasury: int,
+	tech: Dictionary = {}
+) -> void:
+	panels.hide_province()
+	panels.hide_fleet()
+	panels.hide_civilian()
+	panels.hide_army()
+	panels.hide_economy()
+	panels.hide_research()
+	panels.diplomacy_panel.refresh(state, world, player, treasury, tech)
+	panels.diplomacy_wrap.visible = true
+	panels.diplomacy_open = true
+	var tween := panels.host.create_tween()
+	tween.tween_property(panels.diplomacy_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+
+
+static func refresh(
+	panels: HudPanels,
+	state: DiplomacyState,
+	world: WorldMap,
+	player: int,
+	treasury: int,
+	tech: Dictionary = {}
+) -> void:
+	if panels.diplomacy_open:
+		panels.diplomacy_panel.refresh(state, world, player, treasury, tech)
+
+
+static func hide(panels: HudPanels) -> void:
+	if not panels.diplomacy_open:
+		return
+	panels.diplomacy_open = false
+	panels.diplomacy_wrap.visible = false
+
+
+static func is_open(panels: HudPanels) -> bool:
+	return panels.diplomacy_open

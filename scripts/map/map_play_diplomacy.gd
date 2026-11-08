@@ -11,16 +11,26 @@ static func open(play: PlaySession) -> void:
 		play.diplomacy = DiplomacyState.new()
 		play.diplomacy.initialize(play.turn)
 	sync_first_contact(play)
-	play.hud.panels.show_diplomacy(
-		play.diplomacy, play.world, PLAYER_FACTION, play.treasury(), _tech(play)
+	DiplomacyHud.show(
+		play.hud.panels,
+		play.diplomacy,
+		play.world,
+		PLAYER_FACTION,
+		play.treasury(),
+		_tech(play)
 	)
 
 
 static func refresh(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		return
-	play.hud.panels.refresh_diplomacy(
-		play.diplomacy, play.world, PLAYER_FACTION, play.treasury(), _tech(play)
+	DiplomacyHud.refresh(
+		play.hud.panels,
+		play.diplomacy,
+		play.world,
+		PLAYER_FACTION,
+		play.treasury(),
+		_tech(play)
 	)
 
 

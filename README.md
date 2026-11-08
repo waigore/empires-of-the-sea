@@ -38,6 +38,7 @@ F5 opens `scenes/map_screen.tscn`: a procedural Old World region as an antique a
 | Jump | click minimap | tap / drag minimap |
 | Select | click province or fleet | tap |
 | Sail / dock | select a fleet, click a highlighted zone or friendly port | tap the same highlights |
+| Land army | select a standard, detach regiments, click a highlighted province | tap the same |
 | Focus capital | `F` | — |
 | Improvements | `ESTATES` button or province **Build Improvement** | same |
 | End turn | `Space` / `Enter` or gold seal | gold seal |
