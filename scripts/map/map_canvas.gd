@@ -19,6 +19,7 @@ var _mask_texture: ImageTexture = null
 var _coast: Array[PackedVector2Array] = []
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
+var _roads: Array[PackedVector2Array] = []
 var _labels: Array[Dictionary] = []
 var _glyphs: Array[Dictionary] = []
 var _font: Font = null
@@ -35,6 +36,7 @@ func build(p_model: MapModel) -> void:
 	_build_textures()
 	_build_coast()
 	_build_borders()
+	_build_roads()
 	_build_labels()
 	_build_glyphs()
 	_find_compass_spot()
@@ -150,6 +152,20 @@ func _build_borders() -> void:
 	_sea_borders = InkPaths.smooth_segments(sea_raw, 2)
 
 
+## Capital roads (wiki: capital-and-connectivity § Capital Setup), drawn as one
+## ink polyline per port-to-capital path.
+func _build_roads() -> void:
+	_roads.clear()
+	for province: Dictionary in model.provinces:
+		for path: Array in province.get("road_paths", []):
+			if path.size() < 2:
+				continue
+			var points := PackedVector2Array()
+			for tile: Vector2i in path:
+				points.append(model.tile_center(tile.x, tile.y, TILE_SIZE))
+			_roads.append(points)
+
+
 func _build_labels() -> void:
 	_labels.clear()
 	for province: Dictionary in model.provinces:
@@ -215,8 +231,7 @@ func _build_glyphs() -> void:
 				"flip": _hash01(x + 13, y + 3) > 0.5,
 			})
 	for province: Dictionary in model.provinces:
-		var port: Vector2i = province["port_tile"]
-		if port.x >= 0:
+		for port: Vector2i in _port_tiles(province):
 			_glyphs.append({
 				"kind": "port",
 				"position": model.tile_center(port.x, port.y, TILE_SIZE),
@@ -224,13 +239,34 @@ func _build_glyphs() -> void:
 				"flip": false,
 			})
 		if bool(province["capital"]):
+			var capital: Vector2i = province.get("capital_tile", CapitalChoice.NO_TILE)
+			var anchor: Vector2 = Vector2(province["center"]) * TILE_SIZE
+			if capital.x >= 0:
+				anchor = model.tile_center(capital.x, capital.y, TILE_SIZE)
 			_glyphs.append({
 				"kind": "capital",
-				"position": Vector2(province["center"]) * TILE_SIZE,
+				"position": anchor,
 				"size": TILE_SIZE * 1.1,
 				"flip": false,
 				"owner": int(province["owner"]),
 			})
+
+
+## Capital seaboards draw a port each; other coastal provinces keep the single
+## generated waterfront port.
+static func _port_tiles(province: Dictionary) -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	var ports: Dictionary = province.get("ports", {})
+	for zone: int in ports.keys():
+		var tile: Vector2i = ports[zone]
+		if not tiles.has(tile):
+			tiles.append(tile)
+	if not tiles.is_empty():
+		return tiles
+	var fallback: Vector2i = province["port_tile"]
+	if fallback.x >= 0:
+		tiles.append(fallback)
+	return tiles
 
 
 func _find_compass_spot() -> void:
@@ -266,6 +302,10 @@ func _draw() -> void:
 		draw_polyline(path, Color(0.90, 0.84, 0.68, 0.38), 6.0, true)
 		draw_polyline(path, Color(0.24, 0.19, 0.13, 0.14), 6.0, true)
 		draw_polyline(path, Color(0.20, 0.15, 0.10, 0.85), 1.9, true)
+
+	for path: PackedVector2Array in _roads:
+		draw_polyline(path, Color(0.30, 0.22, 0.14, 0.30), 3.6, true)
+		draw_polyline(path, Color(0.26, 0.19, 0.12, 0.62), 1.6, true)
 
 	for glyph: Dictionary in _glyphs:
 		_draw_glyph(glyph)

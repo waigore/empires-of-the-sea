@@ -16,6 +16,7 @@ var prestige: int = 38
 var income: int = 120
 var selected_province: int = -1
 var capital_province: int = -1
+var capital_tile: Vector2i = CapitalChoice.NO_TILE
 
 var _hover_province: int = -1
 var _charted_provinces: Dictionary = {}
@@ -68,6 +69,7 @@ func _build_world() -> void:
 	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3)
 	camera.configure(map_size)
 	capital_province = _find_capital()
+	capital_tile = _capital_tile(capital_province)
 	_build_visibility()
 	overlay.snap_fog()
 
@@ -99,11 +101,16 @@ func _intro() -> void:
 	var start_zoom: float = camera.min_zoom()
 	camera.zoom = Vector2.ONE * start_zoom
 	camera.position = map_size * 0.5
-	camera.focus_on(
-		model.province_center(capital_province) * TILE_SIZE,
-		maxf(start_zoom * 1.65, 0.75)
-	)
+	camera.focus_on(_capital_world(), maxf(start_zoom * 1.65, 0.75))
 	hud.toast("The Indies await — Turn 1, 1500")
+	if capital_province >= 0:
+		hud.toast(
+			"%s holds court at %s"
+			% [
+				MapGenerator.FACTION_NAMES[PLAYER_FACTION],
+				model.province_name(capital_province),
+			]
+		)
 	var tween := create_tween()
 	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(func() -> void: fade.visible = false)
@@ -251,7 +258,24 @@ func _resolve_visibility() -> void:
 
 
 func _focus_capital() -> void:
-	camera.focus_on(model.province_center(capital_province) * TILE_SIZE, 0.7)
+	camera.focus_on(_capital_world(), 0.7)
+
+
+## World position of the ruler's seat: the capital tile from the capital-choice
+## phase, falling back to the province centre when the map has no capital.
+func _capital_world() -> Vector2:
+	if capital_tile.x >= 0:
+		return model.tile_center(capital_tile.x, capital_tile.y, TILE_SIZE)
+	if capital_province >= 0:
+		return model.province_center(capital_province) * TILE_SIZE
+	return Vector2.ZERO
+
+
+func _capital_tile(province_id: int) -> Vector2i:
+	var data: Dictionary = model.province_data(province_id)
+	if data.is_empty():
+		return CapitalChoice.NO_TILE
+	return Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
 
 
 func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:

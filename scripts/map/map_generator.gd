@@ -53,6 +53,7 @@ func generate(seed_value: int, p_width: int = 128, p_height: int = 84) -> MapMod
 	_build_resources(model)
 	_build_ports(model)
 	_assign_owners(model)
+	_place_capitals(model)
 	return model
 
 
@@ -264,6 +265,10 @@ func _build_provinces(model: MapModel) -> void:
 			"port_tile": Vector2i(-1, -1),
 			"owner": MapModel.NO_ID,
 			"capital": false,
+			"capital_tile": CapitalChoice.NO_TILE,
+			"ports": {},
+			"road_paths": [],
+			"town_development": 0,
 			"resource": MapModel.NO_ID,
 			"population": 0,
 		})
@@ -476,44 +481,70 @@ func _build_ports(model: MapModel) -> void:
 		province["port_tile"] = best
 
 
+## Spreads ownership by nearest seed province. Seeds are drawn from sea-bound
+## provinces so every faction can satisfy the capital-choice rule.
 func _assign_owners(model: MapModel) -> void:
 	if model.provinces.is_empty():
 		return
-	var capitals: Array[int] = [_rng.randi_range(0, model.provinces.size() - 1)]
 	var faction_count: int = mini(FACTION_NAMES.size(), model.provinces.size())
-	while capitals.size() < faction_count:
+	var eligible: Array[int] = _sea_bound_ids(model)
+	if eligible.size() < faction_count:
+		eligible = []
+		for id in model.provinces.size():
+			eligible.append(id)
+	if eligible.is_empty():
+		return
+
+	var seeds: Array[int] = [eligible[_rng.randi_range(0, eligible.size() - 1)]]
+	while seeds.size() < faction_count:
 		var best: int = -1
 		var best_distance: float = -1.0
-		for id in model.provinces.size():
-			if capitals.has(id):
+		for id: int in eligible:
+			if seeds.has(id):
 				continue
 			var nearest: float = INF
-			for capital: int in capitals:
+			for seed: int in seeds:
 				nearest = minf(
 					nearest,
-					model.province_center(id).distance_to(model.province_center(capital))
+					model.province_center(id).distance_to(model.province_center(seed))
 				)
 			if nearest > best_distance:
 				best_distance = nearest
 				best = id
 		if best < 0:
 			break
-		capitals.append(best)
+		seeds.append(best)
 
 	for id in model.provinces.size():
 		var nearest_owner: int = 0
 		var nearest_distance: float = INF
-		for faction in capitals.size():
+		for faction in seeds.size():
 			var distance: float = model.province_center(id).distance_to(
-				model.province_center(capitals[faction])
+				model.province_center(seeds[faction])
 			)
 			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_owner = faction
 		var province: Dictionary = model.provinces[id]
 		province["owner"] = nearest_owner
-		province["capital"] = capitals.has(id)
 		province["population"] = 180 + int(province["area"]) * 9 + _rng.randi_range(0, 90)
+
+
+func _sea_bound_ids(model: MapModel) -> Array[int]:
+	var ids: Array[int] = []
+	for province: Dictionary in model.provinces:
+		if CapitalChoice.is_sea_bound(model, int(province["id"])):
+			ids.append(int(province["id"]))
+	return ids
+
+
+## Capital-choice phase (wiki: capital-choice-phase). All four crowns are Great
+## Powers, so each gets the sea-bound capital rule and its ports/roads.
+func _place_capitals(model: MapModel) -> void:
+	var factions: Array[int] = []
+	for faction in mini(FACTION_NAMES.size(), model.provinces.size()):
+		factions.append(faction)
+	CapitalChoice.place_all(model, factions, CapitalChoice.KIND_GREAT_POWER)
 
 
 # --- names ------------------------------------------------------------------
