@@ -5,11 +5,20 @@ extends RefCounted
 
 
 static func end_turn(play: PlaySession) -> void:
+	# A decided campaign accepts no further turns (wiki: victory).
+	if play.victory != null:
+		play.hud.toast("Campaign ended — %s" % play.victory.winner_name())
+		return
 	MapPlayDiplomacy.resolve_turn(play)
 	MapPlayCivilians.resolve_work(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
+	# Victory is checked after every phase, once per turn, and never re-checked.
+	var victory: VictoryState = VictoryRules.resolve(play.victory, play.world, play.turn)
+	if victory != null:
+		_finish_campaign(play, victory)
+		return
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
@@ -41,6 +50,20 @@ static func end_turn(play: PlaySession) -> void:
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	play.emit_turn_ended(play.turn)
+
+
+## Campaign decided: record the winner, mount the plate, and stop the calendar
+## at the turn that decided it (wiki: victory § Victory Check).
+static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
+	play.victory = victory
+	play.hud.show_victory(
+		victory,
+		PlaySession.PLAYER_FACTION,
+		VictoryRules.old_world_holdings(play.world, victory.winner_player_id)
+	)
+	play.hud.toast(victory.summary())
+	play.emit_turn_ended(play.turn)
+	play.emit_victory(victory)
 
 
 static func focus_capital(play: PlaySession) -> void:
