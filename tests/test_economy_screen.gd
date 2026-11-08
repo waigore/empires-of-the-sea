@@ -82,7 +82,7 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var before: Dictionary = economy.stockpile.duplicate()
 	var turn_before: int = _screen.turn
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, economy.treasury)
 	assert_true(economy.stockpile != before)

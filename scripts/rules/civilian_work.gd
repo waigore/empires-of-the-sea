@@ -263,7 +263,7 @@ static func _check_action(
 			var port_land: Dictionary = _owned_land(model, unit, province)
 			if not bool(port_land["ok"]):
 				return port_land
-			if not model.is_coastal_tile(tile.x, tile.y):
+			if not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				return _no("Ports need a coastal tile.")
 			if works.province_has_port(model, province):
 				return _no("%s already has a port." % model.province_name(province))

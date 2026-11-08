@@ -35,7 +35,7 @@ func test_ordering_a_move_spends_the_turn_and_reveals_the_zone() -> void:
 	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
 	var tile: Vector2i = _screen.model.sea_zones[zone]["tiles"][0]
 
-	assert_true(_screen._try_fleet_order(tile))
+	assert_true(MapPlayFleets.try_order(_screen, tile))
 
 	assert_eq(fleet.sea_zone, zone)
 	assert_true(fleet.moved)
@@ -51,12 +51,12 @@ func test_a_fleet_cannot_move_twice_in_one_turn() -> void:
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
 	_screen.ship_layer.select(ship)
 	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
-	_screen._try_fleet_order(_screen.model.sea_zones[zone]["tiles"][0])
+	MapPlayFleets.try_order(_screen, _screen.model.sea_zones[zone]["tiles"][0])
 	var zone_after_move: int = fleet.sea_zone
 	var next_zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
-	assert_true(_screen._try_fleet_order(_screen.model.sea_zones[next_zone]["tiles"][0]))
+	assert_true(MapPlayFleets.try_order(_screen, _screen.model.sea_zones[next_zone]["tiles"][0]))
 
 	assert_eq(fleet.sea_zone, zone_after_move)
 	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
@@ -71,7 +71,7 @@ func test_docking_puts_the_fleet_in_port() -> void:
 	var province_id: int = ports[0]
 	var port: Vector2i = _screen.model.provinces[province_id]["port_tile"]
 
-	assert_true(_screen._try_fleet_order(port))
+	assert_true(MapPlayFleets.try_order(_screen, port))
 
 	assert_eq(fleet.location, FleetState.Location.IN_PORT)
 	assert_eq(fleet.province, province_id)
@@ -86,7 +86,7 @@ func test_enemy_fleets_reject_player_orders() -> void:
 	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
 	var zone_before: int = fleet.sea_zone
 
-	assert_false(_screen._try_fleet_order(_screen.model.sea_zones[zone]["tiles"][0]))
+	assert_false(MapPlayFleets.try_order(_screen, _screen.model.sea_zones[zone]["tiles"][0]))
 
 	assert_eq(fleet.sea_zone, zone_before)
 	assert_false(fleet.moved)
@@ -97,10 +97,10 @@ func test_end_turn_restores_fleet_moves() -> void:
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
 	_screen.ship_layer.select(ship)
 	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
-	_screen._try_fleet_order(_screen.model.sea_zones[zone]["tiles"][0])
+	MapPlayFleets.try_order(_screen, _screen.model.sea_zones[zone]["tiles"][0])
 	assert_true(fleet.moved)
 
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 
 	assert_false(fleet.moved)
 	assert_gt(_screen.overlay.move_zones.size(), 0)
@@ -114,7 +114,7 @@ func test_end_turn_leaves_unknown_tiles_unknown() -> void:
 	_screen.visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 
 	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_UNKNOWN)
@@ -128,7 +128,7 @@ func test_end_turn_refogs_distant_known_waters() -> void:
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 
 	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FOGGED)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
@@ -146,7 +146,7 @@ func test_end_turn_reveals_owned_coastal_waters() -> void:
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 
 	assert_eq(
 		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
@@ -162,12 +162,12 @@ func test_enemy_markers_follow_fog_intel() -> void:
 
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
-	_screen._refresh_fleet_visibility()
+	MapPlayFleets.refresh_visibility(_screen)
 	assert_false(enemy.visible)
 
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
-	_screen._refresh_fleet_visibility()
+	MapPlayFleets.refresh_visibility(_screen)
 	assert_true(enemy.visible)
 
 

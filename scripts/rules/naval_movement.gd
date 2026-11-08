@@ -69,7 +69,7 @@ static func destination_zones(model: MapModel, fleet: FleetState) -> Array[int]:
 		return []
 	var zones: Array[int] = []
 	if fleet.is_at_sea():
-		for zone: int in model.sea_zone_neighbors(fleet.sea_zone):
+		for zone: int in MapGeo.sea_zone_neighbors(model, fleet.sea_zone):
 			zones.append(zone)
 	else:
 		zones = province_sea_zones(model, fleet.province)
@@ -106,7 +106,7 @@ static func _can_enter_zone(
 	if fleet.is_at_sea():
 		if zone_id == fleet.sea_zone:
 			return _deny("The fleet is already in that sea zone.")
-		if not model.sea_zone_neighbors(fleet.sea_zone).has(zone_id):
+		if not MapGeo.sea_zone_neighbors(model, fleet.sea_zone).has(zone_id):
 			return _deny("A fleet sails one adjacent sea zone per turn.")
 		return _allow()
 	if not province_sea_zones(model, fleet.province).has(zone_id):

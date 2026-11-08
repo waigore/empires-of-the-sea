@@ -129,7 +129,7 @@ func _place_ship(ship: Ship, fleet: FleetState) -> void:
 	if fleet.is_in_port():
 		var data: Dictionary = model.province_data(fleet.province)
 		var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
-		ship.position = model.tile_center(port.x, port.y, TILE_SIZE)
+		ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 		ship.docked = true
 		ship.zone = -1
 		ship.province = fleet.province
@@ -268,7 +268,7 @@ func _port_position(province_id: int) -> Vector2:
 	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
 	if port.x < 0 or port.y < 0:
 		return model.province_center(province_id) * TILE_SIZE
-	return model.tile_center(port.x, port.y, TILE_SIZE)
+	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 
 
 func _sail(ship: Ship, target: Vector2) -> void:

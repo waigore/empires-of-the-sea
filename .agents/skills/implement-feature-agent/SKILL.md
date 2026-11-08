@@ -63,7 +63,7 @@ List touched pillars `P1`–`P4` and every applicable `RUB-*`. N/A is allowed on
 
 ### 4. Implement
 
-Branch `feat/…` or `fix/…` from up-to-date `main`. Implement to match wiki behavior; UI/AI must not bypass rules (`REQ-P2-03`). Keep rules/simulation usable without visual nodes (`REQ-P3-03`). Platform diffs in thin adapters only.
+Branch `feat/…` or `fix/…` from up-to-date `main`. Implement to match wiki behavior; UI/AI must not bypass rules (`REQ-P2-03`). Keep rules/simulation usable without visual nodes (`REQ-P3-03`). Platform diffs in thin adapters only. Keep scripts ≤400 lines / ≤25 methods; do not grow `tools/arch_size_allowlist.txt` (≤5 entries, ratchet shrink-only) — split oversized files instead (`REQ-P3-01`).
 
 If behavior changes rules documentation: update the wiki in the same effort when write access works; otherwise note a **release-blocking** wiki follow-up in the PR (`REQ-P2-05`) — that note alone is not a user ask unless wiki write is required to avoid shipping a lie and you cannot proceed safely.
 
