@@ -140,6 +140,15 @@ static func has_embassy(state: DiplomacyState, a: int, b: int) -> bool:
 	return _tier(state.overture(a, b)) >= 2 or _tier(state.overture(b, a)) >= 2
 
 
+## War state between two factions. Without a court (isolated fixtures) factions
+## stay hostile to each other, preserving the legacy every-fleet-is-hostile rule.
+static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
+	if state == null:
+		return true
+	var record: DiplomacyRelation = state.relation(a, b)
+	return record != null and record.at_war
+
+
 static func provinces_owned(world: WorldMap, faction: int) -> int:
 	if world == null:
 		return 0

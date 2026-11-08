@@ -39,7 +39,7 @@ static func end_turn(play: PlaySession) -> void:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
 		if fleet != null:
 			play.hud.panels.show_fleet(
-				play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION,
+				play.model, fleet, fleet.owner == play.player_faction,
 				MapPlayFleets.passage_note(play, fleet)
 			)
 			MapPlayFleets.refresh_options(play, fleet)
@@ -103,7 +103,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		if region != play.region_index:
 			prefix = "%s — " % FactionCatalog.region_label(region)
 		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
-	play.hud.set_fleets(play.ship_layer.hull_count_all(PlaySession.PLAYER_FACTION))
+	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
 
 
@@ -114,10 +114,10 @@ static func _resolve_visibility(play: PlaySession) -> void:
 		return
 	var at_sea: Array = []
 	for ship: Ship in play.ship_layer.ships:
-		if ship.faction == PlaySession.PLAYER_FACTION and ship.zone >= 0:
+		if ship.faction == play.player_faction and ship.zone >= 0:
 			at_sea.append(ship.zone)
 	var held: Array = CivilianMovement.held_provinces(
-		play.model, play.civilian_layer.units, PlaySession.PLAYER_FACTION
+		play.model, play.civilian_layer.units, play.player_faction
 	)
 	var changed: Array = play.visibility.end_of_turn(at_sea, held)
 	if not changed.is_empty():
@@ -128,7 +128,4 @@ static func _resolve_visibility(play: PlaySession) -> void:
 ## diplomacy § War required for hostile actions). Without a court, keep the
 ## legacy every-fleet-is-hostile behaviour for isolated fixtures.
 static func _at_war(play: PlaySession, a: int, b: int) -> bool:
-	if play.diplomacy == null:
-		return true
-	var record: DiplomacyRelation = play.diplomacy.relation(a, b)
-	return record != null and record.at_war
+	return DiplomacyRules.at_war_with(play.diplomacy, a, b)

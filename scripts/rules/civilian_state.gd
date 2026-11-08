@@ -101,3 +101,33 @@ func cancel_work() -> void:
 	if origin_tile.x >= 0:
 		tile = origin_tile
 	clear_work()
+
+
+## Plain data for local saves: position, move flag and the active work order.
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"owner": owner,
+		"type_id": type_id,
+		"tile": tile,
+		"moved": moved,
+		"status": status,
+		"work": work.duplicate(true),
+		"origin_tile": origin_tile,
+		"assigned_tile": assigned_tile,
+	}
+
+
+static func from_dict(data: Dictionary) -> CivilianState:
+	var unit := CivilianState.create(
+		int(data.get("id", -1)),
+		int(data.get("owner", 0)),
+		String(data.get("type_id", CivilianCatalog.DEFAULT_TYPE)),
+		Vector2i(data.get("tile", Vector2i.ZERO))
+	)
+	unit.moved = bool(data.get("moved", false))
+	unit.status = int(data.get("status", Status.IDLE))
+	unit.work = data.get("work", {}).duplicate(true)
+	unit.origin_tile = Vector2i(data.get("origin_tile", NO_TILE))
+	unit.assigned_tile = Vector2i(data.get("assigned_tile", NO_TILE))
+	return unit

@@ -17,7 +17,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked()
 	)
-	if unit.owner == PlaySession.PLAYER_FACTION:
+	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
 	else:
 		play.hud.toast(
@@ -28,7 +28,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 ## Tapping a neighbouring land tile marches the selected civilian there.
 static func try_move(play: PlaySession, world_position: Vector2) -> bool:
 	var unit: CivilianState = play.civilian_layer.selected_unit
-	if unit == null or unit.owner != PlaySession.PLAYER_FACTION:
+	if unit == null or unit.owner != play.player_faction:
 		return false
 	var tile: Vector2i = MapGeo.tile_at_world(world_position, PlaySession.TILE_SIZE)
 	if not play.model.in_bounds(tile.x, tile.y):
@@ -43,7 +43,7 @@ static func try_move(play: PlaySession, world_position: Vector2) -> bool:
 
 
 static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary) -> void:
-	if unit.owner != PlaySession.PLAYER_FACTION:
+	if unit.owner != play.player_faction:
 		return
 	var province: int = play.model.province_at(unit.tile.x, unit.tile.y)
 	var place: String = play.model.province_name(province) if province >= 0 else "the wilds"
@@ -55,7 +55,7 @@ static func on_action(play: PlaySession, action: String) -> void:
 	if play.victory != null:
 		return
 	var unit: CivilianState = play.civilian_layer.selected_unit
-	if unit == null or unit.owner != PlaySession.PLAYER_FACTION:
+	if unit == null or unit.owner != play.player_faction:
 		return
 	var result: Dictionary = CivilianWork.assign(
 		play.model, unit, action, play.land_works, play.civilian_layer.units,
@@ -142,10 +142,10 @@ static func train(play: PlaySession, type_id: String) -> void:
 	state.spend_treasury(CivilianCatalog.treasury_cost(type_id))
 	state.take("paper", CivilianCatalog.paper_cost(type_id))
 	var unit: CivilianState = play.civilian_layer.add_unit(
-		PlaySession.PLAYER_FACTION, type_id, tile
+		play.player_faction, type_id, tile
 	)
 	play.hud.set_treasury(play.treasury())
-	play.hud.set_civilians(play.civilian_layer.unit_count_all(PlaySession.PLAYER_FACTION))
+	play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
 	play.hud.toast(
 		"%s musters at %s" % [unit.display_name(), play.model.province_name(play.capital_province)]
 	)

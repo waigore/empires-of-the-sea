@@ -42,6 +42,15 @@ func test_relation_ladder_is_used_instead_of_the_raw_score() -> void:
 	assert_false(_has_text(panel._detail, "92"))
 
 
+func test_the_ten_word_ladder_is_the_only_relation_wording() -> void:
+	state.relation(0, 6).score = 22.4
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(6)
+	assert_true(_has_text(panel._list, "Distrustful"), "the court row carries the herald word")
+	assert_true(_has_text(panel._detail, "Herald: Distrustful"))
+	assert_false(_has_text(panel._detail, "Hostile"), "the superseded four-band word is not shown")
+
+
 func test_order_buttons_emit_kind_target_and_argument() -> void:
 	panel.select_faction(6)
 	var seen: Array[Array] = []

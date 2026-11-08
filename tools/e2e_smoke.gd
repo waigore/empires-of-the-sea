@@ -4,9 +4,11 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
 const BOOT_FRAMES: int = 8
-## Smaller than the playable default so smoke stays well under the 2 min budget.
-const SMOKE_WIDTH: int = 64
-const SMOKE_HEIGHT: int = 42
+## The smoke drives the real title -> setup -> map flow. Small keeps it fast.
+const SETUP_SIZE_INDEX: int = 0
+const SETUP_SEED: String = "1500"
+const SAVE_DIR: String = "user://e2e_smoke_saves"
+const SAVE_SLOT: int = 1
 
 var _failures: PackedStringArray = []
 
@@ -23,9 +25,8 @@ func _run() -> void:
 		_finish()
 		return
 
+	_clean_save_dir()
 	var main: Node = packed.instantiate()
-	main.map_width = SMOKE_WIDTH
-	main.map_height = SMOKE_HEIGHT
 	root.add_child(main)
 	for _frame in BOOT_FRAMES:
 		await process_frame
@@ -33,11 +34,32 @@ func _run() -> void:
 	_check(GameVersion.as_string() != "", "GameVersion.as_string non-empty")
 	_check(GameVersion.is_compatible_with(GameVersion.MAJOR), "GameVersion major compatible")
 
-	var screen: MapScreen = _map_screen(main)
+	var menu: MainMenu = main.current_page as MainMenu
+	_check(menu != null, "main menu boots first")
+	_check(menu != null and menu.settings_button.disabled, "settings is dimmed")
+	_check(main.current_screen == null, "no map runs behind the title screen")
+	if menu == null:
+		_finish()
+		return
+	menu.new_game_button.emit_signal("pressed")
+	await process_frame
+
+	var setup: GameSetupScreen = main.current_page as GameSetupScreen
+	_check(setup != null, "new game opens the setup screen")
+	if setup == null:
+		_finish()
+		return
+	setup.seed_field.text = SETUP_SEED
+	setup.size_option.select(SETUP_SIZE_INDEX)
+	setup.start_button.emit_signal("pressed")
+	await process_frame
+
+	var screen: MapScreen = main.current_screen
 	_check(screen != null, "main hosts MapScreen")
 	if screen == null:
 		_finish()
 		return
+	screen.save_dir = SAVE_DIR
 
 	_check(screen.model != null, "map model built")
 	_check(screen.model.province_count() > 0, "provinces generated")
@@ -54,6 +76,19 @@ func _run() -> void:
 		screen.overlay._country_borders.size() >= 4,
 		"country borders built for every nation"
 	)
+	_check(screen.play.map_seed == SETUP_SEED.to_int(), "setup seed reaches the world")
+	_check(screen.game_menu != null, "in-game menu present")
+	screen.game_menu.open()
+	_check(screen.game_menu.is_open(), "in-game menu opens")
+	_check(paused, "in-game menu pauses the tree")
+	_check(screen.game_menu.settings_button.disabled, "in-game settings is dimmed")
+	screen.game_menu.open_save()
+	_check(screen.game_menu.browser.visible, "save browser opens")
+	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)
+	_check(SaveStore.has_slot(SAVE_SLOT, SAVE_DIR), "in-game save writes the slot")
+	_check(screen.game_menu._status.text.contains("Saved"), "save is acknowledged")
+	screen.game_menu.close()
+	_check(not paused, "in-game menu resumes the tree")
 
 	screen._cycle_region()
 	await process_frame
@@ -151,6 +186,29 @@ func _run() -> void:
 	_smoke_army_recruit(screen)
 	await _smoke_end_turn(screen, audio, cues_before, works)
 	await _smoke_victory(screen)
+
+	var old_screen: MapScreen = screen
+	screen.game_menu.open()
+	screen.game_menu.open_load()
+	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)
+	var loaded: MapScreen = main.current_screen
+	_check(loaded != null and loaded != old_screen, "load rebuilds the whole screen")
+	if loaded == null:
+		_finish()
+		return
+	_check(old_screen.get_parent() == null, "load clears the previous game")
+	_check(loaded.play.turn == 1, "load restores the saved turn")
+	_check(
+		loaded.play.economy.economy.treasury == PlayerEconomy.START_TREASURY,
+		"load restores the saved treasury"
+	)
+	_check(loaded.save_dir == SAVE_DIR, "load keeps the slot directory")
+	_check(not paused, "load resumes the tree")
+	loaded.game_menu.main_menu_chosen.emit()
+	await process_frame
+	_check(main.current_page is MainMenu, "main menu returns from play")
+	_check(main.current_screen == null, "no map survives the return")
+	_clean_save_dir()
 	_finish()
 
 
@@ -301,6 +359,7 @@ func _smoke_end_turn(
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(screen.economy != null, "economy wired")
 	_check(
 		screen.treasury == screen.economy.economy.treasury,
@@ -480,6 +539,17 @@ func _check(ok: bool, label: String) -> void:
 	else:
 		printerr("e2e_smoke: FAIL %s" % label)
 		_failures.append(label)
+
+
+func _clean_save_dir() -> void:
+	var path: String = ProjectSettings.globalize_path(SAVE_DIR)
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var dir := DirAccess.open(SAVE_DIR)
+	if dir != null:
+		for file_name: String in dir.get_files():
+			dir.remove(file_name)
+	DirAccess.remove_absolute(path)
 
 
 func _finish() -> void:

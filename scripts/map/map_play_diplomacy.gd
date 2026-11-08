@@ -3,8 +3,6 @@ extends RefCounted
 ## Court intents and the diplomacy phase for the map screen. Rules live in
 ## scripts/rules; this wires orders to the ledger and reports the outcome.
 
-const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
-
 
 static func open(play: PlaySession) -> void:
 	if play.diplomacy == null:
@@ -15,7 +13,7 @@ static func open(play: PlaySession) -> void:
 		play.hud.panels,
 		play.diplomacy,
 		play.world,
-		PLAYER_FACTION,
+		play.player_faction,
 		play.treasury(),
 		_tech(play)
 	)
@@ -28,7 +26,7 @@ static func refresh(play: PlaySession) -> void:
 		play.hud.panels,
 		play.diplomacy,
 		play.world,
-		PLAYER_FACTION,
+		play.player_faction,
 		play.treasury(),
 		_tech(play)
 	)
@@ -39,7 +37,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		return
 	if play.diplomacy == null:
 		return
-	var order: Dictionary = {"kind": kind, "from": PLAYER_FACTION, "target": target}
+	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
 		order["stage"] = arg
 	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
@@ -54,20 +52,58 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	elif not message.is_empty():
 		play.hud.toast(message)
 	if result.has("absorbed") and play.ship_layer != null:
-		play.ship_layer.transfer_owner(int(result["absorbed"]), PLAYER_FACTION)
+		play.ship_layer.transfer_owner(int(result["absorbed"]), play.player_faction)
 	if bool(result.get("map_changed", false)):
 		_rebuild_map(play)
 	play.hud.set_treasury(play.treasury())
 	refresh(play)
 
 
-## End-of-turn diplomacy phase: first contact, subsidy upkeep, relation drift.
+## End-of-turn diplomacy phase: first contact, rival-court AI orders, subsidy
+## upkeep, relation drift.
 static func resolve_turn(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		return
 	sync_first_contact(play)
+	run_ai(play)
 	play.diplomacy.end_turn()
 	refresh(play)
+
+
+## Rival Great Powers take their one diplomatic action for the turn before the
+## phase closes, so declarations apply to this turn's movement and combat
+## (wiki: diplomacy § Turn Sequence).
+static func run_ai(play: PlaySession) -> void:
+	if play.ai == null:
+		play.ai = AiState.new()
+	var result: Dictionary = AiTurn.run(
+		play.diplomacy,
+		play.world,
+		play.ai,
+		play.turn,
+		play.player_faction,
+		play.map_seed,
+		_ai_context(play)
+	)
+	play.ai_trace.assign(result.get("trace", []))
+	if play.hud == null:
+		return
+	for message: String in result.get("messages", []):
+		play.hud.toast(message)
+
+
+## Unit counts the war-desire score reads; rival stockpiles arrive with the AI
+## economy planner, so the resource-need bonus stays inert for now.
+static func _ai_context(play: PlaySession) -> Dictionary:
+	var regiments: Dictionary = {}
+	var ships: Dictionary = {}
+	for raw: Dictionary in FactionCatalog.all():
+		var faction: int = int(raw["id"])
+		if play.army_layer != null:
+			regiments[faction] = play.army_layer.regiment_count_all(faction)
+		if play.ship_layer != null:
+			ships[faction] = play.ship_layer.hull_count_all(faction)
+	return {"regiments": regiments, "ships": ships}
 
 
 ## A Tribe is contacted only by non-unknown tile visibility in its provinces;
@@ -77,12 +113,12 @@ static func sync_first_contact(play: PlaySession) -> Array[int]:
 	if play.diplomacy == null or play.world == null:
 		return contacted
 	for tribe: int in FactionCatalog.tribe_ids():
-		if play.diplomacy.has_relation(PLAYER_FACTION, tribe):
+		if play.diplomacy.has_relation(play.player_faction, tribe):
 			continue
 		if not _sees_tribe(play, tribe):
 			continue
-		play.diplomacy.ensure_relation(PLAYER_FACTION, tribe, play.turn)
-		play.diplomacy.touch(PLAYER_FACTION, tribe, "firstContact")
+		play.diplomacy.ensure_relation(play.player_faction, tribe, play.turn)
+		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
 		contacted.append(tribe)
 	if not contacted.is_empty():
 		var names: PackedStringArray = []

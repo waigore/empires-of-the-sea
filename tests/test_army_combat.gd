@@ -200,6 +200,27 @@ func test_outcome_labels_cover_every_result() -> void:
 	assert_eq(ArmyCombat.outcome_label(ArmyCombat.Outcome.CAPTURE), "province captured")
 
 
+func test_peaceful_factions_do_not_fight() -> void:
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var at_peace := func(_a: int, _b: int) -> bool: return false
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		_model, armies, {"hostile": at_peace}
+	)
+
+	assert_eq(reports.size(), 0, "peace holds: no battle, no capture")
+	assert_eq(_model.province_owner(2), 1)
+	assert_eq(attacker.count(), 3)
+	assert_eq(defender.count(), 1)
+	var at_war := func(_a: int, _b: int) -> bool: return true
+	var battles: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies, {"hostile": at_war})
+	assert_eq(battles.size(), 1, "declared war fights")
+	assert_eq(_model.province_owner(2), 0)
+
+
 func _repeat(type_id: String, count: int) -> Array[String]:
 	var types: Array[String] = []
 	for _index in count:

@@ -14,6 +14,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
+| [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |

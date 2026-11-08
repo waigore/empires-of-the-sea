@@ -191,9 +191,7 @@ func _fill_detail() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.add_child(status)
 	_detail.add_child(_meter(record.score))
-	_detail.add_child(
-		_label("Herald: %s  ·  %s" % [record.meter_label(), record.level()], 13, Palette.TEXT)
-	)
+	_detail.add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
 	_detail.add_child(_label(_overture_line(_selected), 13, Palette.TEXT))
 	if _state.subsidy(_player, _selected) > 0:
 		_detail.add_child(
@@ -224,7 +222,7 @@ func _add_option(option: Dictionary) -> void:
 
 
 func _status_line(faction_id: int, record: DiplomacyRelation) -> String:
-	var parts: PackedStringArray = [DiplomacyCatalog.state_label(record.at_war)]
+	var parts: PackedStringArray = [record.meter_label(), DiplomacyCatalog.state_label(record.at_war)]
 	if record.formal_alliance:
 		parts.append("Formal Alliance")
 	var colony_of: int = _state.colony_of(faction_id)

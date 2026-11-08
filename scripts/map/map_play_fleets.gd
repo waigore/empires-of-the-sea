@@ -14,16 +14,16 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.overlay.select_province(-1)
 	play.hud.panels.hide_province()
 	play.hud.panels.show_fleet(
-		play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION, passage_note(play, fleet)
+		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet)
 	)
 	refresh_options(play, fleet)
-	if fleet.owner != PlaySession.PLAYER_FACTION:
+	if fleet.owner != play.player_faction:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
 
 
 static func refresh_options(play: PlaySession, fleet: FleetState) -> void:
 	play.overlay.clear_move_options()
-	if fleet == null or fleet.owner != PlaySession.PLAYER_FACTION or fleet.moved:
+	if fleet == null or fleet.owner != play.player_faction or fleet.moved:
 		return
 	var options: Dictionary = NavalMovement.valid_destinations(play.model, fleet)
 	var zones: Array[int] = []
@@ -39,7 +39,7 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	if play.victory != null:
 		return false
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
-	if fleet == null or fleet.owner != PlaySession.PLAYER_FACTION:
+	if fleet == null or fleet.owner != play.player_faction:
 		return false
 	var zone_id: int = play.model.sea_zone_at(tile.x, tile.y)
 	if zone_id != MapModel.NO_ID:
@@ -86,7 +86,7 @@ static func _try_passage(play: PlaySession, fleet: FleetState) -> bool:
 
 ## Dossier hint when the selected fleet sits in a passage it could cross.
 static func passage_note(play: PlaySession, fleet: FleetState) -> String:
-	if fleet == null or fleet.owner != PlaySession.PLAYER_FACTION:
+	if fleet == null or fleet.owner != play.player_faction:
 		return ""
 	var check: Dictionary = WarpTravel.can_cross(play.world, play.region_index, fleet)
 	if not bool(check.get("ok", false)):
@@ -97,7 +97,7 @@ static func passage_note(play: PlaySession, fleet: FleetState) -> String:
 
 
 static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -> void:
-	if fleet.owner != PlaySession.PLAYER_FACTION:
+	if fleet.owner != play.player_faction:
 		return
 	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
 	refresh_options(play, fleet)
@@ -110,7 +110,7 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 
 
 static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void:
-	if ship == null or ship.faction != PlaySession.PLAYER_FACTION or play.visibility == null:
+	if ship == null or ship.faction != play.player_faction or play.visibility == null:
 		return
 	var changed: Array = play.visibility.reveal_sea_zone(zone_id)
 	if not changed.is_empty():
@@ -145,7 +145,7 @@ static func _announce_charted_coast(play: PlaySession, changed: Array) -> void:
 
 
 static func _known(play: PlaySession, fleet: FleetState) -> bool:
-	if fleet.owner == PlaySession.PLAYER_FACTION or play.visibility == null:
+	if fleet.owner == play.player_faction or play.visibility == null:
 		return true
 	var tile: Vector2i = _tile(play, fleet)
 	if tile.x < 0:

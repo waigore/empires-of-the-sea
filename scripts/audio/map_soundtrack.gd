@@ -189,12 +189,12 @@ func _player_outcome(battles: Array[Dictionary]) -> int:
 	for battle: Dictionary in battles:
 		var attacker: int = int(battle.get("attacker", -1))
 		var defender: int = int(battle.get("defender", -1))
-		if attacker != MapScreen.PLAYER_FACTION and defender != MapScreen.PLAYER_FACTION:
+		if attacker != screen.player_faction and defender != screen.player_faction:
 			continue
 		var outcome: int = int(battle.get("outcome", NavalCombat.Outcome.STALEMATE))
 		if outcome == NavalCombat.Outcome.STALEMATE:
 			continue
-		var player_is_side_one: bool = attacker == MapScreen.PLAYER_FACTION
+		var player_is_side_one: bool = attacker == screen.player_faction
 		var side_one_won: bool = outcome == NavalCombat.Outcome.SIDE1_VICTORY
 		if side_one_won == player_is_side_one:
 			won = true

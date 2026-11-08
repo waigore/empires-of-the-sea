@@ -44,7 +44,8 @@ static func contested_provinces(model: MapModel, armies: Array[ArmyState]) -> Ar
 
 
 ## Resolves every contested province, mutating armies and province ownership.
-## `context` carries {"roster", "army_general", "feeding", "leaders", "tech"}.
+## `context` carries {"roster", "army_general", "feeding", "leaders", "tech"} and
+## an optional `hostile(a, b)` war query; unset means every faction is hostile.
 static func resolve_turn(
 	model: MapModel, armies: Array[ArmyState], context: Dictionary = {}
 ) -> Array[Dictionary]:
@@ -271,14 +272,19 @@ static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
 
 
 ## Attacking factions in initiative order; ties fall to the lowest faction id.
+## `context["hostile"]`, when set, is the court's war query so only factions at
+## war are counted (wiki: diplomacy § War required for hostile actions).
 static func ordered_attackers(
 	armies: Array[ArmyState], province: int, defender: int, context: Dictionary = {}
 ) -> Array[int]:
 	var groups: Dictionary = {}
+	var hostile: Callable = context.get("hostile", Callable())
 	for army: ArmyState in armies:
 		if army == null or not army.moved or army.province != province:
 			continue
 		if army.owner == defender or army.is_empty():
+			continue
+		if not _hostile(hostile, army.owner, defender):
 			continue
 		if FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 			continue
@@ -324,6 +330,14 @@ static func has_third_party(
 			continue
 		return true
 	return false
+
+
+## Whether two factions may fight. An unset callable keeps the legacy
+## every-faction-hostile fixture behaviour.
+static func _hostile(hostile: Callable, attacker: int, defender: int) -> bool:
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(attacker, defender))
 
 
 static func band_for(ratio: float) -> Dictionary:
