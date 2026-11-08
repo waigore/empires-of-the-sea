@@ -11,9 +11,12 @@ signal fleet_moved(fleet: FleetState, result: Dictionary)
 const TILE_SIZE: float = 22.0
 const PLAYER_FLEETS: int = 3
 ## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
+## The player's three squadrons start small so naval food upkeep
+## (2 per ship per turn) fits the opening stockpile.
 const HULL_SETS: Array[Array] = [
-	["carrack", "carrack", "sloop"],
-	["carrack", "fluyte"],
+	["carrack"],
+	["sloop"],
+	["fluyte"],
 	["galleon", "carrack", "fluyte"],
 	["sloop", "carrack"],
 	["carrack", "carrack"],

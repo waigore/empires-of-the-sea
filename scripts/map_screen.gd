@@ -10,6 +10,7 @@ const SHIP_COUNT: int = 7
 
 var model: MapModel = null
 var visibility: VisibilityModel = null
+var economy: EconomyController = null
 var map_seed: int = MAP_SEED
 var map_width: int = 128
 var map_height: int = 84
@@ -84,10 +85,15 @@ func _build_world() -> void:
 func _build_hud() -> void:
 	hud.set_minimap(model, model.world_size(TILE_SIZE))
 	hud.set_turn(turn, TurnTime.year_for_turn(turn))
-	hud.set_treasury(treasury, false)
 	hud.set_prestige(prestige)
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
-	income = 90 + _owned_provinces() * 6
+	economy = EconomyController.new()
+	add_child(economy)
+	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud)
+	economy.treasury_changed.connect(func(value: int) -> void: treasury = value)
+	treasury = economy.economy.treasury
+	hud.set_treasury(treasury, false)
+	income = economy.projected_income()
 
 
 func _connect() -> void:
@@ -140,14 +146,6 @@ func _find_capital() -> int:
 		if int(province["owner"]) == PLAYER_FACTION:
 			return int(province["id"])
 	return 0
-
-
-func _owned_provinces() -> int:
-	var total: int = 0
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			total += 1
-	return total
 
 
 # --- interaction ------------------------------------------------------------
@@ -325,12 +323,12 @@ func _on_end_turn() -> void:
 	_refresh_fleet_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
-	treasury += income
+	economy.resolve_turn()
+	treasury = economy.economy.treasury
+	income = economy.projected_income()
 	prestige += 1
 	hud.set_turn(turn, year)
-	hud.set_treasury(treasury)
 	hud.set_prestige(prestige)
-	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
 	var selected: Ship = ship_layer.selected_ship
 	if selected != null:

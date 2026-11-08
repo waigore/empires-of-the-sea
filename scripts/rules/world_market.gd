@@ -1,0 +1,119 @@
+class_name WorldMarket
+extends RefCounted
+## World market: one global price per tradeable commodity, buy/sell clears at the
+## current integer price and the end-of-turn price discovery pass moves prices
+## (wiki: world-market). Riches never trade here; they convert in their own phase.
+
+const PRICE_FLOOR_RATIO: float = 0.30
+const MAX_PRICE_STEP: float = 0.20
+## The slice has no AI order flow yet; depth stands in for the rest of the world so
+## one nation's trades nudge prices instead of pinning them to the cap every turn.
+const DEFAULT_WORLD_DEPTH: int = 8
+
+var prices: Dictionary = {}
+var world_depth: int = DEFAULT_WORLD_DEPTH
+var _bids: Dictionary = {}
+var _offers: Dictionary = {}
+
+
+static func with_default_prices(depth: int = DEFAULT_WORLD_DEPTH) -> WorldMarket:
+	var market := WorldMarket.new()
+	market.world_depth = maxi(depth, 0)
+	for id: String in CommodityCatalog.all_ids():
+		if CommodityCatalog.is_tradeable(id):
+			market.prices[id] = CommodityCatalog.base_price(id)
+	return market
+
+
+func price(id: String) -> int:
+	if prices.has(id):
+		return int(prices[id])
+	return CommodityCatalog.base_price(id)
+
+
+func can_trade(id: String) -> bool:
+	return CommodityCatalog.is_tradeable(id)
+
+
+func bid_volume(id: String) -> int:
+	return int(_bids.get(id, 0))
+
+
+func offer_volume(id: String) -> int:
+	return int(_offers.get(id, 0))
+
+
+## Buys at the current price and records the bid for price discovery.
+func buy(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
+	if not can_trade(id):
+		return {"ok": false, "reason": "Not traded on the world market"}
+	if quantity <= 0:
+		return {"ok": false, "reason": "Quantity must be positive"}
+	var unit_price: int = price(id)
+	var cost: int = unit_price * quantity
+	if not economy.spend_treasury(cost):
+		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
+	economy.add(id, quantity)
+	_bids[id] = bid_volume(id) + quantity
+	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
+
+
+## Sells from the stockpile at the current price and records the offer.
+func sell(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
+	if not can_trade(id):
+		return {"ok": false, "reason": "Not traded on the world market"}
+	if quantity <= 0:
+		return {"ok": false, "reason": "Quantity must be positive"}
+	if economy.quantity(id) < quantity:
+		return {"ok": false, "reason": "Insufficient stockpile"}
+	var unit_price: int = price(id)
+	var revenue: int = unit_price * quantity
+	economy.take(id, quantity)
+	economy.add_treasury(revenue)
+	_offers[id] = offer_volume(id) + quantity
+	return {"ok": true, "reason": "", "unit_price": unit_price, "revenue": revenue}
+
+
+## Published formula, floored to an integer and clamped to 30% of the base price.
+static func next_price(
+	current: int,
+	base: int,
+	bids: int,
+	offers: int,
+	depth: int = 0
+) -> int:
+	var total: int = maxi(bids, 0) + maxi(offers, 0)
+	if total <= 0:
+		return maxi(current, 0)
+	var spread: float = 0.5 * float(bids - offers) / float(total + 2 * maxi(depth, 0))
+	spread = clampf(spread, -MAX_PRICE_STEP, MAX_PRICE_STEP)
+	var stepped: int = int(floor(float(current) * (1.0 + spread)))
+	var floor_price: int = int(floor(float(base) * PRICE_FLOOR_RATIO))
+	return maxi(stepped, floor_price)
+
+
+## Applies this turn's price discovery and starts the next turn with clean books.
+func advance_prices() -> Dictionary:
+	var changed: Dictionary = {}
+	for id: String in CommodityCatalog.all_ids():
+		if not can_trade(id):
+			continue
+		var current: int = price(id)
+		var updated: int = next_price(
+			current, CommodityCatalog.base_price(id), bid_volume(id), offer_volume(id), world_depth
+		)
+		prices[id] = updated
+		if updated != current:
+			changed[id] = updated
+	_bids.clear()
+	_offers.clear()
+	return changed
+
+
+func copy() -> WorldMarket:
+	var clone := WorldMarket.new()
+	clone.prices = prices.duplicate()
+	clone.world_depth = world_depth
+	clone._bids = _bids.duplicate()
+	clone._offers = _offers.duplicate()
+	return clone
