@@ -22,19 +22,24 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## LeaderKey chosen for the human crown; empty means the crown's default
 ## (wiki: leader-bonuses § Leader Selection — chosen at game start, never after).
 var player_leader: String = ""
+## Endless campaign: the calendar cap never closes the age
+## (wiki: turn-time-mapping § Campaign calendar cap).
+var infinite_mode: bool = false
 
 
 static func make(
 	seed_value: int,
 	size_index: int,
 	player: int = FactionCatalog.PLAYER_FACTION,
-	leader: String = ""
+	leader: String = "",
+	infinite: bool = false
 ) -> GameConfig:
 	var config := GameConfig.new()
 	config.map_seed = seed_value
 	config.apply_size(size_index)
 	config.player_faction = player
 	config.player_leader = LeaderCatalog.resolve_key(player, leader)
+	config.infinite_mode = infinite
 	return config
 
 
@@ -58,6 +63,7 @@ func to_dict() -> Dictionary:
 		"map_height": map_height,
 		"player_faction": player_faction,
 		"player_leader": player_leader,
+		"infinite_mode": infinite_mode,
 	}
 
 
@@ -70,4 +76,5 @@ static func from_dict(data: Dictionary) -> GameConfig:
 	config.player_leader = LeaderCatalog.resolve_key(
 		config.player_faction, String(data.get("player_leader", ""))
 	)
+	config.infinite_mode = bool(data.get("infinite_mode", false))
 	return config

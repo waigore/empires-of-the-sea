@@ -52,3 +52,40 @@ static func _winner(world: WorldMap) -> int:
 	if ids.is_empty():
 		return MapModel.NO_ID
 	return ids[0]
+
+
+## Calendar cap: the campaign closes after the last turn that starts in the stop
+## year unless infinite mode was chosen at setup (wiki: turn-time-mapping
+## § Campaign calendar cap). A mapping with no stop turn never halts.
+static func calendar_halt(turn: int, infinite_mode: bool) -> bool:
+	return not infinite_mode and TurnTime.is_cap_turn(turn)
+
+
+## Strongest crown when the calendar closes the age without a military victory.
+## The declared leader has the strictly highest Great Power power score; a tie
+## at the top (or no eligible scorer) declares no-one (wiki: victory
+## § Calendar campaign end, diplomacy § Great Power power score).
+## `regiments` and `ships` map faction id → live counts; an empty map scores on
+## provinces alone, which is what a court with no field forces reads anyway.
+static func declared_leader(
+	world: WorldMap, regiments: Dictionary = {}, ships: Dictionary = {}
+) -> int:
+	if world == null:
+		return MapModel.NO_ID
+	var leader: int = MapModel.NO_ID
+	var best: int = -1
+	var tied: bool = false
+	for faction_id: int in FactionCatalog.great_power_ids():
+		var score: int = AiPower.score(
+			world,
+			faction_id,
+			int(regiments.get(faction_id, 0)),
+			int(ships.get(faction_id, 0))
+		)
+		if score > best:
+			leader = faction_id
+			best = score
+			tied = false
+		elif score == best:
+			tied = true
+	return MapModel.NO_ID if tied else leader

@@ -51,6 +51,8 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
 		"leaders": play.leaders.duplicate(),
+		"infinite_mode": play.infinite_mode,
+		"campaign_halted": play.campaign_halted,
 	}
 
 
@@ -101,11 +103,7 @@ static func _capture_economy(play: PlaySession) -> Dictionary:
 static func _capture_victory(state: VictoryState) -> Dictionary:
 	if state == null:
 		return {}
-	return {
-		"winner": state.winner_player_id,
-		"type": state.type,
-		"turn": state.turn_number,
-	}
+	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
 
 
 ## A save from before victory state was captured (or a malformed entry) loads as
@@ -182,6 +180,8 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
+	play.infinite_mode = bool(session.get("infinite_mode", false))
+	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided, or the load would hand the
 	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
 	play.victory = _victory_from(data.get("victory", {}))

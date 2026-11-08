@@ -9,6 +9,9 @@ signal dismissed
 
 const MIN_PANEL_WIDTH: float = 460.0
 const VIEWPORT_MARGIN: float = 24.0
+## Calendar-cap variant (wiki: victory § Calendar campaign end).
+const CALENDAR_TITLE: String = "Campaign complete"
+const NO_WINNER: String = "No crown prevails"
 
 var state: VictoryState = null
 
@@ -47,6 +50,31 @@ func show_victory(p_state: VictoryState, player_faction: int, holdings: int) -> 
 		if state.won_by(player_faction)
 		else "%s has won the age." % state.winner_name()
 	)
+	_mount()
+
+
+## Renders the calendar-cap variant: no military victory, only the strongest
+## crown by power score — or a shared top score, which declares no-one.
+func show_campaign_complete(leader: int, turn: int) -> void:
+	state = null
+	_title.text = CALENDAR_TITLE.to_upper()
+	_winner.text = (
+		FactionCatalog.name_of(leader).to_upper()
+		if leader != MapModel.NO_ID
+		else NO_WINNER.to_upper()
+	)
+	_detail.text = "No military victory  ·  Turn %d  ·  %d" % [
+		turn, TurnTime.year_for_turn(turn)
+	]
+	_tagline.text = (
+		"%s closes the age strongest." % FactionCatalog.name_of(leader)
+		if leader != MapModel.NO_ID
+		else "The crowns close the age in a dead heat."
+	)
+	_mount()
+
+
+func _mount() -> void:
 	_continue.text = "View final state"
 	visible = true
 	modulate.a = 0.0

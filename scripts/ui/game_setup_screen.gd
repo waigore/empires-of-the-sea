@@ -10,6 +10,8 @@ var nation_option: OptionButton = null
 var leader_option: OptionButton = null
 var seed_field: LineEdit = null
 var size_option: OptionButton = null
+## Historical (calendar cap at 1800) vs endless (military victory only).
+var campaign_option: OptionButton = null
 var start_button: Button = null
 var back_button: Button = null
 
@@ -85,6 +87,15 @@ func _build() -> void:
 	size_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
 	box.add_child(size_option)
 
+	box.add_child(MenuFrame.caption("Campaign"))
+	campaign_option = OptionButton.new()
+	MenuFrame.style_option(campaign_option)
+	campaign_option.add_item("Historical — closes in 1800")
+	campaign_option.add_item("Endless — military victory only")
+	campaign_option.select(0)
+	campaign_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
+	box.add_child(campaign_option)
+
 	_summary = MenuFrame.subtitle("")
 	box.add_child(_summary)
 
@@ -137,8 +148,11 @@ func _refresh_summary() -> void:
 	var rivals: int = FactionCatalog.great_power_ids().size() - 1
 	var seed_text: String = seed_field.text.strip_edges() if seed_field != null else ""
 	var seed_label: String = seed_text if not seed_text.is_empty() else "random"
-	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  seed %s" % [
-		nation, leader, rivals, seed_label,
+	var length_note: String = (
+		"endless" if _endless() else "to 1800"
+	)
+	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  seed %s" % [
+		nation, leader, rivals, length_note, seed_label,
 	]
 
 
@@ -156,9 +170,15 @@ func _on_start() -> void:
 		seed_value = text.to_int()
 	var faction: int = int(nation_option.get_item_id(nation_option.selected))
 	var config: GameConfig = GameConfig.make(
-		seed_value, size_option.selected, faction, _selected_leader()
+		seed_value, size_option.selected, faction, _selected_leader(), _endless()
 	)
 	start_requested.emit(config)
+
+
+## Endless campaign keeps the calendar open; historical closes it in 1800
+## (wiki: turn-time-mapping § Campaign calendar cap).
+func _endless() -> bool:
+	return campaign_option != null and campaign_option.selected == 1
 
 
 func _notification(what: int) -> void:

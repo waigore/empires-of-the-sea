@@ -11,6 +11,12 @@ const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 ## Human slot chosen in game setup; the rules read this everywhere the player
 ## is special-cased (view, upkeep, diplomacy).
 var player_faction: int = PLAYER_FACTION
+## Endless campaign chosen at setup: the calendar cap never closes the age
+## (wiki: turn-time-mapping § Campaign calendar cap).
+var infinite_mode: bool = false
+## Set once the calendar cap closes an undecided campaign; turns stay shut even
+## though no victory was declared (wiki: victory § Calendar campaign end).
+var campaign_halted: bool = false
 ## Generation recipe, kept so a save can rebuild the identical world.
 var map_seed: int = 1500
 var map_width: int = 128
@@ -69,15 +75,22 @@ func bind_host(p_host: Node) -> void:
 	host = p_host
 
 
-## Starts a fresh run in this session: generation recipe, human crown and its
-## leaderKey. Rival crowns take their configured leader (wiki: leader-bonuses).
+## Starts a fresh run in this session: generation recipe, human crown, the
+## leaderKey and whether the campaign may outlive the calendar. Rival crowns
+## take their configured leader (wiki: leader-bonuses).
 func configure(
-	faction: int, seed_value: int, width: int, height: int, leader: String = ""
+	faction: int,
+	seed_value: int,
+	width: int,
+	height: int,
+	leader: String = "",
+	infinite: bool = false
 ) -> void:
 	player_faction = faction
 	map_seed = seed_value
 	map_width = width
 	map_height = height
+	infinite_mode = infinite
 	leaders = LeaderCatalog.roster(faction, leader)
 
 
@@ -184,6 +197,12 @@ func emit_turn_ended(p_turn: int) -> void:
 func emit_victory(state: VictoryState) -> void:
 	if host != null:
 		host.emit_signal("victory_declared", state)
+
+
+## Turns, orders and map intents close for good once a victory is declared or
+## the calendar cap closes the age (wiki: victory, turn-time-mapping).
+func campaign_over() -> bool:
+	return victory != null or campaign_halted
 
 
 ## Political ownership changed (Join Empire): ask the screen to redraw the map.
