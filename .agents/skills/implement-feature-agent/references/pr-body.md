@@ -19,6 +19,7 @@ Notes: <brief>
 ## Test plan
 - [ ] `gd-tools test --coverage --min 80` (if code/tests touched)
 - [ ] `python tools/lint_docs_words.py` (if docs touched)
+- [ ] `godot --headless --path . --script res://tools/e2e_smoke.gd` (if smoke or main-scene path touched; aim ≤2 min)
 - [ ] Manual: <desktop + touch path if UI>
 ```
 
