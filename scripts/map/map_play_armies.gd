@@ -72,9 +72,9 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 ## (wiki: diplomacy § War required for hostile actions).
 static func may_invade(play: PlaySession, province_id: int) -> bool:
 	var owner: int = play.model.province_owner(province_id)
-	if owner == MapModel.NO_ID or owner == PLAYER:
+	if owner == MapModel.NO_ID or owner == play.player_faction:
 		return true
-	return DiplomacyRules.at_war_with(play.diplomacy, PLAYER, owner)
+	return DiplomacyRules.at_war_with(play.diplomacy, play.player_faction, owner)
 
 
 ## Battles only happen between factions at war.
