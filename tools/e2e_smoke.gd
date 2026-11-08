@@ -303,6 +303,7 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 		)
 		_check(_options_has(options, "build_road"), "engineer offers build_road")
 		_check(_options_has(options, "build_port"), "engineer offers build_port")
+		_check(_options_has(options, "build_fort"), "engineer offers build_fort")
 		MapPlayCivilians.on_action(screen.play, "build_road")
 		_check(engineer.is_working() and engineer.work_action() == "build_road", "road order starts")
 		works["road"] = road_tile

@@ -49,9 +49,9 @@ field battles and unopposed capture.
 
 ## Deferred (REQ-P2-02)
 
-Forts, siege walls, emplaced guns · Quick Battle · difficulty modifiers ·
-per-regiment medals and unit health · minor military parity and in-place
-upgrades · AI marches · naval transport between regions.
+Quick Battle and the gun-loss downgrade · difficulty · per-regiment medals and
+health · minor parity and in-place upgrades · AI marches · naval transport.
+Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
 

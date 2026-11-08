@@ -64,6 +64,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 				"owner": province.owner,
 				"capital": province.capital,
 				"town_development": province.town_development,
+				"fort_level": province.fort_level,
 				"resource": province.resource,
 				"resource_tile": province.resource_tile,
 				"population": province.population,
@@ -235,6 +236,7 @@ static func _apply_province(model: MapModel, data: Dictionary) -> bool:
 	province.owner = int(data.get("owner", MapModel.NO_ID))
 	province.capital = bool(data.get("capital", false))
 	province.town_development = int(data.get("town_development", 0))
+	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
 	province.resource = int(data.get("resource", MapModel.NO_ID))
 	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
 	province.population = int(data.get("population", 0))
