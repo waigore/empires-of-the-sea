@@ -25,11 +25,9 @@ Base rules for opening and landing PRs (humans and agents).
 | `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 SOLID bars (`tools/lint_arch.py`) — always |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-`tests` / `build` / `e2e-smoke` run on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
+`tests` / `build` / `e2e-smoke` on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
 
-Smoke (`tools/e2e_smoke.gd`): main mini-flow; **aim ≤2 min**. Extend on player-path features; deep rules in `tests/`. Job timeout 3 min (setup headroom).
-
-Add `docs-lint`, `arch-lint`, `build`, `e2e-smoke` to Protect main (admin). Merge: **squash only**; delete branches; auto-merge on.
+Smoke: main mini-flow; **aim ≤2 min**; deep rules in `tests/`. Timeout 3 min. Add `docs-lint`, `arch-lint`, `build`, `e2e-smoke` to Protect main (admin). Merge: **squash only**; delete branches; auto-merge on.
 
 ### Respecting checks
 
