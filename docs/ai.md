@@ -17,9 +17,9 @@ work), P5 (rivals act without player bookkeeping).
   Unknown ids fall back to normal; invalid values are rejected at load.
 - **Personalities** (`AiPersonality`): the seven wiki archetypes with domain
   weights, a war-gate shift and a war-desire bias. Each GP's leaderKey comes
-  from `LeaderCatalog` — the same roster the setup screen and combat read
-  (Spain Isabella, England Victoria, France Napoleon, Portugal Henry, United
-  Provinces De Ruyter, Sweden Gustavus).
+  from `LeaderCatalog`, the roster setup and combat share (Spain Isabella,
+  England Victoria, France Napoleon, Portugal Henry, United Provinces
+  De Ruyter, Sweden Gustavus).
 - **Hidden agendas** (`AiAgenda`): one of six, assigned once from
   `hash(game seed, faction)` and kept for the run.
 - **Power score** (`AiPower`): provinces × 10 + regiments × 1 + ships × 5, with
@@ -35,10 +35,13 @@ work), P5 (rivals act without player bookkeeping).
 - **Turn pass** (`AiTurn`): at most one legal order per rival court per turn,
   applied through `DiplomacyRules`, with a per-court trace of candidates and
   factors. War declarations land before naval combat in the same turn.
+- **Persistence:** local saves keep each court's fixed agenda and pair cooldowns
+  (`AiState.to_dict`), so a load cannot re-roll an agenda or restart a war
+  cooldown.
 
 Selection thresholds and biases are implementation defaults in the registry;
 the wiki fixes the factors and cooldown lengths, not the pick. AI peace and
-overture offers to the human wait for the court UI instead of auto-committing.
+overture offers to the human wait for the court UI.
 
 ## Deferred (REQ-P2-02)
 

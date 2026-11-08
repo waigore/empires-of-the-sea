@@ -15,19 +15,20 @@ field battles and unopposed capture.
   `ArmyTraining`): 29 regiments with FPN/FPM/RNG/DEF/MVR, era, treasury cost,
   material inputs and one peasant from the pool. Tech-gated per
   `tech-tree-military`; new regiments join the Home Army at the capital.
-  Cavalry inputs follow the published table; other material rows and terrain
-  values are interim config (the wiki names them without numbers).
+  Cavalry inputs follow the published table; other material and terrain values
+  are interim config.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power; cap 2
   from `organised_regiments`, 3 from `national_bureaucracy` or
   `improved_infantry_tactics`, 4 from `nationalism`; rosters only grow. Binding
   runs once per Combat phase — one general per attacking army, then per
   defending army, seeded by turn. Medals 0–4, +1 per win.
+- **Persistence:** saves carry general pools with medals, feeding coverage and
+  every crown's leader key (`LeaderCatalog`, chosen at setup); a save without
+  pools rebuilds the court from its tech caps.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier with fallback
   medals. Feeding coverage comes from the previous Consumption.
-- **Leaders** (`LeaderCatalog`): one leaderKey per Great Power, chosen at setup,
-  fixed for the run; land combat only, saved.
 - **Armies** (`ArmyState`): one province per army of stable `unit_<n>`
   regiments. One Home Army per faction at its capital, never deleted and never
   marching; detach regiments to form field armies. Split/combine needs one
@@ -50,8 +51,7 @@ field battles and unopposed capture.
 
 Forts, siege walls, emplaced guns · Quick Battle · difficulty modifiers ·
 per-regiment medals and unit health · minor military parity and in-place
-upgrades · AI marches · naval transport between regions · save-file general
-reconciliation.
+upgrades · AI marches · naval transport between regions.
 
 ## Architecture
 
