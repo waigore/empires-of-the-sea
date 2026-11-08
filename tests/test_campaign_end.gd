@@ -124,6 +124,34 @@ func test_an_endless_campaign_sails_past_the_cap() -> void:
 	assert_false(screen.hud._end_turn_button.disabled)
 
 
+# --- setup -------------------------------------------------------------------
+
+
+func test_setup_carries_the_campaign_choice_into_the_config() -> void:
+	var setup: GameSetupScreen = load("res://scenes/game_setup.tscn").instantiate()
+	add_child(setup)
+	var started: Array[GameConfig] = []
+	setup.start_requested.connect(func(config: GameConfig) -> void:
+		started.append(config)
+	)
+	setup.campaign_option.select(1)
+
+	setup._on_start()
+
+	assert_eq(started.size(), 1)
+	assert_true(started[0].infinite_mode, "endless setup flags the config")
+	assert_eq(setup.campaign_option.item_count, 2, "historical and endless on offer")
+
+
+func test_the_config_round_trips_the_campaign_choice() -> void:
+	var config: GameConfig = GameConfig.make(7, 0, 1, "", true)
+
+	var restored: GameConfig = GameConfig.from_dict(config.to_dict())
+
+	assert_true(restored.infinite_mode)
+	assert_eq(restored.map_seed, 7)
+
+
 # --- persistence -------------------------------------------------------------
 
 
