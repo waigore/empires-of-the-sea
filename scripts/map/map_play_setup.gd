@@ -59,6 +59,14 @@ static func refresh_after_load(play: PlaySession) -> void:
 	hud.set_treasury(play.treasury(), false)
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	MapPlayDiplomacy.refresh(play)
+	# A slot saved after the campaign was decided re-mounts the plate and keeps
+	# the end-turn seal shut (wiki: campaign-persistence § Load and resume).
+	if play.victory != null:
+		play.hud.show_victory(
+			play.victory,
+			play.player_faction,
+			VictoryRules.old_world_holdings(play.world, play.victory.winner_player_id)
+		)
 
 
 ## Opening frame: wide then settle on the capital; the parchment fades away.
