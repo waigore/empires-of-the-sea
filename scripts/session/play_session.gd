@@ -33,6 +33,10 @@ var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
 var hover_province: int = -1
 var charted_provinces: Dictionary = {}
+## Last resolved army feeding coverage per faction (fed / demanded rations).
+var feeding: Dictionary = {}
+## Faction -> leaderKey; empty until leader selection ships (wiki: leader-bonuses).
+var leaders: Dictionary = {}
 
 var ship_layer: ShipLayer = null
 var civilian_layer: CivilianLayer = null
@@ -102,6 +106,13 @@ func tech_caps() -> Dictionary:
 	return TechCatalog.extraction_caps(economy.economy.tech_unlocked)
 
 
+## Researched tech ids, for work-order gates that are not extraction caps.
+func tech_unlocked() -> Dictionary:
+	if economy == null or economy.economy == null:
+		return {}
+	return economy.economy.tech_unlocked
+
+
 ## Recomputes which resources the crown has seen, so discovery techs unlock
 ## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
 func refresh_research() -> void:
@@ -147,3 +158,9 @@ func emit_turn_ended(p_turn: int) -> void:
 func refresh_map_views() -> void:
 	if host != null and host.has_method("refresh_political_map"):
 		host.call("refresh_political_map")
+
+
+## Swaps the whole view onto another region (fleet crossing a passage).
+func switch_region(index: int) -> void:
+	if host != null and host.has_method("load_region"):
+		host.call("load_region", index)

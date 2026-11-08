@@ -15,7 +15,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps()
+		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked()
 	)
 	if unit.owner == PlaySession.PLAYER_FACTION:
 		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
@@ -57,7 +57,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		return
 	var result: Dictionary = CivilianWork.assign(
 		play.model, unit, action, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, CivilianState.NO_TILE, play.tech_caps()
+		play.stockpile(), play.visibility, CivilianState.NO_TILE, play.tech_caps(),
+		play.tech_unlocked()
 	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
@@ -83,7 +84,7 @@ static func refresh_panel(play: PlaySession) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps()
+		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked()
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
@@ -114,8 +115,15 @@ static func resolve_work(play: PlaySession) -> void:
 
 
 static func train(play: PlaySession, type_id: String) -> void:
+	if not CivilianCatalog.known(type_id):
+		return
 	if not CivilianCatalog.is_implemented(type_id):
 		play.hud.toast(CivilianCatalog.deferred_reason(type_id))
+		return
+	if not CivilianCatalog.is_unlocked(type_id, play.tech_unlocked()):
+		play.hud.toast(
+			"Requires %s." % TechCatalog.display_name(CivilianCatalog.unlock_tech(type_id))
+		)
 		return
 	if play.selected_province != play.capital_province:
 		play.hud.toast("Civilians are trained at the capital.")
