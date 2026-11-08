@@ -9,6 +9,8 @@ const WIDTH: float = GameHud.PANEL_WIDTH
 const MARGIN: float = GameHud.PANEL_MARGIN
 const TOP: float = 84.0
 const BOTTOM: float = -104.0
+## Meta key holding the running slide tween for one dossier wrapper.
+const SLIDE_KEY: String = "dock_slide"
 
 var side: int = Side.RIGHT
 
@@ -70,10 +72,12 @@ func place_shown(wrap: Control) -> void:
 
 
 func slide_in(host: Node, wrap: Control) -> void:
+	_stop_slide(wrap)
 	prepare_wrap(wrap)
 	wrap.visible = true
 	wrap.modulate.a = 0.0
 	var tween := host.create_tween().set_parallel(true)
+	wrap.set_meta(SLIDE_KEY, tween)
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if is_left():
 		tween.tween_property(wrap, "offset_left", MARGIN, 0.34)
@@ -85,7 +89,9 @@ func slide_in(host: Node, wrap: Control) -> void:
 
 
 func slide_out(host: Node, wrap: Control, on_done: Callable) -> void:
+	_stop_slide(wrap)
 	var tween := host.create_tween().set_parallel(true)
+	wrap.set_meta(SLIDE_KEY, tween)
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	if is_left():
 		tween.tween_property(wrap, "offset_left", MARGIN - WIDTH, 0.26)
@@ -95,3 +101,13 @@ func slide_out(host: Node, wrap: Control, on_done: Callable) -> void:
 		tween.tween_property(wrap, "offset_right", WIDTH - MARGIN, 0.26)
 	tween.tween_property(wrap, "modulate:a", 0.0, 0.2)
 	tween.chain().tween_callback(on_done)
+
+
+## A hide followed by a show in the same frame must not let the old slide-out
+## callback park the panel hidden while its open flag says visible.
+func _stop_slide(wrap: Control) -> void:
+	if not wrap.has_meta(SLIDE_KEY):
+		return
+	var tween: Tween = wrap.get_meta(SLIDE_KEY) as Tween
+	if tween != null and tween.is_valid():
+		tween.kill()

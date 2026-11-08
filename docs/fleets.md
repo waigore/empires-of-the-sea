@@ -12,21 +12,21 @@ food upkeep, and ship catalogs.
 ## Implemented
 
 - Fleet is **at sea** (one zone) or **in port** (one province) — exclusive.
-- Only Great Powers keep fleets; each region hosts its own squadrons, and the
-  map screen swaps them with the Old/New World view.
+- Only Great Powers keep fleets; each region hosts its own squadrons.
 - **One move / turn:** S↔S; port → adjacent sea (undock); sea → owned coastal
   province adjacent to the zone (dock). Dock needs ownership + `port_tile`.
-- Entering a zone reveals water + **coastal land ring** via
-  `VisibilityModel.reveal_sea_zone`. End-of-turn fog decay / distant re-fog /
-  coastal pass; enemy markers only on fully visible tiles.
+- **Passage crossing:** a fleet at sea in a warp zone may cross to the paired
+  zone on the other map as its move; the view follows it and reveals the
+  arrival waters (wiki: map-topology).
+- Entering a zone reveals water + **coastal land ring**. End-of-turn fog decay,
+  distant re-fog, coastal pass; enemy markers need full visibility.
 - Hulls are instances (`ship_<n>` + type). `ShipStats`: FRP/RNG/ARM/HULL/MV,
   intercept, flee, cargo. `ShipEconomy`: build treasury/materials, unlock eras,
   **2 food/hull upkeep** (shown on the fleet dossier).
-- **Upkeep is empire-wide:** every region's squadrons eat, and the HUD SHIPS
-  chip is a total, so viewing the New World cannot hide the Old World fleet's
-  cost.
-- Contested sea zones fight at end of turn **in every region**, including the
-  one off screen; an off-screen result is prefixed with its region in the toast.
+- **Upkeep is empire-wide:** every region's squadrons eat and the SHIPS chip
+  totals them, so viewing one world never hides the other's cost.
+- Contested sea zones fight at end of turn **in every region**, even off
+  screen; off-screen results name their region.
   Only fleets of factions **at war** engage; at peace they share a zone, and a
   neutral third party stays out of someone else's battle. Strength
   `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
@@ -36,8 +36,7 @@ food upkeep, and ship catalogs.
 ## Deferred (REQ-P2-02)
 
 Home-fleet merge · Patrol/Blockade/Beachhead/Defend · interception/retreat/raids
-· build deduct + tech unlock · AI movement · multi-hull markers · sail through
-warp zones (Old ↔ New World).
+· build deduct + tech unlock · AI movement · multi-hull markers.
 
 ## Architecture
 
@@ -48,6 +47,8 @@ warp zones (Old ↔ New World).
 | `scripts/rules/ship_economy.gd` | build costs, era, food upkeep |
 | `scripts/rules/naval_combat.gd` | contested zones, casualties |
 | `scripts/rules/naval_movement.gd` | adjacency, validate, `apply_move` |
+| `scripts/rules/warp_travel.gd` | passage crossing validation |
+| `scripts/map/map_play_warp.gd` | follows a crossing onto the other map |
 | `scripts/rules/visibility.gd` | fog reveal + end of turn |
 | `scripts/map/ship_layer.gd` | markers, orders, all-region battles |
 | `scripts/map/map_overlay.gd` | destination highlights |
@@ -66,14 +67,15 @@ No node deps in rules (`REQ-P3-03`). Orders: `ShipLayer.order` →
 |--------|---------|-------|
 | Select fleet | click | tap |
 | Sail / dock | click highlight | tap highlight |
+| Cross passage | click the Passage ring | tap the Passage ring |
 | Cancel | `Esc` | close panel |
 
-Highlights for a selected player fleet with a move left; refused orders toast.
+Movable fleets highlight; refusals toast.
 
 ## Tests
 
-`test_naval_movement`, `test_fleet_orders`, `test_visibility`, `test_ship_stats`,
-`test_ship_economy`, `test_naval_combat`, `test_map_screen`.
+`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`, `test_visibility`,
+`test_ship_stats`, `test_ship_economy`, `test_naval_combat`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
