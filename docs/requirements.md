@@ -1,117 +1,60 @@
 # High-level requirements — Empires of the Sea
 
-Canonical product requirements for agents and humans. Evaluate work against [`rubric.md`](rubric.md).  
-**Game rules source of truth:** [Empires of the Sea wiki](https://github.com/waigore/empires-of-the-sea/wiki) (Game rules section on Home and linked pages).
-
-**Platforms:** desktop (Windows, macOS, Linux) and mobile (Android, iOS).  
-**Presentation:** 2D Godot 4 gameplay with immersive art, animation, and era-appropriate music.
-
----
+Canonical product requirements. Score work with [`rubric.md`](rubric.md).  
+**Rules SoT:** [wiki](https://github.com/waigore/empires-of-the-sea/wiki).  
+**Platforms:** desktop + mobile. **Presentation:** 2D Godot 4 with immersive art, animation, era music.
 
 ## Pillars
 
 | ID | Pillar | Intent |
 |----|--------|--------|
-| P1 | Presentation & immersion | 2D play—visuals, motion, and music—that feels like 16th–18th century European colonial / Age of Sail worlds |
-| P2 | Rules fidelity | Complete, correct implementation of the game’s rules |
-| P3 | Modular architecture | Composable systems that stay replaceable and testable |
-| P4 | Performance & latency | Smooth play and responsive input on target devices |
+| P1 | Presentation & immersion | 16th–18th c. European colonial / Age of Sail feel |
+| P2 | Rules fidelity | Complete, correct wiki rules |
+| P3 | Modular architecture | Composable, replaceable, testable systems |
+| P4 | Performance & latency | Smooth play, responsive input |
 
-Every feature, PR, and design choice should map to at least one pillar. If it maps to none, challenge the change.
-
----
+Map every change to ≥1 pillar; challenge work that maps to none.
 
 ## P1 — Presentation & immersion
 
-### REQ-P1-01 — 2D gameplay presentation
-All primary gameplay is 2D (sprites, tilemaps, UI overlays, 2D VFX). 3D is not used for core play loops.
-
-### REQ-P1-02 — Colonial / Age of Sail aesthetic (16th–18th century Europe)
-Visual language (ships, ports, maps, UI chrome, typography, color, heraldry cues) should evoke European colonial maritime eras of roughly the 16th–18th centuries—not generic fantasy, sci-fi, or modern naval themes.
-
-### REQ-P1-03 — Immersive graphics
-Art direction prioritizes readable silhouettes, period-appropriate materials/motifs, and coherent world presentation over placeholder or purely utilitarian graphics once a system ships as “player-facing.”
-
-### REQ-P1-04 — Immersive animation
-Meaningful motion for ships, weather/sea feel, UI feedback, and state changes. Idle and transition animations should support immersion without blocking rules clarity or input responsiveness (see P4).
-
-### REQ-P1-05 — Cross-platform presentation
-Layouts, touch targets, and visual scale remain usable on phones and desktops. No hover-only critical UX; resolution-independent UI (anchors, containers, theme scales).
-
-### REQ-P1-06 — Immersive era-appropriate music
-Player-facing music should support immersion with period-fitting repertoire—prefer **Baroque** or **Classical** (roughly contemporaneous with the 16th–18th century setting), not modern pop, electronic, or anachronistic genres as the default soundtrack. Music must not obscure critical UI/audio feedback; volume and mute remain player-controllable.
-
----
+- **REQ-P1-01** — Primary gameplay is 2D; no 3D core loops.
+- **REQ-P1-02** — Visual language evokes 16th–18th c. European colonial maritime eras (not fantasy/sci-fi/modern).
+- **REQ-P1-03** — Player-facing art: readable silhouettes, period motifs, coherent world—not placeholder-as-final.
+- **REQ-P1-04** — Meaningful motion for ships, sea/weather, UI, state changes; never hide rules or block input (P4).
+- **REQ-P1-05** — Usable on phone and desktop; no hover-only critical UX; resolution-independent UI.
+- **REQ-P1-06** — Default music period-fitting (prefer Baroque/Classical); mute/volume controllable; don’t obscure feedback.
 
 ## P2 — Rules fidelity
 
-### REQ-P2-01 — Single source of truth
-Game rules live in the [project wiki](https://github.com/waigore/empires-of-the-sea/wiki). Code implements those pages; undocumented house rules are not accepted as “done.”
-
-### REQ-P2-02 — Full rules coverage
-All wiki-defined rules domains (e.g. turn structure, movement, combat, economy, victory, edge cases) are implemented or explicitly tracked as out-of-scope for a given milestone. “Partial” is only valid when the wiki marks the rule optional/deferred.
-
-### REQ-P2-03 — Correctness over convenience
-UI shortcuts and AI helpers must not bypass or contradict rules. Simulations, replays, and tests should agree with the same rules engine where practical.
-
-### REQ-P2-04 — Verifiable rules
-Rules logic is unit-tested (gd-tools). Coverage of rules modules is expected to meet or exceed the project CI gate (`gd-tools test --coverage --min 80`) with meaningful cases, not only happy paths.
-
-### REQ-P2-05 — Rules changes are documented
-Changing behavior requires updating the relevant wiki rules page in the same change set (or an immediately linked follow-up that blocks release of that behavior).
-
----
+- **REQ-P2-01** — Wiki is rules SoT; code implements it; undocumented house rules ≠ done.
+- **REQ-P2-02** — All wiki domains implemented or explicitly out-of-scope for the milestone.
+- **REQ-P2-03** — UI/AI must not bypass or contradict rules; sims/tests share the engine where practical.
+- **REQ-P2-04** — Rules logic unit-tested; meet CI coverage gate with meaningful cases.
+- **REQ-P2-05** — Behavior changes update the wiki in the same change (or a release-blocking follow-up).
 
 ## P3 — Modular architecture
 
-### REQ-P3-01 — Clear module boundaries
-Gameplay domains (e.g. map, fleet, combat, economy, UI, persistence) live in focused scenes/scripts with explicit APIs. Prefer extending existing modules over new frameworks.
-
-### REQ-P3-02 — Loose coupling
-Prefer signals, small adapters, and dependency injection–style wiring over deep node-path reach-ins and god-objects. Autoloads only for true cross-cutting concerns.
-
-### REQ-P3-03 — Rules engine separable from presentation
-Rules/simulation state must be usable without relying on visual nodes. Presentation reads state and emits intents; it does not own authoritative rule outcomes.
-
-### REQ-P3-04 — Testability
-Modules are testable in isolation (pure logic or mocked collaborators). New systems ship with tests under `tests/`.
-
-### REQ-P3-05 — Platform adapters stay thin
-Desktop vs mobile differences (input, safe areas, performance knobs) stay behind feature checks or small adapters; core logic remains shared.
-
----
+- **REQ-P3-01** — Focused domains with clear APIs; extend existing modules over new frameworks.
+- **REQ-P3-02** — Signals/adapters over deep reach-ins and god-objects; autoloads only when cross-cutting.
+- **REQ-P3-03** — Rules/simulation usable without visual nodes; view reads state and emits intents.
+- **REQ-P3-04** — Modules testable in isolation; new systems ship tests under `tests/`.
+- **REQ-P3-05** — Platform diffs stay in thin adapters; core logic shared.
 
 ## P4 — Performance & latency
 
-### REQ-P4-01 — Frame budget
-Target stable interactive frame rates on mid-range desktop and supported mobile devices. Avoid per-frame work that scales poorly with fleets, map size, or VFX without measurement and mitigation.
+- **REQ-P4-01** — Stable interactive frame rates; avoid poorly scaling per-frame work.
+- **REQ-P4-02** — Acknowledge input within ~1–2 frames; defer heavy work off the critical path.
+- **REQ-P4-03** — Turn/AI/pathfinding must not freeze UI; chunk/async with progress when waits are needed.
+- **REQ-P4-04** — Intentional imports; prefer atlases/reuse; no unbounded hot-loop allocations.
+- **REQ-P4-05** — Note impact; don’t ship known multi-second stalls on player paths.
 
-### REQ-P4-02 — Input latency
-Player actions (tap/click, drag, confirm) feel immediate: acknowledge input within one or two frames where possible; heavy work deferred off the critical path or chunked.
+## Non-goals
 
-### REQ-P4-03 — Rules/AI without hitching
-Turn resolution, pathfinding, and AI decisions must not freeze the UI. Long work uses async/chunking/worker patterns appropriate to Godot, with progress feedback when waits are unavoidable.
-
-### REQ-P4-04 — Asset and memory discipline
-Textures, atlases, audio, and animation resources use intentional import settings. Prefer atlases and reuse; avoid unbounded runtime allocations in hot loops.
-
-### REQ-P4-05 — Measurable regressions
-Performance-sensitive changes should note expected impact and, when feasible, include a simple before/after check (profiler notes, frame-time observation, or automated smoke). Do not ship known multi-second stalls on player-facing paths.
-
----
-
-## Non-goals (current scope)
-
-- Photorealistic or 3D primary gameplay
-- Networked multiplayer unless explicitly added to the wiki rules and roadmap
-- Feature parity with unrelated naval games outside the wiki ruleset
-- Hover-only or desktop-exclusive critical UX
-
----
+Photoreal/3D primary play; networked multiplayer unless wiki+roadmap say so; unrelated naval-game parity; hover-only critical UX.
 
 ## How to use
 
-1. For mechanics, read the [wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) first.
-2. Map a task to pillar IDs (`P1`–`P4`) and relevant `REQ-*` IDs.
-3. Score or gate the work with [`rubric.md`](rubric.md).
-4. Keep this file high-level; detailed mechanics stay in the wiki.
+1. Read wiki Game rules for mechanics.  
+2. Map task → `P*` / `REQ-*`.  
+3. Gate with [`rubric.md`](rubric.md).  
+4. Keep this high-level; mechanics stay in the wiki.

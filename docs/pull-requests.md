@@ -1,64 +1,52 @@
 # Pull requests
 
-Base rules for opening and landing PRs. Applies to humans and agents.
+Base rules for opening and landing PRs (humans and agents).
 
-**Tooling:** use [`gh`](https://cli.github.com/) for all GitHub PR operations (create, view, checks, comment, merge). Do not use the web UI as the primary path when `gh` can do the job.
-
-**Gate docs:** map changes to [`requirements.md`](requirements.md) (`REQ-*`) and score with [`rubric.md`](rubric.md) (`RUB-*`) when the change is player- or rules-facing.
-
----
+**Tooling:** use [`gh`](https://cli.github.com/) for all GitHub PR operations.  
+**Gate docs:** map player/rules changes to [`requirements.md`](requirements.md) (`REQ-*`) and [`rubric.md`](rubric.md) (`RUB-*`).
 
 ## Principles
 
-1. **Small and focused** — one concern per PR; prefer stacked PRs over mixed refactors + features.
-2. **Use `gh`** — create, inspect, and merge through the CLI so status and checks stay explicit.
-3. **Respect checks** — required status checks are the merge gate. Never bypass, force-merge, or ask to skip them.
-4. **Prefer auto-merge** — once the PR is ready and checks can pass, enable squash auto-merge and let GitHub land it when green.
-
----
+1. **Small and focused** — one concern; stack PRs over mixed refactors + features.
+2. **Use `gh`** — create, inspect, merge via CLI.
+3. **Respect checks** — required status checks are the merge gate; never bypass or force-merge.
+4. **Prefer auto-merge** — enable squash auto-merge when ready; let GitHub land when green.
 
 ## Required checks (main)
 
-The **Protect main** ruleset requires these status checks (strict: branch must be up to date with `main`):
+**Protect main** requires these (strict: branch up to date with `main`):
 
 | Check | Workflow | Meaning |
 |-------|----------|---------|
-| `tests` | [CI](../.github/workflows/ci.yml) | `gd-tools test --coverage --min 80` |
-| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (currently a **no-op**) |
+| `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate + docs word lint (hard-fail) |
+| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) |
+| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
 
-Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-merge is enabled on the repo.
+Add `docs-lint` to the Protect main required status checks (repo admin). Until then, the same lint runs inside `tests` so over-limit docs still block merge.
+
+Merge method: **squash only**. Branches deleted on merge. Auto-merge enabled.
 
 ### Respecting checks
 
-- Before merge (or enabling auto-merge), confirm with `gh pr checks` / `gh pr view --json statusCheckRollup,mergeStateStatus`.
-- **Do not merge** while required checks are failing, pending, or skipped in a way that leaves the gate incomplete.
-- **Do not** use `--admin`, merge overrides, or temporary rule disablement to land a red PR.
-- If checks fail: fix forward on the PR branch, push, and re-check. Do not close/reopen to “clear” failures.
-- Keep the branch current with `main` when strict status policy blocks merge (`gh pr merge` / auto-merge will wait until the branch is updated).
+- Confirm with `gh pr checks` / `gh pr view --json statusCheckRollup,mergeStateStatus`.
+- Do not merge while required checks fail, pend, or skip incompletely.
+- Do not use `--admin`, overrides, or rule disablement for a red PR.
+- Fix forward on the PR branch; don’t close/reopen to clear failures.
+- Keep the branch current with `main` under strict status policy.
 
-### Approval gate (no-op for now)
+### Approval gate (no-op)
 
-`approval-gate` remains a required check so the hook stays wired, but **`ENFORCE_APPROVAL=false`** in the workflow makes it always pass. Human review is optional.
-
-When re-enabled (`ENFORCE_APPROVAL=true`), non-draft PRs that touch game code/tests/assets will need one approving review from **any write collaborator other than the author** (`scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`). Docs/CI-only paths stay exempt. The workflow will auto-request eligible collaborators and fail with approve instructions until someone does:
+`ENFORCE_APPROVAL=false` → always pass; human review optional. When `true`, non-draft PRs touching game code/tests/assets need one approving review from any write collaborator other than the author (`scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`). Docs/CI-only paths stay exempt.
 
 ```bash
 gh pr review <number> --approve
 ```
 
----
-
 ## Workflow with `gh`
 
-### Before opening
+**Before:** up-to-date `main`; branch `feat/…` / `fix/…` / `docs/…`; run `gd-tools test --coverage --min 80` and `python tools/lint_docs_words.py` when relevant; clean `git status`.
 
-1. Start from an up-to-date `main`.
-2. Use a descriptive branch name (`feat/…`, `fix/…`, `docs/…`).
-3. Run tests locally when the change touches game logic or tests:  
-   `gd-tools test --coverage --min 80`
-4. Confirm `git status` / diff — no `.godot/`, secrets, or local override junk.
-
-### Create
+**Create:**
 
 ```bash
 git push -u origin HEAD
@@ -73,39 +61,24 @@ EOF
 )"
 ```
 
-- Prefer **draft** (`gh pr create --draft` or `gh pr ready` later) until the change is reviewable and CI-green locally when applicable.
-- Title and body should say **why**; cite `REQ-*` / `RUB-*` when relevant.
-- Include a short test plan (commands or manual steps).
+Prefer draft until reviewable. Title/body say **why**; cite `REQ-*` / `RUB-*` when relevant.
 
-### While open
+**While open:** `gh pr checks` · `gh pr view` · `gh pr comment`. Push fixes; avoid force-push unless rewriting a private draft.
 
-```bash
-gh pr checks          # required: tests, approval-gate
-gh pr view            # status, URL
-gh pr comment --body "…"
-```
-
-- Push fixes to the same branch; avoid force-push unless rewriting a private draft and collaborators agree.
-- Do not land unrelated commits on the PR branch.
-
-### Merge
-
-Prefer enabling squash auto-merge (the [Automerge](../.github/workflows/automerge.yml) workflow also tries this when events fire):
+**Merge:** prefer squash auto-merge ([Automerge](../.github/workflows/automerge.yml)):
 
 ```bash
 gh pr merge --squash --auto --delete-branch
 ```
 
-- Only merge manually with the same squash policy when auto-merge cannot be used and required checks are green.
-- Never merge to `main` outside a PR that has satisfied the ruleset checks.
-
----
+Never merge to `main` outside a PR that satisfied the ruleset checks.
 
 ## Quick checklist
 
-- [ ] Change maps to at least one pillar (`P1`–`P4`) or is explicitly docs/tooling-only
-- [ ] PR opened/updated with `gh`
-- [ ] `tests` green (`gd-tools test --coverage --min 80`)
-- [ ] `approval-gate` green (no-op until `ENFORCE_APPROVAL=true`)
+- [ ] Maps to a pillar (`P1`–`P4`) or is docs/tooling-only
+- [ ] Opened/updated with `gh`
+- [ ] `tests` green
+- [ ] `docs-lint` green
+- [ ] `approval-gate` green
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass
