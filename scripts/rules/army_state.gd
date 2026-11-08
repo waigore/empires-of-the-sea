@@ -218,3 +218,30 @@ static func prune(armies: Array[ArmyState]) -> void:
 
 static func _deny(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason, "army": null}
+
+
+## Plain data for local saves: location and every regiment instance.
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"owner": owner,
+		"province": province,
+		"home": home,
+		"moved": moved,
+		"regiments": regiments.duplicate(),
+		"regiment_types": regiment_types.duplicate(),
+	}
+
+
+static func from_dict(data: Dictionary) -> ArmyState:
+	var army := ArmyState.new()
+	army.id = int(data.get("id", -1))
+	army.owner = int(data.get("owner", -1))
+	army.province = int(data.get("province", MapModel.NO_ID))
+	army.home = bool(data.get("home", false))
+	army.moved = bool(data.get("moved", false))
+	var names: Array[String] = []
+	for raw: Variant in data.get("regiments", []):
+		names.append(String(raw))
+	army.set_regiments(names, data.get("regiment_types", {}))
+	return army

@@ -78,6 +78,25 @@ func developed_tiles(model: MapModel) -> Array[Vector2i]:
 	return result
 
 
+## Plain data for local saves; tables keep tile-index/owner keys.
+func to_dict() -> Dictionary:
+	return {
+		"improvement": improvement.duplicate(),
+		"transport": transport.duplicate(),
+		"ports": ports.duplicate(),
+		"prospected": prospected.duplicate(),
+	}
+
+
+static func from_dict(data: Dictionary) -> LandWorks:
+	var works := LandWorks.new()
+	works.improvement = data.get("improvement", {}).duplicate()
+	works.transport = data.get("transport", {}).duplicate()
+	works.ports = data.get("ports", {}).duplicate()
+	works.prospected = data.get("prospected", {}).duplicate()
+	return works
+
+
 func _index(model: MapModel, tile: Vector2i) -> int:
 	if model == null or not model.in_bounds(tile.x, tile.y):
 		return -1

@@ -3,8 +3,6 @@ extends RefCounted
 ## Court intents and the diplomacy phase for the map screen. Rules live in
 ## scripts/rules; this wires orders to the ledger and reports the outcome.
 
-const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
-
 
 static func open(play: PlaySession) -> void:
 	if play.diplomacy == null:
@@ -15,7 +13,7 @@ static func open(play: PlaySession) -> void:
 		play.hud.panels,
 		play.diplomacy,
 		play.world,
-		PLAYER_FACTION,
+		play.player_faction,
 		play.treasury(),
 		_tech(play)
 	)
@@ -28,7 +26,7 @@ static func refresh(play: PlaySession) -> void:
 		play.hud.panels,
 		play.diplomacy,
 		play.world,
-		PLAYER_FACTION,
+		play.player_faction,
 		play.treasury(),
 		_tech(play)
 	)
@@ -37,7 +35,7 @@ static func refresh(play: PlaySession) -> void:
 static func on_order(play: PlaySession, kind: String, target: int, arg: String) -> void:
 	if play.diplomacy == null:
 		return
-	var order: Dictionary = {"kind": kind, "from": PLAYER_FACTION, "target": target}
+	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
 		order["stage"] = arg
 	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
@@ -52,7 +50,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	elif not message.is_empty():
 		play.hud.toast(message)
 	if result.has("absorbed") and play.ship_layer != null:
-		play.ship_layer.transfer_owner(int(result["absorbed"]), PLAYER_FACTION)
+		play.ship_layer.transfer_owner(int(result["absorbed"]), play.player_faction)
 	if bool(result.get("map_changed", false)):
 		_rebuild_map(play)
 	play.hud.set_treasury(play.treasury())
@@ -113,12 +111,12 @@ static func sync_first_contact(play: PlaySession) -> Array[int]:
 	if play.diplomacy == null or play.world == null:
 		return contacted
 	for tribe: int in FactionCatalog.tribe_ids():
-		if play.diplomacy.has_relation(PLAYER_FACTION, tribe):
+		if play.diplomacy.has_relation(play.player_faction, tribe):
 			continue
 		if not _sees_tribe(play, tribe):
 			continue
-		play.diplomacy.ensure_relation(PLAYER_FACTION, tribe, play.turn)
-		play.diplomacy.touch(PLAYER_FACTION, tribe, "firstContact")
+		play.diplomacy.ensure_relation(play.player_faction, tribe, play.turn)
+		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
 		contacted.append(tribe)
 	if not contacted.is_empty():
 		var names: PackedStringArray = []
