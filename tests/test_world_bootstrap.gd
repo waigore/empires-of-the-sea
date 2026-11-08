@@ -4,29 +4,34 @@ extends GdToolsTest
 ## tile-map-and-generation § Great Power starting grain).
 
 const SEED: int = 1500
+const WIDTH: int = 96
+const HEIGHT: int = 64
 
-var _model: MapModel = null
-var _works: LandWorks = null
+## Non-underscore so before_all state is copied onto each test instance. The
+## post-pass is read-only in every case below, so one region per worker keeps
+## world generation (the suite's dominant cost under coverage) off the hot path.
+var model: MapModel = null
+var works: LandWorks = null
 
 
-func before_each() -> void:
-	_model = MapGenerator.new().generate_region(SEED, FactionCatalog.OLD_WORLD, 96, 64)
-	_works = LandWorks.new()
-	WorldBootstrap.apply(_model, _works)
+func before_all() -> void:
+	model = MapGenerator.new().generate_region(SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT)
+	works = LandWorks.new()
+	WorldBootstrap.apply(model, works)
 
 
 func test_every_great_power_gets_four_grain_farms() -> void:
 	for faction: int in FactionCatalog.great_power_ids():
-		var province: int = WorldBootstrap.capital_province(_model, faction)
+		var province: int = WorldBootstrap.capital_province(model, faction)
 		assert_gt(province, -1, "GP %d has a capital province" % faction)
-		var capital: Vector2i = _model.capital_tile_of(province)
+		var capital: Vector2i = model.capital_tile_of(province)
 		var farms: int = 0
-		for tile: Vector2i in _model.province_tiles(province):
+		for tile: Vector2i in model.province_tiles(province):
 			if tile == capital:
 				continue
-			if _model.resource_at(tile.x, tile.y) != WorldBootstrap.GRAIN_RESOURCE:
+			if model.resource_at(tile.x, tile.y) != WorldBootstrap.GRAIN_RESOURCE:
 				continue
-			if _works.improvement_at(_model, tile) != WorldBootstrap.FARM_LEVEL:
+			if works.improvement_at(model, tile) != WorldBootstrap.FARM_LEVEL:
 				continue
 			farms += 1
 		assert_eq(farms, WorldBootstrap.GRAIN_FARMS, "GP %d has four grain farms" % faction)
@@ -34,17 +39,17 @@ func test_every_great_power_gets_four_grain_farms() -> void:
 
 func test_bootstrap_farms_reach_the_crown() -> void:
 	var province: int = WorldBootstrap.capital_province(
-		_model, FactionCatalog.PLAYER_FACTION
+		model, FactionCatalog.PLAYER_FACTION
 	)
 	var connected: Dictionary = ImprovementSystem.connected_tiles(
-		_model, _works, FactionCatalog.PLAYER_FACTION, _model.capital_tile_of(province)
+		model, works, FactionCatalog.PLAYER_FACTION, model.capital_tile_of(province)
 	)
 	var farms: int = 0
-	for tile: Vector2i in _model.province_tiles(province):
-		if _works.improvement_at(_model, tile) != WorldBootstrap.FARM_LEVEL:
+	for tile: Vector2i in model.province_tiles(province):
+		if works.improvement_at(model, tile) != WorldBootstrap.FARM_LEVEL:
 			continue
 		assert_true(
-			connected.has(_model.index_of(tile.x, tile.y)),
+			connected.has(model.index_of(tile.x, tile.y)),
 			"bootstrap farm at %s is connected" % tile
 		)
 		farms += 1
@@ -53,19 +58,19 @@ func test_bootstrap_farms_reach_the_crown() -> void:
 
 func test_the_capital_province_feeds_the_opening_crown() -> void:
 	var province: int = WorldBootstrap.capital_province(
-		_model, FactionCatalog.PLAYER_FACTION
+		model, FactionCatalog.PLAYER_FACTION
 	)
 	var yields: Dictionary = Extraction.yields(
-		_model, FactionCatalog.PLAYER_FACTION, province, {}, _works,
-		_model.capital_tile_of(province)
+		model, FactionCatalog.PLAYER_FACTION, province, {}, works,
+		model.capital_tile_of(province)
 	)
 	assert_gte(int(yields.get("grain", 0)), 4 + Extraction.CAPITAL_GRAIN_BONUS)
 
 
 func test_capital_ports_and_harbour_roads_are_real() -> void:
-	assert_gt(_works.ports.size(), 0, "capital ports are seeded")
-	assert_gt(_works.transport.size(), 0, "harbour roads are seeded")
-	for province: ProvinceState in _model.provinces:
+	assert_gt(works.ports.size(), 0, "capital ports are seeded")
+	assert_gt(works.transport.size(), 0, "harbour roads are seeded")
+	for province: ProvinceState in model.provinces:
 		if not province.capital:
 			continue
 		if FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER:
@@ -77,21 +82,21 @@ func test_capital_ports_and_harbour_roads_are_real() -> void:
 
 func test_the_post_pass_is_deterministic() -> void:
 	var second: MapModel = MapGenerator.new().generate_region(
-		SEED, FactionCatalog.OLD_WORLD, 96, 64
+		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
 	)
-	var works := LandWorks.new()
-	WorldBootstrap.apply(second, works)
-	assert_eq(second.resource, _model.resource)
-	assert_eq(works.improvement, _works.improvement)
-	assert_eq(works.transport, _works.transport)
-	assert_eq(works.ports, _works.ports)
+	var second_works := LandWorks.new()
+	WorldBootstrap.apply(second, second_works)
+	assert_eq(second.resource, model.resource)
+	assert_eq(second_works.improvement, works.improvement)
+	assert_eq(second_works.transport, works.transport)
+	assert_eq(second_works.ports, works.ports)
 
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
-	var model: MapModel = MapGenerator.new().generate_region(
+	var new_world: MapModel = MapGenerator.new().generate_region(
 		SEED + 7919, FactionCatalog.NEW_WORLD, 84, 58
 	)
-	var works := LandWorks.new()
-	var report: Dictionary = WorldBootstrap.apply(model, works)
+	var new_world_works := LandWorks.new()
+	var report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)
 	assert_eq(int(report["farms"]), 0)
-	assert_true(works.improvement.is_empty())
+	assert_true(new_world_works.improvement.is_empty())

@@ -566,6 +566,30 @@ func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
 
 
+func test_new_game_assigns_a_leader_to_every_great_power() -> void:
+	var play: PlaySession = _screen.play
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			String(play.leaders.get(faction, "")),
+			LeaderCatalog.default_key(faction),
+			"crown %d fields its config leader" % faction
+		)
+	assert_eq(String(play.leaders.get(play.player_faction, "")), "isabella")
+
+
+func test_setup_leader_choice_reaches_land_combat() -> void:
+	_screen.free()
+	_screen = Fixture.attach_screen(self, 2, "napoleon")
+	var play: PlaySession = _screen.play
+	assert_eq(play.player_faction, 2)
+	assert_eq(String(play.leaders.get(2, "")), "napoleon", "the human crown keeps its choice")
+	var context: Dictionary = MapPlayArmies.battle_context(play)
+	var leaders: Dictionary = context["leaders"]
+	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
+	MapPlayTurn.end_turn(play)
+	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
+
+
 func _capital_estate_tile() -> Vector2i:
 	var capital: Vector2i = _screen.capital_tile
 	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:

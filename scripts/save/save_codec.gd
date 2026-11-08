@@ -50,6 +50,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"feeding": play.feeding.duplicate(),
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
+		"leaders": play.leaders.duplicate(),
 	}
 
 
@@ -179,6 +180,7 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.feeding = _fraction_dictionary(session.get("feeding", {}))
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
+	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	# A decided campaign must come back decided, or the load would hand the
 	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
 	play.victory = _victory_from(data.get("victory", {}))

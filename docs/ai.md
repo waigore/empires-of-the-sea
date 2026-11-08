@@ -16,9 +16,10 @@ work), P5 (rivals act without player bookkeeping).
 - **Blessed profiles** (`AiProfile`): `normal`, `aggressive`, `economic`.
   Unknown ids fall back to normal; invalid values are rejected at load.
 - **Personalities** (`AiPersonality`): the seven wiki archetypes with domain
-  weights, a war-gate shift and a war-desire bias. Each GP has a default leader
-  (Spain Isabella, England Victoria, France Napoleon, Portugal Henry, United
-  Provinces De Ruyter, Sweden Gustavus).
+  weights, a war-gate shift and a war-desire bias. Each GP's leaderKey comes
+  from `LeaderCatalog`, the roster setup and combat share (Spain Isabella,
+  England Victoria, France Napoleon, Portugal Henry, United Provinces
+  De Ruyter, Sweden Gustavus).
 - **Hidden agendas** (`AiAgenda`): one of six, assigned once from
   `hash(game seed, faction)` and kept for the run.
 - **Power score** (`AiPower`): provinces × 10 + regiments × 1 + ships × 5, with
@@ -40,7 +41,7 @@ work), P5 (rivals act without player bookkeeping).
 
 Selection thresholds and biases are implementation defaults in the registry;
 the wiki fixes the factors and cooldown lengths, not the pick. AI peace and
-overture offers to the human wait for the court UI instead of auto-committing.
+overture offers to the human wait for the court UI.
 
 ## Deferred (REQ-P2-02)
 
