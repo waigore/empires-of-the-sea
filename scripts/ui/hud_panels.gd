@@ -114,14 +114,16 @@ func is_panel_open() -> bool:
 	return panel_open
 
 
-func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+func show_fleet(
+	model: MapModel, fleet: FleetState, is_player: bool, passage: String = ""
+) -> void:
 	hide_province()
 	hide_civilian()
 	hide_army()
 	hide_economy()
 	hide_research()
 	DiplomacyHud.hide(self)
-	fleet_panel.refresh(model, fleet, is_player)
+	fleet_panel.refresh(model, fleet, is_player, passage)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
 
