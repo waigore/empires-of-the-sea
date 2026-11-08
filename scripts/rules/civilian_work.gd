@@ -16,10 +16,6 @@ const IMPROVEMENT_COSTS: Array[Dictionary] = [
 	{"lumber": 8, "castIron": 8},
 	{"lumber": 16, "castIron": 16},
 ]
-const ROAD_COST: Dictionary = {"lumber": 1, "castIron": 1}
-const PORT_COST: Dictionary = {"lumber": 5, "castIron": 5}
-const ROAD_TURNS: int = 1
-const PORT_TURNS: int = 2
 const PROSPECT_TURNS: int = 1
 const EXPLORE_MAX_TURNS: int = 3
 ## Iron, coal and gold are the map's prospect-required minerals
@@ -32,6 +28,7 @@ const LABELS: Dictionary = {
 	"build_improvement": "Build improvement",
 	"build_road": "Build road",
 	"build_port": "Build port",
+	"build_rail": "Lay railroad",
 }
 
 const COMMODITY_NAMES: Dictionary = {
@@ -48,13 +45,10 @@ static func label(action: String) -> String:
 
 
 static func cost_for(action: String, level: int = 1) -> Dictionary:
-	match action:
-		"build_improvement":
-			return (IMPROVEMENT_COSTS[clampi(level, 1, MAX_IMPROVEMENT)] as Dictionary).duplicate()
-		"build_road":
-			return ROAD_COST.duplicate()
-		"build_port":
-			return PORT_COST.duplicate()
+	if CivilianTransport.knows(action):
+		return CivilianTransport.cost(action)
+	if action == "build_improvement":
+		return (IMPROVEMENT_COSTS[clampi(level, 1, MAX_IMPROVEMENT)] as Dictionary).duplicate()
 	return {}
 
 
@@ -90,10 +84,8 @@ static func duration_for(
 			return PROSPECT_TURNS
 		"build_improvement":
 			return clampi(works.improvement_at(model, tile) + 1, 1, MAX_IMPROVEMENT)
-		"build_road":
-			return ROAD_TURNS
-		"build_port":
-			return PORT_TURNS
+	if CivilianTransport.knows(action):
+		return CivilianTransport.turns(action)
 	return 1
 
 
@@ -105,7 +97,8 @@ static func options(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if unit == null:
@@ -113,7 +106,7 @@ static func options(
 	for action: String in CivilianCatalog.works(unit.type_id):
 		var check: Dictionary = validate(
 			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
-			tech_caps
+			tech_caps, tech_unlocked
 		)
 		var cost: Dictionary = cost_for(action, works.improvement_at(model, unit.tile) + 1)
 		result.append({
@@ -137,7 +130,8 @@ static func validate(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	target_tile: Vector2i = CivilianState.NO_TILE,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	if model == null or unit == null:
 		return _no("No civilian selected")
@@ -154,7 +148,7 @@ static func validate(
 	if province == MapModel.NO_ID:
 		return _no("This tile belongs to no province.")
 	var check: Dictionary = _check_action(
-		model, unit, action, tile, province, works, units, visibility, tech_caps
+		model, unit, action, tile, province, works, units, visibility, tech_caps, tech_unlocked
 	)
 	if not bool(check.get("ok", false)):
 		return check
@@ -183,10 +177,12 @@ static func assign(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	target_tile: Vector2i = CivilianState.NO_TILE,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	var check: Dictionary = validate(
-		model, unit, action, works, units, stockpile, visibility, target_tile, tech_caps
+		model, unit, action, works, units, stockpile, visibility, target_tile, tech_caps,
+		tech_unlocked
 	)
 	if not bool(check.get("ok", false)):
 		return check
@@ -242,7 +238,8 @@ static func _check_action(
 	works: LandWorks,
 	units: Array[CivilianState],
 	visibility: VisibilityModel,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	match action:
 		"explore":
@@ -278,22 +275,10 @@ static func _check_action(
 					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
 				)
 			return _exclusive(units, unit, tile)
-		"build_road":
-			var road_land: Dictionary = _owned_land(model, unit, province)
-			if not bool(road_land["ok"]):
-				return road_land
-			if works.transport_at(model, tile) >= LandWorks.TRANSPORT_ROAD:
-				return _no("This tile already has a road.")
-			return _exclusive(units, unit, tile)
-		"build_port":
-			var port_land: Dictionary = _owned_land(model, unit, province)
-			if not bool(port_land["ok"]):
-				return port_land
-			if not MapGeo.is_coastal_tile(model, tile.x, tile.y):
-				return _no("Ports need a coastal tile.")
-			if works.province_has_port(model, province):
-				return _no("%s already has a port." % model.province_name(province))
-			return _exclusive(units, unit, tile)
+		"build_road", "build_port", "build_rail":
+			return CivilianTransport.check(
+				model, unit, action, tile, works, units, tech_unlocked
+			)
 	return _no("The %s has no such work order." % unit.display_name())
 
 
@@ -339,12 +324,8 @@ static func _apply(
 		"build_improvement":
 			works.set_improvement(model, tile, works.improvement_at(model, tile) + 1)
 			return [model.index_of(tile.x, tile.y)]
-		"build_road":
-			works.set_transport(model, tile, LandWorks.TRANSPORT_ROAD)
-			return [model.index_of(tile.x, tile.y)]
-		"build_port":
-			works.add_port(model, tile)
-			return [model.index_of(tile.x, tile.y)]
+	if CivilianTransport.knows(action):
+		return CivilianTransport.apply(model, action, tile, works)
 	return []
 
 

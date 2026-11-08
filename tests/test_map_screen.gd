@@ -405,6 +405,27 @@ func test_training_is_refused_outside_the_capital() -> void:
 	assert_eq(_screen.treasury, treasury_before)
 
 
+func test_training_a_rail_builder_waits_for_early_steam_engine() -> void:
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	MapPlayInput.on_panel_action(_screen.play, "train_rail_builder")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+
+	_screen.play.economy.economy.research.unlock("early_steam_engine")
+	var treasury_before: int = _screen.treasury
+	MapPlayInput.on_panel_action(_screen.play, "train_rail_builder")
+	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
+	assert_eq(_screen.civilian_layer.units.back().type_id, "rail_builder")
+	assert_eq(_screen.treasury, treasury_before - 2000)
+
+
+func test_unknown_civilian_orders_do_not_train() -> void:
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	MapPlayInput.on_panel_action(_screen.play, "train_dragon")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+
+
 func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
 	var builder: CivilianState = _screen.civilian_layer.units[1]
 	var resource: Vector2i = _owned_resource_tile()
