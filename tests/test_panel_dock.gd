@@ -68,3 +68,23 @@ func test_prepare_wrap_uses_left_anchors_when_docked_left() -> void:
 	assert_eq(wrap.anchor_right, 0.0)
 	assert_eq(wrap.offset_left, PanelDock.MARGIN - PanelDock.WIDTH)
 	wrap.free()
+
+
+## A show right after a hide must cancel the outgoing slide: its callback would
+## otherwise park the panel off screen while the dossier reports it open.
+func test_a_slide_in_cancels_a_running_slide_out() -> void:
+	var dock := PanelDock.new()
+	var host := Node.new()
+	add_child(host)
+	var wrap := Control.new()
+	host.add_child(wrap)
+	dock.prepare_wrap(wrap)
+	dock.slide_out(host, wrap, func() -> void: wrap.visible = false)
+	var outgoing: Tween = wrap.get_meta(PanelDock.SLIDE_KEY)
+
+	dock.slide_in(host, wrap)
+
+	assert_false(outgoing.is_valid(), "the slide-out tween is killed")
+	assert_true(wrap.visible)
+	assert_ne(wrap.get_meta(PanelDock.SLIDE_KEY), outgoing)
+	host.free()

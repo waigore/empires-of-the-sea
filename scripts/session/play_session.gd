@@ -142,3 +142,9 @@ func emit_turn_ended(p_turn: int) -> void:
 func refresh_map_views() -> void:
 	if host != null and host.has_method("refresh_political_map"):
 		host.call("refresh_political_map")
+
+
+## Swaps the whole view onto another region (fleet crossing a passage).
+func switch_region(index: int) -> void:
+	if host != null and host.has_method("load_region"):
+		host.call("load_region", index)

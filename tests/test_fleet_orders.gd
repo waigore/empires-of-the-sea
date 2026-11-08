@@ -194,6 +194,110 @@ func test_enemy_markers_follow_fog_intel() -> void:
 	assert_true(enemy.visible)
 
 
+func test_a_fleet_crosses_the_passage_into_the_new_world() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = _old_world_passage()
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zone
+	fleet.province = MapModel.NO_ID
+	_screen.ship_layer.select(ship)
+	var link: Dictionary = _screen.world.warp_partner(FactionCatalog.OLD_WORLD, zone)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zone_data(zone).tiles[0]))
+
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD, "the view follows the fleet")
+	assert_eq(_screen.model.region_id, FactionCatalog.NEW_WORLD)
+	assert_eq(fleet.sea_zone, int(link["to_zone"]))
+	assert_true(fleet.moved)
+	assert_true(_screen.ship_layer.fleets.has(fleet), "it sails the New World now")
+	assert_false(_roster(FactionCatalog.OLD_WORLD).has(fleet), "it left the Old World roster")
+	assert_eq(_screen.ship_layer.selected_ship, _screen.ship_layer.ship_for(fleet))
+	assert_eq(_zone_fog(fleet.sea_zone), MapOverlay.FOG_VISIBLE, "arrival waters reveal")
+	assert_true(_unique_fleet_ids(), "both rosters keep distinct fleet ids")
+
+
+func test_a_crossed_fleet_cannot_cross_again_this_turn() -> void:
+	var fleet: FleetState = _cross_to_new_world()
+	var zone_after: int = fleet.sea_zone
+	var region_after: int = _screen.region_index
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone_after)))
+
+	assert_eq(fleet.sea_zone, zone_after)
+	assert_eq(_screen.region_index, region_after)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+
+
+func test_a_crossed_fleet_sails_back_on_a_later_turn() -> void:
+	var fleet: FleetState = _cross_to_new_world()
+
+	MapPlayTurn.end_turn(_screen.play)
+	assert_false(fleet.moved, "the passage crossing spent only that turn's move")
+	var zone: int = fleet.sea_zone
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
+
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
+	assert_true(_roster(FactionCatalog.OLD_WORLD).has(fleet))
+	assert_true(_screen.world.is_warp_zone(FactionCatalog.OLD_WORLD, fleet.sea_zone))
+
+
+func test_the_fleet_dossier_names_the_passage() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = _old_world_passage()
+
+	_screen.ship_layer.select(ship)
+
+	assert_true(_screen.hud._fleet_panel._hint.text.contains("Passage"))
+	assert_true(_screen.hud._fleet_panel._hint.text.contains("New World"))
+
+
+func _cross_to_new_world() -> FleetState:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = _old_world_passage()
+	fleet.province = MapModel.NO_ID
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.try_order(_screen.play, _passage_tile(fleet.sea_zone))
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
+	return fleet
+
+
+func _old_world_passage() -> int:
+	var zones: Array[int] = _screen.world.warp_zones(FactionCatalog.OLD_WORLD)
+	assert_gt(zones.size(), 0, "the Old World has a passage")
+	return zones[0]
+
+
+func _passage_tile(zone_id: int) -> Vector2i:
+	return _screen.model.sea_zone_data(zone_id).tiles[0]
+
+
+func _zone_fog(zone_id: int) -> int:
+	var tile: Vector2i = _passage_tile(zone_id)
+	return _screen.overlay.fog_state_at(tile.x, tile.y)
+
+
+func _roster(region: int) -> Array[FleetState]:
+	var stored: Array[FleetState] = []
+	stored.assign(_screen.ship_layer._fleets_by_region.get(region, []))
+	return stored
+
+
+func _unique_fleet_ids() -> bool:
+	var seen: Dictionary = {}
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if seen.has(fleet.id):
+			return false
+		seen[fleet.id] = true
+	return true
+
+
 func _player_ship_at_sea() -> Ship:
 	for ship: Ship in _screen.ship_layer.ships:
 		var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
