@@ -78,7 +78,7 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 
 ## Quick checklist
 
-- [ ] Maps to a pillar (`P1`–`P4`) or is docs/tooling-only
+- [ ] Maps to a pillar (`P1`–`P5`) or is docs/tooling-only
 - [ ] Opened/updated with `gh`
 - [ ] `tests` green
 - [ ] `build` green

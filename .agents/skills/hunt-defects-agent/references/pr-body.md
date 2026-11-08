@@ -21,7 +21,7 @@ Use with `gh pr create`. Title: why-focused (rules fidelity), not a file list.
 
 ## Decision record
 Pillars touched: P2 (…others if touched)
-RUB scores: P1… P2… P3… P4… (or N/A)
+RUB scores: P1… P2… P3… P4… P5… (or N/A)
 Overall: PASS
 Blocking IDs: (none)
 Notes: <live vs headless; new-feature regression vs latent if known>
