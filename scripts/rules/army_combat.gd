@@ -11,17 +11,19 @@ extends RefCounted
 
 enum Outcome { ATTACKER_VICTORY, DEFENDER_VICTORY, STALEMATE, MUTUAL_ANNIHILATION, CAPTURE }
 
-const INITIATIVE_CAVALRY_WEIGHT: float = 50.0
 const RECOVERY_SHARE: float = 0.2
 ## Great Power military era for garrison recovery; Minors/Tribes stay at 1.
 const GREAT_POWER_ERA: int = 4
 const MINOR_ERA: int = 1
 
 ## Ratio bands (wiki: combat § Auto-resolve ratio bands and loss fractions).
+## A band's `min` is inclusive unless `exclusive` says otherwise; the wiki's
+## `0.67 < ratio < 1.0` row must not claim ratio == 0.67, which belongs to the
+## `ratio <= 0.67` defender-victory band.
 const BANDS: Array[Dictionary] = [
 	{"min": 1.5, "attacker": 0.15, "defender": 1.0},
 	{"min": 1.0, "attacker": 0.3, "defender": 0.6},
-	{"min": 0.67, "attacker": 0.5, "defender": 0.4},
+	{"min": 0.67, "attacker": 0.5, "defender": 0.4, "exclusive": true},
 	{"min": 0.0, "attacker": 1.0, "defender": 0.15},
 ]
 
@@ -257,25 +259,17 @@ static func side_regiments(side: Array[ArmyState]) -> int:
 	return total
 
 
+## Initiative for one side (wiki: combat § Initiative).
 static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
-	var riders: int = 0
-	var total: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		total += army.count()
-		for regiment_id: String in army.regiments:
-			if RegimentCatalog.is_cavalry(army.type_of(regiment_id)):
-				riders += 1
-	if total == 0:
-		return 0.0
-	var share: float = float(riders) / float(total)
-	return share * INITIATIVE_CAVALRY_WEIGHT + float(clampi(medals, 0, 4)) * ArmyModifiers.W_MEDAL
+	return ArmyCommand.initiative(side, medals)
 
 
-## Attacking factions in initiative order; ties fall to the lowest faction id.
-## `context["hostile"]`, when set, is the court's war query so only factions at
-## war are counted (wiki: diplomacy § War required for hostile actions).
+## Attacking factions in initiative order; exact initiative ties are broken by
+## one deterministic seeded roll per battle context (wiki: combat § Initiative,
+## § Multi-Attacker Chain — seeded by combat seed and battle context identity,
+## never lexical faction id). `context["hostile"]`, when set, is the court's war
+## query so only factions at war are counted (wiki: diplomacy § War required for
+## hostile actions).
 static func ordered_attackers(
 	armies: Array[ArmyState], province: int, defender: int, context: Dictionary = {}
 ) -> Array[int]:
@@ -286,7 +280,7 @@ static func ordered_attackers(
 			continue
 		if army.owner == defender or army.is_empty():
 			continue
-		if not _hostile(hostile, army.owner, defender):
+		if not ArmyCommand.is_hostile(hostile, army.owner, defender):
 			continue
 		if FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 			continue
@@ -294,21 +288,7 @@ static func ordered_attackers(
 		group.assign(groups.get(army.owner, []))
 		group.append(army)
 		groups[army.owner] = group
-	var owners: Array[int] = []
-	for owner: int in groups.keys():
-		owners.append(owner)
-	owners.sort_custom(func(a: int, b: int) -> bool:
-		var a_group: Array[ArmyState] = []
-		a_group.assign(groups[a])
-		var b_group: Array[ArmyState] = []
-		b_group.assign(groups[b])
-		var a_score: float = initiative(a_group, ArmyCommand.medals(a_group, context))
-		var b_score: float = initiative(b_group, ArmyCommand.medals(b_group, context))
-		if not is_equal_approx(a_score, b_score):
-			return a_score > b_score
-		return a < b
-	)
-	return owners
+	return ArmyCommand.initiative_order(groups, province, context)
 
 
 static func armies_of(
@@ -334,17 +314,13 @@ static func has_third_party(
 	return false
 
 
-## Whether two factions may fight. An unset callable keeps the legacy
-## every-faction-hostile fixture behaviour.
-static func _hostile(hostile: Callable, attacker: int, defender: int) -> bool:
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(attacker, defender))
-
-
 static func band_for(ratio: float) -> Dictionary:
 	for band: Dictionary in BANDS:
-		if ratio >= float(band["min"]):
+		var low: float = float(band["min"])
+		if bool(band.get("exclusive", false)):
+			if ratio > low:
+				return band
+		elif ratio >= low:
 			return band
 	return BANDS[BANDS.size() - 1]
 
