@@ -27,6 +27,19 @@ func test_selecting_a_player_fleet_opens_orders() -> void:
 	assert_eq(_screen.overlay.move_zones, NavalMovement.destination_zones(_screen.model, fleet))
 
 
+func test_fleet_dossier_can_dock_left_or_right() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	_screen.ship_layer.select(ship)
+	assert_eq(_screen.hud.panels.dock.side, PanelDock.Side.RIGHT)
+	_screen.hud.panels.toggle_dock_side()
+	assert_eq(_screen.hud.panels.dock.side, PanelDock.Side.LEFT)
+	assert_eq(_screen.hud._fleet_wrap.anchor_left, 0.0)
+	assert_true(_screen.hud.panels.is_fleet_panel_open())
+	_screen.hud.panels.toggle_dock_side()
+	assert_eq(_screen.hud.panels.dock.side, PanelDock.Side.RIGHT)
+	assert_eq(_screen.hud._fleet_wrap.anchor_left, 1.0)
+
+
 func test_ordering_a_move_spends_the_turn_and_reveals_the_zone() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)

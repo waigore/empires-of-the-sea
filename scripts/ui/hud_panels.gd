@@ -3,9 +3,6 @@ extends RefCounted
 ## Side dossiers and ledger open/close for GameHud (REQ-P3-01).
 ## Keeps panel animation out of GameHud so the chrome API stays under size bars.
 
-const PANEL_WIDTH: float = GameHud.PANEL_WIDTH
-const PANEL_MARGIN: float = GameHud.PANEL_MARGIN
-
 var host: Control = null
 var panel_wrap: Control = null
 var panel: ProvincePanel = null
@@ -15,6 +12,7 @@ var civilian_wrap: Control = null
 var civilian_panel: CivilianPanel = null
 var economy_wrap: Control = null
 var economy_panel: EconomyPanel = null
+var dock: PanelDock = null
 
 var panel_open: bool = false
 var fleet_open: bool = false
@@ -32,29 +30,37 @@ func bind(hud: GameHud) -> void:
 	civilian_panel = hud._civilian_panel
 	economy_wrap = hud._economy_wrap
 	economy_panel = hud._economy_panel
+	dock = PanelDock.new()
+	dock.load_from()
+	_sync_dock_buttons()
+	for wrap: Control in _selection_wraps():
+		dock.prepare_wrap(wrap)
+
+
+func toggle_dock_side() -> void:
+	dock.toggle()
+	dock.save()
+	_sync_dock_buttons()
+	for wrap: Control in _selection_wraps():
+		if wrap.visible:
+			dock.slide_in(host, wrap)
+		else:
+			dock.prepare_wrap(wrap)
 
 
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_fleet()
 	hide_civilian()
 	panel.refresh(model, province_id)
-	panel_wrap.visible = true
 	panel_open = true
-	var tween := host.create_tween().set_parallel(true)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(panel_wrap, "offset_left", -(PANEL_WIDTH + PANEL_MARGIN), 0.34)
-	tween.tween_property(panel_wrap, "offset_right", -PANEL_MARGIN, 0.34)
+	dock.slide_in(host, panel_wrap)
 
 
 func hide_province() -> void:
 	if not panel_open:
 		return
 	panel_open = false
-	var tween := host.create_tween().set_parallel(true)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tween.tween_property(panel_wrap, "offset_left", -PANEL_MARGIN, 0.26)
-	tween.tween_property(panel_wrap, "offset_right", PANEL_WIDTH - PANEL_MARGIN, 0.26)
-	tween.chain().tween_callback(func() -> void: panel_wrap.visible = false)
+	dock.slide_out(host, panel_wrap, func() -> void: panel_wrap.visible = false)
 
 
 func is_panel_open() -> bool:
@@ -64,20 +70,17 @@ func is_panel_open() -> bool:
 func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_province()
 	hide_civilian()
+	hide_economy()
 	fleet_panel.refresh(model, fleet, is_player)
-	fleet_wrap.visible = true
 	fleet_open = true
-	var tween := host.create_tween()
-	tween.tween_property(fleet_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+	dock.slide_in(host, fleet_wrap)
 
 
 func hide_fleet() -> void:
 	if not fleet_open:
 		return
 	fleet_open = false
-	var tween := host.create_tween()
-	tween.tween_property(fleet_wrap, "modulate:a", 0.0, 0.16)
-	tween.tween_callback(func() -> void: fleet_wrap.visible = false)
+	dock.slide_out(host, fleet_wrap, func() -> void: fleet_wrap.visible = false)
 
 
 func is_fleet_panel_open() -> bool:
@@ -96,26 +99,15 @@ func show_civilian(
 	hide_fleet()
 	hide_economy()
 	civilian_panel.refresh(model, unit, works, units, stockpile, visibility)
-	civilian_wrap.visible = true
 	civilian_open = true
-	civilian_wrap.modulate.a = 0.0
-	var tween := host.create_tween().set_parallel(true)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(civilian_wrap, "offset_left", -(PANEL_WIDTH + PANEL_MARGIN), 0.34)
-	tween.tween_property(civilian_wrap, "offset_right", -PANEL_MARGIN, 0.34)
-	tween.tween_property(civilian_wrap, "modulate:a", 1.0, 0.22)
+	dock.slide_in(host, civilian_wrap)
 
 
 func hide_civilian() -> void:
 	if not civilian_open:
 		return
 	civilian_open = false
-	var tween := host.create_tween().set_parallel(true)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tween.tween_property(civilian_wrap, "offset_left", -PANEL_MARGIN, 0.26)
-	tween.tween_property(civilian_wrap, "offset_right", PANEL_WIDTH - PANEL_MARGIN, 0.26)
-	tween.tween_property(civilian_wrap, "modulate:a", 0.0, 0.2)
-	tween.chain().tween_callback(func() -> void: civilian_wrap.visible = false)
+	dock.slide_out(host, civilian_wrap, func() -> void: civilian_wrap.visible = false)
 
 
 func is_civilian_panel_open() -> bool:
@@ -146,3 +138,15 @@ func hide_economy() -> void:
 
 func is_economy_open() -> bool:
 	return economy_open
+
+
+func _selection_wraps() -> Array[Control]:
+	return [panel_wrap, fleet_wrap, civilian_wrap]
+
+
+func _sync_dock_buttons() -> void:
+	var tip: String = "Dock left" if dock.side == PanelDock.Side.RIGHT else "Dock right"
+	var glyph: String = "◀" if dock.side == PanelDock.Side.RIGHT else "▶"
+	fleet_panel.set_dock_affordance(glyph, tip)
+	panel.set_dock_affordance(glyph, tip)
+	civilian_panel.set_dock_affordance(glyph, tip)
