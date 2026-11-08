@@ -135,7 +135,7 @@ func _ready() -> void:
 		play.world = preset_world
 	else:
 		play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
-	_load_region(0)
+	load_region(0)
 	_build_hud()
 	play.diplomacy = DiplomacyState.new()
 	play.diplomacy.initialize(play.turn)
@@ -165,9 +165,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Swaps the whole view onto one region: canvas, fog, fleets, civilians, works,
 ## minimap and camera bounds all follow the active tile map.
-func _load_region(index: int) -> void:
+func load_region(index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
+	ship_layer.world = play.world
 	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
 	sea_backdrop.position = Vector2(-margin, -margin)
@@ -206,7 +207,7 @@ func _cycle_region() -> void:
 	if play.world == null or play.world.region_count() < 2:
 		return
 	MapPlayInput.deselect(play)
-	_load_region((play.region_index + 1) % play.world.region_count())
+	load_region((play.region_index + 1) % play.world.region_count())
 	MapPlayDiplomacy.sync_first_contact(play)
 	MapPlayDiplomacy.refresh(play)
 	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
@@ -290,6 +291,9 @@ func _connect() -> void:
 	)
 	ship_layer.fleet_moved.connect(func(fleet: FleetState, result: Dictionary) -> void:
 		MapPlayFleets.on_moved(play, fleet, result)
+	)
+	ship_layer.warp_crossed.connect(func(fleet: FleetState, result: Dictionary) -> void:
+		MapPlayWarp.on_crossed(play, fleet, result)
 	)
 	army_layer.army_selected.connect(func(army: ArmyState) -> void:
 		if army != null:
