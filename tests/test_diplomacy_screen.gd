@@ -106,6 +106,39 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 	assert_eq(army.province, target, "war lets the same march through")
 
 
+func test_call_to_arms_suspends_the_turn_until_answered() -> void:
+	var state: DiplomacyState = _screen.play.diplomacy
+	var pact: DiplomacyRelation = state.relation(0, 2)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 3, 2)
+	assert_true(CallToArms.has_pending(state, 0))
+	MapPlayDiplomacy.open(_screen.play)
+	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
+	var turn_before: int = _screen.play.turn
+	MapPlayTurn.end_turn(_screen.play)
+	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
+	assert_true(_screen.play.turn_suspended)
+	MapPlayTurn.answer_call(_screen.play, true)
+	assert_true(state.relation(0, 3).at_war, "joining means war on the aggressor")
+	assert_eq(_screen.play.turn, turn_before + 1)
+	assert_false(CallToArms.has_pending(state, 0))
+
+
+func test_court_intent_router_sends_orders_and_call_answers() -> void:
+	MapCourtOrders.apply(_screen.play, DiplomacyOrders.KIND_WAR, 1, "")
+	assert_true(_screen.play.diplomacy.relation(0, 1).at_war, "orders reach the court")
+	var state: DiplomacyState = _screen.play.diplomacy
+	var pact: DiplomacyRelation = state.relation(0, 4)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 5, 4)
+	MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	assert_true(state.relation(0, 5).at_war, "a call answer reaches the turn resolver")
+
+
 func _field_army() -> ArmyState:
 	for army: ArmyState in _screen.play.army_layer.armies.duplicate():
 		if army.owner == 0 and army.home and army.count() > 1:

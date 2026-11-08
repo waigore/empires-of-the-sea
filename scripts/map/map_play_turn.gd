@@ -9,7 +9,44 @@ static func end_turn(play: PlaySession) -> void:
 	if play.victory != null:
 		play.hud.toast("Campaign ended — %s" % play.victory.winner_name())
 		return
-	MapPlayDiplomacy.resolve_turn(play)
+	# A consent decision already waiting keeps the calendar shut.
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		MapPlayDiplomacy.show_call(play)
+		return
+	if not MapPlayDiplomacy.resolve_turn(play):
+		return
+	_finish_turn(play)
+
+
+## The player answers a call to arms; the suspended turn then runs to its end
+## (wiki: diplomacy § Alliances § Mutual defence).
+static func answer_call(play: PlaySession, accept: bool) -> void:
+	if play.diplomacy == null:
+		return
+	# A stale button press must never close the phase or advance the calendar.
+	if not CallToArms.has_pending(play.diplomacy, play.player_faction):
+		return
+	var result: Dictionary = CallToArms.resolve_human(play.diplomacy, accept)
+	if not bool(result.get("ok", false)):
+		if play.hud != null:
+			play.hud.toast(String(result.get("reason", "No call awaits an answer.")))
+		return
+	if play.hud != null:
+		var message: String = String(result.get("message", ""))
+		if not message.is_empty():
+			play.hud.toast(message)
+	MapPlayDiplomacy.refresh(play)
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_call(play)
+		return
+	play.turn_suspended = false
+	MapPlayDiplomacy.close_turn(play)
+	_finish_turn(play)
+
+
+## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
+static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
