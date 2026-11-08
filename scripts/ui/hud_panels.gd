@@ -177,14 +177,21 @@ func set_civilian_training(visible: bool) -> void:
 	panel.set_training_visible(visible)
 
 
-func show_army(model: MapModel, army: ArmyState, is_player: bool, can_merge: bool) -> void:
+func show_army(
+	model: MapModel,
+	army: ArmyState,
+	is_player: bool,
+	can_merge: bool,
+	command: String = "",
+	muster: Array[Dictionary] = []
+) -> void:
 	hide_province()
 	hide_fleet()
 	hide_civilian()
 	hide_research()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	army_panel.refresh(model, army, is_player, can_merge)
+	army_panel.refresh(model, army, is_player, can_merge, command, muster)
 	army_open = true
 	dock.slide_in(host, army_wrap)
 

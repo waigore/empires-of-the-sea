@@ -18,6 +18,7 @@ static func end_turn(play: PlaySession) -> void:
 	var year: int = TurnTime.year_for_turn(play.turn)
 	play.refresh_research()
 	play.economy.resolve_turn()
+	play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 	play.income = play.economy.projected_income()
 	play.prestige += 1
 	play.hud.set_turn(play.turn, year)

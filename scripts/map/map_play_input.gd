@@ -141,7 +141,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 		return
 	match action:
 		"recruit":
-			play.hud.toast("Regiments muster at the capital; training is not yet available.")
+			MapPlayArmies.open_muster(play)
 		"build":
 			play.improvements.open(play.selected_province)
 		_:

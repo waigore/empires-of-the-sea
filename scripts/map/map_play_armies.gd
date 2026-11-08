@@ -21,7 +21,18 @@ static func select(play: PlaySession, army: ArmyState) -> void:
 
 
 static func show_panel(play: PlaySession, army: ArmyState) -> void:
-	play.hud.panels.show_army(play.model, army, army.owner == PLAYER, can_merge(play, army))
+	if army == null:
+		return
+	var is_player: bool = army.owner == PLAYER
+	var command: String = ""
+	var muster: Array[Dictionary] = []
+	if is_player and play.economy != null and play.economy.economy != null:
+		command = play.army_layer.command_text(army)
+		if army.home:
+			muster = ArmyTraining.rows(play.economy.economy)
+	play.hud.panels.show_army(
+		play.model, army, is_player, can_merge(play, army), command, muster
+	)
 
 
 static func can_merge(play: PlaySession, army: ArmyState) -> bool:
@@ -81,6 +92,34 @@ static func on_action(play: PlaySession, action: String) -> void:
 		detach(play, army, army.regiments.duplicate())
 	elif action == "merge":
 		merge(play, army)
+	elif action.begins_with("recruit:"):
+		recruit(play, action.trim_prefix("recruit:"))
+
+
+## Opens the drill yard on the Home Army dossier (the province panel's Recruit
+## order lands here, so the muster list is one tap from the map).
+static func open_muster(play: PlaySession) -> void:
+	var home: ArmyState = ArmyTraining.home_army(play.army_layer.armies, PLAYER)
+	if home == null:
+		play.hud.toast("The Home Army musters at your capital.")
+		return
+	play.army_layer.select(home)
+	play.hud.panels.army_panel.set_muster_open(true)
+
+
+## Mints one regiment into the Home Army and keeps the HUD count in step.
+static func recruit(play: PlaySession, type_id: String) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var result: Dictionary = play.army_layer.recruit(PLAYER, type_id, play.economy.economy)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The regiment cannot muster.")))
+		return
+	play.hud.set_armies(play.army_layer.regiment_count_all(PLAYER))
+	play.hud.toast(
+		"%s joins the Home Army" % RegimentCatalog.display_name(type_id)
+	)
+	show_panel(play, play.army_layer.selected_army)
 
 
 ## Detaches a batch of regiments in one order (single detach and Detach all
@@ -120,10 +159,26 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 	)
 
 
+## Feeding coverage, leader keys and the player's techs for this Combat phase;
+## the seed keeps general binding reproducible for a given turn.
+static func battle_context(play: PlaySession) -> Dictionary:
+	var tech: Dictionary = {}
+	if play.economy != null and play.economy.economy != null:
+		tech[PLAYER] = play.economy.economy.tech_unlocked
+	return {
+		"feeding": play.feeding,
+		"leaders": play.leaders,
+		"tech": tech,
+		"seed": play.turn,
+	}
+
+
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands.
 static func resolve_battles(play: PlaySession) -> void:
-	var battles: Array[Dictionary] = play.army_layer.resolve_battles(play.world)
+	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
+		play.world, battle_context(play)
+	)
 	if battles.is_empty():
 		return
 	var repaint: bool = false
@@ -134,9 +189,17 @@ static func resolve_battles(play: PlaySession) -> void:
 		var prefix: String = ""
 		if region != play.region_index:
 			prefix = "%s — " % FactionCatalog.region_label(region)
-		play.hud.toast(
-			prefix + BattleReport.describe_land(battle, province, FactionCatalog.names())
+		var line: String = prefix + BattleReport.describe_land(
+			battle, province, FactionCatalog.names()
 		)
+		var medal: String = String(battle.get("medal_gain", ""))
+		if not medal.is_empty():
+			var general: String = play.army_layer.generals.label(
+				int(battle.get("medal_owner", -1)), medal
+			)
+			if not general.is_empty():
+				line += " — %s earns a medal" % general
+		play.hud.toast(line)
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
 	if repaint:
