@@ -124,7 +124,7 @@ static func on_panel_action(screen: MapScreen, action: String) -> void:
 		"recruit":
 			screen.hud.toast("A regiment is raised in %s" % name)
 		"build":
-			screen.hud.toast("Works begin in %s" % name)
+			screen.improvements.open(screen.selected_province)
 		"train_explorer", "train_builder", "train_engineer":
 			MapPlayCivilians.train(screen, action.trim_prefix("train_"))
 		_:

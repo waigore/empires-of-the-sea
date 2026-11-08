@@ -27,6 +27,7 @@ static func end_turn(screen: MapScreen) -> void:
 			MapPlayFleets.refresh_options(screen, fleet)
 	if screen.civilian_layer.selected_unit != null:
 		MapPlayCivilians.refresh_panel(screen)
+	screen.improvements.refresh_if_open()
 	screen.turn_ended.emit(screen.turn)
 
 

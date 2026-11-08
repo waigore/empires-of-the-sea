@@ -421,6 +421,60 @@ func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
 	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
 
 
+func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	_screen.improvements.open()
+	assert_true(_screen.improvements.is_open())
+	assert_true(int(_screen.improvements._data["counts"]["estates"]) > 0)
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	var lumber_before: int = int(_screen.stockpile["lumber"])
+	var timber_before: int = int(_screen.stockpile.get("timber", 0))
+	MapPlayImprovements.on_action(_screen, "build", tile)
+	assert_true(builder.is_working())
+	assert_eq(builder.work_tile(), tile)
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	var row: Dictionary = ImprovementLedger.estate_row(
+		_screen.model, _screen.land_works, _screen.civilian_layer.units,
+		_screen.stockpile, MapScreen.PLAYER_FACTION, tile, _screen.capital_tile
+	)
+	assert_eq(String(row["status"]), "building")
+
+	MapPlayTurn.end_turn(_screen)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
+	assert_true(builder.is_idle())
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	assert_eq(int(_screen.stockpile.get("timber", 0)), timber_before + 1)
+
+
+func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var origin: Vector2i = builder.tile
+	MapPlayImprovements.on_action(_screen, "build", tile)
+	assert_true(builder.is_working())
+	MapPlayImprovements.on_action(_screen, "cancel", tile)
+	assert_true(builder.is_idle())
+	assert_eq(builder.tile, origin)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
+
+
+func _capital_estate_tile() -> Vector2i:
+	var capital: Vector2i = _screen.capital_tile
+	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+		var tile: Vector2i = capital + offset
+		if not _screen.model.is_land(tile.x, tile.y):
+			continue
+		var province: int = _screen.model.province_at(tile.x, tile.y)
+		if _screen.model.province_owner(province) != MapScreen.PLAYER_FACTION:
+			continue
+		_screen.model.resource[_screen.model.index_of(tile.x, tile.y)] = 0
+		return tile
+	return Vector2i(-1, -1)
+
+
 func _capital_point() -> Vector2:
 	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE
 

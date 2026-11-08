@@ -11,6 +11,8 @@ var economy: PlayerEconomy = null
 var market: WorldMarket = null
 var player_faction: int = 0
 var capital_province: int = -1
+var capital_tile: Vector2i = CivilianState.NO_TILE
+var works: LandWorks = null
 
 var _ships: ShipLayer = null
 var _hud: GameHud = null
@@ -21,11 +23,15 @@ func setup(
 	p_faction: int,
 	p_capital: int,
 	p_ships: ShipLayer,
-	p_hud: GameHud
+	p_hud: GameHud,
+	p_works: LandWorks = null,
+	p_capital_tile: Vector2i = CivilianState.NO_TILE
 ) -> void:
 	model = p_model
 	player_faction = p_faction
 	capital_province = p_capital
+	capital_tile = p_capital_tile
+	works = p_works
 	_ships = p_ships
 	_hud = p_hud
 	economy = PlayerEconomy.starting()
@@ -55,7 +61,10 @@ func fleet_ships() -> int:
 
 
 func extraction() -> Dictionary:
-	return Extraction.yields(model, player_faction, capital_province)
+	return Extraction.yields(
+		model, player_faction, capital_province, economy.tech_unlocked, works,
+		capital_tile
+	)
 
 
 func projected() -> Dictionary:
@@ -84,6 +93,9 @@ func resolve_turn() -> Dictionary:
 ## One-line turn summary for the toast channel.
 func summary_line(report: Dictionary) -> String:
 	var parts: PackedStringArray = []
+	var extracted: Dictionary = report.get("extraction", {})
+	if not extracted.is_empty():
+		parts.append("gathered %s" % ImprovementSystem.output_text(extracted))
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)

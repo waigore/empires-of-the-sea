@@ -83,6 +83,7 @@ func test_a_prospected_tile_cannot_be_prospected_again() -> void:
 
 func test_builder_pays_materials_and_raises_the_improvement_level() -> void:
 	var builder := _add("builder", Fixture.IRON_TILE)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
 	var check: Dictionary = _validate(builder, "build_improvement")
 	assert_true(bool(check["ok"]), String(check.get("reason", "")))
 	assert_eq(check["cost"], {"lumber": 1, "castIron": 1})
@@ -94,8 +95,8 @@ func test_builder_pays_materials_and_raises_the_improvement_level() -> void:
 	assert_eq(_works.improvement_at(_model, Fixture.IRON_TILE), 1)
 
 	var second: Dictionary = _validate(builder, "build_improvement")
-	assert_eq(second["cost"], {"lumber": 4, "castIron": 4})
-	assert_eq(int(second["duration"]), 2)
+	assert_false(bool(second["ok"]))
+	assert_true(String(second["reason"]).contains("tech"))
 
 
 func test_improvements_need_a_resource_tile() -> void:
@@ -135,6 +136,7 @@ func test_one_crew_per_tile() -> void:
 
 func test_work_needs_materials_in_the_stockpile() -> void:
 	var builder := _add("builder", Fixture.IRON_TILE)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
 	_stock = {"lumber": 0, "castIron": 0}
 	var check: Dictionary = _validate(builder, "build_improvement")
 	assert_false(bool(check["ok"]))
@@ -207,8 +209,49 @@ func test_a_type_cannot_take_another_types_work() -> void:
 	assert_true(String(check["reason"]).contains("cannot explore province"))
 
 
+func test_a_mine_needs_prospecting_first() -> void:
+	var builder := _add("builder", Fixture.IRON_TILE)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("prospect"))
+
+
+func test_builder_can_take_an_estate_away_from_its_tile() -> void:
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var check: Dictionary = CivilianWork.validate(
+		_model, builder, "build_improvement", _works, _units, _stock, _view,
+		Fixture.TIMBER_TILE
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	CivilianWork.assign(
+		_model, builder, "build_improvement", _works, _units, _stock, _view,
+		Fixture.TIMBER_TILE
+	)
+	assert_eq(builder.tile, Fixture.TIMBER_TILE)
+	assert_eq(builder.origin_tile, Fixture.BARE_TILE)
+	assert_eq(builder.assigned_tile, Fixture.TIMBER_TILE)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_eq(_works.improvement_at(_model, Fixture.TIMBER_TILE), 1)
+	assert_eq(builder.origin_tile, CivilianState.NO_TILE)
+
+
+func test_cancelling_a_relocated_order_returns_the_builder() -> void:
+	var builder := _add("builder", Fixture.BARE_TILE)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	CivilianWork.assign(
+		_model, builder, "build_improvement", _works, _units, _stock, _view,
+		Fixture.IRON_TILE
+	)
+	assert_eq(builder.tile, Fixture.IRON_TILE)
+	builder.cancel_work()
+	assert_eq(builder.tile, Fixture.BARE_TILE)
+	assert_eq(builder.origin_tile, CivilianState.NO_TILE)
+	assert_eq(_works.improvement_at(_model, Fixture.IRON_TILE), 0)
+
+
 func test_busy_civilians_refuse_new_orders() -> void:
 	var builder := _add("builder", Fixture.IRON_TILE)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
 	CivilianWork.assign(_model, builder, "build_improvement", _works, _units, _stock, _view)
 	var check: Dictionary = _validate(builder, "build_improvement")
 	assert_false(bool(check["ok"]))

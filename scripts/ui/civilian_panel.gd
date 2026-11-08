@@ -122,7 +122,9 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	var development: PackedStringArray = PackedStringArray()
 	var level: int = works.improvement_at(model, unit.tile)
 	if level > 0:
-		development.append("Improvement %d" % level)
+		development.append(
+			ImprovementCatalog.display_name(model.resource_at(unit.tile.x, unit.tile.y), level)
+		)
 	if works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_ROAD:
 		development.append("Road")
 	if works.has_port(model, unit.tile):

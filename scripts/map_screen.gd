@@ -48,6 +48,7 @@ var visibility_by_region: Dictionary = {}
 @onready var civilian_layer: CivilianLayer = $World/CivilianLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
+@onready var improvements: ImprovementPanel = $HUD/Improvements
 @onready var fade: ColorRect = $FadeLayer/Fade
 
 
@@ -146,12 +147,16 @@ func _build_hud() -> void:
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
 	economy = EconomyController.new()
 	add_child(economy)
-	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud)
+	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud, land_works, capital_tile)
 	economy.treasury_changed.connect(func(value: int) -> void: treasury = value)
 	treasury = economy.economy.treasury
 	stockpile = economy.economy.stockpile
 	hud.set_treasury(treasury, false)
 	income = economy.projected_income()
+	improvements.set_data(
+		model, land_works, civilian_layer.units, stockpile, capital_tile,
+		PLAYER_FACTION, economy.economy.tech_unlocked
+	)
 
 
 func _connect() -> void:
@@ -203,7 +208,12 @@ func _connect() -> void:
 	hud.civilian_closed.connect(func() -> void:
 		MapPlayInput.deselect(self)
 	)
-
+	improvements.action_pressed.connect(func(action: String, tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(self, action, tile)
+	)
+	improvements.focus_pressed.connect(func(tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(self, "focus", tile)
+	)
 
 func _intro() -> void:
 	var map_size: Vector2 = MapGeo.world_size(model, TILE_SIZE)

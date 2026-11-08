@@ -78,7 +78,7 @@ func _add_marker(unit: CivilianState) -> void:
 	marker.type_id = unit.type_id
 	marker.faction = unit.owner
 	marker.position = _tile_position(unit.tile)
-	marker.scale = Vector2.ONE * _marker_scale()
+	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 	add_child(marker)
 	markers.append(marker)
 
@@ -163,12 +163,19 @@ func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
 	return reports
 
 
-## Mirrors rules state onto the medallions (selection, work ring, progress).
+## Mirrors rules state onto the medallions (selection, work ring, progress and
+## assignment relocation).
 func sync() -> void:
 	for unit: CivilianState in units:
 		var marker: CivilianMarker = marker_for(unit)
 		if marker == null:
 			continue
+		var target: Vector2 = _tile_position(unit.tile)
+		if marker.position.distance_to(target) > 0.5:
+			var tween: Tween = create_tween()
+			tween.tween_property(marker, "position", target, 0.32).set_trans(
+				Tween.TRANS_CUBIC
+			).set_ease(Tween.EASE_IN_OUT)
 		var progress: float = 0.0
 		if unit.is_working() and unit.total_turns() > 0:
 			progress = 1.0 - float(unit.remaining_turns()) / float(unit.total_turns())
@@ -182,7 +189,7 @@ func refresh_works() -> void:
 func set_zoom(value: float) -> void:
 	_zoom = maxf(value, 0.001)
 	for marker: CivilianMarker in markers:
-		marker.scale = Vector2.ONE * _marker_scale()
+		marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 
 
 func unit_count(owner: int) -> int:
@@ -225,7 +232,8 @@ func _draw() -> void:
 			_draw_road(point)
 		var level: int = works.improvement_at(model, tile)
 		if level > 0:
-			_draw_improvement(point, level)
+			var resource: int = model.resource_at(tile.x, tile.y)
+			_draw_improvement(point, resource, level)
 		if works.has_port(model, tile):
 			_draw_port(point)
 
@@ -236,11 +244,60 @@ func _draw_road(point: Vector2) -> void:
 	draw_line(point + Vector2(3, 0), point + Vector2(9, 0), ink, 2.4, true)
 
 
-func _draw_improvement(point: Vector2, level: int) -> void:
+func _draw_improvement(point: Vector2, resource: int, level: int) -> void:
+	var ink := Palette.INK
+	var tint: Color = _improvement_color(resource)
+	var mark: Vector2 = point + Vector2(0, -3.0)
+	match ImprovementCatalog.category(resource):
+		"wood":
+			draw_colored_polygon(
+				PackedVector2Array([
+					mark + Vector2(0, -5.0),
+					mark + Vector2(4.2, 2.2),
+					mark + Vector2(-4.2, 2.2),
+				]),
+				tint
+			)
+			draw_line(mark + Vector2(0, 2.0), mark + Vector2(0, 5.0), ink, 1.2, true)
+		"mine":
+			draw_colored_polygon(
+				PackedVector2Array([
+					mark + Vector2(0, -4.6),
+					mark + Vector2(4.2, 0),
+					mark + Vector2(0, 4.6),
+					mark + Vector2(-4.2, 0),
+				]),
+				tint
+			)
+		"riches":
+			draw_circle(mark, 3.8, tint)
+			draw_circle(mark, 3.8, ink, false, 1.0, true)
+		_:
+			draw_line(mark + Vector2(0, 4.6), mark + Vector2(0, -3.0), ink, 1.3, true)
+			for i in 3:
+				var y: float = -3.0 + float(i) * 2.4
+				draw_line(
+					mark + Vector2(0, y), mark + Vector2(-3.4, y - 1.4), tint, 1.5, true
+				)
+				draw_line(
+					mark + Vector2(0, y), mark + Vector2(3.4, y - 1.4), tint, 1.5, true
+				)
 	for i in level:
-		var origin: Vector2 = point + Vector2(-7.5 + float(i) * 5.0, 7.0)
+		var origin: Vector2 = point + Vector2(-7.5 + float(i) * 5.0, 8.0)
 		draw_rect(Rect2(origin, Vector2(3.4, 3.4)), Palette.GOLD)
-		draw_rect(Rect2(origin, Vector2(3.4, 3.4)), Palette.INK, false, 0.8)
+		draw_rect(Rect2(origin, Vector2(3.4, 3.4)), ink, false, 0.8)
+
+
+func _improvement_color(resource: int) -> Color:
+	match ImprovementCatalog.category(resource):
+		"wood":
+			return Color(0.34, 0.45, 0.27)
+		"mine":
+			return Color(0.47, 0.43, 0.38)
+		"riches":
+			return Palette.GOLD
+		_:
+			return Palette.GOLD_DIM
 
 
 func _draw_port(point: Vector2) -> void:
@@ -251,10 +308,6 @@ func _draw_port(point: Vector2) -> void:
 
 func _tile_position(tile: Vector2i) -> Vector2:
 	return MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
-
-
-func _marker_scale() -> float:
-	return clampf(1.0 / _zoom, 0.62, 1.0)
 
 
 func _capital_tile(province_id: int) -> Vector2i:
