@@ -94,14 +94,28 @@ func reveal_sea_zone(zone_id: int) -> Array:
 	return changed
 
 
+## Explorer completion (wiki: fog-and-exploration § Exploration): every tile of
+## the province becomes fully visible for this player.
+func reveal_province(province_id: int) -> Array:
+	var changed: Array = []
+	for tile: Vector2i in model.province_tiles(province_id):
+		var index: int = model.index_of(tile.x, tile.y)
+		if raise_to(index, Level.FULLY_VISIBLE):
+			changed.append(index)
+	return changed
+
+
 ## End-of-turn resolution (wiki: fog-and-exploration). Order matters: fog decay,
-## distant sea zone fog, own-province re-assert, coastal sea pass last.
-## `at_sea_zones` lists zones holding this player's fleets at sea; fleets in
-## port do not count.
-func end_of_turn(at_sea_zones: Array) -> Array:
+## distant sea zone fog, explorer presence, own-province re-assert, coastal sea
+## pass last. `at_sea_zones` lists zones holding this player's fleets at sea;
+## fleets in port do not count. `held_provinces` lists provinces where this
+## player keeps a civilian, which holds them fully visible.
+func end_of_turn(at_sea_zones: Array, held_provinces: Array = []) -> Array:
 	var changed: Array = []
 	changed.append_array(_decay_foreign_provinces())
 	changed.append_array(_apply_distant_sea_fog(at_sea_zones))
+	for raw: Variant in held_provinces:
+		changed.append_array(reveal_province(int(raw)))
 	changed.append_array(_reveal_own_provinces())
 	changed.append_array(_apply_coastal_sea_zones())
 	return changed

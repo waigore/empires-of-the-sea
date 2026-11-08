@@ -5,11 +5,21 @@ extends RefCounted
 ## Storage is unbounded by design, so quantities are plain non-negative integers.
 
 ## Starting conditions (ruleset-config § Starting stockpiles; treasury is the
-## slice's starting purse). Grain is seeded from peasants x turns of food.
+## slice's starting purse). Grain is seeded from peasants x turns of food. The
+## manufactured lines also fund the opening civilian work orders (improvements,
+## roads, training), which used to be a separate demo stockpile.
 const START_TREASURY: int = 2500
 const START_PEASANTS: int = 6
 const START_GRAIN_TURNS: int = 20
-const START_IMPROVEMENT_SLOTS: int = 2
+## Materials the opening civilian work orders (improvements, roads, training)
+## draw on; these were a separate demo stockpile before the economy landed.
+const START_WORKS_LUMBER: int = 40
+const START_WORKS_CAST_IRON: int = 40
+const START_CIVILIAN_WORKS: Dictionary = {
+	"bronze": 12,
+	"steel": 8,
+	"paper": 8,
+}
 
 var treasury: int = 0
 var stockpile: Dictionary = {}
@@ -24,10 +34,12 @@ static func starting() -> PlayerEconomy:
 	econ.workers = WorkerPool.make(START_PEASANTS)
 	econ.stockpile = {
 		"grain": START_PEASANTS * START_GRAIN_TURNS,
-		"lumber": START_IMPROVEMENT_SLOTS,
-		"castIron": START_IMPROVEMENT_SLOTS,
+		"lumber": START_WORKS_LUMBER,
+		"castIron": START_WORKS_CAST_IRON,
 		"wool": 4,
-		"paper": 2,
+		"paper": int(START_CIVILIAN_WORKS["paper"]),
+		"bronze": int(START_CIVILIAN_WORKS["bronze"]),
+		"steel": int(START_CIVILIAN_WORKS["steel"]),
 	}
 	return econ
 

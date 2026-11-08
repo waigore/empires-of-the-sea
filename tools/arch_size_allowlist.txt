@@ -2,5 +2,5 @@
 scripts/map/map_canvas.gd	518	26
 scripts/map/map_generator.gd	563	22
 scripts/map/map_model.gd	225	27
-scripts/map_screen.gd	477	35
-scripts/ui/game_hud.gd	497	34
+scripts/map_screen.gd	638	43
+scripts/ui/game_hud.gd	583	40
