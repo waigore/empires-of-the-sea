@@ -13,7 +13,7 @@ CI enforces these with job `timeout-minutes` (`5` / `2`) and a 240s gd-tools `--
 
 ## E2E smoke hard gate
 
-Smoke must complete **one player turn** on the live main scene without unexpected failures. In that turn it exercises player actions that touch each unit type: civilians (select, march, work, cancel, train), navy (select, sail/dock), and army (select, detach, muster a regiment). Deep rules stay in `tests/`.
+Smoke must boot the real title screen, start a new game through setup, open the in-game menu, save a slot, then complete **one player turn** on the live main scene without unexpected failures. In that turn it exercises player actions that touch each unit type: civilians (select, march, work, cancel, train), navy (select, sail/dock), and army (select, detach, muster a regiment). It then loads the saved slot (verifying the whole screen is rebuilt) and returns to the title. Deep rules stay in `tests/`.
 
 ## Speed rules
 

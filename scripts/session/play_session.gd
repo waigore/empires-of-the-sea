@@ -5,7 +5,16 @@ extends RefCounted
 ## MapScreen owns the Node tree and signals; helpers talk through this bag.
 
 const TILE_SIZE: float = 22.0
+## Legacy default (Spain); a game setup may choose another Great Power.
 const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
+
+## Human slot chosen in game setup; the rules read this everywhere the player
+## is special-cased (view, upkeep, diplomacy).
+var player_faction: int = PLAYER_FACTION
+## Generation recipe, kept so a save can rebuild the identical world.
+var map_seed: int = 1500
+var map_width: int = 128
+var map_height: int = 84
 
 var world: WorldMap = null
 ## Region currently on screen (Old World first).
@@ -79,7 +88,7 @@ func treasury() -> int:
 
 ## Provinces the player currently holds in the region on screen.
 func owned_provinces() -> int:
-	return world.owned_provinces(region_index, PLAYER_FACTION)
+	return world.owned_provinces(region_index, player_faction)
 
 
 ## Squadrons, civilians and training exist only where the player holds land.
@@ -114,7 +123,7 @@ func refresh_research() -> void:
 	if economy == null or economy.economy == null:
 		return
 	economy.economy.research.set_revealed(
-		TechDiscovery.revealed(world, visibility_by_region, land_works, PLAYER_FACTION)
+		TechDiscovery.revealed(world, visibility_by_region, land_works, player_faction)
 	)
 
 

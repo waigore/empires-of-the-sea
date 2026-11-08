@@ -52,3 +52,29 @@ func normalize() -> void:
 	if at_war:
 		formal_alliance = false
 	score = clampf(score, 0.0, 100.0)
+
+
+## Plain data for local saves (built-in types only, so str_to_var can read it).
+func to_dict() -> Dictionary:
+	return {
+		"a": a,
+		"b": b,
+		"at_war": at_war,
+		"score": score,
+		"since_turn": since_turn,
+		"last_interaction_turn": last_interaction_turn,
+		"formal_alliance": formal_alliance,
+	}
+
+
+static func from_dict(data: Dictionary) -> DiplomacyRelation:
+	var relation := DiplomacyRelation.new()
+	relation.a = int(data.get("a", -1))
+	relation.b = int(data.get("b", -1))
+	relation.at_war = bool(data.get("at_war", false))
+	relation.score = float(data.get("score", DiplomacyCatalog.INITIAL_SCORE))
+	relation.since_turn = int(data.get("since_turn", 0))
+	relation.last_interaction_turn = int(data.get("last_interaction_turn", 0))
+	relation.formal_alliance = bool(data.get("formal_alliance", false))
+	relation.normalize()
+	return relation
