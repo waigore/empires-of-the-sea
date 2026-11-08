@@ -45,10 +45,8 @@ godot --headless --path . --export-release "Android Release" build/android/empir
 
 ## CI
 
-The `android` job in [`ci.yml`](../.github/workflows/ci.yml) installs JDK 21, the Android SDK and
-export templates, writes the editor setting above, exports the debug APK, verifies package name,
-signature and `lib/arm64-v8a/libgodot_android.so`, and uploads it as the `android-debug-apk`
-artifact.
+CI runs tests only (`gd-tools test --coverage --min 80`); it does not build the Android APK. Run the
+local build above, or add a separate build workflow if automated artifacts are needed later.
 
 ## Notes
 
