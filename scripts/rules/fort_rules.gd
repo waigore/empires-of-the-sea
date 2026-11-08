@@ -2,9 +2,9 @@ class_name FortRules
 extends RefCounted
 ## Forts, walls and emplaced batteries (wiki: siege-mechanics, combat § Battle
 ## Mode, tech-tree-military § Artillery and Forts).
-## Pure tables and maths: a province stores only `fort_level`; walls, guns and
-## build gates are derived here so combat, work orders and the dossier read the
-## same numbers (REQ-P3-03).
+## Tables and maths: a province stores only `fort_level`; walls, guns and build
+## gates are derived here so combat, work orders and the dossier read the same
+## numbers (REQ-P3-03). The one write, `apply_build`, lands a finished build.
 
 const MAX_LEVEL: int = 3
 
@@ -139,6 +139,16 @@ static func describe(level: int) -> String:
 	return "%s fort · %d emplaced gun%s" % [
 		level_name(level), pieces, "" if pieces == 1 else "s"
 	]
+
+
+## Applies a finished build: the province reaches the level that project was
+## ordered for, never past it. Two projects running in one province cannot
+## leap a level (or the tech gate and materials that level costs).
+static func apply_build(data: ProvinceState, ordered: int) -> void:
+	if data == null:
+		return
+	var target: int = ordered if ordered > 0 else next_level(data.fort_level)
+	data.fort_level = clampi(maxi(data.fort_level, target), 0, MAX_LEVEL)
 
 
 static func _entry(level: int) -> Dictionary:

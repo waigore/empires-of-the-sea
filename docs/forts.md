@@ -1,6 +1,6 @@
 # Forts and sieges
 
-Walls an Engineer raises on owned land, and the auto-resolve siege they create.
+Walls raised on owned land, and the siege they create.
 
 **Pillars:** P2, P3 (rules/view split), P5 (visible outcomes), P1 (dossier).
 
@@ -13,15 +13,15 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 - **Storage:** `ProvinceState.fort_level` 0–3, saved and restored with the
   world (`SaveCodec`). A captured province keeps its walls; only the garrison
   changes.
-- **Build order:** Engineers take `Fort` in their dossier on a tile of their own
-  crown's province; the fort belongs to the province, not the tile. Materials
-  are paid on assignment and never refunded.
-- **Multi-turn:** one turn per level reached (L1 1, L2 2, L3 3). Each completion
-  raises the province one level.
+- **Build order:** Engineers take `Fort` on a tile of their own crown's
+  province; the fort belongs to the province, not the tile. Materials are paid
+  on assignment, never refunded.
+- **Multi-turn:** one turn per level reached (L1 1, L2 2, L3 3). A completion
+  lands the ordered level; a duplicate project in the same province cannot leap
+  a level or its gate.
 - **Tech gates:** L2 needs Mine Engineering, L3 needs Modern Forts.
-- **Battle mode:** `fort_level == 0` is a field battle (unchanged); `fort_level
-  ≥ 1` is a siege. Every land-battle report carries `battle_mode` and
-  `fort_level`.
+- **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege. Every land-battle
+  report carries `battle_mode` and `fort_level`.
 - **Walls (auto-resolve):** attacking side strength is reduced by the wall HP
   (10 / 20 / 30) before the ratio band is read, floored at zero.
 - **Defender losses:** the band's defender share is scaled by 1 − damage
@@ -43,13 +43,12 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 
 ## Deferred (REQ-P2-02)
 
-- Quick Battle siege lanes: wall HP soak and damage reduction for auto-resolve
-  only; per-position "on the wall"/"behind the wall", gates and sorties wait on
+- Quick Battle siege lanes: wall HP soak and damage reduction for auto-resolve; per-position "on the wall"/"behind the wall", gates and sorties wait on
   the lane model.
 - Virtual emplaced gun entities and the "all guns destroyed → fort −1" downgrade
   (Quick Battle path only; the wiki excludes auto-resolve).
 - Distinct town tiles: forts are province-scoped because provinces carry no
-  town tile yet (see DR-20261108-04).
+  town tile (see DR-20261108-04).
 
 ## Architecture
 

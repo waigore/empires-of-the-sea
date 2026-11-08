@@ -49,6 +49,9 @@ static func run(
 			record["message"] = message
 			if not message.is_empty():
 				messages.append(message)
+			for extra: String in applied.get("messages", []):
+				if not extra.is_empty():
+					messages.append(extra)
 		trace.append(record)
 	return {"trace": trace, "messages": messages}
 
@@ -87,6 +90,7 @@ static func _apply(
 		return {
 			"result": war,
 			"message": String(war.get("message", "")),
+			"messages": war.get("calls", []),
 		}
 	if kind == KIND_OFFER_PEACE:
 		var peace: Dictionary = DiplomacyRules.make_peace(state, faction, target)

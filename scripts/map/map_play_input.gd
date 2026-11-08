@@ -8,6 +8,9 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	# A decided campaign takes no orders; the map stays for viewing (wiki: victory).
 	if play.victory != null:
 		return
+	# A pending call to arms holds the turn; map intents wait for the answer.
+	if play.turn_suspended:
+		return
 	var civilian: CivilianState = play.civilian_layer.unit_at(world_position)
 	if civilian != null:
 		play.civilian_layer.select(civilian)
@@ -136,6 +139,8 @@ static func clear_hover(play: PlaySession) -> void:
 
 static func on_panel_action(play: PlaySession, action: String) -> void:
 	if play.victory != null:
+		return
+	if play.turn_suspended:
 		return
 	if play.selected_province < 0:
 		return

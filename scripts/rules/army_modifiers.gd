@@ -11,6 +11,8 @@ extends RefCounted
 ## docs/armies.md until a ruleset loader exists.
 
 const W_MEDAL: float = 10.0
+## Initiative cavalry weight (wiki: combat § Configurable Values).
+const W_CAV: float = 50.0
 const MEDAL_MORALE_STEP: float = 0.05
 const MEDAL_MORALE_CAP: float = 0.20
 const BASE_DEPLOYMENT: int = 10
