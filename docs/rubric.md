@@ -10,8 +10,8 @@ Cite `REQ-*`/`RUB-*` in PRs.
 
 ## How to apply
 
-1. Identify touched pillars (`P1`–`P5`); others may be **N/A** (N/A ≠ pass).
-2. Score every applicable criterion; compute pillar then overall outcome.
+1. Identify touched pillars (`P1`–`P5`); others **N/A** (≠ pass).
+2. Score applicable criteria; compute pillar then overall.
 3. Cite failing IDs when requesting changes.
 
 ## Score scale
@@ -24,7 +24,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 | 0 | Fail | Missing, contradicted, or harmful |
 | — | N/A | Outside this change |
 
-**Pass:** applicable ≥ 2, none 0 per touched pillar; overall = all touched pass. Any **0** → fail.
+**Pass:** applicable ≥ 2, none 0 per touched pillar; overall = all touched pass. Any **0** fails.
 
 ## Criteria (pass ≥ 2)
 
@@ -79,6 +79,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 | RUB-P5-04 | Batch/default/confirm-once for chores (`REQ-P5-04`) |
 | RUB-P5-05 | State-change ack ~1–2 frames; never silent (`REQ-P5-05`) |
 | RUB-P5-06 | Juice non-modal/skippable; no hidden outcomes/hitches (`REQ-P5-06`) |
+| RUB-P5-07 | Phone+tablet↔desktop intent parity; packaging/platform OK (`REQ-P5-07`) |
 
 
 ## Decision record
@@ -93,4 +94,4 @@ Notes: …
 
 ## Maintenance
 
-New needs get `REQ-*`+`RUB-*`. Don’t remove IDs—deprecate. Scores stay behavioral.
+New needs get `REQ-*`+`RUB-*`. Don’t remove IDs—deprecate.
