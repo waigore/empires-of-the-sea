@@ -52,13 +52,13 @@ static func yields(
 	var connected: Dictionary = {}
 	if works != null:
 		connected = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != owner:
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
 			continue
-		var town_cap: int = int(province.get("town_development", 0))
+		var town_cap: int = province.town_development
 		if town_cap <= 0:
 			town_cap = MAX_YIELD
-		for tile: Vector2i in province.get("tiles", []):
+		for tile: Vector2i in province.tiles:
 			var resource: int = model.resource_at(tile.x, tile.y)
 			var commodity: String = commodity_for_resource(resource)
 			if commodity.is_empty():

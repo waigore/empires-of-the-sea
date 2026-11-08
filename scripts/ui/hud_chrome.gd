@@ -270,7 +270,7 @@ static func _economy_panel(hud: GameHud) -> void:
 
 	hud._economy_panel = EconomyPanel.new()
 	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	hud._economy_panel.close_pressed.connect(func() -> void: hud.hide_economy())
+	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
 	hud._economy_wrap.add_child(hud._economy_panel)
 
 

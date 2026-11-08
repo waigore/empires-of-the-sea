@@ -30,8 +30,8 @@ static func owned_provinces_by_zone(
 	model: MapModel, zone_id: int, owner: int
 ) -> Array[int]:
 	var provinces: Array[int] = []
-	var data: Dictionary = model.sea_zone_data(zone_id)
-	for tile: Vector2i in data.get("tiles", []):
+	var data: SeaZoneState = model.sea_zone_data(zone_id)
+	for tile: Vector2i in data.tiles if data != null else []:
 		for offset: Vector2i in ORTHOGONAL:
 			var province_id: int = model.province_at(tile.x + offset.x, tile.y + offset.y)
 			if province_id == MapModel.NO_ID:
@@ -45,10 +45,10 @@ static func owned_provinces_by_zone(
 
 
 static func has_harbour(model: MapModel, province_id: int) -> bool:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
 		return false
-	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+	var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
 	return port.x >= 0 and port.y >= 0
 
 
@@ -101,7 +101,7 @@ static func can_move(
 static func _can_enter_zone(
 	model: MapModel, fleet: FleetState, zone_id: int
 ) -> Dictionary:
-	if zone_id < 0 or model.sea_zone_data(zone_id).is_empty():
+	if zone_id < 0 or model.sea_zone_data(zone_id) == null:
 		return _deny("That is not a sea zone.")
 	if fleet.is_at_sea():
 		if zone_id == fleet.sea_zone:
@@ -117,7 +117,7 @@ static func _can_enter_zone(
 static func _can_dock(
 	model: MapModel, fleet: FleetState, province_id: int
 ) -> Dictionary:
-	if province_id < 0 or model.province_data(province_id).is_empty():
+	if province_id < 0 or model.province_data(province_id) == null:
 		return _deny("That is not a province.")
 	if fleet.is_in_port():
 		return _deny("The fleet is already in port.")

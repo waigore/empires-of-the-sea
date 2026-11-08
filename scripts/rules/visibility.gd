@@ -74,10 +74,10 @@ func apply_initial() -> Array:
 ## land tiles sharing an orthogonal edge with that zone's water.
 func reveal_sea_zone(zone_id: int) -> Array:
 	var changed: Array = []
-	var data: Dictionary = model.sea_zone_data(zone_id)
-	if data.is_empty():
+	var data: SeaZoneState = model.sea_zone_data(zone_id)
+	if data == null:
 		return changed
-	var water: Array = data.get("tiles", [])
+	var water: Array = data.tiles
 	for tile: Vector2i in water:
 		var index: int = model.index_of(tile.x, tile.y)
 		if raise_to(index, Level.FULLY_VISIBLE):
@@ -190,10 +190,10 @@ func _link(table: Dictionary, key: int, value: int) -> void:
 ## Own provinces are always fully visible and never decay.
 func _reveal_own_provinces() -> Array:
 	var changed: Array = []
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != player_id:
+	for province: ProvinceState in model.provinces:
+		if province.owner != player_id:
 			continue
-		var province_id: int = int(province["id"])
+		var province_id: int = province.id
 		for tile: Vector2i in model.province_tiles(province_id):
 			var index: int = model.index_of(tile.x, tile.y)
 			if raise_to(index, Level.FULLY_VISIBLE):
@@ -215,8 +215,8 @@ func _apply_coastal_sea_zones() -> Array:
 
 func _raise_sea_zone_water(zone_id: int, level: int) -> Array:
 	var changed: Array = []
-	var data: Dictionary = model.sea_zone_data(zone_id)
-	for tile: Vector2i in data.get("tiles", []):
+	var data: SeaZoneState = model.sea_zone_data(zone_id)
+	for tile: Vector2i in data.tiles:
 		var index: int = model.index_of(tile.x, tile.y)
 		if raise_to(index, level):
 			changed.append(index)
@@ -227,10 +227,10 @@ func _raise_sea_zone_water(zone_id: int, level: int) -> Array:
 ## back to fogged; own provinces and unknown/fogged tiles are never touched.
 func _decay_foreign_provinces() -> Array:
 	var changed: Array = []
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) == player_id:
+	for province: ProvinceState in model.provinces:
+		if province.owner == player_id:
 			continue
-		for tile: Vector2i in province.get("tiles", []):
+		for tile: Vector2i in province.tiles:
 			var index: int = model.index_of(tile.x, tile.y)
 			if lower_to(index, Level.FOGGED):
 				changed.append(index)
@@ -241,13 +241,13 @@ func _decay_foreign_provinces() -> Array:
 ## sea reverts to fogged; unknown tiles stay unknown.
 func _apply_distant_sea_fog(at_sea_zones: Array) -> Array:
 	var changed: Array = []
-	for zone: Dictionary in model.sea_zones:
-		var zone_id: int = int(zone.get("id", MapModel.NO_ID))
+	for zone: SeaZoneState in model.sea_zones:
+		var zone_id: int = zone.id
 		if zone_id == MapModel.NO_ID:
 			continue
 		if owns_coast(zone_id) or at_sea_zones.has(zone_id):
 			continue
-		for tile: Vector2i in zone.get("tiles", []):
+		for tile: Vector2i in zone.tiles:
 			var index: int = model.index_of(tile.x, tile.y)
 			if lower_to(index, Level.FOGGED):
 				changed.append(index)

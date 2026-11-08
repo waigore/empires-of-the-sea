@@ -46,12 +46,12 @@ static func snapshot(
 	var connected: Dictionary = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
 	var idle: Array[CivilianState] = ImprovementOrders.idle_builders(units, owner)
 	var groups: Array[Dictionary] = result["groups"]
-	for province: Dictionary in model.provinces:
-		if int(province.get("owner", MapModel.NO_ID)) != owner:
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
 			continue
-		var province_id: int = int(province["id"])
+		var province_id: int = province.id
 		var rows: Array[Dictionary] = []
-		for tile: Vector2i in province.get("tiles", []):
+		for tile: Vector2i in province.tiles:
 			if not model.is_land(tile.x, tile.y):
 				continue
 			var resource: int = model.resource_at(tile.x, tile.y)
@@ -67,7 +67,7 @@ static func snapshot(
 		rows.sort_custom(_row_before)
 		var group: Dictionary = {
 			"id": province_id,
-			"name": String(province.get("name", "")),
+			"name": String(province.name),
 			"rows": rows,
 			"count": rows.size(),
 			"producing": 0,
@@ -137,7 +137,7 @@ static func _estate_row(
 	var transport: int = maxi(1, works.transport_at(model, tile))
 	if works.has_port(model, tile):
 		transport = LandWorks.TRANSPORT_RAIL
-	var town_cap: int = int(model.province_data(province).get("town_development", 0))
+	var town_cap: int = model.province_data(province).town_development if model.province_data(province) != null else 0
 	if town_cap <= 0:
 		town_cap = ImprovementCatalog.MAX_LEVEL
 	var output: int = 0

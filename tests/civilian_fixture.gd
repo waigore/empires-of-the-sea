@@ -34,48 +34,29 @@ static func build() -> MapModel:
 	model.resource[model.index_of(IRON_TILE.x, IRON_TILE.y)] = 1
 	model.resource[model.index_of(TIMBER_TILE.x, TIMBER_TILE.y)] = 0
 	model.resource[model.index_of(RIVAL_GRAIN_TILE.x, RIVAL_GRAIN_TILE.y)] = 4
-	model.provinces = [
-		{
-			"id": PLAYER_PROVINCE,
-			"name": "Cádiz",
-			"tiles": player_tiles,
-			"center": Vector2(1.0, 1.5),
-			"area": player_tiles.size(),
-			"coastal": true,
-			"port_tile": COAST_TILE,
-			"owner": 0,
-			"capital": true,
-			"capital_tile": BARE_TILE,
-			"resource": 1,
-			"resource_tile": IRON_TILE,
-			"population": 900,
-		},
-		{
-			"id": RIVAL_PROVINCE,
-			"name": "Coro",
-			"tiles": rival_tiles,
-			"center": Vector2(3.5, 1.5),
-			"area": rival_tiles.size(),
-			"coastal": true,
-			"port_tile": Vector2i(4, 3),
-			"owner": 1,
-			"capital": false,
-			"capital_tile": Vector2i(-1, -1),
-			"resource": 4,
-			"resource_tile": RIVAL_GRAIN_TILE,
-			"population": 700,
-		},
+	var player := ProvinceState.create(
+		PLAYER_PROVINCE, "Cádiz", player_tiles, Vector2(1.0, 1.5), player_tiles.size(), 0, true
+	)
+	player.coastal = true
+	player.port_tile = COAST_TILE
+	player.capital_tile = BARE_TILE
+	player.resource = 1
+	player.resource_tile = IRON_TILE
+	player.population = 900
+	var rival := ProvinceState.create(
+		RIVAL_PROVINCE, "Coro", rival_tiles, Vector2(3.5, 1.5), rival_tiles.size(), 1, false
+	)
+	rival.coastal = true
+	rival.port_tile = Vector2i(4, 3)
+	rival.resource = 4
+	rival.resource_tile = RIVAL_GRAIN_TILE
+	rival.population = 700
+	model.provinces = [player, rival]
+	var sea_tiles: Array[Vector2i] = [
+		Vector2i(0, 4), Vector2i(1, 4), Vector2i(2, 4), Vector2i(3, 4), Vector2i(4, 4)
 	]
 	model.sea_zones = [
-		{
-			"id": 0,
-			"name": "Mar Caribe",
-			"tiles": [
-				Vector2i(0, 4), Vector2i(1, 4), Vector2i(2, 4), Vector2i(3, 4), Vector2i(4, 4)
-			],
-			"center": Vector2(2.0, 4.0),
-			"area": 5,
-		},
+		SeaZoneState.create(0, "Mar Caribe", sea_tiles, Vector2(2.0, 4.0), 5)
 	]
 	return model
 

@@ -93,7 +93,7 @@ func test_end_of_turn_keeps_a_zone_where_the_fleet_rides() -> void:
 
 
 func test_owning_a_coast_reveals_its_zone_at_end_of_turn() -> void:
-	_model.provinces[1]["owner"] = PLAYER
+	_model.provinces[1].owner = PLAYER
 	_visibility.end_of_turn([])
 	assert_eq(_visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
 	assert_eq(_visibility.level_at(3, 3), VisibilityModel.Level.FULLY_VISIBLE)
@@ -101,7 +101,7 @@ func test_owning_a_coast_reveals_its_zone_at_end_of_turn() -> void:
 
 func test_losing_the_only_coast_fogs_its_zone() -> void:
 	_visibility.apply_initial()
-	_model.provinces[3]["owner"] = 2
+	_model.provinces[3].owner = 2
 	_visibility.end_of_turn([])
 	assert_eq(_visibility.level_at(4, 4), VisibilityModel.Level.FOGGED)
 	assert_eq(_visibility.level_at(7, 0), VisibilityModel.Level.FOGGED)
@@ -176,21 +176,16 @@ func test_unassigned_tiles_are_ignored() -> void:
 		map.terrain[map.index_of(x, 0)] = MapModel.Terrain.PLAINS
 	for x in range(1, 4):
 		map.province[map.index_of(x, 0)] = 0
-	map.provinces.append({
-		"id": 0,
-		"name": "Lonely",
-		"tiles": [Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)],
-		"center": Vector2.ZERO,
-		"area": 3,
-		"owner": PLAYER,
-		"capital": false,
-	})
+	var lonely_tiles: Array[Vector2i] = [Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)]
+	map.provinces.append(
+		ProvinceState.create(0, "Lonely", lonely_tiles, Vector2.ZERO, 3, PLAYER)
+	)
 	for x in 2:
 		map.sea_zone[map.index_of(x, 1)] = 0
-	map.sea_zones.append({
-		"id": 0, "name": "Bay", "tiles": [Vector2i(0, 1), Vector2i(1, 1)], "center": Vector2.ZERO
-	})
-	map.sea_zones.append({"name": "Orphan", "tiles": []})
+	var bay_tiles: Array[Vector2i] = [Vector2i(0, 1), Vector2i(1, 1)]
+	map.sea_zones.append(SeaZoneState.create(0, "Bay", bay_tiles, Vector2.ZERO, 2))
+	var orphan_tiles: Array[Vector2i] = []
+	map.sea_zones.append(SeaZoneState.create(1, "Orphan", orphan_tiles, Vector2.ZERO, 0))
 
 	var visibility := VisibilityModel.new()
 	visibility.setup(map, PLAYER)
@@ -230,15 +225,9 @@ func _claim(
 		for x in range(x_min, x_max + 1):
 			map.province[map.index_of(x, y)] = id
 			tiles.append(Vector2i(x, y))
-	map.provinces.append({
-		"id": id,
-		"name": "Province %d" % id,
-		"tiles": tiles,
-		"center": Vector2.ZERO,
-		"area": tiles.size(),
-		"owner": owner,
-		"capital": false,
-	})
+	map.provinces.append(
+		ProvinceState.create(id, "Province %d" % id, tiles, Vector2.ZERO, tiles.size(), owner)
+	)
 
 
 func _zone(
@@ -249,10 +238,6 @@ func _zone(
 		for x in range(x_min, x_max + 1):
 			map.sea_zone[map.index_of(x, y)] = id
 			tiles.append(Vector2i(x, y))
-	map.sea_zones.append({
-		"id": id,
-		"name": "Sea %d" % id,
-		"tiles": tiles,
-		"center": Vector2.ZERO,
-		"area": tiles.size(),
-	})
+	map.sea_zones.append(
+		SeaZoneState.create(id, "Sea %d" % id, tiles, Vector2.ZERO, tiles.size())
+	)

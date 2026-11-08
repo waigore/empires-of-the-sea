@@ -142,16 +142,16 @@ func set_training_visible(visible: bool) -> void:
 
 
 func refresh(model: MapModel, province_id: int) -> void:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
 		return
-	_name_label.text = String(data["name"])
-	_capital_badge.visible = bool(data["capital"])
-	var owner: int = int(data["owner"])
+	_name_label.text = data.name
+	_capital_badge.visible = data.capital
+	var owner: int = data.owner
 	_owner_swatch.color = Palette.faction_color(owner)
 	_owner_label.text = _owner_caption(owner)
 	_terrain_value.text = _dominant_terrain(model, province_id)
-	var resource: int = int(data["resource"])
+	var resource: int = data.resource
 	if resource >= 0:
 		var info: Dictionary = MapGenerator.resource_info(resource)
 		_resource_icon.kind = String(info.get("icon", "ore"))
@@ -161,20 +161,20 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_resource_icon.kind = "ore"
 		_resource_icon.queue_redraw()
 		_resource_value.text = "None surveyed"
-	_population_value.text = "%s souls" % _thousands(int(data["population"]))
-	var port: Vector2i = data["port_tile"]
+	_population_value.text = "%s souls" % _thousands(data.population)
+	var port: Vector2i = data.port_tile
 	if port.x >= 0:
 		var zone: int = model.sea_zone_at(port.x, port.y)
 		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
 	else:
 		_port_value.text = "Landlocked"
-	var seat: Vector2i = Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	var seat: Vector2i = data.capital_tile
 	if seat.x >= 0:
 		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
 	else:
 		_capital_value.text = "—"
 	var road_tiles: int = 0
-	for path: Array in data.get("road_paths", []):
+	for path: Array in data.road_paths:
 		road_tiles += path.size()
 	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
 

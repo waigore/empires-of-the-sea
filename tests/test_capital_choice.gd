@@ -21,23 +21,14 @@ func _add_province(
 		model.terrain[model.index_of(tile.x, tile.y)] = terrain
 		model.province[model.index_of(tile.x, tile.y)] = id
 		sum += Vector2(tile)
-	model.provinces.append({
-		"id": id,
-		"name": "P%d" % id,
-		"tiles": tiles,
-		"center": sum / float(tiles.size()),
-		"area": tiles.size(),
-		"coastal": false,
-		"port_tile": Vector2i(-1, -1),
-		"owner": owner,
-		"capital": false,
-		"capital_tile": CapitalChoice.NO_TILE,
-		"ports": {},
-		"road_paths": [],
-		"town_development": 0,
-		"resource": MapModel.NO_ID,
-		"population": 0,
-	})
+	var typed_tiles: Array[Vector2i] = []
+	for tile: Vector2i in tiles:
+		typed_tiles.append(tile)
+	model.provinces.append(
+		ProvinceState.create(
+			id, "P%d" % id, typed_tiles, sum / float(tiles.size()), tiles.size(), owner
+		)
+	)
 
 
 func _block(x0: int, x1: int, y0: int, y1: int) -> Array:
@@ -113,7 +104,7 @@ func test_great_power_without_sea_bound_province_fails_setup() -> void:
 	var result: Dictionary = CapitalChoice.place_capital(model, 0)
 	assert_false(result["ok"])
 	assert_eq(String(result["error"]), CapitalChoice.ERROR_NO_SEA_BOUND_PROVINCE)
-	assert_false(bool(model.provinces[0]["capital"]))
+	assert_false(model.provinces[0].capital)
 
 
 func test_faction_without_provinces_fails_setup() -> void:
@@ -187,16 +178,16 @@ func test_capital_tile_becomes_plains_and_loses_its_resource() -> void:
 	for tile: Vector2i in model.province_tiles(0):
 		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
 	model.resource[model.index_of(seat.x, seat.y)] = 3
-	model.provinces[0]["resource"] = 3
-	model.provinces[0]["resource_tile"] = seat
+	model.provinces[0].resource = 3
+	model.provinces[0].resource_tile = seat
 
 	var result: Dictionary = CapitalChoice.place_capital(model, 0)
 	assert_true(result["ok"])
 	assert_true(bool(result["converted"]))
 	assert_eq(model.terrain_at(seat.x, seat.y), MapModel.Terrain.PLAINS)
 	assert_eq(model.resource_at(seat.x, seat.y), MapModel.NO_ID)
-	assert_eq(int(model.provinces[0]["resource"]), MapModel.NO_ID)
-	assert_false(model.provinces[0].has("resource_tile"))
+	assert_eq(model.provinces[0].resource, MapModel.NO_ID)
+	assert_false(model.provinces[0].has_resource_tile())
 
 
 # --- capital setup: ports, roads, town development -------------------------
@@ -223,7 +214,7 @@ func test_one_port_per_seaboard_with_roads_to_the_capital() -> void:
 		assert_true(port_tiles.has(path[0]))
 		assert_eq(path[path.size() - 1], seat)
 		assert_true(_is_contiguous(path))
-	assert_eq(int(model.provinces[0]["town_development"]), 4)
+	assert_eq(model.provinces[0].town_development, 4)
 
 
 func test_inland_minor_gets_no_ports_or_roads() -> void:
@@ -239,7 +230,7 @@ func test_inland_minor_gets_no_ports_or_roads() -> void:
 	assert_eq(int(result["province_id"]), 0)
 	assert_true((result["ports"] as Dictionary).is_empty())
 	assert_true((result["road_paths"] as Array).is_empty())
-	assert_eq(int(model.provinces[0]["town_development"]), 0)
+	assert_eq(model.provinces[0].town_development, 0)
 
 
 func test_capital_choice_is_deterministic() -> void:
@@ -258,7 +249,7 @@ func test_place_all_reports_one_result_per_faction() -> void:
 	assert_eq(results.size(), 2)
 	assert_eq(int(results[0]["province_id"]), 0)
 	assert_eq(int(results[1]["province_id"]), 1)
-	assert_true(bool(model.provinces[1]["capital"]))
+	assert_true(model.provinces[1].capital)
 
 
 func _is_contiguous(path: Array) -> bool:

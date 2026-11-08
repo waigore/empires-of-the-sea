@@ -29,14 +29,14 @@ func test_the_screen_owns_a_starting_economy() -> void:
 
 
 func test_the_ledger_opens_and_closes() -> void:
-	assert_false(_screen.hud.is_economy_open())
+	assert_false(_screen.hud.panels.is_economy_open())
 	_screen.economy.open_panel()
-	assert_true(_screen.hud.is_economy_open())
-	var panel: EconomyPanel = _screen.hud.economy_panel()
+	assert_true(_screen.hud.panels.is_economy_open())
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	assert_not_null(panel)
 	assert_gt(panel.get_combined_minimum_size().y, 100.0)
-	_screen.hud.hide_economy()
-	assert_false(_screen.hud.is_economy_open())
+	_screen.hud.panels.hide_economy()
+	assert_false(_screen.hud.panels.is_economy_open())
 
 
 func test_buying_moves_treasury_and_stock() -> void:

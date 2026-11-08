@@ -137,8 +137,8 @@ func _build_borders() -> void:
 ## ink polyline per port-to-capital path.
 func _build_roads() -> void:
 	_roads.clear()
-	for province: Dictionary in model.provinces:
-		for path: Array in province.get("road_paths", []):
+	for province: ProvinceState in model.provinces:
+		for path: Array in province.road_paths:
 			if path.size() < 2:
 				continue
 			var points := PackedVector2Array()
@@ -149,22 +149,22 @@ func _build_roads() -> void:
 
 func _build_labels() -> void:
 	_labels.clear()
-	for province: Dictionary in model.provinces:
-		if int(province["area"]) < 26:
+	for province: ProvinceState in model.provinces:
+		if province.area < 26:
 			continue
 		_labels.append({
-			"text": String(province["name"]),
-			"position": Vector2(province["center"]) * TILE_SIZE,
+			"text": province.name,
+			"position": Vector2(province.center) * TILE_SIZE,
 			"size": 22,
 			"kind": "province",
-			"capital": bool(province["capital"]),
+			"capital": province.capital,
 		})
-	for zone: Dictionary in model.sea_zones:
-		if int(zone["area"]) < 260:
+	for zone: SeaZoneState in model.sea_zones:
+		if zone.area < 260:
 			continue
 		_labels.append({
-			"text": MapGlyphs.spaced(String(zone["name"])),
-			"position": Vector2(zone["center"]) * TILE_SIZE,
+			"text": MapGlyphs.spaced(zone.name),
+			"position": zone.center * TILE_SIZE,
 			"size": 13,
 			"kind": "sea",
 		})
@@ -233,7 +233,7 @@ func _build_glyphs() -> void:
 				"size": TILE_SIZE * (0.60 + MapGlyphs.hash01(x + 5, y + 9) * 0.30),
 				"flip": MapGlyphs.hash01(x + 13, y + 3) > 0.5,
 			})
-	for province: Dictionary in model.provinces:
+	for province: ProvinceState in model.provinces:
 		for port: Vector2i in MapGlyphs.port_tiles(province):
 			var anchor: Vector2 = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 			anchor += _sea_offset(port) * TILE_SIZE * 0.62
@@ -245,9 +245,9 @@ func _build_glyphs() -> void:
 				"size": TILE_SIZE * 0.8,
 				"flip": false,
 			})
-		if bool(province["capital"]):
-			var capital: Vector2i = province.get("capital_tile", CapitalChoice.NO_TILE)
-			var anchor: Vector2 = Vector2(province["center"]) * TILE_SIZE
+		if province.capital:
+			var capital: Vector2i = province.capital_tile
+			var anchor: Vector2 = Vector2(province.center) * TILE_SIZE
 			if capital.x >= 0:
 				anchor = MapGeo.tile_center(capital.x, capital.y, TILE_SIZE)
 			_glyphs.append({
@@ -255,7 +255,7 @@ func _build_glyphs() -> void:
 				"position": anchor,
 				"size": TILE_SIZE * 1.1,
 				"flip": false,
-				"owner": int(province["owner"]),
+				"owner": province.owner,
 			})
 
 
