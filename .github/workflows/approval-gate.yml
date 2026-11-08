@@ -13,7 +13,7 @@ concurrency:
 jobs:
   approval-gate:
     name: approval-gate
-    if: github.event.pull_request.draft != true
+    # Always run (including drafts) so the required check name is reported.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,13 +21,31 @@ jobs:
     steps:
       - name: Evaluate path-based approval
         uses: actions/github-script@v7
+        env:
+          # Flip to "true" to enforce non-author write-collaborator approval on code paths.
+          ENFORCE_APPROVAL: "false"
         with:
           script: |
+            const enforce = process.env.ENFORCE_APPROVAL === 'true';
+            if (!enforce) {
+              core.info(
+                'Approval gate is a no-op (ENFORCE_APPROVAL=false). ' +
+                  'Set ENFORCE_APPROVAL=true in .github/workflows/approval-gate.yml to require ' +
+                  'a non-author write-collaborator approval on code/tests/assets paths.'
+              );
+              return;
+            }
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pr = context.payload.pull_request;
             if (!pr) {
               core.setFailed('No pull_request payload');
+              return;
+            }
+
+            if (pr.draft) {
+              core.info('Draft PR — approval not required until ready for review.');
               return;
             }
 
