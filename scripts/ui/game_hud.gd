@@ -26,6 +26,8 @@ const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
 const BAR_HEIGHT: float = 68.0
 const BAR_HEIGHT_COMPACT: float = 58.0
+const BAR_FONT: int = 13
+const BAR_FONT_COMPACT: int = 11
 
 var panels: HudPanels = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
@@ -36,6 +38,8 @@ var top_row: HBoxContainer = null
 ## Stat chips fall onto a second bar row when the cartouche row cannot fit.
 var chip_row: HBoxContainer = null
 var chips: Array[Control] = []
+## Bar type size currently applied (HudLayout switches it once per profile).
+var bar_font: int = 0
 var minimap_frame: Control = null
 var zoom_box: Control = null
 var end_turn_wrap: Control = null

@@ -40,25 +40,12 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	_build_toggle()
 	_build_overlay()
-	resized.connect(_fit_margins)
-	_fit_margins()
+	resized.connect(_fit_to_viewport)
+	_fit_to_viewport()
 
 
-## The estates card keeps a generous atlas margin on desktop and a thin one on a
-## phone, where every point of card height is a row the player can read.
-func _fit_margins() -> void:
-	if _margin == null:
-		return
-	var compact: bool = HudLayout.is_compact(size)
-	_margin.add_theme_constant_override("margin_left", 12 if compact else 42)
-	_margin.add_theme_constant_override("margin_right", 12 if compact else 42)
-	_margin.add_theme_constant_override("margin_top", 66 if compact else 88)
-	_margin.add_theme_constant_override("margin_bottom", 8 if compact else 34)
-	for button: Button in _filter_buttons.values():
-		button.custom_minimum_size.y = 40.0 if compact else 28.0
-	# A phone card trades the summary block for rows (headings still count).
-	_subtitle.visible = not compact
-	_stats.visible = not compact
+func _fit_to_viewport() -> void:
+	HudLayout.fit_estates(self)
 
 
 func set_data(

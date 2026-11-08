@@ -78,11 +78,17 @@ func apply_compact(compact: bool, view: Vector2) -> void:
 	dock.relayout(panel_wrap, panel_open)
 	dock.relayout(fleet_wrap, fleet_open)
 	dock.relayout(civilian_wrap, civilian_open)
-	economy_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	economy_wrap.offset_left = -minf(view.x - 20.0, 560.0) if compact else -520.0
-	economy_wrap.offset_right = -10.0 if compact else -GameHud.PANEL_MARGIN
-	economy_wrap.offset_top = 64.0 if compact else 84.0
-	economy_wrap.offset_bottom = -10.0 if compact else -104.0
+	dock.relayout(army_wrap, army_open)
+	# The ledgers take the whole edge on a phone, capped so the map stays visible.
+	for spec: Array in [[economy_wrap, 520.0], [research_wrap, 520.0], [diplomacy_wrap, 620.0]]:
+		var wrap: Control = spec[0]
+		if wrap == null:
+			continue
+		wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		wrap.offset_left = -minf(view.x - 20.0, spec[1]) if compact else -spec[1]
+		wrap.offset_right = -10.0 if compact else -GameHud.PANEL_MARGIN
+		wrap.offset_top = 64.0 if compact else 84.0
+		wrap.offset_bottom = -10.0 if compact else -104.0
 
 
 func show_province(model: MapModel, province_id: int) -> void:

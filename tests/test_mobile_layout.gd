@@ -10,8 +10,8 @@ const Fixture = preload("res://tests/map_fixture.gd")
 
 ## 1080x2400 at 2.625 density, held landscape (the emulated Android phone).
 const PHONE := Vector2i(914, 411)
-## 720x1280 at 2.0 density: the smallest landscape phone still in the field.
-const SMALL := Vector2i(640, 360)
+## 1600x720 at 2.0 density: a 360 dp phone held landscape (the modern floor).
+const SMALL := Vector2i(800, 360)
 const TABLET := Vector2i(1180, 820)
 const DESKTOP := Vector2i(1280, 720)
 const TOUCH_MIN := 40.0
@@ -90,6 +90,18 @@ func test_phone_chrome_fits_the_screen() -> void:
 		_tappable(estates._toggle, "estates %s" % size)
 
 
+func test_chip_values_do_not_shift_the_bar() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var height: float = hud.top_bar.size.y
+	hud.set_treasury(123456, false)
+	await get_tree().process_frame
+	assert_almost_eq(hud.top_bar.size.y, height, 0.5)
+	for chip: Control in hud.chips:
+		_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip after growth")
+
+
 func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 	for size: Vector2i in [DESKTOP, TABLET]:
 		_open(size)
@@ -165,6 +177,26 @@ func test_phone_fleet_dossier_fits() -> void:
 		hud._fleet_panel.get_combined_minimum_size().y <= wrap.size.y + 0.5,
 		"fleet content must fit its sheet (%s > %s)"
 		% [hud._fleet_panel.get_combined_minimum_size().y, wrap.size.y]
+	)
+
+
+func test_phone_ledgers_fit_their_sheets() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.research_pressed.emit()
+	await get_tree().process_frame
+	_fits(hud._research_wrap.get_global_rect(), _screen_rect(), "research sheet")
+	assert_true(
+		hud._research_panel.get_combined_minimum_size().y <= hud._research_wrap.size.y + 0.5,
+		"research content must fit its sheet"
+	)
+	hud.diplomacy_pressed.emit()
+	await get_tree().process_frame
+	_fits(hud._diplomacy_wrap.get_global_rect(), _screen_rect(), "court sheet")
+	assert_true(
+		hud._diplomacy_panel.get_combined_minimum_size().y <= hud._diplomacy_wrap.size.y + 0.5,
+		"court content must fit its sheet"
 	)
 
 
