@@ -25,6 +25,16 @@ func _ready() -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 14, 20, 14))
 	)
 	_build()
+	get_viewport().size_changed.connect(_fit_to_viewport)
+	_fit_to_viewport()
+
+
+## The tab body gives way on a phone so the header, slots and Close stay put.
+func _fit_to_viewport() -> void:
+	if _tabs == null:
+		return
+	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
+	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else 300.0)
 
 
 func _build() -> void:

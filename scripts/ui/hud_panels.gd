@@ -63,6 +63,34 @@ func toggle_dock_side() -> void:
 			dock.prepare_wrap(wrap)
 
 
+## Re-anchors every dossier for the viewport: a phone gets a full-height side
+## sheet (the end-turn seal waits behind it, as with any modal), the atlas
+## layout keeps its gap above the seal; the ledger takes the whole edge.
+func apply_compact(compact: bool, view: Vector2) -> void:
+	var width: float = GameHud.PANEL_WIDTH
+	if compact:
+		width = clampf(view.x * 0.4, 280.0, GameHud.PANEL_WIDTH)
+	dock.configure(
+		width,
+		64.0 if compact else PanelDock.TOP,
+		-10.0 if compact else PanelDock.BOTTOM
+	)
+	dock.relayout(panel_wrap, panel_open)
+	dock.relayout(fleet_wrap, fleet_open)
+	dock.relayout(civilian_wrap, civilian_open)
+	dock.relayout(army_wrap, army_open)
+	# The ledgers take the whole edge on a phone, capped so the map stays visible.
+	for spec: Array in [[economy_wrap, 520.0], [research_wrap, 520.0], [diplomacy_wrap, 620.0]]:
+		var wrap: Control = spec[0]
+		if wrap == null:
+			continue
+		wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		wrap.offset_left = -minf(view.x - 20.0, spec[1]) if compact else -spec[1]
+		wrap.offset_right = -10.0 if compact else -GameHud.PANEL_MARGIN
+		wrap.offset_top = 64.0 if compact else 84.0
+		wrap.offset_bottom = -10.0 if compact else -104.0
+
+
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_economy()
 	hide_research()

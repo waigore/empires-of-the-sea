@@ -20,6 +20,11 @@ var _road_value: Label = null
 var _capital_badge: Label = null
 var _training_box: VBoxContainer = null
 var _dock: Button = null
+var _column: VBoxContainer = null
+var _grid: GridContainer = null
+var _orders_box: VBoxContainer = null
+var _orders_index: int = -1
+var _recruit: Button = null
 
 
 func _ready() -> void:
@@ -28,6 +33,12 @@ func _ready() -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
+	get_viewport().size_changed.connect(_fit_to_viewport)
+
+
+## The dossier re-orders itself for the viewport it is actually shown in.
+func _fit_to_viewport() -> void:
+	set_compact(HudLayout.is_compact(get_viewport_rect().size))
 
 
 func _build() -> void:
@@ -45,6 +56,7 @@ func _build() -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
 	scroll.add_child(column)
+	_column = column
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
@@ -87,6 +99,7 @@ func _build() -> void:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 8)
 	column.add_child(grid)
+	_grid = grid
 
 	_terrain_value = _add_row(grid, "Terrain")
 	_resource_icon = Icon.new("tree", 16, Palette.GOLD)
@@ -98,25 +111,30 @@ func _build() -> void:
 
 	column.add_child(_divider())
 
+	_orders_box = VBoxContainer.new()
+	_orders_box.add_theme_constant_override("separation", 8)
+	column.add_child(_orders_box)
+	_orders_index = _orders_box.get_index()
+
 	var orders := Label.new()
 	orders.text = "ORDERS"
 	orders.add_theme_font_size_override("font_size", 11)
 	orders.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(orders)
+	_orders_box.add_child(orders)
 
-	var recruit := _make_button("Recruit Regiment (deferred)")
-	recruit.disabled = true
-	recruit.tooltip_text = "Training arrives with the regiment economy slice."
-	column.add_child(recruit)
+	_recruit = _make_button("Recruit Regiment (deferred)")
+	_recruit.disabled = true
+	_recruit.tooltip_text = "Training arrives with the regiment economy slice."
+	_orders_box.add_child(_recruit)
 
 	var build := _make_button("Build Improvement")
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
-	column.add_child(build)
+	_orders_box.add_child(build)
 
 	_training_box = VBoxContainer.new()
 	_training_box.add_theme_constant_override("separation", 6)
 	_training_box.visible = false
-	column.add_child(_training_box)
+	_orders_box.add_child(_training_box)
 
 	var training := Label.new()
 	training.text = "TRAIN CIVILIANS"
@@ -160,6 +178,7 @@ func _build() -> void:
 	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	footer.add_child(close)
+	_fit_to_viewport()
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -167,6 +186,21 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 		return
 	_dock.text = "%s Dock" % glyph
 	_dock.tooltip_text = tip
+
+
+## A phone sheet is short, so orders move above the survey table: every action
+## stays one tap away and only the details scroll. Idempotent.
+func set_compact(compact: bool) -> void:
+	if _orders_box == null or _grid == null or _column == null:
+		return
+	# A dead placeholder whose only explanation is a hover tooltip stays off the
+	# phone sheet, where it would just push the live orders out of reach.
+	_recruit.visible = not compact
+	var orders_at: int = _orders_box.get_index()
+	var grid_at: int = _grid.get_index()
+	if compact == (orders_at < grid_at):
+		return
+	_column.move_child(_orders_box, grid_at if compact else _orders_index)
 
 
 func set_training_visible(visible: bool) -> void:

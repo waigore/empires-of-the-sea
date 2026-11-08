@@ -160,6 +160,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## Android back / iOS back gesture: close the top layer first, quit only from the
+## bare map. Without this the OS kills the session mid-order (RUB-P5-07).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	if not BackRequest.handle(play, improvements):
+		get_tree().quit()
+
+
 # --- setup ------------------------------------------------------------------
 
 
@@ -271,6 +280,9 @@ func _connect() -> void:
 		MapPlayInput.on_minimap_jump(play, world_position)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.focus_capital_pressed.connect(func() -> void:
+		MapPlayTurn.focus_capital(play)
+	)
 	hud.diplomacy_pressed.connect(func() -> void:
 		MapPlayDiplomacy.open(play)
 	)

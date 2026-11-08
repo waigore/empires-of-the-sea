@@ -27,6 +27,12 @@ func _ready() -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 14, 20, 14))
 	)
 	_build()
+	get_viewport().size_changed.connect(_fit_to_viewport)
+
+
+## The ledger re-fits itself for the viewport it is actually shown in.
+func _fit_to_viewport() -> void:
+	set_compact(HudLayout.is_compact(get_viewport_rect().size))
 
 
 func _build() -> void:
@@ -55,6 +61,9 @@ func _build() -> void:
 
 	_preview = _label("", 12, Palette.TEXT_DIM)
 	_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# An autowrapped Label reports a min height measured at width 1, which would
+	# push the Close/newer rows off a short screen. A sane wrap width bounds it.
+	_preview.custom_minimum_size = Vector2(240, 0)
 	column.add_child(_preview)
 
 	_tabs = TabContainer.new()
@@ -67,6 +76,7 @@ func _build() -> void:
 	_production_body = _add_page("PRODUCTION")
 	_market_body = _add_page("MARKET")
 	_workers_body = _add_page("WORKERS")
+	_fit_to_viewport()
 
 
 func _add_page(title: String) -> VBoxContainer:
@@ -84,6 +94,27 @@ func _add_page(title: String) -> VBoxContainer:
 func select_tab(index: int) -> void:
 	if _tabs != null:
 		_tabs.current_tab = clampi(index, 0, _tabs.get_tab_count() - 1)
+
+
+## The tab body is the part that gives way on a short (phone) viewport, so the
+## header and Close stay on screen instead of being pushed off the bottom.
+func set_compact(compact: bool) -> void:
+	if _tabs == null:
+		return
+	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else 300.0)
+	# A 27 px tab strip is a mouse target; a phone tab gets thumb padding.
+	if compact:
+		_tabs.add_theme_stylebox_override("tab_selected", _tab_box(true))
+		_tabs.add_theme_stylebox_override("tab_unselected", _tab_box(false))
+		_tabs.add_theme_stylebox_override("tab_hovered", _tab_box(false))
+		return
+	for key: String in ["tab_selected", "tab_unselected", "tab_hovered"]:
+		_tabs.remove_theme_stylebox_override(key)
+
+
+func _tab_box(selected: bool) -> StyleBoxFlat:
+	var fill := Color(0.16, 0.13, 0.09, 0.98) if selected else Color(0.09, 0.07, 0.05, 0.9)
+	return UiTheme.box(fill, Palette.GOLD_DIM, 1, 3, Vector4(16, 11, 16, 11))
 
 
 ## Rebuilds every row from live state plus the end-of-turn projection report.

@@ -2,7 +2,7 @@
 
 Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate, ledger and court orders are live; the economy and diplomacy resolve each turn.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate, ledger and court orders are live; economy and diplomacy resolve each turn.
 
 ## Controls
 
@@ -12,11 +12,16 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Zoom | wheel, pinch, `+` / `−`, E / Q | pinch, `+` / `−` |
 | Jump | click / drag minimap | tap / drag minimap |
 | Select | click province or fleet | tap |
-| Switch region | OLD/NEW button | tap |
-| Focus capital | `F` / `Home` | — |
+| Switch region | OLD/NEW | tap |
+| Focus capital | `F` / `Home` | CAPITAL |
 | End turn | `Space` / `Enter`, gold seal | gold seal |
+| Back | `Esc` deselects | system back closes the top layer, then quits |
 
-Pan has inertia; zoom anchors under the cursor; camera clamps with a cover-fit floor. Actions register via `InputActions` at runtime.
+Pan has inertia; zoom anchors under the cursor; the camera clamps with a cover-fit floor.
+
+## Phone layout
+
+On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers with orders first, thumb targets, notch-safe insets. `tests/test_mobile_layout.gd` pins the geometry.
 
 ## Architecture
 
@@ -40,16 +45,17 @@ scripts/rules/world_bootstrap.gd setup ports, roads, grain farms
 scripts/rules/diplomacy_*.gd relations, war, alliances, overtures
 scripts/ui/diplomacy_panel.gd the court ledger (tested via screen)
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
+scripts/platform/*          display scale + safe area (P3)
 ui/shaders/*                sea, fog, grain, vignette
 ```
 
-`MapModel` + `MapGenerator` are the sim side; the view reads them and never owns outcomes (`REQ-P3-03`).
+`MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain (region mix) → provinces/sea zones (BFS) → resources → ports → contiguous faction ownership (`TerritoryAssignment`) → capitals (`CapitalChoice`: GPs sea-bound, Minors/Tribes setup) → setup post-pass (`WorldBootstrap`: real ports/roads, four grain farms). The Old World holds six Great Powers and three Minor Nations; the New World ten Tribes. A world is two maps plus paired edge warp zones; the same seed reproduces both (`tests/test_map_generator.gd`, `tests/test_world_setup.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous faction ownership (`TerritoryAssignment`) → capitals → setup post-pass (`WorldBootstrap`: real ports/roads, four grain farms). The Old World holds six Great Powers and three Minor Nations; the New World ten Tribes. The same seed reproduces both maps (`tests/test_map_generator.gd`).
 
-**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`), one model per region. Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet entering a zone charts its water and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
+**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet entering a zone charts its water and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** scaled terrain wash with a light owner tint; marching-squares coasts + Chaikin province ink; **country borders drawn above fog** as an engraved shadow plus the owner's colour; vector glyphs/labels; warp-zone “Passage” marks; low-res fog texture; sea/grain/vignette shaders.
+**Rendering:** scaled terrain wash; marching-squares coasts + Chaikin province ink; **country borders drawn above fog** as an engraved shadow plus the owner's colour; vector glyphs/labels; warp-zone “Passage” marks; sea/grain/vignette shaders.
 
 ## Animation & performance
 
@@ -69,8 +75,7 @@ Build ~0.55 s (128×84). Steady state: static canvas once; overlay + ships per f
 
 Capitals follow the capital-choice rule (sea-bound province, ports, roads) and
 the setup post-pass wires their farms. Province, civilian and estate orders are
-rules-backed; the province and civilian dossiers scroll on short viewports.
-Fleet movement, docking, ship reveal and sea-zone combat are rules-backed
-([`fleets.md`](fleets.md)); missions, interception, home-fleet merge and AI
-movement are deferred. Warp-zone transit, colonisation of unclaimed land and
-Minor/Tribe reactive play are deferred ([`world.md`](world.md)).
+rules-backed. Fleet movement, docking, ship reveal and sea-zone combat are
+rules-backed ([`fleets.md`](fleets.md)); missions, interception, home-fleet merge
+and AI movement are deferred. Warp-zone transit, colonisation of unclaimed land
+and Minor/Tribe reactive play are deferred ([`world.md`](world.md)).

@@ -20,11 +20,29 @@ signal research_pressed
 signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
 signal region_toggle_pressed
+signal focus_capital_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
+const BAR_HEIGHT: float = 68.0
+const BAR_HEIGHT_COMPACT: float = 58.0
+const BAR_FONT: int = 13
+const BAR_FONT_COMPACT: int = 11
 
 var panels: HudPanels = null
+## Touch platforms: no hover, so hover tooltips stay silent.
+var touch_ui: bool = false
+
+var top_bar: Control = null
+var top_row: HBoxContainer = null
+## Stat chips fall onto a second bar row when the cartouche row cannot fit.
+var chip_row: HBoxContainer = null
+var chips: Array[Control] = []
+## Bar type size currently applied (HudLayout switches it once per profile).
+var bar_font: int = 0
+var minimap_frame: Control = null
+var zoom_box: Control = null
+var end_turn_wrap: Control = null
 
 var _turn_label: Label = null
 var _nation_label: Label = null
@@ -62,9 +80,29 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UiTheme.build()
+	touch_ui = PlatformDisplay.is_handheld()
 	panels = HudPanels.new()
 	HudChrome.build(self)
 	panels.bind(self)
+	resized.connect(_relayout)
+	_relayout()
+
+
+## Chrome geometry follows the viewport: desktop keeps the atlas layout, a phone
+## gets the compact one (HudLayout), and the notch never eats a control.
+func _relayout() -> void:
+	if panels == null:
+		return
+	apply_safe_area(PlatformDisplay.safe_insets(get_window()))
+	HudLayout.new().apply(self)
+
+
+func apply_safe_area(insets: Vector4) -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	offset_left = insets.x
+	offset_top = insets.y
+	offset_right = -insets.z
+	offset_bottom = -insets.w
 
 
 func _process(_delta: float) -> void:
