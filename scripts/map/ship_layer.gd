@@ -1,12 +1,12 @@
 class_name ShipLayer
 extends Node2D
-## Owns fleet markers and applies naval orders. Rules outcomes come from
-## NavalMovement; this layer only animates them and reports zone entries so
-## exploration can reveal the map (wiki: ships-and-naval).
+## Owns fleet markers and applies naval orders. NavalMovement decides outcomes;
+## this layer animates them and reports zone entries for exploration.
 
 signal zone_entered(zone_id: int, ship: Ship)
 signal ship_selected(ship: Ship)
 signal fleet_moved(fleet: FleetState, result: Dictionary)
+signal warp_crossed(fleet: FleetState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
 const PLAYER_FLEETS: int = 3
@@ -25,6 +25,8 @@ const HULL_SETS: Array[Array] = [
 ]
 
 var model: MapModel = null
+## Both regions plus their warp links, for passage crossings.
+var world: WorldMap = null
 var fleets: Array[FleetState] = []
 var ships: Array[Ship] = []
 var selected_ship: Ship = null
@@ -57,7 +59,8 @@ func spawn(
 		_fleets_by_region[model.region_id] = fleets
 		_rebuild_markers()
 		return
-	_next_hull = 1
+	# Hull ids stay unique for the life of the save, so the counter runs on
+	# across regions (wiki: ships-and-naval § Ship instances); never collide.
 	for index in count:
 		var owner: int = _owner_for_index(index, count, player_present)
 		var fleet: FleetState = _make_fleet(index, owner, player_capital, player_present)
@@ -88,8 +91,7 @@ func _rebuild_markers() -> void:
 
 
 ## Fleets belong to Great Powers only (wiki: factions — Minors/Tribes keep no
-## navy). The player owns squadrons only in regions where it holds provinces;
-## rival squadrons in the New World are explorers, not holdings.
+## navy). The player owns squadrons only where it holds provinces.
 static func _owner_for_index(index: int, count: int, player_present: bool) -> int:
 	var powers: Array[int] = FactionCatalog.great_power_ids()
 	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0
@@ -235,8 +237,29 @@ func ship_for(fleet: FleetState) -> Ship:
 	return null
 
 
-func valid_destinations(fleet: FleetState) -> Dictionary:
-	return NavalMovement.valid_destinations(model, fleet)
+## Crosses a passage: rules verify the link, then the fleet leaves this roster
+## for the counterpart's, renumbered so regions never share an id.
+func cross(fleet: FleetState) -> Dictionary:
+	var result: Dictionary = WarpTravel.apply_crossing(world, model.region_id, fleet)
+	if not bool(result.get("ok", false)):
+		return result
+	var to_region: int = int(result["to_region"])
+	var destination: Array[FleetState] = []
+	destination.assign(_fleets_by_region.get(to_region, []))
+	var next_id: int = 0
+	for raw: Variant in _fleets_by_region.values():
+		var stored: Array[FleetState] = []
+		stored.assign(raw)
+		for other: FleetState in stored:
+			next_id = maxi(next_id, other.id + 1)
+	fleets.erase(fleet)
+	fleet.id = next_id
+	destination.append(fleet)
+	_fleets_by_region[to_region] = destination
+	_fleets_by_region[model.region_id] = fleets
+	_rebuild_markers()
+	warp_crossed.emit(fleet, result)
+	return result
 
 
 ## Applies a naval order through the rules module, then animates the marker.
@@ -272,9 +295,8 @@ func begin_turn() -> void:
 		NavalMovement.begin_turn(region_fleets)
 
 
-## Resolves contested zones in every region. A battle must not pause because
-## the player is looking at the other map (wiki: map-topology § two regions).
-## `hostile` gates each pair; without it every pair is treated as hostile.
+## Resolves contested zones in every region, visible or not (wiki: map-topology
+## § two regions). `hostile` gates each pair; without it all pairs are hostile.
 func resolve_battles(
 	world: WorldMap, hostile: Callable = Callable()
 ) -> Array[Dictionary]:
@@ -313,8 +335,7 @@ func resolve_battles(
 	return all
 
 
-## A Join Empire absorption transfers the loser's squadrons to the winner.
-## Fleets live per region, so walk every stored roster and the live markers.
+## A Join Empire absorption transfers the loser's squadrons and markers.
 func transfer_owner(from_id: int, to_id: int) -> void:
 	for stored: Array in _fleets_by_region.values():
 		for fleet: FleetState in stored:
@@ -337,8 +358,7 @@ func hull_count(owner: int) -> int:
 	return total
 
 
-## Hulls afloat for one faction across every region: reading another map must
-## not hide squadrons (or their food upkeep) from the empire.
+## Every region counts: reading another map must not hide hulls or upkeep.
 func hull_count_all(owner: int) -> int:
 	var total: int = 0
 	for raw: Variant in _fleets_by_region.values():

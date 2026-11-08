@@ -21,6 +21,8 @@ var model: MapModel = null
 var armies: Array[ArmyState] = []
 var markers: Array[ArmyMarker] = []
 var selected_army: ArmyState = null
+## Abstract commanders per faction; binding to armies is per Combat phase.
+var generals := GeneralRoster.new()
 
 var _zoom: float = 1.0
 var _next_army: int = 1
@@ -43,28 +45,23 @@ func spawn(p_model: MapModel) -> void:
 		_rebuild_markers()
 		return
 	for faction: int in model.faction_ids:
-		var capital: int = _capital_of(model, faction)
+		var capital: int = MapModel.NO_ID
+		for province: ProvinceState in model.provinces:
+			if province.owner == faction and province.capital:
+				capital = province.id
+				break
 		if capital < 0:
 			continue
-		_muster(faction, capital, true, _roster_for(faction))
+		var roster: Array[String] = []
+		match FactionCatalog.type_of(faction):
+			FactionCatalog.Type.GREAT_POWER:
+				roster = GREAT_POWER_ROSTER.duplicate()
+			FactionCatalog.Type.MINOR_NATION:
+				roster = MINOR_ROSTER.duplicate()
+			_:
+				roster = TRIBE_ROSTER.duplicate()
+		_muster(faction, capital, true, roster)
 	_armies_by_region[model.region_id] = armies
-
-
-func _roster_for(faction: int) -> Array[String]:
-	match FactionCatalog.type_of(faction):
-		FactionCatalog.Type.GREAT_POWER:
-			return GREAT_POWER_ROSTER.duplicate()
-		FactionCatalog.Type.MINOR_NATION:
-			return MINOR_ROSTER.duplicate()
-		_:
-			return TRIBE_ROSTER.duplicate()
-
-
-func _capital_of(p_model: MapModel, faction: int) -> int:
-	for province: ProvinceState in p_model.provinces:
-		if province.owner == faction and province.capital:
-			return province.id
-	return MapModel.NO_ID
 
 
 ## Mints a Home Army (or recovered/field army) and registers its marker.
@@ -246,6 +243,45 @@ func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
 	return ArmyCombat.armies_of(armies, province_id, owner)
 
 
+## Musters one regiment into the faction's Home Army (wiki: military-units
+## § Training Costs). Rules validate and deduct; this layer mints the unit id,
+## keeps the marker in step and reports the row.
+func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
+	var home: ArmyState = ArmyTraining.home_army(armies, owner)
+	if home == null:
+		return {
+			"ok": false,
+			"reason": "The Home Army musters at your capital.",
+			"type": "",
+			"regiment": "",
+		}
+	var unit_id: String = "unit_%d" % _next_regiment
+	var result: Dictionary = ArmyTraining.recruit(economy, home, type_id, unit_id)
+	if not bool(result.get("ok", false)):
+		return result
+	_next_regiment += 1
+	var marker: ArmyMarker = marker_for(home)
+	if marker != null:
+		marker.refresh(home.count(), home.home)
+		marker.visible = true
+	_place_all()
+	return result
+
+
+## Grows a Great Power's general pool to its tech-gated cap (wiki:
+## military-generals § Count and tech-gated cap).
+func sync_generals(owner: int, tech_unlocked: Dictionary) -> void:
+	if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER:
+		generals.sync(owner, tech_unlocked)
+
+
+## Commander line for the dossier; empty for Minor Nations and Tribes.
+func command_text(army: ArmyState) -> String:
+	if army == null or FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
+		return ""
+	return generals.summary(army.owner)
+
+
 func begin_turn() -> void:
 	for raw: Variant in _armies_by_region.values():
 		var stored: Array[ArmyState] = []
@@ -254,19 +290,34 @@ func begin_turn() -> void:
 
 
 ## Resolves land battles in every region: a battle must not wait for the player
-## to open that map (wiki: map-topology § two regions).
-func resolve_battles(world: WorldMap, hostile: Callable = Callable()) -> Array[Dictionary]:
+## to open that map (wiki: map-topology § two regions). Generals bind once for
+## the whole Combat phase, before any region resolves; `context["hostile"]`, when
+## set, is the court's war query so peace never spills blood (wiki: diplomacy §
+## War required for hostile actions).
+func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
+	var by_region: Dictionary = {}
 	for index in world.region_count():
 		var region_armies: Array[ArmyState] = []
 		if model != null and index == model.region_id:
 			region_armies = armies
 		else:
 			region_armies.assign(_armies_by_region.get(index, []))
+		by_region[index] = region_armies
+	var phase: Dictionary = context.duplicate()
+	phase["roster"] = generals
+	var phase_binding: Dictionary = GeneralBinding.bind_phase(
+		world, by_region, generals, int(context.get("seed", 0))
+	)
+	phase["army_general"] = phase_binding.get("army_general", {})
+	phase["army_medals"] = phase_binding.get("army_medals", {})
+	for index in world.region_count():
+		var region_armies: Array[ArmyState] = []
+		region_armies.assign(by_region.get(index, []))
 		if region_armies.is_empty():
 			continue
 		var battles: Array[Dictionary] = ArmyCombat.resolve_turn(
-			world.region(index), region_armies, hostile
+			world.region(index), region_armies, phase
 		)
 		if battles.is_empty():
 			continue
@@ -284,7 +335,11 @@ func resolve_battles(world: WorldMap, hostile: Callable = Callable()) -> Array[D
 func _prune_markers() -> void:
 	var kept: Array[ArmyMarker] = []
 	for marker: ArmyMarker in markers:
-		var army: ArmyState = _army_with_id(marker.army_id)
+		var army: ArmyState = null
+		for candidate: ArmyState in armies:
+			if candidate != null and candidate.id == marker.army_id:
+				army = candidate
+				break
 		if army == null:
 			marker.queue_free()
 			continue
@@ -295,13 +350,6 @@ func _prune_markers() -> void:
 		selected_army = null
 		army_selected.emit(null)
 	_place_all()
-
-
-func _army_with_id(army_id: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.id == army_id:
-			return army
-	return null
 
 
 ## Regiments for one faction across every region: the HUD and food upkeep must

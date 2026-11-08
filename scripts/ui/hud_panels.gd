@@ -63,6 +63,34 @@ func toggle_dock_side() -> void:
 			dock.prepare_wrap(wrap)
 
 
+## Re-anchors every dossier for the viewport: a phone gets a full-height side
+## sheet (the end-turn seal waits behind it, as with any modal), the atlas
+## layout keeps its gap above the seal; the ledger takes the whole edge.
+func apply_compact(compact: bool, view: Vector2) -> void:
+	var width: float = GameHud.PANEL_WIDTH
+	if compact:
+		width = clampf(view.x * 0.4, 280.0, GameHud.PANEL_WIDTH)
+	dock.configure(
+		width,
+		64.0 if compact else PanelDock.TOP,
+		-10.0 if compact else PanelDock.BOTTOM
+	)
+	dock.relayout(panel_wrap, panel_open)
+	dock.relayout(fleet_wrap, fleet_open)
+	dock.relayout(civilian_wrap, civilian_open)
+	dock.relayout(army_wrap, army_open)
+	# The ledgers take the whole edge on a phone, capped so the map stays visible.
+	for spec: Array in [[economy_wrap, 520.0], [research_wrap, 520.0], [diplomacy_wrap, 620.0]]:
+		var wrap: Control = spec[0]
+		if wrap == null:
+			continue
+		wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		wrap.offset_left = -minf(view.x - 20.0, spec[1]) if compact else -spec[1]
+		wrap.offset_right = -10.0 if compact else -GameHud.PANEL_MARGIN
+		wrap.offset_top = 64.0 if compact else 84.0
+		wrap.offset_bottom = -10.0 if compact else -104.0
+
+
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_economy()
 	hide_research()
@@ -86,14 +114,16 @@ func is_panel_open() -> bool:
 	return panel_open
 
 
-func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+func show_fleet(
+	model: MapModel, fleet: FleetState, is_player: bool, passage: String = ""
+) -> void:
 	hide_province()
 	hide_civilian()
 	hide_army()
 	hide_economy()
 	hide_research()
 	DiplomacyHud.hide(self)
-	fleet_panel.refresh(model, fleet, is_player)
+	fleet_panel.refresh(model, fleet, is_player, passage)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
 
@@ -116,7 +146,8 @@ func show_civilian(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_fleet()
@@ -124,7 +155,9 @@ func show_civilian(
 	hide_economy()
 	hide_research()
 	DiplomacyHud.hide(self)
-	civilian_panel.refresh(model, unit, works, units, stockpile, visibility, tech_caps)
+	civilian_panel.refresh(
+		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked
+	)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)
 
@@ -144,14 +177,21 @@ func set_civilian_training(visible: bool) -> void:
 	panel.set_training_visible(visible)
 
 
-func show_army(model: MapModel, army: ArmyState, is_player: bool, can_merge: bool) -> void:
+func show_army(
+	model: MapModel,
+	army: ArmyState,
+	is_player: bool,
+	can_merge: bool,
+	command: String = "",
+	muster: Array[Dictionary] = []
+) -> void:
 	hide_province()
 	hide_fleet()
 	hide_civilian()
 	hide_research()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	army_panel.refresh(model, army, is_player, can_merge)
+	army_panel.refresh(model, army, is_player, can_merge, command, muster)
 	army_open = true
 	dock.slide_in(host, army_wrap)
 

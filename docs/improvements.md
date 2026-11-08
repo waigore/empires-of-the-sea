@@ -55,8 +55,7 @@ and orders above it are refused.
 
 ## Deferred (REQ-P2-02)
 
-- Terrain hard caps, transport gates.
-- Path transport caps, improved roads and rail.
+- Terrain hard caps; path transport caps (per-tile transport only).
 - `upgrade_town` / town development, forts, rival/AI builders.
 
 ## Architecture

@@ -4,8 +4,8 @@ extends RefCounted
 ## § Civilian Types and Roles). Pure catalog: training validation, the civilian
 ## panel and tests read this one table (REQ-P3-03).
 ##
-## All six wiki types are listed so the roster stays faithful, but only the
-## starting three are playable in this milestone. Deferred types carry a
+## All six wiki types are listed so the roster stays faithful; the starting three
+## and the tech-gated Rail Builder are playable. Spy and Merchant carry a
 ## `deferred` reason instead of silently pretending to work (REQ-P2-02).
 
 const ORDER: Array[String] = [
@@ -56,7 +56,7 @@ const TYPES: Dictionary = {
 		"unlock": "starting",
 		"works": ["counter_spy"],
 		"implemented": false,
-		"deferred": "Court reports, counter-spy and rival research intel need the diplomacy slice.",
+		"deferred": "Counter-spy and court reports need rival spies, rival research and AI activity to observe.",
 	},
 	"merchant":
 	{
@@ -66,7 +66,7 @@ const TYPES: Dictionary = {
 		"unlock": "tech:merchant_companies",
 		"works": ["purchase_land"],
 		"implemented": false,
-		"deferred": "Land purchase needs Minor Nations, embassies and the diplomacy slice.",
+		"deferred": "Land purchase needs tile-level ownership and overseas cargo connectivity.",
 	},
 	"rail_builder":
 	{
@@ -75,8 +75,8 @@ const TYPES: Dictionary = {
 		"paper": 4,
 		"unlock": "tech:early_steam_engine",
 		"works": ["build_rail"],
-		"implemented": false,
-		"deferred": "Railroads need the transport tech tree and steel production.",
+		"implemented": true,
+		"deferred": "",
 	},
 }
 
@@ -113,6 +113,20 @@ static func is_starting(type_id: String) -> bool:
 	return String(entry(type_id).get("unlock", "")) == "starting"
 
 
+## Tech a type requires, or "" for the starting roster (wiki: civilian-units
+## § Civilian Types and Roles).
+static func unlock_tech(type_id: String) -> String:
+	var unlock: String = String(entry(type_id).get("unlock", ""))
+	if not unlock.begins_with("tech:"):
+		return ""
+	return unlock.trim_prefix("tech:")
+
+
+static func is_unlocked(type_id: String, tech_unlocked: Dictionary = {}) -> bool:
+	var tech: String = unlock_tech(type_id)
+	return tech.is_empty() or bool(tech_unlocked.get(tech, false))
+
+
 static func is_implemented(type_id: String) -> bool:
 	return bool(entry(type_id).get("implemented", false))
 
@@ -121,11 +135,12 @@ static func deferred_reason(type_id: String) -> String:
 	return String(entry(type_id).get("deferred", ""))
 
 
-## Playable types in roster order: starting types whose work orders exist.
+## Every type whose work orders ship, in roster order. Tech-gated types stay
+## listed so the training panel can explain the gate; training re-checks it.
 static func playable_types() -> Array[String]:
 	var result: Array[String] = []
 	for type_id: String in ORDER:
-		if is_starting(type_id) and is_implemented(type_id):
+		if is_implemented(type_id):
 			result.append(type_id)
 	return result
 

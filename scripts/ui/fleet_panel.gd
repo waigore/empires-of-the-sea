@@ -91,7 +91,7 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 	_dock.tooltip_text = tip
 
 
-func refresh(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+func refresh(model: MapModel, fleet: FleetState, is_player: bool, passage: String = "") -> void:
 	if model == null or fleet == null:
 		return
 	_flag.color = Palette.faction_color(fleet.owner)
@@ -110,6 +110,9 @@ func refresh(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	elif fleet.moved:
 		_status.text = "Has moved this turn"
 		_hint.text = "End the turn to sail again."
+	elif not passage.is_empty():
+		_status.text = "1 move this turn"
+		_hint.text = passage
 	else:
 		_status.text = "1 move this turn"
 		_hint.text = "Tap a highlighted sea zone or a friendly port."

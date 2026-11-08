@@ -7,6 +7,9 @@ extends RefCounted
 
 const MAX_IMPROVEMENT: int = 4
 const TRANSPORT_ROAD: int = 1
+## Improved road: Road Construction tech, Engineer work order (wiki:
+## extraction-and-improvements § Transport Level).
+const TRANSPORT_IMPROVED_ROAD: int = 2
 const TRANSPORT_RAIL: int = 4
 
 var improvement: Dictionary = {}

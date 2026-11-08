@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless e2e smoke: boot main.tscn, exercise one player turn across every
-## unit type (civilian / navy; army deferred), quit. Budget ≤2 minutes.
+## unit type (civilian / navy / army), quit. Budget ≤2 minutes.
 ##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
 const BOOT_FRAMES: int = 8
@@ -148,7 +148,7 @@ func _run() -> void:
 
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_navy(screen)
-	_smoke_army_deferred(screen)
+	_smoke_army_recruit(screen)
 	await _smoke_end_turn(screen, audio, cues_before, works)
 	_finish()
 
@@ -270,22 +270,26 @@ func _smoke_navy(screen: MapScreen) -> void:
 	_check(fleet.sea_zone == zone and fleet.moved, "fleet spends its move")
 
 
-## Army slice is deferred: recruit must toast and place no order.
-func _smoke_army_deferred(screen: MapScreen) -> void:
-	var capital_world: Vector2 = screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
-	MapPlayInput.select_province(screen.play, screen.capital_province, capital_world)
-	var toasts_before: int = screen.hud._toast_box.get_child_count()
-	var civilians_before: int = screen.civilian_layer.units.size()
-	var fleets_before: int = screen.ship_layer.fleets.size()
-	MapPlayInput.on_panel_action(screen.play, "recruit")
+## Army training is live: the recruit order musters a regiment into the Home
+## Army and spends the ledger.
+func _smoke_army_recruit(screen: MapScreen) -> void:
+	var home: ArmyState = _home_army(screen)
+	if home == null:
+		return
+	var before: int = home.count()
+	# The civilian drills earlier in the smoke spent the opening purse; top it
+	# up so the muster row is payable, then prove the order debits it.
+	screen.economy.economy.add_treasury(RegimentCatalog.treasury_cost("peasant_levies"))
+	var treasury: int = screen.economy.economy.treasury
+	var fabric: int = screen.economy.economy.quantity("fabric")
+	MapPlayArmies.recruit(screen.play, "peasant_levies")
+	_check(home.count() == before + 1, "recruit musters a regiment")
+	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
+	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
-		screen.hud._toast_box.get_child_count() == toasts_before + 1,
-		"recruit regiment stays deferred"
-	)
-	_check(
-		screen.civilian_layer.units.size() == civilians_before
-		and screen.ship_layer.fleets.size() == fleets_before,
-		"recruit places no unit"
+		screen.hud._army_label.text
+		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
+		"troop chip counts the new regiment"
 	)
 
 

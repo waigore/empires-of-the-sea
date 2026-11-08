@@ -17,11 +17,15 @@ static func apply(
 	owner: int,
 	action: String,
 	tile: Vector2i,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	match action:
 		"build":
-			return build(model, units, works, stockpile, visibility, owner, tile, tech_caps)
+			return build(
+				model, units, works, stockpile, visibility, owner, tile, tech_caps,
+				tech_unlocked
+			)
 		"cancel":
 			return cancel(model, units, owner, tile)
 	return {"ok": false, "message": "Unknown estate order."}
@@ -35,7 +39,8 @@ static func build(
 	visibility: VisibilityModel,
 	owner: int,
 	tile: Vector2i,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	var active: CivilianState = working_builder(units, owner, tile)
 	if active != null:
@@ -50,7 +55,8 @@ static func build(
 			"message": "No idle Builder musters — train one at the capital.",
 		}
 	var result: Dictionary = CivilianWork.assign(
-		model, builder, BUILD, works, units, stockpile, visibility, tile, tech_caps
+		model, builder, BUILD, works, units, stockpile, visibility, tile, tech_caps,
+		tech_unlocked
 	)
 	if not bool(result.get("ok", false)):
 		return {"ok": false, "message": String(result.get("reason", ""))}

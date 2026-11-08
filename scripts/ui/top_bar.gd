@@ -1,0 +1,154 @@
+class_name TopBar
+extends RefCounted
+## Cartouche bar: crest, nation and turn, region/focus, the three ledgers and the
+## stat chips. Extracted from HudChrome so that shared file stays under the P3
+## size bar; HudLayout re-anchors the parts captured on `hud` (REQ-P3-01).
+
+
+static func build(hud: GameHud) -> void:
+	var bar := PanelContainer.new()
+	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	bar.offset_bottom = GameHud.BAR_HEIGHT
+	bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	var style := UiTheme.box(
+		Color(0.09, 0.07, 0.05, 0.95), Palette.GOLD_DIM, 0, 0, Vector4(20, 8, 20, 8)
+	)
+	style.border_width_bottom = 2
+	bar.add_theme_stylebox_override("panel", style)
+	hud.add_child(bar)
+	hud.top_bar = bar
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	bar.add_child(column)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	column.add_child(row)
+	hud.top_row = row
+
+	var chip_row := HBoxContainer.new()
+	chip_row.add_theme_constant_override("separation", 18)
+	chip_row.alignment = BoxContainer.ALIGNMENT_END
+	chip_row.visible = false
+	column.add_child(chip_row)
+	hud.chip_row = chip_row
+
+	row.add_child(Icon.new("crest", 40, Palette.GOLD))
+
+	var title := VBoxContainer.new()
+	title.add_theme_constant_override("separation", -4)
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(title)
+
+	var nation := Label.new()
+	nation.text = "ESPAÑA"
+	nation.add_theme_font_size_override("font_size", 20)
+	nation.add_theme_color_override("font_color", Palette.GOLD_PALE)
+	title.add_child(nation)
+	hud._nation_label = nation
+
+	hud._turn_label = Label.new()
+	hud._turn_label.text = TurnTime.label_for_turn(1)
+	hud._turn_label.add_theme_font_size_override("font_size", 13)
+	hud._turn_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	title.add_child(hud._turn_label)
+
+	var region := Button.new()
+	region.text = "OLD WORLD ›"
+	region.custom_minimum_size = Vector2(0, 40)
+	region.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
+	row.add_child(region)
+	hud._region_button = region
+
+	var focus := Button.new()
+	focus.text = "CAPITAL"
+	focus.custom_minimum_size = Vector2(0, 42)
+	focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	focus.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	focus.tooltip_text = "Focus capital (F)"
+	focus.pressed.connect(func() -> void: hud.focus_capital_pressed.emit())
+	row.add_child(focus)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+
+	var ledger := Button.new()
+	ledger.text = "LEDGER"
+	ledger.custom_minimum_size = Vector2(96, 40)
+	ledger.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
+	row.add_child(ledger)
+
+	var research := Button.new()
+	research.text = "RESEARCH"
+	research.custom_minimum_size = Vector2(110, 40)
+	research.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	research.pressed.connect(func() -> void: hud.research_pressed.emit())
+	row.add_child(research)
+
+	var court := Button.new()
+	court.text = "COURT"
+	court.tooltip_text = "Diplomacy"
+	court.custom_minimum_size = Vector2(92, 40)
+	court.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	court.pressed.connect(func() -> void: hud.diplomacy_pressed.emit())
+	row.add_child(court)
+
+	var treasury := _chip("coin", "TREASURY")
+	hud._treasury_chip = treasury["root"]
+	hud._treasury_label = treasury["value"]
+	hud.chips.append(hud._treasury_chip)
+	row.add_child(hud._treasury_chip)
+
+	var prestige := _chip("star", "PRESTIGE")
+	hud._prestige_label = prestige["value"]
+	hud.chips.append(prestige["root"])
+	row.add_child(prestige["root"])
+
+	var fleets := _chip("ship", "SHIPS")
+	hud._fleet_label = fleets["value"]
+	hud.chips.append(fleets["root"])
+	row.add_child(fleets["root"])
+
+	var civilians := _chip("compass", "CIVILIANS")
+	hud._civilian_label = civilians["value"]
+	hud.chips.append(civilians["root"])
+	row.add_child(civilians["root"])
+
+	var troops := _chip("crown", "TROOPS")
+	hud._army_label = troops["value"]
+	hud.chips.append(troops["root"])
+	row.add_child(troops["root"])
+
+
+## Fixed width: the bar's budget must not move as the numbers grow, or the
+## stack decision (and every chip after it) shifts under the player's thumb.
+static func _chip(icon_kind: String, caption: String) -> Dictionary:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.custom_minimum_size = Vector2(88, 0)
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(Icon.new(icon_kind, 22, Palette.GOLD))
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", -3)
+	row.add_child(column)
+
+	var cap := Label.new()
+	cap.text = caption
+	cap.add_theme_font_size_override("font_size", 10)
+	cap.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	column.add_child(cap)
+
+	var value := Label.new()
+	value.text = "0"
+	value.custom_minimum_size = Vector2(44, 0)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.add_theme_font_size_override("font_size", 18)
+	value.add_theme_color_override("font_color", Palette.TEXT)
+	column.add_child(value)
+	return {"root": row, "value": value}

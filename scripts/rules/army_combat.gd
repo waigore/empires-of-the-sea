@@ -1,9 +1,11 @@
 class_name ArmyCombat
 extends RefCounted
 ## Field battles and unopposed captures (wiki: combat, military-armies).
-## Auto-resolve only: side strength is Σ (FPN + FPM), casualties follow the
-## documented ratio bands, and army elimination is applied before a province
-## flips. Generals, terrain, feeding and siege walls are deferred (REQ-P2-02).
+## Auto-resolve: side strength is Σ (FPN + FPM) over the deployed slice, scaled
+## by general medals, feeding, leader and terrain modifiers; casualties follow
+## the documented ratio bands; army elimination is applied before a province
+## flips. Pre-combat general binding arrives in `context` from the caller.
+## Forts, siege walls, Quick Battle and difficulty stay deferred (REQ-P2-02).
 
 enum Outcome { ATTACKER_VICTORY, DEFENDER_VICTORY, STALEMATE, MUTUAL_ANNIHILATION, CAPTURE }
 
@@ -42,11 +44,10 @@ static func contested_provinces(model: MapModel, armies: Array[ArmyState]) -> Ar
 
 
 ## Resolves every contested province, mutating armies and province ownership.
-## `hostile(a, b)` says whether faction a may fight faction b; an invalid callable
-## treats every faction as hostile (fixtures), while the map passes the court's
-## war state so peace never spills blood (wiki: diplomacy § War required).
+## `context` carries {"roster", "army_general", "feeding", "leaders", "tech"} and
+## an optional `hostile(a, b)` war query; unset means every faction is hostile.
 static func resolve_turn(
-	model: MapModel, armies: Array[ArmyState], hostile: Callable = Callable()
+	model: MapModel, armies: Array[ArmyState], context: Dictionary = {}
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	if model == null:
@@ -54,10 +55,7 @@ static func resolve_turn(
 	ArmyState.prune(armies)
 	for province: int in contested_provinces(model, armies):
 		var defender: int = model.province_owner(province)
-		var attackers: Array[int] = []
-		for attacker: int in ordered_attackers(armies, province, defender):
-			if _hostile(hostile, attacker, defender):
-				attackers.append(attacker)
+		var attackers: Array[int] = ordered_attackers(armies, province, defender, context)
 		if attackers.is_empty():
 			continue
 		var defending: Array[ArmyState] = armies_of(armies, province, defender)
@@ -68,7 +66,7 @@ static func resolve_turn(
 			_flip(model, province, capturer)
 			reports.append(_capture_report(province, capturer, defender))
 			continue
-		reports.append_array(_resolve_chain(model, armies, province, defender, attackers))
+		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
 		ArmyState.prune(armies)
 	return reports
 
@@ -81,7 +79,8 @@ static func _resolve_chain(
 	armies: Array[ArmyState],
 	province: int,
 	defender: int,
-	attackers: Array[int]
+	attackers: Array[int],
+	context: Dictionary
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for index in attackers.size():
@@ -94,7 +93,7 @@ static func _resolve_chain(
 			continue
 		var further: bool = index < attackers.size() - 1
 		var report: Dictionary = _exchange(
-			model, armies, province, defender, attacker, further
+			model, armies, province, defender, attacker, further, context
 		)
 		reports.append(report)
 		if bool(report.get("captured", false)):
@@ -110,20 +109,36 @@ static func _exchange(
 	province: int,
 	defender: int,
 	attacker: int,
-	further: bool
+	further: bool,
+	context: Dictionary
 ) -> Dictionary:
 	var defending: Array[ArmyState] = armies_of(armies, province, defender)
 	var attacking: Array[ArmyState] = armies_of(armies, province, attacker)
-	var initial_defenders: int = side_regiments(defending)
+	var def_mods: Dictionary = ArmyModifiers.modifiers(
+		context, ArmyCommand.medals(defending, context), true, model, province, defender
+	)
+	var atk_mods: Dictionary = ArmyModifiers.modifiers(
+		context, ArmyCommand.medals(attacking, context), false, model, province, attacker
+	)
+	var def_limit: int = int(def_mods["limit"])
+	var atk_limit: int = int(atk_mods["limit"])
+	var initial_defenders: int = mini(side_regiments(defending), def_limit)
+	var atk_deployed: int = mini(side_regiments(attacking), atk_limit)
+	var def_strength: float = ArmyModifiers.strength(
+		defending, def_limit, float(def_mods["multiplier"])
+	)
+	var atk_strength: float = ArmyModifiers.strength(
+		attacking, atk_limit, float(atk_mods["multiplier"])
+	)
 	var ratio: float = 0.0
-	if side_strength(defending) > 0.0:
-		ratio = side_strength(attacking) / side_strength(defending)
+	if def_strength > 0.0:
+		ratio = atk_strength / def_strength
 	var band: Dictionary = band_for(ratio)
 	var attacker_lost: Array[String] = _apply_losses(
-		armies, attacking, ceili(float(side_regiments(attacking)) * float(band["attacker"]))
+		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
 	var defender_lost: Array[String] = _apply_losses(
-		armies, defending, ceili(float(initial_defenders) * float(band["defender"]))
+		armies, defending, ceili(float(initial_defenders) * float(band["defender"])), def_limit
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
 	var def_left: int = side_regiments(armies_of(armies, province, defender))
@@ -136,11 +151,18 @@ static func _exchange(
 		"captured": false,
 		"garrison": 0,
 		"recovered_type": "",
+		"attacker_medals": int(atk_mods["medals"]),
+		"defender_medals": int(def_mods["medals"]),
+		"medal_gain": "",
+		"medal_owner": -1,
 	}
 	if def_left == 0 and atk_left > 0:
 		_flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
+		report["medal_gain"] = ArmyCommand.award(context, attacking, attacker)
+		if not String(report["medal_gain"]).is_empty():
+			report["medal_owner"] = attacker
 		return report
 	if def_left == 0:
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
@@ -153,6 +175,9 @@ static func _exchange(
 		return report
 	if atk_left == 0:
 		report["outcome"] = Outcome.DEFENDER_VICTORY
+		report["medal_gain"] = ArmyCommand.award(context, defending, defender)
+		if not String(report["medal_gain"]).is_empty():
+			report["medal_owner"] = defender
 		return report
 	report["outcome"] = Outcome.STALEMATE
 	return report
@@ -171,14 +196,20 @@ static func _recover_garrison(
 	for _index in count:
 		types.append(type_id)
 	var army := ArmyState.muster(
-		_next_army_id(armies), defender, province, false, types, _next_unit_number(armies)
+		ArmyCommand.next_army_id(armies),
+		defender,
+		province,
+		false,
+		types,
+		ArmyCommand.next_unit_number(armies)
 	)
 	armies.append(army)
 	return {"count": count, "type": type_id}
 
 
+## Weakest-first casualties among the deployed slice; reserves take no losses.
 static func _apply_losses(
-	armies: Array[ArmyState], side: Array[ArmyState], wanted: int
+	armies: Array[ArmyState], side: Array[ArmyState], wanted: int, limit: int = 0
 ) -> Array[String]:
 	var candidates: Array[Dictionary] = []
 	for army: ArmyState in side:
@@ -195,9 +226,12 @@ static func _apply_losses(
 			return int(a["rank"]) < int(b["rank"])
 		return String(a["id"]) < String(b["id"])
 	)
+	var pool_start: int = 0
+	if limit > 0 and candidates.size() > limit:
+		pool_start = candidates.size() - limit
 	var lost: Array[String] = []
-	for index in mini(maxi(wanted, 0), candidates.size()):
-		var entry: Dictionary = candidates[index]
+	for offset in mini(maxi(wanted, 0), candidates.size() - pool_start):
+		var entry: Dictionary = candidates[pool_start + offset]
 		var army: ArmyState = entry["army"]
 		var regiment_id: String = String(entry["id"])
 		if army.remove_regiment(regiment_id):
@@ -221,7 +255,7 @@ static func side_regiments(side: Array[ArmyState]) -> int:
 	return total
 
 
-static func initiative(side: Array[ArmyState]) -> float:
+static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
 	var riders: int = 0
 	var total: int = 0
 	for army: ArmyState in side:
@@ -233,18 +267,24 @@ static func initiative(side: Array[ArmyState]) -> float:
 				riders += 1
 	if total == 0:
 		return 0.0
-	return (float(riders) / float(total)) * INITIATIVE_CAVALRY_WEIGHT
+	var share: float = float(riders) / float(total)
+	return share * INITIATIVE_CAVALRY_WEIGHT + float(clampi(medals, 0, 4)) * ArmyModifiers.W_MEDAL
 
 
 ## Attacking factions in initiative order; ties fall to the lowest faction id.
+## `context["hostile"]`, when set, is the court's war query so only factions at
+## war are counted (wiki: diplomacy § War required for hostile actions).
 static func ordered_attackers(
-	armies: Array[ArmyState], province: int, defender: int
+	armies: Array[ArmyState], province: int, defender: int, context: Dictionary = {}
 ) -> Array[int]:
 	var groups: Dictionary = {}
+	var hostile: Callable = context.get("hostile", Callable())
 	for army: ArmyState in armies:
 		if army == null or not army.moved or army.province != province:
 			continue
 		if army.owner == defender or army.is_empty():
+			continue
+		if not _hostile(hostile, army.owner, defender):
 			continue
 		if FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 			continue
@@ -256,8 +296,12 @@ static func ordered_attackers(
 	for owner: int in groups.keys():
 		owners.append(owner)
 	owners.sort_custom(func(a: int, b: int) -> bool:
-		var a_score: float = initiative(_as_armies(groups[a]))
-		var b_score: float = initiative(_as_armies(groups[b]))
+		var a_group: Array[ArmyState] = []
+		a_group.assign(groups[a])
+		var b_group: Array[ArmyState] = []
+		b_group.assign(groups[b])
+		var a_score: float = initiative(a_group, ArmyCommand.medals(a_group, context))
+		var b_score: float = initiative(b_group, ArmyCommand.medals(b_group, context))
 		if not is_equal_approx(a_score, b_score):
 			return a_score > b_score
 		return a < b
@@ -333,6 +377,10 @@ static func _capture_report(province: int, attacker: int, defender: int) -> Dict
 		"captured": true,
 		"garrison": 0,
 		"recovered_type": "",
+		"attacker_medals": 0,
+		"defender_medals": 0,
+		"medal_gain": "",
+		"medal_owner": -1,
 	}
 
 
@@ -348,28 +396,3 @@ static func _lowest(owners: Array[int]) -> int:
 		if owner < best:
 			best = owner
 	return best
-
-
-static func _next_army_id(armies: Array[ArmyState]) -> int:
-	var best: int = 0
-	for army: ArmyState in armies:
-		if army != null:
-			best = maxi(best, army.id)
-	return best + 1
-
-
-static func _next_unit_number(armies: Array[ArmyState]) -> int:
-	var best: int = 0
-	for army: ArmyState in armies:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			if regiment_id.begins_with("unit_"):
-				best = maxi(best, int(regiment_id.trim_prefix("unit_")))
-	return best + 1
-
-
-static func _as_armies(raw: Variant) -> Array[ArmyState]:
-	var result: Array[ArmyState] = []
-	result.assign(raw)
-	return result

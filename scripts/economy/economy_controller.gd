@@ -17,6 +17,8 @@ var works: LandWorks = null
 var _ships: ShipLayer = null
 var _armies: ArmyLayer = null
 var _hud: GameHud = null
+## Consumption report of the last resolved turn, for feeding coverage.
+var _last_consumption: Dictionary = {}
 
 
 func setup(
@@ -78,6 +80,15 @@ func army_food() -> int:
 	return _armies.food_upkeep_all(player_faction)
 
 
+## Share of last turn's army rations the granary could cover (0..1). Full
+## rations before the first Consumption; armies fight at this coverage.
+func feeding_coverage() -> float:
+	var demand: int = int(_last_consumption.get("army_demand", 0))
+	if demand <= 0:
+		return 1.0
+	return clampf(float(int(_last_consumption.get("army_fed", 0))) / float(demand), 0.0, 1.0)
+
+
 func extraction() -> Dictionary:
 	return Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
@@ -99,6 +110,9 @@ func resolve_turn() -> Dictionary:
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food()
 	)
+	_last_consumption = report.get("consumption", {}) as Dictionary
+	if _armies != null:
+		_armies.sync_generals(player_faction, economy.tech_unlocked)
 	if _hud != null:
 		_hud.set_treasury(economy.treasury)
 		_hud.flash_income(economy.treasury - before)

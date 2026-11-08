@@ -242,8 +242,9 @@ func _draw() -> void:
 		return
 	for tile: Vector2i in works.developed_tiles(model):
 		var point: Vector2 = _tile_position(tile)
-		if works.transport_at(model, tile) >= LandWorks.TRANSPORT_ROAD:
-			_draw_road(point)
+		var transport: int = works.transport_at(model, tile)
+		if transport >= LandWorks.TRANSPORT_ROAD:
+			_draw_road(point, transport >= LandWorks.TRANSPORT_RAIL)
 		var level: int = works.improvement_at(model, tile)
 		if level > 0:
 			var resource: int = model.resource_at(tile.x, tile.y)
@@ -252,8 +253,16 @@ func _draw() -> void:
 			_draw_port(point)
 
 
-func _draw_road(point: Vector2) -> void:
+## A road is a dashed ink line; a railroad adds sleepers so level 4 reads at a
+## glance (wiki: extraction-and-improvements § Transport Level).
+func _draw_road(point: Vector2, rail: bool = false) -> void:
 	var ink := Color(0.36, 0.26, 0.16, 0.65)
+	if rail:
+		draw_line(point + Vector2(-9, 0), point + Vector2(9, 0), ink, 1.6, true)
+		for i in 3:
+			var x: float = -6.0 + float(i) * 6.0
+			draw_line(point + Vector2(x, -3.0), point + Vector2(x, 3.0), ink, 1.4, true)
+		return
 	draw_line(point + Vector2(-9, 0), point + Vector2(-3, 0), ink, 2.4, true)
 	draw_line(point + Vector2(3, 0), point + Vector2(9, 0), ink, 2.4, true)
 

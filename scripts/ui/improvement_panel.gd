@@ -20,9 +20,11 @@ var tech_caps: Dictionary = {}
 
 var _toggle: Button = null
 var _overlay: Control = null
+var _margin: MarginContainer = null
 var _panel: PanelContainer = null
 var _rows: VBoxContainer = null
 var _stat_values: Dictionary = {}
+var _stats: Control = null
 var _output_line: Label = null
 var _stores_line: Label = null
 var _subtitle: Label = null
@@ -38,6 +40,12 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	_build_toggle()
 	_build_overlay()
+	resized.connect(_fit_to_viewport)
+	_fit_to_viewport()
+
+
+func _fit_to_viewport() -> void:
+	HudLayout.fit_estates(self)
 
 
 func set_data(
@@ -132,6 +140,7 @@ func _build_overlay() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_margin = margin
 	margin.add_theme_constant_override("margin_left", 42)
 	margin.add_theme_constant_override("margin_right", 42)
 	margin.add_theme_constant_override("margin_top", 88)
@@ -187,21 +196,18 @@ func _add_header(column: VBoxContainer) -> void:
 	_subtitle.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	titles.add_child(_subtitle)
 
-	var close := Button.new()
-	close.text = "Close"
-	close.custom_minimum_size = Vector2(92, 38)
-	close.pressed.connect(close_pressed)
-	header.add_child(close)
-
-
-func close_pressed() -> void:
-	close()
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(92, 38)
+	close_button.pressed.connect(close)
+	header.add_child(close_button)
 
 
 func _add_summary(column: VBoxContainer) -> void:
 	var stats := HBoxContainer.new()
 	stats.add_theme_constant_override("separation", 26)
 	column.add_child(stats)
+	_stats = stats
 	for spec: Array in [
 		["estates", "ESTATES"],
 		["producing", "PRODUCING"],
@@ -371,6 +377,7 @@ func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:
 	_rows.add_child(heading)
 	for row: Dictionary in rows:
 		var item := ImprovementRow.new()
+		item.compact = HudLayout.is_compact(get_viewport_rect().size)
 		item.build_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("build", tile))
 		item.cancel_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("cancel", tile))
 		item.focus_pressed.connect(func(tile: Vector2i) -> void: focus_pressed.emit(tile))

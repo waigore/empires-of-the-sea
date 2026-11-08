@@ -5,7 +5,7 @@ extends RefCounted
 
 
 static func build(hud: GameHud) -> void:
-	_top_bar(hud)
+	TopBar.build(hud)
 	_toasts(hud)
 	_minimap(hud)
 	_zoom(hud)
@@ -18,123 +18,6 @@ static func build(hud: GameHud) -> void:
 	_civilian_panel(hud)
 	ArmyHud.build(hud)
 	_tooltip(hud)
-
-
-static func _top_bar(hud: GameHud) -> void:
-	var bar := PanelContainer.new()
-	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	bar.offset_bottom = 68.0
-	bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	var style := UiTheme.box(
-		Color(0.09, 0.07, 0.05, 0.95), Palette.GOLD_DIM, 0, 0, Vector4(20, 8, 20, 8)
-	)
-	style.border_width_bottom = 2
-	bar.add_theme_stylebox_override("panel", style)
-	hud.add_child(bar)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	bar.add_child(row)
-
-	row.add_child(Icon.new("crest", 40, Palette.GOLD))
-
-	var title := VBoxContainer.new()
-	title.add_theme_constant_override("separation", -4)
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(title)
-
-	var nation := Label.new()
-	nation.text = "ESPAÑA"
-	nation.add_theme_font_size_override("font_size", 20)
-	nation.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	title.add_child(nation)
-	hud._nation_label = nation
-
-	hud._turn_label = Label.new()
-	hud._turn_label.text = TurnTime.label_for_turn(1)
-	hud._turn_label.add_theme_font_size_override("font_size", 13)
-	hud._turn_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	title.add_child(hud._turn_label)
-
-	var region := Button.new()
-	region.text = "OLD WORLD ›"
-	region.custom_minimum_size = Vector2(0, 38)
-	region.add_theme_font_size_override("font_size", 12)
-	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
-	row.add_child(region)
-	hud._region_button = region
-
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-
-	var ledger := Button.new()
-	ledger.text = "LEDGER"
-	ledger.custom_minimum_size = Vector2(96, 40)
-	ledger.add_theme_font_size_override("font_size", 14)
-	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
-	row.add_child(ledger)
-
-	var research := Button.new()
-	research.text = "RESEARCH"
-	research.custom_minimum_size = Vector2(110, 40)
-	research.add_theme_font_size_override("font_size", 14)
-	research.pressed.connect(func() -> void: hud.research_pressed.emit())
-	row.add_child(research)
-
-	var court := Button.new()
-	court.text = "COURT"
-	court.tooltip_text = "Diplomacy"
-	court.custom_minimum_size = Vector2(92, 40)
-	court.add_theme_font_size_override("font_size", 13)
-	court.pressed.connect(func() -> void: hud.diplomacy_pressed.emit())
-	row.add_child(court)
-
-	var treasury := _chip("coin", "TREASURY")
-	hud._treasury_chip = treasury["root"]
-	hud._treasury_label = treasury["value"]
-	row.add_child(hud._treasury_chip)
-
-	var prestige := _chip("star", "PRESTIGE")
-	hud._prestige_label = prestige["value"]
-	row.add_child(prestige["root"])
-
-	var fleets := _chip("ship", "SHIPS")
-	hud._fleet_label = fleets["value"]
-	row.add_child(fleets["root"])
-
-	var civilians := _chip("compass", "CIVILIANS")
-	hud._civilian_label = civilians["value"]
-	row.add_child(civilians["root"])
-
-	var troops := _chip("crown", "TROOPS")
-	hud._army_label = troops["value"]
-	row.add_child(troops["root"])
-
-
-static func _chip(icon_kind: String, caption: String) -> Dictionary:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(Icon.new(icon_kind, 22, Palette.GOLD))
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", -3)
-	row.add_child(column)
-
-	var cap := Label.new()
-	cap.text = caption
-	cap.add_theme_font_size_override("font_size", 10)
-	cap.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(cap)
-
-	var value := Label.new()
-	value.text = "0"
-	value.add_theme_font_size_override("font_size", 18)
-	value.add_theme_color_override("font_color", Palette.TEXT)
-	column.add_child(value)
-	return {"root": row, "value": value}
 
 
 static func _toasts(hud: GameHud) -> void:
@@ -161,6 +44,7 @@ static func _minimap(hud: GameHud) -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(8, 8, 8, 8))
 	)
 	hud.add_child(frame)
+	hud.minimap_frame = frame
 
 	hud._minimap = Minimap.new()
 	hud._minimap.custom_minimum_size = Vector2(232, 160)
@@ -179,6 +63,7 @@ static func _zoom(hud: GameHud) -> void:
 	box.offset_bottom = -110.0
 	box.add_theme_constant_override("separation", 6)
 	hud.add_child(box)
+	hud.zoom_box = box
 
 	var zoom_in := _square_button("+")
 	zoom_in.pressed.connect(func() -> void: hud.zoom_in_pressed.emit())
@@ -206,6 +91,7 @@ static func _end_turn(hud: GameHud) -> void:
 	wrap.offset_bottom = -20.0
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(wrap)
+	hud.end_turn_wrap = wrap
 
 	hud._glow = Panel.new()
 	hud._glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -356,6 +242,8 @@ static func _tooltip(hud: GameHud) -> void:
 
 
 static func show_tooltip(hud: GameHud, text: String) -> void:
+	if hud.touch_ui:
+		return
 	hud._tooltip_label.text = text
 	hud._tooltip.visible = true
 	hud._tooltip.reset_size()
