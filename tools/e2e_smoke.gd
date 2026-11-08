@@ -51,6 +51,18 @@ func _run() -> void:
 		screen.civilian_layer.units.size() == MapScreen.STARTING_CIVILIANS.size(),
 		"civilians muster at the capital"
 	)
+	_check(screen.improvements != null, "estates ledger present")
+
+	var estates_toggle: Button = screen.improvements._toggle
+	_check(estates_toggle != null, "estates toggle present")
+	screen.improvements.open()
+	await process_frame
+	_check(screen.improvements.is_open(), "estates ledger opens")
+	_check(
+		screen.improvements._data.has("counts"),
+		"estates ledger builds a snapshot"
+	)
+	screen.improvements.close()
 
 	var cues_before: int = 0
 	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
@@ -89,6 +101,11 @@ func _run() -> void:
 	var builder: CivilianState = screen.civilian_layer.units[1]
 	if work_tile.x >= 0:
 		builder.tile = work_tile
+		var resource: int = screen.model.resource_at(work_tile.x, work_tile.y)
+		if ImprovementCatalog.needs_prospecting(resource):
+			screen.land_works.set_prospected(
+				MapScreen.PLAYER_FACTION, screen.model, work_tile
+			)
 		screen.civilian_layer.select(builder)
 		MapPlayCivilians.on_action(screen, "build_improvement")
 		_check(builder.is_working(), "civilian work order starts")
@@ -156,13 +173,19 @@ func _inland_province(screen: MapScreen) -> int:
 
 
 func _owned_resource_tile(screen: MapScreen) -> Vector2i:
+	var fallback: Vector2i = Vector2i(-1, -1)
 	for province: Dictionary in screen.model.provinces:
 		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province["tiles"]:
-			if screen.model.resource_at(tile.x, tile.y) >= 0:
+			var resource: int = screen.model.resource_at(tile.x, tile.y)
+			if resource < 0:
+				continue
+			if not ImprovementCatalog.needs_prospecting(resource):
 				return tile
-	return Vector2i(-1, -1)
+			if fallback.x < 0:
+				fallback = tile
+	return fallback
 
 
 func _check(ok: bool, label: String) -> void:

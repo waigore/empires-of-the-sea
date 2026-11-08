@@ -43,6 +43,7 @@ var _charted_provinces: Dictionary = {}
 @onready var civilian_layer: CivilianLayer = $World/CivilianLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
+@onready var improvements: ImprovementPanel = $HUD/Improvements
 @onready var fade: ColorRect = $FadeLayer/Fade
 
 
@@ -104,12 +105,16 @@ func _build_hud() -> void:
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
 	economy = EconomyController.new()
 	add_child(economy)
-	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud)
+	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud, land_works, capital_tile)
 	economy.treasury_changed.connect(func(value: int) -> void: treasury = value)
 	treasury = economy.economy.treasury
 	stockpile = economy.economy.stockpile
 	hud.set_treasury(treasury, false)
 	income = economy.projected_income()
+	improvements.set_data(
+		model, land_works, civilian_layer.units, stockpile, capital_tile,
+		PLAYER_FACTION, economy.economy.tech_unlocked
+	)
 
 
 func _connect() -> void:
@@ -160,7 +165,12 @@ func _connect() -> void:
 	hud.civilian_closed.connect(func() -> void:
 		MapPlayInput.deselect(self)
 	)
-
+	improvements.action_pressed.connect(func(action: String, tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(self, action, tile)
+	)
+	improvements.focus_pressed.connect(func(tile: Vector2i) -> void:
+		MapPlayImprovements.on_action(self, "focus", tile)
+	)
 
 func _intro() -> void:
 	var map_size: Vector2 = MapGeo.world_size(model, TILE_SIZE)
@@ -170,12 +180,10 @@ func _intro() -> void:
 	camera.focus_on(MapPlayTurn.capital_world(self), maxf(start_zoom * 1.65, 0.75))
 	hud.toast("The Indies await — Turn 1, 1500")
 	if capital_province >= 0:
+		var crown: String = MapGenerator.FACTION_NAMES[PLAYER_FACTION]
 		hud.toast(
 			"%s holds court at %s"
-			% [
-				MapGenerator.FACTION_NAMES[PLAYER_FACTION],
-				model.province_name(capital_province),
-			]
+			% [crown, model.province_name(capital_province)]
 		)
 	var tween := create_tween()
 	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
@@ -190,12 +198,10 @@ func _build_visibility() -> void:
 
 
 func _find_capital() -> int:
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION and bool(province["capital"]):
+	var owned: Array = model.provinces.filter(func(p): return int(p["owner"]) == PLAYER_FACTION)
+	for province: Dictionary in owned:
+		if bool(province["capital"]):
 			return int(province["id"])
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == PLAYER_FACTION:
-			return int(province["id"])
-	return 0
+	return int(owned[0]["id"]) if not owned.is_empty() else 0
 
 

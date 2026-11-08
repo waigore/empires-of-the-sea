@@ -131,7 +131,8 @@ static func validate(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	target_tile: Vector2i = CivilianState.NO_TILE
 ) -> Dictionary:
 	if model == null or unit == null:
 		return _no("No civilian selected")
@@ -141,7 +142,7 @@ static func validate(
 		)
 	if unit.is_working():
 		return _no("The %s is already working." % unit.display_name())
-	var tile: Vector2i = unit.tile
+	var tile: Vector2i = unit.tile if target_tile.x < 0 else target_tile
 	if not model.is_land(tile.x, tile.y):
 		return _no("Civilian work happens on land.")
 	var province: int = model.province_at(tile.x, tile.y)
@@ -165,7 +166,9 @@ static func validate(
 	return check
 
 
-## Validates, charges materials and puts the unit to work.
+## Validates, charges materials and puts the unit to work. `target_tile` lets a
+## Builder take an estate away from its current tile (wiki: § Work Types and
+## Multi-Turn Builds); cancel returns it to the origin tile.
 static func assign(
 	model: MapModel,
 	unit: CivilianState,
@@ -173,15 +176,18 @@ static func assign(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	target_tile: Vector2i = CivilianState.NO_TILE
 ) -> Dictionary:
 	var check: Dictionary = validate(
-		model, unit, action, works, units, stockpile, visibility
+		model, unit, action, works, units, stockpile, visibility, target_tile
 	)
 	if not bool(check.get("ok", false)):
 		return check
 	_pay(stockpile, check.get("cost", {}))
-	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]))
+	unit.start_work(
+		action, Vector2i(check["tile"]), int(check["duration"]), unit.tile
+	)
 	check["label"] = label(action)
 	return check
 
@@ -247,10 +253,23 @@ static func _check_action(
 			var owned: Dictionary = _owned_land(model, unit, province)
 			if not bool(owned["ok"]):
 				return owned
-			if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
+			var resource: int = model.resource_at(tile.x, tile.y)
+			if resource == MapModel.NO_ID:
 				return _no("Improvements need a tile with a resource.")
 			if works.improvement_at(model, tile) >= MAX_IMPROVEMENT:
 				return _no("This tile is already fully improved.")
+			if (
+				ImprovementCatalog.needs_prospecting(resource)
+				and not works.is_prospected(unit.owner, model, tile)
+			):
+				return _no("An Explorer must prospect this tile before a mine can rise.")
+			var commodity: String = ImprovementCatalog.commodity(resource)
+			var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity)
+			if works.improvement_at(model, tile) + 1 > tech_cap:
+				return _no(
+					"Requires %s extraction tech (cap %d) to raise this estate."
+					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
+				)
 			return _exclusive(units, unit, tile)
 		"build_road":
 			var road_land: Dictionary = _owned_land(model, unit, province)
