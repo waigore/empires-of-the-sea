@@ -35,7 +35,8 @@ playable yet.
 ## Deferred (REQ-P2-02)
 
 - **Spy** — court reports, counter-spy, rival research intel.
-- **Merchant** — `purchase_land` needs Minor Nations and embassies.
+- **Merchant** — `purchase_land` needs Merchant Companies plus the embassy
+  chain (the court now tracks embassies; the work order stays deferred).
 - **Rail Builder** — transport tech tree and steel production.
 - `upgrade_town`, `build_fort`, road level 2, rival civilian AI.
 - Improvement transport caps, raw → manufactured production, riches conversion.

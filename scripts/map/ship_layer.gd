@@ -45,7 +45,10 @@ func spawn(
 ) -> void:
 	model = p_model
 	_rng.seed = seed_value
-	_clear_markers()
+	for ship: Ship in ships:
+		ship.queue_free()
+	ships.clear()
+	selected_ship = null
 	fleets = []
 	if model.sea_zone_count() == 0:
 		return
@@ -64,13 +67,6 @@ func spawn(
 	_fleets_by_region[model.region_id] = fleets
 
 
-func _clear_markers() -> void:
-	for ship: Ship in ships:
-		ship.queue_free()
-	ships.clear()
-	selected_ship = null
-
-
 func _make_marker(fleet: FleetState) -> void:
 	var ship := Ship.new()
 	ship.fleet_id = fleet.id
@@ -83,7 +79,10 @@ func _make_marker(fleet: FleetState) -> void:
 
 
 func _rebuild_markers() -> void:
-	_clear_markers()
+	for ship: Ship in ships:
+		ship.queue_free()
+	ships.clear()
+	selected_ship = null
 	for fleet: FleetState in fleets:
 		_make_marker(fleet)
 
@@ -275,7 +274,10 @@ func begin_turn() -> void:
 
 ## Resolves contested zones in every region. A battle must not pause because
 ## the player is looking at the other map (wiki: map-topology § two regions).
-func resolve_battles(world: WorldMap) -> Array[Dictionary]:
+## `hostile` gates each pair; without it every pair is treated as hostile.
+func resolve_battles(
+	world: WorldMap, hostile: Callable = Callable()
+) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	for index in world.region_count():
 		var region_fleets: Array[FleetState] = []
@@ -285,7 +287,7 @@ func resolve_battles(world: WorldMap) -> Array[Dictionary]:
 			region_fleets.assign(_fleets_by_region.get(index, []))
 		if region_fleets.is_empty():
 			continue
-		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets)
+		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets, hostile)
 		if battles.is_empty():
 			continue
 		var alive: Array[FleetState] = []
@@ -309,6 +311,21 @@ func resolve_battles(world: WorldMap) -> Array[Dictionary]:
 			battle["region"] = index
 			all.append(battle)
 	return all
+
+
+## A Join Empire absorption transfers the loser's squadrons to the winner.
+## Fleets live per region, so walk every stored roster and the live markers.
+func transfer_owner(from_id: int, to_id: int) -> void:
+	for stored: Array in _fleets_by_region.values():
+		for fleet: FleetState in stored:
+			if fleet.owner == from_id:
+				fleet.owner = to_id
+	for fleet: FleetState in fleets:
+		if fleet.owner == from_id:
+			fleet.owner = to_id
+	for ship: Ship in ships:
+		if ship.faction == from_id:
+			ship.faction = to_id
 
 
 ## Hulls still afloat for one faction across every fleet it keeps.

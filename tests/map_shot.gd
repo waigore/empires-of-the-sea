@@ -7,6 +7,8 @@ var _frames := 0
 var _target := 90
 var _path := "/tmp/map_shot.png"
 var _zoom := 0.0
+var _diplomacy := false
+var _select := -1
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -21,6 +23,10 @@ func _initialize() -> void:
 			_target = int(arg.substr(7))
 		elif arg.begins_with("zoom="):
 			_zoom = float(arg.substr(5))
+		elif arg.begins_with("diplomacy="):
+			_diplomacy = arg.substr(10) == "1"
+		elif arg.begins_with("select="):
+			_select = int(arg.substr(7))
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -30,6 +36,11 @@ func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 4 and _zoom > 0.0 and _screen != null:
 		_screen.camera.zoom = Vector2.ONE * _zoom
+	if _frames == 4 and _diplomacy and _screen != null:
+		_screen.play.diplomacy.apply_delta(0, 1, 22.0, "courtSample")
+		MapPlayDiplomacy.open(_screen.play)
+		if _select >= 0:
+			_screen.hud.panels.diplomacy_panel.select_faction(_select)
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)

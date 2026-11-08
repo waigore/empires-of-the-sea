@@ -307,6 +307,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	enemy_fleet.sea_zone = int(_screen.model.sea_zones[0].id)
 	player_fleet.location = FleetState.Location.AT_SEA
 	player_fleet.sea_zone = enemy_fleet.sea_zone
+	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, 2)
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
 	MapPlayTurn.end_turn(_screen.play)
@@ -315,6 +316,30 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	assert_eq(player_fleet.ship_count(), 1)
 	assert_eq(_screen.ship_layer.hull_count(2), 0)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+
+
+func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
+	var player_fleet: FleetState = _fleet_at_sea(MapScreen.PLAYER_FACTION)
+	var other_fleet: FleetState = _fleet_at_sea(2)
+	assert_not_null(player_fleet)
+	assert_not_null(other_fleet)
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet == player_fleet or fleet == other_fleet:
+			continue
+		fleet.location = FleetState.Location.IN_PORT
+		fleet.province = int(_screen.model.provinces[0].id)
+	player_fleet.set_hulls(["p"], {"p": "carrack"})
+	other_fleet.set_hulls(["o"], {"o": "fluyte"})
+	other_fleet.location = FleetState.Location.AT_SEA
+	other_fleet.sea_zone = int(_screen.model.sea_zones[0].id)
+	player_fleet.location = FleetState.Location.AT_SEA
+	player_fleet.sea_zone = other_fleet.sea_zone
+	var hulls_before: int = player_fleet.ship_count() + other_fleet.ship_count()
+
+	MapPlayTurn.end_turn(_screen.play)
+
+	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
+	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
 
 
 func test_civilians_muster_at_the_capital() -> void:
@@ -441,6 +466,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 		fleet.sea_zone = zone
 	first.set_hulls(["a"], {"a": "carrack"})
 	second.set_hulls(["b"], {"b": "fluyte"})
+	DiplomacyRules.declare_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 

@@ -27,7 +27,9 @@ food upkeep, and ship catalogs.
   cost.
 - Contested sea zones fight at end of turn **in every region**, including the
   one off screen; an off-screen result is prefixed with its region in the toast.
-  Strength `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
+  Only fleets of factions **at war** engage; at peace they share a zone, and a
+  neutral third party stays out of someone else's battle. Strength
+  `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
   `HULL × (1 + ARM/10)`. 3% edge wins (loser sunk; victor takes half strength on
   weakest hulls, keeps one). Stalemate if near-equal; port fleets never fight.
 

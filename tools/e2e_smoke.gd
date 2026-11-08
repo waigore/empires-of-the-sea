@@ -89,6 +89,21 @@ func _run() -> void:
 	)
 	screen.improvements.close()
 
+	MapPlayDiplomacy.open(screen.play)
+	await process_frame
+	_check(screen.play.diplomacy != null, "diplomacy state seeded")
+	_check(
+		screen.play.diplomacy.relations.size() >= 81,
+		"same-region relations seeded"
+	)
+	_check(screen.hud.panels.is_diplomacy_open(), "court ledger opens")
+	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
+	_check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
+	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
+	_check(not screen.play.diplomacy.relation(0, 1).at_war, "peace order applies")
+	screen.hud.panels.hide_diplomacy()
+	_check(not screen.hud.panels.is_diplomacy_open(), "court ledger closes")
+
 	var cues_before: int = 0
 	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
 	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
@@ -170,8 +185,7 @@ func _run() -> void:
 		)
 	if audio != null:
 		_check(audio.sfx_played >= cues_before + 3, "turn cues fired")
-		# A contested zone resolves on turn one, which legitimately hands the
-		# score to the battle bed; either bed is fine, silence is not.
+		# Only war resolves a battle now; either bed is fine, silence is not.
 		var bed: String = audio.current_track_id()
 		_check(
 			bed == MusicPlaylist.AGE_OF_DISCOVERY or bed == MusicPlaylist.BROADSIDES,

@@ -134,6 +134,9 @@ func _ready() -> void:
 		play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
 	_load_region(0)
 	_build_hud()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.initialize(play.turn)
+	MapPlayDiplomacy.sync_first_contact(play)
 	_connect()
 	_intro()
 
@@ -199,6 +202,8 @@ func _cycle_region() -> void:
 		return
 	MapPlayInput.deselect(play)
 	_load_region((play.region_index + 1) % play.world.region_count())
+	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlayDiplomacy.refresh(play)
 	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
 	RegionBriefing.arrival(hud, play.model, play.region_index)
 	MapPlayInput.on_view_changed(play)
@@ -257,6 +262,12 @@ func _connect() -> void:
 		MapPlayInput.on_minimap_jump(play, world_position)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.diplomacy_pressed.connect(func() -> void:
+		MapPlayDiplomacy.open(play)
+	)
+	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
+		MapPlayDiplomacy.on_order(play, kind, target, arg)
+	)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)
@@ -334,3 +345,15 @@ func _bootstrap_region(session: PlaySession) -> void:
 
 func _find_capital() -> int:
 	return play.world.seat_province(play.region_index, PLAYER_FACTION)
+
+
+## Ownership changed outside the map layers (Join Empire): redraw borders,
+## terrain tint, fog and the region chips without respawning units.
+func refresh_political_map() -> void:
+	if play == null or play.model == null:
+		return
+	canvas.build(play.model, play.world)
+	overlay.build(play.model)
+	if play.visibility != null:
+		overlay.sync_visibility(play.visibility)
+	_refresh_region_hud(MapGeo.world_size(play.model, TILE_SIZE))

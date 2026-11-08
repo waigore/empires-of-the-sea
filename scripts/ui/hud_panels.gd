@@ -12,12 +12,15 @@ var civilian_wrap: Control = null
 var civilian_panel: CivilianPanel = null
 var economy_wrap: Control = null
 var economy_panel: EconomyPanel = null
+var diplomacy_wrap: Control = null
+var diplomacy_panel: DiplomacyPanel = null
 var dock: PanelDock = null
 
 var panel_open: bool = false
 var fleet_open: bool = false
 var civilian_open: bool = false
 var economy_open: bool = false
+var diplomacy_open: bool = false
 
 
 func bind(hud: GameHud) -> void:
@@ -30,6 +33,8 @@ func bind(hud: GameHud) -> void:
 	civilian_panel = hud._civilian_panel
 	economy_wrap = hud._economy_wrap
 	economy_panel = hud._economy_panel
+	diplomacy_wrap = hud._diplomacy_wrap
+	diplomacy_panel = hud._diplomacy_panel
 	dock = PanelDock.new()
 	dock.load_from()
 	_sync_dock_buttons()
@@ -50,6 +55,7 @@ func toggle_dock_side() -> void:
 
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_economy()
+	hide_diplomacy()
 	hide_fleet()
 	hide_civilian()
 	panel.refresh(model, province_id)
@@ -72,6 +78,7 @@ func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_province()
 	hide_civilian()
 	hide_economy()
+	hide_diplomacy()
 	fleet_panel.refresh(model, fleet, is_player)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
@@ -99,6 +106,7 @@ func show_civilian(
 	hide_province()
 	hide_fleet()
 	hide_economy()
+	hide_diplomacy()
 	civilian_panel.refresh(model, unit, works, units, stockpile, visibility)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)
@@ -125,6 +133,7 @@ func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionar
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	hide_diplomacy()
 	panel_wrap.visible = false
 	panel_open = false
 	fleet_wrap.visible = false
@@ -147,6 +156,38 @@ func hide_economy() -> void:
 
 func is_economy_open() -> bool:
 	return economy_open
+
+
+func show_diplomacy(
+	state: DiplomacyState, world: WorldMap, player: int, treasury: int
+) -> void:
+	hide_province()
+	hide_fleet()
+	hide_civilian()
+	hide_economy()
+	diplomacy_panel.refresh(state, world, player, treasury)
+	diplomacy_wrap.visible = true
+	diplomacy_open = true
+	var tween := host.create_tween()
+	tween.tween_property(diplomacy_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+
+
+func refresh_diplomacy(
+	state: DiplomacyState, world: WorldMap, player: int, treasury: int
+) -> void:
+	if diplomacy_open:
+		diplomacy_panel.refresh(state, world, player, treasury)
+
+
+func hide_diplomacy() -> void:
+	if not diplomacy_open:
+		return
+	diplomacy_open = false
+	diplomacy_wrap.visible = false
+
+
+func is_diplomacy_open() -> bool:
+	return diplomacy_open
 
 
 func _selection_wraps() -> Array[Control]:

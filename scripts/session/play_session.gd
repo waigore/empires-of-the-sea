@@ -18,6 +18,7 @@ var visibility_by_region: Dictionary = {}
 var bootstrapped_regions: Dictionary = {}
 var land_works: LandWorks = null
 var economy: EconomyController = null
+var diplomacy: DiplomacyState = null
 
 var turn: int = 1
 var prestige: int = 38
@@ -111,3 +112,9 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 func emit_turn_ended(p_turn: int) -> void:
 	if host != null:
 		host.emit_signal("turn_ended", p_turn)
+
+
+## Political ownership changed (Join Empire): ask the screen to redraw the map.
+func refresh_map_views() -> void:
+	if host != null and host.has_method("refresh_political_map"):
+		host.call("refresh_political_map")

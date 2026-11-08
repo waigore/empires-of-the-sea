@@ -42,22 +42,25 @@ static func side_hull_count(fleets: Array) -> int:
 	return total
 
 
-## Zones where two or more factions keep fleets at sea this turn.
-static func contested_zones(fleets: Array) -> Array[int]:
+## Zones where two or more factions at war keep fleets at sea this turn.
+static func contested_zones(
+	fleets: Array, hostile: Callable = Callable()
+) -> Array[int]:
 	var zones: Array[int] = []
 	for fleet: FleetState in fleets:
 		if not fleet.is_at_sea() or not fleet.is_afloat():
 			continue
 		if zones.has(fleet.sea_zone):
 			continue
-		var owners: Dictionary = {}
+		var owners: Array[int] = []
 		for other: FleetState in fleets:
 			if not other.is_at_sea() or not other.is_afloat():
 				continue
 			if other.sea_zone != fleet.sea_zone:
 				continue
-			owners[other.owner] = true
-		if owners.size() >= 2:
+			if not owners.has(other.owner):
+				owners.append(other.owner)
+		if owners.size() >= 2 and _any_hostile(owners, hostile):
 			zones.append(fleet.sea_zone)
 	zones.sort()
 	return zones
@@ -65,14 +68,18 @@ static func contested_zones(fleets: Array) -> Array[int]:
 
 ## Resolves every contested zone and returns one record per engagement, in
 ## ascending zone order. Fleets lose the hulls they lose in `battle`.
-static func resolve_turn(fleets: Array) -> Array[Dictionary]:
+static func resolve_turn(
+	fleets: Array, hostile: Callable = Callable()
+) -> Array[Dictionary]:
 	var engagements: Array[Dictionary] = []
-	for zone_id: int in contested_zones(fleets):
-		engagements.append_array(_resolve_zone(zone_id, fleets))
+	for zone_id: int in contested_zones(fleets, hostile):
+		engagements.append_array(_resolve_zone(zone_id, fleets, hostile))
 	return engagements
 
 
-static func _resolve_zone(zone_id: int, fleets: Array) -> Array[Dictionary]:
+static func _resolve_zone(
+	zone_id: int, fleets: Array, hostile: Callable
+) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var sides: Dictionary = _sides_in_zone(zone_id, fleets)
 	var owners: Array[int] = []
@@ -81,10 +88,18 @@ static func _resolve_zone(zone_id: int, fleets: Array) -> Array[Dictionary]:
 	owners.sort()
 	if owners.size() < 2:
 		return records
-	var attacker: int = _attacker_owner(owners, sides)
-	var defender_owners: Array[int] = []
+	var belligerents: Array[int] = []
 	for owner: int in owners:
-		if owner != attacker:
+		for other: int in owners:
+			if owner != other and _hostile(hostile, owner, other):
+				belligerents.append(owner)
+				break
+	if belligerents.size() < 2:
+		return records
+	var attacker: int = _attacker_owner(belligerents, sides)
+	var defender_owners: Array[int] = []
+	for owner: int in belligerents:
+		if owner != attacker and _hostile(hostile, attacker, owner):
 			defender_owners.append(owner)
 	for defender: int in defender_owners:
 		var attacking: Array = _surviving(sides.get(attacker, []))
@@ -119,6 +134,23 @@ static func _surviving(group: Variant) -> Array:
 		if fleet.is_afloat():
 			alive.append(fleet)
 	return alive
+
+
+## No callback means the legacy default: every pair is hostile.
+static func _hostile(hostile: Callable, a: int, b: int) -> bool:
+	if a == b:
+		return false
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(a, b))
+
+
+static func _any_hostile(owners: Array[int], hostile: Callable) -> bool:
+	for first in owners.size():
+		for second in range(first + 1, owners.size()):
+			if _hostile(hostile, owners[first], owners[second]):
+				return true
+	return false
 
 
 ## The fleet that moved into the zone attacks; otherwise the lowest owner id
