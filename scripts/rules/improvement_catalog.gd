@@ -4,48 +4,51 @@ extends RefCounted
 ## extraction-and-improvements § Improvement Naming, § Improvement Build Costs).
 ## Pure catalog: rules, the estates ledger and tests share this one table
 ## (REQ-P3-03). Names derive from the tile resource, never from the level.
-##
-## Milestone bridge: until the Production phase and raw-stock pipeline land,
-## a lumber camp credits lumber and a mine credits cast iron directly. The
-## raw -> manufactured recipe pass is a release-blocking follow-up.
 
 const MAX_LEVEL: int = LandWorks.MAX_IMPROVEMENT
+## No gathering tech tree ships yet; the wiki default cap is 1 and the tech
+## table will lift it (wiki: tech-and-extraction-cap).
+const DEFAULT_TECH_CAP: int = 1
 
 ## Resource ids mirror MapGenerator.resource_table().
 const RESOURCES: Dictionary = {
-	0: {"name": "Lumber camp", "commodity": "lumber", "category": "wood", "icon": "tree"},
-	1: {"name": "Mine", "commodity": "castIron", "category": "mine", "icon": "ore"},
-	2: {"name": "Mine", "commodity": "coal", "category": "mine", "icon": "ore"},
-	3: {"name": "Mine", "commodity": "gold", "category": "riches", "icon": "coin"},
-	4: {"name": "Farm", "commodity": "grain", "category": "farm", "icon": "wheat"},
-	5: {"name": "Pasture", "commodity": "wool", "category": "farm", "icon": "wheat"},
-	6: {"name": "Ranch", "commodity": "horses", "category": "farm", "icon": "wheat"},
-	7: {"name": "Salt works", "commodity": "salt", "category": "mine", "icon": "ore"},
-	8: {"name": "Fishery", "commodity": "fish", "category": "farm", "icon": "fish"},
+	0: {"name": "Lumber camp", "category": "wood", "icon": "tree"},
+	1: {"name": "Mine", "category": "mine", "icon": "ore"},
+	2: {"name": "Mine", "category": "mine", "icon": "ore"},
+	3: {"name": "Mine", "category": "riches", "icon": "coin"},
+	4: {"name": "Farm", "category": "farm", "icon": "wheat"},
+	5: {"name": "Pasture", "category": "farm", "icon": "wheat"},
+	6: {"name": "Ranch", "category": "farm", "icon": "wheat"},
+	7: {"name": "Ranch", "category": "farm", "icon": "wheat"},
+	8: {"name": "Mine", "category": "mine", "icon": "ore"},
 }
 
 const DEFAULT_ENTRY: Dictionary = {
 	"name": "Improvement",
-	"commodity": "",
 	"category": "works",
 	"icon": "ore",
 }
 
 const COMMODITY_LABELS: Dictionary = {
-	"lumber": "lumber",
-	"castIron": "cast iron",
+	"timber": "timber",
+	"iron": "iron",
 	"coal": "coal",
 	"gold": "gold",
 	"grain": "grain",
 	"wool": "wool",
 	"horses": "horses",
-	"salt": "salt",
-	"fish": "fish",
+	"meat": "meat",
+	"tin": "tin",
+	"lumber": "lumber",
+	"castIron": "cast iron",
+	"steel": "steel",
+	"bronze": "bronze",
+	"paper": "paper",
 }
 
-## Iron, coal and gold are the map's prospect-required minerals
+## Iron, coal, gold and tin are the map's prospect-required minerals
 ## (wiki: fog-and-exploration § Prospect-Required Resources).
-const MINERAL_RESOURCES: Array[int] = [1, 2, 3]
+const MINERAL_RESOURCES: Array[int] = [1, 2, 3, 8]
 
 
 static func known(resource: int) -> bool:
@@ -68,8 +71,10 @@ static func display_name(resource: int, level: int = 0) -> String:
 	return "%s (L%d)" % [name, clampi(level, 1, MAX_LEVEL)]
 
 
+## The raw commodity on the tile (wiki: commodity-catalog). The production
+## phase refines it into lumber/cast iron/fabric/etc.
 static func commodity(resource: int) -> String:
-	return String(entry(resource).get("commodity", ""))
+	return String(MapGenerator.resource_info(resource).get("commodity", ""))
 
 
 static func commodity_label(commodity_id: String) -> String:
@@ -101,8 +106,24 @@ static func needs_prospecting(resource: int) -> bool:
 	return MINERAL_RESOURCES.has(resource)
 
 
-static func output_text(resource: int, level: int) -> String:
-	var amount: int = production(level)
+static func tech_cap_for(commodity_id: String, tech_caps: Dictionary = {}) -> int:
+	return maxi(int(tech_caps.get(commodity_id, DEFAULT_TECH_CAP)), 0)
+
+
+## Wiki extraction formula: min(improvement, tech cap, transport, town cap).
+static func effective_yield(
+	resource: int,
+	level: int,
+	tech_caps: Dictionary = {},
+	transport: int = 1,
+	town_cap: int = MAX_LEVEL
+) -> int:
+	var commodity_id: String = commodity(resource)
+	var cap: int = tech_cap_for(commodity_id, tech_caps)
+	return clampi(mini(mini(level, cap), mini(transport, town_cap)), 0, MAX_LEVEL)
+
+
+static func output_text(resource: int, amount: int) -> String:
 	if amount <= 0:
 		return "No yield"
 	return "%d %s / turn" % [amount, commodity_label(commodity(resource))]

@@ -24,8 +24,9 @@ playable yet.
   prospect 1, improvement 1–4 at level turns (1/4/8/16 lumber + cast iron),
   road 1, port 5 + 5 (2 turns). Mines need prospecting first.
 - **Improvements** are named from the resource (Farm, Lumber camp, Mine,
-  Pasture, Ranch), yield one commodity per level and credit the stockpile at
-  end of turn when connected by road/port/town.
+  Pasture, Ranch) and yield `min(level, tech cap, transport, town)` at end of
+  turn when connected by road/port/town. Mines need prospecting first; upgrades
+  above the tech cap (1 without a gathering tech tree) are refused.
 - **Estates ledger** (`ESTATES`): realm-wide yield, blockers, filters and
   Build / Cancel / Map. See [`improvements.md`](improvements.md).
 - **Presence** keeps a province visible; one crew per tile per crown.

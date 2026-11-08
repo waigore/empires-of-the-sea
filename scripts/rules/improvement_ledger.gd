@@ -21,7 +21,8 @@ static func snapshot(
 	units: Array[CivilianState],
 	stockpile: Dictionary,
 	owner: int,
-	capital_tile: Vector2i
+	capital_tile: Vector2i,
+	tech_caps: Dictionary = {}
 ) -> Dictionary:
 	var result: Dictionary = {
 		"estates": [] as Array[Dictionary],
@@ -59,7 +60,7 @@ static func snapshot(
 			var is_connected: bool = connected.has(model.index_of(tile.x, tile.y))
 			rows.append(_estate_row(
 				model, works, units, stockpile, owner, tile, resource, province_id,
-				is_connected, idle
+				is_connected, idle, tech_caps
 			))
 		if rows.is_empty():
 			continue
@@ -95,7 +96,8 @@ static func estate_row(
 	stockpile: Dictionary,
 	owner: int,
 	tile: Vector2i,
-	capital_tile: Vector2i
+	capital_tile: Vector2i,
+	tech_caps: Dictionary = {}
 ) -> Dictionary:
 	var resource: int = model.resource_at(tile.x, tile.y)
 	if resource < 0:
@@ -105,7 +107,8 @@ static func estate_row(
 		model, works, units, stockpile, owner, tile, resource,
 		model.province_at(tile.x, tile.y),
 		connected.has(model.index_of(tile.x, tile.y)),
-		ImprovementOrders.idle_builders(units, owner)
+		ImprovementOrders.idle_builders(units, owner),
+		tech_caps
 	)
 
 
@@ -122,15 +125,26 @@ static func _estate_row(
 	resource: int,
 	province: int,
 	is_connected: bool,
-	idle: Array[CivilianState]
+	idle: Array[CivilianState],
+	tech_caps: Dictionary
 ) -> Dictionary:
 	var level: int = works.improvement_at(model, tile)
+	var commodity: String = ImprovementCatalog.commodity(resource)
+	var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity, tech_caps)
 	var mineral: bool = ImprovementCatalog.needs_prospecting(resource)
 	var prospected: bool = works.is_prospected(owner, model, tile)
 	var working: CivilianState = _working_unit(units, owner, tile)
+	var transport: int = maxi(1, works.transport_at(model, tile))
+	if works.has_port(model, tile):
+		transport = LandWorks.TRANSPORT_RAIL
+	var town_cap: int = int(model.province_data(province).get("town_development", 0))
+	if town_cap <= 0:
+		town_cap = ImprovementCatalog.MAX_LEVEL
 	var output: int = 0
 	if level > 0 and is_connected and (not mineral or prospected):
-		output = ImprovementCatalog.production(level)
+		output = ImprovementCatalog.effective_yield(
+			resource, level, tech_caps, transport, town_cap
+		)
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
@@ -145,9 +159,11 @@ static func _estate_row(
 		"base_name": ImprovementCatalog.base_name(resource),
 		"level": level,
 		"max_level": ImprovementCatalog.MAX_LEVEL,
-		"commodity": ImprovementCatalog.commodity(resource),
+		"tech_cap": tech_cap,
+		"tech_limited": next_level > tech_cap and level < ImprovementCatalog.MAX_LEVEL,
+		"commodity": commodity,
 		"output": output,
-		"output_text": ImprovementCatalog.output_text(resource, level),
+		"output_text": ImprovementCatalog.output_text(resource, output),
 		"connected": is_connected,
 		"prospected": prospected,
 		"needs_prospecting": mineral,
@@ -158,14 +174,16 @@ static func _estate_row(
 		"builder_id": builder.id if builder != null else -1,
 		"builder_name": builder.display_name() if builder != null else "",
 		"status": status,
-		"status_text": _status_text(status, resource, level, working),
+		"status_text": _status_text(status, resource, level, output, tech_cap, working),
 		"next_level": next_level,
 		"cost": cost,
 		"cost_text": CivilianWork.cost_text(cost),
 		"duration": next_level,
-		"can_build": _can_build(level, mineral, prospected, working, builder, cost, stockpile),
+		"can_build": _can_build(
+			level, tech_cap, mineral, prospected, working, builder, cost, stockpile
+		),
 		"build_reason": _build_reason(
-			level, mineral, prospected, working, builder, cost, stockpile
+			level, tech_cap, mineral, prospected, working, builder, cost, stockpile
 		),
 	}
 
@@ -188,7 +206,8 @@ static func _status(
 
 
 static func _status_text(
-	status: String, resource: int, level: int, working: CivilianState
+	status: String, resource: int, level: int, output: int, tech_cap: int,
+	working: CivilianState
 ) -> String:
 	match status:
 		"building":
@@ -201,16 +220,21 @@ static func _status_text(
 		"disconnected":
 			return "No road or port to the crown — no yield yet"
 		"maxed":
-			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, level)
-	return "Yields %s" % ImprovementCatalog.output_text(resource, level)
+			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, output)
+	var text: String = "Yields %s" % ImprovementCatalog.output_text(resource, output)
+	if level > output and output > 0:
+		text += " · tech cap %d" % tech_cap
+	return text
 
 
 static func _can_build(
-	level: int, mineral: bool, prospected: bool, working: CivilianState,
-	builder: CivilianState, cost: Dictionary, stockpile: Dictionary
+	level: int, tech_cap: int, mineral: bool, prospected: bool,
+	working: CivilianState, builder: CivilianState, cost: Dictionary,
+	stockpile: Dictionary
 ) -> bool:
 	return (
 		level < ImprovementCatalog.MAX_LEVEL
+		and level + 1 <= tech_cap
 		and (not mineral or prospected)
 		and working == null
 		and builder != null
@@ -219,8 +243,9 @@ static func _can_build(
 
 
 static func _build_reason(
-	level: int, mineral: bool, prospected: bool, working: CivilianState,
-	builder: CivilianState, cost: Dictionary, stockpile: Dictionary
+	level: int, tech_cap: int, mineral: bool, prospected: bool,
+	working: CivilianState, builder: CivilianState, cost: Dictionary,
+	stockpile: Dictionary
 ) -> String:
 	if working != null:
 		return "A Builder is already at work here."
@@ -228,6 +253,8 @@ static func _build_reason(
 		return "This estate is fully improved."
 	if mineral and not prospected:
 		return "An Explorer must prospect the tile first."
+	if level + 1 > tech_cap:
+		return "Requires extraction tech (cap %d) to raise this estate." % tech_cap
 	if builder == null:
 		return "No idle Builder — train one at the capital."
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)

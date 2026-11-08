@@ -13,8 +13,10 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	# Free immediately: queue_free leaves prior screens processing fog/ships and
+	# starves the suite under coverage (process timeout).
 	if is_instance_valid(_screen):
-		_screen.queue_free()
+		_screen.free()
 	_screen = null
 
 
@@ -79,10 +81,10 @@ func test_clicking_a_fleet_selects_it() -> void:
 
 func test_end_turn_advances_calendar_and_treasury() -> void:
 	var turn_before: int = _screen.turn
-	var treasury_before: int = _screen.treasury
 	_screen._on_end_turn()
 	assert_eq(_screen.turn, turn_before + 1)
-	assert_eq(_screen.treasury, treasury_before + _screen.income)
+	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
+	assert_eq(_screen.income, _screen.economy.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 
@@ -345,6 +347,7 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	var builder: CivilianState = _screen.civilian_layer.units[1]
 	assert_eq(builder.type_id, "builder")
 	var lumber_before: int = int(_screen.stockpile["lumber"])
+	var timber_before: int = int(_screen.stockpile.get("timber", 0))
 	_screen._on_improvement_action("build", tile)
 	assert_true(builder.is_working())
 	assert_eq(builder.work_tile(), tile)
@@ -358,7 +361,8 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	_screen._on_end_turn()
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
-	assert_eq(int(_screen.stockpile["lumber"]), lumber_before)
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	assert_eq(int(_screen.stockpile.get("timber", 0)), timber_before + 1)
 
 
 func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:

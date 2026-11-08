@@ -95,8 +95,8 @@ func test_builder_pays_materials_and_raises_the_improvement_level() -> void:
 	assert_eq(_works.improvement_at(_model, Fixture.IRON_TILE), 1)
 
 	var second: Dictionary = _validate(builder, "build_improvement")
-	assert_eq(second["cost"], {"lumber": 4, "castIron": 4})
-	assert_eq(int(second["duration"]), 2)
+	assert_false(bool(second["ok"]))
+	assert_true(String(second["reason"]).contains("tech"))
 
 
 func test_improvements_need_a_resource_tile() -> void:

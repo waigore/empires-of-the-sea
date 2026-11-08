@@ -263,6 +263,13 @@ static func _check_action(
 				and not works.is_prospected(unit.owner, model, tile)
 			):
 				return _no("An Explorer must prospect this tile before a mine can rise.")
+			var commodity: String = ImprovementCatalog.commodity(resource)
+			var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity)
+			if works.improvement_at(model, tile) + 1 > tech_cap:
+				return _no(
+					"Requires %s extraction tech (cap %d) to raise this estate."
+					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
+				)
 			return _exclusive(units, unit, tile)
 		"build_road":
 			var road_land: Dictionary = _owned_land(model, unit, province)

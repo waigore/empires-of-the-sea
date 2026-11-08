@@ -29,10 +29,10 @@ func test_catalog_names_follow_the_resource_not_the_level() -> void:
 
 
 func test_catalog_maps_resources_to_commodities_and_yield() -> void:
-	assert_eq(ImprovementCatalog.commodity(0), "lumber")
-	assert_eq(ImprovementCatalog.commodity(1), "castIron")
+	assert_eq(ImprovementCatalog.commodity(0), "timber")
+	assert_eq(ImprovementCatalog.commodity(1), "iron")
 	assert_eq(ImprovementCatalog.commodity(4), "grain")
-	assert_eq(ImprovementCatalog.yield_for(0, 3), {"lumber": 3})
+	assert_eq(ImprovementCatalog.yield_for(0, 3), {"timber": 3})
 	assert_eq(ImprovementCatalog.yield_for(0, 0), {})
 	assert_eq(ImprovementCatalog.production(9), ImprovementCatalog.MAX_LEVEL)
 	assert_true(ImprovementCatalog.needs_prospecting(1))
@@ -73,70 +73,71 @@ func test_a_built_port_seeds_its_province() -> void:
 
 
 func test_disconnected_improvements_do_not_yield() -> void:
-	_works.set_improvement(_model, Fixture.TIMBER_TILE, 2)
-	var report: Dictionary = ImprovementSystem.collect(
-		_model, _works, 0, Fixture.BARE_TILE, _stock
+	_works.set_improvement(_model, Fixture.TIMBER_TILE, 1)
+	var totals: Dictionary = Extraction.yields(
+		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
-	assert_eq(report["totals"], {})
-	assert_eq(int(report["producing_tiles"]), 0)
-	assert_eq(int(report["blocked_tiles"]), 1)
+	assert_eq(totals, {})
 	assert_eq(int(_stock["lumber"]), 40)
 
 
-func test_connected_improvements_credit_the_stockpile() -> void:
+func test_connected_improvements_yield_their_commodity() -> void:
 	_works.set_transport(_model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
-	_works.set_improvement(_model, Fixture.TIMBER_TILE, 2)
-	var report: Dictionary = ImprovementSystem.collect(
-		_model, _works, 0, Fixture.BARE_TILE, _stock
+	_works.set_improvement(_model, Fixture.TIMBER_TILE, 1)
+	var totals: Dictionary = Extraction.yields(
+		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
-	assert_eq(report["totals"], {"lumber": 2})
-	assert_eq(int(report["producing_tiles"]), 1)
-	assert_eq(int(_stock["lumber"]), 42)
-	assert_true(ImprovementSystem.summary_line(report).contains("2 lumber"))
-	assert_eq(ImprovementSystem.output_text({"wood": 2, "grain": 1}), "1 grain · 2 wood")
+	assert_eq(totals, {"timber": 1})
+	assert_eq(int(_stock["lumber"]), 40)
+	assert_eq(ImprovementSystem.output_text({"timber": 2, "grain": 1}), "1 grain · 2 timber")
+
+
+func test_tech_and_transport_caps_limit_the_yield() -> void:
+	assert_eq(ImprovementCatalog.effective_yield(0, 1, {}, 1, 4), 1)
+	assert_eq(ImprovementCatalog.effective_yield(0, 4, {"timber": 4}, 1, 4), 1)
+	assert_eq(ImprovementCatalog.effective_yield(0, 4, {"timber": 4}, 4, 4), 4)
+	assert_eq(ImprovementCatalog.effective_yield(0, 0, {}, 4, 4), 0)
 
 
 func test_minerals_must_be_prospected_to_yield() -> void:
 	_works.set_transport(_model, Vector2i(1, 0), LandWorks.TRANSPORT_ROAD)
 	_works.set_improvement(_model, Fixture.IRON_TILE, 1)
-	var blocked: Dictionary = ImprovementSystem.collect(
-		_model, _works, 0, Fixture.BARE_TILE, _stock
+	var blocked: Dictionary = Extraction.yields(
+		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
-	assert_eq(blocked["totals"], {})
-	assert_eq(int(blocked["blocked_tiles"]), 1)
+	assert_eq(blocked, {})
 	_works.set_prospected(0, _model, Fixture.IRON_TILE)
-	var report: Dictionary = ImprovementSystem.collect(
-		_model, _works, 0, Fixture.BARE_TILE, _stock
+	var totals: Dictionary = Extraction.yields(
+		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
-	assert_eq(report["totals"], {"castIron": 1})
-	assert_eq(int(_stock["castIron"]), 41)
+	assert_eq(totals, {"iron": 1})
 
 
 func test_foreign_estates_never_pay_the_player() -> void:
 	_works.set_improvement(_model, Fixture.RIVAL_GRAIN_TILE, 3)
-	var report: Dictionary = ImprovementSystem.collect(
-		_model, _works, 0, Fixture.BARE_TILE, _stock
+	var totals: Dictionary = Extraction.yields(
+		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
-	assert_eq(report["totals"], {})
-	assert_eq(int(report["improved_tiles"]), 0)
+	assert_eq(totals, {})
 
 
 func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	_works.set_transport(_model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
+	_works.set_transport(_model, Fixture.TIMBER_TILE, LandWorks.TRANSPORT_RAIL)
 	_works.set_improvement(_model, Fixture.TIMBER_TILE, 2)
 	_works.set_improvement(_model, Fixture.IRON_TILE, 1)
 	var builder := Fixture.unit("builder", Fixture.BARE_TILE)
 	builder.id = 1
 	_units.append(builder)
 	var snap: Dictionary = ImprovementLedger.snapshot(
-		_model, _works, _units, _stock, 0, Fixture.BARE_TILE
+		_model, _works, _units, _stock, 0, Fixture.BARE_TILE, {"timber": 4}
 	)
 	var counts: Dictionary = snap["counts"]
 	assert_eq(int(counts["estates"]), 2)
 	assert_eq(int(counts["improved"]), 2)
 	assert_eq(int(counts["producing"]), 1)
 	assert_eq(int(counts["idle_builders"]), 1)
-	assert_eq(snap["totals"], {"lumber": 2})
+	assert_eq(snap["totals"], {"timber": 2})
 	var timber: Dictionary = _row_at(snap, Fixture.TIMBER_TILE)
 	assert_eq(String(timber["name"]), "Lumber camp (L2)")
 	assert_eq(String(timber["status"]), "producing")
@@ -146,6 +147,23 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	assert_eq(String(iron["status"]), "unprospected")
 	assert_false(bool(iron["can_build"]))
 	assert_true(String(iron["build_reason"]).contains("prospect"))
+
+
+func test_upgrades_above_the_tech_cap_are_refused() -> void:
+	_works.set_transport(_model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
+	_works.set_improvement(_model, Fixture.TIMBER_TILE, 1)
+	var builder := Fixture.unit("builder", Fixture.BARE_TILE)
+	builder.id = 1
+	_units.append(builder)
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		_model, _works, _units, _stock, 0, Fixture.BARE_TILE
+	)
+	var row: Dictionary = _row_at(snap, Fixture.TIMBER_TILE)
+	assert_true(bool(row["tech_limited"]))
+	assert_eq(int(row["tech_cap"]), 1)
+	assert_false(bool(row["can_build"]))
+	assert_true(String(row["build_reason"]).contains("tech"))
+	assert_eq(int(row["output"]), 1)
 
 
 func test_ledger_surfaces_an_active_build_and_cancel() -> void:

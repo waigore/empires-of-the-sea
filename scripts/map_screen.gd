@@ -15,16 +15,10 @@ const MAP_SEED: int = 1500
 const PLAYER_FACTION: int = 0
 const SHIP_COUNT: int = 7
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
-const STOCKPILE_START: Dictionary = {
-	"lumber": 40,
-	"castIron": 40,
-	"bronze": 12,
-	"steel": 8,
-	"paper": 8,
-}
 
 var model: MapModel = null
 var visibility: VisibilityModel = null
+var economy: EconomyController = null
 var map_seed: int = MAP_SEED
 var map_width: int = 128
 var map_height: int = 84
@@ -36,7 +30,7 @@ var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
 var land_works: LandWorks = null
-var stockpile: Dictionary = STOCKPILE_START.duplicate()
+var stockpile: Dictionary = {}
 
 var _hover_province: int = -1
 var _charted_provinces: Dictionary = {}
@@ -105,14 +99,21 @@ func _build_world() -> void:
 func _build_hud() -> void:
 	hud.set_minimap(model, model.world_size(TILE_SIZE))
 	hud.set_turn(turn, TurnTime.year_for_turn(turn))
-	hud.set_treasury(treasury, false)
 	hud.set_prestige(prestige)
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	economy = EconomyController.new()
+	add_child(economy)
+	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud, land_works, capital_tile)
+	economy.treasury_changed.connect(func(value: int) -> void: treasury = value)
+	treasury = economy.economy.treasury
+	stockpile = economy.economy.stockpile
+	hud.set_treasury(treasury, false)
+	income = economy.projected_income()
 	improvements.set_data(
-		model, land_works, civilian_layer.units, stockpile, capital_tile, PLAYER_FACTION
+		model, land_works, civilian_layer.units, stockpile, capital_tile,
+		PLAYER_FACTION, economy.economy.tech_unlocked
 	)
-	income = 90 + _owned_provinces() * 6
 
 
 func _connect() -> void:
@@ -172,10 +173,6 @@ func _find_capital() -> int:
 		if bool(province["capital"]):
 			return int(province["id"])
 	return int(owned[0]["id"]) if not owned.is_empty() else 0
-
-
-func _owned_provinces() -> int:
-	return model.provinces.filter(func(p): return int(p["owner"]) == PLAYER_FACTION).size()
 
 
 # --- interaction ------------------------------------------------------------
@@ -340,17 +337,19 @@ func _train_civilian(type_id: String) -> void:
 	if selected_province != capital_province:
 		hud.toast("Civilians are trained at the capital.")
 		return
-	var paper: int = int(stockpile.get("paper", 0))
-	if not CivilianCatalog.can_afford(type_id, treasury, paper):
+	var state: PlayerEconomy = economy.economy
+	var paper: int = state.quantity("paper")
+	if not CivilianCatalog.can_afford(type_id, state.treasury, paper):
 		hud.toast("The crown cannot afford a %s." % CivilianCatalog.display_name(type_id))
 		return
 	var tile: Vector2i = civilian_layer.mustering_tile(capital_province)
 	if tile.x < 0:
 		hud.toast("There is no room to muster another civilian.")
 		return
-	treasury -= CivilianCatalog.treasury_cost(type_id)
-	stockpile["paper"] = paper - CivilianCatalog.paper_cost(type_id)
+	state.spend_treasury(CivilianCatalog.treasury_cost(type_id))
+	state.take("paper", CivilianCatalog.paper_cost(type_id))
 	var unit: CivilianState = civilian_layer.add_unit(PLAYER_FACTION, type_id, tile)
+	treasury = state.treasury
 	hud.set_treasury(treasury)
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
 	hud.toast("%s musters at %s" % [unit.display_name(), model.province_name(capital_province)])
@@ -496,11 +495,6 @@ func _on_panel_action(action: String) -> void:
 
 func _on_end_turn() -> void:
 	_resolve_civilian_work()
-	var yields: Dictionary = ImprovementSystem.collect(
-		model, land_works, PLAYER_FACTION, capital_tile, stockpile
-	)
-	if int(yields.get("producing_tiles", 0)) > 0:
-		hud.toast(ImprovementSystem.summary_line(yields))
 	_resolve_naval_combat()
 	_resolve_visibility()
 	ship_layer.begin_turn()
@@ -508,12 +502,12 @@ func _on_end_turn() -> void:
 	_refresh_fleet_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
-	treasury += income
+	economy.resolve_turn()
+	treasury = economy.economy.treasury
+	income = economy.projected_income()
 	prestige += 1
 	hud.set_turn(turn, year)
-	hud.set_treasury(treasury)
 	hud.set_prestige(prestige)
-	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
 	improvements.refresh_if_open()
 	var selected: Ship = ship_layer.selected_ship
@@ -594,11 +588,9 @@ func _fleet_known(fleet: FleetState) -> bool:
 
 func _fleet_tile(fleet: FleetState) -> Vector2i:
 	if fleet.is_at_sea():
-		var zone: Dictionary = model.sea_zone_data(fleet.sea_zone)
-		var tiles: Array = zone.get("tiles", [])
+		var tiles: Array = model.sea_zone_data(fleet.sea_zone).get("tiles", [])
 		return tiles[0] if not tiles.is_empty() else Vector2i(-1, -1)
-	var data: Dictionary = model.province_data(fleet.province)
-	return data.get("port_tile", Vector2i(-1, -1))
+	return model.province_data(fleet.province).get("port_tile", Vector2i(-1, -1))
 
 
 func _update_hover(screen_position: Vector2 = Vector2.INF) -> void:

@@ -86,59 +86,8 @@ static func town_tile(
 	return Vector2i(-1, -1)
 
 
-## End-of-turn Extraction: credit every connected, prospected improvement.
-static func collect(
-	model: MapModel,
-	works: LandWorks,
-	owner: int,
-	capital_tile: Vector2i,
-	stockpile: Dictionary
-) -> Dictionary:
-	var totals: Dictionary = {}
-	var report: Dictionary = {
-		"totals": totals,
-		"improved_tiles": 0,
-		"producing_tiles": 0,
-		"blocked_tiles": 0,
-	}
-	if model == null or works == null:
-		return report
-	var connected: Dictionary = connected_tiles(model, works, owner, capital_tile)
-	for raw: Variant in works.improvement.keys():
-		var index: int = int(raw)
-		var level: int = int(works.improvement[raw])
-		if level <= 0:
-			continue
-		var tile: Vector2i = tile_of(model, index)
-		var province: int = model.province_at(tile.x, tile.y)
-		if model.province_owner(province) != owner:
-			continue
-		var resource: int = model.resource_at(tile.x, tile.y)
-		if resource < 0:
-			continue
-		report["improved_tiles"] = int(report["improved_tiles"]) + 1
-		if not connected.has(index):
-			report["blocked_tiles"] = int(report["blocked_tiles"]) + 1
-			continue
-		if ImprovementCatalog.needs_prospecting(resource) and not works.is_prospected(owner, model, tile):
-			report["blocked_tiles"] = int(report["blocked_tiles"]) + 1
-			continue
-		var commodity_id: String = ImprovementCatalog.commodity(resource)
-		if commodity_id.is_empty():
-			continue
-		totals[commodity_id] = int(totals.get(commodity_id, 0)) + ImprovementCatalog.production(level)
-		report["producing_tiles"] = int(report["producing_tiles"]) + 1
-	for raw: Variant in totals.keys():
-		var commodity_id: String = String(raw)
-		stockpile[commodity_id] = int(stockpile.get(commodity_id, 0)) + int(totals[commodity_id])
-	return report
-
-
-static func summary_line(report: Dictionary) -> String:
-	var totals: Dictionary = report.get("totals", {})
-	if totals.is_empty():
-		return "The estates yield nothing — no improved tile reaches the crown."
-	return "Estates yield: %s" % output_text(totals)
+## End-of-turn Extraction is owned by `Extraction.yields`, which calls
+## `connected_tiles`; this module stays the connectivity source.
 
 
 static func output_text(totals: Dictionary) -> String:

@@ -187,6 +187,8 @@ func _fill() -> void:
 	_build_button.text = "Build L1" if level <= 0 else "Raise L%d" % int(data["next_level"])
 	if int(data["builder_id"]) < 0:
 		_build_button.text = "No Builder"
+	if bool(data.get("tech_limited", false)):
+		_build_button.text = "Needs Tech"
 	_build_button.disabled = not bool(data["can_build"])
 	_build_button.visible = level < int(data["max_level"]) and not working
 	_cancel.visible = working

@@ -16,6 +16,7 @@ var units: Array[CivilianState] = []
 var stockpile: Dictionary = {}
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var faction: int = 0
+var tech_caps: Dictionary = {}
 
 var _toggle: Button = null
 var _overlay: Control = null
@@ -45,7 +46,8 @@ func set_data(
 	p_units: Array[CivilianState],
 	p_stockpile: Dictionary,
 	p_capital: Vector2i,
-	p_faction: int = 0
+	p_faction: int = 0,
+	p_tech_caps: Dictionary = {}
 ) -> void:
 	model = p_model
 	works = p_works
@@ -53,6 +55,7 @@ func set_data(
 	stockpile = p_stockpile
 	capital_tile = p_capital
 	faction = p_faction
+	tech_caps = p_tech_caps
 
 
 func open(province_id: int = -1, filter_key: String = "all") -> void:
@@ -76,7 +79,7 @@ func refresh() -> void:
 	if model == null or works == null:
 		return
 	_data = ImprovementLedger.snapshot(
-		model, works, units, stockpile, faction, capital_tile
+		model, works, units, stockpile, faction, capital_tile, tech_caps
 	)
 	_update_summary()
 	_apply_filter()
