@@ -1,0 +1,133 @@
+name: Android debug
+
+# Debug APK for a pull request into the long-lived android-debug branch.
+# Exports that pull request's head commit with Godot 4.7.2 and publishes a
+# GitHub Release tagged android-debug/<sha>. A push to the branch does not build.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - android-debug
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-debug-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Android debug APK
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GODOT_VERSION: "4.7.2"
+      ANDROID_CMDLINE_TOOLS: "13114758"
+      ANDROID_BUILD_TOOLS: "35.0.1"
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Godot
+        run: |
+          set -euo pipefail
+          zip="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${zip}"
+          curl -fsSL -o "$zip" "$url"
+          unzip -q "$zip"
+          install -m 755 "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          godot --version
+
+      - name: Install Godot export templates
+        run: |
+          set -euo pipefail
+          dest="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$dest"
+          tmp="$(mktemp -d)"
+          archive="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${archive}"
+          curl -fsSL -o "$tmp/templates.tpz" "$url"
+          unzip -q "$tmp/templates.tpz" -d "$tmp"
+          cp -a "$tmp/templates/." "$dest/"
+          test -f "$dest/android_debug.apk"
+          test "$(cat "$dest/version.txt")" = "${GODOT_VERSION}.stable"
+
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          sdk="${RUNNER_TEMP}/android-sdk"
+          mkdir -p "$sdk/cmdline-tools"
+          tmp="$(mktemp -d)"
+          url="https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}_latest.zip"
+          curl -fsSL -o "$tmp/cmdtools.zip" "$url"
+          unzip -q "$tmp/cmdtools.zip" -d "$tmp"
+          rm -rf "$sdk/cmdline-tools/latest"
+          if [[ -x "$tmp/cmdline-tools/bin/sdkmanager" ]]; then
+            mv "$tmp/cmdline-tools" "$sdk/cmdline-tools/latest"
+          elif [[ -x "$tmp/cmdline-tools/latest/bin/sdkmanager" ]]; then
+            mv "$tmp/cmdline-tools/latest" "$sdk/cmdline-tools/latest"
+          else
+            echo "unexpected Android cmdline-tools layout" >&2
+            find "$tmp" -maxdepth 3 -type d >&2
+            exit 1
+          fi
+          yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" --licenses >/dev/null || true
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk" \
+            "platform-tools" "build-tools;${ANDROID_BUILD_TOOLS}"
+          test -x "$sdk/platform-tools/adb"
+          test -d "$sdk/build-tools/${ANDROID_BUILD_TOOLS}"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+
+      - name: Export debug APK
+        env:
+          ANDROID_EXPORT_CI: "1"
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_NAME: ${{ github.event.pull_request.head.sha }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/export/android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          short="${ANDROID_VERSION_NAME:0:12}"
+          out="${RUNNER_TEMP}/empires-of-the-sea-${short}-debug.apk"
+          .github/scripts/export_android_debug.sh "$out"
+          echo "APK_PATH=$out" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          tag="android-debug/${SHA}"
+          short="${SHA:0:12}"
+          notes="${RUNNER_TEMP}/android-debug-notes.md"
+          printf '%s\n' \
+            "Debug APK for \`${SHA}\`." \
+            "" \
+            "Pull request: ${PR_URL}" \
+            "" \
+            "Package \`com.waigore.empiresofthesea.debug\`, arm64, signed with the repository debug key. Install over the previous build with \`adb install -r\`." \
+            > "$notes"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$APK_PATH" --clobber
+          else
+            gh release create "$tag" "$APK_PATH" \
+              --target "$SHA" \
+              --prerelease \
+              --title "android-debug ${short}" \
+              --notes-file "$notes"
+          fi
+          gh release view "$tag" --json url,tagName --jq '"\(.tagName) \(.url)"'

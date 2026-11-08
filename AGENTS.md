@@ -10,6 +10,8 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
 | [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
 | [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
+| [`docs/android-debug.md`](docs/android-debug.md) | Debug APK via PR into `android-debug` |
+| [`docs/skills.md`](docs/skills.md) | Project skills + agent facades |
 | [`docs/README.md`](docs/README.md) | Docs index |
 
 ## Docs policy

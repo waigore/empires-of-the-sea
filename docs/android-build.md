@@ -7,14 +7,13 @@ Export presets, local builds and release signing for the Android target.
 [`export_presets.cfg`](../export_presets.cfg) is tracked and defines two standard (non-Gradle)
 APK presets:
 
-| Preset | Output |
-|--------|--------|
-| `Android Debug` | `build/android/empires-of-the-sea-debug.apk` |
-| `Android Release` | `build/android/empires-of-the-sea-release.apk` |
+| Preset | Package | Output |
+|--------|---------|--------|
+| `Android Debug` | `com.waigore.empiresofthesea.debug` | `build/android/empires-of-the-sea-debug.apk` |
+| `Android Release` | `com.waigore.empiresofthesea` | `build/android/empires-of-the-sea-release.apk` |
 
-Both target `arm64-v8a` + `armeabi-v7a`, package `com.waigore.empiresofthesea` (`0.1.0`, code 1),
-run on the `gl_compatibility` renderer in landscape, and exclude `addons/`, `tests/` and Markdown
-from the pack. `build/` is gitignored.
+Both target `arm64-v8a` only (`0.1.0`, code 1), run on the `gl_compatibility` renderer in
+landscape, and exclude `addons/`, `tests/` and Markdown from the pack. `build/` is gitignored.
 
 ## Local build
 
@@ -22,7 +21,7 @@ from the pack. `build/` is gitignored.
 mkdir -p build/android
 godot --headless --path . --export-debug "Android Debug" build/android/empires-of-the-sea-debug.apk
 adb install -r build/android/empires-of-the-sea-debug.apk
-adb shell am start -n com.waigore.empiresofthesea/com.godot.game.GodotAppLauncher
+adb shell am start -n com.waigore.empiresofthesea.debug/com.godot.game.GodotAppLauncher
 ```
 
 Requirements: Godot 4.7.x with Android export templates, JDK 17+ (21 is fine), and the Android SDK
@@ -33,8 +32,10 @@ beforehand; Godot will not create it.
 
 ## Release signing
 
-Keystores and passwords are never committed (`*.keystore`, `*.jks`, `keystore/` are gitignored) and
-the presets carry no signing material. Supply it at export time:
+Release keystores and passwords are never committed (`*.keystore`, `*.jks`, `keystore/` are
+gitignored; the committed [`export/android/debug.keystore`](../export/android/debug.keystore) is
+the exception for debug CI). Presets carry no signing material. Supply release credentials at
+export time:
 
 ```bash
 GODOT_ANDROID_KEYSTORE_RELEASE_PATH=/path/to/upload.jks \
@@ -45,8 +46,9 @@ godot --headless --path . --export-release "Android Release" build/android/empir
 
 ## CI
 
-CI runs tests only (`gd-tools test --coverage --min 80`); it does not build the Android APK. Run the
-local build above, or add a separate build workflow if automated artifacts are needed later.
+Tests stay in [CI](../.github/workflows/ci.yml). Debug APKs are published by the
+[`android-debug`](android-debug.md) workflow (PR into `android-debug` → GitHub Release). That check
+is **not** required on `main`.
 
 ## Notes
 
