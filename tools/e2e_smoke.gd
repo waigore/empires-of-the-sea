@@ -51,6 +51,7 @@ func _run() -> void:
 		return
 	setup.seed_field.text = SETUP_SEED
 	setup.size_option.select(SETUP_SIZE_INDEX)
+	_check(setup.leader_option.item_count > 0, "leader choices offered at setup")
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
@@ -77,6 +78,16 @@ func _run() -> void:
 		"country borders built for every nation"
 	)
 	_check(screen.play.map_seed == SETUP_SEED.to_int(), "setup seed reaches the world")
+	var leaders: Dictionary = screen.play.leaders
+	_check(
+		leaders.size() == FactionCatalog.great_power_ids().size(),
+		"every Great Power fields a leader"
+	)
+	_check(
+		String(leaders.get(screen.player_faction, ""))
+		== LeaderCatalog.default_key(screen.player_faction),
+		"the human crown fields its configured leader"
+	)
 	_check(screen.game_menu != null, "in-game menu present")
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")

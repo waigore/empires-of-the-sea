@@ -9,7 +9,7 @@ func test_each_great_power_maps_to_a_canonical_leader() -> void:
 	assert_eq(AiPersonality.leader_for(3), "henry")
 	assert_eq(AiPersonality.leader_for(4), "de_ruyter")
 	assert_eq(AiPersonality.leader_for(5), "gustavus")
-	assert_eq(AiPersonality.leader_for(99), "")
+	assert_eq(AiPersonality.leader_for(99), LeaderCatalog.DEFAULT_KEY)
 	assert_eq(AiPersonality.keys().size(), 7)
 
 

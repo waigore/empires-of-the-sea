@@ -46,6 +46,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"capital_tile": play.capital_tile,
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
+		"leaders": play.leaders.duplicate(),
 	}
 
 
@@ -145,6 +146,7 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.capital_tile = _vector(session.get("capital_tile", CapitalChoice.NO_TILE))
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
+	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height

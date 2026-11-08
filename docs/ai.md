@@ -16,7 +16,8 @@ work), P5 (rivals act without player bookkeeping).
 - **Blessed profiles** (`AiProfile`): `normal`, `aggressive`, `economic`.
   Unknown ids fall back to normal; invalid values are rejected at load.
 - **Personalities** (`AiPersonality`): the seven wiki archetypes with domain
-  weights, a war-gate shift and a war-desire bias. Each GP has a default leader
+  weights, a war-gate shift and a war-desire bias. Each GP's leaderKey comes
+  from `LeaderCatalog` — the same roster the setup screen and combat read
   (Spain Isabella, England Victoria, France Napoleon, Portugal Henry, United
   Provinces De Ruyter, Sweden Gustavus).
 - **Hidden agendas** (`AiAgenda`): one of six, assigned once from

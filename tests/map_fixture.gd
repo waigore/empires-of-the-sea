@@ -28,10 +28,16 @@ static func region() -> MapModel:
 	return _region
 
 
-static func attach_screen(host: Node) -> MapScreen:
+static func attach_screen(
+	host: Node,
+	faction: int = FactionCatalog.PLAYER_FACTION,
+	leader: String = ""
+) -> MapScreen:
 	var screen: MapScreen = load("res://scenes/map_screen.tscn").instantiate()
 	screen.map_width = WORLD_WIDTH
 	screen.map_height = WORLD_HEIGHT
+	screen.player_faction = faction
+	screen.player_leader = leader
 	screen.preset_world = world()
 	host.add_child(screen)
 	return screen
