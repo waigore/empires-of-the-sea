@@ -15,3 +15,4 @@ Index for product and process docs. Agent entry point: [`../AGENTS.md`](../AGENT
 | Doc | Purpose |
 |-----|---------|
 | [pull-requests.md](pull-requests.md) | PR base rules: `gh`, required checks, merge |
+| [android-build.md](android-build.md) | Android export presets, local build, release signing |

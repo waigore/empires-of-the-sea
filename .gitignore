@@ -2,8 +2,12 @@
 .godot/
 *.translation
 export.cfg
-export_presets.cfg
 .import/
+
+# Android signing — never commit keystores or credentials
+*.keystore
+*.jks
+keystore/
 
 # gd-tools
 .gd-tools/
