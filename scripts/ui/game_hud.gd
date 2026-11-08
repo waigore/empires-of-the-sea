@@ -11,6 +11,9 @@ signal minimap_jump(world_position: Vector2)
 signal panel_action(action: String)
 signal panel_closed
 signal fleet_closed
+signal civilian_action(action: String)
+signal civilian_cancel
+signal civilian_closed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -19,6 +22,7 @@ var _turn_label: Label = null
 var _treasury_label: Label = null
 var _prestige_label: Label = null
 var _fleet_label: Label = null
+var _civilian_label: Label = null
 var _treasury_chip: Control = null
 var _toast_box: VBoxContainer = null
 var _minimap: Minimap = null
@@ -26,12 +30,15 @@ var _panel_wrap: Control = null
 var _panel: ProvincePanel = null
 var _fleet_wrap: Control = null
 var _fleet_panel: FleetPanel = null
+var _civilian_wrap: Control = null
+var _civilian_panel: CivilianPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
 var _glow: Panel = null
 var _panel_open: bool = false
 var _fleet_open: bool = false
+var _civilian_open: bool = false
 var _treasury_value: int = 0
 
 
@@ -46,6 +53,7 @@ func _ready() -> void:
 	_build_end_turn()
 	_build_panel()
 	_build_fleet_panel()
+	_build_civilian_panel()
 	_build_tooltip()
 
 
@@ -113,6 +121,10 @@ func _build_top_bar() -> void:
 	var fleets := _make_chip("ship", "SHIPS")
 	_fleet_label = fleets["value"]
 	row.add_child(fleets["root"])
+
+	var civilians := _make_chip("compass", "CIVILIANS")
+	_civilian_label = civilians["value"]
+	row.add_child(civilians["root"])
 
 
 func _make_chip(icon_kind: String, caption: String) -> Dictionary:
@@ -281,6 +293,27 @@ func _build_fleet_panel() -> void:
 	_fleet_wrap.add_child(_fleet_panel)
 
 
+func _build_civilian_panel() -> void:
+	_civilian_wrap = Control.new()
+	_civilian_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	_civilian_wrap.offset_left = -PANEL_MARGIN
+	_civilian_wrap.offset_right = PANEL_WIDTH - PANEL_MARGIN
+	_civilian_wrap.offset_top = 84.0
+	_civilian_wrap.offset_bottom = -104.0
+	_civilian_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_civilian_wrap.visible = false
+	add_child(_civilian_wrap)
+
+	_civilian_panel = CivilianPanel.new()
+	_civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_civilian_panel.action_pressed.connect(func(action: String) -> void:
+		civilian_action.emit(action)
+	)
+	_civilian_panel.cancel_pressed.connect(func() -> void: civilian_cancel.emit())
+	_civilian_panel.close_pressed.connect(func() -> void: civilian_closed.emit())
+	_civilian_wrap.add_child(_civilian_panel)
+
+
 func _build_tooltip() -> void:
 	_tooltip = PanelContainer.new()
 	var style := UiTheme.box(
@@ -328,6 +361,10 @@ func set_fleets(value: int) -> void:
 	_fleet_label.text = str(value)
 
 
+func set_civilians(value: int) -> void:
+	_civilian_label.text = str(value)
+
+
 func toast(text: String) -> void:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override(
@@ -353,6 +390,7 @@ func toast(text: String) -> void:
 
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_fleet()
+	hide_civilian()
 	_panel.refresh(model, province_id)
 	_panel_wrap.visible = true
 	_panel_open = true
@@ -379,6 +417,7 @@ func is_panel_open() -> bool:
 
 func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_province()
+	hide_civilian()
 	_fleet_panel.refresh(model, fleet, is_player)
 	_fleet_wrap.visible = true
 	_fleet_open = true
@@ -397,6 +436,50 @@ func hide_fleet() -> void:
 
 func is_fleet_panel_open() -> bool:
 	return _fleet_open
+
+
+## Civilian dossier: shows the posting, tile works and the type's work orders.
+func show_civilian(
+	model: MapModel,
+	unit: CivilianState,
+	works: LandWorks,
+	units: Array[CivilianState],
+	stockpile: Dictionary,
+	visibility: VisibilityModel = null
+) -> void:
+	hide_province()
+	hide_fleet()
+	_civilian_panel.refresh(model, unit, works, units, stockpile, visibility)
+	_civilian_wrap.visible = true
+	_civilian_open = true
+	_civilian_wrap.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_civilian_wrap, "offset_left", -(PANEL_WIDTH + PANEL_MARGIN), 0.34)
+	tween.tween_property(_civilian_wrap, "offset_right", -PANEL_MARGIN, 0.34)
+	tween.tween_property(_civilian_wrap, "modulate:a", 1.0, 0.22)
+
+
+func hide_civilian() -> void:
+	if not _civilian_open:
+		return
+	_civilian_open = false
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(_civilian_wrap, "offset_left", -PANEL_MARGIN, 0.26)
+	tween.tween_property(_civilian_wrap, "offset_right", PANEL_WIDTH - PANEL_MARGIN, 0.26)
+	tween.tween_property(_civilian_wrap, "modulate:a", 0.0, 0.2)
+	tween.chain().tween_callback(func() -> void: _civilian_wrap.visible = false)
+
+
+func is_civilian_panel_open() -> bool:
+	return _civilian_open
+
+
+## Training orders exist only in the player's capital (wiki: civilian-units
+## § Civilian Types and Roles).
+func set_civilian_training(visible: bool) -> void:
+	_panel.set_training_visible(visible)
 
 
 func set_minimap(model: MapModel, map_size: Vector2) -> void:

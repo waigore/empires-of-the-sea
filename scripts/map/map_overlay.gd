@@ -18,6 +18,7 @@ var hover_province: int = -1
 var selected_province: int = -1
 var move_zones: Array[int] = []
 var move_provinces: Array[int] = []
+var move_tiles: Array[Vector2i] = []
 
 var _fade: PackedFloat32Array = PackedFloat32Array()
 var _fog_image: Image = null
@@ -128,10 +129,24 @@ func show_move_options(zones: Array[int], provinces: Array[int]) -> void:
 
 
 func clear_move_options() -> void:
+	move_tiles.clear()
 	if move_zones.is_empty() and move_provinces.is_empty():
 		return
 	move_zones.clear()
 	move_provinces.clear()
+	queue_redraw()
+
+
+## Tile-level march targets for the selected civilian (one land tile per turn).
+func show_tile_options(tiles: Array[Vector2i]) -> void:
+	move_tiles = tiles.duplicate()
+	queue_redraw()
+
+
+func clear_tile_options() -> void:
+	if move_tiles.is_empty():
+		return
+	move_tiles.clear()
 	queue_redraw()
 
 
@@ -217,6 +232,14 @@ func _draw() -> void:
 			province_id, Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 2.2
 		)
 		_draw_port_marker(province_id, pulse)
+
+	for tile: Vector2i in move_tiles:
+		var point: Vector2 = model.tile_center(tile.x, tile.y, TILE_SIZE)
+		draw_arc(
+			point, 8.0 + pulse * 1.6, 0, TAU, 24,
+			Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 1.8, true
+		)
+		draw_circle(point, 2.0, Color(0.99, 0.93, 0.72, 0.85))
 
 	for ripple: Dictionary in _ripples:
 		var age: float = ripple["age"]

@@ -131,6 +131,20 @@ func test_knowledge_levels_are_ordered() -> void:
 	assert_false(_visibility.lower_to(index, VisibilityModel.Level.FOGGED))
 
 
+func test_reveal_province_opens_every_tile() -> void:
+	var changed: Array = _visibility.reveal_province(1)
+	assert_true(changed.size() > 0)
+	assert_true(_visibility.is_province_fully_visible(1))
+
+
+func test_civilian_presence_holds_a_foreign_province() -> void:
+	_visibility.reveal_province(1)
+	_visibility.end_of_turn([], [1])
+	assert_true(_visibility.is_province_fully_visible(1))
+	_visibility.end_of_turn([])
+	assert_false(_visibility.is_province_fully_visible(1))
+
+
 func test_province_visibility_uses_the_highest_tile() -> void:
 	_visibility.apply_initial()
 	assert_eq(_visibility.province_visibility(0), VisibilityModel.Level.FULLY_VISIBLE)

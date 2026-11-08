@@ -7,6 +7,14 @@ const TILE_SIZE: float = 22.0
 const MAP_SEED: int = 1500
 const PLAYER_FACTION: int = 0
 const SHIP_COUNT: int = 7
+const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
+const STOCKPILE_START: Dictionary = {
+	"lumber": 40,
+	"castIron": 40,
+	"bronze": 12,
+	"steel": 8,
+	"paper": 8,
+}
 
 var model: MapModel = null
 var visibility: VisibilityModel = null
@@ -20,6 +28,8 @@ var income: int = 120
 var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
+var land_works: LandWorks = null
+var stockpile: Dictionary = STOCKPILE_START.duplicate()
 
 var _hover_province: int = -1
 var _charted_provinces: Dictionary = {}
@@ -28,6 +38,7 @@ var _charted_provinces: Dictionary = {}
 @onready var canvas: MapCanvas = $World/MapCanvas
 @onready var overlay: MapOverlay = $World/MapOverlay
 @onready var ship_layer: ShipLayer = $World/ShipLayer
+@onready var civilian_layer: CivilianLayer = $World/CivilianLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
 @onready var fade: ColorRect = $FadeLayer/Fade
@@ -75,6 +86,8 @@ func _build_world() -> void:
 	capital_province = _find_capital()
 	capital_tile = _capital_tile(capital_province)
 	ship_layer.spawn(model, SHIP_COUNT, MAP_SEED + 3, capital_province)
+	land_works = LandWorks.new()
+	civilian_layer.spawn(model, land_works, capital_province, PLAYER_FACTION, STARTING_CIVILIANS)
 	camera.configure(map_size)
 	_build_visibility()
 	overlay.snap_fog()
@@ -87,6 +100,7 @@ func _build_hud() -> void:
 	hud.set_treasury(treasury, false)
 	hud.set_prestige(prestige)
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
+	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
 	income = 90 + _owned_provinces() * 6
 
 
@@ -103,6 +117,11 @@ func _connect() -> void:
 	ship_layer.ship_selected.connect(_select_fleet)
 	ship_layer.fleet_moved.connect(_on_fleet_moved)
 	hud.fleet_closed.connect(_deselect)
+	civilian_layer.unit_selected.connect(_select_civilian)
+	civilian_layer.unit_moved.connect(_on_civilian_moved)
+	hud.civilian_action.connect(_on_civilian_action)
+	hud.civilian_cancel.connect(_on_civilian_cancel)
+	hud.civilian_closed.connect(_deselect)
 
 
 func _intro() -> void:
@@ -154,6 +173,12 @@ func _owned_provinces() -> int:
 
 
 func _on_tapped(world_position: Vector2) -> void:
+	var civilian: CivilianState = civilian_layer.unit_at(world_position)
+	if civilian != null:
+		civilian_layer.select(civilian)
+		return
+	if _try_civilian_move(world_position):
+		return
 	var ship: Ship = ship_layer.ship_at(world_position, 30.0 / maxf(camera.zoom.x, 0.001))
 	if ship != null:
 		ship_layer.select(ship)
@@ -172,20 +197,152 @@ func _on_tapped(world_position: Vector2) -> void:
 
 func _select_province(province_id: int, world_position: Vector2) -> void:
 	ship_layer.deselect()
+	civilian_layer.deselect()
 	overlay.clear_move_options()
+	overlay.clear_tile_options()
 	hud.hide_fleet()
+	hud.hide_civilian()
 	selected_province = province_id
 	overlay.select_province(province_id, world_position)
 	hud.show_province(model, province_id)
+	hud.set_civilian_training(province_id == capital_province)
 
 
 func _deselect() -> void:
 	selected_province = -1
 	overlay.select_province(-1)
 	ship_layer.deselect()
+	civilian_layer.deselect()
 	overlay.clear_move_options()
+	overlay.clear_tile_options()
 	hud.hide_province()
 	hud.hide_fleet()
+	hud.hide_civilian()
+
+
+# --- civilians --------------------------------------------------------------
+
+
+func _select_civilian(unit: CivilianState) -> void:
+	selected_province = -1
+	overlay.select_province(-1)
+	overlay.clear_tile_options()
+	hud.hide_province()
+	hud.hide_fleet()
+	if unit == null:
+		hud.hide_civilian()
+		return
+	hud.show_civilian(model, unit, land_works, civilian_layer.units, stockpile, visibility)
+	if unit.owner == PLAYER_FACTION:
+		overlay.show_tile_options(CivilianMovement.valid_tiles(model, unit))
+	else:
+		hud.toast("Civilian of %s — observe only" % MapGenerator.FACTION_NAMES[unit.owner])
+
+
+## Tapping a neighbouring land tile marches the selected civilian there.
+func _try_civilian_move(world_position: Vector2) -> bool:
+	var unit: CivilianState = civilian_layer.selected_unit
+	if unit == null or unit.owner != PLAYER_FACTION:
+		return false
+	var tile: Vector2i = model.tile_at_world(world_position, TILE_SIZE)
+	if not model.in_bounds(tile.x, tile.y):
+		return false
+	var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
+	if distance != 1:
+		return false
+	var result: Dictionary = civilian_layer.apply_move(unit, tile)
+	if not bool(result.get("ok", false)):
+		hud.toast(String(result.get("reason", "")))
+	return true
+
+
+func _on_civilian_moved(unit: CivilianState, _result: Dictionary) -> void:
+	if unit.owner != PLAYER_FACTION:
+		return
+	var province: int = model.province_at(unit.tile.x, unit.tile.y)
+	var place: String = model.province_name(province) if province >= 0 else "the wilds"
+	hud.toast("The %s marches into %s" % [unit.display_name(), place])
+	_refresh_civilian_panel()
+
+
+func _on_civilian_action(action: String) -> void:
+	var unit: CivilianState = civilian_layer.selected_unit
+	if unit == null or unit.owner != PLAYER_FACTION:
+		return
+	var result: Dictionary = CivilianWork.assign(
+		model, unit, action, land_works, civilian_layer.units, stockpile, visibility
+	)
+	if not bool(result.get("ok", false)):
+		hud.toast(String(result.get("reason", "")))
+		return
+	hud.toast("%s begins: %s" % [unit.display_name(), CivilianWork.label(action)])
+	_refresh_civilian_panel()
+
+
+func _on_civilian_cancel() -> void:
+	var unit: CivilianState = civilian_layer.selected_unit
+	if unit == null or not unit.is_working():
+		return
+	unit.cancel_work()
+	hud.toast("The %s abandons its work." % unit.display_name())
+	_refresh_civilian_panel()
+
+
+func _refresh_civilian_panel() -> void:
+	civilian_layer.sync()
+	civilian_layer.refresh_works()
+	var unit: CivilianState = civilian_layer.selected_unit
+	if unit == null:
+		return
+	hud.show_civilian(model, unit, land_works, civilian_layer.units, stockpile, visibility)
+	overlay.clear_tile_options()
+	overlay.show_tile_options(CivilianMovement.valid_tiles(model, unit))
+
+
+## Build/Work pass: advance work orders, apply completions and report them.
+func _resolve_civilian_work() -> void:
+	if land_works == null:
+		return
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		model, civilian_layer.units, land_works, visibility
+	)
+	var changed: Array = []
+	for report: Dictionary in reports:
+		if not bool(report.get("completed", false)):
+			continue
+		changed.append_array(report.get("changed", []))
+		var type_name: String = CivilianCatalog.display_name(String(report["type_id"]))
+		var province: int = int(report["province"])
+		var place: String = model.province_name(province) if province >= 0 else "the wilds"
+		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
+		hud.toast("%s in %s: %s" % [type_name, place, work_name])
+	if not changed.is_empty():
+		overlay.sync_visibility(visibility, changed)
+	civilian_layer.sync()
+	civilian_layer.refresh_works()
+
+
+func _train_civilian(type_id: String) -> void:
+	if not CivilianCatalog.is_implemented(type_id):
+		hud.toast(CivilianCatalog.deferred_reason(type_id))
+		return
+	if selected_province != capital_province:
+		hud.toast("Civilians are trained at the capital.")
+		return
+	var paper: int = int(stockpile.get("paper", 0))
+	if not CivilianCatalog.can_afford(type_id, treasury, paper):
+		hud.toast("The crown cannot afford a %s." % CivilianCatalog.display_name(type_id))
+		return
+	var tile: Vector2i = civilian_layer.mustering_tile(capital_province)
+	if tile.x < 0:
+		hud.toast("There is no room to muster another civilian.")
+		return
+	treasury -= CivilianCatalog.treasury_cost(type_id)
+	stockpile["paper"] = paper - CivilianCatalog.paper_cost(type_id)
+	var unit: CivilianState = civilian_layer.add_unit(PLAYER_FACTION, type_id, tile)
+	hud.set_treasury(treasury)
+	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	hud.toast("%s musters at %s" % [unit.display_name(), model.province_name(capital_province)])
 
 
 # --- fleets -----------------------------------------------------------------
@@ -277,6 +434,7 @@ func _on_view_changed() -> void:
 	var half: Vector2 = viewport / (2.0 * maxf(camera.zoom.x, 0.001))
 	hud.update_view_rect(Rect2(camera.position - half, half * 2.0))
 	ship_layer.set_zoom(camera.zoom.x)
+	civilian_layer.set_zoom(camera.zoom.x)
 
 
 func _on_zone_entered(zone_id: int, ship: Ship) -> void:
@@ -314,14 +472,18 @@ func _on_panel_action(action: String) -> void:
 			hud.toast("A regiment is raised in %s" % name)
 		"build":
 			hud.toast("Works begin in %s" % name)
+		"train_explorer", "train_builder", "train_engineer":
+			_train_civilian(action.trim_prefix("train_"))
 		_:
 			hud.toast("Order noted in %s" % name)
 
 
 func _on_end_turn() -> void:
+	_resolve_civilian_work()
 	_resolve_naval_combat()
 	_resolve_visibility()
 	ship_layer.begin_turn()
+	civilian_layer.begin_turn()
 	_refresh_fleet_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
@@ -338,6 +500,8 @@ func _on_end_turn() -> void:
 		if fleet != null:
 			hud.show_fleet(model, fleet, fleet.owner == PLAYER_FACTION)
 			_refresh_fleet_options(fleet)
+	if civilian_layer.selected_unit != null:
+		_refresh_civilian_panel()
 
 
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
@@ -377,7 +541,10 @@ func _resolve_visibility() -> void:
 	for ship: Ship in ship_layer.ships:
 		if ship.faction == PLAYER_FACTION and ship.zone >= 0:
 			at_sea.append(ship.zone)
-	var changed: Array = visibility.end_of_turn(at_sea)
+	var held: Array = CivilianMovement.held_provinces(
+		model, civilian_layer.units, PLAYER_FACTION
+	)
+	var changed: Array = visibility.end_of_turn(at_sea, held)
 	if not changed.is_empty():
 		overlay.sync_visibility(visibility, changed)
 

@@ -17,6 +17,7 @@ var _port_value: Label = null
 var _capital_value: Label = null
 var _road_value: Label = null
 var _capital_badge: Label = null
+var _training_box: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -98,6 +99,28 @@ func _build() -> void:
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
 	column.add_child(build)
 
+	_training_box = VBoxContainer.new()
+	_training_box.add_theme_constant_override("separation", 6)
+	_training_box.visible = false
+	column.add_child(_training_box)
+
+	var training := Label.new()
+	training.text = "TRAIN CIVILIANS"
+	training.add_theme_font_size_override("font_size", 11)
+	training.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_training_box.add_child(training)
+
+	for type_id: String in CivilianCatalog.playable_types():
+		var train := _make_button(
+			"Train %s · %s" % [
+				CivilianCatalog.display_name(type_id),
+				CivilianCatalog.training_cost_text(type_id),
+			]
+		)
+		train.add_theme_font_size_override("font_size", 13)
+		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
+		_training_box.add_child(train)
+
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 4)
 	column.add_child(spacer)
@@ -112,6 +135,10 @@ func _build() -> void:
 	var close := _make_button("Close")
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	column.add_child(close)
+
+
+func set_training_visible(visible: bool) -> void:
+	_training_box.visible = visible
 
 
 func refresh(model: MapModel, province_id: int) -> void:
