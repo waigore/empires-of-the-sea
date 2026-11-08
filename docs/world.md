@@ -28,8 +28,10 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
   zones** (one edge sea zone per side) pair 1:1 and are marked “Passage” on the
   map.
 - The HUD region button (`OLD WORLD ›` / `NEW WORLD ›`) swaps canvas, fog,
-  fleets, minimap and camera bounds; the player keeps squadrons only where it
-  owns provinces.
+  fleets, civilians, works and camera bounds. Squadrons, civilian rosters and
+  land works persist per region, and every region advances on end turn, so
+  leaving a map never pauses it; the player keeps squadrons only where it owns
+  provinces.
 
 ## Ownership
 

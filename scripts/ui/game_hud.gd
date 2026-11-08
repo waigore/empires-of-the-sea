@@ -1,3 +1,4 @@
+# gdlint: disable=max-public-methods
 class_name GameHud
 extends Control
 ## Screen furniture: cartouche bar, treasury chips, minimap, zoom controls,
@@ -12,6 +13,7 @@ signal region_toggle_pressed
 signal panel_action(action: String)
 signal panel_closed
 signal fleet_closed
+signal economy_pressed
 signal civilian_action(action: String)
 signal civilian_cancel
 signal civilian_closed
@@ -33,6 +35,9 @@ var _panel_wrap: Control = null
 var _panel: ProvincePanel = null
 var _fleet_wrap: Control = null
 var _fleet_panel: FleetPanel = null
+var _economy_wrap: Control = null
+var _economy_panel: EconomyPanel = null
+var _economy_open: bool = false
 var _civilian_wrap: Control = null
 var _civilian_panel: CivilianPanel = null
 var _tooltip: PanelContainer = null
@@ -56,6 +61,7 @@ func _ready() -> void:
 	_build_end_turn()
 	_build_panel()
 	_build_fleet_panel()
+	_build_economy_panel()
 	_build_civilian_panel()
 	_build_tooltip()
 
@@ -119,6 +125,13 @@ func _build_top_bar() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
+
+	var ledger := Button.new()
+	ledger.text = "LEDGER"
+	ledger.custom_minimum_size = Vector2(96, 40)
+	ledger.add_theme_font_size_override("font_size", 14)
+	ledger.pressed.connect(func() -> void: economy_pressed.emit())
+	row.add_child(ledger)
 
 	var treasury := _make_chip("coin", "TREASURY")
 	_treasury_chip = treasury["root"]
@@ -304,6 +317,23 @@ func _build_fleet_panel() -> void:
 	_fleet_wrap.add_child(_fleet_panel)
 
 
+func _build_economy_panel() -> void:
+	_economy_wrap = Control.new()
+	_economy_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	_economy_wrap.offset_left = -520.0
+	_economy_wrap.offset_right = -PANEL_MARGIN
+	_economy_wrap.offset_top = 84.0
+	_economy_wrap.offset_bottom = -104.0
+	_economy_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	_economy_wrap.visible = false
+	add_child(_economy_wrap)
+
+	_economy_panel = EconomyPanel.new()
+	_economy_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_economy_panel.close_pressed.connect(func() -> void: hide_economy())
+	_economy_wrap.add_child(_economy_panel)
+
+
 func _build_civilian_panel() -> void:
 	_civilian_wrap = Control.new()
 	_civilian_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
@@ -460,6 +490,32 @@ func is_fleet_panel_open() -> bool:
 	return _fleet_open
 
 
+func economy_panel() -> EconomyPanel:
+	return _economy_panel
+
+
+func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionary) -> void:
+	hide_province()
+	hide_fleet()
+	hide_civilian()
+	_economy_panel.refresh(economy, market, report)
+	_economy_wrap.visible = true
+	_economy_open = true
+	var tween := create_tween()
+	tween.tween_property(_economy_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+
+
+func hide_economy() -> void:
+	if not _economy_open:
+		return
+	_economy_open = false
+	_economy_wrap.visible = false
+
+
+func is_economy_open() -> bool:
+	return _economy_open
+
+
 ## Civilian dossier: shows the posting, tile works and the type's work orders.
 func show_civilian(
 	model: MapModel,
@@ -471,6 +527,7 @@ func show_civilian(
 ) -> void:
 	hide_province()
 	hide_fleet()
+	hide_economy()
 	_civilian_panel.refresh(model, unit, works, units, stockpile, visibility)
 	_civilian_wrap.visible = true
 	_civilian_open = true

@@ -121,10 +121,10 @@ func test_clicking_a_fleet_selects_it() -> void:
 
 func test_end_turn_advances_calendar_and_treasury() -> void:
 	var turn_before: int = _screen.turn
-	var treasury_before: int = _screen.treasury
 	_screen._on_end_turn()
 	assert_eq(_screen.turn, turn_before + 1)
-	assert_eq(_screen.treasury, treasury_before + _screen.income)
+	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
+	assert_eq(_screen.income, _screen.economy.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 

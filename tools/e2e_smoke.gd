@@ -114,14 +114,29 @@ func _run() -> void:
 		_check(builder.is_working(), "civilian work order starts")
 
 	var turn_before: int = screen.turn
-	var treasury_before: int = screen.treasury
 	screen._on_end_turn()
 	await process_frame
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	_check(screen.economy != null, "economy wired")
 	_check(
-		screen.treasury == treasury_before + screen.income,
-		"end turn applies income"
+		screen.treasury == screen.economy.economy.treasury,
+		"treasury mirrors the resolved economy"
 	)
+	_check(screen.economy.economy.total_units() > 0, "stockpile holds goods")
+	_check(
+		screen.economy.extraction().size() > 0,
+		"owned provinces yield commodities"
+	)
+	screen.economy.open_panel()
+	await process_frame
+	_check(screen.hud.is_economy_open(), "ledger opens")
+	screen.economy._on_production("lumber", 1)
+	_check(
+		screen.economy.economy.assignment_units("lumber") == 1,
+		"production assignment sticks"
+	)
+	screen.hud.hide_economy()
+	_check(not screen.hud.is_economy_open(), "ledger closes")
 	_check(
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"

@@ -11,9 +11,12 @@ signal fleet_moved(fleet: FleetState, result: Dictionary)
 const TILE_SIZE: float = 22.0
 const PLAYER_FLEETS: int = 3
 ## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
+## The player's three squadrons start small so naval food upkeep
+## (2 per ship per turn) fits the opening stockpile.
 const HULL_SETS: Array[Array] = [
-	["carrack", "carrack", "sloop"],
-	["carrack", "fluyte"],
+	["carrack"],
+	["sloop"],
+	["fluyte"],
 	["galleon", "carrack", "fluyte"],
 	["sloop", "carrack"],
 	["carrack", "carrack"],
@@ -86,7 +89,8 @@ func _rebuild_markers() -> void:
 
 
 ## Fleets belong to Great Powers only (wiki: factions — Minors/Tribes keep no
-## navy). The player owns squadrons only in regions where it holds provinces.
+## navy). The player owns squadrons only in regions where it holds provinces;
+## rival squadrons in the New World are explorers, not holdings.
 static func _owner_for_index(index: int, count: int, player_present: bool) -> int:
 	var powers: Array[int] = FactionCatalog.great_power_ids()
 	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0

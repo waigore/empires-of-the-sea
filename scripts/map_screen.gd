@@ -15,19 +15,13 @@ const MAP_SEED: int = 1500
 const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 const SHIP_COUNT: int = 7
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
-const STOCKPILE_START: Dictionary = {
-	"lumber": 40,
-	"castIron": 40,
-	"bronze": 12,
-	"steel": 8,
-	"paper": 8,
-}
 
 var world: WorldMap = null
 ## Region currently on screen (Old World first).
 var region_index: int = 0
 var model: MapModel = null
 var visibility: VisibilityModel = null
+var economy: EconomyController = null
 var map_seed: int = MAP_SEED
 var map_width: int = 128
 var map_height: int = 84
@@ -39,7 +33,7 @@ var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
 var land_works: LandWorks = null
-var stockpile: Dictionary = STOCKPILE_START.duplicate()
+var stockpile: Dictionary = {}
 
 var _hover_province: int = -1
 var _charted_provinces: Dictionary = {}
@@ -114,12 +108,14 @@ func _load_region(index: int) -> void:
 	_build_visibility()
 	overlay.snap_fog()
 	_refresh_fleet_visibility()
-	if hud != null:
-		hud.set_minimap(model, map_size)
-		hud.set_region_label(FactionCatalog.region_label(region_index))
-		hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
-		hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
-		income = 90 + _owned_provinces() * 6
+	if hud == null:
+		return
+	hud.set_minimap(model, map_size)
+	hud.set_region_label(FactionCatalog.region_label(region_index))
+	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
+	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	if economy != null:
+		income = economy.projected_income()
 
 
 ## Cycles Old World -> New World and back. Intents never change rules state.
@@ -142,16 +138,26 @@ func _player_present() -> bool:
 	return _owned_provinces() > 0
 
 
+func _owned_provinces() -> int:
+	return world.owned_provinces(region_index, PLAYER_FACTION)
+
+
 func _build_hud() -> void:
 	hud.set_nation(FactionCatalog.name_of(PLAYER_FACTION))
 	hud.set_region_label(FactionCatalog.region_label(region_index))
 	hud.set_minimap(model, model.world_size(TILE_SIZE))
 	hud.set_turn(turn, TurnTime.year_for_turn(turn))
-	hud.set_treasury(treasury, false)
 	hud.set_prestige(prestige)
 	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
-	income = 90 + _owned_provinces() * 6
+	economy = EconomyController.new()
+	add_child(economy)
+	economy.setup(model, PLAYER_FACTION, capital_province, ship_layer, hud)
+	economy.treasury_changed.connect(func(value: int) -> void: treasury = value)
+	treasury = economy.economy.treasury
+	stockpile = economy.economy.stockpile
+	hud.set_treasury(treasury, false)
+	income = economy.projected_income()
 
 
 func _connect() -> void:
@@ -201,10 +207,6 @@ func _build_visibility() -> void:
 
 func _find_capital() -> int:
 	return world.seat_province(region_index, PLAYER_FACTION)
-
-
-func _owned_provinces() -> int:
-	return world.owned_provinces(region_index, PLAYER_FACTION)
 
 
 # --- interaction ------------------------------------------------------------
@@ -366,17 +368,19 @@ func _train_civilian(type_id: String) -> void:
 	if selected_province != capital_province:
 		hud.toast("Civilians are trained at the capital.")
 		return
-	var paper: int = int(stockpile.get("paper", 0))
-	if not CivilianCatalog.can_afford(type_id, treasury, paper):
+	var state: PlayerEconomy = economy.economy
+	var paper: int = state.quantity("paper")
+	if not CivilianCatalog.can_afford(type_id, state.treasury, paper):
 		hud.toast("The crown cannot afford a %s." % CivilianCatalog.display_name(type_id))
 		return
 	var tile: Vector2i = civilian_layer.mustering_tile(capital_province)
 	if tile.x < 0:
 		hud.toast("There is no room to muster another civilian.")
 		return
-	treasury -= CivilianCatalog.treasury_cost(type_id)
-	stockpile["paper"] = paper - CivilianCatalog.paper_cost(type_id)
+	state.spend_treasury(CivilianCatalog.treasury_cost(type_id))
+	state.take("paper", CivilianCatalog.paper_cost(type_id))
 	var unit: CivilianState = civilian_layer.add_unit(PLAYER_FACTION, type_id, tile)
+	treasury = state.treasury
 	hud.set_treasury(treasury)
 	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
 	hud.toast("%s musters at %s" % [unit.display_name(), model.province_name(capital_province)])
@@ -524,12 +528,12 @@ func _on_end_turn() -> void:
 	_refresh_fleet_visibility()
 	turn += 1
 	var year: int = TurnTime.year_for_turn(turn)
-	treasury += income
+	economy.resolve_turn()
+	treasury = economy.economy.treasury
+	income = economy.projected_income()
 	prestige += 1
 	hud.set_turn(turn, year)
-	hud.set_treasury(treasury)
 	hud.set_prestige(prestige)
-	hud.flash_income(income)
 	hud.toast("Turn %d — %d" % [turn, year])
 	var selected: Ship = ship_layer.selected_ship
 	if selected != null:
@@ -592,8 +596,8 @@ func _capital_tile(province_id: int) -> Vector2i:
 	return model.capital_tile_of(province_id)
 
 
-## Enemy markers follow fog intel: the layer draws a fleet only while its tile
-## is fully visible for the player (wiki: fog-and-exploration).
+## Enemy markers follow fog intel: a fleet is only drawn while its tile is
+## fully visible for the player (wiki: fog-and-exploration).
 func _refresh_fleet_visibility() -> void:
 	ship_layer.refresh_visibility(visibility, PLAYER_FACTION)
 

@@ -446,16 +446,21 @@ func _build_sea_zones(model: MapModel) -> void:
 
 
 static func resource_table() -> Array[Dictionary]:
+	var forest: Array = [MapModel.Terrain.FOREST]
+	var hills: Array = [MapModel.Terrain.HILLS]
+	var peaks: Array = [MapModel.Terrain.MOUNTAINS]
+	var plains: Array = [MapModel.Terrain.PLAINS]
+	var swamp: Array = [MapModel.Terrain.SWAMP]
 	var table: Array[Dictionary] = [
-		{"name": "Timber", "icon": "tree", "terrain": [MapModel.Terrain.FOREST]},
-		{"name": "Iron", "icon": "ore", "terrain": [MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS]},
-		{"name": "Coal", "icon": "ore", "terrain": [MapModel.Terrain.HILLS]},
-		{"name": "Gold", "icon": "coin", "terrain": [MapModel.Terrain.MOUNTAINS]},
-		{"name": "Grain", "icon": "wheat", "terrain": [MapModel.Terrain.PLAINS]},
-		{"name": "Wool", "icon": "wheat", "terrain": [MapModel.Terrain.PLAINS, MapModel.Terrain.HILLS]},
-		{"name": "Horses", "icon": "wheat", "terrain": [MapModel.Terrain.PLAINS]},
-		{"name": "Salt", "icon": "ore", "terrain": [MapModel.Terrain.DESERT, MapModel.Terrain.SHALLOW]},
-		{"name": "Fish", "icon": "fish", "terrain": [MapModel.Terrain.SHALLOW]},
+		{"name": "Timber", "icon": "tree", "commodity": "timber", "terrain": forest},
+		{"name": "Iron", "icon": "ore", "commodity": "iron", "terrain": hills + peaks},
+		{"name": "Coal", "icon": "ore", "commodity": "coal", "terrain": hills},
+		{"name": "Gold", "icon": "coin", "commodity": "gold", "terrain": peaks},
+		{"name": "Grain", "icon": "wheat", "commodity": "grain", "terrain": plains},
+		{"name": "Wool", "icon": "wheat", "commodity": "wool", "terrain": plains + hills},
+		{"name": "Horses", "icon": "wheat", "commodity": "horses", "terrain": plains},
+		{"name": "Meat", "icon": "wheat", "commodity": "meat", "terrain": plains + hills},
+		{"name": "Tin", "icon": "ore", "commodity": "tin", "terrain": swamp},
 	]
 	return table
 
@@ -468,34 +473,7 @@ static func resource_info(index: int) -> Dictionary:
 
 
 func _build_resources(model: MapModel) -> void:
-	var table: Array[Dictionary] = resource_table()
-	for province: Dictionary in model.provinces:
-		if _rng.randf() > 0.62:
-			continue
-		var tiles: Array[Vector2i] = province["tiles"]
-		var candidates: Array[Vector2i] = []
-		for tile: Vector2i in tiles:
-			var terrain: int = model.terrain_at(tile.x, tile.y)
-			for resource_index in table.size():
-				var allowed: Array = table[resource_index]["terrain"]
-				if allowed.has(terrain):
-					candidates.append(tile)
-					break
-		if candidates.is_empty():
-			continue
-		var chosen: Vector2i = candidates[_rng.randi_range(0, candidates.size() - 1)]
-		var terrain: int = model.terrain_at(chosen.x, chosen.y)
-		var options: Array[int] = []
-		for resource_index in table.size():
-			var allowed: Array = table[resource_index]["terrain"]
-			if allowed.has(terrain):
-				options.append(resource_index)
-		if options.is_empty():
-			continue
-		var pick: int = options[_rng.randi_range(0, options.size() - 1)]
-		model.resource[model.index_of(chosen.x, chosen.y)] = pick
-		province["resource"] = pick
-		province["resource_tile"] = chosen
+	ResourceSeeder.seed_resources(model, resource_table(), _rng)
 
 
 func _build_ports(model: MapModel) -> void:
