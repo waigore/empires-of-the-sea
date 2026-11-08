@@ -296,6 +296,7 @@ func _smoke_end_turn(
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(screen.economy != null, "economy wired")
 	_check(
 		screen.treasury == screen.economy.economy.treasury,

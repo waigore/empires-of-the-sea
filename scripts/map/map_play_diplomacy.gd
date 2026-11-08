@@ -59,13 +59,51 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	refresh(play)
 
 
-## End-of-turn diplomacy phase: first contact, subsidy upkeep, relation drift.
+## End-of-turn diplomacy phase: first contact, rival-court AI orders, subsidy
+## upkeep, relation drift.
 static func resolve_turn(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		return
 	sync_first_contact(play)
+	run_ai(play)
 	play.diplomacy.end_turn()
 	refresh(play)
+
+
+## Rival Great Powers take their one diplomatic action for the turn before the
+## phase closes, so declarations apply to this turn's movement and combat
+## (wiki: diplomacy § Turn Sequence).
+static func run_ai(play: PlaySession) -> void:
+	if play.ai == null:
+		play.ai = AiState.new()
+	var result: Dictionary = AiTurn.run(
+		play.diplomacy,
+		play.world,
+		play.ai,
+		play.turn,
+		PLAYER_FACTION,
+		play.ai_seed,
+		_ai_context(play)
+	)
+	play.ai_trace.assign(result.get("trace", []))
+	if play.hud == null:
+		return
+	for message: String in result.get("messages", []):
+		play.hud.toast(message)
+
+
+## Unit counts the war-desire score reads; rival stockpiles arrive with the AI
+## economy planner, so the resource-need bonus stays inert for now.
+static func _ai_context(play: PlaySession) -> Dictionary:
+	var regiments: Dictionary = {}
+	var ships: Dictionary = {}
+	for raw: Dictionary in FactionCatalog.all():
+		var faction: int = int(raw["id"])
+		if play.army_layer != null:
+			regiments[faction] = play.army_layer.regiment_count_all(faction)
+		if play.ship_layer != null:
+			ships[faction] = play.ship_layer.hull_count_all(faction)
+	return {"regiments": regiments, "ships": ships}
 
 
 ## A Tribe is contacted only by non-unknown tile visibility in its provinces;
