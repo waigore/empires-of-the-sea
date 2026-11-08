@@ -1,12 +1,15 @@
-# Suggested reviewers for game code, tests, and assets.
-# Enforcement is the approval-gate workflow (any write collaborator can approve).
+# Reviewers for game code, tests, and assets.
+# Native enforcement: Protect main requires code-owner review for these paths.
+# Workflow enforcement: approval-gate also requires a non-author approval and
+# auto-requests eligible reviewers when missing.
+# Include at least one write collaborator who is not the usual PR author.
 
-/scenes/ @waigore
-/scripts/ @waigore
-/ui/ @waigore
-/assets/ @waigore
-/autoload/ @waigore
-/tests/ @waigore
-/addons/ @waigore
-/project.godot @waigore
-/icon.svg @waigore
+/scenes/ @waigore @k-junior-claw
+/scripts/ @waigore @k-junior-claw
+/ui/ @waigore @k-junior-claw
+/assets/ @waigore @k-junior-claw
+/autoload/ @waigore @k-junior-claw
+/tests/ @waigore @k-junior-claw
+/addons/ @waigore @k-junior-claw
+/project.godot @waigore @k-junior-claw
+/icon.svg @waigore @k-junior-claw
