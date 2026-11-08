@@ -1,19 +1,18 @@
 extends GdToolsTest
 ## Integration: the map screen's ledger drives the real economy (REQ-P2-03).
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _screen: MapScreen = null
 
 
 func before_each() -> void:
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
-	_screen.map_width = 64
-	_screen.map_height = 42
-	add_child(_screen)
+	_screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:
 	if is_instance_valid(_screen):
-		_screen.queue_free()
+		_screen.free()
 	_screen = null
 
 

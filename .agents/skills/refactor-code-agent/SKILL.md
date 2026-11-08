@@ -87,7 +87,7 @@ Do not grow `tools/arch_size_allowlist.txt` (≤5 entries, ratchet shrink-only).
 
 ```bash
 python tools/lint_arch.py
-gd-tools test --coverage --min 80
+gd-tools test --coverage --min 80 --parallel 4
 python tools/lint_docs_words.py
 ```
 

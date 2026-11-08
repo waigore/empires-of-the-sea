@@ -1,10 +1,13 @@
 extends SceneTree
 ## Headless e2e smoke: boot main.tscn, exercise a short map-screen flow, quit.
-## Keep fast — aim ≤2 minutes wall time. Extend asserts for new player paths;
-## leave deep rules to tests/. Run:
+## Budget: ≤2 minutes wall time (CI job timeout 2). Extend asserts for new
+## player paths; leave deep rules to tests/. Run:
 ##   godot --headless --path . --script res://tools/e2e_smoke.gd
 
-const BOOT_FRAMES: int = 12
+const BOOT_FRAMES: int = 8
+## Smaller than the playable default so smoke stays well under the 2 min budget.
+const SMOKE_WIDTH: int = 64
+const SMOKE_HEIGHT: int = 42
 
 var _failures: PackedStringArray = []
 
@@ -22,6 +25,8 @@ func _run() -> void:
 		return
 
 	var main: Node = packed.instantiate()
+	main.map_width = SMOKE_WIDTH
+	main.map_height = SMOKE_HEIGHT
 	root.add_child(main)
 	for _frame in BOOT_FRAMES:
 		await process_frame

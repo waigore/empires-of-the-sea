@@ -2,14 +2,13 @@
 extends GdToolsTest
 ## Integration: the real map screen, driven through its own input handlers.
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _screen: MapScreen = null
 
 
 func before_each() -> void:
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
-	_screen.map_width = 64
-	_screen.map_height = 42
-	add_child(_screen)
+	_screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:

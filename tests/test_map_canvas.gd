@@ -2,12 +2,14 @@ extends GdToolsTest
 ## Presentation contract for the map artwork: the wash must sit behind the ink,
 ## the animated layers must exist, and symbols must never bury a province name.
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _canvas: MapCanvas = null
 
 
 func before_each() -> void:
 	_canvas = MapCanvas.new()
-	_canvas.build(MapGenerator.new().generate(1500, 48, 32))
+	_canvas.build(Fixture.region())
 	add_child(_canvas)
 
 

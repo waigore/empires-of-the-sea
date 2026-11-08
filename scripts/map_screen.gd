@@ -21,6 +21,8 @@ var play: PlaySession = null
 var map_seed: int = MAP_SEED
 var map_width: int = 128
 var map_height: int = 84
+## When set (tests), skip generation and load this world in `_ready`.
+var preset_world: WorldMap = null
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
@@ -126,7 +128,10 @@ func _ready() -> void:
 	play = PlaySession.new()
 	play.bind_host(self)
 	play.bind_views(ship_layer, civilian_layer, overlay, camera, hud, improvements)
-	play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
+	if preset_world != null:
+		play.world = preset_world
+	else:
+		play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
 	_load_region(0)
 	_build_hud()
 	_connect()
