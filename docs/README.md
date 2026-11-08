@@ -9,6 +9,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | Doc | Purpose |
 |-----|---------|
 | [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics source of truth |
+| [Design Records (wiki)](https://github.com/waigore/empires-of-the-sea/wiki/design-records) | Clarifications (`DR-YYYYMMDD-NN`); see [changelog](https://github.com/waigore/empires-of-the-sea/wiki/design-changelog) |
 | [requirements.md](requirements.md) | Pillars P1–P5 (`REQ-*`) |
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
