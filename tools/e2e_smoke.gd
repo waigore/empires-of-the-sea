@@ -46,6 +46,12 @@ func _run() -> void:
 	_check(screen.canvas != null and screen.canvas.model == screen.model, "map canvas wired")
 	_check(screen.hud != null, "HUD present")
 
+	_check(screen.civilian_layer != null, "civilian layer present")
+	_check(
+		screen.civilian_layer.units.size() == MapScreen.STARTING_CIVILIANS.size(),
+		"civilians muster at the capital"
+	)
+
 	var province_id: int = _inland_province(screen)
 	_check(province_id >= 0, "inland province available")
 	if province_id >= 0:
@@ -54,6 +60,23 @@ func _run() -> void:
 		await process_frame
 		_check(screen.selected_province == province_id, "province selection sticks")
 		_check(screen.hud.is_panel_open(), "province panel opens")
+
+	var civilian: CivilianState = screen.civilian_layer.units[0]
+	var marker_world: Vector2 = screen.model.tile_center(
+		civilian.tile.x, civilian.tile.y, MapScreen.TILE_SIZE
+	)
+	screen._on_tapped(marker_world)
+	await process_frame
+	_check(screen.civilian_layer.selected_unit == civilian, "civilian selection sticks")
+	_check(screen.hud.is_civilian_panel_open(), "civilian dossier opens")
+
+	var work_tile: Vector2i = _owned_resource_tile(screen)
+	var builder: CivilianState = screen.civilian_layer.units[1]
+	if work_tile.x >= 0:
+		builder.tile = work_tile
+		screen.civilian_layer.select(builder)
+		screen._on_civilian_action("build_improvement")
+		_check(builder.is_working(), "civilian work order starts")
 
 	var turn_before: int = screen.turn
 	var treasury_before: int = screen.treasury
@@ -68,6 +91,11 @@ func _run() -> void:
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"
 	)
+	if work_tile.x >= 0:
+		_check(
+			screen.land_works.improvement_at(screen.model, work_tile) == 1,
+			"civilian work completes on end turn"
+		)
 
 	_finish()
 
@@ -86,6 +114,16 @@ func _inland_province(screen: MapScreen) -> int:
 	if screen.model.provinces.is_empty():
 		return -1
 	return int(screen.model.provinces[0]["id"])
+
+
+func _owned_resource_tile(screen: MapScreen) -> Vector2i:
+	for province: Dictionary in screen.model.provinces:
+		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province["tiles"]:
+			if screen.model.resource_at(tile.x, tile.y) >= 0:
+				return tile
+	return Vector2i(-1, -1)
 
 
 func _check(ok: bool, label: String) -> void:
