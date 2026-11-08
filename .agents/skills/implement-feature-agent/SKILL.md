@@ -31,6 +31,8 @@ One focused feature per run. Deliverable: an open PR on a branch. Do not merge, 
 
 Reuse existing modules and patterns. Prefer smallest change that keeps desktop + mobile playable.
 
+If the wiki target is **unclear / contradictory / underspecified**, hand off to [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md) instead of inventing house rules.
+
 ## Workflow
 
 Copy and track:
