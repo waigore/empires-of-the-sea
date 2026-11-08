@@ -73,7 +73,7 @@ No node deps in rules (`REQ-P3-03`). Panel â†’ `CivilianWork.assign`; movement â
 ## Tests
 
 `test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_improvement_system`, `test_map_screen`.
+`test_improvement_system`, `test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80
