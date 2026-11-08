@@ -44,6 +44,8 @@ gd-tools test --coverage --min 80
 - Game code, tests, assets, and CI config require at least one collaborator approval.
 - Docs-only PRs (e.g. `docs/`, Markdown) do not require approval and auto-merge (squash) via GitHub Actions when checks pass.
 
+- Android export presets, device builds and release signing: [`docs/android-build.md`](docs/android-build.md).
+
 ## Project layout
 
 ```
