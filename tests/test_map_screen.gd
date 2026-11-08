@@ -1,3 +1,4 @@
+# gdlint: disable=max-public-methods
 extends GdToolsTest
 ## Integration: the real map screen, driven through its own input handlers.
 
@@ -6,6 +7,8 @@ var _screen: MapScreen = null
 
 func before_each() -> void:
 	_screen = load("res://scenes/map_screen.tscn").instantiate()
+	_screen.map_width = 64
+	_screen.map_height = 42
 	add_child(_screen)
 
 
@@ -22,6 +25,30 @@ func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_eq(_screen.ship_layer.ships.size(), MapScreen.SHIP_COUNT)
 	assert_gt(_screen.capital_province, -1)
 	assert_almost_eq(_screen.camera.map_size.x, _screen.model.world_size(MapScreen.TILE_SIZE).x, 1.0)
+
+
+func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
+	var province: Dictionary = _screen.model.province_data(_screen.capital_province)
+	assert_true(bool(province["capital"]))
+	assert_eq(_screen.capital_tile, Vector2i(province["capital_tile"]))
+	assert_true(_screen.model.is_land(_screen.capital_tile.x, _screen.capital_tile.y))
+	assert_eq(
+		_screen.model.terrain_at(_screen.capital_tile.x, _screen.capital_tile.y),
+		MapModel.Terrain.PLAINS
+	)
+
+
+func test_focus_capital_centres_on_the_capital_tile() -> void:
+	_screen._focus_capital()
+	for _step in 20:
+		_screen.camera._process(0.2)
+	var expected: Vector2 = CameraMath.clamp_center(
+		_screen._capital_world(),
+		_screen.camera.zoom.x,
+		_screen.camera.viewport_size(),
+		_screen.camera.map_size
+	)
+	assert_lt(_screen.camera.position.distance_to(expected), 2.0)
 
 
 func test_clicking_a_province_selects_it_and_opens_the_panel() -> void:
@@ -136,18 +163,6 @@ func test_minimap_jump_settles_on_the_requested_point() -> void:
 func _visible_rect() -> Rect2:
 	var half: Vector2 = _screen.camera.viewport_size() / (2.0 * _screen.camera.zoom.x)
 	return Rect2(_screen.camera.position - half, half * 2.0)
-
-
-func test_ships_travel_between_zones_and_reveal_them() -> void:
-	var ship: Ship = _screen.ship_layer.ships[0]
-	var zone_before: int = ship.zone
-	var position_before: Vector2 = ship.position
-	for _step in 60:
-		_screen.ship_layer._process(0.5)
-	assert_ne(ship.position, position_before)
-	assert_ne(ship.zone, zone_before)
-	var tile: Vector2i = _screen.model.sea_zones[ship.zone]["tiles"][0]
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
 
 
 func test_player_fleet_reveals_only_for_the_player() -> void:

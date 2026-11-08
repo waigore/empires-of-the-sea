@@ -10,6 +10,7 @@ signal zoom_out_pressed
 signal minimap_jump(world_position: Vector2)
 signal panel_action(action: String)
 signal panel_closed
+signal fleet_closed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -23,11 +24,14 @@ var _toast_box: VBoxContainer = null
 var _minimap: Minimap = null
 var _panel_wrap: Control = null
 var _panel: ProvincePanel = null
+var _fleet_wrap: Control = null
+var _fleet_panel: FleetPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
 var _glow: Panel = null
 var _panel_open: bool = false
+var _fleet_open: bool = false
 var _treasury_value: int = 0
 
 
@@ -41,6 +45,7 @@ func _ready() -> void:
 	_build_zoom_controls()
 	_build_end_turn()
 	_build_panel()
+	_build_fleet_panel()
 	_build_tooltip()
 
 
@@ -259,6 +264,23 @@ func _build_panel() -> void:
 	_panel_wrap.add_child(_panel)
 
 
+func _build_fleet_panel() -> void:
+	_fleet_wrap = Control.new()
+	_fleet_wrap.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_fleet_wrap.offset_left = -200.0
+	_fleet_wrap.offset_right = 200.0
+	_fleet_wrap.offset_top = -178.0
+	_fleet_wrap.offset_bottom = -22.0
+	_fleet_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fleet_wrap.visible = false
+	add_child(_fleet_wrap)
+
+	_fleet_panel = FleetPanel.new()
+	_fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_fleet_panel.close_pressed.connect(func() -> void: fleet_closed.emit())
+	_fleet_wrap.add_child(_fleet_panel)
+
+
 func _build_tooltip() -> void:
 	_tooltip = PanelContainer.new()
 	var style := UiTheme.box(
@@ -330,6 +352,7 @@ func toast(text: String) -> void:
 
 
 func show_province(model: MapModel, province_id: int) -> void:
+	hide_fleet()
 	_panel.refresh(model, province_id)
 	_panel_wrap.visible = true
 	_panel_open = true
@@ -352,6 +375,28 @@ func hide_province() -> void:
 
 func is_panel_open() -> bool:
 	return _panel_open
+
+
+func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+	hide_province()
+	_fleet_panel.refresh(model, fleet, is_player)
+	_fleet_wrap.visible = true
+	_fleet_open = true
+	var tween := create_tween()
+	tween.tween_property(_fleet_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+
+
+func hide_fleet() -> void:
+	if not _fleet_open:
+		return
+	_fleet_open = false
+	var tween := create_tween()
+	tween.tween_property(_fleet_wrap, "modulate:a", 0.0, 0.16)
+	tween.tween_callback(func() -> void: _fleet_wrap.visible = false)
+
+
+func is_fleet_panel_open() -> bool:
+	return _fleet_open
 
 
 func set_minimap(model: MapModel, map_size: Vector2) -> void:

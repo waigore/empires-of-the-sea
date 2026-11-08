@@ -16,6 +16,8 @@ var model: MapModel = null
 var fog: PackedByteArray = PackedByteArray()
 var hover_province: int = -1
 var selected_province: int = -1
+var move_zones: Array[int] = []
+var move_provinces: Array[int] = []
 
 var _fade: PackedFloat32Array = PackedFloat32Array()
 var _fog_image: Image = null
@@ -24,6 +26,7 @@ var _fog_sprite: Sprite2D = null
 var _fog_dirty: bool = true
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
+var _zone_outlines: Dictionary = {}
 var _ripples: Array[Dictionary] = []
 
 
@@ -118,6 +121,20 @@ func fog_state_at(x: int, y: int) -> int:
 	return fog[model.index_of(x, y)]
 
 
+func show_move_options(zones: Array[int], provinces: Array[int]) -> void:
+	move_zones = zones.duplicate()
+	move_provinces = provinces.duplicate()
+	queue_redraw()
+
+
+func clear_move_options() -> void:
+	if move_zones.is_empty() and move_provinces.is_empty():
+		return
+	move_zones.clear()
+	move_provinces.clear()
+	queue_redraw()
+
+
 func select_province(id: int, ripple_at: Vector2 = Vector2.INF) -> void:
 	selected_province = id
 	if ripple_at != Vector2.INF:
@@ -172,17 +189,34 @@ func _draw() -> void:
 	if model == null:
 		return
 
+	var pulse: float = 0.5 + 0.5 * sin(_pulse * 3.2)
 	if hover_province >= 0 and hover_province != selected_province:
 		_draw_province_outline(hover_province, Color(0.20, 0.16, 0.10, 0.45), 1.8)
 
 	if selected_province >= 0:
-		var pulse: float = 0.5 + 0.5 * sin(_pulse * 3.2)
 		_draw_province_outline(
 			selected_province, Color(0.83, 0.69, 0.22, 0.16 + 0.12 * pulse), 9.0
 		)
 		_draw_province_outline(
 			selected_province, Color(0.99, 0.93, 0.72, 0.70 + 0.25 * pulse), 2.4
 		)
+
+	for zone_id: int in move_zones:
+		_draw_sea_zone_outline(
+			zone_id, Color(0.83, 0.69, 0.22, 0.12 + 0.08 * pulse), 10.0
+		)
+		_draw_sea_zone_outline(
+			zone_id, Color(0.99, 0.93, 0.72, 0.50 + 0.25 * pulse), 2.2
+		)
+
+	for province_id: int in move_provinces:
+		_draw_province_outline(
+			province_id, Color(0.83, 0.69, 0.22, 0.12 + 0.08 * pulse), 10.0
+		)
+		_draw_province_outline(
+			province_id, Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 2.2
+		)
+		_draw_port_marker(province_id, pulse)
 
 	for ripple: Dictionary in _ripples:
 		var age: float = ripple["age"]
@@ -198,6 +232,57 @@ func _draw() -> void:
 func _draw_province_outline(id: int, color: Color, width: float) -> void:
 	for path: PackedVector2Array in _province_outline(id):
 		draw_polyline(path, color, width, true)
+
+
+func _draw_sea_zone_outline(id: int, color: Color, width: float) -> void:
+	for path: PackedVector2Array in _sea_zone_outline(id):
+		draw_polyline(path, color, width, true)
+
+
+func _draw_port_marker(province_id: int, pulse: float) -> void:
+	var data: Dictionary = model.province_data(province_id)
+	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
+	if port.x < 0 or port.y < 0:
+		return
+	var point: Vector2 = model.tile_center(port.x, port.y, TILE_SIZE)
+	draw_arc(
+		point, 13.0 + pulse * 2.0, 0.0, TAU, 28,
+		Color(0.99, 0.93, 0.72, 0.90), 2.0, true
+	)
+	draw_circle(point, 3.0, Color(0.99, 0.93, 0.72, 0.90))
+
+
+func _sea_zone_outline(id: int) -> Array:
+	if _zone_outlines.has(id):
+		return _zone_outlines[id]
+	var segments: Array[PackedVector2Array] = []
+	var data: Dictionary = model.sea_zone_data(id)
+	for tile: Vector2i in data.get("tiles", []):
+		var x: int = tile.x
+		var y: int = tile.y
+		if model.sea_zone_at(x, y - 1) != id:
+			segments.append(PackedVector2Array([
+				Vector2(float(x), float(y)) * TILE_SIZE,
+				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
+			]))
+		if model.sea_zone_at(x, y + 1) != id:
+			segments.append(PackedVector2Array([
+				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
+				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+			]))
+		if model.sea_zone_at(x - 1, y) != id:
+			segments.append(PackedVector2Array([
+				Vector2(float(x), float(y)) * TILE_SIZE,
+				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
+			]))
+		if model.sea_zone_at(x + 1, y) != id:
+			segments.append(PackedVector2Array([
+				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
+				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
+			]))
+	var paths: Array[PackedVector2Array] = InkPaths.smooth_segments(segments, 2)
+	_zone_outlines[id] = paths
+	return paths
 
 
 func _province_outline(id: int) -> Array:
