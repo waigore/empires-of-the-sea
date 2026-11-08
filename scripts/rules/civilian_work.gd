@@ -209,9 +209,10 @@ static func assign(
 	if not bool(check.get("ok", false)):
 		return check
 	_pay(stockpile, check.get("cost", {}))
-	unit.start_work(
-		action, Vector2i(check["tile"]), int(check["duration"]), unit.tile
-	)
+	var details: Dictionary = {}
+	if action == "build_fort":
+		details["fort_level"] = fort_target(model, Vector2i(check["tile"]))
+	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
 	check["label"] = label(action)
 	return check
 
@@ -361,9 +362,9 @@ static func _apply(
 			works.set_improvement(model, tile, works.improvement_at(model, tile) + 1)
 			return [model.index_of(tile.x, tile.y)]
 		"build_fort":
-			var province_data: ProvinceState = model.province_data(province)
-			if province_data != null:
-				province_data.fort_level = FortRules.next_level(province_data.fort_level)
+			FortRules.apply_build(
+				model.province_data(province), unit.work_detail("fort_level")
+			)
 			return [model.index_of(tile.x, tile.y)]
 	if CivilianTransport.knows(action):
 		return CivilianTransport.apply(model, action, tile, works)
@@ -391,8 +392,7 @@ static func _pay(stockpile: Dictionary, cost: Dictionary) -> void:
 static func _commodities_text(ids: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for raw: Variant in ids:
-		var id: String = String(raw)
-		parts.append(String(COMMODITY_NAMES.get(id, id)))
+		parts.append(String(COMMODITY_NAMES.get(String(raw), String(raw))))
 	return ", ".join(parts)
 
 
