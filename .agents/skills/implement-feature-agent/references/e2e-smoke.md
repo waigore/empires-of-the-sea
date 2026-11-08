@@ -4,14 +4,14 @@
 
 ## Rule
 
-When the feature has a **player-visible or main-scene path** the smoke can hit, **add or adjust** asserts there in the same PR. Unit tests still own deep rules (`tests/`).
+Hard gate: **one player turn** on the main scene must finish cleanly, covering player actions for each unit type (civilian / navy; army deferred until military slice). When a feature adds a player-visible unit path the smoke can hit, **add or adjust** asserts in the same PR. Unit tests still own deep rules (`tests/`).
 
 ## Keep it fast
 
 - **Hard budget ≤ 2 minutes** wall time (CI `e2e-smoke` timeout). See [`docs/testing.md`](../../../../docs/testing.md).
   `godot --headless --path . --script res://tools/e2e_smoke.gd`
 - Prefer a few `await process_frame` steps; no sleeps, no full campaigns, no asset thrash.
-- Extend existing boot → select → end-turn flow; don’t spawn a second suite.
+- Extend the existing one-turn unit matrix; don’t spawn a second suite.
 - If coverage needs long setup, put it in unit/integration tests instead (unit suite **≤5 min**).
 
 ## Local proof
