@@ -9,6 +9,8 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Rules source of truth (P2) |
 | [`docs/requirements.md`](docs/requirements.md) | Product pillars P1–P4 (`REQ-*`) |
 | [`docs/rubric.md`](docs/rubric.md) | Evaluation gate (`RUB-*`) |
+| [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
+| [`docs/README.md`](docs/README.md) | Docs index (product + process) |
 
 ## Stack
 
@@ -44,9 +46,11 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 
 - Do keep scenes focused; extract reusable sub-scenes.
 - Do guard early; keep nesting shallow.
+- Do open/merge PRs with `gh` and wait for required checks (`tests`, `approval-gate`) — see [`docs/pull-requests.md`](docs/pull-requests.md).
 - Don’t commit `.godot/`, export caches, or local override files.
 - Don’t add editor plugins or third-party addons without a clear need.
 - Don’t hard-code resolutions, aspect ratios, or platform OS names in gameplay code.
+- Don’t bypass, force-merge, or skip required PR checks.
 
 ## When unsure
 

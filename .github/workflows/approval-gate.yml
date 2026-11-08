@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
     steps:
       - name: Evaluate path-based approval
         uses: actions/github-script@v7
@@ -30,6 +30,8 @@ jobs:
               core.setFailed('No pull_request payload');
               return;
             }
+
+            const author = pr.user.login;
 
             // Require approval only for game code, tests, and assets.
             // Docs, CI/workflows, tooling config, and other non-game paths are exempt.
@@ -85,13 +87,114 @@ jobs:
             const approvers = [...latestByUser.entries()]
               .filter(([, state]) => state === 'APPROVED')
               .map(([login]) => login)
-              .filter((login) => login !== pr.user.login);
+              .filter((login) => login !== author);
 
-            if (approvers.length === 0) {
+            if (approvers.length > 0) {
+              core.info(`Approvals from: ${approvers.join(', ')}`);
+              return;
+            }
+
+            // Collect eligible reviewers: CODEOWNERS for protected paths + write collaborators,
+            // excluding the PR author. Then request any not already requested.
+            const codeownersLogins = await loadCodeownersLogins(github, owner, repo);
+            let collaboratorLogins = [];
+            try {
+              const collaborators = await github.paginate(github.rest.repos.listCollaborators, {
+                owner,
+                repo,
+                affiliation: 'all',
+                per_page: 100,
+              });
+              collaboratorLogins = collaborators
+                .filter((c) => c.permissions && (c.permissions.push || c.permissions.maintain || c.permissions.admin))
+                .map((c) => c.login);
+            } catch (err) {
+              core.warning(`Could not list collaborators: ${err.message}`);
+            }
+
+            const eligible = [...new Set([...codeownersLogins, ...collaboratorLogins])]
+              .filter((login) => login && login !== author);
+
+            const alreadyRequested = new Set(
+              (pr.requested_reviewers || []).map((r) => r.login)
+            );
+            // Also include users already requested via API on the latest PR state.
+            try {
+              const fresh = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number,
+              });
+              for (const r of fresh.data.requested_reviewers || []) {
+                alreadyRequested.add(r.login);
+              }
+            } catch (err) {
+              core.warning(`Could not refresh requested reviewers: ${err.message}`);
+            }
+
+            const toRequest = eligible.filter((login) => !alreadyRequested.has(login));
+            let requested = [];
+            if (toRequest.length > 0) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  reviewers: toRequest,
+                });
+                requested = toRequest;
+                core.info(`Requested review from: ${requested.join(', ')}`);
+              } catch (err) {
+                core.warning(`Could not request reviewers (${toRequest.join(', ')}): ${err.message}`);
+              }
+            }
+
+            const pending = [...new Set([...alreadyRequested, ...requested])]
+              .filter((login) => login !== author);
+
+            if (eligible.length === 0) {
               core.setFailed(
-                'This PR touches code, tests, or assets and needs at least one approving review from a collaborator (not the author).'
+                'This PR touches code, tests, or assets and needs a non-author approval, ' +
+                  'but no eligible reviewers were found. Add a write collaborator (and list them in ' +
+                  '.github/CODEOWNERS) who is not the PR author.'
               );
               return;
             }
 
-            core.info(`Approvals from: ${approvers.join(', ')}`);
+            const who = pending.length > 0 ? pending.join(', ') : eligible.join(', ');
+            core.setFailed(
+              `This PR touches code, tests, or assets and needs at least one approving review ` +
+                `from a collaborator other than @${author}. ` +
+                (requested.length > 0
+                  ? `Requested review from: ${requested.join(', ')}. `
+                  : pending.length > 0
+                    ? `Review already requested from: ${pending.join(', ')}. `
+                    : `Eligible reviewers: ${eligible.join(', ')}. `) +
+                `Approve with GitHub → Review changes → Approve, or: gh pr review ${pr.number} --approve ` +
+                `(as one of: ${who}).`
+            );
+
+            async function loadCodeownersLogins(github, owner, repo) {
+              try {
+                const res = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: '.github/CODEOWNERS',
+                  ref: pr.head.sha,
+                });
+                const content = Buffer.from(res.data.content, res.data.encoding || 'base64').toString('utf8');
+                const logins = new Set();
+                for (const line of content.split('\n')) {
+                  const trimmed = line.trim();
+                  if (!trimmed || trimmed.startsWith('#')) continue;
+                  const owners = trimmed.match(/@[A-Za-z0-9-]+/g) || [];
+                  for (const mention of owners) {
+                    logins.add(mention.slice(1));
+                  }
+                }
+                return [...logins];
+              } catch (err) {
+                core.warning(`Could not read CODEOWNERS: ${err.message}`);
+                return [];
+              }
+            }
