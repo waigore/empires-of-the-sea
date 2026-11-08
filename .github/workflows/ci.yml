@@ -109,7 +109,8 @@ jobs:
 
       - name: Run tests with 80% coverage gate
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
-        run: gd-tools test --coverage --min 80 --junit-xml .gd-tools/results.xml
+        # 600s: map-screen builds worlds under coverage within one Godot process.
+        run: gd-tools test --coverage --min 80 --timeout 600 --junit-xml .gd-tools/results.xml
 
       - name: Upload test & coverage artifacts
         if: always() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true')

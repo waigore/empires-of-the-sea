@@ -25,6 +25,9 @@ var _fog_image: Image = null
 var _fog_texture: ImageTexture = null
 var _fog_sprite: Sprite2D = null
 var _fog_dirty: bool = true
+## When false, skip the per-tile fade scan (map is large; scanning every frame
+## starves headless tests and burns CPU in play).
+var _fade_active: bool = false
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
 var _zone_outlines: Dictionary = {}
@@ -73,6 +76,7 @@ func set_fog_state(tile_index: int, state: int) -> void:
 		return
 	fog[tile_index] = state
 	_fog_dirty = true
+	_fade_active = true
 
 
 func set_fog_rect(rect: Rect2i, state: int) -> void:
@@ -118,6 +122,7 @@ func snap_fog() -> void:
 			_:
 				_fade[i] = 0.0
 	_fog_dirty = true
+	_fade_active = false
 
 
 func fog_state_at(x: int, y: int) -> int:
@@ -163,27 +168,40 @@ func select_province(id: int, ripple_at: Vector2 = Vector2.INF) -> void:
 
 func _process(delta: float) -> void:
 	_pulse += delta
-	var animating: bool = false
-	for i in _fade.size():
-		var target: float = 0.0
-		match fog[i]:
-			FOG_FOGGED:
-				target = 0.55
-			FOG_UNKNOWN:
-				target = 1.0
-		var current: float = _fade[i]
-		if absf(current - target) > 0.002:
-			_fade[i] = move_toward(current, target, delta * FOG_FADE_SPEED)
-			animating = true
-	if animating:
-		_fog_dirty = true
+	if _fade_active:
+		var animating: bool = false
+		for i in _fade.size():
+			var target: float = 0.0
+			match fog[i]:
+				FOG_FOGGED:
+					target = 0.55
+				FOG_UNKNOWN:
+					target = 1.0
+			var current: float = _fade[i]
+			if absf(current - target) > 0.002:
+				_fade[i] = move_toward(current, target, delta * FOG_FADE_SPEED)
+				animating = true
+		_fog_dirty = _fog_dirty or animating
+		_fade_active = animating
 	if _fog_dirty:
 		_rebuild_fog()
+	var had_ripples: bool = not _ripples.is_empty()
 	for i in range(_ripples.size() - 1, -1, -1):
 		_ripples[i]["age"] = float(_ripples[i]["age"]) + delta
 		if float(_ripples[i]["age"]) > 1.1:
 			_ripples.remove_at(i)
-	queue_redraw()
+	# Selection pulse / ripples / move hints need redraw; settled fog does not.
+	if (
+		selected_province >= 0
+		or hover_province >= 0
+		or had_ripples
+		or not _ripples.is_empty()
+		or not move_zones.is_empty()
+		or not move_provinces.is_empty()
+		or not move_tiles.is_empty()
+		or _fade_active
+	):
+		queue_redraw()
 
 
 func _rebuild_fog() -> void:

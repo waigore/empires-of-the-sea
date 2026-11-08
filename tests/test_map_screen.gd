@@ -13,8 +13,10 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	# Free immediately: queue_free leaves prior screens processing fog/ships and
+	# starves the suite under coverage (process timeout).
 	if is_instance_valid(_screen):
-		_screen.queue_free()
+		_screen.free()
 	_screen = null
 
 
