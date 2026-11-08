@@ -34,7 +34,7 @@ func test_different_seed_changes_the_map() -> void:
 
 
 func test_land_ratio_is_plausible() -> void:
-	var ratio: float = float(_model.land_tile_count()) / float(WIDTH * HEIGHT)
+	var ratio: float = float(MapGeo.land_tile_count(_model)) / float(WIDTH * HEIGHT)
 	assert_between(ratio, 0.15, 0.65, "land ratio %.3f" % ratio)
 
 
@@ -115,7 +115,7 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 			continue
 		assert_true(port.x >= 0, "coastal province %s has no port" % province["name"])
 		assert_true(_model.is_land(port.x, port.y))
-		assert_true(_model.is_coastal_tile(port.x, port.y))
+		assert_true(MapGeo.is_coastal_tile(_model, port.x, port.y))
 
 
 func test_resources_sit_on_allowed_terrain() -> void:

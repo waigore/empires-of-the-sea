@@ -39,21 +39,22 @@ func test_the_soundtrack_wires_the_director() -> void:
 func test_selecting_a_province_plays_a_cue_pair() -> void:
 	var before: int = _audio.sfx_played
 	var province_id: int = _inland_province()
-	_screen._on_tapped(_screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
+	MapPlayInput.on_tapped(_screen, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
 	assert_eq(_audio.last_event, AudioEvents.PANEL_OPEN)
 	assert_eq(_audio.sfx_played, before + 2)
 
 
 func test_clearing_the_selection_closes_the_panel_audibly() -> void:
-	_screen._on_tapped(_screen.model.province_center(_inland_province()) * MapScreen.TILE_SIZE)
-	_screen._deselect()
+	var inland: Vector2 = _screen.model.province_center(_inland_province()) * MapScreen.TILE_SIZE
+	MapPlayInput.on_tapped(_screen, inland)
+	MapPlayInput.deselect(_screen)
 	assert_eq(_audio.last_event, AudioEvents.PANEL_CLOSE)
 
 
 func test_deselecting_a_fleet_does_not_sound_another_selection() -> void:
 	_screen.ship_layer.select(_screen.ship_layer.ships[0])
 	assert_eq(_audio.last_event, AudioEvents.FLEET_SELECT)
-	_screen._deselect()
+	MapPlayInput.deselect(_screen)
 	assert_eq(_audio.last_event, AudioEvents.PANEL_CLOSE)
 
 
@@ -71,7 +72,7 @@ func test_civilian_selection_and_moves_sound() -> void:
 
 func test_ending_a_turn_rings_the_bell_and_coins() -> void:
 	var before: int = _audio.sfx_played
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_audio.last_event, AudioEvents.COIN)
 	assert_gte(_audio.sfx_played, before + 2)
 
@@ -112,7 +113,7 @@ func test_a_battle_bed_survives_the_turn_end() -> void:
 	}
 	_score._on_battle_resolved([battle] as Array[Dictionary])
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
 
 
