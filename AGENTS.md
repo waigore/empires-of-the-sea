@@ -47,6 +47,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 ## Do / don’t
 
 - Do keep scenes focused; guard early; shallow nesting.
+- Do run with `tools/run.sh` (imports first); bare `godot --path .` on a fresh clone fails — `class_name` globals come from the editor-generated `.godot/` cache.
 - Do open/merge PRs with `gh`; wait for required checks — see [`docs/pull-requests.md`](docs/pull-requests.md).
 - Don’t commit `.godot/`, export caches, or local overrides.
 - Don’t add plugins/addons without need; don’t hard-code resolutions or OS names in gameplay.
