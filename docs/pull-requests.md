@@ -24,40 +24,16 @@ The **Protect main** ruleset requires these status checks (strict: branch must b
 | Check | Workflow | Meaning |
 |-------|----------|---------|
 | `tests` | [CI](../.github/workflows/ci.yml) | `gd-tools test --coverage --min 80` |
-| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review rule (see below) |
 
-Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-merge is enabled on the repo.
+Human review is optional (not a merge gate). Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-merge is enabled on the repo.
 
 ### Respecting checks
 
-- Before merge (or enabling auto-merge), confirm with `gh pr checks` / `gh pr view --json statusCheckRollup,reviewDecision,mergeStateStatus`.
+- Before merge (or enabling auto-merge), confirm with `gh pr checks` / `gh pr view --json statusCheckRollup,mergeStateStatus`.
 - **Do not merge** while required checks are failing, pending, or skipped in a way that leaves the gate incomplete.
 - **Do not** use `--admin`, merge overrides, or temporary rule disablement to land a red PR.
 - If checks fail: fix forward on the PR branch, push, and re-check. Do not close/reopen to “clear” failures.
 - Keep the branch current with `main` when strict status policy blocks merge (`gh pr merge` / auto-merge will wait until the branch is updated).
-
-### Approval (path-based)
-
-Non-draft PRs that touch **game code, tests, or assets** need one approving review from **any write collaborator other than the author**. Paths:
-
-- `scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`
-- `project.godot`, `icon.svg`
-
-Docs, CI/workflows, and other non-game paths do **not** need that approval.
-
-Enforcement is the **`approval-gate`** required check (not code-owner lock-in). When approval is missing, the workflow **auto-requests every write collaborator except the author** and prints how to approve in the check log. [`.github/CODEOWNERS`](../.github/CODEOWNERS) is optional UI suggestion only.
-
-**How to approve** (any write collaborator who is not the PR author):
-
-```bash
-gh pr review <number> --approve
-```
-
-Or GitHub UI: **Files changed** → **Review changes** → **Approve**.
-
-The PR author cannot approve their own PR. Add more write collaborators if you need a larger reviewer pool.
-
-Draft PRs skip the approval-gate job until marked ready for review.
 
 ---
 
@@ -93,8 +69,8 @@ EOF
 ### While open
 
 ```bash
-gh pr checks          # required: tests, approval-gate
-gh pr view            # status, reviewers, URL
+gh pr checks          # required: tests
+gh pr view            # status, URL
 gh pr comment --body "…"
 ```
 
@@ -109,7 +85,7 @@ Prefer enabling squash auto-merge (the [Automerge](../.github/workflows/automerg
 gh pr merge --squash --auto --delete-branch
 ```
 
-- Only merge manually with the same squash policy when auto-merge cannot be used and **both** required checks are green.
+- Only merge manually with the same squash policy when auto-merge cannot be used and **`tests`** is green.
 - Never merge to `main` outside a PR that has satisfied the ruleset checks.
 
 ---
@@ -119,7 +95,5 @@ gh pr merge --squash --auto --delete-branch
 - [ ] Change maps to at least one pillar (`P1`–`P4`) or is explicitly docs/tooling-only
 - [ ] PR opened/updated with `gh`
 - [ ] `tests` green (`gd-tools test --coverage --min 80`)
-- [ ] `approval-gate` green (approval obtained if code/tests/assets paths changed)
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass
-

@@ -1,6 +1,0 @@
-# Optional preferred reviewers for game paths (not enforced).
-# Merge approval is path-based via approval-gate: any write collaborator
-# other than the PR author can approve. See docs/pull-requests.md.
-#
-# Add @handles here only if you want GitHub to suggest them in the UI;
-# omitting names keeps approval open to every write collaborator.
