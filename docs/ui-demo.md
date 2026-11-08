@@ -1,8 +1,8 @@
 # Map screen demo
 
-Player-facing map UI prototype: antique-atlas look, animated world, and the input model the real map keeps.
+Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Orders and economy are still toasts.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate and ledger orders are live; the economy resolves each turn.
 
 ## Controls
 
@@ -16,7 +16,7 @@ Player-facing map UI prototype: antique-atlas look, animated world, and the inpu
 | Focus capital | `F` / `Home` | — |
 | End turn | `Space` / `Enter`, gold seal | gold seal |
 
-Pan has inertia; zoom anchors under the cursor; camera clamps to map with a cover-fit zoom floor. Actions register via `InputActions` at runtime—no hard-coded keys in gameplay.
+Pan has inertia; zoom anchors under the cursor; camera clamps with a cover-fit floor. Actions register via `InputActions` at runtime.
 
 ## Architecture
 
@@ -33,22 +33,19 @@ scripts/map/camera_math.gd  pure camera maths (tested)
 scripts/map/ship_layer.gd   fleets, orders, sail animation
 scripts/map/ink_paths.gd    ink line smoothing
 scripts/rules/turn_time.gd  turn → calendar year
-scripts/rules/faction_catalog.gd  GPs, Minors, Tribes + capabilities
 scripts/rules/world_map.gd        two regions + warp-zone pairs
-scripts/rules/territory_assignment.gd  contiguous ownership setup
 scripts/rules/visibility.gd per-player fog of war (tested)
 scripts/rules/capital_choice.gd  capital-choice phase (tested)
-scripts/rules/fleet_state.gd     fleet location + move budget
-scripts/rules/naval_movement.gd  movement/docking rules (tested)
+scripts/rules/world_bootstrap.gd setup ports, roads, grain farms
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
 ui/shaders/*                sea, fog, grain, vignette
 ```
 
 `MapModel` + `MapGenerator` are the sim side; the view reads them and never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain (region mix) → provinces/sea zones (BFS) → resources → ports → contiguous faction ownership (`TerritoryAssignment`) → capitals (`CapitalChoice`: GPs sea-bound, Minors/Tribes setup). The Old World holds six Great Powers and three Minor Nations; the New World ten Tribes. A world is two maps plus paired edge warp zones; the same seed reproduces both (`tests/test_map_generator.gd`, `tests/test_world_setup.gd`).
+**Generation (deterministic):** noise land → terrain (region mix) → provinces/sea zones (BFS) → resources → ports → contiguous faction ownership (`TerritoryAssignment`) → capitals (`CapitalChoice`: GPs sea-bound, Minors/Tribes setup) → setup post-pass (`WorldBootstrap`: real ports/roads, four grain farms). The Old World holds six Great Powers and three Minor Nations; the New World ten Tribes. A world is two maps plus paired edge warp zones; the same seed reproduces both (`tests/test_map_generator.gd`, `tests/test_world_setup.gd`).
 
-**Fog of war:** `VisibilityModel` keeps three levels per player per tile (`unknown < fogged < fully visible`), one model per displayed region. Own provinces start fully visible, the rest fogged; sea zones touching an owned coast are fully visible. A fleet entering a zone charts its water and the strict coastal ring; End of Turn runs fog decay, distant-sea fog for zones with no owned coast or fleet, then the coastal pass. The overlay renders that state.
+**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`), one model per region. Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet entering a zone charts its water and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
 **Rendering:** scaled terrain wash with a light owner tint; marching-squares coasts + Chaikin province ink; **country borders drawn above fog** as an engraved shadow plus the owner's colour; vector glyphs/labels; warp-zone “Passage” marks; low-res fog texture; sea/grain/vignette shaders.
 
@@ -61,7 +58,6 @@ ui/shaders/*                sea, fog, grain, vignette
 | Selection pulse / ripple | `MapOverlay` |
 | Fleet bob / wake / pennant | `scripts/map/ship.gd` |
 | Fleet sail glide / dock anchor | `ShipLayer`, `Ship` |
-| Destination highlights | `MapOverlay` |
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
 | HUD slides, counts, toasts | `GameHud` |
 
@@ -69,9 +65,10 @@ Build ~0.55 s (128×84). Steady state: static canvas once; overlay + ships per f
 
 ## Known limits
 
-Capitals follow the capital-choice rule (sea-bound province, ports, roads).
-Province orders are toasts. Fleet movement, docking, ship reveal and sea-zone
-combat are rules-backed ([`fleets.md`](fleets.md)); missions, interception,
-home-fleet merge and AI movement are deferred. Warp-zone transit, colonisation
-of unclaimed land and Minor/Tribe reactive play are deferred
-([`world.md`](world.md)).
+Capitals follow the capital-choice rule (sea-bound province, ports, roads) and
+the setup post-pass wires their farms. Province, civilian and estate orders are
+rules-backed; the province and civilian dossiers scroll on short viewports.
+Fleet movement, docking, ship reveal and sea-zone combat are rules-backed
+([`fleets.md`](fleets.md)); missions, interception, home-fleet merge and AI
+movement are deferred. Warp-zone transit, colonisation of unclaimed land and
+Minor/Tribe reactive play are deferred ([`world.md`](world.md)).

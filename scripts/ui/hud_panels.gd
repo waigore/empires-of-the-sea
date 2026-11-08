@@ -49,6 +49,7 @@ func toggle_dock_side() -> void:
 
 
 func show_province(model: MapModel, province_id: int) -> void:
+	hide_economy()
 	hide_fleet()
 	hide_civilian()
 	panel.refresh(model, province_id)
@@ -119,9 +120,17 @@ func set_civilian_training(visible: bool) -> void:
 
 
 func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionary) -> void:
+	# The ledger takes the whole edge; close the dossiers outright so their
+	# slide-out tween cannot bleed text through the ledger's fade-in.
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	panel_wrap.visible = false
+	panel_open = false
+	fleet_wrap.visible = false
+	fleet_open = false
+	civilian_wrap.visible = false
+	civilian_open = false
 	economy_panel.refresh(economy, market, report)
 	economy_wrap.visible = true
 	economy_open = true

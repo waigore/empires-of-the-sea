@@ -135,7 +135,7 @@ static func train(play: PlaySession, type_id: String) -> void:
 		PlaySession.PLAYER_FACTION, type_id, tile
 	)
 	play.hud.set_treasury(play.treasury())
-	play.hud.set_civilians(play.civilian_layer.unit_count(PlaySession.PLAYER_FACTION))
+	play.hud.set_civilians(play.civilian_layer.unit_count_all(PlaySession.PLAYER_FACTION))
 	play.hud.toast(
 		"%s musters at %s" % [unit.display_name(), play.model.province_name(play.capital_province)]
 	)

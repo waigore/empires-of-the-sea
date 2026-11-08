@@ -174,7 +174,9 @@ static func _estate_row(
 		"builder_id": builder.id if builder != null else -1,
 		"builder_name": builder.display_name() if builder != null else "",
 		"status": status,
-		"status_text": _status_text(status, resource, level, output, tech_cap, working),
+		"status_text": _status_text(
+			status, resource, level, output, tech_cap, working, is_connected
+		),
 		"next_level": next_level,
 		"cost": cost,
 		"cost_text": CivilianWork.cost_text(cost),
@@ -207,14 +209,19 @@ static func _status(
 
 static func _status_text(
 	status: String, resource: int, level: int, output: int, tech_cap: int,
-	working: CivilianState
+	working: CivilianState, is_connected: bool
 ) -> String:
 	match status:
 		"building":
 			var left: int = working.remaining_turns() if working != null else 0
 			return "Builder at work · %d turn%s left" % [left, "" if left == 1 else "s"]
 		"vacant":
-			return "Vacant — a Builder can raise a %s" % ImprovementCatalog.base_name(resource)
+			var vacant: String = (
+				"Vacant — a Builder can raise a %s" % ImprovementCatalog.base_name(resource)
+			)
+			if not is_connected:
+				vacant += " · no road to the crown yet"
+			return vacant
 		"unprospected":
 			return "Prospect this tile before a %s can rise" % ImprovementCatalog.base_name(resource)
 		"disconnected":

@@ -273,21 +273,42 @@ func begin_turn() -> void:
 		NavalMovement.begin_turn(region_fleets)
 
 
-## Removes fleets whose last hull has been sunk and frees their map markers.
-func prune_destroyed() -> void:
-	var alive: Array[FleetState] = []
-	for fleet: FleetState in fleets:
-		if fleet.is_afloat():
-			alive.append(fleet)
+## Resolves contested zones in every region. A battle must not pause because
+## the player is looking at the other map (wiki: map-topology § two regions).
+func resolve_battles(world: WorldMap) -> Array[Dictionary]:
+	var all: Array[Dictionary] = []
+	for index in world.region_count():
+		var region_fleets: Array[FleetState] = []
+		if model != null and index == model.region_id:
+			region_fleets = fleets
+		else:
+			region_fleets.assign(_fleets_by_region.get(index, []))
+		if region_fleets.is_empty():
 			continue
-		var ship: Ship = ship_for(fleet)
-		if ship != null:
-			if selected_ship == ship:
-				deselect()
-			ships.erase(ship)
-			ship.queue_free()
-	fleets = alive
-	_fleets_by_region[model.region_id] = fleets
+		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets)
+		if battles.is_empty():
+			continue
+		var alive: Array[FleetState] = []
+		var on_screen: bool = model != null and index == model.region_id
+		for fleet: FleetState in region_fleets:
+			if fleet.is_afloat():
+				alive.append(fleet)
+				continue
+			if not on_screen:
+				continue
+			var ship: Ship = ship_for(fleet)
+			if ship != null:
+				if selected_ship == ship:
+					deselect()
+				ships.erase(ship)
+				ship.queue_free()
+		_fleets_by_region[index] = alive
+		if on_screen:
+			fleets = alive
+		for battle: Dictionary in battles:
+			battle["region"] = index
+			all.append(battle)
+	return all
 
 
 ## Hulls still afloat for one faction across every fleet it keeps.
@@ -296,6 +317,19 @@ func hull_count(owner: int) -> int:
 	for fleet: FleetState in fleets:
 		if fleet.owner == owner:
 			total += fleet.ship_count()
+	return total
+
+
+## Hulls afloat for one faction across every region: reading another map must
+## not hide squadrons (or their food upkeep) from the empire.
+func hull_count_all(owner: int) -> int:
+	var total: int = 0
+	for raw: Variant in _fleets_by_region.values():
+		var stored: Array[FleetState] = []
+		stored.assign(raw)
+		for fleet: FleetState in stored:
+			if fleet.owner == owner:
+				total += fleet.ship_count()
 	return total
 
 

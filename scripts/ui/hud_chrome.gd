@@ -234,7 +234,7 @@ static func _province_panel(hud: GameHud) -> void:
 	hud.add_child(hud._panel_wrap)
 
 	hud._panel = ProvincePanel.new()
-	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._panel.action_pressed.connect(func(action: String) -> void: hud.panel_action.emit(action))
 	hud._panel.close_pressed.connect(func() -> void: hud.panel_closed.emit())
 	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
@@ -253,7 +253,7 @@ static func _fleet_panel(hud: GameHud) -> void:
 	hud.add_child(hud._fleet_wrap)
 
 	hud._fleet_panel = FleetPanel.new()
-	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._fleet_panel.close_pressed.connect(func() -> void: hud.fleet_closed.emit())
 	hud._fleet_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._fleet_wrap.add_child(hud._fleet_panel)
@@ -271,7 +271,7 @@ static func _economy_panel(hud: GameHud) -> void:
 	hud.add_child(hud._economy_wrap)
 
 	hud._economy_panel = EconomyPanel.new()
-	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
 	hud._economy_wrap.add_child(hud._economy_panel)
 
@@ -288,7 +288,7 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud.add_child(hud._civilian_wrap)
 
 	hud._civilian_panel = CivilianPanel.new()
-	hud._civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._civilian_panel.action_pressed.connect(func(action: String) -> void:
 		hud.civilian_action.emit(action)
 	)

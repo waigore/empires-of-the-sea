@@ -31,9 +31,20 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	var shell := VBoxContainer.new()
+	shell.add_theme_constant_override("separation", 8)
+	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(shell)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shell.add_child(scroll)
+
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 10)
-	add_child(column)
+	scroll.add_child(column)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
@@ -93,8 +104,9 @@ func _build() -> void:
 	orders.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	column.add_child(orders)
 
-	var recruit := _make_button("Recruit Regiment")
-	recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
+	var recruit := _make_button("Recruit Regiment (deferred)")
+	recruit.disabled = true
+	recruit.tooltip_text = "Regiments arrive with the military slice."
 	column.add_child(recruit)
 
 	var build := _make_button("Build Improvement")
@@ -128,7 +140,7 @@ func _build() -> void:
 	column.add_child(spacer)
 
 	var hint := Label.new()
-	hint.text = "Demo build — orders are illustrative."
+	hint.text = "Civilians muster at the capital; estates are managed from the ledger."
 	hint.add_theme_font_size_override("font_size", 11)
 	hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.6))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -136,7 +148,7 @@ func _build() -> void:
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
-	column.add_child(footer)
+	shell.add_child(footer)
 
 	_dock = _make_button("◀ Dock")
 	_dock.tooltip_text = "Dock left"

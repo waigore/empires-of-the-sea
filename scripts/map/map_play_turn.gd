@@ -52,14 +52,20 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 ## § Naval Combat). Rules resolve the battle; this only prunes markers and
 ## reports the outcome.
 static func _resolve_naval_combat(play: PlaySession) -> void:
-	var battles: Array[Dictionary] = NavalCombat.resolve_turn(play.ship_layer.fleets)
+	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world)
 	if battles.is_empty():
 		return
-	play.ship_layer.prune_destroyed()
 	for battle: Dictionary in battles:
-		var zone: String = play.model.sea_zone_name(int(battle["zone"]))
-		play.hud.toast(BattleReport.describe(battle, zone, FactionCatalog.names()))
-	play.hud.set_fleets(play.ship_layer.hull_count(PlaySession.PLAYER_FACTION))
+		var region: int = int(battle.get("region", play.region_index))
+		var model: MapModel = (
+			play.model if region == play.region_index else play.world.region(region)
+		)
+		var zone: String = model.sea_zone_name(int(battle["zone"])) if model != null else "—"
+		var prefix: String = ""
+		if region != play.region_index:
+			prefix = "%s — " % FactionCatalog.region_label(region)
+		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
+	play.hud.set_fleets(play.ship_layer.hull_count_all(PlaySession.PLAYER_FACTION))
 	play.emit_battle_resolved(battles)
 
 

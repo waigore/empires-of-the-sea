@@ -5,15 +5,20 @@ extends RefCounted
 ## size bar.
 
 const OLD_WORLD_ROOTS: Array[String] = [
-	"Cádiz", "Marcos", "Cruz", "Rica", "Cartagena", "Veracruz", "Habana", "Domingo",
-	"Trujillo", "Panamá", "Juan", "Cumaná", "Maracaibo", "Coro", "Margarita", "Trinidad",
-	"Santiago", "Isabel", "Fernando", "Agustín", "Miguel", "Cristóbal", "Antonio", "Lucía",
-	"Elena", "Rosa", "Pedro", "Andrés", "Felipe", "Blas", "Jerónimo", "Catalina",
+	"Cádiz", "Sevilla", "Toledo", "Burgos", "Valladolid", "Zaragoza", "Barcelona",
+	"Valencia", "Granada", "Salamanca", "Bilbao", "Cartagena", "Málaga", "Córdoba",
+	"Lisboa", "Oporto", "Coímbra", "Évora", "Braga",
+	"Londres", "Brístol", "Plymouth", "Dover", "York", "Norwich", "Oxford",
+	"París", "Rouen", "Nantes", "Burdeos", "Marsella", "Lyon", "Brest", "Tolón",
+	"Ámsterdam", "Amberes", "Róterdam", "Utrecht", "Brujas", "Bruselas", "Gante",
+	"Estocolmo", "Gotemburgo", "Malmö", "Upsala", "Abo", "Copenhague", "Bergen",
+	"Génova", "Venecia", "Nápoles", "Florencia", "Milán", "Palermo", "Roma",
+	"Lübeck", "Hamburgo", "Danzig", "Riga", "Cracovia", "Viena", "Praga", "Budapest",
+	"Dublín", "Edimburgo", "Glasgow", "Cork", "Ginebra", "Zúrich", "Salzburgo",
+	"Trento", "Trieste",
 ]
 
-const OLD_WORLD_PREFIXES: Array[String] = [
-	"San", "Santa", "Puerto", "Villa", "Nueva", "Real"
-]
+const OLD_WORLD_PREFIXES: Array[String] = []
 
 const NEW_WORLD_ROOTS: Array[String] = [
 	"Tenochtitlan", "Texcoco", "Tlacopan", "Cholula", "Tikal", "Uxmal", "Tulum",
@@ -24,11 +29,11 @@ const NEW_WORLD_ROOTS: Array[String] = [
 const NEW_WORLD_PREFIXES: Array[String] = ["Valle", "Sierra", "Costa", "Monte", "Río"]
 
 const OLD_WORLD_SEA_NAMES: Array[String] = [
-	"Mar del Norte", "Golfo de las Perlas", "Mar Caribe", "Bahía de Cádiz",
-	"Estrecho de Gibraltar", "Mar de las Antillas", "Golfo de México", "Océano Atlántico",
-	"Mar Mediterráneo", "Canal de las Bahamas", "Mar de los Sargazos", "Golfo de Guinea",
-	"Mar Tirreno", "Bahía de Vizcaya", "Canal de la Mancha", "Mar Báltico",
-	"Golfo de León", "Mar de Alborán", "Mar de Azov", "Golfo de Cádiz",
+	"Mar del Norte", "Mar Mediterráneo", "Océano Atlántico", "Mar Báltico",
+	"Canal de la Mancha", "Golfo de Vizcaya", "Mar Tirreno", "Mar Adriático",
+	"Mar Egeo", "Mar Negro", "Golfo de León", "Mar de Alborán", "Golfo de Cádiz",
+	"Mar de Liguria", "Mar de Cerdeña", "Golfo de Finlandia", "Kattegat",
+	"Skagerrak", "Mar de Irlanda", "Canal de Sicilia",
 ]
 
 const NEW_WORLD_SEA_NAMES: Array[String] = [
@@ -53,9 +58,9 @@ static func province_name(
 		var root: String = roots[rng.randi_range(0, roots.size() - 1)]
 		var roll: float = rng.randf()
 		var name: String = root
-		if roll < 0.45:
+		if not prefixes.is_empty() and roll < 0.45:
 			name = "%s %s" % [prefixes[rng.randi_range(0, prefixes.size() - 1)], root]
-		elif roll < 0.6:
+		elif not prefixes.is_empty() and roll < 0.6:
 			name = "%s %s" % [compound, root]
 		if not used.has(name):
 			used[name] = true
