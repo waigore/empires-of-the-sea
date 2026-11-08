@@ -20,7 +20,7 @@ static func build(hud: GameHud) -> void:
 static func _top_bar(hud: GameHud) -> void:
 	var bar := PanelContainer.new()
 	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	bar.offset_bottom = 68.0
+	bar.offset_bottom = GameHud.BAR_HEIGHT
 	bar.mouse_filter = Control.MOUSE_FILTER_STOP
 	var style := UiTheme.box(
 		Color(0.09, 0.07, 0.05, 0.95), Palette.GOLD_DIM, 0, 0, Vector4(20, 8, 20, 8)
@@ -28,10 +28,23 @@ static func _top_bar(hud: GameHud) -> void:
 	style.border_width_bottom = 2
 	bar.add_theme_stylebox_override("panel", style)
 	hud.add_child(bar)
+	hud.top_bar = bar
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	bar.add_child(column)
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
-	bar.add_child(row)
+	column.add_child(row)
+	hud.top_row = row
+
+	var chip_row := HBoxContainer.new()
+	chip_row.add_theme_constant_override("separation", 18)
+	chip_row.alignment = BoxContainer.ALIGNMENT_END
+	chip_row.visible = false
+	column.add_child(chip_row)
+	hud.chip_row = chip_row
 
 	row.add_child(Icon.new("crest", 40, Palette.GOLD))
 
@@ -55,12 +68,21 @@ static func _top_bar(hud: GameHud) -> void:
 
 	var region := Button.new()
 	region.text = "OLD WORLD ›"
-	region.custom_minimum_size = Vector2(0, 38)
+	region.custom_minimum_size = Vector2(0, 40)
 	region.add_theme_font_size_override("font_size", 12)
 	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
 	row.add_child(region)
 	hud._region_button = region
+
+	var focus := Button.new()
+	focus.text = "CAPITAL"
+	focus.custom_minimum_size = Vector2(0, 42)
+	focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	focus.add_theme_font_size_override("font_size", 12)
+	focus.tooltip_text = "Focus capital (F)"
+	focus.pressed.connect(func() -> void: hud.focus_capital_pressed.emit())
+	row.add_child(focus)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -76,18 +98,22 @@ static func _top_bar(hud: GameHud) -> void:
 	var treasury := _chip("coin", "TREASURY")
 	hud._treasury_chip = treasury["root"]
 	hud._treasury_label = treasury["value"]
+	hud.chips.append(hud._treasury_chip)
 	row.add_child(hud._treasury_chip)
 
 	var prestige := _chip("star", "PRESTIGE")
 	hud._prestige_label = prestige["value"]
+	hud.chips.append(prestige["root"])
 	row.add_child(prestige["root"])
 
 	var fleets := _chip("ship", "SHIPS")
 	hud._fleet_label = fleets["value"]
+	hud.chips.append(fleets["root"])
 	row.add_child(fleets["root"])
 
 	var civilians := _chip("compass", "CIVILIANS")
 	hud._civilian_label = civilians["value"]
+	hud.chips.append(civilians["root"])
 	row.add_child(civilians["root"])
 
 
@@ -139,6 +165,7 @@ static func _minimap(hud: GameHud) -> void:
 		UiTheme.box(Color(0.10, 0.08, 0.06, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(8, 8, 8, 8))
 	)
 	hud.add_child(frame)
+	hud.minimap_frame = frame
 
 	hud._minimap = Minimap.new()
 	hud._minimap.custom_minimum_size = Vector2(232, 160)
@@ -157,6 +184,7 @@ static func _zoom(hud: GameHud) -> void:
 	box.offset_bottom = -110.0
 	box.add_theme_constant_override("separation", 6)
 	hud.add_child(box)
+	hud.zoom_box = box
 
 	var zoom_in := _square_button("+")
 	zoom_in.pressed.connect(func() -> void: hud.zoom_in_pressed.emit())
@@ -184,6 +212,7 @@ static func _end_turn(hud: GameHud) -> void:
 	wrap.offset_bottom = -20.0
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud.add_child(wrap)
+	hud.end_turn_wrap = wrap
 
 	hud._glow = Panel.new()
 	hud._glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -317,6 +346,8 @@ static func _tooltip(hud: GameHud) -> void:
 
 
 static func show_tooltip(hud: GameHud, text: String) -> void:
+	if hud.touch_ui:
+		return
 	hud._tooltip_label.text = text
 	hud._tooltip.visible = true
 	hud._tooltip.reset_size()

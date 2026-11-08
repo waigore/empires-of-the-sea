@@ -15,6 +15,8 @@ const TILE_SIZE: float = PlaySession.TILE_SIZE
 const MAP_SEED: int = 1500
 const PLAYER_FACTION: int = PlaySession.PLAYER_FACTION
 const SHIP_COUNT: int = 7
+## Android delivers the back request twice for one press; one layer per press.
+const BACK_DEBOUNCE_MS: int = 300
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
 var play: PlaySession = null
@@ -23,6 +25,8 @@ var map_width: int = 128
 var map_height: int = 84
 ## When set (tests), skip generation and load this world in `_ready`.
 var preset_world: WorldMap = null
+
+var _last_back_ms: int = -BACK_DEBOUNCE_MS
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
@@ -154,6 +158,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## Android back / iOS back gesture: close the top layer first, quit only from the
+## bare map. Without this the OS kills the session mid-order (RUB-P1-05).
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - _last_back_ms < BACK_DEBOUNCE_MS:
+		return
+	_last_back_ms = now
+	if play == null:
+		get_tree().quit()
+		return
+	if improvements.is_open():
+		improvements.close()
+	elif play.hud.panels.is_economy_open():
+		play.hud.panels.hide_economy()
+	elif (
+		play.hud.panels.is_panel_open()
+		or play.hud.panels.is_fleet_panel_open()
+		or play.hud.panels.is_civilian_panel_open()
+	):
+		MapPlayInput.deselect(play)
+	else:
+		get_tree().quit()
+
+
 # --- setup ------------------------------------------------------------------
 
 
@@ -257,6 +287,9 @@ func _connect() -> void:
 		MapPlayInput.on_minimap_jump(play, world_position)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.focus_capital_pressed.connect(func() -> void:
+		MapPlayTurn.focus_capital(play)
+	)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)

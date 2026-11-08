@@ -11,6 +11,16 @@ const TOP: float = 84.0
 const BOTTOM: float = -104.0
 
 var side: int = Side.RIGHT
+## Compact (phone) sheets are narrower and reach further down the screen.
+var width: float = WIDTH
+var top: float = TOP
+var bottom: float = BOTTOM
+
+
+func configure(p_width: float, p_top: float, p_bottom: float) -> void:
+	width = maxf(p_width, 240.0)
+	top = p_top
+	bottom = p_bottom
 
 
 func set_side(value: int) -> int:
@@ -46,27 +56,35 @@ func prepare_wrap(wrap: Control) -> void:
 	wrap.set_anchors_and_offsets_preset(
 		Control.PRESET_LEFT_WIDE if is_left() else Control.PRESET_RIGHT_WIDE
 	)
-	wrap.offset_top = TOP
-	wrap.offset_bottom = BOTTOM
+	wrap.offset_top = top
+	wrap.offset_bottom = bottom
 	place_hidden(wrap)
 
 
 func place_hidden(wrap: Control) -> void:
 	if is_left():
-		wrap.offset_left = MARGIN - WIDTH
+		wrap.offset_left = MARGIN - width
 		wrap.offset_right = MARGIN
 	else:
 		wrap.offset_left = -MARGIN
-		wrap.offset_right = WIDTH - MARGIN
+		wrap.offset_right = width - MARGIN
 
 
 func place_shown(wrap: Control) -> void:
 	if is_left():
 		wrap.offset_left = MARGIN
-		wrap.offset_right = MARGIN + WIDTH
+		wrap.offset_right = MARGIN + width
 	else:
-		wrap.offset_left = -(WIDTH + MARGIN)
+		wrap.offset_left = -(width + MARGIN)
 		wrap.offset_right = -MARGIN
+
+
+## Re-anchors a wrap for the current geometry without animating it.
+func relayout(wrap: Control, shown: bool) -> void:
+	prepare_wrap(wrap)
+	if shown:
+		place_shown(wrap)
+		wrap.visible = true
 
 
 func slide_in(host: Node, wrap: Control) -> void:
@@ -77,9 +95,9 @@ func slide_in(host: Node, wrap: Control) -> void:
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if is_left():
 		tween.tween_property(wrap, "offset_left", MARGIN, 0.34)
-		tween.tween_property(wrap, "offset_right", MARGIN + WIDTH, 0.34)
+		tween.tween_property(wrap, "offset_right", MARGIN + width, 0.34)
 	else:
-		tween.tween_property(wrap, "offset_left", -(WIDTH + MARGIN), 0.34)
+		tween.tween_property(wrap, "offset_left", -(width + MARGIN), 0.34)
 		tween.tween_property(wrap, "offset_right", -MARGIN, 0.34)
 	tween.tween_property(wrap, "modulate:a", 1.0, 0.22)
 
@@ -88,10 +106,10 @@ func slide_out(host: Node, wrap: Control, on_done: Callable) -> void:
 	var tween := host.create_tween().set_parallel(true)
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	if is_left():
-		tween.tween_property(wrap, "offset_left", MARGIN - WIDTH, 0.26)
+		tween.tween_property(wrap, "offset_left", MARGIN - width, 0.26)
 		tween.tween_property(wrap, "offset_right", MARGIN, 0.26)
 	else:
 		tween.tween_property(wrap, "offset_left", -MARGIN, 0.26)
-		tween.tween_property(wrap, "offset_right", WIDTH - MARGIN, 0.26)
+		tween.tween_property(wrap, "offset_right", width - MARGIN, 0.26)
 	tween.tween_property(wrap, "modulate:a", 0.0, 0.2)
 	tween.chain().tween_callback(on_done)

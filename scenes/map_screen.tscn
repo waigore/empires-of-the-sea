@@ -88,6 +88,7 @@ grow_vertical = 2
 script = ExtResource("6_hud")
 
 [node name="AudioControls" type="Control" parent="HUD/HudRoot"]
+z_index = 4
 offset_left = 18.0
 offset_top = 78.0
 offset_right = 64.0

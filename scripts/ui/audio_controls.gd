@@ -12,6 +12,8 @@ signal ui_sound(event_name: String)
 const PANEL_WIDTH := 268.0
 const TRIGGER_SIZE := 46.0
 const PANEL_GAP := 8.0
+## The estates seal sits directly under the bell; the mix desk opens below it.
+const SEAL_CLEARANCE := 52.0
 
 var _trigger: Button = null
 var _panel: PanelContainer = null
@@ -119,7 +121,7 @@ func _build_panel() -> void:
 
 	_panel.custom_minimum_size = Vector2(PANEL_WIDTH, 0.0)
 	_panel.reset_size()
-	_panel.position = Vector2(0.0, TRIGGER_SIZE + PANEL_GAP)
+	_panel.position = Vector2(0.0, TRIGGER_SIZE + PANEL_GAP + SEAL_CLEARANCE)
 
 
 func _build_row(caption: String) -> Dictionary:
@@ -197,7 +199,7 @@ func set_mix(music: float, sfx: float, muted: bool) -> void:
 func open_panel() -> void:
 	_panel.visible = true
 	_panel.reset_size()
-	_panel.position = Vector2(0.0, TRIGGER_SIZE + PANEL_GAP)
+	_panel.position = Vector2(0.0, TRIGGER_SIZE + PANEL_GAP + SEAL_CLEARANCE)
 
 
 func close_panel() -> void:
