@@ -79,8 +79,8 @@ static func run_ai(play: PlaySession) -> void:
 		play.world,
 		play.ai,
 		play.turn,
-		PLAYER_FACTION,
-		play.ai_seed,
+		play.player_faction,
+		play.map_seed,
 		_ai_context(play)
 	)
 	play.ai_trace.assign(result.get("trace", []))

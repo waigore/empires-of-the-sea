@@ -74,7 +74,7 @@ func test_map_phase_runs_the_ai_without_views() -> void:
 	play.diplomacy = DiplomacyState.new()
 	play.diplomacy.reset(1)
 	play.diplomacy.ensure_relation(1, 2, 1)
-	play.ai_seed = 1500
+	play.map_seed = 1500
 	MapPlayDiplomacy.run_ai(play)
 	assert_not_null(play.ai)
 	assert_eq(play.ai_trace.size(), 5)

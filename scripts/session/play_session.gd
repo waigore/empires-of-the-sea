@@ -31,7 +31,6 @@ var diplomacy: DiplomacyState = null
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
 ## turn's decision trace (wiki: ai-architecture).
 var ai: AiState = null
-var ai_seed: int = 0
 var ai_trace: Array[Dictionary] = []
 
 var turn: int = 1
