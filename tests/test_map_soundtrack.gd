@@ -37,14 +37,19 @@ func test_the_soundtrack_wires_the_director() -> void:
 
 func test_selecting_a_province_plays_a_cue_pair() -> void:
 	var before: int = _audio.sfx_played
-	var province_id: int = _inland_province()
-	MapPlayInput.on_tapped(_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
+	var province_id: int = Fixture.inland_province(_screen.model)
+	MapPlayInput.on_tapped(
+		_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
 	assert_eq(_audio.last_event, AudioEvents.PANEL_OPEN)
 	assert_eq(_audio.sfx_played, before + 2)
 
 
 func test_clearing_the_selection_closes_the_panel_audibly() -> void:
-	var inland: Vector2 = _screen.model.province_center(_inland_province()) * MapScreen.TILE_SIZE
+	var inland: Vector2 = (
+		_screen.model.province_center(Fixture.inland_province(_screen.model))
+		* MapScreen.TILE_SIZE
+	)
 	MapPlayInput.on_tapped(_screen.play, inland)
 	MapPlayInput.deselect(_screen.play)
 	assert_eq(_audio.last_event, AudioEvents.PANEL_CLOSE)
@@ -168,10 +173,3 @@ func test_the_mute_key_is_bound() -> void:
 	assert_true(InputMap.has_action(InputActions.MUTE))
 	var keys: Array = InputMap.action_get_events(InputActions.MUTE)
 	assert_gt(keys.size(), 0)
-
-
-func _inland_province() -> int:
-	for province: ProvinceState in _screen.model.provinces:
-		if not province.coastal and province.area > 30:
-			return province.id
-	return int(_screen.model.provinces[0].id)

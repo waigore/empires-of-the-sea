@@ -76,7 +76,8 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
-`test_generals`, `test_leader_catalog`, `test_army_orders`, `test_map_screen`.
+`test_generals`, `test_leader_catalog`, `test_army_orders`,
+`test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

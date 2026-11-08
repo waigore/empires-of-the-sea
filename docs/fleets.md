@@ -75,7 +75,8 @@ Movable fleets highlight; refusals toast.
 ## Tests
 
 `test_warp_travel`, `test_naval_movement`, `test_fleet_orders`, `test_visibility`,
-`test_ship_stats`, `test_ship_economy`, `test_naval_combat`, `test_map_screen`.
+`test_ship_stats`, `test_ship_economy`, `test_naval_combat`,
+`test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
