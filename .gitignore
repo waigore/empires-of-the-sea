@@ -40,3 +40,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# agent-orc (runtime + machine overrides; keep .orc/config.yaml tracked)
+.orc/config.local.yaml
+.orc/worktrees/
+.orc/logs/
