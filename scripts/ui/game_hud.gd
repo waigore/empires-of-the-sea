@@ -17,6 +17,8 @@ signal army_action(action: String)
 signal army_closed
 signal economy_pressed
 signal research_pressed
+signal diplomacy_pressed
+signal diplomacy_order(kind: String, target: int, arg: String)
 signal region_toggle_pressed
 
 const PANEL_WIDTH: float = 360.0
@@ -51,6 +53,8 @@ var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
 var _research_wrap: Control = null
 var _research_panel: ResearchPanel = null
+var _diplomacy_wrap: Control = null
+var _diplomacy_panel: DiplomacyPanel = null
 var _treasury_value: int = 0
 
 

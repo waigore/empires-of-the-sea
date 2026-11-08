@@ -16,6 +16,8 @@ var economy_wrap: Control = null
 var economy_panel: EconomyPanel = null
 var research_wrap: Control = null
 var research_panel: ResearchPanel = null
+var diplomacy_wrap: Control = null
+var diplomacy_panel: DiplomacyPanel = null
 var dock: PanelDock = null
 
 var panel_open: bool = false
@@ -24,6 +26,7 @@ var civilian_open: bool = false
 var army_open: bool = false
 var economy_open: bool = false
 var research_open: bool = false
+var diplomacy_open: bool = false
 
 
 func bind(hud: GameHud) -> void:
@@ -40,6 +43,8 @@ func bind(hud: GameHud) -> void:
 	economy_panel = hud._economy_panel
 	research_wrap = hud._research_wrap
 	research_panel = hud._research_panel
+	diplomacy_wrap = hud._diplomacy_wrap
+	diplomacy_panel = hud._diplomacy_panel
 	dock = PanelDock.new()
 	dock.load_from()
 	_sync_dock_buttons()
@@ -64,6 +69,7 @@ func show_province(model: MapModel, province_id: int) -> void:
 	hide_fleet()
 	hide_civilian()
 	hide_army()
+	DiplomacyHud.hide(self)
 	panel.refresh(model, province_id)
 	panel_open = true
 	dock.slide_in(host, panel_wrap)
@@ -86,6 +92,7 @@ func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_army()
 	hide_economy()
 	hide_research()
+	DiplomacyHud.hide(self)
 	fleet_panel.refresh(model, fleet, is_player)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
@@ -116,6 +123,7 @@ func show_civilian(
 	hide_army()
 	hide_economy()
 	hide_research()
+	DiplomacyHud.hide(self)
 	civilian_panel.refresh(model, unit, works, units, stockpile, visibility, tech_caps)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)
@@ -142,6 +150,7 @@ func show_army(model: MapModel, army: ArmyState, is_player: bool, can_merge: boo
 	hide_civilian()
 	hide_research()
 	hide_economy()
+	DiplomacyHud.hide(self)
 	army_panel.refresh(model, army, is_player, can_merge)
 	army_open = true
 	dock.slide_in(host, army_wrap)
@@ -166,6 +175,7 @@ func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionar
 	hide_civilian()
 	hide_army()
 	hide_research()
+	DiplomacyHud.hide(self)
 	panel_wrap.visible = false
 	panel_open = false
 	fleet_wrap.visible = false
@@ -199,8 +209,7 @@ func show_research(state: ResearchState, treasury: int) -> void:
 	hide_civilian()
 	hide_army()
 	hide_economy()
-	army_wrap.visible = false
-	army_open = false
+	DiplomacyHud.hide(self)
 	research_panel.refresh(state, treasury)
 	research_wrap.visible = true
 	research_open = true
@@ -217,6 +226,10 @@ func hide_research() -> void:
 
 func is_research_open() -> bool:
 	return research_open
+
+
+func is_diplomacy_open() -> bool:
+	return diplomacy_open
 
 
 func _selection_wraps() -> Array[Control]:

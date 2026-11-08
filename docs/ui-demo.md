@@ -2,7 +2,7 @@
 
 Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate and ledger orders are live; the economy resolves each turn.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate, ledger and court orders are live; the economy and diplomacy resolve each turn.
 
 ## Controls
 
@@ -37,6 +37,8 @@ scripts/rules/world_map.gd        two regions + warp-zone pairs
 scripts/rules/visibility.gd per-player fog of war (tested)
 scripts/rules/capital_choice.gd  capital-choice phase (tested)
 scripts/rules/world_bootstrap.gd setup ports, roads, grain farms
+scripts/rules/diplomacy_*.gd relations, war, alliances, overtures
+scripts/ui/diplomacy_panel.gd the court ledger (tested via screen)
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
 ui/shaders/*                sea, fog, grain, vignette
 ```
