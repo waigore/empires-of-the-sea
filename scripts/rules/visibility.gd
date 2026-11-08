@@ -252,3 +252,19 @@ func _apply_distant_sea_fog(at_sea_zones: Array) -> Array:
 			if lower_to(index, Level.FOGGED):
 				changed.append(index)
 	return changed
+
+
+## Plain data for local saves: the per-tile knowledge grid.
+func to_dict() -> Dictionary:
+	return {"player_id": player_id, "levels": levels.duplicate()}
+
+
+## Restores the grid onto an already-set-up model (coast links stay derived).
+func apply_dict(data: Dictionary) -> bool:
+	player_id = int(data.get("player_id", player_id))
+	var raw: Variant = data.get("levels", PackedByteArray())
+	var restored: PackedByteArray = raw if typeof(raw) == TYPE_PACKED_BYTE_ARRAY else PackedByteArray(raw)
+	if model == null or restored.size() != model.width * model.height:
+		return false
+	levels = restored
+	return true

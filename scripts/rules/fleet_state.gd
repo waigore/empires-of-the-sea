@@ -122,3 +122,32 @@ func hull_summary() -> String:
 	for type_id: String in counts.keys():
 		parts.append("%d %s" % [int(counts[type_id]), ShipStats.display_name(type_id)])
 	return " · ".join(parts)
+
+
+## Plain data for local saves: location, orders and every hull instance.
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"owner": owner,
+		"location": location,
+		"sea_zone": sea_zone,
+		"province": province,
+		"moved": moved,
+		"hulls": hulls.duplicate(),
+		"hull_types": hull_types.duplicate(),
+	}
+
+
+static func from_dict(data: Dictionary) -> FleetState:
+	var fleet := FleetState.new()
+	fleet.id = int(data.get("id", -1))
+	fleet.owner = int(data.get("owner", 0))
+	fleet.location = int(data.get("location", Location.AT_SEA))
+	fleet.sea_zone = int(data.get("sea_zone", MapModel.NO_ID))
+	fleet.province = int(data.get("province", MapModel.NO_ID))
+	fleet.moved = bool(data.get("moved", false))
+	var names: Array[String] = []
+	for raw: Variant in data.get("hulls", []):
+		names.append(String(raw))
+	fleet.set_hulls(names, data.get("hull_types", {}))
+	return fleet

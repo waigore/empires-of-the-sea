@@ -13,7 +13,7 @@ static func on_action(play: PlaySession, action: String, tile: Vector2i) -> void
 		return
 	var result: Dictionary = ImprovementOrders.apply(
 		play.model, play.civilian_layer.units, play.land_works,
-		play.stockpile(), play.visibility, PlaySession.PLAYER_FACTION, action, tile,
+		play.stockpile(), play.visibility, play.player_faction, action, tile,
 		play.tech_caps(), play.tech_unlocked()
 	)
 	play.hud.toast(String(result.get("message", "")))
