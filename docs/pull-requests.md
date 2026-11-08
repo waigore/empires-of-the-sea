@@ -24,8 +24,9 @@ The **Protect main** ruleset requires these status checks (strict: branch must b
 | Check | Workflow | Meaning |
 |-------|----------|---------|
 | `tests` | [CI](../.github/workflows/ci.yml) | `gd-tools test --coverage --min 80` |
+| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (currently a **no-op**) |
 
-Human review is optional (not a merge gate). Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-merge is enabled on the repo.
+Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-merge is enabled on the repo.
 
 ### Respecting checks
 
@@ -34,6 +35,16 @@ Human review is optional (not a merge gate). Merge method on `main` is **squash 
 - **Do not** use `--admin`, merge overrides, or temporary rule disablement to land a red PR.
 - If checks fail: fix forward on the PR branch, push, and re-check. Do not close/reopen to “clear” failures.
 - Keep the branch current with `main` when strict status policy blocks merge (`gh pr merge` / auto-merge will wait until the branch is updated).
+
+### Approval gate (no-op for now)
+
+`approval-gate` remains a required check so the hook stays wired, but **`ENFORCE_APPROVAL=false`** in the workflow makes it always pass. Human review is optional.
+
+When re-enabled (`ENFORCE_APPROVAL=true`), non-draft PRs that touch game code/tests/assets will need one approving review from **any write collaborator other than the author** (`scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`). Docs/CI-only paths stay exempt. The workflow will auto-request eligible collaborators and fail with approve instructions until someone does:
+
+```bash
+gh pr review <number> --approve
+```
 
 ---
 
@@ -69,7 +80,7 @@ EOF
 ### While open
 
 ```bash
-gh pr checks          # required: tests
+gh pr checks          # required: tests, approval-gate
 gh pr view            # status, URL
 gh pr comment --body "…"
 ```
@@ -85,7 +96,7 @@ Prefer enabling squash auto-merge (the [Automerge](../.github/workflows/automerg
 gh pr merge --squash --auto --delete-branch
 ```
 
-- Only merge manually with the same squash policy when auto-merge cannot be used and **`tests`** is green.
+- Only merge manually with the same squash policy when auto-merge cannot be used and required checks are green.
 - Never merge to `main` outside a PR that has satisfied the ruleset checks.
 
 ---
@@ -95,5 +106,6 @@ gh pr merge --squash --auto --delete-branch
 - [ ] Change maps to at least one pillar (`P1`–`P4`) or is explicitly docs/tooling-only
 - [ ] PR opened/updated with `gh`
 - [ ] `tests` green (`gd-tools test --coverage --min 80`)
+- [ ] `approval-gate` green (no-op until `ENFORCE_APPROVAL=true`)
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass
