@@ -12,8 +12,8 @@ static func select(play: PlaySession, ship: Ship) -> void:
 		return
 	play.selected_province = -1
 	play.overlay.select_province(-1)
-	play.hud.hide_province()
-	play.hud.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
+	play.hud.panels.hide_province()
+	play.hud.panels.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
 	refresh_options(play, fleet)
 	if fleet.owner != PlaySession.PLAYER_FACTION:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
@@ -71,7 +71,7 @@ static func try_sea_order(play: PlaySession, fleet: FleetState, zone_id: int) ->
 static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -> void:
 	if fleet.owner != PlaySession.PLAYER_FACTION:
 		return
-	play.hud.show_fleet(play.model, fleet, true)
+	play.hud.panels.show_fleet(play.model, fleet, true)
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
 	if zone >= 0:
@@ -127,10 +127,10 @@ static func _known(play: PlaySession, fleet: FleetState) -> bool:
 
 static func _tile(play: PlaySession, fleet: FleetState) -> Vector2i:
 	if fleet.is_at_sea():
-		var zone: Dictionary = play.model.sea_zone_data(fleet.sea_zone)
-		var tiles: Array = zone.get("tiles", [])
+		var zone: SeaZoneState = play.model.sea_zone_data(fleet.sea_zone)
+		var tiles: Array = zone.tiles if zone != null else []
 		if tiles.is_empty():
 			return Vector2i(-1, -1)
 		return tiles[0]
-	var data: Dictionary = play.model.province_data(fleet.province)
-	return data.get("port_tile", Vector2i(-1, -1))
+	var data: ProvinceState = play.model.province_data(fleet.province)
+	return data.port_tile if data != null else Vector2i(-1, -1)

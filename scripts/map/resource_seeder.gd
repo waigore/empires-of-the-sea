@@ -13,7 +13,7 @@ const EMPTY_CHANCE: float = 0.15
 static func seed_resources(
 	model: MapModel, table: Array[Dictionary], rng: RandomNumberGenerator
 ) -> void:
-	for province: Dictionary in model.provinces:
+	for province: ProvinceState in model.provinces:
 		var wanted: int = rng.randi_range(MIN_PER_PROVINCE, MAX_PER_PROVINCE)
 		if rng.randf() < EMPTY_CHANCE:
 			wanted = 0
@@ -25,16 +25,16 @@ static func seed_resources(
 			if pick < 0:
 				break
 			model.resource[model.index_of(tile.x, tile.y)] = pick
-			if int(province["resource"]) == MapModel.NO_ID:
-				province["resource"] = pick
-				province["resource_tile"] = tile
+			if province.resource == MapModel.NO_ID:
+				province.resource = pick
+				province.resource_tile = tile
 
 
 static func _free_tile(
-	model: MapModel, table: Array[Dictionary], province: Dictionary, rng: RandomNumberGenerator
+	model: MapModel, table: Array[Dictionary], province: ProvinceState, rng: RandomNumberGenerator
 ) -> Vector2i:
 	var candidates: Array[Vector2i] = []
-	for tile: Vector2i in province.get("tiles", []):
+	for tile: Vector2i in province.tiles:
 		if model.resource_at(tile.x, tile.y) != MapModel.NO_ID:
 			continue
 		var terrain: int = model.terrain_at(tile.x, tile.y)

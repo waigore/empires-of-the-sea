@@ -75,8 +75,8 @@ static func _assign(
 static func _continents(model: MapModel) -> Array:
 	var seen: Dictionary = {}
 	var ids: Array[int] = []
-	for province: Dictionary in model.provinces:
-		ids.append(int(province["id"]))
+	for province: ProvinceState in model.provinces:
+		ids.append(province.id)
 	ids.sort()
 	var result: Array = []
 	for province_id: int in ids:
@@ -296,13 +296,11 @@ static func _grow(
 
 	for raw: Variant in owner.keys():
 		var province_id: int = int(raw)
-		var province: Dictionary = model.province_data(province_id)
-		if province.is_empty():
+		var province: ProvinceState = model.province_data(province_id)
+		if province == null:
 			continue
-		province["owner"] = int(owner[raw])
-		province["population"] = (
-			180 + int(province["area"]) * 9 + (province_id * 37) % 90
-		)
+		province.owner = int(owner[raw])
+		province.population = 180 + province.area * 9 + (province_id * 37) % 90
 
 
 static func _province_distances(

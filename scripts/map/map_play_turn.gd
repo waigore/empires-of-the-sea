@@ -22,7 +22,7 @@ static func end_turn(play: PlaySession) -> void:
 	if selected != null:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
 		if fleet != null:
-			play.hud.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
+			play.hud.panels.show_fleet(play.model, fleet, fleet.owner == PlaySession.PLAYER_FACTION)
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
 		MapPlayCivilians.refresh_panel(play)

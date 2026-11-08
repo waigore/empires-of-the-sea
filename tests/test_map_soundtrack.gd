@@ -171,7 +171,7 @@ func test_the_mute_key_is_bound() -> void:
 
 
 func _inland_province() -> int:
-	for province: Dictionary in _screen.model.provinces:
-		if not bool(province["coastal"]) and int(province["area"]) > 30:
-			return int(province["id"])
-	return int(_screen.model.provinces[0]["id"])
+	for province: ProvinceState in _screen.model.provinces:
+		if not province.coastal and province.area > 30:
+			return province.id
+	return int(_screen.model.provinces[0].id)

@@ -108,23 +108,15 @@ func _build_provinces(model: MapModel) -> void:
 			if MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				coastal = true
 				break
-		model.provinces.append({
-			"id": id,
-			"name": MapNaming.province_name(used_names, model.region_id, _rng),
-			"tiles": tiles,
-			"center": center,
-			"area": tiles.size(),
-			"coastal": coastal,
-			"port_tile": Vector2i(-1, -1),
-			"owner": MapModel.NO_ID,
-			"capital": false,
-			"capital_tile": CapitalChoice.NO_TILE,
-			"ports": {},
-			"road_paths": [],
-			"town_development": 0,
-			"resource": MapModel.NO_ID,
-			"population": 0,
-		})
+		var province := ProvinceState.create(
+			id,
+			MapNaming.province_name(used_names, model.region_id, _rng),
+			tiles,
+			center,
+			tiles.size()
+		)
+		province.coastal = coastal
+		model.provinces.append(province)
 
 
 # --- sea zones --------------------------------------------------------------
@@ -150,13 +142,15 @@ func _build_sea_zones(model: MapModel) -> void:
 	for id: int in ids:
 		var tiles: Array[Vector2i] = buckets[id]["tiles"]
 		var sum: Vector2 = buckets[id]["sum"]
-		model.sea_zones.append({
-			"id": id,
-			"name": MapNaming.sea_name(used_names, model.region_id),
-			"tiles": tiles,
-			"center": sum / float(tiles.size()) + Vector2(0.5, 0.5),
-			"area": tiles.size(),
-		})
+		model.sea_zones.append(
+			SeaZoneState.create(
+				id,
+				MapNaming.sea_name(used_names, model.region_id),
+				tiles,
+				sum / float(tiles.size()) + Vector2(0.5, 0.5),
+				tiles.size()
+			)
+		)
 
 
 ## Groups tiles by province (land_only) or sea zone into {tiles, sum} buckets.
@@ -186,12 +180,12 @@ func _build_resources(model: MapModel) -> void:
 
 
 func _build_ports(model: MapModel) -> void:
-	for province: Dictionary in model.provinces:
-		if not province["coastal"]:
+	for province: ProvinceState in model.provinces:
+		if not province.coastal:
 			continue
 		var best: Vector2i = Vector2i(-1, -1)
 		var best_score: int = -1
-		for tile: Vector2i in province["tiles"]:
+		for tile: Vector2i in province.tiles:
 			if not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				continue
 			var score: int = 0
@@ -201,7 +195,7 @@ func _build_ports(model: MapModel) -> void:
 			if score > best_score:
 				best_score = score
 				best = tile
-		province["port_tile"] = best
+		province.port_tile = best
 
 
 ## Region ownership (wiki: game-setup § GP / Minor Nation / Tribe assignment).

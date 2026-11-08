@@ -311,10 +311,10 @@ func _tile_position(tile: Vector2i) -> Vector2:
 
 
 func _capital_tile(province_id: int) -> Vector2i:
-	var data: Dictionary = model.province_data(province_id)
-	if data.is_empty():
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
 		return Vector2i(-1, -1)
-	var seat: Vector2i = Vector2i(data.get("capital_tile", CapitalChoice.NO_TILE))
+	var seat: Vector2i = data.capital_tile
 	if seat.x >= 0 and model.is_land(seat.x, seat.y):
 		return seat
 	var tiles: Array = model.province_tiles(province_id)

@@ -24,36 +24,38 @@ static func coastal_tiles(model: MapModel, id: int) -> Array:
 
 
 static func province_neighbors(model: MapModel, id: int) -> Array:
-	var data: Dictionary = model.province_data(id)
-	if data.is_empty():
+	var data: ProvinceState = model.get_province(id)
+	if data == null:
 		return []
-	if data.has("neighbors"):
-		return data["neighbors"]
+	if data.neighbors_cached:
+		return data.neighbors
 	var found: Array = []
-	for tile: Vector2i in model.province_tiles(id):
+	for tile: Vector2i in data.tiles:
 		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
 			var other: int = model.province_at(tile.x + offset.x, tile.y + offset.y)
 			if other != MapModel.NO_ID and other != id and not found.has(other):
 				found.append(other)
 	found.sort()
-	data["neighbors"] = found
+	data.neighbors = found
+	data.neighbors_cached = true
 	return found
 
 
 static func sea_zone_neighbors(model: MapModel, id: int) -> Array:
-	var data: Dictionary = model.sea_zone_data(id)
-	if data.is_empty():
+	var data: SeaZoneState = model.get_sea_zone(id)
+	if data == null:
 		return []
-	if data.has("neighbors"):
-		return data["neighbors"]
+	if data.neighbors_cached:
+		return data.neighbors
 	var found: Array = []
-	for tile: Vector2i in data.get("tiles", []):
+	for tile: Vector2i in data.tiles:
 		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
 			var other: int = model.sea_zone_at(tile.x + offset.x, tile.y + offset.y)
 			if other != MapModel.NO_ID and other != id and not found.has(other):
 				found.append(other)
 	found.sort()
-	data["neighbors"] = found
+	data.neighbors = found
+	data.neighbors_cached = true
 	return found
 
 

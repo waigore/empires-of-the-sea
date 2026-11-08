@@ -39,8 +39,8 @@ func test_every_faction_owns_provinces_in_its_region_only() -> void:
 	for region_index in world.region_count():
 		var model: MapModel = world.region(region_index)
 		var owners: Dictionary = {}
-		for province: Dictionary in model.provinces:
-			var owner: int = int(province["owner"])
+		for province: ProvinceState in model.provinces:
+			var owner: int = province.owner
 			assert_true(FactionCatalog.has_faction(owner), "region %d owner %d" % [region_index, owner])
 			assert_true(
 				FactionCatalog.can_own_region(owner, region_index),
@@ -61,9 +61,9 @@ func test_each_faction_holds_one_contiguous_territory() -> void:
 		var model: MapModel = world.region(region_index)
 		for faction_id: int in model.faction_ids:
 			var owned: Array[int] = []
-			for province: Dictionary in model.provinces:
-				if int(province["owner"]) == faction_id:
-					owned.append(int(province["id"]))
+			for province: ProvinceState in model.provinces:
+				if province.owner == faction_id:
+					owned.append(province.id)
 			assert_true(_is_connected(model, owned), "%s is not contiguous" % FactionCatalog.name_of(faction_id))
 
 
@@ -80,13 +80,13 @@ func test_every_faction_gets_exactly_one_capital() -> void:
 	for region_index in world.region_count():
 		var model: MapModel = world.region(region_index)
 		var capitals: Dictionary = {}
-		for province: Dictionary in model.provinces:
-			if not bool(province["capital"]):
+		for province: ProvinceState in model.provinces:
+			if not province.capital:
 				continue
-			var owner: int = int(province["owner"])
+			var owner: int = province.owner
 			assert_false(capitals.has(owner), "%s has two capitals" % FactionCatalog.name_of(owner))
-			capitals[owner] = int(province["id"])
-			var tile: Vector2i = province["capital_tile"]
+			capitals[owner] = province.id
+			var tile: Vector2i = province.capital_tile
 			assert_true(model.is_land(tile.x, tile.y))
 			assert_eq(model.terrain_at(tile.x, tile.y), MapModel.Terrain.PLAINS)
 		for faction_id: int in model.faction_ids:
@@ -103,22 +103,21 @@ func test_seat_is_the_capital_and_falls_back_to_a_holding() -> void:
 	var seat: int = world.seat_province(FactionCatalog.OLD_WORLD, player)
 	assert_eq(seat, world.capital_province_of(FactionCatalog.OLD_WORLD, player))
 	var capitals: Array[bool] = []
-	for province: Dictionary in model.provinces:
-		capitals.append(bool(province["capital"]))
-		province["capital"] = false
+	for province: ProvinceState in model.provinces:
+		capitals.append(province.capital)
+		province.capital = false
 	var fallback: int = world.seat_province(FactionCatalog.OLD_WORLD, player)
 	for index in model.provinces.size():
-		model.provinces[index]["capital"] = capitals[index]
-	assert_eq(int(model.province_data(fallback)["owner"]), player)
+		model.provinces[index].capital = capitals[index]
+	assert_eq(model.province_data(fallback).owner, player)
 	assert_eq(world.seat_province(FactionCatalog.OLD_WORLD, 9999), MapModel.NO_ID)
-
 
 func test_owned_provinces_counts_the_region_only() -> void:
 	var player: int = FactionCatalog.PLAYER_FACTION
 	var model: MapModel = world.region(FactionCatalog.OLD_WORLD)
 	var expected: int = 0
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) == player:
+	for province: ProvinceState in model.provinces:
+		if province.owner == player:
 			expected += 1
 	assert_eq(world.owned_provinces(FactionCatalog.OLD_WORLD, player), expected)
 	assert_eq(world.owned_provinces(FactionCatalog.OLD_WORLD, 9999), 0)
@@ -134,7 +133,7 @@ func test_warp_zones_pair_the_two_maps() -> void:
 		assert_ne(from_region, to_region)
 		var model: MapModel = world.region(from_region)
 		var zone_id: int = int(link["from_zone"])
-		assert_true(model.sea_zone_data(zone_id).size() > 0)
+		assert_true(model.sea_zone_data(zone_id) != null)
 		assert_true(_zone_touches_edge(model, zone_id))
 		assert_eq(
 			int(world.warp_partner(from_region, zone_id)["to_region"]), to_region
@@ -150,18 +149,18 @@ func test_same_seed_reproduces_the_world() -> void:
 		assert_eq(first.province, second.province)
 		var first_owners: Array[int] = []
 		var second_owners: Array[int] = []
-		for province: Dictionary in first.provinces:
-			first_owners.append(int(province["owner"]))
-		for province: Dictionary in second.provinces:
-			second_owners.append(int(province["owner"]))
+		for province: ProvinceState in first.provinces:
+			first_owners.append(province.owner)
+		for province: ProvinceState in second.provinces:
+			second_owners.append(province.owner)
 		assert_eq(first_owners, second_owners)
 
 
 func _owns_sea_bound(model: MapModel, faction_id: int) -> bool:
-	for province: Dictionary in model.provinces:
-		if int(province["owner"]) != faction_id:
+	for province: ProvinceState in model.provinces:
+		if province.owner != faction_id:
 			continue
-		if CapitalChoice.is_sea_bound(model, int(province["id"])):
+		if CapitalChoice.is_sea_bound(model, province.id):
 			return true
 	return false
 
@@ -186,7 +185,10 @@ func _is_connected(model: MapModel, province_ids: Array[int]) -> bool:
 
 
 func _zone_touches_edge(model: MapModel, zone_id: int) -> bool:
-	for tile: Vector2i in model.sea_zone_data(zone_id).get("tiles", []):
+	var zone: SeaZoneState = model.sea_zone_data(zone_id)
+	if zone == null:
+		return false
+	for tile: Vector2i in zone.tiles:
 		if tile.x == 0 or tile.y == 0 or tile.x == model.width - 1 or tile.y == model.height - 1:
 			return true
 	return false

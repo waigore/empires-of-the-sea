@@ -20,49 +20,23 @@ static func build() -> MapModel:
 		Vector2i(3, 1), Vector2i(4, 1), Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),
 	]:
 		model.sea_zone[model.index_of(tile.x, tile.y)] = 1
-	model.provinces = [
-		{
-			"id": 0,
-			"name": "Cádiz",
-			"tiles": [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)],
-			"center": Vector2(0.5, 0.5),
-			"area": 3,
-			"owner": 0,
-			"capital": true,
-			"port_tile": Vector2i(1, 0),
-		},
-		{
-			"id": 1,
-			"name": "Coro",
-			"tiles": [Vector2i(5, 0), Vector2i(5, 1)],
-			"center": Vector2(5.0, 0.5),
-			"area": 2,
-			"owner": 1,
-			"capital": false,
-			"port_tile": Vector2i(5, 1),
-		},
+	var cadiz_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)]
+	var coro_tiles: Array[Vector2i] = [Vector2i(5, 0), Vector2i(5, 1)]
+	var cadiz := ProvinceState.create(0, "Cádiz", cadiz_tiles, Vector2(0.5, 0.5), 3, 0, true)
+	cadiz.port_tile = Vector2i(1, 0)
+	var coro := ProvinceState.create(1, "Coro", coro_tiles, Vector2(5.0, 0.5), 2, 1, false)
+	coro.port_tile = Vector2i(5, 1)
+	model.provinces = [cadiz, coro]
+	var caribbean: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(1, 1), Vector2i(2, 1),
+		Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2),
+	]
+	var gulf: Array[Vector2i] = [
+		Vector2i(3, 1), Vector2i(4, 1), Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),
 	]
 	model.sea_zones = [
-		{
-			"id": 0,
-			"name": "Mar Caribe",
-			"tiles": [
-				Vector2i(2, 0), Vector2i(1, 1), Vector2i(2, 1),
-				Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 2),
-			],
-			"center": Vector2(1.5, 1.5),
-			"area": 6,
-		},
-		{
-			"id": 1,
-			"name": "Golfo de México",
-			"tiles": [
-				Vector2i(3, 1), Vector2i(4, 1), Vector2i(3, 2), Vector2i(4, 2),
-				Vector2i(5, 2),
-			],
-			"center": Vector2(4.0, 1.5),
-			"area": 5,
-		},
+		SeaZoneState.create(0, "Mar Caribe", caribbean, Vector2(1.5, 1.5), 6),
+		SeaZoneState.create(1, "Golfo de México", gulf, Vector2(4.0, 1.5), 5),
 	]
 	return model
 

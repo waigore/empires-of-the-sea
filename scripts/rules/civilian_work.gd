@@ -74,8 +74,8 @@ static func explore_turns(model: MapModel, province_id: int) -> int:
 	if tiles <= 0:
 		return 1
 	var largest: int = 1
-	for province: Dictionary in model.provinces:
-		largest = maxi(largest, int((province.get("tiles", []) as Array).size()))
+	for province: ProvinceState in model.provinces:
+		largest = maxi(largest, int((province.tiles as Array).size()))
 	var turns: int = int(ceil(3.0 * float(tiles) / float(largest)))
 	return clampi(turns, 1, EXPLORE_MAX_TURNS)
 

@@ -22,11 +22,11 @@ func test_same_seed_is_deterministic() -> void:
 	assert_eq(other.province, model.province)
 	assert_eq(other.sea_zone, model.sea_zone)
 	var names: Array = []
-	for province: Dictionary in other.provinces:
-		names.append(province["name"])
+	for province: ProvinceState in other.provinces:
+		names.append(province.name)
 	var expected: Array = []
-	for province: Dictionary in model.provinces:
-		expected.append(province["name"])
+	for province: ProvinceState in model.provinces:
+		expected.append(province.name)
 	assert_eq(names, expected)
 
 
@@ -54,15 +54,15 @@ func test_every_tile_is_assigned() -> void:
 
 
 func test_every_province_is_contiguous() -> void:
-	for province: Dictionary in model.provinces:
-		var tiles: Array = province["tiles"]
+	for province: ProvinceState in model.provinces:
+		var tiles: Array = province.tiles
 		assert_true(tiles.size() > 0)
-		assert_true(_is_contiguous(tiles), "province %s is not contiguous" % province["name"])
+		assert_true(_is_contiguous(tiles), "province %s is not contiguous" % province.name)
 
 
 func test_every_sea_zone_is_contiguous() -> void:
-	for zone: Dictionary in model.sea_zones:
-		assert_true(_is_contiguous(zone["tiles"]))
+	for zone: SeaZoneState in model.sea_zones:
+		assert_true(_is_contiguous(zone.tiles))
 
 
 func test_province_borders_are_inside_the_map() -> void:
@@ -81,12 +81,12 @@ func test_default_map_is_the_old_world() -> void:
 func test_ownership_spreads_across_factions_with_one_capital_each() -> void:
 	var capitals: int = 0
 	var owners: Dictionary = {}
-	for province: Dictionary in model.provinces:
-		var owner: int = int(province["owner"])
+	for province: ProvinceState in model.provinces:
+		var owner: int = province.owner
 		assert_true(FactionCatalog.has_faction(owner), "owner %d is a faction" % owner)
 		assert_true(FactionCatalog.can_own_region(owner, model.region_id))
 		owners[owner] = true
-		if bool(province["capital"]):
+		if province.capital:
 			capitals += 1
 	assert_eq(capitals, owners.size())
 	for faction_id: int in model.faction_ids:
@@ -95,13 +95,13 @@ func test_ownership_spreads_across_factions_with_one_capital_each() -> void:
 
 func test_capitals_follow_the_capital_choice_rule() -> void:
 	var seen: Dictionary = {}
-	for province: Dictionary in model.provinces:
-		if not bool(province["capital"]):
+	for province: ProvinceState in model.provinces:
+		if not province.capital:
 			continue
-		var owner: int = int(province["owner"])
+		var owner: int = province.owner
 		assert_false(seen.has(owner), "faction %d has two capitals" % owner)
 		seen[owner] = true
-		var tile: Vector2i = province["capital_tile"]
+		var tile: Vector2i = province.capital_tile
 		assert_true(model.is_land(tile.x, tile.y))
 		assert_eq(model.terrain_at(tile.x, tile.y), MapModel.Terrain.PLAINS)
 		var kind: int = (
@@ -110,36 +110,36 @@ func test_capitals_follow_the_capital_choice_rule() -> void:
 			else CapitalChoice.KIND_MINOR
 		)
 		if kind == CapitalChoice.KIND_GREAT_POWER:
-			assert_true(CapitalChoice.is_sea_bound(model, int(province["id"])))
+			assert_true(CapitalChoice.is_sea_bound(model, province.id))
 		var pick: Dictionary = CapitalChoice.pick_province(model, owner, kind)
-		assert_eq(int(pick["province_id"]), int(province["id"]))
-		if CapitalChoice.is_sea_bound(model, int(province["id"])):
-			var ports: Dictionary = province["ports"]
+		assert_eq(int(pick["province_id"]), province.id)
+		if CapitalChoice.is_sea_bound(model, province.id):
+			var ports: Dictionary = province.ports
 			assert_eq(
 				ports.size(),
-				CapitalChoice.sea_bound_sea_zones(model, int(province["id"])).size()
+				CapitalChoice.sea_bound_sea_zones(model, province.id).size()
 			)
 	assert_eq(seen.size(), model.faction_ids.size())
 
 
 func test_coastal_provinces_have_a_waterfront_port() -> void:
-	for province: Dictionary in model.provinces:
-		var port: Vector2i = province["port_tile"]
-		if not bool(province["coastal"]):
+	for province: ProvinceState in model.provinces:
+		var port: Vector2i = province.port_tile
+		if not province.coastal:
 			assert_eq(port, Vector2i(-1, -1))
 			continue
-		assert_true(port.x >= 0, "coastal province %s has no port" % province["name"])
+		assert_true(port.x >= 0, "coastal province %s has no port" % province.name)
 		assert_true(model.is_land(port.x, port.y))
 		assert_true(MapGeo.is_coastal_tile(model, port.x, port.y))
 
 
 func test_resources_sit_on_allowed_terrain() -> void:
 	var table: Array[Dictionary] = MapGenerator.resource_table()
-	for province: Dictionary in model.provinces:
-		var resource: int = int(province["resource"])
+	for province: ProvinceState in model.provinces:
+		var resource: int = province.resource
 		if resource < 0:
 			continue
-		var tile: Vector2i = province["resource_tile"]
+		var tile: Vector2i = province.resource_tile
 		var terrain: int = model.terrain_at(tile.x, tile.y)
 		var allowed: Array = table[resource]["terrain"]
 		assert_true(allowed.has(terrain), "%s on %d" % [table[resource]["name"], terrain])
@@ -147,13 +147,13 @@ func test_resources_sit_on_allowed_terrain() -> void:
 
 func test_names_are_unique() -> void:
 	var seen: Dictionary = {}
-	for province: Dictionary in model.provinces:
-		var name: String = String(province["name"])
+	for province: ProvinceState in model.provinces:
+		var name: String = province.name
 		assert_false(seen.has(name), "duplicate province name %s" % name)
 		seen[name] = true
 	var zones: Dictionary = {}
-	for zone: Dictionary in model.sea_zones:
-		var name: String = String(zone["name"])
+	for zone: SeaZoneState in model.sea_zones:
+		var name: String = String(zone.name)
 		assert_false(zones.has(name), "duplicate sea zone name %s" % name)
 		zones[name] = true
 
