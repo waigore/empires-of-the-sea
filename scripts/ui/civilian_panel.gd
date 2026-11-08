@@ -113,7 +113,8 @@ func refresh(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	tech_caps: Dictionary = {}
 ) -> void:
 	if unit == null:
 		return
@@ -127,7 +128,7 @@ func refresh(
 	_fill_detail(model, unit, works)
 	_status.text = _status_text(model, unit)
 	_cancel.visible = unit.is_working()
-	_fill_orders(model, unit, works, units, stockpile, visibility)
+	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps)
 	_stock_line.text = "Stores: %d lumber · %d cast iron · %d bronze · %d paper" % [
 		int(stockpile.get("lumber", 0)),
 		int(stockpile.get("castIron", 0)),
@@ -177,11 +178,12 @@ func _fill_orders(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel
+	visibility: VisibilityModel,
+	tech_caps: Dictionary = {}
 ) -> void:
 	_clear(_orders)
 	for option: Dictionary in CivilianWork.options(
-		model, unit, works, units, stockpile, visibility
+		model, unit, works, units, stockpile, visibility, tech_caps
 	):
 		var action: String = String(option["action"])
 		var button := _make_button(

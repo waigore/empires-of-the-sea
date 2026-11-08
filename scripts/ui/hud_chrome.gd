@@ -13,6 +13,7 @@ static func build(hud: GameHud) -> void:
 	_province_panel(hud)
 	_fleet_panel(hud)
 	_economy_panel(hud)
+	_research_panel(hud)
 	_civilian_panel(hud)
 	_tooltip(hud)
 
@@ -72,6 +73,13 @@ static func _top_bar(hud: GameHud) -> void:
 	ledger.add_theme_font_size_override("font_size", 14)
 	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
 	row.add_child(ledger)
+
+	var research := Button.new()
+	research.text = "RESEARCH"
+	research.custom_minimum_size = Vector2(110, 40)
+	research.add_theme_font_size_override("font_size", 14)
+	research.pressed.connect(func() -> void: hud.research_pressed.emit())
+	row.add_child(research)
 
 	var treasury := _chip("coin", "TREASURY")
 	hud._treasury_chip = treasury["root"]
@@ -274,6 +282,23 @@ static func _economy_panel(hud: GameHud) -> void:
 	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
 	hud._economy_wrap.add_child(hud._economy_panel)
+
+
+static func _research_panel(hud: GameHud) -> void:
+	hud._research_wrap = Control.new()
+	hud._research_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	hud._research_wrap.offset_left = -520.0
+	hud._research_wrap.offset_right = -GameHud.PANEL_MARGIN
+	hud._research_wrap.offset_top = 84.0
+	hud._research_wrap.offset_bottom = -104.0
+	hud._research_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud._research_wrap.visible = false
+	hud.add_child(hud._research_wrap)
+
+	hud._research_panel = ResearchPanel.new()
+	hud._research_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud._research_panel.close_pressed.connect(func() -> void: hud.panels.hide_research())
+	hud._research_wrap.add_child(hud._research_panel)
 
 
 static func _civilian_panel(hud: GameHud) -> void:

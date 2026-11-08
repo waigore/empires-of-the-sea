@@ -212,10 +212,11 @@ func _refresh_region_hud(map_size: Vector2) -> void:
 	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
 	if play.economy == null:
 		return
+	play.refresh_research()
 	play.income = play.economy.projected_income()
 	improvements.set_data(
 		play.model, play.land_works, civilian_layer.units, play.stockpile(),
-		play.capital_tile, PLAYER_FACTION, play.economy.economy.tech_unlocked
+		play.capital_tile, PLAYER_FACTION, play.tech_caps()
 	)
 
 
@@ -237,7 +238,7 @@ func _build_hud() -> void:
 	play.income = play.economy.projected_income()
 	improvements.set_data(
 		play.model, play.land_works, civilian_layer.units, play.stockpile(),
-		play.capital_tile, PLAYER_FACTION, play.economy.economy.tech_unlocked
+		play.capital_tile, PLAYER_FACTION, play.tech_caps()
 	)
 
 

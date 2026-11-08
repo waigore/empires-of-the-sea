@@ -43,10 +43,15 @@ func _connect() -> void:
 	if _hud == null:
 		return
 	_hud.economy_pressed.connect(open_panel)
+	_hud.research_pressed.connect(open_research)
 	var panel: EconomyPanel = _hud.panels.economy_panel
 	panel.trade_requested.connect(_on_trade)
 	panel.production_changed.connect(_on_production)
 	panel.recruit_requested.connect(_on_recruit)
+	var research: ResearchPanel = _hud.panels.research_panel
+	research.assign_requested.connect(_on_research_assign)
+	research.cancel_requested.connect(_on_research_cancel)
+	research.funding_requested.connect(_on_research_funding)
 
 
 ## Ships in the player's fleets drive naval food upkeep this turn. Every region
@@ -57,9 +62,15 @@ func fleet_ships() -> int:
 	return _ships.hull_count_all(player_faction)
 
 
+## Extraction ceilings from the researched tech tree (wiki:
+## tech-and-extraction-cap), per commodity.
+func tech_caps() -> Dictionary:
+	return TechCatalog.extraction_caps(economy.tech_unlocked)
+
+
 func extraction() -> Dictionary:
 	return Extraction.yields(
-		model, player_faction, capital_province, economy.tech_unlocked, works,
+		model, player_faction, capital_province, tech_caps(), works,
 		capital_tile
 	)
 
@@ -83,6 +94,7 @@ func resolve_turn() -> Dictionary:
 		_hud.flash_income(economy.treasury - before)
 		_hud.set_fleets(fleet_ships())
 		_hud.toast(summary_line(report))
+	_refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report
 
@@ -107,6 +119,14 @@ func summary_line(report: Dictionary) -> String:
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
 		parts.append("%d on strike" % strikes)
+	var research: Dictionary = report.get("research", {})
+	var researched: Array = research.get("researched", [])
+	for tech_id: Variant in researched:
+		parts.append("%s researched" % TechCatalog.display_name(String(tech_id)))
+	var unpaid: Array = research.get("unpaid", [])
+	if not unpaid.is_empty():
+		var plural: String = "" if unpaid.size() == 1 else "s"
+		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
 	if parts.is_empty():
 		return "The ledgers balance — nothing moved this turn."
 	return "  ·  ".join(parts)
@@ -115,6 +135,39 @@ func summary_line(report: Dictionary) -> String:
 func open_panel() -> void:
 	if _hud != null:
 		_hud.panels.show_economy(economy, market, projected())
+
+
+func open_research() -> void:
+	if _hud != null:
+		_hud.panels.show_research(economy.research, economy.treasury)
+
+
+func _refresh_research_panel() -> void:
+	if _hud == null:
+		return
+	if _hud.panels.is_research_open():
+		_hud.panels.show_research(economy.research, economy.treasury)
+
+
+func _on_research_assign(tech_id: String) -> void:
+	var result: Dictionary = economy.research.assign(tech_id)
+	_after_research(result)
+
+
+func _on_research_cancel(slot: int) -> void:
+	var result: Dictionary = economy.research.cancel(slot)
+	_after_research(result)
+
+
+func _on_research_funding(slot: int) -> void:
+	economy.research.cycle_funding(slot)
+	_refresh_research_panel()
+
+
+func _after_research(result: Dictionary) -> void:
+	if _hud != null:
+		_hud.toast(String(result.get("message", "")))
+	_refresh_research_panel()
 
 
 func _refresh_panel() -> void:

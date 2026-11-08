@@ -21,7 +21,7 @@ static func effective_yield(
 	return clampi(value, 0, MAX_YIELD)
 
 
-## Per-commodity tech ceiling; v1 has no gathering tech, so the default cap is 1.
+## Per-commodity tech ceiling; callers pass TechCatalog.extraction_caps().
 static func tech_cap_for(commodity: String, tech_caps: Dictionary) -> int:
 	return maxi(int(tech_caps.get(commodity, DEFAULT_TECH_CAP)), 0)
 

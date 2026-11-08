@@ -12,12 +12,15 @@ var civilian_wrap: Control = null
 var civilian_panel: CivilianPanel = null
 var economy_wrap: Control = null
 var economy_panel: EconomyPanel = null
+var research_wrap: Control = null
+var research_panel: ResearchPanel = null
 var dock: PanelDock = null
 
 var panel_open: bool = false
 var fleet_open: bool = false
 var civilian_open: bool = false
 var economy_open: bool = false
+var research_open: bool = false
 
 
 func bind(hud: GameHud) -> void:
@@ -30,6 +33,8 @@ func bind(hud: GameHud) -> void:
 	civilian_panel = hud._civilian_panel
 	economy_wrap = hud._economy_wrap
 	economy_panel = hud._economy_panel
+	research_wrap = hud._research_wrap
+	research_panel = hud._research_panel
 	dock = PanelDock.new()
 	dock.load_from()
 	_sync_dock_buttons()
@@ -50,6 +55,7 @@ func toggle_dock_side() -> void:
 
 func show_province(model: MapModel, province_id: int) -> void:
 	hide_economy()
+	hide_research()
 	hide_fleet()
 	hide_civilian()
 	panel.refresh(model, province_id)
@@ -72,6 +78,7 @@ func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	hide_province()
 	hide_civilian()
 	hide_economy()
+	hide_research()
 	fleet_panel.refresh(model, fleet, is_player)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
@@ -94,12 +101,14 @@ func show_civilian(
 	works: LandWorks,
 	units: Array[CivilianState],
 	stockpile: Dictionary,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	tech_caps: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_fleet()
 	hide_economy()
-	civilian_panel.refresh(model, unit, works, units, stockpile, visibility)
+	hide_research()
+	civilian_panel.refresh(model, unit, works, units, stockpile, visibility, tech_caps)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)
 
@@ -125,6 +134,7 @@ func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionar
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	hide_research()
 	panel_wrap.visible = false
 	panel_open = false
 	fleet_wrap.visible = false
@@ -147,6 +157,30 @@ func hide_economy() -> void:
 
 func is_economy_open() -> bool:
 	return economy_open
+
+
+## The college ledger takes the same edge as the economy ledger.
+func show_research(state: ResearchState, treasury: int) -> void:
+	hide_province()
+	hide_fleet()
+	hide_civilian()
+	hide_economy()
+	research_panel.refresh(state, treasury)
+	research_wrap.visible = true
+	research_open = true
+	var tween := host.create_tween()
+	tween.tween_property(research_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+
+
+func hide_research() -> void:
+	if not research_open:
+		return
+	research_open = false
+	research_wrap.visible = false
+
+
+func is_research_open() -> bool:
+	return research_open
 
 
 func _selection_wraps() -> Array[Control]:
