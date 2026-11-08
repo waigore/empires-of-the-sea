@@ -57,6 +57,67 @@ static func award(context: Dictionary, side: Array[ArmyState], owner: int) -> St
 	return general_id
 
 
+## Initiative for one attacking side: cavalry share plus general medals
+## (wiki: combat § Initiative).
+static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
+	var riders: int = 0
+	var total: int = 0
+	for army: ArmyState in side:
+		if army == null:
+			continue
+		total += army.count()
+		for regiment_id: String in army.regiments:
+			if RegimentCatalog.is_cavalry(army.type_of(regiment_id)):
+				riders += 1
+	if total == 0:
+		return 0.0
+	var share: float = float(riders) / float(total)
+	return share * ArmyModifiers.W_CAV + float(clampi(medals, 0, 4)) * ArmyModifiers.W_MEDAL
+
+
+## Attacking factions in initiative order. Exact ties are broken by one
+## deterministic seeded roll per battle context (wiki: combat § Initiative,
+## § Multi-Attacker Chain — seeded by the combat seed and the context identity,
+## never the lexical faction id). Rolls come in ascending faction order, so
+## identical state always orders ties identically.
+static func initiative_order(
+	groups: Dictionary, province: int, context: Dictionary
+) -> Array[int]:
+	var owners: Array[int] = []
+	for owner: int in groups.keys():
+		owners.append(owner)
+	owners.sort()
+	var tie_keys: Dictionary = {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = ("%d:%d" % [int(context.get("seed", 0)), province]).hash()
+	for owner: int in owners:
+		tie_keys[owner] = rng.randf()
+	owners.sort_custom(func(a: int, b: int) -> bool:
+		var a_group: Array[ArmyState] = []
+		a_group.assign(groups[a])
+		var b_group: Array[ArmyState] = []
+		b_group.assign(groups[b])
+		var a_score: float = initiative(a_group, medals(a_group, context))
+		var b_score: float = initiative(b_group, medals(b_group, context))
+		if not is_equal_approx(a_score, b_score):
+			return a_score > b_score
+		var a_key: float = float(tie_keys.get(a, 0.0))
+		var b_key: float = float(tie_keys.get(b, 0.0))
+		if not is_equal_approx(a_key, b_key):
+			return a_key < b_key
+		return a < b
+	)
+	return owners
+
+
+## Whether two factions may fight. An unset callable keeps the legacy
+## every-faction-hostile fixture behaviour.
+static func is_hostile(hostile: Callable, attacker: int, defender: int) -> bool:
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(attacker, defender))
+
+
 static func next_army_id(armies: Array[ArmyState]) -> int:
 	var best: int = 0
 	for army: ArmyState in armies:

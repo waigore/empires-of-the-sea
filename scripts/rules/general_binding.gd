@@ -28,20 +28,22 @@ static func bind_phase(
 	var taken: Dictionary = {}
 	var battles: Array[Dictionary] = _battles(world, armies_by_region)
 	# Attackers first so an offensive commitment always finds a commander while
-	# defenders take what remains (wiki: attack cap).
+	# defenders take what remains (wiki: attack cap). Each role draws from its own
+	# pool: an offensive commitment does not spend a crown's defender generals
+	# (wiki: military-generals § Assignment).
 	for battle: Dictionary in battles:
 		var armies: Array[ArmyState] = _armies_of(battle, armies_by_region)
 		var defender: int = int(battle["defender"])
 		for army: ArmyState in _sorted(armies):
 			if army.moved and army.owner != defender:
-				_bind(army, roster, taken, rng, bindings, medals)
+				_bind(army, roster, taken, rng, bindings, medals, "attack")
 	for battle: Dictionary in battles:
 		var armies: Array[ArmyState] = _armies_of(battle, armies_by_region)
 		var defending: Array[ArmyState] = ArmyCombat.armies_of(
 			armies, int(battle["province"]), int(battle["defender"])
 		)
 		for army: ArmyState in _sorted(defending):
-			_bind(army, roster, taken, rng, bindings, medals)
+			_bind(army, roster, taken, rng, bindings, medals, "defend")
 	return {"army_general": bindings, "army_medals": medals}
 
 
@@ -75,21 +77,25 @@ static func _sorted(armies: Array[ArmyState]) -> Array[ArmyState]:
 	return result
 
 
-## Binds one eligible general to the army; a full pool leaves it unbound.
+## Binds one eligible general to the army; a full pool leaves it unbound. The
+## `taken` ledger is scoped by role and owner so the offensive cap never starves
+## defender binding (wiki: military-generals § Assignment).
 static func _bind(
 	army: ArmyState,
 	roster: GeneralRoster,
 	taken: Dictionary,
 	rng: RandomNumberGenerator,
 	bindings: Dictionary,
-	medals: Dictionary
+	medals: Dictionary,
+	role: String
 ) -> void:
 	if army == null or army.is_empty():
 		return
 	if FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 		return
+	var ledger: String = "%s:%d" % [role, army.owner]
 	var bound: Array[String] = []
-	bound.assign(taken.get(army.owner, []))
+	bound.assign(taken.get(ledger, []))
 	var free: Array[String] = []
 	for general_id: String in roster.ids(army.owner):
 		if not bound.has(general_id):
@@ -98,6 +104,6 @@ static func _bind(
 		return
 	var chosen: String = free[rng.randi_range(0, free.size() - 1)]
 	bound.append(chosen)
-	taken[army.owner] = bound
+	taken[ledger] = bound
 	bindings[army.id] = chosen
 	medals[army.id] = roster.medals(army.owner, chosen)

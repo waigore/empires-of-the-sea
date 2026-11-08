@@ -119,6 +119,26 @@ func test_cavalry_wins_the_initiative_order() -> void:
 	assert_eq(ArmyCombat.ordered_attackers(armies, 3, MapModel.NO_ID), expected)
 
 
+func test_equal_initiative_is_broken_by_a_seeded_battle_roll() -> void:
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"])
+	var lower := Fixture.army(2, 2, 2, ["pikemen"])
+	lower.moved = true
+	var higher := Fixture.army(3, 0, 2, ["pikemen"])
+	higher.moved = true
+	var armies: Array[ArmyState] = [defender, lower, higher]
+
+	# Same initiative: the wiki wants one deterministic roll per battle context,
+	# not the lexical faction id (combat § Initiative, § Multi-Attacker Chain).
+	var first: Array[int] = ArmyCombat.ordered_attackers(armies, 2, 1, {"seed": 0})
+	var again: Array[int] = ArmyCombat.ordered_attackers(armies, 2, 1, {"seed": 0})
+	var other: Array[int] = ArmyCombat.ordered_attackers(armies, 2, 1, {"seed": 1})
+
+	assert_eq(first, again, "identical state reproduces the same chain order")
+	assert_eq(first, [2, 0], "the seeded roll, not faction id, decides the tie")
+	assert_eq(other, [0, 2], "a different combat seed may flip the tied order")
+	assert_eq(ArmyCombat.ordered_attackers(armies, 2, 1), first, "the default seed is 0")
+
+
 func test_general_medals_add_to_initiative() -> void:
 	var horse: Array[ArmyState] = [Fixture.army(1, 0, 3, ["squires"])]
 	assert_almost_eq(ArmyCombat.initiative(horse), 50.0, 0.001)
@@ -181,6 +201,14 @@ func test_ratio_bands_follow_the_documented_fractions() -> void:
 	assert_almost_eq(float(ArmyCombat.band_for(1.2)["attacker"]), 0.3, 0.001)
 	assert_almost_eq(float(ArmyCombat.band_for(0.8)["attacker"]), 0.5, 0.001)
 	assert_almost_eq(float(ArmyCombat.band_for(0.5)["attacker"]), 1.0, 0.001)
+
+
+func test_the_067_boundary_belongs_to_the_defender_victory_band() -> void:
+	# wiki: combat § Auto-resolve ratio bands — `ratio <= 0.67` loses 1.0/0.15,
+	# while the `0.67 < ratio < 1.0` row starts strictly above 0.67.
+	assert_almost_eq(float(ArmyCombat.band_for(0.67)["attacker"]), 1.0, 0.001)
+	assert_almost_eq(float(ArmyCombat.band_for(0.67)["defender"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyCombat.band_for(0.68)["attacker"]), 0.5, 0.001)
 
 
 func test_great_powers_recover_era_four_infantry() -> void:

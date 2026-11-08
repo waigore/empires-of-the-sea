@@ -107,6 +107,39 @@ func test_defender_binding_stops_when_the_pool_is_spent() -> void:
 	assert_true(bindings.has(first.id) != bindings.has(second.id))
 
 
+func test_one_general_covers_both_an_attack_and_a_defence() -> void:
+	# The attack cap is offensive-only: defender binding draws from generals not
+	# bound to another *defending* army, so a cap-1 crown can still command its
+	# home battle in the same Combat phase (wiki: military-generals § Assignment).
+	var model := Fixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var defender_of_two := Fixture.army(1, 1, 2, ["peasant_levies"])
+	var attacker := Fixture.army(2, 0, 2, ["pikemen"])
+	attacker.moved = true
+	var invader := Fixture.army(3, 2, 0, ["pikemen"])
+	invader.moved = true
+	var home_defender := Fixture.army(4, 0, 0, ["peasant_levies"])
+	var armies: Array[ArmyState] = [defender_of_two, attacker, invader, home_defender]
+	var roster := GeneralRoster.new()
+	assert_eq(roster.count(0), 1, "the crown has a single general")
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 0
+	)["army_general"]
+
+	assert_eq(
+		String(bindings.get(attacker.id, "")),
+		"general_1",
+		"the offensive commitment takes the general"
+	)
+	assert_eq(
+		String(bindings.get(home_defender.id, "")),
+		"general_1",
+		"the defence still draws the general from its own pool"
+	)
+
+
 func test_unbound_sides_use_the_leader_fallback_medals() -> void:
 	var army := Fixture.army(1, 0, 2, ["pikemen"])
 	var side: Array[ArmyState] = [army]
