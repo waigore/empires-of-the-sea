@@ -175,6 +175,80 @@ func test_hover_reports_the_province_under_the_cursor() -> void:
 	assert_true(_screen.hud._tooltip.visible)
 
 
+func test_visibility_starts_from_the_world_rules() -> void:
+	assert_not_null(_screen.visibility)
+	var own_tile: Vector2i = _screen.model.province_tiles(_screen.capital_province)[0]
+	assert_eq(
+		_screen.visibility.level_at(own_tile.x, own_tile.y),
+		VisibilityModel.Level.FULLY_VISIBLE
+	)
+	assert_eq(_screen.overlay.fog_state_at(own_tile.x, own_tile.y), MapOverlay.FOG_VISIBLE)
+	var foreign_tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
+	assert_eq(
+		_screen.visibility.level_at(foreign_tile.x, foreign_tile.y),
+		VisibilityModel.Level.FOGGED
+	)
+	assert_eq(
+		_screen.overlay.fog_state_at(foreign_tile.x, foreign_tile.y), MapOverlay.FOG_FOGGED
+	)
+
+
+func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
+	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen.overlay.sync_visibility(_screen.visibility, [index])
+	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
+	_screen._on_end_turn()
+	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
+
+
+func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
+	var ship: Ship = _screen.ship_layer.ships[0]
+	var zone_tiles: Array = _screen.model.sea_zone_data(ship.zone)["tiles"]
+	var water: Vector2i = zone_tiles[0]
+	var water_index: int = _screen.model.index_of(water.x, water.y)
+	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
+	_screen.overlay.sync_visibility(_screen.visibility, [water_index])
+	_screen._on_zone_entered(ship.zone, ship)
+	assert_eq(_screen.overlay.fog_state_at(water.x, water.y), MapOverlay.FOG_VISIBLE)
+	var land: Vector2i = _coastal_land_of(ship.zone)
+	assert_true(land.x >= 0)
+	assert_eq(_screen.overlay.fog_state_at(land.x, land.y), MapOverlay.FOG_VISIBLE)
+
+
+func test_unknown_land_is_reported_without_terrain_or_owner() -> void:
+	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
+	var world: Vector2 = _screen.model.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	_screen.camera.focus_on(world, 0.8, true)
+	_screen.camera._process(0.016)
+	var screen_point: Vector2 = CameraMath.world_to_screen(
+		_screen.camera.position, _screen.camera.zoom.x, world, _screen.camera.viewport_size()
+	)
+	_screen._update_hover(screen_point)
+	assert_eq(_screen.hud._tooltip_label.text, "Uncharted land")
+
+
+func _foreign_province() -> int:
+	for province: Dictionary in _screen.model.provinces:
+		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
+			return int(province["id"])
+	return -1
+
+
+func _coastal_land_of(zone_id: int) -> Vector2i:
+	var tiles: Array = _screen.model.sea_zone_data(zone_id).get("tiles", [])
+	for tile: Vector2i in tiles:
+		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+			var nx: int = tile.x + offset.x
+			var ny: int = tile.y + offset.y
+			if _screen.model.is_land(nx, ny):
+				return Vector2i(nx, ny)
+	return Vector2i(-1, -1)
+
+
 func _inland_province() -> int:
 	for province: Dictionary in _screen.model.provinces:
 		if not bool(province["coastal"]) and int(province["area"]) > 30:
