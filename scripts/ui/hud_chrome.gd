@@ -15,6 +15,7 @@ static func build(hud: GameHud) -> void:
 	_economy_panel(hud)
 	_research_panel(hud)
 	_civilian_panel(hud)
+	_army_panel(hud)
 	_tooltip(hud)
 
 
@@ -97,6 +98,10 @@ static func _top_bar(hud: GameHud) -> void:
 	var civilians := _chip("compass", "CIVILIANS")
 	hud._civilian_label = civilians["value"]
 	row.add_child(civilians["root"])
+
+	var troops := _chip("crown", "TROOPS")
+	hud._army_label = troops["value"]
+	row.add_child(troops["root"])
 
 
 static func _chip(icon_kind: String, caption: String) -> Dictionary:
@@ -321,6 +326,27 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud._civilian_panel.close_pressed.connect(func() -> void: hud.civilian_closed.emit())
 	hud._civilian_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._civilian_wrap.add_child(hud._civilian_panel)
+
+
+static func _army_panel(hud: GameHud) -> void:
+	hud._army_wrap = Control.new()
+	hud._army_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	hud._army_wrap.offset_left = -GameHud.PANEL_MARGIN
+	hud._army_wrap.offset_right = GameHud.PANEL_WIDTH - GameHud.PANEL_MARGIN
+	hud._army_wrap.offset_top = 84.0
+	hud._army_wrap.offset_bottom = -104.0
+	hud._army_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud._army_wrap.visible = false
+	hud.add_child(hud._army_wrap)
+
+	hud._army_panel = ArmyPanel.new()
+	hud._army_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud._army_panel.action_pressed.connect(func(action: String) -> void:
+		hud.army_action.emit(action)
+	)
+	hud._army_panel.close_pressed.connect(func() -> void: hud.army_closed.emit())
+	hud._army_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
+	hud._army_wrap.add_child(hud._army_panel)
 
 
 static func _tooltip(hud: GameHud) -> void:

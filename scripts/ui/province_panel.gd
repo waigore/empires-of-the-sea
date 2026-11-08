@@ -106,7 +106,7 @@ func _build() -> void:
 
 	var recruit := _make_button("Recruit Regiment (deferred)")
 	recruit.disabled = true
-	recruit.tooltip_text = "Regiments arrive with the military slice."
+	recruit.tooltip_text = "Training arrives with the regiment economy slice."
 	column.add_child(recruit)
 
 	var build := _make_button("Build Improvement")

@@ -11,14 +11,20 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		return
 	if MapPlayCivilians.try_move(play, world_position):
 		return
+	var army: ArmyState = play.army_layer.army_at(world_position)
+	if army != null:
+		play.army_layer.select(army)
+		return
+	var tile: Vector2i = MapGeo.tile_at_world(world_position, PlaySession.TILE_SIZE)
+	if not play.model.in_bounds(tile.x, tile.y):
+		return
+	if play.army_layer.selected_army != null and MapPlayArmies.try_order(play, tile):
+		return
 	var ship: Ship = play.ship_layer.ship_at(
 		world_position, 30.0 / maxf(play.camera.zoom.x, 0.001)
 	)
 	if ship != null:
 		play.ship_layer.select(ship)
-		return
-	var tile: Vector2i = MapGeo.tile_at_world(world_position, PlaySession.TILE_SIZE)
-	if not play.model.in_bounds(tile.x, tile.y):
 		return
 	if play.ship_layer.selected_ship != null and MapPlayFleets.try_order(play, tile):
 		return
@@ -32,10 +38,12 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 static func select_province(play: PlaySession, province_id: int, world_position: Vector2) -> void:
 	play.ship_layer.deselect()
 	play.civilian_layer.deselect()
+	play.army_layer.deselect()
 	play.overlay.clear_move_options()
 	play.overlay.clear_tile_options()
 	play.hud.panels.hide_fleet()
 	play.hud.panels.hide_civilian()
+	play.hud.panels.hide_army()
 	play.selected_province = province_id
 	play.overlay.select_province(province_id, world_position)
 	play.hud.panels.show_province(play.model, province_id)
@@ -49,11 +57,13 @@ static func deselect(play: PlaySession) -> void:
 	play.emit_selection_cleared()
 	play.ship_layer.deselect()
 	play.civilian_layer.deselect()
+	play.army_layer.deselect()
 	play.overlay.clear_move_options()
 	play.overlay.clear_tile_options()
 	play.hud.panels.hide_province()
 	play.hud.panels.hide_fleet()
 	play.hud.panels.hide_civilian()
+	play.hud.panels.hide_army()
 
 
 static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
@@ -66,6 +76,7 @@ static func on_view_changed(play: PlaySession) -> void:
 	play.hud.update_view_rect(Rect2(play.camera.position - half, half * 2.0))
 	play.ship_layer.set_zoom(play.camera.zoom.x)
 	play.civilian_layer.set_zoom(play.camera.zoom.x)
+	play.army_layer.set_zoom(play.camera.zoom.x)
 
 
 static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.INF) -> void:
@@ -126,7 +137,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	var name: String = play.model.province_name(play.selected_province)
 	match action:
 		"recruit":
-			play.hud.toast("Regiments arrive with the military slice — no order was placed.")
+			play.hud.toast("Regiments muster at the capital; training is not yet available.")
 		"build":
 			play.improvements.open(play.selected_province)
 		"train_explorer", "train_builder", "train_engineer":

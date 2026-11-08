@@ -30,6 +30,8 @@ var charted_provinces: Dictionary = {}
 
 var ship_layer: ShipLayer = null
 var civilian_layer: CivilianLayer = null
+var army_layer: ArmyLayer = null
+var canvas: MapCanvas = null
 var overlay: MapOverlay = null
 var camera: MapCamera = null
 var hud: GameHud = null
@@ -46,6 +48,8 @@ func bind_host(p_host: Node) -> void:
 func bind_views(
 	p_ships: ShipLayer,
 	p_civilians: CivilianLayer,
+	p_armies: ArmyLayer,
+	p_canvas: MapCanvas,
 	p_overlay: MapOverlay,
 	p_camera: MapCamera,
 	p_hud: GameHud,
@@ -53,6 +57,8 @@ func bind_views(
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
+	army_layer = p_armies
+	canvas = p_canvas
 	overlay = p_overlay
 	camera = p_camera
 	hud = p_hud
