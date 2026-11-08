@@ -1,0 +1,4 @@
+# Keep the debug keystore out of the Godot import scan.
+
+.gdignore
+debug.keystore
