@@ -201,6 +201,8 @@ func _owned_resource_tile(screen: MapScreen) -> Vector2i:
 			var resource: int = screen.model.resource_at(tile.x, tile.y)
 			if resource < 0:
 				continue
+			if screen.land_works.improvement_at(screen.model, tile) > 0:
+				continue
 			if not ImprovementCatalog.needs_prospecting(resource):
 				return tile
 			if fallback.x < 0:

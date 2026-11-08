@@ -421,6 +421,59 @@ func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
 	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
 
 
+func test_battles_resolve_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 1)
+	var zone: int = int(_screen.model.sea_zones[0]["id"])
+	var first: FleetState = null
+	var second: FleetState = null
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if first == null:
+			first = fleet
+		elif second == null and fleet.owner != first.owner:
+			second = fleet
+		else:
+			fleet.location = FleetState.Location.IN_PORT
+			fleet.province = int(_screen.model.provinces[0]["id"])
+	assert_not_null(first)
+	assert_not_null(second)
+	for fleet: FleetState in [first, second]:
+		fleet.location = FleetState.Location.AT_SEA
+		fleet.sea_zone = zone
+	first.set_hulls(["a"], {"a": "carrack"})
+	second.set_hulls(["b"], {"b": "fluyte"})
+	var hulls_before: int = first.ship_count() + second.ship_count()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 0)
+	MapPlayTurn.end_turn(_screen.play)
+
+	assert_lt(first.ship_count() + second.ship_count(), hulls_before)
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+
+
+func test_setup_post_pass_feeds_the_crown() -> void:
+	var extraction: Dictionary = _screen.economy.extraction()
+	assert_gte(int(extraction.get("grain", 0)), 4 + Extraction.CAPITAL_GRAIN_BONUS)
+	_screen.improvements.open()
+	assert_gt(int(_screen.improvements._data["counts"]["producing"]), 0)
+	assert_eq(int(_screen.improvements._data["counts"]["improved"]), 4)
+
+
+func test_empire_counters_survive_a_region_switch() -> void:
+	var ships: int = _screen.economy.fleet_ships()
+	assert_gt(ships, 0)
+	_screen._cycle_region()
+	assert_eq(_screen.economy.fleet_ships(), ships, "navy upkeep follows the empire")
+	assert_eq(_screen.hud._fleet_label.text, str(ships))
+	assert_eq(
+		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+	)
+	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
+	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
+
+
 func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	var tile: Vector2i = _capital_estate_tile()
 	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
@@ -470,7 +523,10 @@ func _capital_estate_tile() -> Vector2i:
 		var province: int = _screen.model.province_at(tile.x, tile.y)
 		if _screen.model.province_owner(province) != MapScreen.PLAYER_FACTION:
 			continue
-		_screen.model.resource[_screen.model.index_of(tile.x, tile.y)] = 0
+		var index: int = _screen.model.index_of(tile.x, tile.y)
+		_screen.model.resource[index] = 0
+		# The setup post-pass may have raised a bootstrap farm here.
+		_screen.land_works.set_improvement(_screen.model, tile, 0)
 		return tile
 	return Vector2i(-1, -1)
 
@@ -484,8 +540,11 @@ func _owned_resource_tile() -> Vector2i:
 		if int(province["owner"]) != MapScreen.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province["tiles"]:
-			if _screen.model.resource_at(tile.x, tile.y) >= 0:
-				return tile
+			if _screen.model.resource_at(tile.x, tile.y) < 0:
+				continue
+			if _screen.land_works.improvement_at(_screen.model, tile) > 0:
+				continue
+			return tile
 	return Vector2i(-1, -1)
 
 

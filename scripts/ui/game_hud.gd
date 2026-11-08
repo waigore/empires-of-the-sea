@@ -123,6 +123,7 @@ func toast(text: String) -> void:
 
 
 func show_province(model: MapModel, province_id: int) -> void:
+	hide_economy()
 	hide_fleet()
 	hide_civilian()
 	_panel.refresh(model, province_id)
@@ -150,6 +151,7 @@ func is_panel_open() -> bool:
 
 
 func show_fleet(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+	hide_economy()
 	hide_province()
 	hide_civilian()
 	_fleet_panel.refresh(model, fleet, is_player)
@@ -244,9 +246,17 @@ func economy_panel() -> EconomyPanel:
 
 
 func show_economy(economy: PlayerEconomy, market: WorldMarket, report: Dictionary) -> void:
+	# The ledger takes the right edge; close the dossiers outright so their
+	# slide-out tween cannot bleed text through the ledger's fade-in.
 	hide_province()
 	hide_fleet()
 	hide_civilian()
+	_panel_wrap.visible = false
+	_panel_open = false
+	_fleet_wrap.visible = false
+	_fleet_open = false
+	_civilian_wrap.visible = false
+	_civilian_open = false
 	_economy_panel.refresh(economy, market, report)
 	_economy_wrap.visible = true
 	_economy_open = true

@@ -25,9 +25,20 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	var shell := VBoxContainer.new()
+	shell.add_theme_constant_override("separation", 8)
+	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	add_child(shell)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shell.add_child(scroll)
+
 	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	scroll.add_child(column)
 
 	_title = Label.new()
 	_title.add_theme_font_override("font", UiTheme.serif())
@@ -65,11 +76,12 @@ func _build() -> void:
 	_stock_line = Label.new()
 	_stock_line.add_theme_font_size_override("font_size", 11)
 	_stock_line.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.7))
+	_stock_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_stock_line)
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
-	column.add_child(footer)
+	shell.add_child(footer)
 
 	_cancel = _make_button("Cancel Work")
 	_cancel.pressed.connect(func() -> void: cancel_pressed.emit())

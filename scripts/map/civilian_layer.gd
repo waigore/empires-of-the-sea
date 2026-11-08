@@ -25,7 +25,12 @@ var _works_by_region: Dictionary = {}
 
 
 ## Loads the region's roster (creating it on first visit) and its works record.
-func spawn(p_model: MapModel, province_id: int, owner: int, types: Array[String]) -> void:
+## `place_units = false` prepares the works only, so the setup post-pass can
+## wire ports and roads before civilians muster.
+func spawn(
+	p_model: MapModel, province_id: int, owner: int, types: Array[String],
+	place_units: bool = true
+) -> void:
 	model = p_model
 	_clear_markers()
 	units = []
@@ -42,11 +47,16 @@ func spawn(p_model: MapModel, province_id: int, owner: int, types: Array[String]
 		_rebuild_markers()
 		queue_redraw()
 		return
-	if types.is_empty():
+	if not place_units or types.is_empty():
+		queue_redraw()
 		return
 	var anchor: Vector2i = _capital_tile(province_id)
-	# Keep the capital tile clear so the seat's own marker stays readable.
+	# Keep the capital tile clear so the seat's own marker stays readable, and
+	# leave improved tiles free so the estate glyphs are not hidden by units.
 	var taken: Dictionary = {anchor: true}
+	for tile: Vector2i in model.province_tiles(province_id):
+		if works.improvement_at(model, tile) > 0:
+			taken[tile] = true
 	for type_id: String in types:
 		var tile: Vector2i = _free_tile(province_id, anchor, taken)
 		if tile.x < 0:
@@ -192,11 +202,15 @@ func set_zoom(value: float) -> void:
 		marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 
 
-func unit_count(owner: int) -> int:
+## Civilians owned across every region: the HUD chip is an empire total.
+func unit_count_all(owner: int) -> int:
 	var total: int = 0
-	for unit: CivilianState in units:
-		if unit.owner == owner:
-			total += 1
+	for raw: Variant in _units_by_region.values():
+		var stored: Array[CivilianState] = []
+		stored.assign(raw)
+		for unit: CivilianState in stored:
+			if unit.owner == owner:
+				total += 1
 	return total
 
 

@@ -22,16 +22,25 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
 
 - One deterministic tile map per region (`MapGenerator.generate_region`); a
   seed reproduces both maps and all ownership.
-- Old World: temperate terrain, 6 GPs + 3 Minors, ~24–64 provinces.
+- Old World: temperate terrain, 6 GPs + 3 Minors, ~24–64 provinces, European
+  province and sea names (Spanish exonyms).
 - New World: wetter and greener terrain, 10 Tribes, Native-flavoured names.
 - `WorldMap` holds both grids. Regions never share grid adjacency; **warp
-  zones** (one edge sea zone per side) pair 1:1 and are marked “Passage” on the
-  map.
+  zones** (one edge sea zone per side) pair 1:1, marked “Passage”.
 - The HUD region button (`OLD WORLD ›` / `NEW WORLD ›`) swaps canvas, fog,
   fleets, civilians, works and camera bounds. Squadrons, civilian rosters and
-  land works persist per region, and every region advances on end turn, so
-  leaving a map never pauses it; the player keeps squadrons only where it owns
-  provinces.
+  land works persist per region, and every region advances on end turn —
+  including off-screen battles — so leaving a map never pauses it. HUD ship and
+  civilian chips are empire totals, and navy food upkeep counts every region.
+  The player keeps squadrons only where it owns provinces.
+
+## Setup post-pass
+
+After capitals are fixed, `WorldBootstrap` turns the capital-choice plan into
+real works (ports, harbour roads), sets Great Power capital town development to
+4, and places four L1 grain farms per Great Power, wired to the seat by road
+(wiki: capital-and-connectivity; tile-map-and-generation). Without it the
+opening map had no working estates and food demand outran the capital's grain.
 
 ## Ownership
 
@@ -55,13 +64,13 @@ treatment, so colour never bleeds into the sea.
 
 ## Known limits
 
-Naval transit through warp zones, colonisation of unclaimed land, Minor/Tribe
-reactive AI, regiment parity upgrades and market participation are deferred.
+Naval transit through warp zones, colonisation, Minor/Tribe AI, town-per-province
+roads, regiment parity and market participation are deferred.
 
 ## Tests
 
-`test_faction_catalog`, `test_world_setup`, `test_country_borders`,
-`test_map_generator`, `test_map_screen`.
+`test_faction_catalog`, `test_world_setup`, `test_world_bootstrap`,
+`test_country_borders`, `test_map_generator`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

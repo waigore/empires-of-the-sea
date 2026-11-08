@@ -124,7 +124,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	var name: String = play.model.province_name(play.selected_province)
 	match action:
 		"recruit":
-			play.hud.toast("A regiment is raised in %s" % name)
+			play.hud.toast("Regiments arrive with the military slice — no order was placed.")
 		"build":
 			play.improvements.open(play.selected_province)
 		"train_explorer", "train_builder", "train_engineer":

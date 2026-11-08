@@ -165,10 +165,16 @@ func _load_region(index: int) -> void:
 		(sea_backdrop.material as ShaderMaterial).set_shader_parameter(
 			"world_size", sea_backdrop.size
 		)
-	canvas.build(play.model, play.world)
-	overlay.build(play.model)
 	play.capital_province = _find_capital()
 	play.capital_tile = MapPlayTurn.capital_tile(play, play.capital_province)
+	# Prepare works first so the post-pass can wire them before units muster.
+	if not play.bootstrapped_regions.has(play.region_index):
+		civilian_layer.spawn(
+			play.model, play.capital_province, PLAYER_FACTION, STARTING_CIVILIANS, false
+		)
+		_bootstrap_region(play)
+	canvas.build(play.model, play.world)
+	overlay.build(play.model)
 	ship_layer.spawn(
 		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
 		play.player_present()
@@ -197,8 +203,8 @@ func _cycle_region() -> void:
 func _refresh_region_hud(map_size: Vector2) -> void:
 	hud.set_minimap(play.model, map_size)
 	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
-	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
-	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
+	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
 	if play.economy == null:
 		return
 	play.income = play.economy.projected_income()
@@ -214,8 +220,8 @@ func _build_hud() -> void:
 	hud.set_minimap(play.model, MapGeo.world_size(play.model, TILE_SIZE))
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.set_prestige(play.prestige)
-	hud.set_fleets(ship_layer.hull_count(PLAYER_FACTION))
-	hud.set_civilians(civilian_layer.unit_count(PLAYER_FACTION))
+	hud.set_fleets(ship_layer.hull_count_all(PLAYER_FACTION))
+	hud.set_civilians(civilian_layer.unit_count_all(PLAYER_FACTION))
 	play.economy = EconomyController.new()
 	add_child(play.economy)
 	play.economy.setup(
@@ -309,6 +315,16 @@ func _build_visibility() -> void:
 	play.visibility.apply_initial()
 	play.visibility_by_region[play.region_index] = play.visibility
 	overlay.sync_visibility(play.visibility)
+
+
+## Setup post-pass per region: capital ports and harbour roads become real
+## LandWorks entries, and Great Powers receive their guaranteed grain farms.
+## Runs once per region, before civilians muster and before the economy reads it.
+func _bootstrap_region(session: PlaySession) -> void:
+	if session.bootstrapped_regions.has(session.region_index):
+		return
+	WorldBootstrap.apply(session.model, session.civilian_layer.works)
+	session.bootstrapped_regions[session.region_index] = true
 
 
 func _find_capital() -> int:

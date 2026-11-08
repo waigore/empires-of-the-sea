@@ -234,7 +234,7 @@ static func _province_panel(hud: GameHud) -> void:
 	hud.add_child(hud._panel_wrap)
 
 	hud._panel = ProvincePanel.new()
-	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._panel.action_pressed.connect(func(action: String) -> void: hud.panel_action.emit(action))
 	hud._panel.close_pressed.connect(func() -> void: hud.panel_closed.emit())
 	hud._panel_wrap.add_child(hud._panel)
@@ -245,14 +245,14 @@ static func _fleet_panel(hud: GameHud) -> void:
 	hud._fleet_wrap.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	hud._fleet_wrap.offset_left = -200.0
 	hud._fleet_wrap.offset_right = 200.0
-	hud._fleet_wrap.offset_top = -178.0
+	hud._fleet_wrap.offset_top = -244.0
 	hud._fleet_wrap.offset_bottom = -22.0
 	hud._fleet_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud._fleet_wrap.visible = false
 	hud.add_child(hud._fleet_wrap)
 
 	hud._fleet_panel = FleetPanel.new()
-	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._fleet_panel.close_pressed.connect(func() -> void: hud.fleet_closed.emit())
 	hud._fleet_wrap.add_child(hud._fleet_panel)
 
@@ -269,7 +269,7 @@ static func _economy_panel(hud: GameHud) -> void:
 	hud.add_child(hud._economy_wrap)
 
 	hud._economy_panel = EconomyPanel.new()
-	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._economy_panel.close_pressed.connect(func() -> void: hud.hide_economy())
 	hud._economy_wrap.add_child(hud._economy_panel)
 
@@ -286,7 +286,7 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud.add_child(hud._civilian_wrap)
 
 	hud._civilian_panel = CivilianPanel.new()
-	hud._civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	hud._civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._civilian_panel.action_pressed.connect(func(action: String) -> void:
 		hud.civilian_action.emit(action)
 	)

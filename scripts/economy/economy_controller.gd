@@ -49,15 +49,12 @@ func _connect() -> void:
 	panel.recruit_requested.connect(_on_recruit)
 
 
-## Ships in the player's fleets drive naval food upkeep this turn.
+## Ships in the player's fleets drive naval food upkeep this turn. Every region
+## counts: a squadron parked on the other map still eats.
 func fleet_ships() -> int:
-	var total: int = 0
 	if _ships == null:
-		return total
-	for fleet: FleetState in _ships.fleets:
-		if fleet != null and fleet.owner == player_faction:
-			total += fleet.ship_count()
-	return total
+		return 0
+	return _ships.hull_count_all(player_faction)
 
 
 func extraction() -> Dictionary:
