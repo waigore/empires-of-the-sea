@@ -3,9 +3,11 @@ name: Automerge
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed, edited]
   # Re-enable auto-merge after required checks finish.
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Approval gate"]
     types: [completed]
 
 concurrency:
@@ -63,7 +65,7 @@ jobs:
           set -euo pipefail
           PR="${{ steps.pr.outputs.number }}"
 
-          # GitHub waits until required checks (tests) are green.
+          # GitHub waits until required checks (tests + approval-gate) are green.
           # Failures here usually mean checks are still pending/red; retry on later events.
           if gh pr merge "${PR}" --repo "${{ github.repository }}" --squash --auto --delete-branch; then
             echo "Squash auto-merge enabled for PR #${PR}."
