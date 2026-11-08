@@ -16,6 +16,7 @@ SOFT_MAX_LINES = 400
 SOFT_MAX_METHODS = 25
 HARD_MAX_LINES = 650
 HARD_MAX_METHODS = 45
+MAX_SIZE_ALLOWLIST_ENTRIES = 5
 REACH_IN_DEPTH = 3
 
 ALLOWED_GD_PREFIXES = (
@@ -154,11 +155,9 @@ def _path_depth(node_path: str) -> int:
     return len(parts)
 
 
-def load_size_allowlist() -> dict[str, tuple[int, int]]:
+def parse_size_allowlist(text: str) -> dict[str, tuple[int, int]]:
     result: dict[str, tuple[int, int]] = {}
-    if not SIZE_ALLOWLIST_PATH.is_file():
-        return result
-    for raw in SIZE_ALLOWLIST_PATH.read_text(encoding="utf-8").splitlines():
+    for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
@@ -168,6 +167,57 @@ def load_size_allowlist() -> dict[str, tuple[int, int]]:
         path, max_lines, max_methods = parts
         result[path] = (int(max_lines), int(max_methods))
     return result
+
+
+def load_size_allowlist() -> dict[str, tuple[int, int]]:
+    if not SIZE_ALLOWLIST_PATH.is_file():
+        return {}
+    return parse_size_allowlist(SIZE_ALLOWLIST_PATH.read_text(encoding="utf-8"))
+
+
+def load_size_allowlist_at_ref(base_ref: str) -> dict[str, tuple[int, int]] | None:
+    """Baseline allowlist at base_ref, or None if unavailable."""
+    rel = SIZE_ALLOWLIST_PATH.relative_to(ROOT).as_posix()
+    try:
+        out = subprocess.check_output(
+            ["git", "show", f"{base_ref}:{rel}"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    try:
+        return parse_size_allowlist(out)
+    except ValueError:
+        return None
+
+
+def check_size_allowlist_policy(
+    failures: list[str],
+    allowlist: dict[str, tuple[int, int]],
+    base_ref: str,
+) -> None:
+    rel = SIZE_ALLOWLIST_PATH.relative_to(ROOT).as_posix()
+    if len(allowlist) > MAX_SIZE_ALLOWLIST_ENTRIES:
+        failures.append(
+            f"{rel}:1: RUB-P3-01 size allowlist has {len(allowlist)} entries "
+            f"(max {MAX_SIZE_ALLOWLIST_ENTRIES}); split oversized scripts "
+            f"instead of growing the list"
+        )
+    baseline = load_size_allowlist_at_ref(base_ref)
+    if baseline is None:
+        return
+    for path, (lines, methods) in allowlist.items():
+        if path not in baseline:
+            continue
+        prev_lines, prev_methods = baseline[path]
+        if lines > prev_lines or methods > prev_methods:
+            failures.append(
+                f"{rel}:1: RUB-P3-01 ratchet raised for {path} "
+                f"({prev_lines}/{prev_methods} → {lines}/{methods}); "
+                f"only shrink or remove — split the file instead"
+            )
 
 
 def load_autoload_allowlist() -> set[str]:
@@ -450,14 +500,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Allowlist error: {exc}", file=sys.stderr)
         return 2
 
+    base_ref = resolve_base_ref(args.base_ref)
     check_layout(failures)
+    check_size_allowlist_policy(failures, size_allowlist, base_ref)
     check_size(failures, size_allowlist)
     check_reach_ins(failures)
     check_autoloads(failures, autoload_allowlist)
     check_rules_purity(failures)
     check_platform(failures)
     if args.require_rules_tests:
-        check_rules_tests_pairing(failures, resolve_base_ref(args.base_ref))
+        check_rules_tests_pairing(failures, base_ref)
 
     if failures:
         print("Architecture lint failures:", file=sys.stderr)

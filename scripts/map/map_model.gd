@@ -1,8 +1,8 @@
-# gdlint: disable=max-public-methods
 class_name MapModel
 extends RefCounted
 ## Tile data for one region (wiki: tile-map-and-generation).
 ## Pure data: no nodes, no rendering, so rules and tests can run headless (REQ-P3-03).
+## Coastal, neighbor, and world-space queries live on MapGeo.
 
 enum Terrain { OCEAN, SHALLOW, PLAINS, FOREST, HILLS, MOUNTAINS, DESERT, SWAMP }
 
@@ -170,79 +170,3 @@ func sea_zone_name(id: int) -> String:
 		return ""
 	return data.get("name", "")
 
-
-func is_coastal_tile(x: int, y: int) -> bool:
-	if not is_land(x, y):
-		return false
-	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-		var nx: int = x + offset.x
-		var ny: int = y + offset.y
-		if in_bounds(nx, ny) and is_sea(nx, ny):
-			return true
-	return false
-
-
-func coastal_tiles(id: int) -> Array:
-	var result: Array = []
-	for tile: Vector2i in province_tiles(id):
-		if is_coastal_tile(tile.x, tile.y):
-			result.append(tile)
-	return result
-
-
-func province_neighbors(id: int) -> Array:
-	var data: Dictionary = province_data(id)
-	if data.is_empty():
-		return []
-	if data.has("neighbors"):
-		return data["neighbors"]
-	var found: Array = []
-	for tile: Vector2i in province_tiles(id):
-		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-			var other: int = province_at(tile.x + offset.x, tile.y + offset.y)
-			if other != NO_ID and other != id and not found.has(other):
-				found.append(other)
-	found.sort()
-	data["neighbors"] = found
-	return found
-
-
-func sea_zone_neighbors(id: int) -> Array:
-	var data: Dictionary = sea_zone_data(id)
-	if data.is_empty():
-		return []
-	if data.has("neighbors"):
-		return data["neighbors"]
-	var found: Array = []
-	for tile: Vector2i in data.get("tiles", []):
-		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-			var other: int = sea_zone_at(tile.x + offset.x, tile.y + offset.y)
-			if other != NO_ID and other != id and not found.has(other):
-				found.append(other)
-	found.sort()
-	data["neighbors"] = found
-	return found
-
-
-func land_tile_count() -> int:
-	var total: int = 0
-	for y in height:
-		for x in width:
-			if is_land(x, y):
-				total += 1
-	return total
-
-
-func tile_center(x: int, y: int, tile_size: float) -> Vector2:
-	return Vector2((float(x) + 0.5) * tile_size, (float(y) + 0.5) * tile_size)
-
-
-func world_size(tile_size: float) -> Vector2:
-	return Vector2(float(width) * tile_size, float(height) * tile_size)
-
-
-func tile_at_world(world_position: Vector2, tile_size: float) -> Vector2i:
-	return Vector2i(
-		int(floor(world_position.x / tile_size)),
-		int(floor(world_position.y / tile_size))
-	)

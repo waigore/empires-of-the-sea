@@ -8,9 +8,6 @@ extends Node2D
 const TILE_SIZE: float = 22.0
 const CLOUD_MARGIN: float = 1400.0
 
-## Relative height per MapModel.Terrain value; drives the hillshade.
-const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16]
-
 ## Marching-squares edge pairs per corner case (1=TL, 2=TR, 4=BR, 8=BL).
 ## Edge ids: 0=top, 1=right, 2=bottom, 3=left.
 const MS_TABLE: Array = [
@@ -44,7 +41,7 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_build_wash()
+	MapWash.build(self, model)
 	_build_coast()
 	_build_borders()
 	_build_roads()
@@ -59,85 +56,10 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 func map_size() -> Vector2:
 	if model == null:
 		return Vector2.ZERO
-	return model.world_size(TILE_SIZE)
+	return MapGeo.world_size(model, TILE_SIZE)
 
 
 # --- build ------------------------------------------------------------------
-
-
-## Two tile-resolution images: colour + coverage in one, terrain height in the
-## other. Everything finer than a tile is the shader's job, which is what keeps
-## the terrain grained instead of magnifying one flat texel per tile.
-func _build_wash() -> void:
-	var w: int = model.width
-	var h: int = model.height
-	var color_image := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var height_image := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var pale: Color = Palette.terrain_color(MapModel.Terrain.SHALLOW)
-	var relief := FastNoiseLite.new()
-	relief.seed = 17
-	relief.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	relief.frequency = 0.09
-	relief.fractal_octaves = 3
-	for y in h:
-		for x in w:
-			var index: int = model.index_of(x, y)
-			var terrain: int = model.terrain[index]
-			if terrain == MapModel.Terrain.OCEAN:
-				color_image.set_pixel(x, y, Color(pale.r, pale.g, pale.b, 0.0))
-				height_image.set_pixel(x, y, Color(0, 0, 0, 1))
-				mask.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			var color: Color = Palette.terrain_color(terrain)
-			if terrain == MapModel.Terrain.SHALLOW:
-				color_image.set_pixel(x, y, Color(color.r, color.g, color.b, 0.34))
-				height_image.set_pixel(x, y, Color(0, 0, 0, 1))
-				mask.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			color_image.set_pixel(x, y, Color(color.r, color.g, color.b, 1.0))
-			mask.set_pixel(x, y, Color(1, 1, 1, 1))
-			var owner: int = model.owner_at(x, y)
-			if owner != MapModel.NO_ID:
-				var tint: Color = color.lerp(FactionCatalog.color_of(owner), 0.16)
-				color_image.set_pixel(x, y, Color(tint.r, tint.g, tint.b, 1.0))
-			var height: float = TERRAIN_HEIGHT[terrain]
-			height += relief.get_noise_2d(float(x), float(y)) * 0.24
-			height = clampf(height, 0.0, 1.0)
-			height_image.set_pixel(x, y, Color(height, height, height, 1.0))
-
-	_build_shadow(mask)
-
-	var sprite := Sprite2D.new()
-	sprite.name = "Wash"
-	sprite.centered = false
-	sprite.show_behind_parent = true
-	sprite.scale = Vector2(TILE_SIZE, TILE_SIZE)
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	sprite.texture = ImageTexture.create_from_image(color_image)
-	var material := ShaderMaterial.new()
-	material.shader = load("res://ui/shaders/terrain.gdshader")
-	material.set_shader_parameter("height_tex", ImageTexture.create_from_image(height_image))
-	material.set_shader_parameter("texel", Vector2(1.0 / float(w), 1.0 / float(h)))
-	material.set_shader_parameter("world_size", model.world_size(TILE_SIZE))
-	sprite.material = material
-	add_child(sprite)
-
-
-## Land drop shadow: the land mask offset a few pixels and darkened. It is
-## created before the wash so it draws underneath, which lifts the coast off the
-## water instead of looking pasted on.
-func _build_shadow(mask: Image) -> void:
-	var shade := Sprite2D.new()
-	shade.name = "Shade"
-	shade.centered = false
-	shade.show_behind_parent = true
-	shade.position = Vector2(5, 6)
-	shade.scale = Vector2(TILE_SIZE, TILE_SIZE)
-	shade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	shade.texture = ImageTexture.create_from_image(mask)
-	shade.modulate = Color(0.10, 0.07, 0.03, 0.22)
-	add_child(shade)
 
 
 func _build_coast() -> void:
@@ -221,7 +143,7 @@ func _build_roads() -> void:
 				continue
 			var points := PackedVector2Array()
 			for tile: Vector2i in path:
-				points.append(model.tile_center(tile.x, tile.y, TILE_SIZE))
+				points.append(MapGeo.tile_center(tile.x, tile.y, TILE_SIZE))
 			_roads.append(points)
 
 
@@ -241,7 +163,7 @@ func _build_labels() -> void:
 		if int(zone["area"]) < 260:
 			continue
 		_labels.append({
-			"text": _spaced(String(zone["name"])),
+			"text": MapGlyphs.spaced(String(zone["name"])),
 			"position": Vector2(zone["center"]) * TILE_SIZE,
 			"size": 13,
 			"kind": "sea",
@@ -274,7 +196,7 @@ func _build_glyphs() -> void:
 			var terrain: int = model.terrain_at(x, y)
 			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
 				continue
-			var roll: float = _hash01(x * 3 + 11, y * 7 + 5)
+			var roll: float = MapGlyphs.hash01(x * 3 + 11, y * 7 + 5)
 			var kind: String = ""
 			var chance: float = 0.0
 			match terrain:
@@ -299,21 +221,21 @@ func _build_glyphs() -> void:
 			if roll > chance:
 				continue
 			var jitter := Vector2(
-				(_hash01(x + 31, y + 17) - 0.5) * TILE_SIZE * 0.45,
-				(_hash01(x + 71, y + 43) - 0.5) * TILE_SIZE * 0.45
+				(MapGlyphs.hash01(x + 31, y + 17) - 0.5) * TILE_SIZE * 0.45,
+				(MapGlyphs.hash01(x + 71, y + 43) - 0.5) * TILE_SIZE * 0.45
 			)
-			var at: Vector2 = model.tile_center(x, y, TILE_SIZE) + jitter
+			var at: Vector2 = MapGeo.tile_center(x, y, TILE_SIZE) + jitter
 			if _under_label(at):
 				continue
 			_glyphs.append({
 				"kind": kind,
 				"position": at,
-				"size": TILE_SIZE * (0.60 + _hash01(x + 5, y + 9) * 0.30),
-				"flip": _hash01(x + 13, y + 3) > 0.5,
+				"size": TILE_SIZE * (0.60 + MapGlyphs.hash01(x + 5, y + 9) * 0.30),
+				"flip": MapGlyphs.hash01(x + 13, y + 3) > 0.5,
 			})
 	for province: Dictionary in model.provinces:
-		for port: Vector2i in _port_tiles(province):
-			var anchor: Vector2 = model.tile_center(port.x, port.y, TILE_SIZE)
+		for port: Vector2i in MapGlyphs.port_tiles(province):
+			var anchor: Vector2 = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 			anchor += _sea_offset(port) * TILE_SIZE * 0.62
 			if _under_label(anchor):
 				continue
@@ -327,7 +249,7 @@ func _build_glyphs() -> void:
 			var capital: Vector2i = province.get("capital_tile", CapitalChoice.NO_TILE)
 			var anchor: Vector2 = Vector2(province["center"]) * TILE_SIZE
 			if capital.x >= 0:
-				anchor = model.tile_center(capital.x, capital.y, TILE_SIZE)
+				anchor = MapGeo.tile_center(capital.x, capital.y, TILE_SIZE)
 			_glyphs.append({
 				"kind": "capital",
 				"position": anchor,
@@ -358,32 +280,15 @@ func _under_label(at: Vector2) -> bool:
 	return false
 
 
-## Capital seaboards draw a port each; other coastal provinces keep the single
-## generated waterfront port.
-static func _port_tiles(province: Dictionary) -> Array[Vector2i]:
-	var tiles: Array[Vector2i] = []
-	var ports: Dictionary = province.get("ports", {})
-	for zone: int in ports.keys():
-		var tile: Vector2i = ports[zone]
-		if not tiles.has(tile):
-			tiles.append(tile)
-	if not tiles.is_empty():
-		return tiles
-	var fallback: Vector2i = province["port_tile"]
-	if fallback.x >= 0:
-		tiles.append(fallback)
-	return tiles
-
-
 func _find_compass_spot() -> void:
 	_compass_visible = false
 	var target := Vector2(float(model.width) * 0.12, float(model.height) * 0.86)
 	for radius in range(0, 24, 2):
 		for angle in range(0, 360, 30):
 			var offset := Vector2(cos(deg_to_rad(angle)), sin(deg_to_rad(angle))) * radius
-			var tile: Vector2i = model.tile_at_world(target + offset, TILE_SIZE)
+			var tile: Vector2i = MapGeo.tile_at_world(target + offset, TILE_SIZE)
 			if model.is_sea(tile.x, tile.y) and model.sea_zone_at(tile.x, tile.y) != MapModel.NO_ID:
-				_compass_position = model.tile_center(tile.x, tile.y, TILE_SIZE)
+				_compass_position = MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
 				_compass_visible = true
 				return
 
@@ -479,18 +384,3 @@ func _draw_label(label: Dictionary) -> void:
 		Color(0.11, 0.08, 0.05, 0.96)
 	)
 
-
-func _spaced(text: String) -> String:
-	var out: String = ""
-	for i in text.length():
-		out += text[i]
-		if i < text.length() - 1:
-			out += " "
-	return out
-
-
-func _hash01(x: int, y: int) -> float:
-	var h: int = x * 374761393 + y * 668265263
-	h = (h ^ (h >> 13)) * 1274126177
-	h = h ^ (h >> 16)
-	return float(h & 0xFFFF) / 65535.0

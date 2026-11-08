@@ -53,7 +53,7 @@ Quality gate for design, implementation, and review. Cite `REQ-*` / `RUB-*` in P
 
 | ID | Pass bar (`REQ`) |
 |----|------------------|
-| RUB-P3-01 | **S:** one domain; layout OK; ≤400 lines / ≤25 methods (or ratchet allowlist; hard ≤650/45) (`REQ-P3-01`) |
+| RUB-P3-01 | **S:** one domain; layout OK; ≤400/25 (allowlist ≤5, shrink-only; hard ≤650/45) (`REQ-P3-01`) |
 | RUB-P3-02 | **I:** no deep `get_node`/`$` (depth ≥3); autoloads only if allowlisted (`REQ-P3-02`) |
 | RUB-P3-03 | **D:** `scripts/rules` is RefCounted/Object-only; view reactive (`REQ-P3-03`) |
 | RUB-P3-04 | Changed rules paired with `tests/` changes (`REQ-P3-04`) |

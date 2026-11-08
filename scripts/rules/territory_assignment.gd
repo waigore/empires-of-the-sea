@@ -108,7 +108,7 @@ static func _component(model: MapModel, start: int, seen: Dictionary) -> Array[i
 		var current: int = queue[head]
 		head += 1
 		group.append(current)
-		for neighbor: int in model.province_neighbors(current):
+		for neighbor: int in MapGeo.province_neighbors(model, current):
 			if seen.has(neighbor):
 				continue
 			seen[neighbor] = true
@@ -315,7 +315,7 @@ static func _province_distances(
 		var current: int = queue[head]
 		head += 1
 		var step: int = int(distances[current]) + 1
-		for neighbor: int in model.province_neighbors(current):
+		for neighbor: int in MapGeo.province_neighbors(model, current):
 			if not lookup.has(neighbor) or distances.has(neighbor):
 				continue
 			distances[neighbor] = step
@@ -356,7 +356,7 @@ static func _best_frontier(
 static func _borders_owner(
 	model: MapModel, province_id: int, owner: Dictionary, faction_id: int
 ) -> bool:
-	for neighbor: int in model.province_neighbors(province_id):
+	for neighbor: int in MapGeo.province_neighbors(model, province_id):
 		if int(owner.get(neighbor, MapModel.NO_ID)) == faction_id:
 			return true
 	return false

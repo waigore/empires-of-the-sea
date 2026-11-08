@@ -176,7 +176,7 @@ func _is_connected(model: MapModel, province_ids: Array[int]) -> bool:
 	while head < queue.size():
 		var current: int = queue[head]
 		head += 1
-		for neighbor: int in model.province_neighbors(current):
+		for neighbor: int in MapGeo.province_neighbors(model, current):
 			if lookup.has(neighbor) and not visited.has(neighbor):
 				visited[neighbor] = true
 				queue.append(neighbor)

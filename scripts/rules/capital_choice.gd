@@ -144,7 +144,7 @@ static func sea_bound_sea_zones(model: MapModel, province_id: int) -> Array[int]
 static func tile_class(model: MapModel, province_id: int, tile: Vector2i) -> int:
 	if _touches_other_province(model, province_id, tile):
 		return CLASS_C
-	if model.is_coastal_tile(tile.x, tile.y):
+	if MapGeo.is_coastal_tile(model, tile.x, tile.y):
 		return CLASS_A
 	return CLASS_B
 
@@ -159,7 +159,7 @@ static func choose_tile(
 			return pick_a
 		var coastal_c: Array = []
 		for tile: Vector2i in groups[CLASS_C]:
-			if model.is_coastal_tile(tile.x, tile.y):
+			if MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				coastal_c.append(tile)
 		return _plains_first(model, coastal_c)
 	for cls: int in [CLASS_A, CLASS_B, CLASS_C]:

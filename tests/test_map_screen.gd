@@ -68,7 +68,8 @@ func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_eq(_screen.canvas.model, _screen.model)
 	assert_eq(_screen.ship_layer.ships.size(), MapScreen.SHIP_COUNT)
 	assert_gt(_screen.capital_province, -1)
-	assert_almost_eq(_screen.camera.map_size.x, _screen.model.world_size(MapScreen.TILE_SIZE).x, 1.0)
+	var map_width: float = MapGeo.world_size(_screen.model, MapScreen.TILE_SIZE).x
+	assert_almost_eq(_screen.camera.map_size.x, map_width, 1.0)
 
 
 func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
@@ -83,11 +84,11 @@ func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
 
 
 func test_focus_capital_centres_on_the_capital_tile() -> void:
-	_screen._focus_capital()
+	MapPlayTurn.focus_capital(_screen)
 	for _step in 20:
 		_screen.camera._process(0.2)
 	var expected: Vector2 = CameraMath.clamp_center(
-		_screen._capital_world(),
+		MapPlayTurn.capital_world(_screen),
 		_screen.camera.zoom.x,
 		_screen.camera.viewport_size(),
 		_screen.camera.map_size
@@ -98,32 +99,32 @@ func test_focus_capital_centres_on_the_capital_tile() -> void:
 func test_clicking_a_province_selects_it_and_opens_the_panel() -> void:
 	var province_id: int = _inland_province()
 	var world: Vector2 = _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
-	_screen._on_tapped(world)
+	MapPlayInput.on_tapped(_screen, world)
 	assert_eq(_screen.selected_province, province_id)
 	assert_true(_screen.hud.is_panel_open())
 
 
 func test_clicking_open_water_clears_the_selection() -> void:
 	var province_id: int = _inland_province()
-	_screen._on_tapped(_screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
+	MapPlayInput.on_tapped(_screen, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
 	assert_true(_screen.hud.is_panel_open())
 
 	var sea_tile: Vector2i = _screen.model.sea_zones[0]["tiles"][0]
-	_screen._on_tapped(_screen.model.tile_center(sea_tile.x, sea_tile.y, MapScreen.TILE_SIZE))
+	MapPlayInput.on_tapped(_screen, MapGeo.tile_center(sea_tile.x, sea_tile.y, MapScreen.TILE_SIZE))
 	assert_eq(_screen.selected_province, -1)
 	assert_false(_screen.hud.is_panel_open())
 
 
 func test_clicking_a_fleet_selects_it() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
-	_screen._on_tapped(ship.position)
+	MapPlayInput.on_tapped(_screen, ship.position)
 	assert_eq(_screen.ship_layer.selected_ship, ship)
 	assert_true(ship.selected)
 
 
 func test_end_turn_advances_calendar_and_treasury() -> void:
 	var turn_before: int = _screen.turn
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.projected_income())
@@ -132,9 +133,9 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 
 func test_panel_orders_raise_a_toast() -> void:
 	var province_id: int = _inland_province()
-	_screen._on_tapped(_screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
+	MapPlayInput.on_tapped(_screen, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE)
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
-	_screen._on_panel_action("recruit")
+	MapPlayInput.on_panel_action(_screen, "recruit")
 	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
 
 
@@ -192,7 +193,7 @@ func _axis_settled(low: float, high: float, map_extent: float) -> bool:
 
 func test_minimap_jump_settles_on_the_requested_point() -> void:
 	var target: Vector2 = _screen.camera.map_size * 0.75
-	_screen._on_minimap_jump(target)
+	MapPlayInput.on_minimap_jump(_screen, target)
 	for _step in 20:
 		_screen.camera._process(0.2)
 	var expected: Vector2 = CameraMath.clamp_center(
@@ -216,7 +217,7 @@ func test_player_fleet_reveals_only_for_the_player() -> void:
 	_screen.overlay.set_fog_state(index, MapOverlay.FOG_FOGGED)
 	var enemy := Ship.new()
 	enemy.faction = 1
-	_screen._on_zone_entered(int(zone["id"]), enemy)
+	MapPlayFleets.on_zone_entered(_screen, int(zone["id"]), enemy)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 	enemy.free()
 
@@ -229,7 +230,7 @@ func test_hover_reports_the_province_under_the_cursor() -> void:
 	var screen_point: Vector2 = CameraMath.world_to_screen(
 		_screen.camera.position, _screen.camera.zoom.x, world, _screen.camera.viewport_size()
 	)
-	_screen._update_hover(screen_point)
+	MapPlayInput.update_hover(_screen, screen_point)
 	assert_eq(_screen.overlay.hover_province, province_id)
 	assert_true(_screen.hud._tooltip.visible)
 
@@ -258,7 +259,7 @@ func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 
 
@@ -269,7 +270,7 @@ func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
 	var water_index: int = _screen.model.index_of(water.x, water.y)
 	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [water_index])
-	_screen._on_zone_entered(ship.zone, ship)
+	MapPlayFleets.on_zone_entered(_screen, ship.zone, ship)
 	assert_eq(_screen.overlay.fog_state_at(water.x, water.y), MapOverlay.FOG_VISIBLE)
 	var land: Vector2i = _coastal_land_of(ship.zone)
 	assert_true(land.x >= 0)
@@ -280,13 +281,13 @@ func test_unknown_land_is_reported_without_terrain_or_owner() -> void:
 	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
-	var world: Vector2 = _screen.model.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
 	_screen.camera.focus_on(world, 0.8, true)
 	_screen.camera._process(0.016)
 	var screen_point: Vector2 = CameraMath.world_to_screen(
 		_screen.camera.position, _screen.camera.zoom.x, world, _screen.camera.viewport_size()
 	)
-	_screen._update_hover(screen_point)
+	MapPlayInput.update_hover(_screen, screen_point)
 	assert_eq(_screen.hud._tooltip_label.text, "Uncharted land")
 
 
@@ -309,7 +310,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	player_fleet.sea_zone = enemy_fleet.sea_zone
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 
 	assert_eq(enemy_fleet.ship_count(), 0)
 	assert_eq(player_fleet.ship_count(), 1)
@@ -333,8 +334,8 @@ func test_civilians_muster_at_the_capital() -> void:
 
 func test_tapping_a_civilian_opens_its_dossier() -> void:
 	var unit: CivilianState = _screen.civilian_layer.units[0]
-	_screen._on_tapped(
-		_screen.model.tile_center(unit.tile.x, unit.tile.y, MapScreen.TILE_SIZE)
+	MapPlayInput.on_tapped(
+		_screen, MapGeo.tile_center(unit.tile.x, unit.tile.y, MapScreen.TILE_SIZE)
 	)
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
 	assert_true(_screen.hud.is_civilian_panel_open())
@@ -349,20 +350,20 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	builder.tile = tile
 	_screen.civilian_layer.select(builder)
 	var lumber_before: int = int(_screen.stockpile["lumber"])
-	_screen._on_civilian_action("build_improvement")
+	MapPlayCivilians.on_action(_screen, "build_improvement")
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
 	assert_true(builder.is_working())
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
 
 
 func test_training_a_civilian_spends_treasury_and_paper() -> void:
-	_screen._select_province(_screen.capital_province, _capital_point())
+	MapPlayInput.select_province(_screen, _screen.capital_province, _capital_point())
 	var units_before: int = _screen.civilian_layer.units.size()
 	var treasury_before: int = _screen.treasury
 	var paper_before: int = int(_screen.stockpile["paper"])
-	_screen._on_panel_action("train_explorer")
+	MapPlayInput.on_panel_action(_screen, "train_explorer")
 	assert_eq(_screen.treasury, treasury_before - 1000)
 	assert_eq(int(_screen.stockpile["paper"]), paper_before - 2)
 	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
@@ -370,12 +371,12 @@ func test_training_a_civilian_spends_treasury_and_paper() -> void:
 
 func test_training_is_refused_outside_the_capital() -> void:
 	var province_id: int = _foreign_province()
-	_screen._select_province(
-		province_id, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	MapPlayInput.select_province(
+		_screen, province_id, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
 	)
 	var units_before: int = _screen.civilian_layer.units.size()
 	var treasury_before: int = _screen.treasury
-	_screen._on_panel_action("train_explorer")
+	MapPlayInput.on_panel_action(_screen, "train_explorer")
 	assert_eq(_screen.civilian_layer.units.size(), units_before)
 	assert_eq(_screen.treasury, treasury_before)
 
@@ -385,7 +386,7 @@ func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
 	var resource: Vector2i = _owned_resource_tile()
 	builder.tile = resource
 	_screen.civilian_layer.select(builder)
-	_screen._on_civilian_action("build_improvement")
+	MapPlayCivilians.on_action(_screen, "build_improvement")
 	var works: LandWorks = _screen.land_works
 
 	_screen._cycle_region()
@@ -416,7 +417,7 @@ func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
 	var fleet: FleetState = _screen.ship_layer.fleets[0]
 	fleet.moved = true
 	_screen._cycle_region()
-	_screen._on_end_turn()
+	MapPlayTurn.end_turn(_screen)
 	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
 
 

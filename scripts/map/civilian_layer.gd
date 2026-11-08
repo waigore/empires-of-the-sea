@@ -32,7 +32,10 @@ func spawn(p_model: MapModel, province_id: int, owner: int, types: Array[String]
 	selected_unit = null
 	if model == null:
 		return
-	works = _works_for_region(model.region_id)
+	works = _works_by_region.get(model.region_id, null)
+	if works == null:
+		works = LandWorks.new()
+		_works_by_region[model.region_id] = works
 	if _units_by_region.has(model.region_id):
 		units.assign(_units_by_region[model.region_id])
 		_units_by_region[model.region_id] = units
@@ -78,12 +81,6 @@ func _add_marker(unit: CivilianState) -> void:
 	marker.scale = Vector2.ONE * _marker_scale()
 	add_child(marker)
 	markers.append(marker)
-
-
-func _works_for_region(region_id: int) -> LandWorks:
-	if not _works_by_region.has(region_id):
-		_works_by_region[region_id] = LandWorks.new()
-	return _works_by_region[region_id]
 
 
 func add_unit(owner: int, type_id: String, tile: Vector2i) -> CivilianState:
@@ -148,7 +145,11 @@ func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
 func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for index in world.region_count():
-		var region_units: Array[CivilianState] = _units_in_region(index)
+		var region_units: Array[CivilianState] = []
+		if model != null and index == model.region_id:
+			region_units = units
+		else:
+			region_units.assign(_units_by_region.get(index, []))
 		CivilianMovement.begin_turn(region_units)
 		var region_works: LandWorks = _works_by_region.get(index, null)
 		if region_works == null:
@@ -160,16 +161,6 @@ func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
 			report["region"] = index
 			reports.append(report)
 	return reports
-
-
-## State of a region that is not on screen (the roster is shared, so work and
-## readiness changes land on the live unit objects).
-func _units_in_region(index: int) -> Array[CivilianState]:
-	if model != null and index == model.region_id:
-		return units
-	var stored: Array[CivilianState] = []
-	stored.assign(_units_by_region.get(index, []))
-	return stored
 
 
 ## Mirrors rules state onto the medallions (selection, work ring, progress).
@@ -259,7 +250,7 @@ func _draw_port(point: Vector2) -> void:
 
 
 func _tile_position(tile: Vector2i) -> Vector2:
-	return model.tile_center(tile.x, tile.y, TILE_SIZE)
+	return MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
 
 
 func _marker_scale() -> float:

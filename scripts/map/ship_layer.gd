@@ -169,7 +169,7 @@ func _place_ship(ship: Ship, fleet: FleetState) -> void:
 	if fleet.is_in_port():
 		var data: Dictionary = model.province_data(fleet.province)
 		var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
-		ship.position = model.tile_center(port.x, port.y, TILE_SIZE)
+		ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 		ship.docked = true
 		ship.zone = -1
 		ship.province = fleet.province
@@ -273,35 +273,6 @@ func begin_turn() -> void:
 		NavalMovement.begin_turn(region_fleets)
 
 
-## Enemy markers follow fog intel: a fleet is only drawn while its tile is
-## fully visible for the player (wiki: fog-and-exploration).
-func refresh_visibility(visibility: VisibilityModel, player: int) -> void:
-	for ship: Ship in ships:
-		var fleet: FleetState = fleet_of(ship)
-		if fleet != null:
-			ship.visible = _known(fleet, visibility, player)
-
-
-func _known(fleet: FleetState, visibility: VisibilityModel, player: int) -> bool:
-	if fleet.owner == player or visibility == null:
-		return true
-	var tile: Vector2i = _fleet_tile(fleet)
-	if tile.x < 0:
-		return true
-	return visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
-
-
-func _fleet_tile(fleet: FleetState) -> Vector2i:
-	if fleet.is_at_sea():
-		var zone: Dictionary = model.sea_zone_data(fleet.sea_zone)
-		var tiles: Array = zone.get("tiles", [])
-		if tiles.is_empty():
-			return Vector2i(-1, -1)
-		return tiles[0]
-	var data: Dictionary = model.province_data(fleet.province)
-	return data.get("port_tile", Vector2i(-1, -1))
-
-
 ## Removes fleets whose last hull has been sunk and frees their map markers.
 func prune_destroyed() -> void:
 	var alive: Array[FleetState] = []
@@ -343,7 +314,7 @@ func _port_position(province_id: int) -> Vector2:
 	var port: Vector2i = data.get("port_tile", Vector2i(-1, -1))
 	if port.x < 0 or port.y < 0:
 		return model.province_center(province_id) * TILE_SIZE
-	return model.tile_center(port.x, port.y, TILE_SIZE)
+	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 
 
 func _sail(ship: Ship, target: Vector2) -> void:

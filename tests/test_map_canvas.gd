@@ -48,7 +48,7 @@ func test_surf_points_always_face_open_water() -> void:
 		var origin: Vector2 = dash["position"]
 		var normal: Vector2 = dash["normal"]
 		var probe: Vector2 = origin + normal * MapCanvas.TILE_SIZE * 0.7
-		var tile: Vector2i = _canvas.model.tile_at_world(probe, MapCanvas.TILE_SIZE)
+		var tile: Vector2i = MapGeo.tile_at_world(probe, MapCanvas.TILE_SIZE)
 		assert_true(_canvas.model.is_sea(tile.x, tile.y))
 
 

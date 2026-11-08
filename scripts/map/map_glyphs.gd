@@ -237,3 +237,37 @@ static func _hash(x: float, y: float) -> float:
 	h = (h ^ (h >> 13)) * 1274126177
 	h = h ^ (h >> 16)
 	return float(h & 0xFFFF) / 65535.0
+
+
+## Integer hash in 0..1 for glyph placement. Art variation keeps `_hash`.
+static func hash01(x: int, y: int) -> float:
+	var h: int = x * 374761393 + y * 668265263
+	h = (h ^ (h >> 13)) * 1274126177
+	h = h ^ (h >> 16)
+	return float(h & 0xFFFF) / 65535.0
+
+
+static func spaced(text: String) -> String:
+	var out: String = ""
+	for i in text.length():
+		out += text[i]
+		if i < text.length() - 1:
+			out += " "
+	return out
+
+
+## Capital seaboards draw a port each; other coastal provinces keep the single
+## generated waterfront port.
+static func port_tiles(province: Dictionary) -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	var ports: Dictionary = province.get("ports", {})
+	for zone: int in ports.keys():
+		var tile: Vector2i = ports[zone]
+		if not tiles.has(tile):
+			tiles.append(tile)
+	if not tiles.is_empty():
+		return tiles
+	var fallback: Vector2i = province["port_tile"]
+	if fallback.x >= 0:
+		tiles.append(fallback)
+	return tiles
