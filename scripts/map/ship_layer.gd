@@ -9,20 +9,6 @@ signal fleet_moved(fleet: FleetState, result: Dictionary)
 signal warp_crossed(fleet: FleetState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
-const PLAYER_FLEETS: int = 3
-## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
-## The player's three squadrons start small so naval food upkeep
-## (2 per ship per turn) fits the opening stockpile.
-const HULL_SETS: Array[Array] = [
-	["carrack"],
-	["sloop"],
-	["fluyte"],
-	["galleon", "carrack", "fluyte"],
-	["sloop", "carrack"],
-	["carrack", "carrack"],
-	["frigate", "carrack"],
-	["fluyte", "fluyte"],
-]
 
 var model: MapModel = null
 ## Both regions plus their warp links, for passage crossings.
@@ -33,9 +19,12 @@ var selected_ship: Ship = null
 
 var _rng := RandomNumberGenerator.new()
 var _zoom: float = 1.0
-var _next_hull: int = 1
+var _muster := FleetMuster.new()
+## Hull ids stay unique for the life of the save; save/load restores this
+## cursor through the public field (REQ-P3-02 narrow APIs).
+var next_hull: int = 1
 ## Fleet state per region: switching maps must not reroll or lose squadrons.
-var _fleets_by_region: Dictionary = {}
+var regions := MapRegionTable.new()
 
 
 func spawn(
@@ -55,20 +44,20 @@ func spawn(
 	fleets = []
 	if model.sea_zone_count() == 0:
 		return
-	if _fleets_by_region.has(model.region_id):
-		fleets.assign(_fleets_by_region[model.region_id])
-		_fleets_by_region[model.region_id] = fleets
+	if regions.has_region(model.region_id):
+		fleets.assign(regions.value(model.region_id, []))
+		regions.set_region(model.region_id, fleets)
 		_rebuild_markers()
 		return
 	# Hull ids stay unique for the life of the save, so the counter runs on
 	# across regions (wiki: ships-and-naval § Ship instances); never collide.
-	for index in count:
-		var owner: int = _owner_for_index(index, count, player_present, p_player_faction)
-		var fleet: FleetState = _make_fleet(index, owner, player_capital, p_player_faction)
-		_assign_hulls(fleet, index)
-		fleets.append(fleet)
+	_muster.rng = _rng
+	_muster.next_hull = next_hull
+	fleets = _muster.build(model, count, player_capital, player_present, p_player_faction)
+	next_hull = _muster.next_hull
+	for fleet: FleetState in fleets:
 		_make_marker(fleet)
-	_fleets_by_region[model.region_id] = fleets
+	regions.set_region(model.region_id, fleets)
 
 
 func _make_marker(fleet: FleetState) -> void:
@@ -89,81 +78,6 @@ func _rebuild_markers() -> void:
 	selected_ship = null
 	for fleet: FleetState in fleets:
 		_make_marker(fleet)
-
-
-## Fleets belong to Great Powers only; the player owns squadrons where it holds land.
-static func _owner_for_index(
-	index: int, count: int, player_present: bool, player: int
-) -> int:
-	var powers: Array[int] = FactionCatalog.great_power_ids()
-	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0
-	if index < player_count:
-		return player
-	var rivals: Array[int] = []
-	for power: int in powers:
-		if power != player:
-			rivals.append(power)
-	if rivals.is_empty():
-		return player
-	return rivals[(index - player_count) % rivals.size()]
-
-
-func _make_fleet(id: int, owner: int, player_capital: int, player: int) -> FleetState:
-	if owner == player and player_capital >= 0 and id == 2:
-		var port: int = _player_port(player_capital, player)
-		if port >= 0:
-			return FleetState.in_port(id, owner, port)
-	var zones: Array[int] = _coastal_zones(owner)
-	if zones.is_empty():
-		for zone: SeaZoneState in model.sea_zones:
-			zones.append(zone.id)
-	if zones.is_empty():
-		return FleetState.at_sea(id, owner, 0)
-	var zone: int = zones[_rng.randi_range(0, zones.size() - 1)]
-	return FleetState.at_sea(id, owner, zone)
-
-
-## Gives the fleet a deterministic starting squadron of typed hull instances.
-func _assign_hulls(fleet: FleetState, index: int) -> void:
-	var types: Array = HULL_SETS[index % HULL_SETS.size()]
-	var hull_ids: Array[String] = []
-	var hull_types: Dictionary = {}
-	for type_id: String in types:
-		var hull_id: String = "ship_%d" % _next_hull
-		_next_hull += 1
-		hull_ids.append(hull_id)
-		hull_types[hull_id] = type_id
-	fleet.set_hulls(hull_ids, hull_types)
-
-
-func _coastal_zones(owner: int) -> Array[int]:
-	var zones: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
-			continue
-		var province_id: int = province.id
-		for zone: int in NavalMovement.province_sea_zones(model, province_id):
-			if not zones.has(zone):
-				zones.append(zone)
-	zones.sort()
-	return zones
-
-
-func _player_port(player_capital: int, player: int) -> int:
-	# Sea-going fleets never sit in the capital port (home-fleet rule); prefer a
-	# non-capital harbour, and the capital only when it is the sole option.
-	for province: ProvinceState in model.provinces:
-		if province.owner != player:
-			continue
-		var province_id: int = province.id
-		if province_id == player_capital:
-			continue
-		if NavalMovement.has_harbour(model, province_id):
-			return province_id
-	if player_capital >= 0 and model.province_owner(player_capital) == player:
-		if NavalMovement.has_harbour(model, player_capital):
-			return player_capital
-	return -1
 
 
 func _place_ship(ship: Ship, fleet: FleetState) -> void:
@@ -245,9 +159,9 @@ func cross(fleet: FleetState) -> Dictionary:
 		return result
 	var to_region: int = int(result["to_region"])
 	var destination: Array[FleetState] = []
-	destination.assign(_fleets_by_region.get(to_region, []))
+	destination.assign(regions.value(to_region, []))
 	var next_id: int = 0
-	for raw: Variant in _fleets_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[FleetState] = []
 		stored.assign(raw)
 		for other: FleetState in stored:
@@ -255,8 +169,8 @@ func cross(fleet: FleetState) -> Dictionary:
 	fleets.erase(fleet)
 	fleet.id = next_id
 	destination.append(fleet)
-	_fleets_by_region[to_region] = destination
-	_fleets_by_region[model.region_id] = fleets
+	regions.set_region(to_region, destination)
+	regions.set_region(model.region_id, fleets)
 	_rebuild_markers()
 	warp_crossed.emit(fleet, result)
 	return result
@@ -289,7 +203,7 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:
-	for stored: Array in _fleets_by_region.values():
+	for stored: Array in regions.values():
 		var region_fleets: Array[FleetState] = []
 		region_fleets.assign(stored)
 		NavalMovement.begin_turn(region_fleets)
@@ -306,7 +220,7 @@ func resolve_battles(
 		if model != null and index == model.region_id:
 			region_fleets = fleets
 		else:
-			region_fleets.assign(_fleets_by_region.get(index, []))
+			region_fleets.assign(regions.value(index, []))
 		if region_fleets.is_empty():
 			continue
 		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets, hostile)
@@ -326,7 +240,7 @@ func resolve_battles(
 					deselect()
 				ships.erase(ship)
 				ship.queue_free()
-		_fleets_by_region[index] = alive
+		regions.set_region(index, alive)
 		if on_screen:
 			fleets = alive
 		for battle: Dictionary in battles:
@@ -337,7 +251,7 @@ func resolve_battles(
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.
 func transfer_owner(from_id: int, to_id: int) -> void:
-	for stored: Array in _fleets_by_region.values():
+	for stored: Array in regions.values():
 		for fleet: FleetState in stored:
 			if fleet.owner == from_id:
 				fleet.owner = to_id
@@ -361,7 +275,7 @@ func hull_count(owner: int) -> int:
 ## Every region counts: reading another map must not hide hulls or upkeep.
 func hull_count_all(owner: int) -> int:
 	var total: int = 0
-	for raw: Variant in _fleets_by_region.values():
+	for raw: Variant in regions.values():
 		var stored: Array[FleetState] = []
 		stored.assign(raw)
 		for fleet: FleetState in stored:
