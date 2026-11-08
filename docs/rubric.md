@@ -49,15 +49,15 @@ Quality gate for design, implementation, and review. Cite `REQ-*` / `RUB-*` in P
 | RUB-P2-04 | Meaningful unit tests; CI gate met (`REQ-P2-04`) |
 | RUB-P2-05 | Wiki rules updated in same change (`REQ-P2-05`) |
 
-### P3 — Modular architecture
+### P3 — Modular architecture (SOLID; `arch-lint`)
 
 | ID | Pass bar (`REQ`) |
 |----|------------------|
-| RUB-P3-01 | Clear ownership; fits layout conventions (`REQ-P3-01`) |
-| RUB-P3-02 | Loose coupling; no deep reach-ins (`REQ-P3-02`) |
-| RUB-P3-03 | Rules authoritative; view reactive (`REQ-P3-03`) |
-| RUB-P3-04 | New logic covered under `tests/` (`REQ-P3-04`) |
-| RUB-P3-05 | Platform diffs isolated (`REQ-P3-05`) |
+| RUB-P3-01 | **S:** one domain; layout OK; ≤400 lines / ≤25 methods (or ratchet allowlist; hard ≤650/45) (`REQ-P3-01`) |
+| RUB-P3-02 | **I:** no deep `get_node`/`$` (depth ≥3); autoloads only if allowlisted (`REQ-P3-02`) |
+| RUB-P3-03 | **D:** `scripts/rules` is RefCounted/Object-only; view reactive (`REQ-P3-03`) |
+| RUB-P3-04 | Changed rules paired with `tests/` changes (`REQ-P3-04`) |
+| RUB-P3-05 | OS/platform APIs only under `scripts/platform/**` (`REQ-P3-05`) |
 
 ### P4 — Performance & latency
 
