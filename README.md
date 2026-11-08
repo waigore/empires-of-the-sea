@@ -15,6 +15,22 @@ Naval strategy game built with **Godot 4.7**, targeting desktop (Windows, macOS,
 2. Run the main scene (F5).
 3. Export via **Project → Export** using the presets for desktop and mobile.
 
+## Playable map demo
+
+F5 opens the map screen demo (`scenes/map_screen.tscn`): a procedurally generated
+Old World region rendered as an antique atlas.
+
+| Action | Desktop | Touch |
+|--------|---------|-------|
+| Pan | drag, WASD / arrows, two-finger trackpad | one-finger drag |
+| Zoom | wheel, pinch, `+` / `−` buttons, E / Q | pinch, `+` / `−` buttons |
+| Jump | click the minimap | tap / drag the minimap |
+| Select | click a province or a fleet | tap |
+| Focus capital | `F` | — |
+| End turn | `Space` / `Enter` or the gold seal | tap the gold seal |
+
+Design notes live in [`docs/ui-demo.md`](docs/ui-demo.md).
+
 ## Development
 
 ```bash

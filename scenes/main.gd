@@ -1,6 +1,9 @@
 extends Node
-## Placeholder main scene entry point.
+## Application shell: loads the map screen demo.
+
+const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 
 func _ready() -> void:
-	print("Empires of the Sea %s" % GameVersion.as_string())
+	InputActions.ensure_actions()
+	add_child(MAP_SCREEN.instantiate())
