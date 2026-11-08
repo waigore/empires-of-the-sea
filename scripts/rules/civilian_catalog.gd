@@ -34,7 +34,7 @@ const TYPES: Dictionary = {
 		"treasury": 1000,
 		"paper": 2,
 		"unlock": "starting",
-		"works": ["build_road", "build_port"],
+		"works": ["build_road", "build_port", "build_fort"],
 		"implemented": true,
 		"deferred": "",
 	},

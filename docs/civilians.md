@@ -24,7 +24,8 @@ tech-gated Rail Builder ship; Spy and Merchant are catalogued but blocked.
   on cancel. Costs are paid at assignment and not refunded. Explore ≤3 turns,
   prospect 1, improvement 1–4 at level turns (1/4/8/16 lumber + cast iron),
   road 1 + 1 (level 2 needs Road Construction), port 5 + 5 (2 turns), rail
-  2 lumber + 2 steel (2 turns, road 1–2 → 4). Mines need prospecting first.
+  2 lumber + 2 steel (2 turns, road 1–2 → 4), fort 1–3 ([forts.md](forts.md)).
+  Mines need prospecting first.
 - **Improvements** are named from the resource (Farm, Lumber camp, Mine,
   Pasture, Ranch) and yield `min(level, tech cap, transport, town)` at end of
   turn when connected by road/port/town. Mines need prospecting first; upgrades
@@ -41,8 +42,7 @@ tech-gated Rail Builder ship; Spy and Merchant are catalogued but blocked.
   AI activity to observe; presence reveal already ships with every civilian.
 - **Merchant** — `purchase_land` needs tile-level land ownership and overseas
   cargo connectivity; embassies and Merchant Companies already exist.
-- `upgrade_town` (town connectivity), `build_fort` (siege model), rival
-  civilian AI.
+- `upgrade_town` (town connectivity), rival civilian AI.
 - Improvement transport caps, raw → manufactured production, riches conversion.
 
 ## Architecture

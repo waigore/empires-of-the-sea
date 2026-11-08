@@ -1,7 +1,6 @@
 # Land armies
 
-Land military slice: roster, training, armies, generals, marches, battles,
-capture.
+Land military: roster, training, armies, generals, marches, battles, capture.
 
 **Pillars:** P2, P3, P1, P4, P5. **Wiki:**
 [military-armies](https://github.com/waigore/empires-of-the-sea/wiki/military-armies),
@@ -50,9 +49,9 @@ capture.
 
 ## Deferred (REQ-P2-02)
 
-Forts, siege walls, emplaced guns · Quick Battle · difficulty modifiers ·
-regiment medals and unit health · minor parity and upgrades · AI marches ·
-naval transport between regions.
+Quick Battle and the gun-loss downgrade · difficulty · per-regiment medals and
+health · minor parity and in-place upgrades · AI marches · naval transport.
+Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
 

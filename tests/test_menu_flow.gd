@@ -62,7 +62,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 	for fleet: FleetState in screen.ship_layer.fleets:
 		if fleet.owner == 2:
 			french_fleets += 1
-	assert_eq(french_fleets, ShipLayer.PLAYER_FLEETS, "player squadrons fly French colours")
+	assert_eq(french_fleets, FleetMuster.PLAYER_FLEETS, "player squadrons fly French colours")
 	var home: ArmyState = null
 	for army: ArmyState in screen.army_layer.armies:
 		if army.owner == 2 and army.is_home_army():

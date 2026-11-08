@@ -17,6 +17,7 @@ var _population_value: Label = null
 var _port_value: Label = null
 var _capital_value: Label = null
 var _road_value: Label = null
+var _fort_value: Label = null
 var _capital_badge: Label = null
 var _training_box: VBoxContainer = null
 var _dock: Button = null
@@ -108,6 +109,7 @@ func _build() -> void:
 	_port_value = _add_row(grid, "Port")
 	_capital_value = _add_row(grid, "Capital")
 	_road_value = _add_row(grid, "Roads")
+	_fort_value = _add_row(grid, "Fort")
 
 	column.add_child(_divider())
 
@@ -241,6 +243,7 @@ func refresh(model: MapModel, province_id: int) -> void:
 	for path: Array in data.road_paths:
 		road_tiles += path.size()
 	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+	_fort_value.text = FortRules.describe(data.fort_level)
 
 
 ## Faction type drives the honorific (wiki: factions — three governing types).

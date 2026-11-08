@@ -5,13 +5,14 @@ extends RefCounted
 ## by general medals, feeding, leader and terrain modifiers; casualties follow
 ## the documented ratio bands; army elimination is applied before a province
 ## flips. Pre-combat general binding arrives in `context` from the caller.
-## Forts, siege walls, Quick Battle and difficulty stay deferred (REQ-P2-02).
+## Sieges read the province's fort level: walls soak attack, the emplaced battery
+## adds defence and shrinks defender losses (wiki: siege-mechanics, auto-resolve
+## aggregate path). Quick Battle, gun-loss downgrade and difficulty stay deferred.
 
 enum Outcome { ATTACKER_VICTORY, DEFENDER_VICTORY, STALEMATE, MUTUAL_ANNIHILATION, CAPTURE }
 
 const RECOVERY_SHARE: float = 0.2
-## Great Power military era for garrison recovery; Minors/Tribes stay at 1
-## until parity and tech are wired (wiki: factions).
+## Great Power military era for garrison recovery; Minors/Tribes stay at 1.
 const GREAT_POWER_ERA: int = 4
 const MINOR_ERA: int = 1
 
@@ -128,19 +129,18 @@ static func _exchange(
 	var atk_deployed: int = mini(side_regiments(attacking), atk_limit)
 	var def_strength: float = ArmyModifiers.strength(
 		defending, def_limit, float(def_mods["multiplier"])
-	)
-	var atk_strength: float = ArmyModifiers.strength(
-		attacking, atk_limit, float(atk_mods["multiplier"])
-	)
-	var ratio: float = 0.0
-	if def_strength > 0.0:
-		ratio = atk_strength / def_strength
+	) + float(def_mods["emplaced"])
+	var atk_strength: float = FortRules.wall_soak(
+		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
+		int(atk_mods["fort"]))
+	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
 	var band: Dictionary = band_for(ratio)
 	var attacker_lost: Array[String] = _apply_losses(
 		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
 	var defender_lost: Array[String] = _apply_losses(
-		armies, defending, ceili(float(initial_defenders) * float(band["defender"])), def_limit
+		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
+		* float(def_mods["loss_scale"])), def_limit
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
 	var def_left: int = side_regiments(armies_of(armies, province, defender))
@@ -155,6 +155,8 @@ static func _exchange(
 		"recovered_type": "",
 		"attacker_medals": int(atk_mods["medals"]),
 		"defender_medals": int(def_mods["medals"]),
+		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
+		"fort_level": int(def_mods["fort"]),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}

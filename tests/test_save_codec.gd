@@ -229,8 +229,24 @@ func test_invalid_and_corrupt_saves_are_refused() -> void:
 	assert_true(SaveStore.read(DIR + "/broken.sav").is_empty(), "corrupt read is empty")
 
 
-# --- helpers -----------------------------------------------------------------
+func test_a_fort_stands_after_a_load() -> void:
+	var play: PlaySession = screen.play
+	var province: ProvinceState = play.model.provinces[0]
+	province.fort_level = FortRules.MAX_LEVEL
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(DIR + "/forts.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/forts.sav")
 
+	screen.free()
+	screen = _new_screen(loaded)
+	assert_eq(
+		screen.play.model.get_province(province.id).fort_level,
+		FortRules.MAX_LEVEL,
+		"walls are part of the world state a load restores"
+	)
+
+
+# --- helpers -----------------------------------------------------------------
 
 func _foreign_province(play: PlaySession) -> int:
 	for province: ProvinceState in play.model.provinces:
