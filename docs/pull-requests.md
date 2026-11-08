@@ -38,19 +38,16 @@ Merge method on `main` is **squash only**. Branches are deleted on merge. Auto-m
 
 ### Approval (path-based)
 
-Non-draft PRs that touch **game code, tests, or assets** need a **non-author** approving review before merge. Paths:
+Non-draft PRs that touch **game code, tests, or assets** need one approving review from **any write collaborator other than the author**. Paths:
 
 - `scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`
 - `project.godot`, `icon.svg`
 
 Docs, CI/workflows, and other non-game paths do **not** need that approval.
 
-Enforcement is two layers (both must be satisfied for code paths):
+Enforcement is the **`approval-gate`** required check (not code-owner lock-in). When approval is missing, the workflow **auto-requests every write collaborator except the author** and prints how to approve in the check log. [`.github/CODEOWNERS`](../.github/CODEOWNERS) is optional UI suggestion only.
 
-1. **Protect main** — `require_code_owner_review` for files listed in [`.github/CODEOWNERS`](../.github/CODEOWNERS). The merge box shows code-owner review required.
-2. **`approval-gate` check** — fails until a non-author collaborator approves. When approval is missing, the workflow **auto-requests** eligible reviewers (CODEOWNERS + write collaborators, excluding the author) and prints how to approve in the check log.
-
-**How to approve** (as a requested write collaborator, not the PR author):
+**How to approve** (any write collaborator who is not the PR author):
 
 ```bash
 gh pr review <number> --approve
@@ -58,7 +55,7 @@ gh pr review <number> --approve
 
 Or GitHub UI: **Files changed** → **Review changes** → **Approve**.
 
-The PR author cannot approve their own PR. CODEOWNERS must list at least one write collaborator who is not the usual author so review requests land on someone who can act.
+The PR author cannot approve their own PR. Add more write collaborators if you need a larger reviewer pool.
 
 Draft PRs skip the approval-gate job until marked ready for review.
 
