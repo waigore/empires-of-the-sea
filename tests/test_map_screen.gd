@@ -1,11 +1,8 @@
-# gdlint: disable=max-public-methods
 extends GdToolsTest
 ## Integration: the world view — map build, camera, chart (fog) and turn flow.
 ## Crown orders (fleets, civilians, estates, leaders) live in
 ## test_map_screen_crown_orders so each native suite stays inside the
 ## coverage runner's per-suite timeout.
-
-const Fixture = preload("res://tests/map_fixture.gd")
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -53,48 +50,6 @@ func test_country_borders_are_built_for_every_owner() -> void:
 func test_region_switch_keeps_fleets_and_chart_state() -> void:
 	var fleet_id: int = _screen.ship_layer.fleets[0].id
 	var tile: Vector2i = _screen.model.province_tiles(Fixture.foreign_province(_screen.model))[0]
-	var index: int = _screen.model.index_of(tile.x, tile.y)
-	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-
-	_screen._cycle_region()
-	_screen._cycle_region()
-
-	assert_eq(_screen.ship_layer.fleets[0].id, fleet_id)
-	assert_eq(
-		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
-	)
-
-
-func test_world_holds_old_and_new_world() -> void:
-	assert_not_null(_screen.world)
-	assert_eq(_screen.world.region_count(), 2)
-	assert_eq(_screen.region_index, 0)
-	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
-
-
-func test_region_toggle_switches_the_whole_view() -> void:
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, 1)
-	assert_eq(_screen.model.region_id, FactionCatalog.NEW_WORLD)
-	assert_eq(_screen.canvas.model, _screen.model)
-	assert_eq(_screen.overlay.model, _screen.model)
-	assert_eq(_screen.ship_layer.model, _screen.model)
-	assert_eq(_screen.visibility.model, _screen.model)
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, 0)
-	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
-
-
-func test_country_borders_are_built_for_every_owner() -> void:
-	var borders: Dictionary = _screen.overlay._country_borders
-	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
-	for owner: int in borders.keys():
-		assert_true(FactionCatalog.has_faction(owner))
-
-
-func test_region_switch_keeps_fleets_and_chart_state() -> void:
-	var fleet_id: int = _screen.ship_layer.fleets[0].id
-	var tile: Vector2i = _screen.model.province_tiles(_foreign_province())[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 
@@ -167,13 +122,14 @@ func test_clicking_open_water_clears_the_selection() -> void:
 func test_clicking_a_fleet_selects_it() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
 	MapPlayInput.on_tapped(_screen.play, ship.position)
-	assert_eq(_screen.ship_layer.selected_ship, ship)
+	assert_eq(_screen.ship_layer.selected(), ship)
 	assert_true(ship.selected)
 
 
 func test_end_turn_advances_calendar_and_treasury() -> void:
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.projected_income())
@@ -292,6 +248,7 @@ func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 
 
@@ -346,10 +303,11 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_eq(enemy_fleet.ship_count(), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_eq(_screen.ship_layer.hull_count(2), 0)
+	assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 
@@ -374,6 +332,7 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 	var hulls_before: int = player_fleet.ship_count() + other_fleet.ship_count()
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)

@@ -36,6 +36,10 @@ var economy: EconomyController = null
 var diplomacy: DiplomacyState = null
 ## Set once the rules decide the campaign (wiki: victory); turns then stay shut.
 var victory: VictoryState = null
+## Set when the human Great Power suffers terminal fall: the session is defeated
+## and sealed, distinct from a military victory (wiki: victory § Great Power
+## defeat; DR-20261109-05).
+var defeat: DefeatState = null
 ## A consent decision (call to arms) holds turn resolution until answered
 ## (wiki: diplomacy § Alliances).
 var turn_suspended: bool = false
@@ -193,16 +197,22 @@ func emit_turn_ended(p_turn: int) -> void:
 		host.emit_signal("turn_ended", p_turn)
 
 
-## The rules decided the campaign; the screen forwards it to audio and motion.
-func emit_victory(state: VictoryState) -> void:
-	if host != null:
-		host.emit_signal("victory_declared", state)
+## The rules closed the campaign — a military victory or the human crown's
+## fall; the screen forwards the moment to audio and motion.
+func emit_campaign_end(victory: VictoryState = null, defeat: DefeatState = null) -> void:
+	if host == null:
+		return
+	if defeat != null and host.has_signal("defeat_declared"):
+		host.emit_signal("defeat_declared", defeat)
+	elif victory != null:
+		host.emit_signal("victory_declared", victory)
 
 
-## Turns, orders and map intents close for good once a victory is declared or
-## the calendar cap closes the age (wiki: victory, turn-time-mapping).
+## Turns, orders and map intents close for good once a victory is declared, the
+## human crown falls, or the calendar cap closes the age (wiki: victory,
+## turn-time-mapping).
 func campaign_over() -> bool:
-	return victory != null or campaign_halted
+	return victory != null or defeat != null or campaign_halted
 
 
 ## Political ownership changed (Join Empire): ask the screen to redraw the map.

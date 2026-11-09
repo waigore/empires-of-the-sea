@@ -1,7 +1,8 @@
 class_name ShipLayer
 extends Node2D
 ## Owns fleet markers and applies naval orders. NavalMovement decides outcomes;
-## this layer animates them and reports zone entries for exploration.
+## this layer animates them and reports zone entries for exploration. Roster
+## arithmetic lives in FleetRosters, marker nodes in ShipMarkers (REQ-P3-01).
 
 signal zone_entered(zone_id: int, ship: Ship)
 signal ship_selected(ship: Ship)
@@ -9,29 +10,13 @@ signal fleet_moved(fleet: FleetState, result: Dictionary)
 signal warp_crossed(fleet: FleetState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
-const PLAYER_FLEETS: int = 3
-## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
-## The player's three squadrons start small so naval food upkeep
-## (2 per ship per turn) fits the opening stockpile.
-const HULL_SETS: Array[Array] = [
-	["carrack"],
-	["sloop"],
-	["fluyte"],
-	["galleon", "carrack", "fluyte"],
-	["sloop", "carrack"],
-	["carrack", "carrack"],
-	["frigate", "carrack"],
-	["fluyte", "fluyte"],
-]
 
 var model: MapModel = null
 ## Both regions plus their warp links, for passage crossings.
 var world: WorldMap = null
 var fleets: Array[FleetState] = []
-var ships: Array[Ship] = []
-var selected_ship: Ship = null
 
-var _rng := RandomNumberGenerator.new()
+var _markers := ShipMarkers.new()
 var _zoom: float = 1.0
 var _muster := FleetMuster.new()
 ## The crown that owns the home fleet and may launch hulls at its capital.
@@ -43,6 +28,12 @@ var next_hull: int = 1
 var regions := MapRegionTable.new()
 
 
+## Markers the shown region draws, in mint order (view handles for taps).
+var ships: Array[Ship]:
+	get:
+		return _markers.ships
+
+
 func spawn(
 	p_model: MapModel,
 	count: int,
@@ -52,12 +43,10 @@ func spawn(
 	p_player_faction: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	model = p_model
-	_rng.seed = seed_value
+	_markers.model = model
+	_markers.rng.seed = seed_value
 	player_faction = p_player_faction
-	for ship: Ship in ships:
-		ship.queue_free()
-	ships.clear()
-	selected_ship = null
+	_markers.clear()
 	fleets = []
 	if model.sea_zone_count() == 0:
 		return
@@ -68,79 +57,56 @@ func spawn(
 		return
 	# Hull ids stay unique for the life of the save, so the counter runs on
 	# across regions (wiki: ships-and-naval § Ship instances); never collide.
-	_muster.rng = _rng
+	_muster.rng = _markers.rng
 	_muster.next_hull = next_hull
 	fleets = _muster.build(model, count, player_capital, player_present, p_player_faction)
 	next_hull = _muster.next_hull
 	for fleet: FleetState in fleets:
-		_make_marker(fleet)
+		_attach_marker(fleet)
 	regions.set_region(model.region_id, fleets)
 
 
-func _make_marker(fleet: FleetState) -> void:
-	var ship := Ship.new()
-	ship.fleet_id = fleet.id
-	ship.faction = fleet.owner
-	ship.bob_phase = _rng.randf() * TAU
-	ship.speed = 26.0 + _rng.randf() * 16.0
-	_place_ship(ship, fleet)
-	add_child(ship)
-	ships.append(ship)
+func _attach_marker(fleet: FleetState) -> void:
+	add_child(_markers.make(fleet))
 
 
 func _rebuild_markers() -> void:
-	for ship: Ship in ships:
-		ship.queue_free()
-	ships.clear()
-	selected_ship = null
+	_markers.clear()
 	for fleet: FleetState in fleets:
-		_make_marker(fleet)
-
-
-func _place_ship(ship: Ship, fleet: FleetState) -> void:
-	if fleet.is_in_port():
-		var data: ProvinceState = model.province_data(fleet.province)
-		var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
-		ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
-		ship.docked = true
-		ship.zone = -1
-		ship.province = fleet.province
-		return
-	ship.position = model.sea_zone_center(fleet.sea_zone) * TILE_SIZE
-	ship.docked = false
-	ship.zone = fleet.sea_zone
-	ship.province = -1
+		_attach_marker(fleet)
 
 
 func set_zoom(value: float) -> void:
 	_zoom = maxf(value, 0.001)
-	for ship: Ship in ships:
+	for ship: Ship in _markers.ships:
 		var scale_factor: float = clampf(1.0 / _zoom, 0.6, 1.0)
 		ship.scale = Vector2.ONE * scale_factor
 
 
 func select(ship: Ship) -> void:
-	if selected_ship != null and is_instance_valid(selected_ship):
-		selected_ship.set_selected(false)
-	selected_ship = ship
+	if _markers.selected_ship != null and is_instance_valid(_markers.selected_ship):
+		_markers.selected_ship.set_selected(false)
+	_markers.selected_ship = ship
 	if ship != null:
 		ship.set_selected(true)
 	ship_selected.emit(ship)
 
 
 func deselect() -> void:
-	if selected_ship != null and is_instance_valid(selected_ship):
-		selected_ship.set_selected(false)
-	if selected_ship == null:
+	if _markers.selected_ship == null:
 		return
-	selected_ship = null
-	ship_selected.emit(null)
+	select(null)
+
+
+## The hull the player has selected, if any.
+func selected() -> Ship:
+	return _markers.selected_ship
 
 
 func ship_at(world_position: Vector2, radius: float = 26.0) -> Ship:
 	var best: Ship = null
 	var best_distance: float = radius
-	for ship: Ship in ships:
+	for ship: Ship in _markers.ships:
 		if not ship.visible:
 			continue
 		var distance: float = ship.position.distance_to(world_position)
@@ -162,10 +128,7 @@ func fleet_of(ship: Ship) -> FleetState:
 func ship_for(fleet: FleetState) -> Ship:
 	if fleet == null:
 		return null
-	for ship: Ship in ships:
-		if ship.fleet_id == fleet.id:
-			return ship
-	return null
+	return _markers.find(fleet.id)
 
 
 ## Crosses a passage: rules verify the link, then the fleet leaves this roster
@@ -177,14 +140,8 @@ func cross(fleet: FleetState) -> Dictionary:
 	var to_region: int = int(result["to_region"])
 	var destination: Array[FleetState] = []
 	destination.assign(regions.value(to_region, []))
-	var next_id: int = 0
-	for raw: Variant in regions.values():
-		var stored: Array[FleetState] = []
-		stored.assign(raw)
-		for other: FleetState in stored:
-			next_id = maxi(next_id, other.id + 1)
 	fleets.erase(fleet)
-	fleet.id = next_id
+	fleet.id = FleetRosters.next_id_all(regions)
 	destination.append(fleet)
 	regions.set_region(to_region, destination)
 	regions.set_region(model.region_id, fleets)
@@ -194,6 +151,9 @@ func cross(fleet: FleetState) -> Dictionary:
 
 
 ## Applies a naval order through the rules module, then animates the marker.
+## Docking at the crown's own capital resolves by merging into the home fleet,
+## so the sea-going squadron disappears from the roster (wiki: ships-and-naval
+## § Home Fleet).
 func order(fleet: FleetState, destination: int, destination_id: int) -> Dictionary:
 	var result: Dictionary = NavalMovement.apply_move(
 		model, fleet, destination, destination_id
@@ -201,19 +161,24 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	if not bool(result.get("ok", false)):
 		return result
 	var ship: Ship = ship_for(fleet)
+	var arrived: FleetState = fleet
+	if destination == FleetState.Location.IN_PORT:
+		var merged: FleetState = NavalMovement.merge_into_home(model, fleets, fleet)
+		if merged != null:
+			arrived = merged
+			result["merged_into"] = merged.id
+			if ship != null:
+				_markers.remove(ship)
+				ship = null
+			regions.set_region(model.region_id, fleets)
 	if ship != null:
+		_markers.refit(ship, fleet)
 		if destination == FleetState.Location.AT_SEA:
-			ship.docked = false
-			ship.zone = fleet.sea_zone
-			ship.province = MapModel.NO_ID
 			_sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
 			zone_entered.emit(fleet.sea_zone, ship)
 		else:
-			ship.docked = true
-			ship.zone = -1
-			ship.province = fleet.province
 			_sail(ship, _port_position(fleet.province))
-	fleet_moved.emit(fleet, result)
+	fleet_moved.emit(arrived, result)
 	return result
 
 
@@ -235,7 +200,9 @@ func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> D
 	var fleet: FleetState = home_fleet(province_id)
 	var founded: bool = fleet == null
 	if founded:
-		fleet = FleetState.empty_in_port(_next_fleet_id(), player_faction, province_id)
+		fleet = FleetState.empty_in_port(
+			FleetRosters.next_id(fleets), player_faction, province_id
+		)
 	var hull_id: String = "ship_%d" % next_hull
 	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id)
 	if not bool(result.get("ok", false)):
@@ -244,7 +211,7 @@ func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> D
 	if founded:
 		fleets.append(fleet)
 		regions.set_region(model.region_id, fleets)
-		_make_marker(fleet)
+		_attach_marker(fleet)
 	result["created"] = founded
 	result["fleet"] = fleet
 	return result
@@ -258,31 +225,18 @@ func scrap_hull(fleet: FleetState, hull_id: String, economy: PlayerEconomy) -> D
 	var result: Dictionary = FleetYard.scrap(economy, fleet, hull_id)
 	if not bool(result.get("ok", false)) or not bool(result.get("retired", false)):
 		return result
-	var ship: Ship = ship_for(fleet)
-	if ship != null:
-		if selected_ship == ship:
-			deselect()
-		ships.erase(ship)
-		ship.queue_free()
+	_markers.remove(ship_for(fleet))
 	fleets.erase(fleet)
 	regions.set_region(model.region_id, fleets)
 	return result
 
 
-## A founded home fleet takes the next free id in this region.
-func _next_fleet_id() -> int:
-	var next_id: int = 0
-	for other: FleetState in fleets:
-		next_id = maxi(next_id, other.id + 1)
-	return next_id
-
-
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:
-	for stored: Array in regions.values():
+	for roster: Array in FleetRosters.all(regions):
 		var region_fleets: Array[FleetState] = []
-		region_fleets.assign(stored)
+		region_fleets.assign(roster)
 		NavalMovement.begin_turn(region_fleets)
 
 
@@ -309,14 +263,8 @@ func resolve_battles(
 			if fleet.is_afloat():
 				alive.append(fleet)
 				continue
-			if not on_screen:
-				continue
-			var ship: Ship = ship_for(fleet)
-			if ship != null:
-				if selected_ship == ship:
-					deselect()
-				ships.erase(ship)
-				ship.queue_free()
+			if on_screen:
+				_markers.remove(ship_for(fleet))
 		regions.set_region(index, alive)
 		if on_screen:
 			fleets = alive
@@ -327,11 +275,11 @@ func resolve_battles(
 
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.
-## Absorption transfers the loser's squadrons; `MapModel.NO_ID` retires them.
+## `MapModel.NO_ID` retires them instead: the crown leaves the map.
 func transfer_owner(from_id: int, to_id: int) -> void:
 	var retire: bool = to_id == MapModel.NO_ID
-	for raw: Variant in regions.values():
-		var stored: Array = raw
+	for roster: Array in FleetRosters.all(regions):
+		var stored: Array = roster
 		for index in range(stored.size() - 1, -1, -1):
 			var fleet: FleetState = stored[index]
 			if fleet == null or fleet.owner != from_id:
@@ -340,48 +288,18 @@ func transfer_owner(from_id: int, to_id: int) -> void:
 				stored.remove_at(index)
 				continue
 			fleet.owner = to_id
-	for index in range(fleets.size() - 1, -1, -1):
-		var fleet: FleetState = fleets[index]
-		if fleet == null or fleet.owner != from_id:
+	for ship: Ship in _markers.ships.duplicate():
+		if ship.faction != from_id:
 			continue
 		if retire:
-			fleets.remove_at(index)
+			_markers.remove(ship)
 			continue
-		fleet.owner = to_id
-	var kept: Array[Ship] = []
-	for ship: Ship in ships:
-		if ship.faction != from_id:
-			kept.append(ship)
-			continue
-		if not retire:
-			ship.faction = to_id
-			kept.append(ship)
-			continue
-		if ship == selected_ship:
-			selected_ship = null
-		ship.queue_free()
-	ships = kept
-
-
-## Hulls still afloat for one faction across every fleet it keeps.
-func hull_count(owner: int) -> int:
-	var total: int = 0
-	for fleet: FleetState in fleets:
-		if fleet.owner == owner:
-			total += fleet.ship_count()
-	return total
+		ship.faction = to_id
 
 
 ## Every region counts: reading another map must not hide hulls or upkeep.
 func hull_count_all(owner: int) -> int:
-	var total: int = 0
-	for raw: Variant in regions.values():
-		var stored: Array[FleetState] = []
-		stored.assign(raw)
-		for fleet: FleetState in stored:
-			if fleet.owner == owner:
-				total += fleet.ship_count()
-	return total
+	return FleetRosters.hulls_afloat(regions, owner)
 
 
 func at_sea_zones(owner: int) -> Array[int]:

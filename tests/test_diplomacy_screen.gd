@@ -57,7 +57,15 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 
 func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 	_screen.play.diplomacy.relation(0, 1).score = 40.0
+	# Keep rival declarations off this pair so the decay itself is under test;
+	# rival proposals still wait for the court and are refused here.
+	_screen.play.ai = AiState.new()
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != 0:
+			_screen.play.ai.note_war(faction, 0, _screen.play.turn)
 	MapPlayTurn.end_turn(_screen.play)
+	while DiplomacyProposals.has_pending(_screen.play.diplomacy, 0):
+		MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_REFUSE, 0, "")
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 44.0)
 	assert_eq(_screen.play.diplomacy.turn, _screen.play.turn)
 
@@ -194,6 +202,44 @@ func test_court_intent_router_sends_orders_and_call_answers() -> void:
 	DiplomacyRules.declare_war(state, 5, 4)
 	MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
 	assert_true(state.relation(0, 5).at_war, "a call answer reaches the turn resolver")
+
+
+func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
+	var state: DiplomacyState = _screen.play.diplomacy
+	state.relation(0, 2).score = 80.0
+	assert_true(
+		DiplomacyProposals.queue(
+			state, _screen.play.world, 2, DiplomacyProposals.KIND_ALLIANCE
+		)["ok"]
+	)
+	var turn_before: int = _screen.play.turn
+	MapPlayTurn.end_turn(_screen.play)
+	assert_true(_screen.play.turn_suspended, "the calendar waits for the answer")
+	assert_eq(_screen.play.turn, turn_before)
+	assert_true(
+		_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks"
+	)
+	MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	assert_true(state.relation(0, 2).formal_alliance, "the answer signs the treaty")
+	assert_false(_screen.play.turn_suspended)
+	assert_eq(_screen.play.turn, turn_before + 1)
+	assert_false(DiplomacyProposals.has_pending(state, 0))
+
+
+func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> void:
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	play.ai = AiState.new()
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyProposals.queue(
+		state, play.world, 2, DiplomacyProposals.KIND_OVERTURE,
+		DiplomacyCatalog.STAGE_NAP
+	)
+	var turn_before: int = play.turn
+	MapPlayTurn.end_turn(play)
+	MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
+	assert_eq(state.overture(0, 2), DiplomacyCatalog.STAGE_EMBASSY, "nothing is signed")
+	assert_true(play.ai.overture_on_cooldown(2, 0, turn_before, 2))
 
 
 func _field_army() -> ArmyState:

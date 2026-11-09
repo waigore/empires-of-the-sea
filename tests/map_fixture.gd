@@ -8,9 +8,11 @@ const SEED: int = 1500
 ## Single-region generator / canvas fixtures.
 const WIDTH: int = 48
 const HEIGHT: int = 32
-## Two-region world used by MapScreen integration + world setup.
-const WORLD_WIDTH: int = 64
-const WORLD_HEIGHT: int = 42
+## Two-region world used by MapScreen integration + world setup. The province
+## target clamps to its 24/20 floor well before 64x42, so the smaller size keeps
+## the same rosters while generating (and painting) far fewer tiles per suite.
+const WORLD_WIDTH: int = 56
+const WORLD_HEIGHT: int = 38
 
 static var _world: WorldMap = null
 static var _region: MapModel = null
@@ -70,6 +72,15 @@ static func fleet_at_sea(fleets: Array, owner: int) -> FleetState:
 		if fleet.owner == owner and fleet.is_at_sea():
 			return fleet
 	return null
+
+
+## Answers any rival proposal so a suite that only asserts the turn's outcome
+## is not held by the court gate (wiki: diplomacy § Court proposals).
+static func settle(play: PlaySession) -> void:
+	while DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapCourtOrders.apply(
+			play, DiplomacyProposals.KIND_REFUSE, play.player_faction, ""
+		)
 
 
 static func mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:

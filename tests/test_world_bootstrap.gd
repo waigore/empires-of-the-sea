@@ -3,9 +3,16 @@ extends GdToolsTest
 ## (wiki: capital-and-connectivity § Init town roads,
 ## tile-map-and-generation § Great Power starting grain).
 
-const SEED: int = 1500
-const WIDTH: int = 96
-const HEIGHT: int = 64
+const Fixture = preload("res://tests/map_fixture.gd")
+
+## The post-pass only needs a region big enough for every Great Power capital;
+## the small shared region keeps generation (this suite's dominant cost under
+## coverage) to a fraction of the old 96x64 map.
+const SEED: int = Fixture.SEED
+const WIDTH: int = Fixture.WIDTH
+const HEIGHT: int = Fixture.HEIGHT
+const NEW_WORLD_WIDTH: int = Fixture.WIDTH
+const NEW_WORLD_HEIGHT: int = Fixture.HEIGHT
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so one region per worker keeps
@@ -94,7 +101,7 @@ func test_the_post_pass_is_deterministic() -> void:
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
 	var new_world: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD, 84, 58
+		SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
 	)
 	var new_world_works := LandWorks.new()
 	var report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)

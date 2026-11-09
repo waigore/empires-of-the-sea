@@ -19,6 +19,10 @@ static func end_turn(play: PlaySession) -> void:
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_intervention(play)
 		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		MapPlayDiplomacy.show_offer(play)
+		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
 	_finish_turn(play)
@@ -49,6 +53,9 @@ static func answer_call(play: PlaySession, accept: bool) -> void:
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		MapPlayDiplomacy.show_intervention(play)
 		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_offer(play)
+		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
@@ -77,6 +84,47 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		MapPlayDiplomacy.show_intervention(play)
 		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_offer(play)
+		return
+	play.turn_suspended = false
+	MapPlayDiplomacy.close_turn(play)
+	_finish_turn(play)
+
+
+## The player answers a rival proposal; the suspended turn then runs to its end,
+## or stops again for another waiting decision (wiki: diplomacy § GP AI policy).
+static func answer_offer(play: PlaySession, accept: bool) -> void:
+	if play.diplomacy == null:
+		return
+	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		return
+	var result: Dictionary = DiplomacyProposals.resolve_human(
+		play.diplomacy, play.world, accept
+	)
+	if not bool(result.get("ok", false)):
+		if play.hud != null:
+			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
+		return
+	# The proposing court pays for its overture; the human treasury is untouched.
+	if play.ai != null:
+		play.ai.note_overture(
+			int(result.get("from", -1)), play.player_faction, play.turn
+		)
+	if play.hud != null:
+		var message: String = String(result.get("message", ""))
+		if not message.is_empty():
+			play.hud.toast(message)
+	MapPlayDiplomacy.refresh(play)
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_call(play)
+		return
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_intervention(play)
+		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_offer(play)
+		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
@@ -85,9 +133,18 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+	MapPlayArmies.run_ai(play)
+	MapPlayFleets.run_ai(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
+	# The human crown's terminal fall seals the session before any victory
+	# check: defeat never hands the conqueror a military win, nor opens that
+	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
+	# DR-20261109-05).
+	if play.defeat != null:
+		play.emit_turn_ended(play.turn)
+		return
 	# Victory is checked after every phase, once per turn, and never re-checked.
 	var victory: VictoryState = VictoryRules.resolve(play.victory, play.world, play.turn)
 	if victory != null:
@@ -113,7 +170,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.hud.set_prestige(play.prestige)
 	MapPlayDiplomacy.refresh(play)
 	play.hud.toast("Turn %d — %d" % [play.turn, year])
-	var selected: Ship = play.ship_layer.selected_ship
+	var selected: Ship = play.ship_layer.selected()
 	if selected != null:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
 		if fleet != null:
@@ -142,7 +199,7 @@ static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
 	)
 	play.hud.toast(victory.summary())
 	play.emit_turn_ended(play.turn)
-	play.emit_victory(victory)
+	play.emit_campaign_end(victory)
 
 
 ## The calendar closed the age without a military victory: record it, mount the
@@ -182,6 +239,8 @@ static func declared_leader(play: PlaySession) -> int:
 
 
 static func _closed_message(play: PlaySession) -> String:
+	if play.defeat != null:
+		return play.defeat.summary()
 	if play.victory != null:
 		return "Campaign ended — %s" % play.victory.winner_name()
 	return "Campaign complete — the age has run its course"

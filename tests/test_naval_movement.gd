@@ -105,23 +105,24 @@ func test_fleet_docks_at_a_harbour() -> void:
 
 
 func test_port_fleet_undocks_into_adjacent_zone() -> void:
-	var fleet := FleetState.in_port(2, 0, 0)
-	assert_eq(NavalMovement.destination_zones(_model, fleet), [0])
+	# Province 1 is a non-capital port, so this is a sea-going squadron.
+	var fleet := FleetState.in_port(2, 0, 1)
+	assert_eq(NavalMovement.destination_zones(_model, fleet), [1])
 
 	var result: Dictionary = NavalMovement.apply_move(
-		_model, fleet, FleetState.Location.AT_SEA, 0
+		_model, fleet, FleetState.Location.AT_SEA, 1
 	)
 
 	assert_true(bool(result["ok"]))
 	assert_eq(fleet.location, FleetState.Location.AT_SEA)
-	assert_eq(fleet.sea_zone, 0)
+	assert_eq(fleet.sea_zone, 1)
 	assert_eq(fleet.province, MapModel.NO_ID)
 
 
 func test_port_fleet_cannot_move_to_another_port() -> void:
-	var fleet := FleetState.in_port(2, 0, 0)
+	var fleet := FleetState.in_port(2, 0, 1)
 	var result: Dictionary = NavalMovement.apply_move(
-		_model, fleet, FleetState.Location.IN_PORT, 0
+		_model, fleet, FleetState.Location.IN_PORT, 1
 	)
 	assert_false(bool(result["ok"]))
 	assert_true(String(result["reason"]).contains("already in port"))
@@ -157,10 +158,67 @@ func test_valid_destinations_match_the_location() -> void:
 	assert_eq(sea["provinces"], [0])
 
 	var port: Dictionary = NavalMovement.valid_destinations(
-		_model, FleetState.in_port(2, 0, 0)
+		_model, FleetState.in_port(2, 0, 1)
 	)
-	assert_eq(port["sea_zones"], [0])
+	assert_eq(port["sea_zones"], [1])
 	assert_eq(port["provinces"], [])
+
+
+func test_the_home_fleet_never_sails() -> void:
+	var home := FleetState.in_port(2, 0, 0)
+	assert_true(NavalMovement.is_home_fleet(_model, home))
+	assert_eq(NavalMovement.destination_zones(_model, home), [])
+
+	var result: Dictionary = NavalMovement.apply_move(
+		_model, home, FleetState.Location.AT_SEA, 0
+	)
+
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("home fleet"))
+	assert_eq(home.location, FleetState.Location.IN_PORT)
+	assert_eq(home.province, 0)
+
+
+func test_docking_at_the_capital_merges_into_the_home_fleet() -> void:
+	var home := FleetState.in_port(2, 0, 0, ["ship_a"], {"ship_a": "carrack"})
+	var incoming := FleetState.at_sea(3, 0, 0, ["ship_b"], {"ship_b": "sloop"})
+	var roster: Array[FleetState] = [home, incoming]
+
+	var dock: Dictionary = NavalMovement.apply_move(
+		_model, incoming, FleetState.Location.IN_PORT, 0
+	)
+	var merged: FleetState = NavalMovement.merge_into_home(_model, roster, incoming)
+
+	assert_true(bool(dock["ok"]))
+	assert_eq(merged, home)
+	assert_eq(roster.size(), 1)
+	assert_eq(home.hulls, ["ship_a", "ship_b"], "instance ids survive in order")
+	assert_eq(home.type_of("ship_b"), "sloop")
+
+
+func test_merging_never_duplicates_a_hull_instance() -> void:
+	var home := FleetState.in_port(2, 0, 0, ["ship_a"], {"ship_a": "carrack"})
+	var incoming := FleetState.at_sea(3, 0, 0, ["ship_a", "ship_b"], {"ship_b": "fluyte"})
+	var roster: Array[FleetState] = [home, incoming]
+
+	NavalMovement.apply_move(_model, incoming, FleetState.Location.IN_PORT, 0)
+	NavalMovement.merge_into_home(_model, roster, incoming)
+
+	assert_eq(home.hulls, ["ship_a", "ship_b"])
+	assert_eq(home.count_of_type("carrack"), 1)
+
+
+func test_docking_at_a_non_capital_port_does_not_merge() -> void:
+	_model.provinces[1].owner = 0
+	var home := FleetState.in_port(2, 0, 0)
+	var incoming := FleetState.at_sea(3, 0, 1)
+	var roster: Array[FleetState] = [home, incoming]
+
+	NavalMovement.apply_move(_model, incoming, FleetState.Location.IN_PORT, 1)
+
+	assert_false(NavalMovement.is_home_fleet(_model, incoming))
+	assert_null(NavalMovement.merge_into_home(_model, roster, incoming))
+	assert_eq(roster.size(), 2)
 
 
 func test_fleet_state_defaults_to_one_hull() -> void:

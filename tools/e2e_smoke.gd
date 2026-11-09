@@ -329,7 +329,7 @@ func _smoke_navy(screen: MapScreen) -> void:
 	var fleet: FleetState = screen.ship_layer.fleet_of(ship)
 	screen.ship_layer.select(ship)
 	await process_frame
-	_check(screen.ship_layer.selected_ship == ship, "fleet selection sticks")
+	_check(screen.ship_layer.selected() == ship, "fleet selection sticks")
 	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens")
 	var zones: Array = NavalMovement.destination_zones(screen.model, fleet)
 	_check(not zones.is_empty(), "fleet has a sail destination")
@@ -370,6 +370,24 @@ func _smoke_end_turn(
 	var turn_before: int = screen.turn
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
+	# A rival proposal suspends the phase until the court answers; accept it so
+	# the calendar can close (wiki: diplomacy § Court proposals).
+	if DiplomacyProposals.has_pending(screen.play.diplomacy, MapScreen.PLAYER_FACTION):
+		_check(screen.turn == turn_before, "a rival proposal holds the calendar")
+		_check(
+			screen.hud.panels.diplomacy_panel._call_box.visible,
+			"the court opens for the proposal"
+		)
+		MapCourtOrders.apply(
+			screen.play, DiplomacyProposals.KIND_ACCEPT, MapScreen.PLAYER_FACTION, ""
+		)
+		await process_frame
+		_check(
+			not DiplomacyProposals.has_pending(
+				screen.play.diplomacy, MapScreen.PLAYER_FACTION
+			),
+			"the court answer closes the proposal"
+		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(screen.economy != null, "economy wired")
@@ -385,6 +403,16 @@ func _smoke_end_turn(
 	screen.economy.open_panel()
 	await process_frame
 	_check(screen.hud.panels.is_economy_open(), "ledger opens")
+	_check(
+		int(screen.economy.trade_cargo().get("holds", 0)) > 0,
+		"the home fleet carries trade cargo"
+	)
+	var grain_before: int = screen.economy.economy.quantity("grain")
+	screen.economy._on_trade("grain", 1, true)
+	_check(
+		screen.economy.economy.quantity("grain") == grain_before + 1,
+		"the ledger buys imports against cargo holds"
+	)
 	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.assignment_units("lumber") == 1,
@@ -450,6 +478,11 @@ func _smoke_victory(screen: MapScreen) -> void:
 	screen.play.turn = TurnTime.cap_turn()
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
+	if DiplomacyProposals.has_pending(screen.play.diplomacy, MapScreen.PLAYER_FACTION):
+		MapCourtOrders.apply(
+			screen.play, DiplomacyProposals.KIND_ACCEPT, MapScreen.PLAYER_FACTION, ""
+		)
+		await process_frame
 	_check(screen.play.campaign_halted, "calendar cap closes an undecided age")
 	_check(screen.turn == TurnTime.cap_turn(), "cap keeps the last full turn")
 	_check(screen.hud.is_victory_shown(), "campaign-complete plate shows")
