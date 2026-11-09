@@ -116,7 +116,7 @@ func _build() -> void:
 	box.add_child(scroll)
 	_crowns = VBoxContainer.new()
 	_crowns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_crowns.add_theme_constant_override("separation", 6)
+	_crowns.add_theme_constant_override("separation", 4)
 	scroll.add_child(_crowns)
 	for faction: int in FactionCatalog.great_power_ids():
 		_add_card(faction)
@@ -152,31 +152,31 @@ func _add_card(faction: int) -> void:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Palette.INK_SOFT, Palette.GOLD_DIM, 1, 3, Vector4(10, 6, 10, 6))
+		UiTheme.box(Palette.INK_SOFT, Palette.GOLD_DIM, 1, 3, Vector4(8, 4, 8, 4))
 	)
 	_crowns.add_child(card)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
+	box.add_theme_constant_override("separation", 1)
 	card.add_child(box)
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
 	box.add_child(head)
-	var rank := _label("#–", 12, Palette.GOLD_DIM)
+	var rank := _label("#–", 11, Palette.GOLD_DIM)
 	rank.custom_minimum_size = Vector2(30.0, 0.0)
 	head.add_child(rank)
-	var name_label := _label("", 17, Palette.GOLD_PALE, true)
+	var name_label := _label("", 16, Palette.GOLD_PALE, true)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_label)
-	var progress := _label("", 12, Palette.TEXT)
+	var progress := _label("", 11, Palette.TEXT)
 	head.add_child(progress)
-	var meta := _label("", 11, Palette.TEXT_DIM, true)
+	var meta := _label("", 10, Palette.TEXT_DIM, true)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(meta)
-	var stats := _label("", 12, Palette.TEXT, true)
+	var stats := _label("", 11, Palette.TEXT, true)
 	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(stats)
-	var last := _label("", 12, Palette.GOLD, true)
+	var last := _label("", 11, Palette.GOLD, true)
 	last.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(last)
 	_cards[int(faction)] = {
@@ -200,7 +200,7 @@ func _fit() -> void:
 	if _frame == null:
 		return
 	var width: float = get_viewport().get_visible_rect().size.x
-	var panel_width: float = clampf(width * 0.46, 280.0, 430.0)
+	var panel_width: float = clampf(width * 0.5, 280.0, 470.0)
 	_frame.offset_right = minf(panel_width, maxf(width - 24.0, 220.0))
 
 
@@ -258,14 +258,24 @@ func _refresh_card(row: Dictionary) -> void:
 	last.text = "Last turn: %s" % String(row["headline"])
 
 
-## One line that keeps every crown's victory progress visible without scrolling.
+## Two deliberate rows keep every crown's progress visible without an awkward
+## mid-entry wrap at dashboard width.
 func _standing_line(rows: Array) -> String:
 	var parts: PackedStringArray = []
 	for row: Dictionary in rows:
-		parts.append("%s %d" % [
-			String(row["name"]), int(row["provinces_old"]),
+		parts.append("%d %s %d" % [
+			int(row["rank"]), _short_name(String(row["name"])),
+			int(row["provinces_old"]),
 		])
-	return "STANDING  " + "  ·  ".join(parts)
+	var lines: PackedStringArray = []
+	for start in range(0, parts.size(), 3):
+		lines.append("  ·  ".join(parts.slice(start, start + 3)))
+	return "STANDING  " + "\n".join(lines)
+
+
+## Keeps the standing line on one row at dashboard width.
+func _short_name(name: String) -> String:
+	return "U. Provinces" if name == "United Provinces" else name
 
 
 ## Two most recent resolved turns, newest order first.
