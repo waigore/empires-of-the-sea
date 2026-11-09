@@ -426,6 +426,22 @@ func test_a_third_party_at_peace_stays_out_of_a_war() -> void:
 	assert_eq(swede.ship_count(), 1, "a neutral fleet is untouched")
 
 
+## A neutral owner with a lower id must not steal the initiative from the two
+## belligerents (wiki: ships-and-naval § Naval Combat attacker/defender).
+func test_a_neutral_lower_owner_does_not_take_the_initiative() -> void:
+	var neutral: FleetState = _squadron(1, 0, 2, "carrack", 1)
+	var first: FleetState = _squadron(2, 2, 2, "carrack", 1)
+	var second: FleetState = _squadron(3, 3, 2, "carrack", 1)
+	var only_23 := func(a: int, b: int) -> bool:
+		return (a == 2 and b == 3) or (a == 3 and b == 2)
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[neutral, first, second], only_23
+	)
+	assert_eq(battles.size(), 1)
+	assert_eq(int(battles[0]["attacker"]), 2)
+	assert_eq(neutral.ship_count(), 1, "the neutral fleet is untouched")
+
+
 func test_the_moved_fleet_attacks() -> void:
 	var defender: FleetState = _squadron(1, 0, 2, "carrack", 2)
 	var attacker: FleetState = _squadron(2, 1, 2, "sloop", 2)

@@ -350,9 +350,14 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 
-	assert_eq(enemy_fleet.ship_count(), 0)
+	# A beaten squadron is routed, or slips into adjacent neutral water when the
+	# retreat roll succeeds (wiki: ships-and-naval § Naval Retreat Formula).
+	if enemy_fleet.is_afloat():
+		assert_ne(enemy_fleet.sea_zone, player_fleet.sea_zone,
+			"a beaten squadron that survives has left the contested zone")
+	else:
+		assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 

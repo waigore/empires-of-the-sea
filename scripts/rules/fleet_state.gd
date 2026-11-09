@@ -8,6 +8,7 @@ extends RefCounted
 ## older fleet data keeps working (wiki: § Ship instances).
 
 enum Location { AT_SEA, IN_PORT }
+enum Mission { NONE, MOVE, PATROL, BLOCKADE, DEFEND, BEACHHEAD }
 
 var id: int = -1
 var owner: int = 0
@@ -15,6 +16,12 @@ var location: int = Location.AT_SEA
 var sea_zone: int = MapModel.NO_ID
 var province: int = MapModel.NO_ID
 var moved: bool = false
+## Station order for this turn (wiki: ships-and-naval § Missions and Movement).
+## A mission persists until the squadron sails, docks or is reassigned; taking a
+## station spends the turn's move (DR-20261109-16).
+var mission: int = Mission.NONE
+## Enemy province this squadron blockades, or NO_ID for every other station.
+var blockade_province: int = MapModel.NO_ID
 var hulls: Array[String] = []
 var hull_types: Dictionary = {}
 ## Army instance id carried aboard, or -1 (wiki: ships-and-naval § Naval
@@ -104,6 +111,14 @@ func has_beachhead() -> bool:
 func clear_beachhead() -> void:
 	beachhead_province = MapModel.NO_ID
 	beachhead_turn = -1
+	if mission == Mission.BEACHHEAD:
+		clear_mission()
+
+
+## Stands the squadron down: a normal move or a new station replaces the order.
+func clear_mission() -> void:
+	mission = Mission.NONE
+	blockade_province = MapModel.NO_ID
 
 
 func ship_count() -> int:
@@ -177,6 +192,8 @@ func to_dict() -> Dictionary:
 		"sea_zone": sea_zone,
 		"province": province,
 		"moved": moved,
+		"mission": mission,
+		"blockade_province": blockade_province,
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
 		"embarked_army": embarked_army,
@@ -193,6 +210,8 @@ static func from_dict(data: Dictionary) -> FleetState:
 	fleet.sea_zone = int(data.get("sea_zone", MapModel.NO_ID))
 	fleet.province = int(data.get("province", MapModel.NO_ID))
 	fleet.moved = bool(data.get("moved", false))
+	fleet.mission = int(data.get("mission", Mission.NONE))
+	fleet.blockade_province = int(data.get("blockade_province", MapModel.NO_ID))
 	fleet.embarked_army = int(data.get("embarked_army", -1))
 	fleet.beachhead_province = int(data.get("beachhead_province", MapModel.NO_ID))
 	fleet.beachhead_turn = int(data.get("beachhead_turn", -1))

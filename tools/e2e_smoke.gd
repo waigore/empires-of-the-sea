@@ -331,6 +331,17 @@ func _smoke_navy(screen: MapScreen) -> void:
 	await process_frame
 	_check(screen.ship_layer.selected() == ship, "fleet selection sticks")
 	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens")
+	_check(
+		MapPlayFleetMissions.rows(screen.play, fleet).size() > 0,
+		"fleet dossier offers a station"
+	)
+	MapPlayFleets.on_action(screen.play, "mission:patrol")
+	_check(
+		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
+		"patrol station applies and spends the move"
+	)
+	# Give the move back so the smoke also proves the sail path.
+	fleet.moved = false
 	var zones: Array = NavalMovement.destination_zones(screen.model, fleet)
 	_check(not zones.is_empty(), "fleet has a sail destination")
 	if zones.is_empty():
@@ -339,6 +350,7 @@ func _smoke_navy(screen: MapScreen) -> void:
 	var tile: Vector2i = screen.model.sea_zones[zone].tiles[0]
 	_check(MapPlayFleets.try_order(screen.play, tile), "fleet sails")
 	_check(fleet.sea_zone == zone and fleet.moved, "fleet spends its move")
+	_check(fleet.mission == FleetState.Mission.NONE, "sailing clears the station")
 
 
 ## Army training is live: the recruit order musters a regiment into the Home

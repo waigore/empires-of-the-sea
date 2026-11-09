@@ -437,6 +437,92 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
 
 
+# --- stations (wiki: ships-and-naval § Missions and Movement) ----------------
+
+
+## The dossier offers the zone stations; taking one spends the move and the
+## station survives into the next turn (DR-20261109-16).
+func test_the_dossier_offers_a_patrol_and_taking_it_spends_the_move() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.mission = FleetState.Mission.NONE
+	fleet.blockade_province = MapModel.NO_ID
+	fleet.moved = false
+	fleet.clear_beachhead()
+	_screen.ship_layer.select(ship)
+	var offered: bool = false
+	for row: Dictionary in MapPlayFleetMissions.rows(_screen.play, fleet):
+		if String(row.get("action", "")) == "mission:patrol":
+			offered = true
+	assert_true(offered, "the dossier offers patrol")
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+
+	MapPlayFleets.on_action(_screen.play, "mission:patrol")
+
+	assert_eq(fleet.mission, FleetState.Mission.PATROL)
+	assert_true(fleet.moved, "a station spends the turn's move")
+	assert_true(MapPlayFleetMissions.note(_screen.play, fleet).contains("patrol"))
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+
+
+func test_sailing_away_clears_the_station() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.on_action(_screen.play, "mission:patrol")
+	assert_eq(fleet.mission, FleetState.Mission.PATROL)
+
+	fleet.moved = false
+	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
+	var tile: Vector2i = _screen.model.sea_zones[zone].tiles[0]
+
+	assert_true(MapPlayFleets.try_order(_screen.play, tile))
+
+	assert_eq(fleet.mission, FleetState.Mission.NONE)
+	assert_eq(fleet.blockade_province, MapModel.NO_ID)
+
+
+func test_the_dossier_offers_a_blockade_on_a_hostile_coast() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	_screen.ship_layer.select(ship)
+	var action: String = "mission:blockade:%d" % coast
+	var offered: bool = false
+	for row: Dictionary in MapPlayFleetMissions.rows(_screen.play, fleet):
+		if String(row.get("action", "")) == action:
+			offered = true
+	assert_true(offered, "the hostile coast is a blockade target")
+
+	MapPlayFleets.on_action(_screen.play, action)
+
+	assert_eq(fleet.mission, FleetState.Mission.BLOCKADE)
+	assert_eq(fleet.blockade_province, coast)
+	assert_true(FleetMissions.is_blockading(
+		_screen.model, fleet, MapPlayBeachhead.hostile(_screen.play)
+	))
+
+
 # --- the naval yard -----------------------------------------------------------
 
 

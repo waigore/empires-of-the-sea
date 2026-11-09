@@ -24,14 +24,14 @@ static func select(play: PlaySession, ship: Ship) -> void:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
 
 
-## One dossier refresh for selection, movement, the yard and a landing, so the
-## Beachhead section always comes from the same place.
+## One dossier refresh for selection, movement, the yard, a station and a
+## landing, so the missions section always comes from the same place.
 static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	play.hud.panels.show_fleet(
 		play.model, fleet, fleet.owner == play.player_faction,
 		passage_note(play, fleet), yard_rows(play, fleet), -1,
 		landing_rows(play, fleet), carried(play, fleet),
-		MapPlayBeachhead.rows(play, fleet), MapPlayBeachhead.note(play, fleet)
+		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet)
 	)
 
 
@@ -274,6 +274,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 		if fleet != null and fleet.owner == play.player_faction:
 			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
+	elif action.begins_with("mission:"):
+		MapPlayFleetMissions.on_action(play, action)
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
 
