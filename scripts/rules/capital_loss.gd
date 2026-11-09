@@ -120,18 +120,23 @@ static func resolve(model: MapModel, before: Dictionary) -> Dictionary:
 		if seat_of(model, faction) != NO_ID:
 			continue
 		var lost: int = int(before.get(raw, NO_ID))
+		# A crown with no seat in the snapshot has nothing to lose: it either
+		# never held one here or already fell in an earlier Combat phase. Only a
+		# seat that was present before the battles can be reassigned or lost
+		# (wiki: capital-and-connectivity § Capital loss and reassignment;
+		# DR-20261109-02 § Detection).
+		if lost == NO_ID:
+			continue
 		var owned: Array[int] = owned_provinces(model, faction)
 		if owned.is_empty():
-			if lost != NO_ID:
-				_clear_seat(model.province_data(lost))
-				fallen.append({
-					"faction": faction,
-					"conqueror": _owner_of(model, lost),
-					"lost": lost,
-				})
-			continue
-		if lost != NO_ID:
 			_clear_seat(model.province_data(lost))
+			fallen.append({
+				"faction": faction,
+				"conqueror": _owner_of(model, lost),
+				"lost": lost,
+			})
+			continue
+		_clear_seat(model.province_data(lost))
 		var pick: int = pick_capital_province(model, owned)
 		if pick == NO_ID:
 			continue
