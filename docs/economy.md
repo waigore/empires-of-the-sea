@@ -55,7 +55,9 @@ levels 1 and 3 none. The bonus consumes no inputs, labour or cargo. Per recipe,
 `floor(least delivered town-connected raw input / 4) × multiplier`.
 
 Great Powers credit the output to the central stockpile; Minor and Tribe market
-offers are deferred. Town connectivity is in [improvements.md](improvements.md).
+offers are deferred. Overseas town manufacturing is deferred until cargo
+delivery is tracked per province. Town connectivity is in
+[improvements.md](improvements.md).
 
 ## UI
 

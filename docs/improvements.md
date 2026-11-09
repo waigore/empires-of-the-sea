@@ -44,7 +44,7 @@ Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
 ## Deferred (REQ-P2-02)
 
 - Forts and rival/AI builders.
-- Minor/Tribe town manufacturing offers.
+- Minor/Tribe town manufacturing offers; overseas town manufacturing.
 
 ## Architecture
 
