@@ -4,6 +4,7 @@ extends Node2D
 ## labels. Drawn once per map build, so the per-frame cost is a command replay.
 ## The wash is a tile-resolution image shaded by `terrain.gdshader`, and the two
 ## animated layers (surf, cloud shadow) are child nodes so they redraw alone.
+## Where names and symbols go is decided by the pure `MapCanvasPlan`.
 
 const TILE_SIZE: float = 22.0
 const CLOUD_MARGIN: float = 1400.0
@@ -15,6 +16,9 @@ const MS_TABLE: Array = [
 	[[2, 3]], [[0, 2]], [[0, 1], [2, 3]], [[1, 2]], [[3, 1]], [[0, 1]], [[3, 0]], [],
 ]
 
+## Placement of names, symbols, passages and the compass for this region.
+var plan := MapCanvasPlan.new()
+
 var model: MapModel = null
 ## Owning world (both regions), used to mark the sea-lane passages.
 var world: WorldMap = null
@@ -23,14 +27,8 @@ var _coast: Array[PackedVector2Array] = []
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
 var _roads: Array[PackedVector2Array] = []
-var _labels: Array[Dictionary] = []
-var _glyphs: Array[Dictionary] = []
-## Sea-lane rings marking each warp zone toward the other region.
-var _passages: Array[Vector2] = []
 var _font: Font = null
 var _font_italic: Font = null
-var _compass_position: Vector2 = Vector2.ZERO
-var _compass_visible: bool = false
 var _surf: MapSurf = null
 var _cloud: ColorRect = null
 
@@ -45,10 +43,7 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	_build_coast()
 	_build_borders()
 	_build_roads()
-	_build_labels()
-	_build_passages()
-	_build_glyphs()
-	_find_compass_spot()
+	plan.build(model, world, TILE_SIZE)
 	_build_animated_layers()
 	queue_redraw()
 
@@ -69,7 +64,7 @@ func refresh_ownership() -> void:
 			remove_child(child)
 			child.queue_free()
 	MapWash.build(self, model)
-	_build_glyphs()
+	plan.build(model, world, TILE_SIZE)
 	queue_redraw()
 
 
@@ -161,152 +156,6 @@ func _build_roads() -> void:
 			_roads.append(points)
 
 
-func _build_labels() -> void:
-	_labels.clear()
-	for province: ProvinceState in model.provinces:
-		if province.area < 26:
-			continue
-		_labels.append({
-			"text": province.name,
-			"position": Vector2(province.center) * TILE_SIZE,
-			"size": 22,
-			"kind": "province",
-			"capital": province.capital,
-		})
-	for zone: SeaZoneState in model.sea_zones:
-		if zone.area < 260:
-			continue
-		_labels.append({
-			"text": MapGlyphs.spaced(zone.name),
-			"position": zone.center * TILE_SIZE,
-			"size": 13,
-			"kind": "sea",
-		})
-
-
-## Sea-lane markers: each warp zone gets a ring and a quiet label so the way to
-## the other region is legible on a chart (wiki: map-topology).
-func _build_passages() -> void:
-	_passages.clear()
-	if world == null:
-		return
-	for zone_id: int in world.warp_zones(model.region_id):
-		var center: Vector2 = model.sea_zone_center(zone_id) * TILE_SIZE
-		if center == Vector2.ZERO:
-			continue
-		_passages.append(center)
-		_labels.append({
-			"text": "Passage",
-			"position": center + Vector2(0, 26),
-			"size": 12,
-			"kind": "passage",
-		})
-
-
-func _build_glyphs() -> void:
-	_glyphs.clear()
-	for y in model.height:
-		for x in model.width:
-			var terrain: int = model.terrain_at(x, y)
-			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
-				continue
-			var roll: float = MapGlyphs.hash01(x * 3 + 11, y * 7 + 5)
-			var kind: String = ""
-			var chance: float = 0.0
-			match terrain:
-				MapModel.Terrain.MOUNTAINS:
-					kind = "mountain"
-					chance = 0.62
-				MapModel.Terrain.HILLS:
-					kind = "hill"
-					chance = 0.34
-				MapModel.Terrain.FOREST:
-					kind = "tree"
-					chance = 0.44
-				MapModel.Terrain.DESERT:
-					kind = "dune"
-					chance = 0.14
-				MapModel.Terrain.SWAMP:
-					kind = "reed"
-					chance = 0.24
-				_:
-					kind = "grass"
-					chance = 0.07
-			if roll > chance:
-				continue
-			var jitter := Vector2(
-				(MapGlyphs.hash01(x + 31, y + 17) - 0.5) * TILE_SIZE * 0.45,
-				(MapGlyphs.hash01(x + 71, y + 43) - 0.5) * TILE_SIZE * 0.45
-			)
-			var at: Vector2 = MapGeo.tile_center(x, y, TILE_SIZE) + jitter
-			if _under_label(at):
-				continue
-			_glyphs.append({
-				"kind": kind,
-				"position": at,
-				"size": TILE_SIZE * (0.60 + MapGlyphs.hash01(x + 5, y + 9) * 0.30),
-				"flip": MapGlyphs.hash01(x + 13, y + 3) > 0.5,
-			})
-	for province: ProvinceState in model.provinces:
-		for port: Vector2i in MapGlyphs.port_tiles(province):
-			var anchor: Vector2 = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
-			anchor += _sea_offset(port) * TILE_SIZE * 0.62
-			if _under_label(anchor):
-				continue
-			_glyphs.append({
-				"kind": "port",
-				"position": anchor,
-				"size": TILE_SIZE * 0.8,
-				"flip": false,
-			})
-		if province.capital:
-			var capital: Vector2i = province.capital_tile
-			var anchor: Vector2 = Vector2(province.center) * TILE_SIZE
-			if capital.x >= 0:
-				anchor = MapGeo.tile_center(capital.x, capital.y, TILE_SIZE)
-			_glyphs.append({
-				"kind": "capital",
-				"position": anchor,
-				"size": TILE_SIZE * 1.1,
-				"flip": false,
-				"owner": province.owner,
-			})
-
-
-## A port anchor sits on the water side of its tile, clear of the coastline ink
-## and of any province name.
-func _sea_offset(tile: Vector2i) -> Vector2:
-	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-		if model.is_sea(tile.x + offset.x, tile.y + offset.y):
-			return Vector2(offset)
-	return Vector2.ZERO
-
-
-## Province names sit in a clearing: a scattered symbol never lands on a label,
-## so the type stays readable however dense the terrain is.
-func _under_label(at: Vector2) -> bool:
-	for label: Dictionary in _labels:
-		if String(label["kind"]) != "province":
-			continue
-		var anchor: Vector2 = label["position"]
-		if absf(at.x - anchor.x) < 74.0 and at.y > anchor.y - 18.0 and at.y < anchor.y + 26.0:
-			return true
-	return false
-
-
-func _find_compass_spot() -> void:
-	_compass_visible = false
-	var target := Vector2(float(model.width) * 0.12, float(model.height) * 0.86)
-	for radius in range(0, 24, 2):
-		for angle in range(0, 360, 30):
-			var offset := Vector2(cos(deg_to_rad(angle)), sin(deg_to_rad(angle))) * radius
-			var tile: Vector2i = MapGeo.tile_at_world(target + offset, TILE_SIZE)
-			if model.is_sea(tile.x, tile.y) and model.sea_zone_at(tile.x, tile.y) != MapModel.NO_ID:
-				_compass_position = MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
-				_compass_visible = true
-				return
-
-
 ## Surf breaks along the inked coast, and one soft cloud shadow drifts over the
 ## whole theatre. Both are children so the static layer still draws once.
 func _build_animated_layers() -> void:
@@ -348,17 +197,17 @@ func _draw() -> void:
 		draw_polyline(path, Color(0.30, 0.22, 0.14, 0.30), 3.6, true)
 		draw_polyline(path, Color(0.26, 0.19, 0.12, 0.62), 1.6, true)
 
-	for glyph: Dictionary in _glyphs:
+	for glyph: Dictionary in plan.glyphs:
 		MapGlyphs.draw(self, glyph)
 
-	for point: Vector2 in _passages:
+	for point: Vector2 in plan.passages:
 		_draw_passage(point)
 
-	for label: Dictionary in _labels:
+	for label: Dictionary in plan.labels:
 		_draw_label(label)
 
-	if _compass_visible:
-		MapGlyphs.compass(self, _compass_position, 74.0, _font)
+	if plan.compass_visible:
+		MapGlyphs.compass(self, plan.compass_position, 74.0, _font)
 
 
 ## Two arrows around a ring: the sign of a sea lane between regions.
@@ -397,4 +246,3 @@ func _draw_label(label: Dictionary) -> void:
 		_font, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size,
 		Color(0.11, 0.08, 0.05, 0.96)
 	)
-

@@ -41,6 +41,11 @@ func values() -> Array:
 	return _slots.values()
 
 
+## Region -> stored value, for rules that read every roster (REQ-P3-02).
+func entries() -> Dictionary:
+	return _slots.duplicate()
+
+
 ## Serialises the table: Arrays become arrays of `encode_item` results (null
 ## entries dropped), single values become one encoded entry (REQ-P3-04).
 func encode(encode_item: Callable) -> Dictionary:
