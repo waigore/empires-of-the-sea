@@ -5,6 +5,7 @@
 [domains.ai]
 suites = [
   "test_ai_colonisation.gd",
+  "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_observer.gd",
   "test_ai_planner.gd",
@@ -39,6 +40,7 @@ suites = [
   "test_campaign_end.gd",
   "test_capital_choice.gd",
   "test_capital_loss.gd",
+  "test_capital_seat_screen.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -51,12 +53,14 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_intel_dossier.gd",
 ]
 
 [domains.economy]
@@ -135,6 +139,7 @@ suites = [
 suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
+  "test_save_world.gd",
 ]
 
 [domains.ui]
@@ -190,6 +195,10 @@ match = "tests/playtest_new_world.gd*"
 domain = "map"
 
 [[rules]]
+match = "tests/playtest_quick_battle.gd*"
+domain = "quick_battle"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 
@@ -226,6 +235,10 @@ match = "scripts/platform/**"
 domain = "menu"
 
 [[rules]]
+match = "scenes/capital_choice.tscn"
+domain = "campaign"
+
+[[rules]]
 match = "scenes/**"
 domain = "menu"
 
@@ -251,6 +264,10 @@ domain = "army"
 
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_invasion_ai.gd"
 domain = "ai"
 
 [[rules]]
@@ -346,6 +363,14 @@ match = "scripts/rules/diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/intel_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/dialogue_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
@@ -399,6 +424,10 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/capital_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
 
 [[rules]]
@@ -464,6 +493,14 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_prompts.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_*.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -576,6 +613,10 @@ match = "tests/test_battle_*.gd"
 domain = "battle"
 
 [[rules]]
+match = "tests/test_quick_battle_*.gd"
+domain = "quick_battle"
+
+[[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
 
@@ -601,6 +642,14 @@ domain = "civilian"
 
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_intel_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]

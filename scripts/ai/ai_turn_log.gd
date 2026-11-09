@@ -10,7 +10,7 @@ const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "attack", "march", "sortie", "pursue",
-	"work", "production", "recruit", "train", "split",
+	"work", "production", "recruit", "train", "split", "invade",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -25,6 +25,7 @@ const ACTION_LABELS: Dictionary = {
 	"recruit": "workers",
 	"train": "civilians",
 	"split": "splits",
+	"invade": "landings",
 }
 
 
@@ -34,7 +35,8 @@ static func record(
 	play: PlaySession,
 	army_trace: Array[Dictionary],
 	fleet_trace: Array[Dictionary],
-	economy_report: Dictionary
+	economy_report: Dictionary,
+	invasion_trace: Array[Dictionary] = []
 ) -> Dictionary:
 	var merged: Dictionary = {
 		"turn": play.turn,
@@ -49,6 +51,7 @@ static func record(
 	_record_armies(merged, factions, army_trace)
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
+	_record_invasion(merged, factions, invasion_trace)
 	play.ai_turns.append(merged)
 	return merged
 
@@ -147,6 +150,35 @@ static func _record_fleets(
 			faction,
 			"%s's squadron sails into the %s." % [FactionCatalog.name_of(faction), zone],
 		)
+
+
+## Overseas expeditions: the split, the boarding, the crossing and the landing
+## read as one campaign, so the headline counts landings rather than each leg.
+static func _record_invasion(
+	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
+) -> void:
+	for raw: Dictionary in trace:
+		var faction: int = int(raw.get("faction", NO_ID))
+		if not factions.has(faction):
+			continue
+		var kind: String = String(raw.get("kind", ""))
+		if kind == AiInvasionPlanner.KIND_SPLIT:
+			_bump(factions[faction]["actions"], "split")
+			continue
+		_bump(factions[faction]["actions"], "invade")
+		var who: String = FactionCatalog.name_of(faction)
+		match kind:
+			AiInvasionPlanner.KIND_EMBARK:
+				_add_event(merged, factions[faction], faction, "%s's expedition boards its squadron." % who)
+			AiInvasionPlanner.KIND_CROSS:
+				_add_event(merged, factions[faction], faction, "%s's expedition crosses the Passage." % who)
+			AiInvasionPlanner.KIND_LAND:
+				var place: String = String(raw.get("province_name", ""))
+				if not place.is_empty():
+					_add_event(
+						merged, factions[faction], faction,
+						"%s's army lands at %s." % [who, place],
+					)
 
 
 static func _record_economy(
