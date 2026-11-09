@@ -45,10 +45,13 @@ static func move_to_region(
 	layer.regions.set_region(to_region, destination)
 
 
-## A sunken squadron takes its passengers with it. Called after naval combat
-## with the ids of every fleet still afloat.
+## A sunken squadron takes its passengers with it. `seats` maps every carried
+## civilian to the live squadron that still lists it
+## (`FleetRosters.carried_civilians`), so a seat renumbered by a passage or by
+## a home-fleet merge is repaired here instead of drowning a colonist that never
+## left the ship.
 static func drop_lost(
-	layer: CivilianLayer, live_fleets: Dictionary
+	layer: CivilianLayer, seats: Dictionary
 ) -> Array[CivilianState]:
 	var lost: Array[CivilianState] = []
 	var on_screen: bool = false
@@ -59,7 +62,8 @@ static func drop_lost(
 			var unit: CivilianState = members[cursor]
 			if unit == null or not unit.is_embarked():
 				continue
-			if live_fleets.has(unit.embarked_fleet):
+			if seats.has(unit.id):
+				unit.embarked_fleet = int(seats[unit.id])
 				continue
 			lost.append(unit)
 			members.remove_at(cursor)

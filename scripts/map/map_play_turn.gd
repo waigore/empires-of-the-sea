@@ -163,6 +163,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
 		_finish_calendar(play)
 		return
+	# Enemy patrols and blockades in the crown's home waters skim this turn's
+	# imports before the ledger closes (wiki: ships-and-naval § Trade and
+	# Transport Interception; DR-20261109-16).
+	MapPlayRaids.resolve(play)
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
@@ -279,16 +283,19 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 static func _resolve_naval_combat(play: PlaySession) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
-	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
+	var context: Dictionary = {"seed": play.map_seed, "turn": play.turn}
+	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
+		play.world, hostile, context
+	)
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
-		play.army_layer, FleetRosters.live_ids(play.ship_layer.regions)
+		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
 	for army: ArmyState in lost:
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
 		)
 	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
-		play.civilian_layer, FleetRosters.live_ids(play.ship_layer.regions)
+		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
 	):
 		play.hud.toast(
 			"A civilian went down with a sunken squadron — lost at sea"

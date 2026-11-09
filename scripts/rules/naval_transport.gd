@@ -156,6 +156,7 @@ static func establish_beachhead(
 		return check
 	fleet.beachhead_province = province_id
 	fleet.beachhead_turn = turn
+	fleet.mission = FleetState.Mission.BEACHHEAD
 	fleet.moved = true
 	return {
 		"ok": true,
