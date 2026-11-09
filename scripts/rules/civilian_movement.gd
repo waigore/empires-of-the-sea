@@ -65,13 +65,18 @@ static func begin_turn(units: Array[CivilianState]) -> void:
 			unit.moved = false
 
 
-## Explorer/Spy presence keeps their province fully visible for the owner.
+## Explorer presence keeps their province fully visible for the owner. A Spy
+## only reads within explored terrain and never surveys `unknown` coast, so it
+## does not hold a province (wiki: fog-and-exploration § Explorer vs Spy;
+## DR-20261109-04).
 static func held_provinces(
 	model: MapModel, units: Array[CivilianState], owner: int
 ) -> Array:
 	var result: Array = []
 	for unit: CivilianState in units:
 		if unit == null or unit.owner != owner:
+			continue
+		if unit.type_id == "spy":
 			continue
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
 		if province != MapModel.NO_ID and not result.has(province):
