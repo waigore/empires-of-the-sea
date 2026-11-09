@@ -43,7 +43,7 @@ static func run(
 			"candidates": plan["candidates"],
 		}
 		if not action.is_empty():
-			var applied: Dictionary = _apply(state, ai_state, faction, action, turn)
+			var applied: Dictionary = _apply(state, world, ai_state, faction, action, turn)
 			record["result"] = applied.get("result", {})
 			var message: String = String(applied.get("message", ""))
 			record["message"] = message
@@ -79,7 +79,12 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 
 
 static func _apply(
-	state: DiplomacyState, ai_state: AiState, faction: int, action: Dictionary, turn: int
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	faction: int,
+	action: Dictionary,
+	turn: int
 ) -> Dictionary:
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
@@ -98,4 +103,17 @@ static func _apply(
 			"result": peace,
 			"message": String(peace.get("message", "")),
 		}
+	if kind == AiDiplomacyPlanner.KIND_ALLIANCE or kind == AiDiplomacyPlanner.KIND_OVERTURE:
+		var stage: String = String(action.get("stage", ""))
+		var offer: Dictionary = DiplomacyProposals.queue(
+			state, world, faction, kind, stage
+		)
+		var message: String = ""
+		if bool(offer.get("ok", false)):
+			# The court answers this during the phase; no rule is applied yet.
+			message = "%s proposes %s." % [
+				FactionCatalog.name_of(faction),
+				DiplomacyProposals.describe(kind, stage),
+			]
+		return {"result": offer, "message": message}
 	return {"result": {"ok": false, "reason": "unknown order"}, "message": ""}

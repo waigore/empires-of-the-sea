@@ -114,6 +114,19 @@ func remove_hull(hull_id: String) -> bool:
 	return true
 
 
+## Absorbs another fleet's hulls in order, preserving instance ids and types.
+## A duplicate id stays with the receiving fleet (wiki: ships-and-naval
+## § Ship instances — combine appends, never duplicates).
+func merge_from(source: FleetState) -> void:
+	if source == null:
+		return
+	for hull_id: String in source.hulls:
+		if hulls.has(hull_id):
+			continue
+		hulls.append(hull_id)
+		hull_types[hull_id] = source.type_of(hull_id)
+
+
 func count_of_type(type_id: String) -> int:
 	var wanted: String = ShipStats.normalize(type_id)
 	var total: int = 0

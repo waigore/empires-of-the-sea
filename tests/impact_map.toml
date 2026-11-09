@@ -1,0 +1,609 @@
+# Domain → suite mapping for tier-1 PR CI (docs/testing.md).
+# Convention: path globs → domain; domains expand to suites. `full = true`
+# runs every suite. Unmapped in-scope paths fail strict selection.
+
+[domains.ai]
+suites = [
+  "test_ai_planner.gd",
+  "test_ai_rules.gd",
+]
+
+[domains.army]
+suites = [
+  "test_army_field_rules.gd",
+  "test_army_orders.gd",
+  "test_battle_rules.gd",
+]
+
+[domains.audio]
+suites = [
+  "test_audio_director.gd",
+  "test_audio_mix.gd",
+  "test_map_soundtrack.gd",
+]
+
+[domains.battle]
+suites = [
+  "test_battle_rules.gd",
+]
+
+[domains.campaign]
+suites = [
+  "test_call_to_arms.gd",
+  "test_campaign_defeat.gd",
+  "test_campaign_end.gd",
+  "test_capital_choice.gd",
+  "test_capital_loss.gd",
+  "test_intervention.gd",
+  "test_victory_screen.gd",
+]
+
+[domains.civilian]
+suites = [
+  "test_civilian_field_rules.gd",
+]
+
+[domains.diplomacy]
+suites = [
+  "test_diplomacy_orders.gd",
+  "test_diplomacy_panel.gd",
+  "test_diplomacy_screen.gd",
+  "test_diplomacy_state.gd",
+]
+
+[domains.economy]
+suites = [
+  "test_economy_rules.gd",
+  "test_economy_screen.gd",
+]
+
+[domains.fleet]
+suites = [
+  "test_fleet_orders.gd",
+  "test_fleet_rosters.gd",
+  "test_fleet_yard.gd",
+  "test_naval_movement.gd",
+  "test_trade_cargo.gd",
+  "test_battle_rules.gd",
+]
+
+[domains.fort]
+suites = [
+  "test_fort_rules.gd",
+]
+
+[domains.map]
+suites = [
+  "test_fog_layer.gd",
+  "test_map_camera.gd",
+  "test_map_canvas.gd",
+  "test_map_generator.gd",
+  "test_map_model.gd",
+  "test_map_region_table.gd",
+  "test_map_screen.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_visibility.gd",
+  "test_warp_travel.gd",
+  "test_world_bootstrap.gd",
+  "test_world_setup.gd",
+]
+
+[domains.menu]
+suites = [
+  "test_game_setup.gd",
+  "test_main.gd",
+  "test_menu_flow.gd",
+  "test_mobile_layout.gd",
+]
+
+[domains.misc]
+suites = [
+  "test_catalogs.gd",
+  "test_misc_rules.gd",
+]
+
+[domains.research]
+suites = [
+  "test_research_panel.gd",
+  "test_research_screen.gd",
+  "test_research_state.gd",
+  "test_research_turn.gd",
+  "test_tech_discovery.gd",
+]
+
+[domains.save]
+suites = [
+  "test_save_codec.gd",
+  "test_save_store.gd",
+]
+
+[domains.ui]
+suites = [
+  "test_panel_dock.gd",
+]
+
+# First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "project.godot"
+full = true
+
+[[rules]]
+match = "icon.svg"
+full = true
+
+[[rules]]
+match = "addons/**"
+full = true
+
+[[rules]]
+match = "gd-tools.toml"
+full = true
+
+[[rules]]
+match = "tests/impact_map.toml"
+full = true
+
+[[rules]]
+match = "tests/map_fixture.gd"
+full = true
+
+[[rules]]
+match = "tests/map_shot.gd"
+full = true
+
+[[rules]]
+match = "tools/select_impacted_tests.py"
+full = true
+
+[[rules]]
+match = "scripts/ai/**"
+domain = "ai"
+
+[[rules]]
+match = "tests/ai_fixture.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/audio/**"
+domain = "audio"
+
+[[rules]]
+match = "scripts/economy/**"
+domain = "economy"
+
+[[rules]]
+match = "scripts/save/**"
+domain = "save"
+
+[[rules]]
+match = "scripts/world/**"
+domain = "map"
+
+[[rules]]
+match = "scripts/session/**"
+domain = "menu"
+
+[[rules]]
+match = "scripts/platform/**"
+domain = "menu"
+
+[[rules]]
+match = "scenes/**"
+domain = "menu"
+
+[[rules]]
+match = "autoload/**"
+full = true
+
+[[rules]]
+match = "ui/**"
+domain = "ui"
+
+[[rules]]
+match = "scripts/map_screen.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/map/army_*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/map/map_play_army*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/map/civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/map/map_play_civilian*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/map/ship*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/map/fleet_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/map/map_play_fleet*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/map/battle_report.gd"
+domain = "battle"
+
+[[rules]]
+match = "scripts/map/map_play_diplomacy.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/map/map_play_improvements.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_warp.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/map/**"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/army_*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/rules/general_*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/rules/regiment_*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/rules/civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/naval_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/rules/fleet_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/rules/ship_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/rules/trade_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/rules/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/fort_*.gd"
+domain = "fort"
+
+[[rules]]
+match = "scripts/rules/economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/extraction.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/player_economy.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/production_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/improvement_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/land_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/worker_pool.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/world_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/rules/tech_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/rules/call_to_arms.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/campaign_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/capital_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/defeat_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/intervention.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/victory_*.gd"
+domain = "campaign"
+
+
+[[rules]]
+match = "scripts/rules/visibility.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/warp_travel.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/world_*.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/turn_time.gd"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/territory_assignment.gd"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/*_catalog.gd"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/**"
+domain = "misc"
+
+[[rules]]
+match = "scripts/ui/army_*.gd"
+domain = "army"
+
+[[rules]]
+match = "scripts/ui/civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/ui/fleet_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/ui/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/improvement_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/ui/audio_*.gd"
+domain = "audio"
+
+[[rules]]
+match = "scripts/ui/save_*.gd"
+domain = "save"
+
+[[rules]]
+match = "scripts/ui/victory_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/ui/game_setup_screen.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/ui/main_menu.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/ui/menu_frame.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/ui/game_menu.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/ui/back_request.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/ui/panel_dock.gd"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/**"
+domain = "menu"
+
+[[rules]]
+match = "scripts/game_version.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/input_actions.gd"
+domain = "menu"
+
+[[rules]]
+match = "scripts/**"
+full = true
+
+[[rules]]
+match = "tests/army_fixture.gd"
+domain = "army"
+
+[[rules]]
+match = "tests/civilian_fixture.gd"
+domain = "civilian"
+
+[[rules]]
+match = "tests/naval_fixture.gd"
+domain = "fleet"
+
+[[rules]]
+match = "tests/test_ai_*.gd"
+domain = "ai"
+
+[[rules]]
+match = "tests/test_army_*.gd"
+domain = "army"
+
+[[rules]]
+match = "tests/test_audio_*.gd"
+domain = "audio"
+
+[[rules]]
+match = "tests/test_map_soundtrack.gd"
+domain = "audio"
+
+[[rules]]
+match = "tests/test_battle_*.gd"
+domain = "battle"
+
+[[rules]]
+match = "tests/test_call_to_arms.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_campaign_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_capital_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_intervention.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_victory_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_fleet_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "tests/test_naval_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "tests/test_trade_*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "tests/test_fort_*.gd"
+domain = "fort"
+
+[[rules]]
+match = "tests/test_fog_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_map_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_visibility.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_warp_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_world_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_game_setup.gd"
+domain = "menu"
+
+[[rules]]
+match = "tests/test_main.gd"
+domain = "menu"
+
+[[rules]]
+match = "tests/test_menu_*.gd"
+domain = "menu"
+
+[[rules]]
+match = "tests/test_mobile_*.gd"
+domain = "menu"
+
+[[rules]]
+match = "tests/test_catalogs.gd"
+domain = "misc"
+
+[[rules]]
+match = "tests/test_misc_*.gd"
+domain = "misc"
+
+[[rules]]
+match = "tests/test_research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "tests/test_tech_*.gd"
+domain = "research"
+
+[[rules]]
+match = "tests/test_save_*.gd"
+domain = "save"
+
+[[rules]]
+match = "tests/test_panel_dock.gd"
+domain = "ui"
+
+[[rules]]
+match = "tests/test_*.gd"
+full = true

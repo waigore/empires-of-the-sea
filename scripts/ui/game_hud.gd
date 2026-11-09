@@ -172,6 +172,14 @@ func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void
 		victory_overlay.show_campaign_complete(leader, turn, player_faction)
 
 
+## The human Great Power fell: same sealed plate family, defeat copy
+## (wiki: victory § Great Power defeat; DR-20261109-05).
+func show_defeat(defeat: DefeatState, player_faction: int) -> void:
+	set_campaign_over(true)
+	if victory_overlay != null:
+		victory_overlay.show_defeat(defeat, player_faction)
+
+
 ## Turns never reopen; only the plate may step aside to keep viewing the map.
 func set_campaign_over(over: bool) -> void:
 	campaign_over = over

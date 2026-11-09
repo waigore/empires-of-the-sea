@@ -27,12 +27,12 @@ static func capture(play: PlaySession) -> Dictionary:
 		"diplomacy": _capture_diplomacy(play.diplomacy),
 		"ai": play.ai.to_dict() if play.ai != null else {},
 		"victory": _capture_victory(play.victory),
+		"defeat": SaveDefeat.capture(play.defeat),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
 		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
-
 
 static func _capture_session(play: PlaySession) -> Dictionary:
 	return {
@@ -181,9 +181,9 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
-	# A decided campaign must come back decided, or the load would hand the
-	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
+	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = _victory_from(data.get("victory", {}))
+	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height
@@ -326,6 +326,7 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"alliance_snapshot": state.alliance_snapshot.duplicate(),
 		"pending_calls": state.pending_calls.duplicate(true),
 		"pending_interventions": state.pending_interventions.duplicate(true),
+		"pending_offers": state.pending_offers.duplicate(true),
 	}
 
 
@@ -340,7 +341,6 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state.overtures = data.get("overtures", {}).duplicate()
 	state.subsidies = data.get("subsidies", {}).duplicate()
 	state.colonies = data.get("colonies", {}).duplicate()
-	state.events.clear()
 	for event: Variant in data.get("events", []):
 		if typeof(event) == TYPE_DICTIONARY:
 			state.events.append(event.duplicate(true))
@@ -349,6 +349,7 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
 	state.pending_calls.assign(data.get("pending_calls", []))
 	state.pending_interventions.assign(data.get("pending_interventions", []))
+	state.pending_offers.assign(data.get("pending_offers", []))
 	return state
 
 

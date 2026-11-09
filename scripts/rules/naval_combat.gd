@@ -190,7 +190,10 @@ static func _battle(
 		record["outcome"] = Outcome.STALEMATE
 		return record
 	var share: float = attacker_strength / total
-	if absf(share - 0.5) < WIN_EDGE:
+	# Wiki: share > 0.53 wins for the attacker and share < 0.47 wins for the
+	# defender; the boundary itself is still a stalemate (ships-and-naval
+	# § Naval Combat Resolution).
+	if share >= 0.5 - WIN_EDGE and share <= 0.5 + WIN_EDGE:
 		record["outcome"] = Outcome.STALEMATE
 		return record
 	var beaten: Array = defending

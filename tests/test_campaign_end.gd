@@ -154,6 +154,7 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 	screen.play.turn = CAP
 
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 
 	assert_true(screen.play.campaign_halted)
 	assert_null(screen.play.victory)
@@ -172,9 +173,11 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 func test_a_closed_calendar_takes_no_more_turns() -> void:
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 	var turn_before: int = screen.turn
 
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 
 	assert_eq(screen.turn, turn_before)
 	assert_true(screen.play.campaign_halted)
@@ -183,6 +186,7 @@ func test_a_closed_calendar_takes_no_more_turns() -> void:
 func test_a_closed_calendar_takes_no_orders() -> void:
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 
 	MapPlayCivilians.on_action(screen.play, "move")
 	MapPlayFleets.try_order(screen.play, Vector2i(0, 0))
@@ -217,6 +221,7 @@ func test_an_endless_campaign_sails_past_the_cap() -> void:
 	screen.play.turn = CAP
 
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 
 	assert_false(screen.play.campaign_halted)
 	assert_false(screen.hud.is_victory_shown())
@@ -260,6 +265,7 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	screen.save_dir = SAVE_DIR
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
 	assert_true(screen.play.campaign_halted)
 	var save: Dictionary = SaveCodec.capture(screen.play)
 	assert_true(SaveCodec.is_valid(save))
@@ -276,6 +282,7 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	assert_true(reopened.hud._end_turn_button.disabled)
 	var turn_before: int = reopened.turn
 	MapPlayTurn.end_turn(reopened.play)
+	Fixture.settle(reopened.play)
 	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
 
 
