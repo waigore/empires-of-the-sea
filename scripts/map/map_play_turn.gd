@@ -115,28 +115,34 @@ static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
 static func _finish_calendar(play: PlaySession) -> void:
 	play.campaign_halted = true
 	var leader: int = declared_leader(play)
-	play.hud.show_campaign_complete(leader, play.turn)
+	play.hud.show_campaign_complete(leader, play.turn, play.player_faction)
 	play.hud.toast(
 		"Campaign complete — %d" % TurnTime.year_for_turn(play.turn)
 	)
 	play.emit_turn_ended(play.turn)
 
 
-## Strongest crown by power score, or NO_ID when the top score is shared. Reads
-## live regiment and hull counts so the score matches the diplomacy panel
-## (wiki: victory § Calendar campaign end).
+## Strongest crown by power score, or NO_ID when the top score is shared. The
+## strength term is the public order of battle — FPN + FPM over every regiment
+## the crown holds, in both regions, without the general medal multiplier — and
+## the hull term counts every ship it floats, again in both regions
+## (wiki: victory § Calendar campaign end, diplomacy § Great Power power score).
 static func declared_leader(play: PlaySession) -> int:
-	var regiments: Dictionary = {}
+	var strength: Dictionary = {}
 	var ships: Dictionary = {}
 	if play.army_layer != null:
-		for army: ArmyState in play.army_layer.armies:
-			if army != null:
-				regiments[army.owner] = int(regiments.get(army.owner, 0)) + army.count()
+		for raw: Variant in play.army_layer.regions.values():
+			var stored: Array = []
+			stored.assign(raw)
+			for army: ArmyState in stored:
+				if army != null:
+					strength[army.owner] = (
+						float(strength.get(army.owner, 0.0)) + army.strength()
+					)
 	if play.ship_layer != null:
-		for ship: Ship in play.ship_layer.ships:
-			if ship != null:
-				ships[ship.faction] = int(ships.get(ship.faction, 0)) + 1
-	return VictoryRules.declared_leader(play.world, regiments, ships)
+		for faction: int in FactionCatalog.great_power_ids():
+			ships[faction] = play.ship_layer.hull_count_all(faction)
+	return VictoryRules.declared_leader(play.world, strength, ships)
 
 
 static func _closed_message(play: PlaySession) -> String:
