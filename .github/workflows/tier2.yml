@@ -107,19 +107,21 @@ jobs:
           fi
 
           body=$(cat <<EOF
-## Tier-2 full suite failed
+          ## Tier-2 full suite failed
 
-Scheduled / manual **CI tier 2** run failed (overall 80% coverage + full unit suites).
+          Scheduled / manual **CI tier 2** run failed (overall 80% coverage + full unit suites).
 
-- Run: $RUN_URL
-- Workflow: CI tier 2 / tests-full
-- Conclusion: \`$CONCLUSION\`
+          - Run: $RUN_URL
+          - Workflow: CI tier 2 / tests-full
+          - Conclusion: \`$CONCLUSION\`
 
-The **fix-tests** agent (hourly, gated on this label) should reproduce, fix, open a PR, babysit merge, then close this issue.
+          The **fix-tests** agent (hourly, gated on this label) should reproduce, fix, open a PR, babysit merge, then close this issue.
 
-Keep **at most one** open issue with label \`ci-tier2\`.
-EOF
+          Keep **at most one** open issue with label \`ci-tier2\`.
+          EOF
           )
+          # Strip the YAML-indent padding from the issue body.
+          body=$(printf '%s\n' "$body" | sed 's/^          //')
 
           if [ -z "$issue" ]; then
             gh issue create \
