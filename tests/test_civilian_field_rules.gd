@@ -111,6 +111,41 @@ func test_out_of_bounds_land_is_refused() -> void:
 	assert_false(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(9, 9)))
 	assert_true(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(0, 0)))
 
+
+## Order visibility gate (wiki: fog-and-exploration § Order Visibility
+## Requirements): a march into a province the crown has never charted is
+## refused, even though an Explorer may roam any land.
+func test_a_march_into_an_uncharted_province_is_refused() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	for tile: Vector2i in _model.province_tiles(Fixture.RIVAL_PROVINCE):
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	assert_false(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0)),
+		"the uncharted province is not a march option"
+	)
+	var result: Dictionary = CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("charted"))
+	assert_eq(explorer.tile, Vector2i(2, 0))
+
+
+## One charted tile anywhere in the province is enough: a coast glimpsed from
+## the sea opens the whole province to land orders.
+func test_a_glimpsed_province_accepts_the_march() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	var tiles: Array[Vector2i] = _model.province_tiles(Fixture.RIVAL_PROVINCE)
+	for tile: Vector2i in tiles:
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	_view.raise_to(_model.index_of(tiles[0].x, tiles[0].y), VisibilityModel.Level.FOGGED)
+	assert_true(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0))
+	)
+	assert_true(bool(CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)["ok"]))
+
 # --- from test_civilian_work.gd ---
 ## Civilian work orders: gates, costs, multi-turn progress and tile effects
 ## (wiki: civilian-units § Work Types, extraction-and-improvements costs).

@@ -72,8 +72,7 @@ score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayTurn`.
 
 ## Known limits
 
-Colonisation, Minor/Tribe AI, town-per-province roads, regiment parity and market
-participation are deferred.
+AI research, spy actions and rival fog exploration are deferred.
 
 ## Tests
 

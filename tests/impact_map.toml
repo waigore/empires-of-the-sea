@@ -4,8 +4,13 @@
 
 [domains.ai]
 suites = [
+  "test_ai_colonisation.gd",
+  "test_ai_market.gd",
+  "test_ai_observer.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
+  "test_ai_town_roads.gd",
+  "test_military_parity.gd",
 ]
 
 [domains.army]
@@ -59,6 +64,7 @@ suites = [
   "test_economy_rules.gd",
   "test_economy_screen.gd",
   "test_economy_overseas.gd",
+  "test_trade_cargo.gd",
 ]
 
 [domains.fleet]
@@ -90,6 +96,7 @@ suites = [
   "test_map_generator.gd",
   "test_map_model.gd",
   "test_map_region_table.gd",
+  "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
   "test_resource_lens.gd",
@@ -179,6 +186,10 @@ match = "tests/map_shot.gd"
 domain = "map"
 
 [[rules]]
+match = "tests/playtest_new_world.gd*"
+domain = "map"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 
@@ -239,6 +250,14 @@ match = "scripts/map/map_play_army*.gd"
 domain = "army"
 
 [[rules]]
+match = "scripts/map/map_play_colonisation_ai.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/civilian_*.gd"
 domain = "civilian"
 
@@ -257,6 +276,10 @@ domain = "fleet"
 [[rules]]
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
+
+[[rules]]
+match = "scripts/map/map_play_observer.gd"
+domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_raids.gd"
@@ -293,6 +316,10 @@ domain = "army"
 [[rules]]
 match = "scripts/rules/regiment_*.gd"
 domain = "army"
+
+[[rules]]
+match = "scripts/rules/military_parity.gd"
+domain = "ai"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd"
@@ -491,6 +518,15 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "ui"
 
+# The minimap inset is map presentation: the map suites own its contract.
+[[rules]]
+match = "scripts/ui/minimap*.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/ui/ai_observer_panel.gd"
+domain = "ai"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
@@ -593,6 +629,10 @@ domain = "map"
 
 [[rules]]
 match = "tests/test_map_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_minimap*.gd"
 domain = "map"
 
 [[rules]]

@@ -388,6 +388,138 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
 
 
+## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
+## region the player is not reading must still decay (wiki: fog-and-exploration
+## § Fog Decay). Otherwise a rival coast charted once stays charted forever just
+## because the map was switched before the turn closed.
+func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var province: int = Fixture.foreign_province(new_world)
+	var tile: Vector2i = new_world.province_tiles(province)[0]
+	var index: int = new_world.index_of(tile.x, tile.y)
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
+
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(
+		visibility.level_at(tile.x, tile.y),
+		VisibilityModel.Level.FOGGED,
+		"the New World chart decays while the Old World is on screen"
+	)
+
+
+## Same rule for water: a distant sea zone with no owned coast and no fleet at
+## sea reverts to fogged in every region, not only the one being looked at
+## (wiki: fog-and-exploration § Distant sea zone fog).
+func test_end_turn_fogs_distant_water_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var tile: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	var index: int = new_world.index_of(tile.x, tile.y)
+	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen._cycle_region()
+
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(
+		visibility.level_at(tile.x, tile.y),
+		VisibilityModel.Level.FOGGED,
+		"unwatched New World water refogs with the Old World on screen"
+	)
+
+
+## A tap on uncharted land has to say why nothing opened: the hover tooltip is
+## mouse-only, so a touch player gets no feedback at all today (P1 readable UI).
+func test_tapping_uncharted_land_explains_the_refusal() -> void:
+	_screen._cycle_region()
+	var province_id: int = _screen.model.provinces[0].id
+	var tile: Vector2i = _screen.model.province_tiles(province_id)[0]
+	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayInput.on_tapped(_screen.play, world)
+
+	assert_eq(_screen.selected_province, -1, "uncharted land opens no dossier")
+	assert_eq(
+		_screen.hud._toast_box.get_child_count(),
+		toasts_before + 1,
+		"the tap reports that the land is uncharted"
+	)
+
+
+## The map's march order uses the same chart gate as the rules: tapping an
+## uncharted province is refused with a reason and the unit stays put.
+func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
+	var pair: Array[Vector2i] = _province_border_tiles(_screen.model)
+	assert_eq(pair.size(), 2, "the map has two provinces sharing an edge")
+	var explorer: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.play.player_faction, "explorer", pair[0]
+	)
+	var hidden: int = _screen.model.province_at(pair[1].x, pair[1].y)
+	for tile: Vector2i in _screen.model.province_tiles(hidden):
+		_screen.visibility.lower_to(
+			_screen.model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN
+		)
+	_screen.civilian_layer.select(explorer)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	var claimed: bool = MapPlayCivilians.try_move(
+		_screen.play, MapGeo.tile_center(pair[1].x, pair[1].y, MapScreen.TILE_SIZE)
+	)
+
+	assert_true(claimed, "the tap is a march order, not a dossier tap")
+	assert_eq(explorer.tile, pair[0], "the Explorer stays on charted land")
+	assert_eq(
+		_screen.hud._toast_box.get_child_count(),
+		toasts_before + 1,
+		"the refusal is reported"
+	)
+
+
+## First orthogonal land pair that straddles two provinces.
+func _province_border_tiles(model: MapModel) -> Array[Vector2i]:
+	for y in model.height:
+		for x in model.width:
+			if not model.is_land(x, y):
+				continue
+			for offset: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var nx: int = x + offset.x
+				var ny: int = y + offset.y
+				if not model.in_bounds(nx, ny) or not model.is_land(nx, ny):
+					continue
+				if model.province_at(x, y) == model.province_at(nx, ny):
+					continue
+				return [Vector2i(x, y), Vector2i(nx, ny)] as Array[Vector2i]
+	return []
+
+
+## A New World sea zone no player fleet is watching and no owned coast fronts.
+func _quiet_zone(model: MapModel, visibility: VisibilityModel) -> int:
+	for zone: SeaZoneState in model.sea_zones:
+		var zone_id: int = int(zone.id)
+		if visibility.owns_coast(zone_id):
+			continue
+		var watched: bool = false
+		for fleet: FleetState in _screen.ship_layer.fleets:
+			if fleet.owner != _screen.play.player_faction or not fleet.is_at_sea():
+				continue
+			if fleet.sea_zone == zone_id:
+				watched = true
+				break
+		if not watched:
+			return zone_id
+	return -1
+
+
 func _visible_inside_map() -> bool:
 	var half: Vector2 = _screen.camera.viewport_size() / (2.0 * _screen.camera.zoom.x)
 	var low: Vector2 = _screen.camera.position - half

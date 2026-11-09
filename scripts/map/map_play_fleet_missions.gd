@@ -30,13 +30,31 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 	return rows
 
 
-## The dossier's station line: a landing site outranks an ordinary station.
+## The dossier's station line: a landing site outranks an ordinary station. A
+## crown that has chartered privateers also reads what the bonus is worth.
 static func note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction:
 		return ""
 	if fleet.has_beachhead():
 		return MapPlayBeachhead.note(play, fleet)
-	return FleetMissions.status_note(play.model, fleet)
+	var line: String = FleetMissions.status_note(
+		play.model, fleet, MapPlayBeachhead.hostile(play)
+	)
+	if not fleet.is_at_sea():
+		return line
+	var charter: String = privateer_note(play)
+	if charter.is_empty():
+		return line
+	return charter if line.is_empty() else "%s %s" % [line, charter]
+
+
+## The Privateering Companies bonus, phrased for the dossier (wiki:
+## ships-and-naval § Trade and Transport Interception).
+static func privateer_note(play: PlaySession) -> String:
+	if not play.has_tech(play.player_faction, NavalInterception.PRIVATEERING_TECH):
+		return ""
+	var percent: int = int(round((NavalInterception.PRIVATEERING_BONUS - 1.0) * 100.0))
+	return "Privateers: interception and raids +%d%%." % percent
 
 
 ## Routes a "mission:<kind>[:<province>]" order through the rules and refreshes

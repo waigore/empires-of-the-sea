@@ -9,12 +9,7 @@ extends RefCounted
 
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
-const STACK_BAR_HEIGHT: float = 92.0
-## Shell pictograms shrink with the compact type so the cartouche still fits.
-const BAR_ICON_WIDE: int = 22
-const BAR_ICON_COMPACT: int = 20
-const BAR_ICON_GAP_WIDE: int = 6
-const BAR_ICON_GAP_COMPACT: int = 5
+const STACK_BAR_HEIGHT: float = 98.0
 ## Right edge of the cartouche's left rail (sound seal and estates seal sit here).
 const LEFT_RAIL: float = 258.0
 
@@ -40,27 +35,13 @@ func apply(hud: GameHud) -> void:
 
 
 ## The cartouche stacks its stat chips onto a second row when the row cannot fit
-## the viewport, measured rather than guessed: every ledger added to the bar
-## changes the budget. Compact type keeps the button row inside a 640-wide phone.
+## the viewport, measured rather than guessed: every seal added to the bar
+## changes the budget. Seals carry their own compact type, so no font pass is
+## needed and the stack decision stays stable between relayouts.
 func _bar(hud: GameHud, view: Vector2) -> void:
 	var room: float = view.x - 40.0
-	var font: int = GameHud.BAR_FONT_COMPACT if compact else GameHud.BAR_FONT
-	hud.top_row.add_theme_constant_override("separation", 8 if compact else 12)
-	if hud.bar_font != font:
-		hud.bar_font = font
-		var icon_size: int = BAR_ICON_COMPACT if compact else BAR_ICON_WIDE
-		var icon_gap: int = BAR_ICON_GAP_COMPACT if compact else BAR_ICON_GAP_WIDE
-		for node: Node in hud.top_row.get_children():
-			if node is Button:
-				var button := node as Button
-				button.add_theme_font_size_override("font_size", font)
-				if button.icon != null:
-					button.add_theme_constant_override("icon_max_width", icon_size)
-					button.add_theme_constant_override("h_separation", icon_gap)
-		# Theme changes mark the minimum size dirty for the next idle frame;
-		# re-run once so the stack decision is measured against the real widths.
-		hud.call_deferred("_relayout")
-	_fit_captions(hud, compact)
+	hud.top_row.add_theme_constant_override("separation", 6 if compact else 7)
+	TopBar.apply_compact(hud, compact)
 	var stack: bool = _row_width(hud) > room
 	for chip: Control in hud.chips:
 		var target: Control = hud.chip_row if stack else hud.top_row
@@ -73,26 +54,12 @@ func _bar(hud: GameHud, view: Vector2) -> void:
 	elif compact:
 		height = GameHud.BAR_HEIGHT_COMPACT
 	hud.top_bar.offset_bottom = height
-
-
-## Secondary ledger doors lose their caption on a phone (their medallion keeps
-## the meaning and the tooltip the name); the wide cartouche restores it.
-func _fit_captions(hud: GameHud, compact: bool) -> void:
-	for node: Node in hud.top_row.get_children():
-		var button := node as Button
-		if button == null or not button.has_meta("compact_icon_only"):
-			continue
-		var caption: String = "" if compact else String(button.get_meta("caption", ""))
-		if button.text == caption:
-			continue
-		button.text = caption
-		button.icon_alignment = (
-			HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
-		)
-		button.custom_minimum_size.x = (
-			0.0 if compact else float(button.get_meta("min_width", 0.0))
-		)
-		hud.call_deferred("_relayout")
+	# The sound seal is a sibling in the scene; keep it below the cartouche so a
+	# stacked bar never covers it.
+	var audio := hud.get_node_or_null("AudioControls") as Control
+	if audio != null:
+		audio.offset_top = height + 10.0
+		audio.offset_bottom = audio.offset_top + 46.0
 
 
 ## Width the cartouche row needs with every chip on it, whatever their current
@@ -189,8 +156,8 @@ func _toasts(hud: GameHud) -> void:
 	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	box.offset_left = -230.0
 	box.offset_right = 230.0
-	box.offset_top = 84.0
-	box.offset_bottom = 84.0
+	box.offset_top = hud.top_bar.offset_bottom + 16.0
+	box.offset_bottom = box.offset_top
 
 
 ## The estates card on a phone: the panel keeps the sizing rules, the head the

@@ -1334,3 +1334,156 @@ func _civilian_context(at_war: bool = false) -> Dictionary:
 		"capital_tile": CivilianFixture.BARE_TILE,
 		"at_war": at_war,
 	}
+
+
+# --- from test_ai_research.gd ------------------------------------------------
+## Rival research policy (wiki: ai-architecture § Research planner,
+## research-state, tech-tree): scoring, funding, slot filling, and the shared
+## ResearchTurn actually advancing a rival's tree.
+
+
+func _research_config(weights: Dictionary = {}) -> AiConfig:
+	var config := AiConfig.new()
+	config.faction = 3
+	config.profile = AiProfile.NORMAL
+	var merged: Dictionary = {
+		"economy": 2, "military": 2, "diplomacy": 2, "research": 2,
+	}
+	merged.merge(weights, true)
+	config.personality = {"weights": merged}
+	config.agenda_traits = {}
+	return config
+
+
+func _has_tech(candidates: Array[Dictionary], tech_id: String) -> bool:
+	for entry: Dictionary in candidates:
+		if String(entry["tech"]) == tech_id:
+			return true
+	return false
+
+
+func test_a_fresh_court_fills_every_slot_at_medium_funding() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var assignments: Array[Dictionary] = plan["assignments"]
+	assert_eq(assignments.size(), ResearchState.DEFAULT_SLOTS)
+	for entry: Dictionary in assignments:
+		assert_eq(String(entry["funding"]), "medium")
+		assert_eq(economy.research.tech_at(int(entry["slot"])), String(entry["tech"]))
+
+
+func test_occupied_research_slots_are_left_alone() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(economy.research.assign("crop_rotation", "low", 0)["ok"]))
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var assignments: Array[Dictionary] = plan["assignments"]
+	assert_eq(assignments.size(), 2)
+	for entry: Dictionary in assignments:
+		assert_true(int(entry["slot"]) != 0)
+
+
+func test_replanning_keeps_the_same_candidates() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var before: Dictionary = AiResearchPlanner.plan(config, economy)
+	var second: Dictionary = AiResearchPlanner.plan(config, economy)
+	assert_eq(before["candidates"], second["candidates"])
+	assert_eq(second["assignments"], [] as Array[Dictionary], "no empty slots left")
+
+
+func test_a_commodity_shortfall_raises_the_tech_that_caps_it() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	economy.stockpile["timber"] = 0
+	var saw: int = AiResearchPlanner.score_for(config, economy, "saw_mill", false)
+	var crop: int = AiResearchPlanner.score_for(config, economy, "crop_rotation", false)
+	assert_true(saw > crop, "timber cap beats a tech with no cap")
+
+
+func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var peace: int = AiResearchPlanner.score_for(
+		config, economy, "organised_regiments", false
+	)
+	var war: int = AiResearchPlanner.score_for(
+		config, economy, "organised_regiments", true
+	)
+	assert_eq(war - peace, config.parameter("research.war_bonus"))
+	var gathering: int = AiResearchPlanner.score_for(
+		config, economy, "crop_rotation", true
+	)
+	assert_eq(
+		gathering,
+		AiResearchPlanner.score_for(config, economy, "crop_rotation", false),
+		"war never speeds the counting house"
+	)
+
+
+func test_research_personality_weights_steer_the_branch() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
+	var trader: AiConfig = _research_config({"military": 1, "economy": 3})
+	assert_true(
+		AiResearchPlanner.score_for(soldier, economy, "organised_regiments", false)
+		> AiResearchPlanner.score_for(soldier, economy, "crop_rotation", false)
+	)
+	assert_true(
+		AiResearchPlanner.score_for(trader, economy, "crop_rotation", false)
+		> AiResearchPlanner.score_for(trader, economy, "organised_regiments", false)
+	)
+
+
+func test_techs_already_at_their_cap_are_not_candidates() -> void:
+	assert_false(
+		AiResearchPlanner._can_teach("saw_mill", {"saw_mill": true}),
+		"a cap already granted teaches nothing"
+	)
+	assert_true(AiResearchPlanner._can_teach("saw_mill", {}))
+	assert_true(AiResearchPlanner._can_teach("printing_press", {}))
+
+
+func test_discovery_techs_wait_for_an_explorer() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var plan: Dictionary = AiResearchPlanner.plan(config, economy)
+	assert_false(_has_tech(plan["candidates"], "discovery_of_sugar"))
+	economy.research.set_revealed({"sugarCane": true})
+	plan = AiResearchPlanner.plan(config, economy)
+	assert_true(_has_tech(plan["candidates"], "discovery_of_sugar"))
+
+
+func test_planned_slots_actually_research_through_the_shared_turn() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var slot: int = int((plan["assignments"] as Array)[0]["slot"])
+	var tech: String = String((plan["assignments"] as Array)[0]["tech"])
+	# Plenty of gold so the other two slots never starve the one under test.
+	economy.treasury = 20000
+	var turns: int = ceili(float(TechCatalog.cost(tech)) / 300.0)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	for _turn in turns:
+		EconomyTurn.resolve(economy, market, {}, 0)
+	assert_eq(economy.research.tech_at(slot), ResearchState.EMPTY_TECH)
+	assert_true(economy.research.is_unlocked(tech), "medium funding buys the tech")
+
+
+func test_a_null_court_plans_no_research() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		AiResearchPlanner.plan(null, economy)["assignments"], [] as Array[Dictionary]
+	)
+	assert_eq(
+		AiResearchPlanner.plan(_research_config(), null)["assignments"],
+		[] as Array[Dictionary]
+	)
+
+
+func test_the_research_funding_knob_reads_the_registry() -> void:
+	assert_eq(AiResearchPlanner.funding_for(_research_config()), "medium")
+	assert_eq(AiResearchPlanner.funding_for(_research_config({"research": 3})), "high")
+	assert_eq(AiResearchPlanner.funding_for(_research_config({"research": 1})), "low")
+	assert_eq(AiParameterRegistry.default_of("research.funding_index"), 2)
+	assert_true(
+		AiParameterRegistry.validate({"research.funding_index": 5}).get("ok", false) == false
+	)
