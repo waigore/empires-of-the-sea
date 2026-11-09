@@ -209,97 +209,19 @@ func _fill_detail() -> void:
 		_add_option(option)
 
 
-## A waiting consent decision (call to arms, intervention) sits above the ledger
-## until the player answers it. The turn stays suspended meanwhile
-## (wiki: diplomacy § Alliances, § Intervention).
+## A waiting consent decision (call to arms, intervention, rival proposal) sits
+## above the ledger until the player answers it. The turn stays suspended
+## meanwhile (wiki: diplomacy § Alliances, § Intervention, § GP AI policy).
 func _fill_call() -> void:
 	if _call_box == null:
 		return
-	_clear(_call_box)
-	var call: Dictionary = CallToArms.pending_call_for(_state, _player)
-	var offer: Dictionary = Intervention.pending_for(_state, _player)
-	_call_box.visible = not call.is_empty() or not offer.is_empty()
-	if not offer.is_empty():
-		_call_box.add_child(_intervention_banner(offer))
-	if call.is_empty():
-		return
-	var banner := PanelContainer.new()
-	banner.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.22, 0.10, 0.08, 0.95), Color(0.72, 0.34, 0.26), 1, 3, Vector4(12, 8, 12, 8)
-		)
+	CourtPrompts.fill(
+		_call_box,
+		_state,
+		_player,
+		func(kind: String, target: int, _arg: String) -> void:
+			order_pressed.emit(kind, target, "")
 	)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 6)
-	banner.add_child(column)
-	column.add_child(_label("CALL TO ARMS", 11, Palette.GOLD_PALE))
-	var text := _label(
-		(
-			"%s has declared war on %s. Our formal alliance binds us: join the war"
-			+ " against the aggressor, or refuse and break the treaty."
-		) % [
-			FactionCatalog.name_of(int(call["aggressor"])),
-			FactionCatalog.name_of(int(call["defender"])),
-		],
-		13,
-		Palette.TEXT
-	)
-	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(text)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var join := _small_button("Join the war")
-	join.pressed.connect(
-		func() -> void: order_pressed.emit(CallToArms.KIND_JOIN, int(call["aggressor"]), "")
-	)
-	row.add_child(join)
-	var refuse := _small_button("Refuse")
-	refuse.pressed.connect(
-		func() -> void: order_pressed.emit(CallToArms.KIND_REFUSE, int(call["aggressor"]), "")
-	)
-	row.add_child(refuse)
-	column.add_child(row)
-	_call_box.add_child(banner)
-
-
-## The intervention offer: join the war, stand aside, or protest in words.
-func _intervention_banner(offer: Dictionary) -> Control:
-	var aggressor: int = int(offer["aggressor"])
-	var target: int = int(offer["target"])
-	var banner := PanelContainer.new()
-	banner.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(Color(0.18, 0.12, 0.08, 0.95), Palette.GOLD_DIM, 1, 3, Vector4(12, 8, 12, 8))
-	)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 6)
-	banner.add_child(column)
-	column.add_child(_label("INTERVENTION", 11, Palette.GOLD_PALE))
-	var text := _label(
-		(
-			"%s has declared war on %s. Our embassy stands: join the war on the"
-			+ " aggressor, stand aside and lose the embassy, or protest."
-		) % [FactionCatalog.name_of(aggressor), FactionCatalog.name_of(target)],
-		13,
-		Palette.TEXT
-	)
-	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(text)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	for choice: Array in [
-		["Intervene", Intervention.KIND_INTERVENE],
-		["Stand aside", Intervention.KIND_NOTHING],
-		["Protest", Intervention.KIND_PROTEST],
-	]:
-		var button := _small_button(String(choice[0]))
-		button.pressed.connect(
-			func() -> void: order_pressed.emit(String(choice[1]), aggressor, "")
-		)
-		row.add_child(button)
-	column.add_child(row)
-	return banner
 
 
 func _add_option(option: Dictionary) -> void:

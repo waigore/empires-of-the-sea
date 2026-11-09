@@ -4,6 +4,7 @@ extends GdToolsTest
 ## A dedicated 96x64 world is cached so the Old World holds the 31 provinces a
 ## military victory needs; MapFixture's 64x42 map is too small for that.
 
+const Fixture = preload("res://tests/map_fixture.gd")
 const WIDTH: int = 96
 const HEIGHT: int = 64
 
@@ -43,6 +44,7 @@ func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
 	var turn_before: int = _screen.turn
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_not_null(_screen.play.victory)
 	assert_true(_screen.play.victory.won_by(MapScreen.PLAYER_FACTION))
@@ -59,6 +61,7 @@ func test_a_rival_crown_wins_and_the_map_stops_taking_orders() -> void:
 	_grant_old_world(1)
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_not_null(_screen.play.victory)
 	assert_true(_screen.play.victory.won_by(1))
@@ -74,6 +77,7 @@ func test_a_rival_crown_wins_and_the_map_stops_taking_orders() -> void:
 func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 	_grant_old_world(MapScreen.PLAYER_FACTION)
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_true(_screen.hud.is_victory_shown())
 
 	_screen.hud.victory_overlay.dismiss()
@@ -81,6 +85,7 @@ func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 	assert_false(_screen.hud.is_victory_shown())
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before, "dismissing the plate does not reopen play")
 	assert_false(_screen.hud.is_victory_shown(), "no second plate; the campaign stays decided")
 
@@ -88,6 +93,7 @@ func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	_grant_old_world(MapScreen.PLAYER_FACTION)
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	var decided: VictoryState = _screen.play.victory
 	assert_not_null(decided)
 	var save: Dictionary = SaveCodec.capture(_screen.play)
@@ -108,6 +114,7 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	assert_eq(_screen.hud._end_turn_button.text, "CAMPAIGN ENDED")
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before, "turns stay shut after a load")
 
 

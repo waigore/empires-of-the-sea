@@ -82,6 +82,7 @@ func test_a_field_army_marches_once_and_resets_next_turn() -> void:
 	assert_true(field.moved)
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_false(field.moved)
 
@@ -178,6 +179,7 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	assert_eq(field.province, target)
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_eq(_screen.model.province_owner(target), MapScreen.PLAYER_FACTION)
 

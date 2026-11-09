@@ -23,6 +23,9 @@ var pending_calls: Array[Dictionary] = []
 ## Intervention offers the human court has not answered:
 ## {aggressor, target, court} (wiki: diplomacy § Intervention).
 var pending_interventions: Array[Dictionary] = []
+## Rival proposals the human court has not answered:
+## {from, kind, stage} (wiki: diplomacy § GP AI policy → court hand-off).
+var pending_offers: Array[Dictionary] = []
 ## Append-only recent history for the court and tests.
 var events: Array[Dictionary] = []
 
@@ -51,6 +54,7 @@ func reset(at_turn: int) -> void:
 	alliance_snapshot.clear()
 	pending_calls.clear()
 	pending_interventions.clear()
+	pending_offers.clear()
 	_modified.clear()
 	_order_counts.clear()
 
@@ -245,6 +249,9 @@ func clear_relations_of(faction: int) -> void:
 		var offer: Dictionary = pending_interventions[index]
 		if int(offer.get("aggressor", -1)) == faction or int(offer.get("target", -1)) == faction:
 			pending_interventions.remove_at(index)
+	for index in range(pending_offers.size() - 1, -1, -1):
+		if int(pending_offers[index].get("from", -1)) == faction:
+			pending_offers.remove_at(index)
 	for key: String in overtures.keys():
 		var parts: PackedStringArray = key.split(">")
 		if int(parts[0]) == faction or int(parts[1]) == faction:

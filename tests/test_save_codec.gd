@@ -51,6 +51,8 @@ func _new_screen(pending: Dictionary = {}) -> MapScreen:
 func test_round_trip_restores_session_world_and_layers() -> void:
 	var play: PlaySession = screen.play
 	MapPlayTurn.end_turn(play)
+	while DiplomacyProposals.has_pending(play.diplomacy, 0):
+		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
 	play.economy.economy.treasury = 4321
 	play.economy.economy.stockpile["grain"] = 77
 	play.economy.economy.workers.set_count(1, 3)
@@ -80,6 +82,12 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	play.army_layer.armies[0].moved = true
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, 1)
 	Intervention.queue_human(play.diplomacy, 3, 6, play.player_faction)
+	assert_true(
+		DiplomacyProposals.queue(
+			play.diplomacy, play.world, 2,
+			DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
+		)["ok"]
+	)
 	play.charted_provinces[foreign] = true
 	play.leaders[play.player_faction] = LeaderCatalog.DEFAULT_KEY
 
@@ -142,6 +150,10 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	assert_true(
 		Intervention.has_pending(play.diplomacy, play.player_faction),
 		"a waiting intervention restored"
+	)
+	assert_true(
+		DiplomacyProposals.has_pending(play.diplomacy, play.player_faction),
+		"a waiting rival proposal restored"
 	)
 	assert_true(play.charted_provinces.has(foreign), "charted provinces restored")
 	assert_eq(
