@@ -348,11 +348,8 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	play.emit_battle_resolved(battles)
 
 
-## End-of-turn visibility pass (wiki: fog-and-exploration). One pass per region:
-## knowledge decays and coasts reveal whether or not that map is on screen, so a
-## chart cannot be kept forever by switching regions before the turn closes.
-## Only the shown region's fog texture is repainted. Zones with a fleet at sea
-## stay visible; charted coasts fade until an explorer holds them.
+## End-of-turn visibility for every region (wiki: fog-and-exploration). Knowledge
+## decays off-screen too; only the shown region's fog texture is repainted.
 static func _resolve_visibility(play: PlaySession) -> void:
 	if play.visibility_by_region.is_empty():
 		return
@@ -372,8 +369,7 @@ static func _resolve_visibility(play: PlaySession) -> void:
 			play.overlay.sync_visibility(visibility, changed)
 
 
-## The shown region keeps its live roster; the other region is read from the
-## layer's stored per-region table.
+## Live roster for the shown region; stored table for the other.
 static func _fleets_of(play: PlaySession, index: int) -> Array[FleetState]:
 	var fleets: Array[FleetState] = []
 	if play.ship_layer == null:
