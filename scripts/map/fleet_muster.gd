@@ -63,9 +63,10 @@ func _make_fleet(
 	model: MapModel, id: int, owner: int, player_capital: int, player: int
 ) -> FleetState:
 	if owner == player and player_capital >= 0 and id == 2:
-		var port: int = _player_port(model, player_capital, player)
-		if port >= 0:
-			return FleetState.in_port(id, owner, port)
+		# The home fleet: moored at the crown's seat, its merchant hulls carry
+		# the opening trade cargo (wiki: ships-and-naval § Home Fleet).
+		if NavalMovement.has_harbour(model, player_capital):
+			return FleetState.in_port(id, owner, player_capital)
 	var zones: Array[int] = _coastal_zones(model, owner)
 	if zones.is_empty():
 		for zone: SeaZoneState in model.sea_zones:
@@ -101,19 +102,3 @@ func _coastal_zones(model: MapModel, owner: int) -> Array[int]:
 	zones.sort()
 	return zones
 
-
-func _player_port(model: MapModel, player_capital: int, player: int) -> int:
-	# Sea-going fleets never sit in the capital port (home-fleet rule); prefer a
-	# non-capital harbour, and the capital only when it is the sole option.
-	for province: ProvinceState in model.provinces:
-		if province.owner != player:
-			continue
-		var province_id: int = province.id
-		if province_id == player_capital:
-			continue
-		if NavalMovement.has_harbour(model, province_id):
-			return province_id
-	if player_capital >= 0 and model.province_owner(player_capital) == player:
-		if NavalMovement.has_harbour(model, player_capital):
-			return player_capital
-	return -1

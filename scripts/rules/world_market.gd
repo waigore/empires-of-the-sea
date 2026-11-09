@@ -43,6 +43,15 @@ func offer_volume(id: String) -> int:
 	return int(_offers.get(id, 0))
 
 
+## Units bought this turn across every commodity: the tonnage merchant cargo
+## must carry (wiki: world-market § Cargo).
+func bought_units() -> int:
+	var total: int = 0
+	for id: Variant in _bids.keys():
+		total += int(_bids[id])
+	return total
+
+
 ## Buys at the current price and records the bid for price discovery.
 func buy(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
 	if not can_trade(id):
