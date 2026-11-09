@@ -39,6 +39,11 @@ Patrol or a standing Blockade roll; a squadron merely holding station adds
 nothing to the chance. Interception resolves at the end of Movement, before the
 zone's normal battle.
 
+A crown holding **Privateering Companies** multiplies its intercepting score by
+`1.25` before the clamp, on both movement interception and trade raids; the
+target's own charter never helps the interceptor. The fleet dossier names the
+bonus for a squadron at sea.
+
 ## Retreat
 
 ```text
@@ -68,7 +73,7 @@ coast raid; each squadron rolls in its own zone, and a blockade bonus never
 crosses zones. The cargo at risk is this turn's world-market imports; losses
 come out of the stockpile before the ledger closes. Escorts are the home fleet's
 warship HULL; cargo is its merchant HULL. Deferred: civilian/home-fleet hull
-losses, privateering bonus, and AI victim economies.
+losses and AI victim economies.
 
 ## Architecture
 

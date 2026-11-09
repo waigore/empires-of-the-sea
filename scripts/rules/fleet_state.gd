@@ -179,17 +179,31 @@ func remove_hull(hull_id: String) -> bool:
 	return true
 
 
-## Absorbs another fleet's hulls in order, preserving instance ids and types.
-## A duplicate id stays with the receiving fleet (wiki: ships-and-naval
-## § Ship instances — combine appends, never duplicates).
-func merge_from(source: FleetState) -> void:
+## Absorbs another fleet's hulls and passengers in order, preserving instance
+## ids and types. A duplicate id stays with the receiving fleet (wiki:
+## ships-and-naval § Ship instances — combine appends, never duplicates).
+## One army per squadron, so when both already carry one the source army is
+## returned for the caller to land at the port rather than lost in the merge.
+func merge_from(source: FleetState) -> int:
 	if source == null:
-		return
+		return -1
 	for hull_id: String in source.hulls:
 		if hulls.has(hull_id):
 			continue
 		hulls.append(hull_id)
 		hull_types[hull_id] = source.type_of(hull_id)
+	for unit_id: int in source.embarked_civilians:
+		add_civilian(unit_id)
+	source.embarked_civilians.clear()
+	if source.embarked_army < 0:
+		return -1
+	var displaced: int = -1
+	if embarked_army < 0:
+		embarked_army = source.embarked_army
+	else:
+		displaced = source.embarked_army
+	source.embarked_army = -1
+	return displaced
 
 
 func count_of_type(type_id: String) -> int:

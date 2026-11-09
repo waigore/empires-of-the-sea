@@ -173,3 +173,89 @@ func test_only_the_station_holders_join_the_roll() -> void:
 	assert_almost_eq(
 		float(battles[0]["interception_chance"]), 0.5 * 4.0 / 6.0, 0.0001
 	)
+
+
+## Crown-tech query: `owner` holds Privateering Companies, nobody else does.
+func _charter(owner: int) -> Callable:
+	return func(crown: int, tech_id: String) -> bool:
+		return crown == owner and tech_id == NavalInterception.PRIVATEERING_TECH
+
+
+func test_privateers_multiply_the_intercept_score() -> void:
+	var sloop := _squadron(1, 0, 0, "sloop", 1)
+	var fluyte := _squadron(2, 1, 0, "fluyte", 1)
+	var plain: float = NavalInterception.chance(
+		[sloop], [fluyte], FleetState.Mission.PATROL
+	)
+	var chartered: float = NavalInterception.chance(
+		[sloop], [fluyte], FleetState.Mission.PATROL, _charter(0)
+	)
+	assert_almost_eq(plain, 0.5 * 4.0 / 7.0, 0.0001)
+	# Σintercept 4 × 1.25 = 5 against the same flee score of 3.
+	assert_almost_eq(chartered, 0.5 * 5.0 / 8.0, 0.0001)
+	assert_gt(chartered, plain)
+
+
+func test_only_the_interceptors_charter_counts() -> void:
+	var sloop := _squadron(1, 0, 0, "sloop", 1)
+	var fluyte := _squadron(2, 1, 0, "fluyte", 1)
+	# The target's own privateers never help the interceptor.
+	assert_almost_eq(
+		NavalInterception.chance(
+			[sloop], [fluyte], FleetState.Mission.PATROL, _charter(1)
+		),
+		0.5 * 4.0 / 7.0,
+		0.0001
+	)
+	# A crown without the tech gets the plain table.
+	assert_almost_eq(
+		NavalInterception.chance(
+			[sloop], [fluyte], FleetState.Mission.PATROL, _charter(4)
+		),
+		0.5 * 4.0 / 7.0,
+		0.0001
+	)
+
+
+func test_a_privateer_patrol_wins_a_roll_a_plain_one_misses() -> void:
+	# 0.30 lies between the plain 4/14 and the chartered 5/16.
+	var plain_patrol := _squadron(1, 0, 0, "sloop", 1)
+	plain_patrol.mission = FleetState.Mission.PATROL
+	var plain_mover := _squadron(2, 1, 0, "fluyte", 1)
+	plain_mover.moved = true
+	var plain: Array[Dictionary] = NavalCombat.resolve_turn(
+		[plain_patrol, plain_mover], Callable(), {"interception_roll": 0.30}
+	)
+	assert_false(bool(plain[0]["intercepted"]))
+	var chartered_patrol := _squadron(3, 0, 0, "sloop", 1)
+	chartered_patrol.mission = FleetState.Mission.PATROL
+	var chartered_mover := _squadron(4, 1, 0, "fluyte", 1)
+	chartered_mover.moved = true
+	var chartered: Array[Dictionary] = NavalCombat.resolve_turn(
+		[chartered_patrol, chartered_mover],
+		Callable(),
+		{"interception_roll": 0.30, "has_tech": _charter(0)}
+	)
+	assert_true(bool(chartered[0]["intercepted"]))
+	assert_eq(int(chartered[0]["attacker"]), 0)
+
+
+func test_the_dossier_reads_the_privateer_charter() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.model = _model
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	play.economy = economy
+	var fleet := _squadron(1, 0, 0, "sloop", 1)
+	fleet.mission = FleetState.Mission.PATROL
+	assert_false(MapPlayFleetMissions.note(play, fleet).contains("Privateers"))
+	economy.economy.tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	var note: String = MapPlayFleetMissions.note(play, fleet)
+	assert_true(note.contains("On patrol"))
+	assert_true(note.contains("Privateers"))
+	assert_true(note.contains("+25%"))
+	# A squadron in port can take no station, so the charter is not dangled.
+	var docked := FleetState.in_port(2, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	assert_false(MapPlayFleetMissions.note(play, docked).contains("Privateers"))
+	economy.free()

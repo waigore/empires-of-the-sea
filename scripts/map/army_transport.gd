@@ -100,6 +100,24 @@ static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 	return lost
 
 
+## Puts a surplus army ashore when two squadrons merge and only one can stay
+## aboard (wiki: ships-and-naval § Naval transport — a squadron lands its army
+## on its port province). The port is the crown's own, so no beachhead is
+## needed; the landing spends the army's march.
+static func put_ashore(layer: ArmyLayer, army_id: int, province_id: int) -> Dictionary:
+	var army: ArmyState = army_by_id(layer, army_id)
+	if army == null:
+		return {"ok": false, "reason": "No army to land."}
+	if layer.model == null or layer.model.province_owner(province_id) != army.owner:
+		return {"ok": false, "reason": "That port is not ours."}
+	army.province = province_id
+	army.embarked_fleet = -1
+	army.moved = true
+	if layer.armies.has(army):
+		layer.add_marker(army)
+	return {"ok": true, "reason": "", "army": army}
+
+
 static func region_of(layer: ArmyLayer, army: ArmyState) -> int:
 	if layer.model != null and layer.armies.has(army):
 		return layer.model.region_id

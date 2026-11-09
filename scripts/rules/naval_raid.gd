@@ -14,7 +14,9 @@ const MAX_EFFICIENCY: float = 0.7
 
 
 ## One raider group tries the home fleet's cargo. `roll_value` is for tests; a
-## negative value uses the deterministic campaign roll.
+## negative value uses the deterministic campaign roll. `has_tech` is the
+## crown-tech query: a raider holding Privateering Companies raids better
+## (wiki: ships-and-naval § Trade and Transport Interception).
 static func resolve(
 	model: MapModel,
 	fleets: Array,
@@ -24,7 +26,8 @@ static func resolve(
 	hostile: Callable = Callable(),
 	seed_value: int = 0,
 	turn: int = 0,
-	roll_value: float = -1.0
+	roll_value: float = -1.0,
+	has_tech: Callable = Callable()
 ) -> Dictionary:
 	if model == null or home == null or imports.is_empty():
 		return {"ok": false, "reason": "no cargo at sea"}
@@ -48,7 +51,7 @@ static func resolve(
 		# The trade-raid formula uses a common base chance times the blockade
 		# bonus; the movement table's own mission factor would double-count it.
 		var base: float = NavalInterception.chance(
-			group, [home], FleetState.Mission.PATROL
+			group, [home], FleetState.Mission.PATROL, has_tech
 		)
 		var bonus: float = (
 			BLOCKADE_BONUS if mission == FleetState.Mission.BLOCKADE else 1.0

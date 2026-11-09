@@ -97,7 +97,9 @@ static func refresh_panel(play: PlaySession) -> void:
 ## Build/Work pass: the layer advances every region's orders (looking at another
 ## map must not pause the empire) and reports completions for the map on screen.
 static func resolve_work(play: PlaySession) -> void:
-	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
+	var economy: PlayerEconomy = null
+	if play.economy != null and not play.observer_mode:
+		economy = play.economy.economy
 	for report: Dictionary in play.civilian_layer.begin_turn(
 		play.world, play.visibility_by_region, economy
 	):
