@@ -43,6 +43,7 @@ static func settle(
 					"owner": int(entry["faction"]),
 					"to": int(entry["province"]),
 					"region": index,
+					"ashore": result.get("ashore", []),
 				})
 				touched = true
 		for row: Dictionary in NavalPortLoss.evict_stranded(model, roster):

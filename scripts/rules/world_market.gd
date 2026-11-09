@@ -63,6 +63,12 @@ func bought_units_for(faction: int) -> int:
 	return int(_bought_by_faction.get(faction, 0))
 
 
+## This turn's imports per commodity, for the naval raid pass (wiki:
+## ships-and-naval § Trade and Transport Interception).
+func imports_this_turn() -> Dictionary:
+	return _bids.duplicate()
+
+
 ## Buys at the current price and records the bid for price discovery.
 func buy(
 	economy: PlayerEconomy,

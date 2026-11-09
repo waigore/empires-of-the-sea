@@ -48,6 +48,7 @@ func _show_main_menu(notice: String = "") -> void:
 	var menu: MainMenu = MAIN_MENU.instantiate()
 	menu.new_game_pressed.connect(_show_setup)
 	menu.load_game_pressed.connect(_show_main_load)
+	menu.observer_pressed.connect(_start_observer)
 	menu.quit_pressed.connect(func() -> void: get_tree().quit())
 	add_child(menu)
 	menu.set_notice(notice)
@@ -58,7 +59,7 @@ func _show_setup() -> void:
 	_clear_page()
 	var setup: GameSetupScreen = GAME_SETUP.instantiate()
 	setup.start_requested.connect(_start_new_game)
-	setup.back_pressed.connect(func() -> void: _show_main_menu())
+	setup.back_pressed.connect(_back_to_menu)
 	add_child(setup)
 	current_page = setup
 
@@ -67,10 +68,18 @@ func _show_main_load() -> void:
 	_clear_page()
 	var browser: SaveBrowser = SAVE_BROWSER.instantiate()
 	browser.slot_chosen.connect(_load_save)
-	browser.back_pressed.connect(func() -> void: _show_main_menu())
+	browser.back_pressed.connect(_back_to_menu)
 	add_child(browser)
 	browser.setup(SaveBrowser.Mode.LOAD)
 	current_page = browser
+
+
+## Android delivers the back request to every node in the tree, so a page that
+## swaps itself out synchronously hands the same event to the page it just
+## installed — the freshly built title screen would then quit the app. Swap on
+## the next idle frame instead (REQ-P5-01, REQ-P5-07).
+func _back_to_menu() -> void:
+	_show_main_menu.call_deferred()
 
 
 # --- games -------------------------------------------------------------------
@@ -87,6 +96,27 @@ func _start_new_game(config: GameConfig) -> void:
 	screen.player_faction = config.player_faction
 	screen.player_leader = config.player_leader
 	screen.infinite_mode = config.infinite_mode
+	_install_screen(screen)
+
+
+## Debug entry: an all-AI campaign on the new-game defaults (wiki: game-setup
+## § Human/AI slot assignment — an empty human slot set is the full-AI observer).
+func _start_observer() -> void:
+	var config: GameConfig = _default_config()
+	if size_override.x > 0 and size_override.y > 0:
+		config.map_width = size_override.x
+		config.map_height = size_override.y
+	config.player_leader = LeaderCatalog.default_key(config.player_faction)
+	# Only a whole-game observer may outlast the calendar cap (DR-20261108-05).
+	config.infinite_mode = true
+	var screen: MapScreen = _new_screen()
+	screen.map_seed = config.map_seed
+	screen.map_width = config.map_width
+	screen.map_height = config.map_height
+	screen.player_faction = config.player_faction
+	screen.player_leader = config.player_leader
+	screen.infinite_mode = true
+	screen.observer_mode = true
 	_install_screen(screen)
 
 

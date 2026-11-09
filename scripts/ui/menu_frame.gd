@@ -4,7 +4,12 @@ extends RefCounted
 ## pause). Keeps one look and one set of touch-sized targets (REQ-P1-02, P1-05).
 
 const BUTTON_HEIGHT: float = 52.0
+## Thumb-sized but compact: a 20:9 phone held landscape reports ~411 points of
+## height, and the title page has to fit there without a scroll (REQ-P5-01).
+const BUTTON_HEIGHT_SHORT: float = 44.0
 const PANEL_WIDTH: float = 520.0
+## Below this height the menu pages switch to their compact arrangement.
+const SHORT_HEIGHT: float = 620.0
 
 
 ## Paints the full-screen ink ground every menu page sits on.
@@ -26,6 +31,31 @@ static func backdrop(host: Control) -> ColorRect:
 ## Centred vertical column, safe on phones and tablets. A scroll container keeps
 ## every row reachable on short landscape screens.
 static func column(host: Control, width: float = PANEL_WIDTH) -> VBoxContainer:
+	var scroll := _scroller(host)
+	return _column(scroll, host, width, true)
+
+
+## Page with a pinned action row: the content scrolls, the footer never does,
+## so the primary action cannot fall below the fold on a phone (REQ-P5-01).
+static func page(host: Control, width: float, footer: Control) -> VBoxContainer:
+	var frame := VBoxContainer.new()
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.offset_left = 16.0
+	frame.offset_top = 16.0
+	frame.offset_right = -16.0
+	frame.offset_bottom = -16.0
+	frame.add_theme_constant_override("separation", 10)
+	host.add_child(frame)
+
+	var scroll := _scroller(frame)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var box: VBoxContainer = _column(scroll, host, width, false)
+	if footer != null:
+		frame.add_child(footer)
+	return box
+
+
+static func _scroller(host: Control) -> ScrollContainer:
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_left = 16.0
@@ -33,19 +63,36 @@ static func column(host: Control, width: float = PANEL_WIDTH) -> VBoxContainer:
 	scroll.offset_right = -16.0
 	scroll.offset_bottom = -16.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	host.add_child(scroll)
+	return scroll
 
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
+
+## The column is centred while it fits and scrolls from its top once it does
+## not: a centred container that merely fills the viewport would clip the
+## heading and the footer at the same time and open the page mid-way down.
+static func _column(
+	scroll: ScrollContainer, host: Control, width: float, centre: bool
+) -> VBoxContainer:
+	var frame := CenterContainer.new()
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	if centre:
+		frame.custom_minimum_size.y = maxf(host.get_viewport_rect().size.y - 32.0, 0.0)
+	scroll.add_child(frame)
 
 	var available: float = maxf(host.get_viewport_rect().size.x - 32.0, 240.0)
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(minf(width, available), 0.0)
 	box.add_theme_constant_override("separation", 12)
-	center.add_child(box)
+	frame.add_child(box)
 	return box
+
+
+## True on a phone held landscape, where every decorative row competes with the
+## action the player came for (REQ-P1-05, REQ-P5-01).
+static func is_short(host: Control) -> bool:
+	return host.get_viewport_rect().size.y < SHORT_HEIGHT
 
 
 static func crest(size: int = 72) -> Control:

@@ -21,6 +21,10 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 		return true
 	if play == null:
 		return false
+	var roster: CivilianRosterPanel = play.hud.civilian_roster
+	if roster != null and roster.is_open():
+		roster.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

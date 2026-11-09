@@ -156,6 +156,7 @@ static func establish_beachhead(
 		return check
 	fleet.beachhead_province = province_id
 	fleet.beachhead_turn = turn
+	fleet.mission = FleetState.Mission.BEACHHEAD
 	fleet.moved = true
 	return {
 		"ok": true,
@@ -204,7 +205,9 @@ static func expire_beachheads(fleets: Array[FleetState], turn: int) -> void:
 
 ## The army may land on its owner's coast: the port province when docked, or a
 ## province bordering the fleet's sea zone. A hostile shore needs a ready
-## beachhead (wiki: ships-and-naval § Missions and Movement).
+## beachhead (wiki: ships-and-naval § Missions and Movement). The squadron's own
+## roster names the troops it carries; the army's back-pointer may lag a
+## renumbered or merged squadron, so it is not the gate.
 static func can_disembark(
 	model: MapModel,
 	army: ArmyState,
@@ -215,7 +218,7 @@ static func can_disembark(
 ) -> Dictionary:
 	if army == null or fleet == null:
 		return _deny("No army is aboard this fleet.")
-	if army.embarked_fleet != fleet.id or fleet.embarked_army != army.id:
+	if fleet.embarked_army != army.id:
 		return _deny("No army is aboard this fleet.")
 	if model == null or model.province_data(province_id) == null:
 		return _deny("That is not a province.")

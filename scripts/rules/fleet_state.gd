@@ -8,6 +8,7 @@ extends RefCounted
 ## older fleet data keeps working (wiki: § Ship instances).
 
 enum Location { AT_SEA, IN_PORT }
+enum Mission { NONE, MOVE, PATROL, BLOCKADE, DEFEND, BEACHHEAD }
 
 var id: int = -1
 var owner: int = 0
@@ -15,6 +16,12 @@ var location: int = Location.AT_SEA
 var sea_zone: int = MapModel.NO_ID
 var province: int = MapModel.NO_ID
 var moved: bool = false
+## Station order for this turn (wiki: ships-and-naval § Missions and Movement).
+## A mission persists until the squadron sails, docks or is reassigned; taking a
+## station spends the turn's move (DR-20261109-16).
+var mission: int = Mission.NONE
+## Enemy province this squadron blockades, or NO_ID for every other station.
+var blockade_province: int = MapModel.NO_ID
 var hulls: Array[String] = []
 var hull_types: Dictionary = {}
 ## Army instance id carried aboard, or -1 (wiki: ships-and-naval § Naval
@@ -108,6 +115,14 @@ func has_beachhead() -> bool:
 func clear_beachhead() -> void:
 	beachhead_province = MapModel.NO_ID
 	beachhead_turn = -1
+	if mission == Mission.BEACHHEAD:
+		clear_mission()
+
+
+## Stands the squadron down: a normal move or a new station replaces the order.
+func clear_mission() -> void:
+	mission = Mission.NONE
+	blockade_province = MapModel.NO_ID
 
 
 func ship_count() -> int:
@@ -164,17 +179,31 @@ func remove_hull(hull_id: String) -> bool:
 	return true
 
 
-## Absorbs another fleet's hulls in order, preserving instance ids and types.
-## A duplicate id stays with the receiving fleet (wiki: ships-and-naval
-## § Ship instances — combine appends, never duplicates).
-func merge_from(source: FleetState) -> void:
+## Absorbs another fleet's hulls and passengers in order, preserving instance
+## ids and types. A duplicate id stays with the receiving fleet (wiki:
+## ships-and-naval § Ship instances — combine appends, never duplicates).
+## One army per squadron, so when both already carry one the source army is
+## returned for the caller to land at the port rather than lost in the merge.
+func merge_from(source: FleetState) -> int:
 	if source == null:
-		return
+		return -1
 	for hull_id: String in source.hulls:
 		if hulls.has(hull_id):
 			continue
 		hulls.append(hull_id)
 		hull_types[hull_id] = source.type_of(hull_id)
+	for unit_id: int in source.embarked_civilians:
+		add_civilian(unit_id)
+	source.embarked_civilians.clear()
+	if source.embarked_army < 0:
+		return -1
+	var displaced: int = -1
+	if embarked_army < 0:
+		embarked_army = source.embarked_army
+	else:
+		displaced = source.embarked_army
+	source.embarked_army = -1
+	return displaced
 
 
 func count_of_type(type_id: String) -> int:
@@ -207,6 +236,8 @@ func to_dict() -> Dictionary:
 		"sea_zone": sea_zone,
 		"province": province,
 		"moved": moved,
+		"mission": mission,
+		"blockade_province": blockade_province,
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
 		"embarked_army": embarked_army,
@@ -224,6 +255,8 @@ static func from_dict(data: Dictionary) -> FleetState:
 	fleet.sea_zone = int(data.get("sea_zone", MapModel.NO_ID))
 	fleet.province = int(data.get("province", MapModel.NO_ID))
 	fleet.moved = bool(data.get("moved", false))
+	fleet.mission = int(data.get("mission", Mission.NONE))
+	fleet.blockade_province = int(data.get("blockade_province", MapModel.NO_ID))
 	fleet.embarked_army = int(data.get("embarked_army", -1))
 	for raw: Variant in data.get("embarked_civilians", []):
 		fleet.embarked_civilians.append(int(raw))
