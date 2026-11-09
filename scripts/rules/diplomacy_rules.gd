@@ -194,6 +194,18 @@ static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
 	return record != null and record.at_war
 
 
+## Land a Great Power may enter as an invader: a declared enemy's, or a Tribe's
+## without any declaration (wiki: factions § Tribe — tribes are meant to be
+## easily conquered). Purchased-tile protection is not modelled yet because land
+## purchase is deferred (DR-20261108-06).
+static func invadable(state: DiplomacyState, attacker: int, target: int) -> bool:
+	if attacker == target:
+		return false
+	if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
+		return true
+	return at_war_with(state, attacker, target)
+
+
 static func provinces_owned(world: WorldMap, faction: int) -> int:
 	if world == null:
 		return 0

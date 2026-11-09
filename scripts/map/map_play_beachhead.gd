@@ -6,10 +6,11 @@ extends RefCounted
 ## PlaySession views (REQ-P3-02, REQ-P3-03).
 
 
-## The court's war query, so only a declared enemy's coast can be marked.
+## The court's invasion query: a declared enemy's coast, or a Tribe's, which
+## needs no declaration (wiki: factions § Tribe).
 static func hostile(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
-		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
+		return DiplomacyRules.invadable(play.diplomacy, a, b)
 
 
 ## One row per hostile coast bordering the squadron's sea zone.
