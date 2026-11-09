@@ -51,6 +51,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
@@ -346,6 +347,10 @@ match = "scripts/rules/diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/dialogue_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
@@ -464,6 +469,10 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_prompts.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -601,6 +610,10 @@ domain = "civilian"
 
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]
