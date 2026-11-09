@@ -104,9 +104,7 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 		return
 	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		return
-	var result: Dictionary = DiplomacyProposals.resolve_human(
-		play.diplomacy, play.world, accept
-	)
+	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.world, accept)
 	if not bool(result.get("ok", false)):
 		if play.hud != null:
 			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
