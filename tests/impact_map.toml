@@ -707,6 +707,12 @@ domain = "save"
 match = "tests/test_panel_dock.gd"
 domain = "ui"
 
+# Espionage suites live with their rules, so a spy change never needs the full
+# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too).
+[[rules]]
+match = "tests/test_spy_*.gd*"
+domain = "espionage"
+
 [[rules]]
 match = "tests/test_*.gd"
 full = true
