@@ -205,6 +205,26 @@ func test_a_refused_peace_waits_the_peace_cooldown() -> void:
 	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
 
 
+func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
+	# The 4-turn war cooldown gates another Declare War on that pair, never the
+	# peace leg of the same pair (wiki: diplomacy § Configurable Values —
+	# "Applies to AI-initiated Declare War re-attempts"; DR-20261108-01).
+	state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(state, 0, 1)
+	ai_state.note_war(0, 1, 1)
+	var context: Dictionary = AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state, AiFixture.world([0, 1]), 2, context
+	)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a war that stopped being worth waging still offers peace after declaring"
+	)
+	assert_eq(int((plan["action"] as Dictionary).get("target", -1)), 1)
+
+
 func test_war_goal_clamps_to_the_target_province_count() -> void:
 	assert_eq(AiDiplomacyPlanner.desired_territory(75, 5), 3)
 	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
