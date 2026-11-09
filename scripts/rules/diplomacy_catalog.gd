@@ -56,6 +56,8 @@ const ALLIANCE_CLAMP: float = 76.0
 const BREAK_ALLY_PENALTY: float = 50.0
 const BREAK_CASCADE_PENALTY: float = 10.0
 const PROTEST_PENALTY: float = 10.0
+## Protest against an aggressor holding Propaganda (wiki: tech-tree-diplomacy-civilian).
+const PROTEST_PENALTY_PROPAGANDA: float = 5.0
 const SPY_DEATH_PENALTY: float = 8.0
 
 const METER_LABELS: Array[String] = [

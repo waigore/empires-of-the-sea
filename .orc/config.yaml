@@ -7,14 +7,15 @@ orchestrator:
   gate_backoff_max_seconds: 60
   stagger_seconds: 5
   schedule_poll_seconds: 5
+  timezone: Asia/Hong_Kong
   worktrees_dir: .orc/worktrees
   logs_dir: .orc/logs
   repo_root: .
   pull_before_run: true
   default_branch: main
 
-# Agents listed under schedules are schedule-only (no cooldown loop). Cron uses the
-# host local timezone. Overrunning a tick skips missed fires (no catch-up).
+# Agents listed under schedules are schedule-only (no cooldown loop). Cron uses
+# orchestrator.timezone. Overrunning a tick skips missed fires (no catch-up).
 schedules:
   hourly-refactor:
     cron: "0 * * * *"
@@ -32,6 +33,7 @@ schedules:
     cron: "*/30 * * * *"
     agents:
       - babysit-pr-agent
+  # 8am / 12pm / 6pm HKT
   thrice-daily-android-debug:
     cron: "0 8,12,18 * * *"
     agents:
