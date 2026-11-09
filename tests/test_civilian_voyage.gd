@@ -226,10 +226,33 @@ func test_a_sunken_squadron_drowns_its_passengers() -> void:
 	layer.units = [safe, lost]
 	layer.regions.set_region(0, layer.units)
 
-	var dropped: Array[CivilianState] = CivilianVoyageMap.drop_lost(layer, {5: true})
+	var dropped: Array[CivilianState] = CivilianVoyageMap.drop_lost(layer, {7: 5})
 
 	assert_eq(dropped.size(), 1)
 	assert_eq(dropped[0], lost)
 	assert_eq(layer.units.size(), 1)
 	assert_true(layer.units.has(safe))
+	layer.free()
+
+
+## A crossing renumbers the squadron and a docking merge folds it into the home
+## fleet; either way the passenger's seat follows the roster that lists it.
+func test_a_passenger_follows_a_renumbered_or_merged_seat() -> void:
+	var layer := CivilianLayer.new()
+	layer.model = _model
+	var moved: CivilianState = _unit()
+	moved.embarked_fleet = 2
+	var merged: CivilianState = CivilianState.create(8, 0, "explorer", CivilianState.NO_TILE)
+	merged.embarked_fleet = 3
+	layer.units = [moved, merged]
+	layer.regions.set_region(0, layer.units)
+
+	var dropped: Array[CivilianState] = CivilianVoyageMap.drop_lost(
+		layer, {moved.id: 9, merged.id: 4}
+	)
+
+	assert_eq(dropped, [] as Array[CivilianState])
+	assert_eq(moved.embarked_fleet, 9, "the crossed squadron's new id is adopted")
+	assert_eq(merged.embarked_fleet, 4, "the home fleet's id is adopted")
+	assert_eq(layer.units.size(), 2)
 	layer.free()
