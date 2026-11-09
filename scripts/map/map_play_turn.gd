@@ -288,14 +288,14 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.world, hostile, context
 	)
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
-		play.army_layer, FleetRosters.live_ids(play.ship_layer.regions)
+		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
 	for army: ArmyState in lost:
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
 		)
 	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
-		play.civilian_layer, FleetRosters.live_ids(play.ship_layer.regions)
+		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
 	):
 		play.hud.toast(
 			"A civilian went down with a sunken squadron — lost at sea"

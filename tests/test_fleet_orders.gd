@@ -313,6 +313,74 @@ func test_the_fleet_dossier_names_the_passage() -> void:
 	assert_true(_screen.hud._fleet_panel._hint.text.contains("New World"))
 
 
+## A colonist aboard a squadron that crosses the Passage keeps its seat: the
+## entry follows into the New World roster and the end-of-turn loss pass must
+## not drown it (wiki: civilian-units § Overseas deployment; DR-20261109-17).
+func test_a_colonist_crosses_the_passage_and_survives_the_loss_pass() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = _old_world_passage()
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zone
+	fleet.province = MapModel.NO_ID
+	var colonist: CivilianState = _passenger(fleet)
+	_screen.ship_layer.select(ship)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_true(colonist.is_embarked(), "the colonist is still aboard after the crossing")
+	assert_eq(colonist.embarked_fleet, fleet.id, "its seat is the renumbered squadron")
+	assert_true(
+		CivilianVoyageMap.by_id(_screen.civilian_layer, colonist.id) == colonist,
+		"the colonist stays on the roster"
+	)
+
+
+## Docking at the seat folds the squadron into the home fleet; its passengers
+## move with the hulls and stay in the dossier (wiki: ships-and-naval § Home
+## Fleet; DR-20261109-17).
+func test_a_colonist_reaches_the_home_fleet_when_the_squadron_moors() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the opening muster moors a home squadron")
+	var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, capital)
+	assert_gt(zones.size(), 0, "the seat has a sea zone")
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	if fleet == home:
+		return
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zones[0]
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	var colonist: CivilianState = _passenger(fleet)
+	_screen.ship_layer.select(ship)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.province_tiles(capital)[0]))
+	assert_true(home.has_civilian(colonist.id), "the home fleet takes the passenger")
+	assert_false(_screen.ship_layer.fleets.has(fleet), "the sea-going squadron merges away")
+	assert_eq(int(MapPlayCivilianVoyage.crew(_screen.play, home)["count"]), 1)
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+	assert_eq(colonist.embarked_fleet, home.id, "the passenger rides the home fleet")
+	assert_true(
+		CivilianVoyageMap.by_id(_screen.civilian_layer, colonist.id) == colonist,
+		"the colonist stays on the roster"
+	)
+
+
+func _passenger(fleet: FleetState, type_id: String = "explorer") -> CivilianState:
+	var unit: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.play.player_faction, type_id, CivilianState.NO_TILE
+	)
+	unit.embark_on(fleet.id)
+	fleet.add_civilian(unit.id)
+	return unit
+
+
 func _cross_to_new_world() -> FleetState:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)

@@ -145,6 +145,19 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	assert_true(buys[buys.size() - 1].disabled, "a full hold locks the Buy rows")
 
 
+## A controller that never got a map or a ship layer still answers the ledger:
+## no holds, no overseas crossing, no home yield — never a crash.
+func test_a_bare_controller_reports_an_empty_ledger() -> void:
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+
+	assert_eq(controller.cargo_holds(), 0)
+	assert_eq(controller.extraction(), {})
+	assert_eq(int(controller.overseas_plan()["holds"]), 0)
+	assert_eq(int(controller.trade_cargo()["free"]), 0)
+	controller.free()
+
+
 func test_a_crown_without_a_home_fleet_cannot_import() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
