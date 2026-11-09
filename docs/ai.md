@@ -65,7 +65,7 @@ court UI.
 | `scripts/ai/ai_military_planner.gd` | split, defend, storm and stage orders |
 | `scripts/ai/ai_turn.gd` | per-turn pass, trace, rule application |
 | `scripts/map/map_play_diplomacy.gd` | phase wiring and toasts |
-| `scripts/map/map_play_armies.gd` | land pass: apply orders, report marches |
+| `scripts/map/map_play_army_ai.gd` | land pass: apply orders, report marches |
 
 No node deps in `scripts/ai` (`REQ-P3-03`).
 

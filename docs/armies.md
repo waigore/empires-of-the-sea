@@ -59,7 +59,7 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 `regiment_economy`, `army_training`, `army_state`, `general_roster`,
 `general_binding`, `army_modifiers`, `army_command`, `army_movement`,
 `army_combat`. View: `map/army_layer` + `army_marker`,
-`map/map_play_armies` (AI pass), `ui/army_panel`, `economy/economy_controller`,
+`map/map_play_armies`, `map/map_play_army_ai`, `ui/army_panel`, `economy/economy_controller`,
 `map_screen`.
 
 ## Controls
