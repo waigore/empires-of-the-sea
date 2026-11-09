@@ -33,6 +33,10 @@ schedules:
     cron: "*/30 * * * *"
     agents:
       - babysit-pr-agent
+  hourly-fix-tests:
+    cron: "15 * * * *"
+    agents:
+      - fix-tests-agent
   # 8am / 12pm / 6pm HKT
   thrice-daily-android-debug:
     cron: "0 8,12,18 * * *"
@@ -147,6 +151,19 @@ agents:
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       Reshape the Actions check queue (~3 active), then one same-repo PR; exit.
       Skip fork PRs.
+
+  fix-tests-agent:
+    skill: fix-tests-agent
+    provider: cursor
+    enabled: true
+    gate:
+      command:
+        - sh
+        - .agents/skills/fix-tests-agent/scripts/gate.sh
+    prompt: |
+      Run the fix-tests-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      If an open ci-tier2 issue exists, fix the full suite, open a PR, babysit to auto-merge, close the issue; then exit.
 
   export-android-debug:
     skill: export-android-debug

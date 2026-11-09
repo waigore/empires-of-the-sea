@@ -18,16 +18,18 @@ Base rules for opening and landing PRs (humans and agents).
 
 | Check | Workflow | Meaning |
 |-------|----------|---------|
-| `tests` | [CI](../.github/workflows/ci.yml) | Coverage gate when code/tests change; else no-op success |
+| `tests` | [CI](../.github/workflows/ci.yml) | **Tier 1:** impacted suites + **80% patch** on PRs; no-op if no code paths; `main` push skips |
 | `build` | [CI](../.github/workflows/ci.yml) | Headless import/compile; else no-op |
-| `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; main-scene mini-flow (`tools/e2e_smoke.gd`); else no-op |
-| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words (`tools/lint_docs_words.py`) — always |
-| `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 SOLID bars (`tools/lint_arch.py`) — always |
-| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path-based review hook (**no-op** for now) |
+| `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; mini-flow (`tools/e2e_smoke.gd`); else no-op |
+| `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words — always |
+| `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 bars (`tools/lint_arch.py`) — always |
+| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path review hook (**no-op** for now) |
 
-`tests` / `build` / `e2e-smoke` on game-code paths (`scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`; not `assets/`/CI); `build`/`e2e-smoke` also on `tools/e2e_smoke.gd`. Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
+Code paths for `tests`/`build`/`e2e-smoke`: `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
 
-Budgets ([testing.md](testing.md)): `tests` **≤5 min** (`--parallel 4`, 80% coverage); `e2e-smoke` **≤2 min**. Deep rules in `tests/`. Protect main needs `docs-lint`, `arch-lint`, `build`, `e2e-smoke`. Merge: **squash only**; delete branches; auto-merge on.
+**Tier 2** ([ci-tier2](../.github/workflows/ci-tier2.yml)): every **8h** on `main` — full suite + overall 80%. Not a PR check. Sticky `ci-tier2` issue → fix-tests agent.
+
+Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; smoke **≤2 min**. Merge: **squash only**; delete branches; auto-merge on.
 
 ### Respecting checks
 
@@ -39,7 +41,7 @@ Budgets ([testing.md](testing.md)): `tests` **≤5 min** (`--parallel 4`, 80% co
 
 ### Approval gate (no-op)
 
-`ENFORCE_APPROVAL=false` → always pass; human review optional. When `true`, non-draft PRs touching game code/tests/assets need one approving review from any write collaborator other than the author (`scenes/`, `scripts/`, `ui/`, `assets/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg`). Docs/CI-only paths stay exempt.
+`ENFORCE_APPROVAL=false` → always pass. When `true`, non-draft PRs touching game code/tests/assets need one approving review from a write collaborator other than the author. Docs/CI-only paths stay exempt.
 
 ```bash
 gh pr review <number> --approve
@@ -47,7 +49,7 @@ gh pr review <number> --approve
 
 ## Workflow with `gh`
 
-**Before:** up-to-date `main`; branch `feat/…` / `fix/…` / `docs/…`; run tests + `python tools/lint_docs_words.py` + `python tools/lint_arch.py` when relevant; clean `git status`.
+**Before:** up-to-date `main`; branch `feat/…` / `fix/…` / `docs/…`; run tests + docs/arch lints when relevant; clean `git status`.
 
 **Create:**
 
@@ -80,11 +82,6 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 
 - [ ] Maps to a pillar (`P1`–`P5`) or is docs/tooling-only
 - [ ] Opened/updated with `gh`
-- [ ] `tests` green
-- [ ] `build` green
-- [ ] `e2e-smoke` green
-- [ ] `docs-lint` green
-- [ ] `arch-lint` green
-- [ ] `approval-gate` green
+- [ ] `tests` / `build` / `e2e-smoke` / `docs-lint` / `arch-lint` / `approval-gate` green
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass

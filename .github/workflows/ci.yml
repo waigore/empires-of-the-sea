@@ -50,15 +50,22 @@ jobs:
   tests:
     name: tests
     runs-on: ubuntu-latest
-    # Hard budget: suite + coverage must finish within 5 minutes (see docs/testing.md).
+    # Tier 1: impacted suites + patch coverage (docs/testing.md). ≤5 min.
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip on push to main (tier 2 owns full suite)
+        id: skip_main_push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo 'Push to main — full suite is the 8-hourly tier-2 job.'
 
       - name: Detect code/test changes
         id: filter
-        if: github.event_name != 'workflow_dispatch'
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -71,27 +78,39 @@ jobs:
               - 'addons/**'
               - 'project.godot'
               - 'icon.svg'
+              - 'gd-tools.toml'
+              - 'tools/select_impacted_tests.py'
 
       - name: Skip suite (no code/test changes)
-        if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.filter.outputs.code != 'true'
         run: echo 'No code/test path changes — tests no-op (required check passes).'
 
       - name: Setup Python
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Lint docs word limit (≤500)
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         run: python tools/lint_docs_words.py
 
       - name: Install gd-tools
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         run: pip install "gd-tools-cli==0.10.0"
 
       - name: Setup Godot
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
@@ -99,22 +118,80 @@ jobs:
           include-templates: false
 
       - name: Verify tooling
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         run: |
           godot --version
           gd-tools version
 
       - name: Import project
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
         run: godot --headless --path . --import --quit
 
-      - name: Run tests with 80% coverage gate
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
-        # ≤5 min job: parallel workers + shared map fixtures (docs/testing.md).
-        run: gd-tools test --coverage --min 80 --parallel 4 --timeout 240 --junit-xml .gd-tools/results.xml
+      - name: Select impacted suites (strict map)
+        id: impact
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF}"
+          git fetch --no-tags --prune origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" || \
+            git fetch --no-tags origin "${GITHUB_BASE_REF}"
+          python tools/select_impacted_tests.py --check-complete
+          python tools/select_impacted_tests.py --base "$BASE" --github-output | tee /tmp/impact-suites.txt
+          echo "Base: $BASE"
 
+      - name: Run impacted tests (coverage collect, no overall min)
+        id: run_tests
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
+        run: |
+          set -euo pipefail
+          LIST=".gd-tools/impact-suites.txt"
+          if [ ! -f "$LIST" ]; then
+            echo "Missing $LIST from select step" >&2
+            exit 1
+          fi
+          if grep -qx ALL "$LIST"; then
+            echo "Impact map selected full suite"
+            gd-tools test --coverage --parallel 4 --timeout 240 --junit-xml .gd-tools/results.xml
+            exit 0
+          fi
+          mapfile -t SUITES < <(sed '/^$/d' "$LIST")
+          if [ "${#SUITES[@]}" -eq 0 ]; then
+            echo "No suites selected — nothing to run"
+            exit 0
+          fi
+          echo "Suites (${#SUITES[@]}):"
+          printf '  %s\n' "${SUITES[@]}"
+          gd-tools test --coverage --parallel 4 --timeout 240 --junit-xml .gd-tools/results.xml \
+            "${SUITES[@]}"
+
+      - name: Patch coverage gate (80% of changed executable lines)
+        if: >-
+          (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true'))
+          && steps.run_tests.outcome == 'success'
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          BASE="origin/${GITHUB_BASE_REF}"
+          # Empty / comment-only patches pass (gd-tools: empty patch never fails).
+          gd-tools coverage diff --patch --base "$BASE" \
+            --patch-fail-under 80 --patch-annotations true
       - name: Upload test & coverage artifacts
-        if: always() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true')
+        if: >-
+          always() &&
+          (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true'))
         uses: actions/upload-artifact@v4
         with:
           name: test-and-coverage
