@@ -70,6 +70,8 @@ List touched `P1`–`P5` and every applicable `RUB-*`. N/A only when outside the
 
 Branch `feat/…` or `fix/…` from up-to-date `main`. Match wiki behavior; UI/AI must not bypass rules (`REQ-P2-03`). Keep rules/simulation usable without visual nodes (`REQ-P3-03`). Platform diffs in thin adapters only. Scripts ≤400 lines / ≤25 methods; do not grow `tools/arch_size_allowlist.txt` (≤5, shrink-only) — split instead (`REQ-P3-01`).
 
+When shipping new player-facing entities or UI chrome that shows them, satisfy `REQ-P1-07` / `REQ-P1-08` via Hermes GameForge or Hermes image-gen skills (blocker if Hermes is unavailable and new icons are required).
+
 Ship the fullest coherent slice of the target that stays desktop + mobile playable in one PR — not a minimal stub when a complete concern fits.
 
 If behavior changes rules docs: update wiki in the same effort when write works; else note a **release-blocking** wiki follow-up in the PR (`REQ-P2-05`).
