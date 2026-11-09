@@ -4,8 +4,12 @@
 
 [domains.ai]
 suites = [
+  "test_ai_colonisation.gd",
+  "test_ai_market.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
+  "test_ai_town_roads.gd",
+  "test_military_parity.gd",
 ]
 
 [domains.army]
@@ -58,6 +62,7 @@ suites = [
   "test_economy_rules.gd",
   "test_economy_screen.gd",
   "test_economy_overseas.gd",
+  "test_trade_cargo.gd",
 ]
 
 [domains.fleet]
@@ -231,6 +236,14 @@ match = "scripts/map/map_play_army*.gd"
 domain = "army"
 
 [[rules]]
+match = "scripts/map/map_play_colonisation_ai.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/civilian_*.gd"
 domain = "civilian"
 
@@ -281,6 +294,10 @@ domain = "army"
 [[rules]]
 match = "scripts/rules/regiment_*.gd"
 domain = "army"
+
+[[rules]]
+match = "scripts/rules/military_parity.gd"
+domain = "ai"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd"
