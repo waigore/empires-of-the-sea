@@ -193,6 +193,14 @@ match = "tests/playtest_new_world.gd*"
 domain = "map"
 
 [[rules]]
+match = "tests/playtest_launch.gd*"
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_combat_chain.gd*"
+domain = "battle"
+
+[[rules]]
 match = "tests/playtest_quick_battle.gd*"
 domain = "quick_battle"
 
