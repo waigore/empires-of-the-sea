@@ -4,6 +4,7 @@
 
 [domains.ai]
 suites = [
+  "test_ai_defense.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
 ]
