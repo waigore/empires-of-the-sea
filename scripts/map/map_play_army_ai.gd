@@ -39,13 +39,13 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction:
+		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		for action: Dictionary in AiMilitaryPlanner.split_orders(
 			config, play.diplomacy, model, roster
 		):
-			changed = _apply_split(play, roster, faction, action, trace) or changed
+			changed = _apply_split(play, model, roster, faction, action, trace) or changed
 		var plan: Dictionary = AiMilitaryPlanner.march_orders(
 			config, play.diplomacy, model, roster
 		)
@@ -57,12 +57,12 @@ static func _run_region(
 	var defenders: Array[int] = FactionCatalog.minor_ids()
 	defenders.append_array(FactionCatalog.tribe_ids())
 	for faction: int in defenders:
-		if faction == play.player_faction:
+		if faction == play.player_faction and not play.observer_mode:
 			continue
 		for action: Dictionary in AiDefensePlanner.split_orders(
 			play.diplomacy, model, roster, faction
 		):
-			changed = _apply_split(play, roster, faction, action, trace) or changed
+			changed = _apply_split(play, model, roster, faction, action, trace) or changed
 		var plan: Dictionary = AiDefensePlanner.march_orders(
 			play.diplomacy, model, roster, faction
 		)
@@ -75,6 +75,7 @@ static func _run_region(
 ## Applies one detach through ArmyState.split, minting the next field army id.
 static func _apply_split(
 	play: PlaySession,
+	model: MapModel,
 	roster: Array[ArmyState],
 	faction: int,
 	action: Dictionary,
@@ -97,6 +98,8 @@ static func _apply_split(
 		"kind": AiMilitaryPlanner.KIND_SPLIT,
 		"army": field.id,
 		"province": field.province,
+		"province_name": model.province_name(field.province),
+		"region": model.region_id,
 	})
 	return true
 
@@ -126,6 +129,8 @@ static func _apply_marches(
 			"kind": kind,
 			"army": army.id,
 			"province": province,
+			"province_name": model.province_name(province),
+			"region": model.region_id,
 			"attacked": bool(march.get("attacked", false)),
 		})
 		_report_march(play, model, faction, province)

@@ -6,12 +6,15 @@ extends Control
 
 signal new_game_pressed
 signal load_game_pressed
+## Debug tool: watch every Great Power play under AI control.
+signal observer_pressed
 signal quit_pressed
 
 var new_game_button: Button = null
 var load_game_button: Button = null
 var settings_button: Button = null
 var quit_button: Button = null
+var observer_button: Button = null
 var backdrop: MenuBackdrop = null
 
 var _notice: Label = null
@@ -58,6 +61,10 @@ func _build() -> void:
 	quit_button.pressed.connect(func() -> void: quit_pressed.emit())
 	box.add_child(quit_button)
 
+	observer_button = MenuFrame.small_button("AI OBSERVER (DEBUG)")
+	observer_button.pressed.connect(func() -> void: observer_pressed.emit())
+	box.add_child(observer_button)
+
 	_notice = MenuFrame.notice("")
 	_notice.visible = false
 	box.add_child(_notice)
@@ -66,7 +73,7 @@ func _build() -> void:
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(version)
 
-	_reveal([new_game_button, load_game_button, settings_button, quit_button])
+	_reveal([new_game_button, load_game_button, settings_button, quit_button, observer_button])
 
 
 ## Dissolves the page in and lets the entries arrive one after another, so the

@@ -3,10 +3,10 @@
 Rival Great Powers act on their own through a deterministic, data-tuned stack
 (wiki: [AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture),
 [diplomacy planner](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy-planner)).
-The human court is never scripted.
+Only the observer scripts that slot.
 
 **Pillars:** P2 rules fidelity, P3 pure/testable rules, P4 no per-frame work,
-P5 rivals act unbookkept.
+P5 unbookkept rivals.
 
 ## Implemented
 
@@ -48,6 +48,12 @@ P5 rivals act unbookkept.
   (prices advance once with the player), then sets next assignments. Rival
   stockpiles feed the diplomacy resource-need score.
 - **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
+
+## Full-AI observer (debug)
+
+Title screen `AI OBSERVER (DEBUG)` and `tools/ai_vs_ai.gd` pit every Great Power
+against the others on the new-game defaults; see [`ai-observer.md`](ai-observer.md)
+for the entry points, metrics and trace export.
 
 ## Deferred (REQ-P2-02)
 

@@ -22,15 +22,19 @@ static func run(play: PlaySession) -> Dictionary:
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction:
+	var factions: Array[int] = FactionCatalog.great_power_ids()
+	var last: int = factions[factions.size() - 1] if not factions.is_empty() else -1
+	for faction: int in factions:
+		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		_seed_civilians(play, faction)
 		var extraction: Dictionary = _extraction(play, faction, economy)
+		# All crowns share one world market: prices advance once per turn, on the
+		# last ledger of the observer pass (wiki: stockpiles-and-production).
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, extraction, _ships(play, faction),
-			_army_food(play, faction), false
+			_army_food(play, faction), play.observer_mode and faction == last
 		)
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)

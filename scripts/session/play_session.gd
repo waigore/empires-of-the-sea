@@ -11,6 +11,13 @@ const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 ## Human slot chosen in game setup; the rules read this everywhere the player
 ## is special-cased (view, upkeep, diplomacy).
 var player_faction: int = PLAYER_FACTION
+## Full-AI observer (wiki: game-setup § Human/AI slot assignment): every Great
+## Power runs the AI planners and no court holds consent decisions. Debug tool,
+## not a player-facing campaign mode.
+var observer_mode: bool = false
+## One merged record per resolved turn (MapPlayObserver); the observatory panel
+## and the headless exporter read it (wiki: turn-trace-interpretation).
+var ai_turns: Array[Dictionary] = []
 ## Endless campaign chosen at setup: the calendar cap never closes the age
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 var infinite_mode: bool = false
@@ -126,6 +133,12 @@ func treasury() -> int:
 	if economy == null or economy.economy == null:
 		return 0
 	return economy.economy.treasury
+
+
+## The court that answers consent decisions, or NO_ID when every crown is AI
+## (the full-AI observer). Rules modules read this instead of player_faction.
+func human_faction_id() -> int:
+	return MapModel.NO_ID if observer_mode else player_faction
 
 
 ## Provinces the player currently holds in the region on screen.
