@@ -122,6 +122,17 @@ func test_a_quiet_court_says_the_dossier_is_empty() -> void:
 	assert_true(_has_text(panel._detail, "No observable act"))
 
 
+func test_the_dossier_bands_acts_and_trims_older_evidence() -> void:
+	for _index in 4:
+		state.record_event("warDeclared", 1, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "Warmonger"), "the agenda is named")
+	assert_true(_has_text(panel._detail, "Likely 60%"), "four wars reach the Likely band")
+	assert_true(_has_text(panel._detail, "…and 1 earlier observation"), "older acts are counted")
+	assert_false(_has_text(panel._detail, "Confirmed"), "nothing is certain yet")
+
+
 func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)

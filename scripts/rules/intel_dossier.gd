@@ -190,9 +190,12 @@ static func _text_for(
 	state: DiplomacyState, viewer: int, subject: int, event: Dictionary
 ) -> String:
 	var kind: String = String(event.get("kind", ""))
+	var a: int = int(event.get("a", -1))
 	var b: int = int(event.get("b", -1))
 	var data: Dictionary = _kind_data(event)
-	var other: String = _court(state, viewer, b)
+	# The other party is whichever side of the act is not the subject: the
+	# declarer's target, the proposer whose offer was answered, the ally lost.
+	var other: String = _court(state, viewer, b if a == subject else a)
 	var aggressor: String = _court(state, viewer, int(data.get("aggressor", -1)))
 	match kind:
 		"warDeclared":

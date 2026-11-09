@@ -6,7 +6,7 @@ extends GdToolsTest
 const VIEWER: int = 0
 const ENGLAND: int = 1
 const GENOA: int = 6
-const VENICE: int = 3
+const PORTUGAL: int = 3
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -65,14 +65,14 @@ func test_a_war_on_a_former_ally_reads_as_a_backstabber() -> void:
 
 
 func test_a_refused_call_to_arms_reads_as_isolationist() -> void:
-	state.record_event("callToArmsRefused", ENGLAND, VENICE, {"aggressor": VIEWER})
+	state.record_event("callToArmsRefused", ENGLAND, PORTUGAL, {"aggressor": VIEWER})
 	assert_eq(int(_scores(ENGLAND).get(AiAgenda.ISOLATIONIST, 0)), IntelDossier.W_CTA_REFUSED)
 
 
 func test_a_peace_and_an_intervention_read_as_a_peacemaker() -> void:
 	DiplomacyRules.declare_war(state, ENGLAND, GENOA)
 	DiplomacyRules.make_peace(state, ENGLAND, GENOA)
-	state.record_event("interventionIntervened", ENGLAND, GENOA, {"aggressor": VENICE})
+	state.record_event("interventionIntervened", ENGLAND, GENOA, {"aggressor": PORTUGAL})
 	assert_eq(
 		int(_scores(ENGLAND).get(AiAgenda.PEACEMAKER, 0)),
 		IntelDossier.W_PEACE + IntelDossier.W_INTERVENED,
@@ -112,8 +112,8 @@ func test_the_guess_needs_a_possible_band() -> void:
 	state.record_event("grantAid", ENGLAND, GENOA, {"amount": 1000})
 	assert_true((IntelDossier.report(state, null, VIEWER, ENGLAND)["guess"] as Dictionary).is_empty())
 	state.record_event("grantAid", ENGLAND, VIEWER, {"amount": 1000})
-	state.record_event("allianceFormed", ENGLAND, VENICE)
-	state.record_event("grantAid", ENGLAND, VENICE, {"amount": 1000})
+	state.record_event("allianceFormed", ENGLAND, PORTUGAL)
+	state.record_event("grantAid", ENGLAND, PORTUGAL, {"amount": 1000})
 	var report: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)
 	var guess: Dictionary = report["guess"] as Dictionary
 	assert_eq(String(guess["id"]), AiAgenda.PEACEMAKER, "three amiable acts reach Possible")
@@ -132,7 +132,7 @@ func test_evidence_is_capped_and_newest_first() -> void:
 
 
 func test_only_the_subjects_own_acts_count() -> void:
-	DiplomacyRules.declare_war(state, VENICE, GENOA)
+	DiplomacyRules.declare_war(state, PORTUGAL, GENOA)
 	assert_true(_scores(GENOA).is_empty(), "the target of an act is not its author")
 	state.record_event("warDeclared", VIEWER, GENOA)
 	assert_true(_scores(ENGLAND).is_empty(), "another crown's war stays out")
@@ -152,7 +152,7 @@ func test_the_reading_never_holds_the_true_agenda() -> void:
 
 
 func test_an_unmet_court_is_named_not_leaked() -> void:
-	state.record_event("callToArmsRefused", ENGLAND, 9, {"aggressor": VENICE})
+	state.record_event("callToArmsRefused", ENGLAND, 9, {"aggressor": PORTUGAL})
 	var text: String = String((IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0])["text"])
 	assert_true(text.contains(IntelDossier.UNKNOWN_COURT), "the stranger stays masked")
 	assert_false(text.contains("Aztec"), "its name never reaches the page")
@@ -161,7 +161,7 @@ func test_an_unmet_court_is_named_not_leaked() -> void:
 func test_the_notes_count_public_behaviour() -> void:
 	var world: WorldMap = Fixture.world()
 	DiplomacyRules.declare_war(state, ENGLAND, GENOA)
-	state.record_event("callToArmsRefused", ENGLAND, VENICE, {"aggressor": VIEWER})
+	state.record_event("callToArmsRefused", ENGLAND, PORTUGAL, {"aggressor": VIEWER})
 	var notes: Dictionary = IntelDossier.report(state, world, VIEWER, ENGLAND)["notes"] as Dictionary
 	assert_eq(int(notes["war"]), 1)
 	assert_eq(int(notes["refused"]), 1)
@@ -170,6 +170,26 @@ func test_the_notes_count_public_behaviour() -> void:
 		DiplomacyRules.provinces_owned(world, ENGLAND),
 		"the holding count is the shared public score, not a private tally"
 	)
+
+
+func test_offers_aid_and_absorption_are_read_and_spoken() -> void:
+	state.record_event("proposalAccepted", PORTUGAL, ENGLAND, {"kind": "alliance", "stage": ""})
+	state.record_event("grantAid", ENGLAND, GENOA, {"amount": 1000})
+	state.record_event("joinEmpire", ENGLAND, GENOA, {})
+	state.record_event("interventionDoNothing", ENGLAND, GENOA, {"aggressor": PORTUGAL})
+	var text: String = _joined(IntelDossier.evidence(state, null, VIEWER, ENGLAND))
+	assert_true(text.contains("Accepted Portugal's offer of a formal alliance."), text)
+	assert_true(text.contains("Stood aside while Portugal made war on Genoa."), text)
+	assert_true(text.contains("Sent aid to Genoa."), text)
+	assert_true(text.contains("Absorbed Genoa into its empire."), text)
+	var scores: Dictionary = _scores(ENGLAND)
+	assert_eq(
+		int(scores.get(AiAgenda.PEACEMAKER, 0)),
+		IntelDossier.W_ACCEPTED_OFFER + IntelDossier.W_AID,
+		"an answered offer and aid both read as peacemaking"
+	)
+	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelDossier.W_ABSORB)
+	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelDossier.W_STOOD_ASIDE)
 
 
 func test_a_quiet_court_has_an_empty_dossier() -> void:
@@ -181,6 +201,13 @@ func test_a_quiet_court_has_an_empty_dossier() -> void:
 
 func _scores(subject: int, world: WorldMap = null) -> Dictionary:
 	return IntelDossier.suspicion(IntelDossier.evidence(state, world, VIEWER, subject))
+
+
+func _joined(entries: Array[Dictionary]) -> String:
+	var parts: PackedStringArray = []
+	for entry: Dictionary in entries:
+		parts.append(String(entry["text"]))
+	return " | ".join(parts)
 
 
 ## The widest gap in holdings between two courts other than the viewer, read
