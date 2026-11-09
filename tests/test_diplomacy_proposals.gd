@@ -27,7 +27,7 @@ func test_accepting_an_alliance_proposal_signs_the_treaty() -> void:
 	assert_true(state.relation(0, 2).formal_alliance, "the human answer forms the treaty")
 	assert_false(DiplomacyProposals.has_pending(state, 0))
 	assert_true(_event("allianceFormed"))
-	assert_true(_event("offerAccepted"))
+	assert_true(_event("proposalAccepted"))
 
 
 func test_refusing_an_alliance_proposal_leaves_the_courts_at_peace() -> void:
@@ -38,7 +38,7 @@ func test_refusing_an_alliance_proposal_leaves_the_courts_at_peace() -> void:
 	assert_false(bool(answer["accepted"]))
 	assert_false(state.relation(0, 2).formal_alliance)
 	assert_eq(state.relation(0, 2).score, 80.0, "a refusal costs no relation")
-	assert_true(_event("offerRefused"))
+	assert_true(_event("proposalRefused"))
 
 
 func test_accepting_an_overture_advances_both_directions_for_free() -> void:
@@ -52,7 +52,7 @@ func test_accepting_an_overture_advances_both_directions_for_free() -> void:
 	assert_eq(state.overture(2, 0), DiplomacyCatalog.STAGE_NAP)
 	assert_eq(state.overture(0, 2), DiplomacyCatalog.STAGE_NAP)
 	assert_true(_event("overtureEstablished"))
-	assert_true(_event("offerAccepted"))
+	assert_true(_event("proposalAccepted"))
 
 
 func test_refusing_an_overture_keeps_the_previous_stage() -> void:
@@ -63,7 +63,7 @@ func test_refusing_an_overture_keeps_the_previous_stage() -> void:
 	assert_false(bool(answer["accepted"]))
 	assert_eq(state.overture(2, 0), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_true(_event("overtureRejected"))
-	assert_true(_event("offerRefused"))
+	assert_true(_event("proposalRefused"))
 
 
 func test_only_one_proposal_waits_on_the_court() -> void:
