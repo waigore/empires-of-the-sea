@@ -432,3 +432,110 @@ func test_a_live_squadron_keeps_its_army() -> void:
 	assert_eq(lost.size(), 0)
 	assert_eq(layer.armies.size(), 1)
 	layer.free()
+
+
+func test_embarkation_refusals_cover_each_gate() -> void:
+	var fleet := FleetState.in_port(3, 0, 0, ["ship_3"])
+	var army := ArmyState.muster(7, 0, 0, false, ["pikemen"], 700)
+	assert_false(bool(NavalTransport.can_embark(_model, null, fleet)["ok"]))
+	assert_false(bool(NavalTransport.can_embark(_model, army, null)["ok"]))
+	var foreign := ArmyState.muster(8, 1, 0, false, ["pikemen"], 800)
+	assert_false(bool(NavalTransport.can_embark(_model, foreign, fleet)["ok"]))
+	var empty := ArmyState.muster(9, 0, 0, false, [], 900)
+	assert_false(bool(NavalTransport.can_embark(_model, empty, fleet)["ok"]))
+	army.embarked_fleet = 5
+	assert_false(bool(NavalTransport.can_embark(_model, army, fleet)["ok"]))
+	army.embarked_fleet = -1
+	army.moved = true
+	assert_false(bool(NavalTransport.can_embark(_model, army, fleet)["ok"]))
+	army.moved = false
+	fleet.location = FleetState.Location.AT_SEA
+	assert_false(bool(NavalTransport.can_embark(_model, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.IN_PORT
+	fleet.moved = true
+	assert_false(bool(NavalTransport.can_embark(_model, army, fleet)["ok"]))
+	fleet.moved = false
+	fleet.embarked_army = 9
+	assert_false(bool(NavalTransport.can_embark(_model, army, fleet)["ok"]))
+	fleet.embarked_army = -1
+	assert_false(bool(NavalTransport.can_embark(null, army, fleet)["ok"]))
+
+
+func test_landing_refusals_cover_each_gate() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_model, army, fleet)
+	assert_false(bool(NavalTransport.can_disembark(_model, null, fleet, 0)["ok"]))
+	assert_false(bool(NavalTransport.can_disembark(_model, army, null, 0)["ok"]))
+	var outsider := ArmyState.muster(8, 0, 0, false, ["pikemen"], 800)
+	assert_false(bool(NavalTransport.can_disembark(_model, outsider, fleet, 0)["ok"]))
+	assert_false(bool(NavalTransport.can_disembark(_model, army, fleet, 99)["ok"]))
+	assert_false(bool(NavalTransport.can_disembark(_model, army, fleet, 1)["ok"]))
+	_model.province_data(1).owner = 0
+	assert_false(bool(NavalTransport.can_disembark(_model, army, fleet, 1)["ok"]))
+	_model.province_data(1).owner = 1
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 1
+	fleet.province = MapModel.NO_ID
+	assert_false(bool(NavalTransport.can_disembark(_model, army, fleet, 0)["ok"]))
+	fleet.sea_zone = 0
+	assert_true(bool(NavalTransport.can_disembark(_model, army, fleet, 0)["ok"]))
+
+
+func test_port_landing_and_scrap_gates() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_model, army, fleet)
+	assert_eq(NavalTransport.landing_provinces(_model, fleet), [0])
+	assert_eq(NavalTransport.landing_provinces(_model, null), [])
+	assert_eq(NavalTransport.landing_provinces(_model, FleetState.at_sea(4, 0, 0)), [0])
+	assert_true(bool(NavalTransport.can_scrap(null, army)["ok"]))
+	assert_false(bool(NavalTransport.can_scrap(fleet, null)["ok"]))
+
+
+func test_transport_layer_lookups_and_refusals() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	var layer: ArmyLayer = _transport_layer(army)
+	assert_null(ArmyTransport.army_by_id(layer, -1))
+	assert_null(ArmyTransport.army_by_id(layer, 999))
+	assert_true(ArmyTransport.army_by_id(layer, army.id) == army)
+	assert_eq(ArmyTransport.region_of(layer, army), _model.region_id)
+	assert_false(bool(ArmyTransport.embark(layer, army, FleetState.at_sea(3, 0, 0))["ok"]))
+	assert_false(bool(ArmyTransport.disembark(layer, null, 0)["ok"]))
+	assert_false(bool(ArmyTransport.disembark(layer, fleet, 0)["ok"]))
+	ArmyTransport.move_to_region(layer, 999, 1)
+	ArmyTransport.remove_from(layer, army, _model.region_id)
+	assert_eq(layer.armies.size(), 0)
+	layer.free()
+
+
+func test_transport_layer_same_region_move_is_a_no_op() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_model, army, fleet)
+	var layer: ArmyLayer = _transport_layer(army)
+	ArmyTransport.move_to_region(layer, army.id, _model.region_id)
+	assert_eq(layer.armies.size(), 1)
+	ArmyTransport.move_to_region(layer, army.id, 1)
+	assert_eq(ArmyTransport.region_of(layer, army), 1)
+	layer.free()
+
+
+func test_drop_lost_leaves_unembarked_armies_alone() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_model, army, fleet)
+	var grounded := ArmyState.muster(11, 0, 0, false, ["pikemen"], 1100)
+	var layer: ArmyLayer = _transport_layer(army)
+	layer.armies.append(grounded)
+	var lost: Array[ArmyState] = ArmyTransport.drop_lost(layer, {})
+	assert_eq(lost.size(), 1)
+	assert_eq(layer.armies.size(), 1)
+	assert_true(layer.armies[0] == grounded)
+	layer.free()
