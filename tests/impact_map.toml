@@ -607,3 +607,10 @@ domain = "ui"
 [[rules]]
 match = "tests/test_*.gd"
 full = true
+
+# Editor-generated companion files take a light mapping: a test script and its
+# .uid always change together (Godot writes one per class_name script), and the
+# misc suite set is the catch-all for helper-only changes.
+[[rules]]
+match = "tests/test_*.gd.uid"
+domain = "misc"

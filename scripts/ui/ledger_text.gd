@@ -1,0 +1,91 @@
+class_name LedgerText
+extends RefCounted
+## Plain-text (and pure) formatting for the economy ledger: recipe titles and
+## tooltips, worker recruit cost lines, the summary/preview strings and the
+## whole-number money formatter. No visual nodes, so it is cheap to unit test
+## (REQ-P3-03).
+
+
+## "Planks (Timber)" — output plus its single input when the recipe has one.
+static func recipe_title(recipe_id: String) -> String:
+	var text: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	var inputs: Dictionary = ProductionRecipes.inputs(recipe_id)
+	if inputs.size() == 1:
+		text += " (%s)" % CommodityCatalog.label(String(inputs.keys()[0]))
+	return text
+
+
+## "Timber ×2  +  Iron ×1  →  1 Planks  ·  4 labour".
+static func recipe_tooltip(recipe_id: String) -> String:
+	var parts: PackedStringArray = []
+	var inputs: Dictionary = ProductionRecipes.inputs(recipe_id)
+	for commodity: Variant in inputs.keys():
+		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(inputs[commodity])])
+	return "  +  ".join(parts) + "  →  1 %s  ·  %d labour" % [
+		CommodityCatalog.label(ProductionRecipes.output(recipe_id)),
+		ProductionRecipes.labour(recipe_id),
+	]
+
+
+## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.
+static func recruit_cost(tier: int) -> String:
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	var materials: Dictionary = cost.get("materials", {})
+	var parts: PackedStringArray = []
+	if int(cost.get("treasury", 0)) > 0:
+		parts.append("%d ducats" % int(cost.get("treasury", 0)))
+	for commodity: Variant in materials.keys():
+		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
+	return "   ".join(parts)
+
+
+## Summary line: treasury, idle/total labour, food need and strikers.
+static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
+	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
+		TextFormat.thousands(economy.treasury),
+		idle_labour(report),
+		economy.workers.labour(),
+		economy.workers.food_demand() + navy_food(report),
+		int((report.get("consumption", {}) as Dictionary).get("strikers", 0)),
+	]
+
+
+## "Next turn:  Grain +3 · ducats -10" or the calm no-change line.
+static func preview(report: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	var delta: Dictionary = report.get("stockpile_delta", {})
+	for id: String in delta.keys():
+		parts.append("%s %+d" % [CommodityCatalog.label(id), int(delta[id])])
+	var treasury_delta: int = int(report.get("treasury_delta", 0))
+	if treasury_delta != 0:
+		parts.append("%s %+d" % ["ducats", treasury_delta])
+	if parts.is_empty():
+		return "Next turn: no stock changes."
+	return "Next turn:  " + "   ".join(parts)
+
+
+## The cargo-holds banner above the market rows (wiki: ships-and-naval).
+static func cargo_line(cargo: Dictionary) -> String:
+	var holds: int = int(cargo.get("holds", -1))
+	if holds < 0:
+		return "Cargo holds unknown."
+	if holds <= 0:
+		return "No cargo holds — launch a merchant hull at your capital to import."
+	return "CARGO  %d holds  ·  %d free this turn" % [holds, int(cargo.get("free", holds))]
+
+
+static func cargo_color(cargo: Dictionary) -> Color:
+	var holds: int = int(cargo.get("holds", -1))
+	if holds < 0:
+		return Palette.TEXT_DIM
+	if holds <= 0:
+		return Palette.GOLD_PALE
+	return Palette.TEXT
+
+
+static func idle_labour(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("idle_labour", 0))
+
+
+static func navy_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("navy_demand", 0))
