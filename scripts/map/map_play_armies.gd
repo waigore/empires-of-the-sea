@@ -335,6 +335,8 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			play.army_layer.deselect()
 		if play.ship_layer != null:
 			play.ship_layer.transfer_owner(faction, MapModel.NO_ID)
+		if play.civilian_layer != null:
+			CivilianRoster.remove_owner(play.civilian_layer, faction)
 		if play.diplomacy != null:
 			play.diplomacy.clear_relations_of(faction)
 		play.hud.toast(

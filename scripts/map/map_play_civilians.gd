@@ -125,6 +125,32 @@ static func resolve_work(play: PlaySession) -> void:
 	play.civilian_layer.refresh_works()
 
 
+## Combat can take the land under a crown-land crew. It withdraws to a legal
+## tile or is lost with the province (`CivilianStranding`); the human court is
+## told what happened, rivals are resolved silently like every other AI move.
+static func settle_stranding(play: PlaySession) -> void:
+	if play.civilian_layer == null or play.world == null:
+		return
+	var had_selection: bool = play.civilian_layer.selected_unit != null
+	for report: Dictionary in CivilianRoster.settle_stranding(play.civilian_layer, play.world):
+		if int(report.get("owner", -1)) != play.player_faction:
+			continue
+		var region: int = int(report.get("region", play.region_index))
+		var model: MapModel = play.world.region(region)
+		if model == null:
+			continue
+		var type_name: String = CivilianCatalog.display_name(String(report["type"]))
+		var from: Vector2i = report["from"]
+		var province: int = model.province_at(from.x, from.y)
+		var place: String = model.province_name(province) if province >= 0 else "the wilds"
+		if bool(report.get("lost", false)):
+			play.hud.toast("%s in %s is lost with the province" % [type_name, place])
+		else:
+			play.hud.toast("%s withdraws from %s" % [type_name, place])
+	if had_selection and play.civilian_layer.selected_unit == null:
+		play.hud.panels.hide_civilian()
+
+
 ## A deed is signed (or the purse fails it) during Build/Work. The tile's owner
 ## changed, so borders, tint and the region chip all redraw.
 static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:

@@ -1,7 +1,7 @@
 # Civilian units
 
-Land units that explore, survey, improve and buy land. The starting three and
-the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
+Land units that explore, survey, improve and buy land. Spy is catalogued but
+blocked.
 
 **Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based).
 
@@ -18,8 +18,7 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 - **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
   Builders stay on crown land, while Merchants may cross Minor/Tribe provinces.
 - **Work orders** target the unit's tile or, for a Builder, any owned resource
-  tile; the unit records origin/assigned tiles, relocates and returns on cancel.
-  Costs are paid at assign and not refunded. Explore ≤3 turns, prospect 1,
+  tile. Costs are paid at assign and not refunded. Explore ≤3 turns, prospect 1,
   improvement 1–4 (1/4/8/16 lumber + cast iron), road 1+1 (level 2 needs Road
   Construction), port 5+5 (2 turns), rail 2 lumber + 2 steel (2 turns, road 1–2
   → 4), fort 1–3 ([forts.md](forts.md)).
@@ -35,13 +34,15 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
   lists realm yield, blockers and Build / Cancel / Map.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
   Builders exempt).
+- **Stranding:** crews caught by a conquered province withdraw to crown land or
+  are lost; a fallen crown's crews leave play.
 
 ## Deferred (REQ-P2-02)
 
-- **Spy** — counter-spy and court reports need rival spies, research and AI
-  activity to observe; presence reveal already ships.
+- **Spy** — counter-spy and court reports need rival spies and research;
+  presence reveal already ships.
 - Civilian overseas deployment and cargo for New World yield.
-- `upgrade_town` (town connectivity), rival civilian AI.
+- `upgrade_town` (town connectivity).
 - Transport caps, raw → manufactured production, riches conversion.
 
 ## Architecture

@@ -145,6 +145,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayFleets.run_ai(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
+	# Combat may have taken the land under a Builder or Engineer; withdraw the
+	# crew to a legal tile or lose it with the province (CivilianStranding).
+	MapPlayCivilians.settle_stranding(play)
 	_resolve_visibility(play)
 	# The human crown's terminal fall seals the session before any victory
 	# check: defeat never hands the conqueror a military win, nor opens that

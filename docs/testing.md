@@ -42,6 +42,24 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 # Tier 2-shaped
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+
+# Multi-turn playtest (seeds, factions, long campaigns)
+godot --headless --path . --script res://tools/playtest_turns.gd -- turns=24 seed=1500 size=1
 ```
+
+## Multi-turn playtest
+
+`tools/playtest_turns.gd` boots the real game and plays whole turns as the
+human crown: civilian work, naval and army orders, recruiting, ledger
+assignments, research, and court answers. Every turn asserts treasury and
+stocks stay non-negative, rival ledgers resolve, feeding stays in range, unit
+rosters stay on the map, the calendar advances once, and field armies keep
+their regiments; a mid-run save must round-trip turn, treasury, region,
+civilian orders, works, armies, fleets and rival ledgers exactly.
+
+Arguments: `turns`, `seed`, `size` (0–2), `faction` (id; ‑1 = Spain),
+`region` (start in the New World), `pace` (ms between turns), `shot` (PNG at
+the end; needs a window), `deadline` (seconds), `debug=1` (per-turn economy and
+AI trace). Exit code 1 lists every broken invariant.
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

@@ -5,9 +5,17 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 var _screen: MapScreen = null
+## The shared world as generated: combat tests shift ownership, so every case
+## starts from the same map instead of the previous case's aftermath.
+var _saved: Array = []
+
+
+func before_all() -> void:
+	_saved = Fixture.snapshot(Fixture.world())
 
 
 func before_each() -> void:
+	Fixture.restore(Fixture.world(), _saved)
 	_screen = Fixture.attach_screen(self)
 
 
@@ -34,11 +42,17 @@ func test_selecting_an_army_opens_its_dossier() -> void:
 	var home: ArmyState = _player_home()
 	var marker: ArmyMarker = _screen.army_layer.marker_for(home)
 	assert_not_null(marker)
-	# Settle the opening camera first: it zooms into the capital over a few
-	# frames, and a tap is resolved against the live zoom. Without this the
-	# same suite passes alone but flakes when suites share workers.
-	for _frame: int in 3:
+	assert_true(marker.visible, "the home standard is drawn")
+	# Settle the opening camera first: it zooms into the capital over several
+	# frames, and a tap resolves against the live zoom. Frame counts alone flake
+	# when suites share workers, so wait on the zoom target instead.
+	var guard: int = 0
+	while (
+		guard < 240
+		and not is_equal_approx(_screen.camera.zoom.x, _screen.camera.target_zoom)
+	):
 		await get_tree().process_frame
+		guard += 1
 
 	MapPlayInput.on_tapped(_screen.play, marker.position)
 
