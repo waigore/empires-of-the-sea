@@ -188,6 +188,8 @@ func set_campaign_over(over: bool) -> void:
 	campaign_over = over
 	_end_turn_button.disabled = over
 	_end_turn_button.text = "CAMPAIGN ENDED" if over else "END TURN"
+	# Longer caption + seal: drop the pictogram so the plate keeps one line.
+	_end_turn_button.icon = null if over else ChromeIcons.texture("hourglass")
 	_glow.visible = not over
 	if not over:
 		return
