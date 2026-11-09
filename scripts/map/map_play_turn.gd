@@ -176,7 +176,10 @@ static func _finish_turn(play: PlaySession) -> void:
 		if fleet != null:
 			play.hud.panels.show_fleet(
 				play.model, fleet, fleet.owner == play.player_faction,
-				MapPlayFleets.passage_note(play, fleet)
+				MapPlayFleets.passage_note(play, fleet),
+				MapPlayFleets.yard_rows(play, fleet), -1,
+				MapPlayFleets.landing_rows(play, fleet),
+				MapPlayFleets.carried(play, fleet)
 			)
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
@@ -271,6 +274,13 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
+	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
+		play.army_layer, FleetRosters.live_ids(play.ship_layer.regions)
+	)
+	for army: ArmyState in lost:
+		play.hud.toast(
+			"%d regiments went down with a sunken squadron" % army.count()
+		)
 	if battles.is_empty():
 		return
 	for battle: Dictionary in battles:

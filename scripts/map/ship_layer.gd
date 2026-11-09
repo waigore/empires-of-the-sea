@@ -167,6 +167,10 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 		if merged != null:
 			arrived = merged
 			result["merged_into"] = merged.id
+			if fleet.embarked_army >= 0:
+				merged.embarked_army = fleet.embarked_army
+				result["embarked_army"] = fleet.embarked_army
+				fleet.embarked_army = -1
 			if ship != null:
 				_markers.remove(ship)
 				ship = null

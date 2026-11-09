@@ -24,11 +24,35 @@ static func select(play: PlaySession, ship: Ship) -> void:
 		fleet.owner == play.player_faction,
 		passage_note(play, fleet),
 		yard_rows(play, fleet),
-		-1
+		-1,
+		landing_rows(play, fleet),
+		carried(play, fleet)
 	)
 	refresh_options(play, fleet)
 	if fleet.owner != play.player_faction:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
+
+
+## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
+## § Naval transport).
+static func landing_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if fleet == null or fleet.owner != play.player_faction or fleet.embarked_army < 0:
+		return rows
+	for province: int in NavalTransport.landing_provinces(play.model, fleet):
+		rows.append({
+			"province": province,
+			"name": play.model.province_name(province),
+		})
+	return rows
+
+
+## Regiments the fleet carries, for the dossier line.
+static func carried(play: PlaySession, fleet: FleetState) -> int:
+	if fleet == null or fleet.embarked_army < 0:
+		return 0
+	var army: ArmyState = ArmyTransport.army_by_id(play.army_layer, fleet.embarked_army)
+	return army.count() if army != null else 0
 
 
 static func refresh_options(play: PlaySession, fleet: FleetState) -> void:
@@ -109,7 +133,16 @@ static func passage_note(play: PlaySession, fleet: FleetState) -> String:
 static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -> void:
 	if fleet.owner != play.player_faction:
 		return
-	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
+	if result.has("embarked_army"):
+		var carried_army: ArmyState = ArmyTransport.army_by_id(
+			play.army_layer, int(result["embarked_army"])
+		)
+		if carried_army != null:
+			carried_army.embarked_fleet = fleet.id
+	play.hud.panels.show_fleet(
+		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet),
+		-1, landing_rows(play, fleet), carried(play, fleet)
+	)
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
 	if result.has("merged_into"):
@@ -223,7 +256,8 @@ static func refresh_yard(play: PlaySession, fleet: FleetState) -> void:
 		return
 	play.ship_layer.select(play.ship_layer.ship_for(fleet))
 	play.hud.panels.show_fleet(
-		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet), -1
+		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet), -1,
+		landing_rows(play, fleet), carried(play, fleet)
 	)
 	play.hud.panels.fleet_panel.set_yard_open(true)
 
@@ -236,6 +270,26 @@ static func on_action(play: PlaySession, action: String) -> void:
 		launch(play, action.trim_prefix("yard:build:"))
 	elif action.begins_with("yard:scrap:"):
 		scrap(play, action.trim_prefix("yard:scrap:"))
+	elif action.begins_with("land:"):
+		land(play, int(action.trim_prefix("land:")))
+
+
+## Lands the carried army on an owned coastal province (wiki: ships-and-naval
+## § Naval transport).
+static func land(play: PlaySession, province_id: int) -> void:
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
+	if fleet == null or fleet.owner != play.player_faction:
+		return
+	var result: Dictionary = ArmyTransport.disembark(play.army_layer, fleet, province_id)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The troops cannot land.")))
+		return
+	play.hud.toast("The army lands at %s" % play.model.province_name(province_id))
+	play.hud.panels.show_fleet(
+		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet),
+		-1, landing_rows(play, fleet), carried(play, fleet)
+	)
+	MapPlayArmies.refresh_visibility(play)
 
 
 ## Launches one hull into the home fleet, founding it at the capital slip when
@@ -269,6 +323,13 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 		return
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
+		return
+	var carried_army: ArmyState = ArmyTransport.army_by_id(
+		play.army_layer, fleet.embarked_army
+	)
+	var can_break: Dictionary = NavalTransport.can_scrap(fleet, carried_army)
+	if not bool(can_break.get("ok", false)):
+		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
 		return
 	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
 	if not bool(result.get("ok", false)):

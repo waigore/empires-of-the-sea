@@ -10,6 +10,15 @@ static func on_crossed(play: PlaySession, fleet: FleetState, result: Dictionary)
 		return
 	MapPlayInput.deselect(play)
 	play.switch_region(region)
+	# The troops cross with the squadron: move the roster entry once the new map
+	# has mustered its own armies (wiki: ships-and-naval § Naval transport).
+	if fleet.embarked_army >= 0:
+		var army: ArmyState = ArmyTransport.army_by_id(
+			play.army_layer, fleet.embarked_army
+		)
+		if army != null:
+			army.embarked_fleet = fleet.id
+		ArmyTransport.move_to_region(play.army_layer, fleet.embarked_army, region)
 	MapPlayDiplomacy.sync_first_contact(play)
 	MapPlayDiplomacy.refresh(play)
 	var zone: int = int(result.get("to_zone", -1))

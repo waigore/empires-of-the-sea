@@ -141,6 +141,16 @@ func _run() -> void:
 			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 			"troop chip counts every region"
 		)
+		var home_fleet: FleetState = screen.ship_layer.home_fleet(
+			screen.capital_province
+		)
+		if field != null and home_fleet != null:
+			screen.army_layer.select(field)
+			MapPlayArmies.on_action(screen.play, "embark")
+			_check(field.is_embarked(), "a field army boards the home fleet")
+			screen.ship_layer.select(screen.ship_layer.ship_for(home_fleet))
+			MapPlayFleets.land(screen.play, screen.capital_province)
+			_check(not field.is_embarked(), "the army lands on its own coast")
 
 	var estates_toggle: Button = screen.improvements._toggle
 	_check(estates_toggle != null, "estates toggle present")
