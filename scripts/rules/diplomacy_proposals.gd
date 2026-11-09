@@ -41,7 +41,7 @@ static func queue(
 	if not bool(check.get("ok", false)):
 		return check
 	state.pending_offers.append({"from": from_id, "kind": kind, "stage": stage})
-	state.record_event("offerMade", from_id, human, {"kind": kind, "stage": stage})
+	state.record_event("proposalMade", from_id, human, {"kind": kind, "stage": stage})
 	return {"ok": true, "reason": "", "from": from_id, "kind": kind, "stage": stage}
 
 
@@ -97,7 +97,7 @@ static func resolve_human(
 		return _deny("Unknown proposal.")
 	if bool(result.get("ok", false)):
 		state.record_event(
-			"offerAccepted" if accept else "offerRefused",
+			"proposalAccepted" if accept else "proposalRefused",
 			from_id,
 			state.human_faction,
 			{"kind": kind, "stage": stage}

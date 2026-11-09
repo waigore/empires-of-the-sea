@@ -203,9 +203,13 @@ static func _intervene(
 	]
 
 
-## Standing aside costs the embassy and every overture with the victim.
+## Standing aside costs the embassy and every overture with the victim. Overtures
+## are two-way (`establish_overture` writes both directions), so both records go;
+## clearing one would leave `has_embassy` true and keep aid/subsidy open
+## (wiki: diplomacy § Intervention § Do Nothing).
 static func _do_nothing(state: DiplomacyState, court: int, target: int) -> String:
 	state.set_overture(court, target, DiplomacyCatalog.STAGE_NONE)
+	state.set_overture(target, court, DiplomacyCatalog.STAGE_NONE)
 	state.cancel_subsidy(court, target)
 	state.touch(court, target, "interventionDoNothing")
 	return "%s stands aside; its embassy with %s is lost." % [
