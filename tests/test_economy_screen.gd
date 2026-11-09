@@ -131,7 +131,8 @@ func test_selling_still_works_with_full_holds() -> void:
 func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
-	var line: Label = _find_label(panel._market_body, "CARGO")
+	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var line: Label = _find_label(market_body, "CARGO")
 	assert_not_null(line)
 	assert_true(line.text.contains("4 holds"))
 
@@ -139,7 +140,7 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 		_screen.economy._on_trade("grain", 1, true)
 
 	var buys: Array[Button] = []
-	_collect_buttons(panel._market_body, buys)
+	_collect_buttons(market_body, buys)
 	assert_false(buys.is_empty())
 	assert_true(buys[buys.size() - 1].disabled, "a full hold locks the Buy rows")
 
@@ -150,9 +151,10 @@ func test_a_crown_without_a_home_fleet_cannot_import() -> void:
 		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
 		{"holds": 0, "used": 0, "free": 0}
 	)
-	var hint: Label = _find_label(panel._market_body, "No cargo holds")
+	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var hint: Label = _find_label(market_body, "No cargo holds")
 	assert_not_null(hint)
-	var buy: Button = _find_button(panel._market_body, "Buy")
+	var buy: Button = _find_button(market_body, "Buy")
 	assert_not_null(buy)
 	assert_true(buy.disabled)
 
