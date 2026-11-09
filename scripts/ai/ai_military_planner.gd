@@ -27,7 +27,7 @@ static func split_orders(
 	if config == null or state == null or model == null:
 		return actions
 	var owner: int = config.faction
-	if _frontier_hostile(model, owner, state).is_empty():
+	if frontier_hostile(model, owner, state).is_empty():
 		return actions
 	if not _field_armies(armies, owner).is_empty():
 		return actions
@@ -108,14 +108,14 @@ static func _best_order(
 				)
 				kind = "stage"
 			else:
-				score = config.parameter("military.defence_weight") + _province_score(
+				score = config.parameter("military.defence_weight") + province_score(
 					config, model, province
 				)
 				kind = "defend"
 		elif hostile.has(owner):
 			if not _can_storm(config, model, armies, army, province):
 				continue
-			score = _province_score(config, model, province)
+			score = province_score(config, model, province)
 			kind = "attack"
 		else:
 			continue
@@ -145,7 +145,10 @@ static func _can_storm(
 	return attack > ArmyCombat.side_strength(defenders) * margin
 
 
-static func _province_score(config: AiConfig, model: MapModel, province: int) -> int:
+## Value of a province to a court: population, its seat, its resources and its
+## walls. Shared with the overseas invasion planner, which wants the same
+## ranking of worth (wiki: ai-architecture).
+static func province_score(config: AiConfig, model: MapModel, province: int) -> int:
 	var data: ProvinceState = model.province_data(province)
 	if data == null:
 		return 0
@@ -167,8 +170,9 @@ static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
 	return hostile
 
 
-## Provinces owned by the court that touch a province of a hostile faction.
-static func _frontier_hostile(
+## Provinces owned by the court that touch a province of a hostile faction. The
+## invasion planner reads it too: a war on the court's own border is a land war.
+static func frontier_hostile(
 	model: MapModel, owner: int, state: DiplomacyState
 ) -> Array[int]:
 	var frontier: Array[int] = []

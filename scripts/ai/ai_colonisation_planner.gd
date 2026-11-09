@@ -133,7 +133,7 @@ static func _board_step(
 		return {}
 	if _zone_borders_province(model, fleet.sea_zone, province):
 		return {"kind": "dock", "fleet": fleet.id, "province": province}
-	var zone: int = _step_toward(
+	var zone: int = AiSeaRoute.step_toward(
 		model, fleet.sea_zone, NavalMovement.province_sea_zones(model, province)
 	)
 	if zone < 0:
@@ -154,7 +154,7 @@ static func _voyage(
 	if region != target:
 		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
 			return {"kind": "cross", "fleet": fleet.id}
-		var warp: int = _sail_toward(model, fleet, world.warp_zones(region))
+		var warp: int = AiSeaRoute.sail_toward(model, fleet, world.warp_zones(region))
 		if warp < 0:
 			return {}
 		return {"kind": "sail", "fleet": fleet.id, "zone": warp}
@@ -168,71 +168,12 @@ static func _voyage(
 		return {
 			"kind": "land", "fleet": fleet.id, "unit": unit.id, "tile": tiles[0],
 		}
-	var coast: int = _sail_toward(
+	var coast: int = AiSeaRoute.sail_toward(
 		model, fleet, _landing_zones(model, unit.type_id, unit.owner)
 	)
 	if coast < 0:
 		return {}
 	return {"kind": "sail", "fleet": fleet.id, "zone": coast}
-
-
-## Next zone on the way to a goal: from a port the first adjacent water, from
-## open sea the first BFS step.
-static func _sail_toward(
-	model: MapModel, fleet: FleetState, goals: Array[int]
-) -> int:
-	if goals.is_empty():
-		return -1
-	if fleet.is_at_sea():
-		return _step_toward(model, fleet.sea_zone, goals)
-	var best: int = -1
-	var best_distance: int = 1 << 30
-	for zone: int in NavalMovement.province_sea_zones(model, fleet.province):
-		var distance: int = _distance_to_goal(model, zone, goals)
-		if distance < best_distance:
-			best = zone
-			best_distance = distance
-	return best
-
-
-static func _step_toward(
-	model: MapModel, start: int, goals: Array[int]
-) -> int:
-	if goals.has(start):
-		return -1
-	var queue: Array[int] = [start]
-	var first_step: Dictionary = {start: -1}
-	var head: int = 0
-	while head < queue.size():
-		var zone: int = queue[head]
-		head += 1
-		if goals.has(zone) and zone != start:
-			return int(first_step[zone])
-		for next: int in MapGeo.sea_zone_neighbors(model, zone):
-			if first_step.has(next):
-				continue
-			first_step[next] = next if zone == start else int(first_step[zone])
-			queue.append(next)
-	return -1
-
-
-static func _distance_to_goal(model: MapModel, start: int, goals: Array[int]) -> int:
-	if goals.has(start):
-		return 0
-	var seen: Dictionary = {start: true}
-	var queue: Array[Vector2i] = [Vector2i(start, 0)]
-	var head: int = 0
-	while head < queue.size():
-		var entry: Vector2i = queue[head]
-		head += 1
-		for next: int in MapGeo.sea_zone_neighbors(model, entry.x):
-			if seen.has(next):
-				continue
-			if goals.has(next):
-				return entry.y + 1
-			seen[next] = true
-			queue.append(Vector2i(next, entry.y + 1))
-	return 1 << 30
 
 
 ## Sea zones with at least one land tile this type may land on.

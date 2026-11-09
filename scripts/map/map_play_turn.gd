@@ -142,6 +142,9 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+	# Rival expeditions board and sail before the field armies march, so an army
+	# chosen for the crossing is not also ordered inland (docs/ai.md).
+	var invasion_trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
@@ -180,7 +183,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
-	AiTurnLog.record(play, army_trace, fleet_trace, economy_report)
+	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	if play.observer_mode:
