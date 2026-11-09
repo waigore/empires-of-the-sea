@@ -1,7 +1,6 @@
 # Land armies
 
-Land military slice: roster, training, persistent armies, generals, marches,
-field battles and unopposed capture.
+Land military: roster, training, armies, generals, marches, battles, capture.
 
 **Pillars:** P2, P3, P1, P4, P5. **Wiki:**
 [military-armies](https://github.com/waigore/empires-of-the-sea/wiki/military-armies),
@@ -15,41 +14,44 @@ field battles and unopposed capture.
   `ArmyTraining`): 29 regiments with FPN/FPM/RNG/DEF/MVR, era, treasury cost,
   material inputs and one peasant from the pool. Tech-gated per
   `tech-tree-military`; new regiments join the Home Army at the capital.
-  Cavalry inputs follow the published table; other material rows and terrain
-  values are interim config (the wiki names them without numbers).
+  Cavalry inputs follow the published table; other values are interim.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power; cap 2
   from `organised_regiments`, 3 from `national_bureaucracy` or
   `improved_infantry_tactics`, 4 from `nationalism`; rosters only grow. Binding
   runs once per Combat phase — one general per attacking army, then per
-  defending army, seeded by turn. Medals 0–4, +1 per win.
+  defending army, each drawn from its own role pool, seeded by turn. Medals
+  0–4, +1 per win.
+- **Persistence:** saves carry general pools with medals, feeding and
+  every crown's leader key (`LeaderCatalog`, chosen at setup); a save without
+  pools rebuilds the court from its tech caps.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier with fallback
-  medals. Feeding coverage comes from the previous Consumption.
+  medals. Feeding comes from the previous Consumption.
 - **Armies** (`ArmyState`): one province per army of stable `unit_<n>`
   regiments. One Home Army per faction at its capital, never deleted and never
   marching; detach regiments to form field armies. Split/combine needs one
   province and owner; the Home Army is the merge target.
 - **Movement:** one march per turn; owned provinces connected through own
-  territory are reachable (interior lines); enemy or neutral land must border.
-- **Upkeep:** 1–3 food per regiment by category/era, before navy and workers.
+  territory are reachable (interior lines); foreign land must border.
+- **Upkeep:** 1–3 food per regiment by category/era, before navy/workers.
 - **Combat:** auto-resolve at end of turn. Strength is `Σ (FPN + FPM)` over the
   deployed slice, scaled by the modifiers above; casualties follow the wiki
   ratio bands, weakest-first. Army elimination precedes a flip. Defending
-  armies share one side; attackers act in initiative order. Mutual
+  armies share one side; attackers act in initiative order, with exact ties
+  broken by one deterministic roll per battle context. Mutual
   annihilation restores `ceil(20%)` of the defender's start as its era's best
   infantry.
 - **Unopposed capture:** a Great Power army ending in hostile or neutral land
   with no defenders or armed third faction takes it at combat start.
-- **Dossier:** composition, strength, food, commander, Detach, Detach all,
-  Combine, Muster rows, dock left/right. `TROOPS` counts every region.
+- **Dossier:** composition, strength, food, commander, detach/combine, Muster
+  rows, dock left/right. `TROOPS` counts every region.
 
 ## Deferred (REQ-P2-02)
 
-Forts, siege walls, emplaced guns · Quick Battle · difficulty modifiers ·
-per-regiment medals and unit health · minor military parity and in-place
-upgrades · AI marches · naval transport between regions · save-file general
-reconciliation (no save system yet).
+Quick Battle and the gun-loss downgrade · difficulty · per-regiment medals and
+health · minor parity and in-place upgrades · AI marches · naval transport.
+Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
 
@@ -74,7 +76,8 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
-`test_generals`, `test_army_orders`, `test_map_screen`.
+`test_generals`, `test_leader_catalog`, `test_army_orders`,
+`test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

@@ -56,7 +56,7 @@ static func check(
 	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	var province: int = model.province_at(tile.x, tile.y)
-	if model.province_owner(province) != unit.owner:
+	if model.owner_at(tile.x, tile.y) != unit.owner:
 		return _no("This land is not held by your crown.")
 	match action:
 		"build_road":

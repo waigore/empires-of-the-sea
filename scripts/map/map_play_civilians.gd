@@ -15,7 +15,8 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked()
+		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
+		_context(play)
 	)
 	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
@@ -52,7 +53,7 @@ static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary
 
 
 static func on_action(play: PlaySession, action: String) -> void:
-	if play.victory != null:
+	if play.campaign_over():
 		return
 	var unit: CivilianState = play.civilian_layer.selected_unit
 	if unit == null or unit.owner != play.player_faction:
@@ -60,7 +61,7 @@ static func on_action(play: PlaySession, action: String) -> void:
 	var result: Dictionary = CivilianWork.assign(
 		play.model, unit, action, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, CivilianState.NO_TILE, play.tech_caps(),
-		play.tech_unlocked()
+		play.tech_unlocked(), _context(play)
 	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
@@ -86,7 +87,8 @@ static func refresh_panel(play: PlaySession) -> void:
 		return
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked()
+		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
+		_context(play)
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
@@ -95,12 +97,19 @@ static func refresh_panel(play: PlaySession) -> void:
 ## Build/Work pass: the layer advances every region's orders (looking at another
 ## map must not pause the empire) and reports completions for the map on screen.
 static func resolve_work(play: PlaySession) -> void:
+	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
 	for report: Dictionary in play.civilian_layer.begin_turn(
-		play.world, play.visibility_by_region
+		play.world, play.visibility_by_region, economy
 	):
+		if not bool(report.get("completed", false)):
+			continue
+		if String(report["action"]) == LandPurchase.ACTION:
+			_settle_purchase(play, report)
+			if int(report["region"]) != play.region_index:
+				continue
 		if int(report["region"]) != play.region_index:
 			continue
-		if not bool(report.get("completed", false)):
+		if String(report["action"]) == LandPurchase.ACTION:
 			continue
 		var changed: Array = report.get("changed", [])
 		if not changed.is_empty():
@@ -114,6 +123,29 @@ static func resolve_work(play: PlaySession) -> void:
 		play.hud.toast("%s in %s: %s" % [type_name, place, work_name])
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
+
+
+## A deed is signed (or the purse fails it) during Build/Work. The tile's owner
+## changed, so borders, tint and the region chip all redraw.
+static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
+	if int(report.get("owner", -1)) != play.player_faction:
+		return
+	var region: int = int(report["region"])
+	var model: MapModel = play.world.region(region)
+	var tile: Vector2i = report["tile"]
+	var province: int = int(report["province"])
+	var place: String = model.province_name(province) if province >= 0 else "the wilds"
+	if model.is_purchased_tile(tile):
+		play.hud.set_treasury(play.treasury())
+		if region == play.region_index:
+			play.refresh_map_views()
+		play.hud.toast("The deed to %s is signed; the tile answers to your crown." % place)
+		return
+	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
+
+
+static func _context(play: PlaySession) -> Dictionary:
+	return {"treasury": play.treasury(), "diplomacy": play.diplomacy}
 
 
 static func train(play: PlaySession, type_id: String) -> void:

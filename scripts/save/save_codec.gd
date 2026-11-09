@@ -12,7 +12,6 @@ const MIN_MAP_SIDE: int = 32
 
 # --- capture -----------------------------------------------------------------
 
-
 static func capture(play: PlaySession) -> Dictionary:
 	if play == null or play.world == null:
 		return {}
@@ -26,9 +25,12 @@ static func capture(play: PlaySession) -> Dictionary:
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
 		"diplomacy": _capture_diplomacy(play.diplomacy),
+		"ai": play.ai.to_dict() if play.ai != null else {},
+		"victory": _capture_victory(play.victory),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
+		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
 
 
@@ -44,8 +46,12 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"income": play.income,
 		"capital_province": play.capital_province,
 		"capital_tile": play.capital_tile,
+		"feeding": play.feeding.duplicate(),
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
+		"leaders": play.leaders.duplicate(),
+		"infinite_mode": play.infinite_mode,
+		"campaign_halted": play.campaign_halted,
 	}
 
 
@@ -59,6 +65,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 				"owner": province.owner,
 				"capital": province.capital,
 				"town_development": province.town_development,
+				"fort_level": province.fort_level,
 				"resource": province.resource,
 				"resource_tile": province.resource_tile,
 				"population": province.population,
@@ -70,6 +77,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 			"height": model.height,
 			"provinces": provinces,
 			"resources": model.resource.duplicate(),
+			"tile_deeds": model.ownership.to_dict(),
 		}
 		regions.append(region_entry)
 	return regions
@@ -90,8 +98,32 @@ static func _capture_economy(play: PlaySession) -> Dictionary:
 	return play.economy.economy.snapshot()
 
 
-# --- validation --------------------------------------------------------------
+## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory
+## § Persistence). An undecided campaign writes an empty entry.
+static func _capture_victory(state: VictoryState) -> Dictionary:
+	if state == null:
+		return {}
+	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
 
+
+## A save from before victory state was captured (or a malformed entry) loads as
+## an undecided campaign, so legacy slots still resume with turns open.
+static func _victory_from(raw: Variant) -> VictoryState:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return null
+	var data: Dictionary = raw
+	var winner: int = int(data.get("winner", MapModel.NO_ID))
+	if not FactionCatalog.can_win(winner):
+		return null
+	if int(data.get("type", VictoryState.Type.MILITARY)) != VictoryState.Type.MILITARY:
+		return null
+	var turn: int = int(data.get("turn", -1))
+	if turn < 0:
+		return null
+	return VictoryState.military(winner, turn)
+
+
+# --- validation --------------------------------------------------------------
 
 static func is_valid(data: Dictionary) -> bool:
 	if data.is_empty() or int(data.get("version", -1)) != VERSION:
@@ -143,8 +175,15 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.income = int(session.get("income", 0))
 	play.capital_province = int(session.get("capital_province", -1))
 	play.capital_tile = _vector(session.get("capital_tile", CapitalChoice.NO_TILE))
+	play.feeding = _fraction_dictionary(session.get("feeding", {}))
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
+	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
+	play.infinite_mode = bool(session.get("infinite_mode", false))
+	play.campaign_halted = bool(session.get("campaign_halted", false))
+	# A decided campaign must come back decided, or the load would hand the
+	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
+	play.victory = _victory_from(data.get("victory", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height
@@ -157,6 +196,10 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	SaveLayers.restore_civilians(play.civilian_layer, data.get("civilians", {}))
 	SaveLayers.restore_fleets(play.ship_layer, data.get("fleets", {}))
 	SaveLayers.restore_armies(play.army_layer, data.get("armies", {}))
+	if play.army_layer != null:
+		play.army_layer.generals = GeneralRoster.from_dict(
+			_dictionary(data.get("generals", {}))
+		)
 	_restore_visibility(play, data.get("visibility", {}))
 	return true
 
@@ -182,6 +225,7 @@ static func _apply_regions(world: WorldMap, regions: Variant) -> bool:
 				return false
 		if not _apply_resources(model, data.get("resources", PackedInt32Array())):
 			return false
+		model.ownership.apply_dict(data.get("tile_deeds", {}))
 	return true
 
 
@@ -192,6 +236,7 @@ static func _apply_province(model: MapModel, data: Dictionary) -> bool:
 	province.owner = int(data.get("owner", MapModel.NO_ID))
 	province.capital = bool(data.get("capital", false))
 	province.town_development = int(data.get("town_development", 0))
+	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
 	province.resource = int(data.get("resource", MapModel.NO_ID))
 	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
 	province.population = int(data.get("population", 0))
@@ -244,17 +289,23 @@ static func restore_economy(play: PlaySession, data: Dictionary) -> void:
 	var market: Variant = data.get("market", {})
 	if typeof(market) == TYPE_DICTIONARY and not market.is_empty():
 		play.economy.market = WorldMarket.from_dict(market)
+	# Legacy saves carried no general pools; rebuild the court from the persisted
+	# tech floors rather than leaving it without commanders (wiki:
+	# military-generals § Persistence and load reconciliation).
+	if play.army_layer != null and play.economy.economy != null:
+		play.army_layer.sync_generals(play.player_faction, play.economy.economy.tech_unlocked)
 
 
 static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 	var snapshot: Variant = data.get("diplomacy", {})
 	if typeof(snapshot) == TYPE_DICTIONARY and not snapshot.is_empty():
 		play.diplomacy = _diplomacy_from(snapshot)
+	var ai: Dictionary = _dictionary(data.get("ai", {}))
+	if not ai.is_empty():
+		play.ai = AiState.from_dict(ai)
 
 
 # --- diplomacy ---------------------------------------------------------------
-
-
 static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 	if state == null:
 		return {}
@@ -272,6 +323,9 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"events": state.events.duplicate(true),
 		"modified": state._modified.duplicate(),
 		"order_counts": state._order_counts.duplicate(),
+		"alliance_snapshot": state.alliance_snapshot.duplicate(),
+		"pending_calls": state.pending_calls.duplicate(true),
+		"pending_interventions": state.pending_interventions.duplicate(true),
 	}
 
 
@@ -292,12 +346,13 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 			state.events.append(event.duplicate(true))
 	state._modified = data.get("modified", {}).duplicate()
 	state._order_counts = data.get("order_counts", {}).duplicate()
+	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
+	state.pending_calls.assign(data.get("pending_calls", []))
+	state.pending_interventions.assign(data.get("pending_interventions", []))
 	return state
 
 
 # --- helpers -----------------------------------------------------------------
-
-
 static func _faction(session: Dictionary) -> int:
 	var faction: int = int(session.get("player_faction", FactionCatalog.PLAYER_FACTION))
 	return faction if FactionCatalog.can_win(faction) else FactionCatalog.PLAYER_FACTION
@@ -311,6 +366,23 @@ static func _flag_dictionary(keys: Variant) -> Dictionary:
 	for raw: Variant in list:
 		flags[int(raw)] = true
 	return flags
+
+
+## Faction -> fraction, tolerating string keys from an older text save.
+static func _fraction_dictionary(raw: Variant) -> Dictionary:
+	var values: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		var value: Variant = stored[key]
+		if typeof(value) == TYPE_FLOAT or typeof(value) == TYPE_INT:
+			values[int(key)] = float(value)
+	return values
+
+
+static func _dictionary(raw: Variant) -> Dictionary:
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}
 
 
 ## Accepts the two vector shapes a save may carry (Vector2i or [x, y]).

@@ -21,6 +21,7 @@ Smoke must boot the real title screen, start a new game through setup, open the 
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker, injected via `MapScreen.preset_world`.
 - Cache shared maps in `before_all` on **non-underscore** vars (gd-tools copies those onto each test instance; `_foo` is not copied).
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
+- One Godot boot per theme: merge pure suites that share a fixture/domain (e.g. `test_catalogs`, `test_battle_rules`). Coverage makes every suite boot expensive, so keep the suite count low.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local

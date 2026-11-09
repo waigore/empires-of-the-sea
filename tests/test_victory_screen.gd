@@ -85,6 +85,32 @@ func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 	assert_false(_screen.hud.is_victory_shown(), "no second plate; the campaign stays decided")
 
 
+func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
+	_grant_old_world(MapScreen.PLAYER_FACTION)
+	MapPlayTurn.end_turn(_screen.play)
+	var decided: VictoryState = _screen.play.victory
+	assert_not_null(decided)
+	var save: Dictionary = SaveCodec.capture(_screen.play)
+	assert_true(SaveCodec.is_valid(save), "a decided save is valid")
+
+	_screen.free()
+	_screen = load("res://scenes/map_screen.tscn").instantiate()
+	_screen.map_width = WIDTH
+	_screen.map_height = HEIGHT
+	_screen.pending_save = save
+	add_child(_screen)
+
+	assert_not_null(_screen.play.victory, "the decided campaign survives the save")
+	assert_eq(_screen.play.victory.winner_player_id, decided.winner_player_id)
+	assert_eq(_screen.play.victory.turn_number, decided.turn_number)
+	assert_true(_screen.hud.is_victory_shown(), "the plate returns on load")
+	assert_true(_screen.hud._end_turn_button.disabled)
+	assert_eq(_screen.hud._end_turn_button.text, "CAMPAIGN ENDED")
+	var turn_before: int = _screen.turn
+	MapPlayTurn.end_turn(_screen.play)
+	assert_eq(_screen.turn, turn_before, "turns stay shut after a load")
+
+
 func _grant_old_world(faction_id: int) -> void:
 	for province: ProvinceState in _old_world().provinces:
 		province.owner = faction_id

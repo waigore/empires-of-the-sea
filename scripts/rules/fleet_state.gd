@@ -51,6 +51,17 @@ static func in_port(
 	return fleet
 
 
+## A yard slip: an in-port squadron with no hulls yet, filled by its first
+## launch (wiki: ships-and-naval § Ship muster; DR-20261109-01).
+static func empty_in_port(p_id: int, p_owner: int, p_province: int) -> FleetState:
+	var fleet := FleetState.new()
+	fleet.id = p_id
+	fleet.owner = p_owner
+	fleet.location = Location.IN_PORT
+	fleet.province = p_province
+	return fleet
+
+
 ## Replaces the hull list; every hull keeps its catalog type or defaults to carrack.
 func set_hulls(p_hulls: Array[String], p_types: Dictionary = {}) -> void:
 	hulls = p_hulls.duplicate()

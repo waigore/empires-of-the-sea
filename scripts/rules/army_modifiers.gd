@@ -11,6 +11,8 @@ extends RefCounted
 ## docs/armies.md until a ruleset loader exists.
 
 const W_MEDAL: float = 10.0
+## Initiative cavalry weight (wiki: combat § Configurable Values).
+const W_CAV: float = 50.0
 const MEDAL_MORALE_STEP: float = 0.05
 const MEDAL_MORALE_CAP: float = 0.20
 const BASE_DEPLOYMENT: int = 10
@@ -26,11 +28,8 @@ const TERRAIN_DEFENCE: Dictionary = {
 	MapModel.Terrain.SWAMP: 1.1,
 }
 
-## leaderKey -> melee multiplier (wiki: leader-bonuses § Bonus Table).
-const LEADER_MULTIPLIERS: Dictionary = {
-	"napoleon": 1.25,
-	"frederick": 1.15,
-}
+## leaderKey -> melee multiplier lives in LeaderCatalog, the roster's single
+## source of truth (wiki: leader-bonuses § Bonus Table).
 
 
 static func medal_aura(medals: int) -> float:
@@ -77,13 +76,7 @@ static func terrain_for(model: MapModel, province: int) -> int:
 
 
 static func leader_multiplier(leader_key: String) -> float:
-	var key: String = leader_key.to_lower()
-	if key.is_empty():
-		return 1.0
-	for known: Variant in LEADER_MULTIPLIERS.keys():
-		if key.contains(String(known)):
-			return float(LEADER_MULTIPLIERS[known])
-	return 1.0
+	return LeaderCatalog.multiplier_for(leader_key)
 
 
 ## Fallback medals when no general is available (wiki: combat § Modifiers).
@@ -150,8 +143,15 @@ static func modifiers(
 		multiplier *= terrain_multiplier(terrain_for(model, province))
 	var unlocked: Dictionary = tech.get(owner, {}) as Dictionary
 	var nationalism: bool = bool(unlocked.get("nationalism", false))
+	var fort: int = FortRules.level_at(model, province)
 	return {
 		"medals": clampi(medals, 0, GeneralRoster.MAX_MEDALS),
 		"limit": deployment_limit(medals, nationalism),
 		"multiplier": multiplier,
+		"fort": fort,
+		## Sides read one key each: walls spend the attacker's strength, the
+		## battery adds defending strength, the wall shrinks their losses.
+		"wall_hp": 0.0 if is_defender else FortRules.wall_hp(fort),
+		"emplaced": FortRules.emplaced_strength(fort, unlocked) if is_defender else 0.0,
+		"loss_scale": FortRules.loss_scale(fort) if is_defender else 1.0,
 	}

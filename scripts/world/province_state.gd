@@ -17,6 +17,8 @@ var capital_tile: Vector2i = Vector2i(-1, -1)
 var ports: Dictionary = {}
 var road_paths: Array = []
 var town_development: int = 0
+## Fort level 0–3 (wiki: siege-mechanics). Walls and guns derive from it.
+var fort_level: int = 0
 var resource: int = MapModel.NO_ID
 var resource_tile: Vector2i = Vector2i(-1, -1)
 var population: int = 0

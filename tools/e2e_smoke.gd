@@ -51,6 +51,7 @@ func _run() -> void:
 		return
 	setup.seed_field.text = SETUP_SEED
 	setup.size_option.select(SETUP_SIZE_INDEX)
+	_check(setup.leader_option.item_count > 0, "leader choices offered at setup")
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
@@ -77,6 +78,16 @@ func _run() -> void:
 		"country borders built for every nation"
 	)
 	_check(screen.play.map_seed == SETUP_SEED.to_int(), "setup seed reaches the world")
+	var leaders: Dictionary = screen.play.leaders
+	_check(
+		leaders.size() == FactionCatalog.great_power_ids().size(),
+		"every Great Power fields a leader"
+	)
+	_check(
+		String(leaders.get(screen.player_faction, ""))
+		== LeaderCatalog.default_key(screen.player_faction),
+		"the human crown fields its configured leader"
+	)
 	_check(screen.game_menu != null, "in-game menu present")
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
@@ -292,6 +303,7 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 		)
 		_check(_options_has(options, "build_road"), "engineer offers build_road")
 		_check(_options_has(options, "build_port"), "engineer offers build_port")
+		_check(_options_has(options, "build_fort"), "engineer offers build_fort")
 		MapPlayCivilians.on_action(screen.play, "build_road")
 		_check(engineer.is_working() and engineer.work_action() == "build_road", "road order starts")
 		works["road"] = road_tile
@@ -431,6 +443,21 @@ func _smoke_victory(screen: MapScreen) -> void:
 	_check(screen.turn == turn_before, "decided campaign refuses another turn")
 	screen.hud.victory_overlay.dismiss()
 	_check(not screen.hud.is_victory_shown(), "final view dismisses the plate")
+	# Calendar cap: an undecided age closes on its last full turn, with the same
+	# sealed plate (wiki: turn-time-mapping § Campaign calendar cap).
+	screen.play.victory = null
+	screen.play.infinite_mode = false
+	screen.play.turn = TurnTime.cap_turn()
+	MapPlayTurn.end_turn(screen.play)
+	await process_frame
+	_check(screen.play.campaign_halted, "calendar cap closes an undecided age")
+	_check(screen.turn == TurnTime.cap_turn(), "cap keeps the last full turn")
+	_check(screen.hud.is_victory_shown(), "campaign-complete plate shows")
+	_check(
+		screen.hud.victory_overlay._title.text == "CAMPAIGN COMPLETE",
+		"plate names the calendar end"
+	)
+	_check(screen.hud._end_turn_button.disabled, "cap keeps the turn seal shut")
 
 
 func _map_screen(main: Node) -> MapScreen:

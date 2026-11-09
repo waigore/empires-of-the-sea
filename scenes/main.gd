@@ -85,6 +85,8 @@ func _start_new_game(config: GameConfig) -> void:
 	screen.map_width = config.map_width
 	screen.map_height = config.map_height
 	screen.player_faction = config.player_faction
+	screen.player_leader = config.player_leader
+	screen.infinite_mode = config.infinite_mode
 	_install_screen(screen)
 
 

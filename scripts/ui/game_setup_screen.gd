@@ -7,11 +7,16 @@ signal start_requested(config: GameConfig)
 signal back_pressed
 
 var nation_option: OptionButton = null
+var leader_option: OptionButton = null
 var seed_field: LineEdit = null
 var size_option: OptionButton = null
+## Historical (calendar cap at 1800) vs endless (military victory only).
+var campaign_option: OptionButton = null
 var start_button: Button = null
 var back_button: Button = null
 
+## LeaderKeys backing `leader_option`, default first (wiki: leader-bonuses).
+var _leader_keys: Array[String] = []
 var _summary: Label = null
 var _error: Label = null
 
@@ -40,8 +45,18 @@ func _build() -> void:
 	for faction_id: int in FactionCatalog.great_power_ids():
 		nation_option.add_item(FactionCatalog.name_of(faction_id), faction_id)
 	nation_option.select(0)
-	nation_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
+	nation_option.item_selected.connect(func(_index: int) -> void:
+		_fill_leaders()
+		_refresh_summary()
+	)
 	box.add_child(nation_option)
+
+	box.add_child(MenuFrame.caption("Your leader"))
+	leader_option = OptionButton.new()
+	MenuFrame.style_option(leader_option)
+	leader_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
+	box.add_child(leader_option)
+	_fill_leaders()
 
 	box.add_child(MenuFrame.caption("Map seed"))
 	var seed_row := HBoxContainer.new()
@@ -72,6 +87,15 @@ func _build() -> void:
 	size_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
 	box.add_child(size_option)
 
+	box.add_child(MenuFrame.caption("Campaign"))
+	campaign_option = OptionButton.new()
+	MenuFrame.style_option(campaign_option)
+	campaign_option.add_item("Historical — closes in 1800")
+	campaign_option.add_item("Endless — military victory only")
+	campaign_option.select(0)
+	campaign_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
+	box.add_child(campaign_option)
+
 	_summary = MenuFrame.subtitle("")
 	box.add_child(_summary)
 
@@ -94,15 +118,41 @@ func _build() -> void:
 	actions.add_child(start_button)
 
 
+## Leader choices follow the crown: Spain fields Isabella, France Napoleon.
+func _fill_leaders() -> void:
+	if leader_option == null or nation_option == null:
+		return
+	var faction: int = int(nation_option.get_item_id(nation_option.selected))
+	_leader_keys = LeaderCatalog.keys_for(faction)
+	leader_option.clear()
+	for key: String in _leader_keys:
+		leader_option.add_item(
+			"%s — %s" % [LeaderCatalog.label(key), LeaderCatalog.bonus_label(key)]
+		)
+	if not _leader_keys.is_empty():
+		leader_option.select(0)
+
+
+func _selected_leader() -> String:
+	var index: int = leader_option.selected if leader_option != null else -1
+	if index < 0 or index >= _leader_keys.size():
+		return ""
+	return _leader_keys[index]
+
+
 func _refresh_summary() -> void:
 	if _summary == null or nation_option == null or size_option == null:
 		return
 	var nation: String = nation_option.get_item_text(nation_option.selected)
+	var leader: String = LeaderCatalog.label(_selected_leader())
 	var rivals: int = FactionCatalog.great_power_ids().size() - 1
 	var seed_text: String = seed_field.text.strip_edges() if seed_field != null else ""
 	var seed_label: String = seed_text if not seed_text.is_empty() else "random"
-	_summary.text = "You command %s  ·  %d rival crowns sail as AI  ·  seed %s" % [
-		nation, rivals, seed_label,
+	var length_note: String = (
+		"endless" if _endless() else "to 1800"
+	)
+	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  seed %s" % [
+		nation, leader, rivals, length_note, seed_label,
 	]
 
 
@@ -119,8 +169,16 @@ func _on_start() -> void:
 			return
 		seed_value = text.to_int()
 	var faction: int = int(nation_option.get_item_id(nation_option.selected))
-	var config: GameConfig = GameConfig.make(seed_value, size_option.selected, faction)
+	var config: GameConfig = GameConfig.make(
+		seed_value, size_option.selected, faction, _selected_leader(), _endless()
+	)
 	start_requested.emit(config)
+
+
+## Endless campaign keeps the calendar open; historical closes it in 1800
+## (wiki: turn-time-mapping § Campaign calendar cap).
+func _endless() -> bool:
+	return campaign_option != null and campaign_option.selected == 1
 
 
 func _notification(what: int) -> void:

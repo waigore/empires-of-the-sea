@@ -65,6 +65,50 @@ static func unit(type_id: String, tile: Vector2i, owner: int = 0) -> CivilianSta
 	return CivilianState.create(1, owner, type_id, tile)
 
 
+## Small two-crown map for Merchant land purchase: a Great Power province beside
+## a Minor Nation with grain and iron. The Minor id is 6 (Genoa).
+static func build_minor() -> MapModel:
+	var model := MapModel.new()
+	model.setup(4, 3)
+	var player_tiles: Array[Vector2i] = []
+	var minor_tiles: Array[Vector2i] = []
+	for y in 3:
+		for x in 4:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 2:
+				model.province[model.index_of(x, y)] = 0
+				player_tiles.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = 1
+				minor_tiles.append(tile)
+	model.resource[model.index_of(3, 1)] = 4
+	model.resource[model.index_of(2, 1)] = 1
+	var player := ProvinceState.create(
+		0, "Cádiz", player_tiles, Vector2(0.5, 1.5), player_tiles.size(), 0, true
+	)
+	player.capital_tile = Vector2i(0, 0)
+	player.resource = 4
+	player.resource_tile = Vector2i(3, 1)
+	var minor := ProvinceState.create(
+		1, "Genoa", minor_tiles, Vector2(2.5, 1.5), minor_tiles.size(), 6, false
+	)
+	minor.capital_tile = Vector2i(2, 0)
+	minor.resource = 4
+	minor.resource_tile = Vector2i(3, 1)
+	model.provinces = [player, minor]
+	return model
+
+
+## Genoa's court with a standing embassy and no war, for purchase tests.
+static func merchant_court() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, 6, 1)
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	return state
+
+
 static func stockpile() -> Dictionary:
 	return {"lumber": 40, "castIron": 40, "bronze": 10, "paper": 8, "steel": 8}
 

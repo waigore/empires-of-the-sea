@@ -60,16 +60,9 @@ const ARCHETYPES: Dictionary = {
 	},
 }
 
-## Default leader per Great Power id (wiki: leader-bonuses § Leader Selection:
-## AI GPs take their leader from config; this table is that config).
-const GP_LEADERS: Dictionary = {
-	0: "isabella",
-	1: "victoria",
-	2: "napoleon",
-	3: "henry",
-	4: "de_ruyter",
-	5: "gustavus",
-}
+## Default leader per Great Power id comes from LeaderCatalog, the roster's
+## single source of truth for which crown fields which leaderKey (wiki:
+## leader-bonuses § Leader Selection).
 
 ## Neutral fallback when a leader key names no known archetype.
 const NEUTRAL: Dictionary = {
@@ -90,7 +83,7 @@ static func keys() -> Array[String]:
 
 
 static func leader_for(faction: int) -> String:
-	return String(GP_LEADERS.get(faction, ""))
+	return LeaderCatalog.default_key(faction)
 
 
 ## Active personality: an exact archetype key, else neutral defaults.

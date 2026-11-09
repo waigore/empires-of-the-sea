@@ -46,17 +46,26 @@ static func snapshot(
 	var connected: Dictionary = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
 	var idle: Array[CivilianState] = ImprovementOrders.idle_builders(units, owner)
 	var groups: Array[Dictionary] = result["groups"]
+	var tiles_by_province: Dictionary = {}
+	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
+		if not model.is_land(tile.x, tile.y):
+			continue
+		if model.resource_at(tile.x, tile.y) < 0:
+			continue
+		var province_id: int = model.province_at(tile.x, tile.y)
+		if province_id == MapModel.NO_ID:
+			continue
+		if not tiles_by_province.has(province_id):
+			tiles_by_province[province_id] = [] as Array[Vector2i]
+		var province_tiles: Array[Vector2i] = tiles_by_province[province_id]
+		province_tiles.append(tile)
 	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
+		if not tiles_by_province.has(province.id):
 			continue
 		var province_id: int = province.id
 		var rows: Array[Dictionary] = []
-		for tile: Vector2i in province.tiles:
-			if not model.is_land(tile.x, tile.y):
-				continue
+		for tile: Vector2i in tiles_by_province[province_id]:
 			var resource: int = model.resource_at(tile.x, tile.y)
-			if resource < 0:
-				continue
 			var is_connected: bool = connected.has(model.index_of(tile.x, tile.y))
 			rows.append(_estate_row(
 				model, works, units, stockpile, owner, tile, resource, province_id,
