@@ -103,7 +103,7 @@ func feeding_coverage() -> float:
 func extraction() -> Dictionary:
 	return Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile
+		capital_tile, economy.tech_unlocked
 	)
 
 

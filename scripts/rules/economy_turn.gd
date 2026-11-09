@@ -5,8 +5,6 @@ extends RefCounted
 ## § Production flow). The same routine powers the end-of-turn projection so the UI
 ## never shows arithmetic the live resolution would not reproduce.
 
-const TREASURY_COMMODITIES: Array[String] = ["gold", "silver", "gems", "diamonds", "spices"]
-
 
 static func resolve(
 	economy: PlayerEconomy,
@@ -59,7 +57,7 @@ static func _run(
 
 	var riches: Dictionary = {}
 	var riches_total: int = 0
-	for id: String in TREASURY_COMMODITIES:
+	for id: String in CommodityCatalog.treasury_ids():
 		var held: int = economy.quantity(id)
 		if held <= 0:
 			continue

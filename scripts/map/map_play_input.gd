@@ -156,5 +156,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 			MapPlayFleets.open_yard(play)
 		"build":
 			play.improvements.open(play.selected_province)
+		"upgrade_town":
+			MapPlayImprovements.upgrade_town(play, play.selected_province)
 		_:
 			play.hud.toast("Order noted in %s" % name)

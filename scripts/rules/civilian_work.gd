@@ -9,15 +9,9 @@ extends RefCounted
 ## when a work order completes during the Build/Work pass.
 
 const MAX_IMPROVEMENT: int = LandWorks.MAX_IMPROVEMENT
-const IMPROVEMENT_COSTS: Array[Dictionary] = [
-	{},
-	{"lumber": 1, "castIron": 1},
-	{"lumber": 4, "castIron": 4},
-	{"lumber": 8, "castIron": 8},
-	{"lumber": 16, "castIron": 16},
-]
-const PROSPECT_TURNS: int = 1
-const EXPLORE_MAX_TURNS: int = 3
+## The Builder's town order needs National Bureaucracy (wiki:
+## tech-tree-diplomacy-civilian).
+const TOWN_TECH: String = "national_bureaucracy"
 ## Iron, coal and gold are the map's prospect-required minerals
 ## (wiki: fog-and-exploration § Prospect-Required Resources).
 const MINERAL_RESOURCES: Array[int] = [1, 2, 3]
@@ -26,19 +20,12 @@ const LABELS: Dictionary = {
 	"explore": "Explore province",
 	"prospect": "Prospect minerals",
 	"build_improvement": "Build improvement",
+	"upgrade_town": "Upgrade town",
 	"build_road": "Build road",
 	"build_port": "Build port",
 	"build_fort": "Build fort",
 	"build_rail": "Lay railroad",
 	"purchase_land": "Purchase land",
-}
-
-const COMMODITY_NAMES: Dictionary = {
-	"lumber": "lumber",
-	"castIron": "cast iron",
-	"steel": "steel",
-	"bronze": "bronze",
-	"paper": "paper",
 }
 
 
@@ -47,61 +34,28 @@ static func label(action: String) -> String:
 
 
 static func cost_for(action: String, level: int = 1) -> Dictionary:
-	if CivilianTransport.knows(action):
-		return CivilianTransport.cost(action)
-	if action == "build_fort":
-		return FortRules.cost(clampi(level, 1, FortRules.MAX_LEVEL))
-	if action == "build_improvement":
-		return (IMPROVEMENT_COSTS[clampi(level, 1, MAX_IMPROVEMENT)] as Dictionary).duplicate()
-	return {}
-
-
-## Fort the engineer would raise in this province next: level + 1, capped.
-static func fort_target(model: MapModel, tile: Vector2i) -> int:
-	if model == null:
-		return FortRules.next_level(0)
-	return FortRules.next_level(
-		FortRules.level_at(model, model.province_at(tile.x, tile.y))
-	)
+	return CivilianWorkPlan.cost_for(action, level)
 
 
 static func cost_text(cost: Dictionary) -> String:
-	if cost.is_empty():
-		return "Free"
-	var parts: PackedStringArray = PackedStringArray()
-	for commodity: Variant in cost.keys():
-		var id: String = String(commodity)
-		parts.append("%d %s" % [int(cost[commodity]), String(COMMODITY_NAMES.get(id, id))])
-	return " + ".join(parts)
+	return CivilianWorkPlan.cost_text(cost)
 
 
-## Wiki exploration time: ceil(3 × tiles / largest province), capped at 3.
 static func explore_turns(model: MapModel, province_id: int) -> int:
-	var tiles: int = model.province_tiles(province_id).size()
-	if tiles <= 0:
-		return 1
-	var largest: int = 1
-	for province: ProvinceState in model.provinces:
-		largest = maxi(largest, int((province.tiles as Array).size()))
-	var turns: int = int(ceil(3.0 * float(tiles) / float(largest)))
-	return clampi(turns, 1, EXPLORE_MAX_TURNS)
+	return CivilianWorkPlan.explore_turns(model, province_id)
+
+
+static func cost_level(
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks
+) -> int:
+	return CivilianWorkPlan.cost_level(action, model, tile, works)
 
 
 static func duration_for(
 	model: MapModel, action: String, tile: Vector2i, works: LandWorks
 ) -> int:
-	match action:
-		"explore":
-			return explore_turns(model, model.province_at(tile.x, tile.y))
-		"prospect":
-			return PROSPECT_TURNS
-		"build_improvement":
-			return clampi(works.improvement_at(model, tile) + 1, 1, MAX_IMPROVEMENT)
-		"build_fort":
-			return FortRules.turns(fort_target(model, tile))
-	if CivilianTransport.knows(action):
-		return CivilianTransport.turns(action)
-	return 1
+	return CivilianWorkPlan.duration_for(model, action, tile, works)
+
 
 
 ## Every action the unit could consider, with the reason it cannot start now.
@@ -125,9 +79,7 @@ static func options(
 			tech_caps, tech_unlocked, context
 		)
 		var cost: Dictionary = cost_for(
-			action,
-			fort_target(model, unit.tile) if action == "build_fort"
-			else works.improvement_at(model, unit.tile) + 1
+			action, cost_level(action, model, unit.tile, works)
 		)
 		var price_text: String = cost_text(cost)
 		if action == LandPurchase.ACTION:
@@ -183,11 +135,7 @@ static func validate(
 		check["tile"] = tile
 		check["province"] = province
 		return check
-	var cost: Dictionary = cost_for(
-		action,
-		fort_target(model, tile) if action == "build_fort"
-		else works.improvement_at(model, tile) + 1
-	)
+	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
 		return _no("Stores are short of %s." % cost_text(short))
@@ -223,7 +171,11 @@ static func assign(
 	_pay(stockpile, check.get("cost", {}))
 	var details: Dictionary = {}
 	if action == "build_fort":
-		details["fort_level"] = fort_target(model, Vector2i(check["tile"]))
+		details["fort_level"] = CivilianWorkPlan.fort_target(model, Vector2i(check["tile"]))
+	elif action == "upgrade_town":
+		details["town_level"] = CivilianWorkPlan.town_upgrade_level(
+			model, Vector2i(check["tile"])
+		)
 	elif action == LandPurchase.ACTION:
 		details["treasury_cost"] = int(check.get("treasury_cost", 0))
 	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
@@ -312,6 +264,26 @@ static func _check_action(
 					"Requires %s extraction tech (cap %d) to raise this estate."
 					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
 				)
+			var terrain_cap: int = TerrainCaps.hard_cap(
+				model.terrain_at(tile.x, tile.y), commodity
+			)
+			if works.improvement_at(model, tile) + 1 > terrain_cap:
+				return _no(
+					"Terrain caps %s extraction at level %d here."
+					% [ImprovementCatalog.commodity_label(commodity), terrain_cap]
+				)
+			return CivilianTransport.exclusive(units, unit, tile)
+		"upgrade_town":
+			var held_town: Dictionary = _owned_land(model, unit, tile)
+			if not bool(held_town["ok"]):
+				return held_town
+			var town_data: ProvinceState = model.province_data(province)
+			if town_data == null or not town_data.is_town_tile(tile):
+				return _no("Towns are upgraded on the province's town tile.")
+			if town_data.town_level() >= CivilianWorkPlan.MAX_TOWN:
+				return _no("This town is already fully developed.")
+			if not bool(tech_unlocked.get(TOWN_TECH, false)):
+				return _no("Requires National Bureaucracy to upgrade a town.")
 			return CivilianTransport.exclusive(units, unit, tile)
 		"build_fort":
 			var held: Dictionary = _owned_land(model, unit, tile)
@@ -319,7 +291,7 @@ static func _check_action(
 				return held
 			if FortRules.level_at(model, province) >= FortRules.MAX_LEVEL:
 				return _no("This province already holds a modern fort.")
-			var next_fort: int = fort_target(model, tile)
+			var next_fort: int = CivilianWorkPlan.fort_target(model, tile)
 			var gate: String = FortRules.tech_gate(next_fort)
 			if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
 				return _no(
@@ -365,6 +337,13 @@ static func _apply(
 			return [model.index_of(tile.x, tile.y)]
 		"build_improvement":
 			works.set_improvement(model, tile, works.improvement_at(model, tile) + 1)
+			return [model.index_of(tile.x, tile.y)]
+		"upgrade_town":
+			var town_data: ProvinceState = model.province_data(province)
+			if town_data != null:
+				town_data.town_development = clampi(
+					int(unit.work_detail("town_level")), 1, CivilianWorkPlan.MAX_TOWN
+				)
 			return [model.index_of(tile.x, tile.y)]
 		"build_fort":
 			FortRules.apply_build(

@@ -3,7 +3,7 @@ extends RefCounted
 ## Tile-resolution terrain colour, height, and the land drop shadow.
 ## The shader shades everything finer than a tile (REQ-P1-03).
 
-const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16]
+const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16, 0.24]
 
 
 static func build(canvas: MapCanvas, model: MapModel) -> void:

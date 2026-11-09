@@ -1,7 +1,7 @@
 # Civilian units
 
-Land units that explore, survey, improve and buy land. The starting three and
-the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
+Land units that explore, survey, improve and buy land. Spy is catalogued but
+blocked.
 
 **Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based).
 
@@ -18,11 +18,14 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 - **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
   Builders stay on crown land, while Merchants may cross Minor/Tribe provinces.
 - **Work orders** target the unit's tile or, for a Builder, any owned resource
-  tile; the unit records origin/assigned tiles, relocates and returns on cancel.
-  Costs are paid at assign and not refunded. Explore ≤3 turns, prospect 1,
-  improvement 1–4 (1/4/8/16 lumber + cast iron), road 1+1 (level 2 needs Road
-  Construction), port 5+5 (2 turns), rail 2 lumber + 2 steel (2 turns, road 1–2
-  → 4), fort 1–3 ([forts.md](forts.md)).
+  tile; the unit relocates and returns on cancel. Costs are paid at assign.
+  Explore ≤3 turns, prospect 1, improvement 1–4 (1/4/8/16 lumber + cast iron),
+  **upgrade town** (same costs, National Bureaucracy), road 1+1 (level 2 needs
+  Road Construction), port 5+5 (2 turns), rail 2+2 steel (2 turns), fort 1–3
+  ([forts.md](forts.md)).
+- **Town development:** a Builder raises a province town to level 4. Capital
+  provinces and connected port towns cap extraction at that level; levels 2 and
+  4 add the manufacturing bonus ([economy.md](economy.md)).
 - **Land purchase:** a Merchant buys a Minor/Tribe resource tile with an embassy,
   no war and a prospected mineral; 15× base price validated at assign, debited
   on completion. One deed per tile.
@@ -30,9 +33,9 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
   improvements, extraction, estates, visibility, borders and saves, while the
   province stays with the seller.
 - **Improvements** are named from the resource (Farm, Lumber camp, Mine, Pasture,
-  Ranch) and yield `min(level, tech cap, transport, town)` when connected by
-  road/port/town; upgrades above the tech cap are refused. The `ESTATES` ledger
-  lists realm yield, blockers and Build / Cancel / Map.
+  Ranch) and yield `min(level, tech cap, terrain cap, path transport, town cap)`
+  when connected by road/port/town; upgrades above a cap are refused. The
+  `ESTATES` ledger lists realm yield, blockers and Build / Cancel / Map.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
   Builders exempt).
 
@@ -41,8 +44,7 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 - **Spy** — counter-spy and court reports need rival spies, research and AI
   activity to observe; presence reveal already ships.
 - Civilian overseas deployment and cargo for New World yield.
-- `upgrade_town` (town connectivity), rival civilian AI.
-- Transport caps, raw → manufactured production, riches conversion.
+- Rival civilian AI; Minor/Tribe town manufacturing offers.
 
 ## Architecture
 
@@ -50,10 +52,9 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 |------|------|
 | `scripts/rules/civilian_*.gd` | roster, state, movement, work validation |
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | merchant deeds |
-| `scripts/rules/civilian_transport.gd` | roads, improved road, port, rail |
-| `scripts/rules/land_works.gd`, `improvement_*.gd` | tile works, connectivity, extraction, ledger |
-| `scripts/map/civilian_layer.gd` | markers, orders, development drawing |
-| `scripts/ui/civilian_panel.gd`, `improvement_panel.gd` | dossier and estates ledger |
+| `scripts/rules/civilian_transport.gd` | roads, port, rail |
+| `scripts/rules/land_works.gd`, `improvement_*.gd` | works, extraction, ledger |
+| `scripts/map/civilian_layer.gd`, `scripts/ui/civilian_*.gd` | markers, dossier |
 | `scripts/map_screen.gd` | intents, training, end-of-turn wiring |
 
 Rules stay node-free (`REQ-P3-03`); panel → `CivilianWork.assign`, movement →

@@ -41,6 +41,7 @@ func generate_region(
 	_build_ports(model)
 	_assign_factions(model, region_id)
 	_place_capitals(model, region_id)
+	_assign_town_tiles(model)
 	_name_provinces(model)
 	return model
 
@@ -223,6 +224,68 @@ func _place_capitals(model: MapModel, region_id: int) -> void:
 		model, FactionCatalog.great_power_ids(), CapitalChoice.KIND_GREAT_POWER
 	)
 	CapitalChoice.place_all(model, FactionCatalog.minor_ids(), CapitalChoice.KIND_MINOR)
+
+
+## Town per province (wiki: capital-and-connectivity § Town per province).
+## The capital tile for a capital province, else the registered port, else the
+## plains-preferred tile nearest the centroid (ties row then column). The town
+## tile is converted to plains and never carries a resource or improvement.
+func _assign_town_tiles(model: MapModel) -> void:
+	for province: ProvinceState in model.provinces:
+		var town: Vector2i = _town_candidate(model, province)
+		if town.x < 0:
+			continue
+		province.town_tile = town
+		if province.town_development <= 0:
+			province.town_development = 1
+		var index: int = model.index_of(town.x, town.y)
+		if model.terrain[index] != MapModel.Terrain.PLAINS:
+			model.terrain[index] = MapModel.Terrain.PLAINS
+		if model.resource[index] != MapModel.NO_ID:
+			model.resource[index] = MapModel.NO_ID
+			if province.resource_tile == town:
+				_reheadline(model, province)
+
+
+func _town_candidate(model: MapModel, province: ProvinceState) -> Vector2i:
+	if province.capital and province.capital_tile.x >= 0:
+		return province.capital_tile
+	if province.port_tile.x >= 0:
+		return province.port_tile
+	var plains: Array[Vector2i] = []
+	var all: Array[Vector2i] = []
+	for tile: Vector2i in province.tiles:
+		if not model.is_land(tile.x, tile.y):
+			continue
+		all.append(tile)
+		if model.terrain_at(tile.x, tile.y) == MapModel.Terrain.PLAINS:
+			plains.append(tile)
+	var pool: Array[Vector2i] = plains if not plains.is_empty() else all
+	if pool.is_empty():
+		return Vector2i(-1, -1)
+	pool.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var left: float = Vector2(a).distance_squared_to(province.center)
+		var right: float = Vector2(b).distance_squared_to(province.center)
+		if is_equal_approx(left, right):
+			if a.y == b.y:
+				return a.x < b.x
+			return a.y < b.y
+		return left < right
+	)
+	return pool[0]
+
+
+## Re-point a province's dossier headline at another resource after the town
+## conversion clears the tile it used to name.
+static func _reheadline(model: MapModel, province: ProvinceState) -> void:
+	province.resource = MapModel.NO_ID
+	province.resource_tile = Vector2i(-1, -1)
+	for tile: Vector2i in province.tiles:
+		var index: int = model.index_of(tile.x, tile.y)
+		if model.resource[index] != MapModel.NO_ID:
+			province.resource = model.resource[index]
+			province.resource_tile = tile
+			return
 
 
 ## Naming phase: needs ownership (and capitals) first, so every province draws
