@@ -89,6 +89,7 @@ suites = [
   "test_map_generator.gd",
   "test_map_model.gd",
   "test_map_region_table.gd",
+  "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
   "test_resource_lens.gd",
@@ -490,6 +491,11 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "ui"
 
+# The minimap inset is map presentation: the map suites own its contract.
+[[rules]]
+match = "scripts/ui/minimap*.gd"
+domain = "map"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
@@ -592,6 +598,10 @@ domain = "map"
 
 [[rules]]
 match = "tests/test_map_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_minimap*.gd"
 domain = "map"
 
 [[rules]]

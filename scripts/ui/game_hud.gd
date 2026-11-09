@@ -278,6 +278,11 @@ func set_minimap(
 	_minimap.build(model, map_size, visibility)
 
 
+## Ownership moved without the chart changing (a conquest, a treaty swap).
+func refresh_minimap() -> void:
+	_minimap.refresh_ownership()
+
+
 func update_view_rect(rect: Rect2) -> void:
 	_minimap.set_view_rect(rect)
 
