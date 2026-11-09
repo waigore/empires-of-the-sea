@@ -4,10 +4,10 @@ name: CI tier 2
 # Sticky GitHub issue (label ci-tier2) for the fix-tests agent.
 
 on:
+  workflow_dispatch:
   schedule:
     # Every 8 hours UTC
     - cron: "0 */8 * * *"
-  workflow_dispatch:
 
 concurrency:
   group: ci-tier2
