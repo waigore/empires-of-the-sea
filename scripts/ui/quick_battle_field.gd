@@ -30,6 +30,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
 	_time += delta
 	_flash = maxf(0.0, _flash - delta * 2.6)
 	_smoke = maxf(0.0, _smoke - delta * 0.7)

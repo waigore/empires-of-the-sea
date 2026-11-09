@@ -39,7 +39,7 @@ var infinite_mode: bool = false
 var pending_save: Dictionary = {}
 ## Overridable for tests so saves do not touch the player's slots.
 var save_dir: String = SaveStore.DIR
-## When set (tests), skip generation and load this world in `_ready`.
+## When set (tests), skip generation and load this world in `_ready`; loads reuse it.
 var preset_world: WorldMap = null
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
@@ -150,7 +150,7 @@ func _ready() -> void:
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
 	)
-	var restored: bool = SaveCodec.restore(play, pending_save)
+	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
 		play.configure(player_faction, map_seed, map_width, map_height, player_leader, infinite_mode)
 		if preset_world != null:

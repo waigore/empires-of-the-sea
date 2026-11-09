@@ -244,6 +244,15 @@ func begin_turn() -> void:
 		NavalMovement.begin_turn(region_fleets)
 
 
+## Expires landing sites whose one full turn has run (wiki: ships-and-naval
+## § Missions and Movement), in every region.
+func expire_beachheads(turn: int) -> void:
+	for roster: Array in FleetRosters.all(regions):
+		var region_fleets: Array[FleetState] = []
+		region_fleets.assign(roster)
+		NavalTransport.expire_beachheads(region_fleets, turn)
+
+
 ## Resolves contested zones in every region, visible or not (wiki: map-topology
 ## § two regions). `hostile` gates each pair; without it all pairs are hostile.
 func resolve_battles(

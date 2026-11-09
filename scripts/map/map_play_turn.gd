@@ -163,6 +163,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
 		_finish_calendar(play)
 		return
+	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
@@ -182,13 +183,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	if selected != null:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
 		if fleet != null:
-			play.hud.panels.show_fleet(
-				play.model, fleet, fleet.owner == play.player_faction,
-				MapPlayFleets.passage_note(play, fleet),
-				MapPlayFleets.yard_rows(play, fleet), -1,
-				MapPlayFleets.landing_rows(play, fleet),
-				MapPlayFleets.carried(play, fleet)
-			)
+			MapPlayFleets.show_dossier(play, fleet)
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
 		MapPlayCivilians.refresh_panel(play)

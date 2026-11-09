@@ -31,6 +31,7 @@ var _is_player: bool = false
 var _yard_rows: Array[Dictionary] = []
 var _land_box: VBoxContainer = null
 var _land_rows: Array[Dictionary] = []
+var _mission: FleetMissionSection = null
 
 
 func _ready() -> void:
@@ -83,6 +84,11 @@ func _build() -> void:
 
 	_status = _line(13, Palette.GOLD_PALE)
 	column.add_child(_status)
+
+	_mission = FleetMissionSection.new()
+	_mission.visible = false
+	_mission.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_mission)
 
 	_land_box = VBoxContainer.new()
 	_land_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -144,7 +150,9 @@ func refresh(
 	passage: String = "",
 	yard_rows: Array[Dictionary] = [],
 	land_rows: Array[Dictionary] = [],
-	carried: int = 0
+	carried: int = 0,
+	beach_rows: Array[Dictionary] = [],
+	beach_note: String = ""
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -165,9 +173,13 @@ func refresh(
 	if carried > 0:
 		_ships.text += " · carrying %d regiments" % carried
 	_fill_land()
+	_mission.set_data(beach_note, beach_rows)
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own fleet."
+	elif not beach_note.is_empty():
+		_status.text = "On beachhead duty"
+		_hint.text = beach_note
 	elif fleet.moved:
 		_status.text = "Has moved this turn"
 		_hint.text = "End the turn to sail again."
@@ -211,6 +223,8 @@ func refresh_slip(
 	_land_rows = []
 	if _land_box != null:
 		_land_box.visible = false
+	if _mission != null:
+		_mission.set_data("", [] as Array[Dictionary])
 	_yard_button.visible = is_player and not rows.is_empty()
 	_yard_open = _yard_button.visible
 	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
@@ -244,7 +258,11 @@ func _fill_land() -> void:
 	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_land_box.add_child(caption)
 	for row: Dictionary in _land_rows:
-		var button := _button("Land at %s" % String(row.get("name", "the coast")))
+		var invade: bool = bool(row.get("invade", false))
+		var label: String = (
+			"Invade %s" if invade else "Land at %s"
+		) % String(row.get("name", "the coast"))
+		var button := _button(label)
 		var province: int = int(row.get("province", -1))
 		button.pressed.connect(
 			func() -> void: action_pressed.emit("land:%d" % province)

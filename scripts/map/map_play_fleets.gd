@@ -18,31 +18,37 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.selected_province = -1
 	play.overlay.select_province(-1)
 	play.hud.panels.hide_province()
-	play.hud.panels.show_fleet(
-		play.model,
-		fleet,
-		fleet.owner == play.player_faction,
-		passage_note(play, fleet),
-		yard_rows(play, fleet),
-		-1,
-		landing_rows(play, fleet),
-		carried(play, fleet)
-	)
+	show_dossier(play, fleet)
 	refresh_options(play, fleet)
 	if fleet.owner != play.player_faction:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
 
 
+## One dossier refresh for selection, movement, the yard and a landing, so the
+## Beachhead section always comes from the same place.
+static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
+	play.hud.panels.show_fleet(
+		play.model, fleet, fleet.owner == play.player_faction,
+		passage_note(play, fleet), yard_rows(play, fleet), -1,
+		landing_rows(play, fleet), carried(play, fleet),
+		MapPlayBeachhead.rows(play, fleet), MapPlayBeachhead.note(play, fleet)
+	)
+
+
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
-## § Naval transport).
+## § Naval transport); a ready beachhead adds the hostile coast it marked.
 static func landing_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if fleet == null or fleet.owner != play.player_faction or fleet.embarked_army < 0:
 		return rows
-	for province: int in NavalTransport.landing_provinces(play.model, fleet):
+	var landing: Array[int] = NavalTransport.landing_provinces(
+		play.model, fleet, play.turn, MapPlayBeachhead.hostile(play)
+	)
+	for province: int in landing:
 		rows.append({
 			"province": province,
 			"name": play.model.province_name(province),
+			"invade": play.model.province_owner(province) != play.player_faction,
 		})
 	return rows
 
@@ -139,10 +145,7 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 		)
 		if carried_army != null:
 			carried_army.embarked_fleet = fleet.id
-	play.hud.panels.show_fleet(
-		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet),
-		-1, landing_rows(play, fleet), carried(play, fleet)
-	)
+	show_dossier(play, fleet)
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
 	if result.has("merged_into"):
@@ -255,10 +258,7 @@ static func refresh_yard(play: PlaySession, fleet: FleetState) -> void:
 	if fleet == null:
 		return
 	play.ship_layer.select(play.ship_layer.ship_for(fleet))
-	play.hud.panels.show_fleet(
-		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet), -1,
-		landing_rows(play, fleet), carried(play, fleet)
-	)
+	show_dossier(play, fleet)
 	play.hud.panels.fleet_panel.set_yard_open(true)
 
 
@@ -270,6 +270,10 @@ static func on_action(play: PlaySession, action: String) -> void:
 		launch(play, action.trim_prefix("yard:build:"))
 	elif action.begins_with("yard:scrap:"):
 		scrap(play, action.trim_prefix("yard:scrap:"))
+	elif action.begins_with("beachhead:"):
+		var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
+		if fleet != null and fleet.owner == play.player_faction:
+			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
 
@@ -280,15 +284,20 @@ static func land(play: PlaySession, province_id: int) -> void:
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
 		return
-	var result: Dictionary = ArmyTransport.disembark(play.army_layer, fleet, province_id)
+	var invaded: bool = play.model.province_owner(province_id) != play.player_faction
+	var result: Dictionary = ArmyTransport.disembark(
+		play.army_layer, fleet, province_id, play.turn, MapPlayBeachhead.hostile(play)
+	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The troops cannot land.")))
 		return
-	play.hud.toast("The army lands at %s" % play.model.province_name(province_id))
-	play.hud.panels.show_fleet(
-		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet),
-		-1, landing_rows(play, fleet), carried(play, fleet)
-	)
+	if invaded:
+		play.hud.toast(
+			"The army storms ashore at %s" % play.model.province_name(province_id)
+		)
+	else:
+		play.hud.toast("The army lands at %s" % play.model.province_name(province_id))
+	show_dossier(play, fleet)
 	MapPlayArmies.refresh_visibility(play)
 
 

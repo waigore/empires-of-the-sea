@@ -78,6 +78,7 @@ Build ~0.55 s (128×84). Steady state: static canvas once; settled fog still; ov
 Capitals follow the capital-choice rule (sea-bound province, ports, roads) and
 the setup post-pass wires their farms. Province, civilian and estate orders are
 rules-backed. Fleet movement, docking, ship reveal and sea-zone combat are
-rules-backed ([`fleets.md`](fleets.md)); missions, interception, home-fleet merge
-and AI movement are deferred. Warp-zone transit, colonisation of unclaimed land
-and Minor/Tribe reactive play are deferred ([`world.md`](world.md)).
+rules-backed ([`fleets.md`](fleets.md)); beachhead landings and home-fleet merge
+ship; Patrol/Blockade/Defend, interception and AI missions are deferred.
+Warp-zone transit, colonisation of unclaimed land and Minor/Tribe reactive play
+are deferred ([`world.md`](world.md)).

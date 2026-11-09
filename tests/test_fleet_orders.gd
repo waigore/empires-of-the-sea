@@ -363,6 +363,80 @@ func _player_ship_at_sea() -> Ship:
 	return _screen.ship_layer.ships[0]
 
 
+# --- the beachhead mission ----------------------------------------------------
+
+
+func _hostile_coast() -> Array:
+	for zone: SeaZoneState in _screen.model.sea_zones:
+		for province: int in NavalMovement.provinces_by_zone(_screen.model, zone.id):
+			var owner: int = _screen.model.province_owner(province)
+			if owner != _screen.play.player_faction and owner != MapModel.NO_ID:
+				return [province, zone.id]
+	return []
+
+
+## The dossier offers the hostile coasts beside the zone, marking one spends the
+## move, and the landing note follows the one-turn timer (wiki: ships-and-naval
+## § Missions and Movement; DR-20261109-13).
+func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	fleet.sea_zone = int(choice[1])
+	fleet.moved = false
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(_screen.play.player_faction, owner, _screen.play.turn)
+	var war: Dictionary = DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	assert_true(bool(war.get("ok", false)), String(war.get("reason", "")))
+	_screen.ship_layer.select(ship)
+
+	var rows: Array[Dictionary] = MapPlayBeachhead.rows(_screen.play, fleet)
+	assert_gt(rows.size(), 0, "the hostile coast is offered by name")
+	assert_eq(MapPlayBeachhead.rows(_screen.play, null).size(), 0)
+	assert_eq(MapPlayBeachhead.note(_screen.play, null), "")
+
+	MapPlayFleets.on_action(_screen.play, "beachhead:%d" % coast)
+
+	assert_eq(fleet.beachhead_province, coast)
+	assert_eq(fleet.beachhead_turn, _screen.play.turn)
+	assert_true(fleet.moved, "marking spends the fleet's move")
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("opens next turn"))
+	assert_eq(MapPlayBeachhead.rows(_screen.play, fleet).size(), 0)
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+	_screen.play.turn += 1
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("no troops"))
+	var army := ArmyState.muster(99, _screen.play.player_faction, 0, false, ["pikemen"], 990)
+	_screen.play.army_layer.armies.append(army)
+	army.embarked_fleet = fleet.id
+	fleet.embarked_army = army.id
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("land the troops"))
+	assert_gt(MapPlayFleets.landing_rows(_screen.play, fleet).size(), 0)
+
+	MapPlayFleets.on_action(_screen.play, "land:%d" % coast)
+
+	assert_eq(army.province, coast, "the army storms ashore")
+	assert_false(fleet.has_beachhead(), "the landing consumes the marker")
+	assert_eq(MapPlayBeachhead.note(_screen.play, fleet), "")
+	fleet.beachhead_province = coast
+	fleet.beachhead_turn = _screen.play.turn - 2
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("lapsed"))
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+	MapPlayBeachhead.establish(_screen.play, fleet, coast)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
+
+
 # --- the naval yard -----------------------------------------------------------
 
 
