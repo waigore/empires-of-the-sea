@@ -36,7 +36,7 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 		return ""
 	if fleet.has_beachhead():
 		return MapPlayBeachhead.note(play, fleet)
-	return FleetMissions.status_note(play.model, fleet)
+	return FleetMissions.status_note(play.model, fleet, MapPlayBeachhead.hostile(play))
 
 
 ## Routes a "mission:<kind>[:<province>]" order through the rules and refreshes

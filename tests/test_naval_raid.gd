@@ -103,6 +103,32 @@ func test_losses_never_exceed_the_imports() -> void:
 	assert_eq(int((result["losses"] as Dictionary)["grain"]), 1)
 
 
+func test_a_blockade_bonus_does_not_cross_zones() -> void:
+	# Both coasts answer to the victim, so both zones border its shore.
+	_model.province_data(1).owner = 0
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var patrol := _fleet(1, 1, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var blockader := _fleet(2, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var lone: Dictionary = NavalRaid.resolve(
+		_model, [home, patrol], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+	)
+	assert_false(bool(lone["ok"]), "a lone patrol in the far zone misses at 0.30")
+	var both: Dictionary = NavalRaid.resolve(
+		_model, [home, patrol, blockader], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+	)
+	assert_true(bool(both["ok"]))
+	assert_eq(int(both["zone"]), 0, "the blockading squadron raids in its own zone")
+	assert_almost_eq(
+		float(both["chance"]),
+		NavalInterception.chance([blockader], [home], FleetState.Mission.PATROL)
+		* NavalRaid.BLOCKADE_BONUS,
+		0.0001
+	)
+
+
 func test_the_market_reports_this_turns_imports() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = PlayerEconomy.starting()

@@ -63,13 +63,19 @@ static func is_stationary(mission: int) -> bool:
 
 
 ## Dossier line for the current station; empty when the squadron is free.
-static func status_note(model: MapModel, fleet: FleetState) -> String:
+static func status_note(
+	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
+) -> String:
 	if fleet == null:
 		return ""
 	match fleet.mission:
 		FleetState.Mission.PATROL:
 			return "On patrol — hostile fleets entering this zone may be intercepted."
 		FleetState.Mission.BLOCKADE:
+			# The rules stop honouring a blockade whose coast changed hands or
+			# made peace; the dossier must not keep claiming the station.
+			if not is_blockading(model, fleet, hostile):
+				return "The blockade has lapsed — the coast is no longer a hostile shore."
 			var place: String = "the enemy coast"
 			if model != null and fleet.blockade_province >= 0:
 				place = model.province_name(fleet.blockade_province)

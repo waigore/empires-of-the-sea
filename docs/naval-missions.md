@@ -34,8 +34,10 @@ missionFactor = 0.5 Patrol, 0.9 Blockade
 
 The roll is deterministic from campaign seed, turn, zone and owners. Success
 makes the patroller the attacker; a failed attempt leaves the fleet that moved
-into the zone attacking. No hostility, no interception. Interception resolves
-at the end of Movement, before the zone's normal battle.
+into the zone attacking. No hostility, no interception. Only squadrons holding
+Patrol or a standing Blockade roll; a squadron merely holding station adds
+nothing to the chance. Interception resolves at the end of Movement, before the
+zone's normal battle.
 
 ## Retreat
 
@@ -62,8 +64,9 @@ raidEfficiency = 0.3…0.7 by relative strength
 ```
 
 Only hostile Patrol/Blockade squadrons in a sea zone bordering the victim's
-coast raid. The cargo at risk is this turn's world-market imports; losses come
-out of the stockpile before the ledger closes. Escorts are the home fleet's
+coast raid; each squadron rolls in its own zone, and a blockade bonus never
+crosses zones. The cargo at risk is this turn's world-market imports; losses
+come out of the stockpile before the ledger closes. Escorts are the home fleet's
 warship HULL; cargo is its merchant HULL. Deferred: civilian/home-fleet hull
 losses, privateering bonus, and AI victim economies.
 

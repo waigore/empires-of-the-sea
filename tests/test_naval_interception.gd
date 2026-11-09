@@ -154,3 +154,22 @@ func test_a_defending_squadron_does_not_intercept() -> void:
 	)
 	assert_false(bool(battles[0]["intercepted"]))
 	assert_eq(int(battles[0]["attacker"]), 1)
+
+
+func test_only_the_station_holders_join_the_roll() -> void:
+	var patrol := _squadron(1, 0, 0, "sloop", 1)
+	patrol.mission = FleetState.Mission.PATROL
+	var holding := _squadron(2, 0, 0, "ship_of_the_line", 2)
+	holding.mission = FleetState.Mission.DEFEND
+	var mover := _squadron(3, 1, 0, "carrack", 1)
+	mover.moved = true
+	# A Defend squadron's intercept ratings must not turn the patrol's 0.33 roll
+	# into a 0.40 hit; the mover keeps the initiative in this battle.
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[patrol, holding, mover], Callable(), {"interception_roll": 0.35}
+	)
+	assert_false(bool(battles[0]["intercepted"]))
+	assert_eq(int(battles[0]["attacker"]), 1)
+	assert_almost_eq(
+		float(battles[0]["interception_chance"]), 0.5 * 4.0 / 6.0, 0.0001
+	)

@@ -91,6 +91,12 @@ static func attacker_owner(
 		var mission: int = FleetMissions.station_mission(model, group, hostile)
 		if mission == FleetState.Mission.NONE:
 			continue
+		# Only the squadrons holding the station roll: a Defend squadron or one
+		# merely passing through the zone is not part of the group
+		# (DR-20261109-16).
+		var holders: Array = _station_holders(model, group, hostile)
+		if holders.is_empty():
+			continue
 		var targets: Array = []
 		for other: int in owners:
 			if other == owner or not _hostile(hostile, owner, other):
@@ -101,7 +107,7 @@ static func attacker_owner(
 		if targets.is_empty():
 			continue
 		var found: Dictionary = attempt(
-			zone, group, targets, mission, seed_value, turn, forced
+			zone, holders, targets, mission, seed_value, turn, forced
 		)
 		if bool(found.get("ok", false)):
 			return {
@@ -132,6 +138,22 @@ static func attacker_owner(
 		"chance": best_chance,
 		"mission": FleetState.Mission.NONE,
 	}
+
+
+## The squadrons actually holding a station this turn: Patrol, or a blockade
+## that still stands. Everything else in the zone is a bystander for the roll
+## (DR-20261109-16: "each Patrol/Blockade group attempts interception").
+static func _station_holders(
+	model: MapModel, group: Array, hostile: Callable
+) -> Array:
+	var holders: Array = []
+	for fleet: FleetState in group:
+		if fleet.mission == FleetState.Mission.PATROL:
+			holders.append(fleet)
+		elif fleet.mission == FleetState.Mission.BLOCKADE \
+				and FleetMissions.is_blockading(model, fleet, hostile):
+			holders.append(fleet)
+	return holders
 
 
 static func _owner(group: Array) -> int:
