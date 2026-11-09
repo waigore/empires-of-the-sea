@@ -20,6 +20,8 @@ signal economy_pressed
 signal research_pressed
 signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
+## The civilian chip opens the whole-empire roster (REQ-P5-01).
+signal civilian_roster_pressed
 signal region_toggle_pressed
 signal focus_capital_pressed
 ## The player closed the campaign plate to keep viewing the map.
@@ -50,6 +52,8 @@ var end_turn_wrap: Control = null
 var victory_overlay: VictoryOverlay = null
 ## Quick Battle plate (wiki: quick-battle); null until the chrome builds it.
 var quick_battle_overlay: QuickBattleOverlay = null
+## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
+var civilian_roster: CivilianRosterPanel = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
 

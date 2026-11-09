@@ -1,9 +1,9 @@
 # Civilian units
 
-Land units that explore, survey, improve and buy land. The starting three and
-the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
+Land units that explore, survey, improve and buy land. Three start; Merchant and
+Rail Builder unlock by tech; Spy is catalogued but blocked.
 
-**Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based).
+**Pillars:** P2, P3, P1, P4, P5.
 
 **Wiki:** [civilian-units](https://github.com/waigore/empires-of-the-sea/wiki/civilian-units),
 [extraction-and-improvements](https://github.com/waigore/empires-of-the-sea/wiki/extraction-and-improvements),
@@ -11,38 +11,38 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 
 ## Implemented
 
-- **Roster** (`CivilianCatalog`): all six wiki types.
-- **Playable:** Explorer (explore, prospect), Builder (improve), Engineer (road,
-  port), Merchant (buy land), Rail Builder (railroad). Training at the capital
-  spends treasury + paper, gated by Merchant Companies or Early Steam Engine.
-- **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
-  Builders stay on crown land, while Merchants may cross Minor/Tribe provinces.
-- **Work orders** target the unit's tile or, for a Builder, any owned resource
-  tile; the unit records origin/assigned tiles, relocates and returns on cancel.
+- **Roster** (`CivilianCatalog`): all six wiki types; Explorer, Builder,
+  Engineer, Merchant and Rail Builder are playable. Training at the capital
+  costs treasury + paper, gated by Merchant Companies or Early Steam Engine.
+- **Empire ledger** (`CivilianRosterPanel`): the CIVILIANS chip or `C` lists every
+  crew in both worlds, filters by region and craft, and Visit jumps to its map
+  and dossier.
+- **Movement:** one orthogonal land tile per turn; Merchants may cross
+  Minor/Tribe provinces, other types stay on crown land.
+- **Work orders** target the unit's tile (Builders may take any owned resource
+  tile); origin/assigned tiles are recorded and cancel moves the unit back.
   Costs are paid at assign and not refunded. Explore ≤3 turns, prospect 1,
   improvement 1–4 (1/4/8/16 lumber + cast iron), road 1+1 (level 2 needs Road
   Construction), port 5+5 (2 turns), rail 2 lumber + 2 steel (2 turns, road 1–2
   → 4), fort 1–3 ([forts.md](forts.md)).
 - **Land purchase:** a Merchant buys a Minor/Tribe resource tile with an embassy,
-  no war and a prospected mineral; 15× base price validated at assign, debited
-  on completion. One deed per tile.
+  no war and a prospected mineral; 15× base price, charged on completion. One
+  deed per tile.
 - **Tile deeds** (`TileOwnership`): purchased tiles count as the buyer's land for
-  improvements, extraction, estates, visibility, borders and saves, while the
-  province stays with the seller.
-- **Improvements** are named from the resource (Farm, Lumber camp, Mine, Pasture,
-  Ranch) and yield `min(level, tech cap, transport, town)` when connected by
-  road/port/town; upgrades above the tech cap are refused. The `ESTATES` ledger
-  lists realm yield, blockers and Build / Cancel / Map.
+  improvements, estates, visibility, borders and saves; the province stays with
+  the seller.
+- **Improvements** are named from the resource and yield
+  `min(level, tech cap, transport, town)` when connected; above-cap upgrades are
+  refused. `ESTATES` lists yields, blockers and orders.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
   Builders exempt).
 
 ## Deferred (REQ-P2-02)
 
 - **Spy** — counter-spy and court reports need rival spies, research and AI
-  activity to observe; presence reveal already ships.
-- Civilian overseas deployment and cargo for New World yield.
-- `upgrade_town` (town connectivity), rival civilian AI.
-- Transport caps, raw → manufactured production, riches conversion.
+  activity.
+- Overseas deployment/cargo, `upgrade_town`, rival civilian AI, transport caps,
+  raw → manufactured production, riches conversion.
 
 ## Architecture
 
@@ -52,8 +52,8 @@ the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | merchant deeds |
 | `scripts/rules/civilian_transport.gd` | roads, improved road, port, rail |
 | `scripts/rules/land_works.gd`, `improvement_*.gd` | tile works, connectivity, extraction, ledger |
-| `scripts/map/civilian_layer.gd` | markers, orders, development drawing |
-| `scripts/ui/civilian_panel.gd`, `improvement_panel.gd` | dossier and estates ledger |
+| `scripts/map/civilian_*.gd`, `map_play_civilian_roster.gd` | markers, orders, development, roster jump |
+| `scripts/ui/civilian_*.gd` | dossier, estates ledger, roster panel |
 | `scripts/map_screen.gd` | intents, training, end-of-turn wiring |
 
 Rules stay node-free (`REQ-P3-03`); panel → `CivilianWork.assign`, movement →
@@ -66,13 +66,16 @@ Rules stay node-free (`REQ-P3-03`); panel → `CivilianWork.assign`, movement �
 | Select | click medallion | tap medallion |
 | March | click glowing neighbour tile | tap glowing neighbour tile |
 | Work order | dossier button | dossier button |
+| Empire roster | CIVILIANS chip / `C` | CIVILIANS chip |
+| Visit crew | roster row / Visit | tap row / Visit |
 | Estates ledger | `ESTATES` / province **Build Improvement** | same |
 | Cancel / close | dossier / ledger Close | dossier / ledger Close |
 
 ## Tests
 
 `test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_improvement_system`, `test_map_screen_crown_orders`, `test_map_model`.
+`test_civilian_roster`, `test_improvement_system`,
+`test_map_screen_crown_orders`, `test_map_model`.
 
 ```bash
 gd-tools test --coverage --min 80

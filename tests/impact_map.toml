@@ -41,6 +41,7 @@ suites = [
 [domains.civilian]
 suites = [
   "test_civilian_field_rules.gd",
+  "test_civilian_roster.gd",
 ]
 
 [domains.diplomacy]
