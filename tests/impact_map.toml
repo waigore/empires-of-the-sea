@@ -167,7 +167,7 @@ full = true
 
 [[rules]]
 match = "tests/impact_map.toml"
-full = true
+domain = "misc"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -175,7 +175,7 @@ full = true
 
 [[rules]]
 match = "tests/map_shot.gd"
-full = true
+domain = "map"
 
 [[rules]]
 match = "tools/select_impacted_tests.py"
@@ -633,6 +633,10 @@ domain = "misc"
 [[rules]]
 match = "tests/test_research_*.gd"
 domain = "research"
+
+[[rules]]
+match = "tests/test_resource_*.gd"
+domain = "map"
 
 [[rules]]
 match = "tests/test_tech_*.gd"
