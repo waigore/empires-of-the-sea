@@ -212,7 +212,7 @@ func test_a_fleet_crosses_the_passage_into_the_new_world() -> void:
 	assert_true(fleet.moved)
 	assert_true(_screen.ship_layer.fleets.has(fleet), "it sails the New World now")
 	assert_false(_roster(FactionCatalog.OLD_WORLD).has(fleet), "it left the Old World roster")
-	assert_eq(_screen.ship_layer.selected_ship, _screen.ship_layer.ship_for(fleet))
+	assert_eq(_screen.ship_layer.selected(), _screen.ship_layer.ship_for(fleet))
 	assert_eq(_zone_fog(fleet.sea_zone), MapOverlay.FOG_VISIBLE, "arrival waters reveal")
 	assert_true(_unique_fleet_ids(), "both rosters keep distinct fleet ids")
 

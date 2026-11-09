@@ -1,6 +1,6 @@
 # Fleets and naval combat
 
-Naval slice: movement, harbours, fog, sea battles, upkeep and the naval yard.
+Naval slice: movement, harbours, fog, sea battles, upkeep, naval yard.
 
 **Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (no per-frame fleet sim).
 
@@ -12,7 +12,7 @@ Naval slice: movement, harbours, fog, sea battles, upkeep and the naval yard.
 
 - At sea (one zone) or in port (one province), never both.
 - Only Great Powers keep fleets; each region hosts its own squadrons.
-- **One move / turn:** S↔S; undock to an adjacent sea; dock at an owned coastal
+- **One move / turn:** S↔S; undock to adjacent sea; dock at an owned coastal
   province with `port_tile`.
 - **Passage crossing:** a fleet in a warp zone may cross to the paired zone as
   its move; the view follows it.
@@ -27,7 +27,7 @@ Naval slice: movement, harbours, fog, sea battles, upkeep and the naval yard.
 - **Breaker's yard:** break up one hull (port or sea); one peasant returns, no
   refund, an emptied squadron retires. It asks once: arm, then scrap
   (DR-20261109-01).
-- Contested zones fight at turn end **in every region**, and only factions **at
+- Contested zones fight at turn end **in every region**; only factions **at
   war** engage. Strength `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
   `HULL × (1 + ARM/10)`; a 3% edge wins (loser sunk, victor spends half the
   beaten strength on weakest hulls); near-equal is a stalemate; port fleets
@@ -36,8 +36,8 @@ Naval slice: movement, harbours, fog, sea battles, upkeep and the naval yard.
 ## Deferred (REQ-P2-02)
 
 Home-fleet merge over docking · Patrol/Blockade/Beachhead/Defend ·
-interception/retreat/raids · AI movement · multi-hull markers · docket ship
-strength beside land strength.
+interception/retreat/raids · AI movement · multi-hull markers · ship strength
+beside land strength.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ strength beside land strength.
 | `scripts/rules/warp_travel.gd` | passage crossing validation |
 | `scripts/map/map_play_warp.gd` | follows a crossing onto the other map |
 | `scripts/rules/visibility.gd` | fog reveal + end of turn |
-| `scripts/map/ship_layer.gd` | markers, orders, battles |
+| `scripts/map/ship_layer.gd` | orders, battles, signals |
 | `scripts/map/map_overlay.gd` | destination highlights |
 | `scripts/map/fog_layer.gd` | fog texture + fade |
 | `scripts/ui/fleet_panel.gd` | dockable dossier, yard orders |
@@ -76,9 +76,9 @@ No node deps in rules (`REQ-P3-03`). `ShipLayer.order` →
 
 ## Tests
 
-`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`, `test_visibility`,
-`test_ship_stats`, `test_ship_economy`, `test_naval_combat`, `test_fleet_yard`,
-`test_map_screen`.
+`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`,
+`test_fleet_rosters`, `test_visibility`, `test_ship_stats`, `test_ship_economy`,
+`test_naval_combat`, `test_fleet_yard`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

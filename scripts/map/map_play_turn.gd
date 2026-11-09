@@ -114,7 +114,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.hud.set_prestige(play.prestige)
 	MapPlayDiplomacy.refresh(play)
 	play.hud.toast("Turn %d — %d" % [play.turn, year])
-	var selected: Ship = play.ship_layer.selected_ship
+	var selected: Ship = play.ship_layer.selected()
 	if selected != null:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
 		if fleet != null:

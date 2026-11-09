@@ -329,7 +329,7 @@ func _smoke_navy(screen: MapScreen) -> void:
 	var fleet: FleetState = screen.ship_layer.fleet_of(ship)
 	screen.ship_layer.select(ship)
 	await process_frame
-	_check(screen.ship_layer.selected_ship == ship, "fleet selection sticks")
+	_check(screen.ship_layer.selected() == ship, "fleet selection sticks")
 	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens")
 	var zones: Array = NavalMovement.destination_zones(screen.model, fleet)
 	_check(not zones.is_empty(), "fleet has a sail destination")
