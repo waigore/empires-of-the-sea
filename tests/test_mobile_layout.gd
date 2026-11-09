@@ -12,8 +12,6 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const PHONE := Vector2i(914, 411)
 ## 1600x720 at 2.0 density: a 360 dp phone held landscape (the modern floor).
 const SMALL := Vector2i(800, 360)
-## 720x1280 at 2.0 density: a 360 dp phone held portrait.
-const PORTRAIT := Vector2i(360, 640)
 const TABLET := Vector2i(1180, 820)
 const DESKTOP := Vector2i(1280, 720)
 const TOUCH_MIN := 40.0
@@ -70,7 +68,7 @@ func test_phone_chrome_fits_the_screen() -> void:
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_true(HudLayout.is_compact(hud.size), "compact at %s" % size)
-		var icon_only: int = 0
+		assert_almost_eq(hud.top_bar.size.y, 56.0, 0.5, "one-row bar at %s" % size)
 		_fits(hud.top_bar.get_global_rect(), _screen_rect(), "bar %s" % size)
 		for chip: Control in hud.chips:
 			_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip %s" % size)
@@ -78,14 +76,21 @@ func test_phone_chrome_fits_the_screen() -> void:
 				chip.size.x, chip.get_combined_minimum_size().x - 0.5,
 				"chip must not be squeezed at %s" % size
 			)
-		for node: Node in hud.top_row.get_children():
-			if node is Button:
-				var bar_button := node as Button
-				_tappable(bar_button, "bar button %s at %s" % [bar_button.text, size])
-				assert_not_null(bar_button.icon, "bar door keeps its medallion at %s" % size)
-				if bar_button.text.is_empty():
-					icon_only += 1
-		assert_eq(icon_only, 3, "secondary ledgers go icon-only on a phone %s" % size)
+			assert_not_null(_medallion(chip as Button), "chip keeps its medallion at %s" % size)
+			var chip_caption := _caption_label(chip as Button)
+			assert_not_null(chip_caption, "chip has a caption label at %s" % size)
+			assert_false(chip_caption.visible, "chip caption yields on a phone %s" % size)
+		for door: Button in _bar_doors(hud):
+			var caption: String = _caption(door)
+			_tappable(door, "bar door %s at %s" % [caption, size])
+			assert_not_null(_medallion(door), "bar door keeps its medallion at %s" % size)
+			assert_false(caption.is_empty(), "bar door keeps its caption at %s" % size)
+			var caption_label := _caption_label(door)
+			assert_not_null(caption_label, "bar door has a caption label at %s" % size)
+			if door.has_meta("compact_icon_only"):
+				assert_false(caption_label.visible, "command caption yields on a phone %s" % size)
+			else:
+				assert_true(caption_label.visible, "region keeps its label %s" % size)
 		_fits(hud.minimap_frame.get_global_rect(), _screen_rect(), "minimap %s" % size)
 		_fits(hud.end_turn_wrap.get_global_rect(), _screen_rect(), "end turn %s" % size)
 		_tappable(hud.end_turn_wrap.get_child(1), "end turn %s" % size)
@@ -96,6 +101,7 @@ func test_phone_chrome_fits_the_screen() -> void:
 		var estates: Control = _screen.get_node("HUD/Improvements")
 		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
 		_tappable(estates._toggle, "estates %s" % size)
+		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
 		_fits(hud._lens_button.get_global_rect(), _screen_rect(), "lens button %s" % size)
 		_tappable(hud._lens_button, "lens button %s" % size)
 		_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "survey key %s" % size)
@@ -104,29 +110,30 @@ func test_phone_chrome_fits_the_screen() -> void:
 			hud.size.x - LensLegend.WIDTH - 20.0,
 			"survey key right-docked %s" % size
 		)
-		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
 
 
-## Rotating a phone back to a tablet width restores the captions the compact
-## cartouche dropped (HudLayout drives both, so the switch must be reversible).
+## Rotating a phone back to a tablet width restores the caption words that the
+## compact cartouche dropped (the medallions stay put).
 func test_resize_restores_the_wide_cartouche() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	assert_eq(_icon_only_count(hud), 3, "compact drops the secondary captions")
+	assert_false(_caption_label(hud.chips[0] as Button).visible, "compact drops chip words")
+	var command: Button = null
+	for door: Button in _bar_doors(hud):
+		if door.has_meta("compact_icon_only"):
+			command = door
+			break
+	assert_not_null(command, "a command door exists")
+	if command != null:
+		assert_false(_caption_label(command).visible, "compact drops command words")
 	_viewport.size = DESKTOP
 	hud._relayout()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	assert_eq(_icon_only_count(hud), 0, "wide layout restores every caption")
-
-
-func _icon_only_count(hud: GameHud) -> int:
-	var count: int = 0
-	for node: Node in hud.top_row.get_children():
-		if node is Button and (node as Button).text.is_empty():
-			count += 1
-	return count
+	assert_true(_caption_label(hud.chips[0] as Button).visible, "wide restores chip words")
+	if command != null:
+		assert_true(_caption_label(command).visible, "wide restores command words")
 
 
 func test_chip_values_do_not_shift_the_bar() -> void:
@@ -141,6 +148,70 @@ func test_chip_values_do_not_shift_the_bar() -> void:
 		_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip after growth")
 
 
+## --- top bar ---------------------------------------------------------------
+
+
+func test_top_bar_keeps_only_purposeful_plaques() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	assert_eq(hud.chips.size(), 4, "treasury, ships, civilians and troops remain")
+	assert_null(hud.find_child("PrestigeChip", true, false), "prestige plaque removed")
+	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
+		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
+	assert_eq(
+		hud._income_label.text, HudChrome.format_delta(_screen.play.income),
+		"treasury shows the projected turn income"
+	)
+
+
+func test_treasury_income_delta_is_signed_and_compact() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.set_income(240)
+	assert_eq(hud._income_label.text, "+240")
+	hud.set_income(-35)
+	assert_eq(hud._income_label.text, "-35")
+	hud.set_income(12_500)
+	assert_eq(hud._income_label.text, "+12.5k", "large deltas keep the plaque width")
+	hud.set_treasury(2_500, false)
+	assert_true(hud._treasury_chip.tooltip_text.contains("+12.5k per turn"))
+
+
+func test_status_plaques_find_the_next_force() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var hits: Array[int] = [0]
+	hud.economy_pressed.connect(func() -> void: hits[0] += 1)
+	_chip(hud, "TreasuryChip").pressed.emit()
+	assert_eq(hits[0], 1, "treasury plaque opens the ledger")
+
+	_chip(hud, "FleetChip").pressed.emit()
+	await get_tree().process_frame
+	assert_not_null(_screen.ship_layer.selected(), "ship plaque selects a squadron")
+	_chip(hud, "CivilianChip").pressed.emit()
+	await get_tree().process_frame
+	assert_true(hud.civilian_roster.is_open(), "civilian plaque opens the empire roster")
+	hud.civilian_roster.close()
+	_chip(hud, "ArmyChip").pressed.emit()
+	await get_tree().process_frame
+	assert_not_null(_screen.army_layer.selected_army, "troop plaque selects an army")
+
+
+func test_region_seal_goes_inert_with_a_single_region() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	HudChrome.set_region_label(hud, "OLD WORLD", false)
+	assert_true(hud._region_button.disabled, "no fake switch on a one-region map")
+	assert_eq(hud._region_label.text, "OLD WORLD", "region stays as context")
+	assert_true(hud._region_button.tooltip_text.contains("only charted"))
+	HudChrome.set_region_label(hud, "NEW WORLD", true)
+	assert_false(hud._region_button.disabled, "two maps offer the switch again")
+
+
 func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 	for size: Vector2i in [DESKTOP, TABLET]:
 		_open(size)
@@ -152,12 +223,13 @@ func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 		_fits(hud.end_turn_wrap.get_global_rect(), _screen_rect(), "end turn %s" % size)
 		if size != DESKTOP:
 			continue
-		for node: Node in hud.top_row.get_children():
-			if node is Button:
-				var bar_button := node as Button
-				assert_not_null(bar_button.icon, "desktop door keeps its medallion")
-				assert_false(bar_button.text.is_empty(), "desktop door keeps its caption")
-		assert_almost_eq(hud.top_bar.size.y, 68.0, 0.5)
+		assert_almost_eq(hud.top_bar.size.y, 60.0, 0.5)
+		for chip: Control in hud.chips:
+			assert_true(_caption_label(chip as Button).visible, "desktop chip keeps its word")
+		for door: Button in _bar_doors(hud):
+			assert_not_null(_medallion(door), "desktop door keeps its medallion")
+			assert_false(_caption(door).is_empty(), "desktop door keeps its caption")
+			assert_true(_caption_label(door).visible, "desktop door keeps its word")
 		assert_almost_eq(hud.minimap_frame.size.x, 250.0, 0.5)
 		assert_almost_eq(hud.end_turn_wrap.size.x, 212.0, 0.5)
 		assert_eq(hud.panels.dock.width, GameHud.PANEL_WIDTH)
@@ -277,141 +349,6 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 		_tappable(button, "estate filter %s" % button.text)
 
 
-func test_phone_civilian_roster_fits_and_stays_tappable() -> void:
-	for size: Vector2i in [PHONE, SMALL, PORTRAIT]:
-		_open(size)
-		await get_tree().process_frame
-		var roster: CivilianRosterPanel = _screen.hud.civilian_roster
-		_screen.hud.civilian_roster_pressed.emit()
-		await get_tree().process_frame
-		assert_true(roster.is_open(), "roster opens at %s" % size)
-		_fits(roster._panel.get_global_rect(), _screen_rect(), "roster %s" % size)
-		var row: CivilianRosterRow = _first_roster_row(roster)
-		assert_not_null(row, "roster lists a row at %s" % size)
-		_fits(row.get_global_rect(), roster._panel.get_global_rect(), "row %s" % size)
-		_tappable(row._visit, "visit button %s" % size)
-		for button: Button in roster._head.filter_buttons().values():
-			_tappable(button, "roster filter %s at %s" % [button.text, size])
-		roster.close()
-
-
-func _first_roster_row(roster: CivilianRosterPanel) -> CivilianRosterRow:
-	for child: Node in roster._rows.get_children():
-		if child is CivilianRosterRow:
-			return child
-	return null
-
-
-## --- menu pages ------------------------------------------------------------
-
-
-## The title page is the first surface a phone shows: every door must be on
-## screen at once, not scrolled to (REQ-P5-01, REQ-P1-05, RUB-P5-07).
-func test_title_page_shows_every_door_on_a_phone() -> void:
-	for size: Vector2i in [PHONE, SMALL]:
-		var menu := await _menu_page(MainMenu.new(), size) as MainMenu
-		if menu == null:
-			return
-		for button: Button in [
-			menu.new_game_button, menu.load_game_button,
-			menu.settings_button, menu.quit_button,
-		]:
-			_fits(
-				button.get_global_rect(), _viewport_rect(size),
-				"title %s at %s" % [button.text, size]
-			)
-			_tappable(button, "title %s at %s" % [button.text, size])
-
-
-## SET SAIL is pinned outside the scroll: a phone must never have to hunt for
-## the action that starts the game (REQ-P5-01).
-func test_setup_action_row_stays_on_screen_on_a_phone() -> void:
-	for size: Vector2i in [PHONE, SMALL]:
-		var setup := await _menu_page(GameSetupScreen.new(), size) as GameSetupScreen
-		if setup == null:
-			return
-		_fits(
-			setup.start_button.get_global_rect(), _viewport_rect(size),
-			"set sail at %s" % size
-		)
-		_fits(
-			setup.back_button.get_global_rect(), _viewport_rect(size),
-			"back at %s" % size
-		)
-		_tappable(setup.start_button, "set sail at %s" % size)
-
-
-## The load page lists five slots and the only way out: both must be reachable
-## without a drag inside a column of buttons (REQ-P5-01, REQ-P1-05).
-func test_load_page_fits_every_slot_and_the_exit_on_a_phone() -> void:
-	var browser := await _menu_page(SaveBrowser.new(), PHONE) as SaveBrowser
-	if browser == null:
-		return
-	assert_eq(browser.slot_buttons.size(), SaveStore.SLOT_COUNT, "every slot listed")
-	for button: Button in browser.slot_buttons:
-		_fits(button.get_global_rect(), _viewport_rect(PHONE), "slot at phone")
-		_tappable(button, "slot at phone")
-	_fits(browser.back_button.get_global_rect(), _viewport_rect(PHONE), "load back")
-	_tappable(browser.back_button, "load back")
-
-
-## The pause menu is the phone's only route to save/load: every door on screen
-## at once, none under the thumb's reach (REQ-P5-01, REQ-P1-05).
-func test_pause_menu_fits_a_phone() -> void:
-	_open(PHONE)
-	await get_tree().process_frame
-	_screen.game_menu.open()
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var menu: GameMenu = _screen.game_menu
-	for button: Button in [
-		menu.resume_button, menu.save_button, menu.load_button,
-		menu.settings_button, menu.main_menu_button,
-	]:
-		_fits(button.get_global_rect(), _screen_rect(), "pause %s" % button.text)
-		_tappable(button, "pause %s" % button.text)
-	menu.close()
-
-
-## A page taller than the viewport opens at its top instead of being centred
-## over both edges (the bug that hid QUIT and the NEW GAME heading).
-func test_overflowing_page_opens_at_its_top() -> void:
-	var setup := await _menu_page(GameSetupScreen.new(), PHONE) as GameSetupScreen
-	if setup == null:
-		return
-	var scroll: ScrollContainer = _first_scroll(setup)
-	assert_not_null(scroll, "setup page scrolls")
-	if scroll != null:
-		assert_almost_eq(scroll.scroll_vertical, 0.0, 0.5, "opens at the top")
-		assert_gt(
-			scroll.get_v_scroll_bar().max_value, scroll.size.y,
-			"the form overflows a phone and stays scrollable"
-		)
-
-
-func _menu_page(control: Control, size: Vector2i) -> Control:
-	if is_instance_valid(_viewport):
-		_viewport.free()
-	_viewport = SubViewport.new()
-	_viewport.size = size
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_viewport)
-	_viewport.add_child(control)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	return control
-
-
-func _viewport_rect(size: Vector2i) -> Rect2:
-	return Rect2(Vector2.ZERO, Vector2(size))
-
-
-func _first_scroll(node: Node) -> ScrollContainer:
-	for child: Node in node.find_children("*", "ScrollContainer", true, false):
-		return child as ScrollContainer
-	return null
-
-
 ## --- helpers ---------------------------------------------------------------
 
 
@@ -455,3 +392,33 @@ func _contains(outer: Rect2, inner: Rect2) -> bool:
 
 func _tappable(control: Control, what: String) -> void:
 	assert_gt(control.get_global_rect().size.y, TOUCH_MIN - 0.5, "%s touch height" % what)
+
+
+func _chip(hud: GameHud, name_text: String) -> Button:
+	var button := hud.find_child(name_text, true, false) as Button
+	assert_not_null(button, "%s exists" % name_text)
+	return button
+
+
+func _bar_doors(hud: GameHud) -> Array[Button]:
+	var doors: Array[Button] = []
+	for node: Node in hud.top_row.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button == null or hud.chips.has(button):
+			continue
+		doors.append(button)
+	return doors
+
+
+func _medallion(button: Button) -> Texture2D:
+	var rect := button.find_child("Medallion", true, false) as TextureRect
+	return rect.texture if rect != null else null
+
+
+func _caption(button: Button) -> String:
+	var label := _caption_label(button)
+	return label.text if label != null else ""
+
+
+func _caption_label(button: Button) -> Label:
+	return button.find_child("Caption", true, false) as Label

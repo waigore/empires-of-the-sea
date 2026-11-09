@@ -325,9 +325,20 @@ static func set_nation(hud: GameHud, name: String) -> void:
 	hud._nation_label.text = name.to_upper()
 
 
-## Region button caption: "OLD WORLD ›" / "NEW WORLD ›".
-static func set_region_label(hud: GameHud, label: String) -> void:
-	hud._region_button.text = "%s ›" % label.to_upper()
+## Region button caption: "OLD WORLD" / "NEW WORLD". A map with one region is
+## context, not a choice, so the seal goes inert instead of offering a no-op.
+static func set_region_label(hud: GameHud, label: String, switchable: bool = true) -> void:
+	if hud._region_label != null:
+		hud._region_label.text = label.to_upper()
+	if hud._region_button == null:
+		return
+	hud._region_button.disabled = not switchable
+	hud._region_button.focus_mode = (
+		Control.FOCUS_ALL if switchable else Control.FOCUS_NONE
+	)
+	hud._region_button.tooltip_text = (
+		"Switch region — %s" % label if switchable else "%s — only charted region" % label
+	)
 
 
 static func format(value: int) -> String:
@@ -340,3 +351,13 @@ static func format(value: int) -> String:
 		if count % 3 == 0 and i > 0:
 			out = "," + out
 	return ("-" if value < 0 else "") + out
+
+
+## Signed per-turn movement for the treasury plaque. Keeps the chip a fixed
+## width: five figures collapse to "12.4k" instead of pushing the bar.
+static func format_delta(value: int) -> String:
+	var size: int = absi(value)
+	var text: String = format(size)
+	if size >= 10000:
+		text = "%d.%dk" % [size / 1000, (size % 1000) / 100]
+	return ("+" if value >= 0 else "-") + text

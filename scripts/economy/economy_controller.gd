@@ -162,6 +162,7 @@ func resolve_turn() -> Dictionary:
 	if _hud != null:
 		_hud.set_treasury(economy.treasury)
 		_hud.flash_income(economy.treasury - before)
+		_hud.set_income(projected_income())
 		_hud.set_fleets(fleet_ships())
 		if _armies != null:
 			_hud.set_armies(_armies.regiment_count_all(player_faction))
@@ -255,6 +256,7 @@ func _refresh_panel() -> void:
 	if _hud.panels.is_economy_open():
 		_hud.panels.show_economy(economy, market, projected(), trade_cargo())
 	_hud.set_treasury(economy.treasury)
+	_hud.set_income(projected_income())
 	treasury_changed.emit(economy.treasury)
 
 

@@ -24,6 +24,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
+| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, removed controls, geometry |
 | [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |
 
 ## Process

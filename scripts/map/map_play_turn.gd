@@ -181,9 +181,8 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.economy.resolve_turn()
 	play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 	play.income = play.economy.projected_income()
-	play.prestige += 1
 	play.hud.set_turn(play.turn, year)
-	play.hud.set_prestige(play.prestige)
+	play.hud.set_income(play.income)
 	MapPlayDiplomacy.refresh(play)
 	play.hud.toast("Turn %d — %d" % [play.turn, year])
 	var selected: Ship = play.ship_layer.selected()
