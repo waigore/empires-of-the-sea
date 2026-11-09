@@ -36,6 +36,8 @@ Unclear / contradictory / underspecified wiki → hand off to [`elucidate-design
 
 Wiki writes: full clone `https://github.com/waigore/empires-of-the-sea.wiki.git` (not `--depth 1`), commit, push `master`.
 
+**DR ids are shared across checkouts.** Fetch the wiki right before choosing `dr-YYYYMMDD-NN`; other agents push records concurrently, so take the next free id after `git fetch`. If a push is rejected, renumber (file, title, index, changelog, code comments) instead of force-pushing.
+
 ## Workflow
 
 ```text
