@@ -142,6 +142,9 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+	# Rival expeditions board and sail before the field armies march, so an army
+	# chosen for the crossing is not also ordered inland (docs/ai.md).
+	var invasion_trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
@@ -150,14 +153,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
-	# Combat may have taken the land under a Builder or Engineer; withdraw the
-	# crew to a legal tile or lose it with the province (CivilianStranding).
-	MapPlayCivilians.settle_stranding(play)
+	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	_resolve_visibility(play)
-	# The human crown's terminal fall seals the session before any victory
-	# check: defeat never hands the conqueror a military win, nor opens that
-	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
-	# DR-20261109-05).
+	# The human crown's terminal fall seals the session before any victory check:
+	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
 		play.emit_turn_ended(play.turn)
 		return
@@ -183,7 +182,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
-	AiTurnLog.record(play, army_trace, fleet_trace, economy_report)
+	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	if play.observer_mode:

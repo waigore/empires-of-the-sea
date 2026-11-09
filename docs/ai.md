@@ -35,6 +35,9 @@ P5 unbookkept rivals.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer (Builder overseas), cross a Passage and land; then
   prospect or improve.
+- **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
+  war and a far shore (enemy or Tribe); detach hull capacity (one keeps the
+  seat), dock, board, cross, beachhead; storm best coast, else own colony.
 - **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
   stock deficit; whole runs under labour/inputs; recruit highest affordable
   tier to worker/recruit caps.
@@ -49,10 +52,10 @@ P5 unbookkept rivals.
   regiments match the strongest Great Power era; Tribes stay at level 1.
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
-- **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): the player's reading of a
-  rival — evidence from observable acts, banded suspicion per agenda, best
-  guess and behaviour counts ([`intel-dossier.md`](intel-dossier.md)).
+- **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
+- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
+  evidence, banded suspicion per agenda, best guess and behaviour counts
+  ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
 
@@ -67,13 +70,13 @@ P5 unbookkept rivals.
 ## Architecture
 
 Planners live in `scripts/ai/` (pure — `REQ-P3-03`);
-`scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai,colonisation_ai}.gd`
+`scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai,colonisation_ai,invasion_ai}.gd`
 wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_town_roads`,
-`test_military_parity`, `test_ai_observer`.
+`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_invasion`,
+`test_ai_town_roads`, `test_military_parity`, `test_ai_observer`.
 
 ```bash
 gd-tools test --coverage --min 80

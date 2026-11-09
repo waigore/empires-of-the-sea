@@ -56,6 +56,13 @@ static func apply_crossing(
 	fleet.location = FleetState.Location.AT_SEA
 	fleet.sea_zone = int(check["to_zone"])
 	fleet.province = MapModel.NO_ID
+	# A crossing is the squadron's sail: it gives up its station and its landing
+	# site (wiki: ships-and-naval § Missions and Movement — a mission persists
+	# until the squadron sails; § Naval transport — the beachhead marker is lost
+	# if the squadron sails). Province ids are region-local, so a marker carried
+	# into the other map would name an unrelated coast there.
+	fleet.clear_beachhead()
+	fleet.clear_mission()
 	fleet.moved = true
 	return {
 		"ok": true,
