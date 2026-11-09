@@ -72,6 +72,33 @@ func test_standing_aside_costs_the_embassy_and_subsidy() -> void:
 	assert_true(_event("interventionDoNothing"))
 
 
+## Overtures are two-way: `establish_overture` writes both directions, so
+## standing aside must clear both or the reverse record keeps the embassy alive
+## for aid and subsidy (wiki: diplomacy § Intervention § Do Nothing).
+func test_standing_aside_clears_the_embassy_in_both_directions() -> void:
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_overture(6, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(state, 3, 6)
+	Intervention.resolve_human(state, Intervention.KIND_NOTHING)
+	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_NONE)
+	assert_eq(state.overture(6, 0), DiplomacyCatalog.STAGE_NONE, "the reverse record goes too")
+	assert_false(DiplomacyRules.has_embassy(state, 0, 6), "no embassy survives standing aside")
+	assert_false(
+		bool(DiplomacyAid.can_grant_aid(state, 0, 6, 1000, 5000)["ok"]),
+		"aid needs a live embassy"
+	)
+
+
+func test_an_ai_standing_aside_also_clears_both_directions() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_overture(6, 1, DiplomacyCatalog.STAGE_EMBASSY)
+	state.relation(1, 6).score = 10.0
+	DiplomacyRules.declare_war(state, 3, 6)
+	assert_false(state.relation(1, 3).at_war, "0% never intervenes")
+	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE)
+	assert_eq(state.overture(6, 1), DiplomacyCatalog.STAGE_NONE, "the reverse record goes too")
+
+
 func test_protest_penalises_the_aggressor_and_keeps_the_embassy() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)

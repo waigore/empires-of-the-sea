@@ -51,6 +51,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 2,
 	},
 	{
+		"key": "diplomacy.peace_cooldown_turns",
+		"category": "diplomacy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 20,
+		"default": 3,
+	},
+	{
 		"key": "diplomacy.improve_min_desire",
 		"category": "diplomacy",
 		"type": TYPE_INT,

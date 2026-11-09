@@ -10,6 +10,8 @@ var agendas: Dictionary = {}
 var last_war_turn: Dictionary = {}
 ## "low:high" pair key -> turn the AI last saw an overture accept/reject.
 var last_overture_turn: Dictionary = {}
+## "low:high" pair key -> turn the human court answered a peace offer.
+var last_peace_turn: Dictionary = {}
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -41,6 +43,19 @@ func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	return turn - int(last_overture_turn[key]) < cooldown
 
 
+## A refused peace offer is not repeated immediately: the peace cooldown runs
+## from the turn the human court answered (DR-20261109-07).
+func note_peace(a: int, b: int, turn: int) -> void:
+	last_peace_turn[pair_key(a, b)] = turn
+
+
+func peace_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
+	var key: String = pair_key(a, b)
+	if not last_peace_turn.has(key):
+		return false
+	return turn - int(last_peace_turn[key]) < cooldown
+
+
 ## Same unordered-pair key as DiplomacyState, so cooldowns cannot drift.
 static func pair_key(a: int, b: int) -> String:
 	return "%d:%d" % [mini(a, b), maxi(a, b)]
@@ -54,6 +69,7 @@ func to_dict() -> Dictionary:
 		"agendas": agendas.duplicate(),
 		"last_war_turn": last_war_turn.duplicate(),
 		"last_overture_turn": last_overture_turn.duplicate(),
+		"last_peace_turn": last_peace_turn.duplicate(),
 	}
 
 
@@ -64,6 +80,7 @@ static func from_dict(data: Dictionary) -> AiState:
 		state.agendas[int(key)] = String(stored_agendas[key])
 	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
+	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	return state
 
 

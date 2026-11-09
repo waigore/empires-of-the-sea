@@ -26,8 +26,9 @@ work), P5 (rivals act without player bookkeeping).
   offer the next free overture (NAP) or an Allied-relations alliance, then
   wait. Declarations need the relation ceiling (50; warmonger 70, peacemaker
   30), war desire ≥ 51 and no 4-turn cooldown; goals clamp `round(desire / 25)`
-  to the target's provinces. At war, desire below 50 offers peace — AI courts
-  only.
+  to the target's provinces. At war, desire below 50 offers peace — applied at
+  once to a rival, queued for the human court, with a 3-turn peace-offer
+  cooldown from the answer.
 - **Turn pass** (`AiTurn`): one legal order per rival court per turn through
   `DiplomacyRules`, traced per court; human proposals queue for the court.
   Declarations land before naval combat.
@@ -42,12 +43,9 @@ work), P5 (rivals act without player bookkeeping).
 - **Persistence:** saves keep fixed agendas and pair cooldowns
   (`AiState.to_dict`).
 
-AI peace offers to the human wait for the court UI.
-
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms, boycotts and spy actions.
-- AI peace offers to the human court.
 - AI economy and civilian planners; rival stockpiles.
 - Dossier evidence and dialogue.
 

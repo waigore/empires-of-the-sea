@@ -16,6 +16,10 @@ var home: bool = false
 var moved: bool = false
 var regiments: Array[String] = []
 var regiment_types: Dictionary = {}
+## Fleet instance id carrying this army, or -1 (wiki: ships-and-naval § Naval
+## transport; DR-20261109-08). An embarked army has no province and never
+## fights on land.
+var embarked_fleet: int = -1
 
 
 static func create(
@@ -76,6 +80,10 @@ func is_empty() -> bool:
 
 func is_home_army() -> bool:
 	return home
+
+
+func is_embarked() -> bool:
+	return embarked_fleet >= 0
 
 
 ## Join Empire: an absorbed crown's regiments pass to the winner; a former Home
@@ -247,6 +255,7 @@ func to_dict() -> Dictionary:
 		"moved": moved,
 		"regiments": regiments.duplicate(),
 		"regiment_types": regiment_types.duplicate(),
+		"embarked_fleet": embarked_fleet,
 	}
 
 
@@ -257,6 +266,7 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.province = int(data.get("province", MapModel.NO_ID))
 	army.home = bool(data.get("home", false))
 	army.moved = bool(data.get("moved", false))
+	army.embarked_fleet = int(data.get("embarked_fleet", -1))
 	var names: Array[String] = []
 	for raw: Variant in data.get("regiments", []):
 		names.append(String(raw))

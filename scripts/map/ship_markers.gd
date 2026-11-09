@@ -64,7 +64,12 @@ func place(ship: Ship, fleet: FleetState) -> void:
 	if fleet.is_in_port():
 		var data: ProvinceState = model.province_data(fleet.province)
 		var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
-		ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
+		if port.x < 0 or port.y < 0:
+			# A reassigned seat may be coastal without a registered port tile
+			# (wiki: ships-and-naval § Ports that change hands; DR-20261109-12).
+			ship.position = model.province_center(fleet.province) * TILE_SIZE
+		else:
+			ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 		ship.docked = true
 		ship.zone = -1
 		ship.province = fleet.province

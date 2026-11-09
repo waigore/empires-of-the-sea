@@ -24,13 +24,29 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	var is_player: bool = army.owner == play.player_faction
 	var command: String = ""
 	var muster: Array[Dictionary] = []
+	var embark: String = ""
 	if is_player and play.economy != null and play.economy.economy != null:
 		command = play.army_layer.command_text(army)
 		if army.home:
 			muster = ArmyTraining.rows(play.economy.economy)
+	if is_player:
+		embark = _embark_note(play, army)
 	play.hud.panels.show_army(
-		play.model, army, is_player, can_merge(play, army), command, muster
+		play.model, army, is_player, can_merge(play, army), command, muster, embark
 	)
+
+
+## A squadron in port here that can take the army aboard (wiki: ships-and-naval
+## § Naval transport).
+static func _embark_note(play: PlaySession, army: ArmyState) -> String:
+	for fleet: FleetState in play.ship_layer.fleets:
+		if fleet == null or fleet.owner != army.owner:
+			continue
+		if not fleet.is_in_port() or fleet.province != army.province:
+			continue
+		if bool(NavalTransport.can_embark(play.model, army, fleet).get("ok", false)):
+			return "The squadron here can carry %d regiments." % army.count()
+	return ""
 
 
 static func can_merge(play: PlaySession, army: ArmyState) -> bool:
@@ -107,8 +123,37 @@ static func on_action(play: PlaySession, action: String) -> void:
 		detach(play, army, army.regiments.duplicate())
 	elif action == "merge":
 		merge(play, army)
+	elif action == "embark":
+		embark(play, army)
 	elif action.begins_with("recruit:"):
 		recruit(play, action.trim_prefix("recruit:"))
+
+
+## Boards the selected army on the squadron sharing its port (wiki:
+## ships-and-naval § Naval transport).
+static func embark(play: PlaySession, army: ArmyState) -> void:
+	var refusal: String = ""
+	for fleet: FleetState in play.ship_layer.fleets:
+		if fleet == null or fleet.owner != army.owner:
+			continue
+		if not fleet.is_in_port() or fleet.province != army.province:
+			continue
+		var check: Dictionary = NavalTransport.can_embark(play.model, army, fleet)
+		if not bool(check.get("ok", false)):
+			if refusal.is_empty():
+				refusal = String(check.get("reason", ""))
+			continue
+		var result: Dictionary = ArmyTransport.embark(play.army_layer, army, fleet)
+		if not bool(result.get("ok", false)):
+			play.hud.toast(String(result.get("reason", "The army cannot board.")))
+			return
+		play.hud.toast(
+			"The army boards the fleet at %s" % play.model.province_name(fleet.province)
+		)
+		show_panel(play, army)
+		refresh_options(play, army)
+		return
+	play.hud.toast(refusal if not refusal.is_empty() else "No squadron waits in this port.")
 
 
 ## Opens the drill yard on the Home Army dossier (the province panel's Recruit
@@ -287,6 +332,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 		)
 		changed = true
+	MapPlayFleets.settle_ports(play, reassigned)
 	if changed:
 		sync_player_capital(play)
 	if play.defeat != null:

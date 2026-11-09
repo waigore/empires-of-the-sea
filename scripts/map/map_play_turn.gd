@@ -107,10 +107,14 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
 		return
 	# The proposing court pays for its overture; the human treasury is untouched.
+	# A peace offer starts its own cooldown once the court answers; every other
+	# proposal starts the improve-relations cooldown (DR-20261109-06/07).
+	var from_id: int = int(result.get("from", -1))
 	if play.ai != null:
-		play.ai.note_overture(
-			int(result.get("from", -1)), play.player_faction, play.turn
-		)
+		if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
+			play.ai.note_peace(from_id, play.player_faction, play.turn)
+		else:
+			play.ai.note_overture(from_id, play.player_faction, play.turn)
 	if play.hud != null:
 		var message: String = String(result.get("message", ""))
 		if not message.is_empty():
@@ -176,7 +180,10 @@ static func _finish_turn(play: PlaySession) -> void:
 		if fleet != null:
 			play.hud.panels.show_fleet(
 				play.model, fleet, fleet.owner == play.player_faction,
-				MapPlayFleets.passage_note(play, fleet)
+				MapPlayFleets.passage_note(play, fleet),
+				MapPlayFleets.yard_rows(play, fleet), -1,
+				MapPlayFleets.landing_rows(play, fleet),
+				MapPlayFleets.carried(play, fleet)
 			)
 			MapPlayFleets.refresh_options(play, fleet)
 	if play.civilian_layer.selected_unit != null:
@@ -271,6 +278,13 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
+	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
+		play.army_layer, FleetRosters.live_ids(play.ship_layer.regions)
+	)
+	for army: ArmyState in lost:
+		play.hud.toast(
+			"%d regiments went down with a sunken squadron" % army.count()
+		)
 	if battles.is_empty():
 		return
 	for battle: Dictionary in battles:

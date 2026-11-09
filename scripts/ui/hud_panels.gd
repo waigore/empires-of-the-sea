@@ -120,7 +120,9 @@ func show_fleet(
 	is_player: bool,
 	passage: String = "",
 	yard_rows: Array[Dictionary] = [],
-	slip: int = -1
+	slip: int = -1,
+	land_rows: Array[Dictionary] = [],
+	carried: int = 0
 ) -> void:
 	hide_province()
 	hide_civilian()
@@ -133,7 +135,7 @@ func show_fleet(
 	if fleet == null and slip >= 0:
 		fleet_panel.refresh_slip(model, slip, yard_rows, is_player)
 	else:
-		fleet_panel.refresh(model, fleet, is_player, passage, yard_rows)
+		fleet_panel.refresh(model, fleet, is_player, passage, yard_rows, land_rows, carried)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
 
@@ -195,7 +197,8 @@ func show_army(
 	is_player: bool,
 	can_merge: bool,
 	command: String = "",
-	muster: Array[Dictionary] = []
+	muster: Array[Dictionary] = [],
+	embark: String = ""
 ) -> void:
 	hide_province()
 	hide_fleet()
@@ -203,7 +206,7 @@ func show_army(
 	hide_research()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	army_panel.refresh(model, army, is_player, can_merge, command, muster)
+	army_panel.refresh(model, army, is_player, can_merge, command, muster, embark)
 	army_open = true
 	dock.slide_in(host, army_wrap)
 

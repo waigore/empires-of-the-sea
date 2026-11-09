@@ -81,8 +81,8 @@ const TECHS: Dictionary = {
 	"diplomatic_expertise": {"name": "Diplomatic Expertise", "era": 1, "category": "diplomatic", "prereqs": []},
 	"merchant_companies": {"name": "Merchant Companies", "era": 1, "category": "diplomatic", "prereqs": []},
 	"national_bureaucracy": {"name": "National Bureaucracy", "era": 2, "category": "diplomatic", "prereqs": ["printing_press", "money_lending", "diplomatic_expertise"]},
-	"propaganda": {"name": "Propaganda", "era": 3, "category": "diplomatic", "prereqs": ["national_bureaucracy", "university"]},
-	"nationalism": {"name": "Nationalism", "era": 3, "category": "diplomatic", "prereqs": ["propaganda", "master_artisans", "modern_forts"]},
+	"propaganda": {"name": "Propaganda", "era": 3, "category": "diplomatic", "prereqs": ["national_bureaucracy", "university"], "note": "Improves: protesting an aggressor costs 5 relation, not 10."},
+	"nationalism": {"name": "Nationalism", "era": 3, "category": "diplomatic", "prereqs": ["propaganda", "master_artisans", "modern_forts"], "note": "Improves: battle deployment limit to 12 regiments."},
 	"empire_building": {"name": "Empire Building", "era": 4, "category": "diplomatic", "prereqs": ["nationalism", "banking"], "note": "Enables: Join Empire overture on a nearly defeated Great Power."},
 	"organised_regiments": {"name": "Organised Regiments", "era": 1, "category": "military", "prereqs": ["land_enclosure"]},
 	"improved_iron_weapons": {"name": "Improved Iron Weapons", "era": 1, "category": "military", "prereqs": ["organised_regiments", "iron_mining"]},
@@ -90,41 +90,41 @@ const TECHS: Dictionary = {
 	"crucible_process": {"name": "Crucible Process", "era": 2, "category": "military", "prereqs": ["square_set_timbering", "steam_in_mining"]},
 	"bayonet": {"name": "Bayonet", "era": 2, "category": "military", "prereqs": ["improved_iron_weapons", "crucible_process"]},
 	"weapon_craftsmanship": {"name": "Weapon Craftsmanship", "era": 2, "category": "military", "prereqs": ["organised_regiments", "copper_and_tin_mining"]},
-	"industrial_machinery": {"name": "Industrial Machinery", "era": 3, "category": "military", "prereqs": ["trained_journeymen", "steam_in_mining", "university"]},
+	"industrial_machinery": {"name": "Industrial Machinery", "era": 3, "category": "military", "prereqs": ["trained_journeymen", "steam_in_mining", "university"], "note": "Improves: land-battle attack treasury x0.75 (not simulated)."},
 	"explosives": {"name": "Explosives", "era": 3, "category": "military", "prereqs": ["weapon_craftsmanship", "industrial_machinery"]},
 	"early_rifles": {"name": "Early Rifles", "era": 3, "category": "military", "prereqs": ["improved_infantry_tactics", "crucible_process"]},
-	"long_range_rifles": {"name": "Long Range Rifles", "era": 3, "category": "military", "prereqs": ["early_rifles", "crucible_process"], "note": "Unlocks: Sharpshooters regiment; Skirmishers upgrade path."},
+	"long_range_rifles": {"name": "Long Range Rifles", "era": 3, "category": "military", "prereqs": ["early_rifles", "crucible_process"], "note": "Improves: Skirmishers upgrade path (not simulated)."},
 	"needle_guns": {"name": "Needle Guns", "era": 4, "category": "military", "prereqs": ["industrial_funding_of_research", "bayonet", "early_rifles"]},
-	"elite_military_training": {"name": "Elite Military Training", "era": 4, "category": "military", "prereqs": ["modern_military_funding", "needle_guns", "explosives"], "note": "Unlocks: Guards regiment; Grenadiers upgrade path."},
+	"elite_military_training": {"name": "Elite Military Training", "era": 4, "category": "military", "prereqs": ["modern_military_funding", "needle_guns", "explosives"], "note": "Improves: Grenadiers upgrade path (not simulated)."},
 	"recruit_steppe_horsemen": {"name": "Recruit Steppe Horsemen", "era": 1, "category": "military", "prereqs": ["crop_rotation"]},
 	"improved_cavalry_tactics": {"name": "Improved Cavalry Tactics", "era": 2, "category": "military", "prereqs": ["printing_press", "animal_husbandry"]},
 	"hussars": {"name": "Hussars", "era": 2, "category": "military", "prereqs": ["improved_cavalry_tactics", "recruit_steppe_horsemen"]},
 	"improved_cavalry_weapons": {"name": "Improved Cavalry Weapons", "era": 3, "category": "military", "prereqs": ["industrial_machinery", "crucible_process", "improved_cavalry_tactics"]},
-	"scouting": {"name": "Scouting", "era": 3, "category": "military", "prereqs": ["hussars", "early_rifles"], "note": "Unlocks: Scouts regiment; Hussars upgrade path."},
-	"repeating_cavalry_carbine": {"name": "Repeating Cavalry Carbine", "era": 4, "category": "military", "prereqs": ["industrial_funding_of_research", "improved_cavalry_weapons"], "note": "Unlocks: Carbine Cavalry regiment; Cuirassiers upgrade path."},
-	"horse_artillery": {"name": "Horse Artillery", "era": 1, "category": "military", "prereqs": ["animal_husbandry", "copper_and_tin_mining"], "note": "Unlocks: Horse Artillery field regiment."},
+	"scouting": {"name": "Scouting", "era": 3, "category": "military", "prereqs": ["hussars", "early_rifles"], "note": "Improves: Hussars upgrade path (not simulated)."},
+	"repeating_cavalry_carbine": {"name": "Repeating Cavalry Carbine", "era": 4, "category": "military", "prereqs": ["industrial_funding_of_research", "improved_cavalry_weapons"], "note": "Improves: Cuirassiers upgrade path (not simulated)."},
+	"horse_artillery": {"name": "Horse Artillery", "era": 1, "category": "military", "prereqs": ["animal_husbandry", "copper_and_tin_mining"]},
 	"siege_engineering": {"name": "Siege Engineering", "era": 2, "category": "military", "prereqs": ["printing_press", "copper_and_tin_mining"]},
 	"light_artillery_tactics": {"name": "Light Artillery Tactics", "era": 3, "category": "military", "prereqs": ["crucible_process", "university"]},
 	"modern_forts": {"name": "Modern Forts", "era": 3, "category": "military", "prereqs": ["siege_engineering", "university"]},
 	"heavy_artillery": {"name": "Heavy Artillery", "era": 3, "category": "military", "prereqs": ["modern_forts", "crucible_process"]},
 	"heavy_emplaced_artillery": {"name": "Heavy Emplaced Artillery", "era": 3, "category": "military", "prereqs": ["road_construction", "national_bureaucracy", "siege_engineering"]},
-	"field_artillery_tactics": {"name": "Field Artillery Tactics", "era": 4, "category": "military", "prereqs": ["light_artillery_tactics", "modern_military_funding"], "note": "Unlocks: Field Artillery regiment; Light Artillery upgrade path."},
-	"high_grade_steel": {"name": "High Grade Steel", "era": 4, "category": "military", "prereqs": ["heavy_artillery", "industrial_funding_of_research", "modern_military_funding"], "note": "Unlocks: Siege Guns regiment; Heavy Artillery upgrade path."},
-	"emplaced_siege_guns": {"name": "Emplaced Siege Guns", "era": 4, "category": "military", "prereqs": ["heavy_artillery", "heavy_emplaced_artillery"], "note": "Improves: defender emplaced batteries to Siege Gun quality."},
-	"modern_military_funding": {"name": "Modern Military Funding", "era": 3, "category": "military", "prereqs": ["banking", "large_precious_stone_mines", "modern_forts"]},
+	"field_artillery_tactics": {"name": "Field Artillery Tactics", "era": 4, "category": "military", "prereqs": ["light_artillery_tactics", "modern_military_funding"], "note": "Improves: Light Artillery upgrade path (not simulated)."},
+	"high_grade_steel": {"name": "High Grade Steel", "era": 4, "category": "military", "prereqs": ["heavy_artillery", "industrial_funding_of_research", "modern_military_funding"], "note": "Improves: Heavy Artillery upgrade path (not simulated)."},
+	"emplaced_siege_guns": {"name": "Emplaced Siege Guns", "era": 4, "category": "military", "prereqs": ["heavy_artillery", "heavy_emplaced_artillery"]},
+	"modern_military_funding": {"name": "Modern Military Funding", "era": 3, "category": "military", "prereqs": ["banking", "large_precious_stone_mines", "modern_forts"], "note": "Improves: land-battle attack treasury x0.85 (not simulated)."},
 	"industrial_funding_of_research": {"name": "Industrial Funding of Research", "era": 3, "category": "military", "prereqs": ["industrial_machinery", "crucible_process"], "note": "Improves: +20% research points for military and naval techs."},
 	"superior_hull_design": {"name": "Superior Hull Design", "era": 1, "category": "naval", "prereqs": []},
 	"improved_sail_design": {"name": "Improved Sail Design", "era": 2, "category": "naval", "prereqs": ["wind_saw_mill", "superior_hull_design"]},
 	"convoying": {"name": "Convoying", "era": 2, "category": "naval", "prereqs": ["merchant_companies"]},
 	"navigation": {"name": "Navigation", "era": 1, "category": "naval", "prereqs": ["superior_hull_design"]},
 	"large_hulls": {"name": "Large Hulls", "era": 2, "category": "naval", "prereqs": ["wind_saw_mill", "navigation", "convoying"]},
-	"clipper_ships": {"name": "Clipper Ships", "era": 4, "category": "naval", "prereqs": ["circular_saw", "advanced_hull_design"], "note": "Unlocks: Clipper fast merchant hull."},
+	"clipper_ships": {"name": "Clipper Ships", "era": 4, "category": "naval", "prereqs": ["circular_saw", "advanced_hull_design"]},
 	"paddlewheels": {"name": "Paddlewheels", "era": 3, "category": "naval", "prereqs": ["advanced_hull_design", "early_steam_engine"]},
-	"merchant_steamships": {"name": "Merchant Steamships", "era": 4, "category": "naval", "prereqs": ["paddlewheels", "riverboats"], "note": "Unlocks: Merchant Steamship steam cargo hull."},
+	"merchant_steamships": {"name": "Merchant Steamships", "era": 4, "category": "naval", "prereqs": ["paddlewheels", "riverboats"]},
 	"advanced_hull_design": {"name": "Advanced Hull Design", "era": 3, "category": "naval", "prereqs": ["university", "improved_sail_design", "privateering_companies"]},
 	"ship_of_the_line": {"name": "Ship of the Line", "era": 3, "category": "naval", "prereqs": ["large_hulls", "large_copper_and_tin_mines"]},
-	"privateering_companies": {"name": "Privateering Companies", "era": 2, "category": "naval", "prereqs": ["navigation", "diplomatic_expertise"]},
-	"advanced_iron_working": {"name": "Advanced Iron Working", "era": 4, "category": "naval", "prereqs": ["ship_of_the_line", "industrial_funding_of_research", "paddlewheels"], "note": "Unlocks: Ironclad armored steam warship."},
+	"privateering_companies": {"name": "Privateering Companies", "era": 2, "category": "naval", "prereqs": ["navigation", "diplomatic_expertise"], "note": "Improves: interception and trade raids on Patrol/Blockade (not simulated)."},
+	"advanced_iron_working": {"name": "Advanced Iron Working", "era": 4, "category": "naval", "prereqs": ["ship_of_the_line", "industrial_funding_of_research", "paddlewheels"]},
 	"discovery_of_sugar": {"name": "Discovery of Sugar", "era": 1, "category": "new-world", "prereqs": [], "discovery": ["sugarCane"]},
 	"sugar_planting": {"name": "Sugar Planting", "era": 1, "category": "new-world", "prereqs": ["discovery_of_sugar"], "caps": {"sugarCane": 2}},
 	"sugar_refining": {"name": "Sugar Refining", "era": 1, "category": "new-world", "prereqs": ["discovery_of_sugar"]},
@@ -285,6 +285,8 @@ static func effect_text(tech_id: String) -> String:
 		for commodity: String in discovery:
 			found.append(CommodityCatalog.label(commodity))
 		parts.append("Enables: research once an explorer finds %s." % " or ".join(found))
+	for line: String in TechUnlocks.lines(tech_id):
+		parts.append(line)
 	var children: Array[String] = dependents(tech_id)
 	if not children.is_empty():
 		var names: PackedStringArray = []
@@ -292,7 +294,18 @@ static func effect_text(tech_id: String) -> String:
 			names.append(display_name(child))
 		if children.size() > 3:
 			names.append("and %d more" % (children.size() - 3))
-		parts.append("Unlocks: %s." % ", ".join(names))
+		_merge_lead(parts, "research paths to %s" % ", ".join(names))
 	if parts.is_empty():
 		parts.append("Prerequisite-only in this slice.")
 	return " ".join(parts)
+
+
+## Joins a "leads to" clause onto the row's Unlocks line so a tech with both a
+## unit unlock and dependents reads as one sentence, not two "Unlocks:".
+static func _merge_lead(parts: PackedStringArray, lead: String) -> void:
+	for index in parts.size():
+		if not parts[index].begins_with("Unlocks: "):
+			continue
+		parts[index] = "%s; %s." % [parts[index].trim_suffix("."), lead]
+		return
+	parts.append("Unlocks: %s." % lead)
