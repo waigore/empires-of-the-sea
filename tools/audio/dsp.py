@@ -149,6 +149,24 @@ def flute_tone(freq: float, dur: float, vel: float = 0.8, breath: float = 0.06,
     return fade_edges((base * env + n * breath * env) * vel, 0.004, 0.03)
 
 
+def fife(freq: float, dur: float, vel: float = 0.8, seed: int = 1) -> np.ndarray:
+    """Bright military fife: edgier harmonics and a quicker attack than a recorder."""
+    release = 0.09
+    t = time_axis(dur + release)
+    vib = 1.0 + 0.0016 * np.sin(2.0 * np.pi * 5.6 * t)
+    base = np.zeros_like(t)
+    for h, amp in ((1, 1.0), (2, 0.24), (3, 0.13), (4, 0.07), (5, 0.035)):
+        base += amp * np.sin(2.0 * np.pi * freq * h * t * vib)
+    env = np.ones_like(t)
+    a = max(2, int(0.018 * RATE))
+    env[:a] = np.linspace(0.0, 1.0, a) ** 1.1
+    r = max(2, int(release * RATE))
+    env[-r:] *= np.linspace(1.0, 0.0, r) ** 1.1
+    n = rng(seed).standard_normal(t.size)
+    n = n - np.convolve(n, np.ones(10) / 10.0, mode="same")
+    return fade_edges((base * env + n * 0.045 * env) * vel, 0.002, 0.025)
+
+
 def brass(freq: float, dur: float, vel: float = 0.8, seed: int = 1) -> np.ndarray:
     """Soft natural trumpet: widened harmonic stack that blooms after the attack."""
     release = 0.18
@@ -180,6 +198,44 @@ def timpani(freq: float, dur: float, vel: float = 0.9, seed: int = 3) -> np.ndar
     noise = np.convolve(noise, np.ones(24) / 24.0, mode="same")
     body += noise * np.exp(-t * 16.0) * 0.5
     return fade_edges(body * vel, 0.002, 0.06)
+
+
+def tabor(freq: float, dur: float, vel: float = 0.8, seed: int = 3) -> np.ndarray:
+    """Tabor / side drum: a taut membrane thump with a snare-ish rattle."""
+    t = time_axis(max(dur, 0.4))
+    drop = freq * (1.0 + 0.35 * np.exp(-t * 32.0))
+    phase = 2.0 * np.pi * np.cumsum(drop) / RATE
+    body = np.sin(phase) * np.exp(-t * 11.0)
+    body += 0.3 * np.sin(phase * 1.58) * np.exp(-t * 15.0)
+    noise = rng(seed).standard_normal(t.size)
+    rattle = noise - np.convolve(noise, np.ones(7) / 7.0, mode="same")
+    body += rattle * np.exp(-t * 26.0) * 0.35
+    return fade_edges(body * vel, 0.001, 0.05)
+
+
+def tambourine(freq: float, dur: float, vel: float = 0.7, seed: int = 4) -> np.ndarray:
+    """Tambourine: a scatter of metallic jingles over a small skin tap."""
+    t = time_axis(max(dur, 0.35))
+    n = rng(seed).standard_normal(t.size)
+    n = n - np.convolve(n, np.ones(5) / 5.0, mode="same")
+    out = n * np.exp(-t * 24.0) * 0.55
+    for ratio, amp, decay in ((7.9, 0.32, 18.0), (10.7, 0.22, 22.0),
+                              (13.4, 0.14, 28.0), (17.1, 0.08, 34.0)):
+        out += amp * np.sin(2.0 * np.pi * freq * ratio * t) * np.exp(-t * decay)
+    out += 0.25 * np.sin(2.0 * np.pi * freq * 2.0 * t) * np.exp(-t * 45.0)
+    return fade_edges(out * vel, 0.0005, 0.04)
+
+
+def castanet(freq: float, dur: float, vel: float = 0.7, seed: int = 6) -> np.ndarray:
+    """Castanet: a dry wooden click with a short resonant body."""
+    t = time_axis(0.16)
+    n = rng(seed).standard_normal(t.size)
+    n = n - np.convolve(n, np.ones(4) / 4.0, mode="same")
+    out = n * np.exp(-t * 130.0) * 0.7
+    out += 0.55 * np.sin(2.0 * np.pi * freq * 4.6 * t) * np.exp(-t * 95.0)
+    out += 0.3 * np.sin(2.0 * np.pi * freq * 6.1 * t) * np.exp(-t * 120.0)
+    out += 0.18 * np.sin(2.0 * np.pi * freq * 2.0 * t) * np.exp(-t * 60.0)
+    return fade_edges(out * vel, 0.0005, 0.03)
 
 
 def bell(freq: float, dur: float = 2.4, vel: float = 0.7, seed: int = 5) -> np.ndarray:

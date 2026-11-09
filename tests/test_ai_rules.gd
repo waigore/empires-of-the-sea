@@ -5,6 +5,7 @@ extends GdToolsTest
 
 const AiFixture = preload("res://tests/ai_fixture.gd")
 const NavalFixture = preload("res://tests/naval_fixture.gd")
+const CivilianFixture = preload("res://tests/civilian_fixture.gd")
 
 
 ## Collects the sighting lines a rival naval pass emits.
@@ -299,6 +300,8 @@ func test_map_phase_runs_the_ai_without_views() -> void:
 const HOME_TYPES: Array[String] = [
 	"peasant_levies", "peasant_levies", "pikemen", "arquebusiers", "squires"
 ]
+const MINOR_ROSTER: Array[String] = ["peasant_levies", "peasant_levies", "bowmen"]
+const TRIBE_ROSTER: Array[String] = ["peasant_levies", "peasant_levies"]
 
 
 func test_ai_military_holds_its_army_at_peace() -> void:
@@ -461,6 +464,226 @@ func test_map_phase_moves_rival_armies_without_a_hud() -> void:
 	assert_eq(field.province, 0, "the rival standard now stands on human land")
 	assert_eq(layer.regions.value(0, []).size(), 3)
 	layer.free()
+
+
+# --- Minor / Tribe defence (wiki: factions § Minor Nation, § Tribe) ---
+## Those crowns never attack: at peace they hold, and at war they only send a
+## relief column onto their own invaded soil.
+
+
+func test_a_minor_holds_its_army_at_peace() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _peace_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+	]
+	assert_eq(AiDefensePlanner.split_orders(state, model, armies, 6).size(), 0)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_a_minor_sends_a_relief_column_to_an_invaded_province() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		_invading_army(2, 0, 0),
+	]
+	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 6)
+	assert_eq(splits.size(), 1)
+	assert_eq((splits[0]["regiments"] as Array).size(), 2, "one regiment keeps the seat")
+	var ids: Array[String] = []
+	ids.assign(splits[0]["regiments"])
+	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	assert_true(bool(split["ok"]))
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(int(plan["orders"][0]["province"]), 0, "the invaded province")
+	assert_eq(String(plan["orders"][0]["kind"]), AiDefensePlanner.KIND_RELIEVE)
+
+
+func test_an_invaded_capital_keeps_the_home_army_in_place() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		_invading_army(2, 1, 0),
+	]
+	assert_eq(
+		AiDefensePlanner.split_orders(state, model, armies, 6).size(),
+		0,
+		"the Home Army already holds the seat"
+	)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_a_minor_never_marches_into_foreign_land() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		ArmyState.muster(2, 6, 0, false, ["peasant_levies"] as Array[String], 201),
+		ArmyState.muster(3, 0, 2, false, ["pikemen"] as Array[String], 301),
+	]
+	armies[2].moved = true
+	assert_eq(
+		AiDefensePlanner.split_orders(state, model, armies, 6).size(),
+		0,
+		"no invader stands on home soil"
+	)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 0, "a Minor never attacks")
+
+
+func test_a_tribe_sends_the_same_relief_column() -> void:
+	var world: WorldMap = AiFixture.land_world([9, 9, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 9)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 9, 1, true, TRIBE_ROSTER, 101),
+		_invading_army(2, 0, 0),
+	]
+	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 9)
+	assert_eq(splits.size(), 1)
+	assert_eq((splits[0]["regiments"] as Array).size(), 1)
+	var ids: Array[String] = []
+	ids.assign(splits[0]["regiments"])
+	ArmyState.split(armies, armies[0], ids, 10)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 9)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(int(plan["orders"][0]["province"]), 0)
+
+
+func test_a_field_army_already_in_the_field_blocks_a_second_detach() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		ArmyState.muster(2, 6, 0, false, ["bowmen"] as Array[String], 201),
+		_invading_army(3, 0, 0),
+	]
+	armies[1].moved = true
+	assert_eq(
+		AiDefensePlanner.split_orders(state, model, armies, 6).size(),
+		0,
+		"the home army is not drained twice"
+	)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 0, "the column already holds the province")
+
+
+func test_a_field_army_can_relieve_the_invaded_capital() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		ArmyState.muster(2, 6, 0, false, ["bowmen"] as Array[String], 201),
+		_invading_army(3, 1, 0),
+	]
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(int(plan["orders"][0]["province"]), 1, "the seat outranks other provinces")
+
+
+func test_a_home_army_with_one_regiment_cannot_spare_a_column() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, ["peasant_levies"] as Array[String], 101),
+		_invading_army(2, 0, 0),
+	]
+	assert_eq(AiDefensePlanner.split_orders(state, model, armies, 6).size(), 0)
+
+
+func test_a_great_power_keeps_its_offensive_planner() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 1])
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 1)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, MINOR_ROSTER, 101),
+		_invading_army(2, 1, 0),
+	]
+	assert_eq(AiDefensePlanner.split_orders(state, model, armies, 1).size(), 0)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 1)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_the_relief_column_joins_the_defence() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(0, 6)
+	var invader := ArmyState.muster(
+		2, 0, 0, false, ["pikemen", "pikemen", "pikemen"] as Array[String], 201
+	)
+	invader.moved = true
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		invader,
+	]
+	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 6)
+	var ids: Array[String] = []
+	ids.assign(splits[0]["regiments"])
+	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
+	var field: ArmyState = split["army"] as ArmyState
+	ArmyMovement.apply_move(model, field, int(plan["orders"][0]["province"]), true)
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies)
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["defender"]), 6)
+	assert_ne(
+		int(reports[0]["outcome"]),
+		ArmyCombat.Outcome.CAPTURE,
+		"the relief column turns an unopposed capture into a battle"
+	)
+
+
+func test_the_map_phase_moves_a_minor_relief_without_a_hud() -> void:
+	var world: WorldMap = AiFixture.land_world([6, 6, 0], {1: true})
+	var model: MapModel = world.region(0)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 6, 1, true, MINOR_ROSTER, 101),
+		_invading_army(2, 0, 0),
+	]
+	var layer := ArmyLayer.new()
+	layer.model = model
+	layer.next_army = 100
+	layer.regions.set_region(0, armies)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.diplomacy = _war_state(0, 6)
+	play.army_layer = layer
+	play.map_seed = 1500
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	assert_eq(trace.size(), 2, "one detach and one relief march")
+	assert_eq(String(trace[0]["kind"]), AiMilitaryPlanner.KIND_SPLIT)
+	assert_eq(String(trace[1]["kind"]), AiDefensePlanner.KIND_RELIEVE)
+	var field: ArmyState = null
+	for army: ArmyState in layer.armies:
+		if army.owner == 6 and not army.home:
+			field = army
+	assert_not_null(field)
+	assert_eq(field.province, 0, "the relief column stands with the invaders")
+	layer.free()
+
+
+## A hostile column that has marched into home soil; the flag is the marker
+## ArmyCombat uses, and the planner reads the presence itself.
+func _invading_army(id: int, province: int, owner: int) -> ArmyState:
+	var army := ArmyState.muster(
+		id, owner, province, false, ["pikemen"] as Array[String], id * 100
+	)
+	army.moved = true
+	return army
 
 
 func _home_armies(ai_province: int = 1) -> Array[ArmyState]:
@@ -730,7 +953,7 @@ func _line_zones() -> MapModel:
 	return model
 
 
-func _naval_play(world: WorldMap, model: MapModel, layer: ShipLayer) -> PlaySession:
+static func _naval_play(world: WorldMap, model: MapModel, layer: ShipLayer) -> PlaySession:
 	var play := PlaySession.new()
 	play.player_faction = 1
 	play.world = world
@@ -739,3 +962,266 @@ func _naval_play(world: WorldMap, model: MapModel, layer: ShipLayer) -> PlaySess
 	play.ship_layer = layer
 	play.map_seed = 1500
 	return play
+
+
+# --- rival economies (AiEconomyPlanner, AiState) ----------------------------
+## The deferred half of docs/ai.md: each rival keeps a ledger, allocates
+## production under the shared labour budget, and recruits through the same
+## rules the player obeys (wiki: economy-planner, growth-stage-planner).
+
+
+func test_ai_state_keeps_and_restores_rival_ledgers() -> void:
+	var ai := AiState.new()
+	var economy: PlayerEconomy = ai.economy_for(1)
+	economy.add("grain", 7)
+	economy.add_treasury(123)
+	economy.set_assignment("lumber", 2)
+	var restored: AiState = AiState.from_dict(ai.to_dict())
+	var loaded: PlayerEconomy = restored.economy_for(1)
+	assert_eq(loaded.quantity("grain"), economy.quantity("grain"))
+	assert_eq(loaded.treasury, economy.treasury)
+	assert_eq(loaded.assignment_units("lumber"), 2)
+
+
+func test_ai_economy_respects_labour_and_inputs() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var assignments: Array = plan["assignments"]
+	assert_false(assignments.is_empty())
+	var labour_used: int = 0
+	var timber_used: int = 0
+	for assignment: Dictionary in assignments:
+		var recipe: String = String(assignment["recipe"])
+		var units: int = int(assignment["units"])
+		labour_used += units * ProductionRecipes.labour(recipe)
+		timber_used += units * int(ProductionRecipes.inputs(recipe).get("timber", 0))
+	assert_eq(labour_used, 6, "the plan spends exactly the available labour")
+	assert_true(timber_used <= 10, "the same timber is never promised twice")
+	assert_eq(assignments.size(), 2, "wool fabric and lumber fill their deficits")
+
+
+func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_true((plan["assignments"] as Array).is_empty())
+
+
+func test_ai_economy_is_deterministic() -> void:
+	var first := PlayerEconomy.starting()
+	first.stockpile = {"timber": 8, "wool": 6}
+	var second := PlayerEconomy.starting()
+	second.stockpile = {"timber": 8, "wool": 6}
+	var config: AiConfig = AiConfig.build(1, 1500)
+	assert_eq(
+		str(AiEconomyPlanner.production_orders(config, first)["assignments"]),
+		str(AiEconomyPlanner.production_orders(config, second)["assignments"])
+	)
+
+
+func test_ai_economy_recruits_the_highest_affordable_tier() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {
+		"apprentice_workers": true,
+		"sugar_refining": true,
+		"trained_journeymen": true,
+		"cigar_production": true,
+	}
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_eq(orders.size(), 1)
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.JOURNEYMAN)
+	assert_eq(economy.workers.total(), 6, "planning never spends the live ledger")
+
+
+func test_ai_economy_stops_recruiting_at_the_worker_target() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(10)
+	assert_true(
+		AiEconomyPlanner.recruitment_orders(AiConfig.build(1, 1500), economy).is_empty()
+	)
+
+
+# --- rival civilians (AiCivilianPlanner) ------------------------------------
+
+
+func test_ai_builder_raises_an_owned_estate() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var units: Array = [CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE)]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_improvement")
+	assert_eq(Vector2i(orders[0]["tile"]), CivilianFixture.TIMBER_TILE)
+
+
+func test_ai_explorer_prospects_its_own_mineral() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var units: Array = [
+		CivilianState.create(1, 0, "explorer", CivilianFixture.IRON_TILE)
+	]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["action"]), "prospect")
+	assert_eq(Vector2i(plan["orders"][0]["tile"]), CivilianFixture.IRON_TILE)
+
+
+func test_ai_explorer_walks_toward_an_unprospected_mineral() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var units: Array = [
+		CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	var moves: Array = plan["moves"]
+	assert_eq(moves.size(), 1)
+	assert_ne(Vector2i(moves[0]["tile"]), CivilianFixture.BARE_TILE)
+
+
+func test_ai_engineer_builds_a_road_to_a_resource() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var units: Array = [
+		CivilianState.create(1, 0, "engineer", CivilianFixture.BARE_TILE)
+	]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["action"]), "build_road")
+	var tile: Vector2i = plan["orders"][0]["tile"]
+	assert_ne(model.resource_at(tile.x, tile.y), MapModel.NO_ID, "the road reaches a resource")
+
+
+func test_ai_engineer_raises_a_fort_when_at_war() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	works.set_transport(model, CivilianFixture.TIMBER_TILE, LandWorks.TRANSPORT_ROAD)
+	works.set_transport(model, CivilianFixture.IRON_TILE, LandWorks.TRANSPORT_ROAD)
+	works.add_port(model, CivilianFixture.COAST_TILE)
+	var units: Array = [
+		CivilianState.create(1, 0, "engineer", CivilianFixture.BARE_TILE)
+	]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, works,
+		CivilianFixture.stockpile(), {}, {}, _civilian_context(true)
+	)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["action"]), "build_fort")
+
+
+func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var rich: Dictionary = _civilian_context()
+	var order: Dictionary = AiCivilianPlanner.training_order(config, [], rich)
+	assert_true(bool(order.get("ok", false)))
+	assert_eq(String(order["type_id"]), "builder")
+	var poor: Dictionary = _civilian_context()
+	poor["treasury"] = 0
+	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+	poor["capital_province"] = -1
+	poor["treasury"] = 2500
+	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+
+
+func test_ai_civilian_leaves_a_working_unit_alone() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, 0, "builder", CivilianFixture.TIMBER_TILE
+	)
+	builder.start_work("build_improvement", CivilianFixture.TIMBER_TILE, 1)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, [builder], LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true((plan["moves"] as Array).is_empty())
+
+
+func test_ai_civilian_never_plans_another_courts_units() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var rival: CivilianState = CivilianState.create(
+		1, 1, "builder", CivilianFixture.BARE_TILE
+	)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, [rival], LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true((plan["moves"] as Array).is_empty())
+
+
+# --- map phase wiring (MapPlayEconomyAi) ------------------------------------
+
+
+func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
+	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
+	var model: MapModel = world.region(0)
+	var grain := Vector2i(1, 1)
+	model.resource[model.index_of(grain.x, grain.y)] = 4
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 1, 0, [], false)
+	layer.works.set_improvement(model, grain, 1)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.civilian_layer = layer
+	play.map_seed = 1500
+	play.ai = AiState.new()
+	var report: Dictionary = MapPlayEconomyAi.run(play)
+	assert_true((report["factions"] as Dictionary).has(1))
+	var entry: Dictionary = report["factions"][1]
+	assert_true(int(entry["extraction"].get("grain", 0)) >= 6)
+	assert_true(layer.unit_count_all(1) >= 3, "the rival musters its opening civilians")
+	var seeded_civilians: Array = entry["civilians"]["orders"]
+	assert_eq(layer.unit_count_all(0), 0, "the human court is never seeded")
+	assert_false(
+		seeded_civilians.is_empty(),
+		"the rival engineer starts a legal work order"
+	)
+	for _turn in 3:
+		MapPlayEconomyAi.run(play)
+	assert_true(
+		layer.unit_count_all(1) <= 6,
+		"rival training respects civilian.max_civilians"
+	)
+	layer.free()
+
+
+func test_map_phase_gives_diplomacy_the_rival_stockpiles() -> void:
+	var play := PlaySession.new()
+	play.world = AiFixture.world([2, 2, 2, 2, 1])
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.reset(1)
+	play.diplomacy.ensure_relation(1, 2, 1)
+	play.map_seed = 1500
+	MapPlayDiplomacy.run_ai(play)
+	assert_not_null(play.ai)
+	assert_true(play.ai.economies.has(1))
+	assert_false(play.ai.economy_for(1).stockpile.is_empty())
+
+
+func _civilian_context(at_war: bool = false) -> Dictionary:
+	return {
+		"treasury": 2500,
+		"paper": 8,
+		"capital_province": CivilianFixture.PLAYER_PROVINCE,
+		"capital_tile": CivilianFixture.BARE_TILE,
+		"at_war": at_war,
+	}
