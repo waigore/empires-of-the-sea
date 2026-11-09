@@ -106,6 +106,45 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 	assert_eq(army.province, target, "war lets the same march through")
 
 
+func test_join_empire_takes_the_absorbed_crowns_regiments() -> void:
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	var minor: int = 6
+	state.set_overture(0, minor, DiplomacyCatalog.STAGE_NAP)
+	state.relation(0, minor).score = 80.0
+	play.economy.economy.treasury = 200000
+	var player_before: int = play.army_layer.regiment_count_all(0)
+	var minor_before: int = play.army_layer.regiment_count_all(minor)
+	assert_gt(minor_before, 0, "the Minor holds a garrison")
+	var absorbed_ids: Array[int] = []
+	for army: ArmyState in play.army_layer.armies:
+		if army.owner == minor:
+			absorbed_ids.append(army.id)
+
+	MapCourtOrders.apply(
+		play, DiplomacyOrders.KIND_OVERTURE, minor, DiplomacyCatalog.STAGE_JOIN_EMPIRE
+	)
+
+	assert_eq(play.army_layer.regiment_count_all(minor), 0, "no stranded regiments")
+	assert_eq(
+		play.army_layer.regiment_count_all(0),
+		player_before + minor_before,
+		"the winner takes every regiment"
+	)
+	var home_armies: int = 0
+	for army: ArmyState in play.army_layer.armies:
+		if army.owner != 0:
+			continue
+		if army.home:
+			home_armies += 1
+		if absorbed_ids.has(army.id):
+			assert_false(army.home, "an absorbed Home Army becomes a field army")
+			var marker: ArmyMarker = play.army_layer.marker_for(army)
+			assert_not_null(marker, "the standard follows the regiments")
+			assert_eq(marker.faction, 0, "the standard changes colours")
+	assert_eq(home_armies, 1, "the winner still keeps exactly one Home Army")
+
+
 func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	var state: DiplomacyState = _screen.play.diplomacy
 	var pact: DiplomacyRelation = state.relation(0, 2)

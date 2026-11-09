@@ -59,6 +59,11 @@ static func refresh_after_load(play: PlaySession) -> void:
 	hud.set_treasury(play.treasury(), false)
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	MapPlayDiplomacy.refresh(play)
+	# A call to arms waiting in the save keeps the turn suspended, with the court
+	# open for the answer (wiki: diplomacy § Alliances § Mutual defence).
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		MapPlayDiplomacy.show_call(play)
 	# A slot saved after the campaign was decided re-mounts the plate and keeps
 	# the end-turn seal shut (wiki: campaign-persistence § Load and resume).
 	if play.victory != null:
