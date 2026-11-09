@@ -33,8 +33,7 @@ static func run(play: PlaySession) -> Dictionary:
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
-		# All crowns share one world market: prices advance once per turn, on the
-		# last ledger of the observer pass (wiki: stockpiles-and-production).
+		# Shared market: prices advance once, on the last observer ledger.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
 			_army_food(play, faction), play.observer_mode and faction == last
