@@ -119,3 +119,33 @@ func test_a_foreign_town_is_ignored() -> void:
 		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
 		_stockpile(), {}, {}, {}, _connected(model, [CAPITAL]), {}
 	).is_empty())
+
+
+func test_missing_inputs_are_guarded() -> void:
+	var model: MapModel = _model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		null, model, unit, LandWorks.new(), [unit], _stockpile(), {}, {}, {},
+		_connected(model, [CAPITAL]), {}
+	).is_empty())
+
+
+func test_a_reserved_path_tile_is_left_alone() -> void:
+	var model: MapModel = _model()
+	var works := LandWorks.new()
+	works.set_transport(model, TOWN, LandWorks.TRANSPORT_ROAD)
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, works, [unit], _stockpile(),
+		{}, {}, {}, _connected(model, [CAPITAL]), {Vector2i(3, 1): true}
+	).is_empty())
+
+
+func test_a_working_engineer_gets_no_second_order() -> void:
+	var model: MapModel = _model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
+	unit.start_work("build_road", TOWN, 1)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_stockpile(), {}, {}, {}, _connected(model, [CAPITAL]), {}
+	).is_empty())

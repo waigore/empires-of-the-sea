@@ -359,3 +359,90 @@ func test_region_helpers_pick_the_opposite_map() -> void:
 	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.OLD_WORLD, OWNER), WorldMap.NEW_WORLD)
 	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.NEW_WORLD, OWNER), WorldMap.OLD_WORLD)
 	assert_false(AiColonisationPlanner._owns_land_in(world, 9, OWNER))
+
+
+func test_no_passage_keeps_a_carrying_squadron_home() -> void:
+	var world: WorldMap = _world()
+	world.warp_links = []
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
+	assert_true(
+		AiColonisationPlanner.plan(
+			_config(), world, 0, old_world, [fleet], [unit], 0
+		).is_empty()
+	)
+
+
+func test_a_multi_zone_crossing_steps_toward_the_far_coast() -> void:
+	var model := MapModel.new()
+	model.setup(6, 2)
+	model.region_id = WorldMap.NEW_WORLD
+	for x in 6:
+		var y0: int = model.index_of(x, 0)
+		model.terrain[y0] = MapModel.Terrain.PLAINS if x >= 4 else MapModel.Terrain.OCEAN
+		var y1: int = model.index_of(x, 1)
+		model.terrain[y1] = MapModel.Terrain.OCEAN
+		model.sea_zone[y1] = 0 if x < 2 else (1 if x < 4 else 2)
+	var zones: Array[SeaZoneState] = []
+	for zone_id in 3:
+		var tiles: Array[Vector2i] = []
+		for x in range(zone_id * 2, zone_id * 2 + 2):
+			tiles.append(Vector2i(x, 1))
+		zones.append(SeaZoneState.create(zone_id, "Z%d" % zone_id, tiles, Vector2.ZERO, 2))
+	model.sea_zones = zones
+	var world := WorldMap.new()
+	world.add_region(_old_world())
+	world.add_region(model)
+	var fleet: FleetState = FleetState.at_sea(1, OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	unit.embark_on(fleet.id)
+	fleet.add_civilian(unit.id)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_config(), world, 1, model, [fleet], [unit], 0
+	)
+	assert_eq(String(order.get("kind", "")), "sail")
+	assert_eq(int(order.get("zone", -1)), 1)
+	assert_eq(AiColonisationPlanner._step_toward(model, 0, [0]), -1)
+	assert_eq(AiColonisationPlanner._carried_id(FleetState.in_port(9, OWNER, 0)), -1)
+
+
+func test_the_adapter_docks_and_refuses_illegal_orders() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	var docked: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(docked[0]["kind"]), "dock")
+	assert_true(fleet.is_in_port())
+	assert_true(MapPlayColonisationAi.run(null).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "bogus", "fleet": fleet.id}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "sail", "fleet": fleet.id, "zone": 99}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "cross", "fleet": fleet.id}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world,
+		{"kind": "land", "fleet": fleet.id, "unit": 999, "tile": Vector2i(0, 0)}
+	).is_empty())
+	play.ship_layer.free()
+	play.civilian_layer.free()

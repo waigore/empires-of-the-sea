@@ -129,3 +129,21 @@ func test_a_refused_trade_is_reported_not_swallowed() -> void:
 	assert_eq((result["sold"] as Array).size(), 0)
 	assert_eq((result["bought"] as Array).size(), 0)
 	assert_eq((result["refused"] as Array).size(), 2)
+
+
+func test_price_falls_back_to_the_catalog_and_zero_sales_are_refused() -> void:
+	var market := WorldMarket.with_default_prices()
+	market.prices.erase("grain")
+	assert_eq(market.price("grain"), CommodityCatalog.base_price("grain"))
+	var economy: PlayerEconomy = _economy({"grain": 4})
+	assert_false(bool(market.sell(economy, "grain", 0)["ok"]))
+
+
+func test_a_legacy_book_attributes_bids_to_the_player() -> void:
+	var market: WorldMarket = WorldMarket.from_dict({"bids": {"grain": 3}})
+	assert_eq(market.bought_units_for(FactionCatalog.PLAYER_FACTION), 3)
+	assert_eq(market.bought_units_for(1), 0)
+	var economy: PlayerEconomy = _economy({}, 5000)
+	assert_true(bool(market.buy(economy, "grain", 1, 1)["ok"]))
+	assert_eq(market.bought_units_for(FactionCatalog.PLAYER_FACTION), 3)
+	assert_eq(market.bought_units_for(1), 1)
