@@ -71,7 +71,9 @@ static func subtitle(text: String) -> Label:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_override("font", UiTheme.serif_italic())
 	label.add_theme_font_size_override("font_size", 15)
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_color_override("font_color", Palette.TEXT)
+	label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.06, 0.75))
+	label.add_theme_constant_override("outline_size", 4)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
 
@@ -81,6 +83,8 @@ static func caption(text: String) -> Label:
 	label.text = text.to_upper()
 	label.add_theme_font_size_override("font_size", 11)
 	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.06, 0.8))
+	label.add_theme_constant_override("outline_size", 3)
 	return label
 
 
@@ -105,7 +109,10 @@ static func dimmed_button(text: String, reason: String) -> Button:
 	var button := action_button(text)
 	button.disabled = true
 	button.tooltip_text = reason
-	button.modulate = Color(1.0, 1.0, 1.0, 0.55)
+	button.add_theme_stylebox_override(
+		"disabled", UiTheme.box(Color(0.14, 0.12, 0.09, 0.95), Palette.GOLD_DIM, 1)
+	)
+	button.add_theme_color_override("font_disabled_color", Palette.TEXT_DIM)
 	return button
 
 
