@@ -55,7 +55,7 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	MapPlayCivilians.on_action(_screen.play, "build_improvement")
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
 	assert_true(builder.is_working())
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
 
@@ -140,7 +140,7 @@ func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
 	var fleet: FleetState = _screen.ship_layer.fleets[0]
 	fleet.moved = true
 	_screen._cycle_region()
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
 
 
@@ -171,7 +171,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 0)
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 
 	assert_lt(first.ship_count() + second.ship_count(), hulls_before)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
@@ -210,7 +210,7 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	)
 	assert_eq(String(row["status"]), "building")
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
@@ -250,7 +250,7 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	var context: Dictionary = MapPlayArmies.battle_context(play)
 	var leaders: Dictionary = context["leaders"]
 	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
-	MapPlayTurn.end_turn(play)
+	Fixture.end_turn(play)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
 
 

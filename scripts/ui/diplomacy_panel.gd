@@ -218,9 +218,20 @@ func _fill_call() -> void:
 	_clear(_call_box)
 	var call: Dictionary = CallToArms.pending_call_for(_state, _player)
 	var offer: Dictionary = Intervention.pending_for(_state, _player)
-	_call_box.visible = not call.is_empty() or not offer.is_empty()
+	var proposal: Dictionary = DiplomacyProposals.pending_for(_state, _player)
+	_call_box.visible = (
+		not call.is_empty() or not offer.is_empty() or not proposal.is_empty()
+	)
 	if not offer.is_empty():
 		_call_box.add_child(_intervention_banner(offer))
+	if not proposal.is_empty():
+		var banner := ProposalBanner.new()
+		banner.setup(proposal)
+		banner.answer_pressed.connect(
+			func(kind: String, proposer: int) -> void:
+				order_pressed.emit(kind, proposer, "")
+		)
+		_call_box.add_child(banner)
 	if call.is_empty():
 		return
 	var banner := PanelContainer.new()

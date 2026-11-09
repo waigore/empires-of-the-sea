@@ -34,7 +34,6 @@ static func capture(play: PlaySession) -> Dictionary:
 		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
 
-
 static func _capture_session(play: PlaySession) -> Dictionary:
 	return {
 		"map_seed": play.map_seed,
@@ -54,7 +53,6 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"infinite_mode": play.infinite_mode,
 		"campaign_halted": play.campaign_halted,
 	}
-
 
 static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 	var regions: Array[Dictionary] = []
@@ -327,6 +325,7 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"alliance_snapshot": state.alliance_snapshot.duplicate(),
 		"pending_calls": state.pending_calls.duplicate(true),
 		"pending_interventions": state.pending_interventions.duplicate(true),
+		"pending_proposals": state.pending_proposals.duplicate(true),
 	}
 
 
@@ -350,6 +349,7 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
 	state.pending_calls.assign(data.get("pending_calls", []))
 	state.pending_interventions.assign(data.get("pending_interventions", []))
+	state.pending_proposals.assign(data.get("pending_proposals", []))
 	return state
 
 

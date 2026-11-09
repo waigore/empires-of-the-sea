@@ -89,6 +89,15 @@ static func mouse_motion(relative: Vector2) -> InputEventMouseMotion:
 	return event
 
 
+## Ends the turn and declines any rival proposal the AI raises, so a suite that
+## is not about consent still reaches the next turn. A call to arms or
+## intervention still suspends, exactly as in play.
+static func end_turn(play: PlaySession) -> void:
+	MapPlayTurn.end_turn(play)
+	while DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayTurn.answer_proposal(play, false)
+
+
 static func attach_screen(
 	host: Node,
 	faction: int = FactionCatalog.PLAYER_FACTION,

@@ -206,7 +206,7 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	var tile: Vector2i = model.province_data(target).tiles[0]
 	assert_true(MapPlayArmies.try_order(screen.play, tile))
 
-	MapPlayTurn.end_turn(screen.play)
+	Fixture.end_turn(screen.play)
 
 	assert_eq(model.province_owner(target), MapScreen.PLAYER_FACTION)
 	assert_false(model.province_data(target).capital, "the captured seat stops being a capital")

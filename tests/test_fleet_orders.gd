@@ -123,7 +123,7 @@ func test_end_turn_restores_fleet_moves() -> void:
 	MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[zone].tiles[0])
 	assert_true(fleet.moved)
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 
 	assert_false(fleet.moved)
 	assert_gt(_screen.overlay.move_zones.size(), 0)
@@ -137,7 +137,7 @@ func test_end_turn_leaves_unknown_tiles_unknown() -> void:
 	_screen.visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 
 	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_UNKNOWN)
@@ -151,7 +151,7 @@ func test_end_turn_refogs_distant_known_waters() -> void:
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 
 	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FOGGED)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
@@ -169,7 +169,7 @@ func test_end_turn_reveals_owned_coastal_waters() -> void:
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 
 	assert_eq(
 		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
@@ -233,7 +233,7 @@ func test_a_crossed_fleet_cannot_cross_again_this_turn() -> void:
 func test_a_crossed_fleet_sails_back_on_a_later_turn() -> void:
 	var fleet: FleetState = _cross_to_new_world()
 
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_false(fleet.moved, "the passage crossing spent only that turn's move")
 	var zone: int = fleet.sea_zone
 

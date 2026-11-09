@@ -76,7 +76,7 @@ func test_civilian_selection_and_moves_sound() -> void:
 
 func test_ending_a_turn_rings_the_bell_and_coins() -> void:
 	var before: int = _audio.sfx_played
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_audio.last_event, AudioEvents.COIN)
 	assert_gte(_audio.sfx_played, before + 2)
 
@@ -117,7 +117,7 @@ func test_a_battle_bed_survives_the_turn_end() -> void:
 	}
 	_score._on_battle_resolved([battle] as Array[Dictionary])
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
 
 

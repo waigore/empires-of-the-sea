@@ -276,13 +276,24 @@ static func establish_overture(
 			"absorbed": target,
 			"message": "%s is absorbed into the empire." % FactionCatalog.name_of(target),
 		}
-	state.set_overture(player, target, stage)
-	state.set_overture(target, player, stage)
-	state.touch(player, target, "overtureEstablished", {"stage": stage})
+	var advanced: Dictionary = advance_overture(state, player, target, stage)
+	advanced["cost"] = cost
+	return advanced
+
+
+## Records an accepted overture on both sides. Callers validate the chain and
+## settle the cost first; the proposal path trusts the queued offer and the
+## proposing rival pays, so the human treasury is never charged
+## (wiki: diplomacy § Court proposals; DR-20261109-06).
+static func advance_overture(
+	state: DiplomacyState, proposer: int, target: int, stage: String
+) -> Dictionary:
+	state.set_overture(proposer, target, stage)
+	state.set_overture(target, proposer, stage)
+	state.touch(proposer, target, "overtureEstablished", {"stage": stage})
 	return {
 		"ok": true,
 		"accepted": true,
-		"cost": cost,
 		"message": "%s accepts the %s." % [
 			FactionCatalog.name_of(target), DiplomacyCatalog.stage_label(stage)
 		],

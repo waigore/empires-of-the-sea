@@ -3,6 +3,7 @@ extends GdToolsTest
 ## from the seed, and prove the mutable state came back (REQ-P3-03).
 
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
+const Fixture = preload("res://tests/map_fixture.gd")
 const SEED: int = 4242
 const WIDTH: int = 40
 const HEIGHT: int = 32
@@ -50,7 +51,7 @@ func _new_screen(pending: Dictionary = {}) -> MapScreen:
 
 func test_round_trip_restores_session_world_and_layers() -> void:
 	var play: PlaySession = screen.play
-	MapPlayTurn.end_turn(play)
+	Fixture.end_turn(play)
 	play.economy.economy.treasury = 4321
 	play.economy.economy.stockpile["grain"] = 77
 	play.economy.economy.workers.set_count(1, 3)
@@ -267,7 +268,7 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 	pact.score = 80.0
 	CallToArms.freeze_alliances(play.diplomacy)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 2)
-	MapPlayTurn.end_turn(play)
+	Fixture.end_turn(play)
 	assert_true(play.turn_suspended, "the call holds the turn")
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveStore.write(DIR + "/call.sav", data))

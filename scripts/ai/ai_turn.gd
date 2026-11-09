@@ -10,6 +10,7 @@ extends RefCounted
 
 const KIND_DECLARE_WAR: String = AiDiplomacyPlanner.KIND_DECLARE_WAR
 const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
+const KIND_PROPOSAL: String = AiDiplomacyPlanner.KIND_PROPOSAL
 
 
 ## `context` may carry "regiments", "ships" and "stockpiles" maps by faction.
@@ -97,5 +98,13 @@ static func _apply(
 		return {
 			"result": peace,
 			"message": String(peace.get("message", "")),
+		}
+	if kind == KIND_PROPOSAL:
+		var offer: Dictionary = DiplomacyProposals.offer(
+			state, faction, target, String(action.get("offer", "")), String(action.get("stage", ""))
+		)
+		return {
+			"result": offer,
+			"message": String(offer.get("message", "")),
 		}
 	return {"result": {"ok": false, "reason": "unknown order"}, "message": ""}

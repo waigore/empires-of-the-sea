@@ -48,6 +48,11 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		play.hud.toast("Answer the intervention first.")
 		show_intervention(play)
 		return
+	# A rival's proposal waits for the court's answer before any other business.
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		play.hud.toast("Answer the rival's proposal first.")
+		show_proposal(play)
+		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
 		order["stage"] = arg
@@ -98,6 +103,10 @@ static func resolve_turn(play: PlaySession) -> bool:
 		play.turn_suspended = true
 		show_intervention(play)
 		return false
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		show_proposal(play)
+		return false
 	close_turn(play)
 	return true
 
@@ -140,6 +149,23 @@ static func show_intervention(play: PlaySession) -> void:
 		% [
 			FactionCatalog.name_of(int(offer["aggressor"])),
 			FactionCatalog.name_of(int(offer["target"])),
+		]
+	)
+
+
+## Opens the court on a waiting rival proposal and names the offer.
+static func show_proposal(play: PlaySession) -> void:
+	if play.diplomacy == null or play.hud == null:
+		return
+	var offer: Dictionary = DiplomacyProposals.pending_for(play.diplomacy, play.player_faction)
+	if offer.is_empty():
+		return
+	open(play)
+	play.hud.toast(
+		"%s proposes %s. Answer the court."
+		% [
+			FactionCatalog.name_of(int(offer["from"])),
+			DiplomacyProposals.offer_label(offer),
 		]
 	)
 

@@ -47,7 +47,7 @@ func test_assigning_through_the_controller_holds_the_slot() -> void:
 func test_ending_the_turn_pays_for_research() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	assert_true(bool(economy.research.assign("crop_rotation", "low")["ok"]))
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(economy.research.progress_of("crop_rotation"), 100)
 
 

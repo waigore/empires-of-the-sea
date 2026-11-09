@@ -57,7 +57,7 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 
 func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 	_screen.play.diplomacy.relation(0, 1).score = 40.0
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 44.0)
 	assert_eq(_screen.play.diplomacy.turn, _screen.play.turn)
 
@@ -156,7 +156,7 @@ func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
 	var turn_before: int = _screen.play.turn
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
 	MapPlayTurn.answer_call(_screen.play, true)
@@ -173,7 +173,7 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
 	var turn_before: int = _screen.play.turn
-	MapPlayTurn.end_turn(_screen.play)
+	Fixture.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
 	MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)

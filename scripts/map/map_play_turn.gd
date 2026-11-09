@@ -19,6 +19,10 @@ static func end_turn(play: PlaySession) -> void:
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_intervention(play)
 		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		MapPlayDiplomacy.show_proposal(play)
+		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
 	_finish_turn(play)
@@ -49,6 +53,9 @@ static func answer_call(play: PlaySession, accept: bool) -> void:
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		MapPlayDiplomacy.show_intervention(play)
 		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_proposal(play)
+		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
@@ -76,6 +83,41 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 		return
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		MapPlayDiplomacy.show_intervention(play)
+		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_proposal(play)
+		return
+	play.turn_suspended = false
+	MapPlayDiplomacy.close_turn(play)
+	_finish_turn(play)
+
+
+## The player answers a rival's proposal; the suspended turn then runs to its
+## end, or stops again for another waiting decision (wiki: diplomacy § Court
+## proposals; DR-20261109-06).
+static func answer_proposal(play: PlaySession, accept: bool) -> void:
+	if play.diplomacy == null:
+		return
+	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		return
+	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.ai, accept)
+	if not bool(result.get("ok", false)):
+		if play.hud != null:
+			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
+		return
+	if play.hud != null:
+		var message: String = String(result.get("message", ""))
+		if not message.is_empty():
+			play.hud.toast(message)
+	MapPlayDiplomacy.refresh(play)
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_call(play)
+		return
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_intervention(play)
+		return
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_proposal(play)
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)

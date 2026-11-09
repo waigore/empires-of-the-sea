@@ -370,6 +370,15 @@ func _smoke_end_turn(
 	var turn_before: int = screen.turn
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
+	# A rival may ask for a pact; the court answers before the calendar moves.
+	if DiplomacyProposals.has_pending(screen.play.diplomacy, screen.play.player_faction):
+		_check(screen.play.turn_suspended, "a rival proposal suspends the calendar")
+		_check(
+			screen.hud.panels.diplomacy_panel._call_box.visible,
+			"the court shows the rival proposal"
+		)
+		MapPlayTurn.answer_proposal(screen.play, false)
+		await process_frame
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(screen.economy != null, "economy wired")
@@ -460,6 +469,10 @@ func _smoke_victory(screen: MapScreen) -> void:
 	screen.play.turn = TurnTime.cap_turn()
 	MapPlayTurn.end_turn(screen.play)
 	await process_frame
+	# A rival proposal may hold the calendar; decline it so the cap can close.
+	while DiplomacyProposals.has_pending(screen.play.diplomacy, screen.play.player_faction):
+		MapPlayTurn.answer_proposal(screen.play, false)
+		await process_frame
 	_check(screen.play.campaign_halted, "calendar cap closes an undecided age")
 	_check(screen.turn == TurnTime.cap_turn(), "cap keeps the last full turn")
 	_check(screen.hud.is_victory_shown(), "campaign-complete plate shows")

@@ -22,6 +22,7 @@ const DESIRE_PER_PROVINCE: float = 25.0
 
 const KIND_DECLARE_WAR: String = "declare_war"
 const KIND_OFFER_PEACE: String = "offer_peace"
+const KIND_PROPOSAL: String = "proposal"
 
 
 ## War desire 0..100 for one (attacker, target) pair plus the factors that made
@@ -126,7 +127,66 @@ static func decide(
 			"target": int(best_peace["target"]),
 			"desire": int(best_peace["desire"]),
 		}
+	else:
+		action = _proposal(config, state, ai_state, world, turn, player, context)
 	return {"action": action, "candidates": candidates}
+
+
+## One offer for the human court, at peace and only when war and peace have no
+## claim: an alliance at 76+ relations or the next cost-free overture stage.
+## Utility is improve-relations desire plus the agenda's alliance bias; the
+## alliance wins a tie (wiki: diplomacy § Court proposals).
+static func _proposal(
+	config: AiConfig,
+	state: DiplomacyState,
+	ai_state: AiState,
+	world: WorldMap,
+	turn: int,
+	player: int,
+	context: Dictionary
+) -> Dictionary:
+	if player < 0 or player == config.faction:
+		return {}
+	if not state.pending_proposals.is_empty():
+		return {}
+	var record: DiplomacyRelation = state.relation(config.faction, player)
+	if record == null or record.at_war:
+		return {}
+	var desire: int = int(war_desire(
+		config, state, world, config.faction, player, context
+	)["score"])
+	var improve: int = 100 - desire
+	var options: Array[Dictionary] = []
+	if record.score >= DiplomacyCatalog.ALLIANCE_CLAMP and not record.formal_alliance:
+		options.append({
+			"offer": DiplomacyProposals.OFFER_ALLIANCE,
+			"stage": "",
+			"utility": improve + int(config.agenda_traits.get("alliance_bias", 0)),
+		})
+	var stage: String = DiplomacyCatalog.next_stage(state.overture(config.faction, player))
+	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
+	if (
+		improve >= config.parameter("diplomacy.improve_min_desire")
+		and not ai_state.overture_on_cooldown(config.faction, player, turn, cooldown)
+		and _is_free_stage(stage)
+	):
+		options.append({
+			"offer": DiplomacyProposals.OFFER_OVERTURE, "stage": stage, "utility": improve
+		})
+	var best: Dictionary = {}
+	for option: Dictionary in options:
+		if best.is_empty() or int(option["utility"]) > int(best["utility"]):
+			best = option
+	if best.is_empty():
+		return {}
+	return {
+		"kind": KIND_PROPOSAL,
+		"target": player,
+		"offer": String(best["offer"]),
+		"stage": String(best["stage"]),
+		"utility": int(best["utility"]),
+		"desire": improve,
+	}
 
 
 ## War-goal objective: clamp(round(warDesire / 25), 1, targetProvinceCount).
@@ -228,6 +288,12 @@ static func _needs_overseas(world: WorldMap, attacker: int, target: int) -> bool
 
 static func _is_weak_target(target: int) -> bool:
 	return FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER
+
+
+## Rivals only offer stages they can pay for while their treasuries are
+## untracked: Join Empire and the paid embassy steps are never proposed.
+static func _is_free_stage(stage: String) -> bool:
+	return not stage.is_empty() and DiplomacyCatalog.stage_cost(stage) == 0
 
 
 ## Why this court will not declare war right now ("" when it may).
