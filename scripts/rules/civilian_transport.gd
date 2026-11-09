@@ -15,6 +15,19 @@ const PORT_TURNS: int = 2
 const RAIL_TURNS: int = 2
 const ROAD_CONSTRUCTION: String = "road_construction"
 const EARLY_STEAM_ENGINE: String = "early_steam_engine"
+const LATER_STEAM_ENGINE: String = "later_steam_engine"
+const DYNAMITE: String = "dynamite"
+## Railroads need the tech for the tile's terrain (wiki: tech-tree-transport
+## § Acceptance Criteria): flat ground with Early Steam Engine, hills and swamps
+## with Later Steam Engine, mountains only with Dynamite.
+const RAIL_TERRAIN_TECHS: Dictionary = {
+	MapModel.Terrain.PLAINS: EARLY_STEAM_ENGINE,
+	MapModel.Terrain.FOREST: EARLY_STEAM_ENGINE,
+	MapModel.Terrain.DESERT: EARLY_STEAM_ENGINE,
+	MapModel.Terrain.HILLS: LATER_STEAM_ENGINE,
+	MapModel.Terrain.SWAMP: LATER_STEAM_ENGINE,
+	MapModel.Terrain.MOUNTAINS: DYNAMITE,
+}
 const ACTIONS: Array[String] = ["build_road", "build_port", "build_rail"]
 
 
@@ -120,14 +133,21 @@ static func _check_port(
 static func _check_rail(
 	model: MapModel, tile: Vector2i, works: LandWorks, tech_unlocked: Dictionary
 ) -> Dictionary:
-	if not _has(tech_unlocked, EARLY_STEAM_ENGINE):
-		return _no("Requires Early Steam Engine to lay a railroad.")
 	var level: int = works.transport_at(model, tile)
 	if level >= LandWorks.TRANSPORT_RAIL:
 		return _no("This tile already carries a railroad.")
 	if level < LandWorks.TRANSPORT_ROAD:
 		return _no("Railroads upgrade an existing road.")
+	var needed: String = rail_tech_for(model.terrain_at(tile.x, tile.y))
+	if not _has(tech_unlocked, needed):
+		return _no("Requires %s to lay a railroad here." % TechCatalog.display_name(needed))
 	return {"ok": true}
+
+
+## Tech a railroad needs on this terrain; flat ground falls back to Early Steam
+## Engine, the Rail Builder's own unlock (wiki: tech-tree-transport).
+static func rail_tech_for(terrain: int) -> String:
+	return String(RAIL_TERRAIN_TECHS.get(terrain, EARLY_STEAM_ENGINE))
 
 
 ## One Builder/Engineer work order per player and tile; Rail Builders are exempt
