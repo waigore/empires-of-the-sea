@@ -50,7 +50,7 @@ Land military: roster, training, armies, generals, marches, battles, capture.
 ## Deferred (REQ-P2-02)
 
 Quick Battle and the gun-loss downgrade · difficulty · per-regiment medals and
-health · minor parity and in-place upgrades · AI marches · naval transport.
+health · minor parity and in-place upgrades · naval transport.
 Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
@@ -59,7 +59,7 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 `regiment_economy`, `army_training`, `army_state`, `general_roster`,
 `general_binding`, `army_modifiers`, `army_command`, `army_movement`,
 `army_combat`. View: `map/army_layer` + `army_marker`,
-`map/map_play_armies`, `ui/army_panel`, `economy/economy_controller`,
+`map/map_play_armies` (AI pass), `ui/army_panel`, `economy/economy_controller`,
 `map_screen`.
 
 ## Controls
