@@ -28,7 +28,9 @@ static func resolve(play: PlaySession) -> Dictionary:
 		imports,
 		hostile(play),
 		play.map_seed,
-		play.turn
+		play.turn,
+		-1.0,
+		play.has_tech
 	)
 	if not bool(result.get("ok", false)):
 		return result

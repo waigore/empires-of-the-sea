@@ -26,11 +26,15 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 	return rows
 
 
-## Dossier line for a pending or ready landing site.
+## Dossier line for a pending or ready landing site. The line follows the same
+## gate the landing uses: a marker whose coast is no longer a hostile shore
+## promises nothing (wiki: ships-and-naval § Missions and Movement).
 static func note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction or not fleet.has_beachhead():
 		return ""
 	var place: String = play.model.province_name(fleet.beachhead_province)
+	if not NavalTransport.beachhead_target_valid(play.model, fleet, hostile(play)):
+		return "The beachhead at %s has lapsed — that shore is no longer hostile." % place
 	if NavalTransport.beachhead_ready(fleet, play.turn):
 		if fleet.embarked_army < 0:
 			return "Beachhead at %s — ready, but no troops are aboard." % place

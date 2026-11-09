@@ -1,0 +1,48 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/capital_choice_screen.gd" id="1_page"]
+[ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
+[ext_resource type="Script" path="res://scripts/map/capital_seat_marker.gd" id="3_seat"]
+[ext_resource type="Script" path="res://scripts/map/map_camera.gd" id="4_camera"]
+[ext_resource type="Shader" path="res://ui/shaders/sea.gdshader" id="5_sea"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
+shader = ExtResource("5_sea")
+
+[node name="CapitalChoice" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_page")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="SeaBackdrop" type="ColorRect" parent="World"]
+material = SubResource("ShaderMaterial_sea")
+offset_right = 2816.0
+offset_bottom = 1848.0
+mouse_filter = 2
+
+[node name="MapCanvas" type="Node2D" parent="World"]
+script = ExtResource("2_canvas")
+
+[node name="SeatMarker" type="Node2D" parent="World"]
+script = ExtResource("3_seat")
+
+[node name="MapCamera" type="Camera2D" parent="World"]
+script = ExtResource("4_camera")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="HudRoot" type="Control" parent="Hud"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

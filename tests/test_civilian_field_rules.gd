@@ -111,6 +111,41 @@ func test_out_of_bounds_land_is_refused() -> void:
 	assert_false(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(9, 9)))
 	assert_true(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(0, 0)))
 
+
+## Order visibility gate (wiki: fog-and-exploration § Order Visibility
+## Requirements): a march into a province the crown has never charted is
+## refused, even though an Explorer may roam any land.
+func test_a_march_into_an_uncharted_province_is_refused() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	for tile: Vector2i in _model.province_tiles(Fixture.RIVAL_PROVINCE):
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	assert_false(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0)),
+		"the uncharted province is not a march option"
+	)
+	var result: Dictionary = CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("charted"))
+	assert_eq(explorer.tile, Vector2i(2, 0))
+
+
+## One charted tile anywhere in the province is enough: a coast glimpsed from
+## the sea opens the whole province to land orders.
+func test_a_glimpsed_province_accepts_the_march() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	var tiles: Array[Vector2i] = _model.province_tiles(Fixture.RIVAL_PROVINCE)
+	for tile: Vector2i in tiles:
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	_view.raise_to(_model.index_of(tiles[0].x, tiles[0].y), VisibilityModel.Level.FOGGED)
+	assert_true(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0))
+	)
+	assert_true(bool(CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)["ok"]))
+
 # --- from test_civilian_work.gd ---
 ## Civilian work orders: gates, costs, multi-turn progress and tile effects
 ## (wiki: civilian-units § Work Types, extraction-and-improvements costs).
@@ -858,6 +893,70 @@ func test_foreign_estates_never_pay_the_player() -> void:
 		_model, 0, -1, {}, _works, Fixture.BARE_TILE
 	)
 	assert_eq(totals, {})
+
+
+## A colony's estates beside its port town are Town-rule connected, so the town's
+## own development level caps their yield (wiki: extraction-and-improvements
+## § Extraction formula and town development cap).
+func test_a_port_town_caps_the_estates_beside_it() -> void:
+	var offshoot: Array = _overseas_estate(2, true)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	var totals: Dictionary = Extraction.yields(
+		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
+	)
+	assert_eq(totals, {"grain": 2})
+
+
+## A rail from the landfall lifts the cap: the estate then reaches the crown by
+## road, so town development does not limit it.
+func test_a_colony_road_lifts_the_town_cap() -> void:
+	var offshoot: Array = _overseas_estate(2, true)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	works.set_transport(model, Vector2i(0, 1), LandWorks.TRANSPORT_RAIL)
+	var totals: Dictionary = Extraction.yields(
+		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
+	)
+	assert_eq(totals, {"grain": 4})
+
+
+## An inland town caps nothing: only a port town beside the crown's sea path
+## limits its neighbours.
+func test_an_inland_town_does_not_cap_the_yield() -> void:
+	var offshoot: Array = _overseas_estate(2, false)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	var resolved: Dictionary = LandConnectivity.resolve(model, works, 0, Vector2i(-1, -1))
+	assert_eq(
+		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
+		LandWorks.MAX_IMPROVEMENT
+	)
+
+
+## One colony province: a town at (0,0) and a level-4 grain estate beside it.
+## `port` builds the town's harbour; `development` is the town's level.
+func _overseas_estate(development: int, port: bool) -> Array:
+	var model := MapModel.new()
+	model.setup(2, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 2:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+			if tile != Vector2i(0, 0):
+				model.resource[model.index_of(x, y)] = 4
+	var province := ProvinceState.create(0, "Colonia", tiles, Vector2(0.5, 0.5), 4, 0, false)
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = development
+	model.provinces = [province]
+	var works := LandWorks.new()
+	if port:
+		works.add_port(model, Vector2i(0, 0))
+	works.set_improvement(model, Vector2i(0, 1), 4)
+	return [model, works]
 
 
 func test_ledger_snapshot_exposes_status_and_actions() -> void:

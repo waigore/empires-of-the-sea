@@ -382,6 +382,25 @@ func test_beachhead_lasts_one_full_turn_then_expires() -> void:
 	assert_false(fleet.has_beachhead())
 
 
+## A marker whose coast changes hands or whose war ends has no hostile landing
+## left; the rules gate the landing, so the marker must not promise one.
+func test_a_beachhead_target_must_stay_a_hostile_shore() -> void:
+	var fleet := FleetState.at_sea(3, 0, 1, ["ship_3"])
+	fleet.moved = false
+	assert_true(bool(NavalTransport.establish_beachhead(_model, fleet, 1, 5)["ok"]))
+	assert_true(NavalTransport.beachhead_target_valid(_model, fleet))
+	_model.province_data(1).owner = 0
+	assert_false(NavalTransport.beachhead_target_valid(_model, fleet))
+	_model.province_data(1).owner = 1
+	var peaceful := func(_a: int, _b: int) -> bool: return false
+	assert_false(NavalTransport.beachhead_target_valid(_model, fleet, peaceful))
+	assert_true(NavalTransport.beachhead_target_valid(_model, fleet))
+	fleet.sea_zone = 0
+	assert_false(NavalTransport.beachhead_target_valid(_model, fleet))
+	assert_false(NavalTransport.beachhead_target_valid(null, fleet))
+	assert_false(NavalTransport.beachhead_target_valid(_model, null))
+
+
 func test_beachhead_refusals_cover_each_gate() -> void:
 	var own_coast := FleetState.at_sea(3, 0, 0, ["ship_3"])
 	assert_false(bool(NavalTransport.can_establish_beachhead(_model, own_coast, 0)["ok"]))

@@ -42,6 +42,16 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 # Tier 2-shaped
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+
+# Free-playtest drive (opt-in, not a CI gate): New World exploration loop —
+# boards an Explorer, takes the Passage, lands, charts and prospects, printing
+# one line per step.
+godot --headless --path . --script res://tests/playtest_new_world.gd
+
+# Free-playtest drive (opt-in, not a CI gate): Quick Battle — declares war,
+# resolves an attacking field battle, a siege and a defending battle through the
+# play helpers, printing every despatch line the plate shows.
+godot --headless --path . --script res://tests/playtest_quick_battle.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

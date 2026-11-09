@@ -35,7 +35,8 @@ static func declare_war(
 	record.at_war = true
 	record.since_turn = state.turn
 	record.formal_alliance = false
-	_downgrade_overtures(state, player, target)
+	if _downgrade_overtures(state, player, target):
+		state.record_event("overturesCleared", player, target)
 	state.cancel_subsidy(player, target)
 	state.cancel_subsidy(target, player)
 	state.touch(player, target, "warDeclared")
@@ -369,16 +370,21 @@ static func _accepts_overture(
 	return true
 
 
-static func _downgrade_overtures(state: DiplomacyState, a: int, b: int) -> void:
+static func _downgrade_overtures(state: DiplomacyState, a: int, b: int) -> bool:
 	var gp_pair: bool = (
 		FactionCatalog.type_of(a) == FactionCatalog.Type.GREAT_POWER
 		and FactionCatalog.type_of(b) == FactionCatalog.Type.GREAT_POWER
 	)
+	var changed: bool = false
 	for direction: Vector2i in [Vector2i(a, b), Vector2i(b, a)]:
+		var stage: String = DiplomacyCatalog.STAGE_NONE
 		if gp_pair:
-			state.set_overture(direction.x, direction.y, DiplomacyCatalog.STAGE_EMBASSY)
-		else:
-			state.set_overture(direction.x, direction.y, DiplomacyCatalog.STAGE_NONE)
+			stage = DiplomacyCatalog.STAGE_EMBASSY
+		if state.overture(direction.x, direction.y) == stage:
+			continue
+		state.set_overture(direction.x, direction.y, stage)
+		changed = true
+	return changed
 
 
 static func _tier(stage: String) -> int:

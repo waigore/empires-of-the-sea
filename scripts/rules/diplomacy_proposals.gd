@@ -47,7 +47,9 @@ static func queue(
 			return _deny("Unknown proposal.")
 	if not bool(check.get("ok", false)):
 		return check
-	state.pending_offers.append({"from": from_id, "kind": kind, "stage": stage})
+	state.pending_offers.append(
+		{"from": from_id, "kind": kind, "stage": stage, "turn": state.turn}
+	)
 	state.record_event("proposalMade", from_id, human, {"kind": kind, "stage": stage})
 	return {"ok": true, "reason": "", "from": from_id, "kind": kind, "stage": stage}
 

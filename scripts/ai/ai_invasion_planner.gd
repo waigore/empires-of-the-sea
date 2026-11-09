@@ -209,8 +209,7 @@ static func _can_storm(
 static func _retire(
 	model: MapModel, fleet: FleetState, turn: int, hostile: Dictionary
 ) -> Dictionary:
-	var query := func(a: int, b: int) -> bool:
-		return a != b and hostile.has(b)
+	var query: Callable = func(a: int, b: int) -> bool: return a != b and hostile.has(b)
 	for province: int in NavalTransport.landing_provinces(model, fleet, turn, query):
 		return {"kind": KIND_LAND, "fleet": fleet.id, "province": province}
 	var goals: Array[int] = []

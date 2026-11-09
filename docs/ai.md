@@ -35,11 +35,9 @@ P5 unbookkept rivals.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer (Builder overseas), cross a Passage and land; then
   prospect or improve.
-- **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): with no war
-  on its border and a far shore to take (an enemy's, or a Tribe's — no
-  declaration), detach what the hulls carry (one regiment keeps the seat), dock,
-  board, cross and mark a beachhead; the landing storms the best coast it can
-  beat, else its own colony.
+- **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
+  war and a far shore (enemy or Tribe); detach hull capacity (one keeps the
+  seat), dock, board, cross, beachhead; storm best coast, else own colony.
 - **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
   stock deficit; whole runs under labour/inputs; recruit highest affordable
   tier to worker/recruit caps.
@@ -52,9 +50,12 @@ P5 unbookkept rivals.
   Trade Fairs).
 - **Regiment parity** (`MilitaryParity`): after movement, Minor Nation land
   regiments match the strongest Great Power era; Tribes stay at level 1.
-- **Rival turn** (`MapPlayEconomyAi`): Extraction → Riches →
+- **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
+- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
+  evidence, banded suspicion per agenda, best guess and behaviour counts
+  ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
 
@@ -62,9 +63,9 @@ P5 unbookkept rivals.
 
 ## Deferred (REQ-P2-02)
 
-- Intervention, call-to-arms, boycotts, spies.
+- Intervention, call-to-arms, boycotts and spy actions.
 - Rival fog exploration.
-- Dossier evidence and dialogue.
+- Agenda-sourced dialogue beats.
 
 ## Architecture
 

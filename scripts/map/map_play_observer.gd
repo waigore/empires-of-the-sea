@@ -83,9 +83,7 @@ static func _last_turn(play: PlaySession, faction: int) -> Dictionary:
 
 
 static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
-	if play.observer_mode or faction != play.player_faction:
-		return play.ai.economy_for(faction) if play.ai != null else null
-	return play.economy.economy if play.economy != null else null
+	return play.ledger_for(faction)
 
 
 ## Public order-of-battle strength: FPN + FPM over every land army, no medals
