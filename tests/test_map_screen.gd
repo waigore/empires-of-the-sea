@@ -40,6 +40,51 @@ func test_region_toggle_switches_the_whole_view() -> void:
 	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
 
 
+func test_the_new_world_stays_uncharted_at_game_start() -> void:
+	_screen._cycle_region()
+	var model: MapModel = _screen.model
+	assert_eq(model.region_id, FactionCatalog.NEW_WORLD)
+	var unknown: int = 0
+	for index in _screen.visibility.levels.size():
+		if _screen.visibility.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown += 1
+	assert_eq(unknown, _screen.visibility.levels.size(), "every tile is unknown")
+	var tile: Vector2i = model.provinces[0].tiles[0]
+	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_UNKNOWN)
+	assert_true(_screen.overlay._country_borders.is_empty(), "no tribal borders leak")
+	var minimap_image: Image = _screen.hud._minimap._texture.get_image()
+	var pixel: Color = minimap_image.get_pixel(tile.x, tile.y)
+	assert_almost_eq(pixel.r, Palette.PAPER.r, 0.01)
+	assert_almost_eq(pixel.g, Palette.PAPER.g, 0.01)
+	assert_almost_eq(pixel.b, Palette.PAPER.b, 0.01)
+	for tribe: int in FactionCatalog.tribe_ids():
+		assert_false(
+			_screen.play.diplomacy.has_relation(_screen.play.player_faction, tribe),
+			"an uncharted tribe is not a first contact"
+		)
+
+
+func test_tapping_uncharted_land_opens_no_dossier() -> void:
+	_screen._cycle_region()
+	var province_id: int = _screen.model.provinces[0].id
+	var world: Vector2 = _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	MapPlayInput.on_tapped(_screen.play, world)
+	assert_eq(_screen.selected_province, -1, "unknown land is not selectable")
+	assert_false(_screen.hud.panels.is_panel_open())
+
+
+func test_minimap_repaints_when_a_province_is_charted() -> void:
+	var minimap: Minimap = _screen.hud._minimap
+	var province: int = Fixture.foreign_province(_screen.model)
+	var tile: Vector2i = _screen.model.province_tiles(province)[0]
+	minimap._process(0.0)
+	var before: Color = minimap._texture.get_image().get_pixel(tile.x, tile.y)
+	_screen.visibility.reveal_province(province)
+	minimap._process(0.0)
+	var after: Color = minimap._texture.get_image().get_pixel(tile.x, tile.y)
+	assert_ne(before, after, "a charted tile repaints the inset")
+
+
 func test_country_borders_are_built_for_every_owner() -> void:
 	var borders: Dictionary = _screen.overlay._country_borders
 	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())

@@ -168,6 +168,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
+	# Rival ledgers resolve on post-combat ownership and plan civilian work for
+	# the new turn; the player's economy resolves below in the same turn.
+	MapPlayEconomyAi.run(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	play.refresh_research()
@@ -283,6 +286,12 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	for army: ArmyState in lost:
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
+		)
+	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
+		play.civilian_layer, FleetRosters.live_ids(play.ship_layer.regions)
+	):
+		play.hud.toast(
+			"A civilian went down with a sunken squadron — lost at sea"
 		)
 	if battles.is_empty():
 		return

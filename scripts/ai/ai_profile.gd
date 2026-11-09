@@ -19,6 +19,9 @@ const BLESSED: Dictionary = {
 	ECONOMIC: {
 		"diplomacy.war_relation_ceiling": 35,
 		"diplomacy.war_declare_min_desire": 65,
+		"economy.reserve_target": 30,
+		"civilian.improvement_weight": 60,
+		"civilian.max_civilians": 7,
 	},
 }
 

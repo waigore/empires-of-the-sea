@@ -6,11 +6,14 @@ extends Control
 signal jump_requested(world_position: Vector2)
 
 var model: MapModel = null
+## Player view the inset honours; null draws the whole map (tooling/tests).
+var visibility: VisibilityModel = null
 
 var _texture: ImageTexture = null
 var _view_rect: Rect2 = Rect2()
 var _map_size: Vector2 = Vector2.ZERO
 var _dragging: bool = false
+var _seen_revision: int = 0
 
 
 func _ready() -> void:
@@ -19,12 +22,33 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
 
-func build(p_model: MapModel, map_size: Vector2) -> void:
+## Unknown tiles stay parchment, so an uncharted region never leaks its shape.
+func build(p_model: MapModel, map_size: Vector2, p_visibility: VisibilityModel = null) -> void:
 	model = p_model
 	_map_size = map_size
+	visibility = p_visibility
+	_seen_revision = visibility.revision if visibility != null else 0
+	_rebuild_texture()
+
+
+## Reveals arrive after the inset is built; repaint when the view moved on.
+func _process(_delta: float) -> void:
+	if visibility == null or visibility.revision == _seen_revision:
+		return
+	_seen_revision = visibility.revision
+	_rebuild_texture()
+
+
+func _rebuild_texture() -> void:
 	var image := Image.create(model.width, model.height, false, Image.FORMAT_RGBA8)
 	for y in model.height:
 		for x in model.width:
+			var level: int = (
+				visibility.level_at(x, y) if visibility != null else VisibilityModel.Level.FULLY_VISIBLE
+			)
+			if level == VisibilityModel.Level.UNKNOWN:
+				image.set_pixel(x, y, Palette.PAPER)
+				continue
 			var terrain: int = model.terrain_at(x, y)
 			var color: Color = Palette.SEA_MID
 			if terrain != MapModel.Terrain.OCEAN and terrain != MapModel.Terrain.SHALLOW:
@@ -34,6 +58,8 @@ func build(p_model: MapModel, map_size: Vector2) -> void:
 					color = color.lerp(FactionCatalog.color_of(owner), 0.4)
 			elif terrain == MapModel.Terrain.SHALLOW:
 				color = Palette.SEA_PALE
+			if level == VisibilityModel.Level.FOGGED:
+				color = color.lerp(Palette.PAPER, 0.45)
 			image.set_pixel(x, y, color)
 	_texture = ImageTexture.create_from_image(image)
 	queue_redraw()
@@ -53,6 +79,8 @@ func _draw() -> void:
 	if model != null:
 		for province: ProvinceState in model.provinces:
 			if not province.capital:
+				continue
+			if visibility != null and not visibility.is_province_known(province.id):
 				continue
 			var point: Vector2 = _to_local(Vector2(province.center) * 22.0)
 			draw_circle(point, 2.6, Palette.faction_color(province.owner))

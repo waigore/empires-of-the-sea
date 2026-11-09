@@ -13,22 +13,22 @@ const BROADSIDES := "broadsides"
 const VICTORY := "victory"
 const DEFEAT := "defeat"
 
-## Exploration beds in era order. The 1500 start opens on a consort air; the
-## Baroque bed carries the bulk of a campaign; the galant minuet closes it.
+## Exploration beds in era order. The 1500 start opens on a branle; the Baroque
+## gigue carries the bulk of a campaign; the galant minuet closes it.
 const ERA_BEDS: Array[Dictionary] = [
 	{
 		"id": AGE_OF_DISCOVERY,
 		"from_year": 1500,
 		"file": "music_age_of_discovery.ogg",
 		"title": "Age of Discovery",
-		"era": "Late Renaissance consort",
+		"era": "Renaissance branle",
 	},
 	{
 		"id": SPANISH_MAIN,
 		"from_year": 1550,
 		"file": "music_spanish_main.ogg",
 		"title": "The Spanish Main",
-		"era": "Baroque allegro",
+		"era": "Baroque gigue",
 	},
 	{
 		"id": GILDED_MINUET,
