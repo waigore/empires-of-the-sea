@@ -71,12 +71,22 @@ static func can_make_peace(
 	return _allow()
 
 
-static func make_peace(state: DiplomacyState, player: int, target: int) -> Dictionary:
+## A court answers the white-peace offer. `auto` keeps the rule-driven test;
+## `accept`/`refuse` carry the human court's decision (wiki: diplomacy
+## § GP–GP Rules — peace needs both sides).
+static func make_peace(
+	state: DiplomacyState, player: int, target: int, decision: String = DECISION_AUTO
+) -> Dictionary:
 	var check: Dictionary = can_make_peace(state, player, target)
 	if not bool(check["ok"]):
 		return check
 	var record: DiplomacyRelation = state.relation(player, target)
-	if not _accepts_peace(record, target):
+	var accepts: bool = _accepts_peace(record, target)
+	if decision == DECISION_ACCEPT:
+		accepts = true
+	elif decision == DECISION_REFUSE:
+		accepts = false
+	if not accepts:
 		return {
 			"ok": true,
 			"accepted": false,

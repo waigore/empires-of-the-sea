@@ -107,10 +107,14 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
 		return
 	# The proposing court pays for its overture; the human treasury is untouched.
+	# A peace offer starts its own cooldown once the court answers; every other
+	# proposal starts the improve-relations cooldown (DR-20261109-06/07).
+	var from_id: int = int(result.get("from", -1))
 	if play.ai != null:
-		play.ai.note_overture(
-			int(result.get("from", -1)), play.player_faction, play.turn
-		)
+		if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
+			play.ai.note_peace(from_id, play.player_faction, play.turn)
+		else:
+			play.ai.note_overture(from_id, play.player_faction, play.turn)
 	if play.hud != null:
 		var message: String = String(result.get("message", ""))
 		if not message.is_empty():

@@ -91,6 +91,62 @@ func test_no_proposal_is_offered_at_war_or_without_a_treaty_band() -> void:
 	assert_false(cool["ok"], "the Allied band gates a formal alliance")
 
 
+func test_accepting_a_peace_proposal_ends_the_war() -> void:
+	state.relation(0, 2).at_war = true
+	var queued: Dictionary = DiplomacyProposals.queue(
+		state, null, 2, DiplomacyProposals.KIND_PEACE
+	)
+	assert_true(queued["ok"], queued.get("reason", ""))
+	assert_true(state.relation(0, 2).at_war, "the war holds until the court answers")
+	var answer: Dictionary = DiplomacyProposals.resolve_human(state, null, true)
+	assert_true(answer["ok"], answer.get("reason", ""))
+	assert_true(bool(answer["accepted"]))
+	assert_false(state.relation(0, 2).at_war, "the human answer ends the war")
+	assert_false(DiplomacyProposals.has_pending(state, 0))
+	assert_true(_event("peaceMade"))
+	assert_true(_event("offerAccepted"))
+
+
+func test_refusing_a_peace_proposal_keeps_the_war() -> void:
+	state.relation(0, 2).at_war = true
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_PEACE)
+	var answer: Dictionary = DiplomacyProposals.resolve_human(state, null, false)
+	assert_false(bool(answer["accepted"]))
+	assert_true(state.relation(0, 2).at_war, "a refusal does not end the war")
+	assert_eq(state.relation(0, 2).score, 50.0, "a refusal costs no relation")
+	assert_true(_event("offerRefused"))
+	assert_false(_event("peaceMade"))
+
+
+func test_a_peace_proposal_needs_a_war() -> void:
+	var refused: Dictionary = DiplomacyProposals.queue(
+		state, null, 2, DiplomacyProposals.KIND_PEACE
+	)
+	assert_false(refused["ok"], "white peace is offered only to a court at war")
+
+
+func test_an_ai_court_proposes_peace_and_waits() -> void:
+	var fresh := DiplomacyState.new()
+	fresh.reset(1)
+	fresh.ensure_relation(0, 2, 1)
+	fresh.relation(0, 2).at_war = true
+	var result: Dictionary = AiTurn.run(
+		fresh,
+		AiFixture.world([0, 0, 0, 0, 2]),
+		AiState.new(),
+		2,
+		0,
+		1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var record: Dictionary = _record_for(result["trace"], 2)
+	assert_eq(String(record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(fresh.relation(0, 2).at_war, "nothing is signed during the AI pass")
+	assert_eq(fresh.pending_offers.size(), 1, "the offer waits for the human court")
+	assert_eq(String(fresh.pending_offers[0]["kind"]), DiplomacyProposals.KIND_PEACE)
+	assert_true(String(record["message"]).contains("white peace"))
+
+
 func test_describe_names_the_offer() -> void:
 	assert_eq(
 		DiplomacyProposals.describe(DiplomacyProposals.KIND_ALLIANCE, ""),
@@ -101,6 +157,10 @@ func test_describe_names_the_offer() -> void:
 			DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
 		),
 		"the Non-Aggression Pact"
+	)
+	assert_eq(
+		DiplomacyProposals.describe(DiplomacyProposals.KIND_PEACE, ""),
+		"a white peace"
 	)
 
 
