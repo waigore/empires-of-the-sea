@@ -7,7 +7,11 @@ extends RefCounted
 ## adapter only seeds the opening roster, applies legal orders and reports the
 ## trace (REQ-P2-03, REQ-P3-03).
 
-const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
+## Rivals open with a spy as well, so the espionage layer is live from the first
+## turn instead of waiting on a 2,000-cash training order (docs/espionage.md).
+const RIVAL_STARTING_CIVILIANS: Array[String] = [
+	"explorer", "builder", "engineer", "spy",
+]
 
 
 ## Resolves every rival economy once, then plans the next turn. Call after the
@@ -22,17 +26,25 @@ static func run(play: PlaySession) -> Dictionary:
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
+	# Every rival ledger exists before any court resolves, so a spy observing a
+	# court later in the order still reads its known techs this turn.
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != play.player_faction:
+			play.ai.economy_for(faction)
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == play.player_faction:
 			continue
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		_seed_civilians(play, faction)
+		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var extraction: Dictionary = _extraction(play, faction, economy)
+		# Research is planned before the economy resolves, so the court's new
+		# study starts this turn; its spies abroad boost the same phase.
+		var research: Dictionary = AiResearchPlanner.plan(economy, config)
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, extraction, _ships(play, faction),
-			_army_food(play, faction), false
+			_army_food(play, faction), false, _research_bonus(play, faction, economy)
 		)
-		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		economy.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
@@ -44,6 +56,7 @@ static func run(play: PlaySession) -> Dictionary:
 		order_log.append_array(civilians["orders"])
 		by_faction[faction] = {
 			"extraction": extraction,
+			"research": research,
 			"resolved": resolved,
 			"production": production,
 			"recruits": recruits,
@@ -65,7 +78,7 @@ static func _seed_civilians(play: PlaySession, faction: int) -> void:
 		var capital: Dictionary = _capital(model, faction)
 		if int(capital["province"]) < 0:
 			continue
-		for type_id: String in STARTING_CIVILIANS:
+		for type_id: String in RIVAL_STARTING_CIVILIANS:
 			var tile: Vector2i = _mustering_tile(
 				model, int(capital["province"]), roster
 			)
@@ -219,6 +232,51 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 		if record.at_war:
 			return true
 	return false
+
+
+## Rival Great Powers this court's spies are observing, across every region.
+static func _qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
+	var result: Array[int] = []
+	for region: int in play.civilian_layer.regions.region_ids():
+		var model: MapModel = play.world.region(region)
+		if model == null:
+			continue
+		for rival: int in SpyRules.qualifying_rivals(model, _roster(play, region), faction):
+			if not result.has(rival):
+				result.append(rival)
+	result.sort()
+	return result
+
+
+## Tech id -> spy-network RP percentage for this court's occupied slots
+## (wiki: research-state § Spy RP boost).
+static func _research_bonus(
+	play: PlaySession, faction: int, economy: PlayerEconomy
+) -> Dictionary:
+	var qualifying: Array[int] = _qualifying_rivals(play, faction)
+	if qualifying.is_empty() or economy == null:
+		return {}
+	var techs: Array[String] = []
+	for slot: Dictionary in economy.research.slots:
+		var tech_id: String = String(slot.get("tech", ""))
+		if not tech_id.is_empty():
+			techs.append(tech_id)
+	var rival_techs: Dictionary = {}
+	for rival: int in qualifying:
+		rival_techs[rival] = _techs_of(play, rival)
+	return SpyRules.research_bonus(techs, rival_techs, qualifying)
+
+
+## The human court's research lives on the economy controller, not in the rival
+## ledger table, so a rival spy observing the player reads the real tech set.
+static func _techs_of(play: PlaySession, faction: int) -> Dictionary:
+	if faction == play.player_faction:
+		if play.economy != null and play.economy.economy != null:
+			return play.economy.economy.research.unlocked
+		return {}
+	if play.ai != null:
+		return play.ai.economy_for(faction).research.unlocked
+	return {}
 
 
 # --- helpers -----------------------------------------------------------------

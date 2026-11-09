@@ -7,16 +7,21 @@ extends RefCounted
 
 
 ## `advance_market` is false for rival courts sharing one world market: the
-## player's own resolution moves prices once per turn.
+## player's own resolution moves prices once per turn. `research_bonus` maps a
+## tech id to the spy-network RP percentage for this turn (wiki: research-state).
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	extraction: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	advance_market: bool = true
+	advance_market: bool = true,
+	research_bonus: Dictionary = {}
 ) -> Dictionary:
-	return _run(economy, market, extraction, ship_count, army_food, advance_market)
+	return _run(
+		economy, market, extraction, ship_count, army_food, advance_market,
+		research_bonus
+	)
 
 
 ## Dry run on copied state; reports stockpile and treasury deltas, no side effects.
@@ -48,7 +53,8 @@ static func _run(
 	extraction: Dictionary,
 	ship_count: int,
 	army_food: int,
-	advance_market: bool
+	advance_market: bool,
+	research_bonus: Dictionary = {}
 ) -> Dictionary:
 	var extracted: Dictionary = {}
 	for commodity: Variant in extraction.keys():
@@ -80,7 +86,9 @@ static func _run(
 		economy.tech_unlocked
 	)
 	# Research runs last: its gold comes out of the treasury Production left.
-	var research: Dictionary = ResearchTurn.resolve(economy.research, economy)
+	var research: Dictionary = ResearchTurn.resolve(
+		economy.research, economy, research_bonus
+	)
 	var prices: Dictionary = {}
 	if advance_market:
 		prices = market.advance_prices()

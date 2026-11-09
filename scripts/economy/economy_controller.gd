@@ -21,6 +21,9 @@ var _hud: GameHud = null
 var works_by_region: MapRegionTable = null
 ## Consumption report of the last resolved turn, for feeding coverage.
 var _last_consumption: Dictionary = {}
+## Tech id -> spy-network RP percentage prepared for this turn's Research phase
+## (wiki: research-state § Spy RP boost). Cleared after resolution.
+var research_bonus: Dictionary = {}
 
 
 func setup(
@@ -148,8 +151,9 @@ func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships(), army_food()
+		economy, market, extraction(), fleet_ships(), army_food(), true, research_bonus
 	)
+	research_bonus = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	if _armies != null:

@@ -173,11 +173,22 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	var province_data: ProvinceState = model.province_data(province)
 	if province_data != null and province_data.is_town_tile(unit.tile):
 		_add_row("Town", "Level %d / 4" % province_data.town_level())
+	if unit.type_id == SpyRules.TYPE:
+		var land_owner: int = model.owner_at(unit.tile.x, unit.tile.y)
+		if land_owner != unit.owner:
+			_add_row(
+				"Observation",
+				"%s — presence reveal, +15%% research" % FactionCatalog.name_of(land_owner)
+			)
+		else:
+			_add_row("Observation", "Counter-espionage screen")
 
 
 func _status_text(_model: MapModel, unit: CivilianState) -> String:
 	if not unit.is_working():
 		return "Idle — choose an order below."
+	if unit.work_action() == SpyRules.WORK_COUNTER:
+		return "Counter-espionage · ongoing."
 	return "%s · %d turn%s left." % [
 		CivilianWork.label(unit.work_action()),
 		unit.remaining_turns(),

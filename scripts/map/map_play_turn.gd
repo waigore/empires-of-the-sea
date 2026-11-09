@@ -143,8 +143,12 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
 	MapPlayArmies.run_ai(play)
 	MapPlayFleets.run_ai(play)
-	MapPlayArmies.resolve_battles(play)
-	_resolve_naval_combat(play)
+	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
+	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
+	# Counter-espionage resolves before Research and before visibility is
+	# recomputed, so a killed spy neither boosts research nor holds a province
+	# (wiki: civilian-units § Spy; research-state § Spy RP boost).
+	MapPlaySpies.resolve(play)
 	_resolve_visibility(play)
 	# The human crown's terminal fall seals the session before any victory
 	# check: defeat never hands the conqueror a military win, nor opens that
@@ -170,10 +174,13 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayArmies.refresh_visibility(play)
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
 	# the new turn; the player's economy resolves below in the same turn.
-	MapPlayEconomyAi.run(play)
+	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	play.refresh_research()
+	# A spy network observing a rival's known techs lifts this turn's Research
+	# (wiki: research-state § Spy RP boost).
+	MapPlaySpies.prepare_player_research(play)
 	play.economy.resolve_turn()
 	play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 	play.income = play.economy.projected_income()
@@ -194,6 +201,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
+	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	play.emit_turn_ended(play.turn)
 
 
@@ -276,7 +284,7 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
 ## § Naval Combat). Rules resolve the battle; this only prunes markers and
 ## reports the outcome.
-static func _resolve_naval_combat(play: PlaySession) -> void:
+static func _resolve_naval_combat(play: PlaySession) -> Array[Dictionary]:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
@@ -294,7 +302,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 			"A civilian went down with a sunken squadron — lost at sea"
 		)
 	if battles.is_empty():
-		return
+		return battles
 	for battle: Dictionary in battles:
 		var region: int = int(battle.get("region", play.region_index))
 		var model: MapModel = (
@@ -307,6 +315,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
+	return battles
 
 
 ## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at

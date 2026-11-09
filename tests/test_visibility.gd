@@ -217,11 +217,14 @@ func test_presence_holds_only_the_fogged_tile() -> void:
 	assert_eq(still_unknown, 1, "only the cleared tile stays unknown")
 
 
-func test_a_spy_never_holds_a_province() -> void:
+func test_a_spy_holds_only_the_charted_province() -> void:
 	var units: Array[CivilianState] = []
 	units.append(CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2)))
 	units.append(CivilianState.create(2, 1, "explorer", Vector2i(2, 2)))
-	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [], "own spy does not hold")
+	assert_eq(
+		CivilianMovement.held_provinces(_model, units, PLAYER), [1],
+		"an own spy holds the charted rival province"
+	)
 	assert_eq(CivilianMovement.held_provinces(_model, units, 1), [1], "own explorer holds")
 	units[0].type_id = "explorer"
 	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [1], "an explorer holds")

@@ -11,25 +11,27 @@ turns gold into advances, and researched techs lift extraction caps.
 
 ## Implemented
 
-- **Catalog:** all 113 wiki techs with id, display name, era (cost tier),
-  category, cross-category prerequisites, extraction caps, discovery resources
-  plus notes for un-simulated effects. `TechAudit.validate()` enforces unique
-  ids, known prerequisites, a DAG, reachability from the roots, cap coverage
-  and declared exceptions.
+- **Catalog:** all 113 techs with id, name, era (cost tier), category,
+  cross-category prerequisites, extraction caps, discovery resources and notes
+  for un-simulated effects. `TechAudit.validate()` enforces unique ids, known
+  prerequisites, a DAG, reachability, cap coverage and declared exceptions.
 - **Research state:** three slots (four with University), funding per slot,
-  progress per tech, `<techUnlocked>`; "currently researching" is the key set
-  of the progress table.
+  progress per tech, `<techUnlocked>`; "currently researching" is the progress
+  key set.
 - **Costs:** `1800 + (tier - 1) * 600`; tier 1–4 cost 1800/2400/3000/3600 RP
   — 6/8/10/12 turns at Medium.
 - **Funding:** None/Low/Medium/High/Maximum pay 0/50/150/400/1000 ducats for
-  0/100/300/800/2500 RP. Cancelling a slot forfeits its progress.
+  0/100/300/800/2500 RP; cancelling a slot forfeits its progress.
 - **Research phase** runs after Production in `EconomyTurn`. A slot that cannot
-  pay its full gold earns nothing that turn and is reported as unfunded; there is
-  the wiki has no partial funding, so none is invented.
-- **Treasury floor:** Money Lending allows −500 ducats during research, Banking
-  with Money Lending −1000.
+  pay its full gold earns nothing and is reported unfunded; the wiki has no
+  partial funding, so none is invented.
+- **Treasury floor:** Money Lending allows −500 during research; Banking with
+  it −1000.
 - **Industrial Funding of Research:** +20% (floored) RP for military and naval
   techs.
+- **Spy network:** +15% RP per observed rival Great Power for occupied slots
+  researching a tech that rival knows (funding ≥ Low); see
+  [espionage.md](espionage.md).
 - **Discovery:** New World discovery techs need a revealed tile holding the
   resource; gold, silver, gems and diamonds must also be prospected.
 - **Extraction caps:** techs set the cap used by extraction, the estates ledger
@@ -37,19 +39,18 @@ turns gold into advances, and researched techs lift extraction caps.
   `min(improvement, tech cap, terrain cap, path transport, town cap)`.
   Exceptions match the wiki (horses 1, wool 3).
 - **Unlocks:** `TechUnlocks` derives every build order a tech opens from the
-  canonical gate tables (regiments, hulls, civilians, worker tiers, forts,
-  batteries, roads/railroads, general cap); the college tooltip prints them and
-  `TechAudit` rejects a gate naming an unknown tech.
+  canonical gate tables (regiments, hulls, civilians, workers, forts, batteries,
+  roads, general cap); the tooltip prints them and `TechAudit` rejects a gate
+  naming an unknown tech.
 - **Transport gates:** roads level 2 need Road Construction; railroads need
   Early Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite
   (mountains).
-- **UI:** `RESEARCH` opens the college ledger — slot rows with progress, a
-  funding button and cancel; AVAILABLE and KNOWN tabs with cost and effect
-  tooltips.
+- **UI:** `RESEARCH` opens the college ledger — slot rows with progress, funding
+  and cancel; AVAILABLE and KNOWN tabs with cost and effect tooltips.
 
 ## Deferred (REQ-P2-02)
 
-- Spy +15% RP boost, goal-tech sorting, save/load of slot assignments.
+- Goal-tech sorting, save/load of slot assignments.
 - In-place upgrade paths, privateering Patrol/Blockade bonuses and the
   land-battle attack treasury modifiers: named in tooltips, not simulated.
 - Terrain hard caps and path transport caps.

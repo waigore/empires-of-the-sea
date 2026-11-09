@@ -52,6 +52,8 @@ func _draw() -> void:
 			_draw_hammer(ink, crown)
 		"engineer":
 			_draw_bridge(ink, crown)
+		"spy":
+			_draw_dagger(ink, crown)
 		_:
 			draw_circle(Vector2.ZERO, 2.8, crown)
 
@@ -94,3 +96,13 @@ func _draw_bridge(ink: Color, crown: Color) -> void:
 	draw_line(Vector2(-5.2, 3.0), Vector2(-5.2, 5.6), ink, 1.6, true)
 	draw_line(Vector2(5.2, 3.0), Vector2(5.2, 5.6), ink, 1.6, true)
 	draw_line(Vector2(-5.6, 3.0), Vector2(5.6, 3.0), ink, 1.4, true)
+
+
+## A dagger laid across the medallion: the spy's trade, not a crown's banner.
+func _draw_dagger(ink: Color, crown: Color) -> void:
+	draw_line(Vector2(-4.6, 4.8), Vector2(3.8, -4.0), crown, 2.4, true)
+	draw_line(Vector2(-5.4, 2.4), Vector2(-2.4, 5.4), ink, 1.8, true)
+	draw_colored_polygon(
+		PackedVector2Array([Vector2(3.4, -4.6), Vector2(5.8, -5.8), Vector2(4.6, -3.4)]),
+		ink
+	)

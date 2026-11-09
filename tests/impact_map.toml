@@ -42,6 +42,7 @@ suites = [
 suites = [
   "test_civilian_field_rules.gd",
   "test_civilian_voyage.gd",
+  "test_espionage.gd",
 ]
 
 [domains.diplomacy]
@@ -239,6 +240,10 @@ match = "scripts/map/map_play_civilian*.gd"
 domain = "civilian"
 
 [[rules]]
+match = "scripts/map/map_play_spies.gd"
+domain = "civilian"
+
+[[rules]]
 match = "scripts/map/ship*.gd"
 domain = "fleet"
 
@@ -284,6 +289,10 @@ domain = "army"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/spy_*.gd"
 domain = "civilian"
 
 [[rules]]

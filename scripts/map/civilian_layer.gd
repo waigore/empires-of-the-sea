@@ -15,6 +15,9 @@ var works: LandWorks = null
 var units: Array[CivilianState] = []
 var markers: Array[CivilianMarker] = []
 var selected_unit: CivilianState = null
+## Crown whose eyes are on this map. Rival spies are never drawn or selectable:
+## spy locations are invisible to every other player (wiki: civilian-units § Spy).
+var viewer_faction: int = -1
 
 var _zoom: float = 1.0
 ## Units and works per region: switching maps must not reset orders, work
@@ -91,7 +94,7 @@ func _add_marker(unit: CivilianState) -> void:
 	marker.position = _tile_position(unit.tile)
 	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 	# A civilian aboard a squadron has no map tile (DR-20261109-17).
-	marker.visible = not unit.is_embarked()
+	marker.visible = not unit.is_embarked() and not SpyRules.hidden_from(unit, viewer_faction)
 	add_child(marker)
 	markers.append(marker)
 
@@ -108,6 +111,8 @@ func unit_at(world_position: Vector2) -> CivilianState:
 	var best: CivilianState = null
 	var best_distance: float = minf(MARKER_RADIUS / maxf(_zoom, 0.001), TILE_SIZE * 0.9)
 	for unit: CivilianState in units:
+		if SpyRules.hidden_from(unit, viewer_faction):
+			continue
 		var distance: float = _tile_position(unit.tile).distance_to(world_position)
 		if distance < best_distance:
 			best_distance = distance
@@ -182,7 +187,7 @@ func begin_turn(
 ## assignment relocation).
 func sync() -> void:
 	for unit: CivilianState in units:
-		if unit.is_embarked():
+		if unit.is_embarked() or SpyRules.hidden_from(unit, viewer_faction):
 			continue
 		var marker: CivilianMarker = marker_for(unit)
 		if marker == null:
@@ -236,6 +241,8 @@ func mustering_tile(province_id: int) -> Vector2i:
 	var seat: Vector2i = _capital_tile(province_id)
 	var taken: Dictionary = {seat: true}
 	for unit: CivilianState in units:
+		if unit.type_id == SpyRules.TYPE:
+			continue
 		taken[unit.tile] = true
 	var tile: Vector2i = _free_tile(province_id, seat, taken)
 	if tile.x >= 0:

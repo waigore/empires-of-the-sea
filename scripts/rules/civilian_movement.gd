@@ -1,8 +1,9 @@
 class_name CivilianMovement
 extends RefCounted
 ## Land movement for civilian units (wiki: civilian-units § Relations).
-## One orthogonal land tile per turn, mirroring the fleet move budget. Explores
-## may enter any province; builders and engineers stay in their crown's land.
+## One orthogonal land tile per turn, mirroring the fleet move budget. Explorers,
+## Merchants and Spies may enter any province; builders and engineers stay in
+## their crown's land.
 
 const NEIGHBORS: Array[Vector2i] = [
 	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
@@ -28,7 +29,7 @@ static func may_enter(
 		return false
 	if not model.is_land(tile.x, tile.y):
 		return false
-	if type_id == "explorer" or type_id == "merchant":
+	if type_id == "explorer" or type_id == "merchant" or type_id == "spy":
 		return true
 	var province_id: int = model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
@@ -65,9 +66,9 @@ static func begin_turn(units: Array[CivilianState]) -> void:
 			unit.moved = false
 
 
-## Explorer presence keeps their province fully visible for the owner. A Spy
-## only reads within explored terrain and never surveys `unknown` coast, so it
-## does not hold a province (wiki: fog-and-exploration § Explorer vs Spy;
+## Explorer and Spy presence keeps their province fully visible for the owner,
+## but only across tiles the owner already charted: presence holds, it never
+## surveys `unknown` coast (wiki: fog-and-exploration § Explorer vs Spy;
 ## DR-20261109-04).
 static func held_provinces(
 	model: MapModel, units: Array[CivilianState], owner: int
@@ -76,7 +77,7 @@ static func held_provinces(
 	for unit: CivilianState in units:
 		if unit == null or unit.owner != owner:
 			continue
-		if unit.type_id == "spy":
+		if unit.type_id != "explorer" and unit.type_id != "spy":
 			continue
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
 		if province != MapModel.NO_ID and not result.has(province):

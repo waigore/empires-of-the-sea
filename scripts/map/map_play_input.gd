@@ -12,12 +12,17 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if play.turn_suspended:
 		return
 	var civilian: CivilianState = play.civilian_layer.unit_at(world_position)
+	var army: ArmyState = play.army_layer.army_at(world_position)
+	# Overlapping medallions (a capital muster beside its civilians) go to the
+	# marker the tap is actually nearest, so either can be picked deliberately.
+	if army != null and (civilian == null or _army_is_nearer(play, army, civilian, world_position)):
+		play.army_layer.select(army)
+		return
 	if civilian != null:
 		play.civilian_layer.select(civilian)
 		return
 	if MapPlayCivilians.try_move(play, world_position):
 		return
-	var army: ArmyState = play.army_layer.army_at(world_position)
 	if army != null:
 		play.army_layer.select(army)
 		return
@@ -141,6 +146,19 @@ static func clear_hover(play: PlaySession) -> void:
 	play.hover_province = -1
 	play.overlay.hover_province = -1
 	HudChrome.hide_tooltip(play.hud)
+
+
+## True when the tap sits nearer the army standard than the civilian medallion.
+static func _army_is_nearer(
+	play: PlaySession, army: ArmyState, civilian: CivilianState, point: Vector2
+) -> bool:
+	var army_marker: ArmyMarker = play.army_layer.marker_for(army)
+	var civilian_marker: CivilianMarker = play.civilian_layer.marker_for(civilian)
+	if army_marker == null:
+		return false
+	if civilian_marker == null:
+		return true
+	return army_marker.position.distance_to(point) <= civilian_marker.position.distance_to(point)
 
 
 static func on_panel_action(play: PlaySession, action: String) -> void:

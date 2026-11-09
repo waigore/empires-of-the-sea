@@ -234,6 +234,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 1000,
 		"default": 30,
 	},
+	{
+		"key": "civilian.spy_weight",
+		"category": "civilian",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 1000,
+		"default": 70,
+	},
 ]
 
 static var _by_key: Dictionary = {}

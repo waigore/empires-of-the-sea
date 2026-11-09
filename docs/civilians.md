@@ -1,7 +1,8 @@
 # Civilian units
 
-Land units that explore, survey, improve and buy land. Starting three plus
-tech-gated Merchant and Rail Builder; Spy is blocked.
+Land units that explore, survey, improve, buy land and spy. All six wiki types
+are playable; Spy's presence, counter-espionage and research rules live in
+[espionage.md](espionage.md).
 
 **Pillars:** P2, P3, P1 (map feedback), P4.
 
@@ -13,10 +14,12 @@ tech-gated Merchant and Rail Builder; Spy is blocked.
 
 - **Roster** (`CivilianCatalog`): all six wiki types.
 - **Playable:** Explorer (explore, prospect), Builder (improve, upgrade town),
-  Engineer (road, port), Merchant (buy land), Rail Builder (railroad). Capital
-  training spends treasury + paper (Merchant Companies / Early Steam Engine).
+  Engineer (road, port), Merchant (buy land), Rail Builder (railroad), Spy
+  (counter-espionage; presence reveal and RP boost in
+  [espionage.md](espionage.md)). Capital training spends treasury + paper
+  (Merchant Companies / Early Steam Engine).
 - **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
-  Builders stay on crown land; Merchants may cross Minor/Tribe provinces.
+  Builders stay on crown land; Merchants and Spies may cross foreign provinces.
 - **Work orders** on the unit tile or, for a Builder, any owned resource tile;
   origin/assigned return on cancel. Costs at assign, not refunded. Explore ≤3,
   prospect 1, improvement 1–4 (lumber + cast iron), **upgrade town** (same
@@ -38,18 +41,18 @@ tech-gated Merchant and Rail Builder; Spy is blocked.
   connected; upgrades above a cap refused. `ESTATES` lists yield and Build /
   Cancel / Map.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
-  Builders exempt).
+  Builders and Spies exempt).
 
 ## Deferred (REQ-P2-02)
 
-- **Spy** — needs rival spies and AI activity; presence reveal ships.
-- Rival civilian AI; Minor/Tribe town manufacturing offers.
+- Minor/Tribe town manufacturing offers.
 
 ## Architecture
 
 | File | Role |
 |------|------|
 | `scripts/rules/civilian_*.gd` | roster, state, movement, work, transport, voyage |
+| `scripts/rules/spy_rules.gd` | spy presence, screen, dice and RP bonus |
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | deeds |
 | `scripts/rules/land_works.gd`, `improvement_*.gd` | works, extraction, ledger |
 | `scripts/map/civilian_layer.gd`, `civilian_voyage_map.gd` | markers, passengers |
@@ -65,6 +68,7 @@ Rules stay node-free (`REQ-P3-03`).
 | Select | click medallion | tap medallion |
 | March | click glowing neighbour tile | tap glowing neighbour tile |
 | Work order | dossier button | dossier button |
+| Counter-spy | dossier **Counter-espionage** | same |
 | Embark / land | fleet dossier **PASSENGERS** | same |
 | Estates ledger | `ESTATES` / province **Build Improvement** | same |
 | Cancel / close | dossier / ledger Close | dossier / ledger Close |
@@ -72,7 +76,7 @@ Rules stay node-free (`REQ-P3-03`).
 ## Tests
 
 `test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_civilian_voyage`, `test_improvement_system`,
+`test_civilian_voyage`, `test_improvement_system`, `test_espionage`,
 `test_map_screen_crown_orders`, `test_map_model`.
 
 ```bash
