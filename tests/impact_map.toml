@@ -185,6 +185,10 @@ match = "tests/map_shot.gd"
 domain = "map"
 
 [[rules]]
+match = "tests/playtest_new_world.gd*"
+domain = "map"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 
