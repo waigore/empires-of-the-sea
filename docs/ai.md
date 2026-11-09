@@ -1,81 +1,70 @@
 # AI courts
 
-Rival Great Powers act through a deterministic, data-tuned stack
+Rival Great Powers act on their own through a deterministic, data-tuned stack
 (wiki: [AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture),
 [diplomacy planner](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy-planner)).
+The human court is never scripted.
 
-**Pillars:** P2 rules fidelity, P3 pure testable rules, P4 no per-frame work,
-P5 rivals act unmanaged.
+**Pillars:** P2 rules fidelity, P3 pure/testable rules, P4 no per-frame work,
+P5 rivals act unbookkept.
 
 ## Implemented
 
-- **Parameter registry** (`AiParameterRegistry`): every weight and threshold is
-  a bounded catalog key read via `resolve`.
-- **Blessed profiles** (`AiProfile`): `normal`, `aggressive`, `economic`;
-  unknown ids fall back, invalid values are rejected.
-- **Personalities** (`AiPersonality`): the seven wiki archetypes; leaderKey
-  from `LeaderCatalog`.
-- **Hidden agendas** (`AiAgenda`): one of six, fixed from
-  `hash(game seed, faction)`.
-- **Power score** (`AiPower`): provinces × 10 + regiments × 1 + ships × 5, with
-  relative-power bands +30 / +5 / −25.
-- **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, relative
-  power, relations and modifiers (resource need, rival embassies, invasion
-  capacity, multi-war); improve-relations is the complement. Rivals offer the
-  next overture (NAP) or an Allied alliance. Declarations need the relation
-  ceiling (50; warmonger 70, peacemaker 30), desire ≥ 51 and no 4-turn cooldown;
-  goals clamp `round(desire / 25)` to the target's provinces. Below 50 a war
-  offers peace — immediate to rivals, queued for the human court, then a
-  3-turn cooldown.
-- **Turn pass** (`AiTurn`): one legal order per rival per turn through
-  `DiplomacyRules`, traced; human proposals queue. Declarations land before
-  naval combat.
-- **Land planner** (`AiMilitaryPlanner`): a rival at war on its border keeps one
-  Home Army regiment; each field army saves an occupied own province, storms an
-  adjacent hostile one (10% margin after wall soak), or stages on the nearest
-  frontier — via `ArmyMovement`, before Combat.
-- **Naval planner** (`AiNavalPlanner`): at war a rival sorties or pursues onto
-  the weakest reachable hostile squadron (120% caution margin); at peace it
-  holds station. Orders run through `NavalMovement`; entering a charted zone
-  earns one sighting line — never fog.
+- **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
+  `AiConfig`, `AiPersonality`, `AiAgenda`): every knob is a bounded catalog key;
+  profiles are `normal`, `aggressive`, `economic`; leaders use the seven wiki
+  archetypes and one of six agendas fixed from `hash(seed, faction)`.
+- **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
+  +30 / +5 / −25.
+- **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
+  relations and modifiers; improve-relations is the complement. Declarations
+  need relation ≤ ceiling (50; warmonger 70, peacemaker 30), desire ≥ 51 and no
+  4-turn cooldown; goals clamp `round(desire / 25)` to target provinces. At
+  war, desire below 50 offers peace — immediate to a rival, queued for the
+  human, with a 3-turn cooldown.
+- **Turn pass** (`AiTurn`): one legal order per rival through `DiplomacyRules`,
+  traced; human proposals queue. Declarations land before combat.
+- **Land planner** (`AiMilitaryPlanner`): at war on its border a rival detaches
+  all but one Home Army regiment, then field armies save an occupied province,
+  storm an adjacent hostile one (10% margin after wall soak), or stage on the
+  nearest frontier via `ArmyMovement`.
+- **Naval planner** (`AiNavalPlanner`): at war sortie or pursue one zone onto
+  the weakest matchable squadron (120% margin); at peace hold station, via
+  `NavalMovement`; a charted zone earns one sighting line, never fog.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
   attack; an invader on home soil draws a relief column from the Home Army
   (one regiment keeps the seat) to that province, the seat first, own land only.
-- **Persistence:** saves keep agendas and pair cooldowns
-  (`AiState.to_dict`).
+- **Economy planner** (`AiEconomyPlanner`): each rival keeps a `PlayerEconomy`
+  ledger. Recipes score by stock deficit (`economy.reserve_target`,
+  `economy.recipe_weight`); whole runs are allocated under labour and inputs.
+  Recruitment trains the highest affordable tier up to `economy.worker_target`
+  and `economy.max_recruits`.
+- **Civilian planner** (`AiCivilianPlanner`): one `CivilianWork`-validated order
+  per idle rival civilian — builders improve the shortest commodity, engineers
+  road/port/fort, explorers prospect and walk to minerals, rail builders
+  upgrade roads; training up to `civilian.max_civilians`.
+- **Rival turn** (`MapPlayEconomyAi`): seeds opening civilians once per region,
+  resolves Extraction → Riches → Consumption → Production on the shared market
+  (prices advance once with the player), then sets next assignments. Rival
+  stockpiles feed the diplomacy resource-need score.
+- **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
 
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms, boycotts and spy actions.
-- AI economy and civilian planners; rival stockpiles.
+- AI research and world-market trade planners; rival fog exploration.
 - Dossier evidence and dialogue.
 
 ## Architecture
 
-| File | Role |
-|------|------|
-| `scripts/ai/ai_parameter_registry.gd` | knob catalog |
-| `scripts/ai/ai_profile.gd` | blessed profiles |
-| `scripts/ai/ai_config.gd` | per-court config |
-| `scripts/ai/ai_personality.gd` | leaders, archetypes |
-| `scripts/ai/ai_agenda.gd` | agendas, assignment |
-| `scripts/ai/ai_power.gd` | power score, bands |
-| `scripts/ai/ai_state.gd` | agendas, cooldowns |
-| `scripts/ai/ai_diplomacy_planner.gd` | war desire, orders, goals |
-| `scripts/ai/ai_military_planner.gd` | split, defend, storm, stage |
-| `scripts/ai/ai_naval_planner.gd` | sortie, pursue, hold |
-| `scripts/ai/ai_defense_planner.gd` | Minor / Tribe relief |
-| `scripts/ai/ai_turn.gd` | turn pass, trace |
-| `scripts/map/map_play_diplomacy.gd` | phase wiring |
-| `scripts/map/map_play_army_ai.gd` | land pass, march toasts |
-| `scripts/map/map_play_fleet_ai.gd` | sea pass, sighting toasts |
-
-No node deps in `scripts/ai` (`REQ-P3-03`).
+Planners and catalogs live in `scripts/ai/` (pure rules, no node deps —
+`REQ-P3-03`); `scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai}.gd`
+wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules` (power, parameters, planners, turn, naval) and `test_ai_defense`
-(Minor / Tribe relief).
+`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians)
+and `test_ai_defense` (Minor / Tribe relief).
 
 ```bash
 gd-tools test --coverage --min 80
