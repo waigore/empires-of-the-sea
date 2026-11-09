@@ -56,6 +56,56 @@ func test_the_hud_mounts_the_plate_and_queues_a_second_battle() -> void:
 	screen.free()
 
 
+## A despatch states what the action did to the other side; an assault's price
+## is spelled out separately, and the battery reports the men it hit.
+func test_a_despatch_reports_the_losses_it_inflicted() -> void:
+	var battle: Dictionary = _battle()
+	var assault := {
+		"side": 1, "action": "assault", "label": "Assault",
+		"attacker_lost": 3, "defender_lost": 1, "guns_destroyed": 0,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(assault, battle, NAMES),
+		"England — Assault · 3 lost · 1 of its own"
+	)
+	var battery := {
+		"side": 1, "action": "battery", "label": "Emplaced battery",
+		"attacker_lost": 2, "defender_lost": 0, "guns_destroyed": 0,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(battery, battle, NAMES),
+		"England — Emplaced battery · 2 lost"
+	)
+	var quiet := {
+		"side": 0, "action": "entrench", "label": "Entrench",
+		"attacker_lost": 0, "defender_lost": 0, "guns_destroyed": 1,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(quiet, battle, NAMES),
+		"España — Entrench · 1 gun silenced"
+	)
+
+
+## The plate must lead with the plan the player set — on the defending side the
+## report's `plan` belongs to the attacker, so reading it aloud confuses the
+## player about the stance they chose.
+func test_the_plate_leads_with_the_players_own_plan() -> void:
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	var battle: Dictionary = _battle()
+	overlay.show_battle(battle, "Flanders", NAMES)
+	assert_eq(overlay._plan_label.text, "Your plan: Aggressive · enemy: Defensive")
+	battle["player_faction"] = 1
+	(battle["quick"] as Dictionary)["guns_start"] = 1
+	overlay.show_battle(battle, "Flanders", NAMES)
+	assert_eq(
+		overlay._plan_label.text,
+		"Your plan: Defensive · enemy: Aggressive · 1 gun",
+		"the defender reads their own stance, and one gun is not \"1 guns\""
+	)
+	overlay.free()
+
+
 func _battle() -> Dictionary:
 	return {
 		"attacker": 0,

@@ -12,6 +12,7 @@ func test_round_trip_applies_owners_resources_and_array_tiles() -> void:
 	province["owner"] = 3
 	province["capital"] = true
 	province["town_development"] = 2
+	province["town_tile"] = [2, 1]
 	province["fort_level"] = FortRules.MAX_LEVEL + 4
 	province["resource"] = 7
 	province["resource_tile"] = [1, 0]
@@ -31,6 +32,7 @@ func test_round_trip_applies_owners_resources_and_array_tiles() -> void:
 	assert_eq(model.provinces[0].owner, 3)
 	assert_true(model.provinces[0].capital)
 	assert_eq(model.provinces[0].town_development, 2)
+	assert_eq(model.provinces[0].town_tile, Vector2i(2, 1))
 	assert_eq(model.provinces[0].fort_level, FortRules.MAX_LEVEL)
 	assert_eq(model.provinces[0].resource, 7)
 	assert_eq(model.provinces[0].resource_tile, Vector2i(1, 0))
@@ -153,6 +155,31 @@ func test_visibility_restore_tolerates_junk_and_unknown_regions() -> void:
 		play.visibility_by_region.is_empty(),
 		"an unknown region and a malformed entry are both skipped"
 	)
+
+
+## A court seated by hand round-trips its tile and harbour, so a reload keeps
+## the seat the player chose instead of the regenerated auto-choice one
+## (wiki: capital-choice-phase § Player choice).
+func test_a_chosen_seat_round_trips_its_tile_and_ports() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	model.provinces[0].capital_tile = Vector2i(1, 0)
+	model.provinces[0].ports = {2: Vector2i(1, 0)}
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+
+	model.provinces[0].capital_tile = Vector2i(-1, -1)
+	model.provinces[0].ports = {}
+	assert_true(SaveWorld.apply(world, captured))
+	assert_eq(model.provinces[0].capital_tile, Vector2i(1, 0))
+	assert_eq(model.provinces[0].ports, {2: Vector2i(1, 0)})
+
+	# A malformed port entry is dropped; the rest of the harbour still loads.
+	var region: Dictionary = captured[0].duplicate(true)
+	var row: Dictionary = region["provinces"][0].duplicate(true)
+	row["ports"] = {0: "junk", 1: [0, 1]}
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(model.provinces[0].ports, {1: Vector2i(0, 1)})
 
 
 func _world() -> WorldMap:

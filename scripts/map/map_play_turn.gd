@@ -15,15 +15,16 @@ static func end_turn(play: PlaySession) -> void:
 		play.hud.toast(_closed_message(play))
 		return
 	# A consent decision already waiting keeps the calendar shut.
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+	var human: int = play.human_faction_id()
+	if CallToArms.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_call(play)
 		return
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
+	if Intervention.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_intervention(play)
 		return
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+	if DiplomacyProposals.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_offer(play)
 		return
@@ -141,8 +142,12 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
-	MapPlayArmies.run_ai(play)
-	MapPlayFleets.run_ai(play)
+	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	MapPlayColonisationAi.run(play)
+	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	# Minor Regiment Upgrade runs after movement and before combat (wiki:
+	# factions § Minor military parity).
+	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	# Combat may have taken the land under a Builder or Engineer; withdraw the
@@ -166,24 +171,32 @@ static func _finish_turn(play: PlaySession) -> void:
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
 		_finish_calendar(play)
 		return
+	# Enemy patrols and blockades in the crown's home waters skim this turn's
+	# imports before the ledger closes (wiki: ships-and-naval § Trade and
+	# Transport Interception; DR-20261109-16).
+	MapPlayRaids.resolve(play)
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
-	# the new turn; the player's economy resolves below in the same turn.
-	MapPlayEconomyAi.run(play)
+	# the new turn; the observer runs every crown on that same pass.
+	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
+	AiTurnLog.record(play, army_trace, fleet_trace, economy_report)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
-	play.refresh_research()
-	play.economy.resolve_turn()
-	play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
-	play.income = play.economy.projected_income()
-	play.prestige += 1
+	if play.observer_mode:
+		AiTurnLog.apply_feeding(play, economy_report)
+	else:
+		play.refresh_research()
+		play.economy.resolve_turn()
+		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
+		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, year)
-	play.hud.set_prestige(play.prestige)
-	MapPlayDiplomacy.refresh(play)
+	if not play.observer_mode:
+		play.hud.set_income(play.income)
+		MapPlayDiplomacy.refresh(play)
 	play.hud.toast("Turn %d — %d" % [play.turn, year])
 	var selected: Ship = play.ship_layer.selected()
 	if selected != null:
@@ -197,6 +210,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
+	MapPlaySetup.build_lens(play)
 	play.emit_turn_ended(play.turn)
 
 
@@ -204,11 +218,12 @@ static func _finish_turn(play: PlaySession) -> void:
 ## at the turn that decided it (wiki: victory § Victory Check).
 static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
 	play.victory = victory
-	play.hud.show_victory(
-		victory,
-		play.player_faction,
-		VictoryRules.old_world_holdings(play.world, victory.winner_player_id)
-	)
+	if not play.observer_mode:
+		play.hud.show_victory(
+			victory,
+			play.player_faction,
+			VictoryRules.old_world_holdings(play.world, victory.winner_player_id)
+		)
 	play.hud.toast(victory.summary())
 	play.emit_turn_ended(play.turn)
 	play.emit_campaign_end(victory)
@@ -220,11 +235,29 @@ static func _finish_campaign(play: PlaySession, victory: VictoryState) -> void:
 static func _finish_calendar(play: PlaySession) -> void:
 	play.campaign_halted = true
 	var leader: int = declared_leader(play)
-	play.hud.show_campaign_complete(leader, play.turn, play.player_faction)
+	if not play.observer_mode:
+		play.hud.show_campaign_complete(leader, play.turn, play.player_faction)
 	play.hud.toast(
 		"Campaign complete — %d" % TurnTime.year_for_turn(play.turn)
 	)
 	play.emit_turn_ended(play.turn)
+
+
+## Great Power research state for the Minor Regiment Upgrade pass. Rivals keep
+## their tech in their own ledger; the human court's lives in EconomyController.
+static func _great_power_tech(play: PlaySession) -> Dictionary:
+	var tech: Dictionary = {}
+	if play == null:
+		return tech
+	if play.economy != null and play.economy.economy != null:
+		tech[play.player_faction] = play.economy.economy.tech_unlocked
+	if play.ai == null:
+		return tech
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == play.player_faction:
+			continue
+		tech[faction] = play.ai.economy_for(faction).tech_unlocked
+	return tech
 
 
 ## Strongest crown by power score, or NO_ID when the top score is shared. The
@@ -282,13 +315,25 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 static func _resolve_naval_combat(play: PlaySession) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
-	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(play.world, hostile)
+	var tech_gate: Callable = play.has_tech
+	var context: Dictionary = {
+		"seed": play.map_seed, "turn": play.turn, "has_tech": tech_gate,
+	}
+	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
+		play.world, hostile, context
+	)
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
-		play.army_layer, FleetRosters.live_ids(play.ship_layer.regions)
+		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
 	for army: ArmyState in lost:
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
+		)
+	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
+		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
+	):
+		play.hud.toast(
+			"A civilian went down with a sunken squadron — lost at sea"
 		)
 	if battles.is_empty():
 		return
@@ -306,21 +351,46 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	play.emit_battle_resolved(battles)
 
 
-## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at
-## sea stay visible; charted coasts fade until an explorer holds them.
+## End-of-turn visibility for every region (wiki: fog-and-exploration). Knowledge
+## decays off-screen too; only the shown region's fog texture is repainted.
 static func _resolve_visibility(play: PlaySession) -> void:
-	if play.visibility == null:
+	if play.visibility_by_region.is_empty():
 		return
-	var at_sea: Array = []
-	for ship: Ship in play.ship_layer.ships:
-		if ship.faction == play.player_faction and ship.zone >= 0:
-			at_sea.append(ship.zone)
-	var held: Array = CivilianMovement.held_provinces(
-		play.model, play.civilian_layer.units, play.player_faction
-	)
-	var changed: Array = play.visibility.end_of_turn(at_sea, held)
-	if not changed.is_empty():
-		play.overlay.sync_visibility(play.visibility, changed)
+	for index in play.world.region_count():
+		var visibility: VisibilityModel = play.visibility_by_region.get(index, null)
+		if visibility == null:
+			continue
+		var at_sea: Array = []
+		for fleet: FleetState in _fleets_of(play, index):
+			if fleet.owner == play.player_faction and fleet.is_at_sea():
+				at_sea.append(fleet.sea_zone)
+		var held: Array = CivilianMovement.held_provinces(
+			play.world.region(index), _civilians_of(play, index), play.player_faction
+		)
+		var changed: Array = visibility.end_of_turn(at_sea, held)
+		if index == play.region_index and not changed.is_empty():
+			play.overlay.sync_visibility(visibility, changed)
+
+
+## Live roster for the shown region; stored table for the other.
+static func _fleets_of(play: PlaySession, index: int) -> Array[FleetState]:
+	var fleets: Array[FleetState] = []
+	if play.ship_layer == null:
+		return fleets
+	if index == play.region_index:
+		return play.ship_layer.fleets
+	fleets.assign(play.ship_layer.regions.value(index, []))
+	return fleets
+
+
+static func _civilians_of(play: PlaySession, index: int) -> Array[CivilianState]:
+	var units: Array[CivilianState] = []
+	if play.civilian_layer == null:
+		return units
+	if index == play.region_index:
+		return play.civilian_layer.units
+	units.assign(play.civilian_layer.regions.value(index, []))
+	return units
 
 
 ## Fleets at peace share a sea zone; only war makes them hostile (wiki:

@@ -159,6 +159,67 @@ static func _grass(item: CanvasItem, center: Vector2, size: float) -> void:
 		)
 
 
+## Resource emblem for the survey lens: the commodity a tile yields, drawn as a
+## map symbol rather than a HUD pictogram so it sits in the chart's ink language.
+static func resource(
+	item: CanvasItem, kind: String, center: Vector2, size: float, tint: Color
+) -> void:
+	match kind:
+		"tree":
+			_tree(item, center, size, 1.0)
+		"coin":
+			_coin_emblem(item, center, size, tint)
+		"wheat":
+			_wheat_emblem(item, center, size, tint)
+		_:
+			_ore_emblem(item, center, size, tint)
+
+
+## A cluster of three cut stones, each with a lit facet and an ink edge.
+static func _ore_emblem(item: CanvasItem, center: Vector2, size: float, tint: Color) -> void:
+	var radius: float = size * 0.34
+	for offset: Vector2 in [Vector2(-0.36, 0.22), Vector2(0.36, 0.22), Vector2(0, -0.30)]:
+		var spot: Vector2 = center + offset * size
+		var r: float = radius * (0.84 if offset.y > 0.0 else 1.0)
+		var shape := PackedVector2Array([
+			spot + Vector2(0, -r),
+			spot + Vector2(r * 0.86, -r * 0.14),
+			spot + Vector2(0, r),
+			spot + Vector2(-r * 0.86, -r * 0.14),
+		])
+		item.draw_colored_polygon(shape, tint)
+		item.draw_colored_polygon(
+			PackedVector2Array([shape[0], shape[1], spot]),
+			Color(0.94, 0.92, 0.86, 0.30)
+		)
+		item.draw_polyline(_closed(shape), INK, 1.0, true)
+
+
+static func _coin_emblem(item: CanvasItem, center: Vector2, size: float, tint: Color) -> void:
+	var radius: float = size * 0.42
+	item.draw_circle(center, radius, tint)
+	item.draw_circle(center, radius, INK, false, 1.1, true)
+	item.draw_arc(center, radius * 0.62, 0, TAU, 18, Color(0.35, 0.26, 0.09, 0.5), 0.9, true)
+	item.draw_circle(center + Vector2(-radius * 0.26, -radius * 0.30), radius * 0.16,
+		Color(1.0, 0.96, 0.82, 0.85))
+
+
+static func _wheat_emblem(item: CanvasItem, center: Vector2, size: float, tint: Color) -> void:
+	var stalk: Vector2 = center + Vector2(0, size * 0.46)
+	var tip: Vector2 = center + Vector2(0, -size * 0.40)
+	item.draw_line(stalk, tip, INK, 1.3, true)
+	for i in 3:
+		var y: float = tip.y + float(i) * size * 0.24
+		for side: float in [-1.0, 1.0]:
+			var grain := PackedVector2Array([
+				Vector2(center.x, y),
+				Vector2(center.x + side * size * 0.26, y - size * 0.13),
+				Vector2(center.x + side * size * 0.16, y + size * 0.14),
+			])
+			item.draw_colored_polygon(grain, tint)
+			item.draw_polyline(_closed(grain), INK, 0.9, true)
+
+
 static func _anchor(item: CanvasItem, center: Vector2, size: float) -> void:
 	var radius: float = size * 0.42
 	item.draw_arc(

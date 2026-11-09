@@ -242,7 +242,11 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 ## War required for hostile actions).
 static func battle_context(play: PlaySession) -> Dictionary:
 	var tech: Dictionary = {}
-	if play.economy != null and play.economy.economy != null:
+	if play.observer_mode and play.ai != null:
+		# Every crown fights on its own researched tech (REQ-P2-03).
+		for faction: int in FactionCatalog.great_power_ids():
+			tech[faction] = play.ai.economy_for(faction).tech_unlocked
+	elif play.economy != null and play.economy.economy != null:
 		tech[play.player_faction] = play.economy.economy.tech_unlocked
 	return {
 		"feeding": play.feeding,
@@ -250,10 +254,10 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"tech": tech,
 		"seed": play.turn,
 		"hostile": hostile(play),
-		## The human's battles run as Quick Battle; rival-vs-rival keeps the
-		## aggregate auto-resolve path (wiki: quick-battle).
-		"quick_battle": true,
-		"player_faction": play.player_faction,
+		## The observer has no human battle to plate; every exchange
+		## auto-resolves (wiki: quick-battle).
+		"quick_battle": not play.observer_mode,
+		"player_faction": play.human_faction_id(),
 		"battle_plan": play.battle_plan,
 	}
 
@@ -310,6 +314,7 @@ static func resolve_battles(play: PlaySession) -> void:
 		else:
 			play.canvas.refresh_ownership()
 			play.overlay.refresh_borders()
+			play.hud.refresh_minimap()
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	if play.army_layer.selected_army != null:
@@ -317,12 +322,8 @@ static func resolve_battles(play: PlaySession) -> void:
 		refresh_options(play, play.army_layer.selected_army)
 
 
-## Reports the capital verdicts of the Combat phase: a survivor's court moves
-## to its new seat, a crown with nothing left falls and its regiments, squadrons
-## and dealings leave play. The human Great Power's terminal fall is also defeat:
-## the plate mounts and the session seals at the close of Combat
-## (wiki: victory § Great Power defeat, capital-and-connectivity § Great Power
-## fall; DR-20261109-05). Returns true when the map changed.
+## Reports the capital verdicts of Combat; returns true when the map changed. A
+## crown with nothing left falls and its units and dealings leave play.
 static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
@@ -335,8 +336,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			play.army_layer.deselect()
 		if play.ship_layer != null:
 			play.ship_layer.transfer_owner(faction, MapModel.NO_ID)
-		if play.civilian_layer != null:
-			CivilianRoster.remove_owner(play.civilian_layer, faction)
+		CivilianStrandingPass.remove_owner(play.civilian_layer, faction)
 		if play.diplomacy != null:
 			play.diplomacy.clear_relations_of(faction)
 		play.hud.toast(
@@ -372,11 +372,11 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 static func _record_defeat(play: PlaySession, fallen: Array) -> void:
 	if play.defeat != null:
 		return
-	play.defeat = CampaignDefeat.resolve(fallen, play.player_faction, play.turn)
+	play.defeat = CampaignDefeat.resolve(fallen, play.human_faction_id(), play.turn)
 
 
 ## Keeps the session's capital framing on the player's current seat after a
-## reassignment (training, civilian muster and the court button read it).
+## reassignment (training and civilian muster read it).
 static func sync_player_capital(play: PlaySession) -> void:
 	var region: int = FactionCatalog.region_of(play.player_faction)
 	var model: MapModel = play.world.region(region)

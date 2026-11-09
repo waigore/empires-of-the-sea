@@ -28,6 +28,15 @@ const SEA_PALE := Color(0.663, 0.769, 0.749)
 const TEXT := Color(0.941, 0.894, 0.784)
 const TEXT_DIM := Color(0.741, 0.678, 0.553)
 
+## Survey lens status inks. Kept beside the atlas palette so plaques on the map
+## and the HUD key speak the same colour language (REQ-P1-02).
+const SURVEY_YIELDING := Color(0.322, 0.573, 0.322)
+const SURVEY_BUILDING := Color(0.914, 0.647, 0.157)
+const SURVEY_VACANT := Color(0.839, 0.361, 0.176)
+const SURVEY_PROSPECT := Color(0.290, 0.529, 0.690)
+const SURVEY_OFFLINE := Color(0.596, 0.502, 0.392)
+const SURVEY_FOREIGN := Color(0.427, 0.416, 0.392)
+
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
 const TERRAIN_COLORS: Array[Color] = [
@@ -39,6 +48,7 @@ const TERRAIN_COLORS: Array[Color] = [
 	Color(0.69, 0.604, 0.49),
 	Color(0.91, 0.839, 0.651),
 	Color(0.663, 0.71, 0.549),
+	Color(0.72, 0.78, 0.52),
 ]
 
 static func terrain_color(terrain: int) -> Color:
@@ -49,3 +59,19 @@ static func terrain_color(terrain: int) -> Color:
 
 static func faction_color(owner: int) -> Color:
 	return FactionCatalog.color_of(owner)
+
+
+## Ink for a survey status; unknown statuses fall back to the offline brown.
+static func survey_color(status: String) -> Color:
+	match status:
+		"producing", "maxed":
+			return SURVEY_YIELDING
+		"building":
+			return SURVEY_BUILDING
+		"vacant":
+			return SURVEY_VACANT
+		"unprospected":
+			return SURVEY_PROSPECT
+		"disconnected":
+			return SURVEY_OFFLINE
+	return SURVEY_OFFLINE

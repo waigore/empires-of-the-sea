@@ -13,7 +13,7 @@ var back_button: Button = null
 
 var _mode: int = Mode.LOAD
 var _dir: String = SaveStore.DIR
-var _slots_box: VBoxContainer = null
+var _slots_box: GridContainer = null
 var _title: Label = null
 var _status: Label = null
 var _pending_overwrite: int = -1
@@ -40,25 +40,38 @@ func mode() -> int:
 
 
 func _build() -> void:
-	var box: VBoxContainer = MenuFrame.column(self, 640.0)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_child(MenuFrame.crest(52))
-	_title = MenuFrame.title("LOAD GAME", 32)
+	var short: bool = MenuFrame.is_short(self)
+	back_button = MenuFrame.small_button("BACK", 160.0)
+	back_button.pressed.connect(func() -> void: back_pressed.emit())
+	var footer := HBoxContainer.new()
+	footer.alignment = BoxContainer.ALIGNMENT_CENTER
+	footer.custom_minimum_size.x = minf(
+		640.0, maxf(get_viewport_rect().size.x - 32.0, 240.0)
+	)
+	footer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	footer.add_child(back_button)
+
+	var box: VBoxContainer = MenuFrame.page(self, 640.0, footer)
+	if short:
+		box.add_theme_constant_override("separation", 8)
+	else:
+		box.add_child(MenuFrame.crest(52))
+	_title = MenuFrame.title("LOAD GAME", 26 if short else 32)
 	box.add_child(_title)
 	box.add_child(MenuFrame.subtitle("Saves are kept on this device only."))
 	box.add_child(MenuFrame.separator())
 
-	_slots_box = VBoxContainer.new()
-	_slots_box.add_theme_constant_override("separation", 8)
+	# Five slots fit two-up on a phone, so the whole list is reachable without
+	# dragging inside a column of buttons, which a ScrollContainer never sees.
+	_slots_box = GridContainer.new()
+	_slots_box.columns = 2 if short else 1
+	_slots_box.add_theme_constant_override("h_separation", 8)
+	_slots_box.add_theme_constant_override("v_separation", 8)
 	box.add_child(_slots_box)
 
 	_status = MenuFrame.subtitle("")
 	_status.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	box.add_child(_status)
-
-	back_button = MenuFrame.small_button("BACK", 160.0)
-	back_button.pressed.connect(func() -> void: back_pressed.emit())
-	box.add_child(back_button)
 
 
 ## Rebuilds every row from disk; safe to call whenever the page reappears.
@@ -71,11 +84,13 @@ func refresh() -> void:
 		_slots_box.remove_child(child)
 		child.queue_free()
 	slot_buttons.clear()
+	var short: bool = MenuFrame.is_short(self)
 	for row: Dictionary in SaveStore.slots(_dir):
 		var slot: int = int(row["slot"])
 		var exists: bool = bool(row["exists"])
-		var button := MenuFrame.action_button(_row_text(slot, row, exists), 68.0)
-		button.add_theme_font_size_override("font_size", 15)
+		var height: float = 60.0 if short else 68.0
+		var button := MenuFrame.action_button(_row_text(slot, row, exists), height)
+		button.add_theme_font_size_override("font_size", 13 if short else 15)
 		button.disabled = (not exists) and _mode == Mode.LOAD
 		if slot == _pending_overwrite:
 			button.modulate = Color(1.0, 0.82, 0.62)
@@ -89,6 +104,15 @@ func _row_text(slot: int, row: Dictionary, exists: bool) -> String:
 		return "SLOT %d   ·   Empty" % slot
 	var where: String = String(row.get("region", "—"))
 	var stamp: String = String(row.get("saved_at", ""))
+	# Two-up on a phone: keep the crown, the turn and the stamp readable in a
+	# half-width row, and let the region and seed yield (REQ-P1-05).
+	if MenuFrame.is_short(self):
+		return "SLOT %d  ·  %s  ·  Turn %d\n%s" % [
+			slot,
+			String(row.get("nation", "—")),
+			int(row.get("turn", 1)),
+			stamp,
+		]
 	return "SLOT %d   ·   %s  —  Turn %d\n%s  ·  seed %d  ·  %s" % [
 		slot,
 		String(row.get("nation", "—")),

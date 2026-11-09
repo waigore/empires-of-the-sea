@@ -4,8 +4,13 @@
 
 [domains.ai]
 suites = [
+  "test_ai_colonisation.gd",
+  "test_ai_market.gd",
+  "test_ai_observer.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
+  "test_ai_town_roads.gd",
+  "test_military_parity.gd",
 ]
 
 [domains.army]
@@ -34,6 +39,7 @@ suites = [
   "test_campaign_end.gd",
   "test_capital_choice.gd",
   "test_capital_loss.gd",
+  "test_capital_seat_screen.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -41,30 +47,41 @@ suites = [
 [domains.civilian]
 suites = [
   "test_civilian_field_rules.gd",
+  "test_civilian_voyage.gd",
 ]
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_rules.gd",
+  "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_intel_dossier.gd",
 ]
 
 [domains.economy]
 suites = [
   "test_economy_rules.gd",
   "test_economy_screen.gd",
+  "test_economy_overseas.gd",
+  "test_trade_cargo.gd",
 ]
 
 [domains.fleet]
 suites = [
+  "test_fleet_missions.gd",
   "test_fleet_orders.gd",
   "test_fleet_rosters.gd",
+  "test_fleet_sortie.gd",
   "test_fleet_yard.gd",
+  "test_naval_interception.gd",
   "test_naval_movement.gd",
   "test_naval_port_loss.gd",
+  "test_naval_raid.gd",
+  "test_naval_retreat.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]
@@ -82,8 +99,11 @@ suites = [
   "test_map_generator.gd",
   "test_map_model.gd",
   "test_map_region_table.gd",
+  "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
+  "test_resource_lens.gd",
+  "test_resource_survey.gd",
   "test_visibility.gd",
   "test_warp_travel.gd",
   "test_world_bootstrap.gd",
@@ -96,6 +116,7 @@ suites = [
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_resource_lens.gd",
 ]
 
 [domains.misc]
@@ -117,6 +138,7 @@ suites = [
 suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
+  "test_save_world.gd",
 ]
 
 [domains.ui]
@@ -157,7 +179,7 @@ full = true
 
 [[rules]]
 match = "tests/impact_map.toml"
-full = true
+domain = "misc"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -165,7 +187,15 @@ full = true
 
 [[rules]]
 match = "tests/map_shot.gd"
-full = true
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_new_world.gd*"
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_quick_battle.gd*"
+domain = "quick_battle"
 
 [[rules]]
 match = "tools/select_impacted_tests.py"
@@ -204,6 +234,10 @@ match = "scripts/platform/**"
 domain = "menu"
 
 [[rules]]
+match = "scenes/capital_choice.tscn"
+domain = "campaign"
+
+[[rules]]
 match = "scenes/**"
 domain = "menu"
 
@@ -228,6 +262,14 @@ match = "scripts/map/map_play_army*.gd"
 domain = "army"
 
 [[rules]]
+match = "scripts/map/map_play_colonisation_ai.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/civilian_*.gd"
 domain = "civilian"
 
@@ -245,6 +287,14 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/map/map_play_fleet*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/map/map_play_observer.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_raids.gd"
 domain = "fleet"
 
 [[rules]]
@@ -280,6 +330,10 @@ match = "scripts/rules/regiment_*.gd"
 domain = "army"
 
 [[rules]]
+match = "scripts/rules/military_parity.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/rules/civilian_*.gd"
 domain = "civilian"
 
@@ -301,6 +355,14 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/rules/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/intel_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -360,6 +422,10 @@ match = "scripts/rules/capital_*.gd"
 domain = "campaign"
 
 [[rules]]
+match = "scripts/ui/capital_choice_screen.gd"
+domain = "campaign"
+
+[[rules]]
 match = "scripts/rules/defeat_*.gd"
 domain = "campaign"
 
@@ -374,6 +440,14 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/resource_survey.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/ui/lens_legend.gd"
 domain = "map"
 
 [[rules]]
@@ -417,7 +491,19 @@ match = "scripts/ui/diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/ui/court_prompts.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "scripts/ui/economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_*.gd"
 domain = "economy"
 
 [[rules]]
@@ -463,6 +549,15 @@ domain = "menu"
 [[rules]]
 match = "scripts/ui/panel_dock.gd"
 domain = "ui"
+
+# The minimap inset is map presentation: the map suites own its contract.
+[[rules]]
+match = "scripts/ui/minimap*.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/ui/ai_observer_panel.gd"
+domain = "ai"
 
 [[rules]]
 match = "scripts/ui/**"
@@ -513,6 +608,10 @@ match = "tests/test_battle_*.gd"
 domain = "battle"
 
 [[rules]]
+match = "tests/test_quick_battle_*.gd"
+domain = "quick_battle"
+
+[[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
 
@@ -541,6 +640,14 @@ match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "tests/test_intel_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_dialogue_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "tests/test_economy_*.gd"
 domain = "economy"
 
@@ -566,6 +673,10 @@ domain = "map"
 
 [[rules]]
 match = "tests/test_map_*.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/test_minimap*.gd"
 domain = "map"
 
 [[rules]]
@@ -607,6 +718,10 @@ domain = "misc"
 [[rules]]
 match = "tests/test_research_*.gd"
 domain = "research"
+
+[[rules]]
+match = "tests/test_resource_*.gd"
+domain = "map"
 
 [[rules]]
 match = "tests/test_tech_*.gd"

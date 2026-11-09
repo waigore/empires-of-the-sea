@@ -145,6 +145,19 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	assert_true(buys[buys.size() - 1].disabled, "a full hold locks the Buy rows")
 
 
+## A controller that never got a map or a ship layer still answers the ledger:
+## no holds, no overseas crossing, no home yield — never a crash.
+func test_a_bare_controller_reports_an_empty_ledger() -> void:
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+
+	assert_eq(controller.cargo_holds(), 0)
+	assert_eq(controller.extraction(), {})
+	assert_eq(int(controller.overseas_plan()["holds"]), 0)
+	assert_eq(int(controller.trade_cargo()["free"]), 0)
+	controller.free()
+
+
 func test_a_crown_without_a_home_fleet_cannot_import() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
@@ -157,6 +170,39 @@ func test_a_crown_without_a_home_fleet_cannot_import() -> void:
 	var buy: Button = _find_button(market_body, "Buy")
 	assert_not_null(buy)
 	assert_true(buy.disabled)
+
+
+func test_a_new_world_port_ships_its_yield_on_the_home_holds() -> void:
+	var world: WorldMap = _screen.world
+	var snapshot: Array = Fixture.snapshot(world)
+	var nw: MapModel = world.region(WorldMap.NEW_WORLD)
+	var province: ProvinceState = nw.provinces[0]
+	var tile: Vector2i = province.tiles[0]
+	var resource_index: int = nw.index_of(tile.x, tile.y)
+	var old_resource: int = nw.resource[resource_index]
+	var home_before: Dictionary = _screen.economy.extraction().duplicate()
+	province.owner = _screen.player_faction
+	nw.resource[resource_index] = 0
+	var works := LandWorks.new()
+	works.add_port(nw, tile)
+	works.set_improvement(nw, tile, 1)
+	_screen.play.civilian_layer.works_regions.set_region(WorldMap.NEW_WORLD, works)
+
+	var plan: Dictionary = _screen.economy.overseas_plan()
+	var cargo: Dictionary = _screen.economy.trade_cargo()
+
+	assert_eq(int(plan["used"]), 1, "one connected estate ships one ton")
+	assert_eq(plan["shipped"], {"timber": 1})
+	assert_eq(
+		int(_screen.economy.extraction().get("timber", 0)),
+		int(home_before.get("timber", 0)) + 1,
+		"the colonial ton reaches the stockpile"
+	)
+	assert_eq(int(cargo["reserved"]), 1)
+	assert_eq(int(cargo["free"]), int(cargo["holds"]) - 1)
+
+	Fixture.restore(world, snapshot)
+	nw.resource[resource_index] = old_resource
 
 
 func _find_label(node: Node, needle: String) -> Label:

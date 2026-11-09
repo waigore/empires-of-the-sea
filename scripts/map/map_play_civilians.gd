@@ -19,7 +19,9 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		_context(play)
 	)
 	if unit.owner == play.player_faction:
-		play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
+		play.overlay.show_tile_options(
+			CivilianMovement.valid_tiles(play.model, unit, play.visibility)
+		)
 	else:
 		play.hud.toast(
 			"Civilian of %s — observe only" % FactionCatalog.name_of(unit.owner)
@@ -37,7 +39,7 @@ static func try_move(play: PlaySession, world_position: Vector2) -> bool:
 	var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
 	if distance != 1:
 		return false
-	var result: Dictionary = play.civilian_layer.apply_move(unit, tile)
+	var result: Dictionary = play.civilian_layer.apply_move(unit, tile, play.visibility)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
 	return true
@@ -91,13 +93,17 @@ static func refresh_panel(play: PlaySession) -> void:
 		_context(play)
 	)
 	play.overlay.clear_tile_options()
-	play.overlay.show_tile_options(CivilianMovement.valid_tiles(play.model, unit))
+	play.overlay.show_tile_options(
+		CivilianMovement.valid_tiles(play.model, unit, play.visibility)
+	)
 
 
 ## Build/Work pass: the layer advances every region's orders (looking at another
 ## map must not pause the empire) and reports completions for the map on screen.
 static func resolve_work(play: PlaySession) -> void:
-	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
+	var economy: PlayerEconomy = null
+	if play.economy != null and not play.observer_mode:
+		economy = play.economy.economy
 	for report: Dictionary in play.civilian_layer.begin_turn(
 		play.world, play.visibility_by_region, economy
 	):
@@ -120,7 +126,9 @@ static func resolve_work(play: PlaySession) -> void:
 			play.model.province_name(province) if province >= 0 else "the wilds"
 		)
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
-		play.hud.toast("%s in %s: %s" % [type_name, place, work_name])
+		play.hud.toast("%s%s in %s: %s" % [
+			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
+		])
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
 
@@ -132,7 +140,7 @@ static func settle_stranding(play: PlaySession) -> void:
 	if play.civilian_layer == null or play.world == null:
 		return
 	var had_selection: bool = play.civilian_layer.selected_unit != null
-	for report: Dictionary in CivilianRoster.settle_stranding(play.civilian_layer, play.world):
+	for report: Dictionary in CivilianStrandingPass.settle_stranding(play.civilian_layer, play.world):
 		if int(report.get("owner", -1)) != play.player_faction:
 			continue
 		var region: int = int(report.get("region", play.region_index))
@@ -149,6 +157,14 @@ static func settle_stranding(play: PlaySession) -> void:
 			play.hud.toast("%s withdraws from %s" % [type_name, place])
 	if had_selection and play.civilian_layer.selected_unit == null:
 		play.hud.panels.hide_civilian()
+
+
+## A rival's finished work is announced with its crown, so the player never
+## mistakes it for their own crew (wiki: civilian-units; DR-20261109-14).
+static func _owner_label(play: PlaySession, owner: int) -> String:
+	if owner < 0 or owner == play.player_faction:
+		return ""
+	return "%s's " % FactionCatalog.name_of(owner)
 
 
 ## A deed is signed (or the purse fails it) during Build/Work. The tile's owner

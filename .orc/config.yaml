@@ -42,6 +42,10 @@ schedules:
     cron: "0 8,12,18 * * *"
     agents:
       - export-android-debug
+  every-6h-free-playtest:
+    cron: "0 */6 * * *"
+    agents:
+      - free-playtest-agent
 
 providers:
   # Prefer cursor-agent: plain `agent` may resolve to Grok's binary on PATH.
@@ -103,6 +107,17 @@ agents:
       Run it unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One defect-hunt pass; open a PR if work shipped; then exit.
+
+  free-playtest-agent:
+    skill: free-playtest-agent
+    provider: hermes
+    enabled: true
+    prompt: |
+      Load and follow the project skill free-playtest-agent (under .agents/skills).
+      Prefer Hermes GameForge playtesting (`forge_playtest` / playtesting skill).
+      Run it unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One free-playtest pass; update wiki diary/learnings; open a PR if work shipped; then exit.
 
   implement-then-hunt:
     enabled: true

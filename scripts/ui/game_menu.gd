@@ -71,47 +71,42 @@ func _build_overlay() -> void:
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(dim)
 
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_overlay.add_child(scroll)
-
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
-
+	# Same centred-column contract as the menu pages: centred while it fits,
+	# scrolled from the top once it does not (REQ-P5-01).
+	var short: bool = MenuFrame.is_short(_ui)
+	var row: float = MenuFrame.BUTTON_HEIGHT_SHORT if short else MenuFrame.BUTTON_HEIGHT
+	var box: VBoxContainer = MenuFrame.column(_overlay, 380.0)
 	var frame := MenuFrame.panel()
-	var available: float = maxf(_ui.get_viewport_rect().size.x - 32.0, 280.0)
-	frame.custom_minimum_size = Vector2(minf(380.0, available), 0.0)
-	center.add_child(frame)
+	box.add_child(frame)
 
 	_pause_page = VBoxContainer.new()
-	_pause_page.add_theme_constant_override("separation", 10)
+	_pause_page.add_theme_constant_override("separation", 8 if short else 10)
 	frame.add_child(_pause_page)
 
-	var heading := MenuFrame.title("PAUSED", 30)
+	var heading := MenuFrame.title("PAUSED", 26 if short else 30)
 	_pause_page.add_child(heading)
-	_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
+	if not short:
+		_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
 
-	resume_button = MenuFrame.action_button("RESUME")
+	resume_button = MenuFrame.action_button("RESUME", row)
 	resume_button.pressed.connect(close)
 	_pause_page.add_child(resume_button)
 
-	save_button = MenuFrame.action_button("SAVE GAME")
+	save_button = MenuFrame.action_button("SAVE GAME", row)
 	save_button.pressed.connect(open_save)
 	_pause_page.add_child(save_button)
 
-	load_button = MenuFrame.action_button("LOAD GAME")
+	load_button = MenuFrame.action_button("LOAD GAME", row)
 	load_button.pressed.connect(open_load)
 	_pause_page.add_child(load_button)
 
 	settings_button = MenuFrame.dimmed_button(
 		"SETTINGS", "Settings are not available in this build."
 	)
+	settings_button.custom_minimum_size.y = row
 	_pause_page.add_child(settings_button)
 
-	main_menu_button = MenuFrame.action_button("MAIN MENU")
+	main_menu_button = MenuFrame.action_button("MAIN MENU", row)
 	main_menu_button.pressed.connect(_on_main_menu)
 	_pause_page.add_child(main_menu_button)
 

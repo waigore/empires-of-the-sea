@@ -17,7 +17,9 @@ static func withdraw(model: MapModel, units: Array[CivilianState]) -> Array[Dict
 	if model == null:
 		return reports
 	for unit: CivilianState in units.duplicate():
-		if unit == null or not CROWN_LAND_TYPES.has(unit.type_id):
+		if unit == null or unit.is_embarked():
+			continue
+		if not CROWN_LAND_TYPES.has(unit.type_id):
 			continue
 		if CivilianMovement.may_enter(model, unit.type_id, unit.owner, unit.tile):
 			continue

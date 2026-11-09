@@ -15,7 +15,10 @@ static func capture(world: WorldMap) -> Array[Dictionary]:
 				"id": province.id,
 				"owner": province.owner,
 				"capital": province.capital,
+				"capital_tile": province.capital_tile,
+				"ports": province.ports.duplicate(),
 				"town_development": province.town_development,
+				"town_tile": province.town_tile,
 				"fort_level": province.fort_level,
 				"resource": province.resource,
 				"resource_tile": province.resource_tile,
@@ -109,7 +112,13 @@ static func _apply_province(model: MapModel, data: Dictionary) -> bool:
 		return false
 	province.owner = int(data.get("owner", MapModel.NO_ID))
 	province.capital = bool(data.get("capital", false))
+	if data.has("capital_tile"):
+		province.capital_tile = _vector(data.get("capital_tile", Vector2i(-1, -1)))
+	if data.has("ports"):
+		province.ports = _ports(data.get("ports", {}))
 	province.town_development = int(data.get("town_development", 0))
+	if data.has("town_tile"):
+		province.town_tile = _vector(data.get("town_tile", Vector2i(-1, -1)))
 	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
 	province.resource = int(data.get("resource", MapModel.NO_ID))
 	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
@@ -142,3 +151,18 @@ static func _vector(raw: Variant) -> Vector2i:
 	if raw is Array and raw.size() >= 2:
 		return Vector2i(int(raw[0]), int(raw[1]))
 	return Vector2i(-1, -1)
+
+
+## Seaboard ports (`zone id -> tile`). Text literals keep Vector2i values and
+## int keys; a malformed entry is dropped rather than failing the whole load.
+static func _ports(raw: Variant) -> Dictionary:
+	var ports: Dictionary = {}
+	if typeof(raw) != TYPE_DICTIONARY:
+		return ports
+	var data: Dictionary = raw
+	for key: Variant in data.keys():
+		var tile: Vector2i = _vector(data[key])
+		if tile.x < 0:
+			continue
+		ports[int(key)] = tile
+	return ports

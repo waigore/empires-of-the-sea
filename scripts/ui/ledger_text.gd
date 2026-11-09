@@ -65,13 +65,21 @@ static func preview(report: Dictionary) -> String:
 
 
 ## The cargo-holds banner above the market rows (wiki: ships-and-naval).
+## Extraction ships before trade, so the banner names the colonial tonnage the
+## home fleet must carry first (DR-20261109-17).
 static func cargo_line(cargo: Dictionary) -> String:
 	var holds: int = int(cargo.get("holds", -1))
 	if holds < 0:
 		return "Cargo holds unknown."
 	if holds <= 0:
-		return "No cargo holds — launch a merchant hull at your capital to import."
-	return "CARGO  %d holds  ·  %d free this turn" % [holds, int(cargo.get("free", holds))]
+		return "No cargo holds — launch a merchant hull or moor the home squadron."
+	var free: int = int(cargo.get("free", holds))
+	var reserved: int = int(cargo.get("reserved", 0))
+	if reserved > 0:
+		return "CARGO  %d holds  ·  %d for the colonies  ·  %d free this turn" % [
+			holds, reserved, free
+		]
+	return "CARGO  %d holds  ·  %d free this turn" % [holds, free]
 
 
 static func cargo_color(cargo: Dictionary) -> Color:

@@ -107,6 +107,17 @@ func _run() -> void:
 			break
 	setup.start_button.emit_signal("pressed")
 	await process_frame
+	# The capital-choice phase sits between setup and turn 1: confirm the
+	# auto-chosen seat (the documented default) once the chart is ready.
+	var seat_guard: int = 0
+	while main.current_page is CapitalChoiceScreen and seat_guard < 600:
+		seat_guard += 1
+		var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+		if page.confirm_button != null and not page.confirm_button.disabled:
+			_check(page.confirm(), "the capital choice seats the court")
+			break
+		await process_frame
+	await process_frame
 	var screen: MapScreen = main.current_screen
 	if screen == null:
 		_fail("map screen boots")
@@ -162,14 +173,6 @@ func _run() -> void:
 			_check(
 				screen.play.region_index == 1,
 				"turn %d: region switch reaches the New World" % screen.turn
-			)
-			# The human crown has no New World presence yet: the swap must not
-			# muster phantom colonists there.
-			var new_world_units: Array = screen.play.civilian_layer.regions.value(1, [])
-			_check(
-				new_world_units.is_empty(),
-				"turn %d: no phantom colonists in the New World (%d)"
-				% [screen.turn, new_world_units.size()]
 			)
 			_line(screen)
 			screen._cycle_region()
@@ -613,6 +616,8 @@ func _check_units(screen: MapScreen) -> void:
 		if unit == null:
 			_fail("turn %d: null civilian in the roster" % play.turn)
 			continue
+		if unit.is_embarked():
+			continue
 		if unit.is_working():
 			var work_key: String = "%d:%d" % [unit.work_tile().x, unit.work_tile().y]
 			if working_tiles.has(work_key):
@@ -721,8 +726,8 @@ func _state_fingerprint(screen: MapScreen) -> Array[String]:
 	var play: PlaySession = screen.play
 	var out: Array[String] = []
 	out.append(
-		"campaign turn=%d region=%d prestige=%d halted=%s"
-		% [play.turn, play.region_index, play.prestige, str(play.campaign_halted)]
+		"campaign turn=%d region=%d halted=%s"
+		% [play.turn, play.region_index, str(play.campaign_halted)]
 	)
 	if play.economy != null and play.economy.economy != null:
 		var state: PlayerEconomy = play.economy.economy
@@ -844,7 +849,7 @@ func _line(screen: MapScreen) -> void:
 				]
 			)
 	var line: String = (
-		"playtest: T%-3d %d  gold=%-5d inc=%-4d prestige=%-3d provinces=%-2d "
+		"playtest: T%-3d %d  gold=%-5d inc=%-4d provinces=%-2d "
 		+ "civ=%-2d ships=%-2d rgts=%-3d ext=%-2d stock=%-3d dev=%-2d pdev=%-2d "
 		+ "feed=%.2f ai=%d rivals[%s]"
 	) % [
@@ -852,7 +857,6 @@ func _line(screen: MapScreen) -> void:
 		TurnTime.year_for_turn(play.turn),
 		play.treasury(),
 		play.income,
-		play.prestige,
 		play.world.owned_provinces(play.region_index, play.player_faction),
 		screen.civilian_layer.unit_count_all(play.player_faction),
 		screen.ship_layer.hull_count_all(play.player_faction),

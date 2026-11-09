@@ -495,6 +495,105 @@ func test_tech_caps_lift_the_yield_per_tile() -> void:
 	assert_eq(capped, {"timber": 2})
 
 
+## Scrub forest timber is hard-capped at level 1; hardwood follows the tech cap.
+func test_terrain_hard_cap_clamps_scrub_timber() -> void:
+	var model: MapModel = _fixture()
+	var works := LandWorks.new()
+	var tile := Vector2i(0, 0)
+	var index: int = model.index_of(tile.x, tile.y)
+	model.terrain[index] = MapModel.Terrain.SCRUB_FOREST
+	works.set_improvement(model, tile, LandWorks.MAX_IMPROVEMENT)
+	works.set_transport(model, tile, LandWorks.TRANSPORT_RAIL)
+	var scrub: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, tile
+	)
+	assert_eq(int(scrub.get("timber", 0)), 1)
+	model.terrain[index] = MapModel.Terrain.HARDWOOD_FOREST
+	var hardwood: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, tile
+	)
+	assert_eq(int(hardwood.get("timber", 0)), 4)
+
+
+## The path transport cap is the bottleneck of the chosen route, and the best of
+## several routes wins (wiki: capital-and-connectivity).
+func test_path_transport_uses_the_best_bottleneck() -> void:
+	var model := MapModel.new()
+	model.setup(3, 3)
+	for y in 3:
+		for x in 3:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+	var tiles: Array[Vector2i] = []
+	for y in 3:
+		for x in 3:
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(0, "P0", tiles, Vector2(1, 1), 9, 0, true)
+	province.capital_tile = Vector2i(0, 0)
+	province.town_development = 4
+	model.provinces = [province]
+	model.resource[model.index_of(0, 2)] = 0
+	var works := LandWorks.new()
+	works.set_improvement(model, Vector2i(0, 2), 2)
+	works.set_transport(model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
+	works.set_transport(model, Vector2i(0, 2), LandWorks.TRANSPORT_RAIL)
+	var bottleneck: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, Vector2i(0, 0)
+	)
+	assert_eq(int(bottleneck.get("timber", 0)), 1)
+	# A second route along row 1 is rail all the way: max(min(paths)) = 4.
+	for x in 3:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_RAIL)
+	var best: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, Vector2i(0, 0)
+	)
+	assert_eq(int(best.get("timber", 0)), 2)
+
+
+## Town manufacturing bonus: level 2 -> x1, level 4 -> x2, level 3 -> none,
+## never consuming the raw input (wiki: extraction-and-improvements).
+func test_town_industry_multiplies_town_connected_raw() -> void:
+	assert_eq(TownIndustry.bonus_for_province({"iron": 4}, 2, {}), {"castIron": 1})
+	assert_eq(TownIndustry.bonus_for_province({"iron": 8}, 4, {}), {"castIron": 4})
+	assert_eq(TownIndustry.bonus_for_province({"iron": 8}, 3, {}), {})
+	assert_eq(TownIndustry.bonus_for_province({"iron": 3}, 4, {}), {})
+	assert_eq(TownIndustry.bonus_for_province({"cotton": 4}, 2, {}), {})
+	assert_eq(
+		TownIndustry.bonus_for_province({"cotton": 4}, 2, {"cotton_weaving": true}),
+		{"fabric": 1}
+	)
+
+
+## Extraction credits the bonus from a town-adjacent raw tile without spending it.
+func test_extraction_adds_the_town_manufacturing_bonus() -> void:
+	var model: MapModel = _fixture()
+	var works := LandWorks.new()
+	var province: ProvinceState = model.provinces[0]
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = 2
+	model.resource[model.index_of(1, 0)] = 0
+	works.set_improvement(model, Vector2i(0, 0), 0)
+	works.set_improvement(model, Vector2i(1, 0), 2)
+	var totals: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, Vector2i(0, 0)
+	)
+	assert_eq(int(totals.get("timber", 0)), 2)
+	assert_eq(int(totals.get("lumber", 0)), 0)
+	works.set_improvement(model, Vector2i(1, 0), 4)
+	var raised: Dictionary = Extraction.yields(
+		model, 0, 0, {"timber": 4}, works, Vector2i(0, 0)
+	)
+	assert_eq(int(raised.get("timber", 0)), 4)
+	assert_eq(int(raised.get("lumber", 0)), 1)
+
+
+func test_treasury_ids_are_riches_plus_spices() -> void:
+	assert_eq(
+		CommodityCatalog.treasury_ids(),
+		["gold", "silver", "gems", "diamonds", "spices"] as Array[String]
+	)
+
+
 func _fixture() -> MapModel:
 	var model: MapModel = MapModel.new()
 	model.setup(3, 2)

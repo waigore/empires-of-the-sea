@@ -1,4 +1,4 @@
-class_name CivilianRoster
+class_name CivilianStrandingPass
 extends RefCounted
 ## Roster housekeeping that follows a change of ownership: crown-land crews
 ## caught behind new borders withdraw or leave play, and a fallen crown's

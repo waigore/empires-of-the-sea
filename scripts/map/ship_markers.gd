@@ -32,6 +32,29 @@ func refit(ship: Ship, fleet: FleetState) -> void:
 	place(ship, fleet)
 
 
+## Moves markers for a beaten squadron that escaped a naval battle: each one
+## sails to its haven and reports the new zone (wiki: ships-and-naval § Naval
+## Retreat Formula).
+func retreat(battle: Dictionary, fleets: Array) -> Array[Ship]:
+	var moved: Array[Ship] = []
+	var retreat: Dictionary = battle.get("retreat", {})
+	if not bool(retreat.get("success", false)):
+		return moved
+	for raw: Variant in retreat.get("fleets", []):
+		var fleet: FleetState = _fleet(fleets, int(raw))
+		if fleet == null:
+			continue
+		var ship: Ship = find(fleet.id)
+		if ship == null:
+			continue
+		ship.zone = fleet.sea_zone
+		ship.docked = false
+		ship.province = MapModel.NO_ID
+		_sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
+		moved.append(ship)
+	return moved
+
+
 ## Frees every marker and clears the selection.
 func clear() -> void:
 	for ship: Ship in ships:
@@ -78,3 +101,22 @@ func place(ship: Ship, fleet: FleetState) -> void:
 	ship.docked = false
 	ship.zone = fleet.sea_zone
 	ship.province = MapModel.NO_ID
+
+
+static func _fleet(fleets: Array, fleet_id: int) -> FleetState:
+	for fleet: FleetState in fleets:
+		if fleet != null and fleet.id == fleet_id:
+			return fleet
+	return null
+
+
+static func _sail(ship: Ship, target: Vector2) -> void:
+	if ship.has_meta("sail_tween"):
+		var previous: Tween = ship.get_meta("sail_tween") as Tween
+		if previous != null and previous.is_valid():
+			previous.kill()
+	var tween: Tween = ship.create_tween()
+	tween.tween_property(ship, "position", target, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(
+		Tween.EASE_IN_OUT
+	)
+	ship.set_meta("sail_tween", tween)

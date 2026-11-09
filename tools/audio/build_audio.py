@@ -1,15 +1,17 @@
-"""Build every audio asset in assets/audio from source.
+"""Build the procedural audio assets in assets/audio from source.
 
-    python tools/audio/build_audio.py            # rebuild all
-    python tools/audio/build_audio.py --only music
+    python tools/audio/build_audio.py            # sfx + ambience
+    python tools/audio/build_audio.py --only sfx
+    python tools/audio/build_audio.py --only music-synth   # offline music fallback
     python tools/audio/build_audio.py --list
 
 Outputs:
-    assets/audio/music/*.ogg      seamless loops (and two non-looping stingers)
     assets/audio/sfx/*.wav        short mono one-shots for the AudioDirector pool
     assets/audio/ambience/*.ogg   sea bed loop
+    assets/audio/music/*.ogg      only with --only music-synth; the shipped beds come
+                                  from the ElevenLabs masters via finish_elevenlabs.py
 
-Requires numpy and ffmpeg (libvorbis). Deterministic: same source -> same bytes
+Requires numpy and oggenc (libvorbis). Deterministic: same source -> same bytes
 apart from the Vorbis encoder's own bit-exactness.
 """
 
@@ -53,10 +55,18 @@ def instrument(name: str, freq: float, dur: float, vel: float, seed: int) -> np.
         return dsp.flute_tone(freq, dur, vel, breath=0.07, seed=seed)
     if name == "flute":
         return dsp.flute_tone(freq, dur, vel, breath=0.1, seed=seed)
+    if name == "fife":
+        return dsp.fife(freq, dur, vel, seed=seed)
     if name == "brass":
         return dsp.brass(freq, dur, vel, seed=seed)
     if name == "timpani":
         return dsp.timpani(freq, dur, vel, seed=seed)
+    if name == "tabor":
+        return dsp.tabor(freq, dur, vel, seed=seed)
+    if name == "tambourine":
+        return dsp.tambourine(freq, dur, vel, seed=seed)
+    if name == "castanet":
+        return dsp.castanet(freq, dur, vel, seed=seed)
     if name == "bell":
         return dsp.bell(freq, max(dur, 1.2), vel, seed=seed)
     raise ValueError("unknown instrument %r" % name)
@@ -383,23 +393,23 @@ def _size(path: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--only", choices=("music", "sfx", "ambience"),
-                        help="rebuild one group")
+    parser.add_argument("--only", choices=("sfx", "ambience", "music-synth"),
+                        help="build one group (music-synth overwrites the shipped beds)")
     parser.add_argument("--list", action="store_true", help="list asset names")
     args = parser.parse_args()
 
     if args.list:
         for factory in PIECES:
-            print(factory().name)
+            print(factory().name + "  (music-synth fallback)")
         for name in SFX:
             print(name)
         print("ambience_sea")
         return 0
 
-    groups = [args.only] if args.only else ["music", "sfx", "ambience"]
+    groups = [args.only] if args.only else ["sfx", "ambience"]
     for group in groups:
         print("%s:" % group)
-        if group == "music":
+        if group == "music-synth":
             build_music(os.path.join(AUDIO, "music"))
         elif group == "sfx":
             build_sfx(os.path.join(AUDIO, "sfx"))

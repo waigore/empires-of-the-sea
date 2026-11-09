@@ -25,6 +25,14 @@ static func next_id(fleets: Array[FleetState]) -> int:
 	return next
 
 
+## Fleet by instance id in one roster, or null.
+static func find(fleets: Array[FleetState], fleet_id: int) -> FleetState:
+	for fleet: FleetState in fleets:
+		if fleet != null and fleet.id == fleet_id:
+			return fleet
+	return null
+
+
 ## Next free fleet id across every region, so a squadron crossing into another
 ## map cannot collide with an id that region already uses.
 static func next_id_all(regions: MapRegionTable) -> int:
@@ -36,16 +44,33 @@ static func next_id_all(regions: MapRegionTable) -> int:
 	return next
 
 
-## Every fleet id still afloat in any region, for transport-loss checks.
-static func live_ids(regions: MapRegionTable) -> Dictionary:
-	var ids: Dictionary = {}
+## Civilian seats afloat in any region: unit id -> the squadron that lists it.
+## The roster is the truth; a passenger's own pointer lags a renumbered or
+## merged squadron, so transport-loss checks read this side (DR-20261109-17).
+static func carried_civilians(regions: MapRegionTable) -> Dictionary:
+	var seats: Dictionary = {}
 	for roster: Array in all(regions):
 		var fleets: Array[FleetState] = []
 		fleets.assign(roster)
 		for fleet: FleetState in fleets:
-			if fleet != null and fleet.is_afloat():
-				ids[fleet.id] = true
-	return ids
+			if fleet == null or not fleet.is_afloat():
+				continue
+			for unit_id: int in fleet.embarked_civilians:
+				seats[unit_id] = fleet.id
+	return seats
+
+
+## Army seats afloat in any region: army id -> the squadron that lists it.
+static func carried_armies(regions: MapRegionTable) -> Dictionary:
+	var seats: Dictionary = {}
+	for roster: Array in all(regions):
+		var fleets: Array[FleetState] = []
+		fleets.assign(roster)
+		for fleet: FleetState in fleets:
+			if fleet == null or not fleet.is_afloat() or fleet.embarked_army < 0:
+				continue
+			seats[fleet.embarked_army] = fleet.id
+	return seats
 
 
 ## Hulls afloat for one crown across every region: another map must not hide

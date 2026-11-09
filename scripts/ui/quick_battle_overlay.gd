@@ -2,8 +2,9 @@ class_name QuickBattleOverlay
 extends Control
 ## The Quick Battle plate: a bright animated field, round-by-round despatches and
 ## a decisive outcome stamp. Presentation only — it replays the report the rules
-## resolver produced and never changes it (REQ-P2-03). Skippable with one tap so
-## the juice stays non-modal (REQ-P5-06).
+## resolver produced and never changes it (REQ-P2-03). Despatch copy lives in
+## [QuickBattleCopy]. Skippable with one tap so the juice stays non-modal
+## (REQ-P5-06, REQ-P3-01).
 
 signal finished
 
@@ -152,7 +153,7 @@ func _build_bars(column: VBoxContainer) -> void:
 	column.add_child(pips)
 	pips.add_child(_label("ROUNDS", 11, Palette.TEXT_DIM))
 	for index in 3:
-		var pip := _label(_roman(index + 1), 13, Palette.TEXT_DIM)
+		var pip := _label(QuickBattleCopy.roman(index + 1), 13, Palette.TEXT_DIM)
 		_pips.append(pip)
 		pips.add_child(pip)
 	_plan_label = _label("", 11, Palette.TEXT_DIM)
@@ -188,8 +189,8 @@ func _populate() -> void:
 	var attacker: int = int(battle.get("attacker", 0))
 	var defender: int = int(battle.get("defender", 1))
 	_province.text = province_name
-	_atk_name.text = _faction(attacker)
-	_def_name.text = _faction(defender)
+	_atk_name.text = QuickBattleCopy.faction(attacker, faction_names)
+	_def_name.text = QuickBattleCopy.faction(defender, faction_names)
 	_atk_name.add_theme_color_override("font_color", Palette.faction_color(attacker))
 	_def_name.add_theme_color_override("font_color", Palette.faction_color(defender))
 	var atk_color: Color = Palette.faction_color(attacker)
@@ -201,14 +202,28 @@ func _populate() -> void:
 		"fill", UiTheme.box(def_color, def_color.lightened(0.25), 1, 3, Vector4.ZERO)
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
-	_plan_label.text = "Plan: %s" % String(quick.get("plan", "balanced")).capitalize()
-	if int(quick.get("guns_start", 0)) > 0:
-		_plan_label.text += " · %d guns" % int(quick.get("guns_start", 0))
+	_plan_label.text = _plan_text(battle, quick)
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1))
 	)
 	_round_label.text = ""
+
+
+## The stance line: the player's own plan first (it is the one the player set,
+## and on the defending side the report's `plan` belongs to the attacker), then
+## the enemy's script and any emplaced battery.
+func _plan_text(p_battle: Dictionary, quick: Dictionary) -> String:
+	var mine: String = String(quick.get("plan", "balanced"))
+	var theirs: String = String(quick.get("defender_plan", "defensive"))
+	if int(p_battle.get("player_faction", -1)) == int(p_battle.get("defender", -1)):
+		mine = String(quick.get("defender_plan", "defensive"))
+		theirs = String(quick.get("plan", "balanced"))
+	var text: String = "Your plan: %s · enemy: %s" % [mine.capitalize(), theirs.capitalize()]
+	var guns: int = int(quick.get("guns_start", 0))
+	if guns > 0:
+		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
+	return text
 
 
 func _reset() -> void:
@@ -252,11 +267,11 @@ func _enter_round(index: int) -> void:
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
 		int(round.get("attacker_count", 0)), int(round.get("defender_count", 0))
 	)
-	_round_label.text = "ROUND %s" % _roman(index + 1)
+	_round_label.text = "ROUND %s" % QuickBattleCopy.roman(index + 1)
 	if index < _pips.size():
 		_pips[index].add_theme_color_override("font_color", Palette.GOLD_PALE)
 	for action: Dictionary in round.get("actions", []):
-		_add_log(_action_line(action))
+		_add_log(QuickBattleCopy.action_line(action, battle, faction_names))
 
 
 func _finish() -> void:
@@ -271,8 +286,10 @@ func _finish() -> void:
 	)
 	var outcome: int = int(battle.get("outcome", ArmyCombat.Outcome.STALEMATE))
 	field.set_outcome(outcome)
-	_outcome.text = _outcome_text(outcome)
-	var won: bool = _player_won(outcome)
+	_outcome.text = QuickBattleCopy.outcome_text(
+		outcome, battle, province_name, faction_names
+	)
+	var won: bool = QuickBattleCopy.player_won(outcome, battle)
 	_outcome.add_theme_color_override(
 		"font_color", Palette.GOLD_PALE if won else Color(0.86, 0.60, 0.52)
 	)
@@ -290,23 +307,6 @@ func _on_continue() -> void:
 	finished.emit()
 
 
-func _action_line(action: Dictionary) -> String:
-	var owner: int = int(action.get("side", 0))
-	var label: String = String(action.get("label", "Action"))
-	var text: String = "%s — %s" % [_faction(owner), label]
-	var lost: int = int(action.get("attacker_lost", 0))
-	if String(action.get("action", "")) == "battery":
-		lost = int(action.get("attacker_lost", 0))
-	elif owner == int(battle.get("defender", -1)):
-		lost = int(action.get("defender_lost", 0))
-	if lost > 0:
-		text += " · %d lost" % lost
-	var guns: int = int(action.get("guns_destroyed", 0))
-	if guns > 0:
-		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
-	return text
-
-
 func _add_log(text: String) -> void:
 	var line := _label(text, 12, Palette.TEXT)
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -322,50 +322,8 @@ func _set_bars(atk_start: int, def_start: int, atk: int, def_now: int) -> void:
 	_atk_bar.value = atk
 	_def_bar.max_value = maxi(def_start, 1)
 	_def_bar.value = def_now
-	_atk_name.text = "%s  %d" % [_faction(int(battle.get("attacker", 0))), atk]
-	_def_name.text = "%d  %s" % [def_now, _faction(int(battle.get("defender", 1)))]
-
-
-func _outcome_text(outcome: int) -> String:
-	var attacker: String = _faction(int(battle.get("attacker", 0)))
-	var defender: String = _faction(int(battle.get("defender", 1)))
-	match outcome:
-		ArmyCombat.Outcome.ATTACKER_VICTORY:
-			return "%s takes %s" % [attacker, province_name]
-		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
-			return "%s holds the field — %s keeps %s" % [attacker, defender, province_name]
-		ArmyCombat.Outcome.DEFENDER_VICTORY:
-			return "%s holds %s" % [defender, province_name]
-		ArmyCombat.Outcome.MUTUAL_ANNIHILATION:
-			return "Mutual ruin — both sides are broken"
-		ArmyCombat.Outcome.CAPTURE:
-			return "%s occupies %s unopposed" % [attacker, province_name]
-	return "%s and %s stand off" % [attacker, defender]
-
-
-func _player_won(outcome: int) -> bool:
-	var player: int = int(battle.get("player_faction", -1))
-	var winner: int = -1
-	if outcome in [
-		ArmyCombat.Outcome.ATTACKER_VICTORY,
-		ArmyCombat.Outcome.ATTACKER_ADVANTAGE,
-		ArmyCombat.Outcome.CAPTURE,
-	]:
-		winner = int(battle.get("attacker", -1))
-	elif outcome == ArmyCombat.Outcome.DEFENDER_VICTORY:
-		winner = int(battle.get("defender", -1))
-	return player >= 0 and winner == player
-
-
-func _faction(owner: int) -> String:
-	if owner < 0 or owner >= faction_names.size():
-		return "An unknown flag"
-	return String(faction_names[owner])
-
-
-func _roman(value: int) -> String:
-	var numerals: Array[String] = ["I", "II", "III", "IV", "V"]
-	return numerals[clampi(value - 1, 0, numerals.size() - 1)]
+	_atk_name.text = "%s  %d" % [QuickBattleCopy.faction(int(battle.get("attacker", 0)), faction_names), atk]
+	_def_name.text = "%d  %s" % [def_now, QuickBattleCopy.faction(int(battle.get("defender", 1)), faction_names)]
 
 
 func _label(text: String, size_px: int, color: Color) -> Label:

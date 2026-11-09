@@ -1,0 +1,85 @@
+{
+  "model": "music_v2_5",
+  "provider": "ElevenLabs Music",
+  "generated": "2026-11-09",
+  "tracks": [
+    {
+      "id": "music_age_of_discovery",
+      "file": "music_age_of_discovery.ogg",
+      "master": "masters/music_age_of_discovery.mp3",
+      "loop": true,
+      "crossfade_seconds": 1.5,
+      "target_rms_db": -17.5,
+      "title": "Caravel Branle",
+      "description": "A lively Renaissance dance for recorder, viols, lute, theorbo, tabor, and tambourine, evoking festive first voyages with a bright, period-authentic acoustic sound.",
+      "song_id": "Lo3xbIpIBi1utcFDlRc0",
+      "seconds": 45,
+      "prompt": "Lively Renaissance dance branle in G major at 126 BPM, 4/4. A bright soprano recorder carries a cheerful folk-like dance tune, answered by a consort of viols, a plucked lute and theorbo continuo; a tabor drum and tambourine keep a sturdy outdoor dance pulse. Arrangement: tabor and lute open for two bars, recorders enter with the tune, viols swell underneath, tambourine lifts every offbeat. Mood: confident, festive, first voyages and caravels, colonial age of discovery. Acoustic period instruments only, close-mic'd with a small stone-hall reverb. Instrumental, no vocals, no synthesizers, no modern drum kit, no electric bass."
+    },
+    {
+      "id": "music_spanish_main",
+      "file": "music_spanish_main.ogg",
+      "master": "masters/music_spanish_main.mp3",
+      "loop": true,
+      "crossfade_seconds": 1.5,
+      "target_rms_db": -17.5,
+      "title": "Swashbuckler's Gigue",
+      "description": "An energetic Baroque gigue in D major with running eighth notes, sparkling harpsichord, and agile violins trading a confident theme. Castanets and natural trumpet bring a bright Spanish-Caribbean flair in a dry, intimate hall.",
+      "song_id": "na1kM0t7bmUwPG8c6oRV",
+      "seconds": 45,
+      "prompt": "Energetic Baroque gigue in D major at 132 BPM, 4/4 with running eighth notes. Two violins trade a swaggering tune in thirds over a sparkling harpsichord continuo and a walking cello; Spanish castanets click a heel-and-toe rhythm and a natural trumpet answers with a short fanfare. Arrangement: harpsichord and cello lock the gigue pulse, first violin states the tune, second violin joins in thirds, castanets and trumpet enter at the B section. Mood: swashbuckling Spanish Main, treasure fleet, colonial Caribbean, bright and confident. Period Baroque instruments only, dry intimate hall. Instrumental, no vocals, no synthesizers, no modern drums."
+    },
+    {
+      "id": "music_gilded_minuet",
+      "file": "music_gilded_minuet.ogg",
+      "master": "masters/music_gilded_minuet.mp3",
+      "loop": true,
+      "crossfade_seconds": 1.5,
+      "target_rms_db": -17.5,
+      "title": "Gilded Minuet",
+      "description": "A bright, elegant instrumental minuet in G major for wooden flute, harpsichord, strings, and cello. The music stays warmly buoyant throughout, with a courtly dance feel and a crisp final cadence.",
+      "song_id": "3zG4lxSqOum1ksZMhMo6",
+      "seconds": 45,
+      "prompt": "Bright, sunny galant minuet in G major at 144 BPM, 3/4, firmly in the major key: the piece opens and closes on a G major chord, uses F-sharp, and never settles into A minor or E minor. A solo wooden flute plays a buoyant courtly dance melody, light violins answer on the after-beats, a walking cello supports the bass and a harpsichord spins delicate broken chords. Arrangement: harpsichord and cello establish a light oom-pah-pah pulse, the flute enters with the minuet tune, violins add off-beat chords, the repeat is ornamented and ends with a crisp G major cadence. Mood: elegant colonial court, gilded ballroom, trading companies, warm, cheerful and buoyant. Period classical instruments, intimate room. Instrumental, no vocals, no synthesizers, no modern drums, no minor-key lament."
+    },
+    {
+      "id": "music_broadsides",
+      "file": "music_broadsides.ogg",
+      "master": "masters/music_broadsides.mp3",
+      "loop": true,
+      "crossfade_seconds": 1.5,
+      "target_rms_db": -17.0,
+      "title": "Broadside Hornpipe",
+      "description": "A fast, period-instrument hornpipe with a naval battle swagger, driven by fife, fiddles, cello, tabor, tambourine, and timpani. The middle strain briefly darkens in B minor before snapping back to a bright D major finish.",
+      "song_id": "OenZzAjYbsqm8WBIuuoM",
+      "seconds": 45,
+      "prompt": "Fast buccaneer hornpipe in D major at 152 BPM, 4/4. A bright military fife and two fiddles play a rollicking sailors' dance tune over driving cello eighth notes, tabor, tambourine and timpani accents; the B section slips into B minor for a flash of danger before resolving to D major. Arrangement: tabor and cello start the hornpipe pulse, fife states the tune, fiddles double an octave below, tambourine and timpani drive the chorus. Mood: naval battle at sea, cannon smoke, boarding parties, exciting and adventurous, never spooky. Period instruments only, dry and punchy. Instrumental, no vocals, no synthesizers, no modern drums."
+    },
+    {
+      "id": "stinger_victory",
+      "file": "stinger_victory.ogg",
+      "master": "masters/stinger_victory.mp3",
+      "loop": false,
+      "crossfade_seconds": 0.0,
+      "target_rms_db": -17.5,
+      "title": "D Major Triumph",
+      "description": "A short, bright Baroque victory fanfare with natural trumpets, timpani rolls, and full strings in a ceremonial small-hall setting. It drives upward with a clean, triumphant ending on a sustained D major chord.",
+      "song_id": "QRLc0fyyN2hnI5AfzgmL",
+      "seconds": 8,
+      "prompt": "Short triumphant Baroque victory fanfare in D major, ceremonial and bright. Natural trumpets lead a rising figure over timpani rolls and full strings, ending on a crisp sustained D major chord. Period instruments, small hall, instrumental only, no vocals, no synthesizers, no modern drums. Clean decisive ending, no fade out."
+    },
+    {
+      "id": "stinger_defeat",
+      "file": "stinger_defeat.ogg",
+      "master": "masters/stinger_defeat.mp3",
+      "loop": false,
+      "crossfade_seconds": 0.0,
+      "target_rms_db": -17.5,
+      "title": "Dignified Knell",
+      "description": "A brief solemn Baroque-style descent in D minor for period instruments, with low strings, a muted trumpet reply, and a final timpani stroke. Formal and restrained, ending cleanly with no fade out.",
+      "song_id": "icV6U0ESpK2B1dmIlhjx",
+      "seconds": 10,
+      "prompt": "Short dignified Baroque defeat knell in D minor. Low viols and cello play a slow falling cadence, a muted natural trumpet answers, and a single deep timpani stroke closes the phrase. Somber and formal, not horror or ghostly. Period instruments, church-like room, instrumental only, no vocals, no synthesizers, no modern drums. Clean ending, no fade out."
+    }
+  ]
+}
