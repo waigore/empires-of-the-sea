@@ -53,12 +53,16 @@ static func label(mission: int) -> String:
 	return "No station"
 
 
-## A station that keeps the squadron in its zone for the turn.
+## A station that keeps the squadron in its zone for the turn. A landing site
+## is one too: marking it spends the move, so the squadron never sailed into the
+## zone and cannot seize the initiative from a fleet that did (wiki:
+## ships-and-naval § Missions and Movement — Beachhead is stationary).
 static func is_stationary(mission: int) -> bool:
 	return (
 		mission == FleetState.Mission.PATROL
 		or mission == FleetState.Mission.BLOCKADE
 		or mission == FleetState.Mission.DEFEND
+		or mission == FleetState.Mission.BEACHHEAD
 	)
 
 
