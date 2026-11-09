@@ -152,6 +152,8 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	match action:
 		"recruit":
 			MapPlayArmies.open_muster(play)
+		"shipyard":
+			MapPlayFleets.open_yard(play)
 		"build":
 			play.improvements.open(play.selected_province)
 		_:

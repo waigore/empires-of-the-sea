@@ -9,6 +9,7 @@ signal zoom_out_pressed
 signal minimap_jump(world_position: Vector2)
 signal panel_action(action: String)
 signal panel_closed
+signal fleet_action(action: String)
 signal fleet_closed
 signal civilian_action(action: String)
 signal civilian_cancel
