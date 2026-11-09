@@ -112,7 +112,11 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
-	if zone >= 0:
+	if result.has("merged_into"):
+		play.hud.toast(
+			"The squadron joins the home fleet at %s" % play.model.province_name(fleet.province)
+		)
+	elif zone >= 0:
 		play.hud.toast("The fleet enters the %s" % play.model.sea_zone_name(zone))
 	else:
 		play.hud.toast("The fleet docks at %s" % play.model.province_name(fleet.province))

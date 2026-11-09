@@ -151,6 +151,9 @@ func cross(fleet: FleetState) -> Dictionary:
 
 
 ## Applies a naval order through the rules module, then animates the marker.
+## Docking at the crown's own capital resolves by merging into the home fleet,
+## so the sea-going squadron disappears from the roster (wiki: ships-and-naval
+## § Home Fleet).
 func order(fleet: FleetState, destination: int, destination_id: int) -> Dictionary:
 	var result: Dictionary = NavalMovement.apply_move(
 		model, fleet, destination, destination_id
@@ -158,6 +161,16 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	if not bool(result.get("ok", false)):
 		return result
 	var ship: Ship = ship_for(fleet)
+	var arrived: FleetState = fleet
+	if destination == FleetState.Location.IN_PORT:
+		var merged: FleetState = NavalMovement.merge_into_home(model, fleets, fleet)
+		if merged != null:
+			arrived = merged
+			result["merged_into"] = merged.id
+			if ship != null:
+				_markers.remove(ship)
+				ship = null
+			regions.set_region(model.region_id, fleets)
 	if ship != null:
 		_markers.refit(ship, fleet)
 		if destination == FleetState.Location.AT_SEA:
@@ -165,7 +178,7 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 			zone_entered.emit(fleet.sea_zone, ship)
 		else:
 			_sail(ship, _port_position(fleet.province))
-	fleet_moved.emit(fleet, result)
+	fleet_moved.emit(arrived, result)
 	return result
 
 

@@ -102,6 +102,58 @@ func test_docking_puts_the_fleet_in_port() -> void:
 	assert_eq(_screen.overlay.move_provinces.size(), 0)
 
 
+func test_the_home_fleet_cannot_be_ordered_to_sail() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	assert_eq(_screen.overlay.move_zones.size(), 0, "the home fleet shows no sea orders")
+	var zone: int = NavalMovement.province_sea_zones(_screen.model, capital)[0]
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zone_data(zone).tiles[0]))
+
+	assert_eq(home.location, FleetState.Location.IN_PORT)
+	assert_eq(home.province, capital)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+
+
+func test_docking_at_the_capital_joins_the_home_fleet() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var sea: FleetState = null
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
+			sea = fleet
+			break
+	assert_not_null(sea, "a player squadron is at sea")
+	var sea_hulls: Array[String] = sea.hulls.duplicate()
+	var home_before: int = home.ship_count()
+	sea.sea_zone = NavalMovement.province_sea_zones(_screen.model, capital)[0]
+	sea.province = MapModel.NO_ID
+	sea.location = FleetState.Location.AT_SEA
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(sea))
+	var port: Vector2i = _screen.model.province_data(capital).port_tile
+
+	assert_true(MapPlayFleets.try_order(_screen.play, port))
+
+	assert_false(_screen.ship_layer.fleets.has(sea), "the sea-going squadron is gone")
+	assert_null(_screen.ship_layer.ship_for(sea), "its marker leaves the map")
+	assert_eq(home.ship_count(), home_before + sea_hulls.size())
+	for hull_id: String in sea_hulls:
+		assert_true(home.hulls.has(hull_id), "instance ids survive the merge")
+	var at_capital: int = 0
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if (
+			fleet.owner == MapScreen.PLAYER_FACTION
+			and fleet.is_in_port()
+			and fleet.province == capital
+		):
+			at_capital += 1
+	assert_eq(at_capital, 1, "only the home fleet holds the capital port")
+
+
 func test_enemy_fleets_reject_player_orders() -> void:
 	var enemy: Ship = _enemy_ship()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
