@@ -64,6 +64,9 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	# then land regiments (wiki: diplomacy § GP–Minor Rules).
 	if result.has("absorbed"):
 		var loser: int = int(result["absorbed"])
+		# An absorbed crown's seat retires with the crown; the loss pass must
+		# not read the absorption as a conquered capital (wiki: diplomacy).
+		CapitalLoss.retire_seat(play.world, loser)
 		if play.ship_layer != null:
 			play.ship_layer.transfer_owner(loser, play.player_faction)
 		if play.army_layer != null:

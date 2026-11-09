@@ -227,6 +227,21 @@ static func prune(armies: Array[ArmyState]) -> void:
 		index -= 1
 
 
+## Removes one faction's armies from a roster in place and returns the
+## regiments they fielded (wiki: capital-and-connectivity § Fall).
+static func purge_owner(roster: Array, owner: int) -> int:
+	var removed: int = 0
+	var kept: Array = []
+	for raw: Variant in roster:
+		var army: ArmyState = raw
+		if army != null and army.owner == owner:
+			removed += army.count()
+		else:
+			kept.append(army)
+	roster.assign(kept)
+	return removed
+
+
 static func _deny(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason, "army": null}
 

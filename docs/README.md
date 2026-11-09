@@ -13,6 +13,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [requirements.md](requirements.md) | Pillars P1–P5 (`REQ-*`) |
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
+| [capital.md](capital.md) | Capital loss, reassignment and a crown's fall |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
 | [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |

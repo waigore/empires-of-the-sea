@@ -278,6 +278,44 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 	)
 
 
+func test_a_relocated_capital_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	var old_seat: ProvinceState = null
+	var new_seat: ProvinceState = null
+	for province: ProvinceState in play.model.provinces:
+		if province.capital_of == play.player_faction and province.owner == play.player_faction:
+			old_seat = province
+		elif (
+			new_seat == null
+			and province.owner == play.player_faction
+			and not province.tiles.is_empty()
+		):
+			new_seat = province
+	assert_not_null(old_seat, "the player owns a seat")
+	assert_not_null(new_seat, "the player owns a second province")
+	if old_seat == null or new_seat == null:
+		return
+	var tile: Vector2i = new_seat.tiles[0]
+	old_seat.capital = false
+	old_seat.capital_of = MapModel.NO_ID
+	old_seat.capital_tile = CapitalChoice.NO_TILE
+	new_seat.capital = true
+	new_seat.capital_of = play.player_faction
+	new_seat.capital_tile = tile
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(DIR + "/capital.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/capital.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	var restored: ProvinceState = screen.play.model.get_province(new_seat.id)
+	assert_true(restored.capital, "the new seat stays the capital")
+	assert_eq(restored.capital_of, screen.play.player_faction)
+	assert_eq(restored.capital_tile, tile)
+	var retired: ProvinceState = screen.play.model.get_province(old_seat.id)
+	assert_false(retired.capital, "the old seat is not a capital after the load")
+
+
 # --- helpers -----------------------------------------------------------------
 
 func _foreign_province(play: PlaySession) -> int:

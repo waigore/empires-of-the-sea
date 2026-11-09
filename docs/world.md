@@ -20,7 +20,7 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
 
 ## Regions
 
-- One deterministic tile map per region; a seed reproduces both maps and all
+- One deterministic tile map per region; a seed reproduces both maps and
   ownership.
 - Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces per nation.
 - New World: wetter, 10 Tribes, provinces per tribe.
@@ -75,7 +75,7 @@ participation are deferred.
 
 `test_faction_catalog`, `test_world_setup`, `test_world_bootstrap`,
 `test_country_borders`, `test_map_generator`, `test_warp_travel`,
-`test_map_screen`, `test_campaign_end`.
+`test_capital_loss`, `test_map_screen`, `test_campaign_end`.
 
 ```bash
 gd-tools test --coverage --min 80

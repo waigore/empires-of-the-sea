@@ -294,6 +294,26 @@ func at_sea_zones(owner: int) -> Array[int]:
 	return zones
 
 
+## Removes every fleet a fallen crown still sails, across all regions, and
+## returns the hulls disbanded (wiki: capital-and-connectivity § Fall).
+func remove_owner(owner: int) -> int:
+	var removed: int = 0
+	for raw: Variant in regions.values():
+		var stored: Array = raw
+		var kept: Array = []
+		for fleet: FleetState in stored:
+			if fleet.owner == owner:
+				removed += fleet.ship_count()
+			else:
+				kept.append(fleet)
+		stored.assign(kept)
+	if selected_ship != null and selected_ship.faction == owner:
+		selected_ship = null
+	if removed > 0:
+		_rebuild_markers()
+	return removed
+
+
 func _port_position(province_id: int) -> Vector2:
 	var data: ProvinceState = model.province_data(province_id)
 	var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)

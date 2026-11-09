@@ -64,6 +64,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 				"id": province.id,
 				"owner": province.owner,
 				"capital": province.capital,
+				"capital_of": province.capital_of, "capital_tile": province.capital_tile,
 				"town_development": province.town_development,
 				"fort_level": province.fort_level,
 				"resource": province.resource,
@@ -98,16 +99,14 @@ static func _capture_economy(play: PlaySession) -> Dictionary:
 	return play.economy.economy.snapshot()
 
 
-## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory
-## § Persistence). An undecided campaign writes an empty entry.
+## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory).
 static func _capture_victory(state: VictoryState) -> Dictionary:
 	if state == null:
 		return {}
 	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
 
 
-## A save from before victory state was captured (or a malformed entry) loads as
-## an undecided campaign, so legacy slots still resume with turns open.
+## Legacy slots load as undecided, so they still resume with turns open.
 static func _victory_from(raw: Variant) -> VictoryState:
 	if typeof(raw) != TYPE_DICTIONARY:
 		return null
@@ -160,8 +159,7 @@ static func summary(data: Dictionary) -> Dictionary:
 
 
 ## Rebuilds the world and the session's mutable state before the screen loads
-## its first region. The caller then builds the HUD and calls the two economy
-## and diplomacy restorers (they need the freshly created nodes).
+## its first region; the caller then builds the HUD and the economy/court.
 static func restore(play: PlaySession, data: Dictionary) -> bool:
 	if play == null or not is_valid(data):
 		return false
@@ -181,8 +179,7 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
-	# A decided campaign must come back decided, or the load would hand the
-	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
+	# A decided campaign must come back decided (wiki: victory § Persistence).
 	play.victory = _victory_from(data.get("victory", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(
@@ -235,6 +232,9 @@ static func _apply_province(model: MapModel, data: Dictionary) -> bool:
 		return false
 	province.owner = int(data.get("owner", MapModel.NO_ID))
 	province.capital = bool(data.get("capital", false))
+	var seat_default: int = province.owner if province.capital else MapModel.NO_ID
+	province.capital_of = int(data.get("capital_of", seat_default))
+	province.capital_tile = _vector(data.get("capital_tile", province.capital_tile))
 	province.town_development = int(data.get("town_development", 0))
 	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
 	province.resource = int(data.get("resource", MapModel.NO_ID))

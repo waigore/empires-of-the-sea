@@ -51,6 +51,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
+	_resolve_capital_loss(play)
 	_resolve_visibility(play)
 	# Victory is checked after every phase, once per turn, and never re-checked.
 	var victory: VictoryState = VictoryRules.resolve(play.victory, play.world, play.turn)
@@ -184,6 +185,70 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
+
+
+## Seat losses resolve after every fight: a crown that lost its capital
+## relocates inside its region or falls, and a fallen crown's armies and fleets
+## disband (wiki: capital-and-connectivity § Capital loss and reassignment).
+static func _resolve_capital_loss(play: PlaySession) -> void:
+	var changes: Array[Dictionary] = CapitalLoss.resolve(play.world)
+	if changes.is_empty():
+		return
+	var repaint: bool = false
+	for change: Dictionary in changes:
+		var faction: int = int(change["faction"])
+		var region: int = int(change["region"])
+		if bool(change["fallen"]):
+			var regiments: int = 0
+			var hulls: int = 0
+			var civilians: int = 0
+			if play.army_layer != null:
+				regiments = MapPlayArmies.disband(play, faction)
+			if play.ship_layer != null:
+				hulls = play.ship_layer.remove_owner(faction)
+			if play.civilian_layer != null:
+				civilians = MapPlayCivilians.disband(play, faction)
+			if play.diplomacy != null:
+				play.diplomacy.clear_relations_of(faction)
+			play.hud.toast(
+				"%s has fallen to %s — %d regiments, %d hulls and %d civilians disbanded"
+				% [
+					FactionCatalog.name_of(faction),
+					FactionCatalog.name_of(int(change["conqueror"])),
+					regiments,
+					hulls,
+					civilians,
+				]
+			)
+		else:
+			var seat_model: MapModel = play.world.region(region)
+			var seat: String = (
+				seat_model.province_name(int(change["capital_province"]))
+				if seat_model != null
+				else "—"
+			)
+			play.hud.toast("%s moves its court to %s" % [FactionCatalog.name_of(faction), seat])
+			if faction == play.player_faction and region == play.region_index:
+				_sync_player_capital(play)
+		if region == play.region_index:
+			repaint = true
+	if play.army_layer != null:
+		play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	if play.ship_layer != null:
+		play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	if repaint:
+		play.refresh_map_views()
+
+
+## The player's seat moved inside the visible region: keep the session and the
+## economy's capital reads in step with the map.
+static func _sync_player_capital(play: PlaySession) -> void:
+	play.capital_province = MapPlaySetup.find_capital(play)
+	play.capital_tile = play.model.capital_tile_of(play.capital_province)
+	if play.economy == null:
+		return
+	play.economy.capital_province = play.capital_province
+	play.economy.capital_tile = play.capital_tile
 
 
 ## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at

@@ -231,12 +231,27 @@ func end_turn() -> Dictionary:
 	return {"decayed": decayed, "subsidies_cancelled": cancelled.size()}
 
 
-## Removes every trace of a faction absorbed by Join Empire.
+## Removes every trace of a faction absorbed by Join Empire or removed when its
+## crown falls (wiki: capital-and-connectivity § Fall).
 func clear_relations_of(faction: int) -> void:
 	for key: String in relations.keys():
 		var record: DiplomacyRelation = relations[key]
 		if record.a == faction or record.b == faction:
 			relations.erase(key)
+	for key: String in alliance_snapshot.keys():
+		var parts: PackedStringArray = key.split(":")
+		if int(parts[0]) == faction or int(parts[1]) == faction:
+			alliance_snapshot.erase(key)
+	var kept_calls: Array[Dictionary] = []
+	for entry: Dictionary in pending_calls:
+		if int(entry.get("aggressor", -1)) == faction:
+			continue
+		if int(entry.get("defender", -1)) == faction:
+			continue
+		if int(entry.get("ally", -1)) == faction:
+			continue
+		kept_calls.append(entry)
+	pending_calls.assign(kept_calls)
 	for key: String in overtures.keys():
 		var parts: PackedStringArray = key.split(">")
 		if int(parts[0]) == faction or int(parts[1]) == faction:

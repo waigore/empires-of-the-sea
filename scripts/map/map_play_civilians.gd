@@ -79,6 +79,24 @@ static func on_cancel(play: PlaySession) -> void:
 	refresh_panel(play)
 
 
+## Disbands a fallen crown's civilians in every region and rebuilds the visible
+## markers; returns the number of units removed (wiki: capital-and-connectivity).
+static func disband(play: PlaySession, owner: int) -> int:
+	var removed: int = 0
+	for raw: Variant in play.civilian_layer.regions.values():
+		var stored: Array = raw
+		var kept: Array = []
+		for unit: CivilianState in stored:
+			if unit.owner == owner:
+				removed += 1
+			else:
+				kept.append(unit)
+		stored.assign(kept)
+	if removed > 0:
+		play.civilian_layer.spawn(play.model, play.capital_province, play.player_faction, [])
+	return removed
+
+
 static func refresh_panel(play: PlaySession) -> void:
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()

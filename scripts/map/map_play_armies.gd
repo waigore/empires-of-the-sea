@@ -233,6 +233,18 @@ static func resolve_battles(play: PlaySession) -> void:
 		refresh_options(play, play.army_layer.selected_army)
 
 
+## Disbands a fallen crown's regiments in every region and rebuilds the visible
+## standards; returns the regiments removed (wiki: capital-and-connectivity).
+static func disband(play: PlaySession, owner: int) -> int:
+	var removed: int = 0
+	for raw: Variant in play.army_layer.regions.values():
+		removed += ArmyState.purge_owner(raw, owner)
+	removed += ArmyState.purge_owner(play.army_layer.armies, owner)
+	if removed > 0:
+		play.army_layer.spawn(play.model)
+	return removed
+
+
 static func refresh_visibility(play: PlaySession) -> void:
 	play.army_layer.sync_visibility(play.visibility, play.player_faction)
 
