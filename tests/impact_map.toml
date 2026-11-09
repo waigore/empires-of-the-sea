@@ -51,6 +51,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
@@ -182,6 +183,10 @@ full = true
 
 [[rules]]
 match = "tests/map_shot.gd"
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_new_world.gd*"
 domain = "map"
 
 [[rules]]

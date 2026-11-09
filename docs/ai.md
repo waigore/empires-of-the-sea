@@ -17,42 +17,38 @@ P5 unbookkept rivals.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
-  relations and modifiers; improve-relations is the complement. Declarations
-  need relation ≤ ceiling (50; warmonger 70), desire ≥ 51 and no 4-turn
-  cooldown; goals clamp `round(desire / 25)`. At war, desire below 50 offers
-  peace — immediate to a rival, queued for the human, 3-turn cooldown.
+  relations and modifiers. Declarations need relation ≤ ceiling (50;
+  warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals clamp
+  `round(desire / 25)`. At war, desire < 50 offers peace (rival immediate,
+  human queued), 3-turn cooldown.
 - **Turn pass** (`AiTurn`): one legal order per rival through `DiplomacyRules`,
   traced; human proposals queue. Declarations land before combat.
-- **Land planner** (`AiMilitaryPlanner`): at war on its border a rival detaches
-  all but one Home Army regiment, then field armies save an occupied province,
-  storm an adjacent hostile one (10% margin after wall soak), or stage on the
-  nearest frontier via `ArmyMovement`.
-- **Naval planner** (`AiNavalPlanner`): at war sortie or pursue one zone onto
-  the weakest matchable squadron (120% margin); otherwise blockade a hostile
-  coast or hold, via `NavalMovement`; a charted zone earns one sighting line,
-  never fog.
+- **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
+  one Home Army regiment; field armies save, storm (10% margin after walls),
+  or stage on the nearest frontier.
+- **Naval planner** (`AiNavalPlanner`): at war sortie/pursue onto the weakest
+  matchable squadron (120% margin); else blockade or hold via `NavalMovement`;
+  charted zone → one sighting, never fog.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  a rival boards an idle Explorer (or Builder for overseas land), crosses a
-  Passage and lands; civilians then prospect or improve there.
-- **Economy planner** (`AiEconomyPlanner`): each rival keeps a `PlayerEconomy`
-  ledger. Recipes score by stock deficit; whole runs allocate under labour and
-  inputs. Recruitment trains the highest affordable tier to worker/recruit caps.
+  board an idle Explorer (Builder overseas), cross a Passage and land; then
+  prospect or improve.
+- **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
+  stock deficit; whole runs under labour/inputs; recruit highest affordable
+  tier to worker/recruit caps.
+- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots (weights, shortfalls, war bonus); `research.funding_index` funds; `ResearchTurn` advances.
 - **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
-  civilian — builders improve the shortest commodity, engineers connect every
-  town to the capital then road/port/fort, explorers prospect, rail builders
-  upgrade roads.
-- **Market planner** (`AiMarketPlanner`): sells above the reserve and this
-  turn's production inputs, then bids short build inputs on free holds — three
-  bid types, six with Trade Fairs.
-- **Regiment parity** (`MilitaryParity`): after movement Minor Nation land
-  regiments upgrade to the strongest Great Power's buildable era; Tribes stay
-  at level 1.
-- **Rival turn** (`MapPlayEconomyAi`): seeds opening civilians, resolves
-  Extraction → Riches → Consumption → Production on the shared market, trades,
-  then sets next assignments.
+  civilian — builders improve shortest commodity, engineers connect towns then
+  road/port/fort, explorers prospect, rail builders upgrade roads.
+- **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
+  production inputs; bid short build inputs on free holds (3 types; 6 with
+  Trade Fairs).
+- **Regiment parity** (`MilitaryParity`): after movement, Minor Nation land
+  regiments match the strongest Great Power era; Tribes stay at level 1.
+- **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
+  Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
 
 ## Full-AI observer (debug)
@@ -62,7 +58,7 @@ P5 unbookkept rivals.
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms, boycotts and spy actions.
-- AI research; rival fog exploration.
+- Rival fog exploration.
 - Dossier evidence and dialogue.
 
 ## Architecture
