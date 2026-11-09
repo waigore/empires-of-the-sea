@@ -14,7 +14,12 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.overlay.select_province(-1)
 	play.hud.panels.hide_province()
 	play.hud.panels.show_fleet(
-		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet)
+		play.model,
+		fleet,
+		fleet.owner == play.player_faction,
+		passage_note(play, fleet),
+		yard_rows(play, fleet),
+		-1
 	)
 	refresh_options(play, fleet)
 	if fleet.owner != play.player_faction:
@@ -162,3 +167,110 @@ static func _tile(play: PlaySession, fleet: FleetState) -> Vector2i:
 		return tiles[0]
 	var data: ProvinceState = play.model.province_data(fleet.province)
 	return data.port_tile if data != null else Vector2i(-1, -1)
+
+
+# --- the naval yard -----------------------------------------------------------
+
+
+## True when this squadron is the crown's home fleet at its capital port.
+static func is_home(play: PlaySession, fleet: FleetState) -> bool:
+	if fleet == null or fleet.owner != play.player_faction or not fleet.is_in_port():
+		return false
+	return fleet.province >= 0 and fleet.province == play.capital_province
+
+
+## Yard rows for an own squadron: launching needs the capital port, breaking up
+## a hull works anywhere (wiki: ships-and-naval § Ship muster and the breaker's
+## yard).
+static func yard_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
+	if fleet == null or fleet.owner != play.player_faction or play.economy == null:
+		return []
+	return FleetYard.rows(play.economy.economy, is_home(play, fleet))
+
+
+## Opens the capital yard from the province dossier; with no home fleet afloat
+## the slip is shown and the first launch founds the squadron.
+static func open_yard(play: PlaySession) -> void:
+	var province: int = play.capital_province
+	if province < 0 or play.model.province_owner(province) != play.player_faction:
+		play.hud.toast("Your capital must be in hand to open the yard.")
+		return
+	if not NavalMovement.has_harbour(play.model, province):
+		play.hud.toast("Your capital has no harbour for a yard.")
+		return
+	var home: FleetState = play.ship_layer.home_fleet(province)
+	if home != null:
+		refresh_yard(play, home)
+		return
+	if play.economy == null:
+		return
+	play.hud.panels.show_fleet(
+		play.model, null, true, "", FleetYard.rows(play.economy.economy, true), province
+	)
+
+
+static func refresh_yard(play: PlaySession, fleet: FleetState) -> void:
+	if fleet == null:
+		return
+	play.ship_layer.select(play.ship_layer.ship_for(fleet))
+	play.hud.panels.show_fleet(
+		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet), -1
+	)
+	play.hud.panels.fleet_panel.set_yard_open(true)
+
+
+## The fleet dossier and the province yard both route here (REQ-P3-02).
+static func on_action(play: PlaySession, action: String) -> void:
+	if play.campaign_over():
+		return
+	if action.begins_with("yard:build:"):
+		launch(play, action.trim_prefix("yard:build:"))
+	elif action.begins_with("yard:scrap:"):
+		scrap(play, action.trim_prefix("yard:scrap:"))
+
+
+## Launches one hull into the home fleet, founding it at the capital slip when
+## the crown keeps none (wiki: ships-and-naval § Home Fleet).
+static func launch(play: PlaySession, type_id: String) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var province: int = play.capital_province
+	if province < 0 or play.model.province_owner(province) != play.player_faction:
+		play.hud.toast("Your capital must be in hand to launch hulls.")
+		return
+	if not NavalMovement.has_harbour(play.model, province):
+		play.hud.toast("Your capital has no harbour for a yard.")
+		return
+	var result: Dictionary = play.ship_layer.launch_hull(province, type_id, play.economy.economy)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The hull cannot launch.")))
+		return
+	var fleet: FleetState = result.get("fleet") as FleetState
+	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	play.hud.toast(
+		"%s joins the home fleet at %s"
+		% [ShipStats.display_name(type_id), play.model.province_name(province)]
+	)
+	refresh_yard(play, fleet)
+
+
+## Breaks up one hull and returns its peasant to the pool.
+static func scrap(play: PlaySession, hull_id: String) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
+	if fleet == null or fleet.owner != play.player_faction:
+		return
+	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
+		return
+	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	play.hud.toast(
+		"%s broken up — one peasant returns to the pool"
+		% ShipStats.display_name(String(result.get("type", "")))
+	)
+	if bool(result.get("retired", false)):
+		play.hud.panels.hide_fleet()
+		return
+	refresh_yard(play, fleet)

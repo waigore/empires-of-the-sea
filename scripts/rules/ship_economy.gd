@@ -7,6 +7,27 @@ extends RefCounted
 ## Per hull, per turn (grain/meat stockpile abstraction).
 const FOOD_UPKEEP_PER_SHIP: int = 2
 
+## One peasant leaves the pool when a hull is launched (wiki: ships-and-naval
+## § Ship muster; DR-20261109-01 § Paying the muster).
+const WORKER_COST: int = 1
+
+## type -> unlocking tech id (wiki: tech-tree-naval § Unlocks); empty means the
+## hull is buildable from game start.
+const TECH: Dictionary = {
+	"carrack": "",
+	"fluyte": "superior_hull_design",
+	"sloop": "navigation",
+	"trader": "improved_sail_design",
+	"galleon": "convoying",
+	"indiaman": "large_hulls",
+	"frigate": "advanced_hull_design",
+	"raider": "paddlewheels",
+	"ship_of_the_line": "ship_of_the_line",
+	"clipper": "clipper_ships",
+	"merchant_steamship": "merchant_steamships",
+	"ironclad": "advanced_iron_working",
+}
+
 ## Unlock era 0 = always buildable (no tech). Eras 1–4 match tech-tree-naval.
 const ENTRIES: Dictionary = {
 	"carrack":
@@ -165,3 +186,58 @@ static func missing_inputs(type_id: String, stockpile: Dictionary) -> Dictionary
 		if have < need:
 			short[id] = need - have
 	return short
+
+
+static func tech_for(type_id: String) -> String:
+	return String(TECH.get(ShipStats.normalize(type_id), ""))
+
+
+## A hull is buildable iff it has no unlocking tech or that tech is researched
+## (wiki: tech-tree § Regiment and ship buildability).
+static func buildable(type_id: String, tech_unlocked: Dictionary) -> bool:
+	if not known(type_id):
+		return false
+	var tech: String = tech_for(type_id)
+	return tech.is_empty() or bool(tech_unlocked.get(tech, false))
+
+
+## Empty string when the build row is payable; otherwise the first blocker, so
+## the yard and the order path share one gate (REQ-P2-03).
+static func blocked_reason(
+	type_id: String,
+	treasury: int,
+	stockpile: Dictionary,
+	peasants: int,
+	tech_unlocked: Dictionary
+) -> String:
+	if not known(type_id):
+		return "Unknown ship"
+	if not buildable(type_id, tech_unlocked):
+		return "Requires %s" % TechCatalog.display_name(tech_for(type_id))
+	if treasury < treasury_cost(type_id):
+		return "Insufficient treasury"
+	if not missing_inputs(type_id, stockpile).is_empty():
+		return "Insufficient materials"
+	if peasants < WORKER_COST:
+		return "Insufficient workers"
+	return ""
+
+
+## "8,000 ducats · 2 Lumber · 1 Fabric · 1 worker" for the yard ledger.
+static func cost_text(type_id: String) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	parts.append("%s ducats" % _thousands(treasury_cost(type_id)))
+	var inputs: Dictionary = build_inputs(type_id)
+	for commodity: Variant in inputs.keys():
+		parts.append("%d %s" % [int(inputs[commodity]), CommodityCatalog.label(String(commodity))])
+	parts.append("%d worker" % WORKER_COST)
+	return " · ".join(parts)
+
+
+static func _thousands(value: int) -> String:
+	var text: String = str(value)
+	var out: String = ""
+	while text.length() > 3:
+		out = "," + text.substr(text.length() - 3) + out
+		text = text.substr(0, text.length() - 3)
+	return text + out
