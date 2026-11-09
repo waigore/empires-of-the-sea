@@ -158,6 +158,10 @@ func test_a_blockade_note_follows_the_station_gate() -> void:
 	_model.province_data(1).owner = 1
 	assert_true(FleetMissions.status_note(_model, fleet, _peace).contains("lapsed"))
 	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("Blockading"))
+	# A station with no coast or map still names the station plainly.
+	var legacy := FleetState.at_sea(2, 0, 1)
+	legacy.mission = FleetState.Mission.BLOCKADE
+	assert_true(FleetMissions.status_note(null, legacy).contains("the enemy coast"))
 
 
 func test_station_ids_round_trip_and_labels_read_plainly() -> void:
