@@ -22,16 +22,16 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
 
 - One deterministic tile map per region (`MapGenerator.generate_region`); a
   seed reproduces both maps and all ownership.
-- Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces, European names.
-- New World: wetter, 10 Tribes, Native-flavoured names.
+- Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces named per nation.
+- New World: wetter, 10 Tribes, provinces named per tribe.
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”, and fleets cross
   them as a move to the other world.
 - The HUD region button (`OLD WORLD ›` / `NEW WORLD ›`) swaps canvas, fog,
   fleets, civilians, works and camera bounds. Rosters and works persist per
-  region, and every region advances on end turn — including off-screen
-  battles. HUD chips are empire totals, and navy food upkeep counts every
-  region. The player keeps squadrons only where it owns provinces.
+  region; every region advances each turn, including off-screen battles.
+  HUD chips are empire totals; navy food upkeep counts every region. The
+  player keeps squadrons only where it owns provinces.
 
 ## Setup post-pass
 
