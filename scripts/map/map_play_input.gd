@@ -42,6 +42,12 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if province_id == MapModel.NO_ID:
 		deselect(play)
 		return
+	if (
+		play.visibility != null
+		and play.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN
+	):
+		deselect(play)
+		return
 	select_province(play, province_id, world_position)
 
 
@@ -190,5 +196,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 			MapPlayFleets.open_yard(play)
 		"build":
 			play.improvements.open(play.selected_province)
+		"upgrade_town":
+			MapPlayImprovements.upgrade_town(play, play.selected_province)
 		_:
 			play.hud.toast("Order noted in %s" % name)

@@ -123,7 +123,7 @@ func test_projection_leaves_research_untouched() -> void:
 func test_a_researched_gathering_tech_lifts_the_extraction_cap() -> void:
 	var model: MapModel = Fixture.build()
 	var works := LandWorks.new()
-	works.set_transport(model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
+	works.set_transport(model, Vector2i(0, 1), LandWorks.TRANSPORT_RAIL)
 	works.set_transport(model, Fixture.TIMBER_TILE, LandWorks.TRANSPORT_RAIL)
 	works.set_improvement(model, Fixture.TIMBER_TILE, 2)
 	var capped: Dictionary = Extraction.yields(

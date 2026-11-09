@@ -5,7 +5,11 @@ extends RefCounted
 ## sea. One segment per boundary edge (right/bottom checks only).
 
 ## Dictionary: owner id -> Array[PackedVector2Array] of unit segments.
-static func build(model: MapModel, tile_size: float = 1.0) -> Dictionary:
+## With a visibility model, an edge is drawn only when at least one of its two
+## tiles is charted (wiki: fog-and-exploration § App map boundaries).
+static func build(
+	model: MapModel, tile_size: float = 1.0, visibility: VisibilityModel = null
+) -> Dictionary:
 	var result: Dictionary = {}
 	if model == null:
 		return result
@@ -18,11 +22,24 @@ static func build(model: MapModel, tile_size: float = 1.0) -> Dictionary:
 				continue
 			var right: int = model.owner_at(x + 1, y)
 			if right != MapModel.NO_ID and right != owner:
-				_add(result, owner, _edge(x, y, 1, tile_size))
+				if _charted(visibility, model, x, y, x + 1, y):
+					_add(result, owner, _edge(x, y, 1, tile_size))
 			var below: int = model.owner_at(x, y + 1)
 			if below != MapModel.NO_ID and below != owner:
-				_add(result, owner, _edge(x, y, 2, tile_size))
+				if _charted(visibility, model, x, y, x, y + 1):
+					_add(result, owner, _edge(x, y, 2, tile_size))
 	return result
+
+
+## True when either side of the boundary has been charted by the viewer.
+static func _charted(
+	visibility: VisibilityModel, model: MapModel, ax: int, ay: int, bx: int, by: int
+) -> bool:
+	if visibility == null:
+		return true
+	var first: int = visibility.level_at(ax, ay)
+	var second: int = visibility.level_at(bx, by)
+	return first != VisibilityModel.Level.UNKNOWN or second != VisibilityModel.Level.UNKNOWN
 
 
 ## 0 = top, 1 = right, 2 = bottom, 3 = left, in world coordinates.

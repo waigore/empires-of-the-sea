@@ -111,6 +111,50 @@ func test_menu_save_load_and_return_flow() -> void:
 	assert_null(main.current_screen, "no map survives the return")
 
 
+func test_title_screen_mounts_a_living_backdrop() -> void:
+	var menu: MainMenu = main.current_page
+	assert_not_null(menu.backdrop, "title screen owns a living backdrop")
+	assert_eq(menu.backdrop.get_index(), 0, "backdrop paints behind every menu control")
+	assert_not_null(menu.backdrop.plate, "painted plate is the far plane")
+	assert_not_null(menu.backdrop.life, "gulls and embers layer exists")
+	assert_eq(menu.backdrop.ships.size(), 2, "two carracks ride the bay")
+
+
+func test_backdrop_covers_phone_desktop_and_short_windows() -> void:
+	var menu: MainMenu = main.current_page
+	var backdrop: MenuBackdrop = menu.backdrop
+	for view: Vector2 in [Vector2(1280, 720), Vector2(720, 1280), Vector2(2560, 1080)]:
+		backdrop.fit(view)
+		var rect: Rect2 = backdrop.stage_rect()
+		assert_true(rect.position.x <= 0.05, "stage is flush with the left edge")
+		assert_true(rect.position.y <= 0.05, "stage is flush with the top edge")
+		assert_true(rect.size.x >= view.x, "stage covers the full width")
+		assert_true(rect.size.y >= view.y, "stage covers the full height")
+
+
+func test_carrack_bobs_wraps_and_fades_at_the_lane_edge() -> void:
+	var menu: MainMenu = main.current_page
+	var ship: MenuShip = menu.backdrop.ships[1]
+	var start_y: float = ship.position.y
+	ship.advance(0.7)
+	assert_true(absf(ship.position.y - start_y) > 0.0, "hull rides the swell")
+	ship.bounds = Vector2(0.0, 1000.0)
+	ship.place_at(995.0)
+	assert_true(ship.modulate.a < 0.2, "hull dissolves before the lane edge")
+	ship.place_at(1001.0)
+	ship.advance(0.0)
+	assert_eq(ship.position.x, 0.0, "hull re-enters from the far edge")
+
+
+func test_ambient_life_keeps_gulls_and_embers() -> void:
+	var menu: MainMenu = main.current_page
+	var life: MenuLife = menu.backdrop.life
+	assert_eq(life._birds.size(), MenuLife.BIRD_COUNT)
+	assert_eq(life._embers.size(), MenuLife.EMBER_COUNT)
+	life._process(0.5)
+	assert_true(life._time > 0.0)
+
+
 func _start_game() -> void:
 	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page

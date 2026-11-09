@@ -1,7 +1,8 @@
 class_name MainMenu
 extends Control
 ## Title screen: the app's entry point (REQ-P5-01). New game, load a local
-## slot, and a dimmed settings door until that slice lands.
+## slot, and a dimmed settings door until that slice lands. The page sits on the
+## living dusk backdrop, so the first frame already shows the period world.
 
 signal new_game_pressed
 signal load_game_pressed
@@ -11,25 +12,30 @@ var new_game_button: Button = null
 var load_game_button: Button = null
 var settings_button: Button = null
 var quit_button: Button = null
+var backdrop: MenuBackdrop = null
 
 var _notice: Label = null
+var _title: Label = null
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = UiTheme.build()
-	MenuFrame.backdrop(self)
+	backdrop = MenuBackdrop.new()
+	backdrop.name = "Backdrop"
+	add_child(backdrop)
 	_build()
-	modulate.a = 0.0
-	var tween := create_tween()
-	tween.tween_property(self, "modulate:a", 1.0, 0.45).set_trans(Tween.TRANS_SINE)
+	_intro()
 
 
 func _build() -> void:
 	var box: VBoxContainer = MenuFrame.column(self, 460.0)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_child(MenuFrame.crest(88))
-	box.add_child(MenuFrame.title("EMPIRES OF THE SEA", 44))
+	_title = MenuFrame.title("EMPIRES OF THE SEA", 44)
+	_title.add_theme_color_override("font_outline_color", Color(0.02, 0.025, 0.04, 0.85))
+	_title.add_theme_constant_override("outline_size", 7)
+	box.add_child(_title)
 	box.add_child(MenuFrame.subtitle(
 		"Anno Domini MDXX  ·  the crowns look westward"
 	))
@@ -59,6 +65,30 @@ func _build() -> void:
 	var version := MenuFrame.caption("version %s" % GameVersion.as_string())
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(version)
+
+	_reveal([new_game_button, load_game_button, settings_button, quit_button])
+
+
+## Dissolves the page in and lets the entries arrive one after another, so the
+## title screen feels alive before the first input.
+func _intro() -> void:
+	modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE)
+	if _title != null:
+		var glow := create_tween().set_loops()
+		glow.tween_property(_title, "modulate:a", 0.70, 3.4).set_trans(Tween.TRANS_SINE)
+		glow.tween_property(_title, "modulate:a", 1.0, 3.4).set_trans(Tween.TRANS_SINE)
+
+
+func _reveal(controls: Array[Control]) -> void:
+	for i in controls.size():
+		var control: Control = controls[i]
+		var target: float = control.modulate.a
+		control.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_interval(0.18 + float(i) * 0.07)
+		tween.tween_property(control, "modulate:a", target, 0.40)
 
 
 ## Shown above the footer when a load cannot be read.

@@ -38,8 +38,9 @@ Do it in this order; each step is reviewable and testable alone.
    and armies.
 3. **Wiring.** Bind the lens on `PlaySession`, rebuild it from `MapPlaySetup`,
    refresh on signals and turn boundaries, never per frame.
-4. **Chrome.** Add a top-bar toggle (or reuse an existing mode control), an
-   `InputActions` shortcut, and a legend.
+4. **Chrome.** Add a shell toggle (the survey lens sits beside ESTATES; the
+   cartouche row is already at its measured budget), an `InputActions`
+   shortcut, and a legend.
 5. **Proof.** Pure suite + integration suite + a phone-layout assertion.
 
 ## 1. Projection (`scripts/rules/**`)
@@ -102,10 +103,16 @@ Do it in this order; each step is reviewable and testable alone.
 - Input: add `InputActions.LENS` (for example `KEY_L`) and route the keyboard
   and HUD button through one helper (`MapPlayInput.set_lens` / `toggle_lens`)
   so the toggle, key and unit fade never disagree.
+- Give the toggle a `ChromeIcons` medallion. The mobile suite asserts every
+  top-row button has an icon; a new mode with no existing medallion needs a
+  128 px PNG under `assets/art/icons/` (commit the generated `.import` too).
 - Top-bar budget is measured, not guessed: `HudLayout._row_width` must stay
-  under `viewport.x - 40`. Adding a button can push the stat chips onto the
-  second row at 1280 px and grow the bar from 68 to 92. Tighten separations
-  and button widths (or use a four-letter label) rather than moving the chips.
+  under `viewport.x - 40`. The cartouche already carries six icon+caption
+  buttons and five chips; a sixth full button pushes the stat chips onto the
+  second row at 1280 px and grows the bar from 68 to 92. Put map-mode toggles
+  in the left rail (beside ESTATES) or another measured slot, not the bar.
+- The survey toggle sits at `x = 186..242, y = 132..176` beside a narrowed
+  ESTATES door (`70..176`, min width 109); the key starts at `y = 186`.
 - Legend placement: desktop bottom-left under the ESTATES seal
   (`top = 186`); compact top-right under the bar (`maxf(66, bar + 8)`).
   Build it before toasts so transient messages stay above it.

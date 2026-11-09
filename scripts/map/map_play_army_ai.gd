@@ -45,45 +45,90 @@ static func _run_region(
 		for action: Dictionary in AiMilitaryPlanner.split_orders(
 			config, play.diplomacy, model, roster
 		):
-			var home: ArmyState = _army_by_id(roster, int(action["army_id"]), faction)
-			if home == null:
-				continue
-			var ids: Array[String] = []
-			ids.assign(action["regiments"])
-			var split: Dictionary = ArmyState.split(
-				roster, home, ids, play.army_layer.next_army
-			)
-			if not bool(split.get("ok", false)):
-				continue
-			var field: ArmyState = split["army"] as ArmyState
-			play.army_layer.next_army += 1
-			changed = true
-			trace.append({
-				"faction": faction,
-				"kind": AiMilitaryPlanner.KIND_SPLIT,
-				"army": field.id,
-				"province": field.province,
-			})
+			changed = _apply_split(play, roster, faction, action, trace) or changed
 		var plan: Dictionary = AiMilitaryPlanner.march_orders(
 			config, play.diplomacy, model, roster
 		)
-		for order: Dictionary in plan["orders"]:
-			var army: ArmyState = _army_by_id(roster, int(order["army_id"]), faction)
-			if army == null:
-				continue
-			var province: int = int(order["province"])
-			var march: Dictionary = ArmyMovement.apply_move(model, army, province, true)
-			if not bool(march.get("ok", false)):
-				continue
-			changed = true
-			trace.append({
-				"faction": faction,
-				"kind": AiMilitaryPlanner.KIND_MARCH,
-				"army": army.id,
-				"province": province,
-				"attacked": bool(march.get("attacked", false)),
-			})
-			_report_march(play, model, faction, province)
+		changed = _apply_marches(
+			play, model, roster, faction, plan, AiMilitaryPlanner.KIND_MARCH, trace
+		) or changed
+	# Minor Nations and Tribes take no offensive orders: they only send a relief
+	# column onto home soil an invader already holds (docs/ai.md).
+	var defenders: Array[int] = FactionCatalog.minor_ids()
+	defenders.append_array(FactionCatalog.tribe_ids())
+	for faction: int in defenders:
+		if faction == play.player_faction:
+			continue
+		for action: Dictionary in AiDefensePlanner.split_orders(
+			play.diplomacy, model, roster, faction
+		):
+			changed = _apply_split(play, roster, faction, action, trace) or changed
+		var plan: Dictionary = AiDefensePlanner.march_orders(
+			play.diplomacy, model, roster, faction
+		)
+		changed = _apply_marches(
+			play, model, roster, faction, plan, AiDefensePlanner.KIND_RELIEVE, trace
+		) or changed
+	return changed
+
+
+## Applies one detach through ArmyState.split, minting the next field army id.
+static func _apply_split(
+	play: PlaySession,
+	roster: Array[ArmyState],
+	faction: int,
+	action: Dictionary,
+	trace: Array[Dictionary]
+) -> bool:
+	var home: ArmyState = _army_by_id(roster, int(action["army_id"]), faction)
+	if home == null:
+		return false
+	var ids: Array[String] = []
+	ids.assign(action["regiments"])
+	var split: Dictionary = ArmyState.split(
+		roster, home, ids, play.army_layer.next_army
+	)
+	if not bool(split.get("ok", false)):
+		return false
+	var field: ArmyState = split["army"] as ArmyState
+	play.army_layer.next_army += 1
+	trace.append({
+		"faction": faction,
+		"kind": AiMilitaryPlanner.KIND_SPLIT,
+		"army": field.id,
+		"province": field.province,
+	})
+	return true
+
+
+## Applies each planned march through ArmyMovement so the rules own legality.
+static func _apply_marches(
+	play: PlaySession,
+	model: MapModel,
+	roster: Array[ArmyState],
+	faction: int,
+	plan: Dictionary,
+	kind: String,
+	trace: Array[Dictionary]
+) -> bool:
+	var changed: bool = false
+	for order: Dictionary in plan["orders"]:
+		var army: ArmyState = _army_by_id(roster, int(order["army_id"]), faction)
+		if army == null:
+			continue
+		var province: int = int(order["province"])
+		var march: Dictionary = ArmyMovement.apply_move(model, army, province, true)
+		if not bool(march.get("ok", false)):
+			continue
+		changed = true
+		trace.append({
+			"faction": faction,
+			"kind": kind,
+			"army": army.id,
+			"province": province,
+			"attacked": bool(march.get("attacked", false)),
+		})
+		_report_march(play, model, faction, province)
 	return changed
 
 

@@ -20,6 +20,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
+| [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
 | [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |

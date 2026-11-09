@@ -8,6 +8,7 @@ static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
 	_minimap(hud)
 	_zoom(hud)
+	_lens_button(hud)
 	_lens_key(hud)
 	_toasts(hud)
 	_end_turn(hud)
@@ -68,21 +69,40 @@ static func _zoom(hud: GameHud) -> void:
 	hud.add_child(box)
 	hud.zoom_box = box
 
-	var zoom_in := _square_button("+")
+	var zoom_in := _square_button("zoom_in", "Zoom in")
 	zoom_in.pressed.connect(func() -> void: hud.zoom_in_pressed.emit())
 	box.add_child(zoom_in)
 
-	var zoom_out := _square_button("−")
+	var zoom_out := _square_button("zoom_out", "Zoom out")
 	zoom_out.pressed.connect(func() -> void: hud.zoom_out_pressed.emit())
 	box.add_child(zoom_out)
 
 
-static func _square_button(text: String) -> Button:
+## Icon-only seal: the magnifier reads at a glance, the tooltip keeps it named.
+static func _square_button(icon_name: String, caption: String) -> Button:
 	var button := Button.new()
-	button.text = text
 	button.custom_minimum_size = Vector2(58, 46)
-	button.add_theme_font_size_override("font_size", 24)
+	button.tooltip_text = caption
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ChromeIcons.apply(button, icon_name, 30)
 	return button
+
+
+## The survey toggle lives beside the estates door: both are estate readings,
+## and the cartouche row is already at its measured width budget.
+static func _lens_button(hud: GameHud) -> void:
+	var button := Button.new()
+	button.toggle_mode = true
+	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	button.offset_left = 186.0
+	button.offset_top = 132.0
+	button.offset_right = 242.0
+	button.offset_bottom = 176.0
+	button.tooltip_text = "Resource survey lens (L)"
+	ChromeIcons.apply(button, "lens", 22)
+	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
+	hud.add_child(button)
+	hud._lens_button = button
 
 
 static func _lens_key(hud: GameHud) -> void:
@@ -124,6 +144,7 @@ static func _end_turn(hud: GameHud) -> void:
 	hud._end_turn_button.offset_bottom = -4.0
 	hud._end_turn_button.text = "END TURN"
 	hud._end_turn_button.add_theme_font_size_override("font_size", 20)
+	ChromeIcons.apply(hud._end_turn_button, "hourglass", 24)
 	hud._end_turn_button.add_theme_color_override("font_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_hover_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_pressed_color", Palette.INK)

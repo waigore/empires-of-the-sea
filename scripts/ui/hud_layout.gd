@@ -10,6 +10,11 @@ extends RefCounted
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
 const STACK_BAR_HEIGHT: float = 92.0
+## Shell pictograms shrink with the compact type so the cartouche still fits.
+const BAR_ICON_WIDE: int = 22
+const BAR_ICON_COMPACT: int = 20
+const BAR_ICON_GAP_WIDE: int = 6
+const BAR_ICON_GAP_COMPACT: int = 5
 ## Right edge of the cartouche's left rail (sound seal and estates seal sit here).
 const LEFT_RAIL: float = 258.0
 
@@ -43,12 +48,19 @@ func _bar(hud: GameHud, view: Vector2) -> void:
 	hud.top_row.add_theme_constant_override("separation", 8 if compact else 12)
 	if hud.bar_font != font:
 		hud.bar_font = font
+		var icon_size: int = BAR_ICON_COMPACT if compact else BAR_ICON_WIDE
+		var icon_gap: int = BAR_ICON_GAP_COMPACT if compact else BAR_ICON_GAP_WIDE
 		for node: Node in hud.top_row.get_children():
 			if node is Button:
-				(node as Button).add_theme_font_size_override("font_size", font)
+				var button := node as Button
+				button.add_theme_font_size_override("font_size", font)
+				if button.icon != null:
+					button.add_theme_constant_override("icon_max_width", icon_size)
+					button.add_theme_constant_override("h_separation", icon_gap)
 		# Theme changes mark the minimum size dirty for the next idle frame;
 		# re-run once so the stack decision is measured against the real widths.
 		hud.call_deferred("_relayout")
+	_fit_captions(hud, compact)
 	var stack: bool = _row_width(hud) > room
 	for chip: Control in hud.chips:
 		var target: Control = hud.chip_row if stack else hud.top_row
@@ -61,6 +73,26 @@ func _bar(hud: GameHud, view: Vector2) -> void:
 	elif compact:
 		height = GameHud.BAR_HEIGHT_COMPACT
 	hud.top_bar.offset_bottom = height
+
+
+## Secondary ledger doors lose their caption on a phone (their medallion keeps
+## the meaning and the tooltip the name); the wide cartouche restores it.
+func _fit_captions(hud: GameHud, compact: bool) -> void:
+	for node: Node in hud.top_row.get_children():
+		var button := node as Button
+		if button == null or not button.has_meta("compact_icon_only"):
+			continue
+		var caption: String = "" if compact else String(button.get_meta("caption", ""))
+		if button.text == caption:
+			continue
+		button.text = caption
+		button.icon_alignment = (
+			HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
+		)
+		button.custom_minimum_size.x = (
+			0.0 if compact else float(button.get_meta("min_width", 0.0))
+		)
+		hud.call_deferred("_relayout")
 
 
 ## Width the cartouche row needs with every chip on it, whatever their current

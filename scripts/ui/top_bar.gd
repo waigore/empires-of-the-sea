@@ -59,6 +59,8 @@ static func build(hud: GameHud) -> void:
 	region.custom_minimum_size = Vector2(0, 40)
 	region.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	region.tooltip_text = "Cycle Old World / New World"
+	ChromeIcons.apply(region, "globe", 22)
 	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
 	row.add_child(region)
 	hud._region_button = region
@@ -69,19 +71,9 @@ static func build(hud: GameHud) -> void:
 	focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	focus.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	focus.tooltip_text = "Focus capital (F)"
+	ChromeIcons.apply(focus, "capitol", 22)
 	focus.pressed.connect(func() -> void: hud.focus_capital_pressed.emit())
 	row.add_child(focus)
-
-	var survey := Button.new()
-	survey.text = "LENS"
-	survey.toggle_mode = true
-	survey.custom_minimum_size = Vector2(0, 42)
-	survey.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	survey.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
-	survey.tooltip_text = "Resource survey lens (L)"
-	survey.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
-	row.add_child(survey)
-	hud._lens_button = survey
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -91,6 +83,9 @@ static func build(hud: GameHud) -> void:
 	ledger.text = "LEDGER"
 	ledger.custom_minimum_size = Vector2(90, 40)
 	ledger.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	ledger.tooltip_text = "Treasury and production ledger"
+	ChromeIcons.apply(ledger, "ledger", 22)
+	_mark_icon_only_on_compact(ledger)
 	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
 	row.add_child(ledger)
 
@@ -98,6 +93,9 @@ static func build(hud: GameHud) -> void:
 	research.text = "RESEARCH"
 	research.custom_minimum_size = Vector2(104, 40)
 	research.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	research.tooltip_text = "Scholars and discoveries"
+	ChromeIcons.apply(research, "research", 22)
+	_mark_icon_only_on_compact(research)
 	research.pressed.connect(func() -> void: hud.research_pressed.emit())
 	row.add_child(research)
 
@@ -106,6 +104,8 @@ static func build(hud: GameHud) -> void:
 	court.tooltip_text = "Diplomacy"
 	court.custom_minimum_size = Vector2(86, 40)
 	court.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	ChromeIcons.apply(court, "crown", 22)
+	_mark_icon_only_on_compact(court)
 	court.pressed.connect(func() -> void: hud.diplomacy_pressed.emit())
 	row.add_child(court)
 
@@ -141,9 +141,9 @@ static func build(hud: GameHud) -> void:
 static func _chip(icon_kind: String, caption: String) -> Dictionary:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	row.custom_minimum_size = Vector2(84, 0)
+	row.custom_minimum_size = Vector2(78, 0)
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(Icon.new(icon_kind, 22, Palette.GOLD))
+	row.add_child(Icon.new(icon_kind, 20, Palette.GOLD))
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", -3)
@@ -157,9 +157,17 @@ static func _chip(icon_kind: String, caption: String) -> Dictionary:
 
 	var value := Label.new()
 	value.text = "0"
-	value.custom_minimum_size = Vector2(44, 0)
+	value.custom_minimum_size = Vector2(40, 0)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.add_theme_font_size_override("font_size", 18)
+	value.add_theme_font_size_override("font_size", 17)
 	value.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(value)
 	return {"root": row, "value": value}
+
+
+## Marks a secondary ledger door whose caption gives way to its medallion on a
+## phone, where the cartouche has no room for six labelled buttons (REQ-P1-05).
+static func _mark_icon_only_on_compact(button: Button) -> void:
+	button.set_meta("compact_icon_only", true)
+	button.set_meta("caption", button.text)
+	button.set_meta("min_width", button.custom_minimum_size.x)

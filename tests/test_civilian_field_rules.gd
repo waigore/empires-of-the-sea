@@ -266,6 +266,77 @@ func test_improvements_stop_at_level_four() -> void:
 	assert_true(String(check["reason"]).contains("fully improved"))
 
 
+func test_builder_upgrades_the_town_with_national_bureaucracy() -> void:
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var blocked: Dictionary = _validate(builder, "upgrade_town")
+	assert_false(bool(blocked["ok"]))
+	assert_true(String(blocked["reason"]).contains("National Bureaucracy"))
+	var tech := {"national_bureaucracy": true}
+	var check: Dictionary = _validate(builder, "upgrade_town", tech)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(check["cost"], {"lumber": 4, "castIron": 4})
+	assert_eq(int(check["duration"]), 2)
+	CivilianWork.assign(
+		_model, builder, "upgrade_town", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_eq(int(_stock["lumber"]), 36)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_eq(_model.provinces[0].town_development, 2)
+
+
+func test_town_upgrades_only_on_the_town_tile_and_stop_at_four() -> void:
+	var builder := _add("builder", Fixture.TIMBER_TILE)
+	var tech := {"national_bureaucracy": true}
+	var wrong: Dictionary = _validate(builder, "upgrade_town", tech)
+	assert_false(bool(wrong["ok"]))
+	assert_true(String(wrong["reason"]).contains("town tile"))
+	_model.provinces[0].town_development = 4
+	var capped: Dictionary = CivilianWork.validate(
+		_model, Fixture.unit("builder", Fixture.BARE_TILE), "upgrade_town",
+		_works, _units, _stock, _view, CivilianState.NO_TILE, {}, tech
+	)
+	assert_false(bool(capped["ok"]))
+	assert_true(String(capped["reason"]).contains("fully developed"))
+
+
+func test_town_order_dispatches_the_nearest_builder() -> void:
+	_model.provinces[0].town_tile = Fixture.BARE_TILE
+	var builder := _add("builder", Fixture.TIMBER_TILE)
+	var tech := {"national_bureaucracy": true}
+	var result: Dictionary = ImprovementOrders.upgrade_town(
+		_model, _units, _works, _stock, _view, 0, Fixture.BARE_TILE, tech
+	)
+	assert_true(bool(result["ok"]), String(result.get("message", "")))
+	assert_true(builder.is_working())
+	assert_eq(builder.work_tile(), Fixture.BARE_TILE)
+	assert_eq(builder.work_action(), "upgrade_town")
+
+
+func test_town_order_reports_a_missing_builder() -> void:
+	_model.provinces[0].town_tile = Fixture.BARE_TILE
+	var result: Dictionary = ImprovementOrders.upgrade_town(
+		_model, _units, _works, _stock, _view, 0, Fixture.BARE_TILE,
+		{"national_bureaucracy": true}
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["message"]).contains("No idle Builder"))
+
+
+func test_scrub_forest_caps_timber_improvements() -> void:
+	var builder := _add("builder", Fixture.TIMBER_TILE)
+	var index: int = _model.index_of(Fixture.TIMBER_TILE.x, Fixture.TIMBER_TILE.y)
+	_model.terrain[index] = MapModel.Terrain.SCRUB_FOREST
+	_works.set_improvement(_model, Fixture.TIMBER_TILE, 1)
+	var check: Dictionary = CivilianWork.validate(
+		_model, builder, "build_improvement", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {"timber": 4}, {"circular_saw": true}
+	)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("Terrain caps"))
+
+
 func test_one_crew_per_tile() -> void:
 	var first := _add("builder", Fixture.TIMBER_TILE)
 	var second := _add("builder", Fixture.TIMBER_TILE)
@@ -382,7 +453,7 @@ func test_rail_terrain_techs_gate_hills_swamps_and_mountains() -> void:
 	assert_false(bool(mountains_locked["ok"]))
 	assert_true(String(mountains_locked["reason"]).contains("Dynamite"))
 	assert_true(bool(_validate(rail, "build_rail", powder)["ok"]))
-	_model.terrain[index] = MapModel.Terrain.FOREST
+	_model.terrain[index] = MapModel.Terrain.HARDWOOD_FOREST
 	assert_true(bool(_validate(rail, "build_rail", early)["ok"]), "forest is flat ground")
 
 
@@ -805,12 +876,13 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	assert_eq(int(counts["improved"]), 2)
 	assert_eq(int(counts["producing"]), 1)
 	assert_eq(int(counts["idle_builders"]), 1)
-	assert_eq(snap["totals"], {"timber": 2})
+	assert_eq(snap["totals"], {"timber": 1})
 	var timber: Dictionary = _row_at(snap, Fixture.TIMBER_TILE)
 	assert_eq(String(timber["name"]), "Lumber camp (L2)")
 	assert_eq(String(timber["status"]), "producing")
 	assert_true(bool(timber["can_build"]))
-	assert_eq(int(timber["output"]), 2)
+	assert_eq(int(timber["output"]), 1)
+	assert_true(String(timber["status_text"]).contains("transport cap 1"))
 	var iron: Dictionary = _row_at(snap, Fixture.IRON_TILE)
 	assert_eq(String(iron["status"]), "unprospected")
 	assert_false(bool(iron["can_build"]))

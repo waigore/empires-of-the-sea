@@ -157,7 +157,11 @@ static func terrain_for(height_value: float, wet: float, new_world: bool) -> int
 		if height_value > 0.26:
 			return MapModel.Terrain.HILLS
 		if wet > 0.10:
-			return MapModel.Terrain.FOREST
+			return (
+				MapModel.Terrain.SCRUB_FOREST
+				if wet > 0.22
+				else MapModel.Terrain.HARDWOOD_FOREST
+			)
 		if wet < -0.40:
 			return MapModel.Terrain.DESERT
 		if wet > -0.06:
@@ -168,7 +172,11 @@ static func terrain_for(height_value: float, wet: float, new_world: bool) -> int
 	if height_value > 0.22:
 		return MapModel.Terrain.HILLS
 	if wet > 0.28:
-		return MapModel.Terrain.FOREST
+		return (
+			MapModel.Terrain.SCRUB_FOREST
+			if wet > 0.42
+			else MapModel.Terrain.HARDWOOD_FOREST
+		)
 	if wet < -0.34:
 		return MapModel.Terrain.DESERT
 	if wet > 0.12 and height_value < -0.2:
