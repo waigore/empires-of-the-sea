@@ -20,7 +20,7 @@ static func capture(play: PlaySession) -> Dictionary:
 		"game_version": GameVersion.as_string(),
 		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"session": _capture_session(play),
-		"regions": _capture_regions(play.world),
+		"regions": SaveWorld.capture(play.world),
 		"visibility": _capture_visibility(play),
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
@@ -53,34 +53,6 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"infinite_mode": play.infinite_mode,
 		"campaign_halted": play.campaign_halted,
 	}
-
-
-static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
-	var regions: Array[Dictionary] = []
-	for model: MapModel in world.regions:
-		var provinces: Array[Dictionary] = []
-		for province: ProvinceState in model.provinces:
-			var province_entry: Dictionary = {
-				"id": province.id,
-				"owner": province.owner,
-				"capital": province.capital,
-				"town_development": province.town_development,
-				"fort_level": province.fort_level,
-				"resource": province.resource,
-				"resource_tile": province.resource_tile,
-				"population": province.population,
-				"road_paths": province.road_paths.duplicate(true),
-			}
-			provinces.append(province_entry)
-		var region_entry: Dictionary = {
-			"width": model.width,
-			"height": model.height,
-			"provinces": provinces,
-			"resources": model.resource.duplicate(),
-			"tile_deeds": model.ownership.to_dict(),
-		}
-		regions.append(region_entry)
-	return regions
 
 
 static func _capture_visibility(play: PlaySession) -> Dictionary:
@@ -162,7 +134,15 @@ static func summary(data: Dictionary) -> Dictionary:
 ## Rebuilds the world and the session's mutable state before the screen loads
 ## its first region. The caller then builds the HUD and calls the two economy
 ## and diplomacy restorers (they need the freshly created nodes).
-static func restore(play: PlaySession, data: Dictionary) -> bool:
+##
+## `reuse` lets a caller hand over an already generated world (a MapScreen
+## preset) so a load does not regenerate it. Generation is the single most
+## expensive step under coverage; the saved ownership, resources and deeds are
+## still applied on top. The world is only reused when its region sizes match
+## the save; seed identity cannot be checked (WorldMap stores no seed), so
+## callers must pass a world generated for the save's seed — tests pass their
+## shared fixture.
+static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null) -> bool:
 	if play == null or not is_valid(data):
 		return false
 	var session: Dictionary = data.get("session", {})
@@ -185,10 +165,12 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.victory = _victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 
-	var world: WorldMap = MapGenerator.new().generate_world(
-		play.map_seed, play.map_width, play.map_height
-	)
-	if not _apply_regions(world, data.get("regions", [])):
+	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
+	if world == null:
+		world = MapGenerator.new().generate_world(
+			play.map_seed, play.map_width, play.map_height
+		)
+	if not SaveWorld.apply(world, data.get("regions", [])):
 		return false
 	play.world = world
 	play.region_index = clampi(int(session.get("region_index", 0)), 0, world.region_count() - 1)
@@ -201,64 +183,6 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 			_dictionary(data.get("generals", {}))
 		)
 	_restore_visibility(play, data.get("visibility", {}))
-	return true
-
-
-static func _apply_regions(world: WorldMap, regions: Variant) -> bool:
-	if typeof(regions) != TYPE_ARRAY or regions.size() != world.region_count():
-		return false
-	for index in world.region_count():
-		var entry: Variant = regions[index]
-		if typeof(entry) != TYPE_DICTIONARY:
-			return false
-		var model: MapModel = world.region(index)
-		var data: Dictionary = entry
-		if int(data.get("width", 0)) != model.width or int(data.get("height", 0)) != model.height:
-			return false
-		var provinces: Array = data.get("provinces", [])
-		if provinces.size() != model.provinces.size():
-			return false
-		for raw: Variant in provinces:
-			if typeof(raw) != TYPE_DICTIONARY:
-				return false
-			if not _apply_province(model, raw):
-				return false
-		if not _apply_resources(model, data.get("resources", PackedInt32Array())):
-			return false
-		model.ownership.apply_dict(data.get("tile_deeds", {}))
-	return true
-
-
-static func _apply_province(model: MapModel, data: Dictionary) -> bool:
-	var province: ProvinceState = model.get_province(int(data.get("id", -1)))
-	if province == null:
-		return false
-	province.owner = int(data.get("owner", MapModel.NO_ID))
-	province.capital = bool(data.get("capital", false))
-	province.town_development = int(data.get("town_development", 0))
-	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
-	province.resource = int(data.get("resource", MapModel.NO_ID))
-	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
-	province.population = int(data.get("population", 0))
-	var paths: Variant = data.get("road_paths", [])
-	if typeof(paths) != TYPE_ARRAY:
-		return false
-	province.road_paths = paths.duplicate(true)
-	return true
-
-
-static func _apply_resources(model: MapModel, raw: Variant) -> bool:
-	var wanted: int = model.width * model.height
-	if typeof(raw) == TYPE_PACKED_INT32_ARRAY:
-		var packed: PackedInt32Array = raw
-		if packed.size() != wanted:
-			return false
-		model.resource = packed
-		return true
-	if typeof(raw) != TYPE_ARRAY or raw.size() != wanted:
-		return false
-	for index in wanted:
-		model.resource[index] = int(raw[index])
 	return true
 
 

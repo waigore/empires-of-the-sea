@@ -9,13 +9,23 @@ const CAP: int = 201
 const SAVE_DIR: String = "user://test_campaign_end"
 
 var screen: MapScreen = null
+## Ownership as the shared world was generated: `_seat_crowns` rewrites owners,
+## so each case starts from the same pristine world instead of a new one.
+var saved: Array = []
+
+
+## Snapshotted before any case touches the fixture, so the base is a clean world.
+func before_all() -> void:
+	saved = Fixture.snapshot(Fixture.world())
 
 
 func before_each() -> void:
+	Fixture.restore(Fixture.world(), saved)
 	screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:
+	Fixture.restore(Fixture.world(), saved)
 	if is_instance_valid(screen):
 		screen.free()
 	screen = null

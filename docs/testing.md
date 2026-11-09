@@ -25,6 +25,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
 - Cache shared maps in `before_all` on **non-underscore** vars.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
+- Saving and loading is the hottest integration path: a preset world is reused by
+  `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
+  buy deeds snapshot it (`MapFixture.snapshot` / `restore`) rather than build a world.
 - One Godot boot per theme; keep suite count low under coverage.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
