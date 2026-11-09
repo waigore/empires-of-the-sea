@@ -841,5 +841,5 @@ func test_quick_battle_copy_names_the_victor() -> void:
 			battle,
 			names
 		),
-		"España — Assault · 1 lost · 1 gun silenced"
+		"España — Assault · 2 lost · 1 of its own · 1 gun silenced"
 	)
