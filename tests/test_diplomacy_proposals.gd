@@ -125,6 +125,14 @@ func test_a_peace_proposal_needs_a_war() -> void:
 	assert_false(refused["ok"], "white peace is offered only to a court at war")
 
 
+func test_only_a_great_power_may_propose() -> void:
+	state.relation(0, 6).at_war = true
+	var minor: Dictionary = DiplomacyProposals.queue(
+		state, null, 6, DiplomacyProposals.KIND_PEACE
+	)
+	assert_false(minor["ok"], "a Minor keeps no court to treat with")
+
+
 func test_an_ai_court_proposes_peace_and_waits() -> void:
 	var fresh := DiplomacyState.new()
 	fresh.reset(1)
