@@ -122,3 +122,109 @@ func test_copy_is_independent() -> void:
 	assert_eq(_state.progress_of("crop_rotation"), 0)
 	assert_false(_state.is_unlocked("saw_mill"))
 	assert_eq(clone.tech_at(0), "crop_rotation")
+
+
+# --- tech unlocks ---
+## One tech -> one answer for every build order it opens (wiki: tech-tree
+## § Effect Types; tech-tree-military, -naval, -transport, civilian-units).
+## The ledger text and the gate tables are checked against each other so a
+## researched tech can never open a door the player was not told about.
+
+
+func test_regiments_derive_from_the_training_catalog() -> void:
+	assert_true(_has_unlock("organised_regiments", "lancers"), "Lancers")
+	assert_true(_has_unlock("bayonet", "regulars"), "Regulars")
+	assert_false(_has_unlock("organised_regiments", "regulars"), "a tech names only its own row")
+	assert_true(TechUnlocks.lines("organised_regiments")[0].contains("Lancers regiment"))
+
+
+func test_every_gated_regiment_is_named_by_its_tech() -> void:
+	for type_id: String in RegimentEconomy.TECH.keys():
+		var tech_id: String = String(RegimentEconomy.TECH[type_id])
+		if tech_id.is_empty():
+			continue
+		assert_true(_has_unlock(tech_id, type_id), "%s must name %s" % [tech_id, type_id])
+
+
+func test_every_gated_hull_is_named_by_its_tech() -> void:
+	for type_id: String in ShipEconomy.TECH.keys():
+		var tech_id: String = String(ShipEconomy.TECH[type_id])
+		if tech_id.is_empty():
+			continue
+		assert_true(_has_unlock(tech_id, type_id), "%s must name %s" % [tech_id, type_id])
+	assert_true(_has_unlock("superior_hull_design", "fluyte"))
+	assert_true(TechUnlocks.lines("superior_hull_design")[0].contains("Fluyte hull"))
+
+
+func test_civilians_and_worker_tiers_are_named() -> void:
+	assert_true(_has_unlock("merchant_companies", "merchant"))
+	assert_true(_has_unlock("early_steam_engine", "rail_builder"))
+	for tier in range(1, WorkerPool.TIER_COUNT):
+		for tech_id: String in WorkerPool.required_techs(tier):
+			assert_true(
+				_has_unlock(tech_id, "worker_%d" % tier),
+				"%s names tier %d" % [tech_id, tier]
+			)
+
+
+func test_forts_and_emplaced_batteries_are_enables() -> void:
+	var fort: Dictionary = _unlock("mine_engineering", "fort_2")
+	assert_eq(int(fort.get("kind", -1)), TechUnlocks.Kind.ENABLE)
+	assert_true(_has_unlock("modern_forts", "fort_3"))
+	assert_true(_has_unlock("heavy_emplaced_artillery", "emplaced_heavy_artillery"))
+	assert_true(_has_unlock("emplaced_siege_guns", "emplaced_siege_guns"))
+	assert_true(TechUnlocks.lines("modern_forts")[0].contains("fort level 3"))
+
+
+func test_rail_and_road_orders_follow_the_terrain_techs() -> void:
+	assert_true(_has_unlock("road_construction", "road_level_2"), "improved roads")
+	assert_true(_has_unlock("early_steam_engine", "rail_flat"), "flat terrain")
+	assert_true(_has_unlock("later_steam_engine", "rail_hills"), "hills and swamps")
+	assert_true(_has_unlock("dynamite", "rail_mountains"), "mountains")
+	assert_false(_has_unlock("early_steam_engine", "rail_hills"), "hills need the later engine")
+	assert_eq(CivilianTransport.rail_tech_for(MapModel.Terrain.MOUNTAINS), "dynamite")
+	assert_eq(CivilianTransport.rail_tech_for(MapModel.Terrain.PLAINS), "early_steam_engine")
+
+
+func test_the_general_cap_is_an_improvement() -> void:
+	var cap: Dictionary = _unlock("organised_regiments", "general_cap")
+	assert_eq(int(cap.get("kind", -1)), TechUnlocks.Kind.IMPROVE)
+	assert_eq(String(cap.get("name", "")), "general cap to 2")
+	assert_true(_has_unlock("nationalism", "general_cap"), "Nationalism raises the cap to 4")
+
+
+func test_effect_text_names_the_unlocked_orders() -> void:
+	var troops: String = TechCatalog.effect_text("organised_regiments")
+	assert_true(troops.contains("Lancers regiment"), troops)
+	assert_true(troops.contains("general cap to 2"), troops)
+	assert_true(TechCatalog.effect_text("superior_hull_design").contains("Fluyte hull"))
+	assert_true(TechCatalog.effect_text("road_construction").contains("transport level 2"))
+	assert_true(TechCatalog.effect_text("later_steam_engine").contains("hills and swamps"))
+
+
+## Wiki: tech-tree-gathering § Acceptance Criteria — every row carries at least
+## one fixed-field phrase and no generic fallback.
+func test_every_tech_has_a_fixed_field_phrase() -> void:
+	var phrases: Array[String] = ["Unlocks:", "Improves:", "Enables:", "Prerequisite-only:"]
+	for tech_id: String in TechCatalog.ids():
+		var text: String = TechCatalog.effect_text(tech_id)
+		var found: bool = false
+		for phrase: String in phrases:
+			found = found or text.contains(phrase)
+		assert_true(found, tech_id)
+
+
+func test_gate_tables_only_name_catalog_techs() -> void:
+	var errors: Array[String] = TechAudit.validate()
+	assert_true(errors.is_empty(), ", ".join(errors))
+
+
+func _unlock(tech_id: String, id: String) -> Dictionary:
+	for row: Dictionary in TechUnlocks.entries(tech_id):
+		if String(row["id"]) == id:
+			return row
+	return {}
+
+
+func _has_unlock(tech_id: String, id: String) -> bool:
+	return not _unlock(tech_id, id).is_empty()

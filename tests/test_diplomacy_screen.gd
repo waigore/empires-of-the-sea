@@ -242,6 +242,27 @@ func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> v
 	assert_true(play.ai.overture_on_cooldown(2, 0, turn_before, 2))
 
 
+func test_a_rival_peace_offer_suspends_the_turn_and_the_answer_ends_the_war() -> void:
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	play.ai = AiState.new()
+	DiplomacyRules.declare_war(state, 2, 0)
+	DiplomacyProposals.queue(state, play.world, 2, DiplomacyProposals.KIND_PEACE)
+	var turn_before: int = play.turn
+	MapPlayTurn.end_turn(play)
+	assert_true(play.turn_suspended, "the calendar waits for the answer")
+	assert_eq(play.turn, turn_before)
+	assert_true(state.relation(0, 2).at_war, "the war holds until the answer")
+	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	assert_false(state.relation(0, 2).at_war, "the answer concludes the peace")
+	assert_false(play.turn_suspended)
+	assert_eq(play.turn, turn_before + 1)
+	assert_true(
+		play.ai.peace_on_cooldown(2, 0, turn_before, 3),
+		"the answer starts the peace-offer cooldown (DR-20261109-07)"
+	)
+
+
 func _field_army() -> ArmyState:
 	for army: ArmyState in _screen.play.army_layer.armies.duplicate():
 		if army.owner == 0 and army.home and army.count() > 1:

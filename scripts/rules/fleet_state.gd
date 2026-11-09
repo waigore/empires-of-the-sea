@@ -17,6 +17,10 @@ var province: int = MapModel.NO_ID
 var moved: bool = false
 var hulls: Array[String] = []
 var hull_types: Dictionary = {}
+## Army instance id carried aboard, or -1 (wiki: ships-and-naval § Naval
+## transport; DR-20261109-08). One army per squadron; each hull carries one
+## regiment.
+var embarked_army: int = -1
 
 
 static func at_sea(
@@ -159,6 +163,7 @@ func to_dict() -> Dictionary:
 		"moved": moved,
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
+		"embarked_army": embarked_army,
 	}
 
 
@@ -170,6 +175,7 @@ static func from_dict(data: Dictionary) -> FleetState:
 	fleet.sea_zone = int(data.get("sea_zone", MapModel.NO_ID))
 	fleet.province = int(data.get("province", MapModel.NO_ID))
 	fleet.moved = bool(data.get("moved", false))
+	fleet.embarked_army = int(data.get("embarked_army", -1))
 	var names: Array[String] = []
 	for raw: Variant in data.get("hulls", []):
 		names.append(String(raw))

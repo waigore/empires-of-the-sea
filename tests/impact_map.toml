@@ -47,6 +47,7 @@ suites = [
 suites = [
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
+  "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
 ]

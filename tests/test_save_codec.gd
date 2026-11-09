@@ -196,6 +196,7 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	play.ai = AiState.new()
 	play.ai.agenda_for(AiConfig.build(2, 1))
 	play.ai.note_war(play.player_faction, 2, play.turn)
+	play.ai.note_peace(play.player_faction, 2, play.turn)
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveStore.write(DIR + "/generals.sav", data), "save file is written")
@@ -219,6 +220,10 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	assert_true(
 		play.ai.war_on_cooldown(play.player_faction, 2, play.turn, 4),
 		"a load does not restart the war cooldown (wiki: diplomacy § Cooldowns)"
+	)
+	assert_true(
+		play.ai.peace_on_cooldown(play.player_faction, 2, play.turn, 3),
+		"a load does not restart the peace-offer cooldown (DR-20261109-07)"
 	)
 
 

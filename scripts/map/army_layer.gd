@@ -1,16 +1,14 @@
 class_name ArmyLayer
 extends Node2D
-## Owns land army markers and applies army orders. Rules outcomes come from
-## ArmyMovement and ArmyCombat; this layer only animates them, keeps one
-## roster per region, and reports outcomes (wiki: military-armies, combat).
+## Owns land army markers and applies army orders; rules come from ArmyMovement
+## and ArmyCombat, this layer only animates and reports them (wiki: military-armies).
 
 signal army_selected(army: ArmyState)
 signal army_moved(army: ArmyState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
 const MARKER_RADIUS: float = 30.0
-## Opening musters. The wiki fixes the Home Army's existence and station, not
-## its size; these small era-1 guards keep land combat playable at turn one.
+## Opening musters; the wiki fixes the Home Army's existence, not its size.
 const GREAT_POWER_ROSTER: Array[String] = [
 	"peasant_levies", "peasant_levies", "pikemen", "arquebusiers", "squires"
 ]
@@ -84,7 +82,7 @@ func _muster(owner: int, province: int, home: bool, types: Array[String]) -> Arm
 	next_army += 1
 	next_regiment += types.size()
 	armies.append(army)
-	_add_marker(army)
+	add_marker(army)
 	return army
 
 
@@ -93,12 +91,12 @@ func _rebuild_markers() -> void:
 		marker.queue_free()
 	markers.clear()
 	for army: ArmyState in armies:
-		_add_marker(army)
-	_place_all()
+		add_marker(army)
+	place_all()
 
 
-func _add_marker(army: ArmyState) -> void:
-	if marker_for(army) != null:
+func add_marker(army: ArmyState) -> void:
+	if army == null or army.is_embarked() or marker_for(army) != null:
 		return
 	var marker := ArmyMarker.new()
 	marker.army_id = army.id
@@ -108,14 +106,14 @@ func _add_marker(army: ArmyState) -> void:
 	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
 	add_child(marker)
 	markers.append(marker)
-	_place_all()
+	place_all()
 
 
 ## Stacks armies sharing a province in a short row so each standard is legible.
-func _place_all() -> void:
+func place_all() -> void:
 	var groups: Dictionary = {}
 	for army: ArmyState in armies:
-		if army == null:
+		if army == null or army.is_embarked():
 			continue
 		var group: Array[ArmyState] = []
 		group.assign(groups.get(army.province, []))
@@ -203,7 +201,7 @@ func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary
 		tween.tween_property(marker, "position", _province_position(army.province), 0.38).set_trans(
 			Tween.TRANS_CUBIC
 		).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_callback(_place_all)
+		tween.tween_callback(place_all)
 	army_moved.emit(army, result)
 	return result
 
@@ -214,10 +212,10 @@ func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
 	if not bool(result.get("ok", false)):
 		return result
 	next_army += 1
-	_prune_markers()
+	prune_markers()
 	var created: ArmyState = result["army"] as ArmyState
-	_add_marker(created)
-	_place_all()
+	add_marker(created)
+	place_all()
 	return result
 
 
@@ -241,7 +239,7 @@ func combine(army: ArmyState) -> Dictionary:
 		if marker != null:
 			markers.erase(marker)
 			marker.queue_free()
-	_place_all()
+	place_all()
 	return result
 
 
@@ -268,7 +266,7 @@ func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 	if marker != null:
 		marker.refresh(home.count(), home.home)
 		marker.visible = true
-	_place_all()
+	place_all()
 	return result
 
 
@@ -327,14 +325,14 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		regions.set_region(index, region_armies)
 		if model != null and index == model.region_id:
 			armies = region_armies
-			_prune_markers()
+			prune_markers()
 		for battle: Dictionary in battles:
 			battle["region"] = index
 			all.append(battle)
 	return all
 
 
-func _prune_markers() -> void:
+func prune_markers() -> void:
 	var kept: Array[ArmyMarker] = []
 	for marker: ArmyMarker in markers:
 		var army: ArmyState = null
@@ -351,7 +349,7 @@ func _prune_markers() -> void:
 	if selected_army != null and not armies.has(selected_army):
 		selected_army = null
 		army_selected.emit(null)
-	_place_all()
+	place_all()
 
 
 ## Regiments for one faction across every region: the HUD counts them all.
@@ -384,6 +382,9 @@ func sync_visibility(visibility: VisibilityModel, player_faction: int) -> void:
 	for army: ArmyState in armies:
 		var marker: ArmyMarker = marker_for(army)
 		if marker == null:
+			continue
+		if army.is_embarked():
+			marker.visible = false
 			continue
 		if army.owner == player_faction or visibility == null:
 			marker.visible = army.count() > 0

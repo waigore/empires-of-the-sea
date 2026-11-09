@@ -66,7 +66,8 @@ static func war_desire(
 
 
 ## One action for one court: the highest-desire legal war, else a white peace
-## with a fellow AI court when continuing the war scores below the base desire.
+## when continuing the war scores below the base desire — applied at once to a
+## fellow AI court, queued for the human court's answer to the player.
 static func decide(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -96,10 +97,16 @@ static func decide(
 			"blocked": "",
 		}
 		if record.at_war:
-			if target == player:
-				entry["blocked"] = "human decision required"
-			elif int(desire["score"]) >= base:
+			if int(desire["score"]) >= base:
 				entry["blocked"] = "war still worth waging"
+			elif target == player:
+				# The human keeps consent: a rival queues the offer and waits
+				# (wiki: diplomacy § Planner selection; DR-20261109-07).
+				entry["blocked"] = _peace_block(config, state, ai_state, turn, target)
+				if String(entry["blocked"]).is_empty():
+					entry["propose"] = true
+					if best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
+						best_peace = entry
 			elif ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 				entry["blocked"] = "war cooldown"
 			elif best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
@@ -142,6 +149,8 @@ static func decide(
 			"target": int(best_peace["target"]),
 			"desire": int(best_peace["desire"]),
 		}
+		if bool(best_peace.get("propose", false)):
+			action["propose"] = true
 	elif not best_offer.is_empty():
 		action = best_offer.duplicate()
 	return {"action": action, "candidates": candidates}
@@ -302,6 +311,23 @@ static func _offer_candidate(
 				"improve": improve,
 			}
 	return best
+
+
+## Why this court cannot put a white peace to the human court right now ("" when
+## it may). A queued proposal waits for the answer, so a second one would only
+## be refused by the court queue (DR-20261109-07).
+static func _peace_block(
+	config: AiConfig, state: DiplomacyState, ai_state: AiState, turn: int, target: int
+) -> String:
+	if DiplomacyProposals.has_pending(state, target):
+		return "the court is already considering a proposal"
+	var cooldown: int = config.parameter("diplomacy.peace_cooldown_turns")
+	if ai_state.peace_on_cooldown(config.faction, target, turn, cooldown):
+		return "peace cooldown"
+	var check: Dictionary = DiplomacyRules.can_make_peace(state, config.faction, target)
+	if not bool(check.get("ok", false)):
+		return String(check.get("reason", "illegal"))
+	return ""
 
 
 ## Why this court will not declare war right now ("" when it may).

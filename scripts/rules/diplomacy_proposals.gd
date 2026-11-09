@@ -1,19 +1,22 @@
 class_name DiplomacyProposals
 extends RefCounted
-## Rival proposals that need the human court's answer: an alliance offer or the
-## next overture in the chain (wiki: diplomacy § GP AI policy — the AI never
-## resolves a decision the human must make). Pure rules: state in, answer out;
-## the turn resolver and the court panel share this module (REQ-P3-03).
+## Rival proposals that need the human court's answer: an alliance offer, the
+## next overture in the chain, or a white peace (wiki: diplomacy § GP AI policy
+## — the AI never resolves a decision the human must make). Pure rules: state
+## in, answer out; the turn resolver and the court panel share this module
+## (REQ-P3-03).
 
 const KIND_ALLIANCE: String = "alliance"
 const KIND_OVERTURE: String = "overture"
+const KIND_PEACE: String = "peace"
 const KIND_ACCEPT: String = "accept_offer"
 const KIND_REFUSE: String = "refuse_offer"
 
 
 ## Queues one proposal from a rival court. Only free overture stages can be
 ## offered while rival treasuries stay untracked, so a Consulate/Embassy/Join
-## Empire offer waits for the AI economy.
+## Empire offer waits for the AI economy. A white-peace proposal is legal only
+## while the pair is at war (wiki: diplomacy § Court proposals).
 static func queue(
 	state: DiplomacyState, world: WorldMap, from_id: int, kind: String, stage: String = ""
 ) -> Dictionary:
@@ -22,6 +25,8 @@ static func queue(
 	var human: int = state.human_faction
 	if from_id == human:
 		return _deny("A court cannot propose to itself.")
+	if FactionCatalog.type_of(from_id) != FactionCatalog.Type.GREAT_POWER:
+		return _deny("Only a Great Power keeps a court to treat with.")
 	if has_pending(state, human):
 		return _deny("The court already has a proposal to answer.")
 	if not state.has_relation(from_id, human):
@@ -36,12 +41,14 @@ static func queue(
 			check = DiplomacyRules.can_establish_overture(
 				state, world, from_id, human, stage, 0, {}
 			)
+		KIND_PEACE:
+			check = DiplomacyRules.can_make_peace(state, from_id, human)
 		_:
 			return _deny("Unknown proposal.")
 	if not bool(check.get("ok", false)):
 		return check
 	state.pending_offers.append({"from": from_id, "kind": kind, "stage": stage})
-	state.record_event("offerMade", from_id, human, {"kind": kind, "stage": stage})
+	state.record_event("proposalMade", from_id, human, {"kind": kind, "stage": stage})
 	return {"ok": true, "reason": "", "from": from_id, "kind": kind, "stage": stage}
 
 
@@ -93,11 +100,22 @@ static func resolve_human(
 		result = DiplomacyRules.establish_overture(
 			state, null, world, from_id, state.human_faction, stage, {}, decision
 		)
+	elif kind == KIND_PEACE:
+		# The human answers the rival's offer; a refusal leaves the war and the
+		# relation score untouched (wiki: diplomacy § GP–GP Rules — peace needs
+		# both sides).
+		result = DiplomacyRules.make_peace(
+			state, state.human_faction, from_id, decision
+		)
+		if bool(result.get("ok", false)) and not bool(result.get("accepted", true)):
+			result["message"] = (
+				"The white peace with %s is refused." % FactionCatalog.name_of(from_id)
+			)
 	else:
 		return _deny("Unknown proposal.")
 	if bool(result.get("ok", false)):
 		state.record_event(
-			"offerAccepted" if accept else "offerRefused",
+			"proposalAccepted" if accept else "proposalRefused",
 			from_id,
 			state.human_faction,
 			{"kind": kind, "stage": stage}
@@ -108,10 +126,13 @@ static func resolve_human(
 	return result
 
 
-## Player-facing phrase: "a formal alliance" / "the Non-Aggression Pact".
+## Player-facing phrase: "a formal alliance" / "the Non-Aggression Pact" /
+## "a white peace".
 static func describe(kind: String, stage: String) -> String:
 	if kind == KIND_ALLIANCE:
 		return "a formal alliance"
+	if kind == KIND_PEACE:
+		return "a white peace"
 	return "the %s" % DiplomacyCatalog.stage_label(stage)
 
 

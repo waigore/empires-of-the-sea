@@ -313,6 +313,30 @@ func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
 	assert_true(String(railed["reason"]).contains("already carries a railroad"))
 
 
+func test_rail_terrain_techs_gate_hills_swamps_and_mountains() -> void:
+	var tile := Vector2i(0, 1)
+	var index: int = _model.index_of(tile.x, tile.y)
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var rail := _add("rail_builder", tile)
+	var early := {"early_steam_engine": true}
+	var later := {"early_steam_engine": true, "later_steam_engine": true}
+	var powder := {"early_steam_engine": true, "later_steam_engine": true, "dynamite": true}
+	_model.terrain[index] = MapModel.Terrain.HILLS
+	var hills_locked: Dictionary = _validate(rail, "build_rail", early)
+	assert_false(bool(hills_locked["ok"]))
+	assert_true(String(hills_locked["reason"]).contains("Later Steam Engine"))
+	assert_true(bool(_validate(rail, "build_rail", later)["ok"]))
+	_model.terrain[index] = MapModel.Terrain.SWAMP
+	assert_true(bool(_validate(rail, "build_rail", later)["ok"]))
+	_model.terrain[index] = MapModel.Terrain.MOUNTAINS
+	var mountains_locked: Dictionary = _validate(rail, "build_rail", later)
+	assert_false(bool(mountains_locked["ok"]))
+	assert_true(String(mountains_locked["reason"]).contains("Dynamite"))
+	assert_true(bool(_validate(rail, "build_rail", powder)["ok"]))
+	_model.terrain[index] = MapModel.Terrain.FOREST
+	assert_true(bool(_validate(rail, "build_rail", early)["ok"]), "forest is flat ground")
+
+
 func test_rail_builders_are_exempt_from_tile_exclusivity() -> void:
 	var tile := Vector2i(0, 1)
 	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
