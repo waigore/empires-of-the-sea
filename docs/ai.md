@@ -63,8 +63,8 @@ wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians)
-and `test_ai_defense` (Minor / Tribe relief).
+`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians,
+Minor / Tribe relief).
 
 ```bash
 gd-tools test --coverage --min 80
