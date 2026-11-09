@@ -283,6 +283,10 @@ func _on_quick_battle_finished() -> void:
 
 
 func toast(text: String) -> void:
+	# The observer hides the human chrome; building toast plates for a hidden
+	# court would only churn nodes every turn (REQ-P4-04).
+	if not visible:
+		return
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override(
 		"panel",

@@ -15,6 +15,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
 | [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
+| [ai-observer.md](ai-observer.md) | Full-AI observer: live dashboard, metrics, headless export |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |

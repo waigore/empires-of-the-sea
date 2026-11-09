@@ -35,6 +35,10 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 var player_leader: String = ""
 ## Endless campaign chosen in game setup (wiki: turn-time-mapping).
 var infinite_mode: bool = false
+## Full-AI observer: every Great Power is AI and no court answers consent
+## decisions. Debug tool launched from the title screen or tools/ai_vs_ai.gd
+## (wiki: game-setup § Human/AI slot assignment).
+var observer_mode: bool = false
 ## When set (load), skip generation and restore this save instead.
 var pending_save: Dictionary = {}
 ## Overridable for tests so saves do not touch the player's slots.
@@ -140,6 +144,7 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
+	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
 		$World/ResourceLens
@@ -170,7 +175,7 @@ func _ready() -> void:
 		SaveCodec.restore_diplomacy(play, pending_save)
 	else:
 		play.diplomacy.initialize(play.turn)
-	play.diplomacy.human_faction = play.player_faction
+	play.diplomacy.human_faction = play.human_faction_id()
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
@@ -178,6 +183,8 @@ func _ready() -> void:
 	if restored:
 		MapPlaySetup.refresh_after_load(play)
 	MapPlaySetup.intro(play, fade, not restored)
+	if observer_mode:
+		_setup_observer()
 	pending_save = {}
 
 
@@ -235,7 +242,7 @@ func load_region(index: int) -> void:
 		civilian_layer.spawn(
 			play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS, false
 		)
-		_bootstrap_region(play)
+		MapPlaySetup.bootstrap_region(play)
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
 	ship_layer.spawn(
@@ -248,7 +255,7 @@ func load_region(index: int) -> void:
 	)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
-	_build_visibility()
+	MapPlaySetup.build_visibility(play)
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
@@ -357,26 +364,19 @@ func _on_load_chosen(slot: int) -> void:
 	load_slot_requested.emit(slot)
 
 
-func _build_visibility() -> void:
-	if play.visibility_by_region.has(play.region_index):
-		play.visibility = play.visibility_by_region[play.region_index]
-		overlay.sync_visibility(play.visibility)
-		return
-	play.visibility = VisibilityModel.new()
-	play.visibility.setup(play.model, play.player_faction)
-	play.visibility.apply_initial()
-	play.visibility_by_region[play.region_index] = play.visibility
-	overlay.sync_visibility(play.visibility)
-
-
-## Setup post-pass per region: capital ports and harbour roads become real
-## LandWorks entries, and Great Powers receive their guaranteed grain farms.
-## Runs once per region, before civilians muster and before the economy reads it.
-func _bootstrap_region(session: PlaySession) -> void:
-	if session.bootstrapped_regions.has(session.region_index):
-		return
-	WorldBootstrap.apply(session.model, session.civilian_layer.works)
-	session.bootstrapped_regions[session.region_index] = true
+## Full-AI observatory: hide the human chrome, seal saving (an observer session
+## is not a player campaign) and mount the live metrics panel (REQ-P5-02).
+func _setup_observer() -> void:
+	hud.visible = false
+	# The panel owns the pause door, so the floating trigger must not overlap it.
+	game_menu.trigger.visible = false
+	game_menu.save_button.disabled = true
+	var panel := AiObserverPanel.new()
+	panel.name = "AiObserver"
+	panel.play = play
+	add_child(panel)
+	turn_ended.connect(func(_turn: int) -> void: panel.refresh())
+	panel.refresh()
 
 
 ## Ownership changed outside the map layers (Join Empire): redraw borders,

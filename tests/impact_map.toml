@@ -4,6 +4,7 @@
 
 [domains.ai]
 suites = [
+  "test_ai_observer.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
 ]
@@ -259,6 +260,10 @@ match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
 [[rules]]
+match = "scripts/map/map_play_observer.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/map_play_raids.gd"
 domain = "fleet"
 
@@ -495,6 +500,10 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+[[rules]]
+match = "scripts/ui/ai_observer_panel.gd"
+domain = "ai"
 
 [[rules]]
 match = "scripts/ui/**"

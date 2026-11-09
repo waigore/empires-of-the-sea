@@ -133,3 +133,27 @@ static func intro(play: PlaySession, fade: ColorRect, brief: bool = true) -> voi
 	var tween: Tween = play.host.create_tween()
 	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(func() -> void: fade.visible = false)
+
+
+## One fog model per region, kept across map switches: switching back must not
+## re-reveal or re-fog what the crown already charted (wiki: fog-and-exploration).
+static func build_visibility(play: PlaySession) -> void:
+	if play.visibility_by_region.has(play.region_index):
+		play.visibility = play.visibility_by_region[play.region_index]
+		play.overlay.sync_visibility(play.visibility)
+		return
+	play.visibility = VisibilityModel.new()
+	play.visibility.setup(play.model, play.player_faction)
+	play.visibility.apply_initial()
+	play.visibility_by_region[play.region_index] = play.visibility
+	play.overlay.sync_visibility(play.visibility)
+
+
+## Setup post-pass per region: capital ports and harbour roads become real
+## LandWorks entries, and Great Powers receive their guaranteed grain farms.
+## Runs once per region, before civilians muster and before the economy reads it.
+static func bootstrap_region(play: PlaySession) -> void:
+	if play.bootstrapped_regions.has(play.region_index):
+		return
+	WorldBootstrap.apply(play.model, play.civilian_layer.works)
+	play.bootstrapped_regions[play.region_index] = true
