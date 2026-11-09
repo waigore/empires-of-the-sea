@@ -599,6 +599,10 @@ match = "tests/test_battle_*.gd"
 domain = "battle"
 
 [[rules]]
+match = "tests/test_quick_battle_*.gd"
+domain = "quick_battle"
+
+[[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
 
