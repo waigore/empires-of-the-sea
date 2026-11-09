@@ -20,6 +20,39 @@ func test_old_world_starts_fogged_before_the_setup_pass() -> void:
 	assert_eq(_visibility.level_at(11, 5), VisibilityModel.Level.FOGGED)
 
 
+func test_new_world_starts_unknown_until_a_reveal() -> void:
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	var unknown: int = 0
+	for index in view.levels.size():
+		if view.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown += 1
+	assert_eq(unknown, view.levels.size(), "New World starts unknown, not fogged")
+	view.apply_initial()
+	unknown = 0
+	for index in view.levels.size():
+		if view.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown += 1
+	assert_eq(unknown, view.levels.size(), "no ownership means no setup reveal")
+
+
+func test_new_world_setup_still_lights_land_the_player_owns() -> void:
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	map.provinces[0].owner = PLAYER
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	view.apply_initial()
+	var tile: Vector2i = map.province_tiles(0)[0]
+	assert_eq(view.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE)
+
+
 func test_coast_links_follow_the_tile_grid() -> void:
 	assert_eq(_visibility.province_sea_zones.get(0), [0])
 	assert_eq(_visibility.province_sea_zones.get(3), [1, 2])

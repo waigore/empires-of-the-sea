@@ -251,8 +251,10 @@ func toast(text: String) -> void:
 	tween.tween_callback(panel.queue_free)
 
 
-func set_minimap(model: MapModel, map_size: Vector2) -> void:
-	_minimap.build(model, map_size)
+func set_minimap(
+	model: MapModel, map_size: Vector2, visibility: VisibilityModel = null
+) -> void:
+	_minimap.build(model, map_size, visibility)
 
 
 func update_view_rect(rect: Rect2) -> void:
