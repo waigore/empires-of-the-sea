@@ -12,7 +12,7 @@ Open from the `COURT` seal.
   turn stamps; same-region seed 50, cross-region waits for contact.
 - **Auto-embassy:** GP pairs start at Embassy both ways; survives war and peace.
 - **Relation bands:** Hostile 0–25, Neutral 26–50, Friendly 51–75, Allied
-  76–100; the panel shows the ladder, not the score.
+  76–100; the panel shows the ladder, never scores.
 - **Decay:** non-war pairs drift 4.0 toward 50 at phase end unless an event
   touched them; war freezes.
 - **War / peace:** war needs peace, freezes the score and clears
@@ -26,7 +26,7 @@ Open from the `COURT` seal.
   treaty (−50/−10).
 - **Intervention:** a war on a Minor/Tribe offers each embassy court a choice:
   intervene (war on the aggressor), stand aside (lose the embassy) or protest
-  (−10, or −5 vs Propaganda). AI rolls 0/25/50/80% bands.
+  (−10, or −5 vs Propaganda). AI rolls 0/25/50/80%.
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
   £5,000 + £2,000/province; one per target per turn; AI offers free stages.
   Minor/Tribe embassies need Diplomatic Expertise.
