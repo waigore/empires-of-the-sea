@@ -60,6 +60,9 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 
 	var foreign: int = _foreign_province(play)
 	play.model.get_province(foreign).owner = play.player_faction
+	var deed_province: int = _other_foreign_province(play, foreign)
+	var deed_tile: Vector2i = play.model.province_tiles(deed_province)[0]
+	assert_true(play.model.purchase_tile(deed_tile, play.player_faction))
 	var tile: Vector2i = play.model.province_tiles(play.capital_province)[0]
 	play.land_works.set_improvement(play.model, tile, 2)
 	play.land_works.set_transport(play.model, tile, LandWorks.TRANSPORT_ROAD)
@@ -105,6 +108,12 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	assert_eq(
 		play.model.province_owner(foreign), play.player_faction, "province owners restored"
 	)
+	assert_eq(
+		play.model.owner_at(deed_tile.x, deed_tile.y),
+		play.player_faction,
+		"tile deed restored"
+	)
+	assert_true(play.model.is_purchased_tile(deed_tile), "deed marker restored")
 	assert_eq(play.land_works.improvement_at(play.model, tile), 2, "works restored")
 	assert_eq(
 		play.land_works.transport_at(play.model, tile),
@@ -251,6 +260,29 @@ func test_a_fort_stands_after_a_load() -> void:
 	)
 
 
+func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
+	var play: PlaySession = screen.play
+	var pact: DiplomacyRelation = play.diplomacy.relation(0, 2)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(play.diplomacy)
+	DiplomacyRules.declare_war(play.diplomacy, 3, 2)
+	MapPlayTurn.end_turn(play)
+	assert_true(play.turn_suspended, "the call holds the turn")
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(DIR + "/call.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/call.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	assert_true(CallToArms.has_pending(screen.play.diplomacy, 0), "the call is restored")
+	assert_true(screen.play.turn_suspended, "the loaded turn is still suspended")
+	assert_true(
+		screen.hud.panels.diplomacy_panel._call_box.visible,
+		"the court re-opens for the answer"
+	)
+
+
 # --- helpers -----------------------------------------------------------------
 
 func _foreign_province(play: PlaySession) -> int:
@@ -258,6 +290,13 @@ func _foreign_province(play: PlaySession) -> int:
 		if province.owner != play.player_faction:
 			return province.id
 	return -1
+
+
+func _other_foreign_province(play: PlaySession, skip: int) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != play.player_faction and province.id != skip:
+			return province.id
+	return skip
 
 
 func _fogged_tile(play: PlaySession) -> Vector2i:

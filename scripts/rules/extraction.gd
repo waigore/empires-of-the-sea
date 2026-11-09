@@ -52,36 +52,37 @@ static func yields(
 	var connected: Dictionary = {}
 	if works != null:
 		connected = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
+	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
+		var province_id: int = model.province_at(tile.x, tile.y)
+		var province: ProvinceState = model.get_province(province_id)
+		if province == null:
 			continue
 		var town_cap: int = province.town_development
 		if town_cap <= 0:
 			town_cap = MAX_YIELD
-		for tile: Vector2i in province.tiles:
-			var resource: int = model.resource_at(tile.x, tile.y)
-			var commodity: String = commodity_for_resource(resource)
-			if commodity.is_empty():
+		var resource: int = model.resource_at(tile.x, tile.y)
+		var commodity: String = commodity_for_resource(resource)
+		if commodity.is_empty():
+			continue
+		var level: int = STARTING_IMPROVEMENT
+		var transport: int = DEFAULT_TRANSPORT
+		if works != null:
+			level = works.improvement_at(model, tile)
+			if level <= 0 or not connected.has(model.index_of(tile.x, tile.y)):
 				continue
-			var level: int = STARTING_IMPROVEMENT
-			var transport: int = DEFAULT_TRANSPORT
-			if works != null:
-				level = works.improvement_at(model, tile)
-				if level <= 0 or not connected.has(model.index_of(tile.x, tile.y)):
-					continue
-				if (
-					ImprovementCatalog.needs_prospecting(resource)
-					and not works.is_prospected(owner, model, tile)
-				):
-					continue
-				transport = maxi(DEFAULT_TRANSPORT, works.transport_at(model, tile))
-				if works.has_port(model, tile):
-					transport = LandWorks.TRANSPORT_RAIL
-			var amount: int = effective_yield(
-				level, tech_cap_for(commodity, tech_caps), transport, town_cap
-			)
-			if amount > 0:
-				totals[commodity] = int(totals.get(commodity, 0)) + amount
+			if (
+				ImprovementCatalog.needs_prospecting(resource)
+				and not works.is_prospected(owner, model, tile)
+			):
+				continue
+			transport = maxi(DEFAULT_TRANSPORT, works.transport_at(model, tile))
+			if works.has_port(model, tile):
+				transport = LandWorks.TRANSPORT_RAIL
+		var amount: int = effective_yield(
+			level, tech_cap_for(commodity, tech_caps), transport, town_cap
+		)
+		if amount > 0:
+			totals[commodity] = int(totals.get(commodity, 0)) + amount
 	if capital_province >= 0 and model.province_owner(capital_province) == owner:
 		totals[GRAIN] = int(totals.get(GRAIN, 0)) + CAPITAL_GRAIN_BONUS
 	return totals

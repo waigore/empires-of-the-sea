@@ -187,14 +187,15 @@ func _link(table: Dictionary, key: int, value: int) -> void:
 		values.sort()
 
 
-## Own provinces are always fully visible and never decay.
+## Own provinces are always fully visible and never decay. A purchased tile in a
+## foreign province is held the same way, tile by tile.
 func _reveal_own_provinces() -> Array:
 	var changed: Array = []
 	for province: ProvinceState in model.provinces:
-		if province.owner != player_id:
-			continue
 		var province_id: int = province.id
 		for tile: Vector2i in model.province_tiles(province_id):
+			if model.owner_at(tile.x, tile.y) != player_id:
+				continue
 			var index: int = model.index_of(tile.x, tile.y)
 			if raise_to(index, Level.FULLY_VISIBLE):
 				changed.append(index)
@@ -223,14 +224,14 @@ func _raise_sea_zone_water(zone_id: int, level: int) -> Array:
 	return changed
 
 
-## Fog decay: only stored fullyVisible tiles in other factions' provinces fall
-## back to fogged; own provinces and unknown/fogged tiles are never touched.
+## Fog decay: only stored fullyVisible tiles not held by this player fall back
+## to fogged. Deeds inside a foreign province are held like any other holding.
 func _decay_foreign_provinces() -> Array:
 	var changed: Array = []
 	for province: ProvinceState in model.provinces:
-		if province.owner == player_id:
-			continue
 		for tile: Vector2i in province.tiles:
+			if model.owner_at(tile.x, tile.y) == player_id:
+				continue
 			var index: int = model.index_of(tile.x, tile.y)
 			if lower_to(index, Level.FOGGED):
 				changed.append(index)

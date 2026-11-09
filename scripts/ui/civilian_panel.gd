@@ -115,7 +115,8 @@ func refresh(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> void:
 	if unit == null:
 		return
@@ -129,7 +130,7 @@ func refresh(
 	_fill_detail(model, unit, works)
 	_status.text = _status_text(model, unit)
 	_cancel.visible = unit.is_working()
-	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked)
+	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
 	_stock_line.text = "Stores: %d lumber · %d cast iron · %d steel · %d bronze · %d paper" % [
 		int(stockpile.get("lumber", 0)),
 		int(stockpile.get("castIron", 0)),
@@ -144,6 +145,9 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	var province: int = model.province_at(unit.tile.x, unit.tile.y)
 	_add_row("Province", model.province_name(province) if province >= 0 else "—")
 	_add_row("Tile", "%d, %d" % [unit.tile.x, unit.tile.y])
+	_add_row("Held by", FactionCatalog.name_of(model.owner_at(unit.tile.x, unit.tile.y)))
+	if model.is_purchased_tile(unit.tile):
+		_add_row("Deed", "Purchased land")
 	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
 	if resource >= 0:
 		_add_row("Resource", String(MapGenerator.resource_info(resource).get("name", "—")))
@@ -186,11 +190,13 @@ func _fill_orders(
 	stockpile: Dictionary,
 	visibility: VisibilityModel,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> void:
 	_clear(_orders)
 	for option: Dictionary in CivilianWork.options(
-		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked
+		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
+		context
 	):
 		var action: String = String(option["action"])
 		var button := _make_button(

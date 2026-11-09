@@ -9,44 +9,43 @@ per-frame work).
 
 ## Implemented
 
-- **Relations** (`DiplomacyState`): one score per pair (0–100) plus war state
-  and turn stamps; same-region pairs seed at 50, cross-region pairs wait for
-  first contact.
+- **Relations** (`DiplomacyState`): score per pair (0–100) plus war state and
+  turn stamps; same-region seed 50, cross-region wait for contact.
 - **Auto-embassy:** GP pairs start at Embassy both ways; survives war and peace.
 - **Relation bands:** Hostile 0–25, Neutral 26–50, Friendly 51–75, Allied
-  76–100; the panel shows the ladder, never the score.
+  76–100; panel shows the ladder, never the score.
 - **Decay:** non-war pairs drift 4.0 toward 50 at phase end; a score event that
   turn skips it. War freezes the score.
 - **War / peace:** war needs peace, freezes the score and clears alliances and
   overtures (GP pairs keep Embassy); invasion and battles need war.
   Minors/Tribes accept peace; a GP at 26+.
-- **Alliances:** offer at 51+; an AI GP accepts at 76. Breaking or refusing
-  costs −50 with the ally and −10 with other GPs; alliance and war never coexist.
+- **Alliances:** offer at 51+; AI GP accepts at 76. Breaking or refusing costs
+  −50 with the ally and −10 with other GPs; alliance and war never coexist.
 - **Call to arms:** a GP war calls every formal ally of the defender from the
-  preceding turn, once. AI allies join at 50+; the human's call suspends the
-  turn until answered. Refusing breaks the treaty with the unified penalty.
+  preceding turn, once. AI allies join at 50+; human call suspends until
+  answered. Refusing breaks the treaty with the unified penalty.
 - **Intervention:** a war on a Minor/Tribe offers every embassy court one
   choice: intervene (war on the aggressor), stand aside (lose the embassy) or
-  protest (−10, or −5 against Propaganda). AI rolls the bands 0/25/50/80%.
+  protest (−10, or −5 against Propaganda). AI rolls bands 0/25/50/80%.
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
   £5,000 + £2,000/province; one per target per turn. Minor/Tribe embassies need
   Diplomatic Expertise.
-- **Join Empire:** absorbs a Minor, colonizes a Tribe; a GP must be nearly
-  defeated (≤3 provinces, no capital) and needs Empire Building.
+- **Join Empire:** absorbs a Minor, colonizes a Tribe; nearly defeated GP
+  (≤3 provinces, no capital) needs Empire Building.
 - **Grant Aid:** £1,000 multiples, embassy required, fixed +5 relation.
+- **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy and
+  no war; 15× base price, one deed per tile.
 - **Set Subsidy:** 5–20% in fives, Minor/Tribe only, embassy required, no
   charge; dies on war, lost embassy or cancel.
-- **First contact:** a Tribe enters the court only when a non-unknown tile in
-  its provinces is visible; sea-reach intel alone does not count.
-- **Rival AI courts:** each AI GP emits one legal order per turn; see
-  [`ai.md`](ai.md).
+- **First contact:** Tribe enters court when a non-unknown tile in its
+  provinces is visible; sea-reach intel alone does not count.
+- **Rival AI courts:** one legal order per AI GP per turn; see [`ai.md`](ai.md).
 
 ## Deferred (REQ-P2-02)
 
 - AI overtures/alliances/peace offers to the human court.
-- Market-side subsidy pricing, trade boosts, FTP and boycotts (no counterparty
-  yet).
-- Spy, Merchant `purchase_land`, colony profit share and near-defeat land war.
+- Market-side subsidy pricing, trade boosts, FTP and boycotts (no counterparty).
+- Spy, Merchant overseas cargo, colony profit share, near-defeat land war.
 
 ## Architecture
 

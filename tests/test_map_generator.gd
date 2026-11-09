@@ -158,6 +158,59 @@ func test_names_are_unique() -> void:
 		zones[name] = true
 
 
+## A province must read as its owner's country: Spanish provinces get Spanish
+## cities, English provinces English ones, and the capital its capital city.
+func test_province_names_match_their_owner() -> void:
+	for province: ProvinceState in model.provinces:
+		if province.owner == MapModel.NO_ID:
+			continue
+		var pool: Array[String] = MapNaming.faction_pool(province.owner)
+		assert_false(pool.is_empty(), "faction %d has no name pool" % province.owner)
+		if province.capital:
+			assert_eq(province.name, MapNaming.capital_name(province.owner))
+			continue
+		assert_true(
+			_name_from_pool(province.name, pool),
+			"%s does not belong to %s" % [province.name, FactionCatalog.name_of(province.owner)]
+		)
+
+
+func test_tribe_provinces_use_tribe_names() -> void:
+	var tribes: MapModel = Fixture.world().region(1)
+	assert_true(tribes.setup_errors.is_empty(), "setup errors: %s" % str(tribes.setup_errors))
+	var checked: int = 0
+	for province: ProvinceState in tribes.provinces:
+		if province.owner == MapModel.NO_ID:
+			continue
+		var pool: Array[String] = MapNaming.faction_pool(province.owner)
+		assert_false(pool.is_empty(), "tribe %d has no name pool" % province.owner)
+		if province.capital:
+			assert_eq(province.name, MapNaming.capital_name(province.owner))
+		else:
+			assert_true(
+				_name_from_pool(province.name, pool),
+				"%s does not belong to %s" % [province.name, FactionCatalog.name_of(province.owner)]
+			)
+		checked += 1
+	assert_true(checked > 0)
+
+
+func test_every_faction_has_a_name_pool() -> void:
+	for faction: Dictionary in FactionCatalog.all():
+		var faction_id: int = int(faction["id"])
+		assert_false(MapNaming.faction_pool(faction_id).is_empty(), "no pool for %d" % faction_id)
+		assert_ne(MapNaming.capital_name(faction_id), "")
+
+
+func _name_from_pool(name: String, pool: Array[String]) -> bool:
+	if name.begins_with("Tierra "):
+		return true
+	for root: String in pool:
+		if name == root or name.ends_with(" " + root):
+			return true
+	return false
+
+
 func test_resource_info_lookup() -> void:
 	assert_eq(String(MapGenerator.resource_info(0).get("name", "")), "Timber")
 	assert_true(MapGenerator.resource_info(-1).is_empty())

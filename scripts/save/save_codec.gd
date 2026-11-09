@@ -12,7 +12,6 @@ const MIN_MAP_SIDE: int = 32
 
 # --- capture -----------------------------------------------------------------
 
-
 static func capture(play: PlaySession) -> Dictionary:
 	if play == null or play.world == null:
 		return {}
@@ -78,6 +77,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 			"height": model.height,
 			"provinces": provinces,
 			"resources": model.resource.duplicate(),
+			"tile_deeds": model.ownership.to_dict(),
 		}
 		regions.append(region_entry)
 	return regions
@@ -124,7 +124,6 @@ static func _victory_from(raw: Variant) -> VictoryState:
 
 
 # --- validation --------------------------------------------------------------
-
 
 static func is_valid(data: Dictionary) -> bool:
 	if data.is_empty() or int(data.get("version", -1)) != VERSION:
@@ -226,6 +225,7 @@ static func _apply_regions(world: WorldMap, regions: Variant) -> bool:
 				return false
 		if not _apply_resources(model, data.get("resources", PackedInt32Array())):
 			return false
+		model.ownership.apply_dict(data.get("tile_deeds", {}))
 	return true
 
 
