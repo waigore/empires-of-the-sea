@@ -66,6 +66,34 @@ func test_a_crossing_can_be_made_back_the_other_way() -> void:
 	assert_true(world_map.is_warp_zone(FactionCatalog.OLD_WORLD, fleet.sea_zone))
 
 
+## A crossing is the squadron's sail, so the station and the landing site are
+## given up; province ids are region-local, so a marker carried across would
+## name an unrelated coast on the other map (wiki: ships-and-naval § Missions
+## and Movement — a mission persists until the squadron sails; § Naval transport
+## — the beachhead marker is lost if the squadron sails).
+func test_a_crossing_gives_up_the_station_and_the_landing_site() -> void:
+	var zone: int = world_map.warp_zones(FactionCatalog.OLD_WORLD)[0]
+	var blockading := FleetState.at_sea(7, 0, zone)
+	blockading.mission = FleetState.Mission.BLOCKADE
+	blockading.blockade_province = 4
+	blockading.beachhead_province = 4
+	blockading.beachhead_turn = 3
+	var landing := FleetState.at_sea(8, 0, zone)
+	landing.mission = FleetState.Mission.BEACHHEAD
+	landing.beachhead_province = 5
+	landing.beachhead_turn = 3
+
+	assert_true(bool(WarpTravel.apply_crossing(world_map, FactionCatalog.OLD_WORLD, blockading)["ok"]))
+	assert_true(bool(WarpTravel.apply_crossing(world_map, FactionCatalog.OLD_WORLD, landing)["ok"]))
+
+	assert_eq(blockading.mission, FleetState.Mission.NONE)
+	assert_eq(blockading.blockade_province, MapModel.NO_ID, "the blockade coast does not cross")
+	assert_false(blockading.has_beachhead(), "the landing site does not cross")
+	assert_eq(blockading.beachhead_turn, -1)
+	assert_eq(landing.mission, FleetState.Mission.NONE, "the beachhead mission is given up")
+	assert_false(landing.has_beachhead())
+
+
 func test_a_moved_fleet_cannot_cross() -> void:
 	var zone: int = world_map.warp_zones(FactionCatalog.OLD_WORLD)[0]
 	var fleet := FleetState.at_sea(4, 0, zone)
