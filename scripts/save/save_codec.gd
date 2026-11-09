@@ -34,7 +34,6 @@ static func capture(play: PlaySession) -> Dictionary:
 		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
 
-
 static func _capture_session(play: PlaySession) -> Dictionary:
 	return {
 		"map_seed": play.map_seed,
