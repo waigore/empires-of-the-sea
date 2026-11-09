@@ -51,6 +51,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
