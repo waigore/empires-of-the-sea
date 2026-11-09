@@ -71,8 +71,7 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_civilian_roster`, `test_civilian_voyage`, `test_improvement_system`,
+`test_civilian_field_rules`, `test_civilian_voyage`,
 `test_map_screen_crown_orders`, `test_map_model`.
 
 ```bash
