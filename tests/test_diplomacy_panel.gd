@@ -105,6 +105,23 @@ func test_a_quiet_court_says_so_instead_of_showing_an_empty_box() -> void:
 	assert_true(_has_text(panel._detail, "No word of this court"))
 
 
+func test_the_court_shows_its_dossier_under_the_chronicle() -> void:
+	DiplomacyRules.declare_war(state, 1, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "DOSSIER"), "the reading sits under the news")
+	assert_true(_has_text(panel._detail, "Reading:"))
+	assert_true(_has_text(panel._detail, "Declared war on Genoa."), "the act is evidence")
+	assert_false(_has_text(panel._detail, "Confirmed"), "one act cannot confirm an agenda")
+
+
+func test_a_quiet_court_says_the_dossier_is_empty() -> void:
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "DOSSIER"))
+	assert_true(_has_text(panel._detail, "no act has yet spoken"))
+	assert_true(_has_text(panel._detail, "No observable act"))
+
+
 func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)
