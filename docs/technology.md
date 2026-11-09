@@ -12,10 +12,9 @@ turns gold into advances, and researched techs lift extraction caps.
 ## Implemented
 
 - **Catalog:** all 113 wiki techs with id, display name, era (cost tier),
-  category, cross-category prerequisites, extraction caps, discovery resources
-  and effect notes. `TechAudit.validate()` enforces unique
-  ids, known prerequisites, a DAG, reachability from the roots, cap coverage
-  and declared exceptions.
+  category, prerequisites, extraction caps, discovery resources and notes.
+  `TechAudit.validate()` enforces unique ids, known prerequisites, a DAG,
+  reachability, cap coverage and declared exceptions.
 - **Research state:** three slots (four with University), funding per slot,
   progress per tech, `<techUnlocked>`; "currently researching" is the key set
   of the progress table.
@@ -23,8 +22,8 @@ turns gold into advances, and researched techs lift extraction caps.
   — 6/8/10/12 turns at Medium.
 - **Funding:** None/Low/Medium/High/Maximum pay 0/50/150/400/1000 ducats for
   0/100/300/800/2500 RP. Cancelling a slot forfeits its progress.
-- **Research phase** runs after Production in `EconomyTurn`. An unfunded slot
-  earns nothing that turn; the wiki has no partial funding, so none is invented.
+- **Research phase** runs after Production in `EconomyTurn`. A slot that cannot
+  pay its full gold earns nothing and is reported unfunded — no partial funding.
 - **Treasury floor:** Money Lending allows −500 ducats during research, Banking
   with Money Lending −1000.
 - **Industrial Funding of Research:** +20% (floored) RP for military and naval
@@ -35,15 +34,15 @@ turns gold into advances, and researched techs lift extraction caps.
   and Builder orders:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`.
   Exceptions match the wiki (horses 1, wool 3).
-- **Unlocks:** `TechUnlocks` derives every build order a tech opens from the
-  canonical gate tables (regiments, hulls, civilians, worker tiers, forts,
-  batteries, roads/railroads, general cap); the college tooltip prints them and
-  `TechAudit` rejects a gate naming an unknown tech.
-- **Transport gates:** roads level 2 need Road Construction; railroads need
-  Early Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite
-  (mountains).
-- **Privateering Companies:** the charter holder's Patrol/Blockade
-  interception and trade raids rise 25%; the fleet dossier names it.
+- **Unlocks:** `TechUnlocks` derives build orders from the canonical gate
+  tables (regiments, hulls, civilians, workers, forts, batteries, roads,
+  general cap); the tooltip prints them and `TechAudit` rejects unknown gates.
+- **Transport gates:** road 2 needs Road Construction; railroads need Early
+  Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite (mountains).
+- **Privateering Companies:** charter holder's Patrol/Blockade interception and
+  trade raids rise 25%; the fleet dossier names it.
+- **Rivals:** AI courts fill their own slots via the same `ResearchTurn`
+  (docs/ai.md; `dr-20261109-20`).
 - **UI:** `RESEARCH` opens the college ledger — slot rows with progress, a
   funding button and cancel; AVAILABLE and KNOWN tabs with cost and effect
   tooltips.
@@ -51,8 +50,8 @@ turns gold into advances, and researched techs lift extraction caps.
 ## Deferred (REQ-P2-02)
 
 - Spy +15% RP boost, goal-tech sorting, save/load of slot assignments.
-- In-place upgrade paths and the land-battle attack treasury modifiers: named
-  in tooltips, not simulated.
+- In-place upgrades and land-battle attack treasury modifiers: named in
+  tooltips, not simulated.
 - Terrain hard caps and path transport caps.
 
 ## Architecture

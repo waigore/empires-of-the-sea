@@ -143,7 +143,11 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	# Minor Regiment Upgrade runs after movement and before combat (wiki:
+	# factions § Minor military parity).
+	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)
@@ -234,6 +238,23 @@ static func _finish_calendar(play: PlaySession) -> void:
 		"Campaign complete — %d" % TurnTime.year_for_turn(play.turn)
 	)
 	play.emit_turn_ended(play.turn)
+
+
+## Great Power research state for the Minor Regiment Upgrade pass. Rivals keep
+## their tech in their own ledger; the human court's lives in EconomyController.
+static func _great_power_tech(play: PlaySession) -> Dictionary:
+	var tech: Dictionary = {}
+	if play == null:
+		return tech
+	if play.economy != null and play.economy.economy != null:
+		tech[play.player_faction] = play.economy.economy.tech_unlocked
+	if play.ai == null:
+		return tech
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == play.player_faction:
+			continue
+		tech[faction] = play.ai.economy_for(faction).tech_unlocked
+	return tech
 
 
 ## Strongest crown by power score, or NO_ID when the top score is shared. The
