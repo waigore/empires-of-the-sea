@@ -171,7 +171,7 @@ func test_peace_is_offered_when_the_war_stops_being_worth_it() -> void:
 	assert_eq(int(plan["action"]["target"]), 1)
 
 
-func test_peace_with_the_human_waits_for_the_player() -> void:
+func test_peace_with_the_human_is_proposed_and_waits_for_the_player() -> void:
 	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
 	state.ensure_relation(2, 0, 1)
 	DiplomacyRules.declare_war(state, 2, 0)
@@ -180,8 +180,29 @@ func test_peace_with_the_human_waits_for_the_player() -> void:
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		france, state, ai_state, AiFixture.world([0, 2]), 2, context
 	)
-	assert_true((plan["action"] as Dictionary).is_empty())
-	assert_eq(String(plan["candidates"][0]["blocked"]), "human decision required")
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_eq(int(action["target"]), 0)
+	assert_true(bool(action.get("propose", false)), "the human court answers the offer")
+	assert_true(state.relation(0, 2).at_war, "nothing is signed before the answer")
+
+
+func test_a_refused_peace_waits_the_peace_cooldown() -> void:
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(state, 2, 0)
+	ai_state.note_peace(2, 0, 2)
+	var context: Dictionary = AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var cooling: Dictionary = AiDiplomacyPlanner.decide(
+		france, state, ai_state, AiFixture.world([0, 2]), 3, context
+	)
+	assert_true((cooling["action"] as Dictionary).is_empty())
+	assert_eq(String(cooling["candidates"][0]["blocked"]), "peace cooldown")
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, state, ai_state, AiFixture.world([0, 2]), 5, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
 
 
 func test_war_goal_clamps_to_the_target_province_count() -> void:

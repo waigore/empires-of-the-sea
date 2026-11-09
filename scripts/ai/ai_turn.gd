@@ -5,8 +5,9 @@ extends RefCounted
 ## Builds one read-only config per AI Great Power, runs the diplomacy planner,
 ## applies the resulting order through the shared diplomacy rules, and returns a
 ## turn trace plus player-facing messages (wiki: turn-trace-interpretation).
-## Human courts are never auto-committed: the AI only declares war on them, and
-## peace/overture decisions that need a human answer stay with the court UI.
+## Human courts are never auto-committed: the AI declares war on them, while
+## peace and treaty offers queue for the court UI (DR-20261108-01,
+## DR-20261109-06, DR-20261109-07).
 
 const KIND_DECLARE_WAR: String = AiDiplomacyPlanner.KIND_DECLARE_WAR
 const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
@@ -98,6 +99,16 @@ static func _apply(
 			"messages": war.get("calls", []),
 		}
 	if kind == KIND_OFFER_PEACE:
+		# A peace offer to the human court is queued, never signed: the phase
+		# suspends until the player answers (DR-20261109-07).
+		if bool(action.get("propose", false)):
+			var offer: Dictionary = DiplomacyProposals.queue(
+				state, world, faction, DiplomacyProposals.KIND_PEACE
+			)
+			var message: String = ""
+			if bool(offer.get("ok", false)):
+				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
+			return {"result": offer, "message": message}
 		var peace: Dictionary = DiplomacyRules.make_peace(state, faction, target)
 		return {
 			"result": peace,
