@@ -155,7 +155,15 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 		VisibilityModel.Level.FULLY_VISIBLE,
 		"fog state restored"
 	)
-	assert_eq(play.civilian_layer.units.size(), 3, "civilians restored")
+	var player_civilians: int = 0
+	for civilian: CivilianState in play.civilian_layer.units:
+		if civilian.owner == play.player_faction:
+			player_civilians += 1
+	assert_eq(player_civilians, 3, "the human civilians restored")
+	assert_true(
+		play.civilian_layer.unit_count_all(1) >= 3,
+		"a rival's seeded civilians restored too"
+	)
 	assert_eq(play.civilian_layer.units[0].tile, tile, "civilian tile restored")
 	assert_true(play.civilian_layer.units[0].is_working(), "civilian work restored")
 	assert_eq(play.civilian_layer.units[0].remaining_turns(), 3, "work turns restored")
