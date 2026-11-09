@@ -122,6 +122,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 100,
 		"default": 1,
 	},
+	{
+		"key": "naval.caution_margin_pct",
+		"category": "naval",
+		"type": TYPE_INT,
+		"min": 50,
+		"max": 400,
+		"default": 120,
+	},
 ]
 
 static var _by_key: Dictionary = {}

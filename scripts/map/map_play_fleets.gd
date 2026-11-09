@@ -4,6 +4,11 @@ extends RefCounted
 ## Naval rules stay in NavalMovement; this only drives PlaySession views.
 
 
+## Rival naval turn — see MapPlayFleetAi (docs/ai.md).
+static func run_ai(play: PlaySession) -> Array[Dictionary]:
+	return MapPlayFleetAi.run(play)
+
+
 static func select(play: PlaySession, ship: Ship) -> void:
 	if ship == null:
 		return

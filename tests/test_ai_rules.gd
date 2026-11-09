@@ -4,6 +4,7 @@ extends GdToolsTest
 ## (docs/testing.md speed rules).
 
 const AiFixture = preload("res://tests/ai_fixture.gd")
+const NavalFixture = preload("res://tests/naval_fixture.gd")
 
 # --- from test_ai_power.gd ---
 ## Power score and relative-power bands (wiki: diplomacy § Great Power power
@@ -503,3 +504,148 @@ func _record_for(trace: Array, faction: int) -> Dictionary:
 		if int(record["faction"]) == faction:
 			return record
 	return {}
+
+
+# --- rival squadrons sail (AiNavalPlanner, MapPlayFleetAi) ---
+## A court at war hunts the squadrons it can match and otherwise holds station
+## (wiki: ai-architecture § Naval policy, ships-and-naval § missions).
+
+
+func test_ai_naval_hunts_a_hostile_squadron_one_zone_over() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_PURSUE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the zone holding the hostile hull")
+	assert_eq(int(plan["orders"][0]["fleet_id"]), 0)
+
+
+func test_ai_naval_declines_an_overwhelming_squadron() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "sloop"),
+		_squadron(1, 1, 0, "galleon"),
+		_squadron(2, 1, 0, "galleon"),
+		_squadron(3, 1, 0, "galleon"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0, "the caution knob keeps the hull home")
+
+
+func test_ai_naval_holds_station_at_peace() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _peace_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var moored := FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var fleets: Array[FleetState] = [moored, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_SORTIE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the zone off its own harbour")
+
+
+func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "galleon"),
+		FleetState.in_port(1, 1, 1, ["h1"] as Array[String], {"h1": "sloop"}),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0, "a port fleet is not a target")
+
+
+func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var spent: FleetState = _squadron(0, 2, 1, "galleon")
+	spent.moved = true
+	var fleets: Array[FleetState] = [spent, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var human: FleetState = _squadron(1, 1, 0, "sloop")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [ai, human]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _war_state(2, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one rival order")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_PURSUE)
+	assert_eq(ai.sea_zone, 0, "the rival standard now shares the human's zone")
+	assert_true(ai.moved)
+	assert_eq(human.sea_zone, 0, "the human squadron is never planned")
+	var battles: Array[Dictionary] = layer.resolve_battles(
+		world, func(a: int, b: int) -> bool: return a != b
+	)
+	assert_eq(battles.size(), 1, "the contested zone fights this turn")
+	assert_eq(int(battles[0]["zone"]), 0)
+	layer.free()
+
+
+func test_map_phase_leaves_a_peaceful_navy_in_port() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var ai: FleetState = FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var human: FleetState = _squadron(1, 1, 0, "sloop")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [ai, human]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _peace_state(2, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 0)
+	assert_true(ai.is_in_port())
+	layer.free()
+
+
+func test_naval_caution_knob_is_a_registry_key() -> void:
+	assert_true(AiParameterRegistry.has("naval.caution_margin_pct"))
+	assert_eq(AiParameterRegistry.default_of("naval.caution_margin_pct"), 120)
+	assert_eq(AiParameterRegistry.resolve("naval.caution_margin_pct", {"naval.caution_margin_pct": 300}), 300)
+	assert_eq(AiParameterRegistry.resolve("naval.caution_margin_pct", {"naval.caution_margin_pct": 1}), 120)
+
+
+func _squadron(id: int, owner: int, zone: int, type_id: String) -> FleetState:
+	return FleetState.at_sea(
+		id, owner, zone, ["h%d" % id] as Array[String], {"h%d" % id: type_id}
+	)
+
+
+func _naval_play(world: WorldMap, model: MapModel, layer: ShipLayer) -> PlaySession:
+	var play := PlaySession.new()
+	play.player_faction = 1
+	play.world = world
+	play.model = model
+	play.region_index = model.region_id
+	play.ship_layer = layer
+	play.map_seed = 1500
+	return play
