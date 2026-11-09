@@ -11,6 +11,13 @@ const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 ## Human slot chosen in game setup; the rules read this everywhere the player
 ## is special-cased (view, upkeep, diplomacy).
 var player_faction: int = PLAYER_FACTION
+## Full-AI observer (wiki: game-setup § Human/AI slot assignment): every Great
+## Power runs the AI planners and no court holds consent decisions. Debug tool,
+## not a player-facing campaign mode.
+var observer_mode: bool = false
+## One merged record per resolved turn (MapPlayObserver); the observatory panel
+## and the headless exporter read it (wiki: turn-trace-interpretation).
+var ai_turns: Array[Dictionary] = []
 ## Endless campaign chosen at setup: the calendar cap never closes the age
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 var infinite_mode: bool = false
@@ -52,7 +59,6 @@ var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or
 ## defensive (wiki: quick-battle § Turn structure and actions).
 var battle_plan: String = "balanced"
-var prestige: int = 38
 var income: int = 120
 var selected_province: int = -1
 var capital_province: int = -1
@@ -70,6 +76,8 @@ var civilian_layer: CivilianLayer = null
 var army_layer: ArmyLayer = null
 var canvas: MapCanvas = null
 var overlay: MapOverlay = null
+## Resource survey lens: a view, never a rules source (REQ-P3-03).
+var lens: ResourceLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -109,7 +117,8 @@ func bind_views(
 	p_overlay: MapOverlay,
 	p_camera: MapCamera,
 	p_hud: GameHud,
-	p_improvements: ImprovementPanel
+	p_improvements: ImprovementPanel,
+	p_lens: ResourceLens = null
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
@@ -119,6 +128,7 @@ func bind_views(
 	camera = p_camera
 	hud = p_hud
 	improvements = p_improvements
+	lens = p_lens
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).
@@ -126,6 +136,12 @@ func treasury() -> int:
 	if economy == null or economy.economy == null:
 		return 0
 	return economy.economy.treasury
+
+
+## The court that answers consent decisions, or NO_ID when every crown is AI
+## (the full-AI observer). Rules modules read this instead of player_faction.
+func human_faction_id() -> int:
+	return MapModel.NO_ID if observer_mode else player_faction
 
 
 ## Provinces the player currently holds in the region on screen.

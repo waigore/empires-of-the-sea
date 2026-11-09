@@ -34,7 +34,7 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction:
+		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var plan: Dictionary = AiNavalPlanner.orders(
@@ -56,10 +56,46 @@ static func _run_region(
 				"kind": String(order["kind"]),
 				"fleet": fleet.id,
 				"zone": zone,
+				"zone_name": model.sea_zone_name(zone),
+				"region": model.region_id,
 				"threat": int(order["threat"]),
 			})
 			_report_sighting(play, model, faction, zone)
+		_station_orders(play, model, roster, faction)
 	return changed
+
+
+## A squadron that did not sortie still takes a station: blockade an enemy coast
+## in its zone when one is at war, otherwise hold (wiki: ships-and-naval
+## § Missions and Movement; DR-20261109-16).
+static func _station_orders(
+	play: PlaySession, model: MapModel, roster: Array[FleetState], faction: int
+) -> void:
+	var hostile := func(a: int, b: int) -> bool:
+		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
+	for fleet: FleetState in roster:
+		if fleet == null or fleet.owner != faction:
+			continue
+		if not fleet.is_at_sea() or not fleet.is_afloat() or fleet.moved:
+			continue
+		var mission: int = fleet.mission
+		if mission == FleetState.Mission.BLOCKADE:
+			if FleetMissions.is_blockading(model, fleet, hostile):
+				continue
+			fleet.clear_mission()
+			mission = FleetState.Mission.NONE
+		if mission != FleetState.Mission.NONE and mission != FleetState.Mission.DEFEND:
+			continue
+		var targets: Array[int] = FleetMissions.blockade_targets(model, fleet, hostile)
+		if not targets.is_empty():
+			FleetMissions.assign(
+				model, fleet, FleetState.Mission.BLOCKADE, targets[0], hostile
+			)
+			continue
+		if mission == FleetState.Mission.NONE:
+			FleetMissions.assign(
+				model, fleet, FleetState.Mission.DEFEND, MapModel.NO_ID, hostile
+			)
 
 
 ## Re-reads the on-screen markers after the rules moved a squadron; the player's

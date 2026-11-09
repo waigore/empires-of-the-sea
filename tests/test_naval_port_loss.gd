@@ -106,6 +106,38 @@ func test_a_squadron_at_the_new_seat_absorbs_the_home_squadron() -> void:
 	assert_eq(moored.hulls, ["ship_2", "ship_1"])
 
 
+## The re-mooring is administrative: the absorbed squadron keeps its colonists
+## and troops, and a second army goes ashore at the new seat instead of being
+## lost (wiki: ships-and-naval § Ports that change hands; DR-20261109-11).
+func test_the_absorbed_squadron_keeps_its_passengers() -> void:
+	var model: MapModel = Fixture.build()
+	var home: FleetState = FleetState.in_port(1, 0, SEAT, ["ship_1", "ship_2"])
+	var moored: FleetState = FleetState.in_port(2, 0, HARBOUR, ["ship_3", "ship_4"])
+	model.province_data(HARBOUR).owner = 0
+	home.add_civilian(11)
+	home.embarked_army = 21
+	var roster: Array[FleetState] = [home, moored]
+
+	var result: Dictionary = NavalPortLoss.relocate_home(model, roster, 0, SEAT, HARBOUR)
+
+	assert_eq(int(result["merged"]), 1)
+	assert_true(moored.has_civilian(11), "the colonist rides the absorbed hulls")
+	assert_eq(moored.embarked_army, 21, "the troops stay aboard")
+	assert_true((result["ashore"] as Array).is_empty())
+
+	# A second army cannot share the squadron: the surplus is reported for the
+	# landing at the new seat, never dropped with the merged-away hulls.
+	moored.embarked_army = 31
+	var second: FleetState = FleetState.in_port(3, 0, SEAT, ["ship_5"])
+	second.embarked_army = 32
+	var other: Dictionary = NavalPortLoss.relocate_home(
+		model, [second, moored], 0, SEAT, HARBOUR
+	)
+
+	assert_eq(moored.embarked_army, 31, "the moored squadron keeps its own army")
+	assert_eq((other["ashore"] as Array), [32] as Array[int])
+
+
 func test_an_empty_home_slip_is_dropped_on_the_move() -> void:
 	var model: MapModel = Fixture.build()
 	var slip: FleetState = FleetState.empty_in_port(1, 0, SEAT)

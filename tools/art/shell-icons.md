@@ -1,0 +1,37 @@
+# Shell medallion icons (fal.ai)
+
+The cartouche's four status medallions are generated with FLUX through
+`fal.ai` (`image_generate`), edited from `assets/art/icons/ledger.png` so the
+ring, dark field, top-left lighting and brass palette stay identical. Keep the
+prompts here so a replacement icon stays in the same family.
+
+All four used this base edit:
+
+> Edit this medallion: keep the thick beveled brass ring, dark espresso circular
+> field, top-left lighting and exact rendering style unchanged. Replace ONLY the
+> central open book with **[object]**, sculpted in polished brass. No book, no
+> pages, no text. Isolated on a solid pure magenta background.
+
+| Icon | `[object]` |
+|------|------------|
+| `coin.png` | a neat stack of three thick gold coins, the top coin face-on with a simple raised cross mint mark |
+| `ship.png` | a gold three-masted caravel under full sail, side view |
+| `people.png` | two simple gold busts side by side, rounded head-and-shoulders silhouettes, the left figure slightly taller, no props, no faces |
+| `swords.png` | two crossed gold rapiers, blades up, detailed hilts |
+
+## Post
+
+1. Key magenta dominance, not one hex: `alpha = 1 - (min(r,b) - g) / 0.10`,
+   clamped; this catches the backdrop's lighting variation.
+2. Despill edge texels toward `g`, then set fully transparent texels to a
+   neutral dark brown so Lanczos does not blend magenta back into the rim.
+3. Crop square to the opaque bounds with a 6% margin, resize to **128×128**
+   with Lanczos, despill once more.
+4. Import with `mipmaps/generate=true`, lossless compression, matching the
+   existing shell medallions.
+
+## Wiring
+
+`ChromeIcons.texture(name)` loads the PNG; `TopBar` shows it in a `TextureRect`
+named `Medallion` at 22 points. Tests assert every door and status plaque keeps
+a medallion (`REQ-P1-08`).
