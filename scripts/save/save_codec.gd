@@ -106,7 +106,8 @@ static func _capture_victory(state: VictoryState) -> Dictionary:
 	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
 
 
-## Legacy slots load as undecided, so they still resume with turns open.
+## A save from before victory state was captured (or a malformed entry) loads as
+## an undecided campaign, so legacy slots still resume with turns open.
 static func _victory_from(raw: Variant) -> VictoryState:
 	if typeof(raw) != TYPE_DICTIONARY:
 		return null
@@ -179,7 +180,8 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
-	# A decided campaign must come back decided (wiki: victory § Persistence).
+	# A decided campaign must come back decided, or the load would hand the
+	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
 	play.victory = _victory_from(data.get("victory", {}))
 
 	var world: WorldMap = MapGenerator.new().generate_world(

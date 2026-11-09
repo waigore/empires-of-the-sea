@@ -1,14 +1,16 @@
 class_name ArmyLayer
 extends Node2D
-## Owns land army markers and applies army orders; rules outcomes come from
-## ArmyMovement/ArmyCombat and every region keeps its own roster.
+## Owns land army markers and applies army orders. Rules outcomes come from
+## ArmyMovement and ArmyCombat; this layer only animates them, keeps one
+## roster per region, and reports outcomes (wiki: military-armies, combat).
 
 signal army_selected(army: ArmyState)
 signal army_moved(army: ArmyState, result: Dictionary)
 
 const TILE_SIZE: float = 22.0
 const MARKER_RADIUS: float = 30.0
-## Opening musters; the wiki fixes the Home Army's existence, not its size.
+## Opening musters. The wiki fixes the Home Army's existence and station, not
+## its size; these small era-1 guards keep land combat playable at turn one.
 const GREAT_POWER_ROSTER: Array[String] = [
 	"peasant_levies", "peasant_levies", "pikemen", "arquebusiers", "squires"
 ]
@@ -63,8 +65,9 @@ func spawn(p_model: MapModel) -> void:
 	regions.set_region(model.region_id, armies)
 
 
-## Join Empire: absorbed regiments change colours and the Home Army becomes a
-## field army (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
+## Join Empire: an absorbed crown's land regiments change colours; a former Home
+## Army becomes a field army so the winner keeps exactly one
+## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
 func transfer_owner(from_id: int, to_id: int) -> void:
 	for raw: Variant in regions.values():
 		ArmyState.hand_over(raw, from_id, to_id)
@@ -174,6 +177,7 @@ func deselect() -> void:
 	select(null)
 
 
+## Closest visible standard to a world tap within the marker radius.
 func army_at(world_position: Vector2) -> ArmyState:
 	var best: ArmyState = null
 	var best_distance: float = minf(MARKER_RADIUS / maxf(_zoom, 0.001), TILE_SIZE * 1.1)
@@ -188,6 +192,7 @@ func army_at(world_position: Vector2) -> ArmyState:
 	return best
 
 
+## Applies a march through the rules, then animates the standard.
 func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary:
 	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id, at_war)
 	if not bool(result.get("ok", false)):
@@ -216,7 +221,8 @@ func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
 	return result
 
 
-## Combines the selected army with friendly armies in its province.
+## Combines the selected army with friendly armies in its province. The Home
+## Army wins the merge target when it is in the group (wiki: military-armies).
 func combine(army: ArmyState) -> Dictionary:
 	if army == null:
 		return {"ok": false, "reason": "There is no army to combine."}
@@ -243,6 +249,7 @@ func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
 	return ArmyCombat.armies_of(armies, province_id, owner)
 
 
+## Musters one regiment into the faction's Home Army, keeping the marker in step.
 func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null:
@@ -265,12 +272,14 @@ func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 	return result
 
 
-## Grows a Great Power's general pool to its tech-gated cap.
+## Grows a Great Power's general pool to its tech-gated cap (wiki:
+## military-generals § Count and tech-gated cap).
 func sync_generals(owner: int, tech_unlocked: Dictionary) -> void:
 	if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER:
 		generals.sync(owner, tech_unlocked)
 
 
+## Commander line for the dossier; empty for Minor Nations and Tribes.
 func command_text(army: ArmyState) -> String:
 	if army == null or FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 		return ""
@@ -284,7 +293,9 @@ func begin_turn() -> void:
 		ArmyMovement.begin_turn(stored)
 
 
-## Resolves land battles in every region, even the map the player is not on.
+## Resolves land battles in every region: a battle must not wait for the player
+## to open that map (wiki: map-topology § two regions); `context["hostile"]` is
+## the court's war query so peace never spills blood.
 func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	var by_region: Dictionary = {}
@@ -368,6 +379,7 @@ func food_upkeep_all(owner: int) -> int:
 	return total
 
 
+## Fog hides rival standards until their province is fully visible.
 func sync_visibility(visibility: VisibilityModel, player_faction: int) -> void:
 	for army: ArmyState in armies:
 		var marker: ArmyMarker = marker_for(army)
