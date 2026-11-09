@@ -1204,6 +1204,58 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	layer.free()
 
 
+## A rival's colonial estate ships home on the same holds as the player's: no
+## free tonnage from the other region (wiki: extraction-and-improvements
+## § Flow to Stockpile; DR-20261109-17; REQ-P2-03).
+func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
+	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
+	var colony := MapModel.new()
+	colony.setup(2, 1)
+	colony.province[colony.index_of(0, 0)] = 0
+	colony.province[colony.index_of(1, 0)] = 0
+	var tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var province := ProvinceState.create(0, "Colony", tiles, Vector2.ZERO, 2, 1)
+	province.town_development = 4
+	colony.provinces.append(province)
+	colony.resource[colony.index_of(0, 0)] = 0
+	colony.resource[colony.index_of(1, 0)] = 4
+	world.add_region(colony)
+	var layer := CivilianLayer.new()
+	layer.spawn(world.region(WorldMap.OLD_WORLD), 1, 0, [], false)
+	var works := LandWorks.new()
+	works.add_port(colony, Vector2i(0, 0))
+	works.set_improvement(colony, Vector2i(0, 0), 1)
+	layer.works_regions.set_region(WorldMap.NEW_WORLD, works)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = world.region(WorldMap.OLD_WORLD)
+	play.civilian_layer = layer
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+
+	var without_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	assert_eq(_tons(without_holds), 5, "the rival's home yield needs no hold")
+	assert_eq(int(MapPlayEconomyAi._extraction(play, 1, economy)["grain"]), 5)
+
+	var ships := ShipLayer.new()
+	var home: FleetState = FleetState.in_port(
+		1, 1, 1, ["a"], {"a": "fluyte"}
+	)
+	ships.regions.set_region(WorldMap.OLD_WORLD, [home] as Array[FleetState])
+	play.ship_layer = ships
+	var with_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
+	ships.free()
+	layer.free()
+
+
+func _tons(totals: Dictionary) -> int:
+	var total: int = 0
+	for raw: Variant in totals.values():
+		total += int(raw)
+	return total
+
+
 func test_map_phase_gives_diplomacy_the_rival_stockpiles() -> void:
 	var play := PlaySession.new()
 	play.world = AiFixture.world([2, 2, 2, 2, 1])

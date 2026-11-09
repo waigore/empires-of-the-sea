@@ -95,21 +95,24 @@ func trade_cargo() -> Dictionary:
 	)
 
 
+## Holds the crown's home squadron carries this turn (0 while it is away).
+func cargo_holds() -> int:
+	if _ships == null or _ships.world == null:
+		return 0
+	return TradeCargo.capacity(_ships.world, _ships.regions.snapshot(), player_faction)
+
+
 ## Overseas yield delivered this turn. Extraction takes the home fleet's holds
 ## before trade, richest commodity first; undelivered cargo stays abroad
 ## (wiki: extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
 func overseas_plan() -> Dictionary:
 	var by_region: Dictionary = {}
-	var holds: int = 0
 	if _ships != null and _ships.world != null:
-		holds = TradeCargo.capacity(
-			_ships.world, _ships.regions.snapshot(), player_faction
-		)
 		var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 		by_region = EconomyOverseas.region_totals(
 			_ships.world, home_region, player_faction, tech_caps(), works_by_region
 		)
-	return EconomyOverseas.plan(by_region, holds)
+	return EconomyOverseas.plan(by_region, cargo_holds())
 
 
 ## Share of last turn's army rations the granary could cover (0..1). Full
@@ -124,15 +127,17 @@ func feeding_coverage() -> float:
 ## Everything that reaches the crown's stockpile this turn: home-region land
 ## yield plus the overseas cargo the home fleet actually delivers.
 func extraction() -> Dictionary:
-	var totals: Dictionary = Extraction.yields(
+	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
 		capital_tile
 	)
-	var shipped: Dictionary = overseas_plan().get("shipped", {})
-	for raw: Variant in shipped.keys():
-		var id: String = String(raw)
-		totals[id] = int(totals.get(id, 0)) + int(shipped[raw])
-	return totals
+	if _ships == null or _ships.world == null:
+		return home
+	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
+	return EconomyOverseas.delivered(
+		home, _ships.world, home_region, player_faction, tech_caps(),
+		works_by_region, cargo_holds()
+	)["extraction"] as Dictionary
 
 
 func projected() -> Dictionary:
