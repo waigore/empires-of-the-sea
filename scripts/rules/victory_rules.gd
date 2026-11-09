@@ -65,10 +65,11 @@ static func calendar_halt(turn: int, infinite_mode: bool) -> bool:
 ## The declared leader has the strictly highest Great Power power score; a tie
 ## at the top (or no eligible scorer) declares no-one (wiki: victory
 ## § Calendar campaign end, diplomacy § Great Power power score).
-## `regiments` and `ships` map faction id → live counts; an empty map scores on
-## provinces alone, which is what a court with no field forces reads anyway.
+## `strength` and `ships` map faction id → the crown's order-of-battle strength
+## (FPN + FPM, no medals) and hull count; a court with no field forces scores on
+## provinces alone, which is what it reads anyway.
 static func declared_leader(
-	world: WorldMap, regiments: Dictionary = {}, ships: Dictionary = {}
+	world: WorldMap, strength: Dictionary = {}, ships: Dictionary = {}
 ) -> int:
 	if world == null:
 		return MapModel.NO_ID
@@ -79,7 +80,7 @@ static func declared_leader(
 		var score: int = AiPower.score(
 			world,
 			faction_id,
-			int(regiments.get(faction_id, 0)),
+			int(roundf(float(strength.get(faction_id, 0.0)))),
 			int(ships.get(faction_id, 0))
 		)
 		if score > best:

@@ -328,9 +328,8 @@ func _connect() -> void:
 	hud.army_closed.connect(func() -> void:
 		MapPlayInput.deselect(play)
 	)
-	hud.fleet_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
+	hud.fleet_closed.connect(func() -> void: MapPlayInput.deselect(play))
+	hud.fleet_action.connect(func(action: String) -> void: MapPlayFleets.on_action(play, action))
 	civilian_layer.unit_selected.connect(func(unit: CivilianState) -> void:
 		MapPlayCivilians.select(play, unit)
 	)

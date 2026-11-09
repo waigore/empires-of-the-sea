@@ -9,6 +9,7 @@ signal zoom_out_pressed
 signal minimap_jump(world_position: Vector2)
 signal panel_action(action: String)
 signal panel_closed
+signal fleet_action(action: String)
 signal fleet_closed
 signal civilian_action(action: String)
 signal civilian_cancel
@@ -165,10 +166,10 @@ func show_victory(state: VictoryState, player_faction: int, holdings: int) -> vo
 
 ## Calendar cap closed the age undecided: same sealed plate, campaign-complete
 ## copy instead of a victory (wiki: victory § Calendar campaign end).
-func show_campaign_complete(leader: int, turn: int) -> void:
+func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void:
 	set_campaign_over(true)
 	if victory_overlay != null:
-		victory_overlay.show_campaign_complete(leader, turn)
+		victory_overlay.show_campaign_complete(leader, turn, player_faction)
 
 
 ## Turns never reopen; only the plate may step aside to keep viewing the map.

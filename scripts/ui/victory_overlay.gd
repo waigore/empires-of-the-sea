@@ -54,23 +54,23 @@ func show_victory(p_state: VictoryState, player_faction: int, holdings: int) -> 
 
 
 ## Renders the calendar-cap variant: no military victory, only the strongest
-## crown by power score — or a shared top score, which declares no-one.
-func show_campaign_complete(leader: int, turn: int) -> void:
+## crown by power score — or a shared top score, which declares no-one. The
+## standing line and tagline follow the wiki's calendar copy exactly
+## (wiki: victory § Victory Screen § Content (calendar)).
+func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void:
 	state = null
+	var declared: bool = leader != MapModel.NO_ID
 	_title.text = CALENDAR_TITLE.to_upper()
 	_winner.text = (
-		FactionCatalog.name_of(leader).to_upper()
-		if leader != MapModel.NO_ID
-		else NO_WINNER.to_upper()
+		FactionCatalog.name_of(leader).to_upper() if declared else NO_WINNER.to_upper()
 	)
-	_detail.text = "No military victory  ·  Turn %d  ·  %d" % [
-		turn, TurnTime.year_for_turn(turn)
-	]
-	_tagline.text = (
-		"%s closes the age strongest." % FactionCatalog.name_of(leader)
-		if leader != MapModel.NO_ID
-		else "The crowns close the age in a dead heat."
-	)
+	_detail.text = "%d  ·  Turn %d" % [TurnTime.year_for_turn(turn), turn]
+	if not declared:
+		_tagline.text = "The age is divided — no crown is declared."
+	elif leader == player_faction:
+		_tagline.text = "The age belongs to your crown."
+	else:
+		_tagline.text = "%s holds the age." % FactionCatalog.name_of(leader)
 	_mount()
 
 

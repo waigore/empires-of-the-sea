@@ -20,6 +20,8 @@ var selected_ship: Ship = null
 var _rng := RandomNumberGenerator.new()
 var _zoom: float = 1.0
 var _muster := FleetMuster.new()
+## The crown that owns the home fleet and may launch hulls at its capital.
+var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## Hull ids stay unique for the life of the save; save/load restores this
 ## cursor through the public field (REQ-P3-02 narrow APIs).
 var next_hull: int = 1
@@ -37,6 +39,7 @@ func spawn(
 ) -> void:
 	model = p_model
 	_rng.seed = seed_value
+	player_faction = p_player_faction
 	for ship: Ship in ships:
 		ship.queue_free()
 	ships.clear()
@@ -200,6 +203,66 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	return result
 
 
+## The crown's squadron moored in a port, if any: the home fleet
+## (wiki: ships-and-naval § Home Fleet).
+func home_fleet(province_id: int) -> FleetState:
+	for fleet: FleetState in fleets:
+		if fleet.owner != player_faction or not fleet.is_in_port():
+			continue
+		if fleet.province == province_id:
+			return fleet
+	return null
+
+
+## Launches one paid-for hull into the home fleet, founding it at the slip when
+## the crown keeps no squadron in that port (wiki: ships-and-naval § Ship build
+## economy). The view only mirrors what FleetYard already allowed.
+func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
+	var fleet: FleetState = home_fleet(province_id)
+	var founded: bool = fleet == null
+	if founded:
+		fleet = FleetState.empty_in_port(_next_fleet_id(), player_faction, province_id)
+	var hull_id: String = "ship_%d" % next_hull
+	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id)
+	if not bool(result.get("ok", false)):
+		return result
+	next_hull += 1
+	if founded:
+		fleets.append(fleet)
+		regions.set_region(model.region_id, fleets)
+		_make_marker(fleet)
+	result["created"] = founded
+	result["fleet"] = fleet
+	return result
+
+
+## Breaks up one hull of an own squadron; an emptied fleet leaves the map
+## (wiki: ships-and-naval § Ship muster and the breaker's yard).
+func scrap_hull(fleet: FleetState, hull_id: String, economy: PlayerEconomy) -> Dictionary:
+	if fleet == null or fleet.owner != player_faction:
+		return {"ok": false, "reason": "Own colours only.", "hull": "", "type": "", "retired": false}
+	var result: Dictionary = FleetYard.scrap(economy, fleet, hull_id)
+	if not bool(result.get("ok", false)) or not bool(result.get("retired", false)):
+		return result
+	var ship: Ship = ship_for(fleet)
+	if ship != null:
+		if selected_ship == ship:
+			deselect()
+		ships.erase(ship)
+		ship.queue_free()
+	fleets.erase(fleet)
+	regions.set_region(model.region_id, fleets)
+	return result
+
+
+## A founded home fleet takes the next free id in this region.
+func _next_fleet_id() -> int:
+	var next_id: int = 0
+	for other: FleetState in fleets:
+		next_id = maxi(next_id, other.id + 1)
+	return next_id
+
+
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:
@@ -250,17 +313,40 @@ func resolve_battles(
 
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.
+## Absorption transfers the loser's squadrons; `MapModel.NO_ID` retires them.
 func transfer_owner(from_id: int, to_id: int) -> void:
-	for stored: Array in regions.values():
-		for fleet: FleetState in stored:
-			if fleet.owner == from_id:
-				fleet.owner = to_id
-	for fleet: FleetState in fleets:
-		if fleet.owner == from_id:
+	var retire: bool = to_id == MapModel.NO_ID
+	for raw: Variant in regions.values():
+		var stored: Array = raw
+		for index in range(stored.size() - 1, -1, -1):
+			var fleet: FleetState = stored[index]
+			if fleet == null or fleet.owner != from_id:
+				continue
+			if retire:
+				stored.remove_at(index)
+				continue
 			fleet.owner = to_id
+	for index in range(fleets.size() - 1, -1, -1):
+		var fleet: FleetState = fleets[index]
+		if fleet == null or fleet.owner != from_id:
+			continue
+		if retire:
+			fleets.remove_at(index)
+			continue
+		fleet.owner = to_id
+	var kept: Array[Ship] = []
 	for ship: Ship in ships:
-		if ship.faction == from_id:
+		if ship.faction != from_id:
+			kept.append(ship)
+			continue
+		if not retire:
 			ship.faction = to_id
+			kept.append(ship)
+			continue
+		if ship == selected_ship:
+			selected_ship = null
+		ship.queue_free()
+	ships = kept
 
 
 ## Hulls still afloat for one faction across every fleet it keeps.
