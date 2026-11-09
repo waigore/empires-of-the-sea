@@ -64,6 +64,7 @@ suites = [
   "test_fleet_rosters.gd",
   "test_fleet_yard.gd",
   "test_naval_movement.gd",
+  "test_naval_port_loss.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]
@@ -608,3 +609,10 @@ domain = "ui"
 [[rules]]
 match = "tests/test_*.gd"
 full = true
+
+# Editor-generated companion files take a light mapping: a test script and its
+# .uid always change together (Godot writes one per class_name script), and the
+# misc suite set is the catch-all for helper-only changes.
+[[rules]]
+match = "tests/test_*.gd.uid"
+domain = "misc"

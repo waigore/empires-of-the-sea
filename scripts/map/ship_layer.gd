@@ -278,6 +278,36 @@ func resolve_battles(
 	return all
 
 
+## Applies the port-capture rules after a Combat phase: a reassigned crown's
+## home squadron re-moors at its new seat, then every squadron left in a port it
+## no longer owns sorts out (wiki: ships-and-naval § Ports that change hands;
+## DR-20261109-11, DR-20261109-12). Returns one report per event.
+func settle_port_losses(world: WorldMap, reassigned: Array) -> Array[Dictionary]:
+	var result: Dictionary = FleetPortSettlement.settle(world, regions, reassigned)
+	var reports: Array[Dictionary] = []
+	reports.assign(result.get("reports", []))
+	if model == null or not (result.get("regions", []) as Array).has(model.region_id):
+		return reports
+	fleets.assign(regions.value(model.region_id, []))
+	_rebuild_markers()
+	for row: Dictionary in result.get("sorties", []):
+		if int(row.get("region", -1)) != model.region_id:
+			continue
+		if int(row.get("owner", MapModel.NO_ID)) != player_faction:
+			continue
+		var marker: Ship = ship_for(_fleet_by_id(int(row["fleet"])))
+		if marker != null:
+			zone_entered.emit(int(row["zone"]), marker)
+	return reports
+
+
+func _fleet_by_id(fleet_id: int) -> FleetState:
+	for fleet: FleetState in fleets:
+		if fleet != null and fleet.id == fleet_id:
+			return fleet
+	return null
+
+
 ## A Join Empire absorption transfers the loser's squadrons and markers.
 ## `MapModel.NO_ID` retires them instead: the crown leaves the map.
 func transfer_owner(from_id: int, to_id: int) -> void:

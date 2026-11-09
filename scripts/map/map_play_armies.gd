@@ -332,6 +332,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 		)
 		changed = true
+	MapPlayFleets.settle_ports(play, reassigned)
 	if changed:
 		sync_player_capital(play)
 	if play.defeat != null:
