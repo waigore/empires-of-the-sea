@@ -4,7 +4,7 @@ extends RefCounted
 ## Pure data: no nodes, no rendering, so rules and tests can run headless (REQ-P3-03).
 ## Coastal, neighbor, and world-space queries live on MapGeo.
 
-enum Terrain { OCEAN, SHALLOW, PLAINS, FOREST, HILLS, MOUNTAINS, DESERT, SWAMP }
+enum Terrain { OCEAN, SHALLOW, PLAINS, HARDWOOD_FOREST, HILLS, MOUNTAINS, DESERT, SWAMP, SCRUB_FOREST }
 
 const NO_ID: int = -1
 
@@ -12,11 +12,12 @@ const TERRAIN_LABELS: Dictionary = {
 	Terrain.OCEAN: "Open sea",
 	Terrain.SHALLOW: "Coastal waters",
 	Terrain.PLAINS: "Plains",
-	Terrain.FOREST: "Forest",
+	Terrain.HARDWOOD_FOREST: "Hardwood Forest",
 	Terrain.HILLS: "Hills",
 	Terrain.MOUNTAINS: "Mountains",
 	Terrain.DESERT: "Desert",
 	Terrain.SWAMP: "Marsh",
+	Terrain.SCRUB_FOREST: "Scrub Forest",
 }
 
 var width: int = 0

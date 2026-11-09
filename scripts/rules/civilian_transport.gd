@@ -22,7 +22,8 @@ const DYNAMITE: String = "dynamite"
 ## with Later Steam Engine, mountains only with Dynamite.
 const RAIL_TERRAIN_TECHS: Dictionary = {
 	MapModel.Terrain.PLAINS: EARLY_STEAM_ENGINE,
-	MapModel.Terrain.FOREST: EARLY_STEAM_ENGINE,
+	MapModel.Terrain.HARDWOOD_FOREST: EARLY_STEAM_ENGINE,
+	MapModel.Terrain.SCRUB_FOREST: EARLY_STEAM_ENGINE,
 	MapModel.Terrain.DESERT: EARLY_STEAM_ENGINE,
 	MapModel.Terrain.HILLS: LATER_STEAM_ENGINE,
 	MapModel.Terrain.SWAMP: LATER_STEAM_ENGINE,

@@ -126,7 +126,7 @@ func feeding_coverage() -> float:
 func extraction() -> Dictionary:
 	var totals: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile
+		capital_tile, economy.tech_unlocked
 	)
 	var shipped: Dictionary = overseas_plan().get("shipped", {})
 	for raw: Variant in shipped.keys():

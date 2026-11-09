@@ -139,7 +139,7 @@ func test_minor_prefers_sea_bound_then_falls_back_to_inland() -> void:
 
 func test_great_power_takes_first_plains_class_a_tile() -> void:
 	var model := _two_islands()
-	model.terrain[model.index_of(2, 2)] = MapModel.Terrain.FOREST
+	model.terrain[model.index_of(2, 2)] = MapModel.Terrain.HARDWOOD_FOREST
 	assert_eq(CapitalChoice.tile_class(model, 0, Vector2i(2, 2)), CapitalChoice.CLASS_A)
 	assert_eq(CapitalChoice.tile_class(model, 0, Vector2i(3, 3)), CapitalChoice.CLASS_B)
 	assert_eq(CapitalChoice.choose_tile(model, 0), Vector2i(3, 2))
@@ -148,7 +148,7 @@ func test_great_power_takes_first_plains_class_a_tile() -> void:
 func test_class_rank_beats_plains() -> void:
 	var model := _two_islands()
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.terrain[model.index_of(3, 3)] = MapModel.Terrain.PLAINS
 	assert_eq(CapitalChoice.choose_tile(model, 0), Vector2i(2, 2))
 
@@ -165,7 +165,7 @@ func test_great_power_falls_back_to_coastal_class_c() -> void:
 func test_minor_takes_class_a_before_class_b() -> void:
 	var model := _two_islands()
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.terrain[model.index_of(3, 3)] = MapModel.Terrain.PLAINS
 	assert_eq(
 		CapitalChoice.choose_tile(model, 0, CapitalChoice.KIND_MINOR), Vector2i(2, 2)
@@ -176,7 +176,7 @@ func test_capital_tile_becomes_plains_and_loses_its_resource() -> void:
 	var model := _two_islands()
 	var seat := Vector2i(2, 2)
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.resource[model.index_of(seat.x, seat.y)] = 3
 	model.provinces[0].resource = 3
 	model.provinces[0].resource_tile = seat
