@@ -81,12 +81,18 @@ func is_home_army() -> bool:
 ## Join Empire: an absorbed crown's regiments pass to the winner; a former Home
 ## Army becomes a field army so the winner keeps exactly one
 ## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
+## A terminal fall passes `MapModel.NO_ID`: the crown's armies leave the roster
+## (wiki: capital-and-connectivity § Capital loss and reassignment).
 static func hand_over(groups: Array, from_id: int, to_id: int) -> void:
-	for raw: Variant in groups:
-		var army: ArmyState = raw
-		if army != null and army.owner == from_id:
-			army.owner = to_id
-			army.home = false
+	for index in range(groups.size() - 1, -1, -1):
+		var army: ArmyState = groups[index]
+		if army == null or army.owner != from_id:
+			continue
+		if to_id == MapModel.NO_ID:
+			groups.remove_at(index)
+			continue
+		army.owner = to_id
+		army.home = false
 
 
 func type_of(regiment_id: String) -> String:

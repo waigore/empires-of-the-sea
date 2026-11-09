@@ -154,6 +154,46 @@ func test_civilian_presence_holds_a_foreign_province() -> void:
 	assert_false(_visibility.is_province_fully_visible(1))
 
 
+func test_presence_never_surveys_unknown_terrain() -> void:
+	for tile: Vector2i in _model.province_tiles(1):
+		var index: int = _model.index_of(tile.x, tile.y)
+		_visibility.levels[index] = VisibilityModel.Level.UNKNOWN
+	var held: Array = _visibility.hold_explored_province(1)
+	var unknown_left: int = 0
+	for tile: Vector2i in _model.province_tiles(1):
+		var index: int = _model.index_of(tile.x, tile.y)
+		if _visibility.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown_left += 1
+	assert_eq(held, [], "presence holds nothing unknown")
+	assert_eq(unknown_left, 12, "every tile stays unknown")
+
+
+func test_presence_holds_only_the_fogged_tile() -> void:
+	var tiles: Array[Vector2i] = _model.province_tiles(1)
+	var charted: Vector2i = tiles[0]
+	var charted_index: int = _model.index_of(charted.x, charted.y)
+	_visibility.levels[charted_index] = VisibilityModel.Level.UNKNOWN
+	var opened: int = _visibility.hold_explored_province(1).size()
+	var charted_level: int = _visibility.level_at_index(charted_index)
+	var still_unknown: int = 0
+	for tile: Vector2i in tiles:
+		if _visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
+			still_unknown += 1
+	assert_eq(opened, 11, "every fogged tile is held")
+	assert_eq(charted_level, VisibilityModel.Level.UNKNOWN, "unknown stays unknown")
+	assert_eq(still_unknown, 1, "only the cleared tile stays unknown")
+
+
+func test_a_spy_never_holds_a_province() -> void:
+	var units: Array[CivilianState] = []
+	units.append(CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2)))
+	units.append(CivilianState.create(2, 1, "explorer", Vector2i(2, 2)))
+	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [], "own spy does not hold")
+	assert_eq(CivilianMovement.held_provinces(_model, units, 1), [1], "own explorer holds")
+	units[0].type_id = "explorer"
+	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [1], "an explorer holds")
+
+
 func test_province_visibility_uses_the_highest_tile() -> void:
 	_visibility.apply_initial()
 	assert_eq(_visibility.province_visibility(0), VisibilityModel.Level.FULLY_VISIBLE)

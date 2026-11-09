@@ -85,6 +85,7 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+	MapPlayArmies.run_ai(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)

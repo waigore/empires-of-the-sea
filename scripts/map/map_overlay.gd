@@ -1,33 +1,29 @@
 class_name MapOverlay
 extends Node2D
-## Animated layer above the map: fog of war, hover highlight, selection glow.
-## Fog is a low-resolution texture scaled up, so revealing a zone costs one
-## image rebuild instead of thousands of draw calls (REQ-P4-01).
+## Animated layer above the map: fog of war, hover highlight, selection glow,
+## move hints and painted country borders.
+##
+## Fog lives on a child `FogLayer` (tile-resolution texture scaled up, so
+## revealing a zone costs one image rebuild instead of thousands of draw calls,
+## REQ-P4-01). This node keeps the artwork that must sit *above* fog and owns
+## the narrow fog API the rest of the play code talks to.
+
+## Fog ids re-exported for callers/tests that speak in overlay terms.
+const FOG_VISIBLE: int = FogLayer.FOG_VISIBLE
+const FOG_FOGGED: int = FogLayer.FOG_FOGGED
+const FOG_UNKNOWN: int = FogLayer.FOG_UNKNOWN
 
 const TILE_SIZE: float = 22.0
 
-const FOG_VISIBLE: int = 0
-const FOG_FOGGED: int = 1
-const FOG_UNKNOWN: int = 2
-
-const FOG_FADE_SPEED: float = 2.6
-
 var model: MapModel = null
-var fog: PackedByteArray = PackedByteArray()
+## Fog of war grid + fade; child node so the fog texture draws behind the ink.
+var fog_layer: FogLayer = null
 var hover_province: int = -1
 var selected_province: int = -1
 var move_zones: Array[int] = []
 var move_provinces: Array[int] = []
 var move_tiles: Array[Vector2i] = []
 
-var _fade: PackedFloat32Array = PackedFloat32Array()
-var _fog_image: Image = null
-var _fog_texture: ImageTexture = null
-var _fog_sprite: Sprite2D = null
-var _fog_dirty: bool = true
-## When false, skip the per-tile fade scan (map is large; scanning every frame
-## starves headless tests and burns CPU in play).
-var _fade_active: bool = false
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
 var _zone_outlines: Dictionary = {}
@@ -39,96 +35,72 @@ var _ripples: Array[Dictionary] = []
 
 func build(p_model: MapModel) -> void:
 	model = p_model
-	var count: int = model.width * model.height
-	fog.resize(count)
-	fog.fill(FOG_VISIBLE)
-	_fade.resize(count)
-	_fade.fill(0.0)
+	_build_fog_layer()
 	_build_country_borders()
-	_fog_image = Image.create(model.width, model.height, false, Image.FORMAT_RGBA8)
-	_fog_image.fill(Color(0, 0, 0, 0))
-	_fog_texture = ImageTexture.create_from_image(_fog_image)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-
-	_fog_sprite = Sprite2D.new()
-	_fog_sprite.texture = _fog_texture
-	_fog_sprite.centered = false
-	_fog_sprite.scale = Vector2(TILE_SIZE, TILE_SIZE)
-	_fog_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_fog_sprite.show_behind_parent = true
-	var material := ShaderMaterial.new()
-	material.shader = load("res://ui/shaders/fog.gdshader")
-	var texel := Vector2(1.0 / float(model.width), 1.0 / float(model.height))
-	material.set_shader_parameter("texel", texel)
-	material.set_shader_parameter("map_tiles", Vector2(float(model.width), float(model.height)))
-	material.set_shader_parameter("tile_size", TILE_SIZE)
-	_fog_sprite.material = material
-	add_child(_fog_sprite)
-
-	_fog_dirty = true
 	queue_redraw()
 
 
+func _build_fog_layer() -> void:
+	if fog_layer == null:
+		fog_layer = FogLayer.new()
+		fog_layer.name = "Fog"
+		add_child(fog_layer)
+	fog_layer.build(model)
+
+
+func _process(delta: float) -> void:
+	_pulse += delta
+	var fog_moved: bool = fog_layer.advance(delta)
+	var had_ripples: bool = not _ripples.is_empty()
+	_age_ripples(delta)
+	# Fog texture changes and selection pulse / ripples / move hints need a
+	# repaint; settled fog does not.
+	if (
+		fog_moved
+		or selected_province >= 0
+		or hover_province >= 0
+		or had_ripples
+		or not _ripples.is_empty()
+		or not move_zones.is_empty()
+		or not move_provinces.is_empty()
+		or not move_tiles.is_empty()
+		or fog_layer.is_fading()
+	):
+		queue_redraw()
+
+
+func _age_ripples(delta: float) -> void:
+	for i in range(_ripples.size() - 1, -1, -1):
+		_ripples[i]["age"] = float(_ripples[i]["age"]) + delta
+		if float(_ripples[i]["age"]) > 1.1:
+			_ripples.remove_at(i)
+
+
+# --- fog API (delegates to FogLayer) -----------------------------------------
+
+
 func set_fog_state(tile_index: int, state: int) -> void:
-	if tile_index < 0 or tile_index >= fog.size():
-		return
-	if fog[tile_index] == state:
-		return
-	fog[tile_index] = state
-	_fog_dirty = true
-	_fade_active = true
+	fog_layer.set_fog_state(tile_index, state)
 
 
 func set_fog_rect(rect: Rect2i, state: int) -> void:
-	for y in range(rect.position.y, rect.end.y):
-		for x in range(rect.position.x, rect.end.x):
-			if model.in_bounds(x, y):
-				set_fog_state(model.index_of(x, y), state)
+	fog_layer.set_fog_rect(rect, state)
 
 
-## Projects rules-engine visibility onto the fog texture (view reads state).
-## `indices` are the tiles that changed; empty means resync the whole map.
 func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
-	if visibility == null or model == null:
-		return
-	if indices.is_empty():
-		for index in fog.size():
-			set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
-		return
-	for raw: Variant in indices:
-		var index: int = int(raw)
-		set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
+	fog_layer.sync_visibility(visibility, indices)
 
 
-static func fog_state_for(level: int) -> int:
-	match level:
-		VisibilityModel.Level.FULLY_VISIBLE:
-			return FOG_VISIBLE
-		VisibilityModel.Level.UNKNOWN:
-			return FOG_UNKNOWN
-		_:
-			return FOG_FOGGED
-
-
-## Jumps the fade animation to the current fog targets (used on first build so
-## the map does not start fully revealed).
 func snap_fog() -> void:
-	for i in _fade.size():
-		match fog[i]:
-			FOG_FOGGED:
-				_fade[i] = 0.55
-			FOG_UNKNOWN:
-				_fade[i] = 1.0
-			_:
-				_fade[i] = 0.0
-	_fog_dirty = true
-	_fade_active = false
+	fog_layer.snap_fog()
 
 
 func fog_state_at(x: int, y: int) -> int:
-	if model == null or not model.in_bounds(x, y):
-		return FOG_UNKNOWN
-	return fog[model.index_of(x, y)]
+	return fog_layer.fog_state_at(x, y)
+
+
+# --- highlights --------------------------------------------------------------
 
 
 func show_move_options(zones: Array[int], provinces: Array[int]) -> void:
@@ -166,60 +138,7 @@ func select_province(id: int, ripple_at: Vector2 = Vector2.INF) -> void:
 	queue_redraw()
 
 
-func _process(delta: float) -> void:
-	_pulse += delta
-	if _fade_active:
-		var animating: bool = false
-		for i in _fade.size():
-			var target: float = 0.0
-			match fog[i]:
-				FOG_FOGGED:
-					target = 0.55
-				FOG_UNKNOWN:
-					target = 1.0
-			var current: float = _fade[i]
-			if absf(current - target) > 0.002:
-				_fade[i] = move_toward(current, target, delta * FOG_FADE_SPEED)
-				animating = true
-		_fog_dirty = _fog_dirty or animating
-		_fade_active = animating
-	if _fog_dirty:
-		_rebuild_fog()
-	var had_ripples: bool = not _ripples.is_empty()
-	for i in range(_ripples.size() - 1, -1, -1):
-		_ripples[i]["age"] = float(_ripples[i]["age"]) + delta
-		if float(_ripples[i]["age"]) > 1.1:
-			_ripples.remove_at(i)
-	# Selection pulse / ripples / move hints need redraw; settled fog does not.
-	if (
-		selected_province >= 0
-		or hover_province >= 0
-		or had_ripples
-		or not _ripples.is_empty()
-		or not move_zones.is_empty()
-		or not move_provinces.is_empty()
-		or not move_tiles.is_empty()
-		or _fade_active
-	):
-		queue_redraw()
-
-
-func _rebuild_fog() -> void:
-	_fog_dirty = false
-	for y in model.height:
-		for x in model.width:
-			var index: int = model.index_of(x, y)
-			var amount: float = _fade[index]
-			if amount <= 0.004:
-				_fog_image.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			var state: int = fog[index]
-			if state == FOG_UNKNOWN:
-				var paper: Color = Palette.PAPER
-				_fog_image.set_pixel(x, y, Color(paper.r, paper.g, paper.b, amount))
-			else:
-				_fog_image.set_pixel(x, y, Color(0.80, 0.82, 0.79, amount * 0.48))
-	_fog_texture.update(_fog_image)
+# --- draw --------------------------------------------------------------------
 
 
 func _draw() -> void:
