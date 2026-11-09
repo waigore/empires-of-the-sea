@@ -51,7 +51,7 @@ ship strength beside land strength.
 | `scripts/ai/ai_naval_planner.gd` | rival sortie, pursue, hold |
 | `scripts/map/map_play_fleet_ai.gd` | rival sea pass, sightings |
 | `scripts/rules/visibility.gd` | fog reveal + turn end |
-| `scripts/map/ship_layer.gd` | markers, orders, battles |
+| `scripts/map/{ship_layer,ship_markers,fleet_rosters}.gd` | orders/battles, markers, rosters |
 | `scripts/map/{map_overlay,map_play_warp,fog_layer}.gd` | highlights, warp, fog |
 | `scripts/ui/fleet_panel.gd`, `panel_dock.gd` | dossier + yard, dock |
 | `scripts/economy/economy_controller.gd` | upkeep, cargo status |
@@ -72,9 +72,10 @@ No node deps in rules (`REQ-P3-03`). Orders → `NavalMovement`; yard →
 
 ## Tests
 
-`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`, `test_visibility`,
-`test_ship_stats`, `test_ship_economy`, `test_naval_combat`, `test_fleet_yard`,
-`test_trade_cargo`, `test_ai_rules` (rival sail), `test_map_screen`.
+`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`,
+`test_fleet_rosters`, `test_visibility`, `test_ship_stats`, `test_ship_economy`,
+`test_naval_combat`, `test_fleet_yard`, `test_trade_cargo`,
+`test_ai_rules` (rival sail), `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

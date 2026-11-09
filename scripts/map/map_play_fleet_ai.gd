@@ -65,7 +65,7 @@ static func _run_region(
 ## Re-reads the on-screen markers after the rules moved a squadron; the player's
 ## selected fleet survives the rebuild when it is still in the region.
 static func _adopt_visible(play: PlaySession) -> void:
-	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
+	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	play.ship_layer.spawn(
 		play.ship_layer.model, 0, 0, -1, false, play.player_faction
 	)
