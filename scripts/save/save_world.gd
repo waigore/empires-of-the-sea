@@ -34,6 +34,36 @@ static func capture(world: WorldMap) -> Array[Dictionary]:
 	return regions
 
 
+## Fog of war per region: the player's charted tiles live beside the world half
+## of the slot because a load lays both over the regenerated map.
+static func capture_visibility(play: PlaySession) -> Dictionary:
+	var by_region: Dictionary = {}
+	for raw: Variant in play.visibility_by_region.keys():
+		var visibility: VisibilityModel = play.visibility_by_region[raw]
+		if visibility != null:
+			by_region[int(raw)] = visibility.to_dict()
+	return {"by_region": by_region}
+
+
+## Rebuilds each region's fog from the save; unknown regions and malformed
+## entries are skipped so a partial save still loads what it can.
+static func restore_visibility(play: PlaySession, data: Variant) -> void:
+	play.visibility_by_region.clear()
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var by_region: Dictionary = data.get("by_region", {})
+	for raw: Variant in by_region.keys():
+		var region: int = int(raw)
+		var model: MapModel = play.world.region(region)
+		var entry: Variant = by_region[raw]
+		if model == null or typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var visibility := VisibilityModel.new()
+		visibility.setup(model, play.player_faction)
+		if visibility.apply_dict(entry):
+			play.visibility_by_region[region] = visibility
+
+
 ## Reapplies a captured world over `world`. Returns false when the save cannot
 ## describe this world (region count or sizes differ), so the caller regenerates.
 static func apply(world: WorldMap, regions: Variant) -> bool:

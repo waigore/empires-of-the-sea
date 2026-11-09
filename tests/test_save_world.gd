@@ -118,6 +118,43 @@ func test_resource_tile_accepts_vector2i_and_falls_back() -> void:
 	assert_eq(world.region(0).provinces[0].resource_tile, Vector2i(-1, -1))
 
 
+func test_visibility_round_trips_and_skips_unknown_regions() -> void:
+	var play := PlaySession.new()
+	play.world = _world()
+	play.player_faction = 0
+	var visibility := VisibilityModel.new()
+	visibility.setup(play.world.region(0), play.player_faction)
+	visibility.raise_to(0, VisibilityModel.Level.FULLY_VISIBLE)
+	play.visibility_by_region[0] = visibility
+
+	var captured: Dictionary = SaveWorld.capture_visibility(play)
+	assert_true(captured["by_region"].has(0), "every charted region is captured")
+
+	var restored := PlaySession.new()
+	restored.world = _world()
+	restored.player_faction = 0
+	SaveWorld.restore_visibility(restored, captured)
+	assert_true(restored.visibility_by_region.has(0), "the charted region comes back")
+	assert_eq(
+		restored.visibility_by_region[0].level_at(0, 0),
+		VisibilityModel.Level.FULLY_VISIBLE,
+		"seen tiles stay seen"
+	)
+
+
+func test_visibility_restore_tolerates_junk_and_unknown_regions() -> void:
+	var play := PlaySession.new()
+	play.world = _world()
+	play.player_faction = 0
+	SaveWorld.restore_visibility(play, "not-a-dict")
+	assert_true(play.visibility_by_region.is_empty(), "junk clears to no fog model")
+	SaveWorld.restore_visibility(play, {"by_region": {7: {"seen": []}, 0: "junk"}})
+	assert_true(
+		play.visibility_by_region.is_empty(),
+		"an unknown region and a malformed entry are both skipped"
+	)
+
+
 func _world() -> WorldMap:
 	var model := MapModel.new()
 	model.setup(2, 1)

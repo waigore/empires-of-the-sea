@@ -21,12 +21,12 @@ static func capture(play: PlaySession) -> Dictionary:
 		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"session": _capture_session(play),
 		"regions": SaveWorld.capture(play.world),
-		"visibility": _capture_visibility(play),
+		"visibility": SaveWorld.capture_visibility(play),
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
-		"diplomacy": _capture_diplomacy(play.diplomacy),
+		"diplomacy": SaveCourt.capture_diplomacy(play.diplomacy),
 		"ai": play.ai.to_dict() if play.ai != null else {},
-		"victory": _capture_victory(play.victory),
+		"victory": SaveCourt.capture_victory(play.victory),
 		"defeat": SaveDefeat.capture(play.defeat),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
@@ -55,44 +55,10 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 	}
 
 
-static func _capture_visibility(play: PlaySession) -> Dictionary:
-	var by_region: Dictionary = {}
-	for raw: Variant in play.visibility_by_region.keys():
-		var visibility: VisibilityModel = play.visibility_by_region[raw]
-		if visibility != null:
-			by_region[int(raw)] = visibility.to_dict()
-	return {"by_region": by_region}
-
-
 static func _capture_economy(play: PlaySession) -> Dictionary:
 	if play.economy == null or play.economy.economy == null:
 		return {}
 	return play.economy.economy.snapshot()
-
-
-## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory
-## § Persistence). An undecided campaign writes an empty entry.
-static func _capture_victory(state: VictoryState) -> Dictionary:
-	if state == null:
-		return {}
-	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
-
-
-## A save from before victory state was captured (or a malformed entry) loads as
-## an undecided campaign, so legacy slots still resume with turns open.
-static func _victory_from(raw: Variant) -> VictoryState:
-	if typeof(raw) != TYPE_DICTIONARY:
-		return null
-	var data: Dictionary = raw
-	var winner: int = int(data.get("winner", MapModel.NO_ID))
-	if not FactionCatalog.can_win(winner):
-		return null
-	if int(data.get("type", VictoryState.Type.MILITARY)) != VictoryState.Type.MILITARY:
-		return null
-	var turn: int = int(data.get("turn", -1))
-	if turn < 0:
-		return null
-	return VictoryState.military(winner, turn)
 
 
 # --- validation --------------------------------------------------------------
@@ -162,7 +128,7 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
-	play.victory = _victory_from(data.get("victory", {}))
+	play.victory = SaveCourt.victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 
 	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
@@ -182,25 +148,8 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 		play.army_layer.generals = GeneralRoster.from_dict(
 			_dictionary(data.get("generals", {}))
 		)
-	_restore_visibility(play, data.get("visibility", {}))
+	SaveWorld.restore_visibility(play, data.get("visibility", {}))
 	return true
-
-
-static func _restore_visibility(play: PlaySession, data: Variant) -> void:
-	play.visibility_by_region.clear()
-	if typeof(data) != TYPE_DICTIONARY:
-		return
-	var by_region: Dictionary = data.get("by_region", {})
-	for raw: Variant in by_region.keys():
-		var region: int = int(raw)
-		var model: MapModel = play.world.region(region)
-		var entry: Variant = by_region[raw]
-		if model == null or typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var visibility := VisibilityModel.new()
-		visibility.setup(model, play.player_faction)
-		if visibility.apply_dict(entry):
-			play.visibility_by_region[region] = visibility
 
 
 ## The economy node exists only after the HUD is built.
@@ -221,60 +170,7 @@ static func restore_economy(play: PlaySession, data: Dictionary) -> void:
 
 
 static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
-	var snapshot: Variant = data.get("diplomacy", {})
-	if typeof(snapshot) == TYPE_DICTIONARY and not snapshot.is_empty():
-		play.diplomacy = _diplomacy_from(snapshot)
-	var ai: Dictionary = _dictionary(data.get("ai", {}))
-	if not ai.is_empty():
-		play.ai = AiState.from_dict(ai)
-
-
-# --- diplomacy ---------------------------------------------------------------
-static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
-	if state == null:
-		return {}
-	var records: Dictionary = {}
-	for key: String in state.relations.keys():
-		var record: DiplomacyRelation = state.relations[key]
-		if record != null:
-			records[key] = record.to_dict()
-	return {
-		"turn": state.turn,
-		"relations": records,
-		"overtures": state.overtures.duplicate(),
-		"subsidies": state.subsidies.duplicate(),
-		"colonies": state.colonies.duplicate(),
-		"events": state.events.duplicate(true),
-		"modified": state._modified.duplicate(),
-		"order_counts": state._order_counts.duplicate(),
-		"alliance_snapshot": state.alliance_snapshot.duplicate(),
-		"pending_calls": state.pending_calls.duplicate(true),
-		"pending_interventions": state.pending_interventions.duplicate(true),
-		"pending_offers": state.pending_offers.duplicate(true),
-	}
-
-
-static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
-	var state := DiplomacyState.new()
-	state.turn = int(data.get("turn", 0))
-	var records: Dictionary = data.get("relations", {})
-	for key: Variant in records.keys():
-		var entry: Variant = records[key]
-		if typeof(entry) == TYPE_DICTIONARY:
-			state.relations[String(key)] = DiplomacyRelation.from_dict(entry)
-	state.overtures = data.get("overtures", {}).duplicate()
-	state.subsidies = data.get("subsidies", {}).duplicate()
-	state.colonies = data.get("colonies", {}).duplicate()
-	for event: Variant in data.get("events", []):
-		if typeof(event) == TYPE_DICTIONARY:
-			state.events.append(event.duplicate(true))
-	state._modified = data.get("modified", {}).duplicate()
-	state._order_counts = data.get("order_counts", {}).duplicate()
-	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
-	state.pending_calls.assign(data.get("pending_calls", []))
-	state.pending_interventions.assign(data.get("pending_interventions", []))
-	state.pending_offers.assign(data.get("pending_offers", []))
-	return state
+	SaveCourt.restore_diplomacy(play, data)
 
 
 # --- helpers -----------------------------------------------------------------
