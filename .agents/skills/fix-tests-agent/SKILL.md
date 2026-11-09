@@ -16,7 +16,7 @@ description: |-
 # Fix tests agent
 
 Clear the sticky **`ci-tier2`** GitHub issue from a failed scheduled full
-suite ([`.github/workflows/ci-tier2.yml`](../../../.github/workflows/ci-tier2.yml)).
+suite ([`.github/workflows/tier2.yml`](../../../.github/workflows/tier2.yml)).
 One themed fix PR per run; babysit to auto-merge; close the issue.
 
 Tier 1 (PR) stays separate: impacted suites + **patch** 80%. Tier 2 is

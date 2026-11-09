@@ -27,7 +27,7 @@ Base rules for opening and landing PRs (humans and agents).
 
 Code paths for `tests`/`build`/`e2e-smoke`: `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
 
-**Tier 2** ([ci-tier2](../.github/workflows/ci-tier2.yml)): every **8h** on `main` — full suite + overall 80%. Not a PR check. Sticky `ci-tier2` issue → fix-tests agent.
+**Tier 2** ([ci-tier2](../.github/workflows/tier2.yml)): every **8h** on `main` — full suite + overall 80%. Not a PR check. Sticky `ci-tier2` issue → fix-tests agent.
 
 Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; smoke **≤2 min**. Merge: **squash only**; delete branches; auto-merge on.
 
