@@ -76,6 +76,7 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	play.ship_layer.fleets[0].moved = true
 	play.army_layer.armies[0].moved = true
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, 1)
+	Intervention.queue_human(play.diplomacy, 3, 6, play.player_faction)
 	play.charted_provinces[foreign] = true
 	play.leaders[play.player_faction] = LeaderCatalog.DEFAULT_KEY
 
@@ -128,6 +129,10 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	assert_true(play.army_layer.armies[0].moved, "army orders restored")
 	assert_true(
 		play.diplomacy.relation(play.player_faction, 1).at_war, "war state restored"
+	)
+	assert_true(
+		Intervention.has_pending(play.diplomacy, play.player_faction),
+		"a waiting intervention restored"
 	)
 	assert_true(play.charted_provinces.has(foreign), "charted provinces restored")
 	assert_eq(

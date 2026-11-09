@@ -37,10 +37,16 @@ static func declare_war(
 	var calls: Array[String] = []
 	if call_to_arms:
 		calls = CallToArms.on_war_declared(state, player, target)
+	# A war on a Minor Nation or Tribe lets courts with an embassy there answer
+	# (wiki: diplomacy § Intervention).
+	var interventions: Array[String] = []
+	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+		interventions = Intervention.on_war_declared(state, player, target)
 	return {
 		"ok": true,
 		"reason": "",
 		"calls": calls,
+		"interventions": interventions,
 		"message": "%s declares war on %s." % [
 			FactionCatalog.name_of(player), FactionCatalog.name_of(target)
 		],

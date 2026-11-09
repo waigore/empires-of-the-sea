@@ -126,6 +126,24 @@ func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	assert_false(CallToArms.has_pending(state, 0))
 
 
+func test_intervention_suspends_the_turn_until_answered() -> void:
+	var state: DiplomacyState = _screen.play.diplomacy
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(state, 3, 6)
+	assert_true(Intervention.has_pending(state, 0))
+	MapPlayDiplomacy.open(_screen.play)
+	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
+	var turn_before: int = _screen.play.turn
+	MapPlayTurn.end_turn(_screen.play)
+	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
+	assert_true(_screen.play.turn_suspended)
+	MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)
+	assert_false(state.relation(0, 3).at_war)
+	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_eq(_screen.play.turn, turn_before + 1)
+	assert_false(Intervention.has_pending(state, 0))
+
+
 func test_court_intent_router_sends_orders_and_call_answers() -> void:
 	MapCourtOrders.apply(_screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	assert_true(_screen.play.diplomacy.relation(0, 1).at_war, "orders reach the court")
