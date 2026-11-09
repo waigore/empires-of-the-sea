@@ -53,6 +53,8 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_province_weight"), 10)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_regiment_weight"), 1)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
+	assert_eq(AiParameterRegistry.default_of("military.attack_margin_pct"), 110)
+	assert_eq(AiParameterRegistry.default_of("military.defence_weight"), 500)
 	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.PARAMETERS.size())
 
 
@@ -275,6 +277,208 @@ func test_map_phase_runs_the_ai_without_views() -> void:
 	assert_not_null(play.ai)
 	assert_eq(play.ai_trace.size(), 5)
 	assert_true(play.diplomacy.relation(1, 2).at_war)
+
+
+# --- from test_ai_military.gd ---
+## Rival land pass: a court at war on its border detaches a field army, then
+## defends, storms or stages through the shared ArmyMovement rules (docs/ai.md).
+
+const HOME_TYPES: Array[String] = [
+	"peasant_levies", "peasant_levies", "pikemen", "arquebusiers", "squires"
+]
+
+
+func test_ai_military_holds_its_army_at_peace() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _peace_state(1, 2)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = _home_armies()
+	assert_eq(AiMilitaryPlanner.split_orders(config, state, model, armies).size(), 0)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_ai_military_splits_the_home_army_on_a_hostile_border() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+	]
+	var splits: Array[Dictionary] = AiMilitaryPlanner.split_orders(config, state, model, armies)
+	assert_eq(splits.size(), 1)
+	assert_eq(String(splits[0]["kind"]), AiMilitaryPlanner.KIND_SPLIT)
+	assert_eq((splits[0]["regiments"] as Array).size(), 4, "one regiment guards the seat")
+	var ids: Array[String] = []
+	ids.assign(splits[0]["regiments"])
+	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	assert_true(bool(split["ok"]))
+	var field: ArmyState = split["army"] as ArmyState
+	assert_eq(field.count(), 4)
+	assert_eq(armies[1].count(), 1)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(int(plan["orders"][0]["province"]), 0, "the undefended human province")
+	assert_eq(int(plan["orders"][0]["army_id"]), field.id)
+
+
+func test_ai_military_does_not_split_twice() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = _home_armies()
+	armies.append(
+		ArmyState.muster(3, 2, 1, false, ["peasant_levies"] as Array[String], 201)
+	)
+	assert_eq(AiMilitaryPlanner.split_orders(config, state, model, armies).size(), 0)
+
+
+func test_ai_military_leaves_a_marched_army_in_place() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+		ArmyState.muster(3, 2, 1, false, HOME_TYPES, 201),
+	]
+	armies[2].moved = true
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_ai_military_prefers_a_capital_target() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2, 1], {2: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = _home_armies()
+	_split_home(config, state, model, armies)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq(int(plan["orders"][0]["province"]), 2, "the enemy seat outranks a plain province")
+
+
+func test_ai_military_does_not_storm_a_stronger_defender() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = _home_armies()
+	_split_home(config, state, model, armies)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 0, "four regiments never storm five")
+	assert_true((plan["candidates"] as Array).is_empty())
+
+
+func test_ai_military_storms_a_weaker_defender() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies", "peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+	]
+	_split_home(config, state, model, armies)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(int(plan["orders"][0]["province"]), 0)
+
+
+func test_ai_military_marches_through_its_own_land_to_stage() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 1, 2, 2, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = _home_armies(4)
+	_split_home(config, state, model, armies)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq(int(plan["orders"][0]["province"]), 2, "nearest own frontier province")
+	assert_eq(String(plan["orders"][0]["kind"]), "stage")
+
+
+func test_ai_military_defends_an_occupied_own_province() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, HOME_TYPES, 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+		ArmyState.muster(3, 1, 2, false, ["peasant_levies"] as Array[String], 201),
+	]
+	_split_home(config, state, model, armies)
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq(int(plan["orders"][0]["province"]), 2, "the occupied province comes first")
+	assert_eq(String(plan["orders"][0]["kind"]), "defend")
+
+
+func test_map_phase_moves_rival_armies_without_a_hud() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+	]
+	var layer := ArmyLayer.new()
+	layer.model = model
+	layer.next_army = 100
+	layer.regions.set_region(0, armies)
+	var play := PlaySession.new()
+	play.player_faction = 1
+	play.world = world
+	play.model = model
+	play.diplomacy = _war_state(2, 1)
+	play.army_layer = layer
+	play.map_seed = 1500
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	assert_eq(trace.size(), 2, "one split and one march")
+	assert_eq(String(trace[0]["kind"]), AiMilitaryPlanner.KIND_SPLIT)
+	assert_eq(String(trace[1]["kind"]), AiMilitaryPlanner.KIND_MARCH)
+	var field: ArmyState = null
+	for army: ArmyState in layer.armies:
+		if army.owner == 2 and not army.home:
+			field = army
+	assert_not_null(field)
+	assert_eq(field.province, 0, "the rival standard now stands on human land")
+	assert_eq(layer.regions.value(0, []).size(), 3)
+	layer.free()
+
+
+func _home_armies(ai_province: int = 1) -> Array[ArmyState]:
+	return [
+		ArmyState.muster(1, 1, 0, true, HOME_TYPES, 1),
+		ArmyState.muster(2, 2, ai_province, true, HOME_TYPES, 101),
+	]
+
+
+func _split_home(
+	config: AiConfig, state: DiplomacyState, model: MapModel, armies: Array[ArmyState]
+) -> void:
+	var splits: Array[Dictionary] = AiMilitaryPlanner.split_orders(config, state, model, armies)
+	assert_eq(splits.size(), 1)
+	var ids: Array[String] = []
+	ids.assign(splits[0]["regiments"])
+	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	assert_true(bool(split["ok"]))
+
+
+func _peace_state(first: int, second: int) -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(first, second, 1)
+	return state
+
+
+func _war_state(attacker: int, target: int) -> DiplomacyState:
+	var state := _peace_state(attacker, target)
+	state.relation(attacker, target).at_war = true
+	return state
 
 
 func _run() -> Dictionary:
