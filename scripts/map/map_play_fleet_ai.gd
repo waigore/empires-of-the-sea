@@ -34,7 +34,7 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction:
+		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var plan: Dictionary = AiNavalPlanner.orders(
@@ -56,6 +56,8 @@ static func _run_region(
 				"kind": String(order["kind"]),
 				"fleet": fleet.id,
 				"zone": zone,
+				"zone_name": model.sea_zone_name(zone),
+				"region": model.region_id,
 				"threat": int(order["threat"]),
 			})
 			_report_sighting(play, model, faction, zone)

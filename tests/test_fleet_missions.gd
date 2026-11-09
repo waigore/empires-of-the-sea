@@ -168,6 +168,18 @@ func test_a_defend_station_holds_and_names_its_orders() -> void:
 	assert_true(String(result["message"]).contains("holds station"))
 
 
+func test_a_lapsed_blockade_stops_claiming_the_station() -> void:
+	var fleet := FleetState.at_sea(1, 0, 1)
+	FleetMissions.assign(_model, fleet, FleetState.Mission.BLOCKADE, 1, _war)
+	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("Blockading Coro"))
+	var peace: String = FleetMissions.status_note(_model, fleet, _peace)
+	assert_true(peace.contains("lapsed"), peace)
+	_model.province_data(1).owner = 0
+	var taken: String = FleetMissions.status_note(_model, fleet, _war)
+	assert_true(taken.contains("lapsed"), taken)
+	assert_false(FleetMissions.is_blockading(_model, fleet, _war))
+
+
 func test_mission_and_blockade_survive_a_save_round_trip() -> void:
 	var fleet := FleetState.at_sea(1, 0, 1)
 	FleetMissions.assign(_model, fleet, FleetState.Mission.BLOCKADE, 1, _war)
@@ -177,3 +189,24 @@ func test_mission_and_blockade_survive_a_save_round_trip() -> void:
 	var legacy: FleetState = FleetState.from_dict({"id": 9, "owner": 0})
 	assert_eq(legacy.mission, FleetState.Mission.NONE)
 	assert_eq(legacy.blockade_province, MapModel.NO_ID)
+
+
+## Marking a landing site spends the move, so the squadron never sailed into
+## the zone and cannot seize the initiative from the fleet that did (wiki:
+## ships-and-naval § Missions and Movement — Beachhead is stationary).
+func test_a_beachhead_squadron_is_stationary() -> void:
+	var marker := FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "carrack"})
+	marker.mission = FleetState.Mission.BEACHHEAD
+	marker.beachhead_province = 1
+	marker.beachhead_turn = 1
+	marker.moved = true
+	var mover := FleetState.at_sea(2, 1, 0, ["ship_2"], {"ship_2": "carrack"})
+	mover.moved = true
+
+	assert_true(FleetMissions.is_stationary(FleetState.Mission.BEACHHEAD))
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[marker, mover], Callable(), {"interception_roll": 0.99}
+	)
+
+	assert_eq(battles.size(), 1)
+	assert_eq(int(battles[0]["attacker"]), 1, "the squadron that sailed in attacks")

@@ -2,7 +2,7 @@
 
 Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war rules), P3 (boundaries), P4 (input latency, draw cost). Province, civilian, estate, ledger and court orders are live; economy and diplomacy resolve each turn.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war), P3 (boundaries), P4 (latency, draw cost). Province, civilian, estate, ledger and court orders are live; economy and diplomacy resolve per turn.
 
 ## Controls
 
@@ -17,11 +17,11 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | End turn | `Space` / `Enter`, gold seal | gold seal |
 | Back | `Esc` deselects | system back closes the top layer, then quits |
 
-Pan has inertia; zoom anchors under the cursor; the camera clamps with a cover-fit floor.
+Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit.
 
 ## Phone layout
 
-On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers with orders first, thumb targets, notch-safe insets. `tests/test_mobile_layout.gd` pins the geometry.
+On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers, thumb targets and notch-safe insets. `test_mobile_layout.gd` pins it.
 
 ## Architecture
 
@@ -53,11 +53,11 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous faction ownership (`TerritoryAssignment`) → capitals → setup post-pass (`WorldBootstrap`: real ports/roads, four grain farms). The Old World holds six Great Powers and three Minor Nations; the New World ten Tribes. The same seed reproduces both maps (`tests/test_map_generator.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership (`TerritoryAssignment`) → capitals → `WorldBootstrap` (ports, roads, four grain farms). Old World: six Great Powers and three Minor Nations; New World: ten Tribes. One seed reproduces both maps (`tests/test_map_generator.gd`).
 
-**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet entering a zone charts its water and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
+**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** scaled terrain wash; marching-squares coasts + Chaikin ink; **country borders above fog**, engraved; vector glyphs/labels; “Passage” marks; sea/grain/vignette shaders.
+**Rendering:** terrain wash (owned land washed 50% toward its crown's colour); Chaikin coast ink; **country borders above fog**; vector glyphs; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink — coast, province hairlines, owner ribbons — repainting on chart or crown changes.
 
 ## Animation & performance
 
@@ -71,14 +71,13 @@ ui/shaders/*                sea, fog, grain, vignette
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
 | HUD slides, counts, toasts | `GameHud` |
 
-Build ~0.55 s (128×84). Steady state: static canvas once; settled fog still; overlay + ships per frame; input ack same frame.
+Build ~0.55 s (128×84). Static canvas once; settled fog still; overlay + ships per frame; input ack same frame.
 
 ## Known limits
 
-Capitals follow the capital-choice rule (sea-bound province, ports, roads) and
-the setup post-pass wires their farms. Province, civilian and estate orders are
-rules-backed. Fleet movement, docking, ship reveal and sea-zone combat are
-rules-backed ([`fleets.md`](fleets.md)); beachhead landings and home-fleet merge
-ship; Patrol/Blockade/Defend, interception and AI missions are deferred.
-Warp-zone transit, colonisation of unclaimed land and Minor/Tribe reactive play
-are deferred ([`world.md`](world.md)).
+Capitals follow the capital-choice rule and `WorldBootstrap` wires their farms.
+Province, civilian and estate orders are rules-backed, as are fleet movement,
+docking, ship reveal and sea combat ([`fleets.md`](fleets.md)). Beachhead
+landings and fleet merging ship; Patrol/Blockade/Defend, interception and AI
+missions are deferred. Warp transit, colonisation and Minor/Tribe
+reactive play are deferred ([`world.md`](world.md)).

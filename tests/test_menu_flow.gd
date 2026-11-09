@@ -24,6 +24,23 @@ func after_each() -> void:
 	_clean_dir()
 
 
+## Android back from the setup page belongs to the title screen, not to the OS:
+## the swap is deferred so the freshly built title page does not receive the
+## same back request and quit the app (REQ-P5-01, REQ-P5-07).
+func test_back_from_setup_returns_to_the_title() -> void:
+	var menu: MainMenu = main.current_page
+	menu.new_game_button.emit_signal("pressed")
+	assert_true(main.current_page is GameSetupScreen, "setup opens")
+	main.current_page.back_pressed.emit()
+	assert_true(
+		main.current_page is GameSetupScreen,
+		"the swap waits for the next idle frame"
+	)
+	await get_tree().process_frame
+	assert_true(main.current_page is MainMenu, "back lands on the title screen")
+	assert_null(main.current_screen, "no map was started")
+
+
 func test_title_screen_offers_new_load_and_a_dimmed_settings_door() -> void:
 	assert_true(main.current_page is MainMenu, "title screen boots first")
 	var menu: MainMenu = main.current_page
@@ -88,7 +105,6 @@ func test_menu_save_load_and_return_flow() -> void:
 
 	screen.play.turn = 9
 	screen.play.economy.economy.treasury = 999_999
-	screen.play.prestige = 99
 	screen.game_menu.load_chosen.emit(2)
 
 	var loaded: MapScreen = main.current_screen
@@ -98,7 +114,6 @@ func test_menu_save_load_and_return_flow() -> void:
 	assert_true(loaded != screen, "the old screen is replaced")
 	assert_null(screen.get_parent(), "the old screen left the tree")
 	assert_eq(loaded.play.turn, 1, "saved turn restored")
-	assert_eq(loaded.play.prestige, 38, "saved prestige restored")
 	assert_eq(loaded.play.economy.economy.treasury, 2500, "saved treasury restored")
 	assert_eq(loaded.save_dir, DIR, "load keeps the slot directory")
 	assert_eq(loaded.player_faction, 2, "saved human crown restored")

@@ -14,7 +14,9 @@ const MAX_EFFICIENCY: float = 0.7
 
 
 ## One raider group tries the home fleet's cargo. `roll_value` is for tests; a
-## negative value uses the deterministic campaign roll.
+## negative value uses the deterministic campaign roll. `has_tech` is the
+## crown-tech query: a raider holding Privateering Companies raids better
+## (wiki: ships-and-naval § Trade and Transport Interception).
 static func resolve(
 	model: MapModel,
 	fleets: Array,
@@ -24,19 +26,24 @@ static func resolve(
 	hostile: Callable = Callable(),
 	seed_value: int = 0,
 	turn: int = 0,
-	roll_value: float = -1.0
+	roll_value: float = -1.0,
+	has_tech: Callable = Callable()
 ) -> Dictionary:
 	if model == null or home == null or imports.is_empty():
 		return {"ok": false, "reason": "no cargo at sea"}
 	var relevant: Array[int] = _relevant_zones(model, victim)
 	var groups: Dictionary = _raider_groups(model, fleets, victim, relevant, hostile)
-	var owners: Array[int] = []
+	var keys: Array[Vector2i] = []
 	for raw: Variant in groups.keys():
-		owners.append(int(raw))
-	owners.sort()
+		var key: Vector2i = raw
+		keys.append(key)
+	keys.sort_custom(
+		func(a: Vector2i, b: Vector2i) -> bool:
+			return a.x < b.x if a.x != b.x else a.y < b.y
+	)
 	var best_chance: float = 0.0
-	for owner: int in owners:
-		var group: Array = groups[owner] as Array
+	for key: Vector2i in keys:
+		var group: Array = groups[key] as Array
 		var mission: int = FleetMissions.station_mission(model, group, hostile)
 		if mission == FleetState.Mission.NONE:
 			continue
@@ -44,7 +51,7 @@ static func resolve(
 		# The trade-raid formula uses a common base chance times the blockade
 		# bonus; the movement table's own mission factor would double-count it.
 		var base: float = NavalInterception.chance(
-			group, [home], FleetState.Mission.PATROL
+			group, [home], FleetState.Mission.PATROL, has_tech
 		)
 		var bonus: float = (
 			BLOCKADE_BONUS if mission == FleetState.Mission.BLOCKADE else 1.0
@@ -58,7 +65,7 @@ static func resolve(
 		var rolled: float = roll_value
 		if rolled < 0.0:
 			rolled = NavalInterception.roll(
-				seed_value, turn, int(group[0].sea_zone), owner, 77
+				seed_value, turn, key.x, key.y, 77
 			)
 		if rolled >= found:
 			continue
@@ -85,8 +92,8 @@ static func resolve(
 			"chance": found,
 			"roll": rolled,
 			"efficiency": efficiency,
-			"raider": owner,
-			"zone": int(group[0].sea_zone),
+			"raider": key.y,
+			"zone": key.x,
 			"losses": losses,
 			"lost_total": total,
 		}
@@ -141,7 +148,9 @@ static func _relevant_zones(model: MapModel, victim: int) -> Array[int]:
 	return zones
 
 
-## At-sea patrol/blockade groups of hostile crowns inside the victim's waters.
+## At-sea patrol/blockade groups of hostile crowns, one group per sea zone in
+## the victim's waters: a squadron is judged in its own zone, never pooled with
+## a blockade or patrol working another coast (DR-20261109-16).
 static func _raider_groups(
 	model: MapModel,
 	fleets: Array,
@@ -163,9 +172,9 @@ static func _raider_groups(
 		if fleet.mission == FleetState.Mission.BLOCKADE \
 				and not FleetMissions.is_blockading(model, fleet, hostile):
 			continue
-		if not groups.has(fleet.owner):
-			groups[fleet.owner] = []
-		var group: Array = groups[fleet.owner]
+		if not groups.has(Vector2i(fleet.sea_zone, fleet.owner)):
+			groups[Vector2i(fleet.sea_zone, fleet.owner)] = []
+		var group: Array = groups[Vector2i(fleet.sea_zone, fleet.owner)]
 		group.append(fleet)
 	return groups
 

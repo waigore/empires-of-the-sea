@@ -187,7 +187,8 @@ func test_docking_at_the_capital_merges_into_the_home_fleet() -> void:
 	var dock: Dictionary = NavalMovement.apply_move(
 		_model, incoming, FleetState.Location.IN_PORT, 0
 	)
-	var merged: FleetState = NavalMovement.merge_into_home(_model, roster, incoming)
+	var merge: Dictionary = NavalMovement.merge_into_home(_model, roster, incoming)
+	var merged: FleetState = merge.get("fleet") as FleetState
 
 	assert_true(bool(dock["ok"]))
 	assert_eq(merged, home)
@@ -217,7 +218,8 @@ func test_docking_at_a_non_capital_port_does_not_merge() -> void:
 	NavalMovement.apply_move(_model, incoming, FleetState.Location.IN_PORT, 1)
 
 	assert_false(NavalMovement.is_home_fleet(_model, incoming))
-	assert_null(NavalMovement.merge_into_home(_model, roster, incoming))
+	var merge: Dictionary = NavalMovement.merge_into_home(_model, roster, incoming)
+	assert_null(merge.get("fleet"))
 	assert_eq(roster.size(), 2)
 
 
@@ -632,3 +634,42 @@ func test_drop_lost_leaves_unembarked_armies_alone() -> void:
 	assert_eq(layer.armies.size(), 1)
 	assert_true(layer.armies[0] == grounded)
 	layer.free()
+
+
+## The squadron's own roster names the troops it carries; the army's
+## back-pointer may lag a merge, and that must not block the landing
+## (wiki: ships-and-naval § Naval transport; DR-20261109-17).
+func test_an_army_lands_after_its_squadron_was_merged() -> void:
+	var home := FleetState.in_port(2, 0, 0, ["ship_a"], {"ship_a": "fluyte"})
+	var incoming := FleetState.at_sea(3, 0, 0, ["ship_b"], {"ship_b": "fluyte"})
+	var army := ArmyState.create(7, 0, 0, false, ["unit_7"], {"unit_7": "pikemen"})
+	army.embarked_fleet = incoming.id
+	incoming.embarked_army = army.id
+	var roster: Array[FleetState] = [home, incoming]
+
+	NavalMovement.apply_move(_model, incoming, FleetState.Location.IN_PORT, 0)
+	var merge: Dictionary = NavalMovement.merge_into_home(_model, roster, incoming)
+	var merged: FleetState = merge.get("fleet") as FleetState
+
+	assert_eq(merged.embarked_army, army.id, "the home fleet keeps the troops")
+	assert_eq(army.embarked_fleet, incoming.id, "the army's own pointer lags")
+	var check: Dictionary = NavalTransport.can_disembark(_model, army, merged, 0)
+	assert_true(bool(check.get("ok", false)), String(check.get("reason", "")))
+
+
+## One squadron carries one army: a merge keeps the target's troops and reports
+## the surplus army so the layer can land it at the port (wiki: ships-and-naval
+## § Naval transport).
+func test_a_merge_keeps_one_army_and_reports_the_other() -> void:
+	var home := FleetState.in_port(2, 0, 0, ["ship_a"], {"ship_a": "fluyte"})
+	var incoming := FleetState.at_sea(3, 0, 0, ["ship_b"], {"ship_b": "fluyte"})
+	home.embarked_army = 10
+	incoming.embarked_army = 11
+	var roster: Array[FleetState] = [home, incoming]
+
+	NavalMovement.apply_move(_model, incoming, FleetState.Location.IN_PORT, 0)
+	var merge: Dictionary = NavalMovement.merge_into_home(_model, roster, incoming)
+
+	assert_eq(home.embarked_army, 10, "the moored army stays aboard")
+	assert_eq(int(merge["displaced"]), 11, "the surplus army is reported")
+	assert_eq(incoming.embarked_army, -1, "the merged-away squadron is emptied")

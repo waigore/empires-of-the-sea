@@ -163,17 +163,16 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	var ship: Ship = ship_for(fleet)
 	var arrived: FleetState = fleet
 	if destination == FleetState.Location.IN_PORT:
-		var merged: FleetState = NavalMovement.merge_into_home(model, fleets, fleet)
+		var merge: Dictionary = NavalMovement.merge_into_home(model, fleets, fleet)
+		var merged: FleetState = merge.get("fleet") as FleetState
 		if merged != null:
 			arrived = merged
 			result["merged_into"] = merged.id
-			if fleet.embarked_army >= 0:
-				merged.embarked_army = fleet.embarked_army
-				result["embarked_army"] = fleet.embarked_army
-				fleet.embarked_army = -1
-			for unit_id: int in fleet.embarked_civilians:
-				merged.add_civilian(unit_id)
-			fleet.embarked_civilians.clear()
+			# The merge carries hulls and passengers; a second army cannot stay
+			# aboard, so the report names it for the layer to land at the port.
+			if merged.embarked_army >= 0:
+				result["embarked_army"] = merged.embarked_army
+			result["displaced_army"] = int(merge.get("displaced", -1))
 			if ship != null:
 				_markers.remove(ship)
 				ship = null

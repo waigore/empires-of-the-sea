@@ -213,15 +213,17 @@ func _draw_country_borders() -> void:
 	for owner: int in owners:
 		var color: Color = FactionCatalog.color_of(owner)
 		var shadow := Color(0.12, 0.09, 0.06, 0.55)
+		# Deepened heraldic ink: the fill carries the hue, so the border only has
+		# to read as a drawn edge instead of a glowing outline.
 		var core := Color(
-			clampf(color.r * 1.05, 0.0, 1.0),
-			clampf(color.g * 1.05, 0.0, 1.0),
-			clampf(color.b * 1.05, 0.0, 1.0),
+			clampf(color.r * 0.78, 0.0, 1.0),
+			clampf(color.g * 0.78, 0.0, 1.0),
+			clampf(color.b * 0.78, 0.0, 1.0),
 			1.0
 		)
 		for path: PackedVector2Array in _country_borders[owner]:
 			draw_polyline(path, shadow, 5.0, true)
-			draw_polyline(path, core, 2.8, true)
+			draw_polyline(path, core, 2.9, true)
 
 
 func _build_country_borders() -> void:

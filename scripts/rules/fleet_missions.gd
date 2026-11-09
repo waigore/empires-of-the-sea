@@ -53,23 +53,33 @@ static func label(mission: int) -> String:
 	return "No station"
 
 
-## A station that keeps the squadron in its zone for the turn.
+## A station that keeps the squadron in its zone for the turn. A landing site
+## is one too: marking it spends the move, so the squadron never sailed into the
+## zone and cannot seize the initiative from a fleet that did (wiki:
+## ships-and-naval § Missions and Movement — Beachhead is stationary).
 static func is_stationary(mission: int) -> bool:
 	return (
 		mission == FleetState.Mission.PATROL
 		or mission == FleetState.Mission.BLOCKADE
 		or mission == FleetState.Mission.DEFEND
+		or mission == FleetState.Mission.BEACHHEAD
 	)
 
 
 ## Dossier line for the current station; empty when the squadron is free.
-static func status_note(model: MapModel, fleet: FleetState) -> String:
+static func status_note(
+	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
+) -> String:
 	if fleet == null:
 		return ""
 	match fleet.mission:
 		FleetState.Mission.PATROL:
 			return "On patrol — hostile fleets entering this zone may be intercepted."
 		FleetState.Mission.BLOCKADE:
+			# The rules stop honouring a blockade whose coast changed hands or
+			# made peace; the dossier must not keep claiming the station.
+			if not is_blockading(model, fleet, hostile):
+				return "The blockade has lapsed — the coast is no longer a hostile shore."
 			var place: String = "the enemy coast"
 			if model != null and fleet.blockade_province >= 0:
 				place = model.province_name(fleet.blockade_province)

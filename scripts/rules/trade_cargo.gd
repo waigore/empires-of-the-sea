@@ -38,15 +38,23 @@ static func capacity(
 	return total
 
 
-## Units bought this turn: the buyer ships every imported ton, the seller none.
-static func used(market: WorldMarket) -> int:
+## Units one crown bought this turn: the buyer ships every imported ton, the
+## seller none. Each crown spends its own holds (DR-20261109-03).
+static func used(
+	market: WorldMarket, faction: int = FactionCatalog.PLAYER_FACTION
+) -> int:
 	if market == null:
 		return 0
-	return market.bought_units()
+	return market.bought_units_for(faction)
 
 
-static func free_holds(holds: int, market: WorldMarket, reserved: int = 0) -> int:
-	return maxi(holds - maxi(reserved, 0) - used(market), 0)
+static func free_holds(
+	holds: int,
+	market: WorldMarket,
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
+) -> int:
+	return maxi(holds - maxi(reserved, 0) - used(market, faction), 0)
 
 
 ## {"holds": n, "used": n, "reserved": n, "free": n} for the ledger and the
@@ -60,7 +68,7 @@ static func status(
 	reserved: int = 0
 ) -> Dictionary:
 	var holds: int = capacity(world, fleets_by_region, owner)
-	var laden: int = used(market)
+	var laden: int = used(market, owner)
 	var promised: int = maxi(reserved, 0)
 	return {
 		"holds": holds,
@@ -72,11 +80,15 @@ static func status(
 
 ## Cargo half of an import: a refusal before the market's price and stock rules.
 static func check(
-	market: WorldMarket, holds: int, quantity: int, reserved: int = 0
+	market: WorldMarket,
+	holds: int,
+	quantity: int,
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
 ) -> Dictionary:
 	if quantity <= 0:
 		return {"ok": false, "reason": "Quantity must be positive"}
-	var laden: int = used(market)
+	var laden: int = used(market, faction)
 	var promised: int = maxi(reserved, 0)
 	if laden + promised + quantity > holds:
 		return {
@@ -100,12 +112,13 @@ static func buy(
 	holds: int,
 	id: String,
 	quantity: int,
-	reserved: int = 0
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
 ) -> Dictionary:
-	var gate: Dictionary = check(market, holds, quantity, reserved)
+	var gate: Dictionary = check(market, holds, quantity, reserved, faction)
 	if not bool(gate.get("ok", false)):
 		return gate
-	return market.buy(economy, id, quantity)
+	return market.buy(economy, id, quantity, faction)
 
 
 static func _short_reason(holds: int, laden: int, reserved: int) -> String:

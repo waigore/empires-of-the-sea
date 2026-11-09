@@ -75,7 +75,6 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	play.economy.economy.workers.set_count(1, 3)
 	play.economy.economy.research.unlocked["apprentice_workers"] = true
 	play.economy.market.prices["grain"] = 99
-	play.prestige = 61
 
 	var foreign: int = _foreign_province(play)
 	play.model.get_province(foreign).owner = play.player_faction
@@ -110,6 +109,10 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveCodec.is_valid(data), "captured save is valid")
+	assert_false(
+		(data["session"] as Dictionary).has("prestige"),
+		"the dead prestige counter is no longer serialised"
+	)
 	assert_true(
 		SaveStore.write(DIR + "/roundtrip.sav", data), "save file is written"
 	)
@@ -120,7 +123,6 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	screen = _new_screen(loaded)
 	play = screen.play
 	assert_eq(play.turn, 2, "turn restored")
-	assert_eq(play.prestige, 61, "prestige restored")
 	assert_eq(play.player_faction, FactionCatalog.PLAYER_FACTION, "nation restored")
 	assert_eq(play.economy.economy.treasury, 4321, "treasury restored")
 	assert_eq(play.economy.economy.quantity("grain"), 77, "stockpile restored")

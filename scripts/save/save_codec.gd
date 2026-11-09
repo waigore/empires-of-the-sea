@@ -42,7 +42,6 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"player_faction": play.player_faction,
 		"region_index": play.region_index,
 		"turn": play.turn,
-		"prestige": play.prestige,
 		"income": play.income,
 		"capital_province": play.capital_province,
 		"capital_tile": play.capital_tile,
@@ -117,7 +116,6 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.map_width = int(session.get("map_width", 128))
 	play.map_height = int(session.get("map_height", 84))
 	play.turn = maxi(int(session.get("turn", 1)), 1)
-	play.prestige = int(session.get("prestige", 0))
 	play.income = int(session.get("income", 0))
 	play.capital_province = int(session.get("capital_province", -1))
 	play.capital_tile = _vector(session.get("capital_tile", CapitalChoice.NO_TILE))

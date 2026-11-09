@@ -32,7 +32,7 @@ Land military: roster, training, armies, generals, marches, battles, capture.
   a squadron in port (one regiment per hull), sails or crosses a passage, and
   lands on an owned coast beside its zone; boarding/landing spend its march.
   Troops drown with a sunk squadron; hostile shores need a beachhead.
-- **Upkeep:** 1–3 food per regiment by category/era, before navy/workers.
+- **Upkeep:** 1–3 food per regiment by era, before navy/workers.
 - **Combat:** auto-resolve: `Σ (FPN + FPM)` over the deployed slice, scaled by
   modifiers; wiki ratio bands, weakest-first; elimination precedes a flip;
   initiative orders attackers (one seeded tie roll). Mutual annihilation
@@ -41,6 +41,8 @@ Land military: roster, training, armies, generals, marches, battles, capture.
   three rounds at 3 CP a side; the dossier cycles aggressive/balanced/
   defensive. Virtual emplaced guns soak fire and can lower the fort. The
   animated plate skips in one tap.
+- **Minor parity:** Minor Nation regiments match the leading Great Power's era
+  in place; Tribes stay at level 1.
 - **Unopposed:** an army ending in hostile or neutral land with no
   defenders or armed third faction takes it at combat start.
 - **Dossier:** composition, strength, food, commander, orders, dock;
@@ -48,8 +50,7 @@ Land military: roster, training, armies, generals, marches, battles, capture.
 
 ## Deferred (REQ-P2-02)
 
-Gun-loss downgrade · difficulty · per-regiment medals and health · minor
-parity and in-place upgrades.
+Gun-loss downgrade · difficulty · regiment medals and health.
 Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
