@@ -82,7 +82,6 @@ static func decide(
 	var best_offer: Dictionary = {}
 	var player: int = int(context.get("player", -1))
 	var base: int = config.parameter("diplomacy.war_desire_base")
-	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	for record: DiplomacyRelation in state.relations_of(config.faction):
 		var target: int = record.other(config.faction)
 		var desire: Dictionary = war_desire(
@@ -107,9 +106,10 @@ static func decide(
 					entry["propose"] = true
 					if best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
 						best_peace = entry
-			elif ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
-				entry["blocked"] = "war cooldown"
 			elif best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
+				# A fellow court signs at once. The 4-turn war cooldown gates a
+				# new Declare War on the pair, never the peace leg (wiki:
+				# diplomacy § Cooldowns; DR-20261108-01).
 				best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
