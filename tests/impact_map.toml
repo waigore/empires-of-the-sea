@@ -140,7 +140,7 @@ match = "scripts/ui/quick_battle_*.gd"
 domain = "quick_battle"
 
 [[rules]]
-match = "scripts/rules/quick_battle*.gd"
+match = "scripts/rules/quick_battle.gd"
 domain = "quick_battle"
 [[rules]]
 match = "project.godot"

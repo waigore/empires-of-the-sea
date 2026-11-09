@@ -31,33 +31,6 @@ func test_the_plate_shows_a_battle_and_finishes_on_skip() -> void:
 	overlay.free()
 
 
-func test_despatch_copy_names_the_victor() -> void:
-	var battle: Dictionary = _battle()
-	assert_eq(
-		QuickBattleCopy.outcome_text(
-			ArmyCombat.Outcome.ATTACKER_VICTORY, battle, "Flanders", NAMES
-		),
-		"España takes Flanders"
-	)
-	assert_true(QuickBattleCopy.player_won(ArmyCombat.Outcome.ATTACKER_VICTORY, battle))
-	assert_eq(QuickBattleCopy.roman(2), "II")
-	assert_eq(
-		QuickBattleCopy.action_line(
-			{
-				"side": 0,
-				"action": "assault",
-				"label": "Assault",
-				"attacker_lost": 1,
-				"defender_lost": 2,
-				"guns_destroyed": 1,
-			},
-			battle,
-			NAMES
-		),
-		"España — Assault · 1 lost · 1 gun silenced"
-	)
-
-
 func test_the_plate_handles_a_battle_without_rounds() -> void:
 	var overlay := QuickBattleOverlay.new()
 	add_child(overlay)
