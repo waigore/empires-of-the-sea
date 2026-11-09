@@ -41,9 +41,19 @@ func values() -> Array:
 	return _slots.values()
 
 
-## Region -> stored value, for rules that read every roster (REQ-P3-02).
-func entries() -> Dictionary:
-	return _slots.duplicate()
+## Shallow copy of every slot; Arrays are duplicated so readers do not alias
+## the live roster (REQ-P3-02).
+func snapshot() -> Dictionary:
+	var out: Dictionary = {}
+	for region_id: int in region_ids():
+		var entry: Variant = _slots[region_id]
+		if entry is Array:
+			var copied: Array = []
+			copied.assign(entry)
+			out[region_id] = copied
+		else:
+			out[region_id] = entry
+	return out
 
 
 ## Serialises the table: Arrays become arrays of `encode_item` results (null
