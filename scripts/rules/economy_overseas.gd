@@ -83,6 +83,33 @@ static func plan(by_region: Dictionary, holds: int) -> Dictionary:
 	}
 
 
+## Adds the tonnage this turn's holds can carry from the crown's other regions
+## to its home yield (wiki: extraction-and-improvements § Flow to Stockpile;
+## DR-20261109-17). The caller computes its own home-region yield — its seat
+## lives there — and this module owns the crossing, so the player ledger and a
+## rival's economy ship by the same rule (REQ-P2-03).
+## Returns the [method plan] fields plus {"extraction"}.
+static func delivered(
+	home_totals: Dictionary,
+	world: WorldMap,
+	home_region: int,
+	owner: int,
+	tech_caps: Dictionary,
+	works_by_region: MapRegionTable,
+	holds: int
+) -> Dictionary:
+	var plan: Dictionary = plan(
+		region_totals(world, home_region, owner, tech_caps, works_by_region), holds
+	)
+	var totals: Dictionary = home_totals.duplicate()
+	var shipped: Dictionary = plan["shipped"] as Dictionary
+	for raw: Variant in shipped.keys():
+		var id: String = String(raw)
+		totals[id] = int(totals.get(id, 0)) + int(shipped[raw])
+	plan["extraction"] = totals
+	return plan
+
+
 ## Commodity ids richest per hold first; ties break by id so saves replay alike.
 static func priority(ids: Array) -> Array:
 	var ordered: Array = ids.duplicate()
