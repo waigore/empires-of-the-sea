@@ -70,6 +70,83 @@ func test_the_strongest_crown_is_declared_when_the_calendar_closes() -> void:
 	assert_eq(strict, crowns[0], "one province ahead is enough to lead the age")
 
 
+# --- the standing reads the order of battle ----------------------------------
+
+
+func test_the_strongest_order_of_battle_is_declared() -> void:
+	var crowns: Array[int] = _seat_crowns()
+	var model: MapModel = screen.play.world.region(screen.play.region_index)
+	var province: int = int(model.provinces[0].id)
+	var many_weak := ArmyState.muster(
+		9001, crowns[0], province, false,
+		["peasant_levies", "peasant_levies", "peasant_levies"]
+	)
+	var few_strong := ArmyState.muster(
+		9002, crowns[1], province, false, ["knights", "knights"]
+	)
+	var armies: Array[ArmyState] = [many_weak, few_strong]
+	screen.play.army_layer.armies.assign(armies)
+
+	assert_eq(
+		MapPlayTurn.declared_leader(screen.play),
+		crowns[1],
+		"3 peasant levies (strength 9) fall short of 2 knights (strength 12)"
+	)
+
+
+func test_a_crown_is_scored_on_its_whole_order_of_battle() -> void:
+	var crowns: Array[int] = _seat_crowns()
+	var model: MapModel = screen.play.world.region(screen.play.region_index)
+	var province: int = int(model.provinces[0].id)
+	var here: Array[ArmyState] = [
+		ArmyState.muster(
+			9101, crowns[1], province, false, ["knights", "knights", "knights"]
+		)
+	]
+	screen.play.army_layer.armies.assign(here)
+	var elsewhere: int = (
+		WorldMap.OLD_WORLD
+		if screen.play.region_index == WorldMap.NEW_WORLD
+		else WorldMap.NEW_WORLD
+	)
+	var far: Array[ArmyState] = [
+		ArmyState.muster(
+			9102, crowns[0], province, false,
+			["grenadiers", "grenadiers", "grenadiers", "grenadiers"]
+		)
+	]
+	screen.play.army_layer.regions.set_region(elsewhere, far)
+
+	assert_eq(
+		MapPlayTurn.declared_leader(screen.play),
+		crowns[0],
+		"four grenadiers across the ocean outrank three knights on screen"
+	)
+
+
+## Splits every province of both regions evenly between the first two crowns and
+## clears every fleet, so the standing depends only on the land forces a test
+## gives them.
+func _seat_crowns() -> Array[int]:
+	var crowns: Array[int] = FactionCatalog.great_power_ids()
+	var world: WorldMap = screen.play.world
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		var seat: int = 0
+		for province: ProvinceState in model.provinces:
+			province.owner = MapModel.NO_ID
+		for province: ProvinceState in model.provinces:
+			if seat < 20:
+				province.owner = crowns[seat % 2]
+			seat += 1
+	var no_ships: Array[Ship] = []
+	screen.play.ship_layer.ships.assign(no_ships)
+	for index in screen.play.ship_layer.regions.region_ids():
+		var no_fleets: Array[FleetState] = []
+		screen.play.ship_layer.regions.set_region(index, no_fleets)
+	return crowns
+
+
 # --- end of turn -------------------------------------------------------------
 
 
@@ -83,7 +160,11 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 	assert_eq(screen.turn, CAP, "the turn number stays on the last full turn")
 	assert_true(screen.hud.is_victory_shown())
 	assert_eq(screen.hud.victory_overlay._title.text, "CAMPAIGN COMPLETE")
-	assert_true(screen.hud.victory_overlay._detail.text.contains("No military victory"))
+	assert_eq(
+		screen.hud.victory_overlay._detail.text,
+		"1800  ·  Turn 201",
+		"the plate reads year then turn (wiki: victory § Victory Screen)"
+	)
 	assert_true(screen.hud._end_turn_button.disabled)
 	assert_eq(screen.hud._end_turn_button.text, "CAMPAIGN ENDED")
 
@@ -109,6 +190,26 @@ func test_a_closed_calendar_takes_no_orders() -> void:
 
 	assert_true(screen.play.campaign_over())
 	assert_false(screen.hud.panels.is_panel_open())
+
+
+func test_the_complete_plate_speaks_the_wikis_calendar_copy() -> void:
+	var overlay: VictoryOverlay = screen.hud.victory_overlay
+	var crowns: Array[int] = FactionCatalog.great_power_ids()
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var rival: int = crowns[1] if crowns[1] != player else crowns[0]
+
+	overlay.show_campaign_complete(rival, CAP, player)
+	assert_eq(overlay._detail.text, "1800  ·  Turn 201", "year then turn")
+	assert_true(
+		overlay._tagline.text.ends_with("holds the age."),
+		"a rival's standing reads '<Name> holds the age.'"
+	)
+
+	overlay.show_campaign_complete(player, CAP, player)
+	assert_eq(overlay._tagline.text, "The age belongs to your crown.")
+
+	overlay.show_campaign_complete(MapModel.NO_ID, CAP, player)
+	assert_eq(overlay._tagline.text, "The age is divided — no crown is declared.")
 
 
 func test_an_endless_campaign_sails_past_the_cap() -> void:

@@ -73,7 +73,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 			VictoryRules.old_world_holdings(play.world, play.victory.winner_player_id)
 		)
 	elif play.campaign_halted:
-		play.hud.show_campaign_complete(MapPlayTurn.declared_leader(play), play.turn)
+		play.hud.show_campaign_complete(
+			MapPlayTurn.declared_leader(play), play.turn, play.player_faction
+		)
 
 
 ## Opening frame: wide then settle on the capital; the parchment fades away.
