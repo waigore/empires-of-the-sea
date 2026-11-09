@@ -1,8 +1,9 @@
 class_name DiplomacyPanel
 extends PanelContainer
-## The court: one row per known crown, with relation stand, overture chain and
-## the orders that court will entertain (wiki: diplomacy). Presentation only —
-## buttons emit intents and the rules layer decides (REQ-P2-03).
+## The court: one row per known crown, with relation stand, overture chain,
+## the orders that court will entertain and the pair's chronicle (wiki:
+## diplomacy). Presentation only — buttons emit intents and the rules layer
+## decides (REQ-P2-03).
 
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
@@ -207,6 +208,15 @@ func _fill_detail() -> void:
 		_state, _world, _treasury, _player, _selected, _tech
 	):
 		_add_option(option)
+	_add_chronicle()
+
+
+## The pair's chronicle sits under the orders: choice first, bookkeeping after
+## (wiki: diplomacy § Diplomatic History; REQ-P5-02).
+func _add_chronicle() -> void:
+	var chronicle := CourtHistory.new()
+	chronicle.fill(_state, _player, _selected)
+	_detail.add_child(chronicle)
 
 
 ## A waiting consent decision (call to arms, intervention, rival proposal) sits
