@@ -19,6 +19,8 @@ var _market_body: VBoxContainer = null
 var _workers_body: VBoxContainer = null
 var _economy: PlayerEconomy = null
 var _market: WorldMarket = null
+## Home-fleet holds and this turn's laden imports, from the controller.
+var _cargo: Dictionary = {}
 
 
 func _ready() -> void:
@@ -118,9 +120,15 @@ func _tab_box(selected: bool) -> StyleBoxFlat:
 
 
 ## Rebuilds every row from live state plus the end-of-turn projection report.
-func refresh(economy: PlayerEconomy, market: WorldMarket, report: Dictionary) -> void:
+func refresh(
+	economy: PlayerEconomy,
+	market: WorldMarket,
+	report: Dictionary,
+	cargo: Dictionary = {}
+) -> void:
 	_economy = economy
 	_market = market
+	_cargo = cargo
 	if _tabs == null:
 		return
 	_summary.text = "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
@@ -174,6 +182,25 @@ func _recipe_row(recipe_id: String) -> Control:
 
 
 func _fill_market() -> void:
+	# Merchant cargo at a glance: imports are limited by the home fleet's holds
+	# (wiki: ships-and-naval § Cargo holds and capacity; DR-20261109-03).
+	var holds: int = int(_cargo.get("holds", -1))
+	var cargo_text: String
+	var cargo_colour: Color = Palette.TEXT
+	if holds < 0:
+		cargo_text = "Cargo holds unknown."
+		cargo_colour = Palette.TEXT_DIM
+	elif holds <= 0:
+		cargo_text = "No cargo holds — launch a merchant hull at your capital to import."
+		cargo_colour = Palette.GOLD_PALE
+	else:
+		cargo_text = "CARGO  %d holds  ·  %d free this turn" % [
+			holds, int(_cargo.get("free", holds))
+		]
+	var cargo_line := _label(cargo_text, 12, cargo_colour)
+	cargo_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cargo_line.custom_minimum_size = Vector2(240, 0)
+	_market_body.add_child(cargo_line)
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
 	header.add_child(_column_caption("COMMODITY", 132.0))
@@ -220,6 +247,10 @@ func _market_row(id: String, held: int) -> Control:
 	var buy := _small_button("Buy")
 	buy.custom_minimum_size = Vector2(70, ROW_HEIGHT)
 	buy.tooltip_text = "Buy 1 %s for %d ducats" % [CommodityCatalog.label(id), unit_price]
+	# Imports need a free hold in the home fleet (DR-20261109-03).
+	if int(_cargo.get("free", -1)) == 0:
+		buy.disabled = true
+		buy.tooltip_text = "No cargo holds free this turn"
 	buy.pressed.connect(func() -> void: trade_requested.emit(id, 1, true))
 	row.add_child(buy)
 	return row

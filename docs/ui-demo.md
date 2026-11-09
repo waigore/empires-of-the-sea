@@ -29,10 +29,12 @@ On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 poi
 scenes/map_screen.tscn      composition: world, camera, HUD, FX
 scripts/map_screen.gd       controller: world build + input → intents
 scripts/map/map_model.gd    pure tile data (region-scoped)
-scripts/map/map_generator.gd deterministic per-region generation + world
-scripts/map/country_borders.gd owner borders derived from the grid
+scripts/map/map_generator.gd generation + world
+scripts/map/country_borders.gd owner borders from the grid
 scripts/map/map_canvas.gd   static artwork (terrain, coast, province ink)
-scripts/map/map_overlay.gd  fog, country borders, hover, selection
+scripts/map/map_canvas_plan.gd names + symbols (pure)
+scripts/map/map_overlay.gd  borders, hover, selection
+scripts/map/fog_layer.gd    fog texture layer
 scripts/map/map_camera.gd   pan / zoom / inertia / clamp
 scripts/map/camera_math.gd  pure camera maths (tested)
 scripts/map/ship_layer.gd   fleets, orders, sail animation
@@ -55,21 +57,21 @@ ui/shaders/*                sea, fog, grain, vignette
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet entering a zone charts its water and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** scaled terrain wash; marching-squares coasts + Chaikin province ink; **country borders drawn above fog** as an engraved shadow plus the owner's colour; vector glyphs/labels; warp-zone “Passage” marks; sea/grain/vignette shaders.
+**Rendering:** scaled terrain wash; marching-squares coasts + Chaikin ink; **country borders above fog**, engraved; vector glyphs/labels; “Passage” marks; sea/grain/vignette shaders.
 
 ## Animation & performance
 
 | Motion | Where |
 |--------|-------|
 | Sea swell | `ui/shaders/sea.gdshader` |
-| Fog reveal | `MapOverlay` |
+| Fog reveal | `FogLayer` (child of `MapOverlay`) |
 | Selection pulse / ripple | `MapOverlay` |
 | Fleet bob / wake / pennant | `scripts/map/ship.gd` |
 | Fleet sail glide / dock anchor | `ShipLayer`, `Ship` |
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
 | HUD slides, counts, toasts | `GameHud` |
 
-Build ~0.55 s (128×84). Steady state: static canvas once; overlay + ships per frame. Input ack same frame.
+Build ~0.55 s (128×84). Steady state: static canvas once; settled fog still; overlay + ships per frame; input ack same frame.
 
 ## Known limits
 

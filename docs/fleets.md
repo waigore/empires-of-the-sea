@@ -1,6 +1,6 @@
 # Fleets and naval combat
 
-Naval slice: movement, harbours, fog, battles and the yard.
+Naval slice: movement, harbours, fog, battles, upkeep and the naval yard.
 
 **Pillars:** P2, P3, P1 (map feedback), P4 (no per-frame sim).
 
@@ -10,58 +10,55 @@ Naval slice: movement, harbours, fog, battles and the yard.
 
 ## Implemented
 
-- At sea (one zone) or in port (one province), never both. Only Great Powers
-  keep fleets; each region hosts its squadrons.
-- **One move / turn:** S↔S; undock to an adjacent sea; dock at an owned port
+- At sea (one zone) or in port (one province), never both; only Great Powers
+  keep fleets, one roster per region.
+- **One move / turn:** S↔S; undock to adjacent sea; dock at owned coastal
   province with `port_tile`.
-- **Passage crossing:** a fleet in a warp zone may cross to the paired zone;
-  the view follows.
-- Entering a zone reveals water + the **coastal land ring**; fog decays later.
-- Hulls are instances (`ship_<n>` + type); `ShipStats` holds FRP/RNG/ARM/HULL/MV,
-  cargo; `ShipEconomy` the rows, gates and **2 food/hull upkeep**.
-- **Naval yard** (capital port): launch a tech-unlocked hull for its row plus
-  **one peasant**; it joins — or founds — the home fleet (Σ FRP).
-- **Breaker's yard:** break up one hull (port or sea); one peasant returns, no
-  refund, an emptied squadron retires; arm, then scrap (DR-20261109-01).
-- Contested zones fight at turn end **in every region**, only between factions
-  **at war**. Strength `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
-  `HULL × (1 + ARM/10)`; a 3% edge wins (loser sunk, victor spends half the
-  beaten strength on weakest hulls); near-equal is a stalemate; port fleets
-  never fight.
+- **Passage crossing:** warp-zone fleet crosses to paired zone; view follows.
+- Entering a zone reveals water + **coastal ring**; fog decays at turn end.
+- Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV,
+  intercept, flee, cargo; `ShipEconomy` build rows, tech gates, **2 food/hull
+  upkeep**.
+- **Naval yard** (capital port): launch tech-unlocked hull for row + **one
+  peasant**; joins or founds home fleet (Σ FRP).
+- **Breaker's yard:** scrap one hull (port or sea); peasant returns, no refund;
+  emptied squadron retires; arm, then scrap (DR-20261109-01).
+- **Home cargo:** merchant hulls in home fleet (port at crown seat) give
+  **cargo holds** (1/turn) capping world-market **imports**. Opening muster
+  moors a Fluyte (4 holds); exports need no hold. Ledger shows holds / free
+  space and locks Buy when full (DR-20261109-03).
+- Contested zones fight at turn end **in every region**, only factions **at
+  war**. Strength `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
+  `HULL × (1 + ARM/10)`; 3% edge wins (loser sunk, victor spends half beaten
+  strength on weakest hulls); near-equal stalemates; port fleets never fight.
 - **Rival squadrons sail** (`AiNavalPlanner`): at war a rival sorties from port
-  or pursues one zone onto a squadron it can match; at peace it holds
-  station. A move into a charted zone earns one sighting line.
+  or pursues one zone onto a squadron it can match; at peace holds station.
+  Charted-zone moves earn one sighting line.
 
 ## Deferred (REQ-P2-02)
 
-Home-fleet merge · player missions · interception/retreat/raids · rivals
-sailing home · multi-hull markers · docket ship strength.
+Home-fleet merge · overseas extraction cargo · Patrol/Blockade/Beachhead/Defend ·
+interception/retreat/raids · rivals sailing home · multi-hull markers · docket
+ship strength beside land strength.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/fleet_state.gd` | location, move flag, hulls |
-| `scripts/rules/ship_stats.gd` | combat catalog |
-| `scripts/rules/ship_economy.gd` | build costs, gates, era, upkeep |
-| `scripts/rules/fleet_yard.gd` | launch / break up hulls |
-| `scripts/rules/naval_combat.gd` | contested zones, casualties |
-| `scripts/rules/naval_movement.gd` | adjacency, `apply_move` |
-| `scripts/rules/warp_travel.gd` | crossing validation |
-| `scripts/map/map_play_warp.gd` | follows a crossing |
+| `scripts/rules/{fleet_state,ship_stats,ship_economy}.gd` | location, combat/cargo, build, upkeep |
+| `scripts/rules/fleet_yard.gd`, `trade_cargo.gd` | launch / break up, home cargo |
+| `scripts/rules/{naval_combat,naval_movement,warp_travel}.gd` | battles, moves, passages |
 | `scripts/ai/ai_naval_planner.gd` | rival sortie, pursue, hold |
 | `scripts/map/map_play_fleet_ai.gd` | rival sea pass, sightings |
-| `scripts/rules/visibility.gd` | fog reveal, turn end |
-| `scripts/map/ship_layer.gd` | markers, orders |
-| `scripts/map/map_overlay.gd` | highlights |
-| `scripts/ui/fleet_panel.gd` | dossier, yard orders |
-| `scripts/ui/panel_dock.gd` | dock side, `user://ui.cfg` |
-| `scripts/economy/economy_controller.gd` | upkeep |
+| `scripts/rules/visibility.gd` | fog reveal + turn end |
+| `scripts/map/ship_layer.gd` | markers, orders, battles |
+| `scripts/map/{map_overlay,map_play_warp,fog_layer}.gd` | highlights, warp, fog |
+| `scripts/ui/fleet_panel.gd`, `panel_dock.gd` | dossier + yard, dock |
+| `scripts/economy/economy_controller.gd` | upkeep, cargo status |
 | `scripts/map_screen.gd` | intents + turn wiring |
 
-No node deps in rules (`REQ-P3-03`). Orders `ShipLayer.order` →
-`NavalMovement.apply_move`; yard `launch_hull` → `FleetYard`; combat
-`resolve_battles` → `NavalCombat.resolve_turn`.
+No node deps in rules (`REQ-P3-03`). Orders → `NavalMovement`; yard →
+`FleetYard`; combat → `NavalCombat`.
 
 ## Controls
 
@@ -75,8 +72,9 @@ No node deps in rules (`REQ-P3-03`). Orders `ShipLayer.order` →
 
 ## Tests
 
-`test_naval_movement`, `test_fleet_orders`, `test_visibility`, `test_ai_rules`
-(rival sail), `test_map_screen` and the ship/combat unit suites.
+`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`, `test_visibility`,
+`test_ship_stats`, `test_ship_economy`, `test_naval_combat`, `test_fleet_yard`,
+`test_trade_cargo`, `test_ai_rules` (rival sail), `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

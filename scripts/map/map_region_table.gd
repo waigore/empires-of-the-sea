@@ -41,6 +41,21 @@ func values() -> Array:
 	return _slots.values()
 
 
+## Shallow copy of every slot; Arrays are duplicated so readers do not alias
+## the live roster (REQ-P3-02).
+func snapshot() -> Dictionary:
+	var out: Dictionary = {}
+	for region_id: int in region_ids():
+		var entry: Variant = _slots[region_id]
+		if entry is Array:
+			var copied: Array = []
+			copied.assign(entry)
+			out[region_id] = copied
+		else:
+			out[region_id] = entry
+	return out
+
+
 ## Serialises the table: Arrays become arrays of `encode_item` results (null
 ## entries dropped), single values become one encoded entry (REQ-P3-04).
 func encode(encode_item: Callable) -> Dictionary:

@@ -86,3 +86,99 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	assert_eq(_screen.treasury, economy.treasury)
 	assert_true(economy.stockpile != before)
 	assert_gt(economy.total_units(), 0)
+
+
+# --- merchant cargo ----------------------------------------------------------
+
+
+func test_the_opening_home_fleet_carries_four_holds() -> void:
+	var cargo: Dictionary = _screen.economy.trade_cargo()
+	assert_eq(int(cargo["holds"]), 4)
+	assert_eq(int(cargo["used"]), 0)
+	assert_eq(int(cargo["free"]), 4)
+	var seat: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(seat)
+	assert_not_null(home, "the opening muster moors a squadron at the seat")
+	assert_eq(home.type_of(home.hulls[0]), "fluyte")
+
+
+func test_imports_stop_when_the_holds_are_full() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	var grain_before: int = economy.quantity("grain")
+	for index in 4:
+		_screen.economy._on_trade("grain", 1, true)
+	var laden: int = economy.quantity("grain")
+	assert_eq(laden, grain_before + 4)
+
+	_screen.economy._on_trade("grain", 1, true)
+
+	assert_eq(economy.quantity("grain"), laden, "a fifth import is refused")
+	assert_eq(_screen.economy.trade_cargo()["free"], 0)
+
+
+func test_selling_still_works_with_full_holds() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	for index in 4:
+		_screen.economy._on_trade("grain", 1, true)
+	var grain_before: int = economy.quantity("grain")
+
+	_screen.economy._on_trade("grain", 1, false)
+
+	assert_eq(economy.quantity("grain"), grain_before - 1)
+
+
+func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var line: Label = _find_label(panel._market_body, "CARGO")
+	assert_not_null(line)
+	assert_true(line.text.contains("4 holds"))
+
+	for index in 4:
+		_screen.economy._on_trade("grain", 1, true)
+
+	var buys: Array[Button] = []
+	_collect_buttons(panel._market_body, buys)
+	assert_false(buys.is_empty())
+	assert_true(buys[buys.size() - 1].disabled, "a full hold locks the Buy rows")
+
+
+func test_a_crown_without_a_home_fleet_cannot_import() -> void:
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	panel.refresh(
+		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		{"holds": 0, "used": 0, "free": 0}
+	)
+	var hint: Label = _find_label(panel._market_body, "No cargo holds")
+	assert_not_null(hint)
+	var buy: Button = _find_button(panel._market_body, "Buy")
+	assert_not_null(buy)
+	assert_true(buy.disabled)
+
+
+func _find_label(node: Node, needle: String) -> Label:
+	if node is Label and (node as Label).text.contains(needle):
+		return node
+	for child: Node in node.get_children():
+		var found: Label = _find_label(child, needle)
+		if found != null:
+			return found
+	return null
+
+
+func _collect_buttons(node: Node, out: Array[Button]) -> void:
+	if node is Button and (node as Button).text == "Buy":
+		out.append(node)
+	for child: Node in node.get_children():
+		_collect_buttons(child, out)
+
+
+func _find_button(node: Node, text: String) -> Button:
+	if node is Button and (node as Button).text == text:
+		return node
+	for child: Node in node.get_children():
+		var found: Button = _find_button(child, text)
+		if found != null:
+			return found
+	return null
+
