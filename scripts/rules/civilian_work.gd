@@ -18,9 +18,6 @@ const IMPROVEMENT_COSTS: Array[Dictionary] = [
 ]
 const PROSPECT_TURNS: int = 1
 const EXPLORE_MAX_TURNS: int = 3
-## Iron, coal and gold are the map's prospect-required minerals
-## (wiki: fog-and-exploration § Prospect-Required Resources).
-const MINERAL_RESOURCES: Array[int] = [1, 2, 3]
 
 const LABELS: Dictionary = {
 	"explore": "Explore province",
@@ -281,13 +278,23 @@ static func _check_action(
 ) -> Dictionary:
 	match action:
 		"explore":
+			var explore_gate: String = CivilianExplorerGates.refusal(
+				"explore", model, unit.owner, tile, province, visibility, context
+			)
+			if not explore_gate.is_empty():
+				return _no(explore_gate)
 			if visibility != null and visibility.is_province_fully_visible(province):
 				return _no("%s is already charted." % model.province_name(province))
 			return {"ok": true}
 		"prospect":
+			var prospect_gate: String = CivilianExplorerGates.refusal(
+				"prospect", model, unit.owner, tile, province, visibility, context
+			)
+			if not prospect_gate.is_empty():
+				return _no(prospect_gate)
 			var resource: int = model.resource_at(tile.x, tile.y)
-			if not MINERAL_RESOURCES.has(resource):
-				return _no("Only iron, coal and gold tiles can be prospected.")
+			if not ImprovementCatalog.needs_prospecting(resource):
+				return _no("Only iron, coal, gold and tin tiles can be prospected.")
 			if works.is_prospected(unit.owner, model, tile):
 				return _no("This tile has already been prospected.")
 			return {"ok": true}

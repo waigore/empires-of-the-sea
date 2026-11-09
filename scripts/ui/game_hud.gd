@@ -48,10 +48,13 @@ var zoom_box: Control = null
 var end_turn_wrap: Control = null
 ## Campaign-end plate (wiki: victory); null until the chrome builds it.
 var victory_overlay: VictoryOverlay = null
+## Quick Battle plate (wiki: quick-battle); null until the chrome builds it.
+var quick_battle_overlay: QuickBattleOverlay = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
 
 var _turn_label: Label = null
+var _quick_queue: Array[Dictionary] = []
 var _nation_label: Label = null
 var _region_button: Button = null
 var _treasury_label: Label = null
@@ -199,6 +202,30 @@ func set_campaign_over(over: bool) -> void:
 
 func is_victory_shown() -> bool:
 	return victory_overlay != null and victory_overlay.is_shown()
+
+
+## The rules resolved one of the human's land battles as Quick Battle. Queue the
+## plates so a multi-battle turn replays them one at a time, never stacked.
+func show_quick_battle(battle: Dictionary, province: String) -> void:
+	if quick_battle_overlay == null:
+		return
+	if quick_battle_overlay.is_shown():
+		_quick_queue.append({"battle": battle, "province": province})
+		return
+	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
+
+
+func is_quick_battle_shown() -> bool:
+	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
+
+
+func _on_quick_battle_finished() -> void:
+	if _quick_queue.is_empty():
+		return
+	var next: Dictionary = _quick_queue.pop_front()
+	quick_battle_overlay.show_battle(
+		next["battle"], String(next["province"]), FactionCatalog.names()
+	)
 
 
 func toast(text: String) -> void:

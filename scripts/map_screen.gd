@@ -190,8 +190,8 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	MapPlayInput.update_hover(play)
 
-
 func _unhandled_input(event: InputEvent) -> void:
+	if hud != null and hud.is_quick_battle_shown(): return
 	if event.is_action_pressed(InputActions.END_TURN):
 		MapPlayTurn.end_turn(play)
 		get_viewport().set_input_as_handled()

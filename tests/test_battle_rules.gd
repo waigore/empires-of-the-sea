@@ -283,6 +283,20 @@ func test_a_land_victory_reads_as_a_capture() -> void:
 	)
 
 
+func test_a_land_advantage_reads_as_a_held_field() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": ArmyCombat.Outcome.ATTACKER_ADVANTAGE,
+		"attacker_lost": ["a"],
+		"defender_lost": ["b", "c"],
+	}
+	assert_eq(
+		BattleReport.describe_land(battle, "Flanders", FACTIONS),
+		"España holds the field at Flanders — 1 regiments lost"
+	)
+
+
 func test_a_land_repulse_reads_as_a_hold() -> void:
 	var battle: Dictionary = {
 		"attacker": 1,

@@ -149,3 +149,16 @@ func test_absorbed_faction_leaves_no_relations_or_colonies() -> void:
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_NONE)
 	assert_eq(state.subsidy(0, 6), 0)
 	assert_eq(state.colony_of(9), -1)
+
+
+func test_consulate_gate_reads_the_overture_chain() -> void:
+	# Wiki: civilian-units § Work Order Summary — explore/prospect in a Minor or
+	# Tribe province needs a Consulate (or higher).
+	assert_false(DiplomacyRules.has_consulate(null, 0, 6))
+	assert_false(DiplomacyRules.has_consulate(state, 0, 6))
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_true(DiplomacyRules.has_consulate(state, 0, 6))
+	assert_true(DiplomacyRules.has_consulate(state, 6, 0), "stage reads both ways")
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_NONE)
+	state.set_overture(6, 0, DiplomacyCatalog.STAGE_NAP)
+	assert_true(DiplomacyRules.has_consulate(state, 0, 6))
