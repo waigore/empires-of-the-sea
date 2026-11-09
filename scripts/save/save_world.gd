@@ -1,11 +1,12 @@
 class_name SaveWorld
 extends RefCounted
-## Save shape of the generated world and the fog the player has raised over it.
-## The world is rebuilt from its seed, so only the mutable overlay (owners,
-## walls, resources, deeds) and the per-region visibility travel (REQ-P3-01).
+## Region ownership, province records, resources and tile deeds on the save
+## wire (wiki: world-model-identity). Split out of SaveCodec so the world half
+## of a slot can be captured and reapplied over a reused world without growing
+## the codec past the file-size bars (REQ-P3-02, REQ-P3-03).
 
 
-static func capture_regions(world: WorldMap) -> Array[Dictionary]:
+static func capture(world: WorldMap) -> Array[Dictionary]:
 	var regions: Array[Dictionary] = []
 	for model: MapModel in world.regions:
 		var provinces: Array[Dictionary] = []
@@ -33,10 +34,39 @@ static func capture_regions(world: WorldMap) -> Array[Dictionary]:
 	return regions
 
 
-## Lays the saved overlay onto the freshly generated world. A shape mismatch
-## (width, height, province count) means the seed no longer regenerates the
-## same map, so the load is refused.
-static func apply_regions(world: WorldMap, regions: Variant) -> bool:
+## Fog of war per region: the player's charted tiles live beside the world half
+## of the slot because a load lays both over the regenerated map.
+static func capture_visibility(play: PlaySession) -> Dictionary:
+	var by_region: Dictionary = {}
+	for raw: Variant in play.visibility_by_region.keys():
+		var visibility: VisibilityModel = play.visibility_by_region[raw]
+		if visibility != null:
+			by_region[int(raw)] = visibility.to_dict()
+	return {"by_region": by_region}
+
+
+## Rebuilds each region's fog from the save; unknown regions and malformed
+## entries are skipped so a partial save still loads what it can.
+static func restore_visibility(play: PlaySession, data: Variant) -> void:
+	play.visibility_by_region.clear()
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	var by_region: Dictionary = data.get("by_region", {})
+	for raw: Variant in by_region.keys():
+		var region: int = int(raw)
+		var model: MapModel = play.world.region(region)
+		var entry: Variant = by_region[raw]
+		if model == null or typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var visibility := VisibilityModel.new()
+		visibility.setup(model, play.player_faction)
+		if visibility.apply_dict(entry):
+			play.visibility_by_region[region] = visibility
+
+
+## Reapplies a captured world over `world`. Returns false when the save cannot
+## describe this world (region count or sizes differ), so the caller regenerates.
+static func apply(world: WorldMap, regions: Variant) -> bool:
 	if typeof(regions) != TYPE_ARRAY or regions.size() != world.region_count():
 		return false
 	for index in world.region_count():
@@ -61,30 +91,16 @@ static func apply_regions(world: WorldMap, regions: Variant) -> bool:
 	return true
 
 
-static func capture_visibility(play: PlaySession) -> Dictionary:
-	var by_region: Dictionary = {}
-	for raw: Variant in play.visibility_by_region.keys():
-		var visibility: VisibilityModel = play.visibility_by_region[raw]
-		if visibility != null:
-			by_region[int(raw)] = visibility.to_dict()
-	return {"by_region": by_region}
-
-
-static func restore_visibility(play: PlaySession, data: Variant) -> void:
-	play.visibility_by_region.clear()
-	if typeof(data) != TYPE_DICTIONARY:
-		return
-	var by_region: Dictionary = data.get("by_region", {})
-	for raw: Variant in by_region.keys():
-		var region: int = int(raw)
-		var model: MapModel = play.world.region(region)
-		var entry: Variant = by_region[raw]
-		if model == null or typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var visibility := VisibilityModel.new()
-		visibility.setup(model, play.player_faction)
-		if visibility.apply_dict(entry):
-			play.visibility_by_region[region] = visibility
+## A candidate world is reusable only when its region sizes match the save, so a
+## mismatched preset still gets a fresh generation instead of a wrong map.
+static func reusable(candidate: WorldMap, width: int, height: int) -> WorldMap:
+	if candidate == null or candidate.region_count() == 0:
+		return null
+	for index in candidate.region_count():
+		var model: MapModel = candidate.region(index)
+		if model == null or model.width != width or model.height != height:
+			return null
+	return candidate
 
 
 static func _apply_province(model: MapModel, data: Dictionary) -> bool:
@@ -120,15 +136,9 @@ static func _apply_resources(model: MapModel, raw: Variant) -> bool:
 	return true
 
 
-## Accepts the two vector shapes a save may carry (Vector2i or [x, y]).
 static func _vector(raw: Variant) -> Vector2i:
-	match typeof(raw):
-		TYPE_VECTOR2I:
-			return Vector2i(raw)
-		TYPE_VECTOR2:
-			return Vector2i(raw)
-		TYPE_ARRAY:
-			var pair: Array = raw
-			if pair.size() == 2:
-				return Vector2i(int(pair[0]), int(pair[1]))
+	if raw is Vector2i:
+		return raw
+	if raw is Array and raw.size() >= 2:
+		return Vector2i(int(raw[0]), int(raw[1]))
 	return Vector2i(-1, -1)

@@ -3,10 +3,6 @@ extends RefCounted
 ## Converts a live PlaySession to plain built-in data and back (REQ-P3-03).
 ## Saves rebuild the deterministic world from its seed and then lay the mutable
 ## state on top, so a load never keeps a reference to the previous game.
-##
-## The codec only sequences the domains: SaveWorld owns the map overlay and fog,
-## SaveCourt owns diplomacy / rivals / victory, SaveLayers owns the map layers
-## and SaveDefeat the defeat record (REQ-P3-01).
 
 ## Bump when the on-disk shape changes incompatibly.
 const VERSION: int = 1
@@ -16,7 +12,6 @@ const MIN_MAP_SIDE: int = 32
 
 # --- capture -----------------------------------------------------------------
 
-
 static func capture(play: PlaySession) -> Dictionary:
 	if play == null or play.world == null:
 		return {}
@@ -25,7 +20,7 @@ static func capture(play: PlaySession) -> Dictionary:
 		"game_version": GameVersion.as_string(),
 		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"session": _capture_session(play),
-		"regions": SaveWorld.capture_regions(play.world),
+		"regions": SaveWorld.capture(play.world),
 		"visibility": SaveWorld.capture_visibility(play),
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
@@ -38,7 +33,6 @@ static func capture(play: PlaySession) -> Dictionary:
 		"armies": SaveLayers.capture_armies(play.army_layer),
 		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
-
 
 static func _capture_session(play: PlaySession) -> Dictionary:
 	return {
@@ -68,7 +62,6 @@ static func _capture_economy(play: PlaySession) -> Dictionary:
 
 
 # --- validation --------------------------------------------------------------
-
 
 static func is_valid(data: Dictionary) -> bool:
 	if data.is_empty() or int(data.get("version", -1)) != VERSION:
@@ -107,35 +100,18 @@ static func summary(data: Dictionary) -> Dictionary:
 ## Rebuilds the world and the session's mutable state before the screen loads
 ## its first region. The caller then builds the HUD and calls the two economy
 ## and diplomacy restorers (they need the freshly created nodes).
-static func restore(play: PlaySession, data: Dictionary) -> bool:
+##
+## `reuse` lets a caller hand over an already generated world (a MapScreen
+## preset) so a load does not regenerate it. Generation is the single most
+## expensive step under coverage; the saved ownership, resources and deeds are
+## still applied on top. The world is only reused when its region sizes match
+## the save; seed identity cannot be checked (WorldMap stores no seed), so
+## callers must pass a world generated for the save's seed — tests pass their
+## shared fixture.
+static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null) -> bool:
 	if play == null or not is_valid(data):
 		return false
 	var session: Dictionary = data.get("session", {})
-	_restore_session(play, session)
-	# A decided campaign must come back decided or the load would reopen sealed turns.
-	play.victory = SaveCourt.victory_from(data.get("victory", {}))
-	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
-
-	var world: WorldMap = MapGenerator.new().generate_world(
-		play.map_seed, play.map_width, play.map_height
-	)
-	if not SaveWorld.apply_regions(world, data.get("regions", [])):
-		return false
-	play.world = world
-	play.region_index = clampi(int(session.get("region_index", 0)), 0, world.region_count() - 1)
-
-	SaveLayers.restore_civilians(play.civilian_layer, data.get("civilians", {}))
-	SaveLayers.restore_fleets(play.ship_layer, data.get("fleets", {}))
-	SaveLayers.restore_armies(play.army_layer, data.get("armies", {}))
-	if play.army_layer != null:
-		play.army_layer.generals = GeneralRoster.from_dict(
-			_dictionary(data.get("generals", {}))
-		)
-	SaveWorld.restore_visibility(play, data.get("visibility", {}))
-	return true
-
-
-static func _restore_session(play: PlaySession, session: Dictionary) -> void:
 	play.player_faction = _faction(session)
 	play.map_seed = int(session.get("map_seed", 1500))
 	play.map_width = int(session.get("map_width", 128))
@@ -151,6 +127,29 @@ static func _restore_session(play: PlaySession, session: Dictionary) -> void:
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
+	# A decided campaign must come back decided or the load would reopen sealed turns.
+	play.victory = SaveCourt.victory_from(data.get("victory", {}))
+	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
+
+	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
+	if world == null:
+		world = MapGenerator.new().generate_world(
+			play.map_seed, play.map_width, play.map_height
+		)
+	if not SaveWorld.apply(world, data.get("regions", [])):
+		return false
+	play.world = world
+	play.region_index = clampi(int(session.get("region_index", 0)), 0, world.region_count() - 1)
+
+	SaveLayers.restore_civilians(play.civilian_layer, data.get("civilians", {}))
+	SaveLayers.restore_fleets(play.ship_layer, data.get("fleets", {}))
+	SaveLayers.restore_armies(play.army_layer, data.get("armies", {}))
+	if play.army_layer != null:
+		play.army_layer.generals = GeneralRoster.from_dict(
+			_dictionary(data.get("generals", {}))
+		)
+	SaveWorld.restore_visibility(play, data.get("visibility", {}))
+	return true
 
 
 ## The economy node exists only after the HUD is built.
@@ -175,8 +174,6 @@ static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 
 
 # --- helpers -----------------------------------------------------------------
-
-
 static func _faction(session: Dictionary) -> int:
 	var faction: int = int(session.get("player_faction", FactionCatalog.PLAYER_FACTION))
 	return faction if FactionCatalog.can_win(faction) else FactionCatalog.PLAYER_FACTION

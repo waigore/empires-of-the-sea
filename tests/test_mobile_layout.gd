@@ -214,7 +214,7 @@ func test_ledger_header_fits_a_short_viewport() -> void:
 		"ledger content must not overflow its sheet (%s > %s)"
 		% [panel.get_combined_minimum_size().y, wrap.size.y]
 	)
-	assert_eq(panel._tabs.custom_minimum_size.y, 0.0)
+	assert_eq(panel.tabs_min_height(), 0.0)
 
 
 func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
@@ -229,7 +229,7 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 		_tappable(node as Control, "estate action")
 		actions += 1
 	assert_gt(actions, 0, "estate rows expose their actions")
-	for button: Button in estates._filter_buttons.values():
+	for button: Button in estates.filter_buttons().values():
 		_tappable(button, "estate filter %s" % button.text)
 
 

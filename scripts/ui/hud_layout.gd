@@ -142,18 +142,7 @@ func _toasts(hud: GameHud) -> void:
 	box.offset_bottom = 84.0
 
 
-## The estates card on a phone: thin margins, thumb-sized filters, and the
-## summary block traded for list rows (the group headings still count each
-## region and the projection line still carries the yield).
+## The estates card on a phone: the panel keeps the sizing rules, the head the
+## summary/filter widgets it resizes (REQ-P3-02).
 static func fit_estates(panel: ImprovementPanel) -> void:
-	if panel._margin == null:
-		return
-	var compact: bool = is_compact(panel.get_viewport_rect().size)
-	panel._margin.add_theme_constant_override("margin_left", 12 if compact else 42)
-	panel._margin.add_theme_constant_override("margin_right", 12 if compact else 42)
-	panel._margin.add_theme_constant_override("margin_top", 66 if compact else 88)
-	panel._margin.add_theme_constant_override("margin_bottom", 8 if compact else 34)
-	for button: Button in panel._filter_buttons.values():
-		button.custom_minimum_size.y = 40.0 if compact else 28.0
-	panel._subtitle.visible = not compact
-	panel._stats.visible = not compact
+	panel.set_compact(is_compact(panel.get_viewport_rect().size))

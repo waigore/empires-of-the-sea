@@ -3,24 +3,34 @@ extends GdToolsTest
 ## from the seed, and prove the mutable state came back (REQ-P3-03).
 
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
+const Fixture = preload("res://tests/map_fixture.gd")
 const SEED: int = 4242
 const WIDTH: int = 40
 const HEIGHT: int = 32
 const DIR: String = "user://test_save_codec"
 
-## One shared preset world per worker keeps coverage runs fast; restores
-## regenerate from the seed and are compared against their own fresh world.
+## One shared preset world per worker keeps coverage runs fast; a load applies
+## the save over that same world (same seed and size) instead of regenerating.
 static var _shared_world: WorldMap = null
+## Owners, seats and deeds as the shared world was generated; each case starts
+## from this clean snapshot (see `before_all`).
+static var _pristine: Array = []
 
 var screen: MapScreen = null
 
 
+func before_all() -> void:
+	_pristine = Fixture.snapshot(_world())
+
+
 func before_each() -> void:
 	_clean_dir()
+	_restore_world()
 	screen = _new_screen()
 
 
 func after_each() -> void:
+	_restore_world()
 	if is_instance_valid(screen):
 		screen.free()
 	screen = null
@@ -34,15 +44,22 @@ func _world() -> WorldMap:
 	return _shared_world
 
 
+## Puts the shared world back the way generation left it, so a case that hands
+## a province to the human crown or buys a deed does not leak into the next.
+func _restore_world() -> void:
+	Fixture.restore(_world(), _pristine)
+
+
 func _new_screen(pending: Dictionary = {}) -> MapScreen:
 	var node: MapScreen = SCREEN.instantiate()
 	node.map_seed = SEED
 	node.map_width = WIDTH
 	node.map_height = HEIGHT
 	node.save_dir = DIR
-	if pending.is_empty():
-		node.preset_world = _world()
-	else:
+	# A load applies the save over this preset instead of regenerating the
+	# world — same seed and size, so the map is the one the save expects.
+	node.preset_world = _world()
+	if not pending.is_empty():
 		node.pending_save = pending
 	add_child(node)
 	return node

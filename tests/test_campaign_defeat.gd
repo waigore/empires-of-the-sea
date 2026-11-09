@@ -6,33 +6,38 @@ extends GdToolsTest
 ## strips a crown down to its seat, hands that seat to a rival and resolves the
 ## capital-loss pass, which is exactly how defeat happens in a real Combat phase.
 
-const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const Fixture = preload("res://tests/map_fixture.gd")
 const SAVE_DIR: String = "user://test_campaign_defeat"
 
 var screen: MapScreen = null
+## Ownership and seats as the shared world was generated; see `before_all`.
+var saved: Array = []
+
+
+## Snapshotted before any case touches the fixture, so the base is a clean world.
+func before_all() -> void:
+	saved = Fixture.snapshot(Fixture.world())
 
 
 func after_each() -> void:
+	Fixture.restore(Fixture.world(), saved)
 	if is_instance_valid(screen):
 		screen.free()
 	screen = null
 	get_tree().paused = false
 
 
-## A fresh world per integration test: the defeat pass mutates ownership and
-## the shared fixture world must not leak that into the next case.
+## The defeat pass mutates ownership, so this suite restores the shared world
+## after each case instead of regenerating it (coverage makes generation ~10x
+## its play cost).
+func before_each() -> void:
+	Fixture.restore(Fixture.world(), saved)
+
+
 func _attach() -> MapScreen:
 	if screen != null:
 		return screen
-	var world: WorldMap = MapGenerator.new().generate_world(
-		Fixture.SEED, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
-	)
-	screen = SCREEN.instantiate()
-	screen.map_width = Fixture.WORLD_WIDTH
-	screen.map_height = Fixture.WORLD_HEIGHT
-	screen.preset_world = world
-	add_child(screen)
+	screen = Fixture.attach_screen(self)
 	return screen
 
 
@@ -219,8 +224,4 @@ func _fall_crown(target: MapScreen, fallen: int, conqueror: int) -> void:
 
 
 func _load(data: Dictionary) -> MapScreen:
-	var node: MapScreen = SCREEN.instantiate()
-	node.save_dir = SAVE_DIR
-	node.pending_save = data
-	add_child(node)
-	return node
+	return Fixture.open_save(self, data, SAVE_DIR)
