@@ -51,6 +51,9 @@ static func _pick_resource(
 	model: MapModel, table: Array[Dictionary], tile: Vector2i, rng: RandomNumberGenerator
 ) -> int:
 	var terrain: int = model.terrain_at(tile.x, tile.y)
+	# Scrub forest always carries timber (wiki: resource-terrain-region-rules).
+	if terrain == MapModel.Terrain.SCRUB_FOREST:
+		return 0
 	var options: Array[int] = []
 	for index in table.size():
 		if (table[index]["terrain"] as Array).has(terrain):

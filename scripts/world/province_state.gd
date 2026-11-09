@@ -17,6 +17,10 @@ var capital_tile: Vector2i = Vector2i(-1, -1)
 var ports: Dictionary = {}
 var road_paths: Array = []
 var town_development: int = 0
+## Province town tile (wiki: capital-and-connectivity § Town per province).
+## The capital tile in a capital province; otherwise the port or a deterministic
+## centre tile. -1 on hand-built maps that predate town assignment.
+var town_tile: Vector2i = Vector2i(-1, -1)
 ## Fort level 0–3 (wiki: siege-mechanics). Walls and guns derive from it.
 var fort_level: int = 0
 var resource: int = MapModel.NO_ID
@@ -49,6 +53,20 @@ static func create(
 
 func has_resource_tile() -> bool:
 	return resource_tile.x >= 0
+
+
+## Every province town has at least level 1 once town development is modelled;
+## 0 on old hand-built maps reads as the level-1 baseline.
+func town_level() -> int:
+	return clampi(maxi(town_development, 1), 1, 4)
+
+
+func is_town_tile(tile: Vector2i) -> bool:
+	if town_tile.x >= 0:
+		return town_tile == tile
+	if capital and capital_tile.x >= 0:
+		return capital_tile == tile
+	return false
 
 
 func clear_resource_tile_if(tile: Vector2i) -> void:
