@@ -417,6 +417,83 @@ func test_breaking_up_a_hull_asks_once() -> void:
 	assert_false(fleet.hulls.has(hull_id), "the second tap scraps")
 
 
+func test_a_captured_port_sorts_the_home_squadron_out() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.owner = MapScreen.PLAYER_FACTION
+	fleet.location = FleetState.Location.IN_PORT
+	fleet.province = capital
+	fleet.sea_zone = MapModel.NO_ID
+	fleet.moved = false
+	var zone: int = NavalPortLoss.sortie_zone(_screen.model, capital)
+	assert_gte(zone, 0, "the fixture capital is coastal")
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+	# A seat move first re-moors the home squadron away from the captured port.
+	var moved: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world,
+		[{
+			"faction": MapScreen.PLAYER_FACTION,
+			"lost": capital,
+			"province": seat,
+			"region": _screen.region_index,
+		}]
+	)
+	assert_false(moved.is_empty())
+	assert_eq(fleet.province, seat)
+	# Older saves can still keep a stranding squadron: give it back to the port.
+	fleet.province = capital
+	var data: ProvinceState = _screen.model.province_data(capital)
+	var old_owner: int = data.owner
+	data.owner = 1
+
+	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world, []
+	)
+	data.owner = old_owner
+
+	assert_false(reports.is_empty())
+	assert_true(fleet.is_at_sea())
+	assert_eq(fleet.sea_zone, zone)
+	assert_not_null(_screen.ship_layer.ship_for(fleet))
+
+
+func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.owner = MapScreen.PLAYER_FACTION
+	fleet.location = FleetState.Location.IN_PORT
+	fleet.province = capital
+	fleet.sea_zone = MapModel.NO_ID
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+
+	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world,
+		[{
+			"faction": MapScreen.PLAYER_FACTION,
+			"lost": capital,
+			"province": seat,
+			"region": _screen.region_index,
+		}]
+	)
+
+	assert_false(reports.is_empty())
+	assert_eq(fleet.province, seat)
+	assert_true(fleet.is_in_port())
+
+
+func _owned_coastal_except(model: MapModel, skip: int) -> int:
+	for province: ProvinceState in model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION or province.id == skip:
+			continue
+		if not NavalMovement.province_sea_zones(model, province.id).is_empty():
+			return province.id
+	return -1
+
+
 func _enemy_ship() -> Ship:
 	for ship: Ship in _screen.ship_layer.ships:
 		var fleet: FleetState = _screen.ship_layer.fleet_of(ship)

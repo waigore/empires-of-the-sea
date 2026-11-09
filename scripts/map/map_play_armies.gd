@@ -287,12 +287,55 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 		)
 		changed = true
+	settle_ports(play, reassigned)
 	if changed:
 		sync_player_capital(play)
 	if play.defeat != null:
 		play.hud.show_defeat(play.defeat, play.player_faction)
 		play.emit_campaign_end(null, play.defeat)
 	return changed
+
+
+## Reports the port verdicts of the Combat phase: a squadron caught in a port
+## that changed hands sorts out rather than being taken in harbour, and a
+## reassigned crown's home squadron re-moors with its court (wiki:
+## ships-and-naval § Ports that change hands; DR-20261109-11, DR-20261109-12).
+static func settle_ports(play: PlaySession, reassigned: Array) -> void:
+	if play.ship_layer == null:
+		return
+	var reports: Array[Dictionary] = play.ship_layer.settle_port_losses(
+		play.world, reassigned
+	)
+	for report: Dictionary in reports:
+		if report.has("merged"):
+			continue
+		var region: int = int(report.get("region", play.region_index))
+		var model: MapModel = (
+			play.model if region == play.region_index else play.world.region(region)
+		)
+		var owner: int = int(report.get("owner", MapModel.NO_ID))
+		if report.has("from"):
+			var seat: int = int(report.get("to", MapModel.NO_ID))
+			var seat_name: String = model.province_name(seat) if model != null else "—"
+			play.hud.toast(
+				"%s's home squadron re-moors at %s"
+				% [FactionCatalog.name_of(owner), seat_name]
+			)
+			continue
+		var province: int = int(report.get("province", MapModel.NO_ID))
+		var place: String = model.province_name(province) if model != null else "—"
+		if bool(report.get("scuttled", false)):
+			play.hud.toast(
+				"%s's squadron is scuttled in %s — no water to sort out into"
+				% [FactionCatalog.name_of(owner), place]
+			)
+			continue
+		var zone: int = int(report.get("zone", MapModel.NO_ID))
+		var zone_name: String = model.sea_zone_name(zone) if model != null else "—"
+		play.hud.toast(
+			"%s's squadron sorts out of %s into %s"
+			% [FactionCatalog.name_of(owner), place, zone_name]
+		)
 
 
 ## The human crown's terminal fall becomes the session's defeat exactly once.
