@@ -183,6 +183,11 @@ func _run() -> void:
 	_check(screen.hud.panels.is_diplomacy_open(), "court ledger opens")
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	_check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
+	screen.hud.panels.diplomacy_panel.select_faction(1)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
+		"the court answers a declaration in its own voice"
+	)
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
 	_check(not screen.play.diplomacy.relation(0, 1).at_war, "peace order applies")
 	DiplomacyHud.hide(screen.hud.panels)
@@ -684,6 +689,18 @@ func _rival_research_started(screen: MapScreen) -> bool:
 		for slot in rival.research.slots.size():
 			if not rival.research.tech_at(slot).is_empty():
 				return true
+	return false
+
+
+## Recursive label text search: the smoke reads what the player would read.
+func _has_text(node: Node, needle: String) -> bool:
+	if node is Label and String((node as Label).text).contains(needle):
+		return true
+	if node is Button and String((node as Button).text).contains(needle):
+		return true
+	for child: Node in node.get_children():
+		if _has_text(child, needle):
+			return true
 	return false
 
 

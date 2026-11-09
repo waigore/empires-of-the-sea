@@ -143,6 +143,46 @@ func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	assert_eq(seen[0][1], 2)
 
 
+func test_the_court_speaks_in_its_envoy_strip() -> void:
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "THEIR ENVOY"), "the court has a voice")
+	assert_true(_has_text(panel._detail, "“"), "and quotes its word")
+
+
+func test_the_envoy_carries_the_face_of_the_court() -> void:
+	panel.select_faction(6)
+	var faces: Array[String] = []
+	for mood: String in DialogueMood.MOODS:
+		faces.append(mood.to_upper())
+	assert_true(_has_any_face(faces), "a documented face is worn")
+
+
+func test_a_declaration_is_quoted_under_the_herald() -> void:
+	DiplomacyRules.declare_war(state, 0, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "THEIR ENVOY"))
+	assert_true(
+		_has_text(panel._detail, "·  IRRITATED") or _has_text(panel._detail, "·  DISMISSIVE"),
+		"a war puts a hard face on the court"
+	)
+
+
+func test_a_waiting_proposal_banner_quotes_the_proposing_court() -> void:
+	state.relation(0, 2).score = 80.0
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "PROPOSAL  ·  "), "the face rides the banner")
+	assert_true(_has_text(panel._call_box, "“"), "and the words under it")
+
+
+func _has_any_face(faces: Array[String]) -> bool:
+	for face: String in faces:
+		if _has_text(panel._detail, "·  %s" % face):
+			return true
+	return false
+
+
 func _has_text(node: Node, needle: String) -> bool:
 	if node is Label and String((node as Label).text).contains(needle):
 		return true

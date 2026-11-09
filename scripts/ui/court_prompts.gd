@@ -23,7 +23,7 @@ static func fill(box: VBoxContainer, state: DiplomacyState, player: int, emit: C
 	elif not intervention.is_empty():
 		box.add_child(_intervention_banner(intervention, emit))
 	elif not proposal.is_empty():
-		box.add_child(_proposal_banner(proposal, emit))
+		box.add_child(_proposal_banner(proposal, state, player, emit))
 
 
 ## Mutual defence: join the war on the aggressor, or refuse and break the treaty.
@@ -78,8 +78,13 @@ static func _intervention_banner(offer: Dictionary, emit: Callable) -> Control:
 	return banner
 
 
-## A rival's offer: accept it or refuse, never both.
-static func _proposal_banner(offer: Dictionary, emit: Callable) -> Control:
+## A rival's offer: accept it or refuse, never both. The envoy's face and word
+## come from the offer itself — how long it has waited and how generous it is
+## against the relation its own rules require (wiki: dialogue-and-mood
+## § Mood machine; presentation only, REQ-P2-03).
+static func _proposal_banner(
+	offer: Dictionary, state: DiplomacyState, player: int, emit: Callable
+) -> Control:
 	var from_id: int = int(offer["from"])
 	var kind: String = String(offer["kind"])
 	var stage: String = String(offer.get("stage", ""))
@@ -87,7 +92,11 @@ static func _proposal_banner(offer: Dictionary, emit: Callable) -> Control:
 		Color(0.13, 0.17, 0.11, 0.95), Color(0.55, 0.72, 0.45)
 	)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
-	column.add_child(_label("PROPOSAL", 11, Palette.GOLD_PALE))
+	var spoken: Dictionary = DialogueEvents.for_offer(state, player, offer)
+	var caption: String = "PROPOSAL"
+	if not spoken.is_empty():
+		caption += "  ·  %s" % DialogueMood.label(String(spoken["mood"])).to_upper()
+	column.add_child(_label(caption, 11, Palette.GOLD_PALE))
 	var text := _label(
 		"%s proposes %s." % [
 			FactionCatalog.name_of(from_id), DiplomacyProposals.describe(kind, stage)
@@ -97,6 +106,10 @@ static func _proposal_banner(offer: Dictionary, emit: Callable) -> Control:
 	)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
+	if not spoken.is_empty():
+		var words := _label("“%s”" % String(spoken["text"]), 12, Palette.GOLD_PALE)
+		words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(words)
 	var row: HBoxContainer = _row()
 	row.add_child(_button("Accept", emit, DiplomacyProposals.KIND_ACCEPT, from_id))
 	row.add_child(_button("Refuse", emit, DiplomacyProposals.KIND_REFUSE, from_id))
