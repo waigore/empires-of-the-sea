@@ -175,6 +175,19 @@ func tech_unlocked() -> Dictionary:
 	return economy.economy.tech_unlocked
 
 
+## Researched tech for any crown: the human's ledger, or a rival's when the
+## rules ask about a rival squadron (wiki: tech-tree; REQ-P2-03). Rules take
+## this as a Callable so a presentation layer cannot answer for them.
+func has_tech(faction: int, tech_id: String) -> bool:
+	if tech_id.is_empty():
+		return false
+	if faction == player_faction:
+		return bool(tech_unlocked().get(tech_id, false))
+	if ai == null:
+		return false
+	return bool(ai.economy_for(faction).tech_unlocked.get(tech_id, false))
+
+
 ## Recomputes which resources the crown has seen, so discovery techs unlock
 ## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
 func refresh_research() -> void:

@@ -13,7 +13,7 @@ turns gold into advances, and researched techs lift extraction caps.
 
 - **Catalog:** all 113 wiki techs with id, display name, era (cost tier),
   category, cross-category prerequisites, extraction caps, discovery resources
-  plus notes for un-simulated effects. `TechAudit.validate()` enforces unique
+  and effect notes. `TechAudit.validate()` enforces unique
   ids, known prerequisites, a DAG, reachability from the roots, cap coverage
   and declared exceptions.
 - **Research state:** three slots (four with University), funding per slot,
@@ -23,9 +23,8 @@ turns gold into advances, and researched techs lift extraction caps.
   — 6/8/10/12 turns at Medium.
 - **Funding:** None/Low/Medium/High/Maximum pay 0/50/150/400/1000 ducats for
   0/100/300/800/2500 RP. Cancelling a slot forfeits its progress.
-- **Research phase** runs after Production in `EconomyTurn`. A slot that cannot
-  pay its full gold earns nothing that turn and is reported as unfunded; there is
-  the wiki has no partial funding, so none is invented.
+- **Research phase** runs after Production in `EconomyTurn`. An unfunded slot
+  earns nothing that turn; the wiki has no partial funding, so none is invented.
 - **Treasury floor:** Money Lending allows −500 ducats during research, Banking
   with Money Lending −1000.
 - **Industrial Funding of Research:** +20% (floored) RP for military and naval
@@ -43,6 +42,8 @@ turns gold into advances, and researched techs lift extraction caps.
 - **Transport gates:** roads level 2 need Road Construction; railroads need
   Early Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite
   (mountains).
+- **Privateering Companies:** the charter holder's Patrol/Blockade
+  interception and trade raids rise 25%; the fleet dossier names it.
 - **UI:** `RESEARCH` opens the college ledger — slot rows with progress, a
   funding button and cancel; AVAILABLE and KNOWN tabs with cost and effect
   tooltips.
@@ -50,8 +51,8 @@ turns gold into advances, and researched techs lift extraction caps.
 ## Deferred (REQ-P2-02)
 
 - Spy +15% RP boost, goal-tech sorting, save/load of slot assignments.
-- In-place upgrade paths, privateering Patrol/Blockade bonuses and the
-  land-battle attack treasury modifiers: named in tooltips, not simulated.
+- In-place upgrade paths and the land-battle attack treasury modifiers: named
+  in tooltips, not simulated.
 - Terrain hard caps and path transport caps.
 
 ## Architecture

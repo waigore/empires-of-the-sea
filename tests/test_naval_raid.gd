@@ -93,6 +93,40 @@ func test_a_blockade_raider_earns_the_bonus() -> void:
 	)
 
 
+func test_privateers_improve_the_raid_chance() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _raider()
+	var plain: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.99
+	)
+	var charter := func(owner: int, tech_id: String) -> bool:
+		return owner == 1 and tech_id == NavalInterception.PRIVATEERING_TECH
+	var chartered: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.99, charter
+	)
+	assert_almost_eq(float(plain["chance"]), 0.5 * 5.0 / 8.0, 0.0001)
+	# Σintercept 5 × 1.25 = 6.25 against the same flee score of 3.
+	assert_almost_eq(float(chartered["chance"]), 0.5 * 6.25 / 9.25, 0.0001)
+	assert_gt(float(chartered["chance"]), float(plain["chance"]))
+
+
+func test_the_session_answers_tech_for_the_human_and_rivals() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.ai = AiState.new()
+	assert_false(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	play.economy = economy
+	economy.economy.tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	play.ai.economy_for(1).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(0, ""))
+	economy.free()
+
+
 func test_losses_never_exceed_the_imports() -> void:
 	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
 	var raider := _raider()
