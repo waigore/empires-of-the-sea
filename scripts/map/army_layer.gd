@@ -35,9 +35,9 @@ var regions := MapRegionTable.new()
 ## Loads the region's armies (mustering Home Armies on first visit).
 func spawn(p_model: MapModel) -> void:
 	model = p_model
-	_clear_markers()
 	armies = []
 	selected_army = null
+	_rebuild_markers()
 	if model == null:
 		return
 	if regions.has_region(model.region_id):
@@ -65,10 +65,19 @@ func spawn(p_model: MapModel) -> void:
 	regions.set_region(model.region_id, armies)
 
 
+## Join Empire: an absorbed crown's land regiments change colours; a former Home
+## Army becomes a field army so the winner keeps exactly one
+## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
+func transfer_owner(from_id: int, to_id: int) -> void:
+	for raw: Variant in regions.values():
+		ArmyState.hand_over(raw, from_id, to_id)
+	ArmyState.hand_over(armies, from_id, to_id)
+	_rebuild_markers()
+	select(selected_army)
+
+
 ## Mints a Home Army (or recovered/field army) and registers its marker.
-func _muster(
-	owner: int, province: int, home: bool, types: Array[String]
-) -> ArmyState:
+func _muster(owner: int, province: int, home: bool, types: Array[String]) -> ArmyState:
 	var army := ArmyState.muster(
 		next_army, owner, province, home, types, next_regiment
 	)
@@ -79,14 +88,10 @@ func _muster(
 	return army
 
 
-func _clear_markers() -> void:
+func _rebuild_markers() -> void:
 	for marker: ArmyMarker in markers:
 		marker.queue_free()
 	markers.clear()
-
-
-func _rebuild_markers() -> void:
-	_clear_markers()
 	for army: ArmyState in armies:
 		_add_marker(army)
 	_place_all()
@@ -244,9 +249,7 @@ func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
 	return ArmyCombat.armies_of(armies, province_id, owner)
 
 
-## Musters one regiment into the faction's Home Army (wiki: military-units
-## § Training Costs). Rules validate and deduct; this layer mints the unit id,
-## keeps the marker in step and reports the row.
+## Musters one regiment into the faction's Home Army, keeping the marker in step.
 func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null:
@@ -291,10 +294,8 @@ func begin_turn() -> void:
 
 
 ## Resolves land battles in every region: a battle must not wait for the player
-## to open that map (wiki: map-topology § two regions). Generals bind once for
-## the whole Combat phase, before any region resolves; `context["hostile"]`, when
-## set, is the court's war query so peace never spills blood (wiki: diplomacy §
-## War required for hostile actions).
+## to open that map (wiki: map-topology § two regions); `context["hostile"]` is
+## the court's war query so peace never spills blood.
 func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	var by_region: Dictionary = {}
@@ -353,8 +354,7 @@ func _prune_markers() -> void:
 	_place_all()
 
 
-## Regiments for one faction across every region: the HUD and food upkeep must
-## not hide an army parked on the other map.
+## Regiments for one faction across every region: the HUD counts them all.
 func regiment_count_all(owner: int) -> int:
 	var total: int = 0
 	for raw: Variant in regions.values():
