@@ -35,7 +35,8 @@ static func declare_war(
 	record.at_war = true
 	record.since_turn = state.turn
 	record.formal_alliance = false
-	_downgrade_overtures(state, player, target)
+	if _downgrade_overtures(state, player, target):
+		state.record_event("overturesCleared", player, target)
 	state.cancel_subsidy(player, target)
 	state.cancel_subsidy(target, player)
 	state.touch(player, target, "warDeclared")
@@ -192,6 +193,18 @@ static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
 		return true
 	var record: DiplomacyRelation = state.relation(a, b)
 	return record != null and record.at_war
+
+
+## Land a Great Power may enter as an invader: a declared enemy's, or a Tribe's
+## without any declaration (wiki: factions § Tribe — tribes are meant to be
+## easily conquered). Purchased-tile protection is not modelled yet because land
+## purchase is deferred (DR-20261108-06).
+static func invadable(state: DiplomacyState, attacker: int, target: int) -> bool:
+	if attacker == target:
+		return false
+	if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
+		return true
+	return at_war_with(state, attacker, target)
 
 
 static func provinces_owned(world: WorldMap, faction: int) -> int:
@@ -357,16 +370,21 @@ static func _accepts_overture(
 	return true
 
 
-static func _downgrade_overtures(state: DiplomacyState, a: int, b: int) -> void:
+static func _downgrade_overtures(state: DiplomacyState, a: int, b: int) -> bool:
 	var gp_pair: bool = (
 		FactionCatalog.type_of(a) == FactionCatalog.Type.GREAT_POWER
 		and FactionCatalog.type_of(b) == FactionCatalog.Type.GREAT_POWER
 	)
+	var changed: bool = false
 	for direction: Vector2i in [Vector2i(a, b), Vector2i(b, a)]:
+		var stage: String = DiplomacyCatalog.STAGE_NONE
 		if gp_pair:
-			state.set_overture(direction.x, direction.y, DiplomacyCatalog.STAGE_EMBASSY)
-		else:
-			state.set_overture(direction.x, direction.y, DiplomacyCatalog.STAGE_NONE)
+			stage = DiplomacyCatalog.STAGE_EMBASSY
+		if state.overture(direction.x, direction.y) == stage:
+			continue
+		state.set_overture(direction.x, direction.y, stage)
+		changed = true
+	return changed
 
 
 static func _tier(stage: String) -> int:
