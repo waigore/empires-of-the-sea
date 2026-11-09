@@ -168,6 +168,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
+	# Rival ledgers resolve on post-combat ownership and plan civilian work for
+	# the new turn; the player's economy resolves below in the same turn.
+	MapPlayEconomyAi.run(play)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	play.refresh_research()

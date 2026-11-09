@@ -8,14 +8,17 @@ extends RefCounted
 const TREASURY_COMMODITIES: Array[String] = ["gold", "silver", "gems", "diamonds", "spices"]
 
 
+## `advance_market` is false for rival courts sharing one world market: the
+## player's own resolution moves prices once per turn.
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	extraction: Dictionary,
 	ship_count: int,
-	army_food: int = 0
+	army_food: int = 0,
+	advance_market: bool = true
 ) -> Dictionary:
-	return _run(economy, market, extraction, ship_count, army_food, true)
+	return _run(economy, market, extraction, ship_count, army_food, advance_market)
 
 
 ## Dry run on copied state; reports stockpile and treasury deltas, no side effects.
