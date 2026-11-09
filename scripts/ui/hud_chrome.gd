@@ -6,9 +6,10 @@ extends RefCounted
 
 static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
-	_toasts(hud)
 	_minimap(hud)
 	_zoom(hud)
+	_lens_key(hud)
+	_toasts(hud)
 	_end_turn(hud)
 	_province_panel(hud)
 	_fleet_panel(hud)
@@ -82,6 +83,17 @@ static func _square_button(text: String) -> Button:
 	button.custom_minimum_size = Vector2(58, 46)
 	button.add_theme_font_size_override("font_size", 24)
 	return button
+
+
+static func _lens_key(hud: GameHud) -> void:
+	hud.lens_legend = LensLegend.new()
+	hud.lens_legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud.lens_legend.offset_left = 18.0
+	hud.lens_legend.offset_top = 186.0
+	hud.lens_legend.offset_right = 18.0 + LensLegend.WIDTH
+	hud.lens_legend.offset_bottom = 186.0 + LensLegend.HEIGHT
+	hud.lens_legend.visible = false
+	hud.add_child(hud.lens_legend)
 
 
 static func _end_turn(hud: GameHud) -> void:

@@ -22,6 +22,8 @@ signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
 signal region_toggle_pressed
 signal focus_capital_pressed
+## The survey lens toggle changed state (button or keyboard).
+signal lens_pressed(active: bool)
 ## The player closed the campaign plate to keep viewing the map.
 signal victory_dismissed
 
@@ -33,6 +35,8 @@ const BAR_FONT: int = 13
 const BAR_FONT_COMPACT: int = 11
 
 var panels: HudPanels = null
+## Survey key, shown only while the lens is on.
+var lens_legend: LensLegend = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
 var touch_ui: bool = false
 
@@ -76,6 +80,8 @@ var _army_panel: ArmyPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
+## Cartouche toggle for the resource survey lens; HudChrome owns the legend.
+var _lens_button: Button = null
 var _glow: Panel = null
 var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
@@ -217,6 +223,15 @@ func show_quick_battle(battle: Dictionary, province: String) -> void:
 
 func is_quick_battle_shown() -> bool:
 	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
+
+
+## Mirrors the lens state onto the cartouche toggle and its survey key, without
+## echoing the button signal (the screen owns the state).
+func set_lens(active: bool) -> void:
+	if _lens_button != null and _lens_button.button_pressed != active:
+		_lens_button.set_pressed_no_signal(active)
+	if lens_legend != null:
+		lens_legend.visible = active
 
 
 func _on_quick_battle_finished() -> void:

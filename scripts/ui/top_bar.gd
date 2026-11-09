@@ -72,20 +72,31 @@ static func build(hud: GameHud) -> void:
 	focus.pressed.connect(func() -> void: hud.focus_capital_pressed.emit())
 	row.add_child(focus)
 
+	var survey := Button.new()
+	survey.text = "LENS"
+	survey.toggle_mode = true
+	survey.custom_minimum_size = Vector2(0, 42)
+	survey.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	survey.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	survey.tooltip_text = "Resource survey lens (L)"
+	survey.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
+	row.add_child(survey)
+	hud._lens_button = survey
+
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
 
 	var ledger := Button.new()
 	ledger.text = "LEDGER"
-	ledger.custom_minimum_size = Vector2(96, 40)
+	ledger.custom_minimum_size = Vector2(90, 40)
 	ledger.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
 	row.add_child(ledger)
 
 	var research := Button.new()
 	research.text = "RESEARCH"
-	research.custom_minimum_size = Vector2(110, 40)
+	research.custom_minimum_size = Vector2(104, 40)
 	research.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	research.pressed.connect(func() -> void: hud.research_pressed.emit())
 	row.add_child(research)
@@ -93,7 +104,7 @@ static func build(hud: GameHud) -> void:
 	var court := Button.new()
 	court.text = "COURT"
 	court.tooltip_text = "Diplomacy"
-	court.custom_minimum_size = Vector2(92, 40)
+	court.custom_minimum_size = Vector2(86, 40)
 	court.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	court.pressed.connect(func() -> void: hud.diplomacy_pressed.emit())
 	row.add_child(court)
@@ -130,7 +141,7 @@ static func build(hud: GameHud) -> void:
 static func _chip(icon_kind: String, caption: String) -> Dictionary:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	row.custom_minimum_size = Vector2(88, 0)
+	row.custom_minimum_size = Vector2(84, 0)
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(Icon.new(icon_kind, 22, Palette.GOLD))
 

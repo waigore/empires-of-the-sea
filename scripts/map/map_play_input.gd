@@ -35,6 +35,10 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
 		return
 	var province_id: int = play.model.province_at(tile.x, tile.y)
+	if play.lens != null and play.lens.active:
+		var surveyed: int = play.lens.hit_test(world_position)
+		if surveyed >= 0:
+			province_id = surveyed
 	if province_id == MapModel.NO_ID:
 		deselect(play)
 		return
@@ -76,6 +80,31 @@ static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
 	play.camera.focus_on(world_position)
 
 
+## Toggles the survey lens and keeps the cartouche toggle and key in step.
+static func set_lens(play: PlaySession, active: bool) -> void:
+	if play.lens == null:
+		return
+	play.lens.set_active(active)
+	play.hud.set_lens(active)
+	_fade_field_units(play, active)
+
+
+## The survey is the subject while the lens is on: land units ghost back so
+## plaques stay readable, and return to full ink when it closes.
+static func _fade_field_units(play: PlaySession, active: bool) -> void:
+	var alpha: float = 0.22 if active else 1.0
+	if play.civilian_layer != null:
+		play.civilian_layer.modulate.a = alpha
+	if play.army_layer != null:
+		play.army_layer.modulate.a = alpha
+
+
+static func toggle_lens(play: PlaySession) -> void:
+	if play.lens == null:
+		return
+	set_lens(play, not play.lens.active)
+
+
 static func on_view_changed(play: PlaySession) -> void:
 	var viewport: Vector2 = play.camera.viewport_size()
 	var half: Vector2 = viewport / (2.0 * maxf(play.camera.zoom.x, 0.001))
@@ -105,6 +134,8 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		return
 	play.hover_province = province_id
 	play.overlay.hover_province = province_id
+	if play.lens != null:
+		play.lens.hover_province = province_id
 	if province_id < 0:
 		HudChrome.hide_tooltip(play.hud)
 		return
@@ -118,15 +149,16 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	if data == null:
 		return
 	var terrain: int = play.model.terrain_at(tile.x, tile.y)
-	HudChrome.show_tooltip(
-		play.hud,
-		"%s  ·  %s  ·  %s"
-		% [
-			data.name,
-			String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
-			FactionCatalog.name_of(data.owner),
-		]
-	)
+	var text: String = "%s  ·  %s  ·  %s" % [
+		data.name,
+		String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown")),
+		FactionCatalog.name_of(data.owner),
+	]
+	if play.lens != null and play.lens.active:
+		var survey: String = play.lens.summary_for(province_id)
+		if not survey.is_empty():
+			text += "\n" + survey
+	HudChrome.show_tooltip(play.hud, text)
 
 
 static func clear_hover(play: PlaySession) -> void:
@@ -134,6 +166,8 @@ static func clear_hover(play: PlaySession) -> void:
 		return
 	play.hover_province = -1
 	play.overlay.hover_province = -1
+	if play.lens != null:
+		play.lens.hover_province = -1
 	HudChrome.hide_tooltip(play.hud)
 
 

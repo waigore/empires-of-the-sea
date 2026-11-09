@@ -13,6 +13,7 @@ const END_TURN := "end_turn"
 const FOCUS_CAPITAL := "focus_capital"
 const CANCEL := "cancel"
 const MUTE := "mute"
+const LENS := "resource_lens"
 
 
 static func ensure_actions() -> void:
@@ -26,6 +27,7 @@ static func ensure_actions() -> void:
 	_bind(FOCUS_CAPITAL, [KEY_F, KEY_HOME])
 	_bind(CANCEL, [KEY_ESCAPE])
 	_bind(MUTE, [KEY_M])
+	_bind(LENS, [KEY_L])
 
 
 static func _bind(action: StringName, keys: Array) -> void:
