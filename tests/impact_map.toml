@@ -601,6 +601,10 @@ match = "tests/test_map_*.gd"
 domain = "map"
 
 [[rules]]
+match = "tests/test_minimap*.gd"
+domain = "map"
+
+[[rules]]
 match = "tests/test_visibility.gd"
 domain = "map"
 
