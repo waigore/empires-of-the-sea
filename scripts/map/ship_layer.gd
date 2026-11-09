@@ -313,17 +313,40 @@ func resolve_battles(
 
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.
+## Absorption transfers the loser's squadrons; `MapModel.NO_ID` retires them.
 func transfer_owner(from_id: int, to_id: int) -> void:
-	for stored: Array in regions.values():
-		for fleet: FleetState in stored:
-			if fleet.owner == from_id:
-				fleet.owner = to_id
-	for fleet: FleetState in fleets:
-		if fleet.owner == from_id:
+	var retire: bool = to_id == MapModel.NO_ID
+	for raw: Variant in regions.values():
+		var stored: Array = raw
+		for index in range(stored.size() - 1, -1, -1):
+			var fleet: FleetState = stored[index]
+			if fleet == null or fleet.owner != from_id:
+				continue
+			if retire:
+				stored.remove_at(index)
+				continue
 			fleet.owner = to_id
+	for index in range(fleets.size() - 1, -1, -1):
+		var fleet: FleetState = fleets[index]
+		if fleet == null or fleet.owner != from_id:
+			continue
+		if retire:
+			fleets.remove_at(index)
+			continue
+		fleet.owner = to_id
+	var kept: Array[Ship] = []
 	for ship: Ship in ships:
-		if ship.faction == from_id:
+		if ship.faction != from_id:
+			kept.append(ship)
+			continue
+		if not retire:
 			ship.faction = to_id
+			kept.append(ship)
+			continue
+		if ship == selected_ship:
+			selected_ship = null
+		ship.queue_free()
+	ships = kept
 
 
 ## Hulls still afloat for one faction across every fleet it keeps.
@@ -345,17 +368,6 @@ func hull_count_all(owner: int) -> int:
 			if fleet.owner == owner:
 				total += fleet.ship_count()
 	return total
-
-
-## Every region's roster, for rules that read the whole navy — the home fleet
-## and its merchant cargo never live on one map alone (REQ-P3-02).
-func fleets_by_region() -> Dictionary:
-	var out: Dictionary = {}
-	for region_id: int in regions.region_ids():
-		var stored: Array = []
-		stored.assign(regions.value(region_id, []))
-		out[region_id] = stored
-	return out
 
 
 func at_sea_zones(owner: int) -> Array[int]:

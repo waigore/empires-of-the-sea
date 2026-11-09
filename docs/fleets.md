@@ -25,9 +25,9 @@ Naval slice: movement, fog, battles, upkeep and the naval yard.
 - **Breaker's yard:** break up one hull (port or sea); one peasant returns, no
   refund, an emptied squadron retires. It asks once: arm, then scrap
   (DR-20261109-01).
-- **Home cargo:** merchant hulls in the home fleet (in port at the crown's seat)
+- **Home cargo:** merchant hulls in the home fleet (port at the crown's seat)
   give **cargo holds** — 1 unit each per turn — capping world-market **imports**.
-  The opening muster moors a Fluyte there (4 holds); exports need no hold. The
+  Opening muster moors a Fluyte there (4 holds); exports need no hold. The
   ledger shows holds and free space and locks Buy when full (DR-20261109-03).
 - Contested zones fight at turn end **in every region**; only factions **at war**
   engage. Strength `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability
@@ -51,11 +51,12 @@ multi-hull markers · docket ship strength beside land strength.
 | `scripts/rules/visibility.gd` | fog reveal + end of turn |
 | `scripts/map/ship_layer.gd` | markers, orders, all-region battles |
 | `scripts/map/{map_overlay,map_play_warp}.gd` | destination highlights, crossing view |
+| `scripts/map/fog_layer.gd` | fog texture + fade |
 | `scripts/ui/fleet_panel.gd`, `panel_dock.gd` | dossier + yard, dock side |
 | `scripts/economy/economy_controller.gd` | all-region upkeep, cargo status |
 | `scripts/map_screen.gd` | intents + end-of-turn wiring |
 
-No node deps in rules (`REQ-P3-03`). Orders: `ShipLayer.order` →
+No node deps in rules (`REQ-P3-03`). `ShipLayer.order` →
 `NavalMovement.apply_move`; yard: `ShipLayer.launch_hull` → `FleetYard`; combat:
 `ShipLayer.resolve_battles` → `NavalCombat.resolve_turn`.
 

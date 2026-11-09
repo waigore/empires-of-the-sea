@@ -87,7 +87,7 @@ func trade_cargo() -> Dictionary:
 	if _ships == null or _ships.world == null:
 		return {"holds": 0, "used": laden, "free": 0}
 	return TradeCargo.status(
-		_ships.world, _ships.fleets_by_region(), player_faction, market
+		_ships.world, _ships.regions.snapshot(), player_faction, market
 	)
 
 
