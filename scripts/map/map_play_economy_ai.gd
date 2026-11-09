@@ -1,11 +1,8 @@
 class_name MapPlayEconomyAi
 extends RefCounted
-## Rival economy and civilian turn (docs/ai.md, wiki: economy-planner,
-## civilian-work-planner). Each court runs its own ledger through the shared
-## EconomyTurn, then AiEconomyPlanner assigns next turn's production and
-## AiCivilianPlanner issues work through CivilianWork. Rules stay pure; this
-## adapter only seeds the opening roster, applies legal orders and reports the
-## trace (REQ-P2-03, REQ-P3-03).
+## Rival economy/civilian/research turn (docs/ai.md). Seeds the opening roster,
+## runs EconomyTurn + planners, applies legal orders, reports the trace
+## (REQ-P2-03, REQ-P3-03).
 
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
@@ -53,6 +50,9 @@ static func run(play: PlaySession) -> Dictionary:
 			"trade": trade,
 			"recruits": recruits,
 			"civilians": civilians,
+			"research": AiResearchPlanner.plan(
+				config, economy, {"at_war": _at_war(play, faction)}
+			),
 		}
 	return report
 
@@ -176,18 +176,15 @@ static func _train(
 # --- economy -----------------------------------------------------------------
 
 
-## One extraction total for this crown: its home region's yield lands directly,
-## every other region's tonnage crosses on the crown's home holds (wiki:
-## extraction-and-improvements § Flow to Stockpile; DR-20261109-17). A rival
-## ships like the player — no colonial ton arrives without a hold.
+## Home yield plus colonial tonnage that crossed on home holds (wiki:
+## extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
 static func _extraction(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> Dictionary:
 	return _overseas(play, faction, economy)["extraction"] as Dictionary
 
 
-## The same crossing with its hold accounting, so the market pass can see what
-## the colonies already reserved this turn.
+## Same crossing with hold accounting for the market pass.
 static func _overseas(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> Dictionary:
