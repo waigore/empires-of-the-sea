@@ -90,6 +90,8 @@ func _add_marker(unit: CivilianState) -> void:
 	marker.faction = unit.owner
 	marker.position = _tile_position(unit.tile)
 	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
+	# A civilian aboard a squadron has no map tile (DR-20261109-17).
+	marker.visible = not unit.is_embarked()
 	add_child(marker)
 	markers.append(marker)
 
@@ -180,6 +182,8 @@ func begin_turn(
 ## assignment relocation).
 func sync() -> void:
 	for unit: CivilianState in units:
+		if unit.is_embarked():
+			continue
 		var marker: CivilianMarker = marker_for(unit)
 		if marker == null:
 			continue
