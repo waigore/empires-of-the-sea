@@ -41,6 +41,7 @@ func generate_region(
 	_build_ports(model)
 	_assign_factions(model, region_id)
 	_place_capitals(model, region_id)
+	_name_provinces(model)
 	return model
 
 
@@ -96,7 +97,6 @@ func _build_provinces(model: MapModel) -> void:
 	MapRegions.grow(model, seeds, true, _rng)
 
 	var buckets: Dictionary = _tile_buckets(model, land, true)
-	var used_names: Dictionary = {}
 	var ids: Array = buckets.keys()
 	ids.sort()
 	for id: int in ids:
@@ -110,7 +110,7 @@ func _build_provinces(model: MapModel) -> void:
 				break
 		var province := ProvinceState.create(
 			id,
-			MapNaming.province_name(used_names, model.region_id, _rng),
+			"",
 			tiles,
 			center,
 			tiles.size()
@@ -223,3 +223,24 @@ func _place_capitals(model: MapModel, region_id: int) -> void:
 		model, FactionCatalog.great_power_ids(), CapitalChoice.KIND_GREAT_POWER
 	)
 	CapitalChoice.place_all(model, FactionCatalog.minor_ids(), CapitalChoice.KIND_MINOR)
+
+
+## Naming phase: needs ownership (and capitals) first, so every province draws
+## from its nation's historical pool instead of a shared European pool
+## (wiki: naming, factions). Capitals take their nation's capital-city name.
+func _name_provinces(model: MapModel) -> void:
+	var used: Dictionary = {}
+	for province: ProvinceState in model.provinces:
+		if not province.capital or province.owner == MapModel.NO_ID:
+			continue
+		var capital: String = MapNaming.capital_name(province.owner)
+		if capital.is_empty() or used.has(capital):
+			continue
+		province.name = capital
+		used[capital] = true
+	for province: ProvinceState in model.provinces:
+		if not province.name.is_empty():
+			continue
+		province.name = MapNaming.province_name(
+			used, model.region_id, _rng, province.owner
+		)

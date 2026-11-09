@@ -115,7 +115,12 @@ func is_panel_open() -> bool:
 
 
 func show_fleet(
-	model: MapModel, fleet: FleetState, is_player: bool, passage: String = ""
+	model: MapModel,
+	fleet: FleetState,
+	is_player: bool,
+	passage: String = "",
+	yard_rows: Array[Dictionary] = [],
+	slip: int = -1
 ) -> void:
 	hide_province()
 	hide_civilian()
@@ -123,7 +128,12 @@ func show_fleet(
 	hide_economy()
 	hide_research()
 	DiplomacyHud.hide(self)
-	fleet_panel.refresh(model, fleet, is_player, passage)
+	# A null fleet with a slip province is the capital yard before any squadron
+	# is afloat: the first launch founds the home fleet.
+	if fleet == null and slip >= 0:
+		fleet_panel.refresh_slip(model, slip, yard_rows, is_player)
+	else:
+		fleet_panel.refresh(model, fleet, is_player, passage, yard_rows)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
 
@@ -147,7 +157,8 @@ func show_civilian(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_fleet()
@@ -156,7 +167,8 @@ func show_civilian(
 	hide_research()
 	DiplomacyHud.hide(self)
 	civilian_panel.refresh(
-		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked
+		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
+		context
 	)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)

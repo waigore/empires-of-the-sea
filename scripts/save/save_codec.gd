@@ -12,7 +12,6 @@ const MIN_MAP_SIDE: int = 32
 
 # --- capture -----------------------------------------------------------------
 
-
 static func capture(play: PlaySession) -> Dictionary:
 	if play == null or play.world == null:
 		return {}
@@ -78,6 +77,7 @@ static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
 			"height": model.height,
 			"provinces": provinces,
 			"resources": model.resource.duplicate(),
+			"tile_deeds": model.ownership.to_dict(),
 		}
 		regions.append(region_entry)
 	return regions
@@ -124,7 +124,6 @@ static func _victory_from(raw: Variant) -> VictoryState:
 
 
 # --- validation --------------------------------------------------------------
-
 
 static func is_valid(data: Dictionary) -> bool:
 	if data.is_empty() or int(data.get("version", -1)) != VERSION:
@@ -226,6 +225,7 @@ static func _apply_regions(world: WorldMap, regions: Variant) -> bool:
 				return false
 		if not _apply_resources(model, data.get("resources", PackedInt32Array())):
 			return false
+		model.ownership.apply_dict(data.get("tile_deeds", {}))
 	return true
 
 
@@ -306,7 +306,6 @@ static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 
 
 # --- diplomacy ---------------------------------------------------------------
-
 static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 	if state == null:
 		return {}
@@ -326,6 +325,7 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"order_counts": state._order_counts.duplicate(),
 		"alliance_snapshot": state.alliance_snapshot.duplicate(),
 		"pending_calls": state.pending_calls.duplicate(true),
+		"pending_interventions": state.pending_interventions.duplicate(true),
 	}
 
 
@@ -348,12 +348,11 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state._order_counts = data.get("order_counts", {}).duplicate()
 	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
 	state.pending_calls.assign(data.get("pending_calls", []))
+	state.pending_interventions.assign(data.get("pending_interventions", []))
 	return state
 
 
 # --- helpers -----------------------------------------------------------------
-
-
 static func _faction(session: Dictionary) -> int:
 	var faction: int = int(session.get("player_faction", FactionCatalog.PLAYER_FACTION))
 	return faction if FactionCatalog.can_win(faction) else FactionCatalog.PLAYER_FACTION

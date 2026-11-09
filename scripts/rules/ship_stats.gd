@@ -196,6 +196,12 @@ static func durability(type_id: String) -> float:
 	return float(data["hull"]) * (1.0 + float(data["arm"]) / 10.0)
 
 
+## Firepower of one hull; the court docket's ship strength sums this
+## (wiki: ships-and-naval § Ship muster and the breaker's yard).
+static func firepower(type_id: String) -> int:
+	return int(entry(type_id).get("frp", 0))
+
+
 static func display_name(type_id: String) -> String:
 	match normalize(type_id):
 		"carrack":

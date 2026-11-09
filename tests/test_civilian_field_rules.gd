@@ -236,7 +236,8 @@ func test_work_needs_materials_in_the_stockpile() -> void:
 	_stock = {"lumber": 0, "castIron": 0}
 	var check: Dictionary = _validate(builder, "build_improvement")
 	assert_false(bool(check["ok"]))
-	assert_true(String(check["reason"]).contains("Not enough lumber, cast iron"))
+	assert_true(String(check["reason"]).contains("Stores are short of"))
+	assert_true(String(check["reason"]).contains("lumber"))
 
 
 func test_engineer_builds_one_road_per_tile() -> void:
@@ -457,6 +458,135 @@ func test_options_explain_each_work_order() -> void:
 func test_idle_units_produce_no_reports() -> void:
 	_add("builder", Fixture.IRON_TILE)
 	assert_eq(CivilianWork.resolve_turn(_model, _units, _works, _view), [])
+
+
+# --- merchant land purchase and tile deeds ----------------------------------
+## Wiki: civilian-units § Merchant. A Merchant buys a resource tile in a Minor
+## Nation or Tribe province, with an embassy, no war and a prospected mineral.
+
+
+func test_merchant_may_enter_foreign_land_but_a_builder_may_not() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var merchant := Fixture.unit("merchant", Vector2i(1, 1))
+	assert_true(bool(CivilianMovement.apply_move(
+		model, merchant, Vector2i(2, 1)
+	)["ok"]))
+	var builder := Fixture.unit("builder", Vector2i(1, 1))
+	assert_false(CivilianMovement.may_enter(model, "builder", 0, Vector2i(2, 1)))
+
+
+func test_purchase_land_prices_at_fifteen_times_the_base_price() -> void:
+	var model: MapModel = Fixture.build_minor()
+	assert_eq(LandPurchase.cost(model, Vector2i(3, 1)), 750, "grain")
+	assert_eq(LandPurchase.cost(model, Vector2i(2, 1)), 1200, "iron")
+	assert_eq(LandPurchase.cost_text(model, Vector2i(3, 1)), "£750")
+
+
+func test_merchant_purchase_needs_embassy_and_a_clear_sale() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var merchant := Fixture.unit("merchant", Vector2i(1, 1))
+	var units: Array[CivilianState] = [merchant]
+	var stock := Fixture.stockpile()
+	var tile := Vector2i(3, 1)
+	var no_court := DiplomacyState.new()
+	no_court.initialize(1)
+	no_court.ensure_relation(0, 6, 1)
+	var refused: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, stock, null, tile,
+		{}, {}, {"treasury": 5000, "diplomacy": no_court}
+	)
+	assert_false(bool(refused["ok"]))
+	assert_true(String(refused["reason"]).contains("embassy"))
+	var court := Fixture.merchant_court()
+	DiplomacyRules.declare_war(court, 0, 6)
+	var war: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, stock, null, tile,
+		{}, {}, {"treasury": 5000, "diplomacy": court}
+	)
+	assert_false(bool(war["ok"]))
+	assert_true(String(war["reason"]).contains("war"))
+	var poor := Fixture.merchant_court()
+	var cheap: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, stock, null, tile,
+		{}, {}, {"treasury": 749, "diplomacy": poor}
+	)
+	assert_false(bool(cheap["ok"]))
+	assert_true(String(cheap["reason"]).contains("treasury"))
+
+
+func test_minerals_must_be_prospected_before_purchase() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var merchant := Fixture.unit("merchant", Vector2i(1, 1))
+	var units: Array[CivilianState] = [merchant]
+	var iron := Vector2i(2, 1)
+	var context: Dictionary = {"treasury": 5000, "diplomacy": Fixture.merchant_court()}
+	var blocked: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
+		iron, {}, {}, context
+	)
+	assert_false(bool(blocked["ok"]))
+	assert_true(String(blocked["reason"]).contains("prospect"))
+	works.set_prospected(0, model, iron)
+	var allowed: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
+		iron, {}, {}, context
+	)
+	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
+
+
+func test_purchase_completes_one_turn_later_and_debits_the_purse() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var merchant := Fixture.unit("merchant", Vector2i(1, 1))
+	var units: Array[CivilianState] = [merchant]
+	var tile := Vector2i(3, 1)
+	var context: Dictionary = {"treasury": 5000, "diplomacy": Fixture.merchant_court()}
+	var check: Dictionary = CivilianWork.assign(
+		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
+		tile, {}, {}, context
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(int(context["treasury"]), 5000, "assign does not debit")
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		model, units, works, null, economy
+	)
+	assert_true(bool(reports[0]["completed"]))
+	assert_eq(economy.treasury, 4250, "price is debited at completion")
+	assert_true(model.is_purchased_tile(tile))
+	assert_eq(model.owner_at(tile.x, tile.y), 0, "tile changes hands")
+	assert_eq(model.province_owner(1), 6, "the province stays Genoese")
+	assert_false(model.purchase_tile(tile, 7), "one deed per tile")
+
+
+func test_a_purchased_tile_becomes_an_owned_estate() -> void:
+	var model: MapModel = Fixture.build()
+	var works := LandWorks.new()
+	var tile := Fixture.RIVAL_GRAIN_TILE
+	assert_true(model.purchase_tile(tile, 0))
+	assert_eq(model.owner_at(tile.x, tile.y), 0)
+	assert_false(model.purchase_tile(tile, 1), "no second buyer")
+	works.set_improvement(model, tile, 1)
+	for step: Vector2i in [Vector2i(1, 0), Vector2i(2, 0), tile]:
+		works.set_transport(model, step, LandWorks.TRANSPORT_ROAD)
+	var totals: Dictionary = Extraction.yields(
+		model, 0, -1, {}, works, Fixture.BARE_TILE
+	)
+	assert_eq(totals, {"grain": 1}, "the deed yields for its buyer")
+	var seller: Dictionary = Extraction.yields(
+		model, 1, -1, {}, works, Fixture.BARE_TILE
+	)
+	assert_eq(seller, {}, "the old owner no longer extracts it")
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		model, works, [], {}, 0, Fixture.BARE_TILE
+	)
+	assert_eq(
+		int(snap["counts"]["estates"]), 3, "the enclave joins the realm's two estates"
+	)
+	assert_eq(String(_row_at(snap, tile)["province_name"]), "Coro")
 
 
 func _add(type_id: String, tile: Vector2i) -> CivilianState:

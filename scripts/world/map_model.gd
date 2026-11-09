@@ -32,6 +32,8 @@ var terrain: PackedByteArray = PackedByteArray()
 var province: PackedInt32Array = PackedInt32Array()
 var sea_zone: PackedInt32Array = PackedInt32Array()
 var resource: PackedInt32Array = PackedInt32Array()
+## Tile-level deeds (purchased land); plain provinces inherit their owner.
+var ownership := TileOwnership.new()
 var provinces: Array[ProvinceState] = []
 var sea_zones: Array[SeaZoneState] = []
 
@@ -48,6 +50,7 @@ func setup(p_width: int, p_height: int) -> void:
 	sea_zone.fill(NO_ID)
 	resource.resize(count)
 	resource.fill(NO_ID)
+	ownership.clear()
 	provinces.clear()
 	sea_zones.clear()
 
@@ -158,12 +161,32 @@ func province_owner(id: int) -> int:
 	return data.owner
 
 
-## Owner of the province covering a tile, or NO_ID for sea and unclaimed land.
+## Owner of the land tile, deed first, province second. Sea and unclaimed land
+## report NO_ID.
 func owner_at(x: int, y: int) -> int:
-	var id: int = province_at(x, y)
-	if id == NO_ID:
+	if not in_bounds(x, y):
 		return NO_ID
-	return province_owner(id)
+	var index: int = index_of(x, y)
+	var province_id: int = province[index]
+	if province_id == NO_ID:
+		return NO_ID
+	return ownership.owner_of(index, province_owner(province_id))
+
+
+## Records a purchased tile. The province owner is unchanged; the deed is what
+## moves. A tile can be bought once, by one Great Power.
+func purchase_tile(tile: Vector2i, buyer: int) -> bool:
+	if not is_land(tile.x, tile.y):
+		return false
+	if province_at(tile.x, tile.y) == NO_ID:
+		return false
+	return ownership.purchase(index_of(tile.x, tile.y), buyer)
+
+
+func is_purchased_tile(tile: Vector2i) -> bool:
+	if not in_bounds(tile.x, tile.y):
+		return false
+	return ownership.is_purchased(index_of(tile.x, tile.y))
 
 
 func province_name(id: int) -> String:
