@@ -11,9 +11,9 @@ P5 rivals act unbookkept.
 ## Implemented
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
-  `AiConfig`, `AiPersonality`, `AiAgenda`): every knob is a bounded catalog key;
-  profiles are `normal`, `aggressive`, `economic`; leaders use the seven wiki
-  archetypes and one of six agendas fixed from `hash(seed, faction)`.
+  `AiConfig`, `AiPersonality`, `AiAgenda`): every knob is a bounded key;
+  profiles are `normal`, `aggressive`, `economic`; leaders use seven archetypes
+  and six agendas fixed from `hash(seed, faction)`.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
@@ -22,37 +22,41 @@ P5 rivals act unbookkept.
   4-turn cooldown; goals clamp `round(desire / 25)` to target provinces. At
   war, desire below 50 offers peace — immediate to a rival, queued for the
   human, with a 3-turn cooldown.
-- **Turn pass** (`AiTurn`): one legal order per rival through `DiplomacyRules`,
-  traced; human proposals queue. Declarations land before combat.
+- **Turn pass** (`AiTurn`): one traced legal order per rival through
+  `DiplomacyRules`; human proposals queue. Declarations land before combat.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border a rival detaches
   all but one Home Army regiment, then field armies save an occupied province,
   storm an adjacent hostile one (10% margin after wall soak), or stage on the
-  nearest frontier via `ArmyMovement`.
+  nearest frontier.
 - **Naval planner** (`AiNavalPlanner`): at war sortie or pursue one zone onto
   the weakest matchable squadron (120% margin); at peace hold station, via
   `NavalMovement`; a charted zone earns one sighting line, never fog.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
   attack; an invader on home soil draws a relief column from the Home Army
-  (one regiment keeps the seat) to that province, the seat first, own land only.
+  (one regiment keeps the seat) to that province, seat first, own land only.
 - **Economy planner** (`AiEconomyPlanner`): each rival keeps a `PlayerEconomy`
   ledger. Recipes score by stock deficit (`economy.reserve_target`,
   `economy.recipe_weight`); whole runs are allocated under labour and inputs.
   Recruitment trains the highest affordable tier up to `economy.worker_target`
   and `economy.max_recruits`.
+- **Research planner** (`AiResearchPlanner`): rivals fill their own
+  `ResearchState` slots each turn. Score weighs personality domain weights on
+  tech categories, store shortfalls on capped commodities, and a war bonus on
+  military/naval branches; `research.funding_index` sets the base preset,
+  shifted by research weight. `ResearchTurn` then advances rival techs and gates.
 - **Civilian planner** (`AiCivilianPlanner`): one `CivilianWork`-validated order
-  per idle rival civilian — builders improve the shortest commodity, engineers
-  road/port/fort, explorers prospect and walk to minerals, rail builders
-  upgrade roads; training up to `civilian.max_civilians`.
+  per idle civilian — builders improve the shortest commodity, engineers
+  road/port/fort, explorers prospect, rail builders upgrade roads; training up
+  to `civilian.max_civilians`.
 - **Rival turn** (`MapPlayEconomyAi`): seeds opening civilians once per region,
   resolves Extraction → Riches → Consumption → Production on the shared market
-  (prices advance once with the player), then sets next assignments. Rival
-  stockpiles feed the diplomacy resource-need score.
-- **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
+  (prices advance once), then sets next assignments.
+- **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
 
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms, boycotts and spy actions.
-- AI research and world-market trade planners; rival fog exploration.
+- World-market trade planner; rival fog exploration and discovery research.
 - Dossier evidence and dialogue.
 
 ## Architecture
@@ -63,8 +67,8 @@ wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians,
-Minor / Tribe relief).
+`test_ai_rules` (power, planners, turn, naval, economy, civilians, Minor/Tribe
+relief, rival research scoring/funding/slots).
 
 ```bash
 gd-tools test --coverage --min 80

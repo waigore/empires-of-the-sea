@@ -42,12 +42,16 @@ static func run(play: PlaySession) -> Dictionary:
 			economy.recruit(int(order["tier"]))
 		var civilians: Dictionary = _run_civilians(play, faction, economy, config)
 		order_log.append_array(civilians["orders"])
+		var research: Dictionary = AiResearchPlanner.plan(
+			config, economy, {"at_war": _at_war(play, faction)}
+		)
 		by_faction[faction] = {
 			"extraction": extraction,
 			"resolved": resolved,
 			"production": production,
 			"recruits": recruits,
 			"civilians": civilians,
+			"research": research,
 		}
 	return report
 
