@@ -247,3 +247,115 @@ func test_the_map_adapter_crosses_and_lands() -> void:
 	assert_true(unit.tile.y <= 1)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+func test_the_planner_guards_empty_inputs() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	assert_true(AiColonisationPlanner.plan(null, world, 0, old_world, [], []).is_empty())
+	assert_true(AiColonisationPlanner.plan(_config(), null, 0, old_world, [], []).is_empty())
+	assert_true(AiColonisationPlanner.plan(_config(), world, 0, null, [], []).is_empty())
+	assert_true(
+		AiColonisationPlanner.plan(
+			AiConfig.build(99, 1500), world, 0, old_world, [], []
+		).is_empty(),
+		"an unknown court has no home region"
+	)
+	assert_true(
+		AiColonisationPlanner.plan(
+			AiConfig.build(9, 1500), world, 1, world.region(1), [], []
+		).is_empty(),
+		"a New World court with no Old World land has nowhere to sail"
+	)
+
+
+func test_a_carrying_fleet_without_its_civilian_is_ignored() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
+	fleet.add_civilian(77)
+	assert_true(
+		AiColonisationPlanner.plan(_config(), world, 0, old_world, [fleet], []).is_empty()
+	)
+
+
+func test_a_working_builder_falls_back_to_an_idle_explorer() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+	var colony := ProvinceState.create(0, "Colony", tiles, Vector2(1.5, 0.5), 8, OWNER, false)
+	new_world.provinces = [colony]
+	var builder: CivilianState = CivilianState.create(1, OWNER, "builder", Vector2i(0, 0))
+	builder.start_work("build_improvement", Vector2i(0, 0), 2)
+	var explorer: CivilianState = CivilianState.create(2, OWNER, "explorer", Vector2i(0, 0))
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_config(), world, 0, old_world, [fleet], [builder, explorer], 0
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 2)
+
+
+func test_the_lowest_idle_squadron_is_chosen() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	var moved: FleetState = FleetState.at_sea(1, OWNER, 0)
+	moved.moved = true
+	var troop_carrier: FleetState = FleetState.at_sea(2, OWNER, 0)
+	troop_carrier.embarked_army = 9
+	var ready: FleetState = FleetState.at_sea(3, OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_config(), world, 0, old_world, [moved, troop_carrier, ready], [unit], 0
+	)
+	assert_eq(String(order.get("kind", "")), "dock")
+	assert_eq(int(order.get("fleet", -1)), 3)
+
+
+func test_a_moved_carrying_fleet_does_not_sail_twice() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var first: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	var second: CivilianState = CivilianState.create(2, OWNER, "explorer", Vector2i(0, 0))
+	var moved: FleetState = FleetState.in_port(1, OWNER, 0)
+	moved.add_civilian(1)
+	moved.moved = true
+	var ready: FleetState = FleetState.in_port(2, OWNER, 0)
+	ready.add_civilian(2)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_config(), world, 0, old_world, [moved, ready], [first, second], 0
+	)
+	assert_eq(String(order.get("kind", "")), "sail")
+	assert_eq(int(order.get("fleet", -1)), 2)
+
+
+func test_board_refusals_without_a_reachable_port() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	var elsewhere: FleetState = FleetState.in_port(1, OWNER, 1)
+	assert_true(
+		AiColonisationPlanner.plan(
+			_config(), world, 0, old_world, [elsewhere], [unit], 0
+		).is_empty(),
+		"a squadron in another port cannot take this colonist"
+	)
+	var stray: CivilianState = CivilianState.create(9, OWNER, "explorer", Vector2i(9, 9))
+	assert_true(
+		AiColonisationPlanner.plan(
+			_config(), world, 0, old_world, [FleetState.at_sea(1, OWNER, 0)],
+			[stray], 0
+		).is_empty(),
+		"a tile outside every province has no port to dock at"
+	)
+
+
+func test_region_helpers_pick_the_opposite_map() -> void:
+	var world: WorldMap = _world()
+	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.OLD_WORLD, OWNER), WorldMap.NEW_WORLD)
+	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.NEW_WORLD, OWNER), WorldMap.OLD_WORLD)
+	assert_false(AiColonisationPlanner._owns_land_in(world, 9, OWNER))
