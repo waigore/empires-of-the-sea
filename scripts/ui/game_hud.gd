@@ -26,15 +26,16 @@ signal region_toggle_pressed
 signal focus_capital_pressed
 ## The survey lens toggle changed state (button or keyboard).
 signal lens_pressed(active: bool)
+## Status plaques double as shortcuts to the crown's forces in this region.
+signal fleet_status_pressed
+signal army_status_pressed
 ## The player closed the campaign plate to keep viewing the map.
 signal victory_dismissed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
-const BAR_HEIGHT: float = 68.0
-const BAR_HEIGHT_COMPACT: float = 58.0
-const BAR_FONT: int = 13
-const BAR_FONT_COMPACT: int = 11
+const BAR_HEIGHT: float = 60.0
+const BAR_HEIGHT_COMPACT: float = 56.0
 
 var panels: HudPanels = null
 ## Survey key, shown only while the lens is on.
@@ -47,8 +48,6 @@ var top_row: HBoxContainer = null
 ## Stat chips fall onto a second bar row when the cartouche row cannot fit.
 var chip_row: HBoxContainer = null
 var chips: Array[Control] = []
-## Bar type size currently applied (HudLayout switches it once per profile).
-var bar_font: int = 0
 var minimap_frame: Control = null
 var zoom_box: Control = null
 var end_turn_wrap: Control = null
@@ -65,12 +64,16 @@ var _turn_label: Label = null
 var _quick_queue: Array[Dictionary] = []
 var _nation_label: Label = null
 var _region_button: Button = null
+var _region_label: Label = null
 var _treasury_label: Label = null
-var _prestige_label: Label = null
+var _income_label: Label = null
 var _fleet_label: Label = null
 var _civilian_label: Label = null
 var _army_label: Label = null
-var _treasury_chip: Control = null
+var _treasury_chip: Button = null
+var _fleet_chip: Button = null
+var _civilian_chip: Button = null
+var _army_chip: Button = null
 var _toast_box: VBoxContainer = null
 var _minimap: Minimap = null
 var _panel_wrap: Control = null
@@ -94,6 +97,7 @@ var _research_panel: ResearchPanel = null
 var _diplomacy_wrap: Control = null
 var _diplomacy_panel: DiplomacyPanel = null
 var _treasury_value: int = 0
+var _income_value: int = 0
 
 
 func _ready() -> void:
@@ -142,6 +146,7 @@ func set_turn(turn: int, year: int) -> void:
 func set_treasury(value: int, animate: bool = true) -> void:
 	var from: int = _treasury_value
 	_treasury_value = value
+	_refresh_treasury_tooltip()
 	if not animate:
 		_treasury_label.text = HudChrome.format(value)
 		return
@@ -153,20 +158,48 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-func set_prestige(value: int) -> void:
-	_prestige_label.text = str(value)
+## Net treasury movement per turn, shown beside the treasury count so the player
+## reads solvency without opening the ledger. Zero is dim, not a fake gain.
+func set_income(value: int) -> void:
+	_income_value = value
+	if _income_label == null:
+		return
+	_income_label.text = HudChrome.format_delta(value)
+	_income_label.add_theme_color_override(
+		"font_color",
+		Palette.TEXT_DIM if value == 0 else (
+			Palette.GOLD_PALE if value > 0 else Palette.CRIMSON.lerp(Color.WHITE, 0.35)
+		)
+	)
+	_refresh_treasury_tooltip()
+
+
+func _refresh_treasury_tooltip() -> void:
+	if _treasury_chip == null:
+		return
+	_treasury_chip.tooltip_text = "Treasury %s · %s per turn — open the ledger" % [
+		HudChrome.format(_treasury_value), HudChrome.format_delta(_income_value)
+	]
 
 
 func set_fleets(value: int) -> void:
 	_fleet_label.text = str(value)
+	if _fleet_chip != null:
+		_fleet_chip.tooltip_text = "Ships — %d · find the next squadron" % value
 
 
 func set_civilians(value: int) -> void:
 	_civilian_label.text = str(value)
+	if _civilian_chip != null:
+		_civilian_chip.tooltip_text = (
+			"Civilians — %d · open the empire roster (C)" % value
+		)
 
 
 func set_armies(value: int) -> void:
 	_army_label.text = str(value)
+	if _army_chip != null:
+		_army_chip.tooltip_text = "Troops — %d regiments · find the next army" % value
 
 
 ## Campaign decided: raise the plate and shut the end-turn seal for good

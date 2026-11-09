@@ -84,13 +84,6 @@ var turn: int:
 		if play != null:
 			play.turn = value
 
-var prestige: int:
-	get:
-		return play.prestige if play != null else 0
-	set(value):
-		if play != null:
-			play.prestige = value
-
 var income: int:
 	get:
 		return play.income if play != null else 0
