@@ -21,7 +21,8 @@ Formula, § Trade and Transport Interception. Decisions:
 | Beachhead | at sea beside a hostile coast | One-turn landing site (DR-20261109-13) |
 
 A station spends the turn's move and persists until the squadron sails, docks
-or takes another station. The home fleet cannot take one.
+or takes another station. The home fleet cannot take one. A station whose
+target is no longer a hostile shore lapses, and the dossier says so.
 
 ## Interception
 

@@ -66,7 +66,10 @@ static func is_stationary(mission: int) -> bool:
 	)
 
 
-## Dossier line for the current station; empty when the squadron is free.
+## Dossier line for the current station; empty when the squadron is free. A
+## blockade whose coast is no longer an enemy shore has lapsed: the rules
+## attempt no interception from it (wiki: ships-and-naval § Missions and
+## Movement), so the dossier must not claim one (REQ-P2-03).
 static func status_note(
 	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
 ) -> String:
@@ -76,17 +79,20 @@ static func status_note(
 		FleetState.Mission.PATROL:
 			return "On patrol — hostile fleets entering this zone may be intercepted."
 		FleetState.Mission.BLOCKADE:
-			# The rules stop honouring a blockade whose coast changed hands or
-			# made peace; the dossier must not keep claiming the station.
+			var place: String = _blockade_place(model, fleet)
 			if not is_blockading(model, fleet, hostile):
-				return "The blockade has lapsed — the coast is no longer a hostile shore."
-			var place: String = "the enemy coast"
-			if model != null and fleet.blockade_province >= 0:
-				place = model.province_name(fleet.blockade_province)
+				return "The blockade of %s has lapsed — that coast is no longer an enemy shore." % place
 			return "Blockading %s — hostile fleets entering this zone may be intercepted." % place
 		FleetState.Mission.DEFEND:
 			return "Holding station — the squadron fights only when the zone is contested."
 	return ""
+
+
+## The blockaded province's name, or a plain fallback for a station with no coast.
+static func _blockade_place(model: MapModel, fleet: FleetState) -> String:
+	if model != null and fleet.blockade_province >= 0:
+		return model.province_name(fleet.blockade_province)
+	return "the enemy coast"
 
 
 ## Enemy provinces this squadron could blockade from its current zone.

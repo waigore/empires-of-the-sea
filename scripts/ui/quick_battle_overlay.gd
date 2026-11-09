@@ -202,14 +202,28 @@ func _populate() -> void:
 		"fill", UiTheme.box(def_color, def_color.lightened(0.25), 1, 3, Vector4.ZERO)
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
-	_plan_label.text = "Plan: %s" % String(quick.get("plan", "balanced")).capitalize()
-	if int(quick.get("guns_start", 0)) > 0:
-		_plan_label.text += " · %d guns" % int(quick.get("guns_start", 0))
+	_plan_label.text = _plan_text(battle, quick)
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1))
 	)
 	_round_label.text = ""
+
+
+## The stance line: the player's own plan first (it is the one the player set,
+## and on the defending side the report's `plan` belongs to the attacker), then
+## the enemy's script and any emplaced battery.
+func _plan_text(p_battle: Dictionary, quick: Dictionary) -> String:
+	var mine: String = String(quick.get("plan", "balanced"))
+	var theirs: String = String(quick.get("defender_plan", "defensive"))
+	if int(p_battle.get("player_faction", -1)) == int(p_battle.get("defender", -1)):
+		mine = String(quick.get("defender_plan", "defensive"))
+		theirs = String(quick.get("plan", "balanced"))
+	var text: String = "Your plan: %s · enemy: %s" % [mine.capitalize(), theirs.capitalize()]
+	var guns: int = int(quick.get("guns_start", 0))
+	if guns > 0:
+		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
+	return text
 
 
 func _reset() -> void:

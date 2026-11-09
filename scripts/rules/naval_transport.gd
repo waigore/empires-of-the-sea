@@ -186,6 +186,18 @@ static func beachhead_allows(
 		return false
 	if fleet.beachhead_province != province_id or not beachhead_ready(fleet, turn):
 		return false
+	return beachhead_target_valid(model, fleet, hostile)
+
+
+## True while the marked coast is still a hostile shore this squadron could
+## land on: a province that changes hands or a war that ends leaves the marker
+## without a landing (wiki: ships-and-naval § Missions and Movement).
+static func beachhead_target_valid(
+	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
+) -> bool:
+	if model == null or fleet == null or not fleet.has_beachhead():
+		return false
+	var province_id: int = fleet.beachhead_province
 	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
 		return false
 	var owner: int = model.province_owner(province_id)

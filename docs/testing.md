@@ -47,6 +47,11 @@ godot --headless --path . --script res://tools/e2e_smoke.gd
 # boards an Explorer, takes the Passage, lands, charts and prospects, printing
 # one line per step.
 godot --headless --path . --script res://tests/playtest_new_world.gd
+
+# Free-playtest drive (opt-in, not a CI gate): Quick Battle — declares war,
+# resolves an attacking field battle, a siege and a defending battle through the
+# play helpers, printing every despatch line the plate shows.
+godot --headless --path . --script res://tests/playtest_quick_battle.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

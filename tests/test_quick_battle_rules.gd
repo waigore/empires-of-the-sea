@@ -116,6 +116,38 @@ func test_a_siege_battery_fires_while_guns_stand() -> void:
 	assert_true(fired, "the emplaced battery answers the assault")
 
 
+## The despatch copy reads `defender_lost` on an attacker's action as losses it
+## inflicted and `attacker_lost` as its own cost, so the report must add up that
+## way round: every loss a side suffered is either inflicted by the enemy or paid
+## by its own action.
+func test_round_despatches_add_up_to_each_sides_losses() -> void:
+	var battle: Dictionary = _fight("aggressive", _guards(6), _pikes(8), 2)
+	var quick: Dictionary = battle["quick"]
+	var atk_inflicted: int = 0
+	var atk_own: int = 0
+	var def_inflicted: int = 0
+	var def_own: int = 0
+	for round: Dictionary in quick["rounds"]:
+		for action: Dictionary in round["actions"]:
+			var entry: Dictionary = action as Dictionary
+			if int(entry["side"]) == int(battle["attacker"]):
+				atk_inflicted += int(entry["defender_lost"])
+				atk_own += int(entry["attacker_lost"])
+			else:
+				def_inflicted += int(entry["attacker_lost"])
+				def_own += int(entry["defender_lost"])
+	assert_eq(
+		def_inflicted + atk_own,
+		int(quick["attacker_start"]) - int(quick["attacker_left"]),
+		"every attacker loss is a despatch number"
+	)
+	assert_eq(
+		atk_inflicted + def_own,
+		int(quick["defender_start"]) - int(quick["defender_left"]),
+		"every defender loss is a despatch number"
+	)
+
+
 func _fight(
 	plan: String, attacker_types: Array[String], defender_types: Array[String],
 	fort: int = 0

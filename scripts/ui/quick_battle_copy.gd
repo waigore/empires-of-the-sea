@@ -9,13 +9,17 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var owner: int = int(action.get("side", 0))
 	var label: String = String(action.get("label", "Action"))
 	var text: String = "%s — %s" % [faction(owner, names), label]
-	var lost: int = int(action.get("attacker_lost", 0))
-	if String(action.get("action", "")) == "battery":
-		lost = int(action.get("attacker_lost", 0))
-	elif owner == int(battle.get("defender", -1)):
-		lost = int(action.get("defender_lost", 0))
-	if lost > 0:
-		text += " · %d lost" % lost
+	# A despatch reports what the action did to the other side; the acting side's
+	# own losses (an assault's price) follow so the round reads honestly.
+	var attacking: bool = owner == int(battle.get("attacker", -1))
+	var inflicted_key: String = "defender_lost" if attacking else "attacker_lost"
+	var own_key: String = "attacker_lost" if attacking else "defender_lost"
+	var inflicted: int = int(action.get(inflicted_key, 0))
+	var own: int = int(action.get(own_key, 0))
+	if inflicted > 0:
+		text += " · %d lost" % inflicted
+	if own > 0:
+		text += " · %d of its own" % own
 	var guns: int = int(action.get("guns_destroyed", 0))
 	if guns > 0:
 		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
