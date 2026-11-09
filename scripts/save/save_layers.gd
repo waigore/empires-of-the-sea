@@ -66,7 +66,7 @@ static func capture_armies(layer: ArmyLayer) -> Dictionary:
 static func restore_armies(layer: ArmyLayer, data: Dictionary) -> bool:
 	if layer == null:
 		return false
-	layer._clear_markers()
+	# The region reload that follows a restore rebuilds the markers from scratch.
 	layer.armies.clear()
 	layer.selected_army = null
 	layer.regions.clear()

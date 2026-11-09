@@ -60,8 +60,14 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	for call_line: String in result.get("calls", []):
 		if not call_line.is_empty():
 			play.hud.toast(call_line)
-	if result.has("absorbed") and play.ship_layer != null:
-		play.ship_layer.transfer_owner(int(result["absorbed"]), play.player_faction)
+	# An absorbed crown's units change colours with its provinces: fleets first,
+	# then land regiments (wiki: diplomacy § GP–Minor Rules).
+	if result.has("absorbed"):
+		var loser: int = int(result["absorbed"])
+		if play.ship_layer != null:
+			play.ship_layer.transfer_owner(loser, play.player_faction)
+		if play.army_layer != null:
+			play.army_layer.transfer_owner(loser, play.player_faction)
 	if bool(result.get("map_changed", false)):
 		_rebuild_map(play)
 	play.hud.set_treasury(play.treasury())

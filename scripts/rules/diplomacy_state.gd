@@ -106,7 +106,9 @@ func subsidy(payer: int, target: int) -> int:
 
 func set_subsidy(payer: int, target: int, percent: int) -> void:
 	subsidies["%d>%d" % [payer, target]] = percent
-	touch(payer, target, "subsidySet", {"percent": percent})
+	# Setting a subsidy is score-neutral, so it must not swallow the pair's
+	# per-turn drift (wiki: diplomacy § Relation Model, skip-on-event list).
+	record_event("subsidySet", payer, target, {"percent": percent})
 
 
 func cancel_subsidy(payer: int, target: int) -> bool:
@@ -115,7 +117,7 @@ func cancel_subsidy(payer: int, target: int) -> bool:
 		return false
 	var percent: int = int(subsidies[key])
 	subsidies.erase(key)
-	touch(payer, target, "subsidyCancelled", {"percent": percent})
+	record_event("subsidyCancelled", payer, target, {"percent": percent})
 	return true
 
 
