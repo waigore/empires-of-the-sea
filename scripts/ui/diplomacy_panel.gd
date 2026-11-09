@@ -210,6 +210,11 @@ func _fill_detail() -> void:
 	):
 		_add_option(option)
 	_add_chronicle()
+	# The dossier sits under the chronicle: analysis after the news, so choice
+	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
+	var dossier := CourtDossier.new()
+	dossier.fill(_state, _world, _player, _selected)
+	_detail.add_child(dossier)
 
 
 ## The court's own word under its herald line: the newest voiced act between the

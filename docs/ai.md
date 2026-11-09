@@ -50,6 +50,9 @@ P5 unbookkept rivals.
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns and rival ledgers (`AiState.to_dict`).
+- **Court dossier** (`IntelDossier`, `CourtDossier`): the player's reading of a
+  rival — evidence from observable acts, banded suspicion per agenda, best
+  guess and behaviour counts ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
 
@@ -59,7 +62,7 @@ P5 unbookkept rivals.
 
 - Intervention, call-to-arms, boycotts and spy actions.
 - Rival fog exploration.
-- Dossier evidence and dialogue.
+- Agenda-sourced dialogue beats.
 
 ## Architecture
 

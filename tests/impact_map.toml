@@ -59,6 +59,7 @@ suites = [
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_intel_dossier.gd",
 ]
 
 [domains.economy]
@@ -357,6 +358,10 @@ match = "scripts/rules/diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/intel_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
 
@@ -487,6 +492,10 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/ui/court_prompts.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_*.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -628,6 +637,10 @@ domain = "civilian"
 
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_intel_*.gd"
 domain = "diplomacy"
 
 [[rules]]

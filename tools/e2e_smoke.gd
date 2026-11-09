@@ -188,6 +188,14 @@ func _run() -> void:
 		_has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
 		"the court answers a declaration in its own voice"
 	)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "DOSSIER"),
+		"the court carries its intelligence reading"
+	)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "Holds "),
+		"the dossier counts the court's public behaviour"
+	)
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
 	_check(not screen.play.diplomacy.relation(0, 1).at_war, "peace order applies")
 	DiplomacyHud.hide(screen.hud.panels)
