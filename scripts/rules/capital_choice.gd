@@ -62,7 +62,6 @@ static func place_capital(
 
 	var province: ProvinceState = model.get_province(province_id)
 	province.capital = true
-	province.capital_of = faction_id
 	province.capital_tile = tile
 	province.ports = ports
 	province.road_paths = road_paths
@@ -335,7 +334,6 @@ static func _clear_faction_capitals(model: MapModel, faction_id: int) -> void:
 		if province.owner != faction_id:
 			continue
 		province.capital = false
-		province.capital_of = MapModel.NO_ID
 		province.capital_tile = NO_TILE
 		province.ports = {}
 		province.road_paths = []

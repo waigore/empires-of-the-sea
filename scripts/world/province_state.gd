@@ -13,9 +13,6 @@ var coastal: bool = false
 var port_tile: Vector2i = Vector2i(-1, -1)
 var owner: int = MapModel.NO_ID
 var capital: bool = false
-## Faction the seat belongs to; survives conquest so a lost capital is
-## traceable to its crown (wiki: capital-and-connectivity § Capital loss).
-var capital_of: int = MapModel.NO_ID
 var capital_tile: Vector2i = Vector2i(-1, -1)
 var ports: Dictionary = {}
 var road_paths: Array = []

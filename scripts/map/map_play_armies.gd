@@ -198,6 +198,7 @@ static func battle_context(play: PlaySession) -> Dictionary:
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands.
 static func resolve_battles(play: PlaySession) -> void:
+	var seats: Dictionary = CapitalLoss.snapshot(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
 		play.world, battle_context(play)
 	)
@@ -227,6 +228,7 @@ static func resolve_battles(play: PlaySession) -> void:
 	if repaint:
 		play.canvas.refresh_ownership()
 		play.overlay.refresh_borders()
+	_report_capital_loss(play, seats)
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	if play.army_layer.selected_army != null:
 		show_panel(play, play.army_layer.selected_army)
@@ -243,6 +245,67 @@ static func disband(play: PlaySession, owner: int) -> int:
 	if removed > 0:
 		play.army_layer.spawn(play.model)
 	return removed
+
+
+## Seat losses are read against the pre-combat snapshot: a captured capital
+## re-seats the court, or the crown falls and its forces leave play
+## (wiki: capital-and-connectivity § Capital loss and reassignment).
+static func _report_capital_loss(play: PlaySession, seats: Dictionary) -> void:
+	var changes: Array[Dictionary] = CapitalLoss.resolve(play.world, seats)
+	if changes.is_empty():
+		return
+	var repaint: bool = false
+	for change: Dictionary in changes:
+		var faction: int = int(change["faction"])
+		var region: int = int(change["region"])
+		if bool(change["fallen"]):
+			var regiments: int = disband(play, faction)
+			var hulls: int = play.ship_layer.remove_owner(faction)
+			var civilians: int = MapPlayCivilians.disband(play, faction)
+			if play.diplomacy != null:
+				play.diplomacy.clear_relations_of(faction)
+			play.hud.toast(
+				"%s has fallen to %s — %d regiments, %d hulls and %d civilians disbanded"
+				% [
+					FactionCatalog.name_of(faction),
+					FactionCatalog.name_of(int(change["conqueror"])),
+					regiments,
+					hulls,
+					civilians,
+				]
+			)
+		else:
+			var model: MapModel = play.world.region(region)
+			var seat: String = (
+				model.province_name(int(change["capital_province"])) if model != null else "—"
+			)
+			play.hud.toast("%s moves its court to %s" % [FactionCatalog.name_of(faction), seat])
+		if faction == play.player_faction:
+			_sync_player_seat(play, change, region)
+		if region == play.region_index:
+			repaint = true
+	if repaint:
+		play.refresh_map_views()
+	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+
+
+## The player's seat moved: the session framing and the economy's capital reads
+## follow the province the rules chose, not the one the court lost.
+static func _sync_player_seat(
+	play: PlaySession, change: Dictionary, region: int
+) -> void:
+	var province: int = int(change["capital_province"])
+	var tile: Vector2i = change.get("capital_tile", CapitalChoice.NO_TILE)
+	if region == play.region_index:
+		play.capital_province = province
+		play.capital_tile = tile
+	if (
+		play.economy != null
+		and play.economy.model != null
+		and play.economy.model.region_id == region
+	):
+		play.economy.capital_province = province
+		play.economy.capital_tile = tile
 
 
 static func refresh_visibility(play: PlaySession) -> void:
