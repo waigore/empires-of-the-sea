@@ -132,6 +132,11 @@ static func refresh_visibility(play: PlaySession) -> void:
 		ship.visible = _known(play, fleet)
 
 
+## Rival naval turn — see MapPlayFleetAi (docs/ai.md).
+static func run_ai(play: PlaySession) -> Array[Dictionary]:
+	return MapPlayFleetAi.run(play)
+
+
 ## First sighting of a province's coast earns a quiet note, once per province.
 static func _announce_charted_coast(play: PlaySession, changed: Array) -> void:
 	for raw: Variant in changed:
