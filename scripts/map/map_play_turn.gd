@@ -198,6 +198,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
+	MapPlaySetup.build_lens(play)
 	play.emit_turn_ended(play.turn)
 
 

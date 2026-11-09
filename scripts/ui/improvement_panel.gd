@@ -116,7 +116,7 @@ func _build_toggle() -> void:
 	# medallion is not hidden under the MENU button.
 	_toggle.offset_left = 70.0
 	_toggle.offset_top = 132.0
-	_toggle.offset_right = 238.0
+	_toggle.offset_right = 176.0
 	_toggle.offset_bottom = 176.0
 	_toggle.add_theme_font_size_override("font_size", 14)
 	_toggle.tooltip_text = "The crown's estates and works"

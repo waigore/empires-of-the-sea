@@ -11,6 +11,7 @@ var _diplomacy := false
 var _army := false
 var _select := -1
 var _warp := 0
+var _lens := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -33,6 +34,8 @@ func _initialize() -> void:
 			_select = int(arg.substr(7))
 		elif arg.begins_with("warp="):
 			_warp = int(arg.substr(5))
+		elif arg.begins_with("lens="):
+			_lens = arg.substr(5) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -51,6 +54,8 @@ func _process(_delta: float) -> bool:
 		_warp_shot()
 	if _frames == 4 and _army and _screen != null:
 		MapPlayArmies.open_muster(_screen.play)
+	if _frames == 4 and _lens and _screen != null:
+		MapPlayInput.set_lens(_screen.play, true)
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)

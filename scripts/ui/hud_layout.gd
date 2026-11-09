@@ -33,6 +33,7 @@ func apply(hud: GameHud) -> void:
 	_bar(hud, view)
 	_minimap(hud)
 	_zoom(hud)
+	_lens_key(hud)
 	_end_turn(hud)
 	_toasts(hud)
 	hud.panels.apply_compact(compact, view)
@@ -141,6 +142,24 @@ func _zoom(hud: GameHud) -> void:
 	for child: Node in box.get_children():
 		if child is Button:
 			(child as Button).custom_minimum_size = size
+
+
+func _lens_key(hud: GameHud) -> void:
+	var legend: LensLegend = hud.lens_legend
+	if legend == null:
+		return
+	if compact:
+		legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		legend.offset_left = -LensLegend.WIDTH - 10.0
+		legend.offset_right = -10.0
+		legend.offset_top = maxf(66.0, hud.top_bar.offset_bottom + 8.0)
+		legend.offset_bottom = legend.offset_top + LensLegend.HEIGHT
+		return
+	legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	legend.offset_left = 18.0
+	legend.offset_top = 186.0
+	legend.offset_right = legend.offset_left + LensLegend.WIDTH
+	legend.offset_bottom = legend.offset_top + LensLegend.HEIGHT
 
 
 func _end_turn(hud: GameHud) -> void:

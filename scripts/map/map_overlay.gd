@@ -8,6 +8,9 @@ extends Node2D
 ## REQ-P4-01). This node keeps the artwork that must sit *above* fog and owns
 ## the narrow fog API the rest of the play code talks to.
 
+## Fog or knowledge changed; remembered overlays (survey lens) listen.
+signal fog_changed
+
 ## Fog ids re-exported for callers/tests that speak in overlay terms.
 const FOG_VISIBLE: int = FogLayer.FOG_VISIBLE
 const FOG_FOGGED: int = FogLayer.FOG_FOGGED
@@ -96,6 +99,7 @@ func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
 	_border_visibility = visibility
 	_build_country_borders()
 	queue_redraw()
+	fog_changed.emit()
 
 
 func snap_fog() -> void:

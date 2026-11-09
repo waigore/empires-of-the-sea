@@ -96,6 +96,14 @@ func test_phone_chrome_fits_the_screen() -> void:
 		var estates: Control = _screen.get_node("HUD/Improvements")
 		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
 		_tappable(estates._toggle, "estates %s" % size)
+		_fits(hud._lens_button.get_global_rect(), _screen_rect(), "lens button %s" % size)
+		_tappable(hud._lens_button, "lens button %s" % size)
+		_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "survey key %s" % size)
+		assert_gt(
+			hud.lens_legend.get_global_rect().position.x,
+			hud.size.x - LensLegend.WIDTH - 20.0,
+			"survey key right-docked %s" % size
+		)
 		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
 
 
