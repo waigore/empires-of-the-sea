@@ -124,13 +124,7 @@ static func short_inputs(cost: Dictionary, stockpile: Dictionary) -> Dictionary:
 
 
 static func _owned_indices(model: MapModel, owner: int) -> Dictionary:
-	var owned: Dictionary = {}
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
-			continue
-		for tile: Vector2i in province.tiles:
-			owned[model.index_of(tile.x, tile.y)] = true
-	return owned
+	return model.ownership.owned_indices(model, owner)
 
 
 static func _has_transport(model: MapModel, works: LandWorks, tile: Vector2i) -> bool:

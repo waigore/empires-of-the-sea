@@ -1,7 +1,7 @@
 # Civilian units
 
-Land units that explore, survey and improve the map. The starting three and the
-tech-gated Rail Builder ship; Spy and Merchant are catalogued but blocked.
+Land units that explore, survey, improve and buy land. The starting three and
+the tech-gated Merchant and Rail Builder ship; Spy is catalogued but blocked.
 
 **Pillars:** P2, P3 (rules/view), P1 (map feedback), P4 (turn-based).
 
@@ -11,54 +11,53 @@ tech-gated Rail Builder ship; Spy and Merchant are catalogued but blocked.
 
 ## Implemented
 
-- **Roster** (`CivilianCatalog`): all six wiki types with training costs.
-- **Playable:** Explorer (explore, prospect), Builder (build improvement),
-  Engineer (road, improved road, port), Rail Builder (railroad). The starting
-  three muster at the capital.
-- **Training** at the capital spends treasury + paper; the Rail Builder waits
-  for Early Steam Engine.
+- **Roster** (`CivilianCatalog`): all six wiki types.
+- **Playable:** Explorer (explore, prospect), Builder (improve), Engineer (road,
+  port), Merchant (buy land), Rail Builder (railroad). Training at the capital
+  spends treasury + paper, gated by Merchant Companies or Early Steam Engine.
 - **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
-  Builders stay in their crown's provinces.
+  Builders stay on crown land, while Merchants may cross Minor/Tribe provinces.
 - **Work orders** target the unit's tile or, for a Builder, any owned resource
-  tile: the unit records `origin_tile` / `assigned_tile`, relocates and returns
-  on cancel. Costs are paid at assignment and not refunded. Explore ≤3 turns,
-  prospect 1, improvement 1–4 at level turns (1/4/8/16 lumber + cast iron),
-  road 1 + 1 (level 2 needs Road Construction), port 5 + 5 (2 turns), rail
-  2 lumber + 2 steel (2 turns, road 1–2 → 4), fort 1–3 ([forts.md](forts.md)).
-  Mines need prospecting first.
-- **Improvements** are named from the resource (Farm, Lumber camp, Mine,
-  Pasture, Ranch) and yield `min(level, tech cap, transport, town)` at end of
-  turn when connected by road/port/town. Mines need prospecting first; upgrades
-  above the tech cap (1 without a gathering tech tree) are refused.
-- **Estates ledger** (`ESTATES`): realm-wide yield, blockers, filters and
-  Build / Cancel / Map. See [`improvements.md`](improvements.md).
+  tile; the unit records origin/assigned tiles, relocates and returns on cancel.
+  Costs are paid at assign and not refunded. Explore ≤3 turns, prospect 1,
+  improvement 1–4 (1/4/8/16 lumber + cast iron), road 1+1 (level 2 needs Road
+  Construction), port 5+5 (2 turns), rail 2 lumber + 2 steel (2 turns, road 1–2
+  → 4), fort 1–3 ([forts.md](forts.md)).
+- **Land purchase:** a Merchant buys a Minor/Tribe resource tile with an embassy,
+  no war and a prospected mineral; 15× base price validated at assign, debited
+  on completion. One deed per tile.
+- **Tile deeds** (`TileOwnership`): purchased tiles count as the buyer's land for
+  improvements, extraction, estates, visibility, borders and saves, while the
+  province stays with the seller.
+- **Improvements** are named from the resource (Farm, Lumber camp, Mine, Pasture,
+  Ranch) and yield `min(level, tech cap, transport, town)` when connected by
+  road/port/town; upgrades above the tech cap are refused. The `ESTATES` ledger
+  lists realm yield, blockers and Build / Cancel / Map.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
   Builders exempt).
-- Panel states costs and every refusal reason in text.
 
 ## Deferred (REQ-P2-02)
 
-- **Spy** — counter-spy and court reports need rival spies, rival research and
-  AI activity to observe; presence reveal already ships with every civilian.
-- **Merchant** — `purchase_land` needs tile-level land ownership and overseas
-  cargo connectivity; embassies and Merchant Companies already exist.
+- **Spy** — counter-spy and court reports need rival spies, research and AI
+  activity to observe; presence reveal already ships.
+- Civilian overseas deployment and cargo for New World yield.
 - `upgrade_town` (town connectivity), rival civilian AI.
-- Improvement transport caps, raw → manufactured production, riches conversion.
+- Transport caps, raw → manufactured production, riches conversion.
 
 ## Architecture
 
 | File | Role |
 |------|------|
 | `scripts/rules/civilian_*.gd` | roster, state, movement, work validation |
+| `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | merchant deeds |
 | `scripts/rules/civilian_transport.gd` | roads, improved road, port, rail |
 | `scripts/rules/land_works.gd`, `improvement_*.gd` | tile works, connectivity, extraction, ledger |
 | `scripts/map/civilian_layer.gd` | markers, orders, development drawing |
 | `scripts/ui/civilian_panel.gd`, `improvement_panel.gd` | dossier and estates ledger |
 | `scripts/map_screen.gd` | intents, training, end-of-turn wiring |
 
-No node deps in rules (`REQ-P3-03`). Panel → `CivilianWork.assign`; movement →
-`CivilianMovement.apply_move`; transport → `CivilianTransport`; estates →
-`ImprovementOrders`.
+Rules stay node-free (`REQ-P3-03`); panel → `CivilianWork.assign`, movement →
+`CivilianMovement`, estates → `ImprovementOrders`.
 
 ## Controls
 
@@ -73,7 +72,7 @@ No node deps in rules (`REQ-P3-03`). Panel → `CivilianWork.assign`; movement �
 ## Tests
 
 `test_civilian_catalog`, `test_civilian_movement`, `test_civilian_work`,
-`test_improvement_system`, `test_map_screen_crown_orders`.
+`test_improvement_system`, `test_map_screen_crown_orders`, `test_map_model`.
 
 ```bash
 gd-tools test --coverage --min 80

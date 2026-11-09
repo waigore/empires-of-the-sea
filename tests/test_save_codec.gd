@@ -60,6 +60,9 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 
 	var foreign: int = _foreign_province(play)
 	play.model.get_province(foreign).owner = play.player_faction
+	var deed_province: int = _other_foreign_province(play, foreign)
+	var deed_tile: Vector2i = play.model.province_tiles(deed_province)[0]
+	assert_true(play.model.purchase_tile(deed_tile, play.player_faction))
 	var tile: Vector2i = play.model.province_tiles(play.capital_province)[0]
 	play.land_works.set_improvement(play.model, tile, 2)
 	play.land_works.set_transport(play.model, tile, LandWorks.TRANSPORT_ROAD)
@@ -104,6 +107,12 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	assert_eq(
 		play.model.province_owner(foreign), play.player_faction, "province owners restored"
 	)
+	assert_eq(
+		play.model.owner_at(deed_tile.x, deed_tile.y),
+		play.player_faction,
+		"tile deed restored"
+	)
+	assert_true(play.model.is_purchased_tile(deed_tile), "deed marker restored")
 	assert_eq(play.land_works.improvement_at(play.model, tile), 2, "works restored")
 	assert_eq(
 		play.land_works.transport_at(play.model, tile),
@@ -276,6 +285,13 @@ func _foreign_province(play: PlaySession) -> int:
 		if province.owner != play.player_faction:
 			return province.id
 	return -1
+
+
+func _other_foreign_province(play: PlaySession, skip: int) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != play.player_faction and province.id != skip:
+			return province.id
+	return skip
 
 
 func _fogged_tile(play: PlaySession) -> Vector2i:

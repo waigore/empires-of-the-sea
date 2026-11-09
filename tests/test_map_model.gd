@@ -83,6 +83,36 @@ func test_map_border_is_not_a_coast() -> void:
 	assert_false(MapGeo.is_coastal_tile(border, 2, 2))
 
 
+func test_tile_deeds_override_the_province_owner() -> void:
+	var tile := Vector2i(1, 1)
+	assert_eq(_model.owner_at(tile.x, tile.y), 1)
+	assert_true(_model.purchase_tile(tile, 6))
+	assert_eq(_model.owner_at(tile.x, tile.y), 6)
+	assert_eq(_model.province_owner(1), 1, "the province itself does not change hands")
+	assert_true(_model.is_purchased_tile(tile))
+	assert_false(_model.purchase_tile(tile, 7), "one deed per tile")
+
+
+func test_owned_tiles_follow_deeds_in_both_directions() -> void:
+	var deed := Vector2i(1, 1)
+	assert_true(_model.purchase_tile(deed, 6))
+	var ownership: TileOwnership = _model.ownership
+	assert_true(ownership.owned_tiles(_model, 6).has(deed), "buyer holds the enclave")
+	assert_false(ownership.owned_tiles(_model, 1).has(deed), "seller no longer holds it")
+	assert_true(
+		ownership.owned_tiles(_model, 0).has(Vector2i(0, 0)),
+		"ordinary province tiles remain"
+	)
+
+
+func test_tile_deeds_round_trip_through_plain_data() -> void:
+	assert_true(_model.purchase_tile(Vector2i(1, 1), 6))
+	var restored := TileOwnership.new()
+	restored.apply_dict(_model.ownership.to_dict())
+	assert_true(restored.is_purchased(_model.index_of(1, 1)))
+	assert_eq(restored.owner_of(_model.index_of(1, 1), -1), 6)
+
+
 func test_province_neighbors_are_cached_and_sorted() -> void:
 	assert_eq(MapGeo.province_neighbors(_model, 0), [1])
 	assert_true(_model.provinces[0].neighbors_cached)

@@ -147,7 +147,8 @@ func show_civilian(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_fleet()
@@ -156,7 +157,8 @@ func show_civilian(
 	hide_research()
 	DiplomacyHud.hide(self)
 	civilian_panel.refresh(
-		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked
+		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
+		context
 	)
 	civilian_open = true
 	dock.slide_in(host, civilian_wrap)
