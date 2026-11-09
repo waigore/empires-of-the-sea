@@ -1049,6 +1049,22 @@ func test_ai_economy_stops_recruiting_at_the_worker_target() -> void:
 	)
 
 
+func test_ai_economy_buys_peasants_until_the_worker_target() -> void:
+	var economy := PlayerEconomy.starting()
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_eq(orders.size(), 1, "one recruit a turn")
+	assert_eq(
+		int(orders[0]["tier"]), WorkerPool.Tier.PEASANT,
+		"the only tier a techless court can buy"
+	)
+	var applied: PlayerEconomy = economy.copy()
+	assert_true(bool(applied.recruit(WorkerPool.Tier.PEASANT).get("ok", false)))
+	assert_eq(applied.workers.total(), 7, "a peasant recruit grows the pool")
+	assert_eq(applied.quantity("fabric"), 10, "two fabric per peasant")
+
+
 # --- rival civilians (AiCivilianPlanner) ------------------------------------
 
 
@@ -1200,6 +1216,47 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	assert_true(
 		layer.unit_count_all(1) <= 6,
 		"rival training respects civilian.max_civilians"
+	)
+	layer.free()
+
+
+## A rival's finished work is announced with its crown: with rivals building every
+## turn, an unlabelled line reads as the player's own crew.
+func test_rival_civilian_completion_names_its_crown() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 0, 0, [])
+	var world := WorldMap.new()
+	world.add_region(model)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.civilian_layer = layer
+	play.hud = StubHud.new()
+	add_child(play.hud)
+	var explorer: CivilianState = CivilianState.create(
+		7, 1, "explorer", CivilianFixture.RIVAL_GRAIN_TILE
+	)
+	explorer.start_work("explore", CivilianFixture.RIVAL_GRAIN_TILE, 1)
+	layer.units.append(explorer)
+	MapPlayCivilians.resolve_work(play)
+	assert_eq(play.hud.toasts.size(), 1)
+	assert_true(
+		play.hud.toasts[0].begins_with("%s's " % FactionCatalog.name_of(1)),
+		"the crown is named, never left to look like the player's work"
+	)
+	play.hud.toasts.clear()
+	var own: CivilianState = CivilianState.create(
+		8, 0, "explorer", CivilianFixture.BARE_TILE
+	)
+	own.start_work("explore", CivilianFixture.BARE_TILE, 1)
+	layer.units.append(own)
+	MapPlayCivilians.resolve_work(play)
+	assert_eq(play.hud.toasts.size(), 1)
+	assert_true(
+		play.hud.toasts[0].begins_with("Explorer "),
+		"the player's own completion keeps its plain wording"
 	)
 	layer.free()
 
