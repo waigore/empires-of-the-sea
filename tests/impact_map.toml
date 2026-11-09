@@ -127,7 +127,21 @@ suites = [
   "test_panel_dock.gd",
 ]
 
+# Quick Battle: its UI plate and its resolver are exercised together.
+[domains.quick_battle]
+suites = [
+  "test_quick_battle_overlay.gd",
+  "test_quick_battle_rules.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/ui/quick_battle_*.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/rules/quick_battle.gd"
+domain = "quick_battle"
 [[rules]]
 match = "project.godot"
 full = true

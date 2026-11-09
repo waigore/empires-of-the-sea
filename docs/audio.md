@@ -1,36 +1,44 @@
 # Audio
 
-Music, cues and ambience for the map screen (`REQ-P1-06`). Everything ships as
-generated assets: no sampled or third-party material, so the mix is reproducible
-from source and licence-clean.
+Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled or
+third-party recordings.
 
-## Rebuild
+## Music
+
+Four beds and two stingers are instrumental tracks from ElevenLabs Music
+(`music_v2_5`, `force_instrumental`), with prompts and song ids in
+`tools/audio/elevenlabs_music.json`. Masters live in Godot-ignored
+`tools/audio/masters/`; `finish_elevenlabs.py` trims silence, folds the tail into
+the head for a seamless loop, normalises to −17.5 dBFS and writes
+`assets/audio/music/*.ogg`.
 
 ```bash
-python tools/audio/build_audio.py            # music + sfx + ambience
+python tools/audio/finish_elevenlabs.py     # masters -> shipped Ogg beds
+python tools/audio/build_audio.py           # sfx + ambience
 python tools/audio/build_audio.py --only sfx
-python tools/audio/build_audio.py --list
+python tools/audio/build_audio.py --only music-synth   # offline fallback only
 ```
 
-Needs `numpy` and `oggenc` (libvorbis). The generator is deterministic per seed;
-`tools/audio/dsp.py` holds the instrument/effect kit, `tools/audio/score.py` the
-hand-written material.
+`score.py` and `dsp.py` are a deterministic offline fallback in the same idiom;
+`music-synth` overwrites the shipped beds.
 
 ## Score (period-fitting, `REQ-P1-02`)
 
 | Bed | Era | Character |
 |-----|-----|-----------|
-| `music_age_of_discovery` | 1500–1549 | Dorian consort air: viols, lute, recorder |
-| `music_spanish_main` | 1550–1699 | Baroque allegro in D: two violins, continuo, harpsichord |
-| `music_gilded_minuet` | 1700+ | Galant minuet in C: strings, flute, harpsichord |
-| `music_broadsides` | combat | D-minor toccata: tremolo strings, timpani, natural trumpet |
+| `music_age_of_discovery` | 1500–1549 | G-major branle: recorders, lute, viols, tabor |
+| `music_spanish_main` | 1550–1699 | D-major gigue: violins, harpsichord, castanets, natural trumpet |
+| `music_gilded_minuet` | 1700+ | G-major galant minuet: flute, strings, harpsichord |
+| `music_broadsides` | combat | D-major buccaneer hornpipe: fife, fiddles, tabor, timpani |
 | `stinger_victory` / `stinger_defeat` | one-shot | Fanfare / knell |
 | `ambience_sea` | always | Swell, rigging creak, distant gull |
 
-Loops are rendered with the reverb tail folded back into the head, so the seam is
-sample-continuous. Bed choice comes from `MusicPlaylist.bed_for_year` via
-`TurnTime` — the campaign opens on the consort and moves to Baroque at 1550,
-then galant at 1700.
+All beds are bright major-mode dances; percussion carries the pulse and reverb is
+short (1.4–1.5 s), so the score reads lively, not haunted.
+
+Loops are crossfaded at the seam (1.5 s equal-power) so beds repeat without clicks.
+Bed choice comes from `MusicPlaylist.bed_for_year` via `TurnTime` — the
+campaign opens on the branle, moves to the gigue at 1550, then the minuet at 1700.
 
 Mix targets: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music default 0.50 under
 effects at 0.85 so feedback always reads over the score.

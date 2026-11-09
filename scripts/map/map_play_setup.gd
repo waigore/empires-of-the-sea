@@ -12,7 +12,9 @@ static func build_hud(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	HudChrome.set_nation(hud, FactionCatalog.name_of(play.player_faction))
 	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
-	hud.set_minimap(play.model, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
+	hud.set_minimap(
+		play.model, MapGeo.world_size(play.model, PlaySession.TILE_SIZE), play.visibility
+	)
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.set_prestige(play.prestige)
 	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
@@ -38,7 +40,7 @@ static func build_hud(play: PlaySession) -> void:
 ## Chips and the estates ledger follow the region on screen.
 static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	var hud: GameHud = play.hud
-	hud.set_minimap(play.model, map_size)
+	hud.set_minimap(play.model, map_size, play.visibility)
 	HudChrome.set_region_label(hud, FactionCatalog.region_label(play.region_index))
 	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
