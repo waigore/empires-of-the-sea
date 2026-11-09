@@ -67,20 +67,22 @@ static func _zoom(hud: GameHud) -> void:
 	hud.add_child(box)
 	hud.zoom_box = box
 
-	var zoom_in := _square_button("+")
+	var zoom_in := _square_button("zoom_in", "Zoom in")
 	zoom_in.pressed.connect(func() -> void: hud.zoom_in_pressed.emit())
 	box.add_child(zoom_in)
 
-	var zoom_out := _square_button("−")
+	var zoom_out := _square_button("zoom_out", "Zoom out")
 	zoom_out.pressed.connect(func() -> void: hud.zoom_out_pressed.emit())
 	box.add_child(zoom_out)
 
 
-static func _square_button(text: String) -> Button:
+## Icon-only seal: the magnifier reads at a glance, the tooltip keeps it named.
+static func _square_button(icon_name: String, caption: String) -> Button:
 	var button := Button.new()
-	button.text = text
 	button.custom_minimum_size = Vector2(58, 46)
-	button.add_theme_font_size_override("font_size", 24)
+	button.tooltip_text = caption
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ChromeIcons.apply(button, icon_name, 30)
 	return button
 
 
@@ -112,6 +114,7 @@ static func _end_turn(hud: GameHud) -> void:
 	hud._end_turn_button.offset_bottom = -4.0
 	hud._end_turn_button.text = "END TURN"
 	hud._end_turn_button.add_theme_font_size_override("font_size", 20)
+	ChromeIcons.apply(hud._end_turn_button, "hourglass", 24)
 	hud._end_turn_button.add_theme_color_override("font_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_hover_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_pressed_color", Palette.INK)
