@@ -347,6 +347,17 @@ func hull_count_all(owner: int) -> int:
 	return total
 
 
+## Every region's roster, for rules that read the whole navy — the home fleet
+## and its merchant cargo never live on one map alone (REQ-P3-02).
+func fleets_by_region() -> Dictionary:
+	var out: Dictionary = {}
+	for region_id: int in regions.region_ids():
+		var stored: Array = []
+		stored.assign(regions.value(region_id, []))
+		out[region_id] = stored
+	return out
+
+
 func at_sea_zones(owner: int) -> Array[int]:
 	var zones: Array[int] = []
 	for fleet: FleetState in fleets:
