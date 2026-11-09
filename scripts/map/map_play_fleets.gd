@@ -48,7 +48,7 @@ static func refresh_options(play: PlaySession, fleet: FleetState) -> void:
 static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	if play.campaign_over():
 		return false
-	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
 		return false
 	var zone_id: int = play.model.sea_zone_at(tile.x, tile.y)
@@ -112,7 +112,11 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
-	if zone >= 0:
+	if result.has("merged_into"):
+		play.hud.toast(
+			"The squadron joins the home fleet at %s" % play.model.province_name(fleet.province)
+		)
+	elif zone >= 0:
 		play.hud.toast("The fleet enters the %s" % play.model.sea_zone_name(zone))
 	else:
 		play.hud.toast("The fleet docks at %s" % play.model.province_name(fleet.province))
@@ -263,7 +267,7 @@ static func launch(play: PlaySession, type_id: String) -> void:
 static func scrap(play: PlaySession, hull_id: String) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
-	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
 		return
 	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)

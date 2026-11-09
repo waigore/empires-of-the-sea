@@ -440,6 +440,32 @@ func test_matched_squadrons_stalemate_without_losses() -> void:
 	assert_eq(NavalCombat.outcome_label(int(battles[0]["outcome"])), "stalemate")
 
 
+## Wiki: share > 0.53 wins for the attacker and share < 0.47 wins for the
+## defender — 0.53 exactly is still a stalemate (§ Naval Combat Resolution).
+func test_a_share_of_exactly_fifty_three_percent_is_a_stalemate() -> void:
+	var attacker: FleetState = _fleet(
+		1, 0, 9, _types("carrack", 4) + _types("fluyte", 24)
+	)
+	var defender: FleetState = _fleet(
+		2, 1, 9, _types("carrack", 5) + _types("fluyte", 19)
+	)
+	attacker.moved = true
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([attacker, defender])
+	assert_eq(battles.size(), 1)
+	assert_almost_eq(float(battles[0]["attacker_strength"]), 53.0, 0.0001)
+	assert_almost_eq(float(battles[0]["defender_strength"]), 47.0, 0.0001)
+	assert_eq(int(battles[0]["outcome"]), NavalCombat.Outcome.STALEMATE)
+	assert_eq(attacker.ship_count(), 28)
+	assert_eq(defender.ship_count(), 24)
+
+
+func _types(type_id: String, count: int) -> Array:
+	var out: Array = []
+	for _index in count:
+		out.append(type_id)
+	return out
+
+
 func test_stronger_side_breaks_the_weaker_squadron() -> void:
 	var strong: FleetState = _squadron(1, 0, 2, "carrack", 3)
 	var weak: FleetState = _squadron(2, 1, 2, "carrack", 1)

@@ -32,7 +32,7 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if ship != null:
 		play.ship_layer.select(ship)
 		return
-	if play.ship_layer.selected_ship != null and MapPlayFleets.try_order(play, tile):
+	if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
 		return
 	var province_id: int = play.model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:

@@ -52,6 +52,37 @@ static func has_harbour(model: MapModel, province_id: int) -> bool:
 	return port.x >= 0 and port.y >= 0
 
 
+## The home fleet is the crown's squadron in port at its own capital. It never
+## sails: naval move orders do not change its location (wiki: ships-and-naval
+## § Home Fleet).
+static func is_home_fleet(model: MapModel, fleet: FleetState) -> bool:
+	if model == null or fleet == null or not fleet.is_in_port():
+		return false
+	var data: ProvinceState = model.province_data(fleet.province)
+	return data != null and data.capital and data.owner == fleet.owner
+
+
+## A sea-going fleet that docks at its own capital merges into the home fleet:
+## instance ids are preserved and the sea-going fleet leaves the roster
+## (wiki: ships-and-naval § Home Fleet — membership and state). Returns the
+## home fleet when a merge happened, or null when the docking fleet is already
+## the only squadron at that port.
+static func merge_into_home(
+	model: MapModel, roster: Array[FleetState], fleet: FleetState
+) -> FleetState:
+	if not is_home_fleet(model, fleet):
+		return null
+	for other: FleetState in roster:
+		if other == null or other == fleet or other.owner != fleet.owner:
+			continue
+		if not is_home_fleet(model, other):
+			continue
+		other.merge_from(fleet)
+		roster.erase(fleet)
+		return other
+	return null
+
+
 ## Ports the fleet could dock at right now (owned, adjacent, with a harbour).
 static func dockable_provinces(model: MapModel, fleet: FleetState) -> Array[int]:
 	if fleet == null or not fleet.is_at_sea():
@@ -65,7 +96,7 @@ static func dockable_provinces(model: MapModel, fleet: FleetState) -> Array[int]
 
 ## Sea zones the fleet could enter right now.
 static func destination_zones(model: MapModel, fleet: FleetState) -> Array[int]:
-	if fleet == null:
+	if fleet == null or is_home_fleet(model, fleet):
 		return []
 	var zones: Array[int] = []
 	if fleet.is_at_sea():
@@ -91,6 +122,8 @@ static func can_move(
 ) -> Dictionary:
 	if fleet == null:
 		return _deny("There is no fleet to order.")
+	if is_home_fleet(model, fleet):
+		return _deny("The home fleet cannot leave its capital port; launch a squadron instead.")
 	if fleet.moved:
 		return _deny("This fleet has already moved this turn.")
 	if destination == FleetState.Location.AT_SEA:

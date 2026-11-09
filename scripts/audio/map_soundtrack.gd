@@ -54,6 +54,11 @@ func _bind_screen() -> void:
 	screen.battle_resolved.connect(_on_battle_resolved)
 	screen.turn_ended.connect(_on_turn_ended)
 	screen.victory_declared.connect(_on_victory_declared)
+	screen.defeat_declared.connect(
+		func(_defeat: DefeatState) -> void:
+			if audio != null:
+				audio.play_stinger(MusicPlaylist.DEFEAT)
+	)
 
 
 func _bind_widgets() -> void:

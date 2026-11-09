@@ -122,7 +122,7 @@ func test_clicking_open_water_clears_the_selection() -> void:
 func test_clicking_a_fleet_selects_it() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
 	MapPlayInput.on_tapped(_screen.play, ship.position)
-	assert_eq(_screen.ship_layer.selected_ship, ship)
+	assert_eq(_screen.ship_layer.selected(), ship)
 	assert_true(ship.selected)
 
 
@@ -307,7 +307,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 
 	assert_eq(enemy_fleet.ship_count(), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_eq(_screen.ship_layer.hull_count(2), 0)
+	assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 

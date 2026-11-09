@@ -40,11 +40,6 @@ static func capture_fleets(layer: ShipLayer) -> Dictionary:
 static func restore_fleets(layer: ShipLayer, data: Dictionary) -> bool:
 	if layer == null:
 		return false
-	for ship: Ship in layer.ships:
-		if is_instance_valid(ship):
-			ship.queue_free()
-	layer.ships.clear()
-	layer.selected_ship = null
 	layer.fleets = []
 	layer.regions.clear()
 	layer.next_hull = maxi(int(data.get("next_hull", 1)), 1)

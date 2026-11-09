@@ -65,7 +65,7 @@ static func _run_region(
 ## Re-reads the on-screen markers after the rules moved a squadron; the player's
 ## selected fleet survives the rebuild when it is still in the region.
 static func _adopt_visible(play: PlaySession) -> void:
-	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected_ship)
+	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	play.ship_layer.spawn(
 		play.ship_layer.model, 0, 0, -1, false, play.player_faction
 	)
@@ -74,7 +74,8 @@ static func _adopt_visible(play: PlaySession) -> void:
 
 
 ## Rival movement never reveals fog: a zone the human has not charted stays
-## quiet, and one it can already see earns a single line (REQ-P2-03).
+## quiet, and one already charted (fogged or better) earns a single line
+## (wiki: fog-and-exploration § Visibility Levels; REQ-P2-03).
 static func _report_sighting(
 	play: PlaySession, model: MapModel, faction: int, zone: int
 ) -> void:
@@ -86,7 +87,7 @@ static func _report_sighting(
 	if data == null or data.tiles.is_empty():
 		return
 	var tile: Vector2i = data.tiles[0]
-	if play.visibility.level_at(tile.x, tile.y) != VisibilityModel.Level.FULLY_VISIBLE:
+	if play.visibility.level_at(tile.x, tile.y) < VisibilityModel.Level.FOGGED:
 		return
 	play.hud.toast(
 		"%s's fleet is sighted in the %s"
