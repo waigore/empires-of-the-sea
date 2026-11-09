@@ -39,6 +39,7 @@ suites = [
   "test_campaign_end.gd",
   "test_capital_choice.gd",
   "test_capital_loss.gd",
+  "test_capital_seat_screen.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -136,6 +137,7 @@ suites = [
 suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
+  "test_save_world.gd",
 ]
 
 [domains.ui]
@@ -225,6 +227,10 @@ domain = "menu"
 [[rules]]
 match = "scripts/platform/**"
 domain = "menu"
+
+[[rules]]
+match = "scenes/capital_choice.tscn"
+domain = "campaign"
 
 [[rules]]
 match = "scenes/**"
@@ -404,6 +410,10 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/capital_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
 
 [[rules]]

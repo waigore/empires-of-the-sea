@@ -55,6 +55,24 @@ func _run() -> void:
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
+	# Capital-choice phase: the chart is generated on the next idle frame, then
+	# the crown's seat is confirmed (wiki: capital-choice-phase § Player choice).
+	var chart: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	_check(chart != null, "new game opens the capital chart")
+	if chart == null:
+		_finish()
+		return
+	var waited: int = 0
+	while chart.model == null and waited < 120:
+		await process_frame
+		waited += 1
+	_check(chart.model != null, "the capital chart is generated")
+	_check(chart.selected_province >= 0, "the crown's recommended seat is marked")
+	var seat: int = chart.selected_province
+	var seat_tile: Vector2i = chart.selected_tile
+	chart.confirm_button.emit_signal("pressed")
+	await process_frame
+
 	var screen: MapScreen = main.current_screen
 	_check(screen != null, "main hosts MapScreen")
 	if screen == null:
@@ -64,6 +82,8 @@ func _run() -> void:
 
 	_check(screen.model != null, "map model built")
 	_check(screen.model.province_count() > 0, "provinces generated")
+	_check(screen.capital_province == seat, "the chart's seat starts the campaign")
+	_check(screen.capital_tile == seat_tile, "the chart's tile is the seat")
 	_check(screen.ship_layer != null, "ship layer present")
 	_check(
 		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
