@@ -149,3 +149,50 @@ func test_a_working_engineer_gets_no_second_order() -> void:
 		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
 		_stockpile(), {}, {}, {}, _connected(model, [CAPITAL]), {}
 	).is_empty())
+
+
+## Wiki: ai-architecture § Town-per-province roads — a town road outranks
+## incidental works, so a resource road next to the capital never pre-empts the
+## link that lets the Town rule connect the province's estates.
+func test_a_town_road_outranks_an_incidental_resource_road() -> void:
+	var model: MapModel = _model()
+	var grain: Vector2i = Vector2i(1, 1)
+	model.resource[model.index_of(grain.x, grain.y)] = 4
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [unit], LandWorks.new(), _stockpile(), {}, {},
+		{
+			"treasury": 2500,
+			"paper": 8,
+			"capital_province": 0,
+			"capital_tile": CAPITAL,
+		}
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_road")
+	assert_eq(
+		Vector2i(orders[0]["tile"]), TOWN, "the town link comes before an incidental road"
+	)
+
+
+## Wiki: ai-architecture § Town-per-province roads — the court's own fort still
+## comes first when it is invaded.
+func test_an_invaded_court_raises_its_fort_before_a_town_road() -> void:
+	var model: MapModel = _model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [unit], LandWorks.new(),
+		{"lumber": 20, "castIron": 20, "bronze": 20}, {}, {},
+		{
+			"treasury": 2500,
+			"paper": 8,
+			"capital_province": 0,
+			"capital_tile": CAPITAL,
+			"at_war": true,
+		}
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_fort")
+	assert_eq(Vector2i(orders[0]["tile"]), CAPITAL)
