@@ -345,14 +345,13 @@ func test_training_costs_match_the_wiki() -> void:
 		assert_eq(CivilianCatalog.paper_cost(type_id), 4, type_id)
 
 
-func test_the_playable_roster_includes_the_rail_builder() -> void:
+func test_the_playable_roster_includes_the_rail_builder_and_merchant() -> void:
 	assert_eq(
 		CivilianCatalog.playable_types(),
-		["explorer", "engineer", "builder", "rail_builder"]
+		["explorer", "engineer", "builder", "merchant", "rail_builder"]
 	)
-	for type_id: String in ["spy", "merchant"]:
-		assert_false(CivilianCatalog.is_implemented(type_id), type_id)
-		assert_true(CivilianCatalog.deferred_reason(type_id) != "", type_id)
+	assert_false(CivilianCatalog.is_implemented("spy"), "Spy")
+	assert_true(CivilianCatalog.deferred_reason("spy") != "", "Spy")
 	for type_id: String in CivilianCatalog.playable_types():
 		assert_true(CivilianCatalog.is_implemented(type_id), type_id)
 		assert_eq(CivilianCatalog.deferred_reason(type_id), "")

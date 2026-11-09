@@ -27,11 +27,10 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”, and fleets cross
   them as a move to the other world.
-- The HUD region button (`OLD WORLD ›` / `NEW WORLD ›`) swaps canvas, fog,
-  fleets, civilians, works and camera bounds. Rosters and works persist per
-  region, and every region advances on end turn — including off-screen
-  battles. HUD chips are empire totals, and navy food upkeep counts every
-  region. The player keeps squadrons only where it owns provinces.
+- The HUD region button swaps canvas, fog, fleets, civilians, works and camera
+  bounds. Rosters and works persist per region; every region advances on end
+  turn, including off-screen battles. HUD chips are empire totals, and the
+  player keeps squadrons only where it owns provinces.
 
 ## Setup post-pass
 
@@ -43,7 +42,9 @@ places four L1 grain farms per Great Power, wired to the seat by road
 ## Ownership
 
 `scripts/rules/territory_assignment.gd` grows each faction from one seed inside
-a single P–P continent, so holdings stay contiguous.
+a single P–P continent, so holdings stay contiguous. A purchased tile is a
+**deed**: `TileOwnership` overrides its owner while the province stays with the
+seller, so colour and border enclose just that enclave.
 
 - Seeds are farthest-point sea-bound provinces (GPs and Tribes must own one).
 - Minors reserve at most 3 provinces each; the rest splits evenly across GPs on
@@ -54,9 +55,8 @@ a single P–P continent, so holdings stay contiguous.
 
 `scripts/map/country_borders.gd` derives owner boundaries from the tile grid.
 `MapOverlay` draws them **above fog** as an engraved shadow plus the owner's
-colour. Thin province hairlines stay beneath; terrain and minimap carry a light
-owner tint. Coastlines keep their ink treatment, so colour never bleeds into
-the sea.
+colour. Province hairlines stay beneath; terrain and minimap carry an owner
+tint. Coastlines keep their ink treatment.
 
 ## Campaign length
 

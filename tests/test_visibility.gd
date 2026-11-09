@@ -109,6 +109,15 @@ func test_losing_the_only_coast_fogs_its_zone() -> void:
 	assert_eq(_visibility.level_at(5, 2), VisibilityModel.Level.FOGGED)
 
 
+func test_a_purchased_tile_stays_visible_in_a_rival_province() -> void:
+	_visibility.apply_initial()
+	var tile := Vector2i(2, 2)
+	assert_true(_model.purchase_tile(tile, PLAYER))
+	_visibility.end_of_turn([])
+	assert_eq(_visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(_visibility.level_at(3, 2), VisibilityModel.Level.FOGGED)
+
+
 func test_each_player_has_an_independent_map() -> void:
 	var rival := VisibilityModel.new()
 	rival.setup(_model, 1)

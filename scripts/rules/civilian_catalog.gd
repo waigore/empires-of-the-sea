@@ -4,8 +4,8 @@ extends RefCounted
 ## § Civilian Types and Roles). Pure catalog: training validation, the civilian
 ## panel and tests read this one table (REQ-P3-03).
 ##
-## All six wiki types are listed so the roster stays faithful; the starting three
-## and the tech-gated Rail Builder are playable. Spy and Merchant carry a
+## All six wiki types are listed so the roster stays faithful; the starting three,
+## the tech-gated Merchant and the Rail Builder are playable. Spy carries a
 ## `deferred` reason instead of silently pretending to work (REQ-P2-02).
 
 const ORDER: Array[String] = [
@@ -65,8 +65,8 @@ const TYPES: Dictionary = {
 		"paper": 4,
 		"unlock": "tech:merchant_companies",
 		"works": ["purchase_land"],
-		"implemented": false,
-		"deferred": "Land purchase needs tile-level ownership and overseas cargo connectivity.",
+		"implemented": true,
+		"deferred": "",
 	},
 	"rail_builder":
 	{

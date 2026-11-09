@@ -12,12 +12,11 @@ per-frame work).
 - **Relations** (`DiplomacyState`): one score per faction pair (0–100) plus war
   state, `sinceTurn` and `lastInteractionTurn`; same-region pairs seed at 50,
   cross-region pairs wait for first contact.
-- **Auto-embassy:** GP pairs start at Embassy both ways; it survives war and
-  peace.
+- **Auto-embassy:** GP pairs start at Embassy both ways; it is never revoked.
 - **Relation bands:** Hostile 0–25, Neutral 26–50, Friendly 51–75, Allied
   76–100; the panel shows the ladder, never the score.
-- **Decay:** each non-war pair drifts 4.0 toward 50 at phase end; a score event
-  that turn skips decay. War freezes the score.
+- **Decay:** non-war pairs drift 4.0 toward 50 at phase end; a score event skips
+  decay; war freezes.
 - **War / peace:** war needs peace, freezes the score, and clears alliances and
   overtures (GP pairs keep Embassy); invasion and battles need war.
   Minors/Tribes accept peace; a GP at Neutral (26) or better.
@@ -34,19 +33,20 @@ per-frame work).
 - **Join Empire:** a Minor is absorbed; a Tribe becomes a colony; a GP must be
   nearly defeated (≤3 provinces, no capital) and needs Empire Building.
 - **Grant Aid:** £1,000 multiples, embassy required, fixed +5 relation.
+- **Land purchase:** a Merchant buys a Minor/Tribe resource tile with an
+  embassy and no war; 15× base price, one deed per tile.
 - **Set Subsidy:** 5–20% in fives, Minor/Tribe only, embassy required, no
   treasury charge; dies on war, lost embassy or cancel.
 - **First contact:** a Tribe enters the court only when a non-unknown tile in
   its provinces is visible; sea-reach intel alone does not count.
-- **Rival AI courts:** each AI GP scores war desire and emits at most one legal
-  order per turn; see [`ai.md`](ai.md).
+- **Rival AI courts:** one legal order per AI GP per turn; see [`ai.md`](ai.md).
 
 ## Deferred (REQ-P2-02)
 
 - Intervention and AI overtures/alliances/peace offers to the human court.
 - Market-side subsidy pricing, trade-deal relation boosts, FTP and boycotts
   (no faction counterparty yet).
-- Spy, Merchant `purchase_land`, colony profit share and near-defeat land war.
+- Spy, Merchant overseas cargo, colony profit share and near-defeat land war.
 
 ## Architecture
 

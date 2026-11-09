@@ -153,7 +153,9 @@ func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
 
 ## Ticks every region, not just the one on screen: reading another map must not
 ## pause work or burn a unit's move. Returns the work reports for the caller.
-func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
+func begin_turn(
+	world: WorldMap, visibilities: Dictionary, economy: PlayerEconomy = null
+) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for index in world.region_count():
 		var region_units: Array[CivilianState] = []
@@ -167,7 +169,7 @@ func begin_turn(world: WorldMap, visibilities: Dictionary) -> Array[Dictionary]:
 			continue
 		var region_visibility: VisibilityModel = visibilities.get(index, null)
 		for report: Dictionary in CivilianWork.resolve_turn(
-			world.region(index), region_units, region_works, region_visibility
+			world.region(index), region_units, region_works, region_visibility, economy
 		):
 			report["region"] = index
 			reports.append(report)

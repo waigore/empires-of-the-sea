@@ -28,12 +28,12 @@ static func may_enter(
 		return false
 	if not model.is_land(tile.x, tile.y):
 		return false
-	if type_id == "explorer":
+	if type_id == "explorer" or type_id == "merchant":
 		return true
 	var province_id: int = model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
 		return true
-	return model.province_owner(province_id) == owner
+	return model.owner_at(tile.x, tile.y) == owner
 
 
 ## Applies a move through the rules; returns {ok, reason, from, to}.

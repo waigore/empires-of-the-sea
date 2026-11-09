@@ -204,6 +204,15 @@ func test_coastline_keeps_its_ink_and_no_country_line() -> void:
 	assert_false(_has_edge(borders[0], Vector2(0, 1), Vector2(1, 1)), "north coast got a country line")
 
 
+func test_a_purchased_tile_draws_its_own_border() -> void:
+	var model: MapModel = _model_with_owners([0, 0, 0])
+	assert_true(model.purchase_tile(Vector2i(2, 1), 1))
+	var borders: Dictionary = CountryBorders.build(model, 1.0)
+	assert_true(borders.has(0), "the seller keeps a border")
+	assert_true(borders.has(1), "the buyer gets a border")
+	assert_true(_has_edge(borders[1], Vector2(3, 1), Vector2(3, 2)), "missing deed edge")
+
+
 func test_unclaimed_land_gets_no_border() -> void:
 	var model: MapModel = _model_with_owners([MapModel.NO_ID, 0, 0])
 	var borders: Dictionary = CountryBorders.build(model, 1.0)
