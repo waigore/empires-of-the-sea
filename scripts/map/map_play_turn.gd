@@ -317,21 +317,50 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 	play.emit_battle_resolved(battles)
 
 
-## End-of-turn visibility pass (wiki: fog-and-exploration). Zones with a fleet at
-## sea stay visible; charted coasts fade until an explorer holds them.
+## End-of-turn visibility pass (wiki: fog-and-exploration). One pass per region:
+## knowledge decays and coasts reveal whether or not that map is on screen, so a
+## chart cannot be kept forever by switching regions before the turn closes.
+## Only the shown region's fog texture is repainted. Zones with a fleet at sea
+## stay visible; charted coasts fade until an explorer holds them.
 static func _resolve_visibility(play: PlaySession) -> void:
-	if play.visibility == null:
+	if play.visibility_by_region.is_empty():
 		return
-	var at_sea: Array = []
-	for ship: Ship in play.ship_layer.ships:
-		if ship.faction == play.player_faction and ship.zone >= 0:
-			at_sea.append(ship.zone)
-	var held: Array = CivilianMovement.held_provinces(
-		play.model, play.civilian_layer.units, play.player_faction
-	)
-	var changed: Array = play.visibility.end_of_turn(at_sea, held)
-	if not changed.is_empty():
-		play.overlay.sync_visibility(play.visibility, changed)
+	for index in play.world.region_count():
+		var visibility: VisibilityModel = play.visibility_by_region.get(index, null)
+		if visibility == null:
+			continue
+		var at_sea: Array = []
+		for fleet: FleetState in _fleets_of(play, index):
+			if fleet.owner == play.player_faction and fleet.is_at_sea():
+				at_sea.append(fleet.sea_zone)
+		var held: Array = CivilianMovement.held_provinces(
+			play.world.region(index), _civilians_of(play, index), play.player_faction
+		)
+		var changed: Array = visibility.end_of_turn(at_sea, held)
+		if index == play.region_index and not changed.is_empty():
+			play.overlay.sync_visibility(visibility, changed)
+
+
+## The shown region keeps its live roster; the other region is read from the
+## layer's stored per-region table.
+static func _fleets_of(play: PlaySession, index: int) -> Array[FleetState]:
+	var fleets: Array[FleetState] = []
+	if play.ship_layer == null:
+		return fleets
+	if index == play.region_index:
+		return play.ship_layer.fleets
+	fleets.assign(play.ship_layer.regions.value(index, []))
+	return fleets
+
+
+static func _civilians_of(play: PlaySession, index: int) -> Array[CivilianState]:
+	var units: Array[CivilianState] = []
+	if play.civilian_layer == null:
+		return units
+	if index == play.region_index:
+		return play.civilian_layer.units
+	units.assign(play.civilian_layer.regions.value(index, []))
+	return units
 
 
 ## Fleets at peace share a sea zone; only war makes them hostile (wiki:

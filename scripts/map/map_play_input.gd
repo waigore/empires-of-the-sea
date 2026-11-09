@@ -3,6 +3,10 @@ extends RefCounted
 ## Tap, selection, hover, and province-panel orders for the map screen.
 ## Operates on PlaySession — the screen stays the Node host (REQ-P3-02).
 
+## Copy for land no fleet or explorer has charted. The hover tooltip is
+## mouse-only, so a tap repeats it as a toast for touch players.
+const UNCHARTED_TEXT: String = "Uncharted land"
+
 
 static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	# A decided campaign takes no orders; the map stays for viewing (wiki: victory).
@@ -47,6 +51,7 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		and play.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN
 	):
 		deselect(play)
+		play.hud.toast("%s — no fleet or explorer has charted it" % UNCHARTED_TEXT)
 		return
 	select_province(play, province_id, world_position)
 
@@ -149,7 +154,7 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		play.visibility != null
 		and play.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN
 	):
-		HudChrome.show_tooltip(play.hud, "Uncharted land")
+		HudChrome.show_tooltip(play.hud, UNCHARTED_TEXT)
 		return
 	var data: ProvinceState = play.model.province_data(province_id)
 	if data == null:

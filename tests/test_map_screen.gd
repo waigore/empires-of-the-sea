@@ -388,6 +388,92 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
 
 
+## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
+## region the player is not reading must still decay (wiki: fog-and-exploration
+## § Fog Decay). Otherwise a rival coast charted once stays charted forever just
+## because the map was switched before the turn closed.
+func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var province: int = Fixture.foreign_province(new_world)
+	var tile: Vector2i = new_world.province_tiles(province)[0]
+	var index: int = new_world.index_of(tile.x, tile.y)
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
+
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(
+		visibility.level_at(tile.x, tile.y),
+		VisibilityModel.Level.FOGGED,
+		"the New World chart decays while the Old World is on screen"
+	)
+
+
+## Same rule for water: a distant sea zone with no owned coast and no fleet at
+## sea reverts to fogged in every region, not only the one being looked at
+## (wiki: fog-and-exploration § Distant sea zone fog).
+func test_end_turn_fogs_distant_water_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var tile: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	var index: int = new_world.index_of(tile.x, tile.y)
+	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen._cycle_region()
+
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(
+		visibility.level_at(tile.x, tile.y),
+		VisibilityModel.Level.FOGGED,
+		"unwatched New World water refogs with the Old World on screen"
+	)
+
+
+## A tap on uncharted land has to say why nothing opened: the hover tooltip is
+## mouse-only, so a touch player gets no feedback at all today (P1 readable UI).
+func test_tapping_uncharted_land_explains_the_refusal() -> void:
+	_screen._cycle_region()
+	var province_id: int = _screen.model.provinces[0].id
+	var tile: Vector2i = _screen.model.province_tiles(province_id)[0]
+	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayInput.on_tapped(_screen.play, world)
+
+	assert_eq(_screen.selected_province, -1, "uncharted land opens no dossier")
+	assert_eq(
+		_screen.hud._toast_box.get_child_count(),
+		toasts_before + 1,
+		"the tap reports that the land is uncharted"
+	)
+
+
+## A New World sea zone no player fleet is watching and no owned coast fronts.
+func _quiet_zone(model: MapModel, visibility: VisibilityModel) -> int:
+	for zone: SeaZoneState in model.sea_zones:
+		var zone_id: int = int(zone.id)
+		if visibility.owns_coast(zone_id):
+			continue
+		var watched: bool = false
+		for fleet: FleetState in _screen.ship_layer.fleets:
+			if fleet.owner != _screen.play.player_faction or not fleet.is_at_sea():
+				continue
+			if fleet.sea_zone == zone_id:
+				watched = true
+				break
+		if not watched:
+			return zone_id
+	return -1
+
+
 func _visible_inside_map() -> bool:
 	var half: Vector2 = _screen.camera.viewport_size() / (2.0 * _screen.camera.zoom.x)
 	var low: Vector2 = _screen.camera.position - half
