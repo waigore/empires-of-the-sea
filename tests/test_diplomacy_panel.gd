@@ -109,6 +109,25 @@ func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	assert_eq(seen[0][1], 3)
 
 
+func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
+	state.relation(0, 2).score = 80.0
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "PROPOSAL"))
+	assert_true(_has_text(panel._call_box, "France"))
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var button: Button = _find_button(panel._call_box, "Accept")
+	assert_not_null(button)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], DiplomacyProposals.KIND_ACCEPT)
+	assert_eq(seen[0][1], 2)
+
+
 func _has_text(node: Node, needle: String) -> bool:
 	if node is Label and String((node as Label).text).contains(needle):
 		return true

@@ -34,7 +34,6 @@ static func capture(play: PlaySession) -> Dictionary:
 		"generals": play.army_layer.generals.to_dict() if play.army_layer != null else {},
 	}
 
-
 static func _capture_session(play: PlaySession) -> Dictionary:
 	return {
 		"map_seed": play.map_seed,
@@ -327,6 +326,7 @@ static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"alliance_snapshot": state.alliance_snapshot.duplicate(),
 		"pending_calls": state.pending_calls.duplicate(true),
 		"pending_interventions": state.pending_interventions.duplicate(true),
+		"pending_offers": state.pending_offers.duplicate(true),
 	}
 
 
@@ -341,7 +341,6 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state.overtures = data.get("overtures", {}).duplicate()
 	state.subsidies = data.get("subsidies", {}).duplicate()
 	state.colonies = data.get("colonies", {}).duplicate()
-	state.events.clear()
 	for event: Variant in data.get("events", []):
 		if typeof(event) == TYPE_DICTIONARY:
 			state.events.append(event.duplicate(true))
@@ -350,6 +349,7 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
 	state.pending_calls.assign(data.get("pending_calls", []))
 	state.pending_interventions.assign(data.get("pending_interventions", []))
+	state.pending_offers.assign(data.get("pending_offers", []))
 	return state
 
 

@@ -51,6 +51,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 2,
 	},
 	{
+		"key": "diplomacy.improve_min_desire",
+		"category": "diplomacy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 100,
+		"default": 50,
+	},
+	{
 		"key": "diplomacy.power_province_weight",
 		"category": "diplomacy",
 		"type": TYPE_INT,

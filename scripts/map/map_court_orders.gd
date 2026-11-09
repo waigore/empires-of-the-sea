@@ -17,4 +17,7 @@ static func apply(play: PlaySession, kind: String, target: int, arg: String) -> 
 	]:
 		MapPlayTurn.answer_intervention(play, kind)
 		return
+	if kind == DiplomacyProposals.KIND_ACCEPT or kind == DiplomacyProposals.KIND_REFUSE:
+		MapPlayTurn.answer_offer(play, kind == DiplomacyProposals.KIND_ACCEPT)
+		return
 	MapPlayDiplomacy.on_order(play, kind, target, arg)

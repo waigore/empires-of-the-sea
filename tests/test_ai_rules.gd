@@ -568,6 +568,16 @@ func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	assert_eq(int(plan["orders"][0]["zone"]), 0, "the zone off its own harbour")
 
 
+func test_ai_naval_never_sorties_the_home_fleet() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0, "the home fleet holds its capital")
+	assert_true(home.is_in_port())
+
+
 func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)

@@ -74,6 +74,15 @@ static func fleet_at_sea(fleets: Array, owner: int) -> FleetState:
 	return null
 
 
+## Answers any rival proposal so a suite that only asserts the turn's outcome
+## is not held by the court gate (wiki: diplomacy § Court proposals).
+static func settle(play: PlaySession) -> void:
+	while DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapCourtOrders.apply(
+			play, DiplomacyProposals.KIND_REFUSE, play.player_faction, ""
+		)
+
+
 static func mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
