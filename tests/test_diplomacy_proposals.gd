@@ -104,7 +104,7 @@ func test_accepting_a_peace_proposal_ends_the_war() -> void:
 	assert_false(state.relation(0, 2).at_war, "the human answer ends the war")
 	assert_false(DiplomacyProposals.has_pending(state, 0))
 	assert_true(_event("peaceMade"))
-	assert_true(_event("offerAccepted"))
+	assert_true(_event("proposalAccepted"))
 
 
 func test_refusing_a_peace_proposal_keeps_the_war() -> void:
@@ -114,7 +114,7 @@ func test_refusing_a_peace_proposal_keeps_the_war() -> void:
 	assert_false(bool(answer["accepted"]))
 	assert_true(state.relation(0, 2).at_war, "a refusal does not end the war")
 	assert_eq(state.relation(0, 2).score, 50.0, "a refusal costs no relation")
-	assert_true(_event("offerRefused"))
+	assert_true(_event("proposalRefused"))
 	assert_false(_event("peaceMade"))
 
 
