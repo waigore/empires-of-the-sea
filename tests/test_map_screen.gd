@@ -129,6 +129,7 @@ func test_clicking_a_fleet_selects_it() -> void:
 func test_end_turn_advances_calendar_and_treasury() -> void:
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.projected_income())
@@ -247,6 +248,7 @@ func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 
 
@@ -301,6 +303,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_eq(enemy_fleet.ship_count(), 0)
 	assert_eq(player_fleet.ship_count(), 1)
@@ -329,6 +332,7 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 	var hulls_before: int = player_fleet.ship_count() + other_fleet.ship_count()
 
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 
 	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)

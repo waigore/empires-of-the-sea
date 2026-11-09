@@ -5,6 +5,13 @@ extends RefCounted
 ## touches nodes (REQ-P3-03).
 
 
+## Acceptance decision passed to a transition when the target court answers a
+## proposal. `auto` keeps the rule-driven accept/refuse test.
+const DECISION_AUTO: String = "auto"
+const DECISION_ACCEPT: String = "accept"
+const DECISION_REFUSE: String = "refuse"
+
+
 static func can_declare_war(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
@@ -103,13 +110,18 @@ static func can_form_alliance(
 
 
 static func form_alliance(
-	state: DiplomacyState, player: int, target: int
+	state: DiplomacyState, player: int, target: int, decision: String = DECISION_AUTO
 ) -> Dictionary:
 	var check: Dictionary = can_form_alliance(state, player, target)
 	if not bool(check["ok"]):
 		return check
 	var record: DiplomacyRelation = state.relation(player, target)
-	if not _accepts_alliance(record):
+	var accepts: bool = _accepts_alliance(record)
+	if decision == DECISION_ACCEPT:
+		accepts = true
+	elif decision == DECISION_REFUSE:
+		accepts = false
+	if not accepts:
 		return {
 			"ok": true,
 			"accepted": false,
@@ -233,7 +245,8 @@ static func establish_overture(
 	player: int,
 	target: int,
 	stage: String,
-	tech: Dictionary = {}
+	tech: Dictionary = {},
+	decision: String = DECISION_AUTO
 ) -> Dictionary:
 	var treasury: int = economy.treasury if economy != null else 0
 	var check: Dictionary = can_establish_overture(
@@ -243,7 +256,12 @@ static func establish_overture(
 		return check
 	state.claim(player, target, "overture")
 	var record: DiplomacyRelation = state.relation(player, target)
-	if not _accepts_overture(record, target, stage):
+	var accepts: bool = _accepts_overture(record, target, stage)
+	if decision == DECISION_ACCEPT:
+		accepts = true
+	elif decision == DECISION_REFUSE:
+		accepts = false
+	if not accepts:
 		state.record_event("overtureRejected", player, target, {"stage": stage})
 		return {
 			"ok": true,
@@ -253,7 +271,7 @@ static func establish_overture(
 			],
 		}
 	var cost: int = int(check["cost"])
-	if not economy.spend_treasury(cost):
+	if cost > 0 and (economy == null or not economy.spend_treasury(cost)):
 		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:

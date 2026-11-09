@@ -22,12 +22,15 @@ work), P5 (rivals act without player bookkeeping).
   relative-power bands +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, relative
   power, relation pressure and modifiers (resource need, rival embassies,
-  invasion capacity, multi-war); improve-relations is the complement.
-  Declarations need the relation ceiling (50; warmonger 70, peacemaker 30), war
-  desire ≥ 51 and no 4-turn cooldown; goals clamp `round(desire / 25)` to the
-  target's provinces. At war, desire below 50 offers peace — AI courts only.
+  invasion capacity, multi-war); improve-relations is the complement. Rivals
+  offer the next free overture (NAP) or an Allied-relations alliance, then
+  wait. Declarations need the relation ceiling (50; warmonger 70, peacemaker
+  30), war desire ≥ 51 and no 4-turn cooldown; goals clamp `round(desire / 25)`
+  to the target's provinces. At war, desire below 50 offers peace — AI courts
+  only.
 - **Turn pass** (`AiTurn`): one legal order per rival court per turn through
-  `DiplomacyRules`, traced per court. Declarations land before naval combat.
+  `DiplomacyRules`, traced per court; human proposals queue for the court.
+  Declarations land before naval combat.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border a rival detaches
   all but one Home Army regiment, then each field army saves an occupied own
   province, storms an adjacent hostile one (10% margin after wall soak), or
@@ -39,13 +42,12 @@ work), P5 (rivals act without player bookkeeping).
 - **Persistence:** saves keep fixed agendas and pair cooldowns
   (`AiState.to_dict`).
 
-Wiki factors and cooldowns fix the numbers, not the pick; AI peace and overture
-offers to the human wait for the court UI.
+AI peace offers to the human wait for the court UI.
 
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms, boycotts and spy actions.
-- AI overtures, alliances and peace offers to the human court.
+- AI peace offers to the human court.
 - AI economy and civilian planners; rival stockpiles.
 - Dossier evidence and dialogue.
 

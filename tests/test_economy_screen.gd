@@ -82,6 +82,7 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	var before: Dictionary = economy.stockpile.duplicate()
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, economy.treasury)
 	assert_true(economy.stockpile != before)
