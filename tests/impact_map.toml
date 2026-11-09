@@ -94,6 +94,7 @@ suites = [
 
 [domains.map]
 suites = [
+  "test_advanced_start.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -111,8 +112,14 @@ suites = [
   "test_world_setup.gd",
 ]
 
+[domains.advanced]
+suites = [
+  "test_advanced_start.gd",
+]
+
 [domains.menu]
 suites = [
+  "test_advanced_start.gd",
   "test_game_setup.gd",
   "test_main.gd",
   "test_menu_flow.gd",
@@ -253,6 +260,14 @@ domain = "ui"
 [[rules]]
 match = "scripts/map_screen.gd"
 domain = "map"
+
+[[rules]]
+match = "scripts/rules/advanced_*.gd"
+domain = "advanced"
+
+[[rules]]
+match = "scripts/map/map_play_advanced.gd"
+domain = "advanced"
 
 [[rules]]
 match = "scripts/map/army_*.gd"

@@ -35,6 +35,7 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 var player_leader: String = ""
 ## Endless campaign chosen in game setup (wiki: turn-time-mapping).
 var infinite_mode: bool = false
+var advanced_start: String = AdvancedStart.NONE
 ## Full-AI observer: every Great Power is AI and no court answers consent
 ## decisions. Debug tool launched from the title screen or tools/ai_vs_ai.gd
 ## (wiki: game-setup § Human/AI slot assignment).
@@ -151,7 +152,10 @@ func _ready() -> void:
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
-		play.configure(player_faction, map_seed, map_width, map_height, player_leader, infinite_mode)
+		play.configure(
+			player_faction, map_seed, map_width, map_height, player_leader,
+			infinite_mode, advanced_start
+		)
 		if preset_world != null:
 			play.world = preset_world
 		else:
@@ -176,6 +180,9 @@ func _ready() -> void:
 	else:
 		play.diplomacy.initialize(play.turn)
 	play.diplomacy.human_faction = play.human_faction_id()
+	# A new campaign may open mid-age (wiki: advanced-starts); a load carries it.
+	if not restored:
+		MapPlayAdvanced.begin(play)
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
