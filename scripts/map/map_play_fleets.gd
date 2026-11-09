@@ -144,6 +144,10 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 		)
 		if carried_army != null:
 			carried_army.embarked_fleet = fleet.id
+	# One squadron carries one army; a second army goes ashore at the port.
+	var displaced: int = int(result.get("displaced_army", -1))
+	if displaced >= 0:
+		MapPlayPortLoss.put_ashore(play, displaced, fleet.province)
 	show_dossier(play, fleet)
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
@@ -363,38 +367,4 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 ## reassigned crown's home squadron re-moors with its court (wiki:
 ## ships-and-naval § Ports that change hands; DR-20261109-11, DR-20261109-12).
 static func settle_ports(play: PlaySession, reassigned: Array) -> void:
-	if play.ship_layer == null:
-		return
-	var reports: Array[Dictionary] = play.ship_layer.settle_port_losses(
-		play.world, reassigned
-	)
-	for report: Dictionary in reports:
-		if report.has("merged"):
-			continue
-		var region: int = int(report.get("region", play.region_index))
-		var model: MapModel = (
-			play.model if region == play.region_index else play.world.region(region)
-		)
-		var owner: int = int(report.get("owner", MapModel.NO_ID))
-		var owner_name: String = FactionCatalog.name_of(owner)
-		if report.has("from"):
-			var seat: int = int(report.get("to", MapModel.NO_ID))
-			var seat_name: String = model.province_name(seat) if model != null else "—"
-			play.hud.toast(
-				"%s's home squadron re-moors at %s" % [owner_name, seat_name]
-			)
-			continue
-		var province: int = int(report.get("province", MapModel.NO_ID))
-		var place: String = model.province_name(province) if model != null else "—"
-		if bool(report.get("scuttled", false)):
-			play.hud.toast(
-				"%s's squadron is scuttled in %s — no water to sort out into"
-				% [owner_name, place]
-			)
-			continue
-		var zone: int = int(report.get("zone", MapModel.NO_ID))
-		var zone_name: String = model.sea_zone_name(zone) if model != null else "—"
-		play.hud.toast(
-			"%s's squadron sorts out of %s into %s"
-			% [owner_name, place, zone_name]
-		)
+	MapPlayPortLoss.settle(play, reassigned)
