@@ -545,9 +545,20 @@ func _uncharted_land_tile(screen: MapScreen) -> Vector2i:
 
 func _mineral_tile(screen: MapScreen) -> Vector2i:
 	for province: ProvinceState in screen.model.provinces:
+		# Explorer work in a Minor/Tribe province needs a Consulate, and an
+		# unknown tile cannot be prospected (wiki: civilian-units § Work Order
+		# Summary; fog-and-exploration § Order Visibility). The smoke needs a
+		# tile the crown may actually work from turn one.
+		if (
+			province.owner != MapScreen.PLAYER_FACTION
+			and FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER
+		):
+			continue
 		for tile: Vector2i in province.tiles:
+			if screen.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
+				continue
 			var resource: int = screen.model.resource_at(tile.x, tile.y)
-			if CivilianWork.MINERAL_RESOURCES.has(resource):
+			if ImprovementCatalog.needs_prospecting(resource):
 				if not screen.land_works.is_prospected(MapScreen.PLAYER_FACTION, screen.model, tile):
 					return tile
 	return Vector2i(-1, -1)

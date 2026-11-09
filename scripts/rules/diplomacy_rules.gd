@@ -176,6 +176,15 @@ static func has_embassy(state: DiplomacyState, a: int, b: int) -> bool:
 	return _tier(state.overture(a, b)) >= 2 or _tier(state.overture(b, a)) >= 2
 
 
+## A Trade Consulate or any higher overture stage, in either direction
+## (wiki: civilian-units § Work Order Summary — explore/prospect in a
+## Minor or Tribe province).
+static func has_consulate(state: DiplomacyState, a: int, b: int) -> bool:
+	if state == null:
+		return false
+	return _tier(state.overture(a, b)) >= 1 or _tier(state.overture(b, a)) >= 1
+
+
 ## War state between two factions. Without a court (isolated fixtures) factions
 ## stay hostile to each other, preserving the legacy every-fleet-is-hostile rule.
 static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
