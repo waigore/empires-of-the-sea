@@ -166,7 +166,44 @@ func test_only_mineral_tiles_can_be_prospected() -> void:
 	var explorer := _add("explorer", Fixture.TIMBER_TILE)
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_false(bool(check["ok"]))
-	assert_true(String(check["reason"]).contains("iron, coal and gold"))
+	assert_true(String(check["reason"]).contains("iron, coal, gold and tin"))
+
+
+func test_tin_tiles_can_be_prospected() -> void:
+	# Wiki: fog-and-exploration § Prospect-Required Resources lists tin with the
+	# other prospected minerals; refusals left it unopenable and unminable.
+	var tile := Vector2i(2, 2)
+	_model.resource[_model.index_of(tile.x, tile.y)] = 8
+	var explorer := _add("explorer", tile)
+	var check: Dictionary = _validate(explorer, "prospect")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_true(_works.is_prospected(0, _model, tile))
+
+
+func test_exploring_a_minor_province_needs_a_consulate() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var explorer := Fixture.unit("explorer", Vector2i(2, 1))
+	var units: Array[CivilianState] = [explorer]
+	var view := Fixture.visibility(model)
+	var no_court := DiplomacyState.new()
+	no_court.initialize(1)
+	no_court.ensure_relation(0, 6, 50)
+	for action: String in ["explore", "prospect"]:
+		var blocked: Dictionary = CivilianWork.validate(
+			model, explorer, action, works, units, Fixture.stockpile(), view,
+			CivilianState.NO_TILE, {}, {}, {"diplomacy": no_court}
+		)
+		assert_false(bool(blocked["ok"]), action)
+		assert_true(String(blocked["reason"]).contains("consulate"), action)
+	var court := Fixture.merchant_court()
+	var allowed: Dictionary = CivilianWork.validate(
+		model, explorer, "prospect", works, units, Fixture.stockpile(), view,
+		CivilianState.NO_TILE, {}, {}, {"diplomacy": court}
+	)
+	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
 
 
 func test_a_prospected_tile_cannot_be_prospected_again() -> void:
@@ -175,6 +212,18 @@ func test_a_prospected_tile_cannot_be_prospected_again() -> void:
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_false(bool(check["ok"]))
 	assert_true(String(check["reason"]).contains("already been prospected"))
+
+
+func test_only_charted_land_can_be_prospected() -> void:
+	var explorer := _add("explorer", Fixture.IRON_TILE)
+	var index: int = _model.index_of(Fixture.IRON_TILE.x, Fixture.IRON_TILE.y)
+	_view.lower_to(index, VisibilityModel.Level.UNKNOWN)
+	var check: Dictionary = _validate(explorer, "prospect")
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("charted"))
+	_view.raise_to(index, VisibilityModel.Level.FOGGED)
+	var allowed: Dictionary = _validate(explorer, "prospect")
+	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
 
 
 func test_builder_pays_materials_and_raises_the_improvement_level() -> void:
@@ -473,7 +522,7 @@ func test_options_explain_each_work_order() -> void:
 	for option: Dictionary in options:
 		if String(option["action"]) == "prospect":
 			assert_false(bool(option["ok"]))
-			assert_true(String(option["reason"]).contains("iron, coal and gold"))
+			assert_true(String(option["reason"]).contains("iron, coal, gold and tin"))
 		else:
 			assert_eq(String(option["label"]), "Explore province")
 			assert_eq(String(option["cost_text"]), "Free")
