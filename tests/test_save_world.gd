@@ -157,6 +157,31 @@ func test_visibility_restore_tolerates_junk_and_unknown_regions() -> void:
 	)
 
 
+## A court seated by hand round-trips its tile and harbour, so a reload keeps
+## the seat the player chose instead of the regenerated auto-choice one
+## (wiki: capital-choice-phase § Player choice).
+func test_a_chosen_seat_round_trips_its_tile_and_ports() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	model.provinces[0].capital_tile = Vector2i(1, 0)
+	model.provinces[0].ports = {2: Vector2i(1, 0)}
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+
+	model.provinces[0].capital_tile = Vector2i(-1, -1)
+	model.provinces[0].ports = {}
+	assert_true(SaveWorld.apply(world, captured))
+	assert_eq(model.provinces[0].capital_tile, Vector2i(1, 0))
+	assert_eq(model.provinces[0].ports, {2: Vector2i(1, 0)})
+
+	# A malformed port entry is dropped; the rest of the harbour still loads.
+	var region: Dictionary = captured[0].duplicate(true)
+	var row: Dictionary = region["provinces"][0].duplicate(true)
+	row["ports"] = {0: "junk", 1: [0, 1]}
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(model.provinces[0].ports, {1: Vector2i(0, 1)})
+
+
 func _world() -> WorldMap:
 	var model := MapModel.new()
 	model.setup(2, 1)

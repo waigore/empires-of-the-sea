@@ -92,6 +92,14 @@ HEAD commit, so commit the working tree before checking patch coverage.
 
 Extend `tools/e2e_smoke.gd` when the feature has a main-scene / player path the mini-flow can hit (≤2 min) — see [references/e2e-smoke.md](references/e2e-smoke.md). Fix failures before scoring; do not weaken CI gates.
 
+**Repo pitfalls** (each one cost a debugging loop):
+
+- A new `class_name` script is invisible until `godot --headless --path . --import --quit` rewrites `.godot/global_script_class_cache.cfg`; until then `gd-tools test` says "Unable to load suite script".
+- A page that mounts `MapCamera` must call `InputActions.ensure_actions()` in `_ready`, or headless suites flood with `InputMap action "pan_*" doesn't exist`.
+- A page reachable on Android must answer `NOTIFICATION_WM_GO_BACK_REQUEST` itself: the request reaches every node and the router swaps pages deferred, so an unhandled page quits the app.
+- The map is regenerated from seed on load, so anything the generator decides (capital seat, town, ports) needs an explicit `SaveWorld` per-province field or a reload silently reverts it.
+- A suite that mutates a shared generated world must snapshot and restore the province records it touches (capital, tile, ports, roads, town, resource) **and** `model.terrain` / `model.resource`; `MapFixture.snapshot` only covers owners and capitals.
+
 ### 6. Self-score
 
 Decision record from [`docs/rubric.md`](../../../docs/rubric.md) ([references/pr-body.md](references/pr-body.md)). **Overall PASS** before PR: every touched pillar passes (applicable scores ≥ 2, none 0). FAIL → fix and re-score until PASS or a blocker.

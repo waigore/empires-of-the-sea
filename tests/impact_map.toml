@@ -39,6 +39,7 @@ suites = [
   "test_campaign_end.gd",
   "test_capital_choice.gd",
   "test_capital_loss.gd",
+  "test_capital_seat_screen.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -51,6 +52,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
@@ -135,6 +137,7 @@ suites = [
 suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
+  "test_save_world.gd",
 ]
 
 [domains.ui]
@@ -228,6 +231,10 @@ domain = "menu"
 [[rules]]
 match = "scripts/platform/**"
 domain = "menu"
+
+[[rules]]
+match = "scenes/capital_choice.tscn"
+domain = "campaign"
 
 [[rules]]
 match = "scenes/**"
@@ -350,6 +357,10 @@ match = "scripts/rules/diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/dialogue_*.gd"
+domain = "diplomacy"
+
+[[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
@@ -403,6 +414,10 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/capital_*.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
 
 [[rules]]
@@ -468,6 +483,10 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_prompts.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -605,6 +624,10 @@ domain = "civilian"
 
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]
