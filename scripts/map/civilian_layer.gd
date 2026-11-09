@@ -142,8 +142,10 @@ func deselect() -> void:
 
 
 ## Applies a land order through the rules, then animates the medallion.
-func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
-	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile)
+func apply_move(
+	unit: CivilianState, tile: Vector2i, visibility: VisibilityModel = null
+) -> Dictionary:
+	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile, visibility)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: CivilianMarker = marker_for(unit)

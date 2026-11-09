@@ -90,6 +90,21 @@ func test_no_relations_shows_an_empty_court() -> void:
 	assert_true(_has_text(panel._detail, "No court"))
 
 
+func test_the_court_shows_the_pair_chronicle_under_its_orders() -> void:
+	DiplomacyRules.declare_war(state, 0, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "CHRONICLE"))
+	assert_true(_has_text(panel._detail, "Spain declared war on Genoa"))
+	assert_true(_has_text(panel._detail, "Year 1500 (Turn 1)"))
+
+
+func test_a_quiet_court_says_so_instead_of_showing_an_empty_box() -> void:
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "CHRONICLE"))
+	assert_true(_has_text(panel._detail, "No word of this court"))
+
+
 func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)

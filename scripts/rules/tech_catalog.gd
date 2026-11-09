@@ -123,7 +123,7 @@ const TECHS: Dictionary = {
 	"merchant_steamships": {"name": "Merchant Steamships", "era": 4, "category": "naval", "prereqs": ["paddlewheels", "riverboats"]},
 	"advanced_hull_design": {"name": "Advanced Hull Design", "era": 3, "category": "naval", "prereqs": ["university", "improved_sail_design", "privateering_companies"]},
 	"ship_of_the_line": {"name": "Ship of the Line", "era": 3, "category": "naval", "prereqs": ["large_hulls", "large_copper_and_tin_mines"]},
-	"privateering_companies": {"name": "Privateering Companies", "era": 2, "category": "naval", "prereqs": ["navigation", "diplomatic_expertise"], "note": "Improves: interception and trade raids on Patrol/Blockade (not simulated)."},
+	"privateering_companies": {"name": "Privateering Companies", "era": 2, "category": "naval", "prereqs": ["navigation", "diplomatic_expertise"], "note": "Improves: Patrol/Blockade interception and trade raids by 25%."},
 	"advanced_iron_working": {"name": "Advanced Iron Working", "era": 4, "category": "naval", "prereqs": ["ship_of_the_line", "industrial_funding_of_research", "paddlewheels"]},
 	"discovery_of_sugar": {"name": "Discovery of Sugar", "era": 1, "category": "new-world", "prereqs": [], "discovery": ["sugarCane"]},
 	"sugar_planting": {"name": "Sugar Planting", "era": 1, "category": "new-world", "prereqs": ["discovery_of_sugar"], "caps": {"sugarCane": 2}},

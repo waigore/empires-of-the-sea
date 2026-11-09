@@ -741,6 +741,85 @@ func test_the_dossier_offers_a_blockade_on_a_hostile_coast() -> void:
 	))
 
 
+## A blockade whose coast changes hands has lapsed: the rules attempt no
+## interception, so the dossier must not promise one (REQ-P2-03).
+func test_a_lapsed_blockade_reads_as_lapsed_in_the_dossier() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.on_action(_screen.play, "mission:blockade:%d" % coast)
+	assert_true(MapPlayFleetMissions.note(_screen.play, fleet).contains("Blockading"))
+
+	# The crown's own army takes the coast the squadron blockades.
+	_screen.model.province_data(coast).owner = _screen.play.player_faction
+	var note: String = MapPlayFleetMissions.note(_screen.play, fleet)
+
+	assert_false(note.contains("Blockading"), "the station no longer intercepts")
+	assert_true(note.contains("lapsed"))
+	_screen.model.province_data(coast).owner = owner
+
+
+## The landing line follows the same gate the landing does: a white peace
+## before the ready turn leaves nothing to land on (REQ-P2-03).
+func test_a_beachhead_note_lapses_when_the_war_ends() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	var marked: Dictionary = NavalTransport.establish_beachhead(
+		_screen.model, fleet, coast, _screen.play.turn, MapPlayBeachhead.hostile(_screen.play)
+	)
+	assert_true(bool(marked.get("ok", false)), String(marked.get("reason", "")))
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("opens next turn"))
+
+	DiplomacyRules.make_peace(
+		_screen.play.diplomacy,
+		_screen.play.player_faction,
+		owner,
+		DiplomacyRules.DECISION_ACCEPT
+	)
+	var note: String = MapPlayBeachhead.note(_screen.play, fleet)
+
+	assert_false(note.contains("opens next turn"))
+	assert_true(note.contains("lapsed"))
+
+
 # --- the naval yard -----------------------------------------------------------
 
 

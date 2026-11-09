@@ -175,6 +175,31 @@ func tech_unlocked() -> Dictionary:
 	return economy.economy.tech_unlocked
 
 
+## The ledger that answers for a crown: the human's, or a rival's. In the
+## full-AI observer no human ledger resolves, so every crown answers from its
+## AI ledger — the same rule the observer scoreboard reads (REQ-P2-03).
+func ledger_for(faction: int) -> PlayerEconomy:
+	if observer_mode or faction != player_faction:
+		if ai == null:
+			return null
+		return ai.economy_for(faction)
+	if economy == null:
+		return null
+	return economy.economy
+
+
+## Researched tech for any crown: the human's ledger, or a rival's when the
+## rules ask about a rival squadron (wiki: tech-tree; REQ-P2-03). Rules take
+## this as a Callable so a presentation layer cannot answer for them.
+func has_tech(faction: int, tech_id: String) -> bool:
+	if tech_id.is_empty():
+		return false
+	var ledger: PlayerEconomy = ledger_for(faction)
+	if ledger == null:
+		return false
+	return bool(ledger.tech_unlocked.get(tech_id, false))
+
+
 ## Recomputes which resources the crown has seen, so discovery techs unlock
 ## once an explorer reveals (and prospects) them (wiki: tech-tree § Discovery).
 func refresh_research() -> void:
