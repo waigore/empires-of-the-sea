@@ -241,6 +241,26 @@ static func prune(armies: Array[ArmyState]) -> void:
 		index -= 1
 
 
+## Regiments owned by one faction in a roster (null entries skipped).
+static func count_of(armies: Array[ArmyState], owner: int) -> int:
+	var total: int = 0
+	for army: ArmyState in armies:
+		if army != null and army.owner == owner:
+			total += army.count()
+	return total
+
+
+## Grain a faction's regiments eat every turn (wiki: combat § Feeding).
+static func food_upkeep_of(armies: Array[ArmyState], owner: int) -> int:
+	var total: int = 0
+	for army: ArmyState in armies:
+		if army == null or army.owner != owner:
+			continue
+		for regiment_id: String in army.regiments:
+			total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
+	return total
+
+
 static func _deny(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason, "army": null}
 

@@ -295,7 +295,6 @@ func begin_turn() -> void:
 ## to open that map (wiki: map-topology § two regions); `context["hostile"]` is
 ## the court's war query so peace never spills blood.
 func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
-	var all: Array[Dictionary] = []
 	var by_region: Dictionary = {}
 	for index in world.region_count():
 		var region_armies: Array[ArmyState] = []
@@ -304,31 +303,14 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		else:
 			region_armies.assign(regions.value(index, []))
 		by_region[index] = region_armies
-	var phase: Dictionary = context.duplicate()
-	phase["roster"] = generals
-	var phase_binding: Dictionary = GeneralBinding.bind_phase(
-		world, by_region, generals, int(context.get("seed", 0))
-	)
-	phase["army_general"] = phase_binding.get("army_general", {})
-	phase["army_medals"] = phase_binding.get("army_medals", {})
+	var all: Array[Dictionary] = ArmyBattles.resolve_region_turn(world, by_region, generals, context)
 	for index in world.region_count():
 		var region_armies: Array[ArmyState] = []
 		region_armies.assign(by_region.get(index, []))
-		if region_armies.is_empty():
-			continue
-		var battles: Array[Dictionary] = ArmyCombat.resolve_turn(
-			world.region(index), region_armies, phase
-		)
-		if battles.is_empty():
-			continue
-		ArmyState.prune(region_armies)
 		regions.set_region(index, region_armies)
-		if model != null and index == model.region_id:
+		if model != null and index == model.region_id and region_armies != armies:
 			armies = region_armies
 			prune_markers()
-		for battle: Dictionary in battles:
-			battle["region"] = index
-			all.append(battle)
 	return all
 
 
@@ -358,9 +340,7 @@ func regiment_count_all(owner: int) -> int:
 	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
-		for army: ArmyState in stored:
-			if army != null and army.owner == owner:
-				total += army.count()
+		total += ArmyState.count_of(stored, owner)
 	return total
 
 
@@ -369,11 +349,7 @@ func food_upkeep_all(owner: int) -> int:
 	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
-		for army: ArmyState in stored:
-			if army == null or army.owner != owner:
-				continue
-			for regiment_id: String in army.regiments:
-				total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
+		total += ArmyState.food_upkeep_of(stored, owner)
 	return total
 
 
