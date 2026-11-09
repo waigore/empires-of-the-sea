@@ -29,15 +29,24 @@ static func resolve(
 	var owned: Dictionary = model.ownership.owned_indices(model, owner)
 	if owned.is_empty():
 		return result
-	var best: Dictionary = {}
+	# Two networks: the one the crown's roads reach from its capital tile, and
+	# the wider one a landfall port seeds abroad. Only the first makes an estate
+	# "on a road to the crown", so only it exempts a tile from the town cap
+	# (wiki: extraction-and-improvements § Extraction formula and town
+	# development cap).
+	var land: Dictionary = {}
+	var land_queue: Array[Vector2i] = []
+	_seed_capital(model, owned, capital_tile, land, land_queue)
+	_spread(model, works, owned, land, land_queue)
+	var best: Dictionary = land.duplicate()
 	var queue: Array[Vector2i] = []
-	_seed(model, works, owned, capital_tile, best, queue)
+	_seed_ports(model, works, owned, best, queue)
 	_spread(model, works, owned, best, queue)
 	for raw: Variant in best.keys():
 		tiles[int(raw)] = {
 			"transport": int(best[raw]), "road": true, "town": false,
 		}
-	_edges(model, owned, best, tiles)
+	_edges(model, works, owned, best, land, tiles)
 	_town_rule(model, works, owner, capital_tile, owned, tiles, towns, town_ports)
 	return result
 
@@ -77,8 +86,10 @@ static func town_connected(
 
 
 ## Yield cap from town development for one connected tile (wiki: extraction
-## formula and town development cap). Road-connected non-capital tiles are not
-## limited; a port town connected to the capital limits its town-connected tiles.
+## formula and town development cap). A capital province always caps at its town
+## level; a non-capital estate caps only when the Town rule is its only link to
+## the crown (beside a port town that reaches the capital), because an estate on
+## a road path to the crown is not limited by town development.
 static func town_cap_for(
 	model: MapModel, resolved: Dictionary, province_id: int, index: int
 ) -> int:
@@ -100,18 +111,27 @@ static func town_cap_for(
 # --- road rule --------------------------------------------------------------
 
 
-static func _seed(
+static func _seed_capital(
 	model: MapModel,
-	works: LandWorks,
 	owned: Dictionary,
 	capital_tile: Vector2i,
 	best: Dictionary,
 	queue: Array[Vector2i]
 ) -> void:
-	if capital_tile.x >= 0:
-		var capital_index: int = model.index_of(capital_tile.x, capital_tile.y)
-		if owned.has(capital_index):
-			_raise(model, best, queue, capital_tile, CAPITAL_TRANSPORT)
+	if capital_tile.x < 0:
+		return
+	var capital_index: int = model.index_of(capital_tile.x, capital_tile.y)
+	if owned.has(capital_index):
+		_raise(model, best, queue, capital_tile, CAPITAL_TRANSPORT)
+
+
+## A port is a landfall: it seeds the province's own roads, but it is not a road
+## to the crown, so its bare tile does not exempt its neighbours from the town
+## cap (overseas provinces have no road path to the capital at all).
+static func _seed_ports(
+	model: MapModel, works: LandWorks, owned: Dictionary, best: Dictionary,
+	queue: Array[Vector2i]
+) -> void:
 	for raw: Variant in works.ports.keys():
 		var index: int = int(raw)
 		if owned.has(index):
@@ -145,9 +165,13 @@ static func _spread(
 				_raise(model, best, queue, next, reached)
 
 
-## Tiles beside the network are "on or next to" a road and take its cap.
+## Tiles beside the network are "on or next to" a road and take its cap. The
+## `road` flag means "reaches the crown along a road": true beside the capital's
+## own network or beside a real road/rail tile, false beside a bare landfall port
+## (that tile is Town-rule connected, so the province's town development caps it).
 static func _edges(
-	model: MapModel, owned: Dictionary, best: Dictionary, tiles: Dictionary
+	model: MapModel, works: LandWorks, owned: Dictionary, best: Dictionary,
+	land: Dictionary, tiles: Dictionary
 ) -> void:
 	for raw: Variant in owned.keys():
 		var index: int = int(raw)
@@ -155,13 +179,19 @@ static func _edges(
 			continue
 		var tile: Vector2i = _tile_of(model, index)
 		var cap: int = 0
+		var road: bool = false
 		for offset: Vector2i in NEIGHBORS:
 			var next: Vector2i = tile + offset
 			if not model.in_bounds(next.x, next.y):
 				continue
-			cap = maxi(cap, int(best.get(model.index_of(next.x, next.y), 0)))
+			var next_index: int = model.index_of(next.x, next.y)
+			if not best.has(next_index):
+				continue
+			cap = maxi(cap, int(best[next_index]))
+			if land.has(next_index) or works.transport_at(model, next) >= 1:
+				road = true
 		if cap > 0:
-			tiles[index] = {"transport": cap, "road": true, "town": false}
+			tiles[index] = {"transport": cap, "road": road, "town": false}
 
 
 # --- town rule --------------------------------------------------------------

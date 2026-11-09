@@ -198,6 +198,7 @@ func _fill_detail() -> void:
 	_detail.add_child(status)
 	_detail.add_child(_meter(record.score))
 	_detail.add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
+	_add_envoy()
 	_detail.add_child(_label(_overture_line(_selected), 13, Palette.TEXT))
 	if _state.subsidy(_player, _selected) > 0:
 		_detail.add_child(
@@ -209,6 +210,26 @@ func _fill_detail() -> void:
 	):
 		_add_option(option)
 	_add_chronicle()
+	# The dossier sits under the chronicle: analysis after the news, so choice
+	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
+	var dossier := CourtDossier.new()
+	dossier.fill(_state, _world, _player, _selected)
+	_detail.add_child(dossier)
+
+
+## The court's own word under its herald line: the newest voiced act between the
+## pair, else its standing remark, with the face it wears (wiki:
+## dialogue-and-mood; REQ-P1-07). Presentation only — the reader is never the
+## speaker (REQ-P2-03).
+func _add_envoy() -> void:
+	var spoken: Dictionary = DialogueEvents.for_pair(_state, _player, _selected)
+	if spoken.is_empty():
+		return
+	var face: String = DialogueMood.label(String(spoken["mood"])).to_upper()
+	_detail.add_child(_caption("THEIR ENVOY  ·  %s" % face))
+	var words := _label("“%s”" % String(spoken["text"]), 14, Palette.GOLD_PALE)
+	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail.add_child(words)
 
 
 ## The pair's chronicle sits under the orders: choice first, bookkeeping after

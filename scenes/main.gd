@@ -6,6 +6,7 @@ extends Node
 const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const MAIN_MENU: PackedScene = preload("res://scenes/main_menu.tscn")
 const GAME_SETUP: PackedScene = preload("res://scenes/game_setup.tscn")
+const CAPITAL_CHOICE: PackedScene = preload("res://scenes/capital_choice.tscn")
 const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
 ## Overridable for tests / e2e smoke (set before add_child).
@@ -58,10 +59,33 @@ func _show_main_menu(notice: String = "") -> void:
 func _show_setup() -> void:
 	_clear_page()
 	var setup: GameSetupScreen = GAME_SETUP.instantiate()
-	setup.start_requested.connect(_start_new_game)
+	setup.start_requested.connect(_show_capital_choice)
 	setup.back_pressed.connect(_back_to_menu)
 	add_child(setup)
 	current_page = setup
+
+
+## The capital-choice phase sits between setup and the first turn (wiki:
+## capital-choice-phase § Player choice). It generates the world once and hands
+## that same world to the map screen, so the seat the player picks is the seat
+## the campaign starts on.
+func _show_capital_choice(config: GameConfig) -> void:
+	_clear_page()
+	if size_override.x > 0 and size_override.y > 0:
+		config.map_width = size_override.x
+		config.map_height = size_override.y
+	var page: CapitalChoiceScreen = CAPITAL_CHOICE.instantiate()
+	page.config = config
+	page.capital_chosen.connect(_begin_game)
+	page.back_pressed.connect(_back_to_setup)
+	add_child(page)
+	current_page = page
+
+
+## Back from the capital chart returns to the setup screen on the next idle
+## frame, for the same Android-back reason as the title screen.
+func _back_to_setup() -> void:
+	_show_setup.call_deferred()
 
 
 func _show_main_load() -> void:
@@ -86,6 +110,12 @@ func _back_to_menu() -> void:
 
 
 func _start_new_game(config: GameConfig) -> void:
+	_begin_game(config)
+
+
+## Installs the map screen. `world` is the chart the capital-choice phase
+## generated (null on the auto-start path, where the screen rolls its own).
+func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	if size_override.x > 0 and size_override.y > 0:
 		config.map_width = size_override.x
 		config.map_height = size_override.y
@@ -96,6 +126,7 @@ func _start_new_game(config: GameConfig) -> void:
 	screen.player_faction = config.player_faction
 	screen.player_leader = config.player_leader
 	screen.infinite_mode = config.infinite_mode
+	screen.preset_world = world
 	_install_screen(screen)
 
 
