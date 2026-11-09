@@ -258,8 +258,10 @@ func expire_beachheads(turn: int) -> void:
 
 ## Resolves contested zones in every region, visible or not (wiki: map-topology
 ## § two regions). `hostile` gates each pair; without it all pairs are hostile.
+## `context` carries the campaign seed/turn and is completed with the region
+## model so interception and retreat resolve per map (DR-20261109-16).
 func resolve_battles(
-	world: WorldMap, hostile: Callable = Callable()
+	world: WorldMap, hostile: Callable = Callable(), context: Dictionary = {}
 ) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	for index in world.region_count():
@@ -270,7 +272,12 @@ func resolve_battles(
 			region_fleets.assign(regions.value(index, []))
 		if region_fleets.is_empty():
 			continue
-		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets, hostile)
+		var region_context: Dictionary = context.duplicate(true)
+		region_context["model"] = world.region(index)
+		region_context["fleets"] = region_fleets
+		var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+			region_fleets, hostile, region_context
+		)
 		if battles.is_empty():
 			continue
 		var alive: Array[FleetState] = []
@@ -287,6 +294,9 @@ func resolve_battles(
 		for battle: Dictionary in battles:
 			battle["region"] = index
 			all.append(battle)
+			if on_screen:
+				for marker: Ship in _markers.retreat(battle, region_fleets):
+					zone_entered.emit(marker.zone, marker)
 	return all
 
 

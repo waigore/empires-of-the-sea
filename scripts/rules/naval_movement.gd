@@ -188,9 +188,10 @@ static func apply_move(
 		fleet.location = FleetState.Location.IN_PORT
 		fleet.province = destination_id
 		fleet.sea_zone = MapModel.NO_ID
-	# A squadron that leaves the station gives up its landing site (wiki:
-	# ships-and-naval § Missions and Movement).
+	# A squadron that leaves the station gives up its landing site and mission
+	# (wiki: ships-and-naval § Missions and Movement).
 	fleet.clear_beachhead()
+	fleet.clear_mission()
 	fleet.moved = true
 	return {"ok": true, "reason": "", "entered_zone": entered_zone}
 

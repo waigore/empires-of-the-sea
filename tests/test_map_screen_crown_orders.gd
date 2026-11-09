@@ -176,7 +176,14 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 
-	assert_lt(first.ship_count() + second.ship_count(), hulls_before)
+	var hulls_after: int = first.ship_count() + second.ship_count()
+	if hulls_after == hulls_before:
+		assert_ne(
+			first.sea_zone, second.sea_zone,
+			"a beaten squadron that survives withdraws to adjacent water"
+		)
+	else:
+		assert_lt(hulls_after, hulls_before)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 
