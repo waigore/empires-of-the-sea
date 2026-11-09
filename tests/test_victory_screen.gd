@@ -10,20 +10,22 @@ const HEIGHT: int = 64
 
 static var _world: WorldMap = null
 
+# Seats and deeds as the shared world was generated; `_grant_old_world`
+# rewrites owners, so each case starts from the same pristine world.
+var pristine: Array = []
+
 var _screen: MapScreen = null
-var _owners: Array[int] = []
 
 
 func before_all() -> void:
 	if _world == null:
 		_world = MapGenerator.new().generate_world(1500, WIDTH, HEIGHT)
+	pristine = Fixture.snapshot(_world)
 
 
 func before_each() -> void:
-	_owners.clear()
-	for province: ProvinceState in _old_world().provinces:
-		_owners.append(province.owner)
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
+	Fixture.restore(_world, pristine)
+	_screen = Fixture.SCENE.instantiate()
 	_screen.map_width = WIDTH
 	_screen.map_height = HEIGHT
 	_screen.preset_world = _world
@@ -34,9 +36,7 @@ func after_each() -> void:
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
-	var provinces: Array[ProvinceState] = _old_world().provinces
-	for index in provinces.size():
-		provinces[index].owner = _owners[index]
+	Fixture.restore(_world, pristine)
 
 
 func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
@@ -100,7 +100,7 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	assert_true(SaveCodec.is_valid(save), "a decided save is valid")
 
 	_screen.free()
-	_screen = load("res://scenes/map_screen.tscn").instantiate()
+	_screen = Fixture.SCENE.instantiate()
 	_screen.map_width = WIDTH
 	_screen.map_height = HEIGHT
 	_screen.pending_save = save
