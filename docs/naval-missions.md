@@ -33,14 +33,13 @@ missionFactor = 0.5 Patrol, 0.9 Blockade
 ```
 
 The roll is deterministic from campaign seed, turn, zone and owners. Success
-makes the patroller the attacker; a failed attempt leaves the fleet that moved
-into the zone attacking. No hostility, no interception. Interception resolves
-at the end of Movement, before the zone's normal battle.
+makes the patroller the attacker; a miss leaves the mover attacking. No
+hostility, no interception. Only Patrol or a standing Blockade rolls; other
+squadrons in the zone add nothing. Resolves at end of Movement, before battle.
 
-A crown holding **Privateering Companies** multiplies its intercepting score by
-`1.25` before the clamp, on both movement interception and trade raids; the
-target's own charter never helps the interceptor. The fleet dossier names the
-bonus for a squadron at sea.
+**Privateering Companies** multiplies the interceptor's score by `1.25` before
+the clamp (movement and trade raids); the target's charter never helps. The
+dossier names the bonus for a squadron at sea.
 
 ## Retreat
 
@@ -67,10 +66,10 @@ raidEfficiency = 0.3…0.7 by relative strength
 ```
 
 Only hostile Patrol/Blockade squadrons in a sea zone bordering the victim's
-coast raid. The cargo at risk is this turn's world-market imports; losses come
-out of the stockpile before the ledger closes. Escorts are the home fleet's
-warship HULL; cargo is its merchant HULL. Deferred: civilian/home-fleet hull
-losses and AI victim economies.
+coast raid; each rolls in its own zone (blockade bonus does not cross zones).
+Cargo at risk is this turn's world-market imports; losses leave the stockpile
+before the ledger closes. Escorts are home-fleet warship HULL; cargo is its
+merchant HULL. Deferred: civilian/home-fleet hull losses and AI victim economies.
 
 ## Architecture
 

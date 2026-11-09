@@ -168,6 +168,18 @@ func test_a_defend_station_holds_and_names_its_orders() -> void:
 	assert_true(String(result["message"]).contains("holds station"))
 
 
+func test_a_lapsed_blockade_stops_claiming_the_station() -> void:
+	var fleet := FleetState.at_sea(1, 0, 1)
+	FleetMissions.assign(_model, fleet, FleetState.Mission.BLOCKADE, 1, _war)
+	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("Blockading Coro"))
+	var peace: String = FleetMissions.status_note(_model, fleet, _peace)
+	assert_true(peace.contains("lapsed"), peace)
+	_model.province_data(1).owner = 0
+	var taken: String = FleetMissions.status_note(_model, fleet, _war)
+	assert_true(taken.contains("lapsed"), taken)
+	assert_false(FleetMissions.is_blockading(_model, fleet, _war))
+
+
 func test_mission_and_blockade_survive_a_save_round_trip() -> void:
 	var fleet := FleetState.at_sea(1, 0, 1)
 	FleetMissions.assign(_model, fleet, FleetState.Mission.BLOCKADE, 1, _war)

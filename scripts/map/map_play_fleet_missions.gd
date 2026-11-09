@@ -37,7 +37,9 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 		return ""
 	if fleet.has_beachhead():
 		return MapPlayBeachhead.note(play, fleet)
-	var line: String = FleetMissions.status_note(play.model, fleet)
+	var line: String = FleetMissions.status_note(
+		play.model, fleet, MapPlayBeachhead.hostile(play)
+	)
 	if not fleet.is_at_sea():
 		return line
 	var charter: String = privateer_note(play)
