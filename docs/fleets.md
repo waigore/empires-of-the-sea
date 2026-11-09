@@ -28,7 +28,7 @@ Naval slice: movement, harbours, fog, battles, upkeep and the yard.
   `HULL × (1 + ARM/10)`; a 3% edge wins (loser sunk, victor spends half the
   beaten strength); near-equal is a stalemate; port fleets never fight.
 - **Rival squadrons** sail their own turn: engage a beatable fleet, threaten the
-  best hostile coast, retreat to a friendly harbour, or cruise home at peace
+  best hostile coast, guard its own waters, or cruise home at peace
   (`AiNavalPlanner`); rules stay in `NavalMovement`.
 
 ## Deferred (REQ-P2-02)

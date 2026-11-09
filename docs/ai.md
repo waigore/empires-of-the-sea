@@ -32,8 +32,8 @@ work), P5 (rivals act without player bookkeeping).
   Orders run through `ArmyMovement` before Combat, so a march this turn fights
   this turn.
 - **Naval planner** (`AiNavalPlanner`): a rival squadron engages a fleet it can
-  beat (10% margin), threatens the best hostile coast, docks when a stronger
-  fleet holds its zone, or cruises home at peace. The home fleet never sails;
+  beat (10% margin), threatens the best hostile coast, guards its own waters
+  at war, or cruises home at peace. The home fleet never sails;
   orders run through `NavalMovement` before naval combat.
 - **Persistence:** saves keep fixed agendas and pair cooldowns.
 
@@ -60,7 +60,7 @@ AI peace and overtures wait for the human court UI.
 | `scripts/ai/ai_state.gd` | fixed agendas, pair cooldowns |
 | `scripts/ai/ai_diplomacy_planner.gd` | war desire, orders, war goals |
 | `scripts/ai/ai_military_planner.gd` | split, defend, storm and stage orders |
-| `scripts/ai/ai_naval_planner.gd` | engage, threaten, retreat and cruise orders |
+| `scripts/ai/ai_naval_planner.gd` | engage, threaten, guard and cruise orders |
 | `scripts/ai/ai_turn.gd` | per-turn pass, trace, rule application |
 | `scripts/map/map_play_diplomacy.gd` | phase wiring and toasts |
 | `scripts/map/map_play_army_ai.gd` | land pass: apply orders, report marches |

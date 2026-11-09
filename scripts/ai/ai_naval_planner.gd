@@ -1,16 +1,15 @@
 class_name AiNavalPlanner
 extends RefCounted
 ## Full-AI naval policy (docs/ai.md). A rival squadron engages a hostile fleet
-## it can beat, threatens the best hostile coast, puts into a friendly harbour
-## when a stronger fleet shares its zone, or cruises back to its own waters at
-## peace. Pure rules: state in, orders out; the map layer applies them through
-## NavalMovement so the AI never invents an outcome (REQ-P2-03, REQ-P3-03).
+## it can beat, threatens the best hostile coast, guards its own waters at war,
+## or cruises home at peace. Pure rules: state in, orders out; the map layer
+## applies them through NavalMovement so the AI never invents an outcome
+## (REQ-P2-03, REQ-P3-03).
 
 const KIND_ENGAGE: String = "engage"
 const KIND_THREATEN: String = "threaten"
 const KIND_DEFEND: String = "defend"
 const KIND_STAGE: String = "stage"
-const KIND_RETREAT: String = "retreat"
 
 ## Score weights and the battle margin live in AiParameterRegistry ("naval.*"),
 ## so a profile tunes the sea policy without code edits.
@@ -36,7 +35,7 @@ static func orders(
 	for fleet: FleetState in _squadrons(fleets, owner, seat):
 		var current: int = _distance_of(model, fleet, distances)
 		var best: Dictionary = _best_order(
-			config, model, fleet, fleets, hostile, seat, coasts, distances, current
+			config, model, fleet, fleets, hostile, coasts, distances, current
 		)
 		if best.is_empty():
 			continue
@@ -53,28 +52,23 @@ static func orders(
 	return {"orders": orders, "candidates": candidates}
 
 
-## Highest-scoring legal destination for one squadron. A fleet that shares its
-## zone with a stronger fleet flees instead of sailing on.
+## Highest-scoring legal destination for one squadron. A fleet already sharing
+## its zone with a hostile fleet stays: the battle resolves at turn end, and
+## docking to dodge it would only park the squadron out of reach.
 static func _best_order(
 	config: AiConfig,
 	model: MapModel,
 	fleet: FleetState,
 	fleets: Array[FleetState],
 	hostile: Dictionary,
-	seat: int,
 	coasts: Dictionary,
 	distances: Dictionary,
 	current: int
 ) -> Dictionary:
-	var margin: int = config.parameter("naval.attack_margin_pct")
 	if fleet.is_at_sea() and not _hostile_fleets(
 		fleets, fleet.sea_zone, fleet.owner, hostile
 	).is_empty():
-		if not _can_beat(fleet, fleets, fleet.sea_zone, hostile, margin):
-			var escape: Dictionary = _retreat(model, fleet, fleets, hostile, seat)
-			if not escape.is_empty():
-				return escape
-			return {}
+		return {}
 	var best: Dictionary = {}
 	for zone: int in NavalMovement.destination_zones(model, fleet):
 		var scored: Dictionary = _zone_score(
@@ -90,39 +84,6 @@ static func _best_order(
 		elif int(scored["score"]) == int(best["score"]) and zone < int(best["zone"]):
 			best = scored
 	return best
-
-
-## Under a stronger fleet: dock at a friendly harbour (never the home-fleet
-## seat, which a sea-going squadron may not join yet) or slip into an adjacent
-## zone no hostile fleet holds.
-static func _retreat(
-	model: MapModel,
-	fleet: FleetState,
-	fleets: Array[FleetState],
-	hostile: Dictionary,
-	seat: int
-) -> Dictionary:
-	for province: int in NavalMovement.dockable_provinces(model, fleet):
-		if province == seat:
-			continue
-		return {
-			"destination": FleetState.Location.IN_PORT,
-			"zone": MapModel.NO_ID,
-			"province": province,
-			"kind": KIND_RETREAT,
-			"score": 1,
-		}
-	for zone: int in NavalMovement.destination_zones(model, fleet):
-		if not _hostile_fleets(fleets, zone, fleet.owner, hostile).is_empty():
-			continue
-		return {
-			"destination": FleetState.Location.AT_SEA,
-			"zone": zone,
-			"province": MapModel.NO_ID,
-			"kind": KIND_RETREAT,
-			"score": 1,
-		}
-	return {}
 
 
 ## What one destination zone is worth: a winnable battle, an enemy coast, a

@@ -1,5 +1,5 @@
 extends GdToolsTest
-## Rival naval pass: squadrons engage, threaten, retreat or cruise home through
+## Rival naval pass: squadrons engage, threaten, hold or cruise home through
 ## the shared NavalMovement rules (docs/ai.md). The fixture has two adjacent
 ## zones: zone 0 off the human coast, zone 1 off the rival's.
 
@@ -63,40 +63,16 @@ func test_ai_navy_avoids_a_stronger_fleet() -> void:
 	assert_eq((plan["orders"] as Array).size(), 0, "one sloop never sails into three carracks")
 
 
-func test_ai_navy_retreats_into_a_friendly_harbour() -> void:
+func test_ai_navy_holds_a_zone_where_it_is_outmatched() -> void:
 	var model: MapModel = NavalFixture.build()
 	var fleets: Array[FleetState] = [
-		_fleet(1, 1, 1, ["carrack"]),
+		_fleet(1, 1, 1, ["sloop"]),
 		_fleet(2, 0, 1, ["carrack", "carrack", "carrack"]),
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(
 		AiConfig.build(1, 1500), _war_state(1, 0), model, fleets
 	)
-	assert_eq((plan["orders"] as Array).size(), 1)
-	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_RETREAT)
-	assert_eq(
-		int(plan["orders"][0]["destination"]),
-		FleetState.Location.IN_PORT,
-		"port fleets never fight"
-	)
-	assert_eq(int(plan["orders"][0]["province"]), 1)
-
-
-func test_ai_navy_retreats_to_clear_water_without_a_harbour() -> void:
-	var model: MapModel = NavalFixture.build()
-	var fleets: Array[FleetState] = [
-		_fleet(1, 1, 0, ["carrack"]),
-		_fleet(2, 0, 0, ["carrack", "carrack", "carrack"]),
-	]
-	var plan: Dictionary = AiNavalPlanner.orders(
-		AiConfig.build(1, 1500), _war_state(1, 0), model, fleets
-	)
-	assert_eq((plan["orders"] as Array).size(), 1)
-	assert_eq(int(plan["orders"][0]["zone"]), 1)
-	assert_eq(
-		int(plan["orders"][0]["destination"]),
-		FleetState.Location.AT_SEA
-	)
+	assert_eq((plan["orders"] as Array).size(), 0, "the battle resolves at turn end")
 
 
 func test_ai_navy_leaves_the_home_fleet_in_port() -> void:
