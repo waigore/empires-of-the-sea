@@ -10,8 +10,9 @@ signal selection_cleared
 signal coast_charted(province_id: int)
 signal battle_resolved(battles: Array[Dictionary])
 signal turn_ended(turn: int)
-## The rules decided the campaign; audio/motion may mark the moment.
+## The rules decided the campaign or the human crown fell; audio/motion listen.
 signal victory_declared(victory: VictoryState)
+signal defeat_declared(defeat: DefeatState)
 ## In-game menu intents; the app router owns screen replacement.
 signal load_slot_requested(slot: int)
 signal main_menu_requested

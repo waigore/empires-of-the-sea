@@ -12,6 +12,9 @@ const VIEWPORT_MARGIN: float = 24.0
 ## Calendar-cap variant (wiki: victory § Calendar campaign end).
 const CALENDAR_TITLE: String = "Campaign complete"
 const NO_WINNER: String = "No crown prevails"
+## Human-defeat variant (wiki: victory § Great Power defeat).
+const DEFEAT_TITLE: String = "Defeat"
+const DEFEAT_TAGLINE: String = "The age has ended for your court."
 
 var state: VictoryState = null
 
@@ -71,6 +74,29 @@ func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void
 		_tagline.text = "The age belongs to your crown."
 	else:
 		_tagline.text = "%s holds the age." % FactionCatalog.name_of(leader)
+	_mount()
+
+
+## Renders the human-defeat variant: the fallen crown and the conqueror of its
+## lost seat, with the same continue path as the other campaign endings
+## (wiki: victory § Victory Screen § Content (defeat); DR-20261109-05).
+func show_defeat(defeat: DefeatState, player_faction: int) -> void:
+	state = null
+	if defeat == null:
+		visible = false
+		return
+	_title.text = DEFEAT_TITLE.to_upper()
+	_winner.text = "%s falls to %s" % [
+		defeat.fallen_name(), defeat.conqueror_name()
+	]
+	_detail.text = "Turn %d  ·  %d" % [
+		defeat.turn_number, TurnTime.year_for_turn(defeat.turn_number)
+	]
+	_tagline.text = (
+		DEFEAT_TAGLINE
+		if defeat.fallen_player_id == player_faction
+		else "The age has ended for %s." % defeat.fallen_name()
+	)
 	_mount()
 
 
