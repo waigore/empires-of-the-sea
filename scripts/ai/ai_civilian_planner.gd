@@ -195,7 +195,7 @@ static func _best_explorer(
 	if reserved.has(unit.tile) or model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
 		return {}
 	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
-	if not CivilianWork.MINERAL_RESOURCES.has(resource):
+	if not ImprovementCatalog.needs_prospecting(resource):
 		return {}
 	var score: int = config.parameter("civilian.prospect_weight")
 	score += _need(
@@ -311,7 +311,7 @@ static func _nearest_mineral(model: MapModel, unit: CivilianState, works: LandWo
 	var best: Vector2i = Vector2i(-1, -1)
 	var best_distance: int = 1 << 30
 	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not CivilianWork.MINERAL_RESOURCES.has(model.resource_at(tile.x, tile.y)):
+		if not ImprovementCatalog.needs_prospecting(model.resource_at(tile.x, tile.y)):
 			continue
 		if works.is_prospected(unit.owner, model, tile):
 			continue
