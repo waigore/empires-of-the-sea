@@ -121,6 +121,38 @@ func test_a_crown_with_no_province_left_falls_to_the_conqueror() -> void:
 	assert_false(model.province_data(SEAT).capital)
 
 
+func test_a_crown_that_already_fell_is_not_reported_again() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 0, [SEAT, HARBOUR, UPLANDS])
+	_hand_over(model, 6, [SEAT])
+	_hand_over(model, 1, [HARBOUR, UPLANDS])
+	model.province_data(SEAT).capital = true
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 0
+	var first: Dictionary = CapitalLoss.resolve(model, before)
+	assert_eq(first["fallen"].size(), 1)
+
+	# The next Combat phase snapshots a crown that no longer holds a seat.
+	var after: Dictionary = CapitalLoss.snapshot(model)
+	var again: Dictionary = CapitalLoss.resolve(model, after)
+
+	assert_eq(again["fallen"].size(), 0, "a fallen crown does not fall twice")
+	assert_eq(again["reassigned"].size(), 0, "and is not given a new seat")
+
+
+func test_a_crown_without_a_snapshot_seat_is_not_given_one() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 6, [HARBOUR, UPLANDS])
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	assert_eq(int(before[6]), CapitalLoss.NO_ID)
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["reassigned"].size(), 0, "no seat was lost, so none is reassigned")
+	assert_eq(result["fallen"].size(), 0)
+	assert_eq(CapitalLoss.seat_of(model, 6), CapitalLoss.NO_ID)
+
+
 func test_a_fall_hands_every_province_in_every_region_to_the_conqueror() -> void:
 	var old_world: MapModel = _chart()
 	var new_world: MapModel = _chart()
@@ -139,6 +171,7 @@ func test_a_fall_hands_every_province_in_every_region_to_the_conqueror() -> void
 	var result: Dictionary = CapitalLoss.resolve_world(world, before)
 
 	assert_eq(result["fallen"].size(), 1)
+	assert_eq(result["reassigned"].size(), 0, "no seat is invented in the overseas region")
 	assert_eq(int(result["fallen"][0]["conqueror"]), 0)
 	assert_eq(new_world.province_data(RIVAL).owner, 0, "the overseas holding follows")
 	assert_eq(world.owned_provinces(WorldMap.NEW_WORLD, 6), 0)
