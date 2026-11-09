@@ -39,6 +39,7 @@ const TERRAIN_COLORS: Array[Color] = [
 	Color(0.69, 0.604, 0.49),
 	Color(0.91, 0.839, 0.651),
 	Color(0.663, 0.71, 0.549),
+	Color(0.72, 0.78, 0.52),
 ]
 
 static func terrain_color(terrain: int) -> Color:

@@ -43,6 +43,8 @@ static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> D
 		return _deny("This fleet has already sailed this turn.")
 	if fleet.embarked_army >= 0:
 		return _deny("The fleet already carries an army.")
+	if fleet.carries_civilians():
+		return _deny("The squadron is carrying colonists; land them before taking troops aboard.")
 	if army.count() > capacity(fleet):
 		return _deny(
 			"The squadron has %d hulls and cannot carry %d regiments."
@@ -256,17 +258,23 @@ static func disembark(
 	return _allow()
 
 
-## Breaking up a hull must not leave more regiments aboard than hulls afloat.
+## Breaking up a hull must not leave more regiments or colonists aboard than
+## hulls afloat.
 static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
-	if fleet == null or fleet.embarked_army < 0:
+	if fleet == null:
+		return _allow()
+	var aboard: int = fleet.civilian_count()
+	if fleet.embarked_army >= 0 and army != null:
+		aboard += army.count()
+	if fleet.ship_count() - 1 < aboard:
+		return _deny(
+			"The squadron cannot break up a hull while it carries %d passengers."
+			% aboard
+		)
+	if fleet.embarked_army < 0:
 		return _allow()
 	if army == null:
 		return _deny("The troops aboard cannot be accounted for.")
-	if fleet.ship_count() - 1 < army.count():
-		return _deny(
-			"The squadron cannot break up a hull while it carries %d regiments."
-			% army.count()
-		)
 	return _allow()
 
 

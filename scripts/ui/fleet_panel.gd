@@ -32,6 +32,7 @@ var _yard_rows: Array[Dictionary] = []
 var _land_box: VBoxContainer = null
 var _land_rows: Array[Dictionary] = []
 var _mission: FleetMissionSection = null
+var _crew: FleetCrewSection = null
 
 
 func _ready() -> void:
@@ -89,6 +90,11 @@ func _build() -> void:
 	_mission.visible = false
 	_mission.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	column.add_child(_mission)
+
+	_crew = FleetCrewSection.new()
+	_crew.visible = false
+	_crew.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_crew)
 
 	_land_box = VBoxContainer.new()
 	_land_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -152,7 +158,8 @@ func refresh(
 	land_rows: Array[Dictionary] = [],
 	carried: int = 0,
 	beach_rows: Array[Dictionary] = [],
-	beach_note: String = ""
+	beach_note: String = "",
+	crew: Dictionary = {}
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -172,8 +179,12 @@ func refresh(
 	]
 	if carried > 0:
 		_ships.text += " · carrying %d regiments" % carried
+	var colonists: int = int(crew.get("count", 0))
+	if colonists > 0:
+		_ships.text += " · %d colonists" % colonists
 	_fill_land()
 	_mission.set_data(beach_note, beach_rows)
+	_crew.set_data(crew)
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own fleet."
@@ -189,6 +200,9 @@ func refresh(
 	elif carried > 0 and not _land_rows.is_empty():
 		_status.text = "Troops aboard"
 		_hint.text = "Choose a friendly coast to land the army."
+	elif colonists > 0:
+		_status.text = "Colonists aboard"
+		_hint.text = "Choose a coast to put them ashore, or put to sea."
 	else:
 		_status.text = "1 move this turn"
 		_hint.text = "Tap a highlighted sea zone or a friendly port."
@@ -221,6 +235,8 @@ func refresh_slip(
 	_status.text = "The yard is open"
 	_hint.text = "Launch a hull to found the home fleet; break up hulls from the fleet dossier."
 	_land_rows = []
+	if _crew != null:
+		_crew.set_data({})
 	if _land_box != null:
 		_land_box.visible = false
 	if _mission != null:

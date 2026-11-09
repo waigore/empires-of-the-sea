@@ -32,10 +32,10 @@ turns gold into advances, and researched techs lift extraction caps.
   techs.
 - **Discovery:** New World discovery techs need a revealed tile holding the
   resource; gold, silver, gems and diamonds must also be prospected.
-- **Extraction caps:** researched techs set the per-resource cap used by
-  extraction, the estates ledger and Builder orders:
-  `min(improvement, tech cap, transport, town development)`. Design exceptions
-  match the wiki (horses 1, wool 3).
+- **Extraction caps:** techs set the cap used by extraction, the estates ledger
+  and Builder orders:
+  `min(improvement, tech cap, terrain cap, path transport, town cap)`.
+  Exceptions match the wiki (horses 1, wool 3).
 - **Unlocks:** `TechUnlocks` derives every build order a tech opens from the
   canonical gate tables (regiments, hulls, civilians, worker tiers, forts,
   batteries, roads/railroads, general cap); the college tooltip prints them and

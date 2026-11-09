@@ -17,6 +17,8 @@ var works: LandWorks = null
 var _ships: ShipLayer = null
 var _armies: ArmyLayer = null
 var _hud: GameHud = null
+## Every region's works, so overseas estates yield (DR-20261109-17).
+var works_by_region: MapRegionTable = null
 ## Consumption report of the last resolved turn, for feeding coverage.
 var _last_consumption: Dictionary = {}
 
@@ -80,15 +82,34 @@ func army_food() -> int:
 	return _armies.food_upkeep_all(player_faction)
 
 
-## Merchant cargo for the ledger: holds in the home fleet, imports laden this
-## turn (wiki: ships-and-naval § Cargo holds and capacity; DR-20261109-03).
+## Merchant cargo for the ledger: holds in the home fleet, this turn's colonial
+## delivery reserved first, imports laden this turn (wiki: ships-and-naval
+## § Cargo holds and capacity; DR-20261109-03, DR-20261109-17).
 func trade_cargo() -> Dictionary:
 	var laden: int = TradeCargo.used(market)
 	if _ships == null or _ships.world == null:
-		return {"holds": 0, "used": laden, "free": 0}
+		return {"holds": 0, "used": laden, "reserved": 0, "free": 0}
 	return TradeCargo.status(
-		_ships.world, _ships.regions.snapshot(), player_faction, market
+		_ships.world, _ships.regions.snapshot(), player_faction, market,
+		int(overseas_plan().get("used", 0))
 	)
+
+
+## Overseas yield delivered this turn. Extraction takes the home fleet's holds
+## before trade, richest commodity first; undelivered cargo stays abroad
+## (wiki: extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
+func overseas_plan() -> Dictionary:
+	var by_region: Dictionary = {}
+	var holds: int = 0
+	if _ships != null and _ships.world != null:
+		holds = TradeCargo.capacity(
+			_ships.world, _ships.regions.snapshot(), player_faction
+		)
+		var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
+		by_region = EconomyOverseas.region_totals(
+			_ships.world, home_region, player_faction, tech_caps(), works_by_region
+		)
+	return EconomyOverseas.plan(by_region, holds)
 
 
 ## Share of last turn's army rations the granary could cover (0..1). Full
@@ -100,11 +121,18 @@ func feeding_coverage() -> float:
 	return clampf(float(int(_last_consumption.get("army_fed", 0))) / float(demand), 0.0, 1.0)
 
 
+## Everything that reaches the crown's stockpile this turn: home-region land
+## yield plus the overseas cargo the home fleet actually delivers.
 func extraction() -> Dictionary:
-	return Extraction.yields(
+	var totals: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile
+		capital_tile, economy.tech_unlocked
 	)
+	var shipped: Dictionary = overseas_plan().get("shipped", {})
+	for raw: Variant in shipped.keys():
+		var id: String = String(raw)
+		totals[id] = int(totals.get(id, 0)) + int(shipped[raw])
+	return totals
 
 
 func projected() -> Dictionary:
@@ -118,9 +146,11 @@ func projected_income() -> int:
 ## Runs Extraction -> Riches -> Consumption -> Production and refreshes the HUD.
 func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
+	var plan: Dictionary = overseas_plan()
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food()
 	)
+	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	if _armies != null:
 		_armies.sync_generals(player_faction, economy.tech_unlocked)
@@ -142,6 +172,13 @@ func summary_line(report: Dictionary) -> String:
 	var extracted: Dictionary = report.get("extraction", {})
 	if not extracted.is_empty():
 		parts.append("gathered %s" % ImprovementSystem.output_text(extracted))
+	var overseas: Dictionary = report.get("overseas", {})
+	var landed: int = int(overseas.get("used", 0))
+	if landed > 0:
+		parts.append("%d colonial tons landed" % landed)
+	var left: int = int(overseas.get("left_total", 0))
+	if left > 0:
+		parts.append("%d left on the far shore" % left)
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)
@@ -219,8 +256,10 @@ func _refresh_panel() -> void:
 func _on_trade(commodity: String, quantity: int, is_buy: bool) -> void:
 	var result: Dictionary
 	if is_buy:
+		var cargo: Dictionary = trade_cargo()
 		result = TradeCargo.buy(
-			economy, market, int(trade_cargo().get("holds", 0)), commodity, quantity
+			economy, market, int(cargo.get("holds", 0)), commodity, quantity,
+			int(cargo.get("reserved", 0))
 		)
 	else:
 		result = market.sell(economy, commodity, quantity)

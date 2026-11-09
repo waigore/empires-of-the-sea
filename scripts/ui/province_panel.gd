@@ -140,6 +140,11 @@ func _build() -> void:
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
 	_orders_box.add_child(build)
 
+	var town := _make_button("Upgrade Town")
+	town.tooltip_text = "Raise this province's town development (National Bureaucracy)."
+	town.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
+	_orders_box.add_child(town)
+
 	_training_box = VBoxContainer.new()
 	_training_box.add_theme_constant_override("separation", 6)
 	_training_box.visible = false

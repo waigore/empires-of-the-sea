@@ -114,6 +114,27 @@ func reveal_province(province_id: int) -> Array:
 	return changed
 
 
+## A civilian goes ashore (wiki: fog-and-exploration § New World arrival;
+## DR-20261109-04): the landing tile and its orthogonal neighbours become fully
+## visible, while diagonals and the province interior stay as they were.
+func reveal_landing(tile: Vector2i) -> Array:
+	var changed: Array = []
+	if model == null or not model.in_bounds(tile.x, tile.y):
+		return changed
+	var index: int = model.index_of(tile.x, tile.y)
+	if raise_to(index, Level.FULLY_VISIBLE):
+		changed.append(index)
+	for offset: Vector2i in NEIGHBORS:
+		var nx: int = tile.x + offset.x
+		var ny: int = tile.y + offset.y
+		if not model.in_bounds(nx, ny):
+			continue
+		var next: int = model.index_of(nx, ny)
+		if raise_to(next, Level.FULLY_VISIBLE):
+			changed.append(next)
+	return changed
+
+
 ## End-of-turn resolution (wiki: fog-and-exploration). Order matters: fog decay,
 ## distant sea zone fog, explorer presence, own-province re-assert, coastal sea
 ## pass last. `at_sea_zones` lists zones holding this player's fleets at sea;

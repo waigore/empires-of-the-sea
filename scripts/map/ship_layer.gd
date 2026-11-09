@@ -171,6 +171,9 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 				merged.embarked_army = fleet.embarked_army
 				result["embarked_army"] = fleet.embarked_army
 				fleet.embarked_army = -1
+			for unit_id: int in fleet.embarked_civilians:
+				merged.add_civilian(unit_id)
+			fleet.embarked_civilians.clear()
 			if ship != null:
 				_markers.remove(ship)
 				ship = null
@@ -314,17 +317,25 @@ func settle_port_losses(world: WorldMap, reassigned: Array) -> Array[Dictionary]
 			continue
 		if int(row.get("owner", MapModel.NO_ID)) != player_faction:
 			continue
-		var marker: Ship = ship_for(_fleet_by_id(int(row["fleet"])))
+		var marker: Ship = ship_for(FleetRosters.find(fleets, int(row["fleet"])))
 		if marker != null:
 			zone_entered.emit(int(row["zone"]), marker)
 	return reports
 
 
-func _fleet_by_id(fleet_id: int) -> FleetState:
-	for fleet: FleetState in fleets:
-		if fleet != null and fleet.id == fleet_id:
-			return fleet
-	return null
+## The home squadron puts to sea (wiki: ships-and-naval § Home Fleet;
+## DR-20261109-17): the rules spend its move, the marker leaves the port and
+## the entered zone is revealed like any sail order.
+func sortie(fleet: FleetState, zone: int) -> Dictionary:
+	var result: Dictionary = FleetSortie.apply(model, fleet, zone)
+	if not bool(result.get("ok", false)):
+		return result
+	var ship: Ship = ship_for(fleet)
+	if ship != null:
+		_markers.refit(ship, fleet)
+		zone_entered.emit(zone, ship)
+	fleet_moved.emit(fleet, result)
+	return result
 
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.

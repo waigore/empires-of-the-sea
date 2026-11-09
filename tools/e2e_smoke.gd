@@ -193,6 +193,7 @@ func _run() -> void:
 		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
 	var works: Dictionary = await _smoke_civilians(screen)
+	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen)
 	await _smoke_end_turn(screen, audio, cues_before, works)
@@ -318,6 +319,31 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 		"capital trains an explorer"
 	)
 	return works
+
+
+## Colonist path: the home squadron takes an idle civilian aboard and puts it
+## ashore again (DR-20261109-17). The sortie itself stays in unit tests: sailing
+## the home fleet would zero the trade holds the turn check below needs.
+func _smoke_colonists(screen: MapScreen) -> void:
+	var capital: int = screen.play.capital_province
+	var home: FleetState = screen.ship_layer.home_fleet(capital)
+	_check(home != null, "home squadron waits at the capital")
+	var colonist: CivilianState = _idle_civilian(screen, capital)
+	_check(colonist != null, "an idle colonist is available")
+	if home == null or colonist == null:
+		return
+	screen.ship_layer.select(screen.ship_layer.ship_for(home))
+	await process_frame
+	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens for the crew")
+	var crew: Dictionary = MapPlayCivilianVoyage.crew(screen.play, home)
+	_check(not (crew["embark"] as Array).is_empty(), "the dossier offers the colonist")
+	MapPlayCivilianVoyage.on_action(screen.play, "crew:embark:%d" % colonist.id)
+	_check(colonist.is_embarked(), "the colonist boards")
+	_check(colonist.tile.x < 0, "an embarked civilian leaves the map")
+	MapPlayCivilianVoyage.on_action(screen.play, "crew:land:%d" % capital)
+	_check(not colonist.is_embarked(), "the colonist goes ashore")
+	_check(colonist.tile.x >= 0, "the colonist holds a shore tile")
+	await process_frame
 
 
 ## Player navy path: select a fleet and spend its one move.
@@ -515,6 +541,18 @@ func _map_screen(main: Node) -> MapScreen:
 func _civilian_of(screen: MapScreen, type_id: String) -> CivilianState:
 	for unit: CivilianState in screen.civilian_layer.units:
 		if unit != null and unit.type_id == type_id and unit.owner == MapScreen.PLAYER_FACTION:
+			return unit
+	return null
+
+
+## First idle civilian of the crown standing in this province.
+func _idle_civilian(screen: MapScreen, province_id: int) -> CivilianState:
+	for unit: CivilianState in screen.civilian_layer.units:
+		if unit == null or unit.owner != MapScreen.PLAYER_FACTION:
+			continue
+		if unit.is_embarked() or unit.is_working():
+			continue
+		if screen.model.province_at(unit.tile.x, unit.tile.y) == province_id:
 			return unit
 	return null
 

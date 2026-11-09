@@ -28,11 +28,10 @@ static func select(play: PlaySession, ship: Ship) -> void:
 ## landing, so the missions section always comes from the same place.
 static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	play.hud.panels.show_fleet(
-		play.model, fleet, fleet.owner == play.player_faction,
-		passage_note(play, fleet), yard_rows(play, fleet), -1,
-		landing_rows(play, fleet), carried(play, fleet),
-		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet)
-	)
+		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
+		yard_rows(play, fleet), -1, landing_rows(play, fleet), carried(play, fleet),
+		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
+		MapPlayCivilianVoyage.crew(play, fleet))
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
@@ -278,6 +277,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		MapPlayFleetMissions.on_action(play, action)
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
+	elif MapPlayCivilianVoyage.on_action(play, action):
+		return
 
 
 ## Lands the carried army on an owned coastal province (wiki: ships-and-naval
