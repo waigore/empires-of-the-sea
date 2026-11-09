@@ -7,13 +7,25 @@ extends RefCounted
 
 const MIN_CHANCE: float = 0.05
 const MAX_CHANCE: float = 0.85
+## Privateering Companies multiplies the intercepting crown's interceptRating
+## before the documented clamps, on both movement interception and trade raids
+## (wiki: ships-and-naval § Naval Interception Probability,
+## § Trade and Transport Interception).
+const PRIVATEERING_TECH: String = "privateering_companies"
+const PRIVATEERING_BONUS: float = 1.25
 
 
 ## clamp(missionFactor × Σintercept / (Σintercept + Σflee), 0.05, 0.85).
-static func chance(interceptors: Array, targets: Array, mission: int) -> float:
+## `has_tech` is the crown-tech query (owner, tech id) -> bool; only the
+## intercepting owner's Privateering Companies counts.
+static func chance(
+	interceptors: Array, targets: Array, mission: int, has_tech: Callable = Callable()
+) -> float:
 	if interceptors.is_empty() or targets.is_empty():
 		return 0.0
 	var intercept: float = FleetMissions.intercept_score(interceptors)
+	if privateers(interceptors, has_tech):
+		intercept *= PRIVATEERING_BONUS
 	var flee: float = FleetMissions.flee_score(targets)
 	var total: float = intercept + flee
 	if total <= 0.0:
@@ -48,11 +60,12 @@ static func attempt(
 	mission: int,
 	seed_value: int = 0,
 	turn: int = 0,
-	roll_value: float = -1.0
+	roll_value: float = -1.0,
+	has_tech: Callable = Callable()
 ) -> Dictionary:
 	if interceptors.is_empty() or targets.is_empty():
 		return {"ok": false, "chance": 0.0, "roll": 1.0, "mission": mission}
-	var found: float = chance(interceptors, targets, mission)
+	var found: float = chance(interceptors, targets, mission, has_tech)
 	var rolled: float = roll_value
 	if rolled < 0.0:
 		rolled = roll(
@@ -85,6 +98,7 @@ static func attacker_owner(
 	var seed_value: int = int(context.get("seed", 0))
 	var turn: int = int(context.get("turn", 0))
 	var forced: float = float(context.get("interception_roll", -1.0))
+	var has_tech: Callable = context.get("has_tech", Callable())
 	var patrols: Array[Dictionary] = []
 	for owner: int in owners:
 		var group: Array = sides[owner] as Array
@@ -101,7 +115,7 @@ static func attacker_owner(
 		if targets.is_empty():
 			continue
 		var found: Dictionary = attempt(
-			zone, group, targets, mission, seed_value, turn, forced
+			zone, group, targets, mission, seed_value, turn, forced, has_tech
 		)
 		if bool(found.get("ok", false)):
 			return {
@@ -132,6 +146,15 @@ static func attacker_owner(
 		"chance": best_chance,
 		"mission": FleetState.Mission.NONE,
 	}
+
+
+## True when the intercepting crown holds Privateering Companies. The tech is
+## read through the caller's query so rules never reach into a ledger
+## (REQ-P2-03, REQ-P3-03).
+static func privateers(group: Array, has_tech: Callable) -> bool:
+	if group.is_empty() or not has_tech.is_valid():
+		return false
+	return bool(has_tech.call(_owner(group), PRIVATEERING_TECH))
 
 
 static func _owner(group: Array) -> int:

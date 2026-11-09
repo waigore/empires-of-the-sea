@@ -312,7 +312,10 @@ static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 static func _resolve_naval_combat(play: PlaySession) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
-	var context: Dictionary = {"seed": play.map_seed, "turn": play.turn}
+	var tech_gate: Callable = play.has_tech
+	var context: Dictionary = {
+		"seed": play.map_seed, "turn": play.turn, "has_tech": tech_gate,
+	}
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
 		play.world, hostile, context
 	)

@@ -37,6 +37,11 @@ makes the patroller the attacker; a failed attempt leaves the fleet that moved
 into the zone attacking. No hostility, no interception. Interception resolves
 at the end of Movement, before the zone's normal battle.
 
+A crown holding **Privateering Companies** multiplies its intercepting score by
+`1.25` before the clamp, on both movement interception and trade raids; the
+target's own charter never helps the interceptor. The fleet dossier names the
+bonus for a squadron at sea.
+
 ## Retreat
 
 ```text
@@ -65,7 +70,7 @@ Only hostile Patrol/Blockade squadrons in a sea zone bordering the victim's
 coast raid. The cargo at risk is this turn's world-market imports; losses come
 out of the stockpile before the ledger closes. Escorts are the home fleet's
 warship HULL; cargo is its merchant HULL. Deferred: civilian/home-fleet hull
-losses, privateering bonus, and AI victim economies.
+losses and AI victim economies.
 
 ## Architecture
 
