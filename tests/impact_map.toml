@@ -66,6 +66,15 @@ suites = [
   "test_trade_cargo.gd",
 ]
 
+[domains.espionage]
+suites = [
+  "test_spy_networks.gd",
+  "test_visibility.gd",
+  "test_research_turn.gd",
+  "test_civilian_field_rules.gd",
+  "test_map_screen.gd",
+]
+
 [domains.fleet]
 suites = [
   "test_fleet_missions.gd",
@@ -297,6 +306,10 @@ match = "scripts/map/map_play_improvements.gd"
 domain = "economy"
 
 [[rules]]
+match = "scripts/map/map_play_espionage.gd"
+domain = "espionage"
+
+[[rules]]
 match = "scripts/map/map_play_warp.gd"
 domain = "map"
 
@@ -391,6 +404,10 @@ domain = "research"
 [[rules]]
 match = "scripts/rules/call_to_arms.gd"
 domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/spy_*.gd"
+domain = "espionage"
 
 [[rules]]
 match = "scripts/rules/campaign_*.gd"

@@ -50,6 +50,43 @@ func test_low_funding_earns_one_hundred_points() -> void:
 	assert_false(_state.is_unlocked("land_enclosure"))
 
 
+func test_a_spy_network_lifts_a_funded_slot_by_fifteen_percent() -> void:
+	assert_true(bool(_state.assign("land_enclosure", "low")["ok"]))
+	var report: Dictionary = ResearchTurn.resolve(
+		_state, _economy, {"land_enclosure": SpyNetworks.BOOST_PERCENT}
+	)
+	assert_eq(_state.progress_of("land_enclosure"), 115)
+	assert_eq(int((report["slots"] as Array)[0]["boost"]), 15)
+	assert_eq((report["boosted"] as Array).size(), 1, "the ledger names the study")
+
+
+func test_spies_do_not_lift_an_unfunded_slot() -> void:
+	assert_true(bool(_state.assign("land_enclosure", "none")["ok"]))
+	var report: Dictionary = ResearchTurn.resolve(
+		_state, _economy, {"land_enclosure": SpyNetworks.BOOST_PERCENT}
+	)
+	assert_eq(_state.progress_of("land_enclosure"), 0)
+	assert_eq(int((report["slots"] as Array)[0]["boost"]), 0)
+	assert_eq((report["boosted"] as Array).size(), 0)
+
+
+func test_a_spy_network_only_lifts_the_techs_it_covers() -> void:
+	assert_true(bool(_state.assign("land_enclosure", "low")["ok"]))
+	ResearchTurn.resolve(_state, _economy, {"saw_mill": SpyNetworks.BOOST_PERCENT})
+	assert_eq(_state.progress_of("land_enclosure"), 100, "no share for an uncovered tech")
+
+
+func test_the_spy_share_adds_to_industrial_funding_before_rounding() -> void:
+	_state.unlock("industrial_funding_of_research")
+	_state.unlock("land_enclosure")
+	assert_true(bool(_state.assign("organised_regiments", "medium")["ok"]))
+	ResearchTurn.resolve(_state, _economy, {"organised_regiments": 15})
+	assert_eq(_state.progress_of("organised_regiments"), 405, "300 × 1.35")
+	assert_eq(
+		ResearchTurn.points_for(_state, "organised_regiments", "medium", 15), 405
+	)
+
+
 func test_industrial_funding_boosts_military_techs() -> void:
 	_state.unlock("industrial_funding_of_research")
 	_state.unlock("land_enclosure")

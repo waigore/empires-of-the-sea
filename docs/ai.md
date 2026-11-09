@@ -57,7 +57,7 @@ P5 unbookkept rivals.
 
 ## Deferred (REQ-P2-02)
 
-- Intervention, call-to-arms, boycotts and spy actions.
+- Intervention, call-to-arms, boycotts, rival spies and counter-spy.
 - Rival fog exploration.
 - Dossier evidence and dialogue.
 

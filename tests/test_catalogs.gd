@@ -345,13 +345,12 @@ func test_training_costs_match_the_wiki() -> void:
 		assert_eq(CivilianCatalog.paper_cost(type_id), 4, type_id)
 
 
-func test_the_playable_roster_includes_the_rail_builder_and_merchant() -> void:
+func test_the_playable_roster_includes_the_spy_merchant_and_rail_builder() -> void:
 	assert_eq(
 		CivilianCatalog.playable_types(),
-		["explorer", "engineer", "builder", "merchant", "rail_builder"]
+		["explorer", "engineer", "builder", "spy", "merchant", "rail_builder"]
 	)
-	assert_false(CivilianCatalog.is_implemented("spy"), "Spy")
-	assert_true(CivilianCatalog.deferred_reason("spy") != "", "Spy")
+	assert_true(CivilianCatalog.is_implemented("spy"), "Spy")
 	for type_id: String in CivilianCatalog.playable_types():
 		assert_true(CivilianCatalog.is_implemented(type_id), type_id)
 		assert_eq(CivilianCatalog.deferred_reason(type_id), "")
@@ -370,7 +369,7 @@ func test_work_lists_match_the_wiki_table() -> void:
 	assert_eq(CivilianCatalog.works("explorer"), ["explore", "prospect"])
 	assert_eq(CivilianCatalog.works("builder"), ["build_improvement", "upgrade_town"])
 	assert_eq(CivilianCatalog.works("engineer"), ["build_road", "build_port", "build_fort"])
-	assert_eq(CivilianCatalog.works("spy"), ["counter_spy"])
+	assert_eq(CivilianCatalog.works("spy"), [], "passive tradecraft only")
 	assert_eq(CivilianCatalog.works("merchant"), ["purchase_land"])
 	assert_eq(CivilianCatalog.works("rail_builder"), ["build_rail"])
 

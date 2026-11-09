@@ -187,6 +187,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		AiTurnLog.apply_feeding(play, economy_report)
 	else:
 		play.refresh_research()
+		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 		play.income = play.economy.projected_income()

@@ -7,12 +7,15 @@ const ROW_HEIGHT: float = 40.0
 const NAME_WIDTH: float = 210.0
 
 
-## One occupied slot: tech, progress, funding cycle and cancel.
+## One occupied slot: tech, progress, funding cycle and cancel. A spy network
+## covering the tech adds a gold percent badge before the funding button so the
+## faster study reads at a glance (DR-20261110-03).
 static func slot(
 	state: ResearchState,
 	index: int,
 	on_cancel: Callable,
-	on_funding: Callable
+	on_funding: Callable,
+	boost_percent: int = 0
 ) -> Control:
 	var tech_id: String = state.tech_at(index)
 	if tech_id.is_empty():
@@ -32,6 +35,16 @@ static func slot(
 	progress.custom_minimum_size = Vector2(96, 0)
 	progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(progress)
+
+	if boost_percent > 0:
+		var spies := _label("+%d%%" % boost_percent, 12, Palette.GOLD)
+		spies.custom_minimum_size = Vector2(42, 0)
+		spies.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		spies.tooltip_text = (
+			"Spy network: +%d%% research points from the rival courts it shadows"
+			% boost_percent
+		)
+		row.add_child(spies)
 
 	var funding := _button(ResearchFunding.label(state.funding_at(index)))
 	funding.custom_minimum_size = Vector2(104, ROW_HEIGHT)

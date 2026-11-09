@@ -72,7 +72,7 @@ score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayTurn`.
 
 ## Known limits
 
-AI research, spy actions and rival fog exploration are deferred.
+Rival fog exploration, counter-spy and court reports are deferred.
 
 ## Tests
 
