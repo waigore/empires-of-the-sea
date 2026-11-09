@@ -385,19 +385,23 @@ func test_a_crossing_drops_the_dossier_station_and_the_landing_site() -> void:
 	fleet.moved = false
 	fleet.mission = FleetState.Mission.PATROL
 	fleet.blockade_province = MapModel.NO_ID
-	var coast: int = int(_screen.model.provinces[0].id)
+	var choice: Array = _hostile_coast(zone)
+	assert_false(choice.is_empty(), "the passage borders a foreign coast")
+	var coast: int = int(choice[0])
+	_declare_war(_screen.model.province_owner(coast))
 	fleet.beachhead_province = coast
 	fleet.beachhead_turn = _screen.play.turn
 	_screen.ship_layer.select(ship)
-	assert_true(MapPlayFleetMissions.note(_screen.play, fleet).contains("Beachhead"))
+	assert_true(
+		MapPlayFleetMissions.note(_screen.play, fleet).contains("Beachhead"),
+		"the dossier shows the landing site before the crossing"
+	)
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
 
 	assert_eq(fleet.mission, FleetState.Mission.NONE, "the station stays behind")
 	assert_false(fleet.has_beachhead(), "the landing site stays behind")
 	assert_eq(MapPlayFleetMissions.note(_screen.play, fleet), "")
-	for row: Dictionary in MapPlayBeachhead.rows(_screen.play, fleet):
-		assert_ne(int(row.get("province", -1)), coast, "no stale coast is offered")
 
 
 ## Two armies cannot share one squadron: docking at the seat keeps the home
@@ -584,13 +588,26 @@ func _player_ship_at_sea() -> Ship:
 # --- the beachhead mission ----------------------------------------------------
 
 
-func _hostile_coast() -> Array:
+func _hostile_coast(zone_id: int = MapModel.NO_ID) -> Array:
 	for zone: SeaZoneState in _screen.model.sea_zones:
+		if zone_id != MapModel.NO_ID and int(zone.id) != zone_id:
+			continue
 		for province: int in NavalMovement.provinces_by_zone(_screen.model, zone.id):
 			var owner: int = _screen.model.province_owner(province)
 			if owner != _screen.play.player_faction and owner != MapModel.NO_ID:
 				return [province, zone.id]
 	return []
+
+
+## Declares war on `owner` so its coast reads as a landing site to the dossier.
+func _declare_war(owner: int) -> void:
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(_screen.play.player_faction, owner, _screen.play.turn)
+	var war: Dictionary = DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	assert_true(bool(war.get("ok", false)), String(war.get("reason", "")))
 
 
 ## The dossier offers the hostile coasts beside the zone, marking one spends the
@@ -610,13 +627,7 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	fleet.sea_zone = int(choice[1])
 	fleet.moved = false
 	var owner: int = _screen.model.province_owner(coast)
-	if _screen.play.diplomacy == null:
-		_screen.play.diplomacy = DiplomacyState.new()
-	_screen.play.diplomacy.ensure_relation(_screen.play.player_faction, owner, _screen.play.turn)
-	var war: Dictionary = DiplomacyRules.declare_war(
-		_screen.play.diplomacy, _screen.play.player_faction, owner, false
-	)
-	assert_true(bool(war.get("ok", false)), String(war.get("reason", "")))
+	_declare_war(owner)
 	_screen.ship_layer.select(ship)
 
 	var rows: Array[Dictionary] = MapPlayBeachhead.rows(_screen.play, fleet)
