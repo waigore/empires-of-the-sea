@@ -170,6 +170,9 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	if works.is_prospected(unit.owner, model, unit.tile):
 		development.append("Prospected")
 	_add_row("Works", " · ".join(development) if not development.is_empty() else "—")
+	var province_data: ProvinceState = model.province_data(province)
+	if province_data != null and province_data.is_town_tile(unit.tile):
+		_add_row("Town", "Level %d / 4" % province_data.town_level())
 
 
 func _status_text(_model: MapModel, unit: CivilianState) -> String:

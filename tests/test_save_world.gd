@@ -12,6 +12,7 @@ func test_round_trip_applies_owners_resources_and_array_tiles() -> void:
 	province["owner"] = 3
 	province["capital"] = true
 	province["town_development"] = 2
+	province["town_tile"] = [2, 1]
 	province["fort_level"] = FortRules.MAX_LEVEL + 4
 	province["resource"] = 7
 	province["resource_tile"] = [1, 0]
@@ -31,6 +32,7 @@ func test_round_trip_applies_owners_resources_and_array_tiles() -> void:
 	assert_eq(model.provinces[0].owner, 3)
 	assert_true(model.provinces[0].capital)
 	assert_eq(model.provinces[0].town_development, 2)
+	assert_eq(model.provinces[0].town_tile, Vector2i(2, 1))
 	assert_eq(model.provinces[0].fort_level, FortRules.MAX_LEVEL)
 	assert_eq(model.provinces[0].resource, 7)
 	assert_eq(model.provinces[0].resource_tile, Vector2i(1, 0))
