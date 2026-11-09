@@ -125,7 +125,7 @@ static func build(hud: GameHud) -> void:
 	hud.chips.append(fleets["root"])
 	row.add_child(fleets["root"])
 
-	var civilians := _chip("compass", "CIVILIANS")
+	var civilians := _civilian_chip(hud)
 	hud._civilian_label = civilians["value"]
 	hud.chips.append(civilians["root"])
 	row.add_child(civilians["root"])
@@ -162,7 +162,38 @@ static func _chip(icon_kind: String, caption: String) -> Dictionary:
 	value.add_theme_font_size_override("font_size", 17)
 	value.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(value)
-	return {"root": row, "value": value}
+	return {"root": row, "value": value, "caption": cap}
+
+
+## The civilian chip is also the roster's front door: the whole chip is a
+## button, so the count still reads as a stat while it opens the ledger
+## (REQ-P5-01: empire action on the main surface, not buried in a dossier).
+static func _civilian_chip(hud: GameHud) -> Dictionary:
+	var chip := _chip("compass", "CIVILIANS")
+	(chip["caption"] as Label).text = "CREW ›"
+	var row: HBoxContainer = chip["root"]
+	row.custom_minimum_size = Vector2(68, 0)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var button := Button.new()
+	button.flat = true
+	button.custom_minimum_size = Vector2(78, 40)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.tooltip_text = "Every civilian in the realm (C)"
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.pressed.connect(func() -> void: hud.civilian_roster_pressed.emit())
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 4.0
+	row.offset_right = -4.0
+	button.add_child(row)
+	# The wrapper keeps the chip out of the ledger-door button set while the
+	# inner button stays the full tap target.
+	var wrap := Control.new()
+	wrap.custom_minimum_size = Vector2(78, 40)
+	wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wrap.add_child(button)
+	return {"root": wrap, "value": chip["value"]}
 
 
 ## Marks a secondary ledger door whose caption gives way to its medallion on a

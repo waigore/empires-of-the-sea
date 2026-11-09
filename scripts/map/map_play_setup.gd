@@ -20,6 +20,8 @@ static func build_hud(play: PlaySession) -> void:
 	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
 	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	if hud.civilian_roster != null:
+		hud.civilian_roster.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	play.economy.setup(
