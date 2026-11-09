@@ -56,12 +56,12 @@ func test_surf_points_always_face_open_water() -> void:
 
 func test_terrain_symbols_never_cover_province_labels() -> void:
 	var marks: int = 0
-	for glyph: Dictionary in _canvas._glyphs:
+	for glyph: Dictionary in _canvas.plan.glyphs:
 		var kind: String = String(glyph["kind"])
 		if kind == "port" or kind == "capital":
 			continue
 		marks += 1
-		assert_false(_canvas._under_label(glyph["position"]))
+		assert_false(_canvas.plan.under_label(glyph["position"]))
 	assert_gt(marks, 0)
 
 
@@ -69,3 +69,23 @@ func test_capital_star_has_ten_points() -> void:
 	var star: PackedVector2Array = MapGlyphs.star_points(Vector2.ZERO, 10.0, 5, 0.45)
 	assert_eq(star.size(), 10)
 	assert_almost_eq(star[0].distance_to(Vector2.ZERO), 10.0, 0.001)
+
+
+## Placement stays pure: the plan can be built headless, and every province
+## with enough land carries its name at the province centre.
+func test_plan_places_names_without_a_node() -> void:
+	var region: MapModel = Fixture.region()
+	var plan := MapCanvasPlan.new()
+	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var named: Dictionary = {}
+	for label: Dictionary in plan.labels:
+		if String(label["kind"]) == "province":
+			named[String(label["text"])] = label
+	var expected: int = 0
+	for province: ProvinceState in region.provinces:
+		if province.area < 26:
+			continue
+		expected += 1
+		assert_true(named.has(province.name))
+	assert_gt(expected, 0)
+	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
