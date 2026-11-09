@@ -46,7 +46,7 @@ godot --headless --path . --script res://tools/e2e_smoke.gd
 # Free-playtest drive (opt-in, not a CI gate): New World exploration loop —
 # boards an Explorer, takes the Passage, lands, charts and prospects, printing
 # one line per step.
-godot --headless --path . --script res://tools/playtest_new_world.gd
+godot --headless --path . --script res://tests/playtest_new_world.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

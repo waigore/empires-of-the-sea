@@ -4,7 +4,7 @@ extends SceneTree
 ## capital, takes the Passage, lands on uncharted coast, charters a province and
 ## prospects a mineral tile. Prints one line per step, so a run reads as a
 ## playtest diary. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tools/playtest_new_world.gd
+##   godot --headless --path . --script res://tests/playtest_new_world.gd
 ##
 ## The fleet is staged in the Passage zone before crossing (a scenario seat, the
 ## same one rules tests use) so the loop is reachable in one run; everything

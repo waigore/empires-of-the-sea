@@ -456,6 +456,52 @@ func test_tapping_uncharted_land_explains_the_refusal() -> void:
 	)
 
 
+## The map's march order uses the same chart gate as the rules: tapping an
+## uncharted province is refused with a reason and the unit stays put.
+func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
+	var pair: Array[Vector2i] = _province_border_tiles(_screen.model)
+	assert_eq(pair.size(), 2, "the map has two provinces sharing an edge")
+	var explorer: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.play.player_faction, "explorer", pair[0]
+	)
+	var hidden: int = _screen.model.province_at(pair[1].x, pair[1].y)
+	for tile: Vector2i in _screen.model.province_tiles(hidden):
+		_screen.visibility.lower_to(
+			_screen.model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN
+		)
+	_screen.civilian_layer.select(explorer)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	var claimed: bool = MapPlayCivilians.try_move(
+		_screen.play, MapGeo.tile_center(pair[1].x, pair[1].y, MapScreen.TILE_SIZE)
+	)
+
+	assert_true(claimed, "the tap is a march order, not a dossier tap")
+	assert_eq(explorer.tile, pair[0], "the Explorer stays on charted land")
+	assert_eq(
+		_screen.hud._toast_box.get_child_count(),
+		toasts_before + 1,
+		"the refusal is reported"
+	)
+
+
+## First orthogonal land pair that straddles two provinces.
+func _province_border_tiles(model: MapModel) -> Array[Vector2i]:
+	for y in model.height:
+		for x in model.width:
+			if not model.is_land(x, y):
+				continue
+			for offset: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var nx: int = x + offset.x
+				var ny: int = y + offset.y
+				if not model.in_bounds(nx, ny) or not model.is_land(nx, ny):
+					continue
+				if model.province_at(x, y) == model.province_at(nx, ny):
+					continue
+				return [Vector2i(x, y), Vector2i(nx, ny)] as Array[Vector2i]
+	return []
+
+
 ## A New World sea zone no player fleet is watching and no owned coast fronts.
 func _quiet_zone(model: MapModel, visibility: VisibilityModel) -> int:
 	for zone: SeaZoneState in model.sea_zones:
