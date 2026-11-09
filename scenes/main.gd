@@ -59,7 +59,7 @@ func _show_setup() -> void:
 	_clear_page()
 	var setup: GameSetupScreen = GAME_SETUP.instantiate()
 	setup.start_requested.connect(_start_new_game)
-	setup.back_pressed.connect(func() -> void: _show_main_menu())
+	setup.back_pressed.connect(_back_to_menu)
 	add_child(setup)
 	current_page = setup
 
@@ -68,10 +68,18 @@ func _show_main_load() -> void:
 	_clear_page()
 	var browser: SaveBrowser = SAVE_BROWSER.instantiate()
 	browser.slot_chosen.connect(_load_save)
-	browser.back_pressed.connect(func() -> void: _show_main_menu())
+	browser.back_pressed.connect(_back_to_menu)
 	add_child(browser)
 	browser.setup(SaveBrowser.Mode.LOAD)
 	current_page = browser
+
+
+## Android delivers the back request to every node in the tree, so a page that
+## swaps itself out synchronously hands the same event to the page it just
+## installed — the freshly built title screen would then quit the app. Swap on
+## the next idle frame instead (REQ-P5-01, REQ-P5-07).
+func _back_to_menu() -> void:
+	_show_main_menu.call_deferred()
 
 
 # --- games -------------------------------------------------------------------

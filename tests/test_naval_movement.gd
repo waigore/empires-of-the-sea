@@ -520,7 +520,7 @@ func test_a_live_squadron_keeps_its_army() -> void:
 	NavalTransport.embark(_model, army, fleet)
 	var layer: ArmyLayer = _transport_layer(army)
 	var live: Dictionary = {}
-	live[fleet.id] = true
+	live[army.id] = fleet.id
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(layer, live)
 	assert_eq(lost.size(), 0)
 	assert_eq(layer.armies.size(), 1)

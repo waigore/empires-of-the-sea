@@ -59,7 +59,6 @@ var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or
 ## defensive (wiki: quick-battle § Turn structure and actions).
 var battle_plan: String = "balanced"
-var prestige: int = 38
 var income: int = 120
 var selected_province: int = -1
 var capital_province: int = -1
@@ -77,6 +76,8 @@ var civilian_layer: CivilianLayer = null
 var army_layer: ArmyLayer = null
 var canvas: MapCanvas = null
 var overlay: MapOverlay = null
+## Resource survey lens: a view, never a rules source (REQ-P3-03).
+var lens: ResourceLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -116,7 +117,8 @@ func bind_views(
 	p_overlay: MapOverlay,
 	p_camera: MapCamera,
 	p_hud: GameHud,
-	p_improvements: ImprovementPanel
+	p_improvements: ImprovementPanel,
+	p_lens: ResourceLens = null
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
@@ -126,6 +128,7 @@ func bind_views(
 	camera = p_camera
 	hud = p_hud
 	improvements = p_improvements
+	lens = p_lens
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

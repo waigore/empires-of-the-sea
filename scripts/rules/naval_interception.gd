@@ -1,0 +1,148 @@
+class_name NavalInterception
+extends RefCounted
+## Patrol and blockade interception (wiki: ships-and-naval § Naval Interception
+## Probability and § Missions and Movement). Pure rules and a deterministic
+## roll keyed by seed, turn, zone and owners so identical inputs reproduce
+## (REQ-P2-04, REQ-P3-03).
+
+const MIN_CHANCE: float = 0.05
+const MAX_CHANCE: float = 0.85
+
+
+## clamp(missionFactor × Σintercept / (Σintercept + Σflee), 0.05, 0.85).
+static func chance(interceptors: Array, targets: Array, mission: int) -> float:
+	if interceptors.is_empty() or targets.is_empty():
+		return 0.0
+	var intercept: float = FleetMissions.intercept_score(interceptors)
+	var flee: float = FleetMissions.flee_score(targets)
+	var total: float = intercept + flee
+	if total <= 0.0:
+		return MIN_CHANCE
+	var factor: float = (
+		FleetMissions.BLOCKADE_FACTOR
+		if mission == FleetState.Mission.BLOCKADE
+		else FleetMissions.PATROL_FACTOR
+	)
+	return clampf(factor * intercept / total, MIN_CHANCE, MAX_CHANCE)
+
+
+## Stable 0..1 roll: the same seed, turn, zone and owners always roll alike.
+static func roll(
+	seed_value: int, turn: int, zone: int, first_owner: int, second_owner: int
+) -> float:
+	var key: int = (
+		seed_value * 73856093
+		+ turn * 19349663
+		+ zone * 83492791
+		+ first_owner * 2654435761
+		+ second_owner * 40503
+	)
+	return float(posmod(key, 10000)) / 10000.0
+
+
+## One interception attempt. A negative `roll_value` uses the stable roll.
+static func attempt(
+	zone: int,
+	interceptors: Array,
+	targets: Array,
+	mission: int,
+	seed_value: int = 0,
+	turn: int = 0,
+	roll_value: float = -1.0
+) -> Dictionary:
+	if interceptors.is_empty() or targets.is_empty():
+		return {"ok": false, "chance": 0.0, "roll": 1.0, "mission": mission}
+	var found: float = chance(interceptors, targets, mission)
+	var rolled: float = roll_value
+	if rolled < 0.0:
+		rolled = roll(
+			seed_value, turn, zone,
+			_owner(interceptors), _owner(targets)
+		)
+	return {
+		"ok": rolled < found,
+		"chance": found,
+		"roll": rolled,
+		"mission": mission,
+	}
+
+
+## Initiative for a contested zone: a patrol or blockade that intercepts an
+## enemy becomes the attacker (wiki: ships-and-naval § Acceptance Criteria).
+static func attacker_owner(
+	zone: int,
+	sides: Dictionary,
+	hostile: Callable = Callable(),
+	context: Dictionary = {}
+) -> Dictionary:
+	var owners: Array[int] = []
+	for raw: Variant in sides.keys():
+		owners.append(int(raw))
+	owners.sort()
+	if owners.is_empty():
+		return {"owner": MapModel.NO_ID, "intercepted": false, "chance": 0.0}
+	var model: MapModel = context.get("model") as MapModel
+	var seed_value: int = int(context.get("seed", 0))
+	var turn: int = int(context.get("turn", 0))
+	var forced: float = float(context.get("interception_roll", -1.0))
+	var patrols: Array[Dictionary] = []
+	for owner: int in owners:
+		var group: Array = sides[owner] as Array
+		var mission: int = FleetMissions.station_mission(model, group, hostile)
+		if mission == FleetState.Mission.NONE:
+			continue
+		var targets: Array = []
+		for other: int in owners:
+			if other == owner or not _hostile(hostile, owner, other):
+				continue
+			for fleet: FleetState in sides[other] as Array:
+				if fleet.is_at_sea() and fleet.is_afloat():
+					targets.append(fleet)
+		if targets.is_empty():
+			continue
+		var found: Dictionary = attempt(
+			zone, group, targets, mission, seed_value, turn, forced
+		)
+		if bool(found.get("ok", false)):
+			return {
+				"owner": owner,
+				"intercepted": true,
+				"chance": float(found["chance"]),
+				"mission": mission,
+			}
+		patrols.append({"owner": owner, "chance": float(found["chance"])})
+	# No interception: the squadron that entered the zone attacks, else the
+	# lowest owner id takes the initiative.
+	var movers: Array[int] = []
+	for owner: int in owners:
+		for fleet: FleetState in sides[owner] as Array:
+			if fleet.moved and not FleetMissions.is_stationary(fleet.mission):
+				movers.append(owner)
+				break
+	movers.sort()
+	var attacker: int = owners[0]
+	if not movers.is_empty():
+		attacker = movers[0]
+	var best_chance: float = 0.0
+	for row: Dictionary in patrols:
+		best_chance = maxf(best_chance, float(row["chance"]))
+	return {
+		"owner": attacker,
+		"intercepted": false,
+		"chance": best_chance,
+		"mission": FleetState.Mission.NONE,
+	}
+
+
+static func _owner(group: Array) -> int:
+	for fleet: FleetState in group:
+		return fleet.owner
+	return 0
+
+
+static func _hostile(hostile: Callable, a: int, b: int) -> bool:
+	if a == b:
+		return false
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(a, b))

@@ -88,13 +88,6 @@ var turn: int:
 		if play != null:
 			play.turn = value
 
-var prestige: int:
-	get:
-		return play.prestige if play != null else 0
-	set(value):
-		if play != null:
-			play.prestige = value
-
 var income: int:
 	get:
 		return play.income if play != null else 0
@@ -153,7 +146,8 @@ func _ready() -> void:
 	play.bind_host(self)
 	play.observer_mode = observer_mode
 	play.bind_views(
-		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
+		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
+		$World/ResourceLens
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
@@ -204,6 +198,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.FOCUS_CAPITAL):
 		MapPlayTurn.focus_capital(play)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.LENS):
+		MapPlayInput.toggle_lens(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.CANCEL):
 		MapPlayInput.deselect(play)
@@ -262,6 +259,7 @@ func load_region(index: int) -> void:
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
+	MapPlaySetup.build_lens(play)
 	MapPlaySetup.refresh_region_hud(play, map_size)
 
 
@@ -279,21 +277,16 @@ func _cycle_region() -> void:
 
 
 func _connect() -> void:
-	camera.tapped.connect(func(world_position: Vector2) -> void:
-		MapPlayInput.on_tapped(play, world_position)
-	)
-	camera.view_changed.connect(func() -> void:
-		MapPlayInput.on_view_changed(play)
-	)
-	hud.end_turn_pressed.connect(func() -> void:
-		MapPlayTurn.end_turn(play)
-	)
+	camera.tapped.connect(func(p: Vector2) -> void: MapPlayInput.on_tapped(play, p))
+	camera.view_changed.connect(func() -> void: MapPlayInput.on_view_changed(play))
+	hud.end_turn_pressed.connect(func() -> void: MapPlayTurn.end_turn(play))
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(func(world_position: Vector2) -> void:
-		MapPlayInput.on_minimap_jump(play, world_position)
+	hud.minimap_jump.connect(
+		func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlayTurn.focus_capital(play)
 	)
@@ -306,9 +299,7 @@ func _connect() -> void:
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)
-	hud.panel_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
+	hud.panel_closed.connect(func() -> void: MapPlayInput.deselect(play))
 	ship_layer.zone_entered.connect(func(zone_id: int, ship: Ship) -> void:
 		MapPlayFleets.on_zone_entered(play, zone_id, ship)
 	)
@@ -395,6 +386,8 @@ func refresh_political_map() -> void:
 		return
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
+	if play.lens != null:
+		play.lens.refresh()
 	if play.visibility != null:
 		overlay.sync_visibility(play.visibility)
 	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))

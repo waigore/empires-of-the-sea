@@ -27,3 +27,11 @@ Never put long campaign playtests into CI smoke (≤2 min). Prefer `tests/` regr
 - Recent PRs that touched `scripts/rules/**` or map play: hunt regressions first.
 - Domains with lots of wiki text but thin tests: high latent-bug yield.
 - If playtest finds only missing features, stop that domain; do not implement them here.
+- **Compare the player's path with the AI adapter** for any newly shipped rule
+  (e.g. `EconomyController` vs `MapPlayEconomyAi._extraction`). When an adapter keeps
+  its own copy of the rule — per-region extraction, cargo, upkeep — it silently
+  bypasses the new limit, so the human pays and the rival does not (`REQ-P2-03`).
+- **Play one turn past the action, not just the action.** Renumbering and merge
+  paths (a warp crossing, docking into the home fleet) rotate ids; unit
+  back-pointers (`embarked_fleet`) drift and the *end-of-turn* pass then drops the
+  unit. A scenario that ends the turn is what surfaces it.

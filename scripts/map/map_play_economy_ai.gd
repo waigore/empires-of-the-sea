@@ -175,27 +175,35 @@ static func _train(
 # --- economy -----------------------------------------------------------------
 
 
-## One extraction total across every region this crown holds, on the same
-## formula and tech caps the player's ledger uses.
+## One extraction total for this crown: its home region's yield lands directly,
+## every other region's tonnage crosses on the crown's home holds (wiki:
+## extraction-and-improvements § Flow to Stockpile; DR-20261109-17). A rival
+## ships like the player — no colonial ton arrives without a hold.
 static func _extraction(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> Dictionary:
-	var totals: Dictionary = {}
-	for region in play.world.region_count():
-		var model: MapModel = play.world.region(region)
-		var works: LandWorks = play.civilian_layer.works_regions.value(region, null)
-		if model == null or works == null:
-			continue
-		var capital: Dictionary = _capital(model, faction)
-		var yielded: Dictionary = Extraction.yields(
-			model, faction, int(capital["province"]),
-			TechCatalog.extraction_caps(economy.tech_unlocked), works, capital["tile"],
-			economy.tech_unlocked
+	var works_by_region: MapRegionTable = play.civilian_layer.works_regions
+	var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
+	var home_region: int = FactionCatalog.region_of(faction)
+	if home_region < 0:
+		home_region = WorldMap.OLD_WORLD
+	var home: Dictionary = {}
+	var home_model: MapModel = play.world.region(home_region)
+	if home_model != null and works_by_region.value(home_region, null) != null:
+		var works: LandWorks = works_by_region.value(home_region, null)
+		var capital: Dictionary = _capital(home_model, faction)
+		home = Extraction.yields(
+			home_model, faction, int(capital["province"]), tech_caps, works,
+			capital["tile"], economy.tech_unlocked
 		)
-		for commodity: Variant in yielded.keys():
-			var id: String = String(commodity)
-			totals[id] = int(totals.get(id, 0)) + int(yielded[commodity])
-	return totals
+	var holds: int = 0
+	if play.ship_layer != null:
+		holds = TradeCargo.capacity(
+			play.world, play.ship_layer.regions.snapshot(), faction
+		)
+	return EconomyOverseas.delivered(
+		home, play.world, home_region, faction, tech_caps, works_by_region, holds
+	)["extraction"] as Dictionary
 
 
 static func _market(play: PlaySession) -> WorldMarket:

@@ -34,6 +34,29 @@ func test_land_shadow_sits_under_the_wash() -> void:
 	assert_lt(_canvas.get_children().find(shade), _canvas.get_children().find(_canvas.get_node("Wash")))
 
 
+## Ownership has to read by fill, not only by the border ribbon: the wash moves
+## each owned tile toward its crown's heraldic colour.
+func test_owned_land_is_washed_toward_its_crown() -> void:
+	var wash: Sprite2D = _canvas.get_node("Wash")
+	var image: Image = wash.texture.get_image()
+	var model: MapModel = _canvas.model
+	var province: ProvinceState = null
+	for candidate: ProvinceState in model.provinces:
+		if candidate.owner != FactionCatalog.PLAYER_FACTION:
+			continue
+		province = candidate
+		break
+	assert_not_null(province)
+	var tile: Vector2i = province.tiles[0]
+	var pixel: Color = image.get_pixel(tile.x, tile.y)
+	var terrain: Color = Palette.terrain_color(model.terrain_at(tile.x, tile.y))
+	var crown: Color = FactionCatalog.color_of(model.owner_at(tile.x, tile.y))
+	assert_true(MapWash.OWNER_TINT >= 0.5, "ownership stays readable at play zoom")
+	assert_almost_eq(pixel.r, lerpf(terrain.r, crown.r, MapWash.OWNER_TINT), 0.01)
+	assert_almost_eq(pixel.g, lerpf(terrain.g, crown.g, MapWash.OWNER_TINT), 0.01)
+	assert_almost_eq(pixel.b, lerpf(terrain.b, crown.b, MapWash.OWNER_TINT), 0.01)
+
+
 func test_animated_layers_exist() -> void:
 	var surf: MapSurf = _canvas.get_node_or_null("Surf")
 	assert_not_null(surf)

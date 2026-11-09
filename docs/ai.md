@@ -29,8 +29,9 @@ P5 unbookkept rivals.
   storm an adjacent hostile one (10% margin after wall soak), or stage on the
   nearest frontier via `ArmyMovement`.
 - **Naval planner** (`AiNavalPlanner`): at war sortie or pursue one zone onto
-  the weakest matchable squadron (120% margin); at peace hold station, via
-  `NavalMovement`; a charted zone earns one sighting line, never fog.
+  the weakest matchable squadron (120% margin); otherwise blockade a hostile
+  coast beside its zone or hold, via `NavalMovement`; a charted zone earns one
+  sighting line, never fog.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
   attack; an invader on home soil draws a relief column from the Home Army
   (one regiment keeps the seat) to that province, the seat first, own land only.
@@ -51,9 +52,8 @@ P5 unbookkept rivals.
 
 ## Full-AI observer (debug)
 
-Title screen `AI OBSERVER (DEBUG)` and `tools/ai_vs_ai.gd` pit every Great Power
-against the others on the new-game defaults; see [`ai-observer.md`](ai-observer.md)
-for the entry points, metrics and trace export.
+`AI OBSERVER (DEBUG)` and `tools/ai_vs_ai.gd` run every Great Power vs the others;
+see [`ai-observer.md`](ai-observer.md).
 
 ## Deferred (REQ-P2-02)
 
