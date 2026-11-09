@@ -17,15 +17,22 @@ var levels: PackedByteArray = PackedByteArray()
 var province_sea_zones: Dictionary = {}
 ## Sea zone -> provinces sharing a P–S edge.
 var sea_zone_provinces: Dictionary = {}
+## Bumped whenever a tile changes level; baked views (the minimap) watch it.
+var revision: int = 0
 
 
-## Allocates the Old World baseline: fogged everywhere, no reveal applied yet.
+## Allocates the region baseline: the Old World starts fogged, the New World
+## unknown, and no reveal applied yet (wiki: fog-and-exploration § Initial
+## Visibility; Configurable Values).
 func setup(p_model: MapModel, p_player_id: int) -> void:
 	model = p_model
 	player_id = p_player_id
 	var count: int = model.width * model.height
 	levels.resize(count)
-	levels.fill(Level.FOGGED)
+	var initial: int = (
+		Level.FOGGED if model.region_id == FactionCatalog.OLD_WORLD else Level.UNKNOWN
+	)
+	levels.fill(initial)
 	_build_coast_links()
 
 
@@ -48,6 +55,7 @@ func raise_to(index: int, level: int) -> bool:
 	if levels[index] >= level:
 		return false
 	levels[index] = level
+	revision += 1
 	return true
 
 
@@ -58,6 +66,7 @@ func lower_to(index: int, level: int) -> bool:
 	if levels[index] <= level:
 		return false
 	levels[index] = level
+	revision += 1
 	return true
 
 

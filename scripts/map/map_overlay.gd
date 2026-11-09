@@ -30,11 +30,14 @@ var _zone_outlines: Dictionary = {}
 ## Owner id -> smoothed country-border polylines (drawn above fog so political
 ## geography stays readable in charted but unexplored lands).
 var _country_borders: Dictionary = {}
+## Visibility the cached borders were filtered by; null draws every border.
+var _border_visibility: VisibilityModel = null
 var _ripples: Array[Dictionary] = []
 
 
 func build(p_model: MapModel) -> void:
 	model = p_model
+	_border_visibility = null
 	_build_fog_layer()
 	_build_country_borders()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -90,6 +93,9 @@ func set_fog_rect(rect: Rect2i, state: int) -> void:
 
 func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
 	fog_layer.sync_visibility(visibility, indices)
+	_border_visibility = visibility
+	_build_country_borders()
+	queue_redraw()
 
 
 func snap_fog() -> void:
@@ -216,7 +222,7 @@ func _draw_country_borders() -> void:
 
 func _build_country_borders() -> void:
 	_country_borders.clear()
-	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE)
+	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE, _border_visibility)
 	var owners: Array = raw.keys()
 	owners.sort()
 	for owner: int in owners:

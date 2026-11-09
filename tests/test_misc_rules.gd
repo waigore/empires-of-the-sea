@@ -223,6 +223,17 @@ func test_missing_model_is_safe() -> void:
 	assert_true(CountryBorders.build(null, 1.0).is_empty())
 
 
+func test_unknown_land_draws_no_country_border() -> void:
+	var model: MapModel = _model_with_owners([0, 1, 0])
+	var view := VisibilityModel.new()
+	view.setup(model, 0)
+	var charted: Dictionary = CountryBorders.build(model, 1.0, view)
+	assert_true(charted.has(0), "fogged land still carries its political border")
+	view.levels.fill(VisibilityModel.Level.UNKNOWN)
+	var uncharted: Dictionary = CountryBorders.build(model, 1.0, view)
+	assert_true(uncharted.is_empty(), "unknown land stays off the political map")
+
+
 func _has_edge(segments: Array, a: Vector2, b: Vector2) -> bool:
 	for segment: PackedVector2Array in segments:
 		if segment.size() != 2:
