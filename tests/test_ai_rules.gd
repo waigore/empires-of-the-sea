@@ -6,6 +6,14 @@ extends GdToolsTest
 const AiFixture = preload("res://tests/ai_fixture.gd")
 const NavalFixture = preload("res://tests/naval_fixture.gd")
 
+
+## Collects the sighting lines a rival naval pass emits.
+class StubHud extends GameHud:
+	var toasts: Array[String] = []
+
+	func toast(text: String) -> void:
+		toasts.append(text)
+
 # --- from test_ai_power.gd ---
 ## Power score and relative-power bands (wiki: diplomacy § Great Power power
 ## score, § GP AI policy for war vs. relations).
@@ -634,10 +642,78 @@ func test_naval_caution_knob_is_a_registry_key() -> void:
 	assert_eq(AiParameterRegistry.resolve("naval.caution_margin_pct", {"naval.caution_margin_pct": 1}), 120)
 
 
+## Rounds used to hide this: 10.9 and 10.1 both ceil to 11, so the old rule took
+## the lower zone id and sailed at the stronger squadron (wiki: ai-architecture
+## § Naval policy — "the weakest hostile squadron it can reach").
+func test_ai_naval_picks_the_weakest_of_two_reachable_squadrons() -> void:
+	var model: MapModel = _line_zones()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_fleet_of(0, 2, 1, ["ship_of_the_line", "ship_of_the_line"]),
+		_fleet_of(1, 1, 0, ["galleon", "galleon", "carrack", "clipper"]),
+		_fleet_of(2, 1, 2, ["indiaman", "indiaman", "fluyte", "fluyte"]),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(
+		int(plan["orders"][0]["zone"]),
+		2,
+		"the east squadron is weaker even though its zone id sorts higher"
+	)
+
+
+func test_rival_sail_reports_a_sighting_in_charted_water() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var human: FleetState = _squadron(1, 1, 0, "sloop")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [ai, human]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _war_state(2, 1)
+	var hud := StubHud.new()
+	play.hud = hud
+	play.visibility = VisibilityModel.new()
+	play.visibility.setup(model, play.player_faction)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1)
+	assert_eq(ai.sea_zone, 0, "the rival sails into the human's zone")
+	assert_eq(hud.toasts.size(), 1, "charted (fogged) water earns one sighting line")
+	layer.free()
+
+
 func _squadron(id: int, owner: int, zone: int, type_id: String) -> FleetState:
 	return FleetState.at_sea(
 		id, owner, zone, ["h%d" % id] as Array[String], {"h%d" % id: type_id}
 	)
+
+
+func _fleet_of(id: int, owner: int, zone: int, types: Array) -> FleetState:
+	var hulls: Array[String] = []
+	var hull_types: Dictionary = {}
+	for index in types.size():
+		var hull_id: String = "h%d_%d" % [id, index]
+		hulls.append(hull_id)
+		hull_types[hull_id] = types[index]
+	return FleetState.at_sea(id, owner, zone, hulls, hull_types)
+
+
+## Three sea zones in a row so an at-sea squadron has two reachable targets.
+func _line_zones() -> MapModel:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	for x in 3:
+		model.sea_zone[model.index_of(x, 0)] = x
+	model.sea_zones = [
+		SeaZoneState.create(0, "West", [Vector2i(0, 0)] as Array[Vector2i], Vector2(0.5, 0.5), 1),
+		SeaZoneState.create(1, "Middle", [Vector2i(1, 0)] as Array[Vector2i], Vector2(1.5, 0.5), 1),
+		SeaZoneState.create(2, "East", [Vector2i(2, 0)] as Array[Vector2i], Vector2(2.5, 0.5), 1),
+	]
+	return model
 
 
 func _naval_play(world: WorldMap, model: MapModel, layer: ShipLayer) -> PlaySession:
