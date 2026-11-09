@@ -310,6 +310,7 @@ static func resolve_battles(play: PlaySession) -> void:
 		else:
 			play.canvas.refresh_ownership()
 			play.overlay.refresh_borders()
+			play.hud.refresh_minimap()
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	if play.army_layer.selected_army != null:
