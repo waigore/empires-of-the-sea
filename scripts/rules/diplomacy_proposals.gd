@@ -1,9 +1,10 @@
 class_name DiplomacyProposals
 extends RefCounted
-## Rival proposals that need the human court's answer: an alliance offer or the
-## next overture in the chain (wiki: diplomacy § GP AI policy — the AI never
-## resolves a decision the human must make). Pure rules: state in, answer out;
-## the turn resolver and the court panel share this module (REQ-P3-03).
+## Rival proposals that need the human court's answer: an alliance offer, the
+## next overture in the chain, or a white peace (wiki: diplomacy § GP AI policy
+## — the AI never resolves a decision the human must make). Pure rules: state
+## in, answer out; the turn resolver and the court panel share this module
+## (REQ-P3-03).
 
 const KIND_ALLIANCE: String = "alliance"
 const KIND_OVERTURE: String = "overture"
