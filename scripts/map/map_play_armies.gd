@@ -252,7 +252,10 @@ static func resolve_battles(play: PlaySession) -> void:
 
 ## Reports the capital verdicts of the Combat phase: a survivor's court moves
 ## to its new seat, a crown with nothing left falls and its regiments, squadrons
-## and dealings leave play. Returns true when the map changed.
+## and dealings leave play. The human Great Power's terminal fall is also defeat:
+## the plate mounts and the session seals at the close of Combat
+## (wiki: victory § Great Power defeat, capital-and-connectivity § Great Power
+## fall; DR-20261109-05). Returns true when the map changed.
 static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
@@ -272,6 +275,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			% [FactionCatalog.name_of(faction), FactionCatalog.name_of(conqueror)]
 		)
 		changed = true
+	_record_defeat(play, fallen)
 	var reassigned: Array = losses.get("reassigned", [])
 	for entry: Dictionary in reassigned:
 		var faction: int = int(entry["faction"])
@@ -285,7 +289,20 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		changed = true
 	if changed:
 		sync_player_capital(play)
+	if play.defeat != null:
+		play.hud.show_defeat(play.defeat, play.player_faction)
+		play.emit_campaign_end(null, play.defeat)
 	return changed
+
+
+## The human crown's terminal fall becomes the session's defeat exactly once.
+## AI falls remove that crown and the campaign continues; Minor Nations and
+## Tribes are map cleanup, never a player defeat (wiki: victory § Great Power
+## defeat; DR-20261109-05).
+static func _record_defeat(play: PlaySession, fallen: Array) -> void:
+	if play.defeat != null:
+		return
+	play.defeat = CampaignDefeat.resolve(fallen, play.player_faction, play.turn)
 
 
 ## Keeps the session's capital framing on the player's current seat after a

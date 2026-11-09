@@ -64,9 +64,12 @@ static func refresh_after_load(play: PlaySession) -> void:
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
 		play.turn_suspended = true
 		MapPlayDiplomacy.show_call(play)
-	# A slot saved after the campaign was decided re-mounts the plate and keeps
-	# the end-turn seal shut (wiki: campaign-persistence § Load and resume).
-	if play.victory != null:
+	# A slot saved after the human crown fell re-mounts the defeat plate; the
+	# defeat variant wins over military and calendar endings (wiki: victory
+	# § Victory Screen, campaign-persistence § Load and resume).
+	if play.defeat != null:
+		play.hud.show_defeat(play.defeat, play.player_faction)
+	elif play.victory != null:
 		play.hud.show_victory(
 			play.victory,
 			play.player_faction,

@@ -27,6 +27,7 @@ static func capture(play: PlaySession) -> Dictionary:
 		"diplomacy": _capture_diplomacy(play.diplomacy),
 		"ai": play.ai.to_dict() if play.ai != null else {},
 		"victory": _capture_victory(play.victory),
+		"defeat": SaveDefeat.capture(play.defeat),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
@@ -181,9 +182,9 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
-	# A decided campaign must come back decided, or the load would hand the
-	# player commands and turns the wiki keeps shut (wiki: victory § Persistence).
+	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = _victory_from(data.get("victory", {}))
+	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 
 	var world: WorldMap = MapGenerator.new().generate_world(
 		play.map_seed, play.map_width, play.map_height
