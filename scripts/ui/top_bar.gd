@@ -59,6 +59,8 @@ static func build(hud: GameHud) -> void:
 	region.custom_minimum_size = Vector2(0, 40)
 	region.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	region.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	region.tooltip_text = "Cycle Old World / New World"
+	ChromeIcons.apply(region, "globe", 22)
 	region.pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
 	row.add_child(region)
 	hud._region_button = region
@@ -69,6 +71,7 @@ static func build(hud: GameHud) -> void:
 	focus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	focus.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	focus.tooltip_text = "Focus capital (F)"
+	ChromeIcons.apply(focus, "capitol", 22)
 	focus.pressed.connect(func() -> void: hud.focus_capital_pressed.emit())
 	row.add_child(focus)
 
@@ -80,6 +83,9 @@ static func build(hud: GameHud) -> void:
 	ledger.text = "LEDGER"
 	ledger.custom_minimum_size = Vector2(96, 40)
 	ledger.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	ledger.tooltip_text = "Treasury and production ledger"
+	ChromeIcons.apply(ledger, "ledger", 22)
+	_mark_icon_only_on_compact(ledger)
 	ledger.pressed.connect(func() -> void: hud.economy_pressed.emit())
 	row.add_child(ledger)
 
@@ -87,6 +93,9 @@ static func build(hud: GameHud) -> void:
 	research.text = "RESEARCH"
 	research.custom_minimum_size = Vector2(110, 40)
 	research.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	research.tooltip_text = "Scholars and discoveries"
+	ChromeIcons.apply(research, "research", 22)
+	_mark_icon_only_on_compact(research)
 	research.pressed.connect(func() -> void: hud.research_pressed.emit())
 	row.add_child(research)
 
@@ -95,6 +104,8 @@ static func build(hud: GameHud) -> void:
 	court.tooltip_text = "Diplomacy"
 	court.custom_minimum_size = Vector2(92, 40)
 	court.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
+	ChromeIcons.apply(court, "crown", 22)
+	_mark_icon_only_on_compact(court)
 	court.pressed.connect(func() -> void: hud.diplomacy_pressed.emit())
 	row.add_child(court)
 
@@ -130,9 +141,9 @@ static func build(hud: GameHud) -> void:
 static func _chip(icon_kind: String, caption: String) -> Dictionary:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
-	row.custom_minimum_size = Vector2(88, 0)
+	row.custom_minimum_size = Vector2(78, 0)
 	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(Icon.new(icon_kind, 22, Palette.GOLD))
+	row.add_child(Icon.new(icon_kind, 20, Palette.GOLD))
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", -3)
@@ -146,9 +157,9 @@ static func _chip(icon_kind: String, caption: String) -> Dictionary:
 
 	var value := Label.new()
 	value.text = "0"
-	value.custom_minimum_size = Vector2(44, 0)
+	value.custom_minimum_size = Vector2(40, 0)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.add_theme_font_size_override("font_size", 18)
+	value.add_theme_font_size_override("font_size", 17)
 	value.add_theme_color_override("font_color", Palette.TEXT)
 	column.add_child(value)
 	return {"root": row, "value": value, "caption": cap}
@@ -159,18 +170,35 @@ static func _chip(icon_kind: String, caption: String) -> Dictionary:
 ## (REQ-P5-01: empire action on the main surface, not buried in a dossier).
 static func _civilian_chip(hud: GameHud) -> Dictionary:
 	var chip := _chip("compass", "CIVILIANS")
-	(chip["caption"] as Label).text = "CIVILIANS ›"
+	(chip["caption"] as Label).text = "CREW ›"
 	var row: HBoxContainer = chip["root"]
+	row.custom_minimum_size = Vector2(68, 0)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var button := Button.new()
 	button.flat = true
-	button.custom_minimum_size = Vector2(104, 44)
+	button.custom_minimum_size = Vector2(78, 40)
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.tooltip_text = "Every civilian in the realm (C)"
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	button.pressed.connect(func() -> void: hud.civilian_roster_pressed.emit())
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 6.0
-	row.offset_right = -6.0
+	row.offset_left = 4.0
+	row.offset_right = -4.0
 	button.add_child(row)
-	return {"root": button, "value": chip["value"]}
+	# The wrapper keeps the chip out of the ledger-door button set while the
+	# inner button stays the full tap target.
+	var wrap := Control.new()
+	wrap.custom_minimum_size = Vector2(78, 40)
+	wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	wrap.add_child(button)
+	return {"root": wrap, "value": chip["value"]}
+
+
+## Marks a secondary ledger door whose caption gives way to its medallion on a
+## phone, where the cartouche has no room for six labelled buttons (REQ-P1-05).
+static func _mark_icon_only_on_compact(button: Button) -> void:
+	button.set_meta("compact_icon_only", true)
+	button.set_meta("caption", button.text)
+	button.set_meta("min_width", button.custom_minimum_size.x)

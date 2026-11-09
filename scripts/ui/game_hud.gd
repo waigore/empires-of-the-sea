@@ -192,6 +192,8 @@ func set_campaign_over(over: bool) -> void:
 	campaign_over = over
 	_end_turn_button.disabled = over
 	_end_turn_button.text = "CAMPAIGN ENDED" if over else "END TURN"
+	# Longer caption + seal: drop the pictogram so the plate keeps one line.
+	_end_turn_button.icon = null if over else ChromeIcons.texture("hourglass")
 	_glow.visible = not over
 	if not over:
 		return
@@ -255,8 +257,10 @@ func toast(text: String) -> void:
 	tween.tween_callback(panel.queue_free)
 
 
-func set_minimap(model: MapModel, map_size: Vector2) -> void:
-	_minimap.build(model, map_size)
+func set_minimap(
+	model: MapModel, map_size: Vector2, visibility: VisibilityModel = null
+) -> void:
+	_minimap.build(model, map_size, visibility)
 
 
 func update_view_rect(rect: Rect2) -> void:

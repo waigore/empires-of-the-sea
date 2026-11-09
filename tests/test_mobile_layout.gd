@@ -70,6 +70,7 @@ func test_phone_chrome_fits_the_screen() -> void:
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_true(HudLayout.is_compact(hud.size), "compact at %s" % size)
+		var icon_only: int = 0
 		_fits(hud.top_bar.get_global_rect(), _screen_rect(), "bar %s" % size)
 		for chip: Control in hud.chips:
 			_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip %s" % size)
@@ -79,7 +80,12 @@ func test_phone_chrome_fits_the_screen() -> void:
 			)
 		for node: Node in hud.top_row.get_children():
 			if node is Button:
-				_tappable(node as Button, "bar button %s at %s" % [(node as Button).text, size])
+				var bar_button := node as Button
+				_tappable(bar_button, "bar button %s at %s" % [bar_button.text, size])
+				assert_not_null(bar_button.icon, "bar door keeps its medallion at %s" % size)
+				if bar_button.text.is_empty():
+					icon_only += 1
+		assert_eq(icon_only, 3, "secondary ledgers go icon-only on a phone %s" % size)
 		_fits(hud.minimap_frame.get_global_rect(), _screen_rect(), "minimap %s" % size)
 		_fits(hud.end_turn_wrap.get_global_rect(), _screen_rect(), "end turn %s" % size)
 		_tappable(hud.end_turn_wrap.get_child(1), "end turn %s" % size)
@@ -90,6 +96,29 @@ func test_phone_chrome_fits_the_screen() -> void:
 		var estates: Control = _screen.get_node("HUD/Improvements")
 		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
 		_tappable(estates._toggle, "estates %s" % size)
+		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
+
+
+## Rotating a phone back to a tablet width restores the captions the compact
+## cartouche dropped (HudLayout drives both, so the switch must be reversible).
+func test_resize_restores_the_wide_cartouche() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	assert_eq(_icon_only_count(hud), 3, "compact drops the secondary captions")
+	_viewport.size = DESKTOP
+	hud._relayout()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_icon_only_count(hud), 0, "wide layout restores every caption")
+
+
+func _icon_only_count(hud: GameHud) -> int:
+	var count: int = 0
+	for node: Node in hud.top_row.get_children():
+		if node is Button and (node as Button).text.is_empty():
+			count += 1
+	return count
 
 
 func test_chip_values_do_not_shift_the_bar() -> void:
@@ -115,6 +144,11 @@ func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 		_fits(hud.end_turn_wrap.get_global_rect(), _screen_rect(), "end turn %s" % size)
 		if size != DESKTOP:
 			continue
+		for node: Node in hud.top_row.get_children():
+			if node is Button:
+				var bar_button := node as Button
+				assert_not_null(bar_button.icon, "desktop door keeps its medallion")
+				assert_false(bar_button.text.is_empty(), "desktop door keeps its caption")
 		assert_almost_eq(hud.top_bar.size.y, 68.0, 0.5)
 		assert_almost_eq(hud.minimap_frame.size.x, 250.0, 0.5)
 		assert_almost_eq(hud.end_turn_wrap.size.x, 212.0, 0.5)

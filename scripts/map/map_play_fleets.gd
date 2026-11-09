@@ -31,7 +31,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		play.model, fleet, fleet.owner == play.player_faction,
 		passage_note(play, fleet), yard_rows(play, fleet), -1,
 		landing_rows(play, fleet), carried(play, fleet),
-		MapPlayBeachhead.rows(play, fleet), MapPlayBeachhead.note(play, fleet)
+		MapPlayBeachhead.rows(play, fleet), MapPlayBeachhead.note(play, fleet),
+		MapPlayCivilianVoyage.crew(play, fleet)
 	)
 
 
@@ -276,6 +277,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
+	elif MapPlayCivilianVoyage.on_action(play, action):
+		return
 
 
 ## Lands the carried army on an owned coastal province (wiki: ships-and-naval

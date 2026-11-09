@@ -31,6 +31,9 @@ P5 rivals act unbookkept.
 - **Naval planner** (`AiNavalPlanner`): at war sortie or pursue one zone onto
   the weakest matchable squadron (120% margin); at peace hold station, via
   `NavalMovement`; a charted zone earns one sighting line, never fog.
+- **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
+  attack; an invader on home soil draws a relief column from the Home Army
+  (one regiment keeps the seat) to that province, the seat first, own land only.
 - **Economy planner** (`AiEconomyPlanner`): each rival keeps a `PlayerEconomy`
   ledger. Recipes score by stock deficit (`economy.reserve_target`,
   `economy.recipe_weight`); whole runs are allocated under labour and inputs.
@@ -60,7 +63,8 @@ wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians).
+`test_ai_rules` (power, parameters, planners, turn, naval, economy, civilians,
+Minor / Tribe relief).
 
 ```bash
 gd-tools test --coverage --min 80

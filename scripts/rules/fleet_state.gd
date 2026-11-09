@@ -21,6 +21,10 @@ var hull_types: Dictionary = {}
 ## transport; DR-20261109-08). One army per squadron; each hull carries one
 ## regiment.
 var embarked_army: int = -1
+## Civilian instance ids aboard (wiki: civilian-units § Overseas deployment;
+## DR-20261109-17). One hull carries one civilian, and a squadron carrying an
+## army carries none.
+var embarked_civilians: Array[int] = []
 ## Beachhead mission (wiki: ships-and-naval § Missions and Movement): the
 ## hostile coastal province this squadron has marked for a landing, and the turn
 ## it was marked. A beachhead is ready on the following turn only and is lost
@@ -114,6 +118,32 @@ func is_afloat() -> bool:
 	return not hulls.is_empty()
 
 
+func civilian_count() -> int:
+	return embarked_civilians.size()
+
+
+func carries_civilians() -> bool:
+	return not embarked_civilians.is_empty()
+
+
+func has_civilian(unit_id: int) -> bool:
+	return embarked_civilians.has(unit_id)
+
+
+func add_civilian(unit_id: int) -> void:
+	if unit_id < 0 or embarked_civilians.has(unit_id):
+		return
+	embarked_civilians.append(unit_id)
+
+
+func remove_civilian(unit_id: int) -> bool:
+	var index: int = embarked_civilians.find(unit_id)
+	if index < 0:
+		return false
+	embarked_civilians.remove_at(index)
+	return true
+
+
 func type_of(hull_id: String) -> String:
 	return ShipStats.normalize(String(hull_types.get(hull_id, ShipStats.DEFAULT_TYPE)))
 
@@ -180,6 +210,7 @@ func to_dict() -> Dictionary:
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
 		"embarked_army": embarked_army,
+		"embarked_civilians": embarked_civilians.duplicate(),
 		"beachhead_province": beachhead_province,
 		"beachhead_turn": beachhead_turn,
 	}
@@ -194,6 +225,8 @@ static func from_dict(data: Dictionary) -> FleetState:
 	fleet.province = int(data.get("province", MapModel.NO_ID))
 	fleet.moved = bool(data.get("moved", false))
 	fleet.embarked_army = int(data.get("embarked_army", -1))
+	for raw: Variant in data.get("embarked_civilians", []):
+		fleet.embarked_civilians.append(int(raw))
 	fleet.beachhead_province = int(data.get("beachhead_province", MapModel.NO_ID))
 	fleet.beachhead_turn = int(data.get("beachhead_turn", -1))
 	var names: Array[String] = []

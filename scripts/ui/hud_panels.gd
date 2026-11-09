@@ -124,7 +124,8 @@ func show_fleet(
 	land_rows: Array[Dictionary] = [],
 	carried: int = 0,
 	beach_rows: Array[Dictionary] = [],
-	beach_note: String = ""
+	beach_note: String = "",
+	crew: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_civilian()
@@ -139,7 +140,7 @@ func show_fleet(
 	else:
 		fleet_panel.refresh(
 			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note
+			beach_rows, beach_note, crew
 		)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)

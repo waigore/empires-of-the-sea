@@ -120,9 +120,19 @@ static func resolve_work(play: PlaySession) -> void:
 			play.model.province_name(province) if province >= 0 else "the wilds"
 		)
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
-		play.hud.toast("%s in %s: %s" % [type_name, place, work_name])
+		play.hud.toast("%s%s in %s: %s" % [
+			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
+		])
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
+
+
+## A rival's finished work is announced with its crown, so the player never
+## mistakes it for their own crew (wiki: civilian-units; DR-20261109-14).
+static func _owner_label(play: PlaySession, owner: int) -> String:
+	if owner < 0 or owner == play.player_faction:
+		return ""
+	return "%s's " % FactionCatalog.name_of(owner)
 
 
 ## A deed is signed (or the purse fails it) during Build/Work. The tile's owner

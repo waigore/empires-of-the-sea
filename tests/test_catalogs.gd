@@ -368,7 +368,7 @@ func test_tech_gated_types_unlock_on_research() -> void:
 
 func test_work_lists_match_the_wiki_table() -> void:
 	assert_eq(CivilianCatalog.works("explorer"), ["explore", "prospect"])
-	assert_eq(CivilianCatalog.works("builder"), ["build_improvement"])
+	assert_eq(CivilianCatalog.works("builder"), ["build_improvement", "upgrade_town"])
 	assert_eq(CivilianCatalog.works("engineer"), ["build_road", "build_port", "build_fort"])
 	assert_eq(CivilianCatalog.works("spy"), ["counter_spy"])
 	assert_eq(CivilianCatalog.works("merchant"), ["purchase_land"])
