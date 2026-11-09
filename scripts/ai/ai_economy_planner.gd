@@ -91,9 +91,12 @@ static func recruitment_orders(
 	return orders
 
 
-## Highest tier this court can legally train right now, or -1.
+## Highest tier this court can legally train right now, or -1. Peasants are the
+## fallback: a court with no worker tech still buys one peasant a turn, which is
+## how the pool ever reaches `economy.worker_target` (wiki: workers-and-population
+## § Recruit vs. train).
 static func _best_tier(economy: PlayerEconomy) -> int:
-	for tier in range(WorkerPool.TIER_COUNT - 1, 0, -1):
+	for tier in range(WorkerPool.TIER_COUNT - 1, -1, -1):
 		if economy.recruit_blocked_reason(tier).is_empty():
 			return tier
 	return -1
