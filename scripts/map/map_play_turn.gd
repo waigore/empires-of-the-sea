@@ -86,6 +86,7 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
 	MapPlayArmies.run_ai(play)
+	MapPlayFleets.run_ai(play)
 	MapPlayArmies.resolve_battles(play)
 	_resolve_naval_combat(play)
 	_resolve_visibility(play)

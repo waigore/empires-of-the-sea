@@ -80,6 +80,17 @@ func army_food() -> int:
 	return _armies.food_upkeep_all(player_faction)
 
 
+## Merchant cargo for the ledger: holds in the home fleet, imports laden this
+## turn (wiki: ships-and-naval § Cargo holds and capacity; DR-20261109-03).
+func trade_cargo() -> Dictionary:
+	var laden: int = TradeCargo.used(market)
+	if _ships == null or _ships.world == null:
+		return {"holds": 0, "used": laden, "free": 0}
+	return TradeCargo.status(
+		_ships.world, _ships.regions.snapshot(), player_faction, market
+	)
+
+
 ## Share of last turn's army rations the granary could cover (0..1). Full
 ## rations before the first Consumption; armies fight at this coverage.
 func feeding_coverage() -> float:
@@ -160,7 +171,7 @@ func summary_line(report: Dictionary) -> String:
 
 func open_panel() -> void:
 	if _hud != null:
-		_hud.panels.show_economy(economy, market, projected())
+		_hud.panels.show_economy(economy, market, projected(), trade_cargo())
 
 
 func open_research() -> void:
@@ -200,7 +211,7 @@ func _refresh_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_economy_open():
-		_hud.panels.show_economy(economy, market, projected())
+		_hud.panels.show_economy(economy, market, projected(), trade_cargo())
 	_hud.set_treasury(economy.treasury)
 	treasury_changed.emit(economy.treasury)
 
@@ -208,7 +219,9 @@ func _refresh_panel() -> void:
 func _on_trade(commodity: String, quantity: int, is_buy: bool) -> void:
 	var result: Dictionary
 	if is_buy:
-		result = market.buy(economy, commodity, quantity)
+		result = TradeCargo.buy(
+			economy, market, int(trade_cargo().get("holds", 0)), commodity, quantity
+		)
 	else:
 		result = market.sell(economy, commodity, quantity)
 	if not bool(result.get("ok", false)) and _hud != null:

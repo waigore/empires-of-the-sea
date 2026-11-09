@@ -109,15 +109,30 @@ func reveal_province(province_id: int) -> Array:
 ## distant sea zone fog, explorer presence, own-province re-assert, coastal sea
 ## pass last. `at_sea_zones` lists zones holding this player's fleets at sea;
 ## fleets in port do not count. `held_provinces` lists provinces where this
-## player keeps a civilian, which holds them fully visible.
+## player keeps an Explorer, which holds them fully visible. Spies never
+## survey `unknown` terrain, so their province is not held (DR-20261109-04).
 func end_of_turn(at_sea_zones: Array, held_provinces: Array = []) -> Array:
 	var changed: Array = []
 	changed.append_array(_decay_foreign_provinces())
 	changed.append_array(_apply_distant_sea_fog(at_sea_zones))
 	for raw: Variant in held_provinces:
-		changed.append_array(reveal_province(int(raw)))
+		changed.append_array(hold_explored_province(int(raw)))
 	changed.append_array(_reveal_own_provinces())
 	changed.append_array(_apply_coastal_sea_zones())
+	return changed
+
+
+## Explorer presence holds only what the player already charted
+## (wiki: Explorer vs Spy; DR-20261109-04). Tiles still `unknown` stay unknown,
+## so a Spy sheltered behind an Explorer cannot survey virgin coast.
+func hold_explored_province(province_id: int) -> Array:
+	var changed: Array = []
+	for tile: Vector2i in model.province_tiles(province_id):
+		var index: int = model.index_of(tile.x, tile.y)
+		if levels[index] < Level.FOGGED:
+			continue
+		if raise_to(index, Level.FULLY_VISIBLE):
+			changed.append(index)
 	return changed
 
 

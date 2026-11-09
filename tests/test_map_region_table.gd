@@ -27,6 +27,24 @@ func test_rows_are_addressed_by_region_and_clear_together() -> void:
 	assert_eq(table.values(), [])
 
 
+func test_snapshot_copies_rosters_so_readers_do_not_alias_live_state() -> void:
+	var table := MapRegionTable.new()
+	var roster: Array[int] = [1, 2]
+	table.set_region(5, roster)
+	table.set_region(2, 7)
+
+	var snap: Dictionary = table.snapshot()
+
+	assert_eq(snap.size(), 2)
+	assert_eq(snap[5], [1, 2])
+	assert_eq(snap[2], 7)
+	var live: Array = table.value(5, [])
+	live.append(9)
+	assert_eq(snap[5], [1, 2], "the snapshot copied the roster")
+	table.set_region(5, [4])
+	assert_eq(snap[5], [1, 2], "the snapshot does not follow later writes")
+
+
 func test_encode_walks_rosters_and_single_values() -> void:
 	var table := MapRegionTable.new()
 	table.set_region(0, [1, 2])

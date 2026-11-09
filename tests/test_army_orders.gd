@@ -34,6 +34,11 @@ func test_selecting_an_army_opens_its_dossier() -> void:
 	var home: ArmyState = _player_home()
 	var marker: ArmyMarker = _screen.army_layer.marker_for(home)
 	assert_not_null(marker)
+	# Settle the opening camera first: it zooms into the capital over a few
+	# frames, and a tap is resolved against the live zoom. Without this the
+	# same suite passes alone but flakes when suites share workers.
+	for _frame: int in 3:
+		await get_tree().process_frame
 
 	MapPlayInput.on_tapped(_screen.play, marker.position)
 

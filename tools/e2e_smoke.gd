@@ -385,6 +385,16 @@ func _smoke_end_turn(
 	screen.economy.open_panel()
 	await process_frame
 	_check(screen.hud.panels.is_economy_open(), "ledger opens")
+	_check(
+		int(screen.economy.trade_cargo().get("holds", 0)) > 0,
+		"the home fleet carries trade cargo"
+	)
+	var grain_before: int = screen.economy.economy.quantity("grain")
+	screen.economy._on_trade("grain", 1, true)
+	_check(
+		screen.economy.economy.quantity("grain") == grain_before + 1,
+		"the ledger buys imports against cargo holds"
+	)
 	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.assignment_units("lumber") == 1,
