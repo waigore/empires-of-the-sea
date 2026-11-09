@@ -70,6 +70,9 @@ static func _seed_roads(model: MapModel, works: LandWorks, report: Dictionary) -
 ## generator already sets it; this keeps hand-built maps honest).
 static func _seed_town_development(model: MapModel, report: Dictionary) -> void:
 	for province: ProvinceState in model.provinces:
+		if province.town_development <= 0:
+			province.town_development = 1
+			report["town_development"] = int(report["town_development"]) + 1
 		if not province.capital:
 			continue
 		if FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER:

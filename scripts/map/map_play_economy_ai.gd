@@ -190,7 +190,7 @@ static func _extraction(
 		var capital: Dictionary = _capital(home_model, faction)
 		home = Extraction.yields(
 			home_model, faction, int(capital["province"]), tech_caps, works,
-			capital["tile"]
+			capital["tile"], economy.tech_unlocked
 		)
 	var holds: int = 0
 	if play.ship_layer != null:

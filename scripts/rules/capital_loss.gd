@@ -93,6 +93,8 @@ static func pick_capital_province(model: MapModel, owned: Array[int]) -> int:
 static func town_tile(province: ProvinceState) -> Vector2i:
 	if province == null or province.tiles.is_empty():
 		return NO_TILE
+	if province.town_tile.x >= 0:
+		return province.town_tile
 	var tiles: Array[Vector2i] = []
 	tiles.assign(province.tiles)
 	tiles.sort_custom(
@@ -143,6 +145,7 @@ static func resolve(model: MapModel, before: Dictionary) -> Dictionary:
 		var seat: ProvinceState = model.province_data(pick)
 		seat.capital = true
 		seat.capital_tile = town_tile(seat)
+		seat.town_tile = seat.capital_tile
 		if FactionCatalog.type_of(faction) == FactionCatalog.Type.GREAT_POWER:
 			seat.town_development = 4
 		reassigned.append({"faction": faction, "province": pick, "lost": lost})

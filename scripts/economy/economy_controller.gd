@@ -129,7 +129,7 @@ func feeding_coverage() -> float:
 func extraction() -> Dictionary:
 	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile
+		capital_tile, economy.tech_unlocked
 	)
 	if _ships == null or _ships.world == null:
 		return home

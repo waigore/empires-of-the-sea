@@ -122,6 +122,18 @@ func test_capitals_follow_the_capital_choice_rule() -> void:
 	assert_eq(seen.size(), model.faction_ids.size())
 
 
+func test_every_province_has_a_town_tile() -> void:
+	for province: ProvinceState in model.provinces:
+		var town: Vector2i = province.town_tile
+		assert_true(town.x >= 0, "province %s has no town" % province.name)
+		assert_eq(model.province_at(town.x, town.y), province.id)
+		assert_eq(model.terrain_at(town.x, town.y), MapModel.Terrain.PLAINS)
+		assert_eq(model.resource_at(town.x, town.y), MapModel.NO_ID)
+		assert_gte(province.town_development, 1)
+		if province.capital:
+			assert_eq(town, province.capital_tile)
+
+
 func test_coastal_provinces_have_a_waterfront_port() -> void:
 	for province: ProvinceState in model.provinces:
 		var port: Vector2i = province.port_tile

@@ -10,6 +10,7 @@ Canonical skill bodies live here (one folder per skill). Native facades and auth
 | [`elucidate-design-agent`](elucidate-design-agent/SKILL.md) | Clarify unclear wiki rules/AI (P5-first); Design Record + Changelog; implement; PR; stop |
 | [`export-android-debug`](export-android-debug/SKILL.md) | PR into `android-debug` so Actions publishes a debug APK GitHub Release; no local export unless asked |
 | [`fix-tests-agent`](fix-tests-agent/SKILL.md) | Hourly (gated on open `ci-tier2`); fix full-suite failure; PR; babysit; close issue |
+| [`free-playtest-agent`](free-playtest-agent/SKILL.md) | GameForge free-playtest hard-to-reach areas; harness + fixes; wiki diary/learnings; PR; every 6h |
 | [`hunt-defects-agent`](hunt-defects-agent/SKILL.md) | Playtest implemented wiki rules; fix session defects; P2 hill climb; open PR; stop |
 | [`implement-feature-agent`](implement-feature-agent/SKILL.md) | Implement next (or cited) feature vs REQ/wiki/RUB; prefer largest playable desktop+mobile change; self-score; PR; stop |
 | [`optimize-tests-agent`](optimize-tests-agent/SKILL.md) | Profile and cut suite time; keep ≤5 min coverage / ≤2 min e2e; PR; stop |

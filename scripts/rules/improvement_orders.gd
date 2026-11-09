@@ -26,6 +26,10 @@ static func apply(
 				model, units, works, stockpile, visibility, owner, tile, tech_caps,
 				tech_unlocked
 			)
+		"upgrade_town":
+			return upgrade_town(
+				model, units, works, stockpile, visibility, owner, tile, tech_unlocked
+			)
 		"cancel":
 			return cancel(model, units, owner, tile)
 	return {"ok": false, "message": "Unknown estate order."}
@@ -70,6 +74,50 @@ static func build(
 			ImprovementCatalog.display_name(resource, level + 1),
 			int(result.get("duration", 1)),
 			"" if int(result.get("duration", 1)) == 1 else "s",
+		],
+	}
+
+
+## Dispatch the nearest idle Builder to the province's town tile and start an
+## upgrade_town order. All gates and costs stay in CivilianWork.
+static func upgrade_town(
+	model: MapModel,
+	units: Array[CivilianState],
+	works: LandWorks,
+	stockpile: Dictionary,
+	visibility: VisibilityModel,
+	owner: int,
+	tile: Vector2i,
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var province: ProvinceState = model.province_data(model.province_at(tile.x, tile.y))
+	if province == null:
+		return {"ok": false, "message": "This province has no town to upgrade."}
+	var town: Vector2i = province.town_tile
+	if town.x < 0 and province.capital:
+		town = province.capital_tile
+	if town.x < 0:
+		return {"ok": false, "message": "This province has no town to upgrade."}
+	if working_builder(units, owner, town) != null:
+		return {"ok": false, "message": "A Builder is already at work on this town."}
+	var builder: CivilianState = nearest_builder(units, owner, town)
+	if builder == null:
+		return {
+			"ok": false,
+			"message": "No idle Builder musters — train one at the capital.",
+		}
+	var result: Dictionary = CivilianWork.assign(
+		model, builder, "upgrade_town", works, units, stockpile, visibility, town,
+		{}, tech_unlocked
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": String(result.get("reason", ""))}
+	return {
+		"ok": true,
+		"message": "%s raises the town of %s to level %d." % [
+			builder.display_name(),
+			model.province_name(province.id),
+			CivilianWorkPlan.town_upgrade_level(model, town),
 		],
 	}
 

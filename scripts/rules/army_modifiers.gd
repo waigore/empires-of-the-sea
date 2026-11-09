@@ -6,9 +6,9 @@ extends RefCounted
 ## leader bonus and the deterministic "deployed" slice of a side. ArmyCombat
 ## owns the battle chain; this module owns the numbers it compares.
 ##
-## Terrain values are interim constants: the wiki names terrain modifiers but
-## publishes no per-type numbers, so these are code-side config documented in
-## docs/armies.md until a ruleset loader exists.
+## Terrain values are the wiki's defender multipliers. The attacker side of the
+## forest rule (×0.9) is not modelled yet; defender-only is the current slice's
+## contract, documented in docs/armies.md.
 
 const W_MEDAL: float = 10.0
 ## Initiative cavalry weight (wiki: combat § Configurable Values).
@@ -21,7 +21,8 @@ const NATIONALISM_DEPLOYMENT: int = 12
 ## Defender-only multiplier by province terrain.
 const TERRAIN_DEFENCE: Dictionary = {
 	MapModel.Terrain.PLAINS: 1.0,
-	MapModel.Terrain.FOREST: 1.1,
+	MapModel.Terrain.HARDWOOD_FOREST: 1.5,
+	MapModel.Terrain.SCRUB_FOREST: 1.1,
 	MapModel.Terrain.HILLS: 1.15,
 	MapModel.Terrain.MOUNTAINS: 1.25,
 	MapModel.Terrain.DESERT: 1.05,

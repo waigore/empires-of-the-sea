@@ -89,9 +89,12 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 		MapModel.Terrain.HILLS:
 			kind = "hill"
 			chance = 0.34
-		MapModel.Terrain.FOREST:
+		MapModel.Terrain.HARDWOOD_FOREST:
 			kind = "tree"
 			chance = 0.44
+		MapModel.Terrain.SCRUB_FOREST:
+			kind = "tree"
+			chance = 0.28
 		MapModel.Terrain.DESERT:
 			kind = "dune"
 			chance = 0.14

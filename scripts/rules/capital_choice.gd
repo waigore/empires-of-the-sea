@@ -63,6 +63,7 @@ static func place_capital(
 	var province: ProvinceState = model.get_province(province_id)
 	province.capital = true
 	province.capital_tile = tile
+	province.town_tile = tile
 	province.ports = ports
 	province.road_paths = road_paths
 	if kind == KIND_GREAT_POWER:

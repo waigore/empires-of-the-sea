@@ -43,7 +43,10 @@ static func snapshot(
 	}
 	if model == null or works == null:
 		return result
-	var connected: Dictionary = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile
+	)
+	var connected: Dictionary = resolved.get("tiles", {}) as Dictionary
 	var idle: Array[CivilianState] = ImprovementOrders.idle_builders(units, owner)
 	var groups: Array[Dictionary] = result["groups"]
 	var tiles_by_province: Dictionary = {}
@@ -66,10 +69,11 @@ static func snapshot(
 		var rows: Array[Dictionary] = []
 		for tile: Vector2i in tiles_by_province[province_id]:
 			var resource: int = model.resource_at(tile.x, tile.y)
-			var is_connected: bool = connected.has(model.index_of(tile.x, tile.y))
+			var index: int = model.index_of(tile.x, tile.y)
+			var entry: Dictionary = connected.get(index, {}) as Dictionary
 			rows.append(_estate_row(
 				model, works, units, stockpile, owner, tile, resource, province_id,
-				is_connected, idle, tech_caps
+				entry, resolved, idle, tech_caps
 			))
 		if rows.is_empty():
 			continue
@@ -111,11 +115,15 @@ static func estate_row(
 	var resource: int = model.resource_at(tile.x, tile.y)
 	if resource < 0:
 		return {}
-	var connected: Dictionary = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile
+	)
+	var connected: Dictionary = resolved.get("tiles", {}) as Dictionary
 	return _estate_row(
 		model, works, units, stockpile, owner, tile, resource,
 		model.province_at(tile.x, tile.y),
-		connected.has(model.index_of(tile.x, tile.y)),
+		connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
+		resolved,
 		ImprovementOrders.idle_builders(units, owner),
 		tech_caps
 	)
@@ -133,26 +141,27 @@ static func _estate_row(
 	tile: Vector2i,
 	resource: int,
 	province: int,
-	is_connected: bool,
+	entry: Dictionary,
+	resolved: Dictionary,
 	idle: Array[CivilianState],
 	tech_caps: Dictionary
 ) -> Dictionary:
 	var level: int = works.improvement_at(model, tile)
 	var commodity: String = ImprovementCatalog.commodity(resource)
 	var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity, tech_caps)
+	var terrain_cap: int = TerrainCaps.hard_cap(model.terrain_at(tile.x, tile.y), commodity)
 	var mineral: bool = ImprovementCatalog.needs_prospecting(resource)
 	var prospected: bool = works.is_prospected(owner, model, tile)
 	var working: CivilianState = _working_unit(units, owner, tile)
-	var transport: int = maxi(1, works.transport_at(model, tile))
-	if works.has_port(model, tile):
-		transport = LandWorks.TRANSPORT_RAIL
-	var town_cap: int = model.province_data(province).town_development if model.province_data(province) != null else 0
-	if town_cap <= 0:
-		town_cap = ImprovementCatalog.MAX_LEVEL
+	var is_connected: bool = not entry.is_empty()
+	var transport: int = int(entry.get("transport", 0))
+	var town_cap: int = LandConnectivity.town_cap_for(
+		model, resolved, province, model.index_of(tile.x, tile.y)
+	)
 	var output: int = 0
 	if level > 0 and is_connected and (not mineral or prospected):
-		output = ImprovementCatalog.effective_yield(
-			resource, level, tech_caps, transport, town_cap
+		output = Extraction.effective_yield(
+			level, mini(tech_cap, terrain_cap), transport, town_cap
 		)
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
@@ -169,7 +178,13 @@ static func _estate_row(
 		"level": level,
 		"max_level": ImprovementCatalog.MAX_LEVEL,
 		"tech_cap": tech_cap,
+		"terrain_cap": terrain_cap,
+		"transport": transport,
+		"town_cap": town_cap,
 		"tech_limited": next_level > tech_cap and level < ImprovementCatalog.MAX_LEVEL,
+		"terrain_limited": (
+			next_level > terrain_cap and level < ImprovementCatalog.MAX_LEVEL
+		),
 		"commodity": commodity,
 		"output": output,
 		"output_text": ImprovementCatalog.output_text(resource, output),
@@ -184,17 +199,20 @@ static func _estate_row(
 		"builder_name": builder.display_name() if builder != null else "",
 		"status": status,
 		"status_text": _status_text(
-			status, resource, level, output, tech_cap, working, is_connected
+			status, resource, level, output, tech_cap, terrain_cap, transport,
+			town_cap, working, is_connected
 		),
 		"next_level": next_level,
 		"cost": cost,
 		"cost_text": CivilianWork.cost_text(cost),
 		"duration": next_level,
 		"can_build": _can_build(
-			level, tech_cap, mineral, prospected, working, builder, cost, stockpile
+			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
+			cost, stockpile
 		),
 		"build_reason": _build_reason(
-			level, tech_cap, mineral, prospected, working, builder, cost, stockpile
+			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
+			cost, stockpile
 		),
 	}
 
@@ -218,7 +236,8 @@ static func _status(
 
 static func _status_text(
 	status: String, resource: int, level: int, output: int, tech_cap: int,
-	working: CivilianState, is_connected: bool
+	terrain_cap: int, transport: int, town_cap: int, working: CivilianState,
+	is_connected: bool
 ) -> String:
 	match status:
 		"building":
@@ -239,18 +258,26 @@ static func _status_text(
 			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, output)
 	var text: String = "Yields %s" % ImprovementCatalog.output_text(resource, output)
 	if level > output and output > 0:
-		text += " · tech cap %d" % tech_cap
+		if output == transport:
+			text += " · transport cap %d" % transport
+		elif terrain_cap < tech_cap:
+			text += " · terrain cap %d" % terrain_cap
+		elif output == tech_cap:
+			text += " · tech cap %d" % tech_cap
+		else:
+			text += " · town cap %d" % town_cap
 	return text
 
 
 static func _can_build(
-	level: int, tech_cap: int, mineral: bool, prospected: bool,
+	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
 	stockpile: Dictionary
 ) -> bool:
 	return (
 		level < ImprovementCatalog.MAX_LEVEL
 		and level + 1 <= tech_cap
+		and level + 1 <= terrain_cap
 		and (not mineral or prospected)
 		and working == null
 		and builder != null
@@ -259,7 +286,7 @@ static func _can_build(
 
 
 static func _build_reason(
-	level: int, tech_cap: int, mineral: bool, prospected: bool,
+	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
 	stockpile: Dictionary
 ) -> String:
@@ -267,6 +294,8 @@ static func _build_reason(
 		return "A Builder is already at work here."
 	if level >= ImprovementCatalog.MAX_LEVEL:
 		return "This estate is fully improved."
+	if level + 1 > terrain_cap:
+		return "This terrain hard-caps the estate at level %d." % terrain_cap
 	if mineral and not prospected:
 		return "An Explorer must prospect the tile first."
 	if level + 1 > tech_cap:
