@@ -198,6 +198,9 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	assert_gt(target, -1)
 	var enemy: int = model.province_owner(target)
 	assert_eq(_capital_count(model, enemy), 1, "the crown has exactly one seat to lose")
+	# Rival land AI can split and march into a declared seat on the same
+	# end-turn pass; strip that crown's armies so the capture stays unopposed.
+	screen.army_layer.transfer_owner(enemy, MapModel.NO_ID)
 	_declare_war(screen, enemy)
 	_detach_one(screen)
 	var tile: Vector2i = model.province_data(target).tiles[0]
