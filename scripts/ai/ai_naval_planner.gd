@@ -54,15 +54,19 @@ static func _best_target(
 	var own: float = NavalCombat.side_strength([fleet])
 	var kind: String = KIND_SORTIE if fleet.is_in_port() else KIND_PURSUE
 	var best: Dictionary = {}
+	var best_threat: float = 0.0
 	for zone: int in NavalMovement.destination_zones(model, fleet):
 		var threat: float = _hostile_strength(fleets, zone, hostile)
 		if threat <= 0.0 or not _can_engage(config, own, threat):
 			continue
-		var rounded: int = int(ceil(threat))
-		if best.is_empty() or rounded < int(best["threat"]):
-			best = {"zone": zone, "kind": kind, "threat": rounded}
-		elif rounded == int(best["threat"]) and zone < int(best["zone"]):
-			best = {"zone": zone, "kind": kind, "threat": rounded}
+		# Compare the true side strength: rounding first would let a stronger
+		# squadron win only because its zone id sorts lower (wiki: ai-architecture
+		# § Naval policy — "weakest hostile squadron it can reach").
+		if best.is_empty() or threat < best_threat:
+			best = {"zone": zone, "kind": kind, "threat": int(ceil(threat))}
+			best_threat = threat
+		elif is_equal_approx(threat, best_threat) and zone < int(best["zone"]):
+			best = {"zone": zone, "kind": kind, "threat": int(ceil(threat))}
 	return best
 
 
