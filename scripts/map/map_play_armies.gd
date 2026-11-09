@@ -314,12 +314,12 @@ static func settle_ports(play: PlaySession, reassigned: Array) -> void:
 			play.model if region == play.region_index else play.world.region(region)
 		)
 		var owner: int = int(report.get("owner", MapModel.NO_ID))
+		var owner_name: String = FactionCatalog.name_of(owner)
 		if report.has("from"):
 			var seat: int = int(report.get("to", MapModel.NO_ID))
 			var seat_name: String = model.province_name(seat) if model != null else "—"
 			play.hud.toast(
-				"%s's home squadron re-moors at %s"
-				% [FactionCatalog.name_of(owner), seat_name]
+				"%s's home squadron re-moors at %s" % [owner_name, seat_name]
 			)
 			continue
 		var province: int = int(report.get("province", MapModel.NO_ID))
@@ -327,14 +327,14 @@ static func settle_ports(play: PlaySession, reassigned: Array) -> void:
 		if bool(report.get("scuttled", false)):
 			play.hud.toast(
 				"%s's squadron is scuttled in %s — no water to sort out into"
-				% [FactionCatalog.name_of(owner), place]
+				% [owner_name, place]
 			)
 			continue
 		var zone: int = int(report.get("zone", MapModel.NO_ID))
 		var zone_name: String = model.sea_zone_name(zone) if model != null else "—"
 		play.hud.toast(
 			"%s's squadron sorts out of %s into %s"
-			% [FactionCatalog.name_of(owner), place, zone_name]
+			% [owner_name, place, zone_name]
 		)
 
 
