@@ -284,6 +284,12 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
 		)
+	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
+		play.civilian_layer, FleetRosters.live_ids(play.ship_layer.regions)
+	):
+		play.hud.toast(
+			"A civilian went down with a sunken squadron — lost at sea"
+		)
 	if battles.is_empty():
 		return
 	for battle: Dictionary in battles:

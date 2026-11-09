@@ -24,6 +24,9 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, play.player_faction, play.capital_province, play.ship_layer,
 		play.army_layer, hud, play.land_works, play.capital_tile
 	)
+	# Colonial yield ships home from every region, so the controller reads the
+	# whole works table (the world already reaches it through the ship layer).
+	play.economy.works_by_region = play.civilian_layer.works_regions
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	play.improvements.set_data(

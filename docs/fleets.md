@@ -10,24 +10,25 @@ Movement, harbours, fog, battles, upkeep and the yard.
 
 ## Implemented
 
-- At sea (zone) or in port (province), never both; Great Powers keep one
-  roster per region.
+- Sea zone or port, never both; one roster per region.
 - **One move / turn:** S↔S; undock to adjacent sea; dock at an owned port.
 - **Passage:** a warp-zone fleet crosses to its paired zone; the view follows.
-- A new zone reveals water + **coastal ring**; fog decays at turn end.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food/hull upkeep**.
 - **Naval yard** (capital port): launch for its row + **one peasant**; joins or
   founds the home fleet.
-- **Breaker's yard:** scrap a hull; peasant returns, no refund; emptied squadron
-  retires (DR-20261109-01).
+- **Breaker's yard:** scrap a hull for one peasant, no refund; emptied squadrons
+  retire (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
   (1/turn) capping world-market **imports**; exports free (DR-20261109-03).
+- **Home sortie** (DR-20261109-17): the home squadron may put to sea, spending
+  its move and its holds until it moors again. Colonists ride as passengers (one
+  per hull, never with troops) and land beside the zone; a sunk squadron
+  drowns them.
 - Contested zones fight at turn end, only at war: `FRP + 0.4·RNG + 0.15·ARM +
-  0.1·MV`; durability `HULL × (1 + ARM/10)`; a 3% edge wins (loser sunk,
-  victor spends half), near-equal stalemates.
+  0.1·MV`; durability `HULL × (1 + ARM/10)`; 3% edge wins, near-equal stays.
 - **Rival squadrons sail** (`AiNavalPlanner`): at war sortie/pursue one zone;
-  at peace hold. Charted moves earn a sighting.
+  at peace hold.
 - **Army transport** (`NavalTransport`): a field army boards in port (one
   regiment per hull), sails or crosses a passage, and lands on an owned coast.
   Troops drown with a sunk squadron.
@@ -47,18 +48,15 @@ multi-hull markers · ship strength.
 | `scripts/rules/{fleet_state,ship_stats,ship_economy}.gd` | location, combat/cargo, build, upkeep |
 | `scripts/rules/fleet_yard.gd`, `trade_cargo.gd` | launch / break up, home cargo |
 | `scripts/rules/{naval_combat,naval_movement,warp_travel}.gd` | battles, moves, passages |
-| `scripts/rules/naval_transport.gd`, `scripts/map/{army_transport,map_play_beachhead}.gd` | board, land, beachhead, passage, losses |
-| `scripts/ai/ai_naval_planner.gd` | rival sortie, pursue, hold |
-| `scripts/map/map_play_fleet_ai.gd` | rival sea pass, sightings |
-| `scripts/rules/visibility.gd` | fog reveal + turn end |
+| `scripts/rules/{naval_transport,civilian_voyage,fleet_sortie}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead, sortie |
+| `scripts/ai/ai_naval_planner.gd`, `scripts/map/map_play_fleet_ai.gd` | rival sorties, sightings |
 | `scripts/map/{ship_layer,ship_markers,fleet_rosters}.gd` | orders/battles, markers, rosters |
 | `scripts/map/{map_overlay,map_play_warp,fog_layer}.gd` | highlights, warp, fog |
-| `scripts/ui/fleet_panel.gd`, `panel_dock.gd` | dossier, yard, dock |
+| `scripts/ui/fleet_panel.gd`, `fleet_crew_section.gd`, `panel_dock.gd` | dossier, passengers, dock |
 | `scripts/economy/economy_controller.gd` | upkeep, cargo status |
 | `scripts/map_screen.gd` | intents + turn wiring |
 
-No node deps (`REQ-P3-03`). Orders → `NavalMovement`; yard → `FleetYard`;
-combat → `NavalCombat`.
+No node deps (`REQ-P3-03`).
 
 ## Controls
 
@@ -68,6 +66,7 @@ combat → `NavalCombat`.
 | Sail / dock | click highlight | tap highlight |
 | Cross passage | click Passage ring | tap Passage ring |
 | Land troops | dossier button | same |
+| Take / land colonists | dossier **PASSENGERS** | same |
 | Mark beachhead | dossier coast button | same |
 | Shipyard | capital dossier → Shipyard | same |
 | Cancel | `Esc` | close panel |
@@ -77,7 +76,7 @@ combat → `NavalCombat`.
 `test_warp_travel`, `test_naval_movement`, `test_fleet_orders`,
 `test_fleet_rosters`, `test_visibility`, `test_ship_stats`, `test_ship_economy`,
 `test_naval_combat`, `test_fleet_yard`, `test_trade_cargo`,
-`test_ai_rules`, `test_map_screen`.
+`test_civilian_voyage`, `test_fleet_sortie`, `test_ai_rules`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

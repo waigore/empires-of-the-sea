@@ -9,6 +9,10 @@ static func on_crossed(play: PlaySession, fleet: FleetState, result: Dictionary)
 	if region < 0 or region == play.region_index:
 		return
 	MapPlayInput.deselect(play)
+	# Colonists cross with the squadron: the roster entry follows the fleet before
+	# the new map musters its own civilians (DR-20261109-17).
+	for unit_id: int in fleet.embarked_civilians.duplicate():
+		CivilianVoyageMap.move_to_region(play.civilian_layer, unit_id, region)
 	play.switch_region(region)
 	# The troops cross with the squadron: move the roster entry once the new map
 	# has mustered its own armies (wiki: ships-and-naval § Naval transport).

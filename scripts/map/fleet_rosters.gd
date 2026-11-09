@@ -25,6 +25,14 @@ static func next_id(fleets: Array[FleetState]) -> int:
 	return next
 
 
+## Fleet by instance id in one roster, or null.
+static func find(fleets: Array[FleetState], fleet_id: int) -> FleetState:
+	for fleet: FleetState in fleets:
+		if fleet != null and fleet.id == fleet_id:
+			return fleet
+	return null
+
+
 ## Next free fleet id across every region, so a squadron crossing into another
 ## map cannot collide with an id that region already uses.
 static func next_id_all(regions: MapRegionTable) -> int:

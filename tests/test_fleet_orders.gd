@@ -559,6 +559,36 @@ func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
 	assert_true(fleet.is_in_port())
 
 
+func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	unit.tile = _screen.model.province_tiles(capital)[0]
+	unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+
+	var crew: Dictionary = MapPlayCivilianVoyage.crew(_screen.play, home)
+	assert_eq(int(crew["count"]), 0)
+	assert_gt(crew["embark"].size(), 0, "the idle colonist is offered")
+	assert_gt(crew["sortie"].size(), 0, "the home squadron can put to sea")
+
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % unit.id)
+	assert_true(unit.is_embarked())
+	assert_eq(int(MapPlayCivilianVoyage.crew(_screen.play, home)["count"]), 1)
+	assert_false(_screen.civilian_layer.marker_for(unit).visible, "aboard leaves the map")
+
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:land:%d" % capital)
+	assert_false(unit.is_embarked())
+	assert_true(_screen.civilian_layer.marker_for(unit).visible)
+	assert_eq(unit.embarked_fleet, -1)
+
+	var zone: int = int(MapPlayCivilianVoyage.crew(_screen.play, home)["sortie"][0]["zone"])
+	MapPlayCivilianVoyage.on_action(_screen.play, "sortie:%d" % zone)
+	assert_true(home.is_at_sea())
+	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
+
+
 func _owned_coastal_except(model: MapModel, skip: int) -> int:
 	for province: ProvinceState in model.provinces:
 		if province.owner != MapScreen.PLAYER_FACTION or province.id == skip:
