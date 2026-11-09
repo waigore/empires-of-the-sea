@@ -27,8 +27,9 @@ Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
   several routes use the highest cap.
 - **Town rule:** each province town is 4-adjacent to its extracting tiles.
   Capital provinces cap yield at town development; a connected non-capital port
-  town caps its town-connected tiles. Road-connected non-capital tiles ignore
-  the town cap.
+  town caps the tiles that reach the crown only through it. An estate on a road
+  or rail to the crown (or beside one that is) ignores the town cap, so a
+  colony's roads lift it.
 - **Town development 1–4** comes from a Builder `upgrade_town` order (National
   Bureaucracy; improvement material table, interim). Level 2 or 4 adds town
   manufacturing ([economy.md](economy.md)).

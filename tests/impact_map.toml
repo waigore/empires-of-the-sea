@@ -5,6 +5,7 @@
 [domains.ai]
 suites = [
   "test_ai_colonisation.gd",
+  "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_observer.gd",
   "test_ai_planner.gd",
@@ -59,6 +60,7 @@ suites = [
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_intel_dossier.gd",
 ]
 
 [domains.economy]
@@ -265,6 +267,10 @@ match = "scripts/map/map_play_colonisation_ai.gd"
 domain = "ai"
 
 [[rules]]
+match = "scripts/map/map_play_invasion_ai.gd"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
@@ -354,6 +360,10 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/rules/diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/intel_*.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -487,6 +497,10 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/ui/court_prompts.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/ui/court_*.gd"
 domain = "diplomacy"
 
 [[rules]]
@@ -628,6 +642,10 @@ domain = "civilian"
 
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_intel_*.gd"
 domain = "diplomacy"
 
 [[rules]]
