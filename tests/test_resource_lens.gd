@@ -1,0 +1,189 @@
+extends GdToolsTest
+## Integration: the survey lens on the live map — toggle, key, work refresh,
+## region swap and the hover line. Drawing is exercised by a rendered frame.
+
+const Fixture = preload("res://tests/map_fixture.gd")
+
+var _screen: MapScreen = null
+
+
+func before_each() -> void:
+	_screen = Fixture.attach_screen(self)
+
+
+func after_each() -> void:
+	if is_instance_valid(_screen):
+		_screen.free()
+	_screen = null
+
+
+func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
+	var lens: ResourceLens = _screen.play.lens
+	assert_not_null(lens)
+	assert_false(lens.active)
+	assert_false(_screen.hud.lens_legend.visible)
+
+	MapPlayInput.toggle_lens(_screen.play)
+	assert_true(lens.active)
+	assert_true(_screen.hud.lens_legend.visible)
+	assert_true(_screen.hud._lens_button.button_pressed)
+	assert_gt(int(lens.survey["counts"]["estates"]), 0)
+	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
+
+	lens._reveal = 1.0
+	lens.queue_redraw()
+	await get_tree().process_frame
+
+	MapPlayInput.toggle_lens(_screen.play)
+	assert_false(lens.active)
+	assert_false(_screen.hud.lens_legend.visible)
+	assert_false(_screen.hud._lens_button.button_pressed)
+	assert_almost_eq(_screen.civilian_layer.modulate.a, 1.0, 0.001)
+
+
+func test_a_completed_estate_refreshes_the_survey() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var found: Array = _owned_vacant(lens.survey)
+	assert_false(found.is_empty())
+	var entry: Dictionary = found[0]
+	var row: Dictionary = found[1]
+	var tile: Vector2i = row["tile"]
+	var before: int = int(entry["counts"]["worked"])
+
+	_screen.land_works.set_improvement(_screen.model, tile, 2)
+	_screen.land_works.set_prospected(_screen.player_faction, _screen.model, tile)
+	assert_true(
+		_screen.civilian_layer.works_changed.is_connected(lens.refresh)
+	)
+	_screen.civilian_layer.refresh_works()
+
+	var after: Dictionary = _entry(lens.survey, int(entry["id"]))
+	assert_eq(int(after["counts"]["worked"]), before + 1)
+	assert_eq(int(_row(after, tile)["level"]), 2)
+
+
+func test_a_working_estate_animates_the_lens() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var found: Array = _owned_vacant(lens.survey)
+	assert_false(found.is_empty())
+	var entry: Dictionary = found[0]
+	var tile: Vector2i = (found[1] as Dictionary)["tile"]
+	var unit: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.player_faction, "builder", tile
+	)
+	unit.start_work("build_improvement", tile, 2)
+	_screen.civilian_layer.refresh_works()
+	assert_true(lens._animating)
+	var row: Dictionary = _row(_entry(lens.survey, int(entry["id"])), tile)
+	assert_eq(String(row["status"]), "building")
+	lens._reveal = 1.0
+	lens.queue_redraw()
+	await get_tree().process_frame
+
+
+func test_region_switch_rebuilds_the_lens() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	_screen._cycle_region()
+	assert_eq(_screen.play.lens.model, _screen.model)
+	assert_eq(int(_screen.play.lens.model.region_id), FactionCatalog.NEW_WORLD)
+	assert_true(_screen.play.lens.survey.has("counts"))
+
+
+func test_hover_reports_the_estate_line_while_the_lens_is_on() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var entry: Dictionary = _visible_entry(_screen.play.lens.survey)
+	assert_false(entry.is_empty())
+	var world: Vector2 = Vector2(entry["center"]) * MapScreen.TILE_SIZE
+	_screen.camera.focus_on(world, 0.8, true)
+	_screen.camera._process(0.016)
+	var screen_point: Vector2 = CameraMath.world_to_screen(
+		_screen.camera.position, _screen.camera.zoom.x, world,
+		_screen.camera.viewport_size()
+	)
+	MapPlayInput.update_hover(_screen.play, screen_point)
+	assert_true(_screen.hud._tooltip_label.text.contains("\n"))
+	assert_true(_screen.hud._tooltip_label.text.contains(String(entry["summary"])))
+	assert_eq(_screen.play.lens.hover_province, int(entry["id"]))
+	MapPlayInput.clear_hover(_screen.play)
+	assert_eq(_screen.play.lens.hover_province, -1)
+
+
+func test_plates_are_packed_without_overlap_and_anchor_on_land() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var rects: Dictionary = lens._rects
+	assert_false(rects.is_empty())
+	var ids: Array = rects.keys()
+	for i in ids.size():
+		for j in range(i + 1, ids.size()):
+			assert_false((rects[ids[i]] as Rect2).intersects(rects[ids[j]]))
+	assert_eq(lens.hit_test((rects[ids[0]] as Rect2).get_center()), int(ids[0]))
+	assert_eq(lens.hit_test(Vector2(-9999, -9999)), -1)
+	for raw: Variant in lens.survey["provinces"]:
+		var anchor: Vector2 = (raw as Dictionary)["anchor"]
+		assert_true(_screen.model.is_land(int(anchor.x), int(anchor.y)))
+
+
+func test_tapping_a_plate_selects_its_province() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	for raw: Variant in lens.survey["provinces"]:
+		var id: int = int((raw as Dictionary)["id"])
+		var point: Vector2 = (lens._rects[id] as Rect2).get_center()
+		if _screen.civilian_layer.unit_at(point) != null:
+			continue
+		if _screen.army_layer.army_at(point) != null:
+			continue
+		MapPlayInput.on_tapped(_screen.play, point)
+		assert_eq(_screen.selected_province, id)
+		return
+	assert_true(false, "no clear survey plaque to tap")
+
+
+func test_summary_for_an_unsurveyed_province_is_empty() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	assert_eq(_screen.play.lens.summary_for(9999), "")
+
+
+# --- helpers -----------------------------------------------------------------
+
+
+func _entry(survey: Dictionary, province_id: int) -> Dictionary:
+	for raw: Variant in survey["provinces"]:
+		var entry: Dictionary = raw
+		if int(entry["id"]) == province_id:
+			return entry
+	return {}
+
+
+func _row(entry: Dictionary, tile: Vector2i) -> Dictionary:
+	for raw: Variant in entry.get("rows", []):
+		var row: Dictionary = raw
+		if row["tile"] == tile:
+			return row
+	return {}
+
+
+func _owned_vacant(survey: Dictionary) -> Array:
+	for raw: Variant in survey["provinces"]:
+		var entry: Dictionary = raw
+		for raw_row: Variant in entry["rows"]:
+			var row: Dictionary = raw_row
+			if bool(row["ours"]) and int(row["level"]) == 0:
+				return [entry, row]
+	return []
+
+
+func _visible_entry(survey: Dictionary) -> Dictionary:
+	for raw: Variant in survey["provinces"]:
+		var entry: Dictionary = raw
+		var center: Vector2 = entry["center"]
+		var tile := Vector2i(int(center.x), int(center.y))
+		if (
+			_screen.visibility != null
+			and _screen.visibility.level_at(tile.x, tile.y) != VisibilityModel.Level.UNKNOWN
+		):
+			return entry
+	return {}

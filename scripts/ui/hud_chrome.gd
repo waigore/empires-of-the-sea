@@ -6,9 +6,11 @@ extends RefCounted
 
 static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
-	_toasts(hud)
 	_minimap(hud)
 	_zoom(hud)
+	_lens_button(hud)
+	_lens_key(hud)
+	_toasts(hud)
 	_end_turn(hud)
 	_province_panel(hud)
 	_fleet_panel(hud)
@@ -85,6 +87,34 @@ static func _square_button(icon_name: String, caption: String) -> Button:
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ChromeIcons.apply(button, icon_name, 30)
 	return button
+
+
+## The survey toggle lives beside the estates door: both are estate readings,
+## and the cartouche row is already at its measured width budget.
+static func _lens_button(hud: GameHud) -> void:
+	var button := Button.new()
+	button.toggle_mode = true
+	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	button.offset_left = 186.0
+	button.offset_top = 132.0
+	button.offset_right = 242.0
+	button.offset_bottom = 176.0
+	button.tooltip_text = "Resource survey lens (L)"
+	ChromeIcons.apply(button, "lens", 22)
+	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
+	hud.add_child(button)
+	hud._lens_button = button
+
+
+static func _lens_key(hud: GameHud) -> void:
+	hud.lens_legend = LensLegend.new()
+	hud.lens_legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud.lens_legend.offset_left = 18.0
+	hud.lens_legend.offset_top = 186.0
+	hud.lens_legend.offset_right = 18.0 + LensLegend.WIDTH
+	hud.lens_legend.offset_bottom = 186.0 + LensLegend.HEIGHT
+	hud.lens_legend.visible = false
+	hud.add_child(hud.lens_legend)
 
 
 static func _end_turn(hud: GameHud) -> void:

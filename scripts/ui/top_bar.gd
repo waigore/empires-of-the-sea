@@ -81,7 +81,7 @@ static func build(hud: GameHud) -> void:
 
 	var ledger := Button.new()
 	ledger.text = "LEDGER"
-	ledger.custom_minimum_size = Vector2(96, 40)
+	ledger.custom_minimum_size = Vector2(90, 40)
 	ledger.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	ledger.tooltip_text = "Treasury and production ledger"
 	ChromeIcons.apply(ledger, "ledger", 22)
@@ -91,7 +91,7 @@ static func build(hud: GameHud) -> void:
 
 	var research := Button.new()
 	research.text = "RESEARCH"
-	research.custom_minimum_size = Vector2(110, 40)
+	research.custom_minimum_size = Vector2(104, 40)
 	research.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	research.tooltip_text = "Scholars and discoveries"
 	ChromeIcons.apply(research, "research", 22)
@@ -102,7 +102,7 @@ static func build(hud: GameHud) -> void:
 	var court := Button.new()
 	court.text = "COURT"
 	court.tooltip_text = "Diplomacy"
-	court.custom_minimum_size = Vector2(92, 40)
+	court.custom_minimum_size = Vector2(86, 40)
 	court.add_theme_font_size_override("font_size", GameHud.BAR_FONT)
 	ChromeIcons.apply(court, "crown", 22)
 	_mark_icon_only_on_compact(court)
