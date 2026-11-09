@@ -36,6 +36,18 @@ static func next_id_all(regions: MapRegionTable) -> int:
 	return next
 
 
+## Every fleet id still afloat in any region, for transport-loss checks.
+static func live_ids(regions: MapRegionTable) -> Dictionary:
+	var ids: Dictionary = {}
+	for roster: Array in all(regions):
+		var fleets: Array[FleetState] = []
+		fleets.assign(roster)
+		for fleet: FleetState in fleets:
+			if fleet != null and fleet.is_afloat():
+				ids[fleet.id] = true
+	return ids
+
+
 ## Hulls afloat for one crown across every region: another map must not hide
 ## them from upkeep, the ledger or the dossier.
 static func hulls_afloat(regions: MapRegionTable, owner: int) -> int:

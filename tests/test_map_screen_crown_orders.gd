@@ -259,6 +259,35 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
 
 
+func test_the_home_fleet_carries_a_field_army_across_its_port() -> void:
+	var play: PlaySession = _screen.play
+	var home: ArmyState = ArmyTraining.home_army(
+		_screen.army_layer.armies, play.player_faction
+	)
+	assert_not_null(home)
+	var detach: Dictionary = _screen.army_layer.split(home, [home.regiments[0]])
+	assert_true(bool(detach.get("ok", false)))
+	var army: ArmyState = detach["army"] as ArmyState
+	var fleet: FleetState = _screen.ship_layer.home_fleet(_screen.capital_province)
+	assert_not_null(fleet)
+	_screen.army_layer.select(army)
+	MapPlayArmies.on_action(play, "embark")
+	assert_true(army.is_embarked())
+	assert_eq(fleet.embarked_army, army.id)
+	assert_eq(army.province, MapModel.NO_ID)
+
+	var ship: Ship = _screen.ship_layer.ship_for(fleet)
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.select(play, ship)
+	assert_eq(MapPlayFleets.carried(play, fleet), army.count())
+	assert_eq(MapPlayFleets.landing_rows(play, fleet).size(), 1)
+
+	MapPlayFleets.land(play, _screen.capital_province)
+	assert_false(army.is_embarked())
+	assert_eq(army.province, _screen.capital_province)
+	assert_eq(fleet.embarked_army, -1)
+
+
 func _capital_estate_tile() -> Vector2i:
 	var capital: Vector2i = _screen.capital_tile
 	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
