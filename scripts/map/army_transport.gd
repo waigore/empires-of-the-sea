@@ -19,13 +19,20 @@ static func embark(layer: ArmyLayer, army: ArmyState, fleet: FleetState) -> Dict
 	return result
 
 
-## Lands the army its fleet carries on an owned coastal province.
-static func disembark(layer: ArmyLayer, fleet: FleetState, province_id: int) -> Dictionary:
+## Lands the army its fleet carries on an owned coast or, with a ready
+## beachhead, on the hostile coast it marked.
+static func disembark(
+	layer: ArmyLayer,
+	fleet: FleetState,
+	province_id: int,
+	turn: int = 0,
+	hostile: Callable = Callable()
+) -> Dictionary:
 	if fleet == null:
 		return {"ok": false, "reason": "No fleet is selected."}
 	var army: ArmyState = army_by_id(layer, fleet.embarked_army)
 	var result: Dictionary = NavalTransport.disembark(
-		layer.model, army, fleet, province_id
+		layer.model, army, fleet, province_id, turn, hostile
 	)
 	if not bool(result.get("ok", false)):
 		return result

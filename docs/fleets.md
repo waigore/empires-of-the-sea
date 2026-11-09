@@ -1,6 +1,6 @@
 # Fleets and naval combat
 
-Naval slice: movement, harbours, fog, battles, upkeep and the naval yard.
+Movement, harbours, fog, battles, upkeep and the yard.
 
 **Pillars:** P2, P3, P1 (map feedback), P4 (no per-frame sim).
 
@@ -10,36 +10,35 @@ Naval slice: movement, harbours, fog, battles, upkeep and the naval yard.
 
 ## Implemented
 
-- At sea (one zone) or in port (one province), never both; Great Powers keep
-  fleets, one roster per region.
-- **One move / turn:** S↔S; undock to adjacent sea; dock at owned coastal
-  province with `port_tile`.
-- **Passage crossing:** warp-zone fleet crosses to paired zone; view follows.
-- Entering a zone reveals water + **coastal ring**; fog decays at turn end.
+- At sea (zone) or in port (province), never both; Great Powers keep one
+  roster per region.
+- **One move / turn:** S↔S; undock to adjacent sea; dock at an owned port.
+- **Passage:** a warp-zone fleet crosses to its paired zone; the view follows.
+- A new zone reveals water + **coastal ring**; fog decays at turn end.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
-  `ShipEconomy` build rows, tech gates, **2 food/hull upkeep**.
-- **Naval yard** (capital port): launch a hull for its row + **one peasant**;
-  joins or founds home fleet (Σ FRP).
-- **Breaker's yard:** scrap one hull (port or sea); peasant returns, no refund;
-  emptied squadron retires; arm, scrap (DR-20261109-01).
-- **Home cargo:** merchant hulls in the home fleet (port at the crown seat)
-  give **cargo holds** (1/turn) capping world-market **imports**. A Fluyte
-  (4 holds) opens; exports free (DR-20261109-03).
-- Contested zones fight at turn end, only at war. Strength
-  `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`; durability `HULL × (1 + ARM/10)`; 3%
-  edge wins (loser sunk, victor spends half on weakest hulls); near-equal
-  stalemates.
-- **Rival squadrons sail** (`AiNavalPlanner`): at war it sorties or pursues one
-  zone onto a match; at peace it holds. Charted moves earn a sighting.
-- **Army transport** (`NavalTransport`): a field army boards a squadron in port
-  (one regiment per hull), sails or crosses a passage, and lands on an owned
-  coast beside the zone. Troops drown with a sunk squadron; hostile shores
-  need a beachhead.
+  `ShipEconomy` builds with tech gates, **2 food/hull upkeep**.
+- **Naval yard** (capital port): launch for its row + **one peasant**; joins or
+  founds the home fleet.
+- **Breaker's yard:** scrap a hull; peasant returns, no refund; emptied squadron
+  retires (DR-20261109-01).
+- **Home cargo:** merchant hulls in the home fleet give **cargo holds**
+  (1/turn) capping world-market **imports**; exports free (DR-20261109-03).
+- Contested zones fight at turn end, only at war: `FRP + 0.4·RNG + 0.15·ARM +
+  0.1·MV`; durability `HULL × (1 + ARM/10)`; a 3% edge wins (loser sunk,
+  victor spends half), near-equal stalemates.
+- **Rival squadrons sail** (`AiNavalPlanner`): at war sortie/pursue one zone;
+  at peace hold. Charted moves earn a sighting.
+- **Army transport** (`NavalTransport`): a field army boards in port (one
+  regiment per hull), sails or crosses a passage, and lands on an owned coast.
+  Troops drown with a sunk squadron.
+- **Beachhead** (DR-20261109-13): a squadron marks a hostile coast beside its
+  zone (spends the move); the marker opens next turn, its carried army lands
+  and consumes it, and an unused marker lapses that turn's end.
 
 ## Deferred (REQ-P2-02)
 
-Home-fleet merge · Patrol/Blockade/Beachhead/Defend · interception/retreat/raids
-· multi-hull markers · docket ship strength.
+Home-fleet merge · Patrol/Blockade/Defend · interception/retreat/raids ·
+multi-hull markers · ship strength.
 
 ## Architecture
 
@@ -48,7 +47,7 @@ Home-fleet merge · Patrol/Blockade/Beachhead/Defend · interception/retreat/rai
 | `scripts/rules/{fleet_state,ship_stats,ship_economy}.gd` | location, combat/cargo, build, upkeep |
 | `scripts/rules/fleet_yard.gd`, `trade_cargo.gd` | launch / break up, home cargo |
 | `scripts/rules/{naval_combat,naval_movement,warp_travel}.gd` | battles, moves, passages |
-| `scripts/rules/naval_transport.gd`, `scripts/map/army_transport.gd` | board, land, passage, losses |
+| `scripts/rules/naval_transport.gd`, `scripts/map/{army_transport,map_play_beachhead}.gd` | board, land, beachhead, passage, losses |
 | `scripts/ai/ai_naval_planner.gd` | rival sortie, pursue, hold |
 | `scripts/map/map_play_fleet_ai.gd` | rival sea pass, sightings |
 | `scripts/rules/visibility.gd` | fog reveal + turn end |
@@ -69,6 +68,7 @@ combat → `NavalCombat`.
 | Sail / dock | click highlight | tap highlight |
 | Cross passage | click Passage ring | tap Passage ring |
 | Land troops | dossier button | same |
+| Mark beachhead | dossier coast button | same |
 | Shipyard | capital dossier → Shipyard | same |
 | Cancel | `Esc` | close panel |
 

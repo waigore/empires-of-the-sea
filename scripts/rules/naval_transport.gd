@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## A squadron in port takes one field army aboard; each hull carries one
 ## regiment. The fleet may then sail and land the army on an owned coast that
-## borders its sea zone. A hostile landing still needs a beachhead, so this
-## slice moves troops between friendly shores only.
+## borders its sea zone. A hostile shore needs a Beachhead marked on the turn
+## before (wiki: ships-and-naval § Missions and Movement).
 
 const NO_ID: int = MapModel.NO_ID
 
@@ -66,8 +66,15 @@ static func embark(model: MapModel, army: ArmyState, fleet: FleetState) -> Dicti
 	return _allow()
 
 
-## Owned coastal provinces the fleet could land troops on right now.
-static func landing_provinces(model: MapModel, fleet: FleetState) -> Array[int]:
+## Owned coastal provinces the fleet could land troops on right now; a ready
+## beachhead adds the hostile coast it marked (wiki: ships-and-naval § Missions
+## and Movement, § Naval transport).
+static func landing_provinces(
+	model: MapModel,
+	fleet: FleetState,
+	turn: int = 0,
+	hostile: Callable = Callable()
+) -> Array[int]:
 	var provinces: Array[int] = []
 	if model == null or fleet == null:
 		return provinces
@@ -75,13 +82,134 @@ static func landing_provinces(model: MapModel, fleet: FleetState) -> Array[int]:
 		if model.province_owner(fleet.province) == fleet.owner:
 			provinces.append(fleet.province)
 		return provinces
-	return NavalMovement.owned_provinces_by_zone(model, fleet.sea_zone, fleet.owner)
+	provinces = NavalMovement.owned_provinces_by_zone(model, fleet.sea_zone, fleet.owner)
+	if beachhead_allows(model, fleet, fleet.beachhead_province, turn, hostile):
+		provinces.append(fleet.beachhead_province)
+		provinces.sort()
+	return provinces
+
+
+## Hostile coastal provinces this squadron could mark for a landing: adjacent to
+## its sea zone, owned by a crown it is at war with (wiki: ships-and-naval
+## § Missions and Movement).
+static func hostile_coasts(
+	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
+) -> Array[int]:
+	var coasts: Array[int] = []
+	if model == null or fleet == null or not fleet.is_at_sea():
+		return coasts
+	for province_id: int in NavalMovement.provinces_by_zone(model, fleet.sea_zone):
+		var owner: int = model.province_owner(province_id)
+		if owner == MapModel.NO_ID or owner == fleet.owner:
+			continue
+		if not _hostile(hostile, fleet.owner, owner):
+			continue
+		coasts.append(province_id)
+	return coasts
+
+
+## Validates the Beachhead mission without mutating the fleet.
+static func can_establish_beachhead(
+	model: MapModel,
+	fleet: FleetState,
+	province_id: int,
+	turn: int = 0,
+	hostile: Callable = Callable()
+) -> Dictionary:
+	if fleet == null or model == null:
+		return _deny("No squadron can take that station.")
+	if not fleet.is_at_sea():
+		return _deny("The squadron must be at sea to mark a beachhead.")
+	if not fleet.is_afloat():
+		return _deny("A squadron with no hulls cannot land troops.")
+	if fleet.moved:
+		return _deny("This fleet has already moved or taken a mission this turn.")
+	if model.province_data(province_id) == null:
+		return _deny("That is not a province.")
+	var owner: int = model.province_owner(province_id)
+	if owner == fleet.owner:
+		return _deny("A beachhead is only needed on a hostile coast.")
+	if owner == MapModel.NO_ID:
+		return _deny("That coast belongs to no crown.")
+	if not _hostile(hostile, fleet.owner, owner):
+		return _deny("A beachhead needs a declared war with %s." % FactionCatalog.name_of(owner))
+	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
+		return _deny("That coast does not border the fleet's sea zone.")
+	return _allow()
+
+
+## Marks the landing site; the squadron spends this turn's move or mission and
+## may land troops from the following turn (wiki: ships-and-naval).
+static func establish_beachhead(
+	model: MapModel,
+	fleet: FleetState,
+	province_id: int,
+	turn: int,
+	hostile: Callable = Callable()
+) -> Dictionary:
+	var check: Dictionary = can_establish_beachhead(
+		model, fleet, province_id, turn, hostile
+	)
+	if not bool(check.get("ok", false)):
+		return check
+	fleet.beachhead_province = province_id
+	fleet.beachhead_turn = turn
+	fleet.moved = true
+	return {
+		"ok": true,
+		"reason": "",
+		"province": province_id,
+		"name": model.province_name(province_id),
+	}
+
+
+## The landing site is usable on the turn after it was marked, and only while the
+## squadron holds its station (wiki: ships-and-naval § Missions and Movement).
+static func beachhead_ready(fleet: FleetState, turn: int) -> bool:
+	if fleet == null or not fleet.is_at_sea() or not fleet.has_beachhead():
+		return false
+	return turn == fleet.beachhead_turn + 1
+
+
+## True when this fleet's ready beachhead opens `province_id` to a landing.
+static func beachhead_allows(
+	model: MapModel,
+	fleet: FleetState,
+	province_id: int,
+	turn: int = 0,
+	hostile: Callable = Callable()
+) -> bool:
+	if model == null or fleet == null or province_id < 0:
+		return false
+	if fleet.beachhead_province != province_id or not beachhead_ready(fleet, turn):
+		return false
+	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
+		return false
+	var owner: int = model.province_owner(province_id)
+	if owner == MapModel.NO_ID or owner == fleet.owner:
+		return false
+	return _hostile(hostile, fleet.owner, owner)
+
+
+## Expires every beachhead whose one full turn has run; called at end of turn.
+static func expire_beachheads(fleets: Array[FleetState], turn: int) -> void:
+	for fleet: FleetState in fleets:
+		if fleet == null or not fleet.has_beachhead():
+			continue
+		if turn >= fleet.beachhead_turn + 1:
+			fleet.clear_beachhead()
 
 
 ## The army may land on its owner's coast: the port province when docked, or a
-## province bordering the fleet's sea zone. Hostile shores need a beachhead.
+## province bordering the fleet's sea zone. A hostile shore needs a ready
+## beachhead (wiki: ships-and-naval § Missions and Movement).
 static func can_disembark(
-	model: MapModel, army: ArmyState, fleet: FleetState, province_id: int
+	model: MapModel,
+	army: ArmyState,
+	fleet: FleetState,
+	province_id: int,
+	turn: int = 0,
+	hostile: Callable = Callable()
 ) -> Dictionary:
 	if army == null or fleet == null:
 		return _deny("No army is aboard this fleet.")
@@ -90,7 +218,9 @@ static func can_disembark(
 	if model == null or model.province_data(province_id) == null:
 		return _deny("That is not a province.")
 	if model.province_owner(province_id) != army.owner:
-		return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
+		if not beachhead_allows(model, fleet, province_id, turn, hostile):
+			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
+		return _allow()
 	if fleet.is_in_port():
 		if province_id != fleet.province:
 			return _deny("The fleet is in port at %s." % model.province_name(fleet.province))
@@ -100,17 +230,28 @@ static func can_disembark(
 	return _allow()
 
 
-## Lands the army on the chosen owned province; it has spent this turn's march.
+## Lands the army on the chosen coast; it has spent this turn's march. A hostile
+## landing consumes the beachhead it used.
 static func disembark(
-	model: MapModel, army: ArmyState, fleet: FleetState, province_id: int
+	model: MapModel,
+	army: ArmyState,
+	fleet: FleetState,
+	province_id: int,
+	turn: int = 0,
+	hostile: Callable = Callable()
 ) -> Dictionary:
-	var check: Dictionary = can_disembark(model, army, fleet, province_id)
+	var check: Dictionary = can_disembark(
+		model, army, fleet, province_id, turn, hostile
+	)
 	if not bool(check.get("ok", false)):
 		return check
+	var invaded: bool = model.province_owner(province_id) != army.owner
 	army.province = province_id
 	army.embarked_fleet = -1
 	army.moved = true
 	fleet.embarked_army = -1
+	if invaded:
+		fleet.clear_beachhead()
 	return _allow()
 
 
@@ -130,6 +271,15 @@ static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
 
 static func _allow() -> Dictionary:
 	return {"ok": true, "reason": ""}
+
+
+## No callback means the isolated-fixture default: every other crown is hostile.
+static func _hostile(hostile: Callable, a: int, b: int) -> bool:
+	if a == b:
+		return false
+	if not hostile.is_valid():
+		return true
+	return bool(hostile.call(a, b))
 
 
 static func _deny(reason: String) -> Dictionary:
