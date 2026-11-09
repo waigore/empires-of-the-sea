@@ -57,4 +57,9 @@ static func describe_land(
 			]
 		ArmyCombat.Outcome.CAPTURE:
 			return "%s occupies %s unopposed" % [attacker, province_name]
+		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
+			var spent: int = (battle.get("attacker_lost", []) as Array).size()
+			return "%s holds the field at %s — %d regiments lost" % [
+				attacker, province_name, spent
+			]
 	return "%s and %s stand off at %s" % [attacker, defender, province_name]

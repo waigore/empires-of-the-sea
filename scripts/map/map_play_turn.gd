@@ -5,6 +5,10 @@ extends RefCounted
 
 
 static func end_turn(play: PlaySession) -> void:
+	# The battle plate owns input while a Quick Battle plays; a second turn would
+	# stack behind it (REQ-P5-06).
+	if play.hud != null and play.hud.is_quick_battle_shown():
+		return
 	# A decided or calendar-closed campaign accepts no further turns
 	# (wiki: victory § Victory Check, turn-time-mapping § Campaign calendar cap).
 	if play.campaign_over():

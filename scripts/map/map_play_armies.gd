@@ -32,7 +32,8 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	if is_player:
 		embark = _embark_note(play, army)
 	play.hud.panels.show_army(
-		play.model, army, is_player, can_merge(play, army), command, muster, embark
+		play.model, army, is_player, can_merge(play, army), command, muster, embark,
+		play.battle_plan
 	)
 
 
@@ -127,6 +128,18 @@ static func on_action(play: PlaySession, action: String) -> void:
 		embark(play, army)
 	elif action.begins_with("recruit:"):
 		recruit(play, action.trim_prefix("recruit:"))
+	elif action == "plan:next":
+		cycle_plan(play, army)
+
+
+## One tap cycles the Quick Battle stance; the dossier shows the current plan
+## so the choice is never buried (wiki: quick-battle; REQ-P5-03).
+static func cycle_plan(play: PlaySession, army: ArmyState) -> void:
+	var order: Array[String] = ["balanced", "aggressive", "defensive"]
+	var index: int = order.find(play.battle_plan)
+	play.battle_plan = order[(index + 1) % order.size()]
+	play.hud.toast("Battle plan: %s" % play.battle_plan.capitalize())
+	show_panel(play, army)
 
 
 ## Boards the selected army on the squadron sharing its port (wiki:
@@ -237,6 +250,11 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"tech": tech,
 		"seed": play.turn,
 		"hostile": hostile(play),
+		## The human's battles run as Quick Battle; rival-vs-rival keeps the
+		## aggregate auto-resolve path (wiki: quick-battle).
+		"quick_battle": true,
+		"player_faction": play.player_faction,
+		"battle_plan": play.battle_plan,
 	}
 
 
@@ -256,6 +274,7 @@ static func resolve_battles(play: PlaySession) -> void:
 	)
 	if battles.is_empty():
 		return
+	play.emit_battle_resolved(battles)
 	var repaint: bool = false
 	for battle: Dictionary in battles:
 		var region: int = int(battle.get("region", play.region_index))
@@ -267,6 +286,9 @@ static func resolve_battles(play: PlaySession) -> void:
 		var line: String = prefix + BattleReport.describe_land(
 			battle, province, FactionCatalog.names()
 		)
+		if battle.has("quick") and play.hud != null:
+			battle["player_faction"] = play.player_faction
+			play.hud.show_quick_battle(battle, prefix + province)
 		var medal: String = String(battle.get("medal_gain", ""))
 		if not medal.is_empty():
 			var general: String = play.army_layer.generals.label(

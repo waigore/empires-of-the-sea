@@ -49,6 +49,9 @@ var ai: AiState = null
 var ai_trace: Array[Dictionary] = []
 
 var turn: int = 1
+## Quick Battle stance for the human's land battles: aggressive, balanced or
+## defensive (wiki: quick-battle § Turn structure and actions).
+var battle_plan: String = "balanced"
 var prestige: int = 38
 var income: int = 120
 var selected_province: int = -1

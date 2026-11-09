@@ -203,7 +203,8 @@ func show_army(
 	can_merge: bool,
 	command: String = "",
 	muster: Array[Dictionary] = [],
-	embark: String = ""
+	embark: String = "",
+	plan: String = "balanced"
 ) -> void:
 	hide_province()
 	hide_fleet()
@@ -211,7 +212,7 @@ func show_army(
 	hide_research()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	army_panel.refresh(model, army, is_player, can_merge, command, muster, embark)
+	army_panel.refresh(model, army, is_player, can_merge, command, muster, embark, plan)
 	army_open = true
 	dock.slide_in(host, army_wrap)
 
