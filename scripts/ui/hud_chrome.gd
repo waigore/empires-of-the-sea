@@ -19,6 +19,7 @@ static func build(hud: GameHud) -> void:
 	ArmyHud.build(hud)
 	_tooltip(hud)
 	_victory_plate(hud)
+	_quick_battle_plate(hud)
 
 
 static func _toasts(hud: GameHud) -> void:
@@ -233,6 +234,14 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.victory_overlay.z_index = 40
 	hud.victory_overlay.dismissed.connect(func() -> void: hud.victory_dismissed.emit())
 	hud.add_child(hud.victory_overlay)
+
+
+## Quick Battle plate: above the dossiers, below the campaign-end plate.
+static func _quick_battle_plate(hud: GameHud) -> void:
+	hud.quick_battle_overlay = QuickBattleOverlay.new()
+	hud.quick_battle_overlay.z_index = 35
+	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
+	hud.add_child(hud.quick_battle_overlay)
 
 
 static func _tooltip(hud: GameHud) -> void:
