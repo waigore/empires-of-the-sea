@@ -143,9 +143,10 @@ func _build_bars(column: VBoxContainer) -> void:
 	_def_name = _label("", 13, Palette.TEXT)
 	_def_name.custom_minimum_size = Vector2(120, 0)
 	_def_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(_def_name)
 	_def_bar = _bar(Palette.NAVY)
 	row.add_child(_def_bar)
+	row.add_child(_def_name)
+	_def_bar.fill_mode = ProgressBar.FILL_END_TO_BEGIN
 	var pips := HBoxContainer.new()
 	pips.add_theme_constant_override("separation", 6)
 	column.add_child(pips)
