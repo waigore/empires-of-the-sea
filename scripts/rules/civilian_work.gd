@@ -28,7 +28,9 @@ const LABELS: Dictionary = {
 	"build_improvement": "Build improvement",
 	"build_road": "Build road",
 	"build_port": "Build port",
+	"build_fort": "Build fort",
 	"build_rail": "Lay railroad",
+	"purchase_land": "Purchase land",
 }
 
 const COMMODITY_NAMES: Dictionary = {
@@ -47,9 +49,20 @@ static func label(action: String) -> String:
 static func cost_for(action: String, level: int = 1) -> Dictionary:
 	if CivilianTransport.knows(action):
 		return CivilianTransport.cost(action)
+	if action == "build_fort":
+		return FortRules.cost(clampi(level, 1, FortRules.MAX_LEVEL))
 	if action == "build_improvement":
 		return (IMPROVEMENT_COSTS[clampi(level, 1, MAX_IMPROVEMENT)] as Dictionary).duplicate()
 	return {}
+
+
+## Fort the engineer would raise in this province next: level + 1, capped.
+static func fort_target(model: MapModel, tile: Vector2i) -> int:
+	if model == null:
+		return FortRules.next_level(0)
+	return FortRules.next_level(
+		FortRules.level_at(model, model.province_at(tile.x, tile.y))
+	)
 
 
 static func cost_text(cost: Dictionary) -> String:
@@ -84,6 +97,8 @@ static func duration_for(
 			return PROSPECT_TURNS
 		"build_improvement":
 			return clampi(works.improvement_at(model, tile) + 1, 1, MAX_IMPROVEMENT)
+		"build_fort":
+			return FortRules.turns(fort_target(model, tile))
 	if CivilianTransport.knows(action):
 		return CivilianTransport.turns(action)
 	return 1
@@ -98,7 +113,8 @@ static func options(
 	stockpile: Dictionary,
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if unit == null:
@@ -106,16 +122,25 @@ static func options(
 	for action: String in CivilianCatalog.works(unit.type_id):
 		var check: Dictionary = validate(
 			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
-			tech_caps, tech_unlocked
+			tech_caps, tech_unlocked, context
 		)
-		var cost: Dictionary = cost_for(action, works.improvement_at(model, unit.tile) + 1)
+		var cost: Dictionary = cost_for(
+			action,
+			fort_target(model, unit.tile) if action == "build_fort"
+			else works.improvement_at(model, unit.tile) + 1
+		)
+		var price_text: String = cost_text(cost)
+		if action == LandPurchase.ACTION:
+			price_text = String(
+				check.get("cost_text", LandPurchase.cost_text(model, unit.tile))
+			)
 		result.append({
 			"action": action,
 			"label": label(action),
 			"ok": bool(check.get("ok", false)),
 			"reason": String(check.get("reason", "")),
 			"cost": cost,
-			"cost_text": cost_text(cost),
+			"cost_text": price_text,
 			"duration": int(check.get("duration", 1)),
 		})
 	return result
@@ -131,7 +156,8 @@ static func validate(
 	visibility: VisibilityModel = null,
 	target_tile: Vector2i = CivilianState.NO_TILE,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> Dictionary:
 	if model == null or unit == null:
 		return _no("No civilian selected")
@@ -148,16 +174,23 @@ static func validate(
 	if province == MapModel.NO_ID:
 		return _no("This tile belongs to no province.")
 	var check: Dictionary = _check_action(
-		model, unit, action, tile, province, works, units, visibility, tech_caps, tech_unlocked
+		model, unit, action, tile, province, works, units, visibility, tech_caps,
+		tech_unlocked, context
 	)
 	if not bool(check.get("ok", false)):
 		return check
-	var cost: Dictionary = cost_for(action, works.improvement_at(model, tile) + 1)
-	var short: Dictionary = _short_inputs(cost, stockpile)
+	if action == LandPurchase.ACTION:
+		check["tile"] = tile
+		check["province"] = province
+		return check
+	var cost: Dictionary = cost_for(
+		action,
+		fort_target(model, tile) if action == "build_fort"
+		else works.improvement_at(model, tile) + 1
+	)
+	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
-		return _no(
-			"Not enough %s in the stockpile." % _commodities_text(short.keys())
-		)
+		return _no("Stores are short of %s." % cost_text(short))
 	check["cost"] = cost
 	check["duration"] = duration_for(model, action, tile, works)
 	check["tile"] = tile
@@ -178,18 +211,22 @@ static func assign(
 	visibility: VisibilityModel = null,
 	target_tile: Vector2i = CivilianState.NO_TILE,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> Dictionary:
 	var check: Dictionary = validate(
 		model, unit, action, works, units, stockpile, visibility, target_tile, tech_caps,
-		tech_unlocked
+		tech_unlocked, context
 	)
 	if not bool(check.get("ok", false)):
 		return check
 	_pay(stockpile, check.get("cost", {}))
-	unit.start_work(
-		action, Vector2i(check["tile"]), int(check["duration"]), unit.tile
-	)
+	var details: Dictionary = {}
+	if action == "build_fort":
+		details["fort_level"] = fort_target(model, Vector2i(check["tile"]))
+	elif action == LandPurchase.ACTION:
+		details["treasury_cost"] = int(check.get("treasury_cost", 0))
+	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
 	check["label"] = label(action)
 	return check
 
@@ -198,7 +235,7 @@ static func assign(
 ## Returns one report per working unit; `completed` marks the finished ones.
 static func resolve_turn(
 	model: MapModel, units: Array[CivilianState], works: LandWorks,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null, economy: PlayerEconomy = null
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for unit: CivilianState in units:
@@ -220,7 +257,7 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility)
+			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy)
 			unit.clear_work()
 		reports.append(report)
 	return reports
@@ -239,7 +276,8 @@ static func _check_action(
 	units: Array[CivilianState],
 	visibility: VisibilityModel,
 	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	context: Dictionary = {}
 ) -> Dictionary:
 	match action:
 		"explore":
@@ -254,7 +292,7 @@ static func _check_action(
 				return _no("This tile has already been prospected.")
 			return {"ok": true}
 		"build_improvement":
-			var owned: Dictionary = _owned_land(model, unit, province)
+			var owned: Dictionary = _owned_land(model, unit, tile)
 			if not bool(owned["ok"]):
 				return owned
 			var resource: int = model.resource_at(tile.x, tile.y)
@@ -274,30 +312,33 @@ static func _check_action(
 					"Requires %s extraction tech (cap %d) to raise this estate."
 					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
 				)
-			return _exclusive(units, unit, tile)
+			return CivilianTransport.exclusive(units, unit, tile)
+		"build_fort":
+			var held: Dictionary = _owned_land(model, unit, tile)
+			if not bool(held["ok"]):
+				return held
+			if FortRules.level_at(model, province) >= FortRules.MAX_LEVEL:
+				return _no("This province already holds a modern fort.")
+			var next_fort: int = fort_target(model, tile)
+			var gate: String = FortRules.tech_gate(next_fort)
+			if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
+				return _no(
+					"A %s fort needs %s."
+					% [FortRules.level_name(next_fort), TechCatalog.display_name(gate)]
+				)
+			return CivilianTransport.exclusive(units, unit, tile)
 		"build_road", "build_port", "build_rail":
 			return CivilianTransport.check(
 				model, unit, action, tile, works, units, tech_unlocked
 			)
+		"purchase_land":
+			return LandPurchase.check(model, unit, tile, works, units, context)
 	return _no("The %s has no such work order." % unit.display_name())
 
 
-static func _owned_land(model: MapModel, unit: CivilianState, province: int) -> Dictionary:
-	if model.province_owner(province) != unit.owner:
+static func _owned_land(model: MapModel, unit: CivilianState, tile: Vector2i) -> Dictionary:
+	if model.owner_at(tile.x, tile.y) != unit.owner:
 		return _no("This land is not held by your crown.")
-	return {"ok": true}
-
-
-## One Builder/Engineer work order per player and tile (wiki: § Per-player tile
-## exclusivity).
-static func _exclusive(
-	units: Array[CivilianState], unit: CivilianState, tile: Vector2i
-) -> Dictionary:
-	for other: CivilianState in units:
-		if other == null or other == unit or other.owner != unit.owner:
-			continue
-		if other.is_working() and other.work_tile() == tile:
-			return _no("Another crew is already working this tile.")
 	return {"ok": true}
 
 
@@ -310,7 +351,8 @@ static func _apply(
 	action: String,
 	tile: Vector2i,
 	works: LandWorks,
-	visibility: VisibilityModel
+	visibility: VisibilityModel,
+	economy: PlayerEconomy = null
 ) -> Array:
 	var province: int = model.province_at(tile.x, tile.y)
 	match action:
@@ -324,6 +366,15 @@ static func _apply(
 		"build_improvement":
 			works.set_improvement(model, tile, works.improvement_at(model, tile) + 1)
 			return [model.index_of(tile.x, tile.y)]
+		"build_fort":
+			FortRules.apply_build(
+				model.province_data(province), unit.work_detail("fort_level")
+			)
+			return [model.index_of(tile.x, tile.y)]
+		"purchase_land":
+			if LandPurchase.complete(model, tile, unit.owner, economy):
+				return [model.index_of(tile.x, tile.y)]
+			return []
 	if CivilianTransport.knows(action):
 		return CivilianTransport.apply(model, action, tile, works)
 	return []
@@ -332,27 +383,10 @@ static func _apply(
 # --- stockpile helpers ------------------------------------------------------
 
 
-static func _short_inputs(cost: Dictionary, stockpile: Dictionary) -> Dictionary:
-	var short: Dictionary = {}
-	for commodity: Variant in cost.keys():
-		var need: int = int(cost[commodity])
-		if int(stockpile.get(String(commodity), 0)) < need:
-			short[String(commodity)] = need
-	return short
-
-
 static func _pay(stockpile: Dictionary, cost: Dictionary) -> void:
 	for commodity: Variant in cost.keys():
 		var id: String = String(commodity)
 		stockpile[id] = int(stockpile.get(id, 0)) - int(cost[commodity])
-
-
-static func _commodities_text(ids: Array) -> String:
-	var parts: PackedStringArray = PackedStringArray()
-	for raw: Variant in ids:
-		var id: String = String(raw)
-		parts.append(String(COMMODITY_NAMES.get(id, id)))
-	return ", ".join(parts)
 
 
 static func _no(reason: String) -> Dictionary:

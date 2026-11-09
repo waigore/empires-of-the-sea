@@ -30,6 +30,10 @@ var map_width: int = 128
 var map_height: int = 84
 ## Human Great Power chosen in game setup (Spain by default).
 var player_faction: int = FactionCatalog.PLAYER_FACTION
+## LeaderKey chosen for that crown; empty means the crown's configured leader.
+var player_leader: String = ""
+## Endless campaign chosen in game setup (wiki: turn-time-mapping).
+var infinite_mode: bool = false
 ## When set (load), skip generation and restore this save instead.
 var pending_save: Dictionary = {}
 ## Overridable for tests so saves do not touch the player's slots.
@@ -147,10 +151,7 @@ func _ready() -> void:
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save)
 	if not restored:
-		play.player_faction = player_faction
-		play.map_seed = map_seed
-		play.map_width = map_width
-		play.map_height = map_height
+		play.configure(player_faction, map_seed, map_width, map_height, player_leader, infinite_mode)
 		if preset_world != null:
 			play.world = preset_world
 		else:
@@ -174,6 +175,7 @@ func _ready() -> void:
 		SaveCodec.restore_diplomacy(play, pending_save)
 	else:
 		play.diplomacy.initialize(play.turn)
+	play.diplomacy.human_faction = play.player_faction
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
@@ -291,7 +293,7 @@ func _connect() -> void:
 		MapPlayDiplomacy.open(play)
 	)
 	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
-		MapPlayDiplomacy.on_order(play, kind, target, arg)
+		MapCourtOrders.apply(play, kind, target, arg)
 	)
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
@@ -326,9 +328,8 @@ func _connect() -> void:
 	hud.army_closed.connect(func() -> void:
 		MapPlayInput.deselect(play)
 	)
-	hud.fleet_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
+	hud.fleet_closed.connect(func() -> void: MapPlayInput.deselect(play))
+	hud.fleet_action.connect(func(action: String) -> void: MapPlayFleets.on_action(play, action))
 	civilian_layer.unit_selected.connect(func(unit: CivilianState) -> void:
 		MapPlayCivilians.select(play, unit)
 	)

@@ -17,6 +17,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
+| [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |

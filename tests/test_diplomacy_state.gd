@@ -116,6 +116,22 @@ func test_subsidies_survive_while_the_embassy_stands() -> void:
 	assert_eq(int(report["subsidies_cancelled"]), 1)
 
 
+func test_a_subsidy_is_not_a_score_event_for_decay() -> void:
+	# wiki: diplomacy § Relation Model — only relation-score delta events skip the
+	# pair's drift; setting or cancelling a subsidy is score-neutral.
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_overture(0, 7, DiplomacyCatalog.STAGE_EMBASSY)
+	state.relation(0, 6).score = 40.0
+	state.relation(0, 7).score = 40.0
+	state.set_subsidy(0, 6, 10)
+	state.set_subsidy(0, 7, 5)
+	assert_true(state.cancel_subsidy(0, 7))
+	state.end_turn()
+	assert_eq(state.subsidy(0, 6), 10, "the embassy keeps the standing subsidy")
+	assert_eq(state.relation(0, 6).score, 44.0, "setting a subsidy does not freeze the pair")
+	assert_eq(state.relation(0, 7).score, 44.0, "cancelling a subsidy does not freeze the pair")
+
+
 func test_war_cancels_subsidy_at_phase_close() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	state.set_subsidy(0, 6, 15)

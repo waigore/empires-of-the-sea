@@ -95,7 +95,7 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 
 
 static func on_action(play: PlaySession, action: String) -> void:
-	if play.victory != null:
+	if play.campaign_over():
 		return
 	var army: ArmyState = play.army_layer.selected_army
 	if army == null or army.owner != play.player_faction:
@@ -196,8 +196,11 @@ static func battle_context(play: PlaySession) -> Dictionary:
 
 
 ## Land battles resolve in every region, then the map's ownership ink is
-## refreshed when the visible region changed hands.
+## refreshed when the visible region changed hands. Capital losses resolve in
+## the same pass, so a captured seat reassigns or falls before the next phase
+## (wiki: capital-and-connectivity § Capital loss and reassignment).
 static func resolve_battles(play: PlaySession) -> void:
+	var before: Array = CapitalLoss.snapshot_world(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
 		play.world, battle_context(play)
 	)
@@ -224,13 +227,75 @@ static func resolve_battles(play: PlaySession) -> void:
 		play.hud.toast(line)
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
+	var losses: Dictionary = CapitalLoss.resolve_world(play.world, before)
+	var capital_changed: bool = apply_capital_loss(play, losses)
+	if capital_changed:
+		repaint = true
 	if repaint:
-		play.canvas.refresh_ownership()
-		play.overlay.refresh_borders()
+		if capital_changed:
+			# A new seat moves the palace glyphs and the seat labels with it.
+			play.refresh_map_views()
+		else:
+			play.canvas.refresh_ownership()
+			play.overlay.refresh_borders()
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	if play.army_layer.selected_army != null:
 		show_panel(play, play.army_layer.selected_army)
 		refresh_options(play, play.army_layer.selected_army)
+
+
+## Reports the capital verdicts of the Combat phase: a survivor's court moves
+## to its new seat, a crown with nothing left falls and its regiments, squadrons
+## and dealings leave play. Returns true when the map changed.
+static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
+	var changed: bool = false
+	var fallen: Array = losses.get("fallen", [])
+	for entry: Dictionary in fallen:
+		var faction: int = int(entry["faction"])
+		var conqueror: int = int(entry["conqueror"])
+		if play.army_layer != null:
+			# A fall removes the crown's armies: hand them to nobody.
+			play.army_layer.transfer_owner(faction, MapModel.NO_ID)
+			play.army_layer.deselect()
+		if play.ship_layer != null:
+			play.ship_layer.transfer_owner(faction, MapModel.NO_ID)
+		if play.diplomacy != null:
+			play.diplomacy.clear_relations_of(faction)
+		play.hud.toast(
+			"%s falls to %s — its provinces change hands"
+			% [FactionCatalog.name_of(faction), FactionCatalog.name_of(conqueror)]
+		)
+		changed = true
+	var reassigned: Array = losses.get("reassigned", [])
+	for entry: Dictionary in reassigned:
+		var faction: int = int(entry["faction"])
+		var region: int = int(entry.get("region", play.region_index))
+		var model: MapModel = play.world.region(region)
+		var province: int = int(entry["province"])
+		var seat: String = model.province_name(province) if model != null else "—"
+		play.hud.toast(
+			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
+		)
+		changed = true
+	if changed:
+		sync_player_capital(play)
+	return changed
+
+
+## Keeps the session's capital framing on the player's current seat after a
+## reassignment (training, civilian muster and the court button read it).
+static func sync_player_capital(play: PlaySession) -> void:
+	var region: int = FactionCatalog.region_of(play.player_faction)
+	var model: MapModel = play.world.region(region)
+	if model == null:
+		return
+	var seat: int = CapitalLoss.seat_of(model, play.player_faction)
+	if seat == CapitalLoss.NO_ID:
+		return
+	play.capital_province = seat
+	play.capital_tile = model.capital_tile_of(seat)
+
 
 
 static func refresh_visibility(play: PlaySession) -> void:

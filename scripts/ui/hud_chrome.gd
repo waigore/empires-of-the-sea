@@ -165,6 +165,9 @@ static func _fleet_panel(hud: GameHud) -> void:
 	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._fleet_panel.close_pressed.connect(func() -> void: hud.fleet_closed.emit())
 	hud._fleet_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
+	hud._fleet_panel.action_pressed.connect(func(action: String) -> void:
+		hud.fleet_action.emit(action)
+	)
 	hud._fleet_wrap.add_child(hud._fleet_panel)
 
 

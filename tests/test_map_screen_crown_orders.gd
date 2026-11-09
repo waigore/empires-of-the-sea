@@ -1,0 +1,275 @@
+extends GdToolsTest
+## Integration: crown orders through the real map screen — civilians, training,
+## estates and setup leaders. The world view (map build, camera, chart/fog,
+## turn flow) lives in test_map_screen, so each native suite stays inside the
+## coverage runner's per-suite timeout.
+
+const Fixture = preload("res://tests/map_fixture.gd")
+
+var _screen: MapScreen = null
+
+
+func before_each() -> void:
+	_screen = Fixture.attach_screen(self)
+
+
+func after_each() -> void:
+	# Free immediately: queue_free leaves prior screens processing fog/ships and
+	# starves the suite under coverage (process timeout).
+	if is_instance_valid(_screen):
+		_screen.free()
+	_screen = null
+
+func test_civilians_muster_at_the_capital() -> void:
+	assert_eq(
+		_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size()
+	)
+	assert_eq(
+		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+	)
+	for unit: CivilianState in _screen.civilian_layer.units:
+		assert_eq(unit.owner, MapScreen.PLAYER_FACTION)
+		assert_eq(
+			_screen.model.province_at(unit.tile.x, unit.tile.y), _screen.capital_province
+		)
+
+
+func test_tapping_a_civilian_opens_its_dossier() -> void:
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	MapPlayInput.on_tapped(
+		_screen.play, MapGeo.tile_center(unit.tile.x, unit.tile.y, MapScreen.TILE_SIZE)
+	)
+	assert_eq(_screen.civilian_layer.selected_unit, unit)
+	assert_true(_screen.hud.panels.is_civilian_panel_open())
+	assert_false(_screen.hud.panels.is_panel_open())
+
+
+func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
+	var tile: Vector2i = Fixture.owned_resource_tile(_screen.model, _screen.land_works)
+	assert_true(tile.x >= 0, "map has an owned resource tile")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	builder.tile = tile
+	_screen.civilian_layer.select(builder)
+	var lumber_before: int = int(_screen.stockpile["lumber"])
+	MapPlayCivilians.on_action(_screen.play, "build_improvement")
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	assert_true(builder.is_working())
+	MapPlayTurn.end_turn(_screen.play)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
+	assert_true(builder.is_idle())
+
+
+func test_training_a_civilian_spends_treasury_and_paper() -> void:
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	var treasury_before: int = _screen.treasury
+	var paper_before: int = int(_screen.stockpile["paper"])
+	MapPlayInput.on_panel_action(_screen.play, "train_explorer")
+	assert_eq(_screen.treasury, treasury_before - 1000)
+	assert_eq(int(_screen.stockpile["paper"]), paper_before - 2)
+	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
+
+
+func test_training_is_refused_outside_the_capital() -> void:
+	var province_id: int = Fixture.foreign_province(_screen.model)
+	MapPlayInput.select_province(
+		_screen.play, province_id, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
+	var units_before: int = _screen.civilian_layer.units.size()
+	var treasury_before: int = _screen.treasury
+	MapPlayInput.on_panel_action(_screen.play, "train_explorer")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+	assert_eq(_screen.treasury, treasury_before)
+
+
+func test_training_a_rail_builder_waits_for_early_steam_engine() -> void:
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	MapPlayInput.on_panel_action(_screen.play, "train_rail_builder")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+
+	_screen.play.economy.economy.research.unlock("early_steam_engine")
+	var treasury_before: int = _screen.treasury
+	MapPlayInput.on_panel_action(_screen.play, "train_rail_builder")
+	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
+	assert_eq(_screen.civilian_layer.units.back().type_id, "rail_builder")
+	assert_eq(_screen.treasury, treasury_before - 2000)
+
+
+func test_unknown_civilian_orders_do_not_train() -> void:
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	var units_before: int = _screen.civilian_layer.units.size()
+	MapPlayInput.on_panel_action(_screen.play, "train_dragon")
+	assert_eq(_screen.civilian_layer.units.size(), units_before)
+
+
+func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var resource: Vector2i = Fixture.owned_resource_tile(_screen.model, _screen.land_works)
+	builder.tile = resource
+	_screen.civilian_layer.select(builder)
+	MapPlayCivilians.on_action(_screen.play, "build_improvement")
+	var works: LandWorks = _screen.land_works
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), 0, "no crown holdings in the New World")
+
+	_screen._cycle_region()
+	assert_eq(_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size())
+	assert_true(_screen.civilian_layer.units.has(builder))
+	assert_eq(builder.tile, resource)
+	assert_true(builder.is_working())
+	assert_eq(_screen.land_works, works)
+
+
+func test_each_region_keeps_its_own_fleets() -> void:
+	var old_fleet: FleetState = _screen.ship_layer.fleets[0]
+	var old_zone: int = old_fleet.sea_zone
+
+	_screen._cycle_region()
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		assert_false(fleet == old_fleet, "the New World fields its own squadrons")
+
+	_screen._cycle_region()
+	assert_eq(_screen.ship_layer.fleets[0], old_fleet)
+	assert_eq(old_fleet.sea_zone, old_zone)
+
+
+func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.moved = true
+	_screen._cycle_region()
+	MapPlayTurn.end_turn(_screen.play)
+	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
+
+
+func test_battles_resolve_in_the_region_off_screen() -> void:
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 1)
+	var zone: int = _screen.model.sea_zones[0].id
+	var first: FleetState = null
+	var second: FleetState = null
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if first == null:
+			first = fleet
+		elif second == null and fleet.owner != first.owner:
+			second = fleet
+		else:
+			fleet.location = FleetState.Location.IN_PORT
+			fleet.province = _screen.model.provinces[0].id
+	assert_not_null(first)
+	assert_not_null(second)
+	for fleet: FleetState in [first, second]:
+		fleet.location = FleetState.Location.AT_SEA
+		fleet.sea_zone = zone
+	first.set_hulls(["a"], {"a": "carrack"})
+	second.set_hulls(["b"], {"b": "fluyte"})
+	DiplomacyRules.declare_war(_screen.play.diplomacy, first.owner, second.owner)
+	var hulls_before: int = first.ship_count() + second.ship_count()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, 0)
+	MapPlayTurn.end_turn(_screen.play)
+
+	assert_lt(first.ship_count() + second.ship_count(), hulls_before)
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+
+
+func test_empire_counters_survive_a_region_switch() -> void:
+	var ships: int = _screen.economy.fleet_ships()
+	assert_gt(ships, 0)
+	_screen._cycle_region()
+	assert_eq(_screen.economy.fleet_ships(), ships, "navy upkeep follows the empire")
+	assert_eq(_screen.hud._fleet_label.text, str(ships))
+	assert_eq(
+		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+	)
+	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
+	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
+
+
+func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	_screen.improvements.open()
+	assert_true(_screen.improvements.is_open())
+	assert_true(int(_screen.improvements._data["counts"]["estates"]) > 0)
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	var lumber_before: int = int(_screen.stockpile["lumber"])
+	var timber_before: int = int(_screen.stockpile.get("timber", 0))
+	MapPlayImprovements.on_action(_screen.play, "build", tile)
+	assert_true(builder.is_working())
+	assert_eq(builder.work_tile(), tile)
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	var row: Dictionary = ImprovementLedger.estate_row(
+		_screen.model, _screen.land_works, _screen.civilian_layer.units,
+		_screen.stockpile, MapScreen.PLAYER_FACTION, tile, _screen.capital_tile
+	)
+	assert_eq(String(row["status"]), "building")
+
+	MapPlayTurn.end_turn(_screen.play)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
+	assert_true(builder.is_idle())
+	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
+	assert_eq(int(_screen.stockpile.get("timber", 0)), timber_before + 1)
+
+
+func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
+	var tile: Vector2i = _capital_estate_tile()
+	assert_true(tile.x >= 0, "capital has an owned neighbouring land tile")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	var origin: Vector2i = builder.tile
+	MapPlayImprovements.on_action(_screen.play, "build", tile)
+	assert_true(builder.is_working())
+	MapPlayImprovements.on_action(_screen.play, "cancel", tile)
+	assert_true(builder.is_idle())
+	assert_eq(builder.tile, origin)
+	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
+
+
+func test_new_game_assigns_a_leader_to_every_great_power() -> void:
+	var play: PlaySession = _screen.play
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			String(play.leaders.get(faction, "")),
+			LeaderCatalog.default_key(faction),
+			"crown %d fields its config leader" % faction
+		)
+	assert_eq(String(play.leaders.get(play.player_faction, "")), "isabella")
+
+
+func test_setup_leader_choice_reaches_land_combat() -> void:
+	_screen.free()
+	_screen = Fixture.attach_screen(self, 2, "napoleon")
+	var play: PlaySession = _screen.play
+	assert_eq(play.player_faction, 2)
+	assert_eq(String(play.leaders.get(2, "")), "napoleon", "the human crown keeps its choice")
+	var context: Dictionary = MapPlayArmies.battle_context(play)
+	var leaders: Dictionary = context["leaders"]
+	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
+	MapPlayTurn.end_turn(play)
+	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
+
+
+func _capital_estate_tile() -> Vector2i:
+	var capital: Vector2i = _screen.capital_tile
+	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+		var tile: Vector2i = capital + offset
+		if not _screen.model.is_land(tile.x, tile.y):
+			continue
+		var province: int = _screen.model.province_at(tile.x, tile.y)
+		if _screen.model.province_owner(province) != MapScreen.PLAYER_FACTION:
+			continue
+		var index: int = _screen.model.index_of(tile.x, tile.y)
+		_screen.model.resource[index] = 0
+		# The setup post-pass may have raised a bootstrap farm here.
+		_screen.land_works.set_improvement(_screen.model, tile, 0)
+		return tile
+	return Vector2i(-1, -1)
+
+
+func _capital_point() -> Vector2:
+	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE

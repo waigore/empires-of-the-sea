@@ -22,23 +22,21 @@ estates ledger. **Pillars:** P1, P2 (rules), P3 (rules/view), P4.
 
 - **Named improvements** derive from the tile resource: Timber → Lumber camp,
   Iron/Coal/Gold/Tin → Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
-  UI may append the level (`Farm (L2)`).
 - **Levels 1–4.** A completed Builder order raises the tile one level. Costs
   match the wiki (1/4/8/16 lumber + cast iron) and the order takes its target
-  level in turns. Improvements need an owned resource tile; iron, coal, gold
-  and tin also need an Explorer to prospect first. Levels above the owner's
-  extraction tech cap are refused.
+  level in turns. Improvements need a crowned resource tile (province or
+  purchased deed); iron, coal, gold and tin also need an Explorer to prospect
+  first. Levels above the owner's extraction tech cap are refused.
 - **Assignment can cross the map.** A Builder order may target another owned
-  tile; the unit relocates for the works and returns on cancel. Materials are
-  paid on assignment and are not refunded.
+  tile, including a purchased enclave; the unit relocates for the works and
+  returns on cancel. Materials are paid on assignment and are not refunded.
 - **Extraction** runs at end of turn after Build/Work:
   `min(improvement, tech cap, transport, town development)`. Only connected,
   prospected improvements yield; raw commodities flow through Consumption and
-  Production.
+  Production. Purchased enclaves yield for their buyer, not the province owner.
 - **Connectivity:** the capital tile, ports and road tiles form the
   network; tiles on or beside it extract. A port seeds its province and its four
-  neighbours. A vacant estate with no road is labelled as such in the ledger, so
-  a Builder is not sent to raise a yield-less farm.
+  neighbours.
 - **Map feedback:** improvements draw a category glyph plus one gold pip per
   level.
 - **Estates ledger** (`ESTATES`, or **Build Improvement** in a province):
@@ -77,7 +75,7 @@ intents, and MapScreen applies them through `ImprovementOrders`.
 ## Tests
 
 `test_world_bootstrap`, `test_improvement_system`, `test_civilian_work`,
-`test_extraction`, `test_map_screen`, `test_economy_screen`.
+`test_extraction`, `test_map_screen_crown_orders`, `test_economy_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

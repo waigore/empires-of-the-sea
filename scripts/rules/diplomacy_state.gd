@@ -13,6 +13,16 @@ var overtures: Dictionary = {}
 var subsidies: Dictionary = {}
 ## Tribe id -> suzerain Great Power id.
 var colonies: Dictionary = {}
+## Human court for consent decisions (call to arms); set by the session.
+var human_faction: int = FactionCatalog.PLAYER_FACTION
+## Pair key -> true for formal alliances at the close of the preceding turn.
+## A treaty signed this turn never grants mutual defence for this turn.
+var alliance_snapshot: Dictionary = {}
+## Calls to arms the human court has not answered: {aggressor, defender, ally}.
+var pending_calls: Array[Dictionary] = []
+## Intervention offers the human court has not answered:
+## {aggressor, target, court} (wiki: diplomacy § Intervention).
+var pending_interventions: Array[Dictionary] = []
 ## Append-only recent history for the court and tests.
 var events: Array[Dictionary] = []
 
@@ -38,6 +48,9 @@ func reset(at_turn: int) -> void:
 	subsidies.clear()
 	colonies.clear()
 	events.clear()
+	alliance_snapshot.clear()
+	pending_calls.clear()
+	pending_interventions.clear()
 	_modified.clear()
 	_order_counts.clear()
 
@@ -97,7 +110,9 @@ func subsidy(payer: int, target: int) -> int:
 
 func set_subsidy(payer: int, target: int, percent: int) -> void:
 	subsidies["%d>%d" % [payer, target]] = percent
-	touch(payer, target, "subsidySet", {"percent": percent})
+	# Setting a subsidy is score-neutral, so it must not swallow the pair's
+	# per-turn drift (wiki: diplomacy § Relation Model, skip-on-event list).
+	record_event("subsidySet", payer, target, {"percent": percent})
 
 
 func cancel_subsidy(payer: int, target: int) -> bool:
@@ -106,7 +121,7 @@ func cancel_subsidy(payer: int, target: int) -> bool:
 		return false
 	var percent: int = int(subsidies[key])
 	subsidies.erase(key)
-	touch(payer, target, "subsidyCancelled", {"percent": percent})
+	record_event("subsidyCancelled", payer, target, {"percent": percent})
 	return true
 
 
@@ -211,6 +226,9 @@ func end_turn() -> Dictionary:
 		)
 		subsidies.erase(key)
 	var decayed: int = apply_decay()
+	# The mutual-defence snapshot is the state at the close of this turn: a
+	# treaty signed next turn cannot be pulled into today's war (wiki: diplomacy).
+	CallToArms.freeze_alliances(self)
 	_modified.clear()
 	_order_counts.clear()
 	turn += 1
@@ -223,6 +241,10 @@ func clear_relations_of(faction: int) -> void:
 		var record: DiplomacyRelation = relations[key]
 		if record.a == faction or record.b == faction:
 			relations.erase(key)
+	for index in range(pending_interventions.size() - 1, -1, -1):
+		var offer: Dictionary = pending_interventions[index]
+		if int(offer.get("aggressor", -1)) == faction or int(offer.get("target", -1)) == faction:
+			pending_interventions.remove_at(index)
 	for key: String in overtures.keys():
 		var parts: PackedStringArray = key.split(">")
 		if int(parts[0]) == faction or int(parts[1]) == faction:

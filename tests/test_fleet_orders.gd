@@ -285,7 +285,7 @@ func _zone_fog(zone_id: int) -> int:
 
 func _roster(region: int) -> Array[FleetState]:
 	var stored: Array[FleetState] = []
-	stored.assign(_screen.ship_layer._fleets_by_region.get(region, []))
+	stored.assign(_screen.ship_layer.regions.value(region, []))
 	return stored
 
 
@@ -304,6 +304,60 @@ func _player_ship_at_sea() -> Ship:
 		if fleet != null and fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
 			return ship
 	return _screen.ship_layer.ships[0]
+
+
+# --- the naval yard -----------------------------------------------------------
+
+
+func test_the_capital_dossier_opens_the_shipyard() -> void:
+	var capital: int = _screen.play.capital_province
+	assert_gte(capital, 0, "the fixture crowns a capital")
+
+	_screen.play.selected_province = capital
+	MapPlayFleets.open_yard(_screen.play)
+
+	assert_true(_screen.hud.panels.is_fleet_panel_open())
+	assert_true(_screen.hud.panels.fleet_panel._yard_open)
+	assert_false(_screen.hud.panels.fleet_panel._yard_rows.is_empty())
+
+
+func test_launching_pays_the_row_and_moors_the_hull() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	var econ: PlayerEconomy = _screen.play.economy.economy
+	econ.treasury = 60000
+	var treasury: int = econ.treasury
+	var peasants: int = econ.available_peasants()
+	var hulls: int = _screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION)
+
+	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+
+	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(fleet, "the launch founds or joins the home fleet")
+	assert_eq(fleet.count_of_type("carrack"), 1)
+	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls + 1)
+	assert_eq(econ.treasury, treasury - ShipEconomy.treasury_cost("carrack"))
+	assert_eq(econ.available_peasants(), peasants - 1)
+
+
+func test_breaking_up_a_hull_asks_once() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	_screen.play.economy.economy.treasury = 60000
+	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(fleet, "the yard founds the home fleet")
+	var hull_id: String = fleet.hulls[fleet.hulls.size() - 1]
+	var panel: FleetPanel = _screen.hud.panels.fleet_panel
+
+	panel._on_scrap_pressed(hull_id)
+
+	assert_eq(panel._armed_hull, hull_id, "the first tap only arms")
+	assert_true(fleet.hulls.has(hull_id))
+
+	panel._on_scrap_pressed(hull_id)
+
+	assert_false(fleet.hulls.has(hull_id), "the second tap scraps")
 
 
 func _enemy_ship() -> Ship:

@@ -63,11 +63,18 @@ func total_turns() -> int:
 	return int(work.get("total", 0))
 
 
+## Extra order parameters recorded at assignment; `build_fort` stores the level
+## the project was priced and gated for.
+func work_detail(key: String, fallback: int = 0) -> int:
+	return int(work.get(key, fallback))
+
+
 ## Starts a work order; the caller has already validated it. `origin` is the
 ## tile the unit left for the assignment; it defaults to the target when the
-## Builder works where it stands.
+## Builder works where it stands. `details` ride along in the saved work dict.
 func start_work(
-	action: String, target: Vector2i, duration: int, origin: Vector2i = NO_TILE
+	action: String, target: Vector2i, duration: int, origin: Vector2i = NO_TILE,
+	details: Dictionary = {}
 ) -> void:
 	status = Status.WORKING
 	tile = target
@@ -79,6 +86,7 @@ func start_work(
 		"remaining": maxi(duration, 1),
 		"total": maxi(duration, 1),
 	}
+	work.merge(details, true)
 
 
 ## Advances one turn; true when the work order completed this turn.

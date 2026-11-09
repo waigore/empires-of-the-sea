@@ -8,6 +8,7 @@ static func open(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		play.diplomacy = DiplomacyState.new()
 		play.diplomacy.initialize(play.turn)
+	play.diplomacy.human_faction = play.player_faction
 	sync_first_contact(play)
 	DiplomacyHud.show(
 		play.hud.panels,
@@ -33,9 +34,19 @@ static func refresh(play: PlaySession) -> void:
 
 
 static func on_order(play: PlaySession, kind: String, target: int, arg: String) -> void:
-	if play.victory != null:
+	if play.campaign_over():
 		return
 	if play.diplomacy == null:
+		return
+	# While a call to arms waits, the court entertains no other business.
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		play.hud.toast("Answer the call to arms first.")
+		show_call(play)
+		return
+	# An intervention offer holds the court just as firmly.
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		play.hud.toast("Answer the intervention first.")
+		show_intervention(play)
 		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
@@ -51,8 +62,20 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		play.hud.toast(String(result.get("reason", "The court refuses.")))
 	elif not message.is_empty():
 		play.hud.toast(message)
-	if result.has("absorbed") and play.ship_layer != null:
-		play.ship_layer.transfer_owner(int(result["absorbed"]), play.player_faction)
+	for call_line: String in result.get("calls", []):
+		if not call_line.is_empty():
+			play.hud.toast(call_line)
+	for news: String in result.get("interventions", []):
+		if not news.is_empty():
+			play.hud.toast(news)
+	# An absorbed crown's units change colours with its provinces: fleets first,
+	# then land regiments (wiki: diplomacy § GP–Minor Rules).
+	if result.has("absorbed"):
+		var loser: int = int(result["absorbed"])
+		if play.ship_layer != null:
+			play.ship_layer.transfer_owner(loser, play.player_faction)
+		if play.army_layer != null:
+			play.army_layer.transfer_owner(loser, play.player_faction)
 	if bool(result.get("map_changed", false)):
 		_rebuild_map(play)
 	play.hud.set_treasury(play.treasury())
@@ -60,14 +83,65 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 
 
 ## End-of-turn diplomacy phase: first contact, rival-court AI orders, subsidy
-## upkeep, relation drift.
-static func resolve_turn(play: PlaySession) -> void:
+## upkeep, relation drift. Returns false when a call to arms suspends the turn
+## before the phase can close (wiki: diplomacy § Alliances).
+static func resolve_turn(play: PlaySession) -> bool:
 	if play.diplomacy == null:
-		return
+		return true
 	sync_first_contact(play)
 	run_ai(play)
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		show_call(play)
+		return false
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		show_intervention(play)
+		return false
+	close_turn(play)
+	return true
+
+
+## Closes the diplomacy phase once no consent decision is outstanding.
+static func close_turn(play: PlaySession) -> void:
+	if play.diplomacy == null:
+		return
 	play.diplomacy.end_turn()
 	refresh(play)
+
+
+## Opens the court on the waiting call and tells the player what is at stake.
+static func show_call(play: PlaySession) -> void:
+	if play.diplomacy == null or play.hud == null:
+		return
+	var call: Dictionary = CallToArms.pending_call_for(play.diplomacy, play.player_faction)
+	if call.is_empty():
+		return
+	open(play)
+	play.hud.toast(
+		"%s calls on our alliance against %s."
+		% [
+			FactionCatalog.name_of(int(call["defender"])),
+			FactionCatalog.name_of(int(call["aggressor"])),
+		]
+	)
+
+
+## Opens the court on a waiting intervention and names what is at stake.
+static func show_intervention(play: PlaySession) -> void:
+	if play.diplomacy == null or play.hud == null:
+		return
+	var offer: Dictionary = Intervention.pending_for(play.diplomacy, play.player_faction)
+	if offer.is_empty():
+		return
+	open(play)
+	play.hud.toast(
+		"%s declares war on %s. Our embassy stands: answer the intervention."
+		% [
+			FactionCatalog.name_of(int(offer["aggressor"])),
+			FactionCatalog.name_of(int(offer["target"])),
+		]
+	)
 
 
 ## Rival Great Powers take their one diplomatic action for the turn before the

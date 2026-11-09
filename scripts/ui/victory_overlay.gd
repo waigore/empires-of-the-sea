@@ -9,6 +9,9 @@ signal dismissed
 
 const MIN_PANEL_WIDTH: float = 460.0
 const VIEWPORT_MARGIN: float = 24.0
+## Calendar-cap variant (wiki: victory § Calendar campaign end).
+const CALENDAR_TITLE: String = "Campaign complete"
+const NO_WINNER: String = "No crown prevails"
 
 var state: VictoryState = null
 
@@ -47,6 +50,31 @@ func show_victory(p_state: VictoryState, player_faction: int, holdings: int) -> 
 		if state.won_by(player_faction)
 		else "%s has won the age." % state.winner_name()
 	)
+	_mount()
+
+
+## Renders the calendar-cap variant: no military victory, only the strongest
+## crown by power score — or a shared top score, which declares no-one. The
+## standing line and tagline follow the wiki's calendar copy exactly
+## (wiki: victory § Victory Screen § Content (calendar)).
+func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void:
+	state = null
+	var declared: bool = leader != MapModel.NO_ID
+	_title.text = CALENDAR_TITLE.to_upper()
+	_winner.text = (
+		FactionCatalog.name_of(leader).to_upper() if declared else NO_WINNER.to_upper()
+	)
+	_detail.text = "%d  ·  Turn %d" % [TurnTime.year_for_turn(turn), turn]
+	if not declared:
+		_tagline.text = "The age is divided — no crown is declared."
+	elif leader == player_faction:
+		_tagline.text = "The age belongs to your crown."
+	else:
+		_tagline.text = "%s holds the age." % FactionCatalog.name_of(leader)
+	_mount()
+
+
+func _mount() -> void:
 	_continue.text = "View final state"
 	visible = true
 	modulate.a = 0.0

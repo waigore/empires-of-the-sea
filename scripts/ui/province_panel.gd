@@ -17,6 +17,7 @@ var _population_value: Label = null
 var _port_value: Label = null
 var _capital_value: Label = null
 var _road_value: Label = null
+var _fort_value: Label = null
 var _capital_badge: Label = null
 var _training_box: VBoxContainer = null
 var _dock: Button = null
@@ -25,6 +26,7 @@ var _grid: GridContainer = null
 var _orders_box: VBoxContainer = null
 var _orders_index: int = -1
 var _recruit: Button = null
+var _shipyard: Button = null
 
 
 func _ready() -> void:
@@ -108,6 +110,7 @@ func _build() -> void:
 	_port_value = _add_row(grid, "Port")
 	_capital_value = _add_row(grid, "Capital")
 	_road_value = _add_row(grid, "Roads")
+	_fort_value = _add_row(grid, "Fort")
 
 	column.add_child(_divider())
 
@@ -126,6 +129,12 @@ func _build() -> void:
 	_recruit.tooltip_text = "Muster at your capital; the regiment joins the Home Army."
 	_recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
 	_orders_box.add_child(_recruit)
+
+	_shipyard = _make_button("Shipyard")
+	_shipyard.tooltip_text = "Launch and break up hulls at your capital port."
+	_shipyard.pressed.connect(func() -> void: action_pressed.emit("shipyard"))
+	_shipyard.visible = false
+	_orders_box.add_child(_shipyard)
 
 	var build := _make_button("Build Improvement")
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
@@ -241,6 +250,14 @@ func refresh(model: MapModel, province_id: int) -> void:
 	for path: Array in data.road_paths:
 		road_tiles += path.size()
 	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+	_fort_value.text = FortRules.describe(data.fort_level)
+	# The yard is a capital-port order: it launches hulls into the home fleet
+	# (wiki: ships-and-naval § Home Fleet).
+	_shipyard.visible = (
+		data.owner == FactionCatalog.PLAYER_FACTION
+		and data.capital
+		and data.port_tile.x >= 0
+	)
 
 
 ## Faction type drives the honorific (wiki: factions — three governing types).
