@@ -20,17 +20,17 @@ Roster, ids, colours and capabilities: `scripts/rules/faction_catalog.gd`.
 
 ## Regions
 
-- One deterministic tile map per region (`MapGenerator.generate_region`); a
-  seed reproduces both maps and all ownership.
-- Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces, European names.
-- New World: wetter, 10 Tribes, Native-flavoured names.
+- One deterministic tile map per region; a seed reproduces both maps and all
+  ownership.
+- Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces per nation.
+- New World: wetter, 10 Tribes, provinces per tribe.
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”, and fleets cross
   them as a move to the other world.
-- The HUD region button swaps canvas, fog, fleets, civilians, works and camera
-  bounds. Rosters and works persist per region; every region advances on end
-  turn, including off-screen battles. HUD chips are empire totals, and the
-  player keeps squadrons only where it owns provinces.
+- The region button swaps canvas, fog, fleets, civilians, works and camera
+  bounds. Rosters and works persist per region; every region advances each turn,
+  including off-screen. Chips are empire totals; navy food upkeep counts every
+  region. The player keeps squadrons only where it owns provinces.
 
 ## Setup post-pass
 
@@ -44,7 +44,7 @@ places four L1 grain farms per Great Power, wired to the seat by road
 `scripts/rules/territory_assignment.gd` grows each faction from one seed inside
 a single P–P continent, so holdings stay contiguous. A purchased tile is a
 **deed**: `TileOwnership` overrides its owner while the province stays with the
-seller, so colour and border enclose just that enclave.
+seller, so colour and border enclose that enclave.
 
 - Seeds are farthest-point sea-bound provinces (GPs and Tribes must own one).
 - Minors reserve at most 3 provinces each; the rest splits evenly across GPs on
