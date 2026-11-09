@@ -195,6 +195,11 @@ static func battle_context(play: PlaySession) -> Dictionary:
 	}
 
 
+## Rival land turn — see MapPlayArmyAi (docs/ai.md).
+static func run_ai(play: PlaySession) -> Array[Dictionary]:
+	return MapPlayArmyAi.run(play)
+
+
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands. Capital losses resolve in
 ## the same pass, so a captured seat reassigns or falls before the next phase

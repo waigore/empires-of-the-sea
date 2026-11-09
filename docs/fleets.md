@@ -52,14 +52,15 @@ strength beside land strength.
 | `scripts/rules/warp_travel.gd` | passage crossing validation |
 | `scripts/map/map_play_warp.gd` | follows a crossing onto the other map |
 | `scripts/rules/visibility.gd` | fog reveal + end of turn |
-| `scripts/map/ship_layer.gd` | markers, orders, all-region battles |
+| `scripts/map/ship_layer.gd` | markers, orders, battles |
 | `scripts/map/map_overlay.gd` | destination highlights |
+| `scripts/map/fog_layer.gd` | fog texture + fade |
 | `scripts/ui/fleet_panel.gd` | dockable dossier, yard orders |
 | `scripts/ui/panel_dock.gd` | left/right dock side + `user://ui.cfg` |
 | `scripts/economy/economy_controller.gd` | all-region upkeep |
 | `scripts/map_screen.gd` | intents + end-of-turn wiring |
 
-No node deps in rules (`REQ-P3-03`). Orders: `ShipLayer.order` →
+No node deps in rules (`REQ-P3-03`). `ShipLayer.order` →
 `NavalMovement.apply_move`; yard: `ShipLayer.launch_hull` → `FleetYard`; combat:
 `ShipLayer.resolve_battles` → `NavalCombat.resolve_turn`.
 
