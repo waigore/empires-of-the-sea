@@ -140,12 +140,20 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref || 'main' }}
         run: |
           set -euo pipefail
+          # Do not --prune: that can delete origin/main mid-job and empty the diff.
+          git fetch --no-tags origin "${GITHUB_BASE_REF}"
           BASE="origin/${GITHUB_BASE_REF}"
-          git fetch --no-tags --prune origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" || \
-            git fetch --no-tags origin "${GITHUB_BASE_REF}"
+          git rev-parse --verify "$BASE"
           python tools/select_impacted_tests.py --check-complete
           python tools/select_impacted_tests.py --base "$BASE" --github-output | tee /tmp/impact-suites.txt
-          echo "Base: $BASE"
+          echo "Base: $BASE ($(git rev-parse --short "$BASE"))"
+          echo "Changed vs base:"
+          git diff --name-only --diff-filter=ACMR "${BASE}...HEAD" | head -50
+          LIST=".gd-tools/impact-suites.txt"
+          if [ ! -f "$LIST" ] || [ ! -s "$LIST" ]; then
+            echo "Strict impact map: code paths changed but no suites selected." >&2
+            exit 1
+          fi
 
       - name: Run impacted tests (coverage collect, no overall min)
         id: run_tests
@@ -166,8 +174,8 @@ jobs:
           fi
           mapfile -t SUITES < <(sed '/^$/d' "$LIST")
           if [ "${#SUITES[@]}" -eq 0 ]; then
-            echo "No suites selected — nothing to run"
-            exit 0
+            echo "Strict impact map: empty suite list after selection." >&2
+            exit 1
           fi
           echo "Suites (${#SUITES[@]}):"
           printf '  %s\n' "${SUITES[@]}"
@@ -184,6 +192,10 @@ jobs:
         run: |
           set -euo pipefail
           BASE="origin/${GITHUB_BASE_REF}"
+          if [ ! -f .gd-tools/coverage/plan.json ]; then
+            echo "Missing coverage plan after test run" >&2
+            exit 1
+          fi
           # Empty / comment-only patches pass (gd-tools: empty patch never fails).
           gd-tools coverage diff --patch --base "$BASE" \
             --patch-fail-under 80 --patch-annotations true
