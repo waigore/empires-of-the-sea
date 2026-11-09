@@ -11,6 +11,11 @@ extends SceneTree
 ## 1500), --size=0|1|2 (GameConfig.SIZES, default 1 = Standard), --runs=N
 ## (seeds seed+i, default 1), --historical (stop at the calendar cap instead of
 ## the observer's endless campaign), --out=DIR (default user://ai_vs_ai).
+##
+## This is a headless debug harness, not shipped game code: exclude the file
+## from the coverage plan so the 80% patch gate tracks the rules and UI it
+## drives, not the CLI plumbing.
+# gd-tools: no cover start
 
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 const OUT_DIR: String = "user://ai_vs_ai"
@@ -208,3 +213,4 @@ func _ensure_dir() -> void:
 func _fail(message: String) -> void:
 	_failures.append(message)
 	printerr("ai_vs_ai: %s" % message)
+# gd-tools: no cover end
