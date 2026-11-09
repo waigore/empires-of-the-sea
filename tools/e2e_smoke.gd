@@ -448,6 +448,7 @@ func _smoke_end_turn(
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
+	_check(_rival_research_started(screen), "rivals filled their research slots")
 	_check(screen.economy != null, "economy wired")
 	_check(
 		screen.treasury == screen.economy.economy.treasury,
@@ -668,6 +669,21 @@ func _options_has(options: Array[Dictionary], action: String) -> bool:
 	for option: Dictionary in options:
 		if String(option.get("action", "")) == action:
 			return true
+	return false
+
+
+## True when at least one rival court put a tech into a research slot, proving
+## the economy adapter wired AiResearchPlanner (DR-20261109-20).
+func _rival_research_started(screen: MapScreen) -> bool:
+	if screen.play.ai == null:
+		return false
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == screen.play.player_faction:
+			continue
+		var rival: PlayerEconomy = screen.play.ai.economy_for(faction)
+		for slot in rival.research.slots.size():
+			if not rival.research.tech_at(slot).is_empty():
+				return true
 	return false
 
 

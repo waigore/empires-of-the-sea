@@ -93,6 +93,64 @@ func test_a_blockade_raider_earns_the_bonus() -> void:
 	)
 
 
+func test_privateers_improve_the_raid_chance() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _raider()
+	var plain: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.99
+	)
+	var charter := func(owner: int, tech_id: String) -> bool:
+		return owner == 1 and tech_id == NavalInterception.PRIVATEERING_TECH
+	var chartered: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.99, charter
+	)
+	assert_almost_eq(float(plain["chance"]), 0.5 * 5.0 / 8.0, 0.0001)
+	# Σintercept 5 × 1.25 = 6.25 against the same flee score of 3.
+	assert_almost_eq(float(chartered["chance"]), 0.5 * 6.25 / 9.25, 0.0001)
+	assert_gt(float(chartered["chance"]), float(plain["chance"]))
+
+
+## In the full-AI observer every crown answers from its AI ledger; the human
+## ledger is frozen and must not answer for the observed crown (REQ-P2-03).
+func test_the_observer_answers_tech_from_each_crowns_ledger() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.observer_mode = true
+	play.ai = AiState.new()
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	play.economy = economy
+	economy.economy.tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_false(
+		play.has_tech(0, NavalInterception.PRIVATEERING_TECH),
+		"the human ledger does not resolve in the observer"
+	)
+	play.ai.economy_for(0).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	play.ai.economy_for(1).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(2, NavalInterception.PRIVATEERING_TECH))
+	economy.free()
+
+
+func test_the_session_answers_tech_for_the_human_and_rivals() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.ai = AiState.new()
+	assert_false(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	play.economy = economy
+	economy.economy.tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	play.ai.economy_for(1).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(0, ""))
+	economy.free()
+
+
 func test_losses_never_exceed_the_imports() -> void:
 	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
 	var raider := _raider()
@@ -101,6 +159,32 @@ func test_losses_never_exceed_the_imports() -> void:
 	)
 	assert_eq(int(result["lost_total"]), 1)
 	assert_eq(int((result["losses"] as Dictionary)["grain"]), 1)
+
+
+func test_a_blockade_bonus_does_not_cross_zones() -> void:
+	# Both coasts answer to the victim, so both zones border its shore.
+	_model.province_data(1).owner = 0
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var patrol := _fleet(1, 1, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var blockader := _fleet(2, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var lone: Dictionary = NavalRaid.resolve(
+		_model, [home, patrol], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+	)
+	assert_false(bool(lone["ok"]), "a lone patrol in the far zone misses at 0.30")
+	var both: Dictionary = NavalRaid.resolve(
+		_model, [home, patrol, blockader], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+	)
+	assert_true(bool(both["ok"]))
+	assert_eq(int(both["zone"]), 0, "the blockading squadron raids in its own zone")
+	assert_almost_eq(
+		float(both["chance"]),
+		NavalInterception.chance([blockader], [home], FleetState.Mission.PATROL)
+		* NavalRaid.BLOCKADE_BONUS,
+		0.0001
+	)
 
 
 func test_the_market_reports_this_turns_imports() -> void:

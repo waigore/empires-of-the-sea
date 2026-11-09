@@ -178,6 +178,13 @@ static func _best_engineer(
 		context, reserved
 	)
 	best = _better(best, port)
+	# A province's town only connects its estates when the town itself reaches
+	# the capital, so the Engineer extends that link before incidental roads
+	# (wiki: capital-and-connectivity § Town rule).
+	best = _better(best, AiTownRoads.best_candidate(
+		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
+		context, connected, reserved
+	))
 	if bool(context.get("at_war", false)):
 		var fort: Dictionary = _fort_candidate(
 			config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,

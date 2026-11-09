@@ -85,6 +85,11 @@ gd-tools test --coverage --min 80 --parallel 4
 python tools/lint_docs_words.py
 ```
 
+When new `class_name` files land, run coverage with `--no-cache`: a stale plan
+tries to instrument the new scripts, fails to reload them, and reports false
+`Nonexistent function` failures. `gd-tools coverage diff --patch` reads the
+HEAD commit, so commit the working tree before checking patch coverage.
+
 Extend `tools/e2e_smoke.gd` when the feature has a main-scene / player path the mini-flow can hit (≤2 min) — see [references/e2e-smoke.md](references/e2e-smoke.md). Fix failures before scoring; do not weaken CI gates.
 
 **Repo pitfalls** (each one cost a debugging loop):
