@@ -110,6 +110,30 @@ func test_privateers_improve_the_raid_chance() -> void:
 	assert_gt(float(chartered["chance"]), float(plain["chance"]))
 
 
+## In the full-AI observer every crown answers from its AI ledger; the human
+## ledger is frozen and must not answer for the observed crown (REQ-P2-03).
+func test_the_observer_answers_tech_from_each_crowns_ledger() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.observer_mode = true
+	play.ai = AiState.new()
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	play.economy = economy
+	economy.economy.tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_false(
+		play.has_tech(0, NavalInterception.PRIVATEERING_TECH),
+		"the human ledger does not resolve in the observer"
+	)
+	play.ai.economy_for(0).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(0, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	play.ai.economy_for(1).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	assert_true(play.has_tech(1, NavalInterception.PRIVATEERING_TECH))
+	assert_false(play.has_tech(2, NavalInterception.PRIVATEERING_TECH))
+	economy.free()
+
+
 func test_the_session_answers_tech_for_the_human_and_rivals() -> void:
 	var play := PlaySession.new()
 	play.player_faction = 0

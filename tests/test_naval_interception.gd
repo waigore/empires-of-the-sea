@@ -221,6 +221,25 @@ func test_a_privateer_patrol_wins_a_roll_a_plain_one_misses() -> void:
 	assert_eq(int(chartered[0]["attacker"]), 0)
 
 
+## A crown in the full-AI observer answers from its own AI ledger: no human
+## ledger resolves there, so the charter must still count (REQ-P2-03).
+func test_the_observer_crown_earns_its_privateer_charter() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.observer_mode = true
+	play.ai = AiState.new()
+	play.ai.economy_for(0).tech_unlocked[NavalInterception.PRIVATEERING_TECH] = true
+	var sloop := _squadron(1, 0, 0, "sloop", 1)
+	var fluyte := _squadron(2, 1, 0, "fluyte", 1)
+	assert_almost_eq(
+		NavalInterception.chance(
+			[sloop], [fluyte], FleetState.Mission.PATROL, play.has_tech
+		),
+		0.5 * 5.0 / 8.0,
+		0.0001
+	)
+
+
 func test_the_dossier_reads_the_privateer_charter() -> void:
 	var play := PlaySession.new()
 	play.player_faction = 0

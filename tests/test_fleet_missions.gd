@@ -142,6 +142,24 @@ func test_the_strongest_station_identifies_a_group() -> void:
 	)
 
 
+## The station line follows the same gate the interception does: a blockade
+## whose coast is ours, or at peace, attempts nothing, so the dossier must not
+## claim it does (REQ-P2-03).
+func test_a_blockade_note_follows_the_station_gate() -> void:
+	var fleet := FleetState.at_sea(1, 0, 1)
+	FleetMissions.assign(_model, fleet, FleetState.Mission.BLOCKADE, 1, _war)
+	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("Blockading Coro"))
+	# The crown takes the coast it was blockading.
+	_model.province_data(1).owner = 0
+	assert_false(FleetMissions.is_blockading(_model, fleet, _war))
+	assert_false(FleetMissions.status_note(_model, fleet, _war).contains("Blockading"))
+	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("lapsed"))
+	# Peace ends a blockade just as surely as capture.
+	_model.province_data(1).owner = 1
+	assert_true(FleetMissions.status_note(_model, fleet, _peace).contains("lapsed"))
+	assert_true(FleetMissions.status_note(_model, fleet, _war).contains("Blockading"))
+
+
 func test_station_ids_round_trip_and_labels_read_plainly() -> void:
 	assert_eq(FleetMissions.id_of(FleetState.Mission.PATROL), "patrol")
 	assert_eq(FleetMissions.from_id("patrol"), FleetState.Mission.PATROL)
