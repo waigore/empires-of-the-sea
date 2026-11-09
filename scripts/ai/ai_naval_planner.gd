@@ -100,11 +100,15 @@ static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
 	return hostile
 
 
-## Own squadrons that can still sail: afloat, un-moved, in id order.
+## Own squadrons that can still sail: afloat, un-moved, in id order. A squadron
+## carrying an expedition army keeps its course — AiInvasionPlanner steers it
+## (wiki: ai-architecture § Overseas invasions).
 static func _squadrons(fleets: Array, owner: int) -> Array[FleetState]:
 	var own: Array[FleetState] = []
 	for fleet: FleetState in fleets:
 		if fleet == null or fleet.owner != owner or fleet.moved or not fleet.is_afloat():
+			continue
+		if fleet.embarked_army >= 0:
 			continue
 		own.append(fleet)
 	own.sort_custom(func(a: FleetState, b: FleetState) -> bool: return a.id < b.id)
