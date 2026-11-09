@@ -176,7 +176,14 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 
-	assert_lt(first.ship_count() + second.ship_count(), hulls_before)
+	var hulls_after: int = first.ship_count() + second.ship_count()
+	if hulls_after == hulls_before:
+		assert_ne(
+			first.sea_zone, second.sea_zone,
+			"a beaten squadron that survives withdraws to adjacent water"
+		)
+	else:
+		assert_lt(hulls_after, hulls_before)
 	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 
@@ -191,6 +198,99 @@ func test_empire_counters_survive_a_region_switch() -> void:
 	)
 	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
+
+
+func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
+	_screen.hud.civilian_roster_pressed.emit()
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	assert_not_null(roster)
+	assert_true(roster.is_open())
+	assert_eq(int(roster._snapshot["total"]), MapScreen.STARTING_CIVILIANS.size())
+	assert_eq(roster._head.region, CivilianRoster.REGION_ALL)
+	assert_eq(roster._head.type_id, CivilianRosterHead.TYPE_ALL)
+	roster.close()
+	assert_false(roster.is_open())
+
+
+func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
+	var tile: Vector2i = _screen.model.provinces[0].tiles[0]
+	var unit: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.play.player_faction, "merchant", tile
+	)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
+
+	_screen.hud.civilian_roster_pressed.emit()
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	roster._head.filter_changed.emit(CivilianRoster.REGION_NEW, "merchant")
+	assert_eq(
+		CivilianRoster.count(roster._snapshot, CivilianRoster.REGION_NEW, "merchant"), 1
+	)
+	var row: CivilianRosterRow = _first_row(roster)
+	assert_not_null(row)
+	assert_eq(int(row.data["unit_id"]), unit.id)
+	assert_eq(String(row.data["province_name"]), _screen.world.region(1).province_name(
+		_screen.world.region(1).province_at(tile.x, tile.y)
+	))
+
+	row._visit_unit()
+	assert_false(roster.is_open(), "visiting closes the ledger")
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
+	assert_eq(_screen.civilian_layer.selected_unit, unit)
+	assert_true(_screen.hud.panels.is_civilian_panel_open())
+
+
+func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
+	_screen.hud.civilian_roster_pressed.emit()
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	var head: CivilianRosterHead = roster._head
+	head._region_buttons[CivilianRoster.REGION_OLD].pressed.emit()
+	assert_eq(roster._region, CivilianRoster.REGION_OLD)
+	assert_eq(CivilianRoster.count(roster._snapshot, roster._region), 3)
+	head._type_buttons["explorer"].pressed.emit()
+	assert_eq(roster._type, "explorer")
+	assert_eq(CivilianRoster.count(roster._snapshot, roster._region, roster._type), 1)
+	head._type_buttons["explorer"].pressed.emit()
+	assert_eq(roster._type, CivilianRosterHead.TYPE_ALL, "tapping the craft clears it")
+	head._type_buttons[CivilianRosterHead.TYPE_ALL].pressed.emit()
+	head._region_buttons[CivilianRoster.REGION_NEW].pressed.emit()
+	assert_true(roster._empty.visible, "an empty world gets an explanation")
+	assert_true(String(roster._empty.text).contains("No civilians"))
+	assert_true(roster.is_open())
+
+
+func test_the_roster_opens_and_closes_from_the_keyboard() -> void:
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	var toggle := InputEventAction.new()
+	toggle.action = InputActions.CIVILIAN_ROSTER
+	toggle.pressed = true
+	roster._unhandled_input(toggle)
+	assert_true(roster.is_open())
+	roster._unhandled_input(toggle)
+	assert_false(roster.is_open())
+	var cancel := InputEventAction.new()
+	cancel.action = InputActions.CANCEL
+	cancel.pressed = true
+	roster._unhandled_input(toggle)
+	roster._input(cancel)
+	assert_false(roster.is_open(), "Escape closes the ledger")
+
+
+func test_the_back_gesture_closes_the_roster_first() -> void:
+	_screen.hud.civilian_roster.open()
+	assert_true(_screen.hud.civilian_roster.is_open())
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
+	assert_true(BackRequest.handle(_screen.play, _screen.improvements))
+	assert_false(_screen.hud.civilian_roster.is_open(), "back closes the ledger only")
+
+
+func _first_row(roster: CivilianRosterPanel) -> CivilianRosterRow:
+	for child: Node in roster._rows.get_children():
+		if child is CivilianRosterRow:
+			return child
+	return null
 
 
 func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:

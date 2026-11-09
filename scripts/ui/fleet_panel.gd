@@ -189,7 +189,7 @@ func refresh(
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own fleet."
 	elif not beach_note.is_empty():
-		_status.text = "On beachhead duty"
+		_status.text = "On station"
 		_hint.text = beach_note
 	elif fleet.moved:
 		_status.text = "Has moved this turn"

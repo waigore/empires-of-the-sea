@@ -62,12 +62,16 @@ suites = [
 
 [domains.fleet]
 suites = [
+  "test_fleet_missions.gd",
   "test_fleet_orders.gd",
   "test_fleet_rosters.gd",
   "test_fleet_sortie.gd",
   "test_fleet_yard.gd",
+  "test_naval_interception.gd",
   "test_naval_movement.gd",
   "test_naval_port_loss.gd",
+  "test_naval_raid.gd",
+  "test_naval_retreat.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]
@@ -251,6 +255,10 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/map/map_play_fleet*.gd"
+domain = "fleet"
+
+[[rules]]
+match = "scripts/map/map_play_raids.gd"
 domain = "fleet"
 
 [[rules]]

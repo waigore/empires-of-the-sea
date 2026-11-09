@@ -12,6 +12,8 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const PHONE := Vector2i(914, 411)
 ## 1600x720 at 2.0 density: a 360 dp phone held landscape (the modern floor).
 const SMALL := Vector2i(800, 360)
+## 720x1280 at 2.0 density: a 360 dp phone held portrait.
+const PORTRAIT := Vector2i(360, 640)
 const TABLET := Vector2i(1180, 820)
 const DESKTOP := Vector2i(1280, 720)
 const TOUCH_MIN := 40.0
@@ -273,6 +275,31 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 	assert_gt(actions, 0, "estate rows expose their actions")
 	for button: Button in estates.filter_buttons().values():
 		_tappable(button, "estate filter %s" % button.text)
+
+
+func test_phone_civilian_roster_fits_and_stays_tappable() -> void:
+	for size: Vector2i in [PHONE, SMALL, PORTRAIT]:
+		_open(size)
+		await get_tree().process_frame
+		var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+		_screen.hud.civilian_roster_pressed.emit()
+		await get_tree().process_frame
+		assert_true(roster.is_open(), "roster opens at %s" % size)
+		_fits(roster._panel.get_global_rect(), _screen_rect(), "roster %s" % size)
+		var row: CivilianRosterRow = _first_roster_row(roster)
+		assert_not_null(row, "roster lists a row at %s" % size)
+		_fits(row.get_global_rect(), roster._panel.get_global_rect(), "row %s" % size)
+		_tappable(row._visit, "visit button %s" % size)
+		for button: Button in roster._head.filter_buttons().values():
+			_tappable(button, "roster filter %s at %s" % [button.text, size])
+		roster.close()
+
+
+func _first_roster_row(roster: CivilianRosterPanel) -> CivilianRosterRow:
+	for child: Node in roster._rows.get_children():
+		if child is CivilianRosterRow:
+			return child
+	return null
 
 
 ## --- helpers ---------------------------------------------------------------

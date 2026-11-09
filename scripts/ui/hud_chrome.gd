@@ -18,6 +18,7 @@ static func build(hud: GameHud) -> void:
 	_research_panel(hud)
 	DiplomacyHud.build(hud)
 	_civilian_panel(hud)
+	_civilian_roster(hud)
 	ArmyHud.build(hud)
 	_tooltip(hud)
 	_victory_plate(hud)
@@ -259,6 +260,18 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud._civilian_panel.close_pressed.connect(func() -> void: hud.civilian_closed.emit())
 	hud._civilian_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud._civilian_wrap.add_child(hud._civilian_panel)
+
+
+## Whole-empire civilian roster: its own canvas layer above the pause menu, so
+## the ledger is truly modal (the menu trigger cannot bleed through the panel).
+static func _civilian_roster(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "CivilianRosterLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.civilian_roster = CivilianRosterPanel.new()
+	layer.add_child(hud.civilian_roster)
+	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
 
 
 ## Campaign-end plate: built last so it covers every dossier (wiki: victory).

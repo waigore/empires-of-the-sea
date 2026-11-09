@@ -107,7 +107,7 @@ Do it in this order; each step is reviewable and testable alone.
   top-row button has an icon; a new mode with no existing medallion needs a
   128 px PNG under `assets/art/icons/` (commit the generated `.import` too).
 - Top-bar budget is measured, not guessed: `HudLayout._row_width` must stay
-  under `viewport.x - 40`. The cartouche already carries six icon+caption
+  under `viewport.x - 40`. The cartouche already carries five icon+caption
   buttons and five chips; a sixth full button pushes the stat chips onto the
   second row at 1280 px and grows the bar from 68 to 92. Put map-mode toggles
   in the left rail (beside ESTATES) or another measured slot, not the bar.

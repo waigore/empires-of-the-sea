@@ -123,3 +123,28 @@ func test_the_banner_names_the_colonial_reservation() -> void:
 	assert_true(line.contains("4 for the colonies"))
 	assert_true(line.contains("2 free"))
 	assert_true(LedgerText.cargo_line({"holds": 6, "free": 2}).contains("2 free"))
+
+
+## One rule for the player's ledger and a rival's economy: home yield lands
+## directly and the other region's tonnage needs a hold (DR-20261109-17).
+func test_delivered_adds_only_what_the_holds_carry() -> void:
+	var world := WorldMap.new()
+	world.add_region(_region(0))
+	world.add_region(_region(4))
+	var works := MapRegionTable.new()
+	works.set_region(0, _works(world.region(0)))
+	works.set_region(1, _works(world.region(1)))
+	var home := {"grain": 3}
+
+	var none: Dictionary = EconomyOverseas.delivered(
+		home, world, WorldMap.OLD_WORLD, 0, {}, works, 0
+	)
+	var one: Dictionary = EconomyOverseas.delivered(
+		home, world, WorldMap.OLD_WORLD, 0, {}, works, 1
+	)
+
+	assert_eq(none["extraction"], {"grain": 3}, "no hold, no colonial ton")
+	assert_eq(int(none["used"]), 0)
+	assert_eq(int(one["used"]), 1)
+	assert_eq(one["extraction"], {"grain": 4})
+	assert_eq(home, {"grain": 3}, "the home totals are not mutated")

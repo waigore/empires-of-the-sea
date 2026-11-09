@@ -67,18 +67,20 @@ static func contested_zones(
 
 
 ## Resolves every contested zone and returns one record per engagement, in
-## ascending zone order. Fleets lose the hulls they lose in `battle`.
+## ascending zone order. Fleets lose the hulls they lose in `battle`. `context`
+## carries the campaign seed, turn and region model so interception and retreat
+## resolve deterministically (DR-20261109-16).
 static func resolve_turn(
-	fleets: Array, hostile: Callable = Callable()
+	fleets: Array, hostile: Callable = Callable(), context: Dictionary = {}
 ) -> Array[Dictionary]:
 	var engagements: Array[Dictionary] = []
 	for zone_id: int in contested_zones(fleets, hostile):
-		engagements.append_array(_resolve_zone(zone_id, fleets, hostile))
+		engagements.append_array(_resolve_zone(zone_id, fleets, hostile, context))
 	return engagements
 
 
 static func _resolve_zone(
-	zone_id: int, fleets: Array, hostile: Callable
+	zone_id: int, fleets: Array, hostile: Callable, context: Dictionary
 ) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var sides: Dictionary = _sides_in_zone(zone_id, fleets)
@@ -96,19 +98,29 @@ static func _resolve_zone(
 				break
 	if belligerents.size() < 2:
 		return records
-	var attacker: int = _attacker_owner(belligerents, sides)
+	var fighting: Dictionary = {}
+	for owner: int in belligerents:
+		fighting[owner] = sides[owner]
+	var initiative: Dictionary = NavalInterception.attacker_owner(
+		zone_id, fighting, hostile, context
+	)
+	var attacker: int = int(initiative.get("owner", belligerents[0]))
 	var defender_owners: Array[int] = []
 	for owner: int in belligerents:
 		if owner != attacker and _hostile(hostile, attacker, owner):
 			defender_owners.append(owner)
 	for defender: int in defender_owners:
-		var attacking: Array = _surviving(sides.get(attacker, []))
-		var defending: Array = _surviving(sides.get(defender, []))
+		var attacking: Array = _surviving(sides.get(attacker, []), zone_id)
+		var defending: Array = _surviving(sides.get(defender, []), zone_id)
 		if attacking.is_empty():
 			break
 		if defending.is_empty():
 			continue
-		var record: Dictionary = _battle(zone_id, attacker, attacking, defender, defending)
+		var record: Dictionary = _battle(
+			zone_id, attacker, attacking, defender, defending, fleets, hostile, context
+		)
+		record["intercepted"] = bool(initiative.get("intercepted", false))
+		record["interception_chance"] = float(initiative.get("chance", 0.0))
 		records.append(record)
 		if int(record["outcome"]) == Outcome.STALEMATE:
 			continue
@@ -128,10 +140,10 @@ static func _sides_in_zone(zone_id: int, fleets: Array) -> Dictionary:
 	return sides
 
 
-static func _surviving(group: Variant) -> Array:
+static func _surviving(group: Variant, zone_id: int) -> Array:
 	var alive: Array = []
 	for fleet: FleetState in group as Array:
-		if fleet.is_afloat():
+		if fleet.is_afloat() and fleet.is_at_sea() and fleet.sea_zone == zone_id:
 			alive.append(fleet)
 	return alive
 
@@ -154,22 +166,17 @@ static func _any_hostile(owners: Array[int], hostile: Callable) -> bool:
 
 
 ## The fleet that moved into the zone attacks; otherwise the lowest owner id
-## takes the initiative (wiki: § Naval Combat attacker/defender).
-static func _attacker_owner(owners: Array[int], sides: Dictionary) -> int:
-	var movers: Array[int] = []
-	for owner: int in owners:
-		for fleet: FleetState in sides[owner] as Array:
-			if fleet.moved:
-				movers.append(owner)
-				break
-	if movers.is_empty():
-		return owners[0]
-	movers.sort()
-	return movers[0]
-
-
+## takes the initiative (wiki: § Naval Combat attacker/defender). Patrol and
+## blockade initiative lives in NavalInterception.
 static func _battle(
-	zone_id: int, attacker_id: int, attacking: Array, defender_id: int, defending: Array
+	zone_id: int,
+	attacker_id: int,
+	attacking: Array,
+	defender_id: int,
+	defending: Array,
+	fleets: Array,
+	hostile: Callable,
+	context: Dictionary
 ) -> Dictionary:
 	var attacker_strength: float = side_strength(attacking)
 	var defender_strength: float = side_strength(defending)
@@ -184,6 +191,7 @@ static func _battle(
 		"attacker_lost": [],
 		"defender_lost": [],
 		"outcome": Outcome.NONE,
+		"retreat": {},
 	}
 	var total: float = attacker_strength + defender_strength
 	if total <= 0.0:
@@ -205,8 +213,16 @@ static func _battle(
 		victor = defending
 		beaten_strength = attacker_strength
 		outcome = Outcome.SIDE2_VICTORY
-	var beaten_lost: Array[String] = _sink(beaten, INF, false)
-	var victor_lost: Array[String] = _sink(victor, beaten_strength * CASUALTY_FRACTION, true)
+	var retreat: Dictionary = _try_retreat(zone_id, beaten, victor, fleets, hostile, context)
+	if not retreat.is_empty():
+		retreat["beaten"] = attacker_id if share < 0.5 else defender_id
+	record["retreat"] = retreat
+	var beaten_lost: Array[String] = []
+	if not bool(retreat.get("success", false)):
+		beaten_lost = _sink(beaten, INF, false)
+	var victor_lost: Array[String] = _sink(
+		victor, beaten_strength * CASUALTY_FRACTION, true
+	)
 	if share < 0.5:
 		record["attacker_lost"] = beaten_lost
 		record["defender_lost"] = victor_lost
@@ -215,6 +231,32 @@ static func _battle(
 		record["defender_lost"] = beaten_lost
 	record["outcome"] = outcome
 	return record
+
+
+## A beaten side may slip into adjacent friendly or neutral water instead of
+## being routed (wiki: ships-and-naval § Naval Retreat Formula).
+static func _try_retreat(
+	zone_id: int,
+	beaten: Array,
+	victor: Array,
+	fleets: Array,
+	hostile: Callable,
+	context: Dictionary
+) -> Dictionary:
+	var model: MapModel = context.get("model") as MapModel
+	if model == null:
+		return {}
+	return NavalRetreat.attempt(
+		model,
+		zone_id,
+		beaten,
+		victor,
+		fleets,
+		hostile,
+		int(context.get("seed", 0)),
+		int(context.get("turn", 0)),
+		float(context.get("retreat_roll", -1.0))
+	)
 
 
 ## Spends a damage pool on whole hulls, weakest first; a hull only sinks when the
