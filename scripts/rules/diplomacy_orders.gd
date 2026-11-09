@@ -155,7 +155,7 @@ static func apply(
 	var kind: String = String(order.get("kind", ""))
 	match kind:
 		KIND_WAR:
-			return DiplomacyRules.declare_war(state, player, target)
+			return DiplomacyRules.declare_war(state, player, target, true, world)
 		KIND_PEACE:
 			return DiplomacyRules.make_peace(state, player, target)
 		KIND_ALLIANCE:
