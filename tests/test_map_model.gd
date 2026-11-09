@@ -9,7 +9,7 @@ func before_each() -> void:
 	_model.setup(4, 3)
 	for x in 4:
 		_model.terrain[_model.index_of(x, 0)] = MapModel.Terrain.PLAINS
-	_model.terrain[_model.index_of(1, 1)] = MapModel.Terrain.FOREST
+	_model.terrain[_model.index_of(1, 1)] = MapModel.Terrain.HARDWOOD_FOREST
 	_model.terrain[_model.index_of(2, 1)] = MapModel.Terrain.SHALLOW
 	_model.province[_model.index_of(0, 0)] = 0
 	_model.province[_model.index_of(1, 0)] = 0
