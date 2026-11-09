@@ -185,7 +185,8 @@ static func _extraction(
 		var capital: Dictionary = _capital(model, faction)
 		var yielded: Dictionary = Extraction.yields(
 			model, faction, int(capital["province"]),
-			TechCatalog.extraction_caps(economy.tech_unlocked), works, capital["tile"]
+			TechCatalog.extraction_caps(economy.tech_unlocked), works, capital["tile"],
+			economy.tech_unlocked
 		)
 		for commodity: Variant in yielded.keys():
 			var id: String = String(commodity)
