@@ -122,7 +122,9 @@ func show_fleet(
 	yard_rows: Array[Dictionary] = [],
 	slip: int = -1,
 	land_rows: Array[Dictionary] = [],
-	carried: int = 0
+	carried: int = 0,
+	beach_rows: Array[Dictionary] = [],
+	beach_note: String = ""
 ) -> void:
 	hide_province()
 	hide_civilian()
@@ -135,7 +137,10 @@ func show_fleet(
 	if fleet == null and slip >= 0:
 		fleet_panel.refresh_slip(model, slip, yard_rows, is_player)
 	else:
-		fleet_panel.refresh(model, fleet, is_player, passage, yard_rows, land_rows, carried)
+		fleet_panel.refresh(
+			model, fleet, is_player, passage, yard_rows, land_rows, carried,
+			beach_rows, beach_note
+		)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
 

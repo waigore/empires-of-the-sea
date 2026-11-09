@@ -21,6 +21,12 @@ var hull_types: Dictionary = {}
 ## transport; DR-20261109-08). One army per squadron; each hull carries one
 ## regiment.
 var embarked_army: int = -1
+## Beachhead mission (wiki: ships-and-naval § Missions and Movement): the
+## hostile coastal province this squadron has marked for a landing, and the turn
+## it was marked. A beachhead is ready on the following turn only and is lost
+## when the squadron sails or is sunk.
+var beachhead_province: int = MapModel.NO_ID
+var beachhead_turn: int = -1
 
 
 static func at_sea(
@@ -88,6 +94,16 @@ func is_at_sea() -> bool:
 
 func is_in_port() -> bool:
 	return location == Location.IN_PORT
+
+
+func has_beachhead() -> bool:
+	return beachhead_province != MapModel.NO_ID
+
+
+## Drops the landing site; a moved or sunk squadron cannot keep its beachhead.
+func clear_beachhead() -> void:
+	beachhead_province = MapModel.NO_ID
+	beachhead_turn = -1
 
 
 func ship_count() -> int:
@@ -164,6 +180,8 @@ func to_dict() -> Dictionary:
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
 		"embarked_army": embarked_army,
+		"beachhead_province": beachhead_province,
+		"beachhead_turn": beachhead_turn,
 	}
 
 
@@ -176,6 +194,8 @@ static func from_dict(data: Dictionary) -> FleetState:
 	fleet.province = int(data.get("province", MapModel.NO_ID))
 	fleet.moved = bool(data.get("moved", false))
 	fleet.embarked_army = int(data.get("embarked_army", -1))
+	fleet.beachhead_province = int(data.get("beachhead_province", MapModel.NO_ID))
+	fleet.beachhead_turn = int(data.get("beachhead_turn", -1))
 	var names: Array[String] = []
 	for raw: Variant in data.get("hulls", []):
 		names.append(String(raw))

@@ -30,13 +30,21 @@ static func owned_provinces_by_zone(
 	model: MapModel, zone_id: int, owner: int
 ) -> Array[int]:
 	var provinces: Array[int] = []
+	for province_id: int in provinces_by_zone(model, zone_id):
+		if model.province_owner(province_id) == owner:
+			provinces.append(province_id)
+	return provinces
+
+
+## Every province that shares a P-S edge with the sea zone, whatever its owner
+## (wiki: map-topology, ships-and-naval § Missions).
+static func provinces_by_zone(model: MapModel, zone_id: int) -> Array[int]:
+	var provinces: Array[int] = []
 	var data: SeaZoneState = model.sea_zone_data(zone_id)
 	for tile: Vector2i in data.tiles if data != null else []:
 		for offset: Vector2i in ORTHOGONAL:
 			var province_id: int = model.province_at(tile.x + offset.x, tile.y + offset.y)
 			if province_id == MapModel.NO_ID:
-				continue
-			if model.province_owner(province_id) != owner:
 				continue
 			if not provinces.has(province_id):
 				provinces.append(province_id)
@@ -180,6 +188,9 @@ static func apply_move(
 		fleet.location = FleetState.Location.IN_PORT
 		fleet.province = destination_id
 		fleet.sea_zone = MapModel.NO_ID
+	# A squadron that leaves the station gives up its landing site (wiki:
+	# ships-and-naval § Missions and Movement).
+	fleet.clear_beachhead()
 	fleet.moved = true
 	return {"ok": true, "reason": "", "entered_zone": entered_zone}
 

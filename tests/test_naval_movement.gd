@@ -335,6 +335,95 @@ func test_a_hostile_landing_needs_a_beachhead() -> void:
 	assert_true(String(check["reason"]).contains("beachhead"))
 
 
+## A marked beachhead opens the hostile coast on the following turn only, and
+## the landing consumes it (wiki: ships-and-naval § Missions and Movement).
+func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:
+	var pair: Array = _transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_model, army, fleet)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 1
+	fleet.province = MapModel.NO_ID
+	assert_eq(NavalTransport.hostile_coasts(_model, fleet), [1])
+	var marked: Dictionary = NavalTransport.establish_beachhead(_model, fleet, 1, 5)
+	assert_true(bool(marked["ok"]))
+	assert_true(fleet.moved)
+	assert_eq(fleet.beachhead_province, 1)
+	assert_eq(fleet.beachhead_turn, 5)
+	assert_false(bool(NavalTransport.beachhead_ready(fleet, 5)))
+	assert_true(bool(NavalTransport.beachhead_ready(fleet, 6)))
+	assert_eq(NavalTransport.landing_provinces(_model, fleet, 5), [])
+	assert_eq(NavalTransport.landing_provinces(_model, fleet, 6), [1])
+	assert_false(bool(NavalTransport.disembark(_model, army, fleet, 1, 5)["ok"]))
+	assert_true(bool(NavalTransport.disembark(_model, army, fleet, 1, 6)["ok"]))
+	assert_eq(army.province, 1)
+	assert_eq(army.embarked_fleet, -1)
+	assert_true(army.moved)
+	assert_false(fleet.has_beachhead())
+	# The landing is an invasion: the army is a contestant in the province.
+	var armies: Array[ArmyState] = [army]
+	assert_eq(ArmyCombat.contested_provinces(_model, armies), [1])
+
+
+func test_beachhead_lasts_one_full_turn_then_expires() -> void:
+	var fleet := FleetState.at_sea(3, 0, 1, ["ship_3"])
+	fleet.moved = false
+	assert_true(bool(NavalTransport.establish_beachhead(_model, fleet, 1, 5)["ok"]))
+	var fleets: Array[FleetState] = [fleet]
+	NavalTransport.expire_beachheads(fleets, 5)
+	assert_true(fleet.has_beachhead())
+	NavalMovement.begin_turn(fleets)
+	assert_false(fleet.moved)
+	assert_true(bool(NavalTransport.beachhead_ready(fleet, 6)))
+	NavalTransport.expire_beachheads(fleets, 6)
+	assert_false(fleet.has_beachhead())
+
+
+func test_beachhead_refusals_cover_each_gate() -> void:
+	var own_coast := FleetState.at_sea(3, 0, 0, ["ship_3"])
+	assert_false(bool(NavalTransport.can_establish_beachhead(_model, own_coast, 0)["ok"]))
+	var moved := FleetState.at_sea(4, 0, 1, ["ship_4"])
+	moved.moved = true
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, moved, 1)["reason"]
+	).contains("already moved"))
+	var docked := FleetState.in_port(5, 0, 0, ["ship_5"])
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, docked, 1)["reason"]
+	).contains("at sea"))
+	var empty := FleetState.at_sea(6, 0, 1, [] as Array[String])
+	empty.hulls = []
+	empty.hull_types = {}
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, empty, 1)["reason"]
+	).contains("no hulls"))
+	var far := FleetState.at_sea(7, 0, 0, ["ship_7"])
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, far, 1)["reason"]
+	).contains("border"))
+	var peaceful := func(_a: int, _b: int) -> bool: return false
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, own_coast, 1, 0, peaceful)["reason"]
+	).contains("declared war"))
+	assert_false(bool(NavalTransport.can_establish_beachhead(null, own_coast, 1)["ok"]))
+	assert_true(String(
+		NavalTransport.can_establish_beachhead(_model, own_coast, 99)["reason"]
+	).contains("not a province"))
+	assert_false(bool(NavalTransport.establish_beachhead(_model, moved, 1, 0)["ok"]))
+	assert_false(bool(NavalTransport.beachhead_ready(null, 0)))
+	assert_false(NavalTransport.beachhead_allows(null, null, 1))
+	assert_false(NavalTransport.beachhead_allows(_model, null, 1))
+	assert_eq(NavalTransport.hostile_coasts(null, own_coast).size(), 0)
+	assert_eq(NavalTransport.hostile_coasts(_model, own_coast).size(), 0)
+	var own_mark := FleetState.at_sea(8, 0, 0, ["ship_8"])
+	own_mark.beachhead_province = 0
+	own_mark.beachhead_turn = 4
+	assert_false(NavalTransport.beachhead_allows(_model, own_mark, 0, 5))
+	var mixed: Array[FleetState] = [null]
+	NavalTransport.expire_beachheads(mixed, 5)
+
+
 func test_landing_requires_the_fleet_to_border_the_coast() -> void:
 	var pair: Array = _transport_pair()
 	var army: ArmyState = pair[0]
@@ -376,11 +465,15 @@ func test_transport_state_survives_a_save_round_trip() -> void:
 	var army: ArmyState = pair[0]
 	var fleet: FleetState = pair[1]
 	NavalTransport.embark(_model, army, fleet)
+	fleet.beachhead_province = 1
+	fleet.beachhead_turn = 5
 	var saved_army: ArmyState = ArmyState.from_dict(army.to_dict())
 	var saved_fleet: FleetState = FleetState.from_dict(fleet.to_dict())
 	assert_eq(saved_army.embarked_fleet, fleet.id)
 	assert_eq(saved_army.province, MapModel.NO_ID)
 	assert_eq(saved_fleet.embarked_army, army.id)
+	assert_eq(saved_fleet.beachhead_province, 1)
+	assert_eq(saved_fleet.beachhead_turn, 5)
 
 
 func _transport_layer(army: ArmyState) -> ArmyLayer:
