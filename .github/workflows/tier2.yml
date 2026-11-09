@@ -1,0 +1,141 @@
+name: CI tier 2
+
+# Full unit suite + overall 80% coverage. Does not block PR merge.
+# Sticky GitHub issue (label ci-tier2) for the fix-tests agent.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 8 hours UTC
+    - cron: "0 */8 * * *"
+
+concurrency:
+  group: ci-tier2
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  tests-full:
+    name: tests-full
+    runs-on: ubuntu-latest
+    # Full suite budget is looser than PR tier 1 (docs/testing.md).
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install gd-tools
+        run: pip install "gd-tools-cli==0.10.0"
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: false
+
+      - name: Verify tooling
+        run: |
+          godot --version
+          gd-tools version
+
+      - name: Import project
+        run: godot --headless --path . --import --quit
+
+      - name: Impact map completeness
+        run: python tools/select_impacted_tests.py --check-complete
+
+      - name: Full suite with overall 80% coverage
+        run: gd-tools test --coverage --min 80 --parallel 4 --timeout 600 --junit-xml .gd-tools/results.xml
+
+      - name: Upload test & coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier2-test-and-coverage
+          path: |
+            .gd-tools/results.xml
+            .gd-tools/coverage/
+          if-no-files-found: ignore
+
+  tier2-issue:
+    name: tier2-issue
+    needs: tests-full
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ensure label and sync sticky issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CONCLUSION: ${{ needs.tests-full.result }}
+        run: |
+          set -euo pipefail
+          gh label create ci-tier2 --color B60205 --description "Tier-2 full suite failure" 2>/dev/null || true
+
+          open_json=$(gh issue list --label ci-tier2 --state open --limit 5 --json number,title)
+          open_n=$(printf '%s' "$open_json" | jq 'length')
+          issue=""
+          if [ "$open_n" -gt 0 ]; then
+            issue=$(printf '%s' "$open_json" | jq -r '.[0].number')
+          fi
+
+          if [ "$CONCLUSION" = "success" ]; then
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "Tier-2 full suite is green again: $RUN_URL"
+              gh issue close "$issue" --reason completed \
+                --comment "Closing sticky ci-tier2 issue; full suite passed."
+              # Close any extras (should be rare).
+              printf '%s' "$open_json" | jq -r '.[].number' | while read -r n; do
+                if [ "$n" != "$issue" ]; then
+                  gh issue close "$n" --reason completed --comment "Duplicate ci-tier2 issue; suite green."
+                fi
+              done
+            fi
+            echo "Tier 2 green; no open ci-tier2 issue required."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          ## Tier-2 full suite failed
+
+          Scheduled / manual **CI tier 2** run failed (overall 80% coverage + full unit suites).
+
+          - Run: $RUN_URL
+          - Workflow: CI tier 2 / tests-full
+          - Conclusion: \`$CONCLUSION\`
+
+          The **fix-tests** agent (hourly, gated on this label) should reproduce, fix, open a PR, babysit merge, then close this issue.
+
+          Keep **at most one** open issue with label \`ci-tier2\`.
+          EOF
+          )
+          # Strip the YAML-indent padding from the issue body.
+          body=$(printf '%s\n' "$body" | sed 's/^          //')
+
+          if [ -z "$issue" ]; then
+            gh issue create \
+              --title "ci-tier2: full unit suite / coverage failed" \
+              --label ci-tier2 \
+              --body "$body"
+          else
+            gh issue comment "$issue" --body "$body"
+            # Close extras if somehow more than one is open.
+            printf '%s' "$open_json" | jq -r '.[].number' | while read -r n; do
+              if [ "$n" != "$issue" ]; then
+                gh issue close "$n" --reason not_planned \
+                  --comment "Duplicate ci-tier2 issue; keeping #$issue."
+              fi
+            done
+          fi

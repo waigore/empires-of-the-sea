@@ -1,34 +1,44 @@
 # Testing
 
-Unit/integration tests and the headless e2e smoke. Budgets are hard CI gates.
+Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are hard gates.
 
-## Budgets
+## Tiers
 
-| Suite | Command | Budget |
-|-------|---------|--------|
-| Unit + coverage | `gd-tools test --coverage --min 80 --parallel 4` | **≤ 5 min** (CI job `tests`) |
-| E2E smoke | `godot --headless --path . --script res://tools/e2e_smoke.gd` | **≤ 2 min** (CI job `e2e-smoke`) |
+| Tier | When | Command / gate | Budget |
+|------|------|----------------|--------|
+| **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
+| **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full `gd-tools test --coverage --min 80 --parallel 4` | job **≤ 15 min** |
 
-CI enforces these with job `timeout-minutes` (`5` / `2`) and a 240s gd-tools `--timeout`.
+Tier 1 is the merge gate (`tests` / `e2e-smoke` in CI). Tier 2 does **not** block PRs. Failures open/update one sticky GitHub issue labeled `ci-tier2`; the **fix-tests** agent (hourly, gated on that label) fixes, PRs, babysits, and closes it.
 
-## E2E smoke hard gate
+Strict map: unmapped in-scope paths fail selection. `full = true` rules run every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
 
-Smoke must boot the real title screen, start a new game through setup, open the in-game menu, save a slot, then complete **one player turn** on the live main scene without unexpected failures. In that turn it exercises player actions that touch each unit type: civilians (select, march, work, cancel, train), navy (select, sail/dock), and army (select, detach, muster a regiment). It then loads the saved slot (verifying the whole screen is rebuilt) and returns to the title. Deep rules stay in `tests/`.
+Patch coverage uses gd-tools’ plan (test dirs are not instrumented); changed test files are gated by running their suites. Empty patches pass.
+
+## E2E smoke (tier 1)
+
+Smoke boots the title, starts a new game, opens the in-game menu, saves, completes **one player turn** (civilians / navy / army actions), loads the save, returns to title. Deep rules stay in `tests/`.
 
 ## Speed rules
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
-- MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker, injected via `MapScreen.preset_world`.
-- Cache shared maps in `before_all` on **non-underscore** vars (gd-tools copies those onto each test instance; `_foo` is not copied).
+- MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
+- Cache shared maps in `before_all` on **non-underscore** vars.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
-- One Godot boot per theme: merge pure suites that share a fixture/domain (e.g. `test_catalogs`, `test_battle_rules`). Coverage makes every suite boot expensive, so keep the suite count low.
+- One Godot boot per theme; keep suite count low under coverage.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 
 ```bash
+# Tier 1-shaped (changed files vs HEAD / base)
+python tools/select_impacted_tests.py --base origin/main --print-command
+gd-tools test --coverage --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
+gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
+
+# Tier 2-shaped
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 ```
 
-Coverage gate remains **80%**. See [`pull-requests.md`](pull-requests.md) for required checks.
+See [`pull-requests.md`](pull-requests.md) for required checks.
