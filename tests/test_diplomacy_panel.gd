@@ -90,6 +90,25 @@ func test_no_relations_shows_an_empty_court() -> void:
 	assert_true(_has_text(panel._detail, "No court"))
 
 
+func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(state, 3, 6)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "INTERVENTION"))
+	assert_true(_has_text(panel._call_box, "Genoa"))
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var button: Button = _find_button(panel._call_box, "Protest")
+	assert_not_null(button)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], Intervention.KIND_PROTEST)
+	assert_eq(seen[0][1], 3)
+
+
 func _has_text(node: Node, needle: String) -> bool:
 	if node is Label and String((node as Label).text).contains(needle):
 		return true

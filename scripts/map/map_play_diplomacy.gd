@@ -43,6 +43,11 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		play.hud.toast("Answer the call to arms first.")
 		show_call(play)
 		return
+	# An intervention offer holds the court just as firmly.
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		play.hud.toast("Answer the intervention first.")
+		show_intervention(play)
+		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
 		order["stage"] = arg
@@ -60,6 +65,9 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	for call_line: String in result.get("calls", []):
 		if not call_line.is_empty():
 			play.hud.toast(call_line)
+	for news: String in result.get("interventions", []):
+		if not news.is_empty():
+			play.hud.toast(news)
 	# An absorbed crown's units change colours with its provinces: fleets first,
 	# then land regiments (wiki: diplomacy § GP–Minor Rules).
 	if result.has("absorbed"):
@@ -86,6 +94,10 @@ static func resolve_turn(play: PlaySession) -> bool:
 		play.turn_suspended = true
 		show_call(play)
 		return false
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		play.turn_suspended = true
+		show_intervention(play)
+		return false
 	close_turn(play)
 	return true
 
@@ -111,6 +123,23 @@ static func show_call(play: PlaySession) -> void:
 		% [
 			FactionCatalog.name_of(int(call["defender"])),
 			FactionCatalog.name_of(int(call["aggressor"])),
+		]
+	)
+
+
+## Opens the court on a waiting intervention and names what is at stake.
+static func show_intervention(play: PlaySession) -> void:
+	if play.diplomacy == null or play.hud == null:
+		return
+	var offer: Dictionary = Intervention.pending_for(play.diplomacy, play.player_faction)
+	if offer.is_empty():
+		return
+	open(play)
+	play.hud.toast(
+		"%s declares war on %s. Our embassy stands: answer the intervention."
+		% [
+			FactionCatalog.name_of(int(offer["aggressor"])),
+			FactionCatalog.name_of(int(offer["target"])),
 		]
 	)
 
