@@ -116,6 +116,24 @@ func test_a_siege_battery_fires_while_guns_stand() -> void:
 	assert_true(fired, "the emplaced battery answers the assault")
 
 
+func test_action_scripts_come_from_the_plan_catalog() -> void:
+	assert_eq(QuickBattle.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
+	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
+
+
+func test_the_battery_module_silences_guns_and_downgrades() -> void:
+	var model := Fixture.build()
+	model.province_data(2).fort_level = 1
+	var guns: Array[Dictionary] = QuickBattleBattery.make(1, {}, 1)
+	assert_eq(guns.size(), 1)
+	assert_eq(QuickBattleBattery.alive(guns), 1)
+	assert_eq(QuickBattleBattery.hit(guns, 4), 1)
+	assert_eq(QuickBattleBattery.alive(guns), 0)
+	assert_true(QuickBattleBattery.downgrade_fort(model, 2, 1, guns))
+	assert_eq(model.province_data(2).fort_level, 0)
+
+
 func _fight(
 	plan: String, attacker_types: Array[String], defender_types: Array[String],
 	fort: int = 0
