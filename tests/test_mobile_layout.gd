@@ -302,6 +302,116 @@ func _first_roster_row(roster: CivilianRosterPanel) -> CivilianRosterRow:
 	return null
 
 
+## --- menu pages ------------------------------------------------------------
+
+
+## The title page is the first surface a phone shows: every door must be on
+## screen at once, not scrolled to (REQ-P5-01, REQ-P1-05, RUB-P5-07).
+func test_title_page_shows_every_door_on_a_phone() -> void:
+	for size: Vector2i in [PHONE, SMALL]:
+		var menu := await _menu_page(MainMenu.new(), size) as MainMenu
+		if menu == null:
+			return
+		for button: Button in [
+			menu.new_game_button, menu.load_game_button,
+			menu.settings_button, menu.quit_button,
+		]:
+			_fits(
+				button.get_global_rect(), _viewport_rect(size),
+				"title %s at %s" % [button.text, size]
+			)
+			_tappable(button, "title %s at %s" % [button.text, size])
+
+
+## SET SAIL is pinned outside the scroll: a phone must never have to hunt for
+## the action that starts the game (REQ-P5-01).
+func test_setup_action_row_stays_on_screen_on_a_phone() -> void:
+	for size: Vector2i in [PHONE, SMALL]:
+		var setup := await _menu_page(GameSetupScreen.new(), size) as GameSetupScreen
+		if setup == null:
+			return
+		_fits(
+			setup.start_button.get_global_rect(), _viewport_rect(size),
+			"set sail at %s" % size
+		)
+		_fits(
+			setup.back_button.get_global_rect(), _viewport_rect(size),
+			"back at %s" % size
+		)
+		_tappable(setup.start_button, "set sail at %s" % size)
+
+
+## The load page lists five slots and the only way out: both must be reachable
+## without a drag inside a column of buttons (REQ-P5-01, REQ-P1-05).
+func test_load_page_fits_every_slot_and_the_exit_on_a_phone() -> void:
+	var browser := await _menu_page(SaveBrowser.new(), PHONE) as SaveBrowser
+	if browser == null:
+		return
+	assert_eq(browser.slot_buttons.size(), SaveStore.SLOT_COUNT, "every slot listed")
+	for button: Button in browser.slot_buttons:
+		_fits(button.get_global_rect(), _viewport_rect(PHONE), "slot at phone")
+		_tappable(button, "slot at phone")
+	_fits(browser.back_button.get_global_rect(), _viewport_rect(PHONE), "load back")
+	_tappable(browser.back_button, "load back")
+
+
+## The pause menu is the phone's only route to save/load: every door on screen
+## at once, none under the thumb's reach (REQ-P5-01, REQ-P1-05).
+func test_pause_menu_fits_a_phone() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	_screen.game_menu.open()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var menu: GameMenu = _screen.game_menu
+	for button: Button in [
+		menu.resume_button, menu.save_button, menu.load_button,
+		menu.settings_button, menu.main_menu_button,
+	]:
+		_fits(button.get_global_rect(), _screen_rect(), "pause %s" % button.text)
+		_tappable(button, "pause %s" % button.text)
+	menu.close()
+
+
+## A page taller than the viewport opens at its top instead of being centred
+## over both edges (the bug that hid QUIT and the NEW GAME heading).
+func test_overflowing_page_opens_at_its_top() -> void:
+	var setup := await _menu_page(GameSetupScreen.new(), PHONE) as GameSetupScreen
+	if setup == null:
+		return
+	var scroll: ScrollContainer = _first_scroll(setup)
+	assert_not_null(scroll, "setup page scrolls")
+	if scroll != null:
+		assert_almost_eq(scroll.scroll_vertical, 0.0, 0.5, "opens at the top")
+		assert_gt(
+			scroll.get_v_scroll_bar().max_value, scroll.size.y,
+			"the form overflows a phone and stays scrollable"
+		)
+
+
+func _menu_page(control: Control, size: Vector2i) -> Control:
+	if is_instance_valid(_viewport):
+		_viewport.free()
+	_viewport = SubViewport.new()
+	_viewport.size = size
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_viewport)
+	_viewport.add_child(control)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return control
+
+
+func _viewport_rect(size: Vector2i) -> Rect2:
+	return Rect2(Vector2.ZERO, Vector2(size))
+
+
+func _first_scroll(node: Node) -> ScrollContainer:
+	for child: Node in node.find_children("*", "ScrollContainer", true, false):
+		return child as ScrollContainer
+	return null
+
+
 ## --- helpers ---------------------------------------------------------------
 
 

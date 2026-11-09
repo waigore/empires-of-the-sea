@@ -24,6 +24,23 @@ func after_each() -> void:
 	_clean_dir()
 
 
+## Android back from the setup page belongs to the title screen, not to the OS:
+## the swap is deferred so the freshly built title page does not receive the
+## same back request and quit the app (REQ-P5-01, REQ-P5-07).
+func test_back_from_setup_returns_to_the_title() -> void:
+	var menu: MainMenu = main.current_page
+	menu.new_game_button.emit_signal("pressed")
+	assert_true(main.current_page is GameSetupScreen, "setup opens")
+	main.current_page.back_pressed.emit()
+	assert_true(
+		main.current_page is GameSetupScreen,
+		"the swap waits for the next idle frame"
+	)
+	await get_tree().process_frame
+	assert_true(main.current_page is MainMenu, "back lands on the title screen")
+	assert_null(main.current_screen, "no map was started")
+
+
 func test_title_screen_offers_new_load_and_a_dimmed_settings_door() -> void:
 	assert_true(main.current_page is MainMenu, "title screen boots first")
 	var menu: MainMenu = main.current_page
