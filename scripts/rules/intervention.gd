@@ -185,7 +185,7 @@ static func _resolve(
 			return _intervene(state, court, aggressor, target)
 		KIND_PROTEST:
 			return _protest(state, court, aggressor, target, tech)
-	return _do_nothing(state, court, target)
+	return _do_nothing(state, court, target, aggressor)
 
 
 ## Joining declares war on the aggressor; the embassy in the victim court stands.
@@ -203,11 +203,17 @@ static func _intervene(
 	]
 
 
-## Standing aside costs the embassy and every overture with the victim.
-static func _do_nothing(state: DiplomacyState, court: int, target: int) -> String:
+## Standing aside costs the embassy and every overture with the victim. Overtures
+## are two-way (`establish_overture` writes both directions), so both records go;
+## clearing one would leave `has_embassy` true and keep aid/subsidy open
+## (wiki: diplomacy § Intervention § Do Nothing).
+static func _do_nothing(
+	state: DiplomacyState, court: int, target: int, aggressor: int
+) -> String:
 	state.set_overture(court, target, DiplomacyCatalog.STAGE_NONE)
+	state.set_overture(target, court, DiplomacyCatalog.STAGE_NONE)
 	state.cancel_subsidy(court, target)
-	state.touch(court, target, "interventionDoNothing")
+	state.touch(court, target, "interventionDoNothing", {"aggressor": aggressor})
 	return "%s stands aside; its embassy with %s is lost." % [
 		FactionCatalog.name_of(court),
 		FactionCatalog.name_of(target),

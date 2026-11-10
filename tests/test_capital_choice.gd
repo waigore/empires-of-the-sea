@@ -139,7 +139,7 @@ func test_minor_prefers_sea_bound_then_falls_back_to_inland() -> void:
 
 func test_great_power_takes_first_plains_class_a_tile() -> void:
 	var model := _two_islands()
-	model.terrain[model.index_of(2, 2)] = MapModel.Terrain.FOREST
+	model.terrain[model.index_of(2, 2)] = MapModel.Terrain.HARDWOOD_FOREST
 	assert_eq(CapitalChoice.tile_class(model, 0, Vector2i(2, 2)), CapitalChoice.CLASS_A)
 	assert_eq(CapitalChoice.tile_class(model, 0, Vector2i(3, 3)), CapitalChoice.CLASS_B)
 	assert_eq(CapitalChoice.choose_tile(model, 0), Vector2i(3, 2))
@@ -148,7 +148,7 @@ func test_great_power_takes_first_plains_class_a_tile() -> void:
 func test_class_rank_beats_plains() -> void:
 	var model := _two_islands()
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.terrain[model.index_of(3, 3)] = MapModel.Terrain.PLAINS
 	assert_eq(CapitalChoice.choose_tile(model, 0), Vector2i(2, 2))
 
@@ -165,7 +165,7 @@ func test_great_power_falls_back_to_coastal_class_c() -> void:
 func test_minor_takes_class_a_before_class_b() -> void:
 	var model := _two_islands()
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.terrain[model.index_of(3, 3)] = MapModel.Terrain.PLAINS
 	assert_eq(
 		CapitalChoice.choose_tile(model, 0, CapitalChoice.KIND_MINOR), Vector2i(2, 2)
@@ -176,7 +176,7 @@ func test_capital_tile_becomes_plains_and_loses_its_resource() -> void:
 	var model := _two_islands()
 	var seat := Vector2i(2, 2)
 	for tile: Vector2i in model.province_tiles(0):
-		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.FOREST
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.HARDWOOD_FOREST
 	model.resource[model.index_of(seat.x, seat.y)] = 3
 	model.provinces[0].resource = 3
 	model.provinces[0].resource_tile = seat
@@ -250,6 +250,109 @@ func test_place_all_reports_one_result_per_faction() -> void:
 	assert_eq(int(results[0]["province_id"]), 0)
 	assert_eq(int(results[1]["province_id"]), 1)
 	assert_true(model.provinces[1].capital)
+
+
+# --- player seating ---------------------------------------------------------
+
+
+## Two owned provinces on one island, each with its own seaboard.
+func _two_owned_coasts() -> MapModel:
+	var model := _blank()
+	_add_province(model, 0, 0, _block(2, 4, 2, 5))
+	_add_province(model, 1, 0, _block(5, 7, 2, 5))
+	_paint_sea(model, func(_x: int, _y: int) -> int: return 0)
+	return model
+
+
+## The interactive phase only accepts a crown province that reaches the sea.
+func test_can_seat_accepts_only_owned_sea_bound_provinces() -> void:
+	var model := _two_islands()
+	assert_true(CapitalChoice.can_seat(model, 0, 0), "own sea-bound province")
+	assert_false(CapitalChoice.can_seat(model, 0, 1), "another crown's province")
+	assert_false(CapitalChoice.can_seat(model, 0, 99), "no such province")
+
+	var inland := _blank()
+	_add_province(inland, 0, 0, [Vector2i(2, 2)])
+	_add_province(inland, 1, 1, [Vector2i(1, 2), Vector2i(3, 2), Vector2i(2, 1), Vector2i(2, 3)])
+	_paint_sea(inland, func(_x: int, _y: int) -> int: return 0)
+	assert_false(
+		CapitalChoice.can_seat(inland, 0, 0), "an inland province cannot hold the court"
+	)
+
+
+## Seating by hand moves the capital works: the old province keeps its town but
+## loses the harbour, the new one gains the court, its roads and town level 4.
+func test_seat_capital_moves_the_court_and_its_harbour() -> void:
+	var model := _two_owned_coasts()
+	var first: Dictionary = CapitalChoice.place_capital(model, 0)
+	assert_true(first["ok"])
+	assert_eq(int(first["province_id"]), 0)
+	var seat := Vector2i(6, 3)
+
+	var moved: Dictionary = CapitalChoice.seat_capital(model, 0, 1, seat)
+	assert_true(moved["ok"])
+	assert_eq(int(moved["province_id"]), 1)
+	assert_eq(Vector2i(moved["tile"]), seat)
+	assert_false(model.provinces[0].capital, "the old seat stands down")
+	assert_eq(model.provinces[0].capital_tile, CapitalChoice.NO_TILE)
+	assert_true((model.provinces[0].ports as Dictionary).is_empty(), "no stale harbour")
+	assert_true((model.provinces[0].road_paths as Array).is_empty(), "no stale roads")
+	assert_eq(model.provinces[0].town_development, 1, "the old capital keeps its town")
+	assert_true(model.provinces[1].capital)
+	assert_eq(model.provinces[1].capital_tile, seat)
+	assert_eq(model.provinces[1].town_tile, seat, "the seat is the province town")
+	assert_eq(model.provinces[1].town_development, 4)
+	assert_true((model.provinces[1].ports as Dictionary).has(0), "the new seat has a port")
+	assert_eq(CapitalChoice.seat_province(model, 0), 1)
+
+
+## Select-then-convert applies to a hand-picked tile too.
+func test_seat_capital_converts_the_chosen_tile_to_plains() -> void:
+	var model := _two_owned_coasts()
+	CapitalChoice.place_capital(model, 0)
+	var seat := Vector2i(6, 4)
+	var index: int = model.index_of(seat.x, seat.y)
+	model.terrain[index] = MapModel.Terrain.HILLS
+	model.resource[index] = 3
+	model.provinces[1].resource_tile = seat
+
+	var moved: Dictionary = CapitalChoice.seat_capital(model, 0, 1, seat)
+	assert_true(moved["ok"])
+	assert_true(bool(moved["converted"]))
+	assert_eq(model.terrain_at(seat.x, seat.y), MapModel.Terrain.PLAINS)
+	assert_eq(model.resource_at(seat.x, seat.y), MapModel.NO_ID)
+	assert_false(model.provinces[1].has_resource_tile(), "the resource is cleared")
+
+
+## A foreign province, an inland one and a tile outside the province are all
+## refused, and the court stays where it was.
+func test_seat_capital_refuses_foreign_inland_and_outside_tiles() -> void:
+	var model := _two_islands()
+	CapitalChoice.place_capital(model, 0)
+	var before: Vector2i = model.provinces[0].capital_tile
+
+	var foreign: Dictionary = CapitalChoice.seat_capital(model, 0, 1, Vector2i(7, 6))
+	assert_false(foreign["ok"])
+	assert_eq(String(foreign["error"]), CapitalChoice.ERROR_NOT_OWNED)
+
+	var outside: Dictionary = CapitalChoice.seat_capital(model, 0, 0, Vector2i(7, 6))
+	assert_false(outside["ok"])
+	assert_eq(String(outside["error"]), CapitalChoice.ERROR_TILE_OUTSIDE)
+
+	var sea: Dictionary = CapitalChoice.seat_capital(model, 0, 0, Vector2i(0, 0))
+	assert_false(sea["ok"])
+	assert_eq(String(sea["error"]), CapitalChoice.ERROR_TILE_OUTSIDE)
+
+	var inland := _blank()
+	_add_province(inland, 0, 0, [Vector2i(2, 2)])
+	_add_province(inland, 1, 1, [Vector2i(1, 2), Vector2i(3, 2), Vector2i(2, 1), Vector2i(2, 3)])
+	_paint_sea(inland, func(_x: int, _y: int) -> int: return 0)
+	var dry: Dictionary = CapitalChoice.seat_capital(inland, 0, 0, Vector2i(2, 2))
+	assert_false(dry["ok"])
+	assert_eq(String(dry["error"]), CapitalChoice.ERROR_NOT_SEA_BOUND)
+
+	assert_true(model.provinces[0].capital, "a refused move changes nothing")
+	assert_eq(model.provinces[0].capital_tile, before)
 
 
 func _is_contiguous(path: Array) -> bool:

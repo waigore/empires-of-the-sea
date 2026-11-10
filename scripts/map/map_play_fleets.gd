@@ -18,17 +18,46 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.selected_province = -1
 	play.overlay.select_province(-1)
 	play.hud.panels.hide_province()
-	play.hud.panels.show_fleet(
-		play.model,
-		fleet,
-		fleet.owner == play.player_faction,
-		passage_note(play, fleet),
-		yard_rows(play, fleet),
-		-1
-	)
+	show_dossier(play, fleet)
 	refresh_options(play, fleet)
 	if fleet.owner != play.player_faction:
 		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
+
+
+## One dossier refresh for selection, movement, the yard, a station and a
+## landing, so the missions section always comes from the same place.
+static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
+	play.hud.panels.show_fleet(
+		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
+		yard_rows(play, fleet), -1, landing_rows(play, fleet), carried(play, fleet),
+		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
+		MapPlayCivilianVoyage.crew(play, fleet))
+
+
+## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
+## § Naval transport); a ready beachhead adds the hostile coast it marked.
+static func landing_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if fleet == null or fleet.owner != play.player_faction or fleet.embarked_army < 0:
+		return rows
+	var landing: Array[int] = NavalTransport.landing_provinces(
+		play.model, fleet, play.turn, MapPlayBeachhead.hostile(play)
+	)
+	for province: int in landing:
+		rows.append({
+			"province": province,
+			"name": play.model.province_name(province),
+			"invade": play.model.province_owner(province) != play.player_faction,
+		})
+	return rows
+
+
+## Regiments the fleet carries, for the dossier line.
+static func carried(play: PlaySession, fleet: FleetState) -> int:
+	if fleet == null or fleet.embarked_army < 0:
+		return 0
+	var army: ArmyState = ArmyTransport.army_by_id(play.army_layer, fleet.embarked_army)
+	return army.count() if army != null else 0
 
 
 static func refresh_options(play: PlaySession, fleet: FleetState) -> void:
@@ -109,7 +138,17 @@ static func passage_note(play: PlaySession, fleet: FleetState) -> String:
 static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -> void:
 	if fleet.owner != play.player_faction:
 		return
-	play.hud.panels.show_fleet(play.model, fleet, true, passage_note(play, fleet))
+	if result.has("embarked_army"):
+		var carried_army: ArmyState = ArmyTransport.army_by_id(
+			play.army_layer, int(result["embarked_army"])
+		)
+		if carried_army != null:
+			carried_army.embarked_fleet = fleet.id
+	# One squadron carries one army; a second army goes ashore at the port.
+	var displaced: int = int(result.get("displaced_army", -1))
+	if displaced >= 0:
+		MapPlayPortLoss.put_ashore(play, displaced, fleet.province)
+	show_dossier(play, fleet)
 	refresh_options(play, fleet)
 	var zone: int = int(result.get("entered_zone", -1))
 	if result.has("merged_into"):
@@ -222,9 +261,7 @@ static func refresh_yard(play: PlaySession, fleet: FleetState) -> void:
 	if fleet == null:
 		return
 	play.ship_layer.select(play.ship_layer.ship_for(fleet))
-	play.hud.panels.show_fleet(
-		play.model, fleet, true, passage_note(play, fleet), yard_rows(play, fleet), -1
-	)
+	show_dossier(play, fleet)
 	play.hud.panels.fleet_panel.set_yard_open(true)
 
 
@@ -236,6 +273,39 @@ static func on_action(play: PlaySession, action: String) -> void:
 		launch(play, action.trim_prefix("yard:build:"))
 	elif action.begins_with("yard:scrap:"):
 		scrap(play, action.trim_prefix("yard:scrap:"))
+	elif action.begins_with("beachhead:"):
+		var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
+		if fleet != null and fleet.owner == play.player_faction:
+			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
+	elif action.begins_with("mission:"):
+		MapPlayFleetMissions.on_action(play, action)
+	elif action.begins_with("land:"):
+		land(play, int(action.trim_prefix("land:")))
+	elif MapPlayCivilianVoyage.on_action(play, action):
+		return
+
+
+## Lands the carried army on an owned coastal province (wiki: ships-and-naval
+## § Naval transport).
+static func land(play: PlaySession, province_id: int) -> void:
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
+	if fleet == null or fleet.owner != play.player_faction:
+		return
+	var invaded: bool = play.model.province_owner(province_id) != play.player_faction
+	var result: Dictionary = ArmyTransport.disembark(
+		play.army_layer, fleet, province_id, play.turn, MapPlayBeachhead.hostile(play)
+	)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The troops cannot land.")))
+		return
+	if invaded:
+		play.hud.toast(
+			"The army storms ashore at %s" % play.model.province_name(province_id)
+		)
+	else:
+		play.hud.toast("The army lands at %s" % play.model.province_name(province_id))
+	show_dossier(play, fleet)
+	MapPlayArmies.refresh_visibility(play)
 
 
 ## Launches one hull into the home fleet, founding it at the capital slip when
@@ -270,6 +340,13 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
 		return
+	var carried_army: ArmyState = ArmyTransport.army_by_id(
+		play.army_layer, fleet.embarked_army
+	)
+	var can_break: Dictionary = NavalTransport.can_scrap(fleet, carried_army)
+	if not bool(can_break.get("ok", false)):
+		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
+		return
 	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
@@ -283,3 +360,11 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 		play.hud.panels.hide_fleet()
 		return
 	refresh_yard(play, fleet)
+
+
+## Reports the port verdicts of the Combat phase: a squadron caught in a port
+## that changed hands sorts out rather than being taken in harbour, and a
+## reassigned crown's home squadron re-moors with its court (wiki:
+## ships-and-naval § Ports that change hands; DR-20261109-11, DR-20261109-12).
+static func settle_ports(play: PlaySession, reassigned: Array) -> void:
+	MapPlayPortLoss.settle(play, reassigned)

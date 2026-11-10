@@ -25,6 +25,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
 - Cache shared maps in `before_all` on **non-underscore** vars.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
+- Saving and loading is the hottest integration path: a preset world is reused by
+  `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
+  buy deeds snapshot it (`MapFixture.snapshot` / `restore`) rather than build a world.
 - One Godot boot per theme; keep suite count low under coverage.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
@@ -39,6 +42,23 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 # Tier 2-shaped
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+
+# Free-playtest drives (opt-in, not a CI gate). All three launch the real flow
+# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> map), so
+# a flow change that strands a drive fails loudly instead of printing one line.
+
+# New World exploration loop — boards an Explorer, takes the Passage, lands,
+# charts and prospects, printing one line per step.
+godot --headless --path . --script res://tests/playtest_new_world.gd
+
+# Quick Battle — declares war, resolves an attacking field battle, a siege and a
+# defending battle through the play helpers, printing every despatch line the
+# plate shows.
+godot --headless --path . --script res://tests/playtest_quick_battle.gd
+
+# Land combat — a multi-attacker chain, an unopposed capture, a peaceful third
+# army blocking one, and the player defending a fort through a whole AI turn.
+godot --headless --path . --script res://tests/playtest_combat_chain.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

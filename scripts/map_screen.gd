@@ -35,11 +35,15 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 var player_leader: String = ""
 ## Endless campaign chosen in game setup (wiki: turn-time-mapping).
 var infinite_mode: bool = false
+## Full-AI observer: every Great Power is AI and no court answers consent
+## decisions. Debug tool launched from the title screen or tools/ai_vs_ai.gd
+## (wiki: game-setup § Human/AI slot assignment).
+var observer_mode: bool = false
 ## When set (load), skip generation and restore this save instead.
 var pending_save: Dictionary = {}
 ## Overridable for tests so saves do not touch the player's slots.
 var save_dir: String = SaveStore.DIR
-## When set (tests), skip generation and load this world in `_ready`.
+## When set (tests), skip generation and load this world in `_ready`; loads reuse it.
 var preset_world: WorldMap = null
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
@@ -83,13 +87,6 @@ var turn: int:
 	set(value):
 		if play != null:
 			play.turn = value
-
-var prestige: int:
-	get:
-		return play.prestige if play != null else 0
-	set(value):
-		if play != null:
-			play.prestige = value
 
 var income: int:
 	get:
@@ -147,10 +144,12 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
+	play.observer_mode = observer_mode
 	play.bind_views(
-		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements
+		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
+		$World/ResourceLens
 	)
-	var restored: bool = SaveCodec.restore(play, pending_save)
+	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
 		play.configure(player_faction, map_seed, map_width, map_height, player_leader, infinite_mode)
 		if preset_world != null:
@@ -176,7 +175,7 @@ func _ready() -> void:
 		SaveCodec.restore_diplomacy(play, pending_save)
 	else:
 		play.diplomacy.initialize(play.turn)
-	play.diplomacy.human_faction = play.player_faction
+	play.diplomacy.human_faction = play.human_faction_id()
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
@@ -184,19 +183,24 @@ func _ready() -> void:
 	if restored:
 		MapPlaySetup.refresh_after_load(play)
 	MapPlaySetup.intro(play, fade, not restored)
+	if observer_mode:
+		_setup_observer()
 	pending_save = {}
 
 
 func _process(_delta: float) -> void:
 	MapPlayInput.update_hover(play)
 
-
 func _unhandled_input(event: InputEvent) -> void:
+	if hud != null and hud.is_quick_battle_shown(): return
 	if event.is_action_pressed(InputActions.END_TURN):
 		MapPlayTurn.end_turn(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.FOCUS_CAPITAL):
 		MapPlayTurn.focus_capital(play)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.LENS):
+		MapPlayInput.toggle_lens(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.CANCEL):
 		MapPlayInput.deselect(play)
@@ -238,7 +242,7 @@ func load_region(index: int) -> void:
 		civilian_layer.spawn(
 			play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS, false
 		)
-		_bootstrap_region(play)
+		MapPlaySetup.bootstrap_region(play)
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
 	ship_layer.spawn(
@@ -251,10 +255,11 @@ func load_region(index: int) -> void:
 	)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
-	_build_visibility()
+	MapPlaySetup.build_visibility(play)
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
+	MapPlaySetup.build_lens(play)
 	MapPlaySetup.refresh_region_hud(play, map_size)
 
 
@@ -272,21 +277,16 @@ func _cycle_region() -> void:
 
 
 func _connect() -> void:
-	camera.tapped.connect(func(world_position: Vector2) -> void:
-		MapPlayInput.on_tapped(play, world_position)
-	)
-	camera.view_changed.connect(func() -> void:
-		MapPlayInput.on_view_changed(play)
-	)
-	hud.end_turn_pressed.connect(func() -> void:
-		MapPlayTurn.end_turn(play)
-	)
+	camera.tapped.connect(func(p: Vector2) -> void: MapPlayInput.on_tapped(play, p))
+	camera.view_changed.connect(func() -> void: MapPlayInput.on_view_changed(play))
+	hud.end_turn_pressed.connect(func() -> void: MapPlayTurn.end_turn(play))
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(func(world_position: Vector2) -> void:
-		MapPlayInput.on_minimap_jump(play, world_position)
+	hud.minimap_jump.connect(
+		func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
+	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlayTurn.focus_capital(play)
 	)
@@ -299,9 +299,7 @@ func _connect() -> void:
 	hud.panel_action.connect(func(action: String) -> void:
 		MapPlayInput.on_panel_action(play, action)
 	)
-	hud.panel_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
+	hud.panel_closed.connect(func() -> void: MapPlayInput.deselect(play))
 	ship_layer.zone_entered.connect(func(zone_id: int, ship: Ship) -> void:
 		MapPlayFleets.on_zone_entered(play, zone_id, ship)
 	)
@@ -366,26 +364,19 @@ func _on_load_chosen(slot: int) -> void:
 	load_slot_requested.emit(slot)
 
 
-func _build_visibility() -> void:
-	if play.visibility_by_region.has(play.region_index):
-		play.visibility = play.visibility_by_region[play.region_index]
-		overlay.sync_visibility(play.visibility)
-		return
-	play.visibility = VisibilityModel.new()
-	play.visibility.setup(play.model, play.player_faction)
-	play.visibility.apply_initial()
-	play.visibility_by_region[play.region_index] = play.visibility
-	overlay.sync_visibility(play.visibility)
-
-
-## Setup post-pass per region: capital ports and harbour roads become real
-## LandWorks entries, and Great Powers receive their guaranteed grain farms.
-## Runs once per region, before civilians muster and before the economy reads it.
-func _bootstrap_region(session: PlaySession) -> void:
-	if session.bootstrapped_regions.has(session.region_index):
-		return
-	WorldBootstrap.apply(session.model, session.civilian_layer.works)
-	session.bootstrapped_regions[session.region_index] = true
+## Full-AI observatory: hide the human chrome, seal saving (an observer session
+## is not a player campaign) and mount the live metrics panel (REQ-P5-02).
+func _setup_observer() -> void:
+	hud.visible = false
+	# The panel owns the pause door, so the floating trigger must not overlap it.
+	game_menu.trigger.visible = false
+	game_menu.save_button.disabled = true
+	var panel := AiObserverPanel.new()
+	panel.name = "AiObserver"
+	panel.play = play
+	add_child(panel)
+	turn_ended.connect(func(_turn: int) -> void: panel.refresh())
+	panel.refresh()
 
 
 ## Ownership changed outside the map layers (Join Empire): redraw borders,
@@ -395,6 +386,8 @@ func refresh_political_map() -> void:
 		return
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
+	if play.lens != null:
+		play.lens.refresh()
 	if play.visibility != null:
 		overlay.sync_visibility(play.visibility)
 	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))

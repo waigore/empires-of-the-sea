@@ -313,6 +313,228 @@ func test_the_fleet_dossier_names_the_passage() -> void:
 	assert_true(_screen.hud._fleet_panel._hint.text.contains("New World"))
 
 
+## A colonist aboard a squadron that crosses the Passage keeps its seat: the
+## entry follows into the New World roster and the end-of-turn loss pass must
+## not drown it (wiki: civilian-units § Overseas deployment; DR-20261109-17).
+func test_a_colonist_crosses_the_passage_and_survives_the_loss_pass() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = _old_world_passage()
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zone
+	fleet.province = MapModel.NO_ID
+	var colonist: CivilianState = _passenger(fleet)
+	_screen.ship_layer.select(ship)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
+	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_true(colonist.is_embarked(), "the colonist is still aboard after the crossing")
+	assert_eq(colonist.embarked_fleet, fleet.id, "its seat is the renumbered squadron")
+	assert_true(
+		CivilianVoyageMap.by_id(_screen.civilian_layer, colonist.id) == colonist,
+		"the colonist stays on the roster"
+	)
+
+
+## Docking at the seat folds the squadron into the home fleet; its passengers
+## move with the hulls and stay in the dossier (wiki: ships-and-naval § Home
+## Fleet; DR-20261109-17).
+func test_a_colonist_reaches_the_home_fleet_when_the_squadron_moors() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the opening muster moors a home squadron")
+	var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, capital)
+	assert_gt(zones.size(), 0, "the seat has a sea zone")
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	if fleet == home:
+		return
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zones[0]
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	var colonist: CivilianState = _passenger(fleet)
+	_screen.ship_layer.select(ship)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.province_tiles(capital)[0]))
+	assert_true(home.has_civilian(colonist.id), "the home fleet takes the passenger")
+	assert_false(_screen.ship_layer.fleets.has(fleet), "the sea-going squadron merges away")
+	assert_eq(int(MapPlayCivilianVoyage.crew(_screen.play, home)["count"]), 1)
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+	assert_eq(colonist.embarked_fleet, home.id, "the passenger rides the home fleet")
+	assert_true(
+		CivilianVoyageMap.by_id(_screen.civilian_layer, colonist.id) == colonist,
+		"the colonist stays on the roster"
+	)
+
+
+## The crossing is the squadron's sail: the dossier lets go of the station and
+## the landing site rather than naming a coast on the other map (wiki:
+## ships-and-naval § Missions and Movement; § Naval transport).
+func test_a_crossing_drops_the_dossier_station_and_the_landing_site() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = _old_world_passage()
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zone
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	fleet.mission = FleetState.Mission.PATROL
+	fleet.blockade_province = MapModel.NO_ID
+	var choice: Array = _hostile_coast(zone)
+	assert_false(choice.is_empty(), "the passage borders a foreign coast")
+	var coast: int = int(choice[0])
+	_declare_war(_screen.model.province_owner(coast))
+	fleet.beachhead_province = coast
+	fleet.beachhead_turn = _screen.play.turn
+	_screen.ship_layer.select(ship)
+	assert_true(
+		MapPlayFleetMissions.note(_screen.play, fleet).contains("Beachhead"),
+		"the dossier shows the landing site before the crossing"
+	)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
+
+	assert_eq(fleet.mission, FleetState.Mission.NONE, "the station stays behind")
+	assert_false(fleet.has_beachhead(), "the landing site stays behind")
+	assert_eq(MapPlayFleetMissions.note(_screen.play, fleet), "")
+
+
+## Two armies cannot share one squadron: docking at the seat keeps the home
+## army aboard and lands the arriving one at the port rather than drowning it
+## (wiki: ships-and-naval § Naval transport — landing at the port province).
+func test_a_docking_merge_lands_the_surplus_army() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the opening muster moors a home squadron")
+	var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, capital)
+	assert_gt(zones.size(), 0, "the seat has a sea zone")
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	if fleet == home:
+		return
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = zones[0]
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	var kept := ArmyState.muster(90, _screen.play.player_faction, capital, false, ["pikemen"], 900)
+	var arriving := ArmyState.muster(
+		91, _screen.play.player_faction, capital, false, ["pikemen"], 910
+	)
+	_screen.play.army_layer.armies.append(kept)
+	_screen.play.army_layer.armies.append(arriving)
+	home.embarked_army = kept.id
+	kept.embarked_fleet = home.id
+	fleet.embarked_army = arriving.id
+	arriving.embarked_fleet = fleet.id
+	_screen.ship_layer.select(ship)
+
+	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.province_tiles(capital)[0]))
+
+	assert_eq(home.embarked_army, kept.id, "the home army stays aboard")
+	assert_eq(arriving.province, capital, "the surplus army goes ashore")
+	assert_eq(arriving.embarked_fleet, -1)
+	assert_not_null(_screen.play.army_layer.marker_for(arriving))
+
+
+## A re-moored home squadron keeps its troops; a second army goes ashore at the
+## new seat instead of drowning in the merge (wiki: ships-and-naval § Ports that
+## change hands; DR-20261109-11).
+func test_a_re_mooring_lands_the_surplus_army() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the opening muster moors a home squadron")
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+	var moored: FleetState = null
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet != home and fleet.owner == MapScreen.PLAYER_FACTION:
+			moored = fleet
+			break
+	assert_not_null(moored, "the muster has a second player squadron")
+	moored.location = FleetState.Location.IN_PORT
+	moored.province = seat
+	moored.sea_zone = MapModel.NO_ID
+	moored.moved = false
+	var kept := ArmyState.muster(92, play.player_faction, capital, false, ["pikemen"], 920)
+	var surplus := ArmyState.muster(93, play.player_faction, seat, false, ["pikemen"], 930)
+	play.army_layer.armies.append(kept)
+	play.army_layer.armies.append(surplus)
+	home.embarked_army = kept.id
+	kept.embarked_fleet = home.id
+	moored.embarked_army = surplus.id
+	surplus.embarked_fleet = moored.id
+
+	MapPlayFleets.settle_ports(play, [{
+		"faction": MapScreen.PLAYER_FACTION,
+		"lost": capital,
+		"province": seat,
+		"region": _screen.region_index,
+	}])
+
+	assert_false(_screen.ship_layer.fleets.has(home), "the home squadron is absorbed")
+	assert_eq(moored.embarked_army, surplus.id, "the moored army stays aboard")
+	assert_eq(kept.province, seat, "the absorbed army goes ashore at the new seat")
+	assert_eq(kept.embarked_fleet, -1)
+
+
+## The port verdict is reported, and a stranded squadron sorts out (wiki:
+## ships-and-naval § Ports that change hands; DR-20261109-11).
+func test_the_port_verdict_is_reported() -> void:
+	var fleet: FleetState = _screen.ship_layer.home_fleet(_screen.play.capital_province)
+	assert_not_null(fleet, "the opening muster moors a home squadron")
+	var province: int = fleet.province
+	var data: ProvinceState = _screen.model.province_data(province)
+	var old_owner: int = data.owner
+	data.owner = 1
+
+	MapPlayFleets.settle_ports(_screen.play, [])
+
+	data.owner = old_owner
+
+	assert_true(fleet.is_at_sea(), "the stranded squadron sorts out")
+	assert_not_null(_screen.ship_layer.ship_for(fleet))
+
+
+## A re-mooring with no squadron at the new seat is reported, and the helpers
+## tolerate a bare session (wiki: ships-and-naval § Ports that change hands;
+## DR-20261109-12).
+func test_a_re_mooring_without_a_moored_squadron_is_reported() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the opening muster moors a home squadron")
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+
+	MapPlayFleets.settle_ports(play, [{
+		"faction": MapScreen.PLAYER_FACTION,
+		"lost": capital,
+		"province": seat,
+		"region": _screen.region_index,
+	}])
+
+	assert_eq(home.province, seat, "the home squadron re-moors")
+	var bare := PlaySession.new()
+	MapPlayPortLoss.settle(bare, [])
+	MapPlayPortLoss.put_ashore(bare, 1, 0)
+	MapPlayPortLoss.put_ashore(play, 999, seat)
+
+
+func _passenger(fleet: FleetState, type_id: String = "explorer") -> CivilianState:
+	var unit: CivilianState = _screen.civilian_layer.add_unit(
+		_screen.play.player_faction, type_id, CivilianState.NO_TILE
+	)
+	unit.embark_on(fleet.id)
+	fleet.add_civilian(unit.id)
+	return unit
+
+
 func _cross_to_new_world() -> FleetState:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
@@ -361,6 +583,252 @@ func _player_ship_at_sea() -> Ship:
 		if fleet != null and fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
 			return ship
 	return _screen.ship_layer.ships[0]
+
+
+# --- the beachhead mission ----------------------------------------------------
+
+
+func _hostile_coast(zone_id: int = MapModel.NO_ID) -> Array:
+	for zone: SeaZoneState in _screen.model.sea_zones:
+		if zone_id != MapModel.NO_ID and int(zone.id) != zone_id:
+			continue
+		for province: int in NavalMovement.provinces_by_zone(_screen.model, zone.id):
+			var owner: int = _screen.model.province_owner(province)
+			if owner != _screen.play.player_faction and owner != MapModel.NO_ID:
+				return [province, zone.id]
+	return []
+
+
+## Declares war on `owner` so its coast reads as a landing site to the dossier.
+func _declare_war(owner: int) -> void:
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(_screen.play.player_faction, owner, _screen.play.turn)
+	var war: Dictionary = DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	assert_true(bool(war.get("ok", false)), String(war.get("reason", "")))
+
+
+## The dossier offers the hostile coasts beside the zone, marking one spends the
+## move, and the landing note follows the one-turn timer (wiki: ships-and-naval
+## § Missions and Movement; DR-20261109-13).
+func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	fleet.sea_zone = int(choice[1])
+	fleet.moved = false
+	var owner: int = _screen.model.province_owner(coast)
+	_declare_war(owner)
+	_screen.ship_layer.select(ship)
+
+	var rows: Array[Dictionary] = MapPlayBeachhead.rows(_screen.play, fleet)
+	assert_gt(rows.size(), 0, "the hostile coast is offered by name")
+	assert_eq(MapPlayBeachhead.rows(_screen.play, null).size(), 0)
+	assert_eq(MapPlayBeachhead.note(_screen.play, null), "")
+
+	MapPlayFleets.on_action(_screen.play, "beachhead:%d" % coast)
+
+	assert_eq(fleet.beachhead_province, coast)
+	assert_eq(fleet.beachhead_turn, _screen.play.turn)
+	assert_true(fleet.moved, "marking spends the fleet's move")
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("opens next turn"))
+	assert_eq(MapPlayBeachhead.rows(_screen.play, fleet).size(), 0)
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+	_screen.play.turn += 1
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("no troops"))
+	var army := ArmyState.muster(99, _screen.play.player_faction, 0, false, ["pikemen"], 990)
+	_screen.play.army_layer.armies.append(army)
+	army.embarked_fleet = fleet.id
+	fleet.embarked_army = army.id
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("land the troops"))
+	assert_gt(MapPlayFleets.landing_rows(_screen.play, fleet).size(), 0)
+
+	MapPlayFleets.on_action(_screen.play, "land:%d" % coast)
+
+	assert_eq(army.province, coast, "the army storms ashore")
+	assert_false(fleet.has_beachhead(), "the landing consumes the marker")
+	assert_eq(MapPlayBeachhead.note(_screen.play, fleet), "")
+	fleet.beachhead_province = coast
+	fleet.beachhead_turn = _screen.play.turn - 2
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("lapsed"))
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+	MapPlayBeachhead.establish(_screen.play, fleet, coast)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
+
+
+# --- stations (wiki: ships-and-naval § Missions and Movement) ----------------
+
+
+## The dossier offers the zone stations; taking one spends the move and the
+## station survives into the next turn (DR-20261109-16).
+func test_the_dossier_offers_a_patrol_and_taking_it_spends_the_move() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.mission = FleetState.Mission.NONE
+	fleet.blockade_province = MapModel.NO_ID
+	fleet.moved = false
+	fleet.clear_beachhead()
+	_screen.ship_layer.select(ship)
+	var offered: bool = false
+	for row: Dictionary in MapPlayFleetMissions.rows(_screen.play, fleet):
+		if String(row.get("action", "")) == "mission:patrol":
+			offered = true
+	assert_true(offered, "the dossier offers patrol")
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+
+	MapPlayFleets.on_action(_screen.play, "mission:patrol")
+
+	assert_eq(fleet.mission, FleetState.Mission.PATROL)
+	assert_true(fleet.moved, "a station spends the turn's move")
+	assert_true(MapPlayFleetMissions.note(_screen.play, fleet).contains("patrol"))
+	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
+
+
+func test_sailing_away_clears_the_station() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.on_action(_screen.play, "mission:patrol")
+	assert_eq(fleet.mission, FleetState.Mission.PATROL)
+
+	fleet.moved = false
+	var zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
+	var tile: Vector2i = _screen.model.sea_zones[zone].tiles[0]
+
+	assert_true(MapPlayFleets.try_order(_screen.play, tile))
+
+	assert_eq(fleet.mission, FleetState.Mission.NONE)
+	assert_eq(fleet.blockade_province, MapModel.NO_ID)
+
+
+func test_the_dossier_offers_a_blockade_on_a_hostile_coast() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	_screen.ship_layer.select(ship)
+	var action: String = "mission:blockade:%d" % coast
+	var offered: bool = false
+	for row: Dictionary in MapPlayFleetMissions.rows(_screen.play, fleet):
+		if String(row.get("action", "")) == action:
+			offered = true
+	assert_true(offered, "the hostile coast is a blockade target")
+
+	MapPlayFleets.on_action(_screen.play, action)
+
+	assert_eq(fleet.mission, FleetState.Mission.BLOCKADE)
+	assert_eq(fleet.blockade_province, coast)
+	assert_true(FleetMissions.is_blockading(
+		_screen.model, fleet, MapPlayBeachhead.hostile(_screen.play)
+	))
+
+
+## A blockade whose coast changes hands has lapsed: the rules attempt no
+## interception, so the dossier must not promise one (REQ-P2-03).
+func test_a_lapsed_blockade_reads_as_lapsed_in_the_dossier() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	_screen.ship_layer.select(ship)
+	MapPlayFleets.on_action(_screen.play, "mission:blockade:%d" % coast)
+	assert_true(MapPlayFleetMissions.note(_screen.play, fleet).contains("Blockading"))
+
+	# The crown's own army takes the coast the squadron blockades.
+	_screen.model.province_data(coast).owner = _screen.play.player_faction
+	var note: String = MapPlayFleetMissions.note(_screen.play, fleet)
+
+	assert_false(note.contains("Blockading"), "the station no longer intercepts")
+	assert_true(note.contains("lapsed"))
+	_screen.model.province_data(coast).owner = owner
+
+
+## The landing line follows the same gate the landing does: a white peace
+## before the ready turn leaves nothing to land on (REQ-P2-03).
+func test_a_beachhead_note_lapses_when_the_war_ends() -> void:
+	var choice: Array = _hostile_coast()
+	assert_false(choice.is_empty(), "the fixture has a foreign coast")
+	var coast: int = int(choice[0])
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.owner = _screen.play.player_faction
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = int(choice[1])
+	fleet.province = MapModel.NO_ID
+	fleet.mission = FleetState.Mission.NONE
+	fleet.moved = false
+	fleet.clear_beachhead()
+	var owner: int = _screen.model.province_owner(coast)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(
+		_screen.play.player_faction, owner, _screen.play.turn
+	)
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, owner, false
+	)
+	var marked: Dictionary = NavalTransport.establish_beachhead(
+		_screen.model, fleet, coast, _screen.play.turn, MapPlayBeachhead.hostile(_screen.play)
+	)
+	assert_true(bool(marked.get("ok", false)), String(marked.get("reason", "")))
+	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("opens next turn"))
+
+	DiplomacyRules.make_peace(
+		_screen.play.diplomacy,
+		_screen.play.player_faction,
+		owner,
+		DiplomacyRules.DECISION_ACCEPT
+	)
+	var note: String = MapPlayBeachhead.note(_screen.play, fleet)
+
+	assert_false(note.contains("opens next turn"))
+	assert_true(note.contains("lapsed"))
 
 
 # --- the naval yard -----------------------------------------------------------
@@ -415,6 +883,113 @@ func test_breaking_up_a_hull_asks_once() -> void:
 	panel._on_scrap_pressed(hull_id)
 
 	assert_false(fleet.hulls.has(hull_id), "the second tap scraps")
+
+
+func test_a_captured_port_sorts_the_home_squadron_out() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.owner = MapScreen.PLAYER_FACTION
+	fleet.location = FleetState.Location.IN_PORT
+	fleet.province = capital
+	fleet.sea_zone = MapModel.NO_ID
+	fleet.moved = false
+	var zone: int = NavalPortLoss.sortie_zone(_screen.model, capital)
+	assert_gte(zone, 0, "the fixture capital is coastal")
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+	# A seat move first re-moors the home squadron away from the captured port.
+	var moved: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world,
+		[{
+			"faction": MapScreen.PLAYER_FACTION,
+			"lost": capital,
+			"province": seat,
+			"region": _screen.region_index,
+		}]
+	)
+	assert_false(moved.is_empty())
+	assert_eq(fleet.province, seat)
+	# Older saves can still keep a stranding squadron: give it back to the port.
+	fleet.province = capital
+	var data: ProvinceState = _screen.model.province_data(capital)
+	var old_owner: int = data.owner
+	data.owner = 1
+
+	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world, []
+	)
+	data.owner = old_owner
+
+	assert_false(reports.is_empty())
+	assert_true(fleet.is_at_sea())
+	assert_eq(fleet.sea_zone, zone)
+	assert_not_null(_screen.ship_layer.ship_for(fleet))
+
+
+func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var fleet: FleetState = _screen.ship_layer.fleets[0]
+	fleet.owner = MapScreen.PLAYER_FACTION
+	fleet.location = FleetState.Location.IN_PORT
+	fleet.province = capital
+	fleet.sea_zone = MapModel.NO_ID
+	var seat: int = _owned_coastal_except(_screen.model, capital)
+	assert_gte(seat, 0, "the fixture owns another coast")
+
+	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+		_screen.world,
+		[{
+			"faction": MapScreen.PLAYER_FACTION,
+			"lost": capital,
+			"province": seat,
+			"region": _screen.region_index,
+		}]
+	)
+
+	assert_false(reports.is_empty())
+	assert_eq(fleet.province, seat)
+	assert_true(fleet.is_in_port())
+
+
+func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	unit.tile = _screen.model.province_tiles(capital)[0]
+	unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+
+	var crew: Dictionary = MapPlayCivilianVoyage.crew(_screen.play, home)
+	assert_eq(int(crew["count"]), 0)
+	assert_gt(crew["embark"].size(), 0, "the idle colonist is offered")
+	assert_gt(crew["sortie"].size(), 0, "the home squadron can put to sea")
+
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % unit.id)
+	assert_true(unit.is_embarked())
+	assert_eq(int(MapPlayCivilianVoyage.crew(_screen.play, home)["count"]), 1)
+	assert_false(_screen.civilian_layer.marker_for(unit).visible, "aboard leaves the map")
+
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:land:%d" % capital)
+	assert_false(unit.is_embarked())
+	assert_true(_screen.civilian_layer.marker_for(unit).visible)
+	assert_eq(unit.embarked_fleet, -1)
+
+	var zone: int = int(MapPlayCivilianVoyage.crew(_screen.play, home)["sortie"][0]["zone"])
+	MapPlayCivilianVoyage.on_action(_screen.play, "sortie:%d" % zone)
+	assert_true(home.is_at_sea())
+	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
+
+
+func _owned_coastal_except(model: MapModel, skip: int) -> int:
+	for province: ProvinceState in model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION or province.id == skip:
+			continue
+		if not NavalMovement.province_sea_zones(model, province.id).is_empty():
+			return province.id
+	return -1
 
 
 func _enemy_ship() -> Ship:

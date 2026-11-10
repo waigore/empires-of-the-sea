@@ -34,17 +34,35 @@ func test_selecting_an_army_opens_its_dossier() -> void:
 	var home: ArmyState = _player_home()
 	var marker: ArmyMarker = _screen.army_layer.marker_for(home)
 	assert_not_null(marker)
-	# Settle the opening camera first: it zooms into the capital over a few
-	# frames, and a tap is resolved against the live zoom. Without this the
-	# same suite passes alone but flakes when suites share workers.
-	for _frame: int in 3:
-		await get_tree().process_frame
+	# Settle the opening camera first: it zooms into the capital over several
+	# frames, and a tap is resolved against the live zoom. Waiting for the
+	# camera to come to rest (not a fixed frame count) keeps the suite stable
+	# when workers are loaded by parallel suites.
+	await _settle_camera()
 
 	MapPlayInput.on_tapped(_screen.play, marker.position)
 
 	assert_eq(_screen.army_layer.selected_army, home)
 	assert_true(_screen.hud.panels.is_army_panel_open())
 	assert_false(_screen.hud.panels.is_panel_open())
+
+
+## Waits until the camera's position and zoom hold for two frames (bounded).
+func _settle_camera() -> void:
+	var last: Vector2 = _screen.camera.zoom
+	var last_position: Vector2 = _screen.camera.position
+	var stable: int = 0
+	for _frame in 90:
+		await get_tree().process_frame
+		var still: bool = (
+			_screen.camera.zoom.is_equal_approx(last)
+			and _screen.camera.position.is_equal_approx(last_position)
+		)
+		stable = stable + 1 if still else 0
+		last = _screen.camera.zoom
+		last_position = _screen.camera.position
+		if stable >= 2:
+			return
 
 
 func test_the_home_army_has_no_march_options() -> void:

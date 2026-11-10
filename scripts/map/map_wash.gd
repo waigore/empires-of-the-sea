@@ -3,7 +3,11 @@ extends RefCounted
 ## Tile-resolution terrain colour, height, and the land drop shadow.
 ## The shader shades everything finer than a tile (REQ-P1-03).
 
-const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16]
+const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16, 0.24]
+
+## How far owned land moves toward its crown's heraldic colour. Ownership has
+## to read by fill, not only by the border ribbon (REQ-P1-03).
+const OWNER_TINT: float = 0.5
 
 
 static func build(canvas: MapCanvas, model: MapModel) -> void:
@@ -37,7 +41,7 @@ static func build(canvas: MapCanvas, model: MapModel) -> void:
 			mask.set_pixel(x, y, Color(1, 1, 1, 1))
 			var owner: int = model.owner_at(x, y)
 			if owner != MapModel.NO_ID:
-				var tint: Color = color.lerp(FactionCatalog.color_of(owner), 0.16)
+				var tint: Color = color.lerp(FactionCatalog.color_of(owner), OWNER_TINT)
 				color_image.set_pixel(x, y, Color(tint.r, tint.g, tint.b, 1.0))
 			var height: float = TERRAIN_HEIGHT[terrain]
 			height += relief.get_noise_2d(float(x), float(y)) * 0.24

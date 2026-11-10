@@ -22,6 +22,9 @@ var work: Dictionary = {}
 ## left for the order, and the tile the order targets while work runs.
 var origin_tile: Vector2i = NO_TILE
 var assigned_tile: Vector2i = NO_TILE
+## Squadron carrying this civilian, or -1 while it stands on land
+## (wiki: civilian-units § Overseas deployment; DR-20261109-17).
+var embarked_fleet: int = -1
 
 
 static func create(
@@ -45,6 +48,25 @@ func is_working() -> bool:
 
 func is_idle() -> bool:
 	return not is_working()
+
+
+## Aboard a squadron: off the map until it goes ashore.
+func is_embarked() -> bool:
+	return embarked_fleet >= 0
+
+
+## Leaves the land for a squadron's passenger list; boarding spends the move.
+func embark_on(fleet_id: int) -> void:
+	embarked_fleet = fleet_id
+	tile = NO_TILE
+	moved = true
+
+
+## Goes ashore on the chosen tile; the caller has already spent this turn's move.
+func put_ashore(tile_on_land: Vector2i) -> void:
+	embarked_fleet = -1
+	tile = tile_on_land
+	moved = true
 
 
 func work_action() -> String:
@@ -123,6 +145,7 @@ func to_dict() -> Dictionary:
 		"work": work.duplicate(true),
 		"origin_tile": origin_tile,
 		"assigned_tile": assigned_tile,
+		"embarked_fleet": embarked_fleet,
 	}
 
 
@@ -138,4 +161,5 @@ static func from_dict(data: Dictionary) -> CivilianState:
 	unit.work = data.get("work", {}).duplicate(true)
 	unit.origin_tile = Vector2i(data.get("origin_tile", NO_TILE))
 	unit.assigned_tile = Vector2i(data.get("assigned_tile", NO_TILE))
+	unit.embarked_fleet = int(data.get("embarked_fleet", -1))
 	return unit

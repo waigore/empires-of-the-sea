@@ -23,7 +23,7 @@ const SEA_NAMES: Array[String] = [
 
 
 static func resource_table() -> Array[Dictionary]:
-	var forest: Array = [MapModel.Terrain.FOREST]
+	var forest: Array = [MapModel.Terrain.HARDWOOD_FOREST, MapModel.Terrain.SCRUB_FOREST]
 	var hills: Array = [MapModel.Terrain.HILLS]
 	var peaks: Array = [MapModel.Terrain.MOUNTAINS]
 	var plains: Array = [MapModel.Terrain.PLAINS]

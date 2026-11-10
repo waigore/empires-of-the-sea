@@ -5,6 +5,7 @@ extends RefCounted
 ## before_all).
 
 const SEED: int = 1500
+const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 ## Single-region generator / canvas fixtures.
 const WIDTH: int = 48
 const HEIGHT: int = 32
@@ -83,6 +84,33 @@ static func settle(play: PlaySession) -> void:
 		)
 
 
+## Ownership, seats and tile deeds of the shared world as it was generated.
+## Suites that hand provinces to a crown or buy deeds call this once, then
+## `restore(world, snapshot)` in `before_each`/`after_each`, so the shared map
+## stays a fresh world without paying for generation per case.
+static func snapshot(world: WorldMap) -> Array:
+	var rows: Array = []
+	for region: MapModel in world.regions:
+		rows.append(region.ownership.to_dict())
+		var provinces: Array = []
+		for province: ProvinceState in region.provinces:
+			provinces.append([province, province.owner, province.capital])
+		rows.append(provinces)
+	return rows
+
+
+static func restore(world: WorldMap, snapshot: Array) -> void:
+	if world == null or snapshot.is_empty():
+		return
+	for index in world.region_count():
+		var region: MapModel = world.region(index)
+		region.ownership.apply_dict(snapshot[index * 2])
+		for row: Array in snapshot[index * 2 + 1]:
+			var province: ProvinceState = row[0]
+			province.owner = int(row[1])
+			province.capital = bool(row[2])
+
+
 static func mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
@@ -103,11 +131,25 @@ static func attach_screen(
 	faction: int = FactionCatalog.PLAYER_FACTION,
 	leader: String = ""
 ) -> MapScreen:
-	var screen: MapScreen = load("res://scenes/map_screen.tscn").instantiate()
+	var screen: MapScreen = SCENE.instantiate()
 	screen.map_width = WORLD_WIDTH
 	screen.map_height = WORLD_HEIGHT
 	screen.player_faction = faction
 	screen.player_leader = leader
 	screen.preset_world = world()
+	host.add_child(screen)
+	return screen
+
+
+## Reopens a saved session on the shared world. The preset is what keeps a
+## reload from regenerating the map — SaveCodec applies the save's ownership,
+## resources and deeds on top of the same world it would have generated.
+static func open_save(host: Node, data: Dictionary, save_dir: String = "") -> MapScreen:
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = WORLD_WIDTH
+	screen.map_height = WORLD_HEIGHT
+	screen.save_dir = save_dir
+	screen.preset_world = world()
+	screen.pending_save = data
 	host.add_child(screen)
 	return screen

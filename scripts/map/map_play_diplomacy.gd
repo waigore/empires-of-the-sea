@@ -5,6 +5,8 @@ extends RefCounted
 
 
 static func open(play: PlaySession) -> void:
+	if play.observer_mode:
+		return
 	if play.diplomacy == null:
 		play.diplomacy = DiplomacyState.new()
 		play.diplomacy.initialize(play.turn)
@@ -21,7 +23,7 @@ static func open(play: PlaySession) -> void:
 
 
 static func refresh(play: PlaySession) -> void:
-	if play.diplomacy == null:
+	if play.diplomacy == null or play.observer_mode:
 		return
 	DiplomacyHud.refresh(
 		play.hud.panels,
@@ -95,17 +97,18 @@ static func resolve_turn(play: PlaySession) -> bool:
 		return true
 	sync_first_contact(play)
 	run_ai(play)
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+	var human: int = play.human_faction_id()
+	if CallToArms.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		show_call(play)
+		MapPlayDiplomacy.show_call(play)
 		return false
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
+	if Intervention.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		show_intervention(play)
+		MapPlayDiplomacy.show_intervention(play)
 		return false
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+	if DiplomacyProposals.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		show_offer(play)
+		MapPlayDiplomacy.show_offer(play)
 		return false
 	close_turn(play)
 	return true
@@ -185,7 +188,7 @@ static func run_ai(play: PlaySession) -> void:
 		play.world,
 		play.ai,
 		play.turn,
-		play.player_faction,
+		play.human_faction_id(),
 		play.map_seed,
 		_ai_context(play)
 	)
@@ -196,8 +199,8 @@ static func run_ai(play: PlaySession) -> void:
 		play.hud.toast(message)
 
 
-## Unit counts the war-desire score reads; rival stockpiles arrive with the AI
-## economy planner, so the resource-need bonus stays inert for now.
+## Unit counts the war-desire score reads plus each rival's stockpile, so the
+## resource-need bonus is live once the AI economy exists (wiki: diplomacy-planner).
 static func _ai_context(play: PlaySession) -> Dictionary:
 	var regiments: Dictionary = {}
 	var ships: Dictionary = {}
@@ -207,13 +210,20 @@ static func _ai_context(play: PlaySession) -> Dictionary:
 			regiments[faction] = play.army_layer.regiment_count_all(faction)
 		if play.ship_layer != null:
 			ships[faction] = play.ship_layer.hull_count_all(faction)
-	return {"regiments": regiments, "ships": ships}
+	var context: Dictionary = {"regiments": regiments, "ships": ships}
+	if play.ai != null:
+		context["stockpiles"] = play.ai.stockpiles(play.human_faction_id())
+	return context
 
 
 ## A Tribe is contacted only by non-unknown tile visibility in its provinces;
 ## sea-reachable colonial intel alone does not count (wiki: diplomacy § first contact).
 static func sync_first_contact(play: PlaySession) -> Array[int]:
 	var contacted: Array[int] = []
+	# The observer has no human court to open first contact for; rival courts
+	# keep the relations seeded at setup (wiki: game-setup § Human/AI slots).
+	if play.observer_mode:
+		return contacted
 	if play.diplomacy == null or play.world == null:
 		return contacted
 	for tribe: int in FactionCatalog.tribe_ids():

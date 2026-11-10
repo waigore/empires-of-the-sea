@@ -3,24 +3,34 @@ extends GdToolsTest
 ## from the seed, and prove the mutable state came back (REQ-P3-03).
 
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
+const Fixture = preload("res://tests/map_fixture.gd")
 const SEED: int = 4242
 const WIDTH: int = 40
 const HEIGHT: int = 32
 const DIR: String = "user://test_save_codec"
 
-## One shared preset world per worker keeps coverage runs fast; restores
-## regenerate from the seed and are compared against their own fresh world.
+## One shared preset world per worker keeps coverage runs fast; a load applies
+## the save over that same world (same seed and size) instead of regenerating.
 static var _shared_world: WorldMap = null
+## Owners, seats and deeds as the shared world was generated; each case starts
+## from this clean snapshot (see `before_all`).
+static var _pristine: Array = []
 
 var screen: MapScreen = null
 
 
+func before_all() -> void:
+	_pristine = Fixture.snapshot(_world())
+
+
 func before_each() -> void:
 	_clean_dir()
+	_restore_world()
 	screen = _new_screen()
 
 
 func after_each() -> void:
+	_restore_world()
 	if is_instance_valid(screen):
 		screen.free()
 	screen = null
@@ -34,15 +44,22 @@ func _world() -> WorldMap:
 	return _shared_world
 
 
+## Puts the shared world back the way generation left it, so a case that hands
+## a province to the human crown or buys a deed does not leak into the next.
+func _restore_world() -> void:
+	Fixture.restore(_world(), _pristine)
+
+
 func _new_screen(pending: Dictionary = {}) -> MapScreen:
 	var node: MapScreen = SCREEN.instantiate()
 	node.map_seed = SEED
 	node.map_width = WIDTH
 	node.map_height = HEIGHT
 	node.save_dir = DIR
-	if pending.is_empty():
-		node.preset_world = _world()
-	else:
+	# A load applies the save over this preset instead of regenerating the
+	# world — same seed and size, so the map is the one the save expects.
+	node.preset_world = _world()
+	if not pending.is_empty():
 		node.pending_save = pending
 	add_child(node)
 	return node
@@ -58,7 +75,6 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	play.economy.economy.workers.set_count(1, 3)
 	play.economy.economy.research.unlocked["apprentice_workers"] = true
 	play.economy.market.prices["grain"] = 99
-	play.prestige = 61
 
 	var foreign: int = _foreign_province(play)
 	play.model.get_province(foreign).owner = play.player_faction
@@ -93,6 +109,10 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveCodec.is_valid(data), "captured save is valid")
+	assert_false(
+		(data["session"] as Dictionary).has("prestige"),
+		"the dead prestige counter is no longer serialised"
+	)
 	assert_true(
 		SaveStore.write(DIR + "/roundtrip.sav", data), "save file is written"
 	)
@@ -103,7 +123,6 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	screen = _new_screen(loaded)
 	play = screen.play
 	assert_eq(play.turn, 2, "turn restored")
-	assert_eq(play.prestige, 61, "prestige restored")
 	assert_eq(play.player_faction, FactionCatalog.PLAYER_FACTION, "nation restored")
 	assert_eq(play.economy.economy.treasury, 4321, "treasury restored")
 	assert_eq(play.economy.economy.quantity("grain"), 77, "stockpile restored")
@@ -138,7 +157,15 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 		VisibilityModel.Level.FULLY_VISIBLE,
 		"fog state restored"
 	)
-	assert_eq(play.civilian_layer.units.size(), 3, "civilians restored")
+	var player_civilians: int = 0
+	for civilian: CivilianState in play.civilian_layer.units:
+		if civilian.owner == play.player_faction:
+			player_civilians += 1
+	assert_eq(player_civilians, 3, "the human civilians restored")
+	assert_true(
+		play.civilian_layer.unit_count_all(1) >= 3,
+		"a rival's seeded civilians restored too"
+	)
 	assert_eq(play.civilian_layer.units[0].tile, tile, "civilian tile restored")
 	assert_true(play.civilian_layer.units[0].is_working(), "civilian work restored")
 	assert_eq(play.civilian_layer.units[0].remaining_turns(), 3, "work turns restored")
@@ -196,6 +223,7 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	play.ai = AiState.new()
 	play.ai.agenda_for(AiConfig.build(2, 1))
 	play.ai.note_war(play.player_faction, 2, play.turn)
+	play.ai.note_peace(play.player_faction, 2, play.turn)
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveStore.write(DIR + "/generals.sav", data), "save file is written")
@@ -219,6 +247,10 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	assert_true(
 		play.ai.war_on_cooldown(play.player_faction, 2, play.turn, 4),
 		"a load does not restart the war cooldown (wiki: diplomacy § Cooldowns)"
+	)
+	assert_true(
+		play.ai.peace_on_cooldown(play.player_faction, 2, play.turn, 3),
+		"a load does not restart the peace-offer cooldown (DR-20261109-07)"
 	)
 
 

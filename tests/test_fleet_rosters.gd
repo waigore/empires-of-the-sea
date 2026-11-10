@@ -47,6 +47,29 @@ func test_all_returns_one_typed_roster_per_region() -> void:
 	assert_eq(rosters[1].size(), 1)
 
 
+## A passenger's seat is read from the squadron that lists it — a sunken or
+## missing squadron keeps none (wiki: ships-and-naval § Naval transport).
+func test_carried_seats_come_from_the_squadron_rosters() -> void:
+	var regions := MapRegionTable.new()
+	var crowded := FleetState.at_sea(0, 1, 0, ["a", "b"])
+	crowded.add_civilian(7)
+	crowded.embarked_army = 11
+	var sunk := FleetState.empty_in_port(3, 1, 2)
+	sunk.add_civilian(8)
+	sunk.embarked_army = 12
+	regions.set_region(0, [crowded, null, sunk])
+	var other := FleetState.in_port(4, 2, 2, ["d"])
+	other.add_civilian(9)
+	regions.set_region(1, [other])
+
+	assert_eq(
+		FleetRosters.carried_civilians(regions), {7: 0, 9: 4},
+		"a sunk hull's passenger has no seat"
+	)
+	assert_eq(FleetRosters.carried_armies(regions), {11: 0})
+	assert_eq(FleetRosters.carried_civilians(MapRegionTable.new()), {})
+
+
 func test_removing_the_selected_marker_clears_the_selection() -> void:
 	var fleet := FleetState.at_sea(3, 1, 0)
 	var ship: Ship = _markers.make(fleet)

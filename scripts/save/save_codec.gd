@@ -20,13 +20,13 @@ static func capture(play: PlaySession) -> Dictionary:
 		"game_version": GameVersion.as_string(),
 		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"session": _capture_session(play),
-		"regions": _capture_regions(play.world),
-		"visibility": _capture_visibility(play),
+		"regions": SaveWorld.capture(play.world),
+		"visibility": SaveWorld.capture_visibility(play),
 		"economy": _capture_economy(play),
 		"market": play.economy.market.to_dict() if play.economy != null else {},
-		"diplomacy": _capture_diplomacy(play.diplomacy),
+		"diplomacy": SaveCourt.capture_diplomacy(play.diplomacy),
 		"ai": play.ai.to_dict() if play.ai != null else {},
-		"victory": _capture_victory(play.victory),
+		"victory": SaveCourt.capture_victory(play.victory),
 		"defeat": SaveDefeat.capture(play.defeat),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
@@ -42,7 +42,6 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"player_faction": play.player_faction,
 		"region_index": play.region_index,
 		"turn": play.turn,
-		"prestige": play.prestige,
 		"income": play.income,
 		"capital_province": play.capital_province,
 		"capital_tile": play.capital_tile,
@@ -55,72 +54,10 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 	}
 
 
-static func _capture_regions(world: WorldMap) -> Array[Dictionary]:
-	var regions: Array[Dictionary] = []
-	for model: MapModel in world.regions:
-		var provinces: Array[Dictionary] = []
-		for province: ProvinceState in model.provinces:
-			var province_entry: Dictionary = {
-				"id": province.id,
-				"owner": province.owner,
-				"capital": province.capital,
-				"town_development": province.town_development,
-				"fort_level": province.fort_level,
-				"resource": province.resource,
-				"resource_tile": province.resource_tile,
-				"population": province.population,
-				"road_paths": province.road_paths.duplicate(true),
-			}
-			provinces.append(province_entry)
-		var region_entry: Dictionary = {
-			"width": model.width,
-			"height": model.height,
-			"provinces": provinces,
-			"resources": model.resource.duplicate(),
-			"tile_deeds": model.ownership.to_dict(),
-		}
-		regions.append(region_entry)
-	return regions
-
-
-static func _capture_visibility(play: PlaySession) -> Dictionary:
-	var by_region: Dictionary = {}
-	for raw: Variant in play.visibility_by_region.keys():
-		var visibility: VisibilityModel = play.visibility_by_region[raw]
-		if visibility != null:
-			by_region[int(raw)] = visibility.to_dict()
-	return {"by_region": by_region}
-
-
 static func _capture_economy(play: PlaySession) -> Dictionary:
 	if play.economy == null or play.economy.economy == null:
 		return {}
 	return play.economy.economy.snapshot()
-
-
-## Decided campaign (wiki: campaign-persistence § Snapshot contract, victory
-## § Persistence). An undecided campaign writes an empty entry.
-static func _capture_victory(state: VictoryState) -> Dictionary:
-	if state == null:
-		return {}
-	return {"winner": state.winner_player_id, "type": state.type, "turn": state.turn_number}
-
-
-## A save from before victory state was captured (or a malformed entry) loads as
-## an undecided campaign, so legacy slots still resume with turns open.
-static func _victory_from(raw: Variant) -> VictoryState:
-	if typeof(raw) != TYPE_DICTIONARY:
-		return null
-	var data: Dictionary = raw
-	var winner: int = int(data.get("winner", MapModel.NO_ID))
-	if not FactionCatalog.can_win(winner):
-		return null
-	if int(data.get("type", VictoryState.Type.MILITARY)) != VictoryState.Type.MILITARY:
-		return null
-	var turn: int = int(data.get("turn", -1))
-	if turn < 0:
-		return null
-	return VictoryState.military(winner, turn)
 
 
 # --- validation --------------------------------------------------------------
@@ -162,7 +99,15 @@ static func summary(data: Dictionary) -> Dictionary:
 ## Rebuilds the world and the session's mutable state before the screen loads
 ## its first region. The caller then builds the HUD and calls the two economy
 ## and diplomacy restorers (they need the freshly created nodes).
-static func restore(play: PlaySession, data: Dictionary) -> bool:
+##
+## `reuse` lets a caller hand over an already generated world (a MapScreen
+## preset) so a load does not regenerate it. Generation is the single most
+## expensive step under coverage; the saved ownership, resources and deeds are
+## still applied on top. The world is only reused when its region sizes match
+## the save; seed identity cannot be checked (WorldMap stores no seed), so
+## callers must pass a world generated for the save's seed — tests pass their
+## shared fixture.
+static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null) -> bool:
 	if play == null or not is_valid(data):
 		return false
 	var session: Dictionary = data.get("session", {})
@@ -171,7 +116,6 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.map_width = int(session.get("map_width", 128))
 	play.map_height = int(session.get("map_height", 84))
 	play.turn = maxi(int(session.get("turn", 1)), 1)
-	play.prestige = int(session.get("prestige", 0))
 	play.income = int(session.get("income", 0))
 	play.capital_province = int(session.get("capital_province", -1))
 	play.capital_tile = _vector(session.get("capital_tile", CapitalChoice.NO_TILE))
@@ -182,13 +126,15 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
-	play.victory = _victory_from(data.get("victory", {}))
+	play.victory = SaveCourt.victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 
-	var world: WorldMap = MapGenerator.new().generate_world(
-		play.map_seed, play.map_width, play.map_height
-	)
-	if not _apply_regions(world, data.get("regions", [])):
+	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
+	if world == null:
+		world = MapGenerator.new().generate_world(
+			play.map_seed, play.map_width, play.map_height
+		)
+	if not SaveWorld.apply(world, data.get("regions", [])):
 		return false
 	play.world = world
 	play.region_index = clampi(int(session.get("region_index", 0)), 0, world.region_count() - 1)
@@ -200,83 +146,8 @@ static func restore(play: PlaySession, data: Dictionary) -> bool:
 		play.army_layer.generals = GeneralRoster.from_dict(
 			_dictionary(data.get("generals", {}))
 		)
-	_restore_visibility(play, data.get("visibility", {}))
+	SaveWorld.restore_visibility(play, data.get("visibility", {}))
 	return true
-
-
-static func _apply_regions(world: WorldMap, regions: Variant) -> bool:
-	if typeof(regions) != TYPE_ARRAY or regions.size() != world.region_count():
-		return false
-	for index in world.region_count():
-		var entry: Variant = regions[index]
-		if typeof(entry) != TYPE_DICTIONARY:
-			return false
-		var model: MapModel = world.region(index)
-		var data: Dictionary = entry
-		if int(data.get("width", 0)) != model.width or int(data.get("height", 0)) != model.height:
-			return false
-		var provinces: Array = data.get("provinces", [])
-		if provinces.size() != model.provinces.size():
-			return false
-		for raw: Variant in provinces:
-			if typeof(raw) != TYPE_DICTIONARY:
-				return false
-			if not _apply_province(model, raw):
-				return false
-		if not _apply_resources(model, data.get("resources", PackedInt32Array())):
-			return false
-		model.ownership.apply_dict(data.get("tile_deeds", {}))
-	return true
-
-
-static func _apply_province(model: MapModel, data: Dictionary) -> bool:
-	var province: ProvinceState = model.get_province(int(data.get("id", -1)))
-	if province == null:
-		return false
-	province.owner = int(data.get("owner", MapModel.NO_ID))
-	province.capital = bool(data.get("capital", false))
-	province.town_development = int(data.get("town_development", 0))
-	province.fort_level = clampi(int(data.get("fort_level", 0)), 0, FortRules.MAX_LEVEL)
-	province.resource = int(data.get("resource", MapModel.NO_ID))
-	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
-	province.population = int(data.get("population", 0))
-	var paths: Variant = data.get("road_paths", [])
-	if typeof(paths) != TYPE_ARRAY:
-		return false
-	province.road_paths = paths.duplicate(true)
-	return true
-
-
-static func _apply_resources(model: MapModel, raw: Variant) -> bool:
-	var wanted: int = model.width * model.height
-	if typeof(raw) == TYPE_PACKED_INT32_ARRAY:
-		var packed: PackedInt32Array = raw
-		if packed.size() != wanted:
-			return false
-		model.resource = packed
-		return true
-	if typeof(raw) != TYPE_ARRAY or raw.size() != wanted:
-		return false
-	for index in wanted:
-		model.resource[index] = int(raw[index])
-	return true
-
-
-static func _restore_visibility(play: PlaySession, data: Variant) -> void:
-	play.visibility_by_region.clear()
-	if typeof(data) != TYPE_DICTIONARY:
-		return
-	var by_region: Dictionary = data.get("by_region", {})
-	for raw: Variant in by_region.keys():
-		var region: int = int(raw)
-		var model: MapModel = play.world.region(region)
-		var entry: Variant = by_region[raw]
-		if model == null or typeof(entry) != TYPE_DICTIONARY:
-			continue
-		var visibility := VisibilityModel.new()
-		visibility.setup(model, play.player_faction)
-		if visibility.apply_dict(entry):
-			play.visibility_by_region[region] = visibility
 
 
 ## The economy node exists only after the HUD is built.
@@ -297,60 +168,7 @@ static func restore_economy(play: PlaySession, data: Dictionary) -> void:
 
 
 static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
-	var snapshot: Variant = data.get("diplomacy", {})
-	if typeof(snapshot) == TYPE_DICTIONARY and not snapshot.is_empty():
-		play.diplomacy = _diplomacy_from(snapshot)
-	var ai: Dictionary = _dictionary(data.get("ai", {}))
-	if not ai.is_empty():
-		play.ai = AiState.from_dict(ai)
-
-
-# --- diplomacy ---------------------------------------------------------------
-static func _capture_diplomacy(state: DiplomacyState) -> Dictionary:
-	if state == null:
-		return {}
-	var records: Dictionary = {}
-	for key: String in state.relations.keys():
-		var record: DiplomacyRelation = state.relations[key]
-		if record != null:
-			records[key] = record.to_dict()
-	return {
-		"turn": state.turn,
-		"relations": records,
-		"overtures": state.overtures.duplicate(),
-		"subsidies": state.subsidies.duplicate(),
-		"colonies": state.colonies.duplicate(),
-		"events": state.events.duplicate(true),
-		"modified": state._modified.duplicate(),
-		"order_counts": state._order_counts.duplicate(),
-		"alliance_snapshot": state.alliance_snapshot.duplicate(),
-		"pending_calls": state.pending_calls.duplicate(true),
-		"pending_interventions": state.pending_interventions.duplicate(true),
-		"pending_offers": state.pending_offers.duplicate(true),
-	}
-
-
-static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
-	var state := DiplomacyState.new()
-	state.turn = int(data.get("turn", 0))
-	var records: Dictionary = data.get("relations", {})
-	for key: Variant in records.keys():
-		var entry: Variant = records[key]
-		if typeof(entry) == TYPE_DICTIONARY:
-			state.relations[String(key)] = DiplomacyRelation.from_dict(entry)
-	state.overtures = data.get("overtures", {}).duplicate()
-	state.subsidies = data.get("subsidies", {}).duplicate()
-	state.colonies = data.get("colonies", {}).duplicate()
-	for event: Variant in data.get("events", []):
-		if typeof(event) == TYPE_DICTIONARY:
-			state.events.append(event.duplicate(true))
-	state._modified = data.get("modified", {}).duplicate()
-	state._order_counts = data.get("order_counts", {}).duplicate()
-	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
-	state.pending_calls.assign(data.get("pending_calls", []))
-	state.pending_interventions.assign(data.get("pending_interventions", []))
-	state.pending_offers.assign(data.get("pending_offers", []))
-	return state
+	SaveCourt.restore_diplomacy(play, data)
 
 
 # --- helpers -----------------------------------------------------------------

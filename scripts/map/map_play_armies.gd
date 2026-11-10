@@ -24,13 +24,30 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	var is_player: bool = army.owner == play.player_faction
 	var command: String = ""
 	var muster: Array[Dictionary] = []
+	var embark: String = ""
 	if is_player and play.economy != null and play.economy.economy != null:
 		command = play.army_layer.command_text(army)
 		if army.home:
 			muster = ArmyTraining.rows(play.economy.economy)
+	if is_player:
+		embark = _embark_note(play, army)
 	play.hud.panels.show_army(
-		play.model, army, is_player, can_merge(play, army), command, muster
+		play.model, army, is_player, can_merge(play, army), command, muster, embark,
+		play.battle_plan
 	)
+
+
+## A squadron in port here that can take the army aboard (wiki: ships-and-naval
+## § Naval transport).
+static func _embark_note(play: PlaySession, army: ArmyState) -> String:
+	for fleet: FleetState in play.ship_layer.fleets:
+		if fleet == null or fleet.owner != army.owner:
+			continue
+		if not fleet.is_in_port() or fleet.province != army.province:
+			continue
+		if bool(NavalTransport.can_embark(play.model, army, fleet).get("ok", false)):
+			return "The squadron here can carry %d regiments." % army.count()
+	return ""
 
 
 static func can_merge(play: PlaySession, army: ArmyState) -> bool:
@@ -68,19 +85,19 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	return true
 
 
-## Invading foreign land needs war with its owner; unowned land is not an attack
-## (wiki: diplomacy § War required for hostile actions).
+## Invading foreign land needs war with its owner, except a Tribe; unowned land
+## is not an attack (wiki: factions § Tribe; diplomacy § War required).
 static func may_invade(play: PlaySession, province_id: int) -> bool:
 	var owner: int = play.model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == play.player_faction:
 		return true
-	return DiplomacyRules.at_war_with(play.diplomacy, play.player_faction, owner)
+	return DiplomacyRules.invadable(play.diplomacy, play.player_faction, owner)
 
 
-## Battles only happen between factions at war.
+## Battles only happen between declared enemies and Tribes (wiki: factions).
 static func hostile(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
-		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
+		return DiplomacyRules.invadable(play.diplomacy, a, b)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
@@ -107,8 +124,49 @@ static func on_action(play: PlaySession, action: String) -> void:
 		detach(play, army, army.regiments.duplicate())
 	elif action == "merge":
 		merge(play, army)
+	elif action == "embark":
+		embark(play, army)
 	elif action.begins_with("recruit:"):
 		recruit(play, action.trim_prefix("recruit:"))
+	elif action == "plan:next":
+		cycle_plan(play, army)
+
+
+## One tap cycles the Quick Battle stance; the dossier shows the current plan
+## so the choice is never buried (wiki: quick-battle; REQ-P5-03).
+static func cycle_plan(play: PlaySession, army: ArmyState) -> void:
+	var order: Array[String] = ["balanced", "aggressive", "defensive"]
+	var index: int = order.find(play.battle_plan)
+	play.battle_plan = order[(index + 1) % order.size()]
+	play.hud.toast("Battle plan: %s" % play.battle_plan.capitalize())
+	show_panel(play, army)
+
+
+## Boards the selected army on the squadron sharing its port (wiki:
+## ships-and-naval § Naval transport).
+static func embark(play: PlaySession, army: ArmyState) -> void:
+	var refusal: String = ""
+	for fleet: FleetState in play.ship_layer.fleets:
+		if fleet == null or fleet.owner != army.owner:
+			continue
+		if not fleet.is_in_port() or fleet.province != army.province:
+			continue
+		var check: Dictionary = NavalTransport.can_embark(play.model, army, fleet)
+		if not bool(check.get("ok", false)):
+			if refusal.is_empty():
+				refusal = String(check.get("reason", ""))
+			continue
+		var result: Dictionary = ArmyTransport.embark(play.army_layer, army, fleet)
+		if not bool(result.get("ok", false)):
+			play.hud.toast(String(result.get("reason", "The army cannot board.")))
+			return
+		play.hud.toast(
+			"The army boards the fleet at %s" % play.model.province_name(fleet.province)
+		)
+		show_panel(play, army)
+		refresh_options(play, army)
+		return
+	play.hud.toast(refusal if not refusal.is_empty() else "No squadron waits in this port.")
 
 
 ## Opens the drill yard on the Home Army dossier (the province panel's Recruit
@@ -184,7 +242,11 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 ## War required for hostile actions).
 static func battle_context(play: PlaySession) -> Dictionary:
 	var tech: Dictionary = {}
-	if play.economy != null and play.economy.economy != null:
+	if play.observer_mode and play.ai != null:
+		# Every crown fights on its own researched tech (REQ-P2-03).
+		for faction: int in FactionCatalog.great_power_ids():
+			tech[faction] = play.ai.economy_for(faction).tech_unlocked
+	elif play.economy != null and play.economy.economy != null:
 		tech[play.player_faction] = play.economy.economy.tech_unlocked
 	return {
 		"feeding": play.feeding,
@@ -192,6 +254,11 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"tech": tech,
 		"seed": play.turn,
 		"hostile": hostile(play),
+		## The observer has no human battle to plate; every exchange
+		## auto-resolves (wiki: quick-battle).
+		"quick_battle": not play.observer_mode,
+		"player_faction": play.human_faction_id(),
+		"battle_plan": play.battle_plan,
 	}
 
 
@@ -211,6 +278,7 @@ static func resolve_battles(play: PlaySession) -> void:
 	)
 	if battles.is_empty():
 		return
+	play.emit_battle_resolved(battles)
 	var repaint: bool = false
 	for battle: Dictionary in battles:
 		var region: int = int(battle.get("region", play.region_index))
@@ -222,6 +290,9 @@ static func resolve_battles(play: PlaySession) -> void:
 		var line: String = prefix + BattleReport.describe_land(
 			battle, province, FactionCatalog.names()
 		)
+		if battle.has("quick") and play.hud != null:
+			battle["player_faction"] = play.player_faction
+			play.hud.show_quick_battle(battle, prefix + province)
 		var medal: String = String(battle.get("medal_gain", ""))
 		if not medal.is_empty():
 			var general: String = play.army_layer.generals.label(
@@ -243,6 +314,7 @@ static func resolve_battles(play: PlaySession) -> void:
 		else:
 			play.canvas.refresh_ownership()
 			play.overlay.refresh_borders()
+			play.hud.refresh_minimap()
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	if play.army_layer.selected_army != null:
@@ -250,12 +322,9 @@ static func resolve_battles(play: PlaySession) -> void:
 		refresh_options(play, play.army_layer.selected_army)
 
 
-## Reports the capital verdicts of the Combat phase: a survivor's court moves
-## to its new seat, a crown with nothing left falls and its regiments, squadrons
-## and dealings leave play. The human Great Power's terminal fall is also defeat:
-## the plate mounts and the session seals at the close of Combat
-## (wiki: victory § Great Power defeat, capital-and-connectivity § Great Power
-## fall; DR-20261109-05). Returns true when the map changed.
+## Reports the capital verdicts of the Combat phase. A crown with nothing left
+## falls and its armies, squadrons and dealings leave play (wiki: victory
+## § Great Power defeat; DR-20261109-05). Returns true when the map changed.
 static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
@@ -287,6 +356,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 		)
 		changed = true
+	MapPlayFleets.settle_ports(play, reassigned)
 	if changed:
 		sync_player_capital(play)
 	if play.defeat != null:
@@ -302,11 +372,11 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 static func _record_defeat(play: PlaySession, fallen: Array) -> void:
 	if play.defeat != null:
 		return
-	play.defeat = CampaignDefeat.resolve(fallen, play.player_faction, play.turn)
+	play.defeat = CampaignDefeat.resolve(fallen, play.human_faction_id(), play.turn)
 
 
 ## Keeps the session's capital framing on the player's current seat after a
-## reassignment (training, civilian muster and the court button read it).
+## reassignment (training and civilian muster read it).
 static func sync_player_capital(play: PlaySession) -> void:
 	var region: int = FactionCatalog.region_of(play.player_faction)
 	var model: MapModel = play.world.region(region)

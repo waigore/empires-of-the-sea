@@ -283,6 +283,20 @@ func test_a_land_victory_reads_as_a_capture() -> void:
 	)
 
 
+func test_a_land_advantage_reads_as_a_held_field() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": ArmyCombat.Outcome.ATTACKER_ADVANTAGE,
+		"attacker_lost": ["a"],
+		"defender_lost": ["b", "c"],
+	}
+	assert_eq(
+		BattleReport.describe_land(battle, "Flanders", FACTIONS),
+		"España holds the field at Flanders — 1 regiments lost"
+	)
+
+
 func test_a_land_repulse_reads_as_a_hold() -> void:
 	var battle: Dictionary = {
 		"attacker": 1,
@@ -410,6 +424,22 @@ func test_a_third_party_at_peace_stays_out_of_a_war() -> void:
 	assert_eq(battles.size(), 1)
 	assert_eq(int(battles[0]["defender"]), 1)
 	assert_eq(swede.ship_count(), 1, "a neutral fleet is untouched")
+
+
+## A neutral owner with a lower id must not steal the initiative from the two
+## belligerents (wiki: ships-and-naval § Naval Combat attacker/defender).
+func test_a_neutral_lower_owner_does_not_take_the_initiative() -> void:
+	var neutral: FleetState = _squadron(1, 0, 2, "carrack", 1)
+	var first: FleetState = _squadron(2, 2, 2, "carrack", 1)
+	var second: FleetState = _squadron(3, 3, 2, "carrack", 1)
+	var only_23 := func(a: int, b: int) -> bool:
+		return (a == 2 and b == 3) or (a == 3 and b == 2)
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[neutral, first, second], only_23
+	)
+	assert_eq(battles.size(), 1)
+	assert_eq(int(battles[0]["attacker"]), 2)
+	assert_eq(neutral.ship_count(), 1, "the neutral fleet is untouched")
 
 
 func test_the_moved_fleet_attacks() -> void:
@@ -755,3 +785,61 @@ func test_a_losing_general_keeps_his_medals() -> void:
 	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
 	assert_eq(roster.medals(0, "general_1"), 0)
 	assert_eq(String(reports[0]["medal_gain"]), "")
+
+
+# --- Quick Battle extracted modules (REQ-P3-01 / REQ-P3-04) ---
+## Action catalog, fort battery, and plate copy live in their own modules so
+## the soft-capped orchestrators stay under ≤400/≤25. Covered here (battle
+## domain) so the impact map does not select ALL via impact_map.toml or the
+## unmapped test_quick_battle_*.gd catch-all.
+
+
+func test_quick_battle_action_scripts_come_from_the_plan_catalog() -> void:
+	assert_eq(QuickBattle.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
+	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
+
+
+func test_quick_battle_battery_silences_guns_and_downgrades() -> void:
+	var model := Fixture.build()
+	model.province_data(2).fort_level = 1
+	var guns: Array[Dictionary] = QuickBattleBattery.make(1, {}, 1)
+	assert_eq(guns.size(), 1)
+	assert_eq(QuickBattleBattery.alive(guns), 1)
+	assert_eq(QuickBattleBattery.hit(guns, 4), 1)
+	assert_eq(QuickBattleBattery.alive(guns), 0)
+	assert_true(QuickBattleBattery.downgrade_fort(model, 2, 1, guns))
+	assert_eq(model.province_data(2).fort_level, 0)
+
+
+func test_quick_battle_copy_names_the_victor() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"player_faction": 0,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+	}
+	var names: Array = ["España", "England"]
+	assert_eq(
+		QuickBattleCopy.outcome_text(
+			ArmyCombat.Outcome.ATTACKER_VICTORY, battle, "Flanders", names
+		),
+		"España takes Flanders"
+	)
+	assert_true(QuickBattleCopy.player_won(ArmyCombat.Outcome.ATTACKER_VICTORY, battle))
+	assert_eq(QuickBattleCopy.roman(2), "II")
+	assert_eq(
+		QuickBattleCopy.action_line(
+			{
+				"side": 0,
+				"action": "assault",
+				"label": "Assault",
+				"attacker_lost": 1,
+				"defender_lost": 2,
+				"guns_destroyed": 1,
+			},
+			battle,
+			names
+		),
+		"España — Assault · 2 lost · 1 of its own · 1 gun silenced"
+	)

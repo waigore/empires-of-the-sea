@@ -11,6 +11,13 @@ const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
 ## Human slot chosen in game setup; the rules read this everywhere the player
 ## is special-cased (view, upkeep, diplomacy).
 var player_faction: int = PLAYER_FACTION
+## Full-AI observer (wiki: game-setup § Human/AI slot assignment): every Great
+## Power runs the AI planners and no court holds consent decisions. Debug tool,
+## not a player-facing campaign mode.
+var observer_mode: bool = false
+## One merged record per resolved turn (MapPlayObserver); the observatory panel
+## and the headless exporter read it (wiki: turn-trace-interpretation).
+var ai_turns: Array[Dictionary] = []
 ## Endless campaign chosen at setup: the calendar cap never closes the age
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 var infinite_mode: bool = false
@@ -49,7 +56,9 @@ var ai: AiState = null
 var ai_trace: Array[Dictionary] = []
 
 var turn: int = 1
-var prestige: int = 38
+## Quick Battle stance for the human's land battles: aggressive, balanced or
+## defensive (wiki: quick-battle § Turn structure and actions).
+var battle_plan: String = "balanced"
 var income: int = 120
 var selected_province: int = -1
 var capital_province: int = -1
@@ -67,6 +76,8 @@ var civilian_layer: CivilianLayer = null
 var army_layer: ArmyLayer = null
 var canvas: MapCanvas = null
 var overlay: MapOverlay = null
+## Resource survey lens: a view, never a rules source (REQ-P3-03).
+var lens: ResourceLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -106,7 +117,8 @@ func bind_views(
 	p_overlay: MapOverlay,
 	p_camera: MapCamera,
 	p_hud: GameHud,
-	p_improvements: ImprovementPanel
+	p_improvements: ImprovementPanel,
+	p_lens: ResourceLens = null
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
@@ -116,6 +128,7 @@ func bind_views(
 	camera = p_camera
 	hud = p_hud
 	improvements = p_improvements
+	lens = p_lens
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).
@@ -123,6 +136,12 @@ func treasury() -> int:
 	if economy == null or economy.economy == null:
 		return 0
 	return economy.economy.treasury
+
+
+## The court that answers consent decisions, or NO_ID when every crown is AI
+## (the full-AI observer). Rules modules read this instead of player_faction.
+func human_faction_id() -> int:
+	return MapModel.NO_ID if observer_mode else player_faction
 
 
 ## Provinces the player currently holds in the region on screen.
@@ -154,6 +173,31 @@ func tech_unlocked() -> Dictionary:
 	if economy == null or economy.economy == null:
 		return {}
 	return economy.economy.tech_unlocked
+
+
+## The ledger that answers for a crown: the human's, or a rival's. In the
+## full-AI observer no human ledger resolves, so every crown answers from its
+## AI ledger — the same rule the observer scoreboard reads (REQ-P2-03).
+func ledger_for(faction: int) -> PlayerEconomy:
+	if observer_mode or faction != player_faction:
+		if ai == null:
+			return null
+		return ai.economy_for(faction)
+	if economy == null:
+		return null
+	return economy.economy
+
+
+## Researched tech for any crown: the human's ledger, or a rival's when the
+## rules ask about a rival squadron (wiki: tech-tree; REQ-P2-03). Rules take
+## this as a Callable so a presentation layer cannot answer for them.
+func has_tech(faction: int, tech_id: String) -> bool:
+	if tech_id.is_empty():
+		return false
+	var ledger: PlayerEconomy = ledger_for(faction)
+	if ledger == null:
+		return false
+	return bool(ledger.tech_unlocked.get(tech_id, false))
 
 
 ## Recomputes which resources the crown has seen, so discovery techs unlock

@@ -1,11 +1,15 @@
 """Score definitions for Empires of the Sea — hand-written period material.
 
-Four beds (Renaissance air, Baroque allegro, galant minuet, battle toccata),
-two stingers and a sea ambience. Melodies are written by hand; accompaniment
+Four beds, two stingers and a sea ambience, all in the bright major-mode dance
+idioms of the colonial era: a Renaissance branle for the first voyages, a
+Baroque gigue for the Spanish Main, a galant minuet for the later court, and a
+buccaneer hornpipe for battle. Melodies are written by hand; accompaniment
 (chord voicing, continuo figuration, divisions on repeats) is derived from the
 chord progression so the parts stay in key and move by the smallest step.
 
 Form for each bed is A (8 bars) – B (8 bars) – A' (8 bars, ornamented repeat).
+Percussion (tabor, tambourine, castanets, timpani) carries the dance pulse so the
+beds read as lively rather than haunted.
 """
 
 from __future__ import annotations
@@ -105,275 +109,344 @@ def bass_note(root: str, lo: int = 36, hi: int = 50, prev: int | None = None) ->
     return min(pool, key=lambda m: abs(m - prev))
 
 
-# --- shared accompaniment patterns ------------------------------------------
-
-
-def add_consort(piece: Piece, bar0: int, chords: list[tuple[str, str]],
-                variation: bool, prev_state: dict) -> None:
-    """Renaissance consort: sustained inner viols, lute chords, theorbo bass."""
-    lo, hi = (52, 67)
-    for i, (root, quality) in enumerate(chords):
-        bar = bar0 + i
-        inner = voicing(root, quality, lo, hi, prev_state.get("inner"))
-        prev_state["inner"] = inner
-        for k, note in enumerate(inner):
-            pan = -0.18 + 0.36 * (k / max(1, len(inner) - 1))
-            piece.add(bar, 0.0, 2.0, _name(note), "viol", 0.42, pan, 0.34)
-            piece.add(bar, 2.0, 2.0, _name(note), "viol", 0.36, pan, 0.34)
-        low = bass_note(root, 36, 48, prev_state.get("bass"))
-        prev_state["bass"] = low
-        piece.add(bar, 0.0, 4.0, _name(low), "theorbo", 0.62, 0.0, 0.2)
-        if variation:
-            # lute divisions: broken chord in eighths
-            shape = [0, 2, 1, 2, 3, 2, 1, 2]
-            tones = [inner[0] + 12, inner[1] + 12, inner[2] + 12]
-            for step in range(8):
-                note = tones[shape[step] % len(tones)]
-                piece.add(bar, step * 0.5, 0.45, _name(note), "lute", 0.3, 0.16, 0.4)
-        else:
-            for beat in (0.0, 2.0):
-                for note in inner:
-                    piece.add(bar, beat, 1.7, _name(note + 12), "lute", 0.22, 0.16, 0.42)
-
-
-def add_continuo(piece: Piece, bar0: int, chords: list[tuple[str, str]],
-                 variation: bool, prev_state: dict) -> None:
-    """Baroque continuo: harpsichord blocks, cello bass, inner violin.";
-    """
-    for i, (root, quality) in enumerate(chords):
-        bar = bar0 + i
-        upper = voicing(root, quality, 59, 76, prev_state.get("upper"))
-        prev_state["upper"] = upper
-        for k, note in enumerate(upper):
-            pan = -0.2 + 0.4 * (k / max(1, len(upper) - 1))
-            piece.add(bar, 0.0, 1.9, _name(note), "harpsichord", 0.3, pan - 0.1, 0.3)
-            piece.add(bar, 2.0, 1.8, _name(note), "harpsichord", 0.24, pan - 0.1, 0.3)
-        low = bass_note(root, 38, 52, prev_state.get("bass"))
-        prev_state["bass"] = low
-        if variation:
-            for step in range(4):  # walking eighths
-                note = low if step % 2 == 0 else (low + 12 if step % 4 == 1 else low + 7)
-                piece.add(bar, step * 0.5 * 2, 0.9, _name(note), "cello", 0.5, -0.05, 0.22)
-            for step in range(4):
-                for note in upper[:2]:
-                    piece.add(bar, step * 1.0, 0.5, _name(note + 12), "harpsichord", 0.16, 0.24, 0.35)
-        else:
-            piece.add(bar, 0.0, 2.0, _name(low), "cello", 0.55, -0.05, 0.22)
-            piece.add(bar, 2.0, 2.0, _name(low + 7 if quality == "maj" else low), "cello", 0.45, -0.05, 0.22)
-        # sustained inner string keeps the texture warm under the solo line
-        piece.add(bar, 0.0, 4.0, _name(upper[0] if not variation else upper[1]), "viol", 0.22, -0.3, 0.4)
-
-
-def add_galant(piece: Piece, bar0: int, chords: list[tuple[str, str]],
-               variation: bool, prev_state: dict, beats_per_bar: int = 3) -> None:
-    """Classical minuet: strings pad, broken-chord harpsichord, light bass."""
-    for i, (root, quality) in enumerate(chords):
-        bar = bar0 + i
-        upper = voicing(root, quality, 55, 72, prev_state.get("upper"))
-        prev_state["upper"] = upper
-        piece.add(bar, 0.0, float(beats_per_bar), _name(upper[0]), "viol", 0.3, -0.32, 0.36)
-        piece.add(bar, 0.0, float(beats_per_bar), _name(upper[1]), "viol", 0.26, -0.1, 0.36)
-        low = bass_note(root, 40, 52, prev_state.get("bass"))
-        prev_state["bass"] = low
-        piece.add(bar, 0.0, 1.6, _name(low), "cello", 0.5, -0.06, 0.2)
-        if beats_per_bar >= 3:
-            piece.add(bar, 2.0, 1.0, _name(low + 7), "cello", 0.34, -0.06, 0.2)
-        pattern = ([0, 1, 2, 1, 0, 1] if variation else [0, 2, 1]) * 4
-        step_len = beats_per_bar / (6 if variation else 3)
-        for step in range(6 if variation else 3):
-            note = upper[pattern[step] % len(upper)] + 12
-            piece.add(bar, step * step_len, step_len * 0.92, _name(note),
-                      "harpsichord", 0.19, 0.26, 0.34)
-
-
 def _name(note: int) -> str:
     names = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
     return "%s%d" % (names[note % 12], note // 12 - 1)
 
 
+# --- shared accompaniment patterns ------------------------------------------
+
+
+def add_branle(piece: Piece, bar0: int, chords: list[tuple[str, str]],
+               variation: bool, state: dict) -> None:
+    """Renaissance branle: plucked offbeats, viol consort, tabor and tambourine."""
+    for i, (root, quality) in enumerate(chords):
+        bar = bar0 + i
+        inner = voicing(root, quality, 55, 72, state.get("inner"))
+        state["inner"] = inner
+        low = bass_note(root, 36, 48, state.get("bass"))
+        state["bass"] = low
+        for k, note in enumerate(inner):
+            pan = -0.24 + 0.48 * (k / max(1, len(inner) - 1))
+            piece.add(bar, 0.0, 1.7, _name(note), "viol", 0.24, pan, 0.22)
+            piece.add(bar, 2.0, 1.5, _name(note), "viol", 0.2, pan, 0.22)
+        fifth = 7 if quality == "maj" else 3
+        piece.add(bar, 0.0, 1.8, _name(low), "theorbo", 0.6, -0.06, 0.14)
+        piece.add(bar, 2.0, 1.5, _name(low + fifth), "theorbo", 0.48, -0.06, 0.14)
+        for beat in (0.5, 1.5, 2.5, 3.5):
+            for note in inner[:3]:
+                piece.add(bar, beat, 0.4, _name(note + 12), "lute",
+                          0.15 if not variation else 0.2, 0.22, 0.26)
+        if variation:
+            for step in range(8):
+                note = inner[[0, 1, 2, 1, 0, 2, 1, 2][step]] + 12
+                piece.add(bar, step * 0.5, 0.34, _name(note), "lute", 0.19, 0.24, 0.3)
+        # branle pulse: tabor on the strong beats, jingles lifting the offbeats
+        piece.add(bar, 0.0, 0.45, "C2", "tabor", 0.55, -0.08, 0.14)
+        piece.add(bar, 2.0, 0.4, "C2", "tabor", 0.4, -0.08, 0.14)
+        for beat in (0.5, 1.5, 2.5, 3.5):
+            piece.add(bar, beat, 0.2, "C5", "tambourine", 0.18, 0.26, 0.16)
+
+
+def add_gigue(piece: Piece, bar0: int, chords: list[tuple[str, str]],
+              variation: bool, state: dict) -> None:
+    """Baroque gigue: running harpsichord divisions, walking cello, castanets."""
+    for i, (root, quality) in enumerate(chords):
+        bar = bar0 + i
+        upper = voicing(root, quality, 57, 76, state.get("upper"))
+        state["upper"] = upper
+        low = bass_note(root, 38, 52, state.get("bass"))
+        state["bass"] = low
+        tones = [low, low + 7 if quality != "dim" else low + 6, low + 12,
+                 upper[0], upper[1], upper[2]]
+        pattern = [0, 2, 4, 1, 3, 5, 2, 1] if variation else [0, 2, 1, 3, 4, 2, 1, 0]
+        for step in range(8):
+            note = tones[pattern[step] % len(tones)]
+            piece.add(bar, step * 0.5, 0.42, _name(note), "harpsichord",
+                      0.28 if step % 2 == 0 else 0.19, 0.2, 0.14)
+        for beat in range(4):
+            note = low if beat % 2 == 0 else low + (7 if quality == "maj" else 5)
+            piece.add(bar, float(beat), 0.66, _name(note), "cello", 0.5, -0.08, 0.12)
+        for k, note in enumerate(upper):
+            piece.add(bar, 0.0, 1.8, _name(note), "viol", 0.15,
+                      -0.3 + 0.3 * k, 0.2)
+        # Spanish colonial colour: heel-and-toe castanets
+        for beat in (1.0, 3.0):
+            piece.add(bar, beat, 0.2, "C5", "castanet", 0.38, 0.3, 0.1)
+        for beat in (0.5, 1.5, 2.5, 3.5):
+            piece.add(bar, beat, 0.16, "C5", "castanet", 0.2, -0.28, 0.1)
+
+
+def add_minuet(piece: Piece, bar0: int, chords: list[tuple[str, str]],
+               variation: bool, prev_state: dict, beats_per_bar: int = 3) -> None:
+    """Galant minuet: light strings on the after-beats, broken-chord harpsichord."""
+    for i, (root, quality) in enumerate(chords):
+        bar = bar0 + i
+        upper = voicing(root, quality, 55, 74, prev_state.get("upper"))
+        prev_state["upper"] = upper
+        low = bass_note(root, 40, 52, prev_state.get("bass"))
+        prev_state["bass"] = low
+        for k, note in enumerate(upper):
+            piece.add(bar, 1.0, 0.8, _name(note), "viol", 0.2,
+                      -0.26 + 0.34 * k, 0.2)
+            piece.add(bar, 2.0, 0.8, _name(note), "viol", 0.17,
+                      -0.26 + 0.34 * k, 0.2)
+        piece.add(bar, 0.0, 1.6, _name(low), "cello", 0.52, -0.05, 0.16)
+        piece.add(bar, 1.0, 0.9, _name(low + 7), "cello", 0.3, -0.05, 0.16)
+        steps = 6 if variation else 3
+        pattern = [0, 1, 2, 1, 2, 1] if variation else [0, 2, 1]
+        for step in range(steps):
+            note = upper[pattern[step] % len(upper)] + 12
+            piece.add(bar, step * beats_per_bar / steps,
+                      beats_per_bar / steps * 0.85, _name(note), "harpsichord",
+                      0.17 if not variation else 0.21, 0.28, 0.22)
+
+
+def add_hornpipe(piece: Piece, bar0: int, chords: list[tuple[str, str]],
+                 variation: bool, state: dict) -> None:
+    """Buccaneer hornpipe: driving cello eighths, fiddles, tabor, timpani."""
+    for i, (root, quality) in enumerate(chords):
+        bar = bar0 + i
+        inner = voicing(root, quality, 50, 66, state.get("inner"))
+        state["inner"] = inner
+        low = bass_note(root, 36, 48, state.get("bass"))
+        state["bass"] = low
+        fifth = 7 if quality == "maj" else 3
+        for step in range(8):
+            note = low if step % 4 != 2 else low + fifth
+            if step % 4 == 3:
+                note = low + 12
+            piece.add(bar, step * 0.5, 0.4, _name(note), "cello",
+                      0.5 if step % 2 == 0 else 0.4, -0.1, 0.12)
+        for k, note in enumerate(inner):
+            piece.add(bar, 1.0, 0.5, _name(note), "viol", 0.2,
+                      -0.22 + 0.44 * k / max(1, len(inner) - 1), 0.2)
+            piece.add(bar, 3.0, 0.5, _name(note), "viol", 0.18,
+                      -0.22 + 0.44 * k / max(1, len(inner) - 1), 0.2)
+        for beat in (0.0, 2.0):
+            piece.add(bar, beat, 0.5, _name(low - 12), "timpani", 0.42, -0.12, 0.18)
+        for step in range(8):
+            piece.add(bar, step * 0.5, 0.24, "C2" if step % 2 == 0 else "C4",
+                      "tabor", 0.38 if step % 2 == 0 else 0.16, 0.06, 0.1)
+        for beat in (0.5, 1.5, 2.5, 3.5):
+            piece.add(bar, beat, 0.18, "C5", "tambourine", 0.22, 0.28, 0.12)
+        if variation:
+            for step in range(8):
+                note = inner[step % len(inner)] + 12
+                piece.add(bar, step * 0.5, 0.28, _name(note), "harpsichord",
+                          0.18, -0.24, 0.2)
+
+
 def add_melody(piece: Piece, bar0: int, notes: list[tuple], instr: str,
                vel: float = 0.82, pan: float = 0.18, transpose: int = 0) -> None:
     for bar, beat, dur, note in notes:
-        piece.add(bar0 + bar, beat, dur, _name(dsp.midi(note) + transpose), instr, vel, pan, 0.3)
+        piece.add(bar0 + bar, beat, dur, _name(dsp.midi(note) + transpose), instr, vel, pan, 0.26)
 
 
 # --- pieces ------------------------------------------------------------------
 
-# I. 1500 — Renaissance air in G dorian, consort of viols and lute.
-AIR_CHORDS_A = [("G", "min"), ("F", "maj"), ("C", "maj"), ("D", "min"),
-                ("G", "min"), ("F", "maj"), ("C", "maj"), ("D", "min")]
-AIR_CHORDS_B = [("Bb", "maj"), ("F", "maj"), ("C", "maj"), ("G", "min"),
-                ("Bb", "maj"), ("F", "maj"), ("D", "min"), ("G", "min")]
+# I. 1500 — "The Caravel's Branle" in G major: recorders, lute, viols, tabor.
+AIR_CHORDS_A = [("G", "maj"), ("C", "maj"), ("G", "maj"), ("D", "maj"),
+                ("G", "maj"), ("C", "maj"), ("D", "maj"), ("G", "maj")]
+AIR_CHORDS_B = [("E", "min"), ("C", "maj"), ("G", "maj"), ("D", "maj"),
+                ("E", "min"), ("C", "maj"), ("D", "maj"), ("G", "maj")]
 
 AIR_MELODY_A = [
-    (0, 0.0, 1.0, "D5"), (0, 1.0, 0.5, "E5"), (0, 1.5, 0.5, "F5"), (0, 2.0, 2.0, "G5"),
-    (1, 0.0, 1.0, "F5"), (1, 1.0, 1.0, "E5"), (1, 2.0, 2.0, "D5"),
-    (2, 0.0, 1.5, "E5"), (2, 1.5, 0.5, "D5"), (2, 2.0, 1.0, "C5"), (2, 3.0, 1.0, "E5"),
-    (3, 0.0, 2.0, "D5"), (3, 2.0, 1.0, "C5"), (3, 3.0, 1.0, "A4"),
-    (4, 0.0, 1.0, "D5"), (4, 1.0, 0.5, "E5"), (4, 1.5, 0.5, "F5"), (4, 2.0, 2.0, "G5"),
-    (5, 0.0, 1.0, "A5"), (5, 1.0, 1.0, "G5"), (5, 2.0, 2.0, "F5"),
-    (6, 0.0, 1.5, "G5"), (6, 1.5, 0.5, "F5"), (6, 2.0, 1.0, "E5"), (6, 3.0, 1.0, "D5"),
-    (7, 0.0, 2.0, "A4"), (7, 2.0, 2.0, "D5"),
+    (0, 0.0, 0.5, "D5"), (0, 0.5, 0.5, "G5"), (0, 1.0, 0.5, "A5"), (0, 1.5, 0.5, "B5"),
+    (0, 2.0, 1.0, "A5"), (0, 3.0, 1.0, "G5"),
+    (1, 0.0, 1.0, "E5"), (1, 1.0, 1.0, "G5"), (1, 2.0, 2.0, "C6"),
+    (2, 0.0, 0.5, "B5"), (2, 0.5, 0.5, "A5"), (2, 1.0, 1.0, "G5"), (2, 2.0, 2.0, "D5"),
+    (3, 0.0, 1.0, "F#5"), (3, 1.0, 1.0, "A5"), (3, 2.0, 1.0, "D6"), (3, 3.0, 1.0, "A5"),
+    (4, 0.0, 0.5, "G5"), (4, 0.5, 0.5, "A5"), (4, 1.0, 1.0, "B5"), (4, 2.0, 2.0, "D6"),
+    (5, 0.0, 1.0, "E5"), (5, 1.0, 1.0, "G5"), (5, 2.0, 2.0, "C6"),
+    (6, 0.0, 1.0, "A5"), (6, 1.0, 1.0, "F#5"), (6, 2.0, 1.0, "D5"), (6, 3.0, 1.0, "F#5"),
+    (7, 0.0, 3.0, "G5"),
 ]
 
 AIR_MELODY_B = [
-    (0, 0.0, 1.0, "F5"), (0, 1.0, 0.5, "G5"), (0, 1.5, 0.5, "A5"), (0, 2.0, 2.0, "Bb5"),
-    (1, 0.0, 1.0, "A5"), (1, 1.0, 1.0, "G5"), (1, 2.0, 2.0, "F5"),
-    (2, 0.0, 1.5, "G5"), (2, 1.5, 0.5, "E5"), (2, 2.0, 1.0, "C5"), (2, 3.0, 1.0, "E5"),
-    (3, 0.0, 2.0, "D5"), (3, 2.0, 1.0, "Bb4"), (3, 3.0, 1.0, "G4"),
-    (4, 0.0, 1.0, "D5"), (4, 1.0, 0.5, "F5"), (4, 1.5, 0.5, "G5"), (4, 2.0, 2.0, "Bb5"),
-    (5, 0.0, 1.0, "A5"), (5, 1.0, 1.0, "F5"), (5, 2.0, 2.0, "C5"),
-    (6, 0.0, 1.5, "D5"), (6, 1.5, 0.5, "E5"), (6, 2.0, 1.0, "F5"), (6, 3.0, 1.0, "A5"),
-    (7, 0.0, 4.0, "G5"),
+    (0, 0.0, 0.5, "B5"), (0, 0.5, 0.5, "A5"), (0, 1.0, 1.0, "G5"), (0, 2.0, 2.0, "E5"),
+    (1, 0.0, 1.0, "E5"), (1, 1.0, 1.0, "G5"), (1, 2.0, 2.0, "C6"),
+    (2, 0.0, 0.5, "B5"), (2, 0.5, 0.5, "A5"), (2, 1.0, 1.0, "G5"), (2, 2.0, 2.0, "D5"),
+    (3, 0.0, 1.0, "A5"), (3, 1.0, 1.0, "F#5"), (3, 2.0, 2.0, "D5"),
+    (4, 0.0, 0.5, "E5"), (4, 0.5, 0.5, "F#5"), (4, 1.0, 1.0, "G5"), (4, 2.0, 2.0, "B5"),
+    (5, 0.0, 1.0, "A5"), (5, 1.0, 1.0, "G5"), (5, 2.0, 1.0, "E5"), (5, 3.0, 1.0, "G5"),
+    (6, 0.0, 0.5, "F#5"), (6, 0.5, 0.5, "E5"), (6, 1.0, 1.0, "D5"), (6, 2.0, 2.0, "A4"),
+    (7, 0.0, 3.0, "G5"),
 ]
 
 
 def age_of_discovery() -> Piece:
-    piece = Piece("music_age_of_discovery", bpm=76, bars=24, wet=0.36, rt60=2.4)
+    piece = Piece("music_age_of_discovery", bpm=126, bars=24, wet=0.2, rt60=1.5)
     state: dict = {}
-    add_consort(piece, 0, AIR_CHORDS_A, False, state)
-    add_consort(piece, 8, AIR_CHORDS_B, False, state)
-    add_consort(piece, 16, AIR_CHORDS_A, True, state)
-    add_melody(piece, 0, AIR_MELODY_A, "recorder", 0.8, 0.16)
-    add_melody(piece, 8, AIR_MELODY_B, "recorder", 0.8, 0.16)
-    add_melody(piece, 16, AIR_MELODY_A, "recorder", 0.86, 0.16)
+    add_branle(piece, 0, AIR_CHORDS_A, False, state)
+    add_branle(piece, 8, AIR_CHORDS_B, False, state)
+    add_branle(piece, 16, AIR_CHORDS_A, True, state)
+    add_melody(piece, 0, AIR_MELODY_A, "recorder", 0.82, 0.16)
+    add_melody(piece, 8, AIR_MELODY_B, "recorder", 0.82, 0.16)
+    add_melody(piece, 16, AIR_MELODY_A, "recorder", 0.88, 0.16)
     # a second recorder a fourth below thickens the repeat like a consort pair
     add_melody(piece, 16, AIR_MELODY_A, "recorder", 0.34, -0.32, transpose=-5)
     return piece
 
 
-# II. 1600s — Baroque allegro in D major: two violins, continuo, harpsichord.
-MAIN_CHORDS_A = [("D", "maj"), ("B", "min"), ("G", "maj"), ("A", "maj"),
-                 ("D", "maj"), ("F#", "min"), ("G", "maj"), ("A", "maj")]
-MAIN_CHORDS_B = [("B", "min"), ("F#", "min"), ("G", "maj"), ("D", "maj"),
-                 ("E", "min"), ("A", "maj"), ("D", "maj"), ("A", "maj")]
+# II. 1600s — "The Treasure Fleet" gigue in D: violins, continuo, castanets.
+MAIN_CHORDS_A = [("D", "maj"), ("G", "maj"), ("A", "maj"), ("D", "maj"),
+                 ("B", "min"), ("G", "maj"), ("A", "maj"), ("D", "maj")]
+MAIN_CHORDS_B = [("G", "maj"), ("A", "maj"), ("D", "maj"), ("B", "min"),
+                 ("E", "min"), ("A", "maj"), ("D", "maj"), ("A", "dom7")]
 
 MAIN_MELODY_A = [
-    (0, 0.0, 0.5, "A5"), (0, 0.5, 0.5, "A5"), (0, 1.0, 0.5, "F#5"), (0, 1.5, 0.5, "D5"),
-    (0, 2.0, 1.0, "E5"), (0, 3.0, 1.0, "F#5"),
-    (1, 0.0, 1.0, "F#5"), (1, 1.0, 1.0, "D5"), (1, 2.0, 2.0, "B4"),
-    (2, 0.0, 0.5, "G5"), (2, 0.5, 0.5, "F#5"), (2, 1.0, 0.5, "G5"), (2, 1.5, 0.5, "A5"),
-    (2, 2.0, 2.0, "B5"),
-    (3, 0.0, 1.0, "A5"), (3, 1.0, 1.0, "E5"), (3, 2.0, 1.0, "C#5"), (3, 3.0, 1.0, "E5"),
-    (4, 0.0, 0.5, "D5"), (4, 0.5, 0.5, "E5"), (4, 1.0, 0.5, "F#5"), (4, 1.5, 0.5, "G5"),
-    (4, 2.0, 2.0, "A5"),
-    (5, 0.0, 1.0, "F#5"), (5, 1.0, 1.0, "A5"), (5, 2.0, 2.0, "C#6"),
-    (6, 0.0, 1.0, "B5"), (6, 1.0, 0.5, "A5"), (6, 1.5, 0.5, "G5"), (6, 2.0, 1.0, "F#5"),
-    (6, 3.0, 1.0, "E5"),
-    (7, 0.0, 2.0, "E5"), (7, 2.0, 2.0, "A4"),
+    (0, 0.0, 0.5, "A4"), (0, 0.5, 0.5, "D5"), (0, 1.0, 0.5, "F#5"), (0, 1.5, 0.5, "A5"),
+    (0, 2.0, 0.5, "F#5"), (0, 2.5, 0.5, "D5"), (0, 3.0, 0.5, "E5"), (0, 3.5, 0.5, "F#5"),
+    (1, 0.0, 0.5, "G5"), (1, 0.5, 0.5, "B5"), (1, 1.0, 0.5, "A5"), (1, 1.5, 0.5, "G5"),
+    (1, 2.0, 0.5, "F#5"), (1, 2.5, 0.5, "E5"), (1, 3.0, 0.5, "D5"), (1, 3.5, 0.5, "G5"),
+    (2, 0.0, 1.0, "A5"), (2, 1.0, 0.5, "E5"), (2, 1.5, 0.5, "C#5"),
+    (2, 2.0, 1.0, "E5"), (2, 3.0, 1.0, "A5"),
+    (3, 0.0, 0.5, "D6"), (3, 0.5, 0.5, "A5"), (3, 1.0, 0.5, "F#5"), (3, 1.5, 0.5, "D5"),
+    (3, 2.0, 2.0, "D5"),
+    (4, 0.0, 0.5, "B5"), (4, 0.5, 0.5, "A5"), (4, 1.0, 0.5, "F#5"), (4, 1.5, 0.5, "D5"),
+    (4, 2.0, 0.5, "F#5"), (4, 2.5, 0.5, "A5"), (4, 3.0, 0.5, "B5"), (4, 3.5, 0.5, "D6"),
+    (5, 0.0, 1.0, "B5"), (5, 1.0, 0.5, "A5"), (5, 1.5, 0.5, "G5"),
+    (5, 2.0, 1.0, "D5"), (5, 3.0, 1.0, "G5"),
+    (6, 0.0, 1.0, "A5"), (6, 1.0, 1.0, "C#6"), (6, 2.0, 1.0, "A5"), (6, 3.0, 1.0, "E5"),
+    (7, 0.0, 0.5, "F#5"), (7, 0.5, 0.5, "E5"), (7, 1.0, 0.5, "D5"), (7, 1.5, 0.5, "A4"),
+    (7, 2.0, 2.0, "D5"),
 ]
 
 MAIN_MELODY_B = [
-    (0, 0.0, 0.5, "B4"), (0, 0.5, 0.5, "D5"), (0, 1.0, 0.5, "F#5"), (0, 1.5, 0.5, "B5"),
-    (0, 2.0, 1.0, "A5"), (0, 3.0, 1.0, "F#5"),
-    (1, 0.0, 1.0, "F#5"), (1, 1.0, 0.5, "E5"), (1, 1.5, 0.5, "D5"), (1, 2.0, 2.0, "C#5"),
-    (2, 0.0, 0.5, "G5"), (2, 0.5, 0.5, "A5"), (2, 1.0, 1.0, "B5"), (2, 2.0, 2.0, "D6"),
-    (3, 0.0, 1.5, "A5"), (3, 1.5, 0.5, "F#5"), (3, 2.0, 2.0, "D5"),
-    (4, 0.0, 0.5, "E5"), (4, 0.5, 0.5, "F#5"), (4, 1.0, 1.0, "G5"), (4, 2.0, 2.0, "B5"),
-    (5, 0.0, 1.0, "A5"), (5, 1.0, 1.0, "G5"), (5, 2.0, 1.0, "E5"), (5, 3.0, 1.0, "C#5"),
-    (6, 0.0, 1.0, "D5"), (6, 1.0, 1.0, "F#5"), (6, 2.0, 1.0, "A5"), (6, 3.0, 1.0, "D6"),
-    (7, 0.0, 2.0, "A5"), (7, 2.0, 2.0, "E5"),
+    (0, 0.0, 0.5, "G5"), (0, 0.5, 0.5, "B5"), (0, 1.0, 0.5, "D6"), (0, 1.5, 0.5, "B5"),
+    (0, 2.0, 2.0, "G5"),
+    (1, 0.0, 0.5, "A5"), (1, 0.5, 0.5, "C#6"), (1, 1.0, 0.5, "E6"), (1, 1.5, 0.5, "C#6"),
+    (1, 2.0, 2.0, "A5"),
+    (2, 0.0, 0.5, "D6"), (2, 0.5, 0.5, "A5"), (2, 1.0, 0.5, "F#5"), (2, 1.5, 0.5, "D5"),
+    (2, 2.0, 2.0, "F#5"),
+    (3, 0.0, 0.5, "B5"), (3, 0.5, 0.5, "F#5"), (3, 1.0, 0.5, "D5"), (3, 1.5, 0.5, "F#5"),
+    (3, 2.0, 2.0, "B5"),
+    (4, 0.0, 0.5, "G5"), (4, 0.5, 0.5, "E5"), (4, 1.0, 0.5, "G5"), (4, 1.5, 0.5, "B5"),
+    (4, 2.0, 2.0, "E5"),
+    (5, 0.0, 0.5, "A5"), (5, 0.5, 0.5, "E5"), (5, 1.0, 0.5, "C#5"), (5, 1.5, 0.5, "E5"),
+    (5, 2.0, 1.0, "A5"), (5, 3.0, 1.0, "C#6"),
+    (6, 0.0, 0.5, "D6"), (6, 0.5, 0.5, "A5"), (6, 1.0, 0.5, "F#5"), (6, 1.5, 0.5, "A5"),
+    (6, 2.0, 2.0, "D6"),
+    (7, 0.0, 1.0, "B5"), (7, 1.0, 1.0, "G5"), (7, 2.0, 2.0, "A5"),
 ]
 
 
 def spanish_main() -> Piece:
-    piece = Piece("music_spanish_main", bpm=100, bars=24, wet=0.3, rt60=1.9)
+    piece = Piece("music_spanish_main", bpm=132, bars=24, wet=0.18, rt60=1.4)
     state: dict = {}
-    add_continuo(piece, 0, MAIN_CHORDS_A, False, state)
-    add_continuo(piece, 8, MAIN_CHORDS_B, False, state)
-    add_continuo(piece, 16, MAIN_CHORDS_A, True, state)
-    add_melody(piece, 0, MAIN_MELODY_A, "violin", 0.82, 0.2)
-    add_melody(piece, 8, MAIN_MELODY_B, "violin", 0.82, 0.2)
-    add_melody(piece, 16, MAIN_MELODY_A, "violin", 0.86, 0.2)
-    add_melody(piece, 16, MAIN_MELODY_A, "violin", 0.3, -0.28, transpose=-3)
+    add_gigue(piece, 0, MAIN_CHORDS_A, False, state)
+    add_gigue(piece, 8, MAIN_CHORDS_B, False, state)
+    add_gigue(piece, 16, MAIN_CHORDS_A, True, state)
+    add_melody(piece, 0, MAIN_MELODY_A, "violin", 0.84, 0.2)
+    add_melody(piece, 8, MAIN_MELODY_B, "violin", 0.84, 0.2)
+    add_melody(piece, 16, MAIN_MELODY_A, "violin", 0.88, 0.2)
+    # natural trumpets salute the B section like a treasure-fleet arrival
+    add_melody(piece, 8, [
+        (0, 0.0, 1.0, "D5"), (0, 1.0, 1.0, "F#5"), (0, 2.0, 2.0, "A5"),
+        (1, 0.0, 2.0, "A5"), (1, 2.0, 2.0, "C#6"),
+    ], "brass", 0.26, -0.2)
     return piece
 
 
-# III. 1700 — galant minuet in C major for the later game.
-MINUET_CHORDS_A = [("C", "maj"), ("G", "maj"), ("A", "min"), ("F", "maj"),
-                   ("C", "maj"), ("G", "maj"), ("F", "maj"), ("G", "maj")]
-MINUET_CHORDS_B = [("A", "min"), ("E", "min"), ("F", "maj"), ("C", "maj"),
-                   ("D", "min"), ("G", "maj"), ("C", "maj"), ("G", "maj")]
+# III. 1700 — "Gilded Minuet" in G: flute, strings, harpsichord.
+MINUET_CHORDS_A = [("G", "maj"), ("D", "maj"), ("E", "min"), ("C", "maj"),
+                   ("G", "maj"), ("D", "dom7"), ("C", "maj"), ("D", "maj")]
+MINUET_CHORDS_B = [("E", "min"), ("B", "min"), ("C", "maj"), ("G", "maj"),
+                   ("A", "min"), ("D", "sus4"), ("D", "maj"), ("G", "maj")]
 
 MINUET_MELODY_A = [
-    (0, 0.0, 1.0, "E5"), (0, 1.0, 1.0, "G5"), (0, 2.0, 1.0, "E5"),
-    (1, 0.0, 1.5, "D5"), (1, 1.5, 0.5, "B4"), (1, 2.0, 1.0, "G4"),
-    (2, 0.0, 1.0, "C5"), (2, 1.0, 1.0, "E5"), (2, 2.0, 1.0, "A5"),
-    (3, 0.0, 2.0, "G5"), (3, 2.0, 1.0, "F5"),
-    (4, 0.0, 1.0, "E5"), (4, 1.0, 1.0, "G5"), (4, 2.0, 1.0, "C6"),
-    (5, 0.0, 1.5, "B5"), (5, 1.5, 0.5, "A5"), (5, 2.0, 1.0, "G5"),
-    (6, 0.0, 1.0, "F5"), (6, 1.0, 1.0, "E5"), (6, 2.0, 1.0, "D5"),
-    (7, 0.0, 3.0, "C5"),
+    (0, 0.0, 1.0, "G5"), (0, 1.0, 1.0, "B5"), (0, 2.0, 1.0, "G5"),
+    (1, 0.0, 1.5, "A5"), (1, 1.5, 0.5, "F#5"), (1, 2.0, 1.0, "D5"),
+    (2, 0.0, 1.0, "E5"), (2, 1.0, 1.0, "G5"), (2, 2.0, 1.0, "B5"),
+    (3, 0.0, 2.0, "C6"), (3, 2.0, 1.0, "G5"),
+    (4, 0.0, 1.0, "G5"), (4, 1.0, 1.0, "B5"), (4, 2.0, 1.0, "D6"),
+    (5, 0.0, 1.0, "C6"), (5, 1.0, 1.0, "B5"), (5, 2.0, 1.0, "A5"),
+    (6, 0.0, 1.5, "G5"), (6, 1.5, 0.5, "A5"), (6, 2.0, 1.0, "G5"),
+    (7, 0.0, 3.0, "D5"),
 ]
 
 MINUET_MELODY_B = [
-    (0, 0.0, 1.0, "A5"), (0, 1.0, 1.0, "C6"), (0, 2.0, 1.0, "A5"),
-    (1, 0.0, 1.0, "G5"), (1, 1.0, 1.0, "E5"), (1, 2.0, 1.0, "B4"),
-    (2, 0.0, 2.0, "A5"), (2, 2.0, 1.0, "F5"),
-    (3, 0.0, 2.0, "E5"), (3, 2.0, 1.0, "G5"),
-    (4, 0.0, 1.0, "F5"), (4, 1.0, 1.0, "A5"), (4, 2.0, 1.0, "D6"),
-    (5, 0.0, 1.0, "C6"), (5, 1.0, 1.0, "B5"), (5, 2.0, 1.0, "G5"),
-    (6, 0.0, 1.0, "A5"), (6, 1.0, 1.0, "G5"), (6, 2.0, 1.0, "E5"),
-    (7, 0.0, 3.0, "C5"),
+    (0, 0.0, 1.0, "B5"), (0, 1.0, 1.0, "D6"), (0, 2.0, 1.0, "B5"),
+    (1, 0.0, 1.5, "A5"), (1, 1.5, 0.5, "G5"), (1, 2.0, 1.0, "F#5"),
+    (2, 0.0, 1.0, "G5"), (2, 1.0, 1.0, "B5"), (2, 2.0, 1.0, "E6"),
+    (3, 0.0, 2.0, "D6"), (3, 2.0, 1.0, "B5"),
+    (4, 0.0, 1.0, "C6"), (4, 1.0, 1.0, "B5"), (4, 2.0, 1.0, "A5"),
+    (5, 0.0, 1.5, "G5"), (5, 1.5, 0.5, "A5"), (5, 2.0, 1.0, "B5"),
+    (6, 0.0, 1.0, "A5"), (6, 1.0, 1.0, "F#5"), (6, 2.0, 1.0, "D5"),
+    (7, 0.0, 3.0, "G5"),
 ]
 
 
 def gilded_minuet() -> Piece:
-    piece = Piece("music_gilded_minuet", bpm=132, beats_per_bar=3, bars=24,
-                  wet=0.3, rt60=1.7)
+    piece = Piece("music_gilded_minuet", bpm=144, beats_per_bar=3, bars=24,
+                  wet=0.2, rt60=1.4)
     state: dict = {}
-    add_galant(piece, 0, MINUET_CHORDS_A, False, state)
-    add_galant(piece, 8, MINUET_CHORDS_B, False, state)
-    add_galant(piece, 16, MINUET_CHORDS_A, True, state)
-    add_melody(piece, 0, MINUET_MELODY_A, "flute", 0.8, 0.22)
-    add_melody(piece, 8, MINUET_MELODY_B, "flute", 0.8, 0.22)
-    add_melody(piece, 16, MINUET_MELODY_A, "flute", 0.85, 0.22)
-    add_melody(piece, 16, MINUET_MELODY_A, "viol", 0.28, -0.3, transpose=-12)
+    add_minuet(piece, 0, MINUET_CHORDS_A, False, state)
+    add_minuet(piece, 8, MINUET_CHORDS_B, False, state)
+    add_minuet(piece, 16, MINUET_CHORDS_A, True, state)
+    add_melody(piece, 0, MINUET_MELODY_A, "flute", 0.84, 0.22)
+    add_melody(piece, 8, MINUET_MELODY_B, "flute", 0.84, 0.22)
+    add_melody(piece, 16, MINUET_MELODY_A, "flute", 0.88, 0.22)
+    add_melody(piece, 16, MINUET_MELODY_A, "viol", 0.24, -0.3, transpose=-12)
     return piece
 
 
-# IV. Battle — D minor toccata: string tremolo, timpani, driving bass.
-BATTLE_CHORDS = [("D", "min"), ("D", "min"), ("C", "maj"), ("D", "min"),
-                 ("G", "min"), ("D", "min"), ("A", "maj"), ("D", "min")]
+# IV. Battle — "Hornpipe for a Broadside" in D: fife, fiddles, drum, timpani.
+BATTLE_CHORDS_A = [("D", "maj"), ("G", "maj"), ("A", "maj"), ("D", "maj"),
+                   ("B", "min"), ("G", "maj"), ("A", "maj"), ("D", "maj")]
+BATTLE_CHORDS_B = [("B", "min"), ("G", "maj"), ("D", "maj"), ("A", "maj"),
+                   ("B", "min"), ("G", "maj"), ("A", "maj"), ("D", "maj")]
 
-BATTLE_MELODY = [
-    (0, 0.0, 1.0, "A4"), (0, 1.0, 1.0, "D5"), (0, 2.0, 1.0, "F5"), (0, 3.0, 0.5, "E5"),
-    (0, 3.5, 0.5, "D5"),
-    (1, 0.0, 2.0, "D5"), (1, 2.0, 1.0, "A4"), (1, 3.0, 1.0, "F4"),
-    (2, 0.0, 1.0, "C5"), (2, 1.0, 1.0, "Bb4"), (2, 2.0, 2.0, "A4"),
-    (3, 0.0, 1.0, "D5"), (3, 1.0, 1.0, "F5"), (3, 2.0, 1.0, "A5"), (3, 3.0, 1.0, "G5"),
-    (4, 0.0, 2.0, "G5"), (4, 2.0, 2.0, "Bb5"),
-    (5, 0.0, 1.0, "A5"), (5, 1.0, 1.0, "F5"), (5, 2.0, 2.0, "D5"),
-    (6, 0.0, 2.0, "C#5"), (6, 2.0, 1.0, "E5"), (6, 3.0, 1.0, "G5"),
-    (7, 0.0, 4.0, "D5"),
+BATTLE_MELODY_A = [
+    (0, 0.0, 0.5, "D5"), (0, 0.5, 0.5, "F#5"), (0, 1.0, 0.5, "A5"), (0, 1.5, 0.5, "D6"),
+    (0, 2.0, 0.5, "A5"), (0, 2.5, 0.5, "F#5"), (0, 3.0, 0.5, "E5"), (0, 3.5, 0.5, "D5"),
+    (1, 0.0, 0.5, "G5"), (1, 0.5, 0.5, "B5"), (1, 1.0, 0.5, "D6"), (1, 1.5, 0.5, "B5"),
+    (1, 2.0, 0.5, "A5"), (1, 2.5, 0.5, "G5"), (1, 3.0, 0.5, "F#5"), (1, 3.5, 0.5, "E5"),
+    (2, 0.0, 0.5, "E5"), (2, 0.5, 0.5, "A5"), (2, 1.0, 0.5, "C#6"), (2, 1.5, 0.5, "E6"),
+    (2, 2.0, 1.0, "C#6"), (2, 3.0, 1.0, "A5"),
+    (3, 0.0, 1.0, "D6"), (3, 1.0, 0.5, "A5"), (3, 1.5, 0.5, "F#5"), (3, 2.0, 2.0, "D5"),
+    (4, 0.0, 0.5, "B5"), (4, 0.5, 0.5, "D6"), (4, 1.0, 0.5, "F#6"), (4, 1.5, 0.5, "D6"),
+    (4, 2.0, 1.0, "B5"), (4, 3.0, 1.0, "F#5"),
+    (5, 0.0, 0.5, "G5"), (5, 0.5, 0.5, "B5"), (5, 1.0, 0.5, "D6"), (5, 1.5, 0.5, "B5"),
+    (5, 2.0, 1.0, "G5"), (5, 3.0, 1.0, "E5"),
+    (6, 0.0, 0.5, "A5"), (6, 0.5, 0.5, "C#6"), (6, 1.0, 0.5, "E6"), (6, 1.5, 0.5, "C#6"),
+    (6, 2.0, 1.0, "A5"), (6, 3.0, 1.0, "E5"),
+    (7, 0.0, 0.5, "D6"), (7, 0.5, 0.5, "C#6"), (7, 1.0, 0.5, "B5"), (7, 1.5, 0.5, "A5"),
+    (7, 2.0, 2.0, "D5"),
+]
+
+BATTLE_MELODY_B = [
+    (0, 0.0, 0.5, "B5"), (0, 0.5, 0.5, "F#5"), (0, 1.0, 0.5, "D5"), (0, 1.5, 0.5, "F#5"),
+    (0, 2.0, 1.0, "B5"), (0, 3.0, 1.0, "D6"),
+    (1, 0.0, 0.5, "B5"), (1, 0.5, 0.5, "G5"), (1, 1.0, 0.5, "D5"), (1, 1.5, 0.5, "G5"),
+    (1, 2.0, 1.0, "B5"), (1, 3.0, 1.0, "D6"),
+    (2, 0.0, 0.5, "A5"), (2, 0.5, 0.5, "F#5"), (2, 1.0, 0.5, "D5"), (2, 1.5, 0.5, "F#5"),
+    (2, 2.0, 2.0, "A5"),
+    (3, 0.0, 0.5, "C#6"), (3, 0.5, 0.5, "A5"), (3, 1.0, 0.5, "E5"), (3, 1.5, 0.5, "A5"),
+    (3, 2.0, 2.0, "C#6"),
+    (4, 0.0, 0.5, "D6"), (4, 0.5, 0.5, "B5"), (4, 1.0, 0.5, "F#5"), (4, 1.5, 0.5, "B5"),
+    (4, 2.0, 1.0, "D6"), (4, 3.0, 1.0, "F#6"),
+    (5, 0.0, 0.5, "E6"), (5, 0.5, 0.5, "D6"), (5, 1.0, 0.5, "B5"), (5, 1.5, 0.5, "G5"),
+    (5, 2.0, 2.0, "E6"),
+    (6, 0.0, 0.5, "C#6"), (6, 0.5, 0.5, "A5"), (6, 1.0, 0.5, "E5"), (6, 1.5, 0.5, "A5"),
+    (6, 2.0, 1.0, "C#6"), (6, 3.0, 1.0, "E6"),
+    (7, 0.0, 3.0, "D6"),
 ]
 
 
 def broadsides() -> Piece:
-    piece = Piece("music_broadsides", bpm=148, bars=16, wet=0.26, rt60=1.5,
+    piece = Piece("music_broadsides", bpm=152, bars=16, wet=0.18, rt60=1.4,
                   target_rms_db=-17.0)
     state: dict = {}
-    for bar0 in (0, 8):
-        variation = bar0 == 8
-        for i, (root, quality) in enumerate(BATTLE_CHORDS):
-            bar = bar0 + i
-            inner = voicing(root, quality, 48, 64, state.get("inner"))
-            state["inner"] = inner
-            # tremolo in sixteenths
-            steps = 16 if variation else 12
-            for step in range(steps):
-                note = inner[step % len(inner)] + 12
-                piece.add(bar, step * 4.0 / steps, 4.0 / steps * 0.8, _name(note),
-                          "viol", 0.3 if step % 2 else 0.38, 0.24, 0.25)
-            low = bass_note(root, 36, 45, state.get("bass"))
-            state["bass"] = low
-            for step in range(8):
-                note = low if step % 4 != 3 else low + 7
-                piece.add(bar, step * 0.5, 0.42, _name(note), "cello", 0.55, -0.1, 0.18)
-            if bar % 2 == 0:
-                piece.add(bar, 0.0, 1.0, _name(low - 12), "timpani", 0.8, -0.1, 0.3)
-            piece.add(bar, 2.0, 0.8, _name(low - 12), "timpani", 0.55, 0.12, 0.3)
-        add_melody(piece, bar0, BATTLE_MELODY, "brass", 0.62, -0.12)
+    add_hornpipe(piece, 0, BATTLE_CHORDS_A, False, state)
+    add_hornpipe(piece, 8, BATTLE_CHORDS_B, True, state)
+    add_melody(piece, 0, BATTLE_MELODY_A, "fife", 0.7, 0.16)
+    add_melody(piece, 8, BATTLE_MELODY_B, "fife", 0.7, 0.16)
+    add_melody(piece, 0, BATTLE_MELODY_A, "violin", 0.26, -0.24, transpose=-12)
+    add_melody(piece, 8, BATTLE_MELODY_B, "violin", 0.26, -0.24, transpose=-12)
+    for bar in (0, 4, 8, 12):
+        piece.add(bar, 0.0, 1.2, "D3", "timpani", 0.5, -0.1, 0.22)
     return piece
 
 
@@ -381,15 +454,15 @@ def broadsides() -> Piece:
 
 
 def victory_fanfare() -> Piece:
-    piece = Piece("stinger_victory", bpm=132, bars=4, wet=0.24, rt60=1.6, loop=False)
+    piece = Piece("stinger_victory", bpm=138, bars=4, wet=0.2, rt60=1.5, loop=False)
     bars = [("D", "maj"), ("A", "maj"), ("D", "maj"), ("D", "maj")]
     for i, (root, quality) in enumerate(bars):
         chord = voicing(root, quality, 50, 70)
         for note in chord:
-            piece.add(i, 0.0, 3.6, _name(note), "brass", 0.34, 0.0, 0.25)
+            piece.add(i, 0.0, 3.6, _name(note), "brass", 0.34, 0.0, 0.22)
         low = bass_note(root, 38, 50)
-        piece.add(i, 0.0, 4.0, _name(low), "cello", 0.5, -0.05, 0.2)
-        piece.add(i, 0.0, 0.9, _name(low - 12), "timpani", 0.75, 0.0, 0.3)
+        piece.add(i, 0.0, 4.0, _name(low), "cello", 0.5, -0.05, 0.16)
+        piece.add(i, 0.0, 0.9, _name(low - 12), "timpani", 0.75, 0.0, 0.25)
     add_melody(piece, 0, [
         (0, 0.0, 0.5, "D5"), (0, 0.5, 0.5, "F#5"), (0, 1.0, 0.5, "A5"), (0, 1.5, 1.5, "D6"),
         (1, 0.0, 1.0, "A5"), (1, 1.0, 1.0, "B5"), (1, 2.0, 2.0, "A5"),
@@ -400,21 +473,18 @@ def victory_fanfare() -> Piece:
 
 
 def defeat_knell() -> Piece:
-    piece = Piece("stinger_defeat", bpm=76, bars=4, wet=0.42, rt60=2.6, loop=False)
+    piece = Piece("stinger_defeat", bpm=84, bars=4, wet=0.32, rt60=2.2, loop=False)
     bars = [("D", "min"), ("Bb", "maj"), ("G", "min"), ("D", "min")]
     for i, (root, quality) in enumerate(bars):
         chord = voicing(root, quality, 50, 68)
         for note in chord:
-            piece.add(i, 0.0, 4.0, _name(note), "viol", 0.34, -0.15, 0.45)
-        piece.add(i, 0.0, 4.0, _name(bass_note(root, 36, 48)), "cello", 0.5, -0.05, 0.4)
+            piece.add(i, 0.0, 4.0, _name(note), "viol", 0.34, -0.15, 0.38)
+        piece.add(i, 0.0, 4.0, _name(bass_note(root, 36, 48)), "cello", 0.5, -0.05, 0.34)
     add_melody(piece, 0, [
         (0, 0.0, 2.0, "D5"), (0, 2.0, 2.0, "C#5"),
         (1, 0.0, 1.0, "D5"), (1, 1.0, 1.0, "Bb4"), (1, 2.0, 2.0, "A4"),
         (2, 0.0, 2.0, "G4"), (2, 2.0, 2.0, "F4"),
         (3, 0.0, 1.0, "E4"), (3, 1.0, 3.0, "D4"),
     ], "viol", 0.6, 0.1)
-    piece.add(3, 0.0, 2.0, "D3", "bell", 0.35, 0.0, 0.55)
+    piece.add(3, 0.0, 2.0, "D3", "bell", 0.35, 0.0, 0.5)
     return piece
-
-
-

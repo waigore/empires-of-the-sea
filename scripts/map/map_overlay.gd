@@ -8,6 +8,9 @@ extends Node2D
 ## REQ-P4-01). This node keeps the artwork that must sit *above* fog and owns
 ## the narrow fog API the rest of the play code talks to.
 
+## Fog or knowledge changed; remembered overlays (survey lens) listen.
+signal fog_changed
+
 ## Fog ids re-exported for callers/tests that speak in overlay terms.
 const FOG_VISIBLE: int = FogLayer.FOG_VISIBLE
 const FOG_FOGGED: int = FogLayer.FOG_FOGGED
@@ -30,11 +33,14 @@ var _zone_outlines: Dictionary = {}
 ## Owner id -> smoothed country-border polylines (drawn above fog so political
 ## geography stays readable in charted but unexplored lands).
 var _country_borders: Dictionary = {}
+## Visibility the cached borders were filtered by; null draws every border.
+var _border_visibility: VisibilityModel = null
 var _ripples: Array[Dictionary] = []
 
 
 func build(p_model: MapModel) -> void:
 	model = p_model
+	_border_visibility = null
 	_build_fog_layer()
 	_build_country_borders()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -90,6 +96,10 @@ func set_fog_rect(rect: Rect2i, state: int) -> void:
 
 func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
 	fog_layer.sync_visibility(visibility, indices)
+	_border_visibility = visibility
+	_build_country_borders()
+	queue_redraw()
+	fog_changed.emit()
 
 
 func snap_fog() -> void:
@@ -203,20 +213,22 @@ func _draw_country_borders() -> void:
 	for owner: int in owners:
 		var color: Color = FactionCatalog.color_of(owner)
 		var shadow := Color(0.12, 0.09, 0.06, 0.55)
+		# Deepened heraldic ink: the fill carries the hue, so the border only has
+		# to read as a drawn edge instead of a glowing outline.
 		var core := Color(
-			clampf(color.r * 1.05, 0.0, 1.0),
-			clampf(color.g * 1.05, 0.0, 1.0),
-			clampf(color.b * 1.05, 0.0, 1.0),
+			clampf(color.r * 0.78, 0.0, 1.0),
+			clampf(color.g * 0.78, 0.0, 1.0),
+			clampf(color.b * 0.78, 0.0, 1.0),
 			1.0
 		)
 		for path: PackedVector2Array in _country_borders[owner]:
 			draw_polyline(path, shadow, 5.0, true)
-			draw_polyline(path, core, 2.8, true)
+			draw_polyline(path, core, 2.9, true)
 
 
 func _build_country_borders() -> void:
 	_country_borders.clear()
-	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE)
+	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE, _border_visibility)
 	var owners: Array = raw.keys()
 	owners.sort()
 	for owner: int in owners:

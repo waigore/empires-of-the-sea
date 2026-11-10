@@ -30,13 +30,21 @@ static func owned_provinces_by_zone(
 	model: MapModel, zone_id: int, owner: int
 ) -> Array[int]:
 	var provinces: Array[int] = []
+	for province_id: int in provinces_by_zone(model, zone_id):
+		if model.province_owner(province_id) == owner:
+			provinces.append(province_id)
+	return provinces
+
+
+## Every province that shares a P-S edge with the sea zone, whatever its owner
+## (wiki: map-topology, ships-and-naval § Missions).
+static func provinces_by_zone(model: MapModel, zone_id: int) -> Array[int]:
+	var provinces: Array[int] = []
 	var data: SeaZoneState = model.sea_zone_data(zone_id)
 	for tile: Vector2i in data.tiles if data != null else []:
 		for offset: Vector2i in ORTHOGONAL:
 			var province_id: int = model.province_at(tile.x + offset.x, tile.y + offset.y)
 			if province_id == MapModel.NO_ID:
-				continue
-			if model.province_owner(province_id) != owner:
 				continue
 			if not provinces.has(province_id):
 				provinces.append(province_id)
@@ -64,23 +72,24 @@ static func is_home_fleet(model: MapModel, fleet: FleetState) -> bool:
 
 ## A sea-going fleet that docks at its own capital merges into the home fleet:
 ## instance ids are preserved and the sea-going fleet leaves the roster
-## (wiki: ships-and-naval § Home Fleet — membership and state). Returns the
-## home fleet when a merge happened, or null when the docking fleet is already
+## (wiki: ships-and-naval § Home Fleet — membership and state). Returns
+## {"fleet": the home fleet, "displaced": an army the merge could not keep
+## aboard (-1 when none)}, or {"fleet": null} when the docking fleet is already
 ## the only squadron at that port.
 static func merge_into_home(
 	model: MapModel, roster: Array[FleetState], fleet: FleetState
-) -> FleetState:
+) -> Dictionary:
 	if not is_home_fleet(model, fleet):
-		return null
+		return {"fleet": null, "displaced": -1}
 	for other: FleetState in roster:
 		if other == null or other == fleet or other.owner != fleet.owner:
 			continue
 		if not is_home_fleet(model, other):
 			continue
-		other.merge_from(fleet)
+		var displaced: int = other.merge_from(fleet)
 		roster.erase(fleet)
-		return other
-	return null
+		return {"fleet": other, "displaced": displaced}
+	return {"fleet": null, "displaced": -1}
 
 
 ## Ports the fleet could dock at right now (owned, adjacent, with a harbour).
@@ -180,6 +189,10 @@ static func apply_move(
 		fleet.location = FleetState.Location.IN_PORT
 		fleet.province = destination_id
 		fleet.sea_zone = MapModel.NO_ID
+	# A squadron that leaves the station gives up its landing site and mission
+	# (wiki: ships-and-naval § Missions and Movement).
+	fleet.clear_beachhead()
+	fleet.clear_mission()
 	fleet.moved = true
 	return {"ok": true, "reason": "", "entered_zone": entered_zone}
 
