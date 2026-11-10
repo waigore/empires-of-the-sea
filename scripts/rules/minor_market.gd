@@ -1,27 +1,22 @@
 class_name MinorMarket
 extends RefCounted
-## Market offers from Minor Nations and Tribes (wiki: world-market § Minor and
-## tribe auto-sell). Each turn a court with land ashore publishes what its
-## connected estates produce; a Great Power buys those goods direct, below the
-## middleman world price, while the seller's whole purse leaves the economy as a
-## treasury sink. Pure rules: the ledger emits intents and this module decides
-## (REQ-P2-03, REQ-P3-03; DR-20261110-08).
+## Market supply from Minor Nations and Tribes (wiki: world-market § Minor and
+## tribe auto-sell; § Trade orders). Each turn every court publishes one
+## auto-offer per developed estate, naming the source tile so first right of
+## refusal can attribute the sale. The ledger aggregates them for display; the
+## matcher consumes the per-tile orders (REQ-P2-03, REQ-P3-03).
 
-## Direct purchase: the seller keeps the whole receipt, so no merchant house
-## takes its cut (DR-20261110-08).
-const DISCOUNT: float = 0.75
-## Grain is the Great Power capital ration, never a Minor or Tribe cash crop.
-const EXCLUDED: Array[String] = [Extraction.GRAIN]
+## One unit per held resource tile: the bootstrap non-Great-Power yield (minors
+## never develop, so level 1 is the whole estate).
+const PER_TILE_YIELD: int = 1
 
 
-## Stable row key: one offer per seller and commodity.
+## Stable row key for the ledger: one row per seller and commodity.
 static func offer_id(faction: int, commodity: String) -> String:
 	return "%d:%s" % [faction, commodity]
 
 
-## What one unit costs direct: the world price under the courts' discount and
-## the buyer's trade terms (a pact or subsidy moves a direct purchase too),
-## never below one ducat.
+## Display ask: deals clear at the published price (wiki: § Price discovery).
 static func unit_price(
 	market: WorldMarket,
 	commodity: String,
@@ -29,22 +24,83 @@ static func unit_price(
 ) -> int:
 	if market == null or not market.can_trade(commodity):
 		return 0
-	var ask: int = maxi(int(floor(float(market.price(commodity)) * DISCOUNT)), 1)
-	return maxi(roundi(float(ask) * market.term_multiplier(buyer, commodity, true)), 1)
+	return maxi(
+		roundi(float(market.price(commodity)) * market.term_multiplier(buyer, commodity, true)),
+		1
+	)
 
 
-## This turn's offers for one buyer: every Minor Nation and Tribe in a region
-## where the buyer holds land, one row per commodity, richest first.
-static func emit(
-	world: WorldMap, market: WorldMarket, buyer: int
-) -> Array[Dictionary]:
-	var offers: Array[Dictionary] = []
-	if world == null or market == null:
-		return offers
-	for region_index in world.region_count():
-		if world.owned_provinces(region_index, buyer) <= 0:
+## One auto-offer per Minor/Tribe estate, purchased deeds included. A sold tile
+## keeps its seller and origin, so the owning Great Power's bid can claim it
+## first (world-market § First right of refusal).
+static func emit_orders(world: WorldMap) -> Array[MarketOrder]:
+	var orders: Array[MarketOrder] = []
+	if world == null:
+		return orders
+	for model: MapModel in world.regions:
+		if model == null:
 			continue
-		_region_offers(world.region(region_index), world, region_index, market, offers, buyer)
+		for province: ProvinceState in model.provinces:
+			var seller: int = model.province_owner(province.id)
+			var kind: int = FactionCatalog.type_of(seller)
+			if (
+				kind != FactionCatalog.Type.MINOR_NATION
+				and kind != FactionCatalog.Type.TRIBE
+			):
+				continue
+			for tile: Vector2i in province.tiles:
+				var resource: int = model.resource_at(tile.x, tile.y)
+				var commodity: String = Extraction.commodity_for_resource(resource)
+				if commodity.is_empty() or not CommodityCatalog.is_tradeable(commodity):
+					continue
+				var index: int = model.index_of(tile.x, tile.y)
+				if index < 0:
+					continue
+				orders.append(MarketOrder.create(
+					seller,
+					commodity,
+					MarketOrder.SIDE_OFFER,
+					PER_TILE_YIELD,
+					1,
+					model.region_id,
+					index,
+					true
+				))
+	orders.sort_custom(func(a: MarketOrder, b: MarketOrder) -> bool:
+		if a.faction != b.faction:
+			return a.faction < b.faction
+		if a.origin_region != b.origin_region:
+			return a.origin_region < b.origin_region
+		if a.origin_index != b.origin_index:
+			return a.origin_index < b.origin_index
+		return a.commodity < b.commodity
+	)
+	return orders
+
+
+## The ledger's aggregated book: one row per seller and commodity, richest
+## first. `buyer` is kept for signature compatibility; the market is global.
+static func emit(
+	world: WorldMap, market: WorldMarket, _buyer: int = FactionCatalog.PLAYER_FACTION
+) -> Array[Dictionary]:
+	var rows: Dictionary = {}
+	if world == null or market == null:
+		return []
+	for order: MarketOrder in emit_orders(world):
+		var key: String = offer_id(order.faction, order.commodity)
+		if not rows.has(key):
+			rows[key] = {
+				"id": key,
+				"faction": order.faction,
+				"commodity": order.commodity,
+				"quantity": 0,
+				"unit_price": unit_price(market, order.commodity),
+			}
+		var row: Dictionary = rows[key]
+		row["quantity"] = int(row["quantity"]) + order.remaining()
+	var offers: Array[Dictionary] = []
+	for raw: Variant in rows.values():
+		offers.append(raw)
 	offers.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["faction"]) != int(b["faction"]):
 			return int(a["faction"]) < int(b["faction"])
@@ -55,45 +111,7 @@ static func emit(
 	return offers
 
 
-static func _region_offers(
-	model: MapModel,
-	world: WorldMap,
-	region_index: int,
-	market: WorldMarket,
-	offers: Array[Dictionary],
-	buyer: int
-) -> void:
-	if model == null:
-		return
-	var sellers: Array[int] = []
-	sellers.append_array(FactionCatalog.minor_ids())
-	sellers.append_array(FactionCatalog.tribe_ids())
-	for faction: int in sellers:
-		var seat: int = world.seat_province(region_index, faction)
-		if seat == MapModel.NO_ID:
-			continue
-		var yields: Dictionary = Extraction.yields(model, faction, seat)
-		var commodities: Array = yields.keys()
-		commodities.sort()
-		for raw: Variant in commodities:
-			var commodity: String = String(raw)
-			var quantity: int = int(yields[raw])
-			if quantity <= 0 or EXCLUDED.has(commodity):
-				continue
-			if not market.can_trade(commodity):
-				continue
-			offers.append({
-				"id": offer_id(faction, commodity),
-				"faction": faction,
-				"commodity": commodity,
-				"quantity": quantity,
-				"unit_price": unit_price(market, commodity, buyer),
-			})
-
-
-## Publishes this turn's Minor Nation and Tribe offers: every court in a region
-## the crown holds land in sells what its estates yield (wiki: world-market
-## § Minor and tribe auto-sell; DR-20261110-08).
+## Publishes this turn's Minor Nation and Tribe rows for the ledger and save.
 static func publish(market: WorldMarket, world: WorldMap, buyer: int) -> void:
 	if market == null:
 		return
@@ -103,7 +121,7 @@ static func publish(market: WorldMarket, world: WorldMap, buyer: int) -> void:
 	market.minor_offers = emit(world, market, buyer)
 
 
-## Index of an offer in the live book, or -1 when it is spent or gone.
+## Index of an offer in the live ledger book, or -1 when it is gone.
 static func index_of(offers: Array, offer_id_value: String) -> int:
 	for index in offers.size():
 		if String((offers[index] as Dictionary).get("id", "")) == offer_id_value:
@@ -111,7 +129,7 @@ static func index_of(offers: Array, offer_id_value: String) -> int:
 	return -1
 
 
-## Units still on the table for one offer (0 when it has sold out).
+## Units still on the table for one ledger row (0 when sold out).
 static func remaining(offers: Array, offer_id_value: String) -> int:
 	var index: int = index_of(offers, offer_id_value)
 	if index < 0:
@@ -119,9 +137,9 @@ static func remaining(offers: Array, offer_id_value: String) -> int:
 	return int((offers[index] as Dictionary).get("quantity", 0))
 
 
-## Buys from one offer: cargo first, then treasury, then the seller's receipt.
-## The whole cost leaves the Great Power pool (treasury sink) and the purchase
-## counts as this turn's import for price discovery and naval interception.
+## Legacy direct purchase, retained for tools that trade outside a turn. Live
+## play stages a bid instead, so first right of refusal and the tier ordering
+## apply (world-market § Trade orders).
 static func buy(
 	market: WorldMarket,
 	economy: PlayerEconomy,
@@ -151,8 +169,8 @@ static func buy(
 	var gate: Dictionary = TradeCargo.check(market, holds, quantity, reserved, buyer)
 	if not bool(gate.get("ok", false)):
 		return gate
-	var unit_price: int = int(offer.get("unit_price", 0))
-	var cost: int = unit_price * quantity
+	var unit: int = int(offer.get("unit_price", 0))
+	var cost: int = unit * quantity
 	if not economy.spend_treasury(cost):
 		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
 	economy.add(commodity, quantity)
@@ -163,7 +181,7 @@ static func buy(
 	return {
 		"ok": true,
 		"reason": "",
-		"unit_price": unit_price,
+		"unit_price": unit,
 		"cost": cost,
 		"commodity": commodity,
 		"faction": seller,

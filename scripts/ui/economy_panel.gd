@@ -8,6 +8,7 @@ extends PanelContainer
 
 signal trade_requested(commodity: String, quantity: int, is_buy: bool)
 signal offer_requested(offer_id: String, quantity: int)
+signal cancel_requested(order_id: String)
 signal production_changed(recipe_id: String, units: int)
 signal recruit_requested(tier: int)
 signal close_pressed
@@ -120,6 +121,9 @@ func _connect_pages() -> void:
 	_market_page.offer_requested.connect(
 		func(offer_id: String, quantity: int) -> void:
 			offer_requested.emit(offer_id, quantity)
+	)
+	_market_page.cancel_requested.connect(
+		func(order_id: String) -> void: cancel_requested.emit(order_id)
 	)
 	_workers.recruit_requested.connect(func(tier: int) -> void: recruit_requested.emit(tier))
 

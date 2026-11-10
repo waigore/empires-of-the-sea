@@ -750,17 +750,16 @@ func _offer_world(owner: int = 6) -> WorldMap:
 	return world
 
 
-func test_minor_offers_publish_their_estates_below_the_world_price() -> void:
+func test_minor_offers_publish_their_estates_at_the_world_price() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(), market, 0)
-	assert_eq(offers.size(), 1)
-	assert_eq(String(offers[0]["id"]), "6:timber")
-	assert_eq(int(offers[0]["faction"]), 6)
-	assert_eq(String(offers[0]["commodity"]), "timber")
-	assert_eq(int(offers[0]["quantity"]), 1)
-	# 30 x 0.75, floored: direct trade undercuts the world price of 30.
-	assert_eq(int(offers[0]["unit_price"]), 22)
-	assert_eq(MinorMarket.unit_price(market, "timber"), 22)
+	assert_eq(offers.size(), 2, "one row per commodity the estates yield")
+	var timber: Dictionary = offers[MinorMarket.index_of(offers, "6:timber")]
+	assert_eq(int(timber["faction"]), 6)
+	assert_eq(String(timber["commodity"]), "timber")
+	assert_eq(int(timber["quantity"]), 1)
+	assert_eq(int(timber["unit_price"]), 30, "deals clear at the published price")
+	assert_eq(MinorMarket.unit_price(market, "timber"), 30)
 	assert_eq(MinorMarket.remaining(offers, "6:timber"), 1)
 	assert_eq(MinorMarket.index_of(offers, "6:gold"), -1)
 
@@ -768,27 +767,29 @@ func test_minor_offers_publish_their_estates_below_the_world_price() -> void:
 func test_tribes_offer_their_harvest_too() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(9), market, 0)
-	assert_eq(offers.size(), 1)
-	assert_eq(String(offers[0]["id"]), "9:timber")
+	assert_eq(offers.size(), 2)
+	assert_true(MinorMarket.index_of(offers, "9:timber") >= 0)
 
 
-func test_offers_skip_riches_and_the_capital_ration() -> void:
+func test_offers_skip_riches() -> void:
 	var world: WorldMap = _offer_world()
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var offers: Array[Dictionary] = MinorMarket.emit(world, market, 0)
 	for offer: Dictionary in offers:
 		assert_true(CommodityCatalog.is_tradeable(String(offer["commodity"])))
-		assert_ne(String(offer["commodity"]), Extraction.GRAIN)
 	# A gold seam is a rich, not a market good.
 	world.region(0).resource[world.region(0).index_of(0, 1)] = 3
-	assert_eq(MinorMarket.emit(world, market, 0), [])
+	var after: Array[Dictionary] = MinorMarket.emit(world, market, 0)
+	assert_eq(after.size(), 1, "the grain estate still sells")
+	assert_eq(String(after[0]["commodity"]), Extraction.GRAIN)
+	assert_eq(MinorMarket.index_of(after, "6:gold"), -1)
 
 
-func test_offers_need_a_crown_ashore() -> void:
+func test_offers_belong_to_one_global_market() -> void:
 	var world: WorldMap = _offer_world()
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	assert_eq(world.owned_provinces(0, 5), 0)
-	assert_eq(MinorMarket.emit(world, market, 5), [])
+	assert_eq(MinorMarket.emit(world, market, 5).size(), 2, "the book is global")
 	assert_eq(MinorMarket.emit(null, market, 0), [])
 	assert_eq(MinorMarket.emit(world, null, 0), [])
 
@@ -801,14 +802,14 @@ func test_buying_a_minor_offer_pays_the_court_and_fills_a_hold() -> void:
 		market, economy, offers, "6:timber", 1, 5
 	)
 	assert_true(bool(result["ok"]), String(result.get("reason", "")))
-	assert_eq(int(result["cost"]), 22)
+	assert_eq(int(result["cost"]), 30)
 	assert_eq(int(result["faction"]), 6)
-	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY - 22)
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY - 30)
 	assert_eq(economy.quantity("timber"), 1)
 	assert_eq(market.bought_units_for(0), 1)
 	assert_eq(market.bid_volume("timber"), 1)
-	# The row is spent; nothing carries forward.
-	assert_eq(offers.size(), 0)
+	# The timber row is spent; the grain estate still has goods.
+	assert_eq(offers.size(), 1)
 	assert_false(bool(MinorMarket.buy(market, economy, offers, "6:timber", 1, 5)["ok"]))
 
 
@@ -847,6 +848,6 @@ func test_offers_expire_with_the_turn_but_survive_a_save() -> void:
 	assert_eq(clone.minor_offers, market.minor_offers)
 	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
 	assert_eq(restored.minor_offers, market.minor_offers)
-	assert_eq(int(restored.minor_offers[0]["unit_price"]), 22)
+	assert_eq(int(restored.minor_offers[0]["unit_price"]), 50)
 	market.advance_prices()
 	assert_eq(market.minor_offers, [])
