@@ -64,6 +64,12 @@ var campaign_over: bool = false
 
 var _turn_label: Label = null
 var _quick_queue: Array[Dictionary] = []
+## Despatches raised while a battle plate covers the court; the plate would hide
+## them and they would expire unseen, so they wait for the plate to close.
+var _toast_queue: PackedStringArray = PackedStringArray()
+## News kept while a plate plays: the battle's own line is on the plate already,
+## so the oldest lines are the ones the court can spare (REQ-P5-06).
+const TOAST_QUEUE_CAP: int = 6
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
@@ -286,19 +292,34 @@ func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
 	)
 
 
+## A plate closes: the next battle of the turn takes the court, or the news the
+## turn raised while the fighting played finally reaches it.
 func _on_quick_battle_finished() -> void:
-	if _quick_queue.is_empty():
+	if not _quick_queue.is_empty():
+		var next: Dictionary = _quick_queue.pop_front()
+		quick_battle_overlay.show_battle(
+			next["battle"], String(next["province"]), FactionCatalog.names()
+		)
 		return
-	var next: Dictionary = _quick_queue.pop_front()
-	quick_battle_overlay.show_battle(
-		next["battle"], String(next["province"]), FactionCatalog.names()
-	)
+	# The turn's news waited for the last plate; raise it now, in its own order.
+	var pending: PackedStringArray = _toast_queue
+	_toast_queue = PackedStringArray()
+	for held: String in pending:
+		toast(held)
 
 
 func toast(text: String) -> void:
 	# The observer hides the human chrome; building toast plates for a hidden
 	# court would only churn nodes every turn (REQ-P4-04).
 	if not visible:
+		return
+	# A battle plate covers the whole court for seconds at a time: a despatch
+	# raised under it is neither readable nor still alive when it closes, so the
+	# news waits its turn (REQ-P5-06, REQ-P2-03).
+	if is_quick_battle_shown():
+		if _toast_queue.size() >= TOAST_QUEUE_CAP:
+			_toast_queue.remove_at(0)
+		_toast_queue.append(text)
 		return
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override(
