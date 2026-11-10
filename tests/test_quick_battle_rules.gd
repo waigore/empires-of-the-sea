@@ -267,6 +267,62 @@ func test_the_garrison_splits_into_wall_and_behind() -> void:
 	assert_eq(SiegeLanes.describe(side), "2 on the wall · 2 behind")
 
 
+## A standing gun spends the besieger's blow before the lanes: the garrison is
+## sheltered while the battery answers (wiki: siege-mechanics § Quick Battle
+## lanes — "spends its blow on the battery before the lanes").
+func test_a_standing_gun_spends_the_blow_before_the_lanes() -> void:
+	var defender: Array[ArmyState] = _lane_side(
+		["peasant_levies", "peasant_levies", "peasant_levies"], 1
+	)
+	var attacker: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 2)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+	var guns: Array[Dictionary] = QuickBattleBattery.make(1, {}, 1)
+	var state: Dictionary = _lane_state(attacker, defender, 1)
+
+	var first: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", guns
+	)
+	assert_eq(int(first["defender_lost"]), 0, "the gun drinks the volley")
+	assert_eq(int(first["battery_hit"]), 1)
+	assert_eq(int(first["guns_destroyed"]), 0, "one hit does not silence a gun")
+
+	var second: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", guns
+	)
+	assert_eq(int(second["guns_destroyed"]), 1, "the second volley silences it")
+	assert_eq(int(second["defender_lost"]), 0, "the garrison is still under cover")
+
+	var third: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", guns
+	)
+	assert_eq(int(third["guns_destroyed"]), 0)
+	assert_true(int(third["wall_lost"]) > 0, "with the battery quiet the wall takes the fire")
+
+
+## One blow bleeds no more than the deployed slice: the two lanes share one
+## deployment limit, so the reserves behind it still do not die in the same
+## volley (wiki: combat § Auto-resolve casualty selection).
+func test_a_siege_blow_bleeds_no_more_than_the_deployed_slice() -> void:
+	var limit: int = ArmyModifiers.deployment_limit(0, false)
+	var guns_only: Array[String] = []
+	for _index in 18:
+		guns_only.append("culverin")
+	var thick: Array[String] = ["peasant_levies", "peasant_levies"]
+	for _index in 20:
+		thick.append("squires")
+	var attacker: Array[ArmyState] = _lane_side(guns_only, 2)
+	var defended: Array[ArmyState] = _lane_side(thick, 1)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defended)
+
+	var split: Dictionary = SiegeLanes.strike(armies, attacker, defended, 60, limit, 3, false)
+
+	assert_eq((split["wall"] as Array).size(), 0, "a gun-only besieger hits nothing on the wall")
+	assert_eq(
+		(split["behind"] as Array).size(), limit,
+		"the behind lane takes the deployed slice and no more"
+	)
+
+
 func test_melee_only_besiegers_cannot_touch_a_wall() -> void:
 	var attacker: Array[ArmyState] = _lane_side(["pikemen", "knights"], 2)
 	var defender: Array[ArmyState] = _lane_side(["peasant_levies"], 1)
@@ -376,3 +432,19 @@ func _lane_joined(first: Array[ArmyState], second: Array[ArmyState]) -> Array[Ar
 	all.append_array(first)
 	all.append_array(second)
 	return all
+
+
+## Battle state for one scripted action, shaped the way [QuickBattle] builds it.
+func _lane_state(attacker: Array[ArmyState], defender: Array[ArmyState], fort: int) -> Dictionary:
+	return {
+		"attacker": {
+			"side": attacker, "owner": 2, "limit": 10, "mods": {},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "balanced", "exposed": false,
+		},
+		"defender": {
+			"side": defender, "owner": 1, "limit": 10, "mods": {"fort": fort},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "defensive", "exposed": false,
+		},
+	}
