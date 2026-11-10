@@ -346,7 +346,7 @@ func test_accepting_a_peace_offer_calls_off_that_turns_battle() -> void:
 			play.ai.note_overture(faction, 0, play.turn)
 	var army: ArmyState = _field_army()
 	assert_not_null(army, "a field army is on the map")
-	var province: int = _adjacent_foreign_province(army, true)
+	var province: int = _stage_on_great_power_border(army)
 	assert_true(province >= 0, "the army has a Great Power neighbour")
 	var owner: int = play.model.province_owner(province)
 	DiplomacyRules.declare_war(state, owner, 0)
@@ -395,11 +395,21 @@ func _field_army() -> ArmyState:
 ## generated map no longer guarantees the capital province itself does) and
 ## returns the foreign neighbour.
 func _stage_on_foreign_border(army: ArmyState) -> int:
+	return _stage_on_border(army, false)
+
+
+func _stage_on_great_power_border(army: ArmyState) -> int:
+	return _stage_on_border(army, true)
+
+
+func _stage_on_border(army: ArmyState, great_power_only: bool) -> int:
 	var model: MapModel = _screen.play.model
 	for province: ProvinceState in model.provinces:
 		if province.owner != 0:
 			continue
-		var target: int = _adjacent_foreign_province(army, false, province.id)
+		var target: int = _adjacent_foreign_province(
+			army, great_power_only, province.id
+		)
 		if target >= 0:
 			army.province = province.id
 			return target
@@ -411,7 +421,6 @@ func _adjacent_foreign_province(
 ) -> int:
 	var model: MapModel = _screen.play.model
 	var origin: int = army.province if from_province < 0 else from_province
-	var fallback: int = -1
 	for neighbor: int in MapGeo.province_neighbors(model, origin):
 		var owner: int = model.province_owner(neighbor)
 		if owner == 0 or owner == MapModel.NO_ID:
@@ -420,9 +429,7 @@ func _adjacent_foreign_province(
 			return neighbor
 		if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER:
 			return neighbor
-		if fallback < 0:
-			fallback = neighbor
-	return fallback
+	return -1
 
 
 func _tribe_province() -> ProvinceState:
