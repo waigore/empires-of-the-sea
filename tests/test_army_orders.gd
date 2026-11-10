@@ -184,6 +184,20 @@ func test_the_drill_yard_door_musters_into_the_home_army() -> void:
 	assert_eq(home.count(), before + 1)
 
 
+## A refusal leaves the register untouched and says why, for every register order.
+func test_refused_register_orders_keep_the_armies() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	_screen.army_layer.select(home)
+
+	MapPlayArmyMuster.recruit(_screen.play, "no_such_regiment")
+	MapPlayArmyMuster.detach(_screen.play, home, ["no_such_regiment"])
+	MapPlayArmyMuster.merge(_screen.play, home)
+
+	assert_eq(home.count(), before)
+	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
