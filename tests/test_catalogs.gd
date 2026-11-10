@@ -211,6 +211,31 @@ func test_categories_drive_cavalry_and_infantry_rules() -> void:
 	assert_true(RegimentCatalog.is_infantry("peasant_levies"))
 
 
+## Regiment detail: the dossier line names the category, the tactical stats and
+## the food bill; the despatch text groups losses by type, name-ordered.
+func test_regiment_detail_lines_carry_stats_and_tally_losses() -> void:
+	assert_eq(RegimentCatalog.category_name("guards"), "Heavy infantry")
+	assert_eq(RegimentCatalog.category_name("culverin"), "Heavy artillery")
+	assert_eq(RegimentCatalog.category_name("peasant_levies"), "Light infantry")
+	assert_eq(RegimentCatalog.category_name("pikemen"), "Regular infantry")
+	assert_eq(RegimentCatalog.category_name("bowmen"), "Bowmen")
+	assert_eq(RegimentCatalog.category_name("squires"), "Light cavalry")
+	assert_eq(RegimentCatalog.category_name("knights"), "Spear cavalry")
+	assert_eq(RegimentCatalog.category_name("harquebusiers"), "Heavy cavalry")
+	assert_eq(RegimentCatalog.category_name("horse_artillery"), "Light artillery")
+	assert_eq(
+		RegimentCatalog.detail_line("guards"),
+		"Heavy infantry · FPN 12 · FPM 10 · RNG 6 · DEF 6 · MVR 4 · 3 food"
+	)
+	assert_eq(RegimentCatalog.detail_text({"guards": 3}), "3 Guards")
+	assert_eq(RegimentCatalog.detail_text({"guards": 1}), "Guards")
+	assert_eq(
+		RegimentCatalog.detail_text({"pikemen": 3, "culverin": 1}),
+		"Culverin · 3 Pikemen"
+	)
+	assert_eq(RegimentCatalog.detail_text({}), "")
+
+
 func test_treasury_costs_follow_the_canonical_scale() -> void:
 	assert_eq(RegimentCatalog.treasury_cost("peasant_levies"), 2000)
 	assert_eq(RegimentCatalog.treasury_cost("arquebusiers"), 5000)

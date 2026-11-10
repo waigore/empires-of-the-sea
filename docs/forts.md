@@ -1,37 +1,39 @@
 # Forts and sieges
 
-Walls raised on owned land, and the siege they create.
+Walls raised on owned land.
 
 **Pillars:** P2, P3 (rules/view split), P5 (visible outcomes), P1 (dossier).
 
 **Wiki:** [siege-mechanics](https://github.com/waigore/empires-of-the-sea/wiki/siege-mechanics),
 [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § Battle
-Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-military).
+Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-military),
+DR-20261110-11 (Quick Battle lanes).
 
 ## Implemented
 
-- **Storage:** `ProvinceState.fort_level` 0–3, saved and restored with the
-  world (`SaveCodec`). A captured province keeps its walls; only the garrison
-  changes.
-- **Build order:** Engineers take `Fort` on a tile of their own crown's
-  province; the fort belongs to the province, not the tile. Materials are paid
-  on assignment, never refunded.
-- **Multi-turn:** one turn per level reached (L1 1, L2 2, L3 3). A completion
-  lands the ordered level; a duplicate project in the same province cannot leap
-  a level or its gate.
-- **Tech gates:** L2 needs Mine Engineering, L3 needs Modern Forts.
-- **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege. Every land-battle
+- **Storage:** `ProvinceState.fort_level` 0–3, saved with the world
+  (`SaveCodec`); a captured province keeps its walls.
+- **Build:** Engineers take `Fort` on a tile of their own crown's province;
+  materials are paid on assignment, never refunded. One turn per level (L1 1,
+  L2 2, L3 3); a completion lands the ordered level, and a duplicate project
+  cannot leap a level or gate. L2 needs Mine Engineering, L3 Modern Forts.
+- **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege; every land-battle
   report carries `battle_mode` and `fort_level`.
-- **Walls (auto-resolve):** attacking side strength is reduced by the wall HP
-  (10 / 20 / 30) before the ratio band is read, floored at zero.
-- **Defender losses:** the band's defender share is scaled by 1 − damage
-  reduction (0.75 / 0.55 / 0.40), so walls also spare the garrison.
-- **Emplaced battery:** the defender's side gains `guns × strength` of its
-  emplaced gun type — 1 / 2 / 3 pieces. Quality follows the researched line
-  Royal → Heavy (Heavy Emplaced Artillery) → Siege (Emplaced Siege Guns);
-  unresearched courts keep Royal Artillery. Emplaced pieces are an aggregate
-  bonus, never field regiments.
-- **Dossier:** the province panel prints the fort and its emplaced gun count.
+- **Auto-resolve:** attacking strength is reduced by wall HP (10 / 20 / 30)
+  before the ratio band is read, and the band's defender share is scaled by
+  1 − damage reduction (0.75 / 0.55 / 0.40). The defender's side adds
+  `guns × strength` of its emplaced type (Royal → Heavy → Siege by tech),
+  an aggregate bonus, never field regiments.
+- **Quick Battle lanes** (`SiegeLanes`): infantry man the wall; the battery and
+  horse wait behind it. Firearms (RNG ≥ 2) and artillery hit the wall, only
+  artillery reaches behind it, and RNG 1 regiments touch neither. The wall
+  scales the blow by its damage reduction unless the garrison sorties (the
+  defender's Assault), which lets every regiment strike but sheds the shelter
+  for that round. A pike garrison gives no return fire.
+- **Gun-loss:** only ranged besiegers silence the battery; every gun lost by
+  battle's end lowers the fort one level, whatever the outcome. The plate names
+  the gun type, lanes, sorties and breach.
+- **Dossier:** the province panel prints the fort and its gun count.
 
 ## Costs and numbers
 
@@ -43,22 +45,22 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 
 ## Deferred (REQ-P2-02)
 
-- Quick Battle siege lanes: per-position "on the wall"/"behind the wall",
-  gates and sorties wait on the lane model. Virtual emplaced guns and the
-  "all guns destroyed → fort −1" downgrade are implemented.
-- Distinct town tiles: forts are province-scoped because provinces carry no
-  town tile (see DR-20261108-04).
+- Town tiles: forts are province-scoped (DR-20261108-04).
+- Gates and dedicated sortie orders; province-lane terrain
+  (HILL/WOODS/TOWN) stays a Quick Battle deferral.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/fort_rules.gd` | level tables, wall soak, emplaced battery, build gates |
+| `scripts/rules/fort_rules.gd` | level tables, wall soak, battery, build gates |
+| `scripts/rules/siege_lanes.gd` | wall/behind lanes, sortie exposure, lane casualties |
+| `scripts/rules/quick_battle_battery.gd` | virtual guns: spawn, hit, fire, downgrade |
 | `scripts/world/province_state.gd` | `fort_level` state |
-| `scripts/rules/civilian_work.gd` | `build_fort` validation, cost, progress, completion |
-| `scripts/rules/army_modifiers.gd` | siege keys for each side (`wall_hp`, `emplaced`, `loss_scale`) |
-| `scripts/rules/army_combat.gd` | applies the siege keys inside one exchange |
+| `scripts/rules/civilian_work.gd` | `build_fort` validation and completion |
+| `scripts/rules/army_modifiers.gd` | siege keys per side |
+| `scripts/rules/army_combat.gd` | applies the siege keys in one exchange |
 | `scripts/ui/province_panel.gd` | fort line in the province dossier |
 
-Rules stay node-free (`REQ-P3-03`): the panel reads `fort_level`, combat reads
+Node-free (`REQ-P3-03`): the panel reads `fort_level`, combat reads
 `FortRules`; both share one table.
