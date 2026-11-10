@@ -188,7 +188,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
 		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
 	assert_eq(
-		hud._income_label.text, HudChrome.format_delta(_screen.play.income),
+		hud._income_label.text, TextFormat.delta(_screen.play.income),
 		"treasury shows the projected turn income"
 	)
 
@@ -270,7 +270,7 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.panels.set_civilian_training(true)
+	hud.panels.panel.set_training_visible(true)
 	hud.panels.show_province(_screen.model, _screen.capital_province)
 	hud.panels.dock.place_shown(hud._panel_wrap)
 	await get_tree().process_frame

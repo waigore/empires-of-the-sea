@@ -13,9 +13,7 @@ signal action_pressed(action: String)
 ## confirms and an expired arm does nothing (DR-20261109-01).
 const ARM_SECONDS: float = 5.0
 
-var _flag: ColorRect = null
-var _title: Label = null
-var _dock: Button = null
+var _header: DossierHeader = null
 var _location: Label = null
 var _ships: Label = null
 var _status: Label = null
@@ -52,42 +50,22 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 5)
 	add_child(column)
 
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	column.add_child(header)
+	_header = DossierHeader.make(20)
+	_header.dock_pressed.connect(func() -> void: dock_side_pressed.emit())
+	_header.close_pressed.connect(func() -> void: close_pressed.emit())
+	column.add_child(_header)
 
-	_flag = ColorRect.new()
-	_flag.custom_minimum_size = Vector2(14, 14)
-	_flag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(_flag)
-
-	_title = Label.new()
-	_title.add_theme_font_override("font", UiTheme.serif())
-	_title.add_theme_font_size_override("font_size", 20)
-	_title.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(_title)
-
-	_dock = _small_button("◀", "Dock left")
-	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
-	header.add_child(_dock)
-
-	var close := _small_button("×", "Close")
-	close.add_theme_font_size_override("font_size", 20)
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	header.add_child(close)
-
-	_location = _line(15, Palette.TEXT)
+	_location = UiRowBuilder.line(15, Palette.TEXT)
 	column.add_child(_location)
 
-	_ships = _line(13, Palette.TEXT_DIM)
+	_ships = UiRowBuilder.line(13, Palette.TEXT_DIM)
 	_ships.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_ships)
 
 	_strength = FleetStrengthSection.new()
 	column.add_child(_strength)
 
-	_status = _line(13, Palette.GOLD_PALE)
+	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	column.add_child(_status)
 
 	_mission = FleetMissionSection.new()
@@ -106,7 +84,7 @@ func _build() -> void:
 	_land_box.visible = false
 	column.add_child(_land_box)
 
-	_yard_button = _button("Shipyard")
+	_yard_button = UiRowBuilder.button("Shipyard", 36.0, 0.0)
 	_yard_button.visible = false
 	_yard_button.pressed.connect(func() -> void: set_yard_open(not _yard_open))
 	column.add_child(_yard_button)
@@ -130,16 +108,14 @@ func _build() -> void:
 	_arm_timer.timeout.connect(_clear_arm)
 	add_child(_arm_timer)
 
-	_hint = _line(11, Color(0.74, 0.68, 0.55, 0.75))
+	_hint = UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_hint)
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
-	if _dock == null:
-		return
-	_dock.text = glyph
-	_dock.tooltip_text = tip
+	if _header != null:
+		_header.set_dock_affordance(glyph, tip)
 
 
 ## Opens or closes the yard without rebuilding the dossier.
@@ -170,8 +146,8 @@ func refresh(
 	_is_player = is_player
 	_yard_rows = yard_rows
 	_land_rows = land_rows
-	_flag.color = Palette.faction_color(fleet.owner)
-	_title.text = "FLEET OF %s" % FactionCatalog.name_of(fleet.owner).to_upper()
+	_header.flag.color = Palette.faction_color(fleet.owner)
+	_header.title.text = "FLEET OF %s" % FactionCatalog.name_of(fleet.owner).to_upper()
 	if fleet.is_at_sea():
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
@@ -229,8 +205,8 @@ func refresh_slip(
 	_is_player = is_player
 	_yard_rows = rows
 	_armed_hull = ""
-	_flag.color = Palette.faction_color(FactionCatalog.PLAYER_FACTION)
-	_title.text = "SHIPYARD OF %s" % FactionCatalog.name_of(
+	_header.flag.color = Palette.faction_color(FactionCatalog.PLAYER_FACTION)
+	_header.title.text = "SHIPYARD OF %s" % FactionCatalog.name_of(
 		FactionCatalog.PLAYER_FACTION
 	).to_upper()
 	_location.text = "At %s · capital port" % model.province_name(province_id)
@@ -272,7 +248,7 @@ func _fill_land() -> void:
 		var label: String = (
 			"Invade %s" if invade else "Land at %s"
 		) % String(row.get("name", "the coast"))
-		var button := _button(label)
+		var button := UiRowBuilder.button(label, 36.0, 0.0)
 		var province: int = int(row.get("province", -1))
 		button.pressed.connect(
 			func() -> void: action_pressed.emit("land:%d" % province)
@@ -307,13 +283,13 @@ func _build_row(row: Dictionary) -> Control:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	entry.add_child(top)
-	var name := _line(13, Palette.TEXT)
+	var name := UiRowBuilder.line(13, Palette.TEXT)
 	name.text = String(row["name"])
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	top.add_child(name)
 	var ok: bool = bool(row["ok"])
-	var launch := _button("Launch")
+	var launch := UiRowBuilder.button("Launch", 36.0, 0.0)
 	launch.custom_minimum_size = Vector2(84, 40)
 	launch.add_theme_font_size_override("font_size", 12)
 	launch.disabled = not ok
@@ -321,7 +297,7 @@ func _build_row(row: Dictionary) -> Control:
 	var type_id: String = String(row["type_id"])
 	launch.pressed.connect(func() -> void: action_pressed.emit("yard:build:%s" % type_id))
 	top.add_child(launch)
-	var detail := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+	var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
 	detail.text = String(row["cost_text"]) if ok else String(row["reason"])
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.add_child(detail)
@@ -333,19 +309,19 @@ func _hull_row(hull_id: String) -> Control:
 	entry.add_theme_constant_override("separation", 2)
 	var row := HBoxContainer.new()
 	entry.add_child(row)
-	var name := _line(13, Palette.TEXT)
+	var name := UiRowBuilder.line(13, Palette.TEXT)
 	name.text = ShipStats.display_name(_fleet.type_of(hull_id))
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name)
 	var armed: bool = _armed_hull == hull_id
-	var scrap := _button("Confirm scrap" if armed else "Break up")
+	var scrap := UiRowBuilder.button("Confirm scrap" if armed else "Break up", 36.0, 0.0)
 	scrap.custom_minimum_size = Vector2(100, 40)
 	scrap.add_theme_font_size_override("font_size", 12)
 	scrap.tooltip_text = "One peasant returns; no refund." if armed else "Break up this hull"
 	scrap.pressed.connect(func() -> void: _on_scrap_pressed(hull_id))
 	row.add_child(scrap)
 	# The hull's own combat numbers, so a breaking up is a reasoned choice.
-	var stats := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+	var stats := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
 	stats.text = NavalStrength.hull_line(_fleet.type_of(hull_id))
 	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.add_child(stats)
@@ -372,27 +348,3 @@ func _clear_arm() -> void:
 		_arm_timer.stop()
 	if _yard_open:
 		_fill_yard()
-
-
-func _line(size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
-func _small_button(text: String, tip: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.tooltip_text = tip
-	button.custom_minimum_size = Vector2(40, 40)
-	button.add_theme_font_size_override("font_size", 18)
-	return button
-
-
-func _button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 36)
-	button.add_theme_font_size_override("font_size", 13)
-	return button
