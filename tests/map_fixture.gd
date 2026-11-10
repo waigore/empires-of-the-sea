@@ -45,25 +45,17 @@ static func foreign_province(model: MapModel) -> int:
 	return MapModel.NO_ID
 
 
-## First crown resource a Builder can raise without an Explorer first. Minerals
-## that still need prospecting are skipped so work-order suites stay stable when
-## the shared seed's first owned tile is tin/iron/coal/gold.
 static func owned_resource_tile(model: MapModel, works: LandWorks) -> Vector2i:
-	var fallback: Vector2i = Vector2i(-1, -1)
 	for province: ProvinceState in model.provinces:
 		if province.owner != FactionCatalog.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province.tiles:
-			var resource: int = model.resource_at(tile.x, tile.y)
-			if resource < 0:
+			if model.resource_at(tile.x, tile.y) < 0:
 				continue
 			if works.improvement_at(model, tile) > 0:
 				continue
-			if not ImprovementCatalog.needs_prospecting(resource):
-				return tile
-			if fallback.x < 0:
-				fallback = tile
-	return fallback
+			return tile
+	return Vector2i(-1, -1)
 
 
 static func coastal_land_of(model: MapModel, zone_id: int) -> Vector2i:
