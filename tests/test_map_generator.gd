@@ -207,6 +207,19 @@ func test_tribe_provinces_use_tribe_names() -> void:
 	assert_true(checked > 0)
 
 
+## The naming config gives England the capital city "London" (wiki: naming
+## § Great Powers capitalCityName); the Spanish exonym must not reach the chart.
+func test_the_english_capital_is_london() -> void:
+	assert_eq(MapNaming.capital_name(1), "London")
+	var seats: int = 0
+	for province: ProvinceState in model.provinces:
+		assert_ne(province.name, "Londres", "the exonym never names a province")
+		if province.owner == 1 and province.capital:
+			assert_eq(province.name, "London", "England's seat reads London")
+			seats += 1
+	assert_eq(seats, 1)
+
+
 func test_every_faction_has_a_name_pool() -> void:
 	for faction: Dictionary in FactionCatalog.all():
 		var faction_id: int = int(faction["id"])

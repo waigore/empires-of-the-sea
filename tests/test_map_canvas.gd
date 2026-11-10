@@ -113,6 +113,28 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 	assert_gt(marks, 0)
 
 
+## Every non-capital province town is drawn on the chart, so a crown can see
+## where its estates anchor (wiki: capital-and-connectivity § Town per province).
+func test_every_non_capital_town_is_marked() -> void:
+	var marks: Dictionary = {}
+	for glyph: Dictionary in _canvas.plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var expected: int = 0
+	for province: ProvinceState in _canvas.model.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		if _canvas.plan.under_label(at):
+			continue
+		expected += 1
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+	assert_gt(expected, 0)
+	assert_eq(marks.size(), expected)
+
+
 func test_capital_star_has_ten_points() -> void:
 	var star: PackedVector2Array = MapGlyphs.star_points(Vector2.ZERO, 10.0, 5, 0.45)
 	assert_eq(star.size(), 10)
