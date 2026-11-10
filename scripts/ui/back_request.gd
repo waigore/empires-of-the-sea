@@ -21,6 +21,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 		return true
 	if play == null:
 		return false
+	# The Gazette is a soft surface over the map, but back still sets it aside
+	# first so a phone never quits from under an open sheet (REQ-P5-07).
+	var gazette: GazettePlate = play.hud.gazette_plate if play.hud != null else null
+	if gazette != null and gazette.is_shown():
+		gazette.dismiss()
+		return true
 	var roster: CivilianRosterPanel = play.hud.civilian_roster
 	if roster != null and roster.is_open():
 		roster.close()

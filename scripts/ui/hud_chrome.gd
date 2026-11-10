@@ -24,10 +24,14 @@ static func build(hud: GameHud) -> void:
 	_tooltip(hud)
 	_victory_plate(hud)
 	_quick_battle_plate(hud)
+	_gazette_plate(hud)
 
 
 static func _toasts(hud: GameHud) -> void:
 	hud._toast_box = VBoxContainer.new()
+	# Toasts are the moment's acknowledgement (REQ-P5-05) and stay legible over
+	# the soft Gazette plate that covers this lane at a turn's open.
+	hud._toast_box.z_index = 33
 	hud._toast_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	hud._toast_box.offset_left = -230.0
 	hud._toast_box.offset_right = 230.0
@@ -308,6 +312,19 @@ static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay.z_index = 35
 	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
 	hud.add_child(hud.quick_battle_overlay)
+
+
+## The crown's news sheet: over the dossiers, under the Quick Battle and
+## campaign-end plates, and soft — it never takes the whole screen.
+static func _gazette_plate(hud: GameHud) -> void:
+	hud.gazette_plate = GazettePlate.new()
+	hud.gazette_plate.z_index = 30
+	hud.add_child(hud.gazette_plate)
+	# A cartouche seal reopens the news, so a dismiss never loses it (REQ-P5-02).
+	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")
+	seal.position = Vector2(18.0, 132.0)
+	seal.pressed.connect(func() -> void: hud.gazette_pressed.emit())
+	hud.add_child(seal)
 
 
 static func _tooltip(hud: GameHud) -> void:
