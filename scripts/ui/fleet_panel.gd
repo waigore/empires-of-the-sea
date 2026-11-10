@@ -33,6 +33,7 @@ var _land_box: VBoxContainer = null
 var _land_rows: Array[Dictionary] = []
 var _mission: FleetMissionSection = null
 var _crew: FleetCrewSection = null
+var _strength: FleetStrengthSection = null
 
 
 func _ready() -> void:
@@ -82,6 +83,9 @@ func _build() -> void:
 	_ships = _line(13, Palette.TEXT_DIM)
 	_ships.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_ships)
+
+	_strength = FleetStrengthSection.new()
+	column.add_child(_strength)
 
 	_status = _line(13, Palette.GOLD_PALE)
 	column.add_child(_status)
@@ -140,11 +144,9 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 
 ## Opens or closes the yard without rebuilding the dossier.
 func set_yard_open(open: bool) -> void:
-	_yard_open = open and _yard_button != null and _yard_button.visible
-	if _yard_button != null:
-		_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
-	if _yard_scroll != null:
-		_yard_scroll.visible = _yard_open
+	_yard_open = open and _yard_button.visible
+	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
+	_yard_scroll.visible = _yard_open
 	if _yard_open:
 		_fill_yard()
 
@@ -159,7 +161,8 @@ func refresh(
 	carried: int = 0,
 	beach_rows: Array[Dictionary] = [],
 	beach_note: String = "",
-	crew: Dictionary = {}
+	crew: Dictionary = {},
+	strength: Dictionary = {}
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -173,10 +176,10 @@ func refresh(
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	var upkeep: int = ShipEconomy.food_upkeep_for_fleet(fleet)
-	_ships.text = "%d ships · %s · %d strength · upkeep %d food" % [
-		fleet.ship_count(), fleet.hull_summary(), strength_of(fleet), upkeep
+	_ships.text = "%d ships · %s · upkeep %d food" % [
+		fleet.ship_count(), fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
 	]
+	_strength.set_data(strength)
 	if carried > 0:
 		_ships.text += " · carrying %d regiments" % carried
 	var colonists: int = int(crew.get("count", 0))
@@ -232,6 +235,7 @@ func refresh_slip(
 	).to_upper()
 	_location.text = "At %s · capital port" % model.province_name(province_id)
 	_ships.text = "No home fleet — your first launch founds one."
+	_strength.set_data({})
 	_status.text = "The yard is open"
 	_hint.text = "Launch a hull to found the home fleet; break up hulls from the fleet dossier."
 	_land_rows = []
@@ -247,16 +251,6 @@ func refresh_slip(
 	_yard_scroll.visible = _yard_open
 	if _yard_open:
 		_fill_yard()
-
-
-## Ship strength of the squadron: Σ FRP over its hulls (DR-20261109-01).
-static func strength_of(fleet: FleetState) -> int:
-	if fleet == null:
-		return 0
-	var total: int = 0
-	for hull_id: String in fleet.hulls:
-		total += ShipStats.firepower(fleet.type_of(hull_id))
-	return total
 
 
 ## Landing choices for the carried army: one button per owned coast.
@@ -335,8 +329,10 @@ func _build_row(row: Dictionary) -> Control:
 
 
 func _hull_row(hull_id: String) -> Control:
+	var entry := VBoxContainer.new()
+	entry.add_theme_constant_override("separation", 2)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	entry.add_child(row)
 	var name := _line(13, Palette.TEXT)
 	name.text = ShipStats.display_name(_fleet.type_of(hull_id))
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -348,7 +344,12 @@ func _hull_row(hull_id: String) -> Control:
 	scrap.tooltip_text = "One peasant returns; no refund." if armed else "Break up this hull"
 	scrap.pressed.connect(func() -> void: _on_scrap_pressed(hull_id))
 	row.add_child(scrap)
-	return row
+	# The hull's own combat numbers, so a breaking up is a reasoned choice.
+	var stats := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+	stats.text = NavalStrength.hull_line(_fleet.type_of(hull_id))
+	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	entry.add_child(stats)
+	return entry
 
 
 ## First tap arms and relabels, the second confirms (DR-20261109-01).

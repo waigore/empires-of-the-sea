@@ -278,12 +278,51 @@ func test_the_roster_opens_and_closes_from_the_keyboard() -> void:
 	assert_false(roster.is_open(), "Escape closes the ledger")
 
 
+## The summary's door opens the full sheet, and back closes the sheet before the
+## court hears the press (REQ-P5-01, REQ-P5-07; DR-20261110-25).
+func test_the_full_dossier_opens_from_the_court_and_back_closes_it() -> void:
+	_screen.play.diplomacy.apply_delta(0, 1, 22.0, "dossierSample")
+	MapPlayDiplomacy.open(_screen.play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	assert_true(panel.selected_faction() >= 0, "the court opens on a known crown")
+	var button: Button = _find_button(panel._detail, "dossier")
+	assert_not_null(button, "the summary says it has a full copy")
+	button.pressed.emit()
+	var sheet: CourtDossierScreen = _screen.hud.dossier_screen
+	assert_true(sheet.is_open(), "the sheet is up over the court")
+	assert_true(_has_text(sheet._body, "SUSPICION"))
+	assert_true(_has_text(sheet._body, "BEHAVIOUR & BUILD NOTES"))
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
+	assert_true(BackRequest.handle(_screen.play, _screen.improvements))
+	assert_false(sheet.is_open(), "back closes the sheet")
+	assert_true(DiplomacyHud.is_open(_screen.hud.panels), "the court stays open")
+
+
 func test_the_back_gesture_closes_the_roster_first() -> void:
 	_screen.hud.civilian_roster.open()
 	assert_true(_screen.hud.civilian_roster.is_open())
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	assert_true(BackRequest.handle(_screen.play, _screen.improvements))
 	assert_false(_screen.hud.civilian_roster.is_open(), "back closes the ledger only")
+
+
+func _find_button(node: Node, needle: String) -> Button:
+	if node is Button and String((node as Button).text).contains(needle):
+		return node as Button
+	for child: Node in node.get_children():
+		var found: Button = _find_button(child, needle)
+		if found != null:
+			return found
+	return null
+
+
+func _has_text(node: Node, needle: String) -> bool:
+	if node is Label and String((node as Label).text).contains(needle):
+		return true
+	for child: Node in node.get_children():
+		if _has_text(child, needle):
+			return true
+	return false
 
 
 func _first_row(roster: CivilianRosterPanel) -> CivilianRosterRow:

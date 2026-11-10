@@ -11,7 +11,7 @@ extends RefCounted
 const MAX_IMPROVEMENT: int = LandWorks.MAX_IMPROVEMENT
 ## The Builder's town order needs National Bureaucracy (wiki:
 ## tech-tree-diplomacy-civilian).
-const TOWN_TECH: String = "national_bureaucracy"
+const TOWN_TECH: String = CivilianWorkPlan.TOWN_TECH
 
 const LABELS: Dictionary = {
 	"explore": "Explore province",
@@ -299,10 +299,9 @@ static func _check_action(
 			var town_data: ProvinceState = model.province_data(province)
 			if town_data == null or not town_data.is_town_tile(tile):
 				return _no("Towns are upgraded on the province's town tile.")
-			if town_data.town_level() >= CivilianWorkPlan.MAX_TOWN:
-				return _no("This town is already fully developed.")
-			if not bool(tech_unlocked.get(TOWN_TECH, false)):
-				return _no("Requires National Bureaucracy to upgrade a town.")
+			var gate: String = CivilianWorkPlan.town_upgrade_refusal(town_data, tech_unlocked)
+			if not gate.is_empty():
+				return _no(gate)
 			return CivilianTransport.exclusive(units, unit, tile)
 		"build_fort":
 			var held: Dictionary = _owned_land(model, unit, tile)

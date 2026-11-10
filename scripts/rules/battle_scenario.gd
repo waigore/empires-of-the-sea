@@ -11,7 +11,7 @@ extends RefCounted
 ## Spec keys (all optional unless noted):
 ##   attacker / defender : Array[String] of regiment type ids (required)
 ##   fort                : 0–3 (default 0)
-##   terrain             : open | hill | woods | town | swamp (default open)
+##   terrain             : open | hill | woods | town | marsh (default open)
 ##   attacker_plan       : aggressive | balanced | defensive (default balanced)
 ##   defender_plan       : aggressive | balanced | defensive (default defensive)
 ##   seed                : int (default 11)
@@ -125,6 +125,6 @@ static func _ground(terrain: String) -> int:
 			return MapModel.Terrain.HILLS
 		"woods":
 			return MapModel.Terrain.HARDWOOD_FOREST
-		"swamp":
+		"marsh":
 			return MapModel.Terrain.SWAMP
 	return MapModel.Terrain.PLAINS

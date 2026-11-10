@@ -326,7 +326,7 @@ func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
 		)
 	)
 	await get_tree().process_frame
-	assert_eq(panel._town_value.text, "Level 4 of 4", "a Great Power seat is level 4")
+	assert_eq(panel._town_value.text, "Level 4 · full", "a Great Power seat is level 4")
 	assert_true(
 		panel._road_value.text.contains("linked to the crown"),
 		panel._road_value.text
@@ -358,6 +358,39 @@ func test_phone_fleet_dossier_fits() -> void:
 		"fleet content must fit its sheet (%s > %s)"
 		% [hud._fleet_panel.get_combined_minimum_size().y, wrap.size.y]
 	)
+
+
+## The strength block gains the zone's odds line when a hostile squadron shares
+## the water: the tallest dossier still has to fit a phone sheet (REQ-P1-07).
+func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var ship: Ship = _screen.ship_layer.ships[0]
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		77, rival, fleet.sea_zone, ["ship_77"], {"ship_77": "frigate"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(fleet.owner, rival, _screen.play.turn)
+	DiplomacyRules.declare_war(_screen.play.diplomacy, fleet.owner, rival, false)
+
+	MapPlayFleets.select(_screen.play, ship)
+	hud.panels.dock.place_shown(hud._fleet_wrap)
+	await get_tree().process_frame
+
+	assert_true(hud._fleet_panel._strength._zone.visible, "the zone's odds are shown")
+	assert_true(
+		hud._fleet_panel.get_combined_minimum_size().y <= hud._fleet_wrap.size.y + 0.5,
+		"a contested dossier must fit its sheet (%s > %s)"
+		% [hud._fleet_panel.get_combined_minimum_size().y, hud._fleet_wrap.size.y]
+	)
+	_screen.ship_layer.fleets.erase(enemy)
 
 
 func test_phone_ledgers_fit_their_sheets() -> void:

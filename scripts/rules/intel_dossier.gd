@@ -31,6 +31,17 @@ const W_REFUSED_OFFER: int = 1
 const W_ALLIANCE: int = 1
 const W_AID: int = 1
 const W_ABSORB: int = 1
+## A study a shadowed court finished (DR-20261110-25). Research is hidden, so
+## only the court report can carry it; a court that keeps finishing studies
+## under the spy's eye reads as racing the field.
+const W_SPY_TECH: int = 2
+
+## Chronicle kinds the spy writes about a court it shadows. Neither is narrated
+## in the pair's chronicle: they are intelligence, not diplomacy.
+const SPY_TECH: String = "spyTechObserved"
+const SPY_BUILD: String = "spyBuildObserved"
+## The turn a despatch observed (the spy reports after the calendar advanced).
+const OBSERVED_TURN: String = "observed_turn"
 
 const UNKNOWN_COURT: String = "an unknown court"
 
@@ -57,13 +68,13 @@ static func report(
 ) -> Dictionary:
 	var entries: Array[Dictionary] = evidence(state, world, viewer, subject)
 	var scores: Dictionary = suspicion(entries)
-	var rows: Array[Dictionary] = _agenda_rows(scores)
+	var rows: Array[Dictionary] = _agenda_rows(scores, entries)
 	return {
 		"subject": subject,
 		"evidence": entries,
 		"agendas": rows,
 		"guess": _best_guess(rows),
-		"notes": _notes(entries, world, subject),
+		"notes": _notes(state, entries, world, viewer, subject),
 	}
 
 
@@ -93,7 +104,7 @@ static func evidence(
 			continue
 		found.append(
 			{
-				"turn": int(event.get("turn", 0)),
+				"turn": turn_of(event),
 				"index": index,
 				"kind": kind,
 				"text": _text_for(state, viewer, subject, event),
@@ -104,6 +115,14 @@ static func evidence(
 		found = found.slice(found.size() - EVIDENCE_CAP)
 	found.reverse()
 	return found
+
+
+## The turn an observation belongs to: the chronicle's stamp, or the despatch's.
+static func turn_of(event: Dictionary) -> int:
+	var data: Dictionary = _kind_data(event)
+	if data.has(OBSERVED_TURN):
+		return int(data[OBSERVED_TURN])
+	return int(event.get("turn", 0))
 
 
 ## Points per agenda: every retained observation's weights, summed.
@@ -186,6 +205,12 @@ static func _weights_for(
 		"joinEmpire":
 			if a == subject:
 				weights[AiAgenda.WARMONGER] = W_ABSORB
+		"spyTechObserved":
+			# The spy is the only witness to a rival's research, so the act is
+			# evidence only for the crown that posted it (DR-20261110-25).
+			if a != subject or b != viewer:
+				return weights
+			weights[AiAgenda.TECH_THIEF] = W_SPY_TECH
 		_:
 			pass
 	return weights
@@ -235,11 +260,21 @@ static func _text_for(
 			return "Sent aid to %s." % other
 		"joinEmpire":
 			return "Absorbed %s into its empire." % other
+		"spyTechObserved":
+			var tech: String = String(data.get("tech", ""))
+			var study: String = (
+				TechCatalog.display_name(tech) if not tech.is_empty() else "a technology"
+			)
+			return "Finished %s while our spy watched." % study
 	return "Acted at %s." % FactionCatalog.name_of(subject)
 
 
-## Every agenda, highest suspicion first; ties keep the catalogue order.
-static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
+## Every agenda, highest suspicion first; ties keep the catalogue order. Each row
+## carries the observations that fed it, newest first, so the full dossier can
+## show one timeline per agenda (DR-20261110-25).
+static func _agenda_rows(
+	scores: Dictionary, entries: Array[Dictionary]
+) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for raw: Variant in AiAgenda.IDS:
 		var id: String = String(raw)
@@ -252,6 +287,7 @@ static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
 				"score": score,
 				"band": String(band["label"]),
 				"confidence": int(band["confidence"]),
+				"timeline": _timeline_for(id, entries),
 			}
 		)
 	rows.sort_custom(
@@ -263,6 +299,24 @@ static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
 	return rows
 
 
+## The observations that speak to one agenda, newest first: turn, sentence and
+## the points this act added.
+static func _timeline_for(id: String, entries: Array[Dictionary]) -> Array[Dictionary]:
+	var line: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		var weights: Dictionary = entry["weights"] as Dictionary
+		if not weights.has(id):
+			continue
+		line.append(
+			{
+				"turn": int(entry["turn"]),
+				"text": String(entry["text"]),
+				"points": int(weights[id]),
+			}
+		)
+	return line
+
+
 ## The strongest reading worth naming, or {} when nothing reaches Possible.
 static func _best_guess(rows: Array[Dictionary]) -> Dictionary:
 	for row: Dictionary in rows:
@@ -271,8 +325,16 @@ static func _best_guess(rows: Array[Dictionary]) -> Dictionary:
 	return {}
 
 
-## Counts the notes read — public behaviour, never an inference.
-static func _notes(entries: Array[Dictionary], world: WorldMap, subject: int) -> Dictionary:
+## Counts the notes read — public behaviour, never an inference — plus what a
+## spy has watched this court build (DR-20261110-25). Builds are a theme, not
+## evidence: they weigh on no agenda.
+static func _notes(
+	state: DiplomacyState,
+	entries: Array[Dictionary],
+	world: WorldMap,
+	viewer: int,
+	subject: int
+) -> Dictionary:
 	var counts: Dictionary = {}
 	for entry: Dictionary in entries:
 		var kind: String = String(entry["kind"])
@@ -284,7 +346,30 @@ static func _notes(entries: Array[Dictionary], world: WorldMap, subject: int) ->
 		"broken": int(counts.get("allianceBroken", 0)),
 		"refused": int(counts.get("callToArmsRefused", 0)),
 		"peace": int(counts.get("peaceMade", 0)),
+		"spy_tech": int(counts.get(SPY_TECH, 0)),
+		"build": _builds(state, viewer, subject),
 	}
+
+
+## Works a spy watched the subject begin, summed over the kept observations.
+static func _builds(state: DiplomacyState, viewer: int, subject: int) -> Dictionary:
+	var counted: Dictionary = {}
+	if state == null:
+		return counted
+	for raw: Variant in state.events:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var event: Dictionary = raw
+		if String(event.get("kind", "")) != SPY_BUILD:
+			continue
+		if int(event.get("a", -1)) != subject or int(event.get("b", -1)) != viewer:
+			continue
+		var data: Dictionary = event.get("data", {}) as Dictionary
+		var works: Dictionary = data.get("works", {}) as Dictionary
+		for what: Variant in works.keys():
+			var key: String = String(what)
+			counted[key] = int(counted.get(key, 0)) + int(works[what])
+	return counted
 
 
 static func display(id: String) -> String:

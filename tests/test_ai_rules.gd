@@ -789,6 +789,7 @@ func test_ai_naval_brings_a_peaceful_squadron_home() -> void:
 	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
 	assert_true(bool(plan["orders"][0]["dock"]), "the harbour borders its zone")
 	assert_eq(int(plan["orders"][0]["province"]), 0, "Cádiz, the crown's seat")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "home orders carry no threat")
 
 
 func test_ai_naval_sails_one_zone_toward_home() -> void:
@@ -800,6 +801,7 @@ func test_ai_naval_sails_one_zone_toward_home() -> void:
 	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
 	assert_false(bool(plan["orders"][0]["dock"]), "one zone a turn, not a leap")
 	assert_eq(int(plan["orders"][0]["zone"]), 0, "the water off its own harbour")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "a homeward sail is not a fight")
 
 
 ## A squadron on a station spends its turn there; going home is for the idle.

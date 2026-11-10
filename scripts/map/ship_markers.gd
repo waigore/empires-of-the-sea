@@ -21,15 +21,32 @@ func make(fleet: FleetState) -> Ship:
 	ship.faction = fleet.owner
 	ship.bob_phase = rng.randf() * TAU
 	ship.speed = 26.0 + rng.randf() * 16.0
-	place(ship, fleet)
+	refit(ship, fleet)
 	ships.append(ship)
 	return ship
 
 
-## Keeps the marker in step with the fleet's location and colours.
+## Keeps the marker in step with the fleet's location, colours and squadron: a
+## launch, a breaking up, a merge or a battle all change the hulls it flies.
 func refit(ship: Ship, fleet: FleetState) -> void:
 	ship.faction = fleet.owner
+	ship.set_squadron(fleet.ship_count(), NavalStrength.strength(fleet))
 	place(ship, fleet)
+
+
+## Re-reads one squadron's hulls and strength, leaving its berth and any sail
+## under way alone: a launch or a breaking up never moves the marker.
+func hulls(fleet: FleetState) -> void:
+	var ship: Ship = find(fleet.id)
+	if ship != null:
+		ship.set_squadron(fleet.ship_count(), NavalStrength.strength(fleet))
+
+
+## Re-reads every roster fleet onto its marker: battles change hulls without
+## moving anyone, and a stale count would mislead the court.
+func sync(fleets: Array) -> void:
+	for fleet: FleetState in fleets:
+		hulls(fleet)
 
 
 ## Moves markers for a beaten squadron that escaped a naval battle: each one
@@ -50,7 +67,7 @@ func retreat(battle: Dictionary, fleets: Array) -> Array[Ship]:
 		ship.zone = fleet.sea_zone
 		ship.docked = false
 		ship.province = MapModel.NO_ID
-		_sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
+		sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
 		moved.append(ship)
 	return moved
 
@@ -110,7 +127,8 @@ static func _fleet(fleets: Array, fleet_id: int) -> FleetState:
 	return null
 
 
-static func _sail(ship: Ship, target: Vector2) -> void:
+## Sails one marker to a new berth, replacing any sail already under way.
+static func sail(ship: Ship, target: Vector2) -> void:
 	if ship.has_meta("sail_tween"):
 		var previous: Tween = ship.get_meta("sail_tween") as Tween
 		if previous != null and previous.is_valid():
