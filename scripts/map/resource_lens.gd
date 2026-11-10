@@ -314,7 +314,9 @@ func _closed(shape: PackedVector2Array) -> PackedVector2Array:
 
 
 ## Greedy pack: try the slip below the name, then further down, so dense
-## theatres never stack one province's survey over another's.
+## theatres never stack one province's survey over another's. Keep walking
+## (plates are 32 px tall and steps are 24 px, so a free lane often needs
+## step ≥ 2); four tries used to leave overlaps on the fixture chart.
 func _layout_plates() -> void:
 	_rects.clear()
 	_animating = false
@@ -329,7 +331,7 @@ func _layout_plates() -> void:
 		var center: Vector2 = Vector2(entry["anchor"]) * TILE_SIZE
 		var drop: float = LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
 		var chosen := Rect2(center + Vector2(-size.x * 0.5, drop), size)
-		for step in 4:
+		for step in 32:
 			var candidate := Rect2(
 				center + Vector2(-size.x * 0.5, drop + float(step) * 24.0), size
 			)
