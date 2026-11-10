@@ -42,6 +42,10 @@ var model: MapModel = null
 var visibility: VisibilityModel = null
 ## One fog model per region, kept across map switches.
 var visibility_by_region: Dictionary = {}
+## Every rival court's chart, one grid per court and region (wiki:
+## fog-and-exploration; DR-20261110-21). The human's own grid stays in
+## `visibility_by_region`, so the view and the planners never read two fogs.
+var court_charts: CourtCharts = null
 ## Regions whose setup post-pass (ports, roads, grain farms) already ran.
 var bootstrapped_regions: Dictionary = {}
 var land_works: LandWorks = null
@@ -72,12 +76,21 @@ var ai_trace: Array[Dictionary] = []
 ## Array[String]) for every court a Spy shadows (wiki: civilian-units § Spy —
 ## court reports). Derived, so a save carries no copy.
 var court_reports: Dictionary = {}
+## The Gazette's watchlist and filed sheets (wiki: the-gazette); saved with the
+## campaign so the archive is unbounded within it.
+var gazette: GazetteState = null
+## Crowns that fell in the last Combat phase: {faction, conqueror}. The Gazette
+## reports a Great Power's terminal fall as World news (DR-20261110-14).
+var last_falls: Array[Dictionary] = []
 
 var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or
 ## defensive (wiki: quick-battle § Turn structure and actions).
 var battle_plan: String = "balanced"
 var income: int = 120
+## Last turn's world-market clearing report (deals, notes, credits), for the
+## Deal Book and the turn trace (wiki: world-market).
+var market_report: Dictionary = {}
 var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE

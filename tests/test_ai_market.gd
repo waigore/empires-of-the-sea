@@ -147,3 +147,39 @@ func test_a_legacy_book_attributes_bids_to_the_player() -> void:
 	assert_true(bool(market.buy(economy, "grain", 1, 1)["ok"]))
 	assert_eq(market.bought_units_for(FactionCatalog.PLAYER_FACTION), 3)
 	assert_eq(market.bought_units_for(1), 1)
+
+
+func test_a_plan_stages_orders_for_the_turn_end_auction() -> void:
+	var economy: PlayerEconomy = _economy(
+		{"grain": 100, "lumber": 0, "castIron": 0, "fabric": 0, "paper": 0}, 5000
+	)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_config(), economy, market, 20)
+	plan["free_holds"] = 20
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, CONFIG_FACTION, {}
+	)
+	assert_eq((result["refused"] as Array).size(), 0)
+	assert_gt((result["staged"] as Array).size(), 0)
+	assert_eq(economy.quantity("grain"), 100, "nothing moves before the clearing")
+	assert_gt(market.book.pending_buy_units(CONFIG_FACTION), 0)
+	var cleared: Dictionary = MarketClearing.clear(
+		market, WorldMap.new(), {CONFIG_FACTION: economy}, {CONFIG_FACTION: 20}
+	)
+	assert_gt((cleared["deals"] as Array).size(), 0)
+	assert_gt(economy.total_units(), 100)
+
+
+func test_a_stage_refuses_what_the_book_cannot_cover() -> void:
+	var economy: PlayerEconomy = _economy({"grain": 0}, 10)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = {
+		"free_holds": 0,
+		"offers": [{"commodity": "grain", "quantity": 5}],
+		"bids": [{"commodity": "timber", "quantity": 5}],
+	}
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, CONFIG_FACTION, {}
+	)
+	assert_eq((result["staged"] as Array).size(), 0)
+	assert_eq((result["refused"] as Array).size(), 2)

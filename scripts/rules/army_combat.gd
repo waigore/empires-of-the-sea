@@ -6,8 +6,9 @@ extends RefCounted
 ## the documented ratio bands; army elimination is applied before a province
 ## flips. Pre-combat general binding arrives in `context` from the caller.
 ## Sieges read the fort level: walls soak attack, the emplaced battery adds
-## defence and shrinks defender losses (wiki: siege-mechanics). Gun-loss and
-## difficulty stay deferred; the human's land battles route through QuickBattle.
+## defence and shrinks defender losses, and the besieging train silences guns
+## before the clash (wiki: siege-mechanics; DR-20261110-22). The human's land
+## battles route through QuickBattle.
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -113,10 +114,11 @@ static func _exchange(
 	further: bool,
 	context: Dictionary
 ) -> Dictionary:
+	var fee: Dictionary = ArmyAttackCost.charge(context, attacker)
 	if QuickBattle.enabled(context, attacker, defender):
-		return QuickBattle.resolve_exchange(
+		return ArmyAttackCost.stamp(fee, QuickBattle.resolve_exchange(
 			model, armies, province, defender, attacker, further, context
-		)
+		))
 	var defending: Array[ArmyState] = armies_of(armies, province, defender)
 	var attacking: Array[ArmyState] = armies_of(armies, province, attacker)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
@@ -129,9 +131,20 @@ static func _exchange(
 	var atk_limit: int = int(atk_mods["limit"])
 	var initial_defenders: int = mini(side_regiments(defending), def_limit)
 	var atk_deployed: int = mini(side_regiments(attacking), atk_limit)
+	## The besieging train's opening fire: guns it silences fall before the
+	## clash, and a silent battery drops the fort even if the attack is repelled
+	## (wiki: siege-mechanics § Emplaced Artillery; DR-20261110-22).
+	var siege: Dictionary = AutoSiege.resolve(
+		model, province, int(def_mods["fort"]), defender, attacking, atk_limit, context
+	)
+	## A silenced gun stops answering: only the pieces still standing add their
+	## weight to the defence this exchange.
+	var emplaced: float = float(def_mods["emplaced"])
+	if not siege.is_empty():
+		emplaced *= float(int(siege["guns_left"])) / float(maxi(int(siege["guns_start"]), 1))
 	var def_strength: float = ArmyModifiers.strength(
 		defending, def_limit, float(def_mods["multiplier"])
-	) + float(def_mods["emplaced"])
+	) + emplaced
 	var atk_strength: float = FortRules.wall_soak(
 		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
 		int(atk_mods["fort"]))
@@ -173,11 +186,15 @@ static func _exchange(
 		"recovered_type": "",
 		"attacker_medals": int(atk_mods["medals"]),
 		"defender_medals": int(def_mods["medals"]),
+		"attack_cost": int(fee["due"]),
+		"attack_paid": int(fee["paid"]),
 		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
 		"fort_level": int(def_mods["fort"]),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
+	if not siege.is_empty():
+		report["siege"] = siege
 	if def_left == 0 and atk_left > 0:
 		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY

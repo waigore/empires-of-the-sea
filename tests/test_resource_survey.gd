@@ -153,6 +153,42 @@ func test_prospect_gate_marks_an_owned_mineral() -> void:
 	assert_true(bool(row["needs_prospecting"]))
 
 
+func test_the_dossier_reads_one_province_with_the_survey_vocabulary() -> void:
+	var model: MapModel = Fixture.region()
+	var works := LandWorks.new()
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var province: ProvinceState = model.provinces[0]
+	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
+		model, works, [], owner, province.id
+	)
+	var entry: Dictionary = _entry(
+		ResourceSurvey.snapshot(model, works, [], owner), province.id
+	)
+	assert_eq(rows.size(), (entry["rows"] as Array).size(), "same estates as the lens")
+	var surveyed: Array[Vector2i] = []
+	for raw: Variant in entry["rows"]:
+		surveyed.append((raw as Dictionary)["tile"])
+	for row: Dictionary in rows:
+		assert_true(province.tiles.has(row["tile"]), "only this province's tiles")
+		assert_true(surveyed.has(row["tile"]), "the same tiles the lens draws")
+
+
+func test_the_dossier_hides_estates_the_crown_has_not_charted() -> void:
+	var model: MapModel = Fixture.region()
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var province: ProvinceState = model.provinces[0]
+	var visibility := VisibilityModel.new()
+	visibility.setup(model, owner)
+	for tile: Vector2i in province.tiles:
+		visibility.lower_to(
+			model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN
+		)
+	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
+		model, LandWorks.new(), [], owner, province.id, visibility
+	)
+	assert_true(rows.is_empty(), "unknown ground is never surveyed")
+
+
 # --- helpers -----------------------------------------------------------------
 
 

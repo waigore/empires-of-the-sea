@@ -6,6 +6,7 @@ extends VBoxContainer
 
 signal trade_requested(commodity: String, quantity: int, is_buy: bool)
 signal offer_requested(offer_id: String, quantity: int)
+signal cancel_requested(order_id: String)
 
 const ROW_HEIGHT: float = 38.0
 const CATEGORIES: Array = [
@@ -31,6 +32,8 @@ func fill(
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
 	_add_terms_banner()
+	_add_staged()
+	_add_deals()
 	_add_offers(offers)
 	var header := UiRowBuilder.row(0.0)
 	header.add_child(UiRowBuilder.caption("COMMODITY", 10, Palette.TEXT_DIM, 132.0))
@@ -50,6 +53,99 @@ func _add_cargo_banner() -> void:
 	add_child(banner)
 
 
+## Staged bids and offers: what the court will take to the turn-end auction. A
+## carry-forward row is shown but cannot be withdrawn (wiki: world-market
+## § Order persistence).
+func _add_staged() -> void:
+	if _market == null:
+		return
+	var orders: Array[MarketOrder] = _market.book.orders_for(
+		FactionCatalog.PLAYER_FACTION
+	)
+	UiRowBuilder.spacer(self, 6.0)
+	var title := UiRowBuilder.label("YOUR ORDERS", 11, Palette.GOLD_DIM)
+	title.tooltip_text = "Bids and offers clear together when the turn closes."
+	add_child(title)
+	if orders.is_empty():
+		var none := UiRowBuilder.label(
+			"No orders staged — Buy and Sell enter next turn's auction.", 11,
+			Palette.TEXT_DIM
+		)
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		none.custom_minimum_size = Vector2(240, 0)
+		add_child(none)
+		return
+	for order: MarketOrder in orders:
+		add_child(_staged_row(order))
+
+
+func _staged_row(order: MarketOrder) -> Control:
+	var row := UiRowBuilder.row(ROW_HEIGHT)
+	var side: String = "BID" if order.is_bid() else "OFFER"
+	var side_label := UiRowBuilder.caption(side, 10, Palette.GOLD_PALE, 46.0)
+	row.add_child(side_label)
+	row.add_child(
+		UiRowBuilder.caption(CommodityCatalog.label(order.commodity), 13, Palette.TEXT, 96.0)
+	)
+	var quantity := UiRowBuilder.label("%d" % order.remaining(), 13, Palette.GOLD_PALE)
+	quantity.custom_minimum_size = Vector2(38, 0)
+	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(quantity)
+	var price: int = (
+		_market.buy_price(order.commodity) if order.is_bid()
+		else _market.sell_price(order.commodity)
+	)
+	var notional := UiRowBuilder.label("%d" % (price * order.remaining()), 12, Palette.TEXT_DIM)
+	notional.custom_minimum_size = Vector2(52, 0)
+	notional.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(notional)
+	if _market.book.submitted.has(order):
+		var cancel := UiRowBuilder.button("Cancel", ROW_HEIGHT, 62.0)
+		cancel.pressed.connect(func() -> void: cancel_requested.emit(order.id))
+		row.add_child(cancel)
+	return row
+
+
+## The crown's lines from the last clearing pass, so a fill is never silent
+## (wiki: world-market § Trade orders; REQ-P5-05).
+func _add_deals() -> void:
+	if _market == null or _market.book.last_deals.is_empty():
+		return
+	var mine: Array[Dictionary] = []
+	for raw: Variant in _market.book.last_deals:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		var buyer: int = int(deal.get("buyer", -2))
+		var seller: int = int(deal.get("seller", -2))
+		if buyer == FactionCatalog.PLAYER_FACTION or seller == FactionCatalog.PLAYER_FACTION:
+			mine.append(deal)
+	if mine.is_empty():
+		return
+	UiRowBuilder.spacer(self, 4.0)
+	add_child(UiRowBuilder.label("LAST CLEARING", 11, Palette.GOLD_DIM))
+	for deal: Dictionary in mine.slice(0, 4):
+		add_child(UiRowBuilder.label(_deal_line(deal), 12, Palette.TEXT_DIM))
+	if mine.size() > 4:
+		add_child(UiRowBuilder.label(
+			"+%d more deals" % (mine.size() - 4), 11, Palette.TEXT_DIM
+		))
+
+
+func _deal_line(deal: Dictionary) -> String:
+	var quantity: int = int(deal.get("quantity", 0))
+	var commodity: String = CommodityCatalog.label(String(deal.get("commodity", "")))
+	var price: int = int(deal.get("price", 0))
+	var buyer: int = int(deal.get("buyer", -2))
+	var seller: int = int(deal.get("seller", -2))
+	var other: String = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
+	if buyer == FactionCatalog.PLAYER_FACTION:
+		other = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
+		return "Bought %d %s from %s at %d" % [quantity, commodity, other, price]
+	other = "the world market" if buyer < 0 else FactionCatalog.name_of(buyer)
+	return "Sold %d %s to %s at %d" % [quantity, commodity, other, price]
+
+
 ## Direct offers sit above the world price rows: who sells, what is left, and
 ## what the court asks. An empty book still says so, so the section never looks
 ## broken (REQ-P1-07, REQ-P5-03).
@@ -59,7 +155,8 @@ func _add_offers(offers: Array) -> void:
 	title.tooltip_text = "Direct purchases from the Minor Nations and Tribes, below the world price."
 	add_child(title)
 	var hint := UiRowBuilder.label(
-		"Direct trade — a quarter under the world price while it lasts.", 11, Palette.TEXT_DIM
+		"The courts' harvest enters the turn-end auction at the published price.", 11,
+		Palette.TEXT_DIM
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.custom_minimum_size = Vector2(240, 0)
@@ -77,7 +174,7 @@ func _add_offers(offers: Array) -> void:
 	header.add_child(UiRowBuilder.caption("SELLER", 10, Palette.TEXT_DIM, 96.0))
 	header.add_child(UiRowBuilder.caption("GOOD", 10, Palette.TEXT_DIM, 84.0))
 	header.add_child(UiRowBuilder.caption("LEFT", 10, Palette.TEXT_DIM, 40.0))
-	header.add_child(UiRowBuilder.caption("ASK", 10, Palette.TEXT_DIM, 46.0))
+	header.add_child(UiRowBuilder.caption("PRICE", 10, Palette.TEXT_DIM, 46.0))
 	add_child(header)
 	for raw: Variant in offers:
 		if typeof(raw) == TYPE_DICTIONARY:
@@ -108,9 +205,9 @@ func _offer_row(offer: Dictionary) -> Control:
 	ask_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(ask_label)
 
-	var buy := UiRowBuilder.button("Buy", ROW_HEIGHT, 54.0)
-	buy.tooltip_text = "Buy 1 %s from %s for %d ducats — the world price is %d" % [
-		CommodityCatalog.label(commodity), FactionCatalog.name_of(seller), ask, world_price
+	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 54.0)
+	buy.tooltip_text = "Bid 1 %s at the published price of %d — it clears when the turn closes" % [
+		CommodityCatalog.label(commodity), world_price
 	]
 	# Imports need a free hold in the home fleet (DR-20261109-03).
 	if int(_cargo.get("free", -1)) == 0:
@@ -168,14 +265,18 @@ func _market_row(id: String, held: int) -> Control:
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
 
-	var sell := UiRowBuilder.button("Sell", ROW_HEIGHT, 70.0)
+	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
 	sell.disabled = held <= 0
-	sell.tooltip_text = "Sell 1 %s for %d ducats" % [CommodityCatalog.label(id), sell_unit]
+	sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
+		CommodityCatalog.label(id), sell_unit
+	]
 	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
 	row.add_child(sell)
 
-	var buy := UiRowBuilder.button("Buy", ROW_HEIGHT, 70.0)
-	buy.tooltip_text = "Buy 1 %s for %d ducats" % [CommodityCatalog.label(id), buy_unit]
+	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 70.0)
+	buy.tooltip_text = "Bid 1 %s at %d ducats — it clears when the turn closes" % [
+		CommodityCatalog.label(id), buy_unit
+	]
 	# Imports need a free hold in the home fleet (DR-20261109-03).
 	if int(_cargo.get("free", -1)) == 0:
 		buy.disabled = true

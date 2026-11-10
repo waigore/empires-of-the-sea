@@ -112,6 +112,18 @@ func _run() -> void:
 		== LeaderCatalog.default_key(screen.player_faction),
 		"the human crown fields its configured leader"
 	)
+	_check(screen.play.court_charts != null, "every rival court holds a chart")
+	_check(
+		screen.play.court_charts.model_for(screen.player_faction, screen.region_index)
+		== screen.visibility,
+		"the human grid is the one the charts route to"
+	)
+	_check(
+		screen.play.court_charts.known_zones(
+			FactionCatalog.great_power_ids()[1], FactionCatalog.NEW_WORLD
+		).is_empty(),
+		"no rival has charted the New World on turn one"
+	)
 	_check(screen.game_menu != null, "in-game menu present")
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
@@ -464,6 +476,14 @@ func _smoke_end_turn(
 			"the court answer closes the proposal"
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	# The crown's sheet files the resolved turn and opens when it has news
+	# (wiki: the-gazette § When it appears).
+	_check(screen.play.gazette != null, "the gazette keeps its watchlist")
+	_check(screen.play.gazette.has_sheet(turn_before), "the resolved turn is filed")
+	if not Gazette.is_empty(screen.play.gazette.sheet_for(turn_before)):
+		_check(screen.hud.gazette_plate.is_shown(), "news opens the soft plate")
+		screen.hud.gazette_plate.dismiss()
+		_check(not screen.hud.gazette_plate.is_shown(), "one press sets the sheet aside")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(_rival_research_started(screen), "rivals filled their research slots")
 	_check(screen.economy != null, "economy wired")
@@ -486,8 +506,13 @@ func _smoke_end_turn(
 	var grain_before: int = screen.economy.economy.quantity("grain")
 	screen.economy._on_trade("grain", 1, true)
 	_check(
+		screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
+		"the ledger stages imports against cargo holds"
+	)
+	_clear_market(screen)
+	_check(
 		screen.economy.economy.quantity("grain") == grain_before + 1,
-		"the ledger buys imports against cargo holds"
+		"the turn-end auction fills the import"
 	)
 	var offers: Array[Dictionary] = screen.economy.market.minor_offers
 	_check(not offers.is_empty(), "the minor courts publish their harvest")
@@ -496,10 +521,15 @@ func _smoke_end_turn(
 		var offer_id: String = String(offer["id"])
 		var offer_good: String = String(offer["commodity"])
 		var offer_stock: int = screen.economy.economy.quantity(offer_good)
-		screen.economy._on_offer(offer_id, 1)
+		screen.hud.panels.economy_panel.emit_signal("offer_requested", offer_id, 1)
+		_check(
+			screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
+			"the ledger stages a bid on a court's offer"
+		)
+		_clear_market(screen)
 		_check(
 			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
-			"the ledger buys a court's offer direct"
+			"the turn-end auction fills the offer bid"
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
@@ -699,6 +729,18 @@ func _options_has(options: Array[Dictionary], action: String) -> bool:
 		if String(option.get("action", "")) == action:
 			return true
 	return false
+
+
+## Runs one world-market clearing pass for the human ledger, as the turn does.
+func _clear_market(screen: MapScreen) -> void:
+	var cargo: Dictionary = screen.economy.trade_cargo()
+	MarketClearing.clear(
+		screen.economy.market,
+		screen.play.world,
+		{screen.player_faction: screen.economy.economy},
+		{screen.player_faction: int(cargo.get("clear_free", cargo.get("free", 0)))},
+		{"diplomacy": screen.play.diplomacy}
+	)
 
 
 ## True when at least one rival court put a tech into a research slot, proving

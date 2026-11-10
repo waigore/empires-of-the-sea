@@ -24,6 +24,8 @@ var model: MapModel = null
 var world: WorldMap = null
 
 var _coast: Array[PackedVector2Array] = []
+## The baked terrain paint (colour, height, coast field) for this map.
+var relief: MapRelief = null
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
 var _roads: Array[PackedVector2Array] = []
@@ -39,7 +41,7 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	MapWash.build(self, model)
+	relief = MapWash.build(self, model)
 	_build_coast()
 	_build_borders()
 	_build_roads()
@@ -63,7 +65,7 @@ func refresh_ownership() -> void:
 		if child != null:
 			remove_child(child)
 			child.queue_free()
-	MapWash.build(self, model)
+	relief = MapWash.build(self, model)
 	plan.build(model, world, TILE_SIZE)
 	queue_redraw()
 
@@ -89,7 +91,7 @@ func _build_coast() -> void:
 				var a: Vector2 = _edge_point(x, y, int(pair[0]))
 				var b: Vector2 = _edge_point(x, y, int(pair[1]))
 				raw.append(PackedVector2Array([a, b]))
-	_coast = InkPaths.smooth_segments(raw, 2)
+	_coast = InkPaths.smooth_segments(raw, 1)
 
 
 func _edge_point(x: int, y: int, edge: int) -> Vector2:
@@ -103,7 +105,11 @@ func _edge_point(x: int, y: int, edge: int) -> Vector2:
 			point = Vector2(float(x) + 0.5, float(y) + 1.0)
 		_:
 			point = Vector2(float(x), float(y) + 0.5)
-	return point * TILE_SIZE
+	# Marching squares reads tile (x, y) as the corner sample at (x, y), so its
+	# contour runs through a cell that starts one half-tile up and left of the
+	# square the wash actually fills. Shift it back onto the tile edge, or the
+	# ink coast drifts half a tile off the land (REQ-P1-03).
+	return (point + Vector2(0.5, 0.5)) * TILE_SIZE
 
 
 func _build_borders() -> void:

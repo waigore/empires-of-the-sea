@@ -72,6 +72,91 @@ func test_open_field_provinces_stay_field_battles() -> void:
 	assert_eq(String(reports[0]["battle_mode"]), "field")
 	assert_eq(int(reports[0]["fort_level"]), 0)
 	assert_eq((reports[0]["defender_lost"] as Array).size(), 6)
+	assert_false(reports[0].has("siege"), "no walls means no battery block")
+
+
+## Auto-resolve gun-loss (DR-20261110-22): the besieging train silences whole
+## pieces and a silent battery drops the fort, even when the attack is repelled
+## (wiki: siege-mechanics § Emplaced Artillery).
+func test_auto_resolve_artillery_silences_the_battery_and_drops_the_fort() -> void:
+	var defender := ArmyFixture.army(1, 1, 2, _repeat("peasant_levies", 10))
+	var attacker := ArmyFixture.army(2, 0, 2, ["royal_artillery"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	_model.get_province(2).fort_level = 1
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies)
+	var siege: Dictionary = reports[0]["siege"]
+
+	assert_eq(int(siege["guns_start"]), 1)
+	assert_eq(int(siege["guns_lost"]), 1, "one train of guns silences a Wood fort's one gun")
+	assert_eq(String(siege["gun_type"]), "royal_artillery")
+	assert_true(bool(siege["fort_downgraded"]))
+	assert_eq(int(siege["fort_after"]), 0)
+	assert_eq(_model.get_province(2).fort_level, 0, "the silent battery leaves open field")
+
+
+func test_a_besieger_without_artillery_leaves_the_battery_standing() -> void:
+	var defender := ArmyFixture.army(1, 1, 2, _repeat("peasant_levies", 10))
+	var attacker := ArmyFixture.army(2, 0, 2, _repeat("guards", 5))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	_model.get_province(2).fort_level = 1
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies)
+	var siege: Dictionary = reports[0]["siege"]
+
+	assert_eq(int(siege["guns_lost"]), 0, "infantry cannot answer the battery")
+	assert_false(bool(siege["fort_downgraded"]))
+	assert_eq(_model.get_province(2).fort_level, 1)
+
+
+func test_a_train_short_of_the_battery_silences_only_its_weight() -> void:
+	var defender := ArmyFixture.army(1, 1, 2, _repeat("peasant_levies", 10))
+	var attacker := ArmyFixture.army(2, 0, 2, ["royal_artillery"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	_model.get_province(2).fort_level = 3
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies)
+	var siege: Dictionary = reports[0]["siege"]
+
+	assert_eq(int(siege["guns_start"]), 3)
+	assert_eq(int(siege["guns_lost"]), 1, "one gun's weight silences one of three")
+	assert_false(bool(siege["fort_downgraded"]))
+	assert_eq(_model.get_province(2).fort_level, 3)
+
+
+func test_a_silenced_battery_downgrades_even_when_the_attack_is_repelled() -> void:
+	var defender := ArmyFixture.army(1, 1, 2, _repeat("guards", 10))
+	var attacker := ArmyFixture.army(2, 0, 2, ["royal_artillery"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	_model.get_province(2).fort_level = 1
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies)
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_true(bool((reports[0]["siege"] as Dictionary)["fort_downgraded"]))
+	assert_eq(_model.get_province(2).fort_level, 0, "guns are lost whatever the banner")
+
+
+func test_a_better_emplaced_line_needs_a_heavier_train() -> void:
+	var royal := ArmyFixture.army(2, 0, 2, _repeat("royal_artillery", 2))
+	var heavy: Dictionary = {"heavy_emplaced_artillery": true}
+
+	assert_eq(
+		AutoSiege.guns_silenced(2, {}, [royal], 10), 2,
+		"two royal trains silence two royal pieces"
+	)
+	assert_eq(
+		AutoSiege.guns_silenced(2, heavy, [royal], 10), 1,
+		"heavy pieces need more than one train for each"
+	)
+	assert_eq(AutoSiege.artillery_weight([royal], 10), 22.0)
+	assert_eq(AutoSiege.gun_weight(heavy), 15.0)
+	assert_eq(AutoSiege.guns_silenced(0, {}, [royal], 10), 0, "no fort, no battery")
+	assert_eq(AutoSiege.artillery_weight([], 10), 0.0)
 
 
 func test_walls_blunt_the_assault_and_shrink_defender_losses() -> void:
@@ -249,6 +334,43 @@ func test_a_queued_fort_keeps_its_ordered_level_across_a_save() -> void:
 	CivilianWork.resolve_turn(model, reloaded, works)
 
 	assert_eq(model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1)
+
+
+func test_a_fort_rises_on_the_provinces_town_tile() -> void:
+	# wiki: siege-mechanics § Fort Levels — engineers build on the town tile;
+	# DR-20261110-24 brings the province-scoped fort onto it.
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var engineer := CivilianFixture.unit("engineer", CivilianFixture.TIMBER_TILE)
+	var units: Array[CivilianState] = [engineer]
+	var stock: Dictionary = CivilianFixture.stockpile()
+	var province: ProvinceState = model.get_province(CivilianFixture.PLAYER_PROVINCE)
+	province.town_tile = Vector2i(2, 0)
+
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(2, 0))
+	var check: Dictionary = CivilianWork.validate(
+		model, engineer, "build_fort", works, units, stock
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(Vector2i(check["tile"]), Vector2i(2, 0), "the work targets the town")
+
+	CivilianWork.assign(model, engineer, "build_fort", works, units, stock)
+	assert_eq(engineer.work_tile(), Vector2i(2, 0))
+	CivilianWork.resolve_turn(model, units, works)
+	assert_eq(province.fort_level, 1)
+	assert_eq(engineer.tile, Vector2i(2, 0), "the crew works the town it walled")
+
+
+func test_the_fort_site_falls_back_to_the_capital_then_the_ordered_tile() -> void:
+	var model := CivilianFixture.build()
+	var province: ProvinceState = model.get_province(CivilianFixture.PLAYER_PROVINCE)
+	assert_eq(FortRules.site_tile(model, province.id), CivilianFixture.BARE_TILE)
+
+	province.town_tile = Vector2i(2, 0)
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(2, 0), "the town wins")
+	province.town_tile = Vector2i(-1, -1)
+	province.capital_tile = Vector2i(-1, -1)
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(-1, -1), "legacy map")
 
 
 func _repeat(type_id: String, count: int) -> Array[String]:

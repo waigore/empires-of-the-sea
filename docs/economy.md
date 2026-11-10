@@ -9,18 +9,16 @@ manufactured recipes. **Pillars:** P2, P3, P5.
 
 ## Pipeline
 
-`EconomyTurn` runs four phases in wiki order, then research and world-market
-price discovery:
+`EconomyTurn` runs four phases, then research and price discovery:
 
 1. **Extraction** — connected estates add yields
    ([improvements.md](improvements.md)).
-2. **Riches-to-treasury** — gold, silver, gems, diamonds and spices clear at
-   base price (`CommodityCatalog.treasury_ids()`).
-3. **Consumption** — navy, army and workers eat; unfed workers strike.
-4. **Production** — whole recipe runs spend post-consumption inputs and idle
-   labour.
+2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base
+   price.
+3. **Consumption** — navy, army, workers eat; unfed strike.
+4. **Production** — recipes spend post-consumption inputs and idle labour.
 
-Projections copy the economy and never mutate live state.
+Projections never mutate live state.
 
 ## Production recipes
 
@@ -38,50 +36,54 @@ Projections copy the economy and never mutate live state.
 | paper | timber ×2 | 2 |
 | bronze | copper ×1 + tin ×1 | 3 |
 
-`fabric_from_cotton` needs Cotton Weaving; other rows always run. A recipe runs
-whole times, bounded by inputs and idle labour; a row that cannot complete once
-skips without consuming. The `PRODUCTION` tab sets desired outputs.
+`fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
+whole times, bounded by inputs and idle labour; an incomplete row is skipped.
+`PRODUCTION` sets desired outputs.
 
 ## Town manufacturing bonus
 
-Town development 2 or 4 turns town-connected raw into ×1/×2 bonus manufactures:
+Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
-cargo. A colony pays after the crossing, on landed tons only (level 4 town
-first, then most tons, then province id). Rivals upgrade towns too; works:
+cargo. A colony pays after the crossing, on landed tons (level 4 town first,
+then most tons, then province id). Rivals upgrade towns too; works:
 [improvements.md](improvements.md).
 
-## Minor and Tribe offers
+## World-market auction
 
-`MinorMarket` publishes each Minor Nation's and Tribe's harvest every turn: one
-row per tradeable commodity its estates yield, at 75% of the world price
-(`DR-20261110-08`). Riches and capital grain never appear; a court sells only
-where the crown holds land. Buying pays the seller, fills stock, spends a hold
-and books the import. Rows expire each turn; the book is saved, and trade terms
-move the ask.
+The market is one global order book. `Bid`/`Offer` stages an order;
+turn-end `MarketClearing` matches every court's orders plus each Minor and
+Tribe's per-tile auto-offers at the old published price. Integer priority,
+pact, Consulate and relation tiebreaks order the book. First right of refusal
+fills a purchased tile's owner first and pays its relation share plus embassy
+kickbacks; subsidies adjust the settled deal. Unfilled orders carry when
+holds/stock cover them; prices move from filled bids and submitted offers. A
+standing world counterparty fills the remainder.
+
+Staged and carried orders show in the ledger; fills and lapses appear in the
+turn toast. Orders travel in the save.
 
 ## Trade terms
 
-Prices are published once, but each crown pays and receives its own rate after
-trade diplomacy ([`diplomacy.md`](diplomacy.md) § Trade terms). The market holds
-`{"buy": {id|"*": multiplier}, "sell": {...}}` per faction; `buy_price`,
-`sell_price` and the direct ask apply it. Price discovery still reads the
-published price; the ledger prints the rate and adjusted rows.
+Prices are published once; each crown's diplomacy rate applies at settlement
+([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
+the Minor/Tribe ask carry it; price discovery reads the published price.
+
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and the projection. The `MARKET` tab
-leads with the cargo and trade-terms banners and the offers (seller, good, units
-left, ask), then the world rows. Tab presses are intents; rules stay in the
-rules modules (`REQ-P2-03`).
+`ECONOMY` shows treasury, stockpile, trade and projection. The `MARKET` tab
+lists staged orders, the Minor/Tribe harvest and world rows; presses are
+intents (`REQ-P2-03`).
 
 ## Architecture
 
-`player_economy` (stockpile, treasury, workers), `economy_turn` (phase order,
-projection), `economy_consumption`, `production_recipes`, `commodity_catalog`,
-`world_market` (price book, trade terms), `town_industry`, `minor_market`
-(offers, direct purchase), `ui/ledger_{production,market}`, and
-`economy/economy_controller` (wiring, turn resolution).
+`player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
+`commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
+`first_right`, `town_industry`, `minor_market`, `ui/ledger_{production,market}`,
+and `economy/economy_controller` plus `map/map_play_market`.
 
 ## Tests
 
-`test_economy_rules`, `test_economy_screen`, `test_catalogs`.
+`test_market_engine`, `test_economy_rules`, `test_economy_screen`,
+`test_ai_market`, `test_catalogs`.
+

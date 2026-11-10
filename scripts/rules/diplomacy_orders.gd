@@ -43,7 +43,15 @@ static func options(
 		)
 	else:
 		result.append(
-			_valued("Declare War", DiplomacyRules.can_declare_war(state, player, target), KIND_WAR)
+			_valued(
+				"Declare War",
+				DiplomacyRules.can_declare_war(state, player, target),
+				KIND_WAR,
+				"",
+				"",
+				GROUP_ORDERS,
+				InterventionCopy.warden_hint(state, world, player, target)
+			)
 		)
 	if type == FactionCatalog.Type.GREAT_POWER and not record.at_war:
 		if record.formal_alliance:
