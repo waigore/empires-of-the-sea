@@ -15,7 +15,7 @@
   2→4 by tech; one per army each Combat phase; medals 0–4, +1 per win.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
-  feeding 1.0/0.75/0.5, terrain, leader.
+  feeding 1.0/0.75/0.5, terrain (wood: defender 1.5/1.1, attacker 0.9), leader.
 - **Armies** (`ArmyState`): one province per army of `unit_<n>` regiments.
   One Home Army per faction at its capital, never deleted; detach for field
   armies; split/combine needs one province, one owner, both ashore. One march
@@ -27,7 +27,7 @@
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
   and health; DEF/9 durability; ratio bands; elimination precedes a flip.
   Mutual annihilation restores `ceil(20%)` of the defender's start as
-  era-best infantry — parity for a Minor.
+  era-best infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron; wounded recover a quarter each turn.
