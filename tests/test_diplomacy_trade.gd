@@ -103,11 +103,11 @@ func test_a_subsidy_sets_rates_on_the_subsidised_courts_goods() -> void:
 	)
 	assert_eq(market.buy_price("grain", 0), market.price("grain"))
 	assert_eq(market.sell_price("timber", 1), market.price("timber"), "other crowns untouched")
-	var direct: int = maxi(int(floor(float(market.price("timber")) * MinorMarket.DISCOUNT)), 1)
+	var direct: int = market.price("timber")
 	assert_eq(
 		MinorMarket.unit_price(market, "timber", 0),
 		roundi(float(direct) * 1.10),
-		"a direct offer from that court carries the surcharge too"
+		"the published ask names the court's own rate"
 	)
 
 

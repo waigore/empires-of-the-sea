@@ -80,7 +80,8 @@ suites = [
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
-  "test_deed_income.gd",
+  "test_market_engine.gd",
+  "test_ledger_text.gd",
 ]
 
 [domains.espionage]
@@ -246,6 +247,62 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ai/ai_market_planner.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
+domain = "economy"
+
 [[rules]]
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "naval_fog"
@@ -615,11 +672,63 @@ match = "scripts/rules/worker_pool.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/world_market.gd"
+match = "scripts/ai/ai_market_planner.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/deed_income.gd*"
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/world_market.gd"
 domain = "economy"
 
 [[rules]]
@@ -899,10 +1008,6 @@ domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_economy_*.gd"
-domain = "economy"
-
-[[rules]]
-match = "tests/test_deed_income.gd*"
 domain = "economy"
 
 [[rules]]
