@@ -153,7 +153,8 @@ static func intro(play: PlaySession, fade: ColorRect, brief: bool = true) -> voi
 	)
 	if brief:
 		RegionBriefing.opening(
-			play.hud, play.model, play.capital_province, play.player_faction
+			play.hud, play.model, play.capital_province, play.player_faction,
+			play.turn
 		)
 	if fade == null:
 		return

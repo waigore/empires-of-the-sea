@@ -577,6 +577,56 @@ func test_civilian_panel_names_tradecraft_and_counter_status() -> void:
 	panel.free()
 
 
+## A dossier may only promise what the standing actually buys: an idle spy keeps
+## no screen, and a minor court shares no research (wiki: civilian-units § Spy
+## (2)–(3); DR-20261110-03). Both promises used to be unconditional.
+func test_the_dossier_promises_only_what_the_standing_buys() -> void:
+	var home: MapModel = CivilianFixture.build()
+	var idle: CivilianState = CivilianState.create(
+		1, PLAYER, "spy", CivilianFixture.BARE_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(home, idle, LandWorks.new(), [idle], CivilianFixture.stockpile())
+	assert_eq(
+		_panel_row(panel, "Tradecraft"),
+		"No screen up — only the counter-espionage order covers your land"
+	)
+	idle.start_work(SpyRules.WORK_COUNTER, idle.tile, 1)
+	panel.refresh(home, idle, LandWorks.new(), [idle], CivilianFixture.stockpile())
+	assert_true(
+		_panel_row(panel, "Tradecraft").begins_with("Counter-espionage screen"),
+		"the screen exists once the order is up"
+	)
+	var minor_model: MapModel = CivilianFixture.build_minor()
+	var minor_spy: CivilianState = CivilianState.create(
+		2, PLAYER, "spy", Vector2i(2, 0)
+	)
+	assert_eq(minor_model.owner_at(2, 0), 6, "the fixture tile is Genoa's")
+	panel.refresh(
+		minor_model, minor_spy, LandWorks.new(), [minor_spy],
+		CivilianFixture.stockpile()
+	)
+	var row: String = _panel_row(panel, "Tradecraft")
+	assert_true(row.contains("presence reveal only"))
+	assert_false(row.contains("%"), "a minor court never shares research")
+	assert_true(panel._status.text.contains("no research share"))
+	panel.free()
+
+
+## The value column of one dossier row, or "" when the caption is absent.
+func _panel_row(panel: CivilianPanel, caption: String) -> String:
+	var children: Array[Node] = panel._detail.get_children()
+	var index: int = 0
+	while index + 1 < children.size():
+		var key: Label = children[index] as Label
+		var value: Label = children[index + 1] as Label
+		if key != null and key.text == caption:
+			return value.text if value != null else ""
+		index += 2
+	return ""
+
+
 # --- fixtures ----------------------------------------------------------------
 
 

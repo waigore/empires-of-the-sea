@@ -244,6 +244,10 @@ match = "tests/playtest_quick_battle.gd*"
 domain = "quick_battle"
 
 [[rules]]
+match = "tests/playtest_espionage.gd*"
+domain = "espionage"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 
