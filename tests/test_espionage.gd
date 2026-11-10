@@ -418,6 +418,56 @@ func test_court_report_is_silent_without_a_spy() -> void:
 	play.economy.free()
 
 
+# --- rules guards and dossier copy -------------------------------------------
+
+
+func test_spy_rules_guards_skip_nulls_and_home_tiles() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var spy: CivilianState = CivilianState.create(
+		1, PLAYER, "spy", CivilianFixture.RIVAL_GRAIN_TILE
+	)
+	var builder: CivilianState = CivilianState.create(
+		2, PLAYER, "builder", CivilianFixture.BARE_TILE
+	)
+	assert_false(SpyRules.is_spy(null))
+	assert_false(SpyRules.is_spy(builder))
+	assert_false(SpyRules.hidden_from(null, PLAYER))
+	assert_false(SpyRules.hidden_from(spy, -1))
+	assert_false(SpyRules.hidden_from(spy, PLAYER))
+	assert_true(SpyRules.hidden_from(spy, RIVAL))
+	assert_false(SpyRules.is_foreign(null, spy))
+	assert_false(SpyRules.is_foreign(model, builder))
+	spy.embark_on(1)
+	assert_false(SpyRules.is_foreign(model, spy))
+	spy.put_ashore(Vector2i(0, 4))
+	assert_eq(model.owner_at(0, 4), MapModel.NO_ID)
+	assert_false(SpyRules.is_foreign(model, spy))
+	assert_false(SpyRules.has_counter_spy([null, builder], PLAYER))
+	assert_eq(SpyRules.resolve_turn(null, [spy], 1, SEED).size(), 0)
+
+
+func test_civilian_panel_names_tradecraft_and_counter_status() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var abroad: CivilianState = CivilianState.create(
+		1, PLAYER, "spy", CivilianFixture.RIVAL_GRAIN_TILE
+	)
+	var screen: CivilianState = CivilianState.create(
+		2, PLAYER, "spy", CivilianFixture.BARE_TILE
+	)
+	screen.start_work(SpyRules.WORK_COUNTER, screen.tile, 1)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, abroad, LandWorks.new(), [abroad], CivilianFixture.stockpile()
+	)
+	assert_true(panel._status.text.contains("At large"))
+	panel.refresh(
+		model, screen, LandWorks.new(), [screen], CivilianFixture.stockpile()
+	)
+	assert_eq(panel._status.text, "Counter-espionage · ongoing.")
+	panel.free()
+
+
 # --- fixtures ----------------------------------------------------------------
 
 
