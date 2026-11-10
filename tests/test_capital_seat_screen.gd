@@ -6,7 +6,9 @@ extends GdToolsTest
 
 const SCENE: PackedScene = preload("res://scenes/capital_choice.tscn")
 const SEED: int = 1500
-const SIZE: Vector2i = Vector2i(56, 38)
+## The province targets clamp from 40x32 up, so this smaller chart seats the same
+## 19 crowns while the page paints far fewer tiles on every case.
+const SIZE: Vector2i = Vector2i(40, 32)
 
 var world: WorldMap = null
 var page: CapitalChoiceScreen = null
