@@ -206,32 +206,6 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 
-## An open province sheet follows the crown's works: a completed road repaints
-## its link instead of waiting for the next selection
-## (wiki: capital-and-connectivity § Connectivity).
-func test_the_open_province_sheet_follows_the_crown_network() -> void:
-	var play: PlaySession = _screen.play
-	var province: int = _screen.capital_province
-	play.selected_province = province
-	_screen.hud.panels.show_province(
-		play.model, province, MapPlayImprovements.crown_link(play, province)
-	)
-	var panel: ProvincePanel = _screen.hud.panels.panel
-	assert_true(
-		panel._road_value.text.contains("linked to the crown"), panel._road_value.text
-	)
-	# The Build/Work pass repaints the open sheet, then a fresh link reads back.
-	MapPlayCivilians.resolve_work(play)
-	var roads: int = int(
-		MapPlayImprovements.crown_link(play, province).get("roads", 0)
-	)
-	assert_eq(
-		panel._road_value.text,
-		"%d road tile%s · linked to the crown" % [roads, "" if roads == 1 else "s"]
-	)
-	assert_eq(panel._town_value.text, "Level 4 of 4")
-
-
 func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
 	var province_id: int = Fixture.inland_province(_screen.model)
 	MapPlayInput.on_tapped(

@@ -341,6 +341,17 @@ func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
 	panel.refresh_crown({"linked": true, "roads": 3, "distance": 0})
 	await get_tree().process_frame
 	assert_eq(panel._road_value.text, "3 road tiles · linked to the crown")
+	# Build/Work repaints the open sheet from the live crown link.
+	play.selected_province = capital
+	MapPlayCivilians.resolve_work(play)
+	await get_tree().process_frame
+	var roads: int = int(
+		MapPlayImprovements.crown_link(play, capital).get("roads", 0)
+	)
+	assert_eq(
+		panel._road_value.text,
+		"%d road tile%s · linked to the crown" % [roads, "" if roads == 1 else "s"]
+	)
 
 
 func test_phone_fleet_dossier_fits() -> void:

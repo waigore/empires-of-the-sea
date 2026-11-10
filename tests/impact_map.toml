@@ -586,6 +586,12 @@ domain = "battle"
 match = "scripts/map/map_play_diplomacy.gd"
 domain = "diplomacy"
 
+# Province select opens the dossier with a crown link; keep it on the ui
+# domain so a one-line sheet refresh does not pull the whole map suite set.
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
 domain = "economy"
