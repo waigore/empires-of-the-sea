@@ -74,6 +74,18 @@ func test_a_field_scenario_has_no_wall() -> void:
 	assert_eq(String(quick["terrain"]), "hill")
 
 
+## The published marsh id is the ground the sandbox paints (wiki: quick-battle
+## § Terrain): a swamp province fights on marsh, and BattleScenario must map
+## that id onto MapModel.Terrain.SWAMP — not leave the match arm dead.
+func test_the_marsh_scenario_paints_swamp_ground() -> void:
+	var scene: Dictionary = BattleScenario.build({
+		"attacker": ["musketeers"], "defender": ["pikemen"], "terrain": "marsh",
+	})
+	var model: MapModel = scene["model"]
+	assert_eq(model.terrain[model.index_of(2, 1)], MapModel.Terrain.SWAMP)
+	assert_eq(String(scene["context"]["terrain_override"]), "marsh")
+
+
 func test_every_ground_paints() -> void:
 	var field := QuickBattleField.new()
 	field.custom_minimum_size = Vector2(480, 320)
