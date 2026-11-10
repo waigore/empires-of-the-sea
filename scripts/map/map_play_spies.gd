@@ -39,8 +39,11 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		play.civilian_layer.regions.set_region(region, roster)
 		for event: Dictionary in found:
 			event["region"] = region
-			_apply_relation(play, event)
-			_toast(play, event)
+			var place: String = _place(play, event)
+			_apply_relation(play, event, place)
+			var line: String = notice(event, place, play.player_faction)
+			if not line.is_empty() and play.hud != null:
+				play.hud.toast(line)
 			events.append(event)
 	if events.is_empty():
 		return events
@@ -141,8 +144,12 @@ static func _roster(play: PlaySession, region: int) -> Array[CivilianState]:
 
 
 ## A killed spy cools relations by 8 and counts as this turn's interaction
-## (wiki: diplomacy § Spy-death diplomacy penalty).
-static func _apply_relation(play: PlaySession, event: Dictionary) -> void:
+## (wiki: diplomacy § Spy-death penalty). The price is also a diplomatic act, so
+## the chronicle keeps it: without a line there, the court panel's standing has
+## shifted for no stated reason (wiki: diplomacy § Diplomatic History).
+static func _apply_relation(
+	play: PlaySession, event: Dictionary, place: String
+) -> void:
 	if String(event.get("kind", "")) != "killed" or play.diplomacy == null:
 		return
 	var owner: int = int(event.get("owner", -1))
@@ -154,38 +161,46 @@ static func _apply_relation(play: PlaySession, event: Dictionary) -> void:
 		return
 	relation.add_score(-SpyRules.KILL_RELATION_PENALTY)
 	relation.last_interaction_turn = play.turn
+	play.diplomacy.record_event("spyTaken", owner, territory, {"province": place})
 
 
-## Spies are invisible to every other court: the human only hears about its own
-## loss or a spy caught in its own land (wiki: civilian-units § Spy (4)).
-static func _toast(play: PlaySession, event: Dictionary) -> void:
-	if play.hud == null:
-		return
-	var player: int = play.player_faction
+## The line the court hears for a spy event it can know about, or "" when the
+## event is another court's business (wiki: civilian-units § Spy (4): a spy's
+## province is invisible to every other court). A killed spy costs the pair 8
+## relations, so the line names that price: a court that pays for its own
+## defence is told what it paid (wiki: diplomacy § Spy-death penalty).
+static func notice(event: Dictionary, place: String, viewer: int) -> String:
 	var owner: int = int(event.get("owner", -1))
 	var territory: int = int(event.get("territory_owner", -1))
-	var province: int = int(event.get("province", -1))
+	var who: String = FactionCatalog.name_of(owner)
+	var price: int = int(SpyRules.KILL_RELATION_PENALTY)
+	match String(event.get("kind", "")):
+		"killed":
+			if owner == viewer:
+				return "A spy in %s has gone silent — −%d with %s." % [
+					place, price, FactionCatalog.name_of(territory),
+				]
+			if territory == viewer:
+				return "Counter-espionage caught %s's spy in %s — −%d with %s." % [
+					who, place, price, who,
+				]
+		"defected":
+			if owner == viewer:
+				return "A spy in %s has turned coat." % place
+			if territory == viewer:
+				return "%s's spy in %s has turned coat and now serves your crown." % [
+					who, place,
+				]
+	return ""
+
+
+## The province an event names, or "the wilds" when the tile belongs to none.
+static func _place(play: PlaySession, event: Dictionary) -> String:
 	var model: MapModel = play.world.region(int(event.get("region", play.region_index)))
-	var place: String = "the wilds"
-	if model != null and province >= 0:
-		place = model.province_name(province)
-	var kind: String = String(event.get("kind", ""))
-	if kind == "killed":
-		if owner == player:
-			play.hud.toast("A spy in %s has gone silent." % place)
-		elif territory == player:
-			play.hud.toast(
-				"Counter-espionage caught a %s spy in %s."
-				% [FactionCatalog.name_of(owner), place]
-			)
-	elif kind == "defected":
-		if owner == player:
-			play.hud.toast("A spy in %s has turned coat." % place)
-		elif territory == player:
-			play.hud.toast(
-				"A %s spy in %s has turned coat and now serves your crown."
-				% [FactionCatalog.name_of(owner), place]
-			)
+	var province: int = int(event.get("province", -1))
+	if model == null or province < 0:
+		return "the wilds"
+	return model.province_name(province)
 
 
 ## The court's own acts this turn. A structured act is reworded with masked
