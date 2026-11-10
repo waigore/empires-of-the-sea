@@ -231,7 +231,7 @@ func test_the_player_capital_framing_follows_a_reassignment() -> void:
 	)
 	model.province_data(home).capital = false
 
-	MapPlayArmies.sync_player_capital(screen.play)
+	MapPlayArmyBattles.sync_player_capital(screen.play)
 
 	assert_eq(screen.capital_province, successor)
 	assert_eq(screen.capital_tile, model.capital_tile_of(successor))
@@ -251,7 +251,7 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_gt(armies_before, 0)
 	var toasts_before: int = screen.hud._toast_box.get_child_count()
 
-	var changed: bool = MapPlayArmies.apply_capital_loss(
+	var changed: bool = MapPlayArmyBattles.apply_capital_loss(
 		screen.play, {"fallen": [{"faction": minor, "conqueror": 0}], "reassigned": []}
 	)
 
