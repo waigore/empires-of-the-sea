@@ -48,12 +48,24 @@ static func build_hud(play: PlaySession) -> void:
 static func build_lens(play: PlaySession) -> void:
 	var lens: ResourceLens = play.lens
 	if lens == null:
+		build_diplomacy_lens(play)
 		return
 	lens.build(
 		play.model, play.land_works, play.civilian_layer.units, play.player_faction,
 		play.visibility, play.capital_tile, play.tech_caps()
 	)
 	lens.watch(play.civilian_layer, play.overlay)
+	build_diplomacy_lens(play)
+
+
+## Political wash follows the region, the fog and every court that moved. The
+## snapshot is cheap (pure projection), but it still runs on events only.
+static func build_diplomacy_lens(play: PlaySession) -> void:
+	var lens: DiplomacyLens = play.diplomacy_lens
+	if lens == null:
+		return
+	lens.build(play.model, play.diplomacy, play.player_faction, play.visibility)
+	lens.watch(play.overlay)
 
 
 ## Chips and the estates ledger follow the region on screen.
