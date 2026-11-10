@@ -16,8 +16,36 @@ func test_lane_terrain_follows_the_ground() -> void:
 	_set_ground(model, 2, MapModel.Terrain.HARDWOOD_FOREST)
 	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "woods")
 	_set_ground(model, 2, MapModel.Terrain.SWAMP)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "swamp")
+	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "marsh")
 	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "town"), "town", "a playtest may override")
+
+
+## The ground is published as `marsh` (wiki: quick-battle § Terrain;
+## DR-20261110-27): a swamp province fights on marsh ground and the documented
+## override is the same id the record carries — not the map's terrain enum name.
+func test_the_marsh_ground_speaks_the_published_id() -> void:
+	var model := Fixture.build()
+	_set_ground(model, 2, MapModel.Terrain.SWAMP)
+
+	assert_true(SiegeLanes.TERRAIN.has("marsh"), "the published id is the table key")
+	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "marsh"), "marsh",
+		"the documented playtest override is honoured")
+	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "swamp"), "marsh",
+		"the map enum name is not a lane id; it falls back to the province ground")
+	assert_almost_eq(SiegeLanes.terrain_scale("volley", "marsh"), 0.9, 0.001)
+	assert_almost_eq(SiegeLanes.terrain_scale("assault", "marsh"), 0.7, 0.001)
+	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
+	assert_eq(SiegeLanes.terrain_label("marsh"), "Marsh")
+
+	var battle: Dictionary = _fight(
+		"balanced", _repeat("guards", 8), _repeat("musketeers", 6), 0, "marsh"
+	)
+	assert_eq(String(battle["quick"]["terrain"]), "marsh", "the record speaks the rule")
+	assert_eq(String(battle["quick"]["terrain_label"]), "Marsh")
+	assert_true(
+		_assault_losses("marsh", 20) < _assault_losses("open", 20),
+		"a charge into the marsh is blunted, not open ground"
+	)
 
 
 func test_terrain_scales_the_action_tables() -> void:
@@ -26,7 +54,7 @@ func test_terrain_scales_the_action_tables() -> void:
 	assert_almost_eq(SiegeLanes.terrain_scale("assault", "woods"), 0.6, 0.001)
 	assert_almost_eq(SiegeLanes.terrain_scale("volley", "woods"), 0.75, 0.001)
 	assert_almost_eq(SiegeLanes.entrench_scale("town"), 1.4, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("swamp"), 0.8, 0.001)
+	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
 	assert_almost_eq(SiegeLanes.terrain_scale("entrench", "town"), 1.0, 0.001, "no damage")
 	assert_eq(SiegeLanes.terrain_label("hill"), "Hillside")
 	assert_eq(SiegeLanes.terrain_label("unknown"), "Open field")
@@ -166,11 +194,11 @@ func _fight(
 	return reports[0]
 
 
-func _assault_losses(terrain: String) -> int:
+func _assault_losses(terrain: String, count: int = 6) -> int:
 	## Peer-quality lines so the blow stays in the terrain band instead of
 	## wiping both open and town (quality weight from main's Quick Battle).
-	var attacker: Array[ArmyState] = _side(_repeat("pikemen", 6), 2)
-	var defender: Array[ArmyState] = _side(_repeat("pikemen", 6), 1)
+	var attacker: Array[ArmyState] = _side(_repeat("pikemen", count), 2)
+	var defender: Array[ArmyState] = _side(_repeat("pikemen", count), 1)
 	var armies: Array[ArmyState] = _joined(attacker, defender)
 	var state: Dictionary = _state(attacker, defender, terrain)
 	var entry: Dictionary = QuickBattleActions.resolve(
@@ -237,7 +265,7 @@ func _ground(terrain: String) -> int:
 			return MapModel.Terrain.HILLS
 		"woods":
 			return MapModel.Terrain.HARDWOOD_FOREST
-		"swamp":
+		"marsh":
 			return MapModel.Terrain.SWAMP
 	return MapModel.Terrain.PLAINS
 

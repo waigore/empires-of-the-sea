@@ -1,7 +1,8 @@
 class_name ProvincePanel
 extends PanelContainer
-## Slide-in dossier for the selected province: owner, terrain, resource,
-## population, port and the demo's order buttons.
+## Slide-in dossier for the selected province: owner, terrain, port, town, the
+## estates it holds and the demo's order buttons. Every row is a fact the player
+## can act on; the rules decide what an order may do (REQ-P3-02).
 
 signal action_pressed(action: String)
 signal close_pressed
@@ -11,22 +12,34 @@ var _name_label: Label = null
 var _owner_label: Label = null
 var _owner_swatch: ColorRect = null
 var _terrain_value: Label = null
-var _resource_icon: Icon = null
-var _resource_value: Label = null
-var _population_value: Label = null
 var _port_value: Label = null
-var _capital_value: Label = null
+var _town_value: Label = null
 var _road_value: Label = null
 var _fort_value: Label = null
 var _capital_badge: Label = null
+var _resources: ProvinceResources = null
 var _training_box: VBoxContainer = null
 var _dock: Button = null
+var _town_button: Button = null
 var _column: VBoxContainer = null
 var _grid: GridContainer = null
 var _orders_box: VBoxContainer = null
 var _orders_index: int = -1
 var _recruit: Button = null
 var _shipyard: Button = null
+## Province on the sheet, so live crown rows can repaint without a full refresh.
+var _data: ProvinceState = null
+
+## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
+var _model: MapModel = null
+var _works: LandWorks = null
+var _units: Array[CivilianState] = []
+var _visibility: VisibilityModel = null
+var _capital_tile: Vector2i = CivilianState.NO_TILE
+var _faction: int = -1
+var _tech_caps: Dictionary = {}
+var _tech_unlocked: Dictionary = {}
+var _province_id: int = -1
 
 
 func _ready() -> void:
@@ -104,13 +117,15 @@ func _build() -> void:
 	_grid = grid
 
 	_terrain_value = _add_row(grid, "Terrain")
-	_resource_icon = Icon.new("tree", 16, Palette.GOLD)
-	_resource_value = _add_row_with_icon(grid, "Resource", _resource_icon)
-	_population_value = _add_row(grid, "Population")
 	_port_value = _add_row(grid, "Port")
-	_capital_value = _add_row(grid, "Capital")
+	_town_value = _add_row(grid, "Town")
 	_road_value = _add_row(grid, "Roads")
 	_fort_value = _add_row(grid, "Fort")
+
+	column.add_child(_divider())
+
+	_resources = ProvinceResources.new()
+	column.add_child(_resources)
 
 	column.add_child(_divider())
 
@@ -140,10 +155,10 @@ func _build() -> void:
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
 	_orders_box.add_child(build)
 
-	var town := _make_button("Upgrade Town")
-	town.tooltip_text = "Raise this province's town development (National Bureaucracy)."
-	town.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
-	_orders_box.add_child(town)
+	_town_button = _make_button("Upgrade Town")
+	_town_button.tooltip_text = DossierCopy.TOWN_TIP
+	_town_button.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
+	_orders_box.add_child(_town_button)
 
 	_training_box = VBoxContainer.new()
 	_training_box.add_theme_constant_override("separation", 6)
@@ -182,23 +197,51 @@ func _build() -> void:
 	footer.add_theme_constant_override("separation", 8)
 	shell.add_child(footer)
 
-	_dock = _make_button("◀ Dock")
-	_dock.tooltip_text = "Dock left"
-	_dock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
-	footer.add_child(_dock)
-
 	var close := _make_button("Close")
 	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	footer.add_child(close)
+
+	_dock = _icon_button("◀", "Dock left")
+	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
+	footer.add_child(_dock)
 	_fit_to_viewport()
+
+
+## Live tables for the survey rows and the town gate. The panel keeps the
+## references, so a turn that changes works or research re-renders the open
+## dossier without the map layer handing it over again.
+func set_data(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	visibility: VisibilityModel,
+	capital_tile: Vector2i,
+	faction: int,
+	tech_caps: Dictionary,
+	tech_unlocked: Dictionary
+) -> void:
+	var same_map: bool = model != null and model == _model
+	_model = model
+	_works = works
+	_units = units
+	_visibility = visibility
+	_capital_tile = capital_tile
+	_faction = faction
+	_tech_caps = tech_caps
+	_tech_unlocked = tech_unlocked
+	if not same_map:
+		# A region switch invalidates the province id it was showing.
+		_province_id = -1
+		return
+	if _province_id >= 0:
+		refresh(model, _province_id)
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
 	if _dock == null:
 		return
-	_dock.text = "%s Dock" % glyph
+	_dock.text = glyph
 	_dock.tooltip_text = tip
 
 
@@ -219,50 +262,72 @@ func set_training_visible(visible: bool) -> void:
 	_training_box.visible = visible
 
 
-func refresh(model: MapModel, province_id: int) -> void:
+## Repaints the live crown rows after a road completed or a town grew, without
+## re-sliding the sheet the player is reading.
+func refresh_crown(crown: Dictionary) -> void:
+	if _data == null or _road_value == null:
+		return
+	_road_value.text = DossierCopy.crown_roads(_data, crown)
+	if _town_value != null:
+		_town_value.text = DossierCopy.town(_data)
+		_town_value.tooltip_text = DossierCopy.TOWN_TIP
+
+
+## `crown` is `LandConnectivity.province_link` for this province: whether its
+## town reaches the capital. When omitted, the roads row falls back to the
+## estate survey (DossierCopy).
+func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
+	_model = model
+	_province_id = province_id
 	var data: ProvinceState = model.province_data(province_id)
 	if data == null:
 		return
+	_data = data
 	_name_label.text = data.name
 	_capital_badge.visible = data.capital
 	var owner: int = data.owner
 	_owner_swatch.color = Palette.faction_color(owner)
 	_owner_label.text = _owner_caption(owner)
 	_terrain_value.text = _dominant_terrain(model, province_id)
-	var resource: int = data.resource
-	if resource >= 0:
-		var info: Dictionary = MapGenerator.resource_info(resource)
-		_resource_icon.kind = String(info.get("icon", "ore"))
-		_resource_icon.queue_redraw()
-		_resource_value.text = String(info.get("name", "—"))
-	else:
-		_resource_icon.kind = "ore"
-		_resource_icon.queue_redraw()
-		_resource_value.text = "None surveyed"
-	_population_value.text = "%s souls" % _thousands(data.population)
 	var port: Vector2i = data.port_tile
 	if port.x >= 0:
 		var zone: int = model.sea_zone_at(port.x, port.y)
 		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
 	else:
 		_port_value.text = "Landlocked"
-	var seat: Vector2i = data.capital_tile
-	if seat.x >= 0:
-		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
-	else:
-		_capital_value.text = "—"
-	var road_tiles: int = 0
-	for path: Array in data.road_paths:
-		road_tiles += path.size()
-	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+	_town_value.text = DossierCopy.town(data)
+	_town_value.tooltip_text = DossierCopy.TOWN_TIP
 	_fort_value.text = FortRules.describe(data.fort_level)
+	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
+		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
+		_tech_caps
+	)
+	_resources.render(rows)
+	if crown.has("linked"):
+		_road_value.text = DossierCopy.crown_roads(data, crown)
+	else:
+		_road_value.text = DossierCopy.roads(rows)
+	_road_value.tooltip_text = DossierCopy.roads_tip(data, rows)
+	_gate_town(data)
 	# The yard is a capital-port order: it launches hulls into the home fleet
 	# (wiki: ships-and-naval § Home Fleet).
 	_shipyard.visible = (
-		data.owner == FactionCatalog.PLAYER_FACTION
+		data.owner == _faction
 		and data.capital
 		and data.port_tile.x >= 0
 	)
+
+
+## The town order is offered, not refused: the button greys out with the rule's
+## own reason until the crown can actually raise the town (REQ-P2-03).
+func _gate_town(data: ProvinceState) -> void:
+	var refusal: String = ""
+	if _faction >= 0 and data.owner != _faction:
+		refusal = "This land is not held by your crown."
+	if refusal.is_empty():
+		refusal = CivilianWorkPlan.town_upgrade_refusal(data, _tech_unlocked)
+	_town_button.disabled = not refusal.is_empty()
+	_town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
 
 
 ## Faction type drives the honorific (wiki: factions — three governing types).
@@ -293,18 +358,6 @@ func _dominant_terrain(model: MapModel, province_id: int) -> String:
 	return String(MapModel.TERRAIN_LABELS.get(best, "Unknown"))
 
 
-func _thousands(value: int) -> String:
-	var text: String = str(value)
-	var out: String = ""
-	var count: int = 0
-	for i in range(text.length() - 1, -1, -1):
-		out = text[i] + out
-		count += 1
-		if count % 3 == 0 and i > 0:
-			out = "," + out
-	return out
-
-
 func _add_row(grid: GridContainer, caption: String) -> Label:
 	var key := Label.new()
 	key.text = caption
@@ -320,23 +373,6 @@ func _add_row(grid: GridContainer, caption: String) -> Label:
 	return value
 
 
-func _add_row_with_icon(grid: GridContainer, caption: String, icon: Icon) -> Label:
-	var key := Label.new()
-	key.text = caption
-	key.add_theme_font_size_override("font_size", 13)
-	key.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	grid.add_child(key)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	grid.add_child(row)
-	row.add_child(icon)
-	var value := Label.new()
-	value.add_theme_font_size_override("font_size", 15)
-	value.add_theme_color_override("font_color", Palette.TEXT)
-	row.add_child(value)
-	return value
-
-
 func _divider() -> Control:
 	var line := ColorRect.new()
 	line.color = Color(0.83, 0.69, 0.22, 0.35)
@@ -349,4 +385,16 @@ func _make_button(text: String) -> Button:
 	button.text = text
 	button.custom_minimum_size = Vector2(0, 40)
 	button.add_theme_font_size_override("font_size", 15)
+	return button
+
+
+## A dock affordance is a glyph in the corner, never a titled bar: the dossier
+## itself is the subject, the side it opens on is housekeeping.
+func _icon_button(text: String, tip: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.tooltip_text = tip
+	button.custom_minimum_size = Vector2(40, 40)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	button.add_theme_font_size_override("font_size", 18)
 	return button

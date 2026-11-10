@@ -21,7 +21,6 @@ static func run(play: PlaySession) -> Dictionary:
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
 	var factions: Array[int] = FactionCatalog.great_power_ids()
-	var last: int = factions[factions.size() - 1] if not factions.is_empty() else -1
 	# Every rival ledger exists before any court resolves, so a spy observing a
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
@@ -40,10 +39,10 @@ static func run(play: PlaySession) -> Dictionary:
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
 		)
-		# Shared market: prices advance once, on the last observer ledger.
+		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), play.observer_mode and faction == last,
+			_army_food(play, faction), false,
 			MapPlaySpyAi.research_bonus(play, faction, economy)
 		)
 		economy.clear_assignments()
@@ -247,8 +246,6 @@ static func _trade(
 	var reserved: Dictionary = _reserved_inputs(
 		production, _food_demand(play, faction, economy)
 	)
-	# The running Production phase spends the assignments set last turn, before
-	# this run replaces them; reserve both sets so a sale never starves either.
 	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
 	for commodity: Variant in current.keys():
 		var id: String = String(commodity)
@@ -256,7 +253,10 @@ static func _trade(
 	var plan: Dictionary = AiMarketPlanner.plan(
 		config, economy, market, free_holds, economy.tech_unlocked, reserved
 	)
-	var result: Dictionary = AiMarketPlanner.apply(economy, market, plan, faction)
+	plan["free_holds"] = free_holds
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, faction, economy.tech_unlocked
+	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
 	return result

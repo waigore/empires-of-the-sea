@@ -73,6 +73,18 @@ suites = [
   "test_intel_dossier.gd",
 ]
 
+[domains.intel]
+# Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
+# court's acts and the spy despatch that feeds them. Kept apart from the broad
+# diplomacy/espionage domains so a dossier change stays inside tier 1's budget.
+suites = [
+  "test_intel_dossier.gd",
+  "test_espionage.gd",
+  "test_court_reports.gd",
+  "test_court_dossier_screen.gd",
+  "test_diplomacy_panel.gd",
+]
+
 [domains.economy]
 suites = [
   "test_economy_rules.gd",
@@ -80,7 +92,8 @@ suites = [
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
-  "test_deed_income.gd",
+  "test_market_engine.gd",
+  "test_ledger_text.gd",
 ]
 
 [domains.espionage]
@@ -106,6 +119,7 @@ suites = [
   "test_naval_port_loss.gd",
   "test_naval_raid.gd",
   "test_naval_retreat.gd",
+  "test_naval_strength.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]
@@ -210,9 +224,12 @@ suites = [
 suites = [
   "test_research_panel.gd",
   "test_research_screen.gd",
+  "test_research_slots.gd",
   "test_research_state.gd",
   "test_research_turn.gd",
   "test_tech_discovery.gd",
+  "test_tech_icons.gd",
+  "test_tech_order.gd",
 ]
 
 [domains.save]
@@ -225,6 +242,8 @@ suites = [
 [domains.ui]
 suites = [
   "test_panel_dock.gd",
+  "test_province_panel.gd",
+  "test_mobile_layout.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -246,6 +265,62 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ai/ai_market_planner.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
+domain = "economy"
+
 [[rules]]
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "naval_fog"
@@ -353,6 +428,14 @@ domain = "quick_battle"
 [[rules]]
 match = "tests/playtest_espionage.gd*"
 domain = "espionage"
+
+[[rules]]
+match = "tests/playtest_province_dev.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "tests/playtest_allied_defence.gd*"
+domain = "campaign"
 
 [[rules]]
 match = "tools/select_impacted_tests.py"
@@ -469,9 +552,11 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian*.gd*"
 domain = "civilian"
 
+# The spy despatch hook writes the court's intelligence; its own suites are the
+# intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/map/map_play_spies.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "scripts/map/map_play_spy_ai.gd*"
@@ -505,9 +590,16 @@ domain = "battle"
 match = "scripts/map/map_play_diplomacy.gd"
 domain = "diplomacy"
 
+# Province select opens the dossier with a crown link; keep it on the ui
+# domain so a one-line sheet refresh does not pull the whole map suite set.
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "ui"
+
+# Crown-link helper for the province dossier; keep with the sheet suites.
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
-domain = "economy"
+domain = "ui"
 
 [[rules]]
 match = "scripts/map/map_play_espionage.gd"
@@ -572,7 +664,7 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "scripts/rules/dialogue_*.gd"
@@ -602,6 +694,15 @@ domain = "economy"
 match = "scripts/rules/production_*.gd"
 domain = "economy"
 
+# Province crown link + estate gap copy; civilian owns connectivity rules.
+[[rules]]
+match = "scripts/rules/land_connectivity.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/improvement_ledger.gd"
+domain = "civilian"
+
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
 domain = "economy"
@@ -615,11 +716,63 @@ match = "scripts/rules/worker_pool.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/world_market.gd"
+match = "scripts/ai/ai_market_planner.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/deed_income.gd*"
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/world_market.gd"
 domain = "economy"
 
 [[rules]]
@@ -721,8 +874,33 @@ match = "scripts/ui/civilian_*.gd"
 domain = "civilian"
 
 [[rules]]
-match = "scripts/ui/fleet_*.gd"
+match = "scripts/ui/fleet_*.gd*"
 domain = "fleet"
+
+# The dossier sheet and the court panel that opens it are presentation over
+# IntelDossier, so their suites are the intel domain (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/court_dossier*.gd*"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_panel.gd"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_hud.gd"
+domain = "intel"
+
+# The HUD root gains one sheet field and back must close that sheet before the
+# map or the court hears the press; the UI suites and the dossier's crown-orders
+# case cover both (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/game_hud.gd"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/back_request.gd"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
@@ -750,6 +928,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/ui/tech_*.gd"
 domain = "research"
 
 [[rules]]
@@ -788,6 +970,16 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "ui"
 
+# The province dossier and its estate block: the ui domain proves the panel's
+# geometry (test_mobile_layout) and its content (test_province_panel).
+[[rules]]
+match = "scripts/ui/province_*.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/dossier_*.gd*"
+domain = "ui"
+
 # The minimap inset is map presentation: the map suites own its contract.
 [[rules]]
 match = "scripts/ui/minimap*.gd"
@@ -796,6 +988,12 @@ domain = "map"
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
+
+# HUD panel host: province/fleet/civilian sheets. Keep off the menu domain so a
+# dossier wiring change stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ui/hud_panels.gd"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/**"
@@ -857,6 +1055,19 @@ domain = "quick_battle"
 match = "tests/test_battle_sim.gd"
 domain = "quick_battle"
 
+# Screenshot harnesses for the plate (run by hand, never as suites).
+[[rules]]
+match = "tests/battle_*_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/quick_battle_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate.gd*"
+domain = "quick_battle"
+
 [[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
@@ -885,13 +1096,23 @@ domain = "campaign"
 match = "tests/test_civilian_*.gd"
 domain = "civilian"
 
+# The dossier's own suites travel with the dossier, not with the whole court
+# domain (DR-20261110-25).
+[[rules]]
+match = "tests/test_court_dossier_screen.gd*"
+domain = "intel"
+
+[[rules]]
+match = "tests/test_diplomacy_panel.gd*"
+domain = "intel"
+
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_dialogue_*.gd"
@@ -899,10 +1120,6 @@ domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_economy_*.gd"
-domain = "economy"
-
-[[rules]]
-match = "tests/test_deed_income.gd*"
 domain = "economy"
 
 [[rules]]
@@ -967,9 +1184,11 @@ domain = "menu"
 match = "tests/test_menu_*.gd"
 domain = "menu"
 
+# Phone/tablet sheet geometry lives with the UI domain (domains.ui already lists
+# test_mobile_layout); menu would re-pull setup/hub suites past the 5 min bar.
 [[rules]]
 match = "tests/test_mobile_*.gd"
-domain = "menu"
+domain = "ui"
 
 [[rules]]
 match = "tests/test_catalogs.gd"
@@ -999,16 +1218,21 @@ domain = "save"
 match = "tests/test_panel_dock.gd"
 domain = "ui"
 
+[[rules]]
+match = "tests/test_province_*.gd*"
+domain = "ui"
+
 # Espionage suites live with their rules, so a spy change never needs the full
-# run (scripts/rules/spy_*.gd, court report panel tests and map_play_espionage.gd
-# map here too).
+# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too). The spy
+# despatch and its own suite feed the court dossier, so they travel with intel
+# (DR-20261110-25).
 [[rules]]
 match = "tests/test_espionage.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_court_reports.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_spy_*.gd*"

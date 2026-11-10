@@ -21,6 +21,16 @@ static func on_action(play: PlaySession, action: String, tile: Vector2i) -> void
 	play.civilian_layer.sync()
 
 
+## The province's crown link for the dossier: live road tiles, whether its town
+## reaches the capital, and how far the gap still is (LandConnectivity owns the
+## rule; the panel only prints it).
+static func crown_link(play: PlaySession, province_id: int) -> Dictionary:
+	return LandConnectivity.province_link(
+		play.model, play.land_works, play.player_faction, play.capital_tile,
+		province_id
+	)
+
+
 ## Province dossier intent: dispatch the nearest Builder to the town tile.
 static func upgrade_town(play: PlaySession, province_id: int) -> void:
 	if province_id < 0:

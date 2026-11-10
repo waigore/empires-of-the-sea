@@ -5,8 +5,10 @@ extends GdToolsTest
 ## after every case, because seating mutates provinces and terrain.
 
 const SCENE: PackedScene = preload("res://scenes/capital_choice.tscn")
+const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const SEED: int = 1500
 const SIZE: Vector2i = Vector2i(56, 38)
+const FLOW_SIZE: Vector2i = Vector2i(48, 32)
 
 var world: WorldMap = null
 var page: CapitalChoiceScreen = null
@@ -223,6 +225,50 @@ func test_a_pointer_click_seats_the_court_once() -> void:
 	_free_page(chart)
 
 
+## Android sends a touch and an emulated mouse click beside it. The touch release
+## must answer on its own: a shared press slot lets the emulated press erase it,
+## so the tap is dropped and no province can be selected.
+func test_a_touch_release_answers_beside_an_emulated_mouse_click() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var viewport: Viewport = chart.get_viewport()
+	var xform: Transform2D = viewport.get_canvas_transform()
+	var tile: Vector2i = _other_tile(chart.model, chart.selected_province, chart.selected_tile)
+	assert_gte(tile.x, 0, "the crown tile has a neighbour")
+	if tile.x < 0:
+		_free_page(chart)
+		return
+	var screen: Vector2 = xform * MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE)
+	chart._on_catcher_input(_touch(true, screen))
+	chart._on_catcher_input(_mouse(true, screen))
+	chart._on_catcher_input(_touch(false, screen + Vector2(1.0, 1.0)))
+	assert_eq(chart.selected_tile, tile, "the touch release answers without the mouse release")
+	chart._on_catcher_input(_mouse(false, screen + Vector2(1.0, 1.0)))
+	assert_eq(chart.selected_tile, tile, "the emulated release does not move it again")
+	assert_true(chart.hint_text().contains("SEAT THE COURT"), "the tap is stated once")
+	_free_page(chart)
+
+
+## The reverse order: the emulated mouse release arrives first, then the touch
+## release. Either stream alone must answer, and the pair must not move the seat.
+func test_a_mouse_release_answers_beside_a_touch() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var viewport: Viewport = chart.get_viewport()
+	var xform: Transform2D = viewport.get_canvas_transform()
+	var tile: Vector2i = _other_tile(chart.model, chart.selected_province, chart.selected_tile)
+	assert_gte(tile.x, 0, "the crown tile has a neighbour")
+	if tile.x < 0:
+		_free_page(chart)
+		return
+	var screen: Vector2 = xform * MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE)
+	chart._on_catcher_input(_mouse(true, screen))
+	chart._on_catcher_input(_touch(true, screen))
+	chart._on_catcher_input(_mouse(false, screen + Vector2(1.0, 1.0)))
+	assert_eq(chart.selected_tile, tile, "the mouse release answers without the touch release")
+	chart._on_catcher_input(_touch(false, screen + Vector2(1.0, 1.0)))
+	assert_eq(chart.selected_tile, tile, "the touch release does not move it again")
+	_free_page(chart)
+
+
 ## The chart's own buttons still win the tap: the catcher sits under them, and a
 ## pointer on the button seats the court instead of moving it.
 func test_the_confirm_button_seats_the_court_on_a_touch() -> void:
@@ -251,10 +297,36 @@ func test_back_leaves_the_phase() -> void:
 ## Android delivers the back request to every node, so the chart must answer it
 ## itself instead of letting the OS close the app (RUB-P5-07).
 func test_android_back_leaves_the_phase() -> void:
+	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
 	var backs: Array = []
 	page.back_pressed.connect(func() -> void: backs.append(true))
 	page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_eq(backs.size(), 1, "the back gesture returns to setup")
+
+
+## Android sends that request twice for one press: the chart answers once, or
+## the router opens setup and then leaves it again (one press, two screens).
+func test_one_android_back_press_answers_once() -> void:
+	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
+	var backs: Array = []
+	page.back_pressed.connect(func() -> void: backs.append(true))
+	page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	assert_eq(backs.size(), 1, "the duplicate delivery is ignored")
+
+
+## A phone may deliver one press as the Android request and as Escape; the page
+## must leave once either way.
+func test_escape_and_android_back_are_one_press() -> void:
+	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
+	var backs: Array = []
+	page.back_pressed.connect(func() -> void: backs.append(true))
+	var escape := InputEventKey.new()
+	escape.physical_keycode = KEY_ESCAPE
+	escape.pressed = true
+	page._unhandled_input(escape)
+	page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
+	assert_eq(backs.size(), 1, "one press, one back")
 
 
 ## Phone geometry: the banner and the action bar stay on screen, never overlap,
@@ -281,6 +353,59 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 		)
 		assert_gte(phone_page.confirm_button.size.y, 44.0, "touch-sized confirm %s" % size)
 		viewport.free()
+
+
+## Back out of the chart and start a new game: the second chart must roll a new
+## world and the campaign must start on it, never on the abandoned roll.
+func test_back_then_a_new_game_seats_a_fresh_world() -> void:
+	var main: Node = MAIN.instantiate()
+	main.auto_start = false
+	main.size_override = FLOW_SIZE
+	add_child(main)
+	var menu: MainMenu = main.current_page
+	menu.new_game_button.emit_signal("pressed")
+	var setup: GameSetupScreen = main.current_page
+	setup.seed_field.text = "777"
+	setup.start_button.emit_signal("pressed")
+	var first: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	assert_not_null(first, "the first chart opens")
+	if first == null:
+		main.free()
+		return
+	await get_tree().process_frame
+	var first_world: WorldMap = first.world
+	var first_model: int = first.model.get_instance_id()
+	assert_eq(first.config.map_seed, 777)
+	first.back_pressed.emit()
+	await get_tree().process_frame
+	var setup2: GameSetupScreen = main.current_page as GameSetupScreen
+	assert_not_null(setup2, "back returns to setup")
+	if setup2 == null:
+		main.free()
+		return
+	setup2.seed_field.text = "424242"
+	setup2.start_button.emit_signal("pressed")
+	var second: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	assert_not_null(second, "the second chart opens")
+	if second == null:
+		main.free()
+		return
+	await get_tree().process_frame
+	assert_eq(second.config.map_seed, 424242, "the new roll uses the new seed")
+	assert_ne(second.world, first_world, "the abandoned chart's world is not reused")
+	assert_ne(second.model.get_instance_id(), first_model, "a fresh province grid")
+	assert_gte(second.selected_province, 0, "the new world seats the crown")
+	if second.selected_province < 0:
+		main.free()
+		return
+	second.confirm_button.emit_signal("pressed")
+	var screen: MapScreen = main.current_screen
+	assert_not_null(screen, "the campaign starts")
+	if screen != null:
+		assert_eq(screen.play.world, second.world, "the campaign plays the second chart's world")
+		assert_eq(screen.capital_province, second.selected_province, "the second seat is the seat")
+		assert_eq(screen.map_seed, 424242)
+	main.free()
 
 
 # --- helpers ----------------------------------------------------------------
@@ -322,16 +447,16 @@ func _push(viewport: Viewport, event: InputEvent) -> void:
 
 ## A pointer click (what Android emulates beside every tap).
 func _click(viewport: Viewport, screen: Vector2) -> void:
-	var press := InputEventMouseButton.new()
-	press.button_index = MOUSE_BUTTON_LEFT
-	press.pressed = true
-	press.position = screen
-	var release := InputEventMouseButton.new()
-	release.button_index = MOUSE_BUTTON_LEFT
-	release.pressed = false
-	release.position = screen
-	viewport.push_input(press)
-	viewport.push_input(release)
+	viewport.push_input(_mouse(true, screen))
+	viewport.push_input(_mouse(false, screen))
+
+
+func _mouse(pressed: bool, position: Vector2) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = position
+	return event
 
 
 func _touch(pressed: bool, position: Vector2) -> InputEventScreenTouch:

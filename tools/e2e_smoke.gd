@@ -410,6 +410,17 @@ func _smoke_navy(screen: MapScreen) -> void:
 		MapPlayFleetMissions.rows(screen.play, fleet).size() > 0,
 		"fleet dossier offers a station"
 	)
+	# The dossier prints the combat maths the resolver fights with, and the map
+	# marker flies the squadron's hulls (wiki: ships-and-naval § Naval Strength).
+	_check(screen.hud._fleet_panel._strength.visible, "fleet strength block shows")
+	_check(
+		screen.hud._fleet_panel._strength._strength.text.contains("FRP"),
+		"fleet strength names its weights"
+	)
+	_check(
+		screen.ship_layer.ship_for(fleet).hull_count == fleet.ship_count(),
+		"fleet marker flies the squadron's hulls"
+	)
 	MapPlayFleets.on_action(screen.play, "mission:patrol")
 	_check(
 		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
@@ -506,8 +517,13 @@ func _smoke_end_turn(
 	var grain_before: int = screen.economy.economy.quantity("grain")
 	screen.economy._on_trade("grain", 1, true)
 	_check(
+		screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
+		"the ledger stages imports against cargo holds"
+	)
+	_clear_market(screen)
+	_check(
 		screen.economy.economy.quantity("grain") == grain_before + 1,
-		"the ledger buys imports against cargo holds"
+		"the turn-end auction fills the import"
 	)
 	var offers: Array[Dictionary] = screen.economy.market.minor_offers
 	_check(not offers.is_empty(), "the minor courts publish their harvest")
@@ -516,10 +532,15 @@ func _smoke_end_turn(
 		var offer_id: String = String(offer["id"])
 		var offer_good: String = String(offer["commodity"])
 		var offer_stock: int = screen.economy.economy.quantity(offer_good)
-		screen.economy._on_offer(offer_id, 1)
+		screen.hud.panels.economy_panel.emit_signal("offer_requested", offer_id, 1)
+		_check(
+			screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
+			"the ledger stages a bid on a court's offer"
+		)
+		_clear_market(screen)
 		_check(
 			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
-			"the ledger buys a court's offer direct"
+			"the turn-end auction fills the offer bid"
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
@@ -726,6 +747,18 @@ func _options_has(options: Array[Dictionary], action: String) -> bool:
 		if String(option.get("action", "")) == action:
 			return true
 	return false
+
+
+## Runs one world-market clearing pass for the human ledger, as the turn does.
+func _clear_market(screen: MapScreen) -> void:
+	var cargo: Dictionary = screen.economy.trade_cargo()
+	MarketClearing.clear(
+		screen.economy.market,
+		screen.play.world,
+		{screen.player_faction: screen.economy.economy},
+		{screen.player_faction: int(cargo.get("clear_free", cargo.get("free", 0)))},
+		{"diplomacy": screen.play.diplomacy}
+	)
 
 
 ## True when at least one rival court put a tech into a research slot, proving

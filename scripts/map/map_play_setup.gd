@@ -58,7 +58,20 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
+	refresh_dossier(play)
 	build_lens(play)
+
+
+## The province dossier reads the same live tables as the estates ledger: the
+## works, the civilians and the researched tech that gates the town order.
+static func refresh_dossier(play: PlaySession) -> void:
+	if play.hud == null or play.model == null or play.land_works == null:
+		return
+	play.hud.panels.panel.set_data(
+		play.model, play.land_works, play.civilian_layer.units, play.visibility,
+		play.capital_tile, play.player_faction, play.tech_caps(),
+		play.tech_unlocked()
+	)
 
 
 ## Survey lens data follows the region on screen and the works just completed.
@@ -105,6 +118,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
+	refresh_dossier(play)
 
 
 ## After a load the economy, court and chips must read the restored state, not

@@ -76,6 +76,20 @@ func test_human_call_waits_for_consent() -> void:
 	assert_true(_event("callToArmsAccepted"))
 
 
+## The stakes line the court reads: the war it joins and the unified penalty a
+## refusal costs (wiki: diplomacy § Alliances § Mutual defence, § Breaking an
+## alliance).
+func test_the_offer_names_what_each_answer_costs() -> void:
+	_ally(0, 2, 80.0)
+	DiplomacyRules.declare_war(state, 3, 2)
+	var call: Dictionary = CallToArms.pending_call_for(state, 0)
+	assert_false(call.is_empty(), "the court is asked")
+	var text: String = CallToArms.offer_text(call)
+	assert_true(text.contains("war against Portugal"), text)
+	assert_true(text.contains("−50 with France"), text)
+	assert_true(text.contains("−10 with every other Great Power"), text)
+
+
 func test_human_join_cancels_subsidies_with_the_aggressor() -> void:
 	_ally(0, 2, 80.0)
 	state.set_subsidy(0, 3, 10)

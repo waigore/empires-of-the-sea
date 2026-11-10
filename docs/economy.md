@@ -48,44 +48,42 @@ cargo. A colony pays after the crossing, on landed tons (level 4 town first,
 then most tons, then province id). Rivals upgrade towns too; works:
 [improvements.md](improvements.md).
 
-## Minor and Tribe offers
+## World-market auction
 
-`MinorMarket` publishes each Minor's and Tribe's harvest every turn: one row per
-tradeable commodity its estates yield, at 75% of the world price
-(`DR-20261110-08`). Riches and capital grain never appear; a court sells only
-where the crown holds land. Buying fills stock, spends a hold and books the
-import; rows expire each turn, the book is saved, and trade terms move the ask.
+The market is one global order book. `Bid`/`Offer` stages an order;
+turn-end `MarketClearing` matches every court's orders plus each Minor and
+Tribe's per-tile auto-offers at the old published price. Integer priority,
+pact, Consulate and relation tiebreaks order the book. First right of refusal
+fills a purchased tile's owner first and pays its relation share plus embassy
+kickbacks; subsidies adjust the settled deal. Unfilled orders carry when
+holds/stock cover them; prices move from filled bids and submitted offers. A
+standing world counterparty fills the remainder.
 
-## Deed income
-
-A tile bought from a Minor or Tribe pays the treasury each turn — its level-1
-harvest at market price, never the stockpile, never a hold
-([DR-20261110-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-09)).
-`DeedIncome` drops those tons from extraction and credits once. `spices` is
-advanced: it trades at 50 and clears with the riches.
+Staged and carried orders show in the ledger; fills and lapses appear in the
+turn toast. Orders travel in the save.
 
 ## Trade terms
 
-Prices are published once, but each crown pays and receives its own rate after
-trade diplomacy ([`diplomacy.md`](diplomacy.md) § Trade terms): per-faction
-`buy`/`sell` multipliers, applied by `buy_price`, `sell_price` and the direct
-ask. Price discovery reads the published price; the ledger prints rates.
+Prices are published once; each crown's diplomacy rate applies at settlement
+([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
+the Minor/Tribe ask carry it; price discovery reads the published price.
+
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and the projection. The `MARKET` tab
-leads with the cargo and trade-terms banners and the offers (seller, good, units
-left, ask), then the world rows. Tab presses are intents; rules stay in the
-rules modules (`REQ-P2-03`).
+`ECONOMY` shows treasury, stockpile, trade and projection. The `MARKET` tab
+lists staged orders, the Minor/Tribe harvest and world rows; presses are
+intents (`REQ-P2-03`).
 
 ## Architecture
 
-`player_economy`, `economy_turn` (phase order, projection),
-`economy_consumption`, `production_recipes`, `commodity_catalog`,
-`world_market` (price book, trade terms), `town_industry`, `minor_market`,
-`deed_income` (bought land's cash), `ui/ledger_{production,market}` and
-`economy/economy_controller`.
+`player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
+`commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
+`first_right`, `town_industry`, `minor_market`, `ui/ledger_{production,market}`,
+and `economy/economy_controller` plus `map/map_play_market`.
 
 ## Tests
 
-`test_economy_rules`, `test_economy_screen`, `test_deed_income`, `test_catalogs`.
+`test_market_engine`, `test_economy_rules`, `test_economy_screen`,
+`test_ai_market`, `test_catalogs`.
+

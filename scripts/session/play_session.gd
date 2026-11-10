@@ -88,6 +88,9 @@ var turn: int = 1
 ## defensive (wiki: quick-battle § Turn structure and actions).
 var battle_plan: String = "balanced"
 var income: int = 120
+## Last turn's world-market clearing report (deals, notes, credits), for the
+## Deal Book and the turn trace (wiki: world-market).
+var market_report: Dictionary = {}
 var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE

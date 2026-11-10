@@ -776,15 +776,108 @@ func test_ai_naval_declines_an_overwhelming_squadron() -> void:
 	assert_eq((plan["orders"] as Array).size(), 0, "the caution knob keeps the hull home")
 
 
-func test_ai_naval_holds_station_at_peace() -> void:
+## A court at peace has no station to keep: its sea-going squadrons sail home
+## and dock, so holds, yard and harbour roster are where the rules use them
+## (wiki: ai-architecture § Naval policy; DR-20261110-30). A crown with no
+## harbour at all has nowhere to go and simply holds.
+func test_ai_naval_brings_a_peaceful_squadron_home() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 0, "galleon")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _peace_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the homeward order")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_true(bool(plan["orders"][0]["dock"]), "the harbour borders its zone")
+	assert_eq(int(plan["orders"][0]["province"]), 0, "Cádiz, the crown's seat")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "home orders carry no threat")
+
+
+func test_ai_naval_sails_one_zone_toward_home() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 1, "galleon")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _peace_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_false(bool(plan["orders"][0]["dock"]), "one zone a turn, not a leap")
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the water off its own harbour")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "a homeward sail is not a fight")
+
+
+## A squadron on a station spends its turn there; going home is for the idle.
+func test_ai_naval_keeps_a_patrol_at_peace() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var patrol: FleetState = _squadron(0, 0, 0, "galleon")
+	patrol.mission = FleetState.Mission.PATROL
+	var fleets: Array[FleetState] = [patrol]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _peace_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+func test_ai_naval_a_crown_without_a_harbour_holds_station() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
-	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
-		_squadron(1, 1, 0, "sloop"),
-	]
+	var fleets: Array[FleetState] = [_squadron(0, 2, 1, "galleon")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _peace_state(2, 1), model, fleets)
-	assert_eq((plan["orders"] as Array).size(), 0)
+	assert_eq((plan["orders"] as Array).size(), 0, "no port of its own to make for")
+
+
+## Home water is still water it must have charted (wiki: fog-and-exploration
+## § Visibility Levels; DR-20261110-21): an uncharted leg keeps the hull out.
+func test_ai_naval_sails_home_only_through_charted_water() -> void:
+	var home: MapModel = NavalFixture.build()
+	var model: MapModel = NavalFixture.build()
+	model.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(home)
+	world.add_region(model)
+	# Faction 0 is the sailing court, so its chart must be built as a rival's:
+	# a human court's views come from the session's own table.
+	var charts := CourtCharts.new()
+	charts.setup(world, 2, {})
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 1, "galleon")]
+	var view: VisibilityModel = charts.model_for(0, model.region_id)
+	for tile: Vector2i in model.sea_zone_data(0).tiles:
+		view.lower_to(model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	var blind: Dictionary = AiNavalPlanner.orders(
+		config, _peace_state(0, 1), model, fleets, charts
+	)
+	assert_eq((blind["orders"] as Array).size(), 0, "the leg home is uncharted")
+	charts.reveal_sea_zone(0, model.region_id, 0)
+	var charted: Dictionary = AiNavalPlanner.orders(
+		config, _peace_state(0, 1), model, fleets, charts
+	)
+	assert_eq((charted["orders"] as Array).size(), 1, "once charted it may sail")
+
+
+func test_map_phase_moors_a_homecoming_squadron_in_the_home_fleet() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var home: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0"] as Array[String], {"h0": "carrack"}
+	)
+	var incoming: FleetState = _squadron(1, 0, 0, "fluyte")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [home, incoming]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _peace_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one homeward order")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(int(trace[0]["province"]), 0, "the seat")
+	assert_eq(int(trace[0]["merged_into"]), 0, "the home squadron absorbs it")
+	var moored: Array = layer.regions.value(0, [])
+	assert_eq(moored.size(), 1, "no second squadron left in the seat's port")
+	assert_eq(home.hulls.size(), 2, "the hulls are preserved")
+	assert_true(home.hulls.has("h1"))
+	assert_eq(TradeCargo.fleet_holds(home), 7, "the merchant's holds now count at home")
+	layer.free()
 
 
 func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:

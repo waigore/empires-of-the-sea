@@ -13,8 +13,10 @@ const NEIGHBORS: Array[Vector2i] = [
 const CAPITAL_TRANSPORT: int = 4
 
 
-## Returns {tiles: index -> {transport, road, town}, towns: province -> index,
-## town_port_connected: province -> bool}.
+## Returns {tiles: index -> {transport, road, town}, network: index -> transport,
+## towns: province -> index, town_port_connected: province -> bool}. `network` is
+## the roaded crown network itself (the tiles a crew can extend); `tiles` also
+## carries the ring beside it and the Town-rule neighbours.
 static func resolve(
 	model: MapModel, works: LandWorks, owner: int, capital_tile: Vector2i
 ) -> Dictionary:
@@ -22,7 +24,8 @@ static func resolve(
 	var towns: Dictionary = {}
 	var town_ports: Dictionary = {}
 	var result: Dictionary = {
-		"tiles": tiles, "towns": towns, "town_port_connected": town_ports,
+		"tiles": tiles, "network": {}, "towns": towns,
+		"town_port_connected": town_ports,
 	}
 	if model == null or works == null or owner < 0:
 		return result
@@ -48,6 +51,7 @@ static func resolve(
 		}
 	_edges(model, works, owned, best, land, tiles)
 	_town_rule(model, works, owner, capital_tile, owned, tiles, towns, town_ports)
+	result["network"] = best
 	return result
 
 
@@ -106,6 +110,97 @@ static func town_cap_for(
 	if bool(entry.get("town", false)) and bool(ports.get(province_id, false)):
 		return level
 	return LandWorks.MAX_IMPROVEMENT
+
+
+## Crown-network summary for the province dossier:
+## {linked, roads, distance, town}. `linked` is the province town reaching the
+## capital (Road or Town rule), `roads` counts the province's road/port tiles,
+## and `distance` is how many road tiles still separate an unlinked town from
+## the crown network (-1 when no owned-land route exists, 0 when linked).
+static func province_link(
+	model: MapModel, works: LandWorks, owner: int, capital_tile: Vector2i,
+	province_id: int
+) -> Dictionary:
+	var result: Dictionary = {
+		"linked": false, "roads": 0, "distance": -1,
+		"town": Vector2i(-1, -1),
+	}
+	if model == null or works == null or province_id < 0 or owner < 0:
+		return result
+	var town: Vector2i = ImprovementSystem.town_tile(
+		model, works, province_id, capital_tile
+	)
+	result["town"] = town
+	var roads: int = 0
+	for tile: Vector2i in model.province_tiles(province_id):
+		if works.transport_at(model, tile) >= LandWorks.TRANSPORT_ROAD:
+			roads += 1
+		elif works.has_port(model, tile):
+			roads += 1
+	result["roads"] = roads
+	if town.x < 0:
+		return result
+	var resolved: Dictionary = resolve(model, works, owner, capital_tile)
+	if (resolved.get("tiles", {}) as Dictionary).has(model.index_of(town.x, town.y)):
+		result["linked"] = true
+		result["distance"] = 0
+		return result
+	result["distance"] = road_gap(
+		model, owner, resolved.get("network", {}) as Dictionary, town
+	)
+	return result
+
+
+## Road tiles still to lay before each owned tile reaches the crown network:
+## index -> gap. 0 means the tile is on (or beside) a road already; tiles with no
+## owned-land route are absent. A tile beside the network already extracts, so
+## the count stops one step short. `network` is `resolve()["network"]`.
+static func network_gaps(
+	model: MapModel, owner: int, network: Dictionary
+) -> Dictionary:
+	var gaps: Dictionary = {}
+	if model == null or owner < 0 or network.is_empty():
+		return gaps
+	var depth: Dictionary = {}
+	var queue: Array[Vector2i] = []
+	for raw: Variant in network.keys():
+		var index: int = int(raw)
+		depth[index] = 0
+		gaps[index] = 0
+		queue.append(_tile_of(model, index))
+	var head: int = 0
+	while head < queue.size():
+		var tile: Vector2i = queue[head]
+		head += 1
+		var step: int = int(depth[model.index_of(tile.x, tile.y)]) + 1
+		for offset: Vector2i in NEIGHBORS:
+			var next: Vector2i = tile + offset
+			if not model.in_bounds(next.x, next.y):
+				continue
+			if not model.is_land(next.x, next.y):
+				continue
+			if model.owner_at(next.x, next.y) != owner:
+				continue
+			var index: int = model.index_of(next.x, next.y)
+			if depth.has(index):
+				continue
+			depth[index] = step
+			gaps[index] = maxi(step - 1, 0)
+			queue.append(next)
+	return gaps
+
+
+## Road tiles still to lay before one tile reaches the crown network; -1 when
+## no owned-land route exists. Used by the province dossier.
+static func road_gap(
+	model: MapModel, owner: int, network: Dictionary, from: Vector2i
+) -> int:
+	if model == null or from.x < 0:
+		return -1
+	var index: int = model.index_of(from.x, from.y)
+	if network.has(index):
+		return 0
+	return int(network_gaps(model, owner, network).get(index, -1))
 
 
 # --- road rule --------------------------------------------------------------

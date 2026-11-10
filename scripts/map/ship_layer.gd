@@ -81,6 +81,9 @@ func set_zoom(value: float) -> void:
 	for ship: Ship in _markers.ships:
 		var scale_factor: float = clampf(1.0 / _zoom, 0.6, 1.0)
 		ship.scale = Vector2.ONE * scale_factor
+		# Fit zoom keeps the silhouettes; the printed strength needs the closer
+		# chart to stay legible (REQ-P1-07).
+		ship.detail = _zoom >= Ship.DETAIL_ZOOM
 
 
 func select(ship: Ship) -> void:
@@ -176,14 +179,16 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 			if ship != null:
 				_markers.remove(ship)
 				ship = null
+			# The home squadron just took on hulls: its marker flies more now.
+			_markers.hulls(merged)
 			regions.set_region(model.region_id, fleets)
 	if ship != null:
 		_markers.refit(ship, fleet)
 		if destination == FleetState.Location.AT_SEA:
-			_sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
+			ShipMarkers.sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
 			zone_entered.emit(fleet.sea_zone, ship)
 		else:
-			_sail(ship, _port_position(fleet.province))
+			ShipMarkers.sail(ship, _port_position(fleet.province))
 	fleet_moved.emit(arrived, result)
 	return result
 
@@ -218,6 +223,7 @@ func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> D
 		fleets.append(fleet)
 		regions.set_region(model.region_id, fleets)
 		_attach_marker(fleet)
+	_markers.hulls(fleet)
 	result["created"] = founded
 	result["fleet"] = fleet
 	return result
@@ -230,6 +236,7 @@ func scrap_hull(fleet: FleetState, hull_id: String, economy: PlayerEconomy) -> D
 		return {"ok": false, "reason": "Own colours only.", "hull": "", "type": "", "retired": false}
 	var result: Dictionary = FleetYard.scrap(economy, fleet, hull_id)
 	if not bool(result.get("ok", false)) or not bool(result.get("retired", false)):
+		_markers.hulls(fleet)
 		return result
 	_markers.remove(ship_for(fleet))
 	fleets.erase(fleet)
@@ -290,6 +297,8 @@ func resolve_battles(
 		regions.set_region(index, alive)
 		if on_screen:
 			fleets = alive
+			# Sunk hulls leave the marker: the survivor flies its new count.
+			_markers.sync(alive)
 		for battle: Dictionary in battles:
 			battle["region"] = index
 			all.append(battle)
@@ -381,15 +390,3 @@ func _port_position(province_id: int) -> Vector2:
 	if port.x < 0 or port.y < 0:
 		return model.province_center(province_id) * TILE_SIZE
 	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
-
-
-func _sail(ship: Ship, target: Vector2) -> void:
-	if ship.has_meta("sail_tween"):
-		var previous: Tween = ship.get_meta("sail_tween") as Tween
-		if previous != null and previous.is_valid():
-			previous.kill()
-	var tween: Tween = create_tween()
-	tween.tween_property(ship, "position", target, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(
-		Tween.EASE_IN_OUT
-	)
-	ship.set_meta("sail_tween", tween)

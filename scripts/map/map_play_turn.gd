@@ -206,12 +206,21 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		crown_report = play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
+	# Every court has staged its orders by now: clear the shared book once.
+	MapPlayMarket.run(play, economy_report)
+	if not play.observer_mode:
 		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, year)
 	if not play.observer_mode:
 		play.hud.set_income(play.income)
 		MapPlayDiplomacy.refresh(play)
-	play.hud.toast("Turn %d — %d" % [play.turn, year])
+	var market_line: String = LedgerText.market_summary(
+		play.market_report, play.player_faction
+	)
+	if play.observer_mode or market_line.is_empty():
+		play.hud.toast("Turn %d — %d" % [play.turn, year])
+	else:
+		play.hud.toast("Turn %d — %d. %s" % [play.turn, year, market_line])
 	var selected: Ship = play.ship_layer.selected()
 	if selected != null:
 		var fleet: FleetState = play.ship_layer.fleet_of(selected)
@@ -224,6 +233,8 @@ static func _finish_turn(play: PlaySession) -> void:
 		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
+	# An open dossier follows the works, the town and the tech the turn changed.
+	MapPlaySetup.refresh_dossier(play)
 	MapPlaySetup.build_lens(play)
 	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	# The sheet narrates the turn that just resolved; the overlay opens only when

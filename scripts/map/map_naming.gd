@@ -9,7 +9,7 @@ const OLD_WORLD_ROOTS: Array[String] = [
 	"Cádiz", "Sevilla", "Toledo", "Burgos", "Valladolid", "Zaragoza", "Barcelona",
 	"Valencia", "Granada", "Salamanca", "Bilbao", "Cartagena", "Málaga", "Córdoba",
 	"Lisboa", "Oporto", "Coímbra", "Évora", "Braga",
-	"Londres", "Brístol", "Plymouth", "Dover", "York", "Norwich", "Oxford",
+	"London", "Brístol", "Plymouth", "Dover", "York", "Norwich", "Oxford",
 	"París", "Rouen", "Nantes", "Burdeos", "Marsella", "Lyon", "Brest", "Tolón",
 	"Ámsterdam", "Amberes", "Róterdam", "Utrecht", "Brujas", "Bruselas", "Gante",
 	"Estocolmo", "Gotemburgo", "Malmö", "Upsala", "Abo", "Copenhague", "Bergen",
@@ -29,7 +29,8 @@ const NEW_WORLD_ROOTS: Array[String] = [
 
 const NEW_WORLD_PREFIXES: Array[String] = ["Valle", "Sierra", "Costa", "Monte", "Río"]
 
-## Historical city/province pools per faction id (Spanish exonyms throughout).
+## Historical city/province pools per faction id (Spanish exonyms throughout,
+## except a nation's own capital: the naming config gives England "London").
 ## The first entry is the nation's capital city; `capital_name` uses it so the
 ## capital province reads right, and the rest fill the nation's other provinces.
 const FACTION_ROOTS: Dictionary = {
@@ -40,7 +41,7 @@ const FACTION_ROOTS: Dictionary = {
 		"Badajoz",
 	],
 	1: [  # England
-		"Londres", "Brístol", "Plymouth", "Dover", "York", "Norwich", "Oxford",
+		"London", "Brístol", "Plymouth", "Dover", "York", "Norwich", "Oxford",
 		"Cambridge", "Canterbury", "Chester", "Newcastle", "Liverpool", "Bath",
 		"Portsmouth", "Nottingham", "Exeter", "Hull", "Leeds",
 	],

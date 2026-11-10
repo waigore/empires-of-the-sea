@@ -16,12 +16,13 @@ const NEW_WORLD_HEIGHT: int = Fixture.WORLD_HEIGHT
 ## world generation (the suite's dominant cost under coverage) off the hot path.
 var model: MapModel = null
 var works: LandWorks = null
+var report: Dictionary = {}
 
 
 func before_all() -> void:
 	model = Fixture.world().region(FactionCatalog.OLD_WORLD)
 	works = LandWorks.new()
-	WorldBootstrap.apply(model, works)
+	report = WorldBootstrap.apply(model, works)
 
 
 func test_every_great_power_gets_four_grain_farms() -> void:
@@ -84,6 +85,39 @@ func test_capital_ports_and_harbour_roads_are_real() -> void:
 		)
 
 
+## Init town roads (wiki: capital-and-connectivity § Init town roads): every
+## owned town reaches its crown on owned land from turn 1, so the Town rule
+## anchors extraction instead of waiting on a Builder.
+func test_every_owned_town_reaches_the_crown() -> void:
+	var checked: int = 0
+	for faction: int in FactionCatalog.ids_in_region(FactionCatalog.OLD_WORLD):
+		var seat: int = WorldBootstrap.capital_province(model, faction)
+		if seat < 0:
+			continue
+		var connected: Dictionary = ImprovementSystem.connected_tiles(
+			model, works, faction, model.capital_tile_of(seat)
+		)
+		for province: ProvinceState in model.provinces:
+			if province.owner != faction or province.capital:
+				continue
+			var town: Vector2i = province.town_tile
+			assert_true(town.x >= 0, "%s has no town" % province.name)
+			assert_true(
+				connected.has(model.index_of(town.x, town.y)),
+				"%s of %s does not reach its capital"
+				% [province.name, FactionCatalog.name_of(faction)]
+			)
+			checked += 1
+	assert_gt(checked, 0)
+
+
+func test_town_roads_are_wired_and_counted() -> void:
+	assert_gt(int(report["town_roads"]), 0, "the post-pass lays town roads")
+	for province: ProvinceState in model.provinces:
+		for path: Array in province.road_paths:
+			assert_true(path.size() >= 2, "a road path joins two tiles")
+
+
 func test_the_post_pass_is_deterministic() -> void:
 	var second: MapModel = MapGenerator.new().generate_region(
 		Fixture.SEED, FactionCatalog.OLD_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
@@ -101,6 +135,7 @@ func test_the_new_world_gets_no_great_power_farms() -> void:
 		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
 	)
 	var new_world_works := LandWorks.new()
-	var report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)
-	assert_eq(int(report["farms"]), 0)
+	var new_world_report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)
+	assert_eq(int(new_world_report["farms"]), 0)
+	assert_eq(int(new_world_report["town_roads"]), 0, "the New World is not wired at init")
 	assert_true(new_world_works.improvement.is_empty())

@@ -28,8 +28,8 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  matchable squadron (120% margin), charted water only; else blockade or hold
-  via `NavalMovement` (DR-20261110-21).
+  matchable squadron (120% margin) else blockade or hold, charted water only
+  (DR-20261110-21); at peace it comes home (DR-20261110-30).
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
@@ -65,7 +65,6 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 ## Deferred (REQ-P2-02)
 
 - Rival boycotts / land purchase (trade envoys with Minor/Tribe first).
-- Intervention and call-to-arms.
 - Agenda-sourced dialogue beats.
 
 ## Architecture
