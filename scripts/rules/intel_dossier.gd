@@ -1,38 +1,14 @@
 class_name IntelDossier
 extends RefCounted
-## The human court's intelligence reading (wiki: ai-dossier, hidden-agendas).
-## Pure RefCounted: every observable act the crown's chronicle already records
-## is turned into evidence for one of the six agendas, and the bands confidence
-## follow the dossier tables. Nothing here reads an AI's true agenda — the
-## reading is built from public acts only, so it can be shown to the player and
-## replayed from a save (REQ-P2-01, REQ-P3-03).
+## The human court's intelligence reading (wiki: ai-dossier, hidden-agendas):
+## suspicion per agenda, the confidence band, the strongest guess and the
+## behaviour counts the notes read. IntelEvidence turns the chronicle into the
+## observations this module scores, so the dossier stays one presentation
+## domain (REQ-P3-01).
 ##
-## Evidence is computed on demand from `DiplomacyState.events` (which the
-## campaign persists); the newest [constant EVIDENCE_CAP] observations survive and
-## older ones drop, so a long campaign cannot grow the dossier without bound.
-
-const EVIDENCE_CAP: int = 50
-
-## Evidence weights (DR-20261110-05). One act may speak to more than one agenda.
-const W_WAR: int = 2
-const W_WEAKER: int = 1
-const W_STRONGER: int = 2
-const W_HUMAN_AHEAD: int = 1
-const W_WAR_ON_ALLY: int = 4
-const W_BREAK_ALLY: int = 3
-const W_BREAK_ISOLATION: int = 1
-const W_CTA_REFUSED: int = 2
-const W_STOOD_ASIDE: int = 1
-const W_INTERVENED: int = 2
-const W_PROTESTED: int = 1
-const W_PEACE: int = 2
-const W_ACCEPTED_OFFER: int = 1
-const W_REFUSED_OFFER: int = 1
-const W_ALLIANCE: int = 1
-const W_AID: int = 1
-const W_ABSORB: int = 1
-
-const UNKNOWN_COURT: String = "an unknown court"
+## Nothing here reads an AI's true agenda — the reading is built from public
+## acts only, so it can be shown to the player and replayed from a save
+## (REQ-P2-01, REQ-P3-03).
 
 
 ## Suspicion band and confidence from the dossier table: 0–2 / 3–5 / 6–8 /
@@ -57,53 +33,22 @@ static func report(
 ) -> Dictionary:
 	var entries: Array[Dictionary] = evidence(state, world, viewer, subject)
 	var scores: Dictionary = suspicion(entries)
-	var rows: Array[Dictionary] = _agenda_rows(scores)
+	var rows: Array[Dictionary] = _agenda_rows(scores, entries)
 	return {
 		"subject": subject,
 		"evidence": entries,
 		"agendas": rows,
 		"guess": _best_guess(rows),
-		"notes": _notes(entries, world, subject),
+		"notes": _notes(state, entries, world, viewer, subject),
 	}
 
 
-## Observable acts by the subject, newest first, capped. A court the viewer has
-## not met stays masked; acts against courts it has not met name them not at all.
+## Observable acts by the subject, newest first, capped (IntelEvidence owns the
+## chronicle read and the masking; the dossier keeps the public name).
 static func evidence(
 	state: DiplomacyState, world: WorldMap, viewer: int, subject: int
 ) -> Array[Dictionary]:
-	var found: Array[Dictionary] = []
-	if state == null or viewer == subject:
-		return found
-	var allies: Dictionary = {}
-	for index in state.events.size():
-		var event: Dictionary = state.events[index]
-		if typeof(event) != TYPE_DICTIONARY:
-			continue
-		var kind: String = String(event.get("kind", ""))
-		var a: int = int(event.get("a", -1))
-		var b: int = int(event.get("b", -1))
-		var key: String = _pair(a, b)
-		var weights: Dictionary = _weights_for(state, world, viewer, subject, event, allies)
-		if kind == "allianceFormed" and a != b:
-			allies[key] = true
-		elif kind == "allianceBroken" or kind == "warDeclared":
-			allies.erase(key)
-		if weights.is_empty():
-			continue
-		found.append(
-			{
-				"turn": int(event.get("turn", 0)),
-				"index": index,
-				"kind": kind,
-				"text": _text_for(state, viewer, subject, event),
-				"weights": weights,
-			}
-		)
-	if found.size() > EVIDENCE_CAP:
-		found = found.slice(found.size() - EVIDENCE_CAP)
-	found.reverse()
-	return found
+	return IntelEvidence.collect(state, world, viewer, subject)
 
 
 ## Points per agenda: every retained observation's weights, summed.
@@ -119,127 +64,12 @@ static func suspicion(entries: Array[Dictionary]) -> Dictionary:
 	return scores
 
 
-## The one act can feed several agendas; only the subject's own acts count.
-static func _weights_for(
-	state: DiplomacyState,
-	world: WorldMap,
-	viewer: int,
-	subject: int,
-	event: Dictionary,
-	allies: Dictionary
-) -> Dictionary:
-	var kind: String = String(event.get("kind", ""))
-	var a: int = int(event.get("a", -1))
-	var b: int = int(event.get("b", -1))
-	var weights: Dictionary = {}
-	match kind:
-		"warDeclared":
-			if a != subject:
-				return weights
-			var mine: int = _provinces(world, subject)
-			var theirs: int = _provinces(world, b)
-			if bool(allies.get(_pair(a, b), false)):
-				weights[AiAgenda.BACKSTABBER] = W_WAR_ON_ALLY
-			else:
-				weights[AiAgenda.WARMONGER] = W_WAR
-			if theirs < mine:
-				weights[AiAgenda.WARMONGER] = int(weights.get(AiAgenda.WARMONGER, 0)) + W_WEAKER
-			elif theirs > mine:
-				weights[AiAgenda.ENVY] = W_STRONGER
-				if b == viewer:
-					weights[AiAgenda.ENVY] = W_STRONGER + W_HUMAN_AHEAD
-		"allianceBroken":
-			if a != subject:
-				return weights
-			weights[AiAgenda.BACKSTABBER] = W_BREAK_ALLY
-			weights[AiAgenda.ISOLATIONIST] = W_BREAK_ISOLATION
-		"callToArmsRefused":
-			if a == subject:
-				weights[AiAgenda.ISOLATIONIST] = W_CTA_REFUSED
-		"interventionDoNothing":
-			if a == subject:
-				weights[AiAgenda.ISOLATIONIST] = W_STOOD_ASIDE
-		"interventionIntervened":
-			if a == subject:
-				weights[AiAgenda.PEACEMAKER] = W_INTERVENED
-		"interventionProtest":
-			# A court that keeps its embassy and puts a price on the aggression
-			# reads as a peace-seeker, just less loudly than one that joins
-			# (DR-20261110-16).
-			if a == subject:
-				weights[AiAgenda.PEACEMAKER] = W_PROTESTED
-		"peaceMade":
-			if a == subject:
-				weights[AiAgenda.PEACEMAKER] = W_PEACE
-		"proposalAccepted":
-			if b == subject:
-				weights[AiAgenda.PEACEMAKER] = W_ACCEPTED_OFFER
-		"proposalRefused":
-			if b == subject:
-				weights[AiAgenda.ISOLATIONIST] = W_REFUSED_OFFER
-		"allianceFormed":
-			if a == subject:
-				weights[AiAgenda.PEACEMAKER] = W_ALLIANCE
-		"grantAid":
-			if a == subject:
-				weights[AiAgenda.PEACEMAKER] = W_AID
-		"joinEmpire":
-			if a == subject:
-				weights[AiAgenda.WARMONGER] = W_ABSORB
-		_:
-			pass
-	return weights
-
-
-## One player-facing sentence per observation. Names are masked against the
-## viewing crown's contacts, so the dossier never names a stranger.
-static func _text_for(
-	state: DiplomacyState, viewer: int, subject: int, event: Dictionary
-) -> String:
-	var kind: String = String(event.get("kind", ""))
-	var a: int = int(event.get("a", -1))
-	var b: int = int(event.get("b", -1))
-	var data: Dictionary = _kind_data(event)
-	# The other party is whichever side of the act is not the subject: the
-	# declarer's target, the proposer whose offer was answered, the ally lost.
-	var other: String = _court(state, viewer, b if a == subject else a)
-	var aggressor: String = _court(state, viewer, int(data.get("aggressor", -1)))
-	match kind:
-		"warDeclared":
-			return "Declared war on %s." % other
-		"allianceBroken":
-			return "Broke its formal alliance with %s." % other
-		"callToArmsRefused":
-			return "Refused %s's call to arms." % other
-		"interventionDoNothing":
-			return "Stood aside while %s made war on %s." % [aggressor, other]
-		"interventionIntervened":
-			return "Intervened against %s on behalf of %s." % [aggressor, other]
-		"interventionProtest":
-			return "Protested %s's war on %s." % [
-				other, _court(state, viewer, int(data.get("target", -1)))
-			]
-		"peaceMade":
-			return "Concluded a white peace with %s." % other
-		"proposalAccepted":
-			return "Accepted %s's offer of %s." % [
-				other, DiplomacyProposals.describe(String(data.get("kind", "")), String(data.get("stage", "")))
-			]
-		"proposalRefused":
-			return "Refused %s's offer of %s." % [
-				other, DiplomacyProposals.describe(String(data.get("kind", "")), String(data.get("stage", "")))
-			]
-		"allianceFormed":
-			return "Signed a formal alliance with %s." % other
-		"grantAid":
-			return "Sent aid to %s." % other
-		"joinEmpire":
-			return "Absorbed %s into its empire." % other
-	return "Acted at %s." % FactionCatalog.name_of(subject)
-
-
-## Every agenda, highest suspicion first; ties keep the catalogue order.
-static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
+## Every agenda, highest suspicion first; ties keep the catalogue order. Each row
+## carries the observations that fed it, newest first, so the full dossier can
+## show one timeline per agenda (DR-20261110-25).
+static func _agenda_rows(
+	scores: Dictionary, entries: Array[Dictionary]
+) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for raw: Variant in AiAgenda.IDS:
 		var id: String = String(raw)
@@ -252,6 +82,7 @@ static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
 				"score": score,
 				"band": String(band["label"]),
 				"confidence": int(band["confidence"]),
+				"timeline": _timeline_for(id, entries),
 			}
 		)
 	rows.sort_custom(
@@ -263,6 +94,24 @@ static func _agenda_rows(scores: Dictionary) -> Array[Dictionary]:
 	return rows
 
 
+## The observations that speak to one agenda, newest first: turn, sentence and
+## the points this act added.
+static func _timeline_for(id: String, entries: Array[Dictionary]) -> Array[Dictionary]:
+	var line: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		var weights: Dictionary = entry["weights"] as Dictionary
+		if not weights.has(id):
+			continue
+		line.append(
+			{
+				"turn": int(entry["turn"]),
+				"text": String(entry["text"]),
+				"points": int(weights[id]),
+			}
+		)
+	return line
+
+
 ## The strongest reading worth naming, or {} when nothing reaches Possible.
 static func _best_guess(rows: Array[Dictionary]) -> Dictionary:
 	for row: Dictionary in rows:
@@ -271,45 +120,52 @@ static func _best_guess(rows: Array[Dictionary]) -> Dictionary:
 	return {}
 
 
-## Counts the notes read — public behaviour, never an inference.
-static func _notes(entries: Array[Dictionary], world: WorldMap, subject: int) -> Dictionary:
+## Counts the notes read — public behaviour, never an inference — plus what a
+## spy has watched this court build (DR-20261110-25). Builds are a theme, not
+## evidence: they weigh on no agenda.
+static func _notes(
+	state: DiplomacyState,
+	entries: Array[Dictionary],
+	world: WorldMap,
+	viewer: int,
+	subject: int
+) -> Dictionary:
 	var counts: Dictionary = {}
 	for entry: Dictionary in entries:
 		var kind: String = String(entry["kind"])
 		counts[kind] = int(counts.get(kind, 0)) + 1
 	return {
-		"province": _provinces(world, subject),
+		"province": IntelEvidence.provinces(world, subject),
 		"war": int(counts.get("warDeclared", 0)),
 		"alliance": int(counts.get("allianceFormed", 0)),
 		"broken": int(counts.get("allianceBroken", 0)),
 		"refused": int(counts.get("callToArmsRefused", 0)),
 		"peace": int(counts.get("peaceMade", 0)),
+		"spy_tech": int(counts.get(IntelEvidence.SPY_TECH, 0)),
+		"build": _builds(state, viewer, subject),
 	}
+
+
+## Works a spy watched the subject begin, summed over the kept observations.
+static func _builds(state: DiplomacyState, viewer: int, subject: int) -> Dictionary:
+	var counted: Dictionary = {}
+	if state == null:
+		return counted
+	for raw: Variant in state.events:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var event: Dictionary = raw
+		if String(event.get("kind", "")) != IntelEvidence.SPY_BUILD:
+			continue
+		if int(event.get("a", -1)) != subject or int(event.get("b", -1)) != viewer:
+			continue
+		var data: Dictionary = event.get("data", {}) as Dictionary
+		var works: Dictionary = data.get("works", {}) as Dictionary
+		for what: Variant in works.keys():
+			var key: String = String(what)
+			counted[key] = int(counted.get(key, 0)) + int(works[what])
+	return counted
 
 
 static func display(id: String) -> String:
 	return id.capitalize().replace("_", " ")
-
-
-static func _pair(a: int, b: int) -> String:
-	return "%d:%d" % [mini(a, b), maxi(a, b)]
-
-
-static func _provinces(world: WorldMap, faction: int) -> int:
-	if world == null:
-		return 0
-	return DiplomacyRules.provinces_owned(world, faction)
-
-
-static func _court(state: DiplomacyState, viewer: int, faction: int) -> String:
-	var name: String = DiplomacyHistory.name_for(state, viewer, faction)
-	if name == DiplomacyHistory.UNKNOWN_NAME:
-		return UNKNOWN_COURT
-	return name
-
-
-static func _kind_data(event: Dictionary) -> Dictionary:
-	var raw: Variant = event.get("data", {})
-	if typeof(raw) != TYPE_DICTIONARY:
-		return {}
-	return raw as Dictionary

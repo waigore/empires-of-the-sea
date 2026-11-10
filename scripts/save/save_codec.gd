@@ -9,6 +9,9 @@ const VERSION: int = 1
 
 const MAX_MAP_SIDE: int = 512
 const MIN_MAP_SIDE: int = 32
+## The stance a crown fights with until it picks another (wiki: quick-battle
+## § The crown's plan).
+const DEFAULT_BATTLE_PLAN: String = "balanced"
 
 # --- capture -----------------------------------------------------------------
 
@@ -53,8 +56,11 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"infinite_mode": play.infinite_mode,
 		"advanced_start": play.advanced_start,
 		"difficulty": play.difficulty,
-		"battle_plan": play.battle_plan,
 		"campaign_halted": play.campaign_halted,
+		# The crown's Quick Battle stance is state a battle reads this turn, so a
+		# save carries it (wiki: campaign-persistence § Snapshot contract;
+		# quick-battle § The crown's plan; DR-20261110-33).
+		"battle_plan": play.battle_plan,
 	}
 
 
@@ -134,13 +140,10 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.difficulty = Difficulty.normalize(
 		String(session.get("difficulty", Difficulty.DEFAULT))
 	)
-	# The crown's battle plan is a standing order, so it is part of the resume;
-	# a save without it (legacy) starts Balanced (wiki: quick-battle § The
-	# crown's plan; DR-20261110-33).
-	play.battle_plan = QuickBattleActions.normalize_plan(
-		String(session.get("battle_plan", "balanced"))
-	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
+	# A save from before the crown's plan was carried resumes on the default
+	# stance (wiki: campaign-persistence § Load and resume — legacy defaults).
+	play.battle_plan = _plan(session.get("battle_plan", DEFAULT_BATTLE_PLAN))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = SaveCourt.victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
@@ -192,6 +195,13 @@ static func restore_diplomacy(play: PlaySession, data: Dictionary) -> void:
 static func _faction(session: Dictionary) -> int:
 	var faction: int = int(session.get("player_faction", FactionCatalog.PLAYER_FACTION))
 	return faction if FactionCatalog.can_win(faction) else FactionCatalog.PLAYER_FACTION
+
+
+## A stance the Quick Battle resolver knows, or the default when the slot names
+## a script this build does not have.
+static func _plan(raw: Variant) -> String:
+	var plan: String = String(raw)
+	return plan if QuickBattleActions.PLANS.has(plan) else DEFAULT_BATTLE_PLAN
 
 
 static func _flag_dictionary(keys: Variant) -> Dictionary:

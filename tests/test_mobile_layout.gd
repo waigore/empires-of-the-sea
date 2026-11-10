@@ -188,7 +188,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
 		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
 	assert_eq(
-		hud._income_label.text, HudChrome.format_delta(_screen.play.income),
+		hud._income_label.text, TextFormat.delta(_screen.play.income),
 		"treasury shows the projected turn income"
 	)
 
@@ -270,7 +270,7 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.panels.set_civilian_training(true)
+	hud.panels.panel.set_training_visible(true)
 	hud.panels.show_province(_screen.model, _screen.capital_province)
 	hud.panels.dock.place_shown(hud._panel_wrap)
 	await get_tree().process_frame
@@ -307,6 +307,53 @@ func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
 	assert_almost_eq(panel.size.x, GameHud.PANEL_WIDTH, 0.5)
 
 
+## The sheet answers the two questions a developing province raises: how far its
+## town has grown, and whether its estates can reach the crown at all
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap, capital-and-connectivity § Connectivity).
+func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var play: PlaySession = _screen.play
+	var panel: ProvincePanel = hud._panel
+	var capital: int = _screen.capital_province
+	hud.panels.show_province(
+		play.model, capital,
+		LandConnectivity.province_link(
+			play.model, play.land_works, play.player_faction, play.capital_tile,
+			capital
+		)
+	)
+	await get_tree().process_frame
+	assert_eq(panel._town_value.text, "Level 4 · full", "a Great Power seat is level 4")
+	assert_true(
+		panel._road_value.text.contains("linked to the crown"),
+		panel._road_value.text
+	)
+	# An unlinked province (a fresh conquest has no setup road) says so and how
+	# much road is left; the sheet repaints in place when the network changes.
+	panel.refresh_crown({"linked": false, "roads": 2, "distance": 4})
+	await get_tree().process_frame
+	assert_eq(
+		panel._road_value.text, "2 road tiles · no road to the crown (4 tiles away)"
+	)
+	panel.refresh_crown({"linked": true, "roads": 3, "distance": 0})
+	await get_tree().process_frame
+	assert_eq(panel._road_value.text, "3 road tiles · linked to the crown")
+	# Build/Work repaints the open sheet from the live crown link.
+	play.selected_province = capital
+	MapPlayCivilians.resolve_work(play)
+	await get_tree().process_frame
+	var roads: int = int(
+		MapPlayImprovements.crown_link(play, capital).get("roads", 0)
+	)
+	assert_eq(
+		panel._road_value.text,
+		"%d road tile%s · linked to the crown" % [roads, "" if roads == 1 else "s"]
+	)
+
+
 func test_phone_fleet_dossier_fits() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
@@ -322,6 +369,39 @@ func test_phone_fleet_dossier_fits() -> void:
 		"fleet content must fit its sheet (%s > %s)"
 		% [hud._fleet_panel.get_combined_minimum_size().y, wrap.size.y]
 	)
+
+
+## The strength block gains the zone's odds line when a hostile squadron shares
+## the water: the tallest dossier still has to fit a phone sheet (REQ-P1-07).
+func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var ship: Ship = _screen.ship_layer.ships[0]
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		77, rival, fleet.sea_zone, ["ship_77"], {"ship_77": "frigate"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	if _screen.play.diplomacy == null:
+		_screen.play.diplomacy = DiplomacyState.new()
+	_screen.play.diplomacy.ensure_relation(fleet.owner, rival, _screen.play.turn)
+	DiplomacyRules.declare_war(_screen.play.diplomacy, fleet.owner, rival, false)
+
+	MapPlayFleets.select(_screen.play, ship)
+	hud.panels.dock.place_shown(hud._fleet_wrap)
+	await get_tree().process_frame
+
+	assert_true(hud._fleet_panel._strength._zone.visible, "the zone's odds are shown")
+	assert_true(
+		hud._fleet_panel.get_combined_minimum_size().y <= hud._fleet_wrap.size.y + 0.5,
+		"a contested dossier must fit its sheet (%s > %s)"
+		% [hud._fleet_panel.get_combined_minimum_size().y, hud._fleet_wrap.size.y]
+	)
+	_screen.ship_layer.fleets.erase(enemy)
 
 
 func test_phone_ledgers_fit_their_sheets() -> void:

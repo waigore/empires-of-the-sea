@@ -452,6 +452,78 @@ func test_court_report_names_a_diplomatic_act() -> void:
 	play.economy.free()
 
 
+## A study the spy watched is written into the chronicle, stamped with the turn
+## it resolved, so the dossier can weigh it long after the toast has gone
+## (DR-20261110-25).
+func test_a_shadowed_study_enters_the_dossier() -> void:
+	var play: PlaySession = _play_with_spy()
+	var report: Dictionary = {
+		"factions": {
+			RIVAL: {"resolved": {"research": {"researched": ["crop_rotation"]}}},
+		},
+	}
+	MapPlaySpies.report(play, [], [], report)
+	var events: Array = play.diplomacy.events
+	assert_eq(events.size(), 1, "one study, one observation")
+	var event: Dictionary = events[0] as Dictionary
+	assert_eq(String(event["kind"]), IntelEvidence.SPY_TECH)
+	assert_eq(String((event["data"] as Dictionary)["tech"]), "crop_rotation")
+	assert_eq(IntelEvidence.turn_of(event), 1, "stamped with the turn that resolved")
+	var scores: Dictionary = IntelDossier.suspicion(
+		IntelDossier.evidence(play.diplomacy, play.world, PLAYER, RIVAL)
+	)
+	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelEvidence.W_SPY_TECH)
+	play.hud.free()
+	play.economy.free()
+
+
+## Only a shadowed court's studies are read; a rival the spy does not watch
+## keeps its research (wiki: civilian-units § Spy — court reports).
+func test_an_unwatched_court_keeps_its_studies() -> void:
+	var play: PlaySession = _play_with_spy()
+	var report: Dictionary = {
+		"factions": {
+			2: {"resolved": {"research": {"researched": ["crop_rotation"]}}},
+		},
+	}
+	MapPlaySpies.report(play, [], [], report)
+	assert_true(play.diplomacy.events.is_empty(), "no spy, no despatch")
+	play.hud.free()
+	play.economy.free()
+
+
+## Builds are notes: the spy counts what the court's builders begin and the
+## dossier lists them without weighing an agenda (DR-20261110-25).
+func test_a_shadowed_build_reads_as_a_note_not_evidence() -> void:
+	var play: PlaySession = _play_with_spy()
+	var report: Dictionary = {
+		"factions": {
+			RIVAL: {
+				"civilians": {
+					"orders": [
+						{"action": "build_improvement"},
+						{"action": "build_improvement"},
+						{"action": "upgrade_town"},
+						{"action": "counter_spy"},
+					],
+				},
+			},
+		},
+	}
+	MapPlaySpies.report(play, [], [], report)
+	var notes: Dictionary = IntelDossier.report(play.diplomacy, play.world, PLAYER, RIVAL)["notes"]
+	var build: Dictionary = notes["build"] as Dictionary
+	assert_eq(int(build.get("improvement", 0)), 2)
+	assert_eq(int(build.get("town", 0)), 1)
+	assert_eq(int(notes["war"]), 0, "the build notes do not displace the behaviour counts")
+	var scores: Dictionary = IntelDossier.suspicion(
+		IntelDossier.evidence(play.diplomacy, play.world, PLAYER, RIVAL)
+	)
+	assert_true(scores.is_empty(), "a build weighs on no agenda")
+	play.hud.free()
+	play.economy.free()
+
+
 func test_court_report_stays_readable_after_the_toast() -> void:
 	var play: PlaySession = _play_with_spy()
 	var land: Dictionary = {

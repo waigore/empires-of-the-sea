@@ -31,7 +31,11 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
 		yard_rows(play, fleet), -1, landing_rows(play, fleet), carried(play, fleet),
 		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
-		MapPlayCivilianVoyage.crew(play, fleet))
+		MapPlayCivilianVoyage.crew(play, fleet),
+		NavalStrength.dossier(
+			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play)
+		)
+	)
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval

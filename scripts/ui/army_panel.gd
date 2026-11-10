@@ -8,9 +8,7 @@ signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
 
-var _flag: ColorRect = null
-var _title: Label = null
-var _dock: Button = null
+var _header: DossierHeader = null
 var _location: Label = null
 var _strength: Label = null
 var _command: Label = null
@@ -44,48 +42,27 @@ func _build() -> void:
 	shell.add_theme_constant_override("separation", 6)
 	add_child(shell)
 
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	shell.add_child(header)
+	_header = DossierHeader.make(19, true)
+	_header.dock_pressed.connect(func() -> void: dock_side_pressed.emit())
+	_header.close_pressed.connect(func() -> void: close_pressed.emit())
+	shell.add_child(_header)
 
-	_flag = ColorRect.new()
-	_flag.custom_minimum_size = Vector2(14, 14)
-	_flag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(_flag)
-
-	_title = Label.new()
-	_title.add_theme_font_override("font", UiTheme.serif())
-	_title.add_theme_font_size_override("font_size", 19)
-	_title.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	header.add_child(_title)
-
-	_dock = _small_button("◀", "Dock left")
-	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
-	header.add_child(_dock)
-
-	var close := _small_button("×", "Close")
-	close.add_theme_font_size_override("font_size", 20)
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	header.add_child(close)
-
-	_location = _line(15, Palette.TEXT)
+	_location = UiRowBuilder.line(15, Palette.TEXT)
 	shell.add_child(_location)
 
-	_strength = _line(13, Palette.TEXT_DIM)
+	_strength = UiRowBuilder.line(13, Palette.TEXT_DIM)
 	shell.add_child(_strength)
 
-	_command = _line(12, Palette.TEXT_DIM)
+	_command = UiRowBuilder.line(12, Palette.TEXT_DIM)
 	_command.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_command.visible = false
 	shell.add_child(_command)
 
-	_composition = _line(13, Palette.GOLD_PALE)
+	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	_composition.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	shell.add_child(_composition)
 
-	_muster_button = _make_button("Muster regiments")
+	_muster_button = UiRowBuilder.button("Muster regiments", 36.0, 0.0)
 	_muster_button.pressed.connect(func() -> void: set_muster_open(not _muster_open))
 	_muster_button.visible = false
 	shell.add_child(_muster_button)
@@ -114,17 +91,17 @@ func _build() -> void:
 	_muster_box.visible = false
 	content.add_child(_muster_box)
 
-	_merge = _make_button("Combine armies here")
+	_merge = UiRowBuilder.button("Combine armies here", 36.0, 0.0)
 	_merge.pressed.connect(func() -> void: action_pressed.emit("merge"))
 	_merge.visible = false
 	shell.add_child(_merge)
 
-	_embark = _make_button("Embark aboard the fleet")
+	_embark = UiRowBuilder.button("Embark aboard the fleet", 36.0, 0.0)
 	_embark.pressed.connect(func() -> void: action_pressed.emit("embark"))
 	_embark.visible = false
 	shell.add_child(_embark)
 
-	_plan = _make_button("Crown battle plan: Balanced")
+	_plan = UiRowBuilder.button("Crown battle plan: Balanced", 36.0, 0.0)
 	_plan.tooltip_text = (
 		"One plan for every battle this crown fights — tap to cycle "
 		+ "Aggressive / Balanced / Defensive"
@@ -133,24 +110,22 @@ func _build() -> void:
 	_plan.visible = false
 	shell.add_child(_plan)
 
-	_detach_all = _make_button("Detach all regiments")
+	_detach_all = UiRowBuilder.button("Detach all regiments", 36.0, 0.0)
 	_detach_all.pressed.connect(func() -> void: action_pressed.emit("detach_all"))
 	_detach_all.visible = false
 	shell.add_child(_detach_all)
 
-	_status = _line(13, Palette.GOLD_PALE)
+	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	shell.add_child(_status)
 
-	_hint = _line(11, Color(0.74, 0.68, 0.55, 0.75))
+	_hint = UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	shell.add_child(_hint)
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
-	if _dock == null:
-		return
-	_dock.text = glyph
-	_dock.tooltip_text = tip
+	if _header != null:
+		_header.set_dock_affordance(glyph, tip)
 
 
 ## Opens or closes the drill-yard list without rebuilding the dossier.
@@ -181,11 +156,11 @@ func refresh(
 ) -> void:
 	if model == null or army == null:
 		return
-	_flag.color = Palette.faction_color(army.owner)
+	_header.flag.color = Palette.faction_color(army.owner)
 	var title: String = "ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
 	if army.home:
 		title = "HOME ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
-	_title.text = title
+	_header.title.text = title
 	if army.is_embarked():
 		_location.text = "Aboard a fleet"
 	else:
@@ -239,19 +214,19 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		entry.add_child(row)
-		var label := _line(13, Palette.TEXT)
+		var label := UiRowBuilder.line(13, Palette.TEXT)
 		label.text = RegimentCatalog.display_name(type_id)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		# Regiment detail: category, stats and its share of the food bill.
-		var detail := _line(11, Color(0.74, 0.68, 0.55, 0.75))
+		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 		detail.text = RegimentCatalog.detail_line(type_id)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
 		_add_condition(entry, army, regiment_id)
 		if not is_player:
 			continue
-		var detach := _make_button("Detach")
+		var detach := UiRowBuilder.button("Detach", 36.0, 0.0)
 		detach.custom_minimum_size = Vector2(82, 32)
 		detach.add_theme_font_size_override("font_size", 12)
 		detach.pressed.connect(
@@ -272,12 +247,12 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", 8)
 		entry.add_child(top)
-		var name := _line(13, Palette.TEXT)
+		var name := UiRowBuilder.line(13, Palette.TEXT)
 		name.text = String(row["name"])
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		top.add_child(name)
-		var muster := _make_button("Muster")
+		var muster := UiRowBuilder.button("Muster", 36.0, 0.0)
 		muster.custom_minimum_size = Vector2(84, 40)
 		muster.add_theme_font_size_override("font_size", 12)
 		muster.disabled = not bool(row["ok"])
@@ -287,7 +262,7 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		var type_id: String = String(row["type_id"])
 		muster.pressed.connect(func() -> void: action_pressed.emit("recruit:%s" % type_id))
 		top.add_child(muster)
-		var detail := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+		var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
 		detail.text = (
 			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
 		)
@@ -323,7 +298,7 @@ func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) 
 			medals, "" if medals == 1 else "s", medals * 10
 		]
 		condition.add_child(badge)
-		var count := _line(11, Palette.GOLD)
+		var count := UiRowBuilder.line(11, Palette.GOLD)
 		count.text = "×%d" % medals
 		condition.add_child(count)
 	if fraction >= 0.999:
@@ -343,30 +318,6 @@ func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) 
 		"fill", UiTheme.box(fill, fill.lightened(0.20), 1, 2, Vector4.ZERO)
 	)
 	condition.add_child(bar)
-	var pct := _line(11, Palette.TEXT_DIM)
+	var pct := UiRowBuilder.line(11, Palette.TEXT_DIM)
 	pct.text = "%d%%" % roundi(fraction * 100.0)
 	condition.add_child(pct)
-
-
-func _line(size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
-func _small_button(text: String, tip: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.tooltip_text = tip
-	button.custom_minimum_size = Vector2(40, 40)
-	button.add_theme_font_size_override("font_size", 18)
-	return button
-
-
-func _make_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 36)
-	button.add_theme_font_size_override("font_size", 13)
-	return button

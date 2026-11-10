@@ -410,6 +410,17 @@ func _smoke_navy(screen: MapScreen) -> void:
 		MapPlayFleetMissions.rows(screen.play, fleet).size() > 0,
 		"fleet dossier offers a station"
 	)
+	# The dossier prints the combat maths the resolver fights with, and the map
+	# marker flies the squadron's hulls (wiki: ships-and-naval § Naval Strength).
+	_check(screen.hud._fleet_panel._strength.visible, "fleet strength block shows")
+	_check(
+		screen.hud._fleet_panel._strength._strength.text.contains("FRP"),
+		"fleet strength names its weights"
+	)
+	_check(
+		screen.ship_layer.ship_for(fleet).hull_count == fleet.ship_count(),
+		"fleet marker flies the squadron's hulls"
+	)
 	MapPlayFleets.on_action(screen.play, "mission:patrol")
 	_check(
 		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
@@ -666,6 +677,13 @@ func _uncharted_land_tile(screen: MapScreen) -> Vector2i:
 		return Vector2i(-1, -1)
 	for province: ProvinceState in screen.model.provinces:
 		if screen.visibility.is_province_fully_visible(int(province.id)):
+			continue
+		# Exploring a Minor/Tribe province needs a Consulate (wiki:
+		# civilian-units § Work Order Summary, Refs #3753 R4).
+		if (
+			province.owner != MapScreen.PLAYER_FACTION
+			and FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER
+		):
 			continue
 		if province.tiles.is_empty():
 			continue
