@@ -49,6 +49,8 @@ suites = [
 suites = [
   "test_civilian_field_rules.gd",
   "test_civilian_voyage.gd",
+  "test_espionage.gd",
+  "test_map_screen_crown_orders.gd",
 ]
 
 [domains.diplomacy]
@@ -75,6 +77,8 @@ suites = [
 
 [domains.espionage]
 suites = [
+  "test_espionage.gd",
+  "test_court_reports.gd",
   "test_spy_networks.gd",
   "test_visibility.gd",
   "test_research_turn.gd",
@@ -105,6 +109,7 @@ suites = [
 
 [domains.map]
 suites = [
+  "test_advanced_start.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -124,8 +129,14 @@ suites = [
   "test_world_setup.gd",
 ]
 
+[domains.advanced]
+suites = [
+  "test_advanced_start.gd",
+]
+
 [domains.menu]
 suites = [
+  "test_advanced_start.gd",
   "test_game_setup.gd",
   "test_main.gd",
   "test_menu_flow.gd",
@@ -277,11 +288,24 @@ match = "scripts/map_screen.gd"
 domain = "map"
 
 [[rules]]
+match = "scripts/rules/advanced_*.gd"
+domain = "advanced"
+
+[[rules]]
+match = "scripts/map/map_play_advanced.gd"
+domain = "advanced"
+
+[[rules]]
 match = "scripts/map/army_*.gd"
 domain = "army"
 
+# `map_play_armies.gd` is plural — `army*` does not match `armies` under fnmatch.
 [[rules]]
-match = "scripts/map/map_play_army*.gd"
+match = "scripts/map/map_play_armies.gd*"
+domain = "army"
+
+[[rules]]
+match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
 
 [[rules]]
@@ -296,13 +320,27 @@ domain = "ai"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
+# Turn close: combat stranding and spy resolve hang off this file; keep it off
+# the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
 [[rules]]
-match = "scripts/map/civilian_*.gd"
+match = "scripts/map/map_play_turn.gd*"
 domain = "civilian"
 
 [[rules]]
-match = "scripts/map/map_play_civilian*.gd"
+match = "scripts/map/civilian_*.gd*"
 domain = "civilian"
+
+[[rules]]
+match = "scripts/map/map_play_civilian*.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/map/map_play_spies.gd*"
+domain = "espionage"
+
+[[rules]]
+match = "scripts/map/map_play_spy_ai.gd*"
+domain = "espionage"
 
 [[rules]]
 match = "scripts/map/ship*.gd"
@@ -365,7 +403,11 @@ match = "scripts/rules/military_parity.gd"
 domain = "ai"
 
 [[rules]]
-match = "scripts/rules/civilian_*.gd"
+match = "scripts/rules/civilian_*.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/spy_*.gd*"
 domain = "civilian"
 
 [[rules]]
@@ -446,6 +488,10 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/spy_*.gd"
+domain = "espionage"
+
+[[rules]]
+match = "scripts/rules/court_reports.gd*"
 domain = "espionage"
 
 [[rules]]
@@ -706,6 +752,12 @@ domain = "fort"
 match = "tests/test_fog_*.gd"
 domain = "map"
 
+# Crown-order coverage for civilian stranding lives here; map it with the
+# civilian domain so a stranding assert does not pull the whole map suite set.
+[[rules]]
+match = "tests/test_map_screen_crown_orders.gd"
+domain = "civilian"
+
 [[rules]]
 match = "tests/test_map_*.gd"
 domain = "map"
@@ -771,10 +823,23 @@ match = "tests/test_panel_dock.gd"
 domain = "ui"
 
 # Espionage suites live with their rules, so a spy change never needs the full
-# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too).
+# run (scripts/rules/spy_*.gd, court_reports.gd and map_play_espionage.gd map
+# here too).
+[[rules]]
+match = "tests/test_espionage.gd*"
+domain = "espionage"
+
+[[rules]]
+match = "tests/test_court_reports.gd*"
+domain = "espionage"
+
 [[rules]]
 match = "tests/test_spy_*.gd*"
 domain = "espionage"
+
+[[rules]]
+match = "tests/test_advanced_start.gd*"
+domain = "advanced"
 
 [[rules]]
 match = "tests/test_*.gd"

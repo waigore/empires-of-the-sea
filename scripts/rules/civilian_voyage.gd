@@ -10,6 +10,9 @@ extends RefCounted
 ## and its orthogonal neighbours (fog-and-exploration § New World arrival).
 
 const NO_ID: int = MapModel.NO_ID
+## Types that may be put ashore on any coast; every other civilian needs crown
+## land (wiki: civilian-units § Overseas deployment).
+const ANY_COAST: Array[String] = ["explorer", "merchant"]
 
 
 ## Civilians a squadron can carry: one per hull.
@@ -145,14 +148,19 @@ static func disembark(
 	return {"ok": true, "reason": "", "tile": tile}
 
 
-## Builder/Engineer stay on crown land, Explorers and Merchants may land on any
-## coast (wiki: civilian-units § Relations).
+## Landing is stricter than walking: Explorers and Merchants may land on any
+## coast, while Builder, Engineer, Rail Builder and Spy need crown land — a
+## purchased deed counts (wiki: civilian-units § Overseas deployment;
+## DR-20261109-17). A Spy roams foreign provinces overland but cannot be put
+## ashore on a coast its crown does not hold.
 static func _can_go_ashore(
 	model: MapModel, unit: CivilianState, tile: Vector2i
 ) -> bool:
 	if unit.is_working():
 		return false
-	return CivilianMovement.may_enter(model, unit.type_id, unit.owner, tile)
+	if ANY_COAST.has(unit.type_id):
+		return CivilianMovement.may_enter(model, unit.type_id, unit.owner, tile)
+	return model.owner_at(tile.x, tile.y) == unit.owner
 
 
 static func _allow() -> Dictionary:

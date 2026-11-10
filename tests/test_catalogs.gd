@@ -369,7 +369,7 @@ func test_work_lists_match_the_wiki_table() -> void:
 	assert_eq(CivilianCatalog.works("explorer"), ["explore", "prospect"])
 	assert_eq(CivilianCatalog.works("builder"), ["build_improvement", "upgrade_town"])
 	assert_eq(CivilianCatalog.works("engineer"), ["build_road", "build_port", "build_fort"])
-	assert_eq(CivilianCatalog.works("spy"), [], "passive tradecraft only")
+	assert_eq(CivilianCatalog.works("spy"), ["counter_spy"], "screen plus passive tradecraft")
 	assert_eq(CivilianCatalog.works("merchant"), ["purchase_land"])
 	assert_eq(CivilianCatalog.works("rail_builder"), ["build_rail"])
 

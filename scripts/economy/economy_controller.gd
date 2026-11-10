@@ -164,6 +164,7 @@ func resolve_turn() -> Dictionary:
 		economy, market, extraction(), fleet_ships(), army_food(), true,
 		research_boost
 	)
+	research_boost = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.

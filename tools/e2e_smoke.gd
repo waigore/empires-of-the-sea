@@ -52,6 +52,10 @@ func _run() -> void:
 	setup.seed_field.text = SETUP_SEED
 	setup.size_option.select(SETUP_SIZE_INDEX)
 	_check(setup.leader_option.item_count > 0, "leader choices offered at setup")
+	_check(
+		setup.advanced_option != null and setup.advanced_option.item_count == 3,
+		"setup offers the advanced-start openings"
+	)
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 

@@ -145,16 +145,15 @@ static func _finish_turn(play: PlaySession) -> void:
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Minor Regiment Upgrade runs after movement and before combat (wiki:
-	# factions § Minor military parity).
+	# Minor Regiment Upgrade runs after movement, before combat (wiki: factions).
 	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
-	MapPlayArmies.resolve_battles(play)
-	_resolve_naval_combat(play)
+	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
+	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
+	MapPlaySpies.resolve(play)
+	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	_resolve_visibility(play)
-	# The human crown's terminal fall seals the session before any victory
-	# check: defeat never hands the conqueror a military win, nor opens that
-	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
-	# DR-20261109-05).
+	# The human crown's terminal fall seals the session before any victory check:
+	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
 		play.emit_turn_ended(play.turn)
 		return
@@ -177,9 +176,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
-	# Rival ledgers resolve on post-combat ownership and plan civilian work for
-	# the new turn; the observer runs every crown on that same pass.
+	# Rival ledgers resolve on post-combat ownership and plan the new turn.
+	var tech_before: Dictionary = MapPlayEspionage.tech_snapshot(play)
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
+	MapPlayEspionage.record_court_reports(play, land_battles, naval_battles, tech_before)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
@@ -209,6 +209,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	MapPlaySetup.build_lens(play)
+	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	play.emit_turn_ended(play.turn)
 
 
@@ -306,11 +307,10 @@ static func capital_world(play: PlaySession) -> Vector2:
 static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 	return play.model.capital_tile_of(province_id)
 
-
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
 ## § Naval Combat). Rules resolve the battle; this only prunes markers and
-## reports the outcome.
-static func _resolve_naval_combat(play: PlaySession) -> void:
+## reports the outcome. Returns the records for the court despatch.
+static func _resolve_naval_combat(play: PlaySession) -> Array[Dictionary]:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var tech_gate: Callable = play.has_tech
@@ -334,7 +334,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 			"A civilian went down with a sunken squadron — lost at sea"
 		)
 	if battles.is_empty():
-		return
+		return battles
 	for battle: Dictionary in battles:
 		var region: int = int(battle.get("region", play.region_index))
 		var model: MapModel = (
@@ -347,6 +347,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
+	return battles
 
 
 ## End-of-turn visibility for every region (wiki: fog-and-exploration). Knowledge
