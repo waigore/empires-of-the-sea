@@ -1,7 +1,11 @@
 class_name HudChrome
 extends RefCounted
-## Builds the map HUD's bars, toasts, minimap, zoom, end-turn seal, and panels.
-## GameHud keeps the runtime API; this only assembles the widgets.
+## Builds the map chrome: the cartouche bar, toasts, minimap, zoom, the lens and
+## Gazette seals, the lens key, the end-turn seal and the tooltip.
+##
+## The side dossiers live in HudDossiers and the cover plates in HudOverlays, so
+## this file only assembles chart furniture (REQ-P3-01). GameHud keeps the
+## runtime API.
 
 
 static func build(hud: GameHud) -> void:
@@ -10,21 +14,13 @@ static func build(hud: GameHud) -> void:
 	_zoom(hud)
 	_lens_button(hud)
 	_diplomacy_lens_button(hud)
+	_gazette_seal(hud)
 	_lens_key(hud)
 	_toasts(hud)
 	_end_turn(hud)
-	_province_panel(hud)
-	_fleet_panel(hud)
-	_economy_panel(hud)
-	_research_panel(hud)
-	DiplomacyHud.build(hud)
-	_civilian_panel(hud)
-	_civilian_roster(hud)
-	ArmyHud.build(hud)
+	HudDossiers.build(hud)
 	_tooltip(hud)
-	_victory_plate(hud)
-	_quick_battle_plate(hud)
-	_gazette_plate(hud)
+	HudOverlays.build(hud)
 
 
 static func _toasts(hud: GameHud) -> void:
@@ -94,40 +90,47 @@ static func _square_button(icon_name: String, caption: String) -> Button:
 	return button
 
 
-## The survey toggle lives beside the estates door: both are estate readings,
-## and the cartouche row is already at its measured width budget.
-static func _lens_button(hud: GameHud) -> void:
+## A left-rail toggle seal: the lenses sit in one row, each at a measured x so
+## the cartouche rail keeps its width budget.
+static func _lens_toggle(hud: GameHud, icon_name: String, tip: String, at: float) -> Button:
 	var button := Button.new()
 	button.toggle_mode = true
 	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	button.offset_left = 186.0
+	button.offset_left = at
 	button.offset_top = 132.0
-	button.offset_right = 242.0
+	button.offset_right = at + 56.0
 	button.offset_bottom = 176.0
-	button.tooltip_text = "Resource survey lens (L)"
-	ChromeIcons.apply(button, "lens", 22)
-	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
+	button.tooltip_text = tip
+	ChromeIcons.apply(button, icon_name, 22)
 	hud.add_child(button)
+	return button
+
+
+## The survey toggle lives beside the estates door: both are estate readings,
+## and the cartouche row is already at its measured width budget.
+static func _lens_button(hud: GameHud) -> void:
+	var button: Button = _lens_toggle(hud, "lens", "Resource survey lens (L)", 186.0)
+	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
 	hud._lens_button = button
 
 
 ## The diplomatic lens sits beside the survey seal on the same rail row; the
 ## cartouche row has no width left for another full button.
 static func _diplomacy_lens_button(hud: GameHud) -> void:
-	var button := Button.new()
-	button.toggle_mode = true
-	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	button.offset_left = 252.0
-	button.offset_top = 132.0
-	button.offset_right = 308.0
-	button.offset_bottom = 176.0
-	button.tooltip_text = "Diplomatic lens (P)"
-	ChromeIcons.apply(button, "diplomacy", 22)
+	var button: Button = _lens_toggle(hud, "diplomacy", "Diplomatic lens (P)", 252.0)
 	button.toggled.connect(
 		func(active: bool) -> void: hud.diplomacy_lens_pressed.emit(active)
 	)
-	hud.add_child(button)
 	hud._diplomacy_lens_button = button
+
+
+## A cartouche seal reopens the crown's news, after the two lens seals on the
+## rail; the sheet it opens is a HudOverlays plate.
+static func _gazette_seal(hud: GameHud) -> void:
+	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")
+	seal.position = Vector2(314.0, 132.0)
+	seal.pressed.connect(func() -> void: hud.gazette_pressed.emit())
+	hud.add_child(seal)
 
 
 static func _lens_key(hud: GameHud) -> void:
@@ -190,143 +193,6 @@ static func _end_turn(hud: GameHud) -> void:
 	pulse.tween_property(hud._glow, "modulate:a", 1.0, 1.4).set_trans(Tween.TRANS_SINE)
 
 
-static func _province_panel(hud: GameHud) -> void:
-	hud._panel_wrap = Control.new()
-	hud._panel_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._panel_wrap.offset_left = -GameHud.PANEL_MARGIN
-	hud._panel_wrap.offset_right = GameHud.PANEL_WIDTH - GameHud.PANEL_MARGIN
-	hud._panel_wrap.offset_top = 84.0
-	hud._panel_wrap.offset_bottom = -104.0
-	hud._panel_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud._panel_wrap.visible = false
-	hud.add_child(hud._panel_wrap)
-
-	hud._panel = ProvincePanel.new()
-	hud._panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._panel.action_pressed.connect(func(action: String) -> void: hud.panel_action.emit(action))
-	hud._panel.close_pressed.connect(func() -> void: hud.panel_closed.emit())
-	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
-	hud._panel_wrap.add_child(hud._panel)
-
-
-static func _fleet_panel(hud: GameHud) -> void:
-	hud._fleet_wrap = Control.new()
-	hud._fleet_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._fleet_wrap.offset_left = -GameHud.PANEL_MARGIN
-	hud._fleet_wrap.offset_right = GameHud.PANEL_WIDTH - GameHud.PANEL_MARGIN
-	hud._fleet_wrap.offset_top = 84.0
-	hud._fleet_wrap.offset_bottom = -104.0
-	hud._fleet_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud._fleet_wrap.visible = false
-	hud.add_child(hud._fleet_wrap)
-
-	hud._fleet_panel = FleetPanel.new()
-	hud._fleet_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._fleet_panel.close_pressed.connect(func() -> void: hud.fleet_closed.emit())
-	hud._fleet_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
-	hud._fleet_panel.action_pressed.connect(func(action: String) -> void:
-		hud.fleet_action.emit(action)
-	)
-	hud._fleet_wrap.add_child(hud._fleet_panel)
-
-
-static func _economy_panel(hud: GameHud) -> void:
-	hud._economy_wrap = Control.new()
-	hud._economy_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._economy_wrap.offset_left = -520.0
-	hud._economy_wrap.offset_right = -GameHud.PANEL_MARGIN
-	hud._economy_wrap.offset_top = 84.0
-	hud._economy_wrap.offset_bottom = -104.0
-	hud._economy_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	hud._economy_wrap.visible = false
-	hud.add_child(hud._economy_wrap)
-
-	hud._economy_panel = EconomyPanel.new()
-	hud._economy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
-	hud._economy_wrap.add_child(hud._economy_panel)
-
-
-static func _research_panel(hud: GameHud) -> void:
-	hud._research_wrap = Control.new()
-	hud._research_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._research_wrap.offset_left = -520.0
-	hud._research_wrap.offset_right = -GameHud.PANEL_MARGIN
-	hud._research_wrap.offset_top = 84.0
-	hud._research_wrap.offset_bottom = -104.0
-	hud._research_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	hud._research_wrap.visible = false
-	hud.add_child(hud._research_wrap)
-
-	hud._research_panel = ResearchPanel.new()
-	hud._research_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._research_panel.close_pressed.connect(func() -> void: hud.panels.hide_research())
-	hud._research_wrap.add_child(hud._research_panel)
-
-
-static func _civilian_panel(hud: GameHud) -> void:
-	hud._civilian_wrap = Control.new()
-	hud._civilian_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._civilian_wrap.offset_left = -GameHud.PANEL_MARGIN
-	hud._civilian_wrap.offset_right = GameHud.PANEL_WIDTH - GameHud.PANEL_MARGIN
-	hud._civilian_wrap.offset_top = 84.0
-	hud._civilian_wrap.offset_bottom = -104.0
-	hud._civilian_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud._civilian_wrap.visible = false
-	hud.add_child(hud._civilian_wrap)
-
-	hud._civilian_panel = CivilianPanel.new()
-	hud._civilian_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	hud._civilian_panel.action_pressed.connect(func(action: String) -> void:
-		hud.civilian_action.emit(action)
-	)
-	hud._civilian_panel.cancel_pressed.connect(func() -> void: hud.civilian_cancel.emit())
-	hud._civilian_panel.close_pressed.connect(func() -> void: hud.civilian_closed.emit())
-	hud._civilian_panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
-	hud._civilian_wrap.add_child(hud._civilian_panel)
-
-
-## Whole-empire civilian roster: its own canvas layer above the pause menu, so
-## the ledger is truly modal (the menu trigger cannot bleed through the panel).
-static func _civilian_roster(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "CivilianRosterLayer"
-	layer.layer = 6
-	hud.add_child(layer)
-	hud.civilian_roster = CivilianRosterPanel.new()
-	layer.add_child(hud.civilian_roster)
-	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
-
-
-## Campaign-end plate: built last so it covers every dossier (wiki: victory).
-static func _victory_plate(hud: GameHud) -> void:
-	hud.victory_overlay = VictoryOverlay.new()
-	hud.victory_overlay.z_index = 40
-	hud.victory_overlay.dismissed.connect(func() -> void: hud.victory_dismissed.emit())
-	hud.add_child(hud.victory_overlay)
-
-
-## Quick Battle plate: above the dossiers, below the campaign-end plate.
-static func _quick_battle_plate(hud: GameHud) -> void:
-	hud.quick_battle_overlay = QuickBattleOverlay.new()
-	hud.quick_battle_overlay.z_index = 35
-	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
-	hud.add_child(hud.quick_battle_overlay)
-
-
-## The crown's news sheet: over the dossiers, under the Quick Battle and
-## campaign-end plates, and soft — it never takes the whole screen.
-static func _gazette_plate(hud: GameHud) -> void:
-	hud.gazette_plate = GazettePlate.new()
-	hud.gazette_plate.z_index = 30
-	hud.add_child(hud.gazette_plate)
-	# A cartouche seal reopens the news, after the two lens seals on the rail.
-	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")
-	seal.position = Vector2(314.0, 132.0)
-	seal.pressed.connect(func() -> void: hud.gazette_pressed.emit())
-	hud.add_child(seal)
-
-
 static func _tooltip(hud: GameHud) -> void:
 	hud._tooltip = PanelContainer.new()
 	var style := UiTheme.box(
@@ -376,25 +242,3 @@ static func set_region_label(hud: GameHud, label: String, switchable: bool = tru
 	hud._region_button.tooltip_text = (
 		"Switch region — %s" % label if switchable else "%s — only charted region" % label
 	)
-
-
-static func format(value: int) -> String:
-	var text: String = str(absi(value))
-	var out: String = ""
-	var count: int = 0
-	for i in range(text.length() - 1, -1, -1):
-		out = text[i] + out
-		count += 1
-		if count % 3 == 0 and i > 0:
-			out = "," + out
-	return ("-" if value < 0 else "") + out
-
-
-## Signed per-turn movement for the treasury plaque. Keeps the chip a fixed
-## width: five figures collapse to "12.4k" instead of pushing the bar.
-static func format_delta(value: int) -> String:
-	var size: int = absi(value)
-	var text: String = format(size)
-	if size >= 10000:
-		text = "%d.%dk" % [size / 1000, (size % 1000) / 100]
-	return ("+" if value >= 0 else "-") + text

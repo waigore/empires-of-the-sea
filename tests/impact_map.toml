@@ -204,6 +204,7 @@ suites = [
 suites = [
   "test_catalogs.gd",
   "test_difficulty.gd",
+  "test_ledger_helpers.gd",
   "test_misc_rules.gd",
 ]
 
@@ -1142,6 +1143,16 @@ domain = "advanced"
 [[rules]]
 match = "tests/test_hud_toast.gd*"
 domain = "menu"
+
+# Number text is a pure helper shared by the ledger and the HUD: its own unit
+# suite proves a formatter change instead of the whole-tree fallback.
+[[rules]]
+match = "scripts/ui/text_format.gd*"
+domain = "misc"
+
+[[rules]]
+match = "tests/test_ledger_helpers.gd*"
+domain = "misc"
 
 [[rules]]
 match = "tests/test_*.gd"

@@ -14,6 +14,14 @@ func test_thousands_groups_and_keeps_the_sign() -> void:
 	assert_eq(TextFormat.thousands(-1234), "-1,234")
 
 
+func test_delta_signs_and_keeps_the_chip_narrow() -> void:
+	assert_eq(TextFormat.delta(0), "+0", "a quiet turn still reads as a signed figure")
+	assert_eq(TextFormat.delta(240), "+240")
+	assert_eq(TextFormat.delta(-1250), "-1,250")
+	assert_eq(TextFormat.delta(10000), "+10.0k", "five figures collapse")
+	assert_eq(TextFormat.delta(-12340), "-12.3k")
+
+
 # --- LedgerText --------------------------------------------------------------
 
 

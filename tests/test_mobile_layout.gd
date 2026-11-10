@@ -188,7 +188,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
 		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
 	assert_eq(
-		hud._income_label.text, HudChrome.format_delta(_screen.play.income),
+		hud._income_label.text, TextFormat.delta(_screen.play.income),
 		"treasury shows the projected turn income"
 	)
 
