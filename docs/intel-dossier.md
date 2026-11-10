@@ -28,8 +28,7 @@ sheet over the map.
 | Timeline | Every observation, newest first, stamped |
 | Behaviour | War/alliance/peace counts plus the spy's **build notes** |
 
-The best-guess row starts open; the rest fold, so it reads as a table first.
-Back/Escape closes it (`REQ-P5-07`).
+The best-guess row starts open; Back/Escape closes it (`REQ-P5-07`).
 
 ## Evidence rules (DR-20261110-05, DR-20261110-25)
 
@@ -51,8 +50,8 @@ every save carries.
 | Absorbed a court | warmonger | 1 |
 | Study seen by your spy | tech_thief | 2 |
 
-Spy observations are written for the crown that posted the spy, stamped
-with their turn. A court's **builds** (estate, town, road, port, fort, rail)
+Spy observations belong to the crown that posted them, stamped with their turn.
+A court's **builds** (estate, town, road, port, fort, rail)
 under a spy's eye are notes, not evidence: they weigh on no agenda. Research is
 otherwise hidden, so `tech_thief` has no other path.
 
@@ -63,19 +62,21 @@ against the viewer's contacts.
 
 | File | Role |
 |------|------|
-| `scripts/rules/intel_dossier.gd` | evidence, weights, bands, timelines, notes |
+| `scripts/rules/intel_evidence.gd` | the chronicle read: weights, act copy, cap, masking |
+| `scripts/rules/intel_dossier.gd` | bands, agenda rows, timelines, notes |
 | `scripts/ui/court_dossier.gd` | the summary block in the court panel |
 | `scripts/ui/court_dossier_screen.gd` | the full sheet and its timelines |
 | `scripts/map/map_play_spies.gd` | writes a shadowed court's studies and builds |
 
-Rules need no nodes; the UI renders what they return. The dossier never reads
+The dossier never reads
 `AiState`, so the truth cannot leak.
 
 ## Tests
 
-`tests/test_intel_dossier.gd`, `tests/test_court_dossier_screen.gd`, plus the
-dossier cases in `tests/test_diplomacy_panel.gd`, `tests/test_espionage.gd`.
+`tests/test_intel_evidence.gd`, `tests/test_intel_dossier.gd`,
+`tests/test_court_dossier_screen.gd`, plus the dossier cases in
+`tests/test_diplomacy_panel.gd`, `tests/test_espionage.gd`.
 
 ```bash
-gd-tools test --no-cache tests/test_intel_dossier.gd tests/test_court_dossier_screen.gd tests/test_diplomacy_panel.gd tests/test_espionage.gd
+gd-tools test --no-cache tests/test_intel_evidence.gd tests/test_intel_dossier.gd tests/test_court_dossier_screen.gd tests/test_diplomacy_panel.gd tests/test_espionage.gd
 ```

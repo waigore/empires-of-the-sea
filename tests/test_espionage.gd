@@ -466,13 +466,13 @@ func test_a_shadowed_study_enters_the_dossier() -> void:
 	var events: Array = play.diplomacy.events
 	assert_eq(events.size(), 1, "one study, one observation")
 	var event: Dictionary = events[0] as Dictionary
-	assert_eq(String(event["kind"]), IntelDossier.SPY_TECH)
+	assert_eq(String(event["kind"]), IntelEvidence.SPY_TECH)
 	assert_eq(String((event["data"] as Dictionary)["tech"]), "crop_rotation")
-	assert_eq(IntelDossier.turn_of(event), 1, "stamped with the turn that resolved")
+	assert_eq(IntelEvidence.turn_of(event), 1, "stamped with the turn that resolved")
 	var scores: Dictionary = IntelDossier.suspicion(
 		IntelDossier.evidence(play.diplomacy, play.world, PLAYER, RIVAL)
 	)
-	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelDossier.W_SPY_TECH)
+	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelEvidence.W_SPY_TECH)
 	play.hud.free()
 	play.economy.free()
 
