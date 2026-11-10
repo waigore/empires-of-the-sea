@@ -55,7 +55,7 @@ DR-20261110-27.
 | `scripts/rules/quick_battle_battery.gd` | virtual guns and fort downgrade |
 | `scripts/rules/auto_siege.gd` | auto-resolve counter-battery and downgrade |
 | `scripts/rules/civilian_work.gd` | `build_fort` target and completion |
-| `scripts/ui/quick_battle_art.gd`, `quick_battle_field.gd` | wall, gates, ground |
+| `scripts/ui/battle_plate.gd`, `quick_battle_field.gd` | wall, gates, ground |
 | `scripts/rules/battle_scenario.gd` | sandbox battle for [battle-sim.md](battle-sim.md) |
 
 Node-free: dossier reads `fort_level` (`REQ-P3-03`).
