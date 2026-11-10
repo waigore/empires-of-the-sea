@@ -311,3 +311,28 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	assert_true((row.get_child(1) as Label).text.contains("Spear cavalry"))
 	assert_true(String(panel._status.text).contains("Enemy colours"))
 	panel.free()
+
+
+## The dossier shows a regiment's own record: chevrons for experience and a
+## health bar while it is still mauled (wiki: combat § Strength; DR-20261110-19).
+func test_roster_shows_chevrons_and_wounds() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(5, 0, 1, ["guards"], false)
+	var regiment: String = army.regiments[0]
+	army.regiment_medals[regiment] = 2
+	army.regiment_health[regiment] = 60
+
+	panel.refresh(model, army, true)
+
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_eq(row.get_child_count(), 3, "name row, detail, condition")
+	var condition: HBoxContainer = row.get_child(2)
+	assert_true(condition.get_child(0) is TextureRect, "the chevron medallion")
+	assert_eq((condition.get_child(1) as Label).text, "×2")
+	var bar: ProgressBar = condition.get_child(2)
+	assert_almost_eq(bar.value, 0.5, 0.01, "half the pool shows half the bar")
+	assert_eq((condition.get_child(3) as Label).text, "50%")
+	assert_true(String(panel._strength.text).contains("2 chevrons"))
+	panel.free()

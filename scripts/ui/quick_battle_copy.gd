@@ -20,6 +20,9 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 		text += " · %d lost" % inflicted
 	if own > 0:
 		text += " · %d of its own" % own
+	var mauled: int = int(action.get("mauled", 0))
+	if mauled > 0:
+		text += " · %d mauled" % mauled
 	var guns: int = int(action.get("guns_destroyed", 0))
 	if guns > 0:
 		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
@@ -30,6 +33,23 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 		text += " · %d behind the wall" % behind
 	if inflicted <= 0 and int(action.get("turned", 0)) > 0:
 		text += " · the wall turns it aside"
+	return text
+
+
+## The stance line the plate prints: the player's own plan first (it is the one
+## the player set, and on the defending side the report's `plan` belongs to the
+## attacker), then the enemy's script and any emplaced battery.
+static func plan_text(battle: Dictionary) -> String:
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var mine: String = String(quick.get("plan", "balanced"))
+	var theirs: String = String(quick.get("defender_plan", "defensive"))
+	if int(battle.get("player_faction", -1)) == int(battle.get("defender", -1)):
+		mine = String(quick.get("defender_plan", "defensive"))
+		theirs = String(quick.get("plan", "balanced"))
+	var text: String = "Your plan: %s · enemy: %s" % [mine.capitalize(), theirs.capitalize()]
+	var guns: int = int(quick.get("guns_start", 0))
+	if guns > 0:
+		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
 	return text
 
 
@@ -73,6 +93,62 @@ static func loss_line(battle: Dictionary, names: Array) -> String:
 	if parts.is_empty():
 		return ""
 	return "Losses — " + " · ".join(parts)
+
+
+## Aftermath condition: the worst-hit survivors each side still has, by type and
+## health. Empty when both lines are unbroken.
+static func health_line(battle: Dictionary, names: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var entries: Array = _wounded(battle, key)
+		if entries.is_empty():
+			continue
+		var listed: PackedStringArray = PackedStringArray()
+		for entry: Dictionary in entries:
+			listed.append("%s %d%%" % [
+				RegimentCatalog.display_name(String(entry.get("type", ""))),
+				roundi(float(entry.get("fraction", 1.0)) * 100.0),
+			])
+		parts.append("%s: %s" % [
+			faction(int(battle.get(key, -1)), names), ", ".join(listed)
+		])
+	if parts.is_empty():
+		return ""
+	return "Mauled — " + " · ".join(parts)
+
+
+## Chevrons the winning survivors won, side by side. Empty when nobody rose.
+static func chevron_line(battle: Dictionary, names: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var gained: int = int(battle.get(key + "_chevrons", 0))
+		if gained <= 0:
+			continue
+		parts.append("%s: %d regiment%s rise a chevron" % [
+			faction(int(battle.get(key, -1)), names), gained, "" if gained == 1 else "s"
+		])
+	if parts.is_empty():
+		return ""
+	return "Chevrons — " + " · ".join(parts)
+
+
+## Up to three survivors under full strength, worst first.
+static func _wounded(battle: Dictionary, key: String) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var raw_entries: Array = battle.get(key + "_health", []) as Array
+	for raw: Variant in raw_entries:
+		var entry: Dictionary = raw as Dictionary
+		if float(entry.get("fraction", 1.0)) >= 0.999:
+			continue
+		entries.append(entry)
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if not is_equal_approx(float(a["fraction"]), float(b["fraction"])):
+			return float(a["fraction"]) < float(b["fraction"])
+		return String(a.get("id", "")) < String(b.get("id", ""))
+	)
+	if entries.size() > 3:
+		entries.resize(3)
+	return entries
 
 
 static func outcome_text(

@@ -57,6 +57,10 @@ static func resolve(
 		"turned": 0,
 		"sortie": false,
 		"guard": 0.0,
+		"hits": [] as Array[Dictionary],
+		"mauled": 0,
+		"own_hits": [] as Array[Dictionary],
+		"own_mauled": 0,
 	}
 	if action == "maneuver":
 		me["cohesion"] = mini(3, int(me["cohesion"]) + 1)
@@ -109,6 +113,11 @@ static func resolve(
 	elif wanted > 0:
 		lost = ArmyCombat.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
 	enemy["lost"].append_array(lost)
+	# The blow that broke a regiment also mauls the men still standing: the
+	# plate shows every survivor's health drop (wiki: combat § Strength).
+	var pool: float = float(lost.size()) * RegimentCondition.HP_PER_SLOT
+	entry["hits"] = RegimentCondition.damage_side(enemy_side, pool, int(enemy["limit"]))
+	entry["mauled"] = (entry["hits"] as Array).size()
 	if key == "attacker":
 		entry["defender_lost"] = lost.size()
 	else:
@@ -126,11 +135,14 @@ static func _pay_own(
 	if self_ratio <= 0.0:
 		return entry
 	var own_side: Array[ArmyState] = me["side"]
+	var wanted_own: int = ceili(self_ratio * float(ArmyCombat.side_regiments(own_side)))
 	var own: Array[String] = ArmyCombat.apply_losses(
-		armies, own_side, ceili(self_ratio * float(ArmyCombat.side_regiments(own_side))),
-		int(me["limit"])
+		armies, own_side, wanted_own, int(me["limit"])
 	)
 	me["lost"].append_array(own)
+	var pool: float = float(own.size()) * RegimentCondition.HP_PER_SLOT
+	entry["own_hits"] = RegimentCondition.damage_side(own_side, pool, int(me["limit"]))
+	entry["own_mauled"] = (entry["own_hits"] as Array).size()
 	if key == "attacker":
 		entry["attacker_lost"] = int(entry["attacker_lost"]) + own.size()
 	else:

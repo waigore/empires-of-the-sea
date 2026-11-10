@@ -21,21 +21,10 @@ enum Outcome {
 	ATTACKER_ADVANTAGE,
 }
 
-const RECOVERY_SHARE: float = 0.2
 ## Great Power military era for garrison recovery; Minors/Tribes stay at 1.
 const GREAT_POWER_ERA: int = 4
 const MINOR_ERA: int = 1
 
-## Ratio bands (wiki: combat § Auto-resolve ratio bands and loss fractions).
-## A band's `min` is inclusive unless `exclusive` says otherwise; the wiki's
-## `0.67 < ratio < 1.0` row must not claim ratio == 0.67, which belongs to the
-## `ratio <= 0.67` defender-victory band.
-const BANDS: Array[Dictionary] = [
-	{"min": 1.5, "attacker": 0.15, "defender": 1.0},
-	{"min": 1.0, "attacker": 0.3, "defender": 0.6},
-	{"min": 0.67, "attacker": 0.5, "defender": 0.4, "exclusive": true},
-	{"min": 0.0, "attacker": 1.0, "defender": 0.15},
-]
 
 
 ## Provinces where a Great Power army ended movement in land it does not own.
@@ -148,7 +137,7 @@ static func _exchange(
 		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
 		int(atk_mods["fort"]))
 	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
-	var band: Dictionary = band_for(ratio)
+	var band: Dictionary = ArmyBands.for_ratio(ratio)
 	var attacker_lost: Array[String] = apply_losses(
 		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
@@ -156,8 +145,24 @@ static func _exchange(
 		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
 		* float(def_mods["loss_scale"])), def_limit
 	)
+	# Survivors carry the field's wear: the side that lost more is mauled more
+	# (wiki: combat § Strength — damaged units fight weaker).
+	RegimentCondition.wear(
+		attacking,
+		RegimentCondition.WOUND_SHARE
+		* float(attacker_lost.size()) / float(maxi(atk_deployed, 1)),
+		atk_limit
+	)
+	RegimentCondition.wear(
+		defending,
+		RegimentCondition.WOUND_SHARE
+		* float(defender_lost.size()) / float(maxi(initial_defenders, 1)),
+		def_limit
+	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
 	var def_left: int = side_regiments(armies_of(armies, province, defender))
+	var atk_up: int = 0
+	var def_up: int = 0
 	var report: Dictionary = {
 		"province": province,
 		"attacker": attacker,
@@ -178,51 +183,33 @@ static func _exchange(
 		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
+		atk_up = RegimentCondition.award_side(attacking)
 		report["medal_gain"] = ArmyCommand.award(context, attacking, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
+		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
 	if def_left == 0:
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
 		if further:
-			var recovery: Dictionary = recover_garrison(
+			var recovery: Dictionary = ArmyGarrison.recover(
 				armies, province, defender, initial_defenders
 			)
 			report["garrison"] = int(recovery.get("count", 0))
 			report["recovered_type"] = String(recovery.get("type", ""))
+		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
 	if atk_left == 0:
 		report["outcome"] = Outcome.DEFENDER_VICTORY
+		def_up = RegimentCondition.award_side(defending)
 		report["medal_gain"] = ArmyCommand.award(context, defending, defender)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = defender
+		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
 	report["outcome"] = Outcome.STALEMATE
+	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 	return report
-
-
-## Restores 20% (ceil, at least one, never above the initial count) of the
-## defender's starting regiments as the era's most advanced infantry.
-static func recover_garrison(
-	armies: Array[ArmyState], province: int, defender: int, initial: int
-) -> Dictionary:
-	if initial <= 0:
-		return {"count": 0, "type": ""}
-	var count: int = clampi(ceili(float(initial) * RECOVERY_SHARE), 1, initial)
-	var type_id: String = RegimentCatalog.garrison_type_for(era_for(defender))
-	var types: Array[String] = []
-	for _index in count:
-		types.append(type_id)
-	var army := ArmyState.muster(
-		ArmyCommand.next_army_id(armies),
-		defender,
-		province,
-		false,
-		types,
-		ArmyCommand.next_unit_number(armies)
-	)
-	armies.append(army)
-	return {"count": count, "type": type_id}
 
 
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
@@ -236,17 +223,19 @@ static func apply_losses(
 		if army == null or not armies.has(army):
 			continue
 		for regiment_id: String in army.regiments:
-			var type_id: String = army.type_of(regiment_id)
-			if accept.is_valid() and not bool(accept.call(type_id)):
+			var data: Dictionary = army.condition_of(regiment_id)
+			if accept.is_valid() and not bool(accept.call(String(data["type"]))):
 				continue
 			candidates.append({
 				"army": army,
 				"id": regiment_id,
-				"rank": RegimentCatalog.strength(type_id),
+				"rank": ArmyModifiers.rank_of(
+					String(data["type"]), int(data["medals"]), float(data["fraction"])
+				),
 			})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["rank"]) != int(b["rank"]):
-			return int(a["rank"]) < int(b["rank"])
+		if not is_equal_approx(float(a["rank"]), float(b["rank"])):
+			return float(a["rank"]) < float(b["rank"])
 		return String(a["id"]) < String(b["id"])
 	)
 	var pool_start: int = 0
@@ -334,20 +323,11 @@ static func has_third_party(
 
 
 static func band_for(ratio: float) -> Dictionary:
-	for band: Dictionary in BANDS:
-		var low: float = float(band["min"])
-		if bool(band.get("exclusive", false)):
-			if ratio > low:
-				return band
-		elif ratio >= low:
-			return band
-	return BANDS[BANDS.size() - 1]
+	return ArmyBands.for_ratio(ratio)
 
 
 static func era_for(faction_id: int) -> int:
-	if FactionCatalog.type_of(faction_id) == FactionCatalog.Type.GREAT_POWER:
-		return GREAT_POWER_ERA
-	return MINOR_ERA
+	return ArmyGarrison.era_for(faction_id)
 
 
 static func outcome_label(outcome: int) -> String:

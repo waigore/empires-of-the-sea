@@ -1,7 +1,5 @@
 # Land armies
 
-Land military: roster, training, armies, generals, marches, battles, capture.
-
 **Pillars:** P2, P3, P1, P4, P5. **Wiki:**
 [military-armies](https://github.com/waigore/empires-of-the-sea/wiki/military-armies),
 [military-units](https://github.com/waigore/empires-of-the-sea/wiki/military-units),
@@ -11,58 +9,57 @@ Land military: roster, training, armies, generals, marches, battles, capture.
 ## Implemented
 
 - **Roster and training** (`RegimentCatalog`, `RegimentEconomy`,
-  `ArmyTraining`): 29 tech-gated regiments with FPN/FPM/RNG/DEF/MVR, era,
-  cost and inputs; recruits join the Home Army at the capital.
+  `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and
+  inputs; recruits join the Home Army at the capital.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power, cap
-  2→4 by tech; one per army each Combat phase, seeded by turn; medals 0–4,
-  +1 per win.
-- **Persistence:** saves carry general pools, medals, feeding and leader keys
-  (`LeaderCatalog`); a save without pools rebuilds the court from tech caps.
+  2→4 by tech; one per army each Combat phase; medals 0–4,
+  +1 per win, saved with the court.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier.
 - **Armies** (`ArmyState`): one province per army of `unit_<n>` regiments.
-  One Home Army per faction at its capital, never deleted or marching; detach
-  regiments to form field armies. Split/combine needs one province and owner;
-  the Home Army is the merge target.
-- **Movement:** one march per turn; own connected territory is reachable;
-  foreign land must border.
+  One Home Army per faction at its capital, never deleted; detach regiments
+  for field armies. One march per turn; own land is reachable, foreign land
+  must border.
 - **Naval transport** (`NavalTransport`, `ArmyTransport`): a field army boards
-  a squadron in port (one regiment per hull), sails or crosses a passage, and
-  lands on an owned coast; boarding/landing spend its march. Troops drown with
-  a sunk squadron; hostile shores need a beachhead.
+  a squadron in port (one regiment per hull) and lands on an owned coast;
+  boarding/landing spend its march; troops drown with a sunk squadron.
 - **Upkeep:** 1–3 food per regiment by era, before navy.
-- **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by
-  modifiers; wiki ratio bands, weakest-first; elimination precedes a flip;
-  initiative orders attackers. Mutual annihilation restores `ceil(20%)` of the
-  defender's start as era-best infantry.
-- **Quick Battle** (`QuickBattle`, wiki: quick-battle): the human's battles run
-  three rounds at 3 CP a side; the dossier cycles aggressive/balanced/
-  defensive. Virtual guns soak fire and can lower the fort; sieges route
-  casualties through `SiegeLanes` (wall/behind, sortie), and the plate ends on
-  per-type losses and any breach.
+- **Combat:** `Σ (FPN + FPM)` over the deployed slice, each regiment scaled by
+  chevrons (0–4, ×1.0–1.4) and health; DEF/9 durability; wiki ratio bands,
+  weakest-first; elimination precedes a flip. Mutual annihilation restores
+  `ceil(20%)` of the defender's start as era-best infantry.
+- **Regiment condition** (`RegimentCondition`, DR-20261110-19): every instance
+  carries health (`60 + 10 × DEF`) and chevrons, saved with the army. A blow
+  that breaks a regiment mauls the survivors; wounds never destroy alone;
+  winning survivors gain a chevron (cap 4); the wounded recover a quarter of
+  their pool each turn.
+- **Quick Battle** (`QuickBattle`): the human's battles run three rounds at
+  3 CP a side; the dossier cycles aggressive/balanced/defensive. Virtual guns
+  soak fire and can lower the fort; sieges split casualties wall/behind
+  (`SiegeLanes`). The plate floats `−N` damage, draws a
+  health chip and chevrons per regiment, and ends on losses, mauled men,
+  chevrons won and any breach.
 - **Minor parity:** Minor Nation regiments match the leading Great Power's era;
   Tribes stay at level 1.
-- **Unopposed:** an army ending in hostile or neutral land with no
-  defenders or armed third faction takes it at combat start.
-- **Dossier:** composition, strength, food, commander, orders, dock; roster
-  rows carry category, FPN/FPM, RNG/DEF/MVR and food; `TROOPS` counts every
-  region.
+- **Unopposed:** an army ending in hostile or neutral land with no armed
+  defenders takes it at combat start.
+- **Dossier:** composition, strength, food, commander, orders, dock; rows
+  carry stats, chevrons and a health bar while mauled.
 
 ## Deferred (REQ-P2-02)
 
-Difficulty · regiment medals and health. Sieges read the province fort; see
-[forts.md](forts.md).
+Tactical-stat Quick Battle aggregation (`FPN/FPM`), hospitals, per-regiment
+names. Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
 
-Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
-`regiment_economy`, `army_training`, `army_state`, `general_roster`,
-`general_binding`, `army_modifiers`, `army_command`, `army_movement`,
-`army_combat`, `quick_battle`, `quick_battle_actions`, `quick_battle_battery`,
-`siege_lanes`, `naval_transport`. View: `map/army_layer` + `army_marker`,
-`map/army_transport`, `map/map_play_armies`, `map/map_play_army_ai`,
-`ui/army_panel`, `economy/economy_controller`, `map_screen`.
+Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
+`regiment_economy`, `army_training`, `army_state`, `regiment_condition`,
+`general_roster`, `general_binding`, `army_modifiers`, `army_command`,
+`army_movement`, `army_combat`, `army_bands`, `army_garrison`, `quick_battle*`,
+`siege_lanes`, `naval_transport`. View: `map/army_layer`, `map/army_transport`,
+`map/map_play_armies`, `ui/army_panel`, `ui/quick_battle_*`, `map_screen`.
 
 ## Controls
 
