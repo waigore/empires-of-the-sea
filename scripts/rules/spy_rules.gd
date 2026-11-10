@@ -60,14 +60,21 @@ static func has_counter_spy(units: Array, owner: int) -> bool:
 ## defected spies change owner to the tile owner. Returns one event per
 ## consequence: {kind: "killed"|"defected", unit, owner, province,
 ## territory_owner}. Dice are seeded per spy so a saved turn replays exactly.
+##
+## `screened` is the empire-wide set of owners whose counter-espionage screen is
+## up (see `screened_owners`); a multi-region map aggregates it across every
+## region before resolving, because one spy on `counter_spy` anywhere covers all
+## owned provinces (wiki: civilian-units § Spy (3)). Null resolves this roster's
+## own screens, which is all a one-region fixture needs.
 static func resolve_turn(
-	model: MapModel, units: Array[CivilianState], turn: int, game_seed: int
+	model: MapModel, units: Array[CivilianState], turn: int, game_seed: int,
+	screened: Variant = null
 ) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if model == null:
 		return events
-	var screened: Dictionary = _screened_owners(model, units)
-	if screened.is_empty():
+	var screens: Dictionary = screened if screened is Dictionary else screened_owners(model, units)
+	if screens.is_empty():
 		return events
 	var index: int = 0
 	while index < units.size():
@@ -77,7 +84,7 @@ static func resolve_turn(
 			continue
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
 		var territory_owner: int = model.owner_at(unit.tile.x, unit.tile.y)
-		if not screened.has(territory_owner):
+		if not screens.has(territory_owner):
 			index += 1
 			continue
 		var rng := RandomNumberGenerator.new()
@@ -108,9 +115,14 @@ static func resolve_turn(
 	return events
 
 
-## Owners whose land holds a counter-spy screen this turn.
-static func _screened_owners(model: MapModel, units: Array) -> Dictionary:
+## Owners whose land holds a counter-spy screen this turn: an ongoing order on a
+## province that crown actually holds. One such spy anywhere covers every owned
+## province, so callers on a multi-region map union this across regions before
+## resolving (wiki: civilian-units § Spy (3)).
+static func screened_owners(model: MapModel, units: Array) -> Dictionary:
 	var screened: Dictionary = {}
+	if model == null:
+		return screened
 	for raw: Variant in units:
 		var unit: CivilianState = raw as CivilianState
 		if unit == null or not unit.is_working() or unit.work_action() != WORK_COUNTER:

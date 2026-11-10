@@ -20,8 +20,9 @@ P5 hidden spies leave no trace.
   human map (`CivilianLayer.viewer_faction`); the AI never sees human spies.
 - **Counter-espionage** (`counter_spy`): an ongoing order on any owned province.
   One spy on it anywhere gives the whole empire a +5% kill chance against enemy
-  spies in every owned province, and survivors roll 10% defection per turn.
-  A turned spy changes crown and stays where it stood.
+  spies in every owned province — both regions, from the one screen — and
+  survivors roll 10% defection per turn. A turned spy changes crown and stays
+  where it stood.
 - **Spy death:** a killed spy cools relations between its owner and the
   territory owner by 8 and counts as that turn's interaction (wiki: diplomacy
   § Spy-death penalty).
