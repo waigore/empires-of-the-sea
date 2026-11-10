@@ -894,3 +894,136 @@ func test_a_raid_with_no_zone_name_still_reads() -> void:
 	var text: String = BattleReport.describe_raid(raid, "", FACTIONS, 0)
 	assert_true(text.contains("open water"))
 	assert_true(text.contains("no cargo"))
+
+# --- from regiment condition (wiki: combat § Strength, military-units § Stats) ---
+
+
+func test_a_regiments_health_pool_scales_with_its_defence() -> void:
+	assert_eq(RegimentCatalog.max_health("peasant_levies"), 90)
+	assert_eq(RegimentCatalog.max_health("pikemen"), 110)
+	assert_eq(RegimentCatalog.max_health("guards"), 120)
+	assert_eq(RegimentCatalog.max_health("culverin"), 80)
+
+
+func test_chevrons_multiply_a_regiments_firepower() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var regiment: String = army.regiments[0]
+
+	assert_almost_eq(army.strength(), 5.0, 0.001)
+	army.regiment_medals[regiment] = 2
+	assert_almost_eq(army.strength(), 6.0, 0.001, "a chevron is +10%")
+	army.regiment_medals[regiment] = 9
+	assert_almost_eq(army.strength(), 7.0, 0.001, "four chevrons is the cap")
+
+
+func test_a_wound_lowers_firepower_and_never_destroys() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var regiment: String = army.regiments[0]
+
+	var dealt: int = RegimentCondition.wound(army, regiment, 55.0)
+	assert_eq(dealt, 55)
+	assert_almost_eq(army.strength(), 2.5, 0.001, "half a regiment fights at half strength")
+
+	RegimentCondition.wound(army, regiment, 999.0)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 1)
+	assert_eq(army.count(), 1, "a wound alone never removes a regiment")
+
+
+func test_wear_mauls_survivors_and_rest_recovers_a_quarter() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	assert_eq(RegimentCondition.wear(side, 0.5), 2, "both regiments are mauled")
+	for regiment: String in army.regiments:
+		assert_eq(int(army.condition_of(regiment)["hp"]), 55)
+
+	RegimentCondition.rest(army)
+	for regiment: String in army.regiments:
+		assert_eq(int(army.condition_of(regiment)["hp"]), 83, "a quarter of 110 is 28")
+	assert_eq(RegimentCondition.mauled(side), 2)
+
+	army.regiment_health[army.regiments[0]] = 100
+	RegimentCondition.rest(army)
+	assert_eq(
+		int(army.condition_of(army.regiments[0])["hp"]), 110, "rest never overfills"
+	)
+
+
+func test_split_and_combine_carry_condition() -> void:
+	var army := Fixture.army(1, 0, 0, ["pikemen", "guards"], true)
+	var pikes: String = army.regiments[0]
+	army.regiment_health[pikes] = 40
+	army.regiment_medals[pikes] = 3
+	var armies: Array[ArmyState] = [army]
+
+	var split: Dictionary = ArmyState.split(armies, army, [pikes], 9)
+	assert_true(bool(split["ok"]))
+	var field: ArmyState = split["army"] as ArmyState
+	assert_eq(int(field.condition_of(pikes)["hp"]), 40, "the wounded stay wounded")
+	assert_eq(int(field.condition_of(pikes)["medals"]), 3, "the chevrons travel")
+
+	var selected: Array[ArmyState] = [army, field]
+	var merged: Dictionary = ArmyState.combine(armies, selected)
+	assert_true(bool(merged["ok"]))
+	var home: ArmyState = merged["army"] as ArmyState
+	assert_eq(int(home.condition_of(pikes)["hp"]), 40)
+	assert_eq(int(home.condition_of(pikes)["medals"]), 3)
+
+
+func test_a_save_round_trip_keeps_regiment_condition() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen", "guards"])
+	var pikes: String = army.regiments[0]
+	army.regiment_health[pikes] = 61
+	army.regiment_medals[pikes] = 2
+
+	var restored := ArmyState.from_dict(army.to_dict())
+
+	assert_eq(int(restored.condition_of(pikes)["hp"]), 61)
+	assert_eq(int(restored.condition_of(pikes)["medals"]), 2)
+	assert_almost_eq(restored.strength(), army.strength(), 0.001)
+
+
+func test_the_ratio_bands_live_in_one_table() -> void:
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(1.2)["attacker"]), 0.3, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.8)["attacker"]), 0.5, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.5)["attacker"]), 1.0, 0.001)
+
+
+## A won auto-resolve battle tells the plate what it cost: surviving chevrons,
+## mauled survivors, and the same numbers the dossier will read.
+func test_a_won_battle_awards_chevrons_and_mauls_its_survivors() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {"seed": 11})
+	var battle: Dictionary = reports[0]
+
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_true(int(battle["attacker_chevrons"]) > 0, "winning survivors rise a chevron")
+	assert_true(int(battle["attacker_mauled"]) > 0, "survivors carry the field's wear")
+	var entries: Array = battle["attacker_health"] as Array
+	assert_eq(entries.size(), attacker.count())
+	for entry: Dictionary in entries:
+		assert_eq(int(entry["medals"]), 1)
+		assert_true(float(entry["fraction"]) < 1.0, "nobody leaves unmarked")
+		assert_true(int(entry["max"]) > 0)
+
+
+## The land toast carries the condition tail too, so a battle's cost is read
+## without opening the plate (REQ-P5-05).
+func test_a_land_despatch_appends_the_condition_tail() -> void:
+	var battle: Dictionary = {
+		"attacker": 0, "defender": 1,
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": ["unit_1"],
+		"attacker_chevrons": 0, "defender_chevrons": 2,
+		"attacker_mauled": 3, "defender_mauled": 1,
+	}
+	var line: String = BattleReport.describe_land(battle, "Flanders", FACTIONS)
+	assert_true(line.contains("2 chevrons won"), line)
+	assert_true(line.contains("4 regiments mauled"), line)
+	assert_eq(BattleReport.regiment_note({}), "")
