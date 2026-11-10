@@ -133,6 +133,13 @@ static func validate(
 		check["tile"] = tile
 		check["province"] = province
 		return check
+	## A fort is raised on the province's town tile, wherever the engineer stands
+	## (wiki: siege-mechanics § Fort Levels; DR-20261110-24).
+	if action == "build_fort":
+		var site: Vector2i = FortRules.site_tile(model, province)
+		if site.x >= 0:
+			tile = site
+			province = model.province_at(tile.x, tile.y)
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
@@ -310,7 +317,10 @@ static func _check_action(
 					"A %s fort needs %s."
 					% [FortRules.level_name(next_fort), TechCatalog.display_name(gate)]
 				)
-			return CivilianTransport.exclusive(units, unit, tile)
+			# Two projects in one province may run; the later completion cannot
+			# leap a level (wiki: siege-mechanics § Fort Levels), so the town
+			# tile is not exclusive the way an estate tile is.
+			return {"ok": true}
 		"build_road", "build_port", "build_rail":
 			return CivilianTransport.check(
 				model, unit, action, tile, works, units, tech_unlocked

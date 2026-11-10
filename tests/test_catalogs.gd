@@ -114,6 +114,20 @@ func test_default_roster_matches_the_configured_counts() -> void:
 	assert_eq(FactionCatalog.count(), 19)
 
 
+func test_great_power_colours_follow_gdd_09() -> void:
+	## wiki: naming § Default map colour id — GDD 09 RGB per semantic id.
+	assert_eq(FactionCatalog.color_of(0), Color8(220, 180, 60), "Spain is yellow")
+	assert_eq(FactionCatalog.color_of(1), Color8(180, 80, 80), "England is red")
+	assert_eq(FactionCatalog.color_of(2), Color8(80, 140, 200), "France is dark blue")
+	assert_eq(FactionCatalog.color_of(3), Color8(90, 160, 90), "Portugal is green")
+	assert_eq(
+		FactionCatalog.color_of(4),
+		Color8(220, 140, 100),
+		"United Provinces uses the netherlands orange"
+	)
+	assert_eq(FactionCatalog.color_of(5), Color8(100, 120, 200), "Sweden is light blue")
+
+
 func test_ids_are_unique_and_resolvable() -> void:
 	var seen: Dictionary = {}
 	for faction: Dictionary in FactionCatalog.all():

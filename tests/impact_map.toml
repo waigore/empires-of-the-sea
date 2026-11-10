@@ -5,6 +5,7 @@
 [domains.ai]
 suites = [
   "test_ai_builder_work.gd",
+  "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
   "test_ai_diplomacy_offers.gd",
   "test_ai_invasion.gd",
@@ -226,11 +227,14 @@ suites = [
   "test_panel_dock.gd",
 ]
 
-# Quick Battle: its UI plate and its resolver are exercised together.
+# Quick Battle: its UI plate, its resolver and the playtest instruments that
+# drive it are exercised together.
 [domains.quick_battle]
 suites = [
   "test_quick_battle_overlay.gd",
   "test_quick_battle_rules.gd",
+  "test_siege_depth.gd",
+  "test_battle_sim.gd",
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
@@ -270,6 +274,18 @@ domain = "quick_battle"
 # Siege lanes are resolved inside Quick Battle.
 [[rules]]
 match = "scripts/rules/siege_lanes.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/rules/battle_scenario.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_sim_*.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scenes/battle_sim.tscn*"
 domain = "quick_battle"
 
 # The Gazette: its rules, plate and turn-close adapter are one concern, so a
@@ -831,6 +847,14 @@ domain = "battle"
 
 [[rules]]
 match = "tests/test_quick_battle_*.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/test_siege_depth.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/test_battle_sim.gd"
 domain = "quick_battle"
 
 [[rules]]
