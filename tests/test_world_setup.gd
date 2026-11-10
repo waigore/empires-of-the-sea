@@ -156,6 +156,44 @@ func test_same_seed_reproduces_the_world() -> void:
 		assert_eq(first_owners, second_owners)
 
 
+func test_the_map_seats_the_published_roster() -> void:
+	# wiki: naming § default ruleset (6 GPs, 6 minors, 10 tribes) and
+	# advanced-starts § locked full-init profile (60 OW / 30 NW provinces).
+	assert_eq(world.region(FactionCatalog.OLD_WORLD).provinces.size(), 60)
+	assert_eq(world.region(FactionCatalog.NEW_WORLD).provinces.size(), 30)
+	assert_eq(FactionCatalog.minor_ids().size(), 6)
+	var old_world: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	for faction_id: int in FactionCatalog.minor_ids():
+		assert_gte(
+			_count_owned(old_world, faction_id),
+			TerritoryAssignment.MINOR_PROVINCES,
+			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
+		)
+	var new_world: MapModel = world.region(FactionCatalog.NEW_WORLD)
+	var even_share: int = 30 / FactionCatalog.tribe_ids().size()
+	for faction_id: int in FactionCatalog.tribe_ids():
+		assert_between(
+			_count_owned(new_world, faction_id),
+			even_share - 1,
+			even_share + 1,
+			"%s holds its even share" % FactionCatalog.name_of(faction_id)
+		)
+
+
+func test_every_old_world_province_is_owned() -> void:
+	var old_world: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	for province: ProvinceState in old_world.provinces:
+		assert_ne(province.owner, MapModel.NO_ID, "province %d has an owner" % province.id)
+
+
+func _count_owned(model: MapModel, faction_id: int) -> int:
+	var owned: int = 0
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction_id:
+			owned += 1
+	return owned
+
+
 func _owns_sea_bound(model: MapModel, faction_id: int) -> bool:
 	for province: ProvinceState in model.provinces:
 		if province.owner != faction_id:

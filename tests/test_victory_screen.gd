@@ -103,6 +103,10 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	_screen = Fixture.SCENE.instantiate()
 	_screen.map_width = WIDTH
 	_screen.map_height = HEIGHT
+	# The save came from this world: preset it so the reload applies the save
+	# over the cached map instead of generating (and painting) a second 96x64
+	# world for the case.
+	_screen.preset_world = _world
 	_screen.pending_save = save
 	add_child(_screen)
 

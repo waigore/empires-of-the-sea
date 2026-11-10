@@ -167,6 +167,26 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The dossier's one battle-plan tap is a crown-wide standing order, named so it
+## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
+## DR-20261110-33; REQ-P5-03).
+func test_the_dossier_cycles_the_crowns_battle_plan() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	assert_eq(_screen.play.battle_plan, "balanced")
+	assert_eq(panel._plan.text, "Crown battle plan: Balanced")
+
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "aggressive")
+	assert_eq(panel._plan.text, "Crown battle plan: Aggressive")
+
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "defensive")
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "balanced", "the cycle closes")
+
+
 func test_the_drill_yard_stacks_below_the_roster() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)

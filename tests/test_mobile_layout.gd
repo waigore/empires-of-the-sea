@@ -188,7 +188,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
 		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
 	assert_eq(
-		hud._income_label.text, HudChrome.format_delta(_screen.play.income),
+		hud._income_label.text, TextFormat.delta(_screen.play.income),
 		"treasury shows the projected turn income"
 	)
 
@@ -270,16 +270,16 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.panels.set_civilian_training(true)
+	hud.panels.panel.set_training_visible(true)
 	hud.panels.show_province(_screen.model, _screen.capital_province)
 	hud.panels.dock.place_shown(hud._panel_wrap)
 	await get_tree().process_frame
 	var panel: ProvincePanel = hud._panel
 	_fits(panel.get_global_rect(), _screen_rect(), "dossier")
-	assert_lt(panel._orders_box.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
+	assert_lt(panel._orders.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
 	var scroll: Control = panel.get_child(0).get_child(0)
 	var immediate: int = 0
-	for node: Node in panel._orders_box.find_children("*", "Button", true, false):
+	for node: Node in panel._orders.find_children("*", "Button", true, false):
 		var button := node as Button
 		if button == null or not button.is_visible_in_tree():
 			continue
@@ -302,9 +302,56 @@ func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
 	hud.panels.dock.place_shown(hud._panel_wrap)
 	await get_tree().process_frame
 	var panel: ProvincePanel = hud._panel
-	assert_gt(panel._orders_box.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
+	assert_gt(panel._orders.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
 	_fits(panel.get_global_rect(), _screen_rect(), "dossier")
 	assert_almost_eq(panel.size.x, GameHud.PANEL_WIDTH, 0.5)
+
+
+## The sheet answers the two questions a developing province raises: how far its
+## town has grown, and whether its estates can reach the crown at all
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap, capital-and-connectivity § Connectivity).
+func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var play: PlaySession = _screen.play
+	var panel: ProvincePanel = hud._panel
+	var capital: int = _screen.capital_province
+	hud.panels.show_province(
+		play.model, capital,
+		LandConnectivity.province_link(
+			play.model, play.land_works, play.player_faction, play.capital_tile,
+			capital
+		)
+	)
+	await get_tree().process_frame
+	assert_eq(panel._grid.town.text, "Level 4 · full", "a Great Power seat is level 4")
+	assert_true(
+		panel._grid.road.text.contains("linked to the crown"),
+		panel._grid.road.text
+	)
+	# An unlinked province (a fresh conquest has no setup road) says so and how
+	# much road is left; the sheet repaints in place when the network changes.
+	panel.refresh_crown({"linked": false, "roads": 2, "distance": 4})
+	await get_tree().process_frame
+	assert_eq(
+		panel._grid.road.text, "2 road tiles · no road to the crown (4 tiles away)"
+	)
+	panel.refresh_crown({"linked": true, "roads": 3, "distance": 0})
+	await get_tree().process_frame
+	assert_eq(panel._grid.road.text, "3 road tiles · linked to the crown")
+	# Build/Work repaints the open sheet from the live crown link.
+	play.selected_province = capital
+	MapPlayCivilians.resolve_work(play)
+	await get_tree().process_frame
+	var roads: int = int(
+		MapPlayImprovements.crown_link(play, capital).get("roads", 0)
+	)
+	assert_eq(
+		panel._grid.road.text,
+		"%d road tile%s · linked to the crown" % [roads, "" if roads == 1 else "s"]
+	)
 
 
 func test_phone_fleet_dossier_fits() -> void:

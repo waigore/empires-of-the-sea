@@ -48,6 +48,9 @@ static func snapshot(
 	)
 	var connected: Dictionary = resolved.get("tiles", {}) as Dictionary
 	var idle: Array[CivilianState] = ImprovementOrders.idle_builders(units, owner)
+	var gaps: Dictionary = LandConnectivity.network_gaps(
+		model, owner, resolved.get("network", {}) as Dictionary
+	)
 	var groups: Array[Dictionary] = result["groups"]
 	var tiles_by_province: Dictionary = {}
 	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
@@ -73,7 +76,7 @@ static func snapshot(
 			var entry: Dictionary = connected.get(index, {}) as Dictionary
 			rows.append(_estate_row(
 				model, works, units, stockpile, owner, tile, resource, province_id,
-				entry, resolved, idle, tech_caps
+				entry, resolved, idle, tech_caps, gaps
 			))
 		if rows.is_empty():
 			continue
@@ -125,7 +128,10 @@ static func estate_row(
 		connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
 		resolved,
 		ImprovementOrders.idle_builders(units, owner),
-		tech_caps
+		tech_caps,
+		LandConnectivity.network_gaps(
+			model, owner, resolved.get("network", {}) as Dictionary
+		)
 	)
 
 
@@ -144,7 +150,8 @@ static func _estate_row(
 	entry: Dictionary,
 	resolved: Dictionary,
 	idle: Array[CivilianState],
-	tech_caps: Dictionary
+	tech_caps: Dictionary,
+	gaps: Dictionary = {}
 ) -> Dictionary:
 	var level: int = works.improvement_at(model, tile)
 	var commodity: String = ImprovementCatalog.commodity(resource)
@@ -154,6 +161,11 @@ static func _estate_row(
 	var prospected: bool = works.is_prospected(owner, model, tile)
 	var working: CivilianState = _working_unit(units, owner, tile)
 	var is_connected: bool = not entry.is_empty()
+	var gap: int = 0
+	if not is_connected:
+		gap = LandConnectivity.road_gap(
+			model, owner, resolved.get("network", {}) as Dictionary, tile
+		)
 	var transport: int = int(entry.get("transport", 0))
 	var town_cap: int = LandConnectivity.town_cap_for(
 		model, resolved, province, model.index_of(tile.x, tile.y)
@@ -167,6 +179,15 @@ static func _estate_row(
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
 	var status: String = _status(level, mineral, prospected, is_connected, working)
+	var status_text: String = _status_text(
+		status, resource, level, output, tech_cap, terrain_cap, transport,
+		town_cap, working, is_connected
+	)
+	# How much road the crown still needs (wiki: capital-and-connectivity).
+	if gap > 0:
+		status_text += " · %d tile%s to the crown network" % [
+			gap, "" if gap == 1 else "s"
+		]
 	return {
 		"tile": tile,
 		"index": model.index_of(tile.x, tile.y),
@@ -198,10 +219,8 @@ static func _estate_row(
 		"builder_id": builder.id if builder != null else -1,
 		"builder_name": builder.display_name() if builder != null else "",
 		"status": status,
-		"status_text": _status_text(
-			status, resource, level, output, tech_cap, terrain_cap, transport,
-			town_cap, working, is_connected
-		),
+		"status_text": status_text,
+		"link_distance": gap,
 		"next_level": next_level,
 		"cost": cost,
 		"cost_text": CivilianWork.cost_text(cost),

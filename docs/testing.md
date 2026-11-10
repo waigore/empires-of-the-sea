@@ -23,7 +23,11 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
+- The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
+  screens on that world repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
+- Attach a map screen lazily (`_attach()`) so rule-only cases in a screen suite
+  never pay for painting the chart; a case that reads the map asks for it.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
 - Saving and loading is the hottest integration path: a preset world is reused by
   `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
@@ -70,11 +74,23 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
 
+# Province development — opens a turn-100 advanced start, raises an estate over
+# several turns from the estates ledger, walks the Engineer tile by tile laying
+# the road to the capital, prospects and mines a mineral and upgrades a town,
+# asserting that each linked estate's commodity reaches the stockpile.
+godot --headless --path . --script res://tests/playtest_province_dev.gd
+
 # Allied defence — signs a formal alliance at court, lets a rival declare on the
 # ally, reads the call-to-arms banner, joins, and fights the battle the court did
 # not start; then two declarations in one turn (one call at a time, a refusal's
 # price).
 godot --headless --path . --script res://tests/playtest_allied_defence.gd
+
+# Persistence — opens a turn-100 advanced start, sets the crown's battle plan and
+# issues orders, saves and loads through the pause menu's own browsers, then
+# walks the endings a save must carry (decided, defeated, halted) and the slots
+# that cannot be read (a newer format, a corrupt file).
+godot --headless --path . --script res://tests/playtest_persistence.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

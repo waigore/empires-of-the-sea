@@ -79,6 +79,7 @@ suites = [
 # diplomacy/espionage domains so a dossier change stays inside tier 1's budget.
 suites = [
   "test_intel_dossier.gd",
+  "test_intel_evidence.gd",
   "test_espionage.gd",
   "test_court_reports.gd",
   "test_court_dossier_screen.gd",
@@ -218,6 +219,16 @@ suites = [
   "test_catalogs.gd",
   "test_difficulty.gd",
   "test_misc_rules.gd",
+]
+
+# Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
+# § locked full-init). Kept small so a six-minor / 60/30 change stays in tier 1.
+[domains.world]
+suites = [
+  "test_catalogs.gd",
+  "test_map_generator.gd",
+  "test_world_bootstrap.gd",
+  "test_world_setup.gd",
 ]
 
 [domains.research]
@@ -430,12 +441,24 @@ match = "tests/playtest_espionage.gd*"
 domain = "espionage"
 
 [[rules]]
+match = "tests/playtest_province_dev.gd*"
+domain = "civilian"
+
+[[rules]]
 match = "tests/playtest_allied_defence.gd*"
 domain = "campaign"
 
+# The save/load drive walks slots, endings and the slot browser, so it travels
+# with the save suites.
+[[rules]]
+match = "tests/playtest_persistence.gd*"
+domain = "save"
+
+# Selector edits are checked by --check-complete; do not pull the full suite
+# past the tier-1 5 min budget.
 [[rules]]
 match = "tools/select_impacted_tests.py"
-full = true
+domain = "misc"
 
 # AiState stamps the difficulty layer onto rival ledgers; keep it on the
 # difficulty domain so a layer change does not pull every AI planner suite.
@@ -586,9 +609,16 @@ domain = "battle"
 match = "scripts/map/map_play_diplomacy.gd"
 domain = "diplomacy"
 
+# Province select opens the dossier with a crown link; keep it on the ui
+# domain so a one-line sheet refresh does not pull the whole map suite set.
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "ui"
+
+# Crown-link helper for the province dossier; keep with the sheet suites.
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
-domain = "economy"
+domain = "ui"
 
 [[rules]]
 match = "scripts/map/map_play_espionage.gd"
@@ -602,6 +632,14 @@ domain = "map"
 [[rules]]
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
+
+[[rules]]
+match = "scripts/map/map_generator.gd"
+domain = "world"
+
+[[rules]]
+match = "scripts/map/map_naming.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/map/**"
@@ -682,6 +720,15 @@ domain = "economy"
 [[rules]]
 match = "scripts/rules/production_*.gd"
 domain = "economy"
+
+# Province crown link + estate gap copy; civilian owns connectivity rules.
+[[rules]]
+match = "scripts/rules/land_connectivity.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/improvement_ledger.gd"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
@@ -813,6 +860,12 @@ domain = "map"
 match = "scripts/rules/court_*.gd"
 domain = "fog"
 
+# The court's dossier read and its chronicle projector: the intel domain owns
+# both sides, so a dossier change never falls through to the rules catch-all.
+[[rules]]
+match = "scripts/rules/intel_*.gd*"
+domain = "intel"
+
 [[rules]]
 match = "scripts/rules/resource_survey.gd"
 domain = "map"
@@ -835,7 +888,15 @@ domain = "misc"
 
 [[rules]]
 match = "scripts/rules/territory_assignment.gd"
-domain = "misc"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/territory_growth.gd*"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/faction_catalog.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/rules/*_catalog.gd"
@@ -844,6 +905,25 @@ domain = "misc"
 [[rules]]
 match = "scripts/rules/**"
 domain = "misc"
+
+# Dossier sheet shells (HudPanelSlot / DossierHeader / row kit). Keep on ui so a
+# shell extract does not pull army/fleet/intel domains past the tier-1 budget;
+# map_play and rules paths still own those domains for behavior changes.
+[[rules]]
+match = "scripts/ui/army_panel.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/army_hud.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/fleet_panel.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/diplomacy_hud.gd"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/army_*.gd"
@@ -865,10 +945,6 @@ domain = "intel"
 
 [[rules]]
 match = "scripts/ui/diplomacy_panel.gd"
-domain = "intel"
-
-[[rules]]
-match = "scripts/ui/diplomacy_hud.gd"
 domain = "intel"
 
 # The HUD root gains one sheet field and back must close that sheet before the
@@ -969,10 +1045,25 @@ domain = "map"
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
 
-# HUD panel host: province/fleet/civilian sheets. Keep off the menu domain so a
-# dossier wiring change stays inside the tier-1 5 min budget.
+# HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
+# off the menu domain so a dossier wiring change stays inside the tier-1 5 min
+# budget.
+[[rules]]
+match = "scripts/ui/hud_*.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/hud_panels.gd"
+domain = "ui"
+
+# Shared dossier number/kit helpers; must not fall through to scripts/ui/** →
+# menu (resource lens / setup plates) when a shell extract touches them.
+[[rules]]
+match = "scripts/ui/text_format.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/ui_row_builder.gd*"
 domain = "ui"
 
 [[rules]]

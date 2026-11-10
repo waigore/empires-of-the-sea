@@ -132,8 +132,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		cycle_plan(play, army)
 
 
-## One tap cycles the Quick Battle stance; the dossier shows the current plan
-## so the choice is never buried (wiki: quick-battle; REQ-P5-03).
+## One tap cycles the crown's Quick Battle plan; the dossier names it crown-wide
+## so it is never mistaken for one army's (wiki: quick-battle § The crown's plan).
 static func cycle_plan(play: PlaySession, army: ArmyState) -> void:
 	var order: Array[String] = ["balanced", "aggressive", "defensive"]
 	var index: int = order.find(QuickBattleActions.normalize_plan(play.battle_plan))

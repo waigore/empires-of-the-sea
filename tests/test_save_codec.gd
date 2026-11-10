@@ -327,6 +327,60 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 	)
 
 
+## The crown's stance is state a battle reads this turn, so a save carries it
+## and a load must not silently reset it (wiki: campaign-persistence
+## § Snapshot contract — crown battle plan; DR-20261110-33).
+func test_the_crowns_battle_plan_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "aggressive"
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String((data["session"] as Dictionary).get("battle_plan", "")),
+		"aggressive",
+		"the save carries the plan"
+	)
+	assert_true(SaveStore.write(DIR + "/plan.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/plan.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	assert_eq(
+		screen.play.battle_plan, "aggressive",
+		"the loaded crown still fights with its own plan"
+	)
+
+
+## A slot written before the plan was carried, or naming a script this build
+## does not have, resumes on the default stance without an error (wiki:
+## campaign-persistence § Load and resume — legacy defaults).
+func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "defensive"
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("battle_plan")
+	data["session"] = session
+	screen.free()
+	screen = _new_screen(data)
+	assert_eq(
+		screen.play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		"a legacy slot opens on the default stance"
+	)
+
+	screen.free()
+	screen = _new_screen()
+	var fresh: Dictionary = SaveCodec.capture(screen.play)
+	var fresh_session: Dictionary = fresh["session"]
+	fresh_session["battle_plan"] = "reckless"
+	fresh["session"] = fresh_session
+	screen.free()
+	screen = _new_screen(fresh)
+	assert_eq(
+		screen.play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		"an unknown script falls back to the default"
+	)
+
+
 # --- helpers -----------------------------------------------------------------
 
 ## The difficulty layer is fixed at creation, so a load must not re-roll it and
@@ -373,34 +427,6 @@ func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
 	assert_eq(play.gazette.sheets.size(), filed, "the archive comes back whole")
 	assert_false(play.gazette.is_watched(1), "a struck-off court stays struck off")
 	assert_true(play.gazette.removed.has(1), "and the removal is remembered")
-
-
-## The crown's battle plan is a standing order the resolver reads every turn, so
-## a load must resume it — and a save written before the rule starts balanced
-## (wiki: quick-battle § The crown's plan; campaign-persistence § Snapshot
-## contract, § Acceptance criteria; DR-20261110-33).
-func test_the_crowns_battle_plan_survives_a_load() -> void:
-	var play: PlaySession = screen.play
-	play.battle_plan = "aggressive"
-
-	var data: Dictionary = SaveCodec.capture(play)
-	assert_true(SaveStore.write(DIR + "/plan.sav", data))
-	var loaded: Dictionary = SaveStore.read(DIR + "/plan.sav")
-
-	screen.free()
-	screen = _new_screen(loaded)
-	play = screen.play
-	assert_eq(play.battle_plan, "aggressive", "a load resumes the crown's plan")
-
-	## A save written before the plan existed carries no field at all.
-	var legacy: Dictionary = SaveCodec.capture(play)
-	(legacy["session"] as Dictionary).erase("battle_plan")
-	assert_true(SaveStore.write(DIR + "/legacy.sav", legacy))
-	var old: Dictionary = SaveStore.read(DIR + "/legacy.sav")
-
-	screen.free()
-	screen = _new_screen(old)
-	assert_eq(screen.play.battle_plan, "balanced", "an old save starts balanced")
 
 
 func _foreign_province(play: PlaySession) -> int:

@@ -36,6 +36,26 @@ func test_the_players_plan_drives_the_action_script() -> void:
 	assert_eq(String(defensive["quick"]["plan"]), "defensive")
 
 
+## The crown holds one plan and it binds the side it commands, even on the wall;
+## a rival side keeps the rule-derived script instead (wiki: quick-battle § The
+## crown's plan; DR-20261110-33).
+func test_the_crowns_plan_holds_on_the_defending_side() -> void:
+	var model := Fixture.build()
+	model.province_data(2).fort_level = 1
+	var defender := Fixture.army(1, 1, 2, _pikes(6), true)
+	var attacker := Fixture.army(2, 2, 2, _guards(8))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var context: Dictionary = _context("aggressive")
+	context["player_faction"] = 1
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+	var quick: Dictionary = reports[0]["quick"]
+
+	assert_eq(String(quick["defender_plan"]), "aggressive", "the crown's plan holds")
+	assert_eq(String(quick["plan"]), "balanced", "the rival keeps its own script")
+
+
 func test_quick_battle_removes_casualties_from_the_armies() -> void:
 	var model := Fixture.build()
 	var defender := Fixture.army(1, 1, 2, _pikes(6), true)

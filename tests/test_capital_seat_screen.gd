@@ -7,7 +7,9 @@ extends GdToolsTest
 const SCENE: PackedScene = preload("res://scenes/capital_choice.tscn")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const SEED: int = 1500
-const SIZE: Vector2i = Vector2i(56, 38)
+## The province targets clamp from 40x32 up, so this smaller chart seats the same
+## 19 crowns while the page paints far fewer tiles on every case.
+const SIZE: Vector2i = Vector2i(40, 32)
 const FLOW_SIZE: Vector2i = Vector2i(48, 32)
 
 var world: WorldMap = null
@@ -168,11 +170,15 @@ func test_a_drag_pans_the_chart_and_leaves_the_seat() -> void:
 	var chart: CapitalChoiceScreen = await _open(914, 411)
 	var viewport: Viewport = chart.get_viewport()
 	var seat: Vector2i = chart.selected_tile
-	var before: Vector2 = chart.camera.position
 	var start := viewport.get_visible_rect().size * 0.5
+	# The seat frames the chart against an edge, where the camera is clamped;
+	# zoom in so the drag has room on both axes.
+	chart.camera.zoom_by(1.6, start)
+	await get_tree().process_frame
+	var before: Vector2 = chart.camera.position
 	_push(viewport, _touch(true, start))
-	_push(viewport, _drag(start + Vector2(-60.0, -40.0)))
-	_push(viewport, _touch(false, start + Vector2(-60.0, -40.0)))
+	_push(viewport, _drag(start + Vector2(60.0, 40.0)))
+	_push(viewport, _touch(false, start + Vector2(60.0, 40.0)))
 	await get_tree().process_frame
 	assert_ne(chart.camera.position, before, "the drag pans the chart")
 	assert_eq(chart.selected_tile, seat, "a drag is not a tap")

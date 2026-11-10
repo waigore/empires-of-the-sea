@@ -56,7 +56,7 @@ static func actions_for(
 
 ## The one gate every plan value passes: the three published stances, anything
 ## else (an old save, a typo, a scenario) is `balanced` (wiki: quick-battle
-## § The crown's plan — "Any other value is balanced").
+## § The crown's plan — "Any other value is balanced"; DR-20261110-33).
 static func normalize_plan(plan: String) -> String:
 	return plan if PLANS.has(plan) else "balanced"
 

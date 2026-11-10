@@ -880,6 +880,33 @@ func test_map_phase_moors_a_homecoming_squadron_in_the_home_fleet() -> void:
 	layer.free()
 
 
+## A peaceful squadron two zones from its harbour takes one leg home and the
+## trace names it — with no battle threat to name (wiki: ships-and-naval § Home
+## Fleet; DR-20261110-30).
+func test_map_phase_sails_a_peaceful_squadron_one_leg_home() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var away: FleetState = _squadron(0, 0, 1, "fluyte")
+	var home: FleetState = FleetState.in_port(
+		1, 0, 0, ["h1"] as Array[String], {"h1": "galleon"}
+	)
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [away, home]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _peace_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one homeward leg")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(int(trace[0]["zone"]), 0, "it enters the zone off its own harbour")
+	assert_eq(int(trace[0]["threat"]), 0, "a homeward leg threatens nobody")
+	assert_eq(away.sea_zone, 0)
+	layer.free()
+
+
 func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)

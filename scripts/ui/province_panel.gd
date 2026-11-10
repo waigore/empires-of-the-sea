@@ -1,32 +1,21 @@
 class_name ProvincePanel
 extends PanelContainer
-## Slide-in dossier for the selected province: owner, terrain, port, town, the
-## estates it holds and the demo's order buttons. Every row is a fact the player
-## can act on; the rules decide what an order may do (REQ-P3-02).
+## Slide-in dossier for the selected province. The sheet's title block, its fact
+## grid, the estates it holds and the order rail are sections of their own, so no
+## build method grows into a god method (REQ-P3-01). Every row is a fact the
+## player can act on; the rules decide what an order may do (REQ-P3-02).
 
 signal action_pressed(action: String)
 signal close_pressed
 signal dock_side_pressed
 
-var _name_label: Label = null
-var _owner_label: Label = null
-var _owner_swatch: ColorRect = null
-var _terrain_value: Label = null
-var _port_value: Label = null
-var _town_value: Label = null
-var _road_value: Label = null
-var _fort_value: Label = null
-var _capital_badge: Label = null
+var _head: ProvinceSheetHead = null
+var _grid: ProvinceFactsGrid = null
+var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
-var _training_box: VBoxContainer = null
 var _dock: Button = null
-var _town_button: Button = null
 var _column: VBoxContainer = null
-var _grid: GridContainer = null
-var _orders_box: VBoxContainer = null
 var _orders_index: int = -1
-var _recruit: Button = null
-var _shipyard: Button = null
 
 ## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
 var _model: MapModel = null
@@ -71,54 +60,13 @@ func _build() -> void:
 	scroll.add_child(column)
 	_column = column
 
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 8)
-	column.add_child(header)
-
-	_name_label = Label.new()
-	_name_label.add_theme_font_override("font", UiTheme.serif())
-	_name_label.add_theme_font_size_override("font_size", 26)
-	_name_label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	header.add_child(_name_label)
-
-	_capital_badge = Label.new()
-	_capital_badge.text = "CAPITAL"
-	_capital_badge.add_theme_font_size_override("font_size", 10)
-	_capital_badge.add_theme_color_override("font_color", Palette.INK)
-	_capital_badge.add_theme_stylebox_override(
-		"normal", UiTheme.box(Palette.GOLD, Palette.GOLD, 0, 2, Vector4(6, 2, 6, 2))
-	)
-	_capital_badge.visible = false
-	header.add_child(_capital_badge)
-
-	var owner_row := HBoxContainer.new()
-	owner_row.add_theme_constant_override("separation", 8)
-	column.add_child(owner_row)
-	_owner_swatch = ColorRect.new()
-	_owner_swatch.custom_minimum_size = Vector2(12, 12)
-	_owner_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	owner_row.add_child(_owner_swatch)
-	_owner_label = Label.new()
-	_owner_label.add_theme_font_size_override("font_size", 14)
-	_owner_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	owner_row.add_child(_owner_label)
+	_head = ProvinceSheetHead.new()
+	column.add_child(_head)
 
 	column.add_child(_divider())
 
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 8)
-	column.add_child(grid)
-	_grid = grid
-
-	_terrain_value = _add_row(grid, "Terrain")
-	_port_value = _add_row(grid, "Port")
-	_town_value = _add_row(grid, "Town")
-	_road_value = _add_row(grid, "Roads")
-	_fort_value = _add_row(grid, "Fort")
+	_grid = ProvinceFactsGrid.new()
+	column.add_child(_grid)
 
 	column.add_child(_divider())
 
@@ -127,58 +75,10 @@ func _build() -> void:
 
 	column.add_child(_divider())
 
-	_orders_box = VBoxContainer.new()
-	_orders_box.add_theme_constant_override("separation", 8)
-	column.add_child(_orders_box)
-	_orders_index = _orders_box.get_index()
-
-	var orders := Label.new()
-	orders.text = "ORDERS"
-	orders.add_theme_font_size_override("font_size", 11)
-	orders.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	_orders_box.add_child(orders)
-
-	_recruit = _make_button("Recruit Regiment")
-	_recruit.tooltip_text = "Muster at your capital; the regiment joins the Home Army."
-	_recruit.pressed.connect(func() -> void: action_pressed.emit("recruit"))
-	_orders_box.add_child(_recruit)
-
-	_shipyard = _make_button("Shipyard")
-	_shipyard.tooltip_text = "Launch and break up hulls at your capital port."
-	_shipyard.pressed.connect(func() -> void: action_pressed.emit("shipyard"))
-	_shipyard.visible = false
-	_orders_box.add_child(_shipyard)
-
-	var build := _make_button("Build Improvement")
-	build.pressed.connect(func() -> void: action_pressed.emit("build"))
-	_orders_box.add_child(build)
-
-	_town_button = _make_button("Upgrade Town")
-	_town_button.tooltip_text = DossierCopy.TOWN_TIP
-	_town_button.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
-	_orders_box.add_child(_town_button)
-
-	_training_box = VBoxContainer.new()
-	_training_box.add_theme_constant_override("separation", 6)
-	_training_box.visible = false
-	_orders_box.add_child(_training_box)
-
-	var training := Label.new()
-	training.text = "TRAIN CIVILIANS"
-	training.add_theme_font_size_override("font_size", 11)
-	training.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	_training_box.add_child(training)
-
-	for type_id: String in CivilianCatalog.playable_types():
-		var train := _make_button(
-			"Train %s · %s" % [
-				CivilianCatalog.display_name(type_id),
-				CivilianCatalog.training_cost_text(type_id),
-			]
-		)
-		train.add_theme_font_size_override("font_size", 13)
-		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
-		_training_box.add_child(train)
+	_orders = ProvinceOrdersSection.new()
+	_orders.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_orders)
+	_orders_index = _orders.get_index()
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 4)
@@ -246,111 +146,47 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 ## A phone sheet is short, so orders move above the survey table: every action
 ## stays one tap away and only the details scroll. Idempotent.
 func set_compact(compact: bool) -> void:
-	if _orders_box == null or _grid == null or _column == null:
+	if _orders == null or _grid == null or _column == null:
 		return
 	# Recruit is a live order now, so it stays on the phone sheet too.
-	var orders_at: int = _orders_box.get_index()
+	var orders_at: int = _orders.get_index()
 	var grid_at: int = _grid.get_index()
 	if compact == (orders_at < grid_at):
 		return
-	_column.move_child(_orders_box, grid_at if compact else _orders_index)
+	_column.move_child(_orders, grid_at if compact else _orders_index)
 
 
 func set_training_visible(visible: bool) -> void:
-	_training_box.visible = visible
+	_orders.set_training_visible(visible)
 
 
-func refresh(model: MapModel, province_id: int) -> void:
+## Repaints the live crown rows after a road completed or a town grew, without
+## re-sliding the sheet the player is reading.
+func refresh_crown(crown: Dictionary) -> void:
+	_grid.refresh_crown(crown)
+
+
+## `crown` is `LandConnectivity.province_link` for this province: whether its
+## town reaches the capital. When omitted, the roads row falls back to the
+## estate survey (DossierCopy).
+func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	_model = model
 	_province_id = province_id
 	var data: ProvinceState = model.province_data(province_id)
 	if data == null:
 		return
-	_name_label.text = data.name
-	_capital_badge.visible = data.capital
-	var owner: int = data.owner
-	_owner_swatch.color = Palette.faction_color(owner)
-	_owner_label.text = _owner_caption(owner)
-	_terrain_value.text = _dominant_terrain(model, province_id)
-	var port: Vector2i = data.port_tile
-	if port.x >= 0:
-		var zone: int = model.sea_zone_at(port.x, port.y)
-		_port_value.text = "Harbour · %s" % model.sea_zone_name(zone)
-	else:
-		_port_value.text = "Landlocked"
-	_town_value.text = DossierCopy.town(data)
-	_town_value.tooltip_text = DossierCopy.TOWN_TIP
-	_fort_value.text = FortRules.describe(data.fort_level)
+	_head.show_province(data)
+	_grid.show_province(model, province_id, data)
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps
 	)
 	_resources.render(rows)
-	_road_value.text = DossierCopy.roads(rows)
-	_road_value.tooltip_text = DossierCopy.roads_tip(data, rows)
-	_gate_town(data)
-	# The yard is a capital-port order: it launches hulls into the home fleet
-	# (wiki: ships-and-naval § Home Fleet).
-	_shipyard.visible = (
-		data.owner == _faction
-		and data.capital
-		and data.port_tile.x >= 0
+	_grid.set_estate_roads(data, rows, crown)
+	_orders.set_town_order(data, _faction, _tech_unlocked)
+	_orders.set_shipyard_visible(
+		data.owner == _faction and data.capital and data.port_tile.x >= 0
 	)
-
-
-## The town order is offered, not refused: the button greys out with the rule's
-## own reason until the crown can actually raise the town (REQ-P2-03).
-func _gate_town(data: ProvinceState) -> void:
-	var refusal: String = ""
-	if _faction >= 0 and data.owner != _faction:
-		refusal = "This land is not held by your crown."
-	if refusal.is_empty():
-		refusal = CivilianWorkPlan.town_upgrade_refusal(data, _tech_unlocked)
-	_town_button.disabled = not refusal.is_empty()
-	_town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
-
-
-## Faction type drives the honorific (wiki: factions — three governing types).
-func _owner_caption(owner: int) -> String:
-	var faction_name: String = FactionCatalog.name_of(owner)
-	match FactionCatalog.type_of(owner):
-		FactionCatalog.Type.GREAT_POWER:
-			return "Crown of %s" % faction_name
-		FactionCatalog.Type.MINOR_NATION:
-			return "Minor nation of %s" % faction_name
-		FactionCatalog.Type.TRIBE:
-			return "Tribe of the %s" % faction_name
-		_:
-			return "Unclaimed territory"
-
-
-func _dominant_terrain(model: MapModel, province_id: int) -> String:
-	var counts: Dictionary = {}
-	for tile: Vector2i in model.province_tiles(province_id):
-		var terrain: int = model.terrain_at(tile.x, tile.y)
-		counts[terrain] = int(counts.get(terrain, 0)) + 1
-	var best: int = MapModel.Terrain.PLAINS
-	var best_count: int = -1
-	for terrain: int in counts.keys():
-		if int(counts[terrain]) > best_count:
-			best_count = int(counts[terrain])
-			best = terrain
-	return String(MapModel.TERRAIN_LABELS.get(best, "Unknown"))
-
-
-func _add_row(grid: GridContainer, caption: String) -> Label:
-	var key := Label.new()
-	key.text = caption
-	key.add_theme_font_size_override("font_size", 13)
-	key.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	grid.add_child(key)
-	var value := Label.new()
-	value.add_theme_font_size_override("font_size", 15)
-	value.add_theme_color_override("font_color", Palette.TEXT)
-	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_child(value)
-	return value
 
 
 func _divider() -> Control:
