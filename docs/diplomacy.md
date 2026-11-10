@@ -15,7 +15,7 @@ Open from the `COURT` seal.
   war freezes.
 - **Spy death:** a spy killed abroad costs −8 relations with the host.
 - **War / peace:** war requires peace, freezes the score, clears overtures
-  (GP pairs keep Embassy); battles need war. Minors/Tribes accept peace; a GP
+  (GP pairs keep Embassy); battles need war. Minors/Tribes accept peace; GP
   at 26+.
 - **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs −50 with the ally, −10 with others; alliance
   and war never coexist.
@@ -29,7 +29,7 @@ Open from the `COURT` seal.
   Minor/Tribe embassies need Diplomatic Expertise.
 - **Join Empire:** absorbs a Minor, colonizes a Tribe; a nearly defeated GP
   needs Empire Building.
-- **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy
+- **Aid & land:** Grant Aid £1,000 at embassy (+5); Subsidy
   5–20% in fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
 - **First contact:** a Tribe enters court once a seen tile sits in its
   provinces; sea-reach intel does not.
