@@ -15,3 +15,13 @@ static func thousands(value: int) -> String:
 		if count % 3 == 0 and i > 0:
 			out = "," + out
 	return ("-" if value < 0 else "") + out
+
+
+## Signed per-turn movement for the treasury plaque. Keeps the chip a fixed
+## width: five figures collapse to "12.4k" instead of pushing the bar.
+static func delta(value: int) -> String:
+	var size: int = absi(value)
+	var text: String = thousands(size)
+	if size >= 10000:
+		text = "%d.%dk" % [size / 1000, (size % 1000) / 100]
+	return ("+" if value >= 0 else "-") + text

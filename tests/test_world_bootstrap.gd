@@ -5,14 +5,10 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## The post-pass only needs a region big enough for every Great Power capital;
-## the small shared region keeps generation (this suite's dominant cost under
-## coverage) to a fraction of the old 96x64 map.
-const SEED: int = Fixture.SEED
-const WIDTH: int = Fixture.WIDTH
-const HEIGHT: int = Fixture.HEIGHT
-const NEW_WORLD_WIDTH: int = Fixture.WIDTH
-const NEW_WORLD_HEIGHT: int = Fixture.HEIGHT
+## Small-preset size: the shared Fixture world is smaller and can leave a
+## capital province too thin for four grain farms under the fixed 60/30 chart.
+const BOOT_WIDTH: int = 96
+const BOOT_HEIGHT: int = 64
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so one region per worker keeps
@@ -23,7 +19,9 @@ var report: Dictionary = {}
 
 
 func before_all() -> void:
-	model = MapGenerator.new().generate_region(SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT)
+	model = MapGenerator.new().generate_world(
+		Fixture.SEED, BOOT_WIDTH, BOOT_HEIGHT
+	).region(FactionCatalog.OLD_WORLD)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
 
@@ -141,7 +139,7 @@ func test_town_roads_are_wired_and_counted() -> void:
 
 func test_the_post_pass_is_deterministic() -> void:
 	var second: MapModel = MapGenerator.new().generate_region(
-		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
+		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	var second_works := LandWorks.new()
 	WorldBootstrap.apply(second, second_works)
@@ -153,7 +151,7 @@ func test_the_post_pass_is_deterministic() -> void:
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
 	var new_world: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
+		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	var new_world_works := LandWorks.new()
 	var new_world_report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)

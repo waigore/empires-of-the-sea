@@ -17,6 +17,11 @@ const EXPLORE_MAX_TURNS: int = 3
 ## Town development tops out at 4; upgrade rows reuse the improvement table as
 ## the interim ruleset cost (wiki leaves it "per ruleset").
 const MAX_TOWN: int = 4
+## The Builder's town order needs National Bureaucracy (wiki:
+## tech-tree-diplomacy-civilian). The province dossier's button and the work
+## order's gate read this one id, so the button can never offer an order the
+## rules refuse.
+const TOWN_TECH: String = "national_bureaucracy"
 const COMMODITY_NAMES: Dictionary = {
 	"lumber": "lumber",
 	"castIron": "cast iron",
@@ -77,6 +82,22 @@ static func town_upgrade_level(model: MapModel, tile: Vector2i) -> int:
 	if province == null:
 		return 2
 	return clampi(province.town_level() + 1, 2, MAX_TOWN)
+
+
+## Why this crown cannot raise the province's town now, or "" when the order is
+## open. Ownership and the Builder are the work order's own business; this
+## answers the two gates the province dossier also has to show (wiki:
+## civilian-units § Builder; tech-tree-diplomacy-civilian).
+static func town_upgrade_refusal(
+	province: ProvinceState, tech_unlocked: Dictionary = {}
+) -> String:
+	if province == null or not province.has_town():
+		return "This province has no town to upgrade."
+	if province.town_level() >= MAX_TOWN:
+		return "This town is already fully developed."
+	if not bool(tech_unlocked.get(TOWN_TECH, false)):
+		return "Requires %s to upgrade a town." % TechCatalog.display_name(TOWN_TECH)
+	return ""
 
 
 ## Target level whose cost/duration row applies to this order.

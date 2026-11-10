@@ -133,6 +133,23 @@ func test_the_dossier_bands_acts_and_trims_older_evidence() -> void:
 	assert_false(_has_text(panel._detail, "Confirmed"), "nothing is certain yet")
 
 
+## The summary opens the full sheet on the court in view (REQ-P5-01,
+## DR-20261110-25).
+func test_the_dossier_offers_its_full_screen_for_the_selected_court() -> void:
+	DiplomacyRules.declare_war(state, 1, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(1)
+	var sheet := CourtDossierScreen.new()
+	add_child(sheet)
+	panel.dossier_screen = sheet
+	var button: Button = _find_button(panel._detail, "Full dossier")
+	assert_not_null(button, "the reading has one door to its full copy")
+	button.pressed.emit()
+	assert_true(sheet.is_open(), "the door opens the full sheet")
+	assert_eq(sheet._body.subject, 1, "on the court in view")
+	sheet.free()
+
+
 func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)
@@ -150,6 +167,51 @@ func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	assert_eq(seen.size(), 1)
 	assert_eq(seen[0][0], Intervention.KIND_PROTEST)
 	assert_eq(seen[0][1], 3)
+
+
+func test_a_waiting_call_to_arms_names_its_price_and_emits_the_answer() -> void:
+	state.relation(0, 1).score = 80.0
+	state.relation(0, 1).formal_alliance = true
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 2, 1)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "CALL TO ARMS"))
+	assert_true(_has_text(panel._call_box, "France"), "the aggressor is named")
+	assert_true(_has_text(panel._call_box, "England"), "and the ally the call defends")
+	assert_true(_has_text(panel._call_box, "−50"), "the treaty price is on the banner")
+	assert_true(_has_text(panel._call_box, "−10"), "and the cascade with every other crown")
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var button: Button = _find_button(panel._call_box, "Join the war")
+	assert_not_null(button)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], CallToArms.KIND_JOIN)
+	assert_eq(seen[0][1], 2, "the answer names the aggressor")
+
+
+## The banner rides a 570-point court sheet on a landscape phone (914×411 and
+## 800×360 both measured): the stakes line must stay inside the height the sheet
+## has left, so a longer price cannot push the buttons out of reach
+## (wiki: diplomacy § Alliances).
+func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
+	state.relation(0, 1).score = 80.0
+	state.relation(0, 1).formal_alliance = true
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 2, 1)
+	panel.size = Vector2(570, 600)
+	panel.refresh(state, null, 0, 2500)
+	await get_tree().process_frame
+	var banner: Control = panel._call_box.get_child(0) as Control
+	assert_not_null(banner, "the banner is up")
+	assert_gt(banner.size.y, 100.0, "the banner is laid out with its copy and buttons")
+	assert_true(
+		banner.size.y <= 140.0,
+		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
+	)
 
 
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:

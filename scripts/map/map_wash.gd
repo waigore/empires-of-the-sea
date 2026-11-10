@@ -1,81 +1,94 @@
 class_name MapWash
 extends RefCounted
 ## Tile-resolution terrain colour, height, and the land drop shadow.
-## The shader shades everything finer than a tile (REQ-P1-03).
-
-const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16, 0.24]
+## The paint itself is baked at sub-tile resolution by `MapRelief`; the shader
+## shades everything finer than one of its texels (REQ-P1-03).
 
 ## How far owned land moves toward its crown's heraldic colour. Ownership has
 ## to read by fill, not only by the border ribbon (REQ-P1-03).
 const OWNER_TINT: float = 0.5
 
+## How many baked charts to keep. The per-texel paint is the costliest part of
+## showing a region, and the view asks for the same map state again and again:
+## every screen a suite mounts on the shared world, every region a player
+## switches back to. A small bound keeps that free while a conquered province
+## (or an edited terrain grid) still repaints.
+const CACHE_LIMIT: int = 6
+static var _baked: Dictionary = {}
 
-static func build(canvas: MapCanvas, model: MapModel) -> void:
-	var w: int = model.width
-	var h: int = model.height
-	var color_image := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var height_image := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var pale: Color = Palette.terrain_color(MapModel.Terrain.SHALLOW)
-	var relief := FastNoiseLite.new()
-	relief.seed = 17
-	relief.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	relief.frequency = 0.09
-	relief.fractal_octaves = 3
-	for y in h:
-		for x in w:
-			var index: int = model.index_of(x, y)
-			var terrain: int = model.terrain[index]
-			if terrain == MapModel.Terrain.OCEAN:
-				color_image.set_pixel(x, y, Color(pale.r, pale.g, pale.b, 0.0))
-				height_image.set_pixel(x, y, Color(0, 0, 0, 1))
-				mask.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			var color: Color = Palette.terrain_color(terrain)
-			if terrain == MapModel.Terrain.SHALLOW:
-				color_image.set_pixel(x, y, Color(color.r, color.g, color.b, 0.34))
-				height_image.set_pixel(x, y, Color(0, 0, 0, 1))
-				mask.set_pixel(x, y, Color(0, 0, 0, 0))
-				continue
-			color_image.set_pixel(x, y, Color(color.r, color.g, color.b, 1.0))
-			mask.set_pixel(x, y, Color(1, 1, 1, 1))
-			var owner: int = model.owner_at(x, y)
-			if owner != MapModel.NO_ID:
-				var tint: Color = color.lerp(FactionCatalog.color_of(owner), OWNER_TINT)
-				color_image.set_pixel(x, y, Color(tint.r, tint.g, tint.b, 1.0))
-			var height: float = TERRAIN_HEIGHT[terrain]
-			height += relief.get_noise_2d(float(x), float(y)) * 0.24
-			height = clampf(height, 0.0, 1.0)
-			height_image.set_pixel(x, y, Color(height, height, height, 1.0))
 
-	_shadow(canvas, mask)
+static func build(canvas: MapCanvas, model: MapModel) -> MapRelief:
+	var relief: MapRelief = baked(model)
+	var texel_scale: float = MapCanvas.TILE_SIZE / float(relief.scale)
+
+	_shadow(canvas, relief, texel_scale)
 
 	var sprite := Sprite2D.new()
 	sprite.name = "Wash"
 	sprite.centered = false
 	sprite.show_behind_parent = true
-	sprite.scale = Vector2(MapCanvas.TILE_SIZE, MapCanvas.TILE_SIZE)
+	sprite.scale = Vector2(texel_scale, texel_scale)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	sprite.texture = ImageTexture.create_from_image(color_image)
+	sprite.texture = ImageTexture.create_from_image(relief.color)
 	var material := ShaderMaterial.new()
 	material.shader = load("res://ui/shaders/terrain.gdshader")
-	material.set_shader_parameter("height_tex", ImageTexture.create_from_image(height_image))
-	material.set_shader_parameter("texel", Vector2(1.0 / float(w), 1.0 / float(h)))
+	material.set_shader_parameter("height_tex", ImageTexture.create_from_image(relief.relief))
+	material.set_shader_parameter(
+		"texel", Vector2(1.0 / float(relief.width), 1.0 / float(relief.height))
+	)
 	material.set_shader_parameter("world_size", MapGeo.world_size(model, MapCanvas.TILE_SIZE))
 	sprite.material = material
 	canvas.add_child(sprite)
+	return relief
+
+
+## The bake for this map state, painted only the first time it is asked for.
+## Callers must treat the returned relief as read-only.
+static func baked(model: MapModel) -> MapRelief:
+	var key: String = _cache_key(model)
+	var relief: MapRelief = _baked.get(key)
+	if relief == null:
+		relief = MapRelief.new()
+		relief.build(model, OWNER_TINT)
+		if _baked.size() >= CACHE_LIMIT:
+			_baked.clear()
+		_baked[key] = relief
+	return relief
+
+
+## Drops every bake, so a following build is painted rather than reused.
+static func clear_cache() -> void:
+	_baked.clear()
+
+
+## Everything the paint reads: grid size, terrain (coast and height), province
+## assignment and the deed table (ownership tint). Content, not identity, so a
+## restored map finds its own bake again.
+static func _cache_key(model: MapModel) -> String:
+	var seats := PackedInt32Array()
+	for province: ProvinceState in model.provinces:
+		seats.append(int(province.id))
+		seats.append(province.owner)
+	return "%dx%d|%d|%d|%d|%d" % [
+		model.width,
+		model.height,
+		hash(model.terrain),
+		hash(model.province),
+		hash(seats),
+		hash([model.ownership.owners, model.ownership.purchased]),
+	]
 
 
 ## Land drop shadow: the land mask offset a few pixels and darkened. Created
 ## before the wash so it draws underneath and lifts the coast off the water.
-static func _shadow(canvas: MapCanvas, mask: Image) -> void:
+static func _shadow(canvas: MapCanvas, relief: MapRelief, texel_scale: float) -> void:
 	var shade := Sprite2D.new()
 	shade.name = "Shade"
 	shade.centered = false
 	shade.show_behind_parent = true
 	shade.position = Vector2(5, 6)
-	shade.scale = Vector2(MapCanvas.TILE_SIZE, MapCanvas.TILE_SIZE)
+	shade.scale = Vector2(texel_scale, texel_scale)
 	shade.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	shade.texture = ImageTexture.create_from_image(mask)
-	shade.modulate = Color(0.10, 0.07, 0.03, 0.22)
+	shade.texture = ImageTexture.create_from_image(relief.shadow)
+	shade.modulate = Color(0.10, 0.07, 0.03, 0.20)
 	canvas.add_child(shade)

@@ -30,6 +30,8 @@ var _call_box: VBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
 ## reports). Read-only here; the session keeps it.
 var _court_reports: Dictionary = {}
+## The full dossier sheet this summary opens, set by the HUD that builds both.
+var dossier_screen: CourtDossierScreen = null
 
 
 func _ready() -> void:
@@ -247,6 +249,13 @@ func _fill_detail() -> void:
 	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
 	var dossier := CourtDossier.new()
 	dossier.fill(_state, _world, _player, _selected)
+	# The summary's one door: the full sheet opens on the court in view
+	# (REQ-P5-01, DR-20261110-25).
+	dossier.open_pressed.connect(
+		func() -> void:
+			if dossier_screen != null and _selected >= 0:
+				dossier_screen.show_for(_state, _world, _player, _selected)
+	)
 	_detail.add_child(dossier)
 
 

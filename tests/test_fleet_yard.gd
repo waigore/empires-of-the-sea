@@ -156,5 +156,8 @@ func test_hull_firepower_sums_into_ship_strength() -> void:
 
 	assert_eq(ShipStats.firepower("carrack"), 2)
 	assert_eq(ShipStats.firepower("sloop"), 2)
-	assert_eq(FleetPanel.strength_of(fleet), 4)
-	assert_eq(FleetPanel.strength_of(null), 0)
+	# The dossier's strength is the resolver's weighted figure, never Σ FRP: a
+	# carrack is 2.75 and a sloop 3.25 (wiki: § Naval Strength Aggregation).
+	assert_almost_eq(NavalStrength.strength(fleet), 6.0, 0.0001)
+	assert_almost_eq(NavalStrength.strength(null), 0.0, 0.0001)
+	assert_almost_eq(NavalCombat.side_strength([fleet]), 6.0, 0.0001)
