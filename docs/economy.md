@@ -61,9 +61,9 @@ kickbacks; subsidies adjust the settled deal. Unfilled orders carry when
 holds/stock cover them; prices move from filled bids and submitted offers. A
 standing world counterparty fills the remainder.
 
-An offer is capped by the stock the court's own production runs leave, and its
-`Offer` chip names the claim. Staged and carried orders show in the ledger;
-fills, cuts and lapses appear in the turn toast. Orders travel in the save.
+An offer is capped by stock left after production; the `Offer` chip names that
+claim. Staged and carried orders show in the ledger; fills, cuts and lapses
+appear in the turn toast. Orders travel in the save.
 
 ## Trade terms
 
