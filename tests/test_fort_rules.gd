@@ -336,6 +336,43 @@ func test_a_queued_fort_keeps_its_ordered_level_across_a_save() -> void:
 	assert_eq(model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1)
 
 
+func test_a_fort_rises_on_the_provinces_town_tile() -> void:
+	# wiki: siege-mechanics § Fort Levels — engineers build on the town tile;
+	# DR-20261110-24 brings the province-scoped fort onto it.
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var engineer := CivilianFixture.unit("engineer", CivilianFixture.TIMBER_TILE)
+	var units: Array[CivilianState] = [engineer]
+	var stock: Dictionary = CivilianFixture.stockpile()
+	var province: ProvinceState = model.get_province(CivilianFixture.PLAYER_PROVINCE)
+	province.town_tile = Vector2i(2, 0)
+
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(2, 0))
+	var check: Dictionary = CivilianWork.validate(
+		model, engineer, "build_fort", works, units, stock
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(Vector2i(check["tile"]), Vector2i(2, 0), "the work targets the town")
+
+	CivilianWork.assign(model, engineer, "build_fort", works, units, stock)
+	assert_eq(engineer.work_tile(), Vector2i(2, 0))
+	CivilianWork.resolve_turn(model, units, works)
+	assert_eq(province.fort_level, 1)
+	assert_eq(engineer.tile, Vector2i(2, 0), "the crew works the town it walled")
+
+
+func test_the_fort_site_falls_back_to_the_capital_then_the_ordered_tile() -> void:
+	var model := CivilianFixture.build()
+	var province: ProvinceState = model.get_province(CivilianFixture.PLAYER_PROVINCE)
+	assert_eq(FortRules.site_tile(model, province.id), CivilianFixture.BARE_TILE)
+
+	province.town_tile = Vector2i(2, 0)
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(2, 0), "the town wins")
+	province.town_tile = Vector2i(-1, -1)
+	province.capital_tile = Vector2i(-1, -1)
+	assert_eq(FortRules.site_tile(model, province.id), Vector2i(-1, -1), "legacy map")
+
+
 func _repeat(type_id: String, count: int) -> Array[String]:
 	var types: Array[String] = []
 	for _index in count:
