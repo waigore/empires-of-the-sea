@@ -73,6 +73,18 @@ suites = [
   "test_intel_dossier.gd",
 ]
 
+[domains.intel]
+# Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
+# court's acts and the spy despatch that feeds them. Kept apart from the broad
+# diplomacy/espionage domains so a dossier change stays inside tier 1's budget.
+suites = [
+  "test_intel_dossier.gd",
+  "test_espionage.gd",
+  "test_court_reports.gd",
+  "test_court_dossier_screen.gd",
+  "test_diplomacy_panel.gd",
+]
+
 [domains.economy]
 suites = [
   "test_economy_rules.gd",
@@ -531,9 +543,11 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian*.gd*"
 domain = "civilian"
 
+# The spy despatch hook writes the court's intelligence; its own suites are the
+# intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/map/map_play_spies.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "scripts/map/map_play_spy_ai.gd*"
@@ -634,7 +648,7 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "scripts/rules/dialogue_*.gd"
@@ -838,6 +852,31 @@ domain = "civilian"
 match = "scripts/ui/fleet_*.gd"
 domain = "fleet"
 
+# The dossier sheet and the court panel that opens it are presentation over
+# IntelDossier, so their suites are the intel domain (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/court_dossier*.gd*"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_panel.gd"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_hud.gd"
+domain = "intel"
+
+# The HUD root gains one sheet field and back must close that sheet before the
+# map or the court hears the press; the UI suites and the dossier's crown-orders
+# case cover both (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/game_hud.gd"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/back_request.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
 domain = "diplomacy"
@@ -1026,13 +1065,23 @@ domain = "campaign"
 match = "tests/test_civilian_*.gd"
 domain = "civilian"
 
+# The dossier's own suites travel with the dossier, not with the whole court
+# domain (DR-20261110-25).
+[[rules]]
+match = "tests/test_court_dossier_screen.gd*"
+domain = "intel"
+
+[[rules]]
+match = "tests/test_diplomacy_panel.gd*"
+domain = "intel"
+
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_dialogue_*.gd"
@@ -1141,15 +1190,16 @@ match = "tests/test_province_*.gd*"
 domain = "ui"
 
 # Espionage suites live with their rules, so a spy change never needs the full
-# run (scripts/rules/spy_*.gd, court report panel tests and map_play_espionage.gd
-# map here too).
+# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too). The spy
+# despatch and its own suite feed the court dossier, so they travel with intel
+# (DR-20261110-25).
 [[rules]]
 match = "tests/test_espionage.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_court_reports.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_spy_*.gd*"
