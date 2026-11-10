@@ -112,6 +112,18 @@ func _run() -> void:
 		== LeaderCatalog.default_key(screen.player_faction),
 		"the human crown fields its configured leader"
 	)
+	_check(screen.play.court_charts != null, "every rival court holds a chart")
+	_check(
+		screen.play.court_charts.model_for(screen.player_faction, screen.region_index)
+		== screen.visibility,
+		"the human grid is the one the charts route to"
+	)
+	_check(
+		screen.play.court_charts.known_zones(
+			FactionCatalog.great_power_ids()[1], FactionCatalog.NEW_WORLD
+		).is_empty(),
+		"no rival has charted the New World on turn one"
+	)
 	_check(screen.game_menu != null, "in-game menu present")
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
@@ -464,6 +476,14 @@ func _smoke_end_turn(
 			"the court answer closes the proposal"
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	# The crown's sheet files the resolved turn and opens when it has news
+	# (wiki: the-gazette § When it appears).
+	_check(screen.play.gazette != null, "the gazette keeps its watchlist")
+	_check(screen.play.gazette.has_sheet(turn_before), "the resolved turn is filed")
+	if not Gazette.is_empty(screen.play.gazette.sheet_for(turn_before)):
+		_check(screen.hud.gazette_plate.is_shown(), "news opens the soft plate")
+		screen.hud.gazette_plate.dismiss()
+		_check(not screen.hud.gazette_plate.is_shown(), "one press sets the sheet aside")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(_rival_research_started(screen), "rivals filled their research slots")
 	_check(screen.economy != null, "economy wired")

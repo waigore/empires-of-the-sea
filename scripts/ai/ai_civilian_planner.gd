@@ -201,19 +201,9 @@ static func _best_explorer(
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
 ) -> Dictionary:
-	if reserved.has(unit.tile) or model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
-		return {}
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
-	if not ImprovementCatalog.needs_prospecting(resource):
-		return {}
-	var score: int = config.parameter("civilian.prospect_weight")
-	score += AiBuilderWork.need(
-		ImprovementCatalog.commodity(resource), stockpile,
-		config.parameter("civilian.need_target")
-	) * 10
-	return AiCivilianCandidate.make(
-		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score
+	return AiExplorerWork.best_candidate(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
 	)
 
 
@@ -275,7 +265,8 @@ static func _fort_candidate(
 
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
-## unprospected mineral on its own land; an idle Spy is handled by AiSpyPlanner.
+## unprospected mineral on its own land or the nearest unexplored chart; an idle
+## Spy is handled by AiSpyPlanner.
 static func _best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
 	context: Dictionary = {}, screened: bool = false
@@ -284,32 +275,7 @@ static func _best_move(
 		return AiSpyPlanner.best_move(model, unit, units, context, screened)
 	if unit.type_id != "explorer":
 		return {}
-	var goal: Vector2i = _nearest_mineral(model, unit, works)
-	if goal.x < 0:
-		return {}
-	var best: Dictionary = {}
-	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit):
-		var distance: int = absi(tile.x - goal.x) + absi(tile.y - goal.y)
-		if best.is_empty() or distance < int(best["distance"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": distance}
-		elif distance == int(best["distance"]) and tile < Vector2i(best["tile"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": distance}
-	return best
-
-
-static func _nearest_mineral(model: MapModel, unit: CivilianState, works: LandWorks) -> Vector2i:
-	var best: Vector2i = Vector2i(-1, -1)
-	var best_distance: int = 1 << 30
-	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not ImprovementCatalog.needs_prospecting(model.resource_at(tile.x, tile.y)):
-			continue
-		if works.is_prospected(unit.owner, model, tile):
-			continue
-		var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
-		if distance < best_distance or (distance == best_distance and tile < best):
-			best = tile
-			best_distance = distance
-	return best
+	return AiExplorerWork.best_move(model, unit, works, context)
 
 
 # --- shared helpers ----------------------------------------------------------

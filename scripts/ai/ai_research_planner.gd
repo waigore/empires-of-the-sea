@@ -38,6 +38,11 @@ static func plan(
 		return {"assignments": assignments, "candidates": candidates}
 	var state: ResearchState = economy.research
 	state.ensure_slots()
+	# The caller's chart tells a court which commodities it has actually seen;
+	# discovery techs stay shut until then (wiki: tech-tree § Discovery).
+	var revealed: Variant = context.get("revealed", null)
+	if typeof(revealed) == TYPE_DICTIONARY:
+		state.set_revealed(revealed)
 	var at_war: bool = bool(context.get("at_war", false))
 	candidates = _scored_candidates(config, economy, at_war)
 	var preset: String = funding_for(config)

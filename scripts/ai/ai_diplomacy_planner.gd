@@ -55,7 +55,7 @@ static func war_desire(
 		score += int(value)
 	if _is_weak_target(target):
 		factors["resource_need"] = _resource_need(attacker, world, target, context)
-		factors["intervention"] = _intervention_penalty(state, attacker, target)
+		factors["intervention"] = _intervention_penalty(state, world, attacker, target)
 		var invasion: Dictionary = _invasion_adjustment(
 			state, world, attacker, target, context
 		)
@@ -218,15 +218,18 @@ static func _target_commodities(world: WorldMap, target: int) -> Dictionary:
 	return result
 
 
-## -8 per other Great Power holding an embassy on the target, capped at -24.
-static func _intervention_penalty(state: DiplomacyState, attacker: int, target: int) -> int:
-	var count: int = 0
-	for power: int in FactionCatalog.great_power_ids():
-		if power == attacker or power == target:
-			continue
-		if DiplomacyRules.has_embassy(state, power, target):
-			count += 1
-	return maxi(count * INTERVENTION_STEP, INTERVENTION_CAP)
+## -8 per other Great Power the declaration would call to the victim's aid,
+## capped at -24. The count comes from the intervention rule itself, so an
+## embassy **and** a rival's deed in the victim's land both protect it: a minor
+## whose ground a crown has bought is harder to attack than a bare one
+## (wiki: diplomacy § Intervention "investment protection"; DR-20261110-20).
+static func _intervention_penalty(
+	state: DiplomacyState, world: WorldMap, attacker: int, target: int
+) -> int:
+	return maxi(
+		Intervention.candidates(state, attacker, target, world).size() * INTERVENTION_STEP,
+		INTERVENTION_CAP
+	)
 
 
 static func _invasion_adjustment(

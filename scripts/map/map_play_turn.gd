@@ -147,13 +147,24 @@ static func _finish_turn(play: PlaySession) -> void:
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Minor Regiment Upgrade runs after movement and before combat.
-	MilitaryParity.apply(play.army_layer.regions, MapPlayCampaign.tech_by_faction(play))
+	# Regiment upgrade runs after movement and before combat: a crown's men take
+	# up the newest pattern its own techs allow, and Minors follow the leading
+	# power (wiki: tech-tree-military § Infantry/Cavalry/Artillery; factions
+	# § Minor military parity).
+	var tech_by_faction: Dictionary = MapPlayCampaign.tech_by_faction(play)
+	var upgrades: Dictionary = RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
+	MilitaryParity.apply(play.army_layer.regions, tech_by_faction)
+	if play.hud != null:
+		var rearmed: int = int((upgrades["by_faction"] as Dictionary).get(play.player_faction, 0))
+		if rearmed > 0:
+			play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
+				rearmed, "" if rearmed == 1 else "s"])
 	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
 	var naval_battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
 	MapPlaySpies.resolve(play)
 	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	MapPlayFogTurn.resolve(play)
+	MapPlayCourtFog.resolve(play)
 	# The human crown's terminal fall seals the session before any victory check:
 	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
@@ -176,21 +187,24 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
+	# A turn's falls feed the Gazette's World page (DR-20261110-14).
+	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
-	MapPlayRaids.resolve(play)
+	var raid_report: Dictionary = MapPlayRaids.resolve(play)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
+	var crown_report: Dictionary = {}
 	if play.observer_mode:
 		AiTurnLog.apply_feeding(play, economy_report)
 	else:
 		play.refresh_research()
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
-		play.economy.resolve_turn()
+		crown_report = play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, year)
@@ -212,4 +226,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.improvements.refresh_if_open()
 	MapPlaySetup.build_lens(play)
 	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
+	# The sheet narrates the turn that just resolved; the overlay opens only when
+	# it found news (wiki: the-gazette § When it appears).
+	MapPlayGazette.close_turn(
+		play, land_battles, naval_battles, economy_report, crown_report, raid_report
+	)
 	play.emit_turn_ended(play.turn)

@@ -17,7 +17,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 
 ## Docs policy
 
-Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words** (fenced code excluded). CI job `docs-lint` hard-fails over-limit files (`python tools/lint_docs_words.py`). Prefer tables and short bullets; put long mechanics in the wiki.
+Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). CI `docs-lint` fails over-limit files (`python tools/lint_docs_words.py`). Prefer tables and short bullets; long mechanics go in the wiki.
 
 ## Stack
 
@@ -56,6 +56,10 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 - Don’t commit `.godot/`, export caches, or local overrides.
 - Don’t add plugins/addons without need; don’t hard-code resolutions or OS names in gameplay.
 - Don’t bypass, force-merge, or skip required PR checks.
+
+## Project skills
+
+Do **not** create, edit, rename, or delete project skills unless the user **explicitly** asks for a skills change. Scope: `.agents/skills/` (incl. README), facades (`.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`), and `docs/skills.md`. Side edits during other work are banned; CI `skills-isolation` fails code∩skills PRs.
 
 ## When unsure
 

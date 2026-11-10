@@ -44,6 +44,7 @@ suites = [
   "test_capital_choice.gd",
   "test_capital_loss.gd",
   "test_capital_seat_screen.gd",
+  "test_deed_protection.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -107,6 +108,20 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+
+# Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
+# AI gates that read a chart. Kept its own (small) domain so a fog change is
+# tier-1 sized instead of pulling every map suite.
+[domains.fog]
+suites = [
+  "test_visibility.gd",
+  "test_fog_layer.gd",
+  "test_save_codec.gd",
+  "test_ai_rules.gd",
+  "test_ai_colonisation.gd",
+  "test_ai_invasion.gd",
+]
+
 [domains.fort]
 suites = [
   "test_fort_rules.gd",
@@ -161,6 +176,7 @@ suites = [
   "test_advanced_start.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
+  "test_hud_toast.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
@@ -203,6 +219,14 @@ suites = [
   "test_quick_battle_rules.gd",
 ]
 
+# The Gazette's rules (classification, prose, watchlist, archive) and the soft
+# plate that prints them (wiki: the-gazette; DR-20261110-14).
+[domains.gazette]
+suites = [
+  "test_gazette.gd",
+  "test_gazette_plate.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
 [[rules]]
 match = "scripts/ui/quick_battle_*.gd"
@@ -220,6 +244,24 @@ domain = "quick_battle"
 [[rules]]
 match = "scripts/rules/siege_lanes.gd"
 domain = "quick_battle"
+
+# The Gazette: its rules, plate and turn-close adapter are one concern, so a
+# sheet change runs its two suites instead of the broad map/rules sets.
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "tests/test_gazette*.gd*"
+domain = "gazette"
 
 [[rules]]
 match = "project.godot"
@@ -432,6 +474,11 @@ domain = "espionage"
 match = "scripts/map/map_play_warp.gd"
 domain = "map"
 
+# The rival fog pass is the fog domain's turn glue.
+[[rules]]
+match = "scripts/map/map_play_court_fog.gd*"
+domain = "fog"
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
@@ -487,6 +534,10 @@ domain = "diplomacy"
 [[rules]]
 match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/auto_siege.gd*"
+domain = "fort"
 
 [[rules]]
 match = "scripts/rules/fort_*.gd"
@@ -561,6 +612,14 @@ match = "scripts/rules/intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "scripts/rules/deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/intervention_copy.gd"
+domain = "campaign"
+
+[[rules]]
 match = "scripts/rules/victory_*.gd"
 domain = "campaign"
 
@@ -568,6 +627,11 @@ domain = "campaign"
 [[rules]]
 match = "scripts/rules/visibility.gd"
 domain = "map"
+
+# Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
+[[rules]]
+match = "scripts/rules/court_*.gd"
+domain = "fog"
 
 [[rules]]
 match = "scripts/rules/resource_survey.gd"
@@ -755,6 +819,10 @@ match = "tests/test_intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "tests/test_deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
 match = "tests/test_victory_*.gd"
 domain = "campaign"
 
@@ -814,7 +882,7 @@ domain = "map"
 
 [[rules]]
 match = "tests/test_visibility.gd"
-domain = "map"
+domain = "fog"
 
 [[rules]]
 match = "tests/test_warp_*.gd"
@@ -890,6 +958,10 @@ domain = "espionage"
 [[rules]]
 match = "tests/test_advanced_start.gd*"
 domain = "advanced"
+
+[[rules]]
+match = "tests/test_hud_toast.gd*"
+domain = "menu"
 
 [[rules]]
 match = "tests/test_*.gd"
