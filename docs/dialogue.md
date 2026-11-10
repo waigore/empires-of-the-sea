@@ -26,8 +26,10 @@ War declared (either side), peace, alliance formed/broken, overtures
 granted/accepted/refused/withdrawn, call to arms answered or refused,
 intervention joined/stood aside/protested, proposals accepted or refused, first
 contact — plus one standing remark per band (war, alliance, friendly, neutral,
-cold). Bookkeeping acts (subsidy, aid, colony status) stay silent; the standing
-word covers them.
+cold). A battle the crown fought is voiced too: the court that read the verdict
+answers the field, the siege or the water, and the line never enters the
+diplomatic chronicle. Bookkeeping acts (subsidy, aid, colony status) stay
+silent; the standing word covers them.
 
 ## Determinism
 
@@ -55,5 +57,5 @@ their stall counter.
 ## Deferred
 
 Yarn scripts and localization, the optional agenda comment cadence
-(`dialogueSeed % 7`), reactive beats on battles/era change, and the game-start
+(`dialogueSeed % 7`), era-change beats, and the game-start
 intro gate ([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).

@@ -45,8 +45,8 @@ func test_tapping_a_civilian_opens_its_dossier() -> void:
 
 
 func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
-	var tile: Vector2i = Fixture.owned_resource_tile(_screen.model, _screen.land_works)
-	assert_true(tile.x >= 0, "map has an owned resource tile")
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
 	var builder: CivilianState = _screen.civilian_layer.units[1]
 	assert_eq(builder.type_id, "builder")
 	builder.tile = tile
@@ -107,7 +107,8 @@ func test_unknown_civilian_orders_do_not_train() -> void:
 
 func test_region_switch_keeps_the_civilian_roster_and_works() -> void:
 	var builder: CivilianState = _screen.civilian_layer.units[1]
-	var resource: Vector2i = Fixture.owned_resource_tile(_screen.model, _screen.land_works)
+	var resource: Vector2i = _buildable_owned_resource_tile()
+	assert_true(resource.x >= 0, "map has an owned resource a Builder can raise")
 	builder.tile = resource
 	_screen.civilian_layer.select(builder)
 	MapPlayCivilians.on_action(_screen.play, "build_improvement")
@@ -510,3 +511,22 @@ func _capital_estate_tile() -> Vector2i:
 
 func _capital_point() -> Vector2:
 	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE
+
+
+## Prefer a crown resource a Builder can raise without an Explorer first. The
+## shared seed's first owned tile can be tin/iron; skipping those keeps work
+## orders stable without widening `map_fixture` (which forces a full suite).
+func _buildable_owned_resource_tile() -> Vector2i:
+	for province: ProvinceState in _screen.model.provinces:
+		if province.owner != FactionCatalog.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province.tiles:
+			var resource: int = _screen.model.resource_at(tile.x, tile.y)
+			if resource < 0:
+				continue
+			if _screen.land_works.improvement_at(_screen.model, tile) > 0:
+				continue
+			if ImprovementCatalog.needs_prospecting(resource):
+				continue
+			return tile
+	return Vector2i(-1, -1)

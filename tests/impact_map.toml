@@ -10,6 +10,7 @@ suites = [
   "test_ai_diplomacy_offers.gd",
   "test_ai_invasion.gd",
   "test_ai_market.gd",
+  "test_ai_merchant.gd",
   "test_ai_observer.gd",
   "test_ai_planner.gd",
   "test_ai_rules.gd",
@@ -440,6 +441,12 @@ domain = "quick_battle"
 match = "tests/playtest_espionage.gd*"
 domain = "espionage"
 
+# The rival half of the same domain: AI spies against the crown, the screen,
+# and the lines the court hears when an agent is taken.
+[[rules]]
+match = "tests/playtest_ai_spycraft.gd*"
+domain = "espionage"
+
 [[rules]]
 match = "tests/playtest_province_dev.gd*"
 domain = "civilian"
@@ -561,6 +568,13 @@ domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+# The rival civilian pass was split out of the economy turn but its only suite
+# is still test_ai_rules, so keep it (and its .uid) here instead of the
+# civilian glob below, which would pull crown-order / map suites.
+[[rules]]
+match = "scripts/map/map_play_civilian_ai.gd*"
 domain = "ai"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
@@ -883,6 +897,12 @@ domain = "map"
 [[rules]]
 match = "scripts/rules/warp_travel.gd"
 domain = "map"
+
+# capital_seat / grain bootstrap: keep on the small world domain so a one-helper
+# change does not pull the full map suite set past the tier-1 5 min budget.
+[[rules]]
+match = "scripts/rules/world_bootstrap.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/rules/world_*.gd"
