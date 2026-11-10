@@ -103,7 +103,11 @@ func _edge_point(x: int, y: int, edge: int) -> Vector2:
 			point = Vector2(float(x) + 0.5, float(y) + 1.0)
 		_:
 			point = Vector2(float(x), float(y) + 0.5)
-	return point * TILE_SIZE
+	# Marching squares reads tile (x, y) as the corner sample at (x, y), so its
+	# contour runs through a cell that starts one half-tile up and left of the
+	# square the wash actually fills. Shift it back onto the tile edge, or the
+	# ink coast drifts half a tile off the land (REQ-P1-03).
+	return (point + Vector2(0.5, 0.5)) * TILE_SIZE
 
 
 func _build_borders() -> void:

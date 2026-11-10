@@ -34,6 +34,31 @@ func test_land_shadow_sits_under_the_wash() -> void:
 	assert_lt(_canvas.get_children().find(shade), _canvas.get_children().find(_canvas.get_node("Wash")))
 
 
+## The ink coast is what demarcates the land the wash fills, so it has to sit on
+## the tile edge, not half a tile inside it: marching squares samples a tile at
+## its corner, and an unshifted contour drifts up and left of the fill.
+func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
+	var model := MapModel.new()
+	model.setup(16, 8)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.PLAINS if x < 8 else MapModel.Terrain.OCEAN
+			)
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(model)
+	var edge: float = 8.0 * MapCanvas.TILE_SIZE
+	var reach := Vector2(-INF, -INF)
+	for path: PackedVector2Array in canvas._coast:
+		for point: Vector2 in path:
+			reach.x = maxf(reach.x, point.x)
+			reach.y = maxf(reach.y, point.y)
+	assert_almost_eq(reach.x, edge, 1.0, "the coast ends on the shore, not inside it")
+	assert_almost_eq(reach.y, edge, 1.0, "the coast ends on the shore, not inside it")
+	canvas.queue_free()
+
+
 ## Ownership has to read by fill, not only by the border ribbon: the wash moves
 ## each owned tile toward its crown's heraldic colour.
 func test_owned_land_is_washed_toward_its_crown() -> void:
