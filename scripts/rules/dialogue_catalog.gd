@@ -8,6 +8,7 @@ extends RefCounted
 ## the pick is a salted hash, never randomness (see [DialogueEvents]).
 
 const CAT_DIPLOMATIC: String = "diplomatic"
+const CAT_EVENT: String = "event"
 const CAT_NEGOTIATION: String = "negotiation"
 const CAT_REACTIVE: String = "reactive"
 
@@ -173,6 +174,82 @@ const POINTS: Dictionary = {
 			"We had heard of your crown. Now we shall learn what it is worth.",
 			"Send word who you are, that our clerks may enter it properly.",
 			"A new flag in these waters. {other}, is it? We shall watch where it sails.",
+		],
+	},
+	# --- event: what a court says once the field has answered ------------------
+	# The speaker is the court that reads the verdict; `won` is its own side's
+	# result. A siege splits by the part the speaker played, because a wall kept
+	# and a wall carried are not the same boast (DR-20261111-01).
+	"event/field_won": {
+		"category": CAT_EVENT,
+		"moods": ["pleased", "gracious"],
+		"lines": [
+			"Our line broke theirs in the open. The prisoners are already counting themselves.",
+			"You brought your regiments into the open, and the open kept ours.",
+			"The field is ours. We shall bury theirs and thank the ground for it.",
+		],
+	},
+	"event/field_lost": {
+		"category": CAT_EVENT,
+		"moods": ["irritated", "dismissive"],
+		"lines": [
+			"Our line broke on yours. The court has read every name aloud.",
+			"We shall not dress it: the field was yours, and the colours with it.",
+			"Our colours are in your hands. Do not think the war is in them.",
+		],
+	},
+	"event/siege_won": {
+		"category": CAT_EVENT,
+		"moods": ["pleased", "calculating"],
+		"lines": [
+			"The breach is ours and the town with it. Our batteries did the talking.",
+			"Your walls came down in the end. We shall hold them better than you did.",
+			"The garrison answered our last summons with a flag. The town is ours.",
+		],
+	},
+	"event/siege_held": {
+		"category": CAT_EVENT,
+		"moods": ["dismissive", "pleased"],
+		"lines": [
+			"The walls held. Your batteries bought nothing but smoke and patience.",
+			"You broke on our ramparts. The guns are still ours, and so is the town.",
+			"Our stones outlasted your train. Come again when you have more of it.",
+		],
+	},
+	"event/siege_lost": {
+		"category": CAT_EVENT,
+		"moods": ["irritated", "skeptical"],
+		"lines": [
+			"Our guns fell silent before the wall did. The siege is raised.",
+			"We shall not spend another train on those stones this year.",
+			"The wall stood and our batteries did not. The court will hear of it.",
+		],
+	},
+	"event/siege_taken": {
+		"category": CAT_EVENT,
+		"moods": ["irritated", "dismissive"],
+		"lines": [
+			"The breach is yours and the town with it. We shall want it back.",
+			"Our walls failed us. The court is being told so this very hour.",
+			"You have the town. The stones remember who raised them.",
+		],
+	},
+	"event/sea_won": {
+		"category": CAT_EVENT,
+		"moods": ["pleased", "gracious"],
+		"lines": [
+			"Our broadsides settled it. The water is ours, and the wreckage with it.",
+			"Your squadron went down with the sun. We counted the masts from the shore.",
+			"The sea answered for us. Send no more sail where ours keeps station.",
+		],
+	},
+	"event/sea_lost": {
+		"category": CAT_EVENT,
+		"moods": ["irritated", "dismissive"],
+		"lines": [
+			"Our squadron went down with the sun. The sea keeps what it takes.",
+			"The water is yours. Our captains will be asked hard questions.",
+			"We lost the station and the hulls with it. That is the whole of the news.",
 		],
 	},
 	# --- negotiation: what a court says while it waits for an answer ---------

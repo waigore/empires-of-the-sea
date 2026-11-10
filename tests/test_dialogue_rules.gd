@@ -46,7 +46,8 @@ func test_every_point_is_authored_with_a_category_and_two_ways_to_say_it() -> vo
 	assert_true(DialogueCatalog.points().size() >= 20, "the catalogue covers the beats")
 	for point: String in DialogueCatalog.points():
 		assert_true(
-			[DialogueCatalog.CAT_DIPLOMATIC, DialogueCatalog.CAT_NEGOTIATION,
+			[DialogueCatalog.CAT_DIPLOMATIC, DialogueCatalog.CAT_EVENT,
+			DialogueCatalog.CAT_NEGOTIATION,
 			DialogueCatalog.CAT_REACTIVE].has(DialogueCatalog.category_for(point)),
 			"%s has a documented category" % point
 		)
@@ -331,6 +332,192 @@ func test_no_court_talks_to_itself() -> void:
 	assert_true(DialogueEvents.for_pair(null, 0, 6).is_empty())
 
 
+## A battle is an event beat: the court that reads the verdict speaks it
+## (wiki: dialogue-and-mood § Design intent — event: battle results; DR-20261111-01).
+func test_the_beaten_court_answers_the_field() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": 0})
+	var spoken: Dictionary = DialogueEvents.for_pair(state, 0, 6)
+	assert_eq(String(spoken["point"]), "event/field_lost", "the loser owns the loss")
+	assert_eq(int(spoken["speaker"]), 6, "the reader never speaks its own line")
+	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT)
+	state.events.clear()
+	state.record_event("battleFought", 6, 0, {"kind": "field", "winner": 6})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/field_won",
+		"a beaten reader hears the winner's line"
+	)
+	state.events.clear()
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": 6})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/field_won",
+		"the court that won the field says so"
+	)
+
+
+func test_a_siege_names_the_part_each_court_played() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "siege", "winner": 0})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/siege_taken",
+		"the reader carried the walls and the defender answers"
+	)
+	state.events.clear()
+	state.record_event("battleFought", 0, 6, {"kind": "siege", "winner": 6})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/siege_held",
+		"the walls held against the reader"
+	)
+	state.events.clear()
+	state.record_event("battleFought", 6, 0, {"kind": "siege", "winner": 6})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/siege_won",
+		"the court that took the town boasts of it"
+	)
+	state.events.clear()
+	state.record_event("battleFought", 6, 0, {"kind": "siege", "winner": 0})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/siege_lost",
+		"a siege raised is not a wall held"
+	)
+
+
+func test_the_water_answers_to_its_holder() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "sea", "winner": 0})
+	assert_eq(String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/sea_lost")
+	state.events.clear()
+	state.record_event("battleFought", 0, 6, {"kind": "sea", "winner": 6})
+	assert_eq(String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/sea_won")
+
+
+func test_a_battle_without_a_verdict_says_nothing() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": -1})
+	assert_true(
+		DialogueEvents.for_event(state, state.events[0], 0).is_empty(),
+		"a standoff has no winner to speak for"
+	)
+	assert_true(
+		DialogueEvents.for_event(
+			state, {"kind": "battleFought", "a": 0, "b": 6, "turn": 1, "data": {}}, 0
+		).is_empty(),
+		"a beat without a verdict is silent"
+	)
+	assert_true(
+		DialogueEvents.for_event(
+			state,
+			{"kind": "battleFought", "a": 0, "b": 6, "turn": 1,
+			"data": {"kind": "field", "winner": 2}},
+			0
+		).is_empty(),
+		"a third court's verdict is not this pair's word"
+	)
+
+
+func test_a_battle_is_kept_out_of_the_chronicle() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": 0})
+	assert_true(
+		DiplomacyHistory.entries(state, 0, 6).is_empty(),
+		"the field is the court's word, not a diplomatic act"
+	)
+	assert_false(DialogueEvents.for_pair(state, 0, 6).is_empty(), "but it is still spoken")
+
+
+func test_a_battle_leads_the_pair_over_an_older_word() -> void:
+	_declare_war_on_me()
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]),
+		"diplomatic/war_declared_by_them"
+	)
+	state.turn = 3
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": 0})
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/field_lost",
+		"the newest word is the one on show"
+	)
+
+
+func test_a_battle_is_recorded_only_for_the_reader() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "field", "winner": 0})
+	var count: int = state.events.size()
+	assert_true(
+		DialogueEvents.record_land_battle(
+			state, _land_battle(0, 6, ArmyCombat.Outcome.ATTACKER_VICTORY), 0
+		)
+	)
+	assert_eq(state.events.size(), count + 1, "the reader's own fight is kept")
+	assert_false(
+		DialogueEvents.record_land_battle(
+			state, _land_battle(2, 3, ArmyCombat.Outcome.ATTACKER_VICTORY), 0
+		),
+		"a fight the reader was not in is nobody's word"
+	)
+	assert_false(
+		DialogueEvents.record_land_battle(
+			state, _land_battle(0, 6, ArmyCombat.Outcome.STALEMATE), 0
+		),
+		"a standoff writes nothing"
+	)
+	assert_false(
+		DialogueEvents.record_land_battle(
+			state, _land_battle(0, 6, ArmyCombat.Outcome.MUTUAL_ANNIHILATION), 0
+		),
+		"mutual ruin writes nothing"
+	)
+	assert_eq(state.events.size(), count + 1, "only the verdict was written")
+
+
+func test_a_siege_is_told_from_a_field_battle_by_the_report() -> void:
+	DialogueEvents.record_land_battle(
+		state, _land_battle(0, 6, ArmyCombat.Outcome.ATTACKER_VICTORY, "siege"), 0
+	)
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/siege_taken"
+	)
+	state.events.clear()
+	DialogueEvents.record_land_battle(
+		state, _land_battle(0, 6, ArmyCombat.Outcome.ATTACKER_VICTORY), 0
+	)
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/field_lost"
+	)
+
+
+func test_a_beaten_squadron_that_withdraws_still_lost_the_water() -> void:
+	DialogueEvents.record_naval_battle(
+		state,
+		{
+			"attacker": 0, "defender": 6, "outcome": NavalCombat.Outcome.NONE,
+			"retreat": {"success": true, "beaten": 6},
+		},
+		0
+	)
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/sea_lost",
+		"the court that quit the zone owns the loss"
+	)
+	state.events.clear()
+	DialogueEvents.record_naval_battle(
+		state,
+		{
+			"attacker": 0, "defender": 6,
+			"outcome": NavalCombat.Outcome.SIDE2_VICTORY, "retreat": {},
+		},
+		0
+	)
+	assert_eq(
+		String(DialogueEvents.for_pair(state, 0, 6)["point"]), "event/sea_won"
+	)
+
+
+func test_a_battle_speaks_the_same_words_after_a_save() -> void:
+	state.record_event("battleFought", 0, 6, {"kind": "siege", "winner": 0})
+	var before: Dictionary = DialogueEvents.for_pair(state, 0, 6)
+	var restored: DiplomacyState = SaveCourt._diplomacy_from(
+		SaveCourt.capture_diplomacy(state)
+	)
+	var after: Dictionary = DialogueEvents.for_pair(restored, 0, 6)
+	assert_eq(String(after["point"]), String(before["point"]), "the beat survives a load")
+	assert_eq(String(after["text"]), String(before["text"]), "the same words reload")
+
+
 ## A war the reader did not start: the rival is the declarer.
 func _declare_war_on_me() -> void:
 	DiplomacyRules.declare_war(state, 6, 0)
@@ -338,3 +525,16 @@ func _declare_war_on_me() -> void:
 
 func _event(kind: String, a: int, b: int) -> Dictionary:
 	return {"kind": kind, "a": a, "b": b, "turn": 1, "data": VOICED.get(kind, {})}
+
+
+## The shape ArmyCombat writes, trimmed to the fields the beat reads.
+func _land_battle(
+	attacker: int, defender: int, outcome: int, mode: String = "field"
+) -> Dictionary:
+	return {
+		"province": 1,
+		"attacker": attacker,
+		"defender": defender,
+		"outcome": outcome,
+		"battle_mode": mode,
+	}

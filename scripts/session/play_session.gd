@@ -283,7 +283,17 @@ func emit_coast_charted(province_id: int) -> void:
 		host.emit_signal("coast_charted", province_id)
 
 
+## Books the court's word for the fighting just done, then tells the screen: a
+## battle the crown fought is answered by its rival's court when that page is
+## opened (wiki: dialogue-and-mood § Design intent — event: battle results;
+## DR-20261111-01). Both passes report here, so land and sea book alike; a sea
+## fight carries a zone and a land battle a province.
 func emit_battle_resolved(battles: Array[Dictionary]) -> void:
+	for battle: Dictionary in battles:
+		if battle.has("zone"):
+			DialogueEvents.record_naval_battle(diplomacy, battle, player_faction)
+		else:
+			DialogueEvents.record_land_battle(diplomacy, battle, player_faction)
 	if host != null:
 		host.emit_signal("battle_resolved", battles)
 

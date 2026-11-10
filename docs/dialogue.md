@@ -26,8 +26,10 @@ War declared (either side), peace, alliance formed/broken, overtures
 granted/accepted/refused/withdrawn, call to arms answered or refused,
 intervention joined/stood aside/protested, proposals accepted or refused, first
 contact — plus one standing remark per band (war, alliance, friendly, neutral,
-cold). Bookkeeping acts (subsidy, aid, colony status) stay silent; the standing
-word covers them.
+cold). A battle the crown fought is voiced too: the court that read the verdict
+answers the field, the siege or the water, and the line never enters the
+diplomatic chronicle. Bookkeeping acts (subsidy, aid, colony status) stay
+silent; the standing word covers them.
 
 ## Determinism
 
@@ -54,22 +56,20 @@ their stall counter.
 
 ## The crown's charge
 
-The campaign opens on a printed broadside before the first turn: the crown
-addresses the player's own leader, names the seat the chart confirmed, and
-prints the age's terms — the win condition, the calendar chosen at setup and how
-many rival crowns sail. One press begins the age; back and Escape are the same
-one dismissal, so the gate never quits the app. The page prints what
-`CampaignIntro` composed, and the pick is a stable salt of seed and crown, so a
-replay speaks alike. A load installs the map screen directly and never repeats
-the charge ([`DR-20261110-35`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-35)).
+Before the first turn a broadside addresses the player's leader, names the seat
+the chart confirmed, and prints the age's terms (win condition, calendar, rival
+count). One press begins; back and Escape are the same dismissal, so the gate
+never quits. Copy comes from `CampaignIntro` with a stable seed/crown salt; a
+load skips the charge
+([`DR-20261110-35`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-35)).
 
 | File | Job |
 |------|-----|
-| `scripts/rules/campaign_intro.gd` | The charge: `intro/opening` copy, the age's terms, the salt |
-| `scripts/ui/intro_screen.gd`, `scenes/intro.tscn` | The broadside page and its one action |
+| `scripts/rules/campaign_intro.gd` | `intro/opening` copy, terms, salt |
+| `scripts/ui/intro_screen.gd`, `scenes/intro.tscn` | Broadside and its one action |
 
 ## Deferred
 
 Yarn scripts and localization, the optional agenda comment cadence
-(`dialogueSeed % 7`) and reactive beats on battles/era change
+(`dialogueSeed % 7`) and era-change beats
 ([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).
