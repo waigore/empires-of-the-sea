@@ -4,7 +4,8 @@ extends RefCounted
 ##
 ## One legal order per idle civilian: Builders raise the estate the stores are
 ## shortest of, Engineers extend the transport network and, at war, raise a
-## fort, Explorers prospect their minerals, Rail Builders upgrade roads. Every
+## fort, Explorers prospect their minerals, Rail Builders upgrade roads, and
+## Spies observe rival Great Powers or keep a counter-espionage screen. Every
 ## candidate is checked by CivilianWork before it is emitted, so the planner
 ## cannot invent an outcome or spend a commodity twice (REQ-P2-03, REQ-P3-03).
 ## Pure rules: state in, orders out; the map adapter applies them.
@@ -32,20 +33,23 @@ static func plan(
 		return {"orders": orders, "moves": moves, "candidates": candidates, "training": {}}
 	var reserved: Dictionary = {}
 	var roster: Array[CivilianState] = _owned_units(units, config.faction)
+	var screened: bool = SpyRules.has_counter_spy(units, config.faction)
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
 		var best: Dictionary = _best_work(
 			config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-			context, reserved
+			context, reserved, screened
 		)
 		if best.is_empty():
-			var move: Dictionary = _best_move(model, unit, works)
+			var move: Dictionary = _best_move(model, unit, works, units, context, screened)
 			if not move.is_empty():
 				moves.append(move)
 			continue
 		var tile: Vector2i = best["tile"]
 		reserved[tile] = true
+		if String(best["action"]) == SpyRules.WORK_COUNTER:
+			screened = true
 		candidates.append(best)
 		orders.append({
 			"kind": KIND_WORK,
@@ -62,7 +66,9 @@ static func plan(
 	}
 
 
-## Next civilian to train: builders first, then one engineer and one explorer.
+## Next civilian to train: builders first, then one engineer and one explorer;
+## at war a court wants a spy screen before another explorer (wiki:
+## civilian-build-planner).
 static func training_order(
 	config: AiConfig, units: Array, context: Dictionary
 ) -> Dictionary:
@@ -71,7 +77,7 @@ static func training_order(
 	var own: Array[CivilianState] = _owned_units(units, config.faction)
 	if own.size() >= config.parameter("civilian.max_civilians"):
 		return {}
-	var type_id: String = _preferred_type(own)
+	var type_id: String = _preferred_type(own, bool(context.get("at_war", false)))
 	if not CivilianCatalog.is_implemented(type_id):
 		return {}
 	var tech: Dictionary = context.get("tech_unlocked", {})
@@ -90,7 +96,8 @@ static func training_order(
 static func _best_work(
 	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
+	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
+	screened: bool = false
 ) -> Dictionary:
 	match unit.type_id:
 		"builder":
@@ -112,6 +119,11 @@ static func _best_work(
 			return _best_rail(
 				config, model, unit, units, works, stockpile, tech_caps,
 				tech_unlocked, context, reserved
+			)
+		"spy":
+			return AiSpyPlanner.best_work(
+				config, model, unit, units, works, stockpile, tech_caps,
+				tech_unlocked, context, screened
 			)
 	return {}
 
@@ -137,7 +149,7 @@ static func _best_builder(
 		score += _need(crop, stockpile, target) * 10
 		if level <= 0:
 			score += 10
-		var candidate: Dictionary = _candidate(
+		var candidate: Dictionary = AiCivilianCandidate.make(
 			model, unit, "build_improvement", tile, works, units, stockpile,
 			tech_caps, tech_unlocked, context, score
 		)
@@ -168,7 +180,7 @@ static func _best_engineer(
 			score += 15
 		if _touches_connected(model, tile, connected):
 			score += 30
-		var road: Dictionary = _candidate(
+		var road: Dictionary = AiCivilianCandidate.make(
 			model, unit, "build_road", tile, works, units, stockpile, tech_caps,
 			tech_unlocked, context, score
 		)
@@ -212,7 +224,7 @@ static func _best_explorer(
 		ImprovementCatalog.commodity(resource), stockpile,
 		config.parameter("civilian.need_target")
 	) * 10
-	return _candidate(
+	return AiCivilianCandidate.make(
 		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
 		tech_unlocked, context, score
 	)
@@ -231,7 +243,7 @@ static func _best_rail(
 			ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y)),
 			stockpile, config.parameter("civilian.need_target")
 		) * 4
-		var candidate: Dictionary = _candidate(
+		var candidate: Dictionary = AiCivilianCandidate.make(
 			model, unit, "build_rail", tile, works, units, stockpile, tech_caps,
 			tech_unlocked, context, score
 		)
@@ -250,7 +262,7 @@ static func _port_candidate(
 		for tile: Vector2i in province.tiles:
 			if reserved.has(tile) or not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				continue
-			return _candidate(
+			return AiCivilianCandidate.make(
 				model, unit, "build_port", tile, works, units, stockpile, tech_caps,
 				tech_unlocked, context, config.parameter("civilian.port_weight")
 			)
@@ -269,39 +281,20 @@ static func _fort_candidate(
 	if tile.x < 0:
 		return {}
 	var score: int = config.parameter("civilian.fort_weight") + 50
-	return _candidate(
+	return AiCivilianCandidate.make(
 		model, unit, "build_fort", tile, works, units, stockpile, tech_caps,
 		tech_unlocked, context, score
 	)
 
 
-## Runs the shared validation so a candidate is exactly an order the player
-## could issue through the same rules.
-static func _candidate(
-	model: MapModel, unit: CivilianState, action: String, tile: Vector2i,
-	works: LandWorks, units: Array, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, score: int
-) -> Dictionary:
-	var roster: Array[CivilianState] = []
-	roster.assign(units)
-	var check: Dictionary = CivilianWork.validate(
-		model, unit, action, works, roster, stockpile, null, tile, tech_caps,
-		tech_unlocked, context
-	)
-	if not bool(check.get("ok", false)):
-		return {}
-	return {
-		"action": action,
-		"tile": tile,
-		"score": score,
-		"cost": check.get("cost", {}),
-		"duration": int(check.get("duration", 1)),
-	}
-
-
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
-## unprospected mineral on its own land instead of standing still.
-static func _best_move(model: MapModel, unit: CivilianState, works: LandWorks) -> Dictionary:
+## unprospected mineral on its own land; an idle Spy is handled by AiSpyPlanner.
+static func _best_move(
+	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
+	context: Dictionary = {}, screened: bool = false
+) -> Dictionary:
+	if unit.type_id == "spy":
+		return AiSpyPlanner.best_move(model, unit, units, context, screened)
 	if unit.type_id != "explorer":
 		return {}
 	var goal: Vector2i = _nearest_mineral(model, unit, works)
@@ -344,10 +337,13 @@ static func _owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
-static func _preferred_type(roster: Array[CivilianState]) -> String:
+static func _preferred_type(
+	roster: Array[CivilianState], at_war: bool = false
+) -> String:
 	var builders: int = 0
 	var engineers: int = 0
 	var explorers: int = 0
+	var spies: int = 0
 	for unit: CivilianState in roster:
 		if unit.type_id == "builder":
 			builders += 1
@@ -355,12 +351,18 @@ static func _preferred_type(roster: Array[CivilianState]) -> String:
 			engineers += 1
 		elif unit.type_id == "explorer":
 			explorers += 1
+		elif unit.type_id == "spy":
+			spies += 1
 	if builders < 2:
 		return "builder"
 	if engineers < 1:
 		return "engineer"
+	if at_war and spies < 1:
+		return "spy"
 	if explorers < 1:
 		return "explorer"
+	if spies < 1:
+		return "spy"
 	return "builder"
 
 

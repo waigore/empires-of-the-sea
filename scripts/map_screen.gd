@@ -230,6 +230,7 @@ func _notification(what: int) -> void:
 func load_region(index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
+	civilian_layer.viewer_faction = play.player_faction
 	ship_layer.world = play.world
 	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
@@ -254,9 +255,7 @@ func load_region(index: int) -> void:
 		play.player_present(), play.player_faction
 	)
 	army_layer.spawn(play.model)
-	civilian_layer.spawn(
-		play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS
-	)
+	civilian_layer.spawn(play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	MapPlaySetup.build_visibility(play)
