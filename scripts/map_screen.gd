@@ -9,6 +9,9 @@ signal province_selected(province_id: int)
 signal selection_cleared
 signal coast_charted(province_id: int)
 signal battle_resolved(battles: Array[Dictionary])
+## Hostile patrols and the crown's own stations worked the sea this turn
+## (DR-20261110-13): audio and rings answer, the rules already applied.
+signal raid_resolved(raids: Array[Dictionary])
 signal turn_ended(turn: int)
 ## The rules decided the campaign or the human crown fell; audio/motion listen.
 signal victory_declared(victory: VictoryState)

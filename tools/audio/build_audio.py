@@ -280,6 +280,44 @@ def sfx_fleet_sunk(seed: int = 23) -> np.ndarray:
     return dsp.fade_edges(out * 0.7, 0.02, 0.3)
 
 
+def sfx_cargo_seized(seed: int = 26) -> np.ndarray:
+    """Prize hauled into the hold: a crate set down, then coin counted out."""
+    total = int(0.85 * dsp.RATE)
+    out = np.zeros(total)
+    t = dsp.time_axis(0.4)
+    thud = np.sin(2 * np.pi * (104 - 34 * np.clip(t / 0.22, 0, 1)) * t) * np.exp(-t * 18.0)
+    scrape = _lp(dsp.rng(seed).standard_normal(t.size), 14) * np.exp(-t * 9.0) * 0.7
+    out[: t.size] += (thud * 0.8 + scrape) * 0.9
+    for index, delay in enumerate((0.11, 0.19, 0.28)):
+        coin = dsp.pluck(
+            2080.0 + 260.0 * index, 0.1, 0.3, bright=0.95, damp=17.0, tail=0.22, seed=seed + 1 + index
+        )
+        start = int(delay * dsp.RATE)
+        end = min(total, start + coin.size)
+        out[start:end] += coin[: end - start]
+    return dsp.fade_edges(out * 0.75, 0.002, 0.08)
+
+
+def sfx_raid_alarm(seed: int = 27) -> np.ndarray:
+    """A warning gun across the water: one distant, dull thump and its echo."""
+    total = int(1.9 * dsp.RATE)
+    out = np.zeros(total)
+    rng = dsp.rng(seed)
+    for shot, delay, gain in ((0, 0.0, 1.0), (1, 0.62, 0.45)):
+        t = dsp.time_axis(1.3)
+        drop = 74.0 * np.exp(-t * 4.2) + 28.0
+        phase = 2 * np.pi * np.cumsum(drop) / dsp.RATE
+        boom = np.sin(phase) * np.exp(-t * 3.4)
+        rumble = _lp(rng.standard_normal(t.size), 120) * np.exp(-t * 2.2) * 1.5
+        shot_body = (boom * 0.8 + rumble) * gain
+        # Distance: roll the highs off so it reads from the far side of the bay.
+        shot_body = _lp(shot_body, 4)
+        start = int(delay * dsp.RATE)
+        end = min(total, start + shot_body.size)
+        out[start:end] += shot_body[: end - start]
+    return dsp.fade_edges(out * 0.9, 0.004, 0.25)
+
+
 SFX = {
     "ui_click": sfx_ui_click,
     "panel_open": sfx_panel_open,
@@ -296,6 +334,8 @@ SFX = {
     "fleet_sunk": sfx_fleet_sunk,
     "civilian_select": sfx_civilian_select,
     "civilian_move": sfx_civilian_move,
+    "cargo_seized": sfx_cargo_seized,
+    "raid_alarm": sfx_raid_alarm,
 }
 
 

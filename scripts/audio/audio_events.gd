@@ -19,6 +19,9 @@ const HULL_HIT := "hull_hit"
 const FLEET_SUNK := "fleet_sunk"
 const CIVILIAN_SELECT := "civilian_select"
 const CIVILIAN_MOVE := "civilian_move"
+## A raid either takes the crown's cargo or pays its station in prize (DR-20261110-13).
+const RAID_ALARM := "raid_alarm"
+const CARGO_SEIZED := "cargo_seized"
 
 const ROOT := "res://assets/audio/sfx/"
 
@@ -40,6 +43,8 @@ const CUES: Dictionary = {
 	FLEET_SUNK: {"file": "fleet_sunk.wav", "volume_db": -3.0, "pitch": 0.03},
 	CIVILIAN_SELECT: {"file": "civilian_select.wav", "volume_db": -8.0, "pitch": 0.04},
 	CIVILIAN_MOVE: {"file": "civilian_move.wav", "volume_db": -8.0, "pitch": 0.05},
+	RAID_ALARM: {"file": "raid_alarm.wav", "volume_db": -12.0, "pitch": 0.02},
+	CARGO_SEIZED: {"file": "cargo_seized.wav", "volume_db": -5.0, "pitch": 0.04},
 }
 
 

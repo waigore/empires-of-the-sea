@@ -167,10 +167,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
 		_finish_calendar(play)
 		return
-	# Enemy patrols and blockades in the crown's home waters skim this turn's
-	# imports before the ledger closes (wiki: ships-and-naval § Trade and
-	# Transport Interception; DR-20261109-16).
-	MapPlayRaids.resolve(play)
+	# The raid pass runs after the rival ledgers book the new turn's buys and
+	# before the crown's ledger closes: both sides' cargo is afloat, and losses
+	# leave the stockpile before anything resolves (wiki: ships-and-naval
+	# § Trade and Transport Interception; DR-20261109-16, DR-20261110-13).
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
@@ -179,6 +179,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# Rival ledgers resolve on post-combat ownership and plan the new turn.
 	var tech_before: Dictionary = MapPlayEspionage.tech_snapshot(play)
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
+	MapPlayRaids.resolve(play)
 	MapPlayEspionage.record_court_reports(play, land_battles, naval_battles, tech_before)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1

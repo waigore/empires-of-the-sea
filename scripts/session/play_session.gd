@@ -254,6 +254,13 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 		host.emit_signal("battle_resolved", battles)
 
 
+## The turn's raids, in either direction: the screen answers with a cue and a
+## ring on the waters that were worked (REQ-P5-06).
+func emit_raid_resolved(raids: Array[Dictionary]) -> void:
+	if host != null and host.has_signal("raid_resolved"):
+		host.emit_signal("raid_resolved", raids)
+
+
 func emit_turn_ended(p_turn: int) -> void:
 	if host != null:
 		host.emit_signal("turn_ended", p_turn)
