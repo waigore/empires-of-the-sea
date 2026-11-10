@@ -41,12 +41,12 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   in words.
 - **First contact:** a Tribe enters court once a seen tile sits in its
   provinces; sea-reach intel does not.
-- **Chronicle** (`DiplomacyHistory`): unbounded; panel shows the pair newest
-  first, `Year Y (Turn N)`; unmet crowns `Unknown faction`; no scores.
+- **Chronicle** (`DiplomacyHistory`): unbounded; panel shows newest first,
+  `Year Y (Turn N)`; unmet crowns `Unknown faction`; no scores.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, banded suspicion and
   behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
-- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): charted land washed blue
-  (yours), green (friendly/allied), grey (neutral) or red (war).
+- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): land washed blue (yours),
+  green (friendly/allied), grey (neutral) or red (war).
 - **Rival AI courts:** one order per GP per turn ([`ai.md`](ai.md)).
   Below 50 war desire a rival offers white peace; either answer starts a
   3-turn cooldown.
