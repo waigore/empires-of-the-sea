@@ -80,17 +80,19 @@ static func check(
 
 
 ## Completion: charge the purse and record the deed. Returns false when the
-## purse no longer covers the price or another buyer already holds the deed.
+## purse no longer covers the price or another buyer already holds the deed, and
+## when no ledger answers for the buyer at all (a deed is never signed for free).
 static func complete(model: MapModel, tile: Vector2i, owner: int, economy: PlayerEconomy) -> bool:
+	if economy == null:
+		return false
 	if model.is_purchased_tile(tile):
 		return false
 	var price: int = cost(model, tile)
-	if economy != null and not economy.spend_treasury(price):
+	if not economy.spend_treasury(price):
 		return false
 	if model.purchase_tile(tile, owner):
 		return true
-	if economy != null:
-		economy.add_treasury(price)
+	economy.add_treasury(price)
 	return false
 
 

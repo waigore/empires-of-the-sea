@@ -60,7 +60,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		# The crown's Quick Battle stance is state a battle reads this turn, so a
 		# save carries it (wiki: campaign-persistence § Snapshot contract;
 		# quick-battle § The crown's plan; DR-20261110-33).
-		"battle_plan": play.battle_plan,
+		"battle_plan": QuickBattleActions.normalize_plan(String(play.battle_plan)),
 	}
 
 
@@ -141,8 +141,9 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 		String(session.get("difficulty", Difficulty.DEFAULT))
 	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
-	# A save from before the crown's plan was carried resumes on the default
-	# stance (wiki: campaign-persistence § Load and resume — legacy defaults).
+	# A save from before the crown's plan was carried, or with a value the rules
+	# do not publish, resumes on the default stance (wiki: campaign-persistence
+	# § Load and resume — legacy defaults; quick-battle § The crown's plan).
 	play.battle_plan = _plan(session.get("battle_plan", DEFAULT_BATTLE_PLAN))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = SaveCourt.victory_from(data.get("victory", {}))

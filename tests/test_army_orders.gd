@@ -300,6 +300,54 @@ func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
 	assert_null(_screen.army_layer.marker_for(home), "the fallen army's standard is retired")
 
 
+## A battle the crown fights leaves a word at the rival's court: the event beat
+## (wiki: dialogue-and-mood § Design intent — event: battle results;
+## DR-20261111-01). The record is written by the real combat pass, so the beat
+## can never drift from what the field decided.
+func test_a_battle_leaves_a_word_at_the_rivals_court() -> void:
+	var rival: int = 2
+	var province: int = -1
+	for entry: ProvinceState in _screen.model.provinces:
+		if entry.owner == rival and not entry.capital:
+			province = entry.id
+			break
+	assert_true(province >= 0, "the fixture seats a rival province")
+	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival)
+	_screen.play.observer_mode = true
+	_screen.model.province_data(province).fort_level = 0
+	_seat_battle(province, MapScreen.PLAYER_FACTION, rival, 8, 2)
+
+	MapPlayArmyBattles.resolve(_screen.play)
+
+	var spoken: Dictionary = DialogueEvents.for_pair(
+		_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival
+	)
+	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the field answers")
+	assert_true(String(spoken["point"]).begins_with("event/"), "a battle beat")
+	assert_eq(int(spoken["speaker"]), rival, "the rival speaks, never the crown")
+
+
+## Seats an attacker and a defender in one province, as a march would, without
+## disturbing the screen's selection.
+func _seat_battle(province: int, attacker: int, defender: int, atk: int, def: int) -> void:
+	_screen.army_layer.armies.clear()
+	_screen.model.province_data(province).owner = defender
+	var holding: ArmyState = ArmyState.muster(1, defender, province, false, _guards(def), 1)
+	holding.moved = false
+	var field: ArmyState = ArmyState.muster(2, attacker, province, false, _guards(atk), 100)
+	field.moved = true
+	_screen.army_layer.armies.append(holding)
+	_screen.army_layer.armies.append(field)
+	_screen.army_layer._rebuild_markers()
+
+
+func _guards(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("guards")
+	return types
+
+
 func _player_home() -> ArmyState:
 	for army: ArmyState in _screen.army_layer.armies:
 		if army.owner == MapScreen.PLAYER_FACTION and army.is_home_army():
@@ -416,3 +464,42 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	)
 	assert_true(String(panel._status.text).contains("Aboard the fleet"))
 	panel.free()
+
+
+## The dossier names the stance as the crown's, never that army's: one plan
+## commands every Quick Battle the human fights (wiki: quick-battle § The
+## crown's plan; DR-20261110-33).
+func test_the_dossier_names_the_crowns_plan() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(8, 0, 1, ["guards"], false)
+
+	panel.refresh(model, army, true, false, "", [], "", "aggressive")
+
+	assert_eq(String(panel._plan.text), "Crown battle plan: Aggressive")
+	assert_true(String(panel._plan.tooltip_text).contains("crown"))
+	panel.refresh(model, army, true, false, "", [], "", "hammer")
+	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
+	panel.free()
+
+
+## One tap on any own army's dossier cycles the whole crown's stance, and an
+## unknown value starts from balanced rather than stranding the cycle
+## (wiki: quick-battle § The crown's plan).
+func test_cycling_the_plan_is_crown_wide() -> void:
+	var play: PlaySession = _screen.play
+	var army: ArmyState = _player_home()
+	play.battle_plan = "balanced"
+
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "defensive", "the plan lives on the crown, not the army")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "balanced")
+
+	play.battle_plan = "hammer"
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive", "an unknown stance cycles from balanced")
+

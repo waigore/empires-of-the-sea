@@ -185,7 +185,7 @@ func refresh(
 	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
 	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
 	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
-	_plan.text = "Crown battle plan: %s" % plan.capitalize()
+	_plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan).capitalize()
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own army."

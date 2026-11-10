@@ -45,12 +45,6 @@ const ACTION_LABEL: Dictionary = {
 }
 
 
-## The one plan a crown may name; anything else is balanced (wiki: quick-battle
-## § The crown's plan; DR-20261110-33).
-static func normalize_plan(value: String) -> String:
-	return value if PLANS.has(value) else "balanced"
-
-
 static func actions_for(
 	plan: String, is_defender: bool = false, siege: bool = false
 ) -> Array:
@@ -58,6 +52,13 @@ static func actions_for(
 		var script: Dictionary = DEFENDER_PLANS if siege else DEFENDER_FIELD_PLANS
 		return (script.get(plan, script["balanced"]) as Array).duplicate()
 	return (PLANS.get(plan, PLANS["balanced"]) as Array).duplicate()
+
+
+## The one gate every plan value passes: the three published stances, anything
+## else (an old save, a typo, a scenario) is `balanced` (wiki: quick-battle
+## § The crown's plan — "Any other value is balanced"; DR-20261110-33).
+static func normalize_plan(plan: String) -> String:
+	return plan if PLANS.has(plan) else "balanced"
 
 
 ## Resolve one scripted action against the enemy side (and guns, when assaulting).
