@@ -1,6 +1,7 @@
 extends GdToolsTest
 ## Presentation contract for the map artwork: the wash must sit behind the ink,
-## the animated layers must exist, and symbols must never bury a province name.
+## the animated layers must exist, the bake must carry a coastline and a beach
+## the player can read, and symbols must never bury a province name.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -23,8 +24,15 @@ func test_wash_draws_behind_the_inked_layer() -> void:
 	var wash: Sprite2D = _canvas.get_node_or_null("Wash")
 	assert_not_null(wash)
 	assert_true(wash.show_behind_parent)
-	assert_almost_eq(wash.scale.x, MapCanvas.TILE_SIZE, 0.001)
 	assert_true(wash.material is ShaderMaterial)
+	# The paint is baked finer than the tile grid but the sprite still covers
+	# exactly one map.
+	var relief: MapRelief = _canvas.relief
+	assert_true(relief.scale > 1, "the wash is baked at sub-tile resolution")
+	assert_almost_eq(wash.scale.x * float(relief.scale), MapCanvas.TILE_SIZE, 0.001)
+	assert_almost_eq(
+		wash.scale.x * float(wash.texture.get_width()), _canvas.map_size().x, 0.05
+	)
 
 
 func test_land_shadow_sits_under_the_wash() -> void:
@@ -60,26 +68,67 @@ func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
 
 
 ## Ownership has to read by fill, not only by the border ribbon: the wash moves
-## each owned tile toward its crown's heraldic colour.
+## each owned tile toward its crown's heraldic colour, and the baked paint keeps
+## that tint despite the noise laid over it.
 func test_owned_land_is_washed_toward_its_crown() -> void:
-	var wash: Sprite2D = _canvas.get_node("Wash")
-	var image: Image = wash.texture.get_image()
 	var model: MapModel = _canvas.model
-	var province: ProvinceState = null
-	for candidate: ProvinceState in model.provinces:
-		if candidate.owner != FactionCatalog.PLAYER_FACTION:
-			continue
-		province = candidate
-		break
-	assert_not_null(province)
-	var tile: Vector2i = province.tiles[0]
-	var pixel: Color = image.get_pixel(tile.x, tile.y)
+	var tile: Vector2i = _inland_owned_tile(model)
+	assert_true(tile.x >= 0, "fixture has an owned inland tile")
 	var terrain: Color = Palette.terrain_color(model.terrain_at(tile.x, tile.y))
 	var crown: Color = FactionCatalog.color_of(model.owner_at(tile.x, tile.y))
+	var expected: Color = terrain.lerp(crown, MapWash.OWNER_TINT)
 	assert_true(MapWash.OWNER_TINT >= 0.5, "ownership stays readable at play zoom")
-	assert_almost_eq(pixel.r, lerpf(terrain.r, crown.r, MapWash.OWNER_TINT), 0.01)
-	assert_almost_eq(pixel.g, lerpf(terrain.g, crown.g, MapWash.OWNER_TINT), 0.01)
-	assert_almost_eq(pixel.b, lerpf(terrain.b, crown.b, MapWash.OWNER_TINT), 0.01)
+	var base: Color = _canvas.relief.tile_color(tile)
+	assert_almost_eq(base.r, expected.r, 0.001)
+	assert_almost_eq(base.g, expected.g, 0.001)
+	assert_almost_eq(base.b, expected.b, 0.001)
+	var painted: Color = _painted_mean(tile)
+	assert_almost_eq(painted.r, expected.r, 0.14)
+	assert_almost_eq(painted.g, expected.g, 0.14)
+	assert_almost_eq(painted.b, expected.b, 0.14)
+
+
+## The bake owns the shore: land on one side of the distance field, water on the
+## other, so the painted edge and the ink agree instead of blurring together.
+func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
+	var model: MapModel = _canvas.model
+	var relief: MapRelief = _canvas.relief
+	var wrong: int = 0
+	for y in model.height:
+		for x in model.width:
+			var centre := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var distance: float = relief.coast_at(centre)
+			if model.is_land(x, y) and distance <= 0.0:
+				wrong += 1
+			elif not model.is_land(x, y) and distance >= 0.0:
+				wrong += 1
+	assert_eq(wrong, 0, "every tile centre sits on the right side of the shore")
+
+
+## A beach inside the shore and a pale shoal outside it: that band is what makes
+## a coastline read as drawn water rather than a soft smear.
+func test_wash_paints_a_beach_and_a_shallow_band() -> void:
+	var model: MapModel = _canvas.model
+	var relief: MapRelief = _canvas.relief
+	var image: Image = relief.color
+	var sand: int = 0
+	var shoal: int = 0
+	var deep: int = 0
+	for y in image.get_height():
+		for x in image.get_width():
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.a < 0.02:
+				deep += 1
+				continue
+			if pixel.a > 0.85 and _near(pixel, MapRelief.SAND, 0.06):
+				sand += 1
+			elif pixel.a < 0.75 and _near(pixel, MapRelief.SHOAL, 0.14):
+				shoal += 1
+	assert_gt(sand, 40, "the shore carries a sand band")
+	assert_gt(shoal, 40, "open water carries a shoal veil")
+	assert_gt(deep, 40, "deep water is left to the sea shader")
+	var coast: float = relief.coast_at(_land_centre(model))
+	assert_gt(coast, 0.3, "inland ground sits well inside the shore")
 
 
 func test_animated_layers_exist() -> void:
@@ -113,6 +162,59 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 	assert_gt(marks, 0)
 
 
+## Every non-capital province town is drawn on the chart, so a crown can see
+## where its estates anchor (wiki: capital-and-connectivity § Town per province).
+func test_every_non_capital_town_is_marked() -> void:
+	var marks: Dictionary = {}
+	for glyph: Dictionary in _canvas.plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var expected: int = 0
+	for province: ProvinceState in _canvas.model.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		if _canvas.plan.under_label(at):
+			continue
+		expected += 1
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+	assert_gt(expected, 0)
+	assert_eq(marks.size(), expected)
+## A province is painted, not speckled once: the scatter lays a second, smaller
+## stamp on top of the first so a forest or an upland reads as a cluster.
+func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:
+	var kinds: Dictionary = {}
+	var per_tile: Dictionary = {}
+	for glyph: Dictionary in _canvas.plan.glyphs:
+		var kind: String = String(glyph["kind"])
+		kinds[kind] = int(kinds.get(kind, 0)) + 1
+		if kind == "port" or kind == "capital":
+			continue
+		var at: Vector2 = glyph["position"]
+		var tile: Vector2i = MapGeo.tile_at_world(at, MapCanvas.TILE_SIZE)
+		per_tile[tile] = int(per_tile.get(tile, 0)) + 1
+	var land: int = 0
+	for y in _canvas.model.height:
+		for x in _canvas.model.width:
+			if _canvas.model.is_land(x, y):
+				land += 1
+	var marks: int = 0
+	for kind: String in kinds.keys():
+		if kind == "port" or kind == "capital":
+			continue
+		marks += int(kinds[kind])
+	assert_gt(marks, land * 4 / 10, "the ground is painted, not left bare")
+	assert_gt(kinds.size(), 5, "upland, woodland, scrub and plain marks all appear")
+	assert_true(kinds.has("mountain") and kinds.has("tree"), "upland and woodland are drawn")
+	var clustered: int = 0
+	for tile: Vector2i in per_tile.keys():
+		if int(per_tile[tile]) > 1:
+			clustered += 1
+	assert_gt(clustered, 4, "some tiles carry a second, smaller stamp")
+
+
 func test_capital_star_has_ten_points() -> void:
 	var star: PackedVector2Array = MapGlyphs.star_points(Vector2.ZERO, 10.0, 5, 0.45)
 	assert_eq(star.size(), 10)
@@ -137,3 +239,54 @@ func test_plan_places_names_without_a_node() -> void:
 		assert_true(named.has(province.name))
 	assert_gt(expected, 0)
 	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
+
+
+func _inland_owned_tile(model: MapModel) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_depth: float = 0.9
+	for province: ProvinceState in model.provinces:
+		if province.owner != FactionCatalog.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province.tiles:
+			var depth: float = _canvas.relief.coast_at(
+				Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+			)
+			if depth > best_depth:
+				best_depth = depth
+				best = tile
+	return best
+
+
+## Mean of the bake texels around a tile centre, so a single grain texel does
+## not decide the assertion.
+func _painted_mean(tile: Vector2i) -> Color:
+	var image: Image = _canvas.relief.color
+	var scale: int = _canvas.relief.scale
+	var cx: int = tile.x * scale + scale / 2
+	var cy: int = tile.y * scale + scale / 2
+	var total := Color(0.0, 0.0, 0.0, 0.0)
+	var count: int = 0
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var x: int = clampi(cx + dx, 0, image.get_width() - 1)
+			var y: int = clampi(cy + dy, 0, image.get_height() - 1)
+			total += image.get_pixel(x, y)
+			count += 1
+	return total / float(count)
+
+
+func _land_centre(model: MapModel) -> Vector2:
+	for province: ProvinceState in model.provinces:
+		for tile: Vector2i in province.tiles:
+			var centre := Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+			if _canvas.relief.coast_at(centre) > 1.2:
+				return centre
+	return Vector2(0.5, 0.5)
+
+
+func _near(pixel: Color, target: Color, tolerance: float) -> bool:
+	return (
+		absf(pixel.r - target.r) < tolerance
+		and absf(pixel.g - target.g) < tolerance
+		and absf(pixel.b - target.b) < tolerance
+	)

@@ -233,6 +233,8 @@ static func _finish_turn(play: PlaySession) -> void:
 		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
+	# An open dossier follows the works, the town and the tech the turn changed.
+	MapPlaySetup.refresh_dossier(play)
 	MapPlaySetup.build_lens(play)
 	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	# The sheet narrates the turn that just resolved; the overlay opens only when

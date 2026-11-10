@@ -237,17 +237,9 @@ func apply_snapshot(data: Dictionary) -> void:
 			_assignments.append({"recipe": recipe_id, "units": units})
 
 
+## Research, slots included, is restored by ResearchSlots: it drops entries the
+## catalog or the roster cannot hold and forfeits progress no slot binds
+## (wiki: research-state § Slot Occupancy Persistence).
 func _apply_research(data: Dictionary) -> void:
 	research = ResearchState.new()
-	research.unlocked = data.get("unlocked", {}).duplicate()
-	research.progress = data.get("progress", {}).duplicate()
-	research.revealed = data.get("revealed", {}).duplicate()
-	for raw: Variant in data.get("slots", []):
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var entry: Dictionary = raw
-		research.slots.append({
-			"tech": String(entry.get("tech", ResearchState.EMPTY_TECH)),
-			"funding": String(entry.get("funding", ResearchFunding.DEFAULT)),
-		})
-	research.ensure_slots()
+	ResearchSlots.restore(research, data)

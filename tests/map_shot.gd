@@ -15,6 +15,7 @@ var _lens := false
 var _political := false
 var _war := false
 var _gazette := false
+var _dossier := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -45,6 +46,8 @@ func _initialize() -> void:
 			_war = arg.substr(4) == "1"
 		elif arg.begins_with("gazette="):
 			_gazette = arg.substr(8) == "1"
+		elif arg.begins_with("dossier="):
+			_dossier = arg.substr(8) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -53,7 +56,7 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 4 and _zoom > 0.0 and _screen != null:
-		_screen.camera.zoom = Vector2.ONE * _zoom
+		_screen.camera.focus_on(_screen.camera.position, _zoom, true)
 	if _frames == 4 and _diplomacy and _screen != null:
 		_screen.play.diplomacy.apply_delta(0, 1, 22.0, "courtSample")
 		MapPlayDiplomacy.open(_screen.play)
@@ -71,6 +74,15 @@ func _process(_delta: float) -> bool:
 		_sample_war()
 	if _frames == 4 and _gazette and _screen != null:
 		_sample_gazette()
+	if _frames == 4 and _dossier and _screen != null:
+		var play: PlaySession = _screen.play
+		MapPlayInput.select_province(
+			play,
+			play.capital_province,
+			MapGeo.tile_center(
+				play.capital_tile.x, play.capital_tile.y, PlaySession.TILE_SIZE
+			)
+		)
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)
