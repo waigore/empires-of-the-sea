@@ -107,6 +107,7 @@ suites = [
   "test_naval_port_loss.gd",
   "test_naval_raid.gd",
   "test_naval_retreat.gd",
+  "test_naval_strength.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]

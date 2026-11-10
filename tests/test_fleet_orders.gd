@@ -983,6 +983,84 @@ func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
 	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
 
 
+## A squadron of several hulls flies them: the marker's escorts, hull badge and
+## strength gauge follow every launch and breaking up (wiki: ships-and-naval
+## § Naval Strength Aggregation Formula).
+func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	_screen.play.economy.economy.treasury = 60000
+	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the launch founds or joins the home fleet")
+	var marker: Ship = _screen.ship_layer.ship_for(home)
+	assert_not_null(marker, "the home squadron keeps a marker")
+	assert_eq(marker.hull_count, home.ship_count())
+	assert_almost_eq(marker.strength, NavalStrength.strength(home), 0.0001)
+	assert_gt(marker.hull_count, 1, "the fixture's home fleet plus one launch")
+
+	var hull_id: String = home.hulls[home.hulls.size() - 1]
+	var count_before: int = home.ship_count()
+	var result: Dictionary = _screen.ship_layer.scrap_hull(
+		home, hull_id, _screen.play.economy.economy
+	)
+
+	assert_true(bool(result.get("ok", false)), String(result.get("reason", "")))
+	assert_eq(home.ship_count(), count_before - 1)
+	assert_eq(marker.hull_count, home.ship_count(), "the marker drops the broken hull")
+	assert_almost_eq(marker.strength, NavalStrength.strength(home), 0.0001)
+
+
+## The printed strength needs the closer chart; fit zoom keeps the silhouettes.
+func test_the_zoom_sets_the_marker_detail() -> void:
+	var ship: Ship = _screen.ship_layer.ships[0]
+
+	_screen.ship_layer.set_zoom(1.0)
+	assert_true(ship.detail)
+
+	_screen.ship_layer.set_zoom(0.5)
+	assert_false(ship.detail)
+
+
+## The dossier prints the arithmetic the resolver fights with, not a bare score.
+func test_the_fleet_dossier_prints_the_combat_maths() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	_screen.ship_layer.select(ship)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+
+	assert_true(block.visible, "a squadron with hulls shows its strength")
+	assert_true(block._strength.text.contains("strength ="), block._strength.text)
+	assert_true(block._strength.text.contains("FRP"), block._strength.text)
+	assert_true(block._pool.text.contains("Hull pool"), block._pool.text)
+	assert_true(block._pool.text.contains("53%"), block._pool.text)
+	assert_false(block._zone.visible, "empty water needs no odds line")
+
+
+## A hostile squadron in the same water shows the share of strength each side
+## holds, so the court knows what the turn's battle would decide.
+func test_a_contested_zone_shows_the_share_of_strength() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		77, rival, fleet.sea_zone, ["ship_77"], {"ship_77": "frigate"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+
+	_screen.ship_layer.select(ship)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+
+	assert_true(block._zone.text.contains("you hold"), block._zone.text)
+	assert_true(block._zone.text.contains("against"), block._zone.text)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
 func _owned_coastal_except(model: MapModel, skip: int) -> int:
 	for province: ProvinceState in model.provinces:
 		if province.owner != MapScreen.PLAYER_FACTION or province.id == skip:

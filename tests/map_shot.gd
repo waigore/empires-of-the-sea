@@ -16,6 +16,8 @@ var _political := false
 var _war := false
 var _gazette := false
 var _dossier := false
+var _hulls := 0
+var _sea := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -48,6 +50,10 @@ func _initialize() -> void:
 			_gazette = arg.substr(8) == "1"
 		elif arg.begins_with("dossier="):
 			_dossier = arg.substr(8) == "1"
+		elif arg.begins_with("hulls="):
+			_hulls = int(arg.substr(6))
+		elif arg.begins_with("sea="):
+			_sea = arg.substr(4) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -57,6 +63,9 @@ func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 4 and _zoom > 0.0 and _screen != null:
 		_screen.camera.zoom = Vector2.ONE * _zoom
+		MapPlayInput.on_view_changed(_screen.play)
+	if _frames == 4 and _hulls > 0 and _screen != null:
+		_sample_squadron(_hulls)
 	if _frames == 4 and _diplomacy and _screen != null:
 		_screen.play.diplomacy.apply_delta(0, 1, 22.0, "courtSample")
 		MapPlayDiplomacy.open(_screen.play)
@@ -180,6 +189,38 @@ func _sample_war() -> void:
 		)
 	MapPlaySetup.build_diplomacy_lens(play)
 	MapPlayInput.set_diplomacy_lens(play, true)
+
+
+## hulls=N launches N carracks into the crown's home fleet and selects it, so a
+## screenshot shows a multi-hull marker and the dossier's strength block.
+func _sample_squadron(count: int) -> void:
+	var play: PlaySession = _screen.play
+	if play.economy == null:
+		return
+	play.economy.economy.treasury = 200000
+	play.economy.economy.workers.set_count(WorkerPool.Tier.PEASANT, count + 4)
+	for _i in count:
+		MapPlayFleets.on_action(play, "yard:build:carrack")
+	var home: FleetState = play.ship_layer.home_fleet(play.capital_province)
+	if home == null:
+		return
+	if _sea:
+		var zones: Array[int] = NavalMovement.province_sea_zones(
+			play.model, home.province
+		)
+		if not zones.is_empty():
+			play.ship_layer.sortie(home, zones[0])
+	MapPlayFleets.select(play, play.ship_layer.ship_for(home))
+	var spot: Vector2 = (
+		play.model.sea_zone_center(home.sea_zone)
+		if home.is_at_sea()
+		else play.model.province_center(home.province)
+	)
+	if _zoom <= 0.0:
+		play.camera.focus_on(spot * PlaySession.TILE_SIZE, 1.6, true)
+	else:
+		play.camera.position = spot * PlaySession.TILE_SIZE
+	MapPlayInput.on_view_changed(play)
 
 
 ## warp=1 selects a player squadron in the Old World passage; warp=2 crosses it.

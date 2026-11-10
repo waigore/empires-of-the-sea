@@ -410,6 +410,17 @@ func _smoke_navy(screen: MapScreen) -> void:
 		MapPlayFleetMissions.rows(screen.play, fleet).size() > 0,
 		"fleet dossier offers a station"
 	)
+	# The dossier prints the combat maths the resolver fights with, and the map
+	# marker flies the squadron's hulls (wiki: ships-and-naval § Naval Strength).
+	_check(screen.hud._fleet_panel._strength.visible, "fleet strength block shows")
+	_check(
+		screen.hud._fleet_panel._strength._strength.text.contains("FRP"),
+		"fleet strength names its weights"
+	)
+	_check(
+		screen.ship_layer.ship_for(fleet).hull_count == fleet.ship_count(),
+		"fleet marker flies the squadron's hulls"
+	)
 	MapPlayFleets.on_action(screen.play, "mission:patrol")
 	_check(
 		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
