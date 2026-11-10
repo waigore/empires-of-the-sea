@@ -16,6 +16,49 @@ static func offer_id(faction: int, commodity: String) -> String:
 	return "%d:%s" % [faction, commodity]
 
 
+## The commodity a Minor or Tribe estate actually yields, or "" when the court
+## cannot work it. Minors and Tribes never prospect, so a mineral tile stays in
+## the ground, and riches never trade on the market (wiki:
+## extraction-and-improvements § Non-Great-Power extraction; world-market
+## § Tradeable commodities).
+static func estate_commodity(model: MapModel, tile: Vector2i) -> String:
+	var resource: int = model.resource_at(tile.x, tile.y)
+	if ImprovementCatalog.needs_prospecting(resource):
+		return ""
+	var commodity: String = Extraction.commodity_for_resource(resource)
+	if commodity.is_empty() or not CommodityCatalog.is_tradeable(commodity):
+		return ""
+	return commodity
+
+
+## One province's raw this turn, commodity -> units: its estates at the
+## bootstrap level-1 yield. The world map carries no per-tile works, so every
+## estate in the province counts as town-connected — the same assumption the
+## estate book makes (wiki: extraction-and-improvements
+## § Non-Great-Power extraction).
+static func province_raw(model: MapModel, province: ProvinceState) -> Dictionary:
+	var raw: Dictionary = {}
+	for tile: Vector2i in province.tiles:
+		var commodity: String = estate_commodity(model, tile)
+		if commodity.is_empty():
+			continue
+		raw[commodity] = int(raw.get(commodity, 0)) + PER_TILE_YIELD
+	return raw
+
+
+## Manufactures a Minor or Tribe province's developed town pays this turn: the
+## town bonus on the raw its own estates grow (wiki: extraction-and-improvements
+## § Town manufacturing bonus). Minors never research, so only ungated recipes
+## run. The output spends no raw, no labour and no cargo — it is published as a
+## system-authored offer instead of landing in a stockpile.
+static func province_manufactures(model: MapModel, province: ProvinceState) -> Dictionary:
+	if TownIndustry.multiplier(province.town_development) <= 0:
+		return {}
+	return TownIndustry.bonus_for_province(
+		province_raw(model, province), province.town_development, {}
+	)
+
+
 ## Display ask: deals clear at the published price (wiki: § Price discovery).
 static func unit_price(
 	market: WorldMarket,
@@ -30,9 +73,10 @@ static func unit_price(
 	)
 
 
-## One auto-offer per Minor/Tribe estate, purchased deeds included. A sold tile
-## keeps its seller and origin, so the owning Great Power's bid can claim it
-## first (world-market § First right of refusal).
+## One auto-offer per Minor/Tribe estate, purchased deeds included, plus one per
+## developed province town for the manufactures it pays. A sold tile keeps its
+## seller and origin, so the owning Great Power's bid can claim it first
+## (world-market § First right of refusal).
 static func emit_orders(world: WorldMap) -> Array[MarketOrder]:
 	var orders: Array[MarketOrder] = []
 	if world == null:
@@ -49,9 +93,8 @@ static func emit_orders(world: WorldMap) -> Array[MarketOrder]:
 			):
 				continue
 			for tile: Vector2i in province.tiles:
-				var resource: int = model.resource_at(tile.x, tile.y)
-				var commodity: String = Extraction.commodity_for_resource(resource)
-				if commodity.is_empty() or not CommodityCatalog.is_tradeable(commodity):
+				var commodity: String = estate_commodity(model, tile)
+				if commodity.is_empty():
 					continue
 				var index: int = model.index_of(tile.x, tile.y)
 				if index < 0:
@@ -64,6 +107,27 @@ static func emit_orders(world: WorldMap) -> Array[MarketOrder]:
 					1,
 					model.region_id,
 					index,
+					true
+				))
+			# A developed town turns part of that harvest into manufactures
+			# without spending it (wiki: extraction-and-improvements § Town
+			# manufacturing bonus). The town tile is the origin: no deed can buy
+			# it, so first right of refusal never claims town output.
+			var made: Dictionary = province_manufactures(model, province)
+			var town_index: int = model.index_of(
+				province.town_tile.x, province.town_tile.y
+			)
+			if made.is_empty() or town_index < 0:
+				continue
+			for output: Variant in made.keys():
+				orders.append(MarketOrder.create(
+					seller,
+					String(output),
+					MarketOrder.SIDE_OFFER,
+					int(made[output]),
+					1,
+					model.region_id,
+					town_index,
 					true
 				))
 	orders.sort_custom(func(a: MarketOrder, b: MarketOrder) -> bool:
