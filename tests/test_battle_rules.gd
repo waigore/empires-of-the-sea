@@ -1195,3 +1195,34 @@ func test_an_unopposed_capture_costs_no_battle_treasury() -> void:
 	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
 	assert_eq(charged, [], "walking into an empty province is not a battle")
 	assert_eq(model.province_owner(3), 0)
+## An auto-resolved siege names the battery it silenced and the fort it dropped,
+## and earns the silenced-battery medallion (DR-20261110-22, REQ-P5-05).
+func test_an_auto_resolved_siege_despatch_names_the_silenced_battery() -> void:
+	var battle: Dictionary = {
+		"attacker": 0, "defender": 1,
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": ["unit_1"], "defender_lost": [],
+		"siege": {
+			"guns_start": 2, "guns_left": 0, "guns_lost": 2,
+			"fort_before": 2, "fort_after": 1, "fort_downgraded": true,
+		},
+	}
+	var line: String = BattleReport.describe_land(battle, "Burgundy", FACTIONS)
+	assert_true(line.contains("2 of 2 emplaced guns silenced"), line)
+	assert_true(line.contains("the Stone fort falls to Wood"), line)
+	assert_eq(BattleReport.icon_of(battle), "silenced_gun")
+
+
+func test_a_partial_battery_loss_reads_without_a_fort_fall() -> void:
+	var battle: Dictionary = {
+		"siege": {
+			"guns_start": 3, "guns_left": 2, "guns_lost": 1,
+			"fort_before": 3, "fort_after": 3, "fort_downgraded": false,
+		},
+	}
+	assert_eq(
+		BattleReport.siege_note(battle),
+		" — 1 of 3 emplaced guns silenced"
+	)
+	assert_eq(BattleReport.siege_note({}), "")
+	assert_eq(BattleReport.icon_of({}), "")

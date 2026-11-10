@@ -535,6 +535,10 @@ match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/auto_siege.gd*"
+domain = "fort"
+
+[[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
@@ -953,6 +957,10 @@ domain = "espionage"
 [[rules]]
 match = "tests/test_advanced_start.gd*"
 domain = "advanced"
+
+[[rules]]
+match = "tests/test_hud_toast.gd*"
+domain = "menu"
 
 [[rules]]
 match = "tests/test_*.gd"

@@ -1,40 +1,40 @@
 # Forts and sieges
 
-Walls raised on owned land.
-
 **Pillars:** P2, P3 (rules/view split), P5 (visible outcomes), P1 (dossier).
 
 **Wiki:** [siege-mechanics](https://github.com/waigore/empires-of-the-sea/wiki/siege-mechanics),
 [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § Battle
 Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-military),
-DR-20261110-11 (Quick Battle lanes).
+DR-20261110-11.
 
 ## Implemented
 
 - **Storage:** `ProvinceState.fort_level` 0–3, saved (`SaveCodec`); a captured
   province keeps its walls.
 - **Build:** Engineers take `Fort` on a tile of their own province; materials
-  are paid on assignment, never refunded. One turn per level (L1 1,
-  L2 2, L3 3); a completion lands the ordered level, and a duplicate project
-  cannot leap a level or gate. L2 needs Mine Engineering, L3 Modern Forts.
+  are paid on assignment. One turn per level; a duplicate project cannot leap a
+  level or gate. L2 needs Mine Engineering, L3 Modern Forts.
 - **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege; every report
   carries `battle_mode` and `fort_level`.
-- **Auto-resolve:** attacking strength is reduced by wall HP (10 / 20 / 30)
-  before the ratio band is read, and the band's defender share is scaled by
-  1 − damage reduction (0.75 / 0.55 / 0.40). The defender adds `guns ×
-  strength` of its emplaced type (Royal → Heavy → Siege by tech), an aggregate
-  bonus, never field regiments.
+- **Auto-resolve:** attacking strength falls by wall HP (10 / 20 / 30) before
+  the ratio band; the defender's share is scaled by 1 − damage reduction
+  (0.75 / 0.55 / 0.40). The defender adds `guns × strength` of its emplaced
+  type (Royal → Heavy → Siege).
 - **Quick Battle lanes** (`SiegeLanes`): infantry man the wall, horse and guns
-  wait behind it. Firearms (RNG ≥ 2) and artillery hit the wall, only artillery
-  reaches behind, RNG 1 touches neither. The wall scales the blow by its damage
-  reduction unless the garrison sorties (the defender's Assault), which lets
-  every regiment strike but sheds the shelter. A pike garrison gives no return
-  fire; one blow bleeds no more than the deployed slice, the wall drawing first.
-- **Gun-loss:** only ranged besiegers reach the battery, and a standing gun
-  spends the blow before the lanes; every gun lost by battle's end lowers the
-  fort one level, whatever the outcome. The plate names the gun type, lanes,
-  sorties and breach.
-- **Dossier:** the province panel prints the fort and its guns.
+  wait behind. Firearms (RNG ≥ 2) and artillery hit the wall; only artillery
+  reaches behind. The wall scales the blow unless the garrison sorties
+  (Assault), which lets every regiment strike but sheds cover. A pike garrison
+  gives no return fire; one blow bleeds no more than the deployed slice, the
+  wall drawing first.
+- **Gun-loss:** ranged besiegers reach the battery, and a standing gun spends
+  the blow before the lanes; each gun lost drops the fort one level whatever
+  the outcome. The plate names guns, lanes, sorties and breach.
+- **Auto-resolve gun-loss:** the besieging train answers the battery — one
+  emplaced piece per gun's weight of deployed field artillery, whole pieces
+  only. Standing guns alone add strength; the last gun drops the fort a level
+  even in a repulsed attack (DR-20261110-22). A silenced-battery medallion
+  marks the toast.
+- **Dossier:** the province panel prints fort and guns.
 
 ## Costs and numbers
 
@@ -56,6 +56,7 @@ DR-20261110-11 (Quick Battle lanes).
 | `scripts/rules/fort_rules.gd` | level tables, wall soak, battery, build gates |
 | `scripts/rules/siege_lanes.gd` | wall/behind lanes, sortie exposure, lane casualties |
 | `scripts/rules/quick_battle_battery.gd` | virtual guns: spawn, hit, fire, downgrade |
+| `scripts/rules/auto_siege.gd` | auto-resolve counter-battery and downgrade |
 | `scripts/world/province_state.gd` | `fort_level` state |
 | `scripts/rules/civilian_work.gd` | `build_fort` validation and completion |
 | `scripts/rules/army_modifiers.gd` | siege keys per side |
