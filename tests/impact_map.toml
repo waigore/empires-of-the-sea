@@ -810,6 +810,10 @@ match = "tests/test_spy_*.gd*"
 domain = "espionage"
 
 [[rules]]
+match = "tests/test_advanced_start.gd*"
+domain = "advanced"
+
+[[rules]]
 match = "tests/test_*.gd"
 full = true
 
