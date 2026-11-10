@@ -70,6 +70,12 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
 
+# Province development — opens a turn-100 advanced start, raises an estate over
+# several turns from the estates ledger, walks the Engineer tile by tile laying
+# the road to the capital, prospects and mines a mineral and upgrades a town,
+# asserting that each linked estate's commodity reaches the stockpile.
+godot --headless --path . --script res://tests/playtest_province_dev.gd
+
 # Allied defence — signs a formal alliance at court, lets a rival declare on the
 # ally, reads the call-to-arms banner, joins, and fights the battle the court did
 # not start; then two declarations in one turn (one call at a time, a refusal's

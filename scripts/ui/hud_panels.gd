@@ -91,14 +91,14 @@ func apply_compact(compact: bool, view: Vector2) -> void:
 		wrap.offset_bottom = -10.0 if compact else -104.0
 
 
-func show_province(model: MapModel, province_id: int) -> void:
+func show_province(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	hide_economy()
 	hide_research()
 	hide_fleet()
 	hide_civilian()
 	hide_army()
 	DiplomacyHud.hide(self)
-	panel.refresh(model, province_id)
+	panel.refresh(model, province_id, crown)
 	panel_open = true
 	dock.slide_in(host, panel_wrap)
 

@@ -131,6 +131,12 @@ static func resolve_work(play: PlaySession) -> void:
 		])
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
+	# A completed road or a grown town changes what the province sheet says, so
+	# repaint it in place (the player may be reading it while the turn resolves).
+	if play.selected_province >= 0 and play.hud.panels.is_panel_open():
+		play.hud.panels.panel.refresh_crown(
+			MapPlayImprovements.crown_link(play, play.selected_province)
+		)
 
 
 ## Combat can take the land under a crown-land crew. It withdraws to a legal
