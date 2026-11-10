@@ -4,8 +4,10 @@ extends RefCounted
 ## runs EconomyTurn + planners, applies legal orders, reports the trace
 ## (REQ-P2-03, REQ-P3-03).
 
-const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
-
+## Rivals open with a spy, so espionage is live from turn one.
+const RIVAL_STARTING_CIVILIANS: Array[String] = [
+	"explorer", "builder", "engineer", "spy",
+]
 
 ## Resolves every rival economy once, then plans the next turn. Call after the
 ## Build/Work pass and before the player's own economy so both read the works
@@ -21,6 +23,9 @@ static func run(play: PlaySession) -> Dictionary:
 	var market: WorldMarket = _market(play)
 	var factions: Array[int] = FactionCatalog.great_power_ids()
 	var last: int = factions[factions.size() - 1] if not factions.is_empty() else -1
+	# Every rival ledger exists before any court resolves, so a spy observing a
+	# court later in the order still reads its known techs this turn.
+	MapPlaySpyAi.prepare_ledgers(play)
 	for faction: int in factions:
 		if faction == play.player_faction and not play.observer_mode:
 			continue
@@ -30,10 +35,15 @@ static func run(play: PlaySession) -> Dictionary:
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
+		# Plan before the phase resolves, so the study starts this turn.
+		var research: Dictionary = AiResearchPlanner.plan(
+			config, economy, {"at_war": _at_war(play, faction)}
+		)
 		# Shared market: prices advance once, on the last observer ledger.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), play.observer_mode and faction == last
+			_army_food(play, faction), play.observer_mode and faction == last,
+			MapPlaySpyAi.research_bonus(play, faction, economy)
 		)
 		economy.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
@@ -50,9 +60,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"trade": trade,
 			"recruits": recruits,
 			"civilians": civilians,
-			"research": AiResearchPlanner.plan(
-				config, economy, {"at_war": _at_war(play, faction)}
-			),
+			"research": research,
 		}
 	return report
 
@@ -70,7 +78,7 @@ static func _seed_civilians(play: PlaySession, faction: int) -> void:
 		var capital: Dictionary = _capital(model, faction)
 		if int(capital["province"]) < 0:
 			continue
-		for type_id: String in STARTING_CIVILIANS:
+		for type_id: String in RIVAL_STARTING_CIVILIANS:
 			var tile: Vector2i = _mustering_tile(
 				model, int(capital["province"]), roster
 			)
@@ -140,7 +148,6 @@ static func _run_civilians(
 			play.civilian_layer.refresh_works()
 	return report
 
-
 ## Pays for and musters a civilian at the faction's capital, through the same
 ## catalog costs the training panel uses.
 static func _train(
@@ -176,13 +183,11 @@ static func _train(
 # --- economy -----------------------------------------------------------------
 
 
-## Home yield plus colonial tonnage that crossed on home holds (wiki:
-## extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
+## Home yield plus colonial tonnage on home holds (wiki: extraction-and-improvements).
 static func _extraction(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> Dictionary:
 	return _overseas(play, faction, economy)["extraction"] as Dictionary
-
 
 ## Same crossing with hold accounting for the market pass.
 static func _overseas(
@@ -218,9 +223,8 @@ static func _market(play: PlaySession) -> WorldMarket:
 	return WorldMarket.with_default_prices()
 
 
-## One rival turn's trade: sells above the reserve and this turn's production
-## inputs, then bids short build inputs with the holds the colonies left
-## (wiki: world-market § Cargo; DR-20261109-03).
+## Sells above the reserve and this turn's inputs, then bids short build inputs
+## with the holds the colonies left (wiki: world-market § Cargo).
 static func _trade(
 	play: PlaySession,
 	faction: int,
@@ -258,9 +262,8 @@ static func _trade(
 	return result
 
 
-## Inputs this turn's production assignments already promised, plus food the
-## consumption phase will eat, so a sale never starves the court or spends the
-## same commodity twice (wiki: world-market § Trade orders).
+## Inputs this turn's production promised, plus food the consumption phase eats,
+## so a sale never starves the court or spends a commodity twice.
 static func _reserved_inputs(production: Dictionary, food: int = 0) -> Dictionary:
 	var reserved: Dictionary = {}
 	if food > 0:

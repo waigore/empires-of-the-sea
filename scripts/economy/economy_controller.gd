@@ -162,6 +162,7 @@ func resolve_turn() -> Dictionary:
 		economy, market, extraction(), fleet_ships(), army_food(), true,
 		research_boost
 	)
+	research_boost = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	if _armies != null:
