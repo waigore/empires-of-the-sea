@@ -5,18 +5,7 @@ extends RefCounted
 
 
 static func build(hud: GameHud) -> void:
-	hud._diplomacy_wrap = Control.new()
-	hud._diplomacy_wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	hud._diplomacy_wrap.offset_left = -620.0
-	hud._diplomacy_wrap.offset_right = -GameHud.PANEL_MARGIN
-	hud._diplomacy_wrap.offset_top = 84.0
-	hud._diplomacy_wrap.offset_bottom = -104.0
-	hud._diplomacy_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	hud._diplomacy_wrap.visible = false
-	hud.add_child(hud._diplomacy_wrap)
-
 	hud._diplomacy_panel = DiplomacyPanel.new()
-	hud._diplomacy_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._diplomacy_panel.close_pressed.connect(func() -> void: hide(hud.panels))
 	hud._diplomacy_panel.order_pressed.connect(
 		func(kind: String, target: int, arg: String) -> void:
@@ -27,7 +16,10 @@ static func build(hud: GameHud) -> void:
 	# opens it with the state it already holds, so no session binding is needed.
 	_build_dossier_screen(hud)
 	hud._diplomacy_panel.dossier_screen = hud.dossier_screen
-	hud._diplomacy_wrap.add_child(hud._diplomacy_panel)
+	hud.panels.diplomacy = HudPanelSlot.build(
+		hud, hud._diplomacy_panel, HudPanelSlot.COURT_WIDTH, false
+	)
+	hud._diplomacy_wrap = hud.panels.diplomacy.wrap
 
 
 ## One sheet, built with the court, over its own canvas layer.
@@ -50,17 +42,9 @@ static func show(
 	tech: Dictionary = {},
 	court_reports: Dictionary = {}
 ) -> void:
-	panels.hide_province()
-	panels.hide_fleet()
-	panels.hide_civilian()
-	panels.hide_army()
-	panels.hide_economy()
-	panels.hide_research()
+	panels.close_sheets(panels.diplomacy)
 	panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
-	panels.diplomacy_wrap.visible = true
-	panels.diplomacy_open = true
-	var tween := panels.host.create_tween()
-	tween.tween_property(panels.diplomacy_wrap, "modulate:a", 1.0, 0.22).from(0.0)
+	panels.diplomacy.reveal(panels.host, panels.dock)
 
 
 static func refresh(
@@ -72,16 +56,13 @@ static func refresh(
 	tech: Dictionary = {},
 	court_reports: Dictionary = {}
 ) -> void:
-	if panels.diplomacy_open:
+	if panels.is_diplomacy_open():
 		panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
 
 
 static func hide(panels: HudPanels) -> void:
-	if not panels.diplomacy_open:
-		return
-	panels.diplomacy_open = false
-	panels.diplomacy_wrap.visible = false
+	panels.diplomacy.conceal(panels.host, panels.dock)
 
 
 static func is_open(panels: HudPanels) -> bool:
-	return panels.diplomacy_open
+	return panels.is_diplomacy_open()
