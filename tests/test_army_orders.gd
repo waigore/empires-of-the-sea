@@ -317,7 +317,7 @@ func test_a_battle_leaves_a_word_at_the_rivals_court() -> void:
 	_screen.model.province_data(province).fort_level = 0
 	_seat_battle(province, MapScreen.PLAYER_FACTION, rival, 8, 2)
 
-	MapPlayArmies.resolve_battles(_screen.play)
+	MapPlayArmyBattles.resolve(_screen.play)
 
 	var spoken: Dictionary = DialogueEvents.for_pair(
 		_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival
