@@ -80,6 +80,22 @@ func test_a_peace_and_an_intervention_read_as_a_peacemaker() -> void:
 	)
 
 
+## A court that does not join the war but protests it still reads as a
+## peace-seeker, one point, and the dossier names the war it objected to
+## (DR-20261110-16).
+func test_a_protest_reads_as_a_quieter_peacemaker() -> void:
+	state.record_event(
+		"interventionProtest", ENGLAND, PORTUGAL,
+		{"target": GENOA, "penalty": 10.0}
+	)
+	var scores: Dictionary = _scores(ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.PEACEMAKER, 0)), IntelDossier.W_PROTESTED)
+	assert_eq(
+		String((IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0])["text"]),
+		"Protested Portugal's war on Genoa."
+	)
+
+
 func test_a_weaker_neighbour_weighs_heavier() -> void:
 	var world: WorldMap = Fixture.world()
 	var pair: Array[int] = _asym_pair()

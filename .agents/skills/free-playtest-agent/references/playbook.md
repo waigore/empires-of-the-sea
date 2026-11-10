@@ -14,7 +14,7 @@ Announce area + why, then continue.
 ## Reachability
 
 1. Check learnings for an existing harness; reuse/extend before inventing.
-2. If mid/late game is required and play-forward is slow/noisy → add a **small reusable** scenario (config, debug start, fixture, scripted setup under `tests/` or existing session helpers).
+2. If mid/late game is required and play-forward is slow/noisy → add a **small reusable** scenario.
 3. Harness should make the **next** free-playtest of this area cheap; avoid one-off throwaways when a tiny durable hook works.
 4. Never dump long campaigns into CI smoke (≤2 min). Prefer unit/integration regressions for fixes; harness may be opt-in/debug.
 
@@ -29,7 +29,7 @@ Load the GameForge **playtesting** skill, then:
 | Goal-directed | `agent` + explicit goal string |
 | Confirm fix | **same seed** as the failing run |
 
-Read `report.md`; inspect `moments.jpg` when present. Map signals: runtime error, stuck, input no-effect, slow frames, nothing-happens, low novelty, too hard/easy → fix if they hurt **this area’s** expression.
+Read `report.md`; inspect `moments.jpg` when present. Map signals to fixes when they hurt **this area’s** expression.
 
 If `forge_playtest` cannot drive this project usefully, fall back to `tools/run.sh` / headless drives; note the fallback in the diary.
 

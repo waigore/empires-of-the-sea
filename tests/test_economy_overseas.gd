@@ -148,3 +148,130 @@ func test_delivered_adds_only_what_the_holds_carry() -> void:
 	assert_eq(int(one["used"]), 1)
 	assert_eq(one["extraction"], {"grain": 4})
 	assert_eq(home, {"grain": 3}, "the home totals are not mutated")
+
+
+# --- overseas town manufacturing ---------------------------------------------
+
+
+## A colony of one town tile and two rail-linked timber estates, the estates
+## already fully improved so the province's whole harvest is 8 timber.
+func _plantation(level: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		var tile := Vector2i(x, 0)
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(tile)
+	var province := ProvinceState.create(0, "Plantation", tiles, Vector2.ZERO, 3, 0)
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = level
+	model.provinces.append(province)
+	for x: int in [1, 2]:
+		model.resource[model.index_of(x, 0)] = 0
+	return model
+
+
+func _plantation_works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 0))
+	for x: int in [1, 2]:
+		works.set_improvement(model, Vector2i(x, 0), LandWorks.MAX_IMPROVEMENT)
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_RAIL)
+	return works
+
+
+## One home region empty of the crown's land plus one plantation region.
+func _plantation_world(levels: Array) -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(_region(4))
+	for level: int in levels:
+		var model: MapModel = _plantation(level)
+		world.add_region(model)
+	return world
+
+
+func _plantation_works_table(world: WorldMap) -> MapRegionTable:
+	var table := MapRegionTable.new()
+	for index in range(1, world.region_count()):
+		table.set_region(index, _plantation_works(world.region(index)))
+	return table
+
+
+## Raw crosses and manufactures are earned on the far shore: no lumber leaves a
+## colonial town before its input has landed (wiki: extraction-and-improvements
+## § Town manufacturing bonus).
+func test_overseas_totals_ship_raw_and_leave_the_bonus_to_delivery() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var by_region: Dictionary = EconomyOverseas.region_totals(
+		world, WorldMap.OLD_WORLD, 0, {"timber": 4}, _plantation_works_table(world)
+	)
+
+	assert_eq(by_region.get(1, {}), {"timber": 8}, "raw only — no lumber yet")
+
+
+func test_landed_raw_pays_the_colonial_town_bonus() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var plan: Dictionary = EconomyOverseas.delivered(
+		{"grain": 3}, world, WorldMap.OLD_WORLD, 0, {"timber": 4},
+		_plantation_works_table(world), 8
+	)
+
+	assert_eq(plan["shipped"], {"timber": 8})
+	assert_eq(
+		plan["manufactured"], {"lumber": 4, "paper": 4}, "level 4: floor(8 / 4) x 2"
+	)
+	assert_eq(plan["extraction"], {"grain": 3, "timber": 8, "lumber": 4, "paper": 4})
+	assert_eq(int(plan["used"]), 8, "bonus output never spends a hold")
+	assert_eq(plan["by_province"].get(1, {}).get(0, {}), {"timber": 8})
+
+
+## Short holds leave tonnage on the far shore, and undelivered raw feeds no
+## bonus recipe — four timber make one lumber, three make none.
+func test_undelivered_tons_pay_no_colonial_bonus() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var plan: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4},
+		_plantation_works_table(world), 3
+	)
+
+	assert_eq(plan["shipped"], {"timber": 3})
+	assert_eq(plan["manufactured"], {})
+	assert_eq(plan["extraction"], {"timber": 3})
+	assert_eq(int(plan["left_total"]), 5, "the rest stays abroad")
+
+
+## Within one commodity the fuller town draws the holds first, so a level-4 town
+## earns its bonus before a level-2 one (DR-20261111-*).
+func test_the_better_town_draws_the_landed_tons_first() -> void:
+	var world: WorldMap = _plantation_world([2, 4])
+	var works: MapRegionTable = _plantation_works_table(world)
+
+	var tight: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4}, works, 8
+	)
+	var roomy: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4}, works, 16
+	)
+
+	assert_eq(
+		tight["manufactured"], {"lumber": 4, "paper": 4}, "the level-4 town draws first"
+	)
+	assert_eq(
+		roomy["manufactured"], {"lumber": 6, "paper": 6}, "then the level-2 town's x1"
+	)
+
+
+## A colonial town that manufactured says so in the turn summary, so the bonus is
+## visible without opening a ledger (REQ-P5-05).
+func test_the_turn_summary_names_colonial_manufactures() -> void:
+	var report: Dictionary = {
+		"overseas": {"used": 8, "left_total": 2, "manufactured": {"castIron": 2}},
+	}
+	var line: String = LedgerText.turn_summary(report)
+
+	assert_true(line.contains("8 colonial tons landed"))
+	assert_true(line.contains("2 cast iron made in colonial towns"))
+	assert_true(line.contains("2 left on the far shore"))
+	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))

@@ -43,6 +43,9 @@ the documented setup default.
 
 - Tap a province, then a tile. Taps on the sea or another crown's land are
   refused in the banner (never silent).
+- Taps are caught in screen space by a catcher under the chart's own chrome and
+  mapped with the camera's canvas transform, so a phone tap lands on the tile
+  the player sees even where the page's world rectangle would stop the event.
 - `CapitalSeatMarker` washes the chosen province, inks its border and pulses a
   ring on the seat tile.
 - Mouse, trackpad and touch all pan/zoom the chart; `BACK` (or Escape) returns

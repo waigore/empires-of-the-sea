@@ -35,3 +35,19 @@ All four used this base edit:
 `ChromeIcons.texture(name)` loads the PNG; `TopBar` shows it in a `TextureRect`
 named `Medallion` at 22 points. Tests assert every door and status plaque keeps
 a medallion (`REQ-P1-08`).
+
+## Regiment condition icon (chevron)
+
+One small braid icon for the combat plate and the army dossier
+(DR-20261110-19), cut from a magenta sheet with the icon-set recipe above:
+
+> A single gold embroidered sergeant's chevron pointing upward on a flat pure
+> magenta #FF00FF background, bold thick V-shaped gold braid, no text, no
+> shadows, strong silhouette legible at 16–24 px.
+
+`chevron.png` marks a regiment's experience in the Quick Battle plate, its
+condition rail, the aftermath copy and the army dossier row. It is 128 px RGBA
+with `mipmaps/generate=true`. `QuickBattleField`/`QuickBattleRail` draw the
+chevron, `ArmyPanel` shows it beside the chevron count; no build script owns
+these files, so a replacement goes in `assets/art/icons/` by hand (same family
+as the shell medallions).
