@@ -31,6 +31,9 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var behind: int = int(action.get("behind_lost", 0))
 	if behind > 0:
 		text += " · %d behind the wall" % behind
+	var gates: int = int(action.get("gates_broken", 0))
+	if gates > 0:
+		text += " · %d gate%s breached" % [gates, "" if gates == 1 else "s"]
 	if inflicted <= 0 and int(action.get("turned", 0)) > 0:
 		text += " · the wall turns it aside"
 	return text
@@ -72,12 +75,40 @@ static func siege_line(battle: Dictionary) -> String:
 		text += " · %d sortie%s" % [
 			int(quick.get("sorties", 0)), "" if int(quick.get("sorties", 0)) == 1 else "s"
 		]
+	text += gates_text(quick)
 	if bool(quick.get("fort_downgraded", false)):
 		var after: int = int(quick.get("fort_after", maxi(0, level - 1)))
 		text += " — battery silenced, the fort falls to %s" % (
 			FortRules.level_name(after) if after > 0 else "open field"
 		)
 	return text
+
+
+## The three gates, and the ones the besiegers beat down. Empty for a field
+## battle (no fort, no gates).
+static func gates_text(quick: Dictionary) -> String:
+	var gates: Dictionary = quick.get("gates", {}) as Dictionary
+	var maximum: int = int(gates.get("max", 0))
+	if maximum <= 0:
+		return ""
+	var broken: int = int(gates.get("broken", 0))
+	if broken <= 0:
+		return " · %d gates hold" % maximum
+	return " · %d of %d gates breached" % [broken, maximum]
+
+
+## The ground the battle is fought over and what it does to the action tables
+## (wiki: quick-battle § Core actions). Empty on an old record with no terrain.
+static func terrain_line(battle: Dictionary) -> String:
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var terrain: String = String(quick.get("terrain", ""))
+	if terrain.is_empty() or terrain == "open":
+		return ""
+	var assault: int = round((1.0 - SiegeLanes.terrain_scale("assault", terrain)) * 100.0)
+	var volley: int = round((1.0 - SiegeLanes.terrain_scale("volley", terrain)) * 100.0)
+	return "Ground — %s: assaults −%d%%, volleys −%d%%" % [
+		SiegeLanes.terrain_label(terrain), assault, volley
+	]
 
 
 ## Regiment detail after the battle: which types each side lost. Empty when the

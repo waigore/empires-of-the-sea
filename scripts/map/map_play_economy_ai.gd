@@ -21,7 +21,6 @@ static func run(play: PlaySession) -> Dictionary:
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
 	var factions: Array[int] = FactionCatalog.great_power_ids()
-	var last: int = factions[factions.size() - 1] if not factions.is_empty() else -1
 	# Every rival ledger exists before any court resolves, so a spy observing a
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
@@ -32,6 +31,7 @@ static func run(play: PlaySession) -> Dictionary:
 		_seed_civilians(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
@@ -39,10 +39,10 @@ static func run(play: PlaySession) -> Dictionary:
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
 		)
-		# Shared market: prices advance once, on the last observer ledger.
+		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), play.observer_mode and faction == last,
+			_army_food(play, faction), false,
 			MapPlaySpyAi.research_bonus(play, faction, economy)
 		)
 		economy.clear_assignments()
@@ -58,6 +58,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"resolved": resolved,
 			"production": production,
 			"trade": trade,
+			"cargo": cargo,
 			"recruits": recruits,
 			"civilians": civilians,
 			"research": research,
@@ -204,11 +205,10 @@ static func _overseas(
 			home_model, faction, int(capital["province"]), tech_caps, works,
 			capital["tile"], economy.tech_unlocked
 		)
-	var holds: int = 0
-	if play.ship_layer != null:
-		holds = TradeCargo.capacity(
-			play.world, play.ship_layer.regions.snapshot(), faction
-		)
+	var holds: int = (
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
+		if play.ship_layer != null else 0
+	)
 	var plan: Dictionary = EconomyOverseas.delivered(
 		home, play.world, home_region, faction, tech_caps, works_by_region, holds,
 		economy.tech_unlocked
@@ -234,11 +234,10 @@ static func _trade(
 	overseas: Dictionary,
 	production: Dictionary
 ) -> Dictionary:
-	var holds: int = 0
-	if play.ship_layer != null:
-		holds = TradeCargo.capacity(
-			play.world, play.ship_layer.regions.snapshot(), faction
-		)
+	var holds: int = (
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
+		if play.ship_layer != null else 0
+	)
 	var free_holds: int = maxi(
 		holds - EconomyOverseas.shipped_total(overseas)
 		- TradeCargo.used(market, faction),
@@ -247,8 +246,6 @@ static func _trade(
 	var reserved: Dictionary = _reserved_inputs(
 		production, _food_demand(play, faction, economy)
 	)
-	# The running Production phase spends the assignments set last turn, before
-	# this run replaces them; reserve both sets so a sale never starves either.
 	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
 	for commodity: Variant in current.keys():
 		var id: String = String(commodity)
@@ -256,7 +253,10 @@ static func _trade(
 	var plan: Dictionary = AiMarketPlanner.plan(
 		config, economy, market, free_holds, economy.tech_unlocked, reserved
 	)
-	var result: Dictionary = AiMarketPlanner.apply(economy, market, plan, faction)
+	plan["free_holds"] = free_holds
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, faction, economy.tech_unlocked
+	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
 	return result

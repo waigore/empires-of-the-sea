@@ -9,7 +9,7 @@
 ## Implemented
 
 - **Roster and training** (`RegimentCatalog`, `RegimentEconomy`,
-  `ArmyTraining`): 29 tech-gated regiments with stats, era and cost;
+  `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and inputs;
   recruits join the Home Army.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power, cap
   2→4 by tech; one per army each Combat phase; medals 0–4, +1 per win.
@@ -39,14 +39,14 @@
   once per exchange, floored at zero, named in the despatch.
 - **Quick Battle** (`QuickBattle`): three rounds at 3 CP a side;
   aggressive/balanced/defensive. Strength is `Σ (FPN + FPM) × chevrons ×
-  health` over the deployed slice × cohesion; actions spend that weight on the
-  enemy's mean regiment, so quality tells. Guns soak fire and can lower the
-  fort; sieges split wall/behind (`SiegeLanes`). Plate floats `−N`, health,
-  chevrons; ends on losses, mauled men and breach.
+  health` × cohesion; quality tells. Guns soak fire and lower the fort;
+  sieges split wall/behind (`SiegeLanes`), scale by ground
+  (HILL/WOODS/TOWN/MARSH), three gates; Sortie is its own order. Plate floats
+  `−N`, health, chevrons. Simulator: [battle-sim.md](battle-sim.md).
 - **Unopposed:** an army ending in hostile or neutral land with no armed
   defenders takes it.
-- **Dossier:** composition, strength, food, commander, orders, dock; rows
-  show stats, condition.
+- **Dossier:** composition, strength, food, commander, orders, dock; rows show
+  stats, condition.
 
 ## Deferred (REQ-P2-02)
 
@@ -78,7 +78,7 @@ Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
 `test_army_field_rules`, `test_generals`, `test_leader_catalog`,
 `test_army_orders`, `test_naval_movement`, `test_quick_battle_rules`,
-`test_map_screen_crown_orders`.
+`test_siege_depth`, `test_battle_sim`, `test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

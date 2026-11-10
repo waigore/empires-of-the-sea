@@ -217,9 +217,11 @@ static func line(rec: Dictionary) -> String:
 					"Our crown takes %s at the point of the bayonet; %s yields the province and "
 					+ "%d regiments."
 				) % [place, whom, _count(rec)]
-			return (
-				"%s has carried %s from our crown; %d of our regiments are lost with it."
-			) % [who, place, _count(rec)]
+			if whom == CROWN:
+				return (
+					"%s has carried %s from our crown; %d of our regiments are lost with it."
+				) % [who, place, _count(rec)]
+			return "%s has taken %s from %s at the point of the bayonet." % [who, place, whom]
 		"battleHeld":
 			if self_act:
 				if bool(rec.get("defended", false)):
@@ -229,6 +231,10 @@ static func line(rec: Dictionary) -> String:
 				return "Our crown holds the field at %s; %d of their regiments are broken." % [
 					place, _count(rec)
 				]
+			if not rec.has("count"):
+				if bool(rec.get("defended", false)):
+					return "%s holds %s against %s." % [who, place, whom]
+				return "%s holds the field at %s against %s." % [who, place, whom]
 			if bool(rec.get("defended", false)):
 				return "%s holds %s against %s; %d regiments are broken." % [
 					who, place, whom, _count(rec)
@@ -254,6 +260,8 @@ static func line(rec: Dictionary) -> String:
 				return (
 					"Our squadrons hold the %s, and %s loses %d hulls to the bottom."
 				) % [place, whom, _count(rec)]
+			if not rec.has("count"):
+				return "%s holds the %s against %s." % [who, place, whom]
 			return "%s holds the %s; %d hulls of %s are sunk or taken." % [
 				who, place, _count(rec), whom
 			]

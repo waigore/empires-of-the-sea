@@ -16,48 +16,50 @@ const REGION_LABELS: Array[String] = ["Old World", "New World"]
 const COLOR_UNCLAIMED := Color(0.235, 0.184, 0.129)
 
 ## Six Great Powers (default count, wiki: game-setup configurable values).
+## Ownership colours: GDD 09 defaults (wiki: naming § Default map colour id).
+## United Provinces uses the GDD `netherlands` slot.
 const GREAT_POWERS: Array[Dictionary] = [
 	{
 		"id": 0,
 		"name": "Spain",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.639, 0.169, 0.169),
+		"color": Color8(220, 180, 60),
 	},
 	{
 		"id": 1,
 		"name": "England",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.176, 0.267, 0.435),
+		"color": Color8(180, 80, 80),
 	},
 	{
 		"id": 2,
 		"name": "France",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.435, 0.325, 0.502),
+		"color": Color8(80, 140, 200),
 	},
 	{
 		"id": 3,
 		"name": "Portugal",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.243, 0.376, 0.267),
+		"color": Color8(90, 160, 90),
 	},
 	{
 		"id": 4,
 		"name": "United Provinces",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.722, 0.427, 0.161),
+		"color": Color8(220, 140, 100),
 	},
 	{
 		"id": 5,
 		"name": "Sweden",
 		"type": Type.GREAT_POWER,
 		"region": OLD_WORLD,
-		"color": Color(0.349, 0.467, 0.549),
+		"color": Color8(100, 120, 200),
 	},
 ]
 

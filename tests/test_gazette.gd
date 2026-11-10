@@ -189,16 +189,110 @@ func test_a_watched_courts_sea_battle_reports_both_courts() -> void:
 	assert_eq(int(items[0]["class"]), Gazette.Class.INTEREST)
 	var text: String = String(items[0]["text"])
 	assert_true(text.contains("England"))
-	assert_true(text.contains("3 hulls"))
+	assert_false(text.contains("3 hulls"), "another court's losses are never counted")
 
 
-func test_finished_technologies_are_news_of_the_court_that_finished_them() -> void:
+## Charted is the gate for a watched court's fight, and the crown's own chart is
+## what counts (wiki: the-gazette § What the crown can know; DR-20261110-28).
+func test_a_watched_courts_battle_in_uncharted_land_is_not_printed() -> void:
+	var province: int = _new_world_province()
+	var battle: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"province": province,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"defender_lost": [1],
+	}
+	assert_eq(
+		_items(_state(3), [ENGLAND], [battle], [], {}, 0, [], [], _charts()).size(),
+		0,
+		"uncharted ground prints nothing"
+	)
+	var charted: Array = _items(
+		_state(3), [ENGLAND], [battle], [], {}, 0, [], [], _charts(province)
+	)
+	assert_eq(charted.size(), 1, "the crown's own chart opens the place")
+	assert_eq(int(charted[0]["class"]), Gazette.Class.INTEREST)
+	assert_false(
+		String(charted[0]["text"]).contains("1 regiments"),
+		"a charted fight still prints no casualty count"
+	)
+
+
+func test_a_watched_courts_battle_in_uncharted_water_is_not_printed() -> void:
+	var zone: int = _new_world_zone()
+	var battle: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"zone": zone,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"defender_lost": [1, 2],
+	}
+	assert_eq(_items(_state(3), [ENGLAND], [], [battle], {}, 0, [], [], _charts()).size(), 0)
+	assert_eq(
+		_items(_state(3), [ENGLAND], [], [battle], {}, 0, [], [], _charts(-1, zone)).size(),
+		1,
+		"charted water carries the line"
+	)
+
+
+## A watched court's study is a spy's finding, never the sheet's
+## (wiki: civilian-units § Spy; DR-20261110-28).
+func test_a_watched_courts_finished_study_is_never_printed() -> void:
 	var research: Dictionary = {VIEWER: ["crop_rotation"], ENGLAND: ["crop_rotation"]}
 	var items: Array = _items(_state(3), [ENGLAND], [], [], research)
-	assert_eq(items.size(), 2)
+	assert_eq(items.size(), 1)
 	assert_eq(int(items[0]["class"]), Gazette.Class.COURT)
-	assert_eq(int(items[1]["class"]), Gazette.Class.INTEREST)
-	assert_true(String(items[1]["text"]).contains(TechCatalog.display_name("crop_rotation")))
+	assert_true(String(items[0]["text"]).contains(TechCatalog.display_name("crop_rotation")))
+
+
+## A watched court's capture and hold read as fact without a body count: the
+## place, the winner and the beaten side only (DR-20261110-28).
+func test_a_watched_courts_capture_and_hold_print_no_numbers() -> void:
+	var province: int = _new_world_province()
+	var charts: CourtCharts = _charts(province)
+	var capture: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"province": province,
+		"outcome": ArmyCombat.Outcome.CAPTURE,
+		"captured": true,
+		"defender_lost": [1, 2, 3],
+	}
+	var held: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"province": province,
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [ENGLAND], [capture, held], [], {}, 0, [], [], charts)
+	assert_eq(items.size(), 2)
+	for item: Variant in items:
+		var text: String = String((item as Dictionary)["text"])
+		assert_false(text.contains("regiment"), "no casualties for another court: %s" % text)
+		assert_true(text.contains("England") and text.contains("France"))
+
+
+## The crown's own fight prints with numbers wherever it happens: its own report
+## is not gated by its chart.
+func test_the_crowns_own_battle_ignores_the_chart() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": FRANCE,
+		"region": 1,
+		"province": _new_world_province(),
+		"outcome": ArmyCombat.Outcome.CAPTURE,
+		"captured": true,
+		"defender_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [], [battle], [], {}, 0, [], [], _charts())
+	assert_eq(items.size(), 1)
+	assert_true(String(items[0]["text"]).contains("2 regiments"))
 
 
 func test_deed_income_is_our_court_news() -> void:
@@ -404,12 +498,40 @@ func _items(
 	research: Dictionary = {},
 	richness: int = 0,
 	raids: Array = [],
-	falls: Array = []
+	falls: Array = [],
+	charts: CourtCharts = null
 ) -> Array:
 	var sheet: Dictionary = Gazette.collect(
-		VIEWER, 3, world, state, watched, land, naval, falls, research, richness, raids
+		VIEWER, 3, world, state, watched, land, naval, falls, research, richness, raids, charts
 	)
 	return sheet["items"]
+
+
+## The crown's chart for a headless sheet: the Old World baseline, plus a New
+## World province and/or sea zone the crown has charted when asked.
+func _charts(province: int = -1, zone: int = -1) -> CourtCharts:
+	var views: Dictionary = {}
+	for index in world.region_count():
+		var view := VisibilityModel.new()
+		view.setup(world.region(index), VIEWER)
+		if index == FactionCatalog.NEW_WORLD:
+			if province >= 0:
+				view.reveal_province(province)
+			if zone >= 0:
+				view.reveal_sea_zone(zone)
+		views[index] = view
+	var charts := CourtCharts.new()
+	charts.setup(world, VIEWER, views)
+	return charts
+
+
+## An uncharted New World province: the fogged Old World cannot refuse a fight.
+func _new_world_province() -> int:
+	return int(world.region(FactionCatalog.NEW_WORLD).provinces[0].id)
+
+
+func _new_world_zone() -> int:
+	return int(world.region(FactionCatalog.NEW_WORLD).sea_zones[0].id)
 
 
 func _province() -> int:

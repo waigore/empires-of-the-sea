@@ -17,6 +17,12 @@ var defender_start: int = 1
 var guns: int = 0
 var round_index: int = 0
 var outcome: int = -1
+## The ground and the wall a siege is fought through (wiki: quick-battle §
+## Terrain, siege-mechanics § Gates). Presentation only: these come from the
+## battle record, never from a recomputation.
+var terrain: String = "open"
+var fort_level: int = 0
+var gates_broken: int = 0
 ## Regiment condition as the report recorded it: each survivor's health
 ## fraction and chevrons. Empty means "full, unblooded" (a plate fixture).
 var attacker_health: Array = []
@@ -58,6 +64,9 @@ func set_battle(battle: Dictionary) -> void:
 	attacker_count = int(quick.get("attacker_start", attacker_start))
 	defender_count = int(quick.get("defender_start", defender_start))
 	guns = int(quick.get("guns_start", 0))
+	terrain = String(quick.get("terrain", "open"))
+	fort_level = int(battle.get("fort_level", 0))
+	gates_broken = int((quick.get("gates", {}) as Dictionary).get("broken", 0))
 	attacker_health = []
 	defender_health = []
 	round_index = 0
@@ -75,12 +84,14 @@ func set_round(
 	def: int,
 	guns_left: int,
 	atk_health: Array = [],
-	def_health: Array = []
+	def_health: Array = [],
+	gates: int = 0
 ) -> void:
 	round_index = index
 	attacker_count = atk
 	defender_count = def
 	guns = guns_left
+	gates_broken = gates
 	attacker_health = atk_health
 	defender_health = def_health
 	_flash = 1.0
@@ -173,40 +184,22 @@ func _draw_clouds(w: float, horizon: float) -> void:
 
 
 func _draw_ground(w: float, h: float) -> void:
-	var horizon: float = h * HORIZON
-	draw_rect(Rect2(0, horizon, w, h - horizon), Color(0.46, 0.64, 0.26))
-	draw_rect(Rect2(0, horizon + (h - horizon) * 0.30, w, h), Color(0.39, 0.57, 0.22))
-	draw_rect(Rect2(0, horizon + (h - horizon) * 0.66, w, h), Color(0.31, 0.48, 0.18))
-	# Sunlit patches and furrows give the field depth.
-	for index in 7:
-		var x: float = fmod(float(index) * 173.0 + 40.0, w)
-		var y: float = horizon + 10.0 + fmod(float(index) * 37.0, h - horizon - 24.0)
-		draw_circle(Vector2(x, y), 22.0 + float(index % 3) * 10.0,
-			Color(0.92, 0.82, 0.42, 0.06))
-	for row in 5:
-		var y: float = horizon + 18.0 + float(row) * (h - horizon) * 0.16
-		draw_line(Vector2(0, y), Vector2(w, y + 3.0), Color(0.24, 0.38, 0.14, 0.22), 1.0)
-	# Grass tufts and wildflowers.
-	for index in 34:
-		var x: float = fmod(float(index) * 97.0 + 13.0, w)
-		var y: float = horizon + 8.0 + fmod(float(index) * 53.0, h - horizon - 12.0)
-		var sway: float = sin(_time * 1.4 + float(index)) * 2.0
-		draw_line(Vector2(x, y), Vector2(x + sway, y - 8.0), Color(0.22, 0.36, 0.14), 1.5)
-		if index % 4 == 0:
-			draw_circle(Vector2(x + sway, y - 9.0), 2.0, Color(1.0, 0.84, 0.28))
-		elif index % 7 == 0:
-			draw_circle(Vector2(x + sway, y - 8.0), 1.8, Color(0.92, 0.45, 0.30))
+	QuickBattleArt.draw_ground(self, w, h, h * HORIZON, terrain, _time)
 
 
 func _draw_armies(w: float, h: float) -> void:
 	var ground: float = h * 0.74
 	var push: float = minf(float(round_index), 3.0) * w * 0.035
+	# The wall stands between the armies; the garrison musters behind it.
+	var defended: float = ground - (30.0 if fort_level > 0 else 0.0)
+	if fort_level > 0:
+		QuickBattleArt.draw_wall(self, w, h, fort_level, gates_broken, defender_color, _time)
 	_draw_formation(
 		w * 0.24 + push, ground, attacker_count, attacker_start, attacker_color, 1.0,
 		attacker_health
 	)
 	_draw_formation(
-		w * 0.76 - push, ground, defender_count, defender_start, defender_color, -1.0,
+		w * 0.80 - push, defended, defender_count, defender_start, defender_color, -1.0,
 		defender_health
 	)
 	_draw_cannon(Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0)
@@ -214,7 +207,7 @@ func _draw_armies(w: float, h: float) -> void:
 	if guns > 0:
 		for index in guns:
 			_draw_cannon(
-				Vector2(w * 0.84 - push + float(index) * 16.0, ground - 10.0),
+				Vector2(w * 0.84 - push + float(index) * 16.0, defended - 10.0),
 				defender_color, -1.0
 			)
 

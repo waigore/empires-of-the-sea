@@ -114,6 +114,20 @@ func test_default_roster_matches_the_configured_counts() -> void:
 	assert_eq(FactionCatalog.count(), 19)
 
 
+func test_great_power_colours_follow_gdd_09() -> void:
+	## wiki: naming § Default map colour id — GDD 09 RGB per semantic id.
+	assert_eq(FactionCatalog.color_of(0), Color8(220, 180, 60), "Spain is yellow")
+	assert_eq(FactionCatalog.color_of(1), Color8(180, 80, 80), "England is red")
+	assert_eq(FactionCatalog.color_of(2), Color8(80, 140, 200), "France is dark blue")
+	assert_eq(FactionCatalog.color_of(3), Color8(90, 160, 90), "Portugal is green")
+	assert_eq(
+		FactionCatalog.color_of(4),
+		Color8(220, 140, 100),
+		"United Provinces uses the netherlands orange"
+	)
+	assert_eq(FactionCatalog.color_of(5), Color8(100, 120, 200), "Sweden is light blue")
+
+
 func test_ids_are_unique_and_resolvable() -> void:
 	var seen: Dictionary = {}
 	for faction: Dictionary in FactionCatalog.all():
@@ -441,19 +455,21 @@ func test_categories_match_the_table() -> void:
 	assert_eq(CommodityCatalog.category_label(CommodityCatalog.Category.RAW), "Raw materials")
 
 
-func test_tradeable_excludes_riches_and_spices() -> void:
+func test_tradeable_excludes_only_riches() -> void:
 	assert_true(CommodityCatalog.is_tradeable("timber"))
 	assert_true(CommodityCatalog.is_tradeable("lumber"))
 	assert_true(CommodityCatalog.is_tradeable("grain"))
+	# Spices is an advanced good, not a rich: it trades at its fixed 50
+	# (wiki: world-market § Tradeable commodities; DR-20261110-09).
+	assert_true(CommodityCatalog.is_tradeable("spices"))
 	assert_false(CommodityCatalog.is_tradeable("gold"))
 	assert_false(CommodityCatalog.is_tradeable("diamonds"))
-	assert_false(CommodityCatalog.is_tradeable("spices"))
 	assert_false(CommodityCatalog.is_tradeable("silk"))
 	var tradeable: int = 0
 	for id: String in CommodityCatalog.all_ids():
 		if CommodityCatalog.is_tradeable(id):
 			tradeable += 1
-	assert_eq(tradeable, 22)
+	assert_eq(tradeable, 23)
 
 
 func test_manufactured_prices_are_break_even() -> void:

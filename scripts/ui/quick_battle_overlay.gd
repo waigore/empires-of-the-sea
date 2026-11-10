@@ -246,7 +246,8 @@ func _enter_round(index: int) -> void:
 		int(round.get("defender_count", 0)),
 		int(round.get("guns", 0)),
 		round.get("attacker_health", []) as Array,
-		round.get("defender_health", []) as Array
+		round.get("defender_health", []) as Array,
+		int(round.get("gates", 0))
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
 	_set_bars(
@@ -289,8 +290,10 @@ func _finish() -> void:
 	_outcome.text = QuickBattleCopy.outcome_text(
 		outcome, battle, province_name, faction_names
 	)
-	# A siege changes the walls and a battle costs named regiments: both are
-	# told, never silently written back to the world (REQ-P5-05, REQ-P2-03).
+	# Ground, walls and named dead: told, never silently written back (REQ-P5-05).
+	var ground: String = QuickBattleCopy.terrain_line(battle)
+	if not ground.is_empty():
+		_add_log(ground)
 	var losses: String = QuickBattleCopy.loss_line(battle, faction_names)
 	if not losses.is_empty():
 		_add_log(losses)

@@ -104,6 +104,22 @@ static func level_at(model: MapModel, province: int) -> int:
 	return clamp_level(data.fort_level)
 
 
+## The tile a fort is raised on: the province's town (wiki: siege-mechanics
+## § Fort Levels). Capital provinces fall back to the capital tile; a legacy map
+## with neither keeps the old any-land rule and returns NO_TILE.
+static func site_tile(model: MapModel, province: int) -> Vector2i:
+	if model == null:
+		return Vector2i(-1, -1)
+	var data: ProvinceState = model.province_data(province)
+	if data == null:
+		return Vector2i(-1, -1)
+	if data.town_tile.x >= 0:
+		return data.town_tile
+	if data.capital_tile.x >= 0:
+		return data.capital_tile
+	return Vector2i(-1, -1)
+
+
 ## Emplaced gun type for the defender's researched battery line.
 static func emplaced_type(tech: Dictionary) -> String:
 	for row: Dictionary in EMPLACED_TECHS:

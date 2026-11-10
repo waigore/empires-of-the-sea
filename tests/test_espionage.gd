@@ -12,7 +12,7 @@ const SEED: int = 7
 class StubHud extends GameHud:
 	var toasts: Array[String] = []
 
-	func toast(text: String) -> void:
+	func toast(text: String, _icon_name: String = "") -> void:
 		toasts.append(text)
 
 
