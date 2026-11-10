@@ -503,4 +503,16 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 	assert_true(
 		MapPlayFleetMissions.prize_note(play, blockader).contains("no cargo afloat")
 	)
+	# A crown that has taken the coast blockades its own shore: no prize.
+	economy.market.record_import("grain", 4, 1)
+	_model.province_data(1).owner = 0
+	assert_eq(MapPlayFleetMissions.prize_note(play, blockader), "")
+	_model.province_data(1).owner = 1
+	# A rival whose merchant hulls are at sea has no laden home fleet to raid.
+	laden.location = FleetState.Location.AT_SEA
+	laden.sea_zone = 1
+	laden.province = MapModel.NO_ID
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("at sea")
+	)
 	economy.free()
