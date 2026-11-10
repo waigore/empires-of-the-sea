@@ -79,7 +79,7 @@ func test_every_ground_paints() -> void:
 	field.custom_minimum_size = Vector2(480, 320)
 	field.size = Vector2(480, 320)
 	add_child(field)
-	for terrain: String in ["open", "hill", "woods", "town", "swamp"]:
+	for terrain: String in ["open", "hill", "woods", "town", "marsh"]:
 		field.terrain = terrain
 		field.fort_level = 3 if terrain == "town" else 0
 		field.gates_broken = 2
@@ -89,7 +89,7 @@ func test_every_ground_paints() -> void:
 		field.defender_health = []
 		field.queue_redraw()
 		await get_tree().process_frame
-	assert_eq(field.terrain, "swamp")
+	assert_eq(field.terrain, "marsh")
 	field.free()
 
 
