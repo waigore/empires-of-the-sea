@@ -85,6 +85,21 @@ static func pending_call_for(state: DiplomacyState, ally: int) -> Dictionary:
 	return {}
 
 
+## What the court is choosing between, named plainly: joining puts the crown at
+## war with the aggressor, refusing breaks the treaty at the unified price
+## (wiki: diplomacy § Alliances § Mutual defence, § Breaking an alliance). The
+## panel and the toast read this, so the price is never guessed at.
+static func offer_text(call: Dictionary) -> String:
+	return (
+		"Our formal alliance binds us: join the war against %s, or refuse and"
+		+ " break the treaty — −50 with %s and −10 with every other Great Power"
+		+ " but the aggressor."
+	) % [
+		FactionCatalog.name_of(int(call.get("aggressor", -1))),
+		FactionCatalog.name_of(int(call.get("defender", -1))),
+	]
+
+
 ## Queues exactly one call per aggressor–defender pair for the human court.
 static func queue_human_call(
 	state: DiplomacyState, aggressor: int, defender: int, ally: int

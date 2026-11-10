@@ -105,6 +105,38 @@ func test_every_ground_paints() -> void:
 	field.free()
 
 
+## A painted plate is only as good as the asset behind it: a moved or renamed
+## texture must fail here, not on a playtester's screen.
+func test_the_painted_plate_assets_exist() -> void:
+	for terrain: String in BattlePlate.PLATES.keys():
+		var entry: Dictionary = BattlePlate.PLATES[terrain]
+		assert_true(
+			ResourceLoader.exists(String(entry["path"])),
+			"missing plate for %s" % terrain
+		)
+	for fort in [1, 2, 3]:
+		assert_true(
+			ResourceLoader.exists(BattlePlate.WALLS[fort]), "missing wall %d" % fort
+		)
+	for path: String in [
+		BattlePlate.SOLDIER, BattlePlate.CANNON, BattlePlate.HORSE, BattlePlate.RUBBLE,
+	]:
+		assert_true(ResourceLoader.exists(path), "missing %s" % path)
+
+
+## The wall must read as a fortification: taller than a man, with the garrison
+## standing on the parapet above the field line.
+func test_the_wall_towers_over_the_garrison() -> void:
+	for fort in [1, 2, 3]:
+		var wall: float = BattlePlate.wall_height(600.0, fort)
+		assert_true(wall > BattlePlate.soldier_height(600.0) * 1.5, "wall too low")
+		assert_true(BattlePlate.parapet_y(600.0, fort) < 600.0 * BattlePlate.GROUND)
+	assert_true(
+		BattlePlate.wall_height(600.0, 3) > BattlePlate.wall_height(600.0, 1),
+		"a later fort stands taller"
+	)
+
+
 func test_the_simulator_scene_fights_and_steps() -> void:
 	var screen: BattleSimScreen = SIM_SCENE.instantiate()
 	add_child(screen)

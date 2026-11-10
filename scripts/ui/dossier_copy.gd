@@ -41,6 +41,26 @@ static func roads_tip(province: ProvinceState, rows: Array[Dictionary]) -> Strin
 	) % [tiles, rows.size()]
 
 
+## Live crown link from `LandConnectivity.province_link`. Falls back to the
+## setup road plan when the session has not pushed a link yet.
+static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
+	if crown.has("linked"):
+		var roads: int = int(crown.get("roads", 0))
+		var text: String = "%d road tile%s" % [roads, "" if roads == 1 else "s"]
+		if bool(crown.get("linked", false)):
+			return "%s · linked to the crown" % text
+		var gap: int = int(crown.get("distance", -1))
+		if gap > 0:
+			return "%s · no road to the crown (%d tile%s away)" % [
+				text, gap, "" if gap == 1 else "s"
+			]
+		return "%s · no road to the crown" % text
+	var planned: int = 0
+	for path: Array in province.road_paths:
+		planned += path.size()
+	return "%d tiles" % planned if planned > 0 else "—"
+
+
 ## Town development, which caps the estates that reach the crown through it.
 static func town(province: ProvinceState) -> String:
 	if province == null or not province.has_town():

@@ -35,6 +35,19 @@ static func button(text: String, height: float = 38.0, width: float = 78.0) -> B
 	return out
 
 
+## An empty themed line the caller fills afterwards.
+static func line(size: int, color: Color) -> Label:
+	return label("", size, color)
+
+
+## Compact seal for a dossier header row: 40×40 with an 18pt glyph.
+static func small_button(text: String, tip: String) -> Button:
+	var out := button(text, 40.0, 40.0)
+	out.add_theme_font_size_override("font_size", 18)
+	out.tooltip_text = tip
+	return out
+
+
 static func spacer(parent: Node, height: float = 10.0) -> void:
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(0, height)

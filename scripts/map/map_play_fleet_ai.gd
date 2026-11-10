@@ -68,7 +68,7 @@ static func _run_region(
 				"zone": zone,
 				"zone_name": model.sea_zone_name(zone),
 				"region": model.region_id,
-				"threat": int(order["threat"]),
+				"threat": int(order.get("threat", 0)),
 			})
 			_report_sighting(play, model, faction, zone)
 		_station_orders(play, model, roster, faction)

@@ -9,9 +9,9 @@ Per-tile extraction improvements, town development and the estates ledger.
 
 ## Setup post-pass
 
-`WorldBootstrap` turns capital ports and harbour roads into real `LandWorks`
-entries, gives every province a town tile and at least town level 1, and gives
-Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
+`WorldBootstrap` turns capital ports and harbour roads into `LandWorks`
+entries, gives every province a town (level ≥1) and Great Powers level 4, plus
+four L1 grain farms wired to the seat.
 
 ## Implemented
 
@@ -25,8 +25,7 @@ Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
   route to the capital; tiles beside the network take that cap, and several
   routes use the highest.
 - **Init town roads:** setup roads every owned Old World town to its crown;
-  New World towns wait for built roads
-  (wiki: capital-and-connectivity).
+  New World towns wait for built roads (wiki: capital-and-connectivity).
 - **Town rule:** estates 4-adjacent to a province town extract; capital
   provinces cap yield at town development, and a non-capital port town caps the
   tiles that reach the crown only through it. An estate on (or beside) a road to
@@ -43,8 +42,8 @@ Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
   bar. Unknown ground is never surveyed.
 - **Estates ledger** (`ESTATES`, or **Build Improvement**): realm totals,
   province groups, filters, blockers, Build / Cancel / Map, caps and nearest
-  idle Builder.
-- **Province dossier**: every estate, its level and its road to the crown;
+  idle Builder. A cut-off estate names its gap to the crown.
+- **Province dossier**: town level and live crown link (repainted on work);
   Upgrade Town waits for tech.
 
 ## Deferred (REQ-P2-02)

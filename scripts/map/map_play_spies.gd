@@ -100,6 +100,11 @@ static func report(
 		return
 	var kept: Dictionary = {}
 	for rival: int in qualifying:
+		# What only the spy could see is written to the chronicle before the
+		# despatch is built, so the dossier weighs it the moment the court opens
+		# (DR-20261110-25).
+		_record_studies(play, rival, economy_report)
+		_record_builds(play, rival, economy_report)
 		var lines: Array[String] = _diplomacy_lines(play, rival)
 		lines.append_array(_battle_lines(play, rival, land_battles, naval_battles))
 		lines.append_array(_research_lines(rival, economy_report))
@@ -247,13 +252,84 @@ static func _battle_lines(
 
 static func _research_lines(rival: int, economy_report: Dictionary) -> Array[String]:
 	var lines: Array[String] = []
+	for tech: String in _researched(rival, economy_report):
+		lines.append("completed %s" % TechCatalog.display_name(tech))
+	return lines
+
+
+## The turn the despatch narrates: the calendar has already advanced when the
+## spy reports, so the observation keeps the turn it resolved on.
+static func _resolved_turn(play: PlaySession) -> int:
+	return maxi(play.turn - 1, 1)
+
+
+## Studies the shadowed court finished this turn, as ids.
+static func _researched(rival: int, economy_report: Dictionary) -> Array[String]:
+	var found: Array[String] = []
 	var factions: Dictionary = economy_report.get("factions", {})
 	var entry: Dictionary = factions.get(rival, {})
 	var resolved: Dictionary = entry.get("resolved", {})
 	var research: Dictionary = resolved.get("research", {})
 	for tech: Variant in research.get("researched", []):
-		lines.append("completed %s" % TechCatalog.display_name(String(tech)))
-	return lines
+		found.append(String(tech))
+	return found
+
+
+## A finished study is invisible to every crown but the one that posted the spy,
+## so the observation enters the chronicle and the dossier can weigh it later:
+## a court racing the field reads as a tech thief (DR-20261110-25).
+static func _record_studies(play: PlaySession, rival: int, economy_report: Dictionary) -> void:
+	if play.diplomacy == null:
+		return
+	for tech: String in _researched(rival, economy_report):
+		play.diplomacy.record_event(
+			IntelEvidence.SPY_TECH,
+			rival,
+			play.player_faction,
+			{"tech": tech, IntelEvidence.OBSERVED_TURN: _resolved_turn(play)}
+		)
+
+
+## The works the shadowed court's builders began this turn, counted by theme.
+## Build notes are behaviour, not suspicion: the dossier lists them without
+## weighing an agenda.
+static func _record_builds(play: PlaySession, rival: int, economy_report: Dictionary) -> void:
+	var works: Dictionary = {}
+	var factions: Dictionary = economy_report.get("factions", {})
+	var entry: Dictionary = factions.get(rival, {})
+	var civilians: Dictionary = entry.get("civilians", {})
+	for raw: Variant in civilians.get("orders", []):
+		var order: Dictionary = raw as Dictionary
+		var what: String = _build_kind(String(order.get("action", "")))
+		if what.is_empty():
+			continue
+		works[what] = int(works.get(what, 0)) + 1
+	if works.is_empty() or play.diplomacy == null:
+		return
+	play.diplomacy.record_event(
+		IntelEvidence.SPY_BUILD,
+		rival,
+		play.player_faction,
+		{"works": works, IntelEvidence.OBSERVED_TURN: _resolved_turn(play)}
+	)
+
+
+## A work order that raises something, folded into the theme the notes name.
+static func _build_kind(action: String) -> String:
+	match action:
+		"build_improvement":
+			return "improvement"
+		"upgrade_town":
+			return "town"
+		"build_road":
+			return "road"
+		"build_port":
+			return "port"
+		"build_fort":
+			return "fort"
+		"build_rail":
+			return "rail"
+	return ""
 
 
 ## A court the viewer has met by name, a stranger masked, the viewer itself

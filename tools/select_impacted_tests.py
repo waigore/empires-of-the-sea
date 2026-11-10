@@ -82,6 +82,12 @@ def match_rule(path: str, rule: dict) -> bool:
 
 def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
     """Return ('full', None) | ('domain', suites) | ('unmapped', None)."""
+    # Suite edits select that suite only so adapting one test cannot pull a
+    # whole domain past the tier-1 5 min budget (docs/testing.md). Production
+    # paths still expand through domain rules below.
+    if path.startswith("tests/test_") and path.endswith(".gd"):
+        if (ROOT / path).is_file():
+            return "domain", {path}
     domains: dict = mapping["domains"]
     for rule in mapping["rules"]:
         if not match_rule(path, rule):
@@ -93,10 +99,6 @@ def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
             return "unmapped", None
         suites = domains[domain].get("suites") or []
         return "domain", {f"tests/{name}" for name in suites}
-    # Direct suite path always selects itself when present on disk.
-    if path.startswith("tests/test_") and path.endswith(".gd"):
-        if (ROOT / path).is_file():
-            return "domain", {path}
     return "unmapped", None
 
 
