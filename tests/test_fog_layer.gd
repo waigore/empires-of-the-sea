@@ -61,3 +61,14 @@ func test_snapped_fog_settles_and_stops_fading() -> void:
 	assert_false(_overlay.fog_layer.is_fading())
 	assert_true(_overlay.fog_layer.advance(0.016), "snap repaints once")
 	assert_false(_overlay.fog_layer.advance(0.016), "settled fog does not repaint")
+
+
+## A raid rings the water it worked without stealing the selection (DR-20261110-13).
+func test_a_ripple_marks_the_water_and_ages_out() -> void:
+	_overlay.select_province(2)
+	_overlay.ripple(Vector2(120.0, 64.0))
+	assert_eq(_overlay.selected_province, 2, "the ripple never moves the selection")
+	assert_eq(_overlay._ripples.size(), 1)
+	assert_eq(_overlay._ripples[0]["position"], Vector2(120.0, 64.0))
+	_overlay._age_ripples(1.2)
+	assert_true(_overlay._ripples.is_empty(), "the ring is a moment, not a marker")

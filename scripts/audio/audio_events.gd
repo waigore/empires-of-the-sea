@@ -23,6 +23,9 @@ const CIVILIAN_MOVE := "civilian_move"
 ## fall (wiki: siege-mechanics, REQ-P1-06).
 const SIEGE_CANNON := "siege_cannon"
 const WALL_BREACH := "wall_breach"
+## A raid either takes the crown's cargo or pays its station in prize (DR-20261110-13).
+const RAID_ALARM := "raid_alarm"
+const CARGO_SEIZED := "cargo_seized"
 
 const ROOT := "res://assets/audio/sfx/"
 
@@ -46,6 +49,8 @@ const CUES: Dictionary = {
 	CIVILIAN_MOVE: {"file": "civilian_move.wav", "volume_db": -8.0, "pitch": 0.05},
 	SIEGE_CANNON: {"file": "siege_cannon.wav", "volume_db": -3.0, "pitch": 0.04},
 	WALL_BREACH: {"file": "wall_breach.wav", "volume_db": -4.0, "pitch": 0.06},
+	RAID_ALARM: {"file": "raid_alarm.wav", "volume_db": -12.0, "pitch": 0.02},
+	CARGO_SEIZED: {"file": "cargo_seized.wav", "volume_db": -5.0, "pitch": 0.04},
 }
 
 
