@@ -217,14 +217,34 @@ func test_presence_holds_only_the_fogged_tile() -> void:
 	assert_eq(still_unknown, 1, "only the cleared tile stays unknown")
 
 
-func test_a_spy_never_holds_a_province() -> void:
+func test_a_spy_holds_the_province_it_shadows() -> void:
+	# Presence holds, presence never reveals (DR-20261109-04): a spy posted in a
+	# rival province keeps its charted tiles in view for its own crown.
 	var units: Array[CivilianState] = []
 	units.append(CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2)))
 	units.append(CivilianState.create(2, 1, "explorer", Vector2i(2, 2)))
-	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [], "own spy does not hold")
+	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [1], "a spy holds")
 	assert_eq(CivilianMovement.held_provinces(_model, units, 1), [1], "own explorer holds")
-	units[0].type_id = "explorer"
-	assert_eq(CivilianMovement.held_provinces(_model, units, PLAYER), [1], "an explorer holds")
+	assert_eq(
+		CivilianMovement.held_provinces(_model, units, 2), [],
+		"another crown reads nothing from these units"
+	)
+
+
+func test_a_spy_never_promotes_unknown_ground() -> void:
+	# A New World province starts unknown; a spy posted there holds it but the
+	# tiles stay dark until an Explorer surveys them (DR-20261109-04).
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	var units: Array[CivilianState] = [CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2))]
+	assert_eq(CivilianMovement.held_provinces(map, units, PLAYER), [1], "posted")
+	assert_eq(view.hold_explored_province(1), [], "unknown ground never opens")
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.UNKNOWN,
+		"the province stays unknown"
+	)
 
 
 func test_province_visibility_uses_the_highest_tile() -> void:

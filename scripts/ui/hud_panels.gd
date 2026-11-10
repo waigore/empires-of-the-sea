@@ -233,7 +233,8 @@ func show_economy(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
-	cargo: Dictionary = {}
+	cargo: Dictionary = {},
+	offers: Array = []
 ) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
@@ -251,7 +252,7 @@ func show_economy(
 	civilian_open = false
 	army_wrap.visible = false
 	army_open = false
-	economy_panel.refresh(economy, market, report, cargo)
+	economy_panel.refresh(economy, market, report, cargo, offers)
 	economy_wrap.visible = true
 	economy_open = true
 	var tween := host.create_tween()
@@ -269,15 +270,19 @@ func is_economy_open() -> bool:
 	return economy_open
 
 
-## The college ledger takes the same edge as the economy ledger.
-func show_research(state: ResearchState, treasury: int) -> void:
+## The college ledger takes the same edge as the economy ledger. `boost` maps
+## tech id -> spy-network percent, so a shadowed rival's advances show why they
+## move faster (wiki: civilian-units § Spy; DR-20261110-03).
+func show_research(
+	state: ResearchState, treasury: int, boost: Dictionary = {}
+) -> void:
 	hide_province()
 	hide_fleet()
 	hide_civilian()
 	hide_army()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	research_panel.refresh(state, treasury)
+	research_panel.refresh(state, treasury, boost)
 	research_wrap.visible = true
 	research_open = true
 	var tween := host.create_tween()

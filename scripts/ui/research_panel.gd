@@ -11,6 +11,8 @@ signal funding_requested(slot: int)
 signal close_pressed
 
 var _state: ResearchState = null
+## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
+var _boost: Dictionary = {}
 var _summary: Label = null
 var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
@@ -104,8 +106,11 @@ func select_tab(index: int) -> void:
 
 
 ## Rebuilds slots, open advances and known techs from live research state.
-func refresh(state: ResearchState, treasury: int) -> void:
+## `boost` carries the spy network's per-tech percent (DR-20261110-03); it marks
+## the slots it lifts so a faster study is never silent (REQ-P5-05).
+func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> void:
 	_state = state
+	_boost = boost
 	if _tabs == null or _state == null:
 		return
 	_clear(_slots_body)
@@ -134,7 +139,8 @@ func _fill_slots() -> void:
 		_slots_body.add_child(ResearchRow.slot(
 			_state, index,
 			func(slot: int) -> void: cancel_requested.emit(slot),
-			func(slot: int) -> void: funding_requested.emit(slot)
+			func(slot: int) -> void: funding_requested.emit(slot),
+			SpyNetworks.boost_for(_boost, _state.tech_at(index))
 		))
 
 

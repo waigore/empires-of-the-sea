@@ -4,9 +4,8 @@ extends RefCounted
 ## § Civilian Types and Roles). Pure catalog: training validation, the civilian
 ## panel and tests read this one table (REQ-P3-03).
 ##
-## All six wiki types are listed so the roster stays faithful; the starting three,
-## the tech-gated Merchant and the Rail Builder are playable. Spy carries a
-## `deferred` reason instead of silently pretending to work (REQ-P2-02).
+## All six wiki types are playable; the Spy's passive verbs are presence and
+## research theft, with counter-espionage as its ongoing work order (SpyRules).
 
 const ORDER: Array[String] = [
 	"explorer",
@@ -55,8 +54,8 @@ const TYPES: Dictionary = {
 		"paper": 4,
 		"unlock": "starting",
 		"works": ["counter_spy"],
-		"implemented": false,
-		"deferred": "Counter-spy and court reports need rival spies, rival research and AI activity to observe.",
+		"implemented": true,
+		"deferred": "",
 	},
 	"merchant":
 	{

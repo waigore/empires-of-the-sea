@@ -259,6 +259,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 30,
 	},
 	{
+		"key": "civilian.spy_weight",
+		"category": "civilian",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 1000,
+		"default": 70,
+	},
+	{
 		"key": "civilian.town_road_weight",
 		"category": "civilian",
 		"type": TYPE_INT,

@@ -12,6 +12,8 @@ var seed_field: LineEdit = null
 var size_option: OptionButton = null
 ## Historical (calendar cap at 1800) vs endless (military victory only).
 var campaign_option: OptionButton = null
+## Advanced-start preset: turn 0, 50 or 100 (wiki: advanced-starts).
+var advanced_option: OptionButton = null
 var start_button: Button = null
 var back_button: Button = null
 
@@ -100,6 +102,17 @@ func _build() -> void:
 	campaign_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
 	box.add_child(campaign_option)
 
+	# Advanced start: open the age at turn 50/100 with courts already grown
+	# (wiki: advanced-starts).
+	box.add_child(MenuFrame.caption("Opening"))
+	advanced_option = OptionButton.new()
+	MenuFrame.style_option(advanced_option)
+	for id: String in AdvancedStart.IDS:
+		advanced_option.add_item(AdvancedStart.label(id))
+	advanced_option.select(0)
+	advanced_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
+	box.add_child(advanced_option)
+
 	_summary = MenuFrame.subtitle("")
 	box.add_child(_summary)
 
@@ -163,8 +176,9 @@ func _refresh_summary() -> void:
 	var length_note: String = (
 		"endless" if _endless() else "to 1800"
 	)
-	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  seed %s" % [
-		nation, leader, rivals, length_note, seed_label,
+	var opening: String = AdvancedStart.label(_advanced())
+	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  %s  ·  seed %s" % [
+		nation, leader, rivals, opening, length_note, seed_label,
 	]
 
 
@@ -182,9 +196,18 @@ func _on_start() -> void:
 		seed_value = text.to_int()
 	var faction: int = int(nation_option.get_item_id(nation_option.selected))
 	var config: GameConfig = GameConfig.make(
-		seed_value, size_option.selected, faction, _selected_leader(), _endless()
+		seed_value, size_option.selected, faction, _selected_leader(),
+		_endless(), _advanced()
 	)
 	start_requested.emit(config)
+
+
+## Advanced start keeps the chosen turn preset (wiki: advanced-starts).
+func _advanced() -> String:
+	if advanced_option == null:
+		return AdvancedStart.NONE
+	var index: int = clampi(advanced_option.selected, 0, AdvancedStart.IDS.size() - 1)
+	return AdvancedStart.IDS[index]
 
 
 ## Endless campaign keeps the calendar open; historical closes it in 1800

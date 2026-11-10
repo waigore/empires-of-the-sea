@@ -50,6 +50,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"bootstrapped": play.bootstrapped_regions.keys(),
 		"leaders": play.leaders.duplicate(),
 		"infinite_mode": play.infinite_mode,
+		"advanced_start": play.advanced_start,
 		"campaign_halted": play.campaign_halted,
 	}
 
@@ -124,6 +125,9 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
+	play.advanced_start = AdvancedStart.normalize(
+		String(session.get("advanced_start", AdvancedStart.NONE))
+	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = SaveCourt.victory_from(data.get("victory", {}))

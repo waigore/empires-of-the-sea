@@ -7,6 +7,7 @@ extends PanelContainer
 ## shell and relays their signals.
 
 signal trade_requested(commodity: String, quantity: int, is_buy: bool)
+signal offer_requested(offer_id: String, quantity: int)
 signal production_changed(recipe_id: String, units: int)
 signal recruit_requested(tier: int)
 signal close_pressed
@@ -116,6 +117,10 @@ func _connect_pages() -> void:
 		func(commodity: String, quantity: int, is_buy: bool) -> void:
 			trade_requested.emit(commodity, quantity, is_buy)
 	)
+	_market_page.offer_requested.connect(
+		func(offer_id: String, quantity: int) -> void:
+			offer_requested.emit(offer_id, quantity)
+	)
 	_workers.recruit_requested.connect(func(tier: int) -> void: recruit_requested.emit(tier))
 
 
@@ -150,14 +155,15 @@ func refresh(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
-	cargo: Dictionary = {}
+	cargo: Dictionary = {},
+	offers: Array = []
 ) -> void:
 	if _tabs == null:
 		return
 	_summary.text = LedgerText.summary(economy, report)
 	_preview.text = LedgerText.preview(report)
 	_production.fill(economy)
-	_market_page.fill(economy, market, cargo)
+	_market_page.fill(economy, market, cargo, offers)
 	_workers.fill(economy)
 
 

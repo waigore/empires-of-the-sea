@@ -712,3 +712,122 @@ func test_copy_keeps_prices_and_volumes_separate() -> void:
 	assert_eq(clone.price("timber"), 35)
 	assert_eq(market.bid_volume("timber"), 10)
 	assert_eq(clone.bid_volume("timber"), 0)
+
+
+# --- from test_minor_market.gd ---
+## Minor Nation and Tribe market offers: the harvest they publish, the courts'
+## discount, cargo and treasury gates, and the turn's book (wiki: world-market
+## § Minor and tribe auto-sell; DR-20261110-08).
+
+
+## A two-province region: Spain ashore, one Minor Nation (or Tribe) holding the
+## other with a grain field and a timber estate.
+func _offer_world(owner: int = 6) -> WorldMap:
+	var model: MapModel = _fixture()
+	model.provinces[1].owner = owner
+	model.resource[model.index_of(0, 1)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func test_minor_offers_publish_their_estates_below_the_world_price() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(), market, 0)
+	assert_eq(offers.size(), 1)
+	assert_eq(String(offers[0]["id"]), "6:timber")
+	assert_eq(int(offers[0]["faction"]), 6)
+	assert_eq(String(offers[0]["commodity"]), "timber")
+	assert_eq(int(offers[0]["quantity"]), 1)
+	# 30 x 0.75, floored: direct trade undercuts the world price of 30.
+	assert_eq(int(offers[0]["unit_price"]), 22)
+	assert_eq(MinorMarket.unit_price(market, "timber"), 22)
+	assert_eq(MinorMarket.remaining(offers, "6:timber"), 1)
+	assert_eq(MinorMarket.index_of(offers, "6:gold"), -1)
+
+
+func test_tribes_offer_their_harvest_too() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(9), market, 0)
+	assert_eq(offers.size(), 1)
+	assert_eq(String(offers[0]["id"]), "9:timber")
+
+
+func test_offers_skip_riches_and_the_capital_ration() -> void:
+	var world: WorldMap = _offer_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offers: Array[Dictionary] = MinorMarket.emit(world, market, 0)
+	for offer: Dictionary in offers:
+		assert_true(CommodityCatalog.is_tradeable(String(offer["commodity"])))
+		assert_ne(String(offer["commodity"]), Extraction.GRAIN)
+	# A gold seam is a rich, not a market good.
+	world.region(0).resource[world.region(0).index_of(0, 1)] = 3
+	assert_eq(MinorMarket.emit(world, market, 0), [])
+
+
+func test_offers_need_a_crown_ashore() -> void:
+	var world: WorldMap = _offer_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	assert_eq(world.owned_provinces(0, 5), 0)
+	assert_eq(MinorMarket.emit(world, market, 5), [])
+	assert_eq(MinorMarket.emit(null, market, 0), [])
+	assert_eq(MinorMarket.emit(world, null, 0), [])
+
+
+func test_buying_a_minor_offer_pays_the_court_and_fills_a_hold() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(), market, 0)
+	var result: Dictionary = MinorMarket.buy(
+		market, economy, offers, "6:timber", 1, 5
+	)
+	assert_true(bool(result["ok"]), String(result.get("reason", "")))
+	assert_eq(int(result["cost"]), 22)
+	assert_eq(int(result["faction"]), 6)
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY - 22)
+	assert_eq(economy.quantity("timber"), 1)
+	assert_eq(market.bought_units_for(0), 1)
+	assert_eq(market.bid_volume("timber"), 1)
+	# The row is spent; nothing carries forward.
+	assert_eq(offers.size(), 0)
+	assert_false(bool(MinorMarket.buy(market, economy, offers, "6:timber", 1, 5)["ok"]))
+
+
+func test_a_minor_offer_needs_a_free_cargo_hold() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(), market, 0)
+	var result: Dictionary = MinorMarket.buy(market, economy, offers, "6:timber", 1, 0)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("cargo holds"))
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY)
+	assert_eq(economy.quantity("timber"), 0)
+	assert_eq(MinorMarket.remaining(offers, "6:timber"), 1)
+
+
+func test_a_minor_offer_cannot_be_overbought_or_bought_without_treasury() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var offers: Array[Dictionary] = MinorMarket.emit(_offer_world(), market, 0)
+	var greedy: Dictionary = MinorMarket.buy(market, economy, offers, "6:timber", 2, 5)
+	assert_false(bool(greedy["ok"]))
+	assert_true(String(greedy["reason"]).contains("Only 1"))
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY)
+	economy.treasury = 5
+	var poor: Dictionary = MinorMarket.buy(market, economy, offers, "6:timber", 1, 5)
+	assert_false(bool(poor["ok"]))
+	assert_eq(String(poor["reason"]), "Insufficient treasury")
+	assert_eq(MinorMarket.remaining(offers, "6:timber"), 1)
+	assert_false(bool(MinorMarket.buy(market, economy, offers, "6:timber", 0, 5)["ok"]))
+
+
+func test_offers_expire_with_the_turn_but_survive_a_save() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.minor_offers = MinorMarket.emit(_offer_world(), market, 0)
+	var clone: WorldMarket = market.copy()
+	assert_eq(clone.minor_offers, market.minor_offers)
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+	assert_eq(restored.minor_offers, market.minor_offers)
+	assert_eq(int(restored.minor_offers[0]["unit_price"]), 22)
+	market.advance_prices()
+	assert_eq(market.minor_offers, [])

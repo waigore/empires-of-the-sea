@@ -194,6 +194,21 @@ func test_a_legacy_slot_without_a_defeat_field_stays_undefeated() -> void:
 	assert_false(reopened.play.campaign_over())
 
 
+func test_a_fallen_crowns_civilians_leave_play() -> void:
+	var target: MapScreen = _attach()
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var rival: int = _rival(player)
+	var civil: CivilianLayer = target.play.civilian_layer
+	var tile: Vector2i = target.play.model.province_tiles(target.play.capital_province)[0]
+	var crew: CivilianState = civil.add_unit(rival, "builder", tile)
+	assert_true(civil.units.has(crew), "the fixture crew musters")
+
+	_fall_crown(target, rival, player)
+
+	assert_eq(civil.unit_count_all(rival), 0, "its crews leave with the crown")
+	assert_false(civil.units.has(crew))
+
+
 # --- fixtures ----------------------------------------------------------------
 
 

@@ -52,6 +52,10 @@ func _run() -> void:
 	setup.seed_field.text = SETUP_SEED
 	setup.size_option.select(SETUP_SIZE_INDEX)
 	_check(setup.leader_option.item_count > 0, "leader choices offered at setup")
+	_check(
+		setup.advanced_option != null and setup.advanced_option.item_count == 3,
+		"setup offers the advanced-start openings"
+	)
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
@@ -485,6 +489,18 @@ func _smoke_end_turn(
 		screen.economy.economy.quantity("grain") == grain_before + 1,
 		"the ledger buys imports against cargo holds"
 	)
+	var offers: Array[Dictionary] = screen.economy.market.minor_offers
+	_check(not offers.is_empty(), "the minor courts publish their harvest")
+	if not offers.is_empty():
+		var offer: Dictionary = offers[0]
+		var offer_id: String = String(offer["id"])
+		var offer_good: String = String(offer["commodity"])
+		var offer_stock: int = screen.economy.economy.quantity(offer_good)
+		screen.economy._on_offer(offer_id, 1)
+		_check(
+			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
+			"the ledger buys a court's offer direct"
+		)
 	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.assignment_units("lumber") == 1,

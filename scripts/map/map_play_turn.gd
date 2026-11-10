@@ -51,15 +51,7 @@ static func answer_call(play: PlaySession, accept: bool) -> void:
 		if not message.is_empty():
 			play.hud.toast(message)
 	MapPlayDiplomacy.refresh(play)
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_call(play)
-		return
-	# A declaration may also have left an intervention offer for this court.
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_intervention(play)
-		return
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_offer(play)
+	if _show_pending(play):
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
@@ -71,9 +63,14 @@ static func answer_call(play: PlaySession, accept: bool) -> void:
 static func answer_intervention(play: PlaySession, kind: String) -> void:
 	if play.diplomacy == null:
 		return
-	if not Intervention.has_pending(play.diplomacy, play.player_faction):
+	var offer: Dictionary = Intervention.pending_for(play.diplomacy, play.player_faction)
+	if offer.is_empty():
 		return
-	var result: Dictionary = Intervention.resolve_human(play.diplomacy, kind)
+	# Protesting an aggressor holding Propaganda costs 5, not 10; the rules read
+	# that crown's ledger, never ours (wiki: tech-tree-diplomacy-civilian).
+	var ledger: PlayerEconomy = play.ledger_for(int(offer.get("aggressor", -1)))
+	var tech: Dictionary = ledger.tech_unlocked if ledger != null else {}
+	var result: Dictionary = Intervention.resolve_human(play.diplomacy, kind, tech)
 	if not bool(result.get("ok", false)):
 		if play.hud != null:
 			play.hud.toast(String(result.get("reason", "No intervention awaits an answer.")))
@@ -83,14 +80,7 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 		if not message.is_empty():
 			play.hud.toast(message)
 	MapPlayDiplomacy.refresh(play)
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_call(play)
-		return
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_intervention(play)
-		return
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_offer(play)
+	if _show_pending(play):
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
@@ -104,9 +94,7 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 		return
 	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		return
-	var result: Dictionary = DiplomacyProposals.resolve_human(
-		play.diplomacy, play.world, accept
-	)
+	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.world, accept)
 	if not bool(result.get("ok", false)):
 		if play.hud != null:
 			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
@@ -125,18 +113,27 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 		if not message.is_empty():
 			play.hud.toast(message)
 	MapPlayDiplomacy.refresh(play)
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_call(play)
-		return
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_intervention(play)
-		return
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_offer(play)
+	if _show_pending(play):
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
+
+
+## Opens the court on whichever consent decision still waits — a call to arms,
+## an intervention or a rival proposal — so each answer path resumes the same
+## ladder. True when one did.
+static func _show_pending(play: PlaySession) -> bool:
+	if CallToArms.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_call(play)
+		return true
+	if Intervention.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_intervention(play)
+		return true
+	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+		MapPlayDiplomacy.show_offer(play)
+		return true
+	return false
 
 
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
@@ -148,16 +145,15 @@ static func _finish_turn(play: PlaySession) -> void:
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Minor Regiment Upgrade runs after movement and before combat (wiki:
-	# factions § Minor military parity).
+	# Minor Regiment Upgrade runs after movement and before combat.
 	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
-	MapPlayArmies.resolve_battles(play)
-	_resolve_naval_combat(play)
+	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
+	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
+	MapPlaySpies.resolve(play)
+	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	_resolve_visibility(play)
-	# The human crown's terminal fall seals the session before any victory
-	# check: defeat never hands the conqueror a military win, nor opens that
-	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
-	# DR-20261109-05).
+	# The human crown's terminal fall seals the session before any victory check:
+	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
 		play.emit_turn_ended(play.turn)
 		return
@@ -190,6 +186,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		AiTurnLog.apply_feeding(play, economy_report)
 	else:
 		play.refresh_research()
+		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 		play.income = play.economy.projected_income()
@@ -211,6 +208,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	MapPlaySetup.build_lens(play)
+	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	play.emit_turn_ended(play.turn)
 
 
@@ -308,11 +306,8 @@ static func capital_world(play: PlaySession) -> Vector2:
 static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 	return play.model.capital_tile_of(province_id)
 
-
-## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
-## § Naval Combat). Rules resolve the battle; this only prunes markers and
-## reports the outcome.
-static func _resolve_naval_combat(play: PlaySession) -> void:
+## Fleets sharing a sea zone fight (wiki: ships-and-naval § Naval Combat).
+static func _resolve_naval_combat(play: PlaySession) -> Array[Dictionary]:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var tech_gate: Callable = play.has_tech
@@ -336,7 +331,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 			"A civilian went down with a sunken squadron — lost at sea"
 		)
 	if battles.is_empty():
-		return
+		return battles
 	for battle: Dictionary in battles:
 		var region: int = int(battle.get("region", play.region_index))
 		var model: MapModel = (
@@ -349,6 +344,7 @@ static func _resolve_naval_combat(play: PlaySession) -> void:
 		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
+	return battles
 
 
 ## End-of-turn visibility for every region (wiki: fog-and-exploration). Knowledge
