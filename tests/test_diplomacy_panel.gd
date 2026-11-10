@@ -261,6 +261,25 @@ func test_an_active_subsidy_is_ticked_and_can_be_ended() -> void:
 	assert_not_null(_find_button(panel._detail, "End Subsidy · 10%"))
 
 
+func test_a_boycott_is_stated_in_the_trade_block() -> void:
+	state.set_colony(9, 0)
+	DiplomacyTrade.boycott(state, 0, 2)
+	state.boycotts["1>0"] = state.turn
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(2)
+	assert_true(_has_text(panel._detail, "closed to France"), "the issuer states the boycott")
+	assert_true(_has_text(panel._list, "Boycott"), "the row carries it too")
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "Boycotted by England"), "and the victim reads it")
+
+
+func test_orders_are_grouped_under_readable_headings() -> void:
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "TREATIES"))
+	assert_true(_has_text(panel._detail, "AID"))
+	assert_true(_has_text(panel._detail, "TRADE TERMS"))
+
+
 func _has_any_face(faces: Array[String]) -> bool:
 	for face: String in faces:
 		if _has_text(panel._detail, "·  %s" % face):

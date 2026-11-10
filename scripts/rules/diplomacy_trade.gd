@@ -202,6 +202,21 @@ static func revoke_boycott(state: DiplomacyState, player: int, target: int) -> D
 	}
 
 
+## True when a colonial boycott stands between the courts: the boycotted crown
+## may not trade with, aid or subsidise that colony (wiki: diplomacy
+## § GP–Tribe — Boycott, R6).
+static func blocked_by_boycott(state: DiplomacyState, a: int, b: int) -> bool:
+	if state == null or a == b:
+		return false
+	var suzerain: int = state.colony_of(b)
+	if suzerain >= 0 and suzerain != a and is_boycotting(state, suzerain, a):
+		return true
+	suzerain = state.colony_of(a)
+	if suzerain >= 0 and suzerain != b and is_boycotting(state, suzerain, b):
+		return true
+	return false
+
+
 ## War severs every commercial tie between the two crowns: subsidies both ways,
 ## the favoured-trading pact and any boycott in either direction (wiki:
 ## diplomacy § GP–Tribe — Boycott, R6.4; world-market § FTP — breaks on war).

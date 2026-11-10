@@ -364,6 +364,16 @@ func test_accepting_a_peace_offer_calls_off_that_turns_battle() -> void:
 	assert_true(play.army_layer.armies.has(army), "the storming army survives the peace")
 
 
+func test_a_trade_pact_reaches_the_ledger_prices() -> void:
+	_screen.play.diplomacy.relation(0, 1).score = 80.0
+	MapPlayDiplomacy.open(_screen.play)
+	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_FTP, 1, "")
+	assert_true(DiplomacyTrade.is_ftp(_screen.play.diplomacy, 0, 1))
+	var market: WorldMarket = _screen.economy.market
+	assert_true(market != null)
+	assert_almost_eq(market.term_multiplier(0, "timber", true), 0.95, 0.001)
+
+
 func _field_army() -> ArmyState:
 	for army: ArmyState in _screen.play.army_layer.armies.duplicate():
 		if army.owner == 0 and army.home and army.count() > 1:

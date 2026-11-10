@@ -33,7 +33,8 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   buyers, so pacts, boycotts and subsidies publish per-crown price terms.
   **Favoured pact** (GP–GP, embassy, accepts at 65+): imports 95%, exports
   105%; war ends it. **Boycott** (needs a colony, GP at peace): target's terms
-  drop 10% and its subsidies to our colonies are cancelled; war revokes.
+  drop 10%, its subsidies to our colonies are cancelled and further aid there
+  is barred; war revokes.
   **Subsidy** prices the goods that court produces: we pay p% more, earn p%
   less. Rails 70–150% buy, 50–130% sell; the court and ledger state the rate
   in words.
