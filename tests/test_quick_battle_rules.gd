@@ -56,14 +56,6 @@ func test_the_crowns_plan_holds_on_the_defending_side() -> void:
 	assert_eq(String(quick["plan"]), "balanced", "the rival keeps its own script")
 
 
-## A plan the catalogue does not know never reaches the resolver (wiki:
-## quick-battle § The crown's plan).
-func test_an_unknown_plan_falls_back_to_balanced() -> void:
-	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan("feint"), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
-
-
 func test_quick_battle_removes_casualties_from_the_armies() -> void:
 	var model := Fixture.build()
 	var defender := Fixture.army(1, 1, 2, _pikes(6), true)
@@ -667,3 +659,106 @@ func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:
 
 	assert_eq(String(deployed[0]["id"]), veteran, "the chevroned regiment leads")
 	assert_eq(int(deployed[0]["medals"]), 4)
+
+# --- The published plan scripts (wiki: quick-battle § The crown's plan,
+# § The plan scripts; DR-20261110-34) ---
+
+
+## The three stances and their ordered action lists are the rules: the page
+## publishes them, so a replay must be able to read them here.
+func test_the_published_plan_scripts_match_the_wiki() -> void:
+	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActions.actions_for("balanced"), ["volley", "entrench", "volley"])
+	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
+
+	assert_eq(
+		QuickBattleActions.actions_for("aggressive", true, true), ["entrench", "sortie"],
+		"a siege garrison with an aggressive plan entrenches then sallies"
+	)
+	assert_eq(
+		QuickBattleActions.actions_for("aggressive", true, false),
+		["entrench", "volley", "volley"],
+		"a sortie with no wall is ordinary volley fire"
+	)
+	assert_eq(QuickBattleActions.actions_for("balanced", true, true), ["volley", "entrench"])
+	assert_eq(QuickBattleActions.actions_for("balanced", true, false), ["volley", "entrench"])
+	assert_eq(QuickBattleActions.actions_for("defensive", true, true), ["fall_back", "volley"])
+	assert_eq(QuickBattleActions.actions_for("defensive", true, false), ["fall_back", "volley"])
+
+
+## 3 CP a side each round, and no action is ever taken without its price.
+func test_a_side_spends_at_most_three_cp_a_round() -> void:
+	for plan: String in ["aggressive", "balanced", "defensive"]:
+		var battle: Dictionary = _fight(plan, _guards(6), _pikes(6))
+		var rounds: Array = battle["quick"]["rounds"] as Array
+		assert_true(not rounds.is_empty())
+		for round: Dictionary in rounds:
+			for side: int in [int(battle["attacker"]), int(battle["defender"])]:
+				var spent: int = _cp_spent(round, side)
+				assert_true(spent <= QuickBattle.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
+
+
+## The side the human does not command is chosen in the published order
+## (wiki: quick-battle § The opposing script): a scenario plan, the crown's own,
+## the firearmless sally, a cavalry share ≥ 0.3, then the side's default.
+func test_the_opposing_script_follows_the_published_order() -> void:
+	var pikes: Array[ArmyState] = _rival(["pikemen", "pikemen"])
+	var muskets: Array[ArmyState] = _rival(["pikemen", "musketeers"])
+	assert_eq(QuickBattle.plan_for(pikes, 1, {}, true, true), "aggressive",
+		"a wall with no firearm sallies")
+	assert_eq(QuickBattle.plan_for(muskets, 1, {}, true, true), "defensive",
+		"a wall that can shoot holds")
+	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
+		"aggressive", "cavalry share ≥ 0.3")
+	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
+		"defensive", "cavalry share below 0.3")
+	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
+	assert_eq(QuickBattle.plan_for(_rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
+	## An explicit scenario plan outranks the ranking, and the crown's plan
+	## outranks the automatic sally.
+	assert_eq(
+		QuickBattle.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
+		"balanced"
+	)
+	assert_eq(
+		QuickBattle.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
+		"defensive", "the crown's plan holds its own wall"
+	)
+
+
+## A sally is a real sortie, not a label: the firearmless garrison leaves the
+## wall (wiki: siege-mechanics § Gates and Sortie).
+func test_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(8), _pikes(4), 1)
+	assert_eq(String(battle["quick"]["defender_plan"]), "aggressive")
+	assert_true(int(battle["quick"]["sorties"]) > 0, "the garrison left the wall")
+
+
+## Any value the page does not publish is `balanced`, wherever it came from
+## (wiki: quick-battle § The crown's plan).
+func test_an_unknown_plan_is_balanced() -> void:
+	assert_eq(QuickBattleActions.normalize_plan("hammer"), "balanced")
+	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
+	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
+	assert_eq(
+		QuickBattle.plan_for(
+			_rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
+		),
+		"balanced", "a crown's unknown stance fights balanced"
+	)
+
+
+func _rival(types: Array[String]) -> Array[ArmyState]:
+	var side: Array[ArmyState] = []
+	side.append(Fixture.army(7, 1, 2, types, true))
+	return side
+
+
+func _cp_spent(round: Dictionary, side: int) -> int:
+	var spent: int = 0
+	for entry: Dictionary in round["actions"] as Array:
+		if int(entry["side"]) != side:
+			continue
+		spent += int(QuickBattleActions.ACTION_CP.get(String(entry["action"]), 0))
+	return spent
+
