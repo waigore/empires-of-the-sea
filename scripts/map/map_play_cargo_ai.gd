@@ -33,8 +33,9 @@ static func run(
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
 		+ maxi(config.parameter("cargo.trade_holds"), 0)
 	)
+	var blocked: Dictionary = _hostile_zones(play, faction, roster)
 	var plan: Dictionary = AiCargoPlanner.plan(
-		config, economy, model, roster, seat, want
+		config, economy, model, roster, seat, want, blocked
 	)
 	report["want"] = int(plan["want"])
 	report["holds"] = int(plan["holds"])
@@ -93,6 +94,24 @@ static func _launch(
 	if founded:
 		roster.append(fleet)
 	return {"type_id": type_id, "hull": hull_id, "founded": founded}
+
+
+## Water a merchant will not enter: a zone holding a squadron its court is at
+## war with. A route step into one waits for a safer turn.
+static func _hostile_zones(
+	play: PlaySession, faction: int, roster: Array
+) -> Dictionary:
+	var blocked: Dictionary = {}
+	if play.diplomacy == null:
+		return blocked
+	for fleet: FleetState in roster:
+		if fleet == null or fleet.owner == faction:
+			continue
+		if not fleet.is_at_sea() or not fleet.is_afloat():
+			continue
+		if DiplomacyRules.at_war_with(play.diplomacy, faction, fleet.owner):
+			blocked[fleet.sea_zone] = true
+	return blocked
 
 
 static func _slip_fleet(roster: Array, owner: int, seat: int) -> FleetState:

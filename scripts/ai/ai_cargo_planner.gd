@@ -23,7 +23,8 @@ static func plan(
 	model: MapModel,
 	fleets: Array,
 	seat: int,
-	want: int
+	want: int,
+	blocked_zones: Dictionary = {}
 ) -> Dictionary:
 	var routes: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
@@ -51,7 +52,7 @@ static func plan(
 	for fleet: FleetState in _merchant_squadrons(fleets, config.faction, seat):
 		if routes.size() >= cap:
 			break
-		var route: Dictionary = _route_for(model, fleet, seat)
+		var route: Dictionary = _route_for(model, fleet, seat, blocked_zones)
 		if route.is_empty():
 			continue
 		route["fleet_id"] = fleet.id
@@ -125,8 +126,11 @@ static func _merchant_squadrons(
 
 
 ## One move toward the seat: dock when the harbour borders the squadron's zone,
-## otherwise the next zone on the sea path. An empty route means no sea path.
-static func _route_for(model: MapModel, fleet: FleetState, seat: int) -> Dictionary:
+## otherwise the next zone on the sea path. An empty route means no sea path, or
+## a step into water a hostile squadron holds (`blocked`).
+static func _route_for(
+	model: MapModel, fleet: FleetState, seat: int, blocked: Dictionary
+) -> Dictionary:
 	var goals: Array[int] = NavalMovement.province_sea_zones(model, seat)
 	if goals.is_empty():
 		return {}
@@ -134,11 +138,13 @@ static func _route_for(model: MapModel, fleet: FleetState, seat: int) -> Diction
 		if NavalMovement.dockable_provinces(model, fleet).has(seat):
 			return {"kind": KIND_ROUTE, "dock": true, "province": seat}
 		var zone: int = AiSeaRoute.sail_toward(model, fleet, goals)
-		if zone < 0:
+		if zone < 0 or blocked.has(zone):
 			return {}
 		return {"kind": KIND_ROUTE, "dock": false, "zone": zone}
 	var step: int = AiSeaRoute.sail_toward(model, fleet, goals)
-	if step < 0 or AiSeaRoute.distance_to_goal(model, step, goals) >= UNREACHABLE:
+	if step < 0 or blocked.has(step):
+		return {}
+	if AiSeaRoute.distance_to_goal(model, step, goals) >= UNREACHABLE:
 		return {}
 	return {"kind": KIND_ROUTE, "dock": false, "zone": step}
 

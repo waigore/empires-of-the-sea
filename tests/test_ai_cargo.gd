@@ -98,6 +98,15 @@ func test_a_merchant_in_another_port_puts_to_sea_toward_the_seat() -> void:
 	assert_eq(int(routes[0]["zone"]), 0, "it puts to sea into the seat's water")
 
 
+func test_hostile_water_holds_a_merchant_in_port() -> void:
+	var model: MapModel = _old_world()
+	var fleet := FleetState.in_port(5, OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var plan: Dictionary = AiCargoPlanner.plan(
+		_config(), _economy(), model, [fleet], 0, 5, {0: true}
+	)
+	assert_true((plan["routes"] as Array).is_empty(), "it waits for safer water")
+
+
 func test_berths_at_the_seat_already_cover_the_need() -> void:
 	var model: MapModel = _old_world()
 	var fluyte := FleetState.in_port(3, OWNER, 0, ["hull_3"], {"hull_3": "fluyte"})
@@ -203,6 +212,25 @@ func test_the_adapter_puts_a_merchant_to_sea_for_the_crossing() -> void:
 	assert_eq((report["routes"] as Array).size(), 1)
 	assert_true(fleet.is_at_sea(), "the outport merchant puts to sea")
 	assert_eq(fleet.sea_zone, 0)
+	(built["ships"] as Node).free()
+
+
+func test_the_adapter_keeps_a_merchant_out_of_hostile_water() -> void:
+	var model: MapModel = _old_world()
+	var fleet := FleetState.in_port(5, OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var player := FleetState.at_sea(9, 0, 0, ["hull_9"], {"hull_9": "carrack"})
+	var built: Dictionary = _session(model, [fleet, player])
+	var play: PlaySession = built["play"]
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(OWNER, 0, 1)
+	assert_true(bool(DiplomacyRules.declare_war(state, OWNER, 0)["ok"]))
+	play.diplomacy = state
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, OWNER, _economy(), {"used": 0, "left_total": 2}
+	)
+	assert_true((report["routes"] as Array).is_empty())
+	assert_true(fleet.is_in_port(), "the merchant never enters the hostile zone")
 	(built["ships"] as Node).free()
 
 
