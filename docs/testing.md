@@ -69,6 +69,12 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
+
+# Province development — opens a turn-100 advanced start, raises an estate over
+# several turns from the estates ledger, walks the Engineer tile by tile laying
+# the road to the capital, prospects and mines a mineral and upgrades a town,
+# asserting that each linked estate's commodity reaches the stockpile.
+godot --headless --path . --script res://tests/playtest_province_dev.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

@@ -307,6 +307,42 @@ func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
 	assert_almost_eq(panel.size.x, GameHud.PANEL_WIDTH, 0.5)
 
 
+## The sheet answers the two questions a developing province raises: how far its
+## town has grown, and whether its estates can reach the crown at all
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap, capital-and-connectivity § Connectivity).
+func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var play: PlaySession = _screen.play
+	var panel: ProvincePanel = hud._panel
+	var capital: int = _screen.capital_province
+	hud.panels.show_province(
+		play.model, capital,
+		LandConnectivity.province_link(
+			play.model, play.land_works, play.player_faction, play.capital_tile,
+			capital
+		)
+	)
+	await get_tree().process_frame
+	assert_eq(panel._town_value.text, "Level 4 of 4", "a Great Power seat is level 4")
+	assert_true(
+		panel._road_value.text.contains("linked to the crown"),
+		panel._road_value.text
+	)
+	# An unlinked province (a fresh conquest has no setup road) says so and how
+	# much road is left; the sheet repaints in place when the network changes.
+	panel.refresh_crown({"linked": false, "roads": 2, "distance": 4})
+	await get_tree().process_frame
+	assert_eq(
+		panel._road_value.text, "2 road tiles · no road to the crown (4 tiles away)"
+	)
+	panel.refresh_crown({"linked": true, "roads": 3, "distance": 0})
+	await get_tree().process_frame
+	assert_eq(panel._road_value.text, "3 road tiles · linked to the crown")
+
+
 func test_phone_fleet_dossier_fits() -> void:
 	_open(PHONE)
 	await get_tree().process_frame

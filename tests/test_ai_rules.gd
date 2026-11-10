@@ -850,6 +850,29 @@ func test_ai_naval_sails_home_only_through_charted_water() -> void:
 	assert_eq((charted["orders"] as Array).size(), 1, "once charted it may sail")
 
 
+## A squadron one zone from its harbour sails home a zone at a time; the play
+## trace reads the same fields as any other order, so a homeward step carries a
+## threat of zero rather than none (wiki: ai-architecture § Naval policy).
+func test_map_phase_sails_a_squadron_one_zone_toward_home() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var incoming: FleetState = _squadron(1, 0, 1, "fluyte")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [incoming]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _peace_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one homeward order")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(int(trace[0]["zone"]), 0, "the water off its own harbour")
+	assert_eq(int(trace[0]["threat"]), 0, "a peaceful return carries no threat")
+	layer.free()
+
+
 func test_map_phase_moors_a_homecoming_squadron_in_the_home_fleet() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()

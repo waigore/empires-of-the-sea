@@ -14,6 +14,9 @@ var _terrain_value: Label = null
 var _resource_icon: Icon = null
 var _resource_value: Label = null
 var _population_value: Label = null
+var _town_value: Label = null
+## Province on the sheet, so live rows can repaint without a full refresh.
+var _data: ProvinceState = null
 var _port_value: Label = null
 var _capital_value: Label = null
 var _road_value: Label = null
@@ -107,6 +110,7 @@ func _build() -> void:
 	_resource_icon = Icon.new("tree", 16, Palette.GOLD)
 	_resource_value = _add_row_with_icon(grid, "Resource", _resource_icon)
 	_population_value = _add_row(grid, "Population")
+	_town_value = _add_row(grid, "Town")
 	_port_value = _add_row(grid, "Port")
 	_capital_value = _add_row(grid, "Capital")
 	_road_value = _add_row(grid, "Roads")
@@ -219,10 +223,26 @@ func set_training_visible(visible: bool) -> void:
 	_training_box.visible = visible
 
 
-func refresh(model: MapModel, province_id: int) -> void:
+## Repaints the live rows after the crown's works changed (a road completed, a
+## town grew) without re-sliding the sheet the player is reading.
+func refresh_crown(crown: Dictionary) -> void:
+	if _data == null or _road_value == null:
+		return
+	_road_value.text = _road_caption(_data, crown)
+	if _town_value != null:
+		_town_value.text = "Level %d of %d" % [
+			_data.town_level(), CivilianWorkPlan.MAX_TOWN
+		]
+
+
+## `crown` is `LandConnectivity.province_link` for this province: the seat's
+## live town development and whether its town reaches the capital, so the sheet
+## never reports setup data after the player has built roads.
+func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	var data: ProvinceState = model.province_data(province_id)
 	if data == null:
 		return
+	_data = data
 	_name_label.text = data.name
 	_capital_badge.visible = data.capital
 	var owner: int = data.owner
@@ -240,6 +260,7 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_resource_icon.queue_redraw()
 		_resource_value.text = "None surveyed"
 	_population_value.text = "%s souls" % _thousands(data.population)
+	_town_value.text = "Level %d of %d" % [data.town_level(), CivilianWorkPlan.MAX_TOWN]
 	var port: Vector2i = data.port_tile
 	if port.x >= 0:
 		var zone: int = model.sea_zone_at(port.x, port.y)
@@ -251,10 +272,7 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_capital_value.text = "Seat of the Crown · %d, %d" % [seat.x, seat.y]
 	else:
 		_capital_value.text = "—"
-	var road_tiles: int = 0
-	for path: Array in data.road_paths:
-		road_tiles += path.size()
-	_road_value.text = "%d tiles" % road_tiles if road_tiles > 0 else "—"
+	_road_value.text = _road_caption(data, crown)
 	_fort_value.text = FortRules.describe(data.fort_level)
 	# The yard is a capital-port order: it launches hulls into the home fleet
 	# (wiki: ships-and-naval § Home Fleet).
@@ -263,6 +281,27 @@ func refresh(model: MapModel, province_id: int) -> void:
 		and data.capital
 		and data.port_tile.x >= 0
 	)
+
+
+## The crown link: live road tiles in the province and whether its town reaches
+## the capital. Falls back to the setup road plan when no session data was
+## pushed in (the mobile layout audit opens the sheet with the model alone).
+func _road_caption(data: ProvinceState, crown: Dictionary) -> String:
+	if crown.has("linked"):
+		var roads: int = int(crown.get("roads", 0))
+		var text: String = "%d road tile%s" % [roads, "" if roads == 1 else "s"]
+		if bool(crown.get("linked", false)):
+			return "%s · linked to the crown" % text
+		var gap: int = int(crown.get("distance", -1))
+		if gap > 0:
+			return "%s · no road to the crown (%d tile%s away)" % [
+				text, gap, "" if gap == 1 else "s"
+			]
+		return "%s · no road to the crown" % text
+	var planned: int = 0
+	for path: Array in data.road_paths:
+		planned += path.size()
+	return "%d tiles" % planned if planned > 0 else "—"
 
 
 ## Faction type drives the honorific (wiki: factions — three governing types).

@@ -78,12 +78,18 @@ static func _home_order(
 	if port < 0:
 		return {}
 	if NavalMovement.dockable_provinces(model, fleet).has(port):
-		return {"kind": KIND_HOME, "dock": true, "province": port, "zone": MapModel.NO_ID}
+		return {
+		"kind": KIND_HOME, "dock": true, "province": port,
+		"zone": MapModel.NO_ID, "threat": 0,
+	}
 	var goals: Array[int] = NavalMovement.province_sea_zones(model, port)
 	var step: int = AiSeaRoute.sail_toward(model, fleet, goals)
 	if step < 0 or not charts_water(charts, owner, model.region_id, step):
 		return {}
-	return {"kind": KIND_HOME, "dock": false, "province": MapModel.NO_ID, "zone": step}
+	return {
+		"kind": KIND_HOME, "dock": false, "province": MapModel.NO_ID,
+		"zone": step, "threat": 0,
+	}
 
 
 ## A squadron with orders of its own does not run for home: a station spends its
