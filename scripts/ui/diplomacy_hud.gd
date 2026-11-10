@@ -22,7 +22,25 @@ static func build(hud: GameHud) -> void:
 		func(kind: String, target: int, arg: String) -> void:
 			hud.diplomacy_order.emit(kind, target, arg)
 	)
+	# The full dossier is read like the roster: a sheet of its own over the HUD,
+	# so the court panel can stay the summary (REQ-P5-01, REQ-P1-07).
+	_build_dossier_screen(hud)
+	hud._diplomacy_panel.dossier_pressed.connect(
+		func(subject: int) -> void:
+			if hud.dossier_screen != null:
+				hud.dossier_screen.open_subject(subject)
+	)
 	hud._diplomacy_wrap.add_child(hud._diplomacy_panel)
+
+
+## One sheet, built with the court so its data is always the bound session's.
+static func _build_dossier_screen(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "DossierLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.dossier_screen = CourtDossierScreen.new()
+	layer.add_child(hud.dossier_screen)
 
 
 ## The court takes the same edge as the economy and college ledgers.

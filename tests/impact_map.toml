@@ -70,6 +70,7 @@ suites = [
   "test_diplomacy_state.gd",
   "test_diplomacy_survey.gd",
   "test_diplomacy_trade.gd",
+  "test_court_dossier_screen.gd",
   "test_intel_dossier.gd",
 ]
 
@@ -1130,6 +1131,12 @@ domain = "espionage"
 [[rules]]
 match = "tests/test_court_reports.gd*"
 domain = "espionage"
+
+# The full court dossier sheet renders the same rules the panel does, so it
+# travels with the diplomacy suites (DR-20261110-25).
+[[rules]]
+match = "tests/test_court_dossier_screen.gd*"
+domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_spy_*.gd*"

@@ -7,6 +7,8 @@ extends PanelContainer
 
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
+## The summary dossier asked for its full screen; the HUD owns that sheet.
+signal dossier_pressed(subject: int)
 
 ## Section headings for the order list; trade terms render in their own block
 ## so prices and pacts stay one glance away (REQ-P5-02).
@@ -247,6 +249,9 @@ func _fill_detail() -> void:
 	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
 	var dossier := CourtDossier.new()
 	dossier.fill(_state, _world, _player, _selected)
+	dossier.open_pressed.connect(
+		func() -> void: dossier_pressed.emit(_selected)
+	)
 	_detail.add_child(dossier)
 
 

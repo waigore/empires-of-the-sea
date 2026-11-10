@@ -133,6 +133,20 @@ func test_the_dossier_bands_acts_and_trims_older_evidence() -> void:
 	assert_false(_has_text(panel._detail, "Confirmed"), "nothing is certain yet")
 
 
+## The summary opens the full sheet; the panel only says which court it means
+## (REQ-P5-01, DR-20261110-25).
+func test_the_dossier_offers_its_full_screen_for_the_selected_court() -> void:
+	DiplomacyRules.declare_war(state, 1, 6)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(1)
+	var seen: Array[int] = []
+	panel.dossier_pressed.connect(func(subject: int) -> void: seen.append(subject))
+	var button: Button = _find_button(panel._detail, "Full dossier")
+	assert_not_null(button, "the reading has one door to its full copy")
+	button.pressed.emit()
+	assert_eq(seen, [1], "the open court is the one it opens")
+
+
 func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(state, 3, 6)

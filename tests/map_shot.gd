@@ -62,6 +62,9 @@ func _process(_delta: float) -> bool:
 		MapPlayDiplomacy.open(_screen.play)
 		if _select >= 0:
 			_screen.hud.panels.diplomacy_panel.select_faction(_select)
+		if _dossier and _select >= 0 and _screen.hud.dossier_screen != null:
+			_sample_dossier()
+			_screen.hud.dossier_screen.open_subject(_select)
 	if _frames == 4 and _warp > 0 and _screen != null:
 		_warp_shot()
 	if _frames == 4 and _army and _screen != null:
@@ -103,6 +106,26 @@ func _save(path: String) -> void:
 		return
 	image.save_png(path)
 	print("saved ", path, " ", image.get_width(), "x", image.get_height())
+
+
+## A reading with history, so the dossier shot shows bands, timelines and notes
+## rather than an empty sheet.
+func _sample_dossier() -> void:
+	var play: PlaySession = _screen.play
+	var rival: int = _select if _select >= 0 else 1
+	var other: int = 6 if rival != 6 else 2
+	for turn in 5:
+		play.diplomacy.turn = turn + 1
+		play.diplomacy.record_event("warDeclared", rival, other)
+	play.diplomacy.turn = 6
+	play.diplomacy.record_event("grantAid", rival, play.player_faction, {"amount": 400})
+	play.diplomacy.record_event(
+		IntelDossier.SPY_TECH, rival, play.player_faction, {"tech": "crop_rotation"}
+	)
+	play.diplomacy.record_event(
+		IntelDossier.SPY_BUILD, rival, play.player_faction,
+		{"works": {"improvement": 2, "town": 1}}
+	)
 
 
 ## Files a sample sheet and raises the plate, so a screenshot shows the Gazette
