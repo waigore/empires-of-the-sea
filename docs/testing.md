@@ -46,15 +46,22 @@ godot --headless --path . --script res://tools/e2e_smoke.gd
 # Multi-turn playtest (seeds, factions, long campaigns)
 godot --headless --path . --script res://tools/playtest_turns.gd -- turns=24 seed=1500 size=1
 
-# Free-playtest drive (opt-in, not a CI gate): New World exploration loop —
-# boards an Explorer, takes the Passage, lands, charts and prospects, printing
-# one line per step.
+# Free-playtest drives (opt-in, not a CI gate). All three launch the real flow
+# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> map), so
+# a flow change that strands a drive fails loudly instead of printing one line.
+
+# New World exploration loop — boards an Explorer, takes the Passage, lands,
+# charts and prospects, printing one line per step.
 godot --headless --path . --script res://tests/playtest_new_world.gd
 
-# Free-playtest drive (opt-in, not a CI gate): Quick Battle — declares war,
-# resolves an attacking field battle, a siege and a defending battle through the
-# play helpers, printing every despatch line the plate shows.
+# Quick Battle — declares war, resolves an attacking field battle, a siege and a
+# defending battle through the play helpers, printing every despatch line the
+# plate shows.
 godot --headless --path . --script res://tests/playtest_quick_battle.gd
+
+# Land combat — a multi-attacker chain, an unopposed capture, a peaceful third
+# army blocking one, and the player defending a fort through a whole AI turn.
+godot --headless --path . --script res://tests/playtest_combat_chain.gd
 ```
 
 ## Multi-turn playtest

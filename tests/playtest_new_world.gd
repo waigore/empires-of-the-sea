@@ -10,6 +10,7 @@ extends SceneTree
 ## same one rules tests use) so the loop is reachable in one run; everything
 ## after the crossing is ordered through the game's own play helpers.
 
+const Launch = preload("res://tests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 const MAX_TURNS: int = 12
@@ -63,31 +64,7 @@ func _run() -> void:
 
 
 func _open_game() -> MapScreen:
-	var packed: PackedScene = load("res://scenes/main.tscn") as PackedScene
-	if packed == null:
-		_say("main.tscn did not load")
-		return null
-	var main: Node = packed.instantiate()
-	root.add_child(main)
-	await process_frame
-	var menu: MainMenu = main.current_page as MainMenu
-	if menu == null:
-		_say("title screen missing")
-		return null
-	menu.new_game_button.emit_signal("pressed")
-	await process_frame
-	var setup: GameSetupScreen = main.current_page as GameSetupScreen
-	if setup == null:
-		_say("setup screen missing")
-		return null
-	setup.seed_field.text = SEED_TEXT
-	setup.size_option.select(SETUP_SIZE_INDEX)
-	setup.start_button.emit_signal("pressed")
-	await process_frame
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		_say("map screen missing")
-	return screen
+	return await Launch.open_map(self, SEED_TEXT, SETUP_SIZE_INDEX)
 
 
 func _passage_zone(play: PlaySession) -> int:

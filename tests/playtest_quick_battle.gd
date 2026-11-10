@@ -10,6 +10,7 @@ extends SceneTree
 ## use); the battle itself is ordered and resolved by ArmyCombat/QuickBattle and
 ## presented by the real GameHud plate.
 
+const Launch = preload("res://tests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 
@@ -166,31 +167,7 @@ func _muster(
 
 
 func _open_game() -> MapScreen:
-	var packed: PackedScene = load("res://scenes/main.tscn") as PackedScene
-	if packed == null:
-		_say("main.tscn did not load")
-		return null
-	var main: Node = packed.instantiate()
-	root.add_child(main)
-	await process_frame
-	var menu: MainMenu = main.current_page as MainMenu
-	if menu == null:
-		_say("title screen missing")
-		return null
-	menu.new_game_button.emit_signal("pressed")
-	await process_frame
-	var setup: GameSetupScreen = main.current_page as GameSetupScreen
-	if setup == null:
-		_say("setup screen missing")
-		return null
-	setup.seed_field.text = SEED_TEXT
-	setup.size_option.select(SETUP_SIZE_INDEX)
-	setup.start_button.emit_signal("pressed")
-	await process_frame
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		_say("map screen missing")
-	return screen
+	return await Launch.open_map(self, SEED_TEXT, SETUP_SIZE_INDEX)
 
 
 func _rival(play: PlaySession, player: int) -> int:

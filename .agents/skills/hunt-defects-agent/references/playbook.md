@@ -41,3 +41,9 @@ Never put long campaign playtests into CI smoke (≤2 min). Prefer `tests/` regr
   paths (a warp crossing, docking into the home fleet) rotate ids; unit
   back-pointers (`embarked_fleet`) drift and the *end-of-turn* pass then drops the
   unit. A scenario that ends the turn is what surfaces it.
+- **The drives share `tests/playtest_launch.gd`** (title → setup → capital chart →
+  map). A drive that prints one line and `map screen missing` means the launch flow
+  moved: repair the launcher, not the game, and say so in the PR.
+- **Preload test helpers, do not `class_name` them.** `tools/run.sh` only rescans
+  `scripts/ scenes/ ui/ autoload/` for the class cache, so a new `class_name` under
+  `tests/` is not declared on a manual run.
