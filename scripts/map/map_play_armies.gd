@@ -236,10 +236,9 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 	)
 
 
-## Feeding coverage, leader keys and the player's techs for this Combat phase;
-## the seed keeps general binding reproducible for a given turn. `hostile` is the
-## court's war query, so only factions at war meet in battle (wiki: diplomacy §
-## War required for hostile actions).
+## Feeding coverage, leader keys and techs for this Combat phase; the seed keeps
+## general binding reproducible. `hostile` is the court's war query, so only
+## factions at war meet in battle (wiki: diplomacy § War required).
 static func battle_context(play: PlaySession) -> Dictionary:
 	var tech: Dictionary = {}
 	if play.observer_mode and play.ai != null:
@@ -271,13 +270,13 @@ static func run_ai(play: PlaySession) -> Array[Dictionary]:
 ## refreshed when the visible region changed hands. Capital losses resolve in
 ## the same pass, so a captured seat reassigns or falls before the next phase
 ## (wiki: capital-and-connectivity § Capital loss and reassignment).
-static func resolve_battles(play: PlaySession) -> void:
+static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 	var before: Array = CapitalLoss.snapshot_world(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
 		play.world, battle_context(play)
 	)
 	if battles.is_empty():
-		return
+		return battles
 	play.emit_battle_resolved(battles)
 	var repaint: bool = false
 	for battle: Dictionary in battles:
@@ -320,11 +319,12 @@ static func resolve_battles(play: PlaySession) -> void:
 	if play.army_layer.selected_army != null:
 		show_panel(play, play.army_layer.selected_army)
 		refresh_options(play, play.army_layer.selected_army)
+	return battles
 
 
 ## Reports the capital verdicts of the Combat phase. A crown with nothing left
 ## falls and its armies, squadrons and dealings leave play (wiki: victory
-## § Great Power defeat; DR-20261109-05). Returns true when the map changed.
+## § Great Power defeat; DR-20261109-05). True when the map changed.
 static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])

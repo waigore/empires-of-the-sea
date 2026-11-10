@@ -54,6 +54,13 @@ var turn_suspended: bool = false
 ## turn's decision trace (wiki: ai-architecture).
 var ai: AiState = null
 var ai_trace: Array[Dictionary] = []
+## Despatch of the last resolved turn for every court a Spy shadows — `turn`,
+## `shadowed` (rival Great Powers covered) and `facts` (wiki: civilian-units
+## § Spy — court reports). Derived, so a save carries no copy.
+var court_reports: Dictionary = {}
+## Event count when the player's turn started resolving, so the despatch reads
+## only this turn's diplomatic acts (the ledger's own turn stamp may lag).
+var court_report_mark: int = 0
 
 var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or
