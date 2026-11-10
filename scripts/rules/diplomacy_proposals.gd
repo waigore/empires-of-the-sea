@@ -1,16 +1,26 @@
 class_name DiplomacyProposals
 extends RefCounted
 ## Rival proposals that need the human court's answer: an alliance offer, the
-## next overture in the chain, or a white peace (wiki: diplomacy § GP AI policy
-## — the AI never resolves a decision the human must make). Pure rules: state
-## in, answer out; the turn resolver and the court panel share this module
-## (REQ-P3-03).
+## next overture in the chain, a favoured trading pact, or a white peace (wiki:
+## diplomacy § GP AI policy — the AI never resolves a decision the human must
+## make). Pure rules: state in, answer out; the turn resolver and the court panel
+## share this module (REQ-P3-03).
 
-const KIND_ALLIANCE: String = "alliance"
-const KIND_OVERTURE: String = "overture"
+const KIND_ALLIANCE: String = DiplomacyOrders.KIND_ALLIANCE
+const KIND_OVERTURE: String = DiplomacyOrders.KIND_OVERTURE
+const KIND_FTP: String = DiplomacyOrders.KIND_FTP
 const KIND_PEACE: String = "peace"
 const KIND_ACCEPT: String = "accept_offer"
 const KIND_REFUSE: String = "refuse_offer"
+
+## Every kind the court queue can hold.
+const KINDS: Array[String] = [KIND_ALLIANCE, KIND_OVERTURE, KIND_FTP, KIND_PEACE]
+
+
+## True for a kind the court queue can hold. The AI turn pass uses this to tell
+## a consent decision from a one-sided act.
+static func knows(kind: String) -> bool:
+	return KINDS.has(kind)
 
 
 ## Queues one proposal from a rival court. Only free overture stages can be
@@ -41,6 +51,8 @@ static func queue(
 			check = DiplomacyRules.can_establish_overture(
 				state, world, from_id, human, stage, 0, {}
 			)
+		KIND_FTP:
+			check = DiplomacyTrade.can_establish_ftp(state, from_id, human)
 		KIND_PEACE:
 			check = DiplomacyRules.can_make_peace(state, from_id, human)
 		_:
@@ -102,6 +114,13 @@ static func resolve_human(
 		result = DiplomacyRules.establish_overture(
 			state, null, world, from_id, state.human_faction, stage, {}, decision
 		)
+	elif kind == KIND_FTP:
+		# The rival offers the pact; the human's answer is the target court's
+		# decision, and the proposing rival pays nothing (wiki: world-market
+		# § FTP).
+		result = DiplomacyTrade.establish_ftp(
+			state, from_id, state.human_faction, decision
+		)
 	elif kind == KIND_PEACE:
 		# The human answers the rival's offer; a refusal leaves the war and the
 		# relation score untouched (wiki: diplomacy § GP–GP Rules — peace needs
@@ -128,11 +147,13 @@ static func resolve_human(
 	return result
 
 
-## Player-facing phrase: "a formal alliance" / "the Non-Aggression Pact" /
-## "a white peace".
+## Player-facing phrase: "a formal alliance" / "a favoured trading pact" /
+## "the Non-Aggression Pact" / "a white peace".
 static func describe(kind: String, stage: String) -> String:
 	if kind == KIND_ALLIANCE:
 		return "a formal alliance"
+	if kind == KIND_FTP:
+		return "a favoured trading pact"
 	if kind == KIND_PEACE:
 		return "a white peace"
 	return "the %s" % DiplomacyCatalog.stage_label(stage)

@@ -6,6 +6,7 @@
 suites = [
   "test_ai_builder_work.gd",
   "test_ai_colonisation.gd",
+  "test_ai_diplomacy_offers.gd",
   "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_observer.gd",
