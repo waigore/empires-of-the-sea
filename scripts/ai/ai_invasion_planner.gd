@@ -21,13 +21,16 @@ const KIND_LAND: String = "land"
 ## Detach a field army for the crossing when a war lies across the water and no
 ## field army exists yet. One regiment keeps the seat (the Home Army never
 ## sails), exactly like the land policy's split, so the adapter applies it once.
+## `charts` is the court's own fog: only a hostile coast it has charted is worth
+## a crossing, and a null chart is the fixture reading (DR-20261110-21).
 static func split_orders(
 	config: AiConfig,
 	state: DiplomacyState,
 	world: WorldMap,
 	model: MapModel,
 	fleets: Array,
-	armies: Array
+	armies: Array,
+	charts: CourtCharts = null
 ) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	if config == null or state == null or world == null or model == null:
@@ -37,7 +40,7 @@ static func split_orders(
 		return actions
 	if not _field_armies(armies, owner).is_empty():
 		return actions
-	if not _has_overseas_war(state, world, owner):
+	if not _has_overseas_war(state, world, owner, charts):
 		return actions
 	var home: ArmyState = _home_army(armies, owner)
 	if home == null or home.count() < 2:
@@ -74,7 +77,8 @@ static func plan(
 	model: MapModel,
 	fleets: Array,
 	armies: Array,
-	turn: int = 0
+	turn: int = 0,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	if config == null or state == null or world == null or model == null:
 		return {}
@@ -82,10 +86,10 @@ static func plan(
 	var hostile: Dictionary = _hostile_owners(state, owner)
 	var fleet: FleetState = _expedition(fleets, owner)
 	if fleet != null:
-		return _voyage(config, world, region, model, armies, fleet, hostile, turn)
+		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
 	if region != FactionCatalog.region_of(owner):
 		return {}
-	if not _has_overseas_war(state, world, owner):
+	if not _has_overseas_war(state, world, owner, charts):
 		return {}
 	return _board_step(model, fleets, armies, owner)
 
@@ -126,7 +130,8 @@ static func _voyage(
 	armies: Array,
 	fleet: FleetState,
 	hostile: Dictionary,
-	turn: int
+	turn: int,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var army: ArmyState = _carried_army(armies, fleet)
 	if army == null:
@@ -138,7 +143,9 @@ static func _voyage(
 	if region != target_region:
 		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
 			return {"kind": KIND_CROSS, "fleet": fleet.id}
-		var warp: int = AiSeaRoute.sail_toward(model, fleet, world.warp_zones(region))
+		var warp: int = _sail(
+			model, fleet, world.warp_zones(region), charts, fleet.owner
+		)
 		if warp < 0:
 			return {}
 		return {"kind": KIND_SAIL, "fleet": fleet.id, "zone": warp}
@@ -148,23 +155,48 @@ static func _voyage(
 		return {
 			"kind": KIND_LAND, "fleet": fleet.id, "province": fleet.beachhead_province,
 		}
-	var target: int = _target(config, model, armies, army, hostile)
+	var target: int = _target(config, model, armies, army, hostile, charts)
 	if target < 0:
 		return _retire(model, fleet, turn, hostile)
 	if NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(target):
 		return {"kind": KIND_BEACHHEAD, "fleet": fleet.id, "province": target}
-	var zone: int = AiSeaRoute.sail_toward(
-		model, fleet, NavalMovement.province_sea_zones(model, target)
+	var zone: int = _sail(
+		model, fleet, NavalMovement.province_sea_zones(model, target), charts, fleet.owner
 	)
 	if zone < 0:
 		return {}
 	return {"kind": KIND_SAIL, "fleet": fleet.id, "zone": zone}
 
 
+## The next zone toward `goals`, walking only water this court charts; with no
+## charted route it takes the lowest-id adjacent zone it has not seen, which is
+## how a far coast is found (DR-20261110-21).
+static func _sail(
+	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
+) -> int:
+	if charts == null:
+		return AiSeaRoute.sail_toward(model, fleet, goals)
+	var known: Array[int] = charts.known_zones(owner, model.region_id)
+	var charted: Array[int] = []
+	for zone: int in goals:
+		if known.has(zone):
+			charted.append(zone)
+	if not charted.is_empty():
+		var step: int = AiSeaRoute.sail_toward(model, fleet, charted)
+		if step >= 0:
+			return step
+	for zone: int in NavalMovement.destination_zones(model, fleet):
+		if not known.has(zone):
+			return zone
+	return -1
+
+
 ## The worthiest hostile coast this army can storm: best province score, then
-## lowest id, with the land policy's wall and margin gating the fight.
+## lowest id, with the land policy's wall and margin gating the fight. A coast
+## the court has never charted cannot be chosen (DR-20261110-21).
 static func _target(
-	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, hostile: Dictionary
+	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, hostile: Dictionary,
+	charts: CourtCharts = null
 ) -> int:
 	var best: int = -1
 	var best_score: int = 0
@@ -175,6 +207,8 @@ static func _target(
 		if owner == MapModel.NO_ID or owner == army.owner:
 			continue
 		if not _invadable(owner, hostile):
+			continue
+		if charts != null and not charts.knows_province(army.owner, model.region_id, province.id):
 			continue
 		if not _can_storm(config, model, armies, army, province.id):
 			continue
@@ -235,9 +269,12 @@ static func _other_region(world: WorldMap, home: int) -> int:
 
 
 ## Something worth a fleet: a declared enemy's or a Tribe's coast lies across the
-## water, and no hostile province touches the court's own border, so the land army
-## is not needed at home (wiki: factions § Tribe).
-static func _has_overseas_war(state: DiplomacyState, world: WorldMap, owner: int) -> bool:
+## water and the court has charted it, and no hostile province touches its own
+## border, so the land army is not needed at home (wiki: factions § Tribe;
+## DR-20261110-21 keeps an uncharted shore out of reach).
+static func _has_overseas_war(
+	state: DiplomacyState, world: WorldMap, owner: int, charts: CourtCharts = null
+) -> bool:
 	var home: int = FactionCatalog.region_of(owner)
 	if home < 0 or world.warp_zones(home).is_empty():
 		return false
@@ -250,8 +287,11 @@ static func _has_overseas_war(state: DiplomacyState, world: WorldMap, owner: int
 		if index == home or model == null:
 			continue
 		for province: ProvinceState in model.provinces:
-			if province.coastal and _invadable(province.owner, hostile):
-				return true
+			if not province.coastal or not _invadable(province.owner, hostile):
+				continue
+			if charts != null and not charts.knows_province(owner, index, province.id):
+				continue
+			return true
 	return false
 
 

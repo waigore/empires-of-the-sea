@@ -113,10 +113,11 @@ static func _exchange(
 	further: bool,
 	context: Dictionary
 ) -> Dictionary:
+	var fee: Dictionary = ArmyAttackCost.charge(context, attacker)
 	if QuickBattle.enabled(context, attacker, defender):
-		return QuickBattle.resolve_exchange(
+		return ArmyAttackCost.stamp(fee, QuickBattle.resolve_exchange(
 			model, armies, province, defender, attacker, further, context
-		)
+		))
 	var defending: Array[ArmyState] = armies_of(armies, province, defender)
 	var attacking: Array[ArmyState] = armies_of(armies, province, attacker)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
@@ -173,6 +174,8 @@ static func _exchange(
 		"recovered_type": "",
 		"attacker_medals": int(atk_mods["medals"]),
 		"defender_medals": int(def_mods["medals"]),
+		"attack_cost": int(fee["due"]),
+		"attack_paid": int(fee["paid"]),
 		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
 		"fort_level": int(def_mods["fort"]),
 		"medal_gain": "",

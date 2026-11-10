@@ -298,6 +298,185 @@ func test_unassigned_tiles_are_ignored() -> void:
 	assert_eq(visibility.level_at(0, 0), VisibilityModel.Level.FOGGED)
 
 
+# --- rival courts (CourtCharts; DR-20261110-21) ------------------------------
+
+
+## One region as a world with a rival chart per Great Power. `human_views` is
+## the table the session's own grid lives in, so the human court routes there.
+func _charts_for(model: MapModel, human_views: Dictionary = {}) -> CourtCharts:
+	var world := WorldMap.new()
+	world.add_region(model)
+	var charts := CourtCharts.new()
+	charts.setup(world, PLAYER, human_views)
+	return charts
+
+
+func test_every_rival_carries_its_own_chart() -> void:
+	var charts: CourtCharts = _charts_for(_model)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var other: int = FactionCatalog.great_power_ids()[2]
+	var view: VisibilityModel = charts.model_for(rival, 0)
+	assert_true(view != null, "a rival Great Power has a chart")
+	assert_eq(view.player_id, rival)
+	assert_true(view != charts.model_for(other, 0), "each court reads its own grid")
+
+
+func test_a_rival_chart_follows_the_setup_reveals() -> void:
+	var charts: CourtCharts = _charts_for(_model)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var view: VisibilityModel = charts.model_for(rival, 0)
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.FULLY_VISIBLE,
+		"its own province is fully visible"
+	)
+	assert_eq(
+		view.province_visibility(0), VisibilityModel.Level.FOGGED,
+		"a rival coast is fogged, not charted"
+	)
+	assert_eq(
+		view.province_visibility(2), VisibilityModel.Level.FOGGED,
+		"another court's land is fogged too"
+	)
+	assert_true(charts.knows_province(rival, 0, 0))
+	assert_true(charts.knows_zone(rival, 0, 0), "its coastal zone is charted")
+
+
+func test_the_human_grid_is_shared_not_copied() -> void:
+	var human := VisibilityModel.new()
+	human.setup(_model, PLAYER)
+	var human_views: Dictionary = {0: human}
+	var charts: CourtCharts = _charts_for(_model, human_views)
+	assert_eq(charts.model_for(PLAYER, 0), human, "the session owns the human grid")
+	charts.reveal_province(PLAYER, 0, 2)
+	assert_eq(
+		human.province_visibility(2), VisibilityModel.Level.FULLY_VISIBLE,
+		"a human reveal lands on the shared grid"
+	)
+	assert_eq(charts.regions_of(PLAYER), human_views)
+
+
+func test_an_uncharted_new_world_is_unknown_to_every_rival() -> void:
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var charts: CourtCharts = _charts_for(map)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	assert_true(charts.known_zones(rival, 0).is_empty(), "no water is charted")
+	assert_false(charts.knows_province(rival, 0, 0))
+	assert_true(
+		charts.charted_tiles(rival, 0, [Vector2i(1, 3)]).is_empty(),
+		"no land is charted"
+	)
+	charts.reveal_sea_zone(rival, 0, 0)
+	assert_true(charts.knows_zone(rival, 0, 0), "the entered zone is charted")
+	var zones: Array[int] = [0]
+	assert_eq(charts.known_zones(rival, 0), zones)
+	var expected: Array[Vector2i] = [Vector2i(1, 3)]
+	assert_eq(
+		charts.charted_tiles(rival, 0, [Vector2i(1, 3), Vector2i(1, 0)]),
+		expected,
+		"the coastal ring is charted, the province interior is not"
+	)
+
+
+func test_a_rival_explore_completion_reveals_only_its_own_chart() -> void:
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var human := VisibilityModel.new()
+	human.setup(map, PLAYER)
+	var charts: CourtCharts = _charts_for(map, {0: human})
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var beach: Vector2i = map.province_tiles(2)[0]
+	charts.reveal_landing(rival, 0, beach)
+	var unit: CivilianState = CivilianState.create(1, rival, "explorer", beach)
+	unit.start_work("explore", beach, 1)
+	var crew: Array[CivilianState] = [unit]
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		map, crew, LandWorks.new(), charts.model_for(rival, 0)
+	)
+	assert_true(bool(reports[0]["completed"]))
+	assert_eq(
+		charts.model_for(rival, 0).province_visibility(2),
+		VisibilityModel.Level.FULLY_VISIBLE,
+		"the explorer charts the province for its own court"
+	)
+	assert_eq(
+		human.province_visibility(2), VisibilityModel.Level.UNKNOWN,
+		"the player's fog is untouched"
+	)
+
+
+func test_rival_fog_decays_at_the_end_of_the_turn() -> void:
+	var world := WorldMap.new()
+	world.add_region(_build_region())
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = PLAYER
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = play.model
+	play.ship_layer.world = world
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = play.model
+	MapPlayCourtFog.build(play)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.court_charts.reveal_sea_zone(rival, 0, 0)
+	var view: VisibilityModel = play.court_charts.model_for(rival, 0)
+	assert_eq(view.level_at(0, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayCourtFog.resolve(play)
+	assert_eq(
+		view.level_at(0, 3), VisibilityModel.Level.FOGGED,
+		"a foreign coast fogs once the squadron is gone"
+	)
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.FULLY_VISIBLE,
+		"the court's own land never decays"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_no_difficulty_level_widens_a_rival_chart() -> void:
+	var baseline: PackedByteArray = _court_grid(Difficulty.DEFAULT)
+	for level: String in Difficulty.IDS:
+		assert_eq(_court_grid(level), baseline, "%s charts the same fog" % level)
+
+
+func _court_grid(difficulty_id: String) -> PackedByteArray:
+	var world := WorldMap.new()
+	world.add_region(_build_region())
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = PLAYER
+	play.difficulty = Difficulty.normalize(difficulty_id)
+	MapPlayCourtFog.build(play)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	return play.court_charts.model_for(rival, 0).levels
+
+
+func test_a_rival_chart_round_trips_through_the_save() -> void:
+	var map: MapModel = _build_region()
+	var world := WorldMap.new()
+	world.add_region(map)
+	var charts := CourtCharts.new()
+	charts.setup(world, PLAYER, {})
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	charts.reveal_sea_zone(rival, 0, 0)
+	var restored := CourtCharts.new()
+	assert_true(restored.apply_dict(world, charts.to_dict()))
+	assert_eq(
+		restored.model_for(rival, 0).levels, charts.model_for(rival, 0).levels,
+		"a load restores the chart the rival earned"
+	)
+	assert_false(restored.apply_dict(world, 7), "a malformed payload is refused")
+	assert_false(restored.apply_dict(world, {}), "a save without charts keeps the grid")
+	assert_true(restored.courts.is_empty() == false, "the good grid survives")
+
+
 # --- fixture ----------------------------------------------------------------
 
 

@@ -227,6 +227,27 @@ func _fight(
 	return reports[0]
 
 
+func test_a_quick_battle_pays_the_attack_price_too() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, _pikes(4), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(6))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return mini(cost, 40)
+	var context: Dictionary = _context("balanced")
+	context["pay_attack"] = pay
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_eq(charged, [[0, 100]], "the plate charges the same price as auto-resolve")
+	assert_eq(int(reports[0]["attack_cost"]), 100)
+	assert_eq(int(reports[0]["attack_paid"]), 40, "a thin purse pays what it has")
+	assert_true(reports[0].has("quick"))
+
+
 func _context(plan: String) -> Dictionary:
 	return {
 		"quick_battle": true,

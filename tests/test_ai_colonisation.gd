@@ -408,6 +408,71 @@ func test_a_multi_zone_crossing_steps_toward_the_far_coast() -> void:
 	assert_eq(AiColonisationPlanner._carried_id(FleetState.in_port(9, OWNER, 0)), -1)
 
 
+## A court lands only on a coast it has charted (wiki: fog-and-exploration;
+## DR-20261110-21).
+func test_an_uncharted_coast_is_not_a_landing_ground() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	assert_true(
+		AiColonisationPlanner._landing_zones(new_world, "explorer", OWNER, charts).is_empty(),
+		"the New World water is unknown"
+	)
+	charts.reveal_sea_zone(OWNER, 1, 0)
+	var zones: Array[int] = AiColonisationPlanner._landing_zones(
+		new_world, "explorer", OWNER, charts
+	)
+	var expected: Array[int] = [0]
+	assert_eq(zones, expected, "the charted coast opens the landing")
+	assert_true(
+		AiColonisationPlanner._landing_zones(new_world, "explorer", OWNER).size() == 1,
+		"without a chart the fixture reading keeps every coast"
+	)
+
+
+## The map adapter charts the water a rival enters, so a crossing opens the far
+## coast for that court alone — the player's fog stays untouched.
+func test_the_adapter_charts_the_coast_its_squadron_crosses_to() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	play.civilian_layer.regions.set_region(1, [])
+	MapPlayCourtFog.build(play)
+	assert_false(play.court_charts.knows_zone(OWNER, 1, 0), "the far water is unknown")
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "embark")
+	fleet.moved = false
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "sail")
+	fleet.moved = false
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "cross")
+	assert_true(
+		play.court_charts.knows_zone(OWNER, 1, 0),
+		"the entered zone is charted for the rival"
+	)
+	fleet.moved = false
+	var landed: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(landed[0]["kind"]), "land", "the charted coast takes the colonist")
+	assert_true(play.court_charts.regions_of(0).is_empty(), "the player charts nothing")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 func test_the_adapter_docks_and_refuses_illegal_orders() -> void:
 	var world: WorldMap = _world()
 	var old_world: MapModel = world.region(0)

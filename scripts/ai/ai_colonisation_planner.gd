@@ -16,7 +16,11 @@ extends RefCounted
 
 ## One order for this court in this region, or an empty dictionary.
 ## `civilians_in_target` lets the adapter avoid a second expedition when the
-## destination roster already holds one of its units.
+## destination roster already holds one of its units. `charts` is the court's
+## own fog: it lands only on coast it has seen and walks only water it charts,
+## with one blind step into the unknown to extend the chart (DR-20261110-21).
+## A null chart is the fixture reading — every tile charted — and production
+## always hands the court's charts in (MapPlayColonisationAi).
 static func plan(
 	config: AiConfig,
 	world: WorldMap,
@@ -24,7 +28,8 @@ static func plan(
 	model: MapModel,
 	fleets: Array,
 	civilians: Array,
-	civilians_in_target: int = 0
+	civilians_in_target: int = 0,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -40,7 +45,7 @@ static func plan(
 		var unit: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if unit == null:
 			return {}
-		return _voyage(world, region, model, fleet, unit, target)
+		return _voyage(world, region, model, fleet, unit, target, charts)
 	if region != home or civilians_in_target > 0:
 		return {}
 	var unit: CivilianState = _next_colonist(civilians, owner, target, world)
@@ -149,16 +154,21 @@ static func _voyage(
 	model: MapModel,
 	fleet: FleetState,
 	unit: CivilianState,
-	target: int
+	target: int,
+	charts: CourtCharts
 ) -> Dictionary:
 	if region != target:
 		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
 			return {"kind": "cross", "fleet": fleet.id}
-		var warp: int = AiSeaRoute.sail_toward(model, fleet, world.warp_zones(region))
+		var warp: int = _sail(
+			model, fleet, world.warp_zones(region), charts, unit.owner
+		)
 		if warp < 0:
 			return {}
 		return {"kind": "sail", "fleet": fleet.id, "zone": warp}
 	var tiles: Array[Vector2i] = CivilianVoyage.landing_tiles(model, unit, fleet)
+	if charts != null:
+		tiles = charts.charted_tiles(unit.owner, model.region_id, tiles)
 	if not tiles.is_empty():
 		tiles.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 			if a.y != b.y:
@@ -168,18 +178,47 @@ static func _voyage(
 		return {
 			"kind": "land", "fleet": fleet.id, "unit": unit.id, "tile": tiles[0],
 		}
-	var coast: int = AiSeaRoute.sail_toward(
-		model, fleet, _landing_zones(model, unit.type_id, unit.owner)
+	var coast: int = _sail(
+		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts),
+		charts, unit.owner
 	)
 	if coast < 0:
 		return {}
 	return {"kind": "sail", "fleet": fleet.id, "zone": coast}
 
 
-## Sea zones with at least one land tile this type may land on.
-static func _landing_zones(model: MapModel, type_id: String, owner: int) -> Array[int]:
+## The next zone toward `goals`, walking only water this court charts. With no
+## charted route it takes the lowest-id adjacent zone it has not seen: that blind
+## step is how a passage or a far coast is found (DR-20261110-21).
+static func _sail(
+	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
+) -> int:
+	if charts == null:
+		return AiSeaRoute.sail_toward(model, fleet, goals)
+	var known: Array[int] = charts.known_zones(owner, model.region_id)
+	var charted: Array[int] = []
+	for zone: int in goals:
+		if known.has(zone):
+			charted.append(zone)
+	if not charted.is_empty():
+		var step: int = AiSeaRoute.sail_toward(model, fleet, charted)
+		if step >= 0:
+			return step
+	for zone: int in NavalMovement.destination_zones(model, fleet):
+		if not known.has(zone):
+			return zone
+	return -1
+
+
+## Sea zones with at least one land tile this type may land on, and whose water
+## the court has charted.
+static func _landing_zones(
+	model: MapModel, type_id: String, owner: int, charts: CourtCharts = null
+) -> Array[int]:
 	var zones: Array[int] = []
 	for zone: SeaZoneState in model.sea_zones:
+		if charts != null and not charts.knows_zone(owner, model.region_id, zone.id):
+			continue
 		for water: Vector2i in zone.tiles:
 			for tile: Vector2i in CivilianMovement.NEIGHBORS:
 				var land: Vector2i = water + tile
@@ -187,6 +226,10 @@ static func _landing_zones(model: MapModel, type_id: String, owner: int) -> Arra
 					continue
 				if not CivilianMovement.may_enter(model, type_id, owner, land):
 					continue
+				if charts != null:
+					var view: VisibilityModel = charts.model_for(owner, model.region_id)
+					if view != null and view.level_at(land.x, land.y) < VisibilityModel.Level.FOGGED:
+						continue
 				if not zones.has(zone.id):
 					zones.append(zone.id)
 				break
