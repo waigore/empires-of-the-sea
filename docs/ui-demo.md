@@ -21,7 +21,7 @@ Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit.
 
 ## Phone layout
 
-On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to a compact cartouche, minimap, full-height dossiers, thumb targets and notch-safe insets. `test_mobile_layout.gd` pins it.
+On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to compact chrome and thumb targets. `test_mobile_layout.gd` pins it.
 
 ## Architecture
 
@@ -32,7 +32,10 @@ scripts/map/map_model.gd    pure tile data (region-scoped)
 scripts/map/map_generator.gd generation + world
 scripts/map/country_borders.gd owner borders from the grid
 scripts/map/map_canvas.gd   static artwork (terrain, coast, province ink)
+scripts/map/map_relief.gd   sub-tile bake: coast field, beach, shoal, paint
 scripts/map/map_canvas_plan.gd names + symbols (pure)
+scripts/map/map_glyphs.gd   ink symbols
+scripts/map/map_ground.gd   scrub, furrow and tuft marks (pure)
 scripts/map/map_overlay.gd  borders, hover, selection
 scripts/map/fog_layer.gd    fog texture layer
 scripts/map/map_camera.gd   pan / zoom / inertia / clamp
@@ -53,11 +56,11 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership (`TerritoryAssignment`) → capitals → `WorldBootstrap` (ports, roads, four grain farms). Old World: six Great Powers and three Minor Nations; New World: ten Tribes. One seed reproduces both maps (`tests/test_map_generator.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, three Minor Nations; New World: ten Tribes. One seed reproduces both (`test_map_generator.gd`).
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** terrain wash (owned land washed 50% toward its crown's colour); Chaikin coast ink; **country borders above fog**; vector glyphs; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink — coast, province hairlines, owner ribbons — repainting on chart or crown changes.
+**Rendering:** `MapRelief` bakes the ground six texels per tile (owner wash, sand beach, shoal and sounding lines, painted drift, finer relief); `terrain.gdshader` adds hillshade, contours, hachures and paper tooth. Coast ink is smoothed once to sit on that shore; **borders above fog**; varied glyphs; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink, repainting on chart or crown changes.
 
 ## Animation & performance
 
@@ -71,13 +74,11 @@ ui/shaders/*                sea, fog, grain, vignette
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
 | HUD slides, counts, toasts | `GameHud` |
 
-Build ~0.55 s (128×84). Static canvas once; settled fog still; overlay + ships per frame; input ack same frame.
+Build ~0.9 s (128×84), a third of it the relief bake. Static canvas once; settled fog still; overlay + ships per frame.
 
 ## Known limits
 
-Capitals follow the capital-choice rule and `WorldBootstrap` wires their farms.
-Province, civilian and estate orders are rules-backed, as are fleet movement,
-docking, ship reveal and sea combat ([`fleets.md`](fleets.md)). Beachhead
-landings and fleet merging ship; Patrol/Blockade/Defend, interception and AI
-missions are deferred. Warp transit, colonisation and Minor/Tribe
-reactive play are deferred ([`world.md`](world.md)).
+Capitals follow the capital-choice rule. Province, civilian, estate, fleet and
+sea-combat orders are rules-backed ([`fleets.md`](fleets.md)). Beachhead
+landings, Patrol/Blockade/Defend, warp transit, colonisation and Minor/Tribe
+play are deferred ([`world.md`](world.md)).

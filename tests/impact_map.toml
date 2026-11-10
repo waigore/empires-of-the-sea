@@ -229,6 +229,8 @@ suites = [
 [domains.ui]
 suites = [
   "test_panel_dock.gd",
+  "test_province_panel.gd",
+  "test_mobile_layout.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -904,6 +906,16 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "ui"
 
+# The province dossier and its estate block: the ui domain proves the panel's
+# geometry (test_mobile_layout) and its content (test_province_panel).
+[[rules]]
+match = "scripts/ui/province_*.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/dossier_*.gd*"
+domain = "ui"
+
 # The minimap inset is map presentation: the map suites own its contract.
 [[rules]]
 match = "scripts/ui/minimap*.gd"
@@ -1109,6 +1121,10 @@ domain = "save"
 
 [[rules]]
 match = "tests/test_panel_dock.gd"
+domain = "ui"
+
+[[rules]]
+match = "tests/test_province_*.gd*"
 domain = "ui"
 
 # Espionage suites live with their rules, so a spy change never needs the full

@@ -46,6 +46,11 @@ static func _run_region(
 			var fleet: FleetState = _fleet_by_id(roster, int(order["fleet_id"]), faction)
 			if fleet == null:
 				continue
+			if bool(order.get("dock", false)):
+				changed = _dock_home(
+					model, roster, fleet, int(order.get("province", -1)), faction, trace
+				) or changed
+				continue
 			var zone: int = int(order["zone"])
 			var move: Dictionary = NavalMovement.apply_move(
 				model, fleet, FleetState.Location.AT_SEA, zone
@@ -68,6 +73,44 @@ static func _run_region(
 			_report_sighting(play, model, faction, zone)
 		_station_orders(play, model, roster, faction)
 	return changed
+
+
+## A peaceful squadron reaching its own harbour moors there, and one that
+## reaches the seat merges into the home squadron so its holds count at home
+## (wiki: ships-and-naval § Home Fleet; DR-20261110-30). Never silent: the trace
+## names the harbour it entered.
+static func _dock_home(
+	model: MapModel,
+	roster: Array[FleetState],
+	fleet: FleetState,
+	province: int,
+	faction: int,
+	trace: Array[Dictionary]
+) -> bool:
+	if province < 0:
+		return false
+	var move: Dictionary = NavalMovement.apply_move(
+		model, fleet, FleetState.Location.IN_PORT, province
+	)
+	if not bool(move.get("ok", false)):
+		return false
+	var entry: Dictionary = {
+		"faction": faction,
+		"kind": AiNavalPlanner.KIND_HOME,
+		"fleet": fleet.id,
+		"zone": MapModel.NO_ID,
+		"zone_name": model.province_name(province),
+		"region": model.region_id,
+		"threat": 0,
+		"dock": true,
+		"province": province,
+	}
+	var merge: Dictionary = NavalMovement.merge_into_home(model, roster, fleet)
+	var home: FleetState = merge.get("fleet") as FleetState
+	if home != null:
+		entry["merged_into"] = home.id
+	trace.append(entry)
+	return true
 
 
 ## A squadron that did not sortie still takes a station: blockade an enemy coast
