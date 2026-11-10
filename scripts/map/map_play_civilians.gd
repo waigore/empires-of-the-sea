@@ -100,22 +100,22 @@ static func refresh_panel(play: PlaySession) -> void:
 
 ## Build/Work pass: the layer advances every region's orders (looking at another
 ## map must not pause the empire) and reports completions for the map on screen.
+## Each crown's deed is charged to its own ledger, so a rival's purchase never
+## touches the human treasury (wiki: civilian-units § Merchant).
 static func resolve_work(play: PlaySession) -> void:
-	var economy: PlayerEconomy = null
-	if play.economy != null and not play.observer_mode:
-		economy = play.economy.economy
 	for report: Dictionary in play.civilian_layer.begin_turn(
-		play.world, play.court_charts, economy
+		play.world, play.court_charts, _purses(play)
 	):
 		if not bool(report.get("completed", false)):
 			continue
 		if String(report["action"]) == LandPurchase.ACTION:
 			_settle_purchase(play, report)
-			if int(report["region"]) != play.region_index:
-				continue
-		if int(report["region"]) != play.region_index:
+			if int(report["region"]) == play.region_index:
+				# The tile's owner changed, so borders, tint and the region chip
+				# all redraw whoever holds the new deed.
+				play.refresh_map_views()
 			continue
-		if String(report["action"]) == LandPurchase.ACTION:
+		if int(report["region"]) != play.region_index:
 			continue
 		var changed: Array = report.get("changed", [])
 		if not changed.is_empty():
@@ -167,8 +167,23 @@ static func _owner_label(play: PlaySession, owner: int) -> String:
 	return "%s's " % FactionCatalog.name_of(owner)
 
 
-## A deed is signed (or the purse fails it) during Build/Work. The tile's owner
-## changed, so borders, tint and the region chip all redraw.
+## One purse per crown: the human ledger, or each rival's own (the observer runs
+## every crown on an AI ledger). A crown with no ledger buys no land.
+static func _purses(play: PlaySession) -> Dictionary:
+	var purses: Dictionary = {}
+	if play == null:
+		return purses
+	play.ensure_ai()
+	for faction: int in FactionCatalog.great_power_ids():
+		var ledger: PlayerEconomy = play.ledger_for(faction)
+		if ledger != null:
+			purses[faction] = ledger
+	return purses
+
+
+## A deed is signed (or the purse fails it) during Build/Work. Only the human
+## court hears about it; a rival's purchase is silent news to the player, but
+## the tile's owner changed, so the caller redraws the political map.
 static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	if int(report.get("owner", -1)) != play.player_faction:
 		return
@@ -179,8 +194,6 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	var place: String = model.province_name(province) if province >= 0 else "the wilds"
 	if model.is_purchased_tile(tile):
 		play.hud.set_treasury(play.treasury())
-		if region == play.region_index:
-			play.refresh_map_views()
 		play.hud.toast("The deed to %s is signed; the tile answers to your crown." % place)
 		return
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)

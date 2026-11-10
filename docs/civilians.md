@@ -33,7 +33,8 @@ tech.
   zone. Explorers/Merchants any coast; others need crown land. Landing reveals
   tile + neighbours; sunk ships drown passengers.
 - **Land purchase:** Merchant buys Minor/Tribe resource tile with embassy, no
-  war, prospected mineral; 15× base at assign, debit on complete.
+  war, prospected mineral; 15× base at assign, debit on complete. Rivals run
+  the same rule through `AiMerchantWork` and pay from their own ledger.
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
   and saves; province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
