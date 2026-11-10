@@ -26,6 +26,8 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
   screens on that world repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
+- Attach a map screen lazily (`_attach()`) so rule-only cases in a screen suite
+  never pay for painting the chart; a case that reads the map asks for it.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
 - Saving and loading is the hottest integration path: a preset world is reused by
   `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
