@@ -514,3 +514,92 @@ func test_cancelling_an_offer_returns_its_submitted_volume() -> void:
 	assert_true(MarketOrders.cancel(market, 1, String(staged["order_id"])))
 	assert_eq(market.offer_volume("timber"), 0)
 	assert_false(MarketOrders.cancel(market, 1, "missing"))
+
+
+# --- what the auction promises and what it settles ---------------------------
+
+
+## A bid cut short by cargo holds keeps its MarketActivityNote in the clearing
+## report, so the Deal Book can audit the truncation (wiki: world-market
+## § Treasury budget for bids — MarketActivityNote attribution).
+func test_a_truncated_bid_keeps_its_audit_note() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	# No Minor harvest: the only supply is the Great Power offer below.
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	(economies[1] as PlayerEconomy).stockpile["timber"] = 10
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 10, {"stock": 10}
+	)["ok"]))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 10,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	# The turn's overseas extraction reserves most of the holds before the
+	# auction clears, so the bid can only take two tons.
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 2, 1: 10})
+	assert_eq(int((report["fills"] as Dictionary).get(0, {}).get("bought", 0)), 2)
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(
+		codes.has("bid_partial_fill_cargo_insufficient"),
+		"the cargo truncation reaches the Deal Book: %s" % str(codes)
+	)
+	var booked: Array = market.book.last_notes
+	assert_eq(booked.size(), report["notes"].size(), "the book keeps the same notes")
+
+
+## A Great Power offer the seller can no longer cover is not a deal, and the
+## dropped units are named (wiki: world-market § Trade orders — an offer sells
+## only what the ledger still holds; REQ-P5-05 never a silent outcome).
+func test_an_offer_the_seller_spent_does_not_mint_goods() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	var seller: PlayerEconomy = economies[1]
+	var buyer: PlayerEconomy = economies[0]
+	seller.stockpile["timber"] = 10
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 10, {"stock": 10}
+	)["ok"]))
+	# Production runs before the auction and eats every ton offered.
+	assert_true(seller.take("timber", 10))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 10,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	var seller_purse: int = seller.treasury
+	var buyer_purse: int = buyer.treasury
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 20, 1: 20})
+	assert_eq(seller.treasury, seller_purse, "no pay for timber the seller no longer holds")
+	assert_eq(buyer.treasury, buyer_purse, "no charge for a deal that cannot ship")
+	assert_eq(buyer.quantity("timber"), 0, "the auction never mints goods")
+	var noted: bool = false
+	for note: Dictionary in report["notes"]:
+		if String(note.get("code", "")) == "offer_partial_fill_stock_insufficient":
+			noted = true
+	assert_true(noted, "the dropped fill is on the deal book")
+
+
+## The offer cap is the post-production stockpile minus the inputs the assigned
+## runs will eat (wiki: world-market § Trade orders — validation rule 7).
+func test_an_offer_is_capped_by_the_production_that_will_eat_it() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var reserved: Dictionary = ProductionRecipes.reserved_inputs(
+		[{"recipe": "lumber", "units": 3}]
+	)
+	assert_eq(int(reserved.get("timber", 0)), 6, "3 runs x 2 timber")
+	var refused: Dictionary = MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 5,
+		{"stock": 10, "reserved": reserved}
+	)
+	assert_false(bool(refused["ok"]))
+	assert_eq(String(refused["code"]), "trade_order_stock_insufficient")
+	var admitted: Dictionary = MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 4,
+		{"stock": 10, "reserved": reserved}
+	)
+	assert_true(bool(admitted["ok"]), String(admitted.get("reason", "")))
