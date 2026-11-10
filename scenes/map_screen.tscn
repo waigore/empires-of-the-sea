@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/map_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
@@ -17,6 +17,7 @@
 [ext_resource type="Script" path="res://scripts/map/army_layer.gd" id="14_armies"]
 [ext_resource type="Script" path="res://scripts/ui/game_menu.gd" id="15_menu"]
 [ext_resource type="Script" path="res://scripts/map/resource_lens.gd" id="16_survey"]
+[ext_resource type="Script" path="res://scripts/map/diplomacy_lens.gd" id="17_diplomacy"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
 shader = ExtResource("7_sea")
@@ -43,6 +44,9 @@ script = ExtResource("2_canvas")
 
 [node name="MapOverlay" type="Node2D" parent="World"]
 script = ExtResource("3_overlay")
+
+[node name="DiplomacyLens" type="Node2D" parent="World"]
+script = ExtResource("17_diplomacy")
 
 [node name="ResourceLens" type="Node2D" parent="World"]
 script = ExtResource("16_survey")

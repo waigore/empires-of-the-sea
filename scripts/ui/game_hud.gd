@@ -26,6 +26,8 @@ signal region_toggle_pressed
 signal focus_capital_pressed
 ## The survey lens toggle changed state (button or keyboard).
 signal lens_pressed(active: bool)
+## The diplomatic lens toggle changed state (button or keyboard).
+signal diplomacy_lens_pressed(active: bool)
 ## Status plaques double as shortcuts to the crown's forces in this region.
 signal fleet_status_pressed
 signal army_status_pressed
@@ -89,6 +91,8 @@ var _tooltip_label: Label = null
 var _end_turn_button: Button = null
 ## Cartouche toggle for the resource survey lens; HudChrome owns the legend.
 var _lens_button: Button = null
+## Left-rail toggle for the diplomatic lens, beside the survey seal.
+var _diplomacy_lens_button: Button = null
 var _glow: Panel = null
 var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
@@ -264,13 +268,22 @@ func is_quick_battle_shown() -> bool:
 	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
 
 
-## Mirrors the lens state onto the cartouche toggle and its survey key, without
-## echoing the button signal (the screen owns the state).
-func set_lens(active: bool) -> void:
-	if _lens_button != null and _lens_button.button_pressed != active:
-		_lens_button.set_pressed_no_signal(active)
-	if lens_legend != null:
-		lens_legend.visible = active
+## Mirrors a lens state onto its toggle and the shared key cartouche, without
+## echoing the button signal (the screen owns the state). Only one lens is ever
+## on, so the key shows the key kind that was just raised.
+func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
+	var button: Button = (
+		_diplomacy_lens_button if kind == LensLegend.KIND_DIPLOMACY else _lens_button
+	)
+	if button != null and button.button_pressed != active:
+		button.set_pressed_no_signal(active)
+	if lens_legend == null:
+		return
+	lens_legend.set_kind(kind)
+	lens_legend.visible = (
+		(_lens_button != null and _lens_button.button_pressed)
+		or (_diplomacy_lens_button != null and _diplomacy_lens_button.button_pressed)
+	)
 
 
 func _on_quick_battle_finished() -> void:
