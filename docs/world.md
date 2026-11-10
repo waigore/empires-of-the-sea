@@ -12,7 +12,7 @@ Two-region world setup, faction types and the political map (wiki:
 | Type | Count | Region | Orders | Navy | Can win | Capital |
 |------|------:|--------|:------:|:----:|:-------:|---------|
 | Great Power | 6 | Old World (+ New later) | yes | yes | yes | sea-bound choice |
-| Minor Nation | 3 | Old World only | no | no | no | setup |
+| Minor Nation | 6 | Old World only | no | no | no | setup |
 | Tribe | 10 | New World only | no | no | no | setup |
 
 Minors track the strongest Great Power's regiment era; Tribes stay at level 1.
@@ -22,8 +22,9 @@ Ids: `scripts/rules/faction_catalog.gd`.
 
 - One deterministic tile map per region; a seed reproduces both maps and all
   ownership.
-- Old World: temperate, 6 GPs + 3 Minors, ~24–64 provinces per nation.
-- New World: wetter, 10 Tribes, provinces per tribe.
+- Old World: temperate, 60 provinces for 6 GPs + 6 Minors; each Minor takes
+  3, the rest splits across the GPs.
+- New World: wetter, 30 provinces for 10 Tribes, 3 each.
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross to the
   other world.
@@ -46,8 +47,7 @@ a single P–P continent so holdings stay contiguous. A purchased tile is a
 seller; colour and border enclose that enclave.
 
 - Seeds are farthest-point sea-bound provinces (GPs and Tribes must own one).
-- Minors reserve at most 3 provinces each; the rest splits evenly across GPs on
-  that continent. Extra continents stay unclaimed.
+- Minors take 3 provinces each (the wiki floor); the rest splits across the GPs.
 - GPs use the capital-choice phase; Minors/Tribes take any owned province.
 
 ## Capital loss

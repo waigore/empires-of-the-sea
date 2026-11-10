@@ -97,7 +97,7 @@ func test_capital_star_has_ten_points() -> void:
 ## Placement stays pure: the plan can be built headless, and every province
 ## with enough land carries its name at the province centre.
 func test_plan_places_names_without_a_node() -> void:
-	var region: MapModel = Fixture.region()
+	var region: MapModel = Fixture.world().region(FactionCatalog.OLD_WORLD)
 	var plan := MapCanvasPlan.new()
 	plan.build(region, null, MapCanvas.TILE_SIZE)
 	var named: Dictionary = {}

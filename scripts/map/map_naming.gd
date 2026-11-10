@@ -73,6 +73,18 @@ const FACTION_ROOTS: Dictionary = {
 		"Copenhague", "Aarhus", "Odense", "Aalborg", "Ribe", "Viborg", "Roskilde",
 		"Helsingør", "Randers",
 	],
+	19: [  # Austria
+		"Viena", "Linz", "Graz", "Innsbruck", "Clagenfurt", "Salzburgo", "Estiria",
+		"Tirol", "Carintia",
+	],
+	20: [  # Poland
+		"Cracovia", "Poznan", "Varsovia", "Vilna", "Riga", "Danzig", "Lublin",
+		"Leópolis", "Brest",
+	],
+	21: [  # Scotland
+		"Edimburgo", "San Andrés", "Glasgow", "Aberdeen", "Inverness", "Stirling",
+		"Dumfries", "Perth", "Dundee",
+	],
 	9: [  # Aztec
 		"Tenochtitlan", "Texcoco", "Tlacopan", "Cholula", "Cempoala", "Chalco",
 		"Xochimilco", "Tlatelolco", "Cuernavaca", "Huejotzingo", "Tlalmanalco",

@@ -5,14 +5,11 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## The post-pass only needs a region big enough for every Great Power capital;
-## the small shared region keeps generation (this suite's dominant cost under
-## coverage) to a fraction of the old 96x64 map.
-const SEED: int = Fixture.SEED
-const WIDTH: int = Fixture.WIDTH
-const HEIGHT: int = Fixture.HEIGHT
-const NEW_WORLD_WIDTH: int = Fixture.WIDTH
-const NEW_WORLD_HEIGHT: int = Fixture.HEIGHT
+## The post-pass needs a region big enough for every Great Power capital and its
+## four grain farms; the shared world region is generated once per worker, so
+## this suite does not pay for its own map.
+const NEW_WORLD_WIDTH: int = Fixture.WORLD_WIDTH
+const NEW_WORLD_HEIGHT: int = Fixture.WORLD_HEIGHT
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so one region per worker keeps
@@ -22,7 +19,7 @@ var works: LandWorks = null
 
 
 func before_all() -> void:
-	model = MapGenerator.new().generate_region(SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT)
+	model = Fixture.world().region(FactionCatalog.OLD_WORLD)
 	works = LandWorks.new()
 	WorldBootstrap.apply(model, works)
 
@@ -89,7 +86,7 @@ func test_capital_ports_and_harbour_roads_are_real() -> void:
 
 func test_the_post_pass_is_deterministic() -> void:
 	var second: MapModel = MapGenerator.new().generate_region(
-		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
+		Fixture.SEED, FactionCatalog.OLD_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
 	)
 	var second_works := LandWorks.new()
 	WorldBootstrap.apply(second, second_works)
@@ -101,7 +98,7 @@ func test_the_post_pass_is_deterministic() -> void:
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
 	var new_world: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
+		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
 	)
 	var new_world_works := LandWorks.new()
 	var report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)

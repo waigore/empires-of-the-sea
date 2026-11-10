@@ -166,11 +166,15 @@ func test_a_drag_pans_the_chart_and_leaves_the_seat() -> void:
 	var chart: CapitalChoiceScreen = await _open(914, 411)
 	var viewport: Viewport = chart.get_viewport()
 	var seat: Vector2i = chart.selected_tile
-	var before: Vector2 = chart.camera.position
 	var start := viewport.get_visible_rect().size * 0.5
+	# The seat frames the chart against an edge, where the camera is clamped;
+	# zoom in so the drag has room on both axes.
+	chart.camera.zoom_by(1.6, start)
+	await get_tree().process_frame
+	var before: Vector2 = chart.camera.position
 	_push(viewport, _touch(true, start))
-	_push(viewport, _drag(start + Vector2(-60.0, -40.0)))
-	_push(viewport, _touch(false, start + Vector2(-60.0, -40.0)))
+	_push(viewport, _drag(start + Vector2(60.0, 40.0)))
+	_push(viewport, _touch(false, start + Vector2(60.0, 40.0)))
 	await get_tree().process_frame
 	assert_ne(chart.camera.position, before, "the drag pans the chart")
 	assert_eq(chart.selected_tile, seat, "a drag is not a tap")
