@@ -9,13 +9,14 @@ extends RefCounted
 const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
-	"war", "peace", "treaty", "attack", "march", "sortie", "pursue",
+	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
 	"work", "production", "recruit", "train", "split", "invade",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
 	"peace": "peace",
 	"treaty": "treaty",
+	"trade": "trade terms",
 	"attack": "assaults",
 	"march": "marches",
 	"sortie": "sorties",
@@ -243,6 +244,12 @@ static func _diplomacy_key(kind: String) -> String:
 		return "war"
 	if kind == AiDiplomacyPlanner.KIND_OFFER_PEACE:
 		return "peace"
+	if kind in AiDiplomacyOffers.KINDS:
+		if kind == AiDiplomacyOffers.KIND_ALLIANCE or kind == AiDiplomacyOffers.KIND_OVERTURE:
+			return "treaty"
+		if kind == AiDiplomacyOffers.KIND_BREAK:
+			return "treaty"
+		return "trade"
 	return "treaty"
 
 
@@ -251,8 +258,25 @@ static func _diplomacy_line(kind: String, faction: int, target: int) -> String:
 	if target == NO_ID:
 		return "%s adjusts its court." % who
 	var them: String = FactionCatalog.name_of(target)
-	if kind == AiDiplomacyPlanner.KIND_DECLARE_WAR:
-		return "%s declares war on %s." % [who, them]
-	if kind == AiDiplomacyPlanner.KIND_OFFER_PEACE:
-		return "%s sues for peace with %s." % [who, them]
+	match kind:
+		AiDiplomacyPlanner.KIND_DECLARE_WAR:
+			return "%s declares war on %s." % [who, them]
+		AiDiplomacyPlanner.KIND_OFFER_PEACE:
+			return "%s sues for peace with %s." % [who, them]
+		AiDiplomacyOffers.KIND_AID:
+			return "%s sends aid to %s." % [who, them]
+		AiDiplomacyOffers.KIND_FTP:
+			return "%s agrees a trade pact with %s." % [who, them]
+		AiDiplomacyOffers.KIND_REVOKE_FTP:
+			return "%s ends its trade pact with %s." % [who, them]
+		AiDiplomacyOffers.KIND_BOYCOTT:
+			return "%s boycotts %s." % [who, them]
+		AiDiplomacyOffers.KIND_REVOKE_BOYCOTT:
+			return "%s lifts its boycott of %s." % [who, them]
+		AiDiplomacyOffers.KIND_SUBSIDY:
+			return "%s subsidises %s." % [who, them]
+		AiDiplomacyOffers.KIND_CANCEL_SUBSIDY:
+			return "%s ends its subsidy to %s." % [who, them]
+		AiDiplomacyOffers.KIND_BREAK:
+			return "%s breaks its alliance with %s." % [who, them]
 	return "%s proposes a treaty to %s." % [who, them]

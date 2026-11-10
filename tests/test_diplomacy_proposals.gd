@@ -262,10 +262,20 @@ func test_the_improve_relations_cooldown_blocks_a_second_offer() -> void:
 		{"regiments": {}, "ships": {}}
 	)
 	var record: Dictionary = _record_for(result["trace"], 2)
-	assert_true((record["action"] as Dictionary).is_empty())
-	assert_eq(
-		String(record["candidates"][0]["offer"]["blocked"]), "overture cooldown"
+	assert_eq(_offer_blocked(record, AiDiplomacyOffers.KIND_OVERTURE), "overture cooldown")
+	assert_true(
+		fresh.pending_offers.is_empty(),
+		"the cooling pair sends no second proposal"
 	)
+
+
+## The refusal the offers module recorded for one order kind.
+func _offer_blocked(record: Dictionary, kind: String) -> String:
+	var offer: Dictionary = record["candidates"][0].get("offer", {})
+	for entry: Dictionary in offer.get("candidates", []):
+		if String(entry.get("kind", "")) == kind:
+			return String(entry.get("blocked", ""))
+	return ""
 
 
 func _record_for(trace: Array, faction: int) -> Dictionary:
