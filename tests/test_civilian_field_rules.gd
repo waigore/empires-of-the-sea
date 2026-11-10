@@ -111,6 +111,41 @@ func test_out_of_bounds_land_is_refused() -> void:
 	assert_false(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(9, 9)))
 	assert_true(CivilianMovement.may_enter(_model, "explorer", 0, Vector2i(0, 0)))
 
+
+## Order visibility gate (wiki: fog-and-exploration § Order Visibility
+## Requirements): a march into a province the crown has never charted is
+## refused, even though an Explorer may roam any land.
+func test_a_march_into_an_uncharted_province_is_refused() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	for tile: Vector2i in _model.province_tiles(Fixture.RIVAL_PROVINCE):
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	assert_false(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0)),
+		"the uncharted province is not a march option"
+	)
+	var result: Dictionary = CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("charted"))
+	assert_eq(explorer.tile, Vector2i(2, 0))
+
+
+## One charted tile anywhere in the province is enough: a coast glimpsed from
+## the sea opens the whole province to land orders.
+func test_a_glimpsed_province_accepts_the_march() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 0))
+	var tiles: Array[Vector2i] = _model.province_tiles(Fixture.RIVAL_PROVINCE)
+	for tile: Vector2i in tiles:
+		_view.lower_to(_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	_view.raise_to(_model.index_of(tiles[0].x, tiles[0].y), VisibilityModel.Level.FOGGED)
+	assert_true(
+		CivilianMovement.valid_tiles(_model, explorer, _view).has(Vector2i(3, 0))
+	)
+	assert_true(bool(CivilianMovement.apply_move(
+		_model, explorer, Vector2i(3, 0), _view
+	)["ok"]))
+
 # --- from test_civilian_work.gd ---
 ## Civilian work orders: gates, costs, multi-turn progress and tile effects
 ## (wiki: civilian-units § Work Types, extraction-and-improvements costs).
@@ -860,6 +895,70 @@ func test_foreign_estates_never_pay_the_player() -> void:
 	assert_eq(totals, {})
 
 
+## A colony's estates beside its port town are Town-rule connected, so the town's
+## own development level caps their yield (wiki: extraction-and-improvements
+## § Extraction formula and town development cap).
+func test_a_port_town_caps_the_estates_beside_it() -> void:
+	var offshoot: Array = _overseas_estate(2, true)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	var totals: Dictionary = Extraction.yields(
+		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
+	)
+	assert_eq(totals, {"grain": 2})
+
+
+## A rail from the landfall lifts the cap: the estate then reaches the crown by
+## road, so town development does not limit it.
+func test_a_colony_road_lifts_the_town_cap() -> void:
+	var offshoot: Array = _overseas_estate(2, true)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	works.set_transport(model, Vector2i(0, 1), LandWorks.TRANSPORT_RAIL)
+	var totals: Dictionary = Extraction.yields(
+		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
+	)
+	assert_eq(totals, {"grain": 4})
+
+
+## An inland town caps nothing: only a port town beside the crown's sea path
+## limits its neighbours.
+func test_an_inland_town_does_not_cap_the_yield() -> void:
+	var offshoot: Array = _overseas_estate(2, false)
+	var model: MapModel = offshoot[0]
+	var works: LandWorks = offshoot[1]
+	var resolved: Dictionary = LandConnectivity.resolve(model, works, 0, Vector2i(-1, -1))
+	assert_eq(
+		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
+		LandWorks.MAX_IMPROVEMENT
+	)
+
+
+## One colony province: a town at (0,0) and a level-4 grain estate beside it.
+## `port` builds the town's harbour; `development` is the town's level.
+func _overseas_estate(development: int, port: bool) -> Array:
+	var model := MapModel.new()
+	model.setup(2, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 2:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+			if tile != Vector2i(0, 0):
+				model.resource[model.index_of(x, y)] = 4
+	var province := ProvinceState.create(0, "Colonia", tiles, Vector2(0.5, 0.5), 4, 0, false)
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = development
+	model.provinces = [province]
+	var works := LandWorks.new()
+	if port:
+		works.add_port(model, Vector2i(0, 0))
+	works.set_improvement(model, Vector2i(0, 1), 4)
+	return [model, works]
+
+
 func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	_works.set_transport(_model, Vector2i(0, 1), LandWorks.TRANSPORT_ROAD)
 	_works.set_transport(_model, Fixture.TIMBER_TILE, LandWorks.TRANSPORT_RAIL)
@@ -981,5 +1080,109 @@ func test_short_inputs_explain_missing_materials() -> void:
 func _row_at(snap: Dictionary, tile: Vector2i) -> Dictionary:
 	for row: Dictionary in snap["estates"]:
 		if Vector2i(row["tile"]) == tile:
+			return row
+	return {}
+
+# --- from test_civilian_roster.gd ---------------------------------------------
+## Whole-empire roster view-model: region/province grouping, filters and status.
+## Kept in this suite so the civilian domain pays one Godot boot (docs/testing.md).
+
+func test_roster_snapshot_spans_both_regions_and_ignores_rivals() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(int(snapshot["total"]), 5)
+	assert_eq(int(snapshot["by_region"][FactionCatalog.OLD_WORLD]), 3)
+	assert_eq(int(snapshot["by_region"][FactionCatalog.NEW_WORLD]), 2)
+	assert_eq(int(snapshot["idle"]), 4)
+	assert_eq(int(snapshot["working"]), 1)
+	assert_eq(int(snapshot["by_type"]["merchant"]), 1)
+	assert_eq((snapshot["groups"] as Array).size(), 2, "one posting per region")
+
+
+func test_roster_region_filter_narrows_to_one_world() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL), 5)
+	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_OLD), 3)
+	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_NEW), 2)
+	for group: Dictionary in CivilianRoster.groups(snapshot, CivilianRoster.REGION_NEW):
+		assert_eq(int(group["region"]), FactionCatalog.NEW_WORLD)
+
+
+func test_roster_craft_filter_and_chip_counts() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL, "merchant"), 1)
+	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_OLD, "merchant"), 0)
+	var counts: Dictionary = CivilianRoster.type_counts(snapshot, CivilianRoster.REGION_OLD)
+	assert_eq(int(counts["explorer"]), 1)
+	assert_eq(int(counts["builder"]), 1)
+	assert_eq(int(counts["merchant"]), 0)
+
+
+func test_roster_rows_carry_posting_and_work_status() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	var merchant: Dictionary = _row_of_type(snapshot, "merchant")
+	assert_eq(String(merchant["province_name"]), "Veracruz")
+	assert_eq(int(merchant["region"]), FactionCatalog.NEW_WORLD)
+	assert_true(String(merchant["status_text"]).contains("Build improvement"))
+	assert_true(String(merchant["status_text"]).contains("2 turns to go"))
+	assert_almost_eq(float(merchant["progress"]), 0.0, 0.001)
+	var explorer: Dictionary = _row_of_type(snapshot, "explorer")
+	assert_eq(String(explorer["status_text"]), "Idle — ready for orders")
+
+
+func test_roster_empty_inputs_make_an_empty_roster() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(null, null, 0)
+	assert_eq(int(snapshot["total"]), 0)
+	assert_true((snapshot["groups"] as Array).is_empty())
+	for type_id: String in CivilianCatalog.ORDER:
+		assert_eq(int(snapshot["by_type"][type_id]), 0)
+
+
+func _roster_regions() -> MapRegionTable:
+	var table := MapRegionTable.new()
+	var old_units: Array[CivilianState] = []
+	old_units.append(_roster_unit(1, 0, "explorer", Vector2i(0, 0)))
+	old_units.append(_roster_unit(2, 0, "builder", Vector2i(0, 2)))
+	old_units.append(_roster_unit(3, 0, "spy", Vector2i(1, 1)))
+	old_units.append(_roster_unit(4, 1, "spy", Vector2i(2, 0)))
+	table.set_region(FactionCatalog.OLD_WORLD, old_units)
+
+	var new_units: Array[CivilianState] = []
+	var merchant: CivilianState = _roster_unit(5, 0, "merchant", Vector2i(0, 0))
+	merchant.start_work("build_improvement", Vector2i(0, 1), 2, Vector2i(0, 0))
+	new_units.append(merchant)
+	new_units.append(_roster_unit(6, 0, "rail_builder", Vector2i(0, 2)))
+	table.set_region(FactionCatalog.NEW_WORLD, new_units)
+	return table
+
+
+func _roster_world() -> WorldMap:
+	var old: MapModel = Fixture.build()
+	var new: MapModel = Fixture.build()
+	new.region_id = FactionCatalog.NEW_WORLD
+	new.provinces[0].name = "Veracruz"
+	var world := WorldMap.new()
+	world.add_region(old)
+	world.add_region(new)
+	return world
+
+
+func _roster_unit(
+	id: int, owner: int, type_id: String, tile: Vector2i
+) -> CivilianState:
+	return CivilianState.create(id, owner, type_id, tile)
+
+
+func _row_of_type(snapshot: Dictionary, type_id: String) -> Dictionary:
+	for raw: Variant in snapshot["rows"]:
+		var row: Dictionary = raw
+		if String(row["type_id"]) == type_id:
 			return row
 	return {}

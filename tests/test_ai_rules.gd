@@ -1220,6 +1220,58 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	layer.free()
 
 
+## A rival's colonial estate ships home on the same holds as the player's: no
+## free tonnage from the other region (wiki: extraction-and-improvements
+## § Flow to Stockpile; DR-20261109-17; REQ-P2-03).
+func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
+	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
+	var colony := MapModel.new()
+	colony.setup(2, 1)
+	colony.province[colony.index_of(0, 0)] = 0
+	colony.province[colony.index_of(1, 0)] = 0
+	var tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var province := ProvinceState.create(0, "Colony", tiles, Vector2.ZERO, 2, 1)
+	province.town_development = 4
+	colony.provinces.append(province)
+	colony.resource[colony.index_of(0, 0)] = 0
+	colony.resource[colony.index_of(1, 0)] = 4
+	world.add_region(colony)
+	var layer := CivilianLayer.new()
+	layer.spawn(world.region(WorldMap.OLD_WORLD), 1, 0, [], false)
+	var works := LandWorks.new()
+	works.add_port(colony, Vector2i(0, 0))
+	works.set_improvement(colony, Vector2i(0, 0), 1)
+	layer.works_regions.set_region(WorldMap.NEW_WORLD, works)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = world.region(WorldMap.OLD_WORLD)
+	play.civilian_layer = layer
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+
+	var without_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	assert_eq(_tons(without_holds), 5, "the rival's home yield needs no hold")
+	assert_eq(int(MapPlayEconomyAi._extraction(play, 1, economy)["grain"]), 5)
+
+	var ships := ShipLayer.new()
+	var home: FleetState = FleetState.in_port(
+		1, 1, 1, ["a"], {"a": "fluyte"}
+	)
+	ships.regions.set_region(WorldMap.OLD_WORLD, [home] as Array[FleetState])
+	play.ship_layer = ships
+	var with_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
+	ships.free()
+	layer.free()
+
+
+func _tons(totals: Dictionary) -> int:
+	var total: int = 0
+	for raw: Variant in totals.values():
+		total += int(raw)
+	return total
+
+
 ## A rival's finished work is announced with its crown: with rivals building every
 ## turn, an unlabelled line reads as the player's own crew.
 func test_rival_civilian_completion_names_its_crown() -> void:
@@ -1282,3 +1334,156 @@ func _civilian_context(at_war: bool = false) -> Dictionary:
 		"capital_tile": CivilianFixture.BARE_TILE,
 		"at_war": at_war,
 	}
+
+
+# --- from test_ai_research.gd ------------------------------------------------
+## Rival research policy (wiki: ai-architecture § Research planner,
+## research-state, tech-tree): scoring, funding, slot filling, and the shared
+## ResearchTurn actually advancing a rival's tree.
+
+
+func _research_config(weights: Dictionary = {}) -> AiConfig:
+	var config := AiConfig.new()
+	config.faction = 3
+	config.profile = AiProfile.NORMAL
+	var merged: Dictionary = {
+		"economy": 2, "military": 2, "diplomacy": 2, "research": 2,
+	}
+	merged.merge(weights, true)
+	config.personality = {"weights": merged}
+	config.agenda_traits = {}
+	return config
+
+
+func _has_tech(candidates: Array[Dictionary], tech_id: String) -> bool:
+	for entry: Dictionary in candidates:
+		if String(entry["tech"]) == tech_id:
+			return true
+	return false
+
+
+func test_a_fresh_court_fills_every_slot_at_medium_funding() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var assignments: Array[Dictionary] = plan["assignments"]
+	assert_eq(assignments.size(), ResearchState.DEFAULT_SLOTS)
+	for entry: Dictionary in assignments:
+		assert_eq(String(entry["funding"]), "medium")
+		assert_eq(economy.research.tech_at(int(entry["slot"])), String(entry["tech"]))
+
+
+func test_occupied_research_slots_are_left_alone() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(economy.research.assign("crop_rotation", "low", 0)["ok"]))
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var assignments: Array[Dictionary] = plan["assignments"]
+	assert_eq(assignments.size(), 2)
+	for entry: Dictionary in assignments:
+		assert_true(int(entry["slot"]) != 0)
+
+
+func test_replanning_keeps_the_same_candidates() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var before: Dictionary = AiResearchPlanner.plan(config, economy)
+	var second: Dictionary = AiResearchPlanner.plan(config, economy)
+	assert_eq(before["candidates"], second["candidates"])
+	assert_eq(second["assignments"], [] as Array[Dictionary], "no empty slots left")
+
+
+func test_a_commodity_shortfall_raises_the_tech_that_caps_it() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	economy.stockpile["timber"] = 0
+	var saw: int = AiResearchPlanner.score_for(config, economy, "saw_mill", false)
+	var crop: int = AiResearchPlanner.score_for(config, economy, "crop_rotation", false)
+	assert_true(saw > crop, "timber cap beats a tech with no cap")
+
+
+func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var peace: int = AiResearchPlanner.score_for(
+		config, economy, "organised_regiments", false
+	)
+	var war: int = AiResearchPlanner.score_for(
+		config, economy, "organised_regiments", true
+	)
+	assert_eq(war - peace, config.parameter("research.war_bonus"))
+	var gathering: int = AiResearchPlanner.score_for(
+		config, economy, "crop_rotation", true
+	)
+	assert_eq(
+		gathering,
+		AiResearchPlanner.score_for(config, economy, "crop_rotation", false),
+		"war never speeds the counting house"
+	)
+
+
+func test_research_personality_weights_steer_the_branch() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
+	var trader: AiConfig = _research_config({"military": 1, "economy": 3})
+	assert_true(
+		AiResearchPlanner.score_for(soldier, economy, "organised_regiments", false)
+		> AiResearchPlanner.score_for(soldier, economy, "crop_rotation", false)
+	)
+	assert_true(
+		AiResearchPlanner.score_for(trader, economy, "crop_rotation", false)
+		> AiResearchPlanner.score_for(trader, economy, "organised_regiments", false)
+	)
+
+
+func test_techs_already_at_their_cap_are_not_candidates() -> void:
+	assert_false(
+		AiResearchPlanner._can_teach("saw_mill", {"saw_mill": true}),
+		"a cap already granted teaches nothing"
+	)
+	assert_true(AiResearchPlanner._can_teach("saw_mill", {}))
+	assert_true(AiResearchPlanner._can_teach("printing_press", {}))
+
+
+func test_discovery_techs_wait_for_an_explorer() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var plan: Dictionary = AiResearchPlanner.plan(config, economy)
+	assert_false(_has_tech(plan["candidates"], "discovery_of_sugar"))
+	economy.research.set_revealed({"sugarCane": true})
+	plan = AiResearchPlanner.plan(config, economy)
+	assert_true(_has_tech(plan["candidates"], "discovery_of_sugar"))
+
+
+func test_planned_slots_actually_research_through_the_shared_turn() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
+	var slot: int = int((plan["assignments"] as Array)[0]["slot"])
+	var tech: String = String((plan["assignments"] as Array)[0]["tech"])
+	# Plenty of gold so the other two slots never starve the one under test.
+	economy.treasury = 20000
+	var turns: int = ceili(float(TechCatalog.cost(tech)) / 300.0)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	for _turn in turns:
+		EconomyTurn.resolve(economy, market, {}, 0)
+	assert_eq(economy.research.tech_at(slot), ResearchState.EMPTY_TECH)
+	assert_true(economy.research.is_unlocked(tech), "medium funding buys the tech")
+
+
+func test_a_null_court_plans_no_research() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		AiResearchPlanner.plan(null, economy)["assignments"], [] as Array[Dictionary]
+	)
+	assert_eq(
+		AiResearchPlanner.plan(_research_config(), null)["assignments"],
+		[] as Array[Dictionary]
+	)
+
+
+func test_the_research_funding_knob_reads_the_registry() -> void:
+	assert_eq(AiResearchPlanner.funding_for(_research_config()), "medium")
+	assert_eq(AiResearchPlanner.funding_for(_research_config({"research": 3})), "high")
+	assert_eq(AiResearchPlanner.funding_for(_research_config({"research": 1})), "low")
+	assert_eq(AiParameterRegistry.default_of("research.funding_index"), 2)
+	assert_true(
+		AiParameterRegistry.validate({"research.funding_index": 5}).get("ok", false) == false
+	)

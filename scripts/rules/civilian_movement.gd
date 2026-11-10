@@ -11,15 +11,32 @@ const NEIGHBORS: Array[Vector2i] = [
 
 
 ## Tiles the unit could enter this turn (empty while working or after a move).
-static func valid_tiles(model: MapModel, unit: CivilianState) -> Array[Vector2i]:
+## `visibility` gates the destination province: a crown cannot order a march into
+## land it has never charted (wiki: fog-and-exploration § Order Visibility
+## Requirements). Without a model the gate is inert, so rules fixtures stay small.
+static func valid_tiles(
+	model: MapModel, unit: CivilianState, visibility: VisibilityModel = null
+) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	if unit == null or unit.is_working() or unit.moved:
 		return result
 	for offset: Vector2i in NEIGHBORS:
 		var tile: Vector2i = unit.tile + offset
-		if may_enter(model, unit.type_id, unit.owner, tile):
+		if may_enter(model, unit.type_id, unit.owner, tile) and _charted(visibility, model, tile):
 			result.append(tile)
 	return result
+
+
+## Move orders need a destination province the crown has glimpsed at least once.
+static func _charted(
+	visibility: VisibilityModel, model: MapModel, tile: Vector2i
+) -> bool:
+	if visibility == null:
+		return true
+	var province_id: int = model.province_at(tile.x, tile.y)
+	if province_id == MapModel.NO_ID:
+		return true
+	return visibility.is_province_known(province_id)
 
 
 static func may_enter(
@@ -39,7 +56,7 @@ static func may_enter(
 
 ## Applies a move through the rules; returns {ok, reason, from, to}.
 static func apply_move(
-	model: MapModel, unit: CivilianState, tile: Vector2i
+	model: MapModel, unit: CivilianState, tile: Vector2i, visibility: VisibilityModel = null
 ) -> Dictionary:
 	if unit == null:
 		return {"ok": false, "reason": "No civilian selected"}
@@ -53,6 +70,8 @@ static func apply_move(
 		return {"ok": false, "reason": "Civilians travel one tile per turn."}
 	if not may_enter(model, unit.type_id, unit.owner, tile):
 		return {"ok": false, "reason": _refusal(model, unit, tile)}
+	if not _charted(visibility, model, tile):
+		return {"ok": false, "reason": "That province has never been charted."}
 	var from: Vector2i = unit.tile
 	unit.tile = tile
 	unit.moved = true

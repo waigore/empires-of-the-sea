@@ -6,9 +6,11 @@ extends RefCounted
 
 static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
-	_toasts(hud)
 	_minimap(hud)
 	_zoom(hud)
+	_lens_button(hud)
+	_lens_key(hud)
+	_toasts(hud)
 	_end_turn(hud)
 	_province_panel(hud)
 	_fleet_panel(hud)
@@ -16,6 +18,7 @@ static func build(hud: GameHud) -> void:
 	_research_panel(hud)
 	DiplomacyHud.build(hud)
 	_civilian_panel(hud)
+	_civilian_roster(hud)
 	ArmyHud.build(hud)
 	_tooltip(hud)
 	_victory_plate(hud)
@@ -67,21 +70,51 @@ static func _zoom(hud: GameHud) -> void:
 	hud.add_child(box)
 	hud.zoom_box = box
 
-	var zoom_in := _square_button("+")
+	var zoom_in := _square_button("zoom_in", "Zoom in")
 	zoom_in.pressed.connect(func() -> void: hud.zoom_in_pressed.emit())
 	box.add_child(zoom_in)
 
-	var zoom_out := _square_button("−")
+	var zoom_out := _square_button("zoom_out", "Zoom out")
 	zoom_out.pressed.connect(func() -> void: hud.zoom_out_pressed.emit())
 	box.add_child(zoom_out)
 
 
-static func _square_button(text: String) -> Button:
+## Icon-only seal: the magnifier reads at a glance, the tooltip keeps it named.
+static func _square_button(icon_name: String, caption: String) -> Button:
 	var button := Button.new()
-	button.text = text
 	button.custom_minimum_size = Vector2(58, 46)
-	button.add_theme_font_size_override("font_size", 24)
+	button.tooltip_text = caption
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ChromeIcons.apply(button, icon_name, 30)
 	return button
+
+
+## The survey toggle lives beside the estates door: both are estate readings,
+## and the cartouche row is already at its measured width budget.
+static func _lens_button(hud: GameHud) -> void:
+	var button := Button.new()
+	button.toggle_mode = true
+	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	button.offset_left = 186.0
+	button.offset_top = 132.0
+	button.offset_right = 242.0
+	button.offset_bottom = 176.0
+	button.tooltip_text = "Resource survey lens (L)"
+	ChromeIcons.apply(button, "lens", 22)
+	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
+	hud.add_child(button)
+	hud._lens_button = button
+
+
+static func _lens_key(hud: GameHud) -> void:
+	hud.lens_legend = LensLegend.new()
+	hud.lens_legend.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud.lens_legend.offset_left = 18.0
+	hud.lens_legend.offset_top = 186.0
+	hud.lens_legend.offset_right = 18.0 + LensLegend.WIDTH
+	hud.lens_legend.offset_bottom = 186.0 + LensLegend.HEIGHT
+	hud.lens_legend.visible = false
+	hud.add_child(hud.lens_legend)
 
 
 static func _end_turn(hud: GameHud) -> void:
@@ -112,6 +145,7 @@ static func _end_turn(hud: GameHud) -> void:
 	hud._end_turn_button.offset_bottom = -4.0
 	hud._end_turn_button.text = "END TURN"
 	hud._end_turn_button.add_theme_font_size_override("font_size", 20)
+	ChromeIcons.apply(hud._end_turn_button, "hourglass", 24)
 	hud._end_turn_button.add_theme_color_override("font_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_hover_color", Palette.INK)
 	hud._end_turn_button.add_theme_color_override("font_pressed_color", Palette.INK)
@@ -228,6 +262,18 @@ static func _civilian_panel(hud: GameHud) -> void:
 	hud._civilian_wrap.add_child(hud._civilian_panel)
 
 
+## Whole-empire civilian roster: its own canvas layer above the pause menu, so
+## the ledger is truly modal (the menu trigger cannot bleed through the panel).
+static func _civilian_roster(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "CivilianRosterLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.civilian_roster = CivilianRosterPanel.new()
+	layer.add_child(hud.civilian_roster)
+	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
+
+
 ## Campaign-end plate: built last so it covers every dossier (wiki: victory).
 static func _victory_plate(hud: GameHud) -> void:
 	hud.victory_overlay = VictoryOverlay.new()
@@ -279,9 +325,20 @@ static func set_nation(hud: GameHud, name: String) -> void:
 	hud._nation_label.text = name.to_upper()
 
 
-## Region button caption: "OLD WORLD ›" / "NEW WORLD ›".
-static func set_region_label(hud: GameHud, label: String) -> void:
-	hud._region_button.text = "%s ›" % label.to_upper()
+## Region button caption: "OLD WORLD" / "NEW WORLD". A map with one region is
+## context, not a choice, so the seal goes inert instead of offering a no-op.
+static func set_region_label(hud: GameHud, label: String, switchable: bool = true) -> void:
+	if hud._region_label != null:
+		hud._region_label.text = label.to_upper()
+	if hud._region_button == null:
+		return
+	hud._region_button.disabled = not switchable
+	hud._region_button.focus_mode = (
+		Control.FOCUS_ALL if switchable else Control.FOCUS_NONE
+	)
+	hud._region_button.tooltip_text = (
+		"Switch region — %s" % label if switchable else "%s — only charted region" % label
+	)
 
 
 static func format(value: int) -> String:
@@ -294,3 +351,13 @@ static func format(value: int) -> String:
 		if count % 3 == 0 and i > 0:
 			out = "," + out
 	return ("-" if value < 0 else "") + out
+
+
+## Signed per-turn movement for the treasury plaque. Keeps the chip a fixed
+## width: five figures collapse to "12.4k" instead of pushing the bar.
+static func format_delta(value: int) -> String:
+	var size: int = absi(value)
+	var text: String = format(size)
+	if size >= 10000:
+		text = "%d.%dk" % [size / 1000, (size % 1000) / 100]
+	return ("+" if value >= 0 else "-") + text

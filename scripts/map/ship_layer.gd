@@ -163,17 +163,16 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 	var ship: Ship = ship_for(fleet)
 	var arrived: FleetState = fleet
 	if destination == FleetState.Location.IN_PORT:
-		var merged: FleetState = NavalMovement.merge_into_home(model, fleets, fleet)
+		var merge: Dictionary = NavalMovement.merge_into_home(model, fleets, fleet)
+		var merged: FleetState = merge.get("fleet") as FleetState
 		if merged != null:
 			arrived = merged
 			result["merged_into"] = merged.id
-			if fleet.embarked_army >= 0:
-				merged.embarked_army = fleet.embarked_army
-				result["embarked_army"] = fleet.embarked_army
-				fleet.embarked_army = -1
-			for unit_id: int in fleet.embarked_civilians:
-				merged.add_civilian(unit_id)
-			fleet.embarked_civilians.clear()
+			# The merge carries hulls and passengers; a second army cannot stay
+			# aboard, so the report names it for the layer to land at the port.
+			if merged.embarked_army >= 0:
+				result["embarked_army"] = merged.embarked_army
+			result["displaced_army"] = int(merge.get("displaced", -1))
 			if ship != null:
 				_markers.remove(ship)
 				ship = null
@@ -258,8 +257,10 @@ func expire_beachheads(turn: int) -> void:
 
 ## Resolves contested zones in every region, visible or not (wiki: map-topology
 ## § two regions). `hostile` gates each pair; without it all pairs are hostile.
+## `context` carries the campaign seed/turn and is completed with the region
+## model so interception and retreat resolve per map (DR-20261109-16).
 func resolve_battles(
-	world: WorldMap, hostile: Callable = Callable()
+	world: WorldMap, hostile: Callable = Callable(), context: Dictionary = {}
 ) -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	for index in world.region_count():
@@ -270,7 +271,12 @@ func resolve_battles(
 			region_fleets.assign(regions.value(index, []))
 		if region_fleets.is_empty():
 			continue
-		var battles: Array[Dictionary] = NavalCombat.resolve_turn(region_fleets, hostile)
+		var region_context: Dictionary = context.duplicate(true)
+		region_context["model"] = world.region(index)
+		region_context["fleets"] = region_fleets
+		var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+			region_fleets, hostile, region_context
+		)
 		if battles.is_empty():
 			continue
 		var alive: Array[FleetState] = []
@@ -287,6 +293,9 @@ func resolve_battles(
 		for battle: Dictionary in battles:
 			battle["region"] = index
 			all.append(battle)
+			if on_screen:
+				for marker: Ship in _markers.retreat(battle, region_fleets):
+					zone_entered.emit(marker.zone, marker)
 	return all
 
 

@@ -18,8 +18,9 @@ static func sortie_zone(model: MapModel, province_id: int) -> int:
 
 
 ## Re-moors a reassigned crown's in-port home squadron at its new seat. Returns
-## {"moved": [reports], "merged": n}. An inland seat changes nothing here: the
-## eviction pass then sorts the stranded squadron out of the lost port.
+## {"moved": [reports], "merged": n, "ashore": [army ids]}. An inland seat
+## changes nothing here: the eviction pass then sorts the stranded squadron out
+## of the lost port.
 static func relocate_home(
 	model: MapModel,
 	fleets: Array[FleetState],
@@ -28,10 +29,11 @@ static func relocate_home(
 	seat: int
 ) -> Dictionary:
 	var moved: Array[Dictionary] = []
+	var ashore: Array[int] = []
 	if model == null or lost == NO_ID or seat == NO_ID or lost == seat:
-		return {"moved": moved, "merged": 0}
+		return {"moved": moved, "merged": 0, "ashore": ashore}
 	if sortie_zone(model, seat) == NO_ID:
-		return {"moved": moved, "merged": 0}
+		return {"moved": moved, "merged": 0, "ashore": ashore}
 	var target: FleetState = null
 	for fleet: FleetState in fleets:
 		if fleet == null or fleet.owner != faction or not fleet.is_in_port():
@@ -54,10 +56,12 @@ static func relocate_home(
 				"fleet": fleet.id, "owner": faction, "from": lost, "to": seat,
 			})
 			continue
-		target.merge_from(fleet)
+		var displaced: int = target.merge_from(fleet)
+		if displaced >= 0:
+			ashore.append(displaced)
 		fleets.erase(fleet)
 		merged += 1
-	return {"moved": moved, "merged": merged}
+	return {"moved": moved, "merged": merged, "ashore": ashore}
 
 
 ## Sorts out every in-port squadron whose province is no longer its own. A

@@ -1,7 +1,7 @@
 # Technology and research
 
-The tech tree stores the catalog, research slots and funding; the Research phase
-turns gold into advances, and researched techs lift extraction caps.
+The tech tree stores the catalog, slots and funding; the Research phase turns
+gold into advances; techs lift extraction caps.
 **Pillars:** P2 (rules), P3 (rules/view), P4.
 
 **Wiki:** [tech-tree](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree),
@@ -11,20 +11,18 @@ turns gold into advances, and researched techs lift extraction caps.
 
 ## Implemented
 
-- **Catalog:** all 113 techs with id, name, era (cost tier), category,
-  cross-category prerequisites, extraction caps, discovery resources and notes
-  for un-simulated effects. `TechAudit.validate()` enforces unique ids, known
-  prerequisites, a DAG, reachability, cap coverage and declared exceptions.
+- **Catalog:** all 113 wiki techs with id, name, era (cost tier), category,
+  prerequisites, caps, discovery resources and notes.
+  `TechAudit.validate()` enforces unique ids, known prerequisites, a DAG,
+  reachability, cap coverage and declared exceptions.
 - **Research state:** three slots (four with University), funding per slot,
-  progress per tech, `<techUnlocked>`; "currently researching" is the progress
-  key set.
+  progress per tech, `<techUnlocked>`; research is the progress key set.
 - **Costs:** `1800 + (tier - 1) * 600`; tier 1–4 cost 1800/2400/3000/3600 RP
   — 6/8/10/12 turns at Medium.
 - **Funding:** None/Low/Medium/High/Maximum pay 0/50/150/400/1000 ducats for
-  0/100/300/800/2500 RP; cancelling a slot forfeits its progress.
+  0/100/300/800/2500 RP; cancelling forfeits progress.
 - **Research phase** runs after Production in `EconomyTurn`. A slot that cannot
-  pay its full gold earns nothing and is reported unfunded; the wiki has no
-  partial funding, so none is invented.
+  pay its gold earns nothing and is reported unfunded — no partial funding.
 - **Treasury floor:** Money Lending allows −500 during research; Banking with
   it −1000.
 - **Industrial Funding of Research:** +20% (floored) RP for military and naval
@@ -38,21 +36,24 @@ turns gold into advances, and researched techs lift extraction caps.
   and Builder orders:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`.
   Exceptions match the wiki (horses 1, wool 3).
-- **Unlocks:** `TechUnlocks` derives every build order a tech opens from the
-  canonical gate tables (regiments, hulls, civilians, workers, forts, batteries,
-  roads, general cap); the tooltip prints them and `TechAudit` rejects a gate
-  naming an unknown tech.
-- **Transport gates:** roads level 2 need Road Construction; railroads need
-  Early Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite
-  (mountains).
-- **UI:** `RESEARCH` opens the college ledger — slot rows with progress, funding
-  and cancel; AVAILABLE and KNOWN tabs with cost and effect tooltips.
+- **Unlocks:** `TechUnlocks` derives build orders from the canonical gate
+  tables (regiments, hulls, civilians, workers, forts, batteries, roads,
+  general cap); the tooltip prints them and `TechAudit` rejects unknown gates.
+- **Transport gates:** road 2 needs Road Construction; railroads need Early
+  Steam Engine (flat), Later Steam Engine (hills, swamps), Dynamite (mountains).
+- **Privateering Companies:** Patrol/Blockade interception and trade raids rise
+  25%; the fleet dossier names it.
+- **Rivals:** AI courts fill their own slots via the same `ResearchTurn`
+  (docs/ai.md; `dr-20261109-20`).
+- **UI:** `RESEARCH` opens the college ledger — slot rows with progress, a
+  funding button and cancel; AVAILABLE and KNOWN tabs with cost and effect
+  tooltips.
 
 ## Deferred (REQ-P2-02)
 
 - Goal-tech sorting, save/load of slot assignments.
-- In-place upgrade paths, privateering Patrol/Blockade bonuses and the
-  land-battle attack treasury modifiers: named in tooltips, not simulated.
+- In-place upgrades and land-battle attack treasury modifiers: named in
+  tooltips, not simulated.
 - Terrain hard caps and path transport caps.
 
 ## Architecture
@@ -76,4 +77,4 @@ Rules stay node-free (`REQ-P3-03`); the panel emits intents and
 
 `test_tech_catalog`, `test_tech_discovery`, `test_research_state`,
 `test_research_turn`, `test_research_panel`, `test_research_screen`,
-`test_improvement_system`.
+`test_improvement_system`, `test_espionage`.

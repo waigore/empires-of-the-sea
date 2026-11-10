@@ -70,6 +70,8 @@ List touched `P1`–`P5` and every applicable `RUB-*`. N/A only when outside the
 
 Branch `feat/…` or `fix/…` from up-to-date `main`. Match wiki behavior; UI/AI must not bypass rules (`REQ-P2-03`). Keep rules/simulation usable without visual nodes (`REQ-P3-03`). Platform diffs in thin adapters only. Scripts ≤400 lines / ≤25 methods; do not grow `tools/arch_size_allowlist.txt` (≤5, shrink-only) — split instead (`REQ-P3-01`).
 
+When shipping new player-facing entities or UI chrome that shows them, satisfy `REQ-P1-07` / `REQ-P1-08` via Hermes GameForge or Hermes image-gen skills (blocker if Hermes is unavailable and new icons are required).
+
 Ship the fullest coherent slice of the target that stays desktop + mobile playable in one PR — not a minimal stub when a complete concern fits.
 
 If behavior changes rules docs: update wiki in the same effort when write works; else note a **release-blocking** wiki follow-up in the PR (`REQ-P2-05`).
@@ -83,7 +85,20 @@ gd-tools test --coverage --min 80 --parallel 4
 python tools/lint_docs_words.py
 ```
 
+When new `class_name` files land, run coverage with `--no-cache`: a stale plan
+tries to instrument the new scripts, fails to reload them, and reports false
+`Nonexistent function` failures. `gd-tools coverage diff --patch` reads the
+HEAD commit, so commit the working tree before checking patch coverage.
+
 Extend `tools/e2e_smoke.gd` when the feature has a main-scene / player path the mini-flow can hit (≤2 min) — see [references/e2e-smoke.md](references/e2e-smoke.md). Fix failures before scoring; do not weaken CI gates.
+
+**Repo pitfalls** (each one cost a debugging loop):
+
+- A new `class_name` script is invisible until `godot --headless --path . --import --quit` rewrites `.godot/global_script_class_cache.cfg`; until then `gd-tools test` says "Unable to load suite script".
+- A page that mounts `MapCamera` must call `InputActions.ensure_actions()` in `_ready`, or headless suites flood with `InputMap action "pan_*" doesn't exist`.
+- A page reachable on Android must answer `NOTIFICATION_WM_GO_BACK_REQUEST` itself: the request reaches every node and the router swaps pages deferred, so an unhandled page quits the app.
+- The map is regenerated from seed on load, so anything the generator decides (capital seat, town, ports) needs an explicit `SaveWorld` per-province field or a reload silently reverts it.
+- A suite that mutates a shared generated world must snapshot and restore the province records it touches (capital, tile, ports, roads, town, resource) **and** `model.terrain` / `model.resource`; `MapFixture.snapshot` only covers owners and capitals.
 
 ### 6. Self-score
 

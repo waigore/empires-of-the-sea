@@ -1,75 +1,155 @@
 class_name AiResearchPlanner
 extends RefCounted
-## Rival research policy (wiki: research-state, tech-tree § Research Model).
+## Full-AI research policy (wiki: ai-architecture § Research planner,
+## research-state, tech-tree). Each rival court fills its own ResearchState
+## slots through the shared rules, so the player and every AI read the same
+## catalog and the same funding presets (REQ-P2-03, REQ-P3-03).
 ##
-## A rival fills its free slots with the cheapest researchable tech, funded from
-## its own treasury at a preset the court can carry. Rival exploration is not
-## simulated, so the discovery gate is treated as open: the court is assumed to
-## know the world's commodities. Pure rules: the economy is the only state and
-## the map adapter calls it before EconomyTurn resolves the Research phase
-## (REQ-P2-03, REQ-P3-03).
+## Candidates score by the personality's domain weights mapped onto tech
+## categories, by how short the court's stores are of the commodities that tech
+## caps, and by a war bonus on the military and naval branches. Earlier eras win
+## ties because they are cheaper; ids break the rest, so the same seeds always
+## produce the same plan (wiki: ai-architecture § Seeding).
+## Pure rules: state in, assignments out; the map adapter applies them.
 
-const FUNDING_HIGH: String = "high"
-const FUNDING_MEDIUM: String = "medium"
-const FUNDING_LOW: String = "low"
-## Treasury needed before a court opens a new study; research never borrows.
-const MEDIUM_FLOOR: int = 300
-const LOW_FLOOR: int = 50
+## Tech category -> personality weight domain (wiki: ai-personalities § Domain
+## weight vectors). The research weight shifts funding instead (funding_for).
+const CATEGORY_DOMAIN: Dictionary = {
+	"gathering": "economy",
+	"labour": "economy",
+	"transport": "economy",
+	"new-world": "economy",
+	"diplomatic": "diplomacy",
+	"military": "military",
+	"naval": "military",
+}
+const WAR_BRANCHES: Array[String] = ["military", "naval"]
+const SCORE_PER_WEIGHT: int = 10
 
 
-## Fills at most one free slot so a rival's research reads like the player's
-## one-decision-per-turn ledger. Returns {ok, tech, funding, reason}.
-static func plan(economy: PlayerEconomy, _config: AiConfig = null) -> Dictionary:
-	if economy == null or economy.research == null:
-		return _no("no ledger")
+## Assignments for the court's empty slots plus every scored candidate, for the
+## turn trace (wiki: turn-trace-interpretation).
+static func plan(
+	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
+) -> Dictionary:
+	var assignments: Array[Dictionary] = []
+	var candidates: Array[Dictionary] = []
+	if config == null or economy == null or economy.research == null:
+		return {"assignments": assignments, "candidates": candidates}
 	var state: ResearchState = economy.research
 	state.ensure_slots()
-	_reveal_world(state)
-	if state.free_slot() < 0:
-		return _no("no free slot")
-	var funding: String = funding_for(economy.treasury)
-	if funding.is_empty():
-		return _no("treasury too thin")
-	var tech_id: String = next_tech(state)
-	if tech_id.is_empty():
-		return _no("nothing researchable")
-	var result: Dictionary = state.assign(tech_id, funding, state.free_slot())
-	if bool(result.get("ok", false)):
-		result["tech"] = tech_id
-		result["funding"] = funding
-	return result
-
-
-## Cheapest researchable tech, ties broken by id: deterministic per court state.
-static func next_tech(state: ResearchState) -> String:
-	var best: String = ""
-	var best_cost: int = 1 << 30
-	for tech_id: String in state.researchable():
-		if state.is_active(tech_id):
+	var at_war: bool = bool(context.get("at_war", false))
+	candidates = _scored_candidates(config, economy, at_war)
+	var preset: String = funding_for(config)
+	for slot in state.slots.size():
+		if not state.tech_at(slot).is_empty():
 			continue
-		var cost: int = TechCatalog.cost(tech_id)
-		if cost < best_cost or (cost == best_cost and tech_id < best):
-			best = tech_id
-			best_cost = cost
-	return best
+		var pick: Dictionary = {}
+		for entry: Dictionary in candidates:
+			if bool(entry.get("taken", false)):
+				continue
+			var tech: String = String(entry["tech"])
+			if state.is_active(tech):
+				entry["taken"] = true
+				continue
+			var result: Dictionary = state.assign(tech, preset, slot)
+			if not bool(result.get("ok", false)):
+				entry["taken"] = true
+				continue
+			pick = {
+				"tech": tech,
+				"slot": slot,
+				"funding": preset,
+				"score": int(entry["score"]),
+			}
+			entry["taken"] = true
+			break
+		if not pick.is_empty():
+			assignments.append(pick)
+	for entry: Dictionary in candidates:
+		entry.erase("taken")
+	return {"assignments": assignments, "candidates": candidates}
 
 
-static func funding_for(treasury: int) -> String:
-	if treasury >= MEDIUM_FLOOR:
-		return FUNDING_MEDIUM
-	if treasury >= LOW_FLOOR:
-		return FUNDING_LOW
-	return ""
+## The preset a court pays each slot: `research.funding_index` shifted by the
+## personality's research weight (3 pays one step up, 1 one step down), clamped
+## to the catalogue (wiki: research-state § Funding presets; ai-personalities
+## § Domain weight vectors).
+static func funding_for(config: AiConfig) -> String:
+	var shift: int = int(config.weights().get("research", 2)) - 2
+	var index: int = clampi(
+		config.parameter("research.funding_index") + shift,
+		0, ResearchFunding.ORDER.size() - 1
+	)
+	return ResearchFunding.ORDER[index]
 
 
-## Rival courts are assumed to know every commodity: exploration is not part of
-## their planner, and the discovery gate would otherwise stall research forever.
-static func _reveal_world(state: ResearchState) -> void:
-	var revealed: Dictionary = state.revealed.duplicate()
-	for commodity: String in CommodityCatalog.all_ids():
-		revealed[commodity] = true
-	state.set_revealed(revealed)
+# --- candidate scoring -------------------------------------------------------
 
 
-static func _no(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "tech": "", "funding": ""}
+static func _scored_candidates(
+	config: AiConfig, economy: PlayerEconomy, at_war: bool
+) -> Array[Dictionary]:
+	var research: ResearchState = economy.research
+	var rows: Array[Dictionary] = []
+	for tech_id: String in research.researchable():
+		if not _can_teach(tech_id, economy.tech_unlocked):
+			continue
+		rows.append({
+			"tech": tech_id,
+			"category": TechCatalog.category(tech_id),
+			"era": TechCatalog.era(tech_id),
+			"score": score_for(config, economy, tech_id, at_war),
+		})
+	rows.sort_custom(_better)
+	return rows
+
+
+## One candidate's score: domain weight, then what the court is short of.
+static func score_for(
+	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool
+) -> int:
+	var weights: Dictionary = config.weights()
+	var category: String = TechCatalog.category(tech_id)
+	var domain: String = String(CATEGORY_DOMAIN.get(category, "research"))
+	var score: int = int(weights.get(domain, 1)) * SCORE_PER_WEIGHT
+	score += int(weights.get("research", 1))
+	score += _shortfall(config, economy, tech_id) * config.parameter("research.need_weight")
+	if at_war and WAR_BRANCHES.has(category):
+		score += config.parameter("research.war_bonus")
+	return score
+
+
+## Total store shortfall across the commodities this tech lifts the cap on,
+## capped so one deep deficit does not drown every other signal.
+static func _shortfall(
+	config: AiConfig, economy: PlayerEconomy, tech_id: String
+) -> int:
+	var target: int = config.parameter("economy.reserve_target")
+	var total: int = 0
+	var caps: Dictionary = TechCatalog.caps_of(tech_id)
+	for raw: Variant in caps.keys():
+		var commodity: String = String(raw)
+		total += maxi(target - economy.quantity(commodity), 0)
+	return mini(total, 10)
+
+
+## True when at least one commodity the tech caps is still below that ceiling
+## for this court; techs with no caps (gates, slots, unlocks) always teach.
+static func _can_teach(tech_id: String, unlocked: Dictionary) -> bool:
+	var caps: Dictionary = TechCatalog.caps_of(tech_id)
+	if caps.is_empty():
+		return true
+	for raw: Variant in caps.keys():
+		var commodity: String = String(raw)
+		if TechCatalog.cap_for(commodity, unlocked) < int(caps[raw]):
+			return true
+	return false
+
+
+static func _better(a: Dictionary, b: Dictionary) -> bool:
+	if int(a["score"]) != int(b["score"]):
+		return int(a["score"]) > int(b["score"])
+	if int(a["era"]) != int(b["era"]):
+		return int(a["era"]) < int(b["era"])
+	return String(a["tech"]) < String(b["tech"])

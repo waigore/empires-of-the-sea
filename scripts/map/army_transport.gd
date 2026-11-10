@@ -74,9 +74,10 @@ static func move_to_region(layer: ArmyLayer, army_id: int, to_region: int) -> vo
 	layer.regions.set_region(to_region, destination)
 
 
-## A sunken squadron takes its embarked army with it. Called after naval combat
-## with the ids of every fleet still afloat.
-static func drop_lost(layer: ArmyLayer, live_fleets: Dictionary) -> Array[ArmyState]:
+## A sunken squadron takes its embarked army with it. `seats` maps every carried
+## army to the live squadron that lists it (`FleetRosters.carried_armies`), so a
+## seat renumbered by a passage or by a home-fleet merge is repaired here.
+static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 	var lost: Array[ArmyState] = []
 	for index in layer.regions.region_ids():
 		var members: Array[ArmyState] = roster(layer, index)
@@ -85,7 +86,8 @@ static func drop_lost(layer: ArmyLayer, live_fleets: Dictionary) -> Array[ArmySt
 			var army: ArmyState = members[cursor]
 			if army == null or not army.is_embarked():
 				continue
-			if live_fleets.has(army.embarked_fleet):
+			if seats.has(army.id):
+				army.embarked_fleet = int(seats[army.id])
 				continue
 			lost.append(army)
 			members.remove_at(cursor)
@@ -96,6 +98,24 @@ static func drop_lost(layer: ArmyLayer, live_fleets: Dictionary) -> Array[ArmySt
 				layer.armies = members
 				layer.prune_markers()
 	return lost
+
+
+## Puts a surplus army ashore when two squadrons merge and only one can stay
+## aboard (wiki: ships-and-naval § Naval transport — a squadron lands its army
+## on its port province). The port is the crown's own, so no beachhead is
+## needed; the landing spends the army's march.
+static func put_ashore(layer: ArmyLayer, army_id: int, province_id: int) -> Dictionary:
+	var army: ArmyState = army_by_id(layer, army_id)
+	if army == null:
+		return {"ok": false, "reason": "No army to land."}
+	if layer.model == null or layer.model.province_owner(province_id) != army.owner:
+		return {"ok": false, "reason": "That port is not ours."}
+	army.province = province_id
+	army.embarked_fleet = -1
+	army.moved = true
+	if layer.armies.has(army):
+		layer.add_marker(army)
+	return {"ok": true, "reason": "", "army": army}
 
 
 static func region_of(layer: ArmyLayer, army: ArmyState) -> int:

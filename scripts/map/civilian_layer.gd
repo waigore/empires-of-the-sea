@@ -6,6 +6,9 @@ extends Node2D
 
 signal unit_selected(unit: CivilianState)
 signal unit_moved(unit: CivilianState, result: Dictionary)
+## Development on the map changed (a work completed, was assigned or cancelled);
+## flat views such as the survey lens refresh from this.
+signal works_changed
 
 const TILE_SIZE: float = 22.0
 const MARKER_RADIUS: float = 26.0
@@ -144,8 +147,10 @@ func deselect() -> void:
 
 
 ## Applies a land order through the rules, then animates the medallion.
-func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
-	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile)
+func apply_move(
+	unit: CivilianState, tile: Vector2i, visibility: VisibilityModel = null
+) -> Dictionary:
+	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile, visibility)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: CivilianMarker = marker_for(unit)
@@ -206,6 +211,7 @@ func sync() -> void:
 
 func refresh_works() -> void:
 	queue_redraw()
+	works_changed.emit()
 
 
 func set_zoom(value: float) -> void:

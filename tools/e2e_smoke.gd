@@ -55,6 +55,24 @@ func _run() -> void:
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
+	# Capital-choice phase: the chart is generated on the next idle frame, then
+	# the crown's seat is confirmed (wiki: capital-choice-phase § Player choice).
+	var chart: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	_check(chart != null, "new game opens the capital chart")
+	if chart == null:
+		_finish()
+		return
+	var waited: int = 0
+	while chart.model == null and waited < 120:
+		await process_frame
+		waited += 1
+	_check(chart.model != null, "the capital chart is generated")
+	_check(chart.selected_province >= 0, "the crown's recommended seat is marked")
+	var seat: int = chart.selected_province
+	var seat_tile: Vector2i = chart.selected_tile
+	chart.confirm_button.emit_signal("pressed")
+	await process_frame
+
 	var screen: MapScreen = main.current_screen
 	_check(screen != null, "main hosts MapScreen")
 	if screen == null:
@@ -64,6 +82,8 @@ func _run() -> void:
 
 	_check(screen.model != null, "map model built")
 	_check(screen.model.province_count() > 0, "provinces generated")
+	_check(screen.capital_province == seat, "the chart's seat starts the campaign")
+	_check(screen.capital_tile == seat_tile, "the chart's tile is the seat")
 	_check(screen.ship_layer != null, "ship layer present")
 	_check(
 		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
@@ -163,6 +183,19 @@ func _run() -> void:
 	_check(screen.hud.panels.is_diplomacy_open(), "court ledger opens")
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	_check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
+	screen.hud.panels.diplomacy_panel.select_faction(1)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
+		"the court answers a declaration in its own voice"
+	)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "DOSSIER"),
+		"the court carries its intelligence reading"
+	)
+	_check(
+		_has_text(screen.hud.panels.diplomacy_panel._detail, "Holds "),
+		"the dossier counts the court's public behaviour"
+	)
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
 	_check(not screen.play.diplomacy.relation(0, 1).at_war, "peace order applies")
 	DiplomacyHud.hide(screen.hud.panels)
@@ -357,6 +390,17 @@ func _smoke_navy(screen: MapScreen) -> void:
 	await process_frame
 	_check(screen.ship_layer.selected() == ship, "fleet selection sticks")
 	_check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens")
+	_check(
+		MapPlayFleetMissions.rows(screen.play, fleet).size() > 0,
+		"fleet dossier offers a station"
+	)
+	MapPlayFleets.on_action(screen.play, "mission:patrol")
+	_check(
+		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
+		"patrol station applies and spends the move"
+	)
+	# Give the move back so the smoke also proves the sail path.
+	fleet.moved = false
 	var zones: Array = NavalMovement.destination_zones(screen.model, fleet)
 	_check(not zones.is_empty(), "fleet has a sail destination")
 	if zones.is_empty():
@@ -365,6 +409,7 @@ func _smoke_navy(screen: MapScreen) -> void:
 	var tile: Vector2i = screen.model.sea_zones[zone].tiles[0]
 	_check(MapPlayFleets.try_order(screen.play, tile), "fleet sails")
 	_check(fleet.sea_zone == zone and fleet.moved, "fleet spends its move")
+	_check(fleet.mission == FleetState.Mission.NONE, "sailing clears the station")
 
 
 ## Army training is live: the recruit order musters a regiment into the Home
@@ -416,6 +461,7 @@ func _smoke_end_turn(
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
+	_check(_rival_research_started(screen), "rivals filled their research slots")
 	_check(screen.economy != null, "economy wired")
 	_check(
 		screen.treasury == screen.economy.economy.treasury,
@@ -635,6 +681,33 @@ func _owned_roadable_tile(screen: MapScreen, avoid: Array[Vector2i]) -> Vector2i
 func _options_has(options: Array[Dictionary], action: String) -> bool:
 	for option: Dictionary in options:
 		if String(option.get("action", "")) == action:
+			return true
+	return false
+
+
+## True when at least one rival court put a tech into a research slot, proving
+## the economy adapter wired AiResearchPlanner (DR-20261109-20).
+func _rival_research_started(screen: MapScreen) -> bool:
+	if screen.play.ai == null:
+		return false
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == screen.play.player_faction:
+			continue
+		var rival: PlayerEconomy = screen.play.ai.economy_for(faction)
+		for slot in rival.research.slots.size():
+			if not rival.research.tech_at(slot).is_empty():
+				return true
+	return false
+
+
+## Recursive label text search: the smoke reads what the player would read.
+func _has_text(node: Node, needle: String) -> bool:
+	if node is Label and String((node as Label).text).contains(needle):
+		return true
+	if node is Button and String((node as Button).text).contains(needle):
+		return true
+	for child: Node in node.get_children():
+		if _has_text(child, needle):
 			return true
 	return false
 

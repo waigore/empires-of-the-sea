@@ -13,9 +13,14 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [requirements.md](requirements.md) | Pillars P1–P5 (`REQ-*`) |
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
+| [capital-choice.md](capital-choice.md) | Seating the court before turn 1: rules, chart, persistence |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
+| [dialogue.md](dialogue.md) | Court voice: dialogue points, envoy moods, proposal banners |
+| [intel-dossier.md](intel-dossier.md) | Court dossier: agenda suspicion, evidence, bands |
 | [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
+| [ai-observer.md](ai-observer.md) | Full-AI observer: live dashboard, metrics, headless export |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
+| [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
@@ -24,6 +29,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
+| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, removed controls, geometry |
 | [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |
 
 ## Process

@@ -53,7 +53,11 @@ func _draw() -> void:
 		"engineer":
 			_draw_bridge(ink, crown)
 		"spy":
-			_draw_dagger(ink, crown)
+			_draw_mask(ink, crown)
+		"merchant":
+			_draw_scales(ink, crown)
+		"rail_builder":
+			_draw_train(ink, crown)
 		_:
 			draw_circle(Vector2.ZERO, 2.8, crown)
 
@@ -98,11 +102,35 @@ func _draw_bridge(ink: Color, crown: Color) -> void:
 	draw_line(Vector2(-5.6, 3.0), Vector2(5.6, 3.0), ink, 1.4, true)
 
 
-## A dagger laid across the medallion: the spy's trade, not a crown's banner.
-func _draw_dagger(ink: Color, crown: Color) -> void:
-	draw_line(Vector2(-4.6, 4.8), Vector2(3.8, -4.0), crown, 2.4, true)
-	draw_line(Vector2(-5.4, 2.4), Vector2(-2.4, 5.4), ink, 1.8, true)
+func _draw_mask(ink: Color, crown: Color) -> void:
 	draw_colored_polygon(
-		PackedVector2Array([Vector2(3.4, -4.6), Vector2(5.8, -5.8), Vector2(4.6, -3.4)]),
+		PackedVector2Array([
+			Vector2(-6.2, -2.2), Vector2(-1.2, -3.4), Vector2(0, 0.8), Vector2(-4.4, 2.6)
+		]),
 		ink
 	)
+	draw_colored_polygon(
+		PackedVector2Array([
+			Vector2(6.2, -2.2), Vector2(1.2, -3.4), Vector2(0, 0.8), Vector2(4.4, 2.6)
+		]),
+		ink
+	)
+	draw_circle(Vector2(0, -1.0), 1.1, crown)
+
+
+func _draw_scales(ink: Color, crown: Color) -> void:
+	draw_line(Vector2(0, -6.0), Vector2(0, 4.4), ink, 1.5, true)
+	draw_line(Vector2(-5.4, -4.2), Vector2(5.4, -4.2), crown, 1.8, true)
+	for side: float in [-1.0, 1.0]:
+		draw_line(Vector2(side * 5.4, -4.2), Vector2(side * 3.8, 0.2), ink, 1.1, true)
+		draw_arc(Vector2(side * 3.8, 0.6), 1.9, 0, PI, 10, crown, 1.5, true)
+	draw_line(Vector2(-3.0, 6.0), Vector2(3.0, 6.0), ink, 1.6, true)
+
+
+func _draw_train(ink: Color, crown: Color) -> void:
+	draw_rect(Rect2(Vector2(-5.2, -3.4), Vector2(7.8, 5.0)), crown)
+	draw_rect(Rect2(Vector2(-5.2, -3.4), Vector2(7.8, 5.0)), ink, false, 1.2)
+	draw_rect(Rect2(Vector2(0.2, -6.2), Vector2(1.8, 2.8)), ink)
+	draw_line(Vector2(-6.0, 3.2), Vector2(6.0, 3.2), ink, 1.3, true)
+	draw_circle(Vector2(-3.0, 1.6), 1.35, ink)
+	draw_circle(Vector2(1.6, 1.6), 1.35, ink)

@@ -30,10 +30,14 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	var box: VBoxContainer = MenuFrame.column(self, 540.0)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_child(MenuFrame.crest(64))
-	box.add_child(MenuFrame.title("NEW GAME", 34))
+	var short: bool = MenuFrame.is_short(self)
+	var actions: HBoxContainer = _build_actions()
+	var box: VBoxContainer = MenuFrame.page(self, 540.0, actions)
+	if short:
+		box.add_theme_constant_override("separation", 8)
+	else:
+		box.add_child(MenuFrame.crest(64))
+	box.add_child(MenuFrame.title("NEW GAME", 28 if short else 34))
 	box.add_child(MenuFrame.subtitle(
 		"Choose a crown and chart a world. The same seed always returns the same seas."
 	))
@@ -103,9 +107,16 @@ func _build() -> void:
 	_error.visible = false
 	box.add_child(_error)
 
+
+## Action row lives outside the scroll (MenuFrame.page): SET SAIL stays on
+## screen at every window height, including a phone held landscape.
+func _build_actions() -> HBoxContainer:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
-	box.add_child(actions)
+	actions.custom_minimum_size.x = minf(
+		540.0, maxf(get_viewport_rect().size.x - 32.0, 240.0)
+	)
+	actions.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	back_button = MenuFrame.small_button("BACK", 140.0)
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
 	actions.add_child(back_button)
@@ -116,6 +127,7 @@ func _build() -> void:
 	start_button.custom_minimum_size = Vector2(220.0, MenuFrame.BUTTON_HEIGHT)
 	start_button.pressed.connect(_on_start)
 	actions.add_child(start_button)
+	return actions
 
 
 ## Leader choices follow the crown: Spain fields Isabella, France Napoleon.

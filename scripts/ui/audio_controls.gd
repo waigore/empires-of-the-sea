@@ -40,6 +40,8 @@ func _build_trigger() -> void:
 	_trigger.position = Vector2.ZERO
 	_trigger.size = Vector2(TRIGGER_SIZE, TRIGGER_SIZE)
 	_trigger.tooltip_text = "Sound"
+	_trigger.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ChromeIcons.apply(_trigger, "bell", 26)
 	_trigger.add_theme_stylebox_override(
 		"normal",
 		UiTheme.box(Color(0.09, 0.07, 0.05, 0.94), Palette.GOLD_DIM, 1, 4, Vector4(4, 4, 4, 4))
@@ -54,11 +56,6 @@ func _build_trigger() -> void:
 	)
 	_trigger.pressed.connect(_on_trigger_pressed)
 	add_child(_trigger)
-
-	var bell := Icon.new("bell", 24, Palette.GOLD_PALE)
-	bell.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
-	bell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_trigger.add_child(bell)
 
 
 func _build_panel() -> void:

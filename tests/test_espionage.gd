@@ -324,25 +324,34 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	assert_eq(String(war_order["type_id"]), "spy", "a war court wants a screen first")
 
 
-func test_ai_research_planner_opens_and_finishes_a_study() -> void:
+func test_ai_research_planner_opens_a_study() -> void:
 	var economy := PlayerEconomy.starting()
-	var plan: Dictionary = AiResearchPlanner.plan(economy, AiConfig.build(RIVAL, 1500))
-	assert_true(bool(plan.get("ok", false)))
-	assert_eq(String(plan["funding"]), AiResearchPlanner.FUNDING_MEDIUM)
-	var tech: String = String(plan["tech"])
+	var plan: Dictionary = AiResearchPlanner.plan(
+		AiConfig.build(RIVAL, 1500), economy, {}
+	)
+	var assignments: Array = plan["assignments"]
+	assert_false(assignments.is_empty(), "the planner fills a free slot")
+	var tech: String = String(assignments[0]["tech"])
 	assert_false(tech.is_empty())
-	for _turn in 6:
-		ResearchTurn.resolve(economy.research, economy)
-	assert_true(economy.research.is_unlocked(tech), "six medium turns meet an era-1 cost")
+	assert_true(ResearchFunding.known(String(assignments[0]["funding"])))
+	var before: int = economy.research.progress_of(tech)
+	ResearchTurn.resolve(economy.research, economy)
+	assert_true(
+		economy.research.progress_of(tech) > before
+		or economy.research.is_unlocked(tech),
+		"the Research phase advances the assigned study"
+	)
 
 
 func test_ai_research_is_deterministic() -> void:
 	var first := PlayerEconomy.starting()
 	var second := PlayerEconomy.starting()
 	var config: AiConfig = AiConfig.build(RIVAL, 1500)
+	var left: Dictionary = AiResearchPlanner.plan(config, first, {})
+	var right: Dictionary = AiResearchPlanner.plan(config, second, {})
 	assert_eq(
-		String(AiResearchPlanner.plan(first, config)["tech"]),
-		String(AiResearchPlanner.plan(second, config)["tech"])
+		String(left["assignments"][0]["tech"]),
+		String(right["assignments"][0]["tech"])
 	)
 
 
