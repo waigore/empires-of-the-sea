@@ -33,15 +33,16 @@ static func hidden_from(unit: CivilianState, viewer: int) -> bool:
 	return unit.type_id == TYPE
 
 
-## A spy standing on land its own crown does not hold, with no province means
-## no counter-espionage and no court to report on.
+## A spy standing on land its own crown does not hold, with no château means no
+## counter-espionage and no court to report on. The tile owner is the host, so a
+## deed sold to a rival counts as that rival's land (SpyNetworks reads the same).
 static func is_foreign(model: MapModel, unit: CivilianState) -> bool:
 	if model == null or not is_spy(unit) or unit.is_embarked():
 		return false
-	var province: int = model.province_at(unit.tile.x, unit.tile.y)
-	if province == MapModel.NO_ID:
+	var host: int = model.owner_at(unit.tile.x, unit.tile.y)
+	if host == MapModel.NO_ID:
 		return false
-	return model.province_owner(province) != unit.owner
+	return host != unit.owner
 
 
 ## One spy on counter_spy anywhere grants the empire-wide screen.
@@ -55,64 +56,8 @@ static func has_counter_spy(units: Array, owner: int) -> bool:
 	return false
 
 
-## Provinces where this owner keeps a spy and does not hold the land.
-static func presence_provinces(
-	model: MapModel, units: Array, owner: int
-) -> Array[int]:
-	var result: Array[int] = []
-	for raw: Variant in units:
-		var unit: CivilianState = raw as CivilianState
-		if unit == null or unit.owner != owner or not is_foreign(model, unit):
-			continue
-		var province: int = model.province_at(unit.tile.x, unit.tile.y)
-		if not result.has(province):
-			result.append(province)
-	result.sort()
-	return result
-
-
-## Rival Great Powers where this owner keeps a spy: the court-report and RP
-## boost observers (wiki: civilian-units § Spy (2), (5)).
-static func qualifying_rivals(
-	model: MapModel, units: Array, owner: int
-) -> Array[int]:
-	var result: Array[int] = []
-	for raw: Variant in units:
-		var unit: CivilianState = raw as CivilianState
-		if unit == null or unit.owner != owner or not is_foreign(model, unit):
-			continue
-		var province: int = model.province_at(unit.tile.x, unit.tile.y)
-		var rival: int = model.province_owner(province)
-		if rival == owner or FactionCatalog.type_of(rival) != FactionCatalog.Type.GREAT_POWER:
-			continue
-		if not result.has(rival):
-			result.append(rival)
-	result.sort()
-	return result
-
-
-## Tech id -> additive RP percentage. Each qualifying rival that already knows
-## the tech adds RP_BOOST_PCT (wiki: research-state § Spy RP boost).
-static func research_bonus(
-	tech_ids: Array, rival_techs: Dictionary, qualifying: Array[int]
-) -> Dictionary:
-	var bonus: Dictionary = {}
-	for raw: Variant in tech_ids:
-		var tech_id: String = String(raw)
-		if tech_id.is_empty():
-			continue
-		var count: int = 0
-		for rival: int in qualifying:
-			var known: Dictionary = rival_techs.get(rival, {})
-			if bool(known.get(tech_id, false)):
-				count += 1
-		if count > 0:
-			bonus[tech_id] = RP_BOOST_PCT * count
-	return bonus
-
-
 ## Pre-Research spy resolution. Mutates the roster: killed spies are removed,
-## defected spies change owner to the province owner. Returns one event per
+## defected spies change owner to the tile owner. Returns one event per
 ## consequence: {kind: "killed"|"defected", unit, owner, province,
 ## territory_owner}. Dice are seeded per spy so a saved turn replays exactly.
 static func resolve_turn(
@@ -131,7 +76,7 @@ static func resolve_turn(
 			index += 1
 			continue
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
-		var territory_owner: int = model.province_owner(province)
+		var territory_owner: int = model.owner_at(unit.tile.x, unit.tile.y)
 		if not screened.has(territory_owner):
 			index += 1
 			continue
@@ -163,17 +108,15 @@ static func resolve_turn(
 	return events
 
 
-## Owners whose provinces hold a counter-spy screen this turn.
+## Owners whose land holds a counter-spy screen this turn.
 static func _screened_owners(model: MapModel, units: Array) -> Dictionary:
 	var screened: Dictionary = {}
 	for raw: Variant in units:
 		var unit: CivilianState = raw as CivilianState
 		if unit == null or not unit.is_working() or unit.work_action() != WORK_COUNTER:
 			continue
-		var province: int = model.province_at(unit.tile.x, unit.tile.y)
-		if province == MapModel.NO_ID:
-			continue
-		if model.province_owner(province) == unit.owner:
+		var host: int = model.owner_at(unit.tile.x, unit.tile.y)
+		if host != MapModel.NO_ID and host == unit.owner:
 			screened[unit.owner] = true
 	return screened
 

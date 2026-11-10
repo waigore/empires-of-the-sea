@@ -21,9 +21,10 @@ var _hud: GameHud = null
 var works_by_region: MapRegionTable = null
 ## Consumption report of the last resolved turn, for feeding coverage.
 var _last_consumption: Dictionary = {}
-## Tech id -> spy-network RP percentage prepared for this turn's Research phase
-## (wiki: research-state § Spy RP boost). Cleared after resolution.
-var research_bonus: Dictionary = {}
+## Tech id -> percent the crown's spy network adds this Research phase, set by
+## the turn helper before resolution (wiki: civilian-units § Spy;
+## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
+var research_boost: Dictionary = {}
 
 
 func setup(
@@ -144,7 +145,9 @@ func extraction() -> Dictionary:
 
 
 func projected() -> Dictionary:
-	return EconomyTurn.project(economy, market, extraction(), fleet_ships(), army_food())
+	return EconomyTurn.project(
+		economy, market, extraction(), fleet_ships(), army_food(), research_boost
+	)
 
 
 func projected_income() -> int:
@@ -156,9 +159,10 @@ func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships(), army_food(), true, research_bonus
+		economy, market, extraction(), fleet_ships(), army_food(), true,
+		research_boost
 	)
-	research_bonus = {}
+	research_boost = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	if _armies != null:
@@ -211,6 +215,13 @@ func summary_line(report: Dictionary) -> String:
 	if not unpaid.is_empty():
 		var plural: String = "" if unpaid.size() == 1 else "s"
 		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
+	var lifted: Array = research.get("boosted", [])
+	if not lifted.is_empty():
+		parts.append(
+			"%d stud%s quickened by the spy network" % [
+				lifted.size(), "y" if lifted.size() == 1 else "ies"
+			]
+		)
 	if parts.is_empty():
 		return "The ledgers balance — nothing moved this turn."
 	return "  ·  ".join(parts)
@@ -223,14 +234,14 @@ func open_panel() -> void:
 
 func open_research() -> void:
 	if _hud != null:
-		_hud.panels.show_research(economy.research, economy.treasury)
+		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
 
 
 func _refresh_research_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_research_open():
-		_hud.panels.show_research(economy.research, economy.treasury)
+		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
 
 
 func _on_research_assign(tech_id: String) -> void:

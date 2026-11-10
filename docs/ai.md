@@ -52,8 +52,8 @@ P5 unbookkept rivals.
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): rival reading — evidence,
-  banded suspicion per agenda, best guess and counts
+- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
+  evidence, banded suspicion per agenda, best guess and behaviour counts
   ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)

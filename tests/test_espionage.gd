@@ -49,10 +49,9 @@ func test_presence_holds_a_charted_province_for_its_owner_only() -> void:
 	assert_eq(CivilianMovement.held_provinces(model, [spy], PLAYER), [RIVAL])
 	assert_eq(CivilianMovement.held_provinces(model, [spy], RIVAL), [])
 	assert_eq(
-		SpyRules.presence_provinces(model, [spy], PLAYER), [RIVAL],
-		"a spy in a non-owner province observes it"
+		SpyNetworks.qualifying_rivals(model, [spy], PLAYER), [RIVAL],
+		"a spy on a rival court's land shadows that court"
 	)
-	assert_eq(SpyRules.qualifying_rivals(model, [spy], PLAYER), [RIVAL])
 
 
 func test_a_spy_in_its_own_land_observes_nothing() -> void:
@@ -60,8 +59,7 @@ func test_a_spy_in_its_own_land_observes_nothing() -> void:
 	var spy: CivilianState = CivilianState.create(
 		1, PLAYER, "spy", CivilianFixture.BARE_TILE
 	)
-	assert_eq(SpyRules.presence_provinces(model, [spy], PLAYER), [])
-	assert_eq(SpyRules.qualifying_rivals(model, [spy], PLAYER), [])
+	assert_eq(SpyNetworks.qualifying_rivals(model, [spy], PLAYER), [])
 
 
 # --- counter-espionage -------------------------------------------------------
@@ -104,17 +102,16 @@ func test_counter_spy_is_an_ongoing_owned_order() -> void:
 
 
 func test_research_bonus_stacks_per_observed_rival() -> void:
-	var bonus: Dictionary = SpyRules.research_bonus(
-		["crop_rotation", "saw_mill"],
-		{RIVAL: {"crop_rotation": true}, 2: {"crop_rotation": true, "saw_mill": true}},
-		[RIVAL, 2]
+	var bonus: Dictionary = SpyNetworks.research_boost(
+		[RIVAL, 2],
+		{RIVAL: {"crop_rotation": true}, 2: {"crop_rotation": true, "saw_mill": true}}
 	)
 	assert_eq(int(bonus.get("crop_rotation", 0)), 30, "two rivals, two +15%")
 	assert_eq(int(bonus.get("saw_mill", 0)), 15)
-	var none: Dictionary = SpyRules.research_bonus(
-		["crop_rotation"], {RIVAL: {"saw_mill": true}}, [RIVAL]
+	var none: Dictionary = SpyNetworks.research_boost(
+		[RIVAL], {RIVAL: {"saw_mill": true}}
 	)
-	assert_true(none.is_empty(), "a tech the rival lacks earns nothing")
+	assert_eq(int(none.get("crop_rotation", 0)), 0, "a tech the rival lacks earns nothing")
 
 
 func test_research_turn_applies_the_spy_bonus() -> void:
@@ -139,9 +136,10 @@ func test_map_phase_prepares_the_player_spy_bonus() -> void:
 	controller.economy.research.slots[0] = {"tech": "crop_rotation", "funding": "medium"}
 	var rival_economy: PlayerEconomy = play.ai.economy_for(RIVAL)
 	rival_economy.research.unlocked["crop_rotation"] = true
-	var bonus: Dictionary = MapPlaySpies.prepare_player_research(play)
+	var bonus: Dictionary = MapPlayEspionage.research_boost(play)
 	assert_eq(int(bonus.get("crop_rotation", 0)), 15)
-	assert_eq(int(controller.research_bonus.get("crop_rotation", 0)), 15)
+	controller.research_boost = bonus
+	assert_eq(int(controller.research_boost.get("crop_rotation", 0)), 15)
 	play.hud.free()
 	controller.free()
 

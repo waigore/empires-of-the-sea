@@ -26,15 +26,10 @@ static func research_bonus(
 	var qualifying: Array[int] = qualifying_rivals(play, faction)
 	if qualifying.is_empty():
 		return {}
-	var techs: Array[String] = []
-	for slot: Dictionary in economy.research.slots:
-		var tech_id: String = String(slot.get("tech", ""))
-		if not tech_id.is_empty():
-			techs.append(tech_id)
 	var rival_techs: Dictionary = {}
 	for rival: int in qualifying:
 		rival_techs[rival] = _techs_of(play, rival)
-	return SpyRules.research_bonus(techs, rival_techs, qualifying)
+	return SpyNetworks.research_boost(qualifying, rival_techs)
 
 
 ## Rival Great Powers observed by this court's spies in any region.
@@ -46,15 +41,22 @@ static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[CivilianState] = []
-		roster.assign(play.civilian_layer.regions.value(region, []))
-		if play.model != null and region == play.model.region_id:
-			roster = play.civilian_layer.units
-		for rival: int in SpyRules.qualifying_rivals(model, roster, faction):
+		for rival: int in SpyNetworks.qualifying_rivals(
+			model, _roster(play, region), faction
+		):
 			if not result.has(rival):
 				result.append(rival)
 	result.sort()
 	return result
+
+
+## Live roster for the shown region, stored table for the other.
+static func _roster(play: PlaySession, region: int) -> Array[CivilianState]:
+	if play.model != null and region == play.model.region_id:
+		return play.civilian_layer.units
+	var units: Array[CivilianState] = []
+	units.assign(play.civilian_layer.regions.value(region, []))
+	return units
 
 
 ## The human court's research lives on the economy controller, not in the rival

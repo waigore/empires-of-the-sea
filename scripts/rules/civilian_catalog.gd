@@ -4,8 +4,8 @@ extends RefCounted
 ## § Civilian Types and Roles). Pure catalog: training validation, the civilian
 ## panel and tests read this one table (REQ-P3-03).
 ##
-## All six wiki types are playable; Spy carries the counter-espionage work order
-## and its presence rules live in SpyRules.
+## All six wiki types are playable; the Spy's passive verbs are presence and
+## research theft, with counter-espionage as its ongoing work order (SpyRules).
 
 const ORDER: Array[String] = [
 	"explorer",

@@ -644,6 +644,21 @@ func test_idle_units_produce_no_reports() -> void:
 ## Nation or Tribe province, with an embassy, no war and a prospected mineral.
 
 
+func test_a_spy_walks_into_a_rival_great_powers_land_unchallenged() -> void:
+	# Stealth: no war, no declaration, and no order needed to earn its keep
+	# (wiki: civilian-units § Spy; DR-20261110-03).
+	var spy := Fixture.unit("spy", Vector2i(2, 1))
+	var moved: Dictionary = CivilianMovement.apply_move(
+		_model, spy, Vector2i(3, 1), _view
+	)
+	assert_true(bool(moved["ok"]), String(moved.get("reason", "")))
+	assert_eq(spy.tile, Vector2i(3, 1))
+	assert_false(
+		CivilianMovement.may_enter(_model, "builder", 0, Vector2i(3, 1)),
+		"a builder needs crown land"
+	)
+
+
 func test_merchant_may_enter_foreign_land_but_a_builder_may_not() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var merchant := Fixture.unit("merchant", Vector2i(1, 1))

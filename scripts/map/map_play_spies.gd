@@ -1,10 +1,10 @@
 class_name MapPlaySpies
 extends RefCounted
-## Spy resolution, research intelligence and court reports on the map screen
-## (wiki: civilian-units § Spy, research-state § Spy RP boost, diplomacy
-## § Spy-death penalty). Rules live in SpyRules; this adapter applies the
-## consequences to the shared session and reports only what the human court
-## could know (REQ-P3-02).
+## Spy resolution, counter-espionage and court reports on the map screen
+## (wiki: civilian-units § Spy, diplomacy § Spy-death penalty). Presence and
+## research theft live in SpyNetworks; this adapter applies the consequences to
+## the shared session and reports only what the human court could know
+## (REQ-P3-02).
 
 
 ## Pre-Research pass: counter-espionage kills and defections in every region.
@@ -48,29 +48,6 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	return events
 
 
-## Tech id -> additive spy RP percentage for the human court this turn. Set on
-## the economy controller just before its Research phase resolves.
-static func prepare_player_research(play: PlaySession) -> Dictionary:
-	if play == null or play.economy == null or play.economy.economy == null:
-		return {}
-	var qualifying: Array[int] = qualifying_rivals(play, play.player_faction)
-	if qualifying.is_empty():
-		play.economy.research_bonus = {}
-		return {}
-	var techs: Array[String] = []
-	for slot: Dictionary in play.economy.economy.research.slots:
-		var tech_id: String = String(slot.get("tech", ""))
-		if not tech_id.is_empty():
-			techs.append(tech_id)
-	var rival_techs: Dictionary = {}
-	for rival: int in qualifying:
-		if play.ai != null:
-			rival_techs[rival] = play.ai.economy_for(rival).research.unlocked
-	var bonus: Dictionary = SpyRules.research_bonus(techs, rival_techs, qualifying)
-	play.economy.research_bonus = bonus
-	return bonus
-
-
 ## Rival Great Powers observed by this court's spies in any region.
 static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 	var result: Array[int] = []
@@ -80,7 +57,9 @@ static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		for rival: int in SpyRules.qualifying_rivals(model, _roster(play, region), faction):
+		for rival: int in SpyNetworks.qualifying_rivals(
+			model, _roster(play, region), faction
+		):
 			if not result.has(rival):
 				result.append(rival)
 	result.sort()
