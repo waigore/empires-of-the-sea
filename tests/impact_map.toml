@@ -5,6 +5,7 @@
 [domains.ai]
 suites = [
   "test_ai_builder_work.gd",
+  "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
   "test_ai_diplomacy_offers.gd",
   "test_ai_invasion.gd",
@@ -44,6 +45,7 @@ suites = [
   "test_capital_choice.gd",
   "test_capital_loss.gd",
   "test_capital_seat_screen.gd",
+  "test_deed_protection.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -71,6 +73,18 @@ suites = [
   "test_intel_dossier.gd",
 ]
 
+[domains.intel]
+# Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
+# court's acts and the spy despatch that feeds them. Kept apart from the broad
+# diplomacy/espionage domains so a dossier change stays inside tier 1's budget.
+suites = [
+  "test_intel_dossier.gd",
+  "test_espionage.gd",
+  "test_court_reports.gd",
+  "test_court_dossier_screen.gd",
+  "test_diplomacy_panel.gd",
+]
+
 [domains.economy]
 suites = [
   "test_economy_rules.gd",
@@ -78,6 +92,8 @@ suites = [
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
+  "test_market_engine.gd",
+  "test_ledger_text.gd",
 ]
 
 [domains.espionage]
@@ -107,9 +123,36 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+
+# Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
+# AI gates that read a chart. Kept its own (small) domain so a fog change is
+# tier-1 sized instead of pulling every map suite.
+[domains.fog]
+suites = [
+  "test_visibility.gd",
+  "test_fog_layer.gd",
+  "test_save_codec.gd",
+  "test_ai_rules.gd",
+  "test_ai_colonisation.gd",
+  "test_ai_invasion.gd",
+]
+
 [domains.fort]
 suites = [
   "test_fort_rules.gd",
+]
+
+# The fleet AI's sight: the rival hunts and blockades only where its own chart
+# reaches (DR-20261110-21 kept the naval pass for its own PR). The fleet
+# domain's twelve suites say nothing about fog and would run past tier 1, so
+# this slice names the suites that do.
+[domains.naval_fog]
+suites = [
+  "test_ai_invasion.gd",
+  "test_ai_rules.gd",
+  "test_fleet_missions.gd",
+  "test_fleet_orders.gd",
+  "test_visibility.gd",
 ]
 
 [domains.map]
@@ -161,6 +204,7 @@ suites = [
   "test_advanced_start.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
+  "test_hud_toast.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
@@ -179,9 +223,12 @@ suites = [
 suites = [
   "test_research_panel.gd",
   "test_research_screen.gd",
+  "test_research_slots.gd",
   "test_research_state.gd",
   "test_research_turn.gd",
   "test_tech_discovery.gd",
+  "test_tech_icons.gd",
+  "test_tech_order.gd",
 ]
 
 [domains.save]
@@ -194,16 +241,98 @@ suites = [
 [domains.ui]
 suites = [
   "test_panel_dock.gd",
+  "test_province_panel.gd",
+  "test_mobile_layout.gd",
 ]
 
-# Quick Battle: its UI plate and its resolver are exercised together.
+# Quick Battle: its UI plate, its resolver and the playtest instruments that
+# drive it are exercised together.
 [domains.quick_battle]
 suites = [
   "test_quick_battle_overlay.gd",
   "test_quick_battle_rules.gd",
+  "test_siege_depth.gd",
+  "test_battle_sim.gd",
+]
+
+# The Gazette's rules (classification, prose, watchlist, archive) and the soft
+# plate that prints them (wiki: the-gazette; DR-20261110-14).
+[domains.gazette]
+suites = [
+  "test_gazette.gd",
+  "test_gazette_plate.gd",
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ai/ai_market_planner.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ai/ai_naval_planner.gd*"
+domain = "naval_fog"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_ai.gd*"
+domain = "naval_fog"
+
+# The planner's own suite; the other AI suites say nothing about sight.
+[[rules]]
+match = "tests/test_ai_rules.gd*"
+domain = "naval_fog"
+
 [[rules]]
 match = "scripts/ui/quick_battle_*.gd"
 domain = "quick_battle"
@@ -220,6 +349,36 @@ domain = "quick_battle"
 [[rules]]
 match = "scripts/rules/siege_lanes.gd"
 domain = "quick_battle"
+
+[[rules]]
+match = "scripts/rules/battle_scenario.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_sim_*.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scenes/battle_sim.tscn*"
+domain = "quick_battle"
+
+# The Gazette: its rules, plate and turn-close adapter are one concern, so a
+# sheet change runs its two suites instead of the broad map/rules sets.
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "tests/test_gazette*.gd*"
+domain = "gazette"
 
 [[rules]]
 match = "project.godot"
@@ -384,9 +543,11 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian*.gd*"
 domain = "civilian"
 
+# The spy despatch hook writes the court's intelligence; its own suites are the
+# intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/map/map_play_spies.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "scripts/map/map_play_spy_ai.gd*"
@@ -431,6 +592,11 @@ domain = "espionage"
 [[rules]]
 match = "scripts/map/map_play_warp.gd"
 domain = "map"
+
+# The rival fog pass is the fog domain's turn glue.
+[[rules]]
+match = "scripts/map/map_play_court_fog.gd*"
+domain = "fog"
 
 [[rules]]
 match = "scripts/map/**"
@@ -482,11 +648,15 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/auto_siege.gd*"
+domain = "fort"
 
 [[rules]]
 match = "scripts/rules/fort_*.gd"
@@ -518,6 +688,62 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/rules/worker_pool.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ai/ai_market_planner.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/economy/economy_controller.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/session/play_session.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/economy_panel.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/market_*.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/first_right.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/rules/minor_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_market.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_market_engine.gd*"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_ledger_text.gd*"
 domain = "economy"
 
 [[rules]]
@@ -561,6 +787,14 @@ match = "scripts/rules/intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "scripts/rules/deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/intervention_copy.gd"
+domain = "campaign"
+
+[[rules]]
 match = "scripts/rules/victory_*.gd"
 domain = "campaign"
 
@@ -568,6 +802,11 @@ domain = "campaign"
 [[rules]]
 match = "scripts/rules/visibility.gd"
 domain = "map"
+
+# Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
+[[rules]]
+match = "scripts/rules/court_*.gd"
+domain = "fog"
 
 [[rules]]
 match = "scripts/rules/resource_survey.gd"
@@ -613,6 +852,31 @@ domain = "civilian"
 match = "scripts/ui/fleet_*.gd"
 domain = "fleet"
 
+# The dossier sheet and the court panel that opens it are presentation over
+# IntelDossier, so their suites are the intel domain (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/court_dossier*.gd*"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_panel.gd"
+domain = "intel"
+
+[[rules]]
+match = "scripts/ui/diplomacy_hud.gd"
+domain = "intel"
+
+# The HUD root gains one sheet field and back must close that sheet before the
+# map or the court hears the press; the UI suites and the dossier's crown-orders
+# case cover both (DR-20261110-25).
+[[rules]]
+match = "scripts/ui/game_hud.gd"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/back_request.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/diplomacy_*.gd"
 domain = "diplomacy"
@@ -639,6 +903,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/ui/tech_*.gd"
 domain = "research"
 
 [[rules]]
@@ -675,6 +943,16 @@ domain = "menu"
 
 [[rules]]
 match = "scripts/ui/panel_dock.gd"
+domain = "ui"
+
+# The province dossier and its estate block: the ui domain proves the panel's
+# geometry (test_mobile_layout) and its content (test_province_panel).
+[[rules]]
+match = "scripts/ui/province_*.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/dossier_*.gd*"
 domain = "ui"
 
 # The minimap inset is map presentation: the map suites own its contract.
@@ -739,6 +1017,27 @@ match = "tests/test_quick_battle_*.gd"
 domain = "quick_battle"
 
 [[rules]]
+match = "tests/test_siege_depth.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/test_battle_sim.gd"
+domain = "quick_battle"
+
+# Screenshot harnesses for the plate (run by hand, never as suites).
+[[rules]]
+match = "tests/battle_*_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/quick_battle_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate.gd*"
+domain = "quick_battle"
+
+[[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
 
@@ -755,6 +1054,10 @@ match = "tests/test_intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "tests/test_deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
 match = "tests/test_victory_*.gd"
 domain = "campaign"
 
@@ -762,13 +1065,23 @@ domain = "campaign"
 match = "tests/test_civilian_*.gd"
 domain = "civilian"
 
+# The dossier's own suites travel with the dossier, not with the whole court
+# domain (DR-20261110-25).
+[[rules]]
+match = "tests/test_court_dossier_screen.gd*"
+domain = "intel"
+
+[[rules]]
+match = "tests/test_diplomacy_panel.gd*"
+domain = "intel"
+
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_intel_*.gd"
-domain = "diplomacy"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_dialogue_*.gd"
@@ -814,7 +1127,7 @@ domain = "map"
 
 [[rules]]
 match = "tests/test_visibility.gd"
-domain = "map"
+domain = "fog"
 
 [[rules]]
 match = "tests/test_warp_*.gd"
@@ -872,16 +1185,21 @@ domain = "save"
 match = "tests/test_panel_dock.gd"
 domain = "ui"
 
+[[rules]]
+match = "tests/test_province_*.gd*"
+domain = "ui"
+
 # Espionage suites live with their rules, so a spy change never needs the full
-# run (scripts/rules/spy_*.gd, court report panel tests and map_play_espionage.gd
-# map here too).
+# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too). The spy
+# despatch and its own suite feed the court dossier, so they travel with intel
+# (DR-20261110-25).
 [[rules]]
 match = "tests/test_espionage.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_court_reports.gd*"
-domain = "espionage"
+domain = "intel"
 
 [[rules]]
 match = "tests/test_spy_*.gd*"
@@ -890,6 +1208,10 @@ domain = "espionage"
 [[rules]]
 match = "tests/test_advanced_start.gd*"
 domain = "advanced"
+
+[[rules]]
+match = "tests/test_hud_toast.gd*"
+domain = "menu"
 
 [[rules]]
 match = "tests/test_*.gd"

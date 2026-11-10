@@ -295,6 +295,71 @@ func test_the_protest_reads_the_declarers_propaganda() -> void:
 	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_EMBASSY)
 
 
+## A deed is a stake, not a courtesy: a court that has bought land inside the
+## victim's provinces never shrugs the aggression off, even on cold relations
+## (wiki: diplomacy § Intervention "investment protection"; DR-20261110-20).
+func test_one_deed_keeps_a_cold_court_from_standing_aside() -> void:
+	var world: WorldMap = _deed_world(1)
+	state.relation(1, 6).score = 10.0
+	assert_false(Intervention.ai_protests(state, 1, 6), "goodwill alone stands aside")
+	assert_true(Intervention.ai_protests(state, 1, 6, world), "the deed is the stake")
+	assert_eq(Intervention.protection_chance(state, 1, 3, 6, world), 0.25)
+
+
+func test_two_deeds_raise_the_trial_to_the_second_band() -> void:
+	var world: WorldMap = _deed_world(1)
+	var model: MapModel = world.region(0)
+	assert_true(model.ownership.purchase(model.index_of(4, 0), 1), "a second deed")
+	state.relation(1, 6).score = 10.0
+	assert_eq(DeedProtection.deed_count(world, 1, 6), 2)
+	assert_eq(Intervention.protection_chance(state, 1, 3, 6, world), 0.5)
+
+
+## Losing the roll still leaves the deed holder protesting against the war: it
+## keeps its seat at the victim's court and puts a relation price on the
+## aggression.
+func test_a_deed_holder_that_loses_the_roll_protests() -> void:
+	var world: WorldMap = _deed_world(1)
+	state.relation(1, 6).score = 10.0
+	state.turn = _turn_above_the_first_band(3, 6, 1)
+	assert_eq(
+		Intervention.ai_choice(state, 1, 3, 6, world),
+		Intervention.KIND_PROTEST,
+		"below 26 relations a court without a deed would stand aside"
+	)
+
+
+## The offer records what earned the court its seat, so the prompt never claims
+## an embassy the court does not hold (REQ-P2-05, REQ-P5-05).
+func test_a_deed_only_offer_names_the_deed_not_the_embassy() -> void:
+	var world: WorldMap = _deed_world(0)
+	DiplomacyRules.declare_war(state, 3, 6, true, world)
+	var offer: Dictionary = Intervention.pending_for(state, 0)
+	assert_eq(String(offer.get("basis", "")), "deed")
+	assert_eq(int(offer.get("deeds", 0)), 1)
+	var text: String = Intervention.offer_text(offer)
+	assert_true(text.contains("deed"), text)
+	assert_false(text.contains("embassy"), "no embassy is claimed: " + text)
+
+
+func test_standing_aside_without_an_embassy_leaves_the_deed_alone() -> void:
+	var world: WorldMap = _deed_world(0)
+	DiplomacyRules.declare_war(state, 3, 6, true, world)
+	var answer: Dictionary = Intervention.resolve_human(state, Intervention.KIND_NOTHING)
+	assert_true(answer["ok"], answer.get("reason", ""))
+	assert_true(String(answer["message"]).contains("deeds"), String(answer["message"]))
+	assert_eq(DeedProtection.deed_count(world, 0, 6), 1, "the land stays bought")
+
+
+## The first turn whose trial roll clears the 25% band, so a protest test reads
+## the band rather than the sample.
+func _turn_above_the_first_band(aggressor: int, target: int, court: int) -> int:
+	for turn in range(1, 200):
+		if Intervention.roll(turn, aggressor, target, court) >= 0.25:
+			return turn
+	return 1
+
+
 ## Tiny world whose second province answers to Minor Nation `victim`, with one
 ## land tile sold to `buyer`.
 func _deed_world(buyer: int) -> WorldMap:

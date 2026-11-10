@@ -7,9 +7,10 @@ extends RefCounted
 ## a side. ArmyCombat owns the battle chain; this module owns the numbers it
 ## compares.
 ##
-## Terrain values are the wiki's defender multipliers. The attacker side of the
-## forest rule (×0.9) is not modelled yet; defender-only is the current slice's
-## contract, documented in docs/armies.md.
+## Terrain is a two-sided modifier (wiki: resource-terrain-region-rules §
+## Acceptance Criteria — the forest split prints 0.9 for the attacker and
+## 1.5 / 1.1 for the defender). Broken ground slows the advance as well as
+## sheltering the defence, so both sides read one province's dominant terrain.
 
 const W_MEDAL: float = 10.0
 ## Initiative cavalry weight (wiki: combat § Configurable Values).
@@ -28,6 +29,14 @@ const TERRAIN_DEFENCE: Dictionary = {
 	MapModel.Terrain.MOUNTAINS: 1.25,
 	MapModel.Terrain.DESERT: 1.05,
 	MapModel.Terrain.SWAMP: 1.1,
+}
+
+## Attacker multiplier by province terrain: a forest attack goes in at ×0.9,
+## every other terrain leaves the march at 1.0 (wiki:
+## resource-terrain-region-rules § Acceptance Criteria — forest split).
+const TERRAIN_ATTACK: Dictionary = {
+	MapModel.Terrain.HARDWOOD_FOREST: 0.9,
+	MapModel.Terrain.SCRUB_FOREST: 0.9,
 }
 
 ## leaderKey -> melee multiplier lives in LeaderCatalog, the roster's single
@@ -55,6 +64,13 @@ static func feeding_multiplier(coverage: float) -> float:
 
 static func terrain_multiplier(terrain: int) -> float:
 	return float(TERRAIN_DEFENCE.get(terrain, 1.0))
+
+
+## The attacker's side of the same terrain: a formed wood is slow going, so an
+## advance through it fights at ×0.9 (wiki: resource-terrain-region-rules
+## § Acceptance Criteria — forest split).
+static func terrain_attack_multiplier(terrain: int) -> float:
+	return float(TERRAIN_ATTACK.get(terrain, 1.0))
 
 
 ## Dominant terrain of the province; ties fall to the lower terrain id.
@@ -132,6 +148,20 @@ static func rank_of(type_id: String, medals: int, fraction: float) -> float:
 	)
 
 
+## Mean tactical weight of one deployed regiment: (FPN + FPM) × chevrons ×
+## health. An action spends its share of a line as weight, so a veteran line
+## absorbs more fire than a levy one (wiki: quick-battle § Cohesion and
+## effective strength).
+static func average_rank(side: Array[ArmyState], limit: int = 0) -> float:
+	var slice: Array[Dictionary] = deployed(side, limit)
+	if slice.is_empty():
+		return 1.0
+	var total: float = 0.0
+	for entry: Dictionary in slice:
+		total += float(entry["rank"])
+	return total / float(slice.size())
+
+
 ## Σ of the deployed slice, scaled by the side multiplier.
 static func strength(side: Array[ArmyState], limit: int, multiplier: float) -> float:
 	var total: float = 0.0
@@ -159,8 +189,10 @@ static func modifiers(
 	## § Modifiers; ruleset-config § Layers). No context key = published maths.
 	var difficulty: Dictionary = context.get("difficulty", {}) as Dictionary
 	multiplier *= float(difficulty.get(owner, 1.0))
-	if is_defender:
-		multiplier *= terrain_multiplier(terrain_for(model, province))
+	var terrain: int = terrain_for(model, province)
+	multiplier *= (
+		terrain_multiplier(terrain) if is_defender else terrain_attack_multiplier(terrain)
+	)
 	var unlocked: Dictionary = tech.get(owner, {}) as Dictionary
 	var nationalism: bool = bool(unlocked.get("nationalism", false))
 	var fort: int = FortRules.level_at(model, province)

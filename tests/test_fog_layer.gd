@@ -24,12 +24,21 @@ func test_fog_is_a_child_sprite_behind_the_ink() -> void:
 	var fog: FogLayer = _overlay.get_node_or_null("Fog")
 	assert_not_null(fog)
 	assert_eq(fog, _overlay.fog_layer)
-	var sprite: Sprite2D = null
-	for child in fog.get_children():
-		if child is Sprite2D:
-			sprite = child as Sprite2D
+	var sprite: Sprite2D = _fog_sprite(fog)
 	assert_not_null(sprite)
 	assert_true(sprite.show_behind_parent)
+
+
+## A rebuild (region switch, political refresh) repaints the layer's one sprite.
+## A fresh sprite per build would leave the previous region's fog stacked on the
+## map — an all-paper New World wash covers the charted Old World.
+func test_a_rebuild_repaints_one_sprite_instead_of_stacking() -> void:
+	var fog: FogLayer = _overlay.fog_layer
+	var sprite: Sprite2D = _fog_sprite(fog)
+	_overlay.build(Fixture.region())
+	assert_eq(fog.get_child_count(), 1, "no stale fog sprite is left behind")
+	assert_eq(_fog_sprite(fog), sprite, "the fog sprite is reused")
+	assert_eq(sprite.texture, fog._texture, "the sprite paints the latest grid")
 
 
 func test_levels_map_to_fog_ids() -> void:
@@ -72,3 +81,10 @@ func test_a_ripple_marks_the_water_and_ages_out() -> void:
 	assert_eq(_overlay._ripples[0]["position"], Vector2(120.0, 64.0))
 	_overlay._age_ripples(1.2)
 	assert_true(_overlay._ripples.is_empty(), "the ring is a moment, not a marker")
+
+
+func _fog_sprite(fog: FogLayer) -> Sprite2D:
+	for child in fog.get_children():
+		if child is Sprite2D:
+			return child as Sprite2D
+	return null

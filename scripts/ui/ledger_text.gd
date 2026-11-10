@@ -99,6 +99,37 @@ static func navy_food(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("navy_demand", 0))
 
 
+## One-line market clearing report for the turn toast: the crown's fills and
+## any carried or dropped orders (wiki: world-market § Trade orders).
+static func market_summary(report: Dictionary, faction: int) -> String:
+	var parts: PackedStringArray = []
+	var fills: Dictionary = report.get("fills", {}) as Dictionary
+	var mine: Dictionary = fills.get(faction, fills.get(str(faction), {})) as Dictionary
+	var bought: int = int(mine.get("bought", 0))
+	var sold: int = int(mine.get("sold", 0))
+	if bought > 0:
+		parts.append("bought %d for %d ducats" % [bought, int(mine.get("spent", 0))])
+	if sold > 0:
+		parts.append("sold %d" % sold)
+	var carry: int = (report.get("carry", []) as Array).size()
+	if carry > 0:
+		parts.append("%d order%s carried" % [carry, "" if carry == 1 else "s"])
+	var dropped: int = 0
+	for note: Variant in report.get("notes", []):
+		if typeof(note) != TYPE_DICTIONARY:
+			continue
+		var code: String = String((note as Dictionary).get("code", ""))
+		if code.begins_with("carry_forward_dropped") and int(
+			(note as Dictionary).get("faction", -1)
+		) == faction:
+			dropped += 1
+	if dropped > 0:
+		parts.append("%d order%s lapsed" % [dropped, "" if dropped == 1 else "s"])
+	if parts.is_empty():
+		return ""
+	return "The market cleared: " + "  ·  ".join(parts) + "."
+
+
 ## One-line turn summary for the toast channel: what the resolved turn did.
 static func turn_summary(report: Dictionary) -> String:
 	var parts: PackedStringArray = []

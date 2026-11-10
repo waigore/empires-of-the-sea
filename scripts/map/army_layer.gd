@@ -308,12 +308,16 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		var region_armies: Array[ArmyState] = []
 		region_armies.assign(by_region.get(index, []))
 		regions.set_region(index, region_armies)
-		if model != null and index == model.region_id and region_armies != armies:
+		if model != null and index == model.region_id:
 			armies = region_armies
 			prune_markers()
 	return all
 
 
+## Drops the standard of an army that left the field and raises one for an army
+## the map never drew: the combat pass can mint a garrison the layer never saw
+## (wiki: combat § Garrison recovery), and an army without a standard cannot be
+## seen, tapped or ordered.
 func prune_markers() -> void:
 	var kept: Array[ArmyMarker] = []
 	for marker: ArmyMarker in markers:
@@ -332,6 +336,8 @@ func prune_markers() -> void:
 		selected_army = null
 		army_selected.emit(null)
 	place_all()
+	for army: ArmyState in armies:
+		add_marker(army)
 
 
 ## Regiments for one faction across every region: the HUD counts them all.

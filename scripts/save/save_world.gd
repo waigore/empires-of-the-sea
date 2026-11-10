@@ -38,14 +38,19 @@ static func capture(world: WorldMap) -> Array[Dictionary]:
 
 
 ## Fog of war per region: the player's charted tiles live beside the world half
-## of the slot because a load lays both over the regenerated map.
+## of the slot because a load lays both over the regenerated map. Every rival
+## court's own grid rides along, so a load does not hand the AI perfect sight
+## (wiki: fog-and-exploration; DR-20261110-21).
 static func capture_visibility(play: PlaySession) -> Dictionary:
 	var by_region: Dictionary = {}
 	for raw: Variant in play.visibility_by_region.keys():
 		var visibility: VisibilityModel = play.visibility_by_region[raw]
 		if visibility != null:
 			by_region[int(raw)] = visibility.to_dict()
-	return {"by_region": by_region}
+	var data: Dictionary = {"by_region": by_region}
+	if play.court_charts != null:
+		data["courts"] = play.court_charts.to_dict()
+	return data
 
 
 ## Rebuilds each region's fog from the save; unknown regions and malformed
@@ -65,6 +70,17 @@ static func restore_visibility(play: PlaySession, data: Variant) -> void:
 		visibility.setup(model, play.player_faction)
 		if visibility.apply_dict(entry):
 			play.visibility_by_region[region] = visibility
+	_restore_courts(play, data.get("courts", {}))
+
+
+## Every rival court's chart, laid over the regenerated world.
+static func _restore_courts(play: PlaySession, data: Variant) -> void:
+	if play.world == null:
+		return
+	if play.court_charts == null:
+		play.court_charts = CourtCharts.new()
+	play.court_charts.setup(play.world, play.player_faction, play.visibility_by_region)
+	play.court_charts.apply_dict(play.world, data)
 
 
 ## Reapplies a captured world over `world`. Returns false when the save cannot

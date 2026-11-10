@@ -7,6 +7,8 @@ extends RefCounted
 
 
 ## Returns an order-shaped dictionary, or {} when the shared rules refuse it.
+## The court's own chart, when the caller puts one in `context["visibility"]`,
+## gates the order exactly as the player's dossier is gated (DR-20261110-21).
 static func make(
 	model: MapModel,
 	unit: CivilianState,
@@ -22,8 +24,9 @@ static func make(
 ) -> Dictionary:
 	var roster: Array[CivilianState] = []
 	roster.assign(units)
+	var view: VisibilityModel = context.get("visibility", null)
 	var check: Dictionary = CivilianWork.validate(
-		model, unit, action, works, roster, stockpile, null, tile, tech_caps,
+		model, unit, action, works, roster, stockpile, view, tile, tech_caps,
 		tech_unlocked, context
 	)
 	if not bool(check.get("ok", false)):

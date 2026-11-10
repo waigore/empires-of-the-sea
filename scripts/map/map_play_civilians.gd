@@ -105,7 +105,7 @@ static func resolve_work(play: PlaySession) -> void:
 	if play.economy != null and not play.observer_mode:
 		economy = play.economy.economy
 	for report: Dictionary in play.civilian_layer.begin_turn(
-		play.world, play.visibility_by_region, economy
+		play.world, play.court_charts, economy
 	):
 		if not bool(report.get("completed", false)):
 			continue

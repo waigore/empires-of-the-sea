@@ -33,6 +33,9 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, MapGeo.world_size(play.model, PlaySession.TILE_SIZE), play.visibility
 	)
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
+	# The Gazette's cartouche seal reopens the crown's news and its archive at
+	# any time (wiki: the-gazette).
+	hud.gazette_pressed.connect(func() -> void: MapPlayGazette.open_archive(play))
 	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
 	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
@@ -55,7 +58,20 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
+	refresh_dossier(play)
 	build_lens(play)
+
+
+## The province dossier reads the same live tables as the estates ledger: the
+## works, the civilians and the researched tech that gates the town order.
+static func refresh_dossier(play: PlaySession) -> void:
+	if play.hud == null or play.model == null or play.land_works == null:
+		return
+	play.hud.panels.panel.set_data(
+		play.model, play.land_works, play.civilian_layer.units, play.visibility,
+		play.capital_tile, play.player_faction, play.tech_caps(),
+		play.tech_unlocked()
+	)
 
 
 ## Survey lens data follows the region on screen and the works just completed.
@@ -102,6 +118,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
+	refresh_dossier(play)
 
 
 ## After a load the economy, court and chips must read the restored state, not

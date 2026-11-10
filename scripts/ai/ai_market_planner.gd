@@ -85,8 +85,64 @@ static func plan(
 	return {"offers": offers, "bids": bids, "candidates": candidates}
 
 
-## Applies the plan through the shared market. Refusals are reported, never
-## silently swallowed, so the turn trace can explain a missing trade.
+## Stages the plan in the world-market order book. The clearing pass fills it at
+## the turn's close, so stock and treasury move once, under the same matcher as
+## the player's orders (wiki: world-market § Trade orders).
+static func stage(
+	economy: PlayerEconomy,
+	market: WorldMarket,
+	plan: Dictionary,
+	faction: int = FactionCatalog.PLAYER_FACTION,
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var staged: Array[Dictionary] = []
+	var refused: Array[Dictionary] = []
+	if economy == null or market == null:
+		return {"staged": staged, "refused": refused, "plan": plan}
+	var cargo: int = maxi(int(plan.get("free_holds", 0)), 0)
+	for raw: Variant in plan.get("offers", []):
+		var offer: Dictionary = raw
+		var id: String = String(offer.get("commodity", ""))
+		var quantity: int = int(offer.get("quantity", 0))
+		var result: Dictionary = MarketOrders.submit(
+			market,
+			faction, id, MarketOrder.SIDE_OFFER, quantity,
+			{"stock": economy.quantity(id)}, 2
+		)
+		if bool(result.get("ok", false)):
+			staged.append({"kind": "offer", "commodity": id, "quantity": quantity})
+		else:
+			refused.append({
+				"kind": "offer", "commodity": id,
+				"reason": String(result.get("reason", "")),
+			})
+	for raw: Variant in plan.get("bids", []):
+		var bid: Dictionary = raw
+		var id: String = String(bid.get("commodity", ""))
+		var quantity: int = int(bid.get("quantity", 0))
+		var result: Dictionary = MarketOrders.submit(
+			market,
+			faction, id, MarketOrder.SIDE_BID, quantity,
+			{
+				"cargo_free": cargo,
+				"treasury": economy.treasury,
+				"tech_unlocked": tech_unlocked,
+				"buy_price": market.buy_price(id, faction),
+			},
+			1
+		)
+		if bool(result.get("ok", false)):
+			staged.append({"kind": "bid", "commodity": id, "quantity": quantity})
+		else:
+			refused.append({
+				"kind": "bid", "commodity": id,
+				"reason": String(result.get("reason", "")),
+			})
+	return {"staged": staged, "refused": refused, "plan": plan}
+
+
+## Applies the plan through the shared market at once. Retained for tools and
+## tests; live play stages orders so the matcher can order the book.
 static func apply(
 	economy: PlayerEconomy,
 	market: WorldMarket,

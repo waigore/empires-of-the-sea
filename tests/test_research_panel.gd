@@ -83,6 +83,91 @@ func test_closing_emits_the_close_signal() -> void:
 	assert_eq(closed.size(), 1)
 
 
+# --- goal slot ---------------------------------------------------------------
+
+
+func test_the_goal_strip_starts_empty() -> void:
+	_panel.refresh(_state, 2500)
+	assert_eq(_panel.goal_tech(), "")
+	assert_not_null(_label_containing("No goal"))
+
+
+func test_setting_a_goal_names_it_and_sorts_the_queue() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("national_bureaucracy")
+	await get_tree().process_frame
+	assert_eq(_panel.goal_tech(), "national_bureaucracy")
+	assert_not_null(_label_containing("National Bureaucracy"))
+	assert_eq(_first_available(), "Printing Press", "a prerequisite of the goal leads the queue")
+
+
+func test_the_goal_marks_its_path() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("national_bureaucracy")
+	await get_tree().process_frame
+	var marked: int = 0
+	for node: Node in _nodes():
+		if node is Label and (node as Label).text == ResearchRow.GOAL_ON_PATH:
+			marked += 1
+	assert_gt(marked, 0, "prerequisites on the goal's path carry the mark")
+
+
+func test_clearing_the_goal_restores_catalog_order() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("national_bureaucracy")
+	var clear: Button = _button("Clear")
+	assert_not_null(clear)
+	clear.pressed.emit()
+	await get_tree().process_frame
+	assert_eq(_panel.goal_tech(), "")
+	assert_eq(_first_available(), "Crop Rotation")
+
+
+func test_the_goal_button_steers_the_queue() -> void:
+	_panel.refresh(_state, 2500)
+	var goal: Button = _button("Goal")
+	assert_not_null(goal)
+	var steered: Array[String] = []
+	_panel.goal_changed.connect(func(tech_id: String) -> void: steered.append(tech_id))
+	goal.pressed.emit()
+	assert_eq(_panel.goal_tech(), "crop_rotation")
+	assert_eq(steered, ["crop_rotation"])
+
+
+func test_a_reached_goal_says_so() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("crop_rotation")
+	_state.unlock("crop_rotation")
+	_panel.refresh(_state, 2500)
+	await get_tree().process_frame
+	assert_not_null(_label_containing("reached"))
+
+
+func test_an_unknown_goal_clears_it() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("crop_rotation")
+	_panel.set_goal("no_such_tech")
+	assert_eq(_panel.goal_tech(), "")
+
+
+# --- helpers -----------------------------------------------------------------
+
+
+## The first name in the AVAILABLE tab, which is the goal-aware queue order.
+func _first_available() -> String:
+	var body: VBoxContainer = _panel._available_body
+	if body.get_child_count() == 0:
+		return ""
+	for node: Node in _collect(body.get_child(0), [] as Array[Node]):
+		if not node is Label:
+			continue
+		var text: String = (node as Label).text
+		for tech_id: String in TechCatalog.ids():
+			if TechCatalog.display_name(tech_id) == text:
+				return text
+	return ""
+
+
 # --- helpers -----------------------------------------------------------------
 
 

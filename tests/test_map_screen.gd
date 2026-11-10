@@ -107,6 +107,31 @@ func test_region_switch_keeps_fleets_and_chart_state() -> void:
 	)
 
 
+## The charted Old World stays clear after a round trip through the New World.
+## Each view rebuild used to stack a fresh fog sprite, so the newcomer's
+## all-paper wash (every tile unknown) sat under the home map and covered the
+## crown's own provinces (wiki: fog-and-exploration § Initial Visibility).
+func test_returning_to_the_old_world_keeps_its_chart_clear() -> void:
+	var fog: FogLayer = _screen.overlay.fog_layer
+	var capital: Vector2i = _screen.capital_tile
+	_settle_fog()
+	assert_almost_eq(_fog_alpha(fog, capital), 0.0, 0.001, "the seat opens clear")
+
+	# A settled frame paints each map before the next toggle, as play does.
+	_screen._cycle_region()
+	_settle_fog()
+	_screen._cycle_region()
+	_settle_fog()
+
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
+	assert_eq(fog.get_child_count(), 1, "a switch repaints the map's own fog layer")
+	assert_almost_eq(_fog_alpha(fog, capital), 0.0, 0.001, "the seat stays clear")
+	var foreign: Vector2i = _screen.model.province_tiles(
+		Fixture.foreign_province(_screen.model)
+	)[0]
+	assert_gt(_fog_alpha(fog, foreign), 0.0, "charted foreign land keeps its mist")
+
+
 func test_world_builds_with_map_ships_and_camera() -> void:
 	assert_not_null(_screen.model)
 	assert_gt(_screen.model.province_count(), 0)
@@ -602,6 +627,17 @@ func _toast_texts() -> Array[String]:
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts
+
+
+## Lets the fog fade reach its targets, as a handful of processed frames would.
+func _settle_fog() -> void:
+	for _frame in 40:
+		_screen.overlay.fog_layer.advance(0.016)
+
+
+## Fog alpha the layer paints on one tile of the region on screen.
+func _fog_alpha(fog: FogLayer, tile: Vector2i) -> float:
+	return fog._image.get_pixel(tile.x, tile.y).a
 
 
 ## First Old World province owned by a rival Great Power, or -1.

@@ -79,6 +79,20 @@ static func fire(
 	return lost.size()
 
 
+## Battle weight of the virtual battery: each living piece's type stats scaled by
+## the share of its HP still standing (wiki: combat § Strength). The guns' own
+## weight replaces the aggregate emplaced bonus on the Quick Battle path, so the
+## same pieces are never counted twice.
+static func strength(guns: Array[Dictionary]) -> float:
+	var total: float = 0.0
+	for gun: Dictionary in guns:
+		if not bool(gun["alive"]):
+			continue
+		var share: float = clampf(float(gun["hp"]) / GUN_HP, 0.0, 1.0)
+		total += float(RegimentCatalog.strength(String(gun["type"]))) * share
+	return total
+
+
 static func downgrade_fort(
 	model: MapModel, province: int, level: int, guns: Array[Dictionary]
 ) -> bool:

@@ -155,10 +155,11 @@ static func is_riches(id: String) -> bool:
 	return category_of(id) == Category.RICHES
 
 
-## Riches clear through the treasury phase and spices is an advanced good, so
-## neither is offered on the world market (wiki: world-market § Tradeable commodities).
+## Riches clear through the treasury phase; every other known good clears on the
+## world market, spices included (wiki: world-market § Tradeable commodities;
+## DR-20261110-09 — spices is advanced, sold at its fixed 50).
 static func is_tradeable(id: String) -> bool:
-	return known(id) and not is_riches(id) and id != "spices"
+	return known(id) and not is_riches(id)
 
 
 ## Integer catalog price: raw rows, manufactured break-even rows and riches base.
