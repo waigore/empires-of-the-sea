@@ -79,6 +79,7 @@ suites = [
 # diplomacy/espionage domains so a dossier change stays inside tier 1's budget.
 suites = [
   "test_intel_dossier.gd",
+  "test_intel_evidence.gd",
   "test_espionage.gd",
   "test_court_reports.gd",
   "test_court_dossier_screen.gd",
@@ -858,6 +859,12 @@ domain = "map"
 [[rules]]
 match = "scripts/rules/court_*.gd"
 domain = "fog"
+
+# The court's dossier read and its chronicle projector: the intel domain owns
+# both sides, so a dossier change never falls through to the rules catch-all.
+[[rules]]
+match = "scripts/rules/intel_*.gd*"
+domain = "intel"
 
 [[rules]]
 match = "scripts/rules/resource_survey.gd"
