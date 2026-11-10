@@ -404,7 +404,7 @@ func test_a_multi_zone_crossing_steps_toward_the_far_coast() -> void:
 	)
 	assert_eq(String(order.get("kind", "")), "sail")
 	assert_eq(int(order.get("zone", -1)), 1)
-	assert_eq(AiColonisationPlanner._step_toward(model, 0, [0]), -1)
+	assert_eq(AiSeaRoute.step_toward(model, 0, [0]), -1)
 	assert_eq(AiColonisationPlanner._carried_id(FleetState.in_port(9, OWNER, 0)), -1)
 
 

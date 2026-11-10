@@ -31,7 +31,19 @@ Never put long campaign playtests into CI smoke (≤2 min). Prefer `tests/` regr
   (e.g. `EconomyController` vs `MapPlayEconomyAi._extraction`). When an adapter keeps
   its own copy of the rule — per-region extraction, cargo, upkeep — it silently
   bypasses the new limit, so the human pays and the rival does not (`REQ-P2-03`).
+- **A documented ordering must be a priority, not a score delta.** When the wiki
+  says one work kind "outranks" another, a single weighted score is not enough:
+  bonuses on the lower kind invert the ordering (a resource road's need and
+  adjacency bonuses beat the town link's base weight, so no rival town ever
+  connected). Encode the ordering explicitly and let the score rank only inside
+  one kind.
 - **Play one turn past the action, not just the action.** Renumbering and merge
   paths (a warp crossing, docking into the home fleet) rotate ids; unit
   back-pointers (`embarked_fleet`) drift and the *end-of-turn* pass then drops the
   unit. A scenario that ends the turn is what surfaces it.
+- **The drives share `tests/playtest_launch.gd`** (title → setup → capital chart →
+  map). A drive that prints one line and `map screen missing` means the launch flow
+  moved: repair the launcher, not the game, and say so in the PR.
+- **Preload test helpers, do not `class_name` them.** `tools/run.sh` only rescans
+  `scripts/ scenes/ ui/ autoload/` for the class cache, so a new `class_name` under
+  `tests/` is not declared on a manual run.

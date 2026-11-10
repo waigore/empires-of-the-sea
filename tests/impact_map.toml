@@ -5,6 +5,7 @@
 [domains.ai]
 suites = [
   "test_ai_colonisation.gd",
+  "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_observer.gd",
   "test_ai_planner.gd",
@@ -195,6 +196,14 @@ match = "tests/playtest_new_world.gd*"
 domain = "map"
 
 [[rules]]
+match = "tests/playtest_launch.gd*"
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_combat_chain.gd*"
+domain = "battle"
+
+[[rules]]
 match = "tests/playtest_quick_battle.gd*"
 domain = "quick_battle"
 
@@ -264,6 +273,10 @@ domain = "army"
 
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
+domain = "ai"
+
+[[rules]]
+match = "scripts/map/map_play_invasion_ai.gd"
 domain = "ai"
 
 [[rules]]

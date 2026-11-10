@@ -85,19 +85,19 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	return true
 
 
-## Invading foreign land needs war with its owner; unowned land is not an attack
-## (wiki: diplomacy § War required for hostile actions).
+## Invading foreign land needs war with its owner, except a Tribe; unowned land
+## is not an attack (wiki: factions § Tribe; diplomacy § War required).
 static func may_invade(play: PlaySession, province_id: int) -> bool:
 	var owner: int = play.model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == play.player_faction:
 		return true
-	return DiplomacyRules.at_war_with(play.diplomacy, play.player_faction, owner)
+	return DiplomacyRules.invadable(play.diplomacy, play.player_faction, owner)
 
 
-## Battles only happen between factions at war.
+## Battles only happen between declared enemies and Tribes (wiki: factions).
 static func hostile(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
-		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
+		return DiplomacyRules.invadable(play.diplomacy, a, b)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:

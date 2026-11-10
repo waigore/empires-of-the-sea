@@ -32,31 +32,29 @@ P5 unbookkept rivals.
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  board an idle Explorer (Builder overseas), cross a Passage and land; then
-  prospect or improve.
+  board an idle Explorer, cross a Passage and land; then prospect or improve.
+- **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
+  war and a far shore (enemy or Tribe); detach hull capacity, dock, board,
+  cross, beachhead; storm best coast, else own colony.
 - **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
-  stock deficit; whole runs under labour/inputs; recruit highest affordable
-  tier to worker/recruit caps.
-- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
-  (weights, shortfalls, war bonus); `research.funding_index` funds;
-  `ResearchTurn` advances.
+  stock deficit; runs under labour/inputs; recruit highest affordable tier to
+  caps.
+- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots (weights, shortfalls, war bonus); `research.funding_index` funds; `ResearchTurn` advances.
 - **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
   civilian — builders improve shortest commodity, engineers connect towns then
   road/port/fort, explorers prospect, rail builders upgrade roads.
-- **Spy planner** (`AiSpyPlanner`): a spy abroad holds station; idle spies walk
-  to the nearest unobserved rival Great Power province; at war one keeps a
-  counter-espionage screen. Rivals open with a spy.
+- **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
+  with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
-  production inputs; bid short build inputs on free holds (3 types; 6 with
-  Trade Fairs).
-- **Regiment parity** (`MilitaryParity`): after movement, Minor Nation land
-  regiments match the strongest Great Power era; Tribes stay at level 1.
+  inputs; bid short build inputs on free holds (3 types; 6 with Trade Fairs).
+- **Regiment parity** (`MilitaryParity`): after movement, Minor land regiments
+  match the strongest Great Power era; Tribes stay at level 1.
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
-- **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): the player's reading of a
-  rival — evidence from observable acts, banded suspicion per agenda, best
-  guess and behaviour counts ([`intel-dossier.md`](intel-dossier.md)).
+- **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
+- **Court dossier** (`IntelDossier`, `CourtDossier`): rival reading — evidence,
+  banded suspicion per agenda, best guess and counts
+  ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
 
@@ -71,13 +69,14 @@ P5 unbookkept rivals.
 ## Architecture
 
 Planners live in `scripts/ai/` (pure — `REQ-P3-03`);
-`scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai,colonisation_ai,spies}.gd`
+`scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai,colonisation_ai,invasion_ai,spies}.gd`
 wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_town_roads`,
-`test_military_parity`, `test_ai_observer`, `test_espionage`.
+`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_invasion`,
+`test_ai_town_roads`, `test_military_parity`, `test_ai_observer`,
+`test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80
