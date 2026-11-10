@@ -352,6 +352,29 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 	assert_eq(play.ai.economy_for(1).treasury, purse, "the rival purse returns as saved")
 
 
+func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
+	var play: PlaySession = screen.play
+	MapPlayTurn.end_turn(play)
+	while DiplomacyProposals.has_pending(play.diplomacy, 0):
+		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
+	assert_true(play.gazette != null, "the close founded the watchlist")
+	assert_true(play.gazette.has_sheet(1), "the resolved turn is filed")
+	play.gazette.set_watched(1, false)
+	var filed: int = play.gazette.sheets.size()
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(DIR + "/gazette.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/gazette.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	play = screen.play
+	assert_true(play.gazette != null, "the sheet returns on load")
+	assert_eq(play.gazette.sheets.size(), filed, "the archive comes back whole")
+	assert_false(play.gazette.is_watched(1), "a struck-off court stays struck off")
+	assert_true(play.gazette.removed.has(1), "and the removal is remembered")
+
+
 func _foreign_province(play: PlaySession) -> int:
 	for province: ProvinceState in play.model.provinces:
 		if province.owner != play.player_faction:

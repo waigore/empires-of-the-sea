@@ -177,21 +177,24 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn()
+	# A turn's falls feed the Gazette's World page (DR-20261110-14).
+	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 	# Rival ledgers resolve on post-combat ownership and plan civilian work for
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
-	MapPlayRaids.resolve(play)
+	var raid_report: Dictionary = MapPlayRaids.resolve(play)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
+	var crown_report: Dictionary = {}
 	if play.observer_mode:
 		AiTurnLog.apply_feeding(play, economy_report)
 	else:
 		play.refresh_research()
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
-		play.economy.resolve_turn()
+		crown_report = play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, year)
@@ -213,4 +216,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.improvements.refresh_if_open()
 	MapPlaySetup.build_lens(play)
 	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
+	# The sheet narrates the turn that just resolved; the overlay opens only when
+	# it found news (wiki: the-gazette § When it appears).
+	MapPlayGazette.close_turn(
+		play, land_battles, naval_battles, economy_report, crown_report, raid_report
+	)
 	play.emit_turn_ended(play.turn)

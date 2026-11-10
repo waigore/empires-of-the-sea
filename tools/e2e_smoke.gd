@@ -476,6 +476,14 @@ func _smoke_end_turn(
 			"the court answer closes the proposal"
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	# The crown's sheet files the resolved turn and opens when it has news
+	# (wiki: the-gazette § When it appears).
+	_check(screen.play.gazette != null, "the gazette keeps its watchlist")
+	_check(screen.play.gazette.has_sheet(turn_before), "the resolved turn is filed")
+	if not Gazette.is_empty(screen.play.gazette.sheet_for(turn_before)):
+		_check(screen.hud.gazette_plate.is_shown(), "news opens the soft plate")
+		screen.hud.gazette_plate.dismiss()
+		_check(not screen.hud.gazette_plate.is_shown(), "one press sets the sheet aside")
 	_check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
 	_check(_rival_research_started(screen), "rivals filled their research slots")
 	_check(screen.economy != null, "economy wired")

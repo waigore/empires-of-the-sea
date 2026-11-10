@@ -217,6 +217,14 @@ suites = [
   "test_quick_battle_rules.gd",
 ]
 
+# The Gazette's rules (classification, prose, watchlist, archive) and the soft
+# plate that prints them (wiki: the-gazette; DR-20261110-14).
+[domains.gazette]
+suites = [
+  "test_gazette.gd",
+  "test_gazette_plate.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
 [[rules]]
 match = "scripts/ui/quick_battle_*.gd"
@@ -234,6 +242,24 @@ domain = "quick_battle"
 [[rules]]
 match = "scripts/rules/siege_lanes.gd"
 domain = "quick_battle"
+
+# The Gazette: its rules, plate and turn-close adapter are one concern, so a
+# sheet change runs its two suites instead of the broad map/rules sets.
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette*.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "tests/test_gazette*.gd*"
+domain = "gazette"
 
 [[rules]]
 match = "project.godot"
