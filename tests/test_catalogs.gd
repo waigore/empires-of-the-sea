@@ -109,9 +109,9 @@ func test_ai_personality_reads_the_same_default_leader() -> void:
 
 func test_default_roster_matches_the_configured_counts() -> void:
 	assert_eq(FactionCatalog.great_power_ids().size(), 6)
-	assert_eq(FactionCatalog.minor_ids().size(), 3)
+	assert_eq(FactionCatalog.minor_ids().size(), 6)
 	assert_eq(FactionCatalog.tribe_ids().size(), 10)
-	assert_eq(FactionCatalog.count(), 19)
+	assert_eq(FactionCatalog.count(), 22)
 
 
 func test_great_power_colours_follow_gdd_09() -> void:

@@ -63,6 +63,9 @@ var quick_battle_overlay: QuickBattleOverlay = null
 var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
 var civilian_roster: CivilianRosterPanel = null
+## The court's full intelligence dossier, opened from its summary block
+## (wiki: ai-dossier; DR-20261110-25).
+var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
 
@@ -162,12 +165,12 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	_treasury_value = value
 	_refresh_treasury_tooltip()
 	if not animate:
-		_treasury_label.text = HudChrome.format(value)
+		_treasury_label.text = TextFormat.thousands(value)
 		return
 	var tween := create_tween()
 	tween.tween_method(
 		func(step: float) -> void:
-			_treasury_label.text = HudChrome.format(int(round(step))),
+			_treasury_label.text = TextFormat.thousands(int(round(step))),
 		float(from), float(value), 0.6
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
@@ -178,7 +181,7 @@ func set_income(value: int) -> void:
 	_income_value = value
 	if _income_label == null:
 		return
-	_income_label.text = HudChrome.format_delta(value)
+	_income_label.text = TextFormat.delta(value)
 	_income_label.add_theme_color_override(
 		"font_color",
 		Palette.TEXT_DIM if value == 0 else (
@@ -192,7 +195,7 @@ func _refresh_treasury_tooltip() -> void:
 	if _treasury_chip == null:
 		return
 	_treasury_chip.tooltip_text = "Treasury %s · %s per turn — open the ledger" % [
-		HudChrome.format(_treasury_value), HudChrome.format_delta(_income_value)
+		TextFormat.thousands(_treasury_value), TextFormat.delta(_income_value)
 	]
 
 
@@ -381,7 +384,7 @@ func update_view_rect(rect: Rect2) -> void:
 
 func flash_income(amount: int) -> void:
 	var label := Label.new()
-	label.text = "+%s" % HudChrome.format(amount)
+	label.text = "+%s" % TextFormat.thousands(amount)
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

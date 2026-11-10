@@ -227,6 +227,51 @@ func test_ambient_life_keeps_gulls_and_embers() -> void:
 	assert_true(life._time > 0.0)
 
 
+## A slot that cannot be read is refused in place: the browser names it, the
+## router keeps the running campaign, and the notice lands on the pause menu
+## (wiki: campaign-persistence § Load and resume — announced, never silent).
+func test_an_unreadable_slot_never_replaces_the_running_campaign() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	var path: String = SaveStore.path_for(4, DIR)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "the unreadable fixture opens")
+	if file == null:
+		return
+	file.store_string("not a save at all")
+	file.close()
+	var turn: int = screen.play.turn
+	screen.game_menu.open()
+	screen.game_menu.open_load()
+	var row: Button = screen.game_menu.browser.slot_buttons[3]
+	assert_false(row.disabled, "the slot is not offered as empty")
+	assert_true(row.text.contains("Unreadable"), "the row says it cannot be read")
+	row.emit_signal("pressed")
+	assert_eq(screen.game_menu.browser._status.text, SaveBrowser.UNREADABLE)
+	assert_true(screen.game_menu.browser.visible, "the browser stays open")
+	# Even a caller that bypasses the browser cannot replace the campaign.
+	screen.game_menu.load_chosen.emit(4)
+	assert_true(main.current_screen == screen, "the campaign is not replaced")
+	assert_true(main.current_page == screen, "no title screen is installed")
+	assert_eq(screen.play.turn, turn, "the turn is untouched")
+	assert_eq(
+		screen.game_menu._status.text, SaveBrowser.UNREADABLE, "the pause menu shows the notice"
+	)
+	assert_true(screen.game_menu.is_open(), "the player is back on the pause menu")
+	# Saving over a file the build cannot read asks the confirming press first.
+	screen.game_menu.open_save()
+	screen.game_menu.browser.slot_buttons[3].emit_signal("pressed")
+	assert_true(
+		screen.game_menu.browser._status.text.contains("again"), "a used slot asks twice"
+	)
+	assert_false(
+		SaveCodec.is_valid(SaveStore.read(path)), "one press leaves the file alone"
+	)
+
+
 func _start_game() -> void:
 	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page

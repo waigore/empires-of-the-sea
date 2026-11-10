@@ -14,15 +14,34 @@ static func describe(battle: Dictionary, zone_name: String, faction_names: Array
 		var beaten: int = int(retreat.get("beaten", int(battle.get("defender", 0))))
 		var haven: String = _faction(faction_names, beaten)
 		var holder: String = defender if beaten == int(battle.get("attacker", 0)) else attacker
-		return "%s withdraws from the %s — %s holds the zone" % [haven, zone_name, holder]
+		return "%s withdraws from the %s — %s holds the zone%s" % [
+			haven, zone_name, holder, strength_note(battle)
+		]
 	match outcome:
 		NavalCombat.Outcome.SIDE1_VICTORY:
 			var sunk: int = (battle.get("defender_lost", []) as Array).size()
-			return "%s holds the %s — %s loses %d ships" % [attacker, zone_name, defender, sunk]
+			return "%s holds the %s — %s loses %d ships%s" % [
+				attacker, zone_name, defender, sunk, strength_note(battle)
+			]
 		NavalCombat.Outcome.SIDE2_VICTORY:
 			var lost: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s repels %s in the %s — %d ships lost" % [defender, attacker, zone_name, lost]
-	return "%s and %s trade broadsides in the %s and withdraw" % [attacker, defender, zone_name]
+			return "%s repels %s in the %s — %d ships lost%s" % [
+				defender, attacker, zone_name, lost, strength_note(battle)
+			]
+	return "%s and %s trade broadsides in the %s and withdraw%s" % [
+		attacker, defender, zone_name, strength_note(battle)
+	]
+
+
+## The arithmetic behind a clash: " — 18.2 strength to 11.0". The resolver's own
+## figures, so the court can see why one side held the zone (REQ-P2-03). Empty
+## when the record carries no strengths, and the despatch reads as before.
+static func strength_note(battle: Dictionary) -> String:
+	if not battle.has("attacker_strength") or not battle.has("defender_strength"):
+		return ""
+	return " — %.1f strength to %.1f" % [
+		float(battle["attacker_strength"]), float(battle["defender_strength"])
+	]
 
 
 static func _faction(faction_names: Array, owner: int) -> String:
