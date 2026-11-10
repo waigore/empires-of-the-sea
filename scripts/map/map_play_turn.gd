@@ -149,11 +149,11 @@ static func _finish_turn(play: PlaySession) -> void:
 	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
 	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
 	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
+	MapPlaySpies.resolve(play)
+	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	_resolve_visibility(play)
-	# The human crown's terminal fall seals the session before any victory
-	# check: defeat never hands the conqueror a military win, nor opens that
-	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
-	# DR-20261109-05).
+	# The human crown's terminal fall seals the session before any victory check:
+	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
 		play.emit_turn_ended(play.turn)
 		return
@@ -209,6 +209,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.improvements.set_tech_caps(play.tech_caps())
 	play.improvements.refresh_if_open()
 	MapPlaySetup.build_lens(play)
+	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	play.emit_turn_ended(play.turn)
 
 
@@ -305,7 +306,6 @@ static func capital_world(play: PlaySession) -> Vector2:
 
 static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 	return play.model.capital_tile_of(province_id)
-
 
 ## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
 ## § Naval Combat). Rules resolve the battle; this only prunes markers and

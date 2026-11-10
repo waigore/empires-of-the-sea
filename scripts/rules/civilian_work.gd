@@ -23,6 +23,7 @@ const LABELS: Dictionary = {
 	"build_fort": "Build fort",
 	"build_rail": "Lay railroad",
 	"purchase_land": "Purchase land",
+	"counter_spy": "Counter-espionage",
 }
 
 
@@ -192,6 +193,10 @@ static func resolve_turn(
 			continue
 		var action: String = unit.work_action()
 		var tile: Vector2i = unit.work_tile()
+		# Counter-espionage is ongoing: it never advances or completes, and the
+		# spy keeps its screen until the player cancels (wiki: civilian-units).
+		if action == SpyRules.WORK_COUNTER:
+			continue
 		var finished: bool = unit.advance_work()
 		var report: Dictionary = {
 			"unit": unit,
@@ -312,6 +317,12 @@ static func _check_action(
 			)
 		"purchase_land":
 			return LandPurchase.check(model, unit, tile, works, units, context)
+		"counter_spy":
+			# Empire-wide screen: the target is any owned province, and one spy
+			# anywhere covers every province (wiki: civilian-units § Spy).
+			if model.province_owner(province) != unit.owner:
+				return _no("Counter-espionage is kept in your own provinces.")
+			return {"ok": true}
 	return _no("The %s has no such work order." % unit.display_name())
 
 

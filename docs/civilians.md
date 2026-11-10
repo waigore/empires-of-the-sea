@@ -1,6 +1,7 @@
 # Civilian units
 
-Land units that explore, survey, improve, colonize and spy.
+Land units that explore, improve, colonize and spy; four start, two unlock by
+tech.
 
 **Pillars:** P1–P5.
 
@@ -12,39 +13,37 @@ Land units that explore, survey, improve, colonize and spy.
 
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
   prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
-  (passive), Merchant (buy land), Rail Builder (railroad).
-- **Empire ledger** (`CivilianRosterPanel`): CREW chip or `C` lists every crew
-  in both worlds, filtered by region/craft.
-- **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
-  Builders keep to crown land; Explorer, Merchant and Spy cross any border.
-- **Spy** (`SpyNetworks`): no work order. Holds its province charted (never
-  `unknown`); each shadowed rival Great Power adds +15% RP to a Low+ slot on a
-  tech that court knows, added to Industrial Funding before one floor.
-- **Court reports** (`CourtReports`): a Spy that ends the turn on a rival's
-  land earns a despatch under that court's chronicle — its acts, battles and
-  captures, technologies finished. Names mask against your contacts; last turn
-  only, in memory (DR-20261110-07).
+  (spycraft), Merchant (buy land), Rail Builder (railroad).
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter and Visit.
+- **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
+  Builders stay on crown land; Explorer, Merchant, Spy cross any border.
+- **Spy** (`SpyNetworks`, `SpyRules`, `CourtReports`): holds its province
+  charted (never `unknown`); each shadowed rival GP adds +15% RP to a Low+
+  slot it knows. **Counter-espionage** kills or turns enemy spies; digests /
+  despatch name deeds ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
-  returns to origin. Explore ≤3, prospect 1, improvement 1–4 (lumber + cast
-  iron), **upgrade town** (National Bureaucracy), road, port, rail, fort 1–3
-  ([forts.md](forts.md)).
+  returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
+  **upgrade town** (same costs, National Bureaucracy), road, port, rail, fort
+  1–3 ([forts.md](forts.md)).
 - **Town development:** Builder raises towns to level 4; connected port towns
   cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
-  (one per hull, never with troops), landing at the port province or a coastal
-  tile beside its zone; Explorers/Merchants anywhere, others on crown land.
-  Sunk ships drown passengers.
-- **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy, no
-  war and a prospected mineral; 15× base price, debited on completion.
-- **Tile deeds** (`TileOwnership`): the buyer's land for works, yield, estates,
-  fog, borders and saves; the province stays with the seller.
+  (one per hull, never with troops); lands at port or coastal tile beside its
+  zone. Explorers/Merchants any coast; others need crown land. Landing reveals
+  tile + neighbours; sunk ships drown passengers.
+- **Land purchase:** Merchant buys Minor/Tribe resource tile with embassy, no
+  war, prospected mineral; 15× base at assign, debit on complete.
+- **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
+  and saves; province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
-  connected; over-cap upgrades are refused; `ESTATES` lists yield and orders.
-- **Presence** keeps a province visible; one crew per tile.
+  connected; above-cap upgrades refused; `ESTATES` lists orders.
+- **Presence** keeps a province visible; one crew per tile per crown (Rail
+  Builders exempt).
+- **Stranding:** crews caught by conquest withdraw to crown land or are lost;
+  a fallen crown's crews leave play.
 
 ## Deferred (REQ-P2-02)
 
-- **Counter-spy** — needs rival spies to hunt.
 - Rival civilian AI; Minor/Tribe town manufacturing offers.
 
 ## Architecture
@@ -53,8 +52,9 @@ Land units that explore, survey, improve, colonize and spy.
 |------|------|
 | `scripts/rules/civilian_*.gd` | roster, state, movement, work, transport, voyage |
 | `scripts/rules/spy_networks.gd` | spy hosts and research bonus |
-| `scripts/rules/court_reports.gd` | despatch facts, masking, cap |
-| `scripts/ui/court_reports_panel.gd` | the despatch block |
+| `scripts/rules/spy_rules.gd` | counter-espionage, dice, toast digests |
+| `scripts/rules/court_reports.gd` | despatch facts, masking |
+| `scripts/ui/court_reports_panel.gd` | diplomacy despatch |
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | deeds |
 | `scripts/rules/land_works.gd`, `improvement_*.gd` | works, extraction, ledger |
 | `scripts/map/civilian_*.gd`, `map_play_civilian_roster.gd` | markers, passengers, roster jump |
@@ -69,13 +69,16 @@ Rules stay node-free (`REQ-P3-03`).
 | Select | click medallion | tap medallion |
 | March | click glowing neighbour | tap glowing neighbour |
 | Work order | dossier button | dossier button |
+| Counter-spy | dossier **Counter-espionage** | same |
+| Empire roster | CREW/`C`; Visit | same |
 | Embark / land | fleet **PASSENGERS** | same |
-| Estates | `ESTATES` | same |
+| Estates | `ESTATES` / province Build | same |
+| Cancel / close | dossier / ledger Close | same |
 
 ## Tests
 
 `test_civilian_field_rules`, `test_civilian_voyage`, `test_spy_networks`,
-`test_court_reports`, `test_visibility`, `test_map_screen_crown_orders`.
+`test_espionage`, `test_court_reports`, `test_visibility`, `test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

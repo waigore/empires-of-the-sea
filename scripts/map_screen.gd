@@ -35,6 +35,7 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 var player_leader: String = ""
 ## Endless campaign chosen in game setup (wiki: turn-time-mapping).
 var infinite_mode: bool = false
+var advanced_start: String = AdvancedStart.NONE
 ## Full-AI observer: every Great Power is AI and no court answers consent
 ## decisions. Debug tool launched from the title screen or tools/ai_vs_ai.gd
 ## (wiki: game-setup § Human/AI slot assignment).
@@ -58,8 +59,7 @@ var preset_world: WorldMap = null
 @onready var game_menu: GameMenu = $GameMenu
 @onready var fade: ColorRect = $FadeLayer/Fade
 
-# --- compat accessors for tests / e2e (session is source of truth) -----------
-
+# Compat accessors for tests / e2e (session is source of truth).
 var model: MapModel:
 	get:
 		return play.model if play != null else null
@@ -147,11 +147,14 @@ func _ready() -> void:
 	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
-		$World/ResourceLens
+		$World/ResourceLens, $World/DiplomacyLens
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
-		play.configure(player_faction, map_seed, map_width, map_height, player_leader, infinite_mode)
+		play.configure(
+			player_faction, map_seed, map_width, map_height, player_leader,
+			infinite_mode, advanced_start
+		)
 		if preset_world != null:
 			play.world = preset_world
 		else:
@@ -161,8 +164,7 @@ func _ready() -> void:
 		map_seed = play.map_seed
 		map_width = play.map_width
 		map_height = play.map_height
-	# The economy is always founded on the Old World, exactly as when the run
-	# started; restore there first, then return to the saved map.
+	# Economy always founds on the Old World; restore there, then return.
 	var target_region: int = play.region_index
 	if restored:
 		play.region_index = 0
@@ -176,9 +178,13 @@ func _ready() -> void:
 	else:
 		play.diplomacy.initialize(play.turn)
 	play.diplomacy.human_faction = play.human_faction_id()
+	# Mid-age opening (wiki: advanced-starts); a load already carries it.
+	if not restored:
+		MapPlayAdvanced.begin(play)
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlaySetup.build_diplomacy_lens(play)
 	_connect()
 	if restored:
 		MapPlaySetup.refresh_after_load(play)
@@ -191,6 +197,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	MapPlayInput.update_hover(play)
 
+
 func _unhandled_input(event: InputEvent) -> void:
 	if hud != null and hud.is_quick_battle_shown(): return
 	if event.is_action_pressed(InputActions.END_TURN):
@@ -202,13 +209,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(InputActions.LENS):
 		MapPlayInput.toggle_lens(play)
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.DIPLOMACY_LENS):
+		MapPlayInput.toggle_diplomacy_lens(play)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.CANCEL):
 		MapPlayInput.deselect(play)
 		get_viewport().set_input_as_handled()
 
 
-## Android back / iOS back gesture: close the top layer first, quit only from the
-## bare map. Without this the OS kills the session mid-order (RUB-P5-07).
+## Back: close the top layer first; quit only from the bare map (RUB-P5-07).
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
 		return
@@ -218,14 +227,11 @@ func _notification(what: int) -> void:
 		get_tree().quit()
 
 
-# --- setup ------------------------------------------------------------------
-
-
-## Swaps the whole view onto one region: canvas, fog, fleets, civilians, works,
-## minimap and camera bounds all follow the active tile map.
+## Swap the view onto one region: canvas, fog, units, works, minimap, camera.
 func load_region(index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
+	civilian_layer.viewer_faction = play.player_faction
 	ship_layer.world = play.world
 	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
@@ -250,9 +256,7 @@ func load_region(index: int) -> void:
 		play.player_present(), play.player_faction
 	)
 	army_layer.spawn(play.model)
-	civilian_layer.spawn(
-		play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS
-	)
+	civilian_layer.spawn(play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	MapPlaySetup.build_visibility(play)
@@ -287,6 +291,9 @@ func _connect() -> void:
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
 	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
+	hud.diplomacy_lens_pressed.connect(
+		func(active: bool) -> void: MapPlayInput.set_diplomacy_lens(play, active)
+	)
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlayTurn.focus_capital(play)
 	)
@@ -364,12 +371,10 @@ func _on_load_chosen(slot: int) -> void:
 	load_slot_requested.emit(slot)
 
 
-## Full-AI observatory: hide the human chrome, seal saving (an observer session
-## is not a player campaign) and mount the live metrics panel (REQ-P5-02).
+## Full-AI observatory: hide human chrome, seal saving, mount metrics (REQ-P5-02).
 func _setup_observer() -> void:
 	hud.visible = false
-	# The panel owns the pause door, so the floating trigger must not overlap it.
-	game_menu.trigger.visible = false
+	game_menu.trigger.visible = false  # panel owns the pause door
 	game_menu.save_button.disabled = true
 	var panel := AiObserverPanel.new()
 	panel.name = "AiObserver"
@@ -379,15 +384,13 @@ func _setup_observer() -> void:
 	panel.refresh()
 
 
-## Ownership changed outside the map layers (Join Empire): redraw borders,
-## terrain tint, fog and the region chips without respawning units.
+## Ownership changed outside the map layers (Join Empire): redraw politics.
 func refresh_political_map() -> void:
 	if play == null or play.model == null:
 		return
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
-	if play.lens != null:
-		play.lens.refresh()
+	MapPlaySetup.build_lens(play)
 	if play.visibility != null:
 		overlay.sync_visibility(play.visibility)
 	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))

@@ -51,7 +51,7 @@ turns gold into advances, and researched techs lift extraction caps.
 
 ## Deferred (REQ-P2-02)
 
-- Goal-tech sorting and save/load of slot assignments; counter-spy.
+- Goal-tech sorting and save/load of slot assignments.
 - In-place upgrades and land-battle attack treasury modifiers: named in
   tooltips, not simulated.
 
