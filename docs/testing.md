@@ -69,6 +69,12 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
+
+# Allied defence — signs a formal alliance at court, lets a rival declare on the
+# ally, reads the call-to-arms banner, joins, and fights the battle the court did
+# not start; then two declarations in one turn (one call at a time, a refusal's
+# price).
+godot --headless --path . --script res://tests/playtest_allied_defence.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

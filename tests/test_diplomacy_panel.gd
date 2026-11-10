@@ -152,6 +152,30 @@ func test_a_waiting_intervention_prompts_and_emits_the_answer() -> void:
 	assert_eq(seen[0][1], 3)
 
 
+func test_a_waiting_call_to_arms_names_its_price_and_emits_the_answer() -> void:
+	state.relation(0, 1).score = 80.0
+	state.relation(0, 1).formal_alliance = true
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 2, 1)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "CALL TO ARMS"))
+	assert_true(_has_text(panel._call_box, "France"), "the aggressor is named")
+	assert_true(_has_text(panel._call_box, "England"), "and the ally the call defends")
+	assert_true(_has_text(panel._call_box, "−50"), "the treaty price is on the banner")
+	assert_true(_has_text(panel._call_box, "−10"), "and the cascade with every other crown")
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var button: Button = _find_button(panel._call_box, "Join the war")
+	assert_not_null(button)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], CallToArms.KIND_JOIN)
+	assert_eq(seen[0][1], 2, "the answer names the aggressor")
+
+
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	state.relation(0, 2).score = 80.0
 	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)

@@ -344,6 +344,47 @@ func test_phone_ledgers_fit_their_sheets() -> void:
 	)
 
 
+## The court's consent banner holds the calendar shut, so on a phone it must fit
+## the sheet it rides — buttons and all (wiki: diplomacy § Alliances).
+func test_phone_court_call_banner_fits() -> void:
+	for size: Vector2i in [PHONE, SMALL]:
+		_open(size)
+		await get_tree().process_frame
+		var hud: GameHud = _screen.hud
+		var play: PlaySession = _screen.play
+		var rivals: Array[int] = []
+		for gp: int in FactionCatalog.great_power_ids():
+			if gp != play.player_faction:
+				rivals.append(gp)
+		play.diplomacy.relation(play.player_faction, rivals[0]).score = 80.0
+		play.diplomacy.relation(play.player_faction, rivals[0]).formal_alliance = true
+		CallToArms.freeze_alliances(play.diplomacy)
+		DiplomacyRules.declare_war(play.diplomacy, rivals[1], rivals[0])
+		MapPlayDiplomacy.show_call(play)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var box: VBoxContainer = hud._diplomacy_panel._call_box
+		assert_true(box.visible and box.get_child_count() > 0, "the banner is up at %s" % size)
+		_fits(
+			box.get_global_rect(), hud._diplomacy_wrap.get_global_rect(),
+			"call banner %s" % size
+		)
+		assert_true(
+			hud._diplomacy_panel.get_combined_minimum_size().y
+				<= hud._diplomacy_wrap.size.y + 0.5,
+			"the court still fits its sheet at %s (%s > %s)" % [
+				size, hud._diplomacy_panel.get_combined_minimum_size().y,
+				hud._diplomacy_wrap.size.y,
+			]
+		)
+		for node: Node in box.find_children("*", "Button", true, false):
+			var button := node as Button
+			_fits(
+				button.get_global_rect(), hud._diplomacy_wrap.get_global_rect(),
+				"call button %s at %s" % [button.text, size]
+			)
+
+
 func test_ledger_header_fits_a_short_viewport() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
