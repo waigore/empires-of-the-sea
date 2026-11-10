@@ -107,6 +107,15 @@ func test_open_sea_is_not_a_seat() -> void:
 	assert_true(page.hint_text().contains("open sea"), "the refusal is stated")
 
 
+## The chart's sea margin lies outside the map's tiles; a tap there is water
+## too, and says so instead of swallowing the tap.
+func test_a_tap_beyond_the_chart_is_refused_out_loud() -> void:
+	var before: Vector2i = page.selected_tile
+	assert_false(page.pick_tile(Vector2i(-4, -4)))
+	assert_eq(page.selected_tile, before, "the seat is unchanged")
+	assert_true(page.hint_text().contains("open sea"), "the refusal is stated")
+
+
 func test_confirm_without_a_seat_is_refused() -> void:
 	page.selected_province = -1
 	page.selected_tile = CapitalChoice.NO_TILE
@@ -128,6 +137,104 @@ func test_tapping_a_tile_inside_the_province_moves_the_seat() -> void:
 	page.on_tapped(MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
 	assert_eq(page.selected_tile, tile)
 	assert_eq(page.marker.seat, tile, "the chart follows the tap")
+
+
+# --- real input -------------------------------------------------------------
+
+
+## A tap must be answered through the GUI, not only through the camera's
+## `_unhandled_input`: the page's rectangle lives in the camera canvas, so a tap
+## whose map point falls inside it was swallowed silently before the chart
+## caught taps itself (the phone report: tapping a tile did nothing).
+func test_a_tap_is_answered_where_the_page_covers_the_chart() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	# Show the map's north-west corner: the page's own rectangle then sits under
+	# the tap, which is where the pointer event used to stop.
+	chart.camera.focus_on(Vector2(300.0, 300.0), 0.6, true)
+	await get_tree().process_frame
+	var screen: Vector2 = chart.get_viewport().get_canvas_transform() * Vector2(300.0, 300.0)
+	var hint: String = chart.hint_text()
+	await _tap(chart.get_viewport(), screen)
+	assert_ne(chart.hint_text(), hint, "the tap is answered, never silent")
+	assert_eq(chart.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the page is not a tap target")
+	_free_page(chart)
+
+
+## The catcher only answers taps: a drag belongs to the camera, so panning the
+## chart never moves the seat.
+func test_a_drag_pans_the_chart_and_leaves_the_seat() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var viewport: Viewport = chart.get_viewport()
+	var seat: Vector2i = chart.selected_tile
+	var before: Vector2 = chart.camera.position
+	var start := viewport.get_visible_rect().size * 0.5
+	_push(viewport, _touch(true, start))
+	_push(viewport, _drag(start + Vector2(-60.0, -40.0)))
+	_push(viewport, _touch(false, start + Vector2(-60.0, -40.0)))
+	await get_tree().process_frame
+	assert_ne(chart.camera.position, before, "the drag pans the chart")
+	assert_eq(chart.selected_tile, seat, "a drag is not a tap")
+	_free_page(chart)
+
+
+## Taps the water: the banner names the refusal, so a touch player never taps
+## into silence (wiki: capital-choice-phase § Player choice).
+func test_a_tap_on_open_sea_is_refused_out_loud() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var viewport: Viewport = chart.get_viewport()
+	var xform: Transform2D = viewport.get_canvas_transform()
+	var screen_size: Vector2 = viewport.get_visible_rect().size
+	var tapped: bool = false
+	for y in chart.model.height:
+		for x in chart.model.width:
+			if not chart.model.is_sea(x, y):
+				continue
+			var screen: Vector2 = xform * MapGeo.tile_center(x, y, PlaySession.TILE_SIZE)
+			if not _on_screen(screen, screen_size):
+				continue
+			await _tap(viewport, screen)
+			tapped = true
+			break
+		if tapped:
+			break
+	assert_true(tapped, "the phone chart shows open water")
+	assert_true(chart.hint_text().contains("open sea"), "the sea tap is stated")
+	_free_page(chart)
+
+
+## A pointer on the chart is answered once, though both input paths see it (the
+## camera's release and the HUD catcher).
+func test_a_pointer_click_seats_the_court_once() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var viewport: Viewport = chart.get_viewport()
+	var xform: Transform2D = viewport.get_canvas_transform()
+	var screen_size: Vector2 = viewport.get_visible_rect().size
+	var tile: Vector2i = _other_tile(chart.model, chart.selected_province, chart.selected_tile)
+	var screen: Vector2 = xform * MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE)
+	assert_true(_on_screen(screen, screen_size), "the crown tile is on screen")
+	_click(viewport, screen)
+	await get_tree().process_frame
+	assert_eq(chart.selected_tile, tile, "the click places the seat")
+	assert_true(chart.hint_text().contains("SEAT THE COURT"), "one answer, not two")
+	_free_page(chart)
+
+
+## The chart's own buttons still win the tap: the catcher sits under them, and a
+## pointer on the button seats the court instead of moving it.
+func test_the_confirm_button_seats_the_court_on_a_touch() -> void:
+	var chart: CapitalChoiceScreen = await _open(914, 411)
+	var chosen: Array = []
+	chart.capital_chosen.connect(
+		func(_config: GameConfig, _world: WorldMap) -> void: chosen.append(true)
+	)
+	var seat: Vector2i = chart.selected_tile
+	var centre: Vector2 = chart.confirm_button.get_global_rect().get_center()
+	_click(chart.get_viewport(), centre)
+	await get_tree().process_frame
+	assert_eq(chosen.size(), 1, "the button, not the chart, answers the tap")
+	assert_eq(chart.selected_tile, seat, "the tap did not move the seat")
+	_free_page(chart)
+
 
 
 func test_back_leaves_the_phase() -> void:
@@ -173,6 +280,74 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 
 
 # --- helpers ----------------------------------------------------------------
+
+
+## A chart on a phone-sized viewport, laid out and ready for real input.
+func _open(width: int, height: int) -> CapitalChoiceScreen:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(width, height)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var chart: CapitalChoiceScreen = SCENE.instantiate()
+	chart.config = GameConfig.make(SEED, 0, FactionCatalog.PLAYER_FACTION)
+	chart.world = world
+	viewport.add_child(chart)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	return chart
+
+
+func _free_page(chart: CapitalChoiceScreen) -> void:
+	var host: Node = chart.get_parent()
+	if host is SubViewport:
+		host.free()
+	else:
+		chart.free()
+
+
+## One finger tap through the viewport: press, release, one idle frame.
+func _tap(viewport: Viewport, screen: Vector2) -> void:
+	viewport.push_input(_touch(true, screen))
+	viewport.push_input(_touch(false, screen + Vector2(1.0, 1.0)))
+	await get_tree().process_frame
+
+
+func _push(viewport: Viewport, event: InputEvent) -> void:
+	viewport.push_input(event)
+
+
+## A pointer click (what Android emulates beside every tap).
+func _click(viewport: Viewport, screen: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = screen
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = screen
+	viewport.push_input(press)
+	viewport.push_input(release)
+
+
+func _touch(pressed: bool, position: Vector2) -> InputEventScreenTouch:
+	var event := InputEventScreenTouch.new()
+	event.index = 0
+	event.pressed = pressed
+	event.position = position
+	return event
+
+
+func _drag(position: Vector2) -> InputEventScreenDrag:
+	var event := InputEventScreenDrag.new()
+	event.index = 0
+	event.position = position
+	event.relative = Vector2(-60.0, -40.0)
+	return event
+
+
+func _on_screen(point: Vector2, screen: Vector2) -> bool:
+	return Rect2(Vector2.ZERO, screen).has_point(point)
 
 
 ## Another sea-bound province of the human crown.
