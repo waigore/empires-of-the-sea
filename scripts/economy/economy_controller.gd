@@ -2,7 +2,8 @@ class_name EconomyController
 extends Node
 ## Connects the player's economy to the map screen: builds the opening economy,
 ## runs turn resolution, and turns ledger button presses into market/production
-## intents. Rules live in scripts/rules; this node only wires and reports.
+## intents. Rules live in scripts/rules; this node only wires and reports, and
+## pays the deeds bought from a Minor Nation or Tribe in cash (DR-20261110-09).
 
 signal treasury_changed(value: int)
 
@@ -21,6 +22,8 @@ var _hud: GameHud = null
 var works_by_region: MapRegionTable = null
 ## Consumption report of the last resolved turn, for feeding coverage.
 var _last_consumption: Dictionary = {}
+## This turn's deed payout, so the toast names it (DR-20261110-09).
+var _deeds: Dictionary = {}
 ## Tech id -> percent the crown's spy network adds this Research phase, set by
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
@@ -131,12 +134,18 @@ func feeding_coverage() -> float:
 
 
 ## Everything that reaches the crown's stockpile this turn: home-region land
-## yield plus the overseas cargo the home fleet actually delivers.
+## yield plus the overseas cargo the home fleet actually delivers. Deed tiles
+## pay cash instead, so their tons leave the yield (DR-20261110-09).
 func extraction() -> Dictionary:
 	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
 		capital_tile, economy.tech_unlocked
 	)
+	var world: WorldMap = null if _ships == null else _ships.world
+	var region: int = model.region_id if model != null else WorldMap.OLD_WORLD
+	_deeds = DeedIncome.income(world, region, player_faction, works)
+	_deeds.erase("model")
+	home = DeedIncome.without_deeds(home, _deeds["units"] as Dictionary)
 	if _ships == null or _ships.world == null:
 		return home
 	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
@@ -167,6 +176,7 @@ func resolve_turn() -> Dictionary:
 		economy, market, extraction(), fleet_ships(), army_food(), true,
 		research_boost
 	)
+	report["deeds"] = DeedIncome.settle(_deeds.duplicate(), economy)
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.

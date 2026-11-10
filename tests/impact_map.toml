@@ -79,6 +79,7 @@ suites = [
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
+  "test_deed_income.gd",
 ]
 
 [domains.espionage]
@@ -125,6 +126,19 @@ suites = [
 [domains.fort]
 suites = [
   "test_fort_rules.gd",
+]
+
+# The fleet AI's sight: the rival hunts and blockades only where its own chart
+# reaches (DR-20261110-21 kept the naval pass for its own PR). The fleet
+# domain's twelve suites say nothing about fog and would run past tier 1, so
+# this slice names the suites that do.
+[domains.naval_fog]
+suites = [
+  "test_ai_invasion.gd",
+  "test_ai_rules.gd",
+  "test_fleet_missions.gd",
+  "test_fleet_orders.gd",
+  "test_visibility.gd",
 ]
 
 [domains.map]
@@ -231,6 +245,19 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/ai/ai_naval_planner.gd*"
+domain = "naval_fog"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_ai.gd*"
+domain = "naval_fog"
+
+# The planner's own suite; the other AI suites say nothing about sight.
+[[rules]]
+match = "tests/test_ai_rules.gd*"
+domain = "naval_fog"
+
 [[rules]]
 match = "scripts/ui/quick_battle_*.gd"
 domain = "quick_battle"
@@ -591,6 +618,10 @@ match = "scripts/rules/world_market.gd"
 domain = "economy"
 
 [[rules]]
+match = "scripts/rules/deed_income.gd*"
+domain = "economy"
+
+[[rules]]
 match = "scripts/rules/research_*.gd"
 domain = "research"
 
@@ -867,6 +898,10 @@ domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_deed_income.gd*"
 domain = "economy"
 
 [[rules]]

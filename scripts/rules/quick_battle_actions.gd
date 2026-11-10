@@ -111,7 +111,13 @@ static func resolve(
 	var ground: String = terrain if key == "attacker" else "open"
 	ratio *= SiegeLanes.terrain_scale(acted, ground)
 	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
-	var blow: float = ratio * float(maxi(enemy_count, 1))
+	## The action's published share of a line, spent as tactical weight: a
+	## stronger line breaks more of the enemy, and a tougher enemy line loses
+	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
+	## effective strength).
+	var blow: float = ratio * ArmyModifiers.strength(
+		me_side, int(me["limit"]), _multiplier(me)
+	) / ArmyModifiers.average_rank(enemy_side, int(enemy["limit"]))
 	var wanted: int = ceili(blow)
 	# The battery is shot at before the men behind it; melee cannot reach it. A
 	# standing gun spends the blow before the lanes, so the garrison is sheltered
@@ -159,6 +165,13 @@ static func resolve(
 	if lost.size() >= ceili(float(enemy_count) * 0.25):
 		enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
 	return _pay_own(armies, me, key, entry, acted)
+
+
+## A side's combat multiplier from its modifier bundle; an unmodified side
+## (tests, a hand-built state) fights at 1.0.
+static func _multiplier(side: Dictionary) -> float:
+	var mods: Dictionary = side.get("mods", {}) as Dictionary
+	return float(mods.get("multiplier", 1.0))
 
 
 ## An action's own price (an assault or a sortie costs the side that launches it).

@@ -129,8 +129,10 @@ func test_entrenching_is_surer_in_cover() -> void:
 
 
 func test_a_sortie_in_the_open_costs_the_garrison_dear() -> void:
+	## Enough pike that a quality assault leaves men to pay the sally's own cost
+	## (main's FPN/FPM blow no longer treats a thin garrison as a head count).
 	var battle: Dictionary = _fight(
-		"aggressive", _repeat("guards", 8), _repeat("pikemen", 6), 1, "town"
+		"aggressive", _repeat("guards", 8), _repeat("pikemen", 16), 1, "town"
 	)
 	var sortie: Dictionary = {}
 	for round: Dictionary in battle["quick"]["rounds"]:
@@ -165,8 +167,10 @@ func _fight(
 
 
 func _assault_losses(terrain: String) -> int:
-	var attacker: Array[ArmyState] = _side(_repeat("guards", 6), 2)
-	var defender: Array[ArmyState] = _side(_repeat("peasant_levies", 6), 1)
+	## Peer-quality lines so the blow stays in the terrain band instead of
+	## wiping both open and town (quality weight from main's Quick Battle).
+	var attacker: Array[ArmyState] = _side(_repeat("pikemen", 6), 2)
+	var defender: Array[ArmyState] = _side(_repeat("pikemen", 6), 1)
 	var armies: Array[ArmyState] = _joined(attacker, defender)
 	var state: Dictionary = _state(attacker, defender, terrain)
 	var entry: Dictionary = QuickBattleActions.resolve(

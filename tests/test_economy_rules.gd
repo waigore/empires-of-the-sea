@@ -632,14 +632,16 @@ func _fixture() -> MapModel:
 
 func test_market_seeds_tradeable_catalog_prices() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	assert_eq(market.prices.size(), 22)
+	assert_eq(market.prices.size(), 23)
 	assert_eq(market.price("timber"), 30)
 	assert_eq(market.price("lumber"), 60)
 	assert_eq(market.price("iron"), 80)
 	assert_false(market.prices.has("gold"))
-	assert_false(market.prices.has("spices"))
+	# Spices is advanced and tradeable at its fixed 50 (DR-20261110-09).
+	assert_eq(market.price("spices"), 50)
 	assert_false(market.can_trade("gold"))
 	assert_true(market.can_trade("lumber"))
+	assert_true(market.can_trade("spices"))
 
 
 func test_buy_pays_the_current_price_and_records_a_bid() -> void:
@@ -680,6 +682,10 @@ func test_sell_credits_treasury_and_records_an_offer() -> void:
 	assert_eq(market.offer_volume("timber"), 2)
 	assert_false(bool(market.sell(economy, "timber", 5)["ok"]))
 	assert_false(bool(market.sell(economy, "spices", 1)["ok"]))
+	economy.stockpile["spices"] = 2
+	var crop: Dictionary = market.sell(economy, "spices", 2)
+	assert_true(bool(crop["ok"]), "a crown may sell its spices")
+	assert_eq(int(crop["revenue"]), 100)
 
 
 func test_price_discovery_uses_the_published_formula() -> void:

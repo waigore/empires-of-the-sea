@@ -161,6 +161,97 @@ func test_a_weak_attacker_is_repulsed() -> void:
 	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
 
 
+## Side strength is tactical, not a head count: four guards outweigh four
+## pikes, and four pikes outweigh four levies (wiki: quick-battle § Cohesion
+## and effective strength).
+func test_effective_strength_aggregates_fpn_and_fpm() -> void:
+	var guards: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var pikes: Array[ArmyState] = _lane_side(_pikes(4), 1)
+	var levies: Array[ArmyState] = _lane_side(_levies(4), 1)
+
+	var guard_weight: float = QuickBattle.effective_strength(guards, 10, 3, 1.0)
+	var pike_weight: float = QuickBattle.effective_strength(pikes, 10, 3, 1.0)
+	var levy_weight: float = QuickBattle.effective_strength(levies, 10, 3, 1.0)
+
+	assert_almost_eq(guard_weight, 4.0 * 22.0, 0.01, "Σ (FPN + FPM) for the slice")
+	assert_true(guard_weight > pike_weight)
+	assert_true(pike_weight > levy_weight)
+	assert_almost_eq(
+		QuickBattle.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
+		"a broken line has no strength"
+	)
+	assert_almost_eq(
+		QuickBattle.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
+		0.01, "the side multiplier scales the whole slice"
+	)
+
+
+## Reserves behind the deployment limit never count, exactly as in
+## auto-resolve (wiki: combat § Strength).
+func test_only_the_deployed_slice_counts_toward_strength() -> void:
+	var twelve: Array[ArmyState] = _lane_side(_guards(12), 2)
+
+	assert_almost_eq(
+		QuickBattle.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
+	)
+
+
+## A chevroned regiment weighs more than a fresh one, and health scales it the
+## same way (wiki: combat § Strength).
+func test_chevrons_and_health_raise_a_regiments_weight() -> void:
+	var fresh: Array[ArmyState] = _lane_side(_guards(2), 2)
+	var veteran: Array[ArmyState] = _lane_side(_guards(2), 2)
+	var army: ArmyState = veteran[0]
+	for regiment_id: String in army.regiments:
+		army.regiment_medals[regiment_id] = RegimentCatalog.MAX_MEDALS
+	var fresh_weight: float = QuickBattle.effective_strength(fresh, 10, 3, 1.0)
+	var veteran_weight: float = QuickBattle.effective_strength(veteran, 10, 3, 1.0)
+
+	assert_almost_eq(veteran_weight, fresh_weight * 1.4, 0.01)
+	var first: String = army.regiments[0]
+	army.regiment_health[first] = RegimentCatalog.max_health("guards") / 2
+	assert_true(
+		QuickBattle.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
+		"a mauled regiment shoulders less"
+	)
+
+
+## An action's blow is spent as weight, so the same volley from a guard line
+## breaks more men than from a levy line (wiki: quick-battle § Cohesion and
+## effective strength).
+func test_a_stronger_line_breaks_more_of_the_enemy() -> void:
+	var strong: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var levies: Array[ArmyState] = _lane_side(_levies(4), 1)
+	var hard: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(strong, levies), _lane_state(strong, levies, 0),
+		"attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+	var levy_attackers: Array[ArmyState] = _lane_side(_levies(4), 2)
+	var guard_defenders: Array[ArmyState] = _lane_side(_guards(4), 1)
+	var soft: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(levy_attackers, guard_defenders),
+		_lane_state(levy_attackers, guard_defenders, 0),
+		"attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+
+	assert_eq(int(hard["defender_lost"]), 4, "the guard volley breaks the levy line")
+	assert_true(int(soft["defender_lost"]) < 4, "the levy volley cannot break four guards")
+
+
+## The virtual battery weighs its emplaced gun type, scaled by its remaining
+## HP, instead of a flat per-gun count (wiki: quick-battle § Emplaced fort
+## artillery).
+func test_the_battery_weighs_its_gun_type_and_remaining_health() -> void:
+	var guns: Array[Dictionary] = QuickBattleBattery.make(1, {}, 1)
+	var royal: float = float(RegimentCatalog.strength("royal_artillery"))
+
+	assert_almost_eq(QuickBattleBattery.strength(guns), royal, 0.01)
+	QuickBattleBattery.hit(guns, 1)
+	assert_almost_eq(QuickBattleBattery.strength(guns), royal * 0.5, 0.01)
+	QuickBattleBattery.hit(guns, 1)
+	assert_almost_eq(QuickBattleBattery.strength(guns), 0.0, 0.01, "a silenced gun weighs nothing")
+
+
 func test_a_quick_battle_win_awards_the_general() -> void:
 	var model := Fixture.build()
 	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
@@ -181,7 +272,7 @@ func test_a_quick_battle_win_awards_the_general() -> void:
 
 
 func test_a_siege_battery_fires_while_guns_stand() -> void:
-	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(8), 3)
+	var battle: Dictionary = _fight("balanced", _guards(6), _guards(8), 3)
 	assert_eq(int(battle["quick"]["guns_start"]), 3)
 	assert_true(int(battle["quick"]["guns_left"]) < 3)
 	var fired: bool = false
@@ -283,6 +374,13 @@ func _pikes(count: int) -> Array[String]:
 	var types: Array[String] = []
 	for _index in count:
 		types.append("pikemen")
+	return types
+
+
+func _levies(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("peasant_levies")
 	return types
 
 # --- Siege lanes (wiki: siege-mechanics § Quick Battle lanes) ---
@@ -487,7 +585,7 @@ func _lane_state(attacker: Array[ArmyState], defender: Array[ArmyState], fort: i
 ## Every blow that breaks a regiment must show the health it took from the men
 ## still standing: the plate's bars and damage numbers read from these hits.
 func test_every_action_shows_the_health_it_took() -> void:
-	var battle: Dictionary = _fight("aggressive", _guards(6), _pikes(8))
+	var battle: Dictionary = _fight("balanced", _guards(6), _guards(20))
 	var counted: int = 0
 	for round: Dictionary in battle["quick"]["rounds"]:
 		for action: Dictionary in round["actions"]:
@@ -505,7 +603,7 @@ func test_every_action_shows_the_health_it_took() -> void:
 
 
 func test_round_logs_carry_a_condition_snapshot() -> void:
-	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(6))
+	var battle: Dictionary = _fight("balanced", _guards(6), _guards(6))
 	var rounds: Array = battle["quick"]["rounds"] as Array
 	assert_true(not rounds.is_empty())
 	for round: Dictionary in rounds:

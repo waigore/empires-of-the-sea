@@ -291,3 +291,49 @@ func _find_button(node: Node, text: String) -> Button:
 			return found
 	return null
 
+
+
+## A bought Minor/Tribe tile pays straight into the purse (DR-20261110-09): its
+## tons never enter the stockpile and the toast names the income.
+func test_a_deed_pays_the_purse_and_the_toast_names_it() -> void:
+	var controller: EconomyController = _screen.economy
+	var model: MapModel = controller.model
+	var province: ProvinceState = null
+	var tile: Vector2i = CivilianState.NO_TILE
+	for candidate: ProvinceState in model.provinces:
+		if candidate.owner != _screen.player_faction:
+			continue
+		for owned: Vector2i in candidate.tiles:
+			if model.is_purchased_tile(owned) or not model.is_land(owned.x, owned.y):
+				continue
+			province = candidate
+			tile = owned
+			break
+		if province != null:
+			break
+	assert_not_null(province, "a crown province to buy into")
+	var index: int = model.index_of(tile.x, tile.y)
+	var old_resource: int = model.resource[index]
+	model.resource[index] = 0
+	controller.works.set_improvement(model, tile, 1)
+	assert_true(model.purchase_tile(tile, _screen.player_faction))
+	var before: int = controller.economy.treasury
+	var report: Dictionary = controller.resolve_turn()
+	var deeds: Dictionary = report["deeds"] as Dictionary
+	var units: Dictionary = deeds["units"] as Dictionary
+	assert_eq(units.size(), 1, "one commodity from the deed")
+	var commodity: String = String(units.keys()[0])
+	assert_eq(int(units[commodity]), 1, "one deed ton")
+	assert_eq(
+		int(deeds["treasury"]),
+		int(units[commodity]) * _screen.economy.market.price(commodity),
+		"every harvested ton pays its market price"
+	)
+	assert_eq(controller.economy.treasury, before + int(deeds["treasury"]))
+	assert_true(
+		LedgerText.turn_summary(report).contains(String(deeds["line"])),
+		"the toast names the deed income"
+	)
+	model.ownership.purchased.erase(index)
+	model.ownership.owners.erase(index)
+	model.resource[index] = old_resource
