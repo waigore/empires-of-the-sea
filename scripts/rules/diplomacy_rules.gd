@@ -25,8 +25,10 @@ static func can_declare_war(
 	return _allow()
 
 
+## `world` lets a war on a Minor/Tribe reach deed holders too (wiki: diplomacy).
 static func declare_war(
-	state: DiplomacyState, player: int, target: int, call_to_arms: bool = true
+	state: DiplomacyState, player: int, target: int,
+	call_to_arms: bool = true, world: WorldMap = null
 ) -> Dictionary:
 	var check: Dictionary = can_declare_war(state, player, target)
 	if not bool(check["ok"]):
@@ -49,7 +51,7 @@ static func declare_war(
 	# (wiki: diplomacy § Intervention).
 	var interventions: Array[String] = []
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		interventions = Intervention.on_war_declared(state, player, target)
+		interventions = Intervention.on_war_declared(state, player, target, world)
 	return {
 		"ok": true,
 		"reason": "",
@@ -195,10 +197,9 @@ static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
 	return record != null and record.at_war
 
 
-## Land a Great Power may enter as an invader: a declared enemy's, or a Tribe's
-## without any declaration (wiki: factions § Tribe — tribes are meant to be
-## easily conquered). Purchased-tile protection is not modelled yet because land
-## purchase is deferred (DR-20261108-06).
+## Land a Great Power may enter: a declared enemy's, or a Tribe's without a
+## declaration (wiki: factions § Tribe).
+## Purchased-tile protection is deferred with land purchase (DR-20261108-06).
 static func invadable(state: DiplomacyState, attacker: int, target: int) -> bool:
 	if attacker == target:
 		return false

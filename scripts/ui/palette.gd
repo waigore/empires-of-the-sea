@@ -37,6 +37,14 @@ const SURVEY_PROSPECT := Color(0.290, 0.529, 0.690)
 const SURVEY_OFFLINE := Color(0.596, 0.502, 0.392)
 const SURVEY_FOREIGN := Color(0.427, 0.416, 0.392)
 
+## Diplomatic lens bands: blue for the crown's own land, green for friendly or
+## allied courts, grey for neutral and red for crowns at war. The map wash and
+## the key read this one table (REQ-P1-02).
+const DIPLO_SELF := Color(0.176, 0.353, 0.663)
+const DIPLO_FRIENDLY := Color(0.243, 0.478, 0.286)
+const DIPLO_NEUTRAL := Color(0.478, 0.463, 0.427)
+const DIPLO_WAR := Color(0.702, 0.196, 0.196)
+
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
 const TERRAIN_COLORS: Array[Color] = [
@@ -75,3 +83,15 @@ static func survey_color(status: String) -> Color:
 		"disconnected":
 			return SURVEY_OFFLINE
 	return SURVEY_OFFLINE
+
+
+## Wash ink for one diplomatic band (DiplomacySurvey.BANDS).
+static func diplo_color(band: String) -> Color:
+	match band:
+		DiplomacySurvey.BAND_SELF:
+			return DIPLO_SELF
+		DiplomacySurvey.BAND_FRIENDLY:
+			return DIPLO_FRIENDLY
+		DiplomacySurvey.BAND_WAR:
+			return DIPLO_WAR
+	return DIPLO_NEUTRAL

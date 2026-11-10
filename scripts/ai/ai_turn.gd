@@ -90,7 +90,7 @@ static func _apply(
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
 	if kind == KIND_DECLARE_WAR:
-		var war: Dictionary = DiplomacyRules.declare_war(state, faction, target)
+		var war: Dictionary = DiplomacyRules.declare_war(state, faction, target, true, world)
 		if bool(war.get("ok", false)):
 			ai_state.note_war(faction, target, turn)
 		return {

@@ -270,14 +270,14 @@ static func run_ai(play: PlaySession) -> Array[Dictionary]:
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands. Capital losses resolve in
 ## the same pass, so a captured seat reassigns or falls before the next phase
-## (wiki: capital-and-connectivity § Capital loss and reassignment).
-static func resolve_battles(play: PlaySession) -> void:
+## (wiki: capital-and-connectivity § Capital loss); returns the battle records.
+static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 	var before: Array = CapitalLoss.snapshot_world(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
 		play.world, battle_context(play)
 	)
 	if battles.is_empty():
-		return
+		return battles
 	play.emit_battle_resolved(battles)
 	var repaint: bool = false
 	for battle: Dictionary in battles:
@@ -320,7 +320,7 @@ static func resolve_battles(play: PlaySession) -> void:
 	if play.army_layer.selected_army != null:
 		show_panel(play, play.army_layer.selected_army)
 		refresh_options(play, play.army_layer.selected_army)
-
+	return battles
 
 ## Reports the capital verdicts of Combat; returns true when the map changed. A
 ## crown with nothing left falls and its units and dealings leave play.

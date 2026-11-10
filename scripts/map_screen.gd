@@ -147,7 +147,7 @@ func _ready() -> void:
 	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
-		$World/ResourceLens
+		$World/ResourceLens, $World/DiplomacyLens
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
@@ -179,6 +179,7 @@ func _ready() -> void:
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlaySetup.build_diplomacy_lens(play)
 	_connect()
 	if restored:
 		MapPlaySetup.refresh_after_load(play)
@@ -201,6 +202,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.LENS):
 		MapPlayInput.toggle_lens(play)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed(InputActions.DIPLOMACY_LENS):
+		MapPlayInput.toggle_diplomacy_lens(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.CANCEL):
 		MapPlayInput.deselect(play)
@@ -226,6 +230,7 @@ func _notification(what: int) -> void:
 func load_region(index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
+	civilian_layer.viewer_faction = play.player_faction
 	ship_layer.world = play.world
 	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
 	var margin: float = 1400.0
@@ -250,9 +255,7 @@ func load_region(index: int) -> void:
 		play.player_present(), play.player_faction
 	)
 	army_layer.spawn(play.model)
-	civilian_layer.spawn(
-		play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS
-	)
+	civilian_layer.spawn(play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS)
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	MapPlaySetup.build_visibility(play)
@@ -287,6 +290,9 @@ func _connect() -> void:
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
 	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
+	hud.diplomacy_lens_pressed.connect(
+		func(active: bool) -> void: MapPlayInput.set_diplomacy_lens(play, active)
+	)
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlayTurn.focus_capital(play)
 	)
@@ -386,8 +392,7 @@ func refresh_political_map() -> void:
 		return
 	canvas.build(play.model, play.world)
 	overlay.build(play.model)
-	if play.lens != null:
-		play.lens.refresh()
+	MapPlaySetup.build_lens(play)
 	if play.visibility != null:
 		overlay.sync_visibility(play.visibility)
 	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))

@@ -49,17 +49,20 @@ suites = [
 suites = [
   "test_civilian_field_rules.gd",
   "test_civilian_voyage.gd",
+  "test_espionage.gd",
 ]
 
 [domains.diplomacy]
 suites = [
   "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
+  "test_diplomacy_lens.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_diplomacy_survey.gd",
   "test_intel_dossier.gd",
 ]
 
@@ -73,6 +76,7 @@ suites = [
 
 [domains.espionage]
 suites = [
+  "test_espionage.gd",
   "test_spy_networks.gd",
   "test_visibility.gd",
   "test_research_turn.gd",
@@ -112,6 +116,8 @@ suites = [
   "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
+  "test_diplomacy_lens.gd",
+  "test_diplomacy_survey.gd",
   "test_resource_lens.gd",
   "test_resource_survey.gd",
   "test_visibility.gd",
@@ -126,6 +132,7 @@ suites = [
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_diplomacy_lens.gd",
   "test_resource_lens.gd",
 ]
 
@@ -300,6 +307,14 @@ match = "scripts/map/map_play_civilian*.gd"
 domain = "civilian"
 
 [[rules]]
+match = "scripts/map/map_play_spies.gd*"
+domain = "espionage"
+
+[[rules]]
+match = "scripts/map/map_play_spy_ai.gd*"
+domain = "espionage"
+
+[[rules]]
 match = "scripts/map/ship*.gd"
 domain = "fleet"
 
@@ -361,6 +376,10 @@ domain = "ai"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/spy_*.gd*"
 domain = "civilian"
 
 [[rules]]
@@ -767,6 +786,10 @@ domain = "ui"
 
 # Espionage suites live with their rules, so a spy change never needs the full
 # run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too).
+[[rules]]
+match = "tests/test_espionage.gd*"
+domain = "espionage"
+
 [[rules]]
 match = "tests/test_spy_*.gd*"
 domain = "espionage"

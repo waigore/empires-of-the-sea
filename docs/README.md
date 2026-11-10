@@ -24,6 +24,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
+| [espionage.md](espionage.md) | Spies: presence, counter-espionage, research and reports |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
 | [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |

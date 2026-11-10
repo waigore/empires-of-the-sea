@@ -2,6 +2,7 @@ extends GdToolsTest
 ## Integration: the map screen's court panel, orders and diplomacy phase.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const CourtFixture = preload("res://tests/civilian_fixture.gd")
 
 var _screen: MapScreen = null
 
@@ -189,6 +190,72 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_eq(_screen.play.turn, turn_before + 1)
 	assert_false(Intervention.has_pending(state, 0))
+
+
+## Wiki: tech-tree-diplomacy-civilian — a protest against an aggressor holding
+## Propaganda costs 5, not 10. The court must read the aggressor's ledger.
+func test_propaganda_softens_the_protest_the_court_plays() -> void:
+	var play: PlaySession = _screen.play
+	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	if play.ai == null:
+		play.ai = AiState.new()
+	play.ai.economy_for(3).tech_unlocked["propaganda"] = true
+	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
+	assert_true(Intervention.has_pending(play.diplomacy, 0))
+	MapCourtOrders.apply(play, Intervention.KIND_PROTEST, 0, "")
+	assert_eq(play.diplomacy.relation(0, 3).score, 45.0, "−5 against Propaganda")
+
+
+func test_a_plain_protest_still_costs_ten() -> void:
+	var play: PlaySession = _screen.play
+	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	if play.ai == null:
+		play.ai = AiState.new()
+	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
+	assert_true(Intervention.has_pending(play.diplomacy, 0))
+	MapCourtOrders.apply(play, Intervention.KIND_PROTEST, 0, "")
+	assert_eq(play.diplomacy.relation(0, 3).score, 40.0, "−10 without Propaganda")
+
+
+## Wiki: diplomacy § GP–Minor Rules § Intervention — a deed in the victim's
+## provinces invites the offer without an embassy, and the court order path
+## must hand the rules its world (REQ-P2-03).
+func test_a_court_order_war_reaches_the_deed_holder() -> void:
+	var play: PlaySession = _screen.play
+	play.world = _deed_world(1)
+	MapCourtOrders.apply(play, DiplomacyOrders.KIND_WAR, 6, "")
+	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
+	assert_true(_intervention_answers(play.diplomacy) > 0, "the deed holder answers")
+
+
+func test_a_war_without_a_deed_holder_invites_nobody() -> void:
+	var play: PlaySession = _screen.play
+	play.world = _deed_world(-1)
+	MapCourtOrders.apply(play, DiplomacyOrders.KIND_WAR, 6, "")
+	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
+	assert_eq(_intervention_answers(play.diplomacy), 0, "no court held a deed")
+
+
+## Tiny world whose second province answers to Minor Nation 6, with a deed sold
+## to `buyer` (-1 for none).
+func _deed_world(buyer: int) -> WorldMap:
+	var model: MapModel = CourtFixture.build()
+	var province: ProvinceState = model.provinces[1]
+	province.owner = 6
+	if buyer >= 0:
+		assert_true(model.purchase_tile(province.tiles[0], buyer), "a deed is signed")
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+static func _intervention_answers(state: DiplomacyState) -> int:
+	var total: int = 0
+	for event: Dictionary in state.events:
+		var kind: String = String(event.get("kind", ""))
+		if kind == "interventionIntervened" or kind == "interventionDoNothing":
+			total += 1
+	return total
 
 
 func test_court_intent_router_sends_orders_and_call_answers() -> void:

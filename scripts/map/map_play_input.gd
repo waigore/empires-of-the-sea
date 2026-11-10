@@ -16,12 +16,17 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if play.turn_suspended:
 		return
 	var civilian: CivilianState = play.civilian_layer.unit_at(world_position)
+	var army: ArmyState = play.army_layer.army_at(world_position)
+	# Overlapping medallions (a capital muster beside its civilians) go to the
+	# marker the tap is actually nearest, so either can be picked deliberately.
+	if army != null and (civilian == null or _army_is_nearer(play, army, civilian, world_position)):
+		play.army_layer.select(army)
+		return
 	if civilian != null:
 		play.civilian_layer.select(civilian)
 		return
 	if MapPlayCivilians.try_move(play, world_position):
 		return
-	var army: ArmyState = play.army_layer.army_at(world_position)
 	if army != null:
 		play.army_layer.select(army)
 		return
@@ -91,17 +96,37 @@ static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
 	play.camera.focus_on(world_position)
 
 
-## Toggles the survey lens and keeps the cartouche toggle and key in step.
+## Toggles the survey lens and keeps the cartouche toggle and key in step. The
+## two map lenses are exclusive readings: raising one lowers the other.
 static func set_lens(play: PlaySession, active: bool) -> void:
 	if play.lens == null:
 		return
+	if active and play.diplomacy_lens != null and play.diplomacy_lens.active:
+		play.diplomacy_lens.set_active(false)
+		play.hud.set_lens(false, LensLegend.KIND_DIPLOMACY)
 	play.lens.set_active(active)
 	play.hud.set_lens(active)
-	_fade_field_units(play, active)
+	_fade_field_units(play, _any_lens(play))
+	# A stationary cursor would keep the pre-lens tooltip: rebuild it next frame.
+	clear_hover(play)
 
 
-## The survey is the subject while the lens is on: land units ghost back so
-## plaques stay readable, and return to full ink when it closes.
+## The diplomatic lens reads the political map; it shares the key cartouche and
+## the unit fade with the survey lens, never both at once.
+static func set_diplomacy_lens(play: PlaySession, active: bool) -> void:
+	if play.diplomacy_lens == null:
+		return
+	if active and play.lens != null and play.lens.active:
+		play.lens.set_active(false)
+		play.hud.set_lens(false)
+	play.diplomacy_lens.set_active(active)
+	play.hud.set_lens(active, LensLegend.KIND_DIPLOMACY)
+	_fade_field_units(play, _any_lens(play))
+	clear_hover(play)
+
+
+## The survey is the subject while a lens is on: land units ghost back so the
+## reading stays legible, and return to full ink when every lens closes.
 static func _fade_field_units(play: PlaySession, active: bool) -> void:
 	var alpha: float = 0.22 if active else 1.0
 	if play.civilian_layer != null:
@@ -110,10 +135,22 @@ static func _fade_field_units(play: PlaySession, active: bool) -> void:
 		play.army_layer.modulate.a = alpha
 
 
+static func _any_lens(play: PlaySession) -> bool:
+	var survey: bool = play.lens != null and play.lens.active
+	var political: bool = play.diplomacy_lens != null and play.diplomacy_lens.active
+	return survey or political
+
+
 static func toggle_lens(play: PlaySession) -> void:
 	if play.lens == null:
 		return
 	set_lens(play, not play.lens.active)
+
+
+static func toggle_diplomacy_lens(play: PlaySession) -> void:
+	if play.diplomacy_lens == null:
+		return
+	set_diplomacy_lens(play, not play.diplomacy_lens.active)
 
 
 static func on_view_changed(play: PlaySession) -> void:
@@ -169,6 +206,10 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		var survey: String = play.lens.summary_for(province_id)
 		if not survey.is_empty():
 			text += "\n" + survey
+	if play.diplomacy_lens != null and play.diplomacy_lens.active:
+		var standing: String = play.diplomacy_lens.summary_for(province_id)
+		if not standing.is_empty():
+			text += "\nStanding: " + standing
 	HudChrome.show_tooltip(play.hud, text)
 
 
@@ -180,6 +221,19 @@ static func clear_hover(play: PlaySession) -> void:
 	if play.lens != null:
 		play.lens.hover_province = -1
 	HudChrome.hide_tooltip(play.hud)
+
+
+## True when the tap sits nearer the army standard than the civilian medallion.
+static func _army_is_nearer(
+	play: PlaySession, army: ArmyState, civilian: CivilianState, point: Vector2
+) -> bool:
+	var army_marker: ArmyMarker = play.army_layer.marker_for(army)
+	var civilian_marker: CivilianMarker = play.civilian_layer.marker_for(civilian)
+	if army_marker == null:
+		return false
+	if civilian_marker == null:
+		return true
+	return army_marker.position.distance_to(point) <= civilian_marker.position.distance_to(point)
 
 
 static func on_panel_action(play: PlaySession, action: String) -> void:
