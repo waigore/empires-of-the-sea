@@ -73,7 +73,7 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	play.selected_province = province_id
 	play.overlay.select_province(province_id, world_position)
 	play.hud.panels.show_province(play.model, province_id)
-	play.hud.panels.set_civilian_training(province_id == play.capital_province)
+	play.hud.panels.panel.set_training_visible(province_id == play.capital_province)
 	play.emit_province_selected(province_id)
 
 

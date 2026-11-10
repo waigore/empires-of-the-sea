@@ -965,8 +965,13 @@ domain = "map"
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
 
-# HUD panel host: province/fleet/civilian sheets. Keep off the menu domain so a
-# dossier wiring change stays inside the tier-1 5 min budget.
+# HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
+# off the menu domain so a dossier wiring change stays inside the tier-1 5 min
+# budget.
+[[rules]]
+match = "scripts/ui/hud_*.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/hud_panels.gd"
 domain = "ui"
