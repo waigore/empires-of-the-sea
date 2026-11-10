@@ -83,6 +83,12 @@ godot --headless --path . --script res://tests/playtest_province_dev.gd
 # not start; then two declarations in one turn (one call at a time, a refusal's
 # price).
 godot --headless --path . --script res://tests/playtest_allied_defence.gd
+
+# Persistence — opens a turn-100 advanced start, sets the crown's battle plan and
+# issues orders, saves and loads through the pause menu's own browsers, then
+# walks the endings a save must carry (decided, defeated, halted) and the slots
+# that cannot be read (a newer format, a corrupt file).
+godot --headless --path . --script res://tests/playtest_persistence.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

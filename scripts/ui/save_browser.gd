@@ -8,6 +8,11 @@ signal back_pressed
 
 enum Mode { LOAD, SAVE }
 
+## A slot this build cannot load: written by a newer format or damaged. The
+## browser says so on the row and refuses the pick with this notice, leaving the
+## running campaign where it is (wiki: campaign-persistence § Load and resume).
+const UNREADABLE: String = "That save could not be read."
+
 var slot_buttons: Array[Button] = []
 var back_button: Button = null
 
@@ -87,21 +92,26 @@ func refresh() -> void:
 	var short: bool = MenuFrame.is_short(self)
 	for row: Dictionary in SaveStore.slots(_dir):
 		var slot: int = int(row["slot"])
-		var exists: bool = bool(row["exists"])
+		var present: bool = bool(row["exists"])
+		var readable: bool = bool(row["readable"])
 		var height: float = 60.0 if short else 68.0
-		var button := MenuFrame.action_button(_row_text(slot, row, exists), height)
+		var button := MenuFrame.action_button(_row_text(slot, row, present, readable), height)
 		button.add_theme_font_size_override("font_size", 13 if short else 15)
-		button.disabled = (not exists) and _mode == Mode.LOAD
+		button.disabled = (not present) and _mode == Mode.LOAD
 		if slot == _pending_overwrite:
 			button.modulate = Color(1.0, 0.82, 0.62)
-		button.pressed.connect(_on_slot_pressed.bind(slot, exists))
+		button.pressed.connect(_on_slot_pressed.bind(slot, present, readable))
 		_slots_box.add_child(button)
 		slot_buttons.append(button)
 
 
-func _row_text(slot: int, row: Dictionary, exists: bool) -> String:
-	if not exists:
+func _row_text(slot: int, row: Dictionary, present: bool, readable: bool) -> String:
+	if not present:
 		return "SLOT %d   ·   Empty" % slot
+	if not readable:
+		if MenuFrame.is_short(self):
+			return "SLOT %d  ·  Unreadable save" % slot
+		return "SLOT %d   ·   Unreadable save\nThis build cannot read it." % slot
 	var where: String = String(row.get("region", "—"))
 	var stamp: String = String(row.get("saved_at", ""))
 	# Two-up on a phone: keep the crown, the turn and the stamp readable in a
@@ -123,8 +133,14 @@ func _row_text(slot: int, row: Dictionary, exists: bool) -> String:
 	]
 
 
-func _on_slot_pressed(slot: int, exists: bool) -> void:
-	if _mode == Mode.SAVE and exists and _pending_overwrite != slot:
+func _on_slot_pressed(slot: int, present: bool, readable: bool) -> void:
+	# A slot that holds a file this build cannot read is refused here, in the
+	# browser, with a notice — never handed on as if it were a loadable save.
+	if _mode == Mode.LOAD and present and not readable:
+		_pending_overwrite = -1
+		_status.text = UNREADABLE
+		return
+	if _mode == Mode.SAVE and present and _pending_overwrite != slot:
 		_pending_overwrite = slot
 		refresh()
 		_status.text = "Press slot %d again to overwrite it." % slot
