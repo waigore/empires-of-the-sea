@@ -211,9 +211,12 @@ suites = [
 suites = [
   "test_research_panel.gd",
   "test_research_screen.gd",
+  "test_research_slots.gd",
   "test_research_state.gd",
   "test_research_turn.gd",
   "test_tech_discovery.gd",
+  "test_tech_icons.gd",
+  "test_tech_order.gd",
 ]
 
 [domains.save]
@@ -861,6 +864,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/research_*.gd"
+domain = "research"
+
+[[rules]]
+match = "scripts/ui/tech_*.gd"
 domain = "research"
 
 [[rules]]
