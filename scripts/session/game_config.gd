@@ -27,6 +27,9 @@ var player_leader: String = ""
 var infinite_mode: bool = false
 ## Advanced-start preset chosen at setup (wiki: advanced-starts; DR-20261111-01).
 var advanced_start: String = AdvancedStart.NONE
+## Difficulty layer chosen at setup and fixed for the campaign (wiki:
+## ruleset-config § Layers; Difficulty).
+var difficulty: String = Difficulty.DEFAULT
 
 
 static func make(
@@ -35,7 +38,8 @@ static func make(
 	player: int = FactionCatalog.PLAYER_FACTION,
 	leader: String = "",
 	infinite: bool = false,
-	advanced: String = ""
+	advanced: String = "",
+	difficulty_id: String = ""
 ) -> GameConfig:
 	var config := GameConfig.new()
 	config.map_seed = seed_value
@@ -44,6 +48,7 @@ static func make(
 	config.player_leader = LeaderCatalog.resolve_key(player, leader)
 	config.infinite_mode = infinite
 	config.advanced_start = AdvancedStart.normalize(advanced)
+	config.difficulty = Difficulty.normalize(difficulty_id)
 	return config
 
 
@@ -69,6 +74,7 @@ func to_dict() -> Dictionary:
 		"player_leader": player_leader,
 		"infinite_mode": infinite_mode,
 		"advanced_start": advanced_start,
+		"difficulty": difficulty,
 	}
 
 
@@ -85,4 +91,5 @@ static func from_dict(data: Dictionary) -> GameConfig:
 	config.advanced_start = AdvancedStart.normalize(
 		String(data.get("advanced_start", AdvancedStart.NONE))
 	)
+	config.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return config

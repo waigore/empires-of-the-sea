@@ -5,12 +5,19 @@ extends RefCounted
 ## fleet's imports this turn are the cargo at risk; escorts cut the chance and
 ## a successful raid skims a fraction of every delivered commodity.
 ##
-## Current product ships cargo raids only. Sinking civilian/home-fleet hulls is
-## deferred with the rest of the civilian-ship model (DR-20261109-16).
+## A raid is a pinch on **cargo**, never a fight: no hull — merchant, escort or
+## civilian — is sunk, captured or damaged, on either side (DR-20261110-13).
+## The crown raids back the same way: [method resolve_prizes] takes a rival's
+## cargo off its merchant hulls as prize.
 
 const BLOCKADE_BONUS: float = 1.25
 const MIN_EFFICIENCY: float = 0.3
 const MAX_EFFICIENCY: float = 0.7
+## Roll salt for the raid the crown suffers this turn.
+const ROLL_TAG: int = 77
+## Prizes roll on their own salts, one per victim, so a crown can lose cargo and
+## take it in the same zone without both raids sharing a single roll.
+const PRIZE_TAG_BASE: int = 977
 
 
 ## One raider group tries the home fleet's cargo. `roll_value` is for tests; a
@@ -30,9 +37,117 @@ static func resolve(
 	has_tech: Callable = Callable()
 ) -> Dictionary:
 	if model == null or home == null or imports.is_empty():
-		return {"ok": false, "reason": "no cargo at sea"}
+		return _nothing("no cargo at sea", victim)
+	return _raid(
+		model, fleets, victim, home, imports, hostile,
+		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG
+	)
+
+
+## Every raid the crown's own Patrol/Blockade squadrons work on rival trade this
+## turn. `victims` is faction -> `{ "imports": {id: units}, "home": FleetState }`
+## for each howling rival the crown has cargo to take from; only a declared war
+## pays. Returns one raid per victim, in ascendum, with the cargo to seize (the
+## caller moves it into the crown's stockpile). No hull ever changes hands.
+static func resolve_prizes(
+	model: MapModel,
+	fleets: Array,
+	crown: int,
+	victims: Dictionary,
+	hostile: Callable = Callable(),
+	seed_value: int = 0,
+	turn: int = 0,
+	has_tech: Callable = Callable(),
+	roll_value: float = -1.0
+) -> Array[Dictionary]:
+	var raids: Array[Dictionary] = []
+	if model == null or fleets.is_empty() or victims.is_empty():
+		return raids
+	var order: Array[int] = []
+	for raw: Variant in victims.keys():
+		order.append(int(raw))
+	order.sort()
+	for victim: int in order:
+		if victim == crown:
+			continue
+		var entry: Dictionary = victims[victim] as Dictionary
+		var imports: Dictionary = entry.get("imports", {}) as Dictionary
+		var home: FleetState = entry.get("home", null) as FleetState
+		if home == null or imports.is_empty():
+			continue
+		var raid: Dictionary = _raid(
+			model, fleets, victim, home, imports, hostile,
+			seed_value, turn, roll_value, has_tech, crown, PRIZE_TAG_BASE + victim
+		)
+		if bool(raid.get("ok", false)):
+			raids.append(raid)
+	return raids
+
+
+## The trade-raid chance one group rolls against a laden home fleet: the common
+## base times the blockade bonus times the escort cover, clamped (wiki:
+## ships-and-naval § Trade and Transport Interception). Shared with the dossier
+## so the number the player reads is the number the rules roll.
+static func trade_chance(
+	group: Array, home: FleetState, mission: int, has_tech: Callable = Callable()
+) -> float:
+	if group.is_empty() or home == null:
+		return 0.0
+	# The trade-raid formula uses a common base chance times the blockade
+	# bonus; the movement table's own mission factor would double-count it.
+	var base: float = NavalInterception.chance(
+		group, [home], FleetState.Mission.PATROL, has_tech
+	)
+	var bonus: float = BLOCKADE_BONUS if mission == FleetState.Mission.BLOCKADE else 1.0
+	return clampf(
+		base * bonus * (1.0 - _escort_factor(home)),
+		NavalInterception.MIN_CHANCE,
+		NavalInterception.MAX_CHANCE
+	)
+
+
+## What a station's raid is worth before the player commits: the chance it rolls
+## and the cargo it would skim, from the same maths the raid itself uses, so the
+## dossier can never promise a roll the rules do not make (REQ-P2-03).
+static func preview(
+	group: Array,
+	home: FleetState,
+	imports: Dictionary,
+	mission: int,
+	has_tech: Callable = Callable()
+) -> Dictionary:
+	var stock: int = total_of(imports)
+	if group.is_empty() or home == null or stock <= 0:
+		return {"chance": 0.0, "efficiency": MIN_EFFICIENCY, "expected": 0}
+	var efficiency: float = _efficiency(_group_strength(group), _hull_strength(home))
+	return {
+		"chance": trade_chance(group, home, mission, has_tech),
+		"efficiency": efficiency,
+		"expected": maxi(1, int(floor(float(stock) * efficiency))),
+	}
+
+
+## The shared raid: pick the best group working the victim's waters, roll, and
+## skim cargo. `only_owner` limits the raiders to one crown (a prize raid);
+## `roll_tag` keeps a crown's losses and its prizes on separate rolls.
+static func _raid(
+	model: MapModel,
+	fleets: Array,
+	victim: int,
+	home: FleetState,
+	imports: Dictionary,
+	hostile: Callable,
+	seed_value: int,
+	turn: int,
+	roll_value: float,
+	has_tech: Callable,
+	only_owner: int,
+	roll_tag: int
+) -> Dictionary:
 	var relevant: Array[int] = _relevant_zones(model, victim)
-	var groups: Dictionary = _raider_groups(model, fleets, victim, relevant, hostile)
+	var groups: Dictionary = _raider_groups(
+		model, fleets, victim, relevant, hostile, only_owner
+	)
 	var keys: Array[Vector2i] = []
 	for raw: Variant in groups.keys():
 		var key: Vector2i = raw
@@ -47,57 +162,48 @@ static func resolve(
 		var mission: int = FleetMissions.station_mission(model, group, hostile)
 		if mission == FleetState.Mission.NONE:
 			continue
-		var escort: float = _escort_factor(home)
-		# The trade-raid formula uses a common base chance times the blockade
-		# bonus; the movement table's own mission factor would double-count it.
-		var base: float = NavalInterception.chance(
-			group, [home], FleetState.Mission.PATROL, has_tech
-		)
-		var bonus: float = (
-			BLOCKADE_BONUS if mission == FleetState.Mission.BLOCKADE else 1.0
-		)
-		var found: float = clampf(
-			base * bonus * (1.0 - escort),
-			NavalInterception.MIN_CHANCE,
-			NavalInterception.MAX_CHANCE
-		)
+		var found: float = trade_chance(group, home, mission, has_tech)
 		best_chance = maxf(best_chance, found)
 		var rolled: float = roll_value
 		if rolled < 0.0:
 			rolled = NavalInterception.roll(
-				seed_value, turn, key.x, key.y, 77
+				seed_value, turn, key.x, key.y, roll_tag
 			)
 		if rolled >= found:
 			continue
-		var raider_strength: float = 0.0
-		for fleet: FleetState in group:
-			for hull_id: String in fleet.hulls:
-				raider_strength += float(
-					ShipStats.entry(fleet.type_of(hull_id)).get("hull", 0)
-				)
-		var defender_strength: float = _hull_strength(home)
-		var efficiency: float = clampf(
-			MIN_EFFICIENCY
-			+ (MAX_EFFICIENCY - MIN_EFFICIENCY)
-			* raider_strength / maxf(raider_strength + defender_strength, 0.001),
-			MIN_EFFICIENCY,
-			MAX_EFFICIENCY
+		var efficiency: float = _efficiency(
+			_group_strength(group), _hull_strength(home)
 		)
 		var losses: Dictionary = _losses(imports, efficiency)
-		var total: int = 0
-		for raw_id: Variant in losses.keys():
-			total += int(losses[raw_id])
+		var total: int = total_of(losses)
 		return {
 			"ok": total > 0,
 			"chance": found,
 			"roll": rolled,
 			"efficiency": efficiency,
 			"raider": key.y,
+			"victim": victim,
 			"zone": key.x,
 			"losses": losses,
 			"lost_total": total,
+			# A raid takes cargo and nothing else: the hull ledger is untouched.
+			"hulls_lost": [],
 		}
-	return {"ok": false, "chance": best_chance, "losses": {}, "lost_total": 0}
+	var idle: Dictionary = _nothing("nothing taken", victim)
+	idle["chance"] = best_chance
+	return idle
+
+
+## Raid efficiency rises with the raider's hull strength against the laden home
+## fleet's, inside the documented 0.3…0.7 band.
+static func _efficiency(raider_strength: float, defender_strength: float) -> float:
+	return clampf(
+		MIN_EFFICIENCY
+		+ (MAX_EFFICIENCY - MIN_EFFICIENCY)
+		* raider_strength / maxf(raider_strength + defender_strength, 0.001),
+		MIN_EFFICIENCY,
+		MAX_EFFICIENCY
+	)
 
 
 ## Skims floor(total × efficiency) units, at least one when any cargo is at sea,
@@ -135,6 +241,14 @@ static func _losses(imports: Dictionary, efficiency: float) -> Dictionary:
 	return losses
 
 
+## Units in a cargo dictionary (losses, prizes): the one place a raid totals.
+static func total_of(cargo: Dictionary) -> int:
+	var total: int = 0
+	for raw_id: Variant in cargo.keys():
+		total += maxi(int(cargo[raw_id]), 0)
+	return total
+
+
 ## Every sea zone bordering a coast the victim still holds.
 static func _relevant_zones(model: MapModel, victim: int) -> Array[int]:
 	var zones: Array[int] = []
@@ -148,19 +262,23 @@ static func _relevant_zones(model: MapModel, victim: int) -> Array[int]:
 	return zones
 
 
-## At-sea patrol/blockade groups of hostile crowns, one group per sea zone in
-## the victim's waters: a squadron is judged in its own zone, never pooled with
-## a blockade or patrol working another coast (DR-20261109-16).
+## At-sea patrol/blockade groups, one group per sea zone in the victim's waters:
+## a squadron is judged in its own zone, never pooled with a blockade or patrol
+## working another coast (DR-20261109-16). `only_owner` keeps a prize raid to the
+## crown's own colours.
 static func _raider_groups(
 	model: MapModel,
 	fleets: Array,
 	victim: int,
 	relevant: Array[int],
-	hostile: Callable
+	hostile: Callable,
+	only_owner: int = -1
 ) -> Dictionary:
 	var groups: Dictionary = {}
 	for fleet: FleetState in fleets:
 		if fleet == null or fleet.owner == victim or not fleet.is_at_sea():
+			continue
+		if only_owner >= 0 and fleet.owner != only_owner:
 			continue
 		if not fleet.is_afloat() or not relevant.has(fleet.sea_zone):
 			continue
@@ -194,11 +312,31 @@ static func _escort_factor(home: FleetState) -> float:
 	return minf(0.5, escort / cargo * 0.3)
 
 
+## Σ HULL over a group's hulls: the raider side of the efficiency term.
+static func _group_strength(group: Array) -> float:
+	var total: float = 0.0
+	for fleet: FleetState in group:
+		total += _hull_strength(fleet)
+	return total
+
+
 static func _hull_strength(home: FleetState) -> float:
 	var total: float = 0.0
 	for hull_id: String in home.hulls:
 		total += float(ShipStats.entry(home.type_of(hull_id)).get("hull", 0))
 	return total
+
+
+static func _nothing(reason: String, victim: int) -> Dictionary:
+	return {
+		"ok": false,
+		"reason": reason,
+		"chance": 0.0,
+		"victim": victim,
+		"losses": {},
+		"lost_total": 0,
+		"hulls_lost": [],
+	}
 
 
 static func _hostile(hostile: Callable, a: int, b: int) -> bool:

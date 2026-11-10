@@ -37,8 +37,8 @@ Movement, cargo, fog, the yard and sea battles; stations and raids live in
 
 ## Deferred (REQ-P2-02)
 
-Home-fleet merge · multi-hull markers · ship strength · merchant-hull losses in
-a raid.
+Home-fleet merge · multi-hull markers · ship strength · raid hull losses (a raid
+takes cargo only, DR-20261110-13).
 
 ## Architecture
 

@@ -129,11 +129,11 @@ func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
 
 
 func test_focus_capital_centres_on_the_capital_tile() -> void:
-	MapPlayTurn.focus_capital(_screen.play)
+	MapPlaySetup.focus_capital(_screen.play)
 	for _step in 20:
 		_screen.camera._process(0.2)
 	var expected: Vector2 = CameraMath.clamp_center(
-		MapPlayTurn.capital_world(_screen.play),
+		MapPlaySetup.capital_world(_screen.play),
 		_screen.camera.zoom.x,
 		_screen.camera.viewport_size(),
 		_screen.camera.map_size

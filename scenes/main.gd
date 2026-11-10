@@ -127,6 +127,7 @@ func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	screen.player_leader = config.player_leader
 	screen.infinite_mode = config.infinite_mode
 	screen.advanced_start = config.advanced_start
+	screen.difficulty = config.difficulty
 	screen.preset_world = world
 	_install_screen(screen)
 
