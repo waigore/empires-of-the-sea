@@ -5,10 +5,14 @@ extends RefCounted
 ## controller (REQ-P3-01).
 
 
+## `turn` is the campaign's own calendar: an advanced start opens at turn 50 or
+## 100, so the briefing names that year rather than the first (wiki:
+## advanced-starts).
 static func opening(
-	hud: GameHud, model: MapModel, capital_province: int, player: int
+	hud: GameHud, model: MapModel, capital_province: int, player: int,
+	turn: int = 1
 ) -> void:
-	hud.toast("The Indies await — Turn 1, 1500")
+	hud.toast("The Indies await — Turn %d, %d" % [turn, TurnTime.year_for_turn(turn)])
 	hud.toast(
 		"%d Great Powers, %d minor nations, %d tribes"
 		% [

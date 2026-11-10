@@ -14,7 +14,11 @@ extends RefCounted
 const MAX_CHART_FRAMES: int = 300
 
 
-static func open_map(tree: SceneTree, seed_text: String, size_index: int = 0) -> MapScreen:
+## `advanced` picks an advanced-start preset (see AdvancedStart); empty keeps the
+## turn-0 campaign, so every existing drive is unchanged.
+static func open_map(
+	tree: SceneTree, seed_text: String, size_index: int = 0, advanced: String = ""
+) -> MapScreen:
 	var packed: PackedScene = load("res://scenes/main.tscn") as PackedScene
 	if packed == null:
 		push_error("playtest: main.tscn did not load")
@@ -34,6 +38,12 @@ static func open_map(tree: SceneTree, seed_text: String, size_index: int = 0) ->
 		return null
 	setup.seed_field.text = seed_text
 	setup.size_option.select(size_index)
+	if not advanced.is_empty() and setup.advanced_option != null:
+		var preset: String = AdvancedStart.normalize(advanced)
+		var index: int = AdvancedStart.IDS.find(preset)
+		if index >= 0:
+			setup.advanced_option.select(index)
+			setup.advanced_option.item_selected.emit(index)
 	setup.start_button.emit_signal("pressed")
 	await tree.process_frame
 	# The capital chart generates its world on the next idle frame, then the
