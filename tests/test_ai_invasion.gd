@@ -412,3 +412,45 @@ func test_the_map_adapter_runs_the_whole_expedition() -> void:
 	assert_eq(fleet.embarked_army, -1)
 	play.ship_layer.free()
 	play.army_layer.free()
+
+
+## A court does not sail an army at a shore it has never charted: the New World
+## starts unknown, so the crossing waits for a sighting (wiki: fog-and-exploration;
+## DR-20261110-21).
+func test_an_uncharted_coast_is_not_worth_a_crossing() -> void:
+	var world: WorldMap = _world()
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	assert_true(AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], [_home_army()], charts
+	).is_empty(), "no hostile coast is charted across the water")
+	charts.reveal_sea_zone(OWNER, 1, 0)
+	assert_eq(AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], [_home_army()], charts
+	).size(), 1, "the charted coast is a war worth a fleet")
+
+
+func test_a_charted_coast_is_the_only_landing_target() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	var blind: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+	)
+	assert_true(
+		String(blind.get("kind", "")) != AiInvasionPlanner.KIND_BEACHHEAD,
+		"an uncharted beach is no target"
+	)
+	charts.reveal_sea_zone(OWNER, 1, 0)
+	var ready: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+	)
+	assert_eq(String(ready.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(ready.get("province", -1)), 0)

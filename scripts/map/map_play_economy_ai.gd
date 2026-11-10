@@ -16,8 +16,7 @@ static func run(play: PlaySession) -> Dictionary:
 	var report: Dictionary = {"factions": {}, "orders": []}
 	if play == null or play.world == null or play.civilian_layer == null:
 		return report
-	if play.ai == null:
-		play.ai = AiState.new()
+	play.ensure_ai()
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
@@ -33,11 +32,12 @@ static func run(play: PlaySession) -> Dictionary:
 		_seed_civilians(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
-			config, economy, {"at_war": _at_war(play, faction)}
+			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
 		)
 		# Shared market: prices advance once, on the last observer ledger.
 		var resolved: Dictionary = EconomyTurn.resolve(
@@ -79,9 +79,7 @@ static func _seed_civilians(play: PlaySession, faction: int) -> void:
 		if int(capital["province"]) < 0:
 			continue
 		for type_id: String in RIVAL_STARTING_CIVILIANS:
-			var tile: Vector2i = _mustering_tile(
-				model, int(capital["province"]), roster
-			)
+			var tile: Vector2i = _mustering_tile(model, int(capital["province"]), roster)
 			if tile.x < 0:
 				break
 			_append_unit(play, region, roster, faction, type_id, tile)
@@ -109,11 +107,11 @@ static func _run_civilians(
 			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],
 			"tech_unlocked": economy.tech_unlocked,
-			"at_war": _at_war(play, faction),
+			"at_war": _at_war(play, faction), "diplomacy": play.diplomacy,
+			"visibility": MapPlayCourtFog.view_for(play, faction, region),
 		}
 		if region != int(overseas.get("home_region", region)):
-			var landed: Dictionary = overseas.get("by_province", {}) as Dictionary
-			context["delivered_raw"] = landed.get(region, {})
+			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
 		var plan: Dictionary = AiCivilianPlanner.plan(
 			config, model, roster, works, economy.stockpile, tech_caps,
 			economy.tech_unlocked, context
@@ -121,7 +119,8 @@ static func _run_civilians(
 		for move: Dictionary in plan["moves"]:
 			var unit: CivilianState = _unit_by_id(roster, int(move["unit_id"]))
 			if unit != null:
-				CivilianMovement.apply_move(model, unit, move["tile"])
+				var view: VisibilityModel = context["visibility"]
+				CivilianMovement.apply_move(model, unit, move["tile"], view)
 				report["moves"].append(move)
 		for order: Dictionary in plan["orders"]:
 			var unit: CivilianState = _unit_by_id(roster, int(order["unit_id"]))
@@ -129,7 +128,7 @@ static func _run_civilians(
 				continue
 			var result: Dictionary = CivilianWork.assign(
 				model, unit, String(order["action"]), works, roster,
-				economy.stockpile, null, order["tile"], tech_caps,
+				economy.stockpile, context["visibility"], order["tile"], tech_caps,
 				economy.tech_unlocked, context
 			)
 			if bool(result.get("ok", false)):
@@ -149,6 +148,7 @@ static func _run_civilians(
 			play.civilian_layer.sync()
 			play.civilian_layer.refresh_works()
 	return report
+
 
 ## Pays for and musters a civilian at the faction's capital, through the same
 ## catalog costs the training panel uses.

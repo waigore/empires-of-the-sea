@@ -4,14 +4,13 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 [AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture),
 [diplomacy planner](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy-planner)).
 
-**Pillars:** P2 rules fidelity, P3 pure/testable rules, P4 no per-frame work,
-P5 unbookkept rivals.
+**Pillars:** P2, P3, P4, P5.
 
 ## Implemented
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
-  `AiConfig`, `AiPersonality`, `AiAgenda`): every knob is a catalog key; three
-  profiles; seven archetypes, six agendas from `hash(seed, faction)`.
+  `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
+  six agendas from `hash(seed, faction)`.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
@@ -32,6 +31,9 @@ P5 unbookkept rivals.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
+- **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
+  fog; voyages, invasions and work orders read only that chart
+  (DR-20261110-21).
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
@@ -42,8 +44,8 @@ P5 unbookkept rivals.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
   civilian — builders improve shortest commodity or finish a paying town,
-  engineers connect towns then road/port/fort, explorers prospect, rail builders
-  upgrade roads.
+  engineers connect towns then road/port/fort, explorers explore and prospect,
+  rail builders upgrade roads.
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
@@ -64,7 +66,6 @@ P5 unbookkept rivals.
 ## Deferred (REQ-P2-02)
 
 - Intervention and call-to-arms.
-- Rival fog exploration.
 - Agenda-sourced dialogue beats.
 
 ## Architecture
@@ -75,9 +76,7 @@ wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_invasion`,
-`test_ai_town_roads`, `test_ai_builder_work`, `test_military_parity`,
-`test_ai_observer`, `test_ai_diplomacy_offers`, `test_espionage`.
+`test_ai_*`, `test_military_parity`, `test_espionage`, `test_visibility`.
 
 ```bash
 gd-tools test --coverage --min 80

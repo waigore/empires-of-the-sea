@@ -165,8 +165,10 @@ func apply_move(
 
 ## Ticks every region, not just the one on screen: reading another map must not
 ## pause work or burn a unit's move. Returns the work reports for the caller.
+## Every crown's crew resolves against that crown's own chart, so a rival's
+## finished `explore` reveals its fog and never the player's (DR-20261110-21).
 func begin_turn(
-	world: WorldMap, visibilities: Dictionary, economy: PlayerEconomy = null
+	world: WorldMap, charts: CourtCharts, economy: PlayerEconomy = null
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for index in world.region_count():
@@ -179,12 +181,23 @@ func begin_turn(
 		var region_works: LandWorks = works_regions.value(index, null)
 		if region_works == null:
 			continue
-		var region_visibility: VisibilityModel = visibilities.get(index, null)
-		for report: Dictionary in CivilianWork.resolve_turn(
-			world.region(index), region_units, region_works, region_visibility, economy
-		):
-			report["region"] = index
-			reports.append(report)
+		# Owners in ascending order, so two runs of one state report alike.
+		var owners: Array[int] = []
+		for unit: CivilianState in region_units:
+			if unit != null and not owners.has(unit.owner):
+				owners.append(unit.owner)
+		owners.sort()
+		for owner: int in owners:
+			var crew: Array[CivilianState] = []
+			for unit: CivilianState in region_units:
+				if unit != null and unit.owner == owner:
+					crew.append(unit)
+			var view: VisibilityModel = charts.model_for(owner, index) if charts != null else null
+			for report: Dictionary in CivilianWork.resolve_turn(
+				world.region(index), crew, region_works, view, economy
+			):
+				report["region"] = index
+				reports.append(report)
 	return reports
 
 
