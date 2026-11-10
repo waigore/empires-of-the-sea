@@ -28,16 +28,13 @@ var _detail: VBoxContainer = null
 var _summary: Label = null
 var _call_box: VBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
-## reports). Read-only for this panel; [CourtReports] does the reading.
+## reports). Read-only here; the session keeps it.
 var _court_reports: Dictionary = {}
 
 
 func _ready() -> void:
 	add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 16, 20, 16)
-		)
+		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 16, 20, 16))
 	)
 	_build()
 
@@ -241,10 +238,10 @@ func _fill_detail() -> void:
 		)
 		_detail.add_child(trade)
 	_add_chronicle()
-	# A shadowed court's despatch is news like the chronicle, so it sits above
-	# the dossier's analysis (wiki: civilian-units § Spy; REQ-P5-02).
+	# The despatch is news like the chronicle, so it sits above the dossier's
+	# analysis (wiki: civilian-units § Spy — court reports; REQ-P5-02).
 	var reports := CourtReportsPanel.new()
-	reports.fill(_state, _world, _player, _selected, _court_reports)
+	reports.fill(_selected, _court_reports)
 	_detail.add_child(reports)
 	# The dossier sits under the chronicle: analysis after the news, so choice
 	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
