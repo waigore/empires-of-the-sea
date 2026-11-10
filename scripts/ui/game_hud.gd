@@ -33,6 +33,8 @@ signal fleet_status_pressed
 signal army_status_pressed
 ## The player closed the campaign plate to keep viewing the map.
 signal victory_dismissed
+## The cartouche seal opens the Gazette's archive (wiki: the-gazette).
+signal gazette_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -57,6 +59,8 @@ var end_turn_wrap: Control = null
 var victory_overlay: VictoryOverlay = null
 ## Quick Battle plate (wiki: quick-battle); null until the chrome builds it.
 var quick_battle_overlay: QuickBattleOverlay = null
+## The crown's news sheet and its archive (wiki: the-gazette); a soft plate.
+var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
 var civilian_roster: CivilianRosterPanel = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

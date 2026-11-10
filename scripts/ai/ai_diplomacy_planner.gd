@@ -3,8 +3,9 @@ extends RefCounted
 ## Full-AI diplomacy policy (wiki: diplomacy § GP AI policy for war vs. relations,
 ## diplomacy-planner). Scores one war-desire value per candidate court, turns the
 ## complement into improve-relations desire, and emits at most one legal order
-## per Great Power per turn. Pure rules: state in, orders out (REQ-P2-03,
-## REQ-P3-03).
+## per Great Power per turn — war, peace, or any peaceful order the court menu
+## offers through AiDiplomacyOffers. Pure rules: state in, orders out
+## (REQ-P2-03, REQ-P3-03).
 
 ## War-desire factors (wiki seed values).
 const RELATION_WARM_PENALTY: int = -40
@@ -120,19 +121,18 @@ static func decide(
 				and (best_war.is_empty() or int(entry["desire"]) > int(best_war["desire"]))
 			):
 				best_war = entry
-			# Rival courts offer treaties only to the human court: an AI target
-			# would answer the proposal during the same phase (wiki: diplomacy).
-			if target == player:
-				var offer: Dictionary = _offer_candidate(
-					config, state, ai_state, world, turn, target,
-					int(desire["score"]), record.score
-				)
-				entry["offer"] = offer.duplicate()
-				if bool(offer.get("ok", false)) and (
-					best_offer.is_empty()
-					or int(offer["utility"]) > int(best_offer["utility"])
-				):
-					best_offer = offer
+			# Every peaceful order the court menu offers is a candidate, whether
+			# the target is a rival court or the human one (DR-20261110-15).
+			var offer: Dictionary = AiDiplomacyOffers.best(
+				config, state, ai_state, world, turn, target, int(desire["score"]),
+				context
+			)
+			entry["offer"] = offer.duplicate()
+			if bool(offer.get("ok", false)) and (
+				best_offer.is_empty()
+				or int(offer["utility"]) > int(best_offer["utility"])
+			):
+				best_offer = offer
 		candidates.append(entry)
 	var action: Dictionary = {}
 	if not best_war.is_empty():
@@ -152,8 +152,24 @@ static func decide(
 		if bool(best_peace.get("propose", false)):
 			action["propose"] = true
 	elif not best_offer.is_empty():
-		action = best_offer.duplicate()
+		action = best_offer.duplicate(true)
+		# A proposal asks for the human court's answer; a rival court answers
+		# during the same phase, and a one-sided act needs no answer at all
+		# (wiki: diplomacy § GP AI policy).
+		action["propose"] = (
+			int(best_offer["target"]) == player
+			and DiplomacyProposals.knows(String(best_offer["kind"]))
+		)
 	return {"action": action, "candidates": candidates}
+
+
+## Every order kind the planner can emit: war and peace are scored here, the
+## rest by AiDiplomacyOffers. Kept as one list so the court menu and the rival
+## courts cannot drift apart (REQ-P2-03).
+static func kinds() -> Array[String]:
+	var all: Array[String] = [KIND_DECLARE_WAR, KIND_OFFER_PEACE]
+	all.append_array(AiDiplomacyOffers.KINDS)
+	return all
 
 
 ## War-goal objective: clamp(round(warDesire / 25), 1, targetProvinceCount).
@@ -258,62 +274,6 @@ static func _needs_overseas(world: WorldMap, attacker: int, target: int) -> bool
 
 static func _is_weak_target(target: int) -> bool:
 	return FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER
-
-
-## Improve-relations proposal for the human court: the next free overture, or a
-## formal alliance when the relation is already Allied and the agenda favours
-## one. A blocked result keeps the trace readable (wiki: diplomacy § GP AI
-## policy; DR-20261109-06).
-static func _offer_candidate(
-	config: AiConfig,
-	state: DiplomacyState,
-	ai_state: AiState,
-	world: WorldMap,
-	turn: int,
-	target: int,
-	desire: int,
-	relation_score: float
-) -> Dictionary:
-	var improve: int = 100 - desire
-	if improve < config.parameter("diplomacy.improve_min_desire"):
-		return {"ok": false, "blocked": "improve-relations desire too low"}
-	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
-	if ai_state.overture_on_cooldown(config.faction, target, turn, cooldown):
-		return {"ok": false, "blocked": "overture cooldown"}
-	if DiplomacyProposals.has_pending(state, target):
-		return {"ok": false, "blocked": "the court is already considering a proposal"}
-	var best: Dictionary = {"ok": false, "blocked": "no legal proposal"}
-	if relation_score >= DiplomacyCatalog.ALLIANCE_CLAMP:
-		var alliance: Dictionary = DiplomacyRules.can_form_alliance(
-			state, config.faction, target
-		)
-		if bool(alliance.get("ok", false)):
-			best = {
-				"ok": true,
-				"kind": KIND_ALLIANCE,
-				"target": target,
-				"stage": "",
-				"utility": improve + int(config.agenda_traits.get("alliance_bias", 0)),
-				"improve": improve,
-			}
-	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
-	if not next.is_empty():
-		var overture: Dictionary = DiplomacyRules.can_establish_overture(
-			state, world, config.faction, target, next, 0, {}
-		)
-		if (
-			bool(overture.get("ok", false))
-			and (not bool(best.get("ok", false)) or improve > int(best["utility"]))
-		):
-			best = {
-				"ok": true,
-				"kind": KIND_OVERTURE,
-				"target": target,
-				"stage": next,
-				"utility": improve,
-				"improve": improve,
-			}
-	return best
 
 
 ## Why this court cannot put a white peace to the human court right now ("" when

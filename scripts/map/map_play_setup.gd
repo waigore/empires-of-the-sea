@@ -33,6 +33,9 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, MapGeo.world_size(play.model, PlaySession.TILE_SIZE), play.visibility
 	)
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
+	# The Gazette's cartouche seal reopens the crown's news and its archive at
+	# any time (wiki: the-gazette).
+	hud.gazette_pressed.connect(func() -> void: MapPlayGazette.open_archive(play))
 	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
 	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))

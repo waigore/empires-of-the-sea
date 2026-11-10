@@ -38,6 +38,7 @@ Read that file and its `references/` as needed, then run the workflow there. Do 
 - Do not replace a facade with a full copy of the skill.
 - Do not use directory-wide symlinks for Cursor/OpenCode/Grok.
 - Do not create `.hermes/skills` mirrors or symlinks; Hermes reads `.agents/skills` natively.
+- Do not change skill trees in the same PR as code that triggers tests/coverage (`skills-isolation` CI).
 
 ## Catalog
 

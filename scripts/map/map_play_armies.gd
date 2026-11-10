@@ -250,10 +250,11 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"feeding": play.feeding,
 		"leaders": play.leaders,
 		"tech": tech,
+		## Minor Nations reform a garrison at the parity level applied this turn.
+		"parity_era": MilitaryParity.max_great_power_era(MapPlayCampaign.tech_by_faction(play)),
 		"seed": play.turn,
 		"hostile": hostile(play),
-		## The observer has no human battle to plate; every exchange
-		## auto-resolves (wiki: quick-battle).
+		## The observer has no human plate; every exchange auto-resolves (wiki: quick-battle).
 		"quick_battle": not play.observer_mode,
 		"player_faction": play.human_faction_id(),
 		"battle_plan": play.battle_plan,
@@ -268,9 +269,8 @@ static func run_ai(play: PlaySession) -> Array[Dictionary]:
 
 
 ## Land battles resolve in every region, then the map's ownership ink is
-## refreshed when the visible region changed hands. Capital losses resolve in
-## the same pass, so a captured seat reassigns or falls before the next phase
-## (wiki: capital-and-connectivity § Capital loss); returns the battle records.
+## refreshed when the visible region changed hands; capital losses resolve in the
+## same pass (wiki: capital-and-connectivity § Capital loss). Returns the records.
 static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 	var before: Array = CapitalLoss.snapshot_world(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
@@ -328,6 +328,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
 	for entry: Dictionary in fallen:
+		play.last_falls.append(entry)
 		var faction: int = int(entry["faction"])
 		var conqueror: int = int(entry["conqueror"])
 		if play.army_layer != null:
@@ -387,7 +388,6 @@ static func sync_player_capital(play: PlaySession) -> void:
 		return
 	play.capital_province = seat
 	play.capital_tile = model.capital_tile_of(seat)
-
 
 
 static func refresh_visibility(play: PlaySession) -> void:

@@ -11,7 +11,7 @@ description: |-
 
   Examples:
     - no target → pick worst smell (+ recent-PR hotspots), theme PR, stop
-    - "refactor map play" → that theme only; aggressive C-level rewrites OK
+    - cited path or theme → that theme only; aggressive rewrites OK
     - "shrink arch allowlist" → remove/shrink allowlist entries in one PR
 ---
 

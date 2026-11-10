@@ -12,8 +12,8 @@ description: |-
 
   Examples:
     - no target → pick hard-to-reach area from learnings/gaps, playtest, fix, diary, PR
-    - "free-playtest boarding" → that area; harness if needed; diary; PR
-    - "GameForge playtest mid-game economy" → reach mid-game or harness; report; fix
+    - cited area → that area; harness if needed; diary; PR
+    - mid/late-game theme → reach it or harness; report; fix
 ---
 
 # Free playtest agent (facade)

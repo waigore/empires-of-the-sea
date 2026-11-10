@@ -1,27 +1,26 @@
 # Test speed playbook
 
-Tactics that paid off for Empires of the Sea. Prefer reuse over new harnesses.
+Prefer reuse over new harnesses. See [`docs/testing.md`](../../../../docs/testing.md).
 
 ## gd-tools quirks
 
 - Each test method runs on a **new suite instance**. Instance fields set in `before_each` do not persist across tests.
-- `before_all` runs on the suite context; the runner copies **non-underscore** script vars onto each test instance. Names like `_world` are **not** copied — use `world` / `model` (or a `static` cache on a fixture script).
-- Default per-test timeout comes from `gd-tools.toml` (`timeout_seconds`). Suite hook budget is the max of declared test timeouts.
-- Coverage instrumentation makes map generation ~10× slower. Profile with `--coverage`, not bare `gd-tools test`.
+- `before_all` runs on the suite context; the runner copies **non-underscore** script vars onto each test instance. Underscore-prefixed names are **not** copied.
+- Default per-test timeout comes from `gd-tools.toml`. Suite hook budget is the max of declared test timeouts.
+- Coverage instrumentation multiplies setup cost. Profile with `--coverage`, not bare `gd-tools test`.
 
 ## Highest-ROI fixes
 
-1. **Shared world fixture** — `tests/map_fixture.gd` caches one small `WorldMap` / region per Godot worker. MapScreen suites call `Fixture.attach_screen(self)` so `_ready` uses `preset_world` instead of `generate_world`.
-2. **`before_all` for generator suites** — build once into a public `world` / `model`; only re-generate in determinism tests that must compare two seeds.
-3. **Smaller maps in tests/smoke** — integration sizes (e.g. 64×42 world, 48×32 region) beat playable 128×84. Keep playable defaults for real play.
-4. **Pure fixtures first** — `civilian_fixture.gd` / `naval_fixture.gd` for rules; reserve MapScreen for UI/wiring.
-5. **Tear down hard** — `free()` MapScreens in `after_each` (not only `queue_free`) so prior screens do not keep processing under coverage.
-6. **CI parallel** — `gd-tools test --coverage --min 80 --parallel 4 --timeout 240`. Job `timeout-minutes: 5` for `tests`, `2` for `e2e-smoke`.
+1. **Shared fixtures** — cache expensive worlds/setups once per worker; attach rather than regenerate.
+2. **`before_all` for generator suites** — build once into a public var; only re-generate when determinism requires two seeds.
+3. **Smaller maps in tests/smoke** — keep playable defaults for real play; shrink fixtures for CI.
+4. **Pure fixtures first** — reserve full screen suites for UI/wiring.
+5. **Tear down hard** — free screens in `after_each` so prior instances do not keep processing under coverage.
+6. **CI parallel** — `gd-tools test --coverage --min 80 --parallel 4 --timeout 240`.
 
 ## E2E smoke
 
-- Budget ≤ 2 min wall; prefer ≪ 30s.
-- Set `main.map_width` / `map_height` before `add_child` (see `tools/e2e_smoke.gd`).
+- Budget ≤ 2 min wall; prefer much less.
 - Few `await process_frame`; no `sleep`, no full campaigns, no second suite.
 - Deep rules belong in `tests/`, not smoke.
 

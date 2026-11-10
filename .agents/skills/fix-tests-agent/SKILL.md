@@ -69,10 +69,10 @@ Match the scheduled job. Note the failing suites/asserts.
 Minimal change that restores the full gate. Prefer test/fixture fixes
 when the product behavior is correct; fix product code when rules or
 regressions are wrong. Do not weaken `--min 80`, delete meaningful
-cases, or edit workflows to force green.
+cases, or edit workflows to force green. Do not edit skill trees in the
+same PR as code.
 
-If the failure is an impact-map gap, update
-[`tests/impact_map.toml`](../../../tests/impact_map.toml) and keep
+If the failure is an impact-map gap, update the impact map and keep
 `python tools/select_impacted_tests.py --check-complete` green.
 
 ### 4. Prove

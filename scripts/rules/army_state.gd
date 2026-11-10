@@ -229,6 +229,8 @@ static func split(
 ) -> Dictionary:
 	if source == null or not armies.has(source):
 		return _deny("There is no army to split.")
+	if source.is_embarked():
+		return _deny("Land the army before detaching; a squadron carries it as one.")
 	if regiment_ids.is_empty():
 		return _deny("Choose at least one regiment to detach.")
 	var types: Dictionary = {}
@@ -261,7 +263,7 @@ static func split(
 ## merge target when present; otherwise the first army in panel order wins
 ## (wiki: military-armies § Split and combine).
 static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dictionary:
-	if selected.size() < 2:
+	if selected.size() < 2 or selected[0] == null:
 		return _deny("Select two armies in the same province to combine.")
 	var province: int = selected[0].province
 	var owner: int = selected[0].owner
@@ -270,6 +272,8 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 	for army: ArmyState in selected:
 		if army == null or not armies.has(army):
 			return _deny("That army is no longer on the map.")
+		if army.is_embarked():
+			return _deny("Land the armies before combining; a squadron carries one army.")
 		if army.owner != owner or army.province != province:
 			return _deny("Armies must share a province and an owner to combine.")
 		any_moved = any_moved or army.moved

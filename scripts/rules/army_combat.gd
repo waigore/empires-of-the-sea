@@ -5,10 +5,9 @@ extends RefCounted
 ## by general medals, feeding, leader and terrain modifiers; casualties follow
 ## the documented ratio bands; army elimination is applied before a province
 ## flips. Pre-combat general binding arrives in `context` from the caller.
-## Sieges read the province's fort level: walls soak attack, the emplaced battery
-## adds defence and shrinks defender losses (wiki: siege-mechanics, auto-resolve
-## aggregate path). Gun-loss downgrade and difficulty stay deferred; the human's
-## land battles route through QuickBattle.
+## Sieges read the fort level: walls soak attack, the emplaced battery adds
+## defence and shrinks defender losses (wiki: siege-mechanics). Gun-loss and
+## difficulty stay deferred; the human's land battles route through QuickBattle.
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -21,10 +20,11 @@ enum Outcome {
 	ATTACKER_ADVANTAGE,
 }
 
-## Great Power military era for garrison recovery; Minors/Tribes stay at 1.
+## Garrison recovery eras: a Great Power reforms at 4, a Minor Nation at the
+## parity level the caller passes, a Tribe at 1 (wiki: combat § Garrison
+## recovery type; factions § Minor military parity).
 const GREAT_POWER_ERA: int = 4
 const MINOR_ERA: int = 1
-
 
 
 ## Provinces where a Great Power army ended movement in land it does not own.
@@ -74,8 +74,7 @@ static func resolve_turn(
 
 
 ## One defender versus attackers in initiative order, without healing between
-## exchanges; the chain stops when the defender is eliminated or all attackers
-## have had their exchange.
+## exchanges; the chain stops when the defender dies or all attackers have fought.
 static func _resolve_chain(
 	model: MapModel,
 	armies: Array[ArmyState],
@@ -193,7 +192,7 @@ static func _exchange(
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
 		if further:
 			var recovery: Dictionary = ArmyGarrison.recover(
-				armies, province, defender, initial_defenders
+				armies, province, defender, initial_defenders, context
 			)
 			report["garrison"] = int(recovery.get("count", 0))
 			report["recovered_type"] = String(recovery.get("type", ""))
@@ -326,8 +325,10 @@ static func band_for(ratio: float) -> Dictionary:
 	return ArmyBands.for_ratio(ratio)
 
 
-static func era_for(faction_id: int) -> int:
-	return ArmyGarrison.era_for(faction_id)
+## Effective military era for garrison recovery (wiki: combat § Garrison
+## recovery type; factions § Minor military parity).
+static func era_for(faction_id: int, context: Dictionary = {}) -> int:
+	return ArmyGarrison.era_for(faction_id, context)
 
 
 static func outcome_label(outcome: int) -> String:

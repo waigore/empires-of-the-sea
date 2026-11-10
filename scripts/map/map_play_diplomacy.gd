@@ -200,10 +200,28 @@ static func run_ai(play: PlaySession) -> void:
 		_ai_context(play)
 	)
 	play.ai_trace.assign(result.get("trace", []))
+	_apply_ai_map_changes(play, result.get("trace", []))
 	if play.hud == null:
 		return
 	for message: String in result.get("messages", []):
 		play.hud.toast(message)
+
+
+## A rival that absorbs a Minor moves provinces: its units change colour and the
+## chart is rebuilt, exactly as the court's own Join Empire order does.
+static func _apply_ai_map_changes(play: PlaySession, trace: Array) -> void:
+	for record: Dictionary in trace:
+		var result: Dictionary = record.get("result", {})
+		if not bool(result.get("map_changed", false)) and not result.has("absorbed"):
+			continue
+		var loser: int = int(result.get("absorbed", -1))
+		if loser >= 0:
+			var winner: int = int(record.get("faction", -1))
+			if play.ship_layer != null:
+				play.ship_layer.transfer_owner(loser, winner)
+			if play.army_layer != null:
+				play.army_layer.transfer_owner(loser, winner)
+		_rebuild_map(play)
 
 
 ## Unit counts the war-desire score reads plus each rival's stockpile, so the
