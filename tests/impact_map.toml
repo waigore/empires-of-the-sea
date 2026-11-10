@@ -794,6 +794,10 @@ match = "tests/test_game_setup.gd"
 domain = "menu"
 
 [[rules]]
+match = "tests/test_difficulty.gd"
+domain = "menu"
+
+[[rules]]
 match = "tests/test_main.gd"
 domain = "menu"
 
