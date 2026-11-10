@@ -257,6 +257,12 @@ static func _research_lines(rival: int, economy_report: Dictionary) -> Array[Str
 	return lines
 
 
+## The turn the despatch narrates: the calendar has already advanced when the
+## spy reports, so the observation keeps the turn it resolved on.
+static func _resolved_turn(play: PlaySession) -> int:
+	return maxi(play.turn - 1, 1)
+
+
 ## Studies the shadowed court finished this turn, as ids.
 static func _researched(rival: int, economy_report: Dictionary) -> Array[String]:
 	var found: Array[String] = []
@@ -280,8 +286,7 @@ static func _record_studies(play: PlaySession, rival: int, economy_report: Dicti
 			IntelDossier.SPY_TECH,
 			rival,
 			play.player_faction,
-			{"tech": tech},
-			maxi(play.turn - 1, 1)
+			{"tech": tech, IntelDossier.OBSERVED_TURN: _resolved_turn(play)}
 		)
 
 
@@ -305,8 +310,7 @@ static func _record_builds(play: PlaySession, rival: int, economy_report: Dictio
 		IntelDossier.SPY_BUILD,
 		rival,
 		play.player_faction,
-		{"works": works},
-		maxi(play.turn - 1, 1)
+		{"works": works, IntelDossier.OBSERVED_TURN: _resolved_turn(play)}
 	)
 
 

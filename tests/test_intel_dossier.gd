@@ -228,6 +228,20 @@ func test_a_study_seen_by_a_spy_reads_as_a_tech_thief() -> void:
 	)
 
 
+## The despatch narrates the turn that resolved, though the spy reports after the
+## calendar has advanced: the observation keeps its own turn.
+func test_a_despatch_keeps_the_turn_it_resolved() -> void:
+	state.turn = 9
+	state.record_event(
+		IntelDossier.SPY_TECH, ENGLAND, VIEWER,
+		{"tech": "crop_rotation", IntelDossier.OBSERVED_TURN: 8}
+	)
+	var entries: Array[Dictionary] = IntelDossier.evidence(state, null, VIEWER, ENGLAND)
+	assert_eq(int(entries[0]["turn"]), 8, "the act belongs to the turn it resolved")
+	state.record_event("warDeclared", ENGLAND, GENOA)
+	assert_eq(IntelDossier.turn_of(state.events[1]), 9, "a plain act keeps the chronicle stamp")
+
+
 func test_only_the_crown_that_posted_the_spy_hears_of_a_study() -> void:
 	state.record_event(IntelDossier.SPY_TECH, ENGLAND, PORTUGAL, {"tech": "crop_rotation"})
 	assert_true(_scores(ENGLAND).is_empty(), "the despatch belongs to the court that paid for it")

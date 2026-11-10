@@ -468,6 +468,7 @@ func test_a_shadowed_study_enters_the_dossier() -> void:
 	var event: Dictionary = events[0] as Dictionary
 	assert_eq(String(event["kind"]), IntelDossier.SPY_TECH)
 	assert_eq(String((event["data"] as Dictionary)["tech"]), "crop_rotation")
+	assert_eq(IntelDossier.turn_of(event), 1, "stamped with the turn that resolved")
 	var scores: Dictionary = IntelDossier.suspicion(
 		IntelDossier.evidence(play.diplomacy, play.world, PLAYER, RIVAL)
 	)

@@ -142,13 +142,6 @@ func refresh(
 	_fill_detail()
 
 
-## The summary's one door: the full sheet opens on the court in view (REQ-P5-01).
-func _open_dossier() -> void:
-	if dossier_screen == null or _selected < 0:
-		return
-	dossier_screen.show_for(_state, _world, _player, _selected)
-
-
 func selected_faction() -> int:
 	return _selected
 
@@ -256,7 +249,13 @@ func _fill_detail() -> void:
 	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
 	var dossier := CourtDossier.new()
 	dossier.fill(_state, _world, _player, _selected)
-	dossier.open_pressed.connect(_open_dossier)
+	# The summary's one door: the full sheet opens on the court in view
+	# (REQ-P5-01, DR-20261110-25).
+	dossier.open_pressed.connect(
+		func() -> void:
+			if dossier_screen != null and _selected >= 0:
+				dossier_screen.show_for(_state, _world, _player, _selected)
+	)
 	_detail.add_child(dossier)
 
 

@@ -40,6 +40,9 @@ const W_SPY_TECH: int = 2
 ## in the pair's chronicle: they are intelligence, not diplomacy.
 const SPY_TECH: String = "spyTechObserved"
 const SPY_BUILD: String = "spyBuildObserved"
+## The turn a despatch observed. The spy reports after the calendar has advanced,
+## so the observation carries the turn it resolved on in its data.
+const OBSERVED_TURN: String = "observed_turn"
 
 const UNKNOWN_COURT: String = "an unknown court"
 
@@ -102,7 +105,7 @@ static func evidence(
 			continue
 		found.append(
 			{
-				"turn": int(event.get("turn", 0)),
+				"turn": turn_of(event),
 				"index": index,
 				"kind": kind,
 				"text": _text_for(state, viewer, subject, event),
@@ -113,6 +116,15 @@ static func evidence(
 		found = found.slice(found.size() - EVIDENCE_CAP)
 	found.reverse()
 	return found
+
+
+## The turn an observation belongs to: the chronicle's own stamp, or the turn
+## the spy's despatch resolved (it is written on a later pass).
+static func turn_of(event: Dictionary) -> int:
+	var data: Dictionary = _kind_data(event)
+	if data.has(OBSERVED_TURN):
+		return int(data[OBSERVED_TURN])
+	return int(event.get("turn", 0))
 
 
 ## Points per agenda: every retained observation's weights, summed.
