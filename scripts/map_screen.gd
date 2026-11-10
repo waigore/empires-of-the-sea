@@ -59,8 +59,7 @@ var preset_world: WorldMap = null
 @onready var game_menu: GameMenu = $GameMenu
 @onready var fade: ColorRect = $FadeLayer/Fade
 
-# --- compat accessors for tests / e2e (session is source of truth) -----------
-
+# Compat accessors for tests / e2e (session is source of truth).
 var model: MapModel:
 	get:
 		return play.model if play != null else null
@@ -165,8 +164,7 @@ func _ready() -> void:
 		map_seed = play.map_seed
 		map_width = play.map_width
 		map_height = play.map_height
-	# The economy is always founded on the Old World, exactly as when the run
-	# started; restore there first, then return to the saved map.
+	# Economy always founds on the Old World; restore there, then return.
 	var target_region: int = play.region_index
 	if restored:
 		play.region_index = 0
@@ -180,7 +178,7 @@ func _ready() -> void:
 	else:
 		play.diplomacy.initialize(play.turn)
 	play.diplomacy.human_faction = play.human_faction_id()
-	# A new campaign may open mid-age (wiki: advanced-starts); a load carries it.
+	# Mid-age opening (wiki: advanced-starts); a load already carries it.
 	if not restored:
 		MapPlayAdvanced.begin(play)
 	if restored and target_region != play.region_index:
@@ -198,6 +196,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	MapPlayInput.update_hover(play)
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if hud != null and hud.is_quick_battle_shown(): return
@@ -218,8 +217,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Android back / iOS back gesture: close the top layer first, quit only from the
-## bare map. Without this the OS kills the session mid-order (RUB-P5-07).
+## Back: close the top layer first; quit only from the bare map (RUB-P5-07).
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
 		return
@@ -229,11 +227,7 @@ func _notification(what: int) -> void:
 		get_tree().quit()
 
 
-# --- setup ------------------------------------------------------------------
-
-
-## Swaps the whole view onto one region: canvas, fog, fleets, civilians, works,
-## minimap and camera bounds all follow the active tile map.
+## Swap the view onto one region: canvas, fog, units, works, minimap, camera.
 func load_region(index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
@@ -378,12 +372,10 @@ func _on_load_chosen(slot: int) -> void:
 	load_slot_requested.emit(slot)
 
 
-## Full-AI observatory: hide the human chrome, seal saving (an observer session
-## is not a player campaign) and mount the live metrics panel (REQ-P5-02).
+## Full-AI observatory: hide human chrome, seal saving, mount metrics (REQ-P5-02).
 func _setup_observer() -> void:
 	hud.visible = false
-	# The panel owns the pause door, so the floating trigger must not overlap it.
-	game_menu.trigger.visible = false
+	game_menu.trigger.visible = false  # panel owns the pause door
 	game_menu.save_button.disabled = true
 	var panel := AiObserverPanel.new()
 	panel.name = "AiObserver"
@@ -393,8 +385,7 @@ func _setup_observer() -> void:
 	panel.refresh()
 
 
-## Ownership changed outside the map layers (Join Empire): redraw borders,
-## terrain tint, fog and the region chips without respawning units.
+## Ownership changed outside the map layers (Join Empire): redraw politics.
 func refresh_political_map() -> void:
 	if play == null or play.model == null:
 		return
