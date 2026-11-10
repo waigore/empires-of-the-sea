@@ -48,6 +48,7 @@ func setup(
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
 	_connect()
+	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
 
 
 func _connect() -> void:
@@ -57,6 +58,7 @@ func _connect() -> void:
 	_hud.research_pressed.connect(open_research)
 	var panel: EconomyPanel = _hud.panels.economy_panel
 	panel.trade_requested.connect(_on_trade)
+	panel.offer_requested.connect(_on_offer)
 	panel.production_changed.connect(_on_production)
 	panel.recruit_requested.connect(_on_recruit)
 	var research: ResearchPanel = _hud.panels.research_panel
@@ -162,8 +164,11 @@ func resolve_turn() -> Dictionary:
 		economy, market, extraction(), fleet_ships(), army_food(), true,
 		research_boost
 	)
+	research_boost = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
+	# A new turn's harvest is on the table before the ledger repaints.
+	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
 	if _armies != null:
 		_armies.sync_generals(player_faction, economy.tech_unlocked)
 	if _hud != null:
@@ -173,62 +178,17 @@ func resolve_turn() -> Dictionary:
 		_hud.set_fleets(fleet_ships())
 		if _armies != null:
 			_hud.set_armies(_armies.regiment_count_all(player_faction))
-		_hud.toast(summary_line(report))
+		_hud.toast(LedgerText.turn_summary(report))
 	_refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report
 
 
-## One-line turn summary for the toast channel.
-func summary_line(report: Dictionary) -> String:
-	var parts: PackedStringArray = []
-	var extracted: Dictionary = report.get("extraction", {})
-	if not extracted.is_empty():
-		parts.append("gathered %s" % ImprovementSystem.output_text(extracted))
-	var overseas: Dictionary = report.get("overseas", {})
-	var landed: int = int(overseas.get("used", 0))
-	if landed > 0:
-		parts.append("%d colonial tons landed" % landed)
-	var left: int = int(overseas.get("left_total", 0))
-	if left > 0:
-		parts.append("%d left on the far shore" % left)
-	var treasury: int = int(report.get("riches_treasury", 0))
-	if treasury > 0:
-		parts.append("+%d from riches" % treasury)
-	var production: Dictionary = report.get("production", {})
-	var produced: Dictionary = production.get("produced", {})
-	for id: String in produced.keys():
-		parts.append("%s +%d" % [CommodityCatalog.label(id), int(produced[id])])
-	var consumption: Dictionary = report.get("consumption", {})
-	var eaters: int = int(consumption.get("food_eaten", 0))
-	if eaters > 0:
-		parts.append("%d food eaten" % eaters)
-	var strikes: int = int(consumption.get("strikers", 0))
-	if strikes > 0:
-		parts.append("%d on strike" % strikes)
-	var research: Dictionary = report.get("research", {})
-	var researched: Array = research.get("researched", [])
-	for tech_id: Variant in researched:
-		parts.append("%s researched" % TechCatalog.display_name(String(tech_id)))
-	var unpaid: Array = research.get("unpaid", [])
-	if not unpaid.is_empty():
-		var plural: String = "" if unpaid.size() == 1 else "s"
-		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
-	var lifted: Array = research.get("boosted", [])
-	if not lifted.is_empty():
-		parts.append(
-			"%d stud%s quickened by the spy network" % [
-				lifted.size(), "y" if lifted.size() == 1 else "ies"
-			]
-		)
-	if parts.is_empty():
-		return "The ledgers balance — nothing moved this turn."
-	return "  ·  ".join(parts)
-
-
 func open_panel() -> void:
 	if _hud != null:
-		_hud.panels.show_economy(economy, market, projected(), trade_cargo())
+		_hud.panels.show_economy(
+			economy, market, projected(), trade_cargo(), market.minor_offers
+		)
 
 
 func open_research() -> void:
@@ -268,7 +228,9 @@ func _refresh_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_economy_open():
-		_hud.panels.show_economy(economy, market, projected(), trade_cargo())
+		_hud.panels.show_economy(
+			economy, market, projected(), trade_cargo(), market.minor_offers
+		)
 	_hud.set_treasury(economy.treasury)
 	_hud.set_income(projected_income())
 	treasury_changed.emit(economy.treasury)
@@ -283,9 +245,30 @@ func _on_trade(commodity: String, quantity: int, is_buy: bool) -> void:
 			int(cargo.get("reserved", 0))
 		)
 	else:
-		result = market.sell(economy, commodity, quantity)
+		result = market.sell(economy, commodity, quantity, player_faction)
 	if not bool(result.get("ok", false)) and _hud != null:
 		_hud.toast(String(result.get("reason", "Trade refused")))
+	_refresh_panel()
+
+
+## A direct purchase from a Minor Nation or a Tribe: the rules decide, the
+## ledger reports the receipt or the refusal (REQ-P2-03, REQ-P5-05).
+func _on_offer(offer_id: String, quantity: int) -> void:
+	var cargo: Dictionary = trade_cargo()
+	var result: Dictionary = MinorMarket.buy(
+		market, economy, market.minor_offers, offer_id, quantity,
+		int(cargo.get("holds", 0)), int(cargo.get("reserved", 0)), player_faction
+	)
+	if _hud != null:
+		if bool(result.get("ok", false)):
+			_hud.toast("Bought %d %s from %s for %d ducats" % [
+				int(result.get("quantity", 0)),
+				CommodityCatalog.label(String(result.get("commodity", ""))),
+				FactionCatalog.name_of(int(result.get("faction", -1))),
+				int(result.get("cost", 0)),
+			])
+		else:
+			_hud.toast(String(result.get("reason", "That purchase was refused")))
 	_refresh_panel()
 
 

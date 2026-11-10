@@ -5,9 +5,17 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 var _screen: MapScreen = null
+## The shared world as generated: combat tests shift ownership, so every case
+## starts from the same map instead of the previous case's aftermath.
+var _saved: Array = []
+
+
+func before_all() -> void:
+	_saved = Fixture.snapshot(Fixture.world())
 
 
 func before_each() -> void:
+	Fixture.restore(Fixture.world(), _saved)
 	_screen = Fixture.attach_screen(self)
 
 

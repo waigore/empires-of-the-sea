@@ -21,6 +21,9 @@ var ai_turns: Array[Dictionary] = []
 ## Endless campaign chosen at setup: the calendar cap never closes the age
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 var infinite_mode: bool = false
+## Advanced-start preset (wiki: advanced-starts; DR-20261111-01). Empty/"none"
+## is the ordinary turn-0 campaign.
+var advanced_start: String = AdvancedStart.NONE
 ## Set once the calendar cap closes an undecided campaign; turns stay shut even
 ## though no victory was declared (wiki: victory § Calendar campaign end).
 var campaign_halted: bool = false
@@ -54,6 +57,10 @@ var turn_suspended: bool = false
 ## turn's decision trace (wiki: ai-architecture).
 var ai: AiState = null
 var ai_trace: Array[Dictionary] = []
+## Last resolved turn's spy despatch: `turn` and `lines` (rival Great Power ->
+## Array[String]) for every court a Spy shadows (wiki: civilian-units § Spy —
+## court reports). Derived, so a save carries no copy.
+var court_reports: Dictionary = {}
 
 var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or
@@ -94,20 +101,24 @@ func bind_host(p_host: Node) -> void:
 
 ## Starts a fresh run in this session: generation recipe, human crown, the
 ## leaderKey and whether the campaign may outlive the calendar. Rival crowns
-## take their configured leader (wiki: leader-bonuses).
+## take their configured leader (wiki: leader-bonuses). An advanced start also
+## moves the opening turn onto its preset (wiki: advanced-starts).
 func configure(
 	faction: int,
 	seed_value: int,
 	width: int,
 	height: int,
 	leader: String = "",
-	infinite: bool = false
+	infinite: bool = false,
+	advanced: String = ""
 ) -> void:
 	player_faction = faction
 	map_seed = seed_value
 	map_width = width
 	map_height = height
 	infinite_mode = infinite
+	advanced_start = AdvancedStart.normalize(advanced)
+	turn = AdvancedStart.turn(advanced_start)
 	leaders = LeaderCatalog.roster(faction, leader)
 
 

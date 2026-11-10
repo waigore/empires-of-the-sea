@@ -97,3 +97,50 @@ static func idle_labour(report: Dictionary) -> int:
 
 static func navy_food(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("navy_demand", 0))
+
+
+## One-line turn summary for the toast channel: what the resolved turn did.
+static func turn_summary(report: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	var extracted: Dictionary = report.get("extraction", {})
+	if not extracted.is_empty():
+		parts.append("gathered %s" % ImprovementSystem.output_text(extracted))
+	var overseas: Dictionary = report.get("overseas", {})
+	var landed: int = int(overseas.get("used", 0))
+	if landed > 0:
+		parts.append("%d colonial tons landed" % landed)
+	var left: int = int(overseas.get("left_total", 0))
+	if left > 0:
+		parts.append("%d left on the far shore" % left)
+	var treasury: int = int(report.get("riches_treasury", 0))
+	if treasury > 0:
+		parts.append("+%d from riches" % treasury)
+	var production: Dictionary = report.get("production", {})
+	var produced: Dictionary = production.get("produced", {})
+	for id: String in produced.keys():
+		parts.append("%s +%d" % [CommodityCatalog.label(id), int(produced[id])])
+	var consumption: Dictionary = report.get("consumption", {})
+	var eaters: int = int(consumption.get("food_eaten", 0))
+	if eaters > 0:
+		parts.append("%d food eaten" % eaters)
+	var strikes: int = int(consumption.get("strikers", 0))
+	if strikes > 0:
+		parts.append("%d on strike" % strikes)
+	var research: Dictionary = report.get("research", {})
+	var researched: Array = research.get("researched", [])
+	for tech_id: Variant in researched:
+		parts.append("%s researched" % TechCatalog.display_name(String(tech_id)))
+	var unpaid: Array = research.get("unpaid", [])
+	if not unpaid.is_empty():
+		var plural: String = "" if unpaid.size() == 1 else "s"
+		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
+	var lifted: Array = research.get("boosted", [])
+	if not lifted.is_empty():
+		parts.append(
+			"%d stud%s quickened by the spy network" % [
+				lifted.size(), "y" if lifted.size() == 1 else "ies"
+			]
+		)
+	if parts.is_empty():
+		return "The ledgers balance — nothing moved this turn."
+	return "  ·  ".join(parts)
