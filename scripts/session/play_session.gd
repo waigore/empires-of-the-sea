@@ -81,6 +81,8 @@ var canvas: MapCanvas = null
 var overlay: MapOverlay = null
 ## Resource survey lens: a view, never a rules source (REQ-P3-03).
 var lens: ResourceLens = null
+## Diplomatic lens: political standing wash, also presentation only.
+var diplomacy_lens: DiplomacyLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -125,7 +127,8 @@ func bind_views(
 	p_camera: MapCamera,
 	p_hud: GameHud,
 	p_improvements: ImprovementPanel,
-	p_lens: ResourceLens = null
+	p_lens: ResourceLens = null,
+	p_diplomacy_lens: DiplomacyLens = null
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
@@ -136,6 +139,7 @@ func bind_views(
 	hud = p_hud
 	improvements = p_improvements
 	lens = p_lens
+	diplomacy_lens = p_diplomacy_lens
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

@@ -22,16 +22,23 @@ const EMBASSY_TIERS: Array[String] = [
 ]
 
 
-## Courts offered a choice: other Great Powers with an embassy in the victim
-## court, not already at war with the aggressor (they have nothing to decide).
-static func candidates(state: DiplomacyState, aggressor: int, target: int) -> Array[int]:
+## Courts offered a choice: other Great Powers holding an embassy in the victim
+## court **or** purchased land in its provinces, not already at war with the
+## aggressor (they have nothing to decide). Wiki: diplomacy § Intervention —
+## "Embassy with that Minor/Tribe **or** purchased land recorded in its
+## provinces"; a deed in a province the victim has since lost does not count.
+static func candidates(
+	state: DiplomacyState, aggressor: int, target: int, world: WorldMap = null
+) -> Array[int]:
 	var result: Array[int] = []
 	if state == null:
 		return result
 	if FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER:
 		return result
 	for court: int in FactionCatalog.great_power_ids():
-		if court == aggressor or not has_embassy(state, court, target):
+		if court == aggressor:
+			continue
+		if not has_embassy(state, court, target) and not has_purchased_land(world, court, target):
 			continue
 		var record: DiplomacyRelation = state.relation(court, aggressor)
 		if record != null and record.at_war:
@@ -44,12 +51,28 @@ static func has_embassy(state: DiplomacyState, court: int, target: int) -> bool:
 	return state.overture(court, target) in EMBASSY_TIERS
 
 
+## True when `court` holds a deed to a tile of a province the victim owns now.
+static func has_purchased_land(world: WorldMap, court: int, target: int) -> bool:
+	if world == null or court < 0 or target < 0:
+		return false
+	for model: MapModel in world.regions:
+		if model == null:
+			continue
+		for province: ProvinceState in model.provinces:
+			if province.owner != target:
+				continue
+			for tile: Vector2i in province.tiles:
+				if model.ownership.purchaser(model.index_of(tile.x, tile.y)) == court:
+					return true
+	return false
+
+
 ## Queues or resolves one choice per eligible court. Returns player-facing lines.
 static func on_war_declared(
-	state: DiplomacyState, aggressor: int, target: int
+	state: DiplomacyState, aggressor: int, target: int, world: WorldMap = null
 ) -> Array[String]:
 	var messages: Array[String] = []
-	for court: int in candidates(state, aggressor, target):
+	for court: int in candidates(state, aggressor, target, world):
 		if court == state.human_faction:
 			if queue_human(state, aggressor, target, court):
 				messages.append(
@@ -158,7 +181,7 @@ static func resolve_human(
 static func protest_penalty(tech: Dictionary = {}) -> float:
 	return (
 		DiplomacyCatalog.PROTEST_PENALTY_PROPAGANDA
-		if tech.has("propaganda")
+		if bool(tech.get("propaganda", false))
 		else DiplomacyCatalog.PROTEST_PENALTY
 	)
 

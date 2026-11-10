@@ -14,9 +14,13 @@ static func resolve(
 	extraction: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	advance_market: bool = true
+	advance_market: bool = true,
+	research_boost: Dictionary = {}
 ) -> Dictionary:
-	return _run(economy, market, extraction, ship_count, army_food, advance_market)
+	return _run(
+		economy, market, extraction, ship_count, army_food, advance_market,
+		research_boost
+	)
 
 
 ## Dry run on copied state; reports stockpile and treasury deltas, no side effects.
@@ -25,12 +29,14 @@ static func project(
 	market: WorldMarket,
 	extraction: Dictionary,
 	ship_count: int,
-	army_food: int = 0
+	army_food: int = 0,
+	research_boost: Dictionary = {}
 ) -> Dictionary:
 	var before: Dictionary = economy.stockpile.duplicate()
 	var treasury_before: int = economy.treasury
 	var report: Dictionary = _run(
-		economy.copy(), market.copy(), extraction, ship_count, army_food, false
+		economy.copy(), market.copy(), extraction, ship_count, army_food, false,
+		research_boost
 	)
 	var deltas: Dictionary = {}
 	for id: String in CommodityCatalog.all_ids():
@@ -48,7 +54,8 @@ static func _run(
 	extraction: Dictionary,
 	ship_count: int,
 	army_food: int,
-	advance_market: bool
+	advance_market: bool,
+	research_boost: Dictionary = {}
 ) -> Dictionary:
 	var extracted: Dictionary = {}
 	for commodity: Variant in extraction.keys():
@@ -80,7 +87,9 @@ static func _run(
 		economy.tech_unlocked
 	)
 	# Research runs last: its gold comes out of the treasury Production left.
-	var research: Dictionary = ResearchTurn.resolve(economy.research, economy)
+	var research: Dictionary = ResearchTurn.resolve(
+		economy.research, economy, research_boost
+	)
 	var prices: Dictionary = {}
 	if advance_market:
 		prices = market.advance_prices()

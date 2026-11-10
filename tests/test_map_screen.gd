@@ -485,6 +485,67 @@ func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
 	)
 
 
+## Espionage in the live session: a spy posted on a rival Great Power's land
+## holds that province charted and quickens research the rival has finished
+## (wiki: civilian-units § Spy; DR-20261110-03).
+func test_a_spy_posted_in_a_rival_province_quickens_research() -> void:
+	var rival: int = _rival_great_power()
+	assert_true(rival >= 0, "the world has a rival Great Power province")
+	var tile: Vector2i = _screen.model.province_tiles(_foreign_province_of(rival))[0]
+	_screen.civilian_layer.add_unit(_screen.play.player_faction, "spy", tile)
+	if _screen.play.ai == null:
+		_screen.play.ai = AiState.new()
+	_screen.play.ai.economy_for(rival).tech_unlocked["navigation"] = true
+	var boost: Dictionary = MapPlayEspionage.research_boost(_screen.play)
+	assert_eq(SpyNetworks.boost_for(boost, "navigation"), 15)
+	assert_eq(SpyNetworks.boost_for(boost, "saw_mill"), 0, "unfinished by the rival")
+
+
+func test_a_spy_on_the_crowns_own_land_quickens_nothing() -> void:
+	var tile: Vector2i = _screen.model.province_tiles(_screen.capital_province)[0]
+	_screen.civilian_layer.add_unit(_screen.play.player_faction, "spy", tile)
+	assert_true(
+		MapPlayEspionage.research_boost(_screen.play).is_empty(),
+		"own soil hands over no research"
+	)
+
+
+func test_end_turn_holds_the_province_a_spy_shadows() -> void:
+	var rival: int = _rival_great_power()
+	assert_true(rival >= 0)
+	var province: int = _foreign_province_of(rival)
+	var tile: Vector2i = _screen.model.province_tiles(province)[0]
+	_screen.civilian_layer.add_unit(_screen.play.player_faction, "spy", tile)
+	assert_false(_screen.visibility.is_province_fully_visible(province))
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+	assert_true(
+		_screen.visibility.is_province_fully_visible(province),
+		"the shadowed province is held in view"
+	)
+
+
+## First Old World province owned by a rival Great Power, or -1.
+func _rival_great_power() -> int:
+	var province: int = _foreign_province_of(-1)
+	if province < 0:
+		return -1
+	return _screen.model.province_owner(province)
+
+
+## First province owned by `owner` in the shown region (any rival when -1).
+func _foreign_province_of(owner: int) -> int:
+	for data: ProvinceState in _screen.model.provinces:
+		if data.owner == _screen.play.player_faction:
+			continue
+		if owner >= 0 and data.owner != owner:
+			continue
+		if owner < 0 and not FactionCatalog.great_power_ids().has(data.owner):
+			continue
+		return data.id
+	return -1
+
+
 ## First orthogonal land pair that straddles two provinces.
 func _province_border_tiles(model: MapModel) -> Array[Vector2i]:
 	for y in model.height:

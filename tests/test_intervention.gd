@@ -3,6 +3,8 @@ extends GdToolsTest
 ## (wiki: diplomacy § Intervention). Embassy courts choose to join, stand aside
 ## or protest; AI courts roll the relation bands deterministically.
 
+const _Fixture = preload("res://tests/civilian_fixture.gd")
+
 var state: DiplomacyState
 
 
@@ -177,6 +179,60 @@ func test_an_absorbed_faction_drops_its_waiting_offer() -> void:
 	assert_true(Intervention.has_pending(state, 0))
 	state.clear_relations_of(6)
 	assert_false(Intervention.has_pending(state, 0))
+
+
+## Wiki: diplomacy § GP–Minor Rules § Intervention — the trigger is an Embassy
+## with the victim **or** purchased land recorded in its provinces, so a deed
+## holder is offered the choice without an embassy.
+func test_purchased_land_alone_makes_a_candidate() -> void:
+	var world: WorldMap = _deed_world(1)
+	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE, "a deed is not an embassy")
+	assert_false(DiplomacyRules.has_embassy(state, 1, 6))
+	assert_eq(Intervention.candidates(state, 3, 6, world), [1] as Array[int])
+
+
+func test_purchased_land_and_an_embassy_both_invite_the_same_court_once() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: WorldMap = _deed_world(1)
+	assert_eq(Intervention.candidates(state, 3, 6, world), [1] as Array[int])
+
+
+func test_a_deed_in_a_province_the_victim_lost_does_not_count() -> void:
+	var world: WorldMap = _deed_world(1)
+	world.region(0).provinces[1].owner = 7
+	assert_eq(
+		Intervention.candidates(state, 3, 6, world), [] as Array[int],
+		"deeds follow the province, not the old owner"
+	)
+
+
+## The declaration path must carry the world, or the deed holder never hears of
+## a war declared from the court or by a rival planner (REQ-P2-03).
+func test_a_declaration_offers_the_human_deed_holder() -> void:
+	var world: WorldMap = _deed_world(0)
+	var war: Dictionary = DiplomacyRules.declare_war(state, 3, 6, true, world)
+	assert_true(bool(war.get("ok", false)), war.get("reason", ""))
+	assert_true(Intervention.has_pending(state, 0), "the deed holder is asked")
+	assert_eq(int(Intervention.pending_for(state, 0)["aggressor"]), 3)
+
+
+func test_a_declaration_without_a_world_keeps_the_embassy_trigger() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	var war: Dictionary = DiplomacyRules.declare_war(state, 3, 6)
+	assert_true(bool(war.get("ok", false)), war.get("reason", ""))
+	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE, "the war clears it")
+
+
+## Tiny world whose second province answers to Minor Nation `victim`, with one
+## land tile sold to `buyer`.
+func _deed_world(buyer: int) -> WorldMap:
+	var model: MapModel = _Fixture.build()
+	var province: ProvinceState = model.provinces[1]
+	province.owner = 6
+	assert_true(model.purchase_tile(province.tiles[0], buyer), "a deed is signed")
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
 
 
 func _event(kind: String) -> bool:

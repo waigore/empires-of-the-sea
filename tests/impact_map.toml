@@ -55,11 +55,13 @@ suites = [
 suites = [
   "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
+  "test_diplomacy_lens.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_diplomacy_survey.gd",
   "test_intel_dossier.gd",
 ]
 
@@ -69,6 +71,15 @@ suites = [
   "test_economy_screen.gd",
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
+]
+
+[domains.espionage]
+suites = [
+  "test_spy_networks.gd",
+  "test_visibility.gd",
+  "test_research_turn.gd",
+  "test_civilian_field_rules.gd",
+  "test_map_screen.gd",
 ]
 
 [domains.fleet]
@@ -104,6 +115,8 @@ suites = [
   "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
+  "test_diplomacy_lens.gd",
+  "test_diplomacy_survey.gd",
   "test_resource_lens.gd",
   "test_resource_survey.gd",
   "test_visibility.gd",
@@ -124,6 +137,7 @@ suites = [
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_diplomacy_lens.gd",
   "test_resource_lens.gd",
 ]
 
@@ -200,6 +214,14 @@ domain = "map"
 [[rules]]
 match = "tests/playtest_new_world.gd*"
 domain = "map"
+
+[[rules]]
+match = "tests/playtest_launch.gd*"
+domain = "map"
+
+[[rules]]
+match = "tests/playtest_combat_chain.gd*"
+domain = "battle"
 
 [[rules]]
 match = "tests/playtest_quick_battle.gd*"
@@ -330,6 +352,10 @@ match = "scripts/map/map_play_improvements.gd"
 domain = "economy"
 
 [[rules]]
+match = "scripts/map/map_play_espionage.gd"
+domain = "espionage"
+
+[[rules]]
 match = "scripts/map/map_play_warp.gd"
 domain = "map"
 
@@ -432,6 +458,10 @@ domain = "research"
 [[rules]]
 match = "scripts/rules/call_to_arms.gd"
 domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/spy_*.gd"
+domain = "espionage"
 
 [[rules]]
 match = "scripts/rules/campaign_*.gd"
@@ -754,6 +784,12 @@ domain = "save"
 [[rules]]
 match = "tests/test_panel_dock.gd"
 domain = "ui"
+
+# Espionage suites live with their rules, so a spy change never needs the full
+# run (scripts/rules/spy_*.gd and map_play_espionage.gd map here too).
+[[rules]]
+match = "tests/test_spy_*.gd*"
+domain = "espionage"
 
 [[rules]]
 match = "tests/test_*.gd"
