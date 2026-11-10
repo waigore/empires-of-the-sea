@@ -1284,6 +1284,36 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	layer.free()
 
 
+## The civilian pass owns the rival roster: one seed per court per region, and
+## none where the court holds no capital (a colony or a foreign shore).
+func test_civilian_pass_seeds_once_and_only_at_a_capital() -> void:
+	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
+	var model: MapModel = world.region(0)
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 1, 0, [], false)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.civilian_layer = layer
+
+	MapPlayCivilianAi.seed(play, 1)
+	var seeded: int = layer.unit_count_all(1)
+	assert_eq(seeded, MapPlayCivilianAi.RIVAL_STARTING_CIVILIANS.size())
+	MapPlayCivilianAi.seed(play, 1)
+	assert_eq(layer.unit_count_all(1), seeded, "a second seed adds nothing")
+
+	var landless: WorldMap = AiFixture.land_world([0, 1], {0: true})
+	play.world = landless
+	play.model = landless.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	MapPlayCivilianAi.seed(play, 1)
+	assert_eq(play.civilian_layer.unit_count_all(1), 0, "no capital, no muster")
+	play.civilian_layer.free()
+	layer.free()
+
+
 ## A rival's colonial estate ships home on the same holds as the player's: no
 ## free tonnage from the other region (wiki: extraction-and-improvements
 ## § Flow to Stockpile; DR-20261109-17; REQ-P2-03).

@@ -75,6 +75,24 @@ func test_the_capital_province_feeds_the_opening_crown() -> void:
 	assert_gte(int(yields.get("grain", 0)), 4 + Extraction.CAPITAL_GRAIN_BONUS)
 
 
+## Both AI passes read the seat through one helper: the province and its capital
+## tile together, and -1/(-1, -1) where the crown has no capital.
+func test_capital_seat_pairs_province_and_tile() -> void:
+	var faction: int = FactionCatalog.PLAYER_FACTION
+	var seat: Dictionary = WorldBootstrap.capital_seat(model, faction)
+	var province: int = WorldBootstrap.capital_province(model, faction)
+	assert_gt(province, -1, "the crown holds a capital")
+	assert_eq(int(seat["province"]), province)
+	assert_eq(seat["tile"], model.capital_tile_of(province))
+
+	var new_world: MapModel = MapGenerator.new().generate_region(
+		SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
+	)
+	var landless: Dictionary = WorldBootstrap.capital_seat(new_world, faction)
+	assert_eq(int(landless["province"]), -1, "no Great Power capital in the New World")
+	assert_eq(landless["tile"], Vector2i(-1, -1))
+
+
 func test_capital_ports_and_harbour_roads_are_real() -> void:
 	assert_gt(works.ports.size(), 0, "capital ports are seeded")
 	assert_gt(works.transport.size(), 0, "harbour roads are seeded")

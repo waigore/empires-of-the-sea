@@ -512,6 +512,12 @@ domain = "ai"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
+# The rival civilian pass was split out of the economy turn but its only suite
+# is still test_ai_rules, so keep it here instead of the civilian glob below.
+[[rules]]
+match = "scripts/map/map_play_civilian_ai.gd"
+domain = "ai"
+
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
 [[rules]]
