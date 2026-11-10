@@ -473,6 +473,7 @@ func test_a_rival_chart_round_trips_through_the_save() -> void:
 		"a load restores the chart the rival earned"
 	)
 	assert_false(restored.apply_dict(world, 7), "a malformed payload is refused")
+	assert_false(restored.apply_dict(world, {}), "a save without charts keeps the grid")
 	assert_true(restored.courts.is_empty() == false, "the good grid survives")
 
 

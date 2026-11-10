@@ -148,11 +148,15 @@ func to_dict() -> Dictionary:
 	return {"human": human_faction, "courts": by_faction}
 
 
-## Restores the rivals' grids onto an already-generated world.
+## Restores the rivals' grids onto an already-generated world. A payload without
+## a `courts` entry (a save from before rival fog) is left as the baseline the
+## setup pass built, rather than cleared.
 func apply_dict(world: WorldMap, data: Variant) -> bool:
 	if world == null or typeof(data) != TYPE_DICTIONARY:
 		return false
-	var by_faction: Variant = data.get("courts", {})
+	if not data.has("courts"):
+		return false
+	var by_faction: Variant = data["courts"]
 	if typeof(by_faction) != TYPE_DICTIONARY:
 		return false
 	var stored_courts: Dictionary = by_faction
