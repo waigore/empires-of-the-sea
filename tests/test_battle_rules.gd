@@ -210,6 +210,46 @@ func test_combine_requires_two_armies() -> void:
 	assert_false(bool(ArmyState.combine(armies, selected)["ok"]))
 
 
+## Split/combine is a land order: the wiki scopes it to armies that share a
+## province (military-armies § Split and combine), and an embarked army has no
+## province — a squadron carries it as one (ships-and-naval § Naval transport).
+func test_split_refuses_an_army_aboard_a_squadron() -> void:
+	var model := Fixture.build()
+	var army := Fixture.army(1, 0, 0, ["pikemen", "squires"])
+	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
+	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
+	var armies: Array[ArmyState] = [army]
+	var ids: Array[String] = ["unit_101"]
+
+	var result: Dictionary = ArmyState.split(armies, army, ids, 2)
+
+	assert_false(bool(result["ok"]), "troops aboard cannot detach mid-voyage")
+	assert_eq(armies.size(), 1)
+	assert_eq(army.count(), 2)
+	assert_eq(army.embarked_fleet, fleet.id)
+
+
+func test_combine_refuses_armies_aboard_a_squadron() -> void:
+	var model := Fixture.build()
+	var first := Fixture.army(1, 0, 0, ["pikemen"])
+	var second := Fixture.army(2, 0, 0, ["squires"])
+	var fleet_a := FleetState.in_port(1, 0, 0, ["ship_1"])
+	var fleet_b := FleetState.in_port(2, 0, 0, ["ship_2"])
+	assert_true(bool(NavalTransport.embark(model, first, fleet_a)["ok"]))
+	assert_true(bool(NavalTransport.embark(model, second, fleet_b)["ok"]))
+	var armies: Array[ArmyState] = [first, second]
+	var selected: Array[ArmyState] = [first, second]
+
+	var result: Dictionary = ArmyState.combine(armies, selected)
+
+	assert_false(bool(result["ok"]), "two squadrons cannot pool their troops")
+	assert_eq(armies.size(), 2)
+	assert_eq(first.count(), 1)
+	assert_eq(second.count(), 1)
+	assert_eq(fleet_a.embarked_army, first.id)
+	assert_eq(fleet_b.embarked_army, second.id)
+
+
 func test_prune_drops_empty_field_armies_only() -> void:
 	var none: Array[String] = []
 	var home := Fixture.army(1, 0, 0, none, true)

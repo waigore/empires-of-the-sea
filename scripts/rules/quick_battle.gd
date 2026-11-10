@@ -130,7 +130,7 @@ static func resolve_exchange(
 			report["medal_owner"] = attacker
 	elif outcome == ArmyCombat.Outcome.MUTUAL_ANNIHILATION and further:
 		var recovery: Dictionary = ArmyGarrison.recover(
-			armies, province, defender, def_start
+			armies, province, defender, def_start, context
 		)
 		report["garrison"] = int(recovery.get("count", 0))
 		report["recovered_type"] = String(recovery.get("type", ""))
