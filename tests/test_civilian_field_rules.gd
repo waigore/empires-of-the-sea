@@ -1092,6 +1092,84 @@ func test_short_inputs_explain_missing_materials() -> void:
 	assert_eq(short, {"lumber": 4})
 
 
+# --- crews caught by a province changing hands ---
+
+
+func test_a_stranded_builder_withdraws_to_its_crowns_land() -> void:
+	var builder := Fixture.unit("builder", Vector2i(2, 1), 1)
+	var roster: Array[CivilianState] = [builder]
+
+	var reports: Array[Dictionary] = CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(roster.size(), 1, "the crew survives")
+	assert_eq(builder.tile, Vector2i(3, 1), "withdraws onto its own province")
+	assert_false(bool(reports[0]["lost"]))
+	assert_eq(Vector2i(reports[0]["from"]), Vector2i(2, 1))
+
+
+func test_a_surrounded_crew_is_lost_with_the_province() -> void:
+	var engineer := Fixture.unit("engineer", Vector2i(0, 0), 1)
+	var roster: Array[CivilianState] = [engineer]
+
+	var reports: Array[Dictionary] = CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(roster.size(), 0, "nowhere legal to stand")
+	assert_true(bool(reports[0]["lost"]))
+
+
+func test_explorers_are_never_evicted_from_foreign_land() -> void:
+	var explorer := Fixture.unit("explorer", Vector2i(2, 1), 1)
+	var roster: Array[CivilianState] = [explorer]
+
+	var reports: Array[Dictionary] = CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(roster.size(), 1)
+	assert_eq(explorer.tile, Vector2i(2, 1))
+	assert_true(reports.is_empty())
+
+
+func test_a_withdrawn_crew_drops_the_work_it_can_no_longer_do() -> void:
+	var builder := Fixture.unit("builder", Vector2i(2, 1), 1)
+	builder.start_work("build_improvement", Vector2i(2, 1), 2)
+	var roster: Array[CivilianState] = [builder]
+
+	CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(builder.tile, Vector2i(3, 1))
+	assert_false(builder.is_working(), "the lost tile's order ends")
+
+
+func test_a_crew_on_its_own_land_is_left_alone() -> void:
+	var builder := Fixture.unit("builder", Vector2i(0, 1), 0)
+	var roster: Array[CivilianState] = [builder]
+
+	var reports: Array[Dictionary] = CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(builder.tile, Vector2i(0, 1))
+	assert_true(reports.is_empty())
+
+
+func test_withdraw_without_a_map_touches_nothing() -> void:
+	var builder := Fixture.unit("builder", Vector2i(2, 1), 1)
+	var roster: Array[CivilianState] = [builder]
+
+	assert_true(CivilianStranding.withdraw(null, roster).is_empty())
+	assert_eq(roster.size(), 1)
+	assert_eq(builder.tile, Vector2i(2, 1))
+
+
+func test_an_embarked_crew_is_never_evicted() -> void:
+	var builder := Fixture.unit("builder", Vector2i(2, 1), 1)
+	builder.embark_on(7)
+	var roster: Array[CivilianState] = [builder]
+
+	var reports: Array[Dictionary] = CivilianStranding.withdraw(_model, roster)
+
+	assert_eq(roster.size(), 1, "a passenger is off the map, not stranded")
+	assert_true(builder.is_embarked())
+	assert_true(reports.is_empty())
+
+
 func _row_at(snap: Dictionary, tile: Vector2i) -> Dictionary:
 	for row: Dictionary in snap["estates"]:
 		if Vector2i(row["tile"]) == tile:

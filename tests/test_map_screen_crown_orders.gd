@@ -388,6 +388,70 @@ func test_the_home_fleet_carries_a_field_army_across_its_port() -> void:
 	assert_eq(fleet.embarked_army, -1)
 
 
+func test_a_crew_caught_in_a_captured_province_withdraws_or_is_lost() -> void:
+	var play: PlaySession = _screen.play
+	var pair: Array = _border_tiles(play)
+	assert_gte(pair.size(), 2, "the fixture has a land border")
+	var foreign: Vector2i = pair[1]
+	var crew: CivilianState = _screen.civilian_layer.add_unit(
+		play.player_faction, "builder", foreign
+	)
+
+	var reports: Array[Dictionary] = CivilianStrandingPass.settle_stranding(
+		_screen.civilian_layer, play.world
+	)
+
+	assert_true(reports.size() >= 1, "the stranded crew is reported")
+	if _screen.civilian_layer.units.has(crew):
+		assert_ne(crew.tile, foreign, "withdraws off the lost ground")
+		assert_true(CivilianMovement.may_enter(
+			_screen.model, crew.type_id, crew.owner, crew.tile
+		), "the new tile is legal")
+	else:
+		assert_true(bool(reports[0].get("lost", false)), "or is lost with the province")
+
+
+func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
+	var play: PlaySession = _screen.play
+	var pair: Array = _border_tiles(play)
+	assert_gte(pair.size(), 2, "the fixture has a land border")
+	var crew: CivilianState = _screen.civilian_layer.add_unit(
+		play.player_faction, "builder", pair[1]
+	)
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayCivilians.settle_stranding(play)
+
+	assert_gt(
+		_screen.hud._toast_box.get_child_count(), toasts_before,
+		"the court hears the crew's fate"
+	)
+	if _screen.civilian_layer.units.has(crew):
+		assert_ne(crew.tile, pair[1])
+
+
+## An owned land tile and a foreign neighbour across the border.
+func _border_tiles(play: PlaySession) -> Array:
+	var model: MapModel = play.model
+	for province: ProvinceState in model.provinces:
+		if province.owner != play.player_faction:
+			continue
+		for tile: Vector2i in province.tiles:
+			for offset: Vector2i in [
+				Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
+			]:
+				var other: Vector2i = tile + offset
+				if not model.is_land(other.x, other.y):
+					continue
+				var province_id: int = model.province_at(other.x, other.y)
+				if province_id == MapModel.NO_ID:
+					continue
+				if model.province_owner(province_id) == play.player_faction:
+					continue
+				return [tile, other]
+	return []
+
+
 func _capital_estate_tile() -> Vector2i:
 	var capital: Vector2i = _screen.capital_tile
 	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:

@@ -322,9 +322,8 @@ static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 		refresh_options(play, play.army_layer.selected_army)
 	return battles
 
-## Reports the capital verdicts of the Combat phase. A crown with nothing left
-## falls and its armies, squadrons and dealings leave play (wiki: victory
-## § Great Power defeat; DR-20261109-05). Returns true when the map changed.
+## Reports the capital verdicts of Combat; returns true when the map changed. A
+## crown with nothing left falls and its units and dealings leave play.
 static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
@@ -337,6 +336,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			play.army_layer.deselect()
 		if play.ship_layer != null:
 			play.ship_layer.transfer_owner(faction, MapModel.NO_ID)
+		CivilianStrandingPass.remove_owner(play.civilian_layer, faction)
 		if play.diplomacy != null:
 			play.diplomacy.clear_relations_of(faction)
 		play.hud.toast(

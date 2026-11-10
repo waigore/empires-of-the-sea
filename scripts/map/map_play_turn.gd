@@ -150,11 +150,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
 	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
 	MapPlaySpies.resolve(play)
+	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	_resolve_visibility(play)
-	# The human crown's terminal fall seals the session before any victory
-	# check: defeat never hands the conqueror a military win, nor opens that
-	# plate on the same seal (wiki: victory § Victory Check § Defeat interaction;
-	# DR-20261109-05).
+	# The human crown's terminal fall seals the session before any victory check:
+	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
 		play.emit_turn_ended(play.turn)
 		return

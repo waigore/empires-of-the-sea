@@ -14,32 +14,34 @@ tech.
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
   prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
   (spycraft), Merchant (buy land), Rail Builder (railroad).
-- **Empire ledger** (`CivilianRosterPanel`): CREW chip or `C` lists every crew,
-  filters, and Visit jumps to it.
-- **Movement:** one orthogonal land tile per turn; Builders, Engineers and Rail
-  Builders stay on crown land; Explorer, Merchant and Spy cross any border.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
+  and Visit jump to it.
+- **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
+  Builders stay on crown land; Explorer, Merchant, Spy cross any border.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
-  `unknown`); each shadowed rival Great Power adds +15% RP to a Low+ slot on a
-  tech it knows. **Counter-espionage** is ongoing, kills or turns enemy spies,
-  and court reports name the deeds ([espionage.md](espionage.md)).
+  `unknown`); each shadowed rival GP adds +15% RP to a Low+ slot it knows.
+  **Counter-espionage** kills or turns enemy spies; court reports name deeds
+  ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
-  returns to origin. Explore ≤3, prospect 1, improvement 1–4 (lumber + cast
-  iron), **upgrade town** (same costs, National Bureaucracy), road, port, rail,
-  fort 1–3 ([forts.md](forts.md)).
+  returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
+  **upgrade town** (same costs, National Bureaucracy), road, port, rail, fort
+  1–3 ([forts.md](forts.md)).
 - **Town development:** Builder raises towns to level 4; connected port towns
   cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
-  (one per hull, never with troops) and lands at the port or a coastal tile
-  beside its zone. Explorers/Merchants any coast; others need crown land.
-  Landing reveals the tile and neighbours; sunk ships drown passengers.
-- **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy, no
-  war and prospected mineral; 15× base at assign, debit on complete.
+  (one per hull, never with troops); lands at port or coastal tile beside its
+  zone. Explorers/Merchants any coast; others need crown land. Landing reveals
+  tile + neighbours; sunk ships drown passengers.
+- **Land purchase:** Merchant buys Minor/Tribe resource tile with embassy, no
+  war, prospected mineral; 15× base at assign, debit on complete.
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
   and saves; province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
   connected; above-cap upgrades refused; `ESTATES` lists orders.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
   Builders exempt).
+- **Stranding:** crews caught by conquest withdraw to crown land or are lost;
+  a fallen crown's crews leave play.
 
 ## Deferred (REQ-P2-02)
 
@@ -64,13 +66,13 @@ Rules stay node-free (`REQ-P3-03`).
 | Action | Desktop | Touch |
 |--------|---------|-------|
 | Select | click medallion | tap medallion |
-| March | click glowing neighbour tile | tap glowing neighbour tile |
+| March | click glowing neighbour | tap glowing neighbour |
 | Work order | dossier button | dossier button |
 | Counter-spy | dossier **Counter-espionage** | same |
-| Empire roster | CREW chip / `C`; row Visit | same |
-| Embark / land | fleet dossier **PASSENGERS** | same |
-| Estates ledger | `ESTATES` / province **Build Improvement** | same |
-| Cancel / close | dossier / ledger Close | dossier / ledger Close |
+| Empire roster | CREW/`C`; Visit | same |
+| Embark / land | fleet **PASSENGERS** | same |
+| Estates | `ESTATES` / province Build | same |
+| Cancel / close | dossier / ledger Close | same |
 
 ## Tests
 
