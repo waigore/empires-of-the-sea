@@ -128,9 +128,10 @@ func test_config_round_trips_the_difficulty_layer() -> void:
 	assert_eq(GameConfig.make(99, 1, 1).difficulty, Difficulty.DEFAULT)
 
 
-## The extra row must not push the page's only action off a landscape phone
-## (REQ-P1-05, REQ-P1-07; geometry measured like tests/test_mobile_layout.gd).
-func test_phone_setup_keeps_the_difficulty_row_and_set_sail_reachable() -> void:
+## The extra row must not push SET SAIL off a landscape phone; the row itself
+## rides the page's scroll like every later field (REQ-P1-05, REQ-P1-07;
+## geometry measured like tests/test_mobile_layout.gd).
+func test_phone_setup_keeps_the_difficulty_row_reachable() -> void:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(914, 411)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
@@ -140,14 +141,29 @@ func test_phone_setup_keeps_the_difficulty_row_and_set_sail_reachable() -> void:
 	await get_tree().process_frame
 	var screen := Rect2(Vector2.ZERO, Vector2(viewport.size))
 	assert_true(page.difficulty_option.is_visible_in_tree(), "the row is mounted")
-	assert_true(
-		_contains(screen, page.difficulty_option.get_global_rect()),
-		"the Difficulty row is on the phone page"
-	)
 	assert_true(_contains(screen, page.start_button.get_global_rect()), "SET SAIL stays on screen")
 	assert_gt(page.start_button.size.y, 39.5, "SET SAIL is thumb-sized")
 	assert_gt(page.difficulty_option.size.y, 39.5, "the Difficulty row is thumb-sized")
+	var scroll: ScrollContainer = _page_scroll(page)
+	assert_not_null(scroll, "the setup page scrolls its fields")
+	if scroll != null:
+		assert_true(scroll.scroll_vertical == 0, "the page opens at its top")
+		assert_gt(
+			scroll.get_v_scroll_bar().max_value,
+			0.0,
+			"the fields below the fold stay reachable by scrolling"
+		)
+		assert_true(
+			scroll.find_children("*", "", true, false).has(page.difficulty_option),
+			"the Difficulty row rides that scroll"
+		)
 	viewport.free()
+
+
+func _page_scroll(page: Control) -> ScrollContainer:
+	for node: Node in page.find_children("*", "ScrollContainer", true, false):
+		return node as ScrollContainer
+	return null
 
 
 func _contains(outer: Rect2, inner: Rect2) -> bool:
