@@ -27,7 +27,7 @@ static func draw_ground(
 			_draw_hills(canvas, width, height, horizon)
 		"town":
 			_draw_town(canvas, width, height, horizon)
-		"swamp":
+		"marsh":
 			_draw_marsh(canvas, width, height, horizon, time)
 		_:
 			_draw_open(canvas, width, height, horizon, time)
@@ -104,7 +104,7 @@ static func _base(terrain: String, band: int) -> Color:
 		"hill": [Color(0.49, 0.62, 0.30), Color(0.41, 0.53, 0.24), Color(0.32, 0.43, 0.19)],
 		"woods": [Color(0.32, 0.48, 0.24), Color(0.27, 0.41, 0.20), Color(0.20, 0.33, 0.16)],
 		"town": [Color(0.52, 0.54, 0.38), Color(0.45, 0.45, 0.33), Color(0.35, 0.35, 0.26)],
-		"swamp": [Color(0.34, 0.44, 0.32), Color(0.29, 0.38, 0.29), Color(0.22, 0.30, 0.24)],
+		"marsh": [Color(0.34, 0.44, 0.32), Color(0.29, 0.38, 0.29), Color(0.22, 0.30, 0.24)],
 	}
 	var colors: Array = rows.get(terrain, rows["open"]) as Array
 	return colors[clampi(band, 0, 2)] as Color
