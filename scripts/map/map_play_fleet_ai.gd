@@ -38,7 +38,7 @@ static func _run_region(
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		var plan: Dictionary = AiNavalPlanner.orders(
-			config, play.diplomacy, model, roster, play.court_charts
+			config, play.diplomacy, model, roster
 		)
 		for order: Dictionary in plan["orders"]:
 			var fleet: FleetState = _fleet_by_id(roster, int(order["fleet_id"]), faction)
@@ -51,7 +51,6 @@ static func _run_region(
 			if not bool(move.get("ok", false)):
 				continue
 			changed = true
-			MapPlayCourtFog.note_fleet_entry(play, model.region_id, fleet, zone)
 			trace.append({
 				"faction": faction,
 				"kind": String(order["kind"]),
@@ -88,7 +87,6 @@ static func _station_orders(
 		if mission != FleetState.Mission.NONE and mission != FleetState.Mission.DEFEND:
 			continue
 		var targets: Array[int] = FleetMissions.blockade_targets(model, fleet, hostile)
-		targets = _charted_targets(play, model, faction, targets)
 		if not targets.is_empty():
 			FleetMissions.assign(
 				model, fleet, FleetState.Mission.BLOCKADE, targets[0], hostile
@@ -98,20 +96,6 @@ static func _station_orders(
 			FleetMissions.assign(
 				model, fleet, FleetState.Mission.DEFEND, MapModel.NO_ID, hostile
 			)
-
-
-## A blockade is never posted on a coast the court has not charted: the same
-## fog that gates a sortie gates the station (DR-20261110-21).
-static func _charted_targets(
-	play: PlaySession, model: MapModel, faction: int, targets: Array[int]
-) -> Array[int]:
-	if play.court_charts == null:
-		return targets
-	var kept: Array[int] = []
-	for province: int in targets:
-		if play.court_charts.knows_province(faction, model.region_id, province):
-			kept.append(province)
-	return kept
 
 
 ## Re-reads the on-screen markers after the rules moved a squadron; the player's
