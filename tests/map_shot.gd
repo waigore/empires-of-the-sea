@@ -62,8 +62,7 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 4 and _zoom > 0.0 and _screen != null:
-		_screen.camera.zoom = Vector2.ONE * _zoom
-		MapPlayInput.on_view_changed(_screen.play)
+		_screen.camera.focus_on(_screen.camera.position, _zoom, true)
 	if _frames == 4 and _hulls > 0 and _screen != null:
 		_sample_squadron(_hulls)
 	if _frames == 4 and _diplomacy and _screen != null:

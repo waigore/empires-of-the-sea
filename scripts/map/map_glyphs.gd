@@ -23,9 +23,13 @@ static func draw(item: CanvasItem, glyph: Dictionary) -> void:
 		"dune":
 			_dune(item, center, size)
 		"reed":
-			_reed(item, center, size)
+			MapGround.reed(item, center, size)
 		"grass":
-			_grass(item, center, size)
+			MapGround.grass(item, center, size)
+		"scrub":
+			MapGround.scrub(item, center, size, flip)
+		"field":
+			MapGround.field(item, center, size)
 		"port":
 			_anchor(item, center, size)
 		"capital":
@@ -45,13 +49,14 @@ static func _mountain(item: CanvasItem, center: Vector2, size: float, flip: floa
 	var left: Vector2 = center + Vector2(-half * (1.0 + variant * 0.18), foot)
 	var right: Vector2 = center + Vector2(half, foot)
 	var notch: Vector2 = center + Vector2(half * 0.10, foot)
+	var tone: float = 0.86 + variant * 0.26
 	if variant > 0.56:
 		_shoulder(item, center, half, foot, flip)
 	item.draw_colored_polygon(
-		PackedVector2Array([left, peak, right]), Color(0.478, 0.416, 0.333, 0.86)
+		PackedVector2Array([left, peak, right]), Color(0.478, 0.416, 0.333, 0.86) * tone
 	)
 	item.draw_colored_polygon(
-		PackedVector2Array([peak, right, notch]), Color(0.298, 0.247, 0.188, 0.74)
+		PackedVector2Array([peak, right, notch]), Color(0.298, 0.247, 0.188, 0.74) * tone
 	)
 	var cap_left: Vector2 = peak.lerp(left, 0.30)
 	var cap_right: Vector2 = peak.lerp(right, 0.33)
@@ -62,6 +67,15 @@ static func _mountain(item: CanvasItem, center: Vector2, size: float, flip: floa
 	)
 	item.draw_polyline(PackedVector2Array([left, peak, right]), INK, 1.15, true)
 	item.draw_line(peak, notch, INK_SOFT, 0.9, true)
+	# Short base hachures: the scree line that anchors a peak to the ground.
+	var base_ink := Color(0.235, 0.184, 0.129, 0.34)
+	for i in 3:
+		var t: float = 0.22 + float(i) * 0.28
+		var from: Vector2 = left.lerp(peak, t)
+		item.draw_line(
+			from + Vector2(0, foot * 0.10), from + Vector2(-half * 0.10, foot * 0.42),
+			base_ink, 0.7, true
+		)
 
 
 static func _shoulder(
@@ -87,6 +101,16 @@ static func _hill(item: CanvasItem, center: Vector2, size: float) -> void:
 		_closed(_dome(back, radius * 0.58, lift * 0.9)),
 		Color(0.235, 0.184, 0.129, 0.28), 0.9, true
 	)
+	# Two contour arcs inside the dome: the rise is drawn, not just filled.
+	var contour := Color(0.259, 0.204, 0.145, 0.30)
+	item.draw_arc(
+		center + Vector2(0, radius * 0.16), radius * 0.62, PI * 1.12, PI * 1.88, 10,
+		contour, 0.8, true
+	)
+	item.draw_arc(
+		center + Vector2(0, radius * 0.16), radius * 0.34, PI * 1.18, PI * 1.82, 8,
+		contour, 0.7, true
+	)
 
 
 ## Broadleaf grove: shadow, trunk, a secondary crown, then the lit main crown.
@@ -97,6 +121,8 @@ static func _tree(item: CanvasItem, center: Vector2, size: float, flip: float) -
 	item.draw_circle(trunk_base + Vector2(size * 0.12, -radius * 0.10), radius * 0.62, SHADOW)
 	if size >= 11.0:
 		_crown(item, crown + Vector2(-radius * 0.90 * flip, radius * 0.80), radius * 0.64)
+	if size >= 15.0:
+		_crown(item, crown + Vector2(radius * 0.86 * flip, radius * 0.62), radius * 0.52)
 	item.draw_line(trunk_base, crown + Vector2(0, radius * 0.35), INK, 1.3, true)
 	_crown(item, crown, radius)
 
@@ -105,6 +131,9 @@ static func _tree(item: CanvasItem, center: Vector2, size: float, flip: float) -
 ## separate trees rather than one stamp repeated across the province.
 static func _crown(item: CanvasItem, center: Vector2, radius: float) -> void:
 	var spin: float = (_hash(center.y + 3.0, center.x + 5.0) - 0.5) * 0.9
+	# Each crown is washed a little lighter or darker, so a forest never reads as
+	# the same stamp repeated across the province.
+	var tone: float = 0.84 + _hash(center.x + 17.0, center.y + 29.0) * 0.30
 	var points := PackedVector2Array()
 	var start: int = 0
 	var best_dot: float = -2.0
@@ -119,8 +148,8 @@ static func _crown(item: CanvasItem, center: Vector2, radius: float) -> void:
 	var lit := PackedVector2Array()
 	for k in 6:
 		lit.append(points[(start + k) % 10])
-	item.draw_colored_polygon(points, Color(0.271, 0.361, 0.259, 0.74))
-	item.draw_colored_polygon(lit, Color(0.384, 0.471, 0.345, 0.62))
+	item.draw_colored_polygon(points, Color(0.271, 0.361, 0.259, 0.74) * tone)
+	item.draw_colored_polygon(lit, Color(0.384, 0.471, 0.345, 0.62) * tone)
 	item.draw_polyline(_closed(points), Color(0.137, 0.180, 0.133, 0.72), 1.0, true)
 
 
@@ -134,31 +163,6 @@ static func _dune(item: CanvasItem, center: Vector2, size: float) -> void:
 		center + Vector2(width * 0.55, size * 0.30), width * 0.60, PI * 1.05, PI * 1.95, 10,
 		Color(0.545, 0.435, 0.278, 0.30), 1.1, true
 	)
-
-
-static func _reed(item: CanvasItem, center: Vector2, size: float) -> void:
-	for i in 3:
-		var offset: float = (float(i) - 1.0) * size * 0.18
-		item.draw_line(
-			center + Vector2(offset, size * 0.40),
-			center + Vector2(offset * 1.7, -size * 0.36),
-			Color(0.259, 0.325, 0.216, 0.62), 1.1, true
-		)
-	item.draw_line(
-		center + Vector2(-size * 0.30, size * 0.40),
-		center + Vector2(size * 0.30, size * 0.40),
-		Color(0.208, 0.267, 0.180, 0.42), 0.9, true
-	)
-
-
-static func _grass(item: CanvasItem, center: Vector2, size: float) -> void:
-	for i in 2:
-		var offset: float = (float(i) - 0.5) * size * 0.22
-		item.draw_line(
-			center + Vector2(offset, size * 0.30),
-			center + Vector2(offset * 2.1, -size * 0.14),
-			Color(0.420, 0.376, 0.235, 0.42), 1.0, true
-		)
 
 
 ## Resource emblem for the survey lens: the commodity a tile yields, drawn as a

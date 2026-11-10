@@ -81,44 +81,80 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	var terrain: int = p_model.terrain_at(x, y)
 	if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
 		return
-	var kind: String = ""
-	var chance: float = 0.0
+	var kind: String = "grass"
+	var chance: float = 0.12
+	var second: String = ""
+	var second_chance: float = 0.0
 	match terrain:
 		MapModel.Terrain.MOUNTAINS:
 			kind = "mountain"
-			chance = 0.62
+			chance = 0.86
+			second = "hill"
+			second_chance = 0.56
 		MapModel.Terrain.HILLS:
 			kind = "hill"
-			chance = 0.34
+			chance = 0.62
+			second = "grass"
+			second_chance = 0.36
 		MapModel.Terrain.HARDWOOD_FOREST:
 			kind = "tree"
-			chance = 0.44
+			chance = 0.72
+			second = "tree"
+			second_chance = 0.56
 		MapModel.Terrain.SCRUB_FOREST:
-			kind = "tree"
-			chance = 0.28
+			kind = "scrub"
+			chance = 0.58
+			second = "scrub"
+			second_chance = 0.34
 		MapModel.Terrain.DESERT:
 			kind = "dune"
-			chance = 0.14
+			chance = 0.30
+			second = "grass"
+			second_chance = 0.18
 		MapModel.Terrain.SWAMP:
 			kind = "reed"
-			chance = 0.24
+			chance = 0.46
+			second = "reed"
+			second_chance = 0.30
 		_:
-			kind = "grass"
-			chance = 0.07
-	if MapGlyphs.hash01(x * 3 + 11, y * 7 + 5) > chance:
+			kind = "field" if MapGlyphs.hash01(x + 3, y + 8) > 0.62 else "grass"
+			chance = 0.22
+			second = "grass"
+			second_chance = 0.12
+	_place_symbol(p_model, x, y, tile_size, kind, chance, 0, 1.0)
+	if second.is_empty():
+		return
+	_place_symbol(p_model, x, y, tile_size, second, second_chance, 47, 0.62)
+
+
+## One scattered mark for this tile, if its hash clears the chance and the spot
+## is not inside a province name. `push` moves the hash stream so the primary
+## and the secondary stamp never fall on the same spot.
+func _place_symbol(
+	p_model: MapModel,
+	x: int,
+	y: int,
+	tile_size: float,
+	kind: String,
+	chance: float,
+	push: int,
+	heft: float
+) -> void:
+	if MapGlyphs.hash01(x * 3 + 11 + push, y * 7 + 5 + push) > chance:
 		return
 	var jitter := Vector2(
-		(MapGlyphs.hash01(x + 31, y + 17) - 0.5) * tile_size * 0.45,
-		(MapGlyphs.hash01(x + 71, y + 43) - 0.5) * tile_size * 0.45
+		(MapGlyphs.hash01(x + 31 + push, y + 17) - 0.5) * tile_size * 0.55,
+		(MapGlyphs.hash01(x + 71 + push, y + 43) - 0.5) * tile_size * 0.55
 	)
 	var at: Vector2 = MapGeo.tile_center(x, y, tile_size) + jitter
 	if under_label(at):
 		return
+	var scale: float = (0.55 + MapGlyphs.hash01(x + 5 + push, y + 9) * 0.45) * heft
 	glyphs.append({
 		"kind": kind,
 		"position": at,
-		"size": tile_size * (0.60 + MapGlyphs.hash01(x + 5, y + 9) * 0.30),
-		"flip": MapGlyphs.hash01(x + 13, y + 3) > 0.5,
+		"size": tile_size * scale,
+		"flip": MapGlyphs.hash01(x + 13 + push, y + 3) > 0.5,
 	})
 
 
