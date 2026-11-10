@@ -73,9 +73,9 @@ func test_a_quiet_court_says_so_instead_of_showing_an_empty_sheet() -> void:
 func test_the_build_notes_name_what_a_spy_watched() -> void:
 	var state: DiplomacyState = _state()
 	state.record_event(
-		IntelDossier.SPY_BUILD, ENGLAND, VIEWER, {"works": {"improvement": 2, "town": 1}}
+		IntelEvidence.SPY_BUILD, ENGLAND, VIEWER, {"works": {"improvement": 2, "town": 1}}
 	)
-	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
+	state.record_event(IntelEvidence.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
 	var screen: CourtDossierScreen = _screen(state, ENGLAND)
 	assert_true(_has_text(screen, "Under your spy's eye"), "the sightings are listed")
 	assert_true(_has_text(screen, "2 estates"))

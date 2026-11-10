@@ -27,6 +27,8 @@ var _orders_box: VBoxContainer = null
 var _orders_index: int = -1
 var _recruit: Button = null
 var _shipyard: Button = null
+## Province on the sheet, so live crown rows can repaint without a full refresh.
+var _data: ProvinceState = null
 
 ## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
 var _model: MapModel = null
@@ -260,12 +262,27 @@ func set_training_visible(visible: bool) -> void:
 	_training_box.visible = visible
 
 
-func refresh(model: MapModel, province_id: int) -> void:
+## Repaints the live crown rows after a road completed or a town grew, without
+## re-sliding the sheet the player is reading.
+func refresh_crown(crown: Dictionary) -> void:
+	if _data == null or _road_value == null:
+		return
+	_road_value.text = DossierCopy.crown_roads(_data, crown)
+	if _town_value != null:
+		_town_value.text = DossierCopy.town(_data)
+		_town_value.tooltip_text = DossierCopy.TOWN_TIP
+
+
+## `crown` is `LandConnectivity.province_link` for this province: whether its
+## town reaches the capital. When omitted, the roads row falls back to the
+## estate survey (DossierCopy).
+func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	_model = model
 	_province_id = province_id
 	var data: ProvinceState = model.province_data(province_id)
 	if data == null:
 		return
+	_data = data
 	_name_label.text = data.name
 	_capital_badge.visible = data.capital
 	var owner: int = data.owner
@@ -286,7 +303,10 @@ func refresh(model: MapModel, province_id: int) -> void:
 		_tech_caps
 	)
 	_resources.render(rows)
-	_road_value.text = DossierCopy.roads(rows)
+	if crown.has("linked"):
+		_road_value.text = DossierCopy.crown_roads(data, crown)
+	else:
+		_road_value.text = DossierCopy.roads(rows)
 	_road_value.tooltip_text = DossierCopy.roads_tip(data, rows)
 	_gate_town(data)
 	# The yard is a capital-port order: it launches hulls into the home fleet

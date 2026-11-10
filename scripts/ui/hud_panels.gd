@@ -63,9 +63,9 @@ func close_sheets(keep: HudPanelSlot = null) -> void:
 			slot.conceal(host, dock)
 
 
-func show_province(model: MapModel, province_id: int) -> void:
+func show_province(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	close_sheets(province)
-	panel.refresh(model, province_id)
+	panel.refresh(model, province_id, crown)
 	province.reveal(host, dock)
 
 
@@ -137,6 +137,10 @@ func hide_civilian() -> void:
 
 func is_civilian_panel_open() -> bool:
 	return civilian.open
+
+
+func set_civilian_training(visible: bool) -> void:
+	panel.set_training_visible(visible)
 
 
 func show_army(

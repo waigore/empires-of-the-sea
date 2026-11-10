@@ -283,10 +283,10 @@ static func _record_studies(play: PlaySession, rival: int, economy_report: Dicti
 		return
 	for tech: String in _researched(rival, economy_report):
 		play.diplomacy.record_event(
-			IntelDossier.SPY_TECH,
+			IntelEvidence.SPY_TECH,
 			rival,
 			play.player_faction,
-			{"tech": tech, IntelDossier.OBSERVED_TURN: _resolved_turn(play)}
+			{"tech": tech, IntelEvidence.OBSERVED_TURN: _resolved_turn(play)}
 		)
 
 
@@ -307,10 +307,10 @@ static func _record_builds(play: PlaySession, rival: int, economy_report: Dictio
 	if works.is_empty() or play.diplomacy == null:
 		return
 	play.diplomacy.record_event(
-		IntelDossier.SPY_BUILD,
+		IntelEvidence.SPY_BUILD,
 		rival,
 		play.player_faction,
-		{"works": works, IntelDossier.OBSERVED_TURN: _resolved_turn(play)}
+		{"works": works, IntelEvidence.OBSERVED_TURN: _resolved_turn(play)}
 	)
 
 

@@ -36,7 +36,7 @@ func test_the_bands_follow_the_dossier_table() -> void:
 func test_a_declaration_of_war_reads_as_a_warmonger() -> void:
 	DiplomacyRules.declare_war(state, ENGLAND, GENOA)
 	var scores: Dictionary = _scores(ENGLAND)
-	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelDossier.W_WAR, "the act is evidence")
+	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelEvidence.W_WAR, "the act is evidence")
 	assert_true(
 		(IntelDossier.report(state, null, VIEWER, ENGLAND)["guess"] as Dictionary).is_empty(),
 		"one act alone stays below Possible"
@@ -48,8 +48,8 @@ func test_breaking_an_alliance_reads_as_a_backstabber() -> void:
 	DiplomacyRules.form_alliance(state, ENGLAND, VIEWER, DiplomacyRules.DECISION_ACCEPT)
 	DiplomacyRules.break_alliance(state, ENGLAND, VIEWER)
 	var scores: Dictionary = _scores(ENGLAND)
-	assert_eq(int(scores.get(AiAgenda.BACKSTABBER, 0)), IntelDossier.W_BREAK_ALLY)
-	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelDossier.W_BREAK_ISOLATION)
+	assert_eq(int(scores.get(AiAgenda.BACKSTABBER, 0)), IntelEvidence.W_BREAK_ALLY)
+	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_BREAK_ISOLATION)
 
 
 func test_a_war_on_a_former_ally_reads_as_a_backstabber() -> void:
@@ -59,14 +59,14 @@ func test_a_war_on_a_former_ally_reads_as_a_backstabber() -> void:
 	var scores: Dictionary = _scores(ENGLAND)
 	assert_eq(
 		int(scores.get(AiAgenda.BACKSTABBER, 0)),
-		IntelDossier.W_WAR_ON_ALLY,
+		IntelEvidence.W_WAR_ON_ALLY,
 		"the treaty it held is what the reading weighs"
 	)
 
 
 func test_a_refused_call_to_arms_reads_as_isolationist() -> void:
 	state.record_event("callToArmsRefused", ENGLAND, PORTUGAL, {"aggressor": VIEWER})
-	assert_eq(int(_scores(ENGLAND).get(AiAgenda.ISOLATIONIST, 0)), IntelDossier.W_CTA_REFUSED)
+	assert_eq(int(_scores(ENGLAND).get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_CTA_REFUSED)
 
 
 func test_a_peace_and_an_intervention_read_as_a_peacemaker() -> void:
@@ -75,7 +75,7 @@ func test_a_peace_and_an_intervention_read_as_a_peacemaker() -> void:
 	state.record_event("interventionIntervened", ENGLAND, GENOA, {"aggressor": PORTUGAL})
 	assert_eq(
 		int(_scores(ENGLAND).get(AiAgenda.PEACEMAKER, 0)),
-		IntelDossier.W_PEACE + IntelDossier.W_INTERVENED,
+		IntelEvidence.W_PEACE + IntelEvidence.W_INTERVENED,
 		"treaties and interventions add up"
 	)
 
@@ -89,7 +89,7 @@ func test_a_protest_reads_as_a_quieter_peacemaker() -> void:
 		{"target": GENOA, "penalty": 10.0}
 	)
 	var scores: Dictionary = _scores(ENGLAND)
-	assert_eq(int(scores.get(AiAgenda.PEACEMAKER, 0)), IntelDossier.W_PROTESTED)
+	assert_eq(int(scores.get(AiAgenda.PEACEMAKER, 0)), IntelEvidence.W_PROTESTED)
 	assert_eq(
 		String((IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0])["text"]),
 		"Protested Portugal's war on Genoa."
@@ -105,7 +105,7 @@ func test_a_weaker_neighbour_weighs_heavier() -> void:
 	var scores: Dictionary = _scores(big, world)
 	assert_eq(
 		int(scores.get(AiAgenda.WARMONGER, 0)),
-		IntelDossier.W_WAR + IntelDossier.W_WEAKER,
+		IntelEvidence.W_WAR + IntelEvidence.W_WEAKER,
 		"striking downward is the warmonger's signature"
 	)
 	assert_eq(int(scores.get(AiAgenda.ENVY, 0)), 0, "no envy in striking a smaller court")
@@ -119,7 +119,7 @@ func test_a_stronger_court_is_evidence_of_envy() -> void:
 	state.record_event("warDeclared", small, big)
 	assert_eq(
 		int(_scores(small, world).get(AiAgenda.ENVY, 0)),
-		IntelDossier.W_STRONGER,
+		IntelEvidence.W_STRONGER,
 		"a smaller crown striking the one ahead reads as envy"
 	)
 
@@ -142,7 +142,7 @@ func test_evidence_is_capped_and_newest_first() -> void:
 		state.turn = 1 + index
 		state.record_event("warDeclared", ENGLAND, GENOA)
 	var entries: Array[Dictionary] = IntelDossier.evidence(state, null, VIEWER, ENGLAND)
-	assert_eq(entries.size(), IntelDossier.EVIDENCE_CAP, "the dossier is capped at 50")
+	assert_eq(entries.size(), IntelEvidence.EVIDENCE_CAP, "the dossier is capped at 50")
 	assert_eq(int(entries[0]["turn"]), 60, "the newest observation leads")
 	assert_eq(int(entries[entries.size() - 1]["turn"]), 11, "the oldest drop first")
 
@@ -170,7 +170,7 @@ func test_the_reading_never_holds_the_true_agenda() -> void:
 func test_an_unmet_court_is_named_not_leaked() -> void:
 	state.record_event("callToArmsRefused", ENGLAND, 9, {"aggressor": PORTUGAL})
 	var text: String = String((IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0])["text"])
-	assert_true(text.contains(IntelDossier.UNKNOWN_COURT), "the stranger stays masked")
+	assert_true(text.contains(IntelEvidence.UNKNOWN_COURT), "the stranger stays masked")
 	assert_false(text.contains("Aztec"), "its name never reaches the page")
 
 
@@ -201,11 +201,11 @@ func test_offers_aid_and_absorption_are_read_and_spoken() -> void:
 	var scores: Dictionary = _scores(ENGLAND)
 	assert_eq(
 		int(scores.get(AiAgenda.PEACEMAKER, 0)),
-		IntelDossier.W_ACCEPTED_OFFER + IntelDossier.W_AID,
+		IntelEvidence.W_ACCEPTED_OFFER + IntelEvidence.W_AID,
 		"an answered offer and aid both read as peacemaking"
 	)
-	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelDossier.W_ABSORB)
-	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelDossier.W_STOOD_ASIDE)
+	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelEvidence.W_ABSORB)
+	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_STOOD_ASIDE)
 
 
 func test_a_quiet_court_has_an_empty_dossier() -> void:
@@ -219,9 +219,9 @@ func test_a_quiet_court_has_an_empty_dossier() -> void:
 ## court report is its only path into the dossier and it reads as tech-catching
 ## (DR-20261110-25).
 func test_a_study_seen_by_a_spy_reads_as_a_tech_thief() -> void:
-	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
+	state.record_event(IntelEvidence.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
 	var scores: Dictionary = _scores(ENGLAND)
-	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelDossier.W_SPY_TECH)
+	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelEvidence.W_SPY_TECH)
 	assert_eq(
 		String(IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0]["text"]),
 		"Finished Crop Rotation while our spy watched."
@@ -233,23 +233,23 @@ func test_a_study_seen_by_a_spy_reads_as_a_tech_thief() -> void:
 func test_a_despatch_keeps_the_turn_it_resolved() -> void:
 	state.turn = 9
 	state.record_event(
-		IntelDossier.SPY_TECH, ENGLAND, VIEWER,
-		{"tech": "crop_rotation", IntelDossier.OBSERVED_TURN: 8}
+		IntelEvidence.SPY_TECH, ENGLAND, VIEWER,
+		{"tech": "crop_rotation", IntelEvidence.OBSERVED_TURN: 8}
 	)
 	var entries: Array[Dictionary] = IntelDossier.evidence(state, null, VIEWER, ENGLAND)
 	assert_eq(int(entries[0]["turn"]), 8, "the act belongs to the turn it resolved")
 	state.record_event("warDeclared", ENGLAND, GENOA)
-	assert_eq(IntelDossier.turn_of(state.events[1]), 9, "a plain act keeps the chronicle stamp")
+	assert_eq(IntelEvidence.turn_of(state.events[1]), 9, "a plain act keeps the chronicle stamp")
 
 
 func test_only_the_crown_that_posted_the_spy_hears_of_a_study() -> void:
-	state.record_event(IntelDossier.SPY_TECH, ENGLAND, PORTUGAL, {"tech": "crop_rotation"})
+	state.record_event(IntelEvidence.SPY_TECH, ENGLAND, PORTUGAL, {"tech": "crop_rotation"})
 	assert_true(_scores(ENGLAND).is_empty(), "the despatch belongs to the court that paid for it")
 
 
 func test_two_studies_under_the_spy_eye_reach_possible() -> void:
-	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
-	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "cartography"})
+	state.record_event(IntelEvidence.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
+	state.record_event(IntelEvidence.SPY_TECH, ENGLAND, VIEWER, {"tech": "cartography"})
 	var guess: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)["guess"]
 	assert_eq(String(guess["band"]), "Possible")
 	assert_eq(String(guess["id"]), AiAgenda.TECH_THIEF)
@@ -267,7 +267,7 @@ func test_every_agenda_carries_its_own_timeline() -> void:
 	var war: Dictionary = _row(rows, AiAgenda.WARMONGER)
 	var war_line: Array = war["timeline"] as Array
 	assert_eq(war_line.size(), 1, "one act feeds the warmonger reading")
-	assert_eq(int((war_line[0] as Dictionary)["points"]), IntelDossier.W_WAR)
+	assert_eq(int((war_line[0] as Dictionary)["points"]), IntelEvidence.W_WAR)
 	assert_eq(String((war_line[0] as Dictionary)["text"]), "Declared war on Genoa.")
 	var peace: Dictionary = _row(rows, AiAgenda.PEACEMAKER)
 	assert_eq((peace["timeline"] as Array).size(), 1, "the aid feeds peacemaker")
@@ -278,7 +278,7 @@ func test_every_agenda_carries_its_own_timeline() -> void:
 ## weigh on no agenda.
 func test_build_notes_come_from_the_spy_and_weigh_nothing() -> void:
 	state.record_event(
-		IntelDossier.SPY_BUILD, ENGLAND, VIEWER, {"works": {"improvement": 2, "town": 1}}
+		IntelEvidence.SPY_BUILD, ENGLAND, VIEWER, {"works": {"improvement": 2, "town": 1}}
 	)
 	var report: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)
 	var build: Dictionary = (report["notes"] as Dictionary)["build"]
@@ -289,7 +289,7 @@ func test_build_notes_come_from_the_spy_and_weigh_nothing() -> void:
 
 
 func test_another_crowns_spy_build_notes_stay_out() -> void:
-	state.record_event(IntelDossier.SPY_BUILD, ENGLAND, PORTUGAL, {"works": {"town": 3}})
+	state.record_event(IntelEvidence.SPY_BUILD, ENGLAND, PORTUGAL, {"works": {"town": 3}})
 	var notes: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)["notes"]
 	assert_true((notes["build"] as Dictionary).is_empty())
 
