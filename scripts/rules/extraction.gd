@@ -4,6 +4,11 @@ extends RefCounted
 ## yields min(improvement, tech cap, terrain cap, path transport, town cap).
 ## Developed towns then turn town-connected raw into bonus manufactures, and
 ## Great Powers also receive the flat capital grain bonus every turn.
+##
+## `town_bonus: false` leaves the manufactures to the caller and `town_raw` hands
+## back the province -> town-connected raw detail: an overseas region ships its
+## raw first, and only the cargo-delivered tons feed its town bonus
+## (wiki: § Town manufacturing bonus; DR-20261110-17).
 
 const STARTING_IMPROVEMENT: int = 1
 const DEFAULT_TECH_CAP: int = 1
@@ -46,7 +51,9 @@ static func yields(
 	tech_caps: Dictionary = {},
 	works: LandWorks = null,
 	capital_tile: Vector2i = CivilianState.NO_TILE,
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	town_bonus: bool = true,
+	town_raw: Dictionary = {}
 ) -> Dictionary:
 	var totals: Dictionary = {}
 	if model == null or owner < 0:
@@ -120,6 +127,10 @@ static func yields(
 		var raw: Dictionary = raw_by_province[province_id]
 		raw[commodity] = int(raw.get(commodity, 0)) + amount
 	for province_id: Variant in raw_by_province.keys():
+		town_raw[int(province_id)] = raw_by_province[province_id]
+	if not town_bonus:
+		return _with_capital_grain(model, owner, capital_province, totals)
+	for province_id: Variant in raw_by_province.keys():
 		var province: ProvinceState = model.get_province(int(province_id))
 		if province == null:
 			continue
@@ -129,6 +140,29 @@ static func yields(
 		for commodity: Variant in bonus.keys():
 			var id: String = String(commodity)
 			totals[id] = int(totals.get(id, 0)) + int(bonus[commodity])
+	return _with_capital_grain(model, owner, capital_province, totals)
+
+
+## Great Powers only: the flat capital grain bonus, whatever the town rule did.
+static func _with_capital_grain(
+	model: MapModel, owner: int, capital_province: int, totals: Dictionary
+) -> Dictionary:
 	if capital_province >= 0 and model.province_owner(capital_province) == owner:
 		totals[GRAIN] = int(totals.get(GRAIN, 0)) + CAPITAL_GRAIN_BONUS
 	return totals
+
+
+## Province -> town-connected raw still on the land after Extraction. Overseas
+## callers price a town bonus against what the holds actually deliver, so they
+## pass this detail instead of the region's whole harvest.
+static func province_raw(
+	model: MapModel,
+	owner: int,
+	tech_caps: Dictionary = {},
+	works: LandWorks = null,
+	capital_tile: Vector2i = CivilianState.NO_TILE,
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var raw: Dictionary = {}
+	yields(model, owner, -1, tech_caps, works, capital_tile, tech_unlocked, false, raw)
+	return raw

@@ -28,11 +28,11 @@ P5 unbookkept rivals.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue onto the weakest
   matchable squadron (120% margin); else blockade or hold via `NavalMovement`;
   charted zone → one sighting, never fog.
-- **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace and never
+- **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  board an idle Explorer, cross a Passage and land; then prospect or improve.
+  board an idle Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore (enemy or Tribe); detach hull capacity, dock, board,
   cross, beachhead; storm best coast, else own colony.
@@ -41,8 +41,9 @@ P5 unbookkept rivals.
   caps.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots (weights, shortfalls, war bonus); `research.funding_index` funds; `ResearchTurn` advances.
 - **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
-  civilian — builders improve shortest commodity, engineers connect towns then
-  road/port/fort, explorers prospect, rail builders upgrade roads.
+  civilian — builders improve shortest commodity or finish a paying town,
+  engineers connect towns then road/port/fort, explorers prospect, rail builders
+  upgrade roads.
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
@@ -53,7 +54,7 @@ P5 unbookkept rivals.
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
 - **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
-  evidence, banded suspicion per agenda, best guess and behaviour counts
+  evidence, banded suspicion per agenda, best guess, behaviour counts
   ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
@@ -75,8 +76,8 @@ wire them to `PlaySession`.
 ## Tests
 
 `test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_invasion`,
-`test_ai_town_roads`, `test_military_parity`, `test_ai_observer`,
-`test_espionage`.
+`test_ai_town_roads`, `test_ai_builder_work`, `test_military_parity`,
+`test_ai_observer`, `test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80
