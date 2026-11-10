@@ -170,7 +170,12 @@ func test_ai_answers_are_applied_at_the_declaration() -> void:
 	DiplomacyRules.declare_war(state, 3, 6)
 	assert_eq(state.relation(1, 3).at_war, intervenes, "the roll is the documented band")
 	if not intervenes:
-		assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE, "standing aside loses it")
+		assert_eq(
+			state.overture(1, 6),
+			DiplomacyCatalog.STAGE_EMBASSY,
+			"a caring court protests instead of standing aside"
+		)
+		assert_eq(state.relation(1, 3).score, 40.0, "and charges the aggressor for it")
 
 
 func test_an_absorbed_faction_drops_its_waiting_offer() -> void:
@@ -218,9 +223,76 @@ func test_a_declaration_offers_the_human_deed_holder() -> void:
 
 func test_a_declaration_without_a_world_keeps_the_embassy_trigger() -> void:
 	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	# A court that does not care about the victim stands aside, so the cleared
+	# embassy proves the declaration reached it without a world to scan.
+	state.relation(1, 6).score = 10.0
 	var war: Dictionary = DiplomacyRules.declare_war(state, 3, 6)
 	assert_true(bool(war.get("ok", false)), war.get("reason", ""))
 	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE, "the war clears it")
+
+
+## A court that cares about the victim (26+) but loses the intervention roll
+## protests rather than standing aside: it keeps its embassy and puts a relation
+## price on the aggression (DR-20261110-16).
+func test_an_ai_that_does_not_intervene_protests_while_it_cares() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.relation(1, 6).score = 30.0
+	assert_false(
+		Intervention.roll(state.turn, 3, 6, 1) < 0.25,
+		"this turn's roll leaves the court at peace"
+	)
+	DiplomacyRules.declare_war(state, 3, 6)
+	assert_false(state.relation(1, 3).at_war, "the court keeps the peace")
+	assert_eq(state.relation(1, 3).score, 40.0, "−10 protest penalty")
+	assert_eq(
+		state.overture(1, 6), DiplomacyCatalog.STAGE_EMBASSY, "a protest keeps the embassy"
+	)
+	assert_true(_event("interventionProtest"), "the act is on the record")
+
+
+## The first intervention band is the line: 0–25 is indifference, and the court
+## stands aside as it always has (DR-20261110-16).
+func test_an_ai_below_the_band_stands_aside() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.relation(1, 6).score = 25.0
+	DiplomacyRules.declare_war(state, 3, 6)
+	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_NONE, "no care, no embassy")
+	assert_true(_event("interventionDoNothing"))
+	assert_eq(state.relation(1, 3).score, 50.0, "standing aside is not a diplomatic act")
+
+
+func test_ai_protest_policy_follows_the_intervention_band() -> void:
+	state.relation(1, 6).score = 25.0
+	assert_false(Intervention.ai_protests(state, 1, 6), "0% band stands aside")
+	state.relation(1, 6).score = 26.0
+	assert_true(Intervention.ai_protests(state, 1, 6), "the first band protests")
+
+
+func test_ai_choice_prefers_the_roll_then_the_protest() -> void:
+	state.relation(1, 6).score = 90.0
+	assert_eq(
+		Intervention.ai_choice(state, 1, 3, 6),
+		Intervention.KIND_INTERVENE,
+		"the roll passed"
+	)
+	state.relation(1, 6).score = 30.0
+	assert_eq(
+		Intervention.ai_choice(state, 1, 3, 6),
+		Intervention.KIND_PROTEST,
+		"the roll failed, but the court still cares"
+	)
+	state.relation(1, 6).score = 10.0
+	assert_eq(Intervention.ai_choice(state, 1, 3, 6), Intervention.KIND_NOTHING)
+
+
+## The protest penalty is read off the declarer's own ledger (Propaganda), which
+## an AI declarer now hands to the rules too (DR-20261110-16).
+func test_the_protest_reads_the_declarers_propaganda() -> void:
+	state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.relation(1, 6).score = 30.0
+	DiplomacyRules.declare_war(state, 3, 6, true, null, {"propaganda": true})
+	assert_eq(state.relation(1, 3).score, 45.0, "−5 against a propaganda aggressor")
+	assert_eq(state.overture(1, 6), DiplomacyCatalog.STAGE_EMBASSY)
 
 
 ## Tiny world whose second province answers to Minor Nation `victim`, with one

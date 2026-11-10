@@ -20,8 +20,9 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 - **Call to arms:** a GP war calls each formal ally of the defender once. AI
   allies join at 50+; human calls wait; refusal breaks the treaty.
 - **Intervention:** war on a Minor/Tribe lets embassy and deed holders
-  choose: intervene, stand aside (lose embassy) or protest (−10; −5 vs
-  Propaganda).
+  intervene, stand aside (lose the embassy) or protest: −10, or −5 against a
+  declarer holding Propaganda. A rival that does not join protests at 26+
+  relation with the victim, else stands aside.
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
   £5,000 + £2,000/province; one per target per turn. Minor/Tribe embassies need
   Diplomatic Expertise.
@@ -38,14 +39,14 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   **Subsidy** prices the goods that court produces: we pay p% more, earn p%
   less. Rails 70–150% buy, 50–130% sell; the court and ledger state the rate
   in words.
-- **First contact:** Tribe enters court once a seen tile sits in its
+- **First contact:** a Tribe enters court once a seen tile sits in its
   provinces; sea-reach intel does not.
-- **Chronicle** (`DiplomacyHistory`): unbounded; panel shows the pair newest
-  first, `Year Y (Turn N)`; unmet crowns `Unknown faction`; no scores.
+- **Chronicle** (`DiplomacyHistory`): unbounded; panel shows newest first,
+  `Year Y (Turn N)`; unmet crowns `Unknown faction`; no scores.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, banded suspicion and
   behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
-- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): charted land washed blue
-  (yours), green (friendly/allied), grey (neutral) or red (war). Taps select.
+- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): land washed blue (yours),
+  green (friendly/allied), grey (neutral) or red (war).
 - **Rival AI courts:** one order per GP per turn ([`ai.md`](ai.md)).
   Below 50 war desire a rival offers white peace; either answer starts a
   3-turn cooldown.
