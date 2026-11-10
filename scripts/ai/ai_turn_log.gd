@@ -10,7 +10,7 @@ const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
-	"work", "production", "recruit", "train", "split", "invade",
+	"work", "production", "recruit", "train", "split", "invade", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -27,6 +27,7 @@ const ACTION_LABELS: Dictionary = {
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
+	"cargo": "cargo routes",
 }
 
 
@@ -218,6 +219,30 @@ static func _record_economy(
 		if not training.is_empty():
 			_bump(bucket["actions"], "train")
 			_add_event(merged, bucket, faction, "%s musters a civilian." % who)
+		_record_cargo(merged, bucket, faction, details.get("cargo", {}))
+
+
+## Cargo routes and a new hull from the yard: the colonies' left tonnage and the
+## court's trade holds explain why a rival moves or builds merchant hulls
+## (wiki: economy-planner § Cargo; DR-20261110-26).
+static func _record_cargo(
+	merged: Dictionary, bucket: Dictionary, faction: int, cargo: Dictionary
+) -> void:
+	var routes: Array = cargo.get("routes", [])
+	var launch: Dictionary = cargo.get("launch", {})
+	if routes.is_empty() and launch.is_empty():
+		return
+	var who: String = FactionCatalog.name_of(faction)
+	if not routes.is_empty():
+		_bump(bucket["actions"], "cargo", routes.size())
+		_add_event(merged, bucket, faction, "%s routes %d merchant squadron%s home." % [
+			who, routes.size(), "" if routes.size() == 1 else "s",
+		])
+	if not launch.is_empty():
+		_bump(bucket["actions"], "cargo")
+		_add_event(merged, bucket, faction, "%s lays down a %s for the cargo trade." % [
+			who, ShipStats.display_name(String(launch.get("type_id", ""))),
+		])
 
 
 static func _add_event(

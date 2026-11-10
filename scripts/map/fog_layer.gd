@@ -38,21 +38,30 @@ func build(p_model: MapModel) -> void:
 	_image = Image.create(model.width, model.height, false, Image.FORMAT_RGBA8)
 	_image.fill(Color(0, 0, 0, 0))
 	_texture = ImageTexture.create_from_image(_image)
-	_sprite = Sprite2D.new()
-	_sprite.texture = _texture
-	_sprite.centered = false
-	_sprite.scale = Vector2(TILE_SIZE, TILE_SIZE)
-	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	_sprite.show_behind_parent = true
+	# One sprite for the life of the layer: a region switch repaints the same
+	# texture. A fresh sprite per build would stack stale fog over the new map
+	# (an all-paper New World wash hiding the charted Old World).
+	var sprite: Sprite2D = _ensure_sprite()
+	sprite.texture = _texture
 	var material := ShaderMaterial.new()
 	material.shader = load("res://ui/shaders/fog.gdshader")
 	var texel := Vector2(1.0 / float(model.width), 1.0 / float(model.height))
 	material.set_shader_parameter("texel", texel)
 	material.set_shader_parameter("map_tiles", Vector2(float(model.width), float(model.height)))
 	material.set_shader_parameter("tile_size", TILE_SIZE)
-	_sprite.material = material
-	add_child(_sprite)
+	sprite.material = material
 	_dirty = true
+
+
+func _ensure_sprite() -> Sprite2D:
+	if _sprite == null:
+		_sprite = Sprite2D.new()
+		_sprite.centered = false
+		_sprite.scale = Vector2(TILE_SIZE, TILE_SIZE)
+		_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_sprite.show_behind_parent = true
+		add_child(_sprite)
+	return _sprite
 
 
 func set_fog_state(tile_index: int, state: int) -> void:

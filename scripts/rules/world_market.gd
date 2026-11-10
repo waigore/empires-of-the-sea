@@ -18,6 +18,9 @@ var trade_terms: Dictionary = {}
 ## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
 ## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
 var minor_offers: Array[Dictionary] = []
+## Staged bids/offers and carried residuals (wiki: world-market § Trade orders,
+## § Order persistence). The ledger and the AI stage here; the matcher clears.
+var book: MarketBook = MarketBook.new()
 var _bids: Dictionary = {}
 var _offers: Dictionary = {}
 ## Units bought this turn per buyer, so each crown spends its own cargo holds
@@ -265,6 +268,7 @@ func copy() -> WorldMarket:
 	clone.world_depth = world_depth
 	clone.trade_terms = trade_terms.duplicate(true)
 	clone.minor_offers = minor_offers.duplicate(true)
+	clone.book = book.copy()
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()
 	clone._bought_by_faction = _bought_by_faction.duplicate()
@@ -278,6 +282,7 @@ func to_dict() -> Dictionary:
 		"prices": prices.duplicate(),
 		"world_depth": world_depth,
 		"minor_offers": minor_offers.duplicate(true),
+		"book": book.to_dict(),
 		"bids": _bids.duplicate(),
 		"offers": _offers.duplicate(),
 		"bought_by_faction": _bought_by_faction.duplicate(),
@@ -294,6 +299,9 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		market.minor_offers.append((entry as Dictionary).duplicate())
+	var book: Variant = data.get("book", {})
+	if book is Dictionary and not (book as Dictionary).is_empty():
+		market.book = MarketBook.from_dict(book)
 	market._bids = data.get("bids", {}).duplicate()
 	market._offers = data.get("offers", {}).duplicate()
 	market._bought_by_faction = data.get("bought_by_faction", {}).duplicate()

@@ -2,8 +2,7 @@ class_name EconomyController
 extends Node
 ## Connects the player's economy to the map screen: builds the opening economy,
 ## runs turn resolution, and turns ledger button presses into market/production
-## intents. Rules live in scripts/rules; this node only wires and reports, and
-## pays the deeds bought from a Minor Nation or Tribe in cash (DR-20261110-09).
+## intents. Rules live in scripts/rules; this node only wires and reports.
 
 signal treasury_changed(value: int)
 
@@ -22,8 +21,6 @@ var _hud: GameHud = null
 var works_by_region: MapRegionTable = null
 ## Consumption report of the last resolved turn, for feeding coverage.
 var _last_consumption: Dictionary = {}
-## This turn's deed payout, so the toast names it (DR-20261110-09).
-var _deeds: Dictionary = {}
 ## Tech id -> percent the crown's spy network adds this Research phase, set by
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
@@ -61,7 +58,18 @@ func _connect() -> void:
 	_hud.research_pressed.connect(open_research)
 	var panel: EconomyPanel = _hud.panels.economy_panel
 	panel.trade_requested.connect(_on_trade)
-	panel.offer_requested.connect(_on_offer)
+	panel.offer_requested.connect(func(offer_id: String, quantity: int) -> void:
+		var index: int = MinorMarket.index_of(market.minor_offers, offer_id)
+		if index < 0:
+			if _hud != null:
+				_hud.toast("That court has nothing left to sell this turn.")
+			return
+		var commodity: String = String(
+			(market.minor_offers[index] as Dictionary).get("commodity", "")
+		)
+		_on_trade(commodity, quantity, true)
+	)
+	panel.cancel_requested.connect(_on_cancel)
 	panel.production_changed.connect(_on_production)
 	panel.recruit_requested.connect(_on_recruit)
 	var research: ResearchPanel = _hud.panels.research_panel
@@ -95,13 +103,22 @@ func army_food() -> int:
 ## delivery reserved first, imports laden this turn (wiki: ships-and-naval
 ## § Cargo holds and capacity; DR-20261109-03, DR-20261109-17).
 func trade_cargo() -> Dictionary:
-	var laden: int = TradeCargo.used(market)
+	var status: Dictionary
 	if _ships == null or _ships.world == null:
-		return {"holds": 0, "used": laden, "reserved": 0, "free": 0}
-	return TradeCargo.status(
-		_ships.world, _ships.regions.snapshot(), player_faction, market,
-		int(overseas_plan().get("used", 0))
-	)
+		status = {"holds": 0, "used": TradeCargo.used(market), "reserved": 0, "free": 0}
+	else:
+		status = TradeCargo.status(
+			_ships.world, _ships.regions.snapshot(), player_faction, market,
+			int(overseas_plan().get("used", 0))
+		)
+	# The ledger shows what is still free after staged bids; the clearing pass
+	# needs the gross figure, because the bids themselves are not yet laden.
+	var pending: int = market.book.pending_buy_units(player_faction) if market != null else 0
+	var gross: int = int(status.get("free", 0))
+	status["pending"] = pending
+	status["clear_free"] = gross
+	status["free"] = maxi(gross - pending, 0)
+	return status
 
 
 ## Holds the crown's home squadron carries this turn (0 while it is away).
@@ -134,18 +151,12 @@ func feeding_coverage() -> float:
 
 
 ## Everything that reaches the crown's stockpile this turn: home-region land
-## yield plus the overseas cargo the home fleet actually delivers. Deed tiles
-## pay cash instead, so their tons leave the yield (DR-20261110-09).
+## yield plus the overseas cargo the home fleet actually delivers.
 func extraction() -> Dictionary:
 	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
 		capital_tile, economy.tech_unlocked
 	)
-	var world: WorldMap = null if _ships == null else _ships.world
-	var region: int = model.region_id if model != null else WorldMap.OLD_WORLD
-	_deeds = DeedIncome.income(world, region, player_faction, works)
-	_deeds.erase("model")
-	home = DeedIncome.without_deeds(home, _deeds["units"] as Dictionary)
 	if _ships == null or _ships.world == null:
 		return home
 	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
@@ -173,10 +184,9 @@ func resolve_turn() -> Dictionary:
 	# still show the "+15%" it just spent (REQ-P5-05); the next end-turn sets it
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships(), army_food(), true,
+		economy, market, extraction(), fleet_ships(), army_food(), false,
 		research_boost
 	)
-	report["deeds"] = DeedIncome.settle(_deeds.duplicate(), economy)
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
@@ -236,7 +246,7 @@ func _after_research(result: Dictionary) -> void:
 	_refresh_research_panel()
 
 
-func _refresh_panel() -> void:
+func refresh_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_economy_open():
@@ -248,45 +258,49 @@ func _refresh_panel() -> void:
 	treasury_changed.emit(economy.treasury)
 
 
-func _on_trade(commodity: String, quantity: int, is_buy: bool) -> void:
+func _on_trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 	var result: Dictionary
 	if is_buy:
 		var cargo: Dictionary = trade_cargo()
-		result = TradeCargo.buy(
-			economy, market, int(cargo.get("holds", 0)), commodity, quantity,
-			int(cargo.get("reserved", 0))
+		result = MarketOrders.submit(
+			market,
+			player_faction, commodity, MarketOrder.SIDE_BID, quantity,
+			{
+				"cargo_free": int(cargo.get("clear_free", cargo.get("free", 0))),
+				"treasury": economy.treasury,
+				"tech_unlocked": economy.tech_unlocked,
+				"buy_price": market.buy_price(commodity, player_faction),
+			}
 		)
 	else:
-		result = market.sell(economy, commodity, quantity, player_faction)
-	if not bool(result.get("ok", false)) and _hud != null:
-		_hud.toast(String(result.get("reason", "Trade refused")))
-	_refresh_panel()
-
-
-## A direct purchase from a Minor Nation or a Tribe: the rules decide, the
-## ledger reports the receipt or the refusal (REQ-P2-03, REQ-P5-05).
-func _on_offer(offer_id: String, quantity: int) -> void:
-	var cargo: Dictionary = trade_cargo()
-	var result: Dictionary = MinorMarket.buy(
-		market, economy, market.minor_offers, offer_id, quantity,
-		int(cargo.get("holds", 0)), int(cargo.get("reserved", 0)), player_faction
-	)
+		result = MarketOrders.submit(
+			market,
+			player_faction, commodity, MarketOrder.SIDE_OFFER, quantity,
+			{"stock": economy.quantity(commodity)}, 2
+		)
 	if _hud != null:
 		if bool(result.get("ok", false)):
-			_hud.toast("Bought %d %s from %s for %d ducats" % [
-				int(result.get("quantity", 0)),
-				CommodityCatalog.label(String(result.get("commodity", ""))),
-				FactionCatalog.name_of(int(result.get("faction", -1))),
-				int(result.get("cost", 0)),
+			var side: String = "Bid" if is_buy else "Offer"
+			_hud.toast("%s staged: %d %s. The market clears when the turn closes." % [
+				side, quantity, CommodityCatalog.label(commodity)
 			])
 		else:
-			_hud.toast(String(result.get("reason", "That purchase was refused")))
-	_refresh_panel()
+			_hud.toast(String(result.get("reason", "Trade refused")))
+	refresh_panel()
+	return result
+
+
+## Cancels one staged order; carry-forward orders are left alone.
+func _on_cancel(order_id: String) -> void:
+	if not MarketOrders.cancel(market, player_faction, order_id):
+		if _hud != null:
+			_hud.toast("That order can no longer be withdrawn.")
+	refresh_panel()
 
 
 func _on_production(recipe_id: String, units: int) -> void:
 	economy.set_assignment(recipe_id, units)
-	_refresh_panel()
+	refresh_panel()
 
 
 func _on_recruit(tier: int) -> void:
@@ -296,4 +310,4 @@ func _on_recruit(tier: int) -> void:
 			_hud.toast("A %s joins the capital's workshops" % WorkerPool.tier_name(tier))
 		else:
 			_hud.toast(String(result.get("reason", "Recruit refused")))
-	_refresh_panel()
+	refresh_panel()
