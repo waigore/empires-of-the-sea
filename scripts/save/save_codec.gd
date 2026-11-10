@@ -54,6 +54,10 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"advanced_start": play.advanced_start,
 		"difficulty": play.difficulty,
 		"campaign_halted": play.campaign_halted,
+		## The crown's Quick Battle stance is an order the resolver reads every
+		## turn, so the save carries it (wiki: campaign-persistence § Snapshot
+		## contract; DR-20261110-33).
+		"battle_plan": QuickBattleActions.normalize_plan(play.battle_plan),
 	}
 
 
@@ -134,6 +138,11 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 		String(session.get("difficulty", Difficulty.DEFAULT))
 	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
+	## A save written before the plan existed, or with a value the rules do not
+	## publish, starts the crown balanced (wiki: quick-battle § The crown's plan).
+	play.battle_plan = QuickBattleActions.normalize_plan(
+		String(session.get("battle_plan", "balanced"))
+	)
 	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = SaveCourt.victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)

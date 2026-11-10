@@ -136,9 +136,9 @@ static func on_action(play: PlaySession, action: String) -> void:
 ## so the choice is never buried (wiki: quick-battle; REQ-P5-03).
 static func cycle_plan(play: PlaySession, army: ArmyState) -> void:
 	var order: Array[String] = ["balanced", "aggressive", "defensive"]
-	var index: int = order.find(play.battle_plan)
+	var index: int = order.find(QuickBattleActions.normalize_plan(play.battle_plan))
 	play.battle_plan = order[(index + 1) % order.size()]
-	play.hud.toast("Battle plan: %s" % play.battle_plan.capitalize())
+	play.hud.toast("Crown battle plan: %s" % play.battle_plan.capitalize())
 	show_panel(play, army)
 
 

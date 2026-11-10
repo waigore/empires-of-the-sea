@@ -124,8 +124,8 @@ func _build() -> void:
 	_embark.visible = false
 	shell.add_child(_embark)
 
-	_plan = _make_button("Battle plan: Balanced")
-	_plan.tooltip_text = "Tap to cycle Aggressive / Balanced / Defensive"
+	_plan = _make_button("Crown battle plan: Balanced")
+	_plan.tooltip_text = "The whole crown's Quick Battle stance · tap to cycle Aggressive / Balanced / Defensive"
 	_plan.pressed.connect(func() -> void: action_pressed.emit("plan:next"))
 	_plan.visible = false
 	shell.add_child(_plan)
@@ -207,7 +207,7 @@ func refresh(
 	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
 	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
 	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
-	_plan.text = "Battle plan: %s" % plan.capitalize()
+	_plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan).capitalize()
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own army."

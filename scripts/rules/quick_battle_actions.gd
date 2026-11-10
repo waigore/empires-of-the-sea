@@ -54,6 +54,13 @@ static func actions_for(
 	return (PLANS.get(plan, PLANS["balanced"]) as Array).duplicate()
 
 
+## The one gate every plan value passes: the three published stances, anything
+## else (an old save, a typo, a scenario) is `balanced` (wiki: quick-battle
+## § The crown's plan — "Any other value is balanced").
+static func normalize_plan(plan: String) -> String:
+	return plan if PLANS.has(plan) else "balanced"
+
+
 ## Resolve one scripted action against the enemy side (and guns, when assaulting).
 static func resolve(
 	armies: Array[ArmyState],

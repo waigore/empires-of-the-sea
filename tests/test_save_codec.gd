@@ -375,6 +375,34 @@ func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
 	assert_true(play.gazette.removed.has(1), "and the removal is remembered")
 
 
+## The crown's battle plan is a standing order the resolver reads every turn, so
+## a load must resume it — and a save written before the rule starts balanced
+## (wiki: quick-battle § The crown's plan; campaign-persistence § Snapshot
+## contract, § Acceptance criteria; DR-20261110-33).
+func test_the_crowns_battle_plan_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "aggressive"
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(DIR + "/plan.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/plan.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	play = screen.play
+	assert_eq(play.battle_plan, "aggressive", "a load resumes the crown's plan")
+
+	## A save written before the plan existed carries no field at all.
+	var legacy: Dictionary = SaveCodec.capture(play)
+	(legacy["session"] as Dictionary).erase("battle_plan")
+	assert_true(SaveStore.write(DIR + "/legacy.sav", legacy))
+	var old: Dictionary = SaveStore.read(DIR + "/legacy.sav")
+
+	screen.free()
+	screen = _new_screen(old)
+	assert_eq(screen.play.battle_plan, "balanced", "an old save starts balanced")
+
+
 func _foreign_province(play: PlaySession) -> int:
 	for province: ProvinceState in play.model.provinces:
 		if province.owner != play.player_faction:

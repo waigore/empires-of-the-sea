@@ -396,3 +396,22 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	)
 	assert_true(String(panel._status.text).contains("Aboard the fleet"))
 	panel.free()
+
+
+## The dossier names the stance as the crown's, never that army's: one plan
+## commands every Quick Battle the human fights (wiki: quick-battle § The
+## crown's plan; DR-20261110-33).
+func test_the_dossier_names_the_crowns_plan() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(8, 0, 1, ["guards"], false)
+
+	panel.refresh(model, army, true, false, "", [], "", "aggressive")
+
+	assert_eq(String(panel._plan.text), "Crown battle plan: Aggressive")
+	assert_true(String(panel._plan.tooltip_text).contains("crown"))
+	panel.refresh(model, army, true, false, "", [], "", "hammer")
+	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
+	panel.free()
+
