@@ -45,6 +45,12 @@ const ACTION_LABEL: Dictionary = {
 }
 
 
+## The one plan a crown may name; anything else is balanced (wiki: quick-battle
+## § The crown's plan; DR-20261110-33).
+static func normalize_plan(value: String) -> String:
+	return value if PLANS.has(value) else "balanced"
+
+
 static func actions_for(
 	plan: String, is_defender: bool = false, siege: bool = false
 ) -> Array:
