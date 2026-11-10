@@ -51,6 +51,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"leaders": play.leaders.duplicate(),
 		"infinite_mode": play.infinite_mode,
 		"advanced_start": play.advanced_start,
+		"difficulty": play.difficulty,
 		"campaign_halted": play.campaign_halted,
 	}
 
@@ -127,6 +128,9 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.advanced_start = AdvancedStart.normalize(
 		String(session.get("advanced_start", AdvancedStart.NONE))
+	)
+	play.difficulty = Difficulty.normalize(
+		String(session.get("difficulty", Difficulty.DEFAULT))
 	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided or the load would reopen sealed turns.

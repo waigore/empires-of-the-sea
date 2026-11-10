@@ -39,9 +39,10 @@ var player_leader: String = ""
 ## Endless campaign chosen in game setup (wiki: turn-time-mapping).
 var infinite_mode: bool = false
 var advanced_start: String = AdvancedStart.NONE
-## Full-AI observer: every Great Power is AI and no court answers consent
-## decisions. Debug tool launched from the title screen or tools/ai_vs_ai.gd
-## (wiki: game-setup § Human/AI slot assignment).
+## Difficulty at setup (wiki: ruleset-config § Layers).
+var difficulty: String = Difficulty.DEFAULT
+## Full-AI observer: every Great Power is AI (title / tools/ai_vs_ai.gd;
+## wiki: game-setup § Human/AI slot assignment).
 var observer_mode: bool = false
 ## When set (load), skip generation and restore this save instead.
 var pending_save: Dictionary = {}
@@ -156,7 +157,7 @@ func _ready() -> void:
 	if not restored:
 		play.configure(
 			player_faction, map_seed, map_width, map_height, player_leader,
-			infinite_mode, advanced_start
+			infinite_mode, advanced_start, difficulty
 		)
 		if preset_world != null:
 			play.world = preset_world
