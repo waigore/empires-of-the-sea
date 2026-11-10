@@ -12,6 +12,9 @@ const DEFAULT_WORLD_DEPTH: int = 8
 
 var prices: Dictionary = {}
 var world_depth: int = DEFAULT_WORLD_DEPTH
+## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}}. Trade
+## diplomacy publishes these; an empty book means the published price for all.
+var trade_terms: Dictionary = {}
 ## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
 ## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
 var minor_offers: Array[Dictionary] = []
@@ -38,6 +41,43 @@ func price(id: String) -> int:
 	if prices.has(id):
 		return int(prices[id])
 	return CommodityCatalog.base_price(id)
+
+
+## Installs one crown's trade terms (trade diplomacy); empty clears them.
+func set_terms(faction: int, terms: Dictionary) -> void:
+	if terms.is_empty():
+		trade_terms.erase(faction)
+	else:
+		trade_terms[faction] = terms
+
+
+func clear_terms() -> void:
+	trade_terms.clear()
+
+
+func terms_for(faction: int) -> Dictionary:
+	var raw: Variant = trade_terms.get(faction, {})
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}
+
+
+## Multiplier for one side of the book; "*" is the crown-wide rate.
+func term_multiplier(faction: int, id: String, is_buy: bool) -> float:
+	var book: Dictionary = terms_for(faction)
+	var side: Dictionary = book.get("buy" if is_buy else "sell", {})
+	var raw: Variant = side.get(id, side.get("*", 1.0))
+	return maxf(float(raw), 0.0)
+
+
+## What this crown actually pays per unit after its trade terms.
+func buy_price(id: String, faction: int = FactionCatalog.PLAYER_FACTION) -> int:
+	return maxi(roundi(float(price(id)) * term_multiplier(faction, id, true)), 1)
+
+
+## What this crown actually receives per unit after its trade terms.
+func sell_price(id: String, faction: int = FactionCatalog.PLAYER_FACTION) -> int:
+	return maxi(roundi(float(price(id)) * term_multiplier(faction, id, false)), 1)
 
 
 func can_trade(id: String) -> bool:
@@ -131,7 +171,7 @@ func buy(
 		return {"ok": false, "reason": "Not traded on the world market"}
 	if quantity <= 0:
 		return {"ok": false, "reason": "Quantity must be positive"}
-	var unit_price: int = price(id)
+	var unit_price: int = buy_price(id, faction)
 	var cost: int = unit_price * quantity
 	if not economy.spend_treasury(cost):
 		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
@@ -158,14 +198,19 @@ func record_import(id: String, quantity: int, faction: int) -> void:
 
 
 ## Sells from the stockpile at the current price and records the offer.
-func sell(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
+func sell(
+	economy: PlayerEconomy,
+	id: String,
+	quantity: int,
+	faction: int = FactionCatalog.PLAYER_FACTION
+) -> Dictionary:
 	if not can_trade(id):
 		return {"ok": false, "reason": "Not traded on the world market"}
 	if quantity <= 0:
 		return {"ok": false, "reason": "Quantity must be positive"}
 	if economy.quantity(id) < quantity:
 		return {"ok": false, "reason": "Insufficient stockpile"}
-	var unit_price: int = price(id)
+	var unit_price: int = sell_price(id, faction)
 	var revenue: int = unit_price * quantity
 	economy.take(id, quantity)
 	economy.add_treasury(revenue)
@@ -218,6 +263,7 @@ func copy() -> WorldMarket:
 	var clone := WorldMarket.new()
 	clone.prices = prices.duplicate()
 	clone.world_depth = world_depth
+	clone.trade_terms = trade_terms.duplicate(true)
 	clone.minor_offers = minor_offers.duplicate(true)
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()

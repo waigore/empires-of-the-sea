@@ -19,12 +19,18 @@ static func offer_id(faction: int, commodity: String) -> String:
 	return "%d:%s" % [faction, commodity]
 
 
-## What one unit costs direct: the world price under the courts' discount,
+## What one unit costs direct: the world price under the courts' discount and
+## the buyer's trade terms (a pact or subsidy moves a direct purchase too),
 ## never below one ducat.
-static func unit_price(market: WorldMarket, commodity: String) -> int:
+static func unit_price(
+	market: WorldMarket,
+	commodity: String,
+	buyer: int = FactionCatalog.PLAYER_FACTION
+) -> int:
 	if market == null or not market.can_trade(commodity):
 		return 0
-	return maxi(int(floor(float(market.price(commodity)) * DISCOUNT)), 1)
+	var ask: int = maxi(int(floor(float(market.price(commodity)) * DISCOUNT)), 1)
+	return maxi(roundi(float(ask) * market.term_multiplier(buyer, commodity, true)), 1)
 
 
 ## This turn's offers for one buyer: every Minor Nation and Tribe in a region
@@ -38,7 +44,7 @@ static func emit(
 	for region_index in world.region_count():
 		if world.owned_provinces(region_index, buyer) <= 0:
 			continue
-		_region_offers(world.region(region_index), world, region_index, market, offers)
+		_region_offers(world.region(region_index), world, region_index, market, offers, buyer)
 	offers.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["faction"]) != int(b["faction"]):
 			return int(a["faction"]) < int(b["faction"])
@@ -54,7 +60,8 @@ static func _region_offers(
 	world: WorldMap,
 	region_index: int,
 	market: WorldMarket,
-	offers: Array[Dictionary]
+	offers: Array[Dictionary],
+	buyer: int
 ) -> void:
 	if model == null:
 		return
@@ -80,7 +87,7 @@ static func _region_offers(
 				"faction": faction,
 				"commodity": commodity,
 				"quantity": quantity,
-				"unit_price": unit_price(market, commodity),
+				"unit_price": unit_price(market, commodity, buyer),
 			})
 
 

@@ -1,11 +1,26 @@
 class_name MapPlaySetup
 extends RefCounted
-## Screen setup that is not map rules: initial HUD values, region chips, the
-## opening frame and the post-load refresh (REQ-P3-01, REQ-P3-02).
+## Screen setup that is not map rules: initial HUD values, region chips, capital
+## framing, the opening frame and the post-load refresh (REQ-P3-01, REQ-P3-02).
 
 
 static func find_capital(play: PlaySession) -> int:
 	return play.world.seat_province(play.region_index, play.player_faction)
+
+
+## Centres the camera on the ruler's seat; the map screen and the intro share it.
+static func focus_capital(play: PlaySession) -> void:
+	play.camera.focus_on(capital_world(play), 0.7)
+
+
+## World position of the ruler's seat: the capital tile from the capital-choice
+## phase, falling back to the province centre when the map has no capital.
+static func capital_world(play: PlaySession) -> Vector2:
+	if play.capital_tile.x >= 0:
+		return MapGeo.tile_center(play.capital_tile.x, play.capital_tile.y, PlaySession.TILE_SIZE)
+	if play.capital_province >= 0:
+		return play.model.province_center(play.capital_province) * PlaySession.TILE_SIZE
+	return MapGeo.world_size(play.model, PlaySession.TILE_SIZE) * 0.5
 
 
 static func build_hud(play: PlaySession) -> void:
@@ -122,7 +137,7 @@ static func refresh_after_load(play: PlaySession) -> void:
 		)
 	elif play.campaign_halted:
 		play.hud.show_campaign_complete(
-			MapPlayTurn.declared_leader(play), play.turn, play.player_faction
+			MapPlayCampaign.declared_leader(play), play.turn, play.player_faction
 		)
 
 
@@ -134,7 +149,7 @@ static func intro(play: PlaySession, fade: ColorRect, brief: bool = true) -> voi
 	camera.zoom = Vector2.ONE * start_zoom
 	camera.position = map_size * 0.5
 	camera.focus_on(
-		MapPlayTurn.capital_world(play), maxf(start_zoom * 1.65, 0.75)
+		capital_world(play), maxf(start_zoom * 1.65, 0.75)
 	)
 	if brief:
 		RegionBriefing.opening(

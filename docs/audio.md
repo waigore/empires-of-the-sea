@@ -1,7 +1,7 @@
 # Audio
 
-Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled or
-third-party recordings.
+Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled
+recordings.
 
 ## Music
 
@@ -36,12 +36,11 @@ overwrites the shipped beds.
 All beds are bright major-mode dances: percussion carries the pulse, reverb is
 short (1.4–1.5 s), and the score reads lively, not haunted.
 
-Loops crossfade at the seam (1.5 s equal-power) so beds repeat without clicks.
-`MusicPlaylist.bed_for_year` picks the bed: branle, then the 1550 gigue, then the
-1700 minuet.
+Loops crossfade at the seam (1.5 s equal-power). `MusicPlaylist.bed_for_year`
+opens on the branle, moves to the gigue at 1550, then the minuet at 1700.
 
-Mix targets: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music default 0.50 under
-effects at 0.85 so feedback always reads over the score.
+Mix targets: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects
+at 0.85, so feedback reads over the score.
 
 ## Runtime
 
@@ -50,12 +49,12 @@ effects at 0.85 so feedback always reads over the score.
 | `scripts/audio/audio_events.gd` | Event → file, trim, pitch-jitter table |
 | `scripts/audio/audio_mix.gd` | Volumes, mute, `user://audio.cfg` persistence |
 | `scripts/audio/music_playlist.gd` | Track catalogue + era rule |
-| `scripts/audio/audio_director.gd` | Scene node: crossfade pair, 6-voice SFX pool, ambience |
+| `scripts/audio/audio_director.gd` | Crossfade pair, 6-voice SFX pool, ambience |
 | `scripts/audio/map_soundtrack.gd` | Listens to map-screen signals, picks beds/cues |
-| `scripts/ui/audio_controls.gd` | Bell seal + mix desk (touch-first) |
+| `scripts/ui/audio_controls.gd` | Bell seal + mix desk |
 
 No autoload: the director is a node in `map_screen.tscn`, so `arch-lint` stays
-clean and screens can be instantiated in tests.
+clean and tests instantiate it directly.
 
 ## Cue map
 
@@ -69,11 +68,12 @@ clean and screens can be instantiated in tests.
 | Coast charted | `coast_charted` |
 | End turn | `turn_bell` + `coin` |
 | Broadside, hull hit, fleet lost | `broadside`, `hull_hit`, `fleet_sunk` |
+| Siege battle / battery silenced | `siege_cannon`, then `wall_breach` |
 | Raid: crown pays / crown takes prize | `raid_alarm` / `cargo_seized` |
 | Order refused | `order_denied` |
 | Battle won / lost | victory fanfare / defeat knell |
 
-Battle switches to the battle bed for 14 s, then the era bed returns. Raids cue
+Battle switches to the battle bed for 14 s, then the era bed returns; raids cue
 off the screen's `raid_resolved` signal.
 
 ## Controls

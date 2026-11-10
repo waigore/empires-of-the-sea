@@ -126,28 +126,8 @@ static func _winner(play: PlaySession) -> int:
 	if play.victory != null:
 		return play.victory.winner_player_id
 	if play.campaign_halted:
-		return _declared_leader(play)
+		return MapPlayCampaign.declared_leader(play)
 	return NO_ID
-
-
-## Calendar standing on the published power formula, without borrowing
-## MapPlayTurn (the two adapters must not reference each other cyclically).
-static func _declared_leader(play: PlaySession) -> int:
-	var strength: Dictionary = {}
-	var ships: Dictionary = {}
-	if play.army_layer != null:
-		for raw: Variant in play.army_layer.regions.values():
-			var stored: Array[ArmyState] = []
-			stored.assign(raw)
-			for army: ArmyState in stored:
-				if army != null:
-					strength[army.owner] = (
-						float(strength.get(army.owner, 0.0)) + army.strength()
-					)
-	if play.ship_layer != null:
-		for faction: int in FactionCatalog.great_power_ids():
-			ships[faction] = play.ship_layer.hull_count_all(faction)
-	return VictoryRules.declared_leader(play.world, strength, ships)
 
 
 static func _result_text(play: PlaySession, winner: int) -> String:
