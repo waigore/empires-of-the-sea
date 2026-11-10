@@ -434,6 +434,10 @@ match = "tests/playtest_province_dev.gd*"
 domain = "civilian"
 
 [[rules]]
+match = "tests/playtest_allied_defence.gd*"
+domain = "campaign"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 

@@ -75,6 +75,12 @@ godot --headless --path . --script res://tests/playtest_espionage.gd
 # the road to the capital, prospects and mines a mineral and upgrades a town,
 # asserting that each linked estate's commodity reaches the stockpile.
 godot --headless --path . --script res://tests/playtest_province_dev.gd
+
+# Allied defence — signs a formal alliance at court, lets a rival declare on the
+# ally, reads the call-to-arms banner, joins, and fights the battle the court did
+# not start; then two declarations in one turn (one call at a time, a refusal's
+# price).
+godot --headless --path . --script res://tests/playtest_allied_defence.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
