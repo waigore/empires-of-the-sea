@@ -57,6 +57,10 @@ var turn_suspended: bool = false
 ## turn's decision trace (wiki: ai-architecture).
 var ai: AiState = null
 var ai_trace: Array[Dictionary] = []
+## Last resolved turn's spy despatch: `turn` and `lines` (rival Great Power ->
+## Array[String]) for every court a Spy shadows (wiki: civilian-units § Spy —
+## court reports). Derived, so a save carries no copy.
+var court_reports: Dictionary = {}
 
 var turn: int = 1
 ## Quick Battle stance for the human's land battles: aggressive, balanced or

@@ -408,6 +408,70 @@ func test_court_report_names_a_diplomatic_act() -> void:
 	play.economy.free()
 
 
+func test_court_report_stays_readable_after_the_toast() -> void:
+	var play: PlaySession = _play_with_spy()
+	var land: Dictionary = {
+		"region": 0,
+		"province": CivilianFixture.RIVAL_PROVINCE,
+		"attacker": RIVAL,
+		"defender": PLAYER,
+		"captured": true,
+	}
+	MapPlaySpies.report(play, [land], [], {})
+	assert_eq(int(play.court_reports["turn"]), 1, "the turn that just resolved")
+	assert_true((play.court_reports["shadowed"] as Array).has(RIVAL))
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq((kept[RIVAL] as Array).size(), 1, "the toast's line is kept")
+	assert_eq(String((kept[RIVAL] as Array)[0]), "took Coro from Spain")
+	play.hud.free()
+	play.economy.free()
+
+
+func test_a_despatch_is_a_page_not_a_chronicle() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = []
+	for index in 12:
+		play.ai_trace.append(
+			{"faction": RIVAL, "message": "England word %d." % index}
+		)
+	MapPlaySpies.report(play, [], [], {})
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq((kept[RIVAL] as Array).size(), MapPlaySpies.MAX_LINES)
+	play.hud.free()
+	play.economy.free()
+
+
+func test_a_stranger_court_stays_masked_in_the_despatch() -> void:
+	var play: PlaySession = _play_with_spy()
+	var stranger: int = 9
+	var land: Dictionary = {
+		"region": 0,
+		"province": CivilianFixture.RIVAL_PROVINCE,
+		"attacker": stranger,
+		"defender": RIVAL,
+		"captured": true,
+	}
+	MapPlaySpies.report(play, [land], [], {})
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq(String((kept[RIVAL] as Array)[0]), "lost Coro to Unknown faction")
+	play.hud.free()
+	play.economy.free()
+
+
+func test_a_structured_act_masks_an_unmet_target() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": 9},
+		"message": "England declares war on France.",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq(String((kept[RIVAL] as Array)[0]), "England declares war on Unknown faction.")
+	play.hud.free()
+	play.economy.free()
+
+
 func test_court_report_is_silent_without_a_spy() -> void:
 	var play: PlaySession = _play_with_spy()
 	play.civilian_layer.units.clear()

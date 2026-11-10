@@ -66,8 +66,14 @@ static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 	return result
 
 
+## Lines a court's despatch keeps: a page, not a chronicle.
+const MAX_LINES: int = 8
+
+
 ## Last-turn court reports for each observed rival: diplomatic acts, battles,
-## provinces taken or lost and technologies completed. One toast per court.
+## provinces taken or lost and technologies completed. One toast per court, and
+## the same lines stay in `play.court_reports` so the court panel can show the
+## despatch again after the toast has gone (wiki: civilian-units § Spy).
 static func report(
 	play: PlaySession,
 	land_battles: Array,
@@ -79,16 +85,30 @@ static func report(
 	var qualifying: Array[int] = qualifying_rivals(play, play.player_faction)
 	if qualifying.is_empty():
 		return
+	var kept: Dictionary = {}
 	for rival: int in qualifying:
 		var lines: Array[String] = _diplomacy_lines(play, rival)
 		lines.append_array(_battle_lines(play, rival, land_battles, naval_battles))
 		lines.append_array(_research_lines(rival, economy_report))
+		if lines.size() > MAX_LINES:
+			lines.resize(MAX_LINES)
 		if lines.is_empty():
 			continue
+		kept[rival] = lines
 		play.hud.toast(
 			"Spy report — %s: %s"
 			% [FactionCatalog.name_of(rival), " · ".join(lines)]
 		)
+	# The despatch reports the turn that just resolved; the calendar has already
+	# advanced by the time this runs.
+	play.court_reports = {
+		"turn": maxi(play.turn - 1, 1),
+		"shadowed": qualifying,
+		"lines": kept,
+	}
+	# A panel already open shows the despatch without waiting for another turn.
+	if play.hud.panels != null:
+		MapPlayDiplomacy.refresh(play)
 
 
 # --- internals ---------------------------------------------------------------
@@ -150,15 +170,39 @@ static func _toast(play: PlaySession, event: Dictionary) -> void:
 			)
 
 
+## The court's own acts this turn. A structured act is reworded with masked
+## names, so a stranger court never leaks through the trace's sentence; anything
+## without one falls back to the recorded wording.
 static func _diplomacy_lines(play: PlaySession, rival: int) -> Array[String]:
 	var lines: Array[String] = []
 	for record: Dictionary in play.ai_trace:
 		if int(record.get("faction", -1)) != rival:
 			continue
-		var message: String = String(record.get("message", ""))
-		if not message.is_empty():
-			lines.append(message)
+		var action: Dictionary = record.get("action", {}) as Dictionary
+		var line: String = _act_line(play, rival, action)
+		if line.is_empty():
+			line = String(record.get("message", ""))
+		if not line.is_empty():
+			lines.append(line)
 	return lines
+
+
+static func _act_line(play: PlaySession, rival: int, action: Dictionary) -> String:
+	if action.is_empty():
+		return ""
+	var target: int = int(action.get("target", MapModel.NO_ID))
+	if target == MapModel.NO_ID:
+		return ""
+	var who: String = FactionCatalog.name_of(rival)
+	var them: String = _name(play, target)
+	match String(action.get("kind", "")):
+		AiDiplomacyPlanner.KIND_DECLARE_WAR:
+			return "%s declares war on %s." % [who, them]
+		AiDiplomacyPlanner.KIND_OFFER_PEACE:
+			return "%s sues for peace with %s." % [who, them]
+		"":
+			return ""
+	return "%s proposes a treaty to %s." % [who, them]
 
 
 static func _battle_lines(
@@ -173,9 +217,9 @@ static func _battle_lines(
 			continue
 		var province: String = _province_name(play, battle)
 		if bool(battle.get("captured", false)) and attacker == rival:
-			lines.append("took %s from %s" % [province, FactionCatalog.name_of(defender)])
+			lines.append("took %s from %s" % [province, _name(play, defender)])
 		elif bool(battle.get("captured", false)) and defender == rival:
-			lines.append("lost %s to %s" % [province, FactionCatalog.name_of(attacker)])
+			lines.append("lost %s to %s" % [province, _name(play, attacker)])
 		else:
 			lines.append("fought at %s" % province)
 	for raw: Variant in naval_battles:
@@ -197,6 +241,14 @@ static func _research_lines(rival: int, economy_report: Dictionary) -> Array[Str
 	for tech: Variant in research.get("researched", []):
 		lines.append("completed %s" % TechCatalog.display_name(String(tech)))
 	return lines
+
+
+## A court the viewer has met by name, a stranger masked, the viewer itself
+## always named (wiki: diplomacy § Diplomatic History).
+static func _name(play: PlaySession, faction: int) -> String:
+	if play.diplomacy == null:
+		return FactionCatalog.name_of(faction)
+	return DiplomacyHistory.name_for(play.diplomacy, play.player_faction, faction)
 
 
 static func _province_name(play: PlaySession, battle: Dictionary) -> String:

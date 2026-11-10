@@ -32,6 +32,10 @@ P5 hidden spies leave no trace.
 - **Court reports:** after resolution the human receives one digest per
   observed rival covering this turn's diplomatic message, battles, provinces
   taken or lost, and technologies completed. Never the rival's hidden agenda.
+  The same lines stay in the session (`play.court_reports`) and the court
+  panel shows the despatch under that crown's chronicle, so a report is still
+  readable after its toast has gone. Eight lines at most; opponents the viewer
+  has not met stay "Unknown faction".
 - **Persistence:** spy units and owners ride the existing civilian and save
   tables; the screen is rebuilt from `counter_spy` work orders.
 
