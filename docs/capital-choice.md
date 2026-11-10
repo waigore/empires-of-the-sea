@@ -50,6 +50,9 @@ the documented setup default.
   ring on the seat tile.
 - Mouse, trackpad and touch all pan/zoom the chart; `BACK` (or Escape) returns
   to setup; `SEAT THE COURT` confirms.
+- Touches and Android's emulated mouse click keep separate press slots, so a
+  tap is never dropped. One back press leaves the chart once, though the
+  platform delivers it twice.
 - Banner and action bar are anchored, compact on short (phone-landscape) screens.
 
 ## Persistence

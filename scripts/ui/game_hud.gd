@@ -63,6 +63,9 @@ var quick_battle_overlay: QuickBattleOverlay = null
 var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
 var civilian_roster: CivilianRosterPanel = null
+## The court's full intelligence dossier, opened from its summary block
+## (wiki: ai-dossier; DR-20261110-25).
+var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
 

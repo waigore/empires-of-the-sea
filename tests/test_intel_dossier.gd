@@ -215,6 +215,93 @@ func test_a_quiet_court_has_an_empty_dossier() -> void:
 	assert_true(_scores(GENOA).is_empty())
 
 
+## A study is invisible to every crown but the one that posted the spy, so the
+## court report is its only path into the dossier and it reads as tech-catching
+## (DR-20261110-25).
+func test_a_study_seen_by_a_spy_reads_as_a_tech_thief() -> void:
+	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
+	var scores: Dictionary = _scores(ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelDossier.W_SPY_TECH)
+	assert_eq(
+		String(IntelDossier.evidence(state, null, VIEWER, ENGLAND)[0]["text"]),
+		"Finished Crop Rotation while our spy watched."
+	)
+
+
+## The despatch narrates the turn that resolved, though the spy reports after the
+## calendar has advanced: the observation keeps its own turn.
+func test_a_despatch_keeps_the_turn_it_resolved() -> void:
+	state.turn = 9
+	state.record_event(
+		IntelDossier.SPY_TECH, ENGLAND, VIEWER,
+		{"tech": "crop_rotation", IntelDossier.OBSERVED_TURN: 8}
+	)
+	var entries: Array[Dictionary] = IntelDossier.evidence(state, null, VIEWER, ENGLAND)
+	assert_eq(int(entries[0]["turn"]), 8, "the act belongs to the turn it resolved")
+	state.record_event("warDeclared", ENGLAND, GENOA)
+	assert_eq(IntelDossier.turn_of(state.events[1]), 9, "a plain act keeps the chronicle stamp")
+
+
+func test_only_the_crown_that_posted_the_spy_hears_of_a_study() -> void:
+	state.record_event(IntelDossier.SPY_TECH, ENGLAND, PORTUGAL, {"tech": "crop_rotation"})
+	assert_true(_scores(ENGLAND).is_empty(), "the despatch belongs to the court that paid for it")
+
+
+func test_two_studies_under_the_spy_eye_reach_possible() -> void:
+	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "crop_rotation"})
+	state.record_event(IntelDossier.SPY_TECH, ENGLAND, VIEWER, {"tech": "cartography"})
+	var guess: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)["guess"]
+	assert_eq(String(guess["band"]), "Possible")
+	assert_eq(String(guess["id"]), AiAgenda.TECH_THIEF)
+	assert_eq(
+		int((IntelDossier.report(state, null, VIEWER, ENGLAND)["notes"])["spy_tech"]), 2
+	)
+
+
+## Each agenda carries the observations that fed it, so the full screen can show
+## one timeline per reading (DR-20261110-25).
+func test_every_agenda_carries_its_own_timeline() -> void:
+	DiplomacyRules.declare_war(state, ENGLAND, GENOA)
+	state.record_event("grantAid", ENGLAND, PORTUGAL, {"amount": 100})
+	var rows: Array = IntelDossier.report(state, null, VIEWER, ENGLAND)["agendas"]
+	var war: Dictionary = _row(rows, AiAgenda.WARMONGER)
+	var war_line: Array = war["timeline"] as Array
+	assert_eq(war_line.size(), 1, "one act feeds the warmonger reading")
+	assert_eq(int((war_line[0] as Dictionary)["points"]), IntelDossier.W_WAR)
+	assert_eq(String((war_line[0] as Dictionary)["text"]), "Declared war on Genoa.")
+	var peace: Dictionary = _row(rows, AiAgenda.PEACEMAKER)
+	assert_eq((peace["timeline"] as Array).size(), 1, "the aid feeds peacemaker")
+	assert_true(_row(rows, AiAgenda.ENVY)["timeline"].is_empty())
+
+
+## Build notes are behaviour, not suspicion: the spy's sightings are counted and
+## weigh on no agenda.
+func test_build_notes_come_from_the_spy_and_weigh_nothing() -> void:
+	state.record_event(
+		IntelDossier.SPY_BUILD, ENGLAND, VIEWER, {"works": {"improvement": 2, "town": 1}}
+	)
+	var report: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)
+	var build: Dictionary = (report["notes"] as Dictionary)["build"]
+	assert_eq(int(build["improvement"]), 2)
+	assert_eq(int(build["town"]), 1)
+	assert_true((report["evidence"] as Array).is_empty(), "a build is a theme, not evidence")
+	assert_true(_scores(ENGLAND).is_empty())
+
+
+func test_another_crowns_spy_build_notes_stay_out() -> void:
+	state.record_event(IntelDossier.SPY_BUILD, ENGLAND, PORTUGAL, {"works": {"town": 3}})
+	var notes: Dictionary = IntelDossier.report(state, null, VIEWER, ENGLAND)["notes"]
+	assert_true((notes["build"] as Dictionary).is_empty())
+
+
+func _row(rows: Array, id: String) -> Dictionary:
+	for raw: Variant in rows:
+		var row: Dictionary = raw as Dictionary
+		if String(row["id"]) == id:
+			return row
+	return {}
+
+
 func _scores(subject: int, world: WorldMap = null) -> Dictionary:
 	return IntelDossier.suspicion(IntelDossier.evidence(state, world, VIEWER, subject))
 
