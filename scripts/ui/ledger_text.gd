@@ -118,6 +118,9 @@ static func turn_summary(report: Dictionary) -> String:
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)
+	var deeds: String = String((report.get("deeds", {}) as Dictionary).get("line", ""))
+	if not deeds.is_empty():
+		parts.append(deeds)
 	var production: Dictionary = report.get("production", {})
 	var produced: Dictionary = production.get("produced", {})
 	for id: String in produced.keys():

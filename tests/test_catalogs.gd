@@ -441,19 +441,21 @@ func test_categories_match_the_table() -> void:
 	assert_eq(CommodityCatalog.category_label(CommodityCatalog.Category.RAW), "Raw materials")
 
 
-func test_tradeable_excludes_riches_and_spices() -> void:
+func test_tradeable_excludes_only_riches() -> void:
 	assert_true(CommodityCatalog.is_tradeable("timber"))
 	assert_true(CommodityCatalog.is_tradeable("lumber"))
 	assert_true(CommodityCatalog.is_tradeable("grain"))
+	# Spices is an advanced good, not a rich: it trades at its fixed 50
+	# (wiki: world-market § Tradeable commodities; DR-20261110-09).
+	assert_true(CommodityCatalog.is_tradeable("spices"))
 	assert_false(CommodityCatalog.is_tradeable("gold"))
 	assert_false(CommodityCatalog.is_tradeable("diamonds"))
-	assert_false(CommodityCatalog.is_tradeable("spices"))
 	assert_false(CommodityCatalog.is_tradeable("silk"))
 	var tradeable: int = 0
 	for id: String in CommodityCatalog.all_ids():
 		if CommodityCatalog.is_tradeable(id):
 			tradeable += 1
-	assert_eq(tradeable, 22)
+	assert_eq(tradeable, 23)
 
 
 func test_manufactured_prices_are_break_even() -> void:
