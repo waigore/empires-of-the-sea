@@ -20,6 +20,9 @@ enum Class { WORLD, COURT, INTEREST }
 ##
 ## `research` maps a faction to the technologies it finished; `richness` is the
 ## crown's deed income the turn summary named; `raids` are MapPlayRaids reports.
+## `charts` is the crown's own chart: a watched court's battle prints only where
+## the crown has the place at fogged or better (wiki: the-gazette § What the
+## crown can know; DR-20261110-28). A caller with no chart is a headless fixture.
 static func collect(
 	viewer: int,
 	turn: int,
@@ -31,14 +34,15 @@ static func collect(
 	falls: Array,
 	research: Dictionary,
 	richness: int,
-	raids: Array
+	raids: Array,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var pages: Array[Array] = [[], [], []]
 	_diplomacy(pages, viewer, turn, state, watched)
-	_land(pages, viewer, world, state, land_battles, watched)
-	_naval(pages, viewer, world, state, naval_battles, watched)
+	_land(pages, viewer, world, state, land_battles, watched, charts)
+	_naval(pages, viewer, world, state, naval_battles, watched, charts)
 	_falls(pages, viewer, state, falls)
-	_studies(pages, viewer, state, watched, research)
+	_studies(pages, viewer, research)
 	_treasury(pages, richness)
 	_raids(pages, raids)
 	var items: Array[Dictionary] = []
@@ -78,15 +82,17 @@ static func _diplomacy(
 
 
 ## Land battles: the crown's own page, or a watched court's — never a World item,
-## because a fight between two strangers is not world news (wiki: the-gazette
-## § PlayerView and masking).
+## because a fight between two strangers is not world news. A watched court's
+## fight prints only where the crown's own chart reaches the province
+## (wiki: the-gazette § What the crown can know; DR-20261110-28).
 static func _land(
 	pages: Array[Array],
 	viewer: int,
 	world: WorldMap,
 	state: DiplomacyState,
 	battles: Array,
-	watched: Array[int]
+	watched: Array[int],
+	charts: CourtCharts
 ) -> void:
 	for raw: Variant in battles:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -97,8 +103,11 @@ static func _land(
 		if attacker < 0 or defender < 0:
 			continue
 		var ours: bool = attacker == viewer or defender == viewer
-		if not ours and not _any_watched([attacker, defender], watched, viewer):
-			continue
+		if not ours:
+			if not _any_watched([attacker, defender], watched, viewer):
+				continue
+			if not _charted(charts, viewer, battle, false):
+				continue
 		var rec: Dictionary = _land_record(battle, viewer, world, state, ours)
 		if rec.is_empty():
 			continue
@@ -116,7 +125,9 @@ static func _land_record(
 		ArmyCombat.Outcome.MUTUAL_ANNIHILATION:
 			rec["kind"] = "battleAnnihilated"
 			var recovered: String = String(battle.get("recovered_type", ""))
-			if int(battle.get("garrison", 0)) > 0 and not recovered.is_empty():
+			# Another court's garrison and its type are its own affair: only the
+			# crown's page names the regiment that re-forms (DR-20261110-28).
+			if ours and int(battle.get("garrison", 0)) > 0 and not recovered.is_empty():
 				rec["bonus"] = RegimentCatalog.display_name(recovered)
 			return rec
 		ArmyCombat.Outcome.STALEMATE:
@@ -140,7 +151,8 @@ static func _naval(
 	world: WorldMap,
 	state: DiplomacyState,
 	battles: Array,
-	watched: Array[int]
+	watched: Array[int],
+	charts: CourtCharts
 ) -> void:
 	for raw: Variant in battles:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -151,8 +163,11 @@ static func _naval(
 		if attacker < 0 or defender < 0:
 			continue
 		var ours: bool = attacker == viewer or defender == viewer
-		if not ours and not _any_watched([attacker, defender], watched, viewer):
-			continue
+		if not ours:
+			if not _any_watched([attacker, defender], watched, viewer):
+				continue
+			if not _charted(charts, viewer, battle, true):
+				continue
 		var rec: Dictionary = _naval_record(battle, viewer, world, state, ours)
 		if rec.is_empty():
 			continue
@@ -191,7 +206,8 @@ static func _naval_record(
 
 
 ## The winner's record: `count` is what the beaten side lost, in hulls or
-## regiments, exactly as the Combat phase recorded it.
+## regiments, exactly as the Combat phase recorded it — and only on the crown's
+## own page. Another court's losses are never counted (DR-20261110-28).
 static func _victor(
 	rec: Dictionary,
 	kind: String,
@@ -212,7 +228,8 @@ static func _victor(
 	rec["who"] = _side_name(state, viewer, victor, ours)
 	rec["whom"] = _side_name(state, viewer, beaten, ours)
 	rec["self_act"] = victor == viewer
-	rec["count"] = lost.size()
+	if ours:
+		rec["count"] = lost.size()
 	if defended:
 		rec["defended"] = true
 	return rec
@@ -243,33 +260,25 @@ static func _falls(
 		)
 
 
-static func _studies(
-	pages: Array[Array],
-	viewer: int,
-	state: DiplomacyState,
-	watched: Array[int],
-	research: Dictionary
-) -> void:
-	var factions: Array = research.keys()
-	factions.sort()
-	for raw: Variant in factions:
-		var faction: int = int(raw)
-		if faction != viewer and not watched.has(faction):
-			continue
-		if not _met(state, viewer, faction):
-			continue
-		var cls: Class = Class.COURT if faction == viewer else Class.INTEREST
-		for tech: Variant in research[raw]:
-			_push(
-				pages,
-				cls,
-				"techFinished",
-				{
-					"who": GazetteDiplomacy.name_for(state, viewer, faction),
-					"label": TechCatalog.display_name(String(tech)),
-					"self_act": faction == viewer,
-				}
-			)
+## Only the crown's own studies print. Another court's finished technology is
+## not public news: it stays the spy's court report and the dossier's evidence
+## (wiki: the-gazette § What the crown can know; civilian-units § Spy;
+## DR-20261110-28).
+static func _studies(pages: Array[Array], viewer: int, research: Dictionary) -> void:
+	var raw: Variant = research.get(viewer, [])
+	if typeof(raw) != TYPE_ARRAY:
+		return
+	for tech: Variant in raw as Array:
+		_push(
+			pages,
+			Class.COURT,
+			"techFinished",
+			{
+				"who": GazetteCopy.CROWN,
+				"label": TechCatalog.display_name(String(tech)),
+				"self_act": true,
+			}
+		)
 
 
 static func _treasury(pages: Array[Array], richness: int) -> void:
@@ -318,6 +327,22 @@ static func _any_watched(parties: Array, watched: Array[int], viewer: int) -> bo
 		if faction != viewer and watched.has(faction):
 			return true
 	return false
+
+
+## Is the place of another court's fight on the crown's chart? A caller with no
+## chart is a headless fixture, and every place counts as charted
+## (wiki: the-gazette § What the crown can know; DR-20261110-28).
+static func _charted(
+	charts: CourtCharts, viewer: int, battle: Dictionary, at_sea: bool
+) -> bool:
+	if charts == null:
+		return true
+	var region: int = int(battle.get("region", -1))
+	if region < 0:
+		return false
+	if at_sea:
+		return charts.knows_zone(viewer, region, int(battle.get("zone", -1)))
+	return charts.knows_province(viewer, region, int(battle.get("province", -1)))
 
 
 static func _met(state: DiplomacyState, viewer: int, faction: int) -> bool:
