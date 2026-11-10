@@ -187,8 +187,21 @@ func apply_delta(a: int, b: int, delta: float, kind: String, data: Dictionary = 
 	return record.score
 
 
-func record_event(kind: String, a: int, b: int, data: Dictionary = {}) -> void:
-	events.append({"kind": kind, "a": a, "b": b, "turn": turn, "data": data})
+## Appends one chronicle entry. `stamp` overrides the state's own turn for acts
+## that resolve on a later pass than the one they narrate (a spy's despatch
+## reads the turn that just closed); a negative stamp keeps `turn`.
+func record_event(
+	kind: String, a: int, b: int, data: Dictionary = {}, stamp: int = -1
+) -> void:
+	events.append(
+		{
+			"kind": kind,
+			"a": a,
+			"b": b,
+			"turn": stamp if stamp >= 0 else turn,
+			"data": data,
+		}
+	)
 
 
 func apply_decay() -> int:
