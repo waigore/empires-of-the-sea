@@ -1,6 +1,6 @@
 # Diplomacy
 
-War, peace, treaties, aid, intervention and the chronicle (wiki:
+War, peace, treaties, aid, intervention, the chronicle (wiki:
 [diplomacy](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy)).
 Open from the `COURT` seal.
 
@@ -8,8 +8,9 @@ Open from the `COURT` seal.
 
 ## Implemented
 
-- **Relations** (`DiplomacyState`): pair score (0–100), war state, turn
-  stamps; same-region seed 50. Bands 0–25/26–50/51–75/76–100 show as a ladder. GP pairs start at Embassy both ways; survives war and peace.
+- **Relations** (`DiplomacyState`): pair score, war state, turn
+  stamps; same-region seed 50. Bands 0–25/26–50/51–75/76–100 show as a ladder,
+  never scores. GP pairs start at Embassy both ways; survives war and peace.
 - **Decay:** non-war pairs drift 4.0 toward 50 unless an event touched them;
   war freezes.
 - **War / peace:** war requires peace, freezes the score, clears overtures
@@ -19,9 +20,9 @@ Open from the `COURT` seal.
   and war never coexist.
 - **Call to arms:** a GP war calls each formal ally of the defender once. AI
   allies join at 50+; human calls wait; refusal breaks the treaty.
-- **Intervention:** a war on a Minor/Tribe offers embassy courts:
-  intervene, stand aside (lose the embassy) or protest (−10; −5 against
-  Propaganda).
+- **Intervention:** a war on a Minor/Tribe lets embassy and deed
+  holders choose: intervene, stand aside (lose the embassy) or protest
+  (−10; −5 against Propaganda).
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
   £5,000 + £2,000/province; one per target per turn.
   Minor/Tribe embassies need Diplomatic Expertise.
@@ -29,21 +30,21 @@ Open from the `COURT` seal.
   (≤3 provinces, no capital) needs Empire Building.
 - **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy
   5–20% in fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
-- **First contact:** a Tribe enters court once a visible tile touches its
-  provinces; sea-reach intel does not count.
-- **Chronicle** (`DiplomacyHistory`): events stay unbounded; the panel shows
-  the pair's newest first, stamped `Year Y (Turn N)`; unmet crowns read
+- **First contact:** a Tribe enters court once a seen tile sits in its
+  provinces; sea-reach intel does not.
+- **Chronicle** (`DiplomacyHistory`): events stay unbounded; the panel shows the
+  pair newest first, `Year Y (Turn N)`; unmet crowns read
   `Unknown faction`; scores never print.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, banded suspicion and
-  behaviour counts per court ([`intel-dossier.md`](intel-dossier.md)).
+  behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
 - **Rival AI courts:** one legal order per GP per turn ([`ai.md`](ai.md)).
   Below 50 war desire a rival offers white peace; either answer starts a
   3-turn cooldown (`diplomacy.peace_cooldown_turns`).
 
 ## Deferred (REQ-P2-02)
 
-- Subsidy pricing, trade boosts, FTP, boycotts (no counterparty).
-- Spy, Merchant overseas cargo, colony profit share, near-defeat land war.
+- Subsidy pricing, trade boosts, FTP, boycotts (no counterparty); spy,
+  Merchant overseas cargo, colony profit share, near-defeat land war.
 
 ## Architecture
 
@@ -70,8 +71,8 @@ Rules need no nodes (`REQ-P3-03`). Panel → `DiplomacyOrders.apply`; phase →
 
 ## Tests
 
-Suites: `test_diplomacy_state/orders/panel/history/screen/proposals`,
-`test_call_to_arms`, `test_intervention`, `test_intel_dossier`.
+Suites: `test_diplomacy_*`, `test_call_to_arms`, `test_intervention`,
+`test_intel_dossier`.
 
 ```bash
 gd-tools test --coverage --min 80
