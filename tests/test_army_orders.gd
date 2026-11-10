@@ -336,3 +336,26 @@ func test_roster_shows_chevrons_and_wounds() -> void:
 	assert_eq((condition.get_child(3) as Label).text, "50%")
 	assert_true(String(panel._strength.text).contains("2 chevrons"))
 	panel.free()
+
+
+## An embarked army is one draft aboard a squadron, so its dossier offers no
+## detach order (wiki: military-armies § Split and combine; ships-and-naval
+## § Naval transport).
+func test_an_embarked_dossier_offers_no_detach_order() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(6, 0, 0, ["guards", "pikemen"], false)
+	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
+	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
+
+	panel.refresh(model, army, true)
+
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_eq(
+		(row.get_child(0) as HBoxContainer).get_child_count(),
+		1,
+		"no detach order while aboard"
+	)
+	assert_true(String(panel._status.text).contains("Aboard the fleet"))
+	panel.free()

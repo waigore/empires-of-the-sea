@@ -197,7 +197,7 @@ func refresh(
 	_command.text = command
 	_command.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_fill_roster(army, is_player)
+	_fill_roster(army, is_player and not army.is_embarked())
 	_fill_muster(muster)
 	if not (is_player and army.home):
 		_muster_open = false
