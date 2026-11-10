@@ -12,6 +12,7 @@ static func open(play: PlaySession) -> void:
 		play.diplomacy.initialize(play.turn)
 	play.diplomacy.human_faction = play.player_faction
 	sync_first_contact(play)
+	_install_terms(play)
 	DiplomacyHud.show(
 		play.hud.panels,
 		play.diplomacy,
@@ -26,6 +27,7 @@ static func open(play: PlaySession) -> void:
 static func refresh(play: PlaySession) -> void:
 	if play.diplomacy == null or play.observer_mode:
 		return
+	_install_terms(play)
 	DiplomacyHud.refresh(
 		play.hud.panels,
 		play.diplomacy,
@@ -268,3 +270,10 @@ static func _tech(play: PlaySession) -> Dictionary:
 	if play.economy == null or play.economy.economy == null:
 		return {}
 	return play.economy.economy.tech_unlocked
+
+
+## Publishes every crown's trade terms on the shared market, so a pact, boycott
+## or subsidy reaches the ledger's prices (wiki: world-market § FTP).
+static func _install_terms(play: PlaySession) -> void:
+	var market: WorldMarket = play.economy.market if play.economy != null else null
+	DiplomacyTrade.apply_terms(play.diplomacy, play.world, market)

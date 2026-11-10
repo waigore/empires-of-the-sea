@@ -44,6 +44,22 @@ const SUBSIDY_MAX: int = 20
 const SUBSIDY_STEP: int = 5
 const SUBSIDY_OPTIONS: Array[int] = [5, 10, 15, 20]
 
+## Favoured Trading Partner (GP–GP): the target accepts at this standing
+## (wiki: world-market § FTP). Each pact shifts our world-market terms 5%.
+const FTP_MIN_SCORE: float = 65.0
+const FTP_TERMS: float = 0.05
+
+## A colonial boycott worsens the boycotted crown's market terms by 10%
+## (wiki: diplomacy § GP–Tribe — Boycott; terms model: docs/diplomacy.md).
+const BOYCOTT_TERMS: float = 0.10
+
+## Price multipliers stay inside these rails so stacked pacts can never hand a
+## crown free goods or an absurd windfall.
+const TERMS_BUY_MIN: float = 0.70
+const TERMS_BUY_MAX: float = 1.50
+const TERMS_SELL_MIN: float = 0.50
+const TERMS_SELL_MAX: float = 1.30
+
 const INITIAL_SCORE: float = 50.0
 const EQUILIBRIUM: float = 50.0
 const RELATION_DECAY: float = 4.0

@@ -12,6 +12,16 @@ const KIND_OVERTURE: String = "overture"
 const KIND_AID: String = "grant_aid"
 const KIND_SUBSIDY: String = "set_subsidy"
 const KIND_CANCEL_SUBSIDY: String = "cancel_subsidy"
+const KIND_FTP: String = DiplomacyTrade.KIND_FTP
+const KIND_REVOKE_FTP: String = DiplomacyTrade.KIND_REVOKE_FTP
+const KIND_BOYCOTT: String = DiplomacyTrade.KIND_BOYCOTT
+const KIND_REVOKE_BOYCOTT: String = DiplomacyTrade.KIND_REVOKE_BOYCOTT
+
+## Panel sections: choice first, trade terms last (REQ-P5-02).
+const GROUP_ORDERS: String = "orders"
+const GROUP_TREATIES: String = "treaties"
+const GROUP_AID: String = "aid"
+const GROUP_TRADE: String = "trade"
 
 
 static func options(
@@ -28,19 +38,23 @@ static func options(
 		return result
 	var type: int = FactionCatalog.type_of(target)
 	if record.at_war:
-		result.append(_valued("Offer Peace", DiplomacyRules.can_make_peace(state, player, target), KIND_PEACE))
+		result.append(
+			_valued("Offer Peace", DiplomacyRules.can_make_peace(state, player, target), KIND_PEACE)
+		)
 	else:
-		result.append(_valued("Declare War", DiplomacyRules.can_declare_war(state, player, target), KIND_WAR))
+		result.append(
+			_valued("Declare War", DiplomacyRules.can_declare_war(state, player, target), KIND_WAR)
+		)
 	if type == FactionCatalog.Type.GREAT_POWER and not record.at_war:
 		if record.formal_alliance:
 			result.append(
-				_valued("Break Alliance", _can_break(record), KIND_BREAK)
+				_valued("Break Alliance", _can_break(record), KIND_BREAK, "", "", GROUP_TREATIES)
 			)
 		else:
 			result.append(
 				_valued(
 					"Offer Alliance", DiplomacyRules.can_form_alliance(state, player, target),
-					KIND_ALLIANCE
+					KIND_ALLIANCE, "", "", GROUP_TREATIES
 				)
 			)
 	var next: String = DiplomacyCatalog.next_stage(state.overture(player, target))
@@ -56,7 +70,8 @@ static func options(
 				),
 				KIND_OVERTURE,
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
-				next
+				next,
+				GROUP_TREATIES
 			)
 		)
 	if not record.at_war:
@@ -67,39 +82,98 @@ static func options(
 				),
 				KIND_AID,
 				DiplomacyCatalog.money(DiplomacyCatalog.GRANT_AID_STEP),
-				str(DiplomacyCatalog.GRANT_AID_STEP)
+				str(DiplomacyCatalog.GRANT_AID_STEP),
+				GROUP_AID,
+				"One gift of gold; the court remembers it."
 			)
 		)
+		if type == FactionCatalog.Type.GREAT_POWER:
+			_add_ftp_options(result, state, player, target)
+			_add_boycott_options(result, state, player, target)
 		if type == FactionCatalog.Type.MINOR_NATION or type == FactionCatalog.Type.TRIBE:
-			if state.subsidy(player, target) > 0:
-				result.append(
-					_valued(
-						"End Subsidy · %d%%" % state.subsidy(player, target),
-						_allow(), KIND_CANCEL_SUBSIDY
-					)
-				)
-			if DiplomacyRules.has_embassy(state, player, target):
-				for percent: int in DiplomacyCatalog.SUBSIDY_OPTIONS:
-					result.append(
-						_valued(
-							"Set Subsidy · %d%%" % percent,
-							DiplomacyAid.can_set_subsidy(state, player, target, percent),
-							KIND_SUBSIDY,
-							"",
-							str(percent)
-						)
-					)
-			else:
-				result.append(
-					_valued(
-						"Set Subsidy · 5%",
-						DiplomacyAid.can_set_subsidy(state, player, target, 5),
-						KIND_SUBSIDY,
-						"",
-						"5"
-					)
-				)
+			_add_subsidy_options(result, state, player, target)
 	return result
+
+
+## Favoured trading pact and colonial boycott, both GP-only and both toggles:
+## the court always offers the way back out of a standing agreement.
+static func _add_ftp_options(
+	result: Array[Dictionary], state: DiplomacyState, player: int, target: int
+) -> void:
+	if DiplomacyTrade.is_ftp(state, player, target):
+		result.append(
+			_valued(
+				"End Favoured Trading Pact",
+				DiplomacyTrade.can_revoke_ftp(state, player, target),
+				KIND_REVOKE_FTP, "", "", GROUP_TRADE,
+				"Trade terms return to the world price."
+			)
+		)
+		return
+	result.append(
+		_valued(
+			"Offer Favoured Trading Pact",
+			DiplomacyTrade.can_establish_ftp(state, player, target),
+			KIND_FTP, "", "", GROUP_TRADE,
+			"Our imports cost 5% less and our exports earn 5% more."
+		)
+	)
+
+
+static func _add_boycott_options(
+	result: Array[Dictionary], state: DiplomacyState, player: int, target: int
+) -> void:
+	if DiplomacyTrade.is_boycotting(state, player, target):
+		result.append(
+			_valued(
+				"Lift the Boycott",
+				DiplomacyTrade.can_revoke_boycott(state, player, target),
+				KIND_REVOKE_BOYCOTT, "", "", GROUP_TRADE,
+				"Their trade with our colonies resumes."
+			)
+		)
+		return
+	result.append(
+		_valued(
+			"Boycott Their Trade",
+			DiplomacyTrade.can_boycott(state, player, target),
+			KIND_BOYCOTT, "", "", GROUP_TRADE,
+			"Our colonies shut to them: their market terms worsen 10%."
+		)
+	)
+
+
+static func _add_subsidy_options(
+	result: Array[Dictionary], state: DiplomacyState, player: int, target: int
+) -> void:
+	if state.subsidy(player, target) > 0:
+		result.append(
+			_valued(
+				"End Subsidy · %d%%" % state.subsidy(player, target),
+				_allow(), KIND_CANCEL_SUBSIDY, "", "", GROUP_TRADE,
+				"Prices return to the world market."
+			)
+		)
+	if not DiplomacyRules.has_embassy(state, player, target):
+		result.append(
+			_valued(
+				"Set Subsidy · 5%",
+				DiplomacyAid.can_set_subsidy(state, player, target, 5),
+				KIND_SUBSIDY, "", "5", GROUP_TRADE,
+				"An embassy is needed to direct trade to this court."
+			)
+		)
+		return
+	for percent: int in DiplomacyCatalog.SUBSIDY_OPTIONS:
+		result.append(
+			_valued(
+				"Set Subsidy · %d%%" % percent,
+				DiplomacyAid.can_set_subsidy(state, player, target, percent),
+				KIND_SUBSIDY, "", str(percent), GROUP_TRADE,
+				"Their goods cost us %d%% more; ours earn %d%% less." % [percent, percent],
+				state.subsidy(player, target) == percent
+			)
+		)
 
 
 static func validate(
@@ -135,6 +209,14 @@ static func validate(
 			)
 		KIND_CANCEL_SUBSIDY:
 			return _allow() if state.subsidy(player, target) > 0 else _deny("No subsidy is active.")
+		KIND_FTP:
+			return DiplomacyTrade.can_establish_ftp(state, player, target)
+		KIND_REVOKE_FTP:
+			return DiplomacyTrade.can_revoke_ftp(state, player, target)
+		KIND_BOYCOTT:
+			return DiplomacyTrade.can_boycott(state, player, target)
+		KIND_REVOKE_BOYCOTT:
+			return DiplomacyTrade.can_revoke_boycott(state, player, target)
 		_:
 			return _deny("Unknown court order.")
 
@@ -181,6 +263,14 @@ static func apply(
 				"reason": "",
 				"message": "The subsidy to %s is ended." % FactionCatalog.name_of(target),
 			}
+		KIND_FTP:
+			return DiplomacyTrade.establish_ftp(state, player, target)
+		KIND_REVOKE_FTP:
+			return DiplomacyTrade.revoke_ftp(state, player, target)
+		KIND_BOYCOTT:
+			return DiplomacyTrade.boycott(state, player, target)
+		KIND_REVOKE_BOYCOTT:
+			return DiplomacyTrade.revoke_boycott(state, player, target)
 	return _deny("Unknown court order.")
 
 
@@ -189,13 +279,19 @@ static func _valued(
 	check: Dictionary,
 	kind: String,
 	cost_text: String = "",
-	arg: String = ""
+	arg: String = "",
+	group: String = GROUP_ORDERS,
+	hint: String = "",
+	active: bool = false
 ) -> Dictionary:
 	return {
 		"label": label,
 		"kind": kind,
 		"arg": arg,
 		"cost_text": cost_text,
+		"group": group,
+		"hint": hint,
+		"active": active,
 		"ok": bool(check.get("ok", false)),
 		"reason": String(check.get("reason", "")),
 	}
