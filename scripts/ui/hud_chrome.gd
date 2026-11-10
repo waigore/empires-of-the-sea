@@ -320,9 +320,9 @@ static func _gazette_plate(hud: GameHud) -> void:
 	hud.gazette_plate = GazettePlate.new()
 	hud.gazette_plate.z_index = 30
 	hud.add_child(hud.gazette_plate)
-	# A cartouche seal reopens the news, so a dismiss never loses it (REQ-P5-02).
+	# A cartouche seal reopens the news, after the two lens seals on the rail.
 	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")
-	seal.position = Vector2(18.0, 132.0)
+	seal.position = Vector2(314.0, 132.0)
 	seal.pressed.connect(func() -> void: hud.gazette_pressed.emit())
 	hud.add_child(seal)
 

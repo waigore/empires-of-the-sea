@@ -19,6 +19,8 @@ enum Mode { SHEET, ARCHIVE, WATCHLIST }
 const MAX_WIDTH: float = 640.0
 const MIN_WIDTH: float = 288.0
 const PLATE_TOP: float = 88.0
+## Default lane the HUD stacks its toasts in, restored when the sheet goes.
+const TOAST_LANE: float = 84.0
 const VIEWPORT_MARGIN: float = 12.0
 const EMPTY_LINE: String = "Nothing reached the presses this turn."
 const NO_HISTORY: String = "The presses have not run yet."
@@ -41,6 +43,7 @@ var _body: VBoxContainer = null
 var _scroll: ScrollContainer = null
 var _tabs: HBoxContainer = null
 var _nav: HBoxContainer = null
+var _watchlist: GazetteWatchlist = null
 var _newer: Button = null
 var _older: Button = null
 var _nav_label: Label = null
@@ -96,6 +99,7 @@ func dismiss() -> void:
 		return
 	_shown = false
 	visible = false
+	_fit()
 	dismissed.emit()
 
 
@@ -130,6 +134,9 @@ func _build() -> void:
 	style.shadow_size = 10
 	style.shadow_offset = Vector2(0, 3)
 	_panel.add_theme_stylebox_override("panel", style)
+	# The sheet is sized by its content, so every layout pass feeds the fit (and
+	# through it the toast lane) — labels only report a true height once wide.
+	_panel.resized.connect(_fit)
 	add_child(_panel)
 
 	var column := VBoxContainer.new()
@@ -155,6 +162,12 @@ func _build() -> void:
 	# A wrapped line's height is only known once the plate has its width.
 	_body.minimum_size_changed.connect(_fit)
 	_scroll.add_child(_body)
+	# The watchlist editor lives in the body but survives a repaint, so its own
+	# rows are the only thing a mode change rebuilds.
+	_watchlist = GazetteWatchlist.new()
+	_watchlist.visible = false
+	_watchlist.watch_changed.connect(func(faction: int) -> void: watch_changed.emit(faction))
+	_body.add_child(_watchlist)
 
 
 func _header() -> Control:
@@ -227,8 +240,11 @@ func _step(delta: int) -> void:
 
 func _render() -> void:
 	for child: Node in _body.get_children():
+		if child == _watchlist:
+			continue
 		_body.remove_child(child)
 		child.queue_free()
+	_watchlist.visible = _mode == Mode.WATCHLIST
 	for child: Node in _tabs.get_children():
 		var button: Button = child as Button
 		if button == null:
@@ -301,55 +317,7 @@ func _sections(sheet: Dictionary) -> void:
 func _render_watchlist() -> void:
 	_title.text = "THE GAZETTE  ·  WATCHLIST"
 	_stamp.text = "Courts whose doings are reported"
-	_body.add_child(
-		_label(
-			"Every court your crown has met may be followed. Struck-off courts stay "
-			+ "struck off, even if a new treaty binds them.",
-			13,
-			INK_SOFT
-		)
-	)
-	_body.add_child(_spacer(4))
-	var followed: int = 0
-	for faction: int in _known_courts():
-		var row := CheckBox.new()
-		row.text = "%s  ·  %s" % [
-			FactionCatalog.name_of(faction),
-			FactionCatalog.type_label(FactionCatalog.type_of(faction)),
-		]
-		row.add_theme_font_size_override("font_size", 14)
-		row.add_theme_color_override("font_color", Palette.INK)
-		row.button_pressed = state != null and state.is_watched(faction)
-		if row.button_pressed:
-			followed += 1
-		row.toggled.connect(_on_watch_toggled.bind(faction))
-		_body.add_child(row)
-	if followed == 0:
-		_body.add_child(_label("No court is followed — the sheet will be quiet.", 13, Palette.INK))
-
-
-func _on_watch_toggled(on: bool, faction: int) -> void:
-	if state == null:
-		return
-	state.set_watched(faction, on)
-	watch_changed.emit(faction)
-	call_deferred("_render")
-
-
-## Every faction this crown has met, plus any it already follows.
-func _known_courts() -> Array[int]:
-	var ids: Array[int] = []
-	if state != null:
-		ids.append_array(state.watched)
-	if diplomacy != null:
-		for record: DiplomacyRelation in diplomacy.relations.values():
-			if record == null or not (record.a == viewer or record.b == viewer):
-				continue
-			var other: int = record.other(viewer)
-			if other >= 0 and not ids.has(other):
-				ids.append(other)
-	ids.sort()
-	return ids
+	_watchlist.fill(state, diplomacy, viewer)
 
 
 # --- layout and helpers ------------------------------------------------------
@@ -372,6 +340,31 @@ func _fit() -> void:
 	var room_left: float = maxf(size.y - PLATE_TOP - VIEWPORT_MARGIN - 150.0, 120.0)
 	var content: float = _body.get_combined_minimum_size().y
 	_scroll.custom_minimum_size = Vector2(0, clampf(content, 120.0, room_left))
+	_avoid_toasts()
+
+
+## Toasts are the moment's acknowledgement (REQ-P5-05). While the sheet is up
+## they take the lane under it rather than printing across the masthead.
+func _avoid_toasts() -> void:
+	# The plate is sized by its content, so this waits for the laid-out height:
+	# before the first layout pass there is no bottom to clear, and the refit
+	# that follows the layout moves the lane.
+	var height: float = _panel.size.y
+	if height <= 0.0:
+		return
+	var hud: Node = get_parent()
+	if hud == null:
+		return
+	var lane_box: Control = hud.get("_toast_box") as Control
+	if lane_box == null:
+		return
+	var bottom: float = PLATE_TOP + height
+	var lane: float = TOAST_LANE
+	if _shown and size.y - bottom >= 180.0:
+		lane = bottom + 10.0
+	if not is_equal_approx(lane_box.offset_top, lane):
+		lane_box.offset_top = lane
+		lane_box.offset_bottom = lane
 
 
 func _label(text: String, pixels: int, ink: Color, italic: bool = false) -> Label:

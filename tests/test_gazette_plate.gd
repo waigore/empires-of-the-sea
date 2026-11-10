@@ -105,6 +105,38 @@ func test_the_plate_narrows_to_a_phone_viewport() -> void:
 	assert_true(width >= GazettePlate.MIN_WIDTH)
 
 
+## Toasts stay readable: while the sheet is up they are pushed to the lane under
+## it, and the moment it goes they return to the top (REQ-P5-05).
+func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
+	var host := ToastHost.new()
+	host.size = Vector2(1280, 800)
+	add_child(host)
+	host._toast_box = Control.new()
+	host._toast_box.offset_top = GazettePlate.TOAST_LANE
+	host._toast_box.offset_bottom = GazettePlate.TOAST_LANE
+	host.add_child(host._toast_box)
+
+	var sheet_plate := GazettePlate.new()
+	host.add_child(sheet_plate)
+	sheet_plate.open_sheet(_sheet(3), GazetteState.new(), null, VIEWER)
+	# The lane follows the laid-out sheet, so let one layout pass settle.
+	await get_tree().process_frame
+	sheet_plate._fit()
+	assert_true(
+		host._toast_box.offset_top > GazettePlate.TOAST_LANE,
+		"the lane drops below the sheet"
+	)
+	sheet_plate.dismiss()
+	assert_eq(host._toast_box.offset_top, GazettePlate.TOAST_LANE, "the lane comes back")
+	host.free()
+
+
+## A stand-in for the HUD: the plate only needs the toast lane to exist.
+class ToastHost:
+	extends Control
+	var _toast_box: Control = null
+
+
 # --- helpers -----------------------------------------------------------------
 
 
