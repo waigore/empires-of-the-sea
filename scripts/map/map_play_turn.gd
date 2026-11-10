@@ -159,7 +159,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		if rearmed > 0:
 			play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
 				rearmed, "" if rearmed == 1 else "s"])
-	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
+	var land_battles: Array[Dictionary] = MapPlayArmyBattles.resolve(play)
 	var naval_battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
 	MapPlaySpies.resolve(play)
 	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest

@@ -84,8 +84,9 @@ var gazette: GazetteState = null
 var last_falls: Array[Dictionary] = []
 
 var turn: int = 1
-## Quick Battle stance for the human's land battles: aggressive, balanced or
-## defensive (wiki: quick-battle § Turn structure and actions).
+## The crown's standing Quick Battle plan — aggressive, balanced or defensive.
+## One plan for every battle the human commands, attacking or defending, kept
+## with the campaign (wiki: quick-battle § The crown's plan; DR-20261110-33).
 var battle_plan: String = "balanced"
 var income: int = 120
 ## Last turn's world-market clearing report (deals, notes, credits), for the

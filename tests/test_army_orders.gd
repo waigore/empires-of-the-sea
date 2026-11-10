@@ -167,6 +167,26 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The dossier's one battle-plan tap is a crown-wide standing order, named so it
+## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
+## DR-20261110-33; REQ-P5-03).
+func test_the_dossier_cycles_the_crowns_battle_plan() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	assert_eq(_screen.play.battle_plan, "balanced")
+	assert_eq(panel._plan.text, "Crown battle plan: Balanced")
+
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "aggressive")
+	assert_eq(panel._plan.text, "Crown battle plan: Aggressive")
+
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "defensive")
+	panel._plan.pressed.emit()
+	assert_eq(_screen.play.battle_plan, "balanced", "the cycle closes")
+
+
 func test_the_drill_yard_stacks_below_the_roster() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)
@@ -444,3 +464,42 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	)
 	assert_true(String(panel._status.text).contains("Aboard the fleet"))
 	panel.free()
+
+
+## The dossier names the stance as the crown's, never that army's: one plan
+## commands every Quick Battle the human fights (wiki: quick-battle § The
+## crown's plan; DR-20261110-33).
+func test_the_dossier_names_the_crowns_plan() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(8, 0, 1, ["guards"], false)
+
+	panel.refresh(model, army, true, false, "", [], "", "aggressive")
+
+	assert_eq(String(panel._plan.text), "Crown battle plan: Aggressive")
+	assert_true(String(panel._plan.tooltip_text).contains("crown"))
+	panel.refresh(model, army, true, false, "", [], "", "hammer")
+	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
+	panel.free()
+
+
+## One tap on any own army's dossier cycles the whole crown's stance, and an
+## unknown value starts from balanced rather than stranding the cycle
+## (wiki: quick-battle § The crown's plan).
+func test_cycling_the_plan_is_crown_wide() -> void:
+	var play: PlaySession = _screen.play
+	var army: ArmyState = _player_home()
+	play.battle_plan = "balanced"
+
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "defensive", "the plan lives on the crown, not the army")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "balanced")
+
+	play.battle_plan = "hammer"
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive", "an unknown stance cycles from balanced")
+

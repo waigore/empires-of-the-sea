@@ -11,16 +11,17 @@ const MIN_SEA_ZONES: int = 8
 const MAX_SEA_ZONES: int = 20
 const WORLD_ATTEMPTS: int = 6
 
-## Region generation targets (wiki: game-setup configurable values).
-const OLD_WORLD_TILE_TARGET: int = 64
-const NEW_WORLD_TILE_TARGET: int = 40
-const OLD_WORLD_PROVINCES: Vector2i = Vector2i(24, 64)
-const NEW_WORLD_PROVINCES: Vector2i = Vector2i(20, 90)
+## Fixed political map (wiki: naming § default ruleset, advanced-starts § locked
+## full-init profile: 60 Old World and 30 New World provinces shared by
+## 6 Great Powers + 6 Minor Nations and 10 Tribes). Map size changes the tiles
+## per province, not how many parties hold the chart.
+const OLD_WORLD_PROVINCES: int = 60
+const NEW_WORLD_PROVINCES: int = 30
 
 var _rng := RandomNumberGenerator.new()
 
 
-## Default entry point: one Old World map (6 Great Powers + 3 Minor Nations).
+## Default entry point: one Old World map (6 Great Powers + 6 Minor Nations).
 func generate(seed_value: int, p_width: int = 128, p_height: int = 84) -> MapModel:
 	return generate_region(seed_value, FactionCatalog.OLD_WORLD, p_width, p_height)
 
@@ -91,9 +92,8 @@ func _build_provinces(model: MapModel) -> void:
 		return
 
 	var new_world: bool = model.region_id == FactionCatalog.NEW_WORLD
-	var tile_target: int = NEW_WORLD_TILE_TARGET if new_world else OLD_WORLD_TILE_TARGET
-	var bounds: Vector2i = NEW_WORLD_PROVINCES if new_world else OLD_WORLD_PROVINCES
-	var target: int = clampi(land.size() / tile_target, bounds.x, bounds.y)
+	var wanted: int = NEW_WORLD_PROVINCES if new_world else OLD_WORLD_PROVINCES
+	var target: int = mini(wanted, land.size())
 	var seeds: Array[Vector2i] = MapRegions.farthest_seeds(model, land, target, true, _rng)
 	MapRegions.grow(model, seeds, true, _rng)
 

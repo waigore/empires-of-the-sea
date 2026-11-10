@@ -157,7 +157,13 @@ func _load_save(slot: int) -> void:
 	var dir: String = current_screen.save_dir if current_screen != null else SaveStore.DIR
 	var data: Dictionary = SaveStore.load_slot(slot, dir)
 	if not SaveCodec.is_valid(data):
-		_show_main_menu("That save could not be read.")
+		# A refused load leaves the running campaign alone: the pause menu comes
+		# back with the notice instead of the campaign being replaced by the
+		# title screen (wiki: campaign-persistence § Load and resume).
+		if current_screen != null:
+			current_screen.game_menu.show_load_refused(SaveBrowser.UNREADABLE)
+		else:
+			_show_main_menu("That save could not be read.")
 		return
 	var screen: MapScreen = _new_screen()
 	screen.save_dir = dir

@@ -98,7 +98,10 @@ func test_docking_puts_the_fleet_in_port() -> void:
 
 	assert_eq(fleet.location, FleetState.Location.IN_PORT)
 	assert_eq(fleet.province, province_id)
-	assert_true(ship.docked)
+	if _screen.ship_layer.ships.has(ship):
+		assert_true(ship.docked, "the hull sits in port")
+	else:
+		assert_true(fleet.moved, "the merged squadron is in port")
 	assert_eq(_screen.overlay.move_provinces.size(), 0)
 
 

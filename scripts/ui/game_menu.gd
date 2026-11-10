@@ -172,6 +172,15 @@ func show_save_result(ok: bool, slot: int) -> void:
 		browser.refresh()
 
 
+## A slot the router refused: the pause menu comes back with the notice and the
+## running campaign stays exactly where it was (wiki: campaign-persistence
+## § Load and resume — a refused load replaces nothing).
+func show_load_refused(message: String) -> void:
+	open()
+	_show_pause_page()
+	_status.text = message
+
+
 func _show_pause_page() -> void:
 	if _pause_page != null:
 		_pause_page.visible = true
