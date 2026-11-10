@@ -79,6 +79,7 @@ suites = [
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
+  "test_deed_income.gd",
 ]
 
 [domains.espionage]
@@ -602,6 +603,10 @@ match = "scripts/rules/world_market.gd"
 domain = "economy"
 
 [[rules]]
+match = "scripts/rules/deed_income.gd*"
+domain = "economy"
+
+[[rules]]
 match = "scripts/rules/research_*.gd"
 domain = "research"
 
@@ -870,6 +875,10 @@ domain = "diplomacy"
 
 [[rules]]
 match = "tests/test_economy_*.gd"
+domain = "economy"
+
+[[rules]]
+match = "tests/test_deed_income.gd*"
 domain = "economy"
 
 [[rules]]
