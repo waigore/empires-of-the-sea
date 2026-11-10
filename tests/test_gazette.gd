@@ -240,6 +240,126 @@ func test_a_minor_nations_fall_is_not_world_news() -> void:
 # --- prose -------------------------------------------------------------------
 
 
+## Every catalogue kind this sheet can print must produce a filled line: no
+## template may leave a field or print nothing (REQ-P2-03, REQ-P1-07).
+func test_every_catalogue_kind_prints_a_filled_line() -> void:
+	var base: Dictionary = {
+		"who": "England",
+		"whom": "France",
+		"aggressor": "Spain",
+		"target": "France",
+		"place": "Coro",
+		"label": "Embassy",
+		"count": 3,
+		"prize": "3 grain",
+		"bonus": "Tercio",
+		"amount": 1250,
+		"percent": 10,
+		"cause": "war",
+	}
+	var kinds: Array[String] = [
+		"warDeclared",
+		"peaceMade",
+		"allianceFormed",
+		"allianceBroken",
+		"joinEmpire",
+		"colonyFormed",
+		"colonyReleased",
+		"overtureEstablished",
+		"overtureRejected",
+		"callToArmsAccepted",
+		"callToArmsRefused",
+		"interventionProtest",
+		"interventionIntervened",
+		"interventionDoNothing",
+		"proposalAccepted",
+		"proposalRefused",
+		"subsidySet",
+		"subsidyCancelled",
+		"ftpSigned",
+		"ftpRefused",
+		"ftpRevoked",
+		"boycottSet",
+		"boycottRevoked",
+		"grantAid",
+		"firstContact",
+		"greatPowerFell",
+		"battleCapture",
+		"battleHeld",
+		"battleAnnihilated",
+		"battleStandoff",
+		"seaHeld",
+		"seaWithdrew",
+		"seaDraw",
+		"techFinished",
+		"richesRendered",
+		"raidSuffered",
+		"raidPrize",
+	]
+	for kind: String in kinds:
+		for self_act: bool in [true, false]:
+			var rec: Dictionary = base.duplicate()
+			rec["kind"] = kind
+			rec["self_act"] = self_act
+			var text: String = GazetteCopy.line(rec)
+			assert_false(text.is_empty(), "%s prints a line" % kind)
+			assert_false(
+				text.contains("%s") or text.contains("%d"),
+				"%s leaves no unfilled field" % kind
+			)
+
+
+## Every narrated diplomacy kind builds a record, and the record prints.
+func test_every_narrated_diplomacy_kind_builds_and_prints() -> void:
+	var state: DiplomacyState = _state(3)
+	for kind: String in GazetteDiplomacy.COURT_KINDS:
+		var event: Dictionary = {
+			"kind": kind,
+			"a": VIEWER,
+			"b": FRANCE,
+			"turn": 3,
+			"data": {
+				"aggressor": ENGLAND,
+				"target": FRANCE,
+				"stage": DiplomacyCatalog.STAGE_EMBASSY,
+				"kind": DiplomacyProposals.KIND_PEACE,
+				"percent": 10,
+				"amount": 1000,
+				"cause": "war",
+			},
+		}
+		var rec: Dictionary = GazetteDiplomacy.record(kind, event, state, VIEWER)
+		assert_false(rec.is_empty(), "%s builds a record" % kind)
+		assert_false(GazetteCopy.line(rec).is_empty(), "%s prints" % kind)
+
+
+## Every Combat outcome the rules can return reaches the sheet with a line.
+func test_every_combat_outcome_reaches_the_sheet() -> void:
+	var land: Array[int] = [
+		ArmyCombat.Outcome.ATTACKER_VICTORY,
+		ArmyCombat.Outcome.DEFENDER_VICTORY,
+		ArmyCombat.Outcome.STALEMATE,
+		ArmyCombat.Outcome.MUTUAL_ANNIHILATION,
+		ArmyCombat.Outcome.CAPTURE,
+		ArmyCombat.Outcome.ATTACKER_ADVANTAGE,
+	]
+	for outcome: int in land:
+		var battle: Dictionary = _battle(outcome)
+		var items: Array = _items(_state(3), [], [battle])
+		assert_eq(items.size(), 1, "land outcome %d prints" % outcome)
+	var sea: Array[int] = [
+		NavalCombat.Outcome.SIDE1_VICTORY, NavalCombat.Outcome.SIDE2_VICTORY,
+		NavalCombat.Outcome.STALEMATE,
+	]
+	for outcome: int in sea:
+		var battle: Dictionary = _sea_battle(outcome)
+		var items: Array = _items(_state(3), [], [], [battle])
+		assert_eq(items.size(), 1, "sea outcome %d prints" % outcome)
+	var retreat: Dictionary = _sea_battle(NavalCombat.Outcome.STALEMATE)
+	retreat["retreat"] = {"success": true, "beaten": VIEWER}
+	assert_eq(_items(_state(3), [], [], [retreat]).size(), 1, "a withdrawal prints")
+
+
 func test_the_prose_never_invents_an_outcome_for_an_unknown_kind() -> void:
 	assert_eq(GazetteCopy.line({"kind": "noSuchThing"}), "")
 
@@ -299,3 +419,32 @@ func _province() -> int:
 
 func _province_name(province: int) -> String:
 	return world.region(0).province_name(province)
+
+
+## A land-battle record of `outcome` between our crown and France.
+func _battle(outcome: int) -> Dictionary:
+	return {
+		"attacker": VIEWER,
+		"defender": FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": outcome,
+		"captured": outcome == ArmyCombat.Outcome.CAPTURE,
+		"attacker_lost": [1],
+		"defender_lost": [1, 2],
+		"garrison": 1,
+		"recovered_type": "peasant_levies",
+	}
+
+
+## A sea-battle record of `outcome` in the Old World's first zone.
+func _sea_battle(outcome: int) -> Dictionary:
+	return {
+		"attacker": VIEWER,
+		"defender": FRANCE,
+		"region": 0,
+		"zone": 0,
+		"outcome": outcome,
+		"attacker_lost": [1],
+		"defender_lost": [1, 2, 3],
+	}
