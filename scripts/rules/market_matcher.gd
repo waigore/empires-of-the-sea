@@ -137,6 +137,14 @@ static func _fill(
 	if gated_seller:
 		var stock_left: int = _stock_left(state, offer.faction, commodity)
 		if stock_left < quantity:
+			# The tons the seller no longer holds are named, so the Deal Book shows
+			# the shortfall instead of a silently smaller deal (REQ-P5-05).
+			(state["notes"] as Array).append({
+				"code": "offer_partial_fill_stock_insufficient",
+				"faction": offer.faction,
+				"commodity": commodity,
+				"quantity": quantity - maxi(stock_left, 0),
+			})
 			quantity = stock_left
 	quantity = mini(quantity, _cap_for_buyer(state, bid, commodity))
 	if quantity <= 0:

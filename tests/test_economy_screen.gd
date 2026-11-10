@@ -340,3 +340,55 @@ func test_the_ledger_names_the_last_clearing() -> void:
 	assert_not_null(_find_label(body, "LAST CLEARING"))
 	assert_not_null(_find_label(body, "Bought 1 Timber"))
 
+
+
+## The crown's ledger cannot offer what its own production will eat: the AI
+## planners already reserve those inputs (wiki: world-market § Trade orders —
+## validation rule 7; REQ-P2-03 one rule for player and AI).
+func test_an_offer_cannot_sell_what_production_will_eat() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	_screen.economy._on_production("lumber", 2)  # 2 runs x 2 timber = all of it
+	var refused: Dictionary = _screen.economy._on_trade("timber", 1, false)
+	assert_false(bool(refused.get("ok", true)), "the assigned runs have claimed the timber")
+	assert_eq(economy.quantity("timber"), 4, "a refused offer leaves the stock alone")
+	assert_eq(_screen.economy.market.offer_volume("timber"), 0, "nothing is staged")
+	_screen.economy._on_production("lumber", 0)
+	var admitted: Dictionary = _screen.economy._on_trade("timber", 1, false)
+	assert_true(bool(admitted.get("ok", false)), String(admitted.get("reason", "")))
+	assert_eq(_screen.economy.market.offer_volume("timber"), 1)
+	# The admitted ton really ships at the close.
+	var unit: int = _screen.economy.market.sell_price("timber")
+	var purse: int = economy.treasury
+	_clear_market()
+	assert_eq(economy.quantity("timber"), 3, "the offered ton left the stockpile")
+	assert_eq(economy.treasury, purse + unit, "and the sale paid")
+
+
+## The MARKET tab's Offer chip is gated by what the court's own production runs
+## leave behind, and the tooltip says how much is claimed (wiki: world-market
+## § Trade orders — the per-commodity sellable readout).
+func test_the_offer_chip_names_what_production_claims() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	_screen.economy._on_production("lumber", 2)
+	assert_eq(LedgerMarket.claimed_by_production(economy, "timber"), 4)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var chips: Array[Button] = []
+	_collect_offer_chips(body, chips)
+	var claimed_chip: Button = null
+	for chip: Button in chips:
+		if chip.tooltip_text.contains("claimed by production"):
+			claimed_chip = chip
+	assert_not_null(claimed_chip, "the chip explains the claim")
+	assert_true(claimed_chip.disabled, "nothing is left to offer")
+	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
+
+
+func _collect_offer_chips(node: Node, out: Array[Button]) -> void:
+	if node is Button and (node as Button).text == "Offer":
+		out.append(node)
+	for child: Node in node.get_children():
+		_collect_offer_chips(child, out)
