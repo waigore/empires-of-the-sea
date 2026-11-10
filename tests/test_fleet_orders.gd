@@ -1058,7 +1058,40 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 
 	assert_true(block._zone.text.contains("you hold"), block._zone.text)
 	assert_true(block._zone.text.contains("against"), block._zone.text)
+	# A rival line of the line outweighs the squadron: the verdict turns red.
+	enemy.set_hulls(["ship_77", "ship_78", "ship_79"], {"ship_77": "frigate",
+		"ship_78": "frigate", "ship_79": "ship_of_the_line"})
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+
+	assert_eq(
+		block._zone.get_theme_color("font_color"),
+		Palette.HEALTH_LOW,
+		"a losing share reads as a loss"
+	)
 	_screen.ship_layer.fleets.erase(enemy)
+
+
+## The marker's art path draws a squadron at both chart zooms: escorts, badge,
+## gauge and the printed number (REQ-P1-03, RUB-P1-04).
+func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
+	var marker := Ship.new()
+	_screen.add_child(marker)
+	marker.set_squadron(3, 12.8)
+	marker.docked = true
+	marker.set_selected(true)
+	marker.detail = true
+	marker.queue_redraw()
+	await get_tree().process_frame
+
+	marker.docked = false
+	marker.detail = false
+	marker.set_squadron(1, 2.75)
+	marker.queue_redraw()
+	await get_tree().process_frame
+
+	assert_eq(marker.hull_count, 1)
+	assert_almost_eq(marker.strength, 2.75, 0.0001)
+	marker.queue_free()
 
 
 func _owned_coastal_except(model: MapModel, skip: int) -> int:
