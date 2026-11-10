@@ -57,6 +57,7 @@ static func resolve_exchange(
 	var fort_downgraded: bool = QuickBattleBattery.downgrade_fort(
 		model, province, fort_level, guns
 	)
+	var fort_after: int = FortRules.level_at(model, province)
 	var outcome: int = _outcome(
 		atk_left, def_left, state, guns_left, atk_mods, def_mods
 	)
@@ -88,6 +89,7 @@ static func resolve_exchange(
 		"guns_start": guns.size(),
 		"guns_left": guns_left,
 		"fort_downgraded": fort_downgraded,
+		"fort_after": fort_after,
 		"attacker_cohesion": int(state["attacker"]["cohesion"]),
 		"defender_cohesion": int(state["defender"]["cohesion"]),
 	}

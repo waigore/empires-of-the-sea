@@ -289,6 +289,11 @@ func _finish() -> void:
 	_outcome.text = QuickBattleCopy.outcome_text(
 		outcome, battle, province_name, faction_names
 	)
+	# A siege leaves the walls changed: the battery's loss must be told, not
+	# silently written back to the province (REQ-P5-05, REQ-P2-03).
+	var siege: String = QuickBattleCopy.siege_line(battle)
+	if not siege.is_empty():
+		_add_log(siege)
 	var won: bool = QuickBattleCopy.player_won(outcome, battle)
 	_outcome.add_theme_color_override(
 		"font_color", Palette.GOLD_PALE if won else Color(0.86, 0.60, 0.52)

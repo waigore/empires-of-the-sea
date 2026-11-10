@@ -106,6 +106,31 @@ func test_the_plate_leads_with_the_players_own_plan() -> void:
 	overlay.free()
 
 
+## wiki: siege-mechanics § Damage Reduction, quick-battle § Integration — the
+## plate must name the fort the defenders held and the level it fell to, because
+## the resolver has already written that loss into the province.
+func test_the_aftermath_names_the_fort_the_battery_cost() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 3
+	var quick: Dictionary = battle["quick"] as Dictionary
+	quick["guns_start"] = 3
+	quick["fort_downgraded"] = true
+	quick["fort_after"] = 2
+	assert_eq(
+		QuickBattleCopy.siege_line(battle),
+		"Modern fort · 3 emplaced guns · walls spare 60% of the defenders' losses"
+		+ " — battery silenced, the fort falls to Stone"
+	)
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay.skip()
+	var last: Label = overlay._log.get_child(overlay._log.get_child_count() - 1) as Label
+	assert_true(String(last.text).contains("fort falls to Stone"))
+	overlay.free()
+	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle names no fort")
+
+
 func _battle() -> Dictionary:
 	return {
 		"attacker": 0,

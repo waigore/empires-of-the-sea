@@ -10,24 +10,26 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 
 ## Implemented
 
-- **Storage:** `ProvinceState.fort_level` 0–3, saved and restored with the
-  world (`SaveCodec`). A captured province keeps its walls; only the garrison
-  changes.
-- **Build order:** Engineers take `Fort` on a tile of their own crown's
-  province; the fort belongs to the province, not the tile. Materials are paid
-  on assignment, never refunded.
-- **Multi-turn:** one turn per level reached (L1 1, L2 2, L3 3). A completion
-  lands the ordered level; a duplicate project in the same province cannot leap
-  a level or its gate.
+- **Storage:** `ProvinceState.fort_level` 0–3, saved with the world
+  (`SaveCodec`). A captured province keeps its walls.
+- **Build order:** Engineers take `Fort` on a tile of their crown's province;
+  the fort is province-scoped. Materials are paid on assignment, never
+  refunded.
+- **Multi-turn:** one turn per level (L1 1, L2 2, L3 3). A completion lands the
+  ordered level; a duplicate project cannot leap a level or its gate.
 - **Tech gates:** L2 needs Mine Engineering, L3 needs Modern Forts.
-- **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege. Every land-battle
-  report carries `battle_mode` and `fort_level`.
-- **Walls (auto-resolve):** attacking side strength is reduced by the wall HP
-  (10 / 20 / 30) before the ratio band is read, floored at zero.
+- **Battle mode:** `fort_level == 0` is field, `≥ 1` siege; reports carry
+  `battle_mode` and `fort_level`.
+- **Walls (auto-resolve):** attacker strength drops by wall HP (10 / 20 / 30)
+  before the ratio band, floored at zero.
 - **Defender losses:** the band's defender share is scaled by 1 − damage
   reduction (0.75 / 0.55 / 0.40), so walls also spare the garrison.
-- **Emplaced battery:** the defender's side gains `guns × strength` of its
-  emplaced gun type — 1 / 2 / 3 pieces. Quality follows the researched line
+- **Walls (Quick Battle):** blows that reach the defenders take the same
+  0.75 / 0.55 / 0.40 cut; only the battery is unsheltered.
+- **Aftermath:** the plate names the fort, wall cut and, if the battery is
+  silenced, the level it falls to.
+- **Emplaced battery:** the defender gains `guns × strength` of its emplaced
+  type — 1 / 2 / 3 pieces. Quality follows the researched line
   Royal → Heavy (Heavy Emplaced Artillery) → Siege (Emplaced Siege Guns);
   unresearched courts keep Royal Artillery. Emplaced pieces are an aggregate
   bonus, never field regiments.
@@ -43,8 +45,8 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 
 ## Deferred (REQ-P2-02)
 
-- Quick Battle siege lanes: per-position "on the wall"/"behind the wall",
-  gates and sorties wait on the lane model. Virtual emplaced guns and the
+- Quick Battle siege lanes: per-position wall/behind-wall units, gates and
+  sorties wait on the lane model. Wall damage reduction, virtual guns and the
   "all guns destroyed → fort −1" downgrade are implemented.
 - Distinct town tiles: forts are province-scoped because provinces carry no
   town tile (see DR-20261108-04).

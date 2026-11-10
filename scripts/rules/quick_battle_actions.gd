@@ -61,9 +61,16 @@ static func resolve(
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
 	var enemy_side: Array[ArmyState] = enemy["side"]
 	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
-	var wanted: int = ceili(ratio * float(maxi(enemy_count, 1)))
+	var blow: float = ratio * float(maxi(enemy_count, 1))
+	# The wall blunts what reaches the defenders, never the battery itself
+	# (wiki: siege-mechanics § Damage Reduction (Tactical Combat)).
+	var wall: float = 1.0
+	if enemy_key == "defender":
+		var mods: Dictionary = enemy.get("mods", {}) as Dictionary
+		wall = FortRules.loss_scale(int(mods.get("fort", 0)))
+	var wanted: int = ceili(blow * wall)
 	if key == "attacker" and QuickBattleBattery.alive(guns) > 0:
-		var destroyed: int = QuickBattleBattery.hit(guns, maxi(1, wanted))
+		var destroyed: int = QuickBattleBattery.hit(guns, maxi(1, ceili(blow)))
 		entry["guns_destroyed"] = destroyed
 		wanted = maxi(0, wanted - destroyed)
 	if enemy_count <= 0:

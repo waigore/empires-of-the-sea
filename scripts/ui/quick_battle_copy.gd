@@ -45,6 +45,26 @@ static func outcome_text(
 	return "%s and %s stand off" % [attacker, defender]
 
 
+## Siege despatch: the fort the defenders hold, the protection its walls give,
+## and — when the battery is silenced — the level it falls to. Empty in a field
+## battle (wiki: siege-mechanics § Damage Reduction, quick-battle § Integration).
+static func siege_line(battle: Dictionary) -> String:
+	var level: int = int(battle.get("fort_level", 0))
+	if level <= 0:
+		return ""
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var text: String = FortRules.describe(level)
+	text += " · walls spare %d%% of the defenders' losses" % int(
+		round(FortRules.damage_reduction(level) * 100.0)
+	)
+	if bool(quick.get("fort_downgraded", false)):
+		var after: int = int(quick.get("fort_after", maxi(0, level - 1)))
+		text += " — battery silenced, the fort falls to %s" % (
+			FortRules.level_name(after) if after > 0 else "open field"
+		)
+	return text
+
+
 static func player_won(outcome: int, battle: Dictionary) -> bool:
 	var player: int = int(battle.get("player_faction", -1))
 	var winner: int = -1

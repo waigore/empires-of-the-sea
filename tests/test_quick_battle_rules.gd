@@ -104,6 +104,30 @@ func test_a_quick_battle_win_awards_the_general() -> void:
 	assert_eq(int(reports[0]["medal_owner"]), 0)
 
 
+## wiki: siege-mechanics § Damage Reduction (Tactical Combat) — the fort's walls
+## cut what reaches the defender map regiments, so the same fight must cost the
+## defenders less behind a Wood wall, and less again behind a Modern one.
+func test_walls_spare_the_defenders_in_quick_battle() -> void:
+	var open: Dictionary = _fight("balanced", _peasants(10), _peasants(10), 0)
+	var wood: Dictionary = _fight("balanced", _peasants(10), _peasants(10), 1)
+	var modern: Dictionary = _fight("balanced", _peasants(10), _peasants(10), 3)
+	var open_lost: int = (open["defender_lost"] as Array).size()
+	var wood_lost: int = (wood["defender_lost"] as Array).size()
+	var modern_lost: int = (modern["defender_lost"] as Array).size()
+
+	assert_true(wood_lost < open_lost, "a Wood fort's walls spare the garrison")
+	assert_true(modern_lost < wood_lost, "a Modern fort spares more than a Wood one")
+
+
+## wiki: quick-battle § Integration — the report must carry the level the fort
+## falls to, so the plate can tell the player instead of losing it silently.
+func test_a_silenced_battery_reports_the_fort_it_lost() -> void:
+	var battle: Dictionary = _fight("balanced", _peasants(6), _peasants(8), 1)
+
+	assert_true(bool(battle["quick"]["fort_downgraded"]))
+	assert_eq(int(battle["quick"]["fort_after"]), 0)
+
+
 func test_a_siege_battery_fires_while_guns_stand() -> void:
 	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(8), 3)
 	assert_eq(int(battle["quick"]["guns_start"]), 3)
@@ -186,4 +210,11 @@ func _pikes(count: int) -> Array[String]:
 	var types: Array[String] = []
 	for _index in count:
 		types.append("pikemen")
+	return types
+
+
+func _peasants(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("peasant_levies")
 	return types

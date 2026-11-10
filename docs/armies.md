@@ -17,7 +17,7 @@ Land military: roster, training, armies, generals, marches, battles, capture.
   2→4 by tech; one per army each Combat phase, seeded by turn; medals 0–4,
   +1 per win.
 - **Persistence:** saves carry general pools, medals, feeding and leader keys
-  (`LeaderCatalog`); a save without pools rebuilds the court from tech caps.
+  (`LeaderCatalog`); a save without pools rebuilds from tech caps.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, defender terrain, leader multiplier with fallback
@@ -26,31 +26,32 @@ Land military: roster, training, armies, generals, marches, battles, capture.
   regiments. One Home Army per faction at its capital, never deleted or
   marching; detach regiments to form field armies. Split/combine needs one
   province and owner; the Home Army is the merge target.
-- **Movement:** one march per turn; owned provinces connected through own
-  territory are reachable; foreign land must border.
+- **Movement:** one march per turn; provinces connected through own territory
+  are reachable; foreign land must border.
 - **Naval transport** (`NavalTransport`, `ArmyTransport`): a field army boards
   a squadron in port (one regiment per hull), sails or crosses a passage, and
   lands on an owned coast beside its zone; boarding/landing spend its march.
   Troops drown with a sunk squadron; hostile shores need a beachhead.
 - **Upkeep:** 1–3 food per regiment by era, before navy/workers.
 - **Combat:** auto-resolve: `Σ (FPN + FPM)` over the deployed slice, scaled by
-  modifiers; wiki ratio bands, weakest-first; elimination precedes a flip;
-  initiative orders attackers (one seeded tie roll). Mutual annihilation
+  modifiers; ratio bands, weakest-first; elimination precedes a flip;
+  initiative orders attackers (one seeded roll). Mutual annihilation
   restores `ceil(20%)` of the defender's start as its era's best infantry.
 - **Quick Battle** (`QuickBattle`, wiki: quick-battle): the human's battles run
   three rounds at 3 CP a side; the dossier cycles aggressive/balanced/
-  defensive. Virtual emplaced guns soak fire and can lower the fort. The
-  animated plate skips in one tap.
-- **Minor parity:** Minor Nation regiments match the leading Great Power's era
-  in place; Tribes stay at level 1.
-- **Unopposed:** an army ending in hostile or neutral land with no
-  defenders or armed third faction takes it at combat start.
+  defensive. Fort walls spare the defenders; emplaced guns soak fire and can
+  lower the fort, and the despatch names the new level. The plate skips in one
+  tap.
+- **Minor parity:** Minor Nation regiments match the leading Great Power's era;
+  Tribes stay at level 1.
+- **Unopposed:** an army ending in hostile or neutral land with no defenders
+  or armed third faction takes it at once.
 - **Dossier:** composition, strength, food, commander, orders, dock;
   `TROOPS` counts every region.
 
 ## Deferred (REQ-P2-02)
 
-Gun-loss downgrade · difficulty · regiment medals and health.
+Difficulty · regiment medals and health.
 Sieges read the province fort; see [forts.md](forts.md).
 
 ## Architecture
