@@ -21,6 +21,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 		return true
 	if play == null:
 		return false
+	# The full court dossier is the topmost sheet when it is up: back closes it
+	# before the map or the court panel hears the press (REQ-P5-07).
+	var dossier: CourtDossierScreen = play.hud.dossier_screen if play.hud != null else null
+	if dossier != null and dossier.is_open():
+		dossier.close()
+		return true
 	# The Gazette is a soft surface over the map, but back still sets it aside
 	# first so a phone never quits from under an open sheet (REQ-P5-07).
 	var gazette: GazettePlate = play.hud.gazette_plate if play.hud != null else null

@@ -38,6 +38,31 @@ func after_each() -> void:
 	_panel = null
 
 
+# --- the title block ---------------------------------------------------------
+
+
+## A province's holder is named by its kind, so a tribe's land never reads as a
+## crown's (wiki: factions — three governing types).
+func test_the_head_names_the_kind_of_court_that_holds_the_land() -> void:
+	var head := ProvinceSheetHead.new()
+	add_child(head)
+	var data: ProvinceState = _model.province_data(0)
+	var cases: Array = [
+		[
+			FactionCatalog.PLAYER_FACTION,
+			"Crown of %s" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		],
+		[6, "Minor nation of Genoa"],
+		[9, "Tribe of the Aztec"],
+		[-1, "Unclaimed territory"],
+	]
+	for spec: Array in cases:
+		data.owner = int(spec[0])
+		head.show_province(data)
+		assert_eq(head.owner_label.text, String(spec[1]))
+	head.free()
+
+
 # --- the estate block --------------------------------------------------------
 
 
@@ -72,14 +97,14 @@ func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 
 func test_the_roads_row_names_the_estates_that_reach_the_crown() -> void:
 	_show()
-	assert_eq(_panel._road_value.text, "1 of 2 developed estates linked")
-	assert_true(_panel._road_value.tooltip_text.contains("4 estates surveyed"))
+	assert_eq(_panel._grid.road.text, "1 of 2 developed estates linked")
+	assert_true(_panel._grid.road.tooltip_text.contains("4 estates surveyed"))
 
 
 func test_a_province_with_no_developed_estate_says_so() -> void:
 	_works = LandWorks.new()
 	_show()
-	assert_eq(_panel._road_value.text, "No developed estate yet")
+	assert_eq(_panel._grid.road.text, "No developed estate yet")
 
 
 # --- the rows the player complained about ------------------------------------
@@ -96,10 +121,10 @@ func test_the_dossier_keeps_no_population_or_capital_row() -> void:
 
 func test_the_town_row_names_the_town_level() -> void:
 	_show()
-	assert_eq(_panel._town_value.text, "Level 1")
+	assert_eq(_panel._grid.town.text, "Level 1")
 	_model.provinces[0].town_development = 4
 	_show()
-	assert_eq(_panel._town_value.text, "Level 4 · full")
+	assert_eq(_panel._grid.town.text, "Level 4 · full")
 
 
 # --- the town order's gate ---------------------------------------------------
@@ -107,20 +132,20 @@ func test_the_town_row_names_the_town_level() -> void:
 
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_show({})
-	assert_true(_panel._town_button.disabled, "no tech, no order")
+	assert_true(_panel._orders.town_button.disabled, "no tech, no order")
 	assert_true(
-		_panel._town_button.tooltip_text.contains("National Bureaucracy"),
-		"the button says what it waits for: %s" % _panel._town_button.tooltip_text
+		_panel._orders.town_button.tooltip_text.contains("National Bureaucracy"),
+		"the button says what it waits for: %s" % _panel._orders.town_button.tooltip_text
 	)
 	_show({"national_bureaucracy": true})
-	assert_false(_panel._town_button.disabled, "researched, the order opens")
+	assert_false(_panel._orders.town_button.disabled, "researched, the order opens")
 
 
 func test_a_fully_developed_town_closes_the_order() -> void:
 	_model.provinces[0].town_development = 4
 	_show({"national_bureaucracy": true})
-	assert_true(_panel._town_button.disabled)
-	assert_true(_panel._town_button.tooltip_text.contains("fully developed"))
+	assert_true(_panel._orders.town_button.disabled)
+	assert_true(_panel._orders.town_button.tooltip_text.contains("fully developed"))
 
 
 func test_a_foreign_province_offers_no_town_order() -> void:
@@ -130,8 +155,8 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 		{"national_bureaucracy": true}
 	)
 	_panel.refresh(_model, 1)
-	assert_true(_panel._town_button.disabled)
-	assert_true(_panel._town_button.tooltip_text.contains("not held by your crown"))
+	assert_true(_panel._orders.town_button.disabled)
+	assert_true(_panel._orders.town_button.tooltip_text.contains("not held by your crown"))
 
 
 # --- the dock affordance -----------------------------------------------------
@@ -142,7 +167,10 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 	for i in range(1, panels.size()):
 		add_child(panels[i])
 	for panel: Variant in panels:
-		var dock: Button = panel._dock
+		# Force dossiers keep the seal on their shared header; the sheets that
+		# still own it expose `_dock` directly.
+		var header: DossierHeader = panel.get("_header") as DossierHeader
+		var dock: Button = header.dock if header != null else panel.get("_dock") as Button
 		assert_true(dock != null, "%s has a dock button" % panel.get_class())
 		panel.set_dock_affordance("▶", "Dock right")
 		assert_eq(dock.text, "▶", "the glyph and nothing else")

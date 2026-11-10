@@ -5,6 +5,9 @@ extends VBoxContainer
 ## agenda and never reads one either — the reading is evidence, banded, and a
 ## "Confirmed" band still does not name the truth (REQ-P2-03, REQ-P1-07).
 
+## The court panel is a summary; the full screen carries every timeline.
+signal open_pressed
+
 const EVIDENCE_SHOWN: int = 3
 
 
@@ -20,6 +23,25 @@ func fill(state: DiplomacyState, world: WorldMap, viewer: int, subject: int) -> 
 	_add_suspicion(report)
 	_add_evidence(report)
 	add_child(_line(_behaviour(report), 12, Palette.TEXT_DIM))
+	_add_open(report)
+
+
+## One door to the full reading: every agenda's timeline, the whole evidence
+## list and the build notes live there, not in this summary (REQ-P5-01).
+func _add_open(report: Dictionary) -> void:
+	var seen: int = (report.get("evidence", []) as Array).size()
+	var text: String = "Open the full dossier"
+	if seen > 0:
+		text = "Full dossier  ·  %d observation%s  ·  timeline" % [
+			seen, "" if seen == 1 else "s"
+		]
+	var button := Button.new()
+	button.text = text
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(0, 38)
+	button.add_theme_font_size_override("font_size", 13)
+	button.pressed.connect(func() -> void: open_pressed.emit())
+	add_child(button)
 
 
 ## The best-guess line: a band and a percentage, never a claim of certainty.

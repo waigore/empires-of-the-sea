@@ -30,6 +30,33 @@ func test_slots_report_existing_saves_and_empty_slots() -> void:
 	assert_false(String(rows[2]["saved_at"]).is_empty(), "row carries a timestamp")
 
 
+## A slot holding a file this build cannot read is not an empty slot: the row
+## keeps the file's presence (so the overwrite guard still asks) and says it
+## cannot be read, inventing no summary (wiki: campaign-persistence
+## § Load and resume — announced, never silent).
+func test_an_unreadable_slot_is_reported_not_empty() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var file := FileAccess.open(SaveStore.path_for(2, DIR), FileAccess.WRITE)
+	assert_not_null(file, "the corrupt fixture opens")
+	if file == null:
+		return
+	file.store_string("not a variant")
+	file.close()
+	# A save written by a newer format is a readable dictionary this build must
+	# still refuse (wiki: campaign-persistence § Snapshots — version).
+	assert_true(
+		SaveStore.write(SaveStore.path_for(3, DIR), {"version": SaveCodec.VERSION + 1}),
+		"the newer-format fixture writes"
+	)
+
+	var rows: Array[Dictionary] = SaveStore.slots(DIR)
+	assert_true(bool(rows[1]["exists"]), "a file is in the slot")
+	assert_false(bool(rows[1]["readable"]), "the corrupt file cannot be read")
+	assert_false(rows[1].has("turn"), "no summary is invented for it")
+	assert_true(bool(rows[2]["exists"]), "the newer-format slot is not empty")
+	assert_false(bool(rows[2]["readable"]), "a newer format is refused")
+
+
 func test_overwrite_replaces_the_slot_and_delete_clears_it() -> void:
 	assert_true(SaveStore.save_slot(1, _data(2), DIR))
 	assert_true(SaveStore.save_slot(1, _data(11), DIR), "slot overwrites")

@@ -8,10 +8,17 @@ extends RefCounted
 ## to read by fill, not only by the border ribbon (REQ-P1-03).
 const OWNER_TINT: float = 0.5
 
+## How many baked charts to keep. The per-texel paint is the costliest part of
+## showing a region, and the view asks for the same map state again and again:
+## every screen a suite mounts on the shared world, every region a player
+## switches back to. A small bound keeps that free while a conquered province
+## (or an edited terrain grid) still repaints.
+const CACHE_LIMIT: int = 6
+static var _baked: Dictionary = {}
+
 
 static func build(canvas: MapCanvas, model: MapModel) -> MapRelief:
-	var relief := MapRelief.new()
-	relief.build(model, OWNER_TINT)
+	var relief: MapRelief = baked(model)
 	var texel_scale: float = MapCanvas.TILE_SIZE / float(relief.scale)
 
 	_shadow(canvas, relief, texel_scale)
@@ -33,6 +40,43 @@ static func build(canvas: MapCanvas, model: MapModel) -> MapRelief:
 	sprite.material = material
 	canvas.add_child(sprite)
 	return relief
+
+
+## The bake for this map state, painted only the first time it is asked for.
+## Callers must treat the returned relief as read-only.
+static func baked(model: MapModel) -> MapRelief:
+	var key: String = _cache_key(model)
+	var relief: MapRelief = _baked.get(key)
+	if relief == null:
+		relief = MapRelief.new()
+		relief.build(model, OWNER_TINT)
+		if _baked.size() >= CACHE_LIMIT:
+			_baked.clear()
+		_baked[key] = relief
+	return relief
+
+
+## Drops every bake, so a following build is painted rather than reused.
+static func clear_cache() -> void:
+	_baked.clear()
+
+
+## Everything the paint reads: grid size, terrain (coast and height), province
+## assignment and the deed table (ownership tint). Content, not identity, so a
+## restored map finds its own bake again.
+static func _cache_key(model: MapModel) -> String:
+	var seats := PackedInt32Array()
+	for province: ProvinceState in model.provinces:
+		seats.append(int(province.id))
+		seats.append(province.owner)
+	return "%dx%d|%d|%d|%d|%d" % [
+		model.width,
+		model.height,
+		hash(model.terrain),
+		hash(model.province),
+		hash(seats),
+		hash([model.ownership.owners, model.ownership.purchased]),
+	]
 
 
 ## Land drop shadow: the land mask offset a few pixels and darkened. Created

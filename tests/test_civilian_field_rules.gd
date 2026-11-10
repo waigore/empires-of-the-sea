@@ -1279,3 +1279,110 @@ func _row_of_type(snapshot: Dictionary, type_id: String) -> Dictionary:
 		if String(row["type_id"]) == type_id:
 			return row
 	return {}
+
+
+# --- crown link for the province dossier ------------------------------------
+
+## One row of owned land: Cádiz (capital at 0,0) and Coro (town at 6,0), with a
+## grain estate beside the Coro town.
+func _crown_link_model() -> Array:
+	var model := MapModel.new()
+	model.setup(7, 2)
+	var home_tiles: Array[Vector2i] = []
+	var far_tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 7:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 3:
+				model.province[model.index_of(x, y)] = 0
+				home_tiles.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = 1
+				far_tiles.append(tile)
+	var home := ProvinceState.create(0, "Cádiz", home_tiles, Vector2(1, 0), 6, 0, true)
+	home.capital_tile = Vector2i(0, 0)
+	home.town_tile = Vector2i(0, 0)
+	home.town_development = 4
+	var far := ProvinceState.create(1, "Coro", far_tiles, Vector2(5, 0), 8, 0, false)
+	far.town_tile = Vector2i(6, 0)
+	far.town_development = 1
+	model.provinces = [home, far]
+	model.resource[model.index_of(4, 0)] = 4
+	var works := LandWorks.new()
+	works.set_improvement(model, Vector2i(4, 0), 1)
+	return [model, works]
+
+
+## Wiki: capital-and-connectivity § Connectivity — an unlinked province town
+## reports the gap to the crown and the road tiles the crown already holds.
+func test_province_link_measures_the_gap_to_the_crown() -> void:
+	var built: Array = _crown_link_model()
+	var model: MapModel = built[0]
+	var works: LandWorks = built[1]
+	var capital: Vector2i = Vector2i(0, 0)
+	var unlinked: Dictionary = LandConnectivity.province_link(
+		model, works, 0, capital, 1
+	)
+	assert_false(bool(unlinked["linked"]))
+	assert_eq(int(unlinked["roads"]), 0)
+	assert_eq(int(unlinked["distance"]), 5, "Coro town is five tiles from the crown")
+	for x in [1, 2, 3]:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_ROAD)
+	var partial: Dictionary = LandConnectivity.province_link(model, works, 0, capital, 1)
+	assert_false(bool(partial["linked"]))
+	assert_eq(int(partial["roads"]), 1, "only Coro's own road is in the province")
+	assert_eq(int(partial["distance"]), 2, "three roads leave two tiles to build")
+	for x in [4, 5]:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_ROAD)
+	var linked: Dictionary = LandConnectivity.province_link(model, works, 0, capital, 1)
+	assert_true(bool(linked["linked"]), "the town now reaches the capital")
+	assert_eq(int(linked["distance"]), 0)
+	assert_eq(int(linked["roads"]), 3)
+	assert_eq(Vector2i(linked["town"]), Vector2i(6, 0))
+
+
+## The capital province is linked by definition, and a foreign or missing
+## province returns an empty summary rather than a false link.
+func test_province_link_guards_missing_data() -> void:
+	var built: Array = _crown_link_model()
+	var model: MapModel = built[0]
+	var works: LandWorks = built[1]
+	var home: Dictionary = LandConnectivity.province_link(
+		model, works, 0, Vector2i(0, 0), 0
+	)
+	assert_true(bool(home["linked"]), "the capital town is the seat")
+	assert_eq(int(home["distance"]), 0)
+	assert_false(bool(LandConnectivity.province_link(
+		null, works, 0, Vector2i(0, 0), 1
+	)["linked"]))
+	assert_false(bool(LandConnectivity.province_link(
+		model, works, 0, Vector2i(0, 0), -1
+	)["linked"]))
+
+
+## Wiki: extraction-and-improvements § Town and extraction — the estates ledger
+## tells the player how far an unlinked estate still is from the crown network.
+func test_the_estate_row_reports_the_gap_to_the_crown() -> void:
+	var built: Array = _crown_link_model()
+	var model: MapModel = built[0]
+	var works: LandWorks = built[1]
+	var row: Dictionary = ImprovementLedger.estate_row(
+		model, works, [], {"lumber": 9, "castIron": 9}, 0, Vector2i(4, 0),
+		Vector2i(0, 0), {}
+	)
+	assert_false(bool(row["connected"]))
+	assert_eq(int(row["link_distance"]), 3, "the estate is three tiles from the crown")
+	assert_true(
+		String(row["status_text"]).contains("3 tiles to the crown network"),
+		String(row["status_text"])
+	)
+	for x in [1, 2, 3]:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_ROAD)
+	var nearer: Dictionary = ImprovementLedger.estate_row(
+		model, works, [], {"lumber": 9, "castIron": 9}, 0, Vector2i(4, 0),
+		Vector2i(0, 0), {}
+	)
+	assert_eq(int(nearer["link_distance"]), 0,
+		"a road beside the estate links it")
+	assert_true(bool(nearer["connected"]))

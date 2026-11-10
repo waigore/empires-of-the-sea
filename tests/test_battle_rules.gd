@@ -366,6 +366,39 @@ func test_a_stalemate_reads_as_a_withdrawal() -> void:
 		"España and Portugal trade broadsides in the Azores and withdraw")
 
 
+## The despatch carries the arithmetic behind the verdict, so the court sees why
+## one side held the zone (wiki: ships-and-naval § Naval Strength Aggregation).
+func test_the_despatch_names_the_strength_behind_the_verdict() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["a", "b"],
+		"attacker_strength": 18.25,
+		"defender_strength": 11.0,
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Windward Passage", FACTIONS),
+		"España holds the Windward Passage — England loses 2 ships"
+		+ " — 18.2 strength to 11.0"
+	)
+
+
+## A resolved clash always carries the strengths the resolver fought with.
+func test_a_resolved_battle_prints_its_strengths() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["a", "b"], {"a": "frigate", "b": "frigate"})
+	var weak := FleetState.at_sea(2, 1, 0, ["c"], {"c": "carrack"})
+
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([strong, weak])
+
+	assert_gt(battles.size(), 0)
+	assert_true(
+		BattleReport.describe(battles[0], "Azores", FACTIONS).contains("strength to"),
+		"the despatch names the odds"
+	)
+
+
 func test_unknown_flags_do_not_crash_the_despatch() -> void:
 	var battle: Dictionary = {
 		"attacker": 9,

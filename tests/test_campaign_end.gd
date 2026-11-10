@@ -21,7 +21,14 @@ func before_all() -> void:
 
 func before_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
-	screen = Fixture.attach_screen(self)
+
+
+## The chart is only built for the cases that read it: the calendar and config
+## rules here assert on constants, and a screen attach paints the whole map.
+func _attach() -> MapScreen:
+	if screen == null:
+		screen = Fixture.attach_screen(self)
+	return screen
 
 
 func after_each() -> void:
@@ -84,6 +91,7 @@ func test_the_strongest_crown_is_declared_when_the_calendar_closes() -> void:
 
 
 func test_the_strongest_order_of_battle_is_declared() -> void:
+	_attach()
 	var crowns: Array[int] = _seat_crowns()
 	var model: MapModel = screen.play.world.region(screen.play.region_index)
 	var province: int = int(model.provinces[0].id)
@@ -105,6 +113,7 @@ func test_the_strongest_order_of_battle_is_declared() -> void:
 
 
 func test_a_crown_is_scored_on_its_whole_order_of_battle() -> void:
+	_attach()
 	var crowns: Array[int] = _seat_crowns()
 	var model: MapModel = screen.play.world.region(screen.play.region_index)
 	var province: int = int(model.provinces[0].id)
@@ -161,6 +170,7 @@ func _seat_crowns() -> Array[int]:
 
 
 func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
+	_attach()
 	screen.play.turn = CAP
 
 	MapPlayTurn.end_turn(screen.play)
@@ -181,6 +191,7 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 
 
 func test_a_closed_calendar_takes_no_more_turns() -> void:
+	_attach()
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
 	Fixture.settle(screen.play)
@@ -194,6 +205,7 @@ func test_a_closed_calendar_takes_no_more_turns() -> void:
 
 
 func test_a_closed_calendar_takes_no_orders() -> void:
+	_attach()
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
 	Fixture.settle(screen.play)
@@ -207,6 +219,7 @@ func test_a_closed_calendar_takes_no_orders() -> void:
 
 
 func test_the_complete_plate_speaks_the_wikis_calendar_copy() -> void:
+	_attach()
 	var overlay: VictoryOverlay = screen.hud.victory_overlay
 	var crowns: Array[int] = FactionCatalog.great_power_ids()
 	var player: int = FactionCatalog.PLAYER_FACTION
@@ -227,6 +240,7 @@ func test_the_complete_plate_speaks_the_wikis_calendar_copy() -> void:
 
 
 func test_an_endless_campaign_sails_past_the_cap() -> void:
+	_attach()
 	screen.play.infinite_mode = true
 	screen.play.turn = CAP
 
@@ -259,6 +273,31 @@ func test_setup_carries_the_campaign_choice_into_the_config() -> void:
 	assert_eq(setup.campaign_option.item_count, 2, "historical and endless on offer")
 
 
+## DR-20261111-02: setup names both lengths' endings and the ready summary
+## repeats the chosen horizon, so the choice is never blind (REQ-P5-03).
+func test_the_setup_names_both_campaign_lengths_and_their_horizon() -> void:
+	var setup: GameSetupScreen = load("res://scenes/game_setup.tscn").instantiate()
+	add_child(setup)
+
+	assert_eq(setup.campaign_option.item_count, 2, "Historical and Endless are the lengths")
+	assert_true(
+		setup.campaign_option.get_item_text(0).contains("1800"),
+		"Historical names its ending",
+	)
+	assert_true(
+		setup.campaign_option.get_item_text(1).contains("military victory"),
+		"Endless names its only ending",
+	)
+
+	setup.campaign_option.select(0)
+	setup.campaign_option.item_selected.emit(0)
+	assert_true(setup._summary.text.contains("to 1800"), "the summary repeats Historical")
+
+	setup.campaign_option.select(1)
+	setup.campaign_option.item_selected.emit(1)
+	assert_true(setup._summary.text.contains("endless"), "the summary repeats Endless")
+
+
 func test_the_config_round_trips_the_campaign_choice() -> void:
 	var config: GameConfig = GameConfig.make(7, 0, 1, "", true)
 
@@ -272,6 +311,7 @@ func test_the_config_round_trips_the_campaign_choice() -> void:
 
 
 func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
+	_attach()
 	screen.save_dir = SAVE_DIR
 	screen.play.turn = CAP
 	MapPlayTurn.end_turn(screen.play)
@@ -297,6 +337,7 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 
 
 func test_an_endless_choice_survives_the_save() -> void:
+	_attach()
 	screen.save_dir = SAVE_DIR
 	screen.play.infinite_mode = true
 	var save: Dictionary = SaveCodec.capture(screen.play)
@@ -311,6 +352,11 @@ func test_an_endless_choice_survives_the_save() -> void:
 func _load(data: Dictionary) -> MapScreen:
 	var node: MapScreen = SCREEN.instantiate()
 	node.save_dir = SAVE_DIR
+	# The save came from the shared world: hand it back so the load applies the
+	# save over that map instead of regenerating and repainting a fresh one.
+	node.map_width = Fixture.WORLD_WIDTH
+	node.map_height = Fixture.WORLD_HEIGHT
+	node.preset_world = Fixture.world()
 	node.pending_save = data
 	add_child(node)
 	return node
