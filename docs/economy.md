@@ -53,20 +53,18 @@ rivals trade the same market. Connectivity: [improvements.md](improvements.md).
 
 `MinorMarket` publishes each Minor Nation's and Tribe's harvest every turn: one
 row per tradeable commodity its estates yield, at 75% of the world price
-(`DR-20261110-08`). Riches and the capital grain ration never appear, and a court
-sells only in a region where the crown holds land. Buying pays the seller
-(treasury sink), fills stock, spends a cargo hold, and books the import for
-price discovery and naval interception. Rows expire each turn change; the book
-is saved, and a crown's trade terms also move the ask.
+(`DR-20261110-08`). Riches and capital grain never appear; a court sells only
+where the crown holds land. Buying pays the seller, fills stock, spends a hold
+and books the import. Rows expire each turn; the book is saved, and trade terms
+move the ask.
 
 ## Trade terms
 
 Prices are published once, but each crown pays and receives its own rate after
 trade diplomacy ([`diplomacy.md`](diplomacy.md) § Trade terms). The market holds
 `{"buy": {id|"*": multiplier}, "sell": {...}}` per faction; `buy_price`,
-`sell_price` and the direct offer ask apply it, while price discovery still
-reads the published price. The ledger prints the rate and adjusted rows; rivals
-trade on the same terms.
+`sell_price` and the direct ask apply it. Price discovery still reads the
+published price; the ledger prints the rate and adjusted rows.
 
 ## UI
 
@@ -77,18 +75,11 @@ rules modules (`REQ-P2-03`).
 
 ## Architecture
 
-| File | Role |
-|------|------|
-| `scripts/rules/player_economy.gd` | stockpile, treasury, workers, assignments |
-| `scripts/rules/economy_turn.gd` | phase order and projection |
-| `scripts/rules/economy_consumption.gd` | food, luxuries, strikes |
-| `scripts/rules/production_recipes.gd` | recipe catalog and whole-run planner |
-| `scripts/rules/commodity_catalog.gd` | ids, categories, prices, treasury rows |
-| `scripts/rules/world_market.gd` | global price book and per-crown trade terms |
-| `scripts/rules/town_industry.gd` | town manufacturing bonus |
-| `scripts/rules/minor_market.gd` | Minor Nation / Tribe offers and direct purchase |
-| `scripts/ui/ledger_production.gd` | production tab rows |
-| `scripts/economy/economy_controller.gd` | panel wiring and turn resolution |
+`player_economy` (stockpile, treasury, workers), `economy_turn` (phase order,
+projection), `economy_consumption`, `production_recipes`, `commodity_catalog`,
+`world_market` (price book, trade terms), `town_industry`, `minor_market`
+(offers, direct purchase), `ui/ledger_{production,market}`, and
+`economy/economy_controller` (wiring, turn resolution).
 
 ## Tests
 
