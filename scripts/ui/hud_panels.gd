@@ -269,15 +269,19 @@ func is_economy_open() -> bool:
 	return economy_open
 
 
-## The college ledger takes the same edge as the economy ledger.
-func show_research(state: ResearchState, treasury: int) -> void:
+## The college ledger takes the same edge as the economy ledger. `boost` maps
+## tech id -> spy-network percent, so a shadowed rival's advances show why they
+## move faster (wiki: civilian-units § Spy; DR-20261110-03).
+func show_research(
+	state: ResearchState, treasury: int, boost: Dictionary = {}
+) -> void:
 	hide_province()
 	hide_fleet()
 	hide_civilian()
 	hide_army()
 	hide_economy()
 	DiplomacyHud.hide(self)
-	research_panel.refresh(state, treasury)
+	research_panel.refresh(state, treasury, boost)
 	research_wrap.visible = true
 	research_open = true
 	var tween := host.create_tween()
