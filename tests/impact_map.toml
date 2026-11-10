@@ -545,6 +545,12 @@ domain = "army"
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
 
+# The land battle pass closes a turn and settles crown falls with it, so its
+# suites are the campaign ones (capital loss / defeat) plus the army battle set.
+[[rules]]
+match = "scripts/map/map_play_land_turn.gd*"
+domain = "campaign"
+
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
 domain = "ai"

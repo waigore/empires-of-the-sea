@@ -1,9 +1,9 @@
 class_name MapPlayTurn
 extends RefCounted
 ## Turn closure: the consent ladder, then movement/combat/upkeep and the new
-## turn. Campaign close and standing live in MapPlayCampaign, sea battles in
-## MapPlayNavalTurn, fog decay in MapPlayFogTurn (REQ-P3-02). This only orders
-## them and reports what the rules decided.
+## turn. Campaign close and standing live in MapPlayCampaign, land battles in
+## MapPlayLandTurn, sea battles in MapPlayNavalTurn, fog decay in MapPlayFogTurn
+## (REQ-P3-02). This only orders them and reports what the rules decided.
 
 
 static func end_turn(play: PlaySession) -> void:
@@ -159,7 +159,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		if rearmed > 0:
 			play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
 				rearmed, "" if rearmed == 1 else "s"])
-	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
+	var land_battles: Array[Dictionary] = MapPlayLandTurn.resolve(play)
 	var naval_battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
 	MapPlaySpies.resolve(play)
 	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
