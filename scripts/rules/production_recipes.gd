@@ -77,6 +77,27 @@ static func available_ids(tech_unlocked: Dictionary) -> Array[String]:
 	return out
 
 
+## Inputs the assigned runs claim from the stockpile, commodity -> units. The
+## ledger caps an offer at what production leaves behind, exactly as the AI
+## planners already reserve (wiki: world-market § Trade orders — validation
+## rule 7; REQ-P2-03 one rule for player and AI).
+static func reserved_inputs(assignments: Array) -> Dictionary:
+	var reserved: Dictionary = {}
+	for raw: Variant in assignments:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var assignment: Dictionary = raw
+		var recipe_id: String = String(assignment.get("recipe", ""))
+		var units: int = int(assignment.get("units", 0))
+		if units <= 0 or not known(recipe_id):
+			continue
+		var needed: Dictionary = inputs(recipe_id)
+		for commodity: Variant in needed.keys():
+			var id: String = String(commodity)
+			reserved[id] = int(reserved.get(id, 0)) + int(needed[commodity]) * units
+	return reserved
+
+
 ## Whole runs a recipe can complete with the given inputs and labour budget.
 static func max_runs(recipe_id: String, stockpile: Dictionary, labour_points: int) -> int:
 	if not known(recipe_id):
