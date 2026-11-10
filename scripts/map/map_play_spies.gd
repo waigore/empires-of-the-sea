@@ -9,9 +9,22 @@ extends RefCounted
 
 ## Pre-Research pass: counter-espionage kills and defections in every region.
 ## Returns the events for callers/tests; the HUD hears only player-facing ones.
+##
+## One spy on `counter_spy` anywhere covers the whole empire, so the screen set
+## is gathered across every region first: a spy caught in a colony is hunted by
+## the screen kept at home (wiki: civilian-units § Spy (3)).
 static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var events: Array[Dictionary] = []
 	if play == null or play.world == null or play.civilian_layer == null:
+		return events
+	var screens: Dictionary = {}
+	for region in play.world.region_count():
+		var model: MapModel = play.world.region(region)
+		if model == null:
+			continue
+		for owner: Variant in SpyRules.screened_owners(model, _roster(play, region)).keys():
+			screens[int(owner)] = true
+	if screens.is_empty():
 		return events
 	for region in play.world.region_count():
 		var model: MapModel = play.world.region(region)
@@ -19,7 +32,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			continue
 		var roster: Array[CivilianState] = _roster(play, region)
 		var found: Array[Dictionary] = SpyRules.resolve_turn(
-			model, roster, play.turn, play.map_seed
+			model, roster, play.turn, play.map_seed, screens
 		)
 		if found.is_empty():
 			continue

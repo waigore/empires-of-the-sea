@@ -32,6 +32,11 @@ const NARRATED: Array[String] = [
 	"colonyReleased",
 	"subsidySet",
 	"subsidyCancelled",
+	"ftpSigned",
+	"ftpRefused",
+	"ftpRevoked",
+	"boycottSet",
+	"boycottRevoked",
 	"grantAid",
 	"firstContact",
 ]
@@ -144,6 +149,20 @@ static func describe(state: DiplomacyState, event: Dictionary, viewer: int) -> S
 			return "%s set a %d%% subsidy to %s." % [a, int(data.get("percent", 0)), b]
 		"subsidyCancelled":
 			return "%s's subsidy to %s was cancelled." % [a, b]
+		"ftpSigned":
+			return "%s and %s signed a favoured trading pact." % [a, b]
+		"ftpRefused":
+			return "%s's offer of a favoured trading pact was refused by %s." % [a, b]
+		"ftpRevoked":
+			if String(data.get("cause", "")) == "war":
+				return "The war ended the favoured trading pact between %s and %s." % [a, b]
+			return "%s ended the favoured trading pact with %s." % [a, b]
+		"boycottSet":
+			return "%s closed its colonies to %s's trade." % [a, b]
+		"boycottRevoked":
+			if String(data.get("cause", "")) == "war":
+				return "The war ended %s's boycott of %s." % [a, b]
+			return "%s lifted its boycott of %s." % [a, b]
 		"grantAid":
 			return "%s sent %s in aid to %s." % [a, DiplomacyCatalog.money(int(data.get("amount", 0))), b]
 		"firstContact":

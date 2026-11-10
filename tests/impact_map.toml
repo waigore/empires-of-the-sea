@@ -64,6 +64,7 @@ suites = [
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
   "test_diplomacy_survey.gd",
+  "test_diplomacy_trade.gd",
   "test_intel_dossier.gd",
 ]
 
@@ -73,6 +74,7 @@ suites = [
   "test_economy_screen.gd",
   "test_economy_overseas.gd",
   "test_trade_cargo.gd",
+  "test_diplomacy_trade.gd",
 ]
 
 [domains.espionage]

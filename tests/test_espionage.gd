@@ -3,6 +3,7 @@ extends GdToolsTest
 ## diplomacy § Spy-death penalty) and the rival AI's spy/research policy.
 
 const CivilianFixture = preload("res://tests/civilian_fixture.gd")
+const NavalFixture = preload("res://tests/naval_fixture.gd")
 const PLAYER: int = 0
 const RIVAL: int = 1
 const SEED: int = 7
@@ -39,6 +40,35 @@ func test_spy_may_walk_into_a_foreign_province() -> void:
 	)
 	assert_true(bool(result.get("ok", false)))
 	assert_eq(spy.tile, CivilianFixture.RIVAL_GRAIN_TILE)
+
+
+## Walking a foreign province is quiet; being put ashore there is not. Landing
+## needs crown land for every civilian but Explorer and Merchant
+## (wiki: civilian-units § Overseas deployment).
+func test_a_spy_cannot_land_on_a_foreign_coast() -> void:
+	var model: MapModel = NavalFixture.build()
+	var fleet: FleetState = FleetState.at_sea(2, PLAYER, 1, ["c"], {"c": "fluyte"})
+	var spy: CivilianState = CivilianState.create(5, PLAYER, "spy", Vector2i(0, 0))
+	spy.embarked_fleet = fleet.id
+	fleet.add_civilian(spy.id)
+	var tiles: Array[Vector2i] = CivilianVoyage.landing_tiles(model, spy, fleet)
+	assert_false(tiles.has(Vector2i(5, 0)), "a rival coast refuses a spy")
+	assert_false(tiles.has(Vector2i(5, 1)), "nor its harbour")
+	var explorer: CivilianState = CivilianState.create(6, PLAYER, "explorer", Vector2i(0, 0))
+	explorer.embarked_fleet = fleet.id
+	fleet.add_civilian(explorer.id)
+	assert_true(
+		CivilianVoyage.landing_tiles(model, explorer, fleet).has(Vector2i(5, 1)),
+		"an explorer still surveys any coast"
+	)
+	var home: FleetState = FleetState.in_port(3, PLAYER, 0, ["d"], {"d": "fluyte"})
+	var home_spy: CivilianState = CivilianState.create(7, PLAYER, "spy", Vector2i(0, 0))
+	home_spy.embarked_fleet = home.id
+	home.add_civilian(home_spy.id)
+	assert_false(
+		CivilianVoyage.landing_tiles(model, home_spy, home).is_empty(),
+		"crown land still takes the spy ashore"
+	)
 
 
 func test_presence_holds_a_charted_province_for_its_owner_only() -> void:
@@ -213,6 +243,20 @@ func test_an_unscreened_spy_is_never_touched() -> void:
 	for turn in 50:
 		assert_true(SpyRules.resolve_turn(model, units, turn, SEED).is_empty())
 	assert_eq(units.size(), 1, "no counter-spy means no kill or defection roll")
+
+
+## One spy on `counter_spy` anywhere screens every owned province, so a screen
+## kept at home must hunt an enemy spy standing in another region's colony
+## (wiki: civilian-units § Spy (3): "empire-wide ... in all owned provinces").
+func test_counter_espionage_screen_covers_every_region() -> void:
+	var play: PlaySession = _two_region_play()
+	var events: Array[Dictionary] = []
+	for turn in range(1, 401):
+		play.turn = turn
+		events.append_array(MapPlaySpies.resolve(play))
+	assert_false(events.is_empty(), "the home screen hunts the colonial intruder")
+	for event: Dictionary in events:
+		assert_eq(int(event.get("region", -1)), 1, "the intruder stood in region 1")
 
 
 # --- rival AI ----------------------------------------------------------------
@@ -507,6 +551,7 @@ func test_spy_rules_guards_skip_nulls_and_home_tiles() -> void:
 	assert_eq(model.owner_at(0, 4), MapModel.NO_ID)
 	assert_false(SpyRules.is_foreign(model, spy))
 	assert_false(SpyRules.has_counter_spy([null, builder], PLAYER))
+	assert_true(SpyRules.screened_owners(null, [spy]).is_empty())
 	assert_eq(SpyRules.resolve_turn(null, [spy], 1, SEED).size(), 0)
 
 
@@ -560,6 +605,42 @@ func _find_rolls(model: MapModel) -> Dictionary:
 		if kill > 0 and defect > 0:
 			break
 	return {"kill": kill, "defect": defect}
+
+
+## Two regions on one session: the player's counter-espionage screen stands at
+## home (region 0) while an enemy spy holds the player's colonial province in
+## region 1.
+func _two_region_play() -> PlaySession:
+	var first: MapModel = CivilianFixture.build()
+	first.region_id = 0
+	var second: MapModel = CivilianFixture.build()
+	second.region_id = 1
+	var world := WorldMap.new()
+	world.add_region(first)
+	world.add_region(second)
+	var layer := CivilianLayer.new()
+	layer.spawn(first, CivilianFixture.PLAYER_PROVINCE, PLAYER, [])
+	var screen: CivilianState = CivilianState.create(
+		1, PLAYER, "spy", CivilianFixture.BARE_TILE
+	)
+	screen.start_work(SpyRules.WORK_COUNTER, screen.tile, 1)
+	layer.units.append(screen)
+	layer.regions.set_region(0, layer.units)
+	var intruder: CivilianState = CivilianState.create(
+		2, RIVAL, "spy", CivilianFixture.BARE_TILE
+	)
+	var region_one: Array[CivilianState] = [intruder]
+	layer.regions.set_region(1, region_one)
+	var play := PlaySession.new()
+	play.player_faction = PLAYER
+	play.world = world
+	play.model = first
+	play.region_index = 0
+	play.civilian_layer = layer
+	play.map_seed = SEED
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.reset(1)
+	return play
 
 
 func _play_with_spy() -> PlaySession:

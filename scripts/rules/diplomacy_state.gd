@@ -11,6 +11,12 @@ var relations: Dictionary = {}
 var overtures: Dictionary = {}
 ## Directional subsidy key "payer>target" -> percent (5–20).
 var subsidies: Dictionary = {}
+## Pair key "low:high" -> turn the favoured-trading-partner pact was signed
+## (wiki: world-market § FTP). Bilateral: one entry serves both directions.
+var ftps: Dictionary = {}
+## Directional boycott key "issuer>target" -> turn imposed
+## (wiki: diplomacy § GP–Tribe — Boycott).
+var boycotts: Dictionary = {}
 ## Tribe id -> suzerain Great Power id.
 var colonies: Dictionary = {}
 ## Human court for consent decisions (call to arms); set by the session.
@@ -51,6 +57,8 @@ func reset(at_turn: int) -> void:
 	relations.clear()
 	overtures.clear()
 	subsidies.clear()
+	ftps.clear()
+	boycotts.clear()
 	colonies.clear()
 	events.clear()
 	alliance_snapshot.clear()
@@ -260,6 +268,14 @@ func clear_relations_of(faction: int) -> void:
 		var parts: PackedStringArray = key.split(">")
 		if int(parts[0]) == faction or int(parts[1]) == faction:
 			subsidies.erase(key)
+	for key: String in ftps.keys():
+		var parts: PackedStringArray = key.split(":")
+		if int(parts[0]) == faction or int(parts[1]) == faction:
+			ftps.erase(key)
+	for key: String in boycotts.keys():
+		var parts: PackedStringArray = key.split(">")
+		if int(parts[0]) == faction or int(parts[1]) == faction:
+			boycotts.erase(key)
 	for tribe: int in colonies.keys():
 		if tribe == faction or int(colonies[tribe]) == faction:
 			if int(colonies[tribe]) == faction:
