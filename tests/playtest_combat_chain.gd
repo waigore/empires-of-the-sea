@@ -57,6 +57,7 @@ func _run() -> void:
 	_unopposed_pass(province, rivals)
 	_third_party_pass(province, rivals)
 	_ai_turn_pass(rivals)
+	_multi_defence_pass(rivals)
 	_capital_pass(rivals)
 	_finish()
 
@@ -185,6 +186,126 @@ func _ai_turn_pass(rivals: Array[int]) -> void:
 	])
 
 
+## Two rival crowns fall on the same player province in one AI turn: the chain
+## fights both, every battle gets its own plate, and whatever garrison survives
+## must still stand on the map for the player to tap.
+func _multi_defence_pass(rivals: Array[int]) -> void:
+	_say("")
+	var held: int = -1
+	for entry: ProvinceState in _play.model.provinces:
+		if entry.owner == _play.player_faction and not entry.capital:
+			held = entry.id
+			break
+	if held < 0:
+		_say("no player province to defend")
+		return
+	for rival: int in rivals.slice(0, 2):
+		DiplomacyRules.declare_war(_play.diplomacy, rival, _play.player_faction)
+	_say("--- one AI turn, two attackers: %s holds %s, %s and %s come for it ---" % [
+		FactionCatalog.name_of(_play.player_faction), _play.model.province_name(held),
+		FactionCatalog.name_of(rivals[0]), FactionCatalog.name_of(rivals[1]),
+	])
+	_play.army_layer.armies.clear()
+	_play.army_layer._rebuild_markers()
+	_play.model.province_data(held).owner = _play.player_faction
+	_play.model.province_data(held).fort_level = 1
+	_play.battle_plan = "defensive"
+	_seat(_play.player_faction, held, 4, 130)
+	_seat(rivals[0], held, 3, 131, true)
+	_seat(rivals[1], held, 3, 132, true)
+	_say("before the turn: %s" % _standards())
+	## Every battle the rules resolve this turn, whether or not a plate shows.
+	var seen: Array[Dictionary] = []
+	var recorder := func(battles: Array[Dictionary]) -> void:
+		for battle: Dictionary in battles:
+			seen.append(battle)
+	_play.host.battle_resolved.connect(recorder)
+	_take_turn()
+	_play.host.battle_resolved.disconnect(recorder)
+	_say("%d battle%s resolved; %d plate%s queued behind the first" % [
+		seen.size(), "" if seen.size() == 1 else "s",
+		_play.hud._quick_queue.size(), "" if _play.hud._quick_queue.size() == 1 else "s",
+	])
+	_drain_plates()
+	_say("after the turn: %s holds %s; %s" % [
+		FactionCatalog.name_of(_play.model.province_owner(held)),
+		_play.model.province_name(held), _standards(),
+	])
+
+
+## Runs one calendar turn, answering whatever consent decision it raises, and
+## leaves the plates for the caller to read.
+func _take_turn() -> void:
+	var guardian: int = 0
+	while not _play.campaign_over() and guardian < 4:
+		MapPlayTurn.end_turn(_play)
+		if CallToArms.has_pending(_play.diplomacy, _play.player_faction):
+			_say("turn stopped for a call to arms — refused")
+			MapPlayTurn.answer_call(_play, false)
+		elif Intervention.has_pending(_play.diplomacy, _play.player_faction):
+			_say("turn stopped for an intervention — stood aside")
+			MapPlayTurn.answer_intervention(_play, Intervention.KIND_NOTHING)
+		elif DiplomacyProposals.has_pending(_play.diplomacy, _play.player_faction):
+			_say("turn stopped for a rival proposal — refused")
+			MapPlayTurn.answer_offer(_play, false)
+		else:
+			break
+		guardian += 1
+	_say("turn %d, %s; player regiments %d" % [
+		_play.turn, _ownership(),
+		_play.army_layer.regiment_count_all(_play.player_faction),
+	])
+
+
+## Reads every plate the turn queued, in the order the court sees them.
+func _drain_plates() -> void:
+	var overlay: QuickBattleOverlay = _play.hud.quick_battle_overlay
+	var guardian: int = 0
+	while overlay != null and overlay.is_shown() and guardian < 6:
+		var battle: Dictionary = overlay.battle
+		var quick: Dictionary = battle.get("quick", {}) as Dictionary
+		overlay.skip()
+		_say("plate %d: %s v %s at %s — \"%s\", plan %s / enemy %s, %d v %d, %d guns" % [
+			guardian + 1,
+			FactionCatalog.name_of(int(battle.get("attacker", -1))),
+			FactionCatalog.name_of(int(battle.get("defender", -1))),
+			overlay.province_name, String(overlay._outcome.text),
+			String(quick.get("plan", "?")), String(quick.get("defender_plan", "?")),
+			int(quick.get("attacker_start", 0)), int(quick.get("defender_start", 0)),
+			int(quick.get("guns_start", 0)),
+		])
+		_say("  plate stance: %s" % QuickBattleCopy.plan_text(battle))
+		_say("  court news: %d raised, %d waiting for the plate" % [
+			_toast_count(), _play.hud._toast_queue.size()])
+		for round: Dictionary in quick.get("rounds", []) as Array:
+			for action: Dictionary in round.get("actions", []) as Array:
+				_say("  despatch: %s" % QuickBattleCopy.action_line(
+					action, battle, FactionCatalog.names()))
+		overlay._on_continue()
+		guardian += 1
+
+
+## Toast plates the court has raised and not yet retired.
+func _toast_count() -> int:
+	return _play.hud._toast_box.get_child_count() if _play.hud._toast_box != null else -1
+
+
+## Every standing army with the standard the map draws for it: an army without
+## one cannot be seen, tapped, or ordered.
+func _standards() -> String:
+	var parts: PackedStringArray = []
+	for army: ArmyState in _play.army_layer.armies:
+		if army == null or army.count() <= 0:
+			continue
+		var marker: ArmyMarker = _play.army_layer.marker_for(army)
+		parts.append("%s %d at %s (%s)" % [
+			FactionCatalog.name_of(army.owner), army.count(),
+			_play.model.province_name(army.province),
+			"standard" if marker != null else "NO STANDARD",
+		])
+	return ", ".join(parts) if not parts.is_empty() else "no armies"
+
+
 ## The court's seat is stormed: with only the capital left the crown falls and
 ## its holdings pass to the conqueror (wiki: capital-and-connectivity).
 func _capital_pass(rivals: Array[int]) -> void:
@@ -253,6 +374,7 @@ func _seat(owner: int, province: int, count: int, offset: int, moved: bool = fal
 	)
 	army.moved = moved
 	_play.army_layer.armies.append(army)
+	_play.army_layer.add_marker(army)
 
 
 func _fight() -> void:
