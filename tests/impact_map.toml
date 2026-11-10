@@ -176,6 +176,7 @@ suites = [
   "test_advanced_start.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
+  "test_hud_toast.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
