@@ -276,10 +276,10 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 	await get_tree().process_frame
 	var panel: ProvincePanel = hud._panel
 	_fits(panel.get_global_rect(), _screen_rect(), "dossier")
-	assert_lt(panel._orders_box.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
+	assert_lt(panel._orders.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
 	var scroll: Control = panel.get_child(0).get_child(0)
 	var immediate: int = 0
-	for node: Node in panel._orders_box.find_children("*", "Button", true, false):
+	for node: Node in panel._orders.find_children("*", "Button", true, false):
 		var button := node as Button
 		if button == null or not button.is_visible_in_tree():
 			continue
@@ -302,7 +302,7 @@ func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
 	hud.panels.dock.place_shown(hud._panel_wrap)
 	await get_tree().process_frame
 	var panel: ProvincePanel = hud._panel
-	assert_gt(panel._orders_box.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
+	assert_gt(panel._orders.get_global_rect().position.y, panel._grid.get_global_rect().position.y)
 	_fits(panel.get_global_rect(), _screen_rect(), "dossier")
 	assert_almost_eq(panel.size.x, GameHud.PANEL_WIDTH, 0.5)
 
@@ -326,21 +326,21 @@ func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
 		)
 	)
 	await get_tree().process_frame
-	assert_eq(panel._town_value.text, "Level 4 · full", "a Great Power seat is level 4")
+	assert_eq(panel._grid.town.text, "Level 4 · full", "a Great Power seat is level 4")
 	assert_true(
-		panel._road_value.text.contains("linked to the crown"),
-		panel._road_value.text
+		panel._grid.road.text.contains("linked to the crown"),
+		panel._grid.road.text
 	)
 	# An unlinked province (a fresh conquest has no setup road) says so and how
 	# much road is left; the sheet repaints in place when the network changes.
 	panel.refresh_crown({"linked": false, "roads": 2, "distance": 4})
 	await get_tree().process_frame
 	assert_eq(
-		panel._road_value.text, "2 road tiles · no road to the crown (4 tiles away)"
+		panel._grid.road.text, "2 road tiles · no road to the crown (4 tiles away)"
 	)
 	panel.refresh_crown({"linked": true, "roads": 3, "distance": 0})
 	await get_tree().process_frame
-	assert_eq(panel._road_value.text, "3 road tiles · linked to the crown")
+	assert_eq(panel._grid.road.text, "3 road tiles · linked to the crown")
 	# Build/Work repaints the open sheet from the live crown link.
 	play.selected_province = capital
 	MapPlayCivilians.resolve_work(play)
@@ -349,7 +349,7 @@ func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
 		MapPlayImprovements.crown_link(play, capital).get("roads", 0)
 	)
 	assert_eq(
-		panel._road_value.text,
+		panel._grid.road.text,
 		"%d road tile%s · linked to the crown" % [roads, "" if roads == 1 else "s"]
 	)
 
