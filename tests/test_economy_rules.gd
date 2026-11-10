@@ -851,3 +851,133 @@ func test_offers_expire_with_the_turn_but_survive_a_save() -> void:
 	assert_eq(int(restored.minor_offers[0]["unit_price"]), 50)
 	market.advance_prices()
 	assert_eq(market.minor_offers, [])
+
+
+# --- Minor/Tribe town manufacturing offers -----------------------------------
+## A developed Minor or Tribe town turns its own estates' raw into manufactures
+## and publishes them under its own name (wiki: extraction-and-improvements
+## § Town manufacturing bonus).
+
+
+## A two-province map: a Great Power holds the west, Minor Nation 6 (or a Tribe)
+## holds four estates in the east with one province town.
+func _town_world(owner: int, resource: int, estates: int, town_level: int) -> WorldMap:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	for y in 2:
+		for x in 4:
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 4, owner)
+	minor.town_tile = Vector2i(2, 0)
+	minor.town_development = town_level
+	model.provinces = [gp, minor]
+	for tile: Vector2i in minor_tiles.slice(0, estates):
+		model.resource[model.index_of(tile.x, tile.y)] = resource
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func _auto_offer(orders: Array[MarketOrder], commodity: String) -> MarketOrder:
+	for order: MarketOrder in orders:
+		if order.commodity == commodity:
+			return order
+	return null
+
+
+## Units one commodity carries across every auto-offer in the book.
+func _offered_units(orders: Array[MarketOrder], commodity: String) -> int:
+	var total: int = 0
+	for order: MarketOrder in orders:
+		if order.commodity == commodity:
+			total += order.remaining()
+	return total
+
+
+func test_a_level_two_minor_town_offers_one_manufacture() -> void:
+	var world: WorldMap = _town_world(6, 0, 4, 2)
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(world)
+	var lumber: MarketOrder = _auto_offer(orders, "lumber")
+	assert_not_null(lumber, "four timber estates feed a level-2 town")
+	assert_eq(lumber.faction, 6)
+	assert_eq(lumber.quantity, 1)
+	assert_eq(lumber.priority, 1)
+	assert_true(lumber.auto)
+	assert_eq(
+		lumber.origin_index, world.region(0).index_of(2, 0), "the province town is the source"
+	)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offers: Array[Dictionary] = MinorMarket.emit(world, market, 0)
+	assert_eq(int(offers[MinorMarket.index_of(offers, "6:lumber")]["quantity"]), 1)
+	assert_eq(
+		int(offers[MinorMarket.index_of(offers, "6:timber")]["quantity"]), 4,
+		"the bonus spends none of the timber"
+	)
+
+
+func test_a_level_four_minor_town_doubles_the_bonus() -> void:
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(_town_world(6, 0, 4, 4))
+	assert_eq(_auto_offer(orders, "lumber").quantity, 2)
+
+
+func test_odd_and_plain_town_levels_pay_nothing() -> void:
+	for level: int in [1, 3]:
+		var orders: Array[MarketOrder] = MinorMarket.emit_orders(_town_world(6, 0, 4, level))
+		assert_null(_auto_offer(orders, "lumber"), "level %d pays no bonus" % level)
+		assert_eq(_offered_units(orders, "timber"), 4, "the harvest still sells")
+
+
+func test_a_town_needs_four_estates_to_manufacture() -> void:
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(_town_world(6, 0, 3, 4))
+	assert_null(_auto_offer(orders, "lumber"))
+	assert_eq(_offered_units(orders, "timber"), 3)
+
+
+func test_a_tribe_town_offers_its_manufactures_too() -> void:
+	var world: WorldMap = _town_world(9, 5, 4, 2)
+	var fabric: MarketOrder = _auto_offer(MinorMarket.emit_orders(world), "fabric")
+	assert_not_null(fabric, "four wool estates feed a Tribe town")
+	assert_eq(fabric.faction, 9)
+	assert_eq(fabric.quantity, 1)
+
+
+## Minors and Tribes never prospect, so a mineral estate is neither sold nor fed
+## to the town (wiki: extraction-and-improvements § Non-Great-Power extraction).
+func test_mineral_estates_never_feed_a_minor_town() -> void:
+	var world: WorldMap = _town_world(6, 1, 4, 4)
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(world)
+	assert_eq(orders.size(), 0, "no iron in the ground, no cast iron on the market")
+	var model: MapModel = world.region(0)
+	assert_eq(MinorMarket.province_raw(model, model.provinces[1]), {})
+
+
+## The offers are ordinary system-authored supply: a crown bids, the matcher
+## fills it, and the Minor's receipt leaves the Great-Power pool as a sink.
+func test_a_minor_town_offer_clears_in_the_auction() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _town_world(6, 0, 4, 2)
+	var buyer: PlayerEconomy = PlayerEconomy.starting()
+	var before: int = buyer.treasury
+	var stock_before: int = buyer.quantity("lumber")
+	MarketOrders.submit(
+		market,
+		0, "lumber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": before}
+	)
+	var report: Dictionary = MarketClearing.clear(market, world, {0: buyer}, {0: 4})
+	var mine: Array[Dictionary] = []
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			mine.append(raw as Dictionary)
+	assert_eq(mine.size(), 1)
+	assert_eq(int(mine[0]["seller"]), 6)
+	assert_eq(String(mine[0]["commodity"]), "lumber")
+	assert_eq(buyer.quantity("lumber"), stock_before + 1)
+	assert_eq(buyer.treasury, before - 60, "one lumber at the published price")

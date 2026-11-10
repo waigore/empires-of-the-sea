@@ -698,6 +698,13 @@ func _uncharted_land_tile(screen: MapScreen) -> Vector2i:
 	for province: ProvinceState in screen.model.provinces:
 		if screen.visibility.is_province_fully_visible(int(province.id)):
 			continue
+		# Exploring a Minor/Tribe province needs a Consulate (wiki:
+		# civilian-units § Work Order Summary, Refs #3753 R4).
+		if (
+			province.owner != MapScreen.PLAYER_FACTION
+			and FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER
+		):
+			continue
 		if province.tiles.is_empty():
 			continue
 		return province.tiles[0]

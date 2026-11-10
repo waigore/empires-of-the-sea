@@ -194,15 +194,17 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	var screen: MapScreen = Fixture.attach_screen(self)
 	var model: MapModel = screen.model
 	var saved: Array[Dictionary] = _save_seats(model)
-	var target: int = _enemy_capital_next_door(screen)
-	assert_gt(target, -1)
+	var pair: Dictionary = _enemy_capital_next_door(screen)
+	assert_false(pair.is_empty(), "an enemy seat borders crown land")
+	var target: int = int(pair["target"])
 	var enemy: int = model.province_owner(target)
 	assert_eq(_capital_count(model, enemy), 1, "the crown has exactly one seat to lose")
 	# Rival land AI can split and march into a declared seat on the same
 	# end-turn pass; strip that crown's armies so the capture stays unopposed.
 	screen.army_layer.transfer_owner(enemy, MapModel.NO_ID)
 	_declare_war(screen, enemy)
-	_detach_one(screen)
+	var army: ArmyState = _detach_one(screen)
+	army.province = int(pair["start"])
 	var tile: Vector2i = model.province_data(target).tiles[0]
 	assert_true(MapPlayArmies.try_order(screen.play, tile))
 
@@ -229,7 +231,7 @@ func test_the_player_capital_framing_follows_a_reassignment() -> void:
 	)
 	model.province_data(home).capital = false
 
-	MapPlayArmies.sync_player_capital(screen.play)
+	MapPlayArmyBattles.sync_player_capital(screen.play)
 
 	assert_eq(screen.capital_province, successor)
 	assert_eq(screen.capital_tile, model.capital_tile_of(successor))
@@ -249,7 +251,7 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_gt(armies_before, 0)
 	var toasts_before: int = screen.hud._toast_box.get_child_count()
 
-	var changed: bool = MapPlayArmies.apply_capital_loss(
+	var changed: bool = MapPlayArmyBattles.apply_capital_loss(
 		screen.play, {"fallen": [{"faction": minor, "conqueror": 0}], "reassigned": []}
 	)
 
@@ -343,22 +345,27 @@ func _army_count(screen: MapScreen, faction: int) -> int:
 
 ## Marks a province next to the player's capital as a rival crown's only seat,
 ## so one march captures a capital without disturbing the rest of the map.
-func _enemy_capital_next_door(screen: MapScreen) -> int:
+## A crown province bordering a rival one; the rival province is made that
+## crown's seat so the capture has a capital to lose. Returns {start, target}.
+func _enemy_capital_next_door(screen: MapScreen) -> Dictionary:
 	var model: MapModel = screen.model
-	for province_id: int in MapGeo.province_neighbors(model, screen.capital_province):
-		var data: ProvinceState = model.province_data(province_id)
-		if data == null or data.owner == MapScreen.PLAYER_FACTION or data.owner == MapModel.NO_ID:
+	for province: ProvinceState in model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
 			continue
-		if data.capital:
-			continue
-		var enemy: int = data.owner
-		for province: ProvinceState in model.provinces:
-			if province.owner == enemy and province.capital:
-				province.capital = false
-		data.capital = true
-		data.capital_tile = CapitalLoss.town_tile(data)
-		return province_id
-	return -1
+		for province_id: int in MapGeo.province_neighbors(model, province.id):
+			var data: ProvinceState = model.province_data(province_id)
+			if data == null or data.owner == MapScreen.PLAYER_FACTION:
+				continue
+			if data.owner == MapModel.NO_ID:
+				continue
+			if not data.capital:
+				for other: ProvinceState in model.provinces:
+					if other.owner == data.owner and other.capital:
+						other.capital = false
+				data.capital = true
+				data.capital_tile = CapitalLoss.town_tile(data)
+			return {"start": province.id, "target": province_id}
+	return {}
 
 
 func _capital_count(model: MapModel, faction: int) -> int:

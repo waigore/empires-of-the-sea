@@ -5,7 +5,7 @@ extends RefCounted
 ## a tighter zoom pair and a shorter end-turn seal, all in points so every touch
 ## target keeps its physical size.
 ##
-## Dossiers and the ledger are re-anchored by HudPanels.apply_compact.
+## Dossiers and the ledger are re-anchored by `_dossiers` below.
 
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
@@ -32,7 +32,35 @@ func apply(hud: GameHud) -> void:
 	_lens_key(hud)
 	_end_turn(hud)
 	_toasts(hud)
-	hud.panels.apply_compact(compact, view)
+	_dossiers(hud.panels, compact, view)
+
+
+## Re-anchors every dossier for the viewport: a phone gets a full-height side
+## sheet (the end-turn seal waits behind it, as with any modal), the atlas
+## layout keeps its gap above the seal; the ledger takes the whole edge.
+func _dossiers(panels: HudPanels, is_compact: bool, view: Vector2) -> void:
+	var width: float = GameHud.PANEL_WIDTH
+	if is_compact:
+		width = clampf(view.x * 0.4, 280.0, GameHud.PANEL_WIDTH)
+	panels.dock.configure(
+		width,
+		64.0 if is_compact else PanelDock.TOP,
+		-10.0 if is_compact else PanelDock.BOTTOM
+	)
+	for slot: HudPanelSlot in panels.selections():
+		panels.dock.relayout(slot.wrap, slot.open)
+	# The ledgers take the whole edge on a phone, capped so the map stays visible.
+	for spec: Array in [
+		[panels.economy, HudPanelSlot.LEDGER_WIDTH],
+		[panels.research, HudPanelSlot.LEDGER_WIDTH],
+		[panels.diplomacy, HudPanelSlot.COURT_WIDTH],
+	]:
+		var slot: HudPanelSlot = spec[0]
+		slot.wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		slot.wrap.offset_left = -minf(view.x - 20.0, spec[1]) if is_compact else -spec[1]
+		slot.wrap.offset_right = -10.0 if is_compact else -GameHud.PANEL_MARGIN
+		slot.wrap.offset_top = 64.0 if is_compact else PanelDock.TOP
+		slot.wrap.offset_bottom = -10.0 if is_compact else PanelDock.BOTTOM
 
 
 ## The cartouche stacks its stat chips onto a second row when the row cannot fit

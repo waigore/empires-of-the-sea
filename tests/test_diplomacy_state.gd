@@ -11,11 +11,11 @@ func before_each() -> void:
 
 
 func test_initializes_same_region_pairs_only() -> void:
-	# Old World: 6 GPs + 3 Minors = 9 factions -> 36 pairs.
+	# Old World: 6 GPs + 6 Minors = 12 factions -> 66 pairs.
 	# New World: 10 Tribes -> 45 pairs. Cross-region pairs stay unknown.
-	assert_eq(state.relations.size(), 81)
+	assert_eq(state.relations.size(), 111)
 	assert_true(state.has_relation(0, 5))
-	assert_true(state.has_relation(6, 8))
+	assert_true(state.has_relation(6, 21))
 	assert_true(state.has_relation(9, 18))
 	assert_false(state.has_relation(0, 9))
 	assert_false(state.has_relation(6, 18))
