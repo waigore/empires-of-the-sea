@@ -25,6 +25,8 @@ var player_leader: String = ""
 ## Endless campaign: the calendar cap never closes the age
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 var infinite_mode: bool = false
+## Advanced-start preset chosen at setup (wiki: advanced-starts; DR-20261111-01).
+var advanced_start: String = AdvancedStart.NONE
 
 
 static func make(
@@ -32,7 +34,8 @@ static func make(
 	size_index: int,
 	player: int = FactionCatalog.PLAYER_FACTION,
 	leader: String = "",
-	infinite: bool = false
+	infinite: bool = false,
+	advanced: String = ""
 ) -> GameConfig:
 	var config := GameConfig.new()
 	config.map_seed = seed_value
@@ -40,6 +43,7 @@ static func make(
 	config.player_faction = player
 	config.player_leader = LeaderCatalog.resolve_key(player, leader)
 	config.infinite_mode = infinite
+	config.advanced_start = AdvancedStart.normalize(advanced)
 	return config
 
 
@@ -64,6 +68,7 @@ func to_dict() -> Dictionary:
 		"player_faction": player_faction,
 		"player_leader": player_leader,
 		"infinite_mode": infinite_mode,
+		"advanced_start": advanced_start,
 	}
 
 
@@ -77,4 +82,7 @@ static func from_dict(data: Dictionary) -> GameConfig:
 		config.player_faction, String(data.get("player_leader", ""))
 	)
 	config.infinite_mode = bool(data.get("infinite_mode", false))
+	config.advanced_start = AdvancedStart.normalize(
+		String(data.get("advanced_start", AdvancedStart.NONE))
+	)
 	return config
