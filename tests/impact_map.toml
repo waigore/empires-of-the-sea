@@ -119,6 +119,7 @@ suites = [
   "test_naval_port_loss.gd",
   "test_naval_raid.gd",
   "test_naval_retreat.gd",
+  "test_naval_strength.gd",
   "test_trade_cargo.gd",
   "test_battle_rules.gd",
 ]
@@ -849,7 +850,7 @@ match = "scripts/ui/civilian_*.gd"
 domain = "civilian"
 
 [[rules]]
-match = "scripts/ui/fleet_*.gd"
+match = "scripts/ui/fleet_*.gd*"
 domain = "fleet"
 
 # The dossier sheet and the court panel that opens it are presentation over
@@ -963,6 +964,12 @@ domain = "map"
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
+
+# HUD panel host: province/fleet/civilian sheets. Keep off the menu domain so a
+# dossier wiring change stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ui/hud_panels.gd"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/**"
@@ -1153,9 +1160,11 @@ domain = "menu"
 match = "tests/test_menu_*.gd"
 domain = "menu"
 
+# Phone/tablet sheet geometry lives with the UI domain (domains.ui already lists
+# test_mobile_layout); menu would re-pull setup/hub suites past the 5 min bar.
 [[rules]]
 match = "tests/test_mobile_*.gd"
-domain = "menu"
+domain = "ui"
 
 [[rules]]
 match = "tests/test_catalogs.gd"
