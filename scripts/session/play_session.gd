@@ -145,14 +145,6 @@ func ensure_ai() -> AiState:
 	return ai
 
 
-## owner id -> land-strength multiplier for this run's difficulty layer; the
-## human crown is never in it (wiki: ruleset-config § Layers; combat § Modifiers).
-func combat_difficulty() -> Dictionary:
-	return Difficulty.combat_multipliers(
-		human_faction_id(), difficulty, FactionCatalog.great_power_ids()
-	)
-
-
 func bind_views(
 	p_ships: ShipLayer,
 	p_civilians: CivilianLayer,
