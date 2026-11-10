@@ -851,6 +851,35 @@ func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
 	assert_eq((plan["orders"] as Array).size(), 0, "a port fleet is not a target")
 
 
+## A rival's station obeys its own chart (wiki: fog-and-exploration § Visibility
+## Levels; DR-20261110-23): no blockade on uncharted water, a standing one lapses
+## there, and charted water takes the station as before.
+func test_ai_naval_blockades_only_charted_water() -> void:
+	var home: MapModel = NavalFixture.build()
+	var model: MapModel = NavalFixture.build()
+	model.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(home)
+	world.add_region(model)
+	var play := PlaySession.new()
+	play.world = world
+	play.diplomacy = _war_state(2, 1)
+	play.court_charts = CourtCharts.new()
+	play.court_charts.setup(world, 0, {})
+	var fleet := FleetState.at_sea(1, 2, 1)
+	var roster: Array[FleetState] = [fleet]
+	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	assert_eq(fleet.mission, FleetState.Mission.NONE, "no blockade on uncharted water")
+	fleet.mission = FleetState.Mission.BLOCKADE
+	fleet.blockade_province = 1
+	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	assert_eq(fleet.mission, FleetState.Mission.NONE, "the blockade lapses there")
+	play.court_charts.reveal_sea_zone(2, 1, 1)
+	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	assert_eq(fleet.mission, FleetState.Mission.BLOCKADE, "charted water takes the station")
+	assert_eq(fleet.blockade_province, 1)
+
+
 func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
