@@ -117,6 +117,29 @@ Do it in this order; each step is reviewable and testable alone.
   (`top = 186`); compact top-right under the bar (`maxf(66, bar + 8)`).
   Build it before toasts so transient messages stay above it.
 
+### A second lens
+
+The diplomatic lens (blue self, green friendly/allied, grey neutral, red war)
+reuses this shape. When you add a peer mode:
+
+- **One key cartouche.** `LensLegend.kind` selects the rows; keep one
+  `GameHud.set_lens(active, kind)` method (the 25-method cap bites fast).
+- **The lenses are exclusive.** The toggle helper lowers the other lens and
+  only then raises its own; the unit fade follows "any lens active", not the
+  toggle being pressed.
+- **Rail budget.** The survey seal sits at `186..242`, a second at `252..308`
+  on the same `y = 132..176` row; raise `HudLayout.LEFT_RAIL` so compact toasts
+  start past it.
+- **Ordering.** `build_hud` runs before `DiplomacyState` is created in
+  `MapScreen._ready`, so rebuild the political lens once more after the state
+  exists (`MapPlaySetup.build_diplomacy_lens`), plus after orders and turns.
+- **A political lens is a tile wash, not plaques.** Merge same-band land tiles
+  into horizontal `Rect2` runs in the projection (a 10k-tile map then costs a
+  few hundred `draw_rect` calls) and drop `UNKNOWN` tiles at projection time.
+- **New medallion.** Follow `tools/art/shell-icons.md`: edit `ledger.png`
+  through `image_generate`, key the magenta backdrop, crop/resize to 128 px and
+  commit the generated `.import`.
+
 ## 4. Tests
 
 - Pure suite: charted-only, own vs foreign, vacant/unprospected/building/
@@ -159,6 +182,7 @@ Do it in this order; each step is reviewable and testable alone.
 
 ```bash
 gd-tools test tests/test_resource_survey.gd tests/test_resource_lens.gd \
+  tests/test_diplomacy_survey.gd tests/test_diplomacy_lens.gd \
   tests/test_mobile_layout.gd
 gd-tools test --coverage --parallel 4
 python tools/lint_docs_words.py

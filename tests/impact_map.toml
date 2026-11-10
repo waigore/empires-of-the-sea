@@ -56,11 +56,13 @@ suites = [
 suites = [
   "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
+  "test_diplomacy_lens.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
+  "test_diplomacy_survey.gd",
   "test_intel_dossier.gd",
 ]
 
@@ -113,6 +115,8 @@ suites = [
   "test_minimap.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
+  "test_diplomacy_lens.gd",
+  "test_diplomacy_survey.gd",
   "test_resource_lens.gd",
   "test_resource_survey.gd",
   "test_visibility.gd",
@@ -127,6 +131,7 @@ suites = [
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_diplomacy_lens.gd",
   "test_resource_lens.gd",
 ]
 

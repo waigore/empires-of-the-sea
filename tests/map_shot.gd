@@ -12,6 +12,8 @@ var _army := false
 var _select := -1
 var _warp := 0
 var _lens := false
+var _political := false
+var _war := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -36,6 +38,10 @@ func _initialize() -> void:
 			_warp = int(arg.substr(5))
 		elif arg.begins_with("lens="):
 			_lens = arg.substr(5) == "1"
+		elif arg.begins_with("political="):
+			_political = arg.substr(10) == "1"
+		elif arg.begins_with("war="):
+			_war = arg.substr(4) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -56,6 +62,10 @@ func _process(_delta: float) -> bool:
 		MapPlayArmies.open_muster(_screen.play)
 	if _frames == 4 and _lens and _screen != null:
 		MapPlayInput.set_lens(_screen.play, true)
+	if _frames == 4 and _political and _screen != null:
+		MapPlayInput.set_diplomacy_lens(_screen.play, true)
+	if _frames == 4 and _war and _screen != null:
+		_sample_war()
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)
@@ -76,6 +86,33 @@ func _save(path: String) -> void:
 		return
 	image.save_png(path)
 	print("saved ", path, " ", image.get_width(), "x", image.get_height())
+
+
+## Declares war on one neighbour and allies with another, so a screenshot shows
+## the red and green bands without a campaign.
+func _sample_war() -> void:
+	var play: PlaySession = _screen.play
+	var owners: Array[int] = []
+	for province: ProvinceState in play.model.provinces:
+		if province.owner == MapModel.NO_ID or province.owner == play.player_faction:
+			continue
+		if FactionCatalog.type_of(province.owner) != FactionCatalog.Type.GREAT_POWER:
+			continue
+		if not owners.has(province.owner):
+			owners.append(province.owner)
+	if owners.is_empty():
+		return
+	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, owners[0], false)
+	if owners.size() > 1:
+		var record: DiplomacyRelation = play.diplomacy.ensure_relation(
+			play.player_faction, owners[1], play.turn
+		)
+		record.set_score(80.0)
+		DiplomacyRules.form_alliance(
+			play.diplomacy, play.player_faction, owners[1], DiplomacyRules.DECISION_ACCEPT
+		)
+	MapPlaySetup.build_diplomacy_lens(play)
+	MapPlayInput.set_diplomacy_lens(play, true)
 
 
 ## warp=1 selects a player squadron in the Old World passage; warp=2 crosses it.
