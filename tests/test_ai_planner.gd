@@ -132,8 +132,12 @@ func test_friendly_relations_block_war_even_when_desire_is_high() -> void:
 		config, state, ai_state, AiFixture.world([0, 1]), 1,
 		AiFixture.context({0: 400, 1: 100})
 	)
-	assert_true((plan["action"] as Dictionary).is_empty())
 	assert_eq(String(plan["candidates"][0]["blocked"]), "relations too warm")
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_ALLIANCE,
+		"the court works for the treaty the standing already earns"
+	)
 
 
 func test_war_cooldown_blocks_the_pair_for_four_turns() -> void:

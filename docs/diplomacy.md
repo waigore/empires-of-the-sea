@@ -31,25 +31,24 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 - **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy 5–20% in
   fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
 - **Trade terms** (`DiplomacyTrade`): one global book cannot match sellers to
-  buyers, so pacts, boycotts and subsidies publish per-crown price terms.
+  buyers, so pacts, boycotts and subsidies publish price terms.
   **Favoured pact** (GP–GP, embassy, accepts at 65+): imports 95%, exports
   105%; war ends it. **Boycott** (needs a colony, GP at peace): target's terms
   drop 10%, its subsidies to our colonies are cancelled and further aid there
   is barred; war revokes.
   **Subsidy** prices the goods that court produces: we pay p% more, earn p%
-  less. Rails 70–150% buy, 50–130% sell; the court and ledger state the rate
-  in words.
+  less. Rails 70–150% buy, 50–130% sell; the court and ledger state the rate.
 - **First contact:** a Tribe enters court once a seen tile sits in its
   provinces; sea-reach intel does not.
-- **Chronicle** (`DiplomacyHistory`): unbounded; panel shows newest first,
-  `Year Y (Turn N)`; unmet crowns `Unknown faction`; no scores.
-- **Dossier** (`IntelDossier`, `CourtDossier`): evidence, banded suspicion and
+- **Chronicle** (`DiplomacyHistory`): unbounded; newest first, `Year Y
+  (Turn N)`; unmet crowns `Unknown faction`; no scores.
+- **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion and
   behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
 - **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): land washed blue (yours),
-  green (friendly/allied), grey (neutral) or red (war).
-- **Rival AI courts:** one order per GP per turn ([`ai.md`](ai.md)).
-  Below 50 war desire a rival offers white peace; either answer starts a
-  3-turn cooldown.
+  green (friendly), grey (neutral), red (war).
+- **Rival AI courts:** one order per turn ([`ai.md`](ai.md)): war, peace or any
+  court-menu order. Below 50 desire a rival offers white peace; consent asks
+  wait, one-sided acts land at once.
 
 ## Deferred (REQ-P2-02)
 

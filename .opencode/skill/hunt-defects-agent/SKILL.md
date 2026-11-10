@@ -11,7 +11,7 @@ description: |-
 
   Examples:
     - no target → judge a domain, playtest, fix session defects, PR, stop
-    - "playtest boarding" → that implemented domain only; fix cluster; PR
+    - cited implemented domain → that domain only; fix cluster; PR
     - "P2 hill climb" → same; prefer high-risk or recently changed rules
 ---
 

@@ -10,8 +10,8 @@ description: |-
 
   Examples:
     - no target → judge related wiki gaps, record, wiki, implement, PR, stop
-    - "elucidate boarding confirm" → that theme only; batch related gaps; PR
-    - "clarify AI treasury planner vs rules" → cross-page ambiguity; PR
+    - cited theme → that theme only; batch related gaps; PR
+    - cross-page ambiguity → clarify, record, PR
 ---
 
 # Elucidate design agent (facade)

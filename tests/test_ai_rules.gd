@@ -247,9 +247,12 @@ func test_strong_rival_declares_war_through_the_rules() -> void:
 func test_weak_rival_cannot_find_a_legal_war() -> void:
 	var run: Dictionary = _run()
 	var record: Dictionary = _record_for(run["result"]["trace"], 1)
-	assert_true((record["action"] as Dictionary).is_empty())
-	var candidate: Dictionary = record["candidates"][0]
-	assert_false(String(candidate["blocked"]).is_empty(), "the trace explains the refusal")
+	assert_eq(
+		String((record["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OVERTURE,
+		"a court that cannot fight courts a friend instead"
+	)
+	assert_eq(String(record["candidates"][0]["blocked"]), "war desire too low")
 
 
 func test_a_second_turn_does_not_repeat_the_war() -> void:
