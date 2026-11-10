@@ -415,3 +415,23 @@ func test_the_dossier_names_the_crowns_plan() -> void:
 	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
 	panel.free()
 
+
+## One tap on any own army's dossier cycles the whole crown's stance, and an
+## unknown value starts from balanced rather than stranding the cycle
+## (wiki: quick-battle § The crown's plan).
+func test_cycling_the_plan_is_crown_wide() -> void:
+	var play: PlaySession = _screen.play
+	var army: ArmyState = _player_home()
+	play.battle_plan = "balanced"
+
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "defensive", "the plan lives on the crown, not the army")
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "balanced")
+
+	play.battle_plan = "hammer"
+	MapPlayArmies.cycle_plan(play, army)
+	assert_eq(play.battle_plan, "aggressive", "an unknown stance cycles from balanced")
+
