@@ -16,7 +16,8 @@ static func run(play: PlaySession) -> Dictionary:
 	var report: Dictionary = {"factions": {}, "orders": []}
 	if play == null or play.world == null or play.civilian_layer == null:
 		return report
-	play.ensure_ai()
+	if play.ai == null:
+		play.ai = AiState.new()
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)

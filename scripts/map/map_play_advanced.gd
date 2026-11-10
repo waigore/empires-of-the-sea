@@ -78,7 +78,9 @@ static func _larder(economy: PlayerEconomy) -> void:
 static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
 	if faction == play.player_faction and play.economy != null and not play.observer_mode:
 		return play.economy.economy
-	return play.ensure_ai().economy_for(faction)
+	if play.ai == null:
+		play.ai = AiState.new()
+	return play.ai.economy_for(faction)
 
 
 # --- diplomacy ---------------------------------------------------------------

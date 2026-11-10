@@ -57,8 +57,16 @@ var defeat: DefeatState = null
 ## (wiki: diplomacy § Alliances).
 var turn_suspended: bool = false
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
-## turn's decision trace (wiki: ai-architecture).
-var ai: AiState = null
+## turn's decision trace (wiki: ai-architecture). Assignments stamp this run's
+## difficulty so call sites that only `AiState.new()` still found ledgers right.
+var _ai: AiState = null
+var ai: AiState:
+	get:
+		return _ai
+	set(value):
+		_ai = value
+		if _ai != null:
+			_ai.difficulty = difficulty
 var ai_trace: Array[Dictionary] = []
 ## Last resolved turn's spy despatch: `turn` and `lines` (rival Great Power ->
 ## Array[String]) for every court a Spy shadows (wiki: civilian-units § Spy —
@@ -132,7 +140,8 @@ func configure(
 func ensure_ai() -> AiState:
 	if ai == null:
 		ai = AiState.new()
-	ai.difficulty = difficulty
+	else:
+		ai.difficulty = difficulty
 	return ai
 
 
