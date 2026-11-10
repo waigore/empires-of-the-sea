@@ -176,6 +176,27 @@ func test_a_waiting_call_to_arms_names_its_price_and_emits_the_answer() -> void:
 	assert_eq(seen[0][1], 2, "the answer names the aggressor")
 
 
+## The banner rides a 570-point court sheet on a landscape phone (914×411 and
+## 800×360 both measured): the stakes line must stay inside the height the sheet
+## has left, so a longer price cannot push the buttons out of reach
+## (wiki: diplomacy § Alliances).
+func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
+	state.relation(0, 1).score = 80.0
+	state.relation(0, 1).formal_alliance = true
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 2, 1)
+	panel.size = Vector2(570, 600)
+	panel.refresh(state, null, 0, 2500)
+	await get_tree().process_frame
+	var banner: Control = panel._call_box.get_child(0) as Control
+	assert_not_null(banner, "the banner is up")
+	assert_gt(banner.size.y, 100.0, "the banner is laid out with its copy and buttons")
+	assert_true(
+		banner.size.y <= 140.0,
+		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
+	)
+
+
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	state.relation(0, 2).score = 80.0
 	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
