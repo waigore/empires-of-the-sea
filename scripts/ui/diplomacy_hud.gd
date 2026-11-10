@@ -32,8 +32,7 @@ static func show(
 	world: WorldMap,
 	player: int,
 	treasury: int,
-	tech: Dictionary = {},
-	court_reports: Dictionary = {}
+	tech: Dictionary = {}
 ) -> void:
 	panels.hide_province()
 	panels.hide_fleet()
@@ -41,7 +40,7 @@ static func show(
 	panels.hide_army()
 	panels.hide_economy()
 	panels.hide_research()
-	panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
+	panels.diplomacy_panel.refresh(state, world, player, treasury, tech)
 	panels.diplomacy_wrap.visible = true
 	panels.diplomacy_open = true
 	var tween := panels.host.create_tween()
@@ -54,11 +53,10 @@ static func refresh(
 	world: WorldMap,
 	player: int,
 	treasury: int,
-	tech: Dictionary = {},
-	court_reports: Dictionary = {}
+	tech: Dictionary = {}
 ) -> void:
 	if panels.diplomacy_open:
-		panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
+		panels.diplomacy_panel.refresh(state, world, player, treasury, tech)
 
 
 static func hide(panels: HudPanels) -> void:
