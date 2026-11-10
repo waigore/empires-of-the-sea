@@ -233,7 +233,8 @@ func show_economy(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
-	cargo: Dictionary = {}
+	cargo: Dictionary = {},
+	offers: Array = []
 ) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
@@ -251,7 +252,7 @@ func show_economy(
 	civilian_open = false
 	army_wrap.visible = false
 	army_open = false
-	economy_panel.refresh(economy, market, report, cargo)
+	economy_panel.refresh(economy, market, report, cargo, offers)
 	economy_wrap.visible = true
 	economy_open = true
 	var tween := host.create_tween()

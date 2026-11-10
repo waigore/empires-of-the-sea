@@ -1,8 +1,7 @@
 # Economy: stockpile, production and riches
 
-One central stockpile per Great Power, the end-of-turn economy pipeline and the
-raw → manufactured recipes. **Pillars:** P2 (rules), P3 (rules/view), P5
-(agency).
+One stockpile per Great Power, the end-of-turn pipeline and the raw →
+manufactured recipes. **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
 [production-recipes](https://github.com/waigore/empires-of-the-sea/wiki/production-recipes),
@@ -10,20 +9,18 @@ raw → manufactured recipes. **Pillars:** P2 (rules), P3 (rules/view), P5
 
 ## Pipeline
 
-`EconomyTurn` resolves four phases in wiki order, then research and world-market
+`EconomyTurn` runs four phases in wiki order, then research and world-market
 price discovery:
 
 1. **Extraction** — connected estates add their yields
    ([improvements.md](improvements.md)).
-2. **Riches-to-treasury** — gold, silver, gems, diamonds and spices clear from
-   the stockpile at base price (`CommodityCatalog.treasury_ids()`).
-3. **Consumption** — navy, army and workers eat from the stockpile; strike
-   rules apply to unfed workers.
-4. **Production** — whole recipe runs consume post-consumption inputs and idle
-   labour, then add outputs.
+2. **Riches-to-treasury** — gold, silver, gems, diamonds and spices clear at
+   base price (`CommodityCatalog.treasury_ids()`).
+3. **Consumption** — navy, army and workers eat; unfed workers strike.
+4. **Production** — whole recipe runs spend post-consumption inputs and idle
+   labour.
 
-The same pipeline powers the ledger's dry-run projection; the projection copies
-the economy, so it never mutates the live treasury or stockpile.
+Projections copy the economy and never mutate live state.
 
 ## Production recipes
 
@@ -41,29 +38,33 @@ the economy, so it never mutates the live treasury or stockpile.
 | paper | timber ×2 | 2 |
 | bronze | copper ×1 + tin ×1 | 3 |
 
-`fabric_from_cotton` needs Cotton Weaving; every other row is always available.
-A recipe runs an integer number of times, bounded by inputs and idle labour; a
-row that cannot complete once is skipped without consuming anything. The
-`PRODUCTION` ledger tab sets desired output units per recipe; labour is not
-removed from the worker pool.
+`fabric_from_cotton` needs Cotton Weaving; other rows always run. A recipe runs
+whole times, bounded by inputs and idle labour; a row that cannot complete once
+skips without consuming. The `PRODUCTION` tab sets desired outputs.
 
 ## Town manufacturing bonus
 
-A province at town development 2 or 4 turns **town-connected raw extracted that
-turn** into bonus manufactures during Extraction: level 2 ×1, level 4 ×2,
-levels 1 and 3 none. The bonus consumes no inputs, labour or cargo. Per recipe,
-`floor(least delivered town-connected raw input / 4) × multiplier`.
+Town development 2 or 4 turns town-connected raw into ×1/×2 bonus manufactures:
+`floor(least delivered input / 4) × multiplier`, no inputs or labour.
+Great Powers credit the stockpile; overseas town manufacturing stays deferred;
+rivals trade the same market. Connectivity: [improvements.md](improvements.md).
 
-Great Powers credit the output to the central stockpile. Minor and Tribe market
-offers, and overseas town manufacturing (until cargo is tracked per province),
-remain deferred. Rivals trade through the same market every turn. Town
-connectivity is in [improvements.md](improvements.md).
+## Minor and Tribe offers
+
+`MinorMarket` publishes each Minor Nation's and Tribe's harvest every turn: one
+row per tradeable commodity its estates yield, at 75% of the world price
+(`DR-20261110-08`). Riches and the capital grain ration never appear, and a court
+sells only in a region where the crown holds land. Buying pays the seller
+(treasury sink), fills stock, spends a cargo hold, and books the import for
+price discovery and naval interception. Rows expire each turn change; the book
+is saved.
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and the projection. The production
-tab emits assignment intents; `EconomyController` applies them and refreshes the
-panel. All validation stays in the rules modules (`REQ-P2-03`).
+`ECONOMY` shows treasury, stockpile, trade and the projection. The `MARKET` tab
+leads with the cargo banner and the offers (seller, good, units left, ask), then
+the world rows. Tab presses are intents; rules stay in the rules modules
+(`REQ-P2-03`).
 
 ## Architecture
 
@@ -75,10 +76,10 @@ panel. All validation stays in the rules modules (`REQ-P2-03`).
 | `scripts/rules/production_recipes.gd` | recipe catalog and whole-run planner |
 | `scripts/rules/commodity_catalog.gd` | ids, categories, prices, treasury rows |
 | `scripts/rules/town_industry.gd` | town manufacturing bonus |
+| `scripts/rules/minor_market.gd` | Minor Nation / Tribe offers and direct purchase |
 | `scripts/ui/ledger_production.gd` | production tab rows |
 | `scripts/economy/economy_controller.gd` | panel wiring and turn resolution |
 
 ## Tests
 
-`test_economy_rules` (pipeline, workers, recipes, riches, town bonus),
-`test_economy_screen`, `test_catalogs`.
+`test_economy_rules`, `test_economy_screen`, `test_catalogs`.
