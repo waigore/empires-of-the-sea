@@ -56,7 +56,7 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames == 4 and _zoom > 0.0 and _screen != null:
-		_screen.camera.zoom = Vector2.ONE * _zoom
+		_screen.camera.focus_on(_screen.camera.position, _zoom, true)
 	if _frames == 4 and _diplomacy and _screen != null:
 		_screen.play.diplomacy.apply_delta(0, 1, 22.0, "courtSample")
 		MapPlayDiplomacy.open(_screen.play)

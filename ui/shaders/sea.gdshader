@@ -9,8 +9,8 @@ uniform vec4 mid_color : source_color = vec4(0.443, 0.576, 0.580, 1.0);
 uniform vec4 pale_color : source_color = vec4(0.663, 0.769, 0.749, 1.0);
 uniform float wave_scale = 6.5;
 uniform float speed = 0.060;
-uniform float hatch_strength = 0.05;
-uniform float crest_strength = 0.55;
+uniform float hatch_strength = 0.11;
+uniform float crest_strength = 0.85;
 uniform float glint_strength = 0.10;
 uniform vec2 world_size = vec2(2816.0, 1848.0);
 uniform vec2 drift = vec2(0.72, 0.24);
@@ -58,9 +58,13 @@ void fragment() {
 	crest = smoothstep(0.90, 1.0, crest) * smoothstep(0.34, 0.72, swell);
 	color += vec3(0.085, 0.095, 0.088) * crest * crest_strength;
 
-	// Slanted hatch of the engraver.
+	// Slanted hatch of the engraver, plus a finer counter-hatch: at fit zoom the
+	// open water has to carry linework of its own, not just a colour field.
+	vec2 wp = UV * world_size;
 	float band = sin((uv.y * 26.0 + swell * 4.0 + t * 6.0) * 3.14159);
 	color += vec3(0.05, 0.06, 0.06) * smoothstep(0.86, 1.0, band) * hatch_strength * 20.0;
+	float fine = sin(wp.y * 0.115 + wp.x * 0.034 + swell * 5.0 + t * 2.0);
+	color += vec3(0.045, 0.055, 0.055) * smoothstep(0.88, 1.0, fine) * hatch_strength * 4.0;
 
 	// Glints only where the ripple crowns, so the sparkle keeps a shape.
 	float cell = hash(floor(uv * 240.0) + vec2(floor(t * 26.0)));
