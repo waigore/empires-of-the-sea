@@ -55,29 +55,14 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 ## Architecture
 
-| File | Role |
-|------|------|
-| `scripts/rules/diplomacy_catalog.gd` | costs, bands, ladder, tech gates |
-| `scripts/rules/diplomacy_state.gd` | relations, overtures, subsidies, events |
-| `scripts/rules/diplomacy_rules.gd` | war, peace, alliance, overture |
-| `scripts/rules/call_to_arms.gd` | mutual-defence calls and answers |
-| `scripts/rules/intervention.gd` | third-party war choices |
-| `scripts/rules/diplomacy_aid.gd` | grant aid and subsidies |
-| `scripts/rules/diplomacy_orders.gd` | validation, catalogue |
-| `scripts/rules/diplomacy_trade.gd` | pacts, boycotts, price terms |
-| `scripts/rules/diplomacy_proposals.gd` | rival proposals, answers |
-| `scripts/rules/diplomacy_history.gd` | chronicle, masking, stamps |
-| `scripts/rules/diplomacy_survey.gd` | lens bands, run merge |
-| `scripts/map/diplomacy_lens.gd` | political wash |
-| `scripts/rules/intel_dossier.gd` | dossier evidence, weights, bands |
-| `scripts/ui/diplomacy_panel.gd` | court ledger and shell |
-| `scripts/ui/court_trade.gd` | TRADE TERMS block and orders |
-| `scripts/ui/court_dossier.gd` | dossier block |
-| `scripts/ui/court_prompts.gd` | consent/proposal banners |
-| `scripts/ui/diplomacy_history_panel.gd` | chronicle rows |
-| `scripts/map/map_play_diplomacy.gd` | intents, first contact, phase |
-
-Rules need no nodes (`REQ-P3-03`); panel → `DiplomacyOrders.apply`, phase → `end_turn`.
+Rules: `diplomacy_catalog` (costs, bands, gates), `diplomacy_state`,
+`diplomacy_rules`, `diplomacy_aid`, `diplomacy_orders` (validate/apply),
+`diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
+`diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`,
+`intel_dossier`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`. UI:
+`ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
+`diplomacy_history_panel`. Rules need no nodes (`REQ-P3-03`); panel →
+`DiplomacyOrders.apply`, phase → `end_turn`.
 
 ## Tests
 

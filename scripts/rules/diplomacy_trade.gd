@@ -269,8 +269,12 @@ static func faction_terms(
 	var boycotts: int = boycotts_against(state, faction).size()
 	buy["*"] = float(buy["*"]) + DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
 	sell["*"] = float(sell["*"]) - DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
-	buy["*"] = clampf(float(buy["*"]), DiplomacyCatalog.TERMS_BUY_MIN, DiplomacyCatalog.TERMS_BUY_MAX)
-	sell["*"] = clampf(float(sell["*"]), DiplomacyCatalog.TERMS_SELL_MIN, DiplomacyCatalog.TERMS_SELL_MAX)
+	buy["*"] = clampf(
+		float(buy["*"]), DiplomacyCatalog.TERMS_BUY_MIN, DiplomacyCatalog.TERMS_BUY_MAX
+	)
+	sell["*"] = clampf(
+		float(sell["*"]), DiplomacyCatalog.TERMS_SELL_MIN, DiplomacyCatalog.TERMS_SELL_MAX
+	)
 	return {"buy": buy, "sell": sell}
 
 
