@@ -300,7 +300,7 @@ static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 			)
 			if not general.is_empty():
 				line += " — %s earns a medal" % general
-		play.hud.toast(line)
+		play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
 	var losses: Dictionary = CapitalLoss.resolve_world(play.world, before)

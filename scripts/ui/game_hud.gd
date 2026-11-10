@@ -299,29 +299,46 @@ func _on_quick_battle_finished() -> void:
 	)
 
 
-func toast(text: String) -> void:
+## A despatch toast. `icon_name` raises the plate with a medallion (an
+## auto-resolved siege's silenced battery) and holds it longer, so the loss is
+## read and not mistaken for the turn's chatter (REQ-P5-05).
+func toast(text: String, icon_name: String = "") -> void:
 	# The observer hides the human chrome; building toast plates for a hidden
 	# court would only churn nodes every turn (REQ-P4-04).
 	if not visible:
 		return
 	var panel := PanelContainer.new()
+	var accent: Color = Palette.GOLD if icon_name.is_empty() else Palette.CRIMSON
 	panel.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.95), Palette.GOLD, 1, 3, Vector4(18, 8, 18, 8))
+		UiTheme.box(Color(0.10, 0.08, 0.06, 0.95), accent, 1, 3, Vector4(18, 8, 18, 8))
 	)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_font_size_override("font_size", 15 if icon_name.is_empty() else 16)
 	label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	panel.add_child(label)
+	if icon_name.is_empty():
+		panel.add_child(label)
+	else:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 8)
+		var medallion := TextureRect.new()
+		medallion.texture = ChromeIcons.texture(icon_name)
+		medallion.custom_minimum_size = Vector2(26.0, 26.0)
+		medallion.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		medallion.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(medallion)
+		row.add_child(label)
+		panel.add_child(row)
 	panel.modulate.a = 0.0
 	_toast_box.add_child(panel)
 
 	var tween := create_tween()
 	tween.tween_property(panel, "modulate:a", 1.0, 0.25)
-	tween.tween_interval(2.8)
+	tween.tween_interval(2.8 if icon_name.is_empty() else 4.4)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(panel.queue_free)
 

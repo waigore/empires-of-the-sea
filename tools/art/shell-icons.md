@@ -52,3 +52,18 @@ with `mipmaps/generate=true`. `QuickBattleField`/`QuickBattleRail` draw the
 chevron, `ArmyPanel` shows it beside the chevron count; no build script owns
 these files, so a replacement goes in `assets/art/icons/` by hand (same family
 as the shell medallions).
+
+## Silenced battery icon (auto-resolve)
+
+One medallion for the land toast when an auto-resolved siege silences a fort's
+guns (DR-20261110-22). Base edit from `ledger.png`, same ring and lighting:
+
+> Replace ONLY the central open book with a single brass cannon barrel broken at
+> the breech, tilted slightly upward, with a short dark curl of smoke rising
+> from the break, sculpted in polished brass. No book, no pages, no text.
+> Isolated on a solid pure magenta #FF00FF background.
+
+`silenced_gun.png` is 128 px RGBA with `mipmaps/generate=true`.
+`BattleReport.icon_of` names it; `GameHud.toast` draws it at 26 points on a
+crimson plate. No build script owns it, so a replacement goes in
+`assets/art/icons/` by hand.

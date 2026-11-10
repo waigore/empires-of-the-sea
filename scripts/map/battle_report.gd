@@ -88,11 +88,40 @@ static func regiment_note(battle: Dictionary) -> String:
 
 
 ## Formats an ArmyCombat record for the land-battle toast, with the condition
-## tail (chevrons won, men mauled) attached.
+## tail (chevrons won, men mauled) and an auto-resolved siege's battery tail.
 static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array
 ) -> String:
-	return _land_core(battle, province_name, faction_names) + regiment_note(battle)
+	return _land_core(battle, province_name, faction_names) \
+		+ regiment_note(battle) + siege_note(battle)
+
+
+## An auto-resolved siege's tail: how many emplaced guns the besieging train
+## silenced and the fort level they left behind. Empty when the battery was not
+## touched, so every other despatch reads as before (REQ-P5-05,
+## DR-20261110-22).
+static func siege_note(battle: Dictionary) -> String:
+	var siege: Dictionary = battle.get("siege", {}) as Dictionary
+	var lost: int = int(siege.get("guns_lost", 0))
+	if lost <= 0:
+		return ""
+	var start: int = int(siege.get("guns_start", lost))
+	var text: String = " — %d of %d emplaced gun%s silenced" % [
+		lost, start, "" if start == 1 else "s"
+	]
+	if not bool(siege.get("fort_downgraded", false)):
+		return text
+	var after: int = int(siege.get("fort_after", 0))
+	return text + ", and the %s fort falls to %s" % [
+		FortRules.level_name(int(siege.get("fort_before", 0))),
+		FortRules.level_name(after) if after > 0 else "open field",
+	]
+
+
+## The medallion an auto-resolved siege earns: a silenced battery. Empty for
+## every other despatch so a plain toast keeps its plain plate.
+static func icon_of(battle: Dictionary) -> String:
+	return "silenced_gun" if not siege_note(battle).is_empty() else ""
 
 
 static func _land_core(
