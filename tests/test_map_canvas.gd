@@ -243,6 +243,74 @@ func test_plan_places_names_without_a_node() -> void:
 	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
 
 
+## The bake is the costliest part of showing a map, so a repeat ask for the same
+## map state must reuse it: a second screen on the shared world, or a region a
+## player switches back to, has nothing new to paint.
+func test_an_unchanged_map_reuses_its_bake() -> void:
+	var model := _small_chart()
+	var first: MapRelief = MapWash.baked(model)
+	assert_eq(MapWash.baked(model), first, "the same map state reuses its bake")
+	var province: ProvinceState = model.provinces[0]
+	var tile: Vector2i = province.tiles[0]
+	var owner: int = province.owner
+	var crown: int = FactionCatalog.great_power_ids()[1]
+
+	province.owner = crown if owner != crown else FactionCatalog.great_power_ids()[2]
+	var repainted: MapRelief = MapWash.baked(model)
+	assert_ne(repainted, first, "a new crown repaints the wash")
+	assert_ne(
+		repainted.tile_color(tile), first.tile_color(tile), "the tint follows the crown"
+	)
+
+	province.owner = owner
+	assert_eq(MapWash.baked(model), first, "the restored map finds its own bake")
+
+
+## The cache is a bound, not a leak: a run that keeps redrawing a changing map
+## drops the oldest bakes instead of keeping every one of them.
+func test_the_bake_cache_stays_bounded() -> void:
+	MapWash.clear_cache()
+	var model := _small_chart()
+	var province: ProvinceState = model.provinces[0]
+	var owner: int = province.owner
+	for step in MapWash.CACHE_LIMIT + 2:
+		province.owner = owner + step + 1
+		MapWash.baked(model)
+	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "bakes stay bounded")
+	MapWash.clear_cache()
+	assert_eq(MapWash._baked.size(), 0, "clearing drops every bake")
+
+
+## A tiny chart for cache cases: two coastal provinces on an eight by six grid,
+## cheap to paint, whose owners can be changed in place.
+func _small_chart() -> MapModel:
+	var model := MapModel.new()
+	model.setup(8, 6)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.OCEAN if y >= 4 else MapModel.Terrain.PLAINS
+			)
+	for index in 2:
+		var tiles: Array[Vector2i] = []
+		for y in 4:
+			for x in 2:
+				var tile := Vector2i(index * 4 + x + 1, y)
+				tiles.append(tile)
+				model.province[model.index_of(tile.x, tile.y)] = index
+		var province := ProvinceState.create(
+			index,
+			"P%d" % index,
+			tiles,
+			Vector2(float(index * 4 + 2), 1.0),
+			tiles.size(),
+			FactionCatalog.PLAYER_FACTION + index,
+			index == 0
+		)
+		model.provinces.append(province)
+	return model
+
+
 func _inland_owned_tile(model: MapModel) -> Vector2i:
 	var best := Vector2i(-1, -1)
 	var best_depth: float = 0.9
