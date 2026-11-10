@@ -94,9 +94,7 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 		return
 	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		return
-	var result: Dictionary = DiplomacyProposals.resolve_human(
-		play.diplomacy, play.world, accept
-	)
+	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.world, accept)
 	if not bool(result.get("ok", false)):
 		if play.hud != null:
 			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
@@ -189,6 +187,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		AiTurnLog.apply_feeding(play, economy_report)
 	else:
 		play.refresh_research()
+		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
 		play.income = play.economy.projected_income()

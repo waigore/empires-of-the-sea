@@ -173,10 +173,14 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	var province_data: ProvinceState = model.province_data(province)
 	if province_data != null and province_data.is_town_tile(unit.tile):
 		_add_row("Town", "Level %d / 4" % province_data.town_level())
+	if unit.type_id == SpyNetworks.SPY_TYPE:
+		_add_row("Tradecraft", "Holds this province in view · +%d%% RP per rival court it shadows" % SpyNetworks.BOOST_PERCENT)
 
 
 func _status_text(_model: MapModel, unit: CivilianState) -> String:
 	if not unit.is_working():
+		if unit.type_id == SpyNetworks.SPY_TYPE:
+			return "At large — move it onto a rival's land to ply its trade."
 		return "Idle — choose an order below."
 	return "%s · %d turn%s left." % [
 		CivilianWork.label(unit.work_action()),
