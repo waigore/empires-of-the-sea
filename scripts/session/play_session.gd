@@ -24,6 +24,9 @@ var infinite_mode: bool = false
 ## Advanced-start preset (wiki: advanced-starts; DR-20261111-01). Empty/"none"
 ## is the ordinary turn-0 campaign.
 var advanced_start: String = AdvancedStart.NONE
+## Difficulty layer, fixed at creation (wiki: ruleset-config § Layers). Scales
+## rival opening stores and rival land strength against the human crown.
+var difficulty: String = Difficulty.DEFAULT
 ## Set once the calendar cap closes an undecided campaign; turns stay shut even
 ## though no victory was declared (wiki: victory § Calendar campaign end).
 var campaign_halted: bool = false
@@ -113,7 +116,8 @@ func configure(
 	height: int,
 	leader: String = "",
 	infinite: bool = false,
-	advanced: String = ""
+	advanced: String = "",
+	difficulty_id: String = ""
 ) -> void:
 	player_faction = faction
 	map_seed = seed_value
@@ -121,8 +125,26 @@ func configure(
 	map_height = height
 	infinite_mode = infinite
 	advanced_start = AdvancedStart.normalize(advanced)
+	difficulty = Difficulty.normalize(difficulty_id)
 	turn = AdvancedStart.turn(advanced_start)
 	leaders = LeaderCatalog.roster(faction, leader)
+
+
+## The per-game AI bookkeeping, stamped with this run's difficulty so rival
+## ledgers are founded at the right level (wiki: ruleset-config § Layers).
+func ensure_ai() -> AiState:
+	if ai == null:
+		ai = AiState.new()
+	ai.difficulty = difficulty
+	return ai
+
+
+## owner id -> land-strength multiplier for this run's difficulty layer; the
+## human crown is never in it (wiki: ruleset-config § Layers; combat § Modifiers).
+func combat_difficulty() -> Dictionary:
+	return Difficulty.combat_multipliers(
+		human_faction_id(), difficulty, FactionCatalog.great_power_ids()
+	)
 
 
 func bind_views(

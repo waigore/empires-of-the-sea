@@ -19,6 +19,7 @@ suites = [
   "test_army_field_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
+  "test_difficulty.gd",
 ]
 
 [domains.audio]
@@ -137,6 +138,7 @@ suites = [
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
+  "test_difficulty.gd",
   "test_game_setup.gd",
   "test_main.gd",
   "test_menu_flow.gd",
@@ -148,6 +150,7 @@ suites = [
 [domains.misc]
 suites = [
   "test_catalogs.gd",
+  "test_difficulty.gd",
   "test_misc_rules.gd",
 ]
 

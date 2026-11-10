@@ -3,8 +3,9 @@ extends RefCounted
 ## Land-combat modifiers and side strength (wiki: combat § Modifiers,
 ## military-generals § Medals, leader-bonuses).
 ## Pure maths: medal morale aura, deployment limit, feeding coverage, terrain,
-## leader bonus and the deterministic "deployed" slice of a side. ArmyCombat
-## owns the battle chain; this module owns the numbers it compares.
+## leader bonus, the difficulty layer and the deterministic "deployed" slice of
+## a side. ArmyCombat owns the battle chain; this module owns the numbers it
+## compares.
 ##
 ## Terrain values are the wiki's defender multipliers. The attacker side of the
 ## forest rule (×0.9) is not modelled yet; defender-only is the current slice's
@@ -140,6 +141,10 @@ static func modifiers(
 	var multiplier: float = medal_aura(medals)
 	multiplier *= feeding_multiplier(float(feeding.get(owner, 1.0)))
 	multiplier *= leader_multiplier(String(leaders.get(owner, "")))
+	## Difficulty scales a rival side against the human crown (wiki: combat
+	## § Modifiers; ruleset-config § Layers). No context key = published maths.
+	var difficulty: Dictionary = context.get("difficulty", {}) as Dictionary
+	multiplier *= float(difficulty.get(owner, 1.0))
 	if is_defender:
 		multiplier *= terrain_multiplier(terrain_for(model, province))
 	var unlocked: Dictionary = tech.get(owner, {}) as Dictionary

@@ -185,8 +185,7 @@ static func show_offer(play: PlaySession) -> void:
 ## phase closes, so declarations apply to this turn's movement and combat
 ## (wiki: diplomacy § Turn Sequence).
 static func run_ai(play: PlaySession) -> void:
-	if play.ai == null:
-		play.ai = AiState.new()
+	play.ensure_ai()
 	var result: Dictionary = AiTurn.run(
 		play.diplomacy,
 		play.world,

@@ -14,12 +14,15 @@ var size_option: OptionButton = null
 var campaign_option: OptionButton = null
 ## Advanced-start preset: turn 0, 50 or 100 (wiki: advanced-starts).
 var advanced_option: OptionButton = null
+## Difficulty layer (wiki: ruleset-config § Layers): fixed once the game starts.
+var difficulty_option: OptionButton = null
 var start_button: Button = null
 var back_button: Button = null
 
 ## LeaderKeys backing `leader_option`, default first (wiki: leader-bonuses).
 var _leader_keys: Array[String] = []
 var _summary: Label = null
+var _difficulty_hint: Label = null
 var _error: Label = null
 
 
@@ -113,6 +116,23 @@ func _build() -> void:
 	advanced_option.item_selected.connect(func(_index: int) -> void: _refresh_summary())
 	box.add_child(advanced_option)
 
+	# Difficulty: the rival courts' opening stores and their land strength when
+	# they meet your crown (wiki: ruleset-config § Layers).
+	box.add_child(MenuFrame.caption("Difficulty"))
+	difficulty_option = OptionButton.new()
+	MenuFrame.style_option(difficulty_option)
+	for id: String in Difficulty.IDS:
+		difficulty_option.add_item(Difficulty.label(id))
+	difficulty_option.select(Difficulty.index_of(Difficulty.DEFAULT))
+	difficulty_option.item_selected.connect(func(_index: int) -> void:
+		_refresh_summary()
+		_refresh_difficulty_hint()
+	)
+	box.add_child(difficulty_option)
+	_difficulty_hint = MenuFrame.subtitle("")
+	box.add_child(_difficulty_hint)
+	_refresh_difficulty_hint()
+
 	_summary = MenuFrame.subtitle("")
 	box.add_child(_summary)
 
@@ -177,8 +197,9 @@ func _refresh_summary() -> void:
 		"endless" if _endless() else "to 1800"
 	)
 	var opening: String = AdvancedStart.label(_advanced())
-	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  %s  ·  seed %s" % [
-		nation, leader, rivals, opening, length_note, seed_label,
+	var difficulty: String = Difficulty.label(_difficulty())
+	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  %s  ·  %s  ·  seed %s" % [
+		nation, leader, rivals, opening, difficulty, length_note, seed_label,
 	]
 
 
@@ -197,7 +218,7 @@ func _on_start() -> void:
 	var faction: int = int(nation_option.get_item_id(nation_option.selected))
 	var config: GameConfig = GameConfig.make(
 		seed_value, size_option.selected, faction, _selected_leader(),
-		_endless(), _advanced()
+		_endless(), _advanced(), _difficulty()
 	)
 	start_requested.emit(config)
 
@@ -214,6 +235,22 @@ func _advanced() -> String:
 ## (wiki: turn-time-mapping § Campaign calendar cap).
 func _endless() -> bool:
 	return campaign_option != null and campaign_option.selected == 1
+
+
+## The difficulty layer the player chose; fixed once the game starts (wiki:
+## ruleset-config § Layers).
+func _difficulty() -> String:
+	if difficulty_option == null:
+		return Difficulty.DEFAULT
+	var index: int = clampi(difficulty_option.selected, 0, Difficulty.IDS.size() - 1)
+	return Difficulty.IDS[index]
+
+
+## Plain-language effect of the chosen level, so the choice is never blind.
+func _refresh_difficulty_hint() -> void:
+	if _difficulty_hint == null:
+		return
+	_difficulty_hint.text = Difficulty.hint(_difficulty())
 
 
 func _notification(what: int) -> void:

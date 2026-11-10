@@ -329,6 +329,29 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 
 # --- helpers -----------------------------------------------------------------
 
+## The difficulty layer is fixed at creation, so a load must not re-roll it and
+## must bring the rival ledgers back at the level they were founded on
+## (wiki: ruleset-config § Layers).
+func test_the_difficulty_layer_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.difficulty = "hard"
+	var rival: PlayerEconomy = play.ensure_ai().economy_for(1)
+	var purse: int = rival.treasury
+	assert_gt(purse, PlayerEconomy.START_TREASURY, "a hard rival opens with more")
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(String((data["session"] as Dictionary).get("difficulty", "")), "hard")
+	assert_true(SaveStore.write(DIR + "/difficulty.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/difficulty.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	play = screen.play
+	assert_eq(play.difficulty, "hard", "the layer is fixed for the campaign")
+	assert_eq(play.ai.difficulty, "hard")
+	assert_eq(play.ai.economy_for(1).treasury, purse, "the rival purse returns as saved")
+
+
 func _foreign_province(play: PlaySession) -> int:
 	for province: ProvinceState in play.model.provinces:
 		if province.owner != play.player_faction:

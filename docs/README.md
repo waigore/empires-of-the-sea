@@ -14,6 +14,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
 | [advanced-start.md](advanced-start.md) | Opening at turn 50/100: tiers, colonies, estates |
+| [difficulty.md](difficulty.md) | Difficulty layer: rival stores and rival land strength |
 | [capital-choice.md](capital-choice.md) | Seating the court before turn 1: rules, chart, persistence |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
 | [dialogue.md](dialogue.md) | Court voice: dialogue points, envoy moods, proposal banners |
