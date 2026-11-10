@@ -42,16 +42,16 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
   stock deficit under labour/inputs; recruit the highest tier it can afford.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
-- **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
-  civilian — builders improve shortest commodity or finish a paying town,
-  engineers connect towns then road/port/fort, explorers explore and prospect,
-  rail builders upgrade roads.
+- **Civilian planner** (`AiCivilianPlanner`): one order per idle civilian —
+  builders improve or finish a town, engineers connect then road/port/fort,
+  explorers prospect, rail builders upgrade roads.
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
   inputs; bid short build inputs (3 types; 6 with Trade Fairs).
-- **Regiment parity** (`MilitaryParity`): Minor land regiments match the
-  strongest Great Power era; Tribes stay at level 1.
+- **Regiment parity** (`MilitaryParity`): Minors match the leading power's
+  era; Tribes stay at level 1. Rivals re-equip and pay attack prices
+  (`RegimentUpgrades`, `ArmyAttackCost`).
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
