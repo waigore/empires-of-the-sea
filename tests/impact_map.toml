@@ -180,6 +180,45 @@ suites = [
   "test_world_setup.gd",
 ]
 
+# Shared chart behind MapScreen suites (docs/testing.md). A fixture edit must
+# re-run every consumer, but not the whole tree — full = true blows the 5 min
+# tier-1 budget.
+[domains.map_fixture]
+suites = [
+  "test_advanced_start.gd",
+  "test_ai_observer.gd",
+  "test_army_orders.gd",
+  "test_campaign_defeat.gd",
+  "test_campaign_end.gd",
+  "test_capital_loss.gd",
+  "test_diplomacy_lens.gd",
+  "test_diplomacy_screen.gd",
+  "test_diplomacy_survey.gd",
+  "test_economy_screen.gd",
+  "test_fleet_orders.gd",
+  "test_fleet_rosters.gd",
+  "test_fog_layer.gd",
+  "test_gazette.gd",
+  "test_intel_dossier.gd",
+  "test_main.gd",
+  "test_map_canvas.gd",
+  "test_map_generator.gd",
+  "test_map_screen.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_map_soundtrack.gd",
+  "test_minimap.gd",
+  "test_mobile_layout.gd",
+  "test_quick_battle_overlay.gd",
+  "test_research_screen.gd",
+  "test_resource_lens.gd",
+  "test_resource_survey.gd",
+  "test_save_codec.gd",
+  "test_victory_screen.gd",
+  "test_warp_travel.gd",
+  "test_world_bootstrap.gd",
+  "test_world_setup.gd",
+]
+
 [domains.advanced]
 suites = [
   "test_advanced_start.gd",
@@ -445,7 +484,7 @@ domain = "misc"
 
 [[rules]]
 match = "tests/map_fixture.gd"
-full = true
+domain = "map_fixture"
 
 [[rules]]
 match = "tests/map_shot.gd"
