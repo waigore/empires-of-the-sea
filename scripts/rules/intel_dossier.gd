@@ -24,6 +24,7 @@ const W_BREAK_ISOLATION: int = 1
 const W_CTA_REFUSED: int = 2
 const W_STOOD_ASIDE: int = 1
 const W_INTERVENED: int = 2
+const W_PROTESTED: int = 1
 const W_PEACE: int = 2
 const W_ACCEPTED_OFFER: int = 1
 const W_REFUSED_OFFER: int = 1
@@ -161,6 +162,12 @@ static func _weights_for(
 		"interventionIntervened":
 			if a == subject:
 				weights[AiAgenda.PEACEMAKER] = W_INTERVENED
+		"interventionProtest":
+			# A court that keeps its embassy and puts a price on the aggression
+			# reads as a peace-seeker, just less loudly than one that joins
+			# (DR-20261110-16).
+			if a == subject:
+				weights[AiAgenda.PEACEMAKER] = W_PROTESTED
 		"peaceMade":
 			if a == subject:
 				weights[AiAgenda.PEACEMAKER] = W_PEACE
@@ -208,6 +215,10 @@ static func _text_for(
 			return "Stood aside while %s made war on %s." % [aggressor, other]
 		"interventionIntervened":
 			return "Intervened against %s on behalf of %s." % [aggressor, other]
+		"interventionProtest":
+			return "Protested %s's war on %s." % [
+				other, _court(state, viewer, int(data.get("target", -1)))
+			]
 		"peaceMade":
 			return "Concluded a white peace with %s." % other
 		"proposalAccepted":

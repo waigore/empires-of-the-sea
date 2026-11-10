@@ -90,13 +90,21 @@ static func _apply(
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
 	if kind == KIND_DECLARE_WAR:
-		var war: Dictionary = DiplomacyRules.declare_war(state, faction, target, true, world)
+		# The declarer's own Propaganda softens a protest against it, so the
+		# rules read this rival's ledger rather than assuming none
+		# (wiki: diplomacy § Intervention; DR-20261110-16).
+		var tech: Dictionary = ai_state.economy_for(faction).tech_unlocked
+		var war: Dictionary = DiplomacyRules.declare_war(
+			state, faction, target, true, world, tech
+		)
 		if bool(war.get("ok", false)):
 			ai_state.note_war(faction, target, turn)
+		var news: Array = war.get("calls", [])
+		news.append_array(war.get("interventions", []))
 		return {
 			"result": war,
 			"message": String(war.get("message", "")),
-			"messages": war.get("calls", []),
+			"messages": news,
 		}
 	if kind == KIND_OFFER_PEACE:
 		# A peace offer to the human court is queued, never signed: the phase

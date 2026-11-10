@@ -32,6 +32,7 @@ chronicle, which every save already carries.
 | Declared war on a larger court | envy | 2 (+1 when that court is you) |
 | Refused a call to arms | isolationist | 2 |
 | Stood aside in an intervention | isolationist | 1 |
+| Protested a war on a lesser court | peacemaker | 1 |
 | Refused a rival's offer | isolationist | 1 |
 | Intervened against an aggressor | peacemaker | 2 |
 | Concluded a white peace | peacemaker | 2 |
