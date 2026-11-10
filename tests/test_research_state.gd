@@ -228,3 +228,30 @@ func _unlock(tech_id: String, id: String) -> Dictionary:
 
 func _has_unlock(tech_id: String, id: String) -> bool:
 	return not _unlock(tech_id, id).is_empty()
+
+# --- late-gate military effects (DR-20261110-17) -----------------------------
+
+
+func test_an_upgrade_path_reads_as_an_improvement() -> void:
+	var row: Dictionary = _unlock("improved_iron_weapons", "upgrade_pikemen")
+	assert_eq(int(row.get("kind", -1)), TechUnlocks.Kind.IMPROVE)
+	assert_eq(String(row.get("name", "")), "Pikemen upgrade path")
+	assert_true(_has_unlock("needle_guns", "upgrade_regulars"), "Regulars -> Rifle Infantry")
+	assert_true(_has_unlock("high_grade_steel", "upgrade_heavy_artillery"))
+	assert_false(
+		_has_unlock("improved_cavalry_tactics", "upgrade_squires"),
+		"the first heavy cavalry has nothing to replace"
+	)
+	assert_true(TechCatalog.effect_text("bayonet").contains("Halberdiers upgrade path"))
+
+
+func test_the_attack_cost_techs_name_their_factor() -> void:
+	var row: Dictionary = _unlock("industrial_machinery", "attack_cost")
+	assert_eq(int(row.get("kind", -1)), TechUnlocks.Kind.IMPROVE)
+	assert_eq(String(row.get("name", "")), "land-battle attack cost ×0.75")
+	assert_true(_has_unlock("modern_military_funding", "attack_cost"))
+	assert_true(TechCatalog.effect_text("industrial_machinery").contains("×0.75"))
+	assert_false(
+		TechCatalog.effect_text("banking").contains("attack cost"),
+		"only the two funding techs move the price"
+	)

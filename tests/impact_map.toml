@@ -44,6 +44,7 @@ suites = [
   "test_capital_choice.gd",
   "test_capital_loss.gd",
   "test_capital_seat_screen.gd",
+  "test_deed_protection.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -188,6 +189,7 @@ suites = [
   "test_advanced_start.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
+  "test_hud_toast.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
@@ -560,6 +562,10 @@ match = "scripts/rules/dialogue_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "scripts/rules/auto_siege.gd*"
+domain = "fort"
+
+[[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
@@ -629,6 +635,14 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/intervention.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/intervention_copy.gd"
 domain = "campaign"
 
 [[rules]]
@@ -831,6 +845,10 @@ match = "tests/test_intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "tests/test_deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
 match = "tests/test_victory_*.gd"
 domain = "campaign"
 
@@ -966,6 +984,10 @@ domain = "espionage"
 [[rules]]
 match = "tests/test_advanced_start.gd*"
 domain = "advanced"
+
+[[rules]]
+match = "tests/test_hud_toast.gd*"
+domain = "menu"
 
 [[rules]]
 match = "tests/test_*.gd"
