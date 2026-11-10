@@ -812,6 +812,21 @@ func test_quick_battle_battery_silences_guns_and_downgrades() -> void:
 	assert_eq(model.province_data(2).fort_level, 0)
 
 
+## A standing gun soaks the blow it takes: a hit short of its HP spends the fire
+## without silencing it, so the garrison behind it is sheltered
+## (wiki: siege-mechanics § Quick Battle lanes).
+func test_a_standing_gun_soaks_the_blow_before_it_is_silenced() -> void:
+	var guns: Array[Dictionary] = QuickBattleBattery.make(1, {}, 1)
+	var first: Dictionary = QuickBattleBattery.absorb(guns, 1)
+	assert_eq(int(first["absorbed"]), 1, "the gun takes the whole hit")
+	assert_eq(int(first["destroyed"]), 0)
+	assert_eq(QuickBattleBattery.alive(guns), 1)
+	var second: Dictionary = QuickBattleBattery.absorb(guns, 4)
+	assert_eq(int(second["absorbed"]), 1, "a dead gun soaks nothing more")
+	assert_eq(int(second["destroyed"]), 1)
+	assert_almost_eq(QuickBattleBattery.total_hp(guns), 0.0, 0.001)
+
+
 func test_quick_battle_copy_names_the_victor() -> void:
 	var battle: Dictionary = {
 		"attacker": 0,

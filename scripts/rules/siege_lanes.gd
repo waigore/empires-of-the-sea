@@ -104,10 +104,18 @@ static func strike(
 		armies, defending, wall_blow, def_limit,
 		func(type_id: String) -> bool: return is_wall_type(type_id)
 	)
-	var behind_lost: Array[String] = ArmyCombat.apply_losses(
-		armies, defending, behind_blow, def_limit,
-		func(type_id: String) -> bool: return not is_wall_type(type_id)
-	)
+	# One blow bleeds no more than the deployed slice: the wall draws first and
+	# the behind lane gets whatever is left of the limit, never a second helping
+	# (wiki: combat § Auto-resolve casualty selection — reserves take no losses).
+	var behind_left: int = -1
+	if def_limit > 0:
+		behind_left = maxi(def_limit - wall_lost.size(), 0)
+	var behind_lost: Array[String] = []
+	if behind_blow > 0 and behind_left != 0:
+		behind_lost = ArmyCombat.apply_losses(
+			armies, defending, behind_blow, 0 if behind_left < 0 else behind_left,
+			func(type_id: String) -> bool: return not is_wall_type(type_id)
+		)
 	result["wall"] = wall_lost
 	result["behind"] = behind_lost
 	result["turned"] = maxi(0, blow - wall_lost.size() - behind_lost.size())

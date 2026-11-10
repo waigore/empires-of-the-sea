@@ -100,6 +100,16 @@ func test_a_despatch_reports_the_losses_it_inflicted() -> void:
 		QuickBattleCopy.action_line(behind, battle, NAMES),
 		"España — Volley fire · 1 lost · 1 behind the wall"
 	)
+	## A blow the standing battery soaked says so, or the player reads a silent
+	## action and cannot tell the guns are still answering.
+	var soaked := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 0, "guns_destroyed": 0, "battery_hit": 1,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(soaked, battle, NAMES),
+		"España — Volley fire · the battery takes the blow"
+	)
 
 
 ## The aftermath names the dead and the wall: both are written into the log the

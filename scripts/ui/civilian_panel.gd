@@ -174,21 +174,35 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	if province_data != null and province_data.is_town_tile(unit.tile):
 		_add_row("Town", "Level %d / 4" % province_data.town_level())
 	if unit.type_id == SpyNetworks.SPY_TYPE:
-		var host: int = model.owner_at(unit.tile.x, unit.tile.y)
-		if host != unit.owner:
-			_add_row(
-				"Tradecraft",
-				"Shadows %s — presence reveal, +%d%% RP"
-				% [FactionCatalog.name_of(host), SpyNetworks.BOOST_PERCENT]
+		_add_row("Tradecraft", _tradecraft_text(model, unit))
+
+
+## What the spy's standing actually buys where it stands: a shadowed court only
+## shares its research when it is a Great Power (wiki: civilian-units § Spy (2);
+## DR-20261110-03), and the counter-espionage screen exists only while the order
+## is up (wiki: civilian-units § Spy (3)). A dossier that promised a share from
+## a minor court, or a screen from an idle spy, would claim an outcome the rules
+## never grant (REQ-P2-03).
+func _tradecraft_text(model: MapModel, unit: CivilianState) -> String:
+	var host: int = model.owner_at(unit.tile.x, unit.tile.y)
+	if host == MapModel.NO_ID:
+		return "Unclaimed land — no court to shadow"
+	if host == unit.owner:
+		if unit.work_action() == SpyRules.WORK_COUNTER:
+			return (
+				"Counter-espionage screen — covers every province this crown holds"
 			)
-		else:
-			_add_row("Tradecraft", "Counter-espionage screen")
+		return "No screen up — only the counter-espionage order covers your land"
+	var name: String = FactionCatalog.name_of(host)
+	if FactionCatalog.type_of(host) == FactionCatalog.Type.GREAT_POWER:
+		return "Shadows %s — presence reveal, +%d%% RP" % [name, SpyNetworks.BOOST_PERCENT]
+	return "Shadows %s — presence reveal only; only Great Powers share research" % name
 
 
-func _status_text(_model: MapModel, unit: CivilianState) -> String:
+func _status_text(model: MapModel, unit: CivilianState) -> String:
 	if not unit.is_working():
 		if unit.type_id == SpyNetworks.SPY_TYPE:
-			return "At large — move it onto a rival's land to ply its trade."
+			return _spy_status(model, unit)
 		return "Idle — choose an order below."
 	if unit.work_action() == SpyRules.WORK_COUNTER:
 		return "Counter-espionage · ongoing."
@@ -197,6 +211,20 @@ func _status_text(_model: MapModel, unit: CivilianState) -> String:
 		unit.remaining_turns(),
 		"" if unit.remaining_turns() == 1 else "s",
 	]
+
+
+## An idle spy is unseen and unscreened: the line says where its trade pays, so
+## a court that shares nothing is never sent there twice.
+func _spy_status(model: MapModel, unit: CivilianState) -> String:
+	var host: int = model.owner_at(unit.tile.x, unit.tile.y)
+	if host == MapModel.NO_ID or host == unit.owner:
+		return (
+			"At large — post it on a rival Great Power's land, or keep it home as a screen."
+		)
+	var name: String = FactionCatalog.name_of(host)
+	if FactionCatalog.type_of(host) == FactionCatalog.Type.GREAT_POWER:
+		return "At large — shadowing %s: presence reveal and a research share." % name
+	return "At large — shadowing %s: presence reveal only, no research share." % name
 
 
 func _fill_orders(
