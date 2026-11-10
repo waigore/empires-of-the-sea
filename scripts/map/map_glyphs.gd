@@ -23,9 +23,9 @@ static func draw(item: CanvasItem, glyph: Dictionary) -> void:
 		"dune":
 			_dune(item, center, size)
 		"reed":
-			_reed(item, center, size)
+			MapGround.reed(item, center, size)
 		"grass":
-			_grass(item, center, size)
+			MapGround.grass(item, center, size)
 		"scrub":
 			MapGround.scrub(item, center, size, flip)
 		"field":
@@ -163,31 +163,6 @@ static func _dune(item: CanvasItem, center: Vector2, size: float) -> void:
 		center + Vector2(width * 0.55, size * 0.30), width * 0.60, PI * 1.05, PI * 1.95, 10,
 		Color(0.545, 0.435, 0.278, 0.30), 1.1, true
 	)
-
-
-static func _reed(item: CanvasItem, center: Vector2, size: float) -> void:
-	for i in 3:
-		var offset: float = (float(i) - 1.0) * size * 0.18
-		item.draw_line(
-			center + Vector2(offset, size * 0.40),
-			center + Vector2(offset * 1.7, -size * 0.36),
-			Color(0.259, 0.325, 0.216, 0.62), 1.1, true
-		)
-	item.draw_line(
-		center + Vector2(-size * 0.30, size * 0.40),
-		center + Vector2(size * 0.30, size * 0.40),
-		Color(0.208, 0.267, 0.180, 0.42), 0.9, true
-	)
-
-
-static func _grass(item: CanvasItem, center: Vector2, size: float) -> void:
-	for i in 2:
-		var offset: float = (float(i) - 0.5) * size * 0.22
-		item.draw_line(
-			center + Vector2(offset, size * 0.30),
-			center + Vector2(offset * 2.1, -size * 0.14),
-			Color(0.420, 0.376, 0.235, 0.42), 1.0, true
-		)
 
 
 ## Resource emblem for the survey lens: the commodity a tile yields, drawn as a

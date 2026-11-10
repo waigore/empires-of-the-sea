@@ -35,3 +35,30 @@ static func field(item: CanvasItem, center: Vector2, size: float) -> void:
 		item.draw_line(
 			center + Vector2(-half, y), center + Vector2(half, y + size * 0.05), ink, 0.9, true
 		)
+
+
+## Marsh reeds: three leaning stems on a waterline, darker than grass tufts.
+static func reed(item: CanvasItem, center: Vector2, size: float) -> void:
+	for i in 3:
+		var offset: float = (float(i) - 1.0) * size * 0.18
+		item.draw_line(
+			center + Vector2(offset, size * 0.40),
+			center + Vector2(offset * 1.7, -size * 0.36),
+			Color(0.259, 0.325, 0.216, 0.62), 1.1, true
+		)
+	item.draw_line(
+		center + Vector2(-size * 0.30, size * 0.40),
+		center + Vector2(size * 0.30, size * 0.40),
+		Color(0.208, 0.267, 0.180, 0.42), 0.9, true
+	)
+
+
+## Two strokes of grass, the quietest mark on a plain.
+static func grass(item: CanvasItem, center: Vector2, size: float) -> void:
+	for i in 2:
+		var offset: float = (float(i) - 0.5) * size * 0.22
+		item.draw_line(
+			center + Vector2(offset, size * 0.30),
+			center + Vector2(offset * 2.1, -size * 0.14),
+			Color(0.420, 0.376, 0.235, 0.42), 1.0, true
+		)
