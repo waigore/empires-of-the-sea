@@ -91,14 +91,14 @@ func apply_compact(compact: bool, view: Vector2) -> void:
 		wrap.offset_bottom = -10.0 if compact else -104.0
 
 
-func show_province(model: MapModel, province_id: int) -> void:
+func show_province(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	hide_economy()
 	hide_research()
 	hide_fleet()
 	hide_civilian()
 	hide_army()
 	DiplomacyHud.hide(self)
-	panel.refresh(model, province_id)
+	panel.refresh(model, province_id, crown)
 	panel_open = true
 	dock.slide_in(host, panel_wrap)
 
@@ -125,7 +125,8 @@ func show_fleet(
 	carried: int = 0,
 	beach_rows: Array[Dictionary] = [],
 	beach_note: String = "",
-	crew: Dictionary = {}
+	crew: Dictionary = {},
+	strength: Dictionary = {}
 ) -> void:
 	hide_province()
 	hide_civilian()
@@ -140,7 +141,7 @@ func show_fleet(
 	else:
 		fleet_panel.refresh(
 			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note, crew
+			beach_rows, beach_note, crew, strength
 		)
 	fleet_open = true
 	dock.slide_in(host, fleet_wrap)
