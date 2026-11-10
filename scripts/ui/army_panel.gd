@@ -190,10 +190,14 @@ func refresh(
 	_strength.text = "%d regiments · %d strength · %d food" % [
 		army.count(), int(army.strength()), _food(army)
 	]
+	var own_side: Array[ArmyState] = [army]
+	var chevrons: int = RegimentCondition.chevrons(own_side)
+	if chevrons > 0:
+		_strength.text += " · %d chevrons" % chevrons
 	_command.text = command
 	_command.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_fill_roster(army, is_player)
+	_fill_roster(army, is_player and not army.is_embarked())
 	_fill_muster(muster)
 	if not (is_player and army.home):
 		_muster_open = false
@@ -241,6 +245,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		detail.text = RegimentCatalog.detail_line(type_id)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
+		_add_condition(entry, army, regiment_id)
 		if not is_player:
 			continue
 		var detach := _make_button("Detach")
@@ -292,6 +297,52 @@ func _food(army: ArmyState) -> int:
 	for regiment_id: String in army.regiments:
 		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total
+
+
+## A regiment's condition under its name: a chevron for each experience badge
+## and a health bar while it is still mauled (REQ-P1-07, REQ-P1-08).
+func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) -> void:
+	var data: Dictionary = army.condition_of(regiment_id)
+	var medals: int = int(data["medals"])
+	var fraction: float = float(data["fraction"])
+	if medals <= 0 and fraction >= 0.999:
+		return
+	var condition := HBoxContainer.new()
+	condition.add_theme_constant_override("separation", 5)
+	entry.add_child(condition)
+	if medals > 0:
+		var badge := TextureRect.new()
+		badge.texture = ChromeIcons.texture("chevron")
+		badge.custom_minimum_size = Vector2(15, 15)
+		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		badge.tooltip_text = "%d chevron%s · +%d%% firepower" % [
+			medals, "" if medals == 1 else "s", medals * 10
+		]
+		condition.add_child(badge)
+		var count := _line(11, Palette.GOLD)
+		count.text = "×%d" % medals
+		condition.add_child(count)
+	if fraction >= 0.999:
+		return
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(76, 8)
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.max_value = 1.0
+	bar.value = fraction
+	bar.add_theme_stylebox_override(
+		"background",
+		UiTheme.box(Color(0.17, 0.14, 0.10), Palette.INK_LINE, 1, 2, Vector4.ZERO)
+	)
+	var fill: Color = Palette.HEALTH_HIGH.lerp(Palette.HEALTH_LOW, 1.0 - fraction)
+	bar.add_theme_stylebox_override(
+		"fill", UiTheme.box(fill, fill.lightened(0.20), 1, 2, Vector4.ZERO)
+	)
+	condition.add_child(bar)
+	var pct := _line(11, Palette.TEXT_DIM)
+	pct.text = "%d%%" % roundi(fraction * 100.0)
+	condition.add_child(pct)
 
 
 func _line(size: int, color: Color) -> Label:

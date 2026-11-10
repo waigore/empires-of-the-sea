@@ -237,7 +237,9 @@ static func apply(
 	var kind: String = String(order.get("kind", ""))
 	match kind:
 		KIND_WAR:
-			return DiplomacyRules.declare_war(state, player, target, true, world)
+			# The declarer's own Propaganda softens a protest against it
+			# (wiki: diplomacy § Intervention).
+			return DiplomacyRules.declare_war(state, player, target, true, world, tech)
 		KIND_PEACE:
 			return DiplomacyRules.make_peace(state, player, target)
 		KIND_ALLIANCE:

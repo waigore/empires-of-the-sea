@@ -28,6 +28,10 @@ const SEA_PALE := Color(0.663, 0.769, 0.749)
 const TEXT := Color(0.941, 0.894, 0.784)
 const TEXT_DIM := Color(0.741, 0.678, 0.553)
 
+## Regiment condition: a healthy line reads green, a mauled one red (REQ-P1-07).
+const HEALTH_HIGH := Color(0.361, 0.612, 0.322)
+const HEALTH_LOW := Color(0.741, 0.224, 0.176)
+
 ## Survey lens status inks. Kept beside the atlas palette so plaques on the map
 ## and the HUD key speak the same colour language (REQ-P1-02).
 const SURVEY_YIELDING := Color(0.322, 0.573, 0.322)

@@ -17,11 +17,17 @@ var defender_start: int = 1
 var guns: int = 0
 var round_index: int = 0
 var outcome: int = -1
+## Regiment condition as the report recorded it: each survivor's health
+## fraction and chevrons. Empty means "full, unblooded" (a plate fixture).
+var attacker_health: Array = []
+var defender_health: Array = []
 
 var _time: float = 0.0
 var _flash: float = 0.0
 var _smoke: float = 0.0
 var _charge: float = 0.0
+## Floating "-N" damage numbers, so a blow is read the instant it lands.
+var _floaters: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -36,6 +42,10 @@ func _process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta * 2.6)
 	_smoke = maxf(0.0, _smoke - delta * 0.7)
 	_charge = maxf(0.0, _charge - delta * 0.55)
+	for floater: Dictionary in _floaters:
+		floater["life"] = float(floater["life"]) - delta
+		floater["pos"] = (floater["pos"] as Vector2) - Vector2(0.0, delta * 26.0)
+	_floaters = _floaters.filter(func(f: Dictionary) -> bool: return float(f["life"]) > 0.0)
 	queue_redraw()
 
 
@@ -48,23 +58,50 @@ func set_battle(battle: Dictionary) -> void:
 	attacker_count = int(quick.get("attacker_start", attacker_start))
 	defender_count = int(quick.get("defender_start", defender_start))
 	guns = int(quick.get("guns_start", 0))
+	attacker_health = []
+	defender_health = []
 	round_index = 0
 	outcome = -1
 	_flash = 0.0
 	_smoke = 0.0
 	_charge = 0.0
+	_floaters.clear()
 	queue_redraw()
 
 
-func set_round(index: int, atk: int, def: int, guns_left: int) -> void:
+func set_round(
+	index: int,
+	atk: int,
+	def: int,
+	guns_left: int,
+	atk_health: Array = [],
+	def_health: Array = []
+) -> void:
 	round_index = index
 	attacker_count = atk
 	defender_count = def
 	guns = guns_left
+	attacker_health = atk_health
+	defender_health = def_health
 	_flash = 1.0
 	_smoke = 1.0
 	_charge = 1.0
 	queue_redraw()
+
+
+## Queues the "-N" numbers one action's hits produced over the side it hurt.
+func add_hits(side: String, hits: Array, color: Color) -> void:
+	var base: float = size.x * (0.30 if side == "attacker" else 0.70)
+	var ground: float = size.y * 0.74
+	for index in hits.size():
+		var hit: Dictionary = hits[index]
+		var spread: float = (float(index) - float(hits.size()) * 0.5) * 24.0
+		_floaters.append({
+			"text": "-%d" % int(hit.get("damage", 0)),
+			"pos": Vector2(base + spread, ground - 40.0 - float(index % 3) * 9.0),
+			"life": 1.1,
+			"color": color.lightened(0.35),
+		})
 
 
 func set_outcome(value: int) -> void:
@@ -83,6 +120,11 @@ func _draw() -> void:
 	_draw_ground(w, h)
 	_draw_armies(w, h)
 	_draw_effects(w, h)
+	QuickBattleRail.draw(
+		self, attacker_health, attacker_count, attacker_color,
+		defender_health, defender_count, defender_color, w, h
+	)
+	QuickBattleRail.floaters(self, _floaters)
 
 
 func _draw_sky(w: float, h: float) -> void:
@@ -159,8 +201,14 @@ func _draw_ground(w: float, h: float) -> void:
 func _draw_armies(w: float, h: float) -> void:
 	var ground: float = h * 0.74
 	var push: float = minf(float(round_index), 3.0) * w * 0.035
-	_draw_formation(w * 0.24 + push, ground, attacker_count, attacker_start, attacker_color, 1.0)
-	_draw_formation(w * 0.76 - push, ground, defender_count, defender_start, defender_color, -1.0)
+	_draw_formation(
+		w * 0.24 + push, ground, attacker_count, attacker_start, attacker_color, 1.0,
+		attacker_health
+	)
+	_draw_formation(
+		w * 0.76 - push, ground, defender_count, defender_start, defender_color, -1.0,
+		defender_health
+	)
 	_draw_cannon(Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0)
 	_draw_cannon(Vector2(w * 0.90 - push, ground + 4.0), defender_color, -1.0)
 	if guns > 0:
@@ -172,7 +220,13 @@ func _draw_armies(w: float, h: float) -> void:
 
 
 func _draw_formation(
-	x: float, y: float, count: int, start: int, color: Color, facing: float
+	x: float,
+	y: float,
+	count: int,
+	start: int,
+	color: Color,
+	facing: float,
+	health: Array = []
 ) -> void:
 	var shown: int = clampi(count, 0, MAX_BLOCKS)
 	var spacing: float = 17.0
@@ -180,7 +234,11 @@ func _draw_formation(
 	var origin: float = x - width * 0.5
 	for index in shown:
 		var bob: float = sin(_time * 3.0 + float(index) * 0.7) * 1.4
-		_draw_soldier(Vector2(origin + float(index) * spacing, y + bob), color, facing, index)
+		var data: Dictionary = health[index] if index < health.size() else {}
+		_draw_soldier(
+			Vector2(origin + float(index) * spacing, y + bob), color, facing, index,
+			float(data.get("fraction", 1.0)), int(data.get("medals", 0))
+		)
 	# A standard every fourth file, and a colour party at the centre.
 	for index in shown:
 		if index % 4 == 0:
@@ -192,9 +250,14 @@ func _draw_formation(
 		draw_circle(Vector2(gx, y + 2.0), 3.4, Color(0.12, 0.09, 0.06, 0.20))
 
 
-func _draw_soldier(pos: Vector2, color: Color, facing: float, index: int) -> void:
+func _draw_soldier(
+	pos: Vector2, color: Color, facing: float, index: int,
+	health: float = 1.0, medals: int = 0
+) -> void:
 	var ink := Color(0.10, 0.08, 0.05, 0.95)
-	var bright: Color = color.lightened(0.10)
+	## A mauled regiment is a paler, bloodier block; the bar under its feet is
+	## the number at a glance (REQ-P1-07, REQ-P5-05).
+	var bright: Color = color.lightened(0.10).lerp(Palette.CRIMSON, (1.0 - health) * 0.55)
 	draw_rect(Rect2(pos.x - 3.2, pos.y - 10.0, 6.4, 11.0), bright)
 	draw_rect(Rect2(pos.x - 3.2, pos.y - 10.0, 6.4, 2.0), color.darkened(0.18))
 	draw_circle(Vector2(pos.x, pos.y - 12.8), 3.0, Color(0.98, 0.83, 0.62))
@@ -206,6 +269,21 @@ func _draw_soldier(pos: Vector2, color: Color, facing: float, index: int) -> voi
 	draw_line(Vector2(pos.x, pos.y - 1.0), Vector2(pos.x, pos.y + 2.4), ink, 1.1)
 	if index % 3 == 0:
 		draw_circle(Vector2(pos.x, pos.y - 6.0), 1.2, Palette.GOLD_PALE)
+	_draw_health(pos, health)
+	if medals > 0:
+		draw_texture_rect(
+			ChromeIcons.texture("chevron"),
+			Rect2(pos.x - 4.0, pos.y - 24.0, 8.0, 8.0), false,
+			Color(1.0, 1.0, 1.0, 0.55 + 0.1 * float(medals))
+		)
+
+
+func _draw_health(pos: Vector2, fraction: float) -> void:
+	var clamped: float = clampf(fraction, 0.0, 1.0)
+	var fill: Color = Palette.HEALTH_HIGH.lerp(Palette.HEALTH_LOW, 1.0 - clamped)
+	draw_rect(Rect2(pos.x - 4.6, pos.y + 2.6, 9.2, 2.2), Color(0.08, 0.06, 0.04, 0.85))
+	if clamped > 0.0:
+		draw_rect(Rect2(pos.x - 4.6, pos.y + 2.6, 9.2 * clamped, 2.2), fill)
 
 
 func _draw_standard(pos: Vector2, color: Color, index: int) -> void:

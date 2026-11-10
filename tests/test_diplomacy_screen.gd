@@ -249,11 +249,14 @@ func _deed_world(buyer: int) -> WorldMap:
 	return world
 
 
+## Every way an AI court can answer a declaration: join, stand aside or protest.
 static func _intervention_answers(state: DiplomacyState) -> int:
 	var total: int = 0
 	for event: Dictionary in state.events:
 		var kind: String = String(event.get("kind", ""))
-		if kind == "interventionIntervened" or kind == "interventionDoNothing":
+		if kind in [
+			"interventionIntervened", "interventionDoNothing", "interventionProtest",
+		]:
 			total += 1
 	return total
 

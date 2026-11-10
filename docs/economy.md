@@ -45,9 +45,10 @@ skips without consuming. The `PRODUCTION` tab sets desired outputs.
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 bonus manufactures:
-`floor(least delivered input / 4) × multiplier`, no inputs or labour.
-Great Powers credit the stockpile; overseas town manufacturing stays deferred;
-rivals trade the same market. Connectivity: [improvements.md](improvements.md).
+`floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
+cargo. A colony pays after the crossing, on landed tons only (level 4 town
+first, then most tons, then province id). Rivals upgrade towns too; works:
+[improvements.md](improvements.md).
 
 ## Minor and Tribe offers
 

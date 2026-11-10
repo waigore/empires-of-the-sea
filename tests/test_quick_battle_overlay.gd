@@ -231,3 +231,67 @@ func _battle() -> Dictionary:
 			],
 		},
 	}
+
+## The nomadic read: every blow names the men it mauled as well as the
+## regiment it broke (wiki: combat § Strength).
+func test_a_despatch_reports_the_mauled() -> void:
+	var action := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 1, "mauled": 4,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(action, _battle(), NAMES),
+		"España — Volley fire · 1 lost · 4 mauled"
+	)
+
+
+## The plate shows the condition it was told about: a mauled survivor and the
+## chevrons won, both in the log and on the field's rail (REQ-P5-05).
+func test_the_plate_reads_mauled_regiments_and_chevrons() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_health"] = [
+		{"id": "unit_1", "type": "guards", "hp": 60, "max": 120, "medals": 1, "fraction": 0.5},
+		{"id": "unit_2", "type": "guards", "hp": 120, "max": 120, "medals": 0, "fraction": 1.0},
+	]
+	battle["defender_health"] = []
+	battle["attacker_chevrons"] = 2
+
+	assert_eq(QuickBattleCopy.health_line(battle, NAMES), "Mauled — España: Guards 50%")
+	assert_eq(
+		QuickBattleCopy.chevron_line(battle, NAMES),
+		"Chevrons — España: 2 regiments rise a chevron"
+	)
+	assert_eq(QuickBattleCopy.health_line(_battle(), NAMES), "")
+	assert_eq(QuickBattleCopy.chevron_line(_battle(), NAMES), "")
+
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay.skip()
+	assert_eq(overlay.field.attacker_health.size(), 2, "the rail reads the aftermath")
+	var text: String = ""
+	for line: Label in overlay._log.get_children():
+		text += String(line.text) + "\n"
+	assert_true(text.contains("Mauled — España: Guards 50%"), text)
+	assert_true(text.contains("2 regiments rise a chevron"), text)
+	overlay.free()
+
+
+## The field floats the damage an action recorded, over the side it struck.
+func test_the_field_floats_the_damage_it_was_told() -> void:
+	var battle: Dictionary = _battle()
+	battle["quick"]["rounds"][0]["attacker_health"] = [
+		{"id": "unit_1", "type": "guards", "hp": 40, "max": 120, "medals": 0, "fraction": 0.333},
+	]
+	battle["quick"]["rounds"][0]["actions"][0]["hits"] = [{
+		"id": "unit_2", "type": "pikemen", "damage": 12, "hp": 80, "max": 110, "medals": 0,
+	}]
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay._enter_round(0)
+
+	assert_eq(overlay.field._floaters.size(), 1, "one number per hit")
+	assert_eq(String(overlay.field._floaters[0]["text"]), "-12")
+	assert_eq(overlay.field.attacker_health.size(), 1, "the rail reads the round")
+	overlay.free()

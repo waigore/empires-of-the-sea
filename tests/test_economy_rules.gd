@@ -564,6 +564,19 @@ func test_town_industry_multiplies_town_connected_raw() -> void:
 	)
 
 
+## A court weighs a town upgrade by the manufactures the finished town would pay
+## each turn, at base prices (wiki: extraction-and-improvements
+## § Town manufacturing bonus; commodity-catalog § Manufactured base prices).
+func test_town_industry_prices_the_finish_at_level_four() -> void:
+	assert_eq(TownIndustry.value({"lumber": 2}), 120)
+	assert_eq(TownIndustry.value({}), 0)
+	assert_eq(TownIndustry.marginal_gain({"iron": 8}, 1), 4 * 160)
+	assert_eq(TownIndustry.marginal_gain({"iron": 8}, 2), 2 * 160)
+	assert_eq(TownIndustry.marginal_gain({"iron": 8}, 3), 4 * 160)
+	assert_eq(TownIndustry.marginal_gain({"iron": 8}, 4), 0)
+	assert_eq(TownIndustry.marginal_gain({}, 1), 0, "no raw, no bonus")
+
+
 ## Extraction credits the bonus from a town-adjacent raw tile without spending it.
 func test_extraction_adds_the_town_manufacturing_bonus() -> void:
 	var model: MapModel = _fixture()

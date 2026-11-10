@@ -5,9 +5,10 @@ extends RefCounted
 ## Builds one read-only config per AI Great Power, runs the diplomacy planner,
 ## applies the resulting order through the shared diplomacy rules, and returns a
 ## turn trace plus player-facing messages (wiki: turn-trace-interpretation).
-## Human courts are never auto-committed: the AI declares war on them, while
-## peace and treaty offers queue for the court UI (DR-20261108-01,
-## DR-20261109-06, DR-20261109-07).
+## Human courts are never auto-committed for a consent decision: the AI declares
+## war on them and answers commercial acts in its own voice, while treaties,
+## trade pacts, peace and overtures queue for the court UI (DR-20261108-01,
+## DR-20261109-06, DR-20261109-07, DR-20261110-15).
 
 const KIND_DECLARE_WAR: String = AiDiplomacyPlanner.KIND_DECLARE_WAR
 const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
@@ -26,6 +27,7 @@ static func run(
 	var trace: Array[Dictionary] = []
 	var messages: Array[String] = []
 	var shared: Dictionary = _context(world, context, player)
+	_stamp_ledgers(shared, ai_state, player)
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == player:
 			continue
@@ -79,6 +81,24 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 	return context
 
 
+## Rival ledgers supply the treasury and tech a peaceful order must satisfy, so
+## a court never offers a stage it cannot pay for (wiki: diplomacy
+## § Diplomatic Order Types). The human court's fake ledger stays out of the
+## read model, matching the stockpile map.
+static func _stamp_ledgers(shared: Dictionary, ai_state: AiState, player: int) -> void:
+	var treasury: Dictionary = {}
+	var tech: Dictionary = {}
+	if ai_state != null:
+		for faction: int in FactionCatalog.great_power_ids():
+			if faction == player:
+				continue
+			var economy: PlayerEconomy = ai_state.economy_for(faction)
+			treasury[faction] = economy.treasury
+			tech[faction] = economy.tech_unlocked
+	shared["treasury"] = treasury
+	shared["tech"] = tech
+
+
 static func _apply(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -90,13 +110,21 @@ static func _apply(
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
 	if kind == KIND_DECLARE_WAR:
-		var war: Dictionary = DiplomacyRules.declare_war(state, faction, target, true, world)
+		# The declarer's own Propaganda softens a protest against it, so the
+		# rules read this rival's ledger rather than assuming none
+		# (wiki: diplomacy § Intervention; DR-20261110-16).
+		var tech: Dictionary = ai_state.economy_for(faction).tech_unlocked
+		var war: Dictionary = DiplomacyRules.declare_war(
+			state, faction, target, true, world, tech
+		)
 		if bool(war.get("ok", false)):
 			ai_state.note_war(faction, target, turn)
+		var news: Array = war.get("calls", [])
+		news.append_array(war.get("interventions", []))
 		return {
 			"result": war,
 			"message": String(war.get("message", "")),
-			"messages": war.get("calls", []),
+			"messages": news,
 		}
 	if kind == KIND_OFFER_PEACE:
 		# A peace offer to the human court is queued, never signed: the phase
@@ -114,17 +142,79 @@ static func _apply(
 			"result": peace,
 			"message": String(peace.get("message", "")),
 		}
-	if kind == AiDiplomacyPlanner.KIND_ALLIANCE or kind == AiDiplomacyPlanner.KIND_OVERTURE:
-		var stage: String = String(action.get("stage", ""))
-		var offer: Dictionary = DiplomacyProposals.queue(
-			state, world, faction, kind, stage
-		)
-		var message: String = ""
-		if bool(offer.get("ok", false)):
-			# The court answers this during the phase; no rule is applied yet.
-			message = "%s proposes %s." % [
-				FactionCatalog.name_of(faction),
-				DiplomacyProposals.describe(kind, stage),
+	if bool(action.get("propose", false)):
+		return _propose(state, world, faction, action)
+	return _apply_order(state, world, ai_state, faction, action)
+
+
+## Queues a treaty or trade-pact offer for the human court's answer. The court
+## answers during the phase; no rule is applied yet.
+static func _propose(
+	state: DiplomacyState, world: WorldMap, faction: int, action: Dictionary
+) -> Dictionary:
+	var kind: String = String(action.get("kind", ""))
+	var stage: String = String(action.get("stage", ""))
+	if not DiplomacyProposals.knows(kind):
+		return {"result": {"ok": false, "reason": "unknown proposal"}, "message": ""}
+	var offer: Dictionary = DiplomacyProposals.queue(state, world, faction, kind, stage)
+	var message: String = ""
+	if bool(offer.get("ok", false)):
+		message = "%s proposes %s." % [
+			FactionCatalog.name_of(faction), DiplomacyProposals.describe(kind, stage)
+		]
+	return {"result": offer, "message": message}
+
+
+## One-sided acts and offers a fellow AI court answers by rule run through the
+## shared order catalogue the court panel calls, spending the rival's own ledger
+## (wiki: diplomacy § Diplomatic Order Types; REQ-P2-03).
+static func _apply_order(
+	state: DiplomacyState, world: WorldMap, ai_state: AiState, faction: int,
+	action: Dictionary
+) -> Dictionary:
+	var kind: String = String(action.get("kind", ""))
+	var order: Dictionary = {
+		"kind": kind,
+		"from": faction,
+		"target": int(action.get("target", -1)),
+	}
+	if kind == DiplomacyOrders.KIND_OVERTURE:
+		order["stage"] = String(action.get("stage", ""))
+	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
+		order["amount"] = int(action.get("amount", 0))
+	var economy: PlayerEconomy = ai_state.economy_for(faction)
+	var result: Dictionary = DiplomacyOrders.apply(
+		state, world, economy, order, economy.tech_unlocked
+	)
+	return {"result": result, "message": _order_message(faction, action, result)}
+
+
+## Rival voice for the ledger and the player's news feed: the catalogue's own
+## wording speaks as "we", which reads wrong for a rival court.
+static func _order_message(
+	faction: int, action: Dictionary, result: Dictionary
+) -> String:
+	if not bool(result.get("ok", false)):
+		return ""
+	if not bool(result.get("accepted", true)):
+		return String(result.get("message", ""))
+	var who: String = FactionCatalog.name_of(faction)
+	var them: String = FactionCatalog.name_of(int(action.get("target", -1)))
+	match String(action.get("kind", "")):
+		DiplomacyOrders.KIND_FTP:
+			return "%s signs a favoured trading pact with %s." % [who, them]
+		DiplomacyOrders.KIND_BOYCOTT:
+			return "%s closes its colonies to %s." % [who, them]
+		DiplomacyOrders.KIND_REVOKE_BOYCOTT:
+			return "%s reopens its colonies to %s." % [who, them]
+		DiplomacyOrders.KIND_BREAK:
+			return "%s breaks its alliance with %s." % [who, them]
+		DiplomacyOrders.KIND_SUBSIDY:
+			return "%s sets a %d%% subsidy for %s." % [
+				who, int(action.get("amount", 0)), them
 			]
-		return {"result": offer, "message": message}
-	return {"result": {"ok": false, "reason": "unknown order"}, "message": ""}
+		DiplomacyOrders.KIND_CANCEL_SUBSIDY:
+			return "%s ends its subsidy to %s." % [who, them]
+		DiplomacyOrders.KIND_ALLIANCE:
+			return "%s seals a formal alliance with %s." % [who, them]
+	return String(result.get("message", ""))

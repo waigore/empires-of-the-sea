@@ -109,26 +109,32 @@ static func resolve_exchange(
 	}
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
+	var atk_up: int = 0
+	var def_up: int = 0
 	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:
 		ArmyCombat.flip(model, province, attacker)
 		report["captured"] = true
+		atk_up = RegimentCondition.award_side(atk_side)
 		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
 	elif outcome == ArmyCombat.Outcome.DEFENDER_VICTORY:
+		def_up = RegimentCondition.award_side(def_side)
 		report["medal_gain"] = ArmyCommand.award(context, def_side, defender)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = defender
 	elif outcome == ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
+		atk_up = RegimentCondition.award_side(atk_side)
 		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
 	elif outcome == ArmyCombat.Outcome.MUTUAL_ANNIHILATION and further:
-		var recovery: Dictionary = ArmyCombat.recover_garrison(
-			armies, province, defender, def_start
+		var recovery: Dictionary = ArmyGarrison.recover(
+			armies, province, defender, def_start, context
 		)
 		report["garrison"] = int(recovery.get("count", 0))
 		report["recovered_type"] = String(recovery.get("type", ""))
+	RegimentCondition.attach(report, atk_side, def_side, atk_up, def_up)
 	return report
 
 
@@ -205,6 +211,10 @@ static func _round(
 		if key == "defender" and QuickBattleBattery.alive(guns) > 0:
 			var hit: int = QuickBattleBattery.fire(armies, state, guns)
 			if hit > 0:
+				var hits: Array[Dictionary] = RegimentCondition.damage_side(
+					atk_side, float(hit) * RegimentCondition.HP_PER_SLOT,
+					int(state["attacker"]["limit"])
+				)
 				log["actions"].append({
 					"side": owner,
 					"action": "battery",
@@ -217,10 +227,17 @@ static func _round(
 					"behind_lost": 0,
 					"turned": 0,
 					"sortie": false,
+					"hits": hits,
+					"mauled": hits.size(),
 				})
 	log["attacker_count"] = ArmyCombat.side_regiments(atk_side)
 	log["defender_count"] = ArmyCombat.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)
+	## Condition after this round: the rail reads these, never a recomputation.
+	log["attacker_health"] = RegimentCondition.entries(atk_side)
+	log["defender_health"] = RegimentCondition.entries(def_side)
+	log["attacker_strength"] = RegimentCondition.average(atk_side)
+	log["defender_strength"] = RegimentCondition.average(def_side)
 	log["attacker_cohesion"] = int(state["attacker"]["cohesion"])
 	log["defender_cohesion"] = int(state["defender"]["cohesion"])
 	return log

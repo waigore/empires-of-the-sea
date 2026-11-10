@@ -25,10 +25,10 @@ static func can_declare_war(
 	return _allow()
 
 
-## `world` lets a war on a Minor/Tribe reach deed holders too (wiki: diplomacy).
+## `world` reaches deed holders; `aggressor_tech` is the declarer's own tech.
 static func declare_war(
 	state: DiplomacyState, player: int, target: int,
-	call_to_arms: bool = true, world: WorldMap = null
+	call_to_arms: bool = true, world: WorldMap = null, aggressor_tech: Dictionary = {}
 ) -> Dictionary:
 	var check: Dictionary = can_declare_war(state, player, target)
 	if not bool(check["ok"]):
@@ -50,7 +50,7 @@ static func declare_war(
 	# (wiki: diplomacy § Intervention).
 	var interventions: Array[String] = []
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		interventions = Intervention.on_war_declared(state, player, target, world)
+		interventions = Intervention.on_war_declared(state, player, target, world, aggressor_tech)
 	return {
 		"ok": true,
 		"reason": "",
