@@ -15,15 +15,17 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
   relations and modifiers. Declarations need relation ≤ ceiling (50;
-  warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals clamp
-  `round(desire / 25)`. At war, desire < 50 offers peace, 3-turn cooldown.
+  warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals
+  `round(desire / 25)`. At war, desire < 50 offers peace. A deed in a
+  Minor/Tribe's land is a stake (`DeedProtection`): holder never stands
+  aside (25%; 50% with two); declaration −8 per warden (cap −24).
 - **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
   overtures, alliance/break, trade pact/revoke, boycott/revoke, subsidy/cancel,
-  aid. Friendly acts are worth the desire less their spend; retaliation the
-  fall in standing (DR-20261110-15).
-- **Turn pass** (`AiTurn`): one order per rival through the shared catalogue,
-  on the rival's ledger; consent asks queue for the human, one-sided acts land
-  at once. Declarations land before combat.
+  aid. Friendly acts worth desire less spend; retaliation the fall in standing
+  (DR-20261110-15).
+- **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
+  consent asks queue for the human, one-sided acts land; declarations before
+  combat.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue onto the weakest
@@ -37,10 +39,10 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
-  war and a far shore (enemy or Tribe); detach hulls, dock, board, cross;
-  storm best coast, else own colony.
-- **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
-  stock deficit under labour/inputs; recruit the highest tier it can afford.
+  war and a far shore; detach hulls, dock, board, cross; storm best coast,
+  else own colony.
+- **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
+  the highest tier it can afford.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`): one order per idle civilian —
   builders improve or finish a town, engineers connect then road/port/fort,
@@ -55,16 +57,12 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
-  evidence, suspicion per agenda, best guess, behaviour counts
-  ([`intel-dossier.md`](intel-dossier.md)).
-
-## Full-AI observer (debug)
-
-`AI OBSERVER (DEBUG)` / `tools/ai_vs_ai.gd` — see [`ai-observer.md`](ai-observer.md).
+- **Court dossier** (`IntelDossier`): rival reading — evidence, suspicion per
+  agenda, best guess ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
+- Rival boycotts / land purchase (trade envoys with Minor/Tribe first).
 - Intervention and call-to-arms.
 - Agenda-sourced dialogue beats.
 
