@@ -3,12 +3,14 @@ extends RefCounted
 ## Third-party intervention when a Great Power declares war on a Minor Nation or
 ## Tribe (wiki: diplomacy § GP–Minor Rules § Intervention). Pure rules: a court
 ## holding an embassy in the victim court may join the war, stand aside (losing
-## the embassy) or protest. AI courts roll the documented relation bands; the
-## human court's choice waits for consent, like a call to arms.
+## the embassy) or protest. AI courts roll the documented relation bands, then
+## protest instead of standing aside whenever the victim still matters to them;
+## the human court's choice waits for consent, like a call to arms.
 ##
 ## Sampling: the Bernoulli trial is a stable hash of (turn, aggressor, victim,
 ## court), so a replay of the same state always decides the same way and no RNG
-## stream needs saving (DR-20261108-06).
+## stream needs saving (DR-20261108-06). The protest decision reads the same
+## relation band, so it needs no second sample (DR-20261110-16).
 
 const KIND_INTERVENE: String = "intervention_intervene"
 const KIND_NOTHING: String = "intervention_do_nothing"
@@ -68,8 +70,12 @@ static func has_purchased_land(world: WorldMap, court: int, target: int) -> bool
 
 
 ## Queues or resolves one choice per eligible court. Returns player-facing lines.
+## `aggressor_tech` is the declaring crown's own unlocked tech: Propaganda halves
+## the protest penalty, and the victim's friends read it from the declarer, not
+## from their own ledger (wiki: tech-tree-diplomacy-civilian § Propaganda).
 static func on_war_declared(
-	state: DiplomacyState, aggressor: int, target: int, world: WorldMap = null
+	state: DiplomacyState, aggressor: int, target: int,
+	world: WorldMap = null, aggressor_tech: Dictionary = {}
 ) -> Array[String]:
 	var messages: Array[String] = []
 	for court: int in candidates(state, aggressor, target, world):
@@ -83,10 +89,10 @@ static func on_war_declared(
 					% [FactionCatalog.name_of(aggressor), FactionCatalog.name_of(target)]
 				)
 			continue
-		var choice: String = KIND_NOTHING
-		if ai_intervenes(state, court, aggressor, target):
-			choice = KIND_INTERVENE
-		var line: String = _resolve(state, court, aggressor, target, choice, {})
+		var choice: String = ai_choice(state, court, aggressor, target)
+		var line: String = _resolve(
+			state, court, aggressor, target, choice, aggressor_tech
+		)
 		if not line.is_empty():
 			messages.append(line)
 	return messages
@@ -107,9 +113,34 @@ static func chance_for(score: float) -> float:
 static func ai_intervenes(
 	state: DiplomacyState, court: int, aggressor: int, target: int
 ) -> bool:
+	return roll(state.turn, aggressor, target, court) < chance_for(score_with(state, court, target))
+
+
+## An AI court that does not intervene still protests while the victim sits in a
+## band that could have moved it to war (score above 25): it keeps its embassy
+## and puts a relation price on the aggression. Below that band the court does
+## not care enough and stands aside as before (DR-20261110-16).
+static func ai_protests(state: DiplomacyState, court: int, target: int) -> bool:
+	return chance_for(score_with(state, court, target)) > 0.0
+
+
+## The one answer an AI court gives at a declaration: join, protest or stand
+## aside. Deterministic for a given state, so a saved campaign replays it.
+static func ai_choice(
+	state: DiplomacyState, court: int, aggressor: int, target: int
+) -> String:
+	if ai_intervenes(state, court, aggressor, target):
+		return KIND_INTERVENE
+	if ai_protests(state, court, target):
+		return KIND_PROTEST
+	return KIND_NOTHING
+
+
+## The court's relation score with the victim; an unmet victim reads as the
+## catalog's initial score, as the intervention chance already assumes.
+static func score_with(state: DiplomacyState, court: int, target: int) -> float:
 	var record: DiplomacyRelation = state.relation(court, target)
-	var score: float = record.score if record != null else DiplomacyCatalog.INITIAL_SCORE
-	return roll(state.turn, aggressor, target, court) < chance_for(score)
+	return record.score if record != null else DiplomacyCatalog.INITIAL_SCORE
 
 
 ## Deterministic uniform [0, 1) sample; a pure integer hash of the four ids.
