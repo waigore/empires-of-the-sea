@@ -243,6 +243,43 @@ func test_army_dossier_can_dock_left_or_right() -> void:
 	assert_eq(_screen.hud.panels.dock.side, PanelDock.Side.RIGHT)
 
 
+## A garrison the rules reform after mutual annihilation arrives without a
+## standard: the combat pass must draw one, or the court cannot see, tap or
+## order the army that is holding its province (wiki: combat § Garrison
+## recovery; § Multi-Attacker Chain).
+func test_a_reformed_garrison_gets_a_standard_the_court_can_tap() -> void:
+	var capital: int = _screen.capital_province
+	var armies: Array[ArmyState] = _screen.army_layer.armies
+	var recovery: Dictionary = ArmyGarrison.recover(
+		armies, capital, MapScreen.PLAYER_FACTION, 5, {}
+	)
+	var reformed: ArmyState = armies[armies.size() - 1]
+	assert_eq(int(recovery["count"]), 1)
+	assert_null(
+		_screen.army_layer.marker_for(reformed),
+		"the rules minted it; no standard exists until the layer reconciles"
+	)
+
+	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+
+	var marker: ArmyMarker = _screen.army_layer.marker_for(reformed)
+	assert_not_null(marker, "the combat pass draws the reformed garrison's standard")
+	assert_true(marker.visible, "a province the court holds keeps its garrison on the map")
+
+
+## A standard whose army left the field goes with it, so a wiped garrison leaves
+## no ghost marker behind (wiki: combat § Outcomes).
+func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
+	var home: ArmyState = _player_home()
+	var marker: ArmyMarker = _screen.army_layer.marker_for(home)
+	assert_not_null(marker)
+
+	_screen.army_layer.armies.erase(home)
+	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+
+	assert_null(_screen.army_layer.marker_for(home), "the fallen army's standard is retired")
+
+
 func _player_home() -> ArmyState:
 	for army: ArmyState in _screen.army_layer.armies:
 		if army.owner == MapScreen.PLAYER_FACTION and army.is_home_army():
