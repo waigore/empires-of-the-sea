@@ -437,6 +437,12 @@ domain = "civilian"
 match = "tests/playtest_allied_defence.gd*"
 domain = "campaign"
 
+# The save/load drive walks slots, endings and the slot browser, so it travels
+# with the save suites.
+[[rules]]
+match = "tests/playtest_persistence.gd*"
+domain = "save"
+
 [[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
