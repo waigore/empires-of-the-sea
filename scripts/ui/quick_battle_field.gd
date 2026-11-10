@@ -1,9 +1,9 @@
 class_name QuickBattleField
 extends Control
 ## Animated battlefield plate for Quick Battle. Pure presentation: it reads the
-## battle record and paints a bright, period field — two colours of regiment
-## blocks, waving standards, cannon smoke, muzzle flashes and a cavalry charge
-## (REQ-P1-02, REQ-P1-04). No rule outcome is decided here (REQ-P2-03).
+## battle record and paints a painted, period field — two colours of miniature
+## regiments, waving standards, cannon smoke, muzzle flashes and a cavalry
+## charge (REQ-P1-02, REQ-P1-04). No rule outcome is decided here (REQ-P2-03).
 
 const MAX_BLOCKS: int = 12
 const HORIZON: float = 0.60
@@ -127,8 +127,7 @@ func _draw() -> void:
 	var h: float = size.y
 	if w <= 1.0 or h <= 1.0:
 		return
-	_draw_sky(w, h)
-	_draw_ground(w, h)
+	BattlePlate.draw_ground(self, w, h, h * HORIZON, terrain)
 	_draw_armies(w, h)
 	_draw_effects(w, h)
 	QuickBattleRail.draw(
@@ -138,173 +137,78 @@ func _draw() -> void:
 	QuickBattleRail.floaters(self, _floaters)
 
 
-func _draw_sky(w: float, h: float) -> void:
-	var horizon: float = h * HORIZON
-	var top := Color(0.13, 0.30, 0.56)
-	var mid := Color(0.46, 0.62, 0.70)
-	var low := Color(0.99, 0.76, 0.36)
-	for band in 18:
-		var t: float = float(band) / 17.0
-		var color: Color = top.lerp(mid, t * 2.0) if t < 0.5 else mid.lerp(low, (t - 0.5) * 2.0)
-		draw_rect(Rect2(0.0, horizon * t, w, horizon / 17.0 + 1.0), color)
-	# Warm haze along the horizon.
-	draw_rect(Rect2(0, horizon - 10.0, w, 10.0), Color(1.0, 0.86, 0.55, 0.22))
-	# Sun and its halo.
-	var sun := Vector2(w * 0.78, horizon * 0.42)
-	for ring in 5:
-		draw_circle(sun, 20.0 + float(ring) * 11.0, Color(1.0, 0.86, 0.45, 0.09))
-	draw_circle(sun, 24.0, Color(1.0, 0.95, 0.72))
-	_draw_clouds(w, horizon)
-	# Distant hills.
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(0, horizon), Vector2(w * 0.18, horizon * 0.72),
-		Vector2(w * 0.36, horizon), Vector2(w * 0.55, horizon * 0.78),
-		Vector2(w * 0.78, horizon), Vector2(w, horizon * 0.80), Vector2(w, horizon),
-	]), Color(0.35, 0.55, 0.38, 0.9))
-	draw_colored_polygon(PackedVector2Array([
-		Vector2(0, horizon), Vector2(w * 0.28, horizon * 0.86),
-		Vector2(w * 0.52, horizon), Vector2(w * 0.72, horizon * 0.88),
-		Vector2(w, horizon), Vector2(w, horizon), Vector2(0, horizon),
-	]), Color(0.24, 0.45, 0.27, 0.95))
-
-
-func _draw_clouds(w: float, horizon: float) -> void:
-	for index in 4:
-		var drift: float = fmod(_time * 3.0 + float(index) * 210.0, w + 160.0) - 80.0
-		var y: float = horizon * (0.16 + float(index) * 0.09)
-		var scale: float = 14.0 + float(index % 2) * 7.0
-		for puff in 4:
-			var offset := Vector2(float(puff) * scale * 0.9, sin(float(puff) * 1.7) * 3.0)
-			var centre := Vector2(drift + offset.x, y + offset.y)
-			for ring in 3:
-				draw_circle(
-					centre, scale * (0.62 + float(ring) * 0.20),
-					Color(1.0, 0.97, 0.88, 0.10 - float(ring) * 0.025)
-				)
-
-
-func _draw_ground(w: float, h: float) -> void:
-	QuickBattleArt.draw_ground(self, w, h, h * HORIZON, terrain, _time)
-
-
 func _draw_armies(w: float, h: float) -> void:
 	var ground: float = h * 0.74
+	var soldier_h: float = BattlePlate.soldier_height(h)
 	var push: float = minf(float(round_index), 3.0) * w * 0.035
-	# The wall stands between the armies; the garrison musters behind it.
-	var defended: float = ground - (30.0 if fort_level > 0 else 0.0)
+	# The garrison musters on the wall's walk; a field battle meets at the line.
+	var defended: float = BattlePlate.parapet_y(h, fort_level) if fort_level > 0 else ground
 	if fort_level > 0:
-		QuickBattleArt.draw_wall(self, w, h, fort_level, gates_broken, defender_color, _time)
+		BattlePlate.draw_wall(self, w, h, fort_level, gates_broken, defender_color, _time)
 	_draw_formation(
-		w * 0.24 + push, ground, attacker_count, attacker_start, attacker_color, 1.0,
-		attacker_health
+		Vector2(w * 0.24 + push, ground), attacker_count, attacker_start,
+		attacker_color, 1.0, attacker_health
 	)
 	_draw_formation(
-		w * 0.80 - push, defended, defender_count, defender_start, defender_color, -1.0,
-		defender_health
+		Vector2(w * 0.80 - push, defended), defender_count, defender_start,
+		defender_color, -1.0, defender_health
 	)
-	_draw_cannon(Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0)
-	_draw_cannon(Vector2(w * 0.90 - push, ground + 4.0), defender_color, -1.0)
 	if guns > 0:
-		for index in guns:
-			_draw_cannon(
-				Vector2(w * 0.84 - push + float(index) * 16.0, defended - 10.0),
-				defender_color, -1.0
+		for index in mini(guns, 4):
+			BattlePlate.draw_cannon(
+				self, Vector2(w * 0.86 - push + float(index) * 16.0, defended - 5.0),
+				defender_color, -1.0, 0.0, soldier_h * 0.75
 			)
+	# The merlons paint over the garrison's legs: they hold the parapet.
+	BattlePlate.draw_wall_crest(self, w, h, fort_level)
+	BattlePlate.draw_cannon(
+		self, Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0, _flash,
+		soldier_h * 0.85
+	)
+	BattlePlate.draw_cannon(
+		self, Vector2(w * 0.90 - push, ground + 4.0), defender_color, -1.0, _flash,
+		soldier_h * 0.85
+	)
 
 
 func _draw_formation(
-	x: float,
-	y: float,
-	count: int,
-	start: int,
-	color: Color,
-	facing: float,
+	centre: Vector2, count: int, start: int, color: Color, facing: float,
 	health: Array = []
 ) -> void:
+	var soldier_h: float = BattlePlate.soldier_height(size.y)
 	var shown: int = clampi(count, 0, MAX_BLOCKS)
-	var spacing: float = 17.0
+	var spacing: float = soldier_h * 0.66
 	var width: float = float(maxi(shown - 1, 0)) * spacing
-	var origin: float = x - width * 0.5
+	var origin: float = centre.x - width * 0.5
 	for index in shown:
-		var bob: float = sin(_time * 3.0 + float(index) * 0.7) * 1.4
+		var jitter: float = _hash(float(index) * 3.0 + facing)
+		var tall: float = soldier_h * (0.92 + jitter * 0.16)
+		var bob: float = sin(_time * 2.6 + float(index) * 0.9) * 0.9
 		var data: Dictionary = health[index] if index < health.size() else {}
-		_draw_soldier(
-			Vector2(origin + float(index) * spacing, y + bob), color, facing, index,
+		BattlePlate.draw_soldier(
+			self,
+			Vector2(origin + float(index) * spacing, centre.y + bob + (jitter - 0.5) * 3.0),
+			tall, color, facing, index,
 			float(data.get("fraction", 1.0)), int(data.get("medals", 0))
 		)
-	# A standard every fourth file, and a colour party at the centre.
 	for index in shown:
 		if index % 4 == 0:
-			_draw_standard(Vector2(origin + float(index) * spacing, y - 6.0), color, index)
-	# Faded ghosts mark the regiments already lost.
+			BattlePlate.draw_standard(
+				self, Vector2(origin + float(index) * spacing, centre.y - soldier_h * 0.30),
+				color, _time + float(index)
+			)
+	# Faded marks where the regiments already lost stood.
 	var lost: int = maxi(0, start - count)
 	for index in mini(lost, 6):
-		var gx: float = origin - 13.0 - float(index) * 10.0 * facing
-		draw_circle(Vector2(gx, y + 2.0), 3.4, Color(0.12, 0.09, 0.06, 0.20))
+		var gx: float = origin - 12.0 - float(index) * 9.0 * facing
+		draw_set_transform(Vector2(gx, centre.y + 1.0), 0.0, Vector2(1.0, 0.36))
+		draw_circle(Vector2.ZERO, 5.0, Color(0.10, 0.08, 0.05, 0.22))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-func _draw_soldier(
-	pos: Vector2, color: Color, facing: float, index: int,
-	health: float = 1.0, medals: int = 0
-) -> void:
-	var ink := Color(0.10, 0.08, 0.05, 0.95)
-	## A mauled regiment is a paler, bloodier block; the bar under its feet is
-	## the number at a glance (REQ-P1-07, REQ-P5-05).
-	var bright: Color = color.lightened(0.10).lerp(Palette.CRIMSON, (1.0 - health) * 0.55)
-	draw_rect(Rect2(pos.x - 3.2, pos.y - 10.0, 6.4, 11.0), bright)
-	draw_rect(Rect2(pos.x - 3.2, pos.y - 10.0, 6.4, 2.0), color.darkened(0.18))
-	draw_circle(Vector2(pos.x, pos.y - 12.8), 3.0, Color(0.98, 0.83, 0.62))
-	draw_rect(Rect2(pos.x - 3.8, pos.y - 15.6, 7.6, 2.6), ink)
-	draw_line(
-		Vector2(pos.x + 2.6 * facing, pos.y - 9.0),
-		Vector2(pos.x + 9.0 * facing, pos.y - 16.0), ink, 1.4
-	)
-	draw_line(Vector2(pos.x, pos.y - 1.0), Vector2(pos.x, pos.y + 2.4), ink, 1.1)
-	if index % 3 == 0:
-		draw_circle(Vector2(pos.x, pos.y - 6.0), 1.2, Palette.GOLD_PALE)
-	_draw_health(pos, health)
-	if medals > 0:
-		draw_texture_rect(
-			ChromeIcons.texture("chevron"),
-			Rect2(pos.x - 4.0, pos.y - 24.0, 8.0, 8.0), false,
-			Color(1.0, 1.0, 1.0, 0.55 + 0.1 * float(medals))
-		)
-
-
-func _draw_health(pos: Vector2, fraction: float) -> void:
-	var clamped: float = clampf(fraction, 0.0, 1.0)
-	var fill: Color = Palette.HEALTH_HIGH.lerp(Palette.HEALTH_LOW, 1.0 - clamped)
-	draw_rect(Rect2(pos.x - 4.6, pos.y + 2.6, 9.2, 2.2), Color(0.08, 0.06, 0.04, 0.85))
-	if clamped > 0.0:
-		draw_rect(Rect2(pos.x - 4.6, pos.y + 2.6, 9.2 * clamped, 2.2), fill)
-
-
-func _draw_standard(pos: Vector2, color: Color, index: int) -> void:
-	var wave: float = sin(_time * 2.2 + float(index)) * 2.6
-	draw_line(pos, pos + Vector2(0, -28), Color(0.16, 0.11, 0.06), 1.8)
-	var cloth: Color = color.lightened(0.18)
-	draw_colored_polygon(PackedVector2Array([
-		pos + Vector2(0, -28), pos + Vector2(18 + wave, -24),
-		pos + Vector2(15 + wave, -12), pos + Vector2(0, -15),
-	]), cloth)
-	draw_polyline(PackedVector2Array([
-		pos + Vector2(0, -28), pos + Vector2(18 + wave, -24),
-		pos + Vector2(15 + wave, -12), pos + Vector2(0, -15), pos + Vector2(0, -28),
-	]), Palette.GOLD, 1.0, true)
-	draw_circle(pos + Vector2(6, -20), 2.2, Palette.GOLD_PALE)
-
-
-func _draw_cannon(pos: Vector2, color: Color, facing: float) -> void:
-	var bronze := Color(0.55, 0.38, 0.16)
-	draw_circle(pos + Vector2(-5, 3), 5.0, Color(0.26, 0.18, 0.10))
-	draw_circle(pos + Vector2(5, 3), 5.0, Color(0.26, 0.18, 0.10))
-	draw_line(pos + Vector2(0, -3), pos + Vector2(16.0 * facing, -9), bronze, 6.0)
-	draw_line(pos + Vector2(0, -3), pos + Vector2(16.0 * facing, -9), Color(0.78, 0.58, 0.24), 2.0)
-	draw_circle(pos + Vector2(0, -3), 3.0, color.darkened(0.15))
-	if _flash > 0.0:
-		var muzzle := pos + Vector2(19.0 * facing, -10)
-		draw_circle(muzzle, 10.0 * _flash, Color(1.0, 0.82, 0.30, 0.85))
-		draw_circle(muzzle, 5.0 * _flash, Color(1.0, 0.99, 0.86))
+## Deterministic 0..1 from an index, so a replay of the same record looks alike.
+static func _hash(value: float) -> float:
+	return fposmod(sin(value * 12.9898) * 43758.5453, 1.0)
 
 
 func _draw_effects(w: float, h: float) -> void:
@@ -319,7 +223,7 @@ func _draw_effects(w: float, h: float) -> void:
 			for ring in 3:
 				draw_circle(
 					Vector2(x, y), radius * (0.55 + float(ring) * 0.22),
-					Color(0.94, 0.91, 0.82, (0.12 - float(ring) * 0.03) * _smoke)
+					Color(0.94, 0.91, 0.82, (0.13 - float(ring) * 0.03) * _smoke)
 				)
 	# Muzzle flashes along the firing line.
 	if _flash > 0.0:
@@ -330,9 +234,13 @@ func _draw_effects(w: float, h: float) -> void:
 	# Cavalry sweeps across during an assault round.
 	if _charge > 0.0:
 		var sweep: float = 1.0 - _charge
-		for index in 6:
-			var x: float = w * (0.12 + sweep * 0.62) + float(index) * 21.0
-			_draw_horse(Vector2(x, ground + 7.0 + float(index % 2) * 4.0), attacker_color)
+		for index in 4:
+			var x: float = w * (0.12 + sweep * 0.62) + float(index) * 30.0
+			var gallop: float = sin(_time * 9.0 + float(index)) * 1.6
+			BattlePlate.draw_horse(
+				self, Vector2(x, ground + 6.0 + float(index % 2) * 4.0 + gallop),
+				attacker_color, BattlePlate.soldier_height(h) * 1.15
+			)
 	# Warm light shafts and gold sparkles celebrate a decided field.
 	if outcome >= 0:
 		for shaft in 6:
@@ -349,14 +257,3 @@ func _draw_effects(w: float, h: float) -> void:
 				centre + Vector2(cos(angle), sin(angle)) * radius, 2.0,
 				Color(1.0, 0.88, 0.42, 0.55)
 			)
-
-
-func _draw_horse(pos: Vector2, color: Color) -> void:
-	var ink := Color(0.14, 0.09, 0.05)
-	draw_rect(Rect2(pos.x - 11.0, pos.y - 9.0, 22.0, 7.0), color.lightened(0.05))
-	draw_circle(Vector2(pos.x + 12.0, pos.y - 11.0), 4.2, color.lightened(0.05))
-	draw_line(Vector2(pos.x - 10.0, pos.y - 2.0), Vector2(pos.x - 13.0, pos.y + 7.0), ink, 2.0)
-	draw_line(Vector2(pos.x + 9.0, pos.y - 2.0), Vector2(pos.x + 12.0, pos.y + 7.0), ink, 2.0)
-	draw_circle(Vector2(pos.x, pos.y - 17.0), 3.0, Color(0.98, 0.83, 0.62))
-	draw_line(Vector2(pos.x, pos.y - 14.0), Vector2(pos.x + 10.0, pos.y - 26.0), ink, 1.8)
-	draw_circle(Vector2(pos.x + 10.0, pos.y - 26.0), 1.6, Palette.GOLD_PALE)

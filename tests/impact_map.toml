@@ -985,6 +985,19 @@ domain = "quick_battle"
 match = "tests/test_battle_sim.gd"
 domain = "quick_battle"
 
+# Screenshot harnesses for the plate (run by hand, never as suites).
+[[rules]]
+match = "tests/battle_*_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/quick_battle_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate.gd*"
+domain = "quick_battle"
+
 [[rules]]
 match = "tests/test_call_to_arms.gd"
 domain = "campaign"
