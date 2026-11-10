@@ -19,6 +19,7 @@ suites = [
   "test_army_field_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
+  "test_difficulty.gd",
 ]
 
 [domains.audio]
@@ -136,9 +137,27 @@ suites = [
   "test_advanced_start.gd",
 ]
 
+# Setup difficulty layer (wiki: ruleset-config § Layers). Hub files that only
+# carry the layer (map_screen, ai_state) map here so a difficulty PR stays
+# inside the tier-1 5 min budget instead of pulling map+ai.
+[domains.difficulty]
+suites = [
+  "test_ai_rules.gd",
+  "test_army_orders.gd",
+  "test_battle_rules.gd",
+  "test_difficulty.gd",
+  "test_game_setup.gd",
+  "test_main.gd",
+  "test_map_screen.gd",
+  "test_menu_flow.gd",
+  "test_misc_rules.gd",
+  "test_save_codec.gd",
+]
+
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
+  "test_difficulty.gd",
   "test_game_setup.gd",
   "test_main.gd",
   "test_menu_flow.gd",
@@ -150,6 +169,7 @@ suites = [
 [domains.misc]
 suites = [
   "test_catalogs.gd",
+  "test_difficulty.gd",
   "test_misc_rules.gd",
 ]
 
@@ -251,6 +271,12 @@ domain = "espionage"
 match = "tools/select_impacted_tests.py"
 full = true
 
+# AiState stamps the difficulty layer onto rival ledgers; keep it on the
+# difficulty domain so a layer change does not pull every AI planner suite.
+[[rules]]
+match = "scripts/ai/ai_state.gd"
+domain = "difficulty"
+
 [[rules]]
 match = "scripts/ai/**"
 domain = "ai"
@@ -299,9 +325,15 @@ full = true
 match = "ui/**"
 domain = "ui"
 
+# MapScreen carries setup fields into PlaySession; difficulty owns that bridge
+# so the layer does not pull the whole map suite set (domains.difficulty).
 [[rules]]
 match = "scripts/map_screen.gd"
-domain = "map"
+domain = "difficulty"
+
+[[rules]]
+match = "scripts/rules/difficulty.gd*"
+domain = "difficulty"
 
 [[rules]]
 match = "scripts/rules/advanced_*.gd"
@@ -793,6 +825,10 @@ domain = "map"
 [[rules]]
 match = "tests/test_game_setup.gd"
 domain = "menu"
+
+[[rules]]
+match = "tests/test_difficulty.gd"
+domain = "difficulty"
 
 [[rules]]
 match = "tests/test_main.gd"

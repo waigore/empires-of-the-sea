@@ -236,10 +236,8 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 	)
 
 
-## Feeding coverage, leader keys and the player's techs for this Combat phase;
-## the seed keeps general binding reproducible for a given turn. `hostile` is the
-## court's war query, so only factions at war meet in battle (wiki: diplomacy §
-## War required for hostile actions).
+## Feeding, leaders, techs and difficulty for Combat; seed binds generals.
+## `hostile` is the war query (wiki: diplomacy § War required).
 static func battle_context(play: PlaySession) -> Dictionary:
 	var tech: Dictionary = {}
 	if play.observer_mode and play.ai != null:
@@ -259,6 +257,8 @@ static func battle_context(play: PlaySession) -> Dictionary:
 		"quick_battle": not play.observer_mode,
 		"player_faction": play.human_faction_id(),
 		"battle_plan": play.battle_plan,
+		"difficulty": Difficulty.combat_multipliers(
+			play.human_faction_id(), play.difficulty, FactionCatalog.great_power_ids()),
 	}
 
 

@@ -24,6 +24,9 @@ var infinite_mode: bool = false
 ## Advanced-start preset (wiki: advanced-starts; DR-20261111-01). Empty/"none"
 ## is the ordinary turn-0 campaign.
 var advanced_start: String = AdvancedStart.NONE
+## Difficulty layer, fixed at creation (wiki: ruleset-config § Layers). Scales
+## rival opening stores and rival land strength against the human crown.
+var difficulty: String = Difficulty.DEFAULT
 ## Set once the calendar cap closes an undecided campaign; turns stay shut even
 ## though no victory was declared (wiki: victory § Calendar campaign end).
 var campaign_halted: bool = false
@@ -54,8 +57,16 @@ var defeat: DefeatState = null
 ## (wiki: diplomacy § Alliances).
 var turn_suspended: bool = false
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
-## turn's decision trace (wiki: ai-architecture).
-var ai: AiState = null
+## turn's decision trace (wiki: ai-architecture). Assignments stamp this run's
+## difficulty so call sites that only `AiState.new()` still found ledgers right.
+var _ai: AiState = null
+var ai: AiState:
+	get:
+		return _ai
+	set(value):
+		_ai = value
+		if _ai != null:
+			_ai.difficulty = difficulty
 var ai_trace: Array[Dictionary] = []
 ## Last resolved turn's spy despatch: `turn` and `lines` (rival Great Power ->
 ## Array[String]) for every court a Spy shadows (wiki: civilian-units § Spy —
@@ -110,7 +121,8 @@ func configure(
 	height: int,
 	leader: String = "",
 	infinite: bool = false,
-	advanced: String = ""
+	advanced: String = "",
+	difficulty_id: String = ""
 ) -> void:
 	player_faction = faction
 	map_seed = seed_value
@@ -118,8 +130,19 @@ func configure(
 	map_height = height
 	infinite_mode = infinite
 	advanced_start = AdvancedStart.normalize(advanced)
+	difficulty = Difficulty.normalize(difficulty_id)
 	turn = AdvancedStart.turn(advanced_start)
 	leaders = LeaderCatalog.roster(faction, leader)
+
+
+## The per-game AI bookkeeping, stamped with this run's difficulty so rival
+## ledgers are founded at the right level (wiki: ruleset-config § Layers).
+func ensure_ai() -> AiState:
+	if ai == null:
+		ai = AiState.new()
+	else:
+		ai.difficulty = difficulty
+	return ai
 
 
 func bind_views(

@@ -16,6 +16,9 @@ var last_peace_turn: Dictionary = {}
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
+## Difficulty layer this run plays at; rival ledgers are founded at its level
+## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
+var difficulty: String = Difficulty.DEFAULT
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -25,11 +28,14 @@ func agenda_for(config: AiConfig) -> String:
 	return String(agendas[config.faction])
 
 
-## The rival's ledger, created from the shared starting row on first read. The
-## same instance is returned every turn, so assignments and stockpiles persist.
+## The rival's ledger, created from the shared starting row at this run's
+## difficulty. The same instance is returned every turn, so assignments and
+## stockpiles persist (and the start is scaled exactly once).
 func economy_for(faction: int) -> PlayerEconomy:
 	if not economies.has(faction):
-		economies[faction] = PlayerEconomy.starting()
+		var economy := PlayerEconomy.starting()
+		Difficulty.scale_start(economy, difficulty)
+		economies[faction] = economy
 	return economies[faction] as PlayerEconomy
 
 
@@ -95,6 +101,7 @@ func to_dict() -> Dictionary:
 		"last_overture_turn": last_overture_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
+		"difficulty": difficulty,
 	}
 
 
@@ -107,6 +114,7 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
+	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state
 
 
