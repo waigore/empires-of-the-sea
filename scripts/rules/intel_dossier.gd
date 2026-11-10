@@ -40,8 +40,7 @@ const W_SPY_TECH: int = 2
 ## in the pair's chronicle: they are intelligence, not diplomacy.
 const SPY_TECH: String = "spyTechObserved"
 const SPY_BUILD: String = "spyBuildObserved"
-## The turn a despatch observed. The spy reports after the calendar has advanced,
-## so the observation carries the turn it resolved on in its data.
+## The turn a despatch observed (the spy reports after the calendar advanced).
 const OBSERVED_TURN: String = "observed_turn"
 
 const UNKNOWN_COURT: String = "an unknown court"
@@ -118,8 +117,7 @@ static func evidence(
 	return found
 
 
-## The turn an observation belongs to: the chronicle's own stamp, or the turn
-## the spy's despatch resolved (it is written on a later pass).
+## The turn an observation belongs to: the chronicle's stamp, or the despatch's.
 static func turn_of(event: Dictionary) -> int:
 	var data: Dictionary = _kind_data(event)
 	if data.has(OBSERVED_TURN):
