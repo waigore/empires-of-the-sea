@@ -18,7 +18,8 @@ static func open(play: PlaySession) -> void:
 		play.world,
 		play.player_faction,
 		play.treasury(),
-		_tech(play)
+		_tech(play),
+		play.court_reports
 	)
 
 
@@ -31,7 +32,8 @@ static func refresh(play: PlaySession) -> void:
 		play.world,
 		play.player_faction,
 		play.treasury(),
-		_tech(play)
+		_tech(play),
+		play.court_reports
 	)
 
 

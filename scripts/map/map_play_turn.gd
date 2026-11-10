@@ -145,7 +145,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Minor Regiment Upgrade runs after movement and before combat.
+	# Minor Regiment Upgrade runs after movement, before combat (wiki: factions).
 	MilitaryParity.apply(play.army_layer.regions, _great_power_tech(play))
 	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
 	var naval_battles: Array[Dictionary] = _resolve_naval_combat(play)
@@ -176,9 +176,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.army_layer.begin_turn()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
-	# Rival ledgers resolve on post-combat ownership and plan civilian work for
-	# the new turn; the observer runs every crown on that same pass.
+	# Rival ledgers resolve on post-combat ownership and plan the new turn.
+	var tech_before: Dictionary = MapPlayEspionage.tech_snapshot(play)
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
+	MapPlayEspionage.record_court_reports(play, land_battles, naval_battles, tech_before)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
@@ -306,7 +307,9 @@ static func capital_world(play: PlaySession) -> Vector2:
 static func capital_tile(play: PlaySession, province_id: int) -> Vector2i:
 	return play.model.capital_tile_of(province_id)
 
-## Fleets sharing a sea zone fight (wiki: ships-and-naval § Naval Combat).
+## Fleets that end movement in the same sea zone fight (wiki: ships-and-naval
+## § Naval Combat). Rules resolve the battle; this only prunes markers and
+## reports the outcome. Returns the records for the court despatch.
 static func _resolve_naval_combat(play: PlaySession) -> Array[Dictionary]:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)

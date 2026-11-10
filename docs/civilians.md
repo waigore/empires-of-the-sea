@@ -14,14 +14,13 @@ tech.
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
   prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
   (spycraft), Merchant (buy land), Rail Builder (railroad).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
-  and Visit jump to it.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter and Visit.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders stay on crown land; Explorer, Merchant, Spy cross any border.
-- **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
-  `unknown`); each shadowed rival GP adds +15% RP to a Low+ slot it knows.
-  **Counter-espionage** kills or turns enemy spies; court reports name deeds
-  ([espionage.md](espionage.md)).
+- **Spy** (`SpyNetworks`, `SpyRules`, `CourtReports`): holds its province
+  charted (never `unknown`); each shadowed rival GP adds +15% RP to a Low+
+  slot it knows. **Counter-espionage** kills or turns enemy spies; digests /
+  despatch name deeds ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
   returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
   **upgrade town** (same costs, National Bureaucracy), road, port, rail, fort
@@ -53,7 +52,9 @@ tech.
 |------|------|
 | `scripts/rules/civilian_*.gd` | roster, state, movement, work, transport, voyage |
 | `scripts/rules/spy_networks.gd` | spy hosts and research bonus |
-| `scripts/rules/spy_rules.gd` | counter-espionage, dice and court reports |
+| `scripts/rules/spy_rules.gd` | counter-espionage, dice, toast digests |
+| `scripts/rules/court_reports.gd` | despatch facts, masking |
+| `scripts/ui/court_reports_panel.gd` | diplomacy despatch |
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | deeds |
 | `scripts/rules/land_works.gd`, `improvement_*.gd` | works, extraction, ledger |
 | `scripts/map/civilian_*.gd`, `map_play_civilian_roster.gd` | markers, passengers, roster jump |
@@ -77,7 +78,7 @@ Rules stay node-free (`REQ-P3-03`).
 ## Tests
 
 `test_civilian_field_rules`, `test_civilian_voyage`, `test_spy_networks`,
-`test_espionage`, `test_visibility`, `test_map_screen_crown_orders`.
+`test_espionage`, `test_court_reports`, `test_visibility`, `test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80
