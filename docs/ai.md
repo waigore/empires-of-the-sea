@@ -9,7 +9,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six agendas from `hash(seed, faction)`.
+  six seed-hashed agendas.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
@@ -20,8 +20,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   aside (25%; 50% with two); declaration −8 per warden (cap −24).
 - **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
   overtures, alliance/break, trade pact/revoke, boycott/revoke, subsidy/cancel,
-  aid. Friendly acts worth desire less spend; retaliation the fall in standing
-  (DR-20261110-15).
+  aid. Friendly acts cost desire; retaliation standing (DR-20261110-15).
 - **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
   consent asks queue for the human, one-sided acts land; declarations before
   combat.
@@ -44,9 +43,11 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
   the highest affordable tier.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
-- **Civilian planner** (`AiCivilianPlanner`): one order per idle civilian —
-  builders improve or finish a town, engineers connect then road/port/fort,
-  explorers prospect, rail builders upgrade roads.
+- **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
+  one order per idle civilian — builders improve or finish a town, engineers
+  connect then road/port/fort, explorers prospect, rail builders upgrade roads;
+  merchants buy a Minor/Tribe deed when embassy, peace, mineral and price allow
+  (`civilian.merchant_weight`).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
@@ -64,7 +65,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 
 ## Deferred (REQ-P2-02)
 
-- Rival boycotts / land purchase (trade envoys with Minor/Tribe first).
+- Rival boycotts.
 - Agenda-sourced dialogue beats.
 
 ## Architecture

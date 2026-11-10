@@ -77,6 +77,13 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
 
+# Rival espionage — the other half: plays real turns from a turn-100 advanced
+# start and prints the spies rival courts walk onto crown land (invisible by
+# rule), the screen the crown keeps at home, every line the court is told when
+# an agent is caught or turns coat (with the relations it cost), and the share a
+# rival's spy earns from the crown's own studies.
+godot --headless --path . --script res://tests/playtest_ai_spycraft.gd
+
 # Province development — opens a turn-100 advanced start, raises an estate over
 # several turns from the estates ledger, walks the Engineer tile by tile laying
 # the road to the capital, prospects and mines a mineral and upgrades a town,

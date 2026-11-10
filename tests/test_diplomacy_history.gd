@@ -34,6 +34,7 @@ const SAMPLES: Dictionary = {
 	"boycottRevoked": {},
 	"grantAid": {"amount": 1000},
 	"firstContact": {},
+	"spyTaken": {"province": "Coro"},
 }
 
 
