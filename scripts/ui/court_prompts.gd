@@ -53,7 +53,8 @@ static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 	return banner
 
 
-## Intervention: join the war, stand aside and lose the embassy, or protest.
+## Intervention: join the war, protest, or stand aside. What is at stake — the
+## embassy, the deeds, or both — comes from the offer itself (DR-20261110-20).
 static func _intervention_banner(offer: Dictionary, emit: Callable) -> Control:
 	var aggressor: int = int(offer["aggressor"])
 	var target: int = int(offer["target"])
@@ -61,10 +62,12 @@ static func _intervention_banner(offer: Dictionary, emit: Callable) -> Control:
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
 	column.add_child(_label("INTERVENTION", 11, Palette.GOLD_PALE))
 	var text := _label(
-		(
-			"%s has declared war on %s. Our embassy stands: join the war on the"
-			+ " aggressor, stand aside and lose the embassy, or protest."
-		) % [FactionCatalog.name_of(aggressor), FactionCatalog.name_of(target)],
+		"%s has declared war on %s. %s"
+		% [
+			FactionCatalog.name_of(aggressor),
+			FactionCatalog.name_of(target),
+			Intervention.offer_text(offer),
+		],
 		13,
 		Palette.TEXT
 	)

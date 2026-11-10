@@ -31,6 +31,11 @@ P5 unbookkept rivals.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
+- **Deed protection** (`DeedProtection`, `Intervention`): a deed in a
+  Minor/Tribe province is a stake its holder defends — the court never stands
+  aside, its trial is 25% (50% with two deeds), and the war planner charges
+  −8 per court a declaration would call in (deed holders as well as
+  embassies, cap −24), so a protected victim is the harder war.
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
@@ -63,7 +68,8 @@ P5 unbookkept rivals.
 
 ## Deferred (REQ-P2-02)
 
-- Intervention, call-to-arms and boycotts.
+- Rival boycotts; rival land purchase (a rival needs trade envoys with a
+  Minor/Tribe before a deed is legal).
 - Rival fog exploration.
 - Agenda-sourced dialogue beats.
 

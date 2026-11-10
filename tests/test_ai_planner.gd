@@ -113,6 +113,26 @@ func test_rival_embassies_add_the_intervention_risk_penalty() -> void:
 	assert_eq(int(single["factors"]["intervention"]), -8)
 
 
+## A deed is protection in the attacker's eyes too: a rival's purchased land in
+## the minor's provinces is a Great Power the declaration would call to the
+## victim's aid, so it costs the same -8 as an embassy (wiki: diplomacy
+## § Intervention "investment protection"; DR-20261110-20).
+func test_a_rival_deed_in_the_minors_land_adds_the_intervention_risk_penalty() -> void:
+	state.ensure_relation(0, 6, 1)
+	var world: WorldMap = AiFixture.world([0, 6])
+	var context: Dictionary = AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
+	var bare: Dictionary = AiDiplomacyPlanner.war_desire(config, state, world, 0, 6, context)
+	assert_eq(int(bare["factors"]["intervention"]), 0, "no one would answer")
+	var model: MapModel = world.region(0)
+	assert_true(model.ownership.purchase(model.index_of(1, 0), 1), "a rival buys land")
+	var bought: Dictionary = AiDiplomacyPlanner.war_desire(config, state, world, 0, 6, context)
+	assert_eq(int(bought["factors"]["intervention"]), -8, "the deed holder answers")
+	assert_true(
+		int(bought["score"]) < int(bare["score"]),
+		"the protected minor is the harder war"
+	)
+
+
 func test_declares_war_when_strong_and_relations_are_cool() -> void:
 	state.ensure_relation(0, 1, 1)
 	var plan: Dictionary = AiDiplomacyPlanner.decide(

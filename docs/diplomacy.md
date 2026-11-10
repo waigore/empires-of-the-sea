@@ -22,7 +22,10 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 - **Intervention:** war on a Minor/Tribe lets embassy and deed holders
   intervene, stand aside (lose the embassy) or protest: −10, or −5 against a
   declarer holding Propaganda. A rival that does not join protests at 26+
-  relation with the victim, else stands aside.
+  relation with the victim, else stands aside. **A deed is a stake**
+  (`DeedProtection`): one deed keeps its holder from standing aside and lifts
+  the trial to 25%, two deeds to 50%, and standing aside costs such a court no
+  embassy. Declare War names the courts that may intervene.
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
   £5,000 + £2,000/province; one per target per turn. Minor/Tribe embassies need
   Diplomatic Expertise.
@@ -60,7 +63,7 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 Rules: `diplomacy_catalog` (costs, bands, gates), `diplomacy_state`,
 `diplomacy_rules`, `diplomacy_aid`, `diplomacy_orders` (validate/apply),
 `diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
-`diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`,
+`diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`, `deed_protection`,
 `intel_dossier`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`. UI:
 `ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
 `diplomacy_history_panel`. Rules need no nodes (`REQ-P3-03`); panel →
@@ -69,7 +72,8 @@ Rules: `diplomacy_catalog` (costs, bands, gates), `diplomacy_state`,
 ## Tests
 
 Suites: `test_diplomacy_*` (incl. `test_diplomacy_trade`), `test_call_to_arms`,
-`test_intervention`, `test_intel_dossier`, `test_espionage`.
+`test_intervention`, `test_deed_protection`, `test_intel_dossier`,
+`test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80

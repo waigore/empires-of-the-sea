@@ -43,6 +43,7 @@ suites = [
   "test_capital_choice.gd",
   "test_capital_loss.gd",
   "test_capital_seat_screen.gd",
+  "test_deed_protection.gd",
   "test_intervention.gd",
   "test_victory_screen.gd",
 ]
@@ -560,6 +561,14 @@ match = "scripts/rules/intervention.gd"
 domain = "campaign"
 
 [[rules]]
+match = "scripts/rules/deed_protection.gd"
+domain = "campaign"
+
+[[rules]]
+match = "scripts/rules/intervention_copy.gd"
+domain = "campaign"
+
+[[rules]]
 match = "scripts/rules/victory_*.gd"
 domain = "campaign"
 
@@ -751,6 +760,10 @@ domain = "campaign"
 
 [[rules]]
 match = "tests/test_intervention.gd"
+domain = "campaign"
+
+[[rules]]
+match = "tests/test_deed_protection.gd"
 domain = "campaign"
 
 [[rules]]

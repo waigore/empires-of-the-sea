@@ -154,10 +154,11 @@ static func show_intervention(play: PlaySession) -> void:
 		return
 	open(play)
 	play.hud.toast(
-		"%s declares war on %s. Our embassy stands: answer the intervention."
+		"%s declares war on %s. %s"
 		% [
 			FactionCatalog.name_of(int(offer["aggressor"])),
 			FactionCatalog.name_of(int(offer["target"])),
+			Intervention.offer_text(offer),
 		]
 	)
 
