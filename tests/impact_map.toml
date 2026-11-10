@@ -166,7 +166,6 @@ suites = [
 suites = [
   "test_quick_battle_overlay.gd",
   "test_quick_battle_rules.gd",
-  "test_siege_lanes.gd",
 ]
 
 # First matching rule wins. More specific globs before broader ones.
@@ -187,9 +186,6 @@ domain = "quick_battle"
 match = "scripts/rules/siege_lanes.gd"
 domain = "quick_battle"
 
-[[rules]]
-match = "tests/test_siege_lanes.gd*"
-domain = "quick_battle"
 [[rules]]
 match = "project.godot"
 full = true

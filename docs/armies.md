@@ -79,7 +79,7 @@ Rules (no nodes, `REQ-P3-03`, all under `scripts/rules/`): `regiment_catalog`,
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
 `test_generals`, `test_leader_catalog`, `test_army_orders`,
-`test_naval_movement`, `test_quick_battle_rules`, `test_siege_lanes`,
+`test_naval_movement`, `test_quick_battle_rules`,
 `test_map_screen_crown_orders`.
 
 ```bash

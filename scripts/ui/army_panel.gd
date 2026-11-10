@@ -237,7 +237,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		# Regiment detail: category, stats and its share of the food bill.
-		var detail := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+		var detail := _line(11, Color(0.74, 0.68, 0.55, 0.75))
 		detail.text = RegimentCatalog.detail_line(type_id)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)

@@ -216,6 +216,13 @@ func test_categories_drive_cavalry_and_infantry_rules() -> void:
 func test_regiment_detail_lines_carry_stats_and_tally_losses() -> void:
 	assert_eq(RegimentCatalog.category_name("guards"), "Heavy infantry")
 	assert_eq(RegimentCatalog.category_name("culverin"), "Heavy artillery")
+	assert_eq(RegimentCatalog.category_name("peasant_levies"), "Light infantry")
+	assert_eq(RegimentCatalog.category_name("pikemen"), "Regular infantry")
+	assert_eq(RegimentCatalog.category_name("bowmen"), "Bowmen")
+	assert_eq(RegimentCatalog.category_name("squires"), "Light cavalry")
+	assert_eq(RegimentCatalog.category_name("knights"), "Spear cavalry")
+	assert_eq(RegimentCatalog.category_name("harquebusiers"), "Heavy cavalry")
+	assert_eq(RegimentCatalog.category_name("horse_artillery"), "Light artillery")
 	assert_eq(
 		RegimentCatalog.detail_line("guards"),
 		"Heavy infantry · FPN 12 · FPM 10 · RNG 6 · DEF 6 · MVR 4 · 3 food"
