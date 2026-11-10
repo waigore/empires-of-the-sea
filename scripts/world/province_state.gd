@@ -69,6 +69,12 @@ func is_town_tile(tile: Vector2i) -> bool:
 	return false
 
 
+## A province with a town tile, or a capital with a seat, has a town to raise
+## (hand-built maps predate town assignment and fall back to the seat).
+func has_town() -> bool:
+	return town_tile.x >= 0 or (capital and capital_tile.x >= 0)
+
+
 func clear_resource_tile_if(tile: Vector2i) -> void:
 	if resource_tile == tile:
 		resource_tile = Vector2i(-1, -1)
