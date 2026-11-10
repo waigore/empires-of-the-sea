@@ -1,8 +1,7 @@
 # AI courts
 
 Rivals act through a deterministic, data-tuned stack (wiki:
-[AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture),
-[diplomacy planner](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy-planner)).
+[AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
 
 **Pillars:** P2, P3, P4, P5.
 
@@ -38,12 +37,12 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   fog; voyages, invasions and work orders read only that chart
   (DR-20261110-21).
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  board an idle Explorer, cross a Passage, land; then prospect or improve.
+  board an Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore; detach hulls, dock, board, cross; storm best coast,
   else own colony.
 - **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
-  the highest tier it can afford.
+  the highest affordable tier.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`): one order per idle civilian —
   builders improve or finish a town, engineers connect then road/port/fort,
@@ -52,14 +51,16 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
   inputs; bid short build inputs (3 types; 6 with Trade Fairs).
+- **Cargo planner** (`AiCargoPlanner`): merchants sail home for their holds;
+  one hull more when tonnage outruns them (`cargo.*`, DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's
   era; Tribes stay at level 1. Rivals re-equip and pay attack prices
   (`RegimentUpgrades`, `ArmyAttackCost`).
-- **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
+- **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
-- **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`): rival reading — evidence, suspicion per
-  agenda, best guess ([`intel-dossier.md`](intel-dossier.md)).
+- **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
+- **Court dossier** (`IntelDossier`,
+  [`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
@@ -70,8 +71,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 ## Architecture
 
 Planners live in `scripts/ai/` (pure — `REQ-P3-03`);
-`scripts/map/map_play_{diplomacy,army_ai,fleet_ai,economy_ai,colonisation_ai,invasion_ai,spies}.gd`
-wire them to `PlaySession`.
+`scripts/map/map_play_*` wire them to `PlaySession`.
 
 ## Tests
 
