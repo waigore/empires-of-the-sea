@@ -96,21 +96,26 @@ static func fallback_medals(leader_key: String) -> int:
 
 
 ## The strongest `limit` regiments of a side (limit <= 0 means all), strongest
-## first so reserves are the weakest. Casualties and strength use this slice.
+## first so reserves are the weakest. A regiment's rank is its (FPN + FPM)
+## scaled by chevrons and by remaining health (wiki: combat § Strength), so a
+## mauled regiment yields its place to a fresh one.
 static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	for army: ArmyState in side:
 		if army == null:
 			continue
 		for regiment_id: String in army.regiments:
+			var data: Dictionary = army.condition_of(regiment_id)
 			candidates.append({
 				"army": army,
 				"id": regiment_id,
-				"rank": RegimentCatalog.strength(army.type_of(regiment_id)),
+				"rank": rank_of(String(data["type"]), int(data["medals"]), float(data["fraction"])),
+				"medals": int(data["medals"]),
+				"fraction": float(data["fraction"]),
 			})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if int(a["rank"]) != int(b["rank"]):
-			return int(a["rank"]) > int(b["rank"])
+		if not is_equal_approx(float(a["rank"]), float(b["rank"])):
+			return float(a["rank"]) > float(b["rank"])
 		return String(a["id"]) < String(b["id"])
 	)
 	if limit > 0 and candidates.size() > limit:
@@ -118,7 +123,16 @@ static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 	return candidates
 
 
-## Σ (FPN + FPM) over the deployed slice, scaled by the side multiplier.
+## One regiment's effective strength: stats × chevrons × health.
+static func rank_of(type_id: String, medals: int, fraction: float) -> float:
+	return (
+		float(RegimentCatalog.strength(type_id))
+		* RegimentCatalog.medal_multiplier(medals)
+		* clampf(fraction, 0.0, 1.0)
+	)
+
+
+## Σ of the deployed slice, scaled by the side multiplier.
 static func strength(side: Array[ArmyState], limit: int, multiplier: float) -> float:
 	var total: float = 0.0
 	for entry: Dictionary in deployed(side, limit):

@@ -202,28 +202,12 @@ func _populate() -> void:
 		"fill", UiTheme.box(def_color, def_color.lightened(0.25), 1, 3, Vector4.ZERO)
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
-	_plan_label.text = _plan_text(battle, quick)
+	_plan_label.text = QuickBattleCopy.plan_text(battle)
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1))
 	)
 	_round_label.text = ""
-
-
-## The stance line: the player's own plan first (it is the one the player set,
-## and on the defending side the report's `plan` belongs to the attacker), then
-## the enemy's script and any emplaced battery.
-func _plan_text(p_battle: Dictionary, quick: Dictionary) -> String:
-	var mine: String = String(quick.get("plan", "balanced"))
-	var theirs: String = String(quick.get("defender_plan", "defensive"))
-	if int(p_battle.get("player_faction", -1)) == int(p_battle.get("defender", -1)):
-		mine = String(quick.get("defender_plan", "defensive"))
-		theirs = String(quick.get("plan", "balanced"))
-	var text: String = "Your plan: %s · enemy: %s" % [mine.capitalize(), theirs.capitalize()]
-	var guns: int = int(quick.get("guns_start", 0))
-	if guns > 0:
-		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
-	return text
 
 
 func _reset() -> void:
@@ -260,18 +244,23 @@ func _enter_round(index: int) -> void:
 		index,
 		int(round.get("attacker_count", 0)),
 		int(round.get("defender_count", 0)),
-		int(round.get("guns", 0))
+		int(round.get("guns", 0)),
+		round.get("attacker_health", []) as Array,
+		round.get("defender_health", []) as Array
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
-		int(round.get("attacker_count", 0)), int(round.get("defender_count", 0))
+		int(round.get("attacker_count", 0)), int(round.get("defender_count", 0)),
+		float(round.get("attacker_strength", 1.0)),
+		float(round.get("defender_strength", 1.0))
 	)
 	_round_label.text = "ROUND %s" % QuickBattleCopy.roman(index + 1)
 	if index < _pips.size():
 		_pips[index].add_theme_color_override("font_color", Palette.GOLD_PALE)
 	for action: Dictionary in round.get("actions", []):
 		_add_log(QuickBattleCopy.action_line(action, battle, faction_names))
+		_show_hits(action)
 
 
 func _finish() -> void:
@@ -280,12 +269,23 @@ func _finish() -> void:
 	_finished = true
 	_round_label.text = "AFTERMATH"
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var atk_left: int = int(quick.get("attacker_left", 0))
+	var def_left: int = int(quick.get("defender_left", 0))
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
-		int(quick.get("attacker_left", 0)), int(quick.get("defender_left", 0))
+		atk_left, def_left,
+		_average(battle.get("attacker_health", []) as Array, atk_left),
+		_average(battle.get("defender_health", []) as Array, def_left)
 	)
 	var outcome: int = int(battle.get("outcome", ArmyCombat.Outcome.STALEMATE))
 	field.set_outcome(outcome)
+	# The final field carries the aftermath, not another round's animation.
+	field.attacker_count = atk_left
+	field.defender_count = def_left
+	field.guns = int(quick.get("guns_left", 0))
+	field.attacker_health = battle.get("attacker_health", []) as Array
+	field.defender_health = battle.get("defender_health", []) as Array
+	field.queue_redraw()
 	_outcome.text = QuickBattleCopy.outcome_text(
 		outcome, battle, province_name, faction_names
 	)
@@ -294,6 +294,12 @@ func _finish() -> void:
 	var losses: String = QuickBattleCopy.loss_line(battle, faction_names)
 	if not losses.is_empty():
 		_add_log(losses)
+	var health: String = QuickBattleCopy.health_line(battle, faction_names)
+	if not health.is_empty():
+		_add_log(health)
+	var chevrons: String = QuickBattleCopy.chevron_line(battle, faction_names)
+	if not chevrons.is_empty():
+		_add_log(chevrons)
 	var siege: String = QuickBattleCopy.siege_line(battle)
 	if not siege.is_empty():
 		_add_log(siege)
@@ -325,13 +331,46 @@ func _add_log(text: String) -> void:
 		oldest.queue_free()
 
 
-func _set_bars(atk_start: int, def_start: int, atk: int, def_now: int) -> void:
+func _set_bars(
+	atk_start: int, def_start: int, atk: int, def_now: int,
+	atk_fraction: float = 1.0, def_fraction: float = 1.0
+) -> void:
 	_atk_bar.max_value = maxi(atk_start, 1)
 	_atk_bar.value = atk
 	_def_bar.max_value = maxi(def_start, 1)
 	_def_bar.value = def_now
-	_atk_name.text = "%s  %d" % [QuickBattleCopy.faction(int(battle.get("attacker", 0)), faction_names), atk]
-	_def_name.text = "%d  %s" % [def_now, QuickBattleCopy.faction(int(battle.get("defender", 1)), faction_names)]
+	_atk_name.text = "%s  %d · %d%%" % [
+		QuickBattleCopy.faction(int(battle.get("attacker", 0)), faction_names), atk,
+		roundi(atk_fraction * 100.0)
+	]
+	_def_name.text = "%d · %d%%  %s" % [
+		def_now, roundi(def_fraction * 100.0),
+		QuickBattleCopy.faction(int(battle.get("defender", 1)), faction_names)
+	]
+
+
+## Floats the damage an action dealt (and took) over the side it struck.
+func _show_hits(action: Dictionary) -> void:
+	var actor: int = int(action.get("side", -1))
+	var acting: String = "attacker" if actor == int(battle.get("attacker", 0)) else "defender"
+	var hurt: String = "defender" if acting == "attacker" else "attacker"
+	var hits: Array = action.get("hits", []) as Array
+	if not hits.is_empty():
+		field.add_hits(hurt, hits, Palette.faction_color(int(battle.get(hurt, 0))))
+	var own: Array = action.get("own_hits", []) as Array
+	if not own.is_empty():
+		field.add_hits(acting, own, Palette.faction_color(actor))
+
+
+## Mean health of a side; a side left with no regiments reads zero, one whose
+## record predates condition tracking reads full.
+func _average(entries: Array, count: int) -> float:
+	if entries.is_empty():
+		return 1.0 if count > 0 else 0.0
+	var total: float = 0.0
+	for entry: Dictionary in entries:
+		total += float(entry.get("fraction", 1.0))
+	return total / float(entries.size())
 
 
 func _label(text: String, size_px: int, color: Color) -> Label:

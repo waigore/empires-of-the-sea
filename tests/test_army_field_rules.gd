@@ -308,6 +308,51 @@ func test_mutual_annihilation_without_further_attackers_leaves_the_province_empt
 	assert_eq(defender.count(), 0)
 
 
+## A Minor Nation reforms its garrison at its effective military era, which the
+## Minor Regiment Upgrade phase sets to the leading Great Power's level (wiki:
+## combat § Garrison recovery type; factions § Minor military parity).
+func test_a_minor_nations_reformed_garrison_keeps_its_parity_era() -> void:
+	_model.get_province(2).owner = 6
+	var defender := Fixture.army(1, 6, 2, ["guards"], true)
+	var first := Fixture.army(2, 0, 2, ["peasant_levies"])
+	first.moved = true
+	var second := Fixture.army(3, 2, 2, ["peasant_levies"])
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+	var context: Dictionary = {"parity_era": 4}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies, context)
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.MUTUAL_ANNIHILATION)
+	assert_eq(int(reports[0]["garrison"]), 1)
+	assert_eq(String(reports[0]["recovered_type"]), "guards")
+
+
+## Tribes get no parity: their effective military era is always 1 (wiki:
+## combat § Garrison recovery type; factions § Tribes).
+func test_a_tribes_reformed_garrison_stays_at_era_one() -> void:
+	_model.get_province(2).owner = 9
+	var defender := Fixture.army(1, 9, 2, ["guards"], true)
+	var first := Fixture.army(2, 0, 2, ["peasant_levies"])
+	first.moved = true
+	var second := Fixture.army(3, 2, 2, ["peasant_levies"])
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+	var context: Dictionary = {"parity_era": 4}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(_model, armies, context)
+
+	assert_eq(int(reports[0]["garrison"]), 1)
+	assert_eq(String(reports[0]["recovered_type"]), RegimentCatalog.garrison_type_for(1))
+
+
+func test_recovery_era_follows_the_faction_type() -> void:
+	assert_eq(ArmyCombat.era_for(1, {"parity_era": 1}), ArmyCombat.GREAT_POWER_ERA)
+	assert_eq(ArmyCombat.era_for(6, {"parity_era": 3}), 3)
+	assert_eq(ArmyCombat.era_for(6, {}), ArmyCombat.MINOR_ERA)
+	assert_eq(ArmyCombat.era_for(9, {"parity_era": 4}), ArmyCombat.MINOR_ERA)
+
+
 func test_ratio_bands_follow_the_documented_fractions() -> void:
 	assert_almost_eq(float(ArmyCombat.band_for(2.0)["attacker"]), 0.15, 0.001)
 	assert_almost_eq(float(ArmyCombat.band_for(2.0)["defender"]), 1.0, 0.001)

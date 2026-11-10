@@ -41,3 +41,4 @@ Auth: same credentials as `gh` / `HTTPS` git for the repo. Do not force-push the
 - Prefer editing **Design intent** on AI pages for product decisions; keep architecture sections for structure/determinism.
 - Game rules remain SoT for player mechanics; AI pages must not silently redefine them — cite the clarified rules page from AI text when needed.
 - After push, cite full wiki URLs in the code PR body.
+- Do not force-push the wiki.

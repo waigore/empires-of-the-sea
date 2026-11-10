@@ -16,4 +16,3 @@ description: |-
 Canonical instructions: [`.agents/skills/babysit-pr-agent/SKILL.md`](../../../.agents/skills/babysit-pr-agent/SKILL.md).
 
 Read that file and its `references/` as needed, then run the workflow there. Do not invent a parallel process.
-

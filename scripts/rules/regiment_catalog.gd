@@ -18,6 +18,10 @@ enum Category {
 }
 
 const DEFAULT_TYPE: String = "peasant_levies"
+## Experience chevrons a regiment can win: 1.0 to 1.4 firepower
+## (wiki: military-units § Stats).
+const MAX_MEDALS: int = 4
+const MEDAL_STEP: float = 0.1
 
 const ROWS: Array[Dictionary] = [
 	{"id": "peasant_levies", "name": "Peasant Levies", "fpn": 0, "fpm": 3, "rng": 1, "def": 3, "mvr": 3, "category": Category.LIGHT_INFANTRY, "era": 1, "cost": 2000},
@@ -153,6 +157,18 @@ static func treasury_cost(type_id: String) -> int:
 ## Auto-resolve strength basis: FPN + FPM (wiki: combat § Strength).
 static func strength(type_id: String) -> int:
 	return stat(type_id, "fpn") + stat(type_id, "fpm")
+
+
+## Health pool a regiment of this type brings to a battle: 60 plus ten per point
+## of DEF, so a formed regiment outlasts a levy (wiki: combat § Strength).
+static func max_health(type_id: String) -> int:
+	return 60 + 10 * stat(type_id, "def")
+
+
+## Experience multiplier: 1.0 at no chevrons, +10% each, capped at four
+## (wiki: military-units § Stats).
+static func medal_multiplier(medals: int) -> float:
+	return 1.0 + float(clampi(medals, 0, MAX_MEDALS)) * MEDAL_STEP
 
 
 static func is_cavalry(type_id: String) -> bool:

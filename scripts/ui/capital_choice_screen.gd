@@ -16,6 +16,11 @@ const TILE_SIZE: float = PlaySession.TILE_SIZE
 const SEA_MARGIN: float = 1400.0
 const OLD_WORLD_INDEX: int = 0
 const BANNER_MARGIN: float = 12.0
+## A finger (or cursor) that travels farther than this between press and release
+## is a pan, not a tap.
+const TAP_SLOP: float = 12.0
+## Two answers to the same tap land within this many world units of each other.
+const TAP_MERGE_DISTANCE: float = 0.5
 
 ## New-game choices from the setup screen. Tests set it before add_child.
 var config: GameConfig = null
@@ -35,20 +40,29 @@ var banner: PanelContainer = null
 @onready var canvas: MapCanvas = $World/MapCanvas
 @onready var marker: CapitalSeatMarker = $World/SeatMarker
 @onready var camera: MapCamera = $World/MapCamera
+@onready var hud_layer: CanvasLayer = $Hud
 @onready var hud_root: Control = $Hud/HudRoot
 
 var _hint: Label = null
 var _pick: Label = null
+var _tap_start: Vector2 = Vector2.INF
+var _tap_index: int = -1
+var _answered_tap_frame: int = -1
+var _answered_tap_world: Vector2 = Vector2.INF
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# The page is a container over the camera canvas, never a tap target: a
+	# Control that stops pointer events here would eat chart taps silently.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	InputActions.ensure_actions()
 	theme = UiTheme.build()
 	if config == null:
 		config = GameConfig.make(
 			GameConfig.DEFAULT_SEED, GameConfig.DEFAULT_SIZE_INDEX
 		)
+	_build_tap_catcher()
 	_build_hud()
 	camera.tapped.connect(on_tapped)
 	if world != null:
@@ -75,6 +89,23 @@ func _notification(what: int) -> void:
 
 
 # --- chrome -----------------------------------------------------------------
+
+
+## A screen-space catcher under the chart's own chrome. Taps reach the map
+## through two paths: the camera's `tapped` signal (desktop-pointer favourite)
+## and this Control's `gui_input`. The GUI path is the one every platform
+## delivers, so a chart tap is answered even where the page's world-space
+## rectangle — or anything else in the camera canvas — would stop the event
+## before `_unhandled_input` (REQ-P1-05, REQ-P5-05).
+func _build_tap_catcher() -> void:
+	var catcher := Control.new()
+	catcher.name = "TapCatcher"
+	catcher.mouse_filter = Control.MOUSE_FILTER_PASS
+	catcher.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	catcher.gui_input.connect(_on_catcher_input)
+	hud_layer.add_child(catcher)
+	# Under the chart's chrome: the banner and the action bar must keep their taps.
+	hud_layer.move_child(catcher, 0)
 
 
 func _build_hud() -> void:
@@ -225,7 +256,10 @@ func pick_province(province_id: int) -> bool:
 ## Places the seat on a land tile of the selected province. Tapping another
 ## crown province selects it first, so one tap is enough on a new province.
 func pick_tile(tile: Vector2i) -> bool:
-	if model == null or not model.in_bounds(tile.x, tile.y):
+	if model == null:
+		return false
+	if not model.in_bounds(tile.x, tile.y):
+		_say("That is open sea. The court must sit on land.", true)
 		return false
 	var province_id: int = model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
@@ -241,6 +275,58 @@ func pick_tile(tile: Vector2i) -> bool:
 
 
 func on_tapped(world_position: Vector2) -> void:
+	_answer_tap(world_position)
+
+
+## Touch and mouse taps from the HUD catcher: the press is remembered, and a
+## release within `TAP_SLOP` is a tap on the chart. Drags and pinches are left
+## to the camera, which still owns panning and zooming.
+func _on_catcher_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_tap_start = event.position
+			_tap_index = event.index
+		elif event.index == _tap_index:
+			_finish_tap(event.position)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_tap_start = event.position
+			_tap_index = -1
+		elif _tap_index < 0:
+			_finish_tap(event.position)
+
+
+## A release close to its press is a tap; anything farther belongs to the pans.
+func _finish_tap(position: Vector2) -> void:
+	var start: Vector2 = _tap_start
+	_tap_start = Vector2.INF
+	_tap_index = -1
+	if start != Vector2.INF and position.distance_to(start) <= TAP_SLOP:
+		_tap_at(position)
+
+
+## A screen point in the chart's own pixels to the world: the canvas transform
+## is the camera's authoritative mapping (content scaling, zoom and clamping
+## included), so a tap lands on the tile the player sees.
+func _tap_at(screen_position: Vector2) -> void:
+	if model == null:
+		return
+	var world: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * screen_position
+	_answer_tap(world)
+
+
+## One seat answer per tap, however many paths deliver it: Android sends an
+## emulated mouse click beside every touch, and the camera may report the same
+## release the catcher sees.
+func _answer_tap(world_position: Vector2) -> void:
+	var frame: int = Engine.get_process_frames()
+	if (
+		frame == _answered_tap_frame
+		and world_position.distance_to(_answered_tap_world) < TAP_MERGE_DISTANCE
+	):
+		return
+	_answered_tap_frame = frame
+	_answered_tap_world = world_position
 	pick_tile(MapGeo.tile_at_world(world_position, TILE_SIZE))
 
 

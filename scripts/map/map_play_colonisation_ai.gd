@@ -29,7 +29,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_civilians_in_region(play, target, faction)
+				_civilians_in_region(play, target, faction), play.court_charts
 			)
 			if order.is_empty():
 				continue
@@ -105,6 +105,7 @@ static func _apply(
 				sailed = FleetSortie.apply(model, fleet, zone)
 			if not bool(sailed.get("ok", false)):
 				return {}
+			MapPlayCourtFog.note_fleet_entry(play, region, fleet, zone)
 			entry["zone"] = zone
 		"dock":
 			var province: int = int(order.get("province", -1))
@@ -118,6 +119,10 @@ static func _apply(
 			var crossed: Dictionary = _cross(play, region, fleet)
 			if not bool(crossed.get("ok", false)):
 				return {}
+			MapPlayCourtFog.note_fleet_entry(
+				play, int(crossed.get("to_region", -1)), fleet,
+				int(crossed.get("to_zone", -1))
+			)
 			entry["to_region"] = int(crossed.get("to_region", -1))
 			entry["to_zone"] = int(crossed.get("to_zone", -1))
 		"land":
@@ -128,6 +133,7 @@ static func _apply(
 			var landed: Dictionary = CivilianVoyage.disembark(model, unit, fleet, tile)
 			if not bool(landed.get("ok", false)):
 				return {}
+			MapPlayCourtFog.note_landing(play, region, fleet.owner, unit.tile)
 			_ensure_works(play, region)
 			CivilianVoyageMap.show_ashore(play.civilian_layer, unit)
 			entry["unit"] = unit.id

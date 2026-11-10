@@ -3,11 +3,12 @@ extends RefCounted
 ## Full-AI civilian work policy (wiki: civilian-work-planner, growth-stage-planner).
 ##
 ## One legal order per idle civilian: Builders raise the estate the stores are
-## shortest of, Engineers extend the transport network and, at war, raise a
-## fort, Explorers prospect their minerals, Rail Builders upgrade roads, and
-## Spies observe rival Great Powers or keep a counter-espionage screen. Every
-## candidate is checked by CivilianWork before it is emitted, so the planner
-## cannot invent an outcome or spend a commodity twice (REQ-P2-03, REQ-P3-03).
+## shortest of or finish a town that pays a manufacturing bonus, Engineers extend
+## the transport network and, at war, raise a fort, Explorers prospect their
+## minerals, Rail Builders upgrade roads, and Spies observe rival Great Powers or
+## keep a counter-espionage screen. Every candidate is checked by CivilianWork
+## before it is emitted, so the planner cannot invent an outcome or spend a
+## commodity twice (REQ-P2-03, REQ-P3-03).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 const KIND_WORK: String = "work"
@@ -34,12 +35,15 @@ static func plan(
 	var reserved: Dictionary = {}
 	var roster: Array[CivilianState] = _owned_units(units, config.faction)
 	var screened: bool = SpyRules.has_counter_spy(units, config.faction)
+	var town_raw: Dictionary = AiBuilderWork.town_raw(
+		model, config.faction, works, tech_caps, tech_unlocked, context
+	)
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
 		var best: Dictionary = _best_work(
 			config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-			context, reserved, screened
+			context, reserved, screened, town_raw
 		)
 		if best.is_empty():
 			var move: Dictionary = _best_move(model, unit, works, units, context, screened)
@@ -97,13 +101,13 @@ static func _best_work(
 	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	screened: bool = false
+	screened: bool = false, town_raw: Dictionary = {}
 ) -> Dictionary:
 	match unit.type_id:
 		"builder":
 			return _best_builder(
 				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved
+				tech_unlocked, context, reserved, town_raw
 			)
 		"engineer":
 			return _best_engineer(
@@ -131,30 +135,13 @@ static func _best_work(
 static func _best_builder(
 	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
+	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
+	town_raw: Dictionary = {}
 ) -> Dictionary:
-	var best: Dictionary = {}
-	var target: int = config.parameter("civilian.need_target")
-	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if reserved.has(tile):
-			continue
-		var resource: int = model.resource_at(tile.x, tile.y)
-		if resource == MapModel.NO_ID:
-			continue
-		var level: int = works.improvement_at(model, tile)
-		if level >= LandWorks.MAX_IMPROVEMENT:
-			continue
-		var crop: String = ImprovementCatalog.commodity(resource)
-		var score: int = config.parameter("civilian.improvement_weight")
-		score += _need(crop, stockpile, target) * 10
-		if level <= 0:
-			score += 10
-		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_improvement", tile, works, units, stockpile,
-			tech_caps, tech_unlocked, context, score
-		)
-		best = _better(best, candidate)
-	return best
+	return AiBuilderWork.best_candidate(
+		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
+		context, reserved, town_raw
+	)
 
 
 static func _best_engineer(
@@ -175,7 +162,7 @@ static func _best_engineer(
 			continue
 		var crop: String = ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y))
 		var score: int = config.parameter("civilian.road_weight")
-		score += _need(crop, stockpile, target) * 4
+		score += AiBuilderWork.need(crop, stockpile, target) * 4
 		if works.improvement_at(model, tile) > 0:
 			score += 15
 		if _touches_connected(model, tile, connected):
@@ -214,19 +201,9 @@ static func _best_explorer(
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
 ) -> Dictionary:
-	if reserved.has(unit.tile) or model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
-		return {}
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
-	if not ImprovementCatalog.needs_prospecting(resource):
-		return {}
-	var score: int = config.parameter("civilian.prospect_weight")
-	score += _need(
-		ImprovementCatalog.commodity(resource), stockpile,
-		config.parameter("civilian.need_target")
-	) * 10
-	return AiCivilianCandidate.make(
-		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score
+	return AiExplorerWork.best_candidate(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
 	)
 
 
@@ -239,7 +216,7 @@ static func _best_rail(
 	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
 		if reserved.has(tile) or works.transport_at(model, tile) < LandWorks.TRANSPORT_ROAD:
 			continue
-		var score: int = 20 + _need(
+		var score: int = 20 + AiBuilderWork.need(
 			ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y)),
 			stockpile, config.parameter("civilian.need_target")
 		) * 4
@@ -288,7 +265,8 @@ static func _fort_candidate(
 
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
-## unprospected mineral on its own land; an idle Spy is handled by AiSpyPlanner.
+## unprospected mineral on its own land or the nearest unexplored chart; an idle
+## Spy is handled by AiSpyPlanner.
 static func _best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
 	context: Dictionary = {}, screened: bool = false
@@ -297,32 +275,7 @@ static func _best_move(
 		return AiSpyPlanner.best_move(model, unit, units, context, screened)
 	if unit.type_id != "explorer":
 		return {}
-	var goal: Vector2i = _nearest_mineral(model, unit, works)
-	if goal.x < 0:
-		return {}
-	var best: Dictionary = {}
-	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit):
-		var distance: int = absi(tile.x - goal.x) + absi(tile.y - goal.y)
-		if best.is_empty() or distance < int(best["distance"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": distance}
-		elif distance == int(best["distance"]) and tile < Vector2i(best["tile"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": distance}
-	return best
-
-
-static func _nearest_mineral(model: MapModel, unit: CivilianState, works: LandWorks) -> Vector2i:
-	var best: Vector2i = Vector2i(-1, -1)
-	var best_distance: int = 1 << 30
-	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not ImprovementCatalog.needs_prospecting(model.resource_at(tile.x, tile.y)):
-			continue
-		if works.is_prospected(unit.owner, model, tile):
-			continue
-		var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
-		if distance < best_distance or (distance == best_distance and tile < best):
-			best = tile
-			best_distance = distance
-	return best
+	return AiExplorerWork.best_move(model, unit, works, context)
 
 
 # --- shared helpers ----------------------------------------------------------
@@ -364,12 +317,6 @@ static func _preferred_type(
 	if spies < 1:
 		return "spy"
 	return "builder"
-
-
-static func _need(commodity: String, stockpile: Dictionary, target: int) -> int:
-	if commodity.is_empty():
-		return 0
-	return clampi(target - int(stockpile.get(commodity, 0)), 0, target)
 
 
 static func _touches_connected(model: MapModel, tile: Vector2i, connected: Dictionary) -> bool:

@@ -47,6 +47,50 @@ jobs:
           ARCH_LINT_RULES_DIFF: "1"
         run: python tools/lint_arch.py --require-rules-tests
 
+  # Ban code ∩ skills in one PR so agents cannot rewrite their own workflows
+  # while shipping game/test changes. Docs-only and skills-only PRs are fine.
+  skills-isolation:
+    name: skills-isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect code vs skills changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'scenes/**'
+              - 'scripts/**'
+              - 'ui/**'
+              - 'autoload/**'
+              - 'tests/**'
+              - 'addons/**'
+              - 'project.godot'
+              - 'icon.svg'
+              - 'gd-tools.toml'
+              - 'tools/select_impacted_tests.py'
+            skills:
+              - '.agents/skills/**'
+              - '.cursor/skills/**'
+              - '.opencode/skill/**'
+              - '.grok/skills/**'
+
+      - name: Fail if code and skills both changed
+        if: steps.filter.outputs.code == 'true' && steps.filter.outputs.skills == 'true'
+        run: |
+          echo "PR changes both test-triggering code paths and skill trees." >&2
+          echo "Split into separate PRs: code-only or skills-only (docs+skills OK)." >&2
+          exit 1
+
+      - name: Skills isolation OK
+        if: steps.filter.outputs.code != 'true' || steps.filter.outputs.skills != 'true'
+        run: echo "code∩skills empty — OK."
+
   tests:
     name: tests
     runs-on: ubuntu-latest

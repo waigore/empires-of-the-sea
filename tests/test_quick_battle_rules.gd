@@ -469,3 +469,64 @@ func _lane_state(attacker: Array[ArmyState], defender: Array[ArmyState], fort: i
 			"plan": "defensive", "exposed": false,
 		},
 	}
+
+# --- regiment health and chevrons (wiki: combat § Strength; DR-20261110-14) ---
+
+
+## Every blow that breaks a regiment must show the health it took from the men
+## still standing: the plate's bars and damage numbers read from these hits.
+func test_every_action_shows_the_health_it_took() -> void:
+	var battle: Dictionary = _fight("aggressive", _guards(6), _pikes(8))
+	var counted: int = 0
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			var losses: int = int(action["attacker_lost"]) + int(action["defender_lost"])
+			var hits: Array = action["hits"] as Array
+			if losses <= 0:
+				continue
+			counted += 1
+			assert_true(not hits.is_empty(), "a blow that broke a regiment mauled the rest")
+			assert_eq(int(action["mauled"]), hits.size())
+			for hit: Dictionary in hits:
+				assert_true(int(hit["damage"]) > 0)
+				assert_true(int(hit["hp"]) < int(hit["max"]))
+	assert_true(counted > 0, "the fight landed blows")
+
+
+func test_round_logs_carry_a_condition_snapshot() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(6))
+	var rounds: Array = battle["quick"]["rounds"] as Array
+	assert_true(not rounds.is_empty())
+	for round: Dictionary in rounds:
+		assert_true(round.has("attacker_health"))
+		assert_true(round.has("defender_health"))
+		assert_true(float(round["attacker_strength"]) <= 1.0)
+		assert_true(float(round["defender_strength"]) <= 1.0)
+	var last: Dictionary = rounds[rounds.size() - 1] as Dictionary
+	var mauled: int = 0
+	var entries: Array = (last["attacker_health"] as Array) + (last["defender_health"] as Array)
+	for entry: Dictionary in entries:
+		if float(entry["fraction"]) < 1.0:
+			mauled += 1
+	assert_true(mauled > 0, "survivors carry wounds out of the battle")
+
+
+func test_the_battle_report_carries_aftermath_condition_and_chevrons() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(8), _pikes(2))
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_true((battle["attacker_health"] as Array).size() > 0)
+	assert_true(int(battle["attacker_chevrons"]) > 0)
+	assert_eq(int(battle["defender_chevrons"]), 0, "the broken side wins nothing")
+	assert_true(int(battle["defender_mauled"]) >= 0)
+
+
+func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:
+	var army := Fixture.army(1, 0, 2, ["guards", "guards"])
+	var veteran: String = army.regiments[0]
+	army.regiment_medals[veteran] = 4
+	var side: Array[ArmyState] = [army]
+
+	var deployed: Array[Dictionary] = ArmyModifiers.deployed(side, 1)
+
+	assert_eq(String(deployed[0]["id"]), veteran, "the chevroned regiment leads")
+	assert_eq(int(deployed[0]["medals"]), 4)

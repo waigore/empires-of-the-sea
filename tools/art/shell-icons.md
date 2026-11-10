@@ -18,6 +18,7 @@ All four used this base edit:
 | `ship.png` | a gold three-masted caravel under full sail, side view |
 | `people.png` | two simple gold busts side by side, rounded head-and-shoulders silhouettes, the left figure slightly taller, no props, no faces |
 | `swords.png` | two crossed gold rapiers, blades up, detailed hilts |
+| `gazette.png` | a folded imperial news-sheet, front-on and slightly angled: one broadsheet with a crisp horizontal crease and a narrow empty masthead band across the top, no text, no print columns |
 
 ## Post
 
@@ -35,3 +36,19 @@ All four used this base edit:
 `ChromeIcons.texture(name)` loads the PNG; `TopBar` shows it in a `TextureRect`
 named `Medallion` at 22 points. Tests assert every door and status plaque keeps
 a medallion (`REQ-P1-08`).
+
+## Regiment condition icon (chevron)
+
+One small braid icon for the combat plate and the army dossier
+(DR-20261110-19), cut from a magenta sheet with the icon-set recipe above:
+
+> A single gold embroidered sergeant's chevron pointing upward on a flat pure
+> magenta #FF00FF background, bold thick V-shaped gold braid, no text, no
+> shadows, strong silhouette legible at 16–24 px.
+
+`chevron.png` marks a regiment's experience in the Quick Battle plate, its
+condition rail, the aftermath copy and the army dossier row. It is 128 px RGBA
+with `mipmaps/generate=true`. `QuickBattleField`/`QuickBattleRail` draw the
+chevron, `ArmyPanel` shows it beside the chevron count; no build script owns
+these files, so a replacement goes in `assets/art/icons/` by hand (same family
+as the shell medallions).

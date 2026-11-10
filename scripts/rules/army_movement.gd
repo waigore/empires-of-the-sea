@@ -110,6 +110,9 @@ static func begin_turn(armies: Array[ArmyState]) -> void:
 	for army: ArmyState in armies:
 		if army != null:
 			army.moved = false
+			# Field depots replace part of the battle's wear each turn
+			# (wiki: combat § Strength; DR-20261110-19).
+			RegimentCondition.rest(army)
 
 
 static func _can_act(model: MapModel, army: ArmyState) -> bool:

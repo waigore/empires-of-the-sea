@@ -8,7 +8,8 @@ extends RefCounted
 ## Pure data: no nodes, no autoloads, safe to drive from tests.
 
 ## Key catalog. `min`/`max` bound the legal range; `default` is the registry
-## value used when no profile overrides the key.
+## value used when no profile overrides the key. The `market.*` group lives in
+## [AiParameterMarket] so this module stays under the architecture size cap.
 const PARAMETERS: Array[Dictionary] = [
 	{
 		"key": "diplomacy.war_desire_base",
@@ -275,65 +276,29 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 55,
 	},
 	{
-		"key": "market.sell_reserve",
-		"category": "market",
+		"key": "civilian.town_upgrade_weight",
+		"category": "civilian",
 		"type": TYPE_INT,
 		"min": 0,
-		"max": 200,
-		"default": 20,
-	},
-	{
-		"key": "market.max_offer_types",
-		"category": "market",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 20,
-		"default": 3,
-	},
-	{
-		"key": "market.max_offer_units",
-		"category": "market",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 200,
-		"default": 10,
-	},
-	{
-		"key": "market.max_bid_types",
-		"category": "market",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 20,
-		"default": 3,
-	},
-	{
-		"key": "market.max_bid_units",
-		"category": "market",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 200,
-		"default": 5,
-	},
-	{
-		"key": "market.min_treasury",
-		"category": "market",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 50000,
-		"default": 500,
+		"max": 1000,
+		"default": 45,
 	},
 ]
 
 static var _by_key: Dictionary = {}
 
 
+## Every knob in catalog order: this module's entries, then the market group.
 static func entries() -> Array[Dictionary]:
-	return PARAMETERS
+	var all: Array[Dictionary] = []
+	all.append_array(PARAMETERS)
+	all.append_array(AiParameterMarket.PARAMETERS)
+	return all
 
 
 static func keys() -> Array[String]:
 	var result: Array[String] = []
-	for parameter: Dictionary in PARAMETERS:
+	for parameter: Dictionary in entries():
 		result.append(String(parameter["key"]))
 	return result
 
@@ -344,7 +309,7 @@ static func has(key: String) -> bool:
 
 static func entry(key: String) -> Dictionary:
 	if _by_key.is_empty():
-		for parameter: Dictionary in PARAMETERS:
+		for parameter: Dictionary in entries():
 			_by_key[String(parameter["key"])] = parameter
 	return _by_key.get(key, {})
 
