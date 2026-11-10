@@ -78,15 +78,28 @@ static func refresh_dossier(play: PlaySession) -> void:
 ## Rebuilding also refreshes the extraction caps the plaque totals use.
 static func build_lens(play: PlaySession) -> void:
 	var lens: ResourceLens = play.lens
+	if lens != null:
+		lens.build(
+			play.model, play.land_works, play.civilian_layer.units,
+			play.player_faction, play.visibility, play.capital_tile,
+			play.tech_caps()
+		)
+		lens.watch(play.civilian_layer, play.overlay)
+	build_diplomacy_lens(play)
+	build_crown_road_lens(play)
+
+
+## Crown-road reading follows the region, the works and the fog. The projection
+## is one connectivity pass, so it still runs on events only, never per frame.
+static func build_crown_road_lens(play: PlaySession) -> void:
+	var lens: CrownRoadLens = play.crown_lens
 	if lens == null:
-		build_diplomacy_lens(play)
 		return
 	lens.build(
-		play.model, play.land_works, play.civilian_layer.units, play.player_faction,
-		play.visibility, play.capital_tile, play.tech_caps()
+		play.model, play.land_works, play.player_faction, play.visibility,
+		play.capital_tile
 	)
 	lens.watch(play.civilian_layer, play.overlay)
-	build_diplomacy_lens(play)
 
 
 ## Political wash follows the region, the fog and every court that moved. The

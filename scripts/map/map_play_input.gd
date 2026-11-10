@@ -99,32 +99,52 @@ static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
 
 
 ## Toggles the survey lens and keeps the cartouche toggle and key in step. The
-## two map lenses are exclusive readings: raising one lowers the other.
+## map lenses are exclusive readings: raising one lowers the other two.
 static func set_lens(play: PlaySession, active: bool) -> void:
-	if play.lens == null:
+	_raise_lens(play, play.lens, LensLegend.KIND_SURVEY, active)
+
+
+## The diplomatic lens reads the political map; it shares the key cartouche and
+## the unit fade with the other lenses, never both at once.
+static func set_diplomacy_lens(play: PlaySession, active: bool) -> void:
+	_raise_lens(play, play.diplomacy_lens, LensLegend.KIND_DIPLOMACY, active)
+
+
+## The crown-road lens reads the crown's own connectivity to its capital.
+static func set_crown_lens(play: PlaySession, active: bool) -> void:
+	_raise_lens(play, play.crown_lens, LensLegend.KIND_CROWN_ROAD, active)
+
+
+## One lens up: the others come down and the key cartouche follows the reading
+## that was raised (REQ-P5-03).
+static func _raise_lens(
+	play: PlaySession, lens: Variant, kind: String, active: bool
+) -> void:
+	if lens == null:
 		return
-	if active and play.diplomacy_lens != null and play.diplomacy_lens.active:
-		play.diplomacy_lens.set_active(false)
-		play.hud.set_lens(false, LensLegend.KIND_DIPLOMACY)
-	play.lens.set_active(active)
-	play.hud.set_lens(active)
+	if active:
+		_lower_other_lenses(play, lens)
+	lens.set_active(active)
+	play.hud.set_lens(active, kind)
 	_fade_field_units(play, _any_lens(play))
 	# A stationary cursor would keep the pre-lens tooltip: rebuild it next frame.
 	clear_hover(play)
 
 
-## The diplomatic lens reads the political map; it shares the key cartouche and
-## the unit fade with the survey lens, never both at once.
-static func set_diplomacy_lens(play: PlaySession, active: bool) -> void:
-	if play.diplomacy_lens == null:
-		return
-	if active and play.lens != null and play.lens.active:
-		play.lens.set_active(false)
-		play.hud.set_lens(false)
-	play.diplomacy_lens.set_active(active)
-	play.hud.set_lens(active, LensLegend.KIND_DIPLOMACY)
-	_fade_field_units(play, _any_lens(play))
-	clear_hover(play)
+## The three readings never stack: each open lens takes its own toggle down so
+## no button claims a mode that is not on.
+static func _lower_other_lenses(play: PlaySession, keep: Variant) -> void:
+	var lenses: Array = [play.lens, play.diplomacy_lens, play.crown_lens]
+	var kinds: Array[String] = [
+		LensLegend.KIND_SURVEY, LensLegend.KIND_DIPLOMACY,
+		LensLegend.KIND_CROWN_ROAD,
+	]
+	for i in lenses.size():
+		var other: Variant = lenses[i]
+		if other == null or other == keep or not bool(other.active):
+			continue
+		other.set_active(false)
+		play.hud.set_lens(false, kinds[i])
 
 
 ## The survey is the subject while a lens is on: land units ghost back so the
@@ -140,7 +160,8 @@ static func _fade_field_units(play: PlaySession, active: bool) -> void:
 static func _any_lens(play: PlaySession) -> bool:
 	var survey: bool = play.lens != null and play.lens.active
 	var political: bool = play.diplomacy_lens != null and play.diplomacy_lens.active
-	return survey or political
+	var crown: bool = play.crown_lens != null and play.crown_lens.active
+	return survey or political or crown
 
 
 static func toggle_lens(play: PlaySession) -> void:
@@ -153,6 +174,12 @@ static func toggle_diplomacy_lens(play: PlaySession) -> void:
 	if play.diplomacy_lens == null:
 		return
 	set_diplomacy_lens(play, not play.diplomacy_lens.active)
+
+
+static func toggle_crown_lens(play: PlaySession) -> void:
+	if play.crown_lens == null:
+		return
+	set_crown_lens(play, not play.crown_lens.active)
 
 
 static func on_view_changed(play: PlaySession) -> void:
@@ -212,6 +239,10 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		var standing: String = play.diplomacy_lens.summary_for(province_id)
 		if not standing.is_empty():
 			text += "\nStanding: " + standing
+	if play.crown_lens != null and play.crown_lens.active:
+		var road: String = play.crown_lens.summary_for(province_id)
+		if not road.is_empty():
+			text += "\n" + road
 	HudChrome.show_tooltip(play.hud, text)
 
 

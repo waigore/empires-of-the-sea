@@ -159,6 +159,8 @@ suites = [
 [domains.map]
 suites = [
   "test_advanced_start.gd",
+  "test_crown_road_lens.gd",
+  "test_crown_road_survey.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -203,6 +205,8 @@ suites = [
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
+  "test_crown_road_lens.gd",
+  "test_crown_road_survey.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
   "test_hud_toast.gd",
@@ -216,6 +220,7 @@ suites = [
 [domains.misc]
 suites = [
   "test_catalogs.gd",
+  "test_crown_road_survey.gd",
   "test_difficulty.gd",
   "test_misc_rules.gd",
 ]
@@ -1204,6 +1209,12 @@ domain = "research"
 
 [[rules]]
 match = "tests/test_resource_*.gd"
+domain = "map"
+
+# The crown-road lens: its projection (rules) and its view share the map domain
+# with the other map readings, so a lens change stays tier-1 sized.
+[[rules]]
+match = "tests/test_crown_road_*.gd*"
 domain = "map"
 
 [[rules]]

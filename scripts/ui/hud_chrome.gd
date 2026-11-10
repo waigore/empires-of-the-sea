@@ -8,8 +8,7 @@ static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
 	_minimap(hud)
 	_zoom(hud)
-	_lens_button(hud)
-	_diplomacy_lens_button(hud)
+	_lenses(hud)
 	_lens_key(hud)
 	_toasts(hud)
 	_end_turn(hud)
@@ -94,40 +93,40 @@ static func _square_button(icon_name: String, caption: String) -> Button:
 	return button
 
 
-## The survey toggle lives beside the estates door: both are estate readings,
-## and the cartouche row is already at its measured width budget.
-static func _lens_button(hud: GameHud) -> void:
-	var button := Button.new()
-	button.toggle_mode = true
-	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	button.offset_left = 186.0
-	button.offset_top = 132.0
-	button.offset_right = 242.0
-	button.offset_bottom = 176.0
-	button.tooltip_text = "Resource survey lens (L)"
-	ChromeIcons.apply(button, "lens", 22)
-	button.toggled.connect(func(active: bool) -> void: hud.lens_pressed.emit(active))
-	hud.add_child(button)
-	hud._lens_button = button
-
-
-## The diplomatic lens sits beside the survey seal on the same rail row; the
-## cartouche row has no width left for another full button.
-static func _diplomacy_lens_button(hud: GameHud) -> void:
-	var button := Button.new()
-	button.toggle_mode = true
-	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	button.offset_left = 252.0
-	button.offset_top = 132.0
-	button.offset_right = 308.0
-	button.offset_bottom = 176.0
-	button.tooltip_text = "Diplomatic lens (P)"
-	ChromeIcons.apply(button, "diplomacy", 22)
-	button.toggled.connect(
+## The three map lenses share one rail row beside the estates door: they are
+## estate and political readings, and the cartouche row is already at its
+## measured width budget (REQ-P5-03). The screen owns the state; the toggles
+## only mirror it.
+static func _lenses(hud: GameHud) -> void:
+	hud._lens_button = _lens_seal(hud, 186.0, "lens", "Resource survey lens (L)")
+	hud._lens_button.toggled.connect(
+		func(active: bool) -> void: hud.lens_pressed.emit(active)
+	)
+	hud._diplomacy_lens_button = _lens_seal(hud, 252.0, "diplomacy", "Diplomatic lens (P)")
+	hud._diplomacy_lens_button.toggled.connect(
 		func(active: bool) -> void: hud.diplomacy_lens_pressed.emit(active)
 	)
+	hud._crown_lens_button = _lens_seal(hud, 318.0, "road", "Crown road lens (R)")
+	hud._crown_lens_button.toggled.connect(
+		func(active: bool) -> void: hud.crown_lens_pressed.emit(active)
+	)
+
+
+## One lens seal: 56×44 points on the rail row, icon-only with a named tooltip.
+static func _lens_seal(
+	hud: GameHud, left: float, icon_name: String, caption: String
+) -> Button:
+	var button := Button.new()
+	button.toggle_mode = true
+	button.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	button.offset_left = left
+	button.offset_top = 132.0
+	button.offset_right = left + 56.0
+	button.offset_bottom = 176.0
+	button.tooltip_text = caption
+	ChromeIcons.apply(button, icon_name, 22)
 	hud.add_child(button)
-	hud._diplomacy_lens_button = button
+	return button
 
 
 static func _lens_key(hud: GameHud) -> void:
