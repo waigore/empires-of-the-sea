@@ -57,7 +57,8 @@ godot --headless --path . --script res://tests/playtest_new_world.gd
 godot --headless --path . --script res://tests/playtest_quick_battle.gd
 
 # Land combat — a multi-attacker chain, an unopposed capture, a peaceful third
-# army blocking one, and the player defending a fort through a whole AI turn.
+# army blocking one, the player defending a fort through a whole AI turn, and two
+# crowns falling on one province in a single turn (plates, standards, court news).
 godot --headless --path . --script res://tests/playtest_combat_chain.gd
 
 # Espionage — opens a turn-100 advanced start, despatches a spy across a border,
