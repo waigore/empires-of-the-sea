@@ -23,11 +23,12 @@ Base rules for opening and landing PRs (humans and agents).
 | `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; mini-flow (`tools/e2e_smoke.gd`); else no-op |
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words — always |
 | `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 bars (`tools/lint_arch.py`) — always |
+| `skills-isolation` | [CI](../.github/workflows/ci.yml) | PR-only: fail if code **and** skills both change |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path review hook (**no-op** for now) |
 
-Code paths for `tests`/`build`/`e2e-smoke`: `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Else no-op. `workflow_dispatch` runs them. `docs-lint` / `arch-lint` always.
+Code paths (`tests`/`build`/`e2e-smoke`/`skills-isolation`): `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Skills: `.agents/skills/`, `.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`. Docs-only and skills-only OK. `workflow_dispatch` runs tests/build/smoke. `docs-lint` / `arch-lint` always.
 
-**Tier 2** ([ci-tier2](../.github/workflows/tier2.yml)): every **8h** on `main` — full suite + overall 80%. Not a PR check. Sticky `ci-tier2` issue → fix-tests agent.
+**Tier 2** ([ci-tier2](../.github/workflows/tier2.yml)): every **8h** on `main` — full suite + overall 80%. Not a PR check. Sticky `ci-tier2` → fix-tests agent.
 
 Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; smoke **≤2 min**. Merge: **squash only**; delete branches; auto-merge on.
 
@@ -82,6 +83,6 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 
 - [ ] Maps to a pillar (`P1`–`P5`) or is docs/tooling-only
 - [ ] Opened/updated with `gh`
-- [ ] `tests` / `build` / `e2e-smoke` / `docs-lint` / `arch-lint` / `approval-gate` green
+- [ ] Required checks green (incl. `skills-isolation`)
 - [ ] Branch up to date with `main`
 - [ ] Squash merge (or `--auto`) — no check bypass

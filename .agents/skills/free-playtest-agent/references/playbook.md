@@ -14,7 +14,7 @@ Announce area + why, then continue.
 ## Reachability
 
 1. Check learnings for an existing harness; reuse/extend before inventing.
-2. If mid/late game is required and play-forward is slow/noisy → add a **small reusable** scenario (config, debug start, fixture, scripted setup under `tests/` or existing session helpers).
+2. If mid/late game is required and play-forward is slow/noisy → add a **small reusable** scenario.
 3. Harness should make the **next** free-playtest of this area cheap; avoid one-off throwaways when a tiny durable hook works.
 4. Never dump long campaigns into CI smoke (≤2 min). Prefer unit/integration regressions for fixes; harness may be opt-in/debug.
 
@@ -29,7 +29,7 @@ Load the GameForge **playtesting** skill, then:
 | Goal-directed | `agent` + explicit goal string |
 | Confirm fix | **same seed** as the failing run |
 
-Read `report.md`; inspect `moments.jpg` when present. Map signals: runtime error, stuck, input no-effect, slow frames, nothing-happens, low novelty, too hard/easy → fix if they hurt **this area’s** expression.
+Read `report.md`; inspect `moments.jpg` when present. Map signals to fixes when they hurt **this area’s** expression.
 
 If `forge_playtest` cannot drive this project usefully, fall back to `tools/run.sh` / headless drives; note the fallback in the diary.
 
@@ -49,5 +49,3 @@ If `forge_playtest` cannot drive this project usefully, fall back to `tools/run.
 - One area theme per run; cluster related fixes.
 - Log expected vs observed with wiki cites for rules issues.
 - Re-run the same path/seed after fixes before PR.
-- A headless drive that calls `MapPlayTurn.end_turn` must answer the consent decision it raises (call to arms, intervention, proposal) with `MapPlayTurn.answer_*`; otherwise the turn suspends, the calendar never moves, and every later measurement reads the old turn.
-- A share or bonus spent during resolution (`research_boost`) must survive the repaint that displays it, or the ledger names work the panel cannot show.

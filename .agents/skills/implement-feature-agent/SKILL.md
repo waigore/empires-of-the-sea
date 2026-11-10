@@ -11,8 +11,8 @@ description: |-
 
   Examples:
     - no target → pick largest playable rules/REQ gap, implement, PR, stop
-    - "implement boarding" / wiki page cite → that feature only, then PR
-    - "ship REQ-P2-04 coverage for X" → scoped to that REQ, then PR
+    - cited wiki page or feature → that feature only, then PR
+    - cited REQ-* → scoped to that REQ, then PR
 ---
 
 # Implement feature agent
@@ -32,11 +32,11 @@ Prefer the **largest** change that still keeps **desktop and mobile** playable. 
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | [`references/e2e-smoke.md`](references/e2e-smoke.md) | Extend smoke; keep ≤2 min |
 
-Unclear / contradictory / underspecified wiki → hand off to [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). Small data-shaped choices (ordering, thresholds, which score wins): use wiki Design Records (`dr-YYYYMMDD-NN` + `design-records.md` index + `design-changelog.md` + clarified section) in the same effort as the code.
+Unclear / contradictory / underspecified wiki → hand off to [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). Small data-shaped choices: use wiki Design Records (`dr-YYYYMMDD-NN` + index + changelog + clarified section) in the same effort as the code.
 
 Wiki writes: full clone `https://github.com/waigore/empires-of-the-sea.wiki.git` (not `--depth 1`), commit, push `master`.
 
-**DR ids are shared across checkouts.** Fetch the wiki right before choosing `dr-YYYYMMDD-NN`; other agents push records concurrently, so take the next free id after `git fetch`. If a push is rejected, renumber (file, title, index, changelog, code comments) instead of force-pushing.
+**DR ids are shared across checkouts.** Fetch the wiki right before choosing `dr-YYYYMMDD-NN`; take the next free id after `git fetch`. If a push is rejected, renumber instead of force-pushing.
 
 ## Workflow
 
@@ -52,7 +52,7 @@ Wiki writes: full clone `https://github.com/waigore/empires-of-the-sea.wiki.git`
 
 ### 1. Orient
 
-Sync `main`. Skim requirements + rubric. Fetch relevant wiki pages. Scan `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/` for what exists.
+Sync `main`. Skim requirements + rubric. Fetch relevant wiki pages. Scan the codebase for what exists.
 
 ### 2. Select target
 
@@ -64,17 +64,15 @@ Announce briefly (what + why + primary `REQ-*`); continue without waiting.
 
 ### 3. Map REQ / RUB
 
-List touched `P1`–`P5` and every applicable `RUB-*`. N/A only when outside the change; N/A ≠ pass. Plan `tests/` coverage for new rules/logic (`REQ-P2-04`, `REQ-P3-04`).
+List touched pillars and every applicable `RUB-*`. N/A only when outside the change; N/A ≠ pass. Plan tests for new rules/logic. Read `REQ-*` / `RUB-*` from the docs — do not invent bars.
 
 ### 4. Implement
 
-Branch `feat/…` or `fix/…` from up-to-date `main`. Match wiki behavior; UI/AI must not bypass rules (`REQ-P2-03`). Keep rules/simulation usable without visual nodes (`REQ-P3-03`). Platform diffs in thin adapters only. Scripts ≤400 lines / ≤25 methods; do not grow `tools/arch_size_allowlist.txt` (≤5, shrink-only) — split instead (`REQ-P3-01`).
+Branch `feat/…` or `fix/…` from up-to-date `main`. Match wiki behavior; follow `AGENTS.md` and applicable `REQ-*`. Ship the fullest coherent slice that stays desktop + mobile playable — not a minimal stub when a complete concern fits.
 
-When shipping new player-facing entities or UI chrome that shows them, satisfy `REQ-P1-07` / `REQ-P1-08` via Hermes GameForge or Hermes image-gen skills (blocker if Hermes is unavailable and new icons are required).
+If behavior changes rules docs: update wiki in the same effort when write works; else note a **release-blocking** wiki follow-up in the PR.
 
-Ship the fullest coherent slice of the target that stays desktop + mobile playable in one PR — not a minimal stub when a complete concern fits.
-
-If behavior changes rules docs: update wiki in the same effort when write works; else note a **release-blocking** wiki follow-up in the PR (`REQ-P2-05`).
+Do not edit skill trees (`.agents/skills/**` or facades) in the same PR as code.
 
 ### 5. Test
 
@@ -85,25 +83,7 @@ gd-tools test --coverage --min 80 --parallel 4
 python tools/lint_docs_words.py
 ```
 
-When new `class_name` files land, run coverage with `--no-cache`: a stale plan
-tries to instrument the new scripts, fails to reload them, and reports false
-`Nonexistent function` failures. `gd-tools coverage diff --patch` reads the
-HEAD commit, so commit the working tree before checking patch coverage.
-
-Extend `tools/e2e_smoke.gd` when the feature has a main-scene / player path the mini-flow can hit (≤2 min) — see [references/e2e-smoke.md](references/e2e-smoke.md). Fix failures before scoring; do not weaken CI gates.
-
-**Repo pitfalls** (each one cost a debugging loop):
-
-- A new `class_name` script is invisible until `godot --headless --path . --import --quit` rewrites `.godot/global_script_class_cache.cfg`; until then `gd-tools test` says "Unable to load suite script".
-- A page that mounts `MapCamera` must call `InputActions.ensure_actions()` in `_ready`, or headless suites flood with `InputMap action "pan_*" doesn't exist`.
-- A page reachable on Android must answer `NOTIFICATION_WM_GO_BACK_REQUEST` itself: the request reaches every node and the router swaps pages deferred, so an unhandled page quits the app.
-- The map is regenerated from seed on load, so anything the generator decides (capital seat, town, ports) needs an explicit `SaveWorld` per-province field or a reload silently reverts it.
-- A suite that mutates a shared generated world must snapshot and restore the province records it touches (capital, tile, ports, roads, town, resource) **and** `model.terrain` / `model.resource`; `MapFixture.snapshot` only covers owners and capitals.
-- `tests/impact_map.toml` marks shared-helper suites (`test_ledger_helpers`, `tests/map_fixture.gd`) `full = true`: one changed line there makes CI run the whole suite inside the 5-minute `tests` job and the step is cancelled, so the PR goes red. Put a text/helper assertion in the domain-mapped suite that owns the feature (e.g. `test_economy_overseas` asserts `LedgerText` lines) and run `python tools/select_impacted_tests.py --base origin/main` — expect a short list, not `ALL` — before pushing.
-- When a planner starts emitting **more** order kinds, keep one vocabulary: the queue kinds (`DiplomacyProposals.KIND_*`) must alias the order kinds (`DiplomacyOrders.KIND_*`), and the planner may set `propose` only for kinds the queue knows — otherwise `AiTurn` drops every one-sided act as "unknown proposal" while the trace still looks right.
-- A refused candidate needs its own `kind` in the trace dict; without it a test or a trace reader cannot tell which order was refused, and pending-trace assertions quietly match the treaty path.
-- Under the parallel agents on this host a foreground `gd-tools test` batch of ~8+ suites blows the 420 s tool cap mid-run ("Run interrupted"). Run 4–6 suite batches with `--timeout 200`; leave the full `--coverage` pass to CI.
-- `scripts/ai/ai_parameter_registry.gd` sits at the 400-line cap, so a new knob needs a group split: move a whole category (e.g. `market.*`) to `<category>_parameters.gd` and have `entries()` append its `const PARAMETERS` (cross-file `const A = B + C` is not a constant expression in Godot). Planner modules at the cap can delegate their per-unit policy to a new pure module the way `AiBuilderWork` and `AiTownRoads` do.
+Follow [`docs/testing.md`](../../../docs/testing.md) for import/cache and impact-map rules. Extend smoke when the feature has a main-scene path the mini-flow can hit — see [references/e2e-smoke.md](references/e2e-smoke.md). Fix failures before scoring; do not weaken CI gates.
 
 ### 6. Self-score
 

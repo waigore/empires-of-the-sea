@@ -11,8 +11,8 @@ description: |-
 
   Examples:
     - no target → pick largest playable rules/REQ gap, implement, PR, stop
-    - "implement boarding" / wiki page cite → that feature only, then PR
-    - "ship REQ-P2-04 coverage for X" → scoped to that REQ, then PR
+    - cited wiki page or feature → that feature only, then PR
+    - cited REQ-* → scoped to that REQ, then PR
 ---
 
 # Implement feature agent (facade)
