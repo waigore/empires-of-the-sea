@@ -36,7 +36,6 @@ Do **not** drop coverage below 80%, delete meaningful cases, or raise CI timeout
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | Required checks |
 | [`gd-tools.toml`](../../../gd-tools.toml) | Per-test timeout |
 | [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) | Job timeouts / parallel |
-| [`tests/map_fixture.gd`](../../../tests/map_fixture.gd) | Shared small world for MapScreen |
 | [`references/playbook.md`](references/playbook.md) | gd-tools pitfalls + tactics |
 
 ## Workflow
@@ -60,17 +59,17 @@ gd-tools test --coverage --min 80 --parallel 4 --durations 15 --timeout 240
 /usr/bin/time -p godot --headless --path . --script res://tools/e2e_smoke.gd
 ```
 
-Note wall time vs summed duration. Coverage multiplies world-gen cost — always profile **with** `--coverage`. Skim recent CI `tests` / `e2e-smoke` step timings via `gh` when useful.
+Always profile **with** `--coverage`. Skim recent CI timings via `gh` when useful.
 
 ### 2. Select theme
 
 Pick **one** coherent theme that maximizes wall-time win. Priority when tied:
 
-1. MapScreen / world generation repeated per test under coverage
+1. Repeated expensive setup under coverage
 2. Broken or missing shared caches (`before_all`, fixtures)
-3. Oversized generator sizes in tests vs playable defaults
+3. Oversized fixtures in tests vs playable defaults
 4. Missing CI `--parallel` or timeouts that hide regressions
-5. E2E smoke: large maps, sleeps, redundant boot frames
+5. E2E smoke: large setups, sleeps, redundant boot frames
 
 If the user cites a suite or symptom, that wins. Otherwise announce theme + top slow tests briefly, then continue.
 
@@ -78,11 +77,11 @@ If the user cites a suite or symptom, that wins. Otherwise announce theme + top 
 
 Branch `chore/…` or `test/…` from up-to-date `main`.
 
-**In bounds:** extend `map_fixture` / pure fixtures; `before_all` + non-underscore shared vars; `MapScreen.preset_world`; shrink test/smoke map sizes; `free()` screens in `after_each`; CI `--parallel` + budget timeouts; trim smoke frames; update `docs/testing.md` / CI comments.
+**In bounds:** shared fixtures; `before_all` caches; shrink test/smoke sizes; tear down hard; CI `--parallel` + budget timeouts; trim smoke frames; update `docs/testing.md` / CI comments.
 
-**Out of bounds:** deleting coverage-critical tests; lowering `--min 80`; raising job timeouts instead of fixing slowness; gameplay feature work; unrelated refactors.
+**Out of bounds:** deleting coverage-critical tests; lowering `--min 80`; raising job timeouts instead of fixing slowness; gameplay feature work; unrelated refactors; editing skill trees in the same PR as code.
 
-Apply the playbook ([`references/playbook.md`](references/playbook.md)). Prefer reuse of `tests/map_fixture.gd`, `civilian_fixture.gd`, `naval_fixture.gd`.
+Apply the playbook ([`references/playbook.md`](references/playbook.md)). Prefer reuse of existing test fixtures.
 
 ### 4. Prove budgets
 
@@ -93,11 +92,11 @@ gd-tools test --coverage --min 80 --parallel 4 --timeout 240 --durations 15
 /usr/bin/time -p godot --headless --path . --script res://tools/e2e_smoke.gd
 ```
 
-Coverage must stay ≥ 80%. Wall times must clear the budgets with headroom for CI setup. Fix failures before opening the PR.
+Coverage must stay ≥ 80%. Wall times must clear the budgets with headroom for CI setup.
 
 ### 5. Document
 
-If budgets, commands, or speed rules changed, keep [`docs/testing.md`](../../../docs/testing.md) current (and README / AGENTS / pull-requests pointers if commands changed). Docs ≤ 500 words.
+If budgets, commands, or speed rules changed, keep [`docs/testing.md`](../../../docs/testing.md) current. Docs ≤ 500 words.
 
 ### 6. Open PR and stop
 
