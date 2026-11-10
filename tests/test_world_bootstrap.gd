@@ -84,7 +84,7 @@ func test_capital_seat_pairs_province_and_tile() -> void:
 	assert_eq(seat["tile"], model.capital_tile_of(province))
 
 	var new_world: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD, NEW_WORLD_WIDTH, NEW_WORLD_HEIGHT
+		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	var landless: Dictionary = WorldBootstrap.capital_seat(new_world, faction)
 	assert_eq(int(landless["province"]), -1, "no Great Power capital in the New World")
