@@ -276,6 +276,18 @@ suites = [
   "test_gazette_plate.gd",
 ]
 
+# The crown's charge at the opening of a campaign (wiki: dialogue-management
+# § Kinds, `game_start_intro`): the rules that compose it, the page that prints
+# it and the shell that raises it are one concern, so an intro change runs these
+# suites instead of the broad menu set.
+[domains.intro]
+suites = [
+  "test_campaign_intro.gd",
+  "test_dialogue_rules.gd",
+  "test_menu_flow.gd",
+  "test_mobile_layout.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
 [[rules]]
 match = "scripts/rules/market_*.gd*"
@@ -392,6 +404,24 @@ domain = "gazette"
 [[rules]]
 match = "tests/test_gazette*.gd*"
 domain = "gazette"
+
+# The crown's charge: its rules, its page, its scene and its suite are one
+# concern, and none of them is a menu page (wiki: dialogue-management § Kinds).
+[[rules]]
+match = "scripts/rules/campaign_intro.gd*"
+domain = "intro"
+
+[[rules]]
+match = "scripts/ui/intro_screen.gd*"
+domain = "intro"
+
+[[rules]]
+match = "scenes/intro.tscn*"
+domain = "intro"
+
+[[rules]]
+match = "tests/test_campaign_intro.gd*"
+domain = "intro"
 
 [[rules]]
 match = "project.godot"

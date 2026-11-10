@@ -42,8 +42,18 @@ func fill(
 	add_child(header)
 	for category: Variant in CATEGORIES:
 		for id: String in CommodityCatalog.ids_in(category):
-			add_child(_market_row(id, economy.quantity(id)))
+			add_child(_market_row(id, economy.quantity(id), claimed_by_production(economy, id)))
 	UiRowBuilder.spacer(self)
+
+
+## Units the court's own assigned production runs will eat before the auction
+## clears: the tons an offer can never sell (wiki: world-market § Trade orders —
+## the offer cap is the post-production stockpile minus industry reservations).
+static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> int:
+	if economy == null:
+		return 0
+	var reserved: Dictionary = ProductionRecipes.reserved_inputs(economy.assignments())
+	return maxi(int(reserved.get(commodity, 0)), 0)
 
 
 func _add_cargo_banner() -> void:
@@ -249,7 +259,7 @@ func _has_commodity_rates(book: Dictionary) -> bool:
 	return false
 
 
-func _market_row(id: String, held: int) -> Control:
+func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
 	row.add_child(UiRowBuilder.caption(CommodityCatalog.label(id), 14, Palette.TEXT, 132.0))
 
@@ -265,11 +275,19 @@ func _market_row(id: String, held: int) -> Control:
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
 
+	# The court can only sell what its own production runs leave behind.
+	var sellable: int = maxi(held - claimed, 0)
 	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
-	sell.disabled = held <= 0
-	sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
-		CommodityCatalog.label(id), sell_unit
-	]
+	sell.disabled = sellable <= 0
+	if claimed > 0:
+		sell.tooltip_text = (
+			"%d of %d %s claimed by production — %d sellable at %d ducats"
+			% [claimed, held, CommodityCatalog.label(id), sellable, sell_unit]
+		)
+	else:
+		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
+			CommodityCatalog.label(id), sell_unit
+		]
 	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
 	row.add_child(sell)
 
