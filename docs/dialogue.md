@@ -52,8 +52,24 @@ Quality is the relation surplus over what the offer's own rules require
 points and clamped to ±1. Proposals store the turn they arrived on, which is
 their stall counter.
 
+## The crown's charge
+
+The campaign opens on a printed broadside before the first turn: the crown
+addresses the player's own leader, names the seat the chart confirmed, and
+prints the age's terms — the win condition, the calendar chosen at setup and how
+many rival crowns sail. One press begins the age; back and Escape are the same
+one dismissal, so the gate never quits the app. The page prints what
+`CampaignIntro` composed, and the pick is a stable salt of seed and crown, so a
+replay speaks alike. A load installs the map screen directly and never repeats
+the charge ([`DR-20261110-35`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-35)).
+
+| File | Job |
+|------|-----|
+| `scripts/rules/campaign_intro.gd` | The charge: `intro/opening` copy, the age's terms, the salt |
+| `scripts/ui/intro_screen.gd`, `scenes/intro.tscn` | The broadside page and its one action |
+
 ## Deferred
 
 Yarn scripts and localization, the optional agenda comment cadence
-(`dialogueSeed % 7`), reactive beats on battles/era change, and the game-start
-intro gate ([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).
+(`dialogueSeed % 7`) and reactive beats on battles/era change
+([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).

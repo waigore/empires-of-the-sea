@@ -7,6 +7,7 @@ const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const MAIN_MENU: PackedScene = preload("res://scenes/main_menu.tscn")
 const GAME_SETUP: PackedScene = preload("res://scenes/game_setup.tscn")
 const CAPITAL_CHOICE: PackedScene = preload("res://scenes/capital_choice.tscn")
+const INTRO: PackedScene = preload("res://scenes/intro.tscn")
 const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
 ## Overridable for tests / e2e smoke (set before add_child).
@@ -76,10 +77,40 @@ func _show_capital_choice(config: GameConfig) -> void:
 		config.map_height = size_override.y
 	var page: CapitalChoiceScreen = CAPITAL_CHOICE.instantiate()
 	page.config = config
-	page.capital_chosen.connect(_begin_game)
+	page.capital_chosen.connect(_show_intro)
 	page.back_pressed.connect(_back_to_setup)
 	add_child(page)
 	current_page = page
+
+
+## The crown's charge sits between the chart and the first turn: one dismissal,
+## no orders and no calendar until it is read (wiki: dialogue-management § Kinds,
+## `game_start_intro`). A campaign already under way never repeats it, because a
+## load installs the map screen directly.
+func _show_intro(config: GameConfig, world: WorldMap) -> void:
+	_clear_page()
+	var page: IntroScreen = INTRO.instantiate()
+	page.show_address(CampaignIntro.address(
+		FactionCatalog.name_of(config.player_faction),
+		LeaderCatalog.label(config.player_leader),
+		_intro_seat(world, config.player_faction),
+		AdvancedStart.turn(config.advanced_start),
+		config.infinite_mode,
+		CampaignIntro.salt(config.map_seed, config.player_faction)
+	))
+	page.begin_pressed.connect(_begin_game.bind(config, world))
+	add_child(page)
+	current_page = page
+
+
+## The seat the chart just confirmed, by its display name: the charge is printed
+## with a masked name, never a province id (wiki: naming § Naming Model).
+func _intro_seat(world: WorldMap, faction: int) -> String:
+	if world == null or world.region_count() < 1:
+		return ""
+	var model: MapModel = world.region(0)
+	var province: int = CapitalChoice.seat_province(model, faction)
+	return model.province_name(province)
 
 
 ## Back from the capital chart returns to the setup screen on the next idle

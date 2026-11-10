@@ -72,6 +72,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 	assert_eq(page.model.province_owner(page.selected_province), 2, "the seat is French")
 	assert_false(page.confirm_button.disabled, "the recommended seat can be confirmed")
 	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
 
 	var screen: MapScreen = main.current_screen
 	assert_not_null(screen, "confirming the seat starts the map screen")
@@ -128,6 +129,7 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 	assert_true(page.pick_province(target))
 	assert_true(page.pick_tile(tile))
 	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
 
 	var screen: MapScreen = main.current_screen
 	assert_not_null(screen, "the campaign starts")
@@ -240,9 +242,18 @@ func _start_game() -> void:
 	if page != null:
 		await get_tree().process_frame
 		page.confirm_button.emit_signal("pressed")
+		_pass_the_charge()
 	assert_not_null(main.current_screen, "game started")
 	if main.current_screen != null:
 		main.current_screen.save_dir = DIR
+
+
+## The crown's charge sits between the chart and the first turn: one press opens
+## the age (wiki: dialogue-management § Kinds, `game_start_intro`).
+func _pass_the_charge() -> void:
+	var page: IntroScreen = main.current_page as IntroScreen
+	if page != null:
+		page.begin_button.emit_signal("pressed")
 
 
 ## Another sea-bound province of the given crown (for the seat-choice cases).
