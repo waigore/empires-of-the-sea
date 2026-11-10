@@ -430,6 +430,10 @@ match = "tests/playtest_espionage.gd*"
 domain = "espionage"
 
 [[rules]]
+match = "tests/playtest_allied_defence.gd*"
+domain = "campaign"
+
+[[rules]]
 match = "tools/select_impacted_tests.py"
 full = true
 

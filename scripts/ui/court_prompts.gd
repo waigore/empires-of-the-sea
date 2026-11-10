@@ -27,6 +27,8 @@ static func fill(box: VBoxContainer, state: DiplomacyState, player: int, emit: C
 
 
 ## Mutual defence: join the war on the aggressor, or refuse and break the treaty.
+## The price of each answer rides the banner, not the player's memory
+## (wiki: diplomacy § Breaking an alliance).
 static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 	var banner: PanelContainer = _banner(
 		Color(0.22, 0.10, 0.08, 0.95), Color(0.72, 0.34, 0.26)
@@ -34,12 +36,10 @@ static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
 	column.add_child(_label("CALL TO ARMS", 11, Palette.GOLD_PALE))
 	var text := _label(
-		(
-			"%s has declared war on %s. Our formal alliance binds us: join the war"
-			+ " against the aggressor, or refuse and break the treaty."
-		) % [
+		"%s has declared war on %s. %s" % [
 			FactionCatalog.name_of(int(call["aggressor"])),
 			FactionCatalog.name_of(int(call["defender"])),
+			CallToArms.offer_text(call),
 		],
 		13,
 		Palette.TEXT
