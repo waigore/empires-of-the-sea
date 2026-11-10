@@ -18,6 +18,7 @@ All four used this base edit:
 | `ship.png` | a gold three-masted caravel under full sail, side view |
 | `people.png` | two simple gold busts side by side, rounded head-and-shoulders silhouettes, the left figure slightly taller, no props, no faces |
 | `swords.png` | two crossed gold rapiers, blades up, detailed hilts |
+| `gazette.png` | a folded imperial news-sheet, front-on and slightly angled: one broadsheet with a crisp horizontal crease and a narrow empty masthead band across the top, no text, no print columns |
 
 ## Post
 

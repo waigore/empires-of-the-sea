@@ -39,7 +39,7 @@ static func describe_raid(
 	raid: Dictionary, zone_name: String, faction_names: Array, viewer: int
 ) -> String:
 	var place: String = zone_name if not zone_name.is_empty() else "open water"
-	var cargo: String = _cargo(raid.get("losses", {}) as Dictionary)
+	var cargo: String = cargo_of(raid.get("losses", {}) as Dictionary)
 	var raider: String = _faction(faction_names, int(raid.get("raider", -1)))
 	if int(raid.get("raider", -1)) == viewer:
 		return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
@@ -47,7 +47,8 @@ static func describe_raid(
 
 
 ## "3 grain", or "5 cargo (3 grain, 2 timber)" when a raid takes several.
-static func _cargo(losses: Dictionary) -> String:
+## Public so the Gazette's prize prose and the raid toast phrase cargo alike.
+static func cargo_of(losses: Dictionary) -> String:
 	var ids: Array[String] = []
 	var total: int = 0
 	for raw_id: Variant in losses.keys():
