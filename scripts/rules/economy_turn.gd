@@ -5,17 +5,18 @@ extends RefCounted
 ## § Production flow). The same routine powers the end-of-turn projection so the UI
 ## never shows arithmetic the live resolution would not reproduce.
 
-const TREASURY_COMMODITIES: Array[String] = ["gold", "silver", "gems", "diamonds", "spices"]
 
-
+## `advance_market` is false for rival courts sharing one world market: the
+## player's own resolution moves prices once per turn.
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	extraction: Dictionary,
 	ship_count: int,
-	army_food: int = 0
+	army_food: int = 0,
+	advance_market: bool = true
 ) -> Dictionary:
-	return _run(economy, market, extraction, ship_count, army_food, true)
+	return _run(economy, market, extraction, ship_count, army_food, advance_market)
 
 
 ## Dry run on copied state; reports stockpile and treasury deltas, no side effects.
@@ -59,7 +60,7 @@ static func _run(
 
 	var riches: Dictionary = {}
 	var riches_total: int = 0
-	for id: String in TREASURY_COMMODITIES:
+	for id: String in CommodityCatalog.treasury_ids():
 		var held: int = economy.quantity(id)
 		if held <= 0:
 			continue

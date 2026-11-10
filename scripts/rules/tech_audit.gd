@@ -20,6 +20,7 @@ static func validate() -> Array[String]:
 	errors.append_array(_graph_errors())
 	errors.append_array(_cap_errors())
 	errors.append_array(_role_errors())
+	errors.append_array(_gate_errors())
 	return errors
 
 
@@ -139,14 +140,51 @@ static func _highest_cap(commodity: String) -> int:
 
 
 ## Every tech must do something structural: grant a cap, gate discovery,
-## unlock a dependent, or name a documented effect (wiki: tech-tree audit).
+## unlock a build order, unlock a dependent, or name a documented effect
+## (wiki: tech-tree audit).
 static func _role_errors() -> Array[String]:
 	var errors: Array[String] = []
 	for tech_id: String in TechCatalog.ids():
 		var has_role: bool = not TechCatalog.caps_of(tech_id).is_empty()
 		has_role = has_role or not TechCatalog.discovery_resources(tech_id).is_empty()
 		has_role = has_role or not TechCatalog.dependents(tech_id).is_empty()
+		has_role = has_role or not TechUnlocks.entries(tech_id).is_empty()
 		has_role = has_role or not String(TechCatalog.entry(tech_id).get("note", "")).is_empty()
 		if not has_role:
 			errors.append("%s has no effect, unlock or dependent tech" % tech_id)
 	return errors
+
+
+## Every gate table must name a tech the catalog holds, so a build order can
+## never wait on a typo that no player can ever research (REQ-P2-03).
+static func _gate_errors() -> Array[String]:
+	var errors: Array[String] = []
+	for type_id: String in RegimentEconomy.TECH.keys():
+		_check_gate(String(RegimentEconomy.TECH[type_id]), "regiment %s" % type_id, errors)
+	for type_id: String in ShipEconomy.TECH.keys():
+		_check_gate(String(ShipEconomy.TECH[type_id]), "hull %s" % type_id, errors)
+	for type_id: String in CivilianCatalog.ORDER:
+		_check_gate(CivilianCatalog.unlock_tech(type_id), "civilian %s" % type_id, errors)
+	for tier in range(1, WorkerPool.TIER_COUNT):
+		for tech_id: String in WorkerPool.required_techs(tier):
+			_check_gate(tech_id, "%s workers" % WorkerPool.tier_name(tier).to_lower(), errors)
+	for level in range(1, FortRules.MAX_LEVEL + 1):
+		_check_gate(FortRules.tech_gate(level), "fort level %d" % level, errors)
+	for battery: Dictionary in FortRules.EMPLACED_TECHS:
+		_check_gate(String(battery["tech"]), "%s batteries" % String(battery["type"]), errors)
+	for terrain: Variant in CivilianTransport.RAIL_TERRAIN_TECHS.keys():
+		_check_gate(
+			String(CivilianTransport.RAIL_TERRAIN_TECHS[terrain]),
+			"railroads on %s" % MapModel.TERRAIN_LABELS.get(int(terrain), "land"),
+			errors
+		)
+	_check_gate(CivilianTransport.ROAD_CONSTRUCTION, "improved roads", errors)
+	for tech_id: String in GeneralRoster.CAP_TECHS.keys():
+		_check_gate(tech_id, "the general cap", errors)
+	return errors
+
+
+static func _check_gate(tech_id: String, order: String, errors: Array[String]) -> void:
+	if tech_id.is_empty() or TechCatalog.known(tech_id):
+		return
+	errors.append("%s is gated by unknown tech '%s'" % [order, tech_id])

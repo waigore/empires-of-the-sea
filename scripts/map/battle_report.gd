@@ -9,6 +9,12 @@ static func describe(battle: Dictionary, zone_name: String, faction_names: Array
 	var attacker: String = _faction(faction_names, int(battle.get("attacker", 0)))
 	var defender: String = _faction(faction_names, int(battle.get("defender", 0)))
 	var outcome: int = int(battle.get("outcome", NavalCombat.Outcome.STALEMATE))
+	var retreat: Dictionary = battle.get("retreat", {})
+	if bool(retreat.get("success", false)):
+		var beaten: int = int(retreat.get("beaten", int(battle.get("defender", 0))))
+		var haven: String = _faction(faction_names, beaten)
+		var holder: String = defender if beaten == int(battle.get("attacker", 0)) else attacker
+		return "%s withdraws from the %s — %s holds the zone" % [haven, zone_name, holder]
 	match outcome:
 		NavalCombat.Outcome.SIDE1_VICTORY:
 			var sunk: int = (battle.get("defender_lost", []) as Array).size()
@@ -57,4 +63,9 @@ static func describe_land(
 			]
 		ArmyCombat.Outcome.CAPTURE:
 			return "%s occupies %s unopposed" % [attacker, province_name]
+		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
+			var spent: int = (battle.get("attacker_lost", []) as Array).size()
+			return "%s holds the field at %s — %d regiments lost" % [
+				attacker, province_name, spent
+			]
 	return "%s and %s stand off at %s" % [attacker, defender, province_name]

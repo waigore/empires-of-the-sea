@@ -1,8 +1,9 @@
 class_name Extraction
 extends RefCounted
 ## Extraction phase (wiki: extraction-and-improvements). Each connected land tile
-## yields min(improvement, tech cap, transport, town development); Great Powers
-## also receive the flat capital grain bonus every turn.
+## yields min(improvement, tech cap, terrain cap, path transport, town cap).
+## Developed towns then turn town-connected raw into bonus manufactures, and
+## Great Powers also receive the flat capital grain bonus every turn.
 
 const STARTING_IMPROVEMENT: int = 1
 const DEFAULT_TECH_CAP: int = 1
@@ -44,45 +45,90 @@ static func yields(
 	capital_province: int,
 	tech_caps: Dictionary = {},
 	works: LandWorks = null,
-	capital_tile: Vector2i = CivilianState.NO_TILE
+	capital_tile: Vector2i = CivilianState.NO_TILE,
+	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
 	var totals: Dictionary = {}
 	if model == null or owner < 0:
 		return totals
+	var resolved: Dictionary = {}
 	var connected: Dictionary = {}
+	var towns: Dictionary = {}
 	if works != null:
-		connected = ImprovementSystem.connected_tiles(model, works, owner, capital_tile)
+		resolved = LandConnectivity.resolve(model, works, owner, capital_tile)
+		connected = resolved.get("tiles", {}) as Dictionary
+		towns = resolved.get("towns", {}) as Dictionary
+	var raw_by_province: Dictionary = {}
+	var town_sets: Dictionary = {}
 	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
 		var province_id: int = model.province_at(tile.x, tile.y)
 		var province: ProvinceState = model.get_province(province_id)
 		if province == null:
 			continue
-		var town_cap: int = province.town_development
-		if town_cap <= 0:
-			town_cap = MAX_YIELD
+		var index: int = model.index_of(tile.x, tile.y)
+		if (
+			works != null
+			and province.town_tile.x >= 0
+			and int(towns.get(province_id, -1)) == index
+		):
+			continue
 		var resource: int = model.resource_at(tile.x, tile.y)
 		var commodity: String = commodity_for_resource(resource)
 		if commodity.is_empty():
 			continue
 		var level: int = STARTING_IMPROVEMENT
 		var transport: int = DEFAULT_TRANSPORT
+		var town_cap: int = MAX_YIELD
 		if works != null:
+			var entry: Dictionary = connected.get(index, {}) as Dictionary
+			if entry.is_empty():
+				continue
 			level = works.improvement_at(model, tile)
-			if level <= 0 or not connected.has(model.index_of(tile.x, tile.y)):
+			if level <= 0:
 				continue
 			if (
 				ImprovementCatalog.needs_prospecting(resource)
 				and not works.is_prospected(owner, model, tile)
 			):
 				continue
-			transport = maxi(DEFAULT_TRANSPORT, works.transport_at(model, tile))
-			if works.has_port(model, tile):
-				transport = LandWorks.TRANSPORT_RAIL
-		var amount: int = effective_yield(
-			level, tech_cap_for(commodity, tech_caps), transport, town_cap
+			transport = int(entry.get("transport", 0))
+			if transport <= 0:
+				continue
+			town_cap = LandConnectivity.town_cap_for(model, resolved, province_id, index)
+		else:
+			town_cap = province.town_level() if province.town_development > 0 else MAX_YIELD
+		var cap: int = TerrainCaps.extraction_cap(
+			model.terrain_at(tile.x, tile.y), commodity, tech_cap_for(commodity, tech_caps)
 		)
-		if amount > 0:
-			totals[commodity] = int(totals.get(commodity, 0)) + amount
+		var amount: int = effective_yield(level, cap, transport, town_cap)
+		if amount <= 0:
+			continue
+		totals[commodity] = int(totals.get(commodity, 0)) + amount
+		if works == null or not CommodityCatalog.is_raw(commodity):
+			continue
+		var town_index: int = int(towns.get(province_id, -1))
+		var town_set: Dictionary = town_sets.get(province_id, {}) as Dictionary
+		if town_set.is_empty() and town_index >= 0:
+			town_set = LandConnectivity.town_connected(
+				model, works, province_id, town_index
+			)
+			town_sets[province_id] = town_set
+		if not town_set.has(index):
+			continue
+		if not raw_by_province.has(province_id):
+			raw_by_province[province_id] = {}
+		var raw: Dictionary = raw_by_province[province_id]
+		raw[commodity] = int(raw.get(commodity, 0)) + amount
+	for province_id: Variant in raw_by_province.keys():
+		var province: ProvinceState = model.get_province(int(province_id))
+		if province == null:
+			continue
+		var bonus: Dictionary = TownIndustry.bonus_for_province(
+			raw_by_province[province_id], province.town_development, tech_unlocked
+		)
+		for commodity: Variant in bonus.keys():
+			var id: String = String(commodity)
+			totals[id] = int(totals.get(id, 0)) + int(bonus[commodity])
 	if capital_province >= 0 and model.province_owner(capital_province) == owner:
 		totals[GRAIN] = int(totals.get(GRAIN, 0)) + CAPITAL_GRAIN_BONUS
 	return totals

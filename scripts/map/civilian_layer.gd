@@ -6,6 +6,9 @@ extends Node2D
 
 signal unit_selected(unit: CivilianState)
 signal unit_moved(unit: CivilianState, result: Dictionary)
+## Development on the map changed (a work completed, was assigned or cancelled);
+## flat views such as the survey lens refresh from this.
+signal works_changed
 
 const TILE_SIZE: float = 22.0
 const MARKER_RADIUS: float = 26.0
@@ -90,6 +93,8 @@ func _add_marker(unit: CivilianState) -> void:
 	marker.faction = unit.owner
 	marker.position = _tile_position(unit.tile)
 	marker.scale = Vector2.ONE * clampf(1.0 / _zoom, 0.62, 1.0)
+	# A civilian aboard a squadron has no map tile (DR-20261109-17).
+	marker.visible = not unit.is_embarked()
 	add_child(marker)
 	markers.append(marker)
 
@@ -137,8 +142,10 @@ func deselect() -> void:
 
 
 ## Applies a land order through the rules, then animates the medallion.
-func apply_move(unit: CivilianState, tile: Vector2i) -> Dictionary:
-	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile)
+func apply_move(
+	unit: CivilianState, tile: Vector2i, visibility: VisibilityModel = null
+) -> Dictionary:
+	var result: Dictionary = CivilianMovement.apply_move(model, unit, tile, visibility)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: CivilianMarker = marker_for(unit)
@@ -180,6 +187,8 @@ func begin_turn(
 ## assignment relocation).
 func sync() -> void:
 	for unit: CivilianState in units:
+		if unit.is_embarked():
+			continue
 		var marker: CivilianMarker = marker_for(unit)
 		if marker == null:
 			continue
@@ -197,6 +206,7 @@ func sync() -> void:
 
 func refresh_works() -> void:
 	queue_redraw()
+	works_changed.emit()
 
 
 func set_zoom(value: float) -> void:

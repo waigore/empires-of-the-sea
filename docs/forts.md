@@ -43,10 +43,9 @@ Mode, [tech-tree-military](https://github.com/waigore/empires-of-the-sea/wiki/te
 
 ## Deferred (REQ-P2-02)
 
-- Quick Battle siege lanes: wall HP soak and damage reduction for auto-resolve; per-position "on the wall"/"behind the wall", gates and sorties wait on
-  the lane model.
-- Virtual emplaced gun entities and the "all guns destroyed → fort −1" downgrade
-  (Quick Battle path only; the wiki excludes auto-resolve).
+- Quick Battle siege lanes: per-position "on the wall"/"behind the wall",
+  gates and sorties wait on the lane model. Virtual emplaced guns and the
+  "all guns destroyed → fort −1" downgrade are implemented.
 - Distinct town tiles: forts are province-scoped because provinces carry no
   town tile (see DR-20261108-04).
 

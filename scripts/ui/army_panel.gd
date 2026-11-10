@@ -24,6 +24,8 @@ var _muster_box: VBoxContainer = null
 var _muster_open: bool = false
 var _detach_all: Button = null
 var _merge: Button = null
+var _embark: Button = null
+var _plan: Button = null
 
 
 func _ready() -> void:
@@ -117,6 +119,17 @@ func _build() -> void:
 	_merge.visible = false
 	shell.add_child(_merge)
 
+	_embark = _make_button("Embark aboard the fleet")
+	_embark.pressed.connect(func() -> void: action_pressed.emit("embark"))
+	_embark.visible = false
+	shell.add_child(_embark)
+
+	_plan = _make_button("Battle plan: Balanced")
+	_plan.tooltip_text = "Tap to cycle Aggressive / Balanced / Defensive"
+	_plan.pressed.connect(func() -> void: action_pressed.emit("plan:next"))
+	_plan.visible = false
+	shell.add_child(_plan)
+
 	_detach_all = _make_button("Detach all regiments")
 	_detach_all.pressed.connect(func() -> void: action_pressed.emit("detach_all"))
 	_detach_all.visible = false
@@ -159,7 +172,9 @@ func refresh(
 	is_player: bool,
 	can_merge: bool = false,
 	command: String = "",
-	muster: Array[Dictionary] = []
+	muster: Array[Dictionary] = [],
+	embark: String = "",
+	plan: String = "balanced"
 ) -> void:
 	if model == null or army == null:
 		return
@@ -168,7 +183,10 @@ func refresh(
 	if army.home:
 		title = "HOME ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
 	_title.text = title
-	_location.text = "At %s" % model.province_name(army.province)
+	if army.is_embarked():
+		_location.text = "Aboard a fleet"
+	else:
+		_location.text = "At %s" % model.province_name(army.province)
 	_strength.text = "%d regiments · %d strength · %d food" % [
 		army.count(), int(army.strength()), _food(army)
 	]
@@ -181,11 +199,17 @@ func refresh(
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
 	_muster_box.visible = _muster_button.visible and _muster_open
-	_merge.visible = is_player and can_merge and army.count() > 0
-	_detach_all.visible = is_player and army.count() > 1
+	_merge.visible = is_player and can_merge and not army.is_embarked() and army.count() > 0
+	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
+	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
+	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
+	_plan.text = "Battle plan: %s" % plan.capitalize()
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own army."
+	elif army.is_embarked():
+		_status.text = "Aboard the fleet"
+		_hint.text = "The squadron carries the army; land on an owned coast."
 	elif army.home:
 		_status.text = "Home Army · never leaves the capital"
 		_hint.text = "Detach a regiment to form a field army, then march it."

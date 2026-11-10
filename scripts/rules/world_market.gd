@@ -14,6 +14,9 @@ var prices: Dictionary = {}
 var world_depth: int = DEFAULT_WORLD_DEPTH
 var _bids: Dictionary = {}
 var _offers: Dictionary = {}
+## Units bought this turn per buyer, so each crown spends its own cargo holds
+## (DR-20261109-03); the price book stays one global order book.
+var _bought_by_faction: Dictionary = {}
 
 
 static func with_default_prices(depth: int = DEFAULT_WORLD_DEPTH) -> WorldMarket:
@@ -52,8 +55,27 @@ func bought_units() -> int:
 	return total
 
 
+## Units one crown bought this turn. Legacy books that predate per-buyer
+## accounting attribute every laden hold to the player.
+func bought_units_for(faction: int) -> int:
+	if _bought_by_faction.is_empty() and not _bids.is_empty():
+		return bought_units() if faction == FactionCatalog.PLAYER_FACTION else 0
+	return int(_bought_by_faction.get(faction, 0))
+
+
+## This turn's imports per commodity, for the naval raid pass (wiki:
+## ships-and-naval § Trade and Transport Interception).
+func imports_this_turn() -> Dictionary:
+	return _bids.duplicate()
+
+
 ## Buys at the current price and records the bid for price discovery.
-func buy(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
+func buy(
+	economy: PlayerEconomy,
+	id: String,
+	quantity: int,
+	faction: int = FactionCatalog.PLAYER_FACTION
+) -> Dictionary:
 	if not can_trade(id):
 		return {"ok": false, "reason": "Not traded on the world market"}
 	if quantity <= 0:
@@ -62,8 +84,14 @@ func buy(economy: PlayerEconomy, id: String, quantity: int) -> Dictionary:
 	var cost: int = unit_price * quantity
 	if not economy.spend_treasury(cost):
 		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
+	# A legacy book that only knows global bids attributes them to the player
+	# before the first per-buyer entry is written.
+	if _bought_by_faction.is_empty() and not _bids.is_empty():
+		_bought_by_faction[FactionCatalog.PLAYER_FACTION] = bought_units()
+	var prior: int = int(_bought_by_faction.get(faction, 0))
 	economy.add(id, quantity)
 	_bids[id] = bid_volume(id) + quantity
+	_bought_by_faction[faction] = prior + quantity
 	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
 
 
@@ -116,6 +144,7 @@ func advance_prices() -> Dictionary:
 			changed[id] = updated
 	_bids.clear()
 	_offers.clear()
+	_bought_by_faction.clear()
 	return changed
 
 
@@ -125,6 +154,7 @@ func copy() -> WorldMarket:
 	clone.world_depth = world_depth
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()
+	clone._bought_by_faction = _bought_by_faction.duplicate()
 	return clone
 
 
@@ -135,6 +165,7 @@ func to_dict() -> Dictionary:
 		"world_depth": world_depth,
 		"bids": _bids.duplicate(),
 		"offers": _offers.duplicate(),
+		"bought_by_faction": _bought_by_faction.duplicate(),
 	}
 
 
@@ -145,4 +176,5 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 		market.prices[String(key)] = int(saved[key])
 	market._bids = data.get("bids", {}).duplicate()
 	market._offers = data.get("offers", {}).duplicate()
+	market._bought_by_faction = data.get("bought_by_faction", {}).duplicate()
 	return market

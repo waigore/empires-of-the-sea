@@ -12,6 +12,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | [`docs/pull-requests.md`](docs/pull-requests.md) | PR base rules (`gh`, required checks) |
 | [`docs/android-debug.md`](docs/android-debug.md) | Debug APK via PR into `android-debug` |
 | [`docs/skills.md`](docs/skills.md) | Project skills + agent facades |
+| [`.agents/skills/map-lens`](.agents/skills/map-lens/SKILL.md) | Map lens / overlay recipe |
 | [`docs/README.md`](docs/README.md) | Docs index |
 
 ## Docs policy

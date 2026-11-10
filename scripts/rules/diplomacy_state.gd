@@ -26,7 +26,9 @@ var pending_interventions: Array[Dictionary] = []
 ## Rival proposals the human court has not answered:
 ## {from, kind, stage} (wiki: diplomacy § GP AI policy → court hand-off).
 var pending_offers: Array[Dictionary] = []
-## Append-only recent history for the court and tests.
+## Append-only history for the court and tests. Unbounded within a campaign
+## (wiki: diplomacy § Diplomatic History — retention); the panel narrows it to
+## one pair and the rules never drop an entry.
 var events: Array[Dictionary] = []
 
 var _modified: Dictionary = {}
@@ -179,8 +181,6 @@ func apply_delta(a: int, b: int, delta: float, kind: String, data: Dictionary = 
 
 func record_event(kind: String, a: int, b: int, data: Dictionary = {}) -> void:
 	events.append({"kind": kind, "a": a, "b": b, "turn": turn, "data": data})
-	if events.size() > 240:
-		events.pop_front()
 
 
 func apply_decay() -> int:
@@ -262,6 +262,10 @@ func clear_relations_of(faction: int) -> void:
 			subsidies.erase(key)
 	for tribe: int in colonies.keys():
 		if tribe == faction or int(colonies[tribe]) == faction:
+			if int(colonies[tribe]) == faction:
+				# The suzerain left play: the colony becomes independent again
+				# (wiki: diplomacy § GP–Tribe Rules — Join Empire, R5.5).
+				record_event("colonyReleased", tribe, faction)
 			colonies.erase(tribe)
 
 

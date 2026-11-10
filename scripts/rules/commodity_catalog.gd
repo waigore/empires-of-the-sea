@@ -109,6 +109,16 @@ static func ids_in(category: int) -> Array[String]:
 	return ids
 
 
+## Commodities cleared into treasury during the Riches phase (wiki:
+## stockpiles-and-production § Production flow). Riches plus spices, whose
+## fixed base price is a treasury conversion rather than a market trade.
+static func treasury_ids() -> Array[String]:
+	var ids: Array[String] = []
+	ids.append_array(RICHES)
+	ids.append("spices")
+	return ids
+
+
 static func category_of(id: String) -> int:
 	if FOOD.has(id):
 		return Category.FOOD

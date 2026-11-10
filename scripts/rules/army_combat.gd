@@ -7,9 +7,19 @@ extends RefCounted
 ## flips. Pre-combat general binding arrives in `context` from the caller.
 ## Sieges read the province's fort level: walls soak attack, the emplaced battery
 ## adds defence and shrinks defender losses (wiki: siege-mechanics, auto-resolve
-## aggregate path). Quick Battle, gun-loss downgrade and difficulty stay deferred.
+## aggregate path). Gun-loss downgrade and difficulty stay deferred; the human's
+## land battles route through QuickBattle.
 
-enum Outcome { ATTACKER_VICTORY, DEFENDER_VICTORY, STALEMATE, MUTUAL_ANNIHILATION, CAPTURE }
+enum Outcome {
+	ATTACKER_VICTORY,
+	DEFENDER_VICTORY,
+	STALEMATE,
+	MUTUAL_ANNIHILATION,
+	CAPTURE,
+	## Quick Battle only: the attacker holds the field but the defender keeps
+	## the province (wiki: quick-battle § Outcome and integration).
+	ATTACKER_ADVANTAGE,
+}
 
 const RECOVERY_SHARE: float = 0.2
 ## Great Power military era for garrison recovery; Minors/Tribes stay at 1.
@@ -66,7 +76,7 @@ static func resolve_turn(
 			if has_third_party(armies, province, defender, attackers):
 				continue
 			var capturer: int = _lowest(attackers)
-			_flip(model, province, capturer)
+			flip(model, province, capturer)
 			reports.append(_capture_report(province, capturer, defender))
 			continue
 		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
@@ -115,6 +125,10 @@ static func _exchange(
 	further: bool,
 	context: Dictionary
 ) -> Dictionary:
+	if QuickBattle.enabled(context, attacker, defender):
+		return QuickBattle.resolve_exchange(
+			model, armies, province, defender, attacker, further, context
+		)
 	var defending: Array[ArmyState] = armies_of(armies, province, defender)
 	var attacking: Array[ArmyState] = armies_of(armies, province, attacker)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
@@ -135,10 +149,10 @@ static func _exchange(
 		int(atk_mods["fort"]))
 	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
 	var band: Dictionary = band_for(ratio)
-	var attacker_lost: Array[String] = _apply_losses(
+	var attacker_lost: Array[String] = apply_losses(
 		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
-	var defender_lost: Array[String] = _apply_losses(
+	var defender_lost: Array[String] = apply_losses(
 		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
 		* float(def_mods["loss_scale"])), def_limit
 	)
@@ -161,7 +175,7 @@ static func _exchange(
 		"medal_owner": -1,
 	}
 	if def_left == 0 and atk_left > 0:
-		_flip(model, province, attacker)
+		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
 		report["medal_gain"] = ArmyCommand.award(context, attacking, attacker)
@@ -171,7 +185,7 @@ static func _exchange(
 	if def_left == 0:
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
 		if further:
-			var recovery: Dictionary = _recover_garrison(
+			var recovery: Dictionary = recover_garrison(
 				armies, province, defender, initial_defenders
 			)
 			report["garrison"] = int(recovery.get("count", 0))
@@ -189,7 +203,7 @@ static func _exchange(
 
 ## Restores 20% (ceil, at least one, never above the initial count) of the
 ## defender's starting regiments as the era's most advanced infantry.
-static func _recover_garrison(
+static func recover_garrison(
 	armies: Array[ArmyState], province: int, defender: int, initial: int
 ) -> Dictionary:
 	if initial <= 0:
@@ -212,7 +226,7 @@ static func _recover_garrison(
 
 
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
-static func _apply_losses(
+static func apply_losses(
 	armies: Array[ArmyState], side: Array[ArmyState], wanted: int, limit: int = 0
 ) -> Array[String]:
 	var candidates: Array[Dictionary] = []
@@ -341,6 +355,8 @@ static func outcome_label(outcome: int) -> String:
 			return "mutual annihilation"
 		Outcome.CAPTURE:
 			return "province captured"
+		Outcome.ATTACKER_ADVANTAGE:
+			return "attacker holds the field"
 	return "stalemate"
 
 
@@ -362,7 +378,7 @@ static func _capture_report(province: int, attacker: int, defender: int) -> Dict
 	}
 
 
-static func _flip(model: MapModel, province: int, owner: int) -> void:
+static func flip(model: MapModel, province: int, owner: int) -> void:
 	var data: ProvinceState = model.get_province(province)
 	if data != null:
 		data.owner = owner

@@ -242,6 +242,61 @@ func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> v
 	assert_true(play.ai.overture_on_cooldown(2, 0, turn_before, 2))
 
 
+func test_a_rival_peace_offer_suspends_the_turn_and_the_answer_ends_the_war() -> void:
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	play.ai = AiState.new()
+	DiplomacyRules.declare_war(state, 2, 0)
+	DiplomacyProposals.queue(state, play.world, 2, DiplomacyProposals.KIND_PEACE)
+	var turn_before: int = play.turn
+	MapPlayTurn.end_turn(play)
+	assert_true(play.turn_suspended, "the calendar waits for the answer")
+	assert_eq(play.turn, turn_before)
+	assert_true(state.relation(0, 2).at_war, "the war holds until the answer")
+	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	assert_false(state.relation(0, 2).at_war, "the answer concludes the peace")
+	assert_false(play.turn_suspended)
+	assert_eq(play.turn, turn_before + 1)
+	assert_true(
+		play.ai.peace_on_cooldown(2, 0, turn_before, 3),
+		"the answer starts the peace-offer cooldown (DR-20261109-07)"
+	)
+
+
+func test_accepting_a_peace_offer_calls_off_that_turns_battle() -> void:
+	# wiki: diplomacy § Court proposals — accepting ends the war for that same
+	# turn's movement and combat, so the province is not stormed after the
+	# answer (DR-20261109-07).
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	play.ai = AiState.new()
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != 0:
+			play.ai.note_overture(faction, 0, play.turn)
+	var army: ArmyState = _field_army()
+	assert_not_null(army, "a field army is on the map")
+	var province: int = _adjacent_foreign_province(army)
+	assert_true(province >= 0, "the army has a foreign neighbour")
+	var owner: int = play.model.province_owner(province)
+	DiplomacyRules.declare_war(state, owner, 0)
+	assert_true(bool(play.army_layer.order(army, province, true).get("ok", false)))
+	assert_eq(army.province, province, "the army has stormed the province")
+	assert_true(
+		DiplomacyProposals.queue(
+			state, play.world, owner, DiplomacyProposals.KIND_PEACE
+		)["ok"]
+	)
+	MapPlayTurn.end_turn(play)
+	assert_true(play.turn_suspended, "the calendar waits for the answer")
+	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, owner, "")
+	assert_false(state.relation(0, owner).at_war, "the answer concludes the peace")
+	assert_eq(
+		play.model.province_owner(province), owner,
+		"no battle runs after the peace is accepted"
+	)
+	assert_true(play.army_layer.armies.has(army), "the storming army survives the peace")
+
+
 func _field_army() -> ArmyState:
 	for army: ArmyState in _screen.play.army_layer.armies.duplicate():
 		if army.owner == 0 and army.home and army.count() > 1:

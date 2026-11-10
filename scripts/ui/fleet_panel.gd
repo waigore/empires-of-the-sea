@@ -29,6 +29,10 @@ var _arm_timer: Timer = null
 var _fleet: FleetState = null
 var _is_player: bool = false
 var _yard_rows: Array[Dictionary] = []
+var _land_box: VBoxContainer = null
+var _land_rows: Array[Dictionary] = []
+var _mission: FleetMissionSection = null
+var _crew: FleetCrewSection = null
 
 
 func _ready() -> void:
@@ -82,6 +86,22 @@ func _build() -> void:
 	_status = _line(13, Palette.GOLD_PALE)
 	column.add_child(_status)
 
+	_mission = FleetMissionSection.new()
+	_mission.visible = false
+	_mission.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_mission)
+
+	_crew = FleetCrewSection.new()
+	_crew.visible = false
+	_crew.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_crew)
+
+	_land_box = VBoxContainer.new()
+	_land_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_land_box.add_theme_constant_override("separation", 6)
+	_land_box.visible = false
+	column.add_child(_land_box)
+
 	_yard_button = _button("Shipyard")
 	_yard_button.visible = false
 	_yard_button.pressed.connect(func() -> void: set_yard_open(not _yard_open))
@@ -134,13 +154,19 @@ func refresh(
 	fleet: FleetState,
 	is_player: bool,
 	passage: String = "",
-	yard_rows: Array[Dictionary] = []
+	yard_rows: Array[Dictionary] = [],
+	land_rows: Array[Dictionary] = [],
+	carried: int = 0,
+	beach_rows: Array[Dictionary] = [],
+	beach_note: String = "",
+	crew: Dictionary = {}
 ) -> void:
 	if model == null or fleet == null:
 		return
 	_fleet = fleet
 	_is_player = is_player
 	_yard_rows = yard_rows
+	_land_rows = land_rows
 	_flag.color = Palette.faction_color(fleet.owner)
 	_title.text = "FLEET OF %s" % FactionCatalog.name_of(fleet.owner).to_upper()
 	if fleet.is_at_sea():
@@ -151,15 +177,32 @@ func refresh(
 	_ships.text = "%d ships · %s · %d strength · upkeep %d food" % [
 		fleet.ship_count(), fleet.hull_summary(), strength_of(fleet), upkeep
 	]
+	if carried > 0:
+		_ships.text += " · carrying %d regiments" % carried
+	var colonists: int = int(crew.get("count", 0))
+	if colonists > 0:
+		_ships.text += " · %d colonists" % colonists
+	_fill_land()
+	_mission.set_data(beach_note, beach_rows)
+	_crew.set_data(crew)
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own fleet."
+	elif not beach_note.is_empty():
+		_status.text = "On station"
+		_hint.text = beach_note
 	elif fleet.moved:
 		_status.text = "Has moved this turn"
 		_hint.text = "End the turn to sail again."
 	elif not passage.is_empty():
 		_status.text = "1 move this turn"
 		_hint.text = passage
+	elif carried > 0 and not _land_rows.is_empty():
+		_status.text = "Troops aboard"
+		_hint.text = "Choose a friendly coast to land the army."
+	elif colonists > 0:
+		_status.text = "Colonists aboard"
+		_hint.text = "Choose a coast to put them ashore, or put to sea."
 	else:
 		_status.text = "1 move this turn"
 		_hint.text = "Tap a highlighted sea zone or a friendly port."
@@ -191,6 +234,13 @@ func refresh_slip(
 	_ships.text = "No home fleet — your first launch founds one."
 	_status.text = "The yard is open"
 	_hint.text = "Launch a hull to found the home fleet; break up hulls from the fleet dossier."
+	_land_rows = []
+	if _crew != null:
+		_crew.set_data({})
+	if _land_box != null:
+		_land_box.visible = false
+	if _mission != null:
+		_mission.set_data("", [] as Array[Dictionary])
 	_yard_button.visible = is_player and not rows.is_empty()
 	_yard_open = _yard_button.visible
 	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
@@ -207,6 +257,33 @@ static func strength_of(fleet: FleetState) -> int:
 	for hull_id: String in fleet.hulls:
 		total += ShipStats.firepower(fleet.type_of(hull_id))
 	return total
+
+
+## Landing choices for the carried army: one button per owned coast.
+func _fill_land() -> void:
+	if _land_box == null:
+		return
+	for child in _land_box.get_children():
+		child.queue_free()
+	_land_box.visible = _is_player and not _land_rows.is_empty()
+	if not _land_box.visible:
+		return
+	var caption := Label.new()
+	caption.text = "LAND THE TROOPS"
+	caption.add_theme_font_size_override("font_size", 11)
+	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_land_box.add_child(caption)
+	for row: Dictionary in _land_rows:
+		var invade: bool = bool(row.get("invade", false))
+		var label: String = (
+			"Invade %s" if invade else "Land at %s"
+		) % String(row.get("name", "the coast"))
+		var button := _button(label)
+		var province: int = int(row.get("province", -1))
+		button.pressed.connect(
+			func() -> void: action_pressed.emit("land:%d" % province)
+		)
+		_land_box.add_child(button)
 
 
 func _fill_yard() -> void:

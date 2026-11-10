@@ -38,42 +38,71 @@ static func capacity(
 	return total
 
 
-## Units bought this turn: the buyer ships every imported ton, the seller none.
-static func used(market: WorldMarket) -> int:
+## Units one crown bought this turn: the buyer ships every imported ton, the
+## seller none. Each crown spends its own holds (DR-20261109-03).
+static func used(
+	market: WorldMarket, faction: int = FactionCatalog.PLAYER_FACTION
+) -> int:
 	if market == null:
 		return 0
-	return market.bought_units()
+	return market.bought_units_for(faction)
 
 
-static func free_holds(holds: int, market: WorldMarket) -> int:
-	return maxi(holds - used(market), 0)
+static func free_holds(
+	holds: int,
+	market: WorldMarket,
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
+) -> int:
+	return maxi(holds - maxi(reserved, 0) - used(market, faction), 0)
 
 
-## {"holds": n, "used": n, "free": n} for the ledger and the order toast.
+## {"holds": n, "used": n, "reserved": n, "free": n} for the ledger and the
+## order toast. `reserved` is the cargo this turn's overseas delivery needs:
+## extraction ships before trade (wiki: ships-and-naval § Cargo holds).
 static func status(
 	world: WorldMap,
 	fleets_by_region: Dictionary,
 	owner: int,
-	market: WorldMarket
+	market: WorldMarket,
+	reserved: int = 0
 ) -> Dictionary:
 	var holds: int = capacity(world, fleets_by_region, owner)
-	var laden: int = used(market)
-	return {"holds": holds, "used": laden, "free": maxi(holds - laden, 0)}
+	var laden: int = used(market, owner)
+	var promised: int = maxi(reserved, 0)
+	return {
+		"holds": holds,
+		"used": laden,
+		"reserved": promised,
+		"free": maxi(holds - promised - laden, 0),
+	}
 
 
 ## Cargo half of an import: a refusal before the market's price and stock rules.
-static func check(market: WorldMarket, holds: int, quantity: int) -> Dictionary:
+static func check(
+	market: WorldMarket,
+	holds: int,
+	quantity: int,
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
+) -> Dictionary:
 	if quantity <= 0:
 		return {"ok": false, "reason": "Quantity must be positive"}
-	var laden: int = used(market)
-	if laden + quantity > holds:
+	var laden: int = used(market, faction)
+	var promised: int = maxi(reserved, 0)
+	if laden + promised + quantity > holds:
 		return {
 			"ok": false,
-			"reason": _short_reason(holds, laden),
+			"reason": _short_reason(holds, laden, promised),
 			"holds": holds,
-			"free": maxi(holds - laden, 0),
+			"free": maxi(holds - promised - laden, 0),
 		}
-	return {"ok": true, "reason": "", "holds": holds, "free": holds - laden}
+	return {
+		"ok": true,
+		"reason": "",
+		"holds": holds,
+		"free": holds - promised - laden,
+	}
 
 
 ## The single gate for an import: holds first, then the market's own rules.
@@ -82,17 +111,24 @@ static func buy(
 	market: WorldMarket,
 	holds: int,
 	id: String,
-	quantity: int
+	quantity: int,
+	reserved: int = 0,
+	faction: int = FactionCatalog.PLAYER_FACTION
 ) -> Dictionary:
-	var gate: Dictionary = check(market, holds, quantity)
+	var gate: Dictionary = check(market, holds, quantity, reserved, faction)
 	if not bool(gate.get("ok", false)):
 		return gate
-	return market.buy(economy, id, quantity)
+	return market.buy(economy, id, quantity, faction)
 
 
-static func _short_reason(holds: int, laden: int) -> String:
+static func _short_reason(holds: int, laden: int, reserved: int) -> String:
 	if holds <= 0:
-		return "No cargo holds — launch a merchant hull at your capital."
+		return "No cargo holds at the capital — launch a merchant hull or moor the home squadron."
+	if reserved > 0:
+		return (
+			"The home fleet carries %d cargo holds; %d are promised to the colonies and %d are already laden this turn."
+			% [holds, reserved, laden]
+		)
 	return (
 		"The home fleet carries %d cargo holds and %d are already laden this turn."
 		% [holds, laden]
