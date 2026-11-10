@@ -212,6 +212,7 @@ static func _round(
 					"attacker_lost": hit,
 					"defender_lost": 0,
 					"guns_destroyed": 0,
+					"battery_hit": 0,
 					"wall_lost": 0,
 					"behind_lost": 0,
 					"turned": 0,

@@ -51,6 +51,7 @@ static func resolve(
 		"attacker_lost": 0,
 		"defender_lost": 0,
 		"guns_destroyed": 0,
+		"battery_hit": 0,
 		"wall_lost": 0,
 		"behind_lost": 0,
 		"turned": 0,
@@ -72,11 +73,16 @@ static func resolve(
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
 	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
 	var blow: float = ratio * float(maxi(enemy_count, 1))
-	# The battery is shot at before the men behind it; melee cannot reach it.
+	var wanted: int = ceili(blow)
+	# The battery is shot at before the men behind it; melee cannot reach it. A
+	# standing gun spends the blow before the lanes, so the garrison is sheltered
+	# until the battery is quiet (wiki: siege-mechanics § Quick Battle lanes).
 	if key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
 		and SiegeLanes.can_reach_wall(me_side):
-		entry["guns_destroyed"] = QuickBattleBattery.hit(guns, maxi(1, ceili(blow)))
-	var wanted: int = ceili(blow)
+		var battery: Dictionary = QuickBattleBattery.absorb(guns, maxi(1, wanted))
+		entry["guns_destroyed"] = int(battery["destroyed"])
+		entry["battery_hit"] = int(battery["absorbed"])
+		wanted = maxi(0, wanted - int(battery["absorbed"]))
 	if siege and key == "defender":
 		var sortie: bool = action == "assault"
 		entry["sortie"] = sortie

@@ -23,6 +23,8 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var guns: int = int(action.get("guns_destroyed", 0))
 	if guns > 0:
 		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
+	elif int(action.get("battery_hit", 0)) > 0:
+		text += " · the battery takes the blow"
 	var behind: int = int(action.get("behind_lost", 0))
 	if behind > 0:
 		text += " · %d behind the wall" % behind
