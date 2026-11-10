@@ -32,8 +32,9 @@ fails on a fresh clone (see [testing.md](testing.md)).
 
 ## What it shows
 
-- The plate paints the ground, the fort wall and its three gates; a gate turns
-  to rubble when the wall has been beaten down enough to breach it.
+- The plate paints a generated period landscape per terrain, with the fort wall
+  and its three gatehouses standing on it. A breached gate is a jagged hole
+  with rubble spilled onto the field.
 - The despatch lists every round's actions with the game's own copy: losses,
   mauled men, guns silenced, gates breached, the battery taking the blow.
 - The aftermath adds the ground modifiers, the siege line (lanes, guns, breach),
@@ -44,18 +45,18 @@ fails on a fresh clone (see [testing.md](testing.md)).
 ## Scenarios worth running
 
 - A pike-only garrison behind a Stone fort: it cannot shoot, so it sorties.
-- Muskets without guns: the wall turns the blow aside and no gate ever falls.
-- Guns plus muskets against a Wood fort: silence the battery first, then beat
-  the wall until a gate opens and the behind lane bleeds.
+- Muskets without guns: the wall turns the blow aside, no gate falls.
+- Guns plus muskets against a Wood fort: silence the battery, then beat the wall
+  until a gate opens and the behind lane bleeds.
 - Assault into TOWN versus OPEN: compare the same men and plan.
 - A castle on a hillside: the ground stays HILL, so the approach is uphill.
 
 ## Scope
 
 The simulator is a development tool, not a shipped screen. It mutates a
-throwaway model and army pair; nothing is saved and no world state changes.
-`BattleScenario` is node-free rules code and is unit-tested; the screen is a
-thin view (`REQ-P3-01`, `REQ-P3-03`).
+throwaway model and army pair; nothing is saved. `BattleScenario` is node-free
+rules code and is unit-tested; the screen is a thin view (`REQ-P3-01`,
+`REQ-P3-03`).
 
 ## Architecture
 
@@ -64,8 +65,12 @@ thin view (`REQ-P3-01`, `REQ-P3-03`).
 | `scripts/rules/battle_scenario.gd` | builds the sandbox and runs `QuickBattle` |
 | `scripts/ui/battle_sim_setup.gd` | setup rail; emits run/step/reset intents |
 | `scripts/ui/battle_sim_screen.gd` | plate, despatch log and rules readout |
-| `scripts/ui/quick_battle_art.gd` | ground, wall and gate painters |
+| `scripts/ui/battle_plate.gd` | painted ground, wall, breach and miniatures |
 | `scenes/battle_sim.tscn` | the launchable scene |
+
+The plate is generated art (`assets/art/battle/`): a painted panorama per
+terrain, plus cut-out walls, miniatures and rubble. Prompts and build script:
+[`tools/art/battle-plate.md`](../tools/art/battle-plate.md).
 
 ## Tests
 

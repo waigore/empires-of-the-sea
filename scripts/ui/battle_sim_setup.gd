@@ -13,7 +13,7 @@ const MAX_COUNT: int = 20
 
 const TERRAIN_ROWS: Array[Array] = [
 	["open", "Open field"], ["hill", "Hillside"], ["woods", "Woods"],
-	["town", "Town streets"], ["swamp", "Marsh"],
+	["town", "Town streets"], ["marsh", "Marsh"],
 ]
 const FORT_LABELS: Array[String] = ["No fort", "Wood fort", "Stone fort", "Modern fort"]
 const PLAN_LABELS: Array[String] = ["Aggressive", "Balanced", "Defensive"]
