@@ -3,8 +3,9 @@ extends RefCounted
 ## Market supply from Minor Nations and Tribes (wiki: world-market § Minor and
 ## tribe auto-sell; § Trade orders). Each turn every court publishes one
 ## auto-offer per developed estate, naming the source tile so first right of
-## refusal can attribute the sale. The ledger aggregates them for display; the
-## matcher consumes the per-tile orders (REQ-P2-03, REQ-P3-03).
+## refusal can attribute the sale, plus one per developed province town for the
+## manufactures it pays. The ledger aggregates them for display; the matcher
+## consumes the per-tile orders (REQ-P2-03, REQ-P3-03).
 
 ## One unit per held resource tile: the bootstrap non-Great-Power yield (minors
 ## never develop, so level 1 is the whole estate).
