@@ -232,3 +232,287 @@ func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
 	assert_lt(economy.economy.quantity("grain"), before)
 	ships.free()
 	economy.free()
+
+
+# --- a raid takes cargo, never hulls (DR-20261110-13) -----------------------
+
+
+func test_a_raid_takes_cargo_and_leaves_every_hull_afloat() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _raider()
+	var hulls_before: int = home.hulls.size() + raider.hulls.size()
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0
+	)
+	assert_true(bool(result["ok"]))
+	assert_eq((result["hulls_lost"] as Array).size(), 0)
+	assert_eq(
+		home.hulls.size() + raider.hulls.size(), hulls_before,
+		"a raid never sinks a hull on either side"
+	)
+
+
+func test_a_prize_takes_the_rivals_cargo_off_its_home_fleet() -> void:
+	var crown := _fleet(1, 0, 1, ["sloop"])
+	crown.mission = FleetState.Mission.BLOCKADE
+	crown.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+		_model, [crown, laden], 0,
+		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), 1, 1, Callable(), 0.0
+	)
+	assert_eq(raids.size(), 1)
+	assert_eq(int(raids[0]["victim"]), 1)
+	assert_eq(int(raids[0]["raider"]), 0)
+	assert_gt(int(raids[0]["lost_total"]), 0)
+	assert_eq((raids[0]["hulls_lost"] as Array).size(), 0)
+	assert_eq(laden.hulls.size(), 1, "the prize never costs the merchant a hull")
+
+
+func test_a_prize_needs_a_declared_war() -> void:
+	var crown := _fleet(1, 0, 1, ["sloop"])
+	crown.mission = FleetState.Mission.BLOCKADE
+	crown.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var peace := func(_a: int, _b: int) -> bool: return false
+	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+		_model, [crown, laden], 0,
+		{1: {"imports": {"grain": 10}, "home": laden}}, peace, 1, 1, Callable(), 0.0
+	)
+	assert_true(raids.is_empty(), "peace takes no prize")
+
+
+func test_a_prize_comes_only_from_the_crowns_own_squadrons() -> void:
+	var rival_ship := _fleet(1, 2, 1, ["sloop"])
+	rival_ship.mission = FleetState.Mission.BLOCKADE
+	rival_ship.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+		_model, [rival_ship, laden], 0,
+		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), 1, 1, Callable(), 0.0
+	)
+	assert_true(raids.is_empty(), "another crown's blockade is not the crown's prize")
+
+
+func test_a_prize_rolls_on_its_own_salt() -> void:
+	var crown := _fleet(1, 0, 1, ["sloop"])
+	crown.mission = FleetState.Mission.BLOCKADE
+	crown.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var seed_value: int = 1
+	var expected: float = NavalInterception.roll(
+		seed_value, 3, 1, 0, NavalRaid.PRIZE_TAG_BASE + 1
+	)
+	while expected >= 0.2:
+		seed_value += 1
+		expected = NavalInterception.roll(
+			seed_value, 3, 1, 0, NavalRaid.PRIZE_TAG_BASE + 1
+		)
+	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+		_model, [crown, laden], 0,
+		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), seed_value, 3
+	)
+	assert_eq(raids.size(), 1)
+	assert_almost_eq(float(raids[0]["roll"]), expected, 0.0001)
+
+
+func test_the_market_keeps_each_crowns_cargo_apart() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var mine: PlayerEconomy = PlayerEconomy.starting()
+	var rival: PlayerEconomy = PlayerEconomy.starting()
+	mine.treasury = 5000
+	rival.treasury = 5000
+	assert_true(bool(market.buy(mine, "grain", 2, 0)["ok"]))
+	assert_true(bool(market.buy(rival, "timber", 3, 1)["ok"]))
+	assert_eq(int(market.imports_for(0).get("grain", 0)), 2)
+	assert_eq(int(market.imports_for(0).get("timber", 0)), 0)
+	assert_eq(int(market.imports_for(1).get("timber", 0)), 3)
+	assert_eq(
+		int(market.imports_this_turn().get("grain", 0)), 2,
+		"price discovery still pools every buyer's demand"
+	)
+	var expected: Array[int] = [0, 1]
+	assert_eq(market.importing_factions(), expected)
+
+
+func test_the_book_closes_with_the_turn() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var mine: PlayerEconomy = PlayerEconomy.starting()
+	mine.treasury = 5000
+	assert_true(bool(market.buy(mine, "grain", 2, 0)["ok"]))
+	market.advance_prices()
+	assert_true(
+		market.imports_for(0).is_empty(),
+		"price discovery closes the cargo book the raid pass reads"
+	)
+	assert_true(market.importing_factions().is_empty())
+
+
+func test_a_saved_book_keeps_each_crowns_cargo() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var rival: PlayerEconomy = PlayerEconomy.starting()
+	rival.treasury = 5000
+	assert_true(bool(market.buy(rival, "timber", 3, 1)["ok"]))
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+	restored = WorldMarket.from_dict(
+		JSON.parse_string(JSON.stringify(restored.to_dict())) as Dictionary
+	)
+	assert_eq(int(restored.imports_for(1).get("timber", 0)), 3)
+	assert_true(bool(restored.buy(rival, "timber", 1, 1)["ok"]))
+	assert_eq(int(restored.imports_for(1).get("timber", 0)), 4, "a reload keeps filling the row")
+
+
+func test_the_map_pass_pays_the_crown_for_its_blockade() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	var blockader := _fleet(1, 0, 1, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var fleets: Array[FleetState] = [blockader, laden]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	economy.market.record_import("grain", 6, 1)
+	var rival: PlayerEconomy = play.ledger_for(1)
+	rival.add("grain", 6)
+	var rival_before: int = rival.quantity("grain")
+	var crown_before: int = economy.economy.quantity("grain")
+	play.map_seed = 1
+	var salt: int = NavalRaid.PRIZE_TAG_BASE + 1
+	while NavalInterception.roll(play.map_seed, 1, 1, 0, salt) >= NavalInterception.MIN_CHANCE:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_gt(int(result.get("prize", 0)), 0)
+	assert_gt(
+		economy.economy.quantity("grain"), crown_before,
+		"the prize lands in the crown's stockpile"
+	)
+	assert_lt(rival.quantity("grain"), rival_before, "the rival's cargo is what paid for it")
+	assert_eq(laden.hulls.size(), 1, "the merchant hull came home")
+	ships.free()
+	economy.free()
+
+
+func test_the_crown_loses_only_its_own_cargo_to_raiders() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _fleet(2, 1, 0, ["frigate"])
+	raider.mission = FleetState.Mission.PATROL
+	home.mission = FleetState.Mission.NONE
+	home.moved = false
+	var fleets: Array[FleetState] = [home, raider]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	economy.economy.add("grain", 20)
+	play.economy = economy
+	economy.market.record_import("grain", 4, 0)
+	economy.market.record_import("grain", 40, 1)
+	var before: int = economy.economy.quantity("grain")
+	play.map_seed = 1
+	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= NavalInterception.MIN_CHANCE:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	var taken: int = int(result.get("taken", 0))
+	assert_gt(taken, 0)
+	assert_lte(taken, 4, "the rival's forty units were never the crown's cargo")
+	assert_eq(economy.economy.quantity("grain"), before - taken)
+	assert_eq(home.hulls.size(), 1, "raiders pinch cargo, they do not sink the hull")
+	ships.free()
+	economy.free()
+
+
+func test_the_dossier_prices_the_prize_before_the_move() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	var blockader := _fleet(1, 0, 1, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var fleets: Array[FleetState] = [blockader, laden]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	play.map_seed = 1
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	economy.market.record_import("grain", 6, 1)
+	var note: String = MapPlayFleetMissions.prize_note(play, blockader)
+	var odds: Dictionary = NavalRaid.preview(
+		[blockader], laden, {"grain": 6}, FleetState.Mission.BLOCKADE
+	)
+	assert_true(note.contains("Prize:"))
+	assert_true(note.contains("no hull at risk"))
+	assert_true(
+		note.contains("%d%%" % int(round(float(odds["chance"]) * 100.0))),
+		"the dossier reads the chance the rules roll"
+	)
+	assert_true(note.contains("~%d" % int(odds["expected"])))
+	# With nothing bought this turn there is no cargo afloat to take.
+	economy.market.advance_prices()
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("no cargo afloat")
+	)
+	# A crown that has taken the coast blockades its own shore: no prize.
+	economy.market.record_import("grain", 4, 1)
+	_model.province_data(1).owner = 0
+	assert_eq(MapPlayFleetMissions.prize_note(play, blockader), "")
+	_model.province_data(1).owner = 1
+	# A rival whose merchant hulls are at sea has no laden home fleet to raid.
+	laden.location = FleetState.Location.AT_SEA
+	laden.sea_zone = 1
+	laden.province = MapModel.NO_ID
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("at sea")
+	)
+	economy.free()

@@ -123,6 +123,27 @@ func test_a_battle_bed_survives_the_turn_end() -> void:
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
 
 
+## A siege answers with its battery, and a silenced battery lets the stone fall:
+## the breach cue lands last so the player hears the wall come down.
+func test_a_siege_plays_its_battery_and_the_breach() -> void:
+	var battle: Dictionary = {
+		"attacker": MapScreen.PLAYER_FACTION,
+		"defender": 1,
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"battle_mode": "siege",
+		"fort_level": 1,
+		"quick": {"fort_downgraded": true, "fort_after": 0},
+		"attacker_lost": [],
+		"defender_lost": [],
+	}
+	var before: int = _audio.sfx_played
+
+	_score._on_battle_resolved([battle] as Array[Dictionary])
+
+	assert_eq(_audio.last_event, AudioEvents.WALL_BREACH, "the breach lands last")
+	assert_gte(_audio.sfx_played, before + 2, "battery and breach both sound")
+
+
 func test_a_lost_battle_plays_the_knell() -> void:
 	var battle: Dictionary = {
 		"zone": 0,

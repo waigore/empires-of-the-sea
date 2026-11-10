@@ -68,7 +68,7 @@ carry owner tint. Coastlines keep their ink.
 Setup offers a **historical** campaign (default: stops after turn 201, year 1800)
 or an **endless** one (military victory only). At the cap an undecided age
 halts; the plate reads “Campaign complete” with the strongest crown by power
-score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayTurn`.
+score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayCampaign`.
 
 ## Known limits
 

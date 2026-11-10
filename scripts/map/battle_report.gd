@@ -31,6 +31,44 @@ static func _faction(faction_names: Array, owner: int) -> String:
 	return String(faction_names[owner])
 
 
+## Formats a raid for the HUD: the cargo the crown loses, or the prize its own
+## station takes off rival trade. Every line ends on the rule that matters — a
+## raid takes cargo and never a hull (wiki: ships-and-naval § Trade and Transport
+## Interception; DR-20261110-13).
+static func describe_raid(
+	raid: Dictionary, zone_name: String, faction_names: Array, viewer: int
+) -> String:
+	var place: String = zone_name if not zone_name.is_empty() else "open water"
+	var cargo: String = _cargo(raid.get("losses", {}) as Dictionary)
+	var raider: String = _faction(faction_names, int(raid.get("raider", -1)))
+	if int(raid.get("raider", -1)) == viewer:
+		return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
+	return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
+
+
+## "3 grain", or "5 cargo (3 grain, 2 timber)" when a raid takes several.
+static func _cargo(losses: Dictionary) -> String:
+	var ids: Array[String] = []
+	var total: int = 0
+	for raw_id: Variant in losses.keys():
+		var quantity: int = int(losses[raw_id])
+		if quantity <= 0:
+			continue
+		ids.append(String(raw_id))
+		total += quantity
+	if ids.is_empty():
+		return "no cargo"
+	ids.sort()
+	if ids.size() == 1:
+		return "%d %s" % [total, CommodityCatalog.label(ids[0]).to_lower()]
+	var parts: PackedStringArray = PackedStringArray()
+	for id: String in ids:
+		parts.append(
+			"%d %s" % [int(losses[id]), CommodityCatalog.label(id).to_lower()]
+		)
+	return "%d cargo (%s)" % [total, ", ".join(parts)]
+
+
 ## Formats an ArmyCombat record for the land-battle toast.
 static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array

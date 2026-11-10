@@ -43,7 +43,7 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 
-# Free-playtest drives (opt-in, not a CI gate). All three launch the real flow
+# Free-playtest drives (opt-in, not a CI gate). Every one launches the real flow
 # through `tests/playtest_launch.gd` (title -> setup -> capital chart -> map), so
 # a flow change that strands a drive fails loudly instead of printing one line.
 
@@ -59,6 +59,11 @@ godot --headless --path . --script res://tests/playtest_quick_battle.gd
 # Land combat — a multi-attacker chain, an unopposed capture, a peaceful third
 # army blocking one, and the player defending a fort through a whole AI turn.
 godot --headless --path . --script res://tests/playtest_combat_chain.gd
+
+# Espionage — opens a turn-100 advanced start, despatches a spy across a border,
+# ends a real turn and prints the dossier, the presence reveal, the despatch the
+# court keeps, the research share it earns, and the counter-espionage screen.
+godot --headless --path . --script res://tests/playtest_espionage.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

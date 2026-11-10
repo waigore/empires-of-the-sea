@@ -44,6 +44,14 @@ Never put long campaign playtests into CI smoke (≤2 min). Prefer `tests/` regr
 - **The drives share `tests/playtest_launch.gd`** (title → setup → capital chart →
   map). A drive that prints one line and `map screen missing` means the launch flow
   moved: repair the launcher, not the game, and say so in the PR.
+- **A documented "X before Y" ordering must consume the blow, not add a second
+  hit.** Where the wiki has one target engaged first (a fort battery shot at
+  "before the lanes"), code that applies the whole attack to X and then the whole
+  attack to Y lets both land; spend what X soaked and let only the remainder on.
+- **Splitting one casualty draw into pools must keep the side's single limit.**
+  A per-pool deployment limit lets one blow bleed two or three times the deployed
+  slice, so reserves the rule protects die anyway; draw the first pool to the
+  limit and hand the rest of it to the next pool.
 - **Preload test helpers, do not `class_name` them.** `tools/run.sh` only rescans
   `scripts/ scenes/ ui/ autoload/` for the class cache, so a new `class_name` under
   `tests/` is not declared on a manual run.

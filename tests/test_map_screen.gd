@@ -129,11 +129,11 @@ func test_capital_tile_comes_from_the_capital_choice_phase() -> void:
 
 
 func test_focus_capital_centres_on_the_capital_tile() -> void:
-	MapPlayTurn.focus_capital(_screen.play)
+	MapPlaySetup.focus_capital(_screen.play)
 	for _step in 20:
 		_screen.camera._process(0.2)
 	var expected: Vector2 = CameraMath.clamp_center(
-		MapPlayTurn.capital_world(_screen.play),
+		MapPlaySetup.capital_world(_screen.play),
 		_screen.camera.zoom.x,
 		_screen.camera.viewport_size(),
 		_screen.camera.map_size
@@ -523,6 +523,85 @@ func test_end_turn_holds_the_province_a_spy_shadows() -> void:
 		_screen.visibility.is_province_fully_visible(province),
 		"the shadowed province is held in view"
 	)
+
+
+## The share a spy network wins must be visible where it is spent: the ledger
+## reports "1 study quickened", and the slot it lifted carries the "+15%" marker
+## (REQ-P5-05; DR-20261110-03). The share used to be wiped before the panel
+## repainted, so the marker never appeared at all.
+func test_the_quickened_slot_shows_its_share_after_the_turn() -> void:
+	var rival: int = _rival_great_power()
+	assert_true(rival >= 0, "the world has a rival Great Power province")
+	var province: int = _foreign_province_of(rival)
+	_screen.civilian_layer.add_unit(
+		_screen.play.player_faction, "spy", _screen.model.province_tiles(province)[0]
+	)
+	if _screen.play.ai == null:
+		_screen.play.ai = AiState.new()
+	var tech: String = _first_studyable_tech()
+	assert_false(tech.is_empty(), "the crown has an advance it could study")
+	_screen.play.ai.economy_for(rival).tech_unlocked[tech] = true
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+	assert_eq(
+		SpyNetworks.boost_for(MapPlayEspionage.research_boost(_screen.play), tech),
+		15,
+		"the spy still shadows the court whose tech it studies"
+	)
+	_screen.play.economy.open_research()
+	var marked: bool = false
+	for row: String in _research_slot_rows():
+		if row.contains(TechCatalog.display_name(tech)) and row.contains("+15%"):
+			marked = true
+	assert_true(marked, "the quickened slot shows the share it earned")
+
+
+## An advanced start opens at turn 50 or 100, so a briefing that always says
+## "Turn 1, 1500" greets a mid-age court with the wrong year (wiki:
+## advanced-starts).
+func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
+	RegionBriefing.opening(_screen.hud, _screen.model, _screen.capital_province, 0, 100)
+	assert_true(
+		_toast_texts().has("The Indies await — Turn 100, 1698"),
+		"the turn-100 preset opens in 1698"
+	)
+	RegionBriefing.opening(_screen.hud, _screen.model, _screen.capital_province, 0)
+	assert_true(
+		_toast_texts().has("The Indies await — Turn 1, 1500"),
+		"a turn-0 campaign still opens in 1500"
+	)
+
+
+## First advance the crown lacks and could put in a slot right now.
+func _first_studyable_tech() -> String:
+	for id: String in TechCatalog.ids():
+		if _screen.play.has_tech(_screen.play.player_faction, id):
+			continue
+		if bool(_screen.play.economy.economy.research.assign(id).get("ok", false)):
+			return id
+	return ""
+
+
+## One line per occupied research slot, as the panel draws it.
+func _research_slot_rows() -> Array[String]:
+	var rows: Array[String] = []
+	for row: Node in _screen.hud.panels.research_panel.find_children(
+		"*", "HBoxContainer", true, false
+	):
+		var texts: PackedStringArray = PackedStringArray()
+		for label: Label in row.find_children("*", "Label", true, false):
+			texts.append(label.text)
+		if texts.size() >= 2 and " / " in texts[1]:
+			rows.append(" | ".join(texts))
+	return rows
+
+
+func _toast_texts() -> Array[String]:
+	var texts: Array[String] = []
+	for panel: Node in _screen.hud._toast_box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			texts.append(label.text)
+	return texts
 
 
 ## First Old World province owned by a rival Great Power, or -1.

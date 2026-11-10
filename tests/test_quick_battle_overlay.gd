@@ -84,6 +84,56 @@ func test_a_despatch_reports_the_losses_it_inflicted() -> void:
 		QuickBattleCopy.action_line(quiet, battle, NAMES),
 		"España — Entrench · 1 gun silenced"
 	)
+	var turned := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 0, "guns_destroyed": 0, "turned": 2,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(turned, battle, NAMES),
+		"España — Volley fire · the wall turns it aside"
+	)
+	var behind := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 1, "guns_destroyed": 0, "behind_lost": 1,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(behind, battle, NAMES),
+		"España — Volley fire · 1 lost · 1 behind the wall"
+	)
+	## A blow the standing battery soaked says so, or the player reads a silent
+	## action and cannot tell the guns are still answering.
+	var soaked := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 0, "guns_destroyed": 0, "battery_hit": 1,
+	}
+	assert_eq(
+		QuickBattleCopy.action_line(soaked, battle, NAMES),
+		"España — Volley fire · the battery takes the blow"
+	)
+
+
+## The aftermath names the dead and the wall: both are written into the log the
+## player reads after the plate finishes.
+func test_the_aftermath_logs_the_losses_and_the_siege() -> void:
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 1
+	battle["defender_detail"] = {"pikemen": 2}
+	battle["quick"]["lanes"] = {"wall": 2, "behind": 0}
+	battle["quick"]["guns_start"] = 1
+	battle["quick"]["fort_downgraded"] = true
+	battle["quick"]["fort_after"] = 0
+
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay.skip()
+
+	var text: String = ""
+	for line: Label in overlay._log.get_children():
+		text += String(line.text) + "\n"
+	assert_true(text.contains("Losses — England: 2 Pikemen"), text)
+	assert_true(text.contains("battery silenced"), text)
+	overlay.free()
 
 
 ## The plate must lead with the plan the player set — on the defending side the
@@ -104,6 +154,39 @@ func test_the_plate_leads_with_the_players_own_plan() -> void:
 		"the defender reads their own stance, and one gun is not \"1 guns\""
 	)
 	overlay.free()
+
+
+## The siege despatch tells the lanes, the wall's protection and the level a
+## silenced battery leaves behind; a field battle says nothing extra.
+func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["lanes"] = {"wall": 4, "behind": 2}
+	battle["quick"]["sorties"] = 1
+	battle["quick"]["fort_downgraded"] = true
+	battle["quick"]["fort_after"] = 1
+
+	var line: String = QuickBattleCopy.siege_line(battle)
+
+	assert_true(line.contains("Stone fort"), line)
+	assert_true(line.contains("45%"), "the wall's damage reduction is told")
+	assert_true(line.contains("4 on the wall, 2 behind"), line)
+	assert_true(line.contains("1 sortie"), line)
+	assert_true(line.contains("falls to Wood"), line)
+	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle has no siege line")
+
+
+## Regiment detail in the aftermath: the named types each side lost.
+func test_the_loss_line_names_the_regiments() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_detail"] = {"guards": 2}
+	battle["defender_detail"] = {"pikemen": 3, "culverin": 1}
+
+	assert_eq(
+		QuickBattleCopy.loss_line(battle, NAMES),
+		"Losses — España: 2 Guards · England: Culverin · 3 Pikemen"
+	)
+	assert_eq(QuickBattleCopy.loss_line(_battle(), NAMES), "", "a quiet field has no loss line")
 
 
 func _battle() -> Dictionary:

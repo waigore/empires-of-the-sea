@@ -44,6 +44,11 @@ static func resolve_exchange(
 	state["defender"]["plan"] = plan_for(def_side, defender, context, true)
 	var atk_start: int = ArmyCombat.side_regiments(atk_side)
 	var def_start: int = ArmyCombat.side_regiments(def_side)
+	## Lane split when the battle opened: casualties shrink the lanes as it runs.
+	var wall_start: int = SiegeLanes.wall_ids(def_side).size()
+	var behind_start: int = SiegeLanes.behind_ids(def_side).size()
+	var atk_types: Dictionary = _type_counts(atk_side)
+	var def_types: Dictionary = _type_counts(def_side)
 	var rounds: Array[Dictionary] = []
 	for round_index in MAX_ROUNDS:
 		if ArmyCombat.side_regiments(atk_side) == 0:
@@ -57,6 +62,7 @@ static func resolve_exchange(
 	var fort_downgraded: bool = QuickBattleBattery.downgrade_fort(
 		model, province, fort_level, guns
 	)
+	var fort_after: int = FortRules.level_at(model, province)
 	var outcome: int = _outcome(
 		atk_left, def_left, state, guns_left, atk_mods, def_mods
 	)
@@ -87,10 +93,22 @@ static func resolve_exchange(
 		"defender_left": def_left,
 		"guns_start": guns.size(),
 		"guns_left": guns_left,
+		"guns_lost": guns.size() - guns_left,
+		"gun_type": _gun_type(context, defender),
 		"fort_downgraded": fort_downgraded,
+		"fort_after": fort_after,
+		## The wall lanes the defender held when the battle opened, and how often
+		## the garrison left them to sortie (wiki: siege-mechanics).
+		"lanes": {
+			"wall": wall_start,
+			"behind": behind_start,
+		},
+		"sorties": _sortie_count(rounds),
 		"attacker_cohesion": int(state["attacker"]["cohesion"]),
 		"defender_cohesion": int(state["defender"]["cohesion"]),
 	}
+	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
+	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
 	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:
 		ArmyCombat.flip(model, province, attacker)
 		report["captured"] = true
@@ -145,6 +163,8 @@ static func _side_state(
 		"guard": 0.0,
 		"lost": [] as Array[String],
 		"plan": "balanced",
+		## A sortieing defender stands outside the wall for the round.
+		"exposed": false,
 	}
 
 
@@ -158,6 +178,8 @@ static func _round(
 	var order: Array[int] = _order(state, context)
 	state["attacker"]["guard"] = 0.0
 	state["defender"]["guard"] = 0.0
+	state["attacker"]["exposed"] = false
+	state["defender"]["exposed"] = false
 	var atk_side: Array[ArmyState] = state["attacker"]["side"]
 	var def_side: Array[ArmyState] = state["defender"]["side"]
 	var log: Dictionary = {
@@ -190,6 +212,11 @@ static func _round(
 					"attacker_lost": hit,
 					"defender_lost": 0,
 					"guns_destroyed": 0,
+					"battery_hit": 0,
+					"wall_lost": 0,
+					"behind_lost": 0,
+					"turned": 0,
+					"sortie": false,
 				})
 	log["attacker_count"] = ArmyCombat.side_regiments(atk_side)
 	log["defender_count"] = ArmyCombat.side_regiments(def_side)
@@ -197,6 +224,45 @@ static func _round(
 	log["attacker_cohesion"] = int(state["attacker"]["cohesion"])
 	log["defender_cohesion"] = int(state["defender"]["cohesion"])
 	return log
+
+
+## Regiments held by type, so a battle can report what it cost by type.
+static func _type_counts(side: Array[ArmyState]) -> Dictionary:
+	var counts: Dictionary = {}
+	for army: ArmyState in side:
+		if army == null:
+			continue
+		for regiment_id: String in army.regiments:
+			var type_id: String = army.type_of(regiment_id)
+			counts[type_id] = int(counts.get(type_id, 0)) + 1
+	return counts
+
+
+## before minus after: the regiments a side actually lost, by type.
+static func _losses(before: Dictionary, after: Dictionary) -> Dictionary:
+	var lost: Dictionary = {}
+	for type_id: Variant in before.keys():
+		var gone: int = int(before[type_id]) - int(after.get(type_id, 0))
+		if gone > 0:
+			lost[String(type_id)] = gone
+	return lost
+
+
+## Emplaced gun quality the defending court's techs unlock (wiki: siege-mechanics).
+static func _gun_type(context: Dictionary, defender: int) -> String:
+	var tech: Dictionary = context.get("tech", {}) as Dictionary
+	var unlocked: Dictionary = tech.get(defender, {}) as Dictionary
+	return FortRules.emplaced_type(unlocked)
+
+
+## Rounds in which the garrison left the wall to sortie.
+static func _sortie_count(rounds: Array[Dictionary]) -> int:
+	var count: int = 0
+	for round: Dictionary in rounds:
+		for entry: Dictionary in round.get("actions", []) as Array:
+			if bool(entry.get("sortie", false)):
+				count += 1
+	return count
 
 
 static func _order(state: Dictionary, context: Dictionary) -> Array[int]:
