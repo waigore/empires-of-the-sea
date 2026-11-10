@@ -15,11 +15,10 @@ P5 unbookkept rivals.
   agendas from `hash(seed, faction)`.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
-- **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
-  relations and modifiers. Declarations need relation ≤ ceiling (50;
-  warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals clamp
-  `round(desire / 25)`. At war, desire < 50 offers peace (rival immediate,
-  human queued), 3-turn cooldown.
+- **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power
+  and relations. Declarations need relation ≤ ceiling (50; warmonger 70,
+  peacemaker 30), desire ≥ 51, no 4-turn cooldown. At war, desire < 50 offers
+  peace (rival immediate, human queued).
 - **Turn pass** (`AiTurn`): one legal order per rival through `DiplomacyRules`,
   traced; human proposals queue. Declarations land before combat.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
@@ -48,12 +47,14 @@ P5 unbookkept rivals.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
   inputs; bid short build inputs on free holds (3 types; 6 with Trade Fairs).
 - **Regiment parity** (`MilitaryParity`): after movement, Minor land regiments
-  match the strongest Great Power era; Tribes stay at level 1.
+  match the leading power's era; Tribes stay at level 1. Rivals re-equip
+  on their own techs and pay each land battle's attack price (`RegimentUpgrades`,
+  `ArmyAttackCost`).
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
-  evidence, banded suspicion per agenda, best guess and behaviour counts
+- **Court dossier** (`IntelDossier`, `CourtDossier`): rival reading — evidence,
+  banded suspicion per agenda, best guess, behaviour counts
   ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)

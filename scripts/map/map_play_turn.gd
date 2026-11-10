@@ -147,8 +147,18 @@ static func _finish_turn(play: PlaySession) -> void:
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 	MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Minor Regiment Upgrade runs after movement and before combat.
-	MilitaryParity.apply(play.army_layer.regions, MapPlayCampaign.tech_by_faction(play))
+	# Regiment upgrade runs after movement and before combat: a crown's men take
+	# up the newest pattern its own techs allow, and Minors follow the leading
+	# power (wiki: tech-tree-military § Infantry/Cavalry/Artillery; factions
+	# § Minor military parity).
+	var tech_by_faction: Dictionary = MapPlayCampaign.tech_by_faction(play)
+	var upgrades: Dictionary = RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
+	MilitaryParity.apply(play.army_layer.regions, tech_by_faction)
+	if play.hud != null:
+		var rearmed: int = int((upgrades["by_faction"] as Dictionary).get(play.player_faction, 0))
+		if rearmed > 0:
+			play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
+				rearmed, "" if rearmed == 1 else "s"])
 	var land_battles: Array[Dictionary] = MapPlayArmies.resolve_battles(play)
 	var naval_battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
 	MapPlaySpies.resolve(play)

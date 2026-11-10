@@ -367,3 +367,128 @@ func _repeat(type_id: String, count: int) -> Array[String]:
 	for _index in count:
 		types.append(type_id)
 	return types
+
+# --- in-place regiment upgrades (DR-20261110-17) -----------------------------
+## A Great Power's men re-equip the turn after the unlocking tech lands, keeping
+## the regiment instance, army and province (wiki: tech-tree-military § Infantry,
+## Cavalry, Artillery — "Improves: <type> upgrade path").
+
+
+func test_each_military_tech_names_the_type_its_regiment_replaces() -> void:
+	var expected: Dictionary = {
+		"organised_regiments": ["knights", "lancers"],
+		"improved_iron_weapons": ["pikemen", "halberdiers"],
+		"improved_infantry_tactics": ["peasant_levies", "calivermen"],
+		"bayonet": ["halberdiers", "regulars"],
+		"weapon_craftsmanship": ["arquebusiers", "musketeers"],
+		"explosives": ["musketeers", "grenadiers"],
+		"early_rifles": ["calivermen", "skirmishers"],
+		"long_range_rifles": ["skirmishers", "sharpshooters"],
+		"needle_guns": ["regulars", "rifle_infantry"],
+		"elite_military_training": ["grenadiers", "guards"],
+		"recruit_steppe_horsemen": ["squires", "cossacks"],
+		"hussars": ["cossacks", "hussars"],
+		"scouting": ["hussars", "scouts"],
+		"improved_cavalry_weapons": ["harquebusiers", "cuirassiers"],
+		"repeating_cavalry_carbine": ["cuirassiers", "carbine_cavalry"],
+		"siege_engineering": ["culverin", "royal_artillery"],
+		"light_artillery_tactics": ["horse_artillery", "light_artillery"],
+		"heavy_artillery": ["royal_artillery", "heavy_artillery"],
+		"field_artillery_tactics": ["light_artillery", "field_artillery"],
+		"high_grade_steel": ["heavy_artillery", "siege_guns"],
+	}
+	for tech_id: Variant in expected.keys():
+		var path: Dictionary = RegimentUpgrades.path_for(String(tech_id))
+		var pair: Array = expected[tech_id]
+		assert_eq(String(path.get("from", "")), String(pair[0]), String(tech_id))
+		assert_eq(String(path.get("to", "")), String(pair[1]), String(tech_id))
+		assert_eq(
+			String(path.get("name", "")),
+			"%s upgrade path" % RegimentCatalog.display_name(String(pair[0])),
+			String(tech_id)
+		)
+
+
+func test_the_first_type_of_a_branch_and_its_dependants_open_no_path() -> void:
+	assert_true(RegimentUpgrades.path_for("improved_cavalry_tactics").is_empty())
+	assert_true(RegimentUpgrades.path_for("horse_artillery").is_empty())
+	assert_true(RegimentUpgrades.path_for("crucible_process").is_empty())
+	assert_true(RegimentUpgrades.path_for("modern_forts").is_empty())
+	assert_true(RegimentUpgrades.path_for("").is_empty())
+
+
+func test_bowmen_knights_and_lancers_sit_at_the_top_of_their_ladders() -> void:
+	assert_eq(RegimentUpgrades.previous_type("bowmen"), "")
+	assert_eq(RegimentUpgrades.previous_type("lancers"), "knights")
+	assert_eq(RegimentUpgrades.previous_type("scouts"), "hussars")
+	assert_eq(RegimentUpgrades.previous_type("not_a_regiment"), "")
+
+
+func test_the_newest_buildable_type_in_the_category_wins() -> void:
+	assert_eq(RegimentUpgrades.target_type("pikemen", {}), "pikemen")
+	assert_eq(
+		RegimentUpgrades.target_type("pikemen", {"improved_iron_weapons": true}),
+		"halberdiers"
+	)
+	assert_eq(
+		RegimentUpgrades.target_type(
+			"pikemen", {"improved_iron_weapons": true, "bayonet": true}
+		),
+		"regulars",
+		"a court never stops at the first rung"
+	)
+	assert_eq(
+		RegimentUpgrades.target_type("squires", {"bayonet": true}),
+		"squires",
+		"another branch's research never re-equips this one"
+	)
+
+
+func test_apply_re_equips_great_power_regiments_in_place() -> void:
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var other: int = FactionCatalog.great_power_ids()[1]
+	var regions := MapRegionTable.new()
+	var army: ArmyState = ArmyState.muster(1, power, 0, true, ["pikemen", "bowmen"], 1)
+	var rival: ArmyState = ArmyState.muster(2, other, 0, true, ["squires"], 10)
+	regions.set_region(0, [army, rival])
+
+	var pikemen: String = army.regiments[0]
+	var bowmen: String = army.regiments[1]
+	var squires: String = rival.regiments[0]
+	var report: Dictionary = RegimentUpgrades.apply(regions, {
+		power: {"improved_iron_weapons": true},
+		other: {"recruit_steppe_horsemen": true},
+	})
+
+	assert_eq(int(report["count"]), 2)
+	assert_eq(int((report["by_faction"] as Dictionary).get(power, 0)), 1)
+	assert_eq(army.type_of(pikemen), "halberdiers")
+	assert_eq(army.type_of(bowmen), "bowmen", "bowmen have no upgrade path")
+	assert_eq(rival.type_of(squires), "cossacks", "rivals re-equip off their own techs")
+	assert_eq(army.regiments, [pikemen, bowmen], "instance ids never change")
+
+
+func test_apply_skips_minors_tribes_and_courts_with_nothing_new() -> void:
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var regions := MapRegionTable.new()
+	var minor_army: ArmyState = ArmyState.muster(1, minor, 0, true, ["pikemen"], 1)
+	var tribe_army: ArmyState = ArmyState.muster(2, tribe, 0, true, ["pikemen"], 10)
+	var power_army: ArmyState = ArmyState.muster(3, power, 0, true, ["pikemen"], 20)
+	regions.set_region(0, [minor_army, tribe_army, power_army])
+
+	var report: Dictionary = RegimentUpgrades.apply(regions, {
+		power: {"bayonet": true},
+		minor: {"bayonet": true},
+		tribe: {"bayonet": true},
+	})
+
+	assert_eq(int(report["count"]), 1)
+	assert_eq(power_army.type_of(power_army.regiments[0]), "regulars")
+	assert_eq(
+		minor_army.type_of(minor_army.regiments[0]), "pikemen",
+		"Minors follow the parity pass"
+	)
+	assert_eq(tribe_army.type_of(tribe_army.regiments[0]), "pikemen")
+	assert_eq(int(RegimentUpgrades.apply(null, {})["count"]), 0)

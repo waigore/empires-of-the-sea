@@ -894,3 +894,130 @@ func test_a_raid_with_no_zone_name_still_reads() -> void:
 	var text: String = BattleReport.describe_raid(raid, "", FACTIONS, 0)
 	assert_true(text.contains("open water"))
 	assert_true(text.contains("no cargo"))
+
+# --- attack treasury (wiki: tech-tree-military § Economy modifiers) ---------
+
+
+func test_the_attack_price_follows_the_published_techs() -> void:
+	assert_eq(ArmyAttackCost.cost({}), 100, "base price per battle")
+	assert_eq(ArmyAttackCost.cost({"industrial_machinery": true}), 75)
+	assert_eq(ArmyAttackCost.cost({"modern_military_funding": true}), 85)
+	assert_eq(
+		ArmyAttackCost.cost({
+			"industrial_machinery": true, "modern_military_funding": true,
+		}),
+		63,
+		"the two factors multiply"
+	)
+	assert_almost_eq(ArmyAttackCost.multiplier({}), 1.0, 0.001)
+	assert_almost_eq(ArmyAttackCost.multiplier({"modern_military_funding": true}), 0.85, 0.001)
+
+
+func test_a_charge_draws_on_the_callers_ledger() -> void:
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+	var fee: Dictionary = ArmyAttackCost.charge({"pay_attack": pay, "tech": {2: {}}}, 2)
+	assert_eq(charged, [[2, 100]])
+	assert_eq(int(fee["due"]), 100)
+	assert_eq(int(fee["paid"]), 100)
+	var free: Dictionary = ArmyAttackCost.charge({}, 2)
+	assert_eq(int(free["due"]), 100)
+	assert_eq(int(free["paid"]), 0, "no ledger means nothing is taken")
+	var thin: Dictionary = ArmyAttackCost.charge(
+		{"pay_attack": func(_o: int, _c: int) -> int: return 40}, 2
+	)
+	assert_eq(int(thin["paid"]), 40, "a thin purse never overpays")
+	var report: Dictionary = ArmyAttackCost.stamp(thin, {})
+	assert_eq(int(report["attack_cost"]), 100)
+	assert_eq(int(report["attack_paid"]), 40)
+
+
+func test_the_crowns_ledger_pays_and_floors_at_zero() -> void:
+	var ledger := PlayerEconomy.starting()
+	var before: int = ledger.treasury
+	assert_eq(ArmyAttackCost.pay(ledger, 100), 100)
+	assert_eq(ledger.treasury, before - 100)
+	ledger.treasury = 40
+	assert_eq(ArmyAttackCost.pay(ledger, 100), 40, "a crown never fights on credit")
+	assert_eq(ledger.treasury, 0)
+	assert_eq(ArmyAttackCost.pay(null, 100), 0, "no ledger, no charge")
+
+
+func test_the_battle_context_charges_through_the_crowns_own_ledger() -> void:
+	var play := PlaySession.new()
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+	play.economy = controller
+	play.player_faction = FactionCatalog.PLAYER_FACTION
+	var before: int = controller.economy.treasury
+
+	var pay: Callable = MapPlayArmies.battle_context(play)["pay_attack"]
+
+	assert_eq(int(pay.call(play.player_faction, 75)), 75)
+	assert_eq(controller.economy.treasury, before - 75)
+	assert_eq(
+		int(pay.call(FactionCatalog.great_power_ids()[1], 75)), 0,
+		"a court with no ledger pays nothing"
+	)
+	controller.free()
+
+
+func test_a_land_battle_charges_its_attacker_once() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"pay_attack": pay, "tech": {0: {"industrial_machinery": true}}}
+	)
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["attack_cost"]), 75)
+	assert_eq(int(reports[0]["attack_paid"]), 75)
+	assert_eq(charged, [[0, 75]], "the defender pays nothing")
+
+
+func test_each_attacker_in_a_chain_pays_its_own_price() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["guards", "guards", "guards"], true)
+	var first := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	first.moved = true
+	var second := Fixture.army(3, 2, 2, ["pikemen", "pikemen"])
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {"pay_attack": pay})
+
+	assert_eq(reports.size(), 2, "both attackers get an exchange")
+	assert_eq(charged.size(), 2, "one charge per battle context")
+	assert_eq(int(reports[0]["attack_paid"]), 100)
+	assert_eq(int(reports[1]["attack_paid"]), 100)
+
+
+func test_an_unopposed_capture_costs_no_battle_treasury() -> void:
+	var model := Fixture.build()
+	var attacker := Fixture.army(1, 0, 3, ["guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [attacker]
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {"pay_attack": pay})
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(charged, [], "walking into an empty province is not a battle")
+	assert_eq(model.province_owner(3), 0)

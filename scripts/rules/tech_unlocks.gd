@@ -27,6 +27,8 @@ static func entries(tech_id: String) -> Array[Dictionary]:
 	rows.append_array(_forts(tech_id))
 	rows.append_array(_rails(tech_id))
 	rows.append_array(_generals(tech_id))
+	rows.append_array(_upgrades(tech_id))
+	rows.append_array(_attack_costs(tech_id))
 	rows.sort_custom(_before)
 	return rows
 
@@ -143,6 +145,33 @@ static func _generals(tech_id: String) -> Array[Dictionary]:
 		return rows
 	rows.append(_row(
 		Kind.IMPROVE, "general_cap", "general cap to %d" % int(GeneralRoster.CAP_TECHS[tech_id])
+	))
+	return rows
+
+
+## The in-place upgrade each military tech opens: the type its newest regiment
+## replaces inside the same category (wiki: tech-tree-military § Infantry,
+## Cavalry, Artillery — "Improves: <type> upgrade path"; DR-20261110-17).
+static func _upgrades(tech_id: String) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var path: Dictionary = RegimentUpgrades.path_for(tech_id)
+	if path.is_empty():
+		return rows
+	rows.append(_row(
+		Kind.IMPROVE, "upgrade_%s" % String(path["from"]), String(path["name"])
+	))
+	return rows
+
+
+## A tech's factor on the treasury one land battle costs its attacker (wiki:
+## tech-tree-military § Economy modifiers).
+static func _attack_costs(tech_id: String) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if not ArmyAttackCost.TECH_FACTORS.has(tech_id):
+		return rows
+	rows.append(_row(
+		Kind.IMPROVE, "attack_cost",
+		"land-battle attack cost ×%.2f" % float(ArmyAttackCost.TECH_FACTORS[tech_id])
 	))
 	return rows
 

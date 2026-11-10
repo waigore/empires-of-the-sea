@@ -239,17 +239,15 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 ## Feeding, leaders, techs and difficulty for Combat; seed binds generals.
 ## `hostile` is the war query (wiki: diplomacy § War required).
 static func battle_context(play: PlaySession) -> Dictionary:
-	var tech: Dictionary = {}
+	# Every crown fights on its own tech (REQ-P2-03) and pays its own price.
+	var tech: Dictionary = MapPlayCampaign.tech_by_faction(play)
 	if play.observer_mode and play.ai != null:
-		# Every crown fights on its own researched tech (REQ-P2-03).
-		for faction: int in FactionCatalog.great_power_ids():
-			tech[faction] = play.ai.economy_for(faction).tech_unlocked
-	elif play.economy != null and play.economy.economy != null:
-		tech[play.player_faction] = play.economy.economy.tech_unlocked
+		tech[play.player_faction] = play.ai.economy_for(play.player_faction).tech_unlocked
 	return {
 		"feeding": play.feeding,
 		"leaders": play.leaders,
 		"tech": tech,
+		"pay_attack": func(f: int, c: int) -> int: return ArmyAttackCost.pay(play.ledger_for(f), c),
 		"seed": play.turn,
 		"hostile": hostile(play),
 		## The observer has no human battle to plate; every exchange
@@ -290,6 +288,8 @@ static func resolve_battles(play: PlaySession) -> Array[Dictionary]:
 		var line: String = prefix + BattleReport.describe_land(
 			battle, province, FactionCatalog.names()
 		)
+		if int(battle.get("attack_paid", 0)) > 0:
+			line += " — %d ducats spent" % int(battle["attack_paid"])
 		if battle.has("quick") and play.hud != null:
 			battle["player_faction"] = play.player_faction
 			play.hud.show_quick_battle(battle, prefix + province)
