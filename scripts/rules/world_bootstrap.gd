@@ -23,6 +23,7 @@ static func apply(model: MapModel, works: LandWorks) -> Dictionary:
 		"ports": 0,
 		"roads": 0,
 		"farms": 0,
+		"town_roads": 0,
 		"town_development": 0,
 	}
 	if model == null or works == null:
@@ -32,6 +33,7 @@ static func apply(model: MapModel, works: LandWorks) -> Dictionary:
 	_seed_town_development(model, report)
 	if model.region_id == FactionCatalog.OLD_WORLD:
 		_seed_grain_farms(model, works, report)
+	_seed_town_roads(model, works, report)
 	return report
 
 
@@ -81,6 +83,42 @@ static func _seed_town_development(model: MapModel, report: Dictionary) -> void:
 			continue
 		province.town_development = CAPITAL_TOWN_DEVELOPMENT
 		report["town_development"] = int(report["town_development"]) + 1
+
+
+# --- init town roads ---------------------------------------------------------
+
+
+## Every owned town reaches its crown on owned land (wiki: capital-and-connectivity
+## § Init town roads). One globally shortest path per province raises road level to
+## at least 1, merged with the harbour roads above so nothing is downgraded. The
+## Old World is the default wiring region: New World tribes keep their towns
+## unlinked until a crown builds roads to them.
+static func _seed_town_roads(
+	model: MapModel, works: LandWorks, report: Dictionary
+) -> void:
+	if model.region_id != FactionCatalog.OLD_WORLD:
+		return
+	for faction: int in FactionCatalog.ids_in_region(model.region_id):
+		var seat: int = capital_province(model, faction)
+		if seat < 0:
+			continue
+		var capital: Vector2i = model.capital_tile_of(seat)
+		if capital.x < 0:
+			continue
+		for province: ProvinceState in model.provinces:
+			if province.owner != faction:
+				continue
+			var town: Vector2i = province.town_tile
+			if town.x < 0 or town == capital:
+				continue
+			var path: Array[Vector2i] = _path(model, faction, capital, town)
+			if path.size() < 2:
+				continue
+			for tile: Vector2i in path:
+				if works.transport_at(model, tile) < LandWorks.TRANSPORT_ROAD:
+					works.set_transport(model, tile, LandWorks.TRANSPORT_ROAD)
+			province.road_paths.append(path)
+			report["town_roads"] = int(report["town_roads"]) + 1
 
 
 # --- guaranteed grain --------------------------------------------------------

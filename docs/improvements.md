@@ -19,19 +19,21 @@ Great Powers level 4 plus four guaranteed L1 grain farms wired to the seat.
   Iron/Coal/Gold/Tin → Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
 - **Levels 1–4.** A Builder raises a tile one level for 1/4/8/16 lumber + cast
   iron over its target-level turns. Tiles need a crowned resource; minerals need
-  prospecting. Orders above the tech or terrain cap are refused.
+  prospecting. Orders above a cap are refused.
 - **Terrain caps:** scrub forest hard-caps timber at level 1; hardwood follows
   the tech cap.
 - **Path transport:** a tile's cap is the bottleneck of its best road/rail/port
-  route to the capital. Tiles beside the network take the adjacent path's cap;
-  several routes use the highest cap.
-- **Town rule:** each province town is 4-adjacent to its extracting tiles.
-  Capital provinces cap yield at town development; a connected non-capital port
-  town caps the tiles that reach the crown only through it. An estate on a road
-  or rail to the crown (or beside one that is) ignores the town cap, so a
-  colony's roads lift it.
+  route to the capital. Tiles beside the network take that path's cap; several
+  routes use the highest.
+- **Init town roads:** setup roads every owned Old World town to its crown;
+  New World towns wait for built roads
+  (wiki: capital-and-connectivity § Init town roads).
+- **Town rule:** estates 4-adjacent to a province town extract; capital
+  provinces cap yield at town development, and a non-capital port town caps the
+  tiles that reach the crown only through it. An estate on (or beside) a road to
+  the crown ignores the town cap.
 - **Town development 1–4** comes from a Builder `upgrade_town` order (National
-  Bureaucracy; improvement material table, interim). Level 2 or 4 adds town
+  Bureaucracy; interim material table). Level 2 or 4 adds town
   manufacturing ([economy.md](economy.md)).
 - **Assignment can cross the map.** A Builder may target another owned tile,
   including an enclave, and returns on cancel. Materials are paid at assign.
