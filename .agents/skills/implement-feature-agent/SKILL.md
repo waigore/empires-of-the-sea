@@ -99,6 +99,8 @@ Extend `tools/e2e_smoke.gd` when the feature has a main-scene / player path the 
 - A page reachable on Android must answer `NOTIFICATION_WM_GO_BACK_REQUEST` itself: the request reaches every node and the router swaps pages deferred, so an unhandled page quits the app.
 - The map is regenerated from seed on load, so anything the generator decides (capital seat, town, ports) needs an explicit `SaveWorld` per-province field or a reload silently reverts it.
 - A suite that mutates a shared generated world must snapshot and restore the province records it touches (capital, tile, ports, roads, town, resource) **and** `model.terrain` / `model.resource`; `MapFixture.snapshot` only covers owners and capitals.
+- `tests/impact_map.toml` marks shared-helper suites (`test_ledger_helpers`, `tests/map_fixture.gd`) `full = true`: one changed line there makes CI run the whole suite inside the 5-minute `tests` job and the step is cancelled, so the PR goes red. Put a text/helper assertion in the domain-mapped suite that owns the feature (e.g. `test_economy_overseas` asserts `LedgerText` lines) and run `python tools/select_impacted_tests.py --base origin/main` — expect a short list, not `ALL` — before pushing.
+- `scripts/ai/ai_parameter_registry.gd` sits at the 400-line cap, so a new knob needs a group split: move a whole category (e.g. `market.*`) to `<category>_parameters.gd` and have `entries()` append its `const PARAMETERS` (cross-file `const A = B + C` is not a constant expression in Godot). Planner modules at the cap can delegate their per-unit policy to a new pure module the way `AiBuilderWork` and `AiTownRoads` do.
 
 ### 6. Self-score
 
