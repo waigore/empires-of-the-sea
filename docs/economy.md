@@ -73,7 +73,9 @@ the Minor/Tribe ask carry it; price discovery reads the published price.
 
 `ECONOMY` shows treasury, stockpile, trade and projection. The `MARKET` tab
 lists staged orders, the Minor/Tribe harvest and world rows; presses are
-intents (`REQ-P2-03`).
+intents (`REQ-P2-03`). The `WORKERS` tab holds the tier roster: `RECRUIT` per
+tier and, for trained tiers, `DISBAND` — one worker back to the fields at once,
+no refund, inert when the tier is empty. Rows are thumb-sized on a phone.
 
 ## Architecture
 

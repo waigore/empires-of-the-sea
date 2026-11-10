@@ -80,9 +80,43 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["fabric"] = 2
 	var before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
-	_screen.economy._on_recruit(WorkerPool.Tier.PEASANT)
+	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before + 1)
 	assert_eq(economy.quantity("fabric"), 0)
+
+
+func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var key: String = "disband:%d" % WorkerPool.Tier.APPRENTICE
+	var disband: Button = workers.action_buttons().get(key) as Button
+	assert_not_null(disband, "a trained tier offers disband")
+	assert_false(disband.disabled, "one apprentice can go home")
+	assert_true(
+		disband.tooltip_text.contains("no recruit cost is refunded"),
+		"the promise is on the control: %s" % disband.tooltip_text
+	)
+	var peasants_before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
+	var treasury_before: int = economy.treasury
+	disband.pressed.emit()
+	assert_eq(economy.workers.count(WorkerPool.Tier.APPRENTICE), 0)
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), peasants_before + 1)
+	assert_eq(economy.treasury, treasury_before, "disband refunds and charges nothing")
+	var rebuilt: Dictionary = (
+		panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	).action_buttons()
+	assert_true(
+		(rebuilt.get(key) as Button).disabled,
+		"the emptied tier goes inert"
+	)
+	assert_false(
+		rebuilt.has("disband:%d" % WorkerPool.Tier.PEASANT),
+		"a peasant is never disbanded"
+	)
 
 
 func test_ending_the_turn_resolves_the_economy() -> void:
