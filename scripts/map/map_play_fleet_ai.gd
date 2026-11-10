@@ -37,8 +37,10 @@ static func _run_region(
 		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		# The court's own chart: it hunts only what it has charted
+		# (wiki: fog-and-exploration; DR-20261110-21).
 		var plan: Dictionary = AiNavalPlanner.orders(
-			config, play.diplomacy, model, roster
+			config, play.diplomacy, model, roster, play.court_charts
 		)
 		for order: Dictionary in plan["orders"]:
 			var fleet: FleetState = _fleet_by_id(roster, int(order["fleet_id"]), faction)
@@ -51,6 +53,9 @@ static func _run_region(
 			if not bool(move.get("ok", false)):
 				continue
 			changed = true
+			# The squadron charts the water it enters, for its own court alone
+			# (wiki: ships-and-naval § Ship Reveal Mechanic).
+			MapPlayCourtFog.note_fleet_entry(play, model.region_id, fleet, zone)
 			trace.append({
 				"faction": faction,
 				"kind": String(order["kind"]),
@@ -67,7 +72,9 @@ static func _run_region(
 
 ## A squadron that did not sortie still takes a station: blockade an enemy coast
 ## in its zone when one is at war, otherwise hold (wiki: ships-and-naval
-## § Missions and Movement; DR-20261109-16).
+## § Missions and Movement; DR-20261109-16). A blockade is posted only on water
+## the court has charted, and one that is no longer charted lapses
+## (wiki: fog-and-exploration § Visibility Levels; DR-20261110-21).
 static func _station_orders(
 	play: PlaySession, model: MapModel, roster: Array[FleetState], faction: int
 ) -> void:
@@ -78,13 +85,18 @@ static func _station_orders(
 			continue
 		if not fleet.is_at_sea() or not fleet.is_afloat() or fleet.moved:
 			continue
+		var charted: bool = AiNavalPlanner.charts_water(
+			play.court_charts, faction, model.region_id, fleet.sea_zone
+		)
 		var mission: int = fleet.mission
 		if mission == FleetState.Mission.BLOCKADE:
-			if FleetMissions.is_blockading(model, fleet, hostile):
+			if charted and FleetMissions.is_blockading(model, fleet, hostile):
 				continue
 			fleet.clear_mission()
 			mission = FleetState.Mission.NONE
 		if mission != FleetState.Mission.NONE and mission != FleetState.Mission.DEFEND:
+			continue
+		if not charted:
 			continue
 		var targets: Array[int] = FleetMissions.blockade_targets(model, fleet, hostile)
 		if not targets.is_empty():
