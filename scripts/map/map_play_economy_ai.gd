@@ -32,6 +32,7 @@ static func run(play: PlaySession) -> Dictionary:
 		_seed_civilians(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
@@ -58,6 +59,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"resolved": resolved,
 			"production": production,
 			"trade": trade,
+			"cargo": cargo,
 			"recruits": recruits,
 			"civilians": civilians,
 			"research": research,
@@ -204,11 +206,10 @@ static func _overseas(
 			home_model, faction, int(capital["province"]), tech_caps, works,
 			capital["tile"], economy.tech_unlocked
 		)
-	var holds: int = 0
-	if play.ship_layer != null:
-		holds = TradeCargo.capacity(
-			play.world, play.ship_layer.regions.snapshot(), faction
-		)
+	var holds: int = (
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
+		if play.ship_layer != null else 0
+	)
 	var plan: Dictionary = EconomyOverseas.delivered(
 		home, play.world, home_region, faction, tech_caps, works_by_region, holds,
 		economy.tech_unlocked
@@ -234,11 +235,10 @@ static func _trade(
 	overseas: Dictionary,
 	production: Dictionary
 ) -> Dictionary:
-	var holds: int = 0
-	if play.ship_layer != null:
-		holds = TradeCargo.capacity(
-			play.world, play.ship_layer.regions.snapshot(), faction
-		)
+	var holds: int = (
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
+		if play.ship_layer != null else 0
+	)
 	var free_holds: int = maxi(
 		holds - EconomyOverseas.shipped_total(overseas)
 		- TradeCargo.used(market, faction),
