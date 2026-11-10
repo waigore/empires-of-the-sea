@@ -84,7 +84,18 @@ func test_a_siege_records_the_wall_lanes() -> void:
 ## Melee-only regiments cannot attack a wall or anything inside it; they need
 ## firearms or guns (wiki: siege-mechanics § Damage Reduction).
 func test_melee_only_besiegers_are_turned_away() -> void:
-	var battle: Dictionary = _fight("balanced", _pikes(8), ["peasant_levies"], 1)
+	var model := Fixture.build()
+	model.province_data(2).fort_level = 1
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := Fixture.army(2, 0, 2, _pikes(8))
+	attacker.moved = true
+	var context: Dictionary = _context("balanced")
+	## A garrison that holds the wall gives the pikes nothing to hit.
+	context["defender_battle_plan"] = "defensive"
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+	var battle: Dictionary = reports[0]
 
 	assert_eq((battle["defender_lost"] as Array).size(), 0, "the garrison is untouched")
 	assert_eq(int(battle["quick"]["guns_lost"]), 0, "pikes cannot silence the battery")

@@ -4,32 +4,53 @@ extends RefCounted
 ## so [QuickBattle] only orchestrates rounds (REQ-P3-01, REQ-P3-03).
 ## A siege routes casualties through [SiegeLanes]: the wall shelters the
 ## garrison, only artillery reaches behind it, and a sortie trades that shelter
-## for every regiment's fire.
+## for every regiment's fire. The ground a blow lands on scales it: assaults and
+## volleys are weaker into HILL/WOODS/TOWN, entrenching is surer there (wiki:
+## quick-battle § Core actions).
 
-
+## Attacker scripts. The defender has its own: a sally is a **Sortie** order,
+## not an assault on a wall it is standing on (wiki: siege-mechanics § Gates).
 const PLANS: Dictionary = {
 	"aggressive": ["maneuver", "assault"], "balanced": ["volley", "entrench", "volley"],
 	"defensive": ["fall_back", "volley"],
 }
+const DEFENDER_PLANS: Dictionary = {
+	"aggressive": ["entrench", "sortie"], "balanced": ["volley", "entrench"],
+	"defensive": ["fall_back", "volley"],
+}
+## A garrison in the open has no gate to sally from: the sortie slot becomes
+## volley fire so a defender script still spends its CP.
+const DEFENDER_FIELD_PLANS: Dictionary = {
+	"aggressive": ["entrench", "volley", "volley"], "balanced": ["volley", "entrench"],
+	"defensive": ["fall_back", "volley"],
+}
 const ACTION_CP: Dictionary = {
-	"volley": 1, "entrench": 1, "maneuver": 1, "assault": 2, "fall_back": 2,
+	"volley": 1, "entrench": 1, "maneuver": 1, "assault": 2, "sortie": 2, "fall_back": 2,
 }
 const ACTION_DAMAGE: Dictionary = {
-	"volley": 0.12, "assault": 0.26, "entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
+	"volley": 0.12, "assault": 0.26, "sortie": 0.22,
+	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
 }
 const ACTION_SELF: Dictionary = {
-	"volley": 0.0, "assault": 0.10, "entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
+	"volley": 0.0, "assault": 0.10, "sortie": 0.08,
+	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
 }
 const ACTION_GUARD: Dictionary = {
-	"volley": 0.0, "assault": 0.0, "entrench": 0.45, "maneuver": 0.0, "fall_back": 0.25,
+	"volley": 0.0, "assault": 0.0, "sortie": 0.0, "entrench": 0.45,
+	"maneuver": 0.0, "fall_back": 0.25,
 }
 const ACTION_LABEL: Dictionary = {
-	"volley": "Volley fire", "assault": "Assault", "entrench": "Entrench",
-	"maneuver": "Maneuver", "fall_back": "Fall back",
+	"volley": "Volley fire", "assault": "Assault", "sortie": "Sortie",
+	"entrench": "Entrench", "maneuver": "Maneuver", "fall_back": "Fall back",
 }
 
 
-static func actions_for(plan: String) -> Array:
+static func actions_for(
+	plan: String, is_defender: bool = false, siege: bool = false
+) -> Array:
+	if is_defender:
+		var script: Dictionary = DEFENDER_PLANS if siege else DEFENDER_FIELD_PLANS
+		return (script.get(plan, script["balanced"]) as Array).duplicate()
 	return (PLANS.get(plan, PLANS["balanced"]) as Array).duplicate()
 
 
@@ -44,10 +65,16 @@ static func resolve(
 ) -> Dictionary:
 	var me: Dictionary = state[key]
 	var enemy: Dictionary = state[enemy_key]
+	var fort: int = int((state["defender"].get("mods", {}) as Dictionary).get("fort", 0))
+	var siege: bool = fort > 0
+	## A sally with no wall to leave is ordinary volley fire.
+	var acted: String = "volley" if action == "sortie" and not siege else action
+	if acted == "sortie" and key != "defender":
+		acted = "volley"
 	var entry: Dictionary = {
 		"side": int(me["owner"]),
-		"action": action,
-		"label": String(ACTION_LABEL[action]),
+		"action": acted,
+		"label": String(ACTION_LABEL[acted]),
 		"attacker_lost": 0,
 		"defender_lost": 0,
 		"guns_destroyed": 0,
@@ -55,6 +82,7 @@ static func resolve(
 		"wall_lost": 0,
 		"behind_lost": 0,
 		"turned": 0,
+		"gates_broken": 0,
 		"sortie": false,
 		"guard": 0.0,
 		"hits": [] as Array[Dictionary],
@@ -62,19 +90,26 @@ static func resolve(
 		"own_hits": [] as Array[Dictionary],
 		"own_mauled": 0,
 	}
-	if action == "maneuver":
+	if acted == "maneuver":
 		me["cohesion"] = mini(3, int(me["cohesion"]) + 1)
 		return entry
-	if action == "entrench" or action == "fall_back":
-		me["guard"] = maxf(float(me["guard"]), float(ACTION_GUARD[action]))
+	var terrain: String = String(state.get("terrain", "open"))
+	if acted == "entrench" or acted == "fall_back":
+		var guard: float = float(ACTION_GUARD[acted])
+		# The prepared ground of HILL/WOODS/TOWN is the defender's advantage.
+		if key == "defender":
+			guard *= SiegeLanes.entrench_scale(terrain)
+		me["guard"] = maxf(float(me["guard"]), clampf(guard, 0.0, 0.8))
 		entry["guard"] = float(me["guard"])
 		return entry
-	var fort: int = int((state["defender"].get("mods", {}) as Dictionary).get("fort", 0))
-	var siege: bool = fort > 0
 	var me_side: Array[ArmyState] = me["side"]
 	var enemy_side: Array[ArmyState] = enemy["side"]
-	var ratio: float = float(ACTION_DAMAGE[action]) * (float(me["cohesion"]) / 3.0)
+	var ratio: float = float(ACTION_DAMAGE[acted]) * (float(me["cohesion"]) / 3.0)
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
+	# The defender shoots out into the approaches; the attacker shoots into the
+	# defender's cover. Ground never shields the side that sallies from it.
+	var ground: String = terrain if key == "attacker" else "open"
+	ratio *= SiegeLanes.terrain_scale(acted, ground)
 	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
 	var blow: float = ratio * float(maxi(enemy_count, 1))
 	var wanted: int = ceili(blow)
@@ -88,10 +123,8 @@ static func resolve(
 		entry["battery_hit"] = int(battery["absorbed"])
 		wanted = maxi(0, wanted - int(battery["absorbed"]))
 	if siege and key == "defender":
-		var sortie: bool = action == "assault"
+		var sortie: bool = acted == "sortie"
 		entry["sortie"] = sortie
-		if sortie:
-			entry["label"] = "Sortie"
 		me["exposed"] = sortie
 		if not sortie:
 			wanted = ceili(float(wanted) * SiegeLanes.return_fire_share(me_side))
@@ -101,7 +134,7 @@ static func resolve(
 	if wanted > 0 and siege and key == "attacker":
 		var split: Dictionary = SiegeLanes.strike(
 			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
-			bool(enemy.get("exposed", false))
+			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary
 		)
 		var wall_lost: Array[String] = split["wall"]
 		var behind_lost: Array[String] = split["behind"]
@@ -110,6 +143,7 @@ static func resolve(
 		entry["wall_lost"] = wall_lost.size()
 		entry["behind_lost"] = behind_lost.size()
 		entry["turned"] = int(split["turned"])
+		entry["gates_broken"] = int(split.get("gates_broken", 0))
 	elif wanted > 0:
 		lost = ArmyCombat.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
 	enemy["lost"].append_array(lost)
@@ -124,10 +158,10 @@ static func resolve(
 		entry["attacker_lost"] = lost.size()
 	if lost.size() >= ceili(float(enemy_count) * 0.25):
 		enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
-	return _pay_own(armies, me, key, entry, action)
+	return _pay_own(armies, me, key, entry, acted)
 
 
-## An action's own price (an assault, or a sortie, costs the side that launches it).
+## An action's own price (an assault or a sortie costs the side that launches it).
 static func _pay_own(
 	armies: Array[ArmyState], me: Dictionary, key: String, entry: Dictionary, action: String
 ) -> Dictionary:

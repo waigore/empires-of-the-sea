@@ -234,6 +234,37 @@ func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
 	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle has no siege line")
 
 
+## Gates and ground: the siege despatch names the three gates and a breach, and
+## the aftermath says what the ground did to the action tables.
+func test_gates_and_ground_are_told() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["gates"] = {"max": 3, "broken": 0, "damage": 5, "threshold": 7}
+	assert_true(QuickBattleCopy.siege_line(battle).contains("3 gates hold"))
+	(battle["quick"] as Dictionary)["gates"] = {
+		"max": 3, "broken": 1, "damage": 7, "threshold": 7,
+	}
+	assert_true(QuickBattleCopy.siege_line(battle).contains("1 of 3 gates breached"))
+	assert_eq(QuickBattleCopy.gates_text(_battle()["quick"]), "", "no fort, no gates")
+
+	var ground: Dictionary = _battle()
+	ground["quick"]["terrain"] = "town"
+	assert_eq(
+		QuickBattleCopy.terrain_line(ground),
+		"Ground — Town streets: assaults −45%, volleys −30%"
+	)
+	assert_eq(QuickBattleCopy.terrain_line(_battle()), "", "open ground needs no line")
+
+	var action := {
+		"side": 0, "action": "volley", "label": "Volley fire",
+		"attacker_lost": 0, "defender_lost": 1, "guns_destroyed": 0,
+		"gates_broken": 1,
+	}
+	assert_true(
+		QuickBattleCopy.action_line(action, battle, NAMES).contains("1 gate breached")
+	)
+
+
 ## Regiment detail in the aftermath: the named types each side lost.
 func test_the_loss_line_names_the_regiments() -> void:
 	var battle: Dictionary = _battle()

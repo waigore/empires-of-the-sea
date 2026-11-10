@@ -36,12 +36,21 @@ static func resolve_exchange(
 	)
 	var fort_level: int = int(def_mods["fort"])
 	var guns: Array[Dictionary] = QuickBattleBattery.make(fort_level, context, defender)
+	## The ground and the gates are read once, when the battle opens: the wall
+	## lanes and the terrain do not change under the fighting (wiki: quick-battle
+	## § Terrain; siege-mechanics § Gates and Sortie).
+	var terrain: String = SiegeLanes.lane_terrain(
+		model, province, fort_level, String(context.get("terrain_override", ""))
+	)
+	var gates: Dictionary = SiegeLanes.gates_for(fort_level)
 	var state: Dictionary = {
 		"attacker": _side_state(atk_side, attacker, int(atk_mods["limit"]), atk_mods),
 		"defender": _side_state(def_side, defender, int(def_mods["limit"]), def_mods),
+		"terrain": terrain,
+		"gates": gates,
 	}
 	state["attacker"]["plan"] = plan_for(atk_side, attacker, context, false)
-	state["defender"]["plan"] = plan_for(def_side, defender, context, true)
+	state["defender"]["plan"] = plan_for(def_side, defender, context, true, fort_level > 0)
 	var atk_start: int = ArmyCombat.side_regiments(atk_side)
 	var def_start: int = ArmyCombat.side_regiments(def_side)
 	## Lane split when the battle opened: casualties shrink the lanes as it runs.
@@ -104,6 +113,14 @@ static func resolve_exchange(
 			"behind": behind_start,
 		},
 		"sorties": _sortie_count(rounds),
+		"terrain": terrain,
+		"terrain_label": SiegeLanes.terrain_label(terrain),
+		"gates": gates.duplicate(),
+		"breaches": int(gates.get("broken", 0)),
+		"limits": {
+			"attacker": int(atk_mods["limit"]),
+			"defender": int(def_mods["limit"]),
+		},
 		"attacker_cohesion": int(state["attacker"]["cohesion"]),
 		"defender_cohesion": int(state["defender"]["cohesion"]),
 	}
@@ -139,11 +156,19 @@ static func resolve_exchange(
 
 
 static func plan_for(
-	side: Array[ArmyState], owner: int, context: Dictionary, is_defender: bool
+	side: Array[ArmyState], owner: int, context: Dictionary, is_defender: bool,
+	siege: bool = false
 ) -> String:
+	## An explicit defender script wins (the simulator and a scripted defence);
+	## otherwise the player's chosen plan follows the side they command.
+	if is_defender and QuickBattleActions.PLANS.has(String(context.get("defender_battle_plan", ""))):
+		return String(context["defender_battle_plan"])
 	if owner == int(context.get("player_faction", -1)):
 		var chosen: String = String(context.get("battle_plan", "balanced"))
 		return chosen if QuickBattleActions.PLANS.has(chosen) else "balanced"
+	## A garrison with no firearm on the wall can only hurt a siege by sallying.
+	if is_defender and siege and SiegeLanes.return_fire_share(side) <= 0.0:
+		return "aggressive"
 	var riders: float = 0.0
 	for army: ArmyState in side:
 		if army != null:
@@ -153,8 +178,10 @@ static func plan_for(
 	return "defensive" if is_defender else "balanced"
 
 
-static func actions_for(plan: String) -> Array:
-	return QuickBattleActions.actions_for(plan)
+static func actions_for(
+	plan: String, is_defender: bool = false, siege: bool = false
+) -> Array:
+	return QuickBattleActions.actions_for(plan, is_defender, siege)
 
 
 static func _side_state(
@@ -188,18 +215,22 @@ static func _round(
 	state["defender"]["exposed"] = false
 	var atk_side: Array[ArmyState] = state["attacker"]["side"]
 	var def_side: Array[ArmyState] = state["defender"]["side"]
+	var siege: bool = int((state["defender"]["mods"] as Dictionary).get("fort", 0)) > 0
 	var log: Dictionary = {
 		"round": round_index + 1,
 		"actions": [] as Array[Dictionary],
 		"attacker_count": ArmyCombat.side_regiments(atk_side),
 		"defender_count": ArmyCombat.side_regiments(def_side),
 		"guns": QuickBattleBattery.alive(guns),
+		"terrain": String(state.get("terrain", "open")),
 	}
 	for owner: int in order:
 		var key: String = "attacker" if owner == int(state["attacker"]["owner"]) else "defender"
 		var enemy_key: String = "defender" if key == "attacker" else "attacker"
 		var cp: int = CP_PER_ROUND
-		for action: String in QuickBattleActions.actions_for(String(state[key]["plan"])):
+		for action: String in QuickBattleActions.actions_for(
+			String(state[key]["plan"]), key == "defender", siege
+		):
 			if cp < int(QuickBattleActions.ACTION_CP[action]):
 				break
 			cp -= int(QuickBattleActions.ACTION_CP[action])
@@ -226,6 +257,7 @@ static func _round(
 					"wall_lost": 0,
 					"behind_lost": 0,
 					"turned": 0,
+					"gates_broken": 0,
 					"sortie": false,
 					"hits": hits,
 					"mauled": hits.size(),
@@ -233,6 +265,7 @@ static func _round(
 	log["attacker_count"] = ArmyCombat.side_regiments(atk_side)
 	log["defender_count"] = ArmyCombat.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)
+	log["gates"] = int((state.get("gates", {}) as Dictionary).get("broken", 0))
 	## Condition after this round: the rail reads these, never a recomputation.
 	log["attacker_health"] = RegimentCondition.entries(atk_side)
 	log["defender_health"] = RegimentCondition.entries(def_side)

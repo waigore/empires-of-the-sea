@@ -9,8 +9,7 @@
 ## Implemented
 
 - **Roster and training** (`RegimentCatalog`, `RegimentEconomy`,
-  `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and inputs;
-  recruits join the Home Army.
+  `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and inputs.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power, cap
   2→4 by tech; one per army each Combat phase; medals 0–4, +1 per win, saved.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
@@ -32,19 +31,20 @@
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron (cap 4); wounded recover a quarter each turn.
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
-  Great Power's regiments take the newest same-category type its techs unlock.
-  Minors follow the leading power; Tribes stay at level 1.
+  Great Power's regiments take the newest same-category type its techs unlock;
+  Minors follow the leader, Tribes stay at 1.
 - **Attack price** (`ArmyAttackCost`): 100 ducats per Great Power attacker per
   land battle, ×0.75 Industrial Machinery, ×0.85 Modern Military Funding (63
   both); once per exchange, floored at zero, printed in the despatch.
 - **Quick Battle** (`QuickBattle`): three rounds at 3 CP a side;
-  aggressive/balanced/defensive. Guns soak fire and can lower the fort;
-  sieges split wall/behind (`SiegeLanes`). Plate floats `−N`, health and
-  chevrons; ends on losses, mauled men and breach.
+  aggressive/balanced/defensive. Guns soak fire and lower the fort; sieges
+  split wall/behind (`SiegeLanes`), scale volleys/assaults by the ground
+  (HILL/WOODS/TOWN/MARSH) and let three gates fall; Sortie is its own order.
+  Plate floats `−N` and health. Simulator: [battle-sim.md](battle-sim.md).
 - **Unopposed:** an army ending in hostile or neutral land with no armed
   defenders takes it.
-- **Dossier:** composition, strength, food, commander, orders, dock; rows
-  show stats, chevrons and health while mauled.
+- **Dossier:** composition, strength, food, commander, orders, dock; rows show
+  stats, condition.
 
 ## Deferred (REQ-P2-02)
 
@@ -77,7 +77,7 @@ Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
 `test_army_field_rules`, `test_generals`, `test_leader_catalog`,
 `test_army_orders`, `test_naval_movement`, `test_quick_battle_rules`,
-`test_map_screen_crown_orders`.
+`test_siege_depth`, `test_battle_sim`, `test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80
