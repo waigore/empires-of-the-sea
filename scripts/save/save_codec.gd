@@ -28,6 +28,7 @@ static func capture(play: PlaySession) -> Dictionary:
 		"ai": play.ai.to_dict() if play.ai != null else {},
 		"victory": SaveCourt.capture_victory(play.victory),
 		"defeat": SaveDefeat.capture(play.defeat),
+		"gazette": SaveGazette.capture(play),
 		"civilians": SaveLayers.capture_civilians(play.civilian_layer),
 		"fleets": SaveLayers.capture_fleets(play.ship_layer),
 		"armies": SaveLayers.capture_armies(play.army_layer),
@@ -136,6 +137,7 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	# A decided campaign must come back decided or the load would reopen sealed turns.
 	play.victory = SaveCourt.victory_from(data.get("victory", {}))
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
+	SaveGazette.restore(play, data)
 
 	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
 	if world == null:

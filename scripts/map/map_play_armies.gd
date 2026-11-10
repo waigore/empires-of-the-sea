@@ -328,6 +328,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
 	for entry: Dictionary in fallen:
+		play.last_falls.append(entry)
 		var faction: int = int(entry["faction"])
 		var conqueror: int = int(entry["conqueror"])
 		if play.army_layer != null:
@@ -387,7 +388,6 @@ static func sync_player_capital(play: PlaySession) -> void:
 		return
 	play.capital_province = seat
 	play.capital_tile = model.capital_tile_of(seat)
-
 
 
 static func refresh_visibility(play: PlaySession) -> void:

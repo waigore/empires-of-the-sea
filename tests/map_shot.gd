@@ -14,6 +14,7 @@ var _warp := 0
 var _lens := false
 var _political := false
 var _war := false
+var _gazette := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -42,6 +43,8 @@ func _initialize() -> void:
 			_political = arg.substr(10) == "1"
 		elif arg.begins_with("war="):
 			_war = arg.substr(4) == "1"
+		elif arg.begins_with("gazette="):
+			_gazette = arg.substr(8) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -66,6 +69,8 @@ func _process(_delta: float) -> bool:
 		MapPlayInput.set_diplomacy_lens(_screen.play, true)
 	if _frames == 4 and _war and _screen != null:
 		_sample_war()
+	if _frames == 4 and _gazette and _screen != null:
+		_sample_gazette()
 	if _frames == _target and not _shot_taken:
 		_shot_taken = true
 		_save(_path)
@@ -86,6 +91,56 @@ func _save(path: String) -> void:
 		return
 	image.save_png(path)
 	print("saved ", path, " ", image.get_width(), "x", image.get_height())
+
+
+## Files a sample sheet and raises the plate, so a screenshot shows the Gazette
+## in the same brass-and-parchment chrome as the rest of the shell.
+func _sample_gazette() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayGazette.ensure(play)
+	var province: String = play.model.province_name(int(play.model.provinces[0].id))
+	var records: Array[Dictionary] = [
+		{
+			"class": Gazette.Class.WORLD,
+			"kind": "warDeclared",
+			"who": "England",
+			"whom": "France",
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "battleCapture",
+			"place": province,
+			"whom": "France",
+			"count": 3,
+			"self_act": true,
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "techFinished",
+			"label": "Crop Rotation",
+			"self_act": true,
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "richesRendered",
+			"amount": 1250,
+		},
+		{
+			"class": Gazette.Class.INTEREST,
+			"kind": "allianceFormed",
+			"who": "England",
+			"whom": "France",
+		},
+	]
+	var items: Array[Dictionary] = []
+	for rec: Dictionary in records:
+		var text: String = GazetteCopy.line(rec)
+		if text.is_empty():
+			continue
+		items.append({"class": int(rec["class"]), "kind": String(rec["kind"]), "text": text})
+	var sheet: Dictionary = {"turn": play.turn, "items": items}
+	play.gazette.append(sheet)
+	MapPlayGazette.show(play, sheet)
 
 
 ## Declares war on one neighbour and allies with another, so a screenshot shows
