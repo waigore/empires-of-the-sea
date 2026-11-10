@@ -222,9 +222,11 @@ func test_capital_star_has_ten_points() -> void:
 
 
 ## Placement stays pure: the plan can be built headless, and every province
-## with enough land carries its name at the province centre.
+## with enough land carries its name at the province centre. The shared
+## Fixture region is too small for the fixed 60-province chart to clear the
+## label area floor, so this case builds a Small-preset grid of its own.
 func test_plan_places_names_without_a_node() -> void:
-	var region: MapModel = Fixture.region()
+	var region: MapModel = MapGenerator.new().generate(Fixture.SEED, 96, 64)
 	var plan := MapCanvasPlan.new()
 	plan.build(region, null, MapCanvas.TILE_SIZE)
 	var named: Dictionary = {}

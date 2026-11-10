@@ -19,7 +19,7 @@ func after_each() -> void:
 
 func test_map_screen_starts_with_a_relation_web() -> void:
 	assert_not_null(_screen.play.diplomacy)
-	assert_eq(_screen.play.diplomacy.relations.size(), 81)
+	assert_eq(_screen.play.diplomacy.relations.size(), 111)
 	assert_eq(
 		_screen.play.diplomacy.overture(0, 1), DiplomacyCatalog.STAGE_EMBASSY
 	)
@@ -72,7 +72,7 @@ func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 
 
 func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
-	assert_eq(_screen.play.diplomacy.relations_of(0).size(), 8)
+	assert_eq(_screen.play.diplomacy.relations_of(0).size(), 11)
 	assert_true(MapPlayDiplomacy.sync_first_contact(_screen.play).is_empty())
 	_screen._cycle_region()
 	var province: ProvinceState = _tribe_province()
@@ -95,8 +95,9 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 	var army: ArmyState = _field_army()
 	assert_not_null(army, "a field army can be detached from the Home Army")
 	var origin: int = army.province
-	var target: int = _adjacent_foreign_province(army)
-	assert_gt(target, -1, "the capital borders foreign land")
+	var target: int = _stage_on_foreign_border(army)
+	assert_gt(target, -1, "the crown holds land on a foreign border")
+	origin = army.province
 	var owner: int = _screen.play.model.province_owner(target)
 	_screen.play.diplomacy.ensure_relation(0, owner)
 
@@ -345,8 +346,8 @@ func test_accepting_a_peace_offer_calls_off_that_turns_battle() -> void:
 			play.ai.note_overture(faction, 0, play.turn)
 	var army: ArmyState = _field_army()
 	assert_not_null(army, "a field army is on the map")
-	var province: int = _adjacent_foreign_province(army)
-	assert_true(province >= 0, "the army has a foreign neighbour")
+	var province: int = _stage_on_great_power_border(army)
+	assert_true(province >= 0, "the army has a Great Power neighbour")
 	var owner: int = play.model.province_owner(province)
 	DiplomacyRules.declare_war(state, owner, 0)
 	assert_true(bool(play.army_layer.order(army, province, true).get("ok", false)))
@@ -390,11 +391,43 @@ func _field_army() -> ArmyState:
 	return null
 
 
-func _adjacent_foreign_province(army: ArmyState) -> int:
+## Moves the field army onto a crown province that borders foreign land (the
+## generated map no longer guarantees the capital province itself does) and
+## returns the foreign neighbour.
+func _stage_on_foreign_border(army: ArmyState) -> int:
+	return _stage_on_border(army, false)
+
+
+func _stage_on_great_power_border(army: ArmyState) -> int:
+	return _stage_on_border(army, true)
+
+
+func _stage_on_border(army: ArmyState, great_power_only: bool) -> int:
 	var model: MapModel = _screen.play.model
-	for neighbor: int in MapGeo.province_neighbors(model, army.province):
+	for province: ProvinceState in model.provinces:
+		if province.owner != 0:
+			continue
+		var target: int = _adjacent_foreign_province(
+			army, great_power_only, province.id
+		)
+		if target >= 0:
+			army.province = province.id
+			return target
+	return -1
+
+
+func _adjacent_foreign_province(
+	army: ArmyState, great_power_only: bool = false, from_province: int = -1
+) -> int:
+	var model: MapModel = _screen.play.model
+	var origin: int = army.province if from_province < 0 else from_province
+	for neighbor: int in MapGeo.province_neighbors(model, origin):
 		var owner: int = model.province_owner(neighbor)
-		if owner != 0 and owner != MapModel.NO_ID:
+		if owner == 0 or owner == MapModel.NO_ID:
+			continue
+		if not great_power_only:
+			return neighbor
+		if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER:
 			return neighbor
 	return -1
 

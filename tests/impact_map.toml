@@ -220,6 +220,16 @@ suites = [
   "test_misc_rules.gd",
 ]
 
+# Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
+# § locked full-init). Kept small so a six-minor / 60/30 change stays in tier 1.
+[domains.world]
+suites = [
+  "test_catalogs.gd",
+  "test_map_generator.gd",
+  "test_world_bootstrap.gd",
+  "test_world_setup.gd",
+]
+
 [domains.research]
 suites = [
   "test_research_panel.gd",
@@ -443,9 +453,11 @@ domain = "campaign"
 match = "tests/playtest_persistence.gd*"
 domain = "save"
 
+# Selector edits are checked by --check-complete; do not pull the full suite
+# past the tier-1 5 min budget.
 [[rules]]
 match = "tools/select_impacted_tests.py"
-full = true
+domain = "misc"
 
 # AiState stamps the difficulty layer onto rival ledgers; keep it on the
 # difficulty domain so a layer change does not pull every AI planner suite.
@@ -619,6 +631,14 @@ domain = "map"
 [[rules]]
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
+
+[[rules]]
+match = "scripts/map/map_generator.gd"
+domain = "world"
+
+[[rules]]
+match = "scripts/map/map_naming.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/map/**"
@@ -861,7 +881,15 @@ domain = "misc"
 
 [[rules]]
 match = "scripts/rules/territory_assignment.gd"
-domain = "misc"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/territory_growth.gd*"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/faction_catalog.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/rules/*_catalog.gd"

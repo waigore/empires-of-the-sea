@@ -63,7 +63,9 @@ const GREAT_POWERS: Array[Dictionary] = [
 	},
 ]
 
-## Three Minor Nations (default count): Old World only, no orders, no navy.
+## Six Minor Nations (wiki: naming § default ruleset exposes six minors;
+## factions § Minor Nation): Old World only, no orders, no navy. GDD 09b order,
+## with the Italian city-states standing in for Italy.
 const MINOR_NATIONS: Array[Dictionary] = [
 	{
 		"id": 6,
@@ -85,6 +87,27 @@ const MINOR_NATIONS: Array[Dictionary] = [
 		"type": Type.MINOR_NATION,
 		"region": OLD_WORLD,
 		"color": Color(0.451, 0.420, 0.298),
+	},
+	{
+		"id": 19,
+		"name": "Austria",
+		"type": Type.MINOR_NATION,
+		"region": OLD_WORLD,
+		"color": Color(0.800, 0.760, 0.600),
+	},
+	{
+		"id": 20,
+		"name": "Poland",
+		"type": Type.MINOR_NATION,
+		"region": OLD_WORLD,
+		"color": Color(0.420, 0.220, 0.240),
+	},
+	{
+		"id": 21,
+		"name": "Scotland",
+		"type": Type.MINOR_NATION,
+		"region": OLD_WORLD,
+		"color": Color(0.300, 0.420, 0.420),
 	},
 ]
 
@@ -192,7 +215,10 @@ static func name_of(id: int) -> String:
 static func names() -> Array[String]:
 	var result: Array[String] = []
 	for faction: Dictionary in all():
-		result.append(String(faction["name"]))
+		var id: int = int(faction["id"])
+		while result.size() <= id:
+			result.append("")
+		result[id] = String(faction["name"])
 	return result
 
 
