@@ -98,7 +98,7 @@ func test_the_strongest_order_of_battle_is_declared() -> void:
 	screen.play.army_layer.armies.assign(armies)
 
 	assert_eq(
-		MapPlayTurn.declared_leader(screen.play),
+		MapPlayCampaign.declared_leader(screen.play),
 		crowns[1],
 		"3 peasant levies (strength 9) fall short of 2 knights (strength 12)"
 	)
@@ -128,7 +128,7 @@ func test_a_crown_is_scored_on_its_whole_order_of_battle() -> void:
 	screen.play.army_layer.regions.set_region(elsewhere, far)
 
 	assert_eq(
-		MapPlayTurn.declared_leader(screen.play),
+		MapPlayCampaign.declared_leader(screen.play),
 		crowns[0],
 		"four grenadiers across the ocean outrank three knights on screen"
 	)
