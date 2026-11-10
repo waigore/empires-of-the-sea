@@ -44,9 +44,9 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
   the highest affordable tier.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
-- **Civilian planner** (`AiCivilianPlanner`): one order per idle civilian —
-  builders improve or finish a town, engineers connect then road/port/fort,
-  explorers prospect, rail builders upgrade roads.
+- **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`): one order per
+  idle civilian — builders improve or finish a town, engineers connect then
+  road/port/fort, explorers prospect, rail builders upgrade roads.
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
