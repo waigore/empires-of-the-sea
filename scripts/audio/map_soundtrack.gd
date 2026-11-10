@@ -52,6 +52,16 @@ func _bind_screen() -> void:
 	screen.selection_cleared.connect(_on_selection_cleared)
 	screen.coast_charted.connect(_on_coast_charted)
 	screen.battle_resolved.connect(_on_battle_resolved)
+	screen.raid_resolved.connect(
+		func(raids: Array[Dictionary]) -> void:
+			if audio == null:
+				return
+			for raid: Dictionary in raids:
+				if int(raid.get("victim", -1)) == screen.player_faction:
+					audio.play_event(AudioEvents.RAID_ALARM)
+				if int(raid.get("raider", -1)) == screen.player_faction:
+					audio.play_event(AudioEvents.CARGO_SEIZED)
+	)
 	screen.turn_ended.connect(_on_turn_ended)
 	screen.victory_declared.connect(_on_victory_declared)
 	screen.defeat_declared.connect(

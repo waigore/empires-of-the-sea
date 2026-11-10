@@ -843,3 +843,39 @@ func test_quick_battle_copy_names_the_victor() -> void:
 		),
 		"España — Assault · 2 lost · 1 of its own · 1 gun silenced"
 	)
+
+
+# --- raid despatches (DR-20261110-13) ---------------------------------------
+
+
+func test_a_raid_on_the_crown_names_the_raider_the_cargo_and_the_hulls() -> void:
+	var raid: Dictionary = {
+		"kind": "incoming",
+		"raider": 1,
+		"victim": 0,
+		"losses": {"grain": 3, "timber": 2},
+	}
+	assert_eq(
+		BattleReport.describe_raid(raid, "Mar Caribe", FACTIONS, 0),
+		"England seize 5 cargo (3 grain, 2 timber) off the Mar Caribe — no hull lost"
+	)
+
+
+func test_a_prize_despatch_reads_as_the_crowns_own_haul() -> void:
+	var raid: Dictionary = {
+		"kind": "prize",
+		"raider": 0,
+		"victim": 2,
+		"losses": {"grain": 4},
+	}
+	assert_eq(
+		BattleReport.describe_raid(raid, "Golfo de México", FACTIONS, 0),
+		"Your station takes 4 grain off the Golfo de México as prize — no hull lost"
+	)
+
+
+func test_a_raid_with_no_zone_name_still_reads() -> void:
+	var raid: Dictionary = {"raider": 1, "victim": 0, "losses": {}}
+	var text: String = BattleReport.describe_raid(raid, "", FACTIONS, 0)
+	assert_true(text.contains("open water"))
+	assert_true(text.contains("no cargo"))

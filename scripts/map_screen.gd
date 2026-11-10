@@ -9,6 +9,9 @@ signal province_selected(province_id: int)
 signal selection_cleared
 signal coast_charted(province_id: int)
 signal battle_resolved(battles: Array[Dictionary])
+## Hostile patrols and the crown's own stations worked the sea this turn
+## (DR-20261110-13): audio and rings answer, the rules already applied.
+signal raid_resolved(raids: Array[Dictionary])
 signal turn_ended(turn: int)
 ## The rules decided the campaign or the human crown fell; audio/motion listen.
 signal victory_declared(victory: VictoryState)
@@ -206,7 +209,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		MapPlayTurn.end_turn(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.FOCUS_CAPITAL):
-		MapPlayTurn.focus_capital(play)
+		MapPlaySetup.focus_capital(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.LENS):
 		MapPlayInput.toggle_lens(play)
@@ -244,7 +247,7 @@ func load_region(index: int) -> void:
 			"world_size", sea_backdrop.size
 		)
 	play.capital_province = MapPlaySetup.find_capital(play)
-	play.capital_tile = MapPlayTurn.capital_tile(play, play.capital_province)
+	play.capital_tile = play.model.capital_tile_of(play.capital_province)
 	# Prepare works first so the post-pass can wire them before units muster.
 	if not play.bootstrapped_regions.has(play.region_index):
 		civilian_layer.spawn(
@@ -277,7 +280,7 @@ func _cycle_region() -> void:
 	load_region((play.region_index + 1) % play.world.region_count())
 	MapPlayDiplomacy.sync_first_contact(play)
 	MapPlayDiplomacy.refresh(play)
-	camera.focus_on(MapPlayTurn.capital_world(play), maxf(camera.target_zoom, 0.75))
+	camera.focus_on(MapPlaySetup.capital_world(play), maxf(camera.target_zoom, 0.75))
 	RegionBriefing.arrival(hud, play.model, play.region_index)
 	MapPlayInput.on_view_changed(play)
 
@@ -297,7 +300,7 @@ func _connect() -> void:
 		func(active: bool) -> void: MapPlayInput.set_diplomacy_lens(play, active)
 	)
 	hud.focus_capital_pressed.connect(func() -> void:
-		MapPlayTurn.focus_capital(play)
+		MapPlaySetup.focus_capital(play)
 	)
 	hud.diplomacy_pressed.connect(func() -> void:
 		MapPlayDiplomacy.open(play)
