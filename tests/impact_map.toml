@@ -558,6 +558,13 @@ domain = "ai"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
+# The rival civilian pass was split out of the economy turn but its only suite
+# is still test_ai_rules, so keep it (and its .uid) here instead of the
+# civilian glob below, which would pull crown-order / map suites.
+[[rules]]
+match = "scripts/map/map_play_civilian_ai.gd*"
+domain = "ai"
+
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
 [[rules]]
@@ -878,6 +885,12 @@ domain = "map"
 [[rules]]
 match = "scripts/rules/warp_travel.gd"
 domain = "map"
+
+# capital_seat / grain bootstrap: keep on the small world domain so a one-helper
+# change does not pull the full map suite set past the tier-1 5 min budget.
+[[rules]]
+match = "scripts/rules/world_bootstrap.gd"
+domain = "world"
 
 [[rules]]
 match = "scripts/rules/world_*.gd"
