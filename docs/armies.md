@@ -60,7 +60,8 @@ Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 `army_command`, `army_movement`, `army_combat`, `army_attack_cost`,
 `army_bands`, `army_garrison`, `quick_battle*`, `siege_lanes`,
 `naval_transport`. `map/army_layer`, `map/army_transport`,
-`map/map_play_armies`, `ui/army_panel`, `ui/quick_battle_*`, `map_screen`.
+`map/map_play_armies`, `map/map_play_army_muster`, `map/map_play_land_turn`,
+`ui/army_panel`, `ui/quick_battle_*`, `map_screen`.
 
 ## Controls
 
