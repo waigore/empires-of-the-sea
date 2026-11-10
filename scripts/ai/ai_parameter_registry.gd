@@ -236,6 +236,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 60,
 	},
 	{
+		"key": "civilian.merchant_weight",
+		"category": "civilian",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 1000,
+		"default": 75,
+	},
+	{
 		"key": "civilian.road_weight",
 		"category": "civilian",
 		"type": TYPE_INT,

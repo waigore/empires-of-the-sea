@@ -59,6 +59,11 @@ const REVOKE_UTILITY_COST: int = 15
 ## An alliance that no longer matches the standing is dissolved, never defended.
 const BREAK_MIN_DESIRE: int = 60
 const BREAK_UTILITY_COST: int = 20
+## A court that has Merchant Companies and could sign a deed with this Minor or
+## Tribe wants its envoy chain opened, so the Consulate/Embassy outranks the small
+## peaceful orders it competes with — and is offered even when the court is in no
+## mood to improve relations for their own sake (wiki: civilian-units § Merchant).
+const LAND_ENVOY_BONUS: int = 12
 
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
@@ -148,7 +153,10 @@ static func _treaty(
 	treasury: int,
 	tech: Dictionary
 ) -> Dictionary:
-	if improve < min_improve:
+	var bonus: int = _land_envoy_bonus(
+		state, world, config.faction, target, treasury, tech
+	)
+	if improve < min_improve and bonus == 0:
 		return _blocked("improve-relations desire too low", KIND_OVERTURE)
 	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
 	if ai_state.overture_on_cooldown(config.faction, target, turn, cooldown):
@@ -177,7 +185,37 @@ static func _treaty(
 			best_entry["stage"] = next
 	if best_entry.is_empty():
 		return _blocked("no legal treaty", KIND_OVERTURE)
+	if String(best_entry["kind"]) == KIND_OVERTURE:
+		best_entry["utility"] = clampi(int(best_entry["utility"]) + bonus, 0, 100)
 	return best_entry
+
+
+## The land-deed nudge for this target: a Minor or Tribe this court could buy
+## from once an envoy reaches it, while no embassy stands yet and the court holds
+## the merchant tech. Any region's offer counts (the deed's price must fit the
+## treasury), so a court that has not yet met the seller can still want the door
+## opened (wiki: civilian-units § Merchant).
+static func _land_envoy_bonus(
+	state: DiplomacyState,
+	world: WorldMap,
+	faction: int,
+	target: int,
+	treasury: int,
+	tech: Dictionary
+) -> int:
+	if world == null or state == null:
+		return 0
+	var kind: int = FactionCatalog.type_of(target)
+	if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
+		return 0
+	if DiplomacyRules.has_embassy(state, faction, target):
+		return 0
+	if not CivilianCatalog.is_unlocked("merchant", tech):
+		return 0
+	for model: MapModel in world.regions:
+		if AiMerchantWork.cheapest_offer(model, faction, target, treasury) > 0:
+			return LAND_ENVOY_BONUS
+	return 0
 
 
 ## A favoured trading pact while the standing is warm; the way back out once it

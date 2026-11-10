@@ -158,6 +158,13 @@ static func _sync_headline(model: MapModel, province_id: int, tile: Vector2i) ->
 		province.resource = GRAIN_RESOURCE
 
 
+## The faction's seat as {province, tile}; both read -1 / (-1, -1) when this
+## region holds no capital for the faction (a colony or a foreign shore).
+static func capital_seat(model: MapModel, faction: int) -> Dictionary:
+	var province: int = capital_province(model, faction)
+	return {"province": province, "tile": model.capital_tile_of(province)}
+
+
 ## The faction's capital province in this region, or -1.
 static func capital_province(model: MapModel, faction: int) -> int:
 	for province: ProvinceState in model.provinces:

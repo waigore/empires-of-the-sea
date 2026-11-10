@@ -39,6 +39,7 @@ const NARRATED: Array[String] = [
 	"boycottRevoked",
 	"grantAid",
 	"firstContact",
+	"spyTaken",
 ]
 
 
@@ -102,6 +103,7 @@ static func describe(state: DiplomacyState, event: Dictionary, viewer: int) -> S
 	var b: String = name_for(state, viewer, int(event.get("b", -1)))
 	var aggressor: String = name_for(state, viewer, int(data.get("aggressor", -1)))
 	var target: String = name_for(state, viewer, int(data.get("target", -1)))
+	var place: String = String(data.get("province", ""))
 	match kind:
 		"warDeclared":
 			return "%s declared war on %s." % [a, b]
@@ -167,6 +169,10 @@ static func describe(state: DiplomacyState, event: Dictionary, viewer: int) -> S
 			return "%s sent %s in aid to %s." % [a, DiplomacyCatalog.money(int(data.get("amount", 0))), b]
 		"firstContact":
 			return "%s made first contact with %s." % [a, b]
+		"spyTaken":
+			if place.is_empty():
+				place = b
+			return "%s's agent was taken in %s." % [a, place]
 	return ""
 
 
