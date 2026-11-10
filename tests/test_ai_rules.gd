@@ -798,6 +798,38 @@ func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	assert_eq(int(plan["orders"][0]["zone"]), 0, "the zone off its own harbour")
 
 
+## A rival hunts only in water its own chart holds (wiki: fog-and-exploration
+## § Visibility Levels; DR-20261110-21): a hull in uncharted water is not a
+## target, and a charted zone is.
+func test_ai_naval_hunts_only_charted_water() -> void:
+	# A New World region at world index 1, so the chart it reads is that region's.
+	var home: MapModel = NavalFixture.build()
+	var model: MapModel = NavalFixture.build()
+	model.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(home)
+	world.add_region(model)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var blind: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((blind["orders"] as Array).size(), 0, "it has not charted the hostile's water")
+	charts.reveal_sea_zone(2, 1, 0)
+	var charted: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((charted["orders"] as Array).size(), 1, "once charted it may hunt")
+	assert_true(AiNavalPlanner.charts_water(charts, 2, 1, 0))
+	assert_false(AiNavalPlanner.charts_water(charts, 2, 1, 1))
+	assert_true(AiNavalPlanner.charts_water(null, 2, 1, 1), "a fixture chart answers yes")
+
+
 func test_ai_naval_never_sorties_the_home_fleet() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(0, 1500)
