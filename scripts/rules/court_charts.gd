@@ -145,7 +145,7 @@ func to_dict() -> Dictionary:
 			if view != null:
 				entry[int(region)] = view.to_dict()
 		by_faction[faction] = entry
-	return {"human": human_faction, "courts": by_faction}
+	return {"courts": by_faction}
 
 
 ## Restores the rivals' grids onto an already-generated world. A payload without
