@@ -70,13 +70,20 @@ static func read(path: String) -> Dictionary:
 	return data
 
 
-## One row per slot for the save/load browsers.
+## One row per slot for the save/load browsers. `exists` says a file is in the
+## slot (the overwrite guard's question); `readable` says this build can load
+## it. A slot holding a file that cannot be read is not an empty slot, and the
+## browser must say so rather than offering it as free space (wiki:
+## campaign-persistence § Load and resume — announced, never silent).
 static func slots(dir: String = DIR) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for slot in range(1, SLOT_COUNT + 1):
-		var data: Dictionary = load_slot(slot, dir)
-		var row: Dictionary = {"slot": slot, "exists": not data.is_empty()}
-		if not data.is_empty():
+		var path: String = path_for(slot, dir)
+		var present: bool = FileAccess.file_exists(path)
+		var data: Dictionary = read(path) if present else {}
+		var readable: bool = SaveCodec.is_valid(data)
+		var row: Dictionary = {"slot": slot, "exists": present, "readable": readable}
+		if readable:
 			row.merge(SaveCodec.summary(data), true)
 		rows.append(row)
 	return rows
