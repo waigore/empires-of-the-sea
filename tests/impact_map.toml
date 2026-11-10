@@ -906,6 +906,25 @@ domain = "misc"
 match = "scripts/rules/**"
 domain = "misc"
 
+# Dossier sheet shells (HudPanelSlot / DossierHeader / row kit). Keep on ui so a
+# shell extract does not pull army/fleet/intel domains past the tier-1 budget;
+# map_play and rules paths still own those domains for behavior changes.
+[[rules]]
+match = "scripts/ui/army_panel.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/army_hud.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/fleet_panel.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/diplomacy_hud.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/army_*.gd"
 domain = "army"
@@ -926,10 +945,6 @@ domain = "intel"
 
 [[rules]]
 match = "scripts/ui/diplomacy_panel.gd"
-domain = "intel"
-
-[[rules]]
-match = "scripts/ui/diplomacy_hud.gd"
 domain = "intel"
 
 # The HUD root gains one sheet field and back must close that sheet before the
@@ -1039,6 +1054,16 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/hud_panels.gd"
+domain = "ui"
+
+# Shared dossier number/kit helpers; must not fall through to scripts/ui/** →
+# menu (resource lens / setup plates) when a shell extract touches them.
+[[rules]]
+match = "scripts/ui/text_format.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/ui_row_builder.gd*"
 domain = "ui"
 
 [[rules]]
