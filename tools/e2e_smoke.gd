@@ -77,6 +77,26 @@ func _run() -> void:
 	chart.confirm_button.emit_signal("pressed")
 	await process_frame
 
+	# The crown's charge is the gate before the first turn (wiki: dialogue-management
+	# § Kinds, `game_start_intro`): no campaign runs behind it, and one press opens
+	# the age.
+	var charge: IntroScreen = main.current_page as IntroScreen
+	_check(charge != null, "the crown's charge follows the capital chart")
+	_check(main.current_screen == null, "no campaign runs behind the charge")
+	if charge == null:
+		_finish()
+		return
+	_check(
+		_has_text(charge, FactionCatalog.name_of(0)) or _has_text(charge, "THE CROWN'S CHARGE"),
+		"the charge names the crown and its title"
+	)
+	_check(
+		_has_text(charge, str(VictoryRules.MILITARY_THRESHOLD)),
+		"the charge publishes the win condition"
+	)
+	charge.begin_button.emit_signal("pressed")
+	await process_frame
+
 	var screen: MapScreen = main.current_screen
 	_check(screen != null, "main hosts MapScreen")
 	if screen == null:
