@@ -132,6 +132,20 @@ static func rank_of(type_id: String, medals: int, fraction: float) -> float:
 	)
 
 
+## Mean tactical weight of one deployed regiment: (FPN + FPM) × chevrons ×
+## health. An action spends its share of a line as weight, so a veteran line
+## absorbs more fire than a levy one (wiki: quick-battle § Cohesion and
+## effective strength).
+static func average_rank(side: Array[ArmyState], limit: int = 0) -> float:
+	var slice: Array[Dictionary] = deployed(side, limit)
+	if slice.is_empty():
+		return 1.0
+	var total: float = 0.0
+	for entry: Dictionary in slice:
+		total += float(entry["rank"])
+	return total / float(slice.size())
+
+
 ## Σ of the deployed slice, scaled by the side multiplier.
 static func strength(side: Array[ArmyState], limit: int, multiplier: float) -> float:
 	var total: float = 0.0

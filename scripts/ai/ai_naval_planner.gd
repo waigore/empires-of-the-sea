@@ -12,12 +12,17 @@ const KIND_SORTIE: String = "sortie"
 
 
 ## One order per sea-going squadron: the zone to enter and the strength it means
-## to face. `candidates` mirrors `orders` for the turn trace.
+## to face. `candidates` mirrors `orders` for the turn trace. `charts` is the
+## courts' charts: a rival hunts only in water its own chart holds, and a hull
+## it has never charted is not a target (wiki: fog-and-exploration § Visibility
+## Levels, ai-architecture § Naval policy; DR-20261110-21). A null chart keeps
+## the every-zone behaviour the fixtures use.
 static func orders(
 	config: AiConfig,
 	state: DiplomacyState,
 	model: MapModel,
-	fleets: Array
+	fleets: Array,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var planned: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
@@ -27,7 +32,9 @@ static func orders(
 	if hostile.is_empty():
 		return {"orders": planned, "candidates": candidates}
 	for fleet: FleetState in _squadrons(fleets, config.faction):
-		var best: Dictionary = _best_target(config, model, fleets, fleet, hostile)
+		var best: Dictionary = _best_target(
+			config, model, fleets, fleet, hostile, charts
+		)
 		if best.is_empty():
 			continue
 		var entry: Dictionary = {
@@ -41,6 +48,16 @@ static func orders(
 	return {"orders": planned, "candidates": candidates}
 
 
+## True when this court's chart holds the sea zone; a null chart (a fixture)
+## answers yes, so the published policy is what every other test reads.
+static func charts_water(
+	charts: CourtCharts, faction: int, region: int, zone: int
+) -> bool:
+	if charts == null:
+		return true
+	return charts.knows_zone(faction, region, zone)
+
+
 ## Weakest reachable hostile squadron this turn, or empty when every reachable
 ## one is a fight the court declines. Anchored ports sortie, sea squadrons
 ## pursue; both enter exactly one adjacent zone (NavalMovement owns legality).
@@ -49,13 +66,18 @@ static func _best_target(
 	model: MapModel,
 	fleets: Array,
 	fleet: FleetState,
-	hostile: Dictionary
+	hostile: Dictionary,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var own: float = NavalCombat.side_strength([fleet])
 	var kind: String = KIND_SORTIE if fleet.is_in_port() else KIND_PURSUE
 	var best: Dictionary = {}
 	var best_threat: float = 0.0
 	for zone: int in NavalMovement.destination_zones(model, fleet):
+		# A court hunts only in water its own chart holds; a hull it has never
+		# charted is not a target (REQ-P2-03).
+		if not charts_water(charts, config.faction, model.region_id, zone):
+			continue
 		var threat: float = _hostile_strength(fleets, zone, hostile)
 		if threat <= 0.0 or not _can_engage(config, own, threat):
 			continue

@@ -2,8 +2,10 @@ class_name QuickBattle
 extends RefCounted
 ## One-province tactical combat (wiki: quick-battle): deterministic for a seed,
 ## three rounds, 3 CP a side. Action tables live in [QuickBattleActions]; fort
-## guns in [QuickBattleBattery]. Casualties feed the same ArmyCombat pipeline as
-## auto-resolve (REQ-P2-03, REQ-P3-01, REQ-P3-03).
+## guns in [QuickBattleBattery]. A side's strength aggregates its deployed
+## slice's tactical stats (FPN + FPM, chevrons and health), never a bare unit
+## count. Casualties feed the same ArmyCombat pipeline as auto-resolve
+## (REQ-P2-03, REQ-P3-01, REQ-P3-03).
 
 const MAX_ROUNDS: int = 3
 const CP_PER_ROUND: int = 3
@@ -64,7 +66,7 @@ static func resolve_exchange(
 	)
 	var fort_after: int = FortRules.level_at(model, province)
 	var outcome: int = _outcome(
-		atk_left, def_left, state, guns_left, atk_mods, def_mods
+		atk_left, def_left, state, guns, atk_mods, def_mods
 	)
 	var report: Dictionary = {
 		"province": province,
@@ -304,19 +306,29 @@ static func _order(state: Dictionary, context: Dictionary) -> Array[int]:
 	return [def_owner, atk_owner]
 
 
-static func _effective(
-	side: Array[ArmyState], cohesion: int, mods: Dictionary, guns_alive: int
+## One side's battle weight: the deployed slice's Σ (FPN + FPM) × chevrons ×
+## health, scaled by cohesion and the side's combat modifiers. Emplaced guns
+## add their own type's weight, already scaled by their remaining HP (wiki:
+## quick-battle § Cohesion and effective strength).
+static func effective_strength(
+	side: Array[ArmyState],
+	limit: int,
+	cohesion: int,
+	multiplier: float,
+	gun_weight: float = 0.0
 ) -> float:
-	var count: float = float(ArmyCombat.side_regiments(side))
-	return (count * (float(cohesion) / 3.0) + float(guns_alive) * 0.5) \
-		* float(mods["multiplier"])
+	return (
+		ArmyModifiers.strength(side, limit, multiplier)
+		* (float(clampi(cohesion, 0, CP_PER_ROUND)) / float(CP_PER_ROUND))
+		+ gun_weight
+	)
 
 
 static func _outcome(
 	atk_left: int,
 	def_left: int,
 	state: Dictionary,
-	guns_left: int,
+	guns: Array[Dictionary],
 	atk_mods: Dictionary,
 	def_mods: Dictionary
 ) -> int:
@@ -328,11 +340,18 @@ static func _outcome(
 		return ArmyCombat.Outcome.DEFENDER_VICTORY
 	var atk_side: Array[ArmyState] = state["attacker"]["side"]
 	var def_side: Array[ArmyState] = state["defender"]["side"]
-	var atk: float = _effective(
-		atk_side, int(state["attacker"]["cohesion"]), atk_mods, 0
+	var atk: float = effective_strength(
+		atk_side,
+		int(state["attacker"]["limit"]),
+		int(state["attacker"]["cohesion"]),
+		float(atk_mods["multiplier"])
 	)
-	var def: float = _effective(
-		def_side, int(state["defender"]["cohesion"]), def_mods, guns_left
+	var def: float = effective_strength(
+		def_side,
+		int(state["defender"]["limit"]),
+		int(state["defender"]["cohesion"]),
+		float(def_mods["multiplier"]),
+		QuickBattleBattery.strength(guns)
 	)
 	return ArmyCombat.Outcome.ATTACKER_ADVANTAGE if def <= 0.0 or atk / def >= 1.0 \
 		else ArmyCombat.Outcome.DEFENDER_VICTORY
