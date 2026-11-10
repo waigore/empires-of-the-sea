@@ -30,6 +30,7 @@ func fill(
 	_cargo = cargo
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
+	_add_terms_banner()
 	_add_offers(offers)
 	var header := UiRowBuilder.row(0.0)
 	header.add_child(UiRowBuilder.caption("COMMODITY", 10, Palette.TEXT_DIM, 132.0))
@@ -121,6 +122,36 @@ func _offer_row(offer: Dictionary) -> Control:
 	return row
 
 
+## One plain sentence for the court's trade diplomacy, so an adjusted price is
+## never a mystery (wiki: world-market § FTP; REQ-P2-03).
+func _add_terms_banner() -> void:
+	if _market == null:
+		return
+	var terms: Dictionary = _market.terms_for(FactionCatalog.PLAYER_FACTION)
+	if terms.is_empty():
+		return
+	var buy: Dictionary = terms.get("buy", {})
+	var sell: Dictionary = terms.get("sell", {})
+	var buy_rate: float = float(buy.get("*", 1.0))
+	var sell_rate: float = float(sell.get("*", 1.0))
+	var text: String = "Trade terms: imports at %d%% and exports at %d%% of the world price." % [
+		roundi(buy_rate * 100.0), roundi(sell_rate * 100.0)
+	]
+	if _has_commodity_rates(buy) or _has_commodity_rates(sell):
+		text += " Subsidised courts set their own commodity rates."
+	var banner := UiRowBuilder.label(text, 12, Palette.GOLD_PALE)
+	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	banner.custom_minimum_size = Vector2(240, 0)
+	add_child(banner)
+
+
+func _has_commodity_rates(book: Dictionary) -> bool:
+	for key: Variant in book.keys():
+		if String(key) != "*":
+			return true
+	return false
+
+
 func _market_row(id: String, held: int) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
 	row.add_child(UiRowBuilder.caption(CommodityCatalog.label(id), 14, Palette.TEXT, 132.0))
@@ -130,20 +161,21 @@ func _market_row(id: String, held: int) -> Control:
 	qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(qty)
 
-	var unit_price: int = _market.price(id)
-	var price := UiRowBuilder.label("%d" % unit_price, 13, Palette.TEXT_DIM)
+	var buy_unit: int = _market.buy_price(id)
+	var sell_unit: int = _market.sell_price(id)
+	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
 	price.custom_minimum_size = Vector2(44, 0)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
 
 	var sell := UiRowBuilder.button("Sell", ROW_HEIGHT, 70.0)
 	sell.disabled = held <= 0
-	sell.tooltip_text = "Sell 1 %s for %d ducats" % [CommodityCatalog.label(id), unit_price]
+	sell.tooltip_text = "Sell 1 %s for %d ducats" % [CommodityCatalog.label(id), sell_unit]
 	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
 	row.add_child(sell)
 
 	var buy := UiRowBuilder.button("Buy", ROW_HEIGHT, 70.0)
-	buy.tooltip_text = "Buy 1 %s for %d ducats" % [CommodityCatalog.label(id), unit_price]
+	buy.tooltip_text = "Buy 1 %s for %d ducats" % [CommodityCatalog.label(id), buy_unit]
 	# Imports need a free hold in the home fleet (DR-20261109-03).
 	if int(_cargo.get("free", -1)) == 0:
 		buy.disabled = true

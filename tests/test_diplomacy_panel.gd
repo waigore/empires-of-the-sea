@@ -204,6 +204,82 @@ func test_a_waiting_proposal_banner_quotes_the_proposing_court() -> void:
 	assert_true(_has_text(panel._call_box, "“"), "and the words under it")
 
 
+func test_a_great_power_offers_the_trading_pact_in_the_trade_block() -> void:
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "TRADE TERMS"), "trade sits in its own block")
+	assert_true(_has_text(panel._detail, "of the world price"), "terms are plain language")
+	var button: Button = _find_button(panel._detail, "Offer Favoured Trading Pact")
+	assert_not_null(button)
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], DiplomacyOrders.KIND_FTP)
+	assert_eq(seen[0][1], 1)
+
+
+func test_a_standing_pact_shows_in_the_row_and_offers_the_way_out() -> void:
+	state.ftps[state.pair_key(0, 1)] = state.turn
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(1)
+	assert_true(_has_text(panel._list, "Trade Pact"))
+	assert_true(_has_text(panel._detail, "our lots clear first"))
+	assert_not_null(_find_button(panel._detail, "End Favoured Trading Pact"))
+
+
+func test_subsidy_options_carry_a_plain_price_hint() -> void:
+	state.ensure_relation(0, 6, state.turn)
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "TRADE TERMS"))
+	assert_true(_has_text(panel._detail, "cost us 10% more"))
+	var button: Button = _find_button(panel._detail, "Set Subsidy · 10%")
+	assert_not_null(button)
+	assert_false(button.disabled)
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	button.pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], DiplomacyOrders.KIND_SUBSIDY)
+	assert_eq(seen[0][2], "10")
+
+
+func test_an_active_subsidy_is_ticked_and_can_be_ended() -> void:
+	state.ensure_relation(0, 6, state.turn)
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_subsidy(0, 6, 10)
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(6)
+	assert_true(_has_text(panel._detail, "✓ Set Subsidy · 10%"), "the standing rate is marked")
+	assert_not_null(_find_button(panel._detail, "End Subsidy · 10%"))
+
+
+func test_a_boycott_is_stated_in_the_trade_block() -> void:
+	state.set_colony(9, 0)
+	DiplomacyTrade.boycott(state, 0, 2)
+	state.boycotts["1>0"] = state.turn
+	panel.refresh(state, null, 0, 2500)
+	panel.select_faction(2)
+	assert_true(_has_text(panel._detail, "closed to France"), "the issuer states the boycott")
+	assert_true(_has_text(panel._list, "Boycott"), "the row carries it too")
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "Boycotted by England"), "and the victim reads it")
+
+
+func test_orders_are_grouped_under_readable_headings() -> void:
+	panel.select_faction(1)
+	assert_true(_has_text(panel._detail, "TREATIES"))
+	assert_true(_has_text(panel._detail, "AID"))
+	assert_true(_has_text(panel._detail, "TRADE TERMS"))
+
+
 func _has_any_face(faces: Array[String]) -> bool:
 	for face: String in faces:
 		if _has_text(panel._detail, "·  %s" % face):
