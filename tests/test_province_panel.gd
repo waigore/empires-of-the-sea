@@ -142,7 +142,10 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 	for i in range(1, panels.size()):
 		add_child(panels[i])
 	for panel: Variant in panels:
-		var dock: Button = panel._dock
+		# Force dossiers keep the seal on their shared header; the sheets that
+		# still own it expose `_dock` directly.
+		var header: DossierHeader = panel.get("_header") as DossierHeader
+		var dock: Button = header.dock if header != null else panel.get("_dock") as Button
 		assert_true(dock != null, "%s has a dock button" % panel.get_class())
 		panel.set_dock_affordance("▶", "Dock right")
 		assert_eq(dock.text, "▶", "the glyph and nothing else")
