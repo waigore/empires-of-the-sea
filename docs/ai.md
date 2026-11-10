@@ -59,8 +59,8 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`): rival reading
-  ([`intel-dossier.md`](intel-dossier.md)).
+- **Court dossier** (`IntelDossier`,
+  [`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
