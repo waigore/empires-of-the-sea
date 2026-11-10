@@ -193,9 +193,13 @@ func _tradecraft_text(model: MapModel, unit: CivilianState) -> String:
 		return "Unclaimed land — no court to shadow"
 	if host == unit.owner:
 		if unit.work_action() == SpyRules.WORK_COUNTER:
+			# The order costs a spy that could be shadowing a rival for +15% RP,
+			# so the dossier names what the screen buys before the court commits
+			# (wiki: civilian-units § Spy (3)).
 			return (
-				"Counter-espionage screen — covers every province this crown holds"
-			)
+				"Counter-espionage screen — empire-wide; %d%% a turn to take a"
+				+ " rival agent, %d%% to turn one."
+			) % [SpyRules.KILL_PCT, SpyRules.DEFECT_PCT]
 		return "No screen up — only the counter-espionage order covers your land"
 	var name: String = FactionCatalog.name_of(host)
 	if FactionCatalog.type_of(host) == FactionCatalog.Type.GREAT_POWER:

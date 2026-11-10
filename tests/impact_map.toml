@@ -441,6 +441,12 @@ domain = "quick_battle"
 match = "tests/playtest_espionage.gd*"
 domain = "espionage"
 
+# The rival half of the same domain: AI spies against the crown, the screen,
+# and the lines the court hears when an agent is taken.
+[[rules]]
+match = "tests/playtest_ai_spycraft.gd*"
+domain = "espionage"
+
 [[rules]]
 match = "tests/playtest_province_dev.gd*"
 domain = "civilian"
