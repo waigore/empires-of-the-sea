@@ -2,51 +2,50 @@
 
 War, peace, treaties, aid and intervention (wiki:
 [diplomacy](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy)).
-Open from `COURT`.
+Open from the `COURT` seal.
 
 **Pillars:** P2 rules, P3 pure rules + panel, P1 court, P4 latency.
 
 ## Implemented
 
-- **Relations** (`DiplomacyState`): pair score (0–100), war state, turn stamps;
-  same-region seed 50. Bands 0–25/26–50/51–75/76–100 show as a ladder. GP pairs
-  start at Embassy; survives war and peace.
+- **Relations** (`DiplomacyState`): pair score, war state, turn
+  stamps; same-region seed 50. Bands 0–25/26–50/51–75/76–100 show as a ladder,
+  never scores. GP pairs start at Embassy; survives war and peace.
 - **Decay:** non-war pairs drift 4.0 toward 50 unless an event touched them;
   war freezes.
-- **Spy death:** a spy killed in foreign territory costs −8 between owner and
-  territory owner and counts as that turn's interaction
-  ([`espionage.md`](espionage.md)).
+- **Spy death:** a spy killed abroad costs −8 relations with the host.
 - **War / peace:** war requires peace, freezes the score, clears overtures
   (GP pairs keep Embassy); battles need war. Minors/Tribes accept peace; a GP
   at 26+.
-- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking
-  costs −50 with the ally, −10 with others; alliance and war never coexist.
-- **Call to arms:** a GP war calls each formal ally once. AI allies join at
-  50+; human calls wait; refusal breaks the treaty.
-- **Intervention:** a war on a Minor/Tribe offers embassy courts: intervene,
-  stand aside (lose embassy) or protest (−10; −5 vs Propaganda).
+- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs −50 with the ally, −10 with others; alliance
+  and war never coexist.
+- **Call to arms:** a GP war calls each formal ally once. AI
+  allies join at 50+; human calls wait; refusal breaks the treaty.
+- **Intervention:** a war on a Minor/Tribe lets embassy and deed
+  holders choose: intervene, stand aside (lose the embassy) or protest
+  (−10; −5 against Propaganda).
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP → Join Empire
-  £5,000 + £2,000/province; one per target per turn. Minor/Tribe embassies need
-  Diplomatic Expertise.
+  £5,000 + £2,000/province; one per target per turn.
+  Minor/Tribe embassies need Diplomatic Expertise.
 - **Join Empire:** absorbs a Minor, colonizes a Tribe; a nearly defeated GP
   needs Empire Building.
-- **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy 5–20%,
-  Minor/Tribe only; Merchant land 15× base, one deed/tile.
-- **First contact:** a Tribe enters court once a visible tile touches its
-  provinces.
-- **Chronicle** (`DiplomacyHistory`): events stay unbounded; the panel shows
-  newest first, stamped `Year Y (Turn N)`; unmet crowns read `Unknown faction`;
-  scores never print.
+- **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy
+  5–20% in fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
+- **First contact:** a Tribe enters court once a seen tile sits in its
+  provinces; sea-reach intel does not.
+- **Chronicle** (`DiplomacyHistory`): events stay unbounded; the panel shows the
+  pair newest first, `Year Y (Turn N)`; unmet crowns read
+  `Unknown faction`; scores never print.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, banded suspicion and
-  behaviour counts per court ([`intel-dossier.md`](intel-dossier.md)).
+  behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
 - **Rival AI courts:** one legal order per GP per turn ([`ai.md`](ai.md)).
   Below 50 war desire a rival offers white peace; either answer starts a
-  3-turn cooldown.
+  3-turn cooldown (`diplomacy.peace_cooldown_turns`).
 
 ## Deferred (REQ-P2-02)
 
-- Subsidy pricing, trade boosts, FTP, boycotts (no counterparty).
-- Merchant overseas cargo, colony profit share, near-defeat land war.
+- Subsidy pricing, trade boosts, FTP, boycotts (no counterparty);
+  Merchant overseas cargo, colony profit share, near-defeat land war.
 
 ## Architecture
 
@@ -73,8 +72,8 @@ Rules need no nodes (`REQ-P3-03`). Panel → `DiplomacyOrders.apply`; phase →
 
 ## Tests
 
-Suites: `test_diplomacy_state/orders/panel/history/screen/proposals`,
-`test_call_to_arms`, `test_intervention`, `test_intel_dossier`, `test_espionage`.
+Suites: `test_diplomacy_*`, `test_call_to_arms`, `test_intervention`,
+`test_intel_dossier`, `test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80
