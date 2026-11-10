@@ -109,6 +109,9 @@ static func turn_summary(report: Dictionary) -> String:
 	var landed: int = int(overseas.get("used", 0))
 	if landed > 0:
 		parts.append("%d colonial tons landed" % landed)
+	var made: Dictionary = overseas.get("manufactured", {})
+	if not made.is_empty():
+		parts.append("%s made in colonial towns" % ImprovementSystem.output_text(made))
 	var left: int = int(overseas.get("left_total", 0))
 	if left > 0:
 		parts.append("%d left on the far shore" % left)

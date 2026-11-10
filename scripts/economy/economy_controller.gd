@@ -142,7 +142,7 @@ func extraction() -> Dictionary:
 	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 	return EconomyOverseas.delivered(
 		home, _ships.world, home_region, player_faction, tech_caps(),
-		works_by_region, cargo_holds()
+		works_by_region, cargo_holds(), economy.tech_unlocked
 	)["extraction"] as Dictionary
 
 

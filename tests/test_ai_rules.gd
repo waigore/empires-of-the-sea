@@ -65,7 +65,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
 	assert_eq(AiParameterRegistry.default_of("military.attack_margin_pct"), 110)
 	assert_eq(AiParameterRegistry.default_of("military.defence_weight"), 500)
-	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.PARAMETERS.size())
+	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.entries().size())
 
 
 func test_unknown_keys_fall_back_instead_of_crashing() -> void:
@@ -1249,9 +1249,9 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	play.civilian_layer = layer
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 
-	var without_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	var without_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(without_holds), 5, "the rival's home yield needs no hold")
-	assert_eq(int(MapPlayEconomyAi._extraction(play, 1, economy)["grain"]), 5)
+	assert_eq(int(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]["grain"]), 5)
 
 	var ships := ShipLayer.new()
 	var home: FleetState = FleetState.in_port(
@@ -1259,7 +1259,7 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	)
 	ships.regions.set_region(WorldMap.OLD_WORLD, [home] as Array[FleetState])
 	play.ship_layer = ships
-	var with_holds: Dictionary = MapPlayEconomyAi._extraction(play, 1, economy)
+	var with_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
 	ships.free()
 	layer.free()

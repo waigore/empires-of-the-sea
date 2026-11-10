@@ -51,7 +51,7 @@ static func run(play: PlaySession) -> Dictionary:
 		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(config, economy)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
-		var civilians: Dictionary = _run_civilians(play, faction, economy, config)
+		var civilians: Dictionary = _run_civilians(play, faction, economy, config, overseas)
 		order_log.append_array(civilians["orders"])
 		by_faction[faction] = {
 			"extraction": overseas["extraction"],
@@ -88,30 +88,32 @@ static func _seed_civilians(play: PlaySession, faction: int) -> void:
 		play.civilian_layer.regions.set_region(region, roster)
 
 
-## Runs the civilian planner in every region this court owns units in.
+## Runs the civilian planner in every region this court owns units in; an overseas
+## region is priced on the raw its holds actually landed.
 static func _run_civilians(
-	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig
+	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
+	overseas: Dictionary = {}
 ) -> Dictionary:
 	var report: Dictionary = {"orders": [], "moves": [], "training": []}
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
-		if model == null or roster.is_empty():
-			continue
 		var works: LandWorks = play.civilian_layer.works_regions.value(region, null)
-		if works == null:
+		if model == null or roster.is_empty() or works == null:
 			continue
 		var capital: Dictionary = _capital(model, faction)
-		var province: int = int(capital["province"])
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
 			"treasury": economy.treasury,
 			"paper": economy.quantity("paper"),
-			"capital_province": province,
+			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],
 			"tech_unlocked": economy.tech_unlocked,
 			"at_war": _at_war(play, faction),
 		}
+		if region != int(overseas.get("home_region", region)):
+			var landed: Dictionary = overseas.get("by_province", {}) as Dictionary
+			context["delivered_raw"] = landed.get(region, {})
 		var plan: Dictionary = AiCivilianPlanner.plan(
 			config, model, roster, works, economy.stockpile, tech_caps,
 			economy.tech_unlocked, context
@@ -183,13 +185,8 @@ static func _train(
 # --- economy -----------------------------------------------------------------
 
 
-## Home yield plus colonial tonnage on home holds (wiki: extraction-and-improvements).
-static func _extraction(
-	play: PlaySession, faction: int, economy: PlayerEconomy
-) -> Dictionary:
-	return _overseas(play, faction, economy)["extraction"] as Dictionary
-
-## Same crossing with hold accounting for the market pass.
+## Home yield plus colonial tonnage on home holds, with hold accounting for the
+## market pass (wiki: extraction-and-improvements).
 static func _overseas(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> Dictionary:
@@ -212,9 +209,12 @@ static func _overseas(
 		holds = TradeCargo.capacity(
 			play.world, play.ship_layer.regions.snapshot(), faction
 		)
-	return EconomyOverseas.delivered(
-		home, play.world, home_region, faction, tech_caps, works_by_region, holds
+	var plan: Dictionary = EconomyOverseas.delivered(
+		home, play.world, home_region, faction, tech_caps, works_by_region, holds,
+		economy.tech_unlocked
 	)
+	plan["home_region"] = home_region
+	return plan
 
 
 static func _market(play: PlaySession) -> WorldMarket:
