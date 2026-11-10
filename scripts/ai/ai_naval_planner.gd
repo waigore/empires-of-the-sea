@@ -12,12 +12,15 @@ const KIND_SORTIE: String = "sortie"
 
 
 ## One order per sea-going squadron: the zone to enter and the strength it means
-## to face. `candidates` mirrors `orders` for the turn trace.
+## to face. `candidates` mirrors `orders` for the turn trace. `charts` is the
+## court's own fog — it never hunts into water it has not charted, and a null
+## chart is the fixture reading (DR-20261110-21).
 static func orders(
 	config: AiConfig,
 	state: DiplomacyState,
 	model: MapModel,
-	fleets: Array
+	fleets: Array,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var planned: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
@@ -27,7 +30,7 @@ static func orders(
 	if hostile.is_empty():
 		return {"orders": planned, "candidates": candidates}
 	for fleet: FleetState in _squadrons(fleets, config.faction):
-		var best: Dictionary = _best_target(config, model, fleets, fleet, hostile)
+		var best: Dictionary = _best_target(config, model, fleets, fleet, hostile, charts)
 		if best.is_empty():
 			continue
 		var entry: Dictionary = {
@@ -49,13 +52,16 @@ static func _best_target(
 	model: MapModel,
 	fleets: Array,
 	fleet: FleetState,
-	hostile: Dictionary
+	hostile: Dictionary,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var own: float = NavalCombat.side_strength([fleet])
 	var kind: String = KIND_SORTIE if fleet.is_in_port() else KIND_PURSUE
 	var best: Dictionary = {}
 	var best_threat: float = 0.0
 	for zone: int in NavalMovement.destination_zones(model, fleet):
+		if charts != null and not charts.knows_zone(fleet.owner, model.region_id, zone):
+			continue
 		var threat: float = _hostile_strength(fleets, zone, hostile)
 		if threat <= 0.0 or not _can_engage(config, own, threat):
 			continue

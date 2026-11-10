@@ -42,6 +42,10 @@ var model: MapModel = null
 var visibility: VisibilityModel = null
 ## One fog model per region, kept across map switches.
 var visibility_by_region: Dictionary = {}
+## Every rival court's chart, one grid per court and region (wiki:
+## fog-and-exploration; DR-20261110-21). The human's own grid stays in
+## `visibility_by_region`, so the view and the planners never read two fogs.
+var court_charts: CourtCharts = null
 ## Regions whose setup post-pass (ports, roads, grain farms) already ran.
 var bootstrapped_regions: Dictionary = {}
 var land_works: LandWorks = null

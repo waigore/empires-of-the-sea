@@ -112,6 +112,18 @@ func _run() -> void:
 		== LeaderCatalog.default_key(screen.player_faction),
 		"the human crown fields its configured leader"
 	)
+	_check(screen.play.court_charts != null, "every rival court holds a chart")
+	_check(
+		screen.play.court_charts.model_for(screen.player_faction, screen.region_index)
+		== screen.visibility,
+		"the human grid is the one the charts route to"
+	)
+	_check(
+		screen.play.court_charts.known_zones(
+			FactionCatalog.great_power_ids()[1], FactionCatalog.NEW_WORLD
+		).is_empty(),
+		"no rival has charted the New World on turn one"
+	)
 	_check(screen.game_menu != null, "in-game menu present")
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")

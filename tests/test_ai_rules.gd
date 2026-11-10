@@ -826,6 +826,35 @@ func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
 	assert_eq((plan["orders"] as Array).size(), 0)
 
 
+## A court hunts only water it charts: the New World starts unknown for every
+## rival, so a hostile squadron there is invisible until a ship enters the zone
+## (wiki: fog-and-exploration; DR-20261110-21).
+func test_ai_naval_never_hunts_into_uncharted_water() -> void:
+	var model: MapModel = NavalFixture.build()
+	model.region_id = WorldMap.NEW_WORLD
+	var world := WorldMap.new()
+	# A filler region keeps the New World at index 1, its own region id.
+	world.add_region(MapModel.new())
+	world.add_region(model)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 2, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var blind: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((blind["orders"] as Array).size(), 0, "the hostile zone is uncharted")
+	charts.reveal_sea_zone(2, 1, 0)
+	var sighted: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((sighted["orders"] as Array).size(), 1, "a charted zone is hunted")
+	assert_eq(int(sighted["orders"][0]["zone"]), 0)
+
+
 func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()

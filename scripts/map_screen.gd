@@ -242,9 +242,8 @@ func load_region(index: int) -> void:
 	sea_backdrop.position = Vector2(-margin, -margin)
 	sea_backdrop.size = map_size + Vector2(margin, margin) * 2.0
 	if sea_backdrop.material is ShaderMaterial:
-		(sea_backdrop.material as ShaderMaterial).set_shader_parameter(
-			"world_size", sea_backdrop.size
-		)
+		var shader: ShaderMaterial = sea_backdrop.material
+		shader.set_shader_parameter("world_size", sea_backdrop.size)
 	play.capital_province = MapPlaySetup.find_capital(play)
 	play.capital_tile = play.model.capital_tile_of(play.capital_province)
 	# Prepare works first so the post-pass can wire them before units muster.
@@ -264,6 +263,7 @@ func load_region(index: int) -> void:
 	play.land_works = civilian_layer.works
 	camera.configure(map_size)
 	MapPlaySetup.build_visibility(play)
+	MapPlayCourtFog.build(play)
 	overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)

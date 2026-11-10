@@ -29,7 +29,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			touched = _split(play, model, fleets, armies, faction, config, trace) or touched
 			var order: Dictionary = AiInvasionPlanner.plan(
-				config, play.diplomacy, play.world, region, model, fleets, armies, play.turn
+				config, play.diplomacy, play.world, region, model, fleets, armies,
+				play.turn, play.court_charts
 			)
 			if order.is_empty():
 				continue
@@ -56,7 +57,7 @@ static func _split(
 ) -> bool:
 	var split_any: bool = false
 	for action: Dictionary in AiInvasionPlanner.split_orders(
-		config, play.diplomacy, play.world, model, fleets, armies
+		config, play.diplomacy, play.world, model, fleets, armies, play.court_charts
 	):
 		var home: ArmyState = _army_by_id(armies, int(action.get("army_id", -1)))
 		if home == null:
@@ -121,12 +122,17 @@ static func _apply(
 				sailed = FleetSortie.apply(model, fleet, zone)
 			if not bool(sailed.get("ok", false)):
 				return {}
+			MapPlayCourtFog.note_fleet_entry(play, region, fleet, zone)
 			entry["zone"] = zone
 			entry["zone_name"] = model.sea_zone_name(zone)
 		AiInvasionPlanner.KIND_CROSS:
 			var crossed: Dictionary = _cross(play, region, fleets, armies, fleet)
 			if not bool(crossed.get("ok", false)):
 				return {}
+			MapPlayCourtFog.note_fleet_entry(
+				play, int(crossed.get("to_region", -1)), fleet,
+				int(crossed.get("to_zone", -1))
+			)
 			entry["to_region"] = int(crossed.get("to_region", -1))
 			entry["zone"] = int(crossed.get("to_zone", -1))
 		AiInvasionPlanner.KIND_BEACHHEAD:

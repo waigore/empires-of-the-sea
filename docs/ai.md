@@ -4,8 +4,7 @@ Rival Great Powers act through a deterministic, data-tuned stack (wiki:
 [AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture),
 [diplomacy planner](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy-planner)).
 
-**Pillars:** P2 rules fidelity, P3 pure/testable rules, P4 no per-frame work,
-P5 unbookkept rivals.
+**Pillars:** P2, P3, P4, P5.
 
 ## Implemented
 
@@ -31,6 +30,10 @@ P5 unbookkept rivals.
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
+- **Court charts** (`CourtCharts`, `MapPlayCourtFog`): every court holds its own
+  fog per region; voyages, invasions, sorties, blockades and work orders read
+  only that court's chart, and discovery techs wait for a sighting
+  (DR-20261110-21).
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer, cross a Passage, land; then prospect or improve.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
@@ -39,23 +42,23 @@ P5 unbookkept rivals.
 - **Economy planner** (`AiEconomyPlanner`): `PlayerEconomy` ledger; recipes by
   stock deficit; runs under labour/inputs; recruit highest affordable tier to
   caps.
-- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots (weights, shortfalls, war bonus); `research.funding_index` funds; `ResearchTurn` advances.
+- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
+  `research.funding_index` funds; `ResearchTurn` advances.
 - **Civilian planner** (`AiCivilianPlanner`): one validated order per idle
   civilian — builders improve shortest commodity or finish a paying town,
-  engineers connect towns then road/port/fort, explorers prospect, rail builders
-  upgrade roads.
+  engineers connect towns then road/port/fort, explorers explore and prospect,
+  rail builders upgrade roads.
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
-  inputs; bid short build inputs on free holds (3 types; 6 with Trade Fairs).
+  inputs; bid short build inputs on free holds.
 - **Regiment parity** (`MilitaryParity`): after movement, Minor land regiments
   match the strongest Great Power era; Tribes stay at level 1.
 - **Rival turn** (`MapPlayEconomyAi`): seed civilians; Extraction → Riches →
   Consumption → Production on the shared market; trade; next assignments.
 - **Persistence:** agendas, cooldowns, rival ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`, `CourtDossier`): player's rival reading —
-  evidence, banded suspicion per agenda, best guess, behaviour counts
-  ([`intel-dossier.md`](intel-dossier.md)).
+- **Court dossier** (`IntelDossier`, `CourtDossier`): the player's banded rival
+  read ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Full-AI observer (debug)
 
@@ -64,7 +67,6 @@ P5 unbookkept rivals.
 ## Deferred (REQ-P2-02)
 
 - Intervention, call-to-arms and boycotts.
-- Rival fog exploration.
 - Agenda-sourced dialogue beats.
 
 ## Architecture
@@ -75,9 +77,7 @@ wire them to `PlaySession`.
 
 ## Tests
 
-`test_ai_rules`, `test_ai_market`, `test_ai_colonisation`, `test_ai_invasion`,
-`test_ai_town_roads`, `test_ai_builder_work`, `test_military_parity`,
-`test_ai_observer`, `test_espionage`.
+`test_ai_*`, `test_military_parity`, `test_espionage`, `test_visibility`.
 
 ```bash
 gd-tools test --coverage --min 80

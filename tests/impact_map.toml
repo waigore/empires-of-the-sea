@@ -568,6 +568,12 @@ domain = "campaign"
 match = "scripts/rules/visibility.gd"
 domain = "map"
 
+# Court charts are fog rules: the visibility suite owns their contract, so a
+# chart change stays inside the map domain (DR-20261110-21).
+[[rules]]
+match = "scripts/rules/court_*.gd"
+domain = "map"
+
 [[rules]]
 match = "scripts/rules/resource_survey.gd"
 domain = "map"
