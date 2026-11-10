@@ -91,7 +91,11 @@ func _build() -> void:
 
 	_dock = _make_button("◀")
 	_dock.tooltip_text = "Dock left"
-	_dock.custom_minimum_size = Vector2(48, 0)
+	# A dock affordance is a glyph, not a titled bar: it must match the other
+	# dossiers' corner buttons (REQ-P1-02).
+	_dock.custom_minimum_size = Vector2(40, 40)
+	_dock.add_theme_font_size_override("font_size", 18)
+	_dock.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
 	footer.add_child(_dock)
 

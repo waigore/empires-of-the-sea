@@ -47,27 +47,46 @@ static func snapshot(
 		model, works, owner, capital_tile
 	)
 	for province: ProvinceState in model.provinces:
-		var rows: Array[Dictionary] = []
-		var tile_owners: Dictionary = {}
-		for tile: Vector2i in province.tiles:
-			if model.resource_at(tile.x, tile.y) < 0:
-				continue
-			if _hidden(visibility, tile):
-				continue
-			var row: Dictionary = _row(
-				model, works, units, owner, connected, tile, tech_caps
-			)
-			rows.append(row)
-			tile_owners[int(row["tile_owner"])] = true
+		var rows: Array[Dictionary] = _rows(
+			model, works, units, owner, connected, province, visibility, tech_caps
+		)
 		if rows.is_empty():
 			continue
-		rows.sort_custom(_row_before)
+		var tile_owners: Dictionary = {}
+		for row: Dictionary in rows:
+			tile_owners[int(row["tile_owner"])] = true
 		var entry: Dictionary = _province_entry(
 			model, province, rows, tile_owners, visibility
 		)
 		result["provinces"].append(entry)
 		_summarise(result, entry)
 	return result
+
+
+## One province's resource rows, in the same vocabulary the survey lens and the
+## estates ledger use. The province dossier reads this so it can name every
+## estate a province holds, not just the province's headline resource.
+static func province_rows(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	owner: int,
+	province_id: int,
+	visibility: VisibilityModel = null,
+	capital_tile: Vector2i = CivilianState.NO_TILE,
+	tech_caps: Dictionary = {}
+) -> Array[Dictionary]:
+	if model == null or works == null:
+		return [] as Array[Dictionary]
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null:
+		return [] as Array[Dictionary]
+	var connected: Dictionary = ImprovementSystem.connected_tiles(
+		model, works, owner, capital_tile
+	)
+	return _rows(
+		model, works, units, owner, connected, province, visibility, tech_caps
+	)
 
 
 ## Short line for the hover tooltip while the lens is on.
@@ -96,6 +115,28 @@ static func summary_text(entry: Dictionary) -> String:
 
 
 # --- rows --------------------------------------------------------------------
+
+
+## Every charted resource tile in one province, in reading order.
+static func _rows(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	owner: int,
+	connected: Dictionary,
+	province: ProvinceState,
+	visibility: VisibilityModel,
+	tech_caps: Dictionary
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for tile: Vector2i in province.tiles:
+		if model.resource_at(tile.x, tile.y) < 0:
+			continue
+		if _hidden(visibility, tile):
+			continue
+		rows.append(_row(model, works, units, owner, connected, tile, tech_caps))
+	rows.sort_custom(_row_before)
+	return rows
 
 
 static func _row(
