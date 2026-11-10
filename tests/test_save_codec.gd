@@ -352,6 +352,31 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 	assert_eq(play.ai.economy_for(1).treasury, purse, "the rival purse returns as saved")
 
 
+## The crown's Quick Battle plan is a standing order, so it comes back with the
+## campaign; a save without it starts Balanced (wiki: quick-battle § The crown's
+## plan; campaign-persistence; DR-20261110-33).
+func test_the_crowns_battle_plan_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "aggressive"
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String((data["session"] as Dictionary).get("battle_plan", "")),
+		"aggressive"
+	)
+	assert_true(SaveStore.write(DIR + "/plan.sav", data))
+	var loaded: Dictionary = SaveStore.read(DIR + "/plan.sav")
+
+	screen.free()
+	screen = _new_screen(loaded)
+	assert_eq(screen.play.battle_plan, "aggressive", "the standing plan resumes")
+
+	var legacy: Dictionary = loaded.duplicate(true)
+	(legacy["session"] as Dictionary).erase("battle_plan")
+	screen.free()
+	screen = _new_screen(legacy)
+	assert_eq(screen.play.battle_plan, "balanced", "a save without a plan is balanced")
+
+
 func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
 	var play: PlaySession = screen.play
 	MapPlayTurn.end_turn(play)

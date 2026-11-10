@@ -53,6 +53,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"infinite_mode": play.infinite_mode,
 		"advanced_start": play.advanced_start,
 		"difficulty": play.difficulty,
+		"battle_plan": play.battle_plan,
 		"campaign_halted": play.campaign_halted,
 	}
 
@@ -132,6 +133,12 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	)
 	play.difficulty = Difficulty.normalize(
 		String(session.get("difficulty", Difficulty.DEFAULT))
+	)
+	# The crown's battle plan is a standing order, so it is part of the resume;
+	# a save without it (legacy) starts Balanced (wiki: quick-battle § The
+	# crown's plan; DR-20261110-33).
+	play.battle_plan = QuickBattleActions.normalize_plan(
+		String(session.get("battle_plan", "balanced"))
 	)
 	play.campaign_halted = bool(session.get("campaign_halted", false))
 	# A decided campaign must come back decided or the load would reopen sealed turns.
