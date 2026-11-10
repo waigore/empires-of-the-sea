@@ -273,6 +273,31 @@ func test_setup_carries_the_campaign_choice_into_the_config() -> void:
 	assert_eq(setup.campaign_option.item_count, 2, "historical and endless on offer")
 
 
+## DR-20261111-02: setup names both lengths' endings and the ready summary
+## repeats the chosen horizon, so the choice is never blind (REQ-P5-03).
+func test_the_setup_names_both_campaign_lengths_and_their_horizon() -> void:
+	var setup: GameSetupScreen = load("res://scenes/game_setup.tscn").instantiate()
+	add_child(setup)
+
+	assert_eq(setup.campaign_option.item_count, 2, "Historical and Endless are the lengths")
+	assert_true(
+		setup.campaign_option.get_item_text(0).contains("1800"),
+		"Historical names its ending",
+	)
+	assert_true(
+		setup.campaign_option.get_item_text(1).contains("military victory"),
+		"Endless names its only ending",
+	)
+
+	setup.campaign_option.select(0)
+	setup.campaign_option.item_selected.emit(0)
+	assert_true(setup._summary.text.contains("to 1800"), "the summary repeats Historical")
+
+	setup.campaign_option.select(1)
+	setup.campaign_option.item_selected.emit(1)
+	assert_true(setup._summary.text.contains("endless"), "the summary repeats Endless")
+
+
 func test_the_config_round_trips_the_campaign_choice() -> void:
 	var config: GameConfig = GameConfig.make(7, 0, 1, "", true)
 
