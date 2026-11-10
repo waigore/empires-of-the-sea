@@ -23,7 +23,56 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var guns: int = int(action.get("guns_destroyed", 0))
 	if guns > 0:
 		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
+	elif int(action.get("battery_hit", 0)) > 0:
+		text += " · the battery takes the blow"
+	var behind: int = int(action.get("behind_lost", 0))
+	if behind > 0:
+		text += " · %d behind the wall" % behind
+	if inflicted <= 0 and int(action.get("turned", 0)) > 0:
+		text += " · the wall turns it aside"
 	return text
+
+
+## Siege despatch: the fort, the wall's protection, the lanes it shelters, and
+## the level a silenced battery leaves behind. Empty in a field battle.
+static func siege_line(battle: Dictionary) -> String:
+	var level: int = int(battle.get("fort_level", 0))
+	if level <= 0:
+		return ""
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var lanes: Dictionary = quick.get("lanes", {}) as Dictionary
+	var text: String = FortRules.describe(level)
+	text += " · walls spare %d%% of the defenders' losses" % int(
+		round(FortRules.damage_reduction(level) * 100.0)
+	)
+	text += " · %d on the wall, %d behind" % [
+		int(lanes.get("wall", 0)), int(lanes.get("behind", 0))
+	]
+	if int(quick.get("sorties", 0)) > 0:
+		text += " · %d sortie%s" % [
+			int(quick.get("sorties", 0)), "" if int(quick.get("sorties", 0)) == 1 else "s"
+		]
+	if bool(quick.get("fort_downgraded", false)):
+		var after: int = int(quick.get("fort_after", maxi(0, level - 1)))
+		text += " — battery silenced, the fort falls to %s" % (
+			FortRules.level_name(after) if after > 0 else "open field"
+		)
+	return text
+
+
+## Regiment detail after the battle: which types each side lost. Empty when the
+## field was quiet.
+static func loss_line(battle: Dictionary, names: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var tally: Dictionary = battle.get(key + "_detail", {}) as Dictionary
+		var text: String = RegimentCatalog.detail_text(tally)
+		if text.is_empty():
+			continue
+		parts.append("%s: %s" % [faction(int(battle.get(key, -1)), names), text])
+	if parts.is_empty():
+		return ""
+	return "Losses — " + " · ".join(parts)
 
 
 static func outcome_text(

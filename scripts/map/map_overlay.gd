@@ -148,6 +148,13 @@ func select_province(id: int, ripple_at: Vector2 = Vector2.INF) -> void:
 	queue_redraw()
 
 
+## A one-shot ring on the water itself — a raid, a landing — that never changes
+## the selection (DR-20261110-13).
+func ripple(point: Vector2) -> void:
+	_ripples.append({"position": point, "age": 0.0})
+	queue_redraw()
+
+
 # --- draw --------------------------------------------------------------------
 
 

@@ -2,6 +2,9 @@ class_name QuickBattleActions
 extends RefCounted
 ## Plan scripts and one action's resolution for Quick Battle. Tables stay here
 ## so [QuickBattle] only orchestrates rounds (REQ-P3-01, REQ-P3-03).
+## A siege routes casualties through [SiegeLanes]: the wall shelters the
+## garrison, only artillery reaches behind it, and a sortie trades that shelter
+## for every regiment's fire.
 
 
 const PLANS: Dictionary = {
@@ -48,6 +51,11 @@ static func resolve(
 		"attacker_lost": 0,
 		"defender_lost": 0,
 		"guns_destroyed": 0,
+		"battery_hit": 0,
+		"wall_lost": 0,
+		"behind_lost": 0,
+		"turned": 0,
+		"sortie": false,
 		"guard": 0.0,
 	}
 	if action == "maneuver":
@@ -57,20 +65,49 @@ static func resolve(
 		me["guard"] = maxf(float(me["guard"]), float(ACTION_GUARD[action]))
 		entry["guard"] = float(me["guard"])
 		return entry
+	var fort: int = int((state["defender"].get("mods", {}) as Dictionary).get("fort", 0))
+	var siege: bool = fort > 0
+	var me_side: Array[ArmyState] = me["side"]
+	var enemy_side: Array[ArmyState] = enemy["side"]
 	var ratio: float = float(ACTION_DAMAGE[action]) * (float(me["cohesion"]) / 3.0)
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
-	var enemy_side: Array[ArmyState] = enemy["side"]
 	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
-	var wanted: int = ceili(ratio * float(maxi(enemy_count, 1)))
-	if key == "attacker" and QuickBattleBattery.alive(guns) > 0:
-		var destroyed: int = QuickBattleBattery.hit(guns, maxi(1, wanted))
-		entry["guns_destroyed"] = destroyed
-		wanted = maxi(0, wanted - destroyed)
+	var blow: float = ratio * float(maxi(enemy_count, 1))
+	var wanted: int = ceili(blow)
+	# The battery is shot at before the men behind it; melee cannot reach it. A
+	# standing gun spends the blow before the lanes, so the garrison is sheltered
+	# until the battery is quiet (wiki: siege-mechanics § Quick Battle lanes).
+	if key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
+		and SiegeLanes.can_reach_wall(me_side):
+		var battery: Dictionary = QuickBattleBattery.absorb(guns, maxi(1, wanted))
+		entry["guns_destroyed"] = int(battery["destroyed"])
+		entry["battery_hit"] = int(battery["absorbed"])
+		wanted = maxi(0, wanted - int(battery["absorbed"]))
+	if siege and key == "defender":
+		var sortie: bool = action == "assault"
+		entry["sortie"] = sortie
+		if sortie:
+			entry["label"] = "Sortie"
+		me["exposed"] = sortie
+		if not sortie:
+			wanted = ceili(float(wanted) * SiegeLanes.return_fire_share(me_side))
 	if enemy_count <= 0:
 		return entry
-	var lost: Array[String] = ArmyCombat.apply_losses(
-		armies, enemy_side, wanted, int(enemy["limit"])
-	)
+	var lost: Array[String] = []
+	if wanted > 0 and siege and key == "attacker":
+		var split: Dictionary = SiegeLanes.strike(
+			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
+			bool(enemy.get("exposed", false))
+		)
+		var wall_lost: Array[String] = split["wall"]
+		var behind_lost: Array[String] = split["behind"]
+		lost.append_array(wall_lost)
+		lost.append_array(behind_lost)
+		entry["wall_lost"] = wall_lost.size()
+		entry["behind_lost"] = behind_lost.size()
+		entry["turned"] = int(split["turned"])
+	elif wanted > 0:
+		lost = ArmyCombat.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
 	enemy["lost"].append_array(lost)
 	if key == "attacker":
 		entry["defender_lost"] = lost.size()
@@ -78,16 +115,24 @@ static func resolve(
 		entry["attacker_lost"] = lost.size()
 	if lost.size() >= ceili(float(enemy_count) * 0.25):
 		enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
+	return _pay_own(armies, me, key, entry, action)
+
+
+## An action's own price (an assault, or a sortie, costs the side that launches it).
+static func _pay_own(
+	armies: Array[ArmyState], me: Dictionary, key: String, entry: Dictionary, action: String
+) -> Dictionary:
 	var self_ratio: float = float(ACTION_SELF[action]) * (float(me["cohesion"]) / 3.0)
-	if self_ratio > 0.0:
-		var own_side: Array[ArmyState] = me["side"]
-		var own: Array[String] = ArmyCombat.apply_losses(
-			armies, own_side, ceili(self_ratio * float(ArmyCombat.side_regiments(own_side))),
-			int(me["limit"])
-		)
-		me["lost"].append_array(own)
-		if key == "attacker":
-			entry["attacker_lost"] = int(entry["attacker_lost"]) + own.size()
-		else:
-			entry["defender_lost"] = int(entry["defender_lost"]) + own.size()
+	if self_ratio <= 0.0:
+		return entry
+	var own_side: Array[ArmyState] = me["side"]
+	var own: Array[String] = ArmyCombat.apply_losses(
+		armies, own_side, ceili(self_ratio * float(ArmyCombat.side_regiments(own_side))),
+		int(me["limit"])
+	)
+	me["lost"].append_array(own)
+	if key == "attacker":
+		entry["attacker_lost"] = int(entry["attacker_lost"]) + own.size()
+	else:
+		entry["defender_lost"] = int(entry["defender_lost"]) + own.size()
 	return entry

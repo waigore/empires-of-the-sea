@@ -44,6 +44,25 @@ static func hit(guns: Array[Dictionary], damage: int) -> int:
 	return destroyed
 
 
+## Spends one blow on the battery: how much of it the guns soaked, and how many
+## that silenced. A gun still standing drinks the blow before the lanes do
+## (wiki: siege-mechanics § Quick Battle lanes — the battery is not sheltered).
+static func absorb(guns: Array[Dictionary], damage: int) -> Dictionary:
+	var before: float = total_hp(guns)
+	var destroyed: int = hit(guns, damage)
+	var soaked: float = maxf(0.0, before - total_hp(guns))
+	return {"absorbed": int(round(soaked)), "destroyed": destroyed}
+
+
+## Remaining hit points across the battery, silenced guns included at zero.
+static func total_hp(guns: Array[Dictionary]) -> float:
+	var total: float = 0.0
+	for gun: Dictionary in guns:
+		if bool(gun["alive"]):
+			total += maxf(0.0, float(gun["hp"]))
+	return total
+
+
 static func fire(
 	armies: Array[ArmyState], state: Dictionary, guns: Array[Dictionary]
 ) -> int:

@@ -274,3 +274,40 @@ func _adjacent_enemy_province(capital: int) -> int:
 		data.owner = 1
 		return province_id
 	return -1
+
+# --- Regiment detail in the army dossier (REQ-P1-07, REQ-P5-05) ---
+const ArmyFixture = preload("res://tests/army_fixture.gd")
+
+
+func test_roster_rows_carry_regiment_detail() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
+
+	panel.refresh(model, army, true)
+
+	var roster: VBoxContainer = panel._roster
+	assert_eq(roster.get_child_count(), 2, "one row per regiment")
+	var first: VBoxContainer = roster.get_child(0)
+	assert_eq((first.get_child(0).get_child(0) as Label).text, "Guards")
+	var detail: Label = first.get_child(1)
+	assert_eq(detail.text, RegimentCatalog.detail_line("guards"))
+	assert_true(detail.text.contains("FPN 12"), detail.text)
+	assert_true(detail.text.contains("food"), detail.text)
+	panel.free()
+
+
+func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(4, 1, 2, ["knights"], false)
+
+	panel.refresh(model, army, false)
+
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_eq((row.get_child(0) as HBoxContainer).get_child_count(), 1, "no detach order")
+	assert_true((row.get_child(1) as Label).text.contains("Spear cavalry"))
+	assert_true(String(panel._status.text).contains("Enemy colours"))
+	panel.free()

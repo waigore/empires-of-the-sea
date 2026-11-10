@@ -23,6 +23,9 @@ var _offers: Dictionary = {}
 ## Units bought this turn per buyer, so each crown spends its own cargo holds
 ## (DR-20261109-03); the price book stays one global order book.
 var _bought_by_faction: Dictionary = {}
+## Each buyer's own cargo this turn, commodity -> units. A raid takes the
+## victim's goods only, never the whole book's (DR-20261110-13).
+var _imports_by_faction: Dictionary = {}
 
 
 static func with_default_prices(depth: int = DEFAULT_WORLD_DEPTH) -> WorldMarket:
@@ -106,10 +109,55 @@ func bought_units_for(faction: int) -> int:
 	return int(_bought_by_faction.get(faction, 0))
 
 
-## This turn's imports per commodity, for the naval raid pass (wiki:
-## ships-and-naval § Trade and Transport Interception).
+## This turn's imports per commodity across every buyer, for price discovery.
+## A raid must read one crown's own cargo instead: [method imports_for].
 func imports_this_turn() -> Dictionary:
 	return _bids.duplicate()
+
+
+## One crown's own cargo this turn, commodity -> units: what a raid can take off
+## its merchant hulls (wiki: ships-and-naval § Trade and Transport Interception;
+## DR-20261110-13). Legacy books that predate per-buyer cargo attribute the whole
+## book to the player, as [method bought_units_for] does.
+func imports_for(faction: int) -> Dictionary:
+	if _imports_by_faction.is_empty():
+		return _bids.duplicate() if faction == FactionCatalog.PLAYER_FACTION else {}
+	var own: Variant = _imports_by_faction.get(faction, null)
+	if own == null:
+		# A saved book round-tripped through JSON keeps string keys.
+		own = _imports_by_faction.get(str(faction), {})
+	if own is Dictionary:
+		return (own as Dictionary).duplicate()
+	return {}
+
+
+## Every crown with cargo afloat this turn, ascending: the courts a blockade can
+## raid (DR-20261110-13).
+func importing_factions() -> Array[int]:
+	var out: Array[int] = []
+	if _imports_by_faction.is_empty():
+		if not _bids.is_empty():
+			out.append(FactionCatalog.PLAYER_FACTION)
+		return out
+	for raw: Variant in _imports_by_faction.keys():
+		var cargo: Dictionary = _imports_by_faction[raw] as Dictionary
+		if not cargo.is_empty():
+			out.append(int(raw))
+	out.sort()
+	return out
+
+
+## The live per-crown cargo row, created on the first buy this turn. A loaded
+## book may key factions by string, so a new purchase keeps filling that row.
+func _cargo_book(faction: int) -> Dictionary:
+	var existing: Variant = _imports_by_faction.get(faction, null)
+	if existing == null:
+		existing = _imports_by_faction.get(str(faction), null)
+	if existing is Dictionary:
+		return existing as Dictionary
+	var fresh: Dictionary = {}
+	_imports_by_faction[faction] = fresh
+	return fresh
 
 
 ## Buys at the current price and records the bid for price discovery.
@@ -145,6 +193,8 @@ func record_import(id: String, quantity: int, faction: int) -> void:
 	var prior: int = int(_bought_by_faction.get(faction, 0))
 	_bids[id] = bid_volume(id) + quantity
 	_bought_by_faction[faction] = prior + quantity
+	var cargo: Dictionary = _cargo_book(faction)
+	cargo[id] = int(cargo.get(id, 0)) + quantity
 
 
 ## Sells from the stockpile at the current price and records the offer.
@@ -202,6 +252,7 @@ func advance_prices() -> Dictionary:
 	_bids.clear()
 	_offers.clear()
 	_bought_by_faction.clear()
+	_imports_by_faction.clear()
 	# A court's offers are its harvest of the turn, re-emitted by the ledger
 	# after this pass (DR-20261110-08).
 	minor_offers.clear()
@@ -217,6 +268,7 @@ func copy() -> WorldMarket:
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()
 	clone._bought_by_faction = _bought_by_faction.duplicate()
+	clone._imports_by_faction = _imports_by_faction.duplicate(true)
 	return clone
 
 
@@ -229,6 +281,7 @@ func to_dict() -> Dictionary:
 		"bids": _bids.duplicate(),
 		"offers": _offers.duplicate(),
 		"bought_by_faction": _bought_by_faction.duplicate(),
+		"imports_by_faction": _imports_by_faction.duplicate(true),
 	}
 
 
@@ -244,4 +297,6 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 	market._bids = data.get("bids", {}).duplicate()
 	market._offers = data.get("offers", {}).duplicate()
 	market._bought_by_faction = data.get("bought_by_faction", {}).duplicate()
+	var cargo: Variant = data.get("imports_by_faction", {})
+	market._imports_by_faction = (cargo as Dictionary).duplicate(true) if cargo is Dictionary else {}
 	return market

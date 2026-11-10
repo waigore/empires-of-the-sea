@@ -160,11 +160,13 @@ func projected_income() -> int:
 func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
+	# The share stays on the controller after the phase so the research panel can
+	# still show the "+15%" it just spent (REQ-P5-05); the next end-turn sets it
+	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food(), true,
 		research_boost
 	)
-	research_boost = {}
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
