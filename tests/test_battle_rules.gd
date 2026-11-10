@@ -42,6 +42,73 @@ func test_terrain_uses_the_dominant_type_and_favours_the_defender() -> void:
 	assert_almost_eq(ArmyModifiers.terrain_multiplier(MapModel.Terrain.PLAINS), 1.0, 0.001)
 
 
+## The forest split prints both sides of the terrain: 0.9 for the attacker and
+## 1.5 / 1.1 for the defender (wiki: resource-terrain-region-rules
+## § Acceptance Criteria).
+func test_forest_terrain_multiples_both_sides_of_a_battle() -> void:
+	var model := Fixture.build()
+	_set_province_terrain(model, 2, MapModel.Terrain.HARDWOOD_FOREST)
+	var hardwood: Dictionary = _terrain_pair(model)
+	assert_almost_eq(float(hardwood["attacker"]), 0.9, 0.001, "a wood slows the advance")
+	assert_almost_eq(float(hardwood["defender"]), 1.5, 0.001, "and shelters the line")
+
+	_set_province_terrain(model, 2, MapModel.Terrain.SCRUB_FOREST)
+	var scrub: Dictionary = _terrain_pair(model)
+	assert_almost_eq(float(scrub["attacker"]), 0.9, 0.001)
+	assert_almost_eq(float(scrub["defender"]), 1.1, 0.001)
+
+	_set_province_terrain(model, 2, MapModel.Terrain.PLAINS)
+	var plains: Dictionary = _terrain_pair(model)
+	assert_almost_eq(float(plains["attacker"]), 1.0, 0.001, "open ground costs the attacker nothing")
+	assert_almost_eq(float(plains["defender"]), 1.0, 0.001)
+
+
+## The modifier is not cosmetic: the same 5 Guards that carry a 9-Pikemen
+## garrison in the open are held at a standstill once the wood slows them.
+func test_a_wood_holds_where_the_open_field_falls() -> void:
+	var open: Dictionary = _fight_in(MapModel.Terrain.PLAINS)
+	var wood: Dictionary = _fight_in(MapModel.Terrain.HARDWOOD_FOREST)
+
+	assert_eq(int(open["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_true(bool(open["captured"]))
+	assert_eq(int(wood["outcome"]), ArmyCombat.Outcome.STALEMATE)
+	assert_false(bool(wood["captured"]), "the province holds")
+
+
+func _set_province_terrain(model: MapModel, province: int, terrain: int) -> void:
+	for tile: Vector2i in model.province_data(province).tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = terrain
+
+
+func _terrain_pair(model: MapModel) -> Dictionary:
+	return {
+		"defender": float(
+			ArmyModifiers.modifiers({}, 0, true, model, 2, 1)["multiplier"]
+		),
+		"attacker": float(
+			ArmyModifiers.modifiers({}, 0, false, model, 2, 1)["multiplier"]
+		),
+	}
+
+
+func _fight_in(terrain: int) -> Dictionary:
+	var model := Fixture.build()
+	_set_province_terrain(model, 2, terrain)
+	var defender := Fixture.army(1, 1, 2, _regiment_types("pikemen", 9), true)
+	var attacker := Fixture.army(2, 0, 2, _regiment_types("guards", 5))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+	return reports[0] if not reports.is_empty() else {}
+
+
+func _regiment_types(type_id: String, count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append(type_id)
+	return types
+
+
 func test_leader_keys_match_exact_and_variant_ids() -> void:
 	assert_almost_eq(ArmyModifiers.leader_multiplier("napoleon"), 1.25, 0.001)
 	assert_almost_eq(ArmyModifiers.leader_multiplier("france_napoleon_leader"), 1.25, 0.001)

@@ -34,6 +34,31 @@ func test_land_shadow_sits_under_the_wash() -> void:
 	assert_lt(_canvas.get_children().find(shade), _canvas.get_children().find(_canvas.get_node("Wash")))
 
 
+## The ink coast is what demarcates the land the wash fills, so it has to sit on
+## the tile edge, not half a tile inside it: marching squares samples a tile at
+## its corner, and an unshifted contour drifts up and left of the fill.
+func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
+	var model := MapModel.new()
+	model.setup(16, 8)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.PLAINS if x < 8 else MapModel.Terrain.OCEAN
+			)
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(model)
+	var edge: float = 8.0 * MapCanvas.TILE_SIZE
+	var reach := Vector2(-INF, -INF)
+	for path: PackedVector2Array in canvas._coast:
+		for point: Vector2 in path:
+			reach.x = maxf(reach.x, point.x)
+			reach.y = maxf(reach.y, point.y)
+	assert_almost_eq(reach.x, edge, 1.0, "the coast ends on the shore, not inside it")
+	assert_almost_eq(reach.y, edge, 1.0, "the coast ends on the shore, not inside it")
+	canvas.queue_free()
+
+
 ## Ownership has to read by fill, not only by the border ribbon: the wash moves
 ## each owned tile toward its crown's heraldic colour.
 func test_owned_land_is_washed_toward_its_crown() -> void:
@@ -86,6 +111,28 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 		marks += 1
 		assert_false(_canvas.plan.under_label(glyph["position"]))
 	assert_gt(marks, 0)
+
+
+## Every non-capital province town is drawn on the chart, so a crown can see
+## where its estates anchor (wiki: capital-and-connectivity § Town per province).
+func test_every_non_capital_town_is_marked() -> void:
+	var marks: Dictionary = {}
+	for glyph: Dictionary in _canvas.plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var expected: int = 0
+	for province: ProvinceState in _canvas.model.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		if _canvas.plan.under_label(at):
+			continue
+		expected += 1
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+	assert_gt(expected, 0)
+	assert_eq(marks.size(), expected)
 
 
 func test_capital_star_has_ten_points() -> void:

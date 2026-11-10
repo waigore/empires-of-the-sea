@@ -30,6 +30,8 @@ static func draw(item: CanvasItem, glyph: Dictionary) -> void:
 			_anchor(item, center, size)
 		"capital":
 			_capital(item, center, size, int(glyph.get("owner", 0)))
+		"town":
+			_town(item, center, size)
 
 
 ## Three-quarter peak: lit left face, shaded right face, snow cap, ink ridge.
@@ -240,6 +242,45 @@ static func _capital(item: CanvasItem, center: Vector2, size: float, owner: int)
 	var star: PackedVector2Array = star_points(center, radius, 5, 0.45)
 	item.draw_colored_polygon(star, color)
 	item.draw_polyline(_closed(star), Color(0.157, 0.118, 0.078, 0.88), 1.1, true)
+
+
+## A hamlet of gabled cottages and a church spire: the province town (wiki:
+## capital-and-connectivity § Town per province). A parchment halo and ink edges
+## keep it legible at fit zoom beside the capital star, which it must not rival.
+static func _town(item: CanvasItem, center: Vector2, size: float) -> void:
+	item.draw_circle(
+		center + Vector2(0, -size * 0.08), size * 0.62, Color(0.965, 0.925, 0.827, 0.58)
+	)
+	var ground: Vector2 = center + Vector2(0, size * 0.40)
+	item.draw_line(
+		ground + Vector2(-size * 0.50, 0), ground + Vector2(size * 0.50, 0),
+		INK_SOFT, 1.0, true
+	)
+	for house: Vector3 in [
+		Vector3(-0.34, 0.24, 0.40),
+		Vector3(0.30, 0.22, 0.34),
+		Vector3(-0.02, 0.13, 0.72),
+	]:
+		var foot: Vector2 = ground + Vector2(house.x * size, -size * 0.02)
+		var half: float = house.y * size
+		var wall: float = house.z * size * 0.42
+		var ridge: Vector2 = foot + Vector2(0, -house.z * size)
+		var eave_l: Vector2 = foot + Vector2(-half, -wall)
+		var eave_r: Vector2 = foot + Vector2(half, -wall)
+		var left: Vector2 = foot + Vector2(-half, 0)
+		var right: Vector2 = foot + Vector2(half, 0)
+		item.draw_colored_polygon(
+			PackedVector2Array([left, right, eave_r, eave_l]),
+			Color(0.973, 0.945, 0.867, 0.95)
+		)
+		item.draw_colored_polygon(
+			PackedVector2Array([eave_l, ridge, eave_r]),
+			Color(0.404, 0.271, 0.184, 0.96)
+		)
+		item.draw_polyline(
+			_closed(PackedVector2Array([left, eave_l, ridge, eave_r, right])),
+			INK, 1.0, true
+		)
 
 
 ## Eight-point compass rose with a four-letter ring, drawn in the atlas ink.

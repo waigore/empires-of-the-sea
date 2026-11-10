@@ -74,6 +74,7 @@ func _scatter_symbols(p_model: MapModel, tile_size: float) -> void:
 	for province: ProvinceState in p_model.provinces:
 		_place_ports(province, p_model, tile_size)
 		_place_capital(province, tile_size)
+		_place_town(province, p_model, tile_size)
 
 
 func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> void:
@@ -148,6 +149,29 @@ func _place_capital(province: ProvinceState, tile_size: float) -> void:
 		"size": tile_size * 1.1,
 		"flip": false,
 		"owner": province.owner,
+	})
+
+
+## Town per province (wiki: capital-and-connectivity § Town per province): every
+## non-capital province shows a hamlet mark on its town tile, so the extraction
+## anchor a crown's estates tie to is visible on the chart. A capital province
+## already carries the star, which is its town.
+func _place_town(
+	province: ProvinceState, p_model: MapModel, tile_size: float
+) -> void:
+	if province.capital or province.town_tile.x < 0:
+		return
+	var town: Vector2i = province.town_tile
+	if not p_model.is_land(town.x, town.y):
+		return
+	var anchor: Vector2 = MapGeo.tile_center(town.x, town.y, tile_size)
+	if under_label(anchor):
+		return
+	glyphs.append({
+		"kind": "town",
+		"position": anchor,
+		"size": tile_size * 0.92,
+		"flip": false,
 	})
 
 
