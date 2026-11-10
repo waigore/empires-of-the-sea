@@ -12,6 +12,9 @@ const DEFAULT_WORLD_DEPTH: int = 8
 
 var prices: Dictionary = {}
 var world_depth: int = DEFAULT_WORLD_DEPTH
+## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
+## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
+var minor_offers: Array[Dictionary] = []
 var _bids: Dictionary = {}
 var _offers: Dictionary = {}
 ## Units bought this turn per buyer, so each crown spends its own cargo holds
@@ -84,15 +87,24 @@ func buy(
 	var cost: int = unit_price * quantity
 	if not economy.spend_treasury(cost):
 		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
+	economy.add(id, quantity)
+	record_import(id, quantity, faction)
+	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
+
+
+## Books a purchase whose goods never sat in another crown's stockpile (a Minor
+## or Tribe offer): the buyer's import and its price-discovery demand are the
+## same as an ordinary bid (wiki: world-market § Minor and tribe auto-sell).
+func record_import(id: String, quantity: int, faction: int) -> void:
+	if quantity <= 0:
+		return
 	# A legacy book that only knows global bids attributes them to the player
 	# before the first per-buyer entry is written.
 	if _bought_by_faction.is_empty() and not _bids.is_empty():
 		_bought_by_faction[FactionCatalog.PLAYER_FACTION] = bought_units()
 	var prior: int = int(_bought_by_faction.get(faction, 0))
-	economy.add(id, quantity)
 	_bids[id] = bid_volume(id) + quantity
 	_bought_by_faction[faction] = prior + quantity
-	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
 
 
 ## Sells from the stockpile at the current price and records the offer.
@@ -145,6 +157,9 @@ func advance_prices() -> Dictionary:
 	_bids.clear()
 	_offers.clear()
 	_bought_by_faction.clear()
+	# A court's offers are its harvest of the turn, re-emitted by the ledger
+	# after this pass (DR-20261110-08).
+	minor_offers.clear()
 	return changed
 
 
@@ -152,6 +167,7 @@ func copy() -> WorldMarket:
 	var clone := WorldMarket.new()
 	clone.prices = prices.duplicate()
 	clone.world_depth = world_depth
+	clone.minor_offers = minor_offers.duplicate(true)
 	clone._bids = _bids.duplicate()
 	clone._offers = _offers.duplicate()
 	clone._bought_by_faction = _bought_by_faction.duplicate()
@@ -163,6 +179,7 @@ func to_dict() -> Dictionary:
 	return {
 		"prices": prices.duplicate(),
 		"world_depth": world_depth,
+		"minor_offers": minor_offers.duplicate(true),
 		"bids": _bids.duplicate(),
 		"offers": _offers.duplicate(),
 		"bought_by_faction": _bought_by_faction.duplicate(),
@@ -174,6 +191,10 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 	var saved: Dictionary = data.get("prices", {})
 	for key: Variant in saved.keys():
 		market.prices[String(key)] = int(saved[key])
+	for entry: Variant in data.get("minor_offers", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		market.minor_offers.append((entry as Dictionary).duplicate())
 	market._bids = data.get("bids", {}).duplicate()
 	market._offers = data.get("offers", {}).duplicate()
 	market._bought_by_faction = data.get("bought_by_faction", {}).duplicate()

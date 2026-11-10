@@ -205,6 +205,47 @@ func test_a_new_world_port_ships_its_yield_on_the_home_holds() -> void:
 	nw.resource[resource_index] = old_resource
 
 
+func test_the_ledger_lists_minor_and_tribe_offers() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, LedgerMarket.OFFER_HEADER))
+	assert_gt(
+		_screen.economy.market.minor_offers.size(), 0,
+		"the Old World's minor courts publish their harvest"
+	)
+
+
+func test_buying_an_offer_through_the_ledger_moves_stock_and_treasury() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	var stock_before: int = economy.quantity("timber")
+	var treasury_before: int = economy.treasury
+	_screen.economy.market.minor_offers = [{
+		"id": "7:timber",
+		"faction": 7,
+		"commodity": "timber",
+		"quantity": 2,
+		"unit_price": 21,
+	}]
+
+	_screen.economy._on_offer("7:timber", 1)
+
+	assert_eq(economy.quantity("timber"), stock_before + 1)
+	assert_eq(economy.treasury, treasury_before - 21)
+	assert_eq(MinorMarket.remaining(_screen.economy.market.minor_offers, "7:timber"), 1)
+	assert_eq(_screen.treasury, economy.treasury)
+
+
+func test_an_empty_offer_book_says_so() -> void:
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	panel.refresh(
+		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		{"holds": 2, "used": 0, "free": 2}, []
+	)
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "No court has goods for sale"))
+
+
 func _find_label(node: Node, needle: String) -> Label:
 	if node is Label and (node as Label).text.contains(needle):
 		return node

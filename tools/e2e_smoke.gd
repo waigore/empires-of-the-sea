@@ -485,6 +485,18 @@ func _smoke_end_turn(
 		screen.economy.economy.quantity("grain") == grain_before + 1,
 		"the ledger buys imports against cargo holds"
 	)
+	var offers: Array[Dictionary] = screen.economy.market.minor_offers
+	_check(not offers.is_empty(), "the minor courts publish their harvest")
+	if not offers.is_empty():
+		var offer: Dictionary = offers[0]
+		var offer_id: String = String(offer["id"])
+		var offer_good: String = String(offer["commodity"])
+		var offer_stock: int = screen.economy.economy.quantity(offer_good)
+		screen.economy._on_offer(offer_id, 1)
+		_check(
+			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
+			"the ledger buys a court's offer direct"
+		)
 	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.assignment_units("lumber") == 1,
