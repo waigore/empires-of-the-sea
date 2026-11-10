@@ -306,7 +306,11 @@ match = "scripts/map/map_play_civilian*.gd"
 domain = "civilian"
 
 [[rules]]
-match = "scripts/map/map_play_spies.gd"
+match = "scripts/map/map_play_spies.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/map/map_play_spy_ai.gd*"
 domain = "civilian"
 
 [[rules]]
@@ -374,7 +378,7 @@ match = "scripts/rules/civilian_*.gd"
 domain = "civilian"
 
 [[rules]]
-match = "scripts/rules/spy_*.gd"
+match = "scripts/rules/spy_*.gd*"
 domain = "civilian"
 
 [[rules]]
@@ -784,6 +788,10 @@ domain = "ui"
 [[rules]]
 match = "tests/test_spy_*.gd*"
 domain = "espionage"
+
+[[rules]]
+match = "tests/test_espionage.gd*"
+domain = "civilian"
 
 [[rules]]
 match = "tests/test_*.gd"
