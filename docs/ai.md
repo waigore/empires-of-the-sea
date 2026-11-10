@@ -32,7 +32,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   attack; an invader draws a relief column (one regiment keeps the seat) to
   that province, seat first, own land only.
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
-  fog; voyages, invasions, sorties, blockades and orders read only that chart
+  fog; voyages, invasions and work orders read only that chart
   (DR-20261110-21).
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
   board an idle Explorer, cross a Passage, land; then prospect or improve.
