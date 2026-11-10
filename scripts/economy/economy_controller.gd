@@ -245,7 +245,7 @@ func _on_trade(commodity: String, quantity: int, is_buy: bool) -> void:
 			int(cargo.get("reserved", 0))
 		)
 	else:
-		result = market.sell(economy, commodity, quantity)
+		result = market.sell(economy, commodity, quantity, player_faction)
 	if not bool(result.get("ok", false)) and _hud != null:
 		_hud.toast(String(result.get("reason", "Trade refused")))
 	_refresh_panel()

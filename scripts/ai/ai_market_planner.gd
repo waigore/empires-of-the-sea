@@ -102,7 +102,7 @@ static func apply(
 		var offer: Dictionary = raw
 		var id: String = String(offer.get("commodity", ""))
 		var quantity: int = int(offer.get("quantity", 0))
-		var result: Dictionary = market.sell(economy, id, quantity)
+		var result: Dictionary = market.sell(economy, id, quantity, faction)
 		if bool(result.get("ok", false)):
 			sold.append({
 				"commodity": id,

@@ -12,7 +12,7 @@ manufactured recipes. **Pillars:** P2, P3, P5.
 `EconomyTurn` runs four phases in wiki order, then research and world-market
 price discovery:
 
-1. **Extraction** — connected estates add their yields
+1. **Extraction** — connected estates add yields
    ([improvements.md](improvements.md)).
 2. **Riches-to-treasury** — gold, silver, gems, diamonds and spices clear at
    base price (`CommodityCatalog.treasury_ids()`).
@@ -24,7 +24,7 @@ Projections copy the economy and never mutate live state.
 
 ## Production recipes
 
-`ProductionRecipes` holds the ten published recipes:
+`ProductionRecipes` holds the published recipes:
 
 | Output | Inputs | Labour |
 |--------|--------|--------|
@@ -57,14 +57,23 @@ row per tradeable commodity its estates yield, at 75% of the world price
 sells only in a region where the crown holds land. Buying pays the seller
 (treasury sink), fills stock, spends a cargo hold, and books the import for
 price discovery and naval interception. Rows expire each turn change; the book
-is saved.
+is saved, and a crown's trade terms also move the ask.
+
+## Trade terms
+
+Prices are published once, but each crown pays and receives its own rate after
+trade diplomacy ([`diplomacy.md`](diplomacy.md) § Trade terms). The market holds
+`{"buy": {id|"*": multiplier}, "sell": {...}}` per faction; `buy_price`,
+`sell_price` and the direct offer ask apply it, while price discovery still
+reads the published price. The ledger prints the rate and adjusted rows; rivals
+trade on the same terms.
 
 ## UI
 
 `ECONOMY` shows treasury, stockpile, trade and the projection. The `MARKET` tab
-leads with the cargo banner and the offers (seller, good, units left, ask), then
-the world rows. Tab presses are intents; rules stay in the rules modules
-(`REQ-P2-03`).
+leads with the cargo and trade-terms banners and the offers (seller, good, units
+left, ask), then the world rows. Tab presses are intents; rules stay in the
+rules modules (`REQ-P2-03`).
 
 ## Architecture
 
@@ -75,6 +84,7 @@ the world rows. Tab presses are intents; rules stay in the rules modules
 | `scripts/rules/economy_consumption.gd` | food, luxuries, strikes |
 | `scripts/rules/production_recipes.gd` | recipe catalog and whole-run planner |
 | `scripts/rules/commodity_catalog.gd` | ids, categories, prices, treasury rows |
+| `scripts/rules/world_market.gd` | global price book and per-crown trade terms |
 | `scripts/rules/town_industry.gd` | town manufacturing bonus |
 | `scripts/rules/minor_market.gd` | Minor Nation / Tribe offers and direct purchase |
 | `scripts/ui/ledger_production.gd` | production tab rows |

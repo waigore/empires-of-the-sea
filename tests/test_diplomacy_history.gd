@@ -27,6 +27,11 @@ const SAMPLES: Dictionary = {
 	"colonyReleased": {},
 	"subsidySet": {"percent": 10},
 	"subsidyCancelled": {"percent": 10},
+	"ftpSigned": {},
+	"ftpRefused": {},
+	"ftpRevoked": {},
+	"boycottSet": {},
+	"boycottRevoked": {},
 	"grantAid": {"amount": 1000},
 	"firstContact": {},
 }

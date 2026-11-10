@@ -8,12 +8,21 @@ extends PanelContainer
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
 
+## Section headings for the order list; trade terms render in their own block
+## so prices and pacts stay one glance away (REQ-P5-02).
+const GROUP_LABELS: Dictionary = {
+	DiplomacyOrders.GROUP_ORDERS: "COURT ORDERS",
+	DiplomacyOrders.GROUP_TREATIES: "TREATIES",
+	DiplomacyOrders.GROUP_AID: "AID",
+}
+
 var _state: DiplomacyState = null
 var _world: WorldMap = null
 var _player: int = FactionCatalog.PLAYER_FACTION
 var _treasury: int = 0
 var _tech: Dictionary = {}
 var _selected: int = -1
+var _last_group: String = ""
 var _list: VBoxContainer = null
 var _detail: VBoxContainer = null
 var _summary: Label = null
@@ -208,15 +217,29 @@ func _fill_detail() -> void:
 	_detail.add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
 	_add_envoy()
 	_detail.add_child(_label(_overture_line(_selected), 13, Palette.TEXT))
-	if _state.subsidy(_player, _selected) > 0:
-		_detail.add_child(
-			_label("Subsidy: %d%%" % _state.subsidy(_player, _selected), 13, Palette.TEXT)
-		)
 	_detail.add_child(_caption("COURT ORDERS"))
-	for option: Dictionary in DiplomacyOrders.options(
+	var options: Array[Dictionary] = DiplomacyOrders.options(
 		_state, _world, _treasury, _player, _selected, _tech
-	):
+	)
+	_last_group = DiplomacyOrders.GROUP_ORDERS
+	var trade_options: Array[Dictionary] = []
+	for option: Dictionary in options:
+		if String(option.get("group", "")) == DiplomacyOrders.GROUP_TRADE:
+			trade_options.append(option)
+			continue
+		var group: String = String(option.get("group", DiplomacyOrders.GROUP_ORDERS))
+		if group != _last_group:
+			_last_group = group
+			_detail.add_child(_caption(String(GROUP_LABELS.get(group, "COURT ORDERS"))))
 		_add_option(option)
+	if not trade_options.is_empty():
+		var trade := CourtTrade.new()
+		trade.fill(_state, _world, _player, _selected, trade_options)
+		trade.order_pressed.connect(
+			func(kind: String, target: int, arg: String) -> void:
+				order_pressed.emit(kind, target, arg)
+		)
+		_detail.add_child(trade)
 	_add_chronicle()
 	# A shadowed court's despatch is news like the chronicle, so it sits above
 	# the dossier's analysis (wiki: civilian-units § Spy; REQ-P5-02).
@@ -271,6 +294,8 @@ func _fill_call() -> void:
 func _add_option(option: Dictionary) -> void:
 	var cost: String = String(option.get("cost_text", ""))
 	var text: String = String(option["label"])
+	if bool(option.get("active", false)):
+		text = "✓ %s" % text
 	if not cost.is_empty():
 		text = "%s  ·  %s" % [text, cost]
 	var button := _small_button(text)
@@ -283,12 +308,22 @@ func _add_option(option: Dictionary) -> void:
 		var reason := _label(String(option["reason"]), 11, Color(0.80, 0.63, 0.45, 0.9))
 		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_detail.add_child(reason)
+		return
+	var hint: String = String(option.get("hint", ""))
+	if not hint.is_empty():
+		var note := _label(hint, 11, Palette.TEXT_DIM)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_detail.add_child(note)
 
 
 func _status_line(faction_id: int, record: DiplomacyRelation) -> String:
 	var parts: PackedStringArray = [record.meter_label(), DiplomacyCatalog.state_label(record.at_war)]
 	if record.formal_alliance:
 		parts.append("Formal Alliance")
+	if DiplomacyTrade.is_ftp(_state, _player, faction_id):
+		parts.append("Trade Pact")
+	if DiplomacyTrade.is_boycotting(_state, _player, faction_id):
+		parts.append("Boycott")
 	var colony_of: int = _state.colony_of(faction_id)
 	if colony_of >= 0:
 		parts.append("Colony of %s" % FactionCatalog.name_of(colony_of))

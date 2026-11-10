@@ -39,8 +39,7 @@ static func declare_war(
 	record.formal_alliance = false
 	if _downgrade_overtures(state, player, target):
 		state.record_event("overturesCleared", player, target)
-	state.cancel_subsidy(player, target)
-	state.cancel_subsidy(target, player)
+	DiplomacyTrade.sever(state, player, target)
 	state.touch(player, target, "warDeclared")
 	# Mutual defence: a declaration drags allies of the defender in (or queues
 	# the human court's consent decision). A call-to-arms join never cascades.

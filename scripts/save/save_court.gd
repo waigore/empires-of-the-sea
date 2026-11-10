@@ -21,6 +21,8 @@ static func capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"relations": records,
 		"overtures": state.overtures.duplicate(),
 		"subsidies": state.subsidies.duplicate(),
+		"ftps": state.ftps.duplicate(),
+		"boycotts": state.boycotts.duplicate(),
 		"colonies": state.colonies.duplicate(),
 		"events": state.events.duplicate(true),
 		"modified": state._modified.duplicate(),
@@ -51,6 +53,8 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 			state.relations[String(key)] = DiplomacyRelation.from_dict(entry)
 	state.overtures = data.get("overtures", {}).duplicate()
 	state.subsidies = data.get("subsidies", {}).duplicate()
+	state.ftps = data.get("ftps", {}).duplicate()
+	state.boycotts = data.get("boycotts", {}).duplicate()
 	state.colonies = data.get("colonies", {}).duplicate()
 	for event: Variant in data.get("events", []):
 		if typeof(event) == TYPE_DICTIONARY:

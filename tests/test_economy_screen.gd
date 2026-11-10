@@ -246,6 +246,25 @@ func test_an_empty_offer_book_says_so() -> void:
 	assert_not_null(_find_label(body, "No court has goods for sale"))
 
 
+func test_the_ledger_shows_trade_terms_and_charges_the_adjusted_price() -> void:
+	var market: WorldMarket = _screen.economy.market
+	market.set_terms(_screen.player_faction, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var line: Label = _find_label(market_body, "imports at 90%")
+	assert_not_null(line, "the ledger explains the court's trade terms")
+
+	var economy: PlayerEconomy = _screen.economy.economy
+	var before: int = economy.treasury
+	_screen.economy._on_trade("grain", 1, true)
+	assert_eq(
+		economy.treasury,
+		before - market.buy_price("grain", _screen.player_faction),
+		"the ledger charges the pact-adjusted price"
+	)
+
+
 func _find_label(node: Node, needle: String) -> Label:
 	if node is Label and (node as Label).text.contains(needle):
 		return node
