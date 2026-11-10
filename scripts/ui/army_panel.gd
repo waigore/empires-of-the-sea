@@ -225,13 +225,22 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 	for child in _roster.get_children():
 		child.queue_free()
 	for regiment_id: String in army.regiments:
+		var type_id: String = army.type_of(regiment_id)
+		var entry := VBoxContainer.new()
+		entry.add_theme_constant_override("separation", 0)
+		_roster.add_child(entry)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		_roster.add_child(row)
+		entry.add_child(row)
 		var label := _line(13, Palette.TEXT)
-		label.text = RegimentCatalog.display_name(army.type_of(regiment_id))
+		label.text = RegimentCatalog.display_name(type_id)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
+		# Regiment detail: category, stats and its share of the food bill.
+		var detail := _line(10, Color(0.74, 0.68, 0.55, 0.75))
+		detail.text = RegimentCatalog.detail_line(type_id)
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		entry.add_child(detail)
 		if not is_player:
 			continue
 		var detach := _make_button("Detach")

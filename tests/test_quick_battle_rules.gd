@@ -63,7 +63,72 @@ func test_a_siege_fields_virtual_guns_and_downgrades_the_fort() -> void:
 	assert_eq(String(battle["battle_mode"]), "siege")
 	assert_eq(int(battle["quick"]["guns_start"]), 1)
 	assert_true(bool(battle["quick"]["fort_downgraded"]))
+	assert_eq(int(battle["quick"]["guns_lost"]), 1, "the battery is silenced")
+	assert_eq(String(battle["quick"]["gun_type"]), "royal_artillery")
+	assert_eq(int(battle["quick"]["fort_after"]), 0)
 	assert_eq(model.province_data(2).fort_level, 0)
+
+
+## The wall lanes are recorded for the despatch: infantry man the parapet, the
+## battery and horse shelter behind it (wiki: siege-mechanics).
+func test_a_siege_records_the_wall_lanes() -> void:
+	var battle: Dictionary = _fight(
+		"balanced", _guards(8), ["pikemen", "musketeers", "culverin"], 2
+	)
+	var lanes: Dictionary = battle["quick"]["lanes"]
+
+	assert_eq(int(lanes["wall"]), 2, "two infantry regiments hold the wall")
+	assert_eq(int(lanes["behind"]), 1, "the gun waits behind the parapet")
+
+
+## Melee-only regiments cannot attack a wall or anything inside it; they need
+## firearms or guns (wiki: siege-mechanics § Damage Reduction).
+func test_melee_only_besiegers_are_turned_away() -> void:
+	var battle: Dictionary = _fight("balanced", _pikes(8), ["peasant_levies"], 1)
+
+	assert_eq((battle["defender_lost"] as Array).size(), 0, "the garrison is untouched")
+	assert_eq(int(battle["quick"]["guns_lost"]), 0, "pikes cannot silence the battery")
+	var turned: bool = false
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			if int(action["turned"]) > 0:
+				turned = true
+	assert_true(turned, "the despatch says the wall turned the blow aside")
+
+
+## A garrison that leaves the wall to sortie can hit back with every regiment,
+## which is how a pike garrison hurts a siege at all.
+func test_a_sortie_lets_a_pike_garrison_fight() -> void:
+	var model := Fixture.build()
+	model.province_data(2).fort_level = 2
+	var defender := Fixture.army(1, 1, 2, _pikes(6), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(6))
+	attacker.moved = true
+	var context: Dictionary = _context("aggressive")
+	context["player_faction"] = 1
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_true(int(reports[0]["quick"]["sorties"]) > 0, "the defender chose to sortie")
+	assert_true(
+		(reports[0]["attacker_lost"] as Array).size() > 0,
+		"outside the wall the pikes can reach the besiegers"
+	)
+
+
+## Regiment detail: the report counts the losses by regiment type, so the
+## despatch can name them.
+func test_the_report_tallies_losses_by_regiment_type() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(10), ["peasant_levies", "pikemen"], 1)
+	var detail: Dictionary = battle["defender_detail"]
+	var counted: int = 0
+	for type_id: Variant in detail.keys():
+		counted += int(detail[type_id])
+		assert_true(RegimentCatalog.has_type(String(type_id)))
+
+	assert_eq(counted, (battle["defender_lost"] as Array).size())
+	assert_false(RegimentCatalog.detail_text(detail).is_empty())
 
 
 func test_rival_battles_keep_the_aggregate_path() -> void:

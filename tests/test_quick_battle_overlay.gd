@@ -106,6 +106,39 @@ func test_the_plate_leads_with_the_players_own_plan() -> void:
 	overlay.free()
 
 
+## The siege despatch tells the lanes, the wall's protection and the level a
+## silenced battery leaves behind; a field battle says nothing extra.
+func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["lanes"] = {"wall": 4, "behind": 2}
+	battle["quick"]["sorties"] = 1
+	battle["quick"]["fort_downgraded"] = true
+	battle["quick"]["fort_after"] = 1
+
+	var line: String = QuickBattleCopy.siege_line(battle)
+
+	assert_true(line.contains("Stone fort"), line)
+	assert_true(line.contains("45%"), "the wall's damage reduction is told")
+	assert_true(line.contains("4 on the wall, 2 behind"), line)
+	assert_true(line.contains("1 sortie"), line)
+	assert_true(line.contains("falls to Wood"), line)
+	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle has no siege line")
+
+
+## Regiment detail in the aftermath: the named types each side lost.
+func test_the_loss_line_names_the_regiments() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_detail"] = {"guards": 2}
+	battle["defender_detail"] = {"pikemen": 3, "culverin": 1}
+
+	assert_eq(
+		QuickBattleCopy.loss_line(battle, NAMES),
+		"Losses — España: 2 Guards · England: Culverin · 3 Pikemen"
+	)
+	assert_eq(QuickBattleCopy.loss_line(_battle(), NAMES), "", "a quiet field has no loss line")
+
+
 func _battle() -> Dictionary:
 	return {
 		"attacker": 0,

@@ -19,6 +19,10 @@ const HULL_HIT := "hull_hit"
 const FLEET_SUNK := "fleet_sunk"
 const CIVILIAN_SELECT := "civilian_select"
 const CIVILIAN_MOVE := "civilian_move"
+## A siege answers with its battery, not a broadside; a breach is its own stone
+## fall (wiki: siege-mechanics, REQ-P1-06).
+const SIEGE_CANNON := "siege_cannon"
+const WALL_BREACH := "wall_breach"
 
 const ROOT := "res://assets/audio/sfx/"
 
@@ -40,6 +44,8 @@ const CUES: Dictionary = {
 	FLEET_SUNK: {"file": "fleet_sunk.wav", "volume_db": -3.0, "pitch": 0.03},
 	CIVILIAN_SELECT: {"file": "civilian_select.wav", "volume_db": -8.0, "pitch": 0.04},
 	CIVILIAN_MOVE: {"file": "civilian_move.wav", "volume_db": -8.0, "pitch": 0.05},
+	SIEGE_CANNON: {"file": "siege_cannon.wav", "volume_db": -3.0, "pitch": 0.04},
+	WALL_BREACH: {"file": "wall_breach.wav", "volume_db": -4.0, "pitch": 0.06},
 }
 
 

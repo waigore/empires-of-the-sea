@@ -87,6 +87,61 @@ static func category(type_id: String) -> int:
 	return int(row(type_id).get("category", Category.LIGHT_INFANTRY))
 
 
+static func category_name(type_id: String) -> String:
+	match category(type_id):
+		Category.LIGHT_INFANTRY:
+			return "Light infantry"
+		Category.REGULAR_INFANTRY:
+			return "Regular infantry"
+		Category.HEAVY_INFANTRY:
+			return "Heavy infantry"
+		Category.BOWMEN:
+			return "Bowmen"
+		Category.LIGHT_CAVALRY:
+			return "Light cavalry"
+		Category.SPEAR_CAVALRY:
+			return "Spear cavalry"
+		Category.HEAVY_CAVALRY:
+			return "Heavy cavalry"
+		Category.LIGHT_ARTILLERY:
+			return "Light artillery"
+		Category.HEAVY_ARTILLERY:
+			return "Heavy artillery"
+	return "Regiment"
+
+
+## Dossier line for one regiment: its stats and the food it eats (wiki:
+## military-units § Regiment Table, military-generals § Regiment Economy).
+static func detail_line(type_id: String) -> String:
+	return "%s · FPN %d · FPM %d · RNG %d · DEF %d · MVR %d · %d food" % [
+		category_name(type_id),
+		stat(type_id, "fpn"),
+		stat(type_id, "fpm"),
+		stat(type_id, "rng"),
+		stat(type_id, "def"),
+		stat(type_id, "mvr"),
+		food_upkeep(type_id),
+	]
+
+
+## "3 Guards · 2 Pikemen" — deterministic by display name, empty when nothing.
+static func detail_text(counts: Dictionary) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var type_ids: Array[String] = []
+	for type_id: Variant in counts.keys():
+		type_ids.append(String(type_id))
+	type_ids.sort_custom(func(a: String, b: String) -> bool:
+		return display_name(a) < display_name(b)
+	)
+	for type_id: String in type_ids:
+		var count: int = int(counts[type_id])
+		if count <= 0:
+			continue
+		var name: String = display_name(type_id)
+		parts.append(name if count == 1 else "%d %s" % [count, name])
+	return " · ".join(parts)
+
+
 static func era(type_id: String) -> int:
 	return int(row(type_id).get("era", 1))
 

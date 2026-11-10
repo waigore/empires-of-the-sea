@@ -226,18 +226,23 @@ static func recover_garrison(
 
 
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
+## `accept` filters the pool by type, so one siege lane can bleed alone.
 static func apply_losses(
-	armies: Array[ArmyState], side: Array[ArmyState], wanted: int, limit: int = 0
+	armies: Array[ArmyState], side: Array[ArmyState], wanted: int,
+	limit: int = 0, accept: Callable = Callable()
 ) -> Array[String]:
 	var candidates: Array[Dictionary] = []
 	for army: ArmyState in side:
 		if army == null or not armies.has(army):
 			continue
 		for regiment_id: String in army.regiments:
+			var type_id: String = army.type_of(regiment_id)
+			if accept.is_valid() and not bool(accept.call(type_id)):
+				continue
 			candidates.append({
 				"army": army,
 				"id": regiment_id,
-				"rank": RegimentCatalog.strength(army.type_of(regiment_id)),
+				"rank": RegimentCatalog.strength(type_id),
 			})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["rank"]) != int(b["rank"]):

@@ -1,7 +1,7 @@
 # Audio
 
-Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled or
-third-party recordings.
+Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled
+recordings.
 
 ## Music
 
@@ -36,9 +36,9 @@ python tools/audio/build_audio.py --only music-synth   # offline fallback only
 All beds are bright major-mode dances; percussion carries the pulse and reverb is
 short (1.4–1.5 s), so the score reads lively, not haunted.
 
-Loops are crossfaded at the seam (1.5 s equal-power) so beds repeat without clicks.
-Bed choice comes from `MusicPlaylist.bed_for_year` via `TurnTime` — the
-campaign opens on the branle, moves to the gigue at 1550, then the minuet at 1700.
+Loops crossfade at the seam (1.5 s equal-power), so beds repeat without clicks.
+`MusicPlaylist.bed_for_year` (via `TurnTime`) opens on the branle, moves to the
+gigue at 1550, then the minuet at 1700.
 
 Mix targets: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music default 0.50 under
 effects at 0.85 so feedback always reads over the score.
@@ -69,6 +69,7 @@ clean and screens can be instantiated in tests.
 | Coast charted | `coast_charted` |
 | End turn | `turn_bell` + `coin` |
 | Broadside, hull hit, fleet lost | `broadside`, `hull_hit`, `fleet_sunk` |
+| Siege battle / battery silenced | `siege_cannon`, then `wall_breach` |
 | Order refused | `order_denied` |
 | Battle won / lost | victory fanfare / defeat knell |
 
