@@ -25,11 +25,6 @@ schedules:
     cron: "0 */2 * * *"
     agents:
       - optimize-tests-agent
-  every-3h-elucidate-design:
-    cron: "0 */3 * * *"
-    agents:
-      - elucidate-design-agent
-  # :30 so it does not pile with elucidate at :00
   every-3h-audit-deferred:
     cron: "30 */3 * * *"
     agents:
@@ -148,15 +143,6 @@ agents:
       Run the optimize-tests-agent skill unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One test-optimization pass; open a PR if work shipped; then exit.
-
-  elucidate-design-agent:
-    skill: elucidate-design-agent
-    provider: opencode-cheaperinference-deepseek-v41-flash
-    enabled: true
-    prompt: |
-      Run the elucidate-design-agent skill unattended.
-      Parallel id: {parallel_id}. Assigned issue: {issue}.
-      One design-elucidation pass; open a PR if work shipped; then exit.
 
   audit-deferred-agent:
     skill: audit-deferred-agent
