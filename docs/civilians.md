@@ -1,7 +1,6 @@
 # Civilian units
 
-Land units that explore, improve, colonize and spy; four start, two unlock by
-tech.
+Land units: explore, improve, colonize, spy.
 
 **Pillars:** P1–P5.
 
@@ -12,54 +11,57 @@ tech.
 ## Implemented
 
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
-  prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
-  (spycraft), Merchant (buy land), Rail Builder (railroad).
+  prospect — DR-20261111-26 uncover), Builder (improve, upgrade town), Engineer
+  (road, port), Spy (spycraft), Merchant (buy land), Rail Builder (railroad).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
   and Visit jump to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
-  Builders stay on crown land; Explorer, Merchant, Spy cross any border.
+  Builders stay on crown land; Explorer, Merchant, Spy cross any border. One
+  crew per tile per crown (Rail Builders exempt); presence keeps a province
+  visible.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
-  `unknown`); each shadowed rival GP adds +15% RP to a Low+ slot it knows.
-  **Counter-espionage** kills or turns enemy spies; court reports name deeds
+  `unknown`); each shadowed rival GP adds +15% RP to a Low+ slot.
+  **Counter-espionage** kills or turns agents; court reports name deeds
   ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
-  returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
-  **upgrade town** (National Bureaucracy), road, port, rail, fort
-  1–3 ([forts.md](forts.md)), hospital 1–2.
+  returns to origin. Explore ≤3, **prospect 1** (any charted swamp/hills/
+  mountain/desert tile of its own province, announcing the find or none),
+  improve 1–4, **upgrade town** (National Bureaucracy),
+  road, port, rail, fort 1–3 ([forts.md](forts.md)), hospital 1–2.
+- **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
+  a mineral is hidden until that crown's Explorer prospects its tile; selecting
+  one marks the unsurveyed ground and a tap surveys it.
 - **Town development:** Builder raises towns to level 4; connected port towns
   cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
-  (one per hull, never with troops); lands at port or coastal tile beside its
-  zone. Explorers/Merchants any coast; others need crown land. Landing reveals
-  tile + neighbours; sunk ships drown passengers.
-- **Land purchase:** Merchant buys Minor/Tribe resource tile with embassy, no
-  war, prospected mineral; 15× base at assign, debit on complete. Rivals run
-  the same rule through `AiMerchantWork` and pay from their own ledger.
+  (one per hull, never with troops); lands at a port or coastal tile beside its
+  zone. Explorers/Merchants any coast; others need crown land. Sunk ships drown
+  passengers.
+- **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy, no
+  war and a prospected mineral; 15× base at assign, debit on complete. Rivals
+  run it through `AiMerchantWork`, from their own ledger.
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
-  and saves; province stays with the seller.
+  and saves; the province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
-  connected; above-cap upgrades refused; `ESTATES` lists orders.
-- **Presence** keeps a province visible; one crew per tile per crown (Rail
-  Builders exempt).
-- **Stranding:** crews caught by conquest withdraw to crown land or are lost;
-  a fallen crown's crews leave play.
+  connected; above-cap upgrades refused; `ESTATES` lists the orders.
+- **Stranding:** crews caught by conquest withdraw to crown land or are lost
+  with the province.
 
 ## Deferred (REQ-P2-02)
 
-None. Rival hospitals are live (`AiHospitalWork`). Ranked gaps:
+None. Rival hospitals are live (`AiHospitalWork`); ranked gaps in
 [`deferred.md`](deferred.md).
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/civilian_*.gd` | roster, state, movement, work, transport, voyage |
-| `scripts/rules/spy_networks.gd` | spy hosts and research bonus |
-| `scripts/rules/spy_rules.gd` | counter-espionage, dice and court reports |
+| `scripts/rules/civilian_*.gd` | roster, state, movement, work |
+| `scripts/rules/mineral_survey.gd` | known resource, survey |
+| `scripts/rules/spy_*.gd` | spycraft, court reports |
 | `scripts/rules/land_purchase.gd`, `scripts/world/tile_ownership.gd` | deeds |
-| `scripts/rules/land_works.gd`, `improvement_*.gd` | works, extraction, ledger |
-| `scripts/map/civilian_*.gd`, `map_play_civilian_roster.gd` | markers, passengers, roster jump |
-| `scripts/ui/civilian_*.gd`, `improvement_panel.gd` | dossier, roster, estates |
+| `scripts/rules/land_works.gd`, `improvement_*.gd` | works, ledger |
+| `scripts/map/civilian_*.gd`, `scripts/ui/civilian_*.gd` | markers, dossier |
 
 Rules stay node-free (`REQ-P3-03`).
 
@@ -69,12 +71,10 @@ Rules stay node-free (`REQ-P3-03`).
 |--------|---------|-------|
 | Select | click medallion | tap medallion |
 | March | click glowing neighbour | tap glowing neighbour |
+| Survey | tap a survey mark (Explorer selected) | same |
 | Work order | dossier button | dossier button |
 | Counter-spy | dossier **Counter-espionage** | same |
 | Empire roster | CREW/`C`; Visit | same |
-| Embark / land | fleet **PASSENGERS** | same |
-| Estates | `ESTATES` / province Build | same |
-| Cancel / close | dossier / ledger Close | same |
 
 ## Tests
 

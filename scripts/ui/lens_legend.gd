@@ -12,7 +12,7 @@ const SURVEY_ROWS: Array[Dictionary] = [
 	{"status": "producing", "text": "Yielding estate"},
 	{"status": "building", "text": "Under works"},
 	{"status": "vacant", "text": "Vacant — can raise"},
-	{"status": "unprospected", "text": "Needs prospecting"},
+	{"status": "survey", "text": "Unsurveyed — send an Explorer"},
 	{"status": "disconnected", "text": "No road to the crown"},
 	{"status": "foreign", "text": "Foreign holding"},
 ]
@@ -213,7 +213,7 @@ func _draw_dot(center: Vector2, status: String, tint: Color) -> void:
 		draw_circle(center, radius - 0.6, Color(tint.r, tint.g, tint.b, 0.22))
 	draw_circle(center, 2.0, tint)
 	match status:
-		"unprospected":
+		"survey":
 			for i in 8:
 				var angle: float = TAU * float(i) / 8.0
 				var spot: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius

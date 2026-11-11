@@ -219,17 +219,29 @@ func test_anchor_falls_back_to_a_charted_resource_tile() -> void:
 	assert_true(false, "fixture needs a province whose centre is not a resource tile")
 
 
-func test_prospect_gate_marks_an_owned_mineral() -> void:
+func test_a_hidden_mineral_is_never_surveyed_until_prospected() -> void:
 	var model: MapModel = Fixture.region()
 	var works := LandWorks.new()
 	var owner: int = FactionCatalog.PLAYER_FACTION
 	var tile: Vector2i = _owned_mineral_tile(model, works)
 	if tile.x < 0:
 		return
+	var province: int = model.province_at(tile.x, tile.y)
 	var survey: Dictionary = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
-	var row: Dictionary = _row(_entry(survey, model.province_at(tile.x, tile.y)), tile)
-	assert_eq(String(row["status"]), "unprospected")
+	assert_true(_row(_entry(survey, province), tile).is_empty(),
+		"an unsurveyed mineral has no survey row")
+	assert_gt(
+		MineralSurvey.unsurveyed_in_province(model, works, owner, province, null).size(),
+		0, "the province still has ground to read"
+	)
+	# Once the crown prospects the tile the estate appears, unchanged by fog.
+	works.set_prospected(owner, model, tile)
+	survey = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
+	var row: Dictionary = _row(_entry(survey, province), tile)
+	assert_false(row.is_empty(), "the survey now names the deposit")
 	assert_true(bool(row["needs_prospecting"]))
+	assert_true(bool(row["prospected"]))
+	assert_eq(String(row["status"]), "vacant")
 
 
 func test_the_dossier_reads_one_province_with_the_survey_vocabulary() -> void:

@@ -89,7 +89,7 @@ static func survey_color(status: String) -> Color:
 			return SURVEY_BUILDING
 		"vacant":
 			return SURVEY_VACANT
-		"unprospected":
+		"unprospected", "survey":
 			return SURVEY_PROSPECT
 		"disconnected":
 			return SURVEY_OFFLINE

@@ -152,9 +152,15 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	_add_row("Held by", FactionCatalog.name_of(model.owner_at(unit.tile.x, unit.tile.y)))
 	if model.is_purchased_tile(unit.tile):
 		_add_row("Deed", "Purchased land")
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
+	var resource: int = MineralSurvey.known_resource(
+		model, works, unit.owner, unit.tile
+	)
 	if resource >= 0:
 		_add_row("Resource", String(MapGenerator.resource_info(resource).get("name", "—")))
+	elif MineralSurvey.prospectable(model, unit.tile):
+		# A hidden mineral is never named here; the ground itself is the news
+		# (wiki: fog-and-exploration § Prospecting; DR-20261111-26).
+		_add_row("Resource", "Unsurveyed ground")
 	else:
 		_add_row("Resource", "None surveyed")
 	var development: PackedStringArray = PackedStringArray()
@@ -174,11 +180,29 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	if works.is_prospected(unit.owner, model, unit.tile):
 		development.append("Prospected")
 	_add_row("Works", " · ".join(development) if not development.is_empty() else "—")
+	if unit.type_id == "explorer":
+		_add_row("Survey", _survey_text(model, works, unit, province))
 	var province_data: ProvinceState = model.province_data(province)
 	if province_data != null and province_data.is_town_tile(unit.tile):
 		_add_row("Town", "Level %d / 4" % province_data.town_level())
 	if unit.type_id == SpyNetworks.SPY_TYPE:
 		_add_row("Tradecraft", _tradecraft_text(model, unit))
+
+
+## What an Explorer has left to read here: the survey is the one order whose
+## target is not the ground underfoot, so the dossier says how much is left and
+## whether this province can be read at all (DR-20261111-26).
+func _survey_text(
+	model: MapModel, works: LandWorks, unit: CivilianState, province: int
+) -> String:
+	var left: int = MineralSurvey.unsurveyed_in_province(
+		model, works, unit.owner, province
+	).size()
+	if left <= 0:
+		return "Every prospectable tile here is charted"
+	return "%d tile%s still to survey — tap one on the map" % [
+		left, "" if left == 1 else "s"
+	]
 
 
 ## What the spy's standing actually buys where it stands: a shadowed court only

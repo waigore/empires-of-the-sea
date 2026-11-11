@@ -242,6 +242,23 @@ suites = [
   "test_crown_road_survey.gd",
 ]
 
+# Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
+# Catalog + seeder + survey + Explorer policy travel together; kept off the full
+# map + AI + economy fan-out so tier 1 stays inside 5 min.
+[domains.prospect]
+suites = [
+  "test_ai_rules.gd",
+  "test_catalogs.gd",
+  "test_civilian_field_rules.gd",
+  "test_map_generator.gd",
+  "test_map_region_table.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_province_panel.gd",
+  "test_resource_lens.gd",
+  "test_resource_survey.gd",
+  "test_world_setup.gd",
+]
+
 # Painted chart art: symbol stamps, the canvas that draws them and the fleet
 # hull. Presentational only, so the four suites that mount the chart cover the
 # patch; the broad map/fleet domains would blow the tier-1 5 min budget.
@@ -704,6 +721,69 @@ domain = "misc"
 match = "scripts/ai/ai_state.gd"
 domain = "difficulty"
 
+# Prospect uncover (DR-20261111-26): keep mineral survey + Explorer/Builder AI
+# and the map/dossier marks off the full AI/map/civilian fan-out so tier 1
+# stays inside 5 min.
+[[rules]]
+match = "scripts/ai/ai_explorer_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ai/ai_engineer_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ai/ai_civilian_planner.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/map_overlay.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/map_play_civilians.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/civilian_explorer_gates.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/civilian_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/improvement_ledger.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/civilian_panel.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/province_panel.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/lens_legend.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/palette.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "tests/civilian_fixture.gd*"
+domain = "prospect"
+
 [[rules]]
 match = "scripts/ai/**"
 domain = "ai"
@@ -996,6 +1076,15 @@ domain = "chart_bake"
 match = "scripts/map/capital_seat_marker.gd"
 domain = "campaign"
 
+# Resource table + seeder for Prospect-required minerals (DR-20261111-26).
+[[rules]]
+match = "scripts/map/map_catalog.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/resource_seeder.gd*"
+domain = "prospect"
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
@@ -1099,6 +1188,15 @@ domain = "civilian"
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd"
 domain = "civilian"
+
+# Prospect-required mineral ids (DR-20261111-26); keep off the full economy set.
+[[rules]]
+match = "scripts/rules/improvement_catalog.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/mineral_survey.gd*"
+domain = "prospect"
 
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
@@ -1239,8 +1337,8 @@ match = "scripts/rules/intel_*.gd*"
 domain = "intel"
 
 [[rules]]
-match = "scripts/rules/resource_survey.gd"
-domain = "map"
+match = "scripts/rules/resource_survey.gd*"
+domain = "prospect"
 
 # The survey's road projection: same lens, same suites (the chart draws no roads).
 [[rules]]
