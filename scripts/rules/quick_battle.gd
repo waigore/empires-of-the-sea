@@ -30,11 +30,15 @@ static func resolve_exchange(
 ) -> Dictionary:
 	var def_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, defender)
 	var atk_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, attacker)
+	## The side's commander is the primary army read before the rounds
+	## (wiki: military-armies § Battle grouping): its line and any medal agree.
+	var def_lead: ArmyState = ArmyCommand.primary(def_side)
+	var atk_lead: ArmyState = ArmyCommand.primary(atk_side)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(def_side, context), true, model, province, defender
+		context, ArmyCommand.medals_of(def_lead, context), true, model, province, defender
 	)
 	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(atk_side, context), false, model, province, attacker
+		context, ArmyCommand.medals_of(atk_lead, context), false, model, province, attacker
 	)
 	var fort_level: int = int(def_mods["fort"])
 	var guns: Array[Dictionary] = QuickBattleBattery.make(fort_level, context, defender)
@@ -141,17 +145,17 @@ static func resolve_exchange(
 		ArmyCombat.flip(model, province, attacker)
 		report["captured"] = true
 		atk_up = RegimentCondition.award_side(atk_side)
-		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
+		report["medal_gain"] = ArmyCommand.award(context, atk_lead, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
 	elif outcome == ArmyCombat.Outcome.DEFENDER_VICTORY:
 		def_up = RegimentCondition.award_side(def_side)
-		report["medal_gain"] = ArmyCommand.award(context, def_side, defender)
+		report["medal_gain"] = ArmyCommand.award(context, def_lead, defender)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = defender
 	elif outcome == ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
 		atk_up = RegimentCondition.award_side(atk_side)
-		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
+		report["medal_gain"] = ArmyCommand.award(context, atk_lead, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
 	elif outcome == ArmyCombat.Outcome.MUTUAL_ANNIHILATION and further:

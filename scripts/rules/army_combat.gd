@@ -121,24 +121,26 @@ static func _exchange(
 		))
 	var defending: Array[ArmyState] = armies_of(armies, province, defender)
 	var attacking: Array[ArmyState] = armies_of(armies, province, attacker)
+	## The primary army read before any casualties commands the side, and wins
+	## its medal (wiki: military-armies § Battle grouping).
+	var def_lead: ArmyState = ArmyCommand.primary(defending)
+	var atk_lead: ArmyState = ArmyCommand.primary(attacking)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(defending, context), true, model, province, defender
+		context, ArmyCommand.medals_of(def_lead, context), true, model, province, defender
 	)
 	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(attacking, context), false, model, province, attacker
+		context, ArmyCommand.medals_of(atk_lead, context), false, model, province, attacker
 	)
 	var def_limit: int = int(def_mods["limit"])
 	var atk_limit: int = int(atk_mods["limit"])
 	var initial_defenders: int = mini(side_regiments(defending), def_limit)
 	var atk_deployed: int = mini(side_regiments(attacking), atk_limit)
-	## The besieging train's opening fire: guns it silences fall before the
-	## clash, and a silent battery drops the fort even if the attack is repelled
+	## The besieging train's opening fire: silenced guns fall before the clash
 	## (wiki: siege-mechanics § Emplaced Artillery; DR-20261110-22).
 	var siege: Dictionary = AutoSiege.resolve(
 		model, province, int(def_mods["fort"]), defender, attacking, atk_limit, context
 	)
-	## A silenced gun stops answering: only the pieces still standing add their
-	## weight to the defence this exchange.
+	## A silenced gun stops answering: only the standing pieces add their weight.
 	var emplaced: float = float(def_mods["emplaced"])
 	if not siege.is_empty():
 		emplaced *= float(int(siege["guns_left"])) / float(maxi(int(siege["guns_start"]), 1))
@@ -203,7 +205,7 @@ static func _exchange(
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
 		atk_up = RegimentCondition.award_side(attacking)
-		report["medal_gain"] = ArmyCommand.award(context, attacking, attacker)
+		report["medal_gain"] = ArmyCommand.award(context, atk_lead, attacker)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = attacker
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
@@ -221,7 +223,7 @@ static func _exchange(
 	if atk_left == 0:
 		report["outcome"] = Outcome.DEFENDER_VICTORY
 		def_up = RegimentCondition.award_side(defending)
-		report["medal_gain"] = ArmyCommand.award(context, defending, defender)
+		report["medal_gain"] = ArmyCommand.award(context, def_lead, defender)
 		if not String(report["medal_gain"]).is_empty():
 			report["medal_owner"] = defender
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
@@ -293,12 +295,10 @@ static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
 	return ArmyCommand.initiative(side, medals)
 
 
-## Attacking factions in initiative order; exact initiative ties are broken by
-## one deterministic seeded roll per battle context (wiki: combat § Initiative,
-## § Multi-Attacker Chain — seeded by combat seed and battle context identity,
-## never lexical faction id). `context["hostile"]`, when set, is the court's war
-## query so only factions at war are counted (wiki: diplomacy § War required for
-## hostile actions).
+## Attacking factions in initiative order; exact ties use one deterministic
+## seeded roll per battle context, never lexical faction id. `context["hostile"]`
+## is the court's war query, so only factions at war are counted
+## (wiki: combat § Initiative, § Multi-Attacker Chain; diplomacy § War).
 static func ordered_attackers(
 	armies: Array[ArmyState], province: int, defender: int, context: Dictionary = {}
 ) -> Array[int]:

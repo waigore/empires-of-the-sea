@@ -131,9 +131,9 @@ static func candidates(
 			config, state, ai_state, world, turn, target, improve, min_improve,
 			treasury, tech
 		),
-		_trade_pact(state, faction, target, desire, improve, min_improve, record.score),
+		_trade_pact(config, state, faction, target, desire, improve, min_improve, record.score),
 		_aid(state, faction, target, improve, min_improve, treasury, record.score),
-		_subsidy(state, faction, target, desire, improve, min_improve),
+		_subsidy(config, state, faction, target, desire, improve, min_improve),
 		_boycott(state, faction, target, record.score, improve),
 		_break_alliance(target, record, desire),
 	]
@@ -219,8 +219,11 @@ static func _land_envoy_bonus(
 
 
 ## A favoured trading pact while the standing is warm; the way back out once it
-## has cooled below the pact bar (wiki: world-market § FTP).
+## has cooled below the pact bar (wiki: world-market § FTP). An agenda that keeps
+## to itself values the same pact less, so the court stays on the overture chain
+## (wiki: hidden-agendas — isolationist minimal trade; DR-20261111-27).
 static func _trade_pact(
+	config: AiConfig,
 	state: DiplomacyState,
 	faction: int,
 	target: int,
@@ -241,7 +244,7 @@ static func _trade_pact(
 	var check: Dictionary = DiplomacyTrade.can_establish_ftp(state, faction, target)
 	if not bool(check.get("ok", false)):
 		return _blocked(String(check.get("reason", "no trade pact")), KIND_FTP)
-	return _offer(KIND_FTP, target, improve - FTP_UTILITY_COST)
+	return _offer(KIND_FTP, target, improve - FTP_UTILITY_COST + config.trade_bias())
 
 
 ## One gift of gold: only to a court this one wants to keep close, and only
@@ -270,8 +273,10 @@ static func _aid(
 
 
 ## A subsidy to a Minor or Tribe while the friendship holds; cancelled once the
-## court stops wanting it (wiki: world-market § Subsidy price adjustment).
+## court stops wanting it (wiki: world-market § Subsidy price adjustment). An
+## agenda that keeps to itself values it just as little as a trade pact.
 static func _subsidy(
+	config: AiConfig,
 	state: DiplomacyState,
 	faction: int,
 	target: int,
@@ -290,7 +295,9 @@ static func _subsidy(
 	)
 	if not bool(check.get("ok", false)):
 		return _blocked(String(check.get("reason", "no subsidy")), KIND_SUBSIDY)
-	var entry: Dictionary = _offer(KIND_SUBSIDY, target, improve - SUBSIDY_UTILITY_COST)
+	var entry: Dictionary = _offer(
+		KIND_SUBSIDY, target, improve - SUBSIDY_UTILITY_COST + config.trade_bias()
+	)
 	entry["amount"] = SUBSIDY_PERCENT
 	return entry
 

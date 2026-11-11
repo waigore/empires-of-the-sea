@@ -175,16 +175,21 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	probe.queue_free()
 
 
-func test_an_unprospected_estate_draws_its_prospect_ring() -> void:
+func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
 	MapPlayInput.set_lens(_screen.play, true)
 	var lens: ResourceLens = _screen.play.lens
-	var found: Array = _owned_unprospected(lens.survey)
+	var found: Dictionary = {}
+	for raw: Variant in lens.survey["provinces"]:
+		var entry: Dictionary = raw
+		if int(entry.get("unsurveyed", 0)) > 0:
+			found = entry
+			break
 	if found.is_empty():
 		return
+	assert_true(String(found["summary"]).contains("unsurveyed"))
 	lens._reveal = 1.0
 	lens.queue_redraw()
 	await get_tree().process_frame
-	assert_eq(String((found[1] as Dictionary)["status"]), "unprospected")
 
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
@@ -242,13 +247,3 @@ func _visible_entry(survey: Dictionary) -> Dictionary:
 		):
 			return entry
 	return {}
-
-
-func _owned_unprospected(survey: Dictionary) -> Array:
-	for raw: Variant in survey["provinces"]:
-		var entry: Dictionary = raw
-		for raw_row: Variant in entry.get("rows", []):
-			var row: Dictionary = raw_row
-			if bool(row.get("ours", false)) and String(row["status"]) == "unprospected":
-				return [entry, row]
-	return []

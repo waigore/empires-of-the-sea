@@ -181,8 +181,7 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
-## Net treasury movement per turn, shown beside the treasury count so the player
-## reads solvency without opening the ledger. Zero is dim, not a fake gain.
+## Net treasury movement per turn beside the count; zero is dim, not a fake gain.
 func set_income(value: int) -> void:
 	_income_value = value
 	if _income_label == null:
@@ -197,10 +196,11 @@ func set_income(value: int) -> void:
 	_refresh_treasury_tooltip()
 
 
+## Estates and college only — the world market clears after them (world-market).
 func _refresh_treasury_tooltip() -> void:
 	if _treasury_chip == null:
 		return
-	_treasury_chip.tooltip_text = "Treasury %s · %s per turn — open the ledger" % [
+	_treasury_chip.tooltip_text = "Treasury %s · %s per turn before the auction — open the ledger" % [
 		TextFormat.thousands(_treasury_value), TextFormat.delta(_income_value)
 	]
 

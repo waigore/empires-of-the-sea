@@ -74,6 +74,6 @@ terrain, plus cut-out walls, miniatures and rubble. Prompts and build script:
 
 ## Tests
 
-`test_battle_sim` proves the sandbox resolves the same battle as a direct
+`test_battle_rules` proves the sandbox resolves the same battle as a direct
 `QuickBattle.resolve_exchange` call and that the scene fights, steps and resets.
-Run both with `gd-tools test tests/test_battle_sim.gd tests/test_siege_depth.gd`.
+Run it with `gd-tools test tests/test_battle_rules.gd`.

@@ -1,6 +1,6 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power, the end-of-turn pipeline and the raw →
+One stockpile per Great Power, the end-of-turn pipeline and raw →
 manufactured recipes. **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
@@ -37,17 +37,17 @@ Projections never mutate live state.
 | bronze | copper ×1 + tin ×1 | 3 |
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
-whole times, bounded by inputs and idle labour; incomplete rows are skipped.
+whole times, bounded by inputs and labour; incomplete rows are skipped.
 `PRODUCTION` sets desired outputs.
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
-cargo. A colony pays on landed tons. Rivals upgrade towns;
-works: [improvements.md](improvements.md). A Minor or Tribe town publishes its
+cargo. A colony pays on landed tons. Rivals upgrade towns
+([improvements.md](improvements.md)). A Minor or Tribe town publishes its
 manufactures as market auto-offers at the province town; estates still sell in
-full.
+full. A deed lifts that town (`min(4, 1+deeds)`).
 
 ## World-market auction
 
@@ -59,21 +59,20 @@ relations (`MarketFavoured`, wiki R7.1), while an independent court keeps
 Consulate-then-relation. First right of refusal fills a purchased tile's
 owner first and pays its relation share plus embassy kickbacks; subsidies
 adjust the deal. Unfilled orders carry when holds/stock cover them; prices
-move from filled bids and offers, and a standing world counterparty fills the
-rest.
+move from filled bids and offers, and a world counterparty fills the rest.
 
 An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills, cuts and lapses show in the turn toast and the save.
+claim. Fills, cuts and lapses show in the turn toast and save.
 
 ## Trade terms
 
 Prices are published once; each crown's diplomacy rate applies at settlement
 ([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
-the Minor/Tribe ask carry it; price discovery reads the published price.
+the Minor/Tribe ask carry it; discovery reads the published price.
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and projection. `MARKET` lists
+`ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists
 staged orders, Minor/Tribe harvest and world rows as intents, each good under
 its medallion (`REQ-P1-02`, `REQ-P2-03`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
@@ -89,5 +88,5 @@ to the fields, no refund, inert when empty). Thumb-sized on a phone.
 
 ## Tests
 
-`test_market_engine`, `test_economy_rules`, `test_economy_screen`,
-`test_ai_market`, `test_catalogs`, `test_commodity_icons`.
+`test_economy_rules`, `test_economy_screen`, `test_ai_economy_rules`,
+`test_catalogs`.
