@@ -8,6 +8,14 @@ extends RefCounted
 ## Labels carry `kind` ("province", "sea", "passage") and `size` in pixels;
 ## symbols carry `kind` ("mountain", "port", "capital", …), `position` and `size`.
 
+## The clear text band a province name keeps free of marks (see `under_label`):
+## horizontally either side of the type, above its cap height, below its feet.
+const LABEL_HALF_WIDTH: float = 74.0
+const LABEL_CLEAR_ABOVE: float = 18.0
+const LABEL_CLEAR_BELOW: float = 26.0
+## Air between a name stepped above its town and the hamlet's roof and spire.
+const TOWN_AIR: float = 8.0
+
 var labels: Array[Dictionary] = []
 var glyphs: Array[Dictionary] = []
 ## World-space centres of the warp-zone passages on this region.
@@ -35,7 +43,7 @@ func _add_names(p_model: MapModel, tile_size: float) -> void:
 			continue
 		labels.append({
 			"text": province.name,
-			"position": Vector2(province.center) * tile_size,
+			"position": _name_position(province, p_model, tile_size),
 			"size": 22,
 			"kind": "province",
 			"capital": province.capital,
@@ -49,6 +57,27 @@ func _add_names(p_model: MapModel, tile_size: float) -> void:
 			"size": 13,
 			"kind": "sea",
 		})
+
+
+## A province name sits on the province centre, except where its own town stands
+## on it: the town tile is the estate anchor a crown works from (builders are
+## sent there, roads must reach it), so the type steps above the hamlet instead
+## of the hamlet hiding under the type. A capital's name already sits below its
+## star. A town is a place, like a port, so only its own province's name gives
+## way to it — a neighbour's name may still fall across the mark.
+func _name_position(
+	province: ProvinceState, p_model: MapModel, tile_size: float
+) -> Vector2:
+	var anchor: Vector2 = Vector2(province.center) * tile_size
+	if province.capital or province.town_tile.x < 0:
+		return anchor
+	var town: Vector2i = province.town_tile
+	if not p_model.is_land(town.x, town.y):
+		return anchor
+	var at: Vector2 = MapGeo.tile_center(town.x, town.y, tile_size)
+	if absf(at.x - anchor.x) >= LABEL_HALF_WIDTH or not _in_label_band(at, anchor):
+		return anchor
+	return Vector2(anchor.x, at.y - LABEL_CLEAR_BELOW - TOWN_AIR)
 
 
 func _add_passages(p_model: MapModel, p_world: WorldMap, tile_size: float) -> void:
@@ -191,7 +220,9 @@ func _place_capital(province: ProvinceState, tile_size: float) -> void:
 ## Town per province (wiki: capital-and-connectivity § Town per province): every
 ## non-capital province shows a hamlet mark on its town tile, so the extraction
 ## anchor a crown's estates tie to is visible on the chart. A capital province
-## already carries the star, which is its town.
+## already carries the star, which is its town. The mark always stands on its
+## tile; its own province's name steps aside for it (`_name_position`), never
+## the town under the name.
 func _place_town(
 	province: ProvinceState, p_model: MapModel, tile_size: float
 ) -> void:
@@ -200,12 +231,9 @@ func _place_town(
 	var town: Vector2i = province.town_tile
 	if not p_model.is_land(town.x, town.y):
 		return
-	var anchor: Vector2 = MapGeo.tile_center(town.x, town.y, tile_size)
-	if under_label(anchor):
-		return
 	glyphs.append({
 		"kind": "town",
-		"position": anchor,
+		"position": MapGeo.tile_center(town.x, town.y, tile_size),
 		"size": tile_size * 0.92,
 		"flip": false,
 	})
@@ -227,9 +255,13 @@ func under_label(at: Vector2) -> bool:
 		if String(label["kind"]) != "province":
 			continue
 		var anchor: Vector2 = label["position"]
-		if absf(at.x - anchor.x) < 74.0 and at.y > anchor.y - 18.0 and at.y < anchor.y + 26.0:
+		if absf(at.x - anchor.x) < LABEL_HALF_WIDTH and _in_label_band(at, anchor):
 			return true
 	return false
+
+
+static func _in_label_band(at: Vector2, anchor: Vector2) -> bool:
+	return at.y > anchor.y - LABEL_CLEAR_ABOVE and at.y < anchor.y + LABEL_CLEAR_BELOW
 
 
 func _find_compass_spot(p_model: MapModel, tile_size: float) -> void:
