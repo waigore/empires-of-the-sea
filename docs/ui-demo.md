@@ -73,7 +73,7 @@ ui/shaders/*                sea, fog, grain, vignette
 | Fleet bob / wake / pennant | `scripts/map/ship.gd` |
 | Fleet sail glide / dock anchor | `ShipLayer`, `Ship` |
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
-| HUD slides, counts, toasts | `GameHud` |
+| HUD slides, counts, toasts | `GameHud` (`HudStatChips`, `HudNews`) |
 
 Build ~0.9 s (128×84), a third of it the relief bake. Static canvas once; settled fog still; overlay + ships per frame.
 

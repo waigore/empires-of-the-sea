@@ -25,7 +25,7 @@ func test_civilians_muster_at_the_capital() -> void:
 		_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size()
 	)
 	assert_eq(
-		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+		_screen.hud.stats.civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
 	for unit: CivilianState in _screen.civilian_layer.units:
 		assert_eq(unit.owner, MapScreen.PLAYER_FACTION)
@@ -193,9 +193,9 @@ func test_empire_counters_survive_a_region_switch() -> void:
 	assert_gt(ships, 0)
 	_screen._cycle_region()
 	assert_eq(_screen.economy.fleet_ships(), ships, "navy upkeep follows the empire")
-	assert_eq(_screen.hud._fleet_label.text, str(ships))
+	assert_eq(_screen.hud.stats.fleet_label.text, str(ships))
 	assert_eq(
-		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+		_screen.hud.stats.civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
 	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)

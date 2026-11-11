@@ -1297,6 +1297,17 @@ domain = "crown_road"
 match = "scripts/ui/hud_layout.gd"
 domain = "crown_road"
 
+# The HUD's owned furniture: the despatch desk and the status plaques. The news
+# queue rides the quick-battle suites that drive it; the plaques ride the layout
+# suite that reads their copy.
+[[rules]]
+match = "scripts/ui/hud_news.gd"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chips.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/back_request.gd"
 domain = "ui"
