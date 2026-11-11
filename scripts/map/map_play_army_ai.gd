@@ -4,6 +4,9 @@ extends RefCounted
 ## ArmyMovement, so a march this turn fights this turn (docs/ai.md). Splits run
 ## first so a court that has just declared war can field an army at once.
 
+## Turn-trace kind for a rival court's own muster (DR-20261111-04).
+const KIND_REINFORCE: String = "reinforce"
+
 
 static func run(play: PlaySession) -> Array[Dictionary]:
 	var trace: Array[Dictionary] = []
@@ -42,6 +45,10 @@ static func _run_region(
 		if faction == play.player_faction and not play.observer_mode:
 			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		# The court raises its men before it plans this turn's march, so a fresh
+		# regiment can hold the seat or join the field army it detaches
+		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04).
+		changed = _reinforce(play, model, roster, faction, config, trace) or changed
 		for action: Dictionary in AiMilitaryPlanner.split_orders(
 			config, play.diplomacy, model, roster
 		):
@@ -155,3 +162,68 @@ static func _army_by_id(armies: Array[ArmyState], army_id: int, owner: int) -> A
 		if army != null and army.id == army_id and army.owner == owner:
 			return army
 	return null
+
+
+## A rival court raises one line regiment a turn from its own ledger while it
+## stands under its target strength and its economy can carry the muster — the
+## growth-stage throttle (wiki: ai-architecture § Land reinforcement;
+## DR-20261111-04). The regiment joins the Home Army at the capital through
+## `ArmyTraining`, so the AI pays the same treasury, materials and peasant the
+## human drill yard does (REQ-P2-03).
+static func _reinforce(
+	play: PlaySession,
+	model: MapModel,
+	roster: Array[ArmyState],
+	faction: int,
+	config: AiConfig,
+	trace: Array[Dictionary]
+) -> bool:
+	if play.ai == null or play.army_layer == null or play.diplomacy == null:
+		return false
+	var capital: int = _capital_province(model, faction)
+	if capital < 0:
+		return false
+	var home: ArmyState = ArmyTraining.home_army(roster, faction)
+	if home == null or home.province != capital:
+		return false
+	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
+	if economy == null:
+		return false
+	var plan: Dictionary = AiArmyReinforce.plan(
+		config,
+		economy,
+		play.army_layer.regiment_count_all(faction),
+		_at_war(play, faction)
+	)
+	var type_id: String = String(plan["muster"])
+	if type_id.is_empty():
+		return false
+	var unit_id: String = "unit_%d" % play.army_layer.next_regiment
+	if not bool(ArmyTraining.recruit(economy, home, type_id, unit_id).get("ok", false)):
+		return false
+	play.army_layer.next_regiment += 1
+	trace.append({
+		"faction": faction,
+		"kind": KIND_REINFORCE,
+		"army": home.id,
+		"type": type_id,
+		"regiment": unit_id,
+		"province": home.province,
+		"province_name": model.province_name(home.province),
+		"region": model.region_id,
+	})
+	return true
+
+
+static func _capital_province(model: MapModel, faction: int) -> int:
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction and province.capital:
+			return province.id
+	return MapModel.NO_ID
+
+
+static func _at_war(play: PlaySession, faction: int) -> bool:
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record.at_war:
+			return true
+	return false
