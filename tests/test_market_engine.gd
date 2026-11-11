@@ -551,6 +551,35 @@ func test_a_truncated_bid_keeps_its_audit_note() -> void:
 	assert_eq(booked.size(), report["notes"].size(), "the book keeps the same notes")
 
 
+## The Deal Book names the constraint that actually stopped the bid: a purse
+## that cannot buy one more ton is a treasury truncation, not a cargo shortfall
+## (wiki: world-market § Treasury budget for bids; REQ-P5-05 never a wrong reason).
+func test_a_bid_cut_by_the_purse_names_the_purse() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 4, 1, 0, 1, true),
+	]
+	var context: Dictionary = _context({"treasuries": {1: 40}, "free_holds": {1: 10}})
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int(((result["deals"] as Array)[0] as Dictionary)["quantity"]), 1)
+	var codes: Array[String] = []
+	for note: Variant in result["notes"]:
+		codes.append(String((note as Dictionary).get("code", "")))
+	assert_true(codes.has("bid_partial_fill_treasury_insufficient"), str(codes))
+	assert_false(codes.has("bid_partial_fill_cargo_insufficient"), str(codes))
+
+
+## A bid with holds and purse to spare that no offer could fill is not a
+## truncation; the Deal Book stays silent rather than blaming cargo.
+func test_a_bid_with_no_offer_carries_without_a_note() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 2, 1),
+	]
+	var context: Dictionary = _context({"treasuries": {1: 5000}, "free_holds": {1: 10}})
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq((result["notes"] as Array).size(), 0, str(result["notes"]))
+
+
 ## A Great Power offer the seller can no longer cover is not a deal, and the
 ## dropped units are named (wiki: world-market § Trade orders — an offer sells
 ## only what the ledger still holds; REQ-P5-05 never a silent outcome).
