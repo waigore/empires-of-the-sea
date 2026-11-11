@@ -76,8 +76,7 @@ Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
 
 ## Tests
 
-`test_army_*`, `test_battle_rules`, `test_hospital_rules`,
-`test_quick_battle_rules`, `test_siege_depth`, `test_battle_sim`.
+`test_army_*`, `test_battle_rules`, `test_hospital_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

@@ -88,5 +88,5 @@ to the fields, no refund, inert when empty). Thumb-sized on a phone.
 
 ## Tests
 
-`test_market_engine`, `test_economy_rules`, `test_economy_screen`,
-`test_ai_market`, `test_catalogs`, `test_commodity_icons`.
+`test_economy_rules`, `test_economy_screen`, `test_ai_economy_rules`,
+`test_catalogs`.
