@@ -1301,6 +1301,37 @@ func test_ai_economy_spends_the_last_affordable_training() -> void:
 	assert_eq(applied.treasury, 200, "the live ledger pays the same 200 row")
 
 
+## A rich court that would train a journeyman under the reserve still holds when a
+## cheaper trained tier remains affordable from today's slack (the purse throttle's
+## true branch: best cost and next-turn cost differ).
+func test_ai_economy_holds_a_journeyman_when_slack_could_retrain() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {
+		"apprentice_workers": true,
+		"sugar_refining": true,
+		"trained_journeymen": true,
+		"cigar_production": true,
+	}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 900
+	economy.add("paper", 10)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_true(
+		orders.is_empty(),
+		"900 − 500 lands under 500 while 900 − 500 still funds an apprentice"
+	)
+	assert_true(
+		AiEconomyPlanner._next_training_affordable(economy, 500),
+		"slack outside the reserve already pays a trained row"
+	)
+	assert_true(AiEconomyPlanner._techs_open(economy, WorkerPool.Tier.APPRENTICE))
+	assert_eq(AiEconomyPlanner._trains(null, WorkerPool.Tier.APPRENTICE), -1)
+	assert_eq(AiEconomyPlanner._trains(economy, -1), -1)
+	assert_eq(AiEconomyPlanner._trains(economy, WorkerPool.TIER_COUNT), -1)
+
+
 # --- rival civilians (AiCivilianPlanner) ------------------------------------
 
 
