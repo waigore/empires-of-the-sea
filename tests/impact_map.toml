@@ -178,6 +178,7 @@ suites = [
 [domains.map]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -218,6 +219,14 @@ suites = [
   "test_fleet_orders.gd",
 ]
 
+# Terrain wash shelf + shared theme: canvas + stamps cover the patch. chart_art
+# also mounts map_screen / fleet_orders and those two alone can miss 5 min.
+[domains.chart_bake]
+suites = [
+  "test_map_canvas.gd",
+  "test_map_symbols.gd",
+]
+
 # Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
 # the invariants the right-sized world is built for (slot floor, crown land,
 # painted chart + campaign plate). Broader preloads stay on tier 2 — even a
@@ -233,6 +242,7 @@ suites = [
 [domains.advanced]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
 ]
 
 # Setup difficulty layer (wiki: ruleset-config § Layers). Hub files that only
@@ -255,6 +265,7 @@ suites = [
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
   "test_hud_toast.gd",
@@ -491,9 +502,11 @@ full = true
 match = "gd-tools.toml"
 full = true
 
+# Map edits are exercised by the selection script in CI; a tiny chart suite is
+# enough for the required check without pulling crown_road past 5 min.
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "crown_road"
+domain = "chart_bake"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -802,6 +815,16 @@ domain = "chart_art"
 [[rules]]
 match = "scripts/map/map_canvas_plan.gd"
 domain = "chart_art"
+
+# Terrain wash shelf + shared theme: canvas + stamps cover the patch; the
+# map/menu catch-alls (and full chart_art) miss the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_wash.gd"
+domain = "chart_bake"
+
+[[rules]]
+match = "scripts/map/map_wash.gd.uid"
+domain = "chart_bake"
 
 [[rules]]
 match = "scripts/map/**"
@@ -1270,6 +1293,15 @@ domain = "ui"
 match = "scripts/ui/ui_row_builder.gd*"
 domain = "ui"
 
+# Shared theme: canvas mounts call build(); menu catch-all is too wide.
+[[rules]]
+match = "scripts/ui/ui_theme.gd"
+domain = "chart_bake"
+
+[[rules]]
+match = "scripts/ui/ui_theme.gd.uid"
+domain = "chart_bake"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
@@ -1520,6 +1552,10 @@ domain = "espionage"
 
 [[rules]]
 match = "tests/test_advanced_start.gd*"
+domain = "advanced"
+
+[[rules]]
+match = "tests/test_advanced_start_live.gd*"
 domain = "advanced"
 
 [[rules]]
