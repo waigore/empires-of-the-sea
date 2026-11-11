@@ -272,6 +272,33 @@ func test_an_unreadable_slot_never_replaces_the_running_campaign() -> void:
 	)
 
 
+## The campaign length is fixed at creation, so the row that offers a load names
+## it and loading an Endless save keeps its open calendar (wiki:
+## campaign-persistence § Load and resume, DR-20261111-08).
+func test_a_slot_row_names_its_campaign_length() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	screen.game_menu.open_save()
+	screen.game_menu.browser.slot_chosen.emit(1)
+	var label: String = screen.game_menu.browser.slot_buttons[0].text
+	assert_true(label.contains("Historical"), "a historical row names it: %s" % label)
+
+	screen.play.infinite_mode = true
+	screen.game_menu.browser.slot_chosen.emit(2)
+	label = screen.game_menu.browser.slot_buttons[1].text
+	assert_true(label.contains("Endless"), "an endless row names it: %s" % label)
+
+	screen.game_menu.load_chosen.emit(2)
+	var loaded: MapScreen = main.current_screen
+	assert_not_null(loaded, "the endless save loads")
+	if loaded == null:
+		return
+	assert_true(loaded.play.infinite_mode, "an endless campaign loads endless")
+
+
 func _start_game() -> void:
 	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page

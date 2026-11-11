@@ -114,19 +114,26 @@ func _row_text(slot: int, row: Dictionary, present: bool, readable: bool) -> Str
 		return "SLOT %d   ·   Unreadable save\nThis build cannot read it." % slot
 	var where: String = String(row.get("region", "—"))
 	var stamp: String = String(row.get("saved_at", ""))
-	# Two-up on a phone: keep the crown, the turn and the stamp readable in a
-	# half-width row, and let the region and seed yield (REQ-P1-05).
+	# The campaign length is a rule a load cannot change, so the row that offers
+	# the load names it beside the turn (wiki: campaign-persistence § Load and
+	# resume).
+	var length: String = String(row.get("length", SaveCodec.length_label(false)))
+	# Two-up on a phone: keep the crown, the length, the turn and the stamp
+	# readable in a half-width row, and let the region and seed yield
+	# (REQ-P1-05).
 	if MenuFrame.is_short(self):
-		return "SLOT %d  ·  %s  ·  Turn %d\n%s" % [
+		return "SLOT %d  ·  %s  ·  Turn %d\n%s  ·  %s" % [
 			slot,
 			String(row.get("nation", "—")),
 			int(row.get("turn", 1)),
+			length,
 			stamp,
 		]
-	return "SLOT %d   ·   %s  —  Turn %d\n%s  ·  seed %d  ·  %s" % [
+	return "SLOT %d   ·   %s  —  Turn %d  ·  %s\n%s  ·  seed %d  ·  %s" % [
 		slot,
 		String(row.get("nation", "—")),
 		int(row.get("turn", 1)),
+		length,
 		where,
 		int(row.get("seed", 0)),
 		stamp,
