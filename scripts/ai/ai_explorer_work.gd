@@ -1,11 +1,14 @@
 class_name AiExplorerWork
 extends RefCounted
 ## Rival Explorer policy (wiki: civilian-work-planner, fog-and-exploration;
-## DR-20261110-21, DR-20261111-26). An Explorer surveys the province it stands
-## in when its own court knows that province but has not charted all of it,
-## prospects unprospected prospectable terrain on its crown's land, and
-## otherwise walks toward the nearest charted province that still holds unknown
-## ground.
+## DR-20261110-21, DR-20261111-26). An Explorer surveys the province it stands in
+## when its own court knows that province but has not charted all of it, reads
+## the unsurveyed ground underfoot, and otherwise walks toward the nearest
+## unsurveyed prospectable tile on its crown's land — or, with nothing left to
+## read, toward the nearest charted province that still holds unknown ground.
+##
+## A mineral is hidden until the survey lands, so no plan may price it: the
+## Explorer digs the ground its court can see, not a deposit it cannot.
 ##
 ## Every candidate runs CivilianWork, and the court's own chart gates what it
 ## may look at: an Explorer never marches into fog it has not broken and never
@@ -38,15 +41,11 @@ static func best_candidate(
 		return explore
 	if model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
 		return {}
-	if not ProspectRules.tile_refusal(model, unit.owner, unit.tile, works).is_empty():
+	if not MineralSurvey.can_prospect(model, works, unit.owner, unit.tile, view):
 		return {}
+	# The deposit is unknown until the survey lands, so the order is priced on
+	# the ground, never on a mineral the court has not seen (DR-20261111-26).
 	var score: int = config.parameter("civilian.prospect_weight")
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
-	if ImprovementCatalog.needs_prospecting(resource):
-		score += AiBuilderWork.need(
-			ImprovementCatalog.commodity(resource), stockpile,
-			config.parameter("civilian.need_target")
-		) * 10
 	return AiCivilianCandidate.make(
 		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
 		tech_unlocked, context, score
@@ -139,14 +138,14 @@ static func _survey_candidate(
 	)
 
 
-## Nearest unprospected prospectable tile on the crown's own land, else the
-## nearest known tile of a province that still holds unknown ground (a
-## Minor Nation or Tribe needs its Consulate, as for the player).
+## Nearest unsurveyed prospectable tile on the crown's own land, else the nearest
+## known tile of a province that still holds unknown ground and may be surveyed
+## (a Minor Nation or Tribe needs its Consulate, as for the player).
 static func _goal(
 	model: MapModel, unit: CivilianState, works: LandWorks, view: VisibilityModel,
 	context: Dictionary
 ) -> Vector2i:
-	var best: Vector2i = _nearest_prospect(model, unit, works)
+	var best: Vector2i = _nearest_unsurveyed(model, unit, works, view)
 	if best.x >= 0 or view == null:
 		return best
 	var best_distance: int = 1 << 30
@@ -158,8 +157,8 @@ static func _goal(
 		for tile: Vector2i in province.tiles:
 			if view.level_at(tile.x, tile.y) < VisibilityModel.Level.FOGGED:
 				continue
-			if not CivilianExplorerGates.refusal(
-				"explore", model, unit.owner, tile, province.id, view, context
+			if not CivilianExplorerGates.explore_refusal(
+				model, unit.owner, province.id, context
 			).is_empty():
 				continue
 			var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
@@ -169,13 +168,13 @@ static func _goal(
 	return best
 
 
-static func _nearest_prospect(
-	model: MapModel, unit: CivilianState, works: LandWorks
+static func _nearest_unsurveyed(
+	model: MapModel, unit: CivilianState, works: LandWorks, view: VisibilityModel
 ) -> Vector2i:
 	var best: Vector2i = Vector2i(-1, -1)
 	var best_distance: int = 1 << 30
 	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not ProspectRules.tile_refusal(model, unit.owner, tile, works).is_empty():
+		if not MineralSurvey.can_prospect(model, works, unit.owner, tile, view):
 			continue
 		var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
 		if distance < best_distance or (distance == best_distance and tile < best):

@@ -15,7 +15,7 @@ const TOWN_TECH: String = CivilianWorkPlan.TOWN_TECH
 
 const LABELS: Dictionary = {
 	"explore": "Explore province",
-	"prospect": "Prospect minerals",
+	"prospect": "Prospect this tile",
 	"build_improvement": "Build improvement",
 	"upgrade_town": "Upgrade town",
 	"build_road": "Build road",
@@ -216,7 +216,10 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy)
+			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy, report)
+			if action == "prospect":
+				# The despatch names what the survey found (DR-20261111-26).
+				report["find"] = MineralSurvey.find_of(model, tile)
 			unit.clear_work()
 		reports.append(report)
 	return reports
@@ -240,8 +243,8 @@ static func _check_action(
 ) -> Dictionary:
 	match action:
 		"explore":
-			var explore_gate: String = CivilianExplorerGates.refusal(
-				"explore", model, unit.owner, tile, province, visibility, context
+			var explore_gate: String = CivilianExplorerGates.explore_refusal(
+				model, unit.owner, province, context
 			)
 			if not explore_gate.is_empty():
 				return _no(explore_gate)
@@ -249,16 +252,11 @@ static func _check_action(
 				return _no("%s is already charted." % model.province_name(province))
 			return {"ok": true}
 		"prospect":
-			var prospect_gate: String = CivilianExplorerGates.refusal(
-				"prospect", model, unit.owner, tile, province, visibility, context
+			var prospect_gate: String = CivilianExplorerGates.prospect_refusal(
+				model, unit.owner, unit.tile, tile, works, visibility, context
 			)
 			if not prospect_gate.is_empty():
 				return _no(prospect_gate)
-			var tile_gate: String = ProspectRules.tile_refusal(
-				model, unit.owner, tile, works
-			)
-			if not tile_gate.is_empty():
-				return _no(tile_gate)
 			return {"ok": true}
 		"build_improvement":
 			var owned: Dictionary = _owned_land(model, unit, tile)
@@ -349,7 +347,8 @@ static func _apply(
 	tile: Vector2i,
 	works: LandWorks,
 	visibility: VisibilityModel,
-	economy: PlayerEconomy = null
+	economy: PlayerEconomy = null,
+	report: Dictionary = {}
 ) -> Array:
 	var province: int = model.province_at(tile.x, tile.y)
 	match action:
@@ -378,7 +377,8 @@ static func _apply(
 		"build_hospital":
 			return HospitalRules.work_complete(model, province, unit, tile)
 		"purchase_land":
-			if LandPurchase.complete(model, tile, unit.owner, economy):
+			# `complete` records the town level it actually set (DR-20261112-01).
+			if LandPurchase.complete(model, tile, unit.owner, economy, report):
 				return [model.index_of(tile.x, tile.y)]
 			return []
 	if CivilianTransport.knows(action):

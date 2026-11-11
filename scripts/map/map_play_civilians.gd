@@ -20,12 +20,27 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 	)
 	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(
-			CivilianMovement.valid_tiles(play.model, unit, play.visibility)
+			CivilianMovement.valid_tiles(play.model, unit, play.visibility),
+			_survey_tiles(play, unit)
 		)
 	else:
 		play.hud.toast(
 			"Civilian of %s — observe only" % FactionCatalog.name_of(unit.owner)
 		)
+
+
+## Ground the selected Explorer could read: the survey is a choice of where to
+## dig, so the map has to show the choices (wiki: fog-and-exploration
+## § Prospecting; DR-20261111-26).
+static func _survey_tiles(play: PlaySession, unit: CivilianState) -> Array[Vector2i]:
+	if unit.type_id != "explorer":
+		return [] as Array[Vector2i]
+	var province: int = play.model.province_at(unit.tile.x, unit.tile.y)
+	if province == MapModel.NO_ID:
+		return [] as Array[Vector2i]
+	return MineralSurvey.unsurveyed_in_province(
+		play.model, play.land_works, unit.owner, province, play.visibility
+	)
 
 
 ## Tapping a neighbouring land tile marches the selected civilian there.
@@ -38,11 +53,23 @@ static func try_move(play: PlaySession, world_position: Vector2) -> bool:
 		return false
 	var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
 	if distance != 1:
-		return false
+		# Not a march: a survey mark under the tap starts the survey instead.
+		return try_survey(play, unit, tile)
 	var result: Dictionary = play.civilian_layer.apply_move(unit, tile, play.visibility)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
 	return true
+
+
+## Sends the selected Explorer to read one marked tile in its own province.
+static func try_survey(play: PlaySession, unit: CivilianState, tile: Vector2i) -> bool:
+	if unit.type_id != "explorer" or unit.is_working():
+		return false
+	if not MineralSurvey.can_prospect(
+		play.model, play.land_works, unit.owner, tile, play.visibility
+	):
+		return false
+	return assign_order(play, "prospect", tile)
 
 
 static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary) -> void:
@@ -55,21 +82,29 @@ static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary
 
 
 static func on_action(play: PlaySession, action: String) -> void:
+	assign_order(play, action, CivilianState.NO_TILE)
+
+
+## An order aimed at a tile the unit is not standing on: the survey targets the
+## map marks, and any cross-map order a caller names. Returns true when the rules
+## accepted it, so a tap that misses falls through to plain selection.
+static func assign_order(play: PlaySession, action: String, tile: Vector2i) -> bool:
 	if play.campaign_over():
-		return
+		return false
 	var unit: CivilianState = play.civilian_layer.selected_unit
 	if unit == null or unit.owner != play.player_faction:
-		return
+		return false
 	var result: Dictionary = CivilianWork.assign(
 		play.model, unit, action, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, CivilianState.NO_TILE, play.tech_caps(),
+		play.stockpile(), play.visibility, tile, play.tech_caps(),
 		play.tech_unlocked(), _context(play)
 	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
-		return
+		return false
 	play.hud.toast("%s begins: %s" % [unit.display_name(), CivilianWork.label(action)])
 	refresh_panel(play)
+	return true
 
 
 static func on_cancel(play: PlaySession) -> void:
@@ -94,7 +129,8 @@ static func refresh_panel(play: PlaySession) -> void:
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(
-		CivilianMovement.valid_tiles(play.model, unit, play.visibility)
+		CivilianMovement.valid_tiles(play.model, unit, play.visibility),
+		_survey_tiles(play, unit)
 	)
 
 
@@ -125,10 +161,16 @@ static func resolve_work(play: PlaySession) -> void:
 		var place: String = (
 			play.model.province_name(province) if province >= 0 else "the wilds"
 		)
-		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
 		if String(report["action"]) == "prospect":
-			var find: String = ProspectRules.find_label(play.model, report["tile"])
-			work_name = "prospect — %s" % find
+			play.hud.toast(_survey_line(play, report, type_name, place))
+			# The province sheet now names the deposit (or its absence).
+			if play.selected_province >= 0 and play.hud.panels.is_panel_open():
+				play.hud.panels.panel.refresh(
+					play.model, play.selected_province,
+					MapPlayImprovements.crown_link(play, play.selected_province)
+				)
+			continue
+		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
 		play.hud.toast("%s%s in %s: %s" % [
 			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
 		])
@@ -168,6 +210,25 @@ static func settle_stranding(play: PlaySession) -> void:
 		play.hud.panels.hide_civilian()
 
 
+## A finished survey names the find for the court that paid for it, or says the
+## ground held nothing: a hidden deposit never changes hands silently (wiki:
+## fog-and-exploration § Prospecting; RUB-P5-06). A rival's survey is news that
+## ground was read — never what was in it (DR-20261111-26, per court).
+static func _survey_line(
+	play: PlaySession, report: Dictionary, type_name: String, place: String
+) -> String:
+	var owner_id: int = int(report.get("owner", -1))
+	var owner: String = _owner_label(play, owner_id)
+	if owner_id != play.player_faction:
+		return "%s%s surveys %s." % [owner, type_name, place]
+	var found: String = String(report.get("find", ""))
+	if found.is_empty():
+		return "%s%s surveys %s — no mineral in the ground." % [owner, type_name, place]
+	return "%s%s finds %s in %s — a mine can rise." % [
+		owner, type_name, ImprovementCatalog.commodity_label(found), place
+	]
+
+
 ## A rival's finished work is announced with its crown, so the player never
 ## mistakes it for their own crew (wiki: civilian-units; DR-20261109-14).
 static func _owner_label(play: PlaySession, owner: int) -> String:
@@ -203,7 +264,14 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	var place: String = model.province_name(province) if province >= 0 else "the wilds"
 	if model.is_purchased_tile(tile):
 		play.hud.set_treasury(play.treasury())
-		play.hud.toast("The deed to %s is signed; the tile answers to your crown." % place)
+		# The deed is the only play path that develops a Minor or Tribe town
+		# (wiki: civilian-units § Merchant; DR-20261112-01).
+		play.hud.toast(
+			MinorTownGrowth.deed_line(
+				model, model.province_data(province), place,
+				int(report.get("town_level", 0))
+			)
+		)
 		return
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
 

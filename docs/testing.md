@@ -117,6 +117,12 @@ godot --headless --path . --script res://tests/playtest_naval.gd
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://tests/playtest_beachhead.gd
+
+# Treasury — opens a turn-100 advanced start and reads the purse the player sees
+# (the chip, the ledger's summary and "Next turn" promise, the market's own rows,
+# the college's funding), stages a sale and a study on those buttons, closes real
+# turns, and prints each promise against the ducats the turn actually paid.
+godot --headless --path . --script res://tests/playtest_treasury.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

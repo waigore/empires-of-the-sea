@@ -10,6 +10,9 @@ const TIMBER_TILE: Vector2i = Vector2i(0, 2)
 const RIVAL_GRAIN_TILE: Vector2i = Vector2i(3, 0)
 const COAST_TILE: Vector2i = Vector2i(1, 3)
 const BARE_TILE: Vector2i = Vector2i(0, 0)
+## Bare hills in the player's province: prospectable ground with nothing under it,
+## so an empty survey can be exercised (DR-20261111-26).
+const HILLS_TILE: Vector2i = Vector2i(2, 0)
 
 
 static func build() -> MapModel:
@@ -39,6 +42,10 @@ static func build() -> MapModel:
 	model.resource[model.index_of(IRON_TILE.x, IRON_TILE.y)] = 1
 	model.resource[model.index_of(TIMBER_TILE.x, TIMBER_TILE.y)] = 0
 	model.resource[model.index_of(RIVAL_GRAIN_TILE.x, RIVAL_GRAIN_TILE.y)] = 4
+	# Iron sits in hills and the bare survey tile is hills too: only swamp, hills,
+	# mountain and desert ground can be prospected (wiki: fog-and-exploration).
+	model.terrain[model.index_of(IRON_TILE.x, IRON_TILE.y)] = MapModel.Terrain.HILLS
+	model.terrain[model.index_of(HILLS_TILE.x, HILLS_TILE.y)] = MapModel.Terrain.HILLS
 	var player := ProvinceState.create(
 		PLAYER_PROVINCE, "Cádiz", player_tiles, Vector2(1.0, 1.5), player_tiles.size(), 0, true
 	)
@@ -90,6 +97,8 @@ static func build_minor() -> MapModel:
 	model.resource[model.index_of(3, 1)] = 4
 	model.terrain[model.index_of(2, 1)] = MapModel.Terrain.HILLS
 	model.resource[model.index_of(2, 1)] = 1
+	# Iron sits in hills, so the Minor's deposit is surveyable ground.
+	model.terrain[model.index_of(2, 1)] = MapModel.Terrain.HILLS
 	var player := ProvinceState.create(
 		0, "Cádiz", player_tiles, Vector2(0.5, 1.5), player_tiles.size(), 0, true
 	)

@@ -116,9 +116,10 @@ func flash_income(amount: int) -> void:
 	tween.chain().tween_callback(label.queue_free)
 
 
+## Estates and college only — the world market clears after them (world-market).
 func _refresh_treasury_tooltip() -> void:
 	if treasury_chip == null:
 		return
-	treasury_chip.tooltip_text = "Treasury %s · %s per turn — open the ledger" % [
+	treasury_chip.tooltip_text = "Treasury %s · %s per turn before the auction — open the ledger" % [
 		TextFormat.thousands(_treasury_value), TextFormat.delta(_income_value)
 	]

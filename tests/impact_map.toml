@@ -117,6 +117,7 @@ suites = [
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
   "test_market_engine.gd",
+  "test_market_offers.gd",
   "test_ledger_text.gd",
   "test_commodity_icons.gd",
 ]
@@ -252,6 +253,8 @@ suites = [
   "test_civilian_field_rules.gd",
   "test_map_generator.gd",
   "test_map_region_table.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_province_panel.gd",
   "test_resource_lens.gd",
   "test_resource_survey.gd",
   "test_world_setup.gd",
@@ -707,6 +710,12 @@ domain = "fleet"
 match = "tests/playtest_persistence.gd*"
 domain = "save"
 
+# The purse drive walks the ledger, the auction receipt and the college's gold,
+# so it travels with the economy suites.
+[[rules]]
+match = "tests/playtest_treasury.gd*"
+domain = "economy"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]
@@ -719,9 +728,67 @@ domain = "misc"
 match = "scripts/ai/ai_state.gd"
 domain = "difficulty"
 
-# Explorer Prospect policy (DR-20261111-26): keep off the full AI planner set.
+# Prospect uncover (DR-20261111-26): keep mineral survey + Explorer/Builder AI
+# and the map/dossier marks off the full AI/map/civilian fan-out so tier 1
+# stays inside 5 min.
 [[rules]]
 match = "scripts/ai/ai_explorer_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ai/ai_engineer_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ai/ai_civilian_planner.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/map_overlay.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/map_play_civilians.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/civilian_explorer_gates.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/civilian_work.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/improvement_ledger.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/civilian_panel.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/province_panel.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/lens_legend.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/ui/palette.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "tests/civilian_fixture.gd*"
 domain = "prospect"
 
 [[rules]]
@@ -1135,12 +1202,18 @@ match = "scripts/rules/improvement_catalog.gd*"
 domain = "prospect"
 
 [[rules]]
-match = "scripts/rules/prospect_rules.gd*"
+match = "scripts/rules/mineral_survey.gd*"
 domain = "prospect"
 
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
 domain = "economy"
+
+# The Merchant's deed is a civilian work order: its purchase tests live in the
+# civilian suite, so keep it off the economy set (DR-20261112-01).
+[[rules]]
+match = "scripts/rules/land_purchase.gd*"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/rules/land_*.gd"
@@ -1178,6 +1251,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/market_offers_head.gd"
 domain = "economy"
 
 [[rules]]
@@ -1347,6 +1424,13 @@ domain = "misc"
 [[rules]]
 match = "scripts/rules/fleet_home_merge.gd*"
 domain = "fleet"
+
+# A deed raises a Minor or Tribe town (DR-20261112-01). The growth rule rides
+# with the civilian suites that own the Merchant and its purchase tests;
+# `land_purchase.gd` keeps the existing `land_*.gd` economy mapping.
+[[rules]]
+match = "scripts/rules/minor_town_growth.gd*"
+domain = "civilian"
 
 # Its own suite rides with the fleet set too.
 [[rules]]
