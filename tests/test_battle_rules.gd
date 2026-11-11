@@ -971,6 +971,16 @@ func test_unbound_sides_use_the_leader_fallback_medals() -> void:
 	assert_eq(ArmyCommand.medals(side, {}), 0)
 
 
+## A battle-sim scenario names the sides' medals directly and carries no roster,
+## so the phase's opening read is the only answer there (battle-sim).
+func test_a_context_without_a_roster_reads_the_phase_snapshot() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	assert_eq(ArmyCommand.medals(side, {"army_medals": {army.id: 2}}), 2)
+	assert_eq(ArmyCommand.medals(side, {"army_general": {army.id: "general_1"}}), 0)
+
+
 ## A general earns a medal at once and fights the phase's later engagements with
 ## it (wiki: combat § Acceptance — the increment persists "for subsequent
 ## engagements and turns"), so the live roster beats the phase snapshot.
