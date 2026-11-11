@@ -109,8 +109,8 @@ static func describe_raid(
 	return "%s seize %s off the %s and sink the %s" % [raider, cargo, place, sunk]
 
 
-## "Fluyt Vrouw Maria" for the one merchant hull a raid sent down, or "" when the
-## home fleet kept every hull. Public so the Gazette names the same ship.
+## "Fluyte Vrouw Maria" for the one merchant hull a raid sent down, or "" when
+## the home fleet kept every hull. Public so the Gazette names the same ship.
 static func sunk_of(hulls: Array) -> String:
 	for raw: Variant in hulls:
 		if typeof(raw) != TYPE_DICTIONARY:

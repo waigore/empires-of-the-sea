@@ -321,6 +321,14 @@ func test_a_warship_is_never_the_prize() -> void:
 	assert_eq(home.hulls.size(), 1, "the escort is not a prize")
 
 
+## A court with no home fleet in port offers no civilian hull to price.
+func test_a_missing_home_fleet_prices_no_hull() -> void:
+	assert_eq(NavalHullLoss.chance(null), 0.0)
+	assert_eq(NavalHullLoss.escort_factor(null), 0.0)
+	assert_true(NavalHullLoss.at_risk(null).is_empty())
+	assert_eq(NavalRaid.hull_loss_chance(null), 0.0)
+
+
 func test_a_prize_sinks_the_rivals_merchant_hull() -> void:
 	var crown := _fleet(1, 0, 1, ["sloop"])
 	crown.mission = FleetState.Mission.BLOCKADE
