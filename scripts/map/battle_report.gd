@@ -14,23 +14,61 @@ static func describe(battle: Dictionary, zone_name: String, faction_names: Array
 		var beaten: int = int(retreat.get("beaten", int(battle.get("defender", 0))))
 		var haven: String = _faction(faction_names, beaten)
 		var holder: String = defender if beaten == int(battle.get("attacker", 0)) else attacker
-		return "%s withdraws from the %s — %s holds the zone%s" % [
-			haven, zone_name, holder, strength_note(battle)
+		var holder_side: String = "defender" if beaten == int(battle.get("attacker", 0)) else "attacker"
+		return "%s withdraws from the %s — %s holds the zone%s%s" % [
+			haven, zone_name, holder,
+			own_loss(holder_side, holder, battle), strength_note(battle)
 		]
 	match outcome:
 		NavalCombat.Outcome.SIDE1_VICTORY:
-			var sunk: int = (battle.get("defender_lost", []) as Array).size()
-			return "%s holds the %s — %s loses %d ships%s" % [
-				attacker, zone_name, defender, sunk, strength_note(battle)
+			return "%s holds the %s — %s loses %s%s%s" % [
+				attacker, zone_name, defender, loss_phrase("defender", battle),
+				own_loss("attacker", attacker, battle), strength_note(battle)
 			]
 		NavalCombat.Outcome.SIDE2_VICTORY:
-			var lost: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s repels %s in the %s — %d ships lost%s" % [
-				defender, attacker, zone_name, lost, strength_note(battle)
+			return "%s repels %s in the %s — %s loses %s%s%s" % [
+				defender, attacker, zone_name, attacker, loss_phrase("attacker", battle),
+				own_loss("defender", defender, battle), strength_note(battle)
 			]
 	return "%s and %s trade broadsides in the %s and withdraw%s" % [
 		attacker, defender, zone_name, strength_note(battle)
 	]
+
+
+## "1 ship (Trinidad)" / "2 ships (Trinidad, Concepcion)" / "2 ships" — the hull
+## count the beaten side lost, with the names it flew when the report knows them
+## (DR-20261111-07: every hull bears a name). `side` is "attacker" or "defender".
+static func loss_phrase(side: String, battle: Dictionary) -> String:
+	var lost: Array = battle.get(side + "_lost", [])
+	var count: int = lost.size()
+	if count <= 0:
+		return "no ships"
+	var names: Array = battle.get(side + "_lost_names", [])
+	var head: String = "%d ship%s" % [count, "" if count == 1 else "s"]
+	if names.is_empty():
+		return head
+	return "%s (%s)" % [head, ", ".join(_strings(names, 3))]
+
+
+## The victor's own damage, named: "; España loses 1 ship (Trinidad)". Empty when
+## the battle report carries no loss for that side. A winning side still spends
+## hulls on the beaten side's strength, so a silent tail is a silent loss
+## (REQ-P5-05, wiki: ships-and-naval § Naval Combat Resolution).
+static func own_loss(side: String, faction: String, battle: Dictionary) -> String:
+	var lost: Array = battle.get(side + "_lost", [])
+	if lost.is_empty():
+		return ""
+	return "; %s loses %s" % [faction, loss_phrase(side, battle)]
+
+
+## First `limit` names, then "and N more", so a long despatch stays one line.
+static func _strings(values: Array, limit: int) -> Array[String]:
+	var out: Array[String] = []
+	for index in mini(values.size(), limit):
+		out.append(String(values[index]))
+	if values.size() > limit:
+		out.append("and %d more" % (values.size() - limit))
+	return out
 
 
 ## The arithmetic behind a clash: " — 18.2 strength to 11.0". The resolver's own
@@ -51,18 +89,42 @@ static func _faction(faction_names: Array, owner: int) -> String:
 
 
 ## Formats a raid for the HUD: the cargo the crown loses, or the prize its own
-## station takes off rival trade. Every line ends on the rule that matters — a
-## raid takes cargo and never a hull (wiki: ships-and-naval § Trade and Transport
-## Interception; DR-20261110-13).
+## station takes off rival trade, and any merchant hull sent down with it
+## (wiki: ships-and-naval § Trade and Transport Interception; DR-20261111-17).
 static func describe_raid(
 	raid: Dictionary, zone_name: String, faction_names: Array, viewer: int
 ) -> String:
 	var place: String = zone_name if not zone_name.is_empty() else "open water"
 	var cargo: String = cargo_of(raid.get("losses", {}) as Dictionary)
 	var raider: String = _faction(faction_names, int(raid.get("raider", -1)))
+	var sunk: String = sunk_of(raid.get("hulls_lost", []))
 	if int(raid.get("raider", -1)) == viewer:
-		return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
-	return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
+		if sunk.is_empty():
+			return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
+		return "Your station takes %s off the %s as prize and sends the %s down" % [
+			cargo, place, sunk
+		]
+	if sunk.is_empty():
+		return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
+	return "%s seize %s off the %s and sink the %s" % [raider, cargo, place, sunk]
+
+
+## "Fluyte Vrouw Maria" for the one merchant hull a raid sent down, or "" when
+## the home fleet kept every hull. Public so the Gazette names the same ship.
+static func sunk_of(hulls: Array) -> String:
+	for raw: Variant in hulls:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var hull: Dictionary = raw
+		var type_id: String = String(hull.get("type_id", ""))
+		var name: String = String(hull.get("name", ""))
+		var label: String = "merchantman"
+		if not type_id.is_empty():
+			label = ShipStats.display_name(type_id)
+		if name.is_empty():
+			return label
+		return "%s %s" % [label, name]
+	return ""
 
 
 ## "3 grain", or "5 cargo (3 grain, 2 timber)" when a raid takes several.
@@ -106,13 +168,34 @@ static func regiment_note(battle: Dictionary) -> String:
 	return " — " + ", ".join(parts)
 
 
+## The line and the reserve: how many regiments stood and how many were spared
+## (wiki: combat § The line and the reserve; DR-20261111-15). Empty when both
+## sides fielded every regiment, so a full line adds no tail.
+static func line_note(battle: Dictionary) -> String:
+	var reserve: int = int(battle.get("attacker_reserve", 0)) \
+		+ int(battle.get("defender_reserve", 0))
+	if reserve <= 0:
+		return ""
+	return " — %d regiment%s held in reserve" % [reserve, "" if reserve == 1 else "s"]
+
+
 ## Formats an ArmyCombat record for the land-battle toast, with the condition
 ## tail (chevrons won, men mauled) and an auto-resolved siege's battery tail.
 static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array
 ) -> String:
 	return _land_core(battle, province_name, faction_names) \
-		+ regiment_note(battle) + siege_note(battle)
+		+ regiment_note(battle) + siege_note(battle) + blunted_note(battle) \
+		+ line_note(battle)
+
+
+## Why a gutted garrison was not a capture: the hungry attacker's win was
+## blunted by the ratio-band table (wiki: combat § Auto-resolve ratio bands).
+## Empty for every other despatch, so no existing line changes (REQ-P5-05).
+static func blunted_note(battle: Dictionary) -> String:
+	if not bool(battle.get("blunted", false)):
+		return ""
+	return " — the hungrier attacker could not press the win"
 
 
 ## An auto-resolved siege's tail: how many emplaced guns the besieging train

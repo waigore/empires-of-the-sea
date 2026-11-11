@@ -27,6 +27,8 @@ static func best_candidate(
 	var view: VisibilityModel = context.get("visibility", null)
 	if reserved.has(unit.tile):
 		return {}
+	if _marching_to_port(model, unit, context):
+		return {}
 	var explore: Dictionary = _survey_candidate(
 		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
 		context, view
@@ -50,14 +52,49 @@ static func best_candidate(
 
 
 ## One legal march toward the next unexplored chart, or {} when the court has
-## nothing left to explore and no mineral to reach.
+## nothing left to explore and no mineral to reach. A colonist mustering for a
+## voyage walks to its crown's harbour and waits there instead.
 static func best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary = {}
 ) -> Dictionary:
 	var view: VisibilityModel = context.get("visibility", null)
+	var mustering: Vector2i = _port_tile(context)
+	if mustering.x >= 0:
+		if _at_port(model, unit, mustering):
+			return {}
+		return _step_toward(model, unit, mustering, view)
 	var goal: Vector2i = _goal(model, unit, works, view, context)
 	if goal.x < 0:
 		return {}
+	return _step_toward(model, unit, goal, view)
+
+
+## The muster tile the civilian pass set while a voyage is pending, or (-1, -1).
+static func _port_tile(context: Dictionary) -> Vector2i:
+	return context.get("muster_port", Vector2i(-1, -1))
+
+
+## True when the Explorer is mustering and still away from its harbour: it takes
+## no work and marches home rather than surveying the ground it stands on.
+static func _marching_to_port(
+	model: MapModel, unit: CivilianState, context: Dictionary
+) -> bool:
+	var port: Vector2i = _port_tile(context)
+	if port.x < 0 or _at_port(model, unit, port):
+		return false
+	return true
+
+
+static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bool:
+	var here: int = model.province_at(unit.tile.x, unit.tile.y)
+	return here != MapModel.NO_ID and here == model.province_at(port.x, port.y)
+
+
+## One legal step that brings the unit closer to `goal`; row-major on a tie so
+## the same state always walks the same way.
+static func _step_toward(
+	model: MapModel, unit: CivilianState, goal: Vector2i, view: VisibilityModel
+) -> Dictionary:
 	var best: Dictionary = {}
 	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit, view):
 		var distance: int = absi(tile.x - goal.x) + absi(tile.y - goal.y)

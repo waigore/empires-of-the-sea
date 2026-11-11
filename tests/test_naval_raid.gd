@@ -171,11 +171,13 @@ func test_a_blockade_bonus_does_not_cross_zones() -> void:
 	blockader.mission = FleetState.Mission.BLOCKADE
 	blockader.blockade_province = 0
 	var lone: Dictionary = NavalRaid.resolve(
-		_model, [home, patrol], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+		_model, [home, patrol], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3,
+		Callable(), 0.99
 	)
 	assert_false(bool(lone["ok"]), "a lone patrol in the far zone misses at 0.30")
 	var both: Dictionary = NavalRaid.resolve(
-		_model, [home, patrol, blockader], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3
+		_model, [home, patrol, blockader], 0, home, {"grain": 10}, Callable(), 1, 1, 0.3,
+		Callable(), 0.99
 	)
 	assert_true(bool(both["ok"]))
 	assert_eq(int(both["zone"]), 0, "the blockading squadron raids in its own zone")
@@ -234,22 +236,112 @@ func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
 	economy.free()
 
 
-# --- a raid takes cargo, never hulls (DR-20261110-13) -----------------------
+# --- a raid takes cargo and may sink a merchant hull (DR-20261111-17) --------
 
 
-func test_a_raid_takes_cargo_and_leaves_every_hull_afloat() -> void:
+func test_a_raid_sinks_a_merchant_hull() -> void:
 	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
 	var raider := _raider()
-	var hulls_before: int = home.hulls.size() + raider.hulls.size()
 	var result: Dictionary = NavalRaid.resolve(
-		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.0
 	)
 	assert_true(bool(result["ok"]))
-	assert_eq((result["hulls_lost"] as Array).size(), 0)
-	assert_eq(
-		home.hulls.size() + raider.hulls.size(), hulls_before,
-		"a raid never sinks a hull on either side"
+	assert_eq((result["hulls_lost"] as Array).size(), 1)
+	assert_eq(home.hulls.size(), 0, "the merchant went down")
+	var sunk: Dictionary = (result["hulls_lost"] as Array)[0]
+	assert_eq(String(sunk["type_id"]), "fluyte")
+	assert_false(String(sunk["name"]).is_empty(), "the despatch can name her")
+	assert_almost_eq(float(result["hull_chance"]), 0.4, 0.0001, "base 0.2 × civilian 2")
+	assert_almost_eq(float(result["hull_roll"]), 0.0, 0.0001)
+	assert_eq(raider.hulls.size(), 1, "the raider risks no hull of its own")
+
+
+func test_a_raid_can_miss_the_hull_and_keep_every_sail() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _raider()
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.99
 	)
+	assert_true(bool(result["ok"]), "the cargo still goes")
+	assert_true((result["hulls_lost"] as Array).is_empty())
+	assert_eq(home.hulls.size(), 1, "the merchant came home")
+
+
+func test_escorts_cut_the_hull_loss() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _raider()
+	var alone: Dictionary = NavalRaid.preview(
+		[raider], home, {"grain": 10}, FleetState.Mission.PATROL
+	)
+	assert_almost_eq(float(alone["hull_chance"]), 0.4, 0.0001)
+	assert_eq(String(alone["hull_at_risk"]), "fluyte")
+	home.add_hull("home_2", "sloop")
+	var escorted: Dictionary = NavalRaid.preview(
+		[raider], home, {"grain": 10}, FleetState.Mission.PATROL
+	)
+	assert_almost_eq(float(escorted["hull_chance"]), 0.2, 0.0001, "a sloop halves it")
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.3
+	)
+	assert_true(bool(result["ok"]))
+	assert_true(
+		(result["hulls_lost"] as Array).is_empty(),
+		"the roll that would sink her alone misses under escort"
+	)
+	assert_eq(home.hulls.size(), 2)
+
+
+func test_the_richest_merchant_hull_is_the_one_taken() -> void:
+	var home := FleetState.in_port(
+		10, 0, 0, ["home_1", "home_2"], {"home_1": "carrack", "home_2": "fluyte"}
+	)
+	var raider := _raider()
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.0
+	)
+	assert_eq((result["hulls_lost"] as Array).size(), 1)
+	assert_eq(home.hulls, ["home_1"] as Array[String], "the 4-hold fluyte is the prize")
+	assert_eq(String(((result["hulls_lost"] as Array)[0] as Dictionary)["type_id"]), "fluyte")
+
+
+func test_a_warship_is_never_the_prize() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "sloop"})
+	var raider := _raider()
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [home, raider], 0, home, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.0
+	)
+	assert_true(bool(result["ok"]))
+	assert_eq(float(result["hull_chance"]), 0.0, "no civilian hull to take")
+	assert_true((result["hulls_lost"] as Array).is_empty())
+	assert_eq(home.hulls.size(), 1, "the escort is not a prize")
+
+
+## A court with no home fleet in port offers no civilian hull to price.
+func test_a_missing_home_fleet_prices_no_hull() -> void:
+	assert_eq(NavalHullLoss.chance(null), 0.0)
+	assert_eq(NavalHullLoss.escort_factor(null), 0.0)
+	assert_true(NavalHullLoss.at_risk(null).is_empty())
+	assert_eq(NavalRaid.hull_loss_chance(null), 0.0)
+
+
+func test_a_prize_sinks_the_rivals_merchant_hull() -> void:
+	var crown := _fleet(1, 0, 1, ["sloop"])
+	crown.mission = FleetState.Mission.BLOCKADE
+	crown.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+		_model, [crown, laden], 0,
+		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), 1, 1, Callable(), 0.0, 0.0
+	)
+	assert_eq(raids.size(), 1)
+	assert_eq((raids[0]["hulls_lost"] as Array).size(), 1)
+	assert_eq(laden.hulls.size(), 0, "the rival's merchant went down as prize")
+	assert_gt(int(raids[0]["lost_total"]), 0, "and her cargo went with her")
 
 
 func test_a_prize_takes_the_rivals_cargo_off_its_home_fleet() -> void:
@@ -259,14 +351,14 @@ func test_a_prize_takes_the_rivals_cargo_off_its_home_fleet() -> void:
 	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
 	var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
 		_model, [crown, laden], 0,
-		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), 1, 1, Callable(), 0.0
+		{1: {"imports": {"grain": 10}, "home": laden}}, Callable(), 1, 1, Callable(), 0.0, 0.99
 	)
 	assert_eq(raids.size(), 1)
 	assert_eq(int(raids[0]["victim"]), 1)
 	assert_eq(int(raids[0]["raider"]), 0)
 	assert_gt(int(raids[0]["lost_total"]), 0)
-	assert_eq((raids[0]["hulls_lost"] as Array).size(), 0)
-	assert_eq(laden.hulls.size(), 1, "the prize never costs the merchant a hull")
+	assert_true((raids[0]["hulls_lost"] as Array).is_empty())
+	assert_eq(laden.hulls.size(), 1, "a prize need not cost the merchant a hull")
 
 
 func test_a_prize_needs_a_declared_war() -> void:
@@ -397,7 +489,14 @@ func test_the_map_pass_pays_the_crown_for_its_blockade() -> void:
 	var crown_before: int = economy.economy.quantity("grain")
 	play.map_seed = 1
 	var salt: int = NavalRaid.PRIZE_TAG_BASE + 1
-	while NavalInterception.roll(play.map_seed, 1, 1, 0, salt) >= NavalInterception.MIN_CHANCE:
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[blockader], laden, FleetState.Mission.BLOCKADE
+	)
+	var hull_chance: float = NavalRaid.hull_loss_chance(laden)
+	while NavalInterception.roll(play.map_seed, 1, 1, 0, salt) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 1, 0, 0, NavalRaid.HULL_PRIZE_TAG_BASE + 1
+			) < hull_chance:
 		play.map_seed += 1
 
 	var result: Dictionary = MapPlayRaids.resolve(play)
@@ -408,7 +507,66 @@ func test_the_map_pass_pays_the_crown_for_its_blockade() -> void:
 		"the prize lands in the crown's stockpile"
 	)
 	assert_lt(rival.quantity("grain"), rival_before, "the rival's cargo is what paid for it")
-	assert_eq(laden.hulls.size(), 1, "the merchant hull came home")
+	assert_eq(laden.hulls.size(), 1, "the merchant hull came home this time")
+	assert_eq(int(result.get("sunk", 0)), 0)
+	ships.free()
+	economy.free()
+
+
+## A prize takes the rival's merchant hull too: the home fleet loses her and her
+## holds with the cargo (DR-20261111-17).
+func test_the_map_pass_sinks_the_rivals_merchant_hull() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	var blockader := _fleet(1, 0, 1, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var fleets: Array[FleetState] = [blockader, laden]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	economy.market.record_import("grain", 6, 1)
+	play.ledger_for(1).add("grain", 6)
+	play.map_seed = 1
+	var salt: int = NavalRaid.PRIZE_TAG_BASE + 1
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[blockader], laden, FleetState.Mission.BLOCKADE
+	)
+	var hull_chance: float = NavalRaid.hull_loss_chance(laden)
+	while NavalInterception.roll(play.map_seed, 1, 1, 0, salt) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 1, 0, 0, NavalRaid.HULL_PRIZE_TAG_BASE + 1
+			) >= hull_chance:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_eq(int(result.get("sunk", 0)), 1, "the raid sent one merchant down")
+	assert_eq(laden.hulls.size(), 0, "her holds are gone with her")
+	var report: Dictionary = (result["reports"] as Array)[0]
+	assert_eq((report["hulls_lost"] as Array).size(), 1)
+	assert_true(
+		String(((report["hulls_lost"] as Array)[0] as Dictionary)["name"]).length() > 0,
+		"the despatch names the ship"
+	)
 	ships.free()
 	economy.free()
 
@@ -447,7 +605,14 @@ func test_the_crown_loses_only_its_own_cargo_to_raiders() -> void:
 	economy.market.record_import("grain", 40, 1)
 	var before: int = economy.economy.quantity("grain")
 	play.map_seed = 1
-	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= NavalInterception.MIN_CHANCE:
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[raider], home, FleetState.Mission.PATROL
+	)
+	var hull_chance: float = NavalRaid.hull_loss_chance(home)
+	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 0, 1, 0, NavalRaid.HULL_TAG
+			) < hull_chance:
 		play.map_seed += 1
 
 	var result: Dictionary = MapPlayRaids.resolve(play)
@@ -456,7 +621,61 @@ func test_the_crown_loses_only_its_own_cargo_to_raiders() -> void:
 	assert_gt(taken, 0)
 	assert_lte(taken, 4, "the rival's forty units were never the crown's cargo")
 	assert_eq(economy.economy.quantity("grain"), before - taken)
-	assert_eq(home.hulls.size(), 1, "raiders pinch cargo, they do not sink the hull")
+	assert_eq(home.hulls.size(), 1, "this raid pinched cargo and missed the hull")
+	assert_eq(int(result.get("sunk", 0)), 0)
+	ships.free()
+	economy.free()
+
+
+## The other side of the same draw: the crown's merchant is sent down, with the
+## holds she carried (DR-20261111-17).
+func test_the_map_pass_sinks_the_crowns_merchant_hull() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _fleet(2, 1, 0, ["frigate"])
+	raider.mission = FleetState.Mission.PATROL
+	var fleets: Array[FleetState] = [home, raider]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	economy.economy.add("grain", 20)
+	play.economy = economy
+	economy.market.record_import("grain", 4, 0)
+	play.map_seed = 1
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[raider], home, FleetState.Mission.PATROL
+	)
+	var hull_chance: float = NavalRaid.hull_loss_chance(home)
+	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 0, 1, 0, NavalRaid.HULL_TAG
+			) >= hull_chance:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_eq(int(result.get("sunk", 0)), 1, "the raiders sank a merchant")
+	assert_eq(home.hulls.size(), 0, "her holds leave the home fleet with her")
+	var report: Dictionary = (result["reports"] as Array)[0]
+	assert_eq(String(report["kind"]), "incoming")
+	assert_eq((report["hulls_lost"] as Array).size(), 1)
 	ships.free()
 	economy.free()
 
@@ -492,7 +711,11 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 		[blockader], laden, {"grain": 6}, FleetState.Mission.BLOCKADE
 	)
 	assert_true(note.contains("Prize:"))
-	assert_true(note.contains("no hull at risk"))
+	assert_true(
+		note.contains("sinks a Fluyte"),
+		"the dossier prices the merchant hull as well as the cargo"
+	)
+	assert_true(note.contains("40%"), "base 0.2 × civilian 2 with no escort")
 	assert_true(
 		note.contains("%d%%" % int(round(float(odds["chance"]) * 100.0))),
 		"the dossier reads the chance the rules roll"

@@ -5,19 +5,27 @@ extends GdToolsTest
 
 const INTRO: PackedScene = preload("res://scenes/intro.tscn")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
-const FLOW_SIZE: Vector2i = Vector2i(48, 32)
+## The chart's province targets clamp from 40x32 up, so this floor seats the same
+## crowns while the flow paints fewer tiles per mount (the chart and the map
+## share one world). This case reads the seat, not the roster.
+const FLOW_SIZE: Vector2i = Vector2i(40, 32)
 
 var page: IntroScreen = null
 var _mounted: Array[SubViewport] = []
 
 
-func before_each() -> void:
-	page = INTRO.instantiate()
-	page.show_address(CampaignIntro.address(
-		"Spain", "Isabella I", "Madrid", 1, false, CampaignIntro.salt(1500, 0)
-	))
-	add_child(page)
-	await get_tree().process_frame
+## Only the cases that read the page pay for building it; the rest assert the
+## rules the charge is composed from, so a mounted broadside would be wasted
+## paint under coverage.
+func _page() -> IntroScreen:
+	if page == null:
+		page = INTRO.instantiate()
+		page.show_address(CampaignIntro.address(
+			"Spain", "Isabella I", "Madrid", 1, false, CampaignIntro.salt(1500, 0)
+		))
+		add_child(page)
+		await get_tree().process_frame
+	return page
 
 
 func after_each() -> void:
@@ -88,29 +96,32 @@ func test_the_charge_publishes_the_win_condition_and_the_calendar() -> void:
 ## One press opens the age: the gate is dismiss-only and never silent
 ## (REQ-P5-02, REQ-P5-05).
 func test_one_press_begins_the_age() -> void:
+	var shown: IntroScreen = await _page()
 	var begun: Array[bool] = []
-	page.begin_pressed.connect(func() -> void: begun.append(true))
-	assert_not_null(page.begin_button, "the page offers its one action")
-	page.begin_button.emit_signal("pressed")
+	shown.begin_pressed.connect(func() -> void: begun.append(true))
+	assert_not_null(shown.begin_button, "the page offers its one action")
+	shown.begin_button.emit_signal("pressed")
 	assert_eq(begun.size(), 1, "BEGIN reports to the router")
 
 
 ## Android back is the same one dismissal: a gate with a single option must not
 ## quit the app from under the player (REQ-P5-07).
 func test_back_is_the_same_one_dismissal() -> void:
+	var shown: IntroScreen = await _page()
 	var begun: Array[bool] = []
-	page.begin_pressed.connect(func() -> void: begun.append(true))
-	page.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	shown.begin_pressed.connect(func() -> void: begun.append(true))
+	shown.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
 	assert_eq(begun.size(), 1, "back begins the age")
-	assert_true(page.paper.visible, "the broadside is still the page")
+	assert_true(shown.paper.visible, "the broadside is still the page")
 
 
 ## The letter is printed on paper, with the ink colours the printed plates use,
 ## so it reads as a period broadside rather than another dossier (REQ-P1-02).
 func test_the_charge_prints_on_paper() -> void:
-	assert_not_null(page.paper, "the broadside panel exists")
-	assert_true(page.paper.get_child_count() > 0, "the panel carries the letter")
-	var texts: Array[String] = _texts(page)
+	var shown: IntroScreen = await _page()
+	assert_not_null(shown.paper, "the broadside panel exists")
+	assert_true(shown.paper.get_child_count() > 0, "the panel carries the letter")
+	var texts: Array[String] = _texts(shown)
 	assert_true(texts.size() > 3, "kicker, title, stamp, body and charges print")
 	assert_true("\n".join(texts).contains("Isabella I"), "the letter is on the page")
 
@@ -168,8 +179,9 @@ func test_a_page_without_an_address_prints_the_default_charge() -> void:
 ## A reprint replaces the charges rather than stacking them, so a page reused by
 ## a test or a tool never prints two ages at once.
 func test_a_reprint_replaces_the_charge() -> void:
-	page.show_address(CampaignIntro.address("France", "Napoleon", "Paris", 1, true, 1))
-	var texts: String = "\n".join(_texts(page))
+	var shown: IntroScreen = await _page()
+	shown.show_address(CampaignIntro.address("France", "Napoleon", "Paris", 1, true, 1))
+	var texts: String = "\n".join(_texts(shown))
 	assert_true(texts.contains("Napoleon"), "the new address prints")
 	assert_false(texts.contains("Isabella I"), "the old address is gone")
 	assert_true(texts.contains("No calendar"), "the new terms print")
@@ -178,12 +190,13 @@ func test_a_reprint_replaces_the_charge() -> void:
 ## Escape is the same one dismissal on a keyboard, and the press is consumed so
 ## nothing behind the gate hears it (REQ-P5-07).
 func test_escape_is_the_same_one_dismissal() -> void:
+	var shown: IntroScreen = await _page()
 	var begun: Array[bool] = []
-	page.begin_pressed.connect(func() -> void: begun.append(true))
+	shown.begin_pressed.connect(func() -> void: begun.append(true))
 	var event := InputEventAction.new()
 	event.action = InputActions.CANCEL
 	event.pressed = true
-	page._unhandled_input(event)
+	shown._unhandled_input(event)
 	assert_eq(begun.size(), 1, "escape begins the age")
 
 

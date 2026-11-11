@@ -34,7 +34,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayCivilianVoyage.crew(play, fleet),
 		NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play)
-		)
+		),
+		MapPlayHomeMerge.row(play, fleet)
 	)
 
 
@@ -157,7 +158,7 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 	var zone: int = int(result.get("entered_zone", -1))
 	if result.has("merged_into"):
 		play.hud.toast(
-			"The squadron joins the home fleet at %s" % play.model.province_name(fleet.province)
+			MapPlayHomeMerge.merged_line(play, fleet, int(result.get("merged_hulls", 0)))
 		)
 	elif zone >= 0:
 		play.hud.toast("The fleet enters the %s" % play.model.sea_zone_name(zone))
@@ -283,6 +284,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
 	elif action.begins_with("mission:"):
 		MapPlayFleetMissions.on_action(play, action)
+	elif action == "join_home":
+		MapPlayHomeMerge.join(play)
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
 	elif MapPlayCivilianVoyage.on_action(play, action):

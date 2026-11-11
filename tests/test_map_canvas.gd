@@ -281,6 +281,35 @@ func test_the_bake_cache_stays_bounded() -> void:
 	assert_eq(MapWash._baked.size(), 0, "clearing drops every bake")
 
 
+## A full cache drops the state the run stopped asking for, not the whole
+## shelf: a suite that keeps mounting the shared chart between one-off states
+## finds its bake still there.
+func test_a_full_cache_keeps_the_chart_in_use() -> void:
+	MapWash.clear_cache()
+	var kept := _small_chart()
+	var kept_province: ProvinceState = kept.provinces[0]
+	var kept_owner: int = kept_province.owner
+	var kept_bake: MapRelief = MapWash.baked(kept)
+	var first_one_off: MapRelief = null
+	# Each case visits the shared chart, then a state it never returns to.
+	for step in MapWash.CACHE_LIMIT + 2:
+		MapWash.baked(kept)
+		var other := _small_chart()
+		var province: ProvinceState = other.provinces[0]
+		province.owner = kept_owner + step + 1
+		var one_off: MapRelief = MapWash.baked(other)
+		if first_one_off == null:
+			first_one_off = one_off
+	assert_eq(
+		MapWash.baked(kept), kept_bake, "the chart in use survives a full cache"
+	)
+	assert_false(
+		MapWash._baked.values().has(first_one_off), "a state the run left behind is gone"
+	)
+	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "still bounded")
+	MapWash.clear_cache()
+
+
 ## A tiny chart for cache cases: two coastal provinces on an eight by six grid,
 ## cheap to paint, whose owners can be changed in place.
 func _small_chart() -> MapModel:

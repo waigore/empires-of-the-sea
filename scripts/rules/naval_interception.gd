@@ -39,11 +39,18 @@ static func chance(
 
 
 ## Stable 0..1 roll: the same seed, turn, zone and owners always roll alike.
+## `salt` (default 1) decorrelates two draws made on the same key — cargo and a
+## hull in one raid — so one unlucky number never decides both (DR-20261111-17).
 static func roll(
-	seed_value: int, turn: int, zone: int, first_owner: int, second_owner: int
+	seed_value: int,
+	turn: int,
+	zone: int,
+	first_owner: int,
+	second_owner: int,
+	salt: int = 1
 ) -> float:
 	var key: int = (
-		seed_value * 73856093
+		seed_value * 73856093 * salt
 		+ turn * 19349663
 		+ zone * 83492791
 		+ first_owner * 2654435761

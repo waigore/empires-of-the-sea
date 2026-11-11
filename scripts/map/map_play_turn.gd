@@ -165,6 +165,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	MapPlayFogTurn.resolve(play)
 	MapPlayCourtFog.resolve(play)
+	# Every chart is final now, so a rival court opens first contact with the
+	# Tribes it has charted before the turn closes (wiki: diplomacy § GP–Tribe
+	# first contact).
+	MapPlayTribeContact.resolve(play)
 	# The human crown's terminal fall seals the session before any victory check:
 	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:
@@ -186,7 +190,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# § Trade and Transport Interception; DR-20261109-16, DR-20261110-13).
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
-	play.army_layer.begin_turn()
+	play.army_layer.begin_turn(play.world)
 	# A turn's falls feed the Gazette's World page (DR-20261110-14).
 	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)
@@ -206,6 +210,10 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		crown_report = play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
+		# The crown's own turn speaks: a finished study and a host at the seat
+		# are answered by the courts before the panel is refreshed below
+		# (wiki: dialogue-and-mood § Design intent; DR-20261111-08).
+		MapPlayCourtVoice.record_turn(play, crown_report)
 	# Every court has staged its orders by now: clear the shared book once.
 	MapPlayMarket.run(play, economy_report)
 	if not play.observer_mode:

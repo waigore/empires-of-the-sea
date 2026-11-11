@@ -135,6 +135,10 @@ static func _land_record(
 			rec["who"] = _side_name(state, viewer, attacker, ours)
 			rec["whom"] = _side_name(state, viewer, defender, ours)
 			rec["self_act"] = attacker == viewer
+			# A standoff still costs the crown men; its own dead are counted
+			# (wiki: the-gazette § What the crown can know).
+			if ours:
+				rec["own_lost"] = _own_losses(battle, viewer)
 			return rec
 		ArmyCombat.Outcome.CAPTURE:
 			return _victor(rec, "battleCapture", battle, state, viewer, attacker, defender, ours, false)
@@ -190,6 +194,10 @@ static func _naval_record(
 		rec["who"] = _side_name(state, viewer, beaten, ours)
 		rec["whom"] = _side_name(state, viewer, holder, ours)
 		rec["self_act"] = beaten == viewer
+		# The side that holds the water still spends hulls doing it; the crown's
+		# own loss is counted (wiki: the-gazette § What the crown can know).
+		if ours:
+			rec["own_lost"] = _own_losses(battle, viewer)
 		return rec
 	match outcome:
 		NavalCombat.Outcome.SIDE1_VICTORY:
@@ -230,9 +238,18 @@ static func _victor(
 	rec["self_act"] = victor == viewer
 	if ours:
 		rec["count"] = lost.size()
+		rec["own_lost"] = _own_losses(battle, viewer)
 	if defended:
 		rec["defended"] = true
 	return rec
+
+
+## The crown's own dead in a battle it fought, read from the side it held. Only
+## the crown's own page carries it: another court's losses are never counted
+## (wiki: the-gazette § What the crown can know; DR-20261110-28).
+static func _own_losses(battle: Dictionary, viewer: int) -> int:
+	var side: String = "attacker" if int(battle.get("attacker", -1)) == viewer else "defender"
+	return (battle.get(side + "_lost", []) as Array).size()
 
 
 static func _falls(
@@ -298,8 +315,9 @@ static func _raids(pages: Array[Array], raids: Array) -> void:
 		if place.is_empty():
 			place = "open water"
 		var prize: String = BattleReport.cargo_of(raid.get("losses", {}) as Dictionary)
+		var sunk: String = BattleReport.sunk_of(raid.get("hulls_lost", []))
 		var kind: String = "raidPrize" if String(raid.get("kind", "")) == "prize" else "raidSuffered"
-		_push(pages, Class.COURT, kind, {"place": place, "prize": prize})
+		_push(pages, Class.COURT, kind, {"place": place, "prize": prize, "sunk": sunk})
 
 
 # --- internals ---------------------------------------------------------------

@@ -15,21 +15,23 @@ Movement, cargo, fog, battles; stations, raids:
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
-- **Named hulls** (`ShipNames`, DR-20261111-07): each hull flies a period name
-  from its crown's pool, unique in its squadron and kept through save and merge;
-  the dossier and despatches print it.
+- **Named hulls** (`ShipNames`): period names, unique per squadron, kept
+  through save and merge (DR-20261111-07).
 - **Yard:** launch at the capital for its row + **one peasant**; breaking up
   returns one peasant, no refund; an emptied squadron retires (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
   (1/turn) capping **imports**; exports free (DR-20261109-03).
+- **Home-fleet merge:** docking at the seat or a dossier **Join the home
+  fleet** tap folds a squadron in (`FleetHomeMerge`); ids, names and
+  passengers keep; older saves repair on load.
 - **Home sortie** (DR-20261109-17): the home squadron may put to sea, spending
-  move and holds. Colonists ride as passengers (one per hull) and land beside
-  the zone; a sunk squadron drowns them.
+  move and holds; colonists ride as passengers (one per hull) and land beside
+  the zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins. A beaten side may retreat.
-- **Markers:** escorts, hull badge, gold strength gauge; the dossier prints
-  the maths, hull pool and zone share.
-- **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move per turn
+- **Markers:** escorts, hull badge, strength gauge; the dossier prints the
+  maths, pool and zone share.
+- **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move a turn
   (DR-20261109-13, DR-20261109-16).
 - **Army transport** (`NavalTransport`): an army boards in port (one regiment per
   hull), sails or crosses and lands on an owned coast; troops drown with a sunk
@@ -37,16 +39,14 @@ Movement, cargo, fog, battles; stations, raids:
 - **Beachhead:** a squadron marks a hostile coast (spends the move); the army
   lands next turn; unused markers lapse.
 
-## Deferred (REQ-P2-02)
-
-Home-fleet merge · raid hull losses (a raid takes cargo only, DR-20261110-13).
+Raids sink one merchant hull (DR-20261111-17).
 
 ## Architecture
 
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions,ship_stats,ship_economy}.gd` | location, stations, combat, build |
-| `scripts/rules/{naval_strength,fleet_yard,trade_cargo,fleet_sortie}.gd` | strength maths, yard, cargo, sortie |
+| `scripts/rules/{naval_strength,fleet_yard,trade_cargo,fleet_sortie,fleet_home_merge}.gd` | strength maths, yard, cargo, sortie, home merge |
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
 | `scripts/rules/{naval_transport,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
@@ -62,6 +62,7 @@ No node deps (`REQ-P3-03`).
 |--------|---------|-------|
 | Select fleet | click | tap |
 | Sail / dock | click highlight | tap highlight |
+| Join home fleet | dossier button | same |
 | Passages | click ring | tap ring |
 | Take a station | dossier button | same |
 | Land troops | dossier button | same |
@@ -72,12 +73,9 @@ No node deps (`REQ-P3-03`).
 
 ## Tests
 
-`test_warp_travel`, `test_naval_movement`, `test_fleet_orders`,
-`test_fleet_missions`, `test_fleet_rosters`, `test_visibility`,
-`test_ship_stats`, `test_ship_economy`, `test_naval_combat`,
-`test_naval_strength`, `test_naval_interception`, `test_naval_retreat`,
-`test_naval_raid`, `test_fleet_yard`, `test_fleet_names`, `test_trade_cargo`,
-`test_civilian_voyage`, `test_fleet_sortie`, `test_map_screen`.
+`test_naval_movement`, `test_fleet_*`, `test_naval_*`, `test_ship_*`,
+`test_trade_cargo`, `test_civilian_voyage`, `test_home_merge`,
+`test_visibility`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

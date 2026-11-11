@@ -47,8 +47,8 @@ static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> D
 		return _deny("The squadron is carrying colonists; land them before taking troops aboard.")
 	if army.count() > capacity(fleet):
 		return _deny(
-			"The squadron has %d hulls and cannot carry %d regiments."
-			% [capacity(fleet), army.count()]
+			"The squadron has %d hull%s and cannot carry %d regiments."
+			% [capacity(fleet), "" if capacity(fleet) == 1 else "s", army.count()]
 		)
 	if model == null or model.province_data(army.province) == null:
 		return _deny("That is not a province.")

@@ -10,6 +10,7 @@ const SERIF_STACK: Array[String] = [
 
 static var _serif: Font = null
 static var _serif_italic: Font = null
+static var _theme: Theme = null
 
 
 static func serif() -> Font:
@@ -53,7 +54,13 @@ static func box(
 	return style
 
 
+## The one theme every screen wears. Built on first use and shared, so mounting
+## a screen costs no stylebox allocation. Godot shares a `theme` resource by
+## reference between the controls that wear it, so callers must treat it as
+## read-only: override on the control (`add_theme_*_override`) instead.
 static func build() -> Theme:
+	if _theme != null:
+		return _theme
 	var theme := Theme.new()
 	theme.default_font = serif()
 	theme.default_font_size = 16
@@ -74,4 +81,5 @@ static func build() -> Theme:
 	var panel_style := box(Color(0.11, 0.09, 0.07, 0.94), Palette.GOLD_DIM, 1)
 	theme.set_stylebox("panel", "PanelContainer", panel_style)
 	theme.set_stylebox("panel", "Panel", panel_style)
+	_theme = theme
 	return theme

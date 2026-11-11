@@ -29,6 +29,11 @@ schedules:
     cron: "0 */3 * * *"
     agents:
       - elucidate-design-agent
+  # :30 so it does not pile with elucidate at :00
+  every-3h-audit-deferred:
+    cron: "30 */3 * * *"
+    agents:
+      - audit-deferred-agent
   half-hourly-babysit-pr:
     cron: "*/30 * * * *"
     agents:
@@ -152,6 +157,16 @@ agents:
       Run the elucidate-design-agent skill unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One design-elucidation pass; open a PR if work shipped; then exit.
+
+  audit-deferred-agent:
+    skill: audit-deferred-agent
+    provider: cursor
+    enabled: true
+    prompt: |
+      Run the audit-deferred-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One deferred-backlog audit; update docs if needed; open a docs-only PR if
+      anything changed; then exit. Do not implement features.
 
   babysit-pr-agent:
     skill: babysit-pr-agent

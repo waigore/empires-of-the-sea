@@ -6,6 +6,7 @@ Canonical skill bodies live here (one folder per skill). Native facades and auth
 
 | Skill | Purpose |
 |-------|---------|
+| [`audit-deferred-agent`](audit-deferred-agent/SKILL.md) | Audit deferred vs code/wiki; re-rank gaps; update `docs/deferred.md`; docs-only PR |
 | [`babysit-pr-agent`](babysit-pr-agent/SKILL.md) | Soft Actions queue (~3), unblock one same-repo PR for squash auto-merge |
 | [`elucidate-design-agent`](elucidate-design-agent/SKILL.md) | Clarify unclear wiki rules/AI (P5-first); Design Record + Changelog; implement; PR; stop |
 | [`export-android-debug`](export-android-debug/SKILL.md) | PR into `android-debug` so Actions publishes a debug APK GitHub Release; no local export unless asked |

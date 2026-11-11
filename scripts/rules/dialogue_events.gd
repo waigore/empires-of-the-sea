@@ -243,6 +243,8 @@ static func _plan(event: Dictionary, viewer: int) -> Dictionary:
 			return _told("diplomatic/first_contact", other)
 		"battleFought":
 			return _battle_plan(event, viewer, other)
+	if DialogueHome.knows(kind):
+		return DialogueHome.plan(event, viewer, other)
 	return {}
 
 

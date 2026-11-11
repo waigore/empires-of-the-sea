@@ -10,8 +10,9 @@ extends RefCounted
 ##   1. first right of refusal: a purchased tile's auto-offer fills the owning
 ##      Great Power's bid before any priority tier;
 ##   2. integer priority tiers, lowest first;
-##   3. within a tier, a favoured trading partner, then (for Minor/Tribe
-##      sellers) Consulate holders and the higher relation score;
+##   3. within a tier: a favoured trading pact (GP–GP), then a colony Tribe's
+##      suzerain, then (for Minor/Tribe sellers) Consulate holders and the
+##      higher relation score;
 ##   4. ascending faction id, then order id.
 ##
 ## No RNG, no logging, no Game/Node access (REQ-P3-03).
@@ -174,6 +175,12 @@ static func _fill(
 	var ftp_for: Variant = state["context"].get("ftp_for", null)
 	if ftp_for is Callable:
 		is_ftp = bool((ftp_for as Callable).call(bid.faction, offer.faction))
+	# Flags the sale a colony's suzerain took as the favoured partner, so the
+	# Deal Book can explain why the rivals' bids waited (DR-20261111-11).
+	var is_favoured: bool = false
+	var favoured_for: Variant = state["context"].get("favoured_for", null)
+	if favoured_for is Callable and not bid.is_world() and _is_minor(offer.faction):
+		is_favoured = int((favoured_for as Callable).call(offer.faction)) == bid.faction
 	deals.append({
 		"commodity": commodity,
 		"buyer": bid.faction,
@@ -183,6 +190,7 @@ static func _fill(
 		"priority": mini(bid.priority, offer.priority),
 		"is_frr": is_frr,
 		"is_ftp": is_ftp and not is_frr,
+		"is_favoured": is_favoured and not is_frr,
 		"seller_is_minor": _is_minor(offer.faction),
 		"origin_region": offer.origin_region,
 		"origin_index": offer.origin_index,
@@ -228,6 +236,17 @@ static func _bid_less(
 		if a_ftp != b_ftp:
 			return a_ftp
 	if _is_minor(offer.faction):
+		# A colony's suzerain clears its goods first inside the tier, whatever
+		# the rivals' relations (wiki: diplomacy § Favoured trading partner,
+		# R7.1; DR-20261111-11). Independent courts keep the R7.3 order below.
+		var favoured_for: Variant = context.get("favoured_for", null)
+		if favoured_for is Callable:
+			var favoured: int = int((favoured_for as Callable).call(offer.faction))
+			if favoured >= 0 and a.faction != b.faction:
+				if a.faction == favoured:
+					return true
+				if b.faction == favoured:
+					return false
 		var consulate_for: Variant = context.get("consulate_for", null)
 		if consulate_for is Callable:
 			var a_consul: bool = bool((consulate_for as Callable).call(

@@ -48,8 +48,8 @@ province, Great Powers at level 4 and four L1 grain farms at the seat.
 
 ## Deferred (REQ-P2-02)
 
-- Forts and rival/AI builders.
-- Minor/Tribe town manufacturing offers; overseas town manufacturing.
+Minor/Tribe towns stay level 1, so manufacture offers rarely fire. See
+[`deferred.md`](deferred.md).
 
 ## Architecture
 

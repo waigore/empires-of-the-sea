@@ -239,6 +239,12 @@ static func line(rec: Dictionary) -> String:
 				return "%s holds %s against %s; %d regiments are broken." % [
 					who, place, whom, _count(rec)
 				]
+			# The crown's own losses always print their numbers, even in a field
+			# battle it lost (wiki: the-gazette § What the crown can know).
+			if whom == CROWN:
+				return (
+					"%s holds the field at %s against our crown; %d of our regiments are lost."
+				) % [who, place, _own(rec)]
 			return "%s holds the field at %s against %s." % [who, place, whom]
 		"battleAnnihilated":
 			var ruin: String = "At %s the two crowns ruin one another; the field is left empty." % place
@@ -247,14 +253,18 @@ static func line(rec: Dictionary) -> String:
 				ruin += " A %s garrison re-forms in the ruin." % bonus
 			return ruin
 		"battleStandoff":
+			# A standoff still buries men: the crown's own dead are counted
+			# (wiki: the-gazette § What the crown can know).
+			var own: int = _own(rec)
+			var tail: String = "" if own <= 0 else " %d of our regiments lost." % own
 			if self_act:
 				return (
 					"Our crown and %s stand off at %s; the guns fall silent with nothing "
 					+ "settled."
-				) % [whom, place]
+				) % [whom, place] + tail
 			return "%s and %s stand off at %s; the guns fall silent unsettled." % [
 				who, whom, place
-			]
+			] + tail
 		"seaHeld":
 			if self_act:
 				return (
@@ -268,6 +278,12 @@ static func line(rec: Dictionary) -> String:
 		"seaWithdrew":
 			if self_act:
 				return "Our squadron quits the %s; %s holds the water." % [place, whom]
+			# The crown holds the water but still spends hulls to do it: its own
+			# loss is counted (wiki: the-gazette § What the crown can know).
+			if whom == CROWN and _own(rec) > 0:
+				return (
+					"%s withdraws from the %s, and our crown holds the zone; %d of our hulls lost."
+				) % [who, place, _own(rec)]
 			return "%s withdraws from the %s, and %s holds the zone." % [who, place, whom]
 		"seaDraw":
 			if self_act:
@@ -286,19 +302,34 @@ static func line(rec: Dictionary) -> String:
 				+ "closes the richer."
 			) % _money(rec)
 		"raidSuffered":
-			return (
-				"Raiders have taken %s off %s; no hull was lost, but the cargo is gone."
-				% [String(rec.get("prize", "no cargo")), place]
-			)
+			if String(rec.get("sunk", "")).is_empty():
+				return (
+					"Raiders have taken %s off %s; no hull was lost, but the cargo is gone."
+					% [String(rec.get("prize", "no cargo")), place]
+				)
+			return "Raiders have taken %s off %s and sent the %s to the bottom." % [
+				String(rec.get("prize", "no cargo")), place, String(rec.get("sunk", ""))
+			]
 		"raidPrize":
-			return "Our station takes %s off %s as lawful prize." % [
-				String(rec.get("prize", "no cargo")), place
+			if String(rec.get("sunk", "")).is_empty():
+				return "Our station takes %s off %s as lawful prize." % [
+					String(rec.get("prize", "no cargo")), place
+				]
+			return "Our station takes %s off %s as lawful prize and sends the %s down." % [
+				String(rec.get("prize", "no cargo")), place, String(rec.get("sunk", ""))
 			]
 	return ""
 
 
 static func _count(rec: Dictionary) -> int:
 	return maxi(int(rec.get("count", 0)), 0)
+
+
+## The crown's own dead in a battle it fought. Another court's fight carries no
+## `own_lost`, so its losses are never counted (wiki: the-gazette § What the
+## crown can know).
+static func _own(rec: Dictionary) -> int:
+	return maxi(int(rec.get("own_lost", 0)), 0)
 
 
 static func _money(rec: Dictionary) -> String:

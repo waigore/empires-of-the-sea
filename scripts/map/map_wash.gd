@@ -15,6 +15,9 @@ const OWNER_TINT: float = 0.5
 ## (or an edited terrain grid) still repaints.
 const CACHE_LIMIT: int = 6
 static var _baked: Dictionary = {}
+## Bake keys oldest-first, so a full cache drops one bake rather than all of
+## them: the chart a suite keeps returning to survives while other states churn.
+static var _order: Array[String] = []
 
 
 static func build(canvas: MapCanvas, model: MapModel) -> MapRelief:
@@ -50,15 +53,22 @@ static func baked(model: MapModel) -> MapRelief:
 	if relief == null:
 		relief = MapRelief.new()
 		relief.build(model, OWNER_TINT)
-		if _baked.size() >= CACHE_LIMIT:
-			_baked.clear()
+		while _baked.size() >= CACHE_LIMIT and not _order.is_empty():
+			_baked.erase(_order.pop_front())
 		_baked[key] = relief
+		_order.append(key)
+	else:
+		# Move a hit to the young end so a chart in constant use is not evicted
+		# while states the run has moved on from keep their slots.
+		_order.erase(key)
+		_order.append(key)
 	return relief
 
 
 ## Drops every bake, so a following build is painted rather than reused.
 static func clear_cache() -> void:
 	_baked.clear()
+	_order.clear()
 
 
 ## Everything the paint reads: grid size, terrain (coast and height), province
