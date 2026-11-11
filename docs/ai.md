@@ -69,7 +69,7 @@ Rivals act through a deterministic stack
 
 ## Deferred (REQ-P2-02)
 
-Agenda beats; rival-on-rival raids. Ranked:
+Agenda beats; difficulty extras. Ranked:
 [`deferred.md`](deferred.md).
 
 ## Architecture
