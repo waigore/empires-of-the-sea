@@ -68,7 +68,7 @@ Rivals act through a deterministic, tuned stack
 
 ## Deferred (REQ-P2-02)
 
-Agenda dialogue beats; per-regiment names. Ranked list:
+Rival hospitals; agenda beats; regiment names. Ranked:
 [`deferred.md`](deferred.md).
 
 ## Architecture

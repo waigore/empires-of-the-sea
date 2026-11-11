@@ -52,7 +52,7 @@
 
 ## Deferred (REQ-P2-02)
 
-Regiment names (DR-20261110-19). See [`deferred.md`](deferred.md).
+Rival hospitals; regiment names ([`deferred.md`](deferred.md)).
 
 ## Architecture
 
