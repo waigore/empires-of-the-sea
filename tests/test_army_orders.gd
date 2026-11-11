@@ -167,6 +167,37 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The province panel's Recruit order opens the drill yard door on the Home Army
+## and musters straight from it, so both entry points share one path.
+func test_the_drill_yard_door_musters_into_the_home_army() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	_screen.army_layer.deselect()
+
+	MapPlayArmies.open_muster(_screen.play)
+
+	assert_eq(_screen.army_layer.selected_army, home)
+	assert_true(_screen.hud.panels.army_panel._muster_box.visible)
+
+	MapPlayArmyMuster.recruit(_screen.play, "peasant_levies")
+
+	assert_eq(home.count(), before + 1)
+
+
+## A refusal leaves the register untouched and says why, for every register order.
+func test_refused_register_orders_keep_the_armies() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	_screen.army_layer.select(home)
+
+	MapPlayArmyMuster.recruit(_screen.play, "no_such_regiment")
+	MapPlayArmyMuster.detach(_screen.play, home, ["no_such_regiment"])
+	MapPlayArmyMuster.merge(_screen.play, home)
+
+	assert_eq(home.count(), before)
+	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
@@ -298,6 +329,54 @@ func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
 	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
 
 	assert_null(_screen.army_layer.marker_for(home), "the fallen army's standard is retired")
+
+
+## A battle the crown fights leaves a word at the rival's court: the event beat
+## (wiki: dialogue-and-mood § Design intent — event: battle results;
+## DR-20261111-01). The record is written by the real combat pass, so the beat
+## can never drift from what the field decided.
+func test_a_battle_leaves_a_word_at_the_rivals_court() -> void:
+	var rival: int = 2
+	var province: int = -1
+	for entry: ProvinceState in _screen.model.provinces:
+		if entry.owner == rival and not entry.capital:
+			province = entry.id
+			break
+	assert_true(province >= 0, "the fixture seats a rival province")
+	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival)
+	_screen.play.observer_mode = true
+	_screen.model.province_data(province).fort_level = 0
+	_seat_battle(province, MapScreen.PLAYER_FACTION, rival, 8, 2)
+
+	MapPlayLandTurn.resolve(_screen.play)
+
+	var spoken: Dictionary = DialogueEvents.for_pair(
+		_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival
+	)
+	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the field answers")
+	assert_true(String(spoken["point"]).begins_with("event/"), "a battle beat")
+	assert_eq(int(spoken["speaker"]), rival, "the rival speaks, never the crown")
+
+
+## Seats an attacker and a defender in one province, as a march would, without
+## disturbing the screen's selection.
+func _seat_battle(province: int, attacker: int, defender: int, atk: int, def: int) -> void:
+	_screen.army_layer.armies.clear()
+	_screen.model.province_data(province).owner = defender
+	var holding: ArmyState = ArmyState.muster(1, defender, province, false, _guards(def), 1)
+	holding.moved = false
+	var field: ArmyState = ArmyState.muster(2, attacker, province, false, _guards(atk), 100)
+	field.moved = true
+	_screen.army_layer.armies.append(holding)
+	_screen.army_layer.armies.append(field)
+	_screen.army_layer._rebuild_markers()
+
+
+func _guards(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("guards")
+	return types
 
 
 func _player_home() -> ArmyState:

@@ -46,23 +46,23 @@ Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
 cargo. A colony pays after the crossing, on landed tons (level 4 town first,
 then most tons, then province id). Rivals upgrade towns too; works:
-[improvements.md](improvements.md). A Minor or Tribe province with such a town
-publishes its manufactures as market auto-offers under its own name, sourced at
-the province town; its estates still sell in full.
+[improvements.md](improvements.md). A Minor or Tribe town publishes manufactures
+as market auto-offers under its name at the province town; estates still sell
+in full.
 
 ## World-market auction
 
-The market is one global order book. `Bid`/`Offer` stages an order;
-turn-end `MarketClearing` matches every court's orders plus each Minor and
-Tribe's per-tile auto-offers at the old published price. Integer priority,
-pact, Consulate and relation tiebreaks order the book. First right of refusal
-fills a purchased tile's owner first and pays its relation share plus embassy
-kickbacks; subsidies adjust the settled deal. Unfilled orders carry when
-holds/stock cover them; prices move from filled bids and submitted offers. A
-standing world counterparty fills the remainder.
+One global order book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
+courts' orders plus Minor/Tribe per-tile auto-offers at the old published
+price. Integer priority, pact, Consulate and relation tiebreaks order the book.
+First right of refusal fills a purchased tile's owner first and pays its
+relation share plus embassy kickbacks; subsidies adjust the deal. Unfilled
+orders carry when holds/stock cover them; prices move from filled bids and
+submitted offers. A standing world counterparty fills the remainder.
 
-Staged and carried orders show in the ledger; fills and lapses appear in the
-turn toast. Orders travel in the save.
+An offer is capped by stock left after production; the `Offer` chip names that
+claim. Staged and carried orders show in the ledger; fills, cuts and lapses
+appear in the turn toast and travel in the save.
 
 ## Trade terms
 
@@ -70,12 +70,12 @@ Prices are published once; each crown's diplomacy rate applies at settlement
 ([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
 the Minor/Tribe ask carry it; price discovery reads the published price.
 
-
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and projection. The `MARKET` tab
-lists staged orders, the Minor/Tribe harvest and world rows; presses are
-intents (`REQ-P2-03`).
+`ECONOMY` shows treasury, stockpile, trade and projection. `MARKET` lists
+staged orders, Minor/Tribe harvest and world rows as intents (`REQ-P2-03`).
+`WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
+to the fields, no refund, inert when empty). Thumb-sized on a phone.
 
 ## Architecture
 
@@ -88,4 +88,3 @@ and `economy/economy_controller` plus `map/map_play_market`.
 
 `test_market_engine`, `test_economy_rules`, `test_economy_screen`,
 `test_ai_market`, `test_catalogs`.
-

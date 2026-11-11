@@ -230,8 +230,47 @@ func test_a_killed_spy_cools_relations_by_eight() -> void:
 	assert_eq(events.size(), 1)
 	assert_eq(String(events[0]["kind"]), "killed")
 	assert_almost_eq(play.diplomacy.relation(PLAYER, RIVAL).score, 52.0, 0.001)
+	assert_eq(play.hud.toasts.size(), 1)
+	assert_true(
+		play.hud.toasts[0].contains("−8 with England"),
+		"the court hears what its loss cost: " + play.hud.toasts[0]
+	)
+	var chronicle: Array[Dictionary] = DiplomacyHistory.entries(play.diplomacy, PLAYER, RIVAL)
+	assert_false(chronicle.is_empty(), "the chronicle keeps the act")
+	assert_true(
+		String(chronicle[0]["text"]).contains("agent was taken in"),
+		"the standing shifted for a stated reason: " + String(chronicle[0]["text"])
+	)
 	play.hud.free()
 	play.economy.free()
+
+
+## Every line the court can hear for a spy event, and the ones it cannot: a
+## rival spy's province is invisible to this crown, so another pair's kill stays
+## silent (wiki: civilian-units § Spy (4)). A killed spy costs the pair 8, so
+## each line names that price (wiki: diplomacy § Spy-death penalty).
+func test_spy_notice_names_the_price_and_the_court() -> void:
+	var caught: Dictionary = {"kind": "killed", "owner": RIVAL, "territory_owner": PLAYER}
+	assert_eq(
+		MapPlaySpies.notice(caught, "Coro", PLAYER),
+		"Counter-espionage caught England's spy in Coro — −8 with England."
+	)
+	var lost: Dictionary = {"kind": "killed", "owner": PLAYER, "territory_owner": RIVAL}
+	assert_eq(
+		MapPlaySpies.notice(lost, "Coro", PLAYER),
+		"A spy in Coro has gone silent — −8 with England."
+	)
+	var turned: Dictionary = {"kind": "defected", "owner": RIVAL, "territory_owner": PLAYER}
+	assert_eq(
+		MapPlaySpies.notice(turned, "Coro", PLAYER),
+		"England's spy in Coro has turned coat and now serves your crown."
+	)
+	assert_eq(
+		MapPlaySpies.notice(turned, "Coro", RIVAL), "A spy in Coro has turned coat."
+	)
+	var abroad: Dictionary = {"kind": "killed", "owner": 2, "territory_owner": RIVAL}
+	assert_eq(MapPlaySpies.notice(abroad, "Coro", PLAYER), "", "another court's business")
+	assert_eq(MapPlaySpies.notice({}, "Coro", PLAYER), "")
 
 
 func test_an_unscreened_spy_is_never_touched() -> void:
@@ -666,9 +705,15 @@ func test_the_dossier_promises_only_what_the_standing_buys() -> void:
 	)
 	idle.start_work(SpyRules.WORK_COUNTER, idle.tile, 1)
 	panel.refresh(home, idle, LandWorks.new(), [idle], CivilianFixture.stockpile())
+	var screen_row: String = _panel_row(panel, "Tradecraft")
 	assert_true(
-		_panel_row(panel, "Tradecraft").begins_with("Counter-espionage screen"),
+		screen_row.begins_with("Counter-espionage screen"),
 		"the screen exists once the order is up"
+	)
+	assert_true(
+		screen_row.contains("%d%% a turn to take" % SpyRules.KILL_PCT)
+		and screen_row.contains("%d%% to turn one" % SpyRules.DEFECT_PCT),
+		"the dossier names the trade it buys: " + screen_row
 	)
 	var minor_model: MapModel = CivilianFixture.build_minor()
 	var minor_spy: CivilianState = CivilianState.create(

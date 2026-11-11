@@ -401,6 +401,12 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 		main.free()
 		return
 	second.confirm_button.emit_signal("pressed")
+	# The crown's charge sits between the chart and the first turn (wiki:
+	# dialogue-management § Kinds, `game_start_intro`); dismiss it to open play.
+	var charge: IntroScreen = main.current_page as IntroScreen
+	assert_not_null(charge, "the charge opens after the seat")
+	if charge != null:
+		charge.begin_button.emit_signal("pressed")
 	var screen: MapScreen = main.current_screen
 	assert_not_null(screen, "the campaign starts")
 	if screen != null:

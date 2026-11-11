@@ -23,6 +23,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
+- That world is right-sized (44×32): the smallest that still validates a
+  `SaveCodec` slot and seats the turn-100 civilian tier. Screen and
+  campaign-plate suites share it instead of generating their own.
 - The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
   screens on that world repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
@@ -73,6 +76,13 @@ godot --headless --path . --script res://tests/playtest_combat_chain.gd
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
 # court keeps, the research share it earns, and the counter-espionage screen.
 godot --headless --path . --script res://tests/playtest_espionage.gd
+
+# Rival espionage — the other half: plays real turns from a turn-100 advanced
+# start and prints the spies rival courts walk onto crown land (invisible by
+# rule), the screen the crown keeps at home, every line the court is told when
+# an agent is caught or turns coat (with the relations it cost), and the share a
+# rival's spy earns from the crown's own studies.
+godot --headless --path . --script res://tests/playtest_ai_spycraft.gd
 
 # Province development — opens a turn-100 advanced start, raises an estate over
 # several turns from the estates ledger, walks the Engineer tile by tile laying
