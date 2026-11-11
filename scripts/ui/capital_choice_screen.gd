@@ -151,7 +151,7 @@ func _build_hud() -> void:
 	column.add_theme_constant_override("separation", 2)
 	banner.add_child(column)
 	column.add_child(MenuFrame.title("SEAT YOUR COURT", 20 if short else 26))
-	_hint = MenuFrame.subtitle("Tap one of your crown's coastal provinces.")
+	_hint = MenuFrame.subtitle("Tap one of your crown's provinces glowing gold.")
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_hint)
@@ -203,9 +203,7 @@ func _refresh() -> void:
 	if selected_province < 0:
 		_pick.text = "No court seated yet."
 		return
-	_pick.text = "%s · seat at %d, %d" % [
-		model.province_name(selected_province), selected_tile.x, selected_tile.y
-	]
+	_pick.text = "Seat: %s" % model.province_name(selected_province)
 
 
 # --- world ------------------------------------------------------------------
@@ -224,6 +222,7 @@ func bind_world(p_world: WorldMap) -> void:
 	world = p_world
 	model = world.region(OLD_WORLD_INDEX)
 	_mount_chart()
+	marker.set_eligible(model, CapitalChoice.seatable_provinces(model, config.player_faction))
 	confirm_button.disabled = false
 	var seat: int = CapitalChoice.seat_province(model, config.player_faction)
 	if seat < 0:
@@ -270,7 +269,7 @@ func pick_province(province_id: int) -> bool:
 	selected_province = province_id
 	selected_tile = _default_tile(province_id)
 	marker.set_seat(model, province_id, selected_tile)
-	_say("Tap a tile in %s to place the court." % model.province_name(province_id))
+	_say("Tap a tile in %s; any gold province can hold the court." % model.province_name(province_id))
 	_refresh()
 	return true
 
@@ -365,10 +364,8 @@ func _refusal(province_id: int) -> String:
 	if province == null:
 		return "There is no province there."
 	if province.owner != config.player_faction:
-		return "%s is not yours to seat." % model.province_name(province_id)
-	return "%s has no seaboard; a Great Power's court must sit on the sea." % (
-		model.province_name(province_id)
-	)
+		return "%s is not yours — tap a province glowing gold." % model.province_name(province_id)
+	return "%s lies inland; only seaboard provinces glow gold." % model.province_name(province_id)
 
 
 # --- confirm ----------------------------------------------------------------
@@ -377,7 +374,7 @@ func _refusal(province_id: int) -> String:
 ## Applies the seat through the rules and hands the world to the map screen.
 func confirm() -> bool:
 	if model == null or selected_province < 0 or selected_tile.x < 0:
-		_say("Choose one of your coastal provinces first.", true)
+		_say("Choose one of your provinces glowing gold first.", true)
 		return false
 	var result: Dictionary = CapitalChoice.seat_capital(
 		model, config.player_faction, selected_province, selected_tile
