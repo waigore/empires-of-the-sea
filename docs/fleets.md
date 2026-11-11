@@ -15,13 +15,14 @@ Movement, cargo, fog, battles; stations, raids:
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
-- **Named hulls** (`ShipNames`, DR-20261111-07): each hull flies a period name
-  from its crown's pool, unique in its squadron and kept through save and merge;
-  the dossier and despatches print it.
+- **Named hulls** (`ShipNames`, DR-20261111-07): period names, unique per
+  squadron, kept through save and merge; dossier and despatches print them.
 - **Yard:** launch at the capital for its row + **one peasant**; breaking up
   returns one peasant, no refund; an emptied squadron retires (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
   (1/turn) capping **imports**; exports free (DR-20261109-03).
+- **Home-fleet merge:** docking at the seat merges into the home fleet
+  (`NavalMovement.merge_into_home`); hull ids and passengers keep.
 - **Home sortie** (DR-20261109-17): the home squadron may put to sea, spending
   move and holds. Colonists ride as passengers (one per hull) and land beside
   the zone; a sunk squadron drowns them.
@@ -37,9 +38,7 @@ Movement, cargo, fog, battles; stations, raids:
 - **Beachhead:** a squadron marks a hostile coast (spends the move); the army
   lands next turn; unused markers lapse.
 
-## Deferred (REQ-P2-02)
-
-Home-fleet merge · raid hull losses (a raid takes cargo only, DR-20261110-13).
+Raid hull losses stay cargo-only (DR-20261110-13); [`deferred.md`](deferred.md).
 
 ## Architecture
 

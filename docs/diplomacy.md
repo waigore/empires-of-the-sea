@@ -55,7 +55,8 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 ## Deferred (REQ-P2-02)
 
-- Merchant overseas cargo, colony profit share, near-defeat land war.
+Rival GP–Tribe contact; colony suzerain favoured-partner (R7.1). See
+[`deferred.md`](deferred.md).
 
 ## Architecture
 

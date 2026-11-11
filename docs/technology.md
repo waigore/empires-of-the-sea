@@ -52,7 +52,8 @@ cheapen attacks.
 
 ## Deferred (REQ-P2-02)
 
-Per-save goal persistence (the goal stays a view preference).
+Per-save goal persistence (goal stays a view preference). Ranked:
+[`deferred.md`](deferred.md).
 
 ## Architecture
 
