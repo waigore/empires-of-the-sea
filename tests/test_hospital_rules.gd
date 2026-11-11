@@ -206,7 +206,9 @@ func test_the_crowns_hospitals_are_counted_seat_first() -> void:
 	assert_eq(int(rows[0]["province"]), 0, "the seat is served first")
 	assert_true(bool(rows[0]["seat"]))
 	assert_eq(int(rows[1]["province"]), 1)
-	assert_eq(HospitalRules.total_demand(world, 0), 6)
+	var demands: Array[int] = HospitalRules.demand_list(world, 0)
+	assert_eq(demands.size(), 2)
+	assert_eq(demands[0] + demands[1], 6, "the crown's whole hospital ration")
 
 
 func test_a_staff_is_fed_whole_or_not_at_all() -> void:
@@ -231,18 +233,79 @@ func test_a_staff_is_fed_whole_or_not_at_all() -> void:
 
 func test_the_consumption_phase_feeds_the_wards_after_the_workers() -> void:
 	var stock: Dictionary = {"grain": 3, "meat": 0}
-	var report: Dictionary = EconomyConsumption.resolve(WorkerPool.make(1), stock, 0, 0, 4)
-	assert_eq(int(report["hospital_demand"]), 4)
+	var report: Dictionary = EconomyConsumption.resolve(WorkerPool.make(1), stock, 0, 0, [2])
+	assert_eq(int(report["hospital_demand"]), 2)
 	assert_eq(int(report["hospital_fed"]), 2, "one peasant, then one field hospital")
-	assert_true(bool(report["hospital_hungry"]))
+	assert_false(bool(report["hospital_hungry"]))
 	assert_eq(int(stock.get("grain", 0)), 0)
 	assert_eq(int(report["food_eaten"]), 3)
 
 	var larder: Dictionary = {"grain": 9, "meat": 0}
-	var fed: Dictionary = EconomyConsumption.resolve(WorkerPool.make(0), larder, 0, 0, 4)
+	var fed: Dictionary = EconomyConsumption.resolve(WorkerPool.make(0), larder, 0, 0, [4])
 	assert_eq(int(fed["hospital_fed"]), 4)
 	assert_false(bool(fed["hospital_hungry"]))
 	assert_eq(int(larder.get("grain", 0)), 5)
+
+	# A general hospital needs four rations: two left over are no half staff,
+	# so the ward goes without and the larder keeps them (DR-20261112-04).
+	var short: Dictionary = {"grain": 2, "meat": 0}
+	var hungry: Dictionary = EconomyConsumption.resolve(WorkerPool.make(0), short, 0, 0, [4])
+	assert_eq(int(hungry["hospital_fed"]), 0, "no half ration for a great ward")
+	assert_true(bool(hungry["hospital_hungry"]))
+	assert_eq(int(short.get("grain", 0)), 2, "the larder keeps what no staff can use")
+
+
+## Playtest: a field hospital at the seat and a general hospital elsewhere, with
+## four rations left after the living. The seat eats two, the great ward cannot
+## be seated on the two that remain, and those two stay in the larder — a ration
+## is never stranded on a ward that cannot be staffed (DR-20261112-04).
+func test_the_consumption_never_strands_a_ration_on_an_unstaffable_ward() -> void:
+	var world := WorldMap.new()
+	var model := Fixture.build()
+	world.add_region(model)
+	model.province_data(0).hospital_level = 1
+	model.province_data(1).hospital_level = 2
+	var demands: Array[int] = HospitalRules.demand_list(world, 0)
+	assert_eq(demands.size(), 2, "seat first, then the chart's order")
+	assert_eq(demands[0], 2, "the seat's field hospital")
+	assert_eq(demands[1], 4, "the great ward elsewhere")
+
+	var stock: Dictionary = {"grain": 4, "meat": 0}
+	var report: Dictionary = EconomyConsumption.resolve(
+		WorkerPool.make(0), stock, 0, 0, demands
+	)
+	assert_eq(int(report["hospital_demand"]), 6)
+	assert_eq(int(report["hospital_fed"]), 2, "only the seat's staff can be seated")
+	assert_eq(int(stock.get("grain", 0)), 2, "the rest of the larder is not eaten")
+
+	var fed: Dictionary = HospitalRules.feed(world, 0, int(report["hospital_fed"]))
+	assert_eq(int(fed["spent"]), 2, "the larder paid exactly what the staffs ate")
+	assert_true(model.province_data(0).hospital_staffed)
+	assert_false(model.province_data(1).hospital_staffed)
+	assert_eq((fed["hungry"] as Array), [1] as Array)
+
+
+## The food the larder pays and the staffs it seats are one walk: for every
+## larder size, the consumption pass eats exactly what [method HospitalRules.feed]
+## spends (DR-20261112-04).
+func test_the_ration_and_the_staffing_agree_at_every_larder_size() -> void:
+	var world := WorldMap.new()
+	var model := Fixture.build()
+	world.add_region(model)
+	model.province_data(0).hospital_level = 1
+	model.province_data(1).hospital_level = 2
+	var demands: Array[int] = HospitalRules.demand_list(world, 0)
+	for available in 9:
+		var stock: Dictionary = {"grain": available, "meat": 0}
+		var report: Dictionary = EconomyConsumption.resolve(
+			WorkerPool.make(0), stock, 0, 0, demands
+		)
+		var fed: Dictionary = HospitalRules.feed(world, 0, int(report["hospital_fed"]))
+		assert_eq(
+			int(fed["spent"]), int(report["hospital_fed"]),
+			"larder %d: the food paid is the food seated" % available
+		)
+		assert_eq(int(stock.get("grain", 0)), available - int(fed["spent"]))
 
 
 func test_a_save_round_trip_keeps_an_unfed_ward() -> void:
