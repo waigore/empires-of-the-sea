@@ -264,7 +264,11 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	var place: String = model.province_name(province) if province >= 0 else "the wilds"
 	if model.is_purchased_tile(tile):
 		play.hud.set_treasury(play.treasury())
-		play.hud.toast("The deed to %s is signed; the tile answers to your crown." % place)
+		# The deed is the only play path that develops a Minor or Tribe town
+		# (wiki: civilian-units § Merchant; DR-20261112-01).
+		play.hud.toast(
+			MinorTownGrowth.deed_line(model, model.province_data(province), place)
+		)
 		return
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
 

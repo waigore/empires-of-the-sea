@@ -38,8 +38,9 @@ Land units: explore, improve, colonize, spy.
   zone. Explorers/Merchants any coast; others need crown land. Sunk ships drown
   passengers.
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy, no
-  war and a prospected mineral; 15× base at assign, debit on complete. Rivals
-  run it through `AiMerchantWork`, from their own ledger.
+  war and a prospected mineral; 15× base at assign, debit on complete. Each
+  deed lifts the province town. Rivals run it through `AiMerchantWork`, from
+  their own ledger.
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
   and saves; the province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when

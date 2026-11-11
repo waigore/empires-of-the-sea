@@ -1575,3 +1575,132 @@ func test_the_estate_row_reports_the_gap_to_the_crown() -> void:
 	assert_eq(int(nearer["link_distance"]), 0,
 		"a road beside the estate links it")
 	assert_true(bool(nearer["connected"]))
+
+
+# --- a deed raises the Minor or Tribe town (DR-20261112-01) ------------------
+## Minors and Tribes never build, so a Great Power's purchased land is the only
+## play path that develops their towns (wiki: civilian-units § Merchant;
+## extraction-and-improvements § Town manufacturing bonus).
+
+
+## A two-province map: a Great Power holds the west, Minor Nation 6 holds four
+## timber estates and a province town in the east.
+func _deed_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(5, 2)
+	for y in 2:
+		for x in 5:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0),
+		Vector2i(2, 1), Vector2i(3, 1), Vector2i(4, 1),
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 6, 6)
+	minor.town_tile = Vector2i(2, 0)
+	minor.town_development = 1
+	model.provinces = [gp, minor]
+	# Four timber estates beside the town; the town tile never holds a resource.
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1), Vector2i(3, 1)]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func test_the_deed_level_table_starts_at_one_and_caps_at_four() -> void:
+	assert_eq(MinorTownGrowth.level_for(0), 1, "no deed, no growth")
+	assert_eq(MinorTownGrowth.level_for(1), 2)
+	assert_eq(MinorTownGrowth.level_for(2), 3)
+	assert_eq(MinorTownGrowth.level_for(3), 4)
+	assert_eq(MinorTownGrowth.level_for(4), 4, "town development tops out at 4")
+	assert_eq(MinorTownGrowth.level_for(-2), 1)
+
+
+func test_each_deed_lifts_the_minor_town_one_level() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	var tiles: Array[Vector2i] = [Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1)]
+	for index in tiles.size():
+		assert_true(LandPurchase.complete(model, tiles[index], 0, economy))
+		assert_eq(minor.town_development, 2 + index, "one level per deed")
+	assert_eq(MinorTownGrowth.deeds_in(model, minor), 3)
+	assert_eq(MinorTownGrowth.apply(model, minor), 0, "a fourth deed cannot pass 4")
+
+
+func test_a_great_power_province_never_grows_from_a_deed() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var gp: ProvinceState = model.provinces[0]
+	model.resource[model.index_of(0, 0)] = 0
+	assert_true(model.purchase_tile(Vector2i(0, 0), 1))
+	assert_eq(MinorTownGrowth.apply(model, gp), 0)
+	assert_eq(gp.town_development, 0, "a crown's own town is its Builder's work")
+
+
+func test_a_lost_deed_never_lowers_a_grown_town() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	minor.town_development = 4
+	assert_true(model.purchase_tile(Vector2i(3, 0), 0))
+	assert_eq(MinorTownGrowth.apply(model, minor), 0, "development is built, not rented")
+	assert_eq(minor.town_development, 4)
+
+
+func test_the_deed_puts_the_minor_town_manufactures_on_the_market() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	assert_null(_lumber_offer(MinorMarket.emit_orders(world)), "a level-1 town pays nothing")
+	assert_true(LandPurchase.complete(model, Vector2i(3, 0), 0, economy))
+	var lumber: MarketOrder = _lumber_offer(MinorMarket.emit_orders(world))
+	assert_not_null(lumber, "the deed develops the town to level 2")
+	assert_eq(lumber.faction, 6)
+	assert_eq(lumber.quantity, 1, "floor(4 timber / 4) x 1")
+	assert_eq(lumber.origin_index, model.index_of(2, 0), "the province town is the source")
+
+
+func _lumber_offer(orders: Array[MarketOrder]) -> MarketOrder:
+	for order: MarketOrder in orders:
+		if order.commodity == "lumber":
+			return order
+	return null
+
+
+func test_the_deed_line_names_the_town_it_developed() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	assert_false(
+		MinorTownGrowth.deed_line(model, minor, "Genoa").contains("town"),
+		"a level-1 town has nothing to announce"
+	)
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	assert_true(LandPurchase.complete(model, Vector2i(3, 0), 0, economy))
+	var line: String = MinorTownGrowth.deed_line(model, minor, "Genoa")
+	assert_true(line.begins_with("The deed to Genoa is signed"), line)
+	assert_true(line.ends_with("The town rises to level 2."), line)
+	minor.town_development = 4
+	assert_false(
+		MinorTownGrowth.deed_line(model, minor, "Genoa").contains("town"),
+		"a town already above its deed level is not announced as rising"
+	)
+
+
+func test_the_growth_rule_ignores_a_missing_model_or_province() -> void:
+	assert_eq(MinorTownGrowth.apply(null, null), 0)
+	assert_eq(MinorTownGrowth.deeds_in(null, null), 0)
+	assert_eq(
+		MinorTownGrowth.deed_line(null, null, "Genoa"),
+		"The deed to Genoa is signed; the tile answers to your crown."
+	)
