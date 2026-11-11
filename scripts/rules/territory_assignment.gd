@@ -7,10 +7,17 @@ extends RefCounted
 ## inland province. Pure rules: no nodes, deterministic, unit-testable.
 
 const MINOR_PROVINCES: int = 3
+## Seed rotations tried before a landmass is called infeasible: a faction seeded
+## into a pocket too small for its budget leaves the split lopsided, and the wiki
+## says setup fails rather than ship it (wiki: game-setup § Feasibility).
+const LAYOUT_ATTEMPTS: int = 6
 
 const ERROR_NO_PROVINCES: String = "no_provinces"
 const ERROR_TOO_FEW_PROVINCES: String = "too_few_provinces"
 const ERROR_NO_SEA_BOUND_PROVINCE: String = "missing_sea_bound_province"
+## A faction seated in a pocket too small for its budget leaves the split lopsided;
+## the wiki says setup fails rather than ship it (game-setup § Feasibility).
+const ERROR_UNFAIR_SPLIT: String = "unfair_split"
 
 
 ## Old World: Great Powers take the bulk, Minor Nations a small reservation
@@ -63,8 +70,8 @@ static func _assign(
 		# Minor Nations are reserved first; Great Powers split only what is left
 		# (wiki: game-setup § GP assignment).
 		if not minors.is_empty():
-			var minor_seeds: Array[int] = _farthest_seeds(
-				model, _sea_pool(model, remaining), minors.size()
+			var minor_seeds: Array[int] = TerritorySeeds.pick(
+				model, remaining, _sea_pool(model, remaining), minors.size()
 			)
 			if minor_seeds.size() < minors.size():
 				return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
@@ -77,6 +84,7 @@ static func _assign(
 			continue
 		var chunks: Array = _chunks(model, remaining)
 		var spread: Array = _spread(chunks, greats)
+		var layouts: Array = []
 		for chunk_index in chunks.size():
 			var chunk_ids: Array = (chunks[chunk_index] as Dictionary)["ids"]
 			var group: Array = spread[chunk_index]
@@ -87,13 +95,44 @@ static func _assign(
 				if sea_bound_required:
 					return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
 				pool = chunk_ids
-			var seeds: Array[int] = _farthest_seeds(model, pool, group.size())
-			if seeds.size() < group.size():
-				return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
 			var targets: Dictionary = {}
 			_share(chunk_ids.size(), group, targets)
-			TerritoryGrowth.paint(model, chunk_ids, group, seeds, targets)
+			layouts.append({"ids": chunk_ids, "group": group, "pool": pool, "targets": targets})
+		if not _paint_even(model, layouts, greats):
+			return _failure(ERROR_UNFAIR_SPLIT)
 	return {"ok": true, "error": "", "factions": factions}
+
+
+## Paints every landmass of the region, keeping the first rotation whose split is
+## even across the region. A faction seated in a pocket too small for its budget
+## leaves the split lopsided, so the seed rotation is retried and the landmass is
+## reported infeasible when none is even (wiki: game-setup § GP assignment).
+static func _paint_even(model: MapModel, layouts: Array, factions: Array) -> bool:
+	for attempt in LAYOUT_ATTEMPTS:
+		for layout: Dictionary in layouts:
+			for raw: Variant in layout["ids"]:
+				var province: ProvinceState = model.province_data(int(raw))
+				if province != null:
+					province.owner = MapModel.NO_ID
+		for layout: Dictionary in layouts:
+			var group: Array = layout["group"]
+			var seeds: Array[int] = TerritorySeeds.pick(
+				model, layout["ids"], layout["pool"], group.size(), attempt
+			)
+			if seeds.size() < group.size():
+				return false
+			TerritoryGrowth.paint(model, layout["ids"], group, seeds, layout["targets"])
+		if _split_even(model, _layout_ids(layouts), factions):
+			return true
+	return false
+
+
+## Every province the region's Great Powers (or Tribes) can hold.
+static func _layout_ids(layouts: Array) -> Array:
+	var ids: Array = []
+	for layout: Dictionary in layouts:
+		ids.append_array(layout["ids"])
+	return ids
 
 
 # --- continents -------------------------------------------------------------
@@ -337,37 +376,22 @@ static func _share(total: int, factions: Array[int], targets: Dictionary) -> voi
 		targets[factions[index]] = base + (1 if index < remainder else 0)
 
 
-## Deterministic farthest-point seeds over the pool (ties: lowest id).
-static func _farthest_seeds(
-	model: MapModel, pool: Array, count: int
-) -> Array[int]:
-	var seeds: Array[int] = []
-	if pool.is_empty() or count <= 0:
-		return seeds
-	var candidates: Array[int] = []
-	for raw: Variant in pool:
-		candidates.append(int(raw))
-	candidates.sort()
-	seeds.append(candidates[0])
-	while seeds.size() < count:
-		var best: int = MapModel.NO_ID
-		var best_distance: float = -1.0
-		for province_id: int in candidates:
-			if seeds.has(province_id):
-				continue
-			var nearest: float = INF
-			for seed: int in seeds:
-				var distance: float = model.province_center(province_id).distance_to(
-					model.province_center(seed)
-				)
-				nearest = minf(nearest, distance)
-			if nearest > best_distance:
-				best_distance = nearest
-				best = province_id
-		if best == MapModel.NO_ID:
-			break
-		seeds.append(best)
-	return seeds
+## An even split: every faction holds at least one province and no count strays
+## more than one from the even share (wiki: game-setup § GP / Minor / Tribe
+## assignment, "within ±1").
+static func _split_even(model: MapModel, ids: Array, factions: Array) -> bool:
+	var counts: Dictionary = _owner_counts(model, ids)
+	var total: int = 0
+	for faction_id: int in factions:
+		var count: int = int(counts.get(faction_id, 0))
+		if count <= 0:
+			return false
+		total += count
+	var share: float = float(total) / float(factions.size())
+	for faction_id: int in factions:
+		if absf(float(counts[faction_id]) - share) > 1.0:
+			return false
+	return true
 
 
 static func _failure(code: String) -> Dictionary:

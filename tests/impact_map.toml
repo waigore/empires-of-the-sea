@@ -957,6 +957,10 @@ match = "scripts/rules/territory_growth.gd*"
 domain = "world"
 
 [[rules]]
+match = "scripts/rules/territory_seeds.gd*"
+domain = "world"
+
+[[rules]]
 match = "scripts/rules/faction_catalog.gd"
 domain = "world"
 

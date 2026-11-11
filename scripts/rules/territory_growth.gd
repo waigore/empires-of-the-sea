@@ -34,52 +34,51 @@ static func paint(
 		province.population = 180 + province.area * 9 + (province_id * 37) % 90
 
 
-## One claim per faction per round keeps the holdings within a province or two
-## of each other; a faction with no frontier simply sits the round out.
+## Every unowned province joins the faction whose seed is nearest it (ties:
+## lowest faction id), nearest land first. A distance race keeps each holding
+## contiguous; growing round-robin let a rival seize the one corridor out of a
+## pocket and strand a faction too small to meet its budget (game-setup § GP).
 static func _grow(
 	model: MapModel, lookup: Dictionary, owner: Dictionary, counts: Dictionary,
 	factions: Array[int], distances: Array[Dictionary], targets: Dictionary, capped: bool
 ) -> void:
-	var remaining: int = lookup.size() - factions.size()
-	var round_index: int = 0
-	while remaining > 0:
-		var grew: bool = false
-		for step in factions.size():
-			# Rotate each round so no faction always loses the contested province.
-			var index: int = (round_index + step) % factions.size()
-			var faction_id: int = factions[index]
-			if capped and int(counts[faction_id]) >= int(targets.get(faction_id, 0)):
-				continue
-			var pick: int = _frontier(model, lookup, owner, faction_id, distances[index])
-			if pick == MapModel.NO_ID:
-				continue
-			owner[pick] = faction_id
-			counts[faction_id] = int(counts[faction_id]) + 1
-			remaining -= 1
-			grew = true
-		round_index += 1
-		if not grew:
-			return
-
-
-## Unowned province bordering the faction, nearest its seed (ties: lowest id).
-static func _frontier(
-	model: MapModel, lookup: Dictionary, owner: Dictionary, faction_id: int, distances: Dictionary
-) -> int:
-	var best: int = MapModel.NO_ID
-	var best_distance: float = INF
-	var ordered: Array = lookup.keys()
-	ordered.sort()
-	for raw: Variant in ordered:
+	var keys: Array = lookup.keys()
+	keys.sort_custom(func(a: Variant, b: Variant) -> bool:
+		var near_a: float = _nearest(distances, int(a))
+		var near_b: float = _nearest(distances, int(b))
+		if near_a != near_b:
+			return near_a < near_b
+		return int(a) < int(b)
+	)
+	for raw: Variant in keys:
 		var province_id: int = int(raw)
 		if owner.has(province_id):
 			continue
-		if not _borders_owner(model, province_id, owner, faction_id):
+		var pick: int = MapModel.NO_ID
+		var best: float = INF
+		for index in factions.size():
+			var faction_id: int = factions[index]
+			if capped and int(counts[faction_id]) >= int(targets.get(faction_id, 0)):
+				continue
+			# A capped holder may only take land it already borders, so a budget
+			# can never scatter a Minor Nation across the continent.
+			if capped and not _borders_owner(model, province_id, owner, faction_id):
+				continue
+			var distance: float = float(distances[index].get(province_id, INF))
+			if distance < best or (distance == best and faction_id < pick):
+				best = distance
+				pick = faction_id
+		if pick == MapModel.NO_ID:
 			continue
-		var distance: float = float(distances.get(province_id, INF))
-		if best == MapModel.NO_ID or distance < best_distance:
-			best = province_id
-			best_distance = distance
+		owner[province_id] = pick
+		counts[pick] = int(counts[pick]) + 1
+
+
+## Nearest seed distance for one province, across every faction's seed.
+static func _nearest(distances: Array[Dictionary], province_id: int) -> float:
+	var best: float = INF
+	for map: Dictionary in distances:
+		best = minf(best, float(map.get(province_id, INF)))
 	return best
 
 
