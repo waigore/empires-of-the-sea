@@ -206,6 +206,25 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 
+## Every court's rations are recorded, not just the human's: a rival's hungry
+## army or squadron must fight at the published morale band next turn
+## (wiki: combat § Feeding modifiers; workers-and-population § Consumption).
+func test_end_turn_records_every_courts_rations() -> void:
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_true(
+			_screen.play.feeding.has(faction),
+			"%s keeps an army feeding record" % FactionCatalog.name_of(faction)
+		)
+		var ledger: PlayerEconomy = _screen.play.ledger_for(faction)
+		assert_not_null(ledger, "%s keeps a ledger" % FactionCatalog.name_of(faction))
+		assert_true(
+			ledger.navy_feeding >= 0.0 and ledger.navy_feeding <= 1.0,
+			"%s keeps a navy feeding record" % FactionCatalog.name_of(faction)
+		)
+
+
 func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
 	var province_id: int = Fixture.inland_province(_screen.model)
 	MapPlayInput.on_tapped(

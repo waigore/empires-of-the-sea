@@ -203,9 +203,11 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.turn += 1
 	var year: int = TurnTime.year_for_turn(play.turn)
 	var crown_report: Dictionary = {}
-	if play.observer_mode:
-		AiTurnLog.apply_feeding(play, economy_report)
-	else:
+	# Every rival ledger resolved above, so every rival's next battle reads the
+	# rations it actually got — not full morale by default (wiki: combat
+	# § Feeding modifiers; workers-and-population § Consumption).
+	AiTurnLog.apply_feeding(play, economy_report)
+	if not play.observer_mode:
 		play.refresh_research()
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		crown_report = play.economy.resolve_turn()

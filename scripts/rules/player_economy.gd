@@ -26,6 +26,10 @@ const START_CIVILIAN_WORKS: Dictionary = {
 var treasury: int = 0
 var stockpile: Dictionary = {}
 var workers: WorkerPool = WorkerPool.new()
+## Share of last turn's hulls the granary fed in full (0..1); the next sea
+## battle scales this crown's strength by it (wiki: workers-and-population
+## § Consumption). Full rations until the first Consumption.
+var navy_feeding: float = 1.0
 ## Slots, funding and progress for the Research phase (wiki: research-state).
 var research: ResearchState = ResearchState.new()
 ## Researched techs; the research state owns the table so there is one truth.
@@ -202,6 +206,7 @@ func copy() -> PlayerEconomy:
 	clone.treasury = treasury
 	clone.stockpile = stockpile.duplicate()
 	clone.workers = workers.copy()
+	clone.navy_feeding = navy_feeding
 	clone.research = research.copy()
 	clone._assignments = _assignments.duplicate(true)
 	return clone
@@ -213,6 +218,7 @@ func snapshot() -> Dictionary:
 		"treasury": treasury,
 		"stockpile": stockpile.duplicate(),
 		"workers": workers.counts.duplicate(),
+		"navy_feeding": navy_feeding,
 		"research": {
 			"unlocked": research.unlocked.duplicate(),
 			"progress": research.progress.duplicate(),
@@ -233,6 +239,7 @@ func apply_snapshot(data: Dictionary) -> void:
 	var counts: Array = data.get("workers", [])
 	for tier in WorkerPool.TIER_COUNT:
 		workers.set_count(tier, int(counts[tier]) if tier < counts.size() else 0)
+	navy_feeding = clampf(float(data.get("navy_feeding", 1.0)), 0.0, 1.0)
 	var research_data: Variant = data.get("research", {})
 	if typeof(research_data) == TYPE_DICTIONARY:
 		_apply_research(research_data)
