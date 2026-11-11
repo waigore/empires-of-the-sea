@@ -669,6 +669,36 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
 
 
+# --- troops aboard (wiki: ships-and-naval § Naval transport) -----------------
+
+
+## A boarding repaints the open fleet dossier at once: the crown is told its
+## squadron carries troops without touching another order (REQ-P5-05).
+func test_boarding_repaints_the_fleet_dossier() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
+	if fleet == null:
+		fleet = FleetState.in_port(90, play.player_faction, capital, ["ship_90"], {})
+		_screen.ship_layer.fleets.append(fleet)
+		_screen.ship_layer._rebuild_markers()
+	fleet.moved = false
+	var army := ArmyState.muster(91, play.player_faction, capital, false, ["pikemen"], 910)
+	play.army_layer.armies.append(army)
+	play.army_layer.selected_army = army
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(fleet))
+	MapPlayFleets.select(play, _screen.ship_layer.ship_for(fleet))
+	assert_false(_screen.hud.panels.fleet_panel._ships.text.contains("carrying"))
+
+	MapPlayArmies.embark(play, army)
+
+	assert_eq(fleet.embarked_army, army.id)
+	assert_true(
+		_screen.hud.panels.fleet_panel._ships.text.contains("carrying 1 regiment"),
+		"the dossier reads '%s'" % _screen.hud.panels.fleet_panel._ships.text
+	)
+
+
 # --- stations (wiki: ships-and-naval § Missions and Movement) ----------------
 
 
