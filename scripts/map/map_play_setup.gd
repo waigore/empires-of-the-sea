@@ -150,6 +150,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	build_lens(play)
 	MapPlayDiplomacy.refresh(play)
+	# A save written before the home-fleet merge could park two squadrons at the
+	# seat; fold them in before the court reads its squadrons.
+	MapPlayHomeMerge.repair(play)
 	# A call to arms waiting in the save keeps the turn suspended, with the court
 	# open for the answer (wiki: diplomacy § Alliances § Mutual defence).
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
