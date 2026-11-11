@@ -140,6 +140,46 @@ func test_strength_scales_the_deployed_slice() -> void:
 	assert_almost_eq(ArmyModifiers.strength(side, 10, 1.2), 12.0, 0.001)
 
 
+## The line is the strongest `limit` regiments; the rest are reserves that take
+## no casualties (wiki: combat § The line and the reserve; DR-20261111-15).
+func test_casualties_are_drawn_from_the_line_and_spare_the_reserve() -> void:
+	var types: Array[String] = ["guards"]
+	for _index in 13:
+		types.append("peasant_levies")
+	var army := Fixture.army(1, 0, 2, types)
+	var side: Array[ArmyState] = [army]
+	var deployed_ids: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 10):
+		deployed_ids.append(String(entry["id"]))
+	var reserve_ids: Array[String] = []
+	for regiment_id: String in army.regiments:
+		if not deployed_ids.has(regiment_id):
+			reserve_ids.append(regiment_id)
+	assert_eq(reserve_ids.size(), 4, "four regiments stand in reserve")
+
+	var lost: Array[String] = ArmyCombat.apply_losses([army], side, 4, 10)
+
+	assert_eq(lost.size(), 4)
+	for regiment_id: String in reserve_ids:
+		assert_true(army.regiments.has(regiment_id), "a reserve is never a casualty")
+
+
+## The report carries the line and the reserve so the plate and the despatch can
+## name them (wiki: combat § The line and the reserve; DR-20261111-15). The line
+## is read before any exchange, while every regiment is still standing.
+func test_the_report_names_the_line_and_the_reserve() -> void:
+	var defending: Array[ArmyState] = [Fixture.army(1, 1, 2, _regiment_types("pikemen", 9), true)]
+	var attacking: Array[ArmyState] = [Fixture.army(2, 0, 2, _regiment_types("guards", 14))]
+
+	var line: Dictionary = ArmyModifiers.line_fields(attacking, 10, defending, 10)
+
+	assert_eq(int(line["attacker_deployed"]), 10)
+	assert_eq(int(line["attacker_reserve"]), 4)
+	assert_eq(int(line["attacker_limit"]), 10)
+	assert_eq(int(line["defender_deployed"]), 9)
+	assert_eq(int(line["defender_reserve"]), 0)
+
+
 func test_modifiers_compose_terrain_feeding_and_leader() -> void:
 	var model := Fixture.build()
 	for tile: Vector2i in model.province_data(2).tiles:

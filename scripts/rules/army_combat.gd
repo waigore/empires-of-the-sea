@@ -7,8 +7,8 @@ extends RefCounted
 ## flips. Pre-combat general binding arrives in `context` from the caller.
 ## Sieges read the fort level: walls soak attack, the emplaced battery adds
 ## defence and shrinks defender losses, and the besieging train silences guns
-## before the clash (wiki: siege-mechanics; DR-20261110-22). The human's land
-## battles route through QuickBattle.
+## before the clash (wiki: siege-mechanics; DR-20261110-22). Human land battles
+## route through QuickBattle; every report names the line and the reserve.
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -196,8 +196,8 @@ static func _exchange(
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
-	if not siege.is_empty():
-		report["siege"] = siege
+	report.merge(ArmyModifiers.line_fields(attacking, atk_limit, defending, def_limit))
+	if not siege.is_empty(): report["siege"] = siege
 	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
 		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
