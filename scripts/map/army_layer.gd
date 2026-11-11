@@ -284,11 +284,14 @@ func command_text(army: ArmyState) -> String:
 	return generals.summary(army.owner)
 
 
-func begin_turn() -> void:
-	for raw: Variant in regions.values():
+func begin_turn(world: WorldMap = null) -> void:
+	for region_id: int in regions.region_ids():
 		var stored: Array[ArmyState] = []
-		stored.assign(raw)
-		ArmyMovement.begin_turn(stored)
+		stored.assign(regions.value(region_id, []))
+		# Each region rests by its own hospitals: an army in the New World
+		# never reads the home chart's buildings (DR-20261111-12).
+		var region_model: MapModel = world.region(region_id) if world != null else model
+		ArmyMovement.begin_turn(stored, region_model)
 
 
 ## Resolves land battles in every region: a battle must not wait for the player

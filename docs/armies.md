@@ -31,6 +31,11 @@
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron; wounded recover a quarter each turn.
+- **Hospitals** (`HospitalRules`, DR-20261111-12): an Engineer raises a Field
+  (L1) or General (L2) hospital on the province's town tile. Armies resting
+  there recover 40%/55% of their pool at turn start, and the province's owner
+  takes 80%/65% of battle wear (auto-resolve and Quick Battle). The dossier
+  prints the level, rest and wear; the army panel prints its rest tempo.
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock.
   Minors follow the leading power, Tribes level 1.
@@ -50,13 +55,13 @@
 
 ## Deferred (REQ-P2-02)
 
-Hospitals and regiment names (DR-20261110-19). See [`deferred.md`](deferred.md).
+Regiment names (DR-20261110-19). See [`deferred.md`](deferred.md).
 
 ## Architecture
 
 Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 `regiment_economy`, `regiment_upgrades`, `army_training`, `army_state`,
-`regiment_condition`, `general_roster`, `general_binding`, `army_modifiers`,
+`regiment_condition`, `hospital_rules`, `general_roster`, `general_binding`, `army_modifiers`,
 `army_command`, `army_movement`, `army_combat`, `army_attack_cost`,
 `army_bands`, `army_garrison`, `quick_battle*`, `siege_lanes`,
 `naval_transport`. `map/army_layer`, `map/army_transport`,
@@ -77,7 +82,7 @@ Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
-`test_army_field_rules`, `test_generals`, `test_leader_catalog`,
+`test_army_field_rules`, `test_hospital_rules`, `test_generals`, `test_leader_catalog`,
 `test_army_orders`, `test_naval_movement`, `test_quick_battle_rules`,
 `test_siege_depth`, `test_battle_sim`, `test_map_screen_crown_orders`.
 

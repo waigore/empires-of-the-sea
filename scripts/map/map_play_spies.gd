@@ -342,6 +342,8 @@ static func _build_kind(action: String) -> String:
 			return "port"
 		"build_fort":
 			return "fort"
+		"build_hospital":
+			return "hospital"
 		"build_rail":
 			return "rail"
 	return ""

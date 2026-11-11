@@ -23,6 +23,9 @@ var town_development: int = 0
 var town_tile: Vector2i = Vector2i(-1, -1)
 ## Fort level 0–3 (wiki: siege-mechanics). Walls and guns derive from it.
 var fort_level: int = 0
+## Hospital level 0–2 (wiki: combat § Regiment condition; DR-20261111-12).
+## Rest share and battle wear derive from it.
+var hospital_level: int = 0
 var resource: int = MapModel.NO_ID
 var resource_tile: Vector2i = Vector2i(-1, -1)
 var population: int = 0

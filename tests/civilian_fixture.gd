@@ -110,7 +110,9 @@ static func merchant_court() -> DiplomacyState:
 
 
 static func stockpile() -> Dictionary:
-	return {"lumber": 40, "castIron": 40, "bronze": 10, "paper": 8, "steel": 8}
+	return {
+		"lumber": 40, "castIron": 40, "bronze": 10, "paper": 8, "steel": 8, "fabric": 20,
+	}
 
 
 static func visibility(model: MapModel) -> VisibilityModel:

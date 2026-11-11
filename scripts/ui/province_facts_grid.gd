@@ -9,6 +9,7 @@ var port: Label = null
 var town: Label = null
 var road: Label = null
 var fort: Label = null
+var hospital: Label = null
 
 ## The province last shown, so a crown-link change repaints without a reload.
 var _data: ProvinceState = null
@@ -23,6 +24,7 @@ func _ready() -> void:
 	town = _add_row("Town")
 	road = _add_row("Roads")
 	fort = _add_row("Fort")
+	hospital = _add_row("Hospital")
 
 
 func show_province(model: MapModel, province_id: int, data: ProvinceState) -> void:
@@ -37,6 +39,7 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.TOWN_TIP
 	fort.text = FortRules.describe(data.fort_level)
+	hospital.text = HospitalRules.describe(data.hospital_level)
 
 
 ## `crown` is `LandConnectivity.province_link` for this province: whether its

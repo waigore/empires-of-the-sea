@@ -168,7 +168,10 @@ static func _exchange(
 	RegimentCondition.wear(
 		defending,
 		RegimentCondition.WOUND_SHARE
-		* float(defender_lost.size()) / float(maxi(initial_defenders, 1)),
+		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
+		# A hospital in the province triages its own side's survivors
+		# (wiki: combat § Regiment condition; DR-20261111-12).
+		* HospitalRules.triage_scale_at(model, province),
 		def_limit
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
@@ -190,6 +193,7 @@ static func _exchange(
 		"attack_paid": int(fee["paid"]),
 		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
 		"fort_level": int(def_mods["fort"]),
+		"hospital_level": HospitalRules.level_at(model, province),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
