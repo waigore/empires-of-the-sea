@@ -292,6 +292,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 55,
 	},
 	{
+		"key": "civilian.hospital_weight",
+		"category": "civilian",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 1000,
+		"default": 30,
+	},
+	{
 		"key": "civilian.town_upgrade_weight",
 		"category": "civilian",
 		"type": TYPE_INT,
