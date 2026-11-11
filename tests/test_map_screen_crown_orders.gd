@@ -540,6 +540,50 @@ func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
 		assert_ne(crew.tile, pair[1])
 
 
+## A signed deed develops the seller's town, and the crown is told the level it
+## now stands at (DR-20261112-01; RUB-P5-05).
+func test_a_signed_deed_names_the_town_it_raised() -> void:
+	var play: PlaySession = _screen.play
+	var model: MapModel = play.model
+	var found: Array = _minor_estate(model)
+	assert_eq(found.size(), 2, "the chart seats a Minor with an estate")
+	var province: ProvinceState = found[0]
+	var tile: Vector2i = found[1]
+	var saved: Array = Fixture.snapshot(play.world)
+	var town_before: int = province.town_development
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	assert_true(LandPurchase.complete(
+		model, tile, play.player_faction, play.economy.economy
+	), "the deed is signed")
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+	})
+
+	assert_eq(province.town_level(), 2, "one deed lifts the seller's town")
+	assert_gt(
+		_screen.hud._toast_box.get_child_count(), toasts_before,
+		"the court hears the deed and the level it bought"
+	)
+	Fixture.restore(play.world, saved)
+	province.town_development = town_before
+
+
+## A Minor or Tribe province and one of its resource tiles.
+func _minor_estate(model: MapModel) -> Array:
+	for province: ProvinceState in model.provinces:
+		var kind: int = FactionCatalog.type_of(province.owner)
+		if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
+			continue
+		for tile: Vector2i in province.tiles:
+			if model.resource_at(tile.x, tile.y) != MapModel.NO_ID:
+				return [province, tile]
+	return []
+
+
 ## An owned land tile and a foreign neighbour across the border.
 func _border_tiles(play: PlaySession) -> Array:
 	var model: MapModel = play.model

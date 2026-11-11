@@ -28,6 +28,7 @@ DR-20261112-01). Decision list for what to ship next (`REQ-P2-02`).
 | Rival-on-rival raids + prize cargo | `MapPlayRaids` per-crown pass (DR-20261111-20) |
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
+| Minor/Tribe town development (a deed raises the town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
 
 ## Remaining gaps (impact order)
 
