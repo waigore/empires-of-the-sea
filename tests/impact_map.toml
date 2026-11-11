@@ -1533,6 +1533,12 @@ domain = "quick_battle"
 match = "scripts/ui/hud_stat_chips.gd"
 domain = "ui"
 
+# TopBar builds the plaque widgets HudStatChips binds; keep it on ui so a
+# plaque extract does not fall through scripts/ui/** → menu past 5 min.
+[[rules]]
+match = "scripts/ui/top_bar.gd"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/back_request.gd"
 domain = "ui"

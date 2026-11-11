@@ -74,7 +74,7 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_AID, 1, "1000")
 	assert_eq(economy.treasury, before - 1000)
-	assert_eq(_screen.hud._treasury_value, economy.treasury)
+	assert_eq(_screen.hud.stats._treasury_value, economy.treasury)
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 55.0)
 
 

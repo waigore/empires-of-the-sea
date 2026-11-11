@@ -542,23 +542,23 @@ func test_starting_a_study_moves_the_per_turn_figure() -> void:
 	var open: Array[String] = economy.research.researchable()
 	assert_gt(open.size(), 0, "the opening college has an advance to start")
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income())
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.projected_income())
 	)
 	_screen.economy._on_research_assign(open[0])
 	var gold: int = ResearchFunding.gold(ResearchFunding.DEFAULT)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.projected_income()),
 		"the chip follows the study it just funded",
 	)
 	assert_eq(_screen.economy.projected_income(), -gold, "the slot pays its preset")
 	_screen.economy._on_research_funding(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.projected_income()),
 		"a preset change moves the figure too",
 	)
 	_screen.economy._on_research_cancel(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.projected_income()),
 		"abandoning the study gives the gold back",
 	)
 
