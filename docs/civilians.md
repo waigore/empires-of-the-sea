@@ -46,7 +46,7 @@ tech.
 
 ## Deferred (REQ-P2-02)
 
-Rival GP–Tribe contact / deeds (DR-20261111-05). See [`deferred.md`](deferred.md).
+Rival hospital planning (DR-20261111-12). See [`deferred.md`](deferred.md).
 
 ## Architecture
 

@@ -1,14 +1,15 @@
 # Deferred features (ranked)
 
-Stale “Deferred” lines across domain docs were audited against code (2026-11-11).
-This page is the decision list for what to ship next (`REQ-P2-02`).
+Audited against code, wiki and Design Records (2026-11-11, pass after
+#276 hospitals / #277 rival Tribe contact). Decision list for what to ship
+next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
-| Home-fleet merge | `NavalMovement.merge_into_home`, [`fleets.md`](fleets.md) |
+| Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home`, [`fleets.md`](fleets.md) |
 | Forts + rival/AI builders | [`forts.md`](forts.md), `AiCivilianPlanner` |
 | Rival civilian AI | `AiCivilianPlanner` / `MapPlayCivilianAi` |
 | Minor/Tribe town offers + overseas town bonus | `MinorMarket`, `TownIndustry`, [`economy.md`](economy.md) |
@@ -17,8 +18,8 @@ This page is the decision list for what to ship next (`REQ-P2-02`).
 | Counter-spy + court reports | [`espionage.md`](espionage.md) |
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
 | Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
-| Rival GP–Tribe first contact | `TribeContact` at the turn's close, DR-20261111-14 |
-| Hospitals / depot rest | `HospitalRules` (DR-20261111-12), [`armies.md`](armies.md); rivals raise none |
+| Rival GP–Tribe first contact (+ deeds via overtures) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
+| Hospitals / depot rest (owner) | `HospitalRules` (DR-20261111-12), [`armies.md`](armies.md) |
 | Raid hull losses | **Out of scope** by DR-20261110-13 (cargo only) |
 
 ## Remaining gaps (impact order)
@@ -33,6 +34,7 @@ This page is the decision list for what to ship next (`REQ-P2-02`).
 | 6 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
 | — | Era-change dialogue | Blocked | No era model (DR-20261111-08) |
 | — | Raid civilian hull model | Design-deferred | DR-20261110-13 |
+| — | Hospital upkeep / field hospitals / heal-at-0 | Design polish on DR-20261111-12 | Not shippable without a DR |
 
 ## Next pick
 
