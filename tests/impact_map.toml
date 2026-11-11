@@ -619,6 +619,12 @@ domain = "campaign"
 match = "tests/playtest_naval.gd*"
 domain = "fleet"
 
+# The overseas invasion drive: marking, the ready turn, the landing battle and
+# the site's three deaths all read fleet rules and the fleet dossier.
+[[rules]]
+match = "tests/playtest_beachhead.gd*"
+domain = "fleet"
+
 # The save/load drive walks slots, endings and the slot browser, so it travels
 # with the save suites.
 [[rules]]
