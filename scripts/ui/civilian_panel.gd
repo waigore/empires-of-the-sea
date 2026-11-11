@@ -152,17 +152,21 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	_add_row("Held by", FactionCatalog.name_of(model.owner_at(unit.tile.x, unit.tile.y)))
 	if model.is_purchased_tile(unit.tile):
 		_add_row("Deed", "Purchased land")
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
+	var resource: int = ProspectRules.known_resource(
+		unit.owner, model, unit.tile, works
+	)
 	if resource >= 0:
 		_add_row("Resource", String(MapGenerator.resource_info(resource).get("name", "—")))
+	elif works.is_prospected(unit.owner, model, unit.tile):
+		_add_row("Resource", "None found")
+	elif ProspectRules.is_prospectable_terrain(model.terrain_at(unit.tile.x, unit.tile.y)):
+		_add_row("Resource", "Unsurveyed")
 	else:
-		_add_row("Resource", "None surveyed")
+		_add_row("Resource", "None")
 	var development: PackedStringArray = PackedStringArray()
 	var level: int = works.improvement_at(model, unit.tile)
-	if level > 0:
-		development.append(
-			ImprovementCatalog.display_name(model.resource_at(unit.tile.x, unit.tile.y), level)
-		)
+	if level > 0 and resource >= 0:
+		development.append(ImprovementCatalog.display_name(resource, level))
 	if works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_RAIL:
 		development.append("Railroad")
 	elif works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_IMPROVED_ROAD:

@@ -219,16 +219,20 @@ func test_anchor_falls_back_to_a_charted_resource_tile() -> void:
 	assert_true(false, "fixture needs a province whose centre is not a resource tile")
 
 
-func test_prospect_gate_marks_an_owned_mineral() -> void:
+func test_prospect_gate_hides_an_owned_mineral_until_surveyed() -> void:
 	var model: MapModel = Fixture.region()
 	var works := LandWorks.new()
 	var owner: int = FactionCatalog.PLAYER_FACTION
 	var tile: Vector2i = _owned_mineral_tile(model, works)
 	if tile.x < 0:
 		return
+	var hidden: Dictionary = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
+	assert_true(_row(_entry(hidden, model.province_at(tile.x, tile.y)), tile).is_empty())
+	works.set_prospected(owner, model, tile)
 	var survey: Dictionary = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
 	var row: Dictionary = _row(_entry(survey, model.province_at(tile.x, tile.y)), tile)
-	assert_eq(String(row["status"]), "unprospected")
+	assert_false(row.is_empty())
+	assert_true(bool(row["prospected"]))
 	assert_true(bool(row["needs_prospecting"]))
 
 

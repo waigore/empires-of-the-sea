@@ -175,16 +175,11 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	probe.queue_free()
 
 
-func test_an_unprospected_estate_draws_its_prospect_ring() -> void:
+func test_an_unprospected_mineral_stays_off_the_survey() -> void:
+	# DR-20261111-26: minerals have no icon until that court Prospects.
 	MapPlayInput.set_lens(_screen.play, true)
 	var lens: ResourceLens = _screen.play.lens
-	var found: Array = _owned_unprospected(lens.survey)
-	if found.is_empty():
-		return
-	lens._reveal = 1.0
-	lens.queue_redraw()
-	await get_tree().process_frame
-	assert_eq(String((found[1] as Dictionary)["status"]), "unprospected")
+	assert_true(_owned_unprospected(lens.survey).is_empty())
 
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.

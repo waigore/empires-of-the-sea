@@ -126,6 +126,9 @@ static func resolve_work(play: PlaySession) -> void:
 			play.model.province_name(province) if province >= 0 else "the wilds"
 		)
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
+		if String(report["action"]) == "prospect":
+			var find: String = ProspectRules.find_label(play.model, report["tile"])
+			work_name = "prospect — %s" % find
 		play.hud.toast("%s%s in %s: %s" % [
 			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
 		])

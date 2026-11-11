@@ -197,17 +197,33 @@ func test_prospecting_takes_one_turn_and_records_the_tile() -> void:
 	assert_false(_works.is_prospected(1, _model, Fixture.IRON_TILE))
 
 
-func test_only_mineral_tiles_can_be_prospected() -> void:
+func test_only_prospectable_terrain_can_be_prospected() -> void:
+	# Forest timber is terrain-known, not a mineral survey target (DR-20261111-26).
 	var explorer := _add("explorer", Fixture.TIMBER_TILE)
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_false(bool(check["ok"]))
-	assert_true(String(check["reason"]).contains("iron, coal, gold and tin"))
+	assert_true(String(check["reason"]).contains("swamp, hills, mountain and desert"))
+
+
+func test_empty_hills_may_be_prospected_and_find_nothing() -> void:
+	var tile := Vector2i(2, 2)
+	_model.terrain[_model.index_of(tile.x, tile.y)] = MapModel.Terrain.HILLS
+	_model.resource[_model.index_of(tile.x, tile.y)] = MapModel.NO_ID
+	var explorer := _add("explorer", tile)
+	var check: Dictionary = _validate(explorer, "prospect")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_true(_works.is_prospected(0, _model, tile))
+	assert_eq(ProspectRules.known_resource(0, _model, tile, _works), MapModel.NO_ID)
+	assert_eq(ProspectRules.find_label(_model, tile), "no mineral")
 
 
 func test_tin_tiles_can_be_prospected() -> void:
 	# Wiki: fog-and-exploration § Prospect-Required Resources lists tin with the
 	# other prospected minerals; refusals left it unopenable and unminable.
 	var tile := Vector2i(2, 2)
+	_model.terrain[_model.index_of(tile.x, tile.y)] = MapModel.Terrain.SWAMP
 	_model.resource[_model.index_of(tile.x, tile.y)] = 8
 	var explorer := _add("explorer", tile)
 	var check: Dictionary = _validate(explorer, "prospect")
@@ -215,6 +231,8 @@ func test_tin_tiles_can_be_prospected() -> void:
 	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
 	CivilianWork.resolve_turn(_model, _units, _works, _view)
 	assert_true(_works.is_prospected(0, _model, tile))
+	assert_eq(ProspectRules.known_resource(0, _model, tile, _works), 8)
+	assert_eq(ProspectRules.known_resource(1, _model, tile, _works), MapModel.NO_ID)
 
 
 func test_exploring_a_minor_province_needs_a_consulate() -> void:
@@ -247,6 +265,68 @@ func test_a_prospected_tile_cannot_be_prospected_again() -> void:
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_false(bool(check["ok"]))
 	assert_true(String(check["reason"]).contains("already been prospected"))
+
+
+func test_prospect_rules_hide_minerals_and_refuse_surface_tiles() -> void:
+	# Pure DR-20261111-26 predicates shared by work, survey, UI and AI.
+	assert_eq(
+		ProspectRules.known_resource(0, null, Fixture.IRON_TILE, _works), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Vector2i(99, 99), _works), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.TIMBER_TILE, null), 0
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, null), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, _works), MapModel.NO_ID
+	)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	assert_eq(ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, _works), 1)
+	assert_eq(ProspectRules.find_label(_model, Fixture.IRON_TILE), "iron")
+	var wool := Vector2i(2, 1)
+	_model.terrain[_model.index_of(wool.x, wool.y)] = MapModel.Terrain.HILLS
+	_model.resource[_model.index_of(wool.x, wool.y)] = 5
+	assert_true(
+		ProspectRules.tile_refusal(_model, 0, wool, _works).contains("surface resource")
+	)
+
+
+func test_civilian_panel_hides_unprospected_minerals() -> void:
+	var explorer := Fixture.unit("explorer", Fixture.IRON_TILE)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "Unsurveyed")
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "Iron")
+	var empty := Vector2i(2, 2)
+	_model.terrain[_model.index_of(empty.x, empty.y)] = MapModel.Terrain.HILLS
+	_model.resource[_model.index_of(empty.x, empty.y)] = MapModel.NO_ID
+	explorer.tile = empty
+	_works.set_prospected(0, _model, empty)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "None found")
+	explorer.tile = Fixture.BARE_TILE
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "None")
+	panel.free()
+
+
+func _panel_resource(panel: CivilianPanel) -> String:
+	var children: Array[Node] = panel._detail.get_children()
+	var index: int = 0
+	while index + 1 < children.size():
+		var key: Label = children[index] as Label
+		var value: Label = children[index + 1] as Label
+		if key != null and key.text == "Resource":
+			return value.text if value != null else ""
+		index += 2
+	return ""
 
 
 func test_only_charted_land_can_be_prospected() -> void:
@@ -651,7 +731,7 @@ func test_options_explain_each_work_order() -> void:
 	for option: Dictionary in options:
 		if String(option["action"]) == "prospect":
 			assert_false(bool(option["ok"]))
-			assert_true(String(option["reason"]).contains("iron, coal, gold and tin"))
+			assert_true(String(option["reason"]).contains("swamp, hills, mountain and desert"))
 		else:
 			assert_eq(String(option["label"]), "Explore province")
 			assert_eq(String(option["cost_text"]), "Free")
@@ -800,8 +880,9 @@ func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	var snap: Dictionary = ImprovementLedger.snapshot(
 		model, works, [], {}, 0, Fixture.BARE_TILE
 	)
+	# Home timber shows; home iron stays hidden until Prospect (DR-20261111-26).
 	assert_eq(
-		int(snap["counts"]["estates"]), 3, "the enclave joins the realm's two estates"
+		int(snap["counts"]["estates"]), 2, "the enclave joins the realm's known estates"
 	)
 	assert_eq(String(_row_at(snap, tile)["province_name"]), "Coro")
 
@@ -1009,8 +1090,9 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 		_model, _works, _units, _stock, 0, Fixture.BARE_TILE, {"timber": 4}
 	)
 	var counts: Dictionary = snap["counts"]
-	assert_eq(int(counts["estates"]), 2)
-	assert_eq(int(counts["improved"]), 2)
+	# Unprospected iron stays hidden on the estates sheet (DR-20261111-26).
+	assert_eq(int(counts["estates"]), 1)
+	assert_eq(int(counts["improved"]), 1)
 	assert_eq(int(counts["producing"]), 1)
 	assert_eq(int(counts["idle_builders"]), 1)
 	assert_eq(snap["totals"], {"timber": 1})
@@ -1020,10 +1102,15 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	assert_true(bool(timber["can_build"]))
 	assert_eq(int(timber["output"]), 1)
 	assert_true(String(timber["status_text"]).contains("transport cap 1"))
-	var iron: Dictionary = _row_at(snap, Fixture.IRON_TILE)
-	assert_eq(String(iron["status"]), "unprospected")
-	assert_false(bool(iron["can_build"]))
-	assert_true(String(iron["build_reason"]).contains("prospect"))
+	assert_true(_row_at(snap, Fixture.IRON_TILE).is_empty())
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	var after: Dictionary = ImprovementLedger.snapshot(
+		_model, _works, _units, _stock, 0, Fixture.BARE_TILE, {"timber": 4}
+	)
+	var iron: Dictionary = _row_at(after, Fixture.IRON_TILE)
+	assert_false(iron.is_empty(), "prospected iron rejoins the estates sheet")
+	assert_ne(String(iron["status"]), "unprospected")
+	assert_true(bool(iron["prospected"]))
 
 
 func test_upgrades_above_the_tech_cap_are_refused() -> void:

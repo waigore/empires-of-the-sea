@@ -14,11 +14,11 @@ province, Great Powers at level 4 and four L1 plains grain farms at the seat.
 
 ## Implemented
 
-- **Named improvements** follow the resource: Timber → Lumber camp,
-  Iron/Coal/Gold/Tin → Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
-- **Levels 1–4.** A Builder raises a tile one level for 1/4/8/16 lumber + cast
-  iron over target-level turns. Needs a crowned resource; minerals need
-  prospecting; orders above a cap are refused.
+- **Named improvements** follow the resource: Timber → Lumber camp, minerals →
+  Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
+- **Levels 1–4.** Builder raises one level for 1/4/8/16 lumber + cast iron over
+  target-level turns. Needs a crowned resource; minerals need Prospect first
+  (DR-20261111-26); above-cap orders refused.
 - **Terrain caps:** scrub caps timber at 1; hardwood follows tech.
 - **Path transport:** bottleneck of the best road/rail/port route to the
   capital; beside-network tiles take it; several routes use the highest.
@@ -36,9 +36,9 @@ province, Great Powers at level 4 and four L1 plains grain farms at the seat.
   `min(improvement, tech cap, terrain cap, path transport, town cap)`. Only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
 - **Survey lens** (`LENS`, **L**): slip per charted province; seals show each
-  resource tile (ring = status, pips = level), worked badge, bar, link row.
-  Draws built roads/railroads — solid when linked, dashed when cut. Unknown
-  ground is never surveyed.
+  known resource tile (minerals only after Prospect), worked badge, bar, link
+  row. Draws built roads/railroads — solid when linked, dashed when cut.
+  Unknown ground is never surveyed.
 - **Crown-road lens** (`R`): gold where the crown road reaches, amber where
   only the province town does, crimson where nothing does; a cut province shows
   the road tiles still to lay, their count and the route.
