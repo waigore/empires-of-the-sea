@@ -726,6 +726,12 @@ domain = "fleet"
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
+# The player-side home-fleet merge (dossier row, report, load repair) is fleet
+# work: keep it off the broad scripts/map/** set so tier 1 stays inside 5 min.
+[[rules]]
+match = "scripts/map/map_play_home_merge.gd*"
+domain = "fleet"
+
 [[rules]]
 match = "scripts/map/map_play_observer.gd"
 domain = "ai"
@@ -1119,6 +1125,16 @@ domain = "world"
 [[rules]]
 match = "scripts/rules/*_catalog.gd"
 domain = "misc"
+
+# Home-fleet merge rules belong with the fleet suites, not the rules catch-all.
+[[rules]]
+match = "scripts/rules/fleet_home_merge.gd*"
+domain = "fleet"
+
+# Its own suite rides with the fleet set too.
+[[rules]]
+match = "tests/test_home_merge.gd*"
+domain = "fleet"
 
 [[rules]]
 match = "scripts/rules/**"
