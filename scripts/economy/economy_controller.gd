@@ -277,7 +277,14 @@ func _on_trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 		result = MarketOrders.submit(
 			market,
 			player_faction, commodity, MarketOrder.SIDE_OFFER, quantity,
-			{"stock": economy.quantity(commodity)}, 2
+			{
+				"stock": economy.quantity(commodity),
+				# The assigned runs eat their inputs before the auction clears
+				# (wiki: world-market § Trade orders — offer cap; the AI planners
+				# reserve the same tons).
+				"reserved": ProductionRecipes.reserved_inputs(economy.assignments()),
+			},
+			2
 		)
 	if _hud != null:
 		if bool(result.get("ok", false)):

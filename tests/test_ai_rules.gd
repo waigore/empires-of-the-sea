@@ -880,6 +880,33 @@ func test_map_phase_moors_a_homecoming_squadron_in_the_home_fleet() -> void:
 	layer.free()
 
 
+## A peaceful squadron two zones from its harbour takes one leg home and the
+## trace names it — with no battle threat to name (wiki: ships-and-naval § Home
+## Fleet; DR-20261110-30).
+func test_map_phase_sails_a_peaceful_squadron_one_leg_home() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var away: FleetState = _squadron(0, 0, 1, "fluyte")
+	var home: FleetState = FleetState.in_port(
+		1, 0, 0, ["h1"] as Array[String], {"h1": "galleon"}
+	)
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [away, home]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _peace_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one homeward leg")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(int(trace[0]["zone"]), 0, "it enters the zone off its own harbour")
+	assert_eq(int(trace[0]["threat"]), 0, "a homeward leg threatens nobody")
+	assert_eq(away.sea_zone, 0)
+	layer.free()
+
+
 func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
@@ -1375,6 +1402,60 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 		"rival training respects civilian.max_civilians"
 	)
 	layer.free()
+
+
+## The civilian pass owns the rival roster: one seed per court per region, and
+## none where the court holds no capital (a colony or a foreign shore).
+func test_civilian_pass_seeds_once_and_only_at_a_capital() -> void:
+	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
+	var model: MapModel = world.region(0)
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 1, 0, [], false)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.civilian_layer = layer
+
+	MapPlayCivilianAi.seed(play, 1)
+	var seeded: int = layer.unit_count_all(1)
+	assert_eq(seeded, MapPlayCivilianAi.RIVAL_STARTING_CIVILIANS.size())
+	MapPlayCivilianAi.seed(play, 1)
+	assert_eq(layer.unit_count_all(1), seeded, "a second seed adds nothing")
+
+	var landless: WorldMap = AiFixture.land_world([0, 1], {0: true})
+	play.world = landless
+	play.model = landless.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	MapPlayCivilianAi.seed(play, 1)
+	assert_eq(play.civilian_layer.unit_count_all(1), 0, "no capital, no muster")
+	play.civilian_layer.free()
+	layer.free()
+
+
+## Guard rails on the civilian pass helpers: no tile without a model or
+## province, no unit for a missing id, and training refuses an empty order.
+func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
+	assert_eq(
+		MapPlayCivilianAi._mustering_tile(null, -1, []),
+		CivilianState.NO_TILE
+	)
+	assert_eq(MapPlayCivilianAi._unit_by_id([], 99), null)
+	var play := PlaySession.new()
+	play.world = AiFixture.land_world([0], {0: true})
+	play.model = play.world.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	economy.treasury = 100
+	assert_true(
+		MapPlayCivilianAi._train(
+			play, play.model.region_id, [], 1, economy, {}, {"capital_province": 0}
+		).is_empty(),
+		"training with no type_id pays nothing"
+	)
+	play.civilian_layer.free()
 
 
 ## A rival's colonial estate ships home on the same holds as the player's: no

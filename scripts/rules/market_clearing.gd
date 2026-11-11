@@ -39,6 +39,11 @@ static func clear(
 	orders_with_world.append_array(_world_orders(orders))
 	var matched: Dictionary = MarketMatcher.match(orders_with_world, matcher_context)
 	var deals: Array[Dictionary] = matched["deals"] as Array[Dictionary]
+	# The matcher's MarketActivityNotes (a bid cut by cargo or purse, an offer the
+	# seller no longer covers) belong to the Deal Book too (wiki: world-market
+	# § Treasury budget for bids — note attribution; REQ-P5-05).
+	for note: Variant in matched["notes"]:
+		notes.append(note as Dictionary)
 	var settled: Dictionary = _settle(market, economies, deals, context, notes)
 	var credits: Dictionary = _first_right(world, economies, deals, context)
 	var changed: Dictionary = market.advance_prices()

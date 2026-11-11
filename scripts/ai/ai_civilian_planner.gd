@@ -5,10 +5,11 @@ extends RefCounted
 ## One legal order per idle civilian: Builders raise the estate the stores are
 ## shortest of or finish a town that pays a manufacturing bonus, Engineers extend
 ## the transport network and, at war, raise a fort, Explorers prospect their
-## minerals, Rail Builders upgrade roads, and Spies observe rival Great Powers or
-## keep a counter-espionage screen. Every candidate is checked by CivilianWork
-## before it is emitted, so the planner cannot invent an outcome or spend a
-## commodity twice (REQ-P2-03, REQ-P3-03).
+## minerals, Rail Builders upgrade roads, Merchants buy Minor and Tribe land the
+## court can close, and Spies observe rival Great Powers or keep a
+## counter-espionage screen. Every candidate is checked by CivilianWork before it
+## is emitted, so the planner cannot invent an outcome or spend a commodity twice
+## (REQ-P2-03, REQ-P3-03).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 const KIND_WORK: String = "work"
@@ -38,6 +39,10 @@ static func plan(
 	var town_raw: Dictionary = AiBuilderWork.town_raw(
 		model, config.faction, works, tech_caps, tech_unlocked, context
 	)
+	var train_context: Dictionary = context.duplicate()
+	train_context["merchant_targets"] = AiMerchantWork.buyable_tiles(
+		model, config.faction, works, context
+	).size()
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
@@ -66,13 +71,14 @@ static func plan(
 		"orders": orders,
 		"moves": moves,
 		"candidates": candidates,
-		"training": training_order(config, units, context),
+		"training": training_order(config, units, train_context),
 	}
 
 
 ## Next civilian to train: builders first, then one engineer and one explorer;
-## at war a court wants a spy screen before another explorer (wiki:
-## civilian-build-planner).
+## at war a court wants a spy screen before another explorer, and a court with a
+## Minor or Tribe deed it could sign trains a merchant (wiki:
+## civilian-build-planner, civilian-units § Merchant).
 static func training_order(
 	config: AiConfig, units: Array, context: Dictionary
 ) -> Dictionary:
@@ -81,7 +87,14 @@ static func training_order(
 	var own: Array[CivilianState] = _owned_units(units, config.faction)
 	if own.size() >= config.parameter("civilian.max_civilians"):
 		return {}
-	var type_id: String = _preferred_type(own, bool(context.get("at_war", false)))
+	var type_id: String = _preferred_type(
+		own,
+		bool(context.get("at_war", false)),
+		int(context.get("merchant_targets", 0)),
+		context.get("tech_unlocked", {}),
+		int(context.get("treasury", 0)),
+		int(context.get("paper", 0))
+	)
 	if not CivilianCatalog.is_implemented(type_id):
 		return {}
 	var tech: Dictionary = context.get("tech_unlocked", {})
@@ -128,6 +141,11 @@ static func _best_work(
 			return AiSpyPlanner.best_work(
 				config, model, unit, units, works, stockpile, tech_caps,
 				tech_unlocked, context, screened
+			)
+		"merchant":
+			return AiMerchantWork.best_candidate(
+				config, model, unit, units, works, stockpile, tech_caps,
+				tech_unlocked, context, reserved
 			)
 	return {}
 
@@ -265,14 +283,17 @@ static func _fort_candidate(
 
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
-## unprospected mineral on its own land or the nearest unexplored chart; an idle
-## Spy is handled by AiSpyPlanner.
+## unprospected mineral on its own land or the nearest unexplored chart; a
+## Merchant walks toward the nearest deed it could sign; an idle Spy is handled
+## by AiSpyPlanner.
 static func _best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
 	context: Dictionary = {}, screened: bool = false
 ) -> Dictionary:
 	if unit.type_id == "spy":
 		return AiSpyPlanner.best_move(model, unit, units, context, screened)
+	if unit.type_id == "merchant":
+		return AiMerchantWork.best_move(model, unit, works, context)
 	if unit.type_id != "explorer":
 		return {}
 	return AiExplorerWork.best_move(model, unit, works, context)
@@ -290,13 +311,22 @@ static func _owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
+## A court wants two builders, then an engineer, a spy screen at war, an
+## explorer, a counter-spy, and — once Merchant Companies is researched and a
+## Minor or Tribe deed it can close is on offer — a merchant.
 static func _preferred_type(
-	roster: Array[CivilianState], at_war: bool = false
+	roster: Array[CivilianState],
+	at_war: bool = false,
+	merchant_targets: int = 0,
+	tech_unlocked: Dictionary = {},
+	treasury: int = 0,
+	paper: int = 0
 ) -> String:
 	var builders: int = 0
 	var engineers: int = 0
 	var explorers: int = 0
 	var spies: int = 0
+	var merchants: int = 0
 	for unit: CivilianState in roster:
 		if unit.type_id == "builder":
 			builders += 1
@@ -306,6 +336,8 @@ static func _preferred_type(
 			explorers += 1
 		elif unit.type_id == "spy":
 			spies += 1
+		elif unit.type_id == "merchant":
+			merchants += 1
 	if builders < 2:
 		return "builder"
 	if engineers < 1:
@@ -316,6 +348,11 @@ static func _preferred_type(
 		return "explorer"
 	if spies < 1:
 		return "spy"
+	if merchants < 1 and merchant_targets > 0 and (
+		CivilianCatalog.is_unlocked("merchant", tech_unlocked)
+		and CivilianCatalog.can_afford("merchant", treasury, paper)
+	):
+		return "merchant"
 	return "builder"
 
 

@@ -88,8 +88,13 @@ static func _validate_offer(
 ) -> Dictionary:
 	var book: MarketBook = market.book
 	var stock: int = maxi(int(context.get("stock", 0)), 0)
+	# The assigned production runs eat their inputs before the auction clears, so
+	# those tons are never sellable (wiki: world-market § Trade orders — the offer
+	# cap is the post-production stockpile minus industry reservations).
+	var reserved: Dictionary = context.get("reserved", {}) as Dictionary
+	var claimed: int = maxi(int(reserved.get(order.commodity, 0)), 0)
 	var promised: int = book.pending_sell_units(order.faction, order.commodity)
-	if order.quantity > maxi(stock - promised, 0):
+	if order.quantity > maxi(stock - claimed - promised, 0):
 		return _no("Not enough stock to offer that many.", "trade_order_stock_insufficient")
 	return _yes()
 
