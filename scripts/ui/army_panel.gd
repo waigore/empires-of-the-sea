@@ -172,6 +172,12 @@ func refresh(
 	var chevrons: int = RegimentCondition.chevrons(own_side)
 	if chevrons > 0:
 		_strength.text += " · %d chevrons" % chevrons
+	if not army.is_embarked():
+		var hospital: int = HospitalRules.level_at(model, army.province)
+		if hospital > 0:
+			_strength.text += " · rest %d%%" % roundi(
+				HospitalRules.rest_share(hospital) * 100.0
+			)
 	_command.text = command
 	_command.visible = not command.is_empty()
 	_composition.text = army.composition_text()

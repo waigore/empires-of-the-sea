@@ -94,11 +94,13 @@ static func wear(side: Array[ArmyState], share: float, limit: int = 0) -> int:
 	return worn
 
 
-## Turn-start depots: a quarter of each regiment's pool, never past full.
-static func rest(army: ArmyState) -> int:
+## Turn-start depots: `share` of each regiment's pool (a quarter in the field,
+## more where a hospital stands), never past full.
+static func rest(army: ArmyState, share: float = REST_SHARE) -> int:
 	var healed: int = 0
 	if army == null:
 		return healed
+	var rate: float = maxf(share, 0.0)
 	for regiment_id: String in army.regiments:
 		var data: Dictionary = army.condition_of(regiment_id)
 		var top: int = int(data["max"])
@@ -106,7 +108,7 @@ static func rest(army: ArmyState) -> int:
 		if hp >= top:
 			continue
 		army.regiment_health[regiment_id] = mini(
-			top, hp + ceili(float(top) * REST_SHARE)
+			top, hp + ceili(float(top) * rate)
 		)
 		healed += 1
 	return healed

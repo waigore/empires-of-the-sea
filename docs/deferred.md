@@ -18,7 +18,7 @@ This page is the decision list for what to ship next (`REQ-P2-02`).
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
 | Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
 | Rival GP–Tribe first contact | `TribeContact` at the turn's close, DR-20261111-14 |
-| Hospitals / depot rest | `HospitalRules` (DR-20261111-12); rivals raise none |
+| Hospitals / depot rest | `HospitalRules` (DR-20261111-12), [`armies.md`](armies.md); rivals raise none |
 | Raid hull losses | **Out of scope** by DR-20261110-13 (cargo only) |
 
 ## Remaining gaps (impact order)

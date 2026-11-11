@@ -25,6 +25,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.land_turn]
@@ -37,6 +38,7 @@ suites = [
   "test_difficulty.gd",
   "test_campaign_defeat.gd",
   "test_capital_loss.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.audio]
@@ -49,6 +51,7 @@ suites = [
 [domains.battle]
 suites = [
   "test_battle_rules.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.campaign]
@@ -71,6 +74,7 @@ suites = [
   "test_civilian_voyage.gd",
   "test_espionage.gd",
   "test_map_screen_crown_orders.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.diplomacy]
@@ -160,6 +164,19 @@ suites = [
 [domains.fort]
 suites = [
   "test_fort_rules.gd",
+  "test_hospital_rules.gd",
+]
+
+# Hospitals: the province building, its rest tempo and its battle triage
+# (DR-20261111-12). The suites that read the same numbers travel together.
+[domains.hospital]
+suites = [
+  "test_hospital_rules.gd",
+  "test_battle_rules.gd",
+  "test_quick_battle_rules.gd",
+  "test_civilian_field_rules.gd",
+  "test_fort_rules.gd",
+  "test_save_world.gd",
 ]
 
 # The fleet AI's sight: the rival hunts and blockades only where its own chart
@@ -310,6 +327,7 @@ suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
   "test_save_world.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.ui]
@@ -317,6 +335,7 @@ suites = [
   "test_panel_dock.gd",
   "test_province_panel.gd",
   "test_mobile_layout.gd",
+  "test_hospital_rules.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -327,6 +346,7 @@ suites = [
   "test_quick_battle_rules.gd",
   "test_siege_depth.gd",
   "test_battle_sim.gd",
+  "test_hospital_rules.gd",
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
@@ -393,9 +413,12 @@ domain = "economy"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "economy"
 
+# The turn hook's hospital rest pass reads the world; keep this one-line hook
+# on the hospital slice so it does not pull the economy/market set. Broader
+# turn-close changes should move this rule back to economy/civilian.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
-domain = "economy"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/ai/ai_market_planner.gd"
@@ -620,6 +643,12 @@ domain = "economy"
 [[rules]]
 match = "scripts/save/**"
 domain = "save"
+
+# The province record is read by every domain; a field added here (hospital
+# level) travels with the hospital suites, not the whole map set.
+[[rules]]
+match = "scripts/world/province_state.gd*"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/world/**"
@@ -918,6 +947,10 @@ domain = "fort"
 [[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
+
+[[rules]]
+match = "scripts/rules/hospital_*.gd*"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/rules/economy_*.gd"
@@ -1331,6 +1364,12 @@ domain = "chart_bake"
 match = "scripts/ui/ui_theme.gd.uid"
 domain = "chart_bake"
 
+# The province fact grid is a dossier row kit; keep it on ui so a new row does
+# not pull the menu/setup plates.
+[[rules]]
+match = "scripts/ui/province_facts_grid.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
@@ -1554,6 +1593,10 @@ domain = "research"
 [[rules]]
 match = "tests/test_save_*.gd"
 domain = "save"
+
+[[rules]]
+match = "tests/test_hospital_*.gd*"
+domain = "hospital"
 
 [[rules]]
 match = "tests/test_panel_dock.gd"
