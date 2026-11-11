@@ -1,8 +1,8 @@
 # Deferred features (ranked)
 
 Audited against code, wiki and Design Records (2026-11-11, pass after
-#280–#286: rival hospitals, regiment titles, raid hulls). Decision list for
-what to ship next (`REQ-P2-02`).
+#287–#294: rival-on-rival raids, agenda beats, research goal). Decision list
+for what to ship next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
@@ -43,3 +43,11 @@ what to ship next (`REQ-P2-02`).
 advisor toggles sit outside the difficulty layer); rank 2 needs wiki design
 first. Rival wars between crowns now pinch cargo and pay prize like the crown's
 raids do, so the ranked list starts at the difficulty layer.
+
+## Out of scope / blocked footnotes
+
+- Alternative victory types (Economic, Scientific, Peaceful, Score) —
+  [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) Out of
+  scope; military / defeat / calendar endings are live.
+- Yarn runtime and localization — dialogue catalogue stays GDScript
+  ([`dialogue.md`](dialogue.md)).

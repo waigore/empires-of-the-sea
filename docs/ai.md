@@ -64,12 +64,11 @@ Rivals act through a deterministic stack
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`,
-  [`intel-dossier.md`](intel-dossier.md)).
+- **Court dossier** (`IntelDossier`, [`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
-Agenda beats; difficulty extras. Ranked:
+Difficulty extras; agenda beats live (DR-20261111-19):
 [`deferred.md`](deferred.md).
 
 ## Architecture
