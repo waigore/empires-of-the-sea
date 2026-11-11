@@ -18,8 +18,8 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   `round(desire / 25)`. At war, desire < 50 offers peace. A deed in a
   Minor/Tribe's land is a stake (`DeedProtection`) that resists a declaration.
 - **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
-  overtures, alliance, trade pact, boycott, subsidy, aid. Friendly acts cost
-  desire; retaliation standing (DR-20261110-15).
+  overtures, alliance, trade pact, boycott (impose/lift), subsidy, aid.
+  Friendly acts cost desire; retaliation standing (DR-20261110-15).
 - **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
   consent asks queue for the human; declarations first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
@@ -65,8 +65,8 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 
 ## Deferred (REQ-P2-02)
 
-- Rival boycotts.
-- Agenda-sourced dialogue beats.
+Rival GP–Tribe first contact / colonial claims (DR-20261111-05). Agenda
+dialogue beats. Ranked list: [`deferred.md`](deferred.md).
 
 ## Architecture
 

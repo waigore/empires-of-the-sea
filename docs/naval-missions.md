@@ -75,7 +75,7 @@ cargo**: it leaves the rival's stockpile and lands in the crown's, no free hold
 needed and never booked as the crown's own import. Each direction rolls on its
 own salt. The dossier prices a standing blockade before the order; each despatch
 names the tonnage, the zone and "no hull lost", and the worked zone rings on the
-chart. Deferred: civilian hull losses.
+chart.
 
 ## Architecture
 

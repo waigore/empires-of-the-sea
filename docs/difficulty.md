@@ -53,8 +53,8 @@ AI's decision algorithm (wiki: ai-personalities).
 ## Not in this slice
 
 Naval battles, AI income per turn, victory thresholds and tutorial/advisor
-toggles stay outside the layer; the ruleset-config page names them as future
-layer keys. Difficulty is fixed at creation: there is no in-game switch.
+toggles stay outside the layer (ranked in [`deferred.md`](deferred.md)).
+Difficulty is fixed at creation: there is no in-game switch.
 
 ## Tests
 
