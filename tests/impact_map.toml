@@ -75,6 +75,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_beats.gd",
   "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
   "test_diplomacy_lens.gd",
@@ -726,6 +727,12 @@ domain = "battle"
 
 [[rules]]
 match = "scripts/map/map_play_diplomacy.gd"
+domain = "diplomacy"
+
+# The crown's own turn speaks: the beat is recorded for the court panel, so an
+# edit here runs the dialogue suites rather than the whole map set.
+[[rules]]
+match = "scripts/map/map_play_court_voice.gd*"
 domain = "diplomacy"
 
 # Province select opens the dossier with a crown link; keep it on the ui

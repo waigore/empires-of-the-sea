@@ -206,6 +206,10 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		crown_report = play.economy.resolve_turn()
 		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
+		# The crown's own turn speaks: a finished study and a host at the seat
+		# are answered by the courts before the panel is refreshed below
+		# (wiki: dialogue-and-mood § Design intent; DR-20261111-08).
+		MapPlayCourtVoice.record_turn(play, crown_report)
 	# Every court has staged its orders by now: clear the shared book once.
 	MapPlayMarket.run(play, economy_report)
 	if not play.observer_mode:

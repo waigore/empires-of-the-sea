@@ -22,13 +22,15 @@ const VOICED: Dictionary = {
 	"overtureEstablished": {"stage": "consulate"},
 	"overtureRejected": {"stage": "consulate"},
 	"firstContact": {},
+	"colonyFormed": {"stage": "join_empire"},
+	"techStudied": {"tech": "printing_press"},
+	"capitalThreatened": {"province": 1},
 }
 
 ## Acts that are bookkeeping, not a court speaking.
 const SILENT: Array[String] = [
 	"overturesCleared",
 	"joinEmpire",
-	"colonyFormed",
 	"colonyReleased",
 	"subsidySet",
 	"subsidyCancelled",
