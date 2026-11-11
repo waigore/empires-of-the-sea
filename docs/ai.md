@@ -41,10 +41,10 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   (DR-20261111-06).
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  per idle civilian — builders improve or finish a town, engineers
+  per idle civilian — builders improve or finish towns, engineers
   connect then road/port/fort, explorers prospect, rail builders upgrade roads;
-  merchants buy a Minor/Tribe deed when embassy, peace, mineral and price allow
-  (`civilian.merchant_weight`).
+  merchants buy a Minor/Tribe deed when embassy, peace, mineral, price allow
+  (`civilian.merchant_weight`). Builders read its caps (DR-20261111-10).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's

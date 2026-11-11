@@ -178,6 +178,8 @@ static func embark(play: PlaySession, army: ArmyState) -> void:
 		play.hud.toast(
 			"The army boards the fleet at %s" % play.model.province_name(fleet.province)
 		)
+		# The fleet now carries troops: its dossier says so at once.
+		MapPlayFleets.show_dossier(play, fleet)
 		show_panel(play, army)
 		refresh_options(play, army)
 		return
