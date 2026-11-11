@@ -10,13 +10,16 @@ extends RefCounted
 ## This table authors what a court says to another court — diplomacy, the wait
 ## for an answer, its standing remark. What the world does to the reader (a
 ## verdict, a study, a hostile host at the seat, a Tribe taken under the flag)
-## is authored in [DialogueEpisodes]; the two read as one catalogue here, so
-## every caller asks this class and no screen invents a point of its own.
+## is authored in [DialogueEpisodes], and the veiled word a rival lets slip
+## about its own hidden motive in [DialogueAgendaLines]; the tables read as one
+## catalogue here, so every caller asks this class and no screen invents a point
+## of its own.
 
 const CAT_DIPLOMATIC: String = "diplomatic"
 const CAT_EVENT: String = "event"
 const CAT_NEGOTIATION: String = "negotiation"
 const CAT_REACTIVE: String = "reactive"
+const CAT_AGENDA: String = "agenda"
 
 const POINTS: Dictionary = {
 	# --- diplomatic: what a court says once an act is done -------------------
@@ -268,6 +271,7 @@ static func table() -> Dictionary:
 	if _merged.is_empty():
 		_merged = POINTS.duplicate(true)
 		_merged.merge(DialogueEpisodes.POINTS, true)
+		_merged.merge(DialogueAgendaLines.POINTS, true)
 	return _merged
 
 

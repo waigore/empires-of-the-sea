@@ -32,7 +32,8 @@ func test_the_home_beats_are_authored_event_points() -> void:
 func test_one_table_serves_both_catalogues() -> void:
 	assert_eq(
 		DialogueCatalog.table().size(),
-		DialogueCatalog.POINTS.size() + DialogueEpisodes.POINTS.size(),
+		DialogueCatalog.POINTS.size() + DialogueEpisodes.POINTS.size()
+		+ DialogueAgendaLines.POINTS.size(),
 		"the merged catalogue loses no point"
 	)
 	assert_true(

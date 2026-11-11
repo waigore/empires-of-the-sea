@@ -80,6 +80,7 @@ suites = [
 
 [domains.diplomacy]
 suites = [
+  "test_dialogue_agenda.gd",
   "test_dialogue_beats.gd",
   "test_dialogue_rules.gd",
   "test_diplomacy_history.gd",
