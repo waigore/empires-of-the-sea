@@ -22,7 +22,7 @@ const STATUS_ORDER: Dictionary = {
 	"foreign_worked": 8,
 }
 
-const BLOCKED_STATUSES: Array[String] = ["unprospected", "disconnected"]
+const BLOCKED_STATUSES: Array[String] = ["disconnected"]
 
 
 ## One entry per charted province that holds at least one resource tile we can
@@ -58,6 +58,12 @@ static func snapshot(
 		var entry: Dictionary = _province_entry(
 			model, province, rows, tile_owners, visibility
 		)
+		# Ground still to survey: the lens marks it so a court knows where to dig
+		# (wiki: fog-and-exploration § Prospecting; DR-20261111-26).
+		entry["unsurveyed"] = MineralSurvey.unsurveyed_in_province(
+			model, works, owner, province.id, visibility
+		).size()
+		entry["summary"] = summary_text(entry)
 		result["provinces"].append(entry)
 		_summarise(result, entry)
 	return result
@@ -114,6 +120,9 @@ static func summary_text(entry: Dictionary) -> String:
 		parts.append("%d blocked" % int(counts["blocked"]))
 	if int(counts["foreign"]) > 0:
 		parts.append("%d foreign" % int(counts["foreign"]))
+	var unsurveyed: int = int(entry.get("unsurveyed", 0))
+	if unsurveyed > 0:
+		parts.append("%d unsurveyed" % unsurveyed)
 	if parts.is_empty():
 		return ""
 	return " · ".join(parts)
@@ -133,14 +142,16 @@ static func _rows(
 	visibility: VisibilityModel,
 	tech_caps: Dictionary
 ) -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
+	var rows: Array[Dictionary] = [] as Array[Dictionary]
 	for tile: Vector2i in province.tiles:
-		if _hidden(visibility, tile):
+		# A mineral is hidden until this court prospects it (DR-20261111-26):
+		# the survey never names a deposit the crown has not uncovered.
+		var resource: int = MineralSurvey.known_resource(
+			model, works, owner, tile, visibility
+		)
+		if resource < 0:
 			continue
-		# Minerals stay off the survey until this court Prospects (DR-20261111-26).
-		if ProspectRules.known_resource(owner, model, tile, works) < 0:
-			continue
-		rows.append(_row(model, works, units, owner, connected, tile, tech_caps))
+		rows.append(_row(model, works, units, owner, connected, tile, resource, tech_caps))
 	rows.sort_custom(_row_before)
 	return rows
 
@@ -152,9 +163,9 @@ static func _row(
 	owner: int,
 	connected: Dictionary,
 	tile: Vector2i,
+	resource: int,
 	tech_caps: Dictionary
 ) -> Dictionary:
-	var resource: int = ProspectRules.known_resource(owner, model, tile, works)
 	var tile_owner: int = model.owner_at(tile.x, tile.y)
 	var level: int = works.improvement_at(model, tile)
 	var mineral: bool = ImprovementCatalog.needs_prospecting(resource)
@@ -162,9 +173,7 @@ static func _row(
 	var prospected: bool = ours and works.is_prospected(owner, model, tile)
 	var is_connected: bool = connected.has(model.index_of(tile.x, tile.y))
 	var working: CivilianState = _working_unit(units, tile)
-	var status: String = _status(
-		ours, level, mineral, prospected, is_connected, working
-	)
+	var status: String = _status(ours, level, is_connected, working)
 	var output: int = 0
 	if status == "producing" or status == "maxed":
 		output = ImprovementCatalog.effective_yield(
@@ -198,8 +207,6 @@ static func _row(
 static func _status(
 	ours: bool,
 	level: int,
-	mineral: bool,
-	prospected: bool,
 	is_connected: bool,
 	working: CivilianState
 ) -> String:
@@ -209,8 +216,6 @@ static func _status(
 		return "foreign_worked" if level > 0 else "foreign"
 	if working != null:
 		return "building"
-	if mineral and not prospected:
-		return "unprospected"
 	if level <= 0:
 		return "vacant"
 	if not is_connected:
@@ -279,7 +284,6 @@ static func _province_entry(
 		"output": output,
 		"output_text": ImprovementSystem.output_text(output),
 		"tile_owners": tile_owners.keys(),
-		"summary": summary_text({"counts": counts}),
 	}
 
 
@@ -313,12 +317,6 @@ static func _summarise(result: Dictionary, entry: Dictionary) -> void:
 
 
 # --- helpers -----------------------------------------------------------------
-
-
-static func _hidden(visibility: VisibilityModel, tile: Vector2i) -> bool:
-	if visibility == null:
-		return false
-	return visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN
 
 
 ## The plaque sits on charted land: the province centre when it is known, else

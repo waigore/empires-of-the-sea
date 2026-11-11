@@ -56,8 +56,9 @@ static func snapshot(
 	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
 		if not model.is_land(tile.x, tile.y):
 			continue
-		# Hidden minerals stay off the estates sheet until Prospect (DR-20261111-26).
-		if ProspectRules.known_resource(owner, model, tile, works) < 0:
+		# A mineral stays hidden until this court prospects the tile
+		# (DR-20261111-26): no estate row exists for a deposit we have not seen.
+		if not MineralSurvey.is_known(model, works, owner, tile):
 			continue
 		var province_id: int = model.province_at(tile.x, tile.y)
 		if province_id == MapModel.NO_ID:
@@ -72,7 +73,7 @@ static func snapshot(
 		var province_id: int = province.id
 		var rows: Array[Dictionary] = []
 		for tile: Vector2i in tiles_by_province[province_id]:
-			var resource: int = ProspectRules.known_resource(owner, model, tile, works)
+			var resource: int = model.resource_at(tile.x, tile.y)
 			var index: int = model.index_of(tile.x, tile.y)
 			var entry: Dictionary = connected.get(index, {}) as Dictionary
 			rows.append(_estate_row(
@@ -116,9 +117,9 @@ static func estate_row(
 	capital_tile: Vector2i,
 	tech_caps: Dictionary = {}
 ) -> Dictionary:
-	var resource: int = ProspectRules.known_resource(owner, model, tile, works)
-	if resource < 0:
+	if not MineralSurvey.is_known(model, works, owner, tile):
 		return {}
+	var resource: int = model.resource_at(tile.x, tile.y)
 	var resolved: Dictionary = LandConnectivity.resolve(
 		model, works, owner, capital_tile
 	)
@@ -179,7 +180,7 @@ static func _estate_row(
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
-	var status: String = _status(level, mineral, prospected, is_connected, working)
+	var status: String = _status(level, is_connected, working)
 	var status_text: String = _status_text(
 		status, resource, level, output, tech_cap, terrain_cap, transport,
 		town_cap, working, is_connected
@@ -238,15 +239,12 @@ static func _estate_row(
 
 
 static func _status(
-	level: int, mineral: bool, prospected: bool, is_connected: bool,
-	working: CivilianState
+	level: int, is_connected: bool, working: CivilianState
 ) -> String:
 	if working != null:
 		return "building"
 	if level <= 0:
 		return "vacant"
-	if mineral and not prospected:
-		return "unprospected"
 	if not is_connected:
 		return "disconnected"
 	if level >= ImprovementCatalog.MAX_LEVEL:
