@@ -69,6 +69,22 @@ static func resolve(
 	}
 
 
+## Fully fed hulls over hulls: each hull eats two food units, so a half-fed ship
+## does not count. The next sea battle scales the crown's strength by this
+## coverage (wiki: workers-and-population § Consumption).
+static func navy_coverage(consumption: Dictionary) -> float:
+	var demand: int = int(consumption.get("navy_demand", 0))
+	if demand <= 0:
+		return 1.0
+	var ships: int = demand / ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	if ships <= 0:
+		return 1.0
+	var fed: int = int(consumption.get("navy_fed", 0))
+	return clampf(
+		float(fed / ShipEconomy.FOOD_UPKEEP_PER_SHIP) / float(ships), 0.0, 1.0
+	)
+
+
 ## Military, naval and peasant rations take one unit from grain before meat.
 static func _eat_food(stockpile: Dictionary, demand: int) -> int:
 	var remaining: int = maxi(demand, 0)
