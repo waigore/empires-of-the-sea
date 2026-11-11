@@ -54,6 +54,14 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	assert_eq(_hud._toast_box.get_child_count(), 0)
 
 
+## The playtest drives count plates through the HUD's read-only handles; the
+## board owns the column and the hold queue behind them (REQ-P3-02).
+func test_the_hud_keeps_a_read_only_view_of_its_despatches() -> void:
+	_hud.toast("The turn opens")
+	assert_eq(_hud._toast_box.get_child_count(), 1)
+	assert_true(_hud._toast_queue.is_empty(), "a raised line is not still waiting")
+
+
 # --- merged from tests/test_panel_dock.gd ---
 
 

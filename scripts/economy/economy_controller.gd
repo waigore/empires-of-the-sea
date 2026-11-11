@@ -172,8 +172,10 @@ func extraction() -> Dictionary:
 
 
 func projected() -> Dictionary:
+	var world: WorldMap = _ships.world if _ships != null else null
 	var report: Dictionary = EconomyTurn.project(
-		economy, market, extraction(), fleet_ships(), army_food(), research_boost
+		economy, market, extraction(), fleet_ships(), army_food(), research_boost,
+		HospitalRules.total_demand(world, player_faction)
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the
@@ -191,12 +193,20 @@ func projected_income() -> int:
 func resolve_turn() -> Dictionary:
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
+	var world: WorldMap = _ships.world if _ships != null else null
 	# The share stays on the controller after the phase so the research panel can
 	# still show the "+15%" it just spent (REQ-P5-05); the next end-turn sets it
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food(), false,
-		research_boost
+		research_boost, HospitalRules.total_demand(world, player_faction)
+	)
+	# The wards eat last and in whole staffs; the flags they set are what the
+	# next turn's rest tick reads (wiki: combat § Regiment condition;
+	# DR-20261112-04).
+	report["hospital"] = HospitalRules.feed(
+		world, player_faction,
+		int((report.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 	)
 	report["overseas"] = plan
 	_last_consumption = report.get("consumption", {}) as Dictionary

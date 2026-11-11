@@ -172,7 +172,7 @@ func _end_turn(hud: GameHud) -> void:
 ## sound seal and the estates seal, so the column starts to their right instead
 ## of running full width and covering them.
 func _toasts(hud: GameHud) -> void:
-	var box: Control = hud._toast_box
+	var box: Control = hud.despatches.box if hud.despatches != null else null
 	if box == null:
 		return
 	if compact:

@@ -190,11 +190,14 @@ func refresh(
 	if chevrons > 0:
 		_strength.text += " · %d chevrons" % chevrons
 	if not army.is_embarked():
-		var hospital: int = HospitalRules.level_at(model, army.province)
+		var hospital: int = HospitalRules.effective_level(model, army.province)
 		if hospital > 0:
 			_strength.text += " · rest %d%%" % roundi(
 				HospitalRules.rest_share(hospital) * 100.0
 			)
+		elif HospitalRules.level_at(model, army.province) > 0:
+			# The ward is there but its staff went unfed (DR-20261112-04).
+			_strength.text += " · hospital unstaffed"
 	_command.text = command
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()

@@ -2,7 +2,7 @@ class_name HudChrome
 extends RefCounted
 ## Builds the map HUD's bars, toasts, minimap, zoom, end-turn seal and plates.
 ## GameHud keeps the runtime API; this only assembles the widgets. The side
-## dossiers are HudDossiers' job, the despatch plates HudNews' (REQ-P3-01).
+## dossiers are HudDossiers' job, the despatch plates HudDespatches' (REQ-P3-01).
 
 
 static func build(hud: GameHud) -> void:
@@ -21,18 +21,7 @@ static func build(hud: GameHud) -> void:
 
 
 static func _toasts(hud: GameHud) -> void:
-	hud._toast_box = VBoxContainer.new()
-	# Toasts are the moment's acknowledgement (REQ-P5-05) and stay legible over
-	# the soft Gazette plate that covers this lane at a turn's open.
-	hud._toast_box.z_index = 33
-	hud._toast_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	hud._toast_box.offset_left = -230.0
-	hud._toast_box.offset_right = 230.0
-	hud._toast_box.offset_top = 84.0
-	hud._toast_box.offset_bottom = 84.0
-	hud._toast_box.add_theme_constant_override("separation", 6)
-	hud._toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(hud._toast_box)
+	hud.despatches.build(hud)
 
 
 static func _minimap(hud: GameHud) -> void:
@@ -200,13 +189,13 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.add_child(hud.victory_overlay)
 
 
-## Quick Battle plate: above the dossiers, below the campaign-end plate. HudNews
+## Quick Battle plate: above the dossiers, below the campaign-end plate. The HUD
 ## replays the queued battles and releases the court's held news (REQ-P5-06).
 static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay = QuickBattleOverlay.new()
 	hud.quick_battle_overlay.z_index = 35
 	hud.quick_battle_overlay.finished.connect(
-		func() -> void: hud.news.on_battle_finished()
+		func() -> void: hud._on_quick_battle_finished()
 	)
 	hud.add_child(hud.quick_battle_overlay)
 

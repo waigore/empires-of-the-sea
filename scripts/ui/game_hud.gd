@@ -2,8 +2,8 @@ class_name GameHud
 extends Control
 ## Screen furniture: cartouche bar, minimap, zoom controls, end-turn seal, plates
 ## and lenses. Side dossiers live on HudPanels, the status plaques on
-## HudStatChips, the transient news on HudNews, and the widgets themselves are
-## HudChrome's build (REQ-P3-01).
+## HudStatChips, the transient news on HudDespatches, and the widgets themselves
+## are HudChrome's build (REQ-P3-01).
 
 signal end_turn_pressed
 signal zoom_in_pressed
@@ -47,16 +47,17 @@ const BAR_HEIGHT_COMPACT: float = 56.0
 var panels: HudPanels = null
 ## Treasury, income and force counts; the plaques own their own copy (REQ-P1-02).
 var stats: HudStatChips = null
-## Despatches and the Quick Battle plate queue (REQ-P5-05, REQ-P5-06).
-var news: HudNews = null
-## Read-only views of HudNews' queues, for the playtest drives that report them.
-var _quick_queue: Array[Dictionary]:
+## The court's toast lane and the news a battle plate holds back (REQ-P5-05).
+var despatches: HudDespatches = null
+## The despatch column, read-only: HudDespatches owns it. The playtest drives
+## count plates here, so the lane keeps one handle while the board moves.
+var _toast_box: VBoxContainer:
 	get:
-		return news.battles
-
+		return despatches.box if despatches != null else null
+## News held behind a battle plate, read-only, oldest first (REQ-P5-06).
 var _toast_queue: PackedStringArray:
 	get:
-		return news.pending
+		return despatches.held() if despatches != null else PackedStringArray()
 ## Survey key, shown only while the lens is on.
 var lens_legend: LensLegend = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
@@ -85,7 +86,8 @@ var dossier_screen: CourtDossierScreen = null
 var campaign_over: bool = false
 
 var _turn_label: Label = null
-var _toast_box: VBoxContainer = null
+## Battles the rules resolved for the human, replayed one plate at a time.
+var _quick_queue: Array[Dictionary] = []
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
@@ -120,10 +122,9 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	touch_ui = PlatformDisplay.is_handheld()
 	stats = HudStatChips.new()
-	news = HudNews.new()
 	panels = HudPanels.new()
+	despatches = HudDespatches.new()
 	HudChrome.build(self)
-	news.bind(self, _toast_box, quick_battle_overlay)
 	panels.bind(self)
 	resized.connect(_relayout)
 	_relayout()
@@ -160,20 +161,31 @@ func set_turn(turn: int, year: int) -> void:
 	_turn_label.text = "Turn %d  ·  %d" % [turn, year]
 
 
-## A despatch toast: the court's one door for "something changed". The plates,
-## the wait behind a battle, and the queue are HudNews' (REQ-P5-05).
+## A despatch toast. `icon_name` raises the plate with a medallion (an
+## auto-resolved siege's silenced battery) and holds it longer, so the loss is
+## read and not mistaken for the turn's chatter (REQ-P5-05). The board decides
+## when a battle plate means the news has to wait (REQ-P5-06).
 func toast(text: String, icon_name: String = "") -> void:
-	news.toast(text, icon_name)
+	# The observer hides the human chrome; building toast plates for a hidden
+	# court would only churn nodes every turn (REQ-P4-04).
+	if not visible or despatches == null:
+		return
+	despatches.post(text, icon_name, is_quick_battle_shown())
 
 
-## The rules resolved one of the human's land battles as Quick Battle; HudNews
-## replays the plates one at a time, never stacked (REQ-P5-06).
+## The rules resolved one of the human's land battles as Quick Battle. Queue the
+## plates so a multi-battle turn replays them one at a time, never stacked.
 func show_quick_battle(battle: Dictionary, province: String) -> void:
-	news.show_battle(battle, province)
+	if quick_battle_overlay == null:
+		return
+	if quick_battle_overlay.is_shown():
+		_quick_queue.append({"battle": battle, "province": province})
+		return
+	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
 
 
 func is_quick_battle_shown() -> bool:
-	return news.is_battle_shown()
+	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
 
 
 ## Status plaques: the values, tooltips and tweens are HudStatChips' (REQ-P1-02).
@@ -267,6 +279,18 @@ func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
 		or (_diplomacy_lens_button != null and _diplomacy_lens_button.button_pressed)
 		or (_crown_lens_button != null and _crown_lens_button.button_pressed)
 	)
+
+
+## A plate closes: the next battle of the turn takes the court, or the news the
+## turn raised while the fighting played finally reaches it.
+func _on_quick_battle_finished() -> void:
+	if not _quick_queue.is_empty():
+		var next: Dictionary = _quick_queue.pop_front()
+		quick_battle_overlay.show_battle(
+			next["battle"], String(next["province"]), FactionCatalog.names()
+		)
+		return
+	despatches.release()
 
 
 func set_minimap(

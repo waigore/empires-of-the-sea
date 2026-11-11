@@ -156,6 +156,136 @@ func test_a_save_round_trip_keeps_the_hospital() -> void:
 	assert_eq(model.province_data(2).hospital_level, 2)
 
 
+# --- the wards eat (DR-20261112-04) -------------------------------------------
+
+
+func test_the_rations_table_follows_the_design_record() -> void:
+	assert_eq(HospitalRules.RATION_PER_LEVEL, 2)
+	assert_eq(HospitalRules.food_demand(0), 0)
+	assert_eq(HospitalRules.food_demand(1), 2)
+	assert_eq(HospitalRules.food_demand(2), 4)
+	assert_true(HospitalRules.describe(1).contains("staff 2 food"))
+	assert_true(HospitalRules.describe(2).contains("staff 4 food"))
+	var hungry: String = HospitalRules.describe(1, false)
+	assert_true(hungry.contains("unstaffed"))
+	assert_true(hungry.contains("rest 25%"), "an empty ward heals at the field's rate")
+	assert_true(hungry.contains("wear 80%"), "the walls still shelter the wounded")
+
+
+func test_an_unfed_ward_heals_at_the_fields_rate() -> void:
+	var model := Fixture.build()
+	var province: ProvinceState = model.province_data(2)
+	province.hospital_level = 1
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var regiment: String = army.regiments[0]
+
+	army.regiment_health[regiment] = 55
+	province.hospital_staffed = false
+	assert_eq(HospitalRules.effective_level(model, 2), 0)
+	assert_eq(HospitalRules.level_at(model, 2), 1, "the building still stands")
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 83, "no staff, no faster rest")
+
+	army.regiment_health[regiment] = 55
+	province.hospital_staffed = true
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 99, "the staff returns")
+
+
+func test_the_crowns_hospitals_are_counted_seat_first() -> void:
+	var world := WorldMap.new()
+	var model := Fixture.build()
+	world.add_region(model)
+	# Faction 0 holds provinces 0 (seat), 1, 5 and 6.
+	model.province_data(1).hospital_level = 1
+	model.province_data(0).hospital_level = 2
+	model.province_data(2).hospital_level = 2
+
+	var rows: Array[Dictionary] = HospitalRules.demand_rows(world, 0)
+	assert_eq(rows.size(), 2, "only this crown's wards eat from its larder")
+	assert_eq(int(rows[0]["province"]), 0, "the seat is served first")
+	assert_true(bool(rows[0]["seat"]))
+	assert_eq(int(rows[1]["province"]), 1)
+	assert_eq(HospitalRules.total_demand(world, 0), 6)
+
+
+func test_a_staff_is_fed_whole_or_not_at_all() -> void:
+	var world := WorldMap.new()
+	var model := Fixture.build()
+	world.add_region(model)
+	model.province_data(0).hospital_level = 2
+	model.province_data(1).hospital_level = 1
+
+	var short: Dictionary = HospitalRules.feed(world, 0, 2)
+	assert_eq(int(short["spent"]), 2, "no half-ration is spent on the seat")
+	assert_eq((short["hungry"] as Array).size(), 1)
+	assert_eq(int(short["hungry"][0]), 0, "the great hospital goes without")
+	assert_false(model.province_data(0).hospital_staffed)
+	assert_true(model.province_data(1).hospital_staffed, "the field station keeps its staff")
+
+	var full: Dictionary = HospitalRules.feed(world, 0, 6)
+	assert_eq(int(full["spent"]), 6)
+	assert_eq((full["hungry"] as Array).size(), 0)
+	assert_true(model.province_data(0).hospital_staffed, "a fed ward is staffed again")
+
+
+func test_the_consumption_phase_feeds_the_wards_after_the_workers() -> void:
+	var stock: Dictionary = {"grain": 3, "meat": 0}
+	var report: Dictionary = EconomyConsumption.resolve(WorkerPool.make(1), stock, 0, 0, 4)
+	assert_eq(int(report["hospital_demand"]), 4)
+	assert_eq(int(report["hospital_fed"]), 2, "one peasant, then one field hospital")
+	assert_true(bool(report["hospital_hungry"]))
+	assert_eq(int(stock.get("grain", 0)), 0)
+	assert_eq(int(report["food_eaten"]), 3)
+
+	var larder: Dictionary = {"grain": 9, "meat": 0}
+	var fed: Dictionary = EconomyConsumption.resolve(WorkerPool.make(0), larder, 0, 0, 4)
+	assert_eq(int(fed["hospital_fed"]), 4)
+	assert_false(bool(fed["hospital_hungry"]))
+	assert_eq(int(larder.get("grain", 0)), 5)
+
+
+func test_a_save_round_trip_keeps_an_unfed_ward() -> void:
+	var model := Fixture.build()
+	model.province_data(2).hospital_level = 2
+	model.province_data(2).hospital_staffed = false
+	var world := WorldMap.new()
+	world.add_region(model)
+
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+	model.province_data(2).hospital_staffed = true
+	assert_true(SaveWorld.apply(world, captured))
+	assert_false(model.province_data(2).hospital_staffed)
+
+	# A save written before the wards ate carries no flag: its staffs are fed.
+	for region: Variant in captured:
+		for entry: Variant in (region as Dictionary).get("provinces", []) as Array:
+			(entry as Dictionary).erase("hospital_staffed")
+	assert_true(SaveWorld.apply(world, captured))
+	assert_true(model.province_data(2).hospital_staffed)
+
+
+func test_the_army_dossier_names_an_unstaffed_ward() -> void:
+	var model := Fixture.build()
+	model.province_data(2).hospital_level = 1
+	var army := Fixture.army(1, 0, 2, ["guards"])
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	panel.refresh(model, army, true)
+	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
+
+	# A ward whose staff went unfed heals at the field's rate, and the dossier
+	# says why (wiki: combat § Regiment condition; DR-20261112-04).
+	model.province_data(2).hospital_staffed = false
+	panel.refresh(model, army, true)
+	assert_true(
+		String(panel._strength.text).contains("hospital unstaffed"), panel._strength.text
+	)
+	assert_false(String(panel._strength.text).contains("rest 40%"))
+	panel.free()
+
+
 func test_the_army_layer_rests_each_region_by_its_own_hospital() -> void:
 	var model := Fixture.build()
 	model.province_data(2).hospital_level = 1

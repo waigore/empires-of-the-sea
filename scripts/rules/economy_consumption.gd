@@ -1,9 +1,10 @@
 class_name EconomyConsumption
 extends RefCounted
 ## Consumption phase (wiki: workers-and-population § Consumption). Deduction order is
-## army, then navy, then workers; workers are fed in full rations from the highest
-## tier down, and a worker who misses food or their tier luxury strikes for the turn
-## without leaving the pool. Idle workers supply the next Production phase's labour.
+## army, then navy, then workers, then the hospital staffs; workers are fed in full
+## rations from the highest tier down, and a worker who misses food or their tier
+## luxury strikes for the turn without leaving the pool. Idle workers supply the
+## next Production phase's labour.
 
 const FEED_ORDER: Array[int] = [
 	WorkerPool.Tier.MASTER,
@@ -18,7 +19,8 @@ static func resolve(
 	pool: WorkerPool,
 	stockpile: Dictionary,
 	ship_count: int,
-	army_food: int = 0
+	army_food: int = 0,
+	hospital_food: int = 0
 ) -> Dictionary:
 	var army_demand: int = maxi(army_food, 0)
 	var army_fed: int = _eat_food(stockpile, army_demand)
@@ -46,6 +48,16 @@ static func resolve(
 		idle_counts[tier] = assigned
 	idle_counts[WorkerPool.Tier.PEASANT] = fed_counts[WorkerPool.Tier.PEASANT]
 
+	# The hospitals eat last, and only in whole staffs: a ward the larder cannot
+	# cover in full goes unstaffed rather than half-fed (wiki: combat § Regiment
+	# condition; DR-20261112-04).
+	var hospital_demand: int = maxi(hospital_food, 0)
+	var hospital_ration: int = maxi(HospitalRules.RATION_PER_LEVEL, 1)
+	var hospital_fed: int = (
+		mini(hospital_demand, _food_available(stockpile)) / hospital_ration
+	) * hospital_ration
+	hospital_fed = _eat_food(stockpile, hospital_fed)
+
 	var fed_workers: int = 0
 	var idle_labour: int = 0
 	var idle_total: int = 0
@@ -59,13 +71,16 @@ static func resolve(
 		"army_fed": army_fed,
 		"navy_demand": navy_demand,
 		"navy_fed": navy_fed,
+		"hospital_demand": hospital_demand,
+		"hospital_fed": hospital_fed,
+		"hospital_hungry": hospital_fed < hospital_demand,
 		"fed_workers": fed_workers,
 		"strikers": pool.total() - idle_total,
 		"fed_counts": fed_counts,
 		"idle_counts": idle_counts,
 		"idle_labour": idle_labour,
 		"luxury_spent": luxury_spent,
-		"food_eaten": army_fed + navy_fed + _worker_rations(fed_counts),
+		"food_eaten": army_fed + navy_fed + hospital_fed + _worker_rations(fed_counts),
 	}
 
 
@@ -110,6 +125,14 @@ static func _feed_worker(stockpile: Dictionary, tier: int) -> bool:
 	for id: String in CommodityCatalog.FOOD:
 		stockpile[id] = int(stockpile.get(id, 0)) - 1
 	return true
+
+
+## Food units the larder still holds, before a hospital staff is fed whole.
+static func _food_available(stockpile: Dictionary) -> int:
+	var total: int = 0
+	for id: String in CommodityCatalog.FOOD:
+		total += maxi(int(stockpile.get(id, 0)), 0)
+	return total
 
 
 static func _worker_rations(fed_counts: Array[int]) -> int:
