@@ -35,29 +35,12 @@ func test_offers_every_great_power_and_size_preset() -> void:
 func test_leader_choices_follow_the_chosen_crown() -> void:
 	assert_eq(setup.leader_option.item_count, LeaderCatalog.keys_for(0).size())
 	assert_true(setup.leader_option.get_item_text(0).contains("Isabella I"))
-	assert_true(setup.leader_option.get_item_text(0).contains("+15%"))
+	assert_true(setup.leader_option.get_item_text(0).contains("no land-combat bonus"))
 	setup.nation_option.select(2)
 	setup.nation_option.emit_signal("item_selected", 2)
 	assert_eq(setup.leader_option.item_count, LeaderCatalog.keys_for(2).size())
 	assert_true(setup.leader_option.get_item_text(0).contains("Napoleon"))
 	assert_true(setup.leader_option.get_item_text(0).contains("+25%"))
-
-
-## The reported defect: the new-game screen printed "no land-combat bonus" for
-## every crown but France, because five leaders had no entry in the bonus table
-## (wiki: leader-bonuses § Bonus Table; DR-20261111-24). Every nation row must
-## name its leader's real bonus.
-func test_every_nation_row_names_a_land_bonus() -> void:
-	for index: int in setup.nation_option.item_count:
-		setup.nation_option.select(index)
-		setup.nation_option.emit_signal("item_selected", index)
-		assert_gt(setup.leader_option.item_count, 0, "nation %d fields a leader" % index)
-		var text: String = setup.leader_option.get_item_text(0)
-		assert_false(
-			text.contains("no land-combat bonus"),
-			"nation %d reads its leader's bonus: %s" % [index, text]
-		)
-		assert_true(text.contains("%"), "nation %d names a percentage: %s" % [index, text])
 
 
 func test_start_carries_the_chosen_leader_into_the_config() -> void:

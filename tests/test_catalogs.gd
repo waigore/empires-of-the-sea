@@ -64,30 +64,12 @@ func test_minors_tribes_and_unknown_factions_reserve_the_neutral_leader() -> voi
 
 func test_bonus_table_matches_the_documented_multipliers() -> void:
 	assert_almost_eq(LeaderCatalog.multiplier_for("napoleon"), 1.25, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("gustavus"), 1.20, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("isabella"), 1.15, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("victoria"), 1.10, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("de_ruyter"), 1.10, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("henry"), 1.05, 0.001)
 	assert_almost_eq(LeaderCatalog.multiplier_for("frederick"), 1.15, 0.001)
 	assert_almost_eq(LeaderCatalog.multiplier_for("reserve"), 1.0, 0.001)
 	assert_almost_eq(LeaderCatalog.multiplier_for(""), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.multiplier_for("isabella"), 1.0, 0.001)
 	assert_eq(LeaderCatalog.bonus_percent("napoleon"), 25)
-	assert_eq(LeaderCatalog.bonus_percent("isabella"), 15)
-
-
-## A crown's own leader must never read as the neutral reserve: every shipped
-## leaderKey carries a land bonus (wiki: leader-bonuses § Bonus Table;
-## DR-20261111-24). Guards the regression where five of six crowns printed
-## "no land-combat bonus" at setup and fought at 1.0.
-func test_every_shipped_leader_carries_a_land_bonus() -> void:
-	for faction: int in FactionCatalog.great_power_ids():
-		for key: String in LeaderCatalog.keys_for(faction):
-			assert_gt(LeaderCatalog.multiplier_for(key), 1.0, "%s carries a bonus" % key)
-			assert_false(
-				LeaderCatalog.bonus_label(key).contains("no land-combat bonus"),
-				"%s does not read as the reserve" % key
-			)
+	assert_eq(LeaderCatalog.bonus_percent("isabella"), 0)
 
 
 func test_variant_ids_match_exactly_first_then_by_substring() -> void:

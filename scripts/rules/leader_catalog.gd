@@ -9,20 +9,10 @@ extends RefCounted
 ## AI archetype (wiki: leader-bonuses § Bonus Table, `reserve`/default row).
 const DEFAULT_KEY: String = "reserve"
 
-## leaderKey -> melee multiplier (wiki: leader-bonuses § Bonus Table; DR-20261111-24).
-## Every Great Power's leader carries one, so no crown fields a leader with no
-## land bonus; the values follow the captain's reputation and reuse the fallback
-## medal bands (`ArmyModifiers.fallback_medals`). This is the design source of
-## truth; a ruleset loader is deferred.
+## leaderKey -> melee multiplier (wiki: leader-bonuses § Bonus Table). This is
+## the design source of truth; a ruleset loader is deferred.
 const MULTIPLIERS: Dictionary = {
 	"napoleon": 1.25,
-	"gustavus": 1.20,
-	"isabella": 1.15,
-	"victoria": 1.10,
-	"de_ruyter": 1.10,
-	"henry": 1.05,
-	## Prussia's key is kept for variant ids from the seed rules (`prussia_frederick_leader`);
-	## no shipped crown fields it.
 	"frederick": 1.15,
 }
 
