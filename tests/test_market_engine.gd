@@ -160,6 +160,85 @@ func test_a_consulate_holder_beats_a_higher_relation_without_one() -> void:
 	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1)
 
 
+# --- favoured trading partner (wiki: diplomacy § R7.1) ------------------------
+
+
+func test_the_suzerain_is_a_colonys_favoured_partner() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(1, 12, 0).set_score(90.0)
+	state.set_colony(12, 0)
+	assert_eq(MarketFavoured.of(state, 12), 0, "a colony ignores the warmer rival")
+	assert_true(MarketFavoured.is_suzerain(state, 12, 0))
+	assert_false(MarketFavoured.is_suzerain(state, 12, 1))
+
+
+func test_the_warmest_court_is_an_independent_courts_favoured_partner() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(2, 7, 0).set_score(72.0)
+	state.ensure_relation(1, 7, 0).set_score(68.0)
+	assert_eq(MarketFavoured.of(state, 7), 2)
+
+
+func test_an_equal_relation_breaks_to_the_smaller_court_id() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(2, 7, 0).set_score(60.0)
+	state.ensure_relation(1, 7, 0).set_score(60.0)
+	assert_eq(MarketFavoured.of(state, 7), 1)
+
+
+func test_a_court_no_one_knows_has_no_favoured_partner() -> void:
+	assert_eq(MarketFavoured.of(DiplomacyState.new(), 7), MarketFavoured.UNDEFINED)
+	assert_eq(MarketFavoured.of(null, 7), MarketFavoured.UNDEFINED)
+
+
+func test_a_colonys_suzerain_clears_the_tier_before_a_warmer_rival() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["favoured_for"] = func(_seller: int) -> int: return 0
+	context["consulate_for"] = func(_gp: int, _minor: int) -> bool: return true
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 1 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 0, "the suzerain trades first whatever its relation")
+	assert_true(bool(deals[0]["is_favoured"]))
+	assert_false(bool(deals[0]["is_ftp"]))
+
+
+func test_a_favoured_colony_never_crosses_a_priority_tier() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 5),
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["favoured_for"] = func(_seller: int) -> int: return 0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1, "favour stays inside its tier")
+
+
+func test_an_independent_seller_keeps_the_consulate_order() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(7, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	# The independent court's R7.1 partner is its warmest buyer, and the auction
+	# leaves that arm to R7.3: the Consulate holder is served first.
+	context["favoured_for"] = func(_seller: int) -> int: return MarketFavoured.UNDEFINED
+	context["consulate_for"] = func(gp: int, _minor: int) -> bool: return gp == 1
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1)
+
+
 # --- first right of refusal --------------------------------------------------
 
 
@@ -234,7 +313,7 @@ func test_credits_separate_the_owner_share_from_kickbacks() -> void:
 # --- clearing, settlement and carry-forward ---------------------------------
 
 
-func _world() -> WorldMap:
+func _world(second_owner: int = 6) -> WorldMap:
 	var model: MapModel = MapModel.new()
 	model.setup(3, 2)
 	for x in 2:
@@ -244,7 +323,7 @@ func _world() -> WorldMap:
 	var tiles0: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
 	var tiles1: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 1)]
 	var p0 := ProvinceState.create(0, "P0", tiles0, Vector2.ZERO, 2, 0)
-	var p1 := ProvinceState.create(1, "P1", tiles1, Vector2.ZERO, 2, 6)
+	var p1 := ProvinceState.create(1, "P1", tiles1, Vector2.ZERO, 2, second_owner)
 	model.provinces.append(p0)
 	model.provinces.append(p1)
 	model.resource[model.index_of(0, 0)] = 0
@@ -332,6 +411,47 @@ func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	assert_eq(credited, 23, "1 x 30 x 75% = 22.5, rounded once")
 	assert_eq(owner.treasury, owner_before + 23)
 	assert_false((economies[1] as PlayerEconomy).treasury == PlayerEconomy.START_TREASURY)
+
+
+## The colony's harvest clears to its suzerain inside the tier even though the
+## rival is the warmer, better-known court (wiki: diplomacy § R7.1;
+## DR-20261111-11).
+func test_the_suzerain_clears_a_colonys_harvest_at_turn_end() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var tribe: int = int(FactionCatalog.TRIBES[3]["id"])
+	var world: WorldMap = _world(tribe)
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_colony(tribe, 0)
+	for gp: int in [0, 1]:
+		diplomacy.ensure_relation(gp, tribe, 0).set_score(10.0 if gp == 0 else 90.0)
+		diplomacy.set_overture(gp, tribe, DiplomacyCatalog.STAGE_EMBASSY)
+	# The rival speaks first, so the deal proves the tiebreak, not the book order.
+	for gp: int in [1, 0]:
+		MarketOrders.submit(
+			market,
+			gp, "timber", MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+		)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var from_colony: Array[Dictionary] = []
+	var from_world: Array[Dictionary] = []
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) != "timber":
+			continue
+		if int(deal.get("seller", -2)) == tribe:
+			from_colony.append(deal)
+		elif int(deal.get("seller", -2)) == MarketOrder.WORLD:
+			from_world.append(deal)
+	assert_eq(from_colony.size(), 1, "the colony's one timber auto-offer")
+	assert_eq(int(from_colony[0]["buyer"]), 0, "the suzerain takes its colony's goods")
+	assert_true(bool(from_colony[0]["is_favoured"]))
+	assert_eq(from_world.size(), 1, "the rival buys at the published price instead")
+	assert_eq(int(from_world[0]["buyer"]), 1)
+	assert_false(bool(from_world[0]["is_favoured"]))
 
 
 func test_subsidy_surcharge_lands_on_the_minor_sale() -> void:
