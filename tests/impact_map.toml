@@ -773,10 +773,19 @@ domain = "world"
 match = "scripts/map/map_naming.gd"
 domain = "world"
 
-# Chart artwork: the painted stamps and the hull are presentational, so only
-# the suites that mount the chart are needed (and tier 1 stays inside 5 min).
+# Chart artwork: the painted stamps, the ink paths that smooth every boundary,
+# the overlay pen and the hull are presentational, so only the suites that
+# mount the chart are needed (and tier 1 stays inside 5 min).
 [[rules]]
 match = "scripts/map/map_symbols.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/ink_paths.gd"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_overlay.gd"
 domain = "chart_art"
 
 [[rules]]

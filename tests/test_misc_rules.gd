@@ -153,6 +153,40 @@ func test_smooth_segments_skips_single_points() -> void:
 	var segments: Array[PackedVector2Array] = []
 	assert_eq(InkPaths.smooth_segments(segments, 2).size(), 0)
 
+
+## A grid boundary is traced dead straight; the hand pass is what makes it read
+## as ink. It must move points, never run away, and stay deterministic.
+func test_hand_wobbles_a_straight_run_within_bounds() -> void:
+	var points := PackedVector2Array()
+	for i in 40:
+		points.append(Vector2(float(i) * 8.0, 0.0))
+	var inked: PackedVector2Array = InkPaths.hand(points, 2.0, 1.4)
+	assert_eq(inked.size(), points.size())
+	var moved: int = 0
+	for i in inked.size():
+		var offset: float = absf(inked[i].y - points[i].y)
+		assert_true(offset <= 2.0001, "the wobble stays inside its amplitude")
+		if offset > 0.05:
+			moved += 1
+	assert_gt(moved, points.size() / 2, "most of a long straight run is displaced")
+	assert_eq(InkPaths.hand(points, 2.0, 1.4), inked)
+
+
+func test_hand_keeps_a_closed_loop_closed() -> void:
+	var loop := PackedVector2Array([
+		Vector2(0, 0), Vector2(40, 0), Vector2(40, 40), Vector2(0, 40), Vector2(0, 0),
+	])
+	var inked: PackedVector2Array = InkPaths.hand(loop, 3.0, 0.7)
+	assert_eq(inked.size(), loop.size())
+	assert_eq(inked[0], inked[inked.size() - 1])
+
+
+func test_hand_leaves_short_or_flat_paths_alone() -> void:
+	var short := PackedVector2Array([Vector2(0, 0), Vector2(1, 0)])
+	assert_eq(InkPaths.hand(short, 2.0), short)
+	var straight := PackedVector2Array([Vector2(0, 0), Vector2(10, 0), Vector2(20, 0)])
+	assert_eq(InkPaths.hand(straight, 0.0), straight)
+
 # --- from test_country_borders.gd ---
 ## Country borders (view support for wiki: factions / map ownership).
 ## Ownership changes must produce an explicit line between different nations.

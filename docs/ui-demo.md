@@ -61,7 +61,7 @@ ui/shaders/*                sea, fog, grain, vignette
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** `MapRelief` bakes the ground six texels per tile (owner wash, sand beach, shoal and sounding lines, painted drift, finer relief); `terrain.gdshader` adds hillshade, contours, hachures and paper tooth. Coast ink is smoothed once to sit on that shore; **borders above fog**; varied glyphs; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink, repainting on chart or crown changes.
+**Rendering:** `MapRelief` bakes the ground six texels per tile (owner wash, sand beach, shoal and sounding lines, painted drift, finer relief); `terrain.gdshader` adds hillshade, contours, hachures and paper tooth. Coast, province and country ink is traced, rounded and then wobbled along its normal (`InkPaths.hand`) so no boundary reads as a grid step; **borders above fog**; painted glyph stamps; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink, repainting on chart or crown changes.
 
 ## Animation & performance
 
