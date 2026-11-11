@@ -37,9 +37,10 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - Saving and loading is the hottest integration path: a preset world is reused by
   `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
   buy deeds snapshot it (`MapFixture.snapshot` / `restore`) rather than build a world.
-- One Godot boot per theme; keep suite count low under coverage.
-- Coverage adds a fixed ~35 s per worker, so a suite's wall time is mostly its
-  mounts. Prefer one mount per case; let long screen suites stand alone.
+- One Godot boot per theme: a domain's boot-cheap cases share one *rules* suite
+  (`test_naval_rules`, `test_economy_rules`) instead of a file per helper; ~8 s of
+  instrumentation precedes every suite. Keep screen suites separate.
+- Prefer one mount per case; let long screen suites stand alone.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local

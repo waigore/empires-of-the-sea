@@ -45,7 +45,7 @@ the model keeps painting the open book behind the new object.
 `scripts/ui/tech_icons.gd` maps each tech id to a plate; a chain shares one
 plate, and a long chain may grow a grander later plate (`seed_drill`,
 `circular_saw`, `safety_lamp`, `amalgamation`, `scouting`, `riverboats`).
-`test_tech_icons.gd` fails when a catalog tech has no plate or a plate file is
+`test_research_rules.gd` fails when a catalog tech has no plate or a plate file is
 missing.
 
 Six plates reuse an existing shell medallion object unchanged — `empire`
