@@ -5,6 +5,20 @@ extends GdToolsTest
 ## (docs/testing.md speed rules).
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
+
+
+## Minimal HUD for the deed despatch: the purchase path repaints the treasury
+## and toasts, and neither may build real chrome inside a rules test.
+class DeedHud extends GameHud:
+	var toasts: Array[String] = []
+
+	func set_treasury(_value: int, _animate: bool = true) -> void:
+		pass
+
+	func toast(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+
 var _model: MapModel = null
 var _works: LandWorks = null
 var _units: Array[CivilianState] = []
@@ -943,6 +957,87 @@ func test_purchase_completes_one_turn_later_and_debits_the_purse() -> void:
 	assert_false(model.purchase_tile(tile, 7), "one deed per tile")
 
 
+# --- a deed develops the seller's town (DR-20261112-01, fixture path) --------
+## Main's `_deed_world` suite owns the rule table; this path checks the same
+## growth against `Fixture.build_minor` and the manufacture projection.
+
+
+func _sign_deed(model: MapModel, tile: Vector2i, treasury: int = 5000) -> Dictionary:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	var report: Dictionary = {}
+	assert_true(LandPurchase.complete(model, tile, 0, economy, report), "the deed is signed")
+	return report
+
+
+func test_a_deed_raises_the_minors_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	assert_eq(province.town_level(), 1, "a Minor's town starts at level 1")
+	var report: Dictionary = _sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_development, 2, "one deed lifts the town")
+	assert_true(
+		MinorTownGrowth.deed_line(
+			model, province, "Genoa", int(report.get("town_level", 0))
+		).ends_with("The town rises to level 2."),
+		"the report names it"
+	)
+
+
+func test_each_deed_raises_the_town_until_it_tops_out() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(2, 2), Vector2i(3, 2)]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	_sign_deed(model, Vector2i(3, 1))
+	_sign_deed(model, Vector2i(2, 1))
+	assert_eq(province.town_level(), 3, "two deeds")
+	_sign_deed(model, Vector2i(3, 0))
+	assert_eq(province.town_level(), 4, "three deeds")
+	_sign_deed(model, Vector2i(2, 2))
+	assert_eq(province.town_level(), 4, "a fourth deed changes nothing")
+	assert_eq(MinorTownGrowth.apply(model, province), 0, "no further rise")
+
+
+func test_a_lost_deed_never_lowers_the_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	province.town_development = 3
+	var report: Dictionary = _sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_level(), 3, "a town above its deed level keeps it")
+	assert_false(
+		MinorTownGrowth.deed_line(
+			model, province, "Genoa", int(report.get("town_level", 0))
+		).contains("town"),
+		"nothing to announce"
+	)
+
+
+func test_a_great_power_province_never_grows_this_way() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(0)
+	model.resource[model.index_of(0, 1)] = 0
+	_sign_deed(model, Vector2i(0, 1))
+	assert_eq(province.town_development, 0, "a crown's own town is its Builder's work")
+	assert_eq(MinorTownGrowth.apply(model, province), 0)
+
+
+func test_a_deed_turns_the_minors_harvest_into_manufactures() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in province.tiles:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	assert_true(
+		MinorMarket.province_manufactures(model, province).is_empty(),
+		"a level-1 town pays no bonus"
+	)
+	_sign_deed(model, Vector2i(3, 1))
+	assert_eq(
+		MinorMarket.province_manufactures(model, province), {"lumber": 1, "paper": 1},
+		"four timber estates feed the level-2 town"
+	)
+
+
 func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	var model: MapModel = Fixture.build()
 	var works := LandWorks.new()
@@ -1687,14 +1782,74 @@ func test_the_deed_line_names_the_town_it_developed() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.treasury = 5000
 	assert_true(LandPurchase.complete(model, Vector2i(3, 0), 0, economy))
-	var line: String = MinorTownGrowth.deed_line(model, minor, "Genoa")
+	var line: String = MinorTownGrowth.deed_line(model, minor, "Genoa", minor.town_level())
 	assert_true(line.begins_with("The deed to Genoa is signed"), line)
 	assert_true(line.ends_with("The town rises to level 2."), line)
 	minor.town_development = 4
 	assert_false(
-		MinorTownGrowth.deed_line(model, minor, "Genoa").contains("town"),
-		"a town already above its deed level is not announced as rising"
+		MinorTownGrowth.deed_line(model, minor, "Genoa", 0).contains("town"),
+		"a deed that did not raise the town says nothing about it"
 	)
+
+
+## The despatch names the level the completion actually set. A fourth deed (a
+## town already at 4) must not announce a rise that never happened (REQ-P5-05;
+## DR-20261112-01).
+func test_a_deed_reports_only_the_level_it_actually_raised() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 50000
+	var works := LandWorks.new()
+	var tiles: Array[Vector2i] = [
+		Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var expected: Array[int] = [2, 3, 4, 0]
+	for index in tiles.size():
+		var merchant: CivilianState = CivilianState.create(
+			1, 0, "merchant", tiles[index]
+		)
+		merchant.start_work(LandPurchase.ACTION, tiles[index], 1)
+		var crew: Array[CivilianState] = [merchant]
+		var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+			model, crew, works, null, economy
+		)
+		assert_eq(reports.size(), 1)
+		var raised: int = int(reports[0].get("town_level", -1))
+		assert_eq(raised, expected[index], "deed %d names the level it raised" % (index + 1))
+		assert_eq(
+			MinorTownGrowth.deed_line(model, minor, "Genoa", maxi(raised, 0)).contains("town"),
+			expected[index] > 0,
+			"only a real rise is announced"
+		)
+
+
+## The purchase toast carries the level the completion reported, so a deed a
+## fully grown town cannot lift never claims a rise (REQ-P5-05; DR-20261112-01).
+func test_the_purchase_toast_names_only_a_real_town_rise() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	play.model = model
+	play.player_faction = 0
+	var hud := DeedHud.new()
+	play.hud = hud
+	var report: Dictionary = {
+		"owner": 0, "region": 0, "tile": Vector2i(3, 0), "province": 1,
+	}
+	model.purchase_tile(Vector2i(3, 0), 0)
+	MapPlayCivilians._settle_purchase(play, report)
+	assert_eq(hud.toasts.size(), 1)
+	assert_false(hud.toasts[0].contains("town"), hud.toasts[0])
+	model.purchase_tile(Vector2i(4, 0), 0)
+	report["tile"] = Vector2i(4, 0)
+	report["town_level"] = 3
+	MapPlayCivilians._settle_purchase(play, report)
+	assert_eq(hud.toasts.size(), 2)
+	assert_true(hud.toasts[1].ends_with("The town rises to level 3."), hud.toasts[1])
+	hud.free()
 
 
 func test_the_growth_rule_ignores_a_missing_model_or_province() -> void:

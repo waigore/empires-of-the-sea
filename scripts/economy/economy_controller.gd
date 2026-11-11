@@ -25,6 +25,10 @@ var _last_consumption: Dictionary = {}
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
+## Last world-market clearing (deals, fills, credits), so the ledger can name
+## the auction's receipt and the overseas share it paid (wiki: world-market
+## § First right of refusal; REQ-P5-05).
+var last_clearing: Dictionary = {}
 
 
 func setup(
@@ -168,9 +172,15 @@ func extraction() -> Dictionary:
 
 
 func projected() -> Dictionary:
-	return EconomyTurn.project(
+	var report: Dictionary = EconomyTurn.project(
 		economy, market, extraction(), fleet_ships(), army_food(), research_boost
 	)
+	# The auction clears after these phases, so the ledger names what is staged
+	# and what the last clearing paid: the per-turn figure alone is not the
+	# whole purse movement (wiki: world-market § Trade orders; REQ-P5-05).
+	report["staged_orders"] = market.book.orders_for(player_faction).size() if market != null else 0
+	report["clearing"] = last_clearing
+	return report
 
 
 func projected_income() -> int:
@@ -239,12 +249,20 @@ func _on_research_cancel(slot: int) -> void:
 func _on_research_funding(slot: int) -> void:
 	economy.research.cycle_funding(slot)
 	_refresh_research_panel()
+	# A preset change moves the gold the purse pays every turn, and the chip is
+	# the only place that figure is always visible (REQ-P5-05).
+	if _hud != null:
+		_hud.set_income(projected_income())
 
 
 func _after_research(result: Dictionary) -> void:
 	if _hud != null:
 		_hud.toast(String(result.get("message", "")))
 	_refresh_research_panel()
+	# Starting or abandoning a study changes the per-turn gold; the top bar must
+	# read the new figure before the turn is even closed.
+	if _hud != null:
+		_hud.set_income(projected_income())
 
 
 func refresh_panel() -> void:

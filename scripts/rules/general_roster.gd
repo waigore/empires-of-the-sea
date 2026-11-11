@@ -17,7 +17,7 @@ const CAP_TECHS: Dictionary = {
 	"nationalism": 4,
 }
 
-## owner -> Array[Dictionary] of {"id": String, "medals": int}
+## owner -> Array[Dictionary] of {"id": String, "medals": int, "name": String}
 var pools: Dictionary = {}
 
 
@@ -41,15 +41,36 @@ func pool(owner: int) -> Array[Dictionary]:
 
 
 ## Spawns generals until the roster meets the tech-gated cap; never trims an
-## above-cap roster (wiki: persistence and load reconciliation).
+## above-cap roster (wiki: persistence and load reconciliation). Every commander
+## that carries no name is christened here too, so a save written before names
+## existed loads with named generals and no name is ever re-drawn
+## (wiki: naming § General names).
 func sync(owner: int, tech_unlocked: Dictionary) -> int:
 	var stored: Array[Dictionary] = []
 	stored.assign(pools.get(owner, []))
 	var wanted: int = cap_for(tech_unlocked)
 	while stored.size() < wanted:
 		stored.append({"id": "general_%d" % (stored.size() + 1), "medals": 0})
+	_name_all(owner, stored)
 	pools[owner] = stored
 	return stored.size()
+
+
+## Christens every commander without a name, in roster order, so the same pool
+## always yields the same names: the taken set only grows in this order, and the
+## mint reads nothing but the crown and the general id.
+func _name_all(owner: int, stored: Array[Dictionary]) -> void:
+	var taken: Array[String] = []
+	for general: Dictionary in stored:
+		var borne: String = String(general.get("name", ""))
+		if not borne.is_empty():
+			taken.append(borne)
+	for general: Dictionary in stored:
+		if not String(general.get("name", "")).is_empty():
+			continue
+		var christened: String = GeneralNames.mint(owner, String(general["id"]), taken)
+		general["name"] = christened
+		taken.append(christened)
 
 
 func count(owner: int) -> int:
@@ -87,6 +108,22 @@ func ids(owner: int) -> Array[String]:
 	return result
 
 
+## The names the crown's commanders bear, in roster order.
+func names(owner: int) -> Array[String]:
+	var result: Array[String] = []
+	for general: Dictionary in pool(owner):
+		result.append(String(general.get("name", "")))
+	return result
+
+
+## The name a general bears; empty when this crown holds no such commander.
+func name_of(owner: int, general_id: String) -> String:
+	for general: Dictionary in pool(owner):
+		if String(general["id"]) == general_id:
+			return String(general.get("name", ""))
+	return ""
+
+
 func medals(owner: int, general_id: String) -> int:
 	for general: Dictionary in pool(owner):
 		if String(general["id"]) == general_id:
@@ -107,17 +144,45 @@ func award(owner: int, general_id: String) -> int:
 	return 0
 
 
+## The commander's name as the despatches print it: his own name, with the
+## roster position only when a legacy pool still carries none
+## (wiki: naming § General names).
 func label(owner: int, general_id: String) -> String:
+	var christened: String = name_of(owner, general_id)
+	if not christened.is_empty():
+		return christened
 	var index: int = ids(owner).find(general_id)
 	if index < 0:
 		return ""
 	return "General %d" % (index + 1)
 
 
-## Plain data for local saves: every pool with its earned medals. The pool size
-## is the persisted effective cap, so a load rebuilds the roster exactly and
-## medals never decrease (wiki: military-generals § Persistence and load
-## reconciliation, § Medals).
+## The dossier's commander block: every general by name and medals, then what a
+## medal is worth in the field (wiki: military-generals § Medal effects). Two
+## lines so a phone sheet reads it without a second panel.
+func line(owner: int) -> String:
+	var roster: Array[Dictionary] = pool(owner)
+	if roster.is_empty():
+		return ""
+	var parts: Array[String] = []
+	for general: Dictionary in roster:
+		parts.append(
+			"%s (%d medal%s)" % [
+				String(general.get("name", "")),
+				int(general["medals"]),
+				"" if int(general["medals"]) == 1 else "s",
+			]
+		)
+	return (
+		"Commanders — %s\nEach medal: +1 line, +5%% morale, +10 initiative"
+		% " · ".join(parts)
+	)
+
+
+## Plain data for local saves: every pool with its earned medals and its name.
+## The pool size is the persisted effective cap, so a load rebuilds the roster
+## exactly and medals never decrease (wiki: military-generals § Persistence and
+## load reconciliation, § Medals; naming § General names).
 func to_dict() -> Dictionary:
 	var saved: Dictionary = {}
 	for raw: Variant in pools.keys():
@@ -127,6 +192,7 @@ func to_dict() -> Dictionary:
 			entries.append({
 				"id": String(general["id"]),
 				"medals": clampi(int(general["medals"]), 0, MAX_MEDALS),
+				"name": String(general.get("name", "")),
 			})
 		saved[owner] = entries
 	return {"pools": saved}
@@ -152,7 +218,11 @@ static func from_dict(data: Dictionary) -> GeneralRoster:
 			stored.append({
 				"id": general_id,
 				"medals": clampi(int(general.get("medals", 0)), 0, MAX_MEDALS),
+				"name": String(general.get("name", "")),
 			})
+		# A save written before names existed still opens with named commanders
+		# (wiki: naming § General names).
+		roster._name_all(int(raw), stored)
 		roster.pools[int(raw)] = stored
 	return roster
 

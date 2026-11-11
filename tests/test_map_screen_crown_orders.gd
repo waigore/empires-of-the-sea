@@ -540,6 +540,82 @@ func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
 		assert_ne(crew.tile, pair[1])
 
 
+## A signed deed develops the seller's town, and the crown is told the level it
+## now stands at (DR-20261112-01; RUB-P5-05).
+func test_a_signed_deed_names_the_town_it_raised() -> void:
+	var play: PlaySession = _screen.play
+	var model: MapModel = play.model
+	var found: Array = _minor_estate(model)
+	assert_eq(found.size(), 2, "the chart seats a Minor with an estate")
+	var province: ProvinceState = found[0]
+	var tile: Vector2i = found[1]
+	var saved: Array = Fixture.snapshot(play.world)
+	var town_before: int = province.town_development
+
+	var report: Dictionary = {}
+	assert_true(LandPurchase.complete(
+		model, tile, play.player_faction, play.economy.economy, report
+	), "the deed is signed")
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+		"town_level": int(report.get("town_level", 0)),
+	})
+
+	assert_eq(province.town_level(), 2, "one deed lifts the seller's town")
+	assert_true(
+		_last_toast_text().ends_with("The town rises to level 2."),
+		"the court hears the deed and the level it bought: %s" % _last_toast_text()
+	)
+	# A town already at its deed ceiling must not announce a rise it never took.
+	province.town_development = 4
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+		"town_level": 0,
+	})
+	assert_false(
+		_last_toast_text().contains("town"),
+		"a fully grown town is not announced as rising: %s" % _last_toast_text()
+	)
+	Fixture.restore(play.world, saved)
+	province.town_development = town_before
+
+
+## The text of the most recent despatch plate, or "" when none is on screen.
+func _last_toast_text() -> String:
+	var box: Node = _screen.hud._toast_box
+	if box.get_child_count() == 0:
+		return ""
+	return _label_text(box.get_child(box.get_child_count() - 1))
+
+
+func _label_text(node: Node) -> String:
+	for child: Node in node.get_children():
+		if child is Label:
+			return (child as Label).text
+		var inner: String = _label_text(child)
+		if not inner.is_empty():
+			return inner
+	return ""
+
+
+## A Minor or Tribe province and one of its resource tiles.
+func _minor_estate(model: MapModel) -> Array:
+	for province: ProvinceState in model.provinces:
+		var kind: int = FactionCatalog.type_of(province.owner)
+		if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
+			continue
+		for tile: Vector2i in province.tiles:
+			if model.resource_at(tile.x, tile.y) != MapModel.NO_ID:
+				return [province, tile]
+	return []
+
+
 ## An owned land tile and a foreign neighbour across the border.
 func _border_tiles(play: PlaySession) -> Array:
 	var model: MapModel = play.model
