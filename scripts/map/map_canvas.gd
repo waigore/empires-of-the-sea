@@ -28,7 +28,6 @@ var _coast: Array[PackedVector2Array] = []
 var relief: MapRelief = null
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
-var _roads: Array[PackedVector2Array] = []
 var _font: Font = null
 var _font_italic: Font = null
 var _surf: MapSurf = null
@@ -40,11 +39,10 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	world = p_world
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	relief = MapWash.build(self, model)
 	_build_coast()
 	_build_borders()
-	_build_roads()
 	plan.build(model, world, TILE_SIZE)
 	_build_animated_layers()
 	queue_redraw()
@@ -148,20 +146,6 @@ func _build_borders() -> void:
 	_sea_borders = InkPaths.smooth_segments(sea_raw, 2)
 
 
-## Capital roads (wiki: capital-and-connectivity § Capital Setup), drawn as one
-## ink polyline per port-to-capital path.
-func _build_roads() -> void:
-	_roads.clear()
-	for province: ProvinceState in model.provinces:
-		for path: Array in province.road_paths:
-			if path.size() < 2:
-				continue
-			var points := PackedVector2Array()
-			for tile: Vector2i in path:
-				points.append(MapGeo.tile_center(tile.x, tile.y, TILE_SIZE))
-			_roads.append(points)
-
-
 ## Surf breaks along the inked coast, and one soft cloud shadow drifts over the
 ## whole theatre. Both are children so the static layer still draws once.
 func _build_animated_layers() -> void:
@@ -199,12 +183,9 @@ func _draw() -> void:
 		draw_polyline(path, Color(0.24, 0.19, 0.13, 0.16), 6.5, true)
 		draw_polyline(path, Color(0.16, 0.12, 0.08, 0.85), 1.8, true)
 
-	for path: PackedVector2Array in _roads:
-		draw_polyline(path, Color(0.30, 0.22, 0.14, 0.30), 3.6, true)
-		draw_polyline(path, Color(0.26, 0.19, 0.12, 0.62), 1.6, true)
-
 	for glyph: Dictionary in plan.glyphs:
-		MapGlyphs.draw(self, glyph)
+		if not MapSymbols.stamp(self, glyph):
+			MapGlyphs.draw(self, glyph)
 
 	for point: Vector2 in plan.passages:
 		_draw_passage(point)

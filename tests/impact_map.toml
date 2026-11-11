@@ -4,6 +4,7 @@
 
 [domains.ai]
 suites = [
+  "test_ai_army_reinforce.gd",
   "test_ai_builder_work.gd",
   "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
@@ -24,6 +25,18 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
+]
+
+[domains.land_turn]
+# Land battle pass + capital falls (split from MapPlayArmies). Tighter than full
+# campaign so the army refactor stays inside the tier-1 5 min budget.
+suites = [
+  "test_army_field_rules.gd",
+  "test_army_orders.gd",
+  "test_battle_rules.gd",
+  "test_difficulty.gd",
+  "test_campaign_defeat.gd",
+  "test_capital_loss.gd",
 ]
 
 [domains.audio]
@@ -67,6 +80,7 @@ suites = [
   "test_diplomacy_lens.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
+  "test_diplomacy_power.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
@@ -165,6 +179,7 @@ suites = [
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
+  "test_map_symbols.gd",
   "test_map_generator.gd",
   "test_map_model.gd",
   "test_map_region_table.gd",
@@ -179,6 +194,38 @@ suites = [
   "test_warp_travel.gd",
   "test_world_bootstrap.gd",
   "test_world_setup.gd",
+]
+
+# Crown-road lens: projection + view + the chrome that threads it. Kept its own
+# (small) domain so a reading PR stays inside the tier-1 5 min budget instead of
+# pulling map + menu + ui (mobile_layout) + economy + difficulty.
+[domains.crown_road]
+suites = [
+  "test_crown_road_lens.gd",
+  "test_crown_road_survey.gd",
+]
+
+# Painted chart art: symbol stamps, the canvas that draws them and the fleet
+# hull. Presentational only, so the four suites that mount the chart cover the
+# patch; the broad map/fleet domains would blow the tier-1 5 min budget.
+[domains.chart_art]
+suites = [
+  "test_map_symbols.gd",
+  "test_map_canvas.gd",
+  "test_map_screen.gd",
+  "test_fleet_orders.gd",
+]
+
+# Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
+# the invariants the right-sized world is built for (slot floor, crown land,
+# painted chart + campaign plate). Broader preloads stay on tier 2 — even a
+# dozen heavy MapScreen suites miss the 5 min tier-1 budget.
+[domains.map_fixture]
+suites = [
+  "test_advanced_start.gd",
+  "test_map_screen.gd",
+  "test_save_codec.gd",
+  "test_victory_screen.gd",
 ]
 
 [domains.advanced]
@@ -277,6 +324,18 @@ suites = [
   "test_gazette_plate.gd",
 ]
 
+# The crown's charge at the opening of a campaign (wiki: dialogue-management
+# § Kinds, `game_start_intro`): the rules that compose it, the page that prints
+# it and the shell that raises it are one concern, so an intro change runs these
+# suites instead of the broad menu set.
+[domains.intro]
+suites = [
+  "test_campaign_intro.gd",
+  "test_dialogue_rules.gd",
+  "test_menu_flow.gd",
+  "test_mobile_layout.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
 [[rules]]
 match = "scripts/rules/market_*.gd*"
@@ -310,9 +369,11 @@ domain = "economy"
 match = "scripts/economy/economy_controller.gd"
 domain = "economy"
 
+# bind_views / lens handles live here; economy behaviour is gated by economy_*.
+# A crown-road reading PR that only threads the view stays on crown_road.
 [[rules]]
 match = "scripts/session/play_session.gd"
-domain = "economy"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
@@ -394,6 +455,24 @@ domain = "gazette"
 match = "tests/test_gazette*.gd*"
 domain = "gazette"
 
+# The crown's charge: its rules, its page, its scene and its suite are one
+# concern, and none of them is a menu page (wiki: dialogue-management § Kinds).
+[[rules]]
+match = "scripts/rules/campaign_intro.gd*"
+domain = "intro"
+
+[[rules]]
+match = "scripts/ui/intro_screen.gd*"
+domain = "intro"
+
+[[rules]]
+match = "scenes/intro.tscn*"
+domain = "intro"
+
+[[rules]]
+match = "tests/test_campaign_intro.gd*"
+domain = "intro"
+
 [[rules]]
 match = "project.godot"
 full = true
@@ -412,31 +491,35 @@ full = true
 
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "misc"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/map_fixture.gd"
-full = true
+domain = "map_fixture"
 
 [[rules]]
 match = "tests/map_shot.gd"
-domain = "map"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/playtest_new_world.gd*"
 domain = "map"
 
+# Launch crosses the crown's charge before the map; keep it on intro so a
+# flow-hook edit does not pull the whole map domain past the 5 min budget.
 [[rules]]
 match = "tests/playtest_launch.gd*"
-domain = "map"
+domain = "intro"
 
 [[rules]]
 match = "tests/playtest_combat_chain.gd*"
 domain = "battle"
 
+# Resolve rename / plate hook — battle_rules covers the land pass; keep off the
+# heavier quick_battle domain (overlay + sim) for tier-1 budget.
 [[rules]]
 match = "tests/playtest_quick_battle.gd*"
-domain = "quick_battle"
+domain = "battle"
 
 [[rules]]
 match = "tests/playtest_espionage.gd*"
@@ -511,6 +594,12 @@ match = "scenes/capital_choice.tscn"
 domain = "campaign"
 
 [[rules]]
+# CrownRoadLens node lives on the chart; keep the scene with the reading.
+[[rules]]
+match = "scenes/map_screen.tscn"
+domain = "crown_road"
+
+[[rules]]
 match = "scenes/**"
 domain = "menu"
 
@@ -552,6 +641,12 @@ domain = "army"
 [[rules]]
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
+
+# Land battle pass + capital falls; land_turn keeps army + capital loss/defeat
+# without the whole campaign domain.
+[[rules]]
+match = "scripts/map/map_play_land_turn.gd*"
+domain = "land_turn"
 
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
@@ -601,6 +696,10 @@ match = "scripts/map/map_play_spy_ai.gd*"
 domain = "espionage"
 
 [[rules]]
+match = "scripts/map/ship.gd"
+domain = "chart_art"
+
+[[rules]]
 match = "scripts/map/ship*.gd"
 domain = "fleet"
 
@@ -632,7 +731,20 @@ domain = "diplomacy"
 # domain so a one-line sheet refresh does not pull the whole map suite set.
 [[rules]]
 match = "scripts/map/map_play_input.gd"
-domain = "ui"
+domain = "crown_road"
+
+# Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/map/crown_road_lens.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/map/crown_road_lens.gd.uid"
+domain = "crown_road"
 
 # Crown-link helper for the province dossier; keep with the sheet suites.
 [[rules]]
@@ -659,6 +771,20 @@ domain = "world"
 [[rules]]
 match = "scripts/map/map_naming.gd"
 domain = "world"
+
+# Chart artwork: the painted stamps and the hull are presentational, so only
+# the suites that mount the chart are needed (and tier 1 stays inside 5 min).
+[[rules]]
+match = "scripts/map/map_symbols.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas.gd"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas_plan.gd"
+domain = "chart_art"
 
 [[rules]]
 match = "scripts/map/**"
@@ -777,9 +903,11 @@ domain = "economy"
 match = "scripts/map/map_play_turn.gd*"
 domain = "economy"
 
+# bind_views / lens handles live here; economy behaviour is gated by economy_*.
+# A crown-road reading PR that only threads the view stays on crown_road.
 [[rules]]
 match = "scripts/session/play_session.gd"
-domain = "economy"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
@@ -889,9 +1017,30 @@ domain = "intel"
 match = "scripts/rules/resource_survey.gd"
 domain = "map"
 
+# The survey's road projection: same lens, same suites (the chart draws no roads).
+[[rules]]
+match = "scripts/rules/resource_routes.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/map/road_ink.gd"
+domain = "map"
+
+[[rules]]
+match = "scripts/rules/crown_road_survey.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/rules/crown_road_survey.gd.uid"
+domain = "crown_road"
+
 [[rules]]
 match = "scripts/ui/lens_legend.gd"
-domain = "map"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/ui/palette.gd"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/rules/warp_travel.gd"
@@ -917,6 +1066,10 @@ domain = "world"
 
 [[rules]]
 match = "scripts/rules/territory_growth.gd*"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/territory_seeds.gd*"
 domain = "world"
 
 [[rules]]
@@ -977,7 +1130,16 @@ domain = "intel"
 # case cover both (DR-20261110-25).
 [[rules]]
 match = "scripts/ui/game_hud.gd"
-domain = "ui"
+domain = "crown_road"
+
+# Rail seals and LEFT_RAIL budget for the three map readings.
+[[rules]]
+match = "scripts/ui/hud_chrome.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/ui/hud_layout.gd"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"
@@ -1101,7 +1263,7 @@ domain = "menu"
 
 [[rules]]
 match = "scripts/input_actions.gd"
-domain = "menu"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/**"
@@ -1301,6 +1463,11 @@ domain = "research"
 [[rules]]
 match = "tests/test_resource_*.gd"
 domain = "map"
+
+# Crown-road suites: domains.crown_road owns the reading (not the full map set).
+[[rules]]
+match = "tests/test_crown_road_*.gd*"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/test_tech_*.gd"

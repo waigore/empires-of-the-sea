@@ -100,16 +100,28 @@ static func _match_tiers(
 			var filled: int = _fill(bid, offer, commodity, state, deals, false)
 			if filled <= 0:
 				blocked[bid.id] = true
-	# Anything left is a carry-forward candidate; note the binding constraint.
+	# Anything left is a carry-forward candidate. Name the constraint that
+	# actually stopped it: the wiki attributes a cut by cargo or the purse, and
+	# a bid no offer could reach carries in silence (wiki: world-market
+	# § Treasury budget for bids — `bidPartialFill*Insufficient`; REQ-P5-05).
+	var had_offer: bool = false
+	for raw: Variant in offers:
+		if (raw as MarketOrder).quantity > 0:
+			had_offer = true
+			break
 	for raw: Variant in bids:
 		var bid: MarketOrder = raw
-		if bid.remaining() <= 0:
+		if bid.remaining() <= 0 or not had_offer:
 			continue
-		var code: String = "bid_partial_fill_cargo_insufficient"
+		var code: String = ""
 		if _holds_left(state, bid.faction) <= 0:
 			code = "bid_partial_fill_cargo_insufficient"
-		elif _treasury_left(state, bid.faction) <= 0:
+		elif _treasury_left(state, bid.faction) < _buy_price(
+			state, bid.faction, commodity
+		):
 			code = "bid_partial_fill_treasury_insufficient"
+		if code.is_empty():
+			continue
 		(state["notes"] as Array).append({
 			"code": code,
 			"faction": bid.faction,
@@ -137,6 +149,14 @@ static func _fill(
 	if gated_seller:
 		var stock_left: int = _stock_left(state, offer.faction, commodity)
 		if stock_left < quantity:
+			# The tons the seller no longer holds are named, so the Deal Book shows
+			# the shortfall instead of a silently smaller deal (REQ-P5-05).
+			(state["notes"] as Array).append({
+				"code": "offer_partial_fill_stock_insufficient",
+				"faction": offer.faction,
+				"commodity": commodity,
+				"quantity": quantity - maxi(stock_left, 0),
+			})
 			quantity = stock_left
 	quantity = mini(quantity, _cap_for_buyer(state, bid, commodity))
 	if quantity <= 0:

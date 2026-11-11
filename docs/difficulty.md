@@ -41,7 +41,7 @@ AI's decision algorithm (wiki: ai-personalities).
   `PlayerEconomy.starting()` and scaled once, on first read
   (`AiState.economy_for`). The human crown never passes through the scale, so
   its start stays the published row.
-- **Rival land strength:** `MapPlayArmies.battle_context` publishes
+- **Rival land strength:** `MapPlayLandTurn.battle_context` publishes
   `difficulty: {faction: multiplier}`; `ArmyModifiers.modifiers` folds it into
   the side multiplier after medals, feeding and leader, before terrain and the
   fortified-defender terms. Auto-resolve and Quick Battle read the same

@@ -1,8 +1,8 @@
 class_name LandWorksPaint
 extends RefCounted
-## Estate glyphs the civilian layer leaves on the chart: roads, rails, resource
-## marks and ports. Kept as CanvasItem ink so `CivilianLayer` only owns markers
-## and orders (REQ-P3-01; wiki: extraction-and-improvements).
+## Estate glyphs the civilian layer leaves on the chart: resource marks and
+## ports. Roads live on the survey lens (RoadInk), not the marker layer
+## (REQ-P3-01; wiki: extraction-and-improvements).
 
 
 static func paint(
@@ -12,30 +12,11 @@ static func paint(
 		return
 	for tile: Vector2i in works.developed_tiles(model):
 		var point: Vector2 = MapGeo.tile_center(tile.x, tile.y, tile_size)
-		var transport: int = works.transport_at(model, tile)
-		if transport >= LandWorks.TRANSPORT_ROAD:
-			road(item, point, transport >= LandWorks.TRANSPORT_RAIL)
 		var level: int = works.improvement_at(model, tile)
 		if level > 0:
 			improvement(item, point, model.resource_at(tile.x, tile.y), level)
 		if works.has_port(model, tile):
 			port(item, point)
-
-
-## A road is a dashed ink line; a railroad adds sleepers so level 4 reads at a
-## glance (wiki: extraction-and-improvements § Transport Level).
-static func road(item: CanvasItem, point: Vector2, rail: bool = false) -> void:
-	var ink := Color(0.36, 0.26, 0.16, 0.65)
-	if rail:
-		item.draw_line(point + Vector2(-9, 0), point + Vector2(9, 0), ink, 1.6, true)
-		for i in 3:
-			var x: float = -6.0 + float(i) * 6.0
-			item.draw_line(
-				point + Vector2(x, -3.0), point + Vector2(x, 3.0), ink, 1.4, true
-			)
-		return
-	item.draw_line(point + Vector2(-9, 0), point + Vector2(-3, 0), ink, 2.4, true)
-	item.draw_line(point + Vector2(3, 0), point + Vector2(9, 0), ink, 2.4, true)
 
 
 static func improvement(

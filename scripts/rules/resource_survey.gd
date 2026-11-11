@@ -101,6 +101,11 @@ static func summary_text(entry: Dictionary) -> String:
 		parts.append("%d/%d worked" % [worked, estates])
 	if int(counts["producing"]) > 0 and int(counts["producing"]) != worked:
 		parts.append("%d yielding" % int(counts["producing"]))
+	var developed: int = int(counts.get("developed", 0))
+	if developed > 0:
+		parts.append(
+			"%d of %d linked to the crown" % [int(counts.get("linked", 0)), developed]
+		)
 	if int(counts["building"]) > 0:
 		parts.append("%d under works" % int(counts["building"]))
 	if int(counts["vacant"]) > 0:
@@ -224,6 +229,8 @@ static func _province_entry(
 	var counts: Dictionary = {
 		"estates": rows.size(),
 		"worked": 0,
+		"developed": 0,
+		"linked": 0,
 		"producing": 0,
 		"building": 0,
 		"vacant": 0,
@@ -235,6 +242,12 @@ static func _province_entry(
 		var status: String = String(row["status"])
 		if int(row["level"]) > 0:
 			counts["worked"] = int(counts["worked"]) + 1
+		# Developed and linked are the crown's own facts: a foreign estate is
+		# never "linked to our capital", however worked it looks.
+		if bool(row["ours"]) and int(row["level"]) > 0:
+			counts["developed"] = int(counts["developed"]) + 1
+			if bool(row["connected"]):
+				counts["linked"] = int(counts["linked"]) + 1
 		if status == "producing" or status == "maxed":
 			counts["producing"] = int(counts["producing"]) + 1
 			var commodity: String = String(row["commodity"])
@@ -274,6 +287,8 @@ static func _empty_counts() -> Dictionary:
 		"provinces": 0,
 		"estates": 0,
 		"worked": 0,
+		"developed": 0,
+		"linked": 0,
 		"producing": 0,
 		"building": 0,
 		"vacant": 0,
@@ -285,7 +300,10 @@ static func _empty_counts() -> Dictionary:
 static func _summarise(result: Dictionary, entry: Dictionary) -> void:
 	var counts: Dictionary = result["counts"]
 	counts["provinces"] = int(counts["provinces"]) + 1
-	for key: String in ["estates", "worked", "producing", "building", "vacant", "blocked", "foreign"]:
+	for key: String in [
+		"estates", "worked", "developed", "linked", "producing", "building",
+		"vacant", "blocked", "foreign",
+	]:
 		counts[key] = int(counts[key]) + int(entry["counts"][key])
 	var totals: Dictionary = result["totals"]
 	for commodity: Variant in entry["output"].keys():

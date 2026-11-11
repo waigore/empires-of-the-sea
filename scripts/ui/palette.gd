@@ -49,6 +49,13 @@ const DIPLO_FRIENDLY := Color(0.243, 0.478, 0.286)
 const DIPLO_NEUTRAL := Color(0.478, 0.463, 0.427)
 const DIPLO_WAR := Color(0.702, 0.196, 0.196)
 
+## Crown-road lens states: gold for the crown's road network, amber for a
+## province town's own road (town development caps that yield), crimson for land
+## no road reaches. The wash and the key read this one table (REQ-P1-02).
+const CROWN_ROAD := Color(0.745, 0.612, 0.196)
+const CROWN_TOWN := Color(0.878, 0.639, 0.216)
+const CROWN_CUT := Color(0.639, 0.220, 0.176)
+
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
 const TERRAIN_COLORS: Array[Color] = [
@@ -99,3 +106,13 @@ static func diplo_color(band: String) -> Color:
 		DiplomacySurvey.BAND_WAR:
 			return DIPLO_WAR
 	return DIPLO_NEUTRAL
+
+
+## Wash ink for one crown-road state (CrownRoadSurvey.STATES).
+static func crown_color(state: String) -> Color:
+	match state:
+		CrownRoadSurvey.STATE_ROAD:
+			return CROWN_ROAD
+		CrownRoadSurvey.STATE_TOWN:
+			return CROWN_TOWN
+	return CROWN_CUT

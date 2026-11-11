@@ -12,7 +12,7 @@ const EMBLEM_GAP: float = 8.0
 const PLATE_PAD: float = 7.0
 const RIBBON: float = 5.0
 const BADGE_W: float = 28.0
-const PLATE_H: float = 32.0
+const PLATE_H: float = 44.0
 const LABEL_DROP: float = 28.0
 
 var model: MapModel = null
@@ -81,6 +81,10 @@ func refresh() -> void:
 	survey = ResourceSurvey.snapshot(
 		model, works, units, faction, visibility, capital_tile, tech_caps
 	)
+	# The chart itself draws no roads, so the lens carries the built network.
+	survey["routes"] = ResourceRoutes.snapshot(
+		model, works, faction, capital_tile, visibility
+	)["segments"]
 	_layout_plates()
 	queue_redraw()
 
@@ -143,6 +147,7 @@ func _draw() -> void:
 		return
 	if _font == null:
 		_font = UiTheme.serif()
+	RoadInk.draw_routes(self, survey.get("routes", []), _reveal)
 	var provinces: Array = survey.get("provinces", [])
 	for raw: Variant in provinces:
 		_draw_plate(raw)
@@ -196,6 +201,11 @@ func _draw_plate(entry: Dictionary) -> void:
 		)
 	_draw_meter(entry, rect, alpha)
 	_draw_badge(entry, rect, alpha)
+	RoadInk.draw_link(
+		self, _font, entry["counts"],
+		Vector2(rect.position.x + PLATE_PAD + RIBBON, rect.position.y + 37.0),
+		rect.size.x - PLATE_PAD * 2.0 - RIBBON, alpha
+	)
 	if int(entry["id"]) == hover_province:
 		draw_rect(
 			Rect2(
@@ -217,7 +227,10 @@ func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
 	MapGlyphs.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
 	match status:
 		"unprospected":
-			_dotted_ring(center, radius, tint)
+			for i in 8:
+				var angle: float = TAU * float(i) / 8.0
+				var spot: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+				draw_circle(spot, 1.5, tint)
 		"disconnected":
 			draw_arc(center, radius, 0, TAU, 22, tint, 1.3, true)
 			draw_line(center + Vector2(-radius * 0.7, radius * 0.7),
@@ -273,13 +286,6 @@ func _draw_badge(entry: Dictionary, rect: Rect2, alpha: float) -> void:
 	)
 
 
-func _dotted_ring(center: Vector2, radius: float, tint: Color) -> void:
-	for i in 8:
-		var angle: float = TAU * float(i) / 8.0
-		var spot: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
-		draw_circle(spot, 1.5, tint)
-
-
 # --- layout ------------------------------------------------------------------
 
 
@@ -314,7 +320,9 @@ func _closed(shape: PackedVector2Array) -> PackedVector2Array:
 
 
 ## Greedy pack: try the slip below the name, then further down, so dense
-## theatres never stack one province's survey over another's.
+## theatres never stack one province's survey over another's. Keep walking
+## (plates are 32 px tall and steps are 24 px, so a free lane often needs
+## step ≥ 2); four tries used to leave overlaps on the fixture chart.
 func _layout_plates() -> void:
 	_rects.clear()
 	_animating = false
@@ -329,7 +337,7 @@ func _layout_plates() -> void:
 		var center: Vector2 = Vector2(entry["anchor"]) * TILE_SIZE
 		var drop: float = LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
 		var chosen := Rect2(center + Vector2(-size.x * 0.5, drop), size)
-		for step in 4:
+		for step in 32:
 			var candidate := Rect2(
 				center + Vector2(-size.x * 0.5, drop + float(step) * 24.0), size
 			)

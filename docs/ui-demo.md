@@ -34,7 +34,8 @@ scripts/map/country_borders.gd owner borders from the grid
 scripts/map/map_canvas.gd   static artwork (terrain, coast, province ink)
 scripts/map/map_relief.gd   sub-tile bake: coast field, beach, shoal, paint
 scripts/map/map_canvas_plan.gd names + symbols (pure)
-scripts/map/map_glyphs.gd   ink symbols
+scripts/map/map_glyphs.gd   ink symbols (fallback)
+scripts/map/map_symbols.gd  painted stamps (assets/art/map)
 scripts/map/map_ground.gd   scrub, furrow and tuft marks (pure)
 scripts/map/map_overlay.gd  borders, hover, selection
 scripts/map/fog_layer.gd    fog texture layer

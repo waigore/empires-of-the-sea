@@ -221,7 +221,13 @@ func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
 
 
 func test_wheel_zoom_changes_the_camera_scale() -> void:
-	var before: float = _screen.camera.target_zoom
+	# A small chart opens near the MAX_ZOOM clamp, so step out first: the wheel
+	# must still move the scale, and the case no longer depends on how much
+	# headroom the opening zoom happened to leave.
+	_screen.camera.zoom_by(0.5, _screen.camera.viewport_size() * 0.5)
+	_screen.camera._process(0.4)
+	var before: float = _screen.camera.zoom.x
+	assert_lt(before, MapCamera.MAX_ZOOM, "the chart opens with room to zoom in")
 	_screen.camera.zoom_by(1.14, _screen.camera.viewport_size() * 0.5)
 	assert_gt(_screen.camera.target_zoom, before)
 	_screen.camera._process(0.4)

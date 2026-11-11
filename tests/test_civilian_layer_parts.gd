@@ -91,11 +91,10 @@ func test_turn_pass_guards_and_offscreen_rosters() -> void:
 	layer.free()
 
 
-func test_paint_covers_roads_rails_mines_woods_riches_and_ports() -> void:
+func test_paint_covers_mines_woods_riches_and_ports() -> void:
 	LandWorksPaint.paint(null, null, null, 22.0)
 	var model: MapModel = Fixture.build()
 	var works := LandWorks.new()
-	works.set_transport(model, Fixture.IRON_TILE, LandWorks.TRANSPORT_RAIL)
 	works.set_improvement(model, Fixture.IRON_TILE, 2)
 	works.set_improvement(model, Fixture.TIMBER_TILE, 1)
 	var gold := Vector2i(2, 2)
@@ -104,7 +103,6 @@ func test_paint_covers_roads_rails_mines_woods_riches_and_ports() -> void:
 	var farm := Vector2i(0, 1)
 	model.resource[model.index_of(farm.x, farm.y)] = 4
 	works.set_improvement(model, farm, 1)
-	works.set_transport(model, farm, LandWorks.TRANSPORT_ROAD)
 	works.add_port(model, Fixture.COAST_TILE)
 	var layer := CivilianLayer.new()
 	add_child(layer)

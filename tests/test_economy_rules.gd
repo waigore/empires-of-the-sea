@@ -137,6 +137,26 @@ func test_disband_demotes_one_tier_to_peasant_without_refund() -> void:
 	assert_false(economy.disband(WorkerPool.Tier.MASTER))
 	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY)
 
+
+## The ledger asks the rules why a disband is inert instead of guessing
+## (wiki: workers-and-population § Disband; REQ-P2-03).
+func test_disband_names_its_blocked_reasons() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		economy.disband_blocked_reason(WorkerPool.Tier.PEASANT),
+		"Only a trained worker returns to the fields"
+	)
+	assert_eq(
+		economy.disband_blocked_reason(WorkerPool.Tier.MASTER),
+		"No master to send back"
+	)
+	economy.workers.set_count(WorkerPool.Tier.MASTER, 1)
+	assert_eq(economy.disband_blocked_reason(WorkerPool.Tier.MASTER), "")
+	assert_eq(
+		economy.disband_blocked_reason(WorkerPool.TIER_COUNT), "Only a trained worker returns to the fields"
+	)
+	assert_eq(WorkerPool.tier_one(WorkerPool.Tier.APPRENTICE), "Apprentice")
+
 # --- from test_economy_consumption.gd ---
 ## Consumption phase: army, navy, navy, worker food and luxuries
 ## (wiki: workers-and-population § Consumption).

@@ -1227,7 +1227,7 @@ func test_the_battle_context_charges_through_the_crowns_own_ledger() -> void:
 	play.player_faction = FactionCatalog.PLAYER_FACTION
 	var before: int = controller.economy.treasury
 
-	var pay: Callable = MapPlayArmies.battle_context(play)["pay_attack"]
+	var pay: Callable = MapPlayLandTurn.battle_context(play)["pay_attack"]
 
 	assert_eq(int(pay.call(play.player_faction, 75)), 75)
 	assert_eq(controller.economy.treasury, before - 75)

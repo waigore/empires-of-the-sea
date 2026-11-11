@@ -77,6 +77,26 @@ func _run() -> void:
 	chart.confirm_button.emit_signal("pressed")
 	await process_frame
 
+	# The crown's charge is the gate before the first turn (wiki: dialogue-management
+	# § Kinds, `game_start_intro`): no campaign runs behind it, and one press opens
+	# the age.
+	var charge: IntroScreen = main.current_page as IntroScreen
+	_check(charge != null, "the crown's charge follows the capital chart")
+	_check(main.current_screen == null, "no campaign runs behind the charge")
+	if charge == null:
+		_finish()
+		return
+	_check(
+		_has_text(charge, FactionCatalog.name_of(0)) or _has_text(charge, "THE CROWN'S CHARGE"),
+		"the charge names the crown and its title"
+	)
+	_check(
+		_has_text(charge, str(VictoryRules.MILITARY_THRESHOLD)),
+		"the charge publishes the win condition"
+	)
+	charge.begin_button.emit_signal("pressed")
+	await process_frame
+
 	var screen: MapScreen = main.current_screen
 	_check(screen != null, "main hosts MapScreen")
 	if screen == null:
@@ -241,6 +261,7 @@ func _run() -> void:
 		_check(screen.selected_province == province_id, "province selection sticks")
 		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
+	await _smoke_crown_road_lens(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
@@ -271,6 +292,25 @@ func _run() -> void:
 	_check(main.current_screen == null, "no map survives the return")
 	_clean_save_dir()
 	_finish()
+
+
+## Map readings: the crown-road lens mounts on the real map, fills its survey
+## and hands the key cartouche back when it closes.
+func _smoke_crown_road_lens(screen: MapScreen) -> void:
+	MapPlayInput.set_crown_lens(screen.play, true)
+	await process_frame
+	var lens: CrownRoadLens = screen.play.crown_lens
+	_check(lens != null and lens.active, "crown road lens raises")
+	_check(screen.hud.lens_legend.visible, "crown road key shown")
+	_check(
+		screen.hud.lens_legend.kind == LensLegend.KIND_CROWN_ROAD,
+		"crown road key reads the lens"
+	)
+	var road: int = int(lens.survey.get("tiles", {}).get(CrownRoadSurvey.STATE_ROAD, 0))
+	_check(road > 0, "crown road surveyed")
+	MapPlayInput.set_crown_lens(screen.play, false)
+	await process_frame
+	_check(not screen.hud.lens_legend.visible, "crown road key closes")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
@@ -451,7 +491,7 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	screen.economy.economy.add_treasury(RegimentCatalog.treasury_cost("peasant_levies"))
 	var treasury: int = screen.economy.economy.treasury
 	var fabric: int = screen.economy.economy.quantity("fabric")
-	MapPlayArmies.recruit(screen.play, "peasant_levies")
+	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
 	_check(home.count() == before + 1, "recruit musters a regiment")
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")

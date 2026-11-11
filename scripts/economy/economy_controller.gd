@@ -71,7 +71,8 @@ func _connect() -> void:
 	)
 	panel.cancel_requested.connect(_on_cancel)
 	panel.production_changed.connect(_on_production)
-	panel.recruit_requested.connect(_on_recruit)
+	panel.recruit_requested.connect(_on_worker_action.bind("recruit"))
+	panel.disband_requested.connect(_on_worker_action.bind("disband"))
 	var research: ResearchPanel = _hud.panels.research_panel
 	research.assign_requested.connect(_on_research_assign)
 	research.cancel_requested.connect(_on_research_cancel)
@@ -276,7 +277,14 @@ func _on_trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 		result = MarketOrders.submit(
 			market,
 			player_faction, commodity, MarketOrder.SIDE_OFFER, quantity,
-			{"stock": economy.quantity(commodity)}, 2
+			{
+				"stock": economy.quantity(commodity),
+				# The assigned runs eat their inputs before the auction clears
+				# (wiki: world-market § Trade orders — offer cap; the AI planners
+				# reserve the same tons).
+				"reserved": ProductionRecipes.reserved_inputs(economy.assignments()),
+			},
+			2
 		)
 	if _hud != null:
 		if bool(result.get("ok", false)):
@@ -303,11 +311,29 @@ func _on_production(recipe_id: String, units: int) -> void:
 	refresh_panel()
 
 
-func _on_recruit(tier: int) -> void:
+## One worker action from the ledger. Recruit is paid and enters the pool now;
+## disband demotes one trained worker to a peasant at once and refunds nothing —
+## the rules own both verdicts (wiki: workers-and-population § Recruit, § Disband).
+func _on_worker_action(tier: int, action: String) -> void:
+	if action == "disband":
+		var blocked: String = economy.disband_blocked_reason(tier)
+		var sent: bool = blocked.is_empty() and economy.disband(tier)
+		if _hud != null:
+			if sent:
+				_hud.toast(
+					"One %s returns to the fields — no cost is refunded."
+					% WorkerPool.tier_one(tier).to_lower()
+				)
+			else:
+				_hud.toast(blocked if not blocked.is_empty() else "Disband refused")
+		refresh_panel()
+		return
 	var result: Dictionary = economy.recruit(tier)
 	if _hud != null:
 		if bool(result.get("ok", false)):
-			_hud.toast("A %s joins the capital's workshops" % WorkerPool.tier_name(tier))
+			_hud.toast(
+				"One %s joins the capital's workshops" % WorkerPool.tier_one(tier).to_lower()
+			)
 		else:
 			_hud.toast(String(result.get("reason", "Recruit refused")))
 	refresh_panel()

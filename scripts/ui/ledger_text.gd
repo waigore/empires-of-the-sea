@@ -39,6 +39,21 @@ static func recruit_cost(tier: int) -> String:
 	return "   ".join(parts)
 
 
+## "Send one back to the fields — no recruit cost is refunded. An apprentice eats
+## 2 food and a unit of Refined Sugar a turn." The row's promise and its saving.
+static func disband_hint(tier: int) -> String:
+	var one: String = WorkerPool.tier_one(tier).to_lower()
+	var article: String = "an" if one.begins_with("a") else "a"
+	var eats: String = "%d food" % WorkerPool.FOOD_PER_WORKER[tier]
+	var luxury: String = WorkerPool.luxury_for(tier)
+	if not luxury.is_empty():
+		eats += " and a unit of %s" % CommodityCatalog.label(luxury)
+	return (
+		"Send one back to the fields — no recruit cost is refunded. %s %s eats %s a turn."
+		% [article.capitalize(), one, eats]
+	)
+
+
 ## Summary line: treasury, idle/total labour, food need and strikers.
 static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
 	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
