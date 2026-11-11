@@ -49,8 +49,8 @@ func test_every_point_is_authored_with_a_category_and_two_ways_to_say_it() -> vo
 	for point: String in DialogueCatalog.points():
 		assert_true(
 			[DialogueCatalog.CAT_DIPLOMATIC, DialogueCatalog.CAT_EVENT,
-			DialogueCatalog.CAT_NEGOTIATION,
-			DialogueCatalog.CAT_REACTIVE].has(DialogueCatalog.category_for(point)),
+			DialogueCatalog.CAT_NEGOTIATION, DialogueCatalog.CAT_REACTIVE,
+			DialogueCatalog.CAT_AGENDA].has(DialogueCatalog.category_for(point)),
 			"%s has a documented category" % point
 		)
 		assert_true(DialogueCatalog.lines_for(point).size() >= 2, "%s repeats less" % point)

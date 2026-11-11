@@ -3,16 +3,20 @@ extends RefCounted
 ## Full-AI naval policy (docs/ai.md, wiki: ai-architecture § Naval policy).
 ## A court at war puts its sea-going squadrons onto the nearest hostile squadron
 ## it can match — a sortie out of an adjacent port, or a one-zone pursuit — and
-## otherwise holds station, which is the wiki's Defend mission. A court at peace
-## has nothing to sit on: every unengaged squadron sails home one legal step a
-## turn and docks at the crown's own harbour, so its holds, its yard and its
-## harbour roster are where the rules can use them (DR-20261110-30). Pure rules:
-## state in, orders out; the map layer applies them through NavalMovement so the
-## AI never invents an outcome (REQ-P2-03, REQ-P3-03).
+## failing that sends its warships to work the enemy's trade, blockading a coast
+## where the raid takes cargo and merchant hulls (DR-20261111-17). A court at
+## peace has nothing to sit on: every unengaged squadron sails home one legal
+## step a turn and docks at the crown's own harbour, so its holds, its yard and
+## its harbour roster are where the rules can use them (DR-20261110-30). Pure
+## rules: state in, orders out; the map layer applies them through NavalMovement
+## so the AI never invents an outcome (REQ-P2-03, REQ-P3-03).
 
 const KIND_PURSUE: String = "pursue"
 const KIND_SORTIE: String = "sortie"
 const KIND_HOME: String = "home"
+## A warship with no squadron to fight sails for a hostile coast to raid its
+## trade (DR-20261111-17): the move is the first leg of that station.
+const KIND_RAID: String = "raid"
 
 
 ## One order per sea-going squadron: the zone to enter and the strength it means
@@ -34,13 +38,26 @@ static func orders(
 		return {"orders": planned, "candidates": candidates}
 	var hostile: Dictionary = _hostile_owners(state, config.faction)
 	for fleet: FleetState in _squadrons(fleets, config.faction):
-		# At war a squadron hunts what it can match and holds station otherwise;
-		# at peace it has no station to keep, so it sails home (DR-20261110-30).
-		var order: Dictionary = (
-			_best_target(config, model, fleets, fleet, hostile, charts)
-			if not hostile.is_empty()
-			else _home_order(model, fleet, config.faction, charts)
-		)
+		# At war a squadron hunts what it can match, then works the enemy's
+		# trade; at peace it has no station to keep, so it sails home
+		# (DR-20261110-30, DR-20261111-17).
+		var order: Dictionary = {}
+		if not hostile.is_empty():
+			order = _best_target(config, model, fleets, fleet, hostile, charts)
+			if order.is_empty():
+				order = _raid_order(
+					model, fleets, fleet, config.faction, hostile, charts
+				)
+			# `_raid_order` answers `hold` for a warship already on a hostile
+			# coast: the station pass works it, and it must not sail home.
+			if bool(order.get("hold", false)):
+				order = {}
+			elif order.is_empty():
+				# Nowhere to fight and no trade to work: bring the hulls home,
+				# where holds and escorts are worth something (DR-20261110-30).
+				order = _home_order(model, fleet, config.faction, charts)
+		else:
+			order = _home_order(model, fleet, config.faction, charts)
 		if order.is_empty():
 			continue
 		order["fleet_id"] = fleet.id
@@ -150,6 +167,90 @@ static func _best_target(
 		elif is_equal_approx(threat, best_threat) and zone < int(best["zone"]):
 			best = {"zone": zone, "kind": kind, "threat": int(ceil(threat))}
 	return best
+
+
+## A warship with no squadron to fight works the enemy's trade: one legal step
+## toward a hostile coast, where the station pass posts a blockade and the raid
+## takes cargo and merchant hulls (DR-20261111-17). A coast whose seat holds a
+## laden merchant squadron is worth the farther trip; a merchant-only squadron
+## stays out of it, and a warship already on a hostile coast holds for its
+## station instead of sailing away.
+static func _raid_order(
+	model: MapModel,
+	fleets: Array,
+	fleet: FleetState,
+	faction: int,
+	hostile: Dictionary,
+	charts: CourtCharts
+) -> Dictionary:
+	if not _has_warship(fleet) or NavalMovement.is_home_fleet(model, fleet):
+		return {}
+	var laden: Array[int] = []
+	var coasts: Array[int] = []
+	_trade_goals(model, fleets, faction, hostile, charts, laden, coasts)
+	if laden.has(fleet.sea_zone):
+		return {"hold": true}
+	var step: int = _step_for(model, fleet, laden)
+	if step < 0:
+		step = _step_for(model, fleet, coasts)
+	if step < 0:
+		return {"hold": true} if coasts.has(fleet.sea_zone) else {}
+	if not charts_water(charts, faction, model.region_id, step):
+		return {}
+	return {"kind": KIND_RAID, "zone": step, "threat": 0}
+
+
+## Charted sea zones beside a hostile coast, split into the coasts whose seat
+## holds merchant tonnage (`laden`) and every other hostile shore (`coasts`).
+static func _trade_goals(
+	model: MapModel,
+	fleets: Array,
+	faction: int,
+	hostile: Dictionary,
+	charts: CourtCharts,
+	laden: Array[int],
+	coasts: Array[int]
+) -> void:
+	for province: ProvinceState in model.provinces:
+		if province == null:
+			continue
+		var owner: int = model.province_owner(province.id)
+		if owner == faction or not hostile.has(owner):
+			continue
+		var rich: bool = _home_holds(fleets, owner, province.id)
+		for zone: int in NavalMovement.province_sea_zones(model, province.id):
+			if not charts_water(charts, faction, model.region_id, zone):
+				continue
+			var bucket: Array[int] = laden if rich else coasts
+			if not bucket.has(zone):
+				bucket.append(zone)
+
+
+## True when `owner` keeps a merchant squadron in port at `province`, the laden
+## home fleet a raid can actually strip of cargo and hulls.
+static func _home_holds(fleets: Array, owner: int, province: int) -> bool:
+	for fleet: FleetState in fleets:
+		if fleet == null or fleet.owner != owner or not fleet.is_in_port():
+			continue
+		if fleet.province == province and TradeCargo.fleet_holds(fleet) > 0:
+			return true
+	return false
+
+
+## First leg toward the nearest goal, or -1 when already there or unreachable.
+static func _step_for(model: MapModel, fleet: FleetState, goals: Array[int]) -> int:
+	if goals.is_empty() or goals.has(fleet.sea_zone):
+		return -1
+	return AiSeaRoute.sail_toward(model, fleet, goals)
+
+
+## A commerce raider needs a warship: a merchant squadron is cargo, not a
+## predator (wiki: ships-and-naval § Ship Types).
+static func _has_warship(fleet: FleetState) -> bool:
+	for hull_id: String in fleet.hulls:
+		if ShipStats.is_warship(fleet.type_of(hull_id)):
+			return true
+	return false
 
 
 ## The caution knob keeps a rival from feeding a squadron to a far stronger

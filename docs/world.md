@@ -72,9 +72,9 @@ score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayCampaign`.
 
 ## Known limits
 
-Counter-spy, court reports and rival fog/Passage colonisation are live. Gap:
-rival GP–Tribe first contact and the colonial claims it unlocks
-(DR-20261111-05). Ranked: [`deferred.md`](deferred.md).
+Counter-spy, court reports, rival fog/Passage colonisation and rival GP–Tribe
+first contact (DR-20261111-14) are live. Remaining gaps:
+[`deferred.md`](deferred.md).
 
 ## Tests
 

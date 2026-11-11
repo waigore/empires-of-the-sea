@@ -112,6 +112,11 @@ godot --headless --path . --script res://tests/playtest_persistence.gd
 # shore, resolves a sea battle (printing the despatch against the hulls actually
 # lost), and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://tests/playtest_naval.gd
+
+# Beachhead — boards a field army and marks a landing site on a hostile coast,
+# reads the same-turn refusal, lands on the ready turn into the land battle, and
+# watches the site's three deaths: sailed away, left unused, and peace made.
+godot --headless --path . --script res://tests/playtest_beachhead.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

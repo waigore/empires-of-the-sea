@@ -53,6 +53,9 @@ static func resolve_exchange(
 	}
 	state["attacker"]["plan"] = plan_for(atk_side, attacker, context, false)
 	state["defender"]["plan"] = plan_for(def_side, defender, context, true, fort_level > 0)
+	## A hospital in the province triages the defender's survivors: the same
+	## wear scale auto-resolve applies (DR-20261111-12).
+	state["defender"]["triage"] = HospitalRules.triage_scale_at(model, province)
 	var atk_start: int = ArmyCombat.side_regiments(atk_side)
 	var def_start: int = ArmyCombat.side_regiments(def_side)
 	## Lane split when the battle opened: casualties shrink the lanes as it runs.
@@ -91,6 +94,7 @@ static func resolve_exchange(
 		"defender_medals": int(def_mods["medals"]),
 		"battle_mode": FortRules.battle_mode(fort_level),
 		"fort_level": fort_level,
+		"hospital_level": HospitalRules.level_at(model, province),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
@@ -128,6 +132,9 @@ static func resolve_exchange(
 	}
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
+	report.merge(ArmyModifiers.line_fields(
+		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
+	))
 	var atk_up: int = 0
 	var def_up: int = 0
 	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:

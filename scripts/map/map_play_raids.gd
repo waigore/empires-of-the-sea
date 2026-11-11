@@ -1,11 +1,11 @@
 class_name MapPlayRaids
 extends RefCounted
 ## End-of-turn raid pass, both ways (wiki: ships-and-naval § Trade and Transport
-## Interception; DR-20261110-13). Hostile patrols and blockades off the crown's
-## coast pinch its imports; the crown's own stations pinch rival cargo as prize.
-## Cargo only — no hull is sunk, captured or damaged on either side. Rules stay
-## in NavalRaid; this applies the results to the ledgers, marks the map and
-## reports them (REQ-P3-02, REQ-P3-03).
+## Interception; DR-20261111-17). Hostile patrols and blockades off the crown's
+## coast pinch its imports and may sink one of its merchant hulls; the crown's
+## own stations take rival cargo and merchant hulls as prize. Rules stay in
+## NavalRaid/NavalHullLoss (including the sink); this applies the cargo to the
+## ledgers, marks the map and reports them (REQ-P3-02, REQ-P3-03).
 
 ## Despatch lines per turn; the rest collapse into one summary.
 const MAX_REPORTS: int = 4
@@ -23,20 +23,25 @@ static func resolve(play: PlaySession) -> Dictionary:
 		reports.append(incoming)
 	reports.append_array(prizes)
 	if reports.is_empty():
-		return {"ok": false, "taken": 0, "prize": 0, "prizes": [], "reports": []}
+		return {
+			"ok": false, "taken": 0, "prize": 0, "sunk": 0,
+			"prizes": [], "reports": [],
+		}
 	_report(play, reports)
 	return {
 		"ok": true,
 		"taken": int(incoming.get("taken", 0)),
 		"prize": _prize_total(prizes),
+		"sunk": _sunk_total(reports),
 		"prizes": prizes,
 		"reports": reports,
 	}
 
 
-## Raiders working the crown's own waters skim this turn's imports. The cargo at
-## risk is the crown's, not the whole order book's (DR-20261110-13). A raid never
-## touches a hull, so the home fleet needs no repair pass.
+## Raiders working the crown's own waters skim this turn's imports and may send
+## one of the crown's merchant hulls down. The cargo at risk is the crown's, not
+## the whole order book's; the hull is already off the home fleet because the
+## hull rules own the draw (DR-20261111-17).
 static func _incoming(play: PlaySession) -> Dictionary:
 	var imports: Dictionary = play.economy.market.imports_for(play.player_faction)
 	if imports.is_empty():
@@ -70,7 +75,8 @@ static func _incoming(play: PlaySession) -> Dictionary:
 			continue
 		play.economy.economy.take(id, quantity)
 		taken += quantity
-	if taken <= 0:
+	var sunk: Array = result.get("hulls_lost", [])
+	if taken <= 0 and sunk.is_empty():
 		return {}
 	result["kind"] = "incoming"
 	result["taken"] = taken
@@ -113,7 +119,8 @@ static func _prizes(play: PlaySession) -> Array[Dictionary]:
 		)
 		for raid: Dictionary in raids:
 			var seized: Dictionary = _seize(play, raid)
-			if seized.is_empty():
+			var hulls: Array = raid.get("hulls_lost", [])
+			if seized.is_empty() and hulls.is_empty():
 				continue
 			reports.append(_prize_report(model, raid, seized))
 	return reports
@@ -172,7 +179,7 @@ static func _prize_report(model: MapModel, raid: Dictionary, seized: Dictionary)
 		"losses": seized,
 		"chance": float(raid.get("chance", 0.0)),
 		"roll": float(raid.get("roll", 1.0)),
-		"hulls_lost": [],
+		"hulls_lost": raid.get("hulls_lost", []),
 	}
 
 
@@ -180,6 +187,14 @@ static func _prize_total(prizes: Array[Dictionary]) -> int:
 	var total: int = 0
 	for prize: Dictionary in prizes:
 		total += int(prize.get("taken", 0))
+	return total
+
+
+## Merchant hulls sent down this turn, both directions: the ledger of teeth.
+static func _sunk_total(reports: Array[Dictionary]) -> int:
+	var total: int = 0
+	for report: Dictionary in reports:
+		total += (report.get("hulls_lost", []) as Array).size()
 	return total
 
 

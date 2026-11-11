@@ -198,6 +198,24 @@ func test_refused_register_orders_keep_the_armies() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+## A blooded regiment prints its service record under its condition; a green one
+## adds no line (wiki: naming § Regiment records; DR-20261111-18).
+func test_roster_rows_carry_a_service_record_once_blooded() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	army.regiment_engagements["unit_301"] = 3
+	army.regiment_wins["unit_301"] = 2
+
+	panel.refresh(model, army, true)
+
+	var entry: VBoxContainer = panel._roster.get_child(0)
+	var record: Label = entry.get_child(entry.get_child_count() - 1)
+	assert_eq(String(record.text), "3 engagements · 2 won")
+	panel.free()
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
@@ -426,7 +444,11 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	var roster: VBoxContainer = panel._roster
 	assert_eq(roster.get_child_count(), 2, "one row per regiment")
 	var first: VBoxContainer = roster.get_child(0)
-	assert_eq((first.get_child(0).get_child(0) as Label).text, "Guards")
+	assert_eq(
+		(first.get_child(0).get_child(0) as Label).text,
+		"%s — Guards" % RegimentNames.of(army, "unit_301"),
+		"the row names the regiment, then its type (DR-20261111-18)"
+	)
 	var detail: Label = first.get_child(1)
 	assert_eq(detail.text, RegimentCatalog.detail_line("guards"))
 	assert_true(detail.text.contains("FPN 12"), detail.text)
@@ -446,6 +468,21 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	assert_eq((row.get_child(0) as HBoxContainer).get_child_count(), 1, "no detach order")
 	assert_true((row.get_child(1) as Label).text.contains("Spear cavalry"))
 	assert_true(String(panel._status.text).contains("Enemy colours"))
+	panel.free()
+
+
+## The dossier names the province's hospital tempo before the player commits
+## (wiki: combat § Regiment condition; DR-20261111-12).
+func test_roster_names_the_hospital_rest_tempo() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 1
+	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
+
+	panel.refresh(model, army, true)
+
+	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 	panel.free()
 
 

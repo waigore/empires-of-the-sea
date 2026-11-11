@@ -15,6 +15,9 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var tech_gate: Callable = play.has_tech
 	var context: Dictionary = {
 		"seed": play.map_seed, "turn": play.turn, "has_tech": tech_gate,
+		# Last turn's rations decide how hard each squadron can fight
+		# (wiki: workers-and-population § Consumption).
+		"navy_feeding": _navy_feeding(play),
 	}
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
 		play.world, hostile, context
@@ -47,6 +50,18 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
 	return battles
+
+
+## Each crown's last resolved navy coverage, read from its own ledger so the
+## human and every rival answer the same rule (wiki: workers-and-population
+## § Consumption). A crown with no ledger fights at full rations.
+static func _navy_feeding(play: PlaySession) -> Dictionary:
+	var feeding: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		var ledger: PlayerEconomy = play.ledger_for(faction)
+		if ledger != null:
+			feeding[faction] = ledger.navy_feeding
+	return feeding
 
 
 ## Fleets at peace share a sea zone; only war makes them hostile (wiki:

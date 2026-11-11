@@ -71,25 +71,21 @@ static func is_home_fleet(model: MapModel, fleet: FleetState) -> bool:
 
 
 ## A sea-going fleet that docks at its own capital merges into the home fleet:
-## instance ids are preserved and the sea-going fleet leaves the roster
-## (wiki: ships-and-naval § Home Fleet — membership and state). Returns
-## {"fleet": the home fleet, "displaced": an army the merge could not keep
-## aboard (-1 when none)}, or {"fleet": null} when the docking fleet is already
-## the only squadron at that port.
+## instance ids, names and passengers are preserved and the sea-going fleet
+## leaves the roster (wiki: ships-and-naval § Home Fleet — membership and
+## state). Returns {"fleet": the home fleet, "displaced": an army the merge
+## could not keep aboard (-1 when none), "hulls": how many joined}, or
+## {"fleet": null} when the docking fleet is already the only squadron at that
+## port. The target choice lives in FleetHomeMerge: one home fleet per seat.
 static func merge_into_home(
 	model: MapModel, roster: Array[FleetState], fleet: FleetState
 ) -> Dictionary:
-	if not is_home_fleet(model, fleet):
-		return {"fleet": null, "displaced": -1}
-	for other: FleetState in roster:
-		if other == null or other == fleet or other.owner != fleet.owner:
-			continue
-		if not is_home_fleet(model, other):
-			continue
-		var displaced: int = other.merge_from(fleet)
-		roster.erase(fleet)
-		return {"fleet": other, "displaced": displaced}
-	return {"fleet": null, "displaced": -1}
+	var merged: Dictionary = FleetHomeMerge.absorb(model, roster, fleet)
+	return {
+		"fleet": merged.get("fleet"),
+		"displaced": int(merged.get("displaced", -1)),
+		"hulls": int(merged.get("hulls", 0)),
+	}
 
 
 ## Ports the fleet could dock at right now (owned, adjacent, with a harbour).

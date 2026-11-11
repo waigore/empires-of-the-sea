@@ -7,8 +7,8 @@ extends RefCounted
 ## flips. Pre-combat general binding arrives in `context` from the caller.
 ## Sieges read the fort level: walls soak attack, the emplaced battery adds
 ## defence and shrinks defender losses, and the besieging train silences guns
-## before the clash (wiki: siege-mechanics; DR-20261110-22). The human's land
-## battles route through QuickBattle.
+## before the clash (wiki: siege-mechanics; DR-20261110-22). Human land battles
+## route through QuickBattle; every report names the line and the reserve.
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -149,7 +149,10 @@ static func _exchange(
 		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
 		int(atk_mods["fort"]))
 	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
-	var band: Dictionary = ArmyBands.for_ratio(ratio)
+	var band: Dictionary = ArmyBands.for_ratio(
+		ratio, ArmyModifiers.morale(context, attacker),
+		ArmyModifiers.morale(context, defender)
+	)
 	var attacker_lost: Array[String] = apply_losses(
 		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
@@ -157,8 +160,6 @@ static func _exchange(
 		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
 		* float(def_mods["loss_scale"])), def_limit
 	)
-	# Survivors carry the field's wear: the side that lost more is mauled more
-	# (wiki: combat § Strength — damaged units fight weaker).
 	RegimentCondition.wear(
 		attacking,
 		RegimentCondition.WOUND_SHARE
@@ -168,7 +169,8 @@ static func _exchange(
 	RegimentCondition.wear(
 		defending,
 		RegimentCondition.WOUND_SHARE
-		* float(defender_lost.size()) / float(maxi(initial_defenders, 1)),
+		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
+		* HospitalRules.triage_scale_at(model, province),
 		def_limit
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
@@ -190,12 +192,13 @@ static func _exchange(
 		"attack_paid": int(fee["paid"]),
 		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
 		"fort_level": int(def_mods["fort"]),
+		"hospital_level": HospitalRules.level_at(model, province),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
-	if not siege.is_empty():
-		report["siege"] = siege
-	if def_left == 0 and atk_left > 0:
+	report.merge(ArmyModifiers.line_fields(attacking, atk_limit, defending, def_limit))
+	if not siege.is_empty(): report["siege"] = siege
+	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
 		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
@@ -205,7 +208,7 @@ static func _exchange(
 			report["medal_owner"] = attacker
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
-	if def_left == 0:
+	if def_left == 0 and atk_left == 0:
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
 		if further:
 			var recovery: Dictionary = ArmyGarrison.recover(
@@ -223,6 +226,8 @@ static func _exchange(
 			report["medal_owner"] = defender
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
+	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
+	report["blunted"] = def_left == 0 and atk_left > 0
 	report["outcome"] = Outcome.STALEMATE
 	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 	return report

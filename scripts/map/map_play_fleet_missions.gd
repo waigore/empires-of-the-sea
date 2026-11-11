@@ -54,9 +54,17 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	return " ".join(extras) if line.is_empty() else "%s %s" % [line, " ".join(extras)]
 
 
-## What a standing blockade is worth this turn: the chance its raid rolls and the
-## cargo it would skim off the blockaded coast — and the rule that a raid takes
-## cargo, never a hull (DR-20261110-13). Read before the player commits the move.
+## The dossier's hint line: a landing site's stake, or nothing when no site is
+## held (the station note already carries the ordinary mission line).
+static func hint(play: PlaySession, fleet: FleetState) -> String:
+	if fleet == null or fleet.owner != play.player_faction or not fleet.has_beachhead():
+		return ""
+	return MapPlayBeachhead.hint(play, fleet)
+
+
+## What a standing blockade is worth this turn: the chance its raid rolls, the
+## cargo it would skim and the merchant hull it could send down — read before the
+## player commits the move (DR-20261111-17).
 static func prize_note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction:
 		return ""
@@ -79,8 +87,15 @@ static func prize_note(play: PlaySession, fleet: FleetState) -> String:
 		[fleet], home, imports, FleetState.Mission.BLOCKADE, play.has_tech
 	)
 	var chance: int = int(round(float(odds.get("chance", 0.0)) * 100.0))
-	return "Prize: %d%% to take ~%d cargo — no hull at risk." % [
-		chance, int(odds.get("expected", 0))
+	var at_risk: String = String(odds.get("hull_at_risk", ""))
+	if at_risk.is_empty():
+		return "Prize: %d%% to take ~%d cargo — no merchant hull at risk." % [
+			chance, int(odds.get("expected", 0))
+		]
+	var hull_chance: int = int(round(float(odds.get("hull_chance", 0.0)) * 100.0))
+	return "Prize: %d%% to take ~%d cargo; a hit sinks a %s on %d%%." % [
+		chance, int(odds.get("expected", 0)),
+		ShipStats.display_name(at_risk), hull_chance,
 	]
 
 
