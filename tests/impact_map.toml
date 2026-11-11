@@ -117,6 +117,7 @@ suites = [
   "test_trade_cargo.gd",
   "test_diplomacy_trade.gd",
   "test_market_engine.gd",
+  "test_market_offers.gd",
   "test_ledger_text.gd",
   "test_commodity_icons.gd",
 ]
@@ -1244,6 +1245,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/market_offers_head.gd"
 domain = "economy"
 
 [[rules]]

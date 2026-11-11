@@ -20,6 +20,16 @@ var _economy: PlayerEconomy = null
 var _market: WorldMarket = null
 ## Home-fleet holds and this turn's laden imports, from the controller.
 var _cargo: Dictionary = {}
+## This turn's Minor/Tribe book, kept so a chip press redraws rows only.
+var _offers: Array = []
+## The seller and good chips (and the row order) narrow the published book.
+var _seller_filter: int = MarketOffersHead.ALL_SELLERS
+var _good_filter: String = MarketOffersHead.ALL_GOODS
+var _offer_sort: String = MarketOffersHead.SORT_SELLER
+var _offers_head: MarketOffersHead = null
+var _offers_box: VBoxContainer = null
+## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
+var _compact: bool = false
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`.
@@ -158,9 +168,14 @@ func _deal_line(deal: Dictionary) -> String:
 
 
 ## Direct offers sit above the world price rows: who sells, what is left, and
-## what the court asks. An empty book still says so, so the section never looks
-## broken (REQ-P1-07, REQ-P5-03).
+## what the court asks. The seller/good chips and the row order are presentation
+## only — they narrow the book the auction already published and never stage or
+## edit an order (REQ-P2-03). An empty book still says so, so the section never
+## looks broken (REQ-P1-07, REQ-P5-03).
 func _add_offers(offers: Array) -> void:
+	_offers = offers
+	_offers_head = null
+	_offers_box = null
 	UiRowBuilder.spacer(self, 6.0)
 	var title := UiRowBuilder.label(OFFER_HEADER, 11, Palette.GOLD_DIM)
 	title.tooltip_text = "Direct purchases from the Minor Nations and Tribes, below the world price."
@@ -181,16 +196,66 @@ func _add_offers(offers: Array) -> void:
 		add_child(none)
 		UiRowBuilder.spacer(self, 4.0)
 		return
+	_offers_head = MarketOffersHead.new()
+	_offers_head.filters_changed.connect(_on_offers_filtered)
+	_offers_head.set_compact(_compact)
+	add_child(_offers_head)
+	_offers_box = VBoxContainer.new()
+	_offers_box.add_theme_constant_override("separation", 4)
+	add_child(_offers_box)
+	_offers_head.render(offers, _seller_filter, _good_filter, _offer_sort)
+	_render_offers()
+	UiRowBuilder.spacer(self, 4.0)
+
+
+## Rebuilds only the offer rows, so a chip press never re-runs the rest of the
+## page and the pressed chip and the list always move together (REQ-P5-05).
+func _render_offers() -> void:
+	if _offers_box == null:
+		return
+	UiRowBuilder.clear(_offers_box)
+	var rows: Array[Dictionary] = visible_offers()
+	if rows.is_empty():
+		var none := UiRowBuilder.label("No offers match this filter.", 12, Palette.TEXT_DIM)
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		none.custom_minimum_size = Vector2(240, 0)
+		_offers_box.add_child(none)
+		return
 	var header := UiRowBuilder.row(0.0)
 	header.add_child(UiRowBuilder.caption("SELLER", 10, Palette.TEXT_DIM, 96.0))
 	header.add_child(UiRowBuilder.caption("GOOD", 10, Palette.TEXT_DIM, 84.0))
 	header.add_child(UiRowBuilder.caption("LEFT", 10, Palette.TEXT_DIM, 40.0))
 	header.add_child(UiRowBuilder.caption("PRICE", 10, Palette.TEXT_DIM, 46.0))
-	add_child(header)
-	for raw: Variant in offers:
-		if typeof(raw) == TYPE_DICTIONARY:
-			add_child(_offer_row(raw as Dictionary))
-	UiRowBuilder.spacer(self, 4.0)
+	_offers_box.add_child(header)
+	for row: Dictionary in rows:
+		_offers_box.add_child(_offer_row(row))
+
+
+## The head's chips are an intent, not a rule: the page only remembers which
+## slice of the published book to draw.
+func _on_offers_filtered(seller: int, good: String, sort_key: String) -> void:
+	_seller_filter = seller
+	_good_filter = good
+	_offer_sort = sort_key
+	_render_offers()
+
+
+## Rows the strip is drawing right now, in display order (tests and tooling use
+## this instead of reaching into the offer box; REQ-P3-02).
+func visible_offers() -> Array[Dictionary]:
+	return MarketOffersHead.apply(_offers, _seller_filter, _good_filter, _offer_sort)
+
+
+## The seller/good/sort chips, for tests and the mobile layout audit.
+func offer_filters() -> Dictionary:
+	return _offers_head.filter_buttons() if _offers_head != null else {}
+
+
+## Thumb-sized chips on a phone viewport (REQ-P5-07).
+func set_compact(compact: bool) -> void:
+	_compact = compact
+	if _offers_head != null:
+		_offers_head.set_compact(compact)
 
 
 func _offer_row(offer: Dictionary) -> Control:
