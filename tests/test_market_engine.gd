@@ -413,6 +413,65 @@ func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	assert_false((economies[1] as PlayerEconomy).treasury == PlayerEconomy.START_TREASURY)
 
 
+## The standing world counterparty is no court: it pays no clear price, so a
+## harvest it absorbs owes the deed holder nothing (wiki:
+## world-market-first-right-of-refusal § Eligibility — "another GP buys those
+## units"; § Treasury transfer D4 — "the buyer GP pays").
+func test_credits_ignore_a_sale_the_world_counterparty_took() -> void:
+	var deals: Array[Dictionary] = [{
+		"seller": 6, "buyer": MarketOrder.WORLD, "commodity": "timber",
+		"quantity": 10, "price": 20.0, "seller_is_minor": true,
+		"origin_region": 0, "origin_index": 1,
+	}]
+	var result: Dictionary = FirstRight.credits(
+		deals,
+		func(_region: int, _index: int) -> int: return 0,
+		func(_gp: int, _minor: int) -> float: return 75.0,
+		func(_gp: int, _minor: int) -> bool: return true
+	)
+	assert_eq((result["by_gp"] as Dictionary).size(), 0, "nobody paid a share")
+	assert_eq((result["rows"] as Array).size(), 0, "no credit row for a world fill")
+	assert_eq(float(result["sink"]), 0.0, "a world fill adds nothing to the sink")
+
+
+## Playtest: a deed bought and never bid on must not mint treasury at the turn
+## close, even though the standing world counterparty clears the harvest.
+func test_a_world_backstop_sale_pays_no_deed_share() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	assert_true(model.purchase_tile(Vector2i(2, 0), 0))
+	var economies: Dictionary = _economies()
+	var owner: PlayerEconomy = economies[0]
+	var before: int = owner.treasury
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(100.0)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(owner.treasury, before, "no court paid, so there is no share")
+	assert_eq((report["credits"] as Dictionary)["by_gp"].size(), 0)
+	assert_eq(float(report["sink"]), 0.0, "the world paid nothing into the sink")
+
+
+## A kickback is funded from a court's payment, so a world fill funds none.
+func test_a_world_backstop_sale_pays_no_embassy_kickback() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	var embassy_court: PlayerEconomy = PlayerEconomy.starting()
+	economies[2] = embassy_court
+	var before: int = embassy_court.treasury
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(2, 6, 0).set_score(50.0)
+	diplomacy.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4, 2: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(embassy_court.treasury, before, "no buyer, no kickback")
+	assert_eq((report["credits"] as Dictionary)["by_gp"].size(), 0)
+
+
 ## The colony's harvest clears to its suzerain inside the tier even though the
 ## rival is the warmer, better-known court (wiki: diplomacy § R7.1;
 ## DR-20261111-11).
