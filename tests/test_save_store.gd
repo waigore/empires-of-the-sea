@@ -28,6 +28,22 @@ func test_slots_report_existing_saves_and_empty_slots() -> void:
 	assert_eq(String(rows[2]["region"]), "Old World", "row carries the region")
 	assert_eq(int(rows[2]["seed"]), 4242, "row carries the seed")
 	assert_false(String(rows[2]["saved_at"]).is_empty(), "row carries a timestamp")
+	assert_eq(String(rows[2]["length"]), "Historical", "row names the campaign length")
+
+
+## The campaign length is a rule a load cannot change, so the row that offers
+## the load names it; a save without the key reads Historical, exactly as the
+## loaded campaign will (wiki: campaign-persistence § Load and resume).
+func test_slot_rows_name_the_campaign_length() -> void:
+	assert_true(SaveStore.save_slot(1, _data(4, true), DIR), "the endless save writes")
+	assert_true(SaveStore.save_slot(2, _data(5, false), DIR), "the historical save writes")
+	assert_true(SaveStore.save_slot(3, _data(6), DIR), "the legacy save writes")
+	var rows: Array[Dictionary] = SaveStore.slots(DIR)
+	assert_eq(String(rows[0]["length"]), "Endless", "endless is named")
+	assert_eq(String(rows[1]["length"]), "Historical", "historical is named")
+	assert_eq(String(rows[2]["length"]), "Historical", "a save without the key is historical")
+	assert_eq(SaveCodec.length_label(true), "Endless")
+	assert_eq(SaveCodec.length_label(false), "Historical")
 
 
 ## A slot holding a file this build cannot read is not an empty slot: the row
@@ -73,18 +89,22 @@ func test_slot_numbers_are_clamped_and_bad_data_is_refused() -> void:
 	assert_false(SaveStore.save_slot(1, {"version": 999}, DIR), "bad version refused")
 
 
-func _data(turn: int) -> Dictionary:
+## `infinite` is left null for a save written before the key existed.
+func _data(turn: int, infinite: Variant = null) -> Dictionary:
+	var session: Dictionary = {
+		"map_seed": 4242,
+		"map_width": 64,
+		"map_height": 42,
+		"player_faction": 0,
+		"region_index": 0,
+		"turn": turn,
+	}
+	if infinite != null:
+		session["infinite_mode"] = infinite
 	return {
 		"version": SaveCodec.VERSION,
 		"saved_at": "2026-11-08 12:00:00",
-		"session": {
-			"map_seed": 4242,
-			"map_width": 64,
-			"map_height": 42,
-			"player_faction": 0,
-			"region_index": 0,
-			"turn": turn,
-		},
+		"session": session,
 		"regions": [{}],
 	}
 
