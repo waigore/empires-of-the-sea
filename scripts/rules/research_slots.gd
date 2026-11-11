@@ -28,11 +28,15 @@ static func assignments(raw: Variant) -> Dictionary:
 ## Replaces `state`'s knowledge, revealed commodities, slots and progress from a
 ## research snapshot. Entries whose tech is unknown, already known, duplicated,
 ## or beyond this player's roster are dropped during this catalog-aware pass.
+## The ledger goal is client state: a slot this build cannot read (or a save that
+## carries none) opens the queue in catalog order (wiki: tech-tree § Goal slot;
+## DR-20261111-21).
 static func restore(state: ResearchState, data: Dictionary) -> void:
 	if state == null:
 		return
 	state.unlocked = _flags(data.get("unlocked", {}))
 	state.revealed = _flags(data.get("revealed", {}))
+	state.goal = TechOrder.normalize(String(data.get("goal", "")))
 	state.slots = _idle_slots(state.slot_count())
 	var saved: Dictionary = _ints(data.get("progress", {}))
 	var entries: Dictionary = assignments(data.get("slots", []))

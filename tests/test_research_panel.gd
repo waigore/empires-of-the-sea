@@ -150,6 +150,25 @@ func test_an_unknown_goal_clears_it() -> void:
 	assert_eq(_panel.goal_tech(), "")
 
 
+## The goal is kept with the campaign (DR-20261111-21): steering writes it into
+## the research state, and the ledger reopens on it instead of catalog order.
+func test_steering_writes_the_goal_into_the_campaign_state() -> void:
+	_panel.refresh(_state, 2500)
+	_panel.set_goal("national_bureaucracy")
+	assert_eq(_state.goal, "national_bureaucracy", "the goal is state the save carries")
+	_panel.set_goal("")
+	assert_eq(_state.goal, "", "clearing the goal clears it from the state")
+
+
+func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
+	_state.goal = "national_bureaucracy"
+	_panel.refresh(_state, 2500)
+	await get_tree().process_frame
+	assert_eq(_panel.goal_tech(), "national_bureaucracy")
+	assert_not_null(_label_containing("National Bureaucracy"))
+	assert_eq(_first_available(), "Printing Press", "the saved goal still sorts the queue")
+
+
 # --- helpers -----------------------------------------------------------------
 
 
