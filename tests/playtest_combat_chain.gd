@@ -379,7 +379,7 @@ func _seat(owner: int, province: int, count: int, offset: int, moved: bool = fal
 
 func _fight() -> void:
 	var battles: Array[Dictionary] = _play.army_layer.resolve_battles(
-		_play.world, MapPlayArmies.battle_context(_play)
+		_play.world, MapPlayLandTurn.battle_context(_play)
 	)
 	if battles.is_empty():
 		_say("no battle was fought")

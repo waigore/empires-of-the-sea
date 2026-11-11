@@ -61,7 +61,12 @@ static func open_map(
 		return null
 	chart.confirm_button.emit_signal("pressed")
 	await tree.process_frame
+	# The crown's charge sits between the chart and the first turn.
+	var charge: IntroScreen = main.current_page as IntroScreen
+	if charge != null:
+		charge.begin_button.emit_signal("pressed")
+		await tree.process_frame
 	var screen: MapScreen = main.current_screen
 	if screen == null:
-		push_error("playtest: the map screen did not open after the chart")
+		push_error("playtest: the map screen did not open after the charge")
 	return screen

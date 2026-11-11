@@ -4,6 +4,7 @@
 
 [domains.ai]
 suites = [
+  "test_ai_army_reinforce.gd",
   "test_ai_builder_work.gd",
   "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
@@ -24,6 +25,18 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
+]
+
+[domains.land_turn]
+# Land battle pass + capital falls (split from MapPlayArmies). Tighter than full
+# campaign so the army refactor stays inside the tier-1 5 min budget.
+suites = [
+  "test_army_field_rules.gd",
+  "test_army_orders.gd",
+  "test_battle_rules.gd",
+  "test_difficulty.gd",
+  "test_campaign_defeat.gd",
+  "test_capital_loss.gd",
 ]
 
 [domains.audio]
@@ -66,6 +79,7 @@ suites = [
   "test_diplomacy_lens.gd",
   "test_diplomacy_orders.gd",
   "test_diplomacy_panel.gd",
+  "test_diplomacy_power.gd",
   "test_diplomacy_proposals.gd",
   "test_diplomacy_screen.gd",
   "test_diplomacy_state.gd",
@@ -178,6 +192,18 @@ suites = [
   "test_warp_travel.gd",
   "test_world_bootstrap.gd",
   "test_world_setup.gd",
+]
+
+# Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
+# the invariants the right-sized world is built for (slot floor, crown land,
+# painted chart + campaign plate). Broader preloads stay on tier 2 — even a
+# dozen heavy MapScreen suites miss the 5 min tier-1 budget.
+[domains.map_fixture]
+suites = [
+  "test_advanced_start.gd",
+  "test_map_screen.gd",
+  "test_save_codec.gd",
+  "test_victory_screen.gd",
 ]
 
 [domains.advanced]
@@ -445,7 +471,7 @@ domain = "misc"
 
 [[rules]]
 match = "tests/map_fixture.gd"
-full = true
+domain = "map_fixture"
 
 [[rules]]
 match = "tests/map_shot.gd"
@@ -455,17 +481,21 @@ domain = "map"
 match = "tests/playtest_new_world.gd*"
 domain = "map"
 
+# Launch crosses the crown's charge before the map; keep it on intro so a
+# flow-hook edit does not pull the whole map domain past the 5 min budget.
 [[rules]]
 match = "tests/playtest_launch.gd*"
-domain = "map"
+domain = "intro"
 
 [[rules]]
 match = "tests/playtest_combat_chain.gd*"
 domain = "battle"
 
+# Resolve rename / plate hook — battle_rules covers the land pass; keep off the
+# heavier quick_battle domain (overlay + sim) for tier-1 budget.
 [[rules]]
 match = "tests/playtest_quick_battle.gd*"
-domain = "quick_battle"
+domain = "battle"
 
 [[rules]]
 match = "tests/playtest_espionage.gd*"
@@ -581,6 +611,12 @@ domain = "army"
 [[rules]]
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
+
+# Land battle pass + capital falls; land_turn keeps army + capital loss/defeat
+# without the whole campaign domain.
+[[rules]]
+match = "scripts/map/map_play_land_turn.gd*"
+domain = "land_turn"
 
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
@@ -947,6 +983,10 @@ domain = "world"
 
 [[rules]]
 match = "scripts/rules/territory_growth.gd*"
+domain = "world"
+
+[[rules]]
+match = "scripts/rules/territory_seeds.gd*"
 domain = "world"
 
 [[rules]]

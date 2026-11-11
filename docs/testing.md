@@ -23,6 +23,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
+- That world is right-sized (44×32): the smallest that still validates a
+  `SaveCodec` slot and seats the turn-100 civilian tier. Screen and
+  campaign-plate suites share it instead of generating their own.
 - The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
   screens on that world repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
@@ -48,8 +51,9 @@ gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 
 # Free-playtest drives (opt-in, not a CI gate). Every one launches the real flow
-# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> map), so
-# a flow change that strands a drive fails loudly instead of printing one line.
+# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> crown's
+# charge -> map), so a flow change that strands a drive fails loudly instead of
+# printing one line.
 
 # New World exploration loop — boards an Explorer, takes the Passage, lands,
 # charts and prospects, printing one line per step.

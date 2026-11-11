@@ -1,14 +1,11 @@
 # gdlint: disable=max-public-methods
 extends GdToolsTest
 ## Integration: the campaign-end plate on the real map screen (wiki: victory).
-## A dedicated 96x64 world is cached so the Old World holds the 31 provinces a
-## military victory needs; MapFixture's 64x42 map is too small for that.
+## Reuses the shared two-region world: its Old World holds 60 provinces, so the
+## 31 a military victory needs are always there, and the chart is already baked
+## for every case in this suite.
 
 const Fixture = preload("res://tests/map_fixture.gd")
-const WIDTH: int = 96
-const HEIGHT: int = 64
-
-static var _world: WorldMap = null
 
 # Seats and deeds as the shared world was generated; `_grant_old_world`
 # rewrites owners, so each case starts from the same pristine world.
@@ -18,25 +15,19 @@ var _screen: MapScreen = null
 
 
 func before_all() -> void:
-	if _world == null:
-		_world = MapGenerator.new().generate_world(1500, WIDTH, HEIGHT)
-	pristine = Fixture.snapshot(_world)
+	pristine = Fixture.snapshot(Fixture.world())
 
 
 func before_each() -> void:
-	Fixture.restore(_world, pristine)
-	_screen = Fixture.SCENE.instantiate()
-	_screen.map_width = WIDTH
-	_screen.map_height = HEIGHT
-	_screen.preset_world = _world
-	add_child(_screen)
+	Fixture.restore(Fixture.world(), pristine)
+	_screen = Fixture.attach_screen(self)
 
 
 func after_each() -> void:
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
-	Fixture.restore(_world, pristine)
+	Fixture.restore(Fixture.world(), pristine)
 
 
 func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
@@ -100,15 +91,7 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	assert_true(SaveCodec.is_valid(save), "a decided save is valid")
 
 	_screen.free()
-	_screen = Fixture.SCENE.instantiate()
-	_screen.map_width = WIDTH
-	_screen.map_height = HEIGHT
-	# The save came from this world: preset it so the reload applies the save
-	# over the cached map instead of generating (and painting) a second 96x64
-	# world for the case.
-	_screen.preset_world = _world
-	_screen.pending_save = save
-	add_child(_screen)
+	_screen = Fixture.open_save(self, save)
 
 	assert_not_null(_screen.play.victory, "the decided campaign survives the save")
 	assert_eq(_screen.play.victory.winner_player_id, decided.winner_player_id)
@@ -128,4 +111,4 @@ func _grant_old_world(faction_id: int) -> void:
 
 
 func _old_world() -> MapModel:
-	return _world.region(FactionCatalog.OLD_WORLD)
+	return Fixture.world().region(FactionCatalog.OLD_WORLD)
