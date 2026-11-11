@@ -9,6 +9,7 @@ suites = [
   "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
   "test_ai_diplomacy_offers.gd",
+  "test_ai_hospital_work.gd",
   "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_merchant.gd",
@@ -172,6 +173,7 @@ suites = [
 [domains.hospital]
 suites = [
   "test_hospital_rules.gd",
+  "test_ai_hospital_work.gd",
   "test_battle_rules.gd",
   "test_quick_battle_rules.gd",
   "test_civilian_field_rules.gd",

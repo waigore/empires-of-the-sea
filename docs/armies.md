@@ -32,7 +32,8 @@
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron; wounded recover a quarter each turn.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Engineer-built Field/General
-  (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%.
+  (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%. Rivals
+  raise them too (DR-20261111-16).
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock.
   Minors follow leading power; Tribes, level 1.
@@ -52,7 +53,7 @@
 
 ## Deferred (REQ-P2-02)
 
-Rival hospitals; regiment names ([`deferred.md`](deferred.md)).
+Regiment names ([`deferred.md`](deferred.md)).
 
 ## Architecture
 
