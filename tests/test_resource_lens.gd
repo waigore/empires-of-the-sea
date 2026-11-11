@@ -28,6 +28,7 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_true(_screen.hud.lens_legend.visible)
 	assert_true(_screen.hud._lens_button.button_pressed)
 	assert_gt(int(lens.survey["counts"]["estates"]), 0)
+	assert_gt((lens.survey.get("routes", []) as Array).size(), 0, "the lens carries the roads")
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
 	lens._reveal = 1.0
@@ -147,6 +148,60 @@ func test_summary_for_an_unsurveyed_province_is_empty() -> void:
 	assert_eq(_screen.play.lens.summary_for(9999), "")
 
 
+func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
+	var probe := _RoadInkProbe.new()
+	probe.font = UiTheme.serif()
+	probe.segments = [
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": true},
+		{
+			"a": Vector2i(1, 2),
+			"b": Vector2i(2, 2),
+			"linked": false,
+			"rail": false,
+			"fogged": true,
+		},
+	]
+	probe.links = [
+		{"counts": {"developed": 0, "linked": 0}, "origin": Vector2.ZERO},
+		{"counts": {"developed": 2, "linked": 2}, "origin": Vector2(0, 12)},
+		{"counts": {"developed": 2, "linked": 1}, "origin": Vector2(0, 24)},
+		{"counts": {"developed": 2, "linked": 0}, "origin": Vector2(0, 36)},
+	]
+	add_child(probe)
+	probe.queue_redraw()
+	await get_tree().process_frame
+	assert_eq(probe.segments.size(), 3)
+	probe.queue_free()
+
+
+func test_an_unprospected_estate_draws_its_prospect_ring() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var found: Array = _owned_unprospected(lens.survey)
+	if found.is_empty():
+		return
+	lens._reveal = 1.0
+	lens.queue_redraw()
+	await get_tree().process_frame
+	assert_eq(String((found[1] as Dictionary)["status"]), "unprospected")
+
+
+## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
+class _RoadInkProbe extends Node2D:
+	var font: Font = null
+	var segments: Array = []
+	var links: Array = []
+
+	func _draw() -> void:
+		RoadInk.draw_routes(self, segments, 1.0)
+		for raw: Variant in links:
+			var link: Dictionary = raw
+			RoadInk.draw_link(
+				self, font, link["counts"], link["origin"], 40.0, 1.0
+			)
+
+
 # --- helpers -----------------------------------------------------------------
 
 
@@ -187,3 +242,13 @@ func _visible_entry(survey: Dictionary) -> Dictionary:
 		):
 			return entry
 	return {}
+
+
+func _owned_unprospected(survey: Dictionary) -> Array:
+	for raw: Variant in survey["provinces"]:
+		var entry: Dictionary = raw
+		for raw_row: Variant in entry.get("rows", []):
+			var row: Dictionary = raw_row
+			if bool(row.get("ours", false)) and String(row["status"]) == "unprospected":
+				return [entry, row]
+	return []

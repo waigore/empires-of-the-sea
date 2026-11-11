@@ -87,7 +87,7 @@ func test_battle_context_carries_the_rival_multiplier_and_skips_the_human() -> v
 	var play := PlaySession.new()
 	play.player_faction = 2
 	play.difficulty = "introductory"
-	var context: Dictionary = MapPlayArmies.battle_context(play)
+	var context: Dictionary = MapPlayLandTurn.battle_context(play)
 	var difficulty: Dictionary = context["difficulty"] as Dictionary
 	assert_false(difficulty.has(2))
 	assert_almost_eq(float(difficulty[0]), 0.85, 0.001)

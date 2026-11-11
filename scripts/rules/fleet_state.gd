@@ -24,6 +24,10 @@ var mission: int = Mission.NONE
 var blockade_province: int = MapModel.NO_ID
 var hulls: Array[String] = []
 var hull_types: Dictionary = {}
+## Hull instance id -> the name it flies (wiki: naming § Ship names;
+## DR-20261111-07). Kept beside the type so a hull keeps its name for the life of
+## the save; ShipNames christens every hull this fleet has not named yet.
+var hull_names: Dictionary = {}
 ## Army instance id carried aboard, or -1 (wiki: ships-and-naval § Naval
 ## transport; DR-20261109-08). One army per squadron; each hull carries one
 ## regiment.
@@ -83,14 +87,23 @@ static func empty_in_port(p_id: int, p_owner: int, p_province: int) -> FleetStat
 	return fleet
 
 
-## Replaces the hull list; every hull keeps its catalog type or defaults to carrack.
-func set_hulls(p_hulls: Array[String], p_types: Dictionary = {}) -> void:
+## Replaces the hull list; every hull keeps its catalog type or defaults to carrack
+## and every hull Christened by the caller keeps its name (wiki: § Ship instances;
+## naming § Ship names). Hulls that arrive without a name are christened here.
+func set_hulls(
+	p_hulls: Array[String], p_types: Dictionary = {}, p_names: Dictionary = {}
+) -> void:
 	hulls = p_hulls.duplicate()
 	hull_types = {}
+	hull_names = {}
 	for hull_id: String in hulls:
 		hull_types[hull_id] = ShipStats.normalize(
 			String(p_types.get(hull_id, ShipStats.DEFAULT_TYPE))
 		)
+		var named: String = String(p_names.get(hull_id, ""))
+		if not named.is_empty():
+			hull_names[hull_id] = named
+	ShipNames.fill(self)
 
 
 static func _hulls(fleet_id: int, source: Array[String]) -> Array[String]:
@@ -168,6 +181,7 @@ func add_hull(hull_id: String, type_id: String = ShipStats.DEFAULT_TYPE) -> void
 		return
 	hulls.append(hull_id)
 	hull_types[hull_id] = ShipStats.normalize(type_id)
+	hull_names[hull_id] = ShipNames.christen(self, hull_id)
 
 
 func remove_hull(hull_id: String) -> bool:
@@ -176,6 +190,7 @@ func remove_hull(hull_id: String) -> bool:
 		return false
 	hulls.remove_at(index)
 	hull_types.erase(hull_id)
+	hull_names.erase(hull_id)
 	return true
 
 
@@ -192,6 +207,7 @@ func merge_from(source: FleetState) -> int:
 			continue
 		hulls.append(hull_id)
 		hull_types[hull_id] = source.type_of(hull_id)
+		hull_names[hull_id] = ShipNames.of(source, hull_id)
 	for unit_id: int in source.embarked_civilians:
 		add_civilian(unit_id)
 	source.embarked_civilians.clear()
@@ -240,6 +256,7 @@ func to_dict() -> Dictionary:
 		"blockade_province": blockade_province,
 		"hulls": hulls.duplicate(),
 		"hull_types": hull_types.duplicate(),
+		"hull_names": hull_names.duplicate(),
 		"embarked_army": embarked_army,
 		"embarked_civilians": embarked_civilians.duplicate(),
 		"beachhead_province": beachhead_province,
@@ -265,5 +282,5 @@ static func from_dict(data: Dictionary) -> FleetState:
 	var names: Array[String] = []
 	for raw: Variant in data.get("hulls", []):
 		names.append(String(raw))
-	fleet.set_hulls(names, data.get("hull_types", {}))
+	fleet.set_hulls(names, data.get("hull_types", {}), data.get("hull_names", {}))
 	return fleet

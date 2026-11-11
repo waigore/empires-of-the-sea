@@ -35,6 +35,28 @@ func test_court_panel_opens_and_closes() -> void:
 	assert_false(_screen.hud.panels.is_diplomacy_open())
 
 
+## The court reads every crown's public power: the session's order of battle
+## feeds the published score, and each Great Power row carries its band while a
+## Minor Nation carries none (wiki: diplomacy § Great Power power score).
+func test_the_court_reads_each_crowns_public_power() -> void:
+	MapPlayDiplomacy.open(_screen.play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var orders: Dictionary = MapPlayDiplomacy.public_orders(_screen.play)
+	assert_eq(panel._power.size(), FactionCatalog.great_power_ids().size())
+	assert_eq(
+		int(panel._power[0]),
+		AiPower.score(
+			_screen.play.world,
+			0,
+			int(roundf(float((orders["strength"] as Dictionary).get(0, 0.0)))),
+			int((orders["ships"] as Dictionary).get(0, 0))
+		),
+		"the panel reads the published score, not its own arithmetic"
+	)
+	assert_false(CourtRows.line(panel._power, 0, 1).is_empty(), "a rival Great Power carries a band")
+	assert_true(CourtRows.line(panel._power, 0, 6).is_empty(), "a Minor Nation carries none")
+
+
 func test_orders_from_the_court_change_relations_and_toast() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()

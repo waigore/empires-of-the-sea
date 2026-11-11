@@ -66,7 +66,14 @@ static func launch(
 	for commodity: Variant in inputs.keys():
 		economy.take(String(commodity), int(inputs[commodity]))
 	fleet.add_hull(hull_id, type_id)
-	return {"ok": true, "reason": "", "type": type_id, "hull": hull_id, "retired": false}
+	return {
+		"ok": true,
+		"reason": "",
+		"type": type_id,
+		"hull": hull_id,
+		"name": ShipNames.of(fleet, hull_id),
+		"retired": false,
+	}
 
 
 ## Breaks up one hull: no treasury or material refund, one peasant returns.
@@ -77,6 +84,7 @@ static func scrap(economy: PlayerEconomy, fleet: FleetState, hull_id: String) ->
 	if not fleet.hulls.has(hull_id):
 		return _deny("That hull does not sail in this fleet.")
 	var type_id: String = fleet.type_of(hull_id)
+	var hull_name: String = ShipNames.of(fleet, hull_id)
 	fleet.remove_hull(hull_id)
 	economy.workers.add(WorkerPool.Tier.PEASANT, ShipEconomy.WORKER_COST)
 	return {
@@ -84,9 +92,17 @@ static func scrap(economy: PlayerEconomy, fleet: FleetState, hull_id: String) ->
 		"reason": "",
 		"type": type_id,
 		"hull": hull_id,
+		"name": hull_name,
 		"retired": not fleet.is_afloat(),
 	}
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "type": "", "hull": "", "retired": false}
+	return {
+		"ok": false,
+		"reason": reason,
+		"type": "",
+		"hull": "",
+		"name": "",
+		"retired": false,
+	}
