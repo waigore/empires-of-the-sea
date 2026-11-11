@@ -40,7 +40,11 @@ static func build(
 	return slot
 
 
+## A reveal on a sheet already on screen is a no-op: a repaint must not fade the
+## dialog back in or slide it out from under the player (REQ-P1-05).
 func reveal(host: Node, dock: PanelDock) -> void:
+	if open:
+		return
 	open = true
 	if slides and dock != null:
 		dock.slide_in(host, wrap)

@@ -20,6 +20,7 @@ func fill(economy: PlayerEconomy) -> void:
 
 func _recipe_row(recipe_id: String) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
+	row.add_child(CommodityIcons.badge(ProductionRecipes.output(recipe_id)))
 	var name_label := UiRowBuilder.label(LedgerText.recipe_title(recipe_id), 14, Palette.TEXT)
 	name_label.tooltip_text = LedgerText.recipe_tooltip(recipe_id)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -118,6 +118,7 @@ suites = [
   "test_diplomacy_trade.gd",
   "test_market_engine.gd",
   "test_ledger_text.gd",
+  "test_commodity_icons.gd",
 ]
 
 [domains.espionage]
@@ -241,6 +242,21 @@ suites = [
   "test_crown_road_survey.gd",
 ]
 
+# Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
+# Catalog + seeder + survey + Explorer policy travel together; kept off the full
+# map + AI + economy fan-out so tier 1 stays inside 5 min.
+[domains.prospect]
+suites = [
+  "test_ai_rules.gd",
+  "test_catalogs.gd",
+  "test_civilian_field_rules.gd",
+  "test_map_generator.gd",
+  "test_map_region_table.gd",
+  "test_resource_lens.gd",
+  "test_resource_survey.gd",
+  "test_world_setup.gd",
+]
+
 # Painted chart art: symbol stamps, the canvas that draws them and the fleet
 # hull. Presentational only, so the four suites that mount the chart cover the
 # patch; the broad map/fleet domains would blow the tier-1 5 min budget.
@@ -250,6 +266,16 @@ suites = [
   "test_map_canvas.gd",
   "test_map_screen.gd",
   "test_fleet_orders.gd",
+]
+
+# Unit medallions: the painted art for every worker, hull and regiment type and
+# the row widget that draws it. Presentational only, so the two dossiers that
+# mount the rows plus the coverage suite keep a plate change inside tier 1.
+[domains.unit_art]
+suites = [
+  "test_unit_icons.gd",
+  "test_fleet_orders.gd",
+  "test_army_orders.gd",
 ]
 
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch. chart_art
@@ -293,6 +319,22 @@ suites = [
   "test_menu_flow.gd",
   "test_misc_rules.gd",
   "test_save_codec.gd",
+]
+
+# The crown's own victory bar (wiki: victory § Military victory; DR-20261111-26):
+# the level's published percentage reaches the win check, the charge that opens
+# the campaign and the setup row that states it. One domain so a bar change
+# stays inside the tier-1 5 min budget instead of pulling campaign + difficulty
+# + intro + menu.
+[domains.victory_bar]
+suites = [
+  "test_campaign_end.gd",
+  "test_campaign_intro.gd",
+  "test_difficulty.gd",
+  "test_game_setup.gd",
+  "test_menu_flow.gd",
+  "test_misc_rules.gd",
+  "test_victory_screen.gd",
 ]
 
 [domains.menu]
@@ -398,6 +440,31 @@ suites = [
 
 # First matching rule wins. More specific globs before broader ones.
 [[rules]]
+match = "scripts/rules/victory_rules.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/rules/campaign_intro.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/rules/difficulty.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/ui/game_setup_screen.gd"
+domain = "victory_bar"
+
+# The shell that hands the campaign's level to the crown's charge.
+[[rules]]
+match = "scenes/main.gd"
+domain = "victory_bar"
+
+[[rules]]
 match = "scripts/rules/tribe_contact.gd*"
 domain = "tribe_contact"
 
@@ -460,6 +527,12 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+# The commodity medallions are the ledger's own art table; keep them on the
+# economy domain so an icon change runs the market/production rows that draw it.
+[[rules]]
+match = "scripts/ui/commodity_icons.gd*"
 domain = "economy"
 
 [[rules]]
@@ -645,6 +718,11 @@ domain = "misc"
 [[rules]]
 match = "scripts/ai/ai_state.gd"
 domain = "difficulty"
+
+# Explorer Prospect policy (DR-20261111-26): keep off the full AI planner set.
+[[rules]]
+match = "scripts/ai/ai_explorer_work.gd*"
+domain = "prospect"
 
 [[rules]]
 match = "scripts/ai/**"
@@ -932,6 +1010,22 @@ match = "scripts/map/map_wash.gd.uid"
 domain = "chart_bake"
 
 [[rules]]
+# The capital chart's own marker: only scenes/capital_choice.tscn mounts it, so
+# a chart tweak stays in the campaign suites instead of pulling the whole map
+# domain past the tier-1 budget.
+match = "scripts/map/capital_seat_marker.gd"
+domain = "campaign"
+
+# Resource table + seeder for Prospect-required minerals (DR-20261111-26).
+[[rules]]
+match = "scripts/map/map_catalog.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/map/resource_seeder.gd*"
+domain = "prospect"
+
+[[rules]]
 match = "scripts/map/**"
 domain = "map"
 
@@ -1034,6 +1128,15 @@ domain = "civilian"
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd"
 domain = "civilian"
+
+# Prospect-required mineral ids (DR-20261111-26); keep off the full economy set.
+[[rules]]
+match = "scripts/rules/improvement_catalog.gd*"
+domain = "prospect"
+
+[[rules]]
+match = "scripts/rules/prospect_rules.gd*"
+domain = "prospect"
 
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
@@ -1174,8 +1277,8 @@ match = "scripts/rules/intel_*.gd*"
 domain = "intel"
 
 [[rules]]
-match = "scripts/rules/resource_survey.gd"
-domain = "map"
+match = "scripts/rules/resource_survey.gd*"
+domain = "prospect"
 
 # The survey's road projection: same lens, same suites (the chart draws no roads).
 [[rules]]
@@ -1254,6 +1357,24 @@ domain = "fleet"
 match = "scripts/rules/**"
 domain = "misc"
 
+# Unit medallions: one plate per worker, hull and regiment type, plus the row
+# widget. Kept off the menu catch-all so a plate change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ship_art.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "scripts/ui/regiment_art.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "scripts/ui/unit_medallion.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "tests/test_unit_icons.gd*"
+domain = "unit_art"
+
 # Dossier sheet shells (HudPanelSlot / DossierHeader / row kit). Keep on ui so a
 # shell extract does not pull army/fleet/intel domains past the tier-1 budget;
 # map_play and rules paths still own those domains for behavior changes.
@@ -1267,6 +1388,12 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/fleet_panel.gd*"
+domain = "ui"
+
+# The shipyard drawer is a dossier block, not a fleet rule: keep it on ui so a
+# row change does not pull the whole fleet domain past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/fleet_yard_block.gd*"
 domain = "ui"
 
 [[rules]]
@@ -1351,7 +1478,7 @@ match = "scripts/ui/improvement_*.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/ui/research_*.gd"
+match = "scripts/ui/research_*.gd*"
 domain = "research"
 
 [[rules]]

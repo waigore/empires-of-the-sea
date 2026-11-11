@@ -93,6 +93,26 @@ func test_the_charge_publishes_the_win_condition_and_the_calendar() -> void:
 	assert_true(endless.contains("No calendar"), "an endless age says so")
 
 
+## A level that moves the crown's bar is named in the charge, so the opening
+## never hides the price the level asks (wiki: victory § Military victory;
+## DR-20261111-28). `normal` stays the published sentence.
+func test_the_charge_prints_the_bar_the_level_sets() -> void:
+	var hard: String = "\n".join(CampaignIntro.charges(false, "hard"))
+	assert_true(hard.contains("hold 36 Old World provinces"), "the crown's own bar")
+	assert_true(hard.contains("a rival needs 31"), "and the bar every rival keeps")
+	var eased: String = "\n".join(CampaignIntro.charges(false, "introductory"))
+	assert_true(eased.contains("hold 26 Old World provinces"))
+	var published: String = "\n".join(CampaignIntro.charges(false))
+	assert_false(published.contains("a rival needs"), "the published age prints one bar")
+	var page: Dictionary = CampaignIntro.address(
+		"Spain", "Isabella I", "Madrid", 1, false, 0, "impossible"
+	)
+	assert_true(
+		"\n".join(page["charges"] as Array).contains("hold 40 Old World provinces"),
+		"the page carries the level it was opened with"
+	)
+
+
 ## One press opens the age: the gate is dismiss-only and never silent
 ## (REQ-P5-02, REQ-P5-05).
 func test_one_press_begins_the_age() -> void:

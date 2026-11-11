@@ -56,7 +56,8 @@ static func snapshot(
 	for tile: Vector2i in model.ownership.owned_tiles(model, owner):
 		if not model.is_land(tile.x, tile.y):
 			continue
-		if model.resource_at(tile.x, tile.y) < 0:
+		# Hidden minerals stay off the estates sheet until Prospect (DR-20261111-26).
+		if ProspectRules.known_resource(owner, model, tile, works) < 0:
 			continue
 		var province_id: int = model.province_at(tile.x, tile.y)
 		if province_id == MapModel.NO_ID:
@@ -71,7 +72,7 @@ static func snapshot(
 		var province_id: int = province.id
 		var rows: Array[Dictionary] = []
 		for tile: Vector2i in tiles_by_province[province_id]:
-			var resource: int = model.resource_at(tile.x, tile.y)
+			var resource: int = ProspectRules.known_resource(owner, model, tile, works)
 			var index: int = model.index_of(tile.x, tile.y)
 			var entry: Dictionary = connected.get(index, {}) as Dictionary
 			rows.append(_estate_row(
@@ -115,7 +116,7 @@ static func estate_row(
 	capital_tile: Vector2i,
 	tech_caps: Dictionary = {}
 ) -> Dictionary:
-	var resource: int = model.resource_at(tile.x, tile.y)
+	var resource: int = ProspectRules.known_resource(owner, model, tile, works)
 	if resource < 0:
 		return {}
 	var resolved: Dictionary = LandConnectivity.resolve(
