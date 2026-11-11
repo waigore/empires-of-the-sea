@@ -914,6 +914,11 @@ domain = "intel"
 match = "scripts/rules/resource_survey.gd"
 domain = "map"
 
+# The survey's road projection: same lens, same suites (the chart draws no roads).
+[[rules]]
+match = "scripts/rules/resource_routes.gd"
+domain = "map"
+
 [[rules]]
 match = "scripts/ui/lens_legend.gd"
 domain = "map"

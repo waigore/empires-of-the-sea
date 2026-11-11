@@ -6,7 +6,7 @@ extends Control
 ## the political key while the diplomatic lens is on.
 
 const WIDTH: float = 244.0
-const HEIGHT: float = 156.0
+const HEIGHT: float = 210.0
 
 const SURVEY_ROWS: Array[Dictionary] = [
 	{"status": "producing", "text": "Yielding estate"},
@@ -15,6 +15,14 @@ const SURVEY_ROWS: Array[Dictionary] = [
 	{"status": "unprospected", "text": "Needs prospecting"},
 	{"status": "disconnected", "text": "No road to the crown"},
 	{"status": "foreign", "text": "Foreign holding"},
+]
+
+## The lens carries the built network (roads leave the chart): three strokes,
+## the same shapes `RoadInk` paints in world space.
+const ROAD_ROWS: Array[Dictionary] = [
+	{"kind": "road", "text": "Road to the crown"},
+	{"kind": "rail", "text": "Railroad"},
+	{"kind": "cut", "text": "No crown link"},
 ]
 
 const DIPLOMACY_ROWS: Array[Dictionary] = [
@@ -77,10 +85,40 @@ func _draw_survey() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
 		)
 		y += 16.0
+	y += 4.0
+	for row: Dictionary in ROAD_ROWS:
+		_draw_road(Vector2(16, y - 4.5), String(row["kind"]))
+		draw_string(
+			_font, Vector2(44, y), String(row["text"]),
+			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 54, 13, Palette.TEXT
+		)
+		y += 16.0
 	draw_string(
-		_font, Vector2(14, HEIGHT - 14), "Badge: estates worked  ·  bar: share",
+		_font, Vector2(14, HEIGHT - 14), "Badge: estates worked  ·  link: to the crown",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
+
+
+## The three road strokes at key size: solid ink for a road to the crown, sleepers
+## for a railroad, dashes for a road the network does not reach.
+func _draw_road(start: Vector2, kind: String) -> void:
+	var end: Vector2 = start + Vector2(18, 0)
+	var ink: Color = Palette.GOLD_DIM
+	match kind:
+		"rail":
+			draw_line(start, end, ink, 1.8, true)
+			for i in 2:
+				var x: float = start.x + 6.0 + float(i) * 8.0
+				draw_line(Vector2(x, start.y - 3.4), Vector2(x, start.y + 3.0), ink, 1.3, true)
+		"cut":
+			for i in 3:
+				var x: float = start.x + float(i) * 7.0
+				draw_line(
+					Vector2(x, start.y), Vector2(x + 4.0, start.y),
+					Palette.TEXT_DIM, 1.5, true
+				)
+		_:
+			draw_line(start, end, ink, 2.1, true)
 
 
 ## Four readings, one per band. The wash is a flat tint, so the key shows the

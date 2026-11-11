@@ -28,6 +28,7 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_true(_screen.hud.lens_legend.visible)
 	assert_true(_screen.hud._lens_button.button_pressed)
 	assert_gt(int(lens.survey["counts"]["estates"]), 0)
+	assert_gt((lens.survey.get("routes", []) as Array).size(), 0, "the lens carries the roads")
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
 	lens._reveal = 1.0
