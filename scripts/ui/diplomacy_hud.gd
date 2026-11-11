@@ -40,10 +40,11 @@ static func show(
 	player: int,
 	treasury: int,
 	tech: Dictionary = {},
-	court_reports: Dictionary = {}
+	court_reports: Dictionary = {},
+	power: Dictionary = {}
 ) -> void:
 	panels.close_sheets(panels.diplomacy)
-	panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
+	panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports, power)
 	panels.diplomacy.reveal(panels.host, panels.dock)
 
 
@@ -54,10 +55,13 @@ static func refresh(
 	player: int,
 	treasury: int,
 	tech: Dictionary = {},
-	court_reports: Dictionary = {}
+	court_reports: Dictionary = {},
+	power: Dictionary = {}
 ) -> void:
 	if panels.is_diplomacy_open():
-		panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports)
+		panels.diplomacy_panel.refresh(
+			state, world, player, treasury, tech, court_reports, power
+		)
 
 
 static func hide(panels: HudPanels) -> void:
