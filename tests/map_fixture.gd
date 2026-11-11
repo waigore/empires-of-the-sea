@@ -134,8 +134,7 @@ static func mouse_motion(relative: Vector2) -> InputEventMouseMotion:
 static func attach_screen(
 	host: Node,
 	faction: int = FactionCatalog.PLAYER_FACTION,
-	leader: String = "",
-	audio: AudioDirector = null
+	leader: String = ""
 ) -> MapScreen:
 	var screen: MapScreen = SCENE.instantiate()
 	screen.map_width = WORLD_WIDTH
@@ -143,10 +142,6 @@ static func attach_screen(
 	screen.player_faction = faction
 	screen.player_leader = leader
 	screen.preset_world = world()
-	# The app shell injects its director; a rule-only suite leaves the score off.
-	var score: MapSoundtrack = screen.get_node("Soundtrack") as MapSoundtrack
-	if score != null:
-		score.audio = audio
 	host.add_child(screen)
 	return screen
 

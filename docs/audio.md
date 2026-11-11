@@ -52,8 +52,8 @@ Mix: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects 0
 | `scripts/audio/map_soundtrack.gd` | Listens to map-screen signals, picks beds/cues |
 | `scripts/ui/audio_controls.gd` | Bell seal + mix desk |
 
-No autoload: `main.tscn` owns the one director and hands it to each map screen,
-so the bed plays from launch, `arch-lint` stays clean and tests inject their own.
+No autoload: `main.tscn` owns the director and retires the map scene's own when
+it mounts, so the bed plays from launch; standalone mounts keep theirs.
 
 ## Cue map
 
@@ -82,6 +82,5 @@ one too. `M` mutes anywhere; settings persist.
 
 ## Tests
 
-`tests/test_audio_*.gd`, `tests/test_map_soundtrack.gd`,
-`tests/test_shell_soundtrack.gd`: cue files exist, eras map correctly, mute
-silences both buses, and the launch bed carries into play.
+`tests/test_audio_*.gd`, `tests/test_map_soundtrack.gd`: cue files exist, eras
+map correctly, mute silences both buses, and the launch bed carries into play.

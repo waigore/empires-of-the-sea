@@ -16,7 +16,10 @@ var _battle_timer: Timer = null
 
 func _ready() -> void:
 	screen = get_parent() as MapScreen
-	if screen == null or audio == null:
+	if screen == null:
+		return
+	_adopt_director()
+	if audio == null:
 		return
 	_battle_timer = Timer.new()
 	_battle_timer.one_shot = true
@@ -30,6 +33,17 @@ func _ready() -> void:
 		_bind_widgets()
 	else:
 		screen.ready.connect(_bind_widgets, CONNECT_ONE_SHOT)
+
+
+## The app shell injects its director before mounting the screen, so the scene's
+## own one retires and the bed carries over from the title screen. A standalone
+## mount (tools, suites) keeps the scene's director.
+func _adopt_director() -> void:
+	var own: Node = screen.get_node_or_null("Audio")
+	if audio == null:
+		audio = own as AudioDirector
+	elif own != null:
+		own.queue_free()
 
 
 # --- wiring ------------------------------------------------------------------

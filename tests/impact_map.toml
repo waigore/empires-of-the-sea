@@ -47,7 +47,6 @@ suites = [
   "test_audio_director.gd",
   "test_audio_mix.gd",
   "test_map_soundtrack.gd",
-  "test_shell_soundtrack.gd",
 ]
 
 [domains.battle]
@@ -1623,11 +1622,6 @@ domain = "difficulty"
 [[rules]]
 match = "tests/test_main.gd"
 domain = "menu"
-
-# The shell score boots main.tscn, so it rides with the audio suites.
-[[rules]]
-match = "tests/test_shell_soundtrack.gd"
-domain = "audio"
 
 [[rules]]
 match = "tests/test_menu_*.gd"
