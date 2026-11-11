@@ -39,6 +39,11 @@ static func plan(
 	var town_raw: Dictionary = AiBuilderWork.town_raw(
 		model, config.faction, works, tech_caps, tech_unlocked, context
 	)
+	# One estate-ledger read per region per court, and only when a Builder is
+	# idle: the same rows the player's ESTATES ledger renders, so a Builder
+	# prices the yield the crown can gather.
+	var estates: Array[Dictionary] = []
+	var estates_ready: bool = false
 	var train_context: Dictionary = context.duplicate()
 	train_context["merchant_targets"] = AiMerchantWork.buyable_tiles(
 		model, config.faction, works, context
@@ -46,9 +51,14 @@ static func plan(
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
+		if unit.type_id == "builder" and not estates_ready:
+			estates = AiBuilderWork.estate_rows(
+				model, works, units, stockpile, config.faction, tech_caps, context
+			)
+			estates_ready = true
 		var best: Dictionary = _best_work(
 			config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-			context, reserved, screened, town_raw
+			context, reserved, screened, town_raw, estates
 		)
 		if best.is_empty():
 			var move: Dictionary = _best_move(model, unit, works, units, context, screened)
@@ -114,13 +124,13 @@ static func _best_work(
 	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	screened: bool = false, town_raw: Dictionary = {}
+	screened: bool = false, town_raw: Dictionary = {}, estates: Array = []
 ) -> Dictionary:
 	match unit.type_id:
 		"builder":
 			return _best_builder(
 				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved, town_raw
+				tech_unlocked, context, reserved, town_raw, estates
 			)
 		"engineer":
 			return _best_engineer(
@@ -154,11 +164,11 @@ static func _best_builder(
 	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
 	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	town_raw: Dictionary = {}
+	town_raw: Dictionary = {}, estates: Array = []
 ) -> Dictionary:
 	return AiBuilderWork.best_candidate(
 		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-		context, reserved, town_raw
+		context, reserved, town_raw, estates
 	)
 
 
