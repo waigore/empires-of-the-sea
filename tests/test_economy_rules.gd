@@ -2001,6 +2001,25 @@ func test_the_summary_reads_the_report() -> void:
 	assert_true(line.contains("strikes 2"))
 
 
+## The ledger's food need is every mouth Consumption feeds — the workers, the
+## army, the navy and the hospital staffs (wiki: workers-and-population
+## § Consumption: "Total food demand = workers + navy + army + hospital staffs").
+## A mid-game army is most of the larder, so a need that stopped at the workers
+## and hulls read a crown at war as twice as fed as it was.
+func test_the_food_need_counts_every_mouth_the_larder_feeds() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	economy.workers = WorkerPool.make(4)
+	var report: Dictionary = {
+		"consumption": {
+			"army_demand": 41, "navy_demand": 18, "hospital_demand": 4,
+		},
+	}
+	var line: String = LedgerText.summary(economy, report)
+	assert_true(line.contains("food need 67"), line)
+	assert_eq(LedgerText.army_food(report), 41)
+	assert_eq(LedgerText.army_food({}), 0, "a report with no consumption feeds nobody")
+
+
 func test_the_preview_reports_deltas_or_calm() -> void:
 	assert_eq(LedgerText.preview({}), "Next turn: no stock changes.")
 	var line: String = LedgerText.preview(
