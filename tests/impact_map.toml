@@ -54,6 +54,7 @@ suites = [
 [domains.civilian]
 suites = [
   "test_civilian_field_rules.gd",
+  "test_civilian_layer_parts.gd",
   "test_civilian_voyage.gd",
   "test_espionage.gd",
   "test_map_screen_crown_orders.gd",
@@ -579,6 +580,10 @@ domain = "civilian"
 
 [[rules]]
 match = "scripts/map/civilian_*.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/map/land_works_paint.gd*"
 domain = "civilian"
 
 [[rules]]

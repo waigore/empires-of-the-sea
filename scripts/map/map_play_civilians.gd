@@ -98,13 +98,13 @@ static func refresh_panel(play: PlaySession) -> void:
 	)
 
 
-## Build/Work pass: the layer advances every region's orders (looking at another
-## map must not pause the empire) and reports completions for the map on screen.
-## Each crown's deed is charged to its own ledger, so a rival's purchase never
-## touches the human treasury (wiki: civilian-units § Merchant).
+## Build/Work pass: CivilianTurnPass advances every region's orders (looking at
+## another map must not pause the empire) and reports completions for the map on
+## screen. Each crown's deed is charged to its own ledger, so a rival's purchase
+## never touches the human treasury (wiki: civilian-units § Merchant).
 static func resolve_work(play: PlaySession) -> void:
-	for report: Dictionary in play.civilian_layer.begin_turn(
-		play.world, play.court_charts, _purses(play)
+	for report: Dictionary in CivilianTurnPass.resolve(
+		play.civilian_layer, play.world, play.court_charts, _purses(play)
 	):
 		if not bool(report.get("completed", false)):
 			continue
