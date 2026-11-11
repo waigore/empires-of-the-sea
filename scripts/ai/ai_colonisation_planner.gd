@@ -10,9 +10,8 @@ extends RefCounted
 ## CivilianVoyage, NavalMovement and WarpTravel (REQ-P2-03, REQ-P3-03).
 ##
 ## Rivals with overseas provinces send a Builder to work them; a crown with no
-## New World land sends an Explorer to chart it, and once its own chart holds a
-## Tribe deed it can close, a Merchant to press a claim there. The existing
-## civilian planner takes over once the colonist is ashore.
+## New World land sends an Explorer to chart it. The existing civilian planner
+## takes over once the colonist is ashore.
 
 
 ## One order for this court in this region, or an empty dictionary.
