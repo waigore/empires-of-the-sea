@@ -23,10 +23,14 @@ Budgets are hard ([`docs/testing.md`](../../../docs/testing.md)):
 
 | Suite | Budget |
 |-------|--------|
-| `gd-tools test --coverage --min 80 --parallel 4` | **≤ 5 min** |
+| Tier 1 / PR: impacted `gd-tools test --coverage` (+ patch 80%) | **≤ 5 min** |
 | `godot --headless --path . --script res://tools/e2e_smoke.gd` | **≤ 2 min** |
+| Tier 2 trunk (CI): 4× `--shard K/4`, then merged `coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Do **not** drop coverage below 80%, delete meaningful cases, or raise CI timeouts to “fix” slowness.
+Do **not** drop coverage below 80%, delete meaningful cases, or raise CI
+timeouts to “fix” slowness. Tier 2 is already **sharded** so suite-count
+growth does not cancel the job; keep that shape. Still cut boot/mount cost
+so shards and PR runs stay fast.
 
 ## Sources of truth
 
@@ -35,7 +39,8 @@ Do **not** drop coverage below 80%, delete meaningful cases, or raise CI timeout
 | [`docs/testing.md`](../../../docs/testing.md) | Budgets + speed rules |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | Required checks |
 | [`gd-tools.toml`](../../../gd-tools.toml) | Per-test timeout |
-| [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) | Job timeouts / parallel |
+| [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) | Tier 1 job timeouts / parallel |
+| [`.github/workflows/tier2.yml`](../../../.github/workflows/tier2.yml) | Sharded trunk suite + coverage-gate |
 | [`references/playbook.md`](references/playbook.md) | gd-tools pitfalls + tactics |
 
 ## Workflow
@@ -59,7 +64,9 @@ gd-tools test --coverage --min 80 --parallel 4 --durations 15 --timeout 240
 /usr/bin/time -p godot --headless --path . --script res://tools/e2e_smoke.gd
 ```
 
-Always profile **with** `--coverage`. Skim recent CI timings via `gh` when useful.
+Always profile **with** `--coverage`. Skim recent CI timings via `gh`
+(tier-1 PR jobs and tier-2 shard / `coverage-gate` walls) when useful.
+`--shard K/4` is for CI shape experiments only — not a quality prove.
 
 ### 2. Select theme
 
@@ -77,9 +84,9 @@ If the user cites a suite or symptom, that wins. Otherwise announce theme + top 
 
 Branch `chore/…` or `test/…` from up-to-date `main`.
 
-**In bounds:** shared fixtures; `before_all` caches; shrink test/smoke sizes; tear down hard; CI `--parallel` + budget timeouts; trim smoke frames; update `docs/testing.md` / CI comments.
+**In bounds:** shared fixtures; `before_all` caches; shrink test/smoke sizes; tear down hard; CI `--parallel` + budget timeouts; trim smoke frames; update `docs/testing.md` / CI comments; keep or refine tier-2 sharding without dropping the merged 80% gate.
 
-**Out of bounds:** deleting coverage-critical tests; lowering `--min 80`; raising job timeouts instead of fixing slowness; gameplay feature work; unrelated refactors; editing skill trees in the same PR as code.
+**Out of bounds:** deleting coverage-critical tests; lowering `--min 80`; raising job timeouts instead of fixing slowness; collapsing shards back into one cancelling job; gameplay feature work; unrelated refactors; editing skill trees in the same PR as code.
 
 Apply the playbook ([`references/playbook.md`](references/playbook.md)). Prefer reuse of existing test fixtures.
 
@@ -92,7 +99,8 @@ gd-tools test --coverage --min 80 --parallel 4 --timeout 240 --durations 15
 /usr/bin/time -p godot --headless --path . --script res://tools/e2e_smoke.gd
 ```
 
-Coverage must stay ≥ 80%. Wall times must clear the budgets with headroom for CI setup.
+Coverage must stay ≥ 80% on the **full** local prove (not one shard).
+Wall times must clear the tier-1 / smoke budgets with headroom for CI setup.
 
 ### 5. Document
 

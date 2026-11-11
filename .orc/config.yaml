@@ -193,7 +193,7 @@ agents:
     prompt: |
       Run the fix-tests-agent skill unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
-      If an open ci-tier2 issue exists, fix the full suite, open a PR, babysit to auto-merge, close the issue; then exit.
+      If an open ci-tier2 issue exists, diagnose shards and/or coverage-gate, fix the full suite (prove with overall --min 80, not one shard), open a PR, babysit to auto-merge, close the issue; then exit.
 
   export-android-debug:
     skill: export-android-debug
