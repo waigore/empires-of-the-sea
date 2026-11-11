@@ -29,8 +29,8 @@ Ids: `scripts/rules/faction_catalog.gd`.
   (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross to the
   other world.
 - The region button swaps canvas, fog, fleets, civilians, works and camera
-  bounds. Rosters persist per region; every region advances each turn, even
-  off-screen. Chips are empire totals; squadrons stay where provinces are held.
+  bounds. Rosters persist per region; every region advances each turn. Chips are
+  empire totals; squadrons stay where provinces are held.
 
 ## Setup post-pass
 
@@ -44,24 +44,24 @@ places four L1 grain farms per Great Power, wired to the seat by road
 `scripts/rules/territory_assignment.gd` grows each faction from one seed inside
 a single P–P continent so holdings stay contiguous. A purchased tile is a
 **deed**: `TileOwnership` overrides its owner while the province stays with the
-seller; colour and border enclose that enclave.
+seller.
 
 - Seeds are farthest-point sea-bound provinces (GPs and Tribes must own one).
-- Minors take 3 provinces each (the wiki floor); the rest splits across the GPs.
+- Minors take 3 each (the wiki floor); the rest splits across the GPs.
 - GPs use the capital-choice phase; Minors/Tribes take any owned province.
 
 ## Capital loss
 
 `scripts/rules/capital_loss.gd` re-seats a captured crown at its first seaboard
-province (else inland) of the region; a crown with none left falls and its
-holdings pass to the conqueror. Wiki: [DR-20261109-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261109-02).
+province (else inland); a crown with none left falls and its holdings pass to
+the conqueror. Wiki: [DR-20261109-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261109-02).
 
 ## Borders on the map
 
 `scripts/map/country_borders.gd` derives owner boundaries from the tile grid.
 `MapOverlay` draws them **above fog** (`FogLayer` holds fog) as engraved
 shadow plus owner colour. Province hairlines stay beneath; terrain and minimap
-carry owner tint. Coastlines keep their ink.
+carry owner tint.
 
 ## Campaign length
 
@@ -72,7 +72,9 @@ score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayCampaign`.
 
 ## Known limits
 
-Rival fog exploration, counter-spy and court reports are deferred.
+Counter-spy, court reports and rivals' dealings with the Tribes they chart are
+deferred. Rival fog exploration and the crossing it unlocks are live
+(DR-20261111-05).
 
 ## Tests
 
