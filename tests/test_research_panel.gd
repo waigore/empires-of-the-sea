@@ -62,8 +62,71 @@ func test_slots_show_progress_funding_and_cancel() -> void:
 	assert_not_null(cancel)
 	cancel.pressed.emit()
 	assert_eq(cancelled, [0])
-	var progress: Label = _label_containing("800 / 1800")
+	var progress: Label = _label_containing("800 / 1,800 RP")
 	assert_not_null(progress)
+
+
+# --- spend and the gauge -----------------------------------------------------
+
+
+## The slot line must say what the study costs and what the next phase buys
+## (REQ-P1-05 — gold a study spends is never silent).
+func test_a_slot_names_its_spend_and_its_next_gain() -> void:
+	_state.assign("land_enclosure", "medium")
+	_state.add_progress("land_enclosure", 800)
+	_panel.refresh(_state, 2500)
+	assert_not_null(_label_containing("150 ducats"), "the gold the slot spends a turn")
+	assert_not_null(_label_containing("800 / 1,800 RP"), "banked against the cost")
+	assert_not_null(_label_containing("+300 → 1,100"), "next turn's gain and where it lands")
+
+
+func test_the_gauge_previews_the_next_phase() -> void:
+	_state.assign("land_enclosure", "high")
+	_state.add_progress("land_enclosure", 800)
+	_panel.refresh(_state, 2500)
+	var bar: ResearchBar = _slot_row(0).bar()
+	assert_eq(bar.target_progress(), 800)
+	assert_eq(bar.next_gain(), 800)
+	assert_almost_eq(bar.next_fraction(), 1600.0 / 1800.0, 0.001)
+	assert_true(bar.is_paid())
+
+
+## A funding change repaints the slot the player is looking at; rebuilding it
+## would lose the button and restart the gauge (REQ-P1-05).
+func test_changing_the_priority_repaints_the_same_row() -> void:
+	_state.assign("land_enclosure", "medium")
+	_panel.refresh(_state, 2500)
+	var row: ResearchSlotRow = _slot_row(0)
+	var funding: Array[int] = []
+	_panel.funding_requested.connect(func(slot: int) -> void: funding.append(slot))
+	var medium: Button = _button("Medium")
+	assert_not_null(medium)
+	medium.pressed.emit()
+	assert_eq(funding, [0], "the row asks the controller to cycle the preset")
+	_state.cycle_funding(0)
+	_panel.refresh(_state, 2500)
+	assert_is(row, _slot_row(0), "the funding change must not rebuild the slot")
+	assert_not_null(_button("High"))
+	assert_eq(row.bar().next_gain(), 800, "the gauge follows the new preset")
+	assert_eq(_panel._slots_body.get_child_count(), ResearchState.DEFAULT_SLOTS)
+
+
+func test_the_heading_totals_what_the_college_spends() -> void:
+	_state.assign("crop_rotation", "low")
+	_state.assign("saw_mill", "medium")
+	_panel.refresh(_state, 2500)
+	assert_not_null(_label_containing("200 ducats & 400 RP a turn"))
+
+
+## The treasury cannot cover a Maximum slot here, so the row must say so rather
+## than promise points the phase will not pay for (wiki: tech-tree § Research
+## Model — no partial funding).
+func test_a_slot_the_treasury_cannot_cover_reads_unpaid() -> void:
+	_state.assign("land_enclosure", "maximum")
+	_panel.refresh(_state, 100)
+	assert_not_null(_label_containing("unpaid next turn"))
+	assert_eq(_slot_row(0).gold_next(), 0)
+	assert_eq(_slot_row(0).bar().next_gain(), 0)
 
 
 func test_known_techs_move_to_the_known_tab() -> void:
@@ -170,6 +233,11 @@ func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
 
 
 # --- helpers -----------------------------------------------------------------
+
+
+## The persistent row the panel keeps for one slot.
+func _slot_row(index: int) -> ResearchSlotRow:
+	return _panel._slots_body.get_child(index) as ResearchSlotRow
 
 
 ## The first name in the AVAILABLE tab, which is the goal-aware queue order.

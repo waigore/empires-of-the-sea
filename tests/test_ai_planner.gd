@@ -254,3 +254,99 @@ func test_war_goal_clamps_to_the_target_province_count() -> void:
 	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
 	assert_eq(AiDiplomacyPlanner.desired_territory(12, 3), 1)
 	assert_eq(AiDiplomacyPlanner.desired_territory(100, 0), 1)
+
+
+# --- the agenda's hand on the court (DR-20261111-27) --------------------------
+
+
+func test_a_peacemaker_offers_peace_where_a_plain_court_fights_on() -> void:
+	# Same war, same standing: the dove's peace bar sits 15 higher, so a war it
+	# no longer means is put to its enemy a turn earlier (wiki: hidden-agendas —
+	# peacemaker early peace).
+	state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(state, 0, 1)
+	state.relation(0, 1).score = 40.0
+	var context: Dictionary = AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = AiFixture.world([0, 1])
+	var plain: Dictionary = AiDiplomacyPlanner.decide(config, state, ai_state, world, 2, context)
+	assert_eq(String(plain["candidates"][0]["blocked"]), "war still worth waging")
+	var dove: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.PEACEMAKER)
+	var peace: Dictionary = AiDiplomacyPlanner.decide(dove, state, ai_state, world, 2, context)
+	assert_eq(String(peace["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_eq(int(peace["action"]["target"]), 1)
+
+
+func test_a_warmonger_keeps_a_war_a_plain_court_would_end() -> void:
+	state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(state, 0, 1)
+	state.relation(0, 1).score = 60.0
+	var context: Dictionary = AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = AiFixture.world([0, 1])
+	var plain: Dictionary = AiDiplomacyPlanner.decide(config, state, ai_state, world, 2, context)
+	assert_eq(String(plain["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	var hawk: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var keep: Dictionary = AiDiplomacyPlanner.decide(hawk, state, ai_state, world, 2, context)
+	assert_true((keep["action"] as Dictionary).is_empty(), "the war is still worth waging")
+	assert_eq(String(keep["candidates"][0]["blocked"]), "war still worth waging")
+
+
+func test_a_backstabber_breaks_an_alliance_it_would_otherwise_keep() -> void:
+	# A formal ally that is weaker than the court: the treaty still serves an
+	# honest court, but the backstabber's desire against its own ally clears the
+	# break bar (wiki: hidden-agendas — hits allies when weak).
+	state.ensure_relation(0, 1, 1)
+	state.relation(0, 1).score = 70.0
+	state.relation(0, 1).formal_alliance = true
+	var context: Dictionary = AiFixture.context({0: 135, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = AiFixture.world([0, 1])
+	var honest: Dictionary = AiDiplomacyPlanner.war_desire(config, state, world, 0, 1, context)
+	assert_false((honest["factors"] as Dictionary).has("betrayal"))
+	assert_eq(int(honest["score"]), 40, "50 + 30 strong - 40 allied")
+	var snake: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.BACKSTABBER)
+	var snake_desire: Dictionary = AiDiplomacyPlanner.war_desire(snake, state, world, 0, 1, context)
+	assert_eq(int(snake_desire["factors"]["betrayal"]), 25)
+	var keep: Dictionary = AiDiplomacyPlanner.decide(config, state, ai_state, world, 1, context)
+	assert_true(
+		String((keep["action"] as Dictionary).get("kind", "")) != AiDiplomacyOffers.KIND_BREAK,
+		"an honest court keeps the treaty its standing earned"
+	)
+	var betray: Dictionary = AiDiplomacyPlanner.decide(snake, state, ai_state, world, 1, context)
+	assert_eq(String(betray["action"]["kind"]), AiDiplomacyOffers.KIND_BREAK)
+	assert_true(state.relation(0, 1).formal_alliance, "the planner only plans the break")
+
+
+func test_an_envious_court_resents_a_human_crown_that_pulled_ahead() -> void:
+	state.ensure_relation(0, 2, 1)
+	var context: Dictionary = AiFixture.context({0: 135, 2: 100})
+	context["player"] = 0
+	var world: WorldMap = AiFixture.world([0, 2, 2])
+	var plain_config: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	var plain: Dictionary = AiDiplomacyPlanner.war_desire(plain_config, state, world, 2, 0, context)
+	assert_false((plain["factors"] as Dictionary).has("rival"))
+	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
+	var envy: Dictionary = AiDiplomacyPlanner.war_desire(jealous, state, world, 2, 0, context)
+	assert_eq(int(envy["factors"]["rival"]), 20)
+	assert_eq(
+		int(envy["score"]) - int(plain["score"]), 25,
+		"20 rival_bias + 5 war_bias"
+	)
+	assert_true(int(envy["score"]) > int(plain["score"]), "the lead is felt")
+
+
+func test_an_envious_court_does_not_resent_a_crown_that_trails_it() -> void:
+	state.ensure_relation(0, 2, 1)
+	var context: Dictionary = AiFixture.context({0: 100, 2: 135})
+	context["player"] = 0
+	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
+	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+		jealous, state, AiFixture.world([0, 2, 2]), 2, 0, context
+	)
+	assert_false((desire["factors"] as Dictionary).has("rival"), "envy is not a grudge")
+	# Nor is it a grudge against another rival: the pull is for the human crown.
+	var other: Dictionary = AiDiplomacyPlanner.war_desire(
+		jealous, state, AiFixture.world([0, 1, 2]), 2, 1, context
+	)
+	assert_false((other["factors"] as Dictionary).has("rival"))

@@ -56,6 +56,12 @@ func _run() -> void:
 		setup.advanced_option != null and setup.advanced_option.item_count == 3,
 		"setup offers the advanced-start openings"
 	)
+	# The difficulty row names the bar the chosen level sets, so the choice is
+	# never blind (wiki: victory § Military victory; DR-20261111-28).
+	_check(
+		_has_text(setup, "hold %d Old World provinces" % VictoryRules.MILITARY_THRESHOLD),
+		"setup states the crown's win bar"
+	)
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 

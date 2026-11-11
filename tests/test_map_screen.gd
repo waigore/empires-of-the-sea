@@ -635,13 +635,13 @@ func _first_studyable_tech() -> String:
 ## One line per occupied research slot, as the panel draws it.
 func _research_slot_rows() -> Array[String]:
 	var rows: Array[String] = []
-	for row: Node in _screen.hud.panels.research_panel.find_children(
-		"*", "HBoxContainer", true, false
-	):
+	var panel: ResearchPanel = _screen.hud.panels.research_panel
+	for node: Node in panel._slots_body.get_children():
 		var texts: PackedStringArray = PackedStringArray()
-		for label: Label in row.find_children("*", "Label", true, false):
-			texts.append(label.text)
-		if texts.size() >= 2 and " / " in texts[1]:
+		for label: Label in node.find_children("*", "Label", true, false):
+			if label.is_visible_in_tree():
+				texts.append(label.text)
+		if texts.size() >= 2 and " RP" in " | ".join(texts):
 			rows.append(" | ".join(texts))
 	return rows
 

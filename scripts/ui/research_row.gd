@@ -3,62 +3,15 @@ extends RefCounted
 ## Row builders for the research ledger (REQ-P3-02). The panel owns state and
 ## signals; these helpers only assemble one line of widgets per row. Every row
 ## leads with the series medallion (TechIcons) and stacks its name over a small
-## meta line, so a narrow panel keeps room for the buttons.
+## meta line, so a narrow panel keeps room for the buttons. An occupied slot's
+## line is a ResearchSlotRow instead — the panel keeps those alive so a repaint
+## never rebuilds the sheet (REQ-P1-05).
 
 const ROW_HEIGHT: float = 44.0
 const ICON_SIZE: float = 30.0
 const MARK_WIDTH: float = 14.0
 const GOAL_ON_PATH: String = "◇"
 const GOAL_ITSELF: String = "◆"
-
-
-## One occupied slot: tech, progress, funding cycle and cancel. A spy network
-## covering the tech adds a gold percent badge before the funding button so the
-## faster study reads at a glance (DR-20261110-03).
-static func slot(
-	state: ResearchState,
-	index: int,
-	on_cancel: Callable,
-	on_funding: Callable,
-	boost_percent: int = 0
-) -> Control:
-	var tech_id: String = state.tech_at(index)
-	if tech_id.is_empty():
-		return _empty_slot(index)
-	var row := _row()
-	row.add_child(icon(tech_id))
-	row.add_child(_name_column(
-		tech_id,
-		"%d / %d RP" % [state.progress_of(tech_id), TechCatalog.cost(tech_id)],
-		Palette.TEXT,
-		Palette.GOLD_PALE
-	))
-
-	if boost_percent > 0:
-		var spies := _label("+%d%%" % boost_percent, 12, Palette.GOLD)
-		spies.custom_minimum_size = Vector2(42, 0)
-		spies.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		spies.tooltip_text = (
-			"Spy network: +%d%% research points from the rival courts it shadows"
-			% boost_percent
-		)
-		row.add_child(spies)
-
-	var funding := _button(ResearchFunding.label(state.funding_at(index)))
-	funding.custom_minimum_size = Vector2(96, ROW_HEIGHT)
-	funding.tooltip_text = "%d ducats and %d RP per turn" % [
-		ResearchFunding.gold(state.funding_at(index)),
-		ResearchFunding.rp(state.funding_at(index)),
-	]
-	funding.pressed.connect(func() -> void: on_funding.call(index))
-	row.add_child(funding)
-
-	var cancel := _button("Cancel")
-	cancel.custom_minimum_size = Vector2(74, ROW_HEIGHT)
-	cancel.tooltip_text = "Abandon the study; all progress is lost"
-	cancel.pressed.connect(func() -> void: on_cancel.call(index))
-	row.add_child(cancel)
-	return row
 
 
 ## A researchable tech the crown can start now (or reason it cannot). `goal_id`
@@ -173,14 +126,6 @@ static func _name_column(
 	column.add_child(name_label)
 	column.add_child(_label(meta, 11, meta_color))
 	return column
-
-
-static func _empty_slot(index: int) -> Control:
-	var row := _row()
-	var name_label := _label("Slot %d — idle" % (index + 1), 14, Palette.TEXT_DIM)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_label)
-	return row
 
 
 static func _label(text: String, size: int, color: Color) -> Label:
