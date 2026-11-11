@@ -155,12 +155,31 @@ static func demand_rows(world: WorldMap, faction: int) -> Array[Dictionary]:
 	return rows
 
 
-## Food every hospital this crown keeps will eat this turn.
-static func total_demand(world: WorldMap, faction: int) -> int:
-	var total: int = 0
+## The order the wards are fed in, as one integer per hospital: the seat first,
+## then the chart's own order (DR-20261112-04). Its sum is the crown's whole
+## hospital ration for the turn.
+static func demand_list(world: WorldMap, faction: int) -> Array[int]:
+	var demands: Array[int] = []
 	for row: Dictionary in demand_rows(world, faction):
-		total += int(row["demand"])
-	return total
+		demands.append(maxi(int(row["demand"]), 0))
+	return demands
+
+
+## Food the whole staffs can eat from `available` units, fed in `demands` order:
+## a hospital the larder cannot cover is skipped and the rest of the larder is
+## offered to the next, so a ration is never stranded on a ward that cannot be
+## staffed (DR-20261112-04). [method feed] walks the same rows the same way, so
+## the food the larder pays is exactly the food the seated staffs eat.
+static func ration(demands: Array[int], available: int) -> int:
+	var left: int = maxi(available, 0)
+	var spent: int = 0
+	for raw: int in demands:
+		var need: int = maxi(raw, 0)
+		if need <= 0 or need > left:
+			continue
+		left -= need
+		spent += need
+	return spent
 
 
 ## Feeds the staffs from `food_available` units, whole hospitals only: a

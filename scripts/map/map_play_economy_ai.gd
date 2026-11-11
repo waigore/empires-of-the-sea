@@ -42,7 +42,7 @@ static func run(play: PlaySession) -> Dictionary:
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
 			_army_food(play, faction), false,
 			MapPlaySpyAi.research_bonus(play, faction, economy),
-			_hospital_food(play, faction)
+			_hospital_demands(play, faction)
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
 		# first, and the flags they set are what its next rest tick reads
@@ -190,15 +190,16 @@ static func _food_demand(
 ) -> int:
 	var demand: int = _army_food(play, faction)
 	demand += _ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
-	demand += _hospital_food(play, faction)
+	for ration: int in _hospital_demands(play, faction):
+		demand += ration
 	for tier in WorkerPool.TIER_COUNT:
 		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
 	return demand
 
 
-## Rations every hospital staff in this court eats this turn.
-static func _hospital_food(play: PlaySession, faction: int) -> int:
-	return HospitalRules.total_demand(play.world, faction)
+## The ordered ration of every hospital staff in this court, seat first.
+static func _hospital_demands(play: PlaySession, faction: int) -> Array[int]:
+	return HospitalRules.demand_list(play.world, faction)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:

@@ -20,7 +20,7 @@ static func resolve(
 	stockpile: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	hospital_food: int = 0
+	hospital_demands: Array[int] = []
 ) -> Dictionary:
 	var army_demand: int = maxi(army_food, 0)
 	var army_fed: int = _eat_food(stockpile, army_demand)
@@ -49,14 +49,15 @@ static func resolve(
 	idle_counts[WorkerPool.Tier.PEASANT] = fed_counts[WorkerPool.Tier.PEASANT]
 
 	# The hospitals eat last, and only in whole staffs: a ward the larder cannot
-	# cover in full goes unstaffed rather than half-fed (wiki: combat § Regiment
-	# condition; DR-20261112-04).
-	var hospital_demand: int = maxi(hospital_food, 0)
-	var hospital_ration: int = maxi(HospitalRules.RATION_PER_LEVEL, 1)
-	var hospital_fed: int = (
-		mini(hospital_demand, _food_available(stockpile)) / hospital_ration
-	) * hospital_ration
-	hospital_fed = _eat_food(stockpile, hospital_fed)
+	# cover in full goes unstaffed rather than half-fed, and the rest of the
+	# larder is offered to the next ward (wiki: combat § Regiment condition;
+	# DR-20261112-04).
+	var hospital_demand: int = 0
+	for raw: int in hospital_demands:
+		hospital_demand += maxi(raw, 0)
+	var hospital_fed: int = _eat_food(
+		stockpile, HospitalRules.ration(hospital_demands, _food_available(stockpile))
+	)
 
 	var fed_workers: int = 0
 	var idle_labour: int = 0

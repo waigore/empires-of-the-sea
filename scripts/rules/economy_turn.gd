@@ -7,8 +7,9 @@ extends RefCounted
 
 
 ## `advance_market` is false for rival courts sharing one world market: the
-## player's own resolution moves prices once per turn. `hospital_food` is the
-## rations every hospital staff in the crown eats this turn (DR-20261112-04).
+## player's own resolution moves prices once per turn. `hospital_demands` is the
+## ordered ration of every hospital staff in the crown, seat first
+## (DR-20261112-04).
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -17,11 +18,11 @@ static func resolve(
 	army_food: int = 0,
 	advance_market: bool = true,
 	research_boost: Dictionary = {},
-	hospital_food: int = 0
+	hospital_demands: Array[int] = []
 ) -> Dictionary:
 	return _run(
 		economy, market, extraction, ship_count, army_food, advance_market,
-		research_boost, hospital_food
+		research_boost, hospital_demands
 	)
 
 
@@ -33,13 +34,13 @@ static func project(
 	ship_count: int,
 	army_food: int = 0,
 	research_boost: Dictionary = {},
-	hospital_food: int = 0
+	hospital_demands: Array[int] = []
 ) -> Dictionary:
 	var before: Dictionary = economy.stockpile.duplicate()
 	var treasury_before: int = economy.treasury
 	var report: Dictionary = _run(
 		economy.copy(), market.copy(), extraction, ship_count, army_food, false,
-		research_boost, hospital_food
+		research_boost, hospital_demands
 	)
 	var deltas: Dictionary = {}
 	for id: String in CommodityCatalog.all_ids():
@@ -59,7 +60,7 @@ static func _run(
 	army_food: int,
 	advance_market: bool,
 	research_boost: Dictionary = {},
-	hospital_food: int = 0
+	hospital_demands: Array[int] = []
 ) -> Dictionary:
 	var extracted: Dictionary = {}
 	for commodity: Variant in extraction.keys():
@@ -82,7 +83,7 @@ static func _run(
 		riches_total += gained
 
 	var consumption: Dictionary = EconomyConsumption.resolve(
-		economy.workers, economy.stockpile, ship_count, army_food, hospital_food
+		economy.workers, economy.stockpile, ship_count, army_food, hospital_demands
 	)
 	# The next sea battle reads how many hulls this turn's granary fed in full
 	# (wiki: workers-and-population § Consumption).

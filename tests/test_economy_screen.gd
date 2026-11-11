@@ -139,7 +139,7 @@ func test_the_crowns_wards_eat_from_the_larder() -> void:
 	)
 	assert_not_null(province)
 	province.hospital_level = 1
-	assert_eq(HospitalRules.total_demand(world, faction), 2)
+	assert_eq(HospitalRules.demand_list(world, faction).size(), 1)
 
 	_screen.economy.economy.stockpile["grain"] = 20
 	_screen.economy.economy.stockpile["meat"] = 20

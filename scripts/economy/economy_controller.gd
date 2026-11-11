@@ -175,7 +175,7 @@ func projected() -> Dictionary:
 	var world: WorldMap = _ships.world if _ships != null else null
 	var report: Dictionary = EconomyTurn.project(
 		economy, market, extraction(), fleet_ships(), army_food(), research_boost,
-		HospitalRules.total_demand(world, player_faction)
+		HospitalRules.demand_list(world, player_faction)
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the
@@ -199,7 +199,7 @@ func resolve_turn() -> Dictionary:
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food(), false,
-		research_boost, HospitalRules.total_demand(world, player_faction)
+		research_boost, HospitalRules.demand_list(world, player_faction)
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;
