@@ -53,8 +53,8 @@
 
 ## Deferred (REQ-P2-02)
 
-Battle honours beyond the chevron; line preview —
-[`deferred.md`](deferred.md).
+Battle honours (DR-20261112-02 pending) —
+[`deferred.md`](deferred.md). Line preview declined.
 
 ## Architecture
 
