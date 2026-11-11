@@ -178,6 +178,7 @@ suites = [
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
+  "test_map_symbols.gd",
   "test_map_generator.gd",
   "test_map_model.gd",
   "test_map_region_table.gd",
@@ -201,6 +202,17 @@ suites = [
 suites = [
   "test_crown_road_lens.gd",
   "test_crown_road_survey.gd",
+]
+
+# Painted chart art: symbol stamps, the canvas that draws them and the fleet
+# hull. Presentational only, so the four suites that mount the chart cover the
+# patch; the broad map/fleet domains would blow the tier-1 5 min budget.
+[domains.chart_art]
+suites = [
+  "test_map_symbols.gd",
+  "test_map_canvas.gd",
+  "test_map_screen.gd",
+  "test_fleet_orders.gd",
 ]
 
 # Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
@@ -679,6 +691,10 @@ match = "scripts/map/map_play_spy_ai.gd*"
 domain = "espionage"
 
 [[rules]]
+match = "scripts/map/ship.gd"
+domain = "chart_art"
+
+[[rules]]
 match = "scripts/map/ship*.gd"
 domain = "fleet"
 
@@ -750,6 +766,20 @@ domain = "world"
 [[rules]]
 match = "scripts/map/map_naming.gd"
 domain = "world"
+
+# Chart artwork: the painted stamps and the hull are presentational, so only
+# the suites that mount the chart are needed (and tier 1 stays inside 5 min).
+[[rules]]
+match = "scripts/map/map_symbols.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas.gd"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas_plan.gd"
+domain = "chart_art"
 
 [[rules]]
 match = "scripts/map/**"

@@ -39,7 +39,7 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	world = p_world
 	_font = UiTheme.serif()
 	_font_italic = UiTheme.serif_italic()
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	relief = MapWash.build(self, model)
 	_build_coast()
 	_build_borders()
@@ -184,7 +184,8 @@ func _draw() -> void:
 		draw_polyline(path, Color(0.16, 0.12, 0.08, 0.85), 1.8, true)
 
 	for glyph: Dictionary in plan.glyphs:
-		MapGlyphs.draw(self, glyph)
+		if not MapSymbols.stamp(self, glyph):
+			MapGlyphs.draw(self, glyph)
 
 	for point: Vector2 in plan.passages:
 		_draw_passage(point)
