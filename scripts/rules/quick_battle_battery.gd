@@ -68,11 +68,11 @@ static func fire(
 ) -> int:
 	var atk: Dictionary = state["attacker"]
 	var atk_side: Array[ArmyState] = atk["side"]
-	var count: int = ArmyCombat.side_regiments(atk_side)
+	var count: int = ArmyForce.side_regiments(atk_side)
 	if count <= 0:
 		return 0
 	var wanted: int = ceili(float(alive(guns)) * GUN_FIRE * float(count))
-	var lost: Array[String] = ArmyCombat.apply_losses(
+	var lost: Array[String] = ArmyForce.apply_losses(
 		armies, atk_side, wanted, int(atk["limit"])
 	)
 	atk["lost"].append_array(lost)

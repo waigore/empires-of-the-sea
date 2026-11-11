@@ -160,7 +160,7 @@ func test_casualties_are_drawn_from_the_line_and_spare_the_reserve() -> void:
 			reserve_ids.append(regiment_id)
 	assert_eq(reserve_ids.size(), 4, "four regiments stand in reserve")
 
-	var lost: Array[String] = ArmyCombat.apply_losses([army], side, 4, 10)
+	var lost: Array[String] = ArmyForce.apply_losses([army], side, 4, 10)
 
 	assert_eq(lost.size(), 4)
 	for regiment_id: String in reserve_ids:
@@ -1200,6 +1200,45 @@ func test_quick_battle_credits_the_pregame_primary_defender() -> void:
 	assert_eq(roster.medals(1, "general_2"), 0)
 
 
+## One record shape for both resolvers: the plate and the gazette read the same
+## fields whichever route fought the battle (REQ-P2-03, REQ-P3-01).
+func test_auto_resolve_and_quick_battle_open_the_same_record() -> void:
+	var base: Dictionary = ArmyBattleRecord.open(2, 0, 1, ArmyCombat.Outcome.STALEMATE)
+	var model := Fixture.build()
+	var auto_defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var auto_attacker := Fixture.army(2, 0, 2, _guards(5))
+	auto_attacker.moved = true
+	var auto_armies: Array[ArmyState] = [auto_defender, auto_attacker]
+	var auto: Array[Dictionary] = ArmyCombat.resolve_turn(model, auto_armies)
+	assert_false(auto.is_empty())
+	for key: String in base.keys():
+		assert_true(auto[0].has(key), "auto-resolve carries %s" % key)
+
+	var quick_model := Fixture.build()
+	var quick_defender := Fixture.army(3, 1, 2, ["peasant_levies"], true)
+	var quick_attacker := Fixture.army(4, 0, 2, _guards(5))
+	quick_attacker.moved = true
+	var quick_armies: Array[ArmyState] = [quick_defender, quick_attacker]
+	var quick_context: Dictionary = {
+		"quick_battle": true,
+		"player_faction": 0,
+		"battle_plan": "balanced",
+		"leaders": {},
+		"feeding": {},
+		"tech": {},
+	}
+	var quick: Array[Dictionary] = ArmyCombat.resolve_turn(
+		quick_model, quick_armies, quick_context
+	)
+	assert_true(quick[0].has("quick"), "the human's battle runs on the plate")
+	for key: String in base.keys():
+		assert_true(quick[0].has(key), "quick battle carries %s" % key)
+	assert_eq(
+		String(ArmyBattleRecord.open(2, 0, 1, ArmyCombat.Outcome.CAPTURE)["medal_gain"]),
+		"", "an open record names no decoration"
+	)
+
+
 ## Every crown's roster is reconciled with its own research at the Combat phase
 ## (wiki: military-generals § Count and tech-gated cap). The ledger only syncs
 ## the human's pool, so a rival used to fly one commander for the whole age.
@@ -1917,11 +1956,11 @@ func test_quick_battle_removes_casualties_from_the_armies() -> void:
 	var attacker := Fixture.army(2, 0, 2, _guards(6))
 	attacker.moved = true
 	var armies: Array[ArmyState] = [defender, attacker]
-	var before: int = ArmyCombat.side_regiments(armies)
+	var before: int = ArmyForce.side_regiments(armies)
 
 	ArmyCombat.resolve_turn(model, armies, _context("balanced"))
 
-	assert_true(ArmyCombat.side_regiments(armies) < before)
+	assert_true(ArmyForce.side_regiments(armies) < before)
 
 
 func test_a_siege_fields_virtual_guns_and_downgrades_the_fort() -> void:

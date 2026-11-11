@@ -128,9 +128,9 @@ func test_side_strength_aggregates_fpn_and_fpm() -> void:
 	var first := Fixture.army(1, 0, 0, ["pikemen", "pikemen"])
 	var second := Fixture.army(2, 0, 0, ["squires"])
 	var side: Array[ArmyState] = [first, second]
-	assert_almost_eq(ArmyCombat.side_strength(side), 14.0, 0.001)
-	assert_eq(ArmyCombat.side_regiments(side), 3)
-	assert_almost_eq(ArmyCombat.initiative(side), 50.0 / 3.0, 0.001)
+	assert_almost_eq(ArmyForce.side_strength(side), 14.0, 0.001)
+	assert_eq(ArmyForce.side_regiments(side), 3)
+	assert_almost_eq(ArmyCommand.initiative(side), 50.0 / 3.0, 0.001)
 
 
 func test_contested_provinces_need_a_great_power_mover() -> void:
@@ -217,9 +217,9 @@ func test_matched_large_armies_stalemate() -> void:
 func test_defending_armies_share_one_side() -> void:
 	var first := Fixture.army(1, 1, 2, ["peasant_levies", "peasant_levies"])
 	var second := Fixture.army(2, 1, 2, ["peasant_levies", "peasant_levies"])
-	var side: Array[ArmyState] = ArmyCombat.armies_of([first, second], 2, 1)
-	assert_almost_eq(ArmyCombat.side_strength(side), 12.0, 0.001)
-	assert_eq(ArmyCombat.side_regiments(side), 4)
+	var side: Array[ArmyState] = ArmyForce.armies_of([first, second], 2, 1)
+	assert_almost_eq(ArmyForce.side_strength(side), 12.0, 0.001)
+	assert_eq(ArmyForce.side_regiments(side), 4)
 
 
 func test_cavalry_wins_the_initiative_order() -> void:
@@ -254,8 +254,8 @@ func test_equal_initiative_is_broken_by_a_seeded_battle_roll() -> void:
 
 func test_general_medals_add_to_initiative() -> void:
 	var horse: Array[ArmyState] = [Fixture.army(1, 0, 3, ["squires"])]
-	assert_almost_eq(ArmyCombat.initiative(horse), 50.0, 0.001)
-	assert_almost_eq(ArmyCombat.initiative(horse, 2), 70.0, 0.001)
+	assert_almost_eq(ArmyCommand.initiative(horse), 50.0, 0.001)
+	assert_almost_eq(ArmyCommand.initiative(horse, 2), 70.0, 0.001)
 
 
 func test_medal_aura_redistributes_casualties() -> void:
@@ -347,32 +347,32 @@ func test_a_tribes_reformed_garrison_stays_at_era_one() -> void:
 
 
 func test_recovery_era_follows_the_faction_type() -> void:
-	assert_eq(ArmyCombat.era_for(1, {"parity_era": 1}), ArmyCombat.GREAT_POWER_ERA)
-	assert_eq(ArmyCombat.era_for(6, {"parity_era": 3}), 3)
-	assert_eq(ArmyCombat.era_for(6, {}), ArmyCombat.MINOR_ERA)
-	assert_eq(ArmyCombat.era_for(9, {"parity_era": 4}), ArmyCombat.MINOR_ERA)
+	assert_eq(ArmyGarrison.era_for(1, {"parity_era": 1}), ArmyGarrison.GREAT_POWER_ERA)
+	assert_eq(ArmyGarrison.era_for(6, {"parity_era": 3}), 3)
+	assert_eq(ArmyGarrison.era_for(6, {}), ArmyGarrison.MINOR_ERA)
+	assert_eq(ArmyGarrison.era_for(9, {"parity_era": 4}), ArmyGarrison.MINOR_ERA)
 
 
 func test_ratio_bands_follow_the_documented_fractions() -> void:
-	assert_almost_eq(float(ArmyCombat.band_for(2.0)["attacker"]), 0.15, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(2.0)["defender"]), 1.0, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(1.2)["attacker"]), 0.3, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(0.8)["attacker"]), 0.5, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(0.5)["attacker"]), 1.0, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0)["defender"]), 1.0, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(1.2)["attacker"]), 0.3, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.8)["attacker"]), 0.5, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.5)["attacker"]), 1.0, 0.001)
 
 
 func test_the_067_boundary_belongs_to_the_defender_victory_band() -> void:
 	# wiki: combat § Auto-resolve ratio bands — `ratio <= 0.67` loses 1.0/0.15,
 	# while the `0.67 < ratio < 1.0` row starts strictly above 0.67.
-	assert_almost_eq(float(ArmyCombat.band_for(0.67)["attacker"]), 1.0, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(0.67)["defender"]), 0.15, 0.001)
-	assert_almost_eq(float(ArmyCombat.band_for(0.68)["attacker"]), 0.5, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.67)["attacker"]), 1.0, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.67)["defender"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(0.68)["attacker"]), 0.5, 0.001)
 
 
 func test_great_powers_recover_era_four_infantry() -> void:
-	assert_eq(ArmyCombat.era_for(0), ArmyCombat.GREAT_POWER_ERA)
-	assert_eq(ArmyCombat.era_for(6), ArmyCombat.MINOR_ERA)
-	assert_eq(ArmyCombat.era_for(9), ArmyCombat.MINOR_ERA)
+	assert_eq(ArmyGarrison.era_for(0), ArmyGarrison.GREAT_POWER_ERA)
+	assert_eq(ArmyGarrison.era_for(6), ArmyGarrison.MINOR_ERA)
+	assert_eq(ArmyGarrison.era_for(9), ArmyGarrison.MINOR_ERA)
 
 
 func test_outcome_labels_cover_every_result() -> void:
