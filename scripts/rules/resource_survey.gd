@@ -43,12 +43,10 @@ static func snapshot(
 	}
 	if model == null or works == null:
 		return result
-	var connected: Dictionary = ImprovementSystem.connected_tiles(
-		model, works, owner, capital_tile
-	)
+	var resolved: Dictionary = LandConnectivity.resolve(model, works, owner, capital_tile)
 	for province: ProvinceState in model.provinces:
 		var rows: Array[Dictionary] = _rows(
-			model, works, units, owner, connected, province, visibility, tech_caps
+			model, works, units, owner, resolved, province, visibility, tech_caps
 		)
 		if rows.is_empty():
 			continue
@@ -87,11 +85,9 @@ static func province_rows(
 	var province: ProvinceState = model.province_data(province_id)
 	if province == null:
 		return [] as Array[Dictionary]
-	var connected: Dictionary = ImprovementSystem.connected_tiles(
-		model, works, owner, capital_tile
-	)
+	var resolved: Dictionary = LandConnectivity.resolve(model, works, owner, capital_tile)
 	return _rows(
-		model, works, units, owner, connected, province, visibility, tech_caps
+		model, works, units, owner, resolved, province, visibility, tech_caps
 	)
 
 
@@ -137,7 +133,7 @@ static func _rows(
 	works: LandWorks,
 	units: Array[CivilianState],
 	owner: int,
-	connected: Dictionary,
+	resolved: Dictionary,
 	province: ProvinceState,
 	visibility: VisibilityModel,
 	tech_caps: Dictionary
@@ -151,7 +147,7 @@ static func _rows(
 		)
 		if resource < 0:
 			continue
-		rows.append(_row(model, works, units, owner, connected, tile, resource, tech_caps))
+		rows.append(_row(model, works, units, owner, resolved, tile, resource, tech_caps))
 	rows.sort_custom(_row_before)
 	return rows
 
@@ -161,7 +157,7 @@ static func _row(
 	works: LandWorks,
 	units: Array[CivilianState],
 	owner: int,
-	connected: Dictionary,
+	resolved: Dictionary,
 	tile: Vector2i,
 	resource: int,
 	tech_caps: Dictionary
@@ -171,14 +167,28 @@ static func _row(
 	var mineral: bool = ImprovementCatalog.needs_prospecting(resource)
 	var ours: bool = tile_owner == owner
 	var prospected: bool = ours and works.is_prospected(owner, model, tile)
-	var is_connected: bool = connected.has(model.index_of(tile.x, tile.y))
+	var index: int = model.index_of(tile.x, tile.y)
+	var province_id: int = model.province_at(tile.x, tile.y)
+	var connection: Dictionary = (resolved.get("tiles", {}) as Dictionary).get(index, {})
+	var is_connected: bool = not connection.is_empty()
 	var working: CivilianState = _working_unit(units, tile)
 	var status: String = _status(ours, level, is_connected, working)
 	var output: int = 0
 	if status == "producing" or status == "maxed":
-		output = ImprovementCatalog.effective_yield(
-			resource, level, tech_caps,
-			_transport(works, model, tile), _town_cap(model, tile)
+		# The same arithmetic Extraction runs, so the lens never prices an estate
+		# at a yield the phase would not pay: the path's transport cap (not the
+		# tile's own road), the town cap only where the Town rule is the whole
+		# link, and the terrain hard cap after the tech cap (wiki:
+		# extraction-and-improvements § Extraction formula and town development
+		# cap, § Terrain extraction hard caps).
+		var commodity: String = ImprovementCatalog.commodity(resource)
+		var cap: int = TerrainCaps.extraction_cap(
+			model.terrain_at(tile.x, tile.y), commodity,
+			ImprovementCatalog.tech_cap_for(commodity, tech_caps)
+		)
+		output = Extraction.effective_yield(
+			level, cap, int(connection.get("transport", 0)),
+			LandConnectivity.town_cap_for(model, resolved, province_id, index)
 		)
 	var remaining: int = working.remaining_turns() if working != null else 0
 	var total_turns: int = working.total_turns() if working != null else 0
@@ -355,21 +365,6 @@ static func _working_unit(
 		if unit.work_action() == "build_improvement" and unit.work_tile() == tile:
 			return unit
 	return null
-
-
-static func _transport(works: LandWorks, model: MapModel, tile: Vector2i) -> int:
-	if works.has_port(model, tile):
-		return LandWorks.TRANSPORT_RAIL
-	return maxi(1, works.transport_at(model, tile))
-
-
-static func _town_cap(model: MapModel, tile: Vector2i) -> int:
-	var province: ProvinceState = model.province_data(
-		model.province_at(tile.x, tile.y)
-	)
-	if province == null or province.town_development <= 0:
-		return ImprovementCatalog.MAX_LEVEL
-	return province.town_development
 
 
 static func _row_before(a: Dictionary, b: Dictionary) -> bool:

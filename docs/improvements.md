@@ -40,7 +40,8 @@ level-4 Great Power towns and four L1 grain farms.
   connected, prospected improvements yield; purchased enclaves pay their buyer.
 - **Survey lens** (`LENS`, **L**): charted provinces; seals for known resources
   (minerals after Prospect), worked badge, bar, link row, dotted ring on
-  unsurveyed ground; roads/rail solid when linked, dashed when cut.
+  unsurveyed ground; roads/rail solid when linked, dashed when cut. Yields use
+  Extraction's caps (terrain, path, town).
 - **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
   cut; cut provinces show the road tiles still to lay, count and route.
 - **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
