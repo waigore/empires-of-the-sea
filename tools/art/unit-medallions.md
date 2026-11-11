@@ -113,5 +113,5 @@ One line per plate; the tail above follows `[object]`.
 row keeps its width and shows a gap. `UnitMedallion` is the fixed-size,
 mipmapped `TextureRect` the dossiers place: `FleetPanel` leads its shipyard
 launch and break-up rows with it, `ArmyPanel` its roster and drill yard.
-`test_unit_icons.gd` fails when a catalog type has no plate, or when two types
+`test_ui_rules.gd` fails when a catalog type has no plate, or when two types
 resolve the same file.
