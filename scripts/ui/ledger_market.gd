@@ -94,9 +94,7 @@ func _staged_row(order: MarketOrder) -> Control:
 	var side: String = "BID" if order.is_bid() else "OFFER"
 	var side_label := UiRowBuilder.caption(side, 10, Palette.GOLD_PALE, 46.0)
 	row.add_child(side_label)
-	row.add_child(
-		UiRowBuilder.caption(CommodityCatalog.label(order.commodity), 13, Palette.TEXT, 96.0)
-	)
+	row.add_child(CommodityIcons.cell(order.commodity, 96.0, 13))
 	var quantity := UiRowBuilder.label("%d" % order.remaining(), 13, Palette.GOLD_PALE)
 	quantity.custom_minimum_size = Vector2(38, 0)
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -206,7 +204,7 @@ func _offer_row(offer: Dictionary) -> Control:
 	row.add_child(
 		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)
 	)
-	row.add_child(UiRowBuilder.caption(CommodityCatalog.label(commodity), 13, Palette.TEXT, 84.0))
+	row.add_child(CommodityIcons.cell(commodity, 84.0, 13))
 
 	var left_label := UiRowBuilder.label("%d" % left, 13, Palette.GOLD_PALE)
 	left_label.custom_minimum_size = Vector2(40, 0)
@@ -264,7 +262,7 @@ func _has_commodity_rates(book: Dictionary) -> bool:
 
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
-	row.add_child(UiRowBuilder.caption(CommodityCatalog.label(id), 14, Palette.TEXT, 132.0))
+	row.add_child(CommodityIcons.cell(id, 132.0))
 
 	var qty := UiRowBuilder.label("%d" % held, 14, Palette.GOLD_PALE)
 	qty.custom_minimum_size = Vector2(44, 0)

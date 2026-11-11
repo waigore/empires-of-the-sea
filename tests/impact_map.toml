@@ -118,6 +118,7 @@ suites = [
   "test_diplomacy_trade.gd",
   "test_market_engine.gd",
   "test_ledger_text.gd",
+  "test_commodity_icons.gd",
 ]
 
 [domains.espionage]
@@ -460,6 +461,12 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
+domain = "economy"
+
+# The commodity medallions are the ledger's own art table; keep them on the
+# economy domain so an icon change runs the market/production rows that draw it.
+[[rules]]
+match = "scripts/ui/commodity_icons.gd*"
 domain = "economy"
 
 [[rules]]
