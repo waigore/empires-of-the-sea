@@ -107,6 +107,39 @@ func _breach_strike(broken: int) -> Dictionary:
 	return SiegeLanes.strike(armies, attacker, defender, 12, 20, 2, false, gates)
 
 
+## A line with no fight left in it delivers no blow, so it has nothing to spend
+## on the fort's battery — a spent besieger cannot grind a gun down (wiki:
+## siege-mechanics § Quick Battle lanes — "the guns take the blow", and only
+## what a blow delivers can reach them; DR-20261110-22 buys gun loss with the
+## besieging train's weight, never with an empty blow).
+func test_a_spent_line_cannot_grind_down_the_battery() -> void:
+	var attacker: Array[ArmyState] = _side(_repeat("musketeers", 4), 2)
+	var defender: Array[ArmyState] = _side(_repeat("pikemen", 4), 1)
+	var state: Dictionary = _state(attacker, defender, "open")
+	state["defender"]["mods"] = {"fort": 2}
+	state["attacker"]["cohesion"] = 0
+	var armies: Array[ArmyState] = state["armies"]
+	var guns: Array[Dictionary] = QuickBattleBattery.make(2, {}, 1)
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", guns
+	)
+
+	assert_eq(int(entry["battery_hit"]), 0, "no blow, nothing for the guns to soak")
+	assert_eq(int(entry["guns_destroyed"]), 0, "a spent line cannot silence a gun")
+	assert_almost_eq(
+		QuickBattleBattery.total_hp(guns), 4.0, 0.001, "the battery is untouched"
+	)
+	## The other side of the line: a line with fight left in it still pays the
+	## guns first, so the fix does not stop a real besieger from silencing them.
+	var fresh: Array[Dictionary] = QuickBattleBattery.make(2, {}, 1)
+	state["attacker"]["cohesion"] = 3
+	var spent: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", fresh
+	)
+	assert_true(int(spent["battery_hit"]) > 0, "a real blow is spent on the battery")
+
+
 func test_a_quick_battle_reports_its_ground_and_gates() -> void:
 	var battle: Dictionary = _fight(
 		"balanced", _repeat("guards", 20), _repeat("musketeers", 10), 1, "hill"

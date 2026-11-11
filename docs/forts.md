@@ -33,9 +33,9 @@ DR-20261110-27.
   gates lost.
 - **Sortie:** the defender's own order, not an Assault on its own wall. Every
   regiment strikes, the garrison is exposed; a firearmless garrison sallies.
-- **Gun-loss:** a standing gun spends the blow before the lanes; each gun lost
-  drops the fort one level whatever the outcome. The plate names guns, lanes,
-  gates and breach.
+- **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys
+  nothing, and the last gun drops the fort one level anyway. The plate names
+  guns, lanes and gates.
 - **Dossier:** the province panel prints the fort.
 
 ## Costs and numbers
