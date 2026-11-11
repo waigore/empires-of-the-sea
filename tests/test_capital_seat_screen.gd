@@ -84,6 +84,58 @@ func test_a_chosen_province_and_tile_seat_the_court_there() -> void:
 	assert_false(model.get_province(first).capital, "the old seat stands down")
 
 
+# --- guidance ---------------------------------------------------------------
+
+
+## The chart glows exactly the provinces the court may sit in, so the player
+## sees where a tap will be answered instead of learning the rule from a
+## refusal (REQ-P1-04, REQ-P1-07).
+func test_the_chart_glows_only_the_crowns_seaboard_provinces() -> void:
+	var model: MapModel = page.model
+	var faction: int = page.config.player_faction
+	var expected: Array[int] = CapitalChoice.seatable_provinces(model, faction)
+	assert_false(expected.is_empty(), "the crown can seat its court somewhere")
+	assert_eq(page.marker.eligible, expected, "the glow is the eligible provinces")
+	assert_true(expected.has(page.selected_province), "the automatic seat glows")
+	for province_id: int in page.marker.eligible:
+		assert_true(
+			CapitalChoice.can_seat(model, faction, province_id),
+			"every glowing province accepts the court"
+		)
+	var foreign: int = _foreign_province(model)
+	if foreign >= 0:
+		assert_false(page.marker.eligible.has(foreign), "a rival's shore never glows")
+	var inland: int = _owned_inland(model, faction)
+	if inland >= 0:
+		assert_false(page.marker.eligible.has(inland), "an inland holding never glows")
+
+
+## The banner names the glow, both when the chart opens and when a tap is
+## refused, so guidance is not only a refusal (REQ-P1-04).
+func test_the_banner_points_at_the_glowing_provinces() -> void:
+	assert_true(page.hint_text().contains("gold"), "the opening line names the glow")
+	var foreign: int = _foreign_province(page.model)
+	if foreign < 0:
+		return
+	page.pick_province(foreign)
+	assert_true(page.hint_text().contains("not yours"), "the refusal still names the fault")
+	assert_true(page.hint_text().contains("gold"), "the refusal points at what works")
+
+
+## The glow is painted, not just recorded: the marker draws the eligible
+## provinces with and without a chosen seat (cover the art path).
+func test_the_marker_paints_the_glow() -> void:
+	page.marker.queue_redraw()
+	await get_tree().process_frame
+	page.marker.clear()
+	page.marker.queue_redraw()
+	await get_tree().process_frame
+	var expected: Array[int] = CapitalChoice.seatable_provinces(
+		page.model, page.config.player_faction
+	)
+	assert_eq(page.marker.eligible, expected, "the glow outlives the chosen seat")
+
+
 # --- refusals ---------------------------------------------------------------
 
 
@@ -124,7 +176,7 @@ func test_confirm_without_a_seat_is_refused() -> void:
 	page.selected_province = -1
 	page.selected_tile = CapitalChoice.NO_TILE
 	assert_false(page.confirm())
-	assert_true(page.hint_text().contains("coastal provinces"))
+	assert_true(page.hint_text().contains("glowing gold"))
 
 
 # --- chart interaction ------------------------------------------------------
@@ -500,6 +552,14 @@ func _other_coast(model: MapModel, first: int) -> int:
 func _foreign_province(model: MapModel) -> int:
 	for province: ProvinceState in model.provinces:
 		if province.owner != FactionCatalog.PLAYER_FACTION:
+			return province.id
+	return -1
+
+
+## An owned province with no seaboard, when the chart rolls one.
+func _owned_inland(model: MapModel, faction: int) -> int:
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction and not CapitalChoice.is_sea_bound(model, province.id):
 			return province.id
 	return -1
 
