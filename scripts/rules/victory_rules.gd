@@ -4,22 +4,53 @@ extends RefCounted
 ## Pure rules over the world map — no nodes, so the check runs headless and the
 ## HUD only renders the record it returns (REQ-P2-03, REQ-P3-03).
 
-## Fixed product threshold: 31 Old World provinces (not ruleset-configurable).
+## The published bar: 31 Old World provinces. Every rival clears this number at
+## every level, and so does the human crown on `normal`; the difficulty layer
+## moves the crown's own bar (crown_threshold, DR-20261111-28).
 const MILITARY_THRESHOLD: int = 31
+
+
+## The bar the human crown must clear on this campaign's level: the published
+## bar scaled by the level's published percentage, rounded onto whole provinces
+## (wiki: ruleset-config § Difficulty). `normal` returns the published bar, so a
+## campaign with no level reads byte-identically to the previous game.
+static func crown_threshold(difficulty: String) -> int:
+	return Difficulty.scaled(MILITARY_THRESHOLD, Difficulty.level_percent(difficulty))
+
+
+## The bar a court must clear: the published one for every rival, and the
+## level's own bar for the human crown. `human` is NO_ID for the full-AI
+## observer, which stays on the published rows (wiki: ruleset-config
+## § Difficulty — the layer never changes a rival-versus-rival ratio).
+static func threshold_for(faction_id: int, human: int, difficulty: String) -> int:
+	if human == MapModel.NO_ID or faction_id != human:
+		return MILITARY_THRESHOLD
+	return crown_threshold(difficulty)
 
 
 ## Victory state at the end of `turn`. An already-set victory stays as it is,
 ## because the wiki makes end-of-turn evaluation idempotent.
-static func resolve(current: VictoryState, world: WorldMap, turn: int) -> VictoryState:
+static func resolve(
+	current: VictoryState,
+	world: WorldMap,
+	turn: int,
+	human: int = MapModel.NO_ID,
+	difficulty: String = Difficulty.DEFAULT
+) -> VictoryState:
 	if current != null:
 		return current
-	return evaluate(world, turn)
+	return evaluate(world, turn, human, difficulty)
 
 
 ## Military victory for the end of `turn`, or null while no Great Power holds
 ## enough of the Old World.
-static func evaluate(world: WorldMap, turn: int) -> VictoryState:
-	var winner: int = _winner(world)
+static func evaluate(
+	world: WorldMap,
+	turn: int,
+	human: int = MapModel.NO_ID,
+	difficulty: String = Difficulty.DEFAULT
+) -> VictoryState:
+	var winner: int = _winner(world, human, difficulty)
 	if winner == MapModel.NO_ID:
 		return null
 	return VictoryState.military(winner, turn)
@@ -32,23 +63,27 @@ static func old_world_holdings(world: WorldMap, faction_id: int) -> int:
 	return world.owned_provinces(WorldMap.OLD_WORLD, faction_id)
 
 
-## Eligible crowns that meet the threshold, already ordered by the determinism
-## rule: the lexicographically smallest player id wins a shared turn.
-static func qualified(world: WorldMap) -> Array[int]:
+## Eligible crowns that meet their own threshold, already ordered by the
+## determinism rule: the lexicographically smallest player id wins a shared turn.
+static func qualified(
+	world: WorldMap,
+	human: int = MapModel.NO_ID,
+	difficulty: String = Difficulty.DEFAULT
+) -> Array[int]:
 	var ids: Array[int] = []
 	if world == null:
 		return ids
 	for faction_id: int in world.great_powers_in(WorldMap.OLD_WORLD):
 		if not FactionCatalog.can_win(faction_id):
 			continue
-		if old_world_holdings(world, faction_id) >= MILITARY_THRESHOLD:
+		if old_world_holdings(world, faction_id) >= threshold_for(faction_id, human, difficulty):
 			ids.append(faction_id)
 	ids.sort_custom(func(a: int, b: int) -> bool: return str(a) < str(b))
 	return ids
 
 
-static func _winner(world: WorldMap) -> int:
-	var ids: Array[int] = qualified(world)
+static func _winner(world: WorldMap, human: int, difficulty: String) -> int:
+	var ids: Array[int] = qualified(world, human, difficulty)
 	if ids.is_empty():
 		return MapModel.NO_ID
 	return ids[0]

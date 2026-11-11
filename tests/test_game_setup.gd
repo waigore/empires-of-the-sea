@@ -108,12 +108,20 @@ func test_difficulty_starts_on_normal_and_states_its_effect() -> void:
 	assert_eq(setup.difficulty_option.selected, Difficulty.index_of(Difficulty.DEFAULT))
 	assert_eq(setup.difficulty_option.get_item_text(0), "Introductory")
 	assert_true(setup._difficulty_hint.text.contains("alike"), "Normal reads as the published rules")
+	assert_true(
+		setup._difficulty_hint.text.contains("hold 31 Old World provinces"),
+		"the hint states the crown's published bar"
+	)
 
 
 func test_start_carries_the_chosen_difficulty_into_the_config() -> void:
 	setup.difficulty_option.select(Difficulty.index_of("hard"))
 	setup.difficulty_option.emit_signal("item_selected", Difficulty.index_of("hard"))
 	assert_true(setup._difficulty_hint.text.contains("140%"))
+	assert_true(
+		setup._difficulty_hint.text.contains("hold 36 Old World provinces"),
+		"the hint states the bar the level sets (DR-20261111-28)"
+	)
 	setup.start_button.emit_signal("pressed")
 	assert_not_null(started)
 	if started != null:

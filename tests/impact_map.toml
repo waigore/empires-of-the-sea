@@ -306,6 +306,22 @@ suites = [
   "test_save_codec.gd",
 ]
 
+# The crown's own victory bar (wiki: victory § Military victory; DR-20261111-26):
+# the level's published percentage reaches the win check, the charge that opens
+# the campaign and the setup row that states it. One domain so a bar change
+# stays inside the tier-1 5 min budget instead of pulling campaign + difficulty
+# + intro + menu.
+[domains.victory_bar]
+suites = [
+  "test_campaign_end.gd",
+  "test_campaign_intro.gd",
+  "test_difficulty.gd",
+  "test_game_setup.gd",
+  "test_menu_flow.gd",
+  "test_misc_rules.gd",
+  "test_victory_screen.gd",
+]
+
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
@@ -408,6 +424,31 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/victory_rules.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/rules/campaign_intro.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/rules/difficulty.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "victory_bar"
+
+[[rules]]
+match = "scripts/ui/game_setup_screen.gd"
+domain = "victory_bar"
+
+# The shell that hands the campaign's level to the crown's charge.
+[[rules]]
+match = "scenes/main.gd"
+domain = "victory_bar"
+
 [[rules]]
 match = "scripts/rules/tribe_contact.gd*"
 domain = "tribe_contact"
