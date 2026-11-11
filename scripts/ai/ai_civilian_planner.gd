@@ -211,15 +211,19 @@ static func _best_engineer(
 			context
 		)
 		best = _better(best, fort)
+	best = _better(best, AiHospitalWork.best_candidate(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
+	))
 	# A province's town only connects its estates when the town itself reaches
 	# the capital, so a town link outranks incidental works — but not the
-	# court's own fort when it is invaded (wiki: ai-architecture
-	# § Town-per-province roads; capital-and-connectivity § Town rule).
+	# court's own fort when it is invaded, nor (at war) its hospitals
+	# (wiki: ai-architecture § Town-per-province roads; DR-20261111-16).
 	var town_road: Dictionary = AiTownRoads.best_candidate(
 		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
 		context, connected, reserved
 	)
-	if not town_road.is_empty() and String(best.get("action", "")) != "build_fort":
+	if not town_road.is_empty() and not AiHospitalWork.holds_over_town_link(best, context):
 		best = town_road
 	return best
 

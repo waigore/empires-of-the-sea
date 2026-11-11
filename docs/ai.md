@@ -44,10 +44,10 @@ Rivals act through a deterministic, tuned stack
   charted Tribe at the turn's close, then work the crown's own overtures and
   deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders improve or finish towns, engineers connect then road/port/fort,
-  explorers prospect, rail builders upgrade roads; merchants buy a Minor/Tribe
-  deed when embassy, peace, mineral, price allow (`civilian.merchant_weight`).
-  Builders read its caps (DR-20261111-10).
+  builders improve or finish towns, engineers connect then road/port/fort/hospital
+  (DR-20261111-16), explorers prospect, rail builders upgrade roads; merchants
+  buy a Minor/Tribe deed when embassy, peace, mineral, price allow
+  (`civilian.merchant_weight`). Builders read its caps (DR-20261111-10).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's
@@ -68,7 +68,7 @@ Rivals act through a deterministic, tuned stack
 
 ## Deferred (REQ-P2-02)
 
-Rival hospitals; agenda beats; regiment names. Ranked:
+Agenda beats; regiment names. Ranked:
 [`deferred.md`](deferred.md).
 
 ## Architecture
