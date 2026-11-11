@@ -150,11 +150,13 @@ suites = [
   "test_battle_rules.gd",
 ]
 
-# Navy ration morale: combat scales by last granary coverage. Kept off the full
-# fleet domain so a feeding-hook PR stays inside the tier-1 5 min budget.
+# Naval battle pass: the resolver, the difficulty layer's sea strength, ration
+# morale and the dossier odds, with the map hub that feeds them. Kept off the
+# full fleet domain so a naval-battle PR stays inside the tier-1 5 min budget.
 [domains.naval_feeding]
 suites = [
   "test_battle_rules.gd",
+  "test_difficulty.gd",
   "test_economy_rules.gd",
   "test_map_screen.gd",
   "test_naval_strength.gd",
@@ -801,6 +803,12 @@ domain = "fleet"
 match = "scripts/map/fleet_*.gd"
 domain = "fleet"
 
+# The fleet dossier reads the naval battle maths (zone odds), including the
+# difficulty layer's sea factor; keep it on the naval-battle slice.
+[[rules]]
+match = "scripts/map/map_play_fleets.gd*"
+domain = "naval_feeding"
+
 [[rules]]
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
@@ -811,8 +819,9 @@ domain = "fleet"
 match = "scripts/map/map_play_beachhead.gd*"
 domain = "fleet"
 
-# Naval combat pass + ration context for each crown; keep it on the feeding
-# slice so a battle-hook change does not pull fleet/map past 5 min.
+# Naval combat pass + ration and difficulty context for each crown; keep it on
+# the naval-battle slice so a battle-hook change does not pull fleet/map past
+# 5 min.
 [[rules]]
 match = "scripts/map/map_play_naval_turn.gd*"
 domain = "naval_feeding"
@@ -951,10 +960,15 @@ domain = "civilian"
 match = "scripts/rules/spy_*.gd*"
 domain = "civilian"
 
-# Ration morale on sea battles only; keep off the full fleet domain so a
-# feeding-hook change stays inside the tier-1 5 min budget.
+# Sea battles only: the resolver and the strength/odds maths (difficulty, ration
+# morale); keep off the full fleet domain so this stays inside the tier-1
+# 5 min budget.
 [[rules]]
 match = "scripts/rules/naval_combat.gd*"
+domain = "naval_feeding"
+
+[[rules]]
+match = "scripts/rules/naval_strength.gd*"
 domain = "naval_feeding"
 
 [[rules]]

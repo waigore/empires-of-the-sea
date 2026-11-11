@@ -155,6 +155,14 @@ static func _feeding(context: Dictionary, owner: int) -> float:
 	return ArmyModifiers.feeding_multiplier(float(feeding.get(owner, 1.0)))
 
 
+## The difficulty layer's factor for a side (wiki: ruleset-config § Difficulty):
+## a rival fights the human crown at the level's percentage, folded in after the
+## rations and before the share is struck. An unrecorded side fights as published.
+static func _difficulty(context: Dictionary, owner: int) -> float:
+	var factors: Dictionary = context.get("difficulty", {}) as Dictionary
+	return float(factors.get(owner, 1.0))
+
+
 ## No callback means the legacy default: every pair is hostile.
 static func _hostile(hostile: Callable, a: int, b: int) -> bool:
 	if a == b:
@@ -186,9 +194,13 @@ static func _battle(
 	context: Dictionary
 ) -> Dictionary:
 	# A hungry squadron fights at the same morale bands as a hungry army
-	# (wiki: workers-and-population § Consumption — fullyFedShips / totalShips).
-	var attacker_strength: float = side_strength(attacking) * _feeding(context, attacker_id)
-	var defender_strength: float = side_strength(defending) * _feeding(context, defender_id)
+	# (wiki: workers-and-population § Consumption — fullyFedShips / totalShips),
+	# and a rival of the chosen difficulty fights its own strength
+	# (wiki: ruleset-config § Difficulty).
+	var attacker_strength: float = side_strength(attacking) \
+		* _feeding(context, attacker_id) * _difficulty(context, attacker_id)
+	var defender_strength: float = side_strength(defending) \
+		* _feeding(context, defender_id) * _difficulty(context, defender_id)
 	var record: Dictionary = {
 		"zone": zone_id,
 		"attacker": attacker_id,
