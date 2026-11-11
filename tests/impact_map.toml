@@ -956,6 +956,10 @@ match = "scripts/rules/resource_routes.gd"
 domain = "map"
 
 [[rules]]
+match = "scripts/map/road_ink.gd"
+domain = "map"
+
+[[rules]]
 match = "scripts/ui/lens_legend.gd"
 domain = "map"
 

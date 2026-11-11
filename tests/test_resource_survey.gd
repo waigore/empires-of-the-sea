@@ -94,6 +94,30 @@ func test_roads_are_projected_as_segments_tagged_linked_or_cut() -> void:
 	)
 	routes = ResourceRoutes.snapshot(model, works, owner, pair[0], visibility)
 	assert_true((routes["segments"] as Array).is_empty())
+	# Fogged ground still projects the stroke, tagged for fainter ink.
+	visibility.setup(model, owner)
+	visibility.lower_to(
+		model.index_of(pair[1].x, pair[1].y), VisibilityModel.Level.FOGGED
+	)
+	routes = ResourceRoutes.snapshot(model, works, owner, pair[0], visibility)
+	assert_eq((routes["segments"] as Array).size(), 1)
+	assert_true(bool((routes["segments"] as Array)[0]["fogged"]))
+	# Guard: empty chart and a bad owner never invent a network.
+	routes = ResourceRoutes.snapshot(null, works, owner)
+	assert_true((routes["segments"] as Array).is_empty())
+	routes = ResourceRoutes.snapshot(model, works, -1)
+	assert_true((routes["segments"] as Array).is_empty())
+
+
+func test_a_coastal_road_does_not_pair_onto_the_sea() -> void:
+	var model: MapModel = Fixture.region()
+	var works := LandWorks.new()
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var coast: Vector2i = _owned_coast_toward_sea(model)
+	assert_true(coast.x >= 0, "fixture needs an owned land tile facing the sea")
+	works.set_transport(model, coast, LandWorks.TRANSPORT_ROAD)
+	var routes: Dictionary = ResourceRoutes.snapshot(model, works, owner, coast)
+	assert_eq(int(routes["counts"]["road"]), 0, "sea never completes a road pair")
 
 
 func test_severed_estate_reports_disconnected() -> void:
@@ -270,6 +294,20 @@ func _owned_pair(model: MapModel) -> Array[Vector2i]:
 				pair.append(next)
 				return pair
 	return pair
+
+
+## An owned land tile whose right or down neighbour is water (or off-chart), so
+## the road walker hits the land/bounds guard without inventing a segment.
+func _owned_coast_toward_sea(model: MapModel) -> Vector2i:
+	for province: ProvinceState in model.provinces:
+		if province.owner != FactionCatalog.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province.tiles:
+			for step: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var next: Vector2i = tile + step
+				if not model.in_bounds(next.x, next.y) or not model.is_land(next.x, next.y):
+					return tile
+	return Vector2i(-1, -1)
 
 
 func _row(entry: Dictionary, tile: Vector2i) -> Dictionary:
