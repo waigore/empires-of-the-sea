@@ -395,7 +395,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	player_fleet.location = FleetState.Location.AT_SEA
 	player_fleet.sea_zone = enemy_fleet.sea_zone
 	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, 2)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
@@ -408,7 +408,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	else:
 		assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+	assert_gt(_screen.hud.despatches.lane.get_child_count(), toasts_before)
 
 
 func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
@@ -494,13 +494,13 @@ func test_tapping_uncharted_land_explains_the_refusal() -> void:
 	var province_id: int = _screen.model.provinces[0].id
 	var tile: Vector2i = _screen.model.province_tiles(province_id)[0]
 	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	MapPlayInput.on_tapped(_screen.play, world)
 
 	assert_eq(_screen.selected_province, -1, "uncharted land opens no dossier")
 	assert_eq(
-		_screen.hud._toast_box.get_child_count(),
+		_screen.hud.despatches.lane.get_child_count(),
 		toasts_before + 1,
 		"the tap reports that the land is uncharted"
 	)
@@ -520,7 +520,7 @@ func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
 			_screen.model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN
 		)
 	_screen.civilian_layer.select(explorer)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	var claimed: bool = MapPlayCivilians.try_move(
 		_screen.play, MapGeo.tile_center(pair[1].x, pair[1].y, MapScreen.TILE_SIZE)
@@ -529,7 +529,7 @@ func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
 	assert_true(claimed, "the tap is a march order, not a dossier tap")
 	assert_eq(explorer.tile, pair[0], "the Explorer stays on charted land")
 	assert_eq(
-		_screen.hud._toast_box.get_child_count(),
+		_screen.hud.despatches.lane.get_child_count(),
 		toasts_before + 1,
 		"the refusal is reported"
 	)
@@ -648,7 +648,7 @@ func _research_slot_rows() -> Array[String]:
 
 func _toast_texts() -> Array[String]:
 	var texts: Array[String] = []
-	for panel: Node in _screen.hud._toast_box.get_children():
+	for panel: Node in _screen.hud.despatches.lane.get_children():
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts

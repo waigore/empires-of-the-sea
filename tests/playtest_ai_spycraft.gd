@@ -335,7 +335,7 @@ func _intruders(play: PlaySession, player: int) -> int:
 ## Toasts that say a rival spy was caught or came over this turn.
 func _caught_this_turn() -> int:
 	var found: int = 0
-	for panel: Node in _screen.play.hud._toast_box.get_children():
+	for panel: Node in _screen.play.hud.despatches.lane.get_children():
 		for text: String in _labels(panel):
 			if text.contains("Counter-espionage caught") or text.contains("now serves your crown"):
 				found += 1
@@ -343,7 +343,7 @@ func _caught_this_turn() -> int:
 
 
 func _my_toasts() -> void:
-	for panel: Node in _screen.play.hud._toast_box.get_children():
+	for panel: Node in _screen.play.hud.despatches.lane.get_children():
 		for text: String in _labels(panel):
 			var lower: String = text.to_lower()
 			if lower.contains("spy") or lower.contains("espionage") or lower.contains("coat"):
@@ -351,8 +351,8 @@ func _my_toasts() -> void:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _screen.play.hud._toast_box.get_children():
-		_screen.play.hud._toast_box.remove_child(child)
+	for child: Node in _screen.play.hud.despatches.lane.get_children():
+		_screen.play.hud.despatches.lane.remove_child(child)
 		child.free()
 
 

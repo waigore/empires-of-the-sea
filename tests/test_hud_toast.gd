@@ -21,7 +21,7 @@ func after_each() -> void:
 
 func test_a_plain_toast_keeps_its_single_label() -> void:
 	_hud.toast("The turn opens")
-	var panel: Control = _hud._toast_box.get_child(0)
+	var panel: Control = _hud.despatches.lane.get_child(0)
 	assert_eq(panel.get_child_count(), 1)
 	var label: Label = panel.get_child(0) as Label
 	assert_true(label != null)
@@ -30,7 +30,7 @@ func test_a_plain_toast_keeps_its_single_label() -> void:
 
 func test_a_siege_toast_carries_the_silenced_battery_medallion() -> void:
 	_hud.toast(LINE, "silenced_gun")
-	var panel: Control = _hud._toast_box.get_child(0)
+	var panel: Control = _hud.despatches.lane.get_child(0)
 	var row: HBoxContainer = panel.get_child(0) as HBoxContainer
 	assert_true(row != null, "the medallion sits in a row with its line")
 	var medallion: TextureRect = row.get_child(0) as TextureRect
@@ -45,4 +45,4 @@ func test_a_siege_toast_carries_the_silenced_battery_medallion() -> void:
 func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	_hud.visible = false
 	_hud.toast(LINE, "silenced_gun")
-	assert_eq(_hud._toast_box.get_child_count(), 0)
+	assert_eq(_hud.despatches.lane.get_child_count(), 0)

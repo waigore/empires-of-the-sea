@@ -26,11 +26,11 @@ func test_map_screen_starts_with_a_relation_web() -> void:
 
 
 func test_court_panel_opens_and_closes() -> void:
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.is_diplomacy_open())
 	assert_false(_screen.hud.panels.is_panel_open())
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before)
 	DiplomacyHud.hide(_screen.hud.panels)
 	assert_false(_screen.hud.panels.is_diplomacy_open())
 
@@ -59,10 +59,10 @@ func test_the_court_reads_each_crowns_public_power() -> void:
 
 func test_orders_from_the_court_change_relations_and_toast() -> void:
 	MapPlayDiplomacy.open(_screen.play)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	assert_true(_screen.play.diplomacy.relation(0, 1).at_war)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
 	assert_true(_screen.hud.panels.is_diplomacy_open())
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
 	assert_false(_screen.play.diplomacy.relation(0, 1).at_war)
@@ -125,11 +125,11 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 
 	_screen.play.army_layer.select(army)
 	MapPlayArmies.select(_screen.play, army)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 	var tile: Vector2i = _screen.play.model.province_data(target).tiles[0]
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(army.province, origin, "peace refuses the invasion")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
 
 	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
 	_screen.play.army_layer.select(army)
@@ -243,7 +243,7 @@ func test_the_resolver_does_not_repeat_the_passes_news() -> void:
 ## Toasts that name `needle`.
 func _news_about(needle: String) -> int:
 	var total: int = 0
-	for child: Node in _screen.hud._toast_box.get_children():
+	for child: Node in _screen.hud.despatches.lane.get_children():
 		for node: Node in child.get_children():
 			if node is Label and (node as Label).text.contains(needle):
 				total += 1

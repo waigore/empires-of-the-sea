@@ -61,21 +61,21 @@ func test_the_hud_mounts_the_plate_and_queues_a_second_battle() -> void:
 ## once the last plate closes (REQ-P5-06).
 func test_the_courts_news_waits_for_the_battle_plates() -> void:
 	var screen: MapScreen = Fixture.attach_screen(self)
-	var raised: int = screen.hud._toast_box.get_child_count()
+	var raised: int = screen.hud.despatches.lane.get_child_count()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	screen.hud.toast("England occupies Burgundy unopposed")
 	screen.hud.toast("England storms Flanders")
 
-	assert_eq(screen.hud._toast_box.get_child_count(), raised, "no despatch behind the plate")
-	assert_eq(screen.hud._toast_queue.size(), 2, "the news waits its turn")
+	assert_eq(screen.hud.despatches.lane.get_child_count(), raised, "no despatch behind the plate")
+	assert_eq(screen.hud.despatches.waiting().size(), 2, "the news waits its turn")
 
 	screen.hud.quick_battle_overlay.skip()
 	screen.hud.quick_battle_overlay._on_continue()
 	assert_eq(
-		screen.hud._toast_box.get_child_count(), raised + 2,
+		screen.hud.despatches.lane.get_child_count(), raised + 2,
 		"the court reads it after the battle"
 	)
-	assert_eq(screen.hud._toast_queue.size(), 0, "nothing is left waiting")
+	assert_eq(screen.hud.despatches.waiting().size(), 0, "nothing is left waiting")
 	screen.free()
 
 
@@ -83,7 +83,7 @@ func test_the_courts_news_waits_for_the_battle_plates() -> void:
 ## closes, so an earlier despatch never slips out between the fights.
 func test_the_news_waits_for_every_plate_of_the_turn() -> void:
 	var screen: MapScreen = Fixture.attach_screen(self)
-	var raised: int = screen.hud._toast_box.get_child_count()
+	var raised: int = screen.hud.despatches.lane.get_child_count()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	screen.hud.show_quick_battle(_battle(), "Burgundy")
 	screen.hud.toast("Spain takes Flanders")
@@ -91,12 +91,12 @@ func test_the_news_waits_for_every_plate_of_the_turn() -> void:
 	screen.hud.quick_battle_overlay.skip()
 	screen.hud.quick_battle_overlay._on_continue()
 	assert_true(screen.hud.is_quick_battle_shown(), "the second battle takes the plate")
-	assert_eq(screen.hud._toast_box.get_child_count(), raised, "still hidden under a plate")
+	assert_eq(screen.hud.despatches.lane.get_child_count(), raised, "still hidden under a plate")
 
 	screen.hud.quick_battle_overlay.skip()
 	screen.hud.quick_battle_overlay._on_continue()
 	assert_eq(
-		screen.hud._toast_box.get_child_count(), raised + 1, "the news arrives at the end"
+		screen.hud.despatches.lane.get_child_count(), raised + 1, "the news arrives at the end"
 	)
 	screen.free()
 
@@ -106,11 +106,11 @@ func test_the_news_waits_for_every_plate_of_the_turn() -> void:
 func test_the_news_queue_keeps_the_newest_despatches() -> void:
 	var screen: MapScreen = Fixture.attach_screen(self)
 	screen.hud.show_quick_battle(_battle(), "Flanders")
-	for index in GameHud.TOAST_QUEUE_CAP + 2:
+	for index in HudDespatches.TOAST_QUEUE_CAP + 2:
 		screen.hud.toast("news %d" % index)
 
-	assert_eq(screen.hud._toast_queue.size(), GameHud.TOAST_QUEUE_CAP)
-	assert_eq(String(screen.hud._toast_queue[0]), "news 2", "the oldest lines go first")
+	assert_eq(screen.hud.despatches.waiting().size(), HudDespatches.TOAST_QUEUE_CAP)
+	assert_eq(String(screen.hud.despatches.waiting()[0]), "news 2", "the oldest lines go first")
 	screen.free()
 
 

@@ -77,12 +77,12 @@ func test_a_fleet_cannot_move_twice_in_one_turn() -> void:
 	MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[zone].tiles[0])
 	var zone_after_move: int = fleet.sea_zone
 	var next_zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[next_zone].tiles[0]))
 
 	assert_eq(fleet.sea_zone, zone_after_move)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
 
 
 func test_docking_puts_the_fleet_in_port() -> void:
@@ -112,13 +112,13 @@ func test_the_home_fleet_cannot_be_ordered_to_sail() -> void:
 	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
 	assert_eq(_screen.overlay.move_zones.size(), 0, "the home fleet shows no sea orders")
 	var zone: int = NavalMovement.province_sea_zones(_screen.model, capital)[0]
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zone_data(zone).tiles[0]))
 
 	assert_eq(home.location, FleetState.Location.IN_PORT)
 	assert_eq(home.province, capital)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
 
 
 func test_docking_at_the_capital_joins_the_home_fleet() -> void:
@@ -280,13 +280,13 @@ func test_a_crossed_fleet_cannot_cross_again_this_turn() -> void:
 	var fleet: FleetState = _cross_to_new_world()
 	var zone_after: int = fleet.sea_zone
 	var region_after: int = _screen.region_index
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone_after)))
 
 	assert_eq(fleet.sea_zone, zone_after)
 	assert_eq(_screen.region_index, region_after)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
 
 
 func test_a_crossed_fleet_sails_back_on_a_later_turn() -> void:
@@ -672,9 +672,9 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	fleet.beachhead_province = coast
 	fleet.beachhead_turn = _screen.play.turn - 2
 	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("lapsed"))
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.lane.get_child_count()
 	MapPlayBeachhead.establish(_screen.play, fleet, coast)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
+	assert_eq(_screen.hud.despatches.lane.get_child_count(), toasts + 1)
 
 
 # --- troops aboard (wiki: ships-and-naval § Naval transport) -----------------

@@ -320,7 +320,7 @@ func _print_dossier() -> void:
 
 ## Toasts this area emits, so a turn's general noise does not bury them.
 func _my_toasts() -> void:
-	for panel: Node in _play.hud._toast_box.get_children():
+	for panel: Node in _play.hud.despatches.lane.get_children():
 		if panel.is_queued_for_deletion():
 			continue
 		for text: String in _labels(panel):
@@ -336,7 +336,7 @@ func _my_toasts() -> void:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _play.hud._toast_box.get_children():
+	for child: Node in _play.hud.despatches.lane.get_children():
 		child.queue_free()
 
 

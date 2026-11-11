@@ -295,7 +295,7 @@ func _despatch(play: PlaySession, rival: int) -> void:
 
 ## Only the toasts this area emits, so a turn's noise does not bury them.
 func _my_toasts() -> void:
-	for panel: Node in _screen.play.hud._toast_box.get_children():
+	for panel: Node in _screen.play.hud.despatches.lane.get_children():
 		for text: String in _labels(panel):
 			var lower: String = text.to_lower()
 			if lower.contains("spy") or lower.contains("quickened") or lower.contains("turn "):
@@ -303,7 +303,7 @@ func _my_toasts() -> void:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _screen.play.hud._toast_box.get_children():
+	for child: Node in _screen.play.hud.despatches.lane.get_children():
 		child.queue_free()
 
 

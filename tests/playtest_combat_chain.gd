@@ -276,7 +276,7 @@ func _drain_plates() -> void:
 		])
 		_say("  plate stance: %s" % QuickBattleCopy.plan_text(battle))
 		_say("  court news: %d raised, %d waiting for the plate" % [
-			_toast_count(), _play.hud._toast_queue.size()])
+			_toast_count(), _play.hud.despatches.waiting().size()])
 		for round: Dictionary in quick.get("rounds", []) as Array:
 			for action: Dictionary in round.get("actions", []) as Array:
 				_say("  despatch: %s" % QuickBattleCopy.action_line(
@@ -287,7 +287,7 @@ func _drain_plates() -> void:
 
 ## Toast plates the court has raised and not yet retired.
 func _toast_count() -> int:
-	return _play.hud._toast_box.get_child_count() if _play.hud._toast_box != null else -1
+	return _play.hud.despatches.lane.get_child_count() if _play.hud.despatches.lane != null else -1
 
 
 ## Every standing army with the standard the map draws for it: an army without

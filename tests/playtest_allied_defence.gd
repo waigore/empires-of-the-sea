@@ -425,10 +425,10 @@ func _collect_buttons(node: Node, into: PackedStringArray) -> void:
 
 
 func _last_toast() -> String:
-	if _play.hud._toast_box == null:
+	if _play.hud.despatches.lane == null:
 		return "none"
 	var parts: PackedStringArray = []
-	_collect_labels(_play.hud._toast_box, parts)
+	_collect_labels(_play.hud.despatches.lane, parts)
 	return parts[parts.size() - 1] if not parts.is_empty() else "none"
 
 

@@ -261,7 +261,7 @@ func _moored_squadron_at_the_seat() -> FleetState:
 
 
 func _last_toast() -> String:
-	var box: VBoxContainer = _screen.hud._toast_box
+	var box: VBoxContainer = _screen.hud.despatches.lane
 	assert_gt(box.get_child_count(), 0, "a report was raised")
 	var plate: Control = box.get_child(box.get_child_count() - 1) as Control
 	for child: Node in plate.get_children():
