@@ -180,6 +180,18 @@ suites = [
   "test_world_setup.gd",
 ]
 
+# Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
+# the invariants the right-sized world is built for (slot floor, crown land,
+# painted chart + campaign plate). Broader preloads stay on tier 2 — even a
+# dozen heavy MapScreen suites miss the 5 min tier-1 budget.
+[domains.map_fixture]
+suites = [
+  "test_advanced_start.gd",
+  "test_map_screen.gd",
+  "test_save_codec.gd",
+  "test_victory_screen.gd",
+]
+
 [domains.advanced]
 suites = [
   "test_advanced_start.gd",
@@ -445,7 +457,7 @@ domain = "misc"
 
 [[rules]]
 match = "tests/map_fixture.gd"
-full = true
+domain = "map_fixture"
 
 [[rules]]
 match = "tests/map_shot.gd"
