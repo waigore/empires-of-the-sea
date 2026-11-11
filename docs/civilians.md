@@ -14,8 +14,8 @@ tech.
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
   prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
   (spycraft), Merchant (buy land), Rail Builder (railroad).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
-  and Visit jump to it.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; Visit
+  jumps to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders stay on crown land; Explorer, Merchant, Spy cross any border.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
@@ -24,19 +24,20 @@ tech.
   ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
   returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
-  **upgrade town** (National Bureaucracy), road, port, rail, fort
+  **upgrade town**, road, port, rail, fort
   1–3 ([forts.md](forts.md)), hospital 1–2.
-- **Town development:** Builder raises towns to level 4; connected port towns
-  cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
+- **Town development:** Builder raises towns to level 4; port towns cap
+  extraction; levels 2/4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
   (one per hull, never with troops); lands at port or coastal tile beside its
   zone. Explorers/Merchants any coast; others need crown land. Landing reveals
   tile + neighbours; sunk ships drown passengers.
 - **Land purchase:** Merchant buys Minor/Tribe resource tile with embassy, no
-  war, prospected mineral; 15× base at assign, debit on complete. Rivals run
-  the same rule through `AiMerchantWork` and pay from their own ledger.
-- **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
-  and saves; province stays with the seller.
+  war, prospected mineral; 15× base at assign, debit on complete. Each deed
+  lifts the province town. Rivals run the same rule through `AiMerchantWork`,
+  from their own purse.
+- **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog,
+  saves; province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
   connected; above-cap upgrades refused; `ESTATES` lists orders.
 - **Presence** keeps a province visible; one crew per tile per crown (Rail
