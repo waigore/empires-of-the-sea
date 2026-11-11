@@ -36,8 +36,8 @@ Ids: `scripts/rules/faction_catalog.gd`.
 
 After capitals are fixed, `WorldBootstrap` turns the capital-choice plan into
 real works (ports, harbour roads), sets capital town development to 4 and
-places four L1 grain farms per Great Power, wired to the seat by road
-(wiki: capital-and-connectivity).
+places four L1 grain farms per Great Power on plains (thin sites levelled),
+wired to the seat by road (wiki: capital-and-connectivity).
 
 ## Ownership
 

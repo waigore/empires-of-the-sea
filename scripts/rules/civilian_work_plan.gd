@@ -95,6 +95,14 @@ static func town_upgrade_level(model: MapModel, tile: Vector2i) -> int:
 	return clampi(province.town_level() + 1, 2, MAX_TOWN)
 
 
+## Town level a finished upgrade lands. The order is priced and gated for the
+## level the town held when it was assigned, but the town can rise while the
+## crew works — a Great Power seat moved to this province is set to 4 — so the
+## finish lands the higher of the two and never lowers a town it finds raised.
+static func town_after_upgrade(current: int, priced: int) -> int:
+	return maxi(current, clampi(priced, 1, MAX_TOWN))
+
+
 ## Why this crown cannot raise the province's town now, or "" when the order is
 ## open. Ownership and the Builder are the work order's own business; this
 ## answers the two gates the province dossier also has to show (wiki:
