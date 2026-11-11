@@ -477,39 +477,6 @@ func test_an_explorer_musters_at_the_crowns_harbour() -> void:
 
 ## The muster only stands while a squadron is free to carry the colonist and the
 ## court has none abroad yet; otherwise the Explorer is back on survey duty.
-## A rival that charts a Tribe's shore meets it (wiki: diplomacy § GP–Tribe first
-## contact — "first-contact relations are persisted during turn resolution at
-## end-of-turn" for AI courts too; DR-20261111-05).
-func test_a_rival_meets_a_tribe_its_own_chart_holds() -> void:
-	var world: WorldMap = _world()
-	var new_world: MapModel = world.region(1)
-	var tribe: int = FactionCatalog.tribe_ids()[0]
-	var tiles: Array[Vector2i] = [Vector2i(0, 0)]
-	new_world.provinces = [
-		ProvinceState.create(0, "Shore", tiles, Vector2.ZERO, 1, tribe, false)
-	]
-	var play := PlaySession.new()
-	play.player_faction = 0
-	play.region_index = 0
-	play.world = world
-	play.model = world.region(0)
-	play.diplomacy = DiplomacyState.new()
-	play.diplomacy.reset(1)
-	play.court_charts = CourtCharts.new()
-	play.court_charts.setup(world, 0, {})
-	assert_true(MapPlayDiplomacy.sync_rival_contact(play).is_empty(), "an uncharted shore meets nobody")
-	var view: VisibilityModel = play.court_charts.model_for(OWNER, WorldMap.NEW_WORLD)
-	view.reveal_province(0)
-	var met: Array[int] = MapPlayDiplomacy.sync_rival_contact(play)
-	assert_true(met.has(tribe), "the court meets the Tribe whose land it has charted")
-	assert_true(play.diplomacy.has_relation(OWNER, tribe))
-	assert_eq(
-		play.diplomacy.overture(OWNER, tribe), DiplomacyCatalog.STAGE_NONE,
-		"first contact is not an envoy"
-	)
-	assert_true(MapPlayDiplomacy.sync_rival_contact(play).is_empty(), "contact is made once")
-
-
 func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void:
 	var world: WorldMap = _world()
 	var old_world: MapModel = world.region(0)

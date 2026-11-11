@@ -274,29 +274,28 @@ static func _ai_context(play: PlaySession) -> Dictionary:
 	var context: Dictionary = {"regiments": regiments, "ships": ships}
 	if play.ai != null:
 		context["stockpiles"] = play.ai.stockpiles(play.human_faction_id())
-	# The courts' own charts let a rival value the envoy chain that opens a coast
-	# it has found but may not survey (DR-20261111-05).
-	if play.court_charts != null:
-		context["charts"] = play.court_charts
 	return context
 
 
 ## A Tribe is contacted only by non-unknown tile visibility in its provinces;
-## sea-reachable colonial intel alone does not count (wiki: diplomacy § first
-## contact). This is the human crown's pass, made after turn resolution, and it
-## returns the Tribes newly met so the herald can name them.
+## sea-reachable colonial intel alone does not count (wiki: diplomacy § first contact).
 static func sync_first_contact(play: PlaySession) -> Array[int]:
 	var contacted: Array[int] = []
+	# The observer has no human court to open first contact for; rival courts
+	# keep the relations seeded at setup (wiki: game-setup § Human/AI slots).
+	if play.observer_mode:
+		return contacted
 	if play.diplomacy == null or play.world == null:
 		return contacted
-	var human: int = play.human_faction_id()
-	if human < 0:
-		return contacted
 	for tribe: int in FactionCatalog.tribe_ids():
-		if not _meets_tribe(play, human, tribe):
+		if play.diplomacy.has_relation(play.player_faction, tribe):
 			continue
+		if not _sees_tribe(play, tribe):
+			continue
+		play.diplomacy.ensure_relation(play.player_faction, tribe, play.turn)
+		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
 		contacted.append(tribe)
-	if not contacted.is_empty() and play.hud != null:
+	if not contacted.is_empty():
 		var names: PackedStringArray = []
 		for tribe: int in contacted:
 			names.append(FactionCatalog.name_of(tribe))
@@ -304,46 +303,9 @@ static func sync_first_contact(play: PlaySession) -> Array[int]:
 	return contacted
 
 
-## The same rule for every AI court, silently and once per pair, after the
-## end-of-turn fog pass has settled what each court can see (wiki: diplomacy
-## § GP–Tribe first contact — "first-contact relations are persisted during turn
-## resolution at end-of-turn"). A rival that charts a New World shore therefore
-## meets the Tribe that holds it, which is what lets it treat — or war — there
-## (DR-20261111-05).
-static func sync_rival_contact(play: PlaySession) -> Array[int]:
-	var met: Array[int] = []
-	if play.diplomacy == null or play.world == null:
-		return met
-	var human: int = play.human_faction_id()
-	for court: int in FactionCatalog.great_power_ids():
-		if court == human:
-			continue
-		for tribe: int in FactionCatalog.tribe_ids():
-			if _meets_tribe(play, court, tribe):
-				met.append(tribe)
-	return met
-
-
-## Opens the relation when this court holds a charted tile of the Tribe's land
-## and has not met it yet. True when a relation was made.
-static func _meets_tribe(play: PlaySession, court: int, tribe: int) -> bool:
-	if play.diplomacy.has_relation(court, tribe):
-		return false
-	if not _sees_tribe(play, court, tribe):
-		return false
-	play.diplomacy.ensure_relation(court, tribe, play.turn)
-	play.diplomacy.touch(court, tribe, "firstContact")
-	return true
-
-
-## Whether one court's own chart holds any tile of a Tribe's land. The human
-## reads the session's table directly; a rival reads the grid CourtCharts keeps.
-static func _sees_tribe(play: PlaySession, court: int, tribe: int) -> bool:
-	var views: Dictionary = play.visibility_by_region
-	if play.court_charts != null and court != play.player_faction:
-		views = play.court_charts.regions_of(court)
-	for region_index: int in views.keys():
-		var visibility: VisibilityModel = views[region_index]
+static func _sees_tribe(play: PlaySession, tribe: int) -> bool:
+	for region_index: int in play.visibility_by_region.keys():
+		var visibility: VisibilityModel = play.visibility_by_region[region_index]
 		if visibility == null or visibility.model == null:
 			continue
 		for province: ProvinceState in visibility.model.provinces:

@@ -197,65 +197,6 @@ func test_one_sided_acts_and_consent_offers_are_told_apart() -> void:
 		)
 
 
-## A court with a seat in the Old World and `faction`'s chart of a New World
-## shore, so the envoy motive can be read off one court's own grid.
-func _new_world_world() -> WorldMap:
-	var old := MapModel.new()
-	old.setup(4, 2)
-	old.region_id = WorldMap.OLD_WORLD
-	old.region_key = "old_world"
-	var seat_tiles: Array[Vector2i] = [Vector2i(0, 0)]
-	old.province[old.index_of(0, 0)] = 0
-	old.provinces = [
-		ProvinceState.create(0, "Seat", seat_tiles, Vector2.ZERO, 1, 2, true)
-	]
-	var shore := MapModel.new()
-	shore.setup(4, 2)
-	shore.region_id = WorldMap.NEW_WORLD
-	shore.region_key = "new_world"
-	var tiles: Array[Vector2i] = []
-	for y in 2:
-		for x in 2:
-			tiles.append(Vector2i(x, y))
-			shore.province[shore.index_of(x, y)] = 0
-	shore.provinces = [
-		ProvinceState.create(
-			0, "Shore", tiles, Vector2.ZERO, tiles.size(),
-			FactionCatalog.tribe_ids()[0], false
-		)
-	]
-	var world := WorldMap.new()
-	world.add_region(old)
-	world.add_region(shore)
-	return world
-
-
-## A coast a rival has charted but cannot survey draws the envoy chain even with
-## no deed priced and no merchant tech: the Consulate is what lets its Explorer
-## read the shore (wiki: civilian-units § Overseas deployment; DR-20261111-05).
-func test_a_charted_unsurveyed_shore_draws_the_envoy_chain() -> void:
-	var tribe: int = FactionCatalog.tribe_ids()[0]
-	var world: WorldMap = _new_world_world()
-	state.ensure_relation(2, tribe, 1)
-	var charts := CourtCharts.new()
-	charts.setup(world, 0, {})
-	var view: VisibilityModel = charts.model_for(2, WorldMap.NEW_WORLD)
-	assert_eq(
-		AiDiplomacyOffers._land_envoy_bonus(state, world, 2, tribe, 0, {}, charts), 0,
-		"an uncharted coast asks for nothing"
-	)
-	view.reveal_landing(Vector2i(0, 0))
-	assert_eq(
-		AiDiplomacyOffers._land_envoy_bonus(state, world, 2, tribe, 0, {}, charts),
-		AiDiplomacyOffers.LAND_ENVOY_BONUS, "a beachhead makes the Consulate worth paying for"
-	)
-	view.reveal_province(0)
-	assert_eq(
-		AiDiplomacyOffers._land_envoy_bonus(state, world, 2, tribe, 0, {}, charts), 0,
-		"a surveyed coast needs no envoy for the survey"
-	)
-
-
 ## Opens the turn pass with the given relation scores applied (default 50).
 func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {}) -> Dictionary:
 	for entry: Array in scores:

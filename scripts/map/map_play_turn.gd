@@ -165,10 +165,6 @@ static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
 	MapPlayFogTurn.resolve(play)
 	MapPlayCourtFog.resolve(play)
-	# A rival meets the Tribes its own chart now reaches, once the fog has
-	# settled for the turn (wiki: diplomacy § GP–Tribe first contact;
-	# DR-20261111-05).
-	MapPlayDiplomacy.sync_rival_contact(play)
 	# The human crown's terminal fall seals the session before any victory check:
 	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
 	if play.defeat != null:

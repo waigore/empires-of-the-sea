@@ -40,23 +40,6 @@ func test_new_world_starts_unknown_until_a_reveal() -> void:
 	assert_eq(unknown, view.levels.size(), "no ownership means no setup reveal")
 
 
-## The New World shore a beachhead has touched: some tiles charted, the rest still
-## unknown. Only that state draws the survey the envoy chain unlocks
-## (wiki: fog-and-exploration § Exploration; DR-20261111-05).
-func test_a_partly_revealed_province_has_charted_and_unknown_tiles() -> void:
-	var map: MapModel = _build_region()
-	map.region_id = FactionCatalog.NEW_WORLD
-	for province: ProvinceState in map.provinces:
-		province.owner = FactionCatalog.tribe_ids()[0]
-	var view := VisibilityModel.new()
-	view.setup(map, PLAYER)
-	assert_false(view.is_province_partly_revealed(0), "an unknown province is not partly revealed")
-	view.reveal_landing(map.province_tiles(0)[0])
-	assert_true(view.is_province_partly_revealed(0), "a beachhead charts part of the province")
-	view.reveal_province(0)
-	assert_false(view.is_province_partly_revealed(0), "a surveyed province is read whole")
-
-
 func test_new_world_setup_still_lights_land_the_player_owns() -> void:
 	var map: MapModel = _build_region()
 	map.region_id = FactionCatalog.NEW_WORLD
