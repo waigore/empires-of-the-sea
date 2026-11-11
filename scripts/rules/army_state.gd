@@ -21,6 +21,10 @@ var regiment_types: Dictionary = {}
 ## Both are keyed like `regiment_types`; saves carry them.
 var regiment_health: Dictionary = {}
 var regiment_medals: Dictionary = {}
+## Each instance's title and record (DR-20261111-18).
+var regiment_names: Dictionary = {}
+var regiment_engagements: Dictionary = {}
+var regiment_wins: Dictionary = {}
 ## Fleet instance id carrying this army, or -1 (wiki: ships-and-naval § Naval
 ## transport; DR-20261109-08). An embarked army has no province and never
 ## fights on land.
@@ -67,14 +71,19 @@ static func muster(
 
 
 func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void:
-	## Condition rides along when the same instances are re-set (a reload, a
-	## merge target); new instances enter at full strength and no chevrons.
+	## Condition and identity ride along; new instances enter at full strength.
 	var kept_health: Dictionary = regiment_health.duplicate()
 	var kept_medals: Dictionary = regiment_medals.duplicate()
+	var kept_names: Dictionary = regiment_names.duplicate()
+	var kept_engagements: Dictionary = regiment_engagements.duplicate()
+	var kept_wins: Dictionary = regiment_wins.duplicate()
 	regiments = p_regiments.duplicate()
 	regiment_types = {}
 	regiment_health = {}
 	regiment_medals = {}
+	regiment_names = {}
+	regiment_engagements = {}
+	regiment_wins = {}
 	for regiment_id: String in regiments:
 		var type_id: String = RegimentCatalog.normalize(
 			String(p_types.get(regiment_id, RegimentCatalog.DEFAULT_TYPE))
@@ -87,6 +96,10 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 		regiment_medals[regiment_id] = clampi(
 			int(kept_medals.get(regiment_id, 0)), 0, RegimentCatalog.MAX_MEDALS
 		)
+		regiment_names[regiment_id] = String(kept_names.get(regiment_id, ""))
+		regiment_engagements[regiment_id] = int(kept_engagements.get(regiment_id, 0))
+		regiment_wins[regiment_id] = int(kept_wins.get(regiment_id, 0))
+	RegimentNames.fill(self)
 
 
 func count() -> int:
@@ -136,6 +149,7 @@ func add_regiment(regiment_id: String, type_id: String = RegimentCatalog.DEFAULT
 	regiment_types[regiment_id] = normalized
 	regiment_health[regiment_id] = RegimentCatalog.max_health(normalized)
 	regiment_medals[regiment_id] = 0
+	RegimentRecord.start(self, regiment_id)
 
 
 func remove_regiment(regiment_id: String) -> bool:
@@ -146,6 +160,7 @@ func remove_regiment(regiment_id: String) -> bool:
 	regiment_types.erase(regiment_id)
 	regiment_health.erase(regiment_id)
 	regiment_medals.erase(regiment_id)
+	RegimentRecord.forget(self, regiment_id)
 	return true
 
 
@@ -174,7 +189,8 @@ func strength() -> float:
 
 ## One regiment's condition: `type`, `hp`, `max`, `medals` and the health
 ## fraction its firepower is scaled by. Missing records read as a fresh
-## regiment, so old saves and new instances behave alike.
+## regiment, so old saves and new instances behave alike. The name is a
+## separate read (`name_of`) because the strength path must not pay for it.
 func condition_of(regiment_id: String) -> Dictionary:
 	var type_id: String = type_of(regiment_id)
 	var top: int = RegimentCatalog.max_health(type_id)
@@ -189,6 +205,7 @@ func condition_of(regiment_id: String) -> Dictionary:
 		),
 		"fraction": float(hp) / float(maxi(top, 1)),
 	}
+
 
 
 ## Cavalry share of the army, used for initiative ordering (wiki: combat).
@@ -234,7 +251,8 @@ static func split(
 	if regiment_ids.is_empty():
 		return _deny("Choose at least one regiment to detach.")
 	var types: Dictionary = {}
-	## The condition travels with the instance: a veteran stays a veteran.
+	## The condition, title and record travel with the instance: a veteran stays
+	## a veteran (DR-20261111-18).
 	var condition: Dictionary = {}
 	for regiment_id: String in regiment_ids:
 		if not source.regiments.has(regiment_id):
@@ -250,6 +268,7 @@ static func split(
 		var data: Dictionary = condition[regiment_id]
 		detached.regiment_health[regiment_id] = int(data["hp"])
 		detached.regiment_medals[regiment_id] = int(data["medals"])
+	RegimentRecord.take(source, detached, regiment_ids)
 	detached.moved = source.moved
 	for regiment_id: String in regiment_ids:
 		source.remove_regiment(regiment_id)
@@ -287,6 +306,8 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 			target.add_regiment(regiment_id, army.type_of(regiment_id))
 			target.regiment_health[regiment_id] = int(data["hp"])
 			target.regiment_medals[regiment_id] = int(data["medals"])
+		## Title and record travel with the instance, as a hull's name does.
+		RegimentRecord.carry(army, target)
 		armies.erase(army)
 	if any_moved:
 		target.moved = true
@@ -339,6 +360,9 @@ func to_dict() -> Dictionary:
 		"regiment_types": regiment_types.duplicate(),
 		"regiment_health": regiment_health.duplicate(),
 		"regiment_medals": regiment_medals.duplicate(),
+		"regiment_names": regiment_names.duplicate(),
+		"regiment_engagements": regiment_engagements.duplicate(),
+		"regiment_wins": regiment_wins.duplicate(),
 		"embarked_fleet": embarked_fleet,
 	}
 
@@ -356,6 +380,11 @@ static func from_dict(data: Dictionary) -> ArmyState:
 		names.append(String(raw))
 	army.regiment_health = _condition_map(data.get("regiment_health", {}))
 	army.regiment_medals = _condition_map(data.get("regiment_medals", {}))
+	## A save written before names and records existed restores empty maps and
+	## `set_regiments` christens it by the same arithmetic (DR-20261111-18).
+	army.regiment_names = RegimentNames.map_from(data.get("regiment_names", {}))
+	army.regiment_engagements = _condition_map(data.get("regiment_engagements", {}))
+	army.regiment_wins = _condition_map(data.get("regiment_wins", {}))
 	army.set_regiments(names, data.get("regiment_types", {}))
 	return army
 
@@ -367,3 +396,4 @@ static func _condition_map(raw: Variant) -> Dictionary:
 		for key: Variant in (raw as Dictionary).keys():
 			mapped[String(key)] = int((raw as Dictionary)[key])
 	return mapped
+

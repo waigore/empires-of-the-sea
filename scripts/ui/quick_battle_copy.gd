@@ -154,8 +154,13 @@ static func health_line(battle: Dictionary, names: Array) -> String:
 			continue
 		var listed: PackedStringArray = PackedStringArray()
 		for entry: Dictionary in entries:
+			## A survivor is named by the title it wears; a regiment saved
+			## before names existed still prints its type (DR-20261111-18).
+			var label: String = String(entry.get("name", ""))
+			if label.is_empty():
+				label = RegimentCatalog.display_name(String(entry.get("type", "")))
 			listed.append("%s %d%%" % [
-				RegimentCatalog.display_name(String(entry.get("type", ""))),
+				label,
 				roundi(float(entry.get("fraction", 1.0)) * 100.0),
 			])
 		parts.append("%s: %s" % [

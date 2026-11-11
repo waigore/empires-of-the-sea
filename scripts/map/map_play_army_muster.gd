@@ -20,9 +20,14 @@ static func recruit(play: PlaySession, type_id: String) -> void:
 		play.hud.toast(String(result.get("reason", "The regiment cannot muster.")))
 		return
 	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
-	play.hud.toast(
-		"%s joins the Home Army" % RegimentCatalog.display_name(type_id)
-	)
+	## The new regiment is announced by the title it was christened with
+	## (DR-20261111-18); a crown with no Home Army still gets the plain line.
+	var title: String = _title(play, String(result.get("regiment", "")))
+	var type_name: String = RegimentCatalog.display_name(type_id)
+	if title.is_empty():
+		play.hud.toast("%s joins the Home Army" % type_name)
+	else:
+		play.hud.toast("%s — %s joins the Home Army" % [title, type_name])
 	MapPlayArmies.show_panel(play, play.army_layer.selected_army)
 
 
@@ -36,10 +41,12 @@ static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> vo
 	var created: ArmyState = result["army"] as ArmyState
 	play.army_layer.select(created)
 	if created.count() == 1:
+		var regiment_id: String = created.regiments[0]
 		play.hud.toast(
-			"%s detaches as a field army in %s"
+			"%s (%s) detaches as a field army in %s"
 			% [
-				RegimentCatalog.display_name(created.type_of(created.regiments[0])),
+				RegimentNames.of(created, regiment_id),
+				RegimentCatalog.display_name(created.type_of(regiment_id)),
 				play.model.province_name(created.province),
 			]
 		)
@@ -48,6 +55,17 @@ static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> vo
 		"%d regiments form a field army in %s"
 		% [created.count(), play.model.province_name(created.province)]
 	)
+
+
+## The title a newly mustered regiment wears, read back off the Home Army; empty
+## when the layer reports no instance (the toast then keeps its plain line).
+static func _title(play: PlaySession, regiment_id: String) -> String:
+	if regiment_id.is_empty():
+		return ""
+	var home: ArmyState = ArmyTraining.home_army(
+		play.army_layer.armies, play.player_faction
+	)
+	return RegimentNames.of(home, regiment_id) if home != null else ""
 
 
 ## Combines the selected standard with the friendly army sharing its province.
