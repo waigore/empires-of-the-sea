@@ -28,19 +28,19 @@ list for what to ship next (`REQ-P2-02`).
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
+| Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02, [`armies.md`](armies.md) |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Battle honours (province on the colours) | Immersion; wiki publishes the rule | [DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02); not on `main` (#327 conflicting) |
+| 1 | A predict-the-line preview in the dossier | Convenience only | Declined by [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § The line and the reserve: the limit depends on the general bound at combat |
 
 ## Next pick
 
-**Rank 1** — [DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02):
-winning regiments bear the province on their colours. Design done;
-`RegimentRecord` on `main` still stops at engagements/wins. #327 implements it
-(needs rebase).
+**Rank 1** is a live wiki decision, not a code gap: the page publishes that the
+dossier does not predict the line. Nothing left on the list is a plain gap
+against published rules.
 
 ## Out of scope / blocked footnotes
 
