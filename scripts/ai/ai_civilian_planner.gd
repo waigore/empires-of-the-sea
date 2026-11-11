@@ -1,16 +1,31 @@
 class_name AiCivilianPlanner
 extends RefCounted
-## Full-AI civilian work policy (wiki: civilian-work-planner, growth-stage-planner).
+## Rival civilian work pass (wiki: civilian-work-planner, growth-stage-planner).
 ##
-## One legal order per idle civilian: Builders raise the estate the stores are
-## shortest of or finish a town that pays a manufacturing bonus, Engineers extend
-## the transport network and, at war, raise a fort, Explorers prospect their
-## minerals, Rail Builders upgrade roads, Merchants buy Minor and Tribe land the
-## court can close, and Spies observe rival Great Powers or keep a
-## counter-espionage screen. Every candidate is checked by CivilianWork before it
-## is emitted, so the planner cannot invent an outcome or spend a commodity twice
-## (REQ-P2-03, REQ-P3-03).
+## This planner is the dispatcher, not the policy. Each civilian kind hands off
+## to its own work module, so a new kind or a difficulty adds one branch here or
+## rewrites one module, never the pass itself:
+## - Builders (`ai_builder_work.gd`) raise the estate the stores are shortest of
+##   or finish a town that pays a manufacturing bonus.
+## - Engineers and Rail Builders (`ai_engineer_work.gd`) extend the transport
+##   network, raise a port, hospitals, and at war the court's fort.
+## - Explorers (`ai_explorer_work.gd`) survey, prospect and march toward the fog.
+## - Merchants (`ai_merchant_work.gd`) buy Minor and Tribe land the court closes.
+## - Spies (`ai_spy_planner.gd`) observe rival Great Powers or keep a screen.
+##
+## The pass itself owns what is genuinely per-run: one estate-ledger read per
+## court, a per-tile reservation so two crews never claim one tile, and the next
+## civilian to train. Every candidate is checked by CivilianWork before it is
+## emitted, so the planner cannot invent an outcome or spend a commodity twice
+## (REQ-P2-03, REQ-P3-03). Modules are preloaded by path, so routing never
+## depends on the engine's global class cache.
 ## Pure rules: state in, orders out; the map adapter applies them.
+
+const AiBuilderWork = preload("res://scripts/ai/ai_builder_work.gd")
+const AiEngineerWork = preload("res://scripts/ai/ai_engineer_work.gd")
+const AiExplorerWork = preload("res://scripts/ai/ai_explorer_work.gd")
+const AiMerchantWork = preload("res://scripts/ai/ai_merchant_work.gd")
+const AiSpyPlanner = preload("res://scripts/ai/ai_spy_planner.gd")
 
 const KIND_WORK: String = "work"
 const KIND_MOVE: String = "move"
@@ -128,22 +143,17 @@ static func _best_work(
 ) -> Dictionary:
 	match unit.type_id:
 		"builder":
-			return _best_builder(
-				config, model, unit, units, works, stockpile, tech_caps,
+			return AiBuilderWork.best_candidate(
+				config, model, unit, works, units, stockpile, tech_caps,
 				tech_unlocked, context, reserved, town_raw, estates
 			)
-		"engineer":
-			return _best_engineer(
+		"engineer", "rail_builder":
+			return AiEngineerWork.best_candidate(
 				config, model, unit, units, works, stockpile, tech_caps,
 				tech_unlocked, context, reserved
 			)
 		"explorer":
-			return _best_explorer(
-				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved
-			)
-		"rail_builder":
-			return _best_rail(
+			return AiExplorerWork.best_candidate(
 				config, model, unit, units, works, stockpile, tech_caps,
 				tech_unlocked, context, reserved
 			)
@@ -169,130 +179,6 @@ static func _best_builder(
 	return AiBuilderWork.best_candidate(
 		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
 		context, reserved, town_raw, estates
-	)
-
-
-static func _best_engineer(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
-) -> Dictionary:
-	var best: Dictionary = {}
-	var target: int = config.parameter("civilian.need_target")
-	var seat: Vector2i = context.get("capital_tile", Vector2i(-1, -1))
-	var connected: Dictionary = ImprovementSystem.connected_tiles(
-		model, works, unit.owner, seat
-	)
-	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if reserved.has(tile) or model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
-			continue
-		if works.transport_at(model, tile) >= LandWorks.TRANSPORT_ROAD:
-			continue
-		var crop: String = ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y))
-		var score: int = config.parameter("civilian.road_weight")
-		score += AiBuilderWork.need(crop, stockpile, target) * 4
-		if works.improvement_at(model, tile) > 0:
-			score += 15
-		if _touches_connected(model, tile, connected):
-			score += 30
-		var road: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_road", tile, works, units, stockpile, tech_caps,
-			tech_unlocked, context, score
-		)
-		best = _better(best, road)
-	var port: Dictionary = _port_candidate(
-		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-		context, reserved
-	)
-	best = _better(best, port)
-	if bool(context.get("at_war", false)):
-		var fort: Dictionary = _fort_candidate(
-			config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-			context
-		)
-		best = _better(best, fort)
-	best = _better(best, AiHospitalWork.best_candidate(
-		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-		context, reserved
-	))
-	# A province's town only connects its estates when the town itself reaches
-	# the capital, so a town link outranks incidental works — but not the
-	# court's own fort when it is invaded, nor (at war) its hospitals
-	# (wiki: ai-architecture § Town-per-province roads; DR-20261111-16).
-	var town_road: Dictionary = AiTownRoads.best_candidate(
-		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-		context, connected, reserved
-	)
-	if not town_road.is_empty() and not AiHospitalWork.holds_over_town_link(best, context):
-		best = town_road
-	return best
-
-
-static func _best_explorer(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
-) -> Dictionary:
-	return AiExplorerWork.best_candidate(
-		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-		context, reserved
-	)
-
-
-static func _best_rail(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
-) -> Dictionary:
-	var best: Dictionary = {}
-	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if reserved.has(tile) or works.transport_at(model, tile) < LandWorks.TRANSPORT_ROAD:
-			continue
-		var score: int = 20 + AiBuilderWork.need(
-			ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y)),
-			stockpile, config.parameter("civilian.need_target")
-		) * 4
-		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_rail", tile, works, units, stockpile, tech_caps,
-			tech_unlocked, context, score
-		)
-		best = _better(best, candidate)
-	return best
-
-
-static func _port_candidate(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
-) -> Dictionary:
-	for province: ProvinceState in model.provinces:
-		if province.owner != unit.owner or works.province_has_port(model, province.id):
-			continue
-		for tile: Vector2i in province.tiles:
-			if reserved.has(tile) or not MapGeo.is_coastal_tile(model, tile.x, tile.y):
-				continue
-			return AiCivilianCandidate.make(
-				model, unit, "build_port", tile, works, units, stockpile, tech_caps,
-				tech_unlocked, context, config.parameter("civilian.port_weight")
-			)
-	return {}
-
-
-static func _fort_candidate(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary
-) -> Dictionary:
-	var province: int = int(context.get("capital_province", -1))
-	if province < 0:
-		return {}
-	var tile: Vector2i = model.capital_tile_of(province)
-	if tile.x < 0:
-		return {}
-	var score: int = config.parameter("civilian.fort_weight") + 50
-	return AiCivilianCandidate.make(
-		model, unit, "build_fort", tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score
 	)
 
 
@@ -368,14 +254,6 @@ static func _preferred_type(
 	):
 		return "merchant"
 	return "builder"
-
-
-static func _touches_connected(model: MapModel, tile: Vector2i, connected: Dictionary) -> bool:
-	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-		var next: Vector2i = tile + offset
-		if model.in_bounds(next.x, next.y) and connected.has(model.index_of(next.x, next.y)):
-			return true
-	return false
 
 
 ## Higher score wins; row-major tile order and action name break ties so the
