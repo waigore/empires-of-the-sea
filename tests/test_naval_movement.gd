@@ -288,7 +288,11 @@ func test_transport_capacity_refuses_an_army_larger_than_the_squadron() -> void:
 	var army := ArmyState.muster(8, 0, 0, false, ["pikemen", "pikemen"], 800)
 	var check: Dictionary = NavalTransport.can_embark(_model, army, fleet)
 	assert_false(bool(check["ok"]))
-	assert_true(String(check["reason"]).contains("hulls"))
+	assert_eq(
+		String(check["reason"]),
+		"The squadron has 1 hull and cannot carry 2 regiments.",
+		"one hull reads singular"
+	)
 
 
 func test_the_home_army_never_boards() -> void:

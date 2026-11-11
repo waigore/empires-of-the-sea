@@ -217,6 +217,12 @@ static func _battle(
 	if not retreat.is_empty():
 		retreat["beaten"] = attacker_id if share < 0.5 else defender_id
 	record["retreat"] = retreat
+	# A hull's name dies with it in the roster, so read every name in the water
+	# first: the despatch names the hulls the court actually lost (DR-20261111-07,
+	# wiki: ships-and-naval § Naval Combat Resolution — the report carries the
+	# hull ids lost per side).
+	var names: Dictionary = _hull_names(attacking)
+	names.merge(_hull_names(defending), true)
 	var beaten_lost: Array[String] = []
 	if not bool(retreat.get("success", false)):
 		beaten_lost = _sink(beaten, INF, false)
@@ -229,8 +235,29 @@ static func _battle(
 	else:
 		record["attacker_lost"] = victor_lost
 		record["defender_lost"] = beaten_lost
+	record["attacker_lost_names"] = _names_of(record["attacker_lost"], names)
+	record["defender_lost_names"] = _names_of(record["defender_lost"], names)
 	record["outcome"] = outcome
 	return record
+
+
+## Instance id -> the name the hull flies, read before any hull leaves the roster.
+static func _hull_names(side: Array) -> Dictionary:
+	var names: Dictionary = {}
+	for fleet: FleetState in side:
+		for hull_id: String in fleet.hulls:
+			names[hull_id] = ShipNames.of(fleet, hull_id)
+	return names
+
+
+## The names behind a loss list, in the order the resolver sank them.
+static func _names_of(lost: Array, names: Dictionary) -> Array:
+	var out: Array = []
+	for raw_id: Variant in lost:
+		var hull_id: String = String(raw_id)
+		if names.has(hull_id):
+			out.append(String(names[hull_id]))
+	return out
 
 
 ## A beaten side may slip into adjacent friendly or neutral water instead of

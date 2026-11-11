@@ -102,6 +102,12 @@ godot --headless --path . --script res://tests/playtest_allied_defence.gd
 # walks the endings a save must carry (decided, defeated, halted) and the slots
 # that cannot be read (a newer format, a corrupt file).
 godot --headless --path . --script res://tests/playtest_persistence.gd
+
+# Naval squadron — reads the crown's squadrons and their named hulls, boards a
+# field army and sorties, lands it on a crown coast, takes a blockade off a rival
+# shore, resolves a sea battle (printing the despatch against the hulls actually
+# lost), and sorts a rival squadron out of a captured port.
+godot --headless --path . --script res://tests/playtest_naval.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
