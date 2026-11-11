@@ -1,6 +1,6 @@
 # Dialogue and mood
 
-A rival court speaks once an act is done. Presentation only: the rules layer
+A court speaks once an act is done. Presentation only: the rules layer
 records events, `DialogueEvents` reads one back into a line and a face, and no
 mood or word ever feeds an outcome (`REQ-P2-03`).
 
@@ -9,8 +9,11 @@ mood or word ever feeds an outcome (`REQ-P2-03`).
 | File | Job |
 |------|-----|
 | `scripts/rules/dialogue_catalog.gd` | Authored points and period lines (`DialoguePoint/<category>/<situation>`) |
+| `scripts/rules/dialogue_episodes.gd` | The `event` beats: verdicts, a finished study, a host at the seat, a colony |
 | `scripts/rules/dialogue_mood.gd` | The eight portrait moods and the mood machine |
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
+| `scripts/rules/dialogue_home.gd` | Which court answers the crown's own turn |
+| `scripts/map/map_play_court_voice.gd` | Reads the resolved turn and records its beats |
 
 ## Where it shows
 
@@ -30,6 +33,15 @@ cold). A battle the crown fought is voiced too: the court that read the verdict
 answers the field, the siege or the water, and the line never enters the
 diplomatic chronicle. Bookkeeping acts (subsidy, aid, colony status) stay
 silent; the standing word covers them.
+
+The crown's own turn also speaks. A study the Research phase finished is
+answered by the rival that watches the crown most closely (the lowest relation,
+ties by ascending id) — one beat a turn, naming the costliest study. A hostile
+host standing in the crown's capital province at the turn's close is answered by
+its heaviest owner, so long as the crown still holds the seat. A Tribe the crown
+took as a colony answers for its lost flag. Only the crown reads these three: a
+court never quotes the crown back to itself
+([`DR-20261111-08`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-08)).
 
 ## Determinism
 
@@ -71,5 +83,5 @@ load skips the charge
 ## Deferred
 
 Yarn scripts and localization, the optional agenda comment cadence
-(`dialogueSeed % 7`) and era-change beats
-([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).
+(`dialogueSeed % 7`), and era-change beats — the campaign has no era model to
+announce ([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).
