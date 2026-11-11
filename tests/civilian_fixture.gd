@@ -31,6 +31,11 @@ static func build() -> MapModel:
 		var sea_index: int = model.index_of(x, 4)
 		model.terrain[sea_index] = MapModel.Terrain.OCEAN
 		model.sea_zone[sea_index] = 0
+	# Iron sits on hills so Prospect's terrain gate matches the wiki mineral set.
+	model.terrain[model.index_of(IRON_TILE.x, IRON_TILE.y)] = MapModel.Terrain.HILLS
+	model.terrain[model.index_of(TIMBER_TILE.x, TIMBER_TILE.y)] = (
+		MapModel.Terrain.HARDWOOD_FOREST
+	)
 	model.resource[model.index_of(IRON_TILE.x, IRON_TILE.y)] = 1
 	model.resource[model.index_of(TIMBER_TILE.x, TIMBER_TILE.y)] = 0
 	model.resource[model.index_of(RIVAL_GRAIN_TILE.x, RIVAL_GRAIN_TILE.y)] = 4
@@ -83,6 +88,7 @@ static func build_minor() -> MapModel:
 				model.province[model.index_of(x, y)] = 1
 				minor_tiles.append(tile)
 	model.resource[model.index_of(3, 1)] = 4
+	model.terrain[model.index_of(2, 1)] = MapModel.Terrain.HILLS
 	model.resource[model.index_of(2, 1)] = 1
 	var player := ProvinceState.create(
 		0, "Cádiz", player_tiles, Vector2(0.5, 1.5), player_tiles.size(), 0, true

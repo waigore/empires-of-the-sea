@@ -135,9 +135,10 @@ static func _rows(
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for tile: Vector2i in province.tiles:
-		if model.resource_at(tile.x, tile.y) < 0:
-			continue
 		if _hidden(visibility, tile):
+			continue
+		# Minerals stay off the survey until this court Prospects (DR-20261111-26).
+		if ProspectRules.known_resource(owner, model, tile, works) < 0:
 			continue
 		rows.append(_row(model, works, units, owner, connected, tile, tech_caps))
 	rows.sort_custom(_row_before)
@@ -153,7 +154,7 @@ static func _row(
 	tile: Vector2i,
 	tech_caps: Dictionary
 ) -> Dictionary:
-	var resource: int = model.resource_at(tile.x, tile.y)
+	var resource: int = ProspectRules.known_resource(owner, model, tile, works)
 	var tile_owner: int = model.owner_at(tile.x, tile.y)
 	var level: int = works.improvement_at(model, tile)
 	var mineral: bool = ImprovementCatalog.needs_prospecting(resource)

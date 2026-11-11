@@ -254,11 +254,11 @@ static func _check_action(
 			)
 			if not prospect_gate.is_empty():
 				return _no(prospect_gate)
-			var resource: int = model.resource_at(tile.x, tile.y)
-			if not ImprovementCatalog.needs_prospecting(resource):
-				return _no("Only iron, coal, gold and tin tiles can be prospected.")
-			if works.is_prospected(unit.owner, model, tile):
-				return _no("This tile has already been prospected.")
+			var tile_gate: String = ProspectRules.tile_refusal(
+				model, unit.owner, tile, works
+			)
+			if not tile_gate.is_empty():
+				return _no(tile_gate)
 			return {"ok": true}
 		"build_improvement":
 			var owned: Dictionary = _owned_land(model, unit, tile)

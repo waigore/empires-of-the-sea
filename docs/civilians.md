@@ -12,8 +12,8 @@ tech.
 ## Implemented
 
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
-  prospect), Builder (improve, upgrade town), Engineer (road, port), Spy
-  (spycraft), Merchant (buy land), Rail Builder (railroad).
+  prospect — DR-20261111-26 uncover), Builder (improve, upgrade town), Engineer
+  (road, port), Spy (spycraft), Merchant (buy land), Rail Builder (railroad).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
   and Visit jump to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
@@ -23,9 +23,8 @@ tech.
   **Counter-espionage** kills or turns enemy spies; court reports name deeds
   ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
-  returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
-  **upgrade town** (National Bureaucracy), road, port, rail, fort
-  1–3 ([forts.md](forts.md)), hospital 1–2.
+  returns to origin. Explore ≤3, prospect 1, improve 1–4, **upgrade town**,
+  road, port, rail, fort 1–3 ([forts.md](forts.md)), hospital 1–2.
 - **Town development:** Builder raises towns to level 4; connected port towns
   cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
