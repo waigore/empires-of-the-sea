@@ -74,6 +74,17 @@ static func can_seat(model: MapModel, faction_id: int, province_id: int) -> bool
 	return is_sea_bound(model, province_id)
 
 
+## Every province this faction may seat its court in: owned and sea-bound,
+## ascending. The chart glows exactly these, so the player reads the rule
+## instead of learning it from refusals.
+static func seatable_provinces(model: MapModel, faction_id: int) -> Array[int]:
+	var ids: Array[int] = []
+	for id: int in owned_provinces(model, faction_id):
+		if is_sea_bound(model, id):
+			ids.append(id)
+	return ids
+
+
 ## Why this province/tile cannot hold the crown's court, or "" when it can.
 static func seat_error(
 	model: MapModel, faction_id: int, province_id: int, tile: Vector2i
