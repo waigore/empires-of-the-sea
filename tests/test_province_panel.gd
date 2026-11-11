@@ -202,6 +202,28 @@ func _show(tech: Dictionary = {}) -> void:
 	_panel.refresh(_model, 0)
 
 
+func test_the_estate_block_names_the_ground_still_to_survey() -> void:
+	_show()
+	# The fixture's iron tile is already prospected; the bare hills are not.
+	var text: String = _panel._resources.survey_text()
+	assert_true(text.contains("Unsurveyed ground"), text)
+	assert_true(text.contains("1 tile"), text)
+
+
+func test_an_empty_estate_block_still_names_the_ground_to_read() -> void:
+	var block := ProvinceResources.new()
+	add_child(block)
+	block.render([], 3)
+	assert_true(block._empty.text.contains("No estates charted"))
+	assert_true(block._empty.text.contains("3 tiles"))
+	assert_true(block.survey_text().contains("3 tiles"))
+	# A fully read province says nothing, and keeps the plain empty line.
+	block.render([], 0)
+	assert_true(block._empty.text.begins_with("No charted"))
+	assert_eq(block.survey_text(), "")
+	block.free()
+
+
 func _by_tile() -> Dictionary:
 	var by_tile: Dictionary = {}
 	for row: Dictionary in _panel._resources.lines():

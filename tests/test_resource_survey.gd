@@ -219,17 +219,29 @@ func test_anchor_falls_back_to_a_charted_resource_tile() -> void:
 	assert_true(false, "fixture needs a province whose centre is not a resource tile")
 
 
-func test_prospect_gate_marks_an_owned_mineral() -> void:
+func test_a_hidden_mineral_is_never_surveyed_until_prospected() -> void:
 	var model: MapModel = Fixture.region()
 	var works := LandWorks.new()
 	var owner: int = FactionCatalog.PLAYER_FACTION
 	var tile: Vector2i = _owned_mineral_tile(model, works)
 	if tile.x < 0:
 		return
+	var province: int = model.province_at(tile.x, tile.y)
 	var survey: Dictionary = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
-	var row: Dictionary = _row(_entry(survey, model.province_at(tile.x, tile.y)), tile)
-	assert_eq(String(row["status"]), "unprospected")
+	assert_true(_row(_entry(survey, province), tile).is_empty(),
+		"an unsurveyed mineral has no survey row")
+	assert_gt(
+		MineralSurvey.unsurveyed_in_province(model, works, owner, province, null).size(),
+		0, "the province still has ground to read"
+	)
+	# Once the crown prospects the tile the estate appears, unchanged by fog.
+	works.set_prospected(owner, model, tile)
+	survey = ResourceSurvey.snapshot(model, works, [], owner, null, tile)
+	var row: Dictionary = _row(_entry(survey, province), tile)
+	assert_false(row.is_empty(), "the survey now names the deposit")
 	assert_true(bool(row["needs_prospecting"]))
+	assert_true(bool(row["prospected"]))
+	assert_eq(String(row["status"]), "vacant")
 
 
 func test_the_dossier_reads_one_province_with_the_survey_vocabulary() -> void:
@@ -266,6 +278,101 @@ func test_the_dossier_hides_estates_the_crown_has_not_charted() -> void:
 		model, LandWorks.new(), [], owner, province.id, visibility
 	)
 	assert_true(rows.is_empty(), "unknown ground is never surveyed")
+
+
+# --- yield readings match the Extraction phase -------------------------------
+
+
+## One lane of owned land: a capital province west, a province east whose town
+## sits south of the road, and one timber estate on the road at x=4.
+func _lane(terrain: int, town_level: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(6, 2)
+	var groups: Dictionary = {0: [], 1: []}
+	for y in 2:
+		for x in 6:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			var province_id: int = 0 if x < 3 else 1
+			model.province[model.index_of(x, y)] = province_id
+			(groups[province_id] as Array).append(Vector2i(x, y))
+	var provinces: Array[ProvinceState] = []
+	for province_id in 2:
+		var tiles: Array[Vector2i] = []
+		for raw: Variant in groups[province_id]:
+			tiles.append(raw as Vector2i)
+		provinces.append(ProvinceState.create(
+			province_id, "P%d" % province_id, tiles, Vector2(2.0, 0.5),
+			tiles.size(), FactionCatalog.PLAYER_FACTION, province_id == 0
+		))
+	provinces[0].capital_tile = Vector2i(0, 0)
+	provinces[0].town_tile = Vector2i(0, 0)
+	provinces[0].town_development = 4
+	provinces[1].town_tile = Vector2i(3, 1)
+	provinces[1].town_development = town_level
+	model.provinces = provinces
+	model.terrain[model.index_of(4, 0)] = terrain
+	model.resource[model.index_of(4, 0)] = 0
+	return model
+
+
+## The lens row's yield and the Extraction phase's timber total for the estate.
+func _read(model: MapModel, works: LandWorks) -> Dictionary:
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var entry: Dictionary = _entry(
+		ResourceSurvey.snapshot(
+			model, works, [], owner, null, Vector2i(0, 0), {"timber": 4}
+		),
+		1
+	)
+	var output: int = -1
+	for row: Dictionary in entry["rows"]:
+		if row["tile"] == Vector2i(4, 0):
+			output = int(row["output"])
+	var totals: Dictionary = Extraction.yields(
+		model, owner, 0, {"timber": 4}, works, Vector2i(0, 0)
+	)
+	return {"lens": output, "phase": int(totals.get("timber", 0))}
+
+
+## A non-capital estate on a rail path to the crown is not town-capped: town
+## development limits only the Town-rule link (wiki: extraction-and-improvements
+## § Extraction formula and town development cap).
+func test_a_road_estate_is_not_priced_at_its_town_level() -> void:
+	var model: MapModel = _lane(MapModel.Terrain.HARDWOOD_FOREST, 1)
+	var works := LandWorks.new()
+	for x in 6:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_RAIL)
+	works.set_improvement(model, Vector2i(4, 0), 4)
+	var read: Dictionary = _read(model, works)
+	assert_eq(int(read["phase"]), 4, "a rail path to the crown pays in full")
+	assert_eq(int(read["lens"]), 4, "the lens prices what the phase pays")
+
+
+## The cap is the path's bottleneck, not the estate's own road level.
+func test_a_bottleneck_behind_the_estate_caps_the_lens_reading() -> void:
+	var model: MapModel = _lane(MapModel.Terrain.HARDWOOD_FOREST, 4)
+	var works := LandWorks.new()
+	for x in 6:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_ROAD)
+	works.set_transport(model, Vector2i(4, 0), LandWorks.TRANSPORT_RAIL)
+	works.set_improvement(model, Vector2i(4, 0), 4)
+	var read: Dictionary = _read(model, works)
+	assert_eq(int(read["phase"]), 1, "the road west of the estate is the bottleneck")
+	assert_eq(int(read["lens"]), 1, "the lens reads the path, not the tile")
+
+
+## Scrub forest hard-caps timber at 1 after the tech cap; the map reading must
+## consult it too (wiki: extraction-and-improvements § Terrain extraction hard
+## caps — "the map-view builder action state").
+func test_scrub_timber_is_read_at_its_terrain_cap() -> void:
+	var model: MapModel = _lane(MapModel.Terrain.SCRUB_FOREST, 4)
+	var works := LandWorks.new()
+	for x in 6:
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_RAIL)
+	works.set_improvement(model, Vector2i(4, 0), 4)
+	var read: Dictionary = _read(model, works)
+	assert_eq(int(read["phase"]), 1, "scrub forest caps timber at level 1")
+	assert_eq(int(read["lens"]), 1, "the lens cannot promise a yield the phase refuses")
 
 
 # --- helpers -----------------------------------------------------------------

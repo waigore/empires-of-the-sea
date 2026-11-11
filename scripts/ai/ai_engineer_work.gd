@@ -116,9 +116,11 @@ static func _road(
 	road_weight: int, connected: Dictionary
 ) -> Dictionary:
 	var score: int = road_weight
+	# A road is priced on the resource this court can actually read: a hidden
+	# mineral earns no premium (DR-20261111-26).
+	var known: int = MineralSurvey.known_resource(model, works, unit.owner, tile)
 	score += AiBuilderWork.need(
-		ImprovementCatalog.commodity(model.resource_at(tile.x, tile.y)),
-		stockpile, target
+		ImprovementCatalog.commodity(known), stockpile, target
 	) * NEED_WEIGHT
 	if works.improvement_at(model, tile) > 0:
 		score += IMPROVEMENT_BONUS
