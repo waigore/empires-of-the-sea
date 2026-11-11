@@ -53,14 +53,19 @@ static func durability(fleet: FleetState) -> float:
 
 ## The dossier's reading of one squadron: its own maths, plus — when it is at
 ## sea — the share of the zone it would fight for. The one call the fleet
-## dossier makes, so the view never assembles the numbers itself.
+## dossier makes, so the view never assembles the numbers itself. `factors`
+## carries the difficulty layer's per-owner strength multiplier, so the odds
+## printed are the odds the resolver will strike (REQ-P2-03).
 static func dossier(
-	fleets: Array, fleet: FleetState, hostile: Callable = Callable()
+	fleets: Array,
+	fleet: FleetState,
+	hostile: Callable = Callable(),
+	factors: Dictionary = {}
 ) -> Dictionary:
 	if fleet == null:
 		return {}
 	var row: Dictionary = squadron(fleet)
-	var zone: Dictionary = NavalStrength.zone(fleets, fleet, hostile)
+	var zone: Dictionary = NavalStrength.zone(fleets, fleet, hostile, factors)
 	if not zone.is_empty():
 		row["zone"] = zone
 	return row
@@ -70,8 +75,14 @@ static func dossier(
 ## squadron the fleet's owner keeps in that zone (a side fights as one); the foe
 ## aggregates every hostile squadron at sea there. Ports never fight, so a
 ## moored squadron gets no odds. Empty when the fleet is in port or absent.
+## `factors` is the difficulty layer's per-owner multiplier (wiki: ruleset-config
+## § Difficulty): two rivals share one factor, so their mutual ratio stays
+## published, and the human crown carries none.
 static func zone(
-	fleets: Array, fleet: FleetState, hostile: Callable = Callable()
+	fleets: Array,
+	fleet: FleetState,
+	hostile: Callable = Callable(),
+	factors: Dictionary = {}
 ) -> Dictionary:
 	if fleet == null or not fleet.is_at_sea():
 		return {}
@@ -84,17 +95,17 @@ static func zone(
 		if other == null or not other.is_at_sea() or other.sea_zone != fleet.sea_zone:
 			continue
 		if other.owner == fleet.owner:
-			own += strength(other)
+			own += strength(other) * _factor(factors, other.owner)
 			own_hulls += other.ship_count()
 			continue
 		if not _hostile(hostile, fleet.owner, other.owner):
 			continue
-		foe += strength(other)
+		foe += strength(other) * _factor(factors, other.owner)
 		foe_hulls += other.ship_count()
 		if not foes.has(other.owner):
 			foes.append(other.owner)
 	if own_hulls == 0:
-		own = strength(fleet)
+		own = strength(fleet) * _factor(factors, fleet.owner)
 		own_hulls = fleet.ship_count()
 	var row: Dictionary = {
 		"own": own,
@@ -223,3 +234,9 @@ static func _hostile(hostile: Callable, a: int, b: int) -> bool:
 	if not hostile.is_valid():
 		return true
 	return bool(hostile.call(a, b))
+
+
+## The difficulty layer's factor for one owner; an unrecorded side fights as
+## published, so a hand-built read (tests, an observer) needs no table.
+static func _factor(factors: Dictionary, owner: int) -> float:
+	return float(factors.get(owner, 1.0))
