@@ -388,6 +388,27 @@ func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
 	)
 
 
+## The college ledger's goal is client state kept with the campaign, so a save
+## carries it and a load reopens the queue on the same path instead of catalog
+## order (wiki: tech-tree § Goal slot, campaign-persistence § Snapshot contract;
+## DR-20261111-21).
+func test_the_research_goal_survives_a_save() -> void:
+	var play: PlaySession = screen.play
+	play.economy.economy.research.goal = "bayonet"
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String(((data["economy"] as Dictionary).get("research", {}) as Dictionary).get("goal", "")),
+		"bayonet",
+		"the save carries the goal"
+	)
+	play.economy.economy.research.goal = ""
+	SaveCodec.restore_economy(play, data)
+	assert_eq(
+		play.economy.economy.research.goal, "bayonet",
+		"a load brings the goal back to the ledger"
+	)
+
+
 # --- helpers -----------------------------------------------------------------
 
 ## The difficulty layer is fixed at creation, so a load must not re-roll it and

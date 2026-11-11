@@ -8,6 +8,15 @@ extends RefCounted
 const OFF_PATH: int = 1 << 20
 
 
+## The goal an order, a snapshot or the ledger may carry: a catalog tech id, or
+## "" when it is absent or this build does not know it — the queue then keeps
+## catalog order (wiki: tech-tree § Goal slot; DR-20261111-21).
+static func normalize(goal_id: String) -> String:
+	if TechCatalog.known(goal_id):
+		return goal_id
+	return ""
+
+
 ## Depth from `goal_id` back along prerequisite edges: 0 is the goal itself, 1
 ## its direct prerequisites, 2 theirs, and so on; -1 when the tech is off that
 ## path (or the goal is unknown).

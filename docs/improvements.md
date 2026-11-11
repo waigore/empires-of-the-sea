@@ -10,7 +10,7 @@ Per-tile improvements, town development and the estates ledger.
 ## Setup post-pass
 
 `WorldBootstrap` seeds capital ports and harbour roads, a town (level ≥1) per
-province, Great Powers at level 4 and four L1 grain farms at the seat.
+province, Great Powers at level 4 and four L1 plains grain farms at the seat.
 
 ## Implemented
 
@@ -31,7 +31,7 @@ province, Great Powers at level 4 and four L1 grain farms at the seat.
 - **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy).
   Level 2 or 4 adds town manufacturing ([economy.md](economy.md)).
 - **Cross-map assign.** A Builder may target another owned tile; materials paid
-  at assign, refunded on cancel.
+  at assign, lost on cancel.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`. Only
   connected, prospected improvements yield; purchased enclaves pay their buyer.

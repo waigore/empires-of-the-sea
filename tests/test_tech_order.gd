@@ -27,6 +27,15 @@ func test_an_empty_or_unknown_goal_leaves_every_tech_off_path() -> void:
 	assert_eq(TechOrder.chain_depth("no_such_tech", "bayonet"), -1)
 
 
+## The goal a ledger or a snapshot carries is a catalog tech or nothing; an id
+## this build cannot read opens the queue in catalog order (wiki: tech-tree
+## § Goal slot; DR-20261111-21).
+func test_a_goal_is_a_known_catalog_tech_or_none() -> void:
+	assert_eq(TechOrder.normalize("bayonet"), "bayonet")
+	assert_eq(TechOrder.normalize(""), "", "no goal means catalog order")
+	assert_eq(TechOrder.normalize("no_such_tech"), "", "an unreadable id means catalog order")
+
+
 func test_the_queue_puts_the_goal_path_first() -> void:
 	var queue: Array[String] = ["crop_rotation", "iron_mining", "bayonet", "crucible_process"]
 	var ordered: Array[String] = TechOrder.sorted(queue, "bayonet")

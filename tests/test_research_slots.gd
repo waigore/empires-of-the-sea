@@ -15,6 +15,25 @@ func _load(research: Dictionary) -> ResearchState:
 	return _economy.research
 
 
+## The ledger goal rides the research snapshot so a load reopens the same queue;
+## an absent or unreadable goal opens catalog order (wiki: tech-tree § Goal slot;
+## campaign-persistence § Snapshot contract; DR-20261111-21).
+func test_the_goal_rides_the_snapshot() -> void:
+	_economy.research.goal = "bayonet"
+	var saved: Dictionary = _economy.snapshot()
+	assert_eq(
+		String((saved["research"] as Dictionary).get("goal", "")),
+		"bayonet",
+		"the snapshot carries the goal"
+	)
+	assert_eq(_load(saved["research"]).goal, "bayonet", "the loaded ledger keeps its goal")
+
+
+func test_a_missing_or_unreadable_goal_opens_catalog_order() -> void:
+	assert_eq(_load({}).goal, "", "a save that carries none has no goal")
+	assert_eq(_load({"goal": "no_such_tech"}).goal, "", "an unreadable id has no goal")
+
+
 func test_a_positional_array_restores_each_slot() -> void:
 	var state: ResearchState = _load({
 		"slots": [
