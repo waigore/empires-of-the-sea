@@ -180,24 +180,16 @@ suites = [
   "test_world_setup.gd",
 ]
 
-# Shared chart behind MapScreen suites (docs/testing.md). A fixture edit must
-# re-run the size-sensitive consumers (slot floor, crown land, painted chart),
-# not every preload — full = true and the full consumer list both blow the
-# 5 min tier-1 budget; tier 2 still covers the rest.
+# Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
+# the invariants the right-sized world is built for (slot floor, crown land,
+# painted chart + campaign plate). Broader preloads stay on tier 2 — even a
+# dozen heavy MapScreen suites miss the 5 min tier-1 budget.
 [domains.map_fixture]
 suites = [
   "test_advanced_start.gd",
-  "test_campaign_defeat.gd",
-  "test_campaign_end.gd",
-  "test_capital_loss.gd",
-  "test_fleet_orders.gd",
   "test_map_screen.gd",
-  "test_map_screen_crown_orders.gd",
-  "test_mobile_layout.gd",
   "test_save_codec.gd",
   "test_victory_screen.gd",
-  "test_world_bootstrap.gd",
-  "test_world_setup.gd",
 ]
 
 [domains.advanced]
