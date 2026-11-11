@@ -39,9 +39,12 @@ static func _free_tile(
 			continue
 		var terrain: int = model.terrain_at(tile.x, tile.y)
 		for entry: Dictionary in table:
-			if (entry["terrain"] as Array).has(terrain):
-				candidates.append(tile)
-				break
+			if not (entry["terrain"] as Array).has(terrain):
+				continue
+			if not _scope_allows(model, entry):
+				continue
+			candidates.append(tile)
+			break
 	if candidates.is_empty():
 		return Vector2i(-1, -1)
 	return candidates[rng.randi_range(0, candidates.size() - 1)]
@@ -56,8 +59,25 @@ static func _pick_resource(
 		return 0
 	var options: Array[int] = []
 	for index in table.size():
-		if (table[index]["terrain"] as Array).has(terrain):
-			options.append(index)
+		var entry: Dictionary = table[index]
+		if not (entry["terrain"] as Array).has(terrain):
+			continue
+		if not _scope_allows(model, entry):
+			continue
+		options.append(index)
 	if options.is_empty():
 		return -1
 	return options[rng.randi_range(0, options.size() - 1)]
+
+
+## Wiki region column: ow / nw / both (default both when omitted).
+static func _scope_allows(model: MapModel, entry: Dictionary) -> bool:
+	var scope: String = String(entry.get("scope", "both"))
+	if scope == "both" or scope.is_empty():
+		return true
+	var new_world: bool = model.region_id == FactionCatalog.NEW_WORLD
+	if scope == "nw":
+		return new_world
+	if scope == "ow":
+		return not new_world
+	return true

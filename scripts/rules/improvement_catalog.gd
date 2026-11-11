@@ -21,6 +21,10 @@ const RESOURCES: Dictionary = {
 	6: {"name": "Ranch", "category": "farm", "icon": "wheat"},
 	7: {"name": "Ranch", "category": "farm", "icon": "wheat"},
 	8: {"name": "Mine", "category": "mine", "icon": "ore"},
+	9: {"name": "Mine", "category": "mine", "icon": "ore"},
+	10: {"name": "Mine", "category": "riches", "icon": "coin"},
+	11: {"name": "Mine", "category": "riches", "icon": "coin"},
+	12: {"name": "Mine", "category": "riches", "icon": "coin"},
 }
 
 const DEFAULT_ENTRY: Dictionary = {
@@ -39,6 +43,10 @@ const COMMODITY_LABELS: Dictionary = {
 	"horses": "horses",
 	"meat": "meat",
 	"tin": "tin",
+	"copper": "copper",
+	"silver": "silver",
+	"gems": "gems",
+	"diamonds": "diamonds",
 	"lumber": "lumber",
 	"castIron": "cast iron",
 	"steel": "steel",
@@ -46,9 +54,9 @@ const COMMODITY_LABELS: Dictionary = {
 	"paper": "paper",
 }
 
-## Iron, coal, gold and tin are the map's prospect-required minerals
-## (wiki: fog-and-exploration § Prospect-Required Resources).
-const MINERAL_RESOURCES: Array[int] = [1, 2, 3, 8]
+## Prospect-required minerals (wiki: fog-and-exploration § Prospect-Required
+## Resources; DR-20261111-26). Ids mirror MapCatalog.resource_table().
+const MINERAL_RESOURCES: Array[int] = [1, 2, 3, 8, 9, 10, 11, 12]
 
 
 static func known(resource: int) -> bool:

@@ -1,10 +1,11 @@
 class_name AiExplorerWork
 extends RefCounted
 ## Rival Explorer policy (wiki: civilian-work-planner, fog-and-exploration;
-## DR-20261110-21). An Explorer surveys the province it stands in when its own
-## court knows that province but has not charted all of it, prospects an
-## unprospected mineral on its crown's land, and otherwise walks toward the
-## nearest charted province that still holds unknown ground.
+## DR-20261110-21, DR-20261111-26). An Explorer surveys the province it stands
+## in when its own court knows that province but has not charted all of it,
+## prospects unprospected prospectable terrain on its crown's land, and
+## otherwise walks toward the nearest charted province that still holds unknown
+## ground.
 ##
 ## Every candidate runs CivilianWork, and the court's own chart gates what it
 ## may look at: an Explorer never marches into fog it has not broken and never
@@ -37,14 +38,15 @@ static func best_candidate(
 		return explore
 	if model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
 		return {}
-	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
-	if not ImprovementCatalog.needs_prospecting(resource):
+	if not ProspectRules.tile_refusal(model, unit.owner, unit.tile, works).is_empty():
 		return {}
 	var score: int = config.parameter("civilian.prospect_weight")
-	score += AiBuilderWork.need(
-		ImprovementCatalog.commodity(resource), stockpile,
-		config.parameter("civilian.need_target")
-	) * 10
+	var resource: int = model.resource_at(unit.tile.x, unit.tile.y)
+	if ImprovementCatalog.needs_prospecting(resource):
+		score += AiBuilderWork.need(
+			ImprovementCatalog.commodity(resource), stockpile,
+			config.parameter("civilian.need_target")
+		) * 10
 	return AiCivilianCandidate.make(
 		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
 		tech_unlocked, context, score
@@ -137,14 +139,14 @@ static func _survey_candidate(
 	)
 
 
-## Nearest unprospected mineral on the crown's own land, else the nearest known
-## tile of a province that still holds unknown ground and may be surveyed (a
+## Nearest unprospected prospectable tile on the crown's own land, else the
+## nearest known tile of a province that still holds unknown ground (a
 ## Minor Nation or Tribe needs its Consulate, as for the player).
 static func _goal(
 	model: MapModel, unit: CivilianState, works: LandWorks, view: VisibilityModel,
 	context: Dictionary
 ) -> Vector2i:
-	var best: Vector2i = _nearest_mineral(model, unit, works)
+	var best: Vector2i = _nearest_prospect(model, unit, works)
 	if best.x >= 0 or view == null:
 		return best
 	var best_distance: int = 1 << 30
@@ -167,15 +169,13 @@ static func _goal(
 	return best
 
 
-static func _nearest_mineral(
+static func _nearest_prospect(
 	model: MapModel, unit: CivilianState, works: LandWorks
 ) -> Vector2i:
 	var best: Vector2i = Vector2i(-1, -1)
 	var best_distance: int = 1 << 30
 	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not ImprovementCatalog.needs_prospecting(model.resource_at(tile.x, tile.y)):
-			continue
-		if works.is_prospected(unit.owner, model, tile):
+		if not ProspectRules.tile_refusal(model, unit.owner, tile, works).is_empty():
 			continue
 		var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
 		if distance < best_distance or (distance == best_distance and tile < best):

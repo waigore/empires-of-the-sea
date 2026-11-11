@@ -22,22 +22,28 @@ const SEA_NAMES: Array[String] = [
 ]
 
 
+## Region scopes match wiki resource-terrain-region-rules (ow / nw / both).
 static func resource_table() -> Array[Dictionary]:
 	var forest: Array = [MapModel.Terrain.HARDWOOD_FOREST, MapModel.Terrain.SCRUB_FOREST]
 	var hills: Array = [MapModel.Terrain.HILLS]
 	var peaks: Array = [MapModel.Terrain.MOUNTAINS]
 	var plains: Array = [MapModel.Terrain.PLAINS]
 	var swamp: Array = [MapModel.Terrain.SWAMP]
+	var desert: Array = [MapModel.Terrain.DESERT]
 	var table: Array[Dictionary] = [
-		{"name": "Timber", "icon": "tree", "commodity": "timber", "terrain": forest},
-		{"name": "Iron", "icon": "ore", "commodity": "iron", "terrain": hills + peaks},
-		{"name": "Coal", "icon": "ore", "commodity": "coal", "terrain": hills},
-		{"name": "Gold", "icon": "coin", "commodity": "gold", "terrain": peaks},
-		{"name": "Grain", "icon": "wheat", "commodity": "grain", "terrain": plains},
-		{"name": "Wool", "icon": "wheat", "commodity": "wool", "terrain": plains + hills},
-		{"name": "Horses", "icon": "wheat", "commodity": "horses", "terrain": plains},
-		{"name": "Meat", "icon": "wheat", "commodity": "meat", "terrain": plains + hills},
-		{"name": "Tin", "icon": "ore", "commodity": "tin", "terrain": swamp},
+		{"name": "Timber", "icon": "tree", "commodity": "timber", "terrain": forest, "scope": "both"},
+		{"name": "Iron", "icon": "ore", "commodity": "iron", "terrain": hills + peaks, "scope": "both"},
+		{"name": "Coal", "icon": "ore", "commodity": "coal", "terrain": hills + peaks, "scope": "both"},
+		{"name": "Gold", "icon": "coin", "commodity": "gold", "terrain": peaks, "scope": "nw"},
+		{"name": "Grain", "icon": "wheat", "commodity": "grain", "terrain": plains, "scope": "ow"},
+		{"name": "Wool", "icon": "wheat", "commodity": "wool", "terrain": plains + hills, "scope": "ow"},
+		{"name": "Horses", "icon": "wheat", "commodity": "horses", "terrain": plains, "scope": "ow"},
+		{"name": "Meat", "icon": "wheat", "commodity": "meat", "terrain": plains + hills, "scope": "ow"},
+		{"name": "Tin", "icon": "ore", "commodity": "tin", "terrain": swamp, "scope": "both"},
+		{"name": "Copper", "icon": "ore", "commodity": "copper", "terrain": hills + peaks, "scope": "both"},
+		{"name": "Silver", "icon": "coin", "commodity": "silver", "terrain": hills, "scope": "nw"},
+		{"name": "Gems", "icon": "coin", "commodity": "gems", "terrain": peaks, "scope": "nw"},
+		{"name": "Diamonds", "icon": "coin", "commodity": "diamonds", "terrain": desert, "scope": "nw"},
 	]
 	return table
 

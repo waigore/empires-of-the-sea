@@ -16,8 +16,8 @@ static func refusal(
 	visibility: VisibilityModel,
 	context: Dictionary
 ) -> String:
-	# Prospect is a deed, not a look: the tile must already be charted at fogged
-	# or better (wiki: fog-and-exploration § Order Visibility Requirements).
+	# Prospect surveys a deposit on already-charted ground (wiki: fog-and-exploration
+	# § Order Visibility; DR-20261111-26). Fog level is unchanged by the find.
 	if action == "prospect" and visibility != null:
 		if visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
 			return "Only charted land can be prospected."
