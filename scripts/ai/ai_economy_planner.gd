@@ -67,7 +67,10 @@ static func production_orders(
 
 ## Recruit orders, highest affordable tier first, capped per turn and at the
 ## worker target. A copy is spent first, so the live ledger sees only the rows
-## the rules already accepted.
+## the rules already accepted. Two throttles keep the court growing rather than
+## spent out: training never consumes the court's last peasant, and it never
+## leaves the purse under `economy.min_treasury` while the court could still
+## train again next turn (wiki: workers-and-population § Rival training throttle).
 static func recruitment_orders(
 	config: AiConfig, economy: PlayerEconomy
 ) -> Array[Dictionary]:
@@ -77,6 +80,7 @@ static func recruitment_orders(
 	var target: int = config.parameter("economy.worker_target")
 	if economy.workers.total() >= target:
 		return orders
+	var min_treasury: int = maxi(config.parameter("economy.min_treasury"), 0)
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
 		if sim.workers.total() >= target:
@@ -84,11 +88,42 @@ static func recruitment_orders(
 		var tier: int = _best_tier(sim)
 		if tier < 0:
 			break
+		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
+				and sim.workers.count(WorkerPool.Tier.PEASANT) <= 1:
+			break
+		if sim.treasury - _trains(sim, tier) < min_treasury \
+				and _next_training_affordable(sim, min_treasury):
+			break
 		var result: Dictionary = sim.recruit(tier)
 		if not bool(result.get("ok", false)):
 			break
 		orders.append({"tier": tier})
 	return orders
+
+
+## True when the purse could already pay a trained-tier row today, i.e. the
+## court has slack outside `economy.min_treasury` and could train again next
+## turn once its materials land. Peasant count is checked by the caller.
+static func _next_training_affordable(economy: PlayerEconomy, reserve: int) -> bool:
+	for tier in range(1, WorkerPool.TIER_COUNT):
+		if not _techs_open(economy, tier):
+			continue
+		if economy.treasury - reserve >= _trains(economy, tier):
+			return true
+	return false
+
+
+## True when this court's own techs already open `tier`, whatever its materials
+## or peasant count say today.
+static func _techs_open(economy: PlayerEconomy, tier: int) -> bool:
+	return economy != null and WorkerPool.techs_unlocked(tier, economy.tech_unlocked)
+
+
+## Treasury a training of `tier` would cost this court, or -1 for a bad tier.
+static func _trains(economy: PlayerEconomy, tier: int) -> int:
+	if economy == null or tier < 0 or tier >= WorkerPool.TIER_COUNT:
+		return -1
+	return int(WorkerPool.recruit_cost(tier).get("treasury", 0))
 
 
 ## Highest tier this court can legally train right now, or -1. Peasants are the
