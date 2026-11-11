@@ -4,6 +4,8 @@ extends GdToolsTest
 ## twice, a saved hull keeps the name it was given, and a hull saved before names
 ## existed is christened on load by the same arithmetic.
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 var _econ: PlayerEconomy
 
 
@@ -127,3 +129,48 @@ func test_an_unnamed_hull_reads_a_name_without_a_write() -> void:
 
 	assert_false(name.is_empty())
 	assert_false(fleet.hull_names.has("ship_9"), "a read never stores work of its own")
+
+
+## The dossier names the hull, and the break-up confirmation names what it breaks
+## (REQ-P1-03, REQ-P5-04).
+func test_the_dossier_and_the_break_up_name_the_hull() -> void:
+	var panel := FleetPanel.new()
+	add_child(panel)
+	var fleet := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var hull_name: String = ShipNames.of(fleet, "ship_1")
+	var rows: Array[Dictionary] = [
+		{
+			"type_id": "carrack",
+			"name": "Carrack",
+			"cost_text": "8000",
+			"ok": true,
+			"reason": "",
+		},
+	]
+
+	panel.refresh(Fixture.region(), fleet, true, "", rows)
+	panel.set_yard_open(true)
+
+	var printed: bool = false
+	for node: Node in panel.find_children("*", "Label", true, false):
+		var text: String = (node as Label).text
+		if text.contains(hull_name) and text.contains("Carrack"):
+			printed = true
+	assert_true(printed, "the hull row prints '%s — Carrack'" % hull_name)
+
+	var confirm: Button = null
+	for node: Node in panel.find_children("*", "Button", true, false):
+		if (node as Button).text == "Break up":
+			confirm = node as Button
+	assert_not_null(confirm, "the hull offers a break-up")
+	panel._on_scrap_pressed("ship_1")
+	for node: Node in panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button.text == "Confirm scrap":
+			confirm = button
+	assert_eq(confirm.text, "Confirm scrap", "the first tap only arms")
+	assert_true(
+		confirm.tooltip_text.contains(hull_name),
+		"the confirmation names the hull: '%s'" % confirm.tooltip_text
+	)
+	panel.free()
