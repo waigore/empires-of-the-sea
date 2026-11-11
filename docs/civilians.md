@@ -46,7 +46,8 @@ tech.
 
 ## Deferred (REQ-P2-02)
 
-Rival hospital planning (DR-20261111-12). See [`deferred.md`](deferred.md).
+None. Rival hospitals are live (`AiHospitalWork`). Ranked gaps:
+[`deferred.md`](deferred.md).
 
 ## Architecture
 

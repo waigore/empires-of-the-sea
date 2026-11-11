@@ -77,6 +77,11 @@ needed and never booked as the crown's own import. Each direction rolls cargo
 and hull on separate salts. The dossier prices both; each despatch names the
 zone and any hull sent down; the zone rings.
 
+## Deferred (REQ-P2-02)
+
+Rival-on-rival raids + prize cargo (DR-20261111-17). See
+[`deferred.md`](deferred.md).
+
 ## Architecture
 
 | File | Role |
@@ -86,10 +91,8 @@ zone and any hull sent down; the zone rings.
 | `scripts/rules/world_market.gd` | per-crown cargo books |
 | `scripts/map/{map_play_raids,map_play_fleet_missions}.gd` | ledger, dossier, reports |
 
-Rules are node-free (`REQ-P3-03`); the map emits intents and reports results.
-
-Stations and blockade coasts are dossier rows on desktop and touch alike; map
-controls are in [fleets.md](fleets.md).
+Rules are node-free (`REQ-P3-03`). Stations and blockade coasts are dossier
+rows; map controls in [fleets.md](fleets.md).
 
 ## Tests
 
