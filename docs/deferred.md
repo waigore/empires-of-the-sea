@@ -1,8 +1,8 @@
 # Deferred features (ranked)
 
 Audited against code, wiki and Design Records (2026-11-11, pass after
-#276 hospitals / #277 rival Tribe contact). Decision list for what to ship
-next (`REQ-P2-02`).
+#280–#286: rival hospitals, regiment titles, raid hulls). Decision list for
+what to ship next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
@@ -28,14 +28,17 @@ next (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Agenda dialogue beats + cadence | Hidden-agenda voice every ~7 turns | Yarn/localization still polish-only |
-| 2 | Difficulty layer extras | Naval strength, AI income, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
-| 3 | Research goal in the save | Goal is a view preference today | [`technology.md`](technology.md) |
-| 4 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
+| 1 | Rival-on-rival raids + prize cargo | Mid/late AI naval economy between crowns | Human↔rival live; DR-20261111-17 |
+| 2 | Agenda dialogue beats + cadence | Hidden-agenda voice every ~7 turns | Yarn/localization still polish-only |
+| 3 | Difficulty layer extras | Naval strength, AI income, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
+| 4 | Research goal in the save | Goal is a view preference today | [`technology.md`](technology.md) |
+| 5 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
 | — | Era-change dialogue | Blocked | No era model (DR-20261111-08) |
-| — | Hospital upkeep / field hospitals / heal-at-0 | Design polish on DR-20261111-12 | Not shippable without a DR |
+| — | Hospital upkeep / field hospitals / heal-at-0 | Design polish on DR-20261111-12/16 | Not shippable without a DR |
+| — | Battle honours beyond chevron; line preview | Immersion / convenience polish | DR-20261111-18 / 15 |
 
 ## Next pick
 
-**Rank 1** is the court's own voice: hidden-agenda beats on a cadence. Rank 2
-is difficulty knobs; 3–4 need wiki design first.
+**Rank 1** closes AI-vs-AI trade war so rival blockades bite each other the way
+they already bite the crown. Rank 2 is the court's hidden-agenda voice; 3–4 are
+knobs; 5 needs wiki design first.
