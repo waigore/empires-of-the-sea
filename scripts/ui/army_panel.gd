@@ -12,6 +12,8 @@ var _header: DossierHeader = null
 var _location: Label = null
 var _strength: Label = null
 var _command: Label = null
+var _command_row: HBoxContainer = null
+var _command_icon: TextureRect = null
 var _composition: Label = null
 var _status: Label = null
 var _hint: Label = null
@@ -53,10 +55,25 @@ func _build() -> void:
 	_strength = UiRowBuilder.line(13, Palette.TEXT_DIM)
 	shell.add_child(_strength)
 
+	# The crown's commanders: a general's medallion beside every name and medal,
+	# the same shell frame a roster row wears (REQ-P1-08).
+	_command_row = HBoxContainer.new()
+	_command_row.add_theme_constant_override("separation", 8)
+	_command_row.visible = false
+	shell.add_child(_command_row)
+	_command_icon = TextureRect.new()
+	_command_icon.texture = ChromeIcons.texture("commander")
+	_command_icon.custom_minimum_size = Vector2(22, 22)
+	_command_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_command_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_command_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_command_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_command_row.add_child(_command_icon)
+
 	_command = UiRowBuilder.line(12, Palette.TEXT_DIM)
 	_command.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_command.visible = false
-	shell.add_child(_command)
+	_command.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_command_row.add_child(_command)
 
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	_composition.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -179,7 +196,7 @@ func refresh(
 				HospitalRules.rest_share(hospital) * 100.0
 			)
 	_command.text = command
-	_command.visible = not command.is_empty()
+	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
 	_fill_roster(army, is_player and not army.is_embarked())
 	_fill_muster(muster)

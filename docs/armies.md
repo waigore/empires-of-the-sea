@@ -17,10 +17,7 @@
   feeding 1.0/0.75/0.5, wood terrain (defender 1.5/1.1, attacker 0.9).
 - **Armies** (`ArmyState`): a province per army; one Home Army per faction at
   its capital, never deleted; detach for field armies; split/combine needs one
-  province, one owner, both ashore. One march a turn; own land open, foreign must border.
-- **Naval transport** (`NavalTransport`, `ArmyTransport`): a field army boards
-  a port squadron (one regiment per hull) and lands on an owned coast; troops
-  drown with a sunk squadron.
+  province, one owner, both ashore. One march a turn; own land open, foreign borders.
 - **Upkeep:** 1–3 food per regiment by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
   and health; DEF/9 durability; ratio bands; elimination precedes a flip.
@@ -34,15 +31,18 @@
   kept through split, merge and save) and the engagements and wins tallied once
   in the aftermath hook; printed in the dossier, the mauled line and the muster
   toasts. Display only.
+- **Named commanders** (`GeneralNames`, DR-20261112-03): each general takes a
+  crown-pool name, unique per crown and saved (legacy rosters christened on
+  load); the dossier prints him with his medals and a win's despatch credits
+  him. Display only.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General
   (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%. Rivals
   raise them (DR-20261111-16).
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock;
   Minors follow the leading power, Tribes stay level 1.
-- **Attack price** (`ArmyAttackCost`): 100 ducats per attacker per land battle,
-  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding (63); once per
-  exchange, floor zero.
+- **Attack price** (`ArmyAttackCost`): 100 ducats per attacker, ×0.75 Industrial
+  Machinery, ×0.85 Modern Military Funding; once per exchange, floor zero.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side;
   aggressive/balanced/defensive. Strength `Σ (FPN + FPM) × chevrons ×
   health` × cohesion. Guns soak fire and cut the fort; sieges split
@@ -53,8 +53,7 @@
 
 ## Deferred (REQ-P2-02)
 
-Battle honours (DR-20261112-02 pending) —
-[`deferred.md`](deferred.md). Line preview declined.
+Battle honours (DR-20261112-02) pending — [`deferred.md`](deferred.md).
 
 ## Architecture
 
