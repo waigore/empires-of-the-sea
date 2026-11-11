@@ -32,10 +32,17 @@ const DIPLOMACY_ROWS: Array[Dictionary] = [
 	{"band": DiplomacySurvey.BAND_WAR, "text": "At war"},
 ]
 
+const CROWN_ROWS: Array[Dictionary] = [
+	{"state": CrownRoadSurvey.STATE_ROAD, "text": "Road to the crown"},
+	{"state": CrownRoadSurvey.STATE_TOWN, "text": "Town road only — capped"},
+	{"state": CrownRoadSurvey.STATE_CUT, "text": "Cut off — road tiles left"},
+]
+
 const KIND_SURVEY: String = "survey"
 const KIND_DIPLOMACY: String = "diplomacy"
+const KIND_CROWN_ROAD: String = "crown_road"
 
-## Which key to draw: KIND_SURVEY (default) or KIND_DIPLOMACY.
+## Which key to draw: KIND_SURVEY (default), KIND_DIPLOMACY or KIND_CROWN_ROAD.
 var kind: String = KIND_SURVEY
 
 var _style: StyleBoxFlat = null
@@ -64,6 +71,9 @@ func _draw() -> void:
 	draw_style_box(_style, Rect2(Vector2.ZERO, Vector2(WIDTH, HEIGHT)))
 	if kind == KIND_DIPLOMACY:
 		_draw_diplomacy()
+		return
+	if kind == KIND_CROWN_ROAD:
+		_draw_crown_road()
 		return
 	_draw_survey()
 
@@ -147,6 +157,40 @@ func _draw_diplomacy() -> void:
 		y += 22.0
 	draw_string(
 		_font, Vector2(14, HEIGHT - 14), "Charted land only  ·  grey: no court",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+
+
+## Three readings, one per state, plus the gap badge the cut rows carry. The
+## wash is a flat tint, so the key shows the same flat swatch as the lens.
+func _draw_crown_road() -> void:
+	draw_string(
+		_font, Vector2(14, 24), MapGlyphs.spaced("CROWN ROAD KEY"),
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 11, Palette.GOLD_DIM
+	)
+	var y: float = 50.0
+	for row: Dictionary in CROWN_ROWS:
+		var state: String = String(row["state"])
+		var tint: Color = Palette.crown_color(state)
+		draw_rect(
+			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
+			Color(tint.r, tint.g, tint.b, 0.72)
+		)
+		draw_rect(
+			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
+			Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), false, 1.0
+		)
+		draw_string(
+			_font, Vector2(38, y), String(row["text"]),
+			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
+		)
+		y += 22.0
+	draw_string(
+		_font, Vector2(14, HEIGHT - 30), "Badge: road tiles still to lay",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+	draw_string(
+		_font, Vector2(14, HEIGHT - 14), "Gold line: the route the crew walks",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
 

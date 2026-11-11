@@ -112,6 +112,8 @@ var overlay: MapOverlay = null
 var lens: ResourceLens = null
 ## Diplomatic lens: political standing wash, also presentation only.
 var diplomacy_lens: DiplomacyLens = null
+## Crown-road lens: which own tiles reach the capital by road, also a view.
+var crown_lens: CrownRoadLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -181,6 +183,8 @@ func bind_views(
 	improvements = p_improvements
 	lens = p_lens
 	diplomacy_lens = p_diplomacy_lens
+	# Crown-road lens is resolved from the host in MapPlaySetup so a lens PR
+	# does not widen MapScreen.bind_views (tier-1 impact budget).
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

@@ -15,6 +15,8 @@ const CANCEL := "cancel"
 const MUTE := "mute"
 const LENS := "resource_lens"
 const DIPLOMACY_LENS := "diplomacy_lens"
+## Third map reading: which of the crown's own tiles reach the capital by road.
+const CROWN_LENS := "crown_road_lens"
 ## Opens the whole-empire civilian roster from anywhere on the map.
 const CIVILIAN_ROSTER := "civilian_roster"
 
@@ -32,6 +34,7 @@ static func ensure_actions() -> void:
 	_bind(MUTE, [KEY_M])
 	_bind(LENS, [KEY_L])
 	_bind(DIPLOMACY_LENS, [KEY_P])
+	_bind(CROWN_LENS, [KEY_R])
 	_bind(CIVILIAN_ROSTER, [KEY_C])
 
 
