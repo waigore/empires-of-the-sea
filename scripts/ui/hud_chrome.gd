@@ -21,18 +21,7 @@ static func build(hud: GameHud) -> void:
 
 
 static func _toasts(hud: GameHud) -> void:
-	hud._toast_box = VBoxContainer.new()
-	# Toasts are the moment's acknowledgement (REQ-P5-05) and stay legible over
-	# the soft Gazette plate that covers this lane at a turn's open.
-	hud._toast_box.z_index = 33
-	hud._toast_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	hud._toast_box.offset_left = -230.0
-	hud._toast_box.offset_right = 230.0
-	hud._toast_box.offset_top = 84.0
-	hud._toast_box.offset_bottom = 84.0
-	hud._toast_box.add_theme_constant_override("separation", 6)
-	hud._toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(hud._toast_box)
+	hud.despatches.build(hud)
 
 
 static func _minimap(hud: GameHud) -> void:

@@ -358,6 +358,15 @@ suites = [
   "test_hospital_rules.gd",
 ]
 
+# The despatch board: the toast plates, their hold queue behind a battle plate
+# and the lane geometry. Its two suites are the only ones that raise, hold and
+# release the court's news (REQ-P5-05, REQ-P5-06).
+[domains.despatches]
+suites = [
+  "test_ui_rules.gd",
+  "test_quick_battle_overlay.gd",
+]
+
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
 # drive it are exercised together.
 [domains.quick_battle]
@@ -1569,6 +1578,12 @@ domain = "map"
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
+
+# The despatch board: the toast plates, the hold queue behind a battle plate and
+# the lane they park on. Its two suites raise, hold and release the court's news.
+[[rules]]
+match = "scripts/ui/hud_despatches.gd*"
+domain = "despatches"
 
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min
