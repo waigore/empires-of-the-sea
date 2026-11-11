@@ -62,6 +62,14 @@ static func feeding_multiplier(coverage: float) -> float:
 	return 0.5
 
 
+## A side's morale this turn: the feeding multiplier its coverage buys. The
+## ratio bands compare the two sides' morale, so a hungry attacker's win is
+## blunted (wiki: combat § Auto-resolve ratio bands).
+static func morale(context: Dictionary, owner: int) -> float:
+	var feeding: Dictionary = context.get("feeding", {}) as Dictionary
+	return feeding_multiplier(float(feeding.get(owner, 1.0)))
+
+
 static func terrain_multiplier(terrain: int) -> float:
 	return float(TERRAIN_DEFENCE.get(terrain, 1.0))
 
@@ -179,11 +187,10 @@ static func modifiers(
 	province: int,
 	owner: int
 ) -> Dictionary:
-	var feeding: Dictionary = context.get("feeding", {}) as Dictionary
 	var leaders: Dictionary = context.get("leaders", {}) as Dictionary
 	var tech: Dictionary = context.get("tech", {}) as Dictionary
 	var multiplier: float = medal_aura(medals)
-	multiplier *= feeding_multiplier(float(feeding.get(owner, 1.0)))
+	multiplier *= morale(context, owner)
 	multiplier *= leader_multiplier(String(leaders.get(owner, "")))
 	## Difficulty scales a rival side against the human crown (wiki: combat
 	## § Modifiers; ruleset-config § Layers). No context key = published maths.
