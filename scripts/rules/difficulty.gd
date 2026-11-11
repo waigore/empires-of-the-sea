@@ -1,9 +1,9 @@
 class_name Difficulty
 extends RefCounted
 ## New-game difficulty layer (wiki: ruleset-config § Layers; combat § Modifiers).
-## Fixed at creation. It scales the rival courts' opening stores and their land
-## strength when they meet the human crown; it never changes an AI's decision
-## algorithm (wiki: ai-architecture, ai-personalities).
+## Fixed at creation. It scales the rival courts' opening stores and their
+## strength in the field and at sea when they meet the human crown; it never
+## changes an AI's decision algorithm (wiki: ai-architecture, ai-personalities).
 ##
 ## Normal is the published default and is byte-identical to the previous game:
 ## symmetric courts, published combat maths. The other three levels are this
@@ -30,8 +30,9 @@ const AI_START_PERCENT: Dictionary = {
 	"impossible": 180,
 }
 
-## Rival land strength against the human crown, percent of the published maths
-## (wiki: combat § Modifiers — difficulty scales attacker and defender).
+## Rival land and naval strength against the human crown, percent of the
+## published maths (wiki: combat § Modifiers, ships-and-naval § Naval Combat
+## Resolution — difficulty scales attacker and defender on both surfaces).
 const AI_COMBAT_PERCENT: Dictionary = {
 	"introductory": 85,
 	"normal": 100,
@@ -93,9 +94,10 @@ static func scale_start(economy: PlayerEconomy, id: String) -> void:
 		economy.stockpile[commodity] = scaled(int(economy.stockpile[commodity]), percent)
 
 
-## owner id -> land-strength multiplier. Every rival court is scaled and the
-## human crown is not; two rivals share one multiplier, so their mutual battles
-## keep the published ratio, and the full-AI observer (no human) is unchanged.
+## owner id -> strength multiplier, read by the field and the sea alike. Every
+## rival court is scaled and the human crown is not; two rivals share one
+## multiplier, so their mutual battles keep the published ratio, and the full-AI
+## observer (no human) is unchanged.
 static func combat_multipliers(human: int, id: String, factions: Array[int]) -> Dictionary:
 	var result: Dictionary = {}
 	var factor: float = float(ai_combat_percent(id)) / 100.0
