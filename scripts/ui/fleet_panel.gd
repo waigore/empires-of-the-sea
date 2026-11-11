@@ -309,20 +309,31 @@ func _hull_row(hull_id: String) -> Control:
 	entry.add_theme_constant_override("separation", 2)
 	var row := HBoxContainer.new()
 	entry.add_child(row)
+	var type_id: String = _fleet.type_of(hull_id)
+	var hull_name: String = ShipNames.of(_fleet, hull_id)
 	var name := UiRowBuilder.line(13, Palette.TEXT)
-	name.text = ShipStats.display_name(_fleet.type_of(hull_id))
+	name.text = (
+		"%s — %s" % [hull_name, ShipStats.display_name(type_id)]
+		if not hull_name.is_empty()
+		else ShipStats.display_name(type_id)
+	)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(name)
 	var armed: bool = _armed_hull == hull_id
 	var scrap := UiRowBuilder.button("Confirm scrap" if armed else "Break up", 36.0, 0.0)
 	scrap.custom_minimum_size = Vector2(100, 40)
 	scrap.add_theme_font_size_override("font_size", 12)
-	scrap.tooltip_text = "One peasant returns; no refund." if armed else "Break up this hull"
+	scrap.tooltip_text = (
+		"Break up %s: one peasant returns; no refund." % hull_name
+		if armed and not hull_name.is_empty()
+		else ("One peasant returns; no refund." if armed else "Break up this hull")
+	)
 	scrap.pressed.connect(func() -> void: _on_scrap_pressed(hull_id))
 	row.add_child(scrap)
 	# The hull's own combat numbers, so a breaking up is a reasoned choice.
 	var stats := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
-	stats.text = NavalStrength.hull_line(_fleet.type_of(hull_id))
+	stats.text = NavalStrength.hull_line(type_id)
 	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.add_child(stats)
 	return entry

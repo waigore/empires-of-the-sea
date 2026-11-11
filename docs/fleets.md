@@ -16,6 +16,10 @@ Movement, cargo, fog, sea battles; stations and raids:
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
+- **Named hulls** (`ShipNames`, DR-20261111-07): each hull flies a period name
+  from its crown's pool, unique inside its squadron and kept through save and
+  merge; the dossier, launch and break-up despatches print it, and the break-up
+  confirmation names the hull it breaks.
 - **Yard:** launch at the capital for its row + **one peasant**; breaking up
   returns one peasant, no refund; an emptied squadron retires (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
@@ -76,8 +80,8 @@ No node deps (`REQ-P3-03`).
 `test_fleet_missions`, `test_fleet_rosters`, `test_visibility`,
 `test_ship_stats`, `test_ship_economy`, `test_naval_combat`,
 `test_naval_strength`, `test_naval_interception`, `test_naval_retreat`,
-`test_naval_raid`, `test_fleet_yard`, `test_trade_cargo`, `test_civilian_voyage`,
-`test_fleet_sortie`, `test_ai_rules`, `test_map_screen`.
+`test_naval_raid`, `test_fleet_yard`, `test_fleet_names`, `test_trade_cargo`,
+`test_civilian_voyage`, `test_fleet_sortie`, `test_ai_rules`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

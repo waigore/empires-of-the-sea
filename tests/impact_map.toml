@@ -127,6 +127,7 @@ suites = [
 [domains.fleet]
 suites = [
   "test_fleet_missions.gd",
+  "test_fleet_names.gd",
   "test_fleet_orders.gd",
   "test_fleet_rosters.gd",
   "test_fleet_sortie.gd",
