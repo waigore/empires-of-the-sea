@@ -60,6 +60,11 @@ var defeat: DefeatState = null
 ## A consent decision (call to arms) holds turn resolution until answered
 ## (wiki: diplomacy § Alliances).
 var turn_suspended: bool = false
+## Decisions the court has already been told about this phase, keyed by the
+## decision itself (call, intervention, offer). A second Next Turn press
+## re-opens the court but must not repeat the war news (wiki: diplomacy
+## § Intervention — the choice is presented once). Derived; never saved.
+var announced_decisions: Dictionary = {}
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
 ## turn's decision trace (wiki: ai-architecture). Assignments stamp this run's
 ## difficulty so call sites that only `AiState.new()` still found ledgers right.

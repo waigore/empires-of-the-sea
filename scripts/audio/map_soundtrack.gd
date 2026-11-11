@@ -2,7 +2,8 @@ class_name MapSoundtrack
 extends Node
 ## Binds map-screen moments to cues and era beds. Owns nothing but the score
 ## state: it listens to the screen's signals and forwards intent to the
-## AudioDirector, so the controller stays free of audio wiring (REQ-P1-06, P3).
+## AudioDirector the app shell injects before mounting the screen, so one bed
+## carries from the title screen into play (REQ-P1-06, P3).
 
 ## Seconds of battle music before the era bed returns.
 const BATTLE_SECONDS := 14.0
@@ -17,7 +18,7 @@ func _ready() -> void:
 	screen = get_parent() as MapScreen
 	if screen == null:
 		return
-	audio = screen.get_node_or_null("Audio") as AudioDirector
+	_adopt_director()
 	if audio == null:
 		return
 	_battle_timer = Timer.new()
@@ -25,7 +26,6 @@ func _ready() -> void:
 	_battle_timer.wait_time = BATTLE_SECONDS
 	_battle_timer.timeout.connect(_sync_bed)
 	add_child(_battle_timer)
-	audio.mix_changed.connect(_on_mix_changed)
 	_bind_screen()
 	_sync_bed()
 	# Children are ready before the screen is: hud/ship_layer exist only after.
@@ -35,13 +35,15 @@ func _ready() -> void:
 		screen.ready.connect(_bind_widgets, CONNECT_ONE_SHOT)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+## The app shell injects its director before mounting the screen, so the scene's
+## own one retires and the bed carries over from the title screen. A standalone
+## mount (tools, suites) keeps the scene's director.
+func _adopt_director() -> void:
+	var own: Node = screen.get_node_or_null("Audio")
 	if audio == null:
-		return
-	if InputMap.has_action(InputActions.MUTE) and event.is_action_pressed(InputActions.MUTE):
-		audio.toggle_mute()
-		_sync_controls()
-		get_viewport().set_input_as_handled()
+		audio = own as AudioDirector
+	elif own != null:
+		own.queue_free()
 
 
 # --- wiring ------------------------------------------------------------------
@@ -92,11 +94,7 @@ func _bind_widgets() -> void:
 		screen.hud.victory_dismissed.connect(_play.bind(AudioEvents.UI_CLICK))
 	var controls := _controls()
 	if controls != null:
-		controls.ui_sound.connect(_play)
-		controls.music_volume_changed.connect(_on_music_volume_changed)
-		controls.sfx_volume_changed.connect(_on_sfx_volume_changed)
-		controls.mute_toggled.connect(_on_mute_toggled)
-	_sync_controls()
+		controls.bind(audio)
 
 
 func _controls() -> AudioControls:
@@ -237,34 +235,3 @@ func _sync_bed() -> void:
 		return
 	var bed: Dictionary = MusicPlaylist.bed_for_turn(screen.turn)
 	audio.play_music(String(bed["id"]))
-
-
-# --- mix ---------------------------------------------------------------------
-
-
-func _sync_controls() -> void:
-	var controls := _controls()
-	if controls == null or audio == null:
-		return
-	controls.set_mix(audio.mix.music, audio.mix.sfx, audio.mix.muted)
-
-
-func _on_mix_changed(music: float, sfx: float, muted: bool) -> void:
-	var controls := _controls()
-	if controls != null:
-		controls.set_mix(music, sfx, muted)
-
-
-func _on_music_volume_changed(value: float) -> void:
-	if audio != null:
-		audio.set_music_volume(value)
-
-
-func _on_sfx_volume_changed(value: float) -> void:
-	if audio != null:
-		audio.set_sfx_volume(value)
-
-
-func _on_mute_toggled(muted: bool) -> void:
-	if audio != null:
-		audio.set_muted(muted)
