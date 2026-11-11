@@ -31,19 +31,20 @@ province, Great Powers at level 4 and four L1 plains grain farms at the seat.
 - **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy).
   Level 2 or 4 adds town manufacturing ([economy.md](economy.md)).
 - **Cross-map assign.** A Builder may target another owned tile; materials paid
-  at assign, lost on cancel.
+  at assign.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`. Only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
 - **Survey lens** (`LENS`, **L**): slip per charted province; seals show each
-  resource tile (ring = status, pips = level), worked badge, bar, link row.
-  Draws built roads/railroads — solid when linked, dashed when cut. Unknown
-  ground is never surveyed.
+  resource tile, worked badge, bar, link row. Yields take Extraction's caps
+  (terrain, path transport, town cap), never promising more.
+  Draws roads — solid when linked, dashed when cut. Unknown ground is
+  never surveyed.
 - **Crown-road lens** (`R`): gold where the crown road reaches, amber where
   only the province town does, crimson where nothing does; a cut province shows
   the road tiles still to lay, their count and the route.
 - **Estates ledger** (`ESTATES`): realm totals, filters, blockers, Build /
-  Cancel / Map, caps, nearest idle Builder; cut-off estates name the crown gap.
+  Cancel / Map, caps, nearest Builder; cut-off estates name the gap.
 - **Province dossier**: town level, live crown link; Upgrade Town waits for tech.
 
 ## Deferred (REQ-P2-02)
