@@ -138,6 +138,34 @@ func test_the_town_row_names_the_town_level() -> void:
 	assert_eq(_panel._grid.town.text, "Level 4 · full")
 
 
+## The town row's tip names the path the province on screen actually offers: a
+## Builder in a crown's own land, a Merchant's deed in a Minor or Tribe province
+## (wiki: civilian-units § Merchant; DR-20261112-01). A Builder a crown may not
+## send there is not advice.
+func test_the_town_row_names_the_path_that_province_offers() -> void:
+	_show()
+	assert_true(
+		_panel._grid.town.tooltip_text.contains("A Builder raises the town"),
+		"a crown's own town is its Builder's work"
+	)
+	_model.provinces[1].owner = 6
+	_model.provinces[1].town_tile = Fixture.RIVAL_GRAIN_TILE
+	_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, {})
+	_panel.refresh(_model, 1)
+	assert_true(
+		_panel._grid.town.tooltip_text.contains("Merchant"),
+		"a Minor's town grows only from a deed: %s" % _panel._grid.town.tooltip_text
+	)
+	assert_false(
+		_panel._grid.town.tooltip_text.contains("A Builder raises the town"),
+		"the tip never names a Builder a crown cannot send there"
+	)
+	assert_eq(
+		DossierCopy.town_tip(null), DossierCopy.TOWN_TIP,
+		"a missing province falls back to the Builder line"
+	)
+
+
 # --- the town order's gate ---------------------------------------------------
 
 

@@ -355,16 +355,14 @@ func _avoid_toasts() -> void:
 	var hud: Node = get_parent()
 	if hud == null:
 		return
-	var lane_box: Control = hud.get("_toast_box") as Control
-	if lane_box == null:
+	var despatches: HudDespatches = hud.get("despatches") as HudDespatches
+	if despatches == null:
 		return
 	var bottom: float = PLATE_TOP + height
 	var lane: float = TOAST_LANE
 	if _shown and size.y - bottom >= 180.0:
 		lane = bottom + 10.0
-	if not is_equal_approx(lane_box.offset_top, lane):
-		lane_box.offset_top = lane
-		lane_box.offset_bottom = lane
+	despatches.set_lane(lane)
 
 
 func _label(text: String, pixels: int, ink: Color, italic: bool = false) -> Label:

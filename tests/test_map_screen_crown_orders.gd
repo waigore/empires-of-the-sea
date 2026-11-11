@@ -551,25 +551,57 @@ func test_a_signed_deed_names_the_town_it_raised() -> void:
 	var tile: Vector2i = found[1]
 	var saved: Array = Fixture.snapshot(play.world)
 	var town_before: int = province.town_development
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
+	var report: Dictionary = {}
 	assert_true(LandPurchase.complete(
-		model, tile, play.player_faction, play.economy.economy
+		model, tile, play.player_faction, play.economy.economy, report
 	), "the deed is signed")
 	MapPlayCivilians._settle_purchase(play, {
 		"owner": play.player_faction,
 		"region": model.region_id,
 		"tile": tile,
 		"province": province.id,
+		"town_level": int(report.get("town_level", 0)),
 	})
 
 	assert_eq(province.town_level(), 2, "one deed lifts the seller's town")
-	assert_gt(
-		_screen.hud._toast_box.get_child_count(), toasts_before,
-		"the court hears the deed and the level it bought"
+	assert_true(
+		_last_toast_text().ends_with("The town rises to level 2."),
+		"the court hears the deed and the level it bought: %s" % _last_toast_text()
+	)
+	# A town already at its deed ceiling must not announce a rise it never took.
+	province.town_development = 4
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+		"town_level": 0,
+	})
+	assert_false(
+		_last_toast_text().contains("town"),
+		"a fully grown town is not announced as rising: %s" % _last_toast_text()
 	)
 	Fixture.restore(play.world, saved)
 	province.town_development = town_before
+
+
+## The text of the most recent despatch plate, or "" when none is on screen.
+func _last_toast_text() -> String:
+	var box: Node = _screen.hud._toast_box
+	if box.get_child_count() == 0:
+		return ""
+	return _label_text(box.get_child(box.get_child_count() - 1))
+
+
+func _label_text(node: Node) -> String:
+	for child: Node in node.get_children():
+		if child is Label:
+			return (child as Label).text
+		var inner: String = _label_text(child)
+		if not inner.is_empty():
+			return inner
+	return ""
 
 
 ## A Minor or Tribe province and one of its resource tiles.
