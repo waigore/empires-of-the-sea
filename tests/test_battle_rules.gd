@@ -714,6 +714,19 @@ func test_matched_squadrons_stalemate_without_losses() -> void:
 	assert_eq(NavalCombat.outcome_label(int(battles[0]["outcome"])), "stalemate")
 
 
+## A hungry squadron fights at the army morale bands (wiki:
+## workers-and-population § Consumption — fullyFedShips / totalShips).
+func test_a_starving_squadron_fights_at_the_hungry_morale_band() -> void:
+	var first: FleetState = _squadron(1, 0, 2, "carrack", 2)
+	var second: FleetState = _squadron(2, 1, 2, "carrack", 2)
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[first, second], Callable(), {"navy_feeding": {0: 0.4, 1: 1.0}}
+	)
+	assert_almost_eq(float(battles[0]["attacker_strength"]), 2.75, 0.0001)
+	assert_almost_eq(float(battles[0]["defender_strength"]), 5.5, 0.0001)
+	assert_eq(int(battles[0]["outcome"]), NavalCombat.Outcome.SIDE2_VICTORY)
+
+
 ## Wiki: share > 0.53 wins for the attacker and share < 0.47 wins for the
 ## defender — 0.53 exactly is still a stalemate (§ Naval Combat Resolution).
 func test_a_share_of_exactly_fifty_three_percent_is_a_stalemate() -> void:
