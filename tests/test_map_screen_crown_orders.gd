@@ -374,6 +374,53 @@ func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
 
 
+func test_tapping_a_survey_mark_starts_the_survey() -> void:
+	var play: PlaySession = _screen.play
+	var explorer: CivilianState = _explorer()
+	assert_not_null(explorer, "the crown fields an Explorer")
+	if explorer == null:
+		return
+	var province: int = _screen.model.province_at(explorer.tile.x, explorer.tile.y)
+	var ground: Array[Vector2i] = MineralSurvey.unsurveyed_in_province(
+		_screen.model, _screen.land_works, play.player_faction, province,
+		_screen.visibility
+	)
+	if ground.size() < 2:
+		return
+	var stand: Vector2i = ground[0]
+	var target: Vector2i = stand
+	for tile: Vector2i in ground:
+		if absi(tile.x - stand.x) + absi(tile.y - stand.y) > 1:
+			target = tile
+			break
+	if target == stand:
+		return
+	explorer.tile = stand
+	_screen.civilian_layer.select(explorer)
+	assert_true(_screen.overlay.survey_tiles.has(stand), "the marks cover the province")
+	assert_true(_detail_text().contains("Survey"), "the dossier carries the survey row")
+	# A tap on marked ground starts the survey without a march.
+	assert_true(
+		MapPlayCivilians.try_move(
+			play, MapGeo.tile_center(target.x, target.y, MapScreen.TILE_SIZE)
+		),
+		"the tap is consumed by the survey"
+	)
+	assert_true(explorer.is_working())
+	assert_eq(explorer.work_action(), "prospect")
+	assert_eq(explorer.work_tile(), target)
+	# A working Explorer takes no second survey.
+	assert_false(MapPlayCivilians.try_survey(play, explorer, stand))
+	await get_tree().process_frame
+	# Ending the turn uncovers the ground for the court that paid for it.
+	MapPlayTurn.end_turn(play)
+	Fixture.settle(play)
+	assert_true(
+		_screen.land_works.is_prospected(play.player_faction, _screen.model, target),
+		"the survey lands on end turn"
+	)
+
+
 func test_a_rivals_survey_never_names_its_find() -> void:
 	var play: PlaySession = _screen.play
 	var rival: int = -1
@@ -534,6 +581,23 @@ func _capital_estate_tile() -> Vector2i:
 
 func _capital_point() -> Vector2:
 	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE
+
+
+## The crown's Explorer (the starting roster carries exactly one).
+func _explorer() -> CivilianState:
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "explorer":
+			return unit
+	return null
+
+
+## Every caption and value printed on the civilian dossier's detail grid.
+func _detail_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
+	for node: Node in panel._detail.find_children("*", "Label", true, false):
+		parts.append((node as Label).text)
+	return " ".join(parts)
 
 
 ## Prefer a crown resource a Builder can raise without an Explorer first. The

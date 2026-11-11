@@ -314,6 +314,70 @@ func test_a_survey_uncovers_the_mineral_and_the_report_names_it() -> void:
 	)
 
 
+func test_the_survey_predicate_reads_ground_and_courts_alike() -> void:
+	# The one predicate every surface shares (wiki: fog-and-exploration
+	# § Prospecting; DR-20261111-26).
+	var iron: int = _model.resource_at(Fixture.IRON_TILE.x, Fixture.IRON_TILE.y)
+	assert_true(MineralSurvey.is_mineral(iron), "iron is a deposit")
+	assert_false(MineralSurvey.is_mineral(-1))
+	var timber: int = _model.resource_at(Fixture.TIMBER_TILE.x, Fixture.TIMBER_TILE.y)
+	assert_false(MineralSurvey.is_mineral(timber))
+	assert_true(MineralSurvey.terrain_known(timber))
+	assert_false(MineralSurvey.terrain_known(iron))
+	assert_false(MineralSurvey.terrain_known(-1))
+	# Ground: hills can be read, plains cannot, the sea never.
+	assert_true(MineralSurvey.prospectable(_model, Fixture.IRON_TILE))
+	assert_false(MineralSurvey.prospectable(_model, Fixture.TIMBER_TILE))
+	assert_false(MineralSurvey.prospectable(_model, Vector2i(0, 4)))
+	assert_false(MineralSurvey.prospectable(null, Fixture.IRON_TILE))
+	# Known: hidden before the survey, read after it, and only for that court.
+	assert_eq(MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), -1)
+	assert_eq(MineralSurvey.known_resource(null, _works, 0, Fixture.IRON_TILE), -1)
+	assert_false(MineralSurvey.is_known(_model, _works, 0, Fixture.IRON_TILE))
+	assert_eq(MineralSurvey.find_of(_model, Fixture.IRON_TILE), "iron")
+	assert_eq(MineralSurvey.find_of(_model, Fixture.HILLS_TILE), "")
+	assert_eq(MineralSurvey.find_of(null, Fixture.IRON_TILE), "")
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	assert_eq(
+		MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), iron
+	)
+	assert_eq(MineralSurvey.known_resource(_model, _works, 1, Fixture.IRON_TILE), -1)
+	# The set of ground left to read, per province and per court.
+	var left: Array[Vector2i] = MineralSurvey.unsurveyed_in_province(
+		_model, _works, 0, Fixture.PLAYER_PROVINCE
+	)
+	assert_false(left.has(Fixture.IRON_TILE), "a read tile leaves the set")
+	assert_true(left.has(Fixture.HILLS_TILE))
+	var counts: Dictionary = MineralSurvey.unsurveyed_by_province(_model, _works, 0)
+	assert_eq(int(counts.get(Fixture.PLAYER_PROVINCE, 0)), left.size())
+	assert_true(MineralSurvey.unsurveyed_in_province(null, _works, 0, 0).is_empty())
+	assert_true(MineralSurvey.unsurveyed_by_province(null, _works, 0).is_empty())
+	# Refusals name the one thing that is wrong, in the order a player hits it.
+	assert_true(MineralSurvey.refusal(_model, _works, 0, Vector2i(0, 4)).contains("land"))
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.IRON_TILE).contains("already been")
+	)
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.TIMBER_TILE).contains("already known")
+	)
+	# Bare plains are not survey ground; the refusal says which ground is.
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Vector2i(2, 3)).contains("swamp, hills")
+	)
+	assert_true(MineralSurvey.refusal(_model, _works, 0, Fixture.HILLS_TILE).is_empty())
+	assert_true(MineralSurvey.can_prospect(_model, _works, 0, Fixture.HILLS_TILE))
+	# Uncharted ground is never a target.
+	var view := VisibilityModel.new()
+	view.setup(_model, 0)
+	view.lower_to(
+		_model.index_of(Fixture.HILLS_TILE.x, Fixture.HILLS_TILE.y),
+		VisibilityModel.Level.UNKNOWN
+	)
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.HILLS_TILE, view).contains("charted")
+	)
+
+
 func test_an_empty_survey_is_legal_and_finds_nothing() -> void:
 	var explorer := _add("explorer", Fixture.HILLS_TILE)
 	assert_true(MineralSurvey.prospectable(_model, Fixture.HILLS_TILE))
