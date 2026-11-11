@@ -1202,6 +1202,12 @@ domain = "prospect"
 match = "scripts/rules/improvement_*.gd"
 domain = "economy"
 
+# The Merchant's deed is a civilian work order: its purchase tests live in the
+# civilian suite, so keep it off the economy set (DR-20261112-01).
+[[rules]]
+match = "scripts/rules/land_purchase.gd*"
+domain = "civilian"
+
 [[rules]]
 match = "scripts/rules/land_*.gd"
 domain = "economy"
@@ -1412,6 +1418,13 @@ domain = "fleet"
 [[rules]]
 match = "tests/test_home_merge.gd*"
 domain = "fleet"
+
+# A deed develops a Minor or Tribe town (DR-20261112-01): the growth rule and
+# the purchase that signs it ride with the civilian work suites, not the rules
+# catch-all.
+[[rules]]
+match = "scripts/rules/minor_town_growth.gd*"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/rules/**"

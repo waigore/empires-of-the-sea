@@ -28,18 +28,17 @@ DR-20261111-28). Decision list for what to ship next (`REQ-P2-02`).
 | Rival-on-rival raids + prize cargo | `MapPlayRaids` per-crown pass (DR-20261111-20) |
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
+| Minor/Tribe town development (a deed raises the town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Minor/Tribe town development path | Towns stay level 1, so manufacture offers rarely fire | Wiki has no build/research path for them — DR first |
-| 2 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
+| 1 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
 
 ## Next pick
 
-**Rank 1** needs a wiki call on whether Minor/Tribe towns develop at all.
-**Rank 2** needs a design record for what an honour or a preview is.
+**Rank 1** needs a design record for what an honour or a preview is.
 Nothing on the list is a plain code gap against published rules.
 
 ## Out of scope / blocked footnotes

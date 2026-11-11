@@ -264,7 +264,13 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	var place: String = model.province_name(province) if province >= 0 else "the wilds"
 	if model.is_purchased_tile(tile):
 		play.hud.set_treasury(play.treasury())
-		play.hud.toast("The deed to %s is signed; the tile answers to your crown." % place)
+		var line: String = "The deed to %s is signed; the tile answers to your crown." % place
+		# A deed develops the seller's town, and the crown is told the level it
+		# now stands at (DR-20261112-01; RUB-P5-05).
+		var level: int = MinorTownGrowth.raised_by_latest_deed(model, province)
+		if level > 0:
+			line += " The town rises to level %d." % level
+		play.hud.toast(line)
 		return
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
 

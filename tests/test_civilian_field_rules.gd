@@ -943,6 +943,81 @@ func test_purchase_completes_one_turn_later_and_debits_the_purse() -> void:
 	assert_false(model.purchase_tile(tile, 7), "one deed per tile")
 
 
+# --- a deed develops the seller's town (DR-20261112-01) ---------------------
+
+
+func _sign_deed(model: MapModel, tile: Vector2i, treasury: int = 5000) -> void:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	assert_true(LandPurchase.complete(model, tile, 0, economy), "the deed is signed")
+
+
+func test_a_deed_raises_the_minors_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	assert_eq(province.town_level(), 1, "a Minor's town starts at level 1")
+	_sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_development, 2, "one deed lifts the town")
+	assert_eq(MinorTownGrowth.raised_by_latest_deed(model, 1), 2, "the report names it")
+
+
+func test_each_deed_raises_the_town_until_it_tops_out() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(2, 2), Vector2i(3, 2)]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	_sign_deed(model, Vector2i(3, 1))
+	_sign_deed(model, Vector2i(2, 1))
+	assert_eq(province.town_level(), 3, "two deeds")
+	_sign_deed(model, Vector2i(3, 0))
+	assert_eq(province.town_level(), 4, "three deeds")
+	_sign_deed(model, Vector2i(2, 2))
+	assert_eq(province.town_level(), 4, "a fourth deed changes nothing")
+	assert_eq(MinorTownGrowth.raised_by_latest_deed(model, 1), 0, "no rise to report")
+
+
+func test_a_lost_deed_never_lowers_the_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	province.town_development = 3
+	_sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_level(), 3, "a town above its deed level keeps it")
+	assert_eq(MinorTownGrowth.raised_by_latest_deed(model, 1), 0, "nothing to announce")
+
+
+func test_a_great_power_province_never_grows_this_way() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(0)
+	model.resource[model.index_of(0, 1)] = 0
+	_sign_deed(model, Vector2i(0, 1))
+	assert_eq(province.town_development, 0, "a crown's own town is its Builder's work")
+	assert_eq(MinorTownGrowth.raised_by_latest_deed(model, 0), 0)
+
+
+func test_the_deed_count_sets_the_level() -> void:
+	assert_eq(MinorTownGrowth.level_for_deeds(0), 1)
+	assert_eq(MinorTownGrowth.level_for_deeds(1), 2)
+	assert_eq(MinorTownGrowth.level_for_deeds(2), 3)
+	assert_eq(MinorTownGrowth.level_for_deeds(3), 4)
+	assert_eq(MinorTownGrowth.level_for_deeds(9), 4, "the town tops out at four")
+
+
+func test_a_deed_turns_the_minors_harvest_into_manufactures() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in province.tiles:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	assert_true(
+		MinorMarket.province_manufactures(model, province).is_empty(),
+		"a level-1 town pays no bonus"
+	)
+	_sign_deed(model, Vector2i(3, 1))
+	assert_eq(
+		MinorMarket.province_manufactures(model, province), {"lumber": 1, "paper": 1},
+		"four timber estates feed the level-2 town"
+	)
+
+
 func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	var model: MapModel = Fixture.build()
 	var works := LandWorks.new()
