@@ -14,9 +14,18 @@ func test_a_fresh_crown_has_three_empty_slots() -> void:
 	assert_eq(_state.slots.size(), 3)
 	assert_eq(_state.researching(), [] as Array[Dictionary])
 	assert_eq(_state.unlocked_ids(), [] as Array[String])
+	assert_eq(_state.goal, "", "a new college carries no goal")
 	for index in 3:
 		assert_eq(_state.tech_at(index), ResearchState.EMPTY_TECH)
 		assert_eq(_state.funding_at(index), ResearchFunding.DEFAULT)
+
+
+## The ledger goal is client state kept with the campaign: it reorders the view
+## and reaches no research arithmetic, but a copy must carry it (wiki: tech-tree
+## § Goal slot; DR-20261111-21).
+func test_a_copy_carries_the_ledger_goal() -> void:
+	_state.goal = "bayonet"
+	assert_eq(_state.copy().goal, "bayonet")
 
 
 func test_university_opens_a_fourth_slot() -> void:

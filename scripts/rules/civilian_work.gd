@@ -366,8 +366,8 @@ static func _apply(
 		"upgrade_town":
 			var town_data: ProvinceState = model.province_data(province)
 			if town_data != null:
-				town_data.town_development = clampi(
-					int(unit.work_detail("town_level")), 1, CivilianWorkPlan.MAX_TOWN
+				town_data.town_development = CivilianWorkPlan.town_after_upgrade(
+					town_data.town_development, int(unit.work_detail("town_level"))
 				)
 			return [model.index_of(tile.x, tile.y)]
 		"build_fort":

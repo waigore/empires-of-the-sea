@@ -321,6 +321,29 @@ func test_builder_upgrades_the_town_with_national_bureaucracy() -> void:
 	assert_eq(_model.provinces[0].town_development, 2)
 
 
+## A town can be raised while a Builder is still at it — a capital reassignment
+## sets the new seat to town development 4. The finished order lands its priced
+## level but never lowers what the town already holds (wiki:
+## extraction-and-improvements § Improvement Build Costs; capital-and-connectivity
+## § Capital loss and reassignment).
+func test_a_finished_town_order_never_lowers_the_town() -> void:
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var tech := {"national_bureaucracy": true}
+	var check: Dictionary = _validate(builder, "upgrade_town", tech)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(int(check["duration"]), 2)
+	var order: Dictionary = CivilianWork.assign(
+		_model, builder, "upgrade_town", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_true(bool(order["ok"]), String(order.get("reason", "")))
+	# The court moves here: the seat rule lifts the town to 4 mid-build.
+	_model.provinces[0].town_development = 4
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_eq(_model.provinces[0].town_development, 4)
+
+
 func test_town_upgrades_only_on_the_town_tile_and_stop_at_four() -> void:
 	var builder := _add("builder", Fixture.TIMBER_TILE)
 	var tech := {"national_bureaucracy": true}
