@@ -89,7 +89,7 @@ func _build_coast() -> void:
 				var a: Vector2 = _edge_point(x, y, int(pair[0]))
 				var b: Vector2 = _edge_point(x, y, int(pair[1]))
 				raw.append(PackedVector2Array([a, b]))
-	_coast = InkPaths.smooth_segments(raw, 1)
+	_coast = _hand_paths(InkPaths.smooth_segments(raw, 2), 0.9, 0.6)
 
 
 func _edge_point(x: int, y: int, edge: int) -> Vector2:
@@ -142,8 +142,21 @@ func _build_borders() -> void:
 					Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
 					Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
 				]))
-	_province_borders = InkPaths.smooth_segments(province_raw, 2)
-	_sea_borders = InkPaths.smooth_segments(sea_raw, 2)
+	_province_borders = _hand_paths(InkPaths.smooth_segments(province_raw, 3), 1.5, 2.2)
+	_sea_borders = _hand_paths(InkPaths.smooth_segments(sea_raw, 2), 1.1, 5.4)
+
+
+## Hand-inked copies of the traced boundaries: the Chaikin pass rounds corners
+## but leaves long runs straight, and a straight 90-degree run is what reads as
+## a grid (REQ-P1-03). Each path gets its own phase so neighbouring provinces
+## do not wobble in step.
+func _hand_paths(
+	paths: Array[PackedVector2Array], amplitude: float, salt: float
+) -> Array[PackedVector2Array]:
+	var result: Array[PackedVector2Array] = []
+	for i in paths.size():
+		result.append(InkPaths.hand(paths[i], amplitude, salt + float(i) * 1.9))
+	return result
 
 
 ## Surf breaks along the inked coast, and one soft cloud shadow drifts over the
