@@ -87,9 +87,9 @@ static func _square_button(icon_name: String, caption: String) -> Button:
 	return button
 
 
-## The three map lenses share one rail row beside the estates door: they are
-## estate and political readings, and the cartouche row is already at its
-## measured width budget (REQ-P5-03). The screen owns the state; the toggles
+## The four map lenses share one rail row beside the estates door: they are
+## estate, political and military readings, and the cartouche row is already at
+## its measured width budget (REQ-P5-03). The screen owns the state; the toggles
 ## only mirror it.
 static func _lenses(hud: GameHud) -> void:
 	hud._lens_button = _lens_seal(hud, 186.0, "lens", "Resource survey lens (L)")
@@ -104,15 +104,25 @@ static func _lenses(hud: GameHud) -> void:
 	hud._crown_lens_button.toggled.connect(
 		func(active: bool) -> void: hud.crown_lens_pressed.emit(active)
 	)
-	# R lives on the seal so MapScreen's key table stays free of a third lens
-	# (tier-1 impact budget). L/P stay on MapScreen with the older readings.
+	hud._defence_lens_button = _lens_seal(hud, 384.0, "swords", "Defence lens (K)")
+	hud._defence_lens_button.toggled.connect(
+		func(active: bool) -> void: hud.defence_lens_pressed.emit(active)
+	)
+	# R and K live on their seals so MapScreen's key table stays free of the
+	# newer lenses (tier-1 impact budget). L/P stay on MapScreen.
+	_shortcut(hud._crown_lens_button, InputActions.CROWN_LENS)
+	_shortcut(hud._defence_lens_button, InputActions.DEFENCE_LENS)
+
+
+## Binds an InputMap action to a seal, so the key and the toggle share one path.
+static func _shortcut(button: Button, action: String) -> void:
 	InputActions.ensure_actions()
 	var shortcut := Shortcut.new()
 	var key := InputEventAction.new()
-	key.action = InputActions.CROWN_LENS
+	key.action = action
 	key.pressed = true
 	shortcut.events = [key]
-	hud._crown_lens_button.shortcut = shortcut
+	button.shortcut = shortcut
 
 
 ## One lens seal: 56×44 points on the rail row, icon-only with a named tooltip.
