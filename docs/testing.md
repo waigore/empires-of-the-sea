@@ -51,8 +51,9 @@ gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 
 # Free-playtest drives (opt-in, not a CI gate). Every one launches the real flow
-# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> map), so
-# a flow change that strands a drive fails loudly instead of printing one line.
+# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> crown's
+# charge -> map), so a flow change that strands a drive fails loudly instead of
+# printing one line.
 
 # New World exploration loop — boards an Explorer, takes the Passage, lands,
 # charts and prospects, printing one line per step.
