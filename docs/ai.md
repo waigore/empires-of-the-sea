@@ -44,7 +44,10 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   per idle civilian — builders improve or finish a town, engineers
   connect then road/port/fort, explorers prospect, rail builders upgrade roads;
   merchants buy a Minor/Tribe deed when embassy, peace, mineral and price allow
-  (`civilian.merchant_weight`).
+  (`civilian.merchant_weight`). A Builder reads the same `ImprovementLedger`
+  rows the player's ESTATES ledger shows: a level the town, road or tech cap
+  will not pay earns no shortage premium, and a town capping its own estates is
+  raised before them (DR-20261111-10).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's

@@ -43,6 +43,10 @@ tech.
   Builders exempt).
 - **Stranding:** crews caught by conquest withdraw to crown land or are lost;
   a fallen crown's crews leave play.
+- **Rival civilian AI** (`AiCivilianPlanner`, `MapPlayCivilianAi`): every court
+  fields one Explorer, Builder, Engineer and Spy, then trains to
+  `civilian.max_civilians`; Builders raise the shortest estate or the town, read
+  against the estates ledger's own caps (DR-20261111-10).
 
 ## Deferred (REQ-P2-02)
 
