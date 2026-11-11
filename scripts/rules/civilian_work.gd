@@ -44,15 +44,11 @@ static func explore_turns(model: MapModel, province_id: int) -> int:
 	return CivilianWorkPlan.explore_turns(model, province_id)
 
 
-static func cost_level(
-	action: String, model: MapModel, tile: Vector2i, works: LandWorks
-) -> int:
+static func cost_level(action: String, model: MapModel, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.cost_level(action, model, tile, works)
 
 
-static func duration_for(
-	model: MapModel, action: String, tile: Vector2i, works: LandWorks
-) -> int:
+static func duration_for(model: MapModel, action: String, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.duration_for(model, action, tile, works)
 
 
@@ -137,6 +133,11 @@ static func validate(
 		if site.x >= 0:
 			tile = site
 			province = model.province_at(tile.x, tile.y)
+	## One crew a player owns builds the town's hospital (civilian-units § Per-player tile exclusivity).
+	if action == "build_hospital":
+		var free_site: Dictionary = CivilianTransport.exclusive(units, unit, tile)
+		if not bool(free_site.get("ok", false)):
+			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
