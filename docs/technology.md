@@ -42,8 +42,9 @@ cheapen attacks.
 - **Privateering Companies:** the charter holder's Patrol/Blockade
   interception and trade raids rise 25%.
 - **Rivals:** AI courts fill slots via `ResearchTurn`.
-- **Goal slot:** a view-only goal orders the queue — goal, its prerequisites
-  nearest-first, then catalog order; it funds nothing.
+- **Goal slot:** a goal orders the queue — goal, prerequisites nearest-first,
+  catalog order; it funds nothing and rides the save
+  (`ResearchState.goal`, DR-20261111-21).
 - **Slot persistence:** saves keep each slot's tech and funding; load drops what
   the catalog or roster cannot hold and forfeits unbound progress.
 - **UI:** `RESEARCH` opens the college ledger — goal strip, slot rows (progress,
@@ -52,8 +53,7 @@ cheapen attacks.
 
 ## Deferred (REQ-P2-02)
 
-Per-save goal persistence (goal stays a view preference). Ranked:
-[`deferred.md`](deferred.md).
+No research rule is deferred; gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 

@@ -15,8 +15,9 @@ signal close_pressed
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
 var _boost: Dictionary = {}
-## The goal tech: view state only, never saved and never funded (wiki: tech-tree
-## § Research Model). The queue lists sort it and its prerequisites first.
+## The goal tech, mirrored from `_state.goal` on every refresh. It sorts the
+## queue and funds nothing; the state keeps it so a load reopens the same order
+## (wiki: tech-tree § Goal slot; DR-20261111-21).
 var _goal: String = ""
 var _treasury: int = 0
 var _summary: Label = null
@@ -122,12 +123,16 @@ func goal_tech() -> String:
 
 
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
-## The goal is view state: it spends nothing and rides no research order.
+## The goal spends nothing and rides no research order, but it is kept with the
+## campaign, so the ledger reopens where the player left it (wiki: tech-tree
+## § Goal slot; DR-20261111-21).
 func set_goal(tech_id: String) -> void:
-	var next: String = tech_id if TechCatalog.known(tech_id) else ""
+	var next: String = TechOrder.normalize(tech_id)
 	if next == _goal:
 		return
 	_goal = next
+	if _state != null:
+		_state.goal = next
 	goal_changed.emit(_goal)
 	refresh(_state, _treasury, _boost)
 
@@ -142,6 +147,7 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 	_boost = boost
 	if _tabs == null or _state == null:
 		return
+	_goal = TechOrder.normalize(_state.goal)
 	_clear(_slots_body)
 	_clear(_available_body)
 	_clear(_known_body)
