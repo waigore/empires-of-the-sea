@@ -29,8 +29,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_abroad(play, target, faction), play.court_charts,
-				_overseas(play, faction, target)
+				_abroad(play, target, faction), play.court_charts
 			)
 			if order.is_empty():
 				continue
@@ -188,27 +187,6 @@ static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
 		if unit != null and unit.owner == owner:
 			counts[unit.type_id] = int(counts.get(unit.type_id, 0)) + 1
 	return counts
-
-
-## The target region as this court can read it: its model and works, its own
-## chart of the coast, its courts and its purse (wiki: civilian-units § Merchant;
-## REQ-P2-03). Empty while the region is not laid out yet, so no claim is
-## planned against ground nothing has charted.
-static func _overseas(play: PlaySession, faction: int, region: int) -> Dictionary:
-	if play.world == null or play.civilian_layer == null or region < 0:
-		return {}
-	var model: MapModel = play.world.region(region)
-	var works: LandWorks = play.civilian_layer.works_regions.value(region, null)
-	if model == null or works == null:
-		return {}
-	var ledger: PlayerEconomy = play.ledger_for(faction)
-	return {
-		"model": model,
-		"works": works,
-		"visibility": MapPlayCourtFog.view_for(play, faction, region),
-		"diplomacy": play.diplomacy,
-		"treasury": ledger.treasury if ledger != null else 0,
-	}
 
 
 static func _fleet_by_id_any(

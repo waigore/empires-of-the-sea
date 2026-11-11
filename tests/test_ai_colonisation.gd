@@ -390,61 +390,6 @@ func test_the_seat_is_the_muster_harbour() -> void:
 	)
 
 
-## A merchant sails only for a deed this court's own chart already holds, and
-## only while it has no merchant abroad: that is the colonial claim an Explorer
-## unlocks by charting the coast (wiki: civilian-units § Merchant).
-func test_a_merchant_sails_for_a_charted_tribe_deed() -> void:
-	var world: WorldMap = _world()
-	var old_world: MapModel = world.region(0)
-	var new_world: MapModel = world.region(1)
-	var tribe_tiles: Array[Vector2i] = []
-	for y in 2:
-		for x in 4:
-			tribe_tiles.append(Vector2i(x, y))
-			new_world.terrain[new_world.index_of(x, y)] = MapModel.Terrain.PLAINS
-	var tribe := ProvinceState.create(
-		0, "Tribe", tribe_tiles, Vector2(1.5, 0.5), tribe_tiles.size(),
-		FactionCatalog.tribe_ids()[0], true
-	)
-	tribe.resource_tile = Vector2i(1, 0)
-	new_world.provinces = [tribe]
-	new_world.resource[new_world.index_of(1, 0)] = 4
-	var merchant: CivilianState = CivilianState.create(1, OWNER, "merchant", Vector2i(0, 0))
-	var explorer: CivilianState = CivilianState.create(2, OWNER, "explorer", Vector2i(0, 0))
-	var charts := CourtCharts.new()
-	charts.setup(world, 0, {})
-	var view: VisibilityModel = charts.model_for(OWNER, WorldMap.NEW_WORLD)
-	var overseas: Dictionary = {
-		"model": new_world,
-		"works": LandWorks.new(),
-		"visibility": view,
-		"diplomacy": _courts(tribe.owner),
-		"treasury": 90000,
-	}
-	var unexplored: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [FleetState.in_port(1, OWNER, 0)],
-		[explorer, merchant], {}, charts, overseas
-	)
-	assert_eq(
-		int(unexplored.get("unit", -1)), 2,
-		"an uncharted New World sends the Explorer, not the Merchant"
-	)
-	view.reveal_province(0)
-	var claim: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [FleetState.in_port(1, OWNER, 0)],
-		[explorer, merchant], {"explorer": 1}, charts, overseas
-	)
-	assert_eq(String(claim.get("kind", "")), "embark")
-	assert_eq(int(claim.get("unit", -1)), 1, "a charted deed sends the Merchant")
-
-
-func _courts(seller: int) -> DiplomacyState:
-	var state := DiplomacyState.new()
-	state.ensure_relation(OWNER, seller, 0)
-	state.set_overture(OWNER, seller, DiplomacyCatalog.STAGE_EMBASSY)
-	return state
-
-
 ## An Explorer with a voyage ahead waits at its crown's harbour and marches home
 ## when something has carried it off, so the boarding step always finds it there
 ## (wiki: civilian-units § Overseas deployment; DR-20261111-05).

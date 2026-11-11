@@ -31,9 +31,9 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   attack; an invader draws a relief column (one regiment keeps the seat).
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
   fog; voyages, invasions and work read only that chart (DR-20261110-21).
-- **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): board at
-  the crown's own harbour (seat first), cross, land; a charted Tribe deed then
-  draws a Merchant, so rivals hold New World land (DR-20261111-05).
+- **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): the
+  squadron docks at the crown's own harbour (seat first) and the Explorer
+  musters there; board, cross, land (DR-20261111-05).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore; detach hulls, dock, board, cross; storm best coast.
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest

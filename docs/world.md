@@ -29,8 +29,8 @@ Ids: `scripts/rules/faction_catalog.gd`.
   (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross to the
   other world.
 - The region button swaps canvas, fog, fleets, civilians, works and camera
-  bounds. Rosters persist per region; every region advances each turn. Chips
-  are empire totals; squadrons stay where provinces are held.
+  bounds. Rosters persist per region; every region advances each turn. Chips are
+  empire totals; squadrons stay where provinces are held.
 
 ## Setup post-pass
 
@@ -53,15 +53,15 @@ seller.
 ## Capital loss
 
 `scripts/rules/capital_loss.gd` re-seats a captured crown at its first seaboard
-province (else inland) of the region; a crown with none left falls and its
-holdings pass to the conqueror. Wiki: [DR-20261109-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261109-02).
+province (else inland); a crown with none left falls and its holdings pass to
+the conqueror. Wiki: [DR-20261109-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261109-02).
 
 ## Borders on the map
 
 `scripts/map/country_borders.gd` derives owner boundaries from the tile grid.
 `MapOverlay` draws them **above fog** (`FogLayer` holds fog) as engraved
 shadow plus owner colour. Province hairlines stay beneath; terrain and minimap
-carry owner tint. Coastlines keep their ink.
+carry owner tint.
 
 ## Campaign length
 
@@ -72,8 +72,9 @@ score — a tie names no-one. `TurnTime`, `VictoryRules`, `MapPlayCampaign`.
 
 ## Known limits
 
-Counter-spy and court reports are deferred; rival fog exploration and the
-overseas claim it unlocks are live (DR-20261111-05).
+Counter-spy, court reports and rivals' dealings with the Tribes they chart are
+deferred. Rival fog exploration and the crossing it unlocks are live
+(DR-20261111-05).
 
 ## Tests
 

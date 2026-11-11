@@ -17,13 +17,12 @@ extends RefCounted
 
 ## One order for this court in this region, or an empty dictionary.
 ## `abroad` counts this court's civilians already in the target region, by type,
-## so a court charts first, then claims, then works what it holds. `charts` is
-## the court's own fog: it lands only on coast it has seen and walks only water
-## it charts, with one blind step into the unknown to extend the chart
-## (DR-20261110-21). `overseas` carries the target region's model, works, chart,
-## purse and court, so a claim is read off land this court has actually seen.
-## A null chart is the fixture reading — every tile charted — and production
-## always hands the court's charts in (MapPlayColonisationAi).
+## so a court sends one Explorer to chart it and, once it holds land there, one
+## Builder to work it. `charts` is the court's own fog: it lands only on coast it
+## has seen and walks only water it charts, with one blind step into the unknown
+## to extend the chart (DR-20261110-21). A null chart is the fixture reading —
+## every tile charted — and production always hands the court's charts in
+## (MapPlayColonisationAi).
 static func plan(
 	config: AiConfig,
 	world: WorldMap,
@@ -32,8 +31,7 @@ static func plan(
 	fleets: Array,
 	civilians: Array,
 	abroad: Dictionary = {},
-	charts: CourtCharts = null,
-	overseas: Dictionary = {}
+	charts: CourtCharts = null
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -52,9 +50,7 @@ static func plan(
 		return _voyage(world, region, model, fleet, carried, target, charts)
 	if region != home:
 		return {}
-	var unit: CivilianState = _voyage_unit(
-		civilians, owner, world, target, abroad, overseas
-	)
+	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
 	if unit == null:
 		return {}
 	fleet = _idle_fleet(fleets, owner)
@@ -102,26 +98,16 @@ static func _owns_land_in(world: WorldMap, region: int, owner: int) -> bool:
 
 
 ## First idle civilian the court should send, or null. A crown that owns land
-## overseas sends its Builder to work it; otherwise it charts with an Explorer,
-## and once its own chart holds a Tribe deed it can close, it presses the claim
-## with a Merchant (wiki: civilian-units § Merchant; § Overseas deployment).
-## One colonist of each kind at a time, so the expedition is not duplicated.
+## overseas sends its Builder to work it; otherwise it charts with an Explorer
+## (wiki: civilian-units § Overseas deployment). One colonist of each kind at a
+## time, so the expedition is not duplicated.
 static func _voyage_unit(
-	civilians: Array,
-	owner: int,
-	world: WorldMap,
-	target: int,
-	abroad: Dictionary,
-	overseas: Dictionary
+	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary
 ) -> CivilianState:
 	if _owns_land_in(world, target, owner):
 		var builder: CivilianState = _idle_colonist(civilians, owner, "builder")
 		if builder != null:
 			return builder
-	if int(abroad.get("merchant", 0)) == 0:
-		var merchant: CivilianState = _idle_colonist(civilians, owner, "merchant")
-		if merchant != null and _deed_offer(owner, overseas) > 0:
-			return merchant
 	if int(abroad.get("explorer", 0)) > 0:
 		return null
 	return _idle_colonist(civilians, owner, "explorer")
@@ -140,23 +126,6 @@ static func _idle_colonist(
 			continue
 		return unit
 	return null
-
-
-## Deeds this court could close in the target region, counted off its own chart,
-## works and courts (wiki: civilian-units § Merchant). 0 when it has no chart
-## there yet, which is what keeps a claim behind the exploration that finds it.
-static func _deed_offer(owner: int, overseas: Dictionary) -> int:
-	var model: MapModel = overseas.get("model", null)
-	var works: LandWorks = overseas.get("works", null)
-	var court: DiplomacyState = overseas.get("diplomacy", null)
-	if model == null or works == null or court == null:
-		return 0
-	var context: Dictionary = {
-		"diplomacy": court,
-		"visibility": overseas.get("visibility", null),
-		"treasury": int(overseas.get("treasury", 0)),
-	}
-	return AiMerchantWork.buyable_tiles(model, owner, works, context).size()
 
 
 ## Lowest-id squadron that can still move; an expedition keeps the same hulls
