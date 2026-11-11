@@ -68,6 +68,12 @@ static func bed_for_turn(turn: int) -> Dictionary:
 	return bed_for_year(TurnTime.year_for_turn(turn))
 
 
+## Bed the app opens on: the title screen has no calendar year yet, so it borrows
+## the campaign's first era and the score runs on without a restart.
+static func menu_bed_id() -> String:
+	return String(ERA_BEDS[0]["id"])
+
+
 static func track(track_id: String) -> Dictionary:
 	var found: Variant = TRACKS.get(track_id, {})
 	if found is Dictionary:
