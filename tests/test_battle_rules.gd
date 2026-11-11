@@ -351,7 +351,71 @@ func test_a_side_two_victory_reads_as_a_repulse() -> void:
 		"defender_lost": [],
 	}
 	assert_eq(BattleReport.describe(battle, "Gulf of Darién", FACTIONS),
-		"France repels England in the Gulf of Darién — 1 ships lost")
+		"France repels England in the Gulf of Darién — England loses 1 ship")
+
+
+## A winning side still spends hulls on the beaten side's damage pool, and the
+## despatch names both sides' dead — a crown never loses a named hull in silence
+## (DR-20261111-07, REQ-P5-05).
+func test_the_despatch_names_both_sides_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["a"],
+		"attacker_lost_names": ["Trinidad"],
+		"defender_lost": ["b", "c"],
+		"defender_lost_names": ["Revenge", "Vanguard"],
+		"attacker_strength": 18.25,
+		"defender_strength": 11.0,
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Windward Passage", FACTIONS),
+		"España holds the Windward Passage — England loses 2 ships"
+		+ " (Revenge, Vanguard); España loses 1 ship (Trinidad)"
+		+ " — 18.2 strength to 11.0"
+	)
+
+
+## A beaten side that slips away keeps every hull, but the holder still pays for
+## the win: the retreat despatch names the hulls it spent.
+func test_a_retreat_despatch_names_the_holders_own_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 1,
+		"defender": 0,
+		"outcome": NavalCombat.Outcome.SIDE2_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["a"],
+		"defender_lost_names": ["Trinidad"],
+		"retreat": {"success": true, "beaten": 1},
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Mar Tirreno", FACTIONS),
+		"England withdraws from the Mar Tirreno — España holds the zone"
+		+ "; España loses 1 ship (Trinidad)"
+	)
+
+
+## The resolver records the names of every hull it sinks, read before the hull
+## leaves the roster (the name lives on the fleet and dies with it).
+func test_a_resolved_battle_records_the_names_it_sank() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["a", "b"], {"a": "frigate", "b": "frigate"})
+	var weak := FleetState.at_sea(2, 1, 0, ["c"], {"c": "fluyte"})
+	var doomed_name: String = ShipNames.of(weak, "c")
+
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([strong, weak])
+
+	assert_gt(battles.size(), 0)
+	var battle: Dictionary = battles[0]
+	var lost: Array = battle.get("attacker_lost", []) if int(battle["attacker"]) == 1 \
+		else battle.get("defender_lost", [])
+	assert_eq(lost, ["c"], "the weak squadron's hull is the one sunk")
+	assert_eq(
+		battle.get("attacker_lost_names", []) if int(battle["attacker"]) == 1 \
+			else battle.get("defender_lost_names", []),
+		[doomed_name],
+		"the report names the hull it sank"
+	)
 
 
 func test_a_stalemate_reads_as_a_withdrawal() -> void:
@@ -1194,6 +1258,65 @@ func test_the_ratio_bands_live_in_one_table() -> void:
 	assert_almost_eq(float(ArmyBands.for_ratio(1.2)["attacker"]), 0.3, 0.001)
 	assert_almost_eq(float(ArmyBands.for_ratio(0.8)["attacker"]), 0.5, 0.001)
 	assert_almost_eq(float(ArmyBands.for_ratio(0.5)["attacker"]), 1.0, 0.001)
+
+
+## The table's morale row: an attacker whose morale is lower than the defender's
+## fights the blunted band between 1.5 and 4.0 to one, and every other row keeps
+## its published fractions (wiki: combat § Auto-resolve ratio bands).
+func test_a_hungrier_attacker_fights_the_blunted_band() -> void:
+	var blunted: Dictionary = ArmyBands.for_ratio(2.0, 0.5, 1.0)
+	assert_almost_eq(float(blunted["attacker"]), 0.6, 0.001)
+	assert_almost_eq(float(blunted["defender"]), 0.4, 0.001)
+	assert_true(bool(blunted.get("blunted", false)), "the band is blunted")
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 0.75)["attacker"]), 0.15, 0.001)
+	# The morale row claims only 1.5 <= ratio < 4.0.
+	assert_almost_eq(float(ArmyBands.for_ratio(4.0, 0.5, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(1.2, 0.5, 1.0)["attacker"]), 0.3, 0.001)
+
+
+## A hungrier attacker at blunted odds guts the garrison and still does not take
+## the province: the row writes a stalemate, not an attacker victory.
+func test_a_hungry_attacker_guts_the_garrison_without_taking_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	# 4 pikemen at half rations against 1 at full: strength ratio 2.0.
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 0.4, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.STALEMATE)
+	assert_true(bool(battle.get("blunted", false)), "the despatch can say why")
+	assert_eq(model.province_owner(2), 1, "the hungry attacker does not take the province")
+	assert_eq(defender.count(), 0, "the garrison was gutted")
+	assert_true(attacker.count() > 0, "the attacker keeps the field")
+	var line: String = BattleReport.describe_land(battle, "Harbour", FACTIONS)
+	assert_true(line.contains("hungrier"), "the toast names the blunted win: %s" % line)
+
+
+## The same odds at full rations still take the province: the morale row is the
+## only difference (and ratio == 4.0 itself is outside its band).
+func test_full_rations_at_the_same_odds_take_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 1.0, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_false(bool(reports[0].get("blunted", false)))
+	assert_eq(model.province_owner(2), 0, "a fed attacker takes the province")
 
 
 ## A won auto-resolve battle tells the plate what it cost: surviving chevrons,

@@ -295,6 +295,95 @@ func test_the_crowns_own_battle_ignores_the_chart() -> void:
 	assert_true(String(items[0]["text"]).contains("2 regiments"))
 
 
+## The crown's own losses always print their numbers, even when it did not win
+## (wiki: the-gazette § What the crown can know).
+func test_a_field_battle_the_crown_loses_prints_its_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"attacker_lost": [1],
+		"defender_lost": [1, 2, 3],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("3 of our regiments are lost"), text)
+
+
+func test_a_standoff_prints_the_crowns_own_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.STALEMATE,
+		"attacker_lost": [1, 2],
+		"defender_lost": [1],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of our regiments lost"), text)
+
+
+## A beaten squadron that slips away still costs the crown that held the water
+## hulls (wiki: the-gazette § What the crown can know; ships-and-naval § Naval
+## Combat Resolution).
+func test_a_withdrawal_that_costs_the_crown_hulls_prints_them() -> void:
+	var battle: Dictionary = {
+		"attacker": FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"zone": 0,
+		"outcome": NavalCombat.Outcome.SIDE2_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["h1"],
+		"retreat": {"ok": true, "success": true, "beaten": FRANCE},
+	}
+	var items: Array = _items(_state(3), [], [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("1 of our hulls lost"), text)
+
+
+## Another court's standoff and withdrawal still print no numbers
+## (wiki: the-gazette § What the crown can know; DR-20261110-28).
+func test_a_watched_courts_standoff_and_withdrawal_print_no_numbers() -> void:
+	var province: int = _new_world_province()
+	var zone: int = _new_world_zone()
+	var standoff: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"province": province,
+		"outcome": ArmyCombat.Outcome.STALEMATE,
+		"attacker_lost": [1, 2],
+		"defender_lost": [1],
+	}
+	var withdrawal: Dictionary = {
+		"attacker": ENGLAND,
+		"defender": FRANCE,
+		"region": 1,
+		"zone": zone,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["h1"],
+		"defender_lost": [],
+		"retreat": {"ok": true, "success": true, "beaten": FRANCE},
+	}
+	var items: Array = _items(
+		_state(3), [ENGLAND], [standoff], [withdrawal], {}, 0, [], [],
+		_charts(province, zone)
+	)
+	assert_eq(items.size(), 2)
+	for item: Variant in items:
+		var text: String = String((item as Dictionary)["text"])
+		assert_false(text.contains("regiment"), "no casualties for another court: %s" % text)
+		assert_false(text.contains("hull"), "no hulls for another court: %s" % text)
+
+
 func test_deed_income_is_our_court_news() -> void:
 	var items: Array = _items(_state(3), [], [], [], {}, 1250)
 	assert_eq(items.size(), 1)

@@ -14,23 +14,61 @@ static func describe(battle: Dictionary, zone_name: String, faction_names: Array
 		var beaten: int = int(retreat.get("beaten", int(battle.get("defender", 0))))
 		var haven: String = _faction(faction_names, beaten)
 		var holder: String = defender if beaten == int(battle.get("attacker", 0)) else attacker
-		return "%s withdraws from the %s — %s holds the zone%s" % [
-			haven, zone_name, holder, strength_note(battle)
+		var holder_side: String = "defender" if beaten == int(battle.get("attacker", 0)) else "attacker"
+		return "%s withdraws from the %s — %s holds the zone%s%s" % [
+			haven, zone_name, holder,
+			own_loss(holder_side, holder, battle), strength_note(battle)
 		]
 	match outcome:
 		NavalCombat.Outcome.SIDE1_VICTORY:
-			var sunk: int = (battle.get("defender_lost", []) as Array).size()
-			return "%s holds the %s — %s loses %d ships%s" % [
-				attacker, zone_name, defender, sunk, strength_note(battle)
+			return "%s holds the %s — %s loses %s%s%s" % [
+				attacker, zone_name, defender, loss_phrase("defender", battle),
+				own_loss("attacker", attacker, battle), strength_note(battle)
 			]
 		NavalCombat.Outcome.SIDE2_VICTORY:
-			var lost: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s repels %s in the %s — %d ships lost%s" % [
-				defender, attacker, zone_name, lost, strength_note(battle)
+			return "%s repels %s in the %s — %s loses %s%s%s" % [
+				defender, attacker, zone_name, attacker, loss_phrase("attacker", battle),
+				own_loss("defender", defender, battle), strength_note(battle)
 			]
 	return "%s and %s trade broadsides in the %s and withdraw%s" % [
 		attacker, defender, zone_name, strength_note(battle)
 	]
+
+
+## "1 ship (Trinidad)" / "2 ships (Trinidad, Concepcion)" / "2 ships" — the hull
+## count the beaten side lost, with the names it flew when the report knows them
+## (DR-20261111-07: every hull bears a name). `side` is "attacker" or "defender".
+static func loss_phrase(side: String, battle: Dictionary) -> String:
+	var lost: Array = battle.get(side + "_lost", [])
+	var count: int = lost.size()
+	if count <= 0:
+		return "no ships"
+	var names: Array = battle.get(side + "_lost_names", [])
+	var head: String = "%d ship%s" % [count, "" if count == 1 else "s"]
+	if names.is_empty():
+		return head
+	return "%s (%s)" % [head, ", ".join(_strings(names, 3))]
+
+
+## The victor's own damage, named: "; España loses 1 ship (Trinidad)". Empty when
+## the battle report carries no loss for that side. A winning side still spends
+## hulls on the beaten side's strength, so a silent tail is a silent loss
+## (REQ-P5-05, wiki: ships-and-naval § Naval Combat Resolution).
+static func own_loss(side: String, faction: String, battle: Dictionary) -> String:
+	var lost: Array = battle.get(side + "_lost", [])
+	if lost.is_empty():
+		return ""
+	return "; %s loses %s" % [faction, loss_phrase(side, battle)]
+
+
+## First `limit` names, then "and N more", so a long despatch stays one line.
+static func _strings(values: Array, limit: int) -> Array[String]:
+	var out: Array[String] = []
+	for index in mini(values.size(), limit):
+		out.append(String(values[index]))
+	if values.size() > limit:
+		out.append("and %d more" % (values.size() - limit))
+	return out
 
 
 ## The arithmetic behind a clash: " — 18.2 strength to 11.0". The resolver's own
@@ -112,7 +150,16 @@ static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array
 ) -> String:
 	return _land_core(battle, province_name, faction_names) \
-		+ regiment_note(battle) + siege_note(battle)
+		+ regiment_note(battle) + siege_note(battle) + blunted_note(battle)
+
+
+## Why a gutted garrison was not a capture: the hungry attacker's win was
+## blunted by the ratio-band table (wiki: combat § Auto-resolve ratio bands).
+## Empty for every other despatch, so no existing line changes (REQ-P5-05).
+static func blunted_note(battle: Dictionary) -> String:
+	if not bool(battle.get("blunted", false)):
+		return ""
+	return " — the hungrier attacker could not press the win"
 
 
 ## An auto-resolved siege's tail: how many emplaced guns the besieging train
