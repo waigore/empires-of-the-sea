@@ -7,9 +7,11 @@ Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are har
 | Tier | When | Command / gate | Budget |
 |------|------|----------------|--------|
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
-| **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full `gd-tools test --coverage --min 80 --parallel 4` | job **≤ 30 min** |
+| **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
 Tier 1 is the merge gate (`tests` / `e2e-smoke` in CI). Tier 2 does **not** block PRs. Failures open/update one sticky GitHub issue labeled `ci-tier2`; the **fix-tests** agent (hourly, gated on that label) fixes, PRs, babysits, and closes it.
+
+Tier 2 shards because `gd-tools` boots one Godot process **per suite** and coverage instrumentation costs ~35 s before the first test, so one job is bounded by its suites. Shards run on separate runners; `coverage-gate` merges their coverage so the 80% gate spans the project.
 
 Strict map: unmapped in-scope paths fail selection. `full = true` rules run every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
 
@@ -36,6 +38,8 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
   `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
   buy deeds snapshot it (`MapFixture.snapshot` / `restore`) rather than build a world.
 - One Godot boot per theme; keep suite count low under coverage.
+- Coverage adds a fixed ~35 s per worker, so a suite's wall time is mostly its
+  mounts. Prefer one mount per case; let long screen suites stand alone.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
@@ -46,8 +50,8 @@ python tools/select_impacted_tests.py --base origin/main --print-command
 gd-tools test --coverage --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
 gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 
-# Tier 2-shaped
-gd-tools test --coverage --min 80 --parallel 4
+# Tier 2-shaped (one shard; CI runs all four, then merges coverage and gates 80%)
+gd-tools test --coverage --shard 1/4 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 
 # Free-playtest drives (opt-in, not a CI gate). Every one launches the real flow
