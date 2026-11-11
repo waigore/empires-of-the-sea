@@ -883,8 +883,8 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 	MapPlayFleets.open_yard(_screen.play)
 
 	assert_true(_screen.hud.panels.is_fleet_panel_open())
-	assert_true(_screen.hud.panels.fleet_panel._yard_open)
-	assert_false(_screen.hud.panels.fleet_panel._yard_rows.is_empty())
+	assert_true(_screen.hud.panels.fleet_panel._yard._open)
+	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
 
 
 func test_launching_pays_the_row_and_moors_the_hull() -> void:
@@ -918,7 +918,7 @@ func test_breaking_up_a_hull_asks_once() -> void:
 
 	panel._on_scrap_pressed(hull_id)
 
-	assert_eq(panel._armed_hull, hull_id, "the first tap only arms")
+	assert_eq(panel._yard._armed_hull, hull_id, "the first tap only arms")
 	assert_true(fleet.hulls.has(hull_id))
 
 	panel._on_scrap_pressed(hull_id)

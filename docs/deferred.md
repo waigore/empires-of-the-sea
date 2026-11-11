@@ -24,6 +24,7 @@ for what to ship next (`REQ-P2-02`).
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
 | Regiment titles + service records | `RegimentNames` / `RegimentRecord` (DR-20261111-18), [`armies.md`](armies.md) |
 | Raid hull losses + civilian hulls | `NavalRaid`/`NavalHullLoss` (DR-20261111-17) |
+| Difficulty: rival naval strength | `Difficulty` / `NavalCombat` (DR-20261111-24) |
 | Rival-on-rival raids + prize cargo | `MapPlayRaids` per-crown pass (DR-20261111-20) |
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 
@@ -31,7 +32,7 @@ for what to ship next (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Difficulty layer extras | Naval strength, AI income, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
+| 1 | Difficulty layer extras | AI income per turn, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
 | 2 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
 | — | Era-change dialogue | Blocked | No era model (DR-20261111-08) |
 | — | Hospital upkeep / field hospitals / heal-at-0 | Design polish on DR-20261111-12/16 | Not shippable without a DR |
@@ -39,10 +40,11 @@ for what to ship next (`REQ-P2-02`).
 
 ## Next pick
 
-**Rank 1** is difficulty knobs, wiki-blocked today (naval strength, AI income and
-advisor toggles sit outside the difficulty layer); rank 2 needs wiki design
-first. Rival wars between crowns now pinch cargo and pay prize like the crown's
-raids do, so the ranked list starts at the difficulty layer.
+**Rank 1** is the remaining difficulty knobs, wiki-blocked today (AI income and
+advisor toggles sit outside the layer; victory thresholds need a DR); rank 2
+needs wiki design first. The layer now scales a rival's strength on the field
+and the sea alike (DR-20261111-24), so what is left is AI income, victory
+thresholds and the advisor.
 
 ## Out of scope / blocked footnotes
 

@@ -18,6 +18,9 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		# Last turn's rations decide how hard each squadron can fight
 		# (wiki: workers-and-population § Consumption).
 		"navy_feeding": _navy_feeding(play),
+		# A rival of the chosen difficulty fights its own strength
+		# (wiki: ruleset-config § Difficulty).
+		"difficulty": strength_multipliers(play),
 	}
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
 		play.world, hostile, context
@@ -50,6 +53,16 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
 	return battles
+
+
+## The difficulty layer's strength factor per rival court, read by the resolver
+## and the fleet dossier alike so the odds printed are the odds struck (wiki:
+## ruleset-config § Difficulty; DR-20261111-24). The human crown is absent from
+## the table and fights as published.
+static func strength_multipliers(play: PlaySession) -> Dictionary:
+	return Difficulty.combat_multipliers(
+		play.human_faction_id(), play.difficulty, FactionCatalog.great_power_ids()
+	)
 
 
 ## Each crown's last resolved navy coverage, read from its own ledger so the
