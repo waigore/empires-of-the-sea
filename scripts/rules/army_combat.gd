@@ -160,8 +160,6 @@ static func _exchange(
 		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
 		* float(def_mods["loss_scale"])), def_limit
 	)
-	# Survivors carry the field's wear: the side that lost more is mauled more
-	# (wiki: combat § Strength — damaged units fight weaker).
 	RegimentCondition.wear(
 		attacking,
 		RegimentCondition.WOUND_SHARE
@@ -171,7 +169,8 @@ static func _exchange(
 	RegimentCondition.wear(
 		defending,
 		RegimentCondition.WOUND_SHARE
-		* float(defender_lost.size()) / float(maxi(initial_defenders, 1)),
+		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
+		* HospitalRules.triage_scale_at(model, province),
 		def_limit
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
@@ -193,6 +192,7 @@ static func _exchange(
 		"attack_paid": int(fee["paid"]),
 		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
 		"fort_level": int(def_mods["fort"]),
+		"hospital_level": HospitalRules.level_at(model, province),
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
