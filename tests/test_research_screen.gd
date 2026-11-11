@@ -65,3 +65,45 @@ func test_the_projection_includes_research_gold() -> void:
 	var preview: Dictionary = _screen.economy.projected()
 	var research: Dictionary = preview["research"]
 	assert_eq(int(research["spent"]), ResearchFunding.gold("low"))
+
+
+## Changing a slot's priority used to repaint the whole dialog. The row the
+## player pressed must survive and its spend line and gauge must follow at once
+## (REQ-P1-05).
+func test_a_priority_change_repaints_the_slot_at_once_without_reloading() -> void:
+	_screen.economy.open_research()
+	_screen.economy._on_research_assign("land_enclosure")
+	var panel: ResearchPanel = _screen.hud.panels.research_panel
+	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	assert_eq(row.bar().next_gain(), 300, "Medium buys 300 points")
+	_screen.economy._on_research_funding(0)
+	assert_is(row, panel._slots_body.get_child(0), "the slot is repainted, not rebuilt")
+	assert_true(_screen.hud.panels.is_research_open())
+	assert_eq(row.bar().next_gain(), 800, "High buys 800 points")
+	assert_eq(row.gold_next(), 400)
+
+
+func test_cancelling_a_study_keeps_the_ledger_and_its_rows() -> void:
+	_screen.economy.open_research()
+	_screen.economy._on_research_assign("land_enclosure")
+	var panel: ResearchPanel = _screen.hud.panels.research_panel
+	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	_screen.economy._on_research_cancel(0)
+	assert_is(row, panel._slots_body.get_child(0), "no button rebuilds the slot")
+	assert_true(_screen.hud.panels.is_research_open())
+	assert_eq(row.bar().next_gain(), 0, "an idle slot buys nothing")
+
+
+## The sheet fades in once. A repaint while it is open must not restart the
+## fade, which is what read as the dialog reloading.
+func test_repainting_the_open_ledger_does_not_fade_it_back_in() -> void:
+	_screen.economy.open_research()
+	var wrap: Control = _screen.hud._research_wrap
+	for _frame in 120:
+		if wrap.modulate.a >= 0.999:
+			break
+		await get_tree().process_frame
+	wrap.modulate.a = 0.5
+	_screen.economy.open_research()
+	await get_tree().process_frame
+	assert_true(wrap.modulate.a > 0.3, "a repaint must not restart the reveal fade")

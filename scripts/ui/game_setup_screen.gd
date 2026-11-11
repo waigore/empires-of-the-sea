@@ -246,11 +246,16 @@ func _difficulty() -> String:
 	return Difficulty.IDS[index]
 
 
-## Plain-language effect of the chosen level, so the choice is never blind.
+## Plain-language effect of the chosen level, so the choice is never blind: the
+## rival rows and the bar the crown itself must clear (wiki: victory § Military
+## victory; DR-20261111-28).
 func _refresh_difficulty_hint() -> void:
 	if _difficulty_hint == null:
 		return
-	_difficulty_hint.text = Difficulty.hint(_difficulty())
+	var level: String = _difficulty()
+	_difficulty_hint.text = "%s Your crown must hold %d Old World provinces." % [
+		Difficulty.hint(level), VictoryRules.crown_threshold(level),
+	]
 
 
 func _notification(what: int) -> void:

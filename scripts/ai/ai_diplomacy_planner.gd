@@ -53,6 +53,18 @@ static func war_desire(
 	var score: int = 0
 	for value: Variant in factors.values():
 		score += int(value)
+	# The two agenda pulls the court's own book of grudges adds (wiki:
+	# hidden-agendas § Design intent; DR-20261111-27): a backstabber signs a
+	# treaty meaning to break it, and an envious court resents a human crown
+	# that has pulled ahead of it.
+	var betrayal: int = config.betray_bias() if record.formal_alliance else 0
+	if betrayal != 0:
+		factors["betrayal"] = betrayal
+		score += betrayal
+	var rivalry: int = _rival_pull(config, attacker, target, context)
+	if rivalry != 0:
+		factors["rival"] = rivalry
+		score += rivalry
 	if _is_weak_target(target):
 		factors["resource_need"] = _resource_need(attacker, world, target, context)
 		factors["intervention"] = _intervention_penalty(state, world, attacker, target)
@@ -83,6 +95,10 @@ static func decide(
 	var best_offer: Dictionary = {}
 	var player: int = int(context.get("player", -1))
 	var base: int = config.parameter("diplomacy.war_desire_base")
+	# An agenda moves the bar a war must fall below before the court puts peace
+	# to its enemy (wiki: hidden-agendas — peacemaker early peace, warmonger
+	# keeps the war alive; DR-20261111-27).
+	var peace_bar: int = clampi(base + config.peace_bias(), 0, 100)
 	for record: DiplomacyRelation in state.relations_of(config.faction):
 		var target: int = record.other(config.faction)
 		var desire: Dictionary = war_desire(
@@ -97,7 +113,7 @@ static func decide(
 			"blocked": "",
 		}
 		if record.at_war:
-			if int(desire["score"]) >= base:
+			if int(desire["score"]) >= peace_bar:
 				entry["blocked"] = "war still worth waging"
 			elif target == player:
 				# The human keeps consent: a rival queues the offer and waits
@@ -270,6 +286,26 @@ static func _needs_overseas(world: WorldMap, attacker: int, target: int) -> bool
 		if world.owned_provinces(index, target) > 0 and not mine.has(index):
 			return true
 	return false
+
+
+## Every agenda that resents a crown's lead reads the same table: a rival of a
+## human court that holds at least as much power adds its `rival_bias` to the
+## desire to cut it down (wiki: hidden-agendas — envy; DR-20261111-27). With no
+## read model for the powers the factor stays out, so a headless trace without
+## one is unchanged.
+static func _rival_pull(
+	config: AiConfig, attacker: int, target: int, context: Dictionary
+) -> int:
+	var bonus: int = config.rival_bias()
+	if bonus == 0:
+		return 0
+	var human: int = int(context.get("player", -1))
+	if target != human:
+		return 0
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(human) or not powers.has(attacker):
+		return 0
+	return bonus if int(powers[human]) >= int(powers[attacker]) else 0
 
 
 static func _is_weak_target(target: int) -> bool:

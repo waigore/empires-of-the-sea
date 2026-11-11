@@ -374,6 +374,76 @@ func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
 
 
+func test_tapping_a_survey_mark_starts_the_survey() -> void:
+	var play: PlaySession = _screen.play
+	var explorer: CivilianState = _explorer()
+	assert_not_null(explorer, "the crown fields an Explorer")
+	if explorer == null:
+		return
+	var province: int = _screen.model.province_at(explorer.tile.x, explorer.tile.y)
+	var ground: Array[Vector2i] = MineralSurvey.unsurveyed_in_province(
+		_screen.model, _screen.land_works, play.player_faction, province,
+		_screen.visibility
+	)
+	if ground.size() < 2:
+		return
+	var stand: Vector2i = ground[0]
+	var target: Vector2i = stand
+	for tile: Vector2i in ground:
+		if absi(tile.x - stand.x) + absi(tile.y - stand.y) > 1:
+			target = tile
+			break
+	if target == stand:
+		return
+	explorer.tile = stand
+	_screen.civilian_layer.select(explorer)
+	assert_true(_screen.overlay.survey_tiles.has(stand), "the marks cover the province")
+	assert_true(_detail_text().contains("Survey"), "the dossier carries the survey row")
+	# A tap on marked ground starts the survey without a march.
+	assert_true(
+		MapPlayCivilians.try_move(
+			play, MapGeo.tile_center(target.x, target.y, MapScreen.TILE_SIZE)
+		),
+		"the tap is consumed by the survey"
+	)
+	assert_true(explorer.is_working())
+	assert_eq(explorer.work_action(), "prospect")
+	assert_eq(explorer.work_tile(), target)
+	# A working Explorer takes no second survey.
+	assert_false(MapPlayCivilians.try_survey(play, explorer, stand))
+	await get_tree().process_frame
+	# Ending the turn uncovers the ground for the court that paid for it.
+	MapPlayTurn.end_turn(play)
+	Fixture.settle(play)
+	assert_true(
+		_screen.land_works.is_prospected(play.player_faction, _screen.model, target),
+		"the survey lands on end turn"
+	)
+
+
+func test_a_rivals_survey_never_names_its_find() -> void:
+	var play: PlaySession = _screen.play
+	var rival: int = -1
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != play.player_faction:
+			rival = faction
+			break
+	assert_true(rival >= 0, "the chart seats more than one Great Power")
+	var report: Dictionary = {"owner": rival, "find": "iron"}
+	var line: String = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_false(line.contains("iron"), "a rival's uncover is never ours to read")
+	assert_true(line.contains("Explorer"))
+	# The court that paid for the survey does hear what it found.
+	report = {"owner": play.player_faction, "find": "iron"}
+	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_true(line.contains("iron"))
+	assert_true(line.contains("Cádiz"))
+	# An empty find is a real answer, not silence (DR-20261111-26).
+	report = {"owner": play.player_faction, "find": ""}
+	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_true(line.contains("no mineral"))
+
+
 func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 	var play: PlaySession = _screen.play
 	for faction: int in FactionCatalog.great_power_ids():
@@ -470,6 +540,82 @@ func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
 		assert_ne(crew.tile, pair[1])
 
 
+## A signed deed develops the seller's town, and the crown is told the level it
+## now stands at (DR-20261112-01; RUB-P5-05).
+func test_a_signed_deed_names_the_town_it_raised() -> void:
+	var play: PlaySession = _screen.play
+	var model: MapModel = play.model
+	var found: Array = _minor_estate(model)
+	assert_eq(found.size(), 2, "the chart seats a Minor with an estate")
+	var province: ProvinceState = found[0]
+	var tile: Vector2i = found[1]
+	var saved: Array = Fixture.snapshot(play.world)
+	var town_before: int = province.town_development
+
+	var report: Dictionary = {}
+	assert_true(LandPurchase.complete(
+		model, tile, play.player_faction, play.economy.economy, report
+	), "the deed is signed")
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+		"town_level": int(report.get("town_level", 0)),
+	})
+
+	assert_eq(province.town_level(), 2, "one deed lifts the seller's town")
+	assert_true(
+		_last_toast_text().ends_with("The town rises to level 2."),
+		"the court hears the deed and the level it bought: %s" % _last_toast_text()
+	)
+	# A town already at its deed ceiling must not announce a rise it never took.
+	province.town_development = 4
+	MapPlayCivilians._settle_purchase(play, {
+		"owner": play.player_faction,
+		"region": model.region_id,
+		"tile": tile,
+		"province": province.id,
+		"town_level": 0,
+	})
+	assert_false(
+		_last_toast_text().contains("town"),
+		"a fully grown town is not announced as rising: %s" % _last_toast_text()
+	)
+	Fixture.restore(play.world, saved)
+	province.town_development = town_before
+
+
+## The text of the most recent despatch plate, or "" when none is on screen.
+func _last_toast_text() -> String:
+	var box: Node = _screen.hud._toast_box
+	if box.get_child_count() == 0:
+		return ""
+	return _label_text(box.get_child(box.get_child_count() - 1))
+
+
+func _label_text(node: Node) -> String:
+	for child: Node in node.get_children():
+		if child is Label:
+			return (child as Label).text
+		var inner: String = _label_text(child)
+		if not inner.is_empty():
+			return inner
+	return ""
+
+
+## A Minor or Tribe province and one of its resource tiles.
+func _minor_estate(model: MapModel) -> Array:
+	for province: ProvinceState in model.provinces:
+		var kind: int = FactionCatalog.type_of(province.owner)
+		if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
+			continue
+		for tile: Vector2i in province.tiles:
+			if model.resource_at(tile.x, tile.y) != MapModel.NO_ID:
+				return [province, tile]
+	return []
+
+
 ## An owned land tile and a foreign neighbour across the border.
 func _border_tiles(play: PlaySession) -> Array:
 	var model: MapModel = play.model
@@ -511,6 +657,23 @@ func _capital_estate_tile() -> Vector2i:
 
 func _capital_point() -> Vector2:
 	return _screen.model.province_center(_screen.capital_province) * MapScreen.TILE_SIZE
+
+
+## The crown's Explorer (the starting roster carries exactly one).
+func _explorer() -> CivilianState:
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "explorer":
+			return unit
+	return null
+
+
+## Every caption and value printed on the civilian dossier's detail grid.
+func _detail_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
+	for node: Node in panel._detail.find_children("*", "Label", true, false):
+		parts.append((node as Label).text)
+	return " ".join(parts)
 
 
 ## Prefer a crown resource a Builder can raise without an Explorer first. The

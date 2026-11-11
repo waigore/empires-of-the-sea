@@ -138,6 +138,34 @@ func test_the_town_row_names_the_town_level() -> void:
 	assert_eq(_panel._grid.town.text, "Level 4 · full")
 
 
+## The town row's tip names the path the province on screen actually offers: a
+## Builder in a crown's own land, a Merchant's deed in a Minor or Tribe province
+## (wiki: civilian-units § Merchant; DR-20261112-01). A Builder a crown may not
+## send there is not advice.
+func test_the_town_row_names_the_path_that_province_offers() -> void:
+	_show()
+	assert_true(
+		_panel._grid.town.tooltip_text.contains("A Builder raises the town"),
+		"a crown's own town is its Builder's work"
+	)
+	_model.provinces[1].owner = 6
+	_model.provinces[1].town_tile = Fixture.RIVAL_GRAIN_TILE
+	_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, {})
+	_panel.refresh(_model, 1)
+	assert_true(
+		_panel._grid.town.tooltip_text.contains("Merchant"),
+		"a Minor's town grows only from a deed: %s" % _panel._grid.town.tooltip_text
+	)
+	assert_false(
+		_panel._grid.town.tooltip_text.contains("A Builder raises the town"),
+		"the tip never names a Builder a crown cannot send there"
+	)
+	assert_eq(
+		DossierCopy.town_tip(null), DossierCopy.TOWN_TIP,
+		"a missing province falls back to the Builder line"
+	)
+
+
 # --- the town order's gate ---------------------------------------------------
 
 
@@ -200,6 +228,28 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 func _show(tech: Dictionary = {}) -> void:
 	_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
 	_panel.refresh(_model, 0)
+
+
+func test_the_estate_block_names_the_ground_still_to_survey() -> void:
+	_show()
+	# The fixture's iron tile is already prospected; the bare hills are not.
+	var text: String = _panel._resources.survey_text()
+	assert_true(text.contains("Unsurveyed ground"), text)
+	assert_true(text.contains("1 tile"), text)
+
+
+func test_an_empty_estate_block_still_names_the_ground_to_read() -> void:
+	var block := ProvinceResources.new()
+	add_child(block)
+	block.render([], 3)
+	assert_true(block._empty.text.contains("No estates charted"))
+	assert_true(block._empty.text.contains("3 tiles"))
+	assert_true(block.survey_text().contains("3 tiles"))
+	# A fully read province says nothing, and keeps the plain empty line.
+	block.render([], 0)
+	assert_true(block._empty.text.begins_with("No charted"))
+	assert_eq(block.survey_text(), "")
+	block.free()
 
 
 func _by_tile() -> Dictionary:

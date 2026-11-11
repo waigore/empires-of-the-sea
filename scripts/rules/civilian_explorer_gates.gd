@@ -1,26 +1,39 @@
 class_name CivilianExplorerGates
 extends RefCounted
 ## Gates checked before an Explorer's field work (wiki: civilian-units
-## § Work Order Summary, Refs #3753 R4; fog-and-exploration § Order Visibility).
-## Pure rules: one refusal string ("" when the work may start) shared by the
-## work-order validator and the dossier options (REQ-P3-03).
+## § Work Order Summary, Refs #3753 R4; fog-and-exploration § Order Visibility,
+## § Prospecting; DR-20261111-26). Pure rules: one refusal string ("" when the
+## work may start) shared by the work-order validator, the dossier and the AI
+## planners (REQ-P3-03).
 
 
-## Empty string when the work may start; otherwise the first refusal reason.
-static func refusal(
-	action: String,
+## Empty string when the province survey may start; otherwise the first refusal.
+## The "already charted" test stays with the work order, which knows the target.
+static func explore_refusal(
+	model: MapModel, owner: int, province: int, context: Dictionary
+) -> String:
+	return _consulate_refusal(model, owner, province, context)
+
+
+## Empty string when the Explorer may survey this tile now. Prospect is the
+## Explorer's one-turn uncover of charted, prospectable ground in the province it
+## stands in — an empty survey is legal, and a tile whose resource already shows
+## is never a survey target (wiki: fog-and-exploration § Prospecting).
+static func prospect_refusal(
 	model: MapModel,
 	owner: int,
+	unit_tile: Vector2i,
 	tile: Vector2i,
-	province: int,
+	works: LandWorks,
 	visibility: VisibilityModel,
 	context: Dictionary
 ) -> String:
-	# Prospect is a deed, not a look: the tile must already be charted at fogged
-	# or better (wiki: fog-and-exploration § Order Visibility Requirements).
-	if action == "prospect" and visibility != null:
-		if visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
-			return "Only charted land can be prospected."
+	var ground: String = MineralSurvey.refusal(model, works, owner, tile, visibility)
+	if not ground.is_empty():
+		return ground
+	var province: int = model.province_at(tile.x, tile.y)
+	if model.province_at(unit_tile.x, unit_tile.y) != province:
+		return "An Explorer surveys the province it stands in — march closer first."
 	return _consulate_refusal(model, owner, province, context)
 
 

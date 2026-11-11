@@ -43,14 +43,18 @@
 - **Attack price** (`ArmyAttackCost`): 100 ducats per attacker per land battle,
   ×0.75 Industrial Machinery, ×0.85 Modern Military Funding (63); once per
   exchange, floor zero.
-- **Quick Battle** (`QuickBattle`): three rounds at 3 CP a side;
-  aggressive/balanced/defensive. Strength is `Σ (FPN + FPM) × chevrons ×
-  health` × cohesion. Guns soak fire and lower the fort;
-  sieges split wall/behind (`SiegeLanes`), scale by ground, three gates;
-  Sortie is its own order. Plate floats
+- **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side;
+  aggressive/balanced/defensive. Strength `Σ (FPN + FPM) × chevrons ×
+  health` × cohesion. Guns soak fire and cut the fort; sieges split
+  wall/behind (`SiegeLanes`); Sortie is its own order. Plate floats
   `−N`, health, chevrons; [battle-sim.md](battle-sim.md).
 - **Unopposed:** an army ending in hostile or neutral land with no armed
   defender takes it.
+
+## Deferred (REQ-P2-02)
+
+Battle honours beyond the chevron; line preview —
+[`deferred.md`](deferred.md).
 
 ## Architecture
 
@@ -66,9 +70,9 @@ Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
 |--------|---------|-------|
 | Select army | click standard | tap standard |
 | March | click highlighted province | tap highlighted province |
-| Detach / combine | dossier buttons | dossier buttons |
+| Detach / combine | dossier | dossier |
 | Muster | Recruit, then Muster | same |
-| Embark / land | dossier buttons | same |
+| Embark / land | dossier | dossier |
 
 ## Tests
 

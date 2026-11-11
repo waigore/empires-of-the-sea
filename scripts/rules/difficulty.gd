@@ -33,6 +33,8 @@ const AI_START_PERCENT: Dictionary = {
 ## Rival land and naval strength against the human crown, percent of the
 ## published maths (wiki: combat § Modifiers, ships-and-naval § Naval Combat
 ## Resolution — difficulty scales attacker and defender on both surfaces).
+## The same table scales the human crown's own military-victory bar, so the
+## layer publishes one percentage per level and invents none (DR-20261111-28).
 const AI_COMBAT_PERCENT: Dictionary = {
 	"introductory": 85,
 	"normal": 100,
@@ -59,8 +61,15 @@ static func ai_start_percent(id: String) -> int:
 	return int(AI_START_PERCENT.get(normalize(id), AI_START_PERCENT[DEFAULT]))
 
 
-static func ai_combat_percent(id: String) -> int:
+## The level's published percentage: the one number per level that scales a
+## rival's strength in the field and at sea and the human crown's own victory
+## bar (wiki: ruleset-config § Difficulty; DR-20261111-28).
+static func level_percent(id: String) -> int:
 	return int(AI_COMBAT_PERCENT.get(normalize(id), AI_COMBAT_PERCENT[DEFAULT]))
+
+
+static func ai_combat_percent(id: String) -> int:
+	return level_percent(id)
 
 
 ## Plain-language effect for setup and the pause page: one line, no jargon.

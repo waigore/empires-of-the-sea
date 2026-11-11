@@ -101,10 +101,6 @@ func set_active(value: bool) -> void:
 	queue_redraw()
 
 
-func toggle() -> void:
-	set_active(not active)
-
-
 ## Province whose plaque covers a world point (-1 when none). Plates can be
 ## packed away from their centre, so taps must resolve through the slip.
 func hit_test(world_position: Vector2) -> int:
@@ -201,6 +197,17 @@ func _draw_plate(entry: Dictionary) -> void:
 		)
 	_draw_meter(entry, rect, alpha)
 	_draw_badge(entry, rect, alpha)
+	# Ground still to read: a dotted survey ring on the slip's corner, the same
+	# ink the key names (DR-20261111-26).
+	if int(entry.get("unsurveyed", 0)) > 0:
+		var mark: Vector2 = Vector2(rect.end.x - PLATE_PAD - 5.0, rect.end.y - 6.0)
+		var survey_ink: Color = Palette.survey_color("survey")
+		for i in 6:
+			var angle: float = TAU * float(i) / 6.0
+			draw_circle(
+				mark + Vector2(cos(angle), sin(angle)) * 4.0, 1.0,
+				Color(survey_ink.r, survey_ink.g, survey_ink.b, 0.90 * alpha)
+			)
 	RoadInk.draw_link(
 		self, _font, entry["counts"],
 		Vector2(rect.position.x + PLATE_PAD + RIBBON, rect.position.y + 37.0),
@@ -226,11 +233,6 @@ func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
 		draw_circle(center, radius - 0.8, Color(tint.r, tint.g, tint.b, 0.16 * alpha))
 	MapGlyphs.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
 	match status:
-		"unprospected":
-			for i in 8:
-				var angle: float = TAU * float(i) / 8.0
-				var spot: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
-				draw_circle(spot, 1.5, tint)
 		"disconnected":
 			draw_arc(center, radius, 0, TAU, 22, tint, 1.3, true)
 			draw_line(center + Vector2(-radius * 0.7, radius * 0.7),
