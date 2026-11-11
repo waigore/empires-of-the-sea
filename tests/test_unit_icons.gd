@@ -56,18 +56,21 @@ func test_an_unknown_worker_has_no_plate() -> void:
 	assert_null(CivilianArt.medallion("no_such_worker"))
 
 
-## The row widget draws the plate at its own size, and a missing plate leaves a
-## pale disc so a roster row never collapses.
+## The row widget wears the plate at its own size, mipmapped, and a missing
+## plate leaves a gap of the same width so the row's columns do not shift.
 func test_the_row_widget_draws_the_plate_it_is_given() -> void:
 	var plate: Texture2D = ShipArt.medallion("frigate")
 	var medallion: UnitMedallion = UnitMedallion.of_ship("frigate", 40.0)
 	assert_eq(medallion.texture, plate)
 	assert_eq(medallion.custom_minimum_size, Vector2(40.0, 40.0))
 	assert_eq(medallion.size_flags_vertical, Control.SIZE_SHRINK_CENTER)
+	assert_eq(medallion.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	assert_eq(medallion.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS)
 	add_child(medallion)
 	medallion.queue_free()
 	var bare := UnitMedallion.new(null, 20.0)
 	assert_null(bare.texture)
+	assert_eq(bare.custom_minimum_size, Vector2(20.0, 20.0), "an absent plate keeps its width")
 	add_child(bare)
 	bare.queue_free()
 

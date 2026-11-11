@@ -110,7 +110,8 @@ One line per plate; the tail above follows `[object]`.
 
 `CivilianArt`, `ShipArt` and `RegimentArt` each load one texture per catalog id
 (`assets/art/<family>/<id>.png`), cached, null when the plate is missing so the
-view falls back to a plain disc. `UnitMedallion` draws one at a fixed size and
-is placed by `FleetPanel` (shipyard and break-up rows) and `ArmyPanel` (roster
-and drill yard). `test_unit_icons.gd` fails when a catalog type has no plate, or
-when two types resolve the same file.
+row keeps its width and shows a gap. `UnitMedallion` is the fixed-size,
+mipmapped `TextureRect` the dossiers place: `FleetPanel` leads its shipyard
+launch and break-up rows with it, `ArmyPanel` its roster and drill yard.
+`test_unit_icons.gd` fails when a catalog type has no plate, or when two types
+resolve the same file.
