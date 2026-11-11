@@ -364,10 +364,14 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 		_check(explorer.is_idle(), "explore order cancels")
 
 	var mineral: Vector2i = _mineral_tile(screen)
-	_check(mineral.x >= 0, "mineral tile available")
+	_check(mineral.x >= 0, "survey ground available")
 	if mineral.x >= 0:
 		explorer.tile = mineral
 		screen.civilian_layer.select(explorer)
+		_check(
+			screen.overlay.survey_tiles.has(mineral),
+			"explorer marks the survey ground"
+		)
 		MapPlayCivilians.on_action(screen.play, "prospect")
 		_check(explorer.is_working() and explorer.work_action() == "prospect", "prospect order starts")
 		works["prospect"] = mineral
@@ -750,10 +754,14 @@ func _mineral_tile(screen: MapScreen) -> Vector2i:
 		):
 			continue
 		for tile: Vector2i in province.tiles:
-			var resource: int = screen.model.resource_at(tile.x, tile.y)
-			if ImprovementCatalog.needs_prospecting(resource):
-				if not screen.land_works.is_prospected(MapScreen.PLAYER_FACTION, screen.model, tile):
-					return tile
+			# A survey target: charted prospectable ground this crown has not
+			# read yet (wiki: fog-and-exploration § Prospecting;
+			# DR-20261111-26).
+			if MineralSurvey.can_prospect(
+				screen.model, screen.land_works, MapScreen.PLAYER_FACTION, tile,
+				screen.visibility
+			):
+				return tile
 	return Vector2i(-1, -1)
 
 
