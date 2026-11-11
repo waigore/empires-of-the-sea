@@ -1,7 +1,7 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #316 /
-DR-20261111-28). Decision list for what to ship next (`REQ-P2-02`).
+Audited vs code, wiki and Design Records (2026-11-12, through #318 /
+DR-20261112-01). Decision list for what to ship next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
@@ -40,6 +40,10 @@ DR-20261111-28). Decision list for what to ship next (`REQ-P2-02`).
 
 **Rank 1** needs a design record for what an honour or a preview is.
 Nothing on the list is a plain code gap against published rules.
+
+Minor/Tribe town development shipped as [DR-20261112-01](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-01):
+a deed lifts the province town, so the manufactures offer now fires in a
+campaign.
 
 ## Out of scope / blocked footnotes
 

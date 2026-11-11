@@ -79,10 +79,10 @@ static func check(
 	}
 
 
-## Completion: charge the purse and record the deed. Returns false when the
+## Completion: charge the purse and record the deed, then raise the province's
+## town to the level its deeds support (DR-20261112-01). Returns false when the
 ## purse no longer covers the price or another buyer already holds the deed, and
 ## when no ledger answers for the buyer at all (a deed is never signed for free).
-## A signed deed develops the seller's town (DR-20261112-01).
 static func complete(model: MapModel, tile: Vector2i, owner: int, economy: PlayerEconomy) -> bool:
 	if economy == null:
 		return false
@@ -92,7 +92,7 @@ static func complete(model: MapModel, tile: Vector2i, owner: int, economy: Playe
 	if not economy.spend_treasury(price):
 		return false
 	if model.purchase_tile(tile, owner):
-		MinorTownGrowth.raise_on_deed(model, model.province_at(tile.x, tile.y))
+		MinorTownGrowth.apply(model, model.province_data(model.province_at(tile.x, tile.y)))
 		return true
 	economy.add_treasury(price)
 	return false

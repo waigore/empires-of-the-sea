@@ -1414,17 +1414,17 @@ domain = "misc"
 match = "scripts/rules/fleet_home_merge.gd*"
 domain = "fleet"
 
+# A deed raises a Minor or Tribe town (DR-20261112-01). The growth rule rides
+# with the civilian suites that own the Merchant and its purchase tests;
+# `land_purchase.gd` keeps the existing `land_*.gd` economy mapping.
+[[rules]]
+match = "scripts/rules/minor_town_growth.gd*"
+domain = "civilian"
+
 # Its own suite rides with the fleet set too.
 [[rules]]
 match = "tests/test_home_merge.gd*"
 domain = "fleet"
-
-# A deed develops a Minor or Tribe town (DR-20261112-01): the growth rule and
-# the purchase that signs it ride with the civilian work suites, not the rules
-# catch-all.
-[[rules]]
-match = "scripts/rules/minor_town_growth.gd*"
-domain = "civilian"
 
 [[rules]]
 match = "scripts/rules/**"
