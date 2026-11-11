@@ -1260,6 +1260,65 @@ func test_the_ratio_bands_live_in_one_table() -> void:
 	assert_almost_eq(float(ArmyBands.for_ratio(0.5)["attacker"]), 1.0, 0.001)
 
 
+## The table's morale row: an attacker whose morale is lower than the defender's
+## fights the blunted band between 1.5 and 4.0 to one, and every other row keeps
+## its published fractions (wiki: combat § Auto-resolve ratio bands).
+func test_a_hungrier_attacker_fights_the_blunted_band() -> void:
+	var blunted: Dictionary = ArmyBands.for_ratio(2.0, 0.5, 1.0)
+	assert_almost_eq(float(blunted["attacker"]), 0.6, 0.001)
+	assert_almost_eq(float(blunted["defender"]), 0.4, 0.001)
+	assert_true(bool(blunted.get("blunted", false)), "the band is blunted")
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 0.75)["attacker"]), 0.15, 0.001)
+	# The morale row claims only 1.5 <= ratio < 4.0.
+	assert_almost_eq(float(ArmyBands.for_ratio(4.0, 0.5, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(1.2, 0.5, 1.0)["attacker"]), 0.3, 0.001)
+
+
+## A hungrier attacker at blunted odds guts the garrison and still does not take
+## the province: the row writes a stalemate, not an attacker victory.
+func test_a_hungry_attacker_guts_the_garrison_without_taking_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	# 4 pikemen at half rations against 1 at full: strength ratio 2.0.
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 0.4, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.STALEMATE)
+	assert_true(bool(battle.get("blunted", false)), "the despatch can say why")
+	assert_eq(model.province_owner(2), 1, "the hungry attacker does not take the province")
+	assert_eq(defender.count(), 0, "the garrison was gutted")
+	assert_true(attacker.count() > 0, "the attacker keeps the field")
+	var line: String = BattleReport.describe_land(battle, "Harbour", FACTIONS)
+	assert_true(line.contains("hungrier"), "the toast names the blunted win: %s" % line)
+
+
+## The same odds at full rations still take the province: the morale row is the
+## only difference (and ratio == 4.0 itself is outside its band).
+func test_full_rations_at_the_same_odds_take_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 1.0, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_false(bool(reports[0].get("blunted", false)))
+	assert_eq(model.province_owner(2), 0, "a fed attacker takes the province")
+
+
 ## A won auto-resolve battle tells the plate what it cost: surviving chevrons,
 ## mauled survivors, and the same numbers the dossier will read.
 func test_a_won_battle_awards_chevrons_and_mauls_its_survivors() -> void:
