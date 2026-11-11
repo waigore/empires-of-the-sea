@@ -18,9 +18,9 @@
 - **Armies** (`ArmyState`): one province per army of `unit_<n>` regiments.
   One Home Army per faction at its capital, never deleted; detach for field
   armies; split/combine needs one province, one owner, both ashore. One march
-  per turn; own land reachable, foreign must border.
+  a turn; own land reachable, foreign must border.
 - **Naval transport** (`NavalTransport`, `ArmyTransport`): field army boards a
-  port squadron (one regiment per hull) and lands on an owned coast;
+  port squadron (one regiment per hull), lands on an owned coast;
   troops drown with a sunk squadron.
 - **Upkeep:** 1–3 food per regiment by era, before navy.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
@@ -30,9 +30,10 @@
   era-best infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
-  alone; winners gain a chevron; wounded recover a quarter each turn.
-- **Hospitals** (`HospitalRules`, DR-20261111-12): Engineer-built Field/General
-  (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%.
+  alone; winners gain a chevron; wounded recover a quarter a turn.
+- **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General
+  (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%. Rivals
+  raise them (DR-20261111-16).
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock.
   Minors follow leading power; Tribes, level 1.
@@ -52,7 +53,7 @@
 
 ## Deferred (REQ-P2-02)
 
-Rival hospitals; regiment names ([`deferred.md`](deferred.md)).
+Regiment names ([`deferred.md`](deferred.md)).
 
 ## Architecture
 
