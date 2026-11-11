@@ -1,7 +1,9 @@
 class_name GameHud
 extends Control
-## Screen furniture: cartouche bar, treasury chips, minimap, zoom controls,
-## end-turn seal and toasts. Side dossiers live on HudPanels (REQ-P3-01).
+## Screen furniture: cartouche bar, minimap, zoom controls, end-turn seal, plates
+## and lenses. Side dossiers live on HudPanels, the status plaques on
+## HudStatChips, the transient news on HudDespatches, and the widgets themselves
+## are HudChrome's build (REQ-P3-01).
 
 signal end_turn_pressed
 signal zoom_in_pressed
@@ -43,6 +45,8 @@ const BAR_HEIGHT: float = 60.0
 const BAR_HEIGHT_COMPACT: float = 56.0
 
 var panels: HudPanels = null
+## Treasury, income and force counts; the plaques own their own copy (REQ-P1-02).
+var stats: HudStatChips = null
 ## The court's toast lane and the news a battle plate holds back (REQ-P5-05).
 var despatches: HudDespatches = null
 ## The despatch column, read-only: HudDespatches owns it. The playtest drives
@@ -82,19 +86,43 @@ var dossier_screen: CourtDossierScreen = null
 var campaign_over: bool = false
 
 var _turn_label: Label = null
+## Battles the rules resolved for the human, replayed one plate at a time.
 var _quick_queue: Array[Dictionary] = []
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
-var _treasury_label: Label = null
-var _income_label: Label = null
-var _fleet_label: Label = null
-var _civilian_label: Label = null
-var _army_label: Label = null
-var _treasury_chip: Button = null
-var _fleet_chip: Button = null
-var _civilian_chip: Button = null
-var _army_chip: Button = null
+## Read-only views of HudStatChips' plaques for drives and suites that still
+## reach them through the HUD (REQ-P1-02).
+var _treasury_label: Label:
+	get:
+		return stats.treasury_label if stats != null else null
+var _income_label: Label:
+	get:
+		return stats.income_label if stats != null else null
+var _fleet_label: Label:
+	get:
+		return stats.fleet_label if stats != null else null
+var _civilian_label: Label:
+	get:
+		return stats.civilian_label if stats != null else null
+var _army_label: Label:
+	get:
+		return stats.army_label if stats != null else null
+var _treasury_chip: Button:
+	get:
+		return stats.treasury_chip if stats != null else null
+var _fleet_chip: Button:
+	get:
+		return stats.fleet_chip if stats != null else null
+var _civilian_chip: Button:
+	get:
+		return stats.civilian_chip if stats != null else null
+var _army_chip: Button:
+	get:
+		return stats.army_chip if stats != null else null
+var _treasury_value: int:
+	get:
+		return stats._treasury_value if stats != null else 0
 var _minimap: Minimap = null
 var _panel_wrap: Control = null
 var _panel: ProvincePanel = null
@@ -118,8 +146,6 @@ var _research_wrap: Control = null
 var _research_panel: ResearchPanel = null
 var _diplomacy_wrap: Control = null
 var _diplomacy_panel: DiplomacyPanel = null
-var _treasury_value: int = 0
-var _income_value: int = 0
 
 
 func _ready() -> void:
@@ -127,6 +153,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UiTheme.build()
 	touch_ui = PlatformDisplay.is_handheld()
+	stats = HudStatChips.new()
 	panels = HudPanels.new()
 	despatches = HudDespatches.new()
 	HudChrome.build(self)
@@ -166,63 +193,56 @@ func set_turn(turn: int, year: int) -> void:
 	_turn_label.text = "Turn %d  ·  %d" % [turn, year]
 
 
+## A despatch toast. `icon_name` raises the plate with a medallion (an
+## auto-resolved siege's silenced battery) and holds it longer, so the loss is
+## read and not mistaken for the turn's chatter (REQ-P5-05). The board decides
+## when a battle plate means the news has to wait (REQ-P5-06).
+func toast(text: String, icon_name: String = "") -> void:
+	# The observer hides the human chrome; building toast plates for a hidden
+	# court would only churn nodes every turn (REQ-P4-04).
+	if not visible or despatches == null:
+		return
+	despatches.post(text, icon_name, is_quick_battle_shown())
+
+
+## The rules resolved one of the human's land battles as Quick Battle. Queue the
+## plates so a multi-battle turn replays them one at a time, never stacked.
+func show_quick_battle(battle: Dictionary, province: String) -> void:
+	if quick_battle_overlay == null:
+		return
+	if quick_battle_overlay.is_shown():
+		_quick_queue.append({"battle": battle, "province": province})
+		return
+	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
+
+
+func is_quick_battle_shown() -> bool:
+	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
+
+
+## Status plaques: the values, tooltips and tweens are HudStatChips' (REQ-P1-02).
 func set_treasury(value: int, animate: bool = true) -> void:
-	var from: int = _treasury_value
-	_treasury_value = value
-	_refresh_treasury_tooltip()
-	if not animate:
-		_treasury_label.text = TextFormat.thousands(value)
-		return
-	var tween := create_tween()
-	tween.tween_method(
-		func(step: float) -> void:
-			_treasury_label.text = TextFormat.thousands(int(round(step))),
-		float(from), float(value), 0.6
-	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	stats.set_treasury(value, animate)
 
 
-## Net treasury movement per turn beside the count; zero is dim, not a fake gain.
 func set_income(value: int) -> void:
-	_income_value = value
-	if _income_label == null:
-		return
-	_income_label.text = TextFormat.delta(value)
-	_income_label.add_theme_color_override(
-		"font_color",
-		Palette.TEXT_DIM if value == 0 else (
-			Palette.GOLD_PALE if value > 0 else Palette.CRIMSON.lerp(Color.WHITE, 0.35)
-		)
-	)
-	_refresh_treasury_tooltip()
-
-
-## Estates and college only — the world market clears after them (world-market).
-func _refresh_treasury_tooltip() -> void:
-	if _treasury_chip == null:
-		return
-	_treasury_chip.tooltip_text = "Treasury %s · %s per turn before the auction — open the ledger" % [
-		TextFormat.thousands(_treasury_value), TextFormat.delta(_income_value)
-	]
+	stats.set_income(value)
 
 
 func set_fleets(value: int) -> void:
-	_fleet_label.text = str(value)
-	if _fleet_chip != null:
-		_fleet_chip.tooltip_text = "Ships — %d · find the next squadron" % value
+	stats.set_fleets(value)
 
 
 func set_civilians(value: int) -> void:
-	_civilian_label.text = str(value)
-	if _civilian_chip != null:
-		_civilian_chip.tooltip_text = (
-			"Civilians — %d · open the empire roster (C)" % value
-		)
+	stats.set_civilians(value)
 
 
 func set_armies(value: int) -> void:
-	_army_label.text = str(value)
-	if _army_chip != null:
-		_army_chip.tooltip_text = "Troops — %d regiments · find the next army" % value
+	stats.set_armies(value)
+
+
+func flash_income(amount: int) -> void:
+	stats.flash_income(amount)
 
 
 ## Campaign decided: raise the plate and shut the end-turn seal for good
@@ -272,24 +292,9 @@ func is_victory_shown() -> bool:
 	return victory_overlay != null and victory_overlay.is_shown()
 
 
-## The rules resolved one of the human's land battles as Quick Battle. Queue the
-## plates so a multi-battle turn replays them one at a time, never stacked.
-func show_quick_battle(battle: Dictionary, province: String) -> void:
-	if quick_battle_overlay == null:
-		return
-	if quick_battle_overlay.is_shown():
-		_quick_queue.append({"battle": battle, "province": province})
-		return
-	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
-
-
-func is_quick_battle_shown() -> bool:
-	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
-
-
 ## Mirrors a lens state onto its toggle and the shared key cartouche, without
 ## echoing the button signal (the screen owns the state). Only one lens is ever
-## on, so the key shows the key kind that was just raised.
+## on, so the key shows the kind that was just raised.
 func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
 	var button: Button = _lens_button
 	if kind == LensLegend.KIND_DIPLOMACY:
@@ -320,18 +325,6 @@ func _on_quick_battle_finished() -> void:
 	despatches.release()
 
 
-## A despatch toast. `icon_name` raises the plate with a medallion (an
-## auto-resolved siege's silenced battery) and holds it longer, so the loss is
-## read and not mistaken for the turn's chatter (REQ-P5-05). The board decides
-## when a battle plate means the news has to wait (REQ-P5-06).
-func toast(text: String, icon_name: String = "") -> void:
-	# The observer hides the human chrome; building toast plates for a hidden
-	# court would only churn nodes every turn (REQ-P4-04).
-	if not visible or despatches == null:
-		return
-	despatches.post(text, icon_name, is_quick_battle_shown())
-
-
 func set_minimap(
 	model: MapModel, map_size: Vector2, visibility: VisibilityModel = null
 ) -> void:
@@ -345,17 +338,3 @@ func refresh_minimap() -> void:
 
 func update_view_rect(rect: Rect2) -> void:
 	_minimap.set_view_rect(rect)
-
-
-func flash_income(amount: int) -> void:
-	var label := Label.new()
-	label.text = "+%s" % TextFormat.thousands(amount)
-	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(label)
-	label.position = _treasury_chip.get_global_rect().position + Vector2(0, 4)
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(label, "position:y", label.position.y - 46.0, 1.1)
-	tween.tween_property(label, "modulate:a", 0.0, 1.1).set_delay(0.25)
-	tween.chain().tween_callback(label.queue_free)
