@@ -3,6 +3,7 @@ extends GdToolsTest
 ## DR-20261109-17): board, sail, cross a Passage and land, one legal step a turn.
 
 const OWNER: int = 1
+const CivilianFixture = preload("res://tests/civilian_fixture.gd")
 
 
 func _old_world() -> MapModel:
@@ -75,7 +76,7 @@ func test_an_idle_explorer_boards_a_squadron_in_port() -> void:
 	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
 	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 0
+		_config(), world, 0, old_world, [fleet], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "embark")
 	assert_eq(int(order.get("unit", -1)), 1)
@@ -89,7 +90,7 @@ func test_a_passenger_sails_crosses_and_lands() -> void:
 	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
 	assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
 	var sail: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 0
+		_config(), world, 0, old_world, [fleet], [unit], {}
 	)
 	assert_eq(String(sail.get("kind", "")), "sail")
 	assert_eq(int(sail.get("zone", -1)), 0)
@@ -99,14 +100,14 @@ func test_a_passenger_sails_crosses_and_lands() -> void:
 	)
 	fleet.moved = false
 	var cross: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 0
+		_config(), world, 0, old_world, [fleet], [unit], {}
 	)
 	assert_eq(String(cross.get("kind", "")), "cross")
 	var crossed: Dictionary = WarpTravel.apply_crossing(world, 0, fleet)
 	assert_true(bool(crossed["ok"]))
 	fleet.moved = false
 	var land: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 1, new_world, [fleet], [unit], 0
+		_config(), world, 1, new_world, [fleet], [unit], {}
 	)
 	assert_eq(String(land.get("kind", "")), "land")
 	assert_eq(Vector2i(land.get("tile", Vector2i(-1, -1))), Vector2i(0, 1))
@@ -118,7 +119,7 @@ func test_no_second_expedition_when_a_colonist_is_already_abroad() -> void:
 	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
 	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 1
+		_config(), world, 0, old_world, [fleet], [unit], {"explorer": 1}
 	)
 	assert_true(order.is_empty())
 
@@ -163,7 +164,7 @@ func test_a_squadron_at_sea_docks_for_its_colonist() -> void:
 	var fleet: FleetState = FleetState.at_sea(1, OWNER, 0)
 	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 0
+		_config(), world, 0, old_world, [fleet], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "dock")
 	assert_eq(int(order.get("province", -1)), 0)
@@ -183,7 +184,7 @@ func test_a_builder_boards_when_the_crown_owns_overseas_land() -> void:
 	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
 	var unit: CivilianState = CivilianState.create(1, OWNER, "builder", Vector2i(0, 0))
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], 0
+		_config(), world, 0, old_world, [fleet], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "embark")
 	assert_eq(int(order.get("unit", -1)), 1)
@@ -206,7 +207,7 @@ func test_a_docked_passenger_lands_without_sailing_first() -> void:
 	var unit: CivilianState = CivilianState.create(1, OWNER, "builder", Vector2i(0, 0))
 	assert_true(bool(CivilianVoyage.embark(new_world, unit, fleet)["ok"]))
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 1, new_world, [fleet], [unit], 0
+		_config(), world, 1, new_world, [fleet], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "land")
 
@@ -294,7 +295,7 @@ func test_a_working_builder_falls_back_to_an_idle_explorer() -> void:
 	var explorer: CivilianState = CivilianState.create(2, OWNER, "explorer", Vector2i(0, 0))
 	var fleet: FleetState = FleetState.in_port(1, OWNER, 0)
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [builder, explorer], 0
+		_config(), world, 0, old_world, [fleet], [builder, explorer], {}
 	)
 	assert_eq(String(order.get("kind", "")), "embark")
 	assert_eq(int(order.get("unit", -1)), 2)
@@ -310,7 +311,7 @@ func test_the_lowest_idle_squadron_is_chosen() -> void:
 	troop_carrier.embarked_army = 9
 	var ready: FleetState = FleetState.at_sea(3, OWNER, 0)
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [moved, troop_carrier, ready], [unit], 0
+		_config(), world, 0, old_world, [moved, troop_carrier, ready], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "dock")
 	assert_eq(int(order.get("fleet", -1)), 3)
@@ -327,7 +328,7 @@ func test_a_moved_carrying_fleet_does_not_sail_twice() -> void:
 	var ready: FleetState = FleetState.in_port(2, OWNER, 0)
 	ready.add_civilian(2)
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [moved, ready], [first, second], 0
+		_config(), world, 0, old_world, [moved, ready], [first, second], {}
 	)
 	assert_eq(String(order.get("kind", "")), "sail")
 	assert_eq(int(order.get("fleet", -1)), 2)
@@ -340,18 +341,122 @@ func test_board_refusals_without_a_reachable_port() -> void:
 	var elsewhere: FleetState = FleetState.in_port(1, OWNER, 1)
 	assert_true(
 		AiColonisationPlanner.plan(
-			_config(), world, 0, old_world, [elsewhere], [unit], 0
+			_config(), world, 0, old_world, [elsewhere], [unit], {}
 		).is_empty(),
 		"a squadron in another port cannot take this colonist"
 	)
 	var stray: CivilianState = CivilianState.create(9, OWNER, "explorer", Vector2i(9, 9))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_config(), world, 0, old_world, [FleetState.at_sea(1, OWNER, 0)], [stray], {}
+	)
+	assert_eq(
+		String(order.get("kind", "")), "dock",
+		"the squadron musters at the crown's harbour, not on the colonist's tile"
+	)
+	assert_eq(int(order.get("province", -1)), 0)
+
+
+## A court with no harbour of its own cannot start an expedition, however many
+## colonists and hulls it has (wiki: ships-and-naval § Home Fleet).
+func test_no_owned_harbour_means_no_voyage() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	old_world.provinces[0].port_tile = Vector2i(-1, -1)
+	var unit: CivilianState = CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))
+	assert_eq(AiColonisationPlanner.harbour(old_world, OWNER), MapModel.NO_ID)
 	assert_true(
 		AiColonisationPlanner.plan(
-			_config(), world, 0, old_world, [FleetState.at_sea(1, OWNER, 0)],
-			[stray], 0
+			_config(), world, 0, old_world, [FleetState.at_sea(1, OWNER, 0)], [unit], {}
 		).is_empty(),
-		"a tile outside every province has no port to dock at"
+		"a crown with no port has nowhere to take a colonist aboard"
 	)
+
+
+## The court's seat, when it has a port, is the muster harbour even if another
+## owned province has a lower id.
+func test_the_seat_is_the_muster_harbour() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var seat: ProvinceState = old_world.provinces[0]
+	seat.capital = false
+	var coast: ProvinceState = ProvinceState.create(
+		0, "Anchorage", seat.tiles.duplicate(), Vector2(2.0, 0.5), 10, OWNER, true
+	)
+	coast.port_tile = Vector2i(1, 0)
+	old_world.provinces = [coast, seat]
+	assert_eq(
+		AiColonisationPlanner.harbour(old_world, OWNER), 0,
+		"the seat outranks a lower-id anchorage"
+	)
+
+
+## An Explorer with a voyage ahead waits at its crown's harbour and marches home
+## when something has carried it off, so the boarding step always finds it there
+## (wiki: civilian-units § Overseas deployment; DR-20261111-05).
+func test_an_explorer_musters_at_the_crowns_harbour() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var port: Vector2i = CivilianFixture.COAST_TILE
+	var here: CivilianState = CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	var away: CivilianState = CivilianState.create(2, 0, "explorer", CivilianFixture.RIVAL_GRAIN_TILE)
+	var context: Dictionary = {"muster_port": port}
+	assert_true(
+		AiExplorerWork.best_move(model, here, LandWorks.new(), context).is_empty(),
+		"an Explorer in the harbour province waits for its voyage"
+	)
+	var march: Dictionary = AiExplorerWork.best_move(model, away, LandWorks.new(), context)
+	assert_eq(String(march.get("kind", "")), "move")
+	var before: int = absi(away.tile.x - port.x) + absi(away.tile.y - port.y)
+	var step: Vector2i = march.get("tile", CivilianState.NO_TILE)
+	assert_true(
+		absi(step.x - port.x) + absi(step.y - port.y) < before,
+		"the march closes on the harbour"
+	)
+	assert_true(
+		AiExplorerWork.best_candidate(
+			AiConfig.build(0, 1500), model, away, [away], LandWorks.new(),
+			CivilianFixture.stockpile(), {}, {}, context, {}
+		).is_empty(),
+		"a colonist on the way to its port takes no survey work"
+	)
+
+
+## The muster only stands while a squadron is free to carry the colonist and the
+## court has none abroad yet; otherwise the Explorer is back on survey duty.
+func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void:
+	var world: WorldMap = _world()
+	var old_world: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.regions.set_region(0, [FleetState.at_sea(1, OWNER, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = []
+	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.regions.set_region(1, [])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, OWNER, 0, old_world), Vector2i(0, 1),
+		"a court with a free squadron musters at its seat's port"
+	)
+	var abroad: CivilianState = CivilianState.create(7, OWNER, "explorer", Vector2i(0, 0))
+	play.civilian_layer.regions.set_region(1, [abroad])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, OWNER, 0, old_world), CivilianState.NO_TILE,
+		"a court with a colonist already abroad sends no second expedition"
+	)
+	play.civilian_layer.regions.set_region(1, [])
+	play.ship_layer.regions.set_region(0, [])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, OWNER, 0, old_world), CivilianState.NO_TILE,
+		"no squadron, no muster"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
 
 func test_region_helpers_pick_the_opposite_map() -> void:
@@ -370,7 +475,7 @@ func test_no_passage_keeps_a_carrying_squadron_home() -> void:
 	assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
 	assert_true(
 		AiColonisationPlanner.plan(
-			_config(), world, 0, old_world, [fleet], [unit], 0
+			_config(), world, 0, old_world, [fleet], [unit], {}
 		).is_empty()
 	)
 
@@ -400,7 +505,7 @@ func test_a_multi_zone_crossing_steps_toward_the_far_coast() -> void:
 	unit.embark_on(fleet.id)
 	fleet.add_civilian(unit.id)
 	var order: Dictionary = AiColonisationPlanner.plan(
-		_config(), world, 1, model, [fleet], [unit], 0
+		_config(), world, 1, model, [fleet], [unit], {}
 	)
 	assert_eq(String(order.get("kind", "")), "sail")
 	assert_eq(int(order.get("zone", -1)), 1)

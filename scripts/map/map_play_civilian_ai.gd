@@ -59,6 +59,9 @@ static func run(
 			"at_war": _at_war(play, faction), "diplomacy": play.diplomacy,
 			"visibility": MapPlayCourtFog.view_for(play, faction, region),
 		}
+		var muster: Vector2i = _muster_port(play, faction, region, model)
+		if muster.x >= 0:
+			context["muster_port"] = muster
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
 		var plan: Dictionary = AiCivilianPlanner.plan(
@@ -139,6 +142,51 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
 		if record.at_war:
 			return true
+	return false
+
+
+## Where this court musters a colonist: its own harbour, while it has no
+## civilian in the other region and a squadron free to carry one. The Explorer
+## policy holds an idle Explorer there instead of marching it off to survey
+## (AiExplorerWork), so the expedition the colonisation pass plans can board it
+## (wiki: civilian-units § Overseas deployment; DR-20261111-05). (-1, -1) when
+## nothing is mustering.
+static func _muster_port(
+	play: PlaySession, faction: int, region: int, model: MapModel
+) -> Vector2i:
+	if play.world == null or model == null:
+		return CivilianState.NO_TILE
+	if region != FactionCatalog.region_of(faction):
+		return CivilianState.NO_TILE
+	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	if _has_owner(_roster(play, other), faction):
+		return CivilianState.NO_TILE
+	if not _has_free_squadron(play, region, faction):
+		return CivilianState.NO_TILE
+	var port: int = AiColonisationPlanner.harbour(model, faction)
+	if port < 0:
+		return CivilianState.NO_TILE
+	var data: ProvinceState = model.province_data(port)
+	if data == null or data.port_tile.x < 0:
+		return CivilianState.NO_TILE
+	return data.port_tile
+
+
+## A squadron of this court that could take a colonist: hulls aloft, no troops
+## aboard, and not already carrying one.
+static func _has_free_squadron(play: PlaySession, region: int, owner: int) -> bool:
+	if play.ship_layer == null:
+		return false
+	var roster: Array = play.ship_layer.regions.value(region, [])
+	for raw: Variant in roster:
+		var fleet: FleetState = raw
+		if fleet == null or fleet.owner != owner:
+			continue
+		if not fleet.is_afloat() or fleet.embarked_army >= 0:
+			continue
+		if fleet.carries_civilians():
+			continue
+		return true
 	return false
 
 
