@@ -267,6 +267,68 @@ func test_a_prospected_tile_cannot_be_prospected_again() -> void:
 	assert_true(String(check["reason"]).contains("already been prospected"))
 
 
+func test_prospect_rules_hide_minerals_and_refuse_surface_tiles() -> void:
+	# Pure DR-20261111-26 predicates shared by work, survey, UI and AI.
+	assert_eq(
+		ProspectRules.known_resource(0, null, Fixture.IRON_TILE, _works), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Vector2i(99, 99), _works), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.TIMBER_TILE, null), 0
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, null), MapModel.NO_ID
+	)
+	assert_eq(
+		ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, _works), MapModel.NO_ID
+	)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	assert_eq(ProspectRules.known_resource(0, _model, Fixture.IRON_TILE, _works), 1)
+	assert_eq(ProspectRules.find_label(_model, Fixture.IRON_TILE), "iron")
+	var wool := Vector2i(2, 1)
+	_model.terrain[_model.index_of(wool.x, wool.y)] = MapModel.Terrain.HILLS
+	_model.resource[_model.index_of(wool.x, wool.y)] = 5
+	assert_true(
+		ProspectRules.tile_refusal(_model, 0, wool, _works).contains("surface resource")
+	)
+
+
+func test_civilian_panel_hides_unprospected_minerals() -> void:
+	var explorer := Fixture.unit("explorer", Fixture.IRON_TILE)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "Unsurveyed")
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "Iron")
+	var empty := Vector2i(2, 2)
+	_model.terrain[_model.index_of(empty.x, empty.y)] = MapModel.Terrain.HILLS
+	_model.resource[_model.index_of(empty.x, empty.y)] = MapModel.NO_ID
+	explorer.tile = empty
+	_works.set_prospected(0, _model, empty)
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "None found")
+	explorer.tile = Fixture.BARE_TILE
+	panel.refresh(_model, explorer, _works, [explorer], _stock, _view)
+	assert_eq(_panel_resource(panel), "None")
+	panel.free()
+
+
+func _panel_resource(panel: CivilianPanel) -> String:
+	var children: Array[Node] = panel._detail.get_children()
+	var index: int = 0
+	while index + 1 < children.size():
+		var key: Label = children[index] as Label
+		var value: Label = children[index + 1] as Label
+		if key != null and key.text == "Resource":
+			return value.text if value != null else ""
+		index += 2
+	return ""
+
+
 func test_only_charted_land_can_be_prospected() -> void:
 	var explorer := _add("explorer", Fixture.IRON_TILE)
 	var index: int = _model.index_of(Fixture.IRON_TILE.x, Fixture.IRON_TILE.y)
