@@ -1,9 +1,9 @@
 class_name Difficulty
 extends RefCounted
 ## New-game difficulty layer (wiki: ruleset-config § Layers; combat § Modifiers).
-## Fixed at creation. It scales the rival courts' opening stores and their land
-## strength when they meet the human crown; it never changes an AI's decision
-## algorithm (wiki: ai-architecture, ai-personalities).
+## Fixed at creation. It scales the rival courts' opening stores and their
+## strength in the field and at sea when they meet the human crown; it never
+## changes an AI's decision algorithm (wiki: ai-architecture, ai-personalities).
 ##
 ## Normal is the published default and is byte-identical to the previous game:
 ## symmetric courts, published combat maths. The other three levels are this
@@ -30,8 +30,11 @@ const AI_START_PERCENT: Dictionary = {
 	"impossible": 180,
 }
 
-## Rival land strength against the human crown, percent of the published maths
-## (wiki: combat § Modifiers — difficulty scales attacker and defender).
+## Rival land and naval strength against the human crown, percent of the
+## published maths (wiki: combat § Modifiers, ships-and-naval § Naval Combat
+## Resolution — difficulty scales attacker and defender on both surfaces).
+## The same table scales the human crown's own military-victory bar, so the
+## layer publishes one percentage per level and invents none (DR-20261111-28).
 const AI_COMBAT_PERCENT: Dictionary = {
 	"introductory": 85,
 	"normal": 100,
@@ -58,8 +61,15 @@ static func ai_start_percent(id: String) -> int:
 	return int(AI_START_PERCENT.get(normalize(id), AI_START_PERCENT[DEFAULT]))
 
 
-static func ai_combat_percent(id: String) -> int:
+## The level's published percentage: the one number per level that scales a
+## rival's strength in the field and at sea and the human crown's own victory
+## bar (wiki: ruleset-config § Difficulty; DR-20261111-28).
+static func level_percent(id: String) -> int:
 	return int(AI_COMBAT_PERCENT.get(normalize(id), AI_COMBAT_PERCENT[DEFAULT]))
+
+
+static func ai_combat_percent(id: String) -> int:
+	return level_percent(id)
 
 
 ## Plain-language effect for setup and the pause page: one line, no jargon.
@@ -93,9 +103,10 @@ static func scale_start(economy: PlayerEconomy, id: String) -> void:
 		economy.stockpile[commodity] = scaled(int(economy.stockpile[commodity]), percent)
 
 
-## owner id -> land-strength multiplier. Every rival court is scaled and the
-## human crown is not; two rivals share one multiplier, so their mutual battles
-## keep the published ratio, and the full-AI observer (no human) is unchanged.
+## owner id -> strength multiplier, read by the field and the sea alike. Every
+## rival court is scaled and the human crown is not; two rivals share one
+## multiplier, so their mutual battles keep the published ratio, and the full-AI
+## observer (no human) is unchanged.
 static func combat_multipliers(human: int, id: String, factions: Array[int]) -> Dictionary:
 	var result: Dictionary = {}
 	var factor: float = float(ai_combat_percent(id)) / 100.0

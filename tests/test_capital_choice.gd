@@ -280,6 +280,27 @@ func test_can_seat_accepts_only_owned_sea_bound_provinces() -> void:
 	)
 
 
+## The chart glows exactly the provinces the court may sit in: the crown's
+## sea-bound holdings, in province order — never a rival's shore or an inland
+## holding that would only earn a refusal.
+func test_seatable_provinces_lists_only_the_crowns_seaboards() -> void:
+	var model := _two_islands()
+	_add_province(model, 2, 0, _block(2, 4, 6, 7))
+	assert_true(CapitalChoice.is_sea_bound(model, 2), "the third holding reaches the sea")
+	var expected: Array[int] = [0, 2]
+	assert_eq(CapitalChoice.seatable_provinces(model, 0), expected)
+	var auto_seat: int = int(CapitalChoice.pick_province(model, 0)["province_id"])
+	assert_true(expected.has(auto_seat), "the auto-choice is one of the glowing provinces")
+
+	var inland := _blank()
+	_add_province(inland, 0, 0, [Vector2i(2, 2)])
+	_add_province(inland, 1, 1, [Vector2i(1, 2), Vector2i(3, 2), Vector2i(2, 1), Vector2i(2, 3)])
+	_paint_sea(inland, func(_x: int, _y: int) -> int: return 0)
+	var none: Array[int] = []
+	assert_eq(CapitalChoice.seatable_provinces(inland, 0), none, "inland only: nothing glows")
+	assert_eq(CapitalChoice.seatable_provinces(inland, 9), none, "no provinces: nothing glows")
+
+
 ## Seating by hand moves the capital works: the old province keeps its town but
 ## loses the harbour, the new one gains the court, its roads and town level 4.
 func test_seat_capital_moves_the_court_and_its_harbour() -> void:

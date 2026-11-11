@@ -116,6 +116,68 @@ func test_an_unpayable_slot_earns_nothing() -> void:
 	assert_eq((report["unpaid"] as Array[String]).size(), 1)
 
 
+# --- the ledger's preview ----------------------------------------------------
+
+
+## The college ledger draws its spend line and gauge from `preview`, so the
+## figures it shows must be the ones the phase then applies (REQ-P1-05).
+func test_the_preview_matches_what_the_phase_spends_and_earns() -> void:
+	assert_true(bool(_state.assign("land_enclosure", "high")["ok"]))
+	var plan: Dictionary = ResearchTurn.preview(
+		_state, "land_enclosure", "high", _economy.treasury
+	)
+	assert_eq(int(plan["gold"]), 400)
+	assert_eq(int(plan["rp"]), 800)
+	assert_true(bool(plan["paid"]))
+	assert_eq(int(plan["cost"]), 1800)
+	var row: Dictionary = (ResearchTurn.resolve(_state, _economy)["slots"] as Array)[0]
+	assert_eq(int(row["gold"]), int(plan["gold"]))
+	assert_eq(int(row["rp"]), int(plan["rp"]))
+
+
+func test_the_preview_calls_an_unaffordable_slot_unpaid() -> void:
+	_economy.treasury = 100
+	assert_true(bool(_state.assign("land_enclosure", "medium")["ok"]))
+	var plan: Dictionary = ResearchTurn.preview(
+		_state, "land_enclosure", "medium", _economy.treasury
+	)
+	assert_false(bool(plan["paid"]))
+	assert_eq(int(plan["gold"]), 0)
+	assert_eq(int(plan["rp"]), 0, "an unpaid slot buys nothing")
+
+
+## Money Lending lets the preview spend down to the floor, exactly as the phase
+## does — one ducat short of it, the slot is unpaid.
+func test_the_preview_spends_down_to_the_research_floor() -> void:
+	_state.unlock("money_lending")
+	var exact: Dictionary = ResearchTurn.preview(
+		_state, "land_enclosure", "maximum", 500
+	)
+	assert_true(bool(exact["paid"]), "500 gold reaches the −500 floor exactly")
+	assert_eq(int(exact["gold"]), 1000)
+	var short: Dictionary = ResearchTurn.preview(
+		_state, "land_enclosure", "maximum", 499
+	)
+	assert_false(bool(short["paid"]), "one ducat short of the floor")
+
+
+func test_the_preview_carries_the_spy_and_industrial_shares() -> void:
+	_state.unlock("industrial_funding_of_research")
+	_state.unlock("land_enclosure")
+	var plan: Dictionary = ResearchTurn.preview(
+		_state, "organised_regiments", "medium", 5000, SpyNetworks.BOOST_PERCENT
+	)
+	assert_eq(int(plan["boost"]), 15)
+	assert_eq(int(plan["rp"]), 405, "300 × 1.35")
+
+
+func test_the_preview_of_an_idle_slot_is_empty() -> void:
+	var plan: Dictionary = ResearchTurn.preview(_state, "", "medium", 5000)
+	assert_eq(int(plan["cost"]), 0)
+	assert_eq(int(plan["rp"]), 0)
+	assert_eq(int(plan["gold"]), 0)
+
+
 func test_money_lending_lets_research_borrow() -> void:
 	_state.unlock("money_lending")
 	_economy.treasury = 100

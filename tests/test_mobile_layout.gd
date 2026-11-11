@@ -424,6 +424,27 @@ func test_phone_ledgers_fit_their_sheets() -> void:
 	)
 
 
+## The tallest ledger: every slot at study, so every row carries a spend line
+## and a gauge instead of collapsing to an idle label.
+func test_the_ledger_fits_a_phone_with_every_slot_at_study() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var state: ResearchState = _screen.economy.economy.research
+	for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+		assert_true(bool(state.assign(tech_id, "medium")["ok"]), tech_id)
+	hud.research_pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel_size: Vector2 = hud._research_panel.get_combined_minimum_size()
+	_fits(hud._research_wrap.get_global_rect(), _screen_rect(), "research sheet")
+	assert_true(
+		panel_size.y <= hud._research_wrap.size.y + 0.5,
+		"research content must fit its sheet with every slot at study (%s > %s)"
+		% [panel_size.y, hud._research_wrap.size.y]
+	)
+
+
 func test_ledger_header_fits_a_short_viewport() -> void:
 	_open(PHONE)
 	await get_tree().process_frame

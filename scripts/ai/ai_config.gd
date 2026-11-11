@@ -49,6 +49,34 @@ func war_bias() -> int:
 	return int(personality.get("war_bias", 0)) + int(agenda_traits.get("war_bias", 0))
 
 
+## Shifts the desire a court needs before it keeps a war going: the planner
+## raises its peace bar by this much (wiki: hidden-agendas; DR-20261111-27).
+func peace_bias() -> int:
+	return int(agenda_traits.get("peace_bias", 0))
+
+
+## War desire against a court this one is formally allied to. Only an agenda
+## that signs treaties to break them carries it.
+func betray_bias() -> int:
+	return int(agenda_traits.get("betray_bias", 0))
+
+
+## War desire against a human crown that has pulled ahead of this court.
+func rival_bias() -> int:
+	return int(agenda_traits.get("rival_bias", 0))
+
+
+## Appetite for trade pacts and subsidies: negative keeps the court to itself.
+func trade_bias() -> int:
+	return int(agenda_traits.get("trade_bias", 0))
+
+
+## Research funding steps above the registry default; a court catching up pays
+## one step higher.
+func research_bias() -> int:
+	return int(agenda_traits.get("research_bias", 0))
+
+
 ## Domain weight vector (economy / military / diplomacy / research).
 func weights() -> Dictionary:
 	return personality.get("weights", AiPersonality.NEUTRAL["weights"])
