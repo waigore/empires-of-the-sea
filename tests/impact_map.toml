@@ -721,6 +721,10 @@ domain = "crown_road"
 match = "scripts/map/crown_road_lens.gd"
 domain = "crown_road"
 
+[[rules]]
+match = "scripts/map/crown_road_lens.gd.uid"
+domain = "crown_road"
+
 # Crown-link helper for the province dossier; keep with the sheet suites.
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
@@ -980,6 +984,10 @@ domain = "map"
 
 [[rules]]
 match = "scripts/rules/crown_road_survey.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/rules/crown_road_survey.gd.uid"
 domain = "crown_road"
 
 [[rules]]
