@@ -677,10 +677,11 @@ match = "tests/playtest_persistence.gd*"
 domain = "save"
 
 # The purse drive walks the ledger, the auction receipt and the college's gold,
-# so it travels with the economy suites.
+# Plaque copy the drive reads lives on HudStatChips; keep edits on ui so a
+# chip-path tweak does not pull economy_rules past the tier-1 5 min budget.
 [[rules]]
 match = "tests/playtest_treasury.gd*"
-domain = "economy"
+domain = "ui"
 
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
