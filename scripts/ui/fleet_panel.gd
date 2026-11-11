@@ -201,14 +201,13 @@ func refresh(
 	else:
 		_status.text = "1 move this turn"
 		_hint.text = "Tap a highlighted sea zone or a friendly port."
-	# The merge line rides the status row and its button takes the yard's place,
+	# The merge note rides the status row and its button takes the yard's place,
 	# so the dossier never grows past a phone's sheet (REQ-P1-05).
 	var merge_note: String = String(merge.get("note", ""))
 	if not merge_note.is_empty() and _status.text == "1 move this turn":
 		_status.text = merge_note
-	_yard_button.visible = (
-		is_player and not yard_rows.is_empty() and not bool(merge.get("ok", false))
-	)
+	_yard_button.visible = is_player and not yard_rows.is_empty() \
+		and not bool(merge.get("ok", false))
 	if not _yard_button.visible:
 		_yard_open = false
 	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
