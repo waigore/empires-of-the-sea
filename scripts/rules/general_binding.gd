@@ -11,8 +11,11 @@ extends RefCounted
 
 ## Bindings for the whole phase across every region. Returns
 ## {"army_general": {army_id: general_id}, "army_medals": {army_id: int}};
-## unbound armies are absent. The medal snapshot is taken at binding time so a
-## general who wins early does not fight the next engagement with the new medal.
+## unbound armies are absent. The medal snapshot is the phase's opening read —
+## used where a caller has no roster (battle-sim scenarios) and as the
+## engagement's starting point; a general who wins an engagement then fights the
+## rest of the phase with the medal he just earned (wiki: combat § Acceptance —
+## medals persist "for subsequent engagements and turns").
 ## `hostile` is the court's war query: a march into land its owner is at peace
 ## with triggers no engagement, so it must not spend a commander
 ## (wiki: military-generals § Assignment — "every faction that will participate

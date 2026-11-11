@@ -20,20 +20,25 @@ static func primary(side: Array[ArmyState]) -> ArmyState:
 
 
 ## Medals the side fights under: its primary army's bound general, else the
-## leader-multiplier fallback (wiki: military-generals § Assignment).
+## leader-multiplier fallback (wiki: military-generals § Assignment). A general
+## who wins an engagement earns a medal at once and fights the phase's later
+## engagements with it (wiki: combat § Acceptance — "persists the updated medals
+## into game state for subsequent engagements and turns"), so the live roster
+## beats the phase snapshot the binding took. The snapshot stays as the fallback
+## for a context that names medals without a roster (battle-sim scenarios).
 static func medals(side: Array[ArmyState], context: Dictionary) -> int:
 	var lead: ArmyState = primary(side)
 	if lead == null:
 		return 0
-	var snapshot: Dictionary = context.get("army_medals", {}) as Dictionary
-	if snapshot.has(lead.id):
-		return int(snapshot[lead.id])
 	var bindings: Dictionary = context.get("army_general", {}) as Dictionary
 	var general_id: String = String(bindings.get(lead.id, ""))
 	if not general_id.is_empty():
 		var roster: GeneralRoster = context.get("roster") as GeneralRoster
 		if roster != null:
 			return roster.medals(lead.owner, general_id)
+	var snapshot: Dictionary = context.get("army_medals", {}) as Dictionary
+	if snapshot.has(lead.id):
+		return int(snapshot[lead.id])
 	var leaders: Dictionary = context.get("leaders", {}) as Dictionary
 	return ArmyModifiers.fallback_medals(String(leaders.get(lead.owner, "")))
 
