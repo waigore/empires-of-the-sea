@@ -148,6 +148,13 @@ static func _surviving(group: Variant, zone_id: int) -> Array:
 	return alive
 
 
+## The morale multiplier a crown's last rations buy; an unrecorded side (tests,
+## a hand-built context) fights at full strength.
+static func _feeding(context: Dictionary, owner: int) -> float:
+	var feeding: Dictionary = context.get("navy_feeding", {}) as Dictionary
+	return ArmyModifiers.feeding_multiplier(float(feeding.get(owner, 1.0)))
+
+
 ## No callback means the legacy default: every pair is hostile.
 static func _hostile(hostile: Callable, a: int, b: int) -> bool:
 	if a == b:
@@ -178,8 +185,10 @@ static func _battle(
 	hostile: Callable,
 	context: Dictionary
 ) -> Dictionary:
-	var attacker_strength: float = side_strength(attacking)
-	var defender_strength: float = side_strength(defending)
+	# A hungry squadron fights at the same morale bands as a hungry army
+	# (wiki: workers-and-population § Consumption — fullyFedShips / totalShips).
+	var attacker_strength: float = side_strength(attacking) * _feeding(context, attacker_id)
+	var defender_strength: float = side_strength(defending) * _feeding(context, defender_id)
 	var record: Dictionary = {
 		"zone": zone_id,
 		"attacker": attacker_id,

@@ -177,7 +177,8 @@ func test_a_town_road_outranks_an_incidental_resource_road() -> void:
 
 
 ## Wiki: ai-architecture § Town-per-province roads — the court's own fort still
-## comes first when it is invaded.
+## comes first when it is invaded. The fort stands on the province's own site
+## (CivilianWork sites it on the town), so this pins the choice, not the seat.
 func test_an_invaded_court_raises_its_fort_before_a_town_road() -> void:
 	var model: MapModel = _model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", CAPITAL)
@@ -195,4 +196,8 @@ func test_an_invaded_court_raises_its_fort_before_a_town_road() -> void:
 	var orders: Array = plan["orders"]
 	assert_eq(orders.size(), 1)
 	assert_eq(String(orders[0]["action"]), "build_fort")
-	assert_eq(Vector2i(orders[0]["tile"]), CAPITAL)
+	assert_eq(
+		Vector2i(orders[0]["tile"]),
+		FortRules.site_tile(model, 0),
+		"the fort stands where the rules site it"
+	)

@@ -410,7 +410,7 @@ func test_work_lists_match_the_wiki_table() -> void:
 	assert_eq(
 		CivilianCatalog.works("engineer"),
 		["build_road", "build_port", "build_fort", "build_hospital"],
-		"province hospitals (DR-20261111-12)"
+		"a fort and a hospital are the engineer's province works"
 	)
 	assert_eq(CivilianCatalog.works("spy"), ["counter_spy"], "screen plus passive tradecraft")
 	assert_eq(CivilianCatalog.works("merchant"), ["purchase_land"])

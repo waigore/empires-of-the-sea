@@ -222,6 +222,7 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	roster.award(play.player_faction, "general_1")
 	roster.award(play.player_faction, "general_1")
 	play.feeding[play.player_faction] = 0.4
+	play.economy.economy.navy_feeding = 0.5
 	play.ai = AiState.new()
 	play.ai.agenda_for(AiConfig.build(2, 1))
 	play.ai.note_war(play.player_faction, 2, play.turn)
@@ -244,6 +245,10 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	assert_true(
 		is_equal_approx(float(play.feeding[play.player_faction]), 0.4),
 		"last rations feed the first battle after a load (wiki: combat § Feeding)"
+	)
+	assert_true(
+		is_equal_approx(play.economy.economy.navy_feeding, 0.5),
+		"last rations feed the first sea battle after a load"
 	)
 	assert_not_null(play.ai, "rival-court bookkeeping restored")
 	assert_true(
