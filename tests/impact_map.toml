@@ -349,7 +349,30 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# Rival first contact with a Tribe (wiki: diplomacy § GP–Tribe first contact):
+# the pass, the chart read it makes, the turn that calls it and the suites that
+# already drive a rival chart (visibility / AI sight) stay one domain.
+[domains.tribe_contact]
+suites = [
+  "test_tribe_contact.gd",
+  "test_diplomacy_screen.gd",
+  "test_visibility.gd",
+  "test_ai_rules.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/tribe_contact.gd*"
+domain = "tribe_contact"
+
+[[rules]]
+match = "scripts/map/map_play_tribe_contact.gd*"
+domain = "tribe_contact"
+
+[[rules]]
+match = "tests/test_tribe_contact.gd*"
+domain = "tribe_contact"
+
 [[rules]]
 match = "scripts/rules/market_*.gd*"
 domain = "economy"
