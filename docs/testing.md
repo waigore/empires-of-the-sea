@@ -108,6 +108,11 @@ godot --headless --path . --script res://tests/playtest_allied_defence.gd
 # that cannot be read (a newer format, a corrupt file).
 godot --headless --path . --script res://tests/playtest_persistence.gd
 
+# Persistence, advanced — closes turns, starts a study from the college's own
+# row and raises an estate, then saves and loads and compares the two snapshots
+# field by field plus the college, estate, purse and plan reads a player makes.
+godot --headless --path . --script res://tests/playtest_persistence_advanced.gd
+
 # Naval squadron — reads the crown's squadrons and their named hulls, boards a
 # field army and sorties, lands it on a crown coast, takes a blockade off a rival
 # shore, resolves a sea battle (printing the despatch against the hulls actually
