@@ -1311,6 +1311,12 @@ domain = "ui"
 match = "scripts/ui/fleet_panel.gd*"
 domain = "ui"
 
+# The shipyard drawer is a dossier block, not a fleet rule: keep it on ui so a
+# row change does not pull the whole fleet domain past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/fleet_yard_block.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/diplomacy_hud.gd"
 domain = "ui"
