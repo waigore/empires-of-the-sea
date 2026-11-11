@@ -33,9 +33,8 @@ static func resolve(
 	if state == null or economy == null:
 		return report
 	state.ensure_slots()
-	var floor: int = state.treasury_floor()
 	for index in state.slots.size():
-		var row: Dictionary = _run_slot(state, economy, index, floor, boost)
+		var row: Dictionary = _run_slot(state, economy, index, boost)
 		var rows: Array[Dictionary] = report["slots"]
 		rows.append(row)
 		report["spent"] = int(report["spent"]) + int(row["gold"])
@@ -66,11 +65,40 @@ static func funds_research(funding: String) -> bool:
 	return low >= 0 and ResearchFunding.ORDER.find(funding) >= low
 
 
+## What one slot would pay and earn this turn, without touching state or the
+## treasury. The ledger draws its spend line and gauge from this, so the preview
+## and the phase can never disagree (REQ-P2-03). `spy_percent` is the share the
+## network covering this tech hands over; it only lifts a funded slot.
+static func preview(
+	state: ResearchState, tech_id: String, funding: String, treasury: int,
+	spy_percent: int = 0
+) -> Dictionary:
+	var plan: Dictionary = {
+		"gold": 0,
+		"rp": 0,
+		"boost": 0,
+		"paid": true,
+		"progress": state.progress_of(tech_id) if state != null else 0,
+		"cost": TechCatalog.cost(tech_id) if TechCatalog.known(tech_id) else 0,
+	}
+	if state == null or tech_id.is_empty():
+		return plan
+	var gold: int = ResearchFunding.gold(funding)
+	if gold > 0 and treasury - state.treasury_floor() < gold:
+		plan["paid"] = false
+		return plan
+	plan["gold"] = gold
+	plan["boost"] = maxi(spy_percent, 0) if funds_research(funding) else 0
+	plan["rp"] = points_for(state, tech_id, funding, int(plan["boost"]))
+	return plan
+
+
+## Researches one slot and reports what moved. The figures come from `preview`,
+## so the ledger's gauge and the phase cannot disagree.
 static func _run_slot(
 	state: ResearchState,
 	economy: PlayerEconomy,
 	index: int,
-	floor: int,
 	boost: Dictionary
 ) -> Dictionary:
 	var tech_id: String = state.tech_at(index)
@@ -89,19 +117,19 @@ static func _run_slot(
 	}
 	if tech_id.is_empty():
 		return row
-	row["cost"] = TechCatalog.cost(tech_id)
-	var gold: int = ResearchFunding.gold(funding)
-	if gold > 0 and economy.treasury - floor < gold:
-		row["paid"] = false
+	var plan: Dictionary = preview(
+		state, tech_id, funding, economy.treasury,
+		SpyNetworks.boost_for(boost, tech_id)
+	)
+	row["cost"] = int(plan["cost"])
+	row["boost"] = int(plan["boost"])
+	row["paid"] = bool(plan["paid"])
+	if not bool(plan["paid"]):
 		return row
-	if gold > 0:
-		economy.treasury -= gold
-		row["gold"] = gold
-	var spy_percent: int = 0
-	if funds_research(funding):
-		spy_percent = SpyNetworks.boost_for(boost, tech_id)
-	row["boost"] = spy_percent
-	var earned: int = points_for(state, tech_id, funding, spy_percent)
+	if int(plan["gold"]) > 0:
+		economy.treasury -= int(plan["gold"])
+	row["gold"] = int(plan["gold"])
+	var earned: int = int(plan["rp"])
 	row["rp"] = earned
 	var total: int = state.add_progress(tech_id, earned)
 	if total >= int(row["cost"]):
