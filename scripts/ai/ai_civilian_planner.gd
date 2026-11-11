@@ -8,7 +8,7 @@ extends RefCounted
 ## - Builders (`ai_builder_work.gd`) raise the estate the stores are shortest of
 ##   or finish a town that pays a manufacturing bonus.
 ## - Engineers and Rail Builders (`ai_engineer_work.gd`) extend the transport
-##   network, raise a port and, at war, the court's fort.
+##   network, raise a port, hospitals, and at war the court's fort.
 ## - Explorers (`ai_explorer_work.gd`) survey, prospect and march toward the fog.
 ## - Merchants (`ai_merchant_work.gd`) buy Minor and Tribe land the court closes.
 ## - Spies (`ai_spy_planner.gd`) observe rival Great Powers or keep a screen.

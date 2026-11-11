@@ -5,12 +5,12 @@ extends RefCounted
 ##
 ## An idle Engineer extends the transport network — a road to a resource the
 ## stores are shortest of and that still wants a road, a rail over an existing
-## road — raises a port on its crown's first coastal province without one, and
-## at war raises the capital's fort. Town links outrank incidental works and
-## are scored by [AiTownRoads]; the Engineer's own fort outranks a town link
-## when the court is invaded. Every candidate runs through
-## [AiCivilianCandidate], the same gate the player's dossier uses
-## (REQ-P2-03, REQ-P3-03). Pure rules: state in, order out.
+## road — raises a port on its crown's first coastal province without one,
+## raises province hospitals, and at war raises the capital's fort. Town links
+## outrank incidental works and are scored by [AiTownRoads]; the Engineer's own
+## fort, and at war a hospital, outrank a town link (DR-20261111-16). Every
+## candidate runs through [AiCivilianCandidate], the same gate the player's
+## dossier uses (REQ-P2-03, REQ-P3-03). Pure rules: state in, order out.
 
 ## Rail work starts at this base score so a rail outranks an ordinary road.
 const RAIL_BASE: int = 20
@@ -57,15 +57,19 @@ static func best_candidate(
 			config, model, unit, units, works, stockpile, tech_caps,
 			tech_unlocked, context
 		))
+	best = _better(best, AiHospitalWork.best_candidate(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
+	))
 	# A province's town only connects its estates when the town itself reaches
 	# the capital, so a town link outranks incidental works — but not the
-	# court's own fort when it is invaded (wiki: ai-architecture
-	# § Town-per-province roads; capital-and-connectivity § Town rule).
+	# court's own fort when it is invaded, nor (at war) its hospitals
+	# (wiki: ai-architecture § Town-per-province roads; DR-20261111-16).
 	var town_road: Dictionary = AiTownRoads.best_candidate(
 		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
 		context, connected, reserved
 	)
-	if not town_road.is_empty() and String(best.get("action", "")) != "build_fort":
+	if not town_road.is_empty() and not AiHospitalWork.holds_over_town_link(best, context):
 		best = town_road
 	return best
 

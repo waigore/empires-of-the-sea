@@ -9,6 +9,7 @@ suites = [
   "test_ai_cargo.gd",
   "test_ai_colonisation.gd",
   "test_ai_diplomacy_offers.gd",
+  "test_ai_hospital_work.gd",
   "test_ai_invasion.gd",
   "test_ai_market.gd",
   "test_ai_merchant.gd",
@@ -25,6 +26,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.land_turn]
@@ -37,6 +39,7 @@ suites = [
   "test_difficulty.gd",
   "test_campaign_defeat.gd",
   "test_capital_loss.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.audio]
@@ -49,6 +52,7 @@ suites = [
 [domains.battle]
 suites = [
   "test_battle_rules.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.campaign]
@@ -71,6 +75,7 @@ suites = [
   "test_civilian_voyage.gd",
   "test_espionage.gd",
   "test_map_screen_crown_orders.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.diplomacy]
@@ -143,6 +148,17 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+# Navy ration morale: combat scales by last granary coverage. Kept off the full
+# fleet domain so a feeding-hook PR stays inside the tier-1 5 min budget.
+[domains.naval_feeding]
+suites = [
+  "test_battle_rules.gd",
+  "test_economy_rules.gd",
+  "test_map_screen.gd",
+  "test_naval_strength.gd",
+  "test_save_codec.gd",
+]
+
 
 # Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
 # AI gates that read a chart. Kept its own (small) domain so a fog change is
@@ -160,6 +176,20 @@ suites = [
 [domains.fort]
 suites = [
   "test_fort_rules.gd",
+  "test_hospital_rules.gd",
+]
+
+# Hospitals: the province building, its rest tempo and its battle triage
+# (DR-20261111-12). The suites that read the same numbers travel together.
+[domains.hospital]
+suites = [
+  "test_hospital_rules.gd",
+  "test_ai_hospital_work.gd",
+  "test_battle_rules.gd",
+  "test_quick_battle_rules.gd",
+  "test_civilian_field_rules.gd",
+  "test_fort_rules.gd",
+  "test_save_world.gd",
 ]
 
 # The fleet AI's sight: the rival hunts and blockades only where its own chart
@@ -310,6 +340,7 @@ suites = [
   "test_save_codec.gd",
   "test_save_store.gd",
   "test_save_world.gd",
+  "test_hospital_rules.gd",
 ]
 
 [domains.ui]
@@ -317,6 +348,7 @@ suites = [
   "test_panel_dock.gd",
   "test_province_panel.gd",
   "test_mobile_layout.gd",
+  "test_hospital_rules.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -327,6 +359,7 @@ suites = [
   "test_quick_battle_rules.gd",
   "test_siege_depth.gd",
   "test_battle_sim.gd",
+  "test_hospital_rules.gd",
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
@@ -349,7 +382,30 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# Rival first contact with a Tribe (wiki: diplomacy § GP–Tribe first contact):
+# the pass, the chart read it makes, the turn that calls it and the suites that
+# already drive a rival chart (visibility / AI sight) stay one domain.
+[domains.tribe_contact]
+suites = [
+  "test_tribe_contact.gd",
+  "test_diplomacy_screen.gd",
+  "test_visibility.gd",
+  "test_ai_rules.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
+[[rules]]
+match = "scripts/rules/tribe_contact.gd*"
+domain = "tribe_contact"
+
+[[rules]]
+match = "scripts/map/map_play_tribe_contact.gd*"
+domain = "tribe_contact"
+
+[[rules]]
+match = "tests/test_tribe_contact.gd*"
+domain = "tribe_contact"
+
 [[rules]]
 match = "scripts/rules/market_*.gd*"
 domain = "economy"
@@ -370,9 +426,12 @@ domain = "economy"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "economy"
 
+# The turn hook's hospital rest pass reads the world; keep this one-line hook
+# on the hospital slice so it does not pull the economy/market set. Broader
+# turn-close changes should move this rule back to economy/civilian.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
-domain = "economy"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/ai/ai_market_planner.gd"
@@ -598,6 +657,12 @@ domain = "economy"
 match = "scripts/save/**"
 domain = "save"
 
+# The province record is read by every domain; a field added here (hospital
+# level) travels with the hospital suites, not the whole map set.
+[[rules]]
+match = "scripts/world/province_state.gd*"
+domain = "hospital"
+
 [[rules]]
 match = "scripts/world/**"
 domain = "map"
@@ -732,6 +797,18 @@ domain = "fleet"
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
+# Naval combat pass + ration context for each crown; keep it on the feeding
+# slice so a battle-hook change does not pull fleet/map past 5 min.
+[[rules]]
+match = "scripts/map/map_play_naval_turn.gd*"
+domain = "naval_feeding"
+
+# The player-side home-fleet merge (dossier row, report, load repair) is fleet
+# work: keep it off the broad scripts/map/** set so tier 1 stays inside 5 min.
+[[rules]]
+match = "scripts/map/map_play_home_merge.gd*"
+domain = "fleet"
+
 [[rules]]
 match = "scripts/map/map_play_observer.gd"
 domain = "ai"
@@ -860,6 +937,12 @@ domain = "civilian"
 match = "scripts/rules/spy_*.gd*"
 domain = "civilian"
 
+# Ration morale on sea battles only; keep off the full fleet domain so a
+# feeding-hook change stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/rules/naval_combat.gd*"
+domain = "naval_feeding"
+
 [[rules]]
 match = "scripts/rules/naval_*.gd"
 domain = "fleet"
@@ -895,6 +978,10 @@ domain = "fort"
 [[rules]]
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
+
+[[rules]]
+match = "scripts/rules/hospital_*.gd*"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/rules/economy_*.gd"
@@ -1126,6 +1213,16 @@ domain = "world"
 match = "scripts/rules/*_catalog.gd"
 domain = "misc"
 
+# Home-fleet merge rules belong with the fleet suites, not the rules catch-all.
+[[rules]]
+match = "scripts/rules/fleet_home_merge.gd*"
+domain = "fleet"
+
+# Its own suite rides with the fleet set too.
+[[rules]]
+match = "tests/test_home_merge.gd*"
+domain = "fleet"
+
 [[rules]]
 match = "scripts/rules/**"
 domain = "misc"
@@ -1307,6 +1404,12 @@ domain = "chart_bake"
 [[rules]]
 match = "scripts/ui/ui_theme.gd.uid"
 domain = "chart_bake"
+
+# The province fact grid is a dossier row kit; keep it on ui so a new row does
+# not pull the menu/setup plates.
+[[rules]]
+match = "scripts/ui/province_facts_grid.gd*"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/**"
@@ -1531,6 +1634,10 @@ domain = "research"
 [[rules]]
 match = "tests/test_save_*.gd"
 domain = "save"
+
+[[rules]]
+match = "tests/test_hospital_*.gd*"
+domain = "hospital"
 
 [[rules]]
 match = "tests/test_panel_dock.gd"

@@ -53,7 +53,7 @@ func spawn(
 	if regions.has_region(model.region_id):
 		fleets.assign(regions.value(model.region_id, []))
 		regions.set_region(model.region_id, fleets)
-		_rebuild_markers()
+		rebuild_markers()
 		return
 	# Hull ids stay unique for the life of the save, so the counter runs on
 	# across regions (wiki: ships-and-naval § Ship instances); never collide.
@@ -70,7 +70,7 @@ func _attach_marker(fleet: FleetState) -> void:
 	add_child(_markers.make(fleet))
 
 
-func _rebuild_markers() -> void:
+func rebuild_markers() -> void:
 	_markers.clear()
 	for fleet: FleetState in fleets:
 		_attach_marker(fleet)
@@ -148,7 +148,7 @@ func cross(fleet: FleetState) -> Dictionary:
 	destination.append(fleet)
 	regions.set_region(to_region, destination)
 	regions.set_region(model.region_id, fleets)
-	_rebuild_markers()
+	rebuild_markers()
 	warp_crossed.emit(fleet, result)
 	return result
 
@@ -171,6 +171,7 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 		if merged != null:
 			arrived = merged
 			result["merged_into"] = merged.id
+			result["merged_hulls"] = int(merge.get("hulls", 0))
 			# The merge carries hulls and passengers; a second army cannot stay
 			# aboard, so the report names it for the layer to land at the port.
 			if merged.embarked_army >= 0:
@@ -319,7 +320,7 @@ func settle_port_losses(world: WorldMap, reassigned: Array) -> Array[Dictionary]
 	if model == null or not (result.get("regions", []) as Array).has(model.region_id):
 		return reports
 	fleets.assign(regions.value(model.region_id, []))
-	_rebuild_markers()
+	rebuild_markers()
 	for row: Dictionary in result.get("sorties", []):
 		if int(row.get("region", -1)) != model.region_id:
 			continue

@@ -21,6 +21,7 @@ const LABELS: Dictionary = {
 	"build_road": "Build road",
 	"build_port": "Build port",
 	"build_fort": "Build fort",
+	"build_hospital": "Build hospital",
 	"build_rail": "Lay railroad",
 	"purchase_land": "Purchase land",
 	"counter_spy": "Counter-espionage",
@@ -81,9 +82,7 @@ static func options(
 		)
 		var price_text: String = cost_text(cost)
 		if action == LandPurchase.ACTION:
-			price_text = String(
-				check.get("cost_text", LandPurchase.cost_text(model, unit.tile))
-			)
+			price_text = String(check.get("cost_text", LandPurchase.cost_text(model, unit.tile)))
 		result.append({
 			"action": action,
 			"label": label(action),
@@ -112,9 +111,7 @@ static func validate(
 	if model == null or unit == null:
 		return _no("No civilian selected")
 	if not CivilianCatalog.works(unit.type_id).has(action):
-		return _no(
-			"The %s cannot %s." % [unit.display_name(), label(action).to_lower()]
-		)
+		return _no("The %s cannot %s." % [unit.display_name(), label(action).to_lower()])
 	if unit.is_working():
 		return _no("The %s is already working." % unit.display_name())
 	var tile: Vector2i = unit.tile if target_tile.x < 0 else target_tile
@@ -135,7 +132,7 @@ static func validate(
 		return check
 	## A fort is raised on the province's town tile, wherever the engineer stands
 	## (wiki: siege-mechanics § Fort Levels; DR-20261110-24).
-	if action == "build_fort":
+	if action == "build_fort" or action == "build_hospital":
 		var site: Vector2i = FortRules.site_tile(model, province)
 		if site.x >= 0:
 			tile = site
@@ -175,6 +172,7 @@ static func assign(
 		return check
 	_pay(stockpile, check.get("cost", {}))
 	var details: Dictionary = {}
+	details.merge(HospitalRules.work_details(check), true)
 	if action == "build_fort":
 		details["fort_level"] = CivilianWorkPlan.fort_target(model, Vector2i(check["tile"]))
 	elif action == "upgrade_town":
@@ -287,10 +285,8 @@ static func _check_action(
 				model.terrain_at(tile.x, tile.y), commodity
 			)
 			if works.improvement_at(model, tile) + 1 > terrain_cap:
-				return _no(
-					"Terrain caps %s extraction at level %d here."
-					% [ImprovementCatalog.commodity_label(commodity), terrain_cap]
-				)
+				return _no("Terrain caps %s extraction at level %d here."
+					% [ImprovementCatalog.commodity_label(commodity), terrain_cap])
 			return CivilianTransport.exclusive(units, unit, tile)
 		"upgrade_town":
 			var held_town: Dictionary = _owned_land(model, unit, tile)
@@ -320,6 +316,8 @@ static func _check_action(
 			# leap a level (wiki: siege-mechanics § Fort Levels), so the town
 			# tile is not exclusive the way an estate tile is.
 			return {"ok": true}
+		"build_hospital":
+			return HospitalRules.work_check(model, unit, tile, province, tech_unlocked)
 		"build_road", "build_port", "build_rail":
 			return CivilianTransport.check(
 				model, unit, action, tile, works, units, tech_unlocked
@@ -377,6 +375,8 @@ static func _apply(
 				model.province_data(province), unit.work_detail("fort_level")
 			)
 			return [model.index_of(tile.x, tile.y)]
+		"build_hospital":
+			return HospitalRules.work_complete(model, province, unit, tile)
 		"purchase_land":
 			if LandPurchase.complete(model, tile, unit.owner, economy):
 				return [model.index_of(tile.x, tile.y)]

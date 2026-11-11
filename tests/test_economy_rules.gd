@@ -174,6 +174,22 @@ func test_navy_eats_before_workers_and_two_units_per_ship() -> void:
 	assert_eq(report["idle_labour"], 3)
 
 
+## Fully fed hulls over hulls, not food units over food units: three food for
+## two hulls feeds one hull in full, so the coverage is 0.5, not 0.75
+## (wiki: workers-and-population § Consumption).
+func test_navy_coverage_counts_fully_fed_hulls() -> void:
+	assert_almost_eq(
+		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 4}), 1.0, 0.0001
+	)
+	assert_almost_eq(
+		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 3}), 0.5, 0.0001
+	)
+	assert_almost_eq(
+		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 0}), 0.0, 0.0001
+	)
+	assert_almost_eq(EconomyConsumption.navy_coverage({}), 1.0, 0.0001)
+
+
 func test_food_is_eaten_from_grain_before_meat() -> void:
 	var pool: WorkerPool = WorkerPool.make(0)
 	var stock: Dictionary = {"grain": 1, "meat": 5}
