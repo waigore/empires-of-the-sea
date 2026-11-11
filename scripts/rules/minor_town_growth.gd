@@ -45,12 +45,13 @@ static func apply(model: MapModel, province: ProvinceState) -> int:
 
 
 ## The line a signed deed prints: the purchase, and the town it developed when
-## the province stands at its deed level (REQ-P5-05 — never a silent change).
-static func deed_line(model: MapModel, province: ProvinceState, place: String) -> String:
+## this deed is the one that raised it (REQ-P5-05 — never a silent change, and
+## never a rise the province did not take). `raised` is the level the completion
+## actually set, so a deed a town already meets says nothing about the town.
+static func deed_line(
+	model: MapModel, province: ProvinceState, place: String, raised: int = 0
+) -> String:
 	var line: String = "The deed to %s is signed; the tile answers to your crown." % place
-	if province == null:
+	if model == null or province == null or raised < 2:
 		return line
-	var level: int = province.town_level()
-	if level >= 2 and level == level_for(deeds_in(model, province)):
-		line += " The town rises to level %d." % level
-	return line
+	return line + " The town rises to level %d." % raised
