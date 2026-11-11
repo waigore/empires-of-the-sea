@@ -77,13 +77,14 @@ static func plan(
 
 
 ## The preset a court pays each slot: `research.funding_index` shifted by the
-## personality's research weight (3 pays one step up, 1 one step down), clamped
-## to the catalogue (wiki: research-state § Funding presets; ai-personalities
-## § Domain weight vectors).
+## personality's research weight (3 pays one step up, 1 one step down) and by the
+## agenda's own catch-up step (wiki: research-state § Funding presets;
+## ai-personalities § Domain weight vectors; hidden-agendas — tech_thief pays for
+## its catch-up, DR-20261111-27), clamped to the catalogue.
 static func funding_for(config: AiConfig) -> String:
 	var shift: int = int(config.weights().get("research", 2)) - 2
 	var index: int = clampi(
-		config.parameter("research.funding_index") + shift,
+		config.parameter("research.funding_index") + shift + config.research_bias(),
 		0, ResearchFunding.ORDER.size() - 1
 	)
 	return ResearchFunding.ORDER[index]

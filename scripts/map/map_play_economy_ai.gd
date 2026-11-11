@@ -41,7 +41,15 @@ static func run(play: PlaySession) -> Dictionary:
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
 			_army_food(play, faction), false,
-			MapPlaySpyAi.research_bonus(play, faction, economy)
+			MapPlaySpyAi.research_bonus(play, faction, economy),
+			_hospital_demands(play, faction)
+		)
+		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
+		# first, and the flags they set are what its next rest tick reads
+		# (wiki: combat § Regiment condition; DR-20261112-04).
+		HospitalRules.feed(
+			play.world, faction,
+			int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 		)
 		economy.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
@@ -132,7 +140,7 @@ static func _trade(
 		0
 	)
 	var reserved: Dictionary = _reserved_inputs(
-		production, _food_demand(play, faction, economy)
+		production, _food_demand(play, faction, economy), economy
 	)
 	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
 	for commodity: Variant in current.keys():
@@ -150,12 +158,25 @@ static func _trade(
 	return result
 
 
-## Inputs this turn's production promised, plus food the consumption phase eats,
-## so a sale never starves the court or spends a commodity twice.
-static func _reserved_inputs(production: Dictionary, food: int = 0) -> Dictionary:
+## Inputs this turn's production promised, plus the ration the consumption phase
+## eats, so a sale never starves the court or spends a commodity twice. The
+## ration is grain and meat, and the larder eats grain first: the reservation
+## holds what the court actually has of each, so a court whose larder is meat
+## does not sell the rations its regiments and staffs eat (wiki:
+## workers-and-population § Consumption; DR-20261112-04).
+static func _reserved_inputs(
+	production: Dictionary, food: int = 0, economy: PlayerEconomy = null
+) -> Dictionary:
 	var reserved: Dictionary = {}
-	if food > 0:
-		reserved["grain"] = food
+	var ration: int = maxi(food, 0)
+	for id: String in CommodityCatalog.FOOD:
+		if ration <= 0:
+			break
+		var held: int = maxi(economy.quantity(id), 0) if economy != null else ration
+		var kept: int = mini(ration, held)
+		if kept > 0:
+			reserved[id] = kept
+		ration -= kept
 	for raw: Variant in production.get("assignments", []):
 		var assignment: Dictionary = raw
 		var units: int = int(assignment.get("units", 0))
@@ -174,16 +195,24 @@ static func _ships(play: PlaySession, faction: int) -> int:
 	return play.ship_layer.hull_count_all(faction)
 
 
-## Food this court will eat before Production: army, navy and every worker
-## ration (wiki: workers-and-population § Consumption).
+## Food this court will eat before Production: army, navy, every worker ration
+## and every hospital staff (wiki: workers-and-population § Consumption;
+## combat § Regiment condition).
 static func _food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
 	var demand: int = _army_food(play, faction)
 	demand += _ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	for ration: int in _hospital_demands(play, faction):
+		demand += ration
 	for tier in WorkerPool.TIER_COUNT:
 		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
 	return demand
+
+
+## The ordered ration of every hospital staff in this court, seat first.
+static func _hospital_demands(play: PlaySession, faction: int) -> Array[int]:
+	return HospitalRules.demand_list(play.world, faction)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:

@@ -187,6 +187,49 @@ func test_agenda_modifiers_shift_war_thresholds() -> void:
 	assert_false(AiAgenda.has("no_such_agenda"))
 
 
+func test_every_agenda_declares_every_trait() -> void:
+	# One trait per documented agenda behaviour (wiki: hidden-agendas § Scoring
+	# hooks; DR-20261111-27). An agenda missing a key would read as a neutral
+	# court and its dossier could name a motive that moves nothing.
+	var keys: Array = AiAgenda.NEUTRAL.keys()
+	assert_eq(keys.size(), 8)
+	for agenda_id: String in AiAgenda.IDS:
+		var traits: Dictionary = AiAgenda.resolve(agenda_id)
+		assert_eq(traits.size(), keys.size(), agenda_id)
+		for key: Variant in keys:
+			assert_true(traits.has(key), "%s declares %s" % [agenda_id, String(key)])
+
+
+func test_the_seed_agendas_pull_on_their_documented_decisions() -> void:
+	assert_eq(int(AiAgenda.resolve(AiAgenda.BACKSTABBER)["betray_bias"]), 25, "hits allies")
+	assert_eq(int(AiAgenda.resolve(AiAgenda.ISOLATIONIST)["trade_bias"]), -20, "minimal trade")
+	assert_eq(int(AiAgenda.resolve(AiAgenda.ENVY)["rival_bias"]), 20, "resents a lead")
+	assert_eq(int(AiAgenda.resolve(AiAgenda.TECH_THIEF)["research_bias"]), 1, "pays to catch up")
+	assert_eq(int(AiAgenda.resolve(AiAgenda.PEACEMAKER)["peace_bias"]), 15, "early peace")
+	assert_eq(int(AiAgenda.resolve(AiAgenda.WARMONGER)["peace_bias"]), -10, "keeps the war alive")
+
+
+func test_config_reads_an_agendas_traits() -> void:
+	var hawk: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	assert_eq(hawk.peace_bias(), -10)
+	assert_eq(hawk.betray_bias(), 0)
+	var sneak: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.BACKSTABBER)
+	assert_eq(sneak.betray_bias(), 25)
+	var loner: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.ISOLATIONIST)
+	assert_eq(loner.trade_bias(), -20)
+	var jealous: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
+	assert_eq(jealous.rival_bias(), 20)
+	var thief: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	assert_eq(thief.research_bias(), 1)
+	var neutral: AiConfig = AiConfig.build(1, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	neutral.agenda_traits = AiAgenda.NEUTRAL
+	assert_eq(neutral.peace_bias(), 0)
+	assert_eq(neutral.betray_bias(), 0)
+	assert_eq(neutral.trade_bias(), 0)
+	assert_eq(neutral.rival_bias(), 0)
+	assert_eq(neutral.research_bias(), 0)
+
+
 func test_config_combines_leader_agenda_and_profile() -> void:
 	var config: AiConfig = AiConfig.build(2, 1500, AiProfile.AGGRESSIVE, AiAgenda.PEACEMAKER)
 	assert_eq(config.leader, "napoleon")
@@ -1807,6 +1850,24 @@ func test_a_fresh_court_fills_every_slot_at_medium_funding() -> void:
 	for entry: Dictionary in assignments:
 		assert_eq(String(entry["funding"]), "medium")
 		assert_eq(economy.research.tech_at(int(entry["slot"])), String(entry["tech"]))
+
+
+func test_the_tech_thief_pays_a_step_more_for_its_catch_up() -> void:
+	# tech_thief is the only agenda that carries a research step (wiki:
+	# hidden-agendas — tech catch-up posture; DR-20261111-27).
+	var plain: AiConfig = _research_config()
+	var thief: AiConfig = _research_config()
+	thief.agenda_traits = AiAgenda.resolve(AiAgenda.TECH_THIEF)
+	var index: int = ResearchFunding.ORDER.find(AiResearchPlanner.funding_for(plain))
+	assert_eq(
+		ResearchFunding.ORDER.find(AiResearchPlanner.funding_for(thief)),
+		index + 1,
+		"one funding step above the published preset"
+	)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var plan: Dictionary = AiResearchPlanner.plan(thief, economy)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(String(entry["funding"]), AiResearchPlanner.funding_for(thief))
 
 
 func test_occupied_research_slots_are_left_alone() -> void:

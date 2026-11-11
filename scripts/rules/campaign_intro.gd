@@ -45,14 +45,16 @@ const LINES: Array[String] = [
 
 ## The whole page in one record: kicker, title, stamp, body, charges, begin.
 ## `turn` is the campaign's own calendar, so an advanced start opens in its year
-## rather than in 1500 (wiki: advanced-starts).
+## rather than in 1500 (wiki: advanced-starts). `difficulty` is the level the
+## crown chose, because it sets the bar the charge prints (DR-20261111-28).
 static func address(
 	crown: String,
 	leader: String,
 	seat: String,
 	turn: int,
 	infinite: bool,
-	salt: int
+	salt: int,
+	difficulty: String = Difficulty.DEFAULT
 ) -> Dictionary:
 	var body: String = render(
 		String(LINES[absi(salt) % LINES.size()]), leader, crown, seat
@@ -62,7 +64,7 @@ static func address(
 		"title": TITLE,
 		"stamp": _stamp(seat, turn),
 		"body": body,
-		"charges": charges(infinite),
+		"charges": charges(infinite, difficulty),
 		"begin": BEGIN,
 	}
 
@@ -90,12 +92,21 @@ static func default_address() -> Dictionary:
 	)
 
 
-## What the age asks of the crown: the published win condition, the calendar the
-## player chose, and how many rivals sail for the same shores
-## (wiki: victory § Military victory; turn-time-mapping § Campaign calendar cap).
-static func charges(infinite: bool) -> Array[String]:
+## What the age asks of the crown: the win condition its level sets, the calendar
+## the player chose, and how many rivals sail for the same shores (wiki: victory
+## § Military victory; ruleset-config § Difficulty; turn-time-mapping
+## § Campaign calendar cap). The bar is the crown's own, so a level that moves it
+## is never hidden; every rival still needs the published 31.
+static func charges(infinite: bool, difficulty: String = Difficulty.DEFAULT) -> Array[String]:
 	var lines: Array[String] = []
-	lines.append("Win the age: hold %d Old World provinces." % VictoryRules.MILITARY_THRESHOLD)
+	var bar: int = VictoryRules.crown_threshold(difficulty)
+	if bar == VictoryRules.MILITARY_THRESHOLD:
+		lines.append("Win the age: hold %d Old World provinces." % bar)
+	else:
+		lines.append(
+			"Win the age: hold %d Old World provinces; a rival needs %d."
+			% [bar, VictoryRules.MILITARY_THRESHOLD]
+		)
 	if infinite:
 		lines.append("No calendar closes this age; the field alone decides it.")
 	else:

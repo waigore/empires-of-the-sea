@@ -26,6 +26,8 @@ var selected_province: int = -1
 var move_zones: Array[int] = []
 var move_provinces: Array[int] = []
 var move_tiles: Array[Vector2i] = []
+## Ground the selected Explorer could still survey (DR-20261111-26).
+var survey_tiles: Array[Vector2i] = []
 
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
@@ -71,6 +73,7 @@ func _process(delta: float) -> void:
 		or not move_zones.is_empty()
 		or not move_provinces.is_empty()
 		or not move_tiles.is_empty()
+		or not survey_tiles.is_empty()
 		or fog_layer.is_fading()
 	):
 		queue_redraw()
@@ -128,16 +131,19 @@ func clear_move_options() -> void:
 	queue_redraw()
 
 
-## Tile-level march targets for the selected civilian (one land tile per turn).
-func show_tile_options(tiles: Array[Vector2i]) -> void:
+## Tile-level hints for the selected civilian: march targets and the ground its
+## Explorer could still survey (DR-20261111-26).
+func show_tile_options(tiles: Array[Vector2i], survey: Array[Vector2i] = []) -> void:
 	move_tiles = tiles.duplicate()
+	survey_tiles = survey.duplicate()
 	queue_redraw()
 
 
 func clear_tile_options() -> void:
-	if move_tiles.is_empty():
+	if move_tiles.is_empty() and survey_tiles.is_empty():
 		return
 	move_tiles.clear()
+	survey_tiles.clear()
 	queue_redraw()
 
 
@@ -192,6 +198,15 @@ func _draw() -> void:
 			province_id, Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 2.2
 		)
 		_draw_port_marker(province_id, pulse)
+
+	for tile: Vector2i in survey_tiles:
+		# Dashed ring of pale points: ground an Explorer can still read, drawn
+		# apart from the solid march rings so a tap is never ambiguous.
+		var survey_point: Vector2 = MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
+		for i in 8:
+			var angle: float = TAU * float(i) / 8.0 + _pulse * 0.35
+			var spot: Vector2 = survey_point + Vector2(cos(angle), sin(angle)) * 7.5
+			draw_circle(spot, 1.4, Color(0.74, 0.82, 0.90, 0.50 + 0.30 * pulse))
 
 	for tile: Vector2i in move_tiles:
 		var point: Vector2 = MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)

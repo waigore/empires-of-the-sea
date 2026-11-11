@@ -131,6 +131,34 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	assert_gt(economy.total_units(), 0)
 
 
+func test_the_crowns_wards_eat_from_the_larder() -> void:
+	var world: WorldMap = _screen.play.world
+	var faction: int = _screen.player_faction
+	var province: ProvinceState = world.region(0).province_data(
+		_screen.economy.capital_province
+	)
+	assert_not_null(province)
+	province.hospital_level = 1
+	assert_eq(HospitalRules.demand_list(world, faction).size(), 1)
+
+	_screen.economy.economy.stockpile["grain"] = 20
+	_screen.economy.economy.stockpile["meat"] = 20
+	var report: Dictionary = _screen.economy.resolve_turn()
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_demand"]), 2)
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_fed"]), 2)
+	assert_true(province.hospital_staffed, "a fed ward keeps its staff")
+
+	# An empty larder feeds the living first: the ward goes without, and the
+	# turn's own summary says so (REQ-P5-05).
+	_screen.economy.economy.stockpile["grain"] = 0
+	_screen.economy.economy.stockpile["meat"] = 0
+	var bare: Dictionary = _screen.economy.resolve_turn()
+	assert_false(province.hospital_staffed)
+	assert_eq((bare["hospital"] as Dictionary)["hungry"].size(), 1)
+	assert_true(LedgerText.turn_summary(bare).contains("1 hospital unstaffed"))
+	assert_eq(HospitalRules.effective_level(world.region(0), province.id), 0)
+
+
 # --- merchant cargo ----------------------------------------------------------
 
 
@@ -300,6 +328,117 @@ func test_an_empty_offer_book_says_so() -> void:
 	assert_not_null(_find_label(body, "No court has goods for sale"))
 
 
+# --- offer book filters ------------------------------------------------------
+
+
+## A court book with two sellers and two goods, injected so the chips have
+## something to narrow (the live book depends on the generated world).
+func _offer_book() -> Array[Dictionary]:
+	var market: WorldMarket = _screen.economy.market
+	return [
+		{
+			"id": "7:timber",
+			"faction": 7,
+			"commodity": "timber",
+			"quantity": 2,
+			"unit_price": market.price("timber"),
+		},
+		{
+			"id": "7:grain",
+			"faction": 7,
+			"commodity": "grain",
+			"quantity": 1,
+			"unit_price": market.price("grain"),
+		},
+		{
+			"id": "9:timber",
+			"faction": 9,
+			"commodity": "timber",
+			"quantity": 4,
+			"unit_price": market.price("timber"),
+		},
+	]
+
+
+func _market_page() -> LedgerMarket:
+	_screen.economy.open_panel()
+	return _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+
+
+## The seller and good chips narrow the court book without leaving the tab
+## (REQ-P1-07, REQ-P5-03).
+func test_the_market_tab_filters_the_court_book_by_seller_and_good() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	assert_not_null(market)
+	assert_eq(market.visible_offers().size(), 3)
+
+	var chips: Dictionary = market.offer_filters()
+	assert_true(chips.has("seller:7"), "one chip per court: %s" % [chips.keys()])
+	assert_true(chips.has("seller:9"))
+	assert_true(chips.has("good:grain"))
+
+	(chips["seller:7"] as Button).pressed.emit()
+	var rows: Array[Dictionary] = market.visible_offers()
+	assert_eq(rows.size(), 2, "only the chosen court's offers are drawn")
+	for row: Dictionary in rows:
+		assert_eq(int(row["faction"]), 7)
+	assert_true((market.offer_filters()["seller:7"] as Button).button_pressed)
+
+	(market.offer_filters()["good:grain"] as Button).pressed.emit()
+	assert_eq(market.visible_offers().size(), 1, "seller and good narrow together")
+	assert_eq(String(market.visible_offers()[0]["id"]), "7:grain")
+
+
+## A filter is presentation only: the published book and the staged orders are
+## untouched, and a row that survives the filter still stages its bid
+## (REQ-P2-03, RUB-P2-03).
+func test_a_filter_never_edits_the_book_and_a_shown_row_still_bids() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	var published: Array = _screen.economy.market.minor_offers.duplicate(true)
+
+	(market.offer_filters()["sort:quantity"] as Button).pressed.emit()
+	assert_eq(_screen.economy.market.minor_offers, published, "the book is not rewritten")
+	assert_eq(_screen.economy.market.book.pending_buy_units(_screen.player_faction), 0)
+
+	var bids: Array[Button] = []
+	_collect_buttons(market._offers_box, bids)
+	assert_eq(bids.size(), 3, "every offer is still on the table")
+	bids[0].pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 1,
+		"the deepest book leads under Most stock first"
+	)
+
+
+func test_an_empty_offer_book_offers_no_chips() -> void:
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	panel.refresh(
+		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		{"holds": 2, "used": 0, "free": 2}, []
+	)
+	var market: LedgerMarket = panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+	assert_eq(market.offer_filters(), {})
+	assert_eq(market.visible_offers().size(), 0)
+
+
+## Chips are thumb targets on a phone viewport, and stay that size when the
+## ledger rebuilds on the next turn (REQ-P5-07).
+func test_the_market_chips_grow_for_a_thumb() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	panel.set_compact(true)
+	for key: Variant in market.offer_filters().keys():
+		var chip: Button = market.offer_filters()[key] as Button
+		assert_eq(chip.custom_minimum_size.y, MarketOffersHead.CHIP_HEIGHT_TOUCH, String(key))
+	panel.set_compact(false)
+	for key: Variant in market.offer_filters().keys():
+		var chip: Button = market.offer_filters()[key] as Button
+		assert_eq(chip.custom_minimum_size.y, MarketOffersHead.CHIP_HEIGHT, String(key))
+
+
 func test_the_ledger_shows_trade_terms_and_charges_the_adjusted_price() -> void:
 	var market: WorldMarket = _screen.economy.market
 	market.set_terms(_screen.player_faction, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
@@ -390,6 +529,66 @@ func test_the_ledger_names_a_favoured_partner_fill() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
 	assert_not_null(_find_label(body, "as its favoured partner"))
+
+
+## A sale names the ducats the auction paid, and the overseas share the court
+## earned from the courts' purchases abroad is its own line — neither is visible
+## on any other surface (wiki: world-market § First right of refusal; REQ-P5-05).
+func test_the_ledger_names_a_sale_and_the_overseas_share() -> void:
+	var faction: int = _screen.player_faction
+	_screen.economy.market.book.last_deals = [{
+		"buyer": MarketOrder.WORLD,
+		"seller": faction,
+		"commodity": "grain",
+		"quantity": 1,
+		"price": 50,
+		"earned": 50,
+	}]
+	_screen.economy.last_clearing = {"credits": {"by_gp": {faction: 89.0}}}
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "Sold 1 Grain to the world market at 50 — 50 ducats"))
+	assert_not_null(_find_label(body, "Overseas shares  +89 ducats"))
+
+
+## The "Next turn" line names the orders the auction settles after it, so a
+## staged bid is never read as already counted in the promise (wiki:
+## stockpiles-and-production § Production flow).
+func test_the_ledger_preview_names_the_staged_auction() -> void:
+	_screen.economy._on_trade("grain", 1, true)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	assert_not_null(_find_label(panel, "settles at the auction"))
+
+
+## Starting a study is a decision about the purse, so the top bar's per-turn
+## figure follows it before the turn closes (wiki: tech-tree § Research Model;
+## REQ-P5-05 — a cost the player chose is never a mystery at the auction).
+func test_starting_a_study_moves_the_per_turn_figure() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	var open: Array[String] = economy.research.researchable()
+	assert_gt(open.size(), 0, "the opening college has an advance to start")
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income())
+	)
+	_screen.economy._on_research_assign(open[0])
+	var gold: int = ResearchFunding.gold(ResearchFunding.DEFAULT)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"the chip follows the study it just funded",
+	)
+	assert_eq(_screen.economy.projected_income(), -gold, "the slot pays its preset")
+	_screen.economy._on_research_funding(0)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"a preset change moves the figure too",
+	)
+	_screen.economy._on_research_cancel(0)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"abandoning the study gives the gold back",
+	)
 
 
 ## The crown's ledger cannot offer what its own production will eat: the AI

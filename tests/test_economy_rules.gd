@@ -3,6 +3,9 @@ extends GdToolsTest
 ## world market.
 ## Merged into one suite so coverage pays a single Godot boot per theme
 ## (docs/testing.md speed rules).
+## Consolidated rulebook: test_market_engine, test_ledger_text,
+## test_ledger_helpers, test_commodity_icons, test_trade_cargo,
+## test_economy_overseas (one Godot boot per domain).
 
 
 # --- from test_worker_pool.gd ---
@@ -1017,3 +1020,1592 @@ func test_a_minor_town_offer_clears_in_the_auction() -> void:
 	assert_eq(String(mine[0]["commodity"]), "lumber")
 	assert_eq(buyer.quantity("lumber"), stock_before + 1)
 	assert_eq(buyer.treasury, before - 60, "one lumber at the published price")
+
+
+# --- from test_market_engine.gd ---
+## World-market matching engine: order validation, priority tiers, first right
+## of refusal, relation tiebreaks, profit shares, embassy kickbacks, subsidy
+## steps, carry-forward and price discovery (wiki: world-market;
+## world-market-first-right-of-refusal).
+
+var _seq: int = 0
+
+
+func _order(
+	faction: int,
+	commodity: String,
+	side: String,
+	quantity: int,
+	priority: int = 1,
+	origin_region: int = MarketOrder.NO_ORIGIN,
+	origin_index: int = MarketOrder.NO_ORIGIN,
+	auto_offer: bool = false
+) -> MarketOrder:
+	_seq += 1
+	var order: MarketOrder = MarketOrder.create(
+		faction, commodity, side, quantity, priority, origin_region, origin_index, auto_offer
+	)
+	order.id = "t%d" % _seq
+	return order
+
+
+func _context(overrides: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {
+		"prices": {"timber": 30, "grain": 10},
+		"free_holds": {0: 10, 1: 10, 2: 10, 6: 10, 9: 10},
+		"treasuries": {0: 10000, 1: 10000, 2: 10000, 6: 0, 9: 0},
+		"stock": {0: {"timber": 10}, 1: {"timber": 10}, 2: {"timber": 10}, 3: {"timber": 10}},
+	}
+	for key: Variant in overrides.keys():
+		out[key] = overrides[key]
+	return out
+
+
+# --- validation --------------------------------------------------------------
+
+
+func test_one_side_per_commodity() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var bid: Dictionary = MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1, {"cargo_free": 4, "treasury": 500}
+	)
+	assert_true(bool(bid["ok"]), String(bid.get("reason", "")))
+	var offer: Dictionary = MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 4}
+	)
+	assert_false(bool(offer["ok"]))
+	assert_eq(String(offer["code"]), "trade_order_mutual_exclusion")
+
+
+func test_bid_type_cap_is_three_and_trade_fairs_raise_it_to_six() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var ids: Array[String] = ["timber", "iron", "wool", "grain"]
+	for index in 3:
+		var result: Dictionary = MarketOrders.submit(
+			market,
+			0, ids[index], MarketOrder.SIDE_BID, 1, {"cargo_free": 8, "treasury": 9000}
+		)
+		assert_true(bool(result["ok"]), String(result.get("reason", "")))
+	var fourth: Dictionary = MarketOrders.submit(
+			market,
+		0, ids[3], MarketOrder.SIDE_BID, 1, {"cargo_free": 8, "treasury": 9000}
+	)
+	assert_false(bool(fourth["ok"]))
+	assert_eq(String(fourth["code"]), "trade_order_bid_type_cap_exceeded")
+	var fair: WorldMarket = WorldMarket.with_default_prices()
+	for index in 4:
+		var result: Dictionary = MarketOrders.submit(
+		fair,
+			0, ids[index], MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 8, "treasury": 9000, "tech_unlocked": {"trade_fairs": true}}
+		)
+		assert_true(bool(result["ok"]), String(result.get("reason", "")))
+
+
+func test_offer_is_capped_by_stock_and_bid_by_cargo() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer: Dictionary = MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_OFFER, 3, {"stock": 2}
+	)
+	assert_false(bool(offer["ok"]))
+	assert_eq(String(offer["code"]), "trade_order_stock_insufficient")
+	var bid: Dictionary = MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 3, {"cargo_free": 2, "treasury": 500}
+	)
+	assert_false(bool(bid["ok"]))
+	assert_eq(String(bid["code"]), "trade_order_cargo_insufficient")
+
+
+# --- priority and ties -------------------------------------------------------
+
+
+func test_higher_priority_bid_clears_the_offer_first() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 2),
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var result: Dictionary = MarketMatcher.match(orders, _context())
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 0)
+	assert_eq(int(deals[0]["quantity"]), 5)
+	var left: Array = result["residuals"]
+	assert_eq(left.size(), 1)
+	assert_eq(int(left[0]["faction"]), 1)
+
+
+func test_favoured_partner_wins_a_tie() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(3, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["ftp_for"] = func(a: int, b: int) -> bool: return a == 1 and b == 3
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 1)
+	assert_true(bool(deals[0]["is_ftp"]))
+
+
+func test_minor_sale_prefers_a_consulate_holder_then_higher_relation() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["consulate_for"] = func(gp: int, _minor: int) -> bool: return true
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 70.0 if gp == 2 else 25.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 2, "higher relation with the seller wins")
+
+
+func test_a_consulate_holder_beats_a_higher_relation_without_one() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["consulate_for"] = func(gp: int, _minor: int) -> bool: return gp == 1
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 80.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1)
+
+
+# --- favoured trading partner (wiki: diplomacy § R7.1) ------------------------
+
+
+func test_the_suzerain_is_a_colonys_favoured_partner() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(1, 12, 0).set_score(90.0)
+	state.set_colony(12, 0)
+	assert_eq(MarketFavoured.of(state, 12), 0, "a colony ignores the warmer rival")
+	assert_true(MarketFavoured.is_suzerain(state, 12, 0))
+	assert_false(MarketFavoured.is_suzerain(state, 12, 1))
+
+
+func test_the_warmest_court_is_an_independent_courts_favoured_partner() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(2, 7, 0).set_score(72.0)
+	state.ensure_relation(1, 7, 0).set_score(68.0)
+	assert_eq(MarketFavoured.of(state, 7), 2)
+
+
+func test_an_equal_relation_breaks_to_the_smaller_court_id() -> void:
+	var state := DiplomacyState.new()
+	state.ensure_relation(2, 7, 0).set_score(60.0)
+	state.ensure_relation(1, 7, 0).set_score(60.0)
+	assert_eq(MarketFavoured.of(state, 7), 1)
+
+
+func test_a_court_no_one_knows_has_no_favoured_partner() -> void:
+	assert_eq(MarketFavoured.of(DiplomacyState.new(), 7), MarketFavoured.UNDEFINED)
+	assert_eq(MarketFavoured.of(null, 7), MarketFavoured.UNDEFINED)
+
+
+func test_a_colonys_suzerain_clears_the_tier_before_a_warmer_rival() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["favoured_for"] = func(_seller: int) -> int: return 0
+	context["consulate_for"] = func(_gp: int, _minor: int) -> bool: return true
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 1 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 0, "the suzerain trades first whatever its relation")
+	assert_true(bool(deals[0]["is_favoured"]))
+	assert_false(bool(deals[0]["is_ftp"]))
+
+
+func test_a_favoured_colony_never_crosses_a_priority_tier() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 5),
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["favoured_for"] = func(_seller: int) -> int: return 0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1, "favour stays inside its tier")
+
+
+func test_an_independent_seller_keeps_the_consulate_order() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(7, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	# The independent court's R7.1 partner is its warmest buyer, and the auction
+	# leaves that arm to R7.3: the Consulate holder is served first.
+	context["favoured_for"] = func(_seller: int) -> int: return MarketFavoured.UNDEFINED
+	context["consulate_for"] = func(gp: int, _minor: int) -> bool: return gp == 1
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 1)
+
+
+# --- first right of refusal --------------------------------------------------
+
+
+func test_first_right_overrides_a_higher_priority_rival() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 4, 5),
+		_order(1, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 4, 1, 0, 1, true),
+	]
+	var context: Dictionary = _context()
+	context["purchased_for"] = func(_region: int, _index: int) -> int: return 0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1)
+	assert_eq(int(deals[0]["buyer"]), 0)
+	assert_true(bool(deals[0]["is_frr"]))
+	assert_eq(int((result["residuals"] as Array)[0]["faction"]), 1)
+
+
+func test_first_right_partial_fill_exposes_the_residual() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(1, "timber", MarketOrder.SIDE_BID, 6, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 10, 1, 0, 1, true),
+	]
+	var context: Dictionary = _context()
+	context["purchased_for"] = func(_region: int, _index: int) -> int: return 0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 2)
+	assert_true(bool(deals[0]["is_frr"]))
+	assert_eq(int(deals[0]["quantity"]), 4)
+	assert_false(bool(deals[1]["is_frr"]))
+	assert_eq(int(deals[1]["quantity"]), 6)
+
+
+# --- profit share and kickbacks ---------------------------------------------
+
+
+func test_profit_is_relation_linear_with_no_cap() -> void:
+	assert_eq(FirstRight.profit(0.0, 4, 2.5), 0.0)
+	assert_eq(FirstRight.profit(100.0, 4, 2.5), 10.0)
+	assert_eq(FirstRight.profit(75.0, 10, 5.0), 37.5)
+	assert_eq(FirstRight.profit(-5.0, 10, 5.0), 0.0)
+	assert_eq(FirstRight.profit(200.0, 10, 5.0), 50.0, "clamped to 100")
+
+
+func test_embassy_kickback_is_ten_percent_of_the_relation_portion() -> void:
+	assert_eq(FirstRight.kickback(100.0, 10, 20.0), 20.0)
+	assert_eq(FirstRight.kickback(50.0, 10, 20.0), 10.0)
+
+
+func test_credits_separate_the_owner_share_from_kickbacks() -> void:
+	var deals: Array[Dictionary] = [{
+		"seller": 6, "buyer": 1, "commodity": "timber",
+		"quantity": 10, "price": 20.0, "seller_is_minor": true,
+		"origin_region": 0, "origin_index": 1,
+	}]
+	var result: Dictionary = FirstRight.credits(
+		deals,
+		func(_region: int, _index: int) -> int: return 0,
+		func(gp: int, _minor: int) -> float: return 75.0 if gp == 0 else 50.0,
+		func(gp: int, _minor: int) -> bool: return gp in [1, 2]
+	)
+	var by_gp: Dictionary = result["by_gp"]
+	assert_eq(float(by_gp[0]), 150.0, "owner full share, no 40% cap")
+	assert_eq(float(by_gp[1]), 10.0, "buyer also holds an embassy")
+	assert_eq(float(by_gp[2]), 10.0)
+	assert_eq(float(result["sink"]), 30.0)
+
+
+# --- clearing, settlement and carry-forward ---------------------------------
+
+
+func _world(second_owner: int = 6) -> WorldMap:
+	var model: MapModel = MapModel.new()
+	model.setup(3, 2)
+	for x in 2:
+		model.province[model.index_of(x, 0)] = 0
+	model.province[model.index_of(2, 0)] = 1
+	model.province[model.index_of(0, 1)] = 1
+	var tiles0: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var tiles1: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 1)]
+	var p0 := ProvinceState.create(0, "P0", tiles0, Vector2.ZERO, 2, 0)
+	var p1 := ProvinceState.create(1, "P1", tiles1, Vector2.ZERO, 2, second_owner)
+	model.provinces.append(p0)
+	model.provinces.append(p1)
+	model.resource[model.index_of(0, 0)] = 0
+	model.resource[model.index_of(2, 0)] = 0
+	model.resource[model.index_of(0, 1)] = 4
+	for tile: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(0, 1)]:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func _economies() -> Dictionary:
+	return {
+		0: PlayerEconomy.starting(),
+		1: PlayerEconomy.starting(),
+	}
+
+
+func test_a_bid_buys_the_minor_harvest_and_books_cargo() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	var before: int = buyer.treasury
+	var staged: Dictionary = MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": before, "buy_price": 30}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}
+	)
+	var deals: Array = report["deals"]
+	var mine: Array = []
+	for raw: Variant in deals:
+		if int((raw as Dictionary).get("buyer", -99)) == 0:
+			mine.append(raw)
+	assert_eq(mine.size(), 1)
+	assert_eq(int(mine[0]["seller"]), 6)
+	assert_eq(int(mine[0]["quantity"]), 1)
+	assert_eq(buyer.treasury, before - 30)
+	assert_eq(buyer.quantity("timber"), 1)
+	assert_eq(int(((report["fills"] as Dictionary).get(0, {}) as Dictionary).get("bought", 0)), 1)
+
+
+func test_no_purchased_tile_means_no_profit_share() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var before: int = (economies[1] as PlayerEconomy).treasury
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}
+	)
+	assert_eq(int((report["credits"] as Dictionary)["by_gp"].get(1, 0)), 0)
+	assert_eq((economies[1] as PlayerEconomy).treasury, before)
+
+
+func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	var tile: Vector2i = Vector2i(2, 0)
+	assert_true(model.purchase_tile(tile, 0))
+	var economies: Dictionary = _economies()
+	var owner: PlayerEconomy = economies[0]
+	var owner_before: int = owner.treasury
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(75.0)
+	MarketOrders.submit(
+			market,
+		1, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var credited: int = roundi(float((report["credits"] as Dictionary)["by_gp"].get(0, 0)))
+	assert_eq(credited, 23, "1 x 30 x 75% = 22.5, rounded once")
+	assert_eq(owner.treasury, owner_before + 23)
+	assert_false((economies[1] as PlayerEconomy).treasury == PlayerEconomy.START_TREASURY)
+
+
+## The standing world counterparty is no court: it pays no clear price, so a
+## harvest it absorbs owes the deed holder nothing (wiki:
+## world-market-first-right-of-refusal § Eligibility — "another GP buys those
+## units"; § Treasury transfer D4 — "the buyer GP pays").
+func test_credits_ignore_a_sale_the_world_counterparty_took() -> void:
+	var deals: Array[Dictionary] = [{
+		"seller": 6, "buyer": MarketOrder.WORLD, "commodity": "timber",
+		"quantity": 10, "price": 20.0, "seller_is_minor": true,
+		"origin_region": 0, "origin_index": 1,
+	}]
+	var result: Dictionary = FirstRight.credits(
+		deals,
+		func(_region: int, _index: int) -> int: return 0,
+		func(_gp: int, _minor: int) -> float: return 75.0,
+		func(_gp: int, _minor: int) -> bool: return true
+	)
+	assert_eq((result["by_gp"] as Dictionary).size(), 0, "nobody paid a share")
+	assert_eq((result["rows"] as Array).size(), 0, "no credit row for a world fill")
+	assert_eq(float(result["sink"]), 0.0, "a world fill adds nothing to the sink")
+
+
+## Playtest: a deed bought and never bid on must not mint treasury at the turn
+## close, even though the standing world counterparty clears the harvest.
+func test_a_world_backstop_sale_pays_no_deed_share() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	assert_true(model.purchase_tile(Vector2i(2, 0), 0))
+	var economies: Dictionary = _economies()
+	var owner: PlayerEconomy = economies[0]
+	var before: int = owner.treasury
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(100.0)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(owner.treasury, before, "no court paid, so there is no share")
+	assert_eq((report["credits"] as Dictionary)["by_gp"].size(), 0)
+	assert_eq(float(report["sink"]), 0.0, "the world paid nothing into the sink")
+
+
+## A kickback is funded from a court's payment, so a world fill funds none.
+func test_a_world_backstop_sale_pays_no_embassy_kickback() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	var embassy_court: PlayerEconomy = PlayerEconomy.starting()
+	economies[2] = embassy_court
+	var before: int = embassy_court.treasury
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(2, 6, 0).set_score(50.0)
+	diplomacy.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4, 2: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(embassy_court.treasury, before, "no buyer, no kickback")
+	assert_eq((report["credits"] as Dictionary)["by_gp"].size(), 0)
+
+
+## The colony's harvest clears to its suzerain inside the tier even though the
+## rival is the warmer, better-known court (wiki: diplomacy § R7.1;
+## DR-20261111-11).
+func test_the_suzerain_clears_a_colonys_harvest_at_turn_end() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var tribe: int = int(FactionCatalog.TRIBES[3]["id"])
+	var world: WorldMap = _world(tribe)
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_colony(tribe, 0)
+	for gp: int in [0, 1]:
+		diplomacy.ensure_relation(gp, tribe, 0).set_score(10.0 if gp == 0 else 90.0)
+		diplomacy.set_overture(gp, tribe, DiplomacyCatalog.STAGE_EMBASSY)
+	# The rival speaks first, so the deal proves the tiebreak, not the book order.
+	for gp: int in [1, 0]:
+		MarketOrders.submit(
+			market,
+			gp, "timber", MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+		)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var from_colony: Array[Dictionary] = []
+	var from_world: Array[Dictionary] = []
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) != "timber":
+			continue
+		if int(deal.get("seller", -2)) == tribe:
+			from_colony.append(deal)
+		elif int(deal.get("seller", -2)) == MarketOrder.WORLD:
+			from_world.append(deal)
+	assert_eq(from_colony.size(), 1, "the colony's one timber auto-offer")
+	assert_eq(int(from_colony[0]["buyer"]), 0, "the suzerain takes its colony's goods")
+	assert_true(bool(from_colony[0]["is_favoured"]))
+	assert_eq(from_world.size(), 1, "the rival buys at the published price instead")
+	assert_eq(int(from_world[0]["buyer"]), 1)
+	assert_false(bool(from_world[0]["is_favoured"]))
+
+
+func test_subsidy_surcharge_lands_on_the_minor_sale() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
+	assert_eq((economies[0] as PlayerEconomy).treasury, before - 33)
+
+
+func test_unfilled_bid_carries_or_drops_when_cargo_is_short() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "grain", MarketOrder.SIDE_BID, 5,
+		{"cargo_free": 10, "treasury": 5000, "buy_price": 10}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 2, 1: 4}
+	)
+	assert_eq((report["carry"] as Array).size(), 0)
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(codes.has("carry_forward_dropped_cargo_insufficient"))
+
+
+func test_unfilled_bid_carries_when_cargo_can_still_cover_it() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "grain", MarketOrder.SIDE_BID, 5,
+		{"cargo_free": 10, "treasury": 5000, "buy_price": 10}
+	)
+	var before: int = (economies[0] as PlayerEconomy).quantity("grain")
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 8, 1: 4}
+	)
+	# The world maker fills all five, so nothing carries; a fresh book stays clean.
+	assert_eq((report["carry"] as Array).size(), 0)
+	assert_eq((economies[0] as PlayerEconomy).quantity("grain"), before + 5)
+
+
+func test_price_discovery_reads_filled_bids_and_submitted_offers() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	(economies[1] as PlayerEconomy).stockpile["timber"] = 10
+	MarketOrders.submit(
+			market,
+		1, "timber", MarketOrder.SIDE_OFFER, 10,
+		{"stock": 10}
+	)
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 5,
+		{"cargo_free": 8, "treasury": 5000, "buy_price": 30}
+	)
+	MarketClearing.clear(market, world, economies, {0: 8, 1: 8})
+	assert_eq(market.price("timber"), 27, "5 filled bids against 10 submitted offers")
+
+
+func test_purchased_tile_still_publishes_its_harvest() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	var tile: Vector2i = Vector2i(2, 0)
+	assert_true(model.purchase_tile(tile, 0))
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(world)
+	var found: bool = false
+	for order: MarketOrder in orders:
+		if order.commodity == "timber" and order.origin_index == model.index_of(tile.x, tile.y):
+			found = true
+			assert_eq(order.faction, 6)
+			assert_true(order.auto)
+	assert_true(found, "a deed keeps the seller's tile in the book for FRR")
+
+
+func test_clearing_is_deterministic() -> void:
+	var first: Dictionary = _clear_once()
+	var second: Dictionary = _clear_once()
+	assert_eq(first["deals"], second["deals"])
+
+
+func _clear_once() -> Dictionary:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	return MarketClearing.clear(market, world, economies, {0: 4, 1: 4})
+
+
+func test_the_order_book_survives_a_save_round_trip() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 2,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+	assert_eq(restored.book.submitted.size(), 1)
+	var order: MarketOrder = restored.book.submitted[0]
+	assert_eq(order.commodity, "timber")
+	assert_eq(order.remaining(), 2)
+	assert_eq(restored.book.pending_buy_units(0), 2)
+	assert_eq(MarketOrders.cancel(restored, 0, order.id), true)
+	assert_eq(restored.book.pending_buy_units(0), 0)
+
+
+func test_first_right_beats_a_favoured_partner() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 4, 5),
+		_order(1, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 4, 1, 0, 1, true),
+	]
+	var context: Dictionary = _context()
+	context["purchased_for"] = func(_region: int, _index: int) -> int: return 0
+	context["ftp_for"] = func(a: int, b: int) -> bool: return a == 1 and b == 6
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int((result["deals"] as Array)[0]["buyer"]), 0)
+	assert_true(bool((result["deals"] as Array)[0]["is_frr"]))
+
+
+func test_an_embassy_kickback_is_paid_from_the_minor_sale() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	model.resource[model.index_of(0, 1)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(2, 6, 0).set_score(50.0)
+	diplomacy.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	MarketOrders.submit(
+		market,
+		1, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	# Give the kickback recipient a ledger so the credit is observable.
+	var embassy_court: PlayerEconomy = PlayerEconomy.starting()
+	economies[2] = embassy_court
+	var before: int = embassy_court.treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4, 2: 4}, {"diplomacy": diplomacy})
+	assert_eq(embassy_court.treasury, before + 2, "1 x 30 x 50% x 10% = 1.5, rounded once")
+
+
+func test_a_bid_beyond_the_purse_is_refused_before_the_book() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var result: Dictionary = MarketOrders.submit(
+		market,
+		0, "timber", MarketOrder.SIDE_BID, 10,
+		{"cargo_free": 20, "treasury": 100, "buy_price": 30}
+	)
+	assert_false(bool(result["ok"]))
+	assert_eq(String(result["code"]), "trade_order_bid_exceeds_treasury_budget")
+
+
+func test_cancelling_an_offer_returns_its_submitted_volume() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		1, "timber", MarketOrder.SIDE_OFFER, 3, {"stock": 3}
+	)
+	assert_true(bool(staged["ok"]))
+	assert_eq(market.offer_volume("timber"), 3)
+	assert_true(MarketOrders.cancel(market, 1, String(staged["order_id"])))
+	assert_eq(market.offer_volume("timber"), 0)
+	assert_false(MarketOrders.cancel(market, 1, "missing"))
+
+
+# --- what the auction promises and what it settles ---------------------------
+
+
+## A sale's receipt names the ducats, not only the tons: the seller's fills row
+## and the deal both carry what the auction paid (REQ-P5-05 — a sale is the one
+## fill whose price the ledger could not otherwise show).
+func test_a_sale_records_what_the_auction_paid() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	(economies[1] as PlayerEconomy).stockpile["timber"] = 2
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 2, {"stock": 2}
+	)["ok"]))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 2,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 20, 1: 20})
+	var sold: Dictionary = (report["fills"] as Dictionary).get(1, {}) as Dictionary
+	assert_eq(int(sold.get("sold", 0)), 2)
+	assert_eq(int(sold.get("earned", 0)), 60, "two tons at the timber price")
+	var deals: Array = report["deals"]
+	var mine: Array = []
+	for raw: Variant in deals:
+		if int((raw as Dictionary).get("seller", -99)) == 1:
+			mine.append(raw)
+	assert_eq(mine.size(), 1)
+	assert_eq(int(mine[0]["earned"]), 60, "the deal carries the receipt too")
+	assert_eq(int((report["fills"] as Dictionary).get(0, {}).get("spent", 0)), 60)
+
+
+## A bid cut short by cargo holds keeps its MarketActivityNote in the clearing
+## report, so the Deal Book can audit the truncation (wiki: world-market
+## § Treasury budget for bids — MarketActivityNote attribution).
+func test_a_truncated_bid_keeps_its_audit_note() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	# No Minor harvest: the only supply is the Great Power offer below.
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	(economies[1] as PlayerEconomy).stockpile["timber"] = 10
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 10, {"stock": 10}
+	)["ok"]))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 10,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	# The turn's overseas extraction reserves most of the holds before the
+	# auction clears, so the bid can only take two tons.
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 2, 1: 10})
+	assert_eq(int((report["fills"] as Dictionary).get(0, {}).get("bought", 0)), 2)
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(
+		codes.has("bid_partial_fill_cargo_insufficient"),
+		"the cargo truncation reaches the Deal Book: %s" % str(codes)
+	)
+	var booked: Array = market.book.last_notes
+	assert_eq(booked.size(), report["notes"].size(), "the book keeps the same notes")
+
+
+## The Deal Book names the constraint that actually stopped the bid: a purse
+## that cannot buy one more ton is a treasury truncation, not a cargo shortfall
+## (wiki: world-market § Treasury budget for bids; REQ-P5-05 never a wrong reason).
+func test_a_bid_cut_by_the_purse_names_the_purse() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 4, 1, 0, 1, true),
+	]
+	var context: Dictionary = _context({"treasuries": {1: 40}, "free_holds": {1: 10}})
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(int(((result["deals"] as Array)[0] as Dictionary)["quantity"]), 1)
+	var codes: Array[String] = []
+	for note: Variant in result["notes"]:
+		codes.append(String((note as Dictionary).get("code", "")))
+	assert_true(codes.has("bid_partial_fill_treasury_insufficient"), str(codes))
+	assert_false(codes.has("bid_partial_fill_cargo_insufficient"), str(codes))
+
+
+## A bid with holds and purse to spare that no offer could fill is not a
+## truncation; the Deal Book stays silent rather than blaming cargo.
+func test_a_bid_with_no_offer_carries_without_a_note() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 2, 1),
+	]
+	var context: Dictionary = _context({"treasuries": {1: 5000}, "free_holds": {1: 10}})
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq((result["notes"] as Array).size(), 0, str(result["notes"]))
+
+
+## A Great Power offer the seller can no longer cover is not a deal, and the
+## dropped units are named (wiki: world-market § Trade orders — an offer sells
+## only what the ledger still holds; REQ-P5-05 never a silent outcome).
+func test_an_offer_the_seller_spent_does_not_mint_goods() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	var seller: PlayerEconomy = economies[1]
+	var buyer: PlayerEconomy = economies[0]
+	seller.stockpile["timber"] = 10
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 10, {"stock": 10}
+	)["ok"]))
+	# Production runs before the auction and eats every ton offered.
+	assert_true(seller.take("timber", 10))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 10,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	var seller_purse: int = seller.treasury
+	var buyer_purse: int = buyer.treasury
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 20, 1: 20})
+	assert_eq(seller.treasury, seller_purse, "no pay for timber the seller no longer holds")
+	assert_eq(buyer.treasury, buyer_purse, "no charge for a deal that cannot ship")
+	assert_eq(buyer.quantity("timber"), 0, "the auction never mints goods")
+	var noted: bool = false
+	for note: Dictionary in report["notes"]:
+		if String(note.get("code", "")) == "offer_partial_fill_stock_insufficient":
+			noted = true
+	assert_true(noted, "the dropped fill is on the deal book")
+
+
+## The offer cap is the post-production stockpile minus the inputs the assigned
+## runs will eat (wiki: world-market § Trade orders — validation rule 7).
+func test_an_offer_is_capped_by_the_production_that_will_eat_it() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var reserved: Dictionary = ProductionRecipes.reserved_inputs(
+		[{"recipe": "lumber", "units": 3}]
+	)
+	assert_eq(int(reserved.get("timber", 0)), 6, "3 runs x 2 timber")
+	var refused: Dictionary = MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 5,
+		{"stock": 10, "reserved": reserved}
+	)
+	assert_false(bool(refused["ok"]))
+	assert_eq(String(refused["code"]), "trade_order_stock_insufficient")
+	var admitted: Dictionary = MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 4,
+		{"stock": 10, "reserved": reserved}
+	)
+	assert_true(bool(admitted["ok"]), String(admitted.get("reason", "")))
+
+
+# --- from test_ledger_text.gd ---
+## Ledger copy: the market clearing line and its quiet empty case.
+
+
+func test_a_quiet_market_prints_nothing() -> void:
+	assert_eq(LedgerText.market_summary({}, 0), "")
+
+
+## The disband row promises no refund and names what the tier eats
+## (wiki: workers-and-population § Disband, § Tiers).
+func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
+	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
+	assert_true(hint.contains("no recruit cost is refunded"), hint)
+	assert_true(hint.contains("An apprentice eats 2 food"), hint)
+	assert_true(hint.contains("a unit of Refined Sugar"), hint)
+	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
+	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
+
+
+func test_fills_carry_and_lapse_are_named() -> void:
+	var report: Dictionary = {
+		"fills": {0: {"bought": 2, "spent": 60, "sold": 1}},
+		"carry": [{"commodity": "timber"}],
+		"notes": [{
+			"code": "carry_forward_dropped_cargo_insufficient",
+			"faction": 0,
+			"commodity": "grain",
+		}],
+	}
+	var line: String = LedgerText.market_summary(report, 0)
+	assert_true(line.contains("bought 2 for 60 ducats"))
+	assert_true(line.contains("sold 1"))
+	assert_true(line.contains("1 order carried"))
+	assert_true(line.contains("1 order lapsed"))
+
+
+## A sale names the ducats it paid, and the overseas share is named even when
+## the court traded nothing itself: the auction is the purse movement the
+## per-turn figure cannot project (wiki: world-market § Trade orders, § First
+## right of refusal).
+func test_a_sale_and_an_overseas_share_are_named() -> void:
+	var report: Dictionary = {
+		"fills": {0: {"sold": 1, "earned": 50}},
+		"credits": {"by_gp": {0: 89.4}},
+		"carry": [],
+		"notes": [],
+	}
+	var line: String = LedgerText.market_summary(report, 0)
+	assert_true(line.contains("sold 1 for 50 ducats"), line)
+	assert_true(line.contains("89 ducats in shares"), line)
+	# A court with no fills of its own still reads its share.
+	var quiet: Dictionary = {"fills": {}, "credits": {"by_gp": {0: 12.0}}}
+	assert_true(
+		LedgerText.market_summary(quiet, 0).contains("12 ducats in shares"),
+		LedgerText.market_summary(quiet, 0),
+	)
+	assert_eq(LedgerText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
+
+
+## The "Next turn" promise names the orders that settle after it, so a staged
+## order is never read as already counted (wiki: stockpiles-and-production
+## § Production flow — the auction clears after Production).
+func test_the_preview_names_the_auction_it_excludes() -> void:
+	var staged: Dictionary = {
+		"stockpile_delta": {"grain": 3},
+		"treasury_delta": 0,
+		"staged_orders": 2,
+	}
+	var line: String = LedgerText.preview(staged)
+	assert_true(line.contains("Grain +3"), line)
+	assert_true(line.contains("2 orders settle at the auction"), line)
+	var one: Dictionary = {"stockpile_delta": {}, "treasury_delta": 0, "staged_orders": 1}
+	assert_true(
+		LedgerText.preview(one).contains("1 order settles at the auction"),
+		LedgerText.preview(one),
+	)
+	# Nothing staged: the calm line stays exactly as it was.
+	assert_eq(
+		LedgerText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
+		"Next turn: no stock changes.",
+	)
+
+
+func test_another_courts_lapse_is_not_ours() -> void:
+	var report: Dictionary = {
+		"fills": {},
+		"carry": [],
+		"notes": [{
+			"code": "carry_forward_dropped_cargo_insufficient",
+			"faction": 1,
+			"commodity": "grain",
+		}],
+	}
+	assert_eq(LedgerText.market_summary(report, 0), "")
+
+
+# --- from test_ledger_helpers.gd ---
+## Unit: the pure helpers extracted from the ledger and estates panels
+## (REQ-P3-01, REQ-P3-04). No scene tree, so the rules stay testable.
+
+
+# --- TextFormat --------------------------------------------------------------
+
+
+func test_thousands_groups_and_keeps_the_sign() -> void:
+	assert_eq(TextFormat.thousands(0), "0")
+	assert_eq(TextFormat.thousands(999), "999")
+	assert_eq(TextFormat.thousands(1000), "1,000")
+	assert_eq(TextFormat.thousands(1234567), "1,234,567")
+	assert_eq(TextFormat.thousands(-1234), "-1,234")
+
+
+# --- LedgerText --------------------------------------------------------------
+
+
+func test_recipe_title_names_the_single_input() -> void:
+	var recipe_id: String = ProductionRecipes.available_ids({})[0]
+	var title: String = LedgerText.recipe_title(recipe_id)
+	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
+	assert_true(LedgerText.recipe_tooltip(recipe_id).contains("→"))
+
+
+func test_the_summary_reads_the_report() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	economy.treasury = 1234
+	var report: Dictionary = {
+		"consumption": {"idle_labour": 3, "strikers": 2, "navy_demand": 5},
+	}
+	var line: String = LedgerText.summary(economy, report)
+	assert_true(line.contains("1,234 ducats"))
+	assert_true(line.contains("labour 3 /"))
+	assert_true(line.contains("strikes 2"))
+
+
+## The ledger's food need is every mouth Consumption feeds — the workers, the
+## army, the navy and the hospital staffs (wiki: workers-and-population
+## § Consumption: "Total food demand = workers + navy + army + hospital staffs").
+## A mid-game army is most of the larder, so a need that stopped at the workers
+## and hulls read a crown at war as twice as fed as it was.
+func test_the_food_need_counts_every_mouth_the_larder_feeds() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	economy.workers = WorkerPool.make(4)
+	var report: Dictionary = {
+		"consumption": {
+			"army_demand": 41, "navy_demand": 18, "hospital_demand": 4,
+		},
+	}
+	var line: String = LedgerText.summary(economy, report)
+	assert_true(line.contains("food need 67"), line)
+	assert_eq(LedgerText.army_food(report), 41)
+	assert_eq(LedgerText.army_food({}), 0, "a report with no consumption feeds nobody")
+
+
+func test_the_preview_reports_deltas_or_calm() -> void:
+	assert_eq(LedgerText.preview({}), "Next turn: no stock changes.")
+	var line: String = LedgerText.preview(
+		{"stockpile_delta": {"grain": 3}, "treasury_delta": -10}
+	)
+	assert_true(line.contains("+3"))
+	assert_true(line.contains("ducats -10"))
+
+
+func test_the_cargo_banner_covers_three_states() -> void:
+	assert_true(LedgerText.cargo_line({}).contains("unknown"))
+	var empty: Dictionary = {"holds": 0, "free": 0}
+	assert_true(LedgerText.cargo_line(empty).contains("No cargo holds"))
+	assert_eq(LedgerText.cargo_color(empty), Palette.GOLD_PALE)
+	var laden: Dictionary = {"holds": 4, "free": 1}
+	assert_true(LedgerText.cargo_line(laden).contains("4 holds"))
+	assert_eq(LedgerText.cargo_color(laden), Palette.TEXT)
+
+
+func test_report_counters_default_to_zero() -> void:
+	assert_eq(LedgerText.idle_labour({}), 0)
+	assert_eq(LedgerText.navy_food({"consumption": {"navy_demand": 7}}), 7)
+
+
+# --- EstateLedger ------------------------------------------------------------
+
+
+func _group(id: int, name: String, rows: Array) -> Dictionary:
+	var producing: int = 0
+	for row: Dictionary in rows:
+		if int(row.get("output", 0)) > 0:
+			producing += 1
+	return {"id": id, "name": name, "rows": rows, "producing": producing}
+
+
+func _rows() -> Array:
+	return [
+		{"output": 2, "working": false, "status": "producing"},
+		{"output": 0, "working": true, "status": "building"},
+		{"output": 0, "working": false, "status": "vacant"},
+		{"output": 0, "working": false, "status": "disconnected"},
+	]
+
+
+func test_groups_keep_province_order_and_merge_duplicates() -> void:
+	var snapshot: Dictionary = {
+		"groups": [
+			_group(4, "OLD", _rows().slice(0, 2)),
+			_group(4, "OLD", _rows().slice(2)),
+			_group(9, "NEW", _rows().slice(0, 1)),
+		],
+	}
+	var groups: Array[Dictionary] = EstateLedger.grouped(snapshot)
+	assert_eq(groups.size(), 2)
+	assert_eq(groups[0]["name"], "OLD")
+	assert_eq((groups[0]["rows"] as Array).size(), 4)
+
+
+func test_province_filter_keeps_one_group() -> void:
+	var groups: Array[Dictionary] = EstateLedger.grouped(
+		{"groups": [_group(1, "A", _rows()), _group(2, "B", _rows())]}
+	)
+	assert_eq(EstateLedger.in_province(groups, -1).size(), 2)
+	assert_eq(EstateLedger.in_province(groups, 2).size(), 1)
+
+
+func test_each_filter_selects_its_rows() -> void:
+	var rows: Array = _rows()
+	assert_eq(EstateLedger.matching(rows, "all").size(), 4)
+	assert_eq(EstateLedger.matching(rows, "producing").size(), 1)
+	assert_eq(EstateLedger.matching(rows, "building").size(), 1)
+	assert_eq(EstateLedger.matching(rows, "vacant").size(), 1)
+	assert_eq(EstateLedger.matching(rows, "issues").size(), 1)
+
+
+func test_total_output_sums_every_yield() -> void:
+	assert_eq(EstateLedger.total_output({"lumber": 2, "iron": 3}), 5)
+	assert_eq(EstateLedger.total_output({}), 0)
+
+
+# --- UiRowBuilder ------------------------------------------------------------
+
+
+func test_row_builder_builds_themed_widgets() -> void:
+	var row: HBoxContainer = UiRowBuilder.row(38.0)
+	assert_eq(row.custom_minimum_size.y, 38.0)
+	var label: Label = UiRowBuilder.label("hi", 14, Palette.TEXT)
+	assert_eq(label.text, "hi")
+	var caption: Label = UiRowBuilder.caption("x", 10, Palette.TEXT_DIM, 44.0)
+	assert_eq(caption.custom_minimum_size.x, 44.0)
+	var button: Button = UiRowBuilder.button("Go", 38.0, 70.0)
+	assert_eq(button.text, "Go")
+	assert_eq(button.custom_minimum_size, Vector2(70, 38))
+	row.free()
+	label.free()
+	caption.free()
+	button.free()
+
+
+func test_clear_empties_a_container() -> void:
+	var box := VBoxContainer.new()
+	add_child(box)
+	UiRowBuilder.spacer(box)
+	box.add_child(UiRowBuilder.label("gone", 12, Palette.TEXT))
+	box.add_child(UiRowBuilder.label("gone too", 12, Palette.TEXT))
+	assert_eq(box.get_child_count(), 3)
+	UiRowBuilder.clear(box)
+	assert_eq(box.get_child_count(), 0)
+	box.queue_free()
+
+
+# --- from test_commodity_icons.gd ---
+## Every commodity carries its own medallion and every plate ships, so no two
+## goods share one picture in the ledger (REQ-P1-02; tools/art/goods-medallions.md).
+
+
+func test_every_catalog_commodity_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for id: String in CommodityCatalog.all_ids():
+		if CommodityIcons.texture(id) == null:
+			missing.append(id)
+	assert_eq(missing.size(), 0, "goods with no plate: %s" % ", ".join(missing))
+
+
+func test_two_goods_never_share_one_plate() -> void:
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for id: String in CommodityCatalog.all_ids():
+		var art: Texture2D = CommodityIcons.texture(id)
+		if art == null:
+			continue
+		if seen.has(art.resource_path):
+			clashes.append("%s/%s" % [seen[art.resource_path], id])
+		seen[art.resource_path] = id
+	assert_eq(clashes.size(), 0, "goods sharing a plate: %s" % ", ".join(clashes))
+
+
+func test_an_unknown_good_has_no_plate() -> void:
+	assert_null(CommodityIcons.texture("no_such_good"))
+	assert_null(CommodityIcons.texture(""))
+
+
+func test_a_badge_draws_the_good_at_the_row_size() -> void:
+	var badge: Control = CommodityIcons.badge("grain")
+	var art: TextureRect = badge as TextureRect
+	assert_not_null(art, "a known good draws a texture")
+	assert_eq(art.texture, CommodityIcons.texture("grain"))
+	assert_eq(art.custom_minimum_size, Vector2(CommodityIcons.ROW_SIZE, CommodityIcons.ROW_SIZE))
+	badge.free()
+
+
+func test_a_missing_plate_leaves_a_gap_of_the_same_width() -> void:
+	var gap: Control = CommodityIcons.badge("no_such_good", 18)
+	assert_null(gap as TextureRect, "a missing plate is not a texture")
+	assert_eq(gap.custom_minimum_size, Vector2(18, 18), "the row keeps its columns")
+	gap.free()
+
+
+func test_a_name_cell_keeps_the_column_width() -> void:
+	var cell: HBoxContainer = CommodityIcons.cell("timber", 132.0)
+	assert_eq(cell.custom_minimum_size.x, 132.0, "the cell owns the column width")
+	var labels: Array[Node] = cell.find_children("*", "Label", true, false)
+	assert_eq(labels.size(), 1, "one label per cell")
+	assert_eq((labels[0] as Label).text, CommodityCatalog.label("timber"))
+	var art: Array[Node] = cell.find_children("*", "TextureRect", true, false)
+	assert_eq(art.size(), 1, "the medallion rides inside the cell")
+	assert_eq((art[0] as TextureRect).texture, CommodityIcons.texture("timber"))
+	cell.free()
+
+
+## The plate is 128 px so it survives the phone's 3× draw scale.
+func test_a_plate_is_a_128_px_source() -> void:
+	var art: Texture2D = CommodityIcons.texture("coal")
+	assert_not_null(art)
+	assert_eq(art.get_width(), 128)
+	assert_eq(art.get_height(), 128)
+
+
+# --- from test_trade_cargo.gd ---
+## Merchant cargo: the home fleet's holds cap world-market imports (wiki:
+## ships-and-naval § Cargo holds and capacity; world-market § Cargo;
+## DR-20261109-03). Pure rules, so no scene is needed.
+
+const NavalFixture = preload("res://tests/naval_fixture.gd")
+
+
+func _cargo_world() -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(NavalFixture.build())
+	return world
+
+
+func test_a_merchant_hull_carries_cargo_and_a_warship_does_not() -> void:
+	var fluyte := FleetState.in_port(1, 0, 0, ["a", "b"], {"a": "fluyte", "b": "sloop"})
+	assert_eq(TradeCargo.fleet_holds(fluyte), 4)
+	var galleon := FleetState.in_port(2, 0, 0, ["c"], {"c": "galleon"})
+	assert_eq(TradeCargo.fleet_holds(galleon), 6)
+	var line := FleetState.in_port(3, 0, 0, ["d"], {"d": "ship_of_the_line"})
+	assert_eq(TradeCargo.fleet_holds(line), 0)
+	assert_eq(TradeCargo.fleet_holds(null), 0)
+
+
+func test_capacity_counts_only_the_crowns_squadrons_in_port_at_its_seat() -> void:
+	var world: WorldMap = _cargo_world()
+	var home := FleetState.in_port(1, 0, 0, ["a", "b"], {"a": "fluyte", "b": "carrack"})
+	var at_sea := FleetState.at_sea(2, 0, 0, ["c"], {"c": "indiaman"})
+	# A harbour that is not the seat carries nothing.
+	var other_port := FleetState.in_port(3, 0, 1, ["d"], {"d": "indiaman"})
+	var foreign := FleetState.in_port(4, 1, 1, ["e"], {"e": "galleon"})
+	var fleets: Dictionary = {0: [home, at_sea, other_port], 1: [foreign]}
+
+	assert_eq(TradeCargo.capacity(world, fleets, 0), 7)
+	assert_eq(TradeCargo.capacity(world, fleets, 1), 0)
+
+
+func test_a_crown_without_a_seat_has_no_cargo() -> void:
+	var world: WorldMap = _cargo_world()
+	var home := FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
+	assert_eq(TradeCargo.capacity(world, {0: [home]}, 6), 0)
+	assert_eq(TradeCargo.capacity(null, {0: [home]}, 0), 0)
+
+
+func test_status_reports_holds_used_and_free() -> void:
+	var world: WorldMap = _cargo_world()
+	var home := FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(TradeCargo.buy(economy, market, 4, "grain", 2)["ok"]))
+
+	var status: Dictionary = TradeCargo.status(world, {0: [home]}, 0, market)
+
+	assert_eq(int(status["holds"]), 4)
+	assert_eq(int(status["used"]), 2)
+	assert_eq(int(status["free"]), 2)
+
+
+func test_imports_share_the_holds_across_commodities() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var fabric_before: int = economy.quantity("fabric")
+
+	assert_true(bool(TradeCargo.buy(economy, market, 4, "grain", 3)["ok"]))
+	assert_true(bool(TradeCargo.buy(economy, market, 4, "timber", 1)["ok"]))
+	var refused: Dictionary = TradeCargo.buy(economy, market, 4, "fabric", 1)
+
+	assert_false(bool(refused["ok"]))
+	assert_true(String(refused["reason"]).contains("4 cargo holds"))
+	assert_eq(market.bought_units(), 4)
+	assert_eq(economy.quantity("fabric"), fabric_before)
+
+
+func test_no_home_fleet_refuses_with_its_own_reason() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var refused: Dictionary = TradeCargo.buy(economy, market, 0, "grain", 1)
+	assert_false(bool(refused["ok"]))
+	assert_true(String(refused["reason"]).contains("No cargo holds"))
+	assert_eq(market.bought_units(), 0)
+
+
+func test_other_market_refusals_pass_through() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		String(TradeCargo.buy(economy, market, 4, "gold", 1)["reason"]),
+		"Not traded on the world market"
+	)
+	assert_eq(
+		String(TradeCargo.buy(economy, market, 4, "grain", 0)["reason"]),
+		"Quantity must be positive"
+	)
+	economy.treasury = 10
+	assert_eq(
+		String(TradeCargo.buy(economy, market, 4, "grain", 1)["reason"]),
+		"Insufficient treasury"
+	)
+
+
+func test_sales_do_not_spend_a_hold() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["timber"] = 2
+
+	assert_true(bool(market.sell(economy, "timber", 2)["ok"]))
+
+	assert_eq(market.bought_units(), 0)
+	assert_eq(TradeCargo.free_holds(4, market), 4)
+
+
+func test_next_turn_releases_the_holds() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(TradeCargo.buy(economy, market, 2, "grain", 2)["ok"]))
+	assert_eq(TradeCargo.free_holds(2, market), 0)
+
+	market.advance_prices()
+
+	assert_eq(TradeCargo.free_holds(2, market), 2)
+	assert_eq(market.bought_units(), 0)
+
+
+func test_a_saved_market_remembers_the_laden_holds() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(TradeCargo.buy(economy, market, 3, "grain", 2)["ok"]))
+
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+
+	assert_eq(restored.bought_units(), 2)
+	assert_eq(TradeCargo.free_holds(3, restored), 1)
+
+
+# --- from test_economy_overseas.gd ---
+## Overseas cargo: colony yield crosses on the home fleet's holds, richest
+## commodity first, and undelivered tonnage stays abroad (wiki:
+## extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
+
+
+func _region(owner_resource: int = 0) -> MapModel:
+	var model := MapModel.new()
+	model.setup(2, 1)
+	model.province[model.index_of(0, 0)] = 0
+	model.province[model.index_of(1, 0)] = 0
+	var tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var province := ProvinceState.create(0, "Colony", tiles, Vector2.ZERO, 2, 0)
+	province.town_development = 4
+	model.provinces.append(province)
+	model.resource[model.index_of(0, 0)] = owner_resource
+	model.resource[model.index_of(1, 0)] = 4
+	return model
+
+
+func _works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 0))
+	works.set_improvement(model, Vector2i(0, 0), 1)
+	return works
+
+
+func test_shipping_order_is_richest_per_hold_first() -> void:
+	assert_eq(
+		EconomyOverseas.priority(["grain", "diamonds", "gold", "castIron"]),
+		["diamonds", "gold", "castIron", "grain"]
+	)
+
+
+func test_the_holds_cap_the_crossing_and_the_rest_stays_abroad() -> void:
+	var plan: Dictionary = EconomyOverseas.plan(
+		{0: {"grain": 3}, 1: {"gold": 2, "timber": 4}}, 4
+	)
+
+	assert_eq(int(plan["holds"]), 4)
+	assert_eq(int(plan["used"]), 4)
+	assert_eq(plan["shipped"], {"gold": 2, "grain": 2})
+	assert_eq(plan["left"], {"grain": 1, "timber": 4})
+	assert_eq(int(plan["left_total"]), 5)
+
+
+func test_no_holds_lands_nothing() -> void:
+	var plan: Dictionary = EconomyOverseas.plan({0: {"timber": 2}}, 0)
+
+	assert_eq(int(plan["used"]), 0)
+	assert_eq(plan["shipped"], {})
+	assert_eq(int(plan["left_total"]), 2)
+	assert_eq(EconomyOverseas.shipped_total(plan), 0)
+
+
+func test_more_holds_than_cargo_ships_everything() -> void:
+	var plan: Dictionary = EconomyOverseas.plan({0: {"timber": 2}}, 9)
+
+	assert_eq(int(plan["used"]), 2)
+	assert_eq(plan["left"], {})
+	assert_eq(EconomyOverseas.shipped_total(plan), 2)
+
+
+func test_region_totals_skip_the_home_region_and_need_a_port() -> void:
+	var world := WorldMap.new()
+	world.add_region(_region(0))
+	world.add_region(_region(4))
+	var works := MapRegionTable.new()
+	works.set_region(0, _works(world.region(0)))
+	works.set_region(1, _works(world.region(1)))
+
+	var by_region: Dictionary = EconomyOverseas.region_totals(
+		world, WorldMap.OLD_WORLD, 0, {}, works
+	)
+
+	assert_false(by_region.has(0), "home yield never needs a hold")
+	assert_eq(by_region.get(1, {}), {"grain": 1})
+
+
+func test_an_unconnected_colony_yields_nothing_to_ship() -> void:
+	var world := WorldMap.new()
+	world.add_region(_region(0))
+	world.add_region(_region(0))
+	var works := MapRegionTable.new()
+	works.set_region(1, LandWorks.new())
+
+	var by_region: Dictionary = EconomyOverseas.region_totals(
+		world, WorldMap.OLD_WORLD, 0, {}, works
+	)
+
+	assert_eq(by_region, {})
+	assert_eq(
+		EconomyOverseas.region_totals(world, WorldMap.OLD_WORLD, 0, {}, null), {}
+	)
+
+
+func test_the_ledger_reserves_the_colony_cargo_before_imports() -> void:
+	var world := WorldMap.new()
+	world.add_region(_region(0))
+	var home: FleetState = FleetState.in_port(
+		1, 0, 0, ["a"], {"a": "fluyte"}
+	)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+
+	assert_eq(
+		int(TradeCargo.status(world, {0: [home]}, 0, market, 3)["reserved"]), 3
+	)
+	assert_eq(int(TradeCargo.status(world, {0: [home]}, 0, market, 3)["free"]), 1)
+	assert_eq(TradeCargo.free_holds(4, market, 3), 1)
+	assert_true(bool(TradeCargo.buy(economy, market, 4, "grain", 1, 3)["ok"]))
+	var refused: Dictionary = TradeCargo.buy(economy, market, 4, "grain", 1, 3)
+	assert_false(bool(refused["ok"]))
+	assert_true(String(refused["reason"]).contains("promised to the colonies"))
+
+
+func test_the_banner_names_the_colonial_reservation() -> void:
+	var cargo: Dictionary = {"holds": 6, "used": 0, "reserved": 4, "free": 2}
+
+	var line: String = LedgerText.cargo_line(cargo)
+
+	assert_true(line.contains("6 holds"))
+	assert_true(line.contains("4 for the colonies"))
+	assert_true(line.contains("2 free"))
+	assert_true(LedgerText.cargo_line({"holds": 6, "free": 2}).contains("2 free"))
+
+
+## One rule for the player's ledger and a rival's economy: home yield lands
+## directly and the other region's tonnage needs a hold (DR-20261109-17).
+func test_delivered_adds_only_what_the_holds_carry() -> void:
+	var world := WorldMap.new()
+	world.add_region(_region(0))
+	world.add_region(_region(4))
+	var works := MapRegionTable.new()
+	works.set_region(0, _works(world.region(0)))
+	works.set_region(1, _works(world.region(1)))
+	var home := {"grain": 3}
+
+	var none: Dictionary = EconomyOverseas.delivered(
+		home, world, WorldMap.OLD_WORLD, 0, {}, works, 0
+	)
+	var one: Dictionary = EconomyOverseas.delivered(
+		home, world, WorldMap.OLD_WORLD, 0, {}, works, 1
+	)
+
+	assert_eq(none["extraction"], {"grain": 3}, "no hold, no colonial ton")
+	assert_eq(int(none["used"]), 0)
+	assert_eq(int(one["used"]), 1)
+	assert_eq(one["extraction"], {"grain": 4})
+	assert_eq(home, {"grain": 3}, "the home totals are not mutated")
+
+
+# --- overseas town manufacturing ---------------------------------------------
+
+
+## A colony of one town tile and two rail-linked timber estates, the estates
+## already fully improved so the province's whole harvest is 8 timber.
+func _plantation(level: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		var tile := Vector2i(x, 0)
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(tile)
+	var province := ProvinceState.create(0, "Plantation", tiles, Vector2.ZERO, 3, 0)
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = level
+	model.provinces.append(province)
+	for x: int in [1, 2]:
+		model.resource[model.index_of(x, 0)] = 0
+	return model
+
+
+func _plantation_works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 0))
+	for x: int in [1, 2]:
+		works.set_improvement(model, Vector2i(x, 0), LandWorks.MAX_IMPROVEMENT)
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_RAIL)
+	return works
+
+
+## One home region empty of the crown's land plus one plantation region.
+func _plantation_world(levels: Array) -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(_region(4))
+	for level: int in levels:
+		var model: MapModel = _plantation(level)
+		world.add_region(model)
+	return world
+
+
+func _plantation_works_table(world: WorldMap) -> MapRegionTable:
+	var table := MapRegionTable.new()
+	for index in range(1, world.region_count()):
+		table.set_region(index, _plantation_works(world.region(index)))
+	return table
+
+
+## Raw crosses and manufactures are earned on the far shore: no lumber leaves a
+## colonial town before its input has landed (wiki: extraction-and-improvements
+## § Town manufacturing bonus).
+func test_overseas_totals_ship_raw_and_leave_the_bonus_to_delivery() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var by_region: Dictionary = EconomyOverseas.region_totals(
+		world, WorldMap.OLD_WORLD, 0, {"timber": 4}, _plantation_works_table(world)
+	)
+
+	assert_eq(by_region.get(1, {}), {"timber": 8}, "raw only — no lumber yet")
+
+
+func test_landed_raw_pays_the_colonial_town_bonus() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var plan: Dictionary = EconomyOverseas.delivered(
+		{"grain": 3}, world, WorldMap.OLD_WORLD, 0, {"timber": 4},
+		_plantation_works_table(world), 8
+	)
+
+	assert_eq(plan["shipped"], {"timber": 8})
+	assert_eq(
+		plan["manufactured"], {"lumber": 4, "paper": 4}, "level 4: floor(8 / 4) x 2"
+	)
+	assert_eq(plan["extraction"], {"grain": 3, "timber": 8, "lumber": 4, "paper": 4})
+	assert_eq(int(plan["used"]), 8, "bonus output never spends a hold")
+	assert_eq(plan["by_province"].get(1, {}).get(0, {}), {"timber": 8})
+
+
+## Short holds leave tonnage on the far shore, and undelivered raw feeds no
+## bonus recipe — four timber make one lumber, three make none.
+func test_undelivered_tons_pay_no_colonial_bonus() -> void:
+	var world: WorldMap = _plantation_world([4])
+	var plan: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4},
+		_plantation_works_table(world), 3
+	)
+
+	assert_eq(plan["shipped"], {"timber": 3})
+	assert_eq(plan["manufactured"], {})
+	assert_eq(plan["extraction"], {"timber": 3})
+	assert_eq(int(plan["left_total"]), 5, "the rest stays abroad")
+
+
+## Within one commodity the fuller town draws the holds first, so a level-4 town
+## earns its bonus before a level-2 one (DR-20261111-*).
+func test_the_better_town_draws_the_landed_tons_first() -> void:
+	var world: WorldMap = _plantation_world([2, 4])
+	var works: MapRegionTable = _plantation_works_table(world)
+
+	var tight: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4}, works, 8
+	)
+	var roomy: Dictionary = EconomyOverseas.delivered(
+		{}, world, WorldMap.OLD_WORLD, 0, {"timber": 4}, works, 16
+	)
+
+	assert_eq(
+		tight["manufactured"], {"lumber": 4, "paper": 4}, "the level-4 town draws first"
+	)
+	assert_eq(
+		roomy["manufactured"], {"lumber": 6, "paper": 6}, "then the level-2 town's x1"
+	)
+
+
+## A colonial town that manufactured says so in the turn summary, so the bonus is
+## visible without opening a ledger (REQ-P5-05).
+func test_the_turn_summary_names_colonial_manufactures() -> void:
+	var report: Dictionary = {
+		"overseas": {"used": 8, "left_total": 2, "manufactured": {"castIron": 2}},
+	}
+	var line: String = LedgerText.turn_summary(report)
+
+	assert_true(line.contains("8 colonial tons landed"))
+	assert_true(line.contains("2 cast iron made in colonial towns"))
+	assert_true(line.contains("2 left on the far shore"))
+	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))

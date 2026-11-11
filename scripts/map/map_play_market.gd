@@ -30,6 +30,9 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 		market, play.world, economies, free_holds, {"diplomacy": play.diplomacy}
 	)
 	play.market_report = report
+	# The ledger reads this receipt: a sale's ducats and the overseas share are
+	# otherwise invisible on every surface the player has (REQ-P5-05).
+	play.economy.last_clearing = report
 	play.economy.refresh_panel()
 	return report
 
