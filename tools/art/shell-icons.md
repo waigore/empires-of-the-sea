@@ -5,7 +5,7 @@ The cartouche's four status medallions are generated with FLUX through
 ring, dark field, top-left lighting and brass palette stay identical. Keep the
 prompts here so a replacement icon stays in the same family.
 
-All four used this base edit:
+Each icon used this base edit:
 
 > Edit this medallion: keep the thick beveled brass ring, dark espresso circular
 > field, top-left lighting and exact rendering style unchanged. Replace ONLY the
@@ -19,6 +19,7 @@ All four used this base edit:
 | `people.png` | two simple gold busts side by side, rounded head-and-shoulders silhouettes, the left figure slightly taller, no props, no faces |
 | `swords.png` | two crossed gold rapiers, blades up, detailed hilts |
 | `gazette.png` | a folded imperial news-sheet, front-on and slightly angled: one broadsheet with a crisp horizontal crease and a narrow empty masthead band across the top, no text, no print columns |
+| `commander.png` | a period general's plumed tricorn hat above two crossed marshal's batons, one bold silhouette (army dossier's commander block, DR-20261112-03) |
 
 ## Post
 
