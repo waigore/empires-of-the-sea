@@ -51,8 +51,8 @@ level-4 Great Power towns and four L1 grain farms.
 
 ## Deferred (REQ-P2-02)
 
-Minor/Tribe towns stay level 1, so manufacture offers rarely fire
-([`deferred.md`](deferred.md)).
+None. A deed raises a Minor/Tribe town (`MinorTownGrowth`, DR-20261112-01);
+ranked gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 

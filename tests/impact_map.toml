@@ -21,6 +21,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
+  "test_general_names.gd",
   "test_hospital_rules.gd",
 ]
 
@@ -96,6 +97,7 @@ suites = [
   "test_economy_rules.gd",
   "test_economy_screen.gd",
   "test_diplomacy_rules.gd",
+  "test_market_offers.gd",
 ]
 
 [domains.espionage]
@@ -665,6 +667,12 @@ domain = "fleet"
 match = "tests/playtest_persistence.gd*"
 domain = "save"
 
+# The purse drive walks the ledger, the auction receipt and the college's gold,
+# so it travels with the economy suites.
+[[rules]]
+match = "tests/playtest_treasury.gd*"
+domain = "economy"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]
@@ -1200,6 +1208,10 @@ domain = "economy"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy"
+
+[[rules]]
+match = "scripts/ui/market_offers_head.gd"
 domain = "economy"
 
 [[rules]]
