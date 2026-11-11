@@ -11,8 +11,8 @@
 - **Roster and training** (`RegimentCatalog`, `RegimentEconomy`,
   `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and inputs;
   recruits join the Home Army.
-- **Generals** (`GeneralRoster`, `GeneralBinding`): one per Great Power, cap
-  2→4 by tech; one per army each Combat phase; medals 0–4, +1 per win.
+- **Generals** (`GeneralRoster`, `GeneralBinding`): cap 1→4 by tech, every
+  crown reconciled at Combat; one per army each phase; medals 0–4, +1 per win.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
   feeding 1.0/0.75/0.5, terrain (wood: defender 1.5/1.1, attacker 0.9), leader.

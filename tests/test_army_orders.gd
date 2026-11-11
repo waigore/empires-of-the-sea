@@ -534,3 +534,21 @@ func test_cycling_the_plan_is_crown_wide() -> void:
 	MapPlayArmies.cycle_plan(play, army)
 	assert_eq(play.battle_plan, "aggressive", "an unknown stance cycles from balanced")
 
+
+## A rival's general pool grows with its own research: the real Combat phase
+## reconciles every crown before binding (wiki: military-generals § Count and
+## tech-gated cap). Only the human's ledger used to sync a pool, so a rival flew
+## one commander for the whole age.
+func test_a_rivals_research_raises_its_generals_at_the_combat_phase() -> void:
+	var play: PlaySession = _screen.play
+	play.ensure_ai()
+	var rival: int = 2
+	var ledger: PlayerEconomy = play.ai.economy_for(rival)
+	ledger.research.unlock("organised_regiments")
+	assert_eq(play.army_layer.generals.count(rival), 1, "one commander before the phase")
+
+	MapPlayLandTurn.resolve(play)
+
+	assert_eq(play.army_layer.generals.count(rival), 2, "organised_regiments lands a second")
+	assert_eq(play.army_layer.generals.medals(rival, "general_2"), 0)
+
