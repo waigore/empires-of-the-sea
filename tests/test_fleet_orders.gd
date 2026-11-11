@@ -645,15 +645,23 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	assert_true(fleet.moved, "marking spends the fleet's move")
 	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("opens next turn"))
 	assert_eq(MapPlayBeachhead.rows(_screen.play, fleet).size(), 0)
+	# The dossier prints the station note once; the hint under it says what the
+	# site costs instead of repeating the same sentence (REQ-P5-06).
+	var hint: String = MapPlayFleetMissions.hint(_screen.play, fleet)
+	assert_false(hint.is_empty(), "a held site has a hint")
+	assert_ne(hint, MapPlayBeachhead.note(_screen.play, fleet))
+	assert_true(hint.contains("drops the site"))
 	assert_true(_screen.hud.panels.fleet_panel._mission.visible)
 	_screen.play.turn += 1
 	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("no troops"))
+	assert_true(MapPlayFleetMissions.hint(_screen.play, fleet).contains("lapses"))
 	var army := ArmyState.muster(99, _screen.play.player_faction, 0, false, ["pikemen"], 990)
 	_screen.play.army_layer.armies.append(army)
 	army.embarked_fleet = fleet.id
 	fleet.embarked_army = army.id
 	MapPlayFleets.show_dossier(_screen.play, fleet)
 	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("land the troops"))
+	assert_true(MapPlayFleetMissions.hint(_screen.play, fleet).contains("Landing spends the site"))
 	assert_gt(MapPlayFleets.landing_rows(_screen.play, fleet).size(), 0)
 
 	MapPlayFleets.on_action(_screen.play, "land:%d" % coast)
@@ -681,7 +689,7 @@ func test_boarding_repaints_the_fleet_dossier() -> void:
 	if fleet == null:
 		fleet = FleetState.in_port(90, play.player_faction, capital, ["ship_90"], {})
 		_screen.ship_layer.fleets.append(fleet)
-		_screen.ship_layer._rebuild_markers()
+		_screen.ship_layer.rebuild_markers()
 	fleet.moved = false
 	var army := ArmyState.muster(91, play.player_faction, capital, false, ["pikemen"], 910)
 	play.army_layer.armies.append(army)

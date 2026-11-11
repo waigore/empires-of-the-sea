@@ -361,6 +361,10 @@ func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:
 	assert_true(bool(NavalTransport.beachhead_ready(fleet, 6)))
 	assert_eq(NavalTransport.landing_provinces(_model, fleet, 5), [])
 	assert_eq(NavalTransport.landing_provinces(_model, fleet, 6), [1])
+	# A site already held names its own wait rather than asking for a beachhead.
+	var early: Dictionary = NavalTransport.disembark(_model, army, fleet, 1, 5)
+	assert_false(bool(early["ok"]))
+	assert_true(String(early["reason"]).contains("opens next turn"))
 	assert_false(bool(NavalTransport.disembark(_model, army, fleet, 1, 5)["ok"]))
 	assert_true(bool(NavalTransport.disembark(_model, army, fleet, 1, 6)["ok"]))
 	assert_eq(army.province, 1)

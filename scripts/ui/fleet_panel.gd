@@ -147,7 +147,8 @@ func refresh(
 	beach_note: String = "",
 	crew: Dictionary = {},
 	strength: Dictionary = {},
-	merge: Dictionary = {}
+	merge: Dictionary = {},
+	beach_hint: String = ""
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -183,7 +184,8 @@ func refresh(
 		_hint.text = "Observe only. Orders require your own fleet."
 	elif not beach_note.is_empty():
 		_status.text = "On station"
-		_hint.text = beach_note
+		# The mission block above names the site; this line says what it costs.
+		_hint.text = beach_hint
 	elif fleet.moved:
 		_status.text = "Has moved this turn"
 		_hint.text = "End the turn to sail again."
@@ -207,8 +209,7 @@ func refresh(
 	var merge_note: String = String(merge.get("note", ""))
 	if not merge_note.is_empty() and _status.text == "1 move this turn":
 		_status.text = merge_note
-	_yard_button.visible = is_player and not yard_rows.is_empty() \
-		and not bool(merge.get("ok", false))
+	_yard_button.visible = is_player and not yard_rows.is_empty() and not bool(merge.get("ok", false))
 	if not _yard_button.visible:
 		_yard_open = false
 	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
@@ -229,9 +230,8 @@ func refresh_slip(
 	_yard_rows = rows
 	_armed_hull = ""
 	_header.flag.color = Palette.faction_color(FactionCatalog.PLAYER_FACTION)
-	_header.title.text = "SHIPYARD OF %s" % FactionCatalog.name_of(
-		FactionCatalog.PLAYER_FACTION
-	).to_upper()
+	_header.title.text = "SHIPYARD OF %s" % (
+		FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION).to_upper())
 	_location.text = "At %s · capital port" % model.province_name(province_id)
 	_ships.text = "No home fleet — your first launch founds one."
 	_strength.set_data({})

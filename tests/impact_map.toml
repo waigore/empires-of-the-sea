@@ -620,6 +620,12 @@ domain = "campaign"
 match = "tests/playtest_naval.gd*"
 domain = "fleet"
 
+# The overseas invasion drive: marking, the ready turn, the landing battle and
+# the site's three deaths all read fleet rules and the fleet dossier.
+[[rules]]
+match = "tests/playtest_beachhead.gd*"
+domain = "fleet"
+
 # The save/load drive walks slots, endings and the slot browser, so it travels
 # with the save suites.
 [[rules]]
@@ -796,6 +802,12 @@ domain = "fleet"
 
 [[rules]]
 match = "scripts/map/map_play_fleet*.gd"
+domain = "fleet"
+
+# Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
+# off scripts/map/** so a hint-line PR does not pull the full map suite past 5 min.
+[[rules]]
+match = "scripts/map/map_play_beachhead.gd*"
 domain = "fleet"
 
 # Naval combat pass + ration context for each crown; keep it on the feeding

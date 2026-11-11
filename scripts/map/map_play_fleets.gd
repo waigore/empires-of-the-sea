@@ -35,7 +35,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play)
 		),
-		MapPlayHomeMerge.row(play, fleet)
+		MapPlayHomeMerge.row(play, fleet),
+		MapPlayFleetMissions.hint(play, fleet)
 	)
 
 
