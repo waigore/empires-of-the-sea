@@ -375,6 +375,22 @@ func test_the_ledger_names_the_last_clearing() -> void:
 	assert_not_null(_find_label(body, "Bought 1 Timber"))
 
 
+## A colony's fill that went to its suzerain says so beside the sale, so the
+## tiebreak is never a mystery (wiki: diplomacy § R7.1; DR-20261111-11).
+func test_the_ledger_names_a_favoured_partner_fill() -> void:
+	_screen.economy.market.book.last_deals = [{
+		"buyer": _screen.player_faction,
+		"seller": 12,
+		"commodity": "timber",
+		"quantity": 2,
+		"price": 30,
+		"is_favoured": true,
+	}]
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "as its favoured partner"))
+
 
 ## The crown's ledger cannot offer what its own production will eat: the AI
 ## planners already reserve those inputs (wiki: world-market § Trade orders —
