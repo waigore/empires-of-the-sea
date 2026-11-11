@@ -639,6 +639,36 @@ func test_cancelling_an_offer_returns_its_submitted_volume() -> void:
 # --- what the auction promises and what it settles ---------------------------
 
 
+## A sale's receipt names the ducats, not only the tons: the seller's fills row
+## and the deal both carry what the auction paid (REQ-P5-05 — a sale is the one
+## fill whose price the ledger could not otherwise show).
+func test_a_sale_records_what_the_auction_paid() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _world()
+	world.region(0).resource[world.region(0).index_of(2, 0)] = MapModel.NO_ID
+	var economies: Dictionary = _economies()
+	(economies[1] as PlayerEconomy).stockpile["timber"] = 2
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 2, {"stock": 2}
+	)["ok"]))
+	assert_true(bool(MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 2,
+		{"cargo_free": 20, "treasury": 5000, "buy_price": 30}
+	)["ok"]))
+	var report: Dictionary = MarketClearing.clear(market, world, economies, {0: 20, 1: 20})
+	var sold: Dictionary = (report["fills"] as Dictionary).get(1, {}) as Dictionary
+	assert_eq(int(sold.get("sold", 0)), 2)
+	assert_eq(int(sold.get("earned", 0)), 60, "two tons at the timber price")
+	var deals: Array = report["deals"]
+	var mine: Array = []
+	for raw: Variant in deals:
+		if int((raw as Dictionary).get("seller", -99)) == 1:
+			mine.append(raw)
+	assert_eq(mine.size(), 1)
+	assert_eq(int(mine[0]["earned"]), 60, "the deal carries the receipt too")
+	assert_eq(int((report["fills"] as Dictionary).get(0, {}).get("spent", 0)), 60)
+
+
 ## A bid cut short by cargo holds keeps its MarketActivityNote in the clearing
 ## report, so the Deal Book can audit the truncation (wiki: world-market
 ## § Treasury budget for bids — MarketActivityNote attribution).

@@ -651,6 +651,12 @@ domain = "fleet"
 match = "tests/playtest_persistence.gd*"
 domain = "save"
 
+# The purse drive walks the ledger, the auction receipt and the college's gold,
+# so it travels with the economy suites.
+[[rules]]
+match = "tests/playtest_treasury.gd*"
+domain = "economy"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]

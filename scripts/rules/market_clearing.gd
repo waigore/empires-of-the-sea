@@ -204,10 +204,15 @@ static func _settle(
 			buyer_economy.add(commodity, quantity)
 			market.record_import(commodity, quantity, buyer)
 		var seller_economy: PlayerEconomy = _economy(economies, seller)
+		var proceeds: int = 0
 		if seller_economy != null:
 			seller_economy.take(commodity, quantity)
 			var sell_unit: int = _sell_unit(market, commodity, seller, buyer, subsidy)
-			seller_economy.add_treasury(sell_unit * quantity)
+			proceeds = sell_unit * quantity
+			seller_economy.add_treasury(proceeds)
+			# The receipt names the ducats, not only the tons (REQ-P5-05): a sale
+			# is the one trade a court cannot see the price of in the ledger.
+			deal["earned"] = proceeds
 		deal["quantity"] = quantity
 		deal["buy_unit"] = buy_unit
 		deal["subsidy_percent"] = subsidy
@@ -218,6 +223,7 @@ static func _settle(
 		if seller_economy != null:
 			var sold: Dictionary = fills.get(seller, {}) as Dictionary
 			sold["sold"] = int(sold.get("sold", 0)) + quantity
+			sold["earned"] = int(sold.get("earned", 0)) + proceeds
 			fills[seller] = sold
 	return {"fills": fills}
 

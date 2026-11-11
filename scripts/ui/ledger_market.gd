@@ -20,15 +20,23 @@ var _economy: PlayerEconomy = null
 var _market: WorldMarket = null
 ## Home-fleet holds and this turn's laden imports, from the controller.
 var _cargo: Dictionary = {}
+## Last clearing report: the deals it settled and the overseas share it paid.
+var _clearing: Dictionary = {}
 
 
-## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`.
+## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
+## `clearing` is the last world-market report, so the receipt names its ducats.
 func fill(
-	economy: PlayerEconomy, market: WorldMarket, cargo: Dictionary, offers: Array = []
+	economy: PlayerEconomy,
+	market: WorldMarket,
+	cargo: Dictionary,
+	offers: Array = [],
+	clearing: Dictionary = {}
 ) -> void:
 	_economy = economy
 	_market = market
 	_cargo = cargo
+	_clearing = clearing
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
 	_add_terms_banner()
@@ -115,9 +123,11 @@ func _staged_row(order: MarketOrder) -> Control:
 
 
 ## The crown's lines from the last clearing pass, so a fill is never silent
-## (wiki: world-market § Trade orders; REQ-P5-05).
+## (wiki: world-market § Trade orders; REQ-P5-05). The overseas share is the
+## court's own line even when it traded nothing itself (wiki: world-market
+## § First right of refusal).
 func _add_deals() -> void:
-	if _market == null or _market.book.last_deals.is_empty():
+	if _market == null:
 		return
 	var mine: Array[Dictionary] = []
 	for raw: Variant in _market.book.last_deals:
@@ -128,7 +138,8 @@ func _add_deals() -> void:
 		var seller: int = int(deal.get("seller", -2))
 		if buyer == FactionCatalog.PLAYER_FACTION or seller == FactionCatalog.PLAYER_FACTION:
 			mine.append(deal)
-	if mine.is_empty():
+	var share: int = LedgerText.share_credit(_clearing, FactionCatalog.PLAYER_FACTION)
+	if mine.is_empty() and share <= 0:
 		return
 	UiRowBuilder.spacer(self, 4.0)
 	add_child(UiRowBuilder.label("LAST CLEARING", 11, Palette.GOLD_DIM))
@@ -138,6 +149,15 @@ func _add_deals() -> void:
 		add_child(UiRowBuilder.label(
 			"+%d more deals" % (mine.size() - 4), 11, Palette.TEXT_DIM
 		))
+	if share > 0:
+		var shares := UiRowBuilder.label(
+			"Overseas shares  +%d ducats" % share, 12, Palette.GOLD_PALE
+		)
+		shares.tooltip_text = (
+			"The court's cut of the Minor and Tribe sales abroad — tile rights "
+			+ "and embassy kickbacks (wiki: world-market § First right of refusal)."
+		)
+		add_child(shares)
 
 
 func _deal_line(deal: Dictionary) -> String:
@@ -154,7 +174,10 @@ func _deal_line(deal: Dictionary) -> String:
 		)
 		return "Bought %d %s from %s at %d%s" % [quantity, commodity, other, price, claim]
 	other = "the world market" if buyer < 0 else FactionCatalog.name_of(buyer)
-	return "Sold %d %s to %s at %d" % [quantity, commodity, other, price]
+	var earned: int = int(deal.get("earned", price * quantity))
+	return "Sold %d %s to %s at %d — %d ducats" % [
+		quantity, commodity, other, price, earned,
+	]
 
 
 ## Direct offers sit above the world price rows: who sells, what is left, and

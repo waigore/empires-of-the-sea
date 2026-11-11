@@ -170,7 +170,9 @@ func refresh(
 	_summary.text = LedgerText.summary(economy, report)
 	_preview.text = LedgerText.preview(report)
 	_production.fill(economy)
-	_market_page.fill(economy, market, cargo, offers)
+	_market_page.fill(
+		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary
+	)
 	_workers.fill(economy)
 
 
