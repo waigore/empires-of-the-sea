@@ -95,6 +95,17 @@ func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	assert_true(words.has("no road"), "a cut-off estate says so: %s" % [words])
 
 
+## Every estate carries its own commodity medallion; a row whose good is not in
+## the catalog keeps the category pictogram rather than losing its mark.
+func test_an_estate_shows_its_goods_medallion() -> void:
+	_show()
+	var art: Array[Node] = _panel._resources.find_children("*", "TextureRect", true, false)
+	assert_gt(art.size(), 0, "the estate block draws medallions")
+	var plain: Control = _panel._resources._art({"commodity": "", "icon": "ore"})
+	assert_true(plain is Icon, "an unknown good falls back to the category pictogram")
+	plain.free()
+
+
 func test_the_roads_row_names_the_estates_that_reach_the_crown() -> void:
 	_show()
 	assert_eq(_panel._grid.road.text, "1 of 2 developed estates linked")
