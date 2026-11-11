@@ -220,6 +220,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		entry.add_child(row)
+		row.add_child(UnitMedallion.of_regiment(type_id, 28.0))
 		var label := UiRowBuilder.line(13, Palette.TEXT)
 		## The regiment's own title, with its type beside it — the same read as
 		## a hull's name in the fleet dossier (DR-20261111-18).
@@ -259,6 +260,8 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", 8)
 		entry.add_child(top)
+		var type_id: String = String(row["type_id"])
+		top.add_child(UnitMedallion.of_regiment(type_id, 28.0))
 		var name := UiRowBuilder.line(13, Palette.TEXT)
 		name.text = String(row["name"])
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -271,7 +274,6 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		muster.tooltip_text = (
 			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
 		)
-		var type_id: String = String(row["type_id"])
 		muster.pressed.connect(func() -> void: action_pressed.emit("recruit:%s" % type_id))
 		top.add_child(muster)
 		var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))

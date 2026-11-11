@@ -253,6 +253,16 @@ suites = [
   "test_fleet_orders.gd",
 ]
 
+# Unit medallions: the painted art for every worker, hull and regiment type and
+# the row widget that draws it. Presentational only, so the two dossiers that
+# mount the rows plus the coverage suite keep a plate change inside tier 1.
+[domains.unit_art]
+suites = [
+  "test_unit_icons.gd",
+  "test_fleet_orders.gd",
+  "test_army_orders.gd",
+]
+
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch. chart_art
 # also mounts map_screen / fleet_orders and those two alone can miss 5 min.
 [domains.chart_bake]
@@ -1268,6 +1278,24 @@ domain = "fleet"
 match = "scripts/rules/**"
 domain = "misc"
 
+# Unit medallions: one plate per worker, hull and regiment type, plus the row
+# widget. Kept off the menu catch-all so a plate change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ship_art.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "scripts/ui/regiment_art.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "scripts/ui/unit_medallion.gd*"
+domain = "unit_art"
+
+[[rules]]
+match = "tests/test_unit_icons.gd*"
+domain = "unit_art"
+
 # Dossier sheet shells (HudPanelSlot / DossierHeader / row kit). Keep on ui so a
 # shell extract does not pull army/fleet/intel domains past the tier-1 budget;
 # map_play and rules paths still own those domains for behavior changes.
@@ -1281,6 +1309,12 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/fleet_panel.gd*"
+domain = "ui"
+
+# The shipyard drawer is a dossier block, not a fleet rule: keep it on ui so a
+# row change does not pull the whole fleet domain past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/fleet_yard_block.gd*"
 domain = "ui"
 
 [[rules]]
