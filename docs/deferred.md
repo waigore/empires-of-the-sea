@@ -8,7 +8,7 @@ Audited against code, wiki and Design Records (2026-11-11, pass after
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
-| Difficulty layer, complete (stores, field, sea) | `Difficulty`, DR-20261111-12/25, [`difficulty.md`](difficulty.md) |
+| Difficulty layer, complete (stores, field, sea, crown's bar) | `Difficulty` / `VictoryRules`, DR-20261111-12/25/28, [`difficulty.md`](difficulty.md) |
 | Every agenda's decision hooks | `AiAgenda` traits, DR-20261111-27, [`ai.md`](ai.md) |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
 | Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home` |
@@ -49,9 +49,10 @@ gap against published rules, so the next pass should author the DR first.
 - Alternative victory types (Economic, Scientific, Peaceful, Score) —
   [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of
   scope; military / defeat / calendar endings are live.
-- Difficulty extras (per-turn AI income, advisor toggles, victory thresholds) —
+- Difficulty extras (per-turn AI income, advisor toggles) —
   [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config)
-  § Outside this layer; the 31-province threshold is fixed.
+  § Outside this layer; the crown's bar itself moves with the level
+  (DR-20261111-28).
 - Quick Battle multi-lane terrain and the full collapse model — owner-confirmed
   deferral in [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - Multi-turn production recipes, Yarn runtime and localization — wiki-deferred
