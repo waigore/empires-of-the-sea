@@ -63,8 +63,7 @@ func _line(row: Dictionary) -> HBoxContainer:
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 8)
 	line.tooltip_text = _tip(row)
-	var icon := Icon.new(String(row["icon"]), 16, Palette.GOLD)
-	line.add_child(icon)
+	line.add_child(_art(row))
 	var title := _text(_title(row), 14, Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(title)
@@ -83,6 +82,15 @@ func _text(value: String, size: int, ink: Color, width: float = 0.0) -> Label:
 	if width > 0.0:
 		label.custom_minimum_size = Vector2(width, 0)
 	return label
+
+
+## The estate's own commodity medallion; a row whose good is not in the catalog
+## keeps the category pictogram, so the line never loses its mark (REQ-P1-02).
+func _art(row: Dictionary) -> Control:
+	var commodity: String = String(row["commodity"])
+	if not commodity.is_empty():
+		return CommodityIcons.badge(commodity, CommodityIcons.LINE_SIZE)
+	return Icon.new(String(row["icon"]), 16, Palette.GOLD)
 
 
 ## The raw resource, not the works: "Timber", "Iron", "Grain".

@@ -548,6 +548,51 @@ func test_the_offer_chip_names_what_production_claims() -> void:
 	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
 
 
+## Every MARKET row shows its good's own medallion: grain, wool and timber used
+## to share one generic pictogram (REQ-P1-02; tools/art/goods-medallions.md).
+func test_every_market_row_carries_its_medallion() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	for category: Variant in LedgerMarket.CATEGORIES:
+		for id: String in CommodityCatalog.ids_in(category):
+			assert_eq(
+				_medallion_of(body, CommodityCatalog.label(id)),
+				CommodityIcons.texture(id),
+				"the market row for %s draws its own plate" % id
+			)
+
+
+## The PRODUCTION tab names each recipe's output; that good's medallion rides
+## beside the name so a run is identifiable without reading the text.
+func test_every_production_row_carries_its_output_medallion() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	var economy: PlayerEconomy = _screen.economy.economy
+	var recipes: Array[String] = ProductionRecipes.available_ids(economy.tech_unlocked)
+	assert_gt(recipes.size(), 0, "the opening court can run a recipe")
+	for recipe_id: String in recipes:
+		assert_eq(
+			_medallion_of(body, LedgerText.recipe_title(recipe_id)),
+			CommodityIcons.texture(ProductionRecipes.output(recipe_id)),
+			"the %s row draws its output's plate" % recipe_id
+		)
+
+
+## The texture beside a label, so a row's medallion can be read without
+## depending on where in the row it was added.
+func _medallion_of(body: Node, text: String) -> Texture2D:
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text != text:
+			continue
+		for sibling: Node in label.get_parent().get_children():
+			if sibling is TextureRect:
+				return (sibling as TextureRect).texture
+	return null
+
+
 func _collect_offer_chips(node: Node, out: Array[Button]) -> void:
 	if node is Button and (node as Button).text == "Offer":
 		out.append(node)

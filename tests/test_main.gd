@@ -7,9 +7,10 @@ const Fixture = preload("res://tests/map_fixture.gd")
 func test_main_shell_boots_the_title_screen() -> void:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child(main)
-	assert_eq(main.get_child_count(), 1)
 	assert_true(main.current_page is MainMenu, "title screen is the entry point")
 	assert_null(main.current_screen)
+	assert_not_null(main.audio, "the shell mounts one audio director")
+	assert_not_null(main.soundtrack, "the shell mounts the launch score")
 	main.free()
 
 
@@ -19,7 +20,6 @@ func test_auto_start_boots_the_map_screen() -> void:
 	main.map_width = 48
 	main.map_height = 32
 	add_child(main)
-	assert_eq(main.get_child_count(), 1)
 	assert_true(main.current_screen is MapScreen, "auto-start goes straight to play")
 	main.free()
 

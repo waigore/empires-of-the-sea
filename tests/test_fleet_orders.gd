@@ -883,8 +883,31 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 	MapPlayFleets.open_yard(_screen.play)
 
 	assert_true(_screen.hud.panels.is_fleet_panel_open())
-	assert_true(_screen.hud.panels.fleet_panel._yard_open)
-	assert_false(_screen.hud.panels.fleet_panel._yard_rows.is_empty())
+	assert_true(_screen.hud.panels.fleet_panel._yard._open)
+	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
+
+
+## Every launch row and every hull row leads with its own plate, so the yard
+## reads as the same hulls the fleet roster lists (tools/art/unit-medallions.md).
+func test_shipyard_rows_carry_the_hull_medallion() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	MapPlayFleets.open_yard(_screen.play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+
+	var first: Dictionary = yard._rows[0]
+	var launch_row: HBoxContainer = yard._box.get_child(1).get_child(0)
+	var plate: UnitMedallion = launch_row.get_child(0) as UnitMedallion
+	assert_not_null(plate, "the launch row opens with a plate")
+	assert_eq(plate.texture, ShipArt.medallion(String(first["type_id"])))
+
+	yard._fleet = FleetState.in_port(1, 0, 0, ["frigate_1"], {"frigate_1": "frigate"})
+	var hull_row: HBoxContainer = yard._hull_row("frigate_1").get_child(0)
+	assert_eq(
+		(hull_row.get_child(0) as UnitMedallion).texture,
+		ShipArt.medallion("frigate"),
+		"the break-up row wears the hull's own plate"
+	)
 
 
 func test_launching_pays_the_row_and_moors_the_hull() -> void:
@@ -918,7 +941,7 @@ func test_breaking_up_a_hull_asks_once() -> void:
 
 	panel._on_scrap_pressed(hull_id)
 
-	assert_eq(panel._armed_hull, hull_id, "the first tap only arms")
+	assert_eq(panel._yard._armed_hull, hull_id, "the first tap only arms")
 	assert_true(fleet.hulls.has(hull_id))
 
 	panel._on_scrap_pressed(hull_id)

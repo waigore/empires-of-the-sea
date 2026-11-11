@@ -1,8 +1,10 @@
 extends GdToolsTest
-## Integration: the real map screen drives the real director — era beds, cues on
-## player moments, battle music and the sound seal (REQ-P1-06).
+## Integration: the score — the app shell's launch bed, the real map screen's era
+## beds, cues on player moments, battle music and the sound seals (REQ-P1-06).
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const MAIN: PackedScene = preload("res://scenes/main.tscn")
+const TEMP_PATH := "user://test_map_soundtrack.cfg"
 
 var _screen: MapScreen = null
 var _audio: AudioDirector = null
@@ -12,6 +14,8 @@ var _score: MapSoundtrack = null
 func before_each() -> void:
 	_screen = Fixture.attach_screen(self)
 	_audio = _screen.get_node("Audio") as AudioDirector
+	# Keep the suite's mix out of the player's own settings file.
+	_audio.settings_path = TEMP_PATH
 	_score = _screen.get_node("Soundtrack") as MapSoundtrack
 
 
@@ -21,6 +25,8 @@ func after_each() -> void:
 	_screen = null
 	_audio = null
 	_score = null
+	if FileAccess.file_exists(TEMP_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
 
 
 func test_the_campaign_opens_on_the_renaissance_bed() -> void:
@@ -196,3 +202,110 @@ func test_the_mute_key_is_bound() -> void:
 	assert_true(InputMap.has_action(InputActions.MUTE))
 	var keys: Array = InputMap.action_get_events(InputActions.MUTE)
 	assert_gt(keys.size(), 0)
+
+
+# --- app shell ---------------------------------------------------------------
+
+
+func _boot_shell() -> Node:
+	var app: Node = MAIN.instantiate()
+	app.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
+	add_child(app)
+	# Keep the shell's mix out of the player's own settings file.
+	app.audio.settings_path = TEMP_PATH
+	app.audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
+	app.audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
+	app.audio.set_muted(false)
+	return app
+
+
+## M is the shell's shortcut now, so it answers before any page claims the key.
+func _press_mute_key() -> void:
+	InputActions.ensure_actions()
+	var down := InputEventKey.new()
+	down.physical_keycode = KEY_M
+	down.pressed = true
+	get_viewport().push_input(down)
+	var up := InputEventKey.new()
+	up.physical_keycode = KEY_M
+	up.pressed = false
+	get_viewport().push_input(up)
+
+
+func test_the_title_screen_opens_on_the_sea_bed() -> void:
+	var app: Node = _boot_shell()
+	assert_true(app.current_page is MainMenu, "the title screen is the entry point")
+	assert_eq(MusicPlaylist.menu_bed_id(), MusicPlaylist.AGE_OF_DISCOVERY)
+	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
+	assert_true(app.audio._ambience.playing, "the swell joins the launch bed")
+	app.free()
+
+
+func test_the_title_page_carries_the_sound_seal() -> void:
+	var app: Node = _boot_shell()
+	var seal: AudioControls = (app.current_page as MainMenu).audio_controls
+	assert_not_null(seal, "the launch page offers the mix desk")
+	seal.music_slider().value = 0.25
+	assert_almost_eq(app.audio.mix.music, 0.25, 0.01)
+	seal._trigger.pressed.emit()
+	assert_true(seal.is_open(), "the desk opens over the title")
+	seal._mute.button_pressed = true
+	seal._mute.pressed.emit()
+	assert_true(app.audio.is_muted(), "the title desk silences the score")
+	assert_true(seal.mute_button().button_pressed, "the seal mirrors the mix")
+	seal._mute.button_pressed = false
+	seal._mute.pressed.emit()
+	assert_false(app.audio.is_muted())
+	app.free()
+
+
+func test_a_campaign_takes_the_launch_director_over() -> void:
+	var app: Node = _boot_shell()
+	(app.current_page as MainMenu).observer_pressed.emit()
+	var screen: MapScreen = app.current_screen
+	assert_not_null(screen, "the debug door installs a campaign")
+	if screen == null:
+		app.free()
+		return
+	var score: MapSoundtrack = screen.get_node("Soundtrack") as MapSoundtrack
+	assert_eq(score.audio, app.audio, "the campaign shares the shell director")
+	assert_eq(
+		app.audio.current_track_id(), MusicPlaylist.menu_bed_id(),
+		"the launch bed keeps playing into the first turn"
+	)
+	assert_true(app.audio._active_player().playing, "the bed never stopped")
+	await get_tree().process_frame
+	assert_null(screen.get_node_or_null("Audio"), "the scene's own director retires")
+	app.free()
+
+
+func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
+	assert_eq(
+		MusicPlaylist.menu_bed_id(),
+		MusicPlaylist.bed_id_for_year(TurnTime.START_YEAR)
+	)
+
+
+func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
+	var app: Node = _boot_shell()
+	(app.current_page as MainMenu).observer_pressed.emit()
+	assert_not_null(app.current_screen)
+	if app.current_screen == null:
+		app.free()
+		return
+	app.audio.play_music(MusicPlaylist.BROADSIDES)
+	assert_eq(app.audio.current_track_id(), MusicPlaylist.BROADSIDES)
+	app.current_screen.main_menu_requested.emit()
+	assert_true(app.current_page is MainMenu, "the title comes back")
+	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
+	app.free()
+
+
+func test_the_mute_shortcut_answers_on_the_title_screen() -> void:
+	var app: Node = _boot_shell()
+	var before: bool = app.audio.is_muted()
+	_press_mute_key()
+	assert_eq(app.audio.is_muted(), not before, "M silences the launch bed")
+	_press_mute_key()
+	assert_eq(app.audio.is_muted(), before, "M restores the mix")
+	app.free()

@@ -19,6 +19,10 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## Tests may pin the generated size while still driving the real setup screen.
 var size_override: Vector2i = Vector2i.ZERO
 
+## One director for the whole app: the title bed keeps playing into a campaign.
+@onready var audio: AudioDirector = $Audio
+@onready var soundtrack: ShellSoundtrack = $Soundtrack
+
 var current_page: Node = null
 var current_screen: MapScreen = null
 
@@ -54,6 +58,9 @@ func _show_main_menu(notice: String = "") -> void:
 	menu.quit_pressed.connect(func() -> void: get_tree().quit())
 	add_child(menu)
 	menu.set_notice(notice)
+	if menu.audio_controls != null:
+		menu.audio_controls.bind(audio)
+	soundtrack.play_menu_bed()
 	current_page = menu
 
 
@@ -96,7 +103,8 @@ func _show_intro(config: GameConfig, world: WorldMap) -> void:
 		_intro_seat(world, config.player_faction),
 		AdvancedStart.turn(config.advanced_start),
 		config.infinite_mode,
-		CampaignIntro.salt(config.map_seed, config.player_faction)
+		CampaignIntro.salt(config.map_seed, config.player_faction),
+		config.difficulty
 	))
 	page.begin_pressed.connect(_begin_game.bind(config, world))
 	add_child(page)
@@ -202,8 +210,13 @@ func _load_save(slot: int) -> void:
 	_install_screen(screen)
 
 
+## The map screen's score borrows the shell's director, so the bed already
+## playing on the title screen carries into the first turn untouched.
 func _new_screen() -> MapScreen:
 	var screen: MapScreen = MAP_SCREEN.instantiate()
+	var score: MapSoundtrack = screen.get_node("Soundtrack") as MapSoundtrack
+	if score != null:
+		score.audio = audio
 	screen.load_slot_requested.connect(_load_save)
 	screen.main_menu_requested.connect(func() -> void: _show_main_menu())
 	return screen

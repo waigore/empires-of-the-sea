@@ -16,6 +16,9 @@ var settings_button: Button = null
 var quit_button: Button = null
 var observer_button: Button = null
 var backdrop: MenuBackdrop = null
+## The mix desk at the corner: the score starts on this page, so it can be
+## silenced here too (REQ-P1-06).
+var audio_controls: AudioControls = null
 
 var _notice: Label = null
 var _title: Label = null
@@ -28,6 +31,7 @@ func _ready() -> void:
 	backdrop.name = "Backdrop"
 	add_child(backdrop)
 	_build()
+	_build_sound_seal()
 	_intro()
 
 
@@ -86,6 +90,16 @@ func _build() -> void:
 	box.add_child(version)
 
 	_reveal([new_game_button, load_game_button, settings_button, quit_button, observer_button])
+
+
+## The same bell seal the map carries, parked in the title page's corner: the
+## score opens here, so the mix desk has to be reachable here (REQ-P1-06).
+func _build_sound_seal() -> void:
+	audio_controls = AudioControls.new()
+	audio_controls.name = "AudioControls"
+	audio_controls.position = Vector2(18.0, 18.0)
+	audio_controls.size = Vector2(AudioControls.TRIGGER_SIZE, AudioControls.TRIGGER_SIZE)
+	add_child(audio_controls)
 
 
 ## Dissolves the page in and lets the entries arrive one after another, so the
