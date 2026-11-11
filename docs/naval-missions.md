@@ -17,9 +17,9 @@ harbours and the yard live in [fleets.md](fleets.md).
 | Defend | at sea | Holds; no interception |
 | Beachhead | at sea beside a hostile coast | One-turn landing site |
 
-A station spends the turn's move and persists until the squadron sails, docks or
+A station spends the move and persists until the squadron sails, docks or
 takes another. The home fleet cannot take one. A station whose target is no
-longer a hostile shore lapses, and the dossier says so.
+longer hostile lapses; the dossier says so.
 
 ## Interception
 
@@ -70,16 +70,17 @@ are home-fleet warships; cargo is its merchant hulls.
 **civilian hull** down (`0.2 × (1 − escortFactor) × 2.0`, clamp 0.05…0.5,
 richest hold first). Warships are never prizes; the raider loses no hull.
 
-**Raids cut both ways.** The crown's station off a rival coast raids that rival's
-trade by the same formulas against a declared enemy. The tonnage is **prize
-cargo**: it leaves the rival's stockpile and lands in the crown's, no free hold
-needed and never booked as the crown's own import. Each direction rolls cargo
-and hull on separate salts. The dossier prices both; each despatch names the
-zone and any hull sent down; the zone rings.
+**Raids cut both ways.** Any crown's station off a hostile coast raids that
+rival's trade by the same formulas against a declared enemy. The tonnage is
+**prize cargo**: it leaves the victim's stockpile and lands in the raider's, no
+free hold needed and never booked as an import (DR-20261111-20). Every raider
+rolls its cargo and hull on separate salts. The crown's raids reach its
+despatch; rivals' are their own affair. The dossier prices both; each
+despatch names the zone and any hull sent down; the zone rings.
 
 ## Deferred (REQ-P2-02)
 
-Rival-on-rival raids + prize cargo (DR-20261111-17). See
+Rival-on-rival raids shipped (DR-20261111-20); remaining gaps ranked in
 [`deferred.md`](deferred.md).
 
 ## Architecture
