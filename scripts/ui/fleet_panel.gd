@@ -18,6 +18,7 @@ var _location: Label = null
 var _ships: Label = null
 var _status: Label = null
 var _hint: Label = null
+var _merge_box: VBoxContainer = null
 var _yard_button: Button = null
 var _yard_scroll: ScrollContainer = null
 var _yard_box: VBoxContainer = null
@@ -67,6 +68,13 @@ func _build() -> void:
 
 	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	column.add_child(_status)
+
+	# The home-fleet merge: one button when the squadron can join now; the note
+	# rides the status line so the sheet never grows (wiki: ships-and-naval).
+	_merge_box = VBoxContainer.new()
+	_merge_box.add_theme_constant_override("separation", 4)
+	_merge_box.visible = false
+	column.add_child(_merge_box)
 
 	_mission = FleetMissionSection.new()
 	_mission.visible = false
@@ -138,7 +146,8 @@ func refresh(
 	beach_rows: Array[Dictionary] = [],
 	beach_note: String = "",
 	crew: Dictionary = {},
-	strength: Dictionary = {}
+	strength: Dictionary = {},
+	merge: Dictionary = {}
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -152,15 +161,20 @@ func refresh(
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	_ships.text = "%d ships · %s · upkeep %d food" % [
-		fleet.ship_count(), fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
+	_ships.text = "%d %s · %s · upkeep %d food" % [
+		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
+		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
 	]
+	# A home fleet's holds are the reason to merge into her: show them here.
+	if bool(merge.get("home", false)):
+		_ships.text += " · %s" % String(merge.get("holds_text", ""))
 	_strength.set_data(strength)
+	_fill_merge(merge)
 	if carried > 0:
-		_ships.text += " · carrying %d regiments" % carried
+		_ships.text += " · carrying %d regiment%s" % [carried, "" if carried == 1 else "s"]
 	var colonists: int = int(crew.get("count", 0))
 	if colonists > 0:
-		_ships.text += " · %d colonists" % colonists
+		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
 	_mission.set_data(beach_note, beach_rows)
 	_crew.set_data(crew)
@@ -173,6 +187,9 @@ func refresh(
 	elif fleet.moved:
 		_status.text = "Has moved this turn"
 		_hint.text = "End the turn to sail again."
+	elif bool(merge.get("home", false)):
+		_status.text = "Home fleet"
+		_hint.text = "She keeps the port; a squadron docking here joins her."
 	elif not passage.is_empty():
 		_status.text = "1 move this turn"
 		_hint.text = passage
@@ -185,7 +202,13 @@ func refresh(
 	else:
 		_status.text = "1 move this turn"
 		_hint.text = "Tap a highlighted sea zone or a friendly port."
-	_yard_button.visible = is_player and not yard_rows.is_empty()
+	# The merge note rides the status row and its button takes the yard's place,
+	# so the dossier never grows past a phone's sheet (REQ-P1-05).
+	var merge_note: String = String(merge.get("note", ""))
+	if not merge_note.is_empty() and _status.text == "1 move this turn":
+		_status.text = merge_note
+	_yard_button.visible = is_player and not yard_rows.is_empty() \
+		and not bool(merge.get("ok", false))
 	if not _yard_button.visible:
 		_yard_open = false
 	_yard_button.text = "Close shipyard" if _yard_open else "Shipyard"
@@ -215,6 +238,7 @@ func refresh_slip(
 	_status.text = "The yard is open"
 	_hint.text = "Launch a hull to found the home fleet; break up hulls from the fleet dossier."
 	_land_rows = []
+	_fill_merge({})
 	if _crew != null:
 		_crew.set_data({})
 	if _land_box != null:
@@ -227,6 +251,21 @@ func refresh_slip(
 	_yard_scroll.visible = _yard_open
 	if _yard_open:
 		_fill_yard()
+
+
+## The home-fleet row: one tap when the squadron can join. Nothing destructive,
+## so no confirm (DR-20261109-01); the note rides the status line above.
+func _fill_merge(merge: Dictionary) -> void:
+	for child in _merge_box.get_children():
+		child.queue_free()
+	_merge_box.visible = bool(merge.get("ok", false))
+	if not _merge_box.visible:
+		return
+	var button := UiRowBuilder.button(
+		String(merge.get("label", "Join the home fleet")), 36.0, 0.0
+	)
+	button.pressed.connect(func() -> void: action_pressed.emit("join_home"))
+	_merge_box.add_child(button)
 
 
 ## Landing choices for the carried army: one button per owned coast.

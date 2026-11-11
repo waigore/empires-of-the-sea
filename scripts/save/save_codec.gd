@@ -91,6 +91,10 @@ static func is_valid(data: Dictionary) -> bool:
 
 
 ## Short slot description for the save browser.
+## One row of the load browser. `length` names the campaign length the save was
+## written with (`Endless` or `Historical`); a save without the key reads
+## Historical, exactly as the loaded campaign will (wiki: campaign-persistence
+## § Snapshot contract, DR-20261111-08).
 static func summary(data: Dictionary) -> Dictionary:
 	var session: Dictionary = data.get("session", {})
 	var faction: int = int(session.get("player_faction", FactionCatalog.PLAYER_FACTION))
@@ -100,7 +104,14 @@ static func summary(data: Dictionary) -> Dictionary:
 		"seed": int(session.get("map_seed", 0)),
 		"region": FactionCatalog.region_label(int(session.get("region_index", 0))),
 		"saved_at": String(data.get("saved_at", "")),
+		"length": length_label(bool(session.get("infinite_mode", false))),
 	}
+
+
+## The campaign length a save carries, in one word: `Endless` closes never,
+## `Historical` closes in 1800.
+static func length_label(infinite: bool) -> String:
+	return "Endless" if infinite else "Historical"
 
 
 # --- restore -----------------------------------------------------------------

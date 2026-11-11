@@ -80,6 +80,9 @@ static func _run(
 	var consumption: Dictionary = EconomyConsumption.resolve(
 		economy.workers, economy.stockpile, ship_count, army_food
 	)
+	# The next sea battle reads how many hulls this turn's granary fed in full
+	# (wiki: workers-and-population § Consumption).
+	economy.navy_feeding = EconomyConsumption.navy_coverage(consumption)
 	var production: Dictionary = ProductionRecipes.plan(
 		economy.assignments(),
 		economy.stockpile,

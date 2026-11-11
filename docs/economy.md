@@ -44,25 +44,26 @@ whole times, bounded by inputs and idle labour; an incomplete row is skipped.
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
-cargo. A colony pays after the crossing, on landed tons (level 4 town first,
-then most tons, then province id). Rivals upgrade towns too; works:
-[improvements.md](improvements.md). A Minor or Tribe town publishes manufactures
-as market auto-offers under its name at the province town; estates still sell
-in full.
+cargo. A colony pays after the crossing, on landed tons. Rivals upgrade towns;
+works: [improvements.md](improvements.md). A Minor or Tribe town publishes its
+manufactures as market auto-offers at the province town; estates still sell in
+full.
 
 ## World-market auction
 
 One global order book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
-courts' orders plus Minor/Tribe per-tile auto-offers at the old published
-price. Integer priority, pact, Consulate and relation tiebreaks order the book.
-First right of refusal fills a purchased tile's owner first and pays its
-relation share plus embassy kickbacks; subsidies adjust the deal. Unfilled
-orders carry when holds/stock cover them; prices move from filled bids and
-submitted offers. A standing world counterparty fills the remainder.
+courts' orders plus Minor/Tribe per-tile auto-offers at the published price.
+Tiebreaks: integer priority, pact, colony favour, Consulate, relation — a
+colony's suzerain clears its goods first inside a tier whatever the
+relations (`MarketFavoured`, wiki R7.1), while an independent court keeps
+Consulate-then-relation. First right of refusal fills a purchased tile's
+owner first and pays its relation share plus embassy kickbacks; subsidies
+adjust the deal. Unfilled orders carry when holds/stock cover them; prices
+move from filled bids and submitted offers, and a standing world counterparty
+fills the rest.
 
-An offer is capped by stock left after production; the `Offer` chip names that
-claim. Staged and carried orders show in the ledger; fills, cuts and lapses
-appear in the turn toast and travel in the save.
+An offer is capped by stock left after production; the `Offer` chip names the
+claim. Fills, cuts and lapses show in the turn toast and travel in the save.
 
 ## Trade terms
 
@@ -81,8 +82,9 @@ to the fields, no refund, inert when empty). Thumb-sized on a phone.
 
 `player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
 `commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
-`first_right`, `town_industry`, `minor_market`, `ui/ledger_{production,market}`,
-and `economy/economy_controller` plus `map/map_play_market`.
+`first_right`, `market_favoured`, `town_industry`, `minor_market`,
+`ui/ledger_{production,market}`, and `economy/economy_controller` plus
+`map/map_play_market`.
 
 ## Tests
 

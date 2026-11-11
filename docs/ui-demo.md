@@ -79,7 +79,7 @@ Build ~0.9 s (128×84), a third of it the relief bake. Static canvas once; settl
 
 ## Known limits
 
-Capitals follow the capital-choice rule. Province, civilian, estate, fleet and
-sea-combat orders are rules-backed ([`fleets.md`](fleets.md)). Beachhead
-landings, Patrol/Blockade/Defend, warp transit, colonisation and Minor/Tribe
-play are deferred ([`world.md`](world.md)).
+Capitals follow the capital-choice rule. Province, civilian, estate, fleet,
+stations, beachhead, warp and colonisation are rules-backed
+([`fleets.md`](fleets.md), [`world.md`](world.md)). Remaining gaps:
+[`deferred.md`](deferred.md).

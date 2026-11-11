@@ -26,9 +26,9 @@ campaign; it is saved with the session (`advanced_start`).
 | New World | 62.5% charted | All charted, up to 6 colonies per crown |
 | Estates | 25% developed, 50% prospected | 50% developed, 75% prospected |
 
-Every Great Power gets the same tier; the human's fog is the only fog painted
-(rival fog exploration is deferred). Grain and luxuries are seeded for 20
-turns, the same rule the turn-0 start uses.
+Every Great Power gets the same tier; the inherited New World chart is the
+human court's alone — rivals still explore from the baseline (DR-20261110-21).
+Grain and luxuries are seeded for 20 turns, as at turn 0.
 
 ## Rules
 

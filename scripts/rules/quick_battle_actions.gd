@@ -163,6 +163,9 @@ static func resolve(
 	# The blow that broke a regiment also mauls the men still standing: the
 	# plate shows every survivor's health drop (wiki: combat § Strength).
 	var pool: float = float(lost.size()) * RegimentCondition.HP_PER_SLOT
+	# The province's hospital triages the defender's survivors (DR-20261111-12).
+	if key == "attacker":
+		pool *= float(enemy.get("triage", 1.0))
 	entry["hits"] = RegimentCondition.damage_side(enemy_side, pool, int(enemy["limit"]))
 	entry["mauled"] = (entry["hits"] as Array).size()
 	if key == "attacker":
@@ -195,6 +198,9 @@ static func _pay_own(
 	)
 	me["lost"].append_array(own)
 	var pool: float = float(own.size()) * RegimentCondition.HP_PER_SLOT
+	# A defender's own sally is triaged by its hospital too.
+	if key == "defender":
+		pool *= float(me.get("triage", 1.0))
 	entry["own_hits"] = RegimentCondition.damage_side(own_side, pool, int(me["limit"]))
 	entry["own_mauled"] = (entry["own_hits"] as Array).size()
 	if key == "attacker":

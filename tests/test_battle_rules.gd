@@ -140,6 +140,46 @@ func test_strength_scales_the_deployed_slice() -> void:
 	assert_almost_eq(ArmyModifiers.strength(side, 10, 1.2), 12.0, 0.001)
 
 
+## The line is the strongest `limit` regiments; the rest are reserves that take
+## no casualties (wiki: combat § The line and the reserve; DR-20261111-15).
+func test_casualties_are_drawn_from_the_line_and_spare_the_reserve() -> void:
+	var types: Array[String] = ["guards"]
+	for _index in 13:
+		types.append("peasant_levies")
+	var army := Fixture.army(1, 0, 2, types)
+	var side: Array[ArmyState] = [army]
+	var deployed_ids: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 10):
+		deployed_ids.append(String(entry["id"]))
+	var reserve_ids: Array[String] = []
+	for regiment_id: String in army.regiments:
+		if not deployed_ids.has(regiment_id):
+			reserve_ids.append(regiment_id)
+	assert_eq(reserve_ids.size(), 4, "four regiments stand in reserve")
+
+	var lost: Array[String] = ArmyCombat.apply_losses([army], side, 4, 10)
+
+	assert_eq(lost.size(), 4)
+	for regiment_id: String in reserve_ids:
+		assert_true(army.regiments.has(regiment_id), "a reserve is never a casualty")
+
+
+## The report carries the line and the reserve so the plate and the despatch can
+## name them (wiki: combat § The line and the reserve; DR-20261111-15). The line
+## is read before any exchange, while every regiment is still standing.
+func test_the_report_names_the_line_and_the_reserve() -> void:
+	var defending: Array[ArmyState] = [Fixture.army(1, 1, 2, _regiment_types("pikemen", 9), true)]
+	var attacking: Array[ArmyState] = [Fixture.army(2, 0, 2, _regiment_types("guards", 14))]
+
+	var line: Dictionary = ArmyModifiers.line_fields(attacking, 10, defending, 10)
+
+	assert_eq(int(line["attacker_deployed"]), 10)
+	assert_eq(int(line["attacker_reserve"]), 4)
+	assert_eq(int(line["attacker_limit"]), 10)
+	assert_eq(int(line["defender_deployed"]), 9)
+	assert_eq(int(line["defender_reserve"]), 0)
+
+
 func test_modifiers_compose_terrain_feeding_and_leader() -> void:
 	var model := Fixture.build()
 	for tile: Vector2i in model.province_data(2).tiles:
@@ -351,7 +391,71 @@ func test_a_side_two_victory_reads_as_a_repulse() -> void:
 		"defender_lost": [],
 	}
 	assert_eq(BattleReport.describe(battle, "Gulf of Darién", FACTIONS),
-		"France repels England in the Gulf of Darién — 1 ships lost")
+		"France repels England in the Gulf of Darién — England loses 1 ship")
+
+
+## A winning side still spends hulls on the beaten side's damage pool, and the
+## despatch names both sides' dead — a crown never loses a named hull in silence
+## (DR-20261111-07, REQ-P5-05).
+func test_the_despatch_names_both_sides_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["a"],
+		"attacker_lost_names": ["Trinidad"],
+		"defender_lost": ["b", "c"],
+		"defender_lost_names": ["Revenge", "Vanguard"],
+		"attacker_strength": 18.25,
+		"defender_strength": 11.0,
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Windward Passage", FACTIONS),
+		"España holds the Windward Passage — England loses 2 ships"
+		+ " (Revenge, Vanguard); España loses 1 ship (Trinidad)"
+		+ " — 18.2 strength to 11.0"
+	)
+
+
+## A beaten side that slips away keeps every hull, but the holder still pays for
+## the win: the retreat despatch names the hulls it spent.
+func test_a_retreat_despatch_names_the_holders_own_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 1,
+		"defender": 0,
+		"outcome": NavalCombat.Outcome.SIDE2_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["a"],
+		"defender_lost_names": ["Trinidad"],
+		"retreat": {"success": true, "beaten": 1},
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Mar Tirreno", FACTIONS),
+		"England withdraws from the Mar Tirreno — España holds the zone"
+		+ "; España loses 1 ship (Trinidad)"
+	)
+
+
+## The resolver records the names of every hull it sinks, read before the hull
+## leaves the roster (the name lives on the fleet and dies with it).
+func test_a_resolved_battle_records_the_names_it_sank() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["a", "b"], {"a": "frigate", "b": "frigate"})
+	var weak := FleetState.at_sea(2, 1, 0, ["c"], {"c": "fluyte"})
+	var doomed_name: String = ShipNames.of(weak, "c")
+
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([strong, weak])
+
+	assert_gt(battles.size(), 0)
+	var battle: Dictionary = battles[0]
+	var lost: Array = battle.get("attacker_lost", []) if int(battle["attacker"]) == 1 \
+		else battle.get("defender_lost", [])
+	assert_eq(lost, ["c"], "the weak squadron's hull is the one sunk")
+	assert_eq(
+		battle.get("attacker_lost_names", []) if int(battle["attacker"]) == 1 \
+			else battle.get("defender_lost_names", []),
+		[doomed_name],
+		"the report names the hull it sank"
+	)
 
 
 func test_a_stalemate_reads_as_a_withdrawal() -> void:
@@ -608,6 +712,19 @@ func test_matched_squadrons_stalemate_without_losses() -> void:
 	assert_eq(first.ship_count(), 2)
 	assert_eq(second.ship_count(), 2)
 	assert_eq(NavalCombat.outcome_label(int(battles[0]["outcome"])), "stalemate")
+
+
+## A hungry squadron fights at the army morale bands (wiki:
+## workers-and-population § Consumption — fullyFedShips / totalShips).
+func test_a_starving_squadron_fights_at_the_hungry_morale_band() -> void:
+	var first: FleetState = _squadron(1, 0, 2, "carrack", 2)
+	var second: FleetState = _squadron(2, 1, 2, "carrack", 2)
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn(
+		[first, second], Callable(), {"navy_feeding": {0: 0.4, 1: 1.0}}
+	)
+	assert_almost_eq(float(battles[0]["attacker_strength"]), 2.75, 0.0001)
+	assert_almost_eq(float(battles[0]["defender_strength"]), 5.5, 0.0001)
+	assert_eq(int(battles[0]["outcome"]), NavalCombat.Outcome.SIDE2_VICTORY)
 
 
 ## Wiki: share > 0.53 wins for the attacker and share < 0.47 wins for the
@@ -993,6 +1110,105 @@ func test_reconcile_reads_only_great_powers_and_their_own_tech() -> void:
 	assert_false(roster.pools.has(2), "a junk tech row is ignored")
 
 
+## A moved army in another province of the same region is not in this battle.
+## The old binding walked every moved army in the region, so the first province
+## battle could spend a cap-1 crown's only commander on an army that was not
+## even standing there (wiki: military-generals § Assignment).
+func test_binding_ignores_moved_armies_outside_the_battle_province() -> void:
+	var model: MapModel = Fixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	# Province 2 holds a marching army but no defender, so it is no battle.
+	var marcher: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	marcher.moved = true
+	var defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [marcher, defender, attacker]
+	var roster := GeneralRoster.new()
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 1
+	)["army_general"]
+
+	assert_false(bindings.has(marcher.id), "a march outside the battle spends nothing")
+	assert_eq(
+		String(bindings.get(attacker.id, "")),
+		"general_1",
+		"the army that fights takes the crown's only commander"
+	)
+
+
+## A march into land its crown is at peace with triggers no engagement, so it
+## must not bind a commander or spend the phase's offensive cap
+## (wiki: military-generals § Assignment — "will participate in land combat").
+func test_binding_skips_a_march_that_is_not_at_war() -> void:
+	var model: MapModel = Fixture.build()
+	# Province 2 is owned by a Minor Nation the crown is at peace with; province
+	# 4 by a rival Great Power at war.
+	model.province_data(2).owner = 6
+	var world := WorldMap.new()
+	world.add_region(model)
+	var minor_defender: ArmyState = Fixture.army(1, 6, 2, ["peasant_levies"])
+	var peaceful_march: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	peaceful_march.moved = true
+	var rival_defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [minor_defender, peaceful_march, rival_defender, attacker]
+	var hostile := func(a: int, b: int) -> bool: return a == 0 and b == 1
+	var roster := GeneralRoster.new()
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 7, hostile
+	)["army_general"]
+
+	assert_false(bindings.has(peaceful_march.id), "peace binds no commander")
+	assert_eq(
+		String(bindings.get(attacker.id, "")),
+		"general_1",
+		"the war the crown is fighting keeps its commander"
+	)
+
+
+## End to end: the Combat phase passes its war query into binding, so a peaceful
+## march cannot starve the real battle of the crown's general. The medal
+## snapshot proves who was bound: the general carries two medals, and the report
+## reads them only when that general commanded the attacking side.
+func test_the_combat_phase_binds_only_the_army_that_fights() -> void:
+	var model: MapModel = Fixture.build()
+	model.province_data(2).owner = 6
+	var world := WorldMap.new()
+	world.add_region(model)
+	var minor_defender: ArmyState = Fixture.army(1, 6, 2, ["peasant_levies"])
+	var peaceful_march: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	peaceful_march.moved = true
+	var rival_defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [minor_defender, peaceful_march, rival_defender, attacker]
+	var roster := GeneralRoster.new()
+	roster.pool(0)
+	roster.award(0, "general_1")
+	roster.award(0, "general_1")
+	var context: Dictionary = {
+		"hostile": func(a: int, b: int) -> bool: return a == 0 and b == 1,
+		"seed": 1,
+	}
+
+	var reports: Array[Dictionary] = ArmyBattles.resolve_region_turn(
+		world, {0: armies}, roster, context
+	)
+
+	assert_eq(reports.size(), 1, "only the war produces a battle")
+	assert_eq(int(reports[0]["province"]), 4)
+	assert_eq(
+		int(reports[0]["attacker_medals"]),
+		2,
+		"the general with two medals commands the army that fights"
+	)
+
+
 # --- Quick Battle extracted modules (REQ-P3-01 / REQ-P3-04) ---
 ## Action catalog, fort battery, and plate copy live in their own modules so
 ## the soft-capped orchestrators stay under ≤400/≤25. Covered here (battle
@@ -1080,6 +1296,36 @@ func test_a_raid_on_the_crown_names_the_raider_the_cargo_and_the_hulls() -> void
 		BattleReport.describe_raid(raid, "Mar Caribe", FACTIONS, 0),
 		"England seize 5 cargo (3 grain, 2 timber) off the Mar Caribe — no hull lost"
 	)
+
+
+## A commerce raid that takes a hull names her, on both sides of the ledger
+## (wiki: ships-and-naval § Trade and Transport Interception; DR-20261111-17).
+func test_a_raid_despatch_names_the_merchant_it_sank() -> void:
+	var sunk: Array = [
+		{"id": "ship_7", "type_id": "fluyte", "name": "Vrouw Maria"}
+	]
+	var incoming: Dictionary = {
+		"kind": "incoming", "raider": 1, "victim": 0,
+		"losses": {"grain": 3}, "hulls_lost": sunk,
+	}
+	assert_eq(
+		BattleReport.describe_raid(incoming, "Mar Caribe", FACTIONS, 0),
+		"England seize 3 grain off the Mar Caribe and sink the Fluyte Vrouw Maria"
+	)
+	var prize: Dictionary = {
+		"kind": "prize", "raider": 0, "victim": 2,
+		"losses": {"grain": 3}, "hulls_lost": sunk,
+	}
+	assert_eq(
+		BattleReport.describe_raid(prize, "Golfo de México", FACTIONS, 0),
+		"Your station takes 3 grain off the Golfo de México as prize and sends the Fluyte Vrouw Maria down"
+	)
+
+
+func test_a_sunk_hull_without_a_name_still_prints() -> void:
+	assert_eq(BattleReport.sunk_of([]), "")
+	assert_eq(BattleReport.sunk_of([{"type_id": "carrack"}]), "Carrack")
+	assert_eq(BattleReport.sunk_of(["not a hull"]), "")
 
 
 func test_a_prize_despatch_reads_as_the_crowns_own_haul() -> void:
@@ -1194,6 +1440,65 @@ func test_the_ratio_bands_live_in_one_table() -> void:
 	assert_almost_eq(float(ArmyBands.for_ratio(1.2)["attacker"]), 0.3, 0.001)
 	assert_almost_eq(float(ArmyBands.for_ratio(0.8)["attacker"]), 0.5, 0.001)
 	assert_almost_eq(float(ArmyBands.for_ratio(0.5)["attacker"]), 1.0, 0.001)
+
+
+## The table's morale row: an attacker whose morale is lower than the defender's
+## fights the blunted band between 1.5 and 4.0 to one, and every other row keeps
+## its published fractions (wiki: combat § Auto-resolve ratio bands).
+func test_a_hungrier_attacker_fights_the_blunted_band() -> void:
+	var blunted: Dictionary = ArmyBands.for_ratio(2.0, 0.5, 1.0)
+	assert_almost_eq(float(blunted["attacker"]), 0.6, 0.001)
+	assert_almost_eq(float(blunted["defender"]), 0.4, 0.001)
+	assert_true(bool(blunted.get("blunted", false)), "the band is blunted")
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(2.0, 1.0, 0.75)["attacker"]), 0.15, 0.001)
+	# The morale row claims only 1.5 <= ratio < 4.0.
+	assert_almost_eq(float(ArmyBands.for_ratio(4.0, 0.5, 1.0)["attacker"]), 0.15, 0.001)
+	assert_almost_eq(float(ArmyBands.for_ratio(1.2, 0.5, 1.0)["attacker"]), 0.3, 0.001)
+
+
+## A hungrier attacker at blunted odds guts the garrison and still does not take
+## the province: the row writes a stalemate, not an attacker victory.
+func test_a_hungry_attacker_guts_the_garrison_without_taking_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	# 4 pikemen at half rations against 1 at full: strength ratio 2.0.
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 0.4, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.STALEMATE)
+	assert_true(bool(battle.get("blunted", false)), "the despatch can say why")
+	assert_eq(model.province_owner(2), 1, "the hungry attacker does not take the province")
+	assert_eq(defender.count(), 0, "the garrison was gutted")
+	assert_true(attacker.count() > 0, "the attacker keeps the field")
+	var line: String = BattleReport.describe_land(battle, "Harbour", FACTIONS)
+	assert_true(line.contains("hungrier"), "the toast names the blunted win: %s" % line)
+
+
+## The same odds at full rations still take the province: the morale row is the
+## only difference (and ratio == 4.0 itself is outside its band).
+func test_full_rations_at_the_same_odds_take_the_province() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["pikemen"], true)
+	var attacker := Fixture.army(2, 0, 2, ["pikemen", "pikemen", "pikemen", "pikemen"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, armies, {"seed": 7, "feeding": {0: 1.0, 1: 1.0}}
+	)
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_false(bool(reports[0].get("blunted", false)))
+	assert_eq(model.province_owner(2), 0, "a fed attacker takes the province")
 
 
 ## A won auto-resolve battle tells the plate what it cost: surviving chevrons,

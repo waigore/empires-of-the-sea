@@ -8,14 +8,14 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 ## Implemented
 
 - **Relations** (`DiplomacyState`): pair score, war, turn stamps; same-region
-  seed 50; bands 0–25/26–50/51–75/76–100, ladder only; GP pairs keep Embassy
+  seed 50; bands 0–25/26–50/51–75/76–100; GP pairs keep Embassy
   through war.
 - **Decay:** non-war pairs drift 4.0 to 50; war freezes.
 - **Spy death:** −8 for a Spy killed abroad.
 - **War / peace:** war needs peace, freezes the score, clears overtures
   (GP pairs keep Embassy); battles need war. Minors/Tribes accept peace; GP 26+.
-- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking
-  costs −50 with the ally, −10 with others; not in war.
+- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs
+  −50 with the ally, −10 with others; never in war.
 - **Call to arms:** a GP war calls each ally once. AI allies join at 50+;
   human calls wait; refusal breaks the treaty.
 - **Intervention:** a war on a Minor/Tribe lets embassy and deed holders
@@ -40,14 +40,14 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   **Subsidy** prices that court's goods: we pay p% more, earn p%
   less. Rails 70–150% buy, 50–130% sell; court and ledger state the rate.
 - **First contact:** a Tribe enters court on a seen tile in its provinces, not by
-  sea-reach.
-- **Chronicle** (`DiplomacyHistory`): unbounded; newest first, `Year Y
-  (Turn N)`; unmet crowns `Unknown faction`.
-- **Power line:** each Great Power row reads its score against yours — red
+  sea-reach; rivals open theirs at the turn's close, the crown with a herald.
+- **Chronicle** (`DiplomacyHistory`): newest first, `Year Y (Turn N)`; unmet
+  crowns `Unknown faction`.
+- **Power line:** each Great Power reads its score against yours — red
   stronger, green matched.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion and
   behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
-- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): land washed blue (yours),
+- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): washed blue (yours),
   green (friendly), grey (neutral), red (war).
 - **Rival AI courts:** one order per turn ([`ai.md`](ai.md)): war, peace or the
   court menu. Below 50 desire: white peace; consent asks wait, one-sided acts
@@ -55,21 +55,23 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 ## Deferred (REQ-P2-02)
 
-- Merchant overseas cargo, colony profit share, near-defeat land war.
+None ([`deferred.md`](deferred.md)).
 
 ## Architecture
 
 Rules: `diplomacy_catalog` (costs, bands, gates), `diplomacy_state`,
 `diplomacy_rules`, `diplomacy_aid`, `diplomacy_orders` (validate/apply),
 `diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
-`diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`, `deed_protection`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`. UI:
+`diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`, `deed_protection`,
+`tribe_contact`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`,
+`map/map_play_tribe_contact`. UI:
 `ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
 `diplomacy_history_panel`. Rules need no nodes (`REQ-P3-03`); panel →
 `DiplomacyOrders.apply`, phase → `end_turn`.
 
 ## Tests
 
-Suites: `test_diplomacy_*` (incl. `test_diplomacy_trade`), `test_call_to_arms`,
+Suites: `test_diplomacy_*`, `test_call_to_arms`, `test_tribe_contact`,
 `test_intervention`, `test_deed_protection`, `test_intel_dossier`,
 `test_espionage`.
 

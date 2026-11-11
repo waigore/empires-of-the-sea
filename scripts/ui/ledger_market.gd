@@ -151,7 +151,10 @@ func _deal_line(deal: Dictionary) -> String:
 	var other: String = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
 	if buyer == FactionCatalog.PLAYER_FACTION:
 		other = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
-		return "Bought %d %s from %s at %d" % [quantity, commodity, other, price]
+		var claim: String = (
+			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
+		)
+		return "Bought %d %s from %s at %d%s" % [quantity, commodity, other, price, claim]
 	other = "the world market" if buyer < 0 else FactionCatalog.name_of(buyer)
 	return "Sold %d %s to %s at %d" % [quantity, commodity, other, price]
 

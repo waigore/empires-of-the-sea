@@ -36,6 +36,8 @@ static func cost_for(action: String, level: int = 1) -> Dictionary:
 		return CivilianTransport.cost(action)
 	if action == "build_fort":
 		return FortRules.cost(clampi(level, 1, FortRules.MAX_LEVEL))
+	if action == "build_hospital":
+		return HospitalRules.cost(clampi(level, 1, HospitalRules.MAX_LEVEL))
 	if action == "build_improvement" or action == "upgrade_town":
 		return (
 			IMPROVEMENT_COSTS[clampi(level, 1, LandWorks.MAX_IMPROVEMENT)] as Dictionary
@@ -74,6 +76,15 @@ static func fort_target(model: MapModel, tile: Vector2i) -> int:
 	)
 
 
+## Hospital the engineer would raise in this province next: level + 1, capped.
+static func hospital_target(model: MapModel, tile: Vector2i) -> int:
+	if model == null:
+		return HospitalRules.next_level(0)
+	return HospitalRules.next_level(
+		HospitalRules.level_at(model, model.province_at(tile.x, tile.y))
+	)
+
+
 ## Town the Builder would raise next: current level + 1, capped at 4.
 static func town_upgrade_level(model: MapModel, tile: Vector2i) -> int:
 	if model == null:
@@ -108,6 +119,8 @@ static func cost_level(
 		return town_upgrade_level(model, tile)
 	if action == "build_fort":
 		return fort_target(model, tile)
+	if action == "build_hospital":
+		return hospital_target(model, tile)
 	return works.improvement_at(model, tile) + 1
 
 
@@ -127,6 +140,8 @@ static func duration_for(
 			return town_upgrade_level(model, tile)
 		"build_fort":
 			return FortRules.turns(fort_target(model, tile))
+		"build_hospital":
+			return HospitalRules.turns(hospital_target(model, tile))
 	if CivilianTransport.knows(action):
 		return CivilianTransport.turns(action)
 	return 1

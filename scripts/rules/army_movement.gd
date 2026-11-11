@@ -106,13 +106,17 @@ static func _is_foreign(model: MapModel, army: ArmyState, province_id: int) -> b
 	return owner != MapModel.NO_ID and owner != army.owner
 
 
-static func begin_turn(armies: Array[ArmyState]) -> void:
+static func begin_turn(armies: Array[ArmyState], model: MapModel = null) -> void:
 	for army: ArmyState in armies:
 		if army != null:
 			army.moved = false
-			# Field depots replace part of the battle's wear each turn
-			# (wiki: combat § Strength; DR-20261110-19).
-			RegimentCondition.rest(army)
+			# Field depots replace part of the battle's wear each turn; a
+			# province hospital sets a faster tempo (wiki: combat § Strength;
+			# DR-20261110-19, DR-20261111-12).
+			var share: float = RegimentCondition.REST_SHARE
+			if model != null and army.province != NO_PROVINCE:
+				share = HospitalRules.rest_share_at(model, army.province)
+			RegimentCondition.rest(army, share)
 
 
 static func _can_act(model: MapModel, army: ArmyState) -> bool:

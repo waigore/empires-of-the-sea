@@ -23,7 +23,9 @@ jobs:
     name: tests-full
     runs-on: ubuntu-latest
     # Full suite budget is looser than PR tier 1 (docs/testing.md).
-    timeout-minutes: 15
+    # 15m was cancelling mid-run after the map-paint / live-suite growth;
+    # keep headroom above the wall time the coverage suite actually needs.
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4

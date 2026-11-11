@@ -278,6 +278,27 @@ func test_the_loss_line_names_the_regiments() -> void:
 	assert_eq(QuickBattleCopy.loss_line(_battle(), NAMES), "", "a quiet field has no loss line")
 
 
+## The line and the reserve: only a side that kept one is named, and the
+## despatch counts both sides' reserves (wiki: combat § The line and the
+## reserve; DR-20261111-15).
+func test_the_line_and_the_reserve_are_told() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_deployed"] = 10
+	battle["attacker_reserve"] = 4
+	battle["defender_deployed"] = 4
+	battle["defender_reserve"] = 0
+
+	assert_eq(
+		QuickBattleCopy.line_line(battle, NAMES),
+		"Line — España: 10 of 14 in the line"
+	)
+	assert_eq(
+		BattleReport.line_note(battle), " — 4 regiments held in reserve"
+	)
+	assert_eq(QuickBattleCopy.line_line(_battle(), NAMES), "", "a full line adds no line")
+	assert_eq(BattleReport.line_note(_battle()), "", "a full line adds no tail")
+
+
 func _battle() -> Dictionary:
 	return {
 		"attacker": 0,

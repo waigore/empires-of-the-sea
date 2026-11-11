@@ -29,7 +29,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_civilians_in_region(play, target, faction), play.court_charts
+				_abroad(play, target, faction), play.court_charts
 			)
 			if order.is_empty():
 				continue
@@ -171,20 +171,22 @@ static func _ensure_works(play: PlaySession, region: int) -> void:
 		play.civilian_layer.works_regions.set_region(region, LandWorks.new())
 
 
-static func _civilians_in_region(play: PlaySession, region: int, owner: int) -> int:
+## This crown's civilians already in `region`, counted by type, so a court sends
+## one Explorer to chart, then a Merchant to claim, then a Builder to work.
+static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
+	var counts: Dictionary = {}
 	if region < 0 or play.civilian_layer == null:
-		return 0
+		return counts
 	var roster: Array = []
 	if play.model != null and play.model.region_id == region:
 		roster.assign(play.civilian_layer.units)
 	else:
 		roster.assign(play.civilian_layer.regions.value(region, []))
-	var total: int = 0
 	for raw: Variant in roster:
 		var unit: CivilianState = raw
 		if unit != null and unit.owner == owner:
-			total += 1
-	return total
+			counts[unit.type_id] = int(counts.get(unit.type_id, 0)) + 1
+	return counts
 
 
 static func _fleet_by_id_any(

@@ -149,6 +149,15 @@ static func _matcher_context(
 	if diplomacy != null:
 		out["ftp_for"] = func(a: int, b: int) -> bool:
 			return DiplomacyTrade.is_ftp(diplomacy, a, b)
+		# A colony's suzerain trades first inside the tier (wiki: diplomacy
+		# § Favoured trading partner, R7.1; DR-20261111-11). Only the colony arm
+		# reaches the auction: for an independent court the R7.1 partner is the
+		# warmest buyer, and R7.3 already ranks that order behind every
+		# Consulate holder.
+		out["favoured_for"] = func(seller: int) -> int:
+			if diplomacy.colony_of(seller) < 0:
+				return MarketFavoured.UNDEFINED
+			return MarketFavoured.of(diplomacy, seller)
 		out["consulate_for"] = func(gp: int, minor: int) -> bool:
 			return DiplomacyRules.has_embassy(diplomacy, gp, minor)
 		out["relation_for"] = func(gp: int, minor: int) -> float:

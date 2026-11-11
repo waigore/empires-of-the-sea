@@ -63,6 +63,11 @@ static func run(play: PlaySession) -> Dictionary:
 			"civilians": civilians,
 			"research": research,
 		}
+	# Every rival ledger just closed, so the next land battle reads the rations
+	# each crown actually got — not full morale by default (wiki: combat
+	# § Feeding modifiers; workers-and-population § Consumption). Observer mode
+	# still reapplies from MapPlayTurn; a second pass is idempotent.
+	AiTurnLog.apply_feeding(play, report)
 	return report
 
 
