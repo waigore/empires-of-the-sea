@@ -1388,7 +1388,7 @@ match = "scripts/ui/improvement_*.gd"
 domain = "economy"
 
 [[rules]]
-match = "scripts/ui/research_*.gd"
+match = "scripts/ui/research_*.gd*"
 domain = "research"
 
 [[rules]]
