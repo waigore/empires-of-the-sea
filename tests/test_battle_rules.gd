@@ -1110,6 +1110,105 @@ func test_reconcile_reads_only_great_powers_and_their_own_tech() -> void:
 	assert_false(roster.pools.has(2), "a junk tech row is ignored")
 
 
+## A moved army in another province of the same region is not in this battle.
+## The old binding walked every moved army in the region, so the first province
+## battle could spend a cap-1 crown's only commander on an army that was not
+## even standing there (wiki: military-generals § Assignment).
+func test_binding_ignores_moved_armies_outside_the_battle_province() -> void:
+	var model: MapModel = Fixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	# Province 2 holds a marching army but no defender, so it is no battle.
+	var marcher: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	marcher.moved = true
+	var defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [marcher, defender, attacker]
+	var roster := GeneralRoster.new()
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 1
+	)["army_general"]
+
+	assert_false(bindings.has(marcher.id), "a march outside the battle spends nothing")
+	assert_eq(
+		String(bindings.get(attacker.id, "")),
+		"general_1",
+		"the army that fights takes the crown's only commander"
+	)
+
+
+## A march into land its crown is at peace with triggers no engagement, so it
+## must not bind a commander or spend the phase's offensive cap
+## (wiki: military-generals § Assignment — "will participate in land combat").
+func test_binding_skips_a_march_that_is_not_at_war() -> void:
+	var model: MapModel = Fixture.build()
+	# Province 2 is owned by a Minor Nation the crown is at peace with; province
+	# 4 by a rival Great Power at war.
+	model.province_data(2).owner = 6
+	var world := WorldMap.new()
+	world.add_region(model)
+	var minor_defender: ArmyState = Fixture.army(1, 6, 2, ["peasant_levies"])
+	var peaceful_march: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	peaceful_march.moved = true
+	var rival_defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [minor_defender, peaceful_march, rival_defender, attacker]
+	var hostile := func(a: int, b: int) -> bool: return a == 0 and b == 1
+	var roster := GeneralRoster.new()
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 7, hostile
+	)["army_general"]
+
+	assert_false(bindings.has(peaceful_march.id), "peace binds no commander")
+	assert_eq(
+		String(bindings.get(attacker.id, "")),
+		"general_1",
+		"the war the crown is fighting keeps its commander"
+	)
+
+
+## End to end: the Combat phase passes its war query into binding, so a peaceful
+## march cannot starve the real battle of the crown's general. The medal
+## snapshot proves who was bound: the general carries two medals, and the report
+## reads them only when that general commanded the attacking side.
+func test_the_combat_phase_binds_only_the_army_that_fights() -> void:
+	var model: MapModel = Fixture.build()
+	model.province_data(2).owner = 6
+	var world := WorldMap.new()
+	world.add_region(model)
+	var minor_defender: ArmyState = Fixture.army(1, 6, 2, ["peasant_levies"])
+	var peaceful_march: ArmyState = Fixture.army(2, 0, 2, ["pikemen"])
+	peaceful_march.moved = true
+	var rival_defender: ArmyState = Fixture.army(3, 1, 4, ["peasant_levies"])
+	var attacker: ArmyState = Fixture.army(4, 0, 4, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [minor_defender, peaceful_march, rival_defender, attacker]
+	var roster := GeneralRoster.new()
+	roster.pool(0)
+	roster.award(0, "general_1")
+	roster.award(0, "general_1")
+	var context: Dictionary = {
+		"hostile": func(a: int, b: int) -> bool: return a == 0 and b == 1,
+		"seed": 1,
+	}
+
+	var reports: Array[Dictionary] = ArmyBattles.resolve_region_turn(
+		world, {0: armies}, roster, context
+	)
+
+	assert_eq(reports.size(), 1, "only the war produces a battle")
+	assert_eq(int(reports[0]["province"]), 4)
+	assert_eq(
+		int(reports[0]["attacker_medals"]),
+		2,
+		"the general with two medals commands the army that fights"
+	)
+
+
 # --- Quick Battle extracted modules (REQ-P3-01 / REQ-P3-04) ---
 ## Action catalog, fort battery, and plate copy live in their own modules so
 ## the soft-capped orchestrators stay under ≤400/≤25. Covered here (battle
