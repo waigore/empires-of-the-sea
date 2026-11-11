@@ -960,6 +960,122 @@ func test_ai_naval_never_sorties_the_home_fleet() -> void:
 	assert_true(home.is_in_port())
 
 
+## At war with no squadron to fight, a warship works the enemy's trade: it sails
+## for a hostile coast so the station pass can blockade it (DR-20261111-17).
+func test_ai_naval_sails_for_a_hostile_coast_to_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 2, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(plan["orders"][0]["zone"]), 1, "the water off Coro")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "a raid is not a battle")
+
+
+## A merchant squadron is cargo, not a predator: only a warship takes the raid.
+func test_ai_naval_a_merchant_squadron_does_not_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 2, 0, "galleon")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+## A warship already on a hostile coast holds there: the station pass posts the
+## blockade, and sailing on would waste the turn (DR-20261111-17).
+func test_ai_naval_a_warship_on_a_hostile_coast_holds_for_its_station() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 2, 1, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+## A laden coast outranks a bare hostile shore: the rival makes for the seat
+## whose merchant hulls are in port (DR-20261111-17).
+func test_ai_naval_prefers_a_laden_coast() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var state := _peace_state(2, 0)
+	state.relation(2, 0).at_war = true
+	state.ensure_relation(2, 1, 1)
+	state.relation(2, 1).at_war = true
+	var laden := FleetState.in_port(
+		9, 0, 0, ["r1"] as Array[String], {"r1": "fluyte"}
+	)
+	var fleets: Array[FleetState] = [_squadron(0, 2, 1, "sloop"), laden]
+	var plan: Dictionary = AiNavalPlanner.orders(config, state, model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "Cádiz, where the merchant hulls lie")
+
+
+## A court at war with nowhere to fight and no trade to raid brings its hulls
+## home instead of idling on station: holds and escorts are worth something
+## there (DR-20261110-30).
+func test_ai_naval_a_warship_with_no_war_work_comes_home() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 1, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 2), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "one leg toward Cádiz")
+
+
+## The raid also obeys the court's chart (wiki: fog-and-exploration § Visibility
+## Levels; DR-20261110-21): uncharted enemy water is not a station it can work.
+func test_ai_naval_raids_only_charted_water() -> void:
+	var home: MapModel = NavalFixture.build()
+	var model: MapModel = NavalFixture.build()
+	model.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(home)
+	world.add_region(model)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 2, 0, "sloop")]
+	var blind: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((blind["orders"] as Array).size(), 0, "the hostile coast is uncharted")
+	charts.reveal_sea_zone(2, 1, 1)
+	var charted: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(2, 1), model, fleets, charts
+	)
+	assert_eq((charted["orders"] as Array).size(), 1, "once charted it may raid")
+	assert_eq(String(charted["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+
+
+## The map applies the raid order through NavalMovement, then the station pass
+## blockades the coast on the following turn (DR-20261111-17).
+func test_map_phase_sails_to_a_hostile_coast_then_blockades_it() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var raider: FleetState = _squadron(0, 0, 0, "sloop")
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [raider]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _war_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one raid order")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(trace[0]["zone"]), 1, "the water off Coro")
+	assert_eq(raider.sea_zone, 1)
+	assert_eq(raider.mission, FleetState.Mission.NONE, "the move spends the turn")
+	NavalMovement.begin_turn(roster)
+	MapPlayFleets.run_ai(play)
+	assert_eq(raider.mission, FleetState.Mission.BLOCKADE, "next turn it works the coast")
+	assert_eq(raider.blockade_province, 1)
+	layer.free()
+
+
 func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)

@@ -1146,6 +1146,36 @@ func test_a_raid_on_the_crown_names_the_raider_the_cargo_and_the_hulls() -> void
 	)
 
 
+## A commerce raid that takes a hull names her, on both sides of the ledger
+## (wiki: ships-and-naval § Trade and Transport Interception; DR-20261111-17).
+func test_a_raid_despatch_names_the_merchant_it_sank() -> void:
+	var sunk: Array = [
+		{"id": "ship_7", "type_id": "fluyte", "name": "Vrouw Maria"}
+	]
+	var incoming: Dictionary = {
+		"kind": "incoming", "raider": 1, "victim": 0,
+		"losses": {"grain": 3}, "hulls_lost": sunk,
+	}
+	assert_eq(
+		BattleReport.describe_raid(incoming, "Mar Caribe", FACTIONS, 0),
+		"England seize 3 grain off the Mar Caribe and sink the Fluyte Vrouw Maria"
+	)
+	var prize: Dictionary = {
+		"kind": "prize", "raider": 0, "victim": 2,
+		"losses": {"grain": 3}, "hulls_lost": sunk,
+	}
+	assert_eq(
+		BattleReport.describe_raid(prize, "Golfo de México", FACTIONS, 0),
+		"Your station takes 3 grain off the Golfo de México as prize and sends the Fluyte Vrouw Maria down"
+	)
+
+
+func test_a_sunk_hull_without_a_name_still_prints() -> void:
+	assert_eq(BattleReport.sunk_of([]), "")
+	assert_eq(BattleReport.sunk_of([{"type_id": "carrack"}]), "Carrack")
+	assert_eq(BattleReport.sunk_of(["not a hull"]), "")
+
+
 func test_a_prize_despatch_reads_as_the_crowns_own_haul() -> void:
 	var raid: Dictionary = {
 		"kind": "prize",

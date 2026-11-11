@@ -1,6 +1,6 @@
 # AI courts
 
-Rivals act through a deterministic, tuned stack
+Rivals act through a deterministic stack
 ([AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
 
 **Pillars:** P2–P5.
@@ -9,7 +9,7 @@ Rivals act through a deterministic, tuned stack
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six hashed agendas.
+  six agendas.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
@@ -25,8 +25,9 @@ Rivals act through a deterministic, tuned stack
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  matchable squadron (120% margin), charted water only
-  (DR-20261110-21); at peace it comes home (DR-20261110-30).
+  matchable squadron (120% margin, charted water, DR-20261110-21), else a
+  warship raids a hostile coast (DR-20261111-17); at peace it comes home
+  (DR-20261110-30).
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
   attack; an invader draws a relief column (one regiment keeps the seat).
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
@@ -51,7 +52,7 @@ Rivals act through a deterministic, tuned stack
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
 - **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's
-  inputs; bid short build inputs (3; 6 with Trade Fairs).
+  inputs; bid short build inputs.
 - **Cargo planner** (`AiCargoPlanner`): merchants sail home; one hull more when
   tonnage outruns them (`cargo.*`, DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's

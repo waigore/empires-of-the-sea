@@ -5,19 +5,24 @@ extends RefCounted
 ## fleet's imports this turn are the cargo at risk; escorts cut the chance and
 ## a successful raid skims a fraction of every delivered commodity.
 ##
-## A raid is a pinch on **cargo**, never a fight: no hull — merchant, escort or
-## civilian — is sunk, captured or damaged, on either side (DR-20261110-13).
-## The crown raids back the same way: [method resolve_prizes] takes a rival's
-## cargo off its merchant hulls as prize.
+## A raid is a commerce raid: it pinches **cargo** and may send one **merchant
+## hull** to the bottom, never a warship and never a hull on the raider's own
+## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; this module
+## owns the raid itself. The crown raids back the same way: [method
+## resolve_prizes] takes a rival's cargo and merchant hulls as prize.
 
 const BLOCKADE_BONUS: float = 1.25
 const MIN_EFFICIENCY: float = 0.3
 const MAX_EFFICIENCY: float = 0.7
 ## Roll salt for the raid the crown suffers this turn.
 const ROLL_TAG: int = 77
+## The hull roll is its own draw, so cargo and a hull are never decided by one
+## unlucky number (DR-20261111-17).
+const HULL_TAG: int = 1777
 ## Prizes roll on their own salts, one per victim, so a crown can lose cargo and
 ## take it in the same zone without both raids sharing a single roll.
 const PRIZE_TAG_BASE: int = 977
+const HULL_PRIZE_TAG_BASE: int = 2777
 
 
 ## One raider group tries the home fleet's cargo. `roll_value` is for tests; a
@@ -34,13 +39,14 @@ static func resolve(
 	seed_value: int = 0,
 	turn: int = 0,
 	roll_value: float = -1.0,
-	has_tech: Callable = Callable()
+	has_tech: Callable = Callable(),
+	hull_roll: float = -1.0
 ) -> Dictionary:
 	if model == null or home == null or imports.is_empty():
 		return _nothing("no cargo at sea", victim)
 	return _raid(
 		model, fleets, victim, home, imports, hostile,
-		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG
+		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG, HULL_TAG, hull_roll
 	)
 
 
@@ -48,7 +54,8 @@ static func resolve(
 ## turn. `victims` is faction -> `{ "imports": {id: units}, "home": FleetState }`
 ## for each howling rival the crown has cargo to take from; only a declared war
 ## pays. Returns one raid per victim, in ascendum, with the cargo to seize (the
-## caller moves it into the crown's stockpile). No hull ever changes hands.
+## caller moves it into the crown's stockpile) and any merchant hull sent down
+## (already removed from the rival's home fleet).
 static func resolve_prizes(
 	model: MapModel,
 	fleets: Array,
@@ -58,7 +65,8 @@ static func resolve_prizes(
 	seed_value: int = 0,
 	turn: int = 0,
 	has_tech: Callable = Callable(),
-	roll_value: float = -1.0
+	roll_value: float = -1.0,
+	hull_roll: float = -1.0
 ) -> Array[Dictionary]:
 	var raids: Array[Dictionary] = []
 	if model == null or fleets.is_empty() or victims.is_empty():
@@ -77,7 +85,8 @@ static func resolve_prizes(
 			continue
 		var raid: Dictionary = _raid(
 			model, fleets, victim, home, imports, hostile,
-			seed_value, turn, roll_value, has_tech, crown, PRIZE_TAG_BASE + victim
+			seed_value, turn, roll_value, has_tech, crown,
+			PRIZE_TAG_BASE + victim, HULL_PRIZE_TAG_BASE + victim, hull_roll
 		)
 		if bool(raid.get("ok", false)):
 			raids.append(raid)
@@ -100,7 +109,7 @@ static func trade_chance(
 	)
 	var bonus: float = BLOCKADE_BONUS if mission == FleetState.Mission.BLOCKADE else 1.0
 	return clampf(
-		base * bonus * (1.0 - _escort_factor(home)),
+		base * bonus * (1.0 - NavalHullLoss.escort_factor(home)),
 		NavalInterception.MIN_CHANCE,
 		NavalInterception.MAX_CHANCE
 	)
@@ -118,18 +127,31 @@ static func preview(
 ) -> Dictionary:
 	var stock: int = total_of(imports)
 	if group.is_empty() or home == null or stock <= 0:
-		return {"chance": 0.0, "efficiency": MIN_EFFICIENCY, "expected": 0}
+		return {
+			"chance": 0.0, "efficiency": MIN_EFFICIENCY, "expected": 0,
+			"hull_chance": 0.0, "hull_at_risk": "",
+		}
 	var efficiency: float = _efficiency(_group_strength(group), _hull_strength(home))
+	var target: Dictionary = NavalHullLoss.at_risk(home)
 	return {
 		"chance": trade_chance(group, home, mission, has_tech),
 		"efficiency": efficiency,
 		"expected": maxi(1, int(floor(float(stock) * efficiency))),
+		"hull_chance": NavalHullLoss.chance(home),
+		"hull_at_risk": String(target.get("type_id", "")),
 	}
 
 
-## The shared raid: pick the best group working the victim's waters, roll, and
-## skim cargo. `only_owner` limits the raiders to one crown (a prize raid);
-## `roll_tag` keeps a crown's losses and its prizes on separate rolls.
+## Chance a successful raid sends one merchant hull down. Kept on this module so
+## callers price a raid in one place; the rule lives in [NavalHullLoss].
+static func hull_loss_chance(home: FleetState) -> float:
+	return NavalHullLoss.chance(home)
+
+
+## The shared raid: pick the best group working the victim's waters, roll, skim
+## cargo and roll again for one merchant hull. `only_owner` limits the raiders to
+## one crown (a prize raid); the tags keep a crown's losses and its prizes on
+## separate rolls.
 static func _raid(
 	model: MapModel,
 	fleets: Array,
@@ -142,7 +164,9 @@ static func _raid(
 	roll_value: float,
 	has_tech: Callable,
 	only_owner: int,
-	roll_tag: int
+	roll_tag: int,
+	hull_tag: int,
+	hull_roll: float
 ) -> Dictionary:
 	var relevant: Array[int] = _relevant_zones(model, victim)
 	var groups: Dictionary = _raider_groups(
@@ -176,8 +200,15 @@ static func _raid(
 		)
 		var losses: Dictionary = _losses(imports, efficiency)
 		var total: int = total_of(losses)
+		var sunk: Dictionary = NavalHullLoss.draw(
+			home, key.y, seed_value, turn, key.x, hull_roll, hull_tag
+		)
+		var hulls: Array[Dictionary] = []
+		var hull: Dictionary = sunk.get("hull", {}) as Dictionary
+		if not hull.is_empty():
+			hulls.append(hull)
 		return {
-			"ok": total > 0,
+			"ok": total > 0 or not hulls.is_empty(),
 			"chance": found,
 			"roll": rolled,
 			"efficiency": efficiency,
@@ -186,8 +217,10 @@ static func _raid(
 			"zone": key.x,
 			"losses": losses,
 			"lost_total": total,
-			# A raid takes cargo and nothing else: the hull ledger is untouched.
-			"hulls_lost": [],
+			# The commerce raid's second ledger: at most one merchant hull.
+			"hulls_lost": hulls,
+			"hull_chance": float(sunk.get("chance", 0.0)),
+			"hull_roll": float(sunk.get("roll", 1.0)),
 		}
 	var idle: Dictionary = _nothing("nothing taken", victim)
 	idle["chance"] = best_chance
@@ -297,21 +330,6 @@ static func _raider_groups(
 	return groups
 
 
-static func _escort_factor(home: FleetState) -> float:
-	var cargo: float = 0.0
-	var escort: float = 0.0
-	for hull_id: String in home.hulls:
-		var type_id: String = home.type_of(hull_id)
-		var hull: float = float(ShipStats.entry(type_id).get("hull", 0))
-		if ShipStats.is_warship(type_id):
-			escort += hull
-		else:
-			cargo += hull
-	if cargo <= 0.0:
-		return 0.0
-	return minf(0.5, escort / cargo * 0.3)
-
-
 ## Σ HULL over a group's hulls: the raider side of the efficiency term.
 static func _group_strength(group: Array) -> float:
 	var total: float = 0.0
@@ -336,6 +354,8 @@ static func _nothing(reason: String, victim: int) -> Dictionary:
 		"losses": {},
 		"lost_total": 0,
 		"hulls_lost": [],
+		"hull_chance": 0.0,
+		"hull_roll": 1.0,
 	}
 
 

@@ -89,18 +89,42 @@ static func _faction(faction_names: Array, owner: int) -> String:
 
 
 ## Formats a raid for the HUD: the cargo the crown loses, or the prize its own
-## station takes off rival trade. Every line ends on the rule that matters — a
-## raid takes cargo and never a hull (wiki: ships-and-naval § Trade and Transport
-## Interception; DR-20261110-13).
+## station takes off rival trade, and any merchant hull sent down with it
+## (wiki: ships-and-naval § Trade and Transport Interception; DR-20261111-17).
 static func describe_raid(
 	raid: Dictionary, zone_name: String, faction_names: Array, viewer: int
 ) -> String:
 	var place: String = zone_name if not zone_name.is_empty() else "open water"
 	var cargo: String = cargo_of(raid.get("losses", {}) as Dictionary)
 	var raider: String = _faction(faction_names, int(raid.get("raider", -1)))
+	var sunk: String = sunk_of(raid.get("hulls_lost", []))
 	if int(raid.get("raider", -1)) == viewer:
-		return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
-	return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
+		if sunk.is_empty():
+			return "Your station takes %s off the %s as prize — no hull lost" % [cargo, place]
+		return "Your station takes %s off the %s as prize and sends the %s down" % [
+			cargo, place, sunk
+		]
+	if sunk.is_empty():
+		return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
+	return "%s seize %s off the %s and sink the %s" % [raider, cargo, place, sunk]
+
+
+## "Fluyt Vrouw Maria" for the one merchant hull a raid sent down, or "" when the
+## home fleet kept every hull. Public so the Gazette names the same ship.
+static func sunk_of(hulls: Array) -> String:
+	for raw: Variant in hulls:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var hull: Dictionary = raw
+		var type_id: String = String(hull.get("type_id", ""))
+		var name: String = String(hull.get("name", ""))
+		var label: String = "merchantman"
+		if not type_id.is_empty():
+			label = ShipStats.display_name(type_id)
+		if name.is_empty():
+			return label
+		return "%s %s" % [label, name]
+	return ""
 
 
 ## "3 grain", or "5 cargo (3 grain, 2 timber)" when a raid takes several.
