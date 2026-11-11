@@ -321,6 +321,27 @@ func test_every_rival_carries_its_own_chart() -> void:
 	assert_true(view != charts.model_for(other, 0), "each court reads its own grid")
 
 
+func test_a_rival_chart_is_cut_only_when_a_rule_reads_it() -> void:
+	var charts: CourtCharts = _charts_for(_model)
+	assert_true(charts.courts.is_empty(), "mounting a chart cuts no rival grid")
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	assert_not_null(charts.model_for(rival, 0), "the first read cuts that court")
+	assert_eq(charts.courts.size(), 1, "and only that court")
+	assert_not_null(charts.regions_of(rival), "a table read cuts the whole court")
+
+
+func test_a_save_carries_every_rival_chart_even_when_unread() -> void:
+	var charts: CourtCharts = _charts_for(_model)
+	assert_true(charts.courts.is_empty(), "nothing was read before the save")
+	var data: Dictionary = charts.to_dict()
+	var courts: Dictionary = data["courts"]
+	assert_eq(
+		courts.size(), FactionCatalog.great_power_ids().size() - 1,
+		"the save still carries one grid per rival Great Power"
+	)
+	assert_eq((courts[FactionCatalog.great_power_ids()[1]] as Dictionary).size(), 1)
+
+
 func test_a_rival_chart_follows_the_setup_reveals() -> void:
 	var charts: CourtCharts = _charts_for(_model)
 	var rival: int = FactionCatalog.great_power_ids()[1]

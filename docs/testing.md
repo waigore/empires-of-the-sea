@@ -26,13 +26,14 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
 - That world is right-sized (44×32): the smallest that still validates a
-  `SaveCodec` slot and seats the turn-100 civilian tier. Screen and
-  campaign-plate suites share it instead of generating their own.
-- The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
-  screens on that world repaints nothing.
+  `SaveCodec` slot and seats the turn-100 civilian tier; screen and
+  campaign-plate suites share it.
+- The terrain wash bakes once per map state (`MapWash.baked`), and a rival's
+  chart is cut on first read (`CourtCharts`), so a mount neither repaints nor
+  re-charts what nobody looked at.
 - Cache shared maps in `before_all` on **non-underscore** vars.
-- Attach a map screen lazily (`_attach()`) so rule-only cases in a screen suite
-  never pay for painting the chart; a case that reads the map asks for it.
+- Attach a map screen lazily (`_attach()`) so rule-only cases never pay for
+  painting the chart; a case that reads the map asks for it.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
 - Saving and loading is the hottest integration path: a preset world is reused by
   `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
