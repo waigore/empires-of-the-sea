@@ -21,7 +21,7 @@ next (`REQ-P2-02`).
 | Rival GP–Tribe first contact (+ deeds via overtures) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
 | Hospitals / depot rest (owner) | `HospitalRules` (DR-20261111-12), [`armies.md`](armies.md) |
 | Rival hospitals | `AiHospitalWork` (DR-20261111-16), [`ai.md`](ai.md) |
-| Raid hull losses | **Out of scope** by DR-20261110-13 (cargo only) |
+| Raid hull losses + civilian hulls | `NavalRaid`/`NavalHullLoss` (DR-20261111-17) |
 
 ## Remaining gaps (impact order)
 
@@ -33,7 +33,6 @@ next (`REQ-P2-02`).
 | 4 | Research goal in the save | Goal is a view preference today | [`technology.md`](technology.md) |
 | 5 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
 | — | Era-change dialogue | Blocked | No era model (DR-20261111-08) |
-| — | Raid civilian hull model | Design-deferred | DR-20261110-13 |
 | — | Hospital upkeep / field hospitals / heal-at-0 | Design polish on DR-20261111-12 | Not shippable without a DR |
 
 ## Next pick

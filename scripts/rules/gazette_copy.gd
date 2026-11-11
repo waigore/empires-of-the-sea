@@ -302,13 +302,21 @@ static func line(rec: Dictionary) -> String:
 				+ "closes the richer."
 			) % _money(rec)
 		"raidSuffered":
-			return (
-				"Raiders have taken %s off %s; no hull was lost, but the cargo is gone."
-				% [String(rec.get("prize", "no cargo")), place]
-			)
+			if String(rec.get("sunk", "")).is_empty():
+				return (
+					"Raiders have taken %s off %s; no hull was lost, but the cargo is gone."
+					% [String(rec.get("prize", "no cargo")), place]
+				)
+			return "Raiders have taken %s off %s and sent the %s to the bottom." % [
+				String(rec.get("prize", "no cargo")), place, String(rec.get("sunk", ""))
+			]
 		"raidPrize":
-			return "Our station takes %s off %s as lawful prize." % [
-				String(rec.get("prize", "no cargo")), place
+			if String(rec.get("sunk", "")).is_empty():
+				return "Our station takes %s off %s as lawful prize." % [
+					String(rec.get("prize", "no cargo")), place
+				]
+			return "Our station takes %s off %s as lawful prize and sends the %s down." % [
+				String(rec.get("prize", "no cargo")), place, String(rec.get("sunk", ""))
 			]
 	return ""
 

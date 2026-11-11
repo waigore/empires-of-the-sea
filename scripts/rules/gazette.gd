@@ -315,8 +315,9 @@ static func _raids(pages: Array[Array], raids: Array) -> void:
 		if place.is_empty():
 			place = "open water"
 		var prize: String = BattleReport.cargo_of(raid.get("losses", {}) as Dictionary)
+		var sunk: String = BattleReport.sunk_of(raid.get("hulls_lost", []))
 		var kind: String = "raidPrize" if String(raid.get("kind", "")) == "prize" else "raidSuffered"
-		_push(pages, Class.COURT, kind, {"place": place, "prize": prize})
+		_push(pages, Class.COURT, kind, {"place": place, "prize": prize, "sunk": sunk})
 
 
 # --- internals ---------------------------------------------------------------

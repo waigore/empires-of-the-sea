@@ -405,6 +405,28 @@ func test_a_prize_taken_off_rival_trade_prints_as_a_prize() -> void:
 	assert_true(String(items[0]["text"]).contains("3 grain"))
 
 
+## A raid that sends a merchant down says so in the record (DR-20261111-17).
+func test_a_raid_that_sinks_a_merchant_names_her_in_the_gazette() -> void:
+	var raids: Array = [
+		{
+			"kind": "prize",
+			"zone_name": "the Windward Passage",
+			"losses": {"grain": 3},
+			"hulls_lost": [{"type_id": "fluyte", "name": "Vrouw Maria"}],
+		},
+		{
+			"kind": "incoming",
+			"zone_name": "Mar Caribe",
+			"losses": {"timber": 2},
+			"hulls_lost": [{"type_id": "carrack", "name": "Santa Ana"}],
+		},
+	]
+	var items: Array = _items(_state(3), [], [], [], {}, 0, raids)
+	assert_eq(items.size(), 2)
+	assert_true(String(items[0]["text"]).contains("sends the Fluyte Vrouw Maria down"))
+	assert_true(String(items[1]["text"]).contains("sent the Carrack Santa Ana to the bottom"))
+
+
 func test_a_great_powers_fall_is_world_news() -> void:
 	var falls: Array = [{"faction": FRANCE, "conqueror": ENGLAND}]
 	var items: Array = _items(_state(3), [], [], [], {}, 0, [], falls)

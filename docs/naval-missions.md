@@ -58,6 +58,7 @@ blockadeBonus = 1.25 for a blockade raider
 escortFactor = min(0.5, escortHull / cargoHull × 0.3)
 cargoLost = imports × raidEfficiency
 raidEfficiency = 0.3…0.7 by relative strength
+shipLossChance = 0.2 × (1 − escortFactor) × 2.0, clamp 0.05…0.5
 ```
 
 Hostile Patrol/Blockade squadrons in a sea zone bordering the victim's coast
@@ -65,24 +66,23 @@ raid; each rolls in its own zone (the bonus does not cross zones).
 Cargo at risk is the **victim's own** purchases, never the pooled book. Escorts
 are home-fleet warships; cargo is its merchant hulls.
 
-**A raid takes cargo, never a hull** (DR-20261110-13). No hull — merchant,
-escort, civilian or warship — is sunk, captured or damaged by a raid, on either
-side; hulls fall only in naval battles.
+**A raid sinks a merchant hull** (DR-20261111-17). A second roll sends one
+**civilian hull** down (`0.2 × (1 − escortFactor) × 2.0`, clamp 0.05…0.5,
+richest hold first). Warships are never prizes; the raider loses no hull.
 
 **Raids cut both ways.** The crown's station off a rival coast raids that rival's
 trade by the same formulas against a declared enemy. The tonnage is **prize
 cargo**: it leaves the rival's stockpile and lands in the crown's, no free hold
-needed and never booked as the crown's own import. Each direction rolls on its
-own salt. The dossier prices a standing blockade before the order; each despatch
-names the tonnage, the zone and "no hull lost", and the worked zone rings on the
-chart.
+needed and never booked as the crown's own import. Each direction rolls cargo
+and hull on separate salts. The dossier prices both; each despatch names the
+zone and any hull sent down; the zone rings.
 
 ## Architecture
 
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions}.gd` | mission, blockade target, station gates |
-| `scripts/rules/{naval_interception,naval_retreat,naval_raid}.gd` | chance, roll, retreat, raids |
+| `scripts/rules/{naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | chance, roll, retreat, raids, civilian hulls |
 | `scripts/rules/world_market.gd` | per-crown cargo books |
 | `scripts/map/{map_play_raids,map_play_fleet_missions}.gd` | ledger, dossier, reports |
 

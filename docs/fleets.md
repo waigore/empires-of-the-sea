@@ -39,7 +39,7 @@ Movement, cargo, fog, battles; stations, raids:
 - **Beachhead:** a squadron marks a hostile coast (spends the move); the army
   lands next turn; unused markers lapse.
 
-Raid hull losses stay cargo-only (DR-20261110-13).
+Raids sink one merchant hull (DR-20261111-17).
 
 ## Architecture
 
