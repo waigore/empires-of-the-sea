@@ -1,9 +1,9 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #325 /
-DR-20261112-02). Decision list for what to ship next (`REQ-P2-02`).
+Audited vs code, wiki and Design Records (2026-11-12, through #325). Decision
+list for what to ship next (`REQ-P2-02`).
 
-## Already live (remove from backlog)
+## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
@@ -39,28 +39,29 @@ DR-20261112-02). Decision list for what to ship next (`REQ-P2-02`).
 ## Next pick
 
 **Rank 1** — land [DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02):
-winning regiments bear the province on their colours. Design and wiki are
-done; `RegimentRecord` on `main` still stops at engagements/wins. Open #327
+winning regiments bear the province on their colours. Wiki and design are
+done; `RegimentRecord` on `main` still stops at engagements/wins. #327
 implements it.
 
 ## Out of scope / blocked footnotes
 
-- Predict-the-line preview in the dossier — declined: [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat)
-  § The line and the reserve / DR-20261112-02 (limit depends on the general
+- Predict-the-line preview — declined: [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat)
+  § The line and the reserve / DR-20261112-02 (the limit depends on the general
   bound at combat).
 - Era-change dialogue — blocked: no era model (DR-20261111-08).
-- Hospital upkeep / travelling field hospitals / heal-at-0 — needs a DR
-  (DR-20261111-12/16 leftovers).
+- Hospital upkeep shipped ([DR-20261112-04](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-04)):
+  the wards eat. A travelling field hospital stays deferred (DR-20261111-12);
+  a regiment at 0 is destroyed, so no ward heals it.
 - Rival order-of-battle readings, rival-vs-rival fog, advanced-start rival
-  inheritance — still deferred (DR-20261110-21); AI uses published numbers.
+  inheritance — deferred (DR-20261110-21); AI uses published numbers.
 - Alternative victory types (Economic, Scientific, Peaceful, Score) —
   [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of
-  scope; military / defeat / calendar endings are live.
+  scope; military / defeat / calendar endings live.
 - Difficulty extras (per-turn AI income, advisor toggles) —
   [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config)
   § Outside this layer; the crown's bar itself moves with the level
   (DR-20261111-28).
-- Quick Battle multi-lane terrain and the full collapse model — owner-confirmed
+- Quick Battle multi-lane terrain and the collapse model — owner-confirmed
   deferral in [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - Multi-turn production recipes, Yarn runtime and localization — wiki-deferred
   ([`economy.md`](economy.md), [`dialogue.md`](dialogue.md)).
