@@ -426,7 +426,11 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	var roster: VBoxContainer = panel._roster
 	assert_eq(roster.get_child_count(), 2, "one row per regiment")
 	var first: VBoxContainer = roster.get_child(0)
-	assert_eq((first.get_child(0).get_child(0) as Label).text, "Guards")
+	assert_eq(
+		(first.get_child(0).get_child(0) as Label).text,
+		"%s — Guards" % RegimentNames.of(army, "unit_301"),
+		"the row names the regiment, then its type (DR-20261111-18)"
+	)
 	var detail: Label = first.get_child(1)
 	assert_eq(detail.text, RegimentCatalog.detail_line("guards"))
 	assert_true(detail.text.contains("FPN 12"), detail.text)

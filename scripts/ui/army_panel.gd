@@ -221,8 +221,13 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		row.add_theme_constant_override("separation", 8)
 		entry.add_child(row)
 		var label := UiRowBuilder.line(13, Palette.TEXT)
-		label.text = RegimentCatalog.display_name(type_id)
+		## The regiment's own title, with its type beside it — the same read as
+		## a hull's name in the fleet dossier (DR-20261111-18).
+		label.text = "%s — %s" % [
+			RegimentNames.of(army, regiment_id), RegimentCatalog.display_name(type_id)
+		]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(label)
 		# Regiment detail: category, stats and its share of the food bill.
 		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
@@ -230,6 +235,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
 		_add_condition(entry, army, regiment_id)
+		_add_record(entry, army, regiment_id)
 		if not is_player:
 			continue
 		var detach := UiRowBuilder.button("Detach", 36.0, 0.0)
@@ -274,6 +280,18 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
+
+
+## The engagements a regiment has stood in, under its condition. A green
+## regiment gains no line, so a fresh roster stays short (DR-20261111-18).
+func _add_record(entry: VBoxContainer, army: ArmyState, regiment_id: String) -> void:
+	var text: String = RegimentRecord.line(army, regiment_id)
+	if text.is_empty():
+		return
+	var service := UiRowBuilder.line(10, Palette.GOLD_PALE)
+	service.text = text
+	service.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	entry.add_child(service)
 
 
 func _food(army: ArmyState) -> int:

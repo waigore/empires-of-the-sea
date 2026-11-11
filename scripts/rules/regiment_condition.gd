@@ -136,7 +136,11 @@ static func entries(side: Array[ArmyState]) -> Array[Dictionary]:
 		if army == null:
 			continue
 		for regiment_id: String in army.regiments:
-			result.append(army.condition_of(regiment_id))
+			var data: Dictionary = army.condition_of(regiment_id)
+			## The title an aftermath names a mauled survivor by
+			## (DR-20261111-18). Additive: every existing reader is unchanged.
+			data["name"] = RegimentNames.of(army, regiment_id)
+			result.append(data)
 	return result
 
 
@@ -168,6 +172,8 @@ static func chevrons(side: Array[ArmyState]) -> int:
 
 ## Attaches the aftermath a plate and a despatch both read: every survivor's
 ## condition, how many were mauled, and the chevrons won (REQ-P2-03, REQ-P5-05).
+## The same call writes each survivor's service record, so auto-resolve and
+## Quick Battle tally one way (DR-20261111-18).
 static func attach(
 	report: Dictionary,
 	attacker_side: Array[ArmyState],
@@ -181,3 +187,9 @@ static func attach(
 	report["defender_mauled"] = mauled(defender_side)
 	report["attacker_chevrons"] = atk_up
 	report["defender_chevrons"] = def_up
+	var outcome: int = int(report.get("outcome", ArmyCombat.Outcome.STALEMATE))
+	RegimentRecord.note_battle(
+		attacker_side,
+		outcome in [ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE]
+	)
+	RegimentRecord.note_battle(defender_side, outcome == ArmyCombat.Outcome.DEFENDER_VICTORY)

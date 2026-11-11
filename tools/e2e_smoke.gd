@@ -193,6 +193,10 @@ func _run() -> void:
 		_check(field != null and not field.is_home_army(), "detached army becomes a field army")
 		_check(home_army.count() == field_before - 1, "Home Army keeps its remaining regiments")
 		_check(
+			field != null and not RegimentNames.of(field, field.regiments[0]).is_empty(),
+			"the detached regiment keeps its title"
+		)
+		_check(
 			screen.hud._army_label.text
 			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 			"troop chip counts every region"
@@ -493,6 +497,10 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	var fabric: int = screen.economy.economy.quantity("fabric")
 	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
 	_check(home.count() == before + 1, "recruit musters a regiment")
+	_check(
+		not home.name_of(home.regiments[home.count() - 1]).is_empty(),
+		"the mustered regiment is christened"
+	)
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
