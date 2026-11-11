@@ -10,7 +10,7 @@ Movement, cargo, fog, battles; stations, raids:
 
 ## Implemented
 
-- Sea zone or port, never both; one roster per region.
+- Sea zone or port, never both; one roster/region.
 - **One move / turn:** S↔S; undock; dock at an owned port; a warp zone crosses.
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
@@ -18,20 +18,20 @@ Movement, cargo, fog, battles; stations, raids:
 - **Named hulls** (`ShipNames`): period names, unique per squadron, kept
   through save and merge (DR-20261111-07).
 - **Yard:** launch at the capital for its row + **one peasant**; breaking up
-  returns one peasant, no refund; an emptied squadron retires (DR-20261109-01).
+  returns a peasant, no refund; an empty squadron retires (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
   (1/turn) capping **imports**; exports free (DR-20261109-03).
 - **Home-fleet merge:** docking at the seat or a dossier **Join the home
   fleet** tap folds a squadron in (`FleetHomeMerge`); ids, names and
-  passengers keep; older saves repair on load.
+  passengers keep; old saves repair.
 - **Home sortie** (DR-20261109-17): the home squadron may put to sea, spending
   move and holds; colonists ride as passengers (one per hull) and land beside
   the zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
-  durability `HULL × (1 + ARM/10)`; a 3% edge wins. A beaten side may retreat.
+  durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
 - **Markers:** escorts, hull badge, strength gauge; the dossier prints the
   maths, pool and zone share.
-- **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move a turn
+- **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13, DR-20261109-16).
 - **Army transport** (`NavalTransport`): an army boards in port (one regiment per
   hull), sails or crosses and lands on an owned coast; troops drown with a sunk
@@ -46,11 +46,12 @@ Raids sink one merchant hull (DR-20261111-17).
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions,ship_stats,ship_economy}.gd` | location, stations, combat, build |
-| `scripts/rules/{naval_strength,fleet_yard,trade_cargo,fleet_sortie,fleet_home_merge}.gd` | strength maths, yard, cargo, sortie, home merge |
+| `scripts/rules/{naval_strength,fleet_yard,trade_cargo,fleet_sortie,fleet_home_merge}.gd` | strength, yard, cargo, sortie, home merge |
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
 | `scripts/rules/{naval_transport,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
-| `scripts/map/{ship_layer,ship_markers,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rosters, highlights, fog |
+| `scripts/map/{map_play_fleets,map_play_fleet_yard}.gd` | sail orders, fog intel, shipyard |
+| `scripts/map/{ship_layer,ship_markers,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rosters, fog |
 | `scripts/ui/{fleet_panel,fleet_*_section,panel_dock}.gd` | dossier, strength, passengers, stations |
 | `scripts/economy/economy_controller.gd`, `scripts/map_screen.gd` | upkeep, intents |
 

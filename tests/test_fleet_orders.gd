@@ -880,11 +880,30 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 	assert_gte(capital, 0, "the fixture crowns a capital")
 
 	_screen.play.selected_province = capital
-	MapPlayFleets.open_yard(_screen.play)
+	MapPlayFleetYard.open(_screen.play)
 
 	assert_true(_screen.hud.panels.is_fleet_panel_open())
 	assert_true(_screen.hud.panels.fleet_panel._yard._open)
 	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
+
+
+## The yard claims its own orders only: the fleet dispatcher hands it every
+## dossier press, so a foreign intent must fall through untouched (REQ-P3-02).
+func test_the_shipyard_claims_only_its_own_intents() -> void:
+	assert_false(MapPlayFleetYard.on_action(_screen.play, "mission:patrol"))
+	assert_false(MapPlayFleetYard.on_action(_screen.play, "land:0"))
+	assert_true(MapPlayFleetYard.on_action(_screen.play, "yard:scrap:no_such_hull"))
+
+
+## A rival's squadron carries no slip: the yard is the crown's own capital.
+func test_a_rival_squadron_carries_no_yard_rows() -> void:
+	var rival: FleetState = FleetState.in_port(
+		999, 999, 0, ["frigate_1"], {"frigate_1": "frigate"}
+	)
+	assert_true(
+		MapPlayFleetYard.rows(_screen.play, rival).is_empty(),
+		"no slip for a rival's hull"
+	)
 
 
 ## Every launch row and every hull row leads with its own plate, so the yard
@@ -892,7 +911,7 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 func test_shipyard_rows_carry_the_hull_medallion() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
-	MapPlayFleets.open_yard(_screen.play)
+	MapPlayFleetYard.open(_screen.play)
 	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
 
 	var first: Dictionary = yard._rows[0]
