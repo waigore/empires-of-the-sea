@@ -17,11 +17,6 @@ static func level_for(deeds: int) -> int:
 	return clampi(1 + maxi(deeds, 0), 1, MAX_LEVEL)
 
 
-## Alias of `level_for` (parallel call sites / tests).
-static func level_for_deeds(deeds: int) -> int:
-	return level_for(deeds)
-
-
 ## Deeds (purchased land) held in this province by any crown.
 static func deeds_in(model: MapModel, province: ProvinceState) -> int:
 	if model == null or province == null:
@@ -47,33 +42,6 @@ static func apply(model: MapModel, province: ProvinceState) -> int:
 		return 0
 	province.town_development = level
 	return level
-
-
-## Province-id entry for `apply` (parallel call sites).
-static func raise_on_deed(model: MapModel, province: int) -> int:
-	if model == null:
-		return 0
-	return apply(model, model.province_data(province))
-
-
-## The level the province's latest deed lifted the town to, else 0. Read after
-## the deed is recorded, so the turn's report can name it (RUB-P5-05).
-static func raised_by_latest_deed(model: MapModel, province: int) -> int:
-	if model == null:
-		return 0
-	var data: ProvinceState = model.province_data(province)
-	if data == null:
-		return 0
-	var kind: int = FactionCatalog.type_of(model.province_owner(province))
-	if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
-		return 0
-	var deeds: int = deeds_in(model, data)
-	var target: int = level_for(deeds)
-	if target <= level_for(deeds - 1):
-		return 0
-	if data.town_level() != target:
-		return 0
-	return target
 
 
 ## The line a signed deed prints: the purchase, and the town it developed when
