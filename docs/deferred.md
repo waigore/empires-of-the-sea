@@ -1,8 +1,7 @@
 # Deferred features (ranked)
 
-Audited against code, wiki and Design Records (2026-11-11, pass after
-#287–#301 and DR-20261111-27). Decision list for what to ship next
-(`REQ-P2-02`).
+Audited vs code, wiki and Design Records (2026-11-12, through #316 /
+DR-20261111-28). Decision list for what to ship next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
@@ -28,24 +27,28 @@ Audited against code, wiki and Design Records (2026-11-11, pass after
 | Raid hull losses + civilian hulls | `NavalRaid`/`NavalHullLoss` (DR-20261111-17) |
 | Rival-on-rival raids + prize cargo | `MapPlayRaids` per-crown pass (DR-20261111-20) |
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
+| Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
-| 2 | Minor/Tribe town development path | Their towns stay level 1, so manufacture offers rarely fire | Wiki publishes no build/research path for them — DR first |
-| 3 | Era-change dialogue | The court cannot mark a new age | Blocked: no era model (DR-20261111-08) |
+| 1 | Minor/Tribe town development path | Towns stay level 1, so manufacture offers rarely fire | Wiki has no build/research path for them — DR first |
+| 2 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
 
 ## Next pick
 
-**Rank 1** is the largest slice that needs no new rules, only a design record
-saying what an honour or a preview is. Rank 2 needs a wiki decision on whether
-Minor/Tribe towns should develop at all. Nothing on the list is a plain code
-gap against published rules, so the next pass should author the DR first.
+**Rank 1** needs a wiki call on whether Minor/Tribe towns develop at all.
+**Rank 2** needs a design record for what an honour or a preview is.
+Nothing on the list is a plain code gap against published rules.
 
 ## Out of scope / blocked footnotes
 
+- Era-change dialogue — blocked: no era model (DR-20261111-08).
+- Hospital upkeep / travelling field hospitals / heal-at-0 — needs a DR
+  (DR-20261111-12/16 leftovers).
+- Rival order-of-battle readings, rival-vs-rival fog, advanced-start rival
+  inheritance — still deferred (DR-20261110-21); AI uses published numbers.
 - Alternative victory types (Economic, Scientific, Peaceful, Score) —
   [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of
   scope; military / defeat / calendar endings are live.
