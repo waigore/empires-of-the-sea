@@ -11,9 +11,9 @@ Land units: explore, improve, colonize, spy.
 ## Implemented
 
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
-  prospect), Builder (improve, town), Engineer (road, port), Spy, Merchant (buy
-  land), Rail Builder (rail).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, filter
+  prospect — DR-20261111-26 uncover), Builder (improve, upgrade town), Engineer
+  (road, port), Spy (spycraft), Merchant (buy land), Rail Builder (railroad).
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
   and Visit jump to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders stay on crown land; Explorer, Merchant, Spy cross any border. One

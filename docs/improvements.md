@@ -14,37 +14,39 @@ level-4 Great Power towns and four L1 grain farms.
 
 ## Implemented
 
-- **Named improvements** follow the resource: Timber → Lumber camp,
-  Iron/Coal/Gold/Tin → Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
-- **Levels 1–4.** A Builder raises a tile for 1/4/8/16 lumber + cast iron over
-  target-level turns. A mineral must be uncovered by that crown's Explorer
-  first; orders above a cap are refused.
-- **Survey (DR-20261111-26).** `Prospect this tile` reads one charted
-  swamp/hills/mountain/desert tile a turn. Until that survey lands no icon,
-  estate row, lens row or AI plan names the mineral; empty ground may be read
-  to find nothing. The find is toasted; a Builder may mine at once.
-- **Terrain caps:** scrub caps timber at 1; hardwood follows tech. **Path
-  transport** is the bottleneck of the best road/rail/port route to the capital.
-- **Town rule:** estates 4-adjacent to a town extract; capital provinces cap at
-  town development; a non-capital port town caps tiles reaching the crown
-  through it. An estate on a crown road ignores the cap. Setup roads every
-  owned Old World town to its crown; New World towns wait for built roads.
-- **Town development 1–4** via `upgrade_town` (National Bureaucracy); level 2 or
-  4 adds manufacturing ([economy.md](economy.md)).
-- **Cross-map assign.** A Builder may target another owned tile; materials paid
+- **Named improvements** follow the resource: Timber → Lumber camp, minerals →
+  Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
+- **Levels 1–4.** Builder raises one level for 1/4/8/16 lumber + cast iron over
+  target-level turns. Minerals need Prospect first (DR-20261111-26); above-cap
+  orders refused.
+- **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile per
+  turn. Until surveyed, no icon, estate, lens row or AI plan names the mineral;
+  empty ground may find nothing. Toast the find; a Builder may mine at once.
+- **Terrain caps:** scrub timber at 1; hardwood follows tech.
+- **Path transport:** bottleneck of the best road/rail/port route to the
+  capital; beside-network tiles take it; several routes use the highest.
+- **Init town roads:** every owned Old World town to its crown; New World towns
+  wait for built roads.
+- **Town rule:** estates 4-adjacent to a province town extract; capital
+  provinces cap at town development; a non-capital port town caps tiles that
+  reach the crown through it. An estate on (or beside) a crown road ignores the
+  town cap.
+- **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy).
+  Level 2 or 4 adds town manufacturing ([economy.md](economy.md)).
+- **Cross-map assign.** Builder may target another owned tile; materials paid
   at assign, lost on cancel.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
-- **Survey lens** (`LENS`, **L**): a slip per charted province with its known
-  estates, worked badge, link row, a dotted ring where ground is still to read,
-  and built roads. Unknown ground is never surveyed.
-- **Crown-road lens** (`R`): gold where the crown road reaches, amber where only
-  the province town does, crimson where nothing does; a cut province names the
-  road tiles still to lay.
-- **Estates ledger** (`ESTATES`): realm totals, filters, Build / Cancel / Map,
-  caps and the nearest idle Builder. The **province dossier** adds town level,
-  crown link, estates and unsurveyed ground.
+- **Survey lens** (`LENS`, **L**): charted provinces; seals for known resources
+  (minerals after Prospect), worked badge, bar, link row, dotted ring on
+  unsurveyed ground; roads/rail solid when linked, dashed when cut.
+- **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
+  cut; cut provinces show the road tiles still to lay, count and route.
+- **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
+  Map, caps, nearest idle Builder; cut-off estates name the crown gap.
+- **Province dossier**: town level, crown link, estates, unsurveyed ground;
+  Upgrade Town waits for tech.
 
 ## Deferred (REQ-P2-02)
 
