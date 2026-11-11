@@ -887,6 +887,17 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
 
 
+## The province dossier's Shipyard row routes straight to the yard helper.
+func test_the_province_dossier_routes_to_the_shipyard() -> void:
+	var play: PlaySession = _screen.play
+	play.selected_province = play.capital_province
+
+	MapPlayInput.on_panel_action(play, "shipyard")
+
+	assert_true(_screen.hud.panels.is_fleet_panel_open())
+	assert_true(_screen.hud.panels.fleet_panel._yard._open)
+
+
 ## The yard claims its own orders only: the fleet dispatcher hands it every
 ## dossier press, so a foreign intent must fall through untouched (REQ-P3-02).
 func test_the_shipyard_claims_only_its_own_intents() -> void:
