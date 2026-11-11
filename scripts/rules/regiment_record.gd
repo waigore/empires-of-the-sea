@@ -82,21 +82,3 @@ static func line(army: ArmyState, regiment_id: String) -> String:
 	return "%d engagement%s · %d won" % [
 		fought, "" if fought == 1 else "s", int(record["wins"])
 	]
-
-
-## The army's own tally, read from its regiments' records: every engagement
-## counted once per regiment that stood. Empty when the army is green.
-static func army_line(army: ArmyState) -> String:
-	if army == null:
-		return ""
-	var fought: int = 0
-	var won: int = 0
-	for regiment_id: String in army.regiments:
-		var record: Dictionary = of(army, regiment_id)
-		fought += int(record["engagements"])
-		won += int(record["wins"])
-	if fought <= 0:
-		return ""
-	return "%d engagement%s · %d won" % [
-		fought, "" if fought == 1 else "s", won
-	]
