@@ -1,8 +1,8 @@
 class_name CivilianLayer
 extends Node2D
 ## Owns civilian markers and applies land orders. Rules outcomes come from
-## CivilianMovement; this layer only animates them and draws the development
-## civilians leave behind (wiki: civilian-units, extraction-and-improvements).
+## CivilianMovement; estate glyphs paint through LandWorksPaint; the multi-region
+## Build/Work pass lives on CivilianTurnPass (REQ-P3-01; wiki: civilian-units).
 
 signal unit_selected(unit: CivilianState)
 signal unit_moved(unit: CivilianState, result: Dictionary)
@@ -57,7 +57,7 @@ func spawn(
 	if not place_units or types.is_empty():
 		queue_redraw()
 		return
-	var anchor: Vector2i = _capital_tile(province_id)
+	var anchor: Vector2i = CivilianPlacement.capital_tile(model, province_id)
 	# Keep the capital tile clear so the seat's own marker stays readable, and
 	# leave improved tiles free so the estate glyphs are not hidden by units.
 	var taken: Dictionary = {anchor: true}
@@ -65,10 +65,10 @@ func spawn(
 		if works.improvement_at(model, tile) > 0:
 			taken[tile] = true
 	for type_id: String in types:
-		var tile: Vector2i = _free_tile(province_id, anchor, taken)
+		var tile: Vector2i = CivilianPlacement.free_tile(model, province_id, anchor, taken)
 		if tile.x < 0:
 			taken.erase(anchor)
-			tile = _free_tile(province_id, anchor, taken)
+			tile = CivilianPlacement.free_tile(model, province_id, anchor, taken)
 		if tile.x < 0:
 			continue
 		taken[tile] = true
@@ -163,47 +163,6 @@ func apply_move(
 	return result
 
 
-## Ticks every region, not just the one on screen: reading another map must not
-## pause work or burn a unit's move. Returns the work reports for the caller.
-## Every crown's crew resolves against that crown's own chart, so a rival's
-## finished `explore` reveals its fog and never the player's (DR-20261110-21).
-## `purses` maps owner -> ledger, so a rival's deed is charged to that rival
-## (wiki: civilian-units § Merchant).
-func begin_turn(
-	world: WorldMap, charts: CourtCharts, purses: Dictionary = {}
-) -> Array[Dictionary]:
-	var reports: Array[Dictionary] = []
-	for index in world.region_count():
-		var region_units: Array[CivilianState] = []
-		if model != null and index == model.region_id:
-			region_units = units
-		else:
-			region_units.assign(regions.value(index, []))
-		CivilianMovement.begin_turn(region_units)
-		var region_works: LandWorks = works_regions.value(index, null)
-		if region_works == null:
-			continue
-		# Owners in ascending order, so two runs of one state report alike.
-		var owners: Array[int] = []
-		for unit: CivilianState in region_units:
-			if unit != null and not owners.has(unit.owner):
-				owners.append(unit.owner)
-		owners.sort()
-		for owner: int in owners:
-			var crew: Array[CivilianState] = []
-			for unit: CivilianState in region_units:
-				if unit != null and unit.owner == owner:
-					crew.append(unit)
-			var view: VisibilityModel = charts.model_for(owner, index) if charts != null else null
-			var purse: PlayerEconomy = purses.get(owner, null) as PlayerEconomy
-			for report: Dictionary in CivilianWork.resolve_turn(
-				world.region(index), crew, region_works, view, purse
-			):
-				report["region"] = index
-				reports.append(report)
-	return reports
-
-
 ## Mirrors rules state onto the medallions (selection, work ring, progress and
 ## assignment relocation).
 func sync() -> void:
@@ -258,124 +217,12 @@ func civilian_tiles(owner: int) -> Array[Vector2i]:
 
 ## Free land tile near the capital for a freshly trained civilian (-1 when full).
 func mustering_tile(province_id: int) -> Vector2i:
-	if model == null:
-		return Vector2i(-1, -1)
-	var seat: Vector2i = _capital_tile(province_id)
-	var taken: Dictionary = {seat: true}
-	for unit: CivilianState in units:
-		if unit.type_id == SpyRules.TYPE:
-			continue
-		taken[unit.tile] = true
-	var tile: Vector2i = _free_tile(province_id, seat, taken)
-	if tile.x >= 0:
-		return tile
-	taken.erase(seat)
-	return _free_tile(province_id, seat, taken)
+	return CivilianPlacement.mustering_tile(model, units, province_id)
 
 
 func _draw() -> void:
-	if model == null or works == null:
-		return
-	for tile: Vector2i in works.developed_tiles(model):
-		var point: Vector2 = _tile_position(tile)
-		var level: int = works.improvement_at(model, tile)
-		if level > 0:
-			var resource: int = model.resource_at(tile.x, tile.y)
-			_draw_improvement(point, resource, level)
-		if works.has_port(model, tile):
-			_draw_port(point)
-
-
-func _draw_improvement(point: Vector2, resource: int, level: int) -> void:
-	var ink := Palette.INK
-	var tint: Color = _improvement_color(resource)
-	var mark: Vector2 = point + Vector2(0, -3.0)
-	match ImprovementCatalog.category(resource):
-		"wood":
-			draw_colored_polygon(
-				PackedVector2Array([
-					mark + Vector2(0, -5.0),
-					mark + Vector2(4.2, 2.2),
-					mark + Vector2(-4.2, 2.2),
-				]),
-				tint
-			)
-			draw_line(mark + Vector2(0, 2.0), mark + Vector2(0, 5.0), ink, 1.2, true)
-		"mine":
-			draw_colored_polygon(
-				PackedVector2Array([
-					mark + Vector2(0, -4.6),
-					mark + Vector2(4.2, 0),
-					mark + Vector2(0, 4.6),
-					mark + Vector2(-4.2, 0),
-				]),
-				tint
-			)
-		"riches":
-			draw_circle(mark, 3.8, tint)
-			draw_circle(mark, 3.8, ink, false, 1.0, true)
-		_:
-			draw_line(mark + Vector2(0, 4.6), mark + Vector2(0, -3.0), ink, 1.3, true)
-			for i in 3:
-				var y: float = -3.0 + float(i) * 2.4
-				draw_line(
-					mark + Vector2(0, y), mark + Vector2(-3.4, y - 1.4), tint, 1.5, true
-				)
-				draw_line(
-					mark + Vector2(0, y), mark + Vector2(3.4, y - 1.4), tint, 1.5, true
-				)
-	for i in level:
-		var origin: Vector2 = point + Vector2(-7.5 + float(i) * 5.0, 8.0)
-		draw_rect(Rect2(origin, Vector2(3.4, 3.4)), Palette.GOLD)
-		draw_rect(Rect2(origin, Vector2(3.4, 3.4)), ink, false, 0.8)
-
-
-func _improvement_color(resource: int) -> Color:
-	match ImprovementCatalog.category(resource):
-		"wood":
-			return Color(0.34, 0.45, 0.27)
-		"mine":
-			return Color(0.47, 0.43, 0.38)
-		"riches":
-			return Palette.GOLD
-		_:
-			return Palette.GOLD_DIM
-
-
-func _draw_port(point: Vector2) -> void:
-	var ink := Color(0.18, 0.24, 0.32, 0.85)
-	draw_arc(point + Vector2(0, 5.0), 4.6, PI, TAU, 12, ink, 1.6, true)
-	draw_line(point + Vector2(0, 0.6), point + Vector2(0, 5.0), ink, 1.4, true)
+	LandWorksPaint.paint(self, model, works, TILE_SIZE)
 
 
 func _tile_position(tile: Vector2i) -> Vector2:
 	return MapGeo.tile_center(tile.x, tile.y, TILE_SIZE)
-
-
-func _capital_tile(province_id: int) -> Vector2i:
-	var data: ProvinceState = model.province_data(province_id)
-	if data == null:
-		return Vector2i(-1, -1)
-	var seat: Vector2i = data.capital_tile
-	if seat.x >= 0 and model.is_land(seat.x, seat.y):
-		return seat
-	var tiles: Array = model.province_tiles(province_id)
-	if tiles.is_empty():
-		return Vector2i(-1, -1)
-	return tiles[0]
-
-
-## First free land tile of the province, nearest the capital seat.
-func _free_tile(province_id: int, anchor: Vector2i, taken: Dictionary) -> Vector2i:
-	var center: Vector2 = Vector2(anchor)
-	var candidates: Array[Vector2i] = []
-	for tile: Vector2i in model.province_tiles(province_id):
-		if taken.has(tile):
-			continue
-		candidates.append(tile)
-	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		return Vector2(a).distance_squared_to(center) < Vector2(b).distance_squared_to(center)
-	)
-	if candidates.is_empty():
-		return Vector2i(-1, -1)
-	return candidates[0]
