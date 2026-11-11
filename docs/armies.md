@@ -9,33 +9,28 @@
 ## Implemented
 
 - **Roster and training** (`RegimentCatalog`, `RegimentEconomy`,
-  `ArmyTraining`): 29 tech-gated regiments with stats, era, cost and inputs;
-  recruits join the Home Army.
+  `ArmyTraining`): 29 tech-gated regiments; recruits join the Home Army.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): cap 1→4 by tech, every
   crown reconciled at Combat; one per army each phase; medals 0–4, +1 per win.
 - **Combat modifiers** (`ArmyModifiers`): aura 5%/medal to 20%, deployment 10
   (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
-  feeding 1.0/0.75/0.5, terrain (wood: defender 1.5/1.1, attacker 0.9), leader.
+  feeding 1.0/0.75/0.5, terrain (wood: defender 1.5/1.1, attacker 0.9).
 - **Armies** (`ArmyState`): one province per army of `unit_<n>` regiments.
   One Home Army per faction at its capital, never deleted; detach for field
   armies; split/combine needs one province, one owner, both ashore. One march
   per turn; own land reachable, foreign must border.
 - **Naval transport** (`NavalTransport`, `ArmyTransport`): field army boards a
   port squadron (one regiment per hull) and lands on an owned coast;
-  spends its march; troops drown with a sunk squadron.
+  troops drown with a sunk squadron.
 - **Upkeep:** 1–3 food per regiment by era, before navy.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
   and health; DEF/9 durability; ratio bands; elimination precedes a flip.
-  Mutual annihilation restores `ceil(20%)` of the defender's start as
-  era-best infantry.
+  Mutual annihilation restores `ceil(20%)` of the defender's start.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron; wounded recover a quarter each turn.
-- **Hospitals** (`HospitalRules`, DR-20261111-12): an Engineer raises a Field
-  (L1) or General (L2) hospital on the province's town tile. Armies resting
-  there recover 40%/55% of their pool at turn start, and the province's owner
-  takes 80%/65% of battle wear (auto-resolve and Quick Battle). The dossier
-  prints the level, rest and wear; the army panel prints its rest tempo.
+- **Hospitals** (`HospitalRules`, DR-20261111-12): Engineer-built Field/General
+  (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%.
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock.
   Minors follow the leading power, Tribes level 1.
@@ -50,7 +45,7 @@
   `−N`, health, chevrons. Simulator: [battle-sim.md](battle-sim.md).
 - **Unopposed:** an army ending in hostile or neutral land with no armed
   defenders takes it.
-- **Dossier:** composition, strength, food, commander, orders, dock; rows show
+- **Dossier:** composition, strength, commander, orders, dock; rows show
   stats, condition.
 
 ## Deferred (REQ-P2-02)
@@ -82,7 +77,7 @@ Rules (no nodes, `REQ-P3-03`, under `scripts/rules/`): `regiment_catalog`,
 
 `test_regiment_catalog`, `test_regiment_economy`, `test_army_state`,
 `test_army_movement`, `test_army_combat`, `test_army_modifiers`,
-`test_army_field_rules`, `test_hospital_rules`, `test_generals`, `test_leader_catalog`,
+`test_army_field_rules`, `test_hospital_rules`, `test_generals`,
 `test_army_orders`, `test_naval_movement`, `test_quick_battle_rules`,
 `test_siege_depth`, `test_battle_sim`, `test_map_screen_crown_orders`.
 
