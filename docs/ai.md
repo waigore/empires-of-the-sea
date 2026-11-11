@@ -16,11 +16,10 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   relations and modifiers. Declarations need relation ≤ ceiling (50;
   warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals
   `round(desire / 25)`. At war, desire < 50 offers peace. A deed in a
-  Minor/Tribe's land is a stake (`DeedProtection`): holder never stands
-  aside (25%; 50% with two); declaration −8 per warden (cap −24).
+  Minor/Tribe's land is a stake (`DeedProtection`) that resists a declaration.
 - **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
-  overtures, alliance/break, trade pact/revoke, boycott/revoke, subsidy/cancel,
-  aid. Friendly acts cost desire; retaliation standing (DR-20261110-15).
+  overtures, alliance, trade pact, boycott, subsidy, aid. Friendly acts cost
+  desire; retaliation standing (DR-20261110-15).
 - **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
   consent asks queue for the human; declarations first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
@@ -29,12 +28,12 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   matchable squadron (120% margin) else hold, charted water only
   (DR-20261110-21); at peace it comes home (DR-20261110-30).
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
-  attack; an invader draws a relief column (one regiment keeps the seat),
-  seat first, own land only.
+  attack; an invader draws a relief column (one regiment keeps the seat).
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
   fog; voyages, invasions and work read only that chart (DR-20261110-21).
-- **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  board an Explorer, cross a Passage, land.
+- **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): board at
+  the crown's own harbour (seat first), cross, land; a charted Tribe deed then
+  draws a Merchant, so rivals hold New World land (DR-20261111-05).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore; detach hulls, dock, board, cross; storm best coast.
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest

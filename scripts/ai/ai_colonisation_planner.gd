@@ -10,15 +10,18 @@ extends RefCounted
 ## CivilianVoyage, NavalMovement and WarpTravel (REQ-P2-03, REQ-P3-03).
 ##
 ## Rivals with overseas provinces send a Builder to work them; a crown with no
-## New World land sends an Explorer to chart it. The existing civilian planner
-## takes over once the colonist is ashore.
+## New World land sends an Explorer to chart it, and once its own chart holds a
+## Tribe deed it can close, a Merchant to press a claim there. The existing
+## civilian planner takes over once the colonist is ashore.
 
 
 ## One order for this court in this region, or an empty dictionary.
-## `civilians_in_target` lets the adapter avoid a second expedition when the
-## destination roster already holds one of its units. `charts` is the court's
-## own fog: it lands only on coast it has seen and walks only water it charts,
-## with one blind step into the unknown to extend the chart (DR-20261110-21).
+## `abroad` counts this court's civilians already in the target region, by type,
+## so a court charts first, then claims, then works what it holds. `charts` is
+## the court's own fog: it lands only on coast it has seen and walks only water
+## it charts, with one blind step into the unknown to extend the chart
+## (DR-20261110-21). `overseas` carries the target region's model, works, chart,
+## purse and court, so a claim is read off land this court has actually seen.
 ## A null chart is the fixture reading — every tile charted — and production
 ## always hands the court's charts in (MapPlayColonisationAi).
 static func plan(
@@ -28,8 +31,9 @@ static func plan(
 	model: MapModel,
 	fleets: Array,
 	civilians: Array,
-	civilians_in_target: int = 0,
-	charts: CourtCharts = null
+	abroad: Dictionary = {},
+	charts: CourtCharts = null,
+	overseas: Dictionary = {}
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -42,19 +46,39 @@ static func plan(
 		return {}
 	var fleet: FleetState = _carrying_fleet(fleets, owner)
 	if fleet != null:
-		var unit: CivilianState = _by_id(civilians, _carried_id(fleet))
-		if unit == null:
+		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
+		if carried == null:
 			return {}
-		return _voyage(world, region, model, fleet, unit, target, charts)
-	if region != home or civilians_in_target > 0:
+		return _voyage(world, region, model, fleet, carried, target, charts)
+	if region != home:
 		return {}
-	var unit: CivilianState = _next_colonist(civilians, owner, target, world)
+	var unit: CivilianState = _voyage_unit(
+		civilians, owner, world, target, abroad, overseas
+	)
 	if unit == null:
 		return {}
 	fleet = _idle_fleet(fleets, owner)
 	if fleet == null:
 		return {}
-	return _board_step(model, fleet, unit)
+	return _board_step(model, fleet, unit, charts)
+
+
+## The harbour a rival's expedition musters at: its seat when the seat has a
+## port, else its lowest-id port province. -1 when the crown owns no harbour,
+## which is the one case a voyage cannot start (wiki: ships-and-naval § Home
+## Fleet; civilian-units § Overseas deployment).
+static func harbour(model: MapModel, owner: int) -> int:
+	if model == null or owner < 0:
+		return MapModel.NO_ID
+	var best: int = MapModel.NO_ID
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner or not NavalMovement.has_harbour(model, province.id):
+			continue
+		if province.capital:
+			return province.id
+		if best == MapModel.NO_ID or province.id < best:
+			best = province.id
+	return best
 
 
 ## The other region when the crown has land there, else the New World from the
@@ -77,24 +101,62 @@ static func _owns_land_in(world: WorldMap, region: int, owner: int) -> bool:
 	return false
 
 
-## First idle civilian that can land in the target: a Builder for owned
-## colonies, an Explorer for a coast without crown land.
-static func _next_colonist(
-	civilians: Array, owner: int, target: int, world: WorldMap
+## First idle civilian the court should send, or null. A crown that owns land
+## overseas sends its Builder to work it; otherwise it charts with an Explorer,
+## and once its own chart holds a Tribe deed it can close, it presses the claim
+## with a Merchant (wiki: civilian-units § Merchant; § Overseas deployment).
+## One colonist of each kind at a time, so the expedition is not duplicated.
+static func _voyage_unit(
+	civilians: Array,
+	owner: int,
+	world: WorldMap,
+	target: int,
+	abroad: Dictionary,
+	overseas: Dictionary
 ) -> CivilianState:
-	var wanted: String = "builder" if _owns_land_in(world, target, owner) else "explorer"
-	var fallback: CivilianState = null
+	if _owns_land_in(world, target, owner):
+		var builder: CivilianState = _idle_colonist(civilians, owner, "builder")
+		if builder != null:
+			return builder
+	if int(abroad.get("merchant", 0)) == 0:
+		var merchant: CivilianState = _idle_colonist(civilians, owner, "merchant")
+		if merchant != null and _deed_offer(owner, overseas) > 0:
+			return merchant
+	if int(abroad.get("explorer", 0)) > 0:
+		return null
+	return _idle_colonist(civilians, owner, "explorer")
+
+
+## First free civilian of one type: not working, not already abroad, not spent
+## this turn. Lowest id, so the same state always sends the same colonist.
+static func _idle_colonist(
+	civilians: Array, owner: int, type_id: String
+) -> CivilianState:
 	for raw: Variant in civilians:
 		var unit: CivilianState = raw
-		if unit == null or unit.owner != owner:
+		if unit == null or unit.owner != owner or unit.type_id != type_id:
 			continue
 		if unit.is_working() or unit.moved or unit.is_embarked():
 			continue
-		if unit.type_id == wanted:
-			return unit
-		if fallback == null and unit.type_id == "explorer":
-			fallback = unit
-	return fallback
+		return unit
+	return null
+
+
+## Deeds this court could close in the target region, counted off its own chart,
+## works and courts (wiki: civilian-units § Merchant). 0 when it has no chart
+## there yet, which is what keeps a claim behind the exploration that finds it.
+static func _deed_offer(owner: int, overseas: Dictionary) -> int:
+	var model: MapModel = overseas.get("model", null)
+	var works: LandWorks = overseas.get("works", null)
+	var court: DiplomacyState = overseas.get("diplomacy", null)
+	if model == null or works == null or court == null:
+		return 0
+	var context: Dictionary = {
+		"diplomacy": court,
+		"visibility": overseas.get("visibility", null),
+		"treasury": int(overseas.get("treasury", 0)),
+	}
+	return AiMerchantWork.buyable_tiles(model, owner, works, context).size()
 
 
 ## Lowest-id squadron that can still move; an expedition keeps the same hulls
@@ -125,21 +187,33 @@ static func _carrying_fleet(fleets: Array, owner: int) -> FleetState:
 	return best
 
 
-## Dock at the colonist's port, or take it aboard when already there.
+## Boards at the crown's own harbour. The squadron is sent to that port — not to
+## whatever province the colonist happens to stand in, which the port and dock
+## rules would refuse — and the colonist musters there (AiExplorerWork holds it
+## at the muster port while a voyage is pending).
 static func _board_step(
-	model: MapModel, fleet: FleetState, unit: CivilianState
+	model: MapModel, fleet: FleetState, unit: CivilianState, charts: CourtCharts = null
 ) -> Dictionary:
-	if fleet.is_in_port():
-		if fleet.province == model.province_at(unit.tile.x, unit.tile.y):
-			return {"kind": "embark", "fleet": fleet.id, "unit": unit.id}
+	var port: int = harbour(model, unit.owner)
+	if port < 0:
 		return {}
 	var province: int = model.province_at(unit.tile.x, unit.tile.y)
-	if province == MapModel.NO_ID:
-		return {}
-	if _zone_borders_province(model, fleet.sea_zone, province):
-		return {"kind": "dock", "fleet": fleet.id, "province": province}
-	var zone: int = AiSeaRoute.step_toward(
-		model, fleet.sea_zone, NavalMovement.province_sea_zones(model, province)
+	if fleet.is_in_port():
+		if fleet.province != port:
+			var berth: int = _sail(
+				model, fleet, NavalMovement.province_sea_zones(model, port), charts,
+				unit.owner
+			)
+			if berth < 0:
+				return {}
+			return {"kind": "sail", "fleet": fleet.id, "zone": berth}
+		if province != port:
+			return {}
+		return {"kind": "embark", "fleet": fleet.id, "unit": unit.id}
+	if _zone_borders_province(model, fleet.sea_zone, port):
+		return {"kind": "dock", "fleet": fleet.id, "province": port}
+	var zone: int = _sail(
+		model, fleet, NavalMovement.province_sea_zones(model, port), charts, unit.owner
 	)
 	if zone < 0:
 		return {}

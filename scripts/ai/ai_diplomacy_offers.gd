@@ -129,7 +129,7 @@ static func candidates(
 	return [
 		_treaty(
 			config, state, ai_state, world, turn, target, improve, min_improve,
-			treasury, tech
+			treasury, tech, context.get("charts", null)
 		),
 		_trade_pact(state, faction, target, desire, improve, min_improve, record.score),
 		_aid(state, faction, target, improve, min_improve, treasury, record.score),
@@ -151,10 +151,11 @@ static func _treaty(
 	improve: int,
 	min_improve: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var bonus: int = _land_envoy_bonus(
-		state, world, config.faction, target, treasury, tech
+		state, world, config.faction, target, treasury, tech, charts
 	)
 	if improve < min_improve and bonus == 0:
 		return _blocked("improve-relations desire too low", KIND_OVERTURE)
@@ -190,18 +191,21 @@ static func _treaty(
 	return best_entry
 
 
-## The land-deed nudge for this target: a Minor or Tribe this court could buy
-## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. Any region's offer counts (the deed's price must fit the
-## treasury), so a court that has not yet met the seller can still want the door
-## opened (wiki: civilian-units § Merchant).
+## The land nudge for this target: a Minor or Tribe whose door this court wants
+## open, while no embassy stands yet. Two motives count and either is enough:
+## a deed it could buy once its envoy arrives (any region's offer, priced inside
+## its treasury, with the merchant tech), and a coast its own chart holds without
+## a survey — a Consulate is what lets its Explorer read that shore, and the
+## Embassy after it is what lets a Merchant sign there
+## (wiki: civilian-units § Merchant, § Overseas deployment; DR-20261111-05).
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
 	faction: int,
 	target: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	charts: CourtCharts = null
 ) -> int:
 	if world == null or state == null:
 		return 0
@@ -210,12 +214,44 @@ static func _land_envoy_bonus(
 		return 0
 	if DiplomacyRules.has_embassy(state, faction, target):
 		return 0
+	if _deed_in_reach(world, faction, target, treasury, tech):
+		return LAND_ENVOY_BONUS
+	if _coast_unsurveyed(world, faction, target, charts):
+		return LAND_ENVOY_BONUS
+	return 0
+
+
+## A deed this court could sign once its envoy reaches the seller.
+static func _deed_in_reach(
+	world: WorldMap, faction: int, target: int, treasury: int, tech: Dictionary
+) -> bool:
 	if not CivilianCatalog.is_unlocked("merchant", tech):
-		return 0
+		return false
 	for model: MapModel in world.regions:
 		if AiMerchantWork.cheapest_offer(model, faction, target, treasury) > 0:
-			return LAND_ENVOY_BONUS
-	return 0
+			return true
+	return false
+
+
+## A province of the seller this court has charted but not surveyed. Its
+## Explorer found the coast and cannot explore it for want of a Consulate, so the
+## envoy chain is the next move (wiki: civilian-exploration § Order Visibility).
+static func _coast_unsurveyed(
+	world: WorldMap, faction: int, target: int, charts: CourtCharts
+) -> bool:
+	if charts == null:
+		return false
+	for region: int in world.region_count():
+		var model: MapModel = world.region(region)
+		var view: VisibilityModel = charts.model_for(faction, region)
+		if model == null or view == null:
+			continue
+		for province: ProvinceState in model.provinces:
+			if province.owner != target:
+				continue
+			if view.is_province_partly_revealed(province.id):
+				return true
+	return false
 
 
 ## A favoured trading pact while the standing is warm; the way back out once it

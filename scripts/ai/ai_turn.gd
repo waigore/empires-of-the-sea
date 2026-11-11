@@ -78,6 +78,8 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 	}
 	if supplied.has("stockpiles"):
 		context["stockpiles"] = supplied["stockpiles"]
+	if supplied.has("charts"):
+		context["charts"] = supplied["charts"]
 	return context
 
 

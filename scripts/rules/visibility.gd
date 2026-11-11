@@ -188,6 +188,21 @@ func is_province_known(province_id: int) -> bool:
 	return province_visibility(province_id) >= Level.FOGGED
 
 
+## A province this court has seen into but not read whole: at least one tile
+## charted and at least one still unknown (wiki: fog-and-exploration
+## § Exploration). An all-fogged province is not partly revealed, so this is what
+## a beachhead on an unknown shore looks like.
+func is_province_partly_revealed(province_id: int) -> bool:
+	var known: bool = false
+	for tile: Vector2i in model.province_tiles(province_id):
+		if level_at(tile.x, tile.y) == Level.UNKNOWN:
+			if known:
+				return true
+			continue
+		known = true
+	return false
+
+
 func is_province_fully_visible(province_id: int) -> bool:
 	var tiles: Array = model.province_tiles(province_id)
 	if tiles.is_empty():
