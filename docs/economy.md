@@ -39,7 +39,7 @@ Projections never mutate live state.
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
 whole times, bounded by inputs and labour; incomplete rows are skipped.
-`PRODUCTION` sets desired outputs.
+`PRODUCTION` sets desired outputs. Multi-turn: [`deferred.md`](deferred.md).
 
 ## Town manufacturing bonus
 
