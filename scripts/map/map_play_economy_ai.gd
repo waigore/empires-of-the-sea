@@ -140,7 +140,7 @@ static func _trade(
 		0
 	)
 	var reserved: Dictionary = _reserved_inputs(
-		production, _food_demand(play, faction, economy)
+		production, _food_demand(play, faction, economy), economy
 	)
 	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
 	for commodity: Variant in current.keys():
@@ -158,12 +158,25 @@ static func _trade(
 	return result
 
 
-## Inputs this turn's production promised, plus food the consumption phase eats,
-## so a sale never starves the court or spends a commodity twice.
-static func _reserved_inputs(production: Dictionary, food: int = 0) -> Dictionary:
+## Inputs this turn's production promised, plus the ration the consumption phase
+## eats, so a sale never starves the court or spends a commodity twice. The
+## ration is grain and meat, and the larder eats grain first: the reservation
+## holds what the court actually has of each, so a court whose larder is meat
+## does not sell the rations its regiments and staffs eat (wiki:
+## workers-and-population § Consumption; DR-20261112-04).
+static func _reserved_inputs(
+	production: Dictionary, food: int = 0, economy: PlayerEconomy = null
+) -> Dictionary:
 	var reserved: Dictionary = {}
-	if food > 0:
-		reserved["grain"] = food
+	var ration: int = maxi(food, 0)
+	for id: String in CommodityCatalog.FOOD:
+		if ration <= 0:
+			break
+		var held: int = maxi(economy.quantity(id), 0) if economy != null else ration
+		var kept: int = mini(ration, held)
+		if kept > 0:
+			reserved[id] = kept
+		ration -= kept
 	for raw: Variant in production.get("assignments", []):
 		var assignment: Dictionary = raw
 		var units: int = int(assignment.get("units", 0))
