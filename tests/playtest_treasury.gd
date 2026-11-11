@@ -238,8 +238,8 @@ func _find_open_study(node: Node) -> Button:
 
 func _chip_line() -> String:
 	return "%s / %s — tooltip \"%s\"" % [
-		_play.hud.stats.treasury_label.text, _play.hud.stats.income_label.text,
-		_play.hud.stats.treasury_chip.tooltip_text,
+		_play.hud._treasury_label.text, _play.hud._income_label.text,
+		_play.hud._treasury_chip.tooltip_text,
 	]
 
 

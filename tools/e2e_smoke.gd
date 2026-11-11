@@ -203,7 +203,7 @@ func _run() -> void:
 			"the detached regiment keeps its title"
 		)
 		_check(
-			screen.hud.stats.army_label.text
+			screen.hud._army_label.text
 			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 			"troop chip counts every region"
 		)
@@ -514,7 +514,7 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
-		screen.hud.stats.army_label.text
+		screen.hud._army_label.text
 		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 		"troop chip counts the new regiment"
 	)

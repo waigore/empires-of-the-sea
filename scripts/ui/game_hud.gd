@@ -91,6 +91,38 @@ var _quick_queue: Array[Dictionary] = []
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
+## Read-only views of HudStatChips' plaques for drives and suites that still
+## reach them through the HUD (REQ-P1-02).
+var _treasury_label: Label:
+	get:
+		return stats.treasury_label if stats != null else null
+var _income_label: Label:
+	get:
+		return stats.income_label if stats != null else null
+var _fleet_label: Label:
+	get:
+		return stats.fleet_label if stats != null else null
+var _civilian_label: Label:
+	get:
+		return stats.civilian_label if stats != null else null
+var _army_label: Label:
+	get:
+		return stats.army_label if stats != null else null
+var _treasury_chip: Button:
+	get:
+		return stats.treasury_chip if stats != null else null
+var _fleet_chip: Button:
+	get:
+		return stats.fleet_chip if stats != null else null
+var _civilian_chip: Button:
+	get:
+		return stats.civilian_chip if stats != null else null
+var _army_chip: Button:
+	get:
+		return stats.army_chip if stats != null else null
+var _treasury_value: int:
+	get:
+		return stats._treasury_value if stats != null else 0
 var _minimap: Minimap = null
 var _panel_wrap: Control = null
 var _panel: ProvincePanel = null

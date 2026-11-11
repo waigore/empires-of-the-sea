@@ -164,7 +164,7 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 		treasury - RegimentCatalog.treasury_cost("peasant_levies")
 	)
 	assert_eq(_screen.economy.economy.quantity("fabric"), fabric - 1)
-	assert_eq(_screen.hud.stats.army_label.text, str(_screen.army_layer.regiment_count_all(0)))
+	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
 ## The province panel's Recruit order opens the drill yard door on the Home Army
@@ -257,7 +257,7 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	assert_eq(_screen.economy.army_food(), expected)
 	var consumption: Dictionary = _screen.economy.projected()["consumption"]
 	assert_eq(int(consumption["army_demand"]), expected)
-	assert_eq(_screen.hud.stats.army_label.text, str(_screen.army_layer.regiment_count_all(0)))
+	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
 func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:

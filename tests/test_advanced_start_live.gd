@@ -54,11 +54,11 @@ func test_a_late_campaign_opens_with_the_documented_progress() -> void:
 	assert_eq(TurnTime.year_for_turn(play.turn), 1698)
 	assert_eq(play.treasury(), 40000)
 	assert_eq(
-		play.hud.stats.treasury_label.text, TextFormat.thousands(play.treasury()),
+		play.hud._treasury_label.text, TextFormat.thousands(play.treasury()),
 		"the top bar reads the tier purse, not the turn-0 ledger it opened on",
 	)
 	assert_eq(
-		play.hud.stats.income_label.text, TextFormat.delta(play.income),
+		play.hud._income_label.text, TextFormat.delta(play.income),
 		"the per-turn figure follows the tier ledger too",
 	)
 	assert_eq(play.economy.economy.workers.count(WorkerPool.Tier.APPRENTICE), 4)

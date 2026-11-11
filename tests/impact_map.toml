@@ -1476,9 +1476,11 @@ domain = "intel"
 # The HUD root gains one sheet field and back must close that sheet before the
 # map or the court hears the press; the UI suites and the dossier's crown-orders
 # case cover both (DR-20261110-25).
+# Plaques and despatches: ui suites cover the chip extract; lens seals stay on
+# hud_chrome → crown_road so a plaque PR does not pull both domains past 5 min.
 [[rules]]
 match = "scripts/ui/game_hud.gd"
-domain = "crown_road"
+domain = "ui"
 
 # Rail seals and LEFT_RAIL budget for the three map readings.
 [[rules]]
