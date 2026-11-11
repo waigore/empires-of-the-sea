@@ -971,7 +971,20 @@ func test_unbound_sides_use_the_leader_fallback_medals() -> void:
 	assert_eq(ArmyCommand.medals(side, {}), 0)
 
 
-func test_the_phase_medal_snapshot_beats_newly_earned_medals() -> void:
+## A battle-sim scenario names the sides' medals directly and carries no roster,
+## so the phase's opening read is the only answer there (battle-sim).
+func test_a_context_without_a_roster_reads_the_phase_snapshot() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	assert_eq(ArmyCommand.medals(side, {"army_medals": {army.id: 2}}), 2)
+	assert_eq(ArmyCommand.medals(side, {"army_general": {army.id: "general_1"}}), 0)
+
+
+## A general earns a medal at once and fights the phase's later engagements with
+## it (wiki: combat § Acceptance — the increment persists "for subsequent
+## engagements and turns"), so the live roster beats the phase snapshot.
+func test_a_general_fights_later_engagements_with_the_medal_he_earned() -> void:
 	var army := Fixture.army(1, 0, 2, ["pikemen"])
 	var side: Array[ArmyState] = [army]
 	var roster := GeneralRoster.new()
@@ -983,7 +996,46 @@ func test_the_phase_medal_snapshot_beats_newly_earned_medals() -> void:
 		"army_general": {army.id: "general_1"},
 		"army_medals": {army.id: 1},
 	}
-	assert_eq(ArmyCommand.medals(side, context), 1)
+	assert_eq(
+		ArmyCommand.medals(side, context), 3,
+		"the general's own medals answer, not the phase's opening snapshot"
+	)
+
+
+## The second engagement of a chain: the defender's general won the first, so he
+## commands the second with that medal — one more regiment in the line.
+func test_a_chain_defender_uses_the_medal_won_in_the_earlier_exchange() -> void:
+	var model := Fixture.build()
+	model.faction_ids = [0, 1, 2]
+	var world := WorldMap.new()
+	world.add_region(model)
+	var guards: Array[String] = []
+	for _index in 12:
+		guards.append("guards")
+	var defender := Fixture.army(1, 1, 2, guards, true)
+	var first := Fixture.army(2, 0, 2, ["peasant_levies"])
+	first.moved = true
+	var second := Fixture.army(3, 2, 2, ["peasant_levies"])
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+	var roster := GeneralRoster.new()
+	var binding: Dictionary = GeneralBinding.bind_phase(world, {0: armies}, roster, 0)
+	var context: Dictionary = {
+		"roster": roster,
+		"army_general": binding.get("army_general", {}),
+		"army_medals": binding.get("army_medals", {}),
+		"leaders": {},
+		"feeding": {},
+		"tech": {},
+	}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_eq(reports.size(), 2, "both attackers fought the same defender")
+	assert_eq(int(reports[0]["defender_medals"]), 0)
+	assert_eq(int(reports[1]["defender_medals"]), 1)
+	assert_eq(int(reports[1]["defender_limit"]), 11)
+	assert_eq(roster.medals(1, "general_1"), 2, "each win is one medal")
 
 
 func test_a_winning_general_earns_a_medal() -> void:
