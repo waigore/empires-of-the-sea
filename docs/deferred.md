@@ -1,7 +1,7 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #318 /
-DR-20261112-01). Decision list for what to ship next (`REQ-P2-02`).
+Audited vs code, wiki and Design Records (2026-11-12, through #325 /
+DR-20261112-02). Decision list for what to ship next (`REQ-P2-02`).
 
 ## Already live (remove from backlog)
 
@@ -34,19 +34,20 @@ DR-20261112-01). Decision list for what to ship next (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
+| 1 | Battle honours (province on the colours) | Immersion; wiki already publishes the rule | [DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02) accepted; code not on `main` yet (open #327) |
 
 ## Next pick
 
-**Rank 1** needs a design record for what an honour or a preview is.
-Nothing on the list is a plain code gap against published rules.
-
-Minor/Tribe town development shipped as [DR-20261112-01](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-01):
-a deed lifts the province town, so the manufactures offer now fires in a
-campaign.
+**Rank 1** — land [DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02):
+winning regiments bear the province on their colours. Design and wiki are
+done; `RegimentRecord` on `main` still stops at engagements/wins. Open #327
+implements it.
 
 ## Out of scope / blocked footnotes
 
+- Predict-the-line preview in the dossier — declined: [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat)
+  § The line and the reserve / DR-20261112-02 (limit depends on the general
+  bound at combat).
 - Era-change dialogue — blocked: no era model (DR-20261111-08).
 - Hospital upkeep / travelling field hospitals / heal-at-0 — needs a DR
   (DR-20261111-12/16 leftovers).
