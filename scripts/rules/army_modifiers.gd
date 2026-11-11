@@ -178,6 +178,32 @@ static func strength(side: Array[ArmyState], limit: int, multiplier: float) -> f
 	return total * multiplier
 
 
+## The line and the reserve for one engagement (wiki: combat § The line and the
+## reserve; DR-20261111-15). The strongest `limit` stand, the rest are spared.
+static func line_fields(
+	attacker: Array[ArmyState], atk_limit: int,
+	defender: Array[ArmyState], def_limit: int
+) -> Dictionary:
+	var atk_total: int = 0
+	for army: ArmyState in attacker:
+		if army != null:
+			atk_total += army.count()
+	var def_total: int = 0
+	for army: ArmyState in defender:
+		if army != null:
+			def_total += army.count()
+	var atk_deployed: int = mini(atk_total, atk_limit)
+	var def_deployed: int = mini(def_total, def_limit)
+	return {
+		"attacker_deployed": atk_deployed,
+		"defender_deployed": def_deployed,
+		"attacker_limit": atk_limit,
+		"defender_limit": def_limit,
+		"attacker_reserve": maxi(0, atk_total - atk_deployed),
+		"defender_reserve": maxi(0, def_total - def_deployed),
+	}
+
+
 ## Modifier bundle for one side of one engagement.
 static func modifiers(
 	context: Dictionary,

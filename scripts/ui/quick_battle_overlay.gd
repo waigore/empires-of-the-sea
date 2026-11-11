@@ -290,22 +290,19 @@ func _finish() -> void:
 	_outcome.text = QuickBattleCopy.outcome_text(
 		outcome, battle, province_name, faction_names
 	)
-	# Ground, walls and named dead: told, never silently written back (REQ-P5-05).
-	var ground: String = QuickBattleCopy.terrain_line(battle)
-	if not ground.is_empty():
-		_add_log(ground)
-	var losses: String = QuickBattleCopy.loss_line(battle, faction_names)
-	if not losses.is_empty():
-		_add_log(losses)
-	var health: String = QuickBattleCopy.health_line(battle, faction_names)
-	if not health.is_empty():
-		_add_log(health)
-	var chevrons: String = QuickBattleCopy.chevron_line(battle, faction_names)
-	if not chevrons.is_empty():
-		_add_log(chevrons)
-	var siege: String = QuickBattleCopy.siege_line(battle)
-	if not siege.is_empty():
-		_add_log(siege)
+	# Ground, the line, walls and named dead: told, never silently written back
+	# (REQ-P5-05).
+	var lines: Array[String] = [
+		QuickBattleCopy.terrain_line(battle),
+		QuickBattleCopy.line_line(battle, faction_names),
+		QuickBattleCopy.loss_line(battle, faction_names),
+		QuickBattleCopy.health_line(battle, faction_names),
+		QuickBattleCopy.chevron_line(battle, faction_names),
+		QuickBattleCopy.siege_line(battle),
+	]
+	for text: String in lines:
+		if not text.is_empty():
+			_add_log(text)
 	var won: bool = QuickBattleCopy.player_won(outcome, battle)
 	_outcome.add_theme_color_override(
 		"font_color", Palette.GOLD_PALE if won else Color(0.86, 0.60, 0.52)
