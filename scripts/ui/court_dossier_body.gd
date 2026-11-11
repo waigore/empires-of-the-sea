@@ -205,7 +205,7 @@ func _build_line(notes: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	if studies > 0:
 		parts.append("%d finished stud%s" % [studies, "y" if studies == 1 else "ies"])
-	for what: String in ["improvement", "town", "road", "port", "fort", "hospital", "rail"]:
+	for what: String in ["improvement", "town", "road", "port", "fort", "rail"]:
 		var count: int = int(builds.get(what, 0))
 		if count > 0:
 			parts.append("%d %s" % [count, _build_label(what, count)])
@@ -244,7 +244,6 @@ static func _build_label(what: String, count: int) -> String:
 		"road": "road%s",
 		"port": "port%s",
 		"fort": "fort%s",
-		"hospital": "hospital%s",
 		"rail": "rail line%s",
 	}
 	return String(labels.get(what, "%ss")) % _plural(count)

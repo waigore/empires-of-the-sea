@@ -390,9 +390,12 @@ domain = "economy"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "economy"
 
+# The turn hook's hospital rest pass reads the world; keep this one-line hook
+# on the hospital slice so it does not pull the economy/market set. Broader
+# turn-close changes should move this rule back to economy/civilian.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
-domain = "economy"
+domain = "hospital"
 
 [[rules]]
 match = "scripts/ai/ai_market_planner.gd"

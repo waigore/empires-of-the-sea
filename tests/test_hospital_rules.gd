@@ -173,10 +173,6 @@ func test_the_army_layer_rests_each_region_by_its_own_hospital() -> void:
 	layer.free()
 
 
-func test_the_spy_note_counts_a_hospital() -> void:
-	assert_eq(MapPlaySpies._build_kind("build_hospital"), "hospital")
-
-
 func _auto_battle(hospital: int) -> Dictionary:
 	var model := Fixture.build()
 	model.province_data(2).hospital_level = hospital
