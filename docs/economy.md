@@ -37,14 +37,14 @@ Projections never mutate live state.
 | bronze | copper ×1 + tin ×1 | 3 |
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
-whole times, bounded by inputs and idle labour; an incomplete row is skipped.
+whole times, bounded by inputs and idle labour; incomplete rows are skipped.
 `PRODUCTION` sets desired outputs.
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
-cargo. A colony pays after the crossing, on landed tons. Rivals upgrade towns;
+cargo. A colony pays on landed tons. Rivals upgrade towns;
 works: [improvements.md](improvements.md). A Minor or Tribe town publishes its
 manufactures as market auto-offers at the province town; estates still sell in
 full.
@@ -52,18 +52,18 @@ full.
 ## World-market auction
 
 One global order book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
-courts' orders plus Minor/Tribe per-tile auto-offers at the published price.
+court orders plus Minor/Tribe per-tile auto-offers at the published price.
 Tiebreaks: integer priority, pact, colony favour, Consulate, relation — a
 colony's suzerain clears its goods first inside a tier whatever the
 relations (`MarketFavoured`, wiki R7.1), while an independent court keeps
 Consulate-then-relation. First right of refusal fills a purchased tile's
 owner first and pays its relation share plus embassy kickbacks; subsidies
 adjust the deal. Unfilled orders carry when holds/stock cover them; prices
-move from filled bids and submitted offers, and a standing world counterparty
-fills the rest.
+move from filled bids and offers, and a standing world counterparty fills the
+rest.
 
 An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills, cuts and lapses show in the turn toast and travel in the save.
+claim. Fills, cuts and lapses show in the turn toast and the save.
 
 ## Trade terms
 
@@ -74,7 +74,8 @@ the Minor/Tribe ask carry it; price discovery reads the published price.
 ## UI
 
 `ECONOMY` shows treasury, stockpile, trade and projection. `MARKET` lists
-staged orders, Minor/Tribe harvest and world rows as intents (`REQ-P2-03`).
+staged orders, Minor/Tribe harvest and world rows as intents, each good under
+its medallion (`REQ-P1-02`, `REQ-P2-03`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
 to the fields, no refund, inert when empty). Thumb-sized on a phone.
 
@@ -83,10 +84,10 @@ to the fields, no refund, inert when empty). Thumb-sized on a phone.
 `player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
 `commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
 `first_right`, `market_favoured`, `town_industry`, `minor_market`,
-`ui/ledger_{production,market}`, and `economy/economy_controller` plus
+`ui/{commodity_icons,ledger_{production,market}}`, and `economy/economy_controller` plus
 `map/map_play_market`.
 
 ## Tests
 
 `test_market_engine`, `test_economy_rules`, `test_economy_screen`,
-`test_ai_market`, `test_catalogs`.
+`test_ai_market`, `test_catalogs`, `test_commodity_icons`.

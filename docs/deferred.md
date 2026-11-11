@@ -19,14 +19,15 @@ Audited against code, wiki and Design Records (2026-11-11, pass after
 | Colony profit share + near-defeat Join Empire | `FirstRight`, `DiplomacyRules` |
 | Counter-spy + court reports | [`espionage.md`](espionage.md) |
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
-| Colony Tribe favoured-partner override | `MarketFavoured`, DR-20261111-11 |
-| Rival GP–Tribe first contact | `TribeContact`, DR-20261111-14 |
-| Hospitals / depot rest (owner and rival) | `HospitalRules`, `AiHospitalWork` |
-| Research goal in the save | `ResearchState.goal`, DR-20261111-21 |
-| Regiment titles + service records | `RegimentNames` / `RegimentRecord` |
-| Raid hull losses + civilian hulls | `NavalRaid` / `NavalHullLoss` |
-| Rival-on-rival raids + prize cargo | `MapPlayRaids`, DR-20261111-20 |
-| Agenda dialogue beats + cadence | `DialogueAgenda`, DR-20261111-19 |
+| Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
+| Rival GP–Tribe first contact (+ deeds via overtures) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
+| Hospitals / depot rest (owner) | `HospitalRules` (DR-20261111-12), [`armies.md`](armies.md) |
+| Rival hospitals | `AiHospitalWork` (DR-20261111-16), [`ai.md`](ai.md) |
+| Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
+| Regiment titles + service records | `RegimentNames` / `RegimentRecord` (DR-20261111-18), [`armies.md`](armies.md) |
+| Raid hull losses + civilian hulls | `NavalRaid`/`NavalHullLoss` (DR-20261111-17) |
+| Rival-on-rival raids + prize cargo | `MapPlayRaids` per-crown pass (DR-20261111-20) |
+| Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 
 ## Remaining gaps (impact order)
 
