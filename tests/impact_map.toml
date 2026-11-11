@@ -161,6 +161,7 @@ suites = [
 [domains.map]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -183,6 +184,7 @@ suites = [
 [domains.advanced]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
 ]
 
 # Setup difficulty layer (wiki: ruleset-config § Layers). Hub files that only
@@ -205,6 +207,7 @@ suites = [
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
+  "test_advanced_start_live.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
   "test_hud_toast.gd",
@@ -1361,6 +1364,10 @@ domain = "espionage"
 
 [[rules]]
 match = "tests/test_advanced_start.gd*"
+domain = "advanced"
+
+[[rules]]
+match = "tests/test_advanced_start_live.gd*"
 domain = "advanced"
 
 [[rules]]
