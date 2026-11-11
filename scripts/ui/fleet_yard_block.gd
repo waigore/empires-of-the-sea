@@ -129,6 +129,8 @@ func _build_row(row: Dictionary) -> Control:
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 8)
 	entry.add_child(top)
+	var type_id: String = String(row["type_id"])
+	top.add_child(UnitMedallion.of_ship(type_id, 30.0))
 	var name := UiRowBuilder.line(13, Palette.TEXT)
 	name.text = String(row["name"])
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -140,7 +142,6 @@ func _build_row(row: Dictionary) -> Control:
 	launch.add_theme_font_size_override("font_size", 12)
 	launch.disabled = not ok
 	launch.tooltip_text = String(row["cost_text"]) if ok else String(row["reason"])
-	var type_id: String = String(row["type_id"])
 	launch.pressed.connect(func() -> void: action_pressed.emit("yard:build:%s" % type_id))
 	top.add_child(launch)
 	var detail := UiRowBuilder.line(10, Palette.TEXT_DIM)
@@ -154,15 +155,14 @@ func _hull_row(hull_id: String) -> Control:
 	var entry := VBoxContainer.new()
 	entry.add_theme_constant_override("separation", 2)
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
 	entry.add_child(row)
 	var type_id: String = _fleet.type_of(hull_id)
+	row.add_child(UnitMedallion.of_ship(type_id, 30.0))
 	var hull_name: String = ShipNames.of(_fleet, hull_id)
+	var hull_type: String = ShipStats.display_name(type_id)
 	var name := UiRowBuilder.line(13, Palette.TEXT)
-	name.text = (
-		"%s — %s" % [hull_name, ShipStats.display_name(type_id)]
-		if not hull_name.is_empty()
-		else ShipStats.display_name(type_id)
-	)
+	name.text = "%s — %s" % [hull_name, hull_type] if not hull_name.is_empty() else hull_type
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(name)
