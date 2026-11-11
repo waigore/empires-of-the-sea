@@ -569,6 +569,16 @@ func test_the_prose_never_invents_an_outcome_for_an_unknown_kind() -> void:
 	assert_eq(GazetteCopy.line({"kind": "noSuchThing"}), "")
 
 
+## The copy desk's table is the sheet's one list of kinds, so a kind the
+## diplomacy catalogue narrates cannot fall off the desk (REQ-P2-03, RUB-P3-01).
+func test_every_narrated_kind_has_a_copy_desk() -> void:
+	var narrated: Array[String] = []
+	narrated.append_array(GazetteDiplomacy.COURT_KINDS)
+	narrated.append_array(GazetteDiplomacy.WORLD_KINDS)
+	for kind: String in narrated:
+		assert_true(GazetteCopy.kinds().has(kind), "%s has a copy desk" % kind)
+
+
 func test_an_unmet_party_reads_as_an_unknown_faction() -> void:
 	var state: DiplomacyState = _state(3)
 	var line: String = GazetteCopy.line(
