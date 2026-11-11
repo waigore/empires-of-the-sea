@@ -137,7 +137,7 @@ func test_the_dossier_offers_a_one_tap_join_at_the_seat() -> void:
 	assert_eq(String(row["label"]), "Join the home fleet")
 	assert_true(String(row["note"]).contains("home fleet"))
 	assert_true(panel._merge_box.visible, "the dossier shows the row")
-	assert_false(panel._yard_button.visible, "the join takes the yard's place, not more height")
+	assert_false(panel._yard._button.visible, "the join takes the yard's place, not more height")
 	assert_eq(panel._status.text, String(row["note"]), "the note rides the status line")
 
 

@@ -242,7 +242,7 @@ func _run() -> void:
 	_check(not screen.hud.panels.is_diplomacy_open(), "court ledger closes")
 
 	var cues_before: int = 0
-	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
+	var audio: AudioDirector = main.get_node_or_null("Audio") as AudioDirector
 	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
 	_check(audio != null, "audio director present")
 	_check(controls != null, "sound seal present")

@@ -161,7 +161,48 @@ static func close_turn(play: PlaySession) -> void:
 	if play.diplomacy == null:
 		return
 	play.diplomacy.end_turn()
+	# The phase is over: next turn's decisions are news again, even when they
+	# repeat a pair that was told about this turn.
+	play.announced_decisions.clear()
 	refresh(play)
+
+
+## One decision's identity, so the court is told about it once and not again on
+## every press that re-opens the panel (wiki: diplomacy § Intervention — the
+## choice is presented once, at war declaration time).
+static func _decision_key(kind: String, parts: Array) -> String:
+	var out: PackedStringArray = [kind]
+	for part: Variant in parts:
+		out.append(str(part))
+	return ":".join(out)
+
+
+## Raises a decision's despatch unless the court has already heard it.
+static func _announce(play: PlaySession, key: String, text: String) -> void:
+	if play.announced_decisions.has(key):
+		return
+	play.announced_decisions[key] = true
+	play.hud.toast(text)
+
+
+## Marks every decision now waiting as told. The AI pass raises each new
+## decision's line itself, so the court must not repeat it when the turn
+## resolver opens the panel on the same press.
+static func mark_announced(play: PlaySession) -> void:
+	if play.diplomacy == null:
+		return
+	for call: Dictionary in play.diplomacy.pending_calls:
+		play.announced_decisions[
+			_decision_key("call", [int(call["aggressor"]), int(call["defender"])])
+		] = true
+	for offer: Dictionary in play.diplomacy.pending_interventions:
+		play.announced_decisions[
+			_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])])
+		] = true
+	for proposal: Dictionary in play.diplomacy.pending_offers:
+		play.announced_decisions[
+			_decision_key("offer", [int(proposal["from"]), String(proposal["kind"])])
+		] = true
 
 
 ## Opens the court on the waiting call and tells the player what is at stake.
@@ -172,7 +213,9 @@ static func show_call(play: PlaySession) -> void:
 	if call.is_empty():
 		return
 	open(play)
-	play.hud.toast(
+	_announce(
+		play,
+		_decision_key("call", [int(call["aggressor"]), int(call["defender"])]),
 		"%s calls on our alliance against %s."
 		% [
 			FactionCatalog.name_of(int(call["defender"])),
@@ -189,7 +232,9 @@ static func show_intervention(play: PlaySession) -> void:
 	if offer.is_empty():
 		return
 	open(play)
-	play.hud.toast(
+	_announce(
+		play,
+		_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])]),
 		"%s declares war on %s. %s"
 		% [
 			FactionCatalog.name_of(int(offer["aggressor"])),
@@ -209,7 +254,9 @@ static func show_offer(play: PlaySession) -> void:
 	if offer.is_empty():
 		return
 	open(play)
-	play.hud.toast(
+	_announce(
+		play,
+		_decision_key("offer", [int(offer["from"]), String(offer["kind"])]),
 		"%s proposes %s. Answer the proposal."
 		% [
 			FactionCatalog.name_of(int(offer["from"])),
@@ -241,6 +288,9 @@ static func run_ai(play: PlaySession) -> void:
 		return
 	for message: String in result.get("messages", []):
 		play.hud.toast(message)
+	# The pass has just raised every new decision in its own words; the turn
+	# resolver must not raise them a second time on the same press.
+	mark_announced(play)
 
 
 ## A rival that absorbs a Minor moves provinces: its units change colour and the

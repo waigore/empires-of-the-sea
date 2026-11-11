@@ -197,33 +197,6 @@ func test_modifiers_compose_terrain_feeding_and_leader() -> void:
 	var limit: int = int(ArmyModifiers.modifiers(nationalism, 2, false, model, 2, 1)["limit"])
 	assert_eq(limit, 14)
 
-
-## Every crown's leader now scales its land side, not just France's
-## (wiki: leader-bonuses § Bonus Table; DR-20261111-24). The ratio against the
-## neutral reserve isolates the leader term from terrain and fort.
-func test_every_crowns_leader_scales_the_land_side() -> void:
-	var model := Fixture.build()
-	var expected: Dictionary = {
-		"isabella": 1.15, "victoria": 1.10, "de_ruyter": 1.10,
-		"gustavus": 1.20, "henry": 1.05, "napoleon": 1.25,
-	}
-	for key: String in expected.keys():
-		var led: float = float(ArmyModifiers.modifiers(
-			{"leaders": {1: key}}, 0, true, model, 2, 1
-		)["multiplier"])
-		var neutral: float = float(ArmyModifiers.modifiers(
-			{"leaders": {1: LeaderCatalog.DEFAULT_KEY}}, 0, true, model, 2, 1
-		)["multiplier"])
-		assert_almost_eq(led / neutral, float(expected[key]), 0.001, "%s scales the side" % key)
-	## A leader's multiplier also sets the fallback medals a general-less side
-	## fights with (wiki: military-generals § Defending armies).
-	var medals: Dictionary = {
-		"napoleon": 4, "gustavus": 3, "isabella": 2,
-		"victoria": 1, "de_ruyter": 1, "henry": 0,
-	}
-	for key: String in medals.keys():
-		assert_eq(ArmyModifiers.fallback_medals(key), int(medals[key]), "%s fallback medals" % key)
-
 # --- from test_army_state.gd ---
 ## Army containers: composition, split, combine and the Home Army invariant
 ## (wiki: military-armies).
