@@ -210,13 +210,17 @@ static func settle_stranding(play: PlaySession) -> void:
 		play.hud.panels.hide_civilian()
 
 
-## A finished survey names the find, or says the ground held nothing: a hidden
-## deposit never changes hands silently (wiki: fog-and-exploration § Prospecting;
-## RUB-P5-06).
+## A finished survey names the find for the court that paid for it, or says the
+## ground held nothing: a hidden deposit never changes hands silently (wiki:
+## fog-and-exploration § Prospecting; RUB-P5-06). A rival's survey is news that
+## ground was read — never what was in it (DR-20261111-26, per court).
 static func _survey_line(
 	play: PlaySession, report: Dictionary, type_name: String, place: String
 ) -> String:
-	var owner: String = _owner_label(play, int(report.get("owner", -1)))
+	var owner_id: int = int(report.get("owner", -1))
+	var owner: String = _owner_label(play, owner_id)
+	if owner_id != play.player_faction:
+		return "%s%s surveys %s." % [owner, type_name, place]
 	var found: String = String(report.get("find", ""))
 	if found.is_empty():
 		return "%s%s surveys %s — no mineral in the ground." % [owner, type_name, place]

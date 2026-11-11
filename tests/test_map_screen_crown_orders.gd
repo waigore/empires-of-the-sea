@@ -374,6 +374,29 @@ func test_estates_ledger_cancels_a_build_and_returns_the_builder() -> void:
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 0)
 
 
+func test_a_rivals_survey_never_names_its_find() -> void:
+	var play: PlaySession = _screen.play
+	var rival: int = -1
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != play.player_faction:
+			rival = faction
+			break
+	assert_true(rival >= 0, "the chart seats more than one Great Power")
+	var report: Dictionary = {"owner": rival, "find": "iron"}
+	var line: String = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_false(line.contains("iron"), "a rival's uncover is never ours to read")
+	assert_true(line.contains("Explorer"))
+	# The court that paid for the survey does hear what it found.
+	report = {"owner": play.player_faction, "find": "iron"}
+	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_true(line.contains("iron"))
+	assert_true(line.contains("Cádiz"))
+	# An empty find is a real answer, not silence (DR-20261111-26).
+	report = {"owner": play.player_faction, "find": ""}
+	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
+	assert_true(line.contains("no mineral"))
+
+
 func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 	var play: PlaySession = _screen.play
 	for faction: int in FactionCatalog.great_power_ids():

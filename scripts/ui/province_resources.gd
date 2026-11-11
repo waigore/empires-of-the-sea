@@ -10,7 +10,7 @@ const CAPTION: String = "RESOURCES"
 const LINKED: String = "linked"
 const UNLINKED: String = "no road"
 const FOREIGN: String = "foreign"
-const EMPTY: String = "No resource tiles in this province."
+const EMPTY: String = "No charted resource tiles in this province."
 
 var _lines: Array[Dictionary] = []
 var _body: VBoxContainer = null
