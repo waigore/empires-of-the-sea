@@ -1,6 +1,6 @@
 # Audio
 
-Music, cues and ambience for the map screen (`REQ-P1-06`); no sampled
+Music, cues and ambience for the whole app (`REQ-P1-06`); no sampled
 recordings.
 
 ## Music
@@ -19,8 +19,7 @@ python tools/audio/build_audio.py --only sfx
 python tools/audio/build_audio.py --only music-synth   # offline fallback only
 ```
 
-`score.py` and `dsp.py` are a deterministic offline fallback; `music-synth`
-overwrites the shipped beds.
+`score.py`/`dsp.py` are an offline fallback; `music-synth` overwrites the beds.
 
 ## Score (period-fitting, `REQ-P1-02`)
 
@@ -33,14 +32,13 @@ overwrites the shipped beds.
 | `stinger_victory` / `stinger_defeat` | one-shot | Fanfare / knell |
 | `ambience_sea` | always | Swell, rigging creak, distant gull |
 
-All beds are bright major-mode dances: percussion carries the pulse, reverb is
-short (1.4–1.5 s), and the score reads lively, not haunted.
+Bright major-mode dances: percussion leads, reverb 1.4–1.5 s.
 
-Loops crossfade at the seam (1.5 s equal-power). `MusicPlaylist.bed_for_year`
-opens on the branle, moves to the gigue at 1550, then the minuet at 1700.
+Loops crossfade at the seam (1.5 s equal-power). Beds follow the calendar:
+branle, gigue at 1550, minuet at 1700; the title screen borrows the branle, so a
+campaign opens on a bed already playing.
 
-Mix targets: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects
-at 0.85, so feedback reads over the score.
+Mix: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects 0.85.
 
 ## Runtime
 
@@ -50,11 +48,12 @@ at 0.85, so feedback reads over the score.
 | `scripts/audio/audio_mix.gd` | Volumes, mute, `user://audio.cfg` persistence |
 | `scripts/audio/music_playlist.gd` | Track catalogue + era rule |
 | `scripts/audio/audio_director.gd` | Crossfade pair, 6-voice SFX pool, ambience |
+| `scripts/audio/shell_soundtrack.gd` | Launch bed, global mute key |
 | `scripts/audio/map_soundtrack.gd` | Listens to map-screen signals, picks beds/cues |
 | `scripts/ui/audio_controls.gd` | Bell seal + mix desk |
 
-No autoload: the director is a node in `map_screen.tscn`, so `arch-lint` stays
-clean and tests instantiate it directly.
+No autoload: `main.tscn` owns the one director and hands it to each map screen,
+so the bed plays from launch, `arch-lint` stays clean and tests inject their own.
 
 ## Cue map
 
@@ -73,16 +72,16 @@ clean and tests instantiate it directly.
 | Order refused | `order_denied` |
 | Battle won / lost | victory fanfare / defeat knell |
 
-Battle switches to the battle bed for 14 s, then the era bed returns; raids cue
-off the screen's `raid_resolved` signal.
+Battle switches beds for 14 s, then the era bed returns; raids cue off
+`raid_resolved`.
 
 ## Controls
 
-Bell seal, top-left under the cartouche, opens the mix desk (music, effects,
-mute). Keyboard: `M` mutes. Settings persist and are restored on boot.
+The bell seal opens the mix desk (music, effects, mute); the title page carries
+one too. `M` mutes anywhere; settings persist.
 
 ## Tests
 
-`tests/test_audio_*.gd`, `tests/test_music_playlist.gd`,
-`tests/test_map_soundtrack.gd`. They assert cue files exist, eras map correctly,
-mute silences both buses, and screen moments fire the expected cues.
+`tests/test_audio_*.gd`, `tests/test_map_soundtrack.gd`,
+`tests/test_shell_soundtrack.gd`: cue files exist, eras map correctly, mute
+silences both buses, and the launch bed carries into play.

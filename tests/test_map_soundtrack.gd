@@ -3,6 +3,7 @@ extends GdToolsTest
 ## player moments, battle music and the sound seal (REQ-P1-06).
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const TEMP_PATH := "user://test_map_soundtrack.cfg"
 
 var _screen: MapScreen = null
 var _audio: AudioDirector = null
@@ -10,17 +11,25 @@ var _score: MapSoundtrack = null
 
 
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
-	_audio = _screen.get_node("Audio") as AudioDirector
+	_audio = AudioDirector.new()
+	_audio.settings_path = TEMP_PATH
+	add_child(_audio)
+	_screen = Fixture.attach_screen(
+		self, FactionCatalog.PLAYER_FACTION, "", _audio
+	)
 	_score = _screen.get_node("Soundtrack") as MapSoundtrack
 
 
 func after_each() -> void:
 	if is_instance_valid(_screen):
 		_screen.free()
+	if is_instance_valid(_audio):
+		_audio.free()
 	_screen = null
 	_audio = null
 	_score = null
+	if FileAccess.file_exists(TEMP_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
 
 
 func test_the_campaign_opens_on_the_renaissance_bed() -> void:
@@ -196,3 +205,10 @@ func test_the_mute_key_is_bound() -> void:
 	assert_true(InputMap.has_action(InputActions.MUTE))
 	var keys: Array = InputMap.action_get_events(InputActions.MUTE)
 	assert_gt(keys.size(), 0)
+
+
+func test_the_seal_desk_drives_the_injected_director() -> void:
+	var controls := _screen.hud.get_node("AudioControls") as AudioControls
+	controls.music_slider().value = 0.35
+	assert_almost_eq(_audio.mix.music, 0.35, 0.01)
+	controls.close_panel()

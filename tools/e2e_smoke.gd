@@ -41,6 +41,18 @@ func _run() -> void:
 	if menu == null:
 		_finish()
 		return
+	# The score opens with the app, before any campaign exists (REQ-P1-06).
+	var audio: AudioDirector = main.get_node_or_null("Audio") as AudioDirector
+	_check(audio != null, "audio director mounted on the shell")
+	_check(
+		audio != null and audio.current_track_id() == MusicPlaylist.menu_bed_id(),
+		"the title screen opens on the sea bed"
+	)
+	_check(audio != null and audio._ambience.playing, "the swell plays at launch")
+	_check(
+		menu.audio_controls != null and menu.audio_controls.is_node_ready(),
+		"the title carries the sound seal"
+	)
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
 
@@ -242,11 +254,12 @@ func _run() -> void:
 	_check(not screen.hud.panels.is_diplomacy_open(), "court ledger closes")
 
 	var cues_before: int = 0
-	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
 	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
 	_check(audio != null, "audio director present")
 	_check(controls != null, "sound seal present")
 	if audio != null:
+		var score: MapSoundtrack = screen.get_node_or_null("Soundtrack") as MapSoundtrack
+		_check(score != null and score.audio == audio, "the campaign borrows the shell score")
 		_check(audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing")
 		_check(audio._ambience.playing, "sea ambience playing")
 		cues_before = audio.sfx_played

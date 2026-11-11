@@ -181,6 +181,24 @@ func _on_mute_pressed() -> void:
 # --- state ------------------------------------------------------------------
 
 
+## Wire the desk to a director: the sliders and the mute button drive the
+## authoritative mix, and the widgets mirror changes made elsewhere (the global
+## mute key). Shared by the map HUD seal and the title-screen seal.
+func bind(director: AudioDirector) -> void:
+	if director == null:
+		return
+	ui_sound.connect(director.play_event)
+	music_volume_changed.connect(director.set_music_volume)
+	sfx_volume_changed.connect(director.set_sfx_volume)
+	mute_toggled.connect(director.set_muted)
+	director.mix_changed.connect(_on_director_mix_changed)
+	set_mix(director.mix.music, director.mix.sfx, director.mix.muted)
+
+
+func _on_director_mix_changed(music: float, sfx: float, muted: bool) -> void:
+	set_mix(music, sfx, muted)
+
+
 ## Mirror the authoritative mix into the widgets without echoing change signals.
 func set_mix(music: float, sfx: float, muted: bool) -> void:
 	if _music == null:
