@@ -204,6 +204,14 @@ const PARAMETERS: Array[Dictionary] = [
 		"default": 1,
 	},
 	{
+		"key": "economy.min_treasury",
+		"category": "economy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 10000,
+		"default": 500,
+	},
+	{
 		"key": "civilian.max_civilians",
 		"category": "civilian",
 		"type": TYPE_INT,

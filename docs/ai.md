@@ -37,8 +37,9 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   board an Explorer, cross a Passage, land.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore; detach hulls, dock, board, cross; storm best coast.
-- **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
-  the highest affordable tier.
+- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest
+  affordable tier, keeping a peasant and `economy.min_treasury`
+  (DR-20261111-06).
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
   per idle civilian — builders improve or finish a town, engineers
@@ -54,11 +55,11 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's
   era; Tribes stay at level 1. Rivals re-equip and pay attack prices
   (`RegimentUpgrades`, `ArmyAttackCost`).
-- **Rival muster** (`AiArmyReinforce`): one line regiment a turn from the
-  court's own ledger under `army.regiment_target` (+`army.war_extra` at war),
-  keeping `army.min_treasury` and `army.min_peasants` (DR-20261111-04).
-- **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
-  Consumption → Production; trade.
+- **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
+  (DR-20261111-04).
+- **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
+  Consumption → Production, trade.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
 - **Court dossier** (`IntelDossier`,
   [`intel-dossier.md`](intel-dossier.md)).

@@ -1249,6 +1249,58 @@ func test_ai_economy_buys_peasants_until_the_worker_target() -> void:
 	assert_eq(applied.quantity("fabric"), 10, "two fabric per peasant")
 
 
+## Wiki: workers-and-population § Rival training throttle — training never eats
+## the last peasant, so a rival can still muster and keep headcount.
+func test_ai_economy_never_trains_away_its_last_peasant() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(2)
+	economy.treasury = 600
+	economy.add("paper", 10)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_eq(orders.size(), 1, "two peasants is the floor to train against")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.APPRENTICE)
+	economy.workers = WorkerPool.make(1)
+	orders = AiEconomyPlanner.recruitment_orders(AiConfig.build(1, 1500), economy)
+	assert_true(orders.is_empty(), "one peasant must stay to raise more")
+
+
+## The purse throttle: a court that could train again next turn never drops
+## under `economy.min_treasury` (500) by more than one training's price.
+func test_ai_economy_training_stops_when_the_next_turn_could_repeat() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 900
+	economy.add("paper", 10)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_eq(orders.size(), 1, "one training a turn however fat the purse")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.APPRENTICE)
+	assert_eq(economy.treasury, 900, "planning never spends the live ledger")
+
+
+## The reserve is a floor for a court with slack, not a veto: a purse that can no
+## longer fund the next row (and more) still takes the one training it can.
+func test_ai_economy_spends_the_last_affordable_training() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 400
+	economy.add("paper", 10)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_eq(orders.size(), 1, "400 cannot fund two apprentices, but one fits")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.APPRENTICE)
+	var applied: PlayerEconomy = economy.copy()
+	assert_true(bool(applied.recruit(WorkerPool.Tier.APPRENTICE).get("ok", false)))
+	assert_eq(applied.treasury, 200, "the live ledger pays the same 200 row")
+
+
 # --- rival civilians (AiCivilianPlanner) ------------------------------------
 
 
