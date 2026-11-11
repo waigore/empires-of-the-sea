@@ -68,6 +68,6 @@ and prints the age's terms; one press begins, and a load skips it
 
 ## Deferred
 
-Yarn scripts and localization, the agenda comment cadence (`dialogueSeed % 7`),
-and era-change beats — the campaign has no era model to announce
-([`DR-20261110-04`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-04)).
+Yarn/localization; agenda cadence (`dialogueSeed % 7`); era-change beats (no
+era model). Home-front event beats (study, seat host, colony) are live
+(DR-20261111-08). Ranked: [`deferred.md`](deferred.md).
