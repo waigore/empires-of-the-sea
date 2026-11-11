@@ -150,7 +150,16 @@ static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array
 ) -> String:
 	return _land_core(battle, province_name, faction_names) \
-		+ regiment_note(battle) + siege_note(battle)
+		+ regiment_note(battle) + siege_note(battle) + blunted_note(battle)
+
+
+## Why a gutted garrison was not a capture: the hungry attacker's win was
+## blunted by the ratio-band table (wiki: combat § Auto-resolve ratio bands).
+## Empty for every other despatch, so no existing line changes (REQ-P5-05).
+static func blunted_note(battle: Dictionary) -> String:
+	if not bool(battle.get("blunted", false)):
+		return ""
+	return " — the hungrier attacker could not press the win"
 
 
 ## An auto-resolved siege's tail: how many emplaced guns the besieging train

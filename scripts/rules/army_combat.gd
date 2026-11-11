@@ -149,7 +149,10 @@ static func _exchange(
 		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
 		int(atk_mods["fort"]))
 	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
-	var band: Dictionary = ArmyBands.for_ratio(ratio)
+	var band: Dictionary = ArmyBands.for_ratio(
+		ratio, ArmyModifiers.morale(context, attacker),
+		ArmyModifiers.morale(context, defender)
+	)
 	var attacker_lost: Array[String] = apply_losses(
 		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
 	)
@@ -157,8 +160,6 @@ static func _exchange(
 		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
 		* float(def_mods["loss_scale"])), def_limit
 	)
-	# Survivors carry the field's wear: the side that lost more is mauled more
-	# (wiki: combat § Strength — damaged units fight weaker).
 	RegimentCondition.wear(
 		attacking,
 		RegimentCondition.WOUND_SHARE
@@ -169,8 +170,6 @@ static func _exchange(
 		defending,
 		RegimentCondition.WOUND_SHARE
 		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
-		# A hospital in the province triages its own side's survivors
-		# (wiki: combat § Regiment condition; DR-20261111-12).
 		* HospitalRules.triage_scale_at(model, province),
 		def_limit
 	)
@@ -199,7 +198,7 @@ static func _exchange(
 	}
 	if not siege.is_empty():
 		report["siege"] = siege
-	if def_left == 0 and atk_left > 0:
+	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
 		flip(model, province, attacker)
 		report["outcome"] = Outcome.ATTACKER_VICTORY
 		report["captured"] = true
@@ -209,7 +208,7 @@ static func _exchange(
 			report["medal_owner"] = attacker
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
-	if def_left == 0:
+	if def_left == 0 and atk_left == 0:
 		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
 		if further:
 			var recovery: Dictionary = ArmyGarrison.recover(
@@ -227,6 +226,8 @@ static func _exchange(
 			report["medal_owner"] = defender
 		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 		return report
+	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
+	report["blunted"] = def_left == 0 and atk_left > 0
 	report["outcome"] = Outcome.STALEMATE
 	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 	return report

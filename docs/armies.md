@@ -25,7 +25,9 @@
 - **Upkeep:** 1–3 food per regiment by era, before navy.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
   and health; DEF/9 durability; ratio bands; elimination precedes a flip.
-  Mutual annihilation restores `ceil(20%)` of the defender's start.
+  Hungrier attacker at 1.5–4.0 fights 0.6/0.4 and takes nothing.
+  Mutual annihilation restores `ceil(20%)` of defender start as
+  era-best infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron; wounded recover a quarter each turn.
@@ -33,20 +35,20 @@
   (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%.
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock.
-  Minors follow the leading power, Tribes level 1.
+  Minors follow leading power; Tribes, level 1.
 - **Attack price** (`ArmyAttackCost`): 100 ducats per Great Power attacker per
   land battle, ×0.75 Industrial Machinery, ×0.85 Modern Military Funding (63);
-  once per exchange, floored at zero, named in the despatch.
+  once per exchange, floor zero.
 - **Quick Battle** (`QuickBattle`): three rounds at 3 CP a side;
   aggressive/balanced/defensive. Strength is `Σ (FPN + FPM) × chevrons ×
-  health` × cohesion; quality tells. Guns soak fire and lower the fort;
+  health` × cohesion. Guns soak fire and lower the fort;
   sieges split wall/behind (`SiegeLanes`), scale by ground
   (HILL/WOODS/TOWN/MARSH), three gates; Sortie is its own order. Plate floats
   `−N`, health, chevrons. Simulator: [battle-sim.md](battle-sim.md).
-- **Unopposed:** an army ending in hostile or neutral land with no armed
-  defenders takes it.
-- **Dossier:** composition, strength, commander, orders, dock; rows show
-  stats, condition.
+- **Unopposed:** army ending in hostile or neutral land with no armed
+  defender takes it.
+- **Dossier:** composition, strength, food, commander, orders, dock,
+  condition.
 
 ## Deferred (REQ-P2-02)
 
