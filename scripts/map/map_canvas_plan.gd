@@ -167,7 +167,7 @@ func _place_ports(province: ProvinceState, p_model: MapModel, tile_size: float) 
 		glyphs.append({
 			"kind": "port",
 			"position": anchor,
-			"size": tile_size * 0.8,
+			"size": tile_size * 0.66,
 			"flip": false,
 		})
 
