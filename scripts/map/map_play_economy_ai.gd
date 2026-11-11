@@ -41,7 +41,15 @@ static func run(play: PlaySession) -> Dictionary:
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
 			_army_food(play, faction), false,
-			MapPlaySpyAi.research_bonus(play, faction, economy)
+			MapPlaySpyAi.research_bonus(play, faction, economy),
+			_hospital_food(play, faction)
+		)
+		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
+		# first, and the flags they set are what its next rest tick reads
+		# (wiki: combat § Regiment condition; DR-20261112-04).
+		HospitalRules.feed(
+			play.world, faction,
+			int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 		)
 		economy.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
@@ -174,16 +182,23 @@ static func _ships(play: PlaySession, faction: int) -> int:
 	return play.ship_layer.hull_count_all(faction)
 
 
-## Food this court will eat before Production: army, navy and every worker
-## ration (wiki: workers-and-population § Consumption).
+## Food this court will eat before Production: army, navy, every worker ration
+## and every hospital staff (wiki: workers-and-population § Consumption;
+## combat § Regiment condition).
 static func _food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
 	var demand: int = _army_food(play, faction)
 	demand += _ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	demand += _hospital_food(play, faction)
 	for tier in WorkerPool.TIER_COUNT:
 		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
 	return demand
+
+
+## Rations every hospital staff in this court eats this turn.
+static func _hospital_food(play: PlaySession, faction: int) -> int:
+	return HospitalRules.total_demand(play.world, faction)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:
