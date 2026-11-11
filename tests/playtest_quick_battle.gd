@@ -96,7 +96,7 @@ func _defend_pass(play: PlaySession, player: int, rival: int) -> void:
 
 func _fight(play: PlaySession) -> void:
 	var before: int = play.army_layer.regiment_count_all(play.player_faction)
-	MapPlayArmyBattles.resolve(play)
+	MapPlayLandTurn.resolve(play)
 	var overlay: QuickBattleOverlay = play.hud.quick_battle_overlay
 	if overlay == null or not overlay.is_shown():
 		_say("no plate was shown for this battle")

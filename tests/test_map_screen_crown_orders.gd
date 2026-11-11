@@ -391,7 +391,7 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	var play: PlaySession = _screen.play
 	assert_eq(play.player_faction, 2)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "the human crown keeps its choice")
-	var context: Dictionary = MapPlayArmies.battle_context(play)
+	var context: Dictionary = MapPlayLandTurn.battle_context(play)
 	var leaders: Dictionary = context["leaders"]
 	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
 	MapPlayTurn.end_turn(play)

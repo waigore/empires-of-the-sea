@@ -491,7 +491,7 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	screen.economy.economy.add_treasury(RegimentCatalog.treasury_cost("peasant_levies"))
 	var treasury: int = screen.economy.economy.treasury
 	var fabric: int = screen.economy.economy.quantity("fabric")
-	MapPlayArmies.recruit(screen.play, "peasant_levies")
+	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
 	_check(home.count() == before + 1, "recruit musters a regiment")
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
