@@ -111,6 +111,24 @@ static func terrain_line(battle: Dictionary) -> String:
 	]
 
 
+## The line and the reserve: how many regiments stood and how many were spared
+## (wiki: combat § The line and the reserve; DR-20261111-15). Only sides that
+## kept a reserve are named, so a full line adds no line.
+static func line_line(battle: Dictionary, names: Array) -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var reserve: int = int(battle.get(key + "_reserve", 0))
+		if reserve <= 0:
+			continue
+		var deployed: int = int(battle.get(key + "_deployed", 0))
+		parts.append("%s: %d of %d in the line" % [
+			faction(int(battle.get(key, -1)), names), deployed, deployed + reserve
+		])
+	if parts.is_empty():
+		return ""
+	return "Line — " + " · ".join(parts)
+
+
 ## Regiment detail after the battle: which types each side lost. Empty when the
 ## field was quiet.
 static func loss_line(battle: Dictionary, names: Array) -> String:

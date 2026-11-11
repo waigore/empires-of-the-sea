@@ -144,13 +144,25 @@ static func regiment_note(battle: Dictionary) -> String:
 	return " — " + ", ".join(parts)
 
 
+## The line and the reserve: how many regiments stood and how many were spared
+## (wiki: combat § The line and the reserve; DR-20261111-15). Empty when both
+## sides fielded every regiment, so a full line adds no tail.
+static func line_note(battle: Dictionary) -> String:
+	var reserve: int = int(battle.get("attacker_reserve", 0)) \
+		+ int(battle.get("defender_reserve", 0))
+	if reserve <= 0:
+		return ""
+	return " — %d regiment%s held in reserve" % [reserve, "" if reserve == 1 else "s"]
+
+
 ## Formats an ArmyCombat record for the land-battle toast, with the condition
 ## tail (chevrons won, men mauled) and an auto-resolved siege's battery tail.
 static func describe_land(
 	battle: Dictionary, province_name: String, faction_names: Array
 ) -> String:
 	return _land_core(battle, province_name, faction_names) \
-		+ regiment_note(battle) + siege_note(battle) + blunted_note(battle)
+		+ regiment_note(battle) + siege_note(battle) + blunted_note(battle) \
+		+ line_note(battle)
 
 
 ## Why a gutted garrison was not a capture: the hungry attacker's win was

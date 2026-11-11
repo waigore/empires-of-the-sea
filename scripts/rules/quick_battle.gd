@@ -132,6 +132,9 @@ static func resolve_exchange(
 	}
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
+	report.merge(ArmyModifiers.line_fields(
+		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
+	))
 	var atk_up: int = 0
 	var def_up: int = 0
 	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:
