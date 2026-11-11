@@ -177,12 +177,22 @@ func recruit(tier: int) -> Dictionary:
 	return {"ok": true, "reason": ""}
 
 
+## Empty string when one worker of this tier may be disbanded; otherwise the
+## reason the control is inert. Trained tiers only, and only while the pool holds
+## one (wiki: workers-and-population § Disband — strict demotion to peasant).
+func disband_blocked_reason(tier: int) -> String:
+	if tier <= WorkerPool.Tier.PEASANT or tier >= WorkerPool.TIER_COUNT:
+		return "Only a trained worker returns to the fields"
+	if workers.count(tier) < 1:
+		return "No %s to send back" % WorkerPool.tier_one(tier).to_lower()
+	return ""
+
+
 ## Demotion to peasant is immediate, pays no refund and skips no tiers.
 func disband(tier: int) -> bool:
-	if tier <= WorkerPool.Tier.PEASANT or tier >= WorkerPool.TIER_COUNT:
+	if not disband_blocked_reason(tier).is_empty():
 		return false
-	if not workers.remove(tier):
-		return false
+	workers.remove(tier)
 	workers.add(WorkerPool.Tier.PEASANT, 1)
 	return true
 

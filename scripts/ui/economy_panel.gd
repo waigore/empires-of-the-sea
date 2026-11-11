@@ -11,6 +11,7 @@ signal offer_requested(offer_id: String, quantity: int)
 signal cancel_requested(order_id: String)
 signal production_changed(recipe_id: String, units: int)
 signal recruit_requested(tier: int)
+signal disband_requested(tier: int)
 signal close_pressed
 
 const TAB_PRODUCTION: String = "PRODUCTION"
@@ -126,6 +127,7 @@ func _connect_pages() -> void:
 		func(order_id: String) -> void: cancel_requested.emit(order_id)
 	)
 	_workers.recruit_requested.connect(func(tier: int) -> void: recruit_requested.emit(tier))
+	_workers.disband_requested.connect(func(tier: int) -> void: disband_requested.emit(tier))
 
 
 func select_tab(index: int) -> void:
@@ -138,6 +140,7 @@ func select_tab(index: int) -> void:
 func set_compact(compact: bool) -> void:
 	if _tabs == null:
 		return
+	_workers.set_compact(compact)
 	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else TAB_MIN_HEIGHT)
 	# A 27 px tab strip is a mouse target; a phone tab gets thumb padding.
 	if compact:
