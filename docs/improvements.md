@@ -45,10 +45,6 @@ province, Great Powers at level 4 and four L1 grain farms at the seat.
 - **Estates ledger** (`ESTATES`): realm totals, filters, blockers, Build /
   Cancel / Map, caps, nearest idle Builder; cut-off estates name the crown gap.
 - **Province dossier**: town level, live crown link; Upgrade Town waits for tech.
-- **Rival Builders** (`AiBuilderWork`): price an estate from the estates
-  ledger's own caps, so a level a town, road or tech cap will not pay earns no
-  shortage premium, and a town capping its estates is raised first
-  ([ai.md](ai.md); DR-20261111-10).
 
 ## Deferred (REQ-P2-02)
 
