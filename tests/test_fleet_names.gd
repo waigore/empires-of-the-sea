@@ -131,6 +131,31 @@ func test_an_unnamed_hull_reads_a_name_without_a_write() -> void:
 	assert_false(fleet.hull_names.has("ship_9"), "a read never stores work of its own")
 
 
+## The dossier's own line counts hulls in the singular when it carries one: "1
+## ship", never "1 ships" (REQ-P1-07, read at a phone's size).
+func test_the_dossier_counts_one_hull_in_the_singular() -> void:
+	var panel := FleetPanel.new()
+	add_child(panel)
+	var fleet := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+
+	panel.refresh(Fixture.region(), fleet, true)
+
+	var line: String = ""
+	for node: Node in panel.find_children("*", "Label", true, false):
+		var text: String = (node as Label).text
+		if text.contains("Carrack") and text.contains("upkeep"):
+			line = text
+	assert_true(line.begins_with("1 ship · "), "the dossier reads '%s'" % line)
+
+	panel.refresh(Fixture.region(), fleet, true, "", [], [], 1, [], "", {"count": 1})
+	for node: Node in panel.find_children("*", "Label", true, false):
+		var text: String = (node as Label).text
+		if text.contains("carrying"):
+			line = text
+	assert_true(line.contains("carrying 1 regiment · 1 colonist"), "the dossier reads '%s'" % line)
+	panel.free()
+
+
 ## The dossier names the hull, and the break-up confirmation names what it breaks
 ## (REQ-P1-03, REQ-P5-04).
 func test_the_dossier_and_the_break_up_name_the_hull() -> void:

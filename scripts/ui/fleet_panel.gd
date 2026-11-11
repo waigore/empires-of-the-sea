@@ -152,15 +152,16 @@ func refresh(
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	_ships.text = "%d ships · %s · upkeep %d food" % [
-		fleet.ship_count(), fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
+	_ships.text = "%d %s · %s · upkeep %d food" % [
+		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
+		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
 	]
 	_strength.set_data(strength)
 	if carried > 0:
-		_ships.text += " · carrying %d regiments" % carried
+		_ships.text += " · carrying %d regiment%s" % [carried, "" if carried == 1 else "s"]
 	var colonists: int = int(crew.get("count", 0))
 	if colonists > 0:
-		_ships.text += " · %d colonists" % colonists
+		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
 	_mission.set_data(beach_note, beach_rows)
 	_crew.set_data(crew)

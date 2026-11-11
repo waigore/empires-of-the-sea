@@ -574,6 +574,12 @@ domain = "civilian"
 match = "tests/playtest_allied_defence.gd*"
 domain = "campaign"
 
+# The squadron's own drive: roster, sortie, station, sea battle, troops and a
+# captured port travel with the fleet suites.
+[[rules]]
+match = "tests/playtest_naval.gd*"
+domain = "fleet"
+
 # The save/load drive walks slots, endings and the slot browser, so it travels
 # with the save suites.
 [[rules]]

@@ -17,6 +17,7 @@ This page is the decision list for what to ship next (`REQ-P2-02`).
 | Counter-spy + court reports | [`espionage.md`](espionage.md) |
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
 | Hospitals / depot rest | `HospitalRules`, DR-20261111-12, [`armies.md`](armies.md) |
+| Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
 | Raid hull losses | **Out of scope** by DR-20261110-13 (cargo only) |
 
 ## Remaining gaps (impact order)
@@ -24,17 +25,16 @@ This page is the decision list for what to ship next (`REQ-P2-02`).
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
 | 1 | Rival GP–Tribe first contact + colonial claims | Rivals chart the New World but cannot open court, Consulate, Embassy or deeds | DR-20261111-05 deferred; human-only `sync_first_contact` |
-| 2 | Colony Tribe favoured-partner override | Suzerain should win Minor/Tribe sell ties regardless of relation | Wiki R7.1; matcher uses consulate+relation only |
-| 3 | Per-regiment names / history | Immersion parity with `ShipNames` | DR-20261110-19 |
-| 4 | Agenda dialogue beats + cadence | Hidden-agenda voice every ~7 turns | Yarn/localization still polish-only |
-| 5 | Difficulty layer extras | Naval strength, AI income, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
-| 6 | Research goal in the save | Goal is a view preference today | [`technology.md`](technology.md) |
-| 7 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
+| 2 | Per-regiment names / history | Immersion parity with `ShipNames` | DR-20261110-19 |
+| 3 | Agenda dialogue beats + cadence | Hidden-agenda voice every ~7 turns | Yarn/localization still polish-only |
+| 4 | Difficulty layer extras | Naval strength, AI income, victory thresholds, advisor | [`difficulty.md`](difficulty.md) |
+| 5 | Research goal in the save | Goal is a view preference today | [`technology.md`](technology.md) |
+| 6 | Minor/Tribe town development path | Offer code exists; towns stay level 1 in play | Wiki: no build/research for them |
 | — | Era-change dialogue | Blocked | No era model (DR-20261111-08) |
 | — | Raid civilian hull model | Design-deferred | DR-20261110-13 |
 
 ## Next pick
 
 **Rank 1** unlocks the New World for rival courts end-to-end (diplomacy → deeds →
-claims). Ranks 2–3 deepen mid/late trade fidelity. Ranks 4–7 are polish or
-optional knobs.
+claims). Ranks 2–4 deepen mid/late land and trade fidelity. Ranks 5–6 are
+polish or optional knobs.
