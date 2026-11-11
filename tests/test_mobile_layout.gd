@@ -469,6 +469,34 @@ func test_ledger_header_fits_a_short_viewport() -> void:
 	assert_eq(panel.tabs_min_height(), 0.0)
 
 
+## The WORKERS tab carries two actions per trained row; on a phone both must be
+## thumb-sized and inside the sheet's edge. The tab scrolls, so a row may sit
+## below the fold — the drag area is the body, never a button (REQ-P1-05, REQ-P1-07).
+func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	var panel: EconomyPanel = hud.panels.economy_panel
+	panel.select_tab(2)
+	await get_tree().process_frame
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var buttons: Dictionary = workers.action_buttons()
+	assert_true(buttons.has("disband:%d" % WorkerPool.Tier.APPRENTICE), "a trained row offers disband")
+	assert_false(buttons.has("disband:%d" % WorkerPool.Tier.PEASANT), "a peasant row does not")
+	var sheet: Rect2 = hud._economy_wrap.get_global_rect()
+	for key: String in buttons.keys():
+		var button: Button = buttons[key] as Button
+		_tappable(button, "ledger action %s" % key)
+		var rect: Rect2 = button.get_global_rect()
+		assert_true(
+			rect.position.x >= sheet.position.x - 0.5 and rect.end.x <= sheet.end.x + 0.5,
+			"ledger action %s stays inside the sheet edge: %s in %s" % [key, rect, sheet]
+		)
+
+
 func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 	_open(PHONE)
 	await get_tree().process_frame

@@ -14,6 +14,8 @@ const FOOD_PER_WORKER: Array[int] = [1, 2, 2, 2]
 const LUXURY_PER_TIER: Array[String] = ["", "refinedSugar", "cigars", "furHats"]
 
 const TIER_NAMES: Array[String] = ["Peasants", "Apprentices", "Journeymen", "Masters"]
+## One worker of a tier, for copy that names a single demotion or recruit.
+const TIER_ONE: Array[String] = ["Peasant", "Apprentice", "Journeyman", "Master"]
 
 ## Recruit / train rows (wiki: workers-and-population § Costs, v1 authoritative).
 const RECRUIT_TREASURY: Array[int] = [0, 200, 500, 1000]
@@ -102,6 +104,13 @@ static func tier_name(tier: int) -> String:
 	if tier < 0 or tier >= TIER_COUNT:
 		return "Workers"
 	return TIER_NAMES[tier]
+
+
+## "Apprentice" — one worker of the tier, for a single recruit or demotion.
+static func tier_one(tier: int) -> String:
+	if tier < 0 or tier >= TIER_COUNT:
+		return "Worker"
+	return TIER_ONE[tier]
 
 
 static func required_techs(tier: int) -> Array:

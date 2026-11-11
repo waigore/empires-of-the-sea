@@ -169,14 +169,37 @@ func test_the_map_seats_the_published_roster() -> void:
 			TerritoryAssignment.MINOR_PROVINCES,
 			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
 		)
+	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
 	var new_world: MapModel = world.region(FactionCatalog.NEW_WORLD)
-	var even_share: int = 30 / FactionCatalog.tribe_ids().size()
-	for faction_id: int in FactionCatalog.tribe_ids():
-		assert_between(
-			_count_owned(new_world, faction_id),
-			even_share - 1,
-			even_share + 1,
-			"%s holds its even share" % FactionCatalog.name_of(faction_id)
+	_assert_even_share(new_world, FactionCatalog.tribe_ids(), "New World Tribe")
+
+
+## A Great Power seated in a pocket used to start with a third of a rival's land
+## (wiki: game-setup § GP assignment — "fair split"). Seed 4 was such a chart.
+func test_a_pocket_never_cripples_a_great_power() -> void:
+	var chart: WorldMap = MapGenerator.new().generate_world(
+		4, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
+	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
+	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
+	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
+
+
+## Every faction holds at least one province and no count strays more than one
+## from the even share (wiki: game-setup § assignment, "within ±1").
+func _assert_even_share(model: MapModel, factions: Array[int], label: String) -> void:
+	var counts: Array[int] = []
+	var total: int = 0
+	for faction_id: int in factions:
+		var owned: int = _count_owned(model, faction_id)
+		counts.append(owned)
+		total += owned
+	var share: float = float(total) / float(counts.size())
+	for index in counts.size():
+		assert_true(counts[index] > 0, "%s %d owns land" % [label, factions[index]])
+		assert_true(
+			absf(float(counts[index]) - share) <= 1.0,
+			"%s shares %s near %.2f" % [label, str(counts), share]
 		)
 
 
