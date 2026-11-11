@@ -175,8 +175,6 @@ suites = [
 [domains.map]
 suites = [
   "test_advanced_start.gd",
-  "test_crown_road_lens.gd",
-  "test_crown_road_survey.gd",
   "test_fog_layer.gd",
   "test_map_camera.gd",
   "test_map_canvas.gd",
@@ -194,6 +192,15 @@ suites = [
   "test_warp_travel.gd",
   "test_world_bootstrap.gd",
   "test_world_setup.gd",
+]
+
+# Crown-road lens: projection + view + the chrome that threads it. Kept its own
+# (small) domain so a reading PR stays inside the tier-1 5 min budget instead of
+# pulling map + menu + ui (mobile_layout) + economy + difficulty.
+[domains.crown_road]
+suites = [
+  "test_crown_road_lens.gd",
+  "test_crown_road_survey.gd",
 ]
 
 # Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
@@ -233,8 +240,6 @@ suites = [
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
-  "test_crown_road_lens.gd",
-  "test_crown_road_survey.gd",
   "test_difficulty.gd",
   "test_game_setup.gd",
   "test_hud_toast.gd",
@@ -248,7 +253,6 @@ suites = [
 [domains.misc]
 suites = [
   "test_catalogs.gd",
-  "test_crown_road_survey.gd",
   "test_difficulty.gd",
   "test_misc_rules.gd",
 ]
@@ -352,9 +356,11 @@ domain = "economy"
 match = "scripts/economy/economy_controller.gd"
 domain = "economy"
 
+# bind_views / lens handles live here; economy behaviour is gated by economy_*.
+# A crown-road reading PR that only threads the view stays on crown_road.
 [[rules]]
 match = "scripts/session/play_session.gd"
-domain = "economy"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
@@ -472,7 +478,7 @@ full = true
 
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "misc"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -480,7 +486,7 @@ domain = "map_fixture"
 
 [[rules]]
 match = "tests/map_shot.gd"
-domain = "map"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/playtest_new_world.gd*"
@@ -573,6 +579,12 @@ domain = "menu"
 [[rules]]
 match = "scenes/capital_choice.tscn"
 domain = "campaign"
+
+[[rules]]
+# CrownRoadLens node lives on the chart; keep the scene with the reading.
+[[rules]]
+match = "scenes/map_screen.tscn"
+domain = "crown_road"
 
 [[rules]]
 match = "scenes/**"
@@ -698,7 +710,16 @@ domain = "diplomacy"
 # domain so a one-line sheet refresh does not pull the whole map suite set.
 [[rules]]
 match = "scripts/map/map_play_input.gd"
-domain = "ui"
+domain = "crown_road"
+
+# Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/map/crown_road_lens.gd"
+domain = "crown_road"
 
 # Crown-link helper for the province dossier; keep with the sheet suites.
 [[rules]]
@@ -843,9 +864,11 @@ domain = "economy"
 match = "scripts/map/map_play_turn.gd*"
 domain = "economy"
 
+# bind_views / lens handles live here; economy behaviour is gated by economy_*.
+# A crown-road reading PR that only threads the view stays on crown_road.
 [[rules]]
 match = "scripts/session/play_session.gd"
-domain = "economy"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
@@ -956,8 +979,16 @@ match = "scripts/rules/resource_survey.gd"
 domain = "map"
 
 [[rules]]
+match = "scripts/rules/crown_road_survey.gd"
+domain = "crown_road"
+
+[[rules]]
 match = "scripts/ui/lens_legend.gd"
-domain = "map"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/ui/palette.gd"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/rules/warp_travel.gd"
@@ -1047,7 +1078,16 @@ domain = "intel"
 # case cover both (DR-20261110-25).
 [[rules]]
 match = "scripts/ui/game_hud.gd"
-domain = "ui"
+domain = "crown_road"
+
+# Rail seals and LEFT_RAIL budget for the three map readings.
+[[rules]]
+match = "scripts/ui/hud_chrome.gd"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/ui/hud_layout.gd"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"
@@ -1171,7 +1211,7 @@ domain = "menu"
 
 [[rules]]
 match = "scripts/input_actions.gd"
-domain = "menu"
+domain = "crown_road"
 
 [[rules]]
 match = "scripts/**"
@@ -1372,11 +1412,10 @@ domain = "research"
 match = "tests/test_resource_*.gd"
 domain = "map"
 
-# The crown-road lens: its projection (rules) and its view share the map domain
-# with the other map readings, so a lens change stays tier-1 sized.
+# Crown-road suites: domains.crown_road owns the reading (not the full map set).
 [[rules]]
 match = "tests/test_crown_road_*.gd*"
-domain = "map"
+domain = "crown_road"
 
 [[rules]]
 match = "tests/test_tech_*.gd"

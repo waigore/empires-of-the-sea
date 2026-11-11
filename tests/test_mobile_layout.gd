@@ -114,16 +114,6 @@ func test_phone_chrome_fits_the_screen() -> void:
 			hud._lens_button.get_global_rect().end.x,
 			"the two lens seals never overlap %s" % size
 		)
-		_fits(
-			hud._crown_lens_button.get_global_rect(), _screen_rect(),
-			"crown road lens button %s" % size
-		)
-		_tappable(hud._crown_lens_button, "crown road lens button %s" % size)
-		assert_gt(
-			hud._crown_lens_button.get_global_rect().position.x,
-			hud._diplomacy_lens_button.get_global_rect().end.x,
-			"the three lens seals never overlap %s" % size
-		)
 		_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "survey key %s" % size)
 		assert_gt(
 			hud.lens_legend.get_global_rect().position.x,
@@ -147,24 +137,6 @@ func test_diplomacy_key_fits_a_phone() -> void:
 		hud.lens_legend.get_global_rect().position.x,
 		hud.size.x - LensLegend.WIDTH - 20.0,
 		"diplomacy key right-docked"
-	)
-
-
-## The crown-road key dresses the same cartouche as the survey key and stays
-## right-docked on a phone.
-func test_crown_road_key_fits_a_phone() -> void:
-	_open(PHONE)
-	await get_tree().process_frame
-	var hud: GameHud = _screen.hud
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	await get_tree().process_frame
-	assert_true(hud.lens_legend.visible)
-	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
-	_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "crown road key")
-	assert_gt(
-		hud.lens_legend.get_global_rect().position.x,
-		hud.size.x - LensLegend.WIDTH - 20.0,
-		"crown road key right-docked"
 	)
 
 

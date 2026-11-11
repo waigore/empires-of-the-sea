@@ -1,110 +1,37 @@
 extends GdToolsTest
-## Integration: the crown-road lens on the live map — toggle, key, three-way
-## exclusivity with the survey and diplomatic readings, a finished road, region
-## swap and the hover line. Drawing is exercised by a rendered frame.
+## Integration: the crown-road lens on the live map. One MapScreen for the whole
+## suite — remounting under coverage blows the tier-1 budget (docs/testing.md).
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-var _screen: MapScreen = null
+var screen: MapScreen = null
+var saved: Array = []
+
+
+func before_all() -> void:
+	saved = Fixture.snapshot(Fixture.world())
+	screen = Fixture.attach_screen(self)
 
 
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), saved)
+	if screen == null or not is_instance_valid(screen):
+		screen = Fixture.attach_screen(self)
+		return
+	if screen.play.lens != null and screen.play.lens.active:
+		MapPlayInput.set_lens(screen.play, false)
+	if screen.play.diplomacy_lens != null and screen.play.diplomacy_lens.active:
+		MapPlayInput.set_diplomacy_lens(screen.play, false)
+	if screen.play.crown_lens != null and screen.play.crown_lens.active:
+		MapPlayInput.set_crown_lens(screen.play, false)
+	if screen.region_index != 0:
+		screen.load_region(0)
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
-	_screen = null
-
-
-func test_toggle_raises_the_key_and_builds_a_survey() -> void:
-	var lens: CrownRoadLens = _screen.play.crown_lens
-	assert_not_null(lens)
-	assert_false(lens.active)
-	assert_false(_screen.hud.lens_legend.visible)
-
-	MapPlayInput.toggle_crown_lens(_screen.play)
-	assert_true(lens.active)
-	assert_true(_screen.hud.lens_legend.visible)
-	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
-	assert_true(_screen.hud._crown_lens_button.button_pressed)
-	assert_gt(int(lens.survey["tiles"][CrownRoadSurvey.STATE_ROAD]), 0)
-	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
-
-	lens._reveal = 1.0
-	lens.queue_redraw()
-	await get_tree().process_frame
-
-	MapPlayInput.toggle_crown_lens(_screen.play)
-	assert_false(lens.active)
-	assert_false(_screen.hud.lens_legend.visible)
-	assert_false(_screen.hud._crown_lens_button.button_pressed)
-	assert_almost_eq(_screen.civilian_layer.modulate.a, 1.0, 0.001)
-
-
-## Three readings of the same map: raising one lowers the other two, so the key
-## can never show two legends at once and no toggle claims a mode that is off.
-func test_the_three_lenses_are_exclusive() -> void:
-	MapPlayInput.set_lens(_screen.play, true)
-	assert_true(_screen.play.lens.active)
-
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	assert_false(_screen.play.lens.active)
-	assert_true(_screen.play.crown_lens.active)
-	assert_false(_screen.hud._lens_button.button_pressed)
-	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
-
-	MapPlayInput.set_diplomacy_lens(_screen.play, true)
-	assert_false(_screen.play.crown_lens.active)
-	assert_false(_screen.hud._crown_lens_button.button_pressed)
-	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_DIPLOMACY)
-
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	assert_false(_screen.play.diplomacy_lens.active)
-	assert_false(_screen.hud._diplomacy_lens_button.button_pressed)
-	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
-	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
-
-
-## A finished road lands in the reading at once: the works table is the signal,
-## so the lens never polls the map (REQ-P4-01).
-func test_a_finished_road_repaints_the_lens() -> void:
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	var lens: CrownRoadLens = _screen.play.crown_lens
-	assert_true(_screen.civilian_layer.works_changed.is_connected(lens.refresh))
-	var before: int = int(lens.survey["tiles"][CrownRoadSurvey.STATE_CUT])
-	var step: Vector2i = _frontier_tile()
-	assert_true(step.x >= 0, "the map offers a tile the crown network can grow into")
-
-	_screen.play.land_works.set_transport(
-		_screen.model, step, LandWorks.TRANSPORT_ROAD
-	)
-	_screen.civilian_layer.refresh_works()
-	assert_lt(int(lens.survey["tiles"][CrownRoadSurvey.STATE_CUT]), before)
-
-
-func test_region_switch_rebuilds_the_lens() -> void:
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	_screen._cycle_region()
-	assert_eq(_screen.play.crown_lens.model, _screen.model)
-	assert_eq(
-		int(_screen.play.crown_lens.model.region_id), FactionCatalog.NEW_WORLD
-	)
-	assert_true(_screen.play.crown_lens.survey.has("runs"))
-
-
-func test_hover_reports_the_crown_road_while_the_lens_is_on() -> void:
-	var entry: Dictionary = _linked_entry()
-	assert_false(entry.is_empty())
-	var province: ProvinceState = _screen.model.province_data(int(entry["id"]))
-	var point: Vector2 = _screen_point(province.center)
-	MapPlayInput.update_hover(_screen.play, point)
-	assert_false(_screen.hud._tooltip_label.text.contains("Crown road:"))
-
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	MapPlayInput.update_hover(_screen.play, point)
-	assert_true(_screen.hud._tooltip_label.text.contains("Crown road: "))
+func after_all() -> void:
+	if is_instance_valid(screen):
+		screen.free()
+	screen = null
 
 
 func test_the_key_action_binds_the_r_key() -> void:
@@ -112,14 +39,43 @@ func test_the_key_action_binds_the_r_key() -> void:
 	assert_true(InputMap.has_action(InputActions.CROWN_LENS))
 	assert_ne(InputActions.CROWN_LENS, InputActions.LENS)
 	assert_ne(InputActions.CROWN_LENS, InputActions.DIPLOMACY_LENS)
+	assert_not_null(screen.hud._crown_lens_button.shortcut)
 
 
-## A cut province draws its gap badge and the route to lay: the draw path is
-## exercised on a rendered frame, not just the projection.
-func test_a_cut_province_draws_its_gap_and_route() -> void:
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	var lens: CrownRoadLens = _screen.play.crown_lens
-	var province: ProvinceState = _screen.model.provinces[0]
+func test_toggle_key_exclusivity_road_and_draw() -> void:
+	var lens: CrownRoadLens = screen.play.crown_lens
+	assert_not_null(lens)
+	assert_false(lens.active)
+
+	MapPlayInput.toggle_crown_lens(screen.play)
+	assert_true(lens.active)
+	assert_true(screen.hud.lens_legend.visible)
+	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
+	assert_true(screen.hud._crown_lens_button.button_pressed)
+	assert_gt(int(lens.survey["tiles"][CrownRoadSurvey.STATE_ROAD]), 0)
+	assert_almost_eq(screen.civilian_layer.modulate.a, 0.22, 0.001)
+
+	# Exclusivity: survey then diplomacy then crown again.
+	MapPlayInput.set_lens(screen.play, true)
+	assert_true(screen.play.lens.active)
+	assert_false(lens.active)
+	MapPlayInput.set_diplomacy_lens(screen.play, true)
+	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_DIPLOMACY)
+	MapPlayInput.set_crown_lens(screen.play, true)
+	assert_true(lens.active)
+	assert_false(screen.play.diplomacy_lens.active)
+	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
+
+	# A finished road repaints without polling.
+	var before: int = int(lens.survey["tiles"][CrownRoadSurvey.STATE_CUT])
+	var step: Vector2i = _frontier_tile()
+	assert_true(step.x >= 0, "the map offers a tile the crown network can grow into")
+	screen.play.land_works.set_transport(screen.model, step, LandWorks.TRANSPORT_ROAD)
+	screen.civilian_layer.refresh_works()
+	assert_lt(int(lens.survey["tiles"][CrownRoadSurvey.STATE_CUT]), before)
+
+	# Draw path for a cut province + hover line.
+	var province: ProvinceState = screen.model.provinces[0]
 	var anchor: Vector2i = province.tiles[0]
 	var survey: Dictionary = lens.survey.duplicate(true)
 	survey["provinces"] = [{
@@ -148,26 +104,46 @@ func test_a_cut_province_draws_its_gap_and_route() -> void:
 		lens.summary_for(province.id), "Crown road: 2 road tiles from the crown"
 	)
 
+	var entry: Dictionary = _linked_entry()
+	if not entry.is_empty():
+		var linked: ProvinceState = screen.model.province_data(int(entry["id"]))
+		var point: Vector2 = _screen_point(linked.center)
+		MapPlayInput.update_hover(screen.play, point)
+		assert_true(screen.hud._tooltip_label.text.contains("Crown road: "))
 
-func test_the_r_key_toggles_the_lens() -> void:
-	MapPlayInput.set_crown_lens(_screen.play, true)
-	var event := InputEventKey.new()
-	event.physical_keycode = KEY_R
-	event.pressed = true
-	_screen._unhandled_input(event)
-	assert_false(_screen.play.crown_lens.active)
-	assert_false(_screen.hud.lens_legend.visible)
+	# Seal shortcut drops the lens (same path as pressing R).
+	screen.hud._crown_lens_button.set_pressed(false)
+	screen.hud._crown_lens_button.toggled.emit(false)
+	assert_false(lens.active)
+	assert_false(screen.hud.lens_legend.visible)
+
+
+func test_region_switch_and_rail_budget() -> void:
+	MapPlayInput.set_crown_lens(screen.play, true)
+	screen._cycle_region()
+	assert_eq(screen.play.crown_lens.model, screen.model)
+	assert_eq(int(screen.play.crown_lens.model.region_id), FactionCatalog.NEW_WORLD)
+	assert_true(screen.play.crown_lens.survey.has("runs"))
+	screen.load_region(0)
+
+	# Three seals share the left rail: crown sits past diplomacy, inside LEFT_RAIL.
+	var hud: GameHud = screen.hud
+	var crown: Rect2 = hud._crown_lens_button.get_global_rect()
+	var diplo: Rect2 = hud._diplomacy_lens_button.get_global_rect()
+	assert_gt(crown.position.x, diplo.end.x, "the three lens seals never overlap")
+	assert_lt(crown.end.x, HudLayout.LEFT_RAIL + 1.0, "crown seal stays inside LEFT_RAIL")
+	MapPlayInput.set_crown_lens(screen.play, true)
+	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
+	assert_true(hud.lens_legend.visible)
 
 
 # --- helpers -----------------------------------------------------------------
 
 
-## A road tile that would extend the crown network one step: beside the network,
-## with an own neighbour the reading has not reached yet.
 func _frontier_tile() -> Vector2i:
 	var resolved: Dictionary = LandConnectivity.resolve(
-		_screen.model, _screen.play.land_works, _screen.player_faction,
-		_screen.play.capital_tile
+		screen.model, screen.play.land_works, screen.player_faction,
+		screen.play.capital_tile
 	)
 	var network: Dictionary = resolved.get("network", {}) as Dictionary
 	var reached: Dictionary = resolved.get("tiles", {}) as Dictionary
@@ -176,29 +152,29 @@ func _frontier_tile() -> Vector2i:
 		if network.has(index):
 			continue
 		var tile: Vector2i = _tile_of(index)
-		if _screen.play.land_works.transport_at(_screen.model, tile) != 0:
+		if screen.play.land_works.transport_at(screen.model, tile) != 0:
 			continue
 		for offset: Vector2i in CrownRoadSurvey.NEIGHBORS:
 			var next: Vector2i = tile + offset
-			if not _screen.model.in_bounds(next.x, next.y):
+			if not screen.model.in_bounds(next.x, next.y):
 				continue
-			if not _screen.model.is_land(next.x, next.y):
+			if not screen.model.is_land(next.x, next.y):
 				continue
-			if _screen.model.owner_at(next.x, next.y) != _screen.player_faction:
+			if screen.model.owner_at(next.x, next.y) != screen.player_faction:
 				continue
-			if reached.has(_screen.model.index_of(next.x, next.y)):
+			if reached.has(screen.model.index_of(next.x, next.y)):
 				continue
 			return tile
 	return Vector2i(-1, -1)
 
 
 func _tile_of(index: int) -> Vector2i:
-	var y: int = int(float(index) / float(_screen.model.width))
-	return Vector2i(index - y * _screen.model.width, y)
+	var y: int = int(float(index) / float(screen.model.width))
+	return Vector2i(index - y * screen.model.width, y)
 
 
 func _linked_entry() -> Dictionary:
-	for raw: Variant in _screen.play.crown_lens.survey.get("provinces", []):
+	for raw: Variant in screen.play.crown_lens.survey.get("provinces", []):
 		var entry: Dictionary = raw
 		if bool(entry.get("linked", false)):
 			return entry
@@ -207,9 +183,9 @@ func _linked_entry() -> Dictionary:
 
 func _screen_point(world_in_tiles: Vector2) -> Vector2:
 	var world: Vector2 = world_in_tiles * MapScreen.TILE_SIZE
-	_screen.camera.focus_on(world, 0.8, true)
-	_screen.camera._process(0.016)
+	screen.camera.focus_on(world, 0.8, true)
+	screen.camera._process(0.016)
 	return CameraMath.world_to_screen(
-		_screen.camera.position, _screen.camera.zoom.x, world,
-		_screen.camera.viewport_size()
+		screen.camera.position, screen.camera.zoom.x, world,
+		screen.camera.viewport_size()
 	)

@@ -60,6 +60,10 @@ static func build_hud(play: PlaySession) -> void:
 	)
 	refresh_dossier(play)
 	build_lens(play)
+	# Wired here so MapScreen._connect stays free of a third lens (tier-1 budget).
+	hud.crown_lens_pressed.connect(
+		func(active: bool) -> void: MapPlayInput.set_crown_lens(play, active)
+	)
 
 
 ## The province dossier reads the same live tables as the estates ledger: the
@@ -93,6 +97,9 @@ static func build_lens(play: PlaySession) -> void:
 ## is one connectivity pass, so it still runs on events only, never per frame.
 static func build_crown_road_lens(play: PlaySession) -> void:
 	var lens: CrownRoadLens = play.crown_lens
+	if lens == null and play.host != null:
+		lens = play.host.get_node_or_null("World/CrownRoadLens") as CrownRoadLens
+		play.crown_lens = lens
 	if lens == null:
 		return
 	lens.build(

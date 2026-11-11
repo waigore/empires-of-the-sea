@@ -171,8 +171,7 @@ func bind_views(
 	p_hud: GameHud,
 	p_improvements: ImprovementPanel,
 	p_lens: ResourceLens = null,
-	p_diplomacy_lens: DiplomacyLens = null,
-	p_crown_lens: CrownRoadLens = null
+	p_diplomacy_lens: DiplomacyLens = null
 ) -> void:
 	ship_layer = p_ships
 	civilian_layer = p_civilians
@@ -184,7 +183,8 @@ func bind_views(
 	improvements = p_improvements
 	lens = p_lens
 	diplomacy_lens = p_diplomacy_lens
-	crown_lens = p_crown_lens
+	# Crown-road lens is resolved from the host in MapPlaySetup so a lens PR
+	# does not widen MapScreen.bind_views (tier-1 impact budget).
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

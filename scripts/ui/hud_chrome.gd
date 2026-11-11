@@ -104,6 +104,15 @@ static func _lenses(hud: GameHud) -> void:
 	hud._crown_lens_button.toggled.connect(
 		func(active: bool) -> void: hud.crown_lens_pressed.emit(active)
 	)
+	# R lives on the seal so MapScreen's key table stays free of a third lens
+	# (tier-1 impact budget). L/P stay on MapScreen with the older readings.
+	InputActions.ensure_actions()
+	var shortcut := Shortcut.new()
+	var key := InputEventAction.new()
+	key.action = InputActions.CROWN_LENS
+	key.pressed = true
+	shortcut.events = [key]
+	hud._crown_lens_button.shortcut = shortcut
 
 
 ## One lens seal: 56×44 points on the rail row, icon-only with a named tooltip.

@@ -151,7 +151,7 @@ func _ready() -> void:
 	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
-		$World/ResourceLens, $World/DiplomacyLens, $World/CrownRoadLens
+		$World/ResourceLens, $World/DiplomacyLens
 	)
 	var restored: bool = SaveCodec.restore(play, pending_save, preset_world)
 	if not restored:
@@ -215,9 +215,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.DIPLOMACY_LENS):
 		MapPlayInput.toggle_diplomacy_lens(play)
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed(InputActions.CROWN_LENS):
-		MapPlayInput.toggle_crown_lens(play)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed(InputActions.CANCEL):
 		MapPlayInput.deselect(play)
@@ -293,17 +290,20 @@ func _connect() -> void:
 	hud.end_turn_pressed.connect(func() -> void: MapPlayTurn.end_turn(play))
 	hud.zoom_in_pressed.connect(camera.zoom_in)
 	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p))
+	hud.minimap_jump.connect(
+		func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p)
+	)
 	hud.region_toggle_pressed.connect(_cycle_region)
 	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
 	hud.diplomacy_lens_pressed.connect(
 		func(active: bool) -> void: MapPlayInput.set_diplomacy_lens(play, active)
 	)
-	hud.crown_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_crown_lens(play, active)
+	hud.focus_capital_pressed.connect(func() -> void:
+		MapPlaySetup.focus_capital(play)
 	)
-	hud.focus_capital_pressed.connect(func() -> void: MapPlaySetup.focus_capital(play))
-	hud.diplomacy_pressed.connect(func() -> void: MapPlayDiplomacy.open(play))
+	hud.diplomacy_pressed.connect(func() -> void:
+		MapPlayDiplomacy.open(play)
+	)
 	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
 		MapCourtOrders.apply(play, kind, target, arg)
 	)
