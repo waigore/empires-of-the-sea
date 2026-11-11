@@ -351,7 +351,71 @@ func test_a_side_two_victory_reads_as_a_repulse() -> void:
 		"defender_lost": [],
 	}
 	assert_eq(BattleReport.describe(battle, "Gulf of Darién", FACTIONS),
-		"France repels England in the Gulf of Darién — 1 ships lost")
+		"France repels England in the Gulf of Darién — England loses 1 ship")
+
+
+## A winning side still spends hulls on the beaten side's damage pool, and the
+## despatch names both sides' dead — a crown never loses a named hull in silence
+## (DR-20261111-07, REQ-P5-05).
+func test_the_despatch_names_both_sides_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["a"],
+		"attacker_lost_names": ["Trinidad"],
+		"defender_lost": ["b", "c"],
+		"defender_lost_names": ["Revenge", "Vanguard"],
+		"attacker_strength": 18.25,
+		"defender_strength": 11.0,
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Windward Passage", FACTIONS),
+		"España holds the Windward Passage — England loses 2 ships"
+		+ " (Revenge, Vanguard); España loses 1 ship (Trinidad)"
+		+ " — 18.2 strength to 11.0"
+	)
+
+
+## A beaten side that slips away keeps every hull, but the holder still pays for
+## the win: the retreat despatch names the hulls it spent.
+func test_a_retreat_despatch_names_the_holders_own_losses() -> void:
+	var battle: Dictionary = {
+		"attacker": 1,
+		"defender": 0,
+		"outcome": NavalCombat.Outcome.SIDE2_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["a"],
+		"defender_lost_names": ["Trinidad"],
+		"retreat": {"success": true, "beaten": 1},
+	}
+	assert_eq(
+		BattleReport.describe(battle, "Mar Tirreno", FACTIONS),
+		"England withdraws from the Mar Tirreno — España holds the zone"
+		+ "; España loses 1 ship (Trinidad)"
+	)
+
+
+## The resolver records the names of every hull it sinks, read before the hull
+## leaves the roster (the name lives on the fleet and dies with it).
+func test_a_resolved_battle_records_the_names_it_sank() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["a", "b"], {"a": "frigate", "b": "frigate"})
+	var weak := FleetState.at_sea(2, 1, 0, ["c"], {"c": "fluyte"})
+	var doomed_name: String = ShipNames.of(weak, "c")
+
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([strong, weak])
+
+	assert_gt(battles.size(), 0)
+	var battle: Dictionary = battles[0]
+	var lost: Array = battle.get("attacker_lost", []) if int(battle["attacker"]) == 1 \
+		else battle.get("defender_lost", [])
+	assert_eq(lost, ["c"], "the weak squadron's hull is the one sunk")
+	assert_eq(
+		battle.get("attacker_lost_names", []) if int(battle["attacker"]) == 1 \
+			else battle.get("defender_lost_names", []),
+		[doomed_name],
+		"the report names the hull it sank"
+	)
 
 
 func test_a_stalemate_reads_as_a_withdrawal() -> void:
