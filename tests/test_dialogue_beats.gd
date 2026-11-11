@@ -139,6 +139,53 @@ func test_an_observer_turn_raises_no_beat() -> void:
 	play.army_layer.free()
 
 
+func test_a_seat_off_screen_reads_its_stored_roster() -> void:
+	var play: PlaySession = _play()
+	# The crown is looking at the other region: the seat's armies live in the
+	# layer's stored table, not in the live roster.
+	play.world.add_region(Fixture.build())
+	play.model = play.world.region(1)
+	play.model.region_id = 1
+	var stored: Array[ArmyState] = [ArmyState.muster(2, 1, 0, false, ["pikemen"], 10)]
+	play.army_layer.regions.set_region(0, stored)
+	play.army_layer.armies.clear()
+	MapPlayCourtVoice.record_turn(play, {})
+	assert_eq(
+		_kind_count(play, DialogueHome.CAPITAL_THREATENED), 1,
+		"a host off screen still answers"
+	)
+	assert_eq(_kind_count(play, DialogueHome.TECH_STUDIED), 0, "no study, no beat")
+	play.army_layer.free()
+
+
+func test_an_embarked_host_is_at_sea_and_says_nothing() -> void:
+	var play: PlaySession = _play()
+	var host: ArmyState = play.army_layer.armies[0]
+	host.embarked_fleet = 1
+	var before: int = play.diplomacy.events.size()
+	MapPlayCourtVoice.record_turn(play, {})
+	assert_eq(play.diplomacy.events.size(), before, "a host afloat is not at the gate")
+	play.army_layer.free()
+
+
+func test_a_session_without_a_seat_or_a_report_is_silent() -> void:
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = WorldMap.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.initialize(1)
+	MapPlayCourtVoice.record_turn(play, {})
+	assert_eq(play.diplomacy.events.size(), 0, "nothing happened, nothing is said")
+
+
+func test_a_malformed_report_writes_nothing() -> void:
+	var play: PlaySession = _play()
+	MapPlayCourtVoice.record_turn(play, {"research": "not a report"})
+	MapPlayCourtVoice.record_turn(play, {"research": {"researched": "not a list"}})
+	assert_eq(_kind_count(play, DialogueHome.TECH_STUDIED), 0, "a broken report is not a study")
+	play.army_layer.free()
+
+
 # --- fixtures ---------------------------------------------------------------
 
 
