@@ -129,9 +129,11 @@ static func resolve(
 	# The battery is shot at before the men behind it; melee cannot reach it. A
 	# standing gun spends the blow before the lanes, so the garrison is sheltered
 	# until the battery is quiet (wiki: siege-mechanics § Quick Battle lanes).
-	if key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
+	# A line with no fight left in it delivers no blow, and an empty blow buys
+	# nothing: the guns take only what the blow actually carries.
+	if wanted > 0 and key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
 		and SiegeLanes.can_reach_wall(me_side):
-		var battery: Dictionary = QuickBattleBattery.absorb(guns, maxi(1, wanted))
+		var battery: Dictionary = QuickBattleBattery.absorb(guns, wanted)
 		entry["guns_destroyed"] = int(battery["destroyed"])
 		entry["battery_hit"] = int(battery["absorbed"])
 		wanted = maxi(0, wanted - int(battery["absorbed"]))
