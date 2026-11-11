@@ -216,7 +216,7 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy)
+			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy, report)
 			if action == "prospect":
 				# The despatch names what the survey found (DR-20261111-26).
 				report["find"] = MineralSurvey.find_of(model, tile)
@@ -347,7 +347,8 @@ static func _apply(
 	tile: Vector2i,
 	works: LandWorks,
 	visibility: VisibilityModel,
-	economy: PlayerEconomy = null
+	economy: PlayerEconomy = null,
+	report: Dictionary = {}
 ) -> Array:
 	var province: int = model.province_at(tile.x, tile.y)
 	match action:
@@ -376,7 +377,8 @@ static func _apply(
 		"build_hospital":
 			return HospitalRules.work_complete(model, province, unit, tile)
 		"purchase_land":
-			if LandPurchase.complete(model, tile, unit.owner, economy):
+			# `complete` records the town level it actually set (DR-20261112-01).
+			if LandPurchase.complete(model, tile, unit.owner, economy, report):
 				return [model.index_of(tile.x, tile.y)]
 			return []
 	if CivilianTransport.knows(action):

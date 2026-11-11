@@ -267,7 +267,10 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 		# The deed is the only play path that develops a Minor or Tribe town
 		# (wiki: civilian-units § Merchant; DR-20261112-01).
 		play.hud.toast(
-			MinorTownGrowth.deed_line(model, model.province_data(province), place)
+			MinorTownGrowth.deed_line(
+				model, model.province_data(province), place,
+				int(report.get("town_level", 0))
+			)
 		)
 		return
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
