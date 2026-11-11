@@ -1099,6 +1099,107 @@ func test_a_losing_general_keeps_his_medals() -> void:
 	assert_eq(String(reports[0]["medal_gain"]), "")
 
 
+## The side's commander is the army with the most regiments BEFORE battle
+## resolution (wiki: military-armies § Battle grouping). Two defending armies of
+## one crown merge into one side; when the bigger army is mauled below its
+## veteran sibling during the exchange, the medal still belongs to the general
+## who commanded the side when it opened — not to the army that merely
+## outnumbers the survivors afterwards.
+func test_the_medal_goes_to_the_pregame_primary_defender() -> void:
+	var model := Fixture.build()
+	var big: ArmyState = Fixture.army(1, 1, 2, _levies(5))
+	var small: ArmyState = Fixture.army(2, 1, 2, _guards(4))
+	var attacker: ArmyState = Fixture.army(3, 0, 2, ["peasant_levies"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [big, small, attacker]
+	var roster := GeneralRoster.new()
+	roster.sync(1, {"organised_regiments": true})
+	var context: Dictionary = {
+		"roster": roster,
+		"army_general": {big.id: "general_1", small.id: "general_2"},
+		"leaders": {},
+		"feeding": {},
+		"tech": {},
+	}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_true(
+		big.count() < small.count(),
+		"the pre-battle primary is mauled below its sibling by the fighting"
+	)
+	assert_eq(
+		String(reports[0]["medal_gain"]), "general_1",
+		"the commander at the open takes the medal, not the survivor"
+	)
+	assert_eq(int(reports[0]["medal_owner"]), 1)
+	assert_eq(roster.medals(1, "general_1"), 1)
+	assert_eq(roster.medals(1, "general_2"), 0, "the sibling commander was never credited")
+
+
+## The same read for the attacking side: two attacking armies of one crown in
+## the province merge into one side, and the decoration follows the primary at
+## the open even after the casualties reorder the survivors.
+func test_the_medal_goes_to_the_pregame_primary_attacker() -> void:
+	var model := Fixture.build()
+	var big: ArmyState = Fixture.army(1, 0, 2, _levies(5))
+	big.moved = true
+	var small: ArmyState = Fixture.army(2, 0, 2, _guards(4))
+	small.moved = true
+	var defender: ArmyState = Fixture.army(3, 1, 2, ["peasant_levies"])
+	var armies: Array[ArmyState] = [big, small, defender]
+	var roster := GeneralRoster.new()
+	roster.sync(0, {"organised_regiments": true})
+	var context: Dictionary = {
+		"roster": roster,
+		"army_general": {big.id: "general_1", small.id: "general_2"},
+		"leaders": {},
+		"feeding": {},
+		"tech": {},
+	}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_true(big.count() < small.count(), "the pre-battle primary falls behind its sibling")
+	assert_eq(String(reports[0]["medal_gain"]), "general_1")
+	assert_eq(roster.medals(0, "general_1"), 1)
+	assert_eq(roster.medals(0, "general_2"), 0)
+
+
+## Quick Battle fights the same merged side and must credit the same commander
+## (wiki: quick-battle § Outcome and integration — same pipeline as auto-resolve).
+func test_quick_battle_credits_the_pregame_primary_defender() -> void:
+	var model := Fixture.build()
+	var big: ArmyState = Fixture.army(1, 1, 2, _levies(5))
+	var small: ArmyState = Fixture.army(2, 1, 2, _guards(4))
+	var attacker: ArmyState = Fixture.army(3, 0, 2, ["peasant_levies"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [big, small, attacker]
+	var roster := GeneralRoster.new()
+	roster.sync(1, {"organised_regiments": true})
+	var context: Dictionary = {
+		"roster": roster,
+		"army_general": {big.id: "general_1", small.id: "general_2"},
+		"leaders": {},
+		"feeding": {},
+		"tech": {},
+		"quick_battle": true,
+		"player_faction": 1,
+		"battle_plan": "balanced",
+	}
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
+
+	assert_true(reports[0].has("quick"), "the human's battle runs on the plate")
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_true(big.count() < small.count())
+	assert_eq(String(reports[0]["medal_gain"]), "general_1")
+	assert_eq(roster.medals(1, "general_1"), 1)
+	assert_eq(roster.medals(1, "general_2"), 0)
+
+
 ## Every crown's roster is reconciled with its own research at the Combat phase
 ## (wiki: military-generals § Count and tech-gated cap). The ledger only syncs
 ## the human's pool, so a rival used to fly one commander for the whole age.
@@ -2401,6 +2502,31 @@ func test_the_battle_report_carries_aftermath_condition_and_chevrons() -> void:
 	assert_true(int(battle["attacker_chevrons"]) > 0)
 	assert_eq(int(battle["defender_chevrons"]), 0, "the broken side wins nothing")
 	assert_true(int(battle["defender_mauled"]) >= 0)
+
+
+## The same aftermath hook writes the field's name onto the winner's colours
+## (wiki: naming § Regiment records; DR-20261112-02). The plate reads the count.
+func test_a_won_quick_battle_honours_the_winning_colours() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, _pikes(2), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(8))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, _context("balanced"))
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_eq(int(reports[0]["attacker_honours"]), attacker.count())
+	assert_eq(int(reports[0]["defender_honours"]), 0, "a broken side takes no colour")
+	for regiment_id: String in attacker.regiments:
+		assert_eq(RegimentRecord.colours(attacker, regiment_id), [2])
+
+
+func test_a_defended_province_honours_its_holder() -> void:
+	var battle: Dictionary = _fight("defensive", _pikes(2), _guards(8))
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attacker_honours"]), 0, "the beaten side takes nothing")
+	assert_true(int(battle["defender_honours"]) > 0, "the field's name goes to the holder")
 
 
 func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:

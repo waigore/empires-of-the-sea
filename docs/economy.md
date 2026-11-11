@@ -15,7 +15,8 @@ manufactured recipes. **Pillars:** P2, P3, P5.
    ([improvements.md](improvements.md)).
 2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base
    price.
-3. **Consumption** — navy, army, workers eat; unfed strike.
+3. **Consumption** — army, navy, workers, then hospital staffs eat; unfed men
+   strike, unfed wards lose their staff.
 4. **Production** — recipes spend post-consumption inputs and idle labour.
 
 Projections never mutate live state.
@@ -38,7 +39,7 @@ Projections never mutate live state.
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
 whole times, bounded by inputs and labour; incomplete rows are skipped.
-`PRODUCTION` sets desired outputs.
+`PRODUCTION` sets desired outputs. Multi-turn: [`deferred.md`](deferred.md).
 
 ## Town manufacturing bonus
 
@@ -62,13 +63,13 @@ adjust the deal. Unfilled orders carry when holds/stock cover them; prices
 move from filled bids and offers, and a world counterparty fills the rest.
 
 An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills, cuts and lapses show in the turn toast and save.
+claim. Fills, cuts and lapses show in the toast and save.
 
 ## Trade terms
 
 Prices are published once; each crown's diplomacy rate applies at settlement
 ([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
-the Minor/Tribe ask carry it; discovery reads the published price.
+the Minor/Tribe ask carry it.
 
 ## UI
 
@@ -76,7 +77,7 @@ the Minor/Tribe ask carry it; discovery reads the published price.
 staged orders, Minor/Tribe harvest and world rows as intents, each good under
 its medallion (`REQ-P1-02`, `REQ-P2-03`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
-to the fields, no refund, inert when empty). Thumb-sized on a phone.
+to the fields, no refund). Thumb-sized on a phone.
 
 ## Architecture
 
