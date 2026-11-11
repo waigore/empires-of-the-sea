@@ -804,6 +804,12 @@ domain = "fleet"
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
+# Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
+# off scripts/map/** so a hint-line PR does not pull the full map suite past 5 min.
+[[rules]]
+match = "scripts/map/map_play_beachhead.gd*"
+domain = "fleet"
+
 # Naval combat pass + ration context for each crown; keep it on the feeding
 # slice so a battle-hook change does not pull fleet/map past 5 min.
 [[rules]]
