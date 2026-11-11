@@ -18,6 +18,13 @@ static func resolve_region_turn(
 	var all: Array[Dictionary] = []
 	var phase: Dictionary = context.duplicate()
 	phase["roster"] = generals
+	## Every crown's roster is reconciled with its own research before binding.
+	## The ledger only keeps the human's pool in step, so without this a rival
+	## that studied organised_regiments would still field one commander
+	## (wiki: military-generals § Count and tech-gated cap).
+	var tech: Variant = context.get("tech", {})
+	if generals != null and typeof(tech) == TYPE_DICTIONARY:
+		generals.reconcile(tech as Dictionary)
 	var binding: Dictionary = GeneralBinding.bind_phase(
 		world, by_region, generals, int(context.get("seed", 0))
 	)
