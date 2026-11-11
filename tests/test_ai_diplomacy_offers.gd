@@ -197,6 +197,46 @@ func test_one_sided_acts_and_consent_offers_are_told_apart() -> void:
 		)
 
 
+func test_an_isolationist_values_a_trade_pact_less() -> void:
+	# Same warm standing, same one order: the isolationist prices the pact 20
+	# lower, so it keeps to the overture chain where a plain court would trade
+	# (wiki: hidden-agendas — minimal trade; DR-20261111-27).
+	state.ensure_relation(2, 3, 1)
+	state.relation(2, 3).score = 75.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
+	var context: Dictionary = _context({2: 100, 3: 100})
+	var world: WorldMap = AiFixture.world([0, 2, 3, 3, 3, 3])
+	var plain_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		config, state, ai_state, world, 1, 3, 20, context
+	)
+	var loner: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ISOLATIONIST)
+	loner.personality = AiPersonality.NEUTRAL
+	var loner_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		loner, state, ai_state, world, 1, 3, 20, context
+	)
+	var plain_pact: int = _utility_of(plain_entries, AiDiplomacyOffers.KIND_FTP)
+	assert_true(plain_pact > 0, "the pact is legal at a warm standing")
+	assert_eq(plain_pact, _utility_of(loner_entries, AiDiplomacyOffers.KIND_FTP) + 20)
+	assert_eq(
+		_utility_of(plain_entries, AiDiplomacyOffers.KIND_OVERTURE),
+		_utility_of(loner_entries, AiDiplomacyOffers.KIND_OVERTURE),
+		"the envoy chain is untouched"
+	)
+
+
+## The legal candidate's utility for one kind, or -1 when it was refused.
+func _utility_of(entries: Array[Dictionary], kind: String) -> int:
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) != kind:
+			continue
+		assert_true(
+			bool(entry.get("ok", false)),
+			"%s is legal: %s" % [kind, String(entry.get("blocked", ""))]
+		)
+		return int(entry.get("utility", -1))
+	return -1
+
+
 ## Opens the turn pass with the given relation scores applied (default 50).
 func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {}) -> Dictionary:
 	for entry: Array in scores:

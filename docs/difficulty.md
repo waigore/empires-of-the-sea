@@ -52,9 +52,11 @@ AI's decision algorithm (wiki: ai-personalities).
 
 ## Not in this slice
 
-Naval battles, AI income per turn, victory thresholds and tutorial/advisor
-toggles stay outside the layer (ranked in [`deferred.md`](deferred.md)).
-Difficulty is fixed at creation: there is no in-game switch.
+Naval strength now folds the same table after the squadron's rations and before
+the zone share (DR-20261111-25). AI income per turn, victory thresholds and
+advisor/tutorial toggles stay outside the layer — the wiki says so explicitly
+([`deferred.md`](deferred.md)). Difficulty is fixed at creation: there is no
+in-game switch.
 
 ## Tests
 
