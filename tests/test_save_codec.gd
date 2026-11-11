@@ -5,7 +5,9 @@ extends GdToolsTest
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const Fixture = preload("res://tests/map_fixture.gd")
 const SEED: int = 4242
-const WIDTH: int = 40
+## Smallest side `SaveCodec.MIN_MAP_SIDE` accepts: the slot these cases write
+## has to validate, and every tile is paid for twice (mount + reload).
+const WIDTH: int = 32
 const HEIGHT: int = 32
 const DIR: String = "user://test_save_codec"
 
