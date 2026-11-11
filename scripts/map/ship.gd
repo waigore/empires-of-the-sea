@@ -34,6 +34,7 @@ var _wake_strength: float = 0.0
 
 func _ready() -> void:
 	z_index = 5
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 
 func _process(delta: float) -> void:
@@ -90,6 +91,37 @@ func _wake() -> void:
 ## One vessel. The lead hull carries the full rigging; an escort keeps the
 ## silhouette that still reads at fit zoom without doubling the ink.
 func _vessel(full: bool, alpha: float) -> void:
+	var tex: Texture2D = MapSymbols.texture("ship")
+	if tex == null:
+		_ink_vessel(full, alpha)
+		return
+	# The painted hull sits on the same waterline as the ink one it replaced:
+	# a 42 px hull with its keel at y = 9 and its mastheads above it.
+	var side: float = 42.0
+	draw_texture_rect(
+		tex, Rect2(Vector2(1.0 - side * 0.5, 9.0 - side), Vector2(side, side)),
+		false, Color(1.0, 1.0, 1.0, alpha)
+	)
+	if docked and full:
+		draw_line(Vector2(0, 9), Vector2(0, 15), Color(0.16, 0.12, 0.08, 0.9), 1.4, true)
+		draw_arc(
+			Vector2(0, 13), 5.5, PI * 0.12, PI * 0.88, 14, Color(0.16, 0.12, 0.08, 0.9), 1.4, true
+		)
+	_pennant(alpha)
+
+
+## The crown's pennant at the mainmasthead: the one part of the hull that must
+## stay heraldic, since it is how a player tells friend from rival at a glance.
+func _pennant(alpha: float) -> void:
+	var flag: Color = Palette.faction_color(faction)
+	flag.a = alpha
+	draw_colored_polygon(
+		PackedVector2Array([Vector2(2, -28), Vector2(13, -25), Vector2(2, -22)]), flag
+	)
+
+
+## The ink fallback, used only while the painted hull is missing.
+func _ink_vessel(full: bool, alpha: float) -> void:
 	var ink := Color(0.16, 0.12, 0.08, 0.9 * alpha)
 	var hull := Color(0.30, 0.21, 0.13, alpha)
 	var sail := Color(0.96, 0.92, 0.81, alpha)
