@@ -25,8 +25,12 @@ static func resolve_region_turn(
 	var tech: Variant = context.get("tech", {})
 	if generals != null and typeof(tech) == TYPE_DICTIONARY:
 		generals.reconcile(tech as Dictionary)
+	## Binding reads the same war query as resolution: a march into land its
+	## crown is at peace with is no engagement and must not spend a commander
+	## (wiki: military-generals § Assignment).
 	var binding: Dictionary = GeneralBinding.bind_phase(
-		world, by_region, generals, int(context.get("seed", 0))
+		world, by_region, generals, int(context.get("seed", 0)),
+		context.get("hostile", Callable()) as Callable
 	)
 	phase["army_general"] = binding.get("army_general", {})
 	phase["army_medals"] = binding.get("army_medals", {})
