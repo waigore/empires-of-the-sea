@@ -190,7 +190,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# § Trade and Transport Interception; DR-20261109-16, DR-20261110-13).
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
-	play.army_layer.begin_turn()
+	play.army_layer.begin_turn(play.world)
 	# A turn's falls feed the Gazette's World page (DR-20261110-14).
 	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)

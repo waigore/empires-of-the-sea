@@ -449,6 +449,21 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	panel.free()
 
 
+## The dossier names the province's hospital tempo before the player commits
+## (wiki: combat § Regiment condition; DR-20261111-12).
+func test_roster_names_the_hospital_rest_tempo() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 1
+	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
+
+	panel.refresh(model, army, true)
+
+	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
+	panel.free()
+
+
 ## The dossier shows a regiment's own record: chevrons for experience and a
 ## health bar while it is still mauled (wiki: combat § Strength; DR-20261110-19).
 func test_roster_shows_chevrons_and_wounds() -> void:

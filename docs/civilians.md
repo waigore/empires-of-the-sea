@@ -24,8 +24,8 @@ tech.
   ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned resource tile); cancel
   returns to origin. Explore ≤3, prospect 1, improve 1–4 (lumber + cast iron),
-  **upgrade town** (same costs, National Bureaucracy), road, port, rail, fort
-  1–3 ([forts.md](forts.md)).
+  **upgrade town** (National Bureaucracy), road, port, rail, fort
+  1–3 ([forts.md](forts.md)), hospital 1–2.
 - **Town development:** Builder raises towns to level 4; connected port towns
   cap extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
