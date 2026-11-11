@@ -30,15 +30,19 @@ static func for_event(state: DiplomacyState, event: Dictionary, viewer: int) -> 
 
 
 ## The pair's newest voiced word, else the court's standing remark, so the panel
-## always has something to show for a court it knows (REQ-P5-05).
+## always has something to show for a court it knows (REQ-P5-05). The log is
+## scanned newest first, not the narrated chronicle, so a beat the chronicle
+## stays silent about (a battle) can still be the court's last word.
 static func for_pair(state: DiplomacyState, viewer: int, other: int) -> Dictionary:
 	if state == null or viewer == other:
 		return {}
-	for entry: Dictionary in DiplomacyHistory.entries(state, viewer, other):
-		var index: int = int(entry.get("index", -1))
-		if index < 0 or index >= state.events.size():
+	for index in range(state.events.size() - 1, -1, -1):
+		var event: Dictionary = state.events[index]
+		if typeof(event) != TYPE_DICTIONARY:
 			continue
-		var spoken: Dictionary = for_event(state, state.events[index], viewer)
+		if not DiplomacyHistory.parties(event).has(other):
+			continue
+		var spoken: Dictionary = for_event(state, event, viewer)
 		if not spoken.is_empty():
 			return spoken
 	return standing(state, viewer, other)
@@ -70,6 +74,76 @@ static func standing(state: DiplomacyState, viewer: int, other: int) -> Dictiona
 		state, viewer, other, point, template,
 		DialogueCatalog.mood_for(point, _salt(state.turn, other, viewer, point))
 	)
+
+
+## Records a land battle the reader fought, so the court can answer the field
+## (wiki: dialogue-and-mood § Design intent — event: battle results). Only a
+## battle the reader was in is kept: the panel only ever speaks to the human
+## crown, so a rival's own fights would be words nobody reads. A standoff, a
+## mutual ruin and an unopposed capture have no verdict and write nothing.
+## Returns true when a beat was recorded.
+static func record_land_battle(
+	state: DiplomacyState, battle: Dictionary, viewer: int
+) -> bool:
+	if typeof(battle) != TYPE_DICTIONARY:
+		return false
+	var winner: int = -1
+	match int(battle.get("outcome", ArmyCombat.Outcome.STALEMATE)):
+		ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
+			winner = int(battle.get("attacker", -1))
+		ArmyCombat.Outcome.DEFENDER_VICTORY:
+			winner = int(battle.get("defender", -1))
+	var kind: String = "siege" if String(battle.get("battle_mode", "")) == "siege" else "field"
+	return _record_battle(state, battle, viewer, kind, winner)
+
+
+## The same for a sea fight. A beaten squadron that withdraws still lost the
+## water, so its withdrawal is the verdict (wiki: ships-and-naval § Naval
+## Combat; dialogue-and-mood § Design intent — event).
+static func record_naval_battle(
+	state: DiplomacyState, battle: Dictionary, viewer: int
+) -> bool:
+	if typeof(battle) != TYPE_DICTIONARY:
+		return false
+	var winner: int = -1
+	match int(battle.get("outcome", NavalCombat.Outcome.NONE)):
+		NavalCombat.Outcome.SIDE1_VICTORY:
+			winner = int(battle.get("attacker", -1))
+		NavalCombat.Outcome.SIDE2_VICTORY:
+			winner = int(battle.get("defender", -1))
+	var retreat: Variant = battle.get("retreat", {})
+	if winner < 0 and typeof(retreat) == TYPE_DICTIONARY:
+		var beaten: int = int((retreat as Dictionary).get("beaten", -1))
+		if bool((retreat as Dictionary).get("success", false)) and beaten >= 0:
+			winner = (
+				int(battle.get("defender", -1))
+				if beaten == int(battle.get("attacker", -1))
+				else int(battle.get("attacker", -1))
+			)
+	return _record_battle(state, battle, viewer, "sea", winner)
+
+
+static func _record_battle(
+	state: DiplomacyState,
+	battle: Dictionary,
+	viewer: int,
+	kind: String,
+	winner: int
+) -> bool:
+	if state == null or winner < 0:
+		return false
+	var attacker: int = int(battle.get("attacker", -1))
+	var defender: int = int(battle.get("defender", -1))
+	if attacker < 0 or defender < 0 or attacker == defender:
+		return false
+	if winner != attacker and winner != defender:
+		return false
+	if viewer != attacker and viewer != defender:
+		return false
+	state.record_event(
+		"battleFought", attacker, defender, {"kind": kind, "winner": winner}
+	)
+	return true
 
 
 ## The negotiation beat for a proposal awaiting the reader's answer: the point
@@ -167,7 +241,35 @@ static func _plan(event: Dictionary, viewer: int) -> Dictionary:
 			return _told("diplomatic/overture_withdrawn", a)
 		"firstContact":
 			return _told("diplomatic/first_contact", other)
+		"battleFought":
+			return _battle_plan(event, viewer, other)
 	return {}
+
+
+## The court that reads the verdict speaks it: the winner is pleased and the
+## beaten court is not, and a siege names the part each played (DR-20261111-01).
+## A beat with no verdict, or one naming a court outside the pair, says nothing.
+static func _battle_plan(event: Dictionary, viewer: int, other: int) -> Dictionary:
+	var data: Variant = event.get("data", {})
+	if typeof(data) != TYPE_DICTIONARY:
+		return {}
+	var winner: int = int((data as Dictionary).get("winner", -1))
+	if winner != viewer and winner != other:
+		return {}
+	var speaker_won: bool = winner == other
+	var kind: String = String((data as Dictionary).get("kind", "field"))
+	if kind == "sea":
+		return _told("event/sea_won" if speaker_won else "event/sea_lost", other)
+	if kind == "siege":
+		var speaker_attacked: bool = other == int(event.get("a", -1))
+		if speaker_won:
+			return _told(
+				"event/siege_won" if speaker_attacked else "event/siege_held", other
+			)
+		return _told(
+			"event/siege_lost" if speaker_attacked else "event/siege_taken", other
+		)
+	return _told("event/field_won" if speaker_won else "event/field_lost", other)
 
 
 ## Relation floor the offer's own rules put under it, so quality is measured

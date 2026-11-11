@@ -98,7 +98,10 @@ func test_docking_puts_the_fleet_in_port() -> void:
 
 	assert_eq(fleet.location, FleetState.Location.IN_PORT)
 	assert_eq(fleet.province, province_id)
-	assert_true(ship.docked)
+	if _screen.ship_layer.ships.has(ship):
+		assert_true(ship.docked, "the hull sits in port")
+	else:
+		assert_true(fleet.moved, "the merged squadron is in port")
 	assert_eq(_screen.overlay.move_provinces.size(), 0)
 
 
@@ -981,6 +984,139 @@ func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
 	MapPlayCivilianVoyage.on_action(_screen.play, "sortie:%d" % zone)
 	assert_true(home.is_at_sea())
 	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
+
+
+## A squadron of several hulls flies them: the marker's escorts, hull badge and
+## strength gauge follow every launch and breaking up (wiki: ships-and-naval
+## § Naval Strength Aggregation Formula).
+func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	_screen.play.economy.economy.treasury = 60000
+	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the launch founds or joins the home fleet")
+	var marker: Ship = _screen.ship_layer.ship_for(home)
+	assert_not_null(marker, "the home squadron keeps a marker")
+	assert_eq(marker.hull_count, home.ship_count())
+	assert_almost_eq(marker.strength, NavalStrength.strength(home), 0.0001)
+	assert_gt(marker.hull_count, 1, "the fixture's home fleet plus one launch")
+
+	var hull_id: String = home.hulls[home.hulls.size() - 1]
+	var count_before: int = home.ship_count()
+	var result: Dictionary = _screen.ship_layer.scrap_hull(
+		home, hull_id, _screen.play.economy.economy
+	)
+
+	assert_true(bool(result.get("ok", false)), String(result.get("reason", "")))
+	assert_eq(home.ship_count(), count_before - 1)
+	assert_eq(marker.hull_count, home.ship_count(), "the marker drops the broken hull")
+	assert_almost_eq(marker.strength, NavalStrength.strength(home), 0.0001)
+
+
+## The printed strength needs the closer chart; fit zoom keeps the silhouettes.
+func test_the_zoom_sets_the_marker_detail() -> void:
+	var ship: Ship = _screen.ship_layer.ships[0]
+
+	_screen.ship_layer.set_zoom(1.0)
+	assert_true(ship.detail)
+
+	_screen.ship_layer.set_zoom(0.5)
+	assert_false(ship.detail)
+
+
+## The dossier prints the arithmetic the resolver fights with, not a bare score.
+func test_the_fleet_dossier_prints_the_combat_maths() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	_screen.ship_layer.select(ship)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+
+	assert_true(block.visible, "a squadron with hulls shows its strength")
+	assert_true(block._strength.text.contains("strength ="), block._strength.text)
+	assert_true(block._strength.text.contains("FRP"), block._strength.text)
+	assert_true(block._pool.text.contains("Hull pool"), block._pool.text)
+	assert_true(block._pool.text.contains("53%"), block._pool.text)
+	assert_false(block._zone.visible, "empty water needs no odds line")
+
+
+## A hostile squadron in the same water shows the share of strength each side
+## holds, so the court knows what the turn's battle would decide.
+func test_a_contested_zone_shows_the_share_of_strength() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		77, rival, fleet.sea_zone, ["ship_77"], {"ship_77": "frigate"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+
+	_screen.ship_layer.select(ship)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+
+	assert_true(block._zone.text.contains("you hold"), block._zone.text)
+	assert_true(block._zone.text.contains("against"), block._zone.text)
+	# A rival line of the line outweighs the squadron: the verdict turns red.
+	enemy.set_hulls(["ship_77", "ship_78", "ship_79"], {"ship_77": "frigate",
+		"ship_78": "frigate", "ship_79": "ship_of_the_line"})
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+
+	assert_eq(
+		block._zone.get_theme_color("font_color"),
+		Palette.HEALTH_LOW,
+		"a losing share reads as a loss"
+	)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
+## The marker's art path draws a squadron at both chart zooms: escorts, badge,
+## gauge and the printed number (REQ-P1-03, RUB-P1-04).
+func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
+	var marker := Ship.new()
+	_screen.add_child(marker)
+	marker.set_squadron(3, 12.8)
+	marker.docked = true
+	marker.set_selected(true)
+	marker.detail = true
+	marker.queue_redraw()
+	await get_tree().process_frame
+
+	marker.docked = false
+	marker.detail = false
+	marker.set_squadron(1, 2.75)
+	marker.queue_redraw()
+	await get_tree().process_frame
+
+	assert_eq(marker.hull_count, 1)
+	assert_almost_eq(marker.strength, 2.75, 0.0001)
+	marker.queue_free()
+
+
+## A sea fight the crown fought leaves a word at the rival's court: the booking
+## reads a zone as water, not a province (wiki: dialogue-and-mood § Design
+## intent — event; DR-20261111-01).
+func test_a_sea_fight_leaves_a_word_at_the_rivals_court() -> void:
+	var rival: int = 2
+	DiplomacyRules.declare_war(
+		_screen.play.diplomacy, _screen.play.player_faction, rival
+	)
+	_screen.play.emit_battle_resolved([
+		{
+			"zone": 1, "attacker": _screen.play.player_faction, "defender": rival,
+			"outcome": NavalCombat.Outcome.SIDE1_VICTORY, "retreat": {},
+		},
+	] as Array[Dictionary])
+
+	var spoken: Dictionary = DialogueEvents.for_pair(
+		_screen.play.diplomacy, _screen.play.player_faction, rival
+	)
+	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the water answers")
+	assert_eq(String(spoken["point"]), "event/sea_lost", "the beaten court owns it")
 
 
 func _owned_coastal_except(model: MapModel, skip: int) -> int:

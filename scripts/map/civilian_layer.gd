@@ -167,8 +167,10 @@ func apply_move(
 ## pause work or burn a unit's move. Returns the work reports for the caller.
 ## Every crown's crew resolves against that crown's own chart, so a rival's
 ## finished `explore` reveals its fog and never the player's (DR-20261110-21).
+## `purses` maps owner -> ledger, so a rival's deed is charged to that rival
+## (wiki: civilian-units § Merchant).
 func begin_turn(
-	world: WorldMap, charts: CourtCharts, economy: PlayerEconomy = null
+	world: WorldMap, charts: CourtCharts, purses: Dictionary = {}
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	for index in world.region_count():
@@ -193,8 +195,9 @@ func begin_turn(
 				if unit != null and unit.owner == owner:
 					crew.append(unit)
 			var view: VisibilityModel = charts.model_for(owner, index) if charts != null else null
+			var purse: PlayerEconomy = purses.get(owner, null) as PlayerEconomy
 			for report: Dictionary in CivilianWork.resolve_turn(
-				world.region(index), crew, region_works, view, economy
+				world.region(index), crew, region_works, view, purse
 			):
 				report["region"] = index
 				reports.append(report)

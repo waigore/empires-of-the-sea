@@ -46,7 +46,9 @@ Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
 cargo. A colony pays after the crossing, on landed tons (level 4 town first,
 then most tons, then province id). Rivals upgrade towns too; works:
-[improvements.md](improvements.md).
+[improvements.md](improvements.md). A Minor or Tribe province with such a town
+publishes its manufactures as market auto-offers under its own name, sourced at
+the province town; its estates still sell in full.
 
 ## World-market auction
 
@@ -59,8 +61,9 @@ kickbacks; subsidies adjust the settled deal. Unfilled orders carry when
 holds/stock cover them; prices move from filled bids and submitted offers. A
 standing world counterparty fills the remainder.
 
-Staged and carried orders show in the ledger; fills and lapses appear in the
-turn toast. Orders travel in the save.
+An offer is capped by stock left after production; the `Offer` chip names that
+claim. Staged and carried orders show in the ledger; fills, cuts and lapses
+appear in the turn toast. Orders travel in the save.
 
 ## Trade terms
 

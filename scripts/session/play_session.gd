@@ -84,8 +84,9 @@ var gazette: GazetteState = null
 var last_falls: Array[Dictionary] = []
 
 var turn: int = 1
-## Quick Battle stance for the human's land battles: aggressive, balanced or
-## defensive (wiki: quick-battle § Turn structure and actions).
+## The crown's standing Quick Battle plan — aggressive, balanced or defensive.
+## One plan for every battle the human commands, attacking or defending, kept
+## with the campaign (wiki: quick-battle § The crown's plan; DR-20261110-33).
 var battle_plan: String = "balanced"
 var income: int = 120
 ## Last turn's world-market clearing report (deals, notes, credits), for the
@@ -282,7 +283,17 @@ func emit_coast_charted(province_id: int) -> void:
 		host.emit_signal("coast_charted", province_id)
 
 
+## Books the court's word for the fighting just done, then tells the screen: a
+## battle the crown fought is answered by its rival's court when that page is
+## opened (wiki: dialogue-and-mood § Design intent — event: battle results;
+## DR-20261111-01). Both passes report here, so land and sea book alike; a sea
+## fight carries a zone and a land battle a province.
 func emit_battle_resolved(battles: Array[Dictionary]) -> void:
+	for battle: Dictionary in battles:
+		if battle.has("zone"):
+			DialogueEvents.record_naval_battle(diplomacy, battle, player_faction)
+		else:
+			DialogueEvents.record_land_battle(diplomacy, battle, player_faction)
 	if host != null:
 		host.emit_signal("battle_resolved", battles)
 

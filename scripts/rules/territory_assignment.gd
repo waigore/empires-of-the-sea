@@ -48,23 +48,51 @@ static func _assign(
 	var groups: Array = _distribute(continents, factions, sea_bound_required)
 
 	for index in continents.size():
-		var continent: Dictionary = continents[index]
 		var faction_group: Array = groups[index]
 		if faction_group.is_empty():
 			continue
-		var ids: Array = continent["ids"]
-		var pool: Array = continent["sea_bound"] if sea_bound_required else ids
-		if pool.size() < faction_group.size():
-			if sea_bound_required:
+		var ids: Array = (continents[index] as Dictionary)["ids"]
+		var minors: Array[int] = []
+		var greats: Array[int] = []
+		for faction_id: int in faction_group:
+			if minor_ids.has(faction_id):
+				minors.append(faction_id)
+			else:
+				greats.append(faction_id)
+		var remaining: Array = ids.duplicate()
+		# Minor Nations are reserved first; Great Powers split only what is left
+		# (wiki: game-setup § GP assignment).
+		if not minors.is_empty():
+			var minor_seeds: Array[int] = _farthest_seeds(
+				model, _sea_pool(model, remaining), minors.size()
+			)
+			if minor_seeds.size() < minors.size():
 				return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
-			pool = ids
-		var seeds: Array[int] = _farthest_seeds(model, pool, faction_group.size())
-		if seeds.size() < faction_group.size():
-			return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
-		var targets: Dictionary = _plan_targets(
-			ids.size(), faction_group, minor_ids
-		)
-		_grow(model, ids, faction_group, seeds, targets)
+			TerritoryGrowth.paint(
+				model, remaining, minors, minor_seeds,
+				_minor_targets(remaining.size(), minors), false, true
+			)
+			remaining = _absorb_pockets(model, ids, minors, primary_ids.size())
+		if greats.is_empty():
+			continue
+		var chunks: Array = _chunks(model, remaining)
+		var spread: Array = _spread(chunks, greats)
+		for chunk_index in chunks.size():
+			var chunk_ids: Array = (chunks[chunk_index] as Dictionary)["ids"]
+			var group: Array = spread[chunk_index]
+			if group.is_empty():
+				continue
+			var pool: Array = _sea_pool(model, chunk_ids) if sea_bound_required else chunk_ids
+			if pool.size() < group.size():
+				if sea_bound_required:
+					return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
+				pool = chunk_ids
+			var seeds: Array[int] = _farthest_seeds(model, pool, group.size())
+			if seeds.size() < group.size():
+				return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
+			var targets: Dictionary = {}
+			_share(chunk_ids.size(), group, targets)
+			TerritoryGrowth.paint(model, chunk_ids, group, seeds, targets)
 	return {"ok": true, "error": "", "factions": factions}
 
 
@@ -160,27 +188,143 @@ static func _next_continent(
 # --- targets and seeds ------------------------------------------------------
 
 
-## Balanced province budgets: Minor Nations reserve at most MINOR_PROVINCES
-## each, the rest splits evenly across the Great Powers on that continent.
-static func _plan_targets(
-	count: int, factions: Array[int], minor_ids: Array[int]
-) -> Dictionary:
-	var minors: Array[int] = []
-	var greats: Array[int] = []
-	for faction_id: int in factions:
-		if minor_ids.has(faction_id):
-			minors.append(faction_id)
-		else:
-			greats.append(faction_id)
-	var reserve: int = 0
-	if not minors.is_empty():
-		if greats.is_empty():
-			reserve = count
-		else:
-			reserve = mini(count - greats.size(), minors.size() * MINOR_PROVINCES)
+## Connected chunks of a province set (largest first, then lowest first id).
+static func _chunks(model: MapModel, ids: Array) -> Array:
+	var lookup: Dictionary = {}
+	for raw: Variant in ids:
+		lookup[int(raw)] = true
+	var seen: Dictionary = {}
+	var result: Array = []
+	var ordered: Array = ids.duplicate()
+	ordered.sort()
+	for raw: Variant in ordered:
+		var start: int = int(raw)
+		if seen.has(start):
+			continue
+		var group: Array[int] = []
+		var queue: Array[int] = [start]
+		seen[start] = true
+		var head: int = 0
+		while head < queue.size():
+			var current: int = queue[head]
+			head += 1
+			group.append(current)
+			for neighbor: int in MapGeo.province_neighbors(model, current):
+				if lookup.has(neighbor) and not seen.has(neighbor):
+					seen[neighbor] = true
+					queue.append(neighbor)
+		result.append({"ids": group})
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var size_a: int = (a["ids"] as Array).size()
+		var size_b: int = (b["ids"] as Array).size()
+		if size_a != size_b:
+			return size_a > size_b
+		return int((a["ids"] as Array)[0]) < int((b["ids"] as Array)[0])
+	)
+	return result
+
+
+## One Great Power per chunk, then the rest by share so no chunk goes unheld.
+static func _spread(chunks: Array, factions: Array[int]) -> Array:
+	var groups: Array = []
+	for _index in chunks.size():
+		groups.append([] as Array[int])
+	var start: int = mini(chunks.size(), factions.size())
+	for index in start:
+		(groups[index] as Array[int]).append(factions[index])
+	for slot in range(start, factions.size()):
+		var faction_id: int = factions[slot]
+		var best: int = 0
+		var best_score: float = -1.0
+		for index in chunks.size():
+			var size: int = (chunks[index]["ids"] as Array).size()
+			var taken: int = (groups[index] as Array).size()
+			var score: float = float(size) / float(taken + 1)
+			if score > best_score:
+				best_score = score
+				best = index
+		var group: Array[int] = groups[best]
+		group.append(faction_id)
+	return groups
+
+
+static func _sea_pool(model: MapModel, ids: Array) -> Array:
+	var pool: Array = []
+	for raw: Variant in ids:
+		if CapitalChoice.is_sea_bound(model, int(raw)):
+			pool.append(int(raw))
+	return pool
+
+
+static func _unowned(model: MapModel, ids: Array) -> Array:
+	var open: Array = []
+	for raw: Variant in ids:
+		var province: ProvinceState = model.province_data(int(raw))
+		if province != null and province.owner == MapModel.NO_ID:
+			open.append(int(raw))
+	open.sort()
+	return open
+
+
+## A Minor Nation's cell can seal off a cove of a province or two. Such a pocket
+## is too small to seat a Great Power, so the bordering Minor Nation takes it.
+static func _absorb_pockets(
+	model: MapModel, ids: Array, minors: Array[int], max_chunks: int
+) -> Array:
+	var changed: bool = true
+	while changed:
+		changed = false
+		var counts: Dictionary = _owner_counts(model, ids)
+		var chunks: Array = _chunks(model, _unowned(model, ids))
+		for chunk: Dictionary in chunks:
+			var chunk_ids: Array = chunk["ids"]
+			var too_small: bool = chunk_ids.size() < MINOR_PROVINCES
+			var too_many: bool = chunks.size() > max_chunks and chunk == chunks[-1]
+			if not too_small and not too_many:
+				continue
+			var taker: int = _bordering_minor(model, chunk_ids, minors, counts)
+			if taker == MapModel.NO_ID:
+				continue
+			for raw: Variant in chunk_ids:
+				var province_id: int = int(raw)
+				var province: ProvinceState = model.province_data(province_id)
+				province.owner = taker
+				province.population = 180 + province.area * 9 + (province_id * 37) % 90
+			counts[taker] = int(counts.get(taker, 0)) + chunk_ids.size()
+			changed = true
+	return _unowned(model, ids)
+
+
+static func _owner_counts(model: MapModel, ids: Array) -> Dictionary:
+	var counts: Dictionary = {}
+	for raw: Variant in ids:
+		var province: ProvinceState = model.province_data(int(raw))
+		if province != null and province.owner != MapModel.NO_ID:
+			counts[province.owner] = int(counts.get(province.owner, 0)) + 1
+	return counts
+
+
+## Minor Nation touching the pocket that holds fewest provinces (ties: lowest id).
+static func _bordering_minor(
+	model: MapModel, chunk_ids: Array, minors: Array[int], counts: Dictionary
+) -> int:
+	var best: int = MapModel.NO_ID
+	for raw: Variant in chunk_ids:
+		for neighbor: int in MapGeo.province_neighbors(model, int(raw)):
+			var owner: int = model.province_data(neighbor).owner
+			if not minors.has(owner):
+				continue
+			if best == MapModel.NO_ID or int(counts.get(owner, 0)) < int(counts.get(best, 0)):
+				best = owner
+	return best
+
+
+## Minor Nations take MINOR_PROVINCES each, or an even share when the landmass
+## cannot seat that floor (wiki: game-setup § Minor Nation assignment).
+static func _minor_targets(count: int, minors: Array[int]) -> Dictionary:
+	var each: int = mini(MINOR_PROVINCES, maxi(1, count / minors.size()))
 	var targets: Dictionary = {}
-	_share(count - reserve, greats, targets)
-	_share(reserve, minors, targets)
+	_share(mini(count, each * minors.size()), minors, targets)
 	return targets
 
 
@@ -224,140 +368,6 @@ static func _farthest_seeds(
 			break
 		seeds.append(best)
 	return seeds
-
-
-# --- growth -----------------------------------------------------------------
-
-
-static func _grow(
-	model: MapModel,
-	ids: Array,
-	factions: Array[int],
-	seeds: Array[int],
-	targets: Dictionary
-) -> void:
-	var lookup: Dictionary = {}
-	for raw: Variant in ids:
-		lookup[int(raw)] = true
-	var owner: Dictionary = {}
-	var counts: Dictionary = {}
-	var distances: Array[Dictionary] = []
-	for index in factions.size():
-		var faction_id: int = factions[index]
-		var seed_id: int = seeds[index]
-		owner[seed_id] = faction_id
-		counts[faction_id] = 1
-		distances.append(_province_distances(model, seed_id, lookup))
-
-	var remaining: int = ids.size() - seeds.size()
-	while remaining > 0:
-		var grew: bool = false
-		for index in factions.size():
-			var faction_id: int = factions[index]
-			if int(counts[faction_id]) >= int(targets.get(faction_id, 0)):
-				continue
-			var pick: int = _best_frontier(
-				model, lookup, owner, faction_id, distances[index]
-			)
-			if pick < 0:
-				continue
-			owner[pick] = faction_id
-			counts[faction_id] = int(counts[faction_id]) + 1
-			remaining -= 1
-			grew = true
-		if not grew:
-			break
-
-	# Leftover provinces balance the smallest holdings first (within ±1).
-	while remaining > 0:
-		var order: Array[int] = factions.duplicate()
-		order.sort_custom(func(a: int, b: int) -> bool:
-			var count_a: int = int(counts[a])
-			var count_b: int = int(counts[b])
-			if count_a != count_b:
-				return count_a < count_b
-			return a < b
-		)
-		var grew: bool = false
-		for faction_id: int in order:
-			var index: int = factions.find(faction_id)
-			var pick: int = _best_frontier(
-				model, lookup, owner, faction_id, distances[index]
-			)
-			if pick < 0:
-				continue
-			owner[pick] = faction_id
-			counts[faction_id] = int(counts[faction_id]) + 1
-			remaining -= 1
-			grew = true
-			break
-		if not grew:
-			break
-
-	for raw: Variant in owner.keys():
-		var province_id: int = int(raw)
-		var province: ProvinceState = model.province_data(province_id)
-		if province == null:
-			continue
-		province.owner = int(owner[raw])
-		province.population = 180 + province.area * 9 + (province_id * 37) % 90
-
-
-static func _province_distances(
-	model: MapModel, seed_id: int, lookup: Dictionary
-) -> Dictionary:
-	var distances: Dictionary = {seed_id: 0}
-	var queue: Array[int] = [seed_id]
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		var step: int = int(distances[current]) + 1
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if not lookup.has(neighbor) or distances.has(neighbor):
-				continue
-			distances[neighbor] = step
-			queue.append(neighbor)
-	return distances
-
-
-## Unowned province bordering `faction_id`, nearest to its seed, lowest id first.
-static func _best_frontier(
-	model: MapModel,
-	lookup: Dictionary,
-	owner: Dictionary,
-	faction_id: int,
-	distances: Dictionary
-) -> int:
-	var best: int = MapModel.NO_ID
-	var best_distance: float = INF
-	var keys: Array = lookup.keys()
-	keys.sort()
-	for raw: Variant in keys:
-		var province_id: int = int(raw)
-		if owner.has(province_id):
-			continue
-		if not _borders_owner(model, province_id, owner, faction_id):
-			continue
-		var distance: float = float(distances.get(province_id, INF))
-		var better: bool = (
-			best == MapModel.NO_ID
-			or distance < best_distance
-			or (distance == best_distance and province_id < best)
-		)
-		if better:
-			best = province_id
-			best_distance = distance
-	return best
-
-
-static func _borders_owner(
-	model: MapModel, province_id: int, owner: Dictionary, faction_id: int
-) -> bool:
-	for neighbor: int in MapGeo.province_neighbors(model, province_id):
-		if int(owner.get(neighbor, MapModel.NO_ID)) == faction_id:
-			return true
-	return false
 
 
 static func _failure(code: String) -> Dictionary:

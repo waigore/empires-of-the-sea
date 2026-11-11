@@ -72,6 +72,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 	assert_eq(page.model.province_owner(page.selected_province), 2, "the seat is French")
 	assert_false(page.confirm_button.disabled, "the recommended seat can be confirmed")
 	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
 
 	var screen: MapScreen = main.current_screen
 	assert_not_null(screen, "confirming the seat starts the map screen")
@@ -128,6 +129,7 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 	assert_true(page.pick_province(target))
 	assert_true(page.pick_tile(tile))
 	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
 
 	var screen: MapScreen = main.current_screen
 	assert_not_null(screen, "the campaign starts")
@@ -225,6 +227,51 @@ func test_ambient_life_keeps_gulls_and_embers() -> void:
 	assert_true(life._time > 0.0)
 
 
+## A slot that cannot be read is refused in place: the browser names it, the
+## router keeps the running campaign, and the notice lands on the pause menu
+## (wiki: campaign-persistence § Load and resume — announced, never silent).
+func test_an_unreadable_slot_never_replaces_the_running_campaign() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	var path: String = SaveStore.path_for(4, DIR)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "the unreadable fixture opens")
+	if file == null:
+		return
+	file.store_string("not a save at all")
+	file.close()
+	var turn: int = screen.play.turn
+	screen.game_menu.open()
+	screen.game_menu.open_load()
+	var row: Button = screen.game_menu.browser.slot_buttons[3]
+	assert_false(row.disabled, "the slot is not offered as empty")
+	assert_true(row.text.contains("Unreadable"), "the row says it cannot be read")
+	row.emit_signal("pressed")
+	assert_eq(screen.game_menu.browser._status.text, SaveBrowser.UNREADABLE)
+	assert_true(screen.game_menu.browser.visible, "the browser stays open")
+	# Even a caller that bypasses the browser cannot replace the campaign.
+	screen.game_menu.load_chosen.emit(4)
+	assert_true(main.current_screen == screen, "the campaign is not replaced")
+	assert_true(main.current_page == screen, "no title screen is installed")
+	assert_eq(screen.play.turn, turn, "the turn is untouched")
+	assert_eq(
+		screen.game_menu._status.text, SaveBrowser.UNREADABLE, "the pause menu shows the notice"
+	)
+	assert_true(screen.game_menu.is_open(), "the player is back on the pause menu")
+	# Saving over a file the build cannot read asks the confirming press first.
+	screen.game_menu.open_save()
+	screen.game_menu.browser.slot_buttons[3].emit_signal("pressed")
+	assert_true(
+		screen.game_menu.browser._status.text.contains("again"), "a used slot asks twice"
+	)
+	assert_false(
+		SaveCodec.is_valid(SaveStore.read(path)), "one press leaves the file alone"
+	)
+
+
 func _start_game() -> void:
 	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page
@@ -240,9 +287,18 @@ func _start_game() -> void:
 	if page != null:
 		await get_tree().process_frame
 		page.confirm_button.emit_signal("pressed")
+		_pass_the_charge()
 	assert_not_null(main.current_screen, "game started")
 	if main.current_screen != null:
 		main.current_screen.save_dir = DIR
+
+
+## The crown's charge sits between the chart and the first turn: one press opens
+## the age (wiki: dialogue-management § Kinds, `game_start_intro`).
+func _pass_the_charge() -> void:
+	var page: IntroScreen = main.current_page as IntroScreen
+	if page != null:
+		page.begin_button.emit_signal("pressed")
 
 
 ## Another sea-bound province of the given crown (for the seat-choice cases).

@@ -166,8 +166,7 @@ static func plan_for(
 	if is_defender and QuickBattleActions.PLANS.has(String(context.get("defender_battle_plan", ""))):
 		return String(context["defender_battle_plan"])
 	if owner == int(context.get("player_faction", -1)):
-		var chosen: String = String(context.get("battle_plan", "balanced"))
-		return chosen if QuickBattleActions.PLANS.has(chosen) else "balanced"
+		return QuickBattleActions.normalize_plan(String(context.get("battle_plan", "balanced")))
 	## A garrison with no firearm on the wall can only hurt a siege by sallying.
 	if is_defender and siege and SiegeLanes.return_fire_share(side) <= 0.0:
 		return "aggressive"
