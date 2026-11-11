@@ -185,8 +185,6 @@ func _on_mute_pressed() -> void:
 ## authoritative mix, and the widgets mirror changes made elsewhere (the global
 ## mute key). Shared by the map HUD seal and the title-screen seal.
 func bind(director: AudioDirector) -> void:
-	if director == null:
-		return
 	ui_sound.connect(director.play_event)
 	music_volume_changed.connect(director.set_music_volume)
 	sfx_volume_changed.connect(director.set_sfx_volume)
