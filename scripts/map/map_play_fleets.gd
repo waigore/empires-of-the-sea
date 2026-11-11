@@ -330,9 +330,11 @@ static func launch(play: PlaySession, type_id: String) -> void:
 		return
 	var fleet: FleetState = result.get("fleet") as FleetState
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	var hull_name: String = String(result.get("name", ""))
+	if hull_name.is_empty():
+		hull_name = ShipStats.display_name(type_id)
 	play.hud.toast(
-		"%s joins the home fleet at %s"
-		% [ShipStats.display_name(type_id), play.model.province_name(province)]
+		"%s joins the home fleet at %s" % [hull_name, play.model.province_name(province)]
 	)
 	refresh_yard(play, fleet)
 
@@ -356,10 +358,10 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
 		return
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	play.hud.toast(
-		"%s broken up — one peasant returns to the pool"
-		% ShipStats.display_name(String(result.get("type", "")))
-	)
+	var broken: String = String(result.get("name", ""))
+	if broken.is_empty():
+		broken = ShipStats.display_name(String(result.get("type", "")))
+	play.hud.toast("%s broken up — one peasant returns to the pool" % broken)
 	if bool(result.get("retired", false)):
 		play.hud.panels.hide_fleet()
 		return
