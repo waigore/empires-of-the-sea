@@ -649,6 +649,31 @@ func test_the_battle_report_carries_aftermath_condition_and_chevrons() -> void:
 	assert_true(int(battle["defender_mauled"]) >= 0)
 
 
+## The same aftermath hook writes the field's name onto the winner's colours
+## (wiki: naming § Regiment records; DR-20261112-02). The plate reads the count.
+func test_a_won_quick_battle_honours_the_winning_colours() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, _pikes(2), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(8))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, _context("balanced"))
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_eq(int(reports[0]["attacker_honours"]), attacker.count())
+	assert_eq(int(reports[0]["defender_honours"]), 0, "a broken side takes no colour")
+	for regiment_id: String in attacker.regiments:
+		assert_eq(RegimentRecord.colours(attacker, regiment_id), [2])
+
+
+func test_a_defended_province_honours_its_holder() -> void:
+	var battle: Dictionary = _fight("defensive", _pikes(2), _guards(8))
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attacker_honours"]), 0, "the beaten side takes nothing")
+	assert_true(int(battle["defender_honours"]) > 0, "the field's name goes to the holder")
+
+
 func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:
 	var army := Fixture.army(1, 0, 2, ["guards", "guards"])
 	var veteran: String = army.regiments[0]

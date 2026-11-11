@@ -29,21 +29,20 @@ DR-20261112-01). Decision list for what to ship next (`REQ-P2-02`).
 | Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19), [`dialogue.md`](dialogue.md) |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (a deed raises the town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
+| Battle honours beyond the chevron | `RegimentRecord`, DR-20261112-02, [`armies.md`](armies.md) |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Battle honours beyond the chevron; line preview | Immersion and convenience; no rules payoff | Needs a DR: what an honour would read or do |
+| 1 | A predict-the-line preview in the dossier | Convenience only | Declined by [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § The line and the reserve: the limit depends on the general bound at combat |
 
 ## Next pick
 
-**Rank 1** needs a design record for what an honour or a preview is.
-Nothing on the list is a plain code gap against published rules.
-
-Minor/Tribe town development shipped as [DR-20261112-01](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-01):
-a deed lifts the province town, so the manufactures offer now fires in a
-campaign.
+**Rank 1** is a live wiki decision, not a code gap: the page publishes that the
+dossier does not predict the line. Nothing on the list is a plain gap against
+published rules. Battle honours shipped as
+[DR-20261112-02](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261112-02).
 
 ## Out of scope / blocked footnotes
 

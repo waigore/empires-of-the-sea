@@ -161,3 +161,97 @@ func test_the_aftermath_names_a_mauled_regiment() -> void:
 
 	assert_eq(entries.size(), 1)
 	assert_eq(String(entries[0]["name"]), RegimentNames.of(army, "unit_101"))
+
+
+# --- battle honours beyond the chevron (wiki: naming § Regiment records;
+# DR-20261112-02) ---
+
+
+func test_a_won_battle_adds_the_province_to_every_surviving_colour() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_eq(int(reports[0]["attacker_honours"]), attacker.count(), "every colour takes it")
+	assert_eq(int(reports[0]["defender_honours"]), 0, "a broken side takes no colour")
+	assert_true(defender.is_empty(), "the beaten side had no survivor to honour")
+	for regiment_id: String in attacker.regiments:
+		assert_eq(RegimentRecord.colours(attacker, regiment_id), [2])
+
+
+func test_a_standoff_and_a_defeat_take_no_honour() -> void:
+	var attacker := Fixture.army(1, 0, 2, ["pikemen"])
+	var defender := Fixture.army(2, 1, 2, ["pikemen"], true)
+	var standoff: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.STALEMATE}
+	var beaten: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.DEFENDER_VICTORY}
+
+	RegimentCondition.attach(standoff, [attacker], [defender], 0, 1)
+	RegimentCondition.attach(beaten, [attacker], [defender], 0, 1)
+
+	assert_eq(int(standoff["attacker_honours"]), 0, "a standoff wins no field")
+	assert_eq(int(beaten["attacker_honours"]), 0, "the beaten side takes nothing")
+	assert_eq(int(beaten["defender_honours"]), 1)
+	assert_true(RegimentRecord.colours(attacker, "unit_101").is_empty())
+	assert_eq(RegimentRecord.colours(defender, "unit_201"), [2])
+
+
+func test_a_province_is_borne_once_and_the_newest_leads() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	RegimentRecord.award_honours(side, 2)
+	RegimentRecord.award_honours(side, 6)
+	RegimentRecord.award_honours(side, 6)
+
+	assert_eq(RegimentRecord.colours(army, "unit_101"), [6, 2])
+	assert_eq(int(RegimentRecord.of(army, "unit_101")["honours"].size()), 2)
+
+
+func test_the_colours_survive_a_detach_and_a_save() -> void:
+	var army := Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	RegimentRecord.award_honours(side, 2)
+	var armies: Array[ArmyState] = [army]
+
+	var result: Dictionary = ArmyState.split(armies, army, ["unit_101"], 2)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	var detached: ArmyState = result["army"] as ArmyState
+	assert_eq(RegimentRecord.colours(detached, "unit_101"), [2], "the colour travels")
+	var restored: ArmyState = ArmyState.from_dict(detached.to_dict())
+	assert_eq(RegimentRecord.colours(restored, "unit_101"), [2], "the save carries it")
+
+
+func test_the_dossier_line_names_the_colours() -> void:
+	var model := Fixture.build()
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+	army.regiment_engagements["unit_101"] = 5
+	army.regiment_wins["unit_101"] = 4
+	for province: int in [2, 6, 4, 0]:
+		RegimentRecord.award_honours(side, province)
+
+	assert_eq(
+		RegimentRecord.line(army, "unit_101", model),
+		"5 engagements · 4 won · Province 0 · Province 4 · +2 more",
+		"the two newest colours, then the count of the rest"
+	)
+	assert_eq(
+		RegimentRecord.line(army, "unit_101"),
+		"5 engagements · 4 won",
+		"without a chart the tally stands alone"
+	)
+
+
+func test_an_unhonoured_regiment_reads_only_its_tally() -> void:
+	var model := Fixture.build()
+	var army := Fixture.army(1, 0, 2, ["pikemen"])
+	army.regiment_engagements["unit_101"] = 1
+
+	assert_eq(RegimentRecord.honour_line(army, "unit_101", model), "")
+	assert_eq(RegimentRecord.line(army, "unit_101", model), "1 engagement · 0 won")

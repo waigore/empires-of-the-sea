@@ -9,58 +9,58 @@
 ## Implemented
 
 - **Roster and drill** (`RegimentCatalog`, `RegimentEconomy`,
-  `ArmyTraining`): 29 tech-gated regiments; recruits join the Home Army.
+  `ArmyTraining`): 29 tech-gated regiments into the Home Army.
 - **Generals** (`GeneralRoster`, `GeneralBinding`): cap 1→4 by tech, one per
   army, medals 0–4, +1 per win.
-- **Combat modifiers** (`ArmyModifiers`): aura 5%/medal, deployment 10
-  (12 with Nationalism) + medals, initiative `cavalryShare×50 + medals×10`,
-  feeding 1.0/0.75/0.5, wood terrain (defender 1.5/1.1, attacker 0.9).
-- **Armies** (`ArmyState`): a province per army; one Home Army per faction at
-  its capital, never deleted; detach for field armies; split/combine needs one
-  province, one owner, both ashore. One march a turn; own land open, foreign must border.
-- **Naval transport** (`NavalTransport`, `ArmyTransport`): a field army boards
-  a port squadron (one regiment per hull) and lands on an owned coast; troops
-  drown with a sunk squadron.
+- **Combat modifiers** (`ArmyModifiers`): aura 5%/medal; deployment 10
+  (12 with Nationalism) + medals; initiative `cavalry×50 + medals×10`;
+  feeding 1.0/0.75/0.5; wood 1.5/1.1 (defender).
+- **Armies** (`ArmyState`): a province per army; one Home Army per crown at
+  its capital, never deleted; detach makes field armies; split/combine needs
+  one province, one owner. One march a turn; foreign land must border.
+- **Naval transport** (`NavalTransport`, `ArmyTransport`): one regiment per
+  hull; a landing needs an owned coast; troops drown with a sunk squadron.
 - **Upkeep:** 1–3 food per regiment by era.
-- **Combat:** `Σ (FPN + FPM)` over the deployed slice, scaled by chevrons
-  and health; DEF/9 durability; ratio bands; elimination precedes a flip.
-  A hungrier attacker at 1.5–4.0 fights 0.6/0.4 and takes nothing; mutual
-  annihilation restores `ceil(20%)` of defender start as era-best infantry.
+- **Combat:** `Σ (FPN + FPM)` over the line × chevrons × health;
+  DEF/9; ratio bands; elimination precedes a flip. A hungrier attacker at
+  1.5–4.0 fights 0.6/0.4 and takes nothing; mutual ruin restores `ceil(20%)`
+  era-best infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
-  (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
-  alone; winners gain a chevron; wounded recover a quarter a turn.
+  `60 + 10 × DEF` and chevrons. A break mauls survivors; wounds never destroy
+  alone; winners gain a chevron; the wounded recover a quarter a turn.
 - **Regiment titles and records** (`RegimentNames`, `RegimentRecord`,
-  DR-20261111-18): a period title from the crown's pool (unique in its army,
-  kept through split, merge and save) and the engagements and wins tallied once
-  in the aftermath hook; printed in the dossier, the mauled line and the muster
-  toasts. Display only.
+  DR-20261111-18): a period title (unique per army, kept
+  through split, merge and save) and the engagements/wins tallied in the
+  aftermath hook; printed in the dossier, mauled line and toasts.
+- **Battle honours** (`RegimentRecord`, DR-20261112-02): each surviving
+  regiment of a winning side takes the province's name once — line and reserve
+  alike, the chevron's set. The dossier prints the two newest
+  (`4 engagements · 3 won · Évora · Lisboa · +2 more`); the plate adds
+  `Honours — España: Évora added to 3 colours`.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General
   (L1–2) on the town tile; rest 40%/55%, owner's battle wear 80%/65%. Rivals
   raise them (DR-20261111-16).
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock;
   Minors follow the leading power, Tribes stay level 1.
-- **Attack price** (`ArmyAttackCost`): 100 ducats per attacker per land battle,
-  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding (63); once per
+- **Attack price** (`ArmyAttackCost`): 100 ducats per attacker per battle,
+  ×0.75 Machinery, ×0.85 Military Funding (63); once per
   exchange, floor zero.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side;
-  aggressive/balanced/defensive. Strength `Σ (FPN + FPM) × chevrons ×
-  health` × cohesion. Guns soak fire and cut the fort; sieges split
-  wall/behind (`SiegeLanes`); Sortie is its own order. Plate floats
-  `−N`, health, chevrons; [battle-sim.md](battle-sim.md).
-- **Unopposed:** an army ending in hostile or neutral land with no armed
-  defender takes it.
+  three plans. Guns soak fire and cut the fort; sieges split
+  wall/behind (`SiegeLanes`); Sortie is its own order. Plate floats `−N`,
+  health, chevrons ([battle-sim.md](battle-sim.md)).
+- **Unopposed:** an army ending in hostile/neutral land unopposed takes it.
 
 ## Deferred (REQ-P2-02)
 
-Battle honours beyond the chevron; line preview —
-[`deferred.md`](deferred.md).
+A predict-the-line preview — [`deferred.md`](deferred.md).
 
 ## Architecture
 
 Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
 `quick_battle*`, `siege_lanes`, `hospital_rules`, `general_*`,
-`naval_transport`. Presentation: `map/army_layer`, `map/army_transport`,
+`naval_transport`. Presentation: `map/army_*`,
 `map/map_play_army*`, `map/map_play_land_turn`, `ui/army_panel`,
 `ui/quick_battle_*`, `map_screen`.
 

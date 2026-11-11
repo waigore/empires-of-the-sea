@@ -24,6 +24,7 @@ suites = [
 suites = [
   "test_army_field_rules.gd",
   "test_army_orders.gd",
+  "test_army_regiment_names.gd",
   "test_battle_rules.gd",
   "test_difficulty.gd",
   "test_hospital_rules.gd",
