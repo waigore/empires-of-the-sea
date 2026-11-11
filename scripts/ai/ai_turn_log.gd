@@ -10,7 +10,8 @@ const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
-	"work", "production", "recruit", "train", "split", "invade", "cargo",
+	"work", "production", "recruit", "reinforce", "train", "split", "invade",
+	"cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -24,6 +25,7 @@ const ACTION_LABELS: Dictionary = {
 	"work": "work orders",
 	"production": "production",
 	"recruit": "workers",
+	"reinforce": "regiments raised",
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
@@ -122,6 +124,17 @@ static func _record_armies(
 		var kind: String = String(raw.get("kind", ""))
 		if kind == AiMilitaryPlanner.KIND_SPLIT:
 			_bump(factions[faction]["actions"], "split")
+			continue
+		if kind == MapPlayArmyAi.KIND_REINFORCE:
+			_bump(factions[faction]["actions"], "reinforce")
+			var raised: String = RegimentCatalog.display_name(String(raw.get("type", "")))
+			if not raised.is_empty():
+				_add_event(
+					merged,
+					factions[faction],
+					faction,
+					"%s musters %s." % [FactionCatalog.name_of(faction), raised]
+				)
 			continue
 		var key: String = "attack" if bool(raw.get("attacked", false)) else "march"
 		_bump(factions[faction]["actions"], key)

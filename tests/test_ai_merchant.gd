@@ -141,8 +141,8 @@ func test_a_rivals_deed_is_charged_to_the_rival_ledger() -> void:
 
 	var human: PlayerEconomy = _ledger(5000)
 	var rival: PlayerEconomy = _ledger(5000)
-	var reports: Array[Dictionary] = layer.begin_turn(
-		world, null, {0: human, 1: rival}
+	var reports: Array[Dictionary] = CivilianTurnPass.resolve(
+		layer, world, null, {0: human, 1: rival}
 	)
 	assert_true(bool(reports[0]["completed"]))
 	assert_eq(rival.treasury, 4250, "the rival paid the price")
@@ -233,7 +233,7 @@ func test_the_rival_turn_signs_the_deed_for_its_own_crown() -> void:
 	assert_eq(merchant.work_tile(), GRAIN)
 
 	var purse: int = ledger.treasury
-	layer.begin_turn(world, null, {1: ledger})
+	CivilianTurnPass.resolve(layer, world, null, {1: ledger})
 	assert_true(model.is_purchased_tile(GRAIN), "the deed is signed next turn")
 	assert_eq(ledger.treasury, purse - 750, "the buyer's own purse paid")
 

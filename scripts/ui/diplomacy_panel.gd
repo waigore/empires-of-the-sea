@@ -21,6 +21,9 @@ var _world: WorldMap = null
 var _player: int = FactionCatalog.PLAYER_FACTION
 var _treasury: int = 0
 var _tech: Dictionary = {}
+## Public power score per Great Power, from the session's order of battle; empty
+## in a fixture that supplies none, which simply shows no power line.
+var _power: Dictionary = {}
 var _selected: int = -1
 var _last_group: String = ""
 var _list: VBoxContainer = null
@@ -120,7 +123,8 @@ func refresh(
 	player: int,
 	treasury: int,
 	tech: Dictionary = {},
-	court_reports: Dictionary = {}
+	court_reports: Dictionary = {},
+	power: Dictionary = {}
 ) -> void:
 	_state = state
 	_world = world
@@ -128,6 +132,7 @@ func refresh(
 	_treasury = treasury
 	_tech = tech
 	_court_reports = court_reports
+	_power = power
 	if _list == null or _detail == null:
 		return
 	var ids: Array[int] = _known_ids()
@@ -150,7 +155,7 @@ func select_faction(faction_id: int) -> void:
 	if _state == null or not _state.has_relation(_player, faction_id):
 		return
 	_selected = faction_id
-	refresh(_state, _world, _player, _treasury, _tech, _court_reports)
+	refresh(_state, _world, _player, _treasury, _tech, _court_reports, _power)
 
 
 func _known_ids() -> Array[int]:
@@ -173,10 +178,11 @@ func _fill_list(ids: Array[int]) -> void:
 	_clear(_list)
 	for faction_id: int in ids:
 		var record: DiplomacyRelation = _state.relation(_player, faction_id)
+		var row := VBoxContainer.new()
+		row.add_theme_constant_override("separation", 0)
 		var button := Button.new()
-		button.text = "%s\n%s" % [
-			FactionCatalog.name_of(faction_id), _status_line(faction_id, record)
-		]
+		var stand: String = _status_line(faction_id, record)
+		button.text = "%s\n%s" % [FactionCatalog.name_of(faction_id), stand]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.custom_minimum_size = Vector2(0, 46)
 		button.add_theme_font_size_override("font_size", 13)
@@ -186,7 +192,9 @@ func _fill_list(ids: Array[int]) -> void:
 			)
 			button.add_theme_color_override("font_color", Palette.GOLD_PALE)
 		button.pressed.connect(func() -> void: select_faction(faction_id))
-		_list.add_child(button)
+		row.add_child(button)
+		CourtRows.decorate(row, faction_id, _power, _player)
+		_list.add_child(row)
 
 
 func _fill_detail() -> void:
@@ -198,22 +206,17 @@ func _fill_detail() -> void:
 	var name_label := _label(FactionCatalog.name_of(_selected), 24, Palette.GOLD_PALE)
 	name_label.add_theme_font_override("font", UiTheme.serif())
 	_detail.add_child(name_label)
-	_detail.add_child(
-		_label(
-			"%s  ·  %s"
-			% [
-				FactionCatalog.type_label(FactionCatalog.type_of(_selected)),
-				FactionCatalog.region_label(FactionCatalog.region_of(_selected)),
-			],
-			12,
-			Palette.TEXT_DIM
-		)
-	)
+	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(_selected))
+	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(_selected))
+	_detail.add_child(_label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
 	var status := _label(_status_line(_selected, record), 15, _status_color(_selected, record))
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.add_child(status)
 	_detail.add_child(_meter(record.score))
 	_detail.add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
+	var mark: Dictionary = CourtRows.line(_power, _player, _selected)
+	if not mark.is_empty():
+		_detail.add_child(_label(CourtRows.detail_text(mark), 13, mark["color"] as Color))
 	_add_envoy()
 	_detail.add_child(_label(_overture_line(_selected), 13, Palette.TEXT))
 	_detail.add_child(_caption("COURT ORDERS"))

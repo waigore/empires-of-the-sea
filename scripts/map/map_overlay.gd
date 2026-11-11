@@ -239,7 +239,13 @@ func _build_country_borders() -> void:
 	var owners: Array = raw.keys()
 	owners.sort()
 	for owner: int in owners:
-		_country_borders[owner] = InkPaths.smooth_segments(raw[owner], 3)
+		var smoothed: Array[PackedVector2Array] = InkPaths.smooth_segments(raw[owner], 3)
+		var inked: Array[PackedVector2Array] = []
+		for i in smoothed.size():
+			# The wobble is keyed by owner and path so two crowns sharing a
+			# frontier do not trace the same hand.
+			inked.append(InkPaths.hand(smoothed[i], 1.8, 1.3 + float(owner) + float(i) * 1.9))
+		_country_borders[owner] = inked
 
 
 func refresh_borders() -> void:

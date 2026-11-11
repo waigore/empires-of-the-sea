@@ -1,27 +1,82 @@
-class_name MapPlayArmyBattles
+class_name MapPlayLandTurn
 extends RefCounted
-## The land combat pass: every region's field battles, their despatches, and the
-## capital verdicts that resolve in the same pass (wiki: combat;
-## capital-and-connectivity § Capital loss). Rules stay in ArmyCombat and
-## CapitalLoss; this only reports, repaints and keeps the session framing
-## (REQ-P3-01, REQ-P3-03).
+## End-of-turn land combat: every region fights, then the capital verdicts settle
+## and the map ink follows the result (wiki: military-armies, capital-and-
+## connectivity § Capital loss). Mirrors MapPlayNavalTurn for the sea: the rules
+## resolve each battle, this only orders the pass, reports it and emits the
+## plate signal (REQ-P3-02).
+##
+## The army dossier and march orders live in MapPlayArmies; musters live in
+## MapPlayArmyMuster. This module owns the one land battle pass and the crown
+## falls it decides.
+
+
+## Feeding, leaders, techs and difficulty for Combat; seed binds generals.
+## `hostile` is the war query (wiki: diplomacy § War required).
+static func battle_context(play: PlaySession) -> Dictionary:
+	# Every crown fights on its own tech (REQ-P2-03) and pays its own price.
+	var tech: Dictionary = MapPlayCampaign.tech_by_faction(play)
+	if play.observer_mode and play.ai != null:
+		tech[play.player_faction] = play.ai.economy_for(play.player_faction).tech_unlocked
+	return {
+		"feeding": play.feeding,
+		"leaders": play.leaders,
+		"tech": tech,
+		"pay_attack": func(f: int, c: int) -> int: return ArmyAttackCost.pay(play.ledger_for(f), c),
+		## Minor Nations reform a garrison at the parity level applied this turn.
+		"parity_era": MilitaryParity.max_great_power_era(MapPlayCampaign.tech_by_faction(play)),
+		"seed": play.turn,
+		"hostile": _war_query(play),
+		## The observer has no human plate; every exchange auto-resolves (wiki: quick-battle).
+		"quick_battle": not play.observer_mode,
+		"player_faction": play.human_faction_id(),
+		"battle_plan": play.battle_plan,
+		"difficulty": Difficulty.combat_multipliers(
+			play.human_faction_id(), play.difficulty, FactionCatalog.great_power_ids()),
+	}
+
+
+## Battles only happen between declared enemies and Tribes (wiki: factions).
+static func _war_query(play: PlaySession) -> Callable:
+	return func(a: int, b: int) -> bool:
+		return DiplomacyRules.invadable(play.diplomacy, a, b)
 
 
 ## Land battles resolve in every region, then the map's ownership ink is
 ## refreshed when the visible region changed hands; capital losses resolve in the
-## same pass. Returns the records for the turn report.
+## same pass (wiki: capital-and-connectivity § Capital loss). Returns the records.
 static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var before: Array = CapitalLoss.snapshot_world(play.world)
 	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
-		play.world, MapPlayArmies.battle_context(play)
+		play.world, battle_context(play)
 	)
 	if battles.is_empty():
 		return battles
 	play.emit_battle_resolved(battles)
 	var repaint: bool = false
 	for battle: Dictionary in battles:
-		_report(play, battle)
 		var region: int = int(battle.get("region", play.region_index))
+		var model: MapModel = play.model if region == play.region_index else play.world.region(region)
+		var province: String = model.province_name(int(battle["province"])) if model != null else "—"
+		var prefix: String = ""
+		if region != play.region_index:
+			prefix = "%s — " % FactionCatalog.region_label(region)
+		var line: String = prefix + BattleReport.describe_land(
+			battle, province, FactionCatalog.names()
+		)
+		if int(battle.get("attack_paid", 0)) > 0:
+			line += " — %d ducats spent" % int(battle["attack_paid"])
+		if battle.has("quick") and play.hud != null:
+			battle["player_faction"] = play.player_faction
+			play.hud.show_quick_battle(battle, prefix + province)
+		var medal: String = String(battle.get("medal_gain", ""))
+		if not medal.is_empty():
+			var general: String = play.army_layer.generals.label(
+				int(battle.get("medal_owner", -1)), medal
+			)
+			if not general.is_empty():
+				line += " — %s earns a medal" % general
+		play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
 	var losses: Dictionary = CapitalLoss.resolve_world(play.world, before)
@@ -42,35 +97,6 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		MapPlayArmies.show_panel(play, play.army_layer.selected_army)
 		MapPlayArmies.refresh_options(play, play.army_layer.selected_army)
 	return battles
-
-
-## One battle's despatch: the report line, what a paid attack cost, the plate for
-## the human's Quick Battle, and the medal a general earned (wiki: quick-battle).
-static func _report(play: PlaySession, battle: Dictionary) -> void:
-	var region: int = int(battle.get("region", play.region_index))
-	var model: MapModel = (
-		play.model if region == play.region_index else play.world.region(region)
-	)
-	var province: String = model.province_name(int(battle["province"])) if model != null else "—"
-	var prefix: String = ""
-	if region != play.region_index:
-		prefix = "%s — " % FactionCatalog.region_label(region)
-	var line: String = prefix + BattleReport.describe_land(
-		battle, province, FactionCatalog.names()
-	)
-	if int(battle.get("attack_paid", 0)) > 0:
-		line += " — %d ducats spent" % int(battle["attack_paid"])
-	if battle.has("quick") and play.hud != null:
-		battle["player_faction"] = play.player_faction
-		play.hud.show_quick_battle(battle, prefix + province)
-	var medal: String = String(battle.get("medal_gain", ""))
-	if not medal.is_empty():
-		var general: String = play.army_layer.generals.label(
-			int(battle.get("medal_owner", -1)), medal
-		)
-		if not general.is_empty():
-			line += " — %s earns a medal" % general
-	play.hud.toast(line, BattleReport.icon_of(battle))
 
 
 ## Reports the capital verdicts of Combat; returns true when the map changed. A

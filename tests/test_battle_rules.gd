@@ -927,6 +927,72 @@ func test_a_losing_general_keeps_his_medals() -> void:
 	assert_eq(String(reports[0]["medal_gain"]), "")
 
 
+## Every crown's roster is reconciled with its own research at the Combat phase
+## (wiki: military-generals § Count and tech-gated cap). The ledger only syncs
+## the human's pool, so a rival used to fly one commander for the whole age.
+func test_the_combat_phase_reconciles_every_crown_with_its_own_tech() -> void:
+	var model := Fixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var defender := Fixture.army(1, 0, 0, ["peasant_levies"], true)
+	var first := Fixture.army(2, 1, 0, ["pikemen"])
+	first.moved = true
+	var second := Fixture.army(3, 1, 0, ["pikemen"])
+	second.moved = true
+	var roster := GeneralRoster.new()
+	var context: Dictionary = {
+		"tech": {0: {"nationalism": true}, 1: {"organised_regiments": true}, 2: {}},
+		"hostile": func(_a: int, _b: int) -> bool: return true,
+	}
+
+	ArmyBattles.resolve_region_turn(
+		world, {0: [defender, first, second] as Array[ArmyState]}, roster, context
+	)
+
+	assert_eq(roster.ids(1), ["general_1", "general_2"], "the rival's cap 2 lands")
+	assert_eq(roster.count(0), 4, "the human's nationalism cap lands")
+	assert_eq(roster.count(2), 1, "a court with no cap tech keeps one commander")
+
+
+## A reconciled pool is what lets a court field two attacking armies under two
+## commanders in one Combat phase (wiki: military-generals § Assignment).
+func test_a_reconciled_court_commands_both_of_its_attacking_armies() -> void:
+	var model := Fixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var defender := Fixture.army(1, 0, 0, ["peasant_levies"], true)
+	var first := Fixture.army(2, 1, 0, ["pikemen"])
+	first.moved = true
+	var second := Fixture.army(3, 1, 0, ["pikemen"])
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+	var roster := GeneralRoster.new()
+	roster.reconcile({1: {"organised_regiments": true}})
+
+	var bindings: Dictionary = GeneralBinding.bind_phase(
+		world, {0: armies}, roster, 7
+	)["army_general"]
+
+	assert_true(bindings.has(first.id))
+	assert_true(bindings.has(second.id))
+	assert_true(
+		String(bindings[first.id]) != String(bindings[second.id]),
+		"two commanders, never one bound twice"
+	)
+
+
+## The reconciliation reads only Great Powers and only their own row: a Minor
+## Nation holds no pool and a junk tech row must not grow one.
+func test_reconcile_reads_only_great_powers_and_their_own_tech() -> void:
+	var roster := GeneralRoster.new()
+
+	roster.reconcile({1: {"nationalism": true}, 6: {"nationalism": true}, 2: "nope"})
+
+	assert_eq(roster.count(1), 4)
+	assert_false(roster.pools.has(6), "minors never hold commanders")
+	assert_false(roster.pools.has(2), "a junk tech row is ignored")
+
+
 # --- Quick Battle extracted modules (REQ-P3-01 / REQ-P3-04) ---
 ## Action catalog, fort battery, and plate copy live in their own modules so
 ## the soft-capped orchestrators stay under ≤400/≤25. Covered here (battle
@@ -1227,7 +1293,7 @@ func test_the_battle_context_charges_through_the_crowns_own_ledger() -> void:
 	play.player_faction = FactionCatalog.PLAYER_FACTION
 	var before: int = controller.economy.treasury
 
-	var pay: Callable = MapPlayArmies.battle_context(play)["pay_attack"]
+	var pay: Callable = MapPlayLandTurn.battle_context(play)["pay_attack"]
 
 	assert_eq(int(pay.call(play.player_faction, 75)), 75)
 	assert_eq(controller.economy.treasury, before - 75)

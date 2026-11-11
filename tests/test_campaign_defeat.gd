@@ -235,7 +235,7 @@ func _fall_crown(target: MapScreen, fallen: int, conqueror: int) -> void:
 	assert_eq(
 		int(losses["fallen"].size()), 1, "the stripped crown falls on its lost seat"
 	)
-	MapPlayArmyBattles.apply_capital_loss(play, losses)
+	MapPlayLandTurn.apply_capital_loss(play, losses)
 
 
 func _load(data: Dictionary) -> MapScreen:

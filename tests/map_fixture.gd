@@ -10,10 +10,15 @@ const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 const WIDTH: int = 48
 const HEIGHT: int = 32
 ## Two-region world used by MapScreen integration + world setup. The province
-## target clamps to its 24/20 floor well before 64x42, so the smaller size keeps
-## the same rosters while generating (and painting) far fewer tiles per suite.
-const WORLD_WIDTH: int = 56
-const WORLD_HEIGHT: int = 38
+## target clamps to its 24/20 floor long before this size, so it keeps the same
+## rosters (60 Old World / 30 New World provinces, 8 sea zones and passages, 6
+## crowned capitals) while painting far fewer tiles per mounted screen. Two
+## floors hold it here: sides stay at or above `SaveCodec.MIN_MAP_SIDE` (32) or
+## a slot written from this world would not validate, and a crown needs ~16 free
+## land tiles for the turn-100 advanced-start civilians (44x32 leaves the
+## tightest crown 32).
+const WORLD_WIDTH: int = 44
+const WORLD_HEIGHT: int = 32
 
 static var _world: WorldMap = null
 static var _region: MapModel = null

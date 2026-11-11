@@ -3,13 +3,13 @@
 Rivals act through a deterministic, data-tuned stack (wiki:
 [AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
 
-**Pillars:** P2, P3, P4, P5.
+**Pillars:** P2–P5.
 
 ## Implemented
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six seed-hashed agendas.
+  six hashed agendas.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30 / +5 / −25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
@@ -22,43 +22,44 @@ Rivals act through a deterministic, data-tuned stack (wiki:
   overtures, alliance/break, trade pact/revoke, boycott/revoke, subsidy/cancel,
   aid. Friendly acts cost desire; retaliation standing (DR-20261110-15).
 - **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
-  consent asks queue for the human, one-sided acts land; declarations before
-  combat.
+  consent asks queue for the human; declarations first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  matchable squadron (120% margin) else blockade or hold, charted water only
+  matchable squadron (120% margin) else hold, charted water only
   (DR-20261110-21); at peace it comes home (DR-20261110-30).
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
-  attack; an invader draws a relief column (one regiment keeps the seat) to
-  that province, seat first, own land only.
+  attack; an invader draws a relief column (one regiment keeps the seat),
+  seat first, own land only.
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
-  fog; voyages, invasions and work orders read only that chart
-  (DR-20261110-21).
+  fog; voyages, invasions and work read only that chart (DR-20261110-21).
 - **Colonisation voyages** (`AiColonisationPlanner`, `MapPlayColonisationAi`):
-  board an Explorer, cross a Passage, land; then prospect or improve.
+  board an Explorer, cross a Passage, land.
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
-  war and a far shore; detach hulls, dock, board, cross; storm best coast,
-  else own colony.
-- **Economy** (`AiEconomyPlanner`): ledger recipes by stock deficit; recruit
-  the highest affordable tier.
+  war and a far shore; detach hulls, dock, board, cross; storm best coast.
+- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest
+  affordable tier, keeping a peasant and `economy.min_treasury`
+  (DR-20261111-06).
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  one order per idle civilian — builders improve or finish a town, engineers
+  per idle civilian — builders improve or finish a town, engineers
   connect then road/port/fort, explorers prospect, rail builders upgrade roads;
   merchants buy a Minor/Tribe deed when embassy, peace, mineral and price allow
   (`civilian.merchant_weight`).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
   with one.
-- **Market planner** (`AiMarketPlanner`): sell above reserve and this turn's
+- **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's
   inputs; bid short build inputs (3 types; 6 with Trade Fairs).
 - **Cargo planner** (`AiCargoPlanner`): merchants sail home for their holds;
   one hull more when tonnage outruns them (`cargo.*`, DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's
   era; Tribes stay at level 1. Rivals re-equip and pay attack prices
   (`RegimentUpgrades`, `ArmyAttackCost`).
-- **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
-  Consumption → Production; trade.
+- **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
+  (DR-20261111-04).
+- **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
+  Consumption → Production, trade.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
 - **Court dossier** (`IntelDossier`,
   [`intel-dossier.md`](intel-dossier.md)).
@@ -70,7 +71,7 @@ Rivals act through a deterministic, data-tuned stack (wiki:
 
 ## Architecture
 
-Planners live in `scripts/ai/` (pure — `REQ-P3-03`);
+Planners live in `scripts/ai/` (`REQ-P3-03`);
 `scripts/map/map_play_*` wire them to `PlaySession`.
 
 ## Tests

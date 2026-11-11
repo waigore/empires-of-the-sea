@@ -167,6 +167,37 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The province panel's Recruit order opens the drill yard door on the Home Army
+## and musters straight from it, so both entry points share one path.
+func test_the_drill_yard_door_musters_into_the_home_army() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	_screen.army_layer.deselect()
+
+	MapPlayArmies.open_muster(_screen.play)
+
+	assert_eq(_screen.army_layer.selected_army, home)
+	assert_true(_screen.hud.panels.army_panel._muster_box.visible)
+
+	MapPlayArmyMuster.recruit(_screen.play, "peasant_levies")
+
+	assert_eq(home.count(), before + 1)
+
+
+## A refusal leaves the register untouched and says why, for every register order.
+func test_refused_register_orders_keep_the_armies() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	_screen.army_layer.select(home)
+
+	MapPlayArmyMuster.recruit(_screen.play, "no_such_regiment")
+	MapPlayArmyMuster.detach(_screen.play, home, ["no_such_regiment"])
+	MapPlayArmyMuster.merge(_screen.play, home)
+
+	assert_eq(home.count(), before)
+	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
@@ -317,7 +348,7 @@ func test_a_battle_leaves_a_word_at_the_rivals_court() -> void:
 	_screen.model.province_data(province).fort_level = 0
 	_seat_battle(province, MapScreen.PLAYER_FACTION, rival, 8, 2)
 
-	MapPlayArmyBattles.resolve(_screen.play)
+	MapPlayLandTurn.resolve(_screen.play)
 
 	var spoken: Dictionary = DialogueEvents.for_pair(
 		_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival
@@ -502,4 +533,22 @@ func test_cycling_the_plan_is_crown_wide() -> void:
 	play.battle_plan = "hammer"
 	MapPlayArmies.cycle_plan(play, army)
 	assert_eq(play.battle_plan, "aggressive", "an unknown stance cycles from balanced")
+
+
+## A rival's general pool grows with its own research: the real Combat phase
+## reconciles every crown before binding (wiki: military-generals § Count and
+## tech-gated cap). Only the human's ledger used to sync a pool, so a rival flew
+## one commander for the whole age.
+func test_a_rivals_research_raises_its_generals_at_the_combat_phase() -> void:
+	var play: PlaySession = _screen.play
+	play.ensure_ai()
+	var rival: int = 2
+	var ledger: PlayerEconomy = play.ai.economy_for(rival)
+	ledger.research.unlock("organised_regiments")
+	assert_eq(play.army_layer.generals.count(rival), 1, "one commander before the phase")
+
+	MapPlayLandTurn.resolve(play)
+
+	assert_eq(play.army_layer.generals.count(rival), 2, "organised_regiments lands a second")
+	assert_eq(play.army_layer.generals.medals(rival, "general_2"), 0)
 
