@@ -56,6 +56,30 @@ func count(owner: int) -> int:
 	return pool(owner).size()
 
 
+## Reconciles every Great Power roster to its own researched cap. The ledger
+## keeps the human's pool in step, but a rival's has no such driver: without
+## this, a crown that studied organised_regiments still fields one commander and
+## its second attacking army falls back to leader medals (wiki:
+## military-generals § Count and tech-gated cap, § Assignment).
+## `tech_by_faction` is the same per-crown map combat modifiers read, so no
+## court can borrow another's generals. Returns how many commanders were
+## spawned; minor nations and tribes never hold a pool.
+func reconcile(tech_by_faction: Dictionary) -> int:
+	var spawned: int = 0
+	for raw: Variant in tech_by_faction.keys():
+		var owner: int = int(raw)
+		if FactionCatalog.type_of(owner) != FactionCatalog.Type.GREAT_POWER:
+			continue
+		var unlocked: Variant = tech_by_faction[raw]
+		if typeof(unlocked) != TYPE_DICTIONARY:
+			continue
+		var before: int = (pools.get(owner, []) as Array).size()
+		sync(owner, unlocked as Dictionary)
+		var after: int = (pools.get(owner, []) as Array).size()
+		spawned += after - before
+	return spawned
+
+
 func ids(owner: int) -> Array[String]:
 	var result: Array[String] = []
 	for general: Dictionary in pool(owner):
