@@ -103,7 +103,8 @@ func _show_intro(config: GameConfig, world: WorldMap) -> void:
 		_intro_seat(world, config.player_faction),
 		AdvancedStart.turn(config.advanced_start),
 		config.infinite_mode,
-		CampaignIntro.salt(config.map_seed, config.player_faction)
+		CampaignIntro.salt(config.map_seed, config.player_faction),
+		config.difficulty
 	))
 	page.begin_pressed.connect(_begin_game.bind(config, world))
 	add_child(page)

@@ -10,11 +10,12 @@ const CAPTION: String = "RESOURCES"
 const LINKED: String = "linked"
 const UNLINKED: String = "no road"
 const FOREIGN: String = "foreign"
-const EMPTY: String = "No resource tiles in this province."
+const EMPTY: String = "No charted resource tiles in this province."
 
 var _lines: Array[Dictionary] = []
 var _body: VBoxContainer = null
 var _empty: Label = null
+var _survey: Label = null
 
 
 func _ready() -> void:
@@ -35,6 +36,14 @@ func _ready() -> void:
 	_empty.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_empty)
+	# Ground still to survey: the hook that sends an Explorer out, since a
+	# mineral is hidden until the crown prospects its tile (DR-20261111-26).
+	_survey = Label.new()
+	_survey.add_theme_font_size_override("font_size", 12)
+	_survey.add_theme_color_override("font_color", Palette.GOLD_DIM)
+	_survey.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_survey.visible = false
+	add_child(_survey)
 	render(_lines)
 
 
@@ -43,8 +52,14 @@ func lines() -> Array[Dictionary]:
 	return _lines
 
 
-## One line per estate. An empty list says the province holds no resource tile.
-func render(rows: Array[Dictionary]) -> void:
+## The survey hook as last rendered ("" when every prospectable tile is known).
+func survey_text() -> String:
+	return _survey.text if _survey != null and _survey.visible else ""
+
+
+## One line per estate. An empty list says the province holds no charted
+## resource tile; `unsurveyed` names the ground an Explorer could still read.
+func render(rows: Array[Dictionary], unsurveyed: int = 0) -> void:
 	_lines = rows
 	if _body == null:
 		_ready()
@@ -54,6 +69,16 @@ func render(rows: Array[Dictionary]) -> void:
 	for row: Dictionary in rows:
 		_body.add_child(_line(row))
 	_empty.visible = rows.is_empty()
+	if rows.is_empty() and unsurveyed > 0:
+		_empty.text = "No estates charted — %s still unsurveyed." % _tiles(unsurveyed)
+	else:
+		_empty.text = EMPTY
+	_survey.visible = unsurveyed > 0
+	_survey.text = "Unsurveyed ground: %s — an Explorer can prospect it." % _tiles(unsurveyed)
+
+
+func _tiles(count: int) -> String:
+	return "%d tile%s" % [count, "" if count == 1 else "s"]
 
 
 # --- one estate --------------------------------------------------------------
@@ -63,8 +88,7 @@ func _line(row: Dictionary) -> HBoxContainer:
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 8)
 	line.tooltip_text = _tip(row)
-	var icon := Icon.new(String(row["icon"]), 16, Palette.GOLD)
-	line.add_child(icon)
+	line.add_child(_art(row))
 	var title := _text(_title(row), 14, Palette.TEXT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(title)
@@ -83,6 +107,15 @@ func _text(value: String, size: int, ink: Color, width: float = 0.0) -> Label:
 	if width > 0.0:
 		label.custom_minimum_size = Vector2(width, 0)
 	return label
+
+
+## The estate's own commodity medallion; a row whose good is not in the catalog
+## keeps the category pictogram, so the line never loses its mark (REQ-P1-02).
+func _art(row: Dictionary) -> Control:
+	var commodity: String = String(row["commodity"])
+	if not commodity.is_empty():
+		return CommodityIcons.badge(commodity, CommodityIcons.LINE_SIZE)
+	return Icon.new(String(row["icon"]), 16, Palette.GOLD)
 
 
 ## The raw resource, not the works: "Timber", "Iron", "Grain".
@@ -130,8 +163,6 @@ func _tip(row: Dictionary) -> String:
 	var level: int = int(row["level"])
 	var grade: String = "level %d" % level if level > 0 else "vacant"
 	parts.append("%s · %s" % [works, grade])
-	if String(row["status"]) == "unprospected":
-		parts.append("an Explorer must prospect it first")
 	if bool(row["working"]):
 		var left: int = int(row["remaining"])
 		parts.append("Builder at work · %d turn%s left" % [left, "" if left == 1 else "s"])

@@ -70,5 +70,5 @@ the age's terms; one press begins, and a load skips it
 
 ## Deferred
 
-Yarn/localization; era-change beats (no era model). Home-front and agenda beats
-are live (DR-20261111-08, DR-20261111-19). Ranked: [`deferred.md`](deferred.md).
+Yarn/localization. Era-change stays blocked (no era model). Home-front and
+agenda beats are live (DR-20261111-08/19). Ranked: [`deferred.md`](deferred.md).

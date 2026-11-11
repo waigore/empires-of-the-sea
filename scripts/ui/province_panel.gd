@@ -181,7 +181,10 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps
 	)
-	_resources.render(rows)
+	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
+		model, _works, _faction, province_id, _visibility
+	).size()
+	_resources.render(rows, unsurveyed)
 	_grid.set_estate_roads(data, rows, crown)
 	_orders.set_town_order(data, _faction, _tech_unlocked)
 	_orders.set_shipyard_visible(

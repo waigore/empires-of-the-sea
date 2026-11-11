@@ -183,8 +183,8 @@ static func _best_builder(
 
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
-## unprospected mineral on its own land or the nearest unexplored chart; a
-## Merchant walks toward the nearest deed it could sign; an idle Spy is handled
+## unsurveyed prospectable tile on its own land or the nearest unexplored chart;
+## a Merchant walks toward the nearest deed it could sign; an idle Spy is handled
 ## by AiSpyPlanner.
 static func _best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
