@@ -27,6 +27,18 @@ suites = [
   "test_difficulty.gd",
 ]
 
+[domains.land_turn]
+# Land battle pass + capital falls (split from MapPlayArmies). Tighter than full
+# campaign so the army refactor stays inside the tier-1 5 min budget.
+suites = [
+  "test_army_field_rules.gd",
+  "test_army_orders.gd",
+  "test_battle_rules.gd",
+  "test_difficulty.gd",
+  "test_campaign_defeat.gd",
+  "test_capital_loss.gd",
+]
+
 [domains.audio]
 suites = [
   "test_audio_director.gd",
@@ -468,17 +480,21 @@ domain = "map"
 match = "tests/playtest_new_world.gd*"
 domain = "map"
 
+# Launch crosses the crown's charge before the map; keep it on intro so a
+# flow-hook edit does not pull the whole map domain past the 5 min budget.
 [[rules]]
 match = "tests/playtest_launch.gd*"
-domain = "map"
+domain = "intro"
 
 [[rules]]
 match = "tests/playtest_combat_chain.gd*"
 domain = "battle"
 
+# Resolve rename / plate hook — battle_rules covers the land pass; keep off the
+# heavier quick_battle domain (overlay + sim) for tier-1 budget.
 [[rules]]
 match = "tests/playtest_quick_battle.gd*"
-domain = "quick_battle"
+domain = "battle"
 
 [[rules]]
 match = "tests/playtest_espionage.gd*"
@@ -595,11 +611,11 @@ domain = "army"
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
 
-# The land battle pass closes a turn and settles crown falls with it, so its
-# suites are the campaign ones (capital loss / defeat) plus the army battle set.
+# Land battle pass + capital falls; land_turn keeps army + capital loss/defeat
+# without the whole campaign domain.
 [[rules]]
 match = "scripts/map/map_play_land_turn.gd*"
-domain = "campaign"
+domain = "land_turn"
 
 [[rules]]
 match = "scripts/map/map_play_colonisation_ai.gd"
