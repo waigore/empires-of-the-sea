@@ -54,6 +54,72 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	assert_eq(_hud._toast_box.get_child_count(), 0)
 
 
+## The playtest drives count plates through the HUD's read-only handles; the
+## board owns the column and the hold queue behind them (REQ-P3-02).
+func test_the_hud_keeps_a_read_only_view_of_its_despatches() -> void:
+	_hud.toast("The turn opens")
+	assert_eq(_hud._toast_box.get_child_count(), 1)
+	assert_true(_hud._toast_queue.is_empty(), "a raised line is not still waiting")
+
+
+## Drives still reach the plaques through the HUD; the getters only forward
+## HudStatChips' widgets (REQ-P1-02).
+func test_the_hud_forwards_its_plaque_handles() -> void:
+	_hud.set_treasury(900, false)
+	_hud.set_income(0)
+	_hud.set_fleets(2)
+	_hud.set_civilians(1)
+	_hud.set_armies(4)
+	assert_eq(_hud._treasury_label, _hud.stats.treasury_label)
+	assert_eq(_hud._income_label, _hud.stats.income_label)
+	assert_eq(_hud._fleet_label, _hud.stats.fleet_label)
+	assert_eq(_hud._civilian_label, _hud.stats.civilian_label)
+	assert_eq(_hud._army_label, _hud.stats.army_label)
+	assert_eq(_hud._treasury_chip, _hud.stats.treasury_chip)
+	assert_eq(_hud._fleet_chip, _hud.stats.fleet_chip)
+	assert_eq(_hud._civilian_chip, _hud.stats.civilian_chip)
+	assert_eq(_hud._army_chip, _hud.stats.army_chip)
+	assert_eq(_hud._treasury_value, 900)
+	_hud.stats = null
+	assert_eq(_hud._treasury_value, 0)
+	assert_null(_hud._treasury_label)
+
+
+## Unbound plaques refuse to paint; a missing battle plate never queues a fight.
+func test_unbound_plaques_and_a_missing_battle_plate_stay_quiet() -> void:
+	var chips := HudStatChips.new()
+	chips.set_treasury(1)
+	chips.set_income(1)
+	chips.set_fleets(1)
+	chips.set_civilians(1)
+	chips.set_armies(1)
+	chips.flash_income(1)
+	chips._refresh_treasury_tooltip()
+	_hud.quick_battle_overlay = null
+	assert_false(_hud.is_quick_battle_shown())
+	_hud.show_quick_battle({"rounds": []}, "Flanders")
+	assert_true(_hud._quick_queue.is_empty())
+	_hud.despatches = null
+	_hud.toast("silence")
+
+
+## A second fight of the turn waits behind the plate; closing it releases held news.
+func test_a_second_battle_waits_then_releases_held_news() -> void:
+	var battle := {"attacker": 0, "defender": 1, "outcome": 0}
+	_hud.show_quick_battle(battle, "Flanders")
+	assert_true(_hud.is_quick_battle_shown())
+	_hud.toast("news under the plate")
+	_hud.show_quick_battle(battle, "Burgundy")
+	assert_eq(_hud._quick_queue.size(), 1)
+	_hud.quick_battle_overlay.skip()
+	_hud.quick_battle_overlay._on_continue()
+	assert_true(_hud.is_quick_battle_shown(), "the queued fight takes the plate")
+	_hud.quick_battle_overlay.skip()
+	_hud.quick_battle_overlay._on_continue()
+	assert_false(_hud.is_quick_battle_shown())
+	assert_eq(_hud._toast_box.get_child_count(), 1, "held news reaches the court")
+
+
 # --- merged from tests/test_panel_dock.gd ---
 
 

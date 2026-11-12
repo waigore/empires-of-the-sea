@@ -111,10 +111,8 @@ func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
 	var host := ToastHost.new()
 	host.size = Vector2(1280, 800)
 	add_child(host)
-	host._toast_box = Control.new()
-	host._toast_box.offset_top = GazettePlate.TOAST_LANE
-	host._toast_box.offset_bottom = GazettePlate.TOAST_LANE
-	host.add_child(host._toast_box)
+	host.despatches.build(host)
+	host.despatches.set_lane(GazettePlate.TOAST_LANE)
 
 	var sheet_plate := GazettePlate.new()
 	host.add_child(sheet_plate)
@@ -123,18 +121,18 @@ func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
 	await get_tree().process_frame
 	sheet_plate._fit()
 	assert_true(
-		host._toast_box.offset_top > GazettePlate.TOAST_LANE,
+		host.despatches.box.offset_top > GazettePlate.TOAST_LANE,
 		"the lane drops below the sheet"
 	)
 	sheet_plate.dismiss()
-	assert_eq(host._toast_box.offset_top, GazettePlate.TOAST_LANE, "the lane comes back")
+	assert_eq(host.despatches.box.offset_top, GazettePlate.TOAST_LANE, "the lane comes back")
 	host.free()
 
 
-## A stand-in for the HUD: the plate only needs the toast lane to exist.
+## A stand-in for the HUD: the plate only needs a despatch lane to exist.
 class ToastHost:
 	extends Control
-	var _toast_box: Control = null
+	var despatches := HudDespatches.new()
 
 
 # --- helpers -----------------------------------------------------------------

@@ -33,6 +33,34 @@ func test_a_court_sells_surplus_above_the_reserve() -> void:
 	assert_true(economy.treasury > 5000)
 
 
+## The rations are grain or meat, and the larder eats grain first: a court whose
+## larder is meat must not sell the food its regiments and staffs eat this turn
+## (wiki: workers-and-population § Consumption "Total food demand = workers +
+## navy + army + hospital staffs"; DR-20261112-04: "the AI's market planner
+## reserves the rations before it sells food").
+func test_a_meat_larder_keeps_the_rations_the_court_eats() -> void:
+	var meat: PlayerEconomy = _economy({"meat": 100})
+	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, meat)
+	assert_eq(int(reserved.get("meat", 0)), 85, "the meat larder holds the whole ration")
+	assert_eq(int(reserved.get("grain", 0)), 0, "an empty granary reserves nothing")
+	var plan: Dictionary = AiMarketPlanner.plan(
+		_config(), meat, WorldMarket.with_default_prices(), 0, {}, reserved
+	)
+	assert_eq((plan["offers"] as Array).size(), 0, "no ration goes to market")
+
+	# Grain still goes first, and the rest of the ration rests on meat.
+	var mixed: PlayerEconomy = _economy({"grain": 20, "meat": 100})
+	var both: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, mixed)
+	assert_eq(int(both.get("grain", 0)), 20)
+	assert_eq(int(both.get("meat", 0)), 65)
+
+	# A full granary reserves grain alone, and the surplus above it still sells.
+	var grain: PlayerEconomy = _economy({"grain": 200})
+	var fed: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, grain)
+	assert_eq(int(fed.get("grain", 0)), 85)
+	assert_eq(int(fed.get("meat", 0)), 0)
+
+
 func test_production_inputs_are_never_sold_under_the_court() -> void:
 	var economy: PlayerEconomy = _economy({"lumber": 30, "grain": 100})
 	var market := WorldMarket.with_default_prices()

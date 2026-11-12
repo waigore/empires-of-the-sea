@@ -119,33 +119,27 @@ static func _region_seal(hud: GameHud) -> Button:
 static func _add_chips(hud: GameHud, row: HBoxContainer) -> void:
 	var treasury := _chip("TreasuryChip", "coin", "TREASURY", true)
 	treasury["root"].pressed.connect(func() -> void: hud.economy_pressed.emit())
-	hud._treasury_chip = treasury["root"]
-	hud._treasury_label = treasury["value"]
-	hud._income_label = treasury["delta"]
 	hud.chips.append(treasury["root"])
 	row.add_child(treasury["root"])
 
 	var fleets := _chip("FleetChip", "ship", "SHIPS", false)
 	fleets["root"].pressed.connect(func() -> void: hud.fleet_status_pressed.emit())
-	hud._fleet_chip = fleets["root"]
-	hud._fleet_label = fleets["value"]
 	hud.chips.append(fleets["root"])
 	row.add_child(fleets["root"])
 
 	var civilians := _chip("CivilianChip", "people", "CREW ›", false)
 	civilians["root"].pressed.connect(func() -> void: hud.civilian_roster_pressed.emit())
 	civilians["root"].tooltip_text = "Every civilian in the realm (C)"
-	hud._civilian_chip = civilians["root"]
-	hud._civilian_label = civilians["value"]
 	hud.chips.append(civilians["root"])
 	row.add_child(civilians["root"])
 
 	var troops := _chip("ArmyChip", "swords", "TROOPS", false)
 	troops["root"].pressed.connect(func() -> void: hud.army_status_pressed.emit())
-	hud._army_chip = troops["root"]
-	hud._army_label = troops["value"]
 	hud.chips.append(troops["root"])
 	row.add_child(troops["root"])
+
+	# The plaque values and their copy belong to HudStatChips, not the bar.
+	hud.stats.bind(hud, treasury, fleets, civilians, troops)
 
 
 ## One command seal: pictogram over a one-word caption, so the icon carries the
