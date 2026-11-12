@@ -15,13 +15,14 @@ level-4 Great Power towns and four L1 grain farms.
 ## Implemented
 
 - **Named improvements** follow the resource: Timber → Lumber camp, minerals →
-  Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch.
+  Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
+  Furs → Fur post.
 - **Levels 1–4.** Builder raises one level for 1/4/8/16 lumber + cast iron over
   target-level turns. Minerals need Prospect first (DR-20261111-26); above-cap
   orders refused.
 - **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile per
   turn. Until surveyed, no icon, estate, lens row or AI plan names the mineral;
-  empty ground may find nothing. Toast the find; a Builder may mine at once.
+  empty ground may find nothing. A Builder may mine the find at once.
 - **Terrain caps:** scrub timber at 1; hardwood follows tech.
 - **Path transport:** bottleneck of the best road/rail/port route to the
   capital; beside-network tiles take it; several routes use the highest.
@@ -38,10 +39,9 @@ level-4 Great Power towns and four L1 grain farms.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
-- **Survey lens** (`LENS`, **L**): charted provinces; seals for known resources
-  (minerals after Prospect), worked badge, bar, link row, dotted ring on
-  unsurveyed ground; roads/rail solid when linked, dashed when cut. Yields use
-  Extraction's caps (terrain, path, town).
+- **Survey lens** (`LENS`, **L**): charted provinces; seals for known resources,
+  worked badge, bar, link row, dotted ring on unsurveyed ground; roads/rail
+  solid when linked, dashed when cut. Yields use Extraction's caps.
 - **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
   cut; cut provinces show the road tiles still to lay, count and route.
 - **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /

@@ -157,6 +157,75 @@ func test_resources_sit_on_allowed_terrain() -> void:
 		assert_true(allowed.has(terrain), "%s on %d" % [table[resource]["name"], terrain])
 
 
+## Every row of the published resource–terrain–region table, so a crop left out
+## of the catalog cannot silently take its discovery tech down with it (wiki:
+## resource-terrain-region-rules § Table).
+const PUBLISHED_RESOURCES: Dictionary = {
+	"grain": ["ow", [MapModel.Terrain.PLAINS]],
+	"meat": ["ow", [MapModel.Terrain.PLAINS]],
+	"wool": ["ow", [MapModel.Terrain.HILLS]],
+	"horses": ["ow", [MapModel.Terrain.PLAINS]],
+	"timber": ["both", [MapModel.Terrain.HARDWOOD_FOREST, MapModel.Terrain.SCRUB_FOREST]],
+	"iron": ["both", [MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS]],
+	"copper": ["both", [MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS]],
+	"tin": ["both", [MapModel.Terrain.SWAMP]],
+	"coal": ["both", [MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS]],
+	"sugarCane": ["nw", [MapModel.Terrain.PLAINS]],
+	"tobacco": ["nw", [MapModel.Terrain.PLAINS]],
+	"cotton": ["nw", [MapModel.Terrain.PLAINS]],
+	"furs": ["nw", [MapModel.Terrain.HARDWOOD_FOREST]],
+	"spices": ["nw", [MapModel.Terrain.PLAINS]],
+	"silver": ["nw", [MapModel.Terrain.HILLS]],
+	"gold": ["nw", [MapModel.Terrain.MOUNTAINS]],
+	"gems": ["nw", [MapModel.Terrain.MOUNTAINS]],
+	"diamonds": ["nw", [MapModel.Terrain.DESERT]],
+}
+
+
+func test_the_resource_table_carries_every_published_row() -> void:
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	assert_eq(table.size(), PUBLISHED_RESOURCES.size())
+	for entry: Dictionary in table:
+		var commodity: String = String(entry["commodity"])
+		assert_true(PUBLISHED_RESOURCES.has(commodity), "unpublished resource %s" % commodity)
+		var expected: Array = PUBLISHED_RESOURCES[commodity]
+		assert_eq(String(entry["scope"]), String(expected[0]), "%s scope" % commodity)
+		assert_eq(entry["terrain"], expected[1], "%s terrain" % commodity)
+
+
+## The New World's crops must be placeable, or their discovery techs — and the
+## sugar/tobacco/fur luxuries, cotton cloth and trained worker tiers behind them
+## — could never be researched (wiki: resource-terrain-region-rules § Table;
+## tech-tree-new-world § Discovery prerequisites).
+func test_the_new_world_carries_a_crop_its_techs_ask_for() -> void:
+	var world: WorldMap = Fixture.world()
+	var tribes: MapModel = world.region(1)
+	var view := VisibilityModel.new()
+	view.setup(tribes, FactionCatalog.PLAYER_FACTION)
+	view.levels.fill(VisibilityModel.Level.FOGGED)
+	var found: Dictionary = TechDiscovery.revealed(world, {1: view}, LandWorks.new(), 0)
+	var crops: Array[String] = ["sugarCane", "tobacco", "cotton", "furs", "spices"]
+	var seen: Array[String] = []
+	for crop: String in crops:
+		if found.has(crop):
+			seen.append(crop)
+	assert_false(seen.is_empty(), "a charted New World carries no crop at all")
+	for crop: String in crops:
+		assert_ne(
+			TechCatalog.discovery_resources(_discovery_tech_for(crop)).size(), 0,
+			"no discovery tech names %s" % crop
+		)
+
+
+## The discovery tech a crop's research chain hangs on, by the catalog's own
+## discovery list (wiki: tech-tree-new-world § Discovery prerequisites).
+func _discovery_tech_for(commodity: String) -> String:
+	for tech_id: String in TechCatalog.ids():
+		if (TechCatalog.discovery_resources(tech_id) as Array).has(commodity):
+			return tech_id
+	return ""
+
+
 func test_names_are_unique() -> void:
 	var seen: Dictionary = {}
 	for province: ProvinceState in model.provinces:
