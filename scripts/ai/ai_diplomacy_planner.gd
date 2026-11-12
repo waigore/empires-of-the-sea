@@ -214,24 +214,48 @@ static func _resource_need(
 		return 0
 	var stock: Dictionary = stockpiles[attacker]
 	var missing: int = 0
-	for commodity: String in _target_commodities(world, target).keys():
+	for commodity: String in _target_commodities(world, target, attacker, context).keys():
 		if int(stock.get(commodity, 0)) <= 0:
 			missing += 1
 	return mini(missing * RESOURCE_NEED_STEP, RESOURCE_NEED_CAP)
 
 
-static func _target_commodities(world: WorldMap, target: int) -> Dictionary:
+## The target's commodities **this court has charted**: a resource is read on
+## `fogged` ground, never in a province the court has not reached (wiki:
+## fog-and-exploration § Visibility Levels; DR-20261113-03). Without a chart the
+## published map stands, as it does for the order-of-battle reading.
+static func _target_commodities(
+	world: WorldMap, target: int, reader: int, context: Dictionary
+) -> Dictionary:
 	var result: Dictionary = {}
 	if world == null:
 		return result
-	for model: MapModel in world.regions:
+	var charts: CourtCharts = context.get("charts", null)
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		if model == null:
+			continue
 		for province: ProvinceState in model.provinces:
 			if province.owner != target or province.resource == MapModel.NO_ID:
+				continue
+			if not _charted(charts, reader, index, province.id):
 				continue
 			var commodity: String = ImprovementCatalog.commodity(province.resource)
 			if not commodity.is_empty():
 				result[commodity] = true
 	return result
+
+
+## Charted ground: one tile of the province at `fogged` or better. A court with
+## no chart for the region (a fixture, or a world never charted) reads the
+## published map, exactly as `OobReadings` does.
+static func _charted(
+	charts: CourtCharts, reader: int, region: int, province: int
+) -> bool:
+	if charts == null:
+		return true
+	var view: VisibilityModel = charts.model_for(reader, region)
+	return view == null or view.is_province_known(province)
 
 
 ## -8 per other Great Power the declaration would call to the victim's aid,

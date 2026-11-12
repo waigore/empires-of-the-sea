@@ -32,19 +32,19 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
 | Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
+| Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Rival-vs-rival fog for diplomacy | Mid/late AI fidelity | DR-20261110-21/12-09; OOB live |
-| 2 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 3 | Translation content | Localization | Keys live; needs words |
+| 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
+| 2 | Translation content | Localization | Keys live; needs words |
 
 ## Next pick
 
-**Rank 1** — Rival-vs-rival fog for diplomacy (DR-20261110-21 / DR-20261112-09):
-war desire reads charted garrisons; offers still ignore charts.
+**Rank 1** — A decoration that buys something (DR-20261112-10): the ladder is
+display only; no number exists for a citation's worth.
 
 ## Out of scope / blocked footnotes
 
