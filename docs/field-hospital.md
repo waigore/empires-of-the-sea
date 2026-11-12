@@ -41,7 +41,12 @@ One train per army.
 The train travels with its standard at no extra cost, boards a squadron with it,
 and is saved with the army. A split leaves it with the parent standard; when a
 detach empties a field army the train marches with the men who are left; a
-combine keeps one train if either army had one. Rival planners pitch none yet.
+combine keeps one train if either army had one.
+
+## Deferred (REQ-P2-02)
+
+Rival trains — [`deferred.md`](deferred.md). General-grade and battle shelter
+wait on design (DR-20261112-07).
 
 ## Architecture
 
