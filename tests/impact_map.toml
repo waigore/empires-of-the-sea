@@ -93,11 +93,20 @@ suites = [
   "test_diplomacy_panel.gd",
 ]
 
+# Economy rules / market math. Screen mounts stay on economy_ui so a
+# consumption or turn-hook change does not pay for EconomyPanel (~2 min).
 [domains.economy]
 suites = [
   "test_economy_rules.gd",
-  "test_economy_screen.gd",
   "test_diplomacy_rules.gd",
+  "test_market_offers.gd",
+]
+
+# Ledger / market sheet presentation. Rules paths stay on economy.
+[domains.economy_ui]
+suites = [
+  "test_economy_rules.gd",
+  "test_economy_screen.gd",
   "test_market_offers.gd",
 ]
 
@@ -352,19 +361,36 @@ suites = [
   "test_research_screen.gd",
 ]
 
+# Slot / SaveWorld capture. SaveWorld cases already live in save_store, so a
+# world-field edit does not need the MapScreen round-trip suite (~2 min).
 [domains.save]
 suites = [
-  "test_save_codec.gd",
   "test_save_store.gd",
   "test_hospital_rules.gd",
 ]
 
+# Full session codec (MapScreen mount). Only the codec / layer serializers.
+[domains.save_codec]
+suites = [
+  "test_save_codec.gd",
+  "test_save_store.gd",
+]
+
+# Dossier / HUD sheet content. Phone geometry stays on layout / menu so a
+# panel row change does not remount every viewport fixture (~1 min).
 [domains.ui]
 suites = [
   "test_ui_rules.gd",
   "test_province_panel.gd",
-  "test_mobile_layout.gd",
   "test_hospital_rules.gd",
+]
+
+# Phone / density chrome. Menu and intro still carry mobile_layout for their
+# own shells; layout owns the shared HUD geometry helpers.
+[domains.layout]
+suites = [
+  "test_mobile_layout.gd",
+  "test_ui_rules.gd",
 ]
 
 # The despatch board: the toast plates, their hold queue behind a battle plate
@@ -497,21 +523,21 @@ domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
-domain = "economy"
+domain = "economy_ui"
 
 # The commodity medallions are the ledger's own art table; keep them on the
-# economy domain so an icon change runs the market/production rows that draw it.
+# economy UI so an icon change runs the market/production rows that draw it.
 [[rules]]
 match = "scripts/ui/commodity_icons.gd*"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "tests/test_economy_rules.gd*"
@@ -782,6 +808,16 @@ domain = "audio"
 [[rules]]
 match = "scripts/economy/**"
 domain = "economy"
+
+# Codec / session layers need the MapScreen round-trip; other save/*.gd stay on
+# the lighter save domain (SaveWorld lives in save_store).
+[[rules]]
+match = "scripts/save/save_codec.gd*"
+domain = "save_codec"
+
+[[rules]]
+match = "scripts/save/save_layers.gd*"
+domain = "save_codec"
 
 [[rules]]
 match = "scripts/save/**"
@@ -1230,19 +1266,19 @@ domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/economy_panel.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/market_offers_head.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/rules/market_*.gd*"
@@ -1503,9 +1539,10 @@ domain = "ui"
 match = "scripts/ui/hud_chrome.gd"
 domain = "crown_road"
 
+# Shared phone / density geometry; layout owns the viewport fixtures.
 [[rules]]
 match = "scripts/ui/hud_layout.gd"
-domain = "crown_road"
+domain = "layout"
 
 # Status plaques own their copy; the layout suite reads them.
 [[rules]]
@@ -1536,15 +1573,15 @@ domain = "diplomacy"
 
 [[rules]]
 match = "scripts/ui/economy_*.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_*.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/improvement_*.gd"
-domain = "economy"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/research_*.gd*"
@@ -1588,10 +1625,10 @@ domain = "menu"
 
 [[rules]]
 match = "scripts/ui/panel_dock.gd"
-domain = "ui"
+domain = "layout"
 
-# The province dossier and its estate block: the ui domain proves the panel's
-# geometry (test_mobile_layout) and its content (test_province_panel).
+# The province dossier and its estate block: content on ui; phone geometry on
+# layout when hud_layout / panel_dock move.
 [[rules]]
 match = "scripts/ui/province_*.gd*"
 domain = "ui"
