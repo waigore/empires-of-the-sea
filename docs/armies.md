@@ -19,22 +19,22 @@
   its capital, never deleted; split/combine needs one province and owner; one
   march a turn, foreign land must border.
 - **Upkeep:** 1–3 food a regiment by era.
-- **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health;
-  DEF/9; ratio bands; elimination precedes a flip. A hungrier attacker at
-  1.5–4.0 fights 0.6/0.4; mutual ruin restores `ceil(20%)` infantry.
+- **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
+  citation weight; DEF/9; ratio bands; elimination precedes a flip. A hungrier
+  attacker at 1.5–4.0 fights 0.6/0.4; mutual ruin restores `ceil(20%)` infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron. A train marches with an army
   ([field-hospital](field-hospital.md)).
 - **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): a
-  period title, unique per army and kept through split/merge, with the
-  engagements and wins the aftermath tallies.
-- **Colours and citations** (`RegimentRecord`, `RegimentDecorations`, DR-20261112-02/-10):
-  winners each take the province once; every survivor's despatch keeps its newest
-  eight fields, one won mauled being a **citation** (`cited` ×1,
-  `laurelled` ×3). Dossier: `4 engagements · 3 won · Évora · Lisboa` then
-  `Cited — Lisboa won`; plate: `Honours — España: Évora added to 3 colours`,
-  `Citations — España: 2 colours cited at Lisboa`. Display only.
+  period title, unique per army, kept through split/merge, with its tally.
+- **Colours and citations** (`RegimentRecord`, `RegimentDecorations`,
+  DR-20261112-02/-10, DR-20261113-04): winners take the province once; every
+  survivor's despatch keeps its newest eight fields, one won mauled being a
+  **citation** (`cited` ×1, `laurelled` ×3). A citation buys rank — +5%, or
+  +10% laurelled — so decorated colours lead and fall last. Dossier:
+  `Évora · Lisboa` then `Cited +5% — Lisboa won`; plate:
+  `Honours — Évora added to 3 colours` · `Citations — 2 cited (+5% each)`.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
   general, saved (legacy rosters christened on load); the dossier names him
   with his medals.
@@ -55,7 +55,7 @@
 
 ## Deferred (REQ-P2-02)
 
-Decoration strength (wiki numbers; display-only): [`deferred.md`](deferred.md).
+See [`deferred.md`](deferred.md).
 
 ## Architecture
 
