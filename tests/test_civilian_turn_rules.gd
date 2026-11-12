@@ -641,10 +641,77 @@ func test_a_port_town_links_and_caps_its_neighbours() -> void:
 		String(_states(survey).get(_crown_road_survey_model.index_of(6, 2), "")),
 		CrownRoadSurvey.STATE_TOWN
 	)
-	var neighbour: Dictionary = {"state": CrownRoadSurvey.STATE_TOWN, "town_level": 2}
+	assert_true(bool(entry["town_caps"]), "a port town caps the estates beside it")
+	var neighbour: Dictionary = {
+		"state": CrownRoadSurvey.STATE_TOWN, "town_level": 2, "town_caps": true
+	}
 	assert_eq(
 		CrownRoadSurvey.summary_text(neighbour),
 		"Crown road: town only — town level 2 caps its yield"
+	)
+
+
+## A town that merely stands beside a landfall port is inland for the town-cap
+## rule, so nothing caps the estates around it and the reading must not say it
+## does (wiki: extraction-and-improvements § Extraction formula and town
+## development cap).
+func test_a_town_beside_a_port_is_not_capped() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(1.5, 0.5), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(1, 1)
+	province.town_development = 1
+	model.provinces = [province]
+	model.resource[model.index_of(2, 1)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 1))
+	works.set_improvement(model, Vector2i(2, 1), 4)
+	var resolved: Dictionary = LandConnectivity.resolve(model, works, PLAYER, Vector2i(-1, -1))
+	var survey: Dictionary = CrownRoadSurvey.snapshot(model, works, PLAYER, Vector2i(-1, -1))
+	var entry: Dictionary = _entry(survey, 0)
+	assert_eq(String(entry["state"]), CrownRoadSurvey.STATE_TOWN)
+	assert_false(bool(entry["town_caps"]), "the town carries no port")
+	assert_eq(
+		CrownRoadSurvey.summary_text(entry),
+		"Crown road: town only — town development does not cap it"
+	)
+	assert_eq(
+		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(2, 1)),
+		LandWorks.MAX_IMPROVEMENT,
+		"the yield is not capped either"
+	)
+	assert_eq(
+		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
+		{"grain": 4},
+		"the estate beside the town pays its whole level"
+	)
+
+
+## A reading counts one tile in the singular: the hover line is the only thing a
+## player sees of the gap.
+func test_the_reading_counts_one_tile_in_the_singular() -> void:
+	assert_eq(
+		CrownRoadSurvey.summary_text({"state": CrownRoadSurvey.STATE_CUT, "gap": 1}),
+		"Crown road: one road tile from the crown"
+	)
+	assert_eq(
+		CrownRoadSurvey.summary_text(
+			{"state": CrownRoadSurvey.STATE_ROAD, "cut_tiles": 1}
+		),
+		"Crown road: linked by road · 1 tile cut off"
+	)
+	assert_eq(
+		CrownRoadSurvey.summary_text({"state": CrownRoadSurvey.STATE_TOWN, "town_level": 0}),
+		"Crown road: town only",
+		"a town with no development states no cap"
 	)
 
 func test_foreign_land_is_never_painted() -> void:
