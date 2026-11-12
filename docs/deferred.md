@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #364).
+Audited vs code, wiki and Design Records (2026-11-12, through #366).
 What to ship next (`REQ-P2-02`).
 
 ## Already live
@@ -33,21 +33,21 @@ What to ship next (`REQ-P2-02`).
 | Travelling field hospital train | `HospitalTrain`, DR-20261112-07 |
 | Rival field-hospital trains | `AiHospitalTrainWork`, DR-20261112-08 |
 | Rival order-of-battle readings | `OobReadings`, `MapPlayCourtFog.oob_readings`, DR-20261112-09 |
+| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
-| 2 | Rival-vs-rival fog for diplomacy | Mid/late AI fidelity | DR-20261110-21, deferred half |
-| 3 | Multi-turn production recipes | Economy depth | [`economy.md`](economy.md) |
-| 4 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
+| 1 | Multi-turn production recipes | Economy depth | Wiki defers them; needs a design slice ([`economy.md`](economy.md)) |
+| 2 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
+| 3 | A decoration that buys something | Rules depth | DR-20261112-10; needs published numbers |
 
 ## Next pick
 
-**Rank 1** — citations / decoration ladder / history (DR-20261112-02).
-Immersion, no rule yet: needs a design slice, then hangs off the honours
-in `RegimentRecord`.
+**Rank 1** — multi-turn production recipes ([`economy.md`](economy.md)).
+The wiki's [`production-recipes`](https://github.com/waigore/empires-of-the-sea/wiki/production-recipes)
+page still calls them out of scope, so a design slice un-defers them first.
 
 ## Out of scope / blocked footnotes
 
