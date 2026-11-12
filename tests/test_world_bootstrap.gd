@@ -5,17 +5,19 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## Small-preset size: the shared Fixture world is smaller and can leave a
-## capital province too thin for four grain farms under the fixed 60/30 chart.
-const BOOT_WIDTH: int = 96
-const BOOT_HEIGHT: int = 64
+## Cases only need one region at a time. 64×48 still seats four grain farms per
+## Great Power and a thin capital (the 44×34 fixture world does not); under
+## coverage that is ~2× fewer tiles than the old 96×64 two-region boot.
+const BOOT_WIDTH: int = 64
+const BOOT_HEIGHT: int = 48
+const NEW_WORLD_SEED: int = Fixture.SEED + 7919
 
 ## Non-underscore so before_all state is copied onto each test instance. The
-## post-pass is read-only in every case below, so one region per worker keeps
-## world generation (the suite's dominant cost under coverage) off the hot path.
-## Old World only in before_all: `generate_world` would also build a New World
-## chart this suite never reads. The New World and the determinism twin are
-## generated once here too, so cases never pay for a second chart under coverage.
+## post-pass is read-only in every case below, so region charts in before_all
+## keep world generation (the suite's dominant cost under coverage) off the
+## hot path. Old World, its determinism twin, and the New World are each
+## generated once — never via `generate_world`, which would build discarded
+## charts.
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
@@ -38,7 +40,7 @@ func before_all() -> void:
 	works_twin = LandWorks.new()
 	WorldBootstrap.apply(model_twin, works_twin)
 	new_world = MapGenerator.new().generate_region(
-		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	new_world_works = LandWorks.new()
 	new_world_report = WorldBootstrap.apply(new_world, new_world_works)

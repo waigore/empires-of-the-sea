@@ -1,13 +1,13 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-01 (`REQ-P2-02`).
+Audited through DR-20261113-08 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
 | Difficulty (stores, field, sea, crown's bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
-| Agenda decision hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
+| Agenda hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
 | Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home` |
 | Forts + rival civilian AI | [`forts.md`](forts.md), `AiCivilianPlanner` |
@@ -24,27 +24,26 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Raid hull losses; rival-on-rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
-| Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02 |
+| Battle honours; citations; decoration weight | `RegimentRecord` / `RegimentDecorations`, DR-20261112-02/10/13-04 |
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 | Field-hospital trains (player + rival) | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
 | Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
-| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
-| Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
-| Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
+| Multi-turn recipes; per-unit stagger | `ProductionRecipes` / `production_wip`, DR-20261112-11/13-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
-| Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
+| Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
+| Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 2 | Translation content | Localization | Keys live; needs words |
+| 1 | Translation content | Localization | Keys live; no `.po` on `main` |
+| 2 | Recipe gates / multi-turn / queue | Mid-campaign economy | DR-20261113-02 |
+| 3 | Player regiment rename | Immersion | DR-20261111-18; not on `main` |
 
 ## Next pick
 
-**Rank 1** — A decoration that buys something (DR-20261112-10): the ladder is
-display only; no number exists for a citation's worth.
+**Rank 1** — Translation content: keys live; no `.po` on main.
 
 ## Out of scope / blocked footnotes
 
@@ -54,8 +53,9 @@ display only; no number exists for a citation's worth.
 - General-grade / sheltering trains — pending design (DR-20261112-07); L1 live.
 - Last-known OOB / stale figure — deferred (DR-20261112-09).
 - Alternative victory types — [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of scope.
-- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer (DR-20261111-28).
+- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
-- General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
-- Per-region prospected table — deferred (DR-20261110-21).
-- Recipe gates; more multi-turn rows; queue caps; muster of the dead — DR-20261112-10/11/13-02.
+- General borrowing / loans — Money Lending floor live; rest deferred.
+- Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
+- Works' reservation + coexistence — seed (DR-20261113-08).
+- Tongue picker / other tongues / blocking prompts — after French (DR-20261113-06).

@@ -24,24 +24,23 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 ## Speed rules
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
-- MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
+- MapScreen and app-shell suites reuse one cached small world per worker via
+  `MapScreen.preset_world` / `Main.preset_world` (capital-choice, observer, load).
+  Snapshot/restore when a case seats or mutates the chart.
 - That world is the smallest that validates a `SaveCodec` slot and seats the
-  turn-100 civilian tier; screen and campaign-plate suites share it.
-- Its size must pass fair split on the **first** attempt, else `generate_world`
-  rebuilds (world-setup guard).
-- The terrain wash (`MapWash.baked`) and each grid's fog coast table
-  (`VisibilityModel`) build once per map state, so mounting many screens — or
-  six courts' charts — repaints nothing.
-- Cache shared maps in `before_all` on **non-underscore** vars; attach a map
-  screen lazily (`_attach()`) so rule-only cases never paint the chart.
-- Region-only suites use `generate_region` (not `generate_world`) and cache any
-  twin / New World chart in `before_all`. Do not regenerate in `before_each`.
-- Saving/loading is hottest: `SaveCodec.restore` reuses a preset world; suites
-  that rewrite owners snapshot it (`MapFixture.snapshot` / `restore`).
-- One Godot boot per theme: related pure suites share one merged file (56
-  suites, not 129) because coverage costs ~12 s per boot.
-- Coverage adds ~35 s per worker; prefer one mount per case. Profile with
-  `gd-tools test --durations 20`. Smoke: few `await process_frame`, no sleeps.
+  turn-100 civilian tier; it must pass fair split on the **first** attempt
+  (else `generate_world` rebuilds). Screen and campaign-plate suites share it.
+- Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
+  once per map state — mounting many screens or six courts' charts repaints nothing.
+- Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
+  (`_attach()`) so rule-only cases never paint. Region-only suites use
+  `generate_region` and cache twin / New World charts in `before_all`.
+- Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
+  `restore`), prefer `SaveCodec.restore` over remounting unless HUD is under test.
+- One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
+  fold leftover pure cases into a theme file instead of a new suite.
+  Prefer one mount per case. Profile with `gd-tools test --durations 20`.
+  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 
@@ -148,6 +147,14 @@ godot --headless --path . --script res://tests/playtest_capital_move.gd
 # to read 40% against 25% over a real turn, seats a General hospital to read the
 # better-of rule and an unfed ward, then splits, boards, combines and saves.
 godot --headless --path . --script res://tests/playtest_field_train.gd
+
+# Court proposals — plays England (not the catalog's player slot) and answers a
+# rival's white peace, alliance, trade pact and non-aggression offer on the
+# consent banner's own buttons, reading the banner, the despatch and the court
+# chronicle in between; then saves with an offer still waiting, reloads and
+# answers it, and reads the call to arms the restored ledger still raises for an
+# ally.
+godot --headless --path . --script res://tests/playtest_court_proposal.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

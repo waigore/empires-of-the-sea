@@ -9,9 +9,16 @@ const TEMP_PATH := "user://test_map_soundtrack.cfg"
 var _screen: MapScreen = null
 var _audio: AudioDirector = null
 var _score: MapSoundtrack = null
+## Non-underscore: copied from `before_all` so shell cases can restore the shared chart.
+var world_snapshot: Array = []
+
+
+func before_all() -> void:
+	world_snapshot = Fixture.snapshot(Fixture.world())
 
 
 func before_each() -> void:
+	Fixture.restore(Fixture.world(), world_snapshot)
 	_screen = Fixture.attach_screen(self)
 	_audio = _screen.get_node("Audio") as AudioDirector
 	# Keep the suite's mix out of the player's own settings file.
@@ -25,6 +32,7 @@ func after_each() -> void:
 	_screen = null
 	_audio = null
 	_score = null
+	Fixture.restore(Fixture.world(), world_snapshot)
 	if FileAccess.file_exists(TEMP_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(TEMP_PATH))
 
@@ -208,8 +216,19 @@ func test_the_mute_key_is_bound() -> void:
 
 
 func _boot_shell() -> Node:
+	# Drop the map-screen mount from `before_each` so the shell and the screen
+	# never share one WorldMap instance under the same suite.
+	if is_instance_valid(_screen):
+		_screen.free()
+	_screen = null
+	_audio = null
+	_score = null
+	Fixture.restore(Fixture.world(), world_snapshot)
 	var app: Node = MAIN.instantiate()
 	app.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
+	# Observer / campaign doors reuse the shared chart so shell cases do not
+	# roll a world under coverage just to assert the score.
+	app.preset_world = Fixture.world()
 	add_child(app)
 	# Keep the shell's mix out of the player's own settings file.
 	app.audio.settings_path = TEMP_PATH

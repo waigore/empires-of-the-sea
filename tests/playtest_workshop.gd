@@ -94,7 +94,7 @@ func _start_pass() -> void:
 	var promise: String = _preview()
 	_say("Steel row after the press: %s  ·  promise: %s" % [String(steel["title"]), promise])
 	_say("stepper: %s, assignment: %d" % [
-		String(steel["stepper"]), _play.economy.economy.assignment_units("steel"),
+		String(steel["stepper"]), _play.economy.economy.production.assignment_units("steel"),
 	])
 	_check("the stepper takes the order", String(steel["stepper"]) == "3")
 	_check("the promise pays iron this phase", promise.contains("Iron -3"))
@@ -114,7 +114,7 @@ func _start_pass() -> void:
 	_say("Steel row one phase in: %s  ·  tips: %s" % [String(steel["tag"]), _tips(steel)])
 	_check("nothing lands in the phase the run started", _play.economy.economy.quantity("steel") == 8)
 	_check("the tag names three units and a one-phase wait", String(steel["tag"]) == "3→1t")
-	_check("the workshop carries three units", _play.economy.economy.wip_units("steel") == 3)
+	_check("the workshop carries three units", _play.economy.economy.production.wip_units("steel") == 3)
 	_check(
 		"the serving tooltip says three units are on the anvil",
 		_tips(steel).contains("3 units already in the workshop")
@@ -143,7 +143,7 @@ func _landing_pass() -> void:
 	])
 	_check("one unit lands a phase", _play.economy.economy.quantity("steel") == steel_before + 1)
 	_check("a carried batch pays nothing", _play.economy.economy.quantity("iron") == iron_before)
-	_check("no new run starts for a cleared row", _play.economy.economy.wip_units("steel") == 2)
+	_check("no new run starts for a cleared row", _play.economy.economy.production.wip_units("steel") == 2)
 	_check("the toast names the landing", _toast_line().contains("Steel +1"))
 	steel = await _row("Steel")
 	_check("the tag walks down to two", String(steel["tag"]) == "2→1t")
@@ -161,7 +161,7 @@ func _landing_pass() -> void:
 		str(_play.economy.economy.production_wip),
 	])
 	_check("the last unit lands", _play.economy.economy.quantity("steel") == steel_before + 3)
-	_check("the workshop is spent", _play.economy.economy.wip_units("steel") == 0)
+	_check("the workshop is spent", _play.economy.economy.production.wip_units("steel") == 0)
 	_check("the row falls back to its idle wait", String(steel["tag"]) == "2t")
 
 
@@ -217,9 +217,9 @@ func _batches_pass() -> void:
 	_say("note: %s" % note)
 	_say("promise: %s" % promise)
 	_check("two batches serve the anvil", String(row["tag"]) == "5→1t")
-	_check("the note counts the units this phase", note.contains("2 land in 1 turn"))
+	_check("the note counts the units this phase", note.contains("2 landing a turn"))
 	_check("the promise names the same two units", promise.contains("Steel +2"))
-	_check("the note keeps the per-batch cadence", note.contains("Each batch lands one a turn"))
+	_check("the note does not promise a single-batch trickle", not note.contains("landing one a turn"))
 	_check("the calendar moves", _advance())
 	_say("turn %d: steel %d -> %d" % [
 		_play.turn, steel_before, _play.economy.economy.quantity("steel"),
@@ -231,11 +231,11 @@ func _batches_pass() -> void:
 	await _press("Steel", "−", 3)
 	# Let the pair drain, so the save pass starts from an idle anvil.
 	for _phase in 4:
-		if _play.economy.economy.wip_units("steel") == 0:
+		if _play.economy.economy.production.wip_units("steel") == 0:
 			break
 		if not _advance():
 			break
-	_check("the pair is spent", _play.economy.economy.wip_units("steel") == 0)
+	_check("the pair is spent", _play.economy.economy.production.wip_units("steel") == 0)
 
 
 ## A batch on the anvil rides the save: the loaded court keeps the units and the
@@ -266,7 +266,7 @@ func _save_pass() -> void:
 		_play.turn, _play.economy.economy.quantity("steel"), String(row["tag"]),
 		str(_play.economy.economy.production_wip),
 	])
-	_check("the anvil comes back whole", _play.economy.economy.wip_units("steel") == 2)
+	_check("the anvil comes back whole", _play.economy.economy.production.wip_units("steel") == 2)
 	_check("the wait comes back", String(row["tag"]) == "2→1t")
 	_check("the calendar moves", _advance())
 	_say("turn %d: steel %d -> %d, toast: %s" % [
@@ -276,7 +276,7 @@ func _save_pass() -> void:
 		"the loaded batch lands one unit",
 		_play.economy.economy.quantity("steel") == steel_before + 1
 	)
-	_check("the rest still serves", _play.economy.economy.wip_units("steel") == 1)
+	_check("the rest still serves", _play.economy.economy.production.wip_units("steel") == 1)
 
 
 # --- ledger reads ----------------------------------------------------------

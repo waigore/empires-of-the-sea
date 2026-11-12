@@ -1179,7 +1179,7 @@ func test_empty_pool_and_no_upkeep_is_a_clean_pass() -> void:
 
 func test_turn_runs_all_four_phases_in_order() -> void:
 	var economy: PlayerEconomy = _economy(2)
-	economy.set_assignment("lumber", 1)
+	economy.production.set_assignment("lumber", 1)
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, {"grain": 10, "timber": 4}, 0
@@ -1209,7 +1209,7 @@ func test_starving_workers_produce_nothing() -> void:
 	var economy: PlayerEconomy = _economy(2)
 	economy.stockpile["grain"] = 0
 	economy.stockpile["timber"] = 6
-	economy.set_assignment("lumber", 3)
+	economy.production.set_assignment("lumber", 3)
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, WorldMarket.with_default_prices(), {}, 0
 	)
@@ -1222,7 +1222,7 @@ func test_navy_eats_before_production_labour() -> void:
 	var economy: PlayerEconomy = _economy(3)
 	economy.stockpile["grain"] = 2
 	economy.stockpile["timber"] = 4
-	economy.set_assignment("lumber", 1)
+	economy.production.set_assignment("lumber", 1)
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, WorldMarket.with_default_prices(), {}, 1
 	)
@@ -1235,7 +1235,7 @@ func test_projection_matches_the_live_resolution() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = _economy(2)
 	economy.stockpile["gold"] = 1
-	economy.set_assignment("lumber", 2)
+	economy.production.set_assignment("lumber", 2)
 	var projection: Dictionary = EconomyTurn.project(
 		economy, market, {"grain": 6, "timber": 6}, 1
 	)
@@ -1250,7 +1250,7 @@ func test_projection_matches_the_live_resolution() -> void:
 func test_projection_has_no_side_effects() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = _economy(2)
-	economy.set_assignment("lumber", 1)
+	economy.production.set_assignment("lumber", 1)
 	var stock_before: Dictionary = economy.stockpile.duplicate()
 	var treasury_before: int = economy.treasury
 	EconomyTurn.project(economy, market, {"timber": 4}, 0)
@@ -1331,47 +1331,52 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 	assert_eq(int(stock["steel"]), 3)
 
 
-## What the next Production phase actually delivers from the anvil: one unit
-## from every batch due that phase, a carried one-turn batch whole
-## (wiki: production-recipes § Turns per unit; DR-20261113-02).
-func test_the_next_landing_counts_every_batch_due() -> void:
-	assert_eq(
-		ProductionRecipes.landing_next({"steel": [{"units": 3, "turns_left": 1}]}, "steel"),
-		1,
-		"one batch gives up one unit"
-	)
+## What leaves the workshop next phase: one unit per batch serving its last turn,
+## so a row left set across phases lands as many as it has batches (wiki:
+## production-recipes § Turns per unit; DR-20261113-02).
+func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
+	var one: Dictionary = {"steel": [{"units": 3, "turns_left": 1}]}
+	assert_eq(ProductionRecipes.next_landing(one, "steel"), 1, "one batch, one unit")
 	var two: Dictionary = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
-	assert_eq(ProductionRecipes.turns_left(two, "steel"), 1)
 	assert_eq(
-		ProductionRecipes.landing_next(two, "steel"), 2,
-		"two batches ordered a phase apart land two units"
+		ProductionRecipes.next_landing(two, "steel"), 2,
+		"a court that leaves the row set starts a batch a phase, and each gives up a unit"
 	)
-	var staggered: Dictionary = {
-		"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}],
-	}
+	assert_eq(ProductionRecipes.in_flight(two, "steel"), 5, "the anvil still holds every unit")
 	assert_eq(
-		ProductionRecipes.turns_left(staggered, "steel"), 1,
+		ProductionRecipes.next_landing({"steel": [{"units": 4, "turns_left": 2}]}, "steel"),
+		0, "a batch still serving its first turn lands nothing yet"
+	)
+	assert_eq(ProductionRecipes.next_landing({}, "steel"), 0, "an idle workshop lands nothing")
+	assert_eq(
+		ProductionRecipes.next_landing({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber"),
+		3, "a carried one-turn batch lands whole, as before"
+	)
+
+
+## The wait is the soonest batch: a later batch cannot push the tag past a unit
+## that is already one phase from the store (wiki: production-recipes § Turns per
+## unit; DR-20261113-02).
+func test_the_workshop_wait_reads_the_soonest_batch() -> void:
+	assert_eq(
+		ProductionRecipes.turns_left(
+			{"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}]}, "steel"
+		),
+		1
+	)
+	assert_eq(
+		ProductionRecipes.turns_left(
+			{"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}]}, "steel"
+		),
+		1,
 		"the soonest batch says when the next unit lands"
 	)
 	assert_eq(
-		ProductionRecipes.landing_next(staggered, "steel"), 1,
-		"only the batch due this phase lands"
+		ProductionRecipes.turns_left({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
 	)
-	assert_eq(
-		ProductionRecipes.landing_next({"lumber": [{"units": 2, "turns_left": 1}]}, "lumber"),
-		2,
-		"a one-turn row never waits, so a carried batch lands whole"
-	)
-	assert_eq(ProductionRecipes.landing_next({}, "steel"), 0)
-	var started: Dictionary = ProductionRecipes.plan(
-		[{"recipe": "steel", "units": 1}], {"iron": 1, "coal": 1}, 2, {}
-	)["wip"]
-	assert_eq(
-		ProductionRecipes.landing_next(started, "steel"), 1,
-		"a run started this phase lands its first unit next phase"
-	)
+	assert_eq(ProductionRecipes.turns_left({}, "steel"), 0)
 
 
 ## Drip-feeding three steel one unit a phase builds the same output from the same
@@ -1397,28 +1402,28 @@ func test_a_batch_matches_drip_feeding() -> void:
 func test_the_workshop_carries_across_turns() -> void:
 	var economy: PlayerEconomy = _economy(4)
 	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
-	economy.set_assignment("steel", 2)
+	economy.production.set_assignment("steel", 2)
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var first: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
 	assert_eq(first["production"]["runs"], {"steel": 2})
 	assert_eq(economy.quantity("steel"), 0)
-	assert_eq(economy.wip_units("steel"), 2)
-	assert_eq(economy.wip_turns("steel"), 1)
+	assert_eq(economy.production.wip_units("steel"), 2)
+	assert_eq(economy.production.wip_turns("steel"), 1)
 	var second: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
 	assert_eq(second["production"]["completed"], {"steel": 1}, "one unit a phase")
 	assert_eq(second["production"]["runs"], {})
 	assert_eq(economy.quantity("steel"), 1)
-	assert_eq(economy.wip_units("steel"), 1)
+	assert_eq(economy.production.wip_units("steel"), 1)
 	var third: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
 	assert_eq(third["production"]["completed"], {"steel": 1})
 	assert_eq(economy.quantity("steel"), 2)
-	assert_eq(economy.wip_units("steel"), 0)
+	assert_eq(economy.production.wip_units("steel"), 0)
 
 
 func test_projection_counts_the_next_unit_landing() -> void:
 	var economy: PlayerEconomy = _economy(4)
 	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
-	economy.set_assignment("steel", 2)
+	economy.production.set_assignment("steel", 2)
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	EconomyTurn.resolve(economy, market, {}, 0)
 	var projection: Dictionary = EconomyTurn.project(economy, market, {}, 0)
@@ -1429,14 +1434,14 @@ func test_projection_counts_the_next_unit_landing() -> void:
 func test_the_workshop_rides_the_snapshot() -> void:
 	var economy: PlayerEconomy = _economy(4)
 	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
-	economy.set_assignment("steel", 2)
+	economy.production.set_assignment("steel", 2)
 	EconomyTurn.resolve(economy, WorldMarket.with_default_prices(), {}, 0)
 	var restored: PlayerEconomy = PlayerEconomy.starting()
 	restored.apply_snapshot(economy.snapshot())
-	assert_eq(restored.wip_units("steel"), 2)
-	assert_eq(restored.wip_turns("steel"), 1)
+	assert_eq(restored.production.wip_units("steel"), 2)
+	assert_eq(restored.production.wip_turns("steel"), 1)
 	restored.apply_snapshot({"production_wip": {"silk_gown": [{"units": 3, "turns_left": 1}]}})
-	assert_eq(restored.wip_total(), 0, "a recipe the catalogue dropped is not trusted")
+	assert_eq(restored.production.wip_total(), 0, "a recipe the catalogue dropped is not trusted")
 
 
 ## A damaged workshop drops on load — a row that is not a list, an entry that is
@@ -1452,10 +1457,10 @@ func test_a_damaged_workshop_is_dropped_not_trusted() -> void:
 			"lumber": [{"units": 2, "turns_left": 1}],
 		},
 	})
-	assert_eq(economy.wip_total(), 2, "only a list of whole batches is trusted")
-	assert_eq(economy.wip_units("lumber"), 2)
-	assert_eq(economy.wip_units("steel"), 0, "a row that is not a list holds nothing")
-	assert_eq(economy.wip_turns("steel"), 0)
+	assert_eq(economy.production.wip_total(), 2, "only a list of whole batches is trusted")
+	assert_eq(economy.production.wip_units("lumber"), 2)
+	assert_eq(economy.production.wip_units("steel"), 0, "a row that is not a list holds nothing")
+	assert_eq(economy.production.wip_turns("steel"), 0)
 	var planned: Dictionary = ProductionRecipes.plan(
 		[], {}, 0, {}, {"steel": {"units": 2, "turns_left": 1}}
 	)
@@ -1466,7 +1471,7 @@ func test_a_damaged_workshop_is_dropped_not_trusted() -> void:
 		economy, WorldMarket.with_default_prices(), {}, 0
 	)
 	assert_eq(report["production"]["produced"], {"lumber": 2}, "the whole batch still lands")
-	assert_eq(economy.wip_total(), 0)
+	assert_eq(economy.production.wip_total(), 0)
 
 
 func _economy(peasants: int) -> PlayerEconomy:

@@ -150,19 +150,15 @@ static func turns_left(wip: Dictionary, recipe_id: String) -> int:
 	return soonest
 
 
-## Units that leave the workshop for the store in the next Production phase: one
-## from each multi-turn batch due that phase, a carried one-turn batch whole.
-## Two batches order in different phases, so two units land a phase even though
-## each batch gives up one (wiki: production-recipes § Turns per unit;
-## DR-20261113-02).
-static func landing_next(wip: Dictionary, recipe_id: String) -> int:
-	var all: Array[Dictionary] = batches(wip, recipe_id)
-	if all.is_empty():
-		return 0
-	var soonest: int = turns_left(wip, recipe_id)
+## Units that leave the workshop in the next Production phase: one per batch
+## whose turns are served, so a court that left the row set and has two batches
+## on the anvil lands two a phase. The row's reading uses this so the note never
+## promises fewer landings than the phase pays (wiki: production-recipes
+## § Turns per unit; DR-20261113-02).
+static func next_landing(wip: Dictionary, recipe_id: String) -> int:
 	var total: int = 0
-	for cleaned: Dictionary in all:
-		if int(cleaned["turns_left"]) != soonest:
+	for cleaned: Dictionary in batches(wip, recipe_id):
+		if int(cleaned["turns_left"]) > 1:
 			continue
 		total += landing(recipe_id, int(cleaned["units"]))
 	return total

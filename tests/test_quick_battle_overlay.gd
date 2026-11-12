@@ -430,20 +430,21 @@ func test_the_plate_names_the_honours_won() -> void:
 	overlay.free()
 
 
-## The colours cited for a field won while mauled: the plate line and none for a
-## clean win (DR-20261112-10).
+## The colours cited for a field won while mauled: the plate line names the
+## weight a citation buys, and a clean win adds none (DR-20261112-10,
+## DR-20261113-04).
 func test_the_plate_names_the_cited_colours() -> void:
 	var battle: Dictionary = _battle()
 	battle["attacker_citations"] = 2
 
 	assert_eq(
 		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
-		"Citations — España: 2 colours cited at Flanders"
+		"Citations — España: 2 colours cited at Flanders (+5% each)"
 	)
 	battle["attacker_citations"] = 1
 	assert_eq(
 		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
-		"Citations — España: 1 colour cited at Flanders"
+		"Citations — España: 1 colour cited at Flanders (+5% each)"
 	)
 	assert_eq(QuickBattleCopy.citation_line(_battle(), "Flanders", NAMES), "")
 
@@ -454,7 +455,9 @@ func test_the_plate_names_the_cited_colours() -> void:
 	var text: String = ""
 	for line: Label in overlay._log.get_children():
 		text += String(line.text) + "\n"
-	assert_true(text.contains("Citations — España: 1 colour cited at Flanders"), text)
+	assert_true(
+		text.contains("Citations — España: 1 colour cited at Flanders (+5% each)"), text
+	)
 	overlay.free()
 
 

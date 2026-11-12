@@ -865,6 +865,65 @@ func test_a_researched_pattern_is_the_one_that_musters() -> void:
 	assert_eq(String(plan["muster"]), "musketeers", "the newest legal line wins")
 
 
+# --- provisioning ------------------------------------------------------------
+
+
+## A court arms itself before it can pay: an empty store still names the line its
+## treasury and labour pool open, so the cloth can be kept back and bought rather
+## than sold (wiki: growth-stage-planner § Recruitment modulation; the muster
+## itself still needs the materials it does not hold).
+func test_a_court_provisions_the_regiment_it_means_to_raise() -> void:
+	var economy: PlayerEconomy = _economy()
+	economy.stockpile = {}
+
+	assert_eq(
+		AiArmyReinforce.next_type(_config(), economy),
+		"arquebusiers",
+		"the strongest line the purse and the fields open, materials aside"
+	)
+	assert_eq(
+		String(AiArmyReinforce.plan(_config(), economy, 5, false)["muster"]), "",
+		"an empty store still musters nothing"
+	)
+	var reserve: Dictionary = AiArmyReinforce.muster_reserve(_config(), economy, 5, false)
+	assert_eq(
+		reserve, RegimentEconomy.training_inputs("arquebusiers"),
+		"the reserve is the whole input row of the pattern it would raise"
+	)
+
+
+## Nothing is held back for a court that is not arming: at its target, at a
+## labour floor, or with a purse that cannot reach the war chest it provisions
+## nothing, and its stock goes to market as before.
+func test_a_court_that_is_not_arming_provisions_nothing() -> void:
+	var target: Dictionary = AiArmyReinforce.muster_reserve(_config(), _economy(), 8, false)
+	assert_true(target.is_empty(), "eight regiments is the peace target")
+
+	var war: Dictionary = AiArmyReinforce.muster_reserve(_config(), _economy(), 8, true)
+	assert_false(war.is_empty(), "a war lifts the target and the court arms up")
+
+	var thin: Dictionary = AiArmyReinforce.muster_reserve(
+		_config(), _economy(12000, 3), 5, false
+	)
+	assert_true(thin.is_empty(), "the fields keep their hands")
+
+	var poor: Dictionary = AiArmyReinforce.muster_reserve(_config(), _economy(1500), 5, false)
+	assert_true(poor.is_empty(), "a purse under the war chest provisions nothing")
+
+
+## The reserve follows the pattern the court has actually researched, so a new
+## line's row is what gets kept.
+func test_the_reserve_follows_the_researched_pattern() -> void:
+	var economy: PlayerEconomy = _economy()
+	economy.tech_unlocked["weapon_craftsmanship"] = true
+
+	assert_eq(AiArmyReinforce.next_type(_config(), economy), "musketeers")
+	assert_eq(
+		AiArmyReinforce.muster_reserve(_config(), economy, 5, false),
+		RegimentEconomy.training_inputs("musketeers")
+	)
+
+
 # --- map adapter ------------------------------------------------------------
 
 
