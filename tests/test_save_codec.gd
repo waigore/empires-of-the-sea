@@ -363,10 +363,17 @@ func test_the_crowns_battle_plan_survives_a_load() -> void:
 func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
 	var play: PlaySession = screen.play
 	play.battle_plan = "defensive"
+	# Both payloads come from the opening screen so the case pays for two loads,
+	# not a third remount just to re-capture a fresh session.
 	var data: Dictionary = SaveCodec.capture(play)
 	var session: Dictionary = data["session"]
 	session.erase("battle_plan")
 	data["session"] = session
+	var fresh: Dictionary = SaveCodec.capture(play)
+	var fresh_session: Dictionary = fresh["session"]
+	fresh_session["battle_plan"] = "reckless"
+	fresh["session"] = fresh_session
+
 	screen.free()
 	screen = _new_screen(data)
 	assert_eq(
@@ -374,12 +381,6 @@ func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
 		"a legacy slot opens on the default stance"
 	)
 
-	screen.free()
-	screen = _new_screen()
-	var fresh: Dictionary = SaveCodec.capture(screen.play)
-	var fresh_session: Dictionary = fresh["session"]
-	fresh_session["battle_plan"] = "reckless"
-	fresh["session"] = fresh_session
 	screen.free()
 	screen = _new_screen(fresh)
 	assert_eq(
