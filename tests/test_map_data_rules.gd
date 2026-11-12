@@ -749,6 +749,56 @@ func test_a_rival_chart_round_trips_through_the_save() -> void:
 	assert_false(restored.apply_dict(world, {}), "a save without charts keeps the grid")
 	assert_true(restored.courts.is_empty() == false, "the good grid survives")
 
+## The links are pure map data, so every court charting one region asks for the
+## same table: it is built once per grid state and handed out as a copy.
+func test_the_coast_table_is_built_once_per_grid() -> void:
+	VisibilityModel.clear_cache()
+	var grid := _build_region()
+	var first := VisibilityModel.new()
+	first.setup(grid, PLAYER)
+	assert_eq(VisibilityModel._coast_cache.size(), 1, "one table for one grid")
+	var second := VisibilityModel.new()
+	second.setup(grid, 1)
+	assert_eq(VisibilityModel._coast_cache.size(), 1, "a second court reuses it")
+	assert_eq(second.province_sea_zones, first.province_sea_zones, "the copy answers alike")
+	second.province_sea_zones[99] = [9]
+	assert_false(first.province_sea_zones.has(99), "each chart keeps its own table")
+	first.province_sea_zones[98] = [8]
+	var third := VisibilityModel.new()
+	third.setup(grid, 2)
+	assert_false(third.province_sea_zones.has(98), "a chart cannot edit the shelf")
+	VisibilityModel.clear_cache()
+
+
+func test_an_edited_grid_builds_its_own_table() -> void:
+	VisibilityModel.clear_cache()
+	var first := VisibilityModel.new()
+	var grid := _build_region()
+	first.setup(grid, PLAYER)
+	var edited: MapModel = _build_region()
+	edited.terrain[edited.index_of(0, 4)] = MapModel.Terrain.PLAINS
+	_claim(edited, 4, 0, 2, 4, 4, PLAYER)
+	var second := VisibilityModel.new()
+	second.setup(edited, PLAYER)
+	assert_eq(VisibilityModel._coast_cache.size(), 2, "an edited grid gets its own table")
+	assert_ne(second.province_sea_zones, first.province_sea_zones, "and it reads differently")
+	VisibilityModel.clear_cache()
+
+
+func test_the_coast_cache_stays_bounded() -> void:
+	VisibilityModel.clear_cache()
+	var model: MapModel = _build_region()
+	for step in VisibilityModel.CACHE_LIMIT + 2:
+		model.terrain[model.index_of(step % 6, 5)] = (
+			MapModel.Terrain.HILLS if step % 2 == 0 else MapModel.Terrain.OCEAN
+		)
+		var view := VisibilityModel.new()
+		view.setup(model, PLAYER)
+	assert_lte(VisibilityModel._coast_cache.size(), VisibilityModel.CACHE_LIMIT, "bounded")
+	VisibilityModel.clear_cache()
+	assert_eq(VisibilityModel._coast_cache.size(), 0, "clearing drops every table")
+
+
 func _build_region() -> MapModel:
 	var map := MapModel.new()
 	map.setup(12, 6)

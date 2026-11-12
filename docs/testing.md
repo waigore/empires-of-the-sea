@@ -27,8 +27,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
 - That world is the smallest that still validates a `SaveCodec` slot and seats
   the turn-100 civilian tier; screen and campaign-plate suites share it.
-- The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
-  screens on that world repaints nothing.
+- The terrain wash (`MapWash.baked`) and each grid's fog coast table
+  (`VisibilityModel`) build once per map state, so mounting many screens — or
+  six courts' charts — repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
 - Attach a map screen lazily (`_attach()`) so rule-only cases never pay for
   painting the chart; a case that reads the map asks for it.
@@ -48,7 +49,7 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 ```bash
 # Tier 1-shaped (changed files vs HEAD / base)
 python tools/select_impacted_tests.py --base origin/main --print-command
-gd-tools test --coverage --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
+gd-tools test --coverage --timeout 240 --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
 gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 
 # Tier 2-shaped (one shard; CI runs all four, then merges coverage and gates 80%)
