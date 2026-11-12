@@ -2073,6 +2073,142 @@ func test_an_unhonoured_regiment_reads_only_its_tally() -> void:
 	assert_eq(RegimentRecord.honour_line(army, "unit_101", model), "")
 	assert_eq(RegimentRecord.line(army, "unit_101", model), "1 engagement · 0 won")
 
+
+# --- citations and the despatch a regiment holds (wiki: naming § Regiment
+# records; DR-20261112-10) ---
+
+
+func test_a_won_field_is_written_into_every_survivors_despatch() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var defender := army_regiment_names_Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := army_regiment_names_Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	var report: Dictionary = reports[0]
+	assert_eq(int(report["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	var bled: int = 0
+	for entry: Dictionary in report["attacker_health"]:
+		if float(entry["fraction"]) < 1.0:
+			bled += 1
+	assert_eq(int(report["attacker_citations"]), bled, "every mauled colour is cited")
+	assert_eq(int(report["defender_citations"]), 0, "a broken side takes no citation")
+	for regiment_id: String in attacker.regiments:
+		var fields: Array = RegimentDecorations.history(attacker, regiment_id)
+		assert_eq(fields.size(), 1, "the field is written once")
+		assert_eq(int(fields[0]["p"]), 2, "the field's province is kept")
+		assert_true(bool(fields[0]["w"]), "the side won it")
+
+
+func test_a_clean_win_cites_nobody_but_still_writes_the_field() -> void:
+	var attacker := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var defender := army_regiment_names_Fixture.army(2, 1, 2, ["pikemen"], true)
+	var won: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.ATTACKER_VICTORY}
+
+	RegimentCondition.attach(won, [attacker], [defender], 1, 0)
+
+	assert_eq(int(won["attacker_citations"]), 0, "no colour bled, none is cited")
+	assert_eq(RegimentDecorations.citations(attacker, "unit_101"), 0)
+	var fields: Array = RegimentDecorations.history(attacker, "unit_101")
+	assert_eq(fields.size(), 1, "the field is still on the record")
+	assert_true(bool(fields[0]["w"]))
+	assert_false(bool(fields[0]["c"]), "an untouched colour is not cited")
+
+
+func test_a_lost_field_counts_but_cites_nothing() -> void:
+	var attacker := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var defender := army_regiment_names_Fixture.army(2, 1, 2, ["pikemen"], true)
+	var beaten: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.DEFENDER_VICTORY}
+
+	RegimentCondition.attach(beaten, [attacker], [defender], 0, 1)
+
+	assert_eq(int(beaten["attacker_citations"]), 0)
+	assert_eq(int(beaten["defender_citations"]), 0, "a clean defence cites nobody")
+	assert_false(bool(RegimentDecorations.history(attacker, "unit_101")[0]["w"]))
+	assert_true(bool(RegimentDecorations.history(defender, "unit_201")[0]["w"]))
+
+
+func test_the_despatch_keeps_the_newest_fields_and_the_tally_counts_all() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+	for province: int in 12:
+		RegimentRecord.note_battle(side, true)
+		RegimentDecorations.note(side, province, true)
+
+	var fields: Array = RegimentDecorations.history(army, "unit_101")
+	assert_eq(fields.size(), RegimentDecorations.KEPT, "the despatch is bounded")
+	assert_eq(int(fields[0]["p"]), 11, "newest first")
+	assert_eq(int(fields[fields.size() - 1]["p"]), 12 - RegimentDecorations.KEPT)
+	assert_eq(int(RegimentRecord.of(army, "unit_101")["engagements"]), 12, "the tally counts all")
+
+
+func test_the_ladder_names_a_cited_and_a_laurelled_regiment() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	var top: int = int(army.condition_of("unit_101")["max"])
+
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 2, true)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "", "a clean win cites nobody")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"History — Province 2 won",
+		"an undecorated record still names the field"
+	)
+
+	army.regiment_health["unit_101"] = top / 2
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 6, true)
+	assert_eq(RegimentDecorations.citations(army, "unit_101"), 1)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "cited")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"Cited — Province 6 won · Province 2 won",
+		"the decoration leads the despatch"
+	)
+
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 4, true)
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 0, true)
+	assert_eq(RegimentDecorations.citations(army, "unit_101"), RegimentDecorations.LAUREL_AT)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "laurelled")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"Laurelled — Province 0 won · Province 4 won · +2 earlier",
+		"two newest fields, then the fields the record still counts"
+	)
+
+
+func test_a_green_regiment_holds_no_despatch() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+
+	assert_true(RegimentDecorations.history(army, "unit_101").is_empty())
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "")
+	assert_eq(RegimentDecorations.line(army, "unit_101", model), "", "a fresh roster stays short")
+
+
+func test_a_citation_survives_a_detach_and_a_save() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	army.regiment_health["unit_101"] = int(army.condition_of("unit_101")["max"]) / 2
+	RegimentDecorations.note(side, 2, true)
+	var armies: Array[ArmyState] = [army]
+
+	var result: Dictionary = ArmyState.split(armies, army, ["unit_101"], 2)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	var detached: ArmyState = result["army"] as ArmyState
+	assert_eq(RegimentDecorations.citations(detached, "unit_101"), 1, "the citation travels")
+	var restored: ArmyState = ArmyState.from_dict(detached.to_dict())
+	assert_eq(RegimentDecorations.citations(restored, "unit_101"), 1, "the save carries it")
+	assert_eq(int(RegimentDecorations.history(restored, "unit_101")[0]["p"]), 2)
+	assert_eq(RegimentDecorations.rank(army, "unit_102"), "", "the colour left behind is bare")
+
 # --- test_military_parity ---
 
 func test_no_research_leaves_the_floor_at_era_one() -> void:

@@ -21,11 +21,13 @@ var regiment_types: Dictionary = {}
 ## Per-instance condition (wiki: combat § Strength): health pool and chevrons.
 var regiment_health: Dictionary = {}
 var regiment_medals: Dictionary = {}
-## Each instance's title, record and honours (DR-20261111-18, DR-20261112-02).
+## Each instance's title, record and honours (DR-20261111-18, DR-20261112-02),
+## plus the despatch fields and citations it holds (DR-20261112-10).
 var regiment_names: Dictionary = {}
 var regiment_engagements: Dictionary = {}
 var regiment_wins: Dictionary = {}
 var regiment_honours: Dictionary = {}
+var regiment_history: Dictionary = {}
 ## Fleet instance id carrying this army, or -1 (wiki: ships-and-naval § Naval
 ## transport; DR-20261109-08). An embarked army has no province.
 var embarked_fleet: int = -1
@@ -79,6 +81,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	var kept_engagements: Dictionary = regiment_engagements.duplicate()
 	var kept_wins: Dictionary = regiment_wins.duplicate()
 	var kept_honours: Dictionary = regiment_honours.duplicate()
+	var kept_history: Dictionary = regiment_history.duplicate()
 	regiments = p_regiments.duplicate()
 	regiment_types = {}
 	regiment_health = {}
@@ -87,6 +90,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	regiment_engagements = {}
 	regiment_wins = {}
 	regiment_honours = {}
+	regiment_history = {}
 	for regiment_id: String in regiments:
 		var type_id: String = RegimentCatalog.normalize(
 			String(p_types.get(regiment_id, RegimentCatalog.DEFAULT_TYPE))
@@ -103,6 +107,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 		regiment_engagements[regiment_id] = int(kept_engagements.get(regiment_id, 0))
 		regiment_wins[regiment_id] = int(kept_wins.get(regiment_id, 0))
 		regiment_honours[regiment_id] = kept_honours.get(regiment_id, [])
+		regiment_history[regiment_id] = kept_history.get(regiment_id, {})
 	RegimentNames.fill(self)
 
 
@@ -122,12 +127,10 @@ func is_embarked() -> bool:
 	return embarked_fleet >= 0
 
 
-## Join Empire and a terminal fall, in place. An absorbed crown's land regiments
-## change colours with its provinces, and its Home Army becomes a field army so
-## the winner keeps exactly one (wiki: diplomacy § GP–Minor Rules,
-## military-armies § Home Army). `to_id == MapModel.NO_ID` retires the crown's
-## armies: each leaves the roster and play (capital-and-connectivity
-## § Capital loss). Its owner must store the rewritten roster again.
+## Join Empire and a terminal fall, in place: an absorbed crown's land regiments
+## change colours and its Home Army becomes a field army (diplomacy § GP–Minor
+## Rules, military-armies § Home Army); `to_id == MapModel.NO_ID` retires its
+## armies (capital-and-connectivity § Capital loss). The owner stores again.
 static func hand_over(armies: Array[ArmyState], from_id: int, to_id: int) -> void:
 	for index in range(armies.size() - 1, -1, -1):
 		var army: ArmyState = armies[index]
@@ -235,9 +238,8 @@ func composition_text() -> String:
 	return " · ".join(parts)
 
 
-## Splits the named regiment instances into a new field army in the same
-## province. The source keeps its Home Army flag (and is never deleted, even
-## when emptied); the caller owns the army list and receives the new army.
+## Splits the named instances into a new field army in the same province; the
+## source keeps its Home Army flag (never deleted) and the caller owns the list.
 static func split(
 	armies: Array[ArmyState],
 	source: ArmyState,
@@ -367,6 +369,7 @@ func to_dict() -> Dictionary:
 		"regiment_engagements": regiment_engagements.duplicate(),
 		"regiment_wins": regiment_wins.duplicate(),
 		"regiment_honours": regiment_honours.duplicate(),
+		"regiment_history": regiment_history.duplicate(),
 		"embarked_fleet": embarked_fleet,
 		"field_hospital": field_hospital,
 	}
@@ -390,5 +393,6 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.regiment_engagements = NameRoster.numbers_from(data.get("regiment_engagements", {}))
 	army.regiment_wins = NameRoster.numbers_from(data.get("regiment_wins", {}))
 	army.regiment_honours = RegimentRecord.honours_from(data.get("regiment_honours", {}))
+	army.regiment_history = RegimentDecorations.history_from(data.get("regiment_history", {}))
 	army.set_regiments(names, data.get("regiment_types", {}))
 	return army

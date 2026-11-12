@@ -10,6 +10,7 @@ Canonical skill bodies live here (one folder per skill). Native facades and auth
 | [`babysit-pr-agent`](babysit-pr-agent/SKILL.md) | Soft Actions queue (~3), unblock one same-repo PR for squash auto-merge |
 | [`elucidate-design-agent`](elucidate-design-agent/SKILL.md) | Clarify unclear wiki rules/AI (P5-first); Design Record + Changelog; implement; PR; stop |
 | [`export-android-debug`](export-android-debug/SKILL.md) | PR into `android-debug` so Actions publishes a debug APK GitHub Release; no local export unless asked |
+| [`file-github-issue`](file-github-issue/SKILL.md) | Interview bug/feature reports; duplicate check; analyze; file GitHub issue (`todo` + `bug`/`enhancement`) |
 | [`fix-tests-agent`](fix-tests-agent/SKILL.md) | Hourly (gated on open `ci-tier2`); fix full-suite failure; PR; babysit; close issue |
 | [`free-playtest-agent`](free-playtest-agent/SKILL.md) | GameForge free-playtest hard-to-reach areas; harness + fixes; wiki diary/learnings; PR |
 | [`hunt-defects-agent`](hunt-defects-agent/SKILL.md) | Playtest implemented wiki rules; fix session defects; P2 hill climb; open PR; stop |

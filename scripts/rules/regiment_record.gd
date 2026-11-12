@@ -26,6 +26,7 @@ static func start(army: ArmyState, regiment_id: String) -> void:
 	army.regiment_engagements[regiment_id] = 0
 	army.regiment_wins[regiment_id] = 0
 	army.regiment_honours[regiment_id] = []
+	army.regiment_history[regiment_id] = RegimentDecorations.blank()
 
 
 ## Re-equips one instance: the type swaps and its health scales to the same
@@ -50,6 +51,7 @@ static func forget(army: ArmyState, regiment_id: String) -> void:
 	army.regiment_engagements.erase(regiment_id)
 	army.regiment_wins.erase(regiment_id)
 	army.regiment_honours.erase(regiment_id)
+	army.regiment_history.erase(regiment_id)
 
 
 ## Carries the title and record of `ids` to another army (a detach).
@@ -71,6 +73,9 @@ static func _carry_one(source: ArmyState, target: ArmyState, regiment_id: String
 	)
 	target.regiment_wins[regiment_id] = int(source.regiment_wins.get(regiment_id, 0))
 	target.regiment_honours[regiment_id] = colours(source, regiment_id)
+	target.regiment_history[regiment_id] = RegimentDecorations.history_of(
+		source.regiment_history.get(regiment_id, {})
+	)
 
 
 ## The provinces on one regiment's colours, newest first.

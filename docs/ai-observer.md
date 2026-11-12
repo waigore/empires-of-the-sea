@@ -48,7 +48,8 @@ average-provinces table across runs.
 
 ## Scope
 
-The observer boots both theatres but the AI issues no warp crossings or colonial
-settlement, so runs play out in the Old World until rival fog exploration lands
-(`REQ-P2-02`). Live campaigns are bounded by military victory; the observer's
-endless mode is the allowed exception.
+Rival fog and colonisation planners are live (`CourtCharts`,
+`AiColonisationPlanner`); this harness still skips warp crossings and colonial
+settlement, so runs stay in the Old World. Live campaigns are bounded by
+military victory; the observer's endless mode is the allowed exception.
+Ranked gaps: [`deferred.md`](deferred.md).
