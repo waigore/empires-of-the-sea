@@ -218,6 +218,56 @@ func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
 
+## A court above the band hands back a province that already borders the
+## Great-Power pool (wiki: game-setup § Minor Nation assignment — "within ±1").
+func test_a_minor_over_the_band_hands_back_a_border_province() -> void:
+	# One-tile provinces, row-major: 10 holds four, 11 one, and tile 5 is pool.
+	var model: MapModel = _grid_model(3, 2, [10, 10, 10, 10, 11, MapModel.NO_ID])
+	var pool: Array = [5]
+	var grown: Array = MinorShare.trim(model, pool, _grid_ids(model), [10, 11])
+	assert_eq(_count_owned(model, 10), 3, "the court lands back inside the band")
+	assert_eq(_count_owned(model, 11), 1, "the other court keeps its share")
+	assert_true(grown.has(2), "the vacated province returns to the Great-Power pool")
+	assert_eq(model.province_data(2).owner, MapModel.NO_ID, "and has no owner")
+
+
+## A court whose only pool-facing province holds its holding together keeps its
+## land rather than split itself (wiki: game-setup § Minor Nation assignment).
+func test_a_minor_never_splits_its_own_holding_to_land_back() -> void:
+	# 10 owns tiles 0-2; only tile 1 reaches the pool (tile 5) and taking it
+	# would cut tile 0 off from tile 2, so the court keeps all three.
+	var model: MapModel = _grid_model(4, 2, [
+		10, 10, 10, 11,
+		12, MapModel.NO_ID, 13, 13,
+	])
+	var pool: Array = [5]
+	var grown: Array = MinorShare.trim(model, pool, _grid_ids(model), [10, 11, 12, 13])
+	assert_eq(_count_owned(model, 10), 3, "a cut province is never handed away")
+	assert_eq(grown, pool, "the pool does not grow")
+
+
+func _grid_model(width: int, height: int, owners: Array) -> MapModel:
+	var model := MapModel.new()
+	model.setup(width, height)
+	var provinces: Array[ProvinceState] = []
+	for y in height:
+		for x in width:
+			var index: int = model.index_of(x, y)
+			model.terrain[index] = MapModel.Terrain.PLAINS
+			model.province[index] = index
+			var tiles: Array[Vector2i] = [Vector2i(x, y)]
+			provinces.append(ProvinceState.create(
+				index, "P%d" % index, tiles,
+				Vector2(x + 0.5, y + 0.5), 1, int(owners[index])
+			))
+	model.provinces = provinces
+	return model
+
+
+func _grid_ids(model: MapModel) -> Array:
+	return range(model.provinces.size())
+
+
 ## Every faction holds at least one province and no count strays more than one
 ## from the even share (wiki: game-setup § assignment, "within ±1").
 func _assert_even_share(model: MapModel, factions: Array[int], label: String) -> void:
