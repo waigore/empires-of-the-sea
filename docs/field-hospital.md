@@ -47,7 +47,7 @@ combine keeps one train if either army had one. Rival planners pitch none yet.
 
 | File | Role |
 |------|------|
-| `scripts/rules/field_hospital_train.gd` | the table, the check, the better-of tempo |
+| `scripts/rules/hospital_train.gd` | the table, the check, the better-of tempo |
 | `scripts/rules/army_state.gd` | the flag, rations, split/combine, save |
 | `scripts/rules/army_movement.gd` | the turn-start rest tick |
 | `scripts/map/map_play_army_muster.gd` | the order: materials, then the flag |

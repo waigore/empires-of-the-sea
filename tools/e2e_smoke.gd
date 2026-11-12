@@ -215,7 +215,7 @@ func _run() -> void:
 				not String(screen.hud.panels.army_panel._hospital.text).is_empty(),
 				"the train order names itself"
 			)
-			FieldHospitalTrain.apply(field)
+			HospitalTrain.apply(field)
 			MapPlayArmies.show_panel(screen.play, field)
 			await process_frame
 			_check(

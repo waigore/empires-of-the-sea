@@ -115,7 +115,7 @@ static func begin_turn(armies: Array[ArmyState], model: MapModel = null) -> void
 			# carries the field's tempo wherever it stands — the better of the
 			# two, never both (wiki: combat § Strength; DR-20261110-19,
 			# DR-20261111-12, DR-20261112-07).
-			var share: float = FieldHospitalTrain.army_rest_share(
+			var share: float = HospitalTrain.army_rest_share(
 				model, army.province, army.field_hospital
 			)
 			RegimentCondition.rest(army, share)

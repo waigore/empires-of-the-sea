@@ -68,13 +68,13 @@ static func hospital_order(play: PlaySession, army: ArmyState) -> Dictionary:
 	if play.economy == null or play.economy.economy == null:
 		return {}
 	var economy: PlayerEconomy = play.economy.economy
-	var check: Dictionary = FieldHospitalTrain.check(
+	var check: Dictionary = HospitalTrain.check(
 		play.model, army, economy.tech_unlocked, economy.stockpile
 	)
 	if not bool(check.get("ok", false)):
 		return {"caption": String(check.get("reason", "")), "ok": false}
 	var parts: PackedStringArray = PackedStringArray()
-	var cost: Dictionary = FieldHospitalTrain.cost()
+	var cost: Dictionary = HospitalTrain.cost()
 	for commodity: String in cost.keys():
 		parts.append("%d %s" % [int(cost[commodity]), CommodityCatalog.label(commodity)])
 	return {"caption": "Pitch a field hospital (%s)" % " · ".join(parts), "ok": true}

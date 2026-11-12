@@ -1,4 +1,4 @@
-class_name FieldHospitalTrain
+class_name HospitalTrain
 extends RefCounted
 ## A field hospital that marches with one army (wiki: combat § Regiment
 ## condition; DR-20261112-07): tents and a surgeon's chest, level 1 only, one

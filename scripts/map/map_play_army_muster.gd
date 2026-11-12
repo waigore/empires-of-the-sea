@@ -75,16 +75,16 @@ static func pitch_hospital(play: PlaySession, army: ArmyState) -> void:
 	if play.economy == null or play.economy.economy == null or play.model == null:
 		return
 	var economy: PlayerEconomy = play.economy.economy
-	var check: Dictionary = FieldHospitalTrain.check(
+	var check: Dictionary = HospitalTrain.check(
 		play.model, army, economy.tech_unlocked, economy.stockpile
 	)
 	if not bool(check.get("ok", false)):
 		play.hud.toast(String(check.get("reason", "The train cannot march.")))
 		return
-	var cost: Dictionary = FieldHospitalTrain.cost()
+	var cost: Dictionary = HospitalTrain.cost()
 	for commodity: String in cost.keys():
 		economy.take(commodity, int(cost[commodity]))
-	FieldHospitalTrain.apply(army)
+	HospitalTrain.apply(army)
 	play.hud.toast("The army pitches a field hospital train.")
 	MapPlayArmies.show_panel(play, army)
 

@@ -205,7 +205,7 @@ func refresh(
 			# The army's own tents carry the field's tempo wherever it stands;
 			# a province ward still beats them (DR-20261112-07).
 			_strength.text += " · field hospital · rest %d%%" % roundi(
-				FieldHospitalTrain.army_rest_share(model, army.province, true) * 100.0
+				HospitalTrain.army_rest_share(model, army.province, true) * 100.0
 			)
 		elif ward > 0:
 			_strength.text += " · rest %d%%" % roundi(

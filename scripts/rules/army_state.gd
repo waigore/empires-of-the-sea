@@ -266,7 +266,7 @@ static func split(
 		source.remove_regiment(regiment_id)
 	armies.append(detached)
 	if not source.home and source.is_empty():
-		FieldHospitalTrain.split_carry(source, detached)
+		HospitalTrain.split_carry(source, detached)
 		armies.erase(source)
 	return {"ok": true, "reason": "", "army": detached}
 
@@ -293,7 +293,7 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 	for army: ArmyState in selected:
 		if army == target:
 			continue
-		FieldHospitalTrain.combine_carry(target, army)
+		HospitalTrain.combine_carry(target, army)
 		for regiment_id: String in army.regiments:
 			var data: Dictionary = army.condition_of(regiment_id)
 			target.add_regiment(regiment_id, army.type_of(regiment_id))
@@ -334,7 +334,7 @@ static func food_upkeep_of(armies: Array[ArmyState], owner: int) -> int:
 		if army == null or army.owner != owner:
 			continue
 		if army.field_hospital:
-			total += FieldHospitalTrain.food()
+			total += HospitalTrain.food()
 		for regiment_id: String in army.regiments:
 			total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total

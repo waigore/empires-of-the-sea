@@ -1119,26 +1119,26 @@ func test_the_army_dossier_names_an_unstaffed_ward() -> void:
 # --- the field hospital train (DR-20261112-07) --------------------------------
 
 func test_the_train_table_follows_the_design_record() -> void:
-	assert_almost_eq(FieldHospitalTrain.REST_SHARE, 0.40, 0.001)
-	assert_eq(FieldHospitalTrain.food(), 2)
-	assert_eq(FieldHospitalTrain.tech(), "organised_regiments")
-	assert_eq(FieldHospitalTrain.cost(), {"lumber": 2, "fabric": 1})
-	assert_true(FieldHospitalTrain.describe().contains("rest 40%"))
-	assert_true(FieldHospitalTrain.describe().contains("staff 2 food"))
+	assert_almost_eq(HospitalTrain.REST_SHARE, 0.40, 0.001)
+	assert_eq(HospitalTrain.food(), 2)
+	assert_eq(HospitalTrain.tech(), "organised_regiments")
+	assert_eq(HospitalTrain.cost(), {"lumber": 2, "fabric": 1})
+	assert_true(HospitalTrain.describe().contains("rest 40%"))
+	assert_true(HospitalTrain.describe().contains("staff 2 food"))
 
 
 func test_the_better_of_the_tents_and_the_ward_sets_the_tempo() -> void:
 	var model := hospital_rules_Fixture.build()
-	assert_almost_eq(FieldHospitalTrain.army_rest_share(model, 1, false), 0.25, 0.001)
-	assert_almost_eq(FieldHospitalTrain.army_rest_share(model, 1, true), 0.40, 0.001)
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, false), 0.25, 0.001)
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, true), 0.40, 0.001)
 	model.province_data(1).hospital_level = 2
 	assert_almost_eq(
-		FieldHospitalTrain.army_rest_share(model, 1, true), 0.55, 0.001,
+		HospitalTrain.army_rest_share(model, 1, true), 0.55, 0.001,
 		"the ward's nurses still beat the tents"
 	)
 	var no_model: MapModel = null
 	assert_almost_eq(
-		FieldHospitalTrain.army_rest_share(no_model, MapModel.NO_ID, true), 0.40, 0.001,
+		HospitalTrain.army_rest_share(no_model, MapModel.NO_ID, true), 0.40, 0.001,
 		"a train heals with no map at all"
 	)
 
@@ -1177,36 +1177,36 @@ func test_a_train_is_pitched_on_the_crowns_own_land() -> void:
 	var army := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
 	var tech: Dictionary = {"organised_regiments": true}
 	var stock: Dictionary = {"lumber": 2, "fabric": 1}
-	assert_true(bool(FieldHospitalTrain.check(model, army, tech, stock)["ok"]))
+	assert_true(bool(HospitalTrain.check(model, army, tech, stock)["ok"]))
 
-	assert_false(bool(FieldHospitalTrain.check(null, army, tech, stock)["ok"]))
-	assert_false(bool(FieldHospitalTrain.check(model, null, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(null, army, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, null, tech, stock)["ok"]))
 
 	var foreign := hospital_rules_Fixture.army(2, 0, 2, ["pikemen"])
-	var check: Dictionary = FieldHospitalTrain.check(model, foreign, tech, stock)
+	var check: Dictionary = HospitalTrain.check(model, foreign, tech, stock)
 	assert_false(bool(check["ok"]))
 	assert_true(String(check["reason"]).contains("own land"))
 
 	var embarked := hospital_rules_Fixture.army(3, 0, 1, ["pikemen"])
 	embarked.embarked_fleet = 7
-	assert_false(bool(FieldHospitalTrain.check(model, embarked, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, embarked, tech, stock)["ok"]))
 
 	var carrying := hospital_rules_Fixture.army(4, 0, 1, ["pikemen"])
 	carrying.field_hospital = true
-	assert_false(bool(FieldHospitalTrain.check(model, carrying, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, carrying, tech, stock)["ok"]))
 
 	var empty := hospital_rules_Fixture.army(5, 0, 1, [])
-	assert_false(bool(FieldHospitalTrain.check(model, empty, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, empty, tech, stock)["ok"]))
 
-	var locked: Dictionary = FieldHospitalTrain.check(model, army, {}, stock)
+	var locked: Dictionary = HospitalTrain.check(model, army, {}, stock)
 	assert_false(bool(locked["ok"]))
 	assert_true(String(locked["reason"]).contains("Organised Regiments"))
 
-	var short: Dictionary = FieldHospitalTrain.check(model, army, tech, {"lumber": 1})
+	var short: Dictionary = HospitalTrain.check(model, army, tech, {"lumber": 1})
 	assert_false(bool(short["ok"]))
 
 	# Pitching changes only the standard that carries it.
-	FieldHospitalTrain.apply(army)
+	HospitalTrain.apply(army)
 	assert_true(army.field_hospital)
 
 
@@ -1240,7 +1240,7 @@ func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
 
 func test_the_train_rides_in_the_save_and_an_old_save_has_none() -> void:
 	var army := ArmyState.muster(1, 0, 1, false, ["pikemen"])
-	FieldHospitalTrain.apply(army)
+	HospitalTrain.apply(army)
 	var restored: ArmyState = ArmyState.from_dict(army.to_dict())
 	assert_true(restored.field_hospital)
 	var legacy: ArmyState = ArmyState.from_dict({"id": 2, "owner": 0, "province": 1})
@@ -1266,7 +1266,7 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	assert_true(panel._hospital.visible)
 	assert_true(panel._hospital.disabled)
 
-	FieldHospitalTrain.apply(army)
+	HospitalTrain.apply(army)
 	panel.refresh(model, army, true)
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
 	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
