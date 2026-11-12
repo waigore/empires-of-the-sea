@@ -1257,6 +1257,7 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	panel.refresh(model, army, true, false, "", [], "", "balanced", order)
 	assert_true(panel._hospital.visible)
 	assert_false(panel._hospital.disabled)
+	var bare_food: int = panel._food(army)
 
 	# A blocked order still shows, with the rules' reason as its caption.
 	panel.refresh(
@@ -1270,6 +1271,12 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	panel.refresh(model, army, true)
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
 	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
+	# The strength line's food is the army's own upkeep line, nurses included.
+	assert_eq(panel._food(army), bare_food + HospitalTrain.food())
+	assert_true(
+		String(panel._strength.text).contains("%d food" % (bare_food + HospitalTrain.food())),
+		panel._strength.text
+	)
 	panel.free()
 
 # --- test_army_field_rules ---
