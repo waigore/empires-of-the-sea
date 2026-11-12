@@ -173,7 +173,8 @@ static func chevrons(side: Array[ArmyState]) -> int:
 ## Attaches the aftermath a plate and a despatch both read: every survivor's
 ## condition, how many were mauled, and the chevrons won (REQ-P2-03, REQ-P5-05).
 ## The same call writes each survivor's service record, so auto-resolve and
-## Quick Battle tally one way (DR-20261111-18).
+## Quick Battle tally one way (DR-20261111-18). A winning side's colours also
+## take the province it won as a battle honour, once (DR-20261112-02).
 static func attach(
 	report: Dictionary,
 	attacker_side: Array[ArmyState],
@@ -188,8 +189,16 @@ static func attach(
 	report["attacker_chevrons"] = atk_up
 	report["defender_chevrons"] = def_up
 	var outcome: int = int(report.get("outcome", ArmyCombat.Outcome.STALEMATE))
-	RegimentRecord.note_battle(
-		attacker_side,
-		outcome in [ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE]
+	var atk_won: bool = outcome in [
+		ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE
+	]
+	var def_won: bool = outcome == ArmyCombat.Outcome.DEFENDER_VICTORY
+	RegimentRecord.note_battle(attacker_side, atk_won)
+	RegimentRecord.note_battle(defender_side, def_won)
+	var province: int = int(report.get("province", MapModel.NO_ID))
+	report["attacker_honours"] = (
+		RegimentRecord.award_honours(attacker_side, province) if atk_won else 0
 	)
-	RegimentRecord.note_battle(defender_side, outcome == ArmyCombat.Outcome.DEFENDER_VICTORY)
+	report["defender_honours"] = (
+		RegimentRecord.award_honours(defender_side, province) if def_won else 0
+	)

@@ -63,8 +63,8 @@ same +15% boost the player does.
 
 ## Tests
 
-`test_espionage`, `test_spy_networks`, `test_visibility`, `test_ai_rules`,
-`test_research_turn`.
+`test_espionage`, `test_intel_rules`, `test_visibility`, `test_ai_rules`,
+`test_research_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

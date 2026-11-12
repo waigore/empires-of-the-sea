@@ -73,10 +73,9 @@ The dossier never reads
 
 ## Tests
 
-`tests/test_intel_evidence.gd`, `tests/test_intel_dossier.gd`,
-`tests/test_court_dossier_screen.gd`, plus the dossier cases in
+`tests/test_intel_rules.gd`, `tests/test_intel_dossier.gd`, plus the dossier cases in
 `tests/test_diplomacy_panel.gd`, `tests/test_espionage.gd`.
 
 ```bash
-gd-tools test --no-cache tests/test_intel_evidence.gd tests/test_intel_dossier.gd tests/test_court_dossier_screen.gd tests/test_diplomacy_panel.gd tests/test_espionage.gd
+gd-tools test --no-cache tests/test_intel_rules.gd tests/test_intel_dossier.gd tests/test_diplomacy_panel.gd tests/test_espionage.gd
 ```

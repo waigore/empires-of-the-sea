@@ -27,7 +27,14 @@ static func primary(side: Array[ArmyState]) -> ArmyState:
 ## beats the phase snapshot the binding took. The snapshot stays as the fallback
 ## for a context that names medals without a roster (battle-sim scenarios).
 static func medals(side: Array[ArmyState], context: Dictionary) -> int:
-	var lead: ArmyState = primary(side)
+	return medals_of(primary(side), context)
+
+
+## Medals one army fights under: its bound general's live count, else the phase
+## snapshot, else the leader fallback. Callers that also award the decoration
+## read the primary army through this same entry, so the side's line and the
+## general it credits always name one commander.
+static func medals_of(lead: ArmyState, context: Dictionary) -> int:
 	if lead == null:
 		return 0
 	var bindings: Dictionary = context.get("army_general", {}) as Dictionary
@@ -45,8 +52,11 @@ static func medals(side: Array[ArmyState], context: Dictionary) -> int:
 
 ## Credits the winning side's primary general with one medal; returns its id
 ## only when a medal was actually gained (a four-medal general gains nothing).
-static func award(context: Dictionary, side: Array[ArmyState], owner: int) -> String:
-	var lead: ArmyState = primary(side)
+## The caller passes the army it read BEFORE casualties for `medals_of`: the
+## primary is the army with the most regiments before battle resolution
+## (wiki: military-armies § Battle grouping), so a mauled line cannot hand the
+## decoration to a general who was not the side's commander when it opened.
+static func award(context: Dictionary, lead: ArmyState, owner: int) -> String:
 	if lead == null:
 		return ""
 	var bindings: Dictionary = context.get("army_general", {}) as Dictionary

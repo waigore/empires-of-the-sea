@@ -16,6 +16,14 @@ static func begin(play: PlaySession) -> void:
 		return
 	apply(play)
 	play.switch_region(play.region_index)
+	# The preset rewrites every purse after the HUD was built from the turn-0
+	# ledger, so the top bar must be repainted here: a court that opens on 40,000
+	# ducats read 2,500 until some later order happened to refresh it.
+	if play.hud == null or play.economy == null:
+		return
+	play.hud.set_treasury(play.treasury(), false)
+	play.income = play.economy.projected_income()
+	play.hud.set_income(play.income)
 
 
 static func apply(play: PlaySession) -> Dictionary:

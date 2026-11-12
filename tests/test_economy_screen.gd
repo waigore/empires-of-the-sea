@@ -131,6 +131,34 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	assert_gt(economy.total_units(), 0)
 
 
+func test_the_crowns_wards_eat_from_the_larder() -> void:
+	var world: WorldMap = _screen.play.world
+	var faction: int = _screen.player_faction
+	var province: ProvinceState = world.region(0).province_data(
+		_screen.economy.capital_province
+	)
+	assert_not_null(province)
+	province.hospital_level = 1
+	assert_eq(HospitalRules.demand_list(world, faction).size(), 1)
+
+	_screen.economy.economy.stockpile["grain"] = 20
+	_screen.economy.economy.stockpile["meat"] = 20
+	var report: Dictionary = _screen.economy.resolve_turn()
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_demand"]), 2)
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_fed"]), 2)
+	assert_true(province.hospital_staffed, "a fed ward keeps its staff")
+
+	# An empty larder feeds the living first: the ward goes without, and the
+	# turn's own summary says so (REQ-P5-05).
+	_screen.economy.economy.stockpile["grain"] = 0
+	_screen.economy.economy.stockpile["meat"] = 0
+	var bare: Dictionary = _screen.economy.resolve_turn()
+	assert_false(province.hospital_staffed)
+	assert_eq((bare["hospital"] as Dictionary)["hungry"].size(), 1)
+	assert_true(LedgerText.turn_summary(bare).contains("1 hospital unstaffed"))
+	assert_eq(HospitalRules.effective_level(world.region(0), province.id), 0)
+
+
 # --- merchant cargo ----------------------------------------------------------
 
 
@@ -501,6 +529,66 @@ func test_the_ledger_names_a_favoured_partner_fill() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
 	assert_not_null(_find_label(body, "as its favoured partner"))
+
+
+## A sale names the ducats the auction paid, and the overseas share the court
+## earned from the courts' purchases abroad is its own line — neither is visible
+## on any other surface (wiki: world-market § First right of refusal; REQ-P5-05).
+func test_the_ledger_names_a_sale_and_the_overseas_share() -> void:
+	var faction: int = _screen.player_faction
+	_screen.economy.market.book.last_deals = [{
+		"buyer": MarketOrder.WORLD,
+		"seller": faction,
+		"commodity": "grain",
+		"quantity": 1,
+		"price": 50,
+		"earned": 50,
+	}]
+	_screen.economy.last_clearing = {"credits": {"by_gp": {faction: 89.0}}}
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "Sold 1 Grain to the world market at 50 — 50 ducats"))
+	assert_not_null(_find_label(body, "Overseas shares  +89 ducats"))
+
+
+## The "Next turn" line names the orders the auction settles after it, so a
+## staged bid is never read as already counted in the promise (wiki:
+## stockpiles-and-production § Production flow).
+func test_the_ledger_preview_names_the_staged_auction() -> void:
+	_screen.economy._on_trade("grain", 1, true)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	assert_not_null(_find_label(panel, "settles at the auction"))
+
+
+## Starting a study is a decision about the purse, so the top bar's per-turn
+## figure follows it before the turn closes (wiki: tech-tree § Research Model;
+## REQ-P5-05 — a cost the player chose is never a mystery at the auction).
+func test_starting_a_study_moves_the_per_turn_figure() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	var open: Array[String] = economy.research.researchable()
+	assert_gt(open.size(), 0, "the opening college has an advance to start")
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income())
+	)
+	_screen.economy._on_research_assign(open[0])
+	var gold: int = ResearchFunding.gold(ResearchFunding.DEFAULT)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"the chip follows the study it just funded",
+	)
+	assert_eq(_screen.economy.projected_income(), -gold, "the slot pays its preset")
+	_screen.economy._on_research_funding(0)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"a preset change moves the figure too",
+	)
+	_screen.economy._on_research_cancel(0)
+	assert_eq(
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		"abandoning the study gives the gold back",
+	)
 
 
 ## The crown's ledger cannot offer what its own production will eat: the AI

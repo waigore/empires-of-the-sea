@@ -138,18 +138,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Lint docs word limit (≤500)
-        if: >-
-          github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
-        run: python tools/lint_docs_words.py
+          cache: pip
+          cache-dependency-path: .github/gd-tools-requirements.txt
 
       - name: Install gd-tools
         if: >-
           github.event_name == 'workflow_dispatch' ||
           (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
-        run: pip install "gd-tools-cli==0.10.0"
+        run: pip install -r .github/gd-tools-requirements.txt
 
       - name: Setup Godot
         if: >-

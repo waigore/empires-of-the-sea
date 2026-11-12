@@ -39,7 +39,7 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
-	hospital.text = HospitalRules.describe(data.hospital_level)
+	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 
 
 ## `crown` is `LandConnectivity.province_link` for this province: whether its
