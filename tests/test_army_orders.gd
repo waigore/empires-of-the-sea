@@ -184,7 +184,7 @@ func test_the_dossier_pitches_a_field_hospital_train() -> void:
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
 	# The strength line's food is the army's own upkeep line, so it agrees with
 	# the ledger's army ration, nurses included (DR-20261112-07).
-	var upkeep: int = ArmyState.food_upkeep_of([army], army.owner)
+	var upkeep: int = ArmyRoster.food_upkeep_of([army], army.owner)
 	assert_true(String(panel._strength.text).contains("%d food" % upkeep), panel._strength.text)
 	assert_false(panel._hospital.visible, "a served order is gone")
 

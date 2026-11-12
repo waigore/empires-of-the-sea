@@ -85,7 +85,7 @@ static func _run_region(
 	return changed
 
 
-## Applies one detach through ArmyState.split, minting the next field army id.
+## Applies one detach through ArmyRoster.split, minting the next field army id.
 static func _apply_split(
 	play: PlaySession,
 	model: MapModel,
@@ -99,7 +99,7 @@ static func _apply_split(
 		return false
 	var ids: Array[String] = []
 	ids.assign(action["regiments"])
-	var split: Dictionary = ArmyState.split(
+	var split: Dictionary = ArmyRoster.split(
 		roster, home, ids, play.army_layer.next_army
 	)
 	if not bool(split.get("ok", false)):

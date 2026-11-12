@@ -1167,9 +1167,9 @@ func test_the_trains_staff_eat_with_the_men() -> void:
 	var plain := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
 	var train := hospital_rules_Fixture.army(2, 0, 1, ["pikemen"])
 	train.field_hospital = true
-	var bare: int = ArmyState.food_upkeep_of([plain], 0)
-	assert_eq(ArmyState.food_upkeep_of([train], 0), bare + 2)
-	assert_eq(ArmyState.food_upkeep_of([train], 1), 0, "another crown pays nothing")
+	var bare: int = ArmyRoster.food_upkeep_of([plain], 0)
+	assert_eq(ArmyRoster.food_upkeep_of([train], 0), bare + 2)
+	assert_eq(ArmyRoster.food_upkeep_of([train], 1), 0, "another crown pays nothing")
 
 
 func test_a_train_is_pitched_on_the_crowns_own_land() -> void:
@@ -1214,7 +1214,7 @@ func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
 	var army := ArmyState.muster(1, 0, 1, false, ["pikemen", "pikemen"])
 	army.field_hospital = true
 	var armies: Array[ArmyState] = [army]
-	var split: Dictionary = ArmyState.split(armies, army, [army.regiments[0]], 2)
+	var split: Dictionary = ArmyRoster.split(armies, army, [army.regiments[0]], 2)
 	assert_true(bool(split["ok"]))
 	var detached: ArmyState = split["army"]
 	assert_true(army.field_hospital, "the parent standard keeps the tents")
@@ -1222,7 +1222,7 @@ func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
 
 	# A full detach drops the emptied standard, and the train marches with the men.
 	var rest: Array[ArmyState] = [army]
-	var all_out: Dictionary = ArmyState.split(
+	var all_out: Dictionary = ArmyRoster.split(
 		rest, army, army.regiments.duplicate(), 3
 	)
 	assert_true(bool(all_out["ok"]))
@@ -1232,7 +1232,7 @@ func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
 
 	var other := ArmyState.muster(4, 0, 1, false, ["pikemen"])
 	var pair: Array[ArmyState] = [moved, other]
-	var combined: Dictionary = ArmyState.combine(pair, pair)
+	var combined: Dictionary = ArmyRoster.combine(pair, pair)
 	assert_true(bool(combined["ok"]))
 	assert_true((combined["army"] as ArmyState).field_hospital, "one train survives")
 	assert_eq(pair.size(), 1)
@@ -1880,7 +1880,7 @@ func test_a_detached_regiment_keeps_its_title_and_record() -> void:
 	var title: String = RegimentNames.of(army, "unit_102")
 	var armies: Array[ArmyState] = [army]
 
-	var result: Dictionary = ArmyState.split(armies, army, ["unit_102"], 2)
+	var result: Dictionary = ArmyRoster.split(armies, army, ["unit_102"], 2)
 
 	assert_true(bool(result["ok"]), String(result["reason"]))
 	var detached: ArmyState = result["army"] as ArmyState
@@ -1896,7 +1896,7 @@ func test_a_combined_army_keeps_each_regiments_title_and_record() -> void:
 	var title: String = RegimentNames.of(second, "unit_201")
 	var armies: Array[ArmyState] = [first, second]
 
-	var result: Dictionary = ArmyState.combine(armies, [first, second])
+	var result: Dictionary = ArmyRoster.combine(armies, [first, second])
 
 	assert_true(bool(result["ok"]), String(result["reason"]))
 	var target: ArmyState = result["army"] as ArmyState
@@ -2033,7 +2033,7 @@ func test_the_colours_survive_a_detach_and_a_save() -> void:
 	RegimentRecord.award_honours(side, 2)
 	var armies: Array[ArmyState] = [army]
 
-	var result: Dictionary = ArmyState.split(armies, army, ["unit_101"], 2)
+	var result: Dictionary = ArmyRoster.split(armies, army, ["unit_101"], 2)
 
 	assert_true(bool(result["ok"]), String(result["reason"]))
 	var detached: ArmyState = result["army"] as ArmyState
@@ -2199,7 +2199,7 @@ func test_a_citation_survives_a_detach_and_a_save() -> void:
 	RegimentDecorations.note(side, 2, true)
 	var armies: Array[ArmyState] = [army]
 
-	var result: Dictionary = ArmyState.split(armies, army, ["unit_101"], 2)
+	var result: Dictionary = ArmyRoster.split(armies, army, ["unit_101"], 2)
 
 	assert_true(bool(result["ok"]), String(result["reason"]))
 	var detached: ArmyState = result["army"] as ArmyState
