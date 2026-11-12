@@ -1,8 +1,7 @@
 # Dialogue and mood
 
-A court speaks once an act is done. Presentation only: the rules record events,
-`DialogueEvents` reads one back into a line and a face, and no mood or word ever
-feeds an outcome (`REQ-P2-03`).
+Presentation only: the rules record events, `DialogueEvents` reads one into a line
+and a face, and no word or mood feeds an outcome (`REQ-P2-03`).
 
 ## Modules
 
@@ -22,18 +21,15 @@ feeds an outcome (`REQ-P2-03`).
 ## Where it shows
 
 - **Court panel** — `THEIR ENVOY · <MOOD>` under the herald line: the pair's
-  newest voiced act, else the standing word. The reader never speaks.
+  newest voiced act, else the standing word.
 - **Proposal banner** — a waiting offer's face and line (`CourtPrompts`).
-- **Crown's charge** — a broadside names the seat and the age's terms; one press
-  begins (DR-20261110-35).
 
 ## What is voiced
 
 War and peace, alliances, overtures, calls to arms, intervention, proposals
 answered, first contact, one standing remark per band, and a battle the crown
-fought (the court that read the verdict answers it, out of the chronicle).
-Bookkeeping — subsidy, aid, colony status — is silent. Every seventh turn a
-known rival may slip a veiled word about its motive (DR-20261111-19).
+fought. Bookkeeping — subsidy, aid, colony status — is silent. Every seventh turn
+a known rival may slip a veiled word about its motive (DR-20261111-19).
 
 The crown's own turn speaks too: the rival watching a finished study closest, the
 heaviest owner of a host at the seat, a Tribe taken as a colony. Only the
@@ -55,23 +51,25 @@ words and face (`REQ-P2-04`). No RNG; one line per refresh.
 | Quality ≤ −0.5 | `irritated` / `dismissive` |
 | Otherwise | `calculating` / `considering` |
 
-Quality is the surplus over what the offer requires, normalised by 40
-points, clamped to ±1.
+Quality is the surplus over the requirement, normalised by 40, clamped to ±1.
 
 ## Yarn and localization
 
 The standing word is authored as Yarn (`DialogueYarn.SOURCE`): one node per
 point, titled with its content key, `category:`/`mood:` on its `tags:` line;
-`DialogueCatalog` merges that table with its own. The subset: lines with
-`#tags`, `->` options with a `<<command>>`, `<<set>>`, `<<if>>`/`<<elseif>>`/
-`<<else>>`/`<<endif>>`, `<<jump>>`, `<<stop>>`, `{$variable}` interpolation; a
-malformed script is refused with its line number.
+`DialogueCatalog` merges that table with its own. The subset: tagged lines, `->`
+options with a `<<command>>`, `<<set>>`, the `<<if>>` family, `<<jump>>`,
+`<<stop>>`, `{$variable}` interpolation; a malformed script is refused with its
+line number.
 
 Each variant answers to `DialoguePoint/<point>/<variant>` through
-`TranslationServer`: a translation ships without code, an untranslated key falls
-back to the authored English (`REQ-P2-03`).
+`TranslationServer`. `assets/locales/fr.po` answers all 124 variants — the key is
+the `msgid`, the English a `#.` comment — and `DialogueLocale.SHIPPED` registers
+it once, so the reader's OS tongue decides and an unanswered key falls back to
+English (`REQ-P2-03`, DR-20261113-06). The suite fails on a variant left in
+English, a lost `{speaker}`/`{other}`, or a dropped key.
 
 ## Deferred
 
-Translation words for the court's lines; era change stays blocked (no era
-model). Ranked: [`deferred.md`](deferred.md).
+An in-game tongue picker (the tongue follows the OS) and further tongues; era
+change stays blocked (no era model). Ranked: [`deferred.md`](deferred.md).

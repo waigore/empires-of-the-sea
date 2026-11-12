@@ -1,50 +1,51 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-04 (`REQ-P2-02`).
+Audited through DR-20261113-06 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
-| Difficulty (stores, field, sea, crown's bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
+| Difficulty tiers | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
 | Agenda decision hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
 | Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home` |
 | Forts + rival civilian AI | [`forts.md`](forts.md), `AiCivilianPlanner` |
-| Minor/Tribe town offers + overseas town bonus | `MinorMarket`, `TownIndustry` |
+| Minor town offers, overseas bonus | `MinorMarket`, `TownIndustry` |
 | Merchant overseas cargo | `EconomyOverseas` |
-| Colony profit share + near-defeat Join Empire | `FirstRight`, `DiplomacyRules` |
+| Colony share, Join Empire | `FirstRight`, `DiplomacyRules` |
 | Counter-spy + court reports | [`espionage.md`](espionage.md) |
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
 | Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
-| Rival GP–Tribe first contact (+ deeds) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
+| Rival first contact, deeds | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
 | Hospitals, rival builders, staff upkeep | `HospitalRules` / `AiHospitalWork` / `EconomyConsumption` |
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
 | Regiment titles, records, named commanders | `RegimentNames` / `RegimentRecord` / `GeneralNames` |
 | Raid hull losses; rival-on-rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
-| Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
+| Minor town growth (deed) | `MinorTownGrowth`, DR-20261112-01 |
 | Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02 |
-| Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
-| Field-hospital trains (player + rival) | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
+| Advanced-start chart, Passage lanes | `AdvancedSeas`, DR-20261112-06 |
+| Field-hospital trains | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
 | Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
-| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
-| Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
+| Citations, ladder, despatches | `RegimentDecorations`, DR-20261112-10 |
+| Multi-turn recipes | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
 | Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
 | A decoration that buys weight | `RegimentDecorations.strength_multiplier`, DR-20261113-04 |
+| Translation content (the court's French words) | `assets/locales/fr.po`, DR-20261113-06 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Translation content | Localization | Keys live; needs words |
+| 1 | Tongue picker | A reader on another OS cannot choose | `fr` only; prompts unkeyed |
 
 ## Next pick
 
-**Rank 1** — Translation content: every dialogue line answers to a key
-(`DialogueLocale`), but no `.po` ships, so a non-English build reads English.
+**Rank 1** — An in-game tongue picker: the tongue follows the OS today, so a
+reader on an English device cannot ask for the French court.
 
 ## Out of scope / blocked footnotes
 

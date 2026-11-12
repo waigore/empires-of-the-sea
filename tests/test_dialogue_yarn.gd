@@ -355,17 +355,20 @@ func test_the_locale_can_be_switched_and_read_back() -> void:
 
 
 func test_a_translation_overrides_the_authored_line() -> void:
+	# A tongue no shipped file speaks, so this table is the only one that answers.
 	var table := Translation.new()
-	table.locale = "fr"
-	table.add_message(DialogueLocale.line_key("reactive/standing_cold", 0), "Nous n'avons rien a dire.")
+	table.locale = "nl"
+	table.add_message(
+		DialogueLocale.line_key("reactive/standing_cold", 0), "Wij hebben u weinig te zeggen."
+	)
 	TranslationServer.add_translation(table)
-	DialogueLocale.set_locale("fr")
+	DialogueLocale.set_locale("nl")
 	assert_eq(
 		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
-		"Nous n'avons rien a dire."
+		"Wij hebben u weinig te zeggen."
 	)
 	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_cold", 0), "Nous n'avons rien a dire.",
+		DialogueCatalog.line_for("reactive/standing_cold", 0), "Wij hebben u weinig te zeggen.",
 		"the court's own line reads the translation"
 	)
 	assert_eq(
@@ -380,3 +383,77 @@ func test_a_translation_overrides_the_authored_line() -> void:
 		"We have little to say to your court.",
 		"the source line comes back"
 	)
+
+
+# --- the shipped tongue -----------------------------------------------------
+
+func _authored(point: String, index: int) -> String:
+	return String(DialogueCatalog.lines_for(point)[index])
+
+
+func _authored_line_count() -> int:
+	var total: int = 0
+	for point: String in DialogueCatalog.points():
+		total += DialogueCatalog.lines_for(point).size()
+	return total
+
+
+func test_the_shipped_french_answers_every_authored_line() -> void:
+	DialogueLocale.load_shipped()
+	var table: Translation = TranslationServer.get_translation_object("fr")
+	assert_not_null(table, "the project loads the shipped .po")
+	DialogueLocale.set_locale("fr")
+	assert_eq(
+		table.get_message_count(), _authored_line_count(),
+		"the shipped file answers exactly the authored variants"
+	)
+	var unanswered: PackedStringArray = PackedStringArray()
+	for point: String in DialogueCatalog.points():
+		for index: int in DialogueCatalog.lines_for(point).size():
+			var french: String = DialogueCatalog.line_for(point, index)
+			if french.is_empty() or french == DialogueLocale.line_key(point, index):
+				unanswered.append(DialogueLocale.line_key(point, index))
+			elif french == _authored(point, index):
+				unanswered.append(DialogueLocale.line_key(point, index))
+	assert_eq(unanswered, PackedStringArray(), "no authored line is left in English")
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_shipped_line_keeps_the_placeholders_it_must_fill() -> void:
+	DialogueLocale.load_shipped()
+	DialogueLocale.set_locale("fr")
+	for point: String in DialogueCatalog.points():
+		for index: int in DialogueCatalog.lines_for(point).size():
+			var source: String = _authored(point, index)
+			var french: String = DialogueCatalog.line_for(point, index)
+			for token: String in ["{speaker}", "{other}"]:
+				assert_eq(
+					french.count(token), source.count(token),
+					"%s/%d keeps %s" % [point, index, token]
+				)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_the_source_tongue_reads_no_translation() -> void:
+	DialogueLocale.load_shipped()
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	for point: String in ["agenda/backstabber", "event/field_won", "negotiation/proposal_peace"]:
+		for index: int in DialogueCatalog.lines_for(point).size():
+			assert_eq(
+				DialogueCatalog.line_for(point, index), _authored(point, index),
+				"English is what an English court reads"
+			)
+
+
+func test_the_shipped_file_carries_no_key_the_catalogue_dropped() -> void:
+	DialogueLocale.load_shipped()
+	var table: Translation = TranslationServer.get_translation_object("fr")
+	assert_not_null(table)
+	var authored: PackedStringArray = PackedStringArray()
+	for point: String in DialogueCatalog.points():
+		for index: int in DialogueCatalog.lines_for(point).size():
+			authored.append(DialogueLocale.line_key(point, index))
+	for key: String in table.get_message_list():
+		assert_true(
+			authored.has(key), "a shipped key still names an authored line: " + key
+		)
