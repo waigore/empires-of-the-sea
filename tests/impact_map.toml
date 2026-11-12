@@ -81,6 +81,17 @@ suites = [
   "test_spycraft_rules.gd",
 ]
 
+# The court's authored voice (wiki: dialogue-content-and-yarn): the catalogue,
+# the Yarn runtime that reads its scripts and the locale keys a translation
+# follows. Kept off the diplomacy domain so a line, a parser or a key change
+# never pays for the lens, the screen and the spycraft suites.
+[domains.dialogue]
+suites = [
+  "test_dialogue_yarn.gd",
+  "test_diplomacy_rules.gd",
+  "test_panel_parts_rules.gd",
+]
+
 [domains.intel]
 # Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
 # court's acts and the spy despatch that feeds them. Kept apart from the broad
@@ -1290,8 +1301,14 @@ match = "scripts/rules/intel_*.gd"
 domain = "intel"
 
 [[rules]]
-match = "scripts/rules/dialogue_*.gd"
-domain = "diplomacy"
+match = "scripts/rules/dialogue_*.gd*"
+domain = "dialogue"
+
+# The Yarn runtime the court's scripts are authored in: its parser, its
+# expression grammar and its runner travel with the dialogue domain.
+[[rules]]
+match = "scripts/rules/yarn_*.gd*"
+domain = "dialogue"
 
 [[rules]]
 match = "scripts/rules/auto_siege.gd*"
@@ -1910,7 +1927,7 @@ domain = "intel"
 
 [[rules]]
 match = "tests/test_dialogue_*.gd"
-domain = "diplomacy"
+domain = "dialogue"
 
 [[rules]]
 match = "tests/test_economy_*.gd"
