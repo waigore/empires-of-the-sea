@@ -1279,12 +1279,112 @@ func test_empty_turn_is_a_no_op() -> void:
 	assert_eq(report["production"]["runs"], {})
 	assert_eq(economy.stockpile, before)
 
+func test_alloy_rows_take_two_turns() -> void:
+	assert_eq(ProductionRecipes.turns("steel"), 2)
+	assert_eq(ProductionRecipes.turns("bronze"), 2)
+	assert_eq(ProductionRecipes.turns("lumber"), 1)
+	assert_eq(ProductionRecipes.turns("unknown"), 1)
+
+
+func test_a_two_turn_run_pays_now_and_lands_next_phase() -> void:
+	var stock: Dictionary = {"iron": 2, "coal": 2}
+	var first: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "steel", "units": 2}], stock, 4, {}
+	)
+	assert_eq(first["runs"], {"steel": 2})
+	assert_eq(first["produced"], {})
+	assert_eq(first["completed"], {})
+	assert_eq(first["consumed"], {"iron": 2, "coal": 2})
+	assert_eq(first["labour_used"], 4)
+	assert_eq(int(stock.get("steel", 0)), 0, "the steel is still on the anvil")
+	assert_eq(ProductionRecipes.in_flight(first["wip"], "steel"), 2)
+	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"])
+	assert_eq(second["runs"], {})
+	assert_eq(second["completed"], {"steel": 2})
+	assert_eq(second["produced"], {"steel": 2})
+	assert_eq(second["labour_used"], 0, "the batch paid its labour when it started")
+	assert_eq(int(stock["steel"]), 2)
+	assert_eq(second["wip"], {})
+
+
+func test_the_workshop_carries_across_turns() -> void:
+	var economy: PlayerEconomy = _economy(4)
+	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
+	economy.set_assignment("steel", 2)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var first: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
+	assert_eq(first["production"]["runs"], {"steel": 2})
+	assert_eq(economy.quantity("steel"), 0)
+	assert_eq(economy.wip_units("steel"), 2)
+	assert_eq(economy.wip_turns("steel"), 1)
+	var second: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
+	assert_eq(second["production"]["completed"], {"steel": 2})
+	assert_eq(second["production"]["runs"], {})
+	assert_eq(economy.quantity("steel"), 2)
+	assert_eq(economy.wip_units("steel"), 0)
+
+
+func test_projection_counts_the_workshop_landing() -> void:
+	var economy: PlayerEconomy = _economy(4)
+	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
+	economy.set_assignment("steel", 2)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	EconomyTurn.resolve(economy, market, {}, 0)
+	var projection: Dictionary = EconomyTurn.project(economy, market, {}, 0)
+	assert_eq(int(projection["stockpile_delta"].get("steel", 0)), 2)
+	assert_eq(economy.quantity("steel"), 0, "a projection never lands the batch early")
+
+
+func test_the_workshop_rides_the_snapshot() -> void:
+	var economy: PlayerEconomy = _economy(4)
+	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
+	economy.set_assignment("steel", 2)
+	EconomyTurn.resolve(economy, WorldMarket.with_default_prices(), {}, 0)
+	var restored: PlayerEconomy = PlayerEconomy.starting()
+	restored.apply_snapshot(economy.snapshot())
+	assert_eq(restored.wip_units("steel"), 2)
+	assert_eq(restored.wip_turns("steel"), 1)
+	restored.apply_snapshot({"production_wip": {"silk_gown": [{"units": 3, "turns_left": 1}]}})
+	assert_eq(restored.wip_total(), 0, "a recipe the catalogue dropped is not trusted")
+
+
+## A damaged workshop drops on load — a row that is not a list, an entry that is
+## not a batch, a batch with no units or no turns left — and the phase reading
+## one lands nothing instead of failing on the cast (wiki: production-recipes
+## § Acceptance Criteria; DR-20261112-11).
+func test_a_damaged_workshop_is_dropped_not_trusted() -> void:
+	var economy: PlayerEconomy = _economy(4)
+	economy.apply_snapshot({
+		"production_wip": {
+			"steel": {"units": 2, "turns_left": 1},
+			"bronze": ["two", {"units": 0, "turns_left": 1}, {"units": 2, "turns_left": 0}],
+			"lumber": [{"units": 2, "turns_left": 1}],
+		},
+	})
+	assert_eq(economy.wip_total(), 2, "only a list of whole batches is trusted")
+	assert_eq(economy.wip_units("lumber"), 2)
+	assert_eq(economy.wip_units("steel"), 0, "a row that is not a list holds nothing")
+	assert_eq(economy.wip_turns("steel"), 0)
+	var planned: Dictionary = ProductionRecipes.plan(
+		[], {}, 0, {}, {"steel": {"units": 2, "turns_left": 1}}
+	)
+	assert_eq(planned["produced"], {}, "the phase reads a damaged row as an empty workshop")
+	assert_eq(planned["wip"], {})
+	economy.stockpile = {"grain": 20}
+	var report: Dictionary = EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {}, 0
+	)
+	assert_eq(report["production"]["produced"], {"lumber": 2}, "the whole batch still lands")
+	assert_eq(economy.wip_total(), 0)
+
+
 func _economy(peasants: int) -> PlayerEconomy:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers = WorkerPool.make(peasants)
 	economy.stockpile = {"grain": 0, "wool": 2}
 	economy.treasury = 1000
 	return economy
+
 
 func test_effective_yield_takes_the_minimum() -> void:
 	assert_eq(Extraction.effective_yield(4, 4, 4, 4), 4)

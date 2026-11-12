@@ -2188,7 +2188,7 @@ func test_one_table_serves_both_catalogues() -> void:
 	assert_eq(
 		DialogueCatalog.table().size(),
 		DialogueCatalog.POINTS.size() + DialogueEpisodes.POINTS.size()
-		+ DialogueAgendaLines.POINTS.size(),
+		+ DialogueAgendaLines.POINTS.size() + DialogueYarn.points().size(),
 		"the merged catalogue loses no point"
 	)
 	assert_true(

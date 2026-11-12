@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #366).
+Audited through DR-20261113-01.
 What to ship next (`REQ-P2-02`).
 
 ## Already live
@@ -34,20 +34,21 @@ What to ship next (`REQ-P2-02`).
 | Rival field-hospital trains | `AiHospitalTrainWork`, DR-20261112-08 |
 | Rival order-of-battle readings | `OobReadings`, `MapPlayCourtFog.oob_readings`, DR-20261112-09 |
 | Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
+| Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
+| Yarn runtime + locale keys | `DialogueYarn` / `Yarn*` / `DialogueLocale`, DR-20261113-01 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Multi-turn production recipes | Economy depth | Wiki defers them; needs a design slice ([`economy.md`](economy.md)) |
-| 2 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
-| 3 | A decoration that buys something | Rules depth | DR-20261112-10; needs published numbers |
+| 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
+| 2 | Staggered per-unit completion | Economy depth | DR-20261112-11 |
+| 3 | Translation content | Localization | Keys live (DR-20261113-01); needs words |
 
 ## Next pick
 
-**Rank 1** — multi-turn production recipes ([`economy.md`](economy.md)).
-The wiki's [`production-recipes`](https://github.com/waigore/empires-of-the-sea/wiki/production-recipes)
-page still calls them out of scope, so a design slice un-defers them first.
+**Rank 1** — A decoration that buys something (DR-20261112-10): needs published
+numbers.
 
 ## Out of scope / blocked footnotes
 

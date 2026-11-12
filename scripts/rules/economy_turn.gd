@@ -92,8 +92,12 @@ static func _run(
 		economy.assignments(),
 		economy.stockpile,
 		int(consumption["idle_labour"]),
-		economy.tech_unlocked
+		economy.tech_unlocked,
+		economy.production_wip
 	)
+	# The workshop rides into the next turn: multi-turn batches keep serving
+	# until their output lands (DR-20261112-11).
+	economy.production_wip = (production.get("wip", {}) as Dictionary).duplicate(true)
 	# Research runs last: its gold comes out of the treasury Production left.
 	var research: Dictionary = ResearchTurn.resolve(
 		economy.research, economy, research_boost
