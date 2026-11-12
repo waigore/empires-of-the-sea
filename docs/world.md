@@ -79,7 +79,7 @@ first contact (DR-20261111-14) are live. Remaining gaps:
 ## Tests
 
 `test_faction_catalog`, `test_world_setup`, `test_world_bootstrap`,
-`test_country_borders`, `test_map_generator`, `test_warp_travel`,
+`test_country_borders`, `test_map_generator`, `test_map_rules`,
 `test_map_screen`, `test_campaign_end`, `test_capital_loss`.
 
 ```bash

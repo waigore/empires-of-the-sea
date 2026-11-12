@@ -37,9 +37,9 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	else:
 		port.text = "Landlocked"
 	town.text = DossierCopy.town(data)
-	town.tooltip_text = DossierCopy.TOWN_TIP
+	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
-	hospital.text = HospitalRules.describe(data.hospital_level)
+	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 
 
 ## `crown` is `LandConnectivity.province_link` for this province: whether its
@@ -62,7 +62,7 @@ func refresh_crown(crown: Dictionary) -> void:
 		return
 	road.text = DossierCopy.crown_roads(_data, crown)
 	town.text = DossierCopy.town(_data)
-	town.tooltip_text = DossierCopy.TOWN_TIP
+	town.tooltip_text = DossierCopy.town_tip(_data)
 
 
 func _dominant_terrain(model: MapModel, province_id: int) -> String:

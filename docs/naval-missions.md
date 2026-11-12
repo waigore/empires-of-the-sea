@@ -97,8 +97,8 @@ rows; map controls in [fleets.md](fleets.md).
 
 ## Tests
 
-`test_fleet_missions`, `test_naval_interception`, `test_naval_retreat`,
-`test_naval_raid`, `test_fleet_orders`, `test_battle_rules`, `test_map_screen`.
+`test_fleet_rules`, `test_naval_rules`, `test_fleet_orders`,
+`test_battle_rules`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

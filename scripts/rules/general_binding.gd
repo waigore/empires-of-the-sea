@@ -55,7 +55,7 @@ static func bind_phase(
 				_bind(army, roster, taken, rng, bindings, medals, "attack")
 	for battle: Dictionary in battles:
 		var armies: Array[ArmyState] = _armies_of(battle, armies_by_region)
-		var defending: Array[ArmyState] = ArmyCombat.armies_of(
+		var defending: Array[ArmyState] = ArmyForce.armies_of(
 			armies, int(battle["province"]), int(battle["defender"])
 		)
 		for army: ArmyState in _sorted(defending):
@@ -80,7 +80,7 @@ static func _battles(
 		armies.assign(armies_by_region.get(index, []))
 		for province: int in ArmyCombat.contested_provinces(model, armies):
 			var defender: int = model.province_owner(province)
-			if ArmyCombat.armies_of(armies, province, defender).is_empty():
+			if ArmyForce.armies_of(armies, province, defender).is_empty():
 				continue
 			if not _has_hostile_attacker(armies, province, defender, hostile):
 				continue

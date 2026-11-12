@@ -44,15 +44,11 @@ static func explore_turns(model: MapModel, province_id: int) -> int:
 	return CivilianWorkPlan.explore_turns(model, province_id)
 
 
-static func cost_level(
-	action: String, model: MapModel, tile: Vector2i, works: LandWorks
-) -> int:
+static func cost_level(action: String, model: MapModel, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.cost_level(action, model, tile, works)
 
 
-static func duration_for(
-	model: MapModel, action: String, tile: Vector2i, works: LandWorks
-) -> int:
+static func duration_for(model: MapModel, action: String, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.duration_for(model, action, tile, works)
 
 
@@ -137,6 +133,11 @@ static func validate(
 		if site.x >= 0:
 			tile = site
 			province = model.province_at(tile.x, tile.y)
+	## One crew a player owns builds the town's hospital (civilian-units § Per-player tile exclusivity).
+	if action == "build_hospital":
+		var free_site: Dictionary = CivilianTransport.exclusive(units, unit, tile)
+		if not bool(free_site.get("ok", false)):
+			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
@@ -216,7 +217,7 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy)
+			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy, report)
 			if action == "prospect":
 				# The despatch names what the survey found (DR-20261111-26).
 				report["find"] = MineralSurvey.find_of(model, tile)
@@ -347,7 +348,8 @@ static func _apply(
 	tile: Vector2i,
 	works: LandWorks,
 	visibility: VisibilityModel,
-	economy: PlayerEconomy = null
+	economy: PlayerEconomy = null,
+	report: Dictionary = {}
 ) -> Array:
 	var province: int = model.province_at(tile.x, tile.y)
 	match action:
@@ -376,7 +378,8 @@ static func _apply(
 		"build_hospital":
 			return HospitalRules.work_complete(model, province, unit, tile)
 		"purchase_land":
-			if LandPurchase.complete(model, tile, unit.owner, economy):
+			# `complete` records the town level it actually set (DR-20261112-01).
+			if LandPurchase.complete(model, tile, unit.owner, economy, report):
 				return [model.index_of(tile.x, tile.y)]
 			return []
 	if CivilianTransport.knows(action):

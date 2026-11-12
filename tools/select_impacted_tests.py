@@ -85,6 +85,13 @@ def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
     # Suite edits select that suite only so adapting one test cannot pull a
     # whole domain past the tier-1 5 min budget (docs/testing.md). Production
     # paths still expand through domain rules below.
+    # .uid companions match the same tests/test_foo.gd* rules as the script;
+    # without this, a Godot-written .uid would expand the whole domain.
+    if path.startswith("tests/test_") and path.endswith(".gd.uid"):
+        companion = path[: -len(".uid")]
+        if (ROOT / companion).is_file():
+            return "domain", {companion}
+        return "domain", set()
     if path.startswith("tests/test_") and path.endswith(".gd"):
         if (ROOT / path).is_file():
             return "domain", {path}

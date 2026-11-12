@@ -16,15 +16,16 @@ var home: bool = false
 var moved: bool = false
 var regiments: Array[String] = []
 var regiment_types: Dictionary = {}
-## Per-instance condition (wiki: combat § Strength): `regiment_health` is the
-## remaining pool of each `unit_<n>` and `regiment_medals` its 0-4 chevrons.
-## Both are keyed like `regiment_types`; saves carry them.
+## Per-instance condition (wiki: combat § Strength): each `unit_<n>`'s remaining
+## health pool and its 0-4 chevrons; keyed like `regiment_types`, saved with them.
 var regiment_health: Dictionary = {}
 var regiment_medals: Dictionary = {}
-## Each instance's title and record (DR-20261111-18).
+## Each instance's title, record and battle honours (DR-20261111-18,
+## DR-20261112-02). Honours are province ids, newest first.
 var regiment_names: Dictionary = {}
 var regiment_engagements: Dictionary = {}
 var regiment_wins: Dictionary = {}
+var regiment_honours: Dictionary = {}
 ## Fleet instance id carrying this army, or -1 (wiki: ships-and-naval § Naval
 ## transport; DR-20261109-08). An embarked army has no province and never
 ## fights on land.
@@ -77,6 +78,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	var kept_names: Dictionary = regiment_names.duplicate()
 	var kept_engagements: Dictionary = regiment_engagements.duplicate()
 	var kept_wins: Dictionary = regiment_wins.duplicate()
+	var kept_honours: Dictionary = regiment_honours.duplicate()
 	regiments = p_regiments.duplicate()
 	regiment_types = {}
 	regiment_health = {}
@@ -84,6 +86,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	regiment_names = {}
 	regiment_engagements = {}
 	regiment_wins = {}
+	regiment_honours = {}
 	for regiment_id: String in regiments:
 		var type_id: String = RegimentCatalog.normalize(
 			String(p_types.get(regiment_id, RegimentCatalog.DEFAULT_TYPE))
@@ -99,6 +102,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 		regiment_names[regiment_id] = String(kept_names.get(regiment_id, ""))
 		regiment_engagements[regiment_id] = int(kept_engagements.get(regiment_id, 0))
 		regiment_wins[regiment_id] = int(kept_wins.get(regiment_id, 0))
+		regiment_honours[regiment_id] = kept_honours.get(regiment_id, [])
 	RegimentNames.fill(self)
 
 
@@ -118,11 +122,10 @@ func is_embarked() -> bool:
 	return embarked_fleet >= 0
 
 
-## Join Empire: an absorbed crown's regiments pass to the winner; a former Home
-## Army becomes a field army so the winner keeps exactly one
-## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
-## A terminal fall passes `MapModel.NO_ID`: the crown's armies leave the roster
-## (wiki: capital-and-connectivity § Capital loss and reassignment).
+## Join Empire: an absorbed crown's regiments pass to the winner, its Home Army
+## becoming a field army so the winner keeps exactly one (wiki: diplomacy §
+## GP–Minor Rules, military-armies § Home Army). A terminal fall passes
+## `MapModel.NO_ID` and the armies leave (capital-and-connectivity § Capital loss).
 static func hand_over(groups: Array, from_id: int, to_id: int) -> void:
 	for index in range(groups.size() - 1, -1, -1):
 		var army: ArmyState = groups[index]
@@ -207,7 +210,6 @@ func condition_of(regiment_id: String) -> Dictionary:
 	}
 
 
-
 ## Cavalry share of the army, used for initiative ordering (wiki: combat).
 func cavalry_share() -> float:
 	if regiments.is_empty():
@@ -251,8 +253,7 @@ static func split(
 	if regiment_ids.is_empty():
 		return _deny("Choose at least one regiment to detach.")
 	var types: Dictionary = {}
-	## The condition, title and record travel with the instance: a veteran stays
-	## a veteran (DR-20261111-18).
+	## Its condition, title, record and honours travel with it: a veteran stays one.
 	var condition: Dictionary = {}
 	for regiment_id: String in regiment_ids:
 		if not source.regiments.has(regiment_id):
@@ -278,9 +279,8 @@ static func split(
 	return {"ok": true, "reason": "", "army": detached}
 
 
-## Combines same-owner armies sharing a province. The Home Army is always the
-## merge target when present; otherwise the first army in panel order wins
-## (wiki: military-armies § Split and combine).
+## Combines same-owner armies sharing a province: the Home Army is always the
+## merge target, else the first in panel order (military-armies § Split and combine).
 static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dictionary:
 	if selected.size() < 2 or selected[0] == null:
 		return _deny("Select two armies in the same province to combine.")
@@ -363,6 +363,7 @@ func to_dict() -> Dictionary:
 		"regiment_names": regiment_names.duplicate(),
 		"regiment_engagements": regiment_engagements.duplicate(),
 		"regiment_wins": regiment_wins.duplicate(),
+		"regiment_honours": regiment_honours.duplicate(),
 		"embarked_fleet": embarked_fleet,
 	}
 
@@ -380,11 +381,11 @@ static func from_dict(data: Dictionary) -> ArmyState:
 		names.append(String(raw))
 	army.regiment_health = _condition_map(data.get("regiment_health", {}))
 	army.regiment_medals = _condition_map(data.get("regiment_medals", {}))
-	## A save written before names and records existed restores empty maps and
-	## `set_regiments` christens it by the same arithmetic (DR-20261111-18).
-	army.regiment_names = RegimentNames.map_from(data.get("regiment_names", {}))
+	## A pre-record save restores empty maps; `set_regiments` christens it alike.
+	army.regiment_names = NameRoster.map_from(data.get("regiment_names", {}))
 	army.regiment_engagements = _condition_map(data.get("regiment_engagements", {}))
 	army.regiment_wins = _condition_map(data.get("regiment_wins", {}))
+	army.regiment_honours = RegimentRecord.honours_from(data.get("regiment_honours", {}))
 	army.set_regiments(names, data.get("regiment_types", {}))
 	return army
 
