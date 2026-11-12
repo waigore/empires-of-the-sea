@@ -2200,6 +2200,45 @@ func test_a_saved_market_remembers_the_laden_holds() -> void:
 	assert_eq(restored.bought_units(), 2)
 	assert_eq(TradeCargo.free_holds(3, restored), 1)
 
+# --- helpers for ported main economy tests ---
+
+func _world(second_owner: int = 6) -> WorldMap:
+	var model: MapModel = MapModel.new()
+	model.setup(3, 2)
+	for x in 2:
+		model.province[model.index_of(x, 0)] = 0
+	model.province[model.index_of(2, 0)] = 1
+	model.province[model.index_of(0, 1)] = 1
+	var tiles0: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var tiles1: Array[Vector2i] = [Vector2i(2, 0), Vector2i(0, 1)]
+	var p0 := ProvinceState.create(0, "P0", tiles0, Vector2.ZERO, 2, 0)
+	var p1 := ProvinceState.create(1, "P1", tiles1, Vector2.ZERO, 2, second_owner)
+	model.provinces.append(p0)
+	model.provinces.append(p1)
+	model.resource[model.index_of(0, 0)] = 0
+	model.resource[model.index_of(2, 0)] = 0
+	model.resource[model.index_of(0, 1)] = 4
+	for tile: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0), Vector2i(0, 1)]:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+func _group(id: int, name: String, rows: Array) -> Dictionary:
+	var producing: int = 0
+	for row: Dictionary in rows:
+		if int(row.get("output", 0)) > 0:
+			producing += 1
+	return {"id": id, "name": name, "rows": rows, "producing": producing}
+
+func _rows() -> Array:
+	return [
+		{"output": 2, "working": false, "status": "producing"},
+		{"output": 0, "working": true, "status": "building"},
+		{"output": 0, "working": false, "status": "vacant"},
+		{"output": 0, "working": false, "status": "disconnected"},
+	]
+
 # --- ported from main test_economy_rules ---
 
 
