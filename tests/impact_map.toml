@@ -1596,6 +1596,16 @@ domain = "unit_art"
 match = "scripts/ui/army_panel.gd*"
 domain = "ui"
 
+# Roster and muster blocks are dossier presentation, not army rules: keep them
+# on ui so a row change does not pull the army domain past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/army_roster_block.gd*"
+domain = "ui"
+
+[[rules]]
+match = "scripts/ui/army_muster_block.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/army_hud.gd*"
 domain = "ui"

@@ -1,8 +1,9 @@
 class_name ArmyPanel
 extends PanelContainer
 ## Dockable dossier for the selected land army: station, composition, readiness
-## and the detach/merge orders. Rules stay in ArmyState/ArmyMovement; the panel
-## only reads state and emits intents.
+## and the detach/merge orders. ArmyRosterBlock owns the regiment column;
+## ArmyMusterBlock owns the drill-yard rows. Rules stay in ArmyState/ArmyMovement;
+## the panel only reads state and emits intents (REQ-P3-01, REQ-P3-02).
 
 signal close_pressed
 signal dock_side_pressed
@@ -17,10 +18,10 @@ var _command_icon: TextureRect = null
 var _composition: Label = null
 var _status: Label = null
 var _hint: Label = null
-var _roster: VBoxContainer = null
+var _roster: ArmyRosterBlock = null
 var _scroll: ScrollContainer = null
 var _muster_button: Button = null
-var _muster_box: VBoxContainer = null
+var _muster_box: ArmyMusterBlock = null
 var _muster_open: bool = false
 var _detach_all: Button = null
 var _merge: Button = null
@@ -98,15 +99,12 @@ func _build() -> void:
 	content.add_theme_constant_override("separation", 12)
 	scroll.add_child(content)
 
-	_roster = VBoxContainer.new()
-	_roster.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_roster.add_theme_constant_override("separation", 4)
+	_roster = ArmyRosterBlock.new()
+	_roster.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	content.add_child(_roster)
 
-	_muster_box = VBoxContainer.new()
-	_muster_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_muster_box.add_theme_constant_override("separation", 8)
-	_muster_box.visible = false
+	_muster_box = ArmyMusterBlock.new()
+	_muster_box.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	content.add_child(_muster_box)
 
 	_merge = UiRowBuilder.button("Combine armies here", 36.0, 0.0)
@@ -192,33 +190,12 @@ func refresh(
 		_location.text = "Aboard a fleet"
 	else:
 		_location.text = "At %s" % model.province_name(army.province)
-	_strength.text = "%d regiments · %d strength · %d food" % [
-		army.count(), int(army.strength()), _food(army)
-	]
-	var own_side: Array[ArmyState] = [army]
-	var chevrons: int = RegimentCondition.chevrons(own_side)
-	if chevrons > 0:
-		_strength.text += " · %d chevrons" % chevrons
-	if not army.is_embarked():
-		var ward: int = HospitalRules.effective_level(model, army.province)
-		if army.field_hospital:
-			# The army's own tents carry the field's tempo wherever it stands;
-			# a province ward still beats them (DR-20261112-07).
-			_strength.text += " · field hospital · rest %d%%" % roundi(
-				HospitalTrain.army_rest_share(model, army.province, true) * 100.0
-			)
-		elif ward > 0:
-			_strength.text += " · rest %d%%" % roundi(
-				HospitalRules.rest_share(ward) * 100.0
-			)
-		elif HospitalRules.level_at(model, army.province) > 0:
-			# The ward is there but its staff went unfed (DR-20261112-04).
-			_strength.text += " · hospital unstaffed"
+	_strength.text = _strength_line(model, army)
 	_command.text = command
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_fill_roster(army, is_player and not army.is_embarked(), model)
-	_fill_muster(muster)
+	_roster.fill(army, is_player and not army.is_embarked(), model)
+	_muster_box.fill(muster)
 	if not (is_player and army.home):
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
@@ -231,6 +208,36 @@ func refresh(
 	_hospital.visible = is_player and not army.is_embarked() and not hospital.is_empty()
 	_hospital.disabled = not bool(hospital.get("ok", false))
 	_hospital.text = String(hospital.get("caption", "Pitch a field hospital"))
+	_apply_status(army, is_player)
+
+
+## Strength line: count, firepower, food, chevrons and the ward or train.
+func _strength_line(model: MapModel, army: ArmyState) -> String:
+	var text: String = "%d regiments · %d strength · %d food" % [
+		army.count(), int(army.strength()), _food(army)
+	]
+	var own_side: Array[ArmyState] = [army]
+	var chevrons: int = RegimentCondition.chevrons(own_side)
+	if chevrons > 0:
+		text += " · %d chevrons" % chevrons
+	if army.is_embarked():
+		return text
+	var ward: int = HospitalRules.effective_level(model, army.province)
+	if army.field_hospital:
+		# The army's own tents carry the field's tempo wherever it stands;
+		# a province ward still beats them (DR-20261112-07).
+		text += " · field hospital · rest %d%%" % roundi(
+			HospitalTrain.army_rest_share(model, army.province, true) * 100.0
+		)
+	elif ward > 0:
+		text += " · rest %d%%" % roundi(HospitalRules.rest_share(ward) * 100.0)
+	elif HospitalRules.level_at(model, army.province) > 0:
+		# The ward is there but its staff went unfed (DR-20261112-04).
+		text += " · hospital unstaffed"
+	return text
+
+
+func _apply_status(army: ArmyState, is_player: bool) -> void:
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own army."
@@ -248,101 +255,6 @@ func refresh(
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
 
 
-func _fill_roster(army: ArmyState, is_player: bool, model: MapModel) -> void:
-	for child in _roster.get_children():
-		child.queue_free()
-	for regiment_id: String in army.regiments:
-		var type_id: String = army.type_of(regiment_id)
-		var entry := VBoxContainer.new()
-		entry.add_theme_constant_override("separation", 0)
-		_roster.add_child(entry)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		entry.add_child(row)
-		row.add_child(UnitMedallion.of_regiment(type_id, 28.0))
-		var label := UiRowBuilder.line(13, Palette.TEXT)
-		## The regiment's own title, with its type beside it — the same read as
-		## a hull's name in the fleet dossier (DR-20261111-18).
-		label.text = "%s — %s" % [
-			RegimentNames.of(army, regiment_id), RegimentCatalog.display_name(type_id)
-		]
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		row.add_child(label)
-		# Regiment detail: category, stats and its share of the food bill.
-		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
-		detail.text = RegimentCatalog.detail_line(type_id)
-		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		entry.add_child(detail)
-		_add_condition(entry, army, regiment_id)
-		_add_record(entry, army, regiment_id, model)
-		if not is_player:
-			continue
-		var detach := UiRowBuilder.button("Detach", 36.0, 0.0)
-		detach.custom_minimum_size = Vector2(82, 32)
-		detach.add_theme_font_size_override("font_size", 12)
-		detach.pressed.connect(
-			func() -> void: action_pressed.emit("detach:%s" % regiment_id)
-		)
-		row.add_child(detach)
-
-
-## Drill-yard rows come from ArmyTraining; the panel renders and emits (REQ-P3-02).
-func _fill_muster(rows: Array[Dictionary]) -> void:
-	for child in _muster_box.get_children():
-		child.queue_free()
-	for row: Dictionary in rows:
-		var entry := VBoxContainer.new()
-		entry.add_theme_constant_override("separation", 2)
-		_muster_box.add_child(entry)
-		var top := HBoxContainer.new()
-		top.add_theme_constant_override("separation", 8)
-		entry.add_child(top)
-		var type_id: String = String(row["type_id"])
-		top.add_child(UnitMedallion.of_regiment(type_id, 28.0))
-		var name := UiRowBuilder.line(13, Palette.TEXT)
-		name.text = String(row["name"])
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		top.add_child(name)
-		var muster := UiRowBuilder.button("Muster", 36.0, 0.0)
-		muster.custom_minimum_size = Vector2(84, 40)
-		muster.add_theme_font_size_override("font_size", 12)
-		muster.disabled = not bool(row["ok"])
-		muster.tooltip_text = (
-			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
-		)
-		muster.pressed.connect(func() -> void: action_pressed.emit("recruit:%s" % type_id))
-		top.add_child(muster)
-		var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
-		detail.text = (
-			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
-		)
-		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		entry.add_child(detail)
-
-
-## The engagements a regiment has stood in and the honours on its colours, then
-## the despatch it holds (DR-20261111-18, DR-20261112-02, DR-20261112-10).
-func _add_record(
-	entry: VBoxContainer, army: ArmyState, regiment_id: String, model: MapModel
-) -> void:
-	_add_service_line(entry, RegimentRecord.line(army, regiment_id, model), Palette.GOLD_PALE)
-	_add_service_line(
-		entry, RegimentDecorations.line(army, regiment_id, model), Palette.TEXT_DIM
-	)
-
-
-## One wrapped service line under a regiment's condition; empty text adds none.
-func _add_service_line(entry: VBoxContainer, text: String, color: Color) -> void:
-	if text.is_empty():
-		return
-	var service := UiRowBuilder.line(10, color)
-	service.text = text
-	service.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	entry.add_child(service)
-
-
 func _food(army: ArmyState) -> int:
 	var total: int = 0
 	# A train's nurses eat inside the army's own upkeep line, so the strength
@@ -353,48 +265,3 @@ func _food(army: ArmyState) -> int:
 	for regiment_id: String in army.regiments:
 		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total
-
-
-## Condition under a name: a chevron per badge, a bar while mauled (REQ-P1-07).
-func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) -> void:
-	var data: Dictionary = army.condition_of(regiment_id)
-	var medals: int = int(data["medals"])
-	var fraction: float = float(data["fraction"])
-	if medals <= 0 and fraction >= 0.999:
-		return
-	var condition := HBoxContainer.new()
-	condition.add_theme_constant_override("separation", 5)
-	entry.add_child(condition)
-	if medals > 0:
-		var badge := TextureRect.new()
-		badge.texture = ChromeIcons.texture("chevron")
-		badge.custom_minimum_size = Vector2(15, 15)
-		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		badge.tooltip_text = "%d chevron%s · +%d%% firepower" % [
-			medals, "" if medals == 1 else "s", medals * 10
-		]
-		condition.add_child(badge)
-		var count := UiRowBuilder.line(11, Palette.GOLD)
-		count.text = "×%d" % medals
-		condition.add_child(count)
-	if fraction >= 0.999:
-		return
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(76, 8)
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.max_value = 1.0
-	bar.value = fraction
-	bar.add_theme_stylebox_override(
-		"background",
-		UiTheme.box(Color(0.17, 0.14, 0.10), Palette.INK_LINE, 1, 2, Vector4.ZERO)
-	)
-	var fill: Color = Palette.HEALTH_HIGH.lerp(Palette.HEALTH_LOW, 1.0 - fraction)
-	bar.add_theme_stylebox_override(
-		"fill", UiTheme.box(fill, fill.lightened(0.20), 1, 2, Vector4.ZERO)
-	)
-	condition.add_child(bar)
-	var pct := UiRowBuilder.line(11, Palette.TEXT_DIM)
-	pct.text = "%d%%" % roundi(fraction * 100.0)
-	condition.add_child(pct)

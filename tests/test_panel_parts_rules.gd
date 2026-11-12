@@ -908,3 +908,112 @@ func _find_button(node: Node, needle: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+# --- Army dossier roster / muster blocks (ui domain; REQ-P3-01) ---
+const ArmyFixture = preload("res://tests/army_fixture.gd")
+
+
+## Drill-yard rows render cost or refusal, and a Muster tap emits recruit.
+func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(20, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+		},
+		{
+			"type_id": "grenadiers",
+			"name": "Grenadiers",
+			"ok": false,
+			"cost_text": "",
+			"reason": "Need Organised Regiments",
+		},
+	]
+	var heard: Array[String] = []
+	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	assert_eq(panel._muster_box.get_child_count(), 2)
+	var ok_top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
+	assert_true(ok_top.get_child(0) is UnitMedallion)
+	assert_eq((ok_top.get_child(1) as Label).text, "Peasant Levies")
+	var ok_btn: Button = ok_top.get_child(2) as Button
+	assert_false(ok_btn.disabled)
+	assert_eq(ok_btn.tooltip_text, "2,000 cash · 1 fabric")
+	assert_eq(
+		(panel._muster_box.get_child(0).get_child(1) as Label).text,
+		"2,000 cash · 1 fabric"
+	)
+	ok_btn.pressed.emit()
+	assert_eq(heard, ["recruit:peasant_levies"])
+
+	var blocked_top: HBoxContainer = panel._muster_box.get_child(1).get_child(0)
+	var blocked_btn: Button = blocked_top.get_child(2) as Button
+	assert_true(blocked_btn.disabled)
+	assert_eq(blocked_btn.tooltip_text, "Need Organised Regiments")
+	assert_eq(
+		(panel._muster_box.get_child(1).get_child(1) as Label).text,
+		"Need Organised Regiments"
+	)
+	panel.free()
+
+
+## Chevrons and a mauled bar live on the roster block; strength names the count.
+func test_army_roster_block_shows_chevrons_wounds_and_record() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(21, 0, 1, ["guards", "pikemen"], false)
+	var veteran: String = army.regiments[0]
+	army.regiment_medals[veteran] = 2
+	army.regiment_health[veteran] = 60
+	army.regiment_engagements[veteran] = 3
+	army.regiment_wins[veteran] = 2
+	var heard: Array[String] = []
+	panel._roster.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true)
+
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_true(String(panel._strength.text).contains("2 chevrons"), panel._strength.text)
+	var condition: HBoxContainer = row.get_child(2)
+	assert_true(condition.get_child(0) is TextureRect)
+	assert_eq((condition.get_child(1) as Label).text, "×2")
+	assert_almost_eq((condition.get_child(2) as ProgressBar).value, 0.5, 0.01)
+	assert_eq((condition.get_child(3) as Label).text, "50%")
+	var record: Label = row.get_child(row.get_child_count() - 1)
+	assert_eq(String(record.text), "3 engagements · 2 won")
+	var detach: Button = (row.get_child(0) as HBoxContainer).get_child(2) as Button
+	detach.pressed.emit()
+	assert_eq(heard, ["detach:%s" % veteran])
+	panel.free()
+
+
+## Embarked armies keep roster detail but drop detach; strength says aboard.
+func test_army_roster_block_hides_detach_while_embarked() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 0, ["guards", "pikemen"], false)
+	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
+	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
+
+	panel.refresh(model, army, true)
+
+	assert_true(String(panel._location.text).contains("Aboard"), panel._location.text)
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_eq(
+		(row.get_child(0) as HBoxContainer).get_child_count(),
+		2,
+		"medallion and name only while aboard"
+	)
+	panel.free()
