@@ -215,6 +215,41 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	assert_false(Intervention.has_pending(state, 0))
 
 
+## Wiki: diplomacy § Intervention — the choice is presented **once**, at war
+## declaration time. Pressing Next Turn again re-opens the court but must not
+## repeat the same war news, which reads as a fresh declaration every time.
+func test_a_waiting_intervention_is_announced_once() -> void:
+	var play: PlaySession = _screen.play
+	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
+	MapPlayTurn.end_turn(play)
+	assert_eq(_news_about("Genoa"), 1, "the court is told once")
+	MapPlayTurn.end_turn(play)
+	assert_eq(_news_about("Genoa"), 1, "a second press repeats nothing")
+	assert_true(play.turn_suspended, "the turn still waits for the answer")
+
+
+## The AI pass raises a new decision in its own words, so the resolver opening
+## the panel on the same press adds no second despatch.
+func test_the_resolver_does_not_repeat_the_passes_news() -> void:
+	var play: PlaySession = _screen.play
+	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
+	MapPlayDiplomacy.mark_announced(play)
+	MapPlayDiplomacy.show_intervention(play)
+	assert_eq(_news_about("Genoa"), 0, "the panel adds no second despatch")
+
+
+## Toasts that name `needle`.
+func _news_about(needle: String) -> int:
+	var total: int = 0
+	for child: Node in _screen.hud._toast_box.get_children():
+		for node: Node in child.get_children():
+			if node is Label and (node as Label).text.contains(needle):
+				total += 1
+	return total
+
+
 ## Wiki: tech-tree-diplomacy-civilian — a protest against an aggressor holding
 ## Propaganda costs 5, not 10. The court must read the aggressor's ledger.
 func test_propaganda_softens_the_protest_the_court_plays() -> void:

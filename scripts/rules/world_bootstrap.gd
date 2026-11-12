@@ -23,6 +23,7 @@ static func apply(model: MapModel, works: LandWorks) -> Dictionary:
 		"ports": 0,
 		"roads": 0,
 		"farms": 0,
+		"farms_levelled": 0,
 		"town_roads": 0,
 		"town_development": 0,
 	}
@@ -124,7 +125,11 @@ static func _seed_town_roads(
 # --- guaranteed grain --------------------------------------------------------
 
 
-## Four grain tiles, improvement 1, nearest the capital, wired by road.
+## Four grain tiles, improvement 1, nearest the capital, wired by road. Grain
+## grows on plains only (wiki: resource-terrain-region-rules § Table), so a
+## capital province too thin in plains has its remaining farm sites levelled to
+## plains rather than seeded with a crop its ground cannot carry — the same
+## select-then-convert the town assignment already uses.
 static func _seed_grain_farms(
 	model: MapModel, works: LandWorks, report: Dictionary
 ) -> void:
@@ -136,16 +141,31 @@ static func _seed_grain_farms(
 		if capital.x < 0:
 			continue
 		var placed: int = 0
+		var legal: Array = grain_terrains()
 		for tile: Vector2i in farm_candidates(model, province_id, capital):
 			if placed >= GRAIN_FARMS:
 				break
 			var index: int = model.index_of(tile.x, tile.y)
+			if not legal.has(model.terrain_at(tile.x, tile.y)):
+				model.terrain[index] = MapModel.Terrain.PLAINS
+				report["farms_levelled"] = int(report.get("farms_levelled", 0)) + 1
 			model.resource[index] = GRAIN_RESOURCE
 			_sync_headline(model, province_id, tile)
 			works.set_improvement(model, tile, FARM_LEVEL)
 			_connect(model, works, province_id, faction, capital, tile)
 			placed += 1
 		report["farms"] = int(report["farms"]) + placed
+
+
+## Terrains that may legally carry the bootstrap grain, read from the map's own
+## resource catalog so the ruleset table has one home (wiki:
+## resource-terrain-region-rules § Table — grain is Old World plains).
+static func grain_terrains() -> Array:
+	return MapGenerator.resource_info(GRAIN_RESOURCE).get("terrain", []) as Array
+
+
+static func may_host_grain(model: MapModel, tile: Vector2i) -> bool:
+	return grain_terrains().has(model.terrain_at(tile.x, tile.y))
 
 
 ## Keep the province dossier's headline resource honest when a bootstrap farm
@@ -173,28 +193,38 @@ static func capital_province(model: MapModel, faction: int) -> int:
 	return MapModel.NO_ID
 
 
-## Eligible grain tiles, nearest the seat first (ties: lower y, then lower x).
-## Plains come first; other land is a fallback for tiny capital provinces.
+## Eligible farm sites, nearest the seat first (ties: lower y, then lower x).
+## The capital and the province town are never eligible, and ground that can
+## legally carry grain comes first; the rest is a fallback that the seeding pass
+## levels to plains, so a thin capital province still gets its four farms
+## (wiki: tile-map-and-generation § Great Power starting grain).
 static func farm_candidates(
 	model: MapModel, province_id: int, capital: Vector2i
 ) -> Array[Vector2i]:
-	var plains: Array[Vector2i] = []
-	var other: Array[Vector2i] = []
+	var host: Array[Vector2i] = []
+	var levelled: Array[Vector2i] = []
+	var legal: Array = grain_terrains()
+	var province: ProvinceState = model.province_data(province_id)
+	var town: Vector2i = (
+		province.town_tile if province != null else Vector2i(-1, -1)
+	)
 	for tile: Vector2i in model.province_tiles(province_id):
-		if tile == capital or not model.is_land(tile.x, tile.y):
+		if tile == capital or tile == town:
 			continue
-		if model.terrain_at(tile.x, tile.y) == MapModel.Terrain.PLAINS:
-			plains.append(tile)
+		if not model.is_land(tile.x, tile.y):
+			continue
+		if legal.has(model.terrain_at(tile.x, tile.y)):
+			host.append(tile)
 		else:
-			other.append(tile)
-	plains.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			levelled.append(tile)
+	host.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return _nearest(a, b, capital)
 	)
-	other.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+	levelled.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return _nearest(a, b, capital)
 	)
-	var result: Array[Vector2i] = plains
-	result.append_array(other)
+	var result: Array[Vector2i] = host
+	result.append_array(levelled)
 	return result
 
 

@@ -19,6 +19,11 @@ var slots: Array[Dictionary] = []
 ## Commodity id -> true for resources this player has revealed (and, for
 ## prospect-only minerals, prospected); discovery techs need one of these.
 var revealed: Dictionary = {}
+## The college ledger's goal: a catalog tech id the queue sorts toward, or ""
+## for catalog order. Client state — the Research phase never reads it — kept in
+## the snapshot so a load reopens the same queue (wiki: tech-tree § Goal slot;
+## DR-20261111-21).
+var goal: String = ""
 
 
 static func make() -> ResearchState:
@@ -229,6 +234,7 @@ func copy() -> ResearchState:
 	clone.progress = progress.duplicate()
 	clone.slots = slots.duplicate(true)
 	clone.revealed = revealed.duplicate()
+	clone.goal = goal
 	return clone
 
 

@@ -30,6 +30,9 @@ const RAIL_TERRAIN_TECHS: Dictionary = {
 	MapModel.Terrain.MOUNTAINS: DYNAMITE,
 }
 const ACTIONS: Array[String] = ["build_road", "build_port", "build_rail"]
+## The only crews tile exclusivity binds (wiki: civilian-units § Per-player tile
+## exclusivity). Explorers, Spies and Rail Builders work alongside them.
+const EXCLUSIVE_TYPES: Array[String] = ["builder", "engineer", "merchant"]
 
 
 static func knows(action: String) -> bool:
@@ -126,9 +129,38 @@ static func _check_port(
 ) -> Dictionary:
 	if not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 		return _no("Ports need a coastal tile.")
-	if works.province_has_port(model, province):
-		return _no("%s already has a port." % model.province_name(province))
+	if _seaboard_has_port(model, works, province, tile):
+		return _no("%s already has a port on this seaboard." % model.province_name(province))
 	return exclusive(units, unit, tile)
+
+
+## One port per seaboard, a seaboard being one sea zone the province faces
+## (wiki: extraction-and-improvements § Port Placement). A province on two
+## seaboards may carry a port on each; the same seaboard takes only one.
+static func _seaboard_has_port(
+	model: MapModel, works: LandWorks, province: int, tile: Vector2i
+) -> bool:
+	var seaboard: Array[int] = seaboards_of(model, tile)
+	for other: Vector2i in model.province_tiles(province):
+		if not works.has_port(model, other):
+			continue
+		for zone: int in seaboards_of(model, other):
+			if seaboard.has(zone):
+				return true
+	return false
+
+
+## Sea zones this coastal tile touches, ascending. Empty inland.
+static func seaboards_of(model: MapModel, tile: Vector2i) -> Array[int]:
+	var zones: Array[int] = []
+	if model == null:
+		return zones
+	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+		var zone: int = model.sea_zone_at(tile.x + offset.x, tile.y + offset.y)
+		if zone != MapModel.NO_ID and not zones.has(zone):
+			zones.append(zone)
+	zones.sort()
+	return zones
 
 
 static func _check_rail(
@@ -151,13 +183,16 @@ static func rail_tech_for(terrain: int) -> String:
 	return String(RAIL_TERRAIN_TECHS.get(terrain, EARLY_STEAM_ENGINE))
 
 
-## One Builder/Engineer work order per player and tile; Rail Builders are exempt
+## One Builder/Engineer/Merchant work order per player and tile. Explorers,
+## Spies and Rail Builders are exempt, so their work never claims the tile
 ## (wiki: civilian-units § Per-player tile exclusivity).
 static func exclusive(
 	units: Array[CivilianState], unit: CivilianState, tile: Vector2i
 ) -> Dictionary:
 	for other: CivilianState in units:
 		if other == null or other == unit or other.owner != unit.owner:
+			continue
+		if not EXCLUSIVE_TYPES.has(other.type_id):
 			continue
 		if other.is_working() and other.work_tile() == tile:
 			return _no("Another crew is already working this tile.")

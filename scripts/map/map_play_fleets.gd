@@ -1,7 +1,8 @@
 class_name MapPlayFleets
 extends RefCounted
 ## Fleet selection, sail and dock orders, and fog intel for enemy markers.
-## Naval rules stay in NavalMovement; this only drives PlaySession views.
+## Naval rules stay in NavalMovement; this only drives PlaySession views. The
+## capital shipyard's slip rows and hull orders live on MapPlayFleetYard.
 
 
 ## Rival naval turn — see MapPlayFleetAi (docs/ai.md).
@@ -29,13 +30,16 @@ static func select(play: PlaySession, ship: Ship) -> void:
 static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	play.hud.panels.show_fleet(
 		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
-		yard_rows(play, fleet), -1, landing_rows(play, fleet), carried(play, fleet),
+		MapPlayFleetYard.rows(play, fleet), -1, landing_rows(play, fleet),
+		carried(play, fleet),
 		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
 		MapPlayCivilianVoyage.crew(play, fleet),
 		NavalStrength.dossier(
-			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play)
+			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
+			MapPlayNavalTurn.strength_multipliers(play)
 		),
-		MapPlayHomeMerge.row(play, fleet)
+		MapPlayHomeMerge.row(play, fleet),
+		MapPlayFleetMissions.hint(play, fleet)
 	)
 
 
@@ -222,63 +226,14 @@ static func _tile(play: PlaySession, fleet: FleetState) -> Vector2i:
 	return data.port_tile if data != null else Vector2i(-1, -1)
 
 
-# --- the naval yard -----------------------------------------------------------
-
-
-## True when this squadron is the crown's home fleet at its capital port.
-static func is_home(play: PlaySession, fleet: FleetState) -> bool:
-	if fleet == null or fleet.owner != play.player_faction or not fleet.is_in_port():
-		return false
-	return fleet.province >= 0 and fleet.province == play.capital_province
-
-
-## Yard rows for an own squadron: launching needs the capital port, breaking up
-## a hull works anywhere (wiki: ships-and-naval § Ship muster and the breaker's
-## yard).
-static func yard_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
-	if fleet == null or fleet.owner != play.player_faction or play.economy == null:
-		return []
-	return FleetYard.rows(play.economy.economy, is_home(play, fleet))
-
-
-## Opens the capital yard from the province dossier; with no home fleet afloat
-## the slip is shown and the first launch founds the squadron.
-static func open_yard(play: PlaySession) -> void:
-	var province: int = play.capital_province
-	if province < 0 or play.model.province_owner(province) != play.player_faction:
-		play.hud.toast("Your capital must be in hand to open the yard.")
-		return
-	if not NavalMovement.has_harbour(play.model, province):
-		play.hud.toast("Your capital has no harbour for a yard.")
-		return
-	var home: FleetState = play.ship_layer.home_fleet(province)
-	if home != null:
-		refresh_yard(play, home)
-		return
-	if play.economy == null:
-		return
-	play.hud.panels.show_fleet(
-		play.model, null, true, "", FleetYard.rows(play.economy.economy, true), province
-	)
-
-
-static func refresh_yard(play: PlaySession, fleet: FleetState) -> void:
-	if fleet == null:
-		return
-	play.ship_layer.select(play.ship_layer.ship_for(fleet))
-	show_dossier(play, fleet)
-	play.hud.panels.fleet_panel.set_yard_open(true)
-
-
-## The fleet dossier and the province yard both route here (REQ-P3-02).
+## The fleet dossier and the province yard both route here (REQ-P3-02). The
+## shipyard's own intents go back to MapPlayFleetYard.
 static func on_action(play: PlaySession, action: String) -> void:
 	if play.campaign_over():
 		return
-	if action.begins_with("yard:build:"):
-		launch(play, action.trim_prefix("yard:build:"))
-	elif action.begins_with("yard:scrap:"):
-		scrap(play, action.trim_prefix("yard:scrap:"))
-	elif action.begins_with("beachhead:"):
+	if MapPlayFleetYard.on_action(play, action):
+		return
+	if action.begins_with("beachhead:"):
 		var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 		if fleet != null and fleet.owner == play.player_faction:
 			MapPlayBeachhead.establish(play, fleet, int(action.trim_prefix("beachhead:")))
@@ -313,62 +268,6 @@ static func land(play: PlaySession, province_id: int) -> void:
 		play.hud.toast("The army lands at %s" % play.model.province_name(province_id))
 	show_dossier(play, fleet)
 	MapPlayArmies.refresh_visibility(play)
-
-
-## Launches one hull into the home fleet, founding it at the capital slip when
-## the crown keeps none (wiki: ships-and-naval § Home Fleet).
-static func launch(play: PlaySession, type_id: String) -> void:
-	if play.economy == null or play.economy.economy == null:
-		return
-	var province: int = play.capital_province
-	if province < 0 or play.model.province_owner(province) != play.player_faction:
-		play.hud.toast("Your capital must be in hand to launch hulls.")
-		return
-	if not NavalMovement.has_harbour(play.model, province):
-		play.hud.toast("Your capital has no harbour for a yard.")
-		return
-	var result: Dictionary = play.ship_layer.launch_hull(province, type_id, play.economy.economy)
-	if not bool(result.get("ok", false)):
-		play.hud.toast(String(result.get("reason", "The hull cannot launch.")))
-		return
-	var fleet: FleetState = result.get("fleet") as FleetState
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	var hull_name: String = String(result.get("name", ""))
-	if hull_name.is_empty():
-		hull_name = ShipStats.display_name(type_id)
-	play.hud.toast(
-		"%s joins the home fleet at %s" % [hull_name, play.model.province_name(province)]
-	)
-	refresh_yard(play, fleet)
-
-
-## Breaks up one hull and returns its peasant to the pool.
-static func scrap(play: PlaySession, hull_id: String) -> void:
-	if play.economy == null or play.economy.economy == null:
-		return
-	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
-	if fleet == null or fleet.owner != play.player_faction:
-		return
-	var carried_army: ArmyState = ArmyTransport.army_by_id(
-		play.army_layer, fleet.embarked_army
-	)
-	var can_break: Dictionary = NavalTransport.can_scrap(fleet, carried_army)
-	if not bool(can_break.get("ok", false)):
-		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
-		return
-	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
-	if not bool(result.get("ok", false)):
-		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
-		return
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	var broken: String = String(result.get("name", ""))
-	if broken.is_empty():
-		broken = ShipStats.display_name(String(result.get("type", "")))
-	play.hud.toast("%s broken up — one peasant returns to the pool" % broken)
-	if bool(result.get("retired", false)):
-		play.hud.panels.hide_fleet()
-		return
-	refresh_yard(play, fleet)
 
 
 ## Reports the port verdicts of the Combat phase: a squadron caught in a port

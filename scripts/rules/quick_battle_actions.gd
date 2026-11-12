@@ -117,7 +117,7 @@ static func resolve(
 	# defender's cover. Ground never shields the side that sallies from it.
 	var ground: String = terrain if key == "attacker" else "open"
 	ratio *= SiegeLanes.terrain_scale(acted, ground)
-	var enemy_count: int = ArmyCombat.side_regiments(enemy_side)
+	var enemy_count: int = ArmyForce.side_regiments(enemy_side)
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
 	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
@@ -129,9 +129,11 @@ static func resolve(
 	# The battery is shot at before the men behind it; melee cannot reach it. A
 	# standing gun spends the blow before the lanes, so the garrison is sheltered
 	# until the battery is quiet (wiki: siege-mechanics § Quick Battle lanes).
-	if key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
+	# A line with no fight left in it delivers no blow, and an empty blow buys
+	# nothing: the guns take only what the blow actually carries.
+	if wanted > 0 and key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
 		and SiegeLanes.can_reach_wall(me_side):
-		var battery: Dictionary = QuickBattleBattery.absorb(guns, maxi(1, wanted))
+		var battery: Dictionary = QuickBattleBattery.absorb(guns, wanted)
 		entry["guns_destroyed"] = int(battery["destroyed"])
 		entry["battery_hit"] = int(battery["absorbed"])
 		wanted = maxi(0, wanted - int(battery["absorbed"]))
@@ -158,7 +160,7 @@ static func resolve(
 		entry["turned"] = int(split["turned"])
 		entry["gates_broken"] = int(split.get("gates_broken", 0))
 	elif wanted > 0:
-		lost = ArmyCombat.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
+		lost = ArmyForce.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
 	enemy["lost"].append_array(lost)
 	# The blow that broke a regiment also mauls the men still standing: the
 	# plate shows every survivor's health drop (wiki: combat § Strength).
@@ -192,8 +194,8 @@ static func _pay_own(
 	if self_ratio <= 0.0:
 		return entry
 	var own_side: Array[ArmyState] = me["side"]
-	var wanted_own: int = ceili(self_ratio * float(ArmyCombat.side_regiments(own_side)))
-	var own: Array[String] = ArmyCombat.apply_losses(
+	var wanted_own: int = ceili(self_ratio * float(ArmyForce.side_regiments(own_side)))
+	var own: Array[String] = ArmyForce.apply_losses(
 		armies, own_side, wanted_own, int(me["limit"])
 	)
 	me["lost"].append_array(own)

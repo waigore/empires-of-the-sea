@@ -54,18 +54,24 @@ static func disband_hint(tier: int) -> String:
 	)
 
 
-## Summary line: treasury, idle/total labour, food need and strikers.
+## Summary line: treasury, idle/total labour, food need and strikers. The food
+## need is every mouth the Consumption phase feeds — workers, the army, the navy
+## and the hospital staffs (wiki: workers-and-population § Consumption).
 static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
 	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
 		TextFormat.thousands(economy.treasury),
 		idle_labour(report),
 		economy.workers.labour(),
-		economy.workers.food_demand() + navy_food(report),
+		economy.workers.food_demand() + army_food(report) + navy_food(report)
+		+ hospital_food(report),
 		int((report.get("consumption", {}) as Dictionary).get("strikers", 0)),
 	]
 
 
-## "Next turn:  Grain +3 · ducats -10" or the calm no-change line.
+## "Next turn:  Grain +3 · ducats -10" or the calm no-change line. A staged order
+## settles at the auction after these phases, so the line names it rather than
+## letting the promise read as the whole purse movement (wiki:
+## stockpiles-and-production § Production flow, world-market § Trade orders).
 static func preview(report: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	var delta: Dictionary = report.get("stockpile_delta", {})
@@ -74,9 +80,35 @@ static func preview(report: Dictionary) -> String:
 	var treasury_delta: int = int(report.get("treasury_delta", 0))
 	if treasury_delta != 0:
 		parts.append("%s %+d" % ["ducats", treasury_delta])
+	var staged: int = int(report.get("staged_orders", 0))
+	var auction: String = _auction_line(staged)
 	if parts.is_empty():
-		return "Next turn: no stock changes."
-	return "Next turn:  " + "   ".join(parts)
+		var calm: String = "Next turn: no stock changes."
+		if auction.is_empty():
+			return calm
+		return calm + "  " + auction
+	var line: String = "Next turn:  " + "   ".join(parts)
+	if auction.is_empty():
+		return line
+	return line + "   ·  " + auction
+
+
+## "1 order settles at the auction." / "" when nothing is staged.
+static func _auction_line(staged: int) -> String:
+	if staged <= 0:
+		return ""
+	if staged == 1:
+		return "1 order settles at the auction"
+	return "%d orders settle at the auction" % staged
+
+
+## The crown's overseas share of Minor and Tribe sales this clearing (wiki:
+## world-market § First right of refusal, § Subsidy price adjustment). The
+## clearing report carries it as `credits.by_gp`; a bare map is accepted too.
+static func share_credit(report: Dictionary, faction: int) -> int:
+	var credits: Dictionary = report.get("credits", {}) as Dictionary
+	var by_gp: Dictionary = credits.get("by_gp", credits) as Dictionary
+	return roundi(float(by_gp.get(faction, by_gp.get(str(faction), 0.0))))
 
 
 ## The cargo-holds banner above the market rows (wiki: ships-and-naval).
@@ -110,12 +142,24 @@ static func idle_labour(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("idle_labour", 0))
 
 
+static func army_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("army_demand", 0))
+
+
 static func navy_food(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("navy_demand", 0))
 
 
+## Rations the crown's hospital staffs eat this turn (wiki: combat § Regiment
+## condition; DR-20261112-04).
+static func hospital_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("hospital_demand", 0))
+
+
 ## One-line market clearing report for the turn toast: the crown's fills and
-## any carried or dropped orders (wiki: world-market § Trade orders).
+## any carried or dropped orders (wiki: world-market § Trade orders). A sale
+## names the ducats it paid, and the overseas share is named too: the auction
+## is the one purse movement the per-turn figure cannot project.
 static func market_summary(report: Dictionary, faction: int) -> String:
 	var parts: PackedStringArray = []
 	var fills: Dictionary = report.get("fills", {}) as Dictionary
@@ -125,7 +169,13 @@ static func market_summary(report: Dictionary, faction: int) -> String:
 	if bought > 0:
 		parts.append("bought %d for %d ducats" % [bought, int(mine.get("spent", 0))])
 	if sold > 0:
-		parts.append("sold %d" % sold)
+		var earned: int = int(mine.get("earned", 0))
+		parts.append(
+			"sold %d for %d ducats" % [sold, earned] if earned > 0 else "sold %d" % sold
+		)
+	var share: int = share_credit(report, faction)
+	if share > 0:
+		parts.append("%d ducats in shares" % share)
 	var carry: int = (report.get("carry", []) as Array).size()
 	if carry > 0:
 		parts.append("%d order%s carried" % [carry, "" if carry == 1 else "s"])
@@ -175,6 +225,13 @@ static func turn_summary(report: Dictionary) -> String:
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
 		parts.append("%d on strike" % strikes)
+	# A ward whose staff went unfed heals nothing next turn: say it, never
+	# silently (wiki: combat § Regiment condition; DR-20261112-04).
+	var hungry: Array = (report.get("hospital", {}) as Dictionary).get("hungry", [])
+	if not hungry.is_empty():
+		parts.append(
+			"%d hospital%s unstaffed" % [hungry.size(), "" if hungry.size() == 1 else "s"]
+		)
 	var research: Dictionary = report.get("research", {})
 	var researched: Array = research.get("researched", [])
 	for tech_id: Variant in researched:

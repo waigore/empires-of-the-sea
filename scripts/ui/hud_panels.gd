@@ -90,7 +90,8 @@ func show_fleet(
 	beach_note: String = "",
 	crew: Dictionary = {},
 	strength: Dictionary = {},
-	merge: Dictionary = {}
+	merge: Dictionary = {},
+	beach_hint: String = ""
 ) -> void:
 	close_sheets(self.fleet)
 	# A null fleet with a slip province is the capital yard before any squadron
@@ -100,7 +101,7 @@ func show_fleet(
 	else:
 		fleet_panel.refresh(
 			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note, crew, strength, merge
+			beach_rows, beach_note, crew, strength, merge, beach_hint
 		)
 	self.fleet.reveal(host, dock)
 
@@ -122,12 +123,13 @@ func show_civilian(
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
 	tech_unlocked: Dictionary = {},
-	context: Dictionary = {}
+	context: Dictionary = {},
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	close_sheets(civilian)
 	civilian_panel.refresh(
 		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
-		context
+		context, viewer
 	)
 	civilian.reveal(host, dock)
 
@@ -194,10 +196,15 @@ func is_economy_open() -> bool:
 
 ## The college ledger takes the same edge as the economy ledger. `boost` maps
 ## tech id -> spy-network percent, so a shadowed rival's advances show why they
-## move faster (wiki: civilian-units § Spy; DR-20261110-03).
+## move faster (wiki: civilian-units § Spy; DR-20261110-03). A ledger already on
+## screen is repainted in place — re-revealing it would fade the sheet back in
+## and lose the player's place (REQ-P1-05).
 func show_research(
 	state: ResearchState, treasury: int, boost: Dictionary = {}
 ) -> void:
+	if research.open:
+		research_panel.refresh(state, treasury, boost)
+		return
 	close_sheets(research)
 	research_panel.refresh(state, treasury, boost)
 	research.reveal(host, dock)

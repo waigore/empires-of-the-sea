@@ -22,7 +22,12 @@ static func for_event(state: DiplomacyState, event: Dictionary, viewer: int) -> 
 	if speaker < 0 or speaker == viewer:
 		return {}
 	var point: String = String(plan["point"])
-	var salt: int = _salt(int(event.get("turn", state.turn)), speaker, viewer, point)
+	# An agenda beat carries its own act turn in the record, so the veiled line
+	# varies as the campaign does (DR-20261111-19).
+	var act_turn: int = int(event.get("turn", state.turn))
+	if DialogueAgenda.knows(String(event.get("kind", ""))):
+		act_turn = DialogueAgenda.turn_of(event)
+	var salt: int = _salt(act_turn, speaker, viewer, point)
 	var template: String = DialogueCatalog.line_for(point, salt)
 	if template.is_empty():
 		return {}
@@ -243,6 +248,8 @@ static func _plan(event: Dictionary, viewer: int) -> Dictionary:
 			return _told("diplomatic/first_contact", other)
 		"battleFought":
 			return _battle_plan(event, viewer, other)
+	if DialogueAgenda.knows(kind):
+		return DialogueAgenda.plan(event, viewer, other)
 	if DialogueHome.knows(kind):
 		return DialogueHome.plan(event, viewer, other)
 	return {}

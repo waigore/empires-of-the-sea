@@ -244,7 +244,7 @@ func combine(army: ArmyState) -> Dictionary:
 
 
 func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
-	return ArmyCombat.armies_of(armies, province_id, owner)
+	return ArmyForce.armies_of(armies, province_id, owner)
 
 
 ## Musters one regiment into the faction's Home Army, keeping the marker in step.
@@ -277,11 +277,12 @@ func sync_generals(owner: int, tech_unlocked: Dictionary) -> void:
 		generals.sync(owner, tech_unlocked)
 
 
-## Commander line for the dossier; empty for Minor Nations and Tribes.
+## Commander block for the dossier: each general by name and medals, then what a
+## medal buys in the field; empty for Minor Nations and Tribes.
 func command_text(army: ArmyState) -> String:
 	if army == null or FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 		return ""
-	return generals.summary(army.owner)
+	return generals.line(army.owner)
 
 
 func begin_turn(world: WorldMap = null) -> void:

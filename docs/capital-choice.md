@@ -6,18 +6,19 @@ A Great Power seats its court before turn 1. Rules: wiki
 ## Flow
 
 `NEW GAME` → **capital chart** → map screen. The chart is a stripped map screen
-(sea, ink, camera) over the generated Old World; `SET SAIL` on the setup page no
-longer starts the campaign directly.
+(sea, ink, camera) over the generated Old World; `SET SAIL` no longer starts the
+campaign directly.
 
 The chart generates the world **once**. Confirming hands that same `WorldMap` to
-`MapScreen.preset_world`, so the seat the player picked is the seat the campaign
-starts on — no second roll, and the world is not generated twice.
+`MapScreen.preset_world`, so the picked seat is the seat the campaign starts on —
+no second roll.
 
 ## Rules (pure, `scripts/rules/`)
 
 | Call | Meaning |
 |------|---------|
 | `CapitalChoice.can_seat(model, faction, province)` | Owned **and** sea-bound province |
+| `CapitalChoice.seatable_provinces(model, faction)` | Every province the chart glows as eligible |
 | `CapitalChoice.seat_error(model, faction, province, tile)` | `""` when legal, else the refusal code |
 | `CapitalChoice.seat_capital(model, faction, province, tile)` | Applies the seat and its capital works |
 | `CapitalChoice.place_capital(model, faction, kind)` | Auto-choice (setup default, Minors/Tribes) |
@@ -41,13 +42,14 @@ the documented setup default.
 
 `scripts/ui/capital_choice_screen.gd` + `scenes/capital_choice.tscn`:
 
-- Tap a province, then a tile. Taps on the sea or another crown's land are
-  refused in the banner (never silent).
+- Tap a province, then a tile. Only the crown's sea-bound provinces glow gold;
+  the rest is shadowed, and a tap there is refused in the banner with a pointer
+  at the glow.
 - Taps are caught in screen space by a catcher under the chart's own chrome and
   mapped with the camera's canvas transform, so a phone tap lands on the tile
   the player sees even where the page's world rectangle would stop the event.
-- `CapitalSeatMarker` washes the chosen province, inks its border and pulses a
-  ring on the seat tile.
+- `CapitalSeatMarker` lights every eligible province, inks the chosen one and
+  pulses a ring on the seat tile.
 - Mouse, trackpad and touch all pan/zoom the chart; `BACK` (or Escape) returns
   to setup; `SEAT THE COURT` confirms.
 - Touches and Android's emulated mouse click keep separate press slots, so a
@@ -62,9 +64,9 @@ hand-picked seat and its harbour instead of the regenerated auto-choice one.
 
 ## Tests
 
-- `tests/test_capital_choice.gd` — seating rules and refusals.
+- `tests/test_campaign_rules.gd` — seating rules and refusals.
 - `tests/test_capital_seat_screen.gd` — chart pick, confirm, refusals, back.
 - `tests/test_menu_flow.gd` — setup → chart → campaign, chosen seat reaches the
   Home Army.
-- `tests/test_save_world.gd` — seat tile and harbours round-trip.
+- `tests/test_save_store.gd` — seat tile and harbours round-trip.
 - `tools/e2e_smoke.gd` — clicks through the chart on the real flow.

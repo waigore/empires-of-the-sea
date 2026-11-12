@@ -20,12 +20,17 @@ permissions:
 
 jobs:
   tests-full:
-    name: tests-full
+    name: tests-full (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    # Full suite budget is looser than PR tier 1 (docs/testing.md).
-    # 15m was cancelling mid-run after the map-paint / live-suite growth;
-    # keep headroom above the wall time the coverage suite actually needs.
-    timeout-minutes: 30
+    # One Godot process + coverage instrumentation per suite is the floor
+    # (docs/testing.md): a single job cannot go much below the sum of its
+    # suites, which is why 15m kept cancelling. Shards run on separate
+    # runners, so this budget only has to hold one quarter of the suite.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,22 +61,76 @@ jobs:
       - name: Impact map completeness
         run: python tools/select_impacted_tests.py --check-complete
 
-      - name: Full suite with overall 80% coverage
-        run: gd-tools test --coverage --min 80 --parallel 4 --timeout 600 --junit-xml .gd-tools/results.xml
+      - name: Full suite shard with coverage
+        # No --min here: a shard sees only its own share of the suite, so the
+        # overall 80% gate belongs to coverage-gate (merged over every shard).
+        run: >-
+          gd-tools test --coverage --shard ${{ matrix.shard }}/4 --parallel 4
+          --timeout 600 --junit-xml .gd-tools/results.xml
 
-      - name: Upload test & coverage artifacts
+      - name: Upload shard coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tier2-test-and-coverage
+          name: tier2-coverage-${{ matrix.shard }}
           path: |
             .gd-tools/results.xml
             .gd-tools/coverage/
           if-no-files-found: ignore
 
+  coverage-gate:
+    name: coverage-gate
+    needs: tests-full
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install gd-tools
+        run: pip install "gd-tools-cli==0.10.0"
+
+      - name: Download shard coverage
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tier2-coverage-*
+          path: .gd-tools/shards
+
+      - name: Merge shards and gate overall coverage
+        run: |
+          set -euo pipefail
+          files=$(find .gd-tools/shards -name coverage.json | sort)
+          [ -n "$files" ] || { echo "No shard coverage found" >&2; exit 1; }
+          echo "Merging $(printf '%s\n' "$files" | wc -l) shard coverage file(s)."
+          # Every shard writes the same plan, so any one of them can seed the
+          # merged run; take the plan beside the first coverage it finds.
+          plan=$(echo "$files" | head -n 1)
+          plan=$(dirname "$plan")/plan.json
+          mkdir -p .gd-tools/coverage
+          cp "$plan" .gd-tools/coverage/plan.json
+          # shellcheck disable=SC2086
+          gd-tools coverage merge $files --output .gd-tools/coverage/coverage.json
+          gd-tools coverage show --min 80
+
+      - name: Upload merged coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier2-test-and-coverage
+          path: |
+            .gd-tools/shards/**/results.xml
+            .gd-tools/coverage/
+          if-no-files-found: ignore
+
   tier2-issue:
     name: tier2-issue
-    needs: tests-full
+    needs: [tests-full, coverage-gate]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -81,9 +140,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          CONCLUSION: ${{ needs.tests-full.result }}
+          SUITES: ${{ needs.tests-full.result }}
+          GATE: ${{ needs.coverage-gate.result }}
         run: |
           set -euo pipefail
+          # The run is green only when every shard AND the merged coverage gate
+          # passed; either half failing must open/update the sticky issue.
+          CONCLUSION=failure
+          if [ "$SUITES" = "success" ] && [ "$GATE" = "success" ]; then
+            CONCLUSION=success
+          fi
           gh label create ci-tier2 --color B60205 --description "Tier-2 full suite failure" 2>/dev/null || true
 
           open_json=$(gh issue list --label ci-tier2 --state open --limit 5 --json number,title)
@@ -115,8 +181,9 @@ jobs:
           Scheduled / manual **CI tier 2** run failed (overall 80% coverage + full unit suites).
 
           - Run: $RUN_URL
-          - Workflow: CI tier 2 / tests-full
-          - Conclusion: \`$CONCLUSION\`
+          - Workflow: CI tier 2 (4 shards of `tests-full` + `coverage-gate`)
+          - Shards: \`$SUITES\`
+          - Coverage gate: \`$GATE\`
 
           The **fix-tests** agent (hourly, gated on this label) should reproduce, fix, open a PR, babysit merge, then close this issue.
 

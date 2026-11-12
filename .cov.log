@@ -1,0 +1,14 @@
+Coverage: 48.0% lines, 47.6% branches
+48.0% line coverage
+                  Test Results                  
+┏━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━┓
+┃ Total ┃ Passed ┃ Failed ┃ Skipped ┃ Duration ┃
+┡━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━┩
+│   157 │    157 │      0 │       0 │  307.06s │
+└───────┴────────┴────────┴─────────┴──────────┘
+Run artifacts: 
+/home/waigore/eots/2/.orc/worktrees/implement-then-hunt-1-s1-implement-then-hunt
+-implement-feature-agent-20261111T092013544168Z/.gd-tools/artifacts/aad49ae39492
+4aad8aad52e8ab47b92d/artifacts.json
+[OK] All 157 test(s) passed.
+exit=0

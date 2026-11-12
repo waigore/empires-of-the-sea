@@ -17,6 +17,8 @@ const LENS := "resource_lens"
 const DIPLOMACY_LENS := "diplomacy_lens"
 ## Third map reading: which of the crown's own tiles reach the capital by road.
 const CROWN_LENS := "crown_road_lens"
+## Fourth map reading: the garrison, wall and hospital of every charted province.
+const DEFENCE_LENS := "defence_lens"
 ## Opens the whole-empire civilian roster from anywhere on the map.
 const CIVILIAN_ROSTER := "civilian_roster"
 
@@ -35,6 +37,7 @@ static func ensure_actions() -> void:
 	_bind(LENS, [KEY_L])
 	_bind(DIPLOMACY_LENS, [KEY_P])
 	_bind(CROWN_LENS, [KEY_R])
+	_bind(DEFENCE_LENS, [KEY_K])
 	_bind(CIVILIAN_ROSTER, [KEY_C])
 
 

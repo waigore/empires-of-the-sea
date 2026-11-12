@@ -56,6 +56,14 @@ const CROWN_ROAD := Color(0.745, 0.612, 0.196)
 const CROWN_TOWN := Color(0.878, 0.639, 0.216)
 const CROWN_CUT := Color(0.639, 0.220, 0.176)
 
+## Defence lens bands: rust for ground no garrison and no wall hold, ochre for a
+## garrison in the open, slate for a wood or stone wall and indigo for a modern
+## citadel. The shield on the map and the key read this one table (REQ-P1-02).
+const DEFENCE_OPEN := Color(0.639, 0.263, 0.196)
+const DEFENCE_HELD := Color(0.663, 0.522, 0.235)
+const DEFENCE_WALLED := Color(0.310, 0.408, 0.463)
+const DEFENCE_CITADEL := Color(0.235, 0.243, 0.404)
+
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
 const TERRAIN_COLORS: Array[Color] = [
@@ -89,7 +97,7 @@ static func survey_color(status: String) -> Color:
 			return SURVEY_BUILDING
 		"vacant":
 			return SURVEY_VACANT
-		"unprospected":
+		"unprospected", "survey":
 			return SURVEY_PROSPECT
 		"disconnected":
 			return SURVEY_OFFLINE
@@ -116,3 +124,15 @@ static func crown_color(state: String) -> Color:
 		CrownRoadSurvey.STATE_TOWN:
 			return CROWN_TOWN
 	return CROWN_CUT
+
+
+## Shield ink for one defence band (DefenceSurvey.BANDS).
+static func defence_color(band: String) -> Color:
+	match band:
+		DefenceSurvey.BAND_HELD:
+			return DEFENCE_HELD
+		DefenceSurvey.BAND_WALLED:
+			return DEFENCE_WALLED
+		DefenceSurvey.BAND_CITADEL:
+			return DEFENCE_CITADEL
+	return DEFENCE_OPEN

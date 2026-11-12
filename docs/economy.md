@@ -1,6 +1,6 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power, the end-of-turn pipeline and the raw →
+One stockpile per Great Power, the end-of-turn pipeline and raw →
 manufactured recipes. **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
@@ -15,7 +15,8 @@ manufactured recipes. **Pillars:** P2, P3, P5.
    ([improvements.md](improvements.md)).
 2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base
    price.
-3. **Consumption** — navy, army, workers eat; unfed strike.
+3. **Consumption** — army, navy, workers, then hospital staffs eat; unfed men
+   strike, unfed wards lose their staff.
 4. **Production** — recipes spend post-consumption inputs and idle labour.
 
 Projections never mutate live state.
@@ -37,56 +38,56 @@ Projections never mutate live state.
 | bronze | copper ×1 + tin ×1 | 3 |
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
-whole times, bounded by inputs and idle labour; an incomplete row is skipped.
-`PRODUCTION` sets desired outputs.
+whole times, bounded by inputs and labour; incomplete rows are skipped.
+`PRODUCTION` sets desired outputs. Multi-turn: [`deferred.md`](deferred.md).
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
-cargo. A colony pays after the crossing, on landed tons. Rivals upgrade towns;
-works: [improvements.md](improvements.md). A Minor or Tribe town publishes its
+cargo. A colony pays on landed tons. Rivals upgrade towns
+([improvements.md](improvements.md)). A Minor or Tribe town publishes its
 manufactures as market auto-offers at the province town; estates still sell in
-full.
+full. A deed lifts that town (`min(4, 1+deeds)`).
 
 ## World-market auction
 
 One global order book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
-courts' orders plus Minor/Tribe per-tile auto-offers at the published price.
+court orders plus Minor/Tribe per-tile auto-offers at the published price.
 Tiebreaks: integer priority, pact, colony favour, Consulate, relation — a
 colony's suzerain clears its goods first inside a tier whatever the
 relations (`MarketFavoured`, wiki R7.1), while an independent court keeps
 Consulate-then-relation. First right of refusal fills a purchased tile's
 owner first and pays its relation share plus embassy kickbacks; subsidies
 adjust the deal. Unfilled orders carry when holds/stock cover them; prices
-move from filled bids and submitted offers, and a standing world counterparty
-fills the rest.
+move from filled bids and offers, and a world counterparty fills the rest.
 
 An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills, cuts and lapses show in the turn toast and travel in the save.
+claim. Fills, cuts and lapses show in the toast and save.
 
 ## Trade terms
 
 Prices are published once; each crown's diplomacy rate applies at settlement
 ([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
-the Minor/Tribe ask carry it; price discovery reads the published price.
+the Minor/Tribe ask carry it.
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade and projection. `MARKET` lists
-staged orders, Minor/Tribe harvest and world rows as intents (`REQ-P2-03`).
+`ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists
+staged orders, Minor/Tribe harvest and world rows as intents, each good under
+its medallion (`REQ-P1-02`, `REQ-P2-03`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
-to the fields, no refund, inert when empty). Thumb-sized on a phone.
+to the fields, no refund). Thumb-sized on a phone.
 
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
 `commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
 `first_right`, `market_favoured`, `town_industry`, `minor_market`,
-`ui/ledger_{production,market}`, and `economy/economy_controller` plus
+`ui/{commodity_icons,ledger_{production,market}}`, and `economy/economy_controller` plus
 `map/map_play_market`.
 
 ## Tests
 
-`test_market_engine`, `test_economy_rules`, `test_economy_screen`,
-`test_ai_market`, `test_catalogs`.
+`test_economy_rules`, `test_economy_screen`, `test_ai_economy_rules`,
+`test_catalogs`.

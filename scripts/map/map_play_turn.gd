@@ -175,7 +175,11 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.emit_turn_ended(play.turn)
 		return
 	# Victory is checked after every phase, once per turn, and never re-checked.
-	var victory: VictoryState = VictoryRules.resolve(play.victory, play.world, play.turn)
+	# The crown's own bar carries the campaign's level; every rival keeps the
+	# published one (wiki: victory § Military victory; DR-20261111-28).
+	var victory: VictoryState = VictoryRules.resolve(
+		play.victory, play.world, play.turn, play.human_faction_id(), play.difficulty
+	)
 	if victory != null:
 		MapPlayCampaign.close_victory(play, victory)
 		return

@@ -43,6 +43,46 @@ func test_every_great_power_gets_four_grain_farms() -> void:
 		assert_eq(farms, WorldBootstrap.GRAIN_FARMS, "GP %d has four grain farms" % faction)
 
 
+## Grain is a plains crop (wiki: resource-terrain-region-rules § Table), so no
+## guaranteed farm may stand on hills, forest, swamp or mountain ground.
+func test_every_farm_stands_on_ground_that_grows_grain() -> void:
+	var legal: Array = WorldBootstrap.grain_terrains()
+	assert_true(legal.has(MapModel.Terrain.PLAINS), "grain grows on plains")
+	var farms: int = 0
+	for province: ProvinceState in model.provinces:
+		for tile: Vector2i in province.tiles:
+			if model.resource_at(tile.x, tile.y) != WorldBootstrap.GRAIN_RESOURCE:
+				continue
+			if works.improvement_at(model, tile) != WorldBootstrap.FARM_LEVEL:
+				continue
+			farms += 1
+			assert_true(
+				WorldBootstrap.may_host_grain(model, tile),
+				"grain farm at %s stands on %d" % [tile, model.terrain_at(tile.x, tile.y)]
+			)
+	assert_gt(farms, 0)
+
+
+## A capital province too thin in plains has its remaining farm sites levelled
+## rather than carrying a crop its ground cannot grow; the four farms stand.
+func test_a_thin_capital_province_levels_its_farm_sites() -> void:
+	assert_gt(int(report["farms_levelled"]), 0, "the fixture chart has a thin capital")
+	for faction: int in FactionCatalog.great_power_ids():
+		var province: int = WorldBootstrap.capital_province(model, faction)
+		var farms: int = 0
+		for tile: Vector2i in model.province_tiles(province):
+			if works.improvement_at(model, tile) != WorldBootstrap.FARM_LEVEL:
+				continue
+			if model.resource_at(tile.x, tile.y) != WorldBootstrap.GRAIN_RESOURCE:
+				continue
+			farms += 1
+			assert_eq(
+				model.terrain_at(tile.x, tile.y), MapModel.Terrain.PLAINS,
+				"the levelled site at %s is plain" % tile
+			)
+		assert_eq(farms, WorldBootstrap.GRAIN_FARMS)
+
+
 func test_bootstrap_farms_reach_the_crown() -> void:
 	var province: int = WorldBootstrap.capital_province(
 		model, FactionCatalog.PLAYER_FACTION

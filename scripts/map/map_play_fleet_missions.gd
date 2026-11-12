@@ -54,6 +54,14 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	return " ".join(extras) if line.is_empty() else "%s %s" % [line, " ".join(extras)]
 
 
+## The dossier's hint line: a landing site's stake, or nothing when no site is
+## held (the station note already carries the ordinary mission line).
+static func hint(play: PlaySession, fleet: FleetState) -> String:
+	if fleet == null or fleet.owner != play.player_faction or not fleet.has_beachhead():
+		return ""
+	return MapPlayBeachhead.hint(play, fleet)
+
+
 ## What a standing blockade is worth this turn: the chance its raid rolls, the
 ## cargo it would skim and the merchant hull it could send down — read before the
 ## player commits the move (DR-20261111-17).

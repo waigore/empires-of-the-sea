@@ -11,8 +11,11 @@ extends RefCounted
 
 ## Bindings for the whole phase across every region. Returns
 ## {"army_general": {army_id: general_id}, "army_medals": {army_id: int}};
-## unbound armies are absent. The medal snapshot is taken at binding time so a
-## general who wins early does not fight the next engagement with the new medal.
+## unbound armies are absent. The medal snapshot is the phase's opening read —
+## used where a caller has no roster (battle-sim scenarios) and as the
+## engagement's starting point; a general who wins an engagement then fights the
+## rest of the phase with the medal he just earned (wiki: combat § Acceptance —
+## medals persist "for subsequent engagements and turns").
 ## `hostile` is the court's war query: a march into land its owner is at peace
 ## with triggers no engagement, so it must not spend a commander
 ## (wiki: military-generals § Assignment — "every faction that will participate
@@ -52,7 +55,7 @@ static func bind_phase(
 				_bind(army, roster, taken, rng, bindings, medals, "attack")
 	for battle: Dictionary in battles:
 		var armies: Array[ArmyState] = _armies_of(battle, armies_by_region)
-		var defending: Array[ArmyState] = ArmyCombat.armies_of(
+		var defending: Array[ArmyState] = ArmyForce.armies_of(
 			armies, int(battle["province"]), int(battle["defender"])
 		)
 		for army: ArmyState in _sorted(defending):
@@ -77,7 +80,7 @@ static func _battles(
 		armies.assign(armies_by_region.get(index, []))
 		for province: int in ArmyCombat.contested_provinces(model, armies):
 			var defender: int = model.province_owner(province)
-			if ArmyCombat.armies_of(armies, province, defender).is_empty():
+			if ArmyForce.armies_of(armies, province, defender).is_empty():
 				continue
 			if not _has_hostile_attacker(armies, province, defender, hostile):
 				continue

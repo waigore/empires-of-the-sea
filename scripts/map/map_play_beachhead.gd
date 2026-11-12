@@ -44,6 +44,20 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	return "The beachhead at %s has lapsed." % place
 
 
+## The dossier's hint line under the station note: what the site costs, never a
+## second copy of the note itself (the mission block already names the site).
+static func hint(play: PlaySession, fleet: FleetState) -> String:
+	if fleet == null or fleet.owner != play.player_faction or not fleet.has_beachhead():
+		return ""
+	if not NavalTransport.beachhead_target_valid(play.model, fleet, hostile(play)):
+		return ""
+	if NavalTransport.beachhead_ready(fleet, play.turn):
+		if fleet.embarked_army < 0:
+			return "No troops are aboard — the site lapses at the end of this turn."
+		return "Landing spends the site; an unused site lapses at the end of this turn."
+	return "Sailing, docking or losing the hulls drops the site before it opens."
+
+
 ## Marks a beachhead from the dossier's coast list.
 static func establish(play: PlaySession, fleet: FleetState, province_id: int) -> void:
 	var result: Dictionary = NavalTransport.establish_beachhead(

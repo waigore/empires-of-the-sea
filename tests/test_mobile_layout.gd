@@ -109,6 +109,16 @@ func test_phone_chrome_fits_the_screen() -> void:
 			"diplomacy lens button %s" % size
 		)
 		_tappable(hud._diplomacy_lens_button, "diplomacy lens button %s" % size)
+		_fits(
+			hud._defence_lens_button.get_global_rect(), _screen_rect(),
+			"defence lens button %s" % size
+		)
+		_tappable(hud._defence_lens_button, "defence lens button %s" % size)
+		assert_gt(
+			hud._defence_lens_button.get_global_rect().position.x,
+			hud._crown_lens_button.get_global_rect().end.x,
+			"the defence seal clears the crown road seal %s" % size
+		)
 		assert_gt(
 			hud._diplomacy_lens_button.get_global_rect().position.x,
 			hud._lens_button.get_global_rect().end.x,
@@ -188,7 +198,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 	for node: Node in hud.top_bar.find_children("*", "Label", true, false):
 		assert_ne((node as Label).text, "PRESTIGE", "no vanity counter survives")
 	assert_eq(
-		hud._income_label.text, TextFormat.delta(_screen.play.income),
+		hud.stats.income_label.text, TextFormat.delta(_screen.play.income),
 		"treasury shows the projected turn income"
 	)
 
@@ -198,13 +208,64 @@ func test_treasury_income_delta_is_signed_and_compact() -> void:
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.set_income(240)
-	assert_eq(hud._income_label.text, "+240")
+	assert_eq(hud.stats.income_label.text, "+240")
 	hud.set_income(-35)
-	assert_eq(hud._income_label.text, "-35")
+	assert_eq(hud.stats.income_label.text, "-35")
 	hud.set_income(12_500)
-	assert_eq(hud._income_label.text, "+12.5k", "large deltas keep the plaque width")
+	assert_eq(hud.stats.income_label.text, "+12.5k", "large deltas keep the plaque width")
 	hud.set_treasury(2_500, false)
-	assert_true(hud._treasury_chip.tooltip_text.contains("+12.5k per turn"))
+	assert_true(hud.stats.treasury_chip.tooltip_text.contains("+12.5k per turn"))
+
+
+## The plaques state the standing the turn left: the count, its signed movement
+## and the forces, each reachable from its own tooltip (REQ-P5-05).
+func test_status_plaques_state_the_standing() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.set_treasury(2_500, false)
+	hud.set_income(-35)
+	hud.set_fleets(7)
+	hud.set_civilians(3)
+	hud.set_armies(11)
+
+	assert_eq(hud.stats.treasury_label.text, "2,500")
+	assert_eq(hud.stats.income_label.text, "-35")
+	assert_eq(hud.stats.fleet_label.text, "7")
+	assert_eq(hud.stats.civilian_label.text, "3")
+	assert_eq(hud.stats.army_label.text, "11")
+	assert_true(hud.stats.treasury_chip.tooltip_text.contains("2,500"))
+	assert_true(hud.stats.fleet_chip.tooltip_text.contains("7"))
+	assert_true(hud.stats.civilian_chip.tooltip_text.contains("3"))
+	assert_true(hud.stats.army_chip.tooltip_text.contains("11"))
+
+
+## A coin gain lifts off the treasury plaque rather than repainting it in silence.
+func test_a_coin_gain_lifts_off_the_treasury_plaque() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.set_treasury(1_000, false)
+	hud.flash_income(240)
+	var lifted: Label = null
+	for node: Node in hud.get_children():
+		if node is Label and (node as Label).text == "+240":
+			lifted = node as Label
+			break
+	assert_not_null(lifted, "the gain shows its own line")
+	if lifted != null:
+		assert_eq(lifted.position.x, hud.stats.treasury_chip.get_global_rect().position.x)
+
+
+## The count animates to its new standing instead of jumping (REQ-P5-05).
+func test_the_treasury_count_counts_up_to_the_standing() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.set_treasury(0, false)
+	hud.set_treasury(1_200)
+	await get_tree().create_timer(0.8).timeout
+	assert_eq(hud.stats.treasury_label.text, "1,200")
 
 
 func test_status_plaques_find_the_next_force() -> void:
@@ -421,6 +482,27 @@ func test_phone_ledgers_fit_their_sheets() -> void:
 	assert_true(
 		hud._diplomacy_panel.get_combined_minimum_size().y <= hud._diplomacy_wrap.size.y + 0.5,
 		"court content must fit its sheet"
+	)
+
+
+## The tallest ledger: every slot at study, so every row carries a spend line
+## and a gauge instead of collapsing to an idle label.
+func test_the_ledger_fits_a_phone_with_every_slot_at_study() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var state: ResearchState = _screen.economy.economy.research
+	for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+		assert_true(bool(state.assign(tech_id, "medium")["ok"]), tech_id)
+	hud.research_pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel_size: Vector2 = hud._research_panel.get_combined_minimum_size()
+	_fits(hud._research_wrap.get_global_rect(), _screen_rect(), "research sheet")
+	assert_true(
+		panel_size.y <= hud._research_wrap.size.y + 0.5,
+		"research content must fit its sheet with every slot at study (%s > %s)"
+		% [panel_size.y, hud._research_wrap.size.y]
 	)
 
 

@@ -60,6 +60,11 @@ var defeat: DefeatState = null
 ## A consent decision (call to arms) holds turn resolution until answered
 ## (wiki: diplomacy § Alliances).
 var turn_suspended: bool = false
+## Decisions the court has already been told about this phase, keyed by the
+## decision itself (call, intervention, offer). A second Next Turn press
+## re-opens the court but must not repeat the war news (wiki: diplomacy
+## § Intervention — the choice is presented once). Derived; never saved.
+var announced_decisions: Dictionary = {}
 ## Rival-court AI bookkeeping (fixed agendas, per-pair cooldowns) and the last
 ## turn's decision trace (wiki: ai-architecture). Assignments stamp this run's
 ## difficulty so call sites that only `AiState.new()` still found ledgers right.
@@ -114,6 +119,8 @@ var lens: ResourceLens = null
 var diplomacy_lens: DiplomacyLens = null
 ## Crown-road lens: which own tiles reach the capital by road, also a view.
 var crown_lens: CrownRoadLens = null
+## Defence lens: the garrison, wall and hospital of every charted province.
+var defence_lens: DefenceLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -183,8 +190,8 @@ func bind_views(
 	improvements = p_improvements
 	lens = p_lens
 	diplomacy_lens = p_diplomacy_lens
-	# Crown-road lens is resolved from the host in MapPlaySetup so a lens PR
-	# does not widen MapScreen.bind_views (tier-1 impact budget).
+	# Crown-road and defence lenses are resolved from the host in MapPlaySetup so
+	# a lens PR does not widen MapScreen.bind_views (tier-1 impact budget).
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

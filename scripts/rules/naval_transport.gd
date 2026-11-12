@@ -236,6 +236,11 @@ static func can_disembark(
 		return _deny("That is not a province.")
 	if model.province_owner(province_id) != army.owner:
 		if not beachhead_allows(model, fleet, province_id, turn, hostile):
+			# A marked site that is not open yet names its own wait: the court is
+			# not asked to find a beachhead it already holds (wiki: ships-and-naval
+			# § Missions and Movement).
+			if fleet.beachhead_province == province_id and fleet.has_beachhead():
+				return _deny("The beachhead at %s opens next turn." % model.province_name(province_id))
 			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
 		return _allow()
 	if fleet.is_in_port():

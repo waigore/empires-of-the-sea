@@ -5,6 +5,11 @@ extends PanelContainer
 ## research-state, tech-tree § Research Model — the goal slot sorts the display
 ## and spends nothing). Presentation only — every button emits an intent and the
 ## economy controller asks the rules layer (REQ-P2-03).
+##
+## Repaints are in place: one ResearchSlotRow lives per slot, and each page is
+## rebuilt only when its list actually changes. A funding change therefore
+## rewrites the slot's own line — nothing reloads, and the gauge animates from
+## where it stood (REQ-P1-05).
 
 signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
@@ -15,17 +20,27 @@ signal close_pressed
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
 var _boost: Dictionary = {}
-## The goal tech: view state only, never saved and never funded (wiki: tech-tree
-## § Research Model). The queue lists sort it and its prerequisites first.
+## The goal tech, mirrored from `_state.goal` on every refresh. It sorts the
+## queue and funds nothing; the state keeps it so a load reopens the same order
+## (wiki: tech-tree § Goal slot; DR-20261111-21).
 var _goal: String = ""
 var _treasury: int = 0
+var _column: VBoxContainer = null
 var _summary: Label = null
 var _goal_row: HBoxContainer = null
+var _slots_heading: Label = null
 var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
 var _hint: Label = null
+## Slot index -> its persistent row (REQ-P1-05).
+var _slot_rows: Dictionary = {}
+## Signatures of what each rebuilt region last drew, so a repaint that changes
+## none of them touches no widget.
+var _goal_key: String = ""
+var _available_key: String = ""
+var _known_key: String = ""
 
 
 func _ready() -> void:
@@ -38,22 +53,30 @@ func _ready() -> void:
 	_fit_to_viewport()
 
 
-## The tab body gives way on a phone so the header, slots and Close stay put.
+## The tab body gives way so the header, slots and Close stay put: the pages
+## take the room the sheet leaves, and a phone drops the standing hint instead
+## of pushing content past the panel's edge.
 func _fit_to_viewport() -> void:
-	if _tabs == null:
+	if _tabs == null or not is_inside_tree():
 		return
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else 300.0)
+	_hint.visible = not compact
+	_column.add_theme_constant_override("separation", 4 if compact else 8)
+	var top: float = 64.0 if compact else PanelDock.TOP
+	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
+	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
+	var chrome: float = get_combined_minimum_size().y - _tabs.custom_minimum_size.y
+	_tabs.custom_minimum_size = Vector2(0.0, clampf(room - chrome, 0.0, 300.0))
 
 
 func _build() -> void:
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 8)
-	add_child(column)
+	_column = VBoxContainer.new()
+	_column.add_theme_constant_override("separation", 8)
+	add_child(_column)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
-	column.add_child(header)
+	_column.add_child(header)
 
 	var title := Label.new()
 	title.text = "THE COLLEGE"
@@ -72,31 +95,31 @@ func _build() -> void:
 
 	_summary = _label("", 14, Palette.TEXT)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_summary)
+	_column.add_child(_summary)
 
 	_goal_row = HBoxContainer.new()
 	_goal_row.add_theme_constant_override("separation", 8)
-	column.add_child(_goal_row)
+	_column.add_child(_goal_row)
 
-	var slots_heading := _label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
-	column.add_child(slots_heading)
+	_slots_heading = _label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
+	_column.add_child(_slots_heading)
 
 	_slots_body = VBoxContainer.new()
 	_slots_body.add_theme_constant_override("separation", 4)
-	column.add_child(_slots_body)
+	_column.add_child(_slots_body)
 
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tabs.custom_minimum_size = Vector2(0, 300)
 	_tabs.add_theme_color_override("font_selected_color", Palette.GOLD_PALE)
 	_tabs.add_theme_color_override("font_unselected_color", Palette.TEXT_DIM)
-	column.add_child(_tabs)
+	_column.add_child(_tabs)
 	_available_body = _add_page("AVAILABLE")
 	_known_body = _add_page("KNOWN")
 
 	_hint = _label("", 11, Palette.TEXT_DIM)
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_hint)
+	_column.add_child(_hint)
 
 
 func _add_page(title: String) -> VBoxContainer:
@@ -122,12 +145,16 @@ func goal_tech() -> String:
 
 
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
-## The goal is view state: it spends nothing and rides no research order.
+## The goal spends nothing and rides no research order, but it is kept with the
+## campaign, so the ledger reopens where the player left it (wiki: tech-tree
+## § Goal slot; DR-20261111-21).
 func set_goal(tech_id: String) -> void:
-	var next: String = tech_id if TechCatalog.known(tech_id) else ""
+	var next: String = TechOrder.normalize(tech_id)
 	if next == _goal:
 		return
 	_goal = next
+	if _state != null:
+		_state.goal = next
 	goal_changed.emit(_goal)
 	refresh(_state, _treasury, _boost)
 
@@ -142,9 +169,8 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 	_boost = boost
 	if _tabs == null or _state == null:
 		return
-	_clear(_slots_body)
-	_clear(_available_body)
-	_clear(_known_body)
+	_goal = TechOrder.normalize(_state.goal)
+	_state.ensure_slots()
 	var active: int = _state.researching().size()
 	_summary.text = "%d slot%s · %d at study · %d ducats · %d tech%s known" % [
 		_state.slots.size(),
@@ -162,11 +188,23 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
 	_hint.text = _hint_text(open.size())
+	_fit_deferred()
+
+
+## The height budget shifts as slots fill, so the tabs are re-measured once the
+## frame has laid the rows out.
+func _fit_deferred() -> void:
+	if is_inside_tree():
+		call_deferred("_fit_to_viewport")
 
 
 ## The goal strip: the plate, the advance it steers toward, its standing and a
 ## Clear button. An empty goal explains itself rather than leaving a blank line.
 func _fill_goal() -> void:
+	var key: String = "%s|%s" % [_goal, _goal_standing()]
+	if key == _goal_key:
+		return
+	_goal_key = key
 	_clear(_goal_row)
 	var tag := _label("GOAL", 11, Palette.TEXT_DIM)
 	tag.custom_minimum_size = Vector2(46, 0)
@@ -208,38 +246,80 @@ func _goal_standing() -> String:
 	return "%d RP" % TechCatalog.cost(_goal)
 
 
+## One persistent row per slot, rewritten in place. The heading carries what the
+## whole college spends and buys each turn, so the cost of research is never
+## silent (REQ-P1-05).
+##
+## Each slot is previewed against the treasury the ones before it leave behind,
+## exactly as the Research phase spends in slot order — so a slot the treasury
+## cannot reach shows as unpaid here rather than promising points it will not
+## earn.
 func _fill_slots() -> void:
+	var gold: int = 0
+	var points: int = 0
+	var left: int = _treasury
 	for index in _state.slots.size():
-		_slots_body.add_child(ResearchRow.slot(
-			_state, index,
-			func(slot: int) -> void: cancel_requested.emit(slot),
-			func(slot: int) -> void: funding_requested.emit(slot),
-			SpyNetworks.boost_for(_boost, _state.tech_at(index))
-		))
+		var row: ResearchSlotRow = _slot_rows.get(index)
+		if row == null:
+			row = ResearchSlotRow.new(index)
+			row.cancel_pressed.connect(func(slot: int) -> void: cancel_requested.emit(slot))
+			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
+			_slots_body.add_child(row)
+			_slot_rows[index] = row
+		row.update(_state, _boost, left)
+		gold += row.gold_next()
+		points += row.rp_next()
+		left -= row.gold_next()
+	_slots_heading.text = _slots_spend_text(gold, points)
 
 
+func _slots_spend_text(gold: int, points: int) -> String:
+	if gold <= 0 and points <= 0:
+		return "RESEARCH SLOTS · nothing is funded"
+	return "RESEARCH SLOTS · %s ducats & %s RP a turn" % [
+		TextFormat.thousands(gold), TextFormat.thousands(points),
+	]
+
+
+## Rebuilt only when the open list, the goal or the free slot changes; a
+## funding change repaints none of it.
 func _fill_available(techs: Array[String]) -> void:
-	if techs.is_empty():
-		_available_body.add_child(
-			_label("No advances are open — finish a prerequisite or chart a resource.", 12, Palette.TEXT_DIM)
-		)
+	var key: String = "%s|%s|%d" % [";".join(techs), _goal, _state.free_slot()]
+	if key == _available_key:
 		return
-	for tech_id: String in techs:
-		_available_body.add_child(ResearchRow.available(
-			_state, tech_id,
-			func(id: String) -> void: assign_requested.emit(id),
-			_goal,
-			func(id: String) -> void: set_goal("" if id == _goal else id)
-		))
+	_available_key = key
+	_rebuild(_available_body, func() -> void:
+		if techs.is_empty():
+			_available_body.add_child(_label(
+				"No advances are open — finish a prerequisite or chart a resource.",
+				12, Palette.TEXT_DIM
+			))
+			return
+		for tech_id: String in techs:
+			_available_body.add_child(ResearchRow.available(
+				_state, tech_id,
+				func(id: String) -> void: assign_requested.emit(id),
+				_goal,
+				func(id: String) -> void: set_goal("" if id == _goal else id)
+			))
+	)
 
 
 func _fill_known() -> void:
 	var known: Array[String] = _state.unlocked_ids()
-	if known.is_empty():
-		_known_body.add_child(_label("Nothing is known beyond the old learning.", 12, Palette.TEXT_DIM))
+	var key: String = "%s|%s" % [";".join(known), _goal]
+	if key == _known_key:
 		return
-	for tech_id: String in TechOrder.sorted(known, _goal):
-		_known_body.add_child(ResearchRow.known(tech_id, _goal))
+	_known_key = key
+	_rebuild(_known_body, func() -> void:
+		if known.is_empty():
+			_known_body.add_child(_label(
+				"Nothing is known beyond the old learning.", 12, Palette.TEXT_DIM
+			))
+			return
+		for tech_id: String in TechOrder.sorted(known, _goal):
+			_known_body.add_child(ResearchRow.known(tech_id, _goal))
+	)
 
 
 ## Researchable, not already in a slot, goal path first.
@@ -257,8 +337,20 @@ func _hint_text(open_count: int) -> String:
 	return "Funding is paid every turn; cancelling a slot forfeits its progress."
 
 
+## Replaces a page's rows but keeps the player's place in the list: a rebuild
+## that jumped back to the top would read as a reload.
+func _rebuild(body: Container, paint: Callable) -> void:
+	var scroll := body.get_parent() as ScrollContainer
+	var keep: int = scroll.scroll_vertical if scroll != null else 0
+	_clear(body)
+	paint.call()
+	if scroll != null:
+		scroll.set_deferred("scroll_vertical", keep)
+
+
 func _clear(body: Container) -> void:
 	for child in body.get_children():
+		body.remove_child(child)
 		child.queue_free()
 
 

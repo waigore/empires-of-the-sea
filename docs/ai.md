@@ -1,85 +1,77 @@
 # AI courts
 
-Rivals act through a deterministic stack
+Deterministic stack
 ([AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
-
-**Pillars:** P2–P5.
 
 ## Implemented
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six agendas.
+  six agendas whose traits reach peace, treaties, trade, war targets and
+  research.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
-  +30 / +5 / −25.
+  +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
-  relations, modifiers. Declarations need relation ≤ ceiling (50;
-  warmonger 70, peacemaker 30), desire ≥ 51, no 4-turn cooldown; goals
-  `round(desire / 25)`. At war, desire < 50 offers peace. A Minor/Tribe deed
+  relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
+  peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
+  At war, desire below `50 + peace_bias` (peacemaker 65, warmonger 40) offers
+  peace; an envious court adds +20 against a human crown that leads it. A deed
   resists a declaration (`DeedProtection`).
 - **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
   overtures, alliance, trade pact, boycott (impose/lift), subsidy, aid.
-  Friendly acts cost desire, retaliation standing (DR-20261110-15).
-- **Turn pass** (`AiTurn`): one order per rival through the shared catalogue;
-  consent asks queue for the human; declarations first.
+  Friendly acts cost desire, retaliation standing (DR-20261110-15); an
+  isolationist prices a pact 20 lower, a backstabber's desire against its ally
+  +25 (DR-20261111-27).
+- **Turn pass** (`AiTurn`): one order per rival; consent asks queue for the
+  human; declarations first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  matchable squadron (120% margin, charted water, DR-20261110-21), else a
-  warship raids a hostile coast (DR-20261111-17); at peace it comes home
-  (DR-20261110-30).
-- **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never
-  attack; an invader draws a relief column (one regiment keeps the seat).
+  squadron (DR-20261110-21), else a warship raids a hostile coast
+  (DR-20261111-17); at peace it returns home (DR-20261110-30).
+- **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never attack;
+  an invader draws a relief column.
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
-  fog; voyages, invasions and work read only that chart (DR-20261110-21).
+  fog; voyages, invasions and work read that chart.
 - **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): the
-  squadron docks at the crown's own harbour (seat first) and the Explorer
-  musters there; board, cross, land (DR-20261111-05).
+  squadron docks at the crown's harbour (seat first), the Explorer musters;
+  board, cross, land (DR-20261111-05).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): no border
   war and a far shore; detach hulls, dock, board, cross; storm best coast.
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest
-  affordable tier, keeping a peasant and `economy.min_treasury`
-  (DR-20261111-06).
-- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots; `research.funding_index` funds.
+  affordable tier, keeping a peasant and `economy.min_treasury`.
+- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
+  funding shifts with the leader weight and a tech thief's +1 step
+  (DR-20261111-27).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
-  charted Tribe at the turn's close, then work the crown's own overtures and
-  deeds (DR-20261111-14).
+  charted Tribe at the turn's close, then work overtures and deeds
+  (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
   builders improve or finish towns, engineers connect then road/port/fort/hospital
   (DR-20261111-16), explorers prospect, rail builders upgrade roads; merchants
-  buy a Minor/Tribe deed when embassy, peace, mineral, price allow
-  (`civilian.merchant_weight`). Builders read its caps (DR-20261111-10).
-- **Spy planner** (`AiSpyPlanner`): station abroad, screen at war; rivals open
-  with one.
-- **Market planner** (`AiMarketPlanner`): sell above reserve and the turn's
-  inputs; bid short build inputs.
-- **Cargo planner** (`AiCargoPlanner`): merchants sail home; one hull more when
-  tonnage outruns them (`cargo.*`, DR-20261110-26).
-- **Regiment parity** (`MilitaryParity`): Minors match the leading power's
-  era; Tribes stay at level 1. Rivals re-equip and pay attack prices
-  (`RegimentUpgrades`, `ArmyAttackCost`).
+  buy a deed when embassy, peace, mineral and price allow (DR-20261111-10).
+- **Spy planner** (`AiSpyPlanner`): station abroad; screen at war.
+- **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
+  bid short inputs; merchants sail home, one hull more when tonnage
+  outruns them (DR-20261110-26).
+- **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
+  Tribes stay at level 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
   (DR-20261111-04).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`).
-- **Court dossier** (`IntelDossier`,
-  [`intel-dossier.md`](intel-dossier.md)).
+- **Persistence & dossier:** agendas, cooldowns, ledgers (`AiState.to_dict`);
+  `IntelDossier` ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
-Agenda beats; regiment names. Ranked:
-[`deferred.md`](deferred.md).
+Difficulty extras sit outside the layer (wiki): [`deferred.md`](deferred.md).
 
-## Architecture
+## Architecture & tests
 
-Planners live in `scripts/ai/` (`REQ-P3-03`);
-`scripts/map/map_play_*` wire them to `PlaySession`.
-
-## Tests
-
-`test_ai_*`, `test_military_parity`, `test_espionage`, `test_visibility`.
+Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`;
+suites `test_ai_*`, `test_military_parity`, `test_espionage`, `test_visibility`.
 
 ```bash
 gd-tools test --coverage --min 80
