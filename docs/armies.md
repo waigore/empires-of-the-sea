@@ -65,6 +65,12 @@ Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
 `naval_transport`. Presentation: `map/army_*`, `map/map_play_army*`,
 `map/map_play_land_turn`, `ui/army_panel`, `ui/quick_battle_*`, `map_screen`.
 
+```text
+ArmyState        roster ids + type per instance, ownership and place
+RegimentRecord   christens, re-equips and releases each instance's store
+ArmyLayer        hands a crown over in place, then writes stored rosters back
+```
+
 ## Controls
 
 | Action | Desktop | Touch |

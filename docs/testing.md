@@ -25,21 +25,22 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
-- That world is the smallest that still validates a `SaveCodec` slot and seats
-  the turn-100 civilian tier; screen and campaign-plate suites share it.
+- That world is the smallest that validates a `SaveCodec` slot and seats the
+  turn-100 civilian tier; screen and campaign-plate suites share it.
+- Its size must pass fair split on the **first** attempt, else `generate_world`
+  rebuilds (world-setup guard).
 - The terrain wash (`MapWash.baked`) and each grid's fog coast table
   (`VisibilityModel`) build once per map state, so mounting many screens — or
   six courts' charts — repaints nothing.
-- Cache shared maps in `before_all` on **non-underscore** vars.
-- Attach a map screen lazily (`_attach()`) so rule-only cases never pay for
-  painting the chart; a case that reads the map asks for it.
-- Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
+- Cache shared maps in `before_all` on **non-underscore** vars; attach a map
+  screen lazily (`_attach()`) so rule-only cases never paint the chart.
+- Do not regenerate worlds in `before_each`. Profile with `gd-tools test --durations 20`.
 - Saving/loading is the hottest path: `SaveCodec.restore` reuses a preset world,
   and suites that rewrite owners or buy deeds snapshot it (`MapFixture.snapshot`
   / `restore`).
 - One Godot boot per theme: related pure suites share one merged file (56
-  suites, not 129) because coverage instrumentation costs ~12 s per boot. Add a
-  case to the theme's file instead of a new suite.
+  suites, not 129) because coverage costs ~12 s per boot. Add a case to the
+  theme's file instead of a new suite.
 - Coverage adds a fixed ~35 s per worker, so a suite's wall time is mostly its
   mounts. Prefer one mount per case; let long screen suites stand alone.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
@@ -130,6 +131,12 @@ godot --headless --path . --script res://tests/playtest_beachhead.gd
 # the college's funding), stages a sale and a study on those buttons, closes real
 # turns, and prints each promise against the ducats the turn actually paid.
 godot --headless --path . --script res://tests/playtest_treasury.gd
+
+# Capital loss — storms the crown's seat while it still holds another province
+# (the court moves, the home squadron re-moors, the Gazette names the province
+# lost), then strips the crown to its seat and storms that (the defeat plate, the
+# sealed turn, and the save that restores the defeated campaign).
+godot --headless --path . --script res://tests/playtest_capital_move.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

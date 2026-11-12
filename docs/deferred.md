@@ -31,16 +31,16 @@ What to ship next (`REQ-P2-02`).
 | Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02 |
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 | Travelling field hospital train | `HospitalTrain`, DR-20261112-07 |
+| Rival field-hospital trains | `AiHospitalTrainWork`, DR-20261112-08 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
 | 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; published numbers |
-| 2 | Rival field-hospital trains | Mid/late army parity | DR-20261112-07; human train live |
-| 3 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
-| 4 | Multi-turn production recipes | Economy depth | [`economy.md`](economy.md) |
-| 5 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
+| 2 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
+| 3 | Multi-turn production recipes | Economy depth | [`economy.md`](economy.md) |
+| 4 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
 
 ## Next pick
 

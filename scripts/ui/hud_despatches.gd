@@ -10,8 +10,10 @@ extends Control
 ## keeps the lane's geometry, queue and plate construction together instead of
 ## a mutable node field three screens poke (REQ-P3-01, REQ-P3-02).
 
-## News kept while a plate plays: the battle's own line is on the plate already,
-## so the oldest lines are the ones the court can spare (REQ-P5-06).
+## News kept while a plate plays. The battle plate has already told its own
+## despatch, so that line is the one the court can spare; the crown's own news
+## (a seat lost, a court moved, a crown fallen) is what must survive the cap
+## (REQ-P5-06).
 const TOAST_QUEUE_CAP: int = 6
 ## Suites written against the first board still say QUEUE_CAP.
 const QUEUE_CAP: int = TOAST_QUEUE_CAP
@@ -28,6 +30,9 @@ var box: VBoxContainer:
 var _resting_top: float = 0.0
 var _covered: bool = false
 var _queue: PackedStringArray = PackedStringArray()
+## One flag per queued line: true when the open plate narrated it too, so the
+## cap drops that line before the court's own news.
+var _queue_narrated: Array[bool] = []
 
 
 func _init() -> void:
@@ -86,6 +91,7 @@ func set_covered(covered: bool) -> void:
 		return
 	var pending: PackedStringArray = _queue
 	_queue = PackedStringArray()
+	_queue_narrated.clear()
 	for held: String in pending:
 		_raise(held)
 
@@ -104,12 +110,36 @@ func held() -> PackedStringArray:
 ## auto-resolved siege's silenced battery) and holds it longer, so the loss is
 ## read and not mistaken for the turn's chatter (REQ-P5-05).
 func toast(text: String, icon_name: String = "") -> void:
+	_hold_or_raise(text, icon_name, false)
+
+
+## A despatch the open plate has already told (a Quick Battle's own outcome):
+## held like any other line, but the first the cap spends when the court's own
+## news needs the room (REQ-P5-06).
+func toast_plate_line(text: String, icon_name: String = "") -> void:
+	_hold_or_raise(text, icon_name, true)
+
+
+func _hold_or_raise(text: String, icon_name: String, narrated: bool) -> void:
 	if _covered:
 		if _queue.size() >= TOAST_QUEUE_CAP:
-			_queue.remove_at(0)
+			_make_room()
 		_queue.append(text)
+		_queue_narrated.append(narrated)
 		return
 	_raise(text, icon_name)
+
+
+## One slot for the newest line: the plate's own narration goes first, and only
+## a queue of nothing but the court's news drops its oldest line.
+func _make_room() -> void:
+	for index in _queue_narrated.size():
+		if _queue_narrated[index]:
+			_queue.remove_at(index)
+			_queue_narrated.remove_at(index)
+			return
+	_queue.remove_at(0)
+	_queue_narrated.remove_at(0)
 
 
 func _set_top(top: float) -> void:

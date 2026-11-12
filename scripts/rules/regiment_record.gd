@@ -1,26 +1,51 @@
 class_name RegimentRecord
 extends RefCounted
-## A regiment's service record: the engagements it stood in, the ones its side
-## won and the battle honours its colours bear (wiki: naming § Regiment records;
-## DR-20261111-18, DR-20261112-02). Display and identity only — strength,
-## casualties and chevrons still read the condition fields, so the record never
-## changes an outcome (REQ-P2-03). Pure data, no nodes (REQ-P3-03).
+## A regiment's condition and service record: the chevrons and health that feed
+## its strength, and the engagements, wins and battle honours its colours bear
+## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-02). This module
+## owns the per-instance store's life on an army — christened at the first entry
+## (`start`), re-equipped in place (`retype`) and released at the last
+## (`forget`) — so an add, drop or re-equip through `ArmyState` leaves nothing
+## behind and keeps health inside its type's pool.
+## Display and identity only for the record half: strength, casualties and
+## chevrons still read the condition fields, so the record never changes an
+## outcome (REQ-P2-03). Pure data, no nodes (REQ-P3-03).
 
 ## Honours printed under a regiment's name; the rest collapse to `+N more`.
 const HONOURS_SHOWN: int = 2
 
 
-## Zeroes a freshly minted instance and christens it, so a recruit, a scenario
-## muster and a reload all enter the roster titled. Called by `ArmyState`.
+## Zeroes a freshly minted instance and christens it, so a recruit or a scenario
+## muster enters the roster titled and at full strength. `ArmyState` calls it
+## after recording the instance's type; a load enters through `set_regiments`.
 static func start(army: ArmyState, regiment_id: String) -> void:
+	var top: int = RegimentCatalog.max_health(army.type_of(regiment_id))
+	army.regiment_health[regiment_id] = top
+	army.regiment_medals[regiment_id] = 0
 	army.regiment_names[regiment_id] = RegimentNames.christen(army, regiment_id)
 	army.regiment_engagements[regiment_id] = 0
 	army.regiment_wins[regiment_id] = 0
 	army.regiment_honours[regiment_id] = []
 
 
-## Releases a title and record when the instance leaves the roster.
+## Re-equips one instance: the type swaps and its health scales to the same
+## fraction of the new pool, so a reload reads the condition it left. Called by
+## `ArmyState.set_type`, the one path `RegimentUpgrades`/`MilitaryParity` take.
+static func retype(army: ArmyState, regiment_id: String, type_id: String) -> void:
+	## Read the old pool before the swap; `condition_of` sees the new type after.
+	var before: Dictionary = army.condition_of(regiment_id)
+	army.regiment_types[regiment_id] = RegimentCatalog.normalize(type_id)
+	var top: int = RegimentCatalog.max_health(army.regiment_types[regiment_id])
+	var keep: float = float(before["hp"]) / float(maxi(int(before["max"]), 1))
+	army.regiment_health[regiment_id] = clampi(ceili(float(top) * keep), 0, top)
+
+
+## Releases an instance's whole store — type, condition and record — when it
+## leaves the roster, so a departed regiment leaves nothing behind.
 static func forget(army: ArmyState, regiment_id: String) -> void:
+	army.regiment_types.erase(regiment_id)
+	army.regiment_health.erase(regiment_id)
+	army.regiment_medals.erase(regiment_id)
 	army.regiment_names.erase(regiment_id)
 	army.regiment_engagements.erase(regiment_id)
 	army.regiment_wins.erase(regiment_id)

@@ -763,6 +763,13 @@ domain = "save"
 match = "tests/playtest_treasury.gd*"
 domain = "economy"
 
+# The seat drive storms the crown's capital and reads the court's news, the
+# Gazette sheet and the defeat plate, so it travels with the land-turn suites
+# that own capital falls.
+[[rules]]
+match = "tests/playtest_capital_move.gd*"
+domain = "land_turn"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]

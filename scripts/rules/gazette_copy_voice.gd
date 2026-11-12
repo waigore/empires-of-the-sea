@@ -26,3 +26,18 @@ static func own(rec: Dictionary) -> int:
 ## Money as the ledger prints it.
 static func money(rec: Dictionary) -> String:
 	return DiplomacyCatalog.money(int(rec.get("amount", 0)))
+
+
+## "is" for one, "are" for many: the desk never prints "1 regiments are".
+static func verb(count: int) -> String:
+	return "is" if count == 1 else "are"
+
+
+## "1 hull" / "2 hulls".
+static func hulls(count: int) -> String:
+	return "%d hull%s" % [count, "" if count == 1 else "s"]
+
+
+## "1 regiment" / "2 regiments".
+static func regiments(count: int) -> String:
+	return "%d regiment%s" % [count, "" if count == 1 else "s"]
