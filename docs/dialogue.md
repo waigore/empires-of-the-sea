@@ -15,7 +15,8 @@ feeds an outcome (`REQ-P2-03`).
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
 | `scripts/rules/dialogue_home.gd` | Which court answers the crown's own turn |
 | `scripts/rules/dialogue_yarn.gd` | The standing word authored as Yarn |
-| `scripts/rules/dialogue_locale.gd` | A locale key per line |
+| `scripts/rules/dialogue_locale.gd` | A locale key per line; the shipped French |
+| `assets/locales/fr.po` | The words behind every key (DR-20261113-06) |
 | `scripts/rules/yarn_*.gd` | Yarn parser, expression grammar, runner |
 | `scripts/map/map_play_court_voice.gd` | Reads the resolved turn and records its beats |
 
@@ -71,7 +72,14 @@ Each variant answers to `DialoguePoint/<point>/<variant>` through
 `TranslationServer`: a translation ships without code, an untranslated key falls
 back to the authored English (`REQ-P2-03`).
 
+**French ships.** `assets/locales/fr.po` answers all 124 variants; the key is
+the `msgid`, the English a `#.` comment. The file registers on the first line a
+court speaks (`DialogueLocale.load_shipped`), so the reader's OS tongue decides —
+`fr`, `fr_FR`, `fr_CA` read French, everything else reads the English. The
+dialogue suite holds the file to the catalogue: a missing variant, a lost
+`{speaker}`/`{other}`, or a key no point authors fails CI.
+
 ## Deferred
 
-Translation words for the court's lines; era change stays blocked (no era
-model). Ranked: [`deferred.md`](deferred.md).
+An in-game tongue picker, other tongues, and the blocking prompts' words; era
+change stays blocked (no era model). Ranked: [`deferred.md`](deferred.md).

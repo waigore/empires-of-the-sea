@@ -10,9 +10,22 @@ extends RefCounted
 ## authored source line, so the source language is never lost and a shipped
 ## `.po` / `.translation` fills one point at a time (REQ-P2-05). No rule reads a
 ## translated string (REQ-P2-03).
+##
+## French ships (`SHIPPED`, DR-20261113-06): a reader whose OS speaks French
+## reads the court in French on desktop, tablet and phone, and every other
+## tongue reads exactly the authored English.
 
 const SOURCE_LOCALE: String = "en"
 const KEY_PREFIX: String = "DialoguePoint"
+
+## The one tongue that ships: the French words behind every authored line
+## (wiki: dialogue-content-and-yarn § Playable slice; DR-20261113-06). The
+## content key is the `msgid`, so the lookup [method line_key] builds answers
+## straight from this file, and the authored English rides above each entry as
+## a translator's comment.
+const SHIPPED: String = "res://assets/locales/fr.po"
+
+static var _shipped_registered: bool = false
 
 ## The key one authored variant answers to, e.g.
 ## `DialoguePoint/diplomatic/peace_made/0`.
@@ -22,10 +35,26 @@ static func line_key(point: String, index: int) -> String:
 
 ## A translated line, or the authored one when the key has no translation.
 static func translate(key: String, fallback: String) -> String:
+	load_shipped()
 	var found: String = String(TranslationServer.translate(key))
 	if found.is_empty() or found == key:
 		return fallback
 	return found
+
+
+## Register the shipped tongue with the [TranslationServer], once, on the first
+## line a court speaks — so no project setting has to name a tongue and a tongue
+## stays content. A missing or unreadable file leaves every key on its authored
+## English rather than taking the line away.
+static func load_shipped() -> void:
+	if _shipped_registered:
+		return
+	_shipped_registered = true
+	if not ResourceLoader.exists(SHIPPED):
+		return
+	var shipped: Variant = ResourceLoader.load(SHIPPED)
+	if shipped is Translation:
+		TranslationServer.add_translation(shipped as Translation)
 
 
 ## One variant of one point, in the locale the game is running.

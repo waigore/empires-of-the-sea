@@ -334,6 +334,35 @@ func test_an_option_command_that_is_not_closed_is_refused() -> void:
 
 # --- localization keys ------------------------------------------------------
 
+## The shipped tongue is content (DR-20261113-06): `assets/locales/fr.po` answers
+## every authored variant, keyed by what [method DialogueLocale.line_key] builds,
+## so a reader whose OS speaks French reads the court in French and an English
+## reader reads exactly what he read before. The suite holds the file to the
+## catalogue: a rewritten or dropped point fails here rather than leaving a
+## French court with an English line.
+
+## Every variant the shipped file answers, as `DialoguePoint/<point>/<variant>`.
+func _shipped_keys() -> Array[String]:
+	var found: Array[String] = []
+	var text := FileAccess.get_file_as_string(DialogueLocale.SHIPPED)
+	var re := RegEx.new()
+	re.compile("msgid \"(DialoguePoint/[^\"]+)\"")
+	for row in re.search_all(text):
+		found.append(row.get_string(1))
+	return found
+
+
+## Every authored variant, as `[point, index, english]` — the catalogue as the
+## file must answer it.
+func _authored_variants() -> Array:
+	var found: Array = []
+	for point in DialogueCatalog.points():
+		var lines := DialogueCatalog.lines_for(point)
+		for index in range(lines.size()):
+			found.append([point, index, String(lines[index])])
+	return found
+
+
 func test_a_line_carries_a_stable_translation_key() -> void:
 	assert_eq(
 		DialogueLocale.line_key("reactive/standing_cold", 1),
@@ -342,12 +371,14 @@ func test_a_line_carries_a_stable_translation_key() -> void:
 	)
 
 
-func test_an_untranslated_key_falls_back_to_the_authored_line() -> void:
+func test_an_unanswered_key_falls_back_to_the_authored_line() -> void:
+	DialogueLocale.set_locale("fr")
 	assert_eq(
-		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
+		DialogueLocale.line("probe/absent", 0, "We have little to say."),
 		"We have little to say.",
-		"the source language is never lost"
+		"a key the file does not answer keeps the source"
 	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 	assert_true(DialogueLocale.locales().has(DialogueLocale.SOURCE_LOCALE))
 
 
@@ -363,28 +394,110 @@ func test_the_locale_can_be_switched_and_read_back() -> void:
 func test_a_translation_overrides_the_authored_line() -> void:
 	var table := Translation.new()
 	table.locale = "fr"
-	table.add_message(DialogueLocale.line_key("reactive/standing_cold", 0), "Nous n'avons rien a dire.")
+	table.add_message(DialogueLocale.line_key("probe/absent", 0), "Nous n'avons rien à dire.")
 	TranslationServer.add_translation(table)
 	DialogueLocale.set_locale("fr")
 	assert_eq(
-		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
-		"Nous n'avons rien a dire."
+		DialogueLocale.line("probe/absent", 0, "We have little to say."),
+		"Nous n'avons rien à dire."
 	)
 	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_cold", 0), "Nous n'avons rien a dire.",
-		"the court's own line reads the translation"
-	)
-	assert_eq(
-		DialogueLocale.line("reactive/standing_cold", 1, "Our clerks record your name."),
+		DialogueLocale.line("probe/absent", 1, "Our clerks record your name."),
 		"Our clerks record your name.",
 		"a variant with no translation keeps the source"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 	TranslationServer.remove_translation(table)
 	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_cold", 0),
-		"We have little to say to your court.",
+		DialogueLocale.line("probe/absent", 0, "We have little to say."),
+		"We have little to say.",
 		"the source line comes back"
+	)
+
+
+func test_the_shipped_tongue_answers_every_authored_variant() -> void:
+	DialogueLocale.set_locale("fr")
+	var silent: Array[String] = []
+	for row: Array in _authored_variants():
+		var point := String(row[0])
+		var index := int(row[1])
+		var english := String(row[2])
+		var french := DialogueLocale.line(point, index, english)
+		if french == english or french.is_empty() or french == DialogueLocale.line_key(point, index):
+			silent.append(DialogueLocale.line_key(point, index))
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(silent, [], "every authored variant reads French")
+
+
+func test_the_shipped_tongue_keeps_the_names_a_line_hands_in() -> void:
+	DialogueLocale.set_locale("fr")
+	var broken: Array[String] = []
+	for row: Array in _authored_variants():
+		var english := String(row[2])
+		var french := DialogueLocale.line(String(row[0]), int(row[1]), english)
+		for holder in ["{speaker}", "{other}"]:
+			if english.count(holder) != french.count(holder):
+				broken.append(DialogueLocale.line_key(String(row[0]), int(row[1])))
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(broken, [], "a name the line hands in survives the translation")
+
+
+func test_the_shipped_tongue_carries_no_stale_key() -> void:
+	var stale: Array[String] = []
+	var keys := _shipped_keys()
+	for key in keys:
+		var point := key.substr(DialogueLocale.KEY_PREFIX.length() + 1)
+		var index := int(point.substr(point.rfind("/") + 1))
+		point = point.substr(0, point.rfind("/"))
+		if not DialogueCatalog.has_point(point) or index >= DialogueCatalog.lines_for(point).size():
+			stale.append(key)
+	assert_eq(stale, [], "a key the catalogue no longer authors is a failure")
+	assert_eq(keys.size(), _authored_variants().size(), "and every variant is answered")
+
+
+func test_the_source_tongue_reads_no_translation() -> void:
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	DialogueLocale.load_shipped()
+	var changed: Array[String] = []
+	for row: Array in _authored_variants():
+		var english := String(row[2])
+		if DialogueLocale.line(String(row[0]), int(row[1]), english) != english:
+			changed.append(DialogueLocale.line_key(String(row[0]), int(row[1])))
+	assert_eq(changed, [], "an English court reads exactly what it read before")
+
+
+func test_the_shipped_tongue_is_registered_once() -> void:
+	DialogueLocale.load_shipped()
+	DialogueLocale.load_shipped()
+	var count := 0
+	for code in TranslationServer.get_loaded_locales():
+		if String(code) == "fr":
+			count += 1
+	assert_eq(count, 1, "the file is registered when a court first speaks, and once")
+
+
+func test_the_shipped_tongue_answers_a_regional_tongue() -> void:
+	for code in ["fr", "fr_FR", "fr_CA"]:
+		DialogueLocale.set_locale(code)
+		assert_eq(
+			DialogueCatalog.line_for("reactive/standing_neutral", 0),
+			"Nos clercs inscrivent votre nom ; rien de plus aujourd'hui.",
+			"a regional French tongue reads the shipped French"
+		)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_the_court_s_own_line_speaks_the_readers_tongue() -> void:
+	DialogueLocale.set_locale("fr")
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_neutral", 0),
+		"Nos clercs inscrivent votre nom ; rien de plus aujourd'hui.",
+		"the panel's line comes back in French"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_neutral", 0),
+		"Our clerks record your name; nothing more today."
 	)
 # --- test_symbol_plates ---
 
