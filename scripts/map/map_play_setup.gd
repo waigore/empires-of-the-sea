@@ -64,6 +64,9 @@ static func build_hud(play: PlaySession) -> void:
 	hud.crown_lens_pressed.connect(
 		func(active: bool) -> void: MapPlayInput.set_crown_lens(play, active)
 	)
+	hud.defence_lens_pressed.connect(
+		func(active: bool) -> void: MapPlayInput.set_defence_lens(play, active)
+	)
 
 
 ## The province dossier reads the same live tables as the estates ledger: the
@@ -91,6 +94,22 @@ static func build_lens(play: PlaySession) -> void:
 		lens.watch(play.civilian_layer, play.overlay)
 	build_diplomacy_lens(play)
 	build_crown_road_lens(play)
+	build_defence_lens(play)
+
+
+## The defence reading follows the region, its roster and the fog. The snapshot
+## is one walk over the province list, so it runs on events only.
+static func build_defence_lens(play: PlaySession) -> void:
+	var lens: DefenceLens = play.defence_lens
+	if lens == null and play.host != null:
+		lens = play.host.get_node_or_null("World/DefenceLens") as DefenceLens
+		play.defence_lens = lens
+	if lens == null:
+		return
+	lens.build(
+		play.model, play.army_layer, play.visibility, play.player_faction
+	)
+	lens.watch(play.overlay)
 
 
 ## Crown-road reading follows the region, the works and the fog. The projection

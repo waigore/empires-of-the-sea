@@ -48,6 +48,10 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		var surveyed: int = play.lens.hit_test(world_position)
 		if surveyed >= 0:
 			province_id = surveyed
+	if play.defence_lens != null and play.defence_lens.active:
+		var defended: int = play.defence_lens.hit_test(world_position)
+		if defended >= 0:
+			province_id = defended
 	if province_id == MapModel.NO_ID:
 		deselect(play)
 		return
@@ -115,6 +119,11 @@ static func set_crown_lens(play: PlaySession, active: bool) -> void:
 	_raise_lens(play, play.crown_lens, LensLegend.KIND_CROWN_ROAD, active)
 
 
+## The defence lens reads every charted province's garrison, wall and hospital.
+static func set_defence_lens(play: PlaySession, active: bool) -> void:
+	_raise_lens(play, play.defence_lens, LensLegend.KIND_DEFENCE, active)
+
+
 ## One lens up: the others come down and the key cartouche follows the reading
 ## that was raised (REQ-P5-03).
 static func _raise_lens(
@@ -131,13 +140,13 @@ static func _raise_lens(
 	clear_hover(play)
 
 
-## The three readings never stack: each open lens takes its own toggle down so
+## The four readings never stack: each open lens takes its own toggle down so
 ## no button claims a mode that is not on.
 static func _lower_other_lenses(play: PlaySession, keep: Variant) -> void:
-	var lenses: Array = [play.lens, play.diplomacy_lens, play.crown_lens]
+	var lenses: Array = [play.lens, play.diplomacy_lens, play.crown_lens, play.defence_lens]
 	var kinds: Array[String] = [
 		LensLegend.KIND_SURVEY, LensLegend.KIND_DIPLOMACY,
-		LensLegend.KIND_CROWN_ROAD,
+		LensLegend.KIND_CROWN_ROAD, LensLegend.KIND_DEFENCE,
 	]
 	for i in lenses.size():
 		var other: Variant = lenses[i]
@@ -161,7 +170,8 @@ static func _any_lens(play: PlaySession) -> bool:
 	var survey: bool = play.lens != null and play.lens.active
 	var political: bool = play.diplomacy_lens != null and play.diplomacy_lens.active
 	var crown: bool = play.crown_lens != null and play.crown_lens.active
-	return survey or political or crown
+	var defence: bool = play.defence_lens != null and play.defence_lens.active
+	return survey or political or crown or defence
 
 
 static func toggle_lens(play: PlaySession) -> void:
@@ -180,6 +190,12 @@ static func toggle_crown_lens(play: PlaySession) -> void:
 	if play.crown_lens == null:
 		return
 	set_crown_lens(play, not play.crown_lens.active)
+
+
+static func toggle_defence_lens(play: PlaySession) -> void:
+	if play.defence_lens == null:
+		return
+	set_defence_lens(play, not play.defence_lens.active)
 
 
 static func on_view_changed(play: PlaySession) -> void:
@@ -213,6 +229,8 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	play.overlay.hover_province = province_id
 	if play.lens != null:
 		play.lens.hover_province = province_id
+	if play.defence_lens != null:
+		play.defence_lens.hover_province = province_id
 	if province_id < 0:
 		HudChrome.hide_tooltip(play.hud)
 		return
@@ -243,6 +261,10 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		var road: String = play.crown_lens.summary_for(province_id)
 		if not road.is_empty():
 			text += "\n" + road
+	if play.defence_lens != null and play.defence_lens.active:
+		var defence: String = play.defence_lens.summary_for(province_id)
+		if not defence.is_empty():
+			text += "\nDefence: " + defence
 	HudChrome.show_tooltip(play.hud, text)
 
 
@@ -253,6 +275,8 @@ static func clear_hover(play: PlaySession) -> void:
 	play.overlay.hover_province = -1
 	if play.lens != null:
 		play.lens.hover_province = -1
+	if play.defence_lens != null:
+		play.defence_lens.hover_province = -1
 	HudChrome.hide_tooltip(play.hud)
 
 

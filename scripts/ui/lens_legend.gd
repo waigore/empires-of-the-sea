@@ -38,11 +38,22 @@ const CROWN_ROWS: Array[Dictionary] = [
 	{"state": CrownRoadSurvey.STATE_CUT, "text": "Cut off — road tiles left"},
 ]
 
+## One row per defence band, in the order the shield colours run: open ground
+## first, then a garrison, then the two wall tiers (DefenceSurvey.BANDS).
+const DEFENCE_ROWS: Array[Dictionary] = [
+	{"band": DefenceSurvey.BAND_OPEN, "text": "Open — no garrison, no wall"},
+	{"band": DefenceSurvey.BAND_HELD, "text": "Garrison only"},
+	{"band": DefenceSurvey.BAND_WALLED, "text": "Walled — fort 1–2"},
+	{"band": DefenceSurvey.BAND_CITADEL, "text": "Citadel — fort 3"},
+]
+
 const KIND_SURVEY: String = "survey"
 const KIND_DIPLOMACY: String = "diplomacy"
 const KIND_CROWN_ROAD: String = "crown_road"
+const KIND_DEFENCE: String = "defence"
 
-## Which key to draw: KIND_SURVEY (default), KIND_DIPLOMACY or KIND_CROWN_ROAD.
+## Which key to draw: KIND_SURVEY (default), KIND_DIPLOMACY, KIND_CROWN_ROAD or
+## KIND_DEFENCE.
 var kind: String = KIND_SURVEY
 
 var _style: StyleBoxFlat = null
@@ -74,6 +85,9 @@ func _draw() -> void:
 		return
 	if kind == KIND_CROWN_ROAD:
 		_draw_crown_road()
+		return
+	if kind == KIND_DEFENCE:
+		_draw_defence()
 		return
 	_draw_survey()
 
@@ -192,6 +206,49 @@ func _draw_crown_road() -> void:
 	draw_string(
 		_font, Vector2(14, HEIGHT - 14), "Gold line: the route the crew walks",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+
+
+## Four bands, one shield each, in the same order as the colours: open ground,
+## a garrison, a walled province and a citadel. The gold pips are the guns and
+## the cross is the hospital, exactly as the slips carry them.
+func _draw_defence() -> void:
+	draw_string(
+		_font, Vector2(14, 24), MapGlyphs.spaced("DEFENCE KEY"),
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 11, Palette.GOLD_DIM
+	)
+	var y: float = 50.0
+	for row: Dictionary in DEFENCE_ROWS:
+		var band: String = String(row["band"])
+		_draw_shield(Vector2(22, y - 4), Palette.defence_color(band))
+		draw_string(
+			_font, Vector2(38, y), String(row["text"]),
+			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
+		)
+		y += 22.0
+	draw_string(
+		_font, Vector2(14, HEIGHT - 30), "Number: strength · pips: guns",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+	draw_string(
+		_font, Vector2(14, HEIGHT - 14), "Cross: hospital · charted land only",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+
+
+## The same heraldic shield the map slips carry, at key size.
+func _draw_shield(center: Vector2, tint: Color) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(-7.0, -8.0),
+		center + Vector2(7.0, -8.0),
+		center + Vector2(7.0, 1.0),
+		center + Vector2(0.0, 9.0),
+		center + Vector2(-7.0, 1.0),
+	])
+	draw_colored_polygon(points, Color(tint.r, tint.g, tint.b, 0.90))
+	draw_polyline(
+		PackedVector2Array([points[0], points[1], points[2], points[3], points[4], points[0]]),
+		Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), 1.0, true
 	)
 
 

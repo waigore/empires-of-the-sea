@@ -272,6 +272,7 @@ func _run() -> void:
 		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
 	await _smoke_crown_road_lens(screen)
+	await _smoke_defence_lens(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
@@ -321,6 +322,27 @@ func _smoke_crown_road_lens(screen: MapScreen) -> void:
 	MapPlayInput.set_crown_lens(screen.play, false)
 	await process_frame
 	_check(not screen.hud.lens_legend.visible, "crown road key closes")
+
+
+## The defence reading mounts on the real map: the key follows it and closes
+## with it, and every charted province carries a garrison or a wall line.
+func _smoke_defence_lens(screen: MapScreen) -> void:
+	MapPlayInput.set_defence_lens(screen.play, true)
+	await process_frame
+	var lens: DefenceLens = screen.play.defence_lens
+	_check(lens != null and lens.active, "defence lens raises")
+	_check(screen.hud.lens_legend.visible, "defence key shown")
+	_check(
+		screen.hud.lens_legend.kind == LensLegend.KIND_DEFENCE,
+		"defence key reads the lens"
+	)
+	_check(
+		(lens.survey.get("provinces", []) as Array).size() > 0,
+		"defence reading covers the chart"
+	)
+	MapPlayInput.set_defence_lens(screen.play, false)
+	await process_frame
+	_check(not screen.hud.lens_legend.visible, "defence key closes")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
