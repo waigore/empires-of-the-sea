@@ -33,8 +33,9 @@ static func recipe_tooltip(recipe_id: String) -> String:
 
 
 ## The workshop tag on a production row: empty for one-turn work, "2t" when the
-## row waits, "3→2t" while three units serve the last two phases. The row's
-## stepper stays what the player set; this is only what the kiln is doing.
+## row waits, "3→1t" while three units serve and the next lands in one phase. The
+## row's stepper stays what the player set; this is only what the kiln is doing,
+## and one unit leaves it each Production phase (DR-20261113-02).
 static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
 	if economy == null:
 		return ""
@@ -45,17 +46,27 @@ static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
 	return "" if turns <= 1 else "%dt" % turns
 
 
-## What the tag promises, spelled out for a long press or a hover.
+## What the tag promises, spelled out for a long press or a hover. A multi-turn
+## batch lands one unit a Production phase, so the note says how many are still
+## on the anvil and when the next one lands (wiki: production-recipes § Turns per
+## unit; DR-20261113-02).
 static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 	var turns: int = ProductionRecipes.turns(recipe_id)
 	var serving: int = 0 if economy == null else economy.wip_units(recipe_id)
 	if serving <= 0:
 		if turns <= 1:
 			return ""
-		return "Ready next turn: a run pays its inputs and labour, then lands its output."
+		return "Ready next turn: a run pays its inputs and labour, then lands one unit a turn."
 	var wait: int = maxi(economy.wip_turns(recipe_id), 1)
-	return "%d unit%s already in the workshop, landing in %d turn%s. Runs started now wait %d turns." % [
-		serving, "" if serving == 1 else "s", wait, "" if wait == 1 else "s", turns,
+	return (
+		"%d unit%s already in the workshop, landing one a turn — the next in %d turn%s. "
+		+ "Runs started now wait %d turns."
+	) % [
+		serving,
+		"" if serving == 1 else "s",
+		wait,
+		"" if wait == 1 else "s",
+		turns,
 	]
 
 

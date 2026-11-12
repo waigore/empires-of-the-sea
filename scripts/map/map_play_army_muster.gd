@@ -85,7 +85,10 @@ static func pitch_hospital(play: PlaySession, army: ArmyState) -> void:
 	for commodity: String in cost.keys():
 		economy.take(commodity, int(cost[commodity]))
 	HospitalTrain.apply(army)
-	play.hud.toast("The army pitches a field hospital train.")
+	play.hud.toast(
+		"The army pitches a field hospital train — %s from the stores"
+		% HospitalTrain.price_text()
+	)
 	MapPlayArmies.show_panel(play, army)
 
 
@@ -97,7 +100,13 @@ static func merge(play: PlaySession, army: ArmyState) -> void:
 		return
 	var target: ArmyState = result["army"] as ArmyState
 	play.army_layer.select(target)
-	play.hud.toast(
+	var line: String = (
 		"The armies combine under one standard in %s"
 		% play.model.province_name(target.province)
 	)
+	# A train belongs to a standard, so a combine can move the tents from the
+	# player's field army to the standard that absorbs it (DR-20261112-07) —
+	# name it, or the dossier the crown was watching silently loses them.
+	if target.field_hospital:
+		line += " — the field hospital train rides with it"
+	play.hud.toast(line)

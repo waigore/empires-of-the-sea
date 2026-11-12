@@ -10,6 +10,12 @@ extends RefCounted
 ## that many Production phases, seat of the phase it started in counting as the
 ## first (wiki: production-recipes § Turns per unit; DR-20261112-11). The alloy
 ## rows combine two inputs, so they are the catalogue's two-turn work.
+##
+## A batch then lands **one unit a phase** rather than all at once: a batch of
+## three steel started in turn 1 delivers one in turn 2, the last in turn 4
+## (wiki: production-recipes § Turns per unit; DR-20261113-02). Drip-feeding the
+## same runs phase by phase builds the same output from the same inputs, so a
+## batch buys no front-loading and no larger order is punished beyond its wait.
 
 ## Fabric has two interchangeable raw inputs; the cotton row is tech-gated.
 const RECIPES: Dictionary = {
@@ -84,14 +90,59 @@ static func turns(recipe_id: String) -> int:
 	return maxi(int(entry(recipe_id).get("turns", 1)), 1)
 
 
+## Units one batch of this row lands in a Production phase: a multi-turn batch
+## lands **one** and keeps the rest for the phases after it; a one-turn row never
+## waits, so a carried batch of it (only a damaged or hand-edited save can hold
+## one) lands whole (wiki: production-recipes § Turns per unit; DR-20261113-02).
+static func landing(recipe_id: String, units: int) -> int:
+	if turns(recipe_id) <= 1:
+		return maxi(units, 0)
+	return mini(1, maxi(units, 0))
+
+
+## One workshop row, cleaned: a batch with whole units and turns left, or {} when
+## the value is not a batch at all. A hand-edited or damaged save is dropped,
+## never trusted (wiki: production-recipes § Acceptance Criteria; DR-20261112-11).
+static func batch(raw: Variant) -> Dictionary:
+	if typeof(raw) != TYPE_DICTIONARY:
+		return {}
+	var units: int = int((raw as Dictionary).get("units", 0))
+	var turns_left: int = int((raw as Dictionary).get("turns_left", 0))
+	if units <= 0 or turns_left <= 0:
+		return {}
+	return {"units": units, "turns_left": turns_left}
+
+
+## The batches a recipe's workshop entry holds. An entry of any other shape holds
+## none, so the phase, the save and the ledger all read a malformed row as an
+## empty workshop instead of failing on the cast.
+static func batches(wip: Dictionary, recipe_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var raw_entry: Variant = wip.get(recipe_id, [])
+	if typeof(raw_entry) != TYPE_ARRAY:
+		return out
+	for raw: Variant in (raw_entry as Array):
+		var cleaned: Dictionary = batch(raw)
+		if not cleaned.is_empty():
+			out.append(cleaned)
+	return out
+
+
 ## Units of this recipe still in the workshop: started on an earlier turn, their
 ## output not landed yet (DR-20261112-11).
 static func in_flight(wip: Dictionary, recipe_id: String) -> int:
 	var total: int = 0
-	for raw: Variant in (wip.get(recipe_id, []) as Array):
-		if typeof(raw) == TYPE_DICTIONARY:
-			total += int((raw as Dictionary).get("units", 0))
+	for cleaned: Dictionary in batches(wip, recipe_id):
+		total += int(cleaned["units"])
 	return total
+
+
+## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
+static func turns_left(wip: Dictionary, recipe_id: String) -> int:
+	var most: int = 0
+	for cleaned: Dictionary in batches(wip, recipe_id):
+		most = maxi(most, int(cleaned["turns_left"]))
+	return most
 
 
 ## A recipe with no required technology is available to everyone; a gated recipe
@@ -160,8 +211,10 @@ static func max_runs(recipe_id: String, stockpile: Dictionary, labour_points: in
 ## array of {"units", "turns_left"}). Batches already in the workshop finish
 ## first; their inputs and labour were paid when they started, so they cost this
 ## phase nothing. Runs started now pay immediately, and a multi-turn row joins
-## the workshop with one phase already served. The returned "wip" replaces the
-## caller's (DR-20261112-11).
+## the workshop with one phase already served. A multi-turn batch then lands one
+## unit a phase and keeps the rest for the phases after it, so a batch of three
+## started in turn 1 delivers its last unit in turn 4 (DR-20261113-02). The
+## returned "wip" replaces the caller's.
 static func plan(
 	assignments: Array[Dictionary],
 	stockpile: Dictionary,
@@ -180,25 +233,23 @@ static func plan(
 		var recipe_id: String = String(raw_recipe)
 		if not known(recipe_id):
 			continue
-		var batches: Array = []
-		for raw_batch: Variant in (wip[raw_recipe] as Array):
-			if typeof(raw_batch) != TYPE_DICTIONARY:
-				continue
-			var batch: Dictionary = raw_batch
-			var units: int = int(batch.get("units", 0))
-			if units <= 0:
-				continue
-			var turns_left: int = int(batch.get("turns_left", 0)) - 1
+		var kept: Array[Dictionary] = []
+		for carried: Dictionary in batches(wip, recipe_id):
+			var units: int = int(carried["units"])
+			var turns_left: int = int(carried["turns_left"]) - 1
 			if turns_left > 0:
-				batches.append({"units": units, "turns_left": turns_left})
+				kept.append({"units": units, "turns_left": turns_left})
 				continue
+			var landing_units: int = landing(recipe_id, units)
 			var landed_id: String = output(recipe_id)
-			var landed: int = units * OUTPUT_PER_RUN
+			var landed: int = landing_units * OUTPUT_PER_RUN
 			stockpile[landed_id] = int(stockpile.get(landed_id, 0)) + landed
 			produced[landed_id] = int(produced.get(landed_id, 0)) + landed
-			completed[recipe_id] = int(completed.get(recipe_id, 0)) + units
-		if not batches.is_empty():
-			next_wip[recipe_id] = batches
+			completed[recipe_id] = int(completed.get(recipe_id, 0)) + landing_units
+			if units > landing_units:
+				kept.append({"units": units - landing_units, "turns_left": 1})
+		if not kept.is_empty():
+			next_wip[recipe_id] = kept
 	for assignment: Dictionary in assignments:
 		var recipe_id: String = String(assignment.get("recipe", ""))
 		if not available(recipe_id, tech_unlocked):

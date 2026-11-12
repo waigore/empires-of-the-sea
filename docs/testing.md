@@ -135,6 +135,12 @@ godot --headless --path . --script res://tests/playtest_treasury.gd
 # lost), then strips the crown to its seat and storms that (the defeat plate, the
 # sealed turn, and the save that restores the defeated campaign).
 godot --headless --path . --script res://tests/playtest_capital_move.gd
+
+# Field hospital train — pitches the army's own tents from the dossier (reading
+# the caption, the receipt and the strength line), mauls two hosts on bare ground
+# to read 40% against 25% over a real turn, seats a General hospital to read the
+# better-of rule and an unfed ward, then splits, boards, combines and saves.
+godot --headless --path . --script res://tests/playtest_field_train.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

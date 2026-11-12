@@ -1385,6 +1385,26 @@ func test_ai_economy_does_not_restack_the_workshop() -> void:
 		assert_ne(String(assignment["recipe"]), "bronze", "the workshop already fills the deficit")
 
 
+## A plan takes effect after this phase resolves, so the run the queued
+## assignment will start this phase already fills the reserve: the court must not
+## stack a second alloy batch against it (DR-20261112-11).
+func test_ai_economy_counts_the_run_this_phase_will_start() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(0, 0, 0, 1)
+	economy.stockpile = {
+		"copper": 60, "tin": 60, "grain": 200, "meat": 200, "furHats": 200,
+		"bronze": 19,
+	}
+	var config: AiConfig = AiConfig.build(1, 1500)
+	economy.set_assignment("bronze", 1)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	for assignment: Dictionary in plan["assignments"]:
+		assert_ne(
+			String(assignment["recipe"]), "bronze",
+			"the queued run already fills the one unit the reserve is short"
+		)
+
+
 func test_ai_economy_recruits_the_highest_affordable_tier() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {

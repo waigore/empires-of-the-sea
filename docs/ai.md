@@ -65,7 +65,8 @@ Deterministic stack
 
 ## Deferred (REQ-P2-02)
 
-Difficulty extras sit outside the layer (wiki): [`deferred.md`](deferred.md).
+Rival-vs-rival fog for diplomacy; difficulty extras outside
+([`deferred.md`](deferred.md)).
 
 ## Architecture & tests
 
