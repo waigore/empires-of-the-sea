@@ -5,9 +5,6 @@ extends RefCounted
 ## advanced-starts § Tier tables, § NW sea-zone visibility). Pure map mutation:
 ## ownership and fog only, no nodes (REQ-P3-03).
 
-## Sea knowledge for a revealed-but-not-owned shore: charted, not surveyed.
-const CHARTED: int = VisibilityModel.Level.FOGGED
-
 
 ## Great Power colonies: up to `count` contiguous Tribe provinces per crown,
 ## grown from the Passage shore. A Tribe keeps at least one province and never
@@ -192,46 +189,6 @@ static func _shares(
 	return shares
 
 
-## Grows one crown's colonies contiguously from the Passage coast, in
-## province-id order so the seed reproduces the same colonies. The tribe ledger
-## is shared and debited per claim, so no Tribe is ever emptied.
-static func _grow(
-	model: MapModel,
-	count: int,
-	factions: Array[int],
-	taken: Dictionary,
-	tribe_total: Dictionary,
-	zones: Array[int]
-) -> Array[int]:
-	var chosen: Array[int] = []
-	var frontier: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if _claimable(province, factions, taken, tribe_total) and _on_passage(model, province.id, zones):
-			frontier.append(province.id)
-	frontier.sort()
-	if frontier.is_empty():
-		return chosen
-	# One beachhead; every later claim grows from land already held, so the
-	# colony is one contiguous holding instead of scattered shore provinces.
-	var seed: int = frontier[0]
-	frontier = [seed]
-	while chosen.size() < count and not frontier.is_empty():
-		frontier.sort()
-		var province_id: int = frontier.pop_front()
-		var province: ProvinceState = model.get_province(province_id)
-		if province == null or not _claimable(province, factions, taken, tribe_total):
-			continue
-		chosen.append(province_id)
-		tribe_total[province.owner] = maxi(int(tribe_total.get(province.owner, 0)) - 1, 0)
-		for raw: Variant in MapGeo.province_neighbors(model, province_id):
-			var neighbour: int = int(raw)
-			if not frontier.has(neighbour) and _claimable(
-				model.get_province(neighbour), factions, taken, tribe_total
-			):
-				frontier.append(neighbour)
-	return chosen
-
-
 ## Tribe land still in play: the owner is a Tribe with a province to spare, the
 ## province is not its capital, and no crown has claimed it.
 static func _claimable(
@@ -275,9 +232,9 @@ static func charted_provinces(world: WorldMap, share: float) -> Array[int]:
 
 
 ## The crown's inherited chart (wiki § NW sea-zone visibility): `share` of the
-## New World provinces, contiguous from the Passage, plus the seas touching
-## them charted at fogged. A fully revealed tier also paints the coastal water
-## of every Great Power colony fully visible (the standard coastal pass).
+## New World provinces, contiguous from the Passage, plus the sea lanes that
+## reach them charted at fogged. A shore the crown already holds paints its
+## water fully visible (the standard coastal pass).
 static func reveal(
 	world: WorldMap, visibility: VisibilityModel, faction: int, share: float
 ) -> int:
@@ -289,7 +246,11 @@ static func reveal(
 	var reveal_ids: Array[int] = charted_provinces(world, share)
 	for province_id: int in reveal_ids:
 		visibility.reveal_province(province_id)
-		_chart_seas(model, visibility, province_id, faction)
+	var zones: Array[int] = AdvancedSeas.charted(
+		model, world.warp_zones(model.region_id), reveal_ids
+	)
+	for zone: int in zones:
+		AdvancedSeas.chart(model, visibility, zone, faction)
 	return reveal_ids.size()
 
 
@@ -322,23 +283,6 @@ static func _reveal_set(model: MapModel, share: float, zones: Array[int]) -> Arr
 			order.append(province.id)
 	var want: int = clampi(ceili(float(order.size()) * clampf(share, 0.0, 1.0)), 0, order.size())
 	return order.slice(0, want)
-
-
-## Water touching a revealed shore: fogged, unless the crown owns the shore —
-## then the ordinary coastal pass makes it fully visible.
-static func _chart_seas(
-	model: MapModel, visibility: VisibilityModel, province_id: int, faction: int
-) -> void:
-	var owner: int = model.province_owner(province_id)
-	for zone: int in NavalMovement.province_sea_zones(model, province_id):
-		if owner == faction:
-			visibility.reveal_sea_zone(zone)
-			continue
-		var data: SeaZoneState = model.sea_zone_data(zone)
-		if data == null:
-			continue
-		for tile: Vector2i in data.tiles:
-			visibility.raise_to(model.index_of(tile.x, tile.y), CHARTED)
 
 
 static func _new_world(world: WorldMap) -> MapModel:

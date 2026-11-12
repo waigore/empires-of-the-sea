@@ -59,7 +59,11 @@ static func develop(
 
 ## Minor Nation land Great Powers already bought round-robin, at level 1. The
 ## deed is recorded on the tile; the province stays with its Minor
-## (wiki: civilian-units § Merchant; § Tier tables "Minor development").
+## (wiki: civilian-units § Merchant; § Tier tables "Minor development"). A deed
+## lifts the seller's town the same way the Merchant's completion does
+## (wiki: world-market § Minor and tribe auto-sell — the town stands at
+## `min(4, 1 + deeds)`, DR-20261112-01), so the manufactures follow the land
+## this tier already sold.
 static func purchase_minor_land(
 	world: WorldMap, works_by_region: Dictionary, buyers: Array[int], share: float
 ) -> int:
@@ -85,6 +89,7 @@ static func purchase_minor_land(
 				cursor += 1
 				placed += 1
 				_develop(works_by_region, buyer, model, tile, false)
+				MinorTownGrowth.apply(model, province)
 				bought += 1
 	return bought
 

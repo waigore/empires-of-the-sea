@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #339). Decision
+Audited vs code, wiki and Design Records (2026-11-12, through #350). Decision
 list for what to ship next (`REQ-P2-02`).
 
 ## Already live
@@ -29,28 +29,29 @@ list for what to ship next (`REQ-P2-02`).
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
 | Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02, [`armies.md`](armies.md) |
+| Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A predict-the-line preview in the dossier | Convenience only | Declined by [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § The line and the reserve: the limit depends on the general bound at combat |
+| 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; AI uses published numbers |
+| 2 | Travelling field hospital | Mid/late land tempo | DR-20261111-12 / 12-04 |
+| 3 | Citations / decoration ladder / history page | Immersion; no rule yet | DR-20261112-02 after honours |
+| 4 | Multi-turn production recipes | Economy depth | wiki ([`economy.md`](economy.md)) |
+| 5 | Yarn runtime and localization | Dialogue authorship | wiki ([`dialogue.md`](dialogue.md)) |
 
 ## Next pick
 
-**Rank 1** is a live wiki decision, not a code gap: the page publishes that the
-dossier does not predict the line. Nothing left on the list is a plain gap
-against published rules.
+**Rank 1** — rival OOB readings and rival-vs-rival fog (DR-20261110-21).
+Highest mid/late fidelity left; needs a tight design slice first.
 
 ## Out of scope / blocked footnotes
 
 - Predict-the-line preview — declined ([combat](https://github.com/waigore/empires-of-the-sea/wiki/combat)
-  / DR-20261112-02). Citations beyond the honour wait on that ship.
+  / DR-20261112-02).
 - Era-change dialogue — blocked: no era model (DR-20261111-08).
-- Travelling field hospital deferred (DR-20261111-12 / 12-04); a regiment at 0
-  is destroyed, so no ward heals it.
-- Rival order-of-battle readings, rival-vs-rival fog, advanced-start rival
-  inheritance — deferred (DR-20261110-21); AI uses published numbers.
+- Healing a regiment at health 0 — casualty list only (DR-20261112-04).
 - Alternative victory types — [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory)
   out of scope; military / defeat / calendar endings live.
 - Difficulty extras (AI income, advisor toggles) —
@@ -58,5 +59,3 @@ against published rules.
   § Outside this layer; the crown's bar moves with the level (DR-20261111-28).
 - Quick Battle multi-lane terrain and the collapse model — owner-confirmed
   deferral in [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
-- Multi-turn production recipes, Yarn runtime and localization — wiki-deferred
-  ([`economy.md`](economy.md), [`dialogue.md`](dialogue.md)).
