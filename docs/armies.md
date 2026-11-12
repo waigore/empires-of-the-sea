@@ -54,7 +54,7 @@
 
 ## Deferred (REQ-P2-02)
 
-A predict-the-line preview — [`deferred.md`](deferred.md).
+Citations — [`deferred.md`](deferred.md).
 
 ## Architecture
 
