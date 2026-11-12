@@ -287,8 +287,7 @@ func _fill_roster(army: ArmyState, is_player: bool, model: MapModel) -> void:
 		row.add_child(detach)
 
 
-## Drill-yard rows come from ArmyTraining; the panel only renders them and
-## emits the recruit intent (REQ-P3-02).
+## Drill-yard rows come from ArmyTraining; the panel renders and emits (REQ-P3-02).
 func _fill_muster(rows: Array[Dictionary]) -> void:
 	for child in _muster_box.get_children():
 		child.queue_free()
@@ -323,16 +322,22 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		entry.add_child(detail)
 
 
-## The engagements a regiment has stood in and the honours on its colours, under
-## its condition. A green regiment gains no line, so a fresh roster stays short
-## (DR-20261111-18, DR-20261112-02).
+## The engagements a regiment has stood in and the honours on its colours, then
+## the despatch it holds (DR-20261111-18, DR-20261112-02, DR-20261112-10).
 func _add_record(
 	entry: VBoxContainer, army: ArmyState, regiment_id: String, model: MapModel
 ) -> void:
-	var text: String = RegimentRecord.line(army, regiment_id, model)
+	_add_service_line(entry, RegimentRecord.line(army, regiment_id, model), Palette.GOLD_PALE)
+	_add_service_line(
+		entry, RegimentDecorations.line(army, regiment_id, model), Palette.TEXT_DIM
+	)
+
+
+## One wrapped service line under a regiment's condition; empty text adds none.
+func _add_service_line(entry: VBoxContainer, text: String, color: Color) -> void:
 	if text.is_empty():
 		return
-	var service := UiRowBuilder.line(10, Palette.GOLD_PALE)
+	var service := UiRowBuilder.line(10, color)
 	service.text = text
 	service.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.add_child(service)
@@ -350,8 +355,7 @@ func _food(army: ArmyState) -> int:
 	return total
 
 
-## A regiment's condition under its name: a chevron for each experience badge
-## and a health bar while it is still mauled (REQ-P1-07, REQ-P1-08).
+## Condition under a name: a chevron per badge, a bar while mauled (REQ-P1-07).
 func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) -> void:
 	var data: Dictionary = army.condition_of(regiment_id)
 	var medals: int = int(data["medals"])

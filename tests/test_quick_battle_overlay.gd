@@ -430,6 +430,34 @@ func test_the_plate_names_the_honours_won() -> void:
 	overlay.free()
 
 
+## The colours cited for a field won while mauled: the plate line and none for a
+## clean win (DR-20261112-10).
+func test_the_plate_names_the_cited_colours() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_citations"] = 2
+
+	assert_eq(
+		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
+		"Citations — España: 2 colours cited at Flanders"
+	)
+	battle["attacker_citations"] = 1
+	assert_eq(
+		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
+		"Citations — España: 1 colour cited at Flanders"
+	)
+	assert_eq(QuickBattleCopy.citation_line(_battle(), "Flanders", NAMES), "")
+
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay.skip()
+	var text: String = ""
+	for line: Label in overlay._log.get_children():
+		text += String(line.text) + "\n"
+	assert_true(text.contains("Citations — España: 1 colour cited at Flanders"), text)
+	overlay.free()
+
+
 ## The field floats the damage an action recorded, over the side it struck.
 func test_the_field_floats_the_damage_it_was_told() -> void:
 	var battle: Dictionary = _battle()

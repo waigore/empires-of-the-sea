@@ -263,6 +263,45 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 	panel.free()
 
 
+## A blooded regiment prints its service record under its condition, and its
+## despatch under that once it has stood in a field; a green one adds no line
+## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10).
+func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards", "guards"], false)
+	army.regiment_engagements["unit_301"] = 1
+	army.regiment_wins["unit_301"] = 1
+	army.regiment_health["unit_301"] = int(army.condition_of("unit_301")["max"]) / 2
+	RegimentDecorations.note([army] as Array[ArmyState], 1, true)
+
+	panel.refresh(model, army, true)
+
+	var cited: VBoxContainer = panel._roster.get_child(0)
+	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
+	assert_eq(String(despatch.text), "Cited — Province 1 won", "the citation leads")
+	var whole: VBoxContainer = panel._roster.get_child(1)
+	var bare: Label = whole.get_child(whole.get_child_count() - 1)
+	assert_eq(
+		String(bare.text), "History — Province 1 won",
+		"a colour that did not bleed carries no decoration"
+	)
+	panel.free()
+
+	var green_panel := ArmyPanel.new()
+	add_child(green_panel)
+	green_panel.refresh(model, ArmyFixture.army(4, 0, 1, ["guards"], false), true)
+	var green: VBoxContainer = green_panel._roster.get_child(0)
+	for child: Node in green.get_children():
+		if child is Label:
+			assert_false(
+				String((child as Label).text).begins_with("History —"),
+				"a regiment that never marched gains no despatch line"
+			)
+	green_panel.free()
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
