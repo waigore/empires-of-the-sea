@@ -11,15 +11,13 @@ manufactured recipes. **Pillars:** P2, P3, P5.
 
 `EconomyTurn` runs four phases, then research and prices:
 
-1. **Extraction** — connected estates add yields
-   ([improvements.md](improvements.md)).
-2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base
-   price.
+1. **Extraction** — connected estates add yields ([improvements.md](improvements.md)).
+2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base price.
 3. **Consumption** — army, navy, workers, then hospital staffs eat; unfed men
-   strike, unfed wards lose their staff.
+   strike, unfed wards idle.
 4. **Production** — recipes spend post-consumption inputs and idle labour.
 
-Projections never mutate state.
+Projections never mutate.
 
 ## Production recipes
 
@@ -38,12 +36,13 @@ Projections never mutate state.
 | bronze | copper ×1 + tin ×1 | 3 |
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
-whole times, bounded by inputs and labour; incomplete rows are skipped.
-`PRODUCTION` sets desired outputs.
+whole times, bounded by inputs and labour; incomplete rows skip. `PRODUCTION`
+sets desired outputs.
 
 Steel and bronze take **two turns** (`turns` per run): inputs and labour are paid
-at the start, the output lands when the turns are served, and the batch rides the
-save (`PlayerEconomy.production_wip`, DR-20261112-11).
+at the start, then the batch lands **one unit a phase** until spent, riding the
+save (`PlayerEconomy.production_wip`, DR-20261112-11/13-02). Three steel started
+in turn 1 end in turn 4 — what drip-feeding the same runs builds.
 
 ## Town manufacturing bonus
 
@@ -63,8 +62,7 @@ First right of refusal fills a purchased tile's owner first and pays its relatio
 share plus embassy kickbacks. Unfilled orders carry when holds/stock cover them;
 prices move from fills, and a world counterparty fills the rest.
 
-An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills and lapses show in the toast.
+An offer is capped by post-production stock (`Offer` chip); fills/lapses toast.
 
 ## Trade terms
 
@@ -75,8 +73,8 @@ the Minor/Tribe ask carry it.
 ## UI
 
 `ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists
-staged orders, Minor/Tribe harvest and world rows as intents, each good under
-its medallion (`REQ-P1-02`, `REQ-P2-03`).
+staged orders, Minor/Tribe harvest and world rows as intents, each under its
+medallion (`REQ-P1-02`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (no refund).
 Thumb-sized on a phone.
 

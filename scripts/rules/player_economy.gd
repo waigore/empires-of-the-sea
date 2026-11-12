@@ -151,7 +151,7 @@ func wip_units(recipe_id: String) -> int:
 	return ProductionRecipes.in_flight(production_wip, recipe_id)
 
 
-## Phases the oldest batch of this recipe still has to serve; 0 when idle.
+## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
 func wip_turns(recipe_id: String) -> int:
 	return ProductionRecipes.turns_left(production_wip, recipe_id)
 

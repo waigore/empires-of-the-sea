@@ -35,6 +35,7 @@ What to ship next (`REQ-P2-02`).
 | Rival order-of-battle readings | `OobReadings`, `MapPlayCourtFog.oob_readings`, DR-20261112-09 |
 | Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
 | Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
+| Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `Yarn*` / `DialogueLocale`, DR-20261113-01 |
 
 ## Remaining gaps (impact order)
@@ -42,8 +43,7 @@ What to ship next (`REQ-P2-02`).
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
 | 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 2 | Staggered per-unit completion | Economy depth | DR-20261112-11 |
-| 3 | Translation content | Localization | Keys live (DR-20261113-01); needs words |
+| 2 | Translation content | Localization | Keys live (DR-20261113-01); needs words |
 
 ## Next pick
 

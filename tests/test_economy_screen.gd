@@ -669,14 +669,27 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 
 
 ## A multi-turn row says so, and a batch already on the anvil names the units
-## serving their turns (wiki: production-recipes § Turns per unit; DR-20261112-11).
+## serving their turns and the cadence they land at (wiki: production-recipes
+## § Turns per unit; DR-20261112-11, DR-20261113-02).
 func test_the_alloy_rows_name_their_wait() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	assert_eq(LedgerText.workshop_note(economy, "steel"), "2t")
 	assert_eq(LedgerText.workshop_note(economy, "lumber"), "", "one-turn rows need no tag")
+	assert_eq(LedgerText.workshop_tooltip(economy, "lumber"), "", "nothing waits on a one-turn row")
+	assert_true(
+		LedgerText.workshop_tooltip(economy, "steel").contains("one unit a turn"),
+		"an idle alloy row promises the trickle"
+	)
 	economy.production_wip = {"steel": [{"units": 3, "turns_left": 1}]}
 	assert_eq(LedgerText.workshop_note(economy, "steel"), "3→1t")
-	assert_true(LedgerText.workshop_tooltip(economy, "steel").contains("3 units"))
+	var serving: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_true(serving.contains("3 units"))
+	assert_true(serving.contains("one a turn"), "the serving tag says one unit lands a phase")
+	economy.production_wip = {"steel": [{"units": 1, "turns_left": 1}]}
+	assert_true(
+		LedgerText.workshop_tooltip(economy, "steel").contains("1 unit already"),
+		"one unit left on the anvil reads in the singular"
+	)
 	_screen.economy.open_panel()
 	var body: Node = _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_true(_row_has_text(body, "2t"), "the idle alloy row shows its two-turn wait")
