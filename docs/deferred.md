@@ -46,8 +46,8 @@ What to ship next (`REQ-P2-02`).
 ## Next pick
 
 **Rank 1** — citations / decoration ladder / history (DR-20261112-02).
-Immersion with no rule yet: needs a design slice first, then it hangs off the
-honours already kept in `RegimentRecord`.
+Immersion, no rule yet: needs a design slice, then hangs off the honours
+in `RegimentRecord`.
 
 ## Out of scope / blocked footnotes
 
@@ -59,3 +59,4 @@ honours already kept in `RegimentRecord`.
 - Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer (DR-20261111-28).
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
+- Per-region prospected table for discovery — still deferred (DR-20261110-21).
