@@ -28,9 +28,8 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - That world is right-sized (44×32): the smallest that still validates a
   `SaveCodec` slot and seats the turn-100 civilian tier; screen and
   campaign-plate suites share it.
-- The terrain wash bakes once per map state (`MapWash.baked`), and a rival's
-  chart is cut on first read (`CourtCharts`), so a mount neither repaints nor
-  re-charts what nobody looked at.
+- The terrain wash bakes once (`MapWash.baked`) and a rival chart is cut on
+  first read (`CourtCharts`), so a mount skips unseen repaints.
 - Cache shared maps in `before_all` on **non-underscore** vars.
 - Attach a map screen lazily (`_attach()`) so rule-only cases never pay for
   painting the chart; a case that reads the map asks for it.
