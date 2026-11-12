@@ -226,7 +226,7 @@ static func _can_storm(
 ) -> bool:
 	var roster: Array[ArmyState] = []
 	roster.assign(armies)
-	var defenders: Array[ArmyState] = ArmyCombat.armies_of(
+	var defenders: Array[ArmyState] = ArmyForce.armies_of(
 		roster, province, model.province_owner(province)
 	)
 	if defenders.is_empty():
@@ -234,7 +234,7 @@ static func _can_storm(
 	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
-	return attack > ArmyCombat.side_strength(defenders) * margin
+	return attack > ArmyForce.side_strength(defenders) * margin
 
 
 ## No war target left (peace signed mid-voyage): land on an own coast instead of
