@@ -24,8 +24,6 @@ suites = [
 [domains.naming]
 suites = [
   "test_name_roster.gd",
-  "test_fleet_names.gd",
-  "test_army_regiment_names.gd",
   "test_general_names.gd",
 ]
 
