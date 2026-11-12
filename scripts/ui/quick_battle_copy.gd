@@ -205,8 +205,9 @@ static func honour_line(battle: Dictionary, province_name: String, names: Array)
 	return "Honours — " + " · ".join(parts)
 
 
-## The colours the crown cited for a field won while mauled (DR-20261112-10).
-## Empty when no colour bled enough to be named, so a clean win adds no line.
+## The colours the crown cited for a field won while mauled, and the weight the
+## citation buys (DR-20261112-10, DR-20261113-04). Empty when no colour bled
+## enough to be named, so a clean win adds no line.
 static func citation_line(battle: Dictionary, province_name: String, names: Array) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	for key: String in ["attacker", "defender"]:
@@ -219,7 +220,8 @@ static func citation_line(battle: Dictionary, province_name: String, names: Arra
 		])
 	if parts.is_empty():
 		return ""
-	return "Citations — " + " · ".join(parts)
+	var percent: int = roundi(RegimentDecorations.CITED_STEP * 100.0)
+	return "Citations — %s (+%d%% each)" % [" · ".join(parts), percent]
 
 
 ## Up to three survivors under full strength, worst first.

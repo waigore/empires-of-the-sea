@@ -690,6 +690,21 @@ func test_the_alloy_rows_name_their_wait() -> void:
 		LedgerText.workshop_tooltip(economy, "steel").contains("1 unit already"),
 		"one unit left on the anvil reads in the singular"
 	)
+	# A row left set starts a fresh batch every phase, and each batch gives up a
+	# unit: two batches land two a phase, so the note must not promise one.
+	economy.production_wip = {
+		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
+	}
+	assert_eq(LedgerText.workshop_note(economy, "steel"), "5→1t", "the tag counts every unit")
+	var twinned: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_true(twinned.contains("5 units"), "the note counts what is on the anvil")
+	assert_true(twinned.contains("2 landing a turn"), "two batches land two a turn: %s" % twinned)
+	assert_false(twinned.contains("one a turn"), "a twin batch is never promised as a trickle")
+	economy.production_wip = {"steel": [{"units": 4, "turns_left": 2}]}
+	assert_true(
+		LedgerText.workshop_tooltip(economy, "steel").contains("still serving their turns"),
+		"a batch that does not land this phase promises no unit"
+	)
 	_screen.economy.open_panel()
 	var body: Node = _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_true(_row_has_text(body, "2t"), "the idle alloy row shows its two-turn wait")

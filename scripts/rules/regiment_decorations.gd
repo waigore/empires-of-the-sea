@@ -6,9 +6,10 @@ extends RefCounted
 ##
 ## A citation marks a field the colours **held while mauled**: a won engagement
 ## the regiment ended under its full strength. Both halves are already in the
-## aftermath hook, so nothing new is read and no rule outcome moves — strength,
-## casualties, chevrons, rest, upkeep and every AI decision are untouched
-## (REQ-P2-03). Pure data, no nodes (REQ-P3-03).
+## aftermath hook, so nothing new is read; the citation itself now buys weight in
+## the line (`strength_multiplier`, DR-20261113-04), while casualties, chevrons,
+## rest, upkeep and every AI decision stay untouched (REQ-P2-03). Pure data, no
+## nodes (REQ-P3-03).
 
 ## Fields one record keeps; the tally still counts every engagement, so the
 ## dossier can say how many earlier fields it no longer names.
@@ -17,6 +18,11 @@ const KEPT: int = 8
 const SHOWN: int = 2
 ## Citations that make a regiment laurelled rather than merely cited.
 const LAUREL_AT: int = 3
+## What a citation buys the colours: half a chevron's weight in the line
+## (wiki: combat § Strength, § Citations; DR-20261113-04).
+const CITED_STEP: float = 0.05
+## What the laurel buys: the whole chevron a citation's pair was reaching for.
+const LAUREL_STEP: float = 0.10
 
 
 ## An empty record: no citation yet and no field stood in.
@@ -74,9 +80,28 @@ static func rank(army: ArmyState, regiment_id: String) -> String:
 	return "laurelled" if cited >= LAUREL_AT else "cited"
 
 
-## `Cited — Lisboa won · Évora lost · +3 earlier`, the decoration the colours
-## earned leading. Empty for a regiment that has never marched under fire, so a
-## green roster gains no line (DR-20261112-10).
+## What the ladder buys: the weight the colours' stand adds to a regiment's
+## rank — none for a colours never named, half a chevron for a citation, a whole
+## one for a laurel (wiki: combat § Strength; DR-20261113-04). Read by the line's
+## order, the side's strength and the casualty draw, so a decorated regiment
+## holds the line and yields its place last. One map read, no copy of the
+## despatch, because the strength path runs per regiment per engagement.
+static func strength_multiplier(army: ArmyState, regiment_id: String) -> float:
+	if army == null:
+		return 1.0
+	var raw: Variant = army.regiment_history.get(regiment_id, {})
+	if not raw is Dictionary:
+		return 1.0
+	var cited: int = int((raw as Dictionary).get("cited", 0))
+	if cited <= 0:
+		return 1.0
+	return 1.0 + (LAUREL_STEP if cited >= LAUREL_AT else CITED_STEP)
+
+
+## `Cited +5% — Lisboa won · Évora lost · +3 earlier`, the decoration the colours
+## earned and the weight it buys leading. Empty for a regiment that has never
+## marched under fire, so a green roster gains no line (DR-20261112-10,
+## DR-20261113-04).
 static func line(army: ArmyState, regiment_id: String, model: MapModel = null) -> String:
 	var fields: Array = history(army, regiment_id)
 	if fields.is_empty():
@@ -92,11 +117,22 @@ static func line(army: ArmyState, regiment_id: String, model: MapModel = null) -
 			title if not title.is_empty() else "a field",
 			"won" if bool(entry.get("w", false)) else "lost",
 		])
-	var text: String = "%s — %s" % [_lead(army, regiment_id), " · ".join(parts)]
+	var text: String = "%s%s — %s" % [
+		_lead(army, regiment_id), _weight(army, regiment_id), " · ".join(parts)
+	]
 	var fought: int = int(army.regiment_engagements.get(regiment_id, 0))
 	if fought > shown:
 		text += " · +%d earlier" % (fought - shown)
 	return text
+
+
+## ` +5%` beside the decoration word: the weight the stand buys, spelled out so
+## the rule reads where the ladder does (REQ-P2-01, REQ-P5-05).
+static func _weight(army: ArmyState, regiment_id: String) -> String:
+	var bonus: float = strength_multiplier(army, regiment_id) - 1.0
+	if bonus <= 0.0:
+		return ""
+	return " +%d%%" % roundi(bonus * 100.0)
 
 
 ## The decoration word that opens the line: the ladder the citations climbed,

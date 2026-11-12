@@ -30,7 +30,7 @@ Deterministic stack
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never attack;
   an invader draws a relief column.
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
-  fog; voyages, invasions and work read that chart.
+  fog; voyages, invasions, work and diplomacy read that chart (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): the
   squadron docks at the crown's harbour (seat first), the Explorer musters;
   board, cross, land (DR-20261111-05).
@@ -65,8 +65,7 @@ Deterministic stack
 
 ## Deferred (REQ-P2-02)
 
-Rival-vs-rival fog for diplomacy; difficulty extras outside
-([`deferred.md`](deferred.md)).
+Difficulty extras outside ([`deferred.md`](deferred.md)).
 
 ## Architecture & tests
 
