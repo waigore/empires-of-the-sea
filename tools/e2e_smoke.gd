@@ -655,7 +655,7 @@ func _smoke_end_turn(
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
-		screen.economy.economy.assignment_units("lumber") == 1,
+		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
 	# A two-turn alloy names its wait on the row, so a phone player is not left
