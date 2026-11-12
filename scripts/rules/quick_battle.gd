@@ -30,11 +30,15 @@ static func resolve_exchange(
 ) -> Dictionary:
 	var def_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, defender)
 	var atk_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, attacker)
+	## The side's commander is the primary army read before the rounds
+	## (wiki: military-armies § Battle grouping): its line and any medal agree.
+	var def_lead: ArmyState = ArmyCommand.primary(def_side)
+	var atk_lead: ArmyState = ArmyCommand.primary(atk_side)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(def_side, context), true, model, province, defender
+		context, ArmyCommand.medals_of(def_lead, context), true, model, province, defender
 	)
 	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals(atk_side, context), false, model, province, attacker
+		context, ArmyCommand.medals_of(atk_lead, context), false, model, province, attacker
 	)
 	var fort_level: int = int(def_mods["fort"])
 	var guns: Array[Dictionary] = QuickBattleBattery.make(fort_level, context, defender)
@@ -80,24 +84,12 @@ static func resolve_exchange(
 	var outcome: int = _outcome(
 		atk_left, def_left, state, guns, atk_mods, def_mods
 	)
-	var report: Dictionary = {
-		"province": province,
-		"attacker": attacker,
-		"defender": defender,
-		"outcome": outcome,
-		"attacker_lost": state["attacker"]["lost"],
-		"defender_lost": state["defender"]["lost"],
-		"captured": false,
-		"garrison": 0,
-		"recovered_type": "",
-		"attacker_medals": int(atk_mods["medals"]),
-		"defender_medals": int(def_mods["medals"]),
-		"battle_mode": FortRules.battle_mode(fort_level),
-		"fort_level": fort_level,
-		"hospital_level": HospitalRules.level_at(model, province),
-		"medal_gain": "",
-		"medal_owner": -1,
-	}
+	var atk_lost: Array[String] = state["attacker"]["lost"]
+	var def_lost: Array[String] = state["defender"]["lost"]
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, attacker, defender, outcome, atk_lost, def_lost,
+		atk_mods, def_mods
+	)
 	report["quick"] = {
 		"plan": String(state["attacker"]["plan"]),
 		"defender_plan": String(state["defender"]["plan"]),
@@ -135,32 +127,10 @@ static func resolve_exchange(
 	report.merge(ArmyModifiers.line_fields(
 		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
 	))
-	var atk_up: int = 0
-	var def_up: int = 0
-	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:
-		ArmyCombat.flip(model, province, attacker)
-		report["captured"] = true
-		atk_up = RegimentCondition.award_side(atk_side)
-		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
-		if not String(report["medal_gain"]).is_empty():
-			report["medal_owner"] = attacker
-	elif outcome == ArmyCombat.Outcome.DEFENDER_VICTORY:
-		def_up = RegimentCondition.award_side(def_side)
-		report["medal_gain"] = ArmyCommand.award(context, def_side, defender)
-		if not String(report["medal_gain"]).is_empty():
-			report["medal_owner"] = defender
-	elif outcome == ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
-		atk_up = RegimentCondition.award_side(atk_side)
-		report["medal_gain"] = ArmyCommand.award(context, atk_side, attacker)
-		if not String(report["medal_gain"]).is_empty():
-			report["medal_owner"] = attacker
-	elif outcome == ArmyCombat.Outcome.MUTUAL_ANNIHILATION and further:
-		var recovery: Dictionary = ArmyGarrison.recover(
-			armies, province, defender, def_start, context
-		)
-		report["garrison"] = int(recovery.get("count", 0))
-		report["recovered_type"] = String(recovery.get("type", ""))
-	RegimentCondition.attach(report, atk_side, def_side, atk_up, def_up)
+	BattleSettlement.settle(
+		model, armies, report, atk_side, def_side, atk_lead, def_lead, context,
+		further, def_start
+	)
 	return report
 
 

@@ -2,7 +2,7 @@ class_name HudChrome
 extends RefCounted
 ## Builds the map HUD's bars, toasts, minimap, zoom, end-turn seal and plates.
 ## GameHud keeps the runtime API; this only assembles the widgets. The side
-## dossiers are HudDossiers' job (REQ-P3-01).
+## dossiers are HudDossiers' job, the despatch plates HudDespatches' (REQ-P3-01).
 
 
 static func build(hud: GameHud) -> void:
@@ -11,7 +11,7 @@ static func build(hud: GameHud) -> void:
 	_zoom(hud)
 	_lenses(hud)
 	_lens_key(hud)
-	_toasts(hud)
+	_despatches(hud)
 	_end_turn(hud)
 	HudDossiers.build(hud)
 	_tooltip(hud)
@@ -20,19 +20,11 @@ static func build(hud: GameHud) -> void:
 	_gazette_plate(hud)
 
 
-static func _toasts(hud: GameHud) -> void:
-	hud._toast_box = VBoxContainer.new()
-	# Toasts are the moment's acknowledgement (REQ-P5-05) and stay legible over
-	# the soft Gazette plate that covers this lane at a turn's open.
-	hud._toast_box.z_index = 33
-	hud._toast_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	hud._toast_box.offset_left = -230.0
-	hud._toast_box.offset_right = 230.0
-	hud._toast_box.offset_top = 84.0
-	hud._toast_box.offset_bottom = 84.0
-	hud._toast_box.add_theme_constant_override("separation", 6)
-	hud._toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(hud._toast_box)
+## The despatch lane owns its toast column, queue and geometry (HudDespatches);
+## the chrome only mounts it under the cartouche.
+static func _despatches(hud: GameHud) -> void:
+	hud.despatches = HudDespatches.new()
+	hud.add_child(hud.despatches)
 
 
 static func _minimap(hud: GameHud) -> void:
@@ -210,11 +202,14 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.add_child(hud.victory_overlay)
 
 
-## Quick Battle plate: above the dossiers, below the campaign-end plate.
+## Quick Battle plate: above the dossiers, below the campaign-end plate. The HUD
+## replays the queued battles and releases the court's held news (REQ-P5-06).
 static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay = QuickBattleOverlay.new()
 	hud.quick_battle_overlay.z_index = 35
-	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
+	hud.quick_battle_overlay.finished.connect(
+		func() -> void: hud._on_quick_battle_finished()
+	)
 	hud.add_child(hud.quick_battle_overlay)
 
 
@@ -223,6 +218,8 @@ static func _quick_battle_plate(hud: GameHud) -> void:
 static func _gazette_plate(hud: GameHud) -> void:
 	hud.gazette_plate = GazettePlate.new()
 	hud.gazette_plate.z_index = 30
+	# The sheet pushes the despatch lane below its masthead while it is up.
+	hud.gazette_plate.despatches = hud.despatches
 	hud.add_child(hud.gazette_plate)
 	# A cartouche seal reopens the news, after the two lens seals on the rail.
 	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")

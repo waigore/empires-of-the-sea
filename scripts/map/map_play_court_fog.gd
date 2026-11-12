@@ -9,8 +9,9 @@ extends RefCounted
 ## (REQ-P2-03, REQ-P3-03).
 
 
-## Builds (or tops up) the courts' charts. Runs on every region load; a court
-## already charted keeps its grid, so a map switch never reseeds knowledge.
+## Hands the session its courts' charts. Runs on every region load, but a
+## court's grid is only cut the first time a rule reads it (`CourtCharts`), so a
+## mounted campaign pays for the fog somebody actually looked at.
 static func build(play: PlaySession) -> void:
 	if play == null or play.world == null:
 		return

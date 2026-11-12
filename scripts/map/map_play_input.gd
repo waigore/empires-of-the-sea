@@ -309,7 +309,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 		"recruit":
 			MapPlayArmies.open_muster(play)
 		"shipyard":
-			MapPlayFleets.open_yard(play)
+			MapPlayFleetYard.open(play)
 		"build":
 			play.improvements.open(play.selected_province)
 		"upgrade_town":

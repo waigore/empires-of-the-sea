@@ -17,8 +17,8 @@ Land units: explore, improve, colonize, spy.
   and Visit jump to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders stay on crown land; Explorer, Merchant, Spy cross any border. One
-  crew per tile per crown (Rail Builders exempt); presence keeps a province
-  visible.
+  Builder/Engineer/Merchant crew per tile per crown (Explorers, Spies and Rail
+  Builders exempt); presence keeps a province visible.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
   `unknown`); each shadowed rival GP adds +15% RP to a Low+ slot.
   **Counter-espionage** kills or turns agents; court reports name deeds
@@ -27,7 +27,8 @@ Land units: explore, improve, colonize, spy.
   returns to origin. Explore ≤3, **prospect 1** (any charted swamp/hills/
   mountain/desert tile of its own province, announcing the find or none),
   improve 1–4, **upgrade town** (National Bureaucracy),
-  road, port, rail, fort 1–3 ([forts.md](forts.md)), hospital 1–2.
+  road, port (one per seaboard), rail, fort 1–3 ([forts.md](forts.md)),
+  hospital 1–2.
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
   a mineral is hidden until that crown's Explorer prospects its tile; selecting
   one marks the unsurveyed ground and a tap surveys it.
@@ -79,7 +80,7 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_field_rules`, `test_civilian_voyage`, `test_spy_networks`,
+`test_civilian_field_rules`, `test_civilian_voyage`, `test_intel_rules`,
 `test_espionage`, `test_visibility`, `test_map_screen_crown_orders`.
 
 ```bash

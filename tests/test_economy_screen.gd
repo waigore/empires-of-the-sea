@@ -131,6 +131,34 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	assert_gt(economy.total_units(), 0)
 
 
+func test_the_crowns_wards_eat_from_the_larder() -> void:
+	var world: WorldMap = _screen.play.world
+	var faction: int = _screen.player_faction
+	var province: ProvinceState = world.region(0).province_data(
+		_screen.economy.capital_province
+	)
+	assert_not_null(province)
+	province.hospital_level = 1
+	assert_eq(HospitalRules.demand_list(world, faction).size(), 1)
+
+	_screen.economy.economy.stockpile["grain"] = 20
+	_screen.economy.economy.stockpile["meat"] = 20
+	var report: Dictionary = _screen.economy.resolve_turn()
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_demand"]), 2)
+	assert_eq(int((report["consumption"] as Dictionary)["hospital_fed"]), 2)
+	assert_true(province.hospital_staffed, "a fed ward keeps its staff")
+
+	# An empty larder feeds the living first: the ward goes without, and the
+	# turn's own summary says so (REQ-P5-05).
+	_screen.economy.economy.stockpile["grain"] = 0
+	_screen.economy.economy.stockpile["meat"] = 0
+	var bare: Dictionary = _screen.economy.resolve_turn()
+	assert_false(province.hospital_staffed)
+	assert_eq((bare["hospital"] as Dictionary)["hungry"].size(), 1)
+	assert_true(LedgerText.turn_summary(bare).contains("1 hospital unstaffed"))
+	assert_eq(HospitalRules.effective_level(world.region(0), province.id), 0)
+
+
 # --- merchant cargo ----------------------------------------------------------
 
 

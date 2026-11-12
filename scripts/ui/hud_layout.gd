@@ -170,23 +170,11 @@ func _end_turn(hud: GameHud) -> void:
 
 ## Toasts sit under the cartouche. On a phone the left rail already holds the
 ## sound seal and the estates seal, so the column starts to their right instead
-## of running full width and covering them.
+## of running full width and covering them. The lane owns the geometry.
 func _toasts(hud: GameHud) -> void:
-	var box: Control = hud._toast_box
-	if box == null:
+	if hud.despatches == null:
 		return
-	if compact:
-		box.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-		box.offset_left = LEFT_RAIL
-		box.offset_right = -16.0
-		box.offset_top = hud.top_bar.offset_bottom + 6.0
-		box.offset_bottom = box.offset_top
-		return
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	box.offset_left = -230.0
-	box.offset_right = 230.0
-	box.offset_top = hud.top_bar.offset_bottom + 16.0
-	box.offset_bottom = box.offset_top
+	hud.despatches.fit(compact, hud.top_bar.offset_bottom, LEFT_RAIL)
 
 
 ## The estates card on a phone: the panel keeps the sizing rules, the head the
