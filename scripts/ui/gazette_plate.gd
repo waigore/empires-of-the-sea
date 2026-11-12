@@ -19,8 +19,6 @@ enum Mode { SHEET, ARCHIVE, WATCHLIST }
 const MAX_WIDTH: float = 640.0
 const MIN_WIDTH: float = 288.0
 const PLATE_TOP: float = 88.0
-## Default lane the HUD stacks its toasts in, restored when the sheet goes.
-const TOAST_LANE: float = 84.0
 const VIEWPORT_MARGIN: float = 12.0
 const EMPTY_LINE: String = "Nothing reached the presses this turn."
 const NO_HISTORY: String = "The presses have not run yet."
@@ -29,6 +27,9 @@ const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
 var state: GazetteState = null
 var diplomacy: DiplomacyState = null
 var viewer: int = 0
+## The HUD's despatch lane: while this sheet is up the news stacks below it
+## instead of printing across the masthead (REQ-P5-05).
+var despatches: HudDespatches = null
 
 var _mode: Mode = Mode.SHEET
 var _sheet: Dictionary = {}
@@ -349,20 +350,17 @@ func _avoid_toasts() -> void:
 	# The plate is sized by its content, so this waits for the laid-out height:
 	# before the first layout pass there is no bottom to clear, and the refit
 	# that follows the layout moves the lane.
+	if despatches == null:
+		return
 	var height: float = _panel.size.y
 	if height <= 0.0:
 		return
-	var hud: Node = get_parent()
-	if hud == null:
+	# Room below the sheet for three plates: push the lane under it, else leave
+	# the lane where the viewport put it (a phone's bar is shorter than 84).
+	if _shown and size.y - (PLATE_TOP + height) >= 180.0:
+		despatches.push_below(PLATE_TOP + height + 10.0)
 		return
-	var despatches: HudDespatches = hud.get("despatches") as HudDespatches
-	if despatches == null:
-		return
-	var bottom: float = PLATE_TOP + height
-	var lane: float = TOAST_LANE
-	if _shown and size.y - bottom >= 180.0:
-		lane = bottom + 10.0
-	despatches.set_lane(lane)
+	despatches.clear_plate()
 
 
 func _label(text: String, pixels: int, ink: Color, italic: bool = false) -> Label:
