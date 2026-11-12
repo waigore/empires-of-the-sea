@@ -308,6 +308,38 @@ func test_the_richest_merchant_hull_is_the_one_taken() -> void:
 	assert_eq(String(((result["hulls_lost"] as Array)[0] as Dictionary)["type_id"]), "fluyte")
 
 
+## A tie on cargo goes to the lower instance id, not to whichever hull the
+## roster happens to list first — a squadron that absorbed another is not in id
+## order (wiki: ships-and-naval § Trade and Transport Interception — "the
+## richest hold is taken (largest cargoHold, lower instance id on a tie)").
+func test_a_cargo_tie_takes_the_lower_instance_id() -> void:
+	var merged := FleetState.in_port(
+		10, 0, 0, ["ship_9", "ship_2"], {"ship_9": "fluyte", "ship_2": "fluyte"}
+	)
+	assert_eq(String(NavalHullLoss.at_risk(merged)["id"]), "ship_2")
+	var ten := FleetState.in_port(
+		11, 0, 0, ["ship_10", "ship_9"], {"ship_10": "fluyte", "ship_9": "fluyte"}
+	)
+	assert_eq(
+		String(NavalHullLoss.at_risk(ten)["id"]), "ship_9",
+		"the hull number decides, not the string order"
+	)
+	var plain := FleetState.in_port(
+		12, 0, 0, ["home_9", "home_2"], {"home_9": "fluyte", "home_2": "fluyte"}
+	)
+	assert_eq(
+		String(NavalHullLoss.at_risk(plain)["id"]), "home_2",
+		"ids off the ship_<n> pattern still break the tie the same way"
+	)
+	var raider := _raider()
+	var result: Dictionary = NavalRaid.resolve(
+		_model, [merged, raider], 0, merged, {"grain": 10}, Callable(), 1, 1, 0.0,
+		Callable(), 0.0
+	)
+	assert_eq((result["hulls_lost"] as Array).size(), 1)
+	assert_eq(merged.hulls, ["ship_9"] as Array[String], "the lower-id hull left the fleet")
+
+
 func test_a_warship_is_never_the_prize() -> void:
 	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "sloop"})
 	var raider := _raider()
@@ -676,6 +708,65 @@ func test_the_map_pass_sinks_the_crowns_merchant_hull() -> void:
 	var report: Dictionary = (result["reports"] as Array)[0]
 	assert_eq(String(report["kind"]), "incoming")
 	assert_eq((report["hulls_lost"] as Array).size(), 1)
+	ships.free()
+	economy.free()
+
+
+## A hull a raid sends down leaves the chart with her: the marker stops flying
+## her the moment the rules take her, not on the next rebuild (wiki:
+## ships-and-naval § Trade and Transport Interception — "a sunk hull leaves the
+## fleet with her name and holds at once").
+func test_the_marker_stops_flying_a_hull_a_raid_sank() -> void:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	var home := FleetState.in_port(
+		10, 0, 0, ["ship_2", "ship_9"], {"ship_2": "fluyte", "ship_9": "fluyte"}
+	)
+	var raider := _fleet(2, 1, 0, ["frigate"])
+	raider.mission = FleetState.Mission.PATROL
+	var fleets: Array[FleetState] = [home, raider]
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	ships.rebuild_markers()
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	economy.economy.add("grain", 20)
+	play.economy = economy
+	economy.market.record_import("grain", 4, 0)
+	play.map_seed = 1
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[raider], home, FleetState.Mission.PATROL
+	)
+	var hull_chance: float = NavalHullLoss.chance(home)
+	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 0, 1, 0, NavalRaid.HULL_TAG
+			) >= hull_chance:
+		play.map_seed += 1
+	var marker: Ship = ships.ship_for(home)
+	assert_eq(marker.hull_count, 2, "both hulls fly before the raid")
+
+	MapPlayRaids.resolve(play)
+
+	assert_eq(home.hulls.size(), 1, "one merchant went down")
+	assert_eq(
+		ships.ship_for(home).hull_count, 1, "the marker drops the hull the raid sank"
+	)
 	ships.free()
 	economy.free()
 
