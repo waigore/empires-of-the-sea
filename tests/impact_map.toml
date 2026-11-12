@@ -714,6 +714,17 @@ domain = "fleet"
 match = "tests/playtest_persistence.gd*"
 domain = "save"
 
+# The advanced save/load drive closes turns, starts a study and raises an
+# estate before the slot is written, so it travels with the save suites too.
+[[rules]]
+match = "tests/playtest_persistence_advanced.gd*"
+domain = "save"
+
+# Shared save/load plumbing for both persistence drives.
+[[rules]]
+match = "tests/playtest_save_drive.gd*"
+domain = "save"
+
 # The purse drive walks the ledger, the auction receipt and the college's gold,
 # so it travels with the economy suites.
 [[rules]]
