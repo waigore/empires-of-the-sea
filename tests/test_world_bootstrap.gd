@@ -5,10 +5,12 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## Small-preset size: the shared Fixture world is smaller and can leave a
-## capital province too thin for four grain farms under the fixed 60/30 chart.
-const BOOT_WIDTH: int = 96
-const BOOT_HEIGHT: int = 64
+## Cases only need one region at a time. 64×48 still seats four grain farms per
+## Great Power and a thin capital (the 44×34 fixture world does not); under
+## coverage that is ~2× fewer tiles than the old 96×64 two-region boot.
+const BOOT_WIDTH: int = 64
+const BOOT_HEIGHT: int = 48
+const NEW_WORLD_SEED: int = Fixture.SEED + 7919
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so one region per worker keeps
@@ -16,14 +18,21 @@ const BOOT_HEIGHT: int = 64
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
+## New World chart shared by the landless-seat and no-farm cases.
+var new_world: MapModel = null
 
 
 func before_all() -> void:
-	model = MapGenerator.new().generate_world(
-		Fixture.SEED, BOOT_WIDTH, BOOT_HEIGHT
-	).region(FactionCatalog.OLD_WORLD)
+	# Old World only — a full `generate_world` also built a New World chart this
+	# suite never read from the shared boot.
+	model = MapGenerator.new().generate_region(
+		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+	)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
+	new_world = MapGenerator.new().generate_region(
+		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+	)
 
 
 func test_every_great_power_gets_four_grain_farms() -> void:
@@ -123,9 +132,6 @@ func test_capital_seat_pairs_province_and_tile() -> void:
 	assert_eq(int(seat["province"]), province)
 	assert_eq(seat["tile"], model.capital_tile_of(province))
 
-	var new_world: MapModel = MapGenerator.new().generate_region(
-		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
 	var landless: Dictionary = WorldBootstrap.capital_seat(new_world, faction)
 	assert_eq(int(landless["province"]), -1, "no Great Power capital in the New World")
 	assert_eq(landless["tile"], Vector2i(-1, -1))
@@ -190,9 +196,6 @@ func test_the_post_pass_is_deterministic() -> void:
 
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
-	var new_world: MapModel = MapGenerator.new().generate_region(
-		Fixture.SEED + 7919, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
 	var new_world_works := LandWorks.new()
 	var new_world_report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)
 	assert_eq(int(new_world_report["farms"]), 0)

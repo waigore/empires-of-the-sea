@@ -35,14 +35,14 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - Cache shared maps in `before_all` on **non-underscore** vars; attach a map
   screen lazily (`_attach()`) so rule-only cases never paint the chart.
 - Do not regenerate worlds in `before_each`. Profile with `gd-tools test --durations 20`.
-- Saving/loading is the hottest path: `SaveCodec.restore` reuses a preset world,
-  and suites that rewrite owners or buy deeds snapshot it (`MapFixture.snapshot`
-  / `restore`).
+- Saving/loading is hottest: reuse a preset world, snapshot owners/deeds
+  (`MapFixture.snapshot`/`restore`), and prefer `SaveCodec.restore` on the
+  mounted play over remounting `MapScreen` unless HUD wiring is under test.
+- Bootstrap: one region per `before_all` cache — never build a discarded chart.
 - One Godot boot per theme: related pure suites share one merged file (56
   suites, not 129) because coverage costs ~12 s per boot. Add a case to the
   theme's file instead of a new suite.
-- Coverage adds a fixed ~35 s per worker, so a suite's wall time is mostly its
-  mounts. Prefer one mount per case; let long screen suites stand alone.
+- Coverage adds ~35 s per worker; prefer one mount per case.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
