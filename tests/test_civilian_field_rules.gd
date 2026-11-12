@@ -705,6 +705,61 @@ func test_rail_builders_are_exempt_from_tile_exclusivity() -> void:
 	assert_true(bool(_validate(second, "build_rail", tech)["ok"]))
 
 
+## A Rail Builder's work never claims the tile: only Builder, Engineer and
+## Merchant work is exclusive (wiki: civilian-units § Per-player tile
+## exclusivity).
+func test_a_working_rail_builder_does_not_claim_the_tile() -> void:
+	var tile: Vector2i = Fixture.TIMBER_TILE
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var rail := _add("rail_builder", tile)
+	var tech := {"early_steam_engine": true}
+	assert_true(bool(CivilianWork.assign(
+		_model, rail, "build_rail", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	var builder := _add("builder", tile)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+
+
+## A Spy on counter-espionage holds a province, not its town tile, so the
+## Builder may still raise the town under it (wiki: civilian-units
+## § Per-player tile exclusivity).
+func test_a_working_spy_does_not_claim_the_town_tile() -> void:
+	var province: ProvinceState = _model.province_data(Fixture.PLAYER_PROVINCE)
+	province.town_tile = Fixture.BARE_TILE
+	province.town_development = 1
+	var spy := _add("spy", Fixture.BARE_TILE)
+	assert_true(bool(CivilianWork.assign(
+		_model, spy, "counter_spy", _works, _units, _stock, _view
+	)["ok"]))
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var check: Dictionary = _validate(
+		builder, "upgrade_town", {"national_bureaucracy": true}
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+
+
+## Two Merchants are both bound by the rule, so the second deed on one tile is
+## refused (wiki: civilian-units § Per-player tile exclusivity).
+func test_a_working_merchant_claims_the_tile_against_another() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var tile := Vector2i(3, 1)
+	var first := Fixture.unit("merchant", tile)
+	first.id = 1
+	first.start_work(LandPurchase.ACTION, tile, 1)
+	var second := Fixture.unit("merchant", tile)
+	second.id = 2
+	var units: Array[CivilianState] = [first, second]
+	var check: Dictionary = CivilianWork.validate(
+		model, second, "purchase_land", works, units, Fixture.stockpile(), null,
+		tile, {}, {}, {"treasury": 5000, "diplomacy": Fixture.merchant_court()}
+	)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("Another crew"))
+
+
 func test_engineer_builds_a_port_only_on_the_coast() -> void:
 	var engineer := _add("engineer", Fixture.IRON_TILE)
 	var inland: Dictionary = _validate(engineer, "build_port")
@@ -727,6 +782,60 @@ func test_a_province_holds_one_port() -> void:
 	var second: Dictionary = _validate(engineer, "build_port")
 	assert_false(bool(second["ok"]))
 	assert_true(String(second["reason"]).contains("already has a port"))
+
+
+## One port per seaboard, not per province: a province facing two sea zones may
+## carry a port on each (wiki: extraction-and-improvements § Port Placement).
+func test_a_second_port_may_rise_on_another_seaboard() -> void:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0 if x < 2 else 1
+	var province := ProvinceState.create(
+		0, "Split", tiles, Vector2(2.0, 0.5), tiles.size(), 0, true
+	)
+	province.town_tile = Vector2i(2, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.sea_zones = [
+		SeaZoneState.create(0, "West", [Vector2i(0, 2), Vector2i(1, 2)], Vector2(0.5, 2.0), 2),
+		SeaZoneState.create(1, "East", [Vector2i(2, 2), Vector2i(3, 2), Vector2i(4, 2)], Vector2(3.0, 2.0), 3),
+	]
+	var works := LandWorks.new()
+	var stock := Fixture.stockpile()
+	var west := Vector2i(0, 1)
+	var east := Vector2i(3, 1)
+	assert_true(CivilianTransport.seaboards_of(model, west).has(0))
+	assert_true(CivilianTransport.seaboards_of(model, east).has(1))
+	var first := Fixture.unit("engineer", west)
+	first.id = 1
+	var units: Array[CivilianState] = [first]
+	assert_true(bool(CivilianWork.assign(
+		model, first, "build_port", works, units, stock
+	)["ok"]))
+	CivilianWork.resolve_turn(model, units, works)
+	CivilianWork.resolve_turn(model, units, works)
+	assert_true(works.has_port(model, west))
+	var second := Fixture.unit("engineer", east)
+	second.id = 2
+	units.append(second)
+	var check: Dictionary = CivilianWork.validate(
+		model, second, "build_port", works, units, stock
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	var same: Dictionary = CivilianWork.validate(
+		model, first, "build_port", works, units, stock
+	)
+	assert_false(bool(same["ok"]), "the same seaboard still takes one port")
 
 
 func test_port_builds_take_two_turns() -> void:

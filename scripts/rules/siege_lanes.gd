@@ -216,13 +216,13 @@ static func strike(
 	var behind_share: float = 0.0
 	var artillery: int = _artillery_count(attacking)
 	if artillery > 0 and can_reach_behind(attacking):
-		var besiegers: int = maxi(ArmyCombat.side_regiments(attacking), 1)
+		var besiegers: int = maxi(ArmyForce.side_regiments(attacking), 1)
 		behind_share = float(artillery) / float(besiegers)
 	# A gate already beaten down is a way in for every arm, not just guns.
 	behind_share = maxf(behind_share, breach_share(gates))
 	var behind_blow: int = mini(blow, roundi(float(blow) * behind_share))
 	var wall_blow: int = maxi(0, blow - behind_blow)
-	var wall_lost: Array[String] = ArmyCombat.apply_losses(
+	var wall_lost: Array[String] = ArmyForce.apply_losses(
 		armies, defending, wall_blow, def_limit,
 		func(type_id: String) -> bool: return is_wall_type(type_id)
 	)
@@ -234,7 +234,7 @@ static func strike(
 		behind_left = maxi(def_limit - wall_lost.size(), 0)
 	var behind_lost: Array[String] = []
 	if behind_blow > 0 and behind_left != 0:
-		behind_lost = ArmyCombat.apply_losses(
+		behind_lost = ArmyForce.apply_losses(
 			armies, defending, behind_blow, 0 if behind_left < 0 else behind_left,
 			func(type_id: String) -> bool: return not is_wall_type(type_id)
 		)

@@ -71,11 +71,15 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			play.hud.show_quick_battle(battle, prefix + province)
 		var medal: String = String(battle.get("medal_gain", ""))
 		if not medal.is_empty():
-			var general: String = play.army_layer.generals.label(
-				int(battle.get("medal_owner", -1)), medal
-			)
+			var winner: int = int(battle.get("medal_owner", -1))
+			var general: String = play.army_layer.generals.label(winner, medal)
 			if not general.is_empty():
-				line += " — %s earns a medal" % general
+				# The commander's name and the medal he now carries, so a standing
+				# that moved is always attributable (wiki: naming § General names;
+				# military-generals § Medals).
+				line += " — %s earns a medal (%d now)" % [
+					general, play.army_layer.generals.medals(winner, medal)
+				]
 		play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true

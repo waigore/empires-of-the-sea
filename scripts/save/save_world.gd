@@ -21,6 +21,7 @@ static func capture(world: WorldMap) -> Array[Dictionary]:
 				"town_tile": province.town_tile,
 				"fort_level": province.fort_level,
 				"hospital_level": province.hospital_level,
+				"hospital_staffed": province.hospital_staffed,
 				"resource": province.resource,
 				"resource_tile": province.resource_tile,
 				"population": province.population,
@@ -140,6 +141,8 @@ static func _apply_province(model: MapModel, data: Dictionary) -> bool:
 	province.hospital_level = clampi(
 		int(data.get("hospital_level", 0)), 0, HospitalRules.MAX_LEVEL
 	)
+	# A save written before the wards ate carries no flag: its staffs are fed.
+	province.hospital_staffed = bool(data.get("hospital_staffed", true))
 	province.resource = int(data.get("resource", MapModel.NO_ID))
 	province.resource_tile = _vector(data.get("resource_tile", Vector2i(-1, -1)))
 	province.population = int(data.get("population", 0))
