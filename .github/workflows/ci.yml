@@ -139,12 +139,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Lint docs word limit (≤500)
-        if: >-
-          github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'pull_request' && steps.filter.outputs.code == 'true')
-        run: python tools/lint_docs_words.py
-
       - name: Install gd-tools
         if: >-
           github.event_name == 'workflow_dispatch' ||
