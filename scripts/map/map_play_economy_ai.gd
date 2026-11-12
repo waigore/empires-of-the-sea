@@ -51,9 +51,9 @@ static func run(play: PlaySession) -> Dictionary:
 			play.world, faction,
 			int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 		)
-		economy.clear_assignments()
+		economy.production.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
-			economy.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
+			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
 		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(config, economy)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
@@ -142,7 +142,7 @@ static func _trade(
 	var reserved: Dictionary = _reserved_inputs(
 		production, _food_demand(play, faction, economy), economy
 	)
-	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
+	var current: Dictionary = _reserved_inputs({"assignments": economy.production.assignments()})
 	for commodity: Variant in current.keys():
 		var id: String = String(commodity)
 		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])

@@ -35,7 +35,7 @@ func _recipe_row(recipe_id: String) -> Control:
 		tag.tooltip_text = hint
 		row.add_child(tag)
 
-	var units: int = _economy.assignment_units(recipe_id)
+	var units: int = _economy.production.assignment_units(recipe_id)
 	var stepper := UiRowBuilder.label("%d" % units, 14, Palette.GOLD_PALE)
 	stepper.custom_minimum_size = Vector2(48, 0)
 	stepper.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
