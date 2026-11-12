@@ -111,7 +111,6 @@ static func triage_scale_at(model: MapModel, province: int) -> float:
 	return triage_scale(level_at(model, province))
 
 
-
 ## Applies a finished build: the province reaches the level that project was
 ## raised for, and a later completion can never leap a level. A new building
 ## opens with its staff hired.
