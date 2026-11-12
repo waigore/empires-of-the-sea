@@ -10,15 +10,6 @@ const NEIGHBORS: Array[Vector2i] = [
 	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
 ]
 
-## How many coast tables to keep. The links are a pure function of the tile grid
-## and every court charting one region (and every screen a suite mounts on the
-## shared world) asks for the same table: a small bound keeps that free while an
-## edited grid still builds its own.
-const CACHE_LIMIT: int = 8
-static var _coast_cache: Dictionary = {}
-## Cache keys oldest-first, so a full shelf drops one grid rather than all.
-static var _coast_order: Array[String] = []
-
 var model: MapModel = null
 var player_id: int = 0
 var levels: PackedByteArray = PackedByteArray()
@@ -42,7 +33,7 @@ func setup(p_model: MapModel, p_player_id: int) -> void:
 		Level.FOGGED if model.region_id == FactionCatalog.OLD_WORLD else Level.UNKNOWN
 	)
 	levels.fill(initial)
-	_coast_links()
+	_build_coast_links()
 
 
 func level_at(x: int, y: int) -> int:
@@ -210,23 +201,7 @@ func is_province_fully_visible(province_id: int) -> bool:
 # --- internals --------------------------------------------------------------
 
 
-## The coast table for this grid, built once per grid state and handed to every
-## court that charts it. Keyed by content (not identity) so a restored map finds
-## its own table again; the caller gets a copy, so no chart can edit another's.
-func _coast_links() -> void:
-	if model == null:
-		return
-	var key: String = "%dx%d|%d|%d|%d" % [
-		model.width, model.height, hash(model.terrain), hash(model.province),
-		hash(model.sea_zone)
-	]
-	var cached: Variant = _coast_cache.get(key, null)
-	if cached != null:
-		_coast_order.erase(key)
-		_coast_order.append(key)
-		province_sea_zones = (cached as Array)[0].duplicate(true)
-		sea_zone_provinces = (cached as Array)[1].duplicate(true)
-		return
+func _build_coast_links() -> void:
 	province_sea_zones.clear()
 	sea_zone_provinces.clear()
 	for y in model.height:
@@ -246,16 +221,6 @@ func _coast_links() -> void:
 					continue
 				_link(province_sea_zones, province_id, zone_id)
 				_link(sea_zone_provinces, zone_id, province_id)
-	while _coast_cache.size() >= CACHE_LIMIT and not _coast_order.is_empty():
-		_coast_cache.erase(_coast_order.pop_front())
-	_coast_cache[key] = [province_sea_zones.duplicate(true), sea_zone_provinces.duplicate(true)]
-	_coast_order.append(key)
-
-
-## Drops every coast table, so a following setup rebuilds rather than reuses.
-static func clear_cache() -> void:
-	_coast_cache.clear()
-	_coast_order.clear()
 
 
 func _link(table: Dictionary, key: int, value: int) -> void:
