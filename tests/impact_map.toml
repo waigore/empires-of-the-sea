@@ -18,6 +18,15 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+# Deterministic christening core and its three rosters (hulls, regiments,
+# generals). They share one pick and one digest, so a naming change runs its own
+# suites instead of pulling the fleet and army domains past the tier-1 budget.
+[domains.naming]
+suites = [
+  "test_name_roster.gd",
+  "test_general_names.gd",
+]
+
 [domains.land_turn]
 # Land battle pass + capital falls (split from MapPlayArmies). Tighter than full
 # campaign so the army refactor stays inside the tier-1 5 min budget.
@@ -1108,6 +1117,30 @@ domain = "prospect"
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
+
+[[rules]]
+# The naming arithmetic is one module with three data rosters; keep them together
+# so a christening change never pulls the broad army/fleet domains. These rules
+# sit above the `army_*` / `ship_*` / `general_*` / `regiment_*` globs because
+# the first match wins.
+match = "scripts/rules/name_roster.gd*"
+domain = "naming"
+
+[[rules]]
+match = "scripts/rules/ship_names.gd*"
+domain = "naming"
+
+[[rules]]
+match = "scripts/rules/regiment_names.gd*"
+domain = "naming"
+
+[[rules]]
+match = "scripts/rules/general_names.gd*"
+domain = "naming"
+
+[[rules]]
+match = "tests/test_name_roster.gd*"
+domain = "naming"
 
 [[rules]]
 match = "scripts/rules/army_*.gd"

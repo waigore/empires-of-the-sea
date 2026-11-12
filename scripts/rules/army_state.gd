@@ -382,7 +382,7 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.regiment_health = _condition_map(data.get("regiment_health", {}))
 	army.regiment_medals = _condition_map(data.get("regiment_medals", {}))
 	## A pre-record save restores empty maps; `set_regiments` christens it alike.
-	army.regiment_names = RegimentNames.map_from(data.get("regiment_names", {}))
+	army.regiment_names = NameRoster.map_from(data.get("regiment_names", {}))
 	army.regiment_engagements = _condition_map(data.get("regiment_engagements", {}))
 	army.regiment_wins = _condition_map(data.get("regiment_wins", {}))
 	army.regiment_honours = RegimentRecord.honours_from(data.get("regiment_honours", {}))
