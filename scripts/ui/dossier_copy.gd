@@ -46,7 +46,7 @@ static func roads(rows: Array[Dictionary]) -> String:
 		return "No developed estate yet"
 	if linked == 0:
 		return "No developed estate reaches the capital"
-	return "%d of %d developed estates linked" % [linked, developed]
+	return "%d of %s linked" % [linked, _estates(developed)]
 
 
 ## The roads row's tooltip: the rule, then what this province holds.
@@ -54,11 +54,20 @@ static func roads_tip(province: ProvinceState, rows: Array[Dictionary]) -> Strin
 	var tiles: int = 0
 	for path: Array in province.road_paths:
 		tiles += path.size()
+	var surveyed: int = rows.size()
 	return (
 		"An estate on or beside a road, rail or port path to the capital yields"
 		+ " its full output and escapes the town cap; one with no such path yields"
-		+ " nothing. %d road tiles laid here. %d estates surveyed."
-	) % [tiles, rows.size()]
+		+ " nothing. %d road tile%s laid here. %d estate%s surveyed."
+	) % [
+		tiles, "" if tiles == 1 else "s",
+		surveyed, "" if surveyed == 1 else "s",
+	]
+
+
+## "1 developed estate" / "3 developed estates".
+static func _estates(count: int) -> String:
+	return "%d developed estate%s" % [count, "" if count == 1 else "s"]
 
 
 ## Live crown link from `LandConnectivity.province_link`. Falls back to the
