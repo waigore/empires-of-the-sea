@@ -170,7 +170,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 	second.set_hulls(["b"], {"b": "fluyte"})
 	DiplomacyRules.declare_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
-	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 0)
@@ -185,7 +185,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 		)
 	else:
 		assert_lt(hulls_after, hulls_before)
-	assert_gt(_screen.hud.despatches.lane.get_child_count(), toasts_before)
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
 
 
 func test_empire_counters_survive_a_region_switch() -> void:
@@ -528,12 +528,12 @@ func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
 	var crew: CivilianState = _screen.civilian_layer.add_unit(
 		play.player_faction, "builder", pair[1]
 	)
-	var toasts_before: int = _screen.hud.despatches.lane.get_child_count()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
 	MapPlayCivilians.settle_stranding(play)
 
 	assert_gt(
-		_screen.hud.despatches.lane.get_child_count(), toasts_before,
+		_screen.hud._toast_box.get_child_count(), toasts_before,
 		"the court hears the crew's fate"
 	)
 	if _screen.civilian_layer.units.has(crew):
@@ -588,7 +588,7 @@ func test_a_signed_deed_names_the_town_it_raised() -> void:
 
 ## The text of the most recent despatch plate, or "" when none is on screen.
 func _last_toast_text() -> String:
-	var box: Node = _screen.hud.despatches.lane
+	var box: Node = _screen.hud._toast_box
 	if box.get_child_count() == 0:
 		return ""
 	return _label_text(box.get_child(box.get_child_count() - 1))

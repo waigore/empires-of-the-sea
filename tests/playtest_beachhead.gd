@@ -359,10 +359,10 @@ func _run_turn() -> void:
 	var turn: int = _play.turn
 	MapPlayTurn.end_turn(_play)
 	_say("  toasts right after the turn: %d, plate %s, queued %d" % [
-		_play.hud.despatches.lane.get_child_count(), str(_play.hud.is_quick_battle_shown()),
-		_play.hud.despatches.waiting().size(),
+		_play.hud._toast_box.get_child_count(), str(_play.hud.is_quick_battle_shown()),
+		_play.hud._toast_queue.size(),
 	])
-	for child: Node in _play.hud.despatches.lane.get_children():
+	for child: Node in _play.hud._toast_box.get_children():
 		var texts: Array[String] = _labels(child)
 		if not texts.is_empty():
 			_say("    raw toast: %s" % " | ".join(texts))
@@ -430,7 +430,7 @@ func _print_dossier() -> void:
 
 
 func _my_toasts() -> void:
-	for panel: Node in _play.hud.despatches.lane.get_children():
+	for panel: Node in _play.hud._toast_box.get_children():
 		if panel.is_queued_for_deletion():
 			continue
 		for text: String in _labels(panel):
@@ -446,7 +446,7 @@ func _my_toasts() -> void:
 
 ## Every toast of the turn, unfiltered: the battle line is the evidence.
 func _all_toasts() -> void:
-	for panel: Node in _play.hud.despatches.lane.get_children():
+	for panel: Node in _play.hud._toast_box.get_children():
 		if panel.is_queued_for_deletion():
 			continue
 		for text: String in _labels(panel):
@@ -454,7 +454,7 @@ func _all_toasts() -> void:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _play.hud.despatches.lane.get_children():
+	for child: Node in _play.hud._toast_box.get_children():
 		child.queue_free()
 
 

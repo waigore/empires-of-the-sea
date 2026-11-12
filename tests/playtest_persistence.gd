@@ -354,10 +354,10 @@ func _legal_work(unit: CivilianState) -> String:
 
 
 func _last_toast() -> String:
-	if _play.hud.despatches.lane == null:
+	if _play.hud._toast_box == null:
 		return "none"
 	var parts: PackedStringArray = []
-	_collect_text(_play.hud.despatches.lane, "", parts)
+	_collect_text(_play.hud._toast_box, "", parts)
 	return parts[parts.size() - 1] if not parts.is_empty() else "none"
 
 

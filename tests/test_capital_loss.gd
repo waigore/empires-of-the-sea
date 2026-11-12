@@ -249,7 +249,7 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_not_null(screen.play.diplomacy.relation(minor, 0))
 	var armies_before: int = _army_count(screen, minor)
 	assert_gt(armies_before, 0)
-	var toasts_before: int = screen.hud.despatches.lane.get_child_count()
+	var toasts_before: int = screen.hud._toast_box.get_child_count()
 
 	var changed: bool = MapPlayLandTurn.apply_capital_loss(
 		screen.play, {"fallen": [{"faction": minor, "conqueror": 0}], "reassigned": []}
@@ -258,7 +258,7 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_true(changed)
 	assert_eq(_army_count(screen, minor), 0)
 	assert_null(screen.play.diplomacy.relation(minor, 0))
-	assert_eq(screen.hud.despatches.lane.get_child_count(), toasts_before + 1)
+	assert_eq(screen.hud._toast_box.get_child_count(), toasts_before + 1)
 	screen.free()
 
 

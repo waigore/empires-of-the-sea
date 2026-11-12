@@ -429,10 +429,10 @@ func _sellable(rows: Array[Dictionary]) -> Array[Dictionary]:
 
 
 func _last_toast() -> String:
-	if _play.hud.despatches.lane == null:
+	if _play.hud._toast_box == null:
 		return "none"
 	var labels: PackedStringArray = PackedStringArray()
-	_collect(_play.hud.despatches.lane, labels)
+	_collect(_play.hud._toast_box, labels)
 	return labels[labels.size() - 1] if not labels.is_empty() else "none"
 
 

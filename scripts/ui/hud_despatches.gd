@@ -13,10 +13,16 @@ extends Control
 ## News kept while a plate plays: the battle's own line is on the plate already,
 ## so the oldest lines are the ones the court can spare (REQ-P5-06).
 const TOAST_QUEUE_CAP: int = 6
+## Suites written against the first board still say QUEUE_CAP.
+const QUEUE_CAP: int = TOAST_QUEUE_CAP
 
 ## The column the plates stack in. Presentation only; readable so the suites
 ## that check what the court was told can count it.
 var lane: VBoxContainer = null
+## The same column, under the name the first board published.
+var box: VBoxContainer:
+	get:
+		return lane
 
 ## Top the HUD layout assigned the lane; a plate's push is undone back to it.
 var _resting_top: float = 0.0
@@ -87,6 +93,11 @@ func set_covered(covered: bool) -> void:
 ## Lines the court has not been told yet, oldest first.
 func waiting() -> PackedStringArray:
 	return _queue.duplicate()
+
+
+## The first board's name for waiting().
+func held() -> PackedStringArray:
+	return waiting()
 
 
 ## A despatch toast. `icon_name` raises the plate with a medallion (an
