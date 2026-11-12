@@ -59,6 +59,90 @@ func test_density_prefers_the_effective_dpi_over_a_base_density() -> void:
 	assert_almost_eq(PlatformDisplay.scale_for(9.0, 0.0), PlatformDisplay.MAX_SCALE, 0.001)
 
 
+## --- safe area -------------------------------------------------------------
+
+
+## A punch-hole in the middle of an edge costs that edge only: reading the raw
+## rectangles as a band would have pushed the whole HUD sideways.
+func test_cutouts_eat_only_the_edge_they_are_cut_into() -> void:
+	var screen := Vector2(2400.0, 1080.0)
+	var units := Vector2(914.0, 411.0)
+	var top_hole: Array[Rect2] = [Rect2(1180.0, 0.0, 40.0, 60.0)]
+	var insets: Vector4 = PlatformDisplay.cutout_insets(top_hole, screen, units)
+	assert_almost_eq(insets.y, 60.0 / 1080.0 * 411.0, 0.01)
+	assert_almost_eq(insets.x, 0.0, 0.01)
+	assert_almost_eq(insets.z, 0.0, 0.01)
+	assert_almost_eq(insets.w, 0.0, 0.01)
+	# A phone in landscape: the same hole is cut into the left edge instead.
+	var landscape: Array[Rect2] = [Rect2(0.0, 500.0, 60.0, 40.0)]
+	insets = PlatformDisplay.cutout_insets(landscape, screen, units)
+	assert_almost_eq(insets.x, 60.0 / 2400.0 * 914.0, 0.01)
+	assert_almost_eq(insets.y, 0.0, 0.01)
+	assert_almost_eq(insets.z, 0.0, 0.01)
+	assert_almost_eq(insets.w, 0.0, 0.01)
+
+
+func test_cutouts_report_each_edge_in_points() -> void:
+	var screen := Vector2(2340.0, 1080.0)
+	var units := Vector2(780.0, 360.0)
+	var edges: Array[Rect2] = [
+		Rect2(0.0, 0.0, 90.0, 40.0),
+		Rect2(2290.0, 0.0, 50.0, 120.0),
+	]
+	var insets: Vector4 = PlatformDisplay.cutout_insets(edges, screen, units)
+	assert_almost_eq(insets.y, 120.0 / 1080.0 * 360.0, 0.01)
+	assert_almost_eq(insets.x, 90.0 / 2340.0 * 780.0, 0.01)
+	assert_almost_eq(insets.z, 50.0 / 2340.0 * 780.0, 0.01)
+	assert_almost_eq(insets.w, 0.0, 0.01)
+	var none: Array[Rect2] = []
+	assert_eq(PlatformDisplay.cutout_insets(none, screen, units), Vector4.ZERO)
+
+
+func test_safe_area_rectangle_becomes_insets() -> void:
+	var screen := Vector2(1000.0, 500.0)
+	var units := Vector2(500.0, 250.0)
+	var insets: Vector4 = PlatformDisplay.edge_insets(Rect2(20.0, 10.0, 950.0, 470.0), screen, units)
+	assert_almost_eq(insets.x, 10.0, 0.01)
+	assert_almost_eq(insets.y, 5.0, 0.01)
+	assert_almost_eq(insets.z, 15.0, 0.01)
+	assert_almost_eq(insets.w, 10.0, 0.01)
+	assert_eq(
+		PlatformDisplay.edge_insets(Rect2(), screen, units), Vector4.ZERO, "no area reads as no insets"
+	)
+
+
+## The one rule no later edit may bend: Android reads the cutouts and ignores
+## the safe area it is handed, because asking the engine for that area kills the
+## process on Android 17 (docs/android-build.md).
+func test_android_reads_cutouts_and_never_the_safe_area() -> void:
+	var screen := Vector2(2400.0, 1080.0)
+	var units := Vector2(914.0, 411.0)
+	var cutouts: Array[Rect2] = [Rect2(1180.0, 0.0, 40.0, 60.0)]
+	# A safe area that would claim a 200 px band on every edge: Android must not
+	# read a single point of it.
+	var area := Rect2(200.0, 200.0, 2000.0, 680.0)
+	var phone: Vector4 = PlatformDisplay.insets_for(true, cutouts, area, screen, units)
+	assert_almost_eq(phone.y, 60.0 / 1080.0 * 411.0, 0.01)
+	assert_almost_eq(phone.x, 0.0, 0.01)
+	assert_almost_eq(phone.z, 0.0, 0.01)
+	assert_almost_eq(phone.w, 0.0, 0.01)
+	# Every other handheld keeps the safe area it reports.
+	var other: Vector4 = PlatformDisplay.insets_for(false, cutouts, area, screen, units)
+	assert_almost_eq(other.x, 200.0 / 2400.0 * 914.0, 0.01)
+	assert_almost_eq(other.w, 200.0 / 1080.0 * 411.0, 0.01)
+	assert_eq(PlatformDisplay.insets_for(true, [] as Array[Rect2], Rect2(), screen, units), Vector4.ZERO)
+	assert_eq(PlatformDisplay.insets_for(false, [] as Array[Rect2], Rect2(), screen, units), Vector4.ZERO)
+
+
+func test_degenerate_cutouts_and_screens_read_as_no_insets() -> void:
+	var units := Vector2(900.0, 400.0)
+	var holes: Array[Rect2] = [Rect2(0.0, 0.0, 0.0, 0.0), Rect2(0.0, 0.0, 40.0, 60.0)]
+	assert_eq(PlatformDisplay.cutout_insets(holes, Vector2.ZERO, units), Vector4.ZERO)
+	var insets: Vector4 = PlatformDisplay.cutout_insets(holes, Vector2(1000.0, 500.0), units)
+	assert_almost_eq(insets.y, 60.0 / 500.0 * 400.0, 0.01, "the empty rectangle is skipped")
+	assert_eq(PlatformDisplay.safe_insets(null), Vector4.ZERO, "no window reads as no insets")
+
+
 ## --- chrome ----------------------------------------------------------------
 
 
