@@ -784,6 +784,31 @@ func test_an_engineer_raises_a_hospital_on_the_town_tile() -> void:
 	assert_eq(province.hospital_level, 1)
 	assert_true(engineer.is_idle())
 
+## A hospital shares the province town tile, so one crew a player owns builds it
+## (wiki: civilian-units § Per-player tile exclusivity).
+func test_a_second_engineer_cannot_raise_the_same_hospital() -> void:
+	var model := hospital_rules_CivilianFixture.build()
+	var works := LandWorks.new()
+	var province: ProvinceState = model.get_province(hospital_rules_CivilianFixture.PLAYER_PROVINCE)
+	province.town_tile = hospital_rules_CivilianFixture.BARE_TILE
+	var first := hospital_rules_CivilianFixture.unit("engineer", hospital_rules_CivilianFixture.BARE_TILE)
+	first.id = 1
+	var second := hospital_rules_CivilianFixture.unit("engineer", Vector2i(2, 2))
+	second.id = 2
+	var units: Array[CivilianState] = [first, second]
+	var stock: Dictionary = hospital_rules_CivilianFixture.stockpile()
+	var tech := {"organised_regiments": true}
+	assert_true(bool(CivilianWork.assign(
+		model, first, "build_hospital", works, units, stock, null,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	var blocked: Dictionary = CivilianWork.validate(
+		model, second, "build_hospital", works, units, stock, null,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_false(bool(blocked["ok"]))
+	assert_true(String(blocked["reason"]).contains("Another crew"))
+
 func test_the_general_hospital_needs_its_tech_and_stops_at_the_ceiling() -> void:
 	var model := hospital_rules_CivilianFixture.build()
 	var works := LandWorks.new()
