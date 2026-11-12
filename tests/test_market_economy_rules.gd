@@ -1356,6 +1356,29 @@ func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
 	)
 
 
+## The wait is the soonest batch: a later batch cannot push the tag past a unit
+## that is already one phase from the store (wiki: production-recipes § Turns per
+## unit; DR-20261113-02).
+func test_the_workshop_wait_reads_the_soonest_batch() -> void:
+	assert_eq(
+		ProductionRecipes.turns_left(
+			{"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}]}, "steel"
+		),
+		1
+	)
+	assert_eq(
+		ProductionRecipes.turns_left(
+			{"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}]}, "steel"
+		),
+		1,
+		"the soonest batch says when the next unit lands"
+	)
+	assert_eq(
+		ProductionRecipes.turns_left({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
+	)
+	assert_eq(ProductionRecipes.turns_left({}, "steel"), 0)
+
+
 ## Drip-feeding three steel one unit a phase builds the same output from the same
 ## inputs as one batch of three, so a batch buys no front-loading.
 func test_a_batch_matches_drip_feeding() -> void:
