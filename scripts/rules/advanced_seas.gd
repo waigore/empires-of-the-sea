@@ -19,7 +19,10 @@ const NEIGHBOURS: Array[Vector2i] = [
 
 ## Every sea zone the inherited chart holds for one crown: the zones P–S adjacent
 ## to a charted province, plus the zones on a shortest S–S lane from a warp entry
-## to one of them, in id order.
+## to one of them, in id order. The shore charts whether or not a lane reaches it:
+## the wiki leaves `unknown` only the water that is neither beside a revealed
+## province nor on the connecting path (wiki: advanced-starts
+## § NW sea-zone visibility).
 static func charted(model: MapModel, entries: Array[int], provinces: Array[int]) -> Array[int]:
 	var shores: Array[int] = []
 	if model == null:
@@ -31,7 +34,8 @@ static func charted(model: MapModel, entries: Array[int], provinces: Array[int])
 	shores.sort()
 	if shores.is_empty() or entries.is_empty():
 		return shores
-	var lanes: Array[int] = []
+	# The shore is charted first; the lanes add the water that reaches it.
+	var held: Array[int] = shores.duplicate()
 	var from_entry: Dictionary = hops(model, entries)
 	for goal: int in shores:
 		if not from_entry.has(goal):
@@ -42,10 +46,10 @@ static func charted(model: MapModel, entries: Array[int], provinces: Array[int])
 			var zone: int = int(raw)
 			if int(from_entry.get(zone, span + 1)) + int(to_goal[zone]) != span:
 				continue
-			if not lanes.has(zone):
-				lanes.append(zone)
-	lanes.sort()
-	return lanes
+			if not held.has(zone):
+				held.append(zone)
+	held.sort()
+	return held
 
 
 ## Zone -> S–S hops from the nearest of `starts`, over the map's sea neighbours.

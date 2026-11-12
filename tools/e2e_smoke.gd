@@ -202,6 +202,30 @@ func _run() -> void:
 			field != null and not RegimentNames.of(field, field.regiments[0]).is_empty(),
 			"the detached regiment keeps its title"
 		)
+		# The train (DR-20261112-07): the dossier names the offer or its refusal,
+		# and a pitched train reads on the strength line.
+		if field != null:
+			MapPlayArmies.show_panel(screen.play, field)
+			await process_frame
+			_check(
+				screen.hud.panels.army_panel._hospital.visible,
+				"the dossier offers the field hospital train"
+			)
+			_check(
+				not String(screen.hud.panels.army_panel._hospital.text).is_empty(),
+				"the train order names itself"
+			)
+			HospitalTrain.apply(field)
+			MapPlayArmies.show_panel(screen.play, field)
+			await process_frame
+			_check(
+				String(screen.hud.panels.army_panel._strength.text).contains("field hospital"),
+				"the strength line names the train"
+			)
+			_check(
+				not screen.hud.panels.army_panel._hospital.visible,
+				"a served train order is gone"
+			)
 		_check(
 			screen.hud._army_label.text
 			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),

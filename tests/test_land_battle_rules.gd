@@ -1115,6 +1115,163 @@ func test_the_army_dossier_names_an_unstaffed_ward() -> void:
 	assert_false(String(panel._strength.text).contains("rest 40%"))
 	panel.free()
 
+
+# --- the field hospital train (DR-20261112-07) --------------------------------
+
+func test_the_train_table_follows_the_design_record() -> void:
+	assert_almost_eq(HospitalTrain.REST_SHARE, 0.40, 0.001)
+	assert_eq(HospitalTrain.food(), 2)
+	assert_eq(HospitalTrain.tech(), "organised_regiments")
+	assert_eq(HospitalTrain.cost(), {"lumber": 2, "fabric": 1})
+	assert_true(HospitalTrain.describe().contains("rest 40%"))
+	assert_true(HospitalTrain.describe().contains("staff 2 food"))
+
+
+func test_the_better_of_the_tents_and_the_ward_sets_the_tempo() -> void:
+	var model := hospital_rules_Fixture.build()
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, false), 0.25, 0.001)
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, true), 0.40, 0.001)
+	model.province_data(1).hospital_level = 2
+	assert_almost_eq(
+		HospitalTrain.army_rest_share(model, 1, true), 0.55, 0.001,
+		"the ward's nurses still beat the tents"
+	)
+	var no_model: MapModel = null
+	assert_almost_eq(
+		HospitalTrain.army_rest_share(no_model, MapModel.NO_ID, true), 0.40, 0.001,
+		"a train heals with no map at all"
+	)
+
+
+func test_the_train_speeds_the_rest_wherever_the_army_stands() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var regiment: String = army.regiments[0]
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 83, "a bare field restores a quarter")
+
+	army.field_hospital = true
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 99, "the train restores 40%")
+
+	# Enemy land: the tents travel with the standard, not the province.
+	army.province = 2
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 99)
+
+
+func test_the_trains_staff_eat_with_the_men() -> void:
+	var plain := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var train := hospital_rules_Fixture.army(2, 0, 1, ["pikemen"])
+	train.field_hospital = true
+	var bare: int = ArmyState.food_upkeep_of([plain], 0)
+	assert_eq(ArmyState.food_upkeep_of([train], 0), bare + 2)
+	assert_eq(ArmyState.food_upkeep_of([train], 1), 0, "another crown pays nothing")
+
+
+func test_a_train_is_pitched_on_the_crowns_own_land() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var tech: Dictionary = {"organised_regiments": true}
+	var stock: Dictionary = {"lumber": 2, "fabric": 1}
+	assert_true(bool(HospitalTrain.check(model, army, tech, stock)["ok"]))
+
+	assert_false(bool(HospitalTrain.check(null, army, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, null, tech, stock)["ok"]))
+
+	var foreign := hospital_rules_Fixture.army(2, 0, 2, ["pikemen"])
+	var check: Dictionary = HospitalTrain.check(model, foreign, tech, stock)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("own land"))
+
+	var embarked := hospital_rules_Fixture.army(3, 0, 1, ["pikemen"])
+	embarked.embarked_fleet = 7
+	assert_false(bool(HospitalTrain.check(model, embarked, tech, stock)["ok"]))
+
+	var carrying := hospital_rules_Fixture.army(4, 0, 1, ["pikemen"])
+	carrying.field_hospital = true
+	assert_false(bool(HospitalTrain.check(model, carrying, tech, stock)["ok"]))
+
+	var empty := hospital_rules_Fixture.army(5, 0, 1, [])
+	assert_false(bool(HospitalTrain.check(model, empty, tech, stock)["ok"]))
+
+	var locked: Dictionary = HospitalTrain.check(model, army, {}, stock)
+	assert_false(bool(locked["ok"]))
+	assert_true(String(locked["reason"]).contains("Organised Regiments"))
+
+	var short: Dictionary = HospitalTrain.check(model, army, tech, {"lumber": 1})
+	assert_false(bool(short["ok"]))
+
+	# Pitching changes only the standard that carries it.
+	HospitalTrain.apply(army)
+	assert_true(army.field_hospital)
+
+
+func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
+	var army := ArmyState.muster(1, 0, 1, false, ["pikemen", "pikemen"])
+	army.field_hospital = true
+	var armies: Array[ArmyState] = [army]
+	var split: Dictionary = ArmyState.split(armies, army, [army.regiments[0]], 2)
+	assert_true(bool(split["ok"]))
+	var detached: ArmyState = split["army"]
+	assert_true(army.field_hospital, "the parent standard keeps the tents")
+	assert_false(detached.field_hospital)
+
+	# A full detach drops the emptied standard, and the train marches with the men.
+	var rest: Array[ArmyState] = [army]
+	var all_out: Dictionary = ArmyState.split(
+		rest, army, army.regiments.duplicate(), 3
+	)
+	assert_true(bool(all_out["ok"]))
+	var moved: ArmyState = all_out["army"]
+	assert_eq(rest.size(), 1)
+	assert_true(moved.field_hospital)
+
+	var other := ArmyState.muster(4, 0, 1, false, ["pikemen"])
+	var pair: Array[ArmyState] = [moved, other]
+	var combined: Dictionary = ArmyState.combine(pair, pair)
+	assert_true(bool(combined["ok"]))
+	assert_true((combined["army"] as ArmyState).field_hospital, "one train survives")
+	assert_eq(pair.size(), 1)
+
+
+func test_the_train_rides_in_the_save_and_an_old_save_has_none() -> void:
+	var army := ArmyState.muster(1, 0, 1, false, ["pikemen"])
+	HospitalTrain.apply(army)
+	var restored: ArmyState = ArmyState.from_dict(army.to_dict())
+	assert_true(restored.field_hospital)
+	var legacy: ArmyState = ArmyState.from_dict({"id": 2, "owner": 0, "province": 1})
+	assert_false(legacy.field_hospital)
+
+
+func test_the_dossier_offers_the_train_and_then_names_it() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["guards"])
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	var order: Dictionary = {"caption": "Pitch a field hospital (2 lumber · 1 fabric)", "ok": true}
+	panel.refresh(model, army, true, false, "", [], "", "balanced", order)
+	assert_true(panel._hospital.visible)
+	assert_false(panel._hospital.disabled)
+
+	# A blocked order still shows, with the rules' reason as its caption.
+	panel.refresh(
+		model, army, true, false, "", [], "", "balanced",
+		{"caption": "Tents are pitched on your crown's own land.", "ok": false}
+	)
+	assert_true(panel._hospital.visible)
+	assert_true(panel._hospital.disabled)
+
+	HospitalTrain.apply(army)
+	panel.refresh(model, army, true)
+	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
+	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
+	panel.free()
+
 # --- test_army_field_rules ---
 
 func test_owned_provinces_are_reachable_and_enemy_land_must_border() -> void:
@@ -1607,6 +1764,36 @@ func test_apply_re_equips_great_power_regiments_in_place() -> void:
 	assert_eq(army.type_of(bowmen), "bowmen", "bowmen have no upgrade path")
 	assert_eq(rival.type_of(squires), "cossacks", "rivals re-equip off their own techs")
 	assert_eq(army.regiments, [pikemen, bowmen], "instance ids never change")
+
+func test_a_re_equipped_regiment_keeps_its_health_inside_the_new_pool() -> void:
+	_setup_army_field_rules()
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var whole: ArmyState = ArmyState.muster(1, power, 0, true, ["pikemen"], 1)
+	var mauled: ArmyState = ArmyState.muster(2, power, 0, false, ["pikemen"], 10)
+	var veteran: String = mauled.regiments[0]
+	mauled.regiment_health[veteran] = RegimentCatalog.max_health("pikemen") / 2
+	var regions := MapRegionTable.new()
+	regions.set_region(0, [whole, mauled])
+
+	RegimentUpgrades.apply(regions, {power: {"improved_iron_weapons": true}})
+
+	for army: ArmyState in [whole, mauled]:
+		var data: Dictionary = army.condition_of(army.regiments[0])
+		assert_eq(String(data["type"]), "halberdiers")
+		assert_eq(
+			int(data["max"]), RegimentCatalog.max_health("halberdiers"),
+			"the pool is the new type's, not the old one kept by a stale max"
+		)
+	assert_eq(
+		int(whole.condition_of(whole.regiments[0])["hp"]),
+		RegimentCatalog.max_health("halberdiers"),
+		"an untouched regiment re-equips at full strength"
+	)
+	assert_true(
+		float(mauled.condition_of(veteran)["fraction"]) < 1.0,
+		"a mauled veteran keeps its wounds through the re-equip"
+	)
+
 
 func test_apply_skips_minors_tribes_and_courts_with_nothing_new() -> void:
 	_setup_army_field_rules()

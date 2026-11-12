@@ -10,8 +10,8 @@ const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
-	"work", "production", "recruit", "reinforce", "train", "split", "invade",
-	"cargo",
+	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
+	"invade", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -26,6 +26,7 @@ const ACTION_LABELS: Dictionary = {
 	"production": "production",
 	"recruit": "workers",
 	"reinforce": "regiments raised",
+	"hospital": "field hospitals",
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
@@ -134,6 +135,18 @@ static func _record_armies(
 					factions[faction],
 					faction,
 					"%s musters %s." % [FactionCatalog.name_of(faction), raised]
+				)
+			continue
+		if kind == MapPlayArmyAi.KIND_HOSPITAL:
+			_bump(factions[faction]["actions"], "hospital")
+			var face: String = String(raw.get("province_name", ""))
+			if not face.is_empty():
+				_add_event(
+					merged,
+					factions[faction],
+					faction,
+					"%s's army pitches a field hospital train at %s."
+					% [FactionCatalog.name_of(faction), face],
 				)
 			continue
 		var key: String = "attack" if bool(raw.get("attacked", false)) else "march"

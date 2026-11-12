@@ -43,7 +43,8 @@ New World grid, so a rival sails the Passage lanes it was given
   estate to its province town over the crown's own land. There is no ocean
   road.
 - **Minor deeds:** 25%/50% of Minor Nation resource tiles are bought
-  round-robin and recorded as deeds; the province stays with its owner.
+  round-robin and recorded as deeds; the province stays with its owner and its
+  town rises to `min(4, 1 + deeds)`, so its manufactures follow the land.
 - **Rosters:** a civilian roster larger than the capital province spills into
   the crown's other provinces, seat first.
 

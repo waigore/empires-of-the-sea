@@ -131,6 +131,12 @@ godot --headless --path . --script res://tests/playtest_beachhead.gd
 # the college's funding), stages a sale and a study on those buttons, closes real
 # turns, and prints each promise against the ducats the turn actually paid.
 godot --headless --path . --script res://tests/playtest_treasury.gd
+
+# Capital loss — storms the crown's seat while it still holds another province
+# (the court moves, the home squadron re-moors, the Gazette names the province
+# lost), then strips the crown to its seat and storms that (the defeat plate, the
+# sealed turn, and the save that restores the defeated campaign).
+godot --headless --path . --script res://tests/playtest_capital_move.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
