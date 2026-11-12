@@ -32,18 +32,17 @@ Audited through DR-20261113-08 (`REQ-P2-02`).
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
 | Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
+| French court lines | `assets/locales/fr.po`, DR-20261113-06 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Translation content | Localization | Keys live; no `.po` on `main` |
-| 2 | Recipe gates / multi-turn / queue | Mid-campaign economy | DR-20261113-02 |
-| 3 | Player regiment rename | Immersion | DR-20261111-18; not on `main` |
+| 1 | Player regiment rename | Immersion | DR-20261113-05; not on `main` |
 
 ## Next pick
 
-**Rank 1** — Translation content: keys live; no `.po` on main.
+**Rank 1** — Player regiment rename (DR-20261113-05; not on `main`).
 
 ## Out of scope / blocked footnotes
 
@@ -59,3 +58,5 @@ Audited through DR-20261113-08 (`REQ-P2-02`).
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
 - Works' reservation + coexistence — seed (DR-20261113-08).
 - Tongue picker / other tongues / blocking prompts — after French (DR-20261113-06).
+- Recipe gates on a building or a worker tier; multi-turn rows beyond steel and
+  bronze; a workshop queue cap — wiki-deferred.

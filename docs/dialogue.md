@@ -13,9 +13,8 @@ feeds an outcome (`REQ-P2-03`).
 | `scripts/rules/dialogue_agenda*.gd` | The `agenda` beat: cadence, evidence gate, veiled points |
 | `scripts/rules/dialogue_mood.gd` | The eight moods, the mood machine |
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
-| `scripts/rules/dialogue_home.gd` | Which court answers the crown's own turn |
 | `scripts/rules/dialogue_yarn.gd` | The standing word authored as Yarn |
-| `scripts/rules/dialogue_locale.gd` | A locale key per line |
+| `scripts/rules/dialogue_locale.gd` | Locale keys, and the French tongue that ships |
 | `scripts/rules/yarn_*.gd` | Yarn parser, expression grammar, runner |
 | `scripts/map/map_play_court_voice.gd` | Reads the resolved turn, records its beats |
 
@@ -35,9 +34,8 @@ fought (the court that read the verdict answers it).
 Bookkeeping — subsidy, aid, colony status — is silent. Every seventh turn a
 known rival may slip a veiled word on its motive (DR-20261111-19).
 
-The crown's own turn speaks too: the closest watching rival for a finished study,
-the heaviest hostile host at the seat, a Tribe taken as a colony — read only by
-the recording crown
+The crown's own turn speaks too — a finished study, a hostile host at the seat, a
+Tribe taken as a colony — read only by the recording crown
 ([`DR-20261111-08`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-08)).
 
 ## Determinism
@@ -55,24 +53,26 @@ words and face (`REQ-P2-04`). No RNG.
 | Quality ≤ −0.5 | `irritated` / `dismissive` |
 | Otherwise | `calculating` / `considering` |
 
-Quality is the surplus over the offer's requirement, normalised by 40 and
+Quality is the surplus over the requirement, normalised by 40 and
 clamped to ±1.
 
 ## Yarn and localization
 
-The standing word is authored as Yarn (`DialogueYarn.SOURCE`): one node per
-point, titled with its content key, `category:`/`mood:` in its `tags:`;
-`DialogueCatalog` merges that table with its own. The subset: lines with `#tags`,
-`->` options with a `<<command>>`, `<<set>>`, `<<declare>>` (a default: a game-set
-variable keeps its value), `<<if>>`/`<<elseif>>`/`<<else>>`/`<<endif>>`,
-`<<jump>>`, `<<stop>>`, `{$variable}` interpolation; a malformed script is
-refused with its line number; a jump loop is bounded — a script cannot hang a
-refresh.
+The standing word is authored as Yarn (`DialogueYarn.SOURCE`): one node per point
+titled with its content key, `category:`/`mood:` in `tags:`; `DialogueCatalog`
+merges that table. The subset: `#tags`, `->`
+options with a `<<command>>`, `<<set>>`, `<<declare>>`, `<<if>>` /
+`<<elseif>>` / `<<else>>` / `<<endif>>`, `<<jump>>`, `<<stop>>` and
+`{$variable}`; a malformed script is refused with its line number and a jump loop
+is bounded.
 
 Each variant answers to `DialoguePoint/<point>/<variant>` through
-`TranslationServer`: a translation ships without code, an untranslated key falls
-back to the authored English (`REQ-P2-03`).
+`TranslationServer`; an untranslated key keeps the authored English
+(`REQ-P2-03`). One tongue ships: `assets/locales/fr.po` answers every variant in
+period French, `load_shipped()` registers it on the first line a court speaks, the
+reader's OS tongue decides, and CI holds the file to the catalogue.
 
 ## Deferred
 
-No `.po` on `main`; era change blocked. Ranked: [`deferred.md`](deferred.md).
+Era change blocked; a tongue picker after French. Ranked:
+[`deferred.md`](deferred.md).
