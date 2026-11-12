@@ -106,33 +106,35 @@ func test_the_plate_narrows_to_a_phone_viewport() -> void:
 
 
 ## Toasts stay readable: while the sheet is up they are pushed to the lane under
-## it, and the moment it goes they return to the top (REQ-P5-05).
+## it, and the moment it goes they return to the top (REQ-P5-05). A phone's
+## resting lane is not the atlas 84, so the plate gives back the lane's own top.
 func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
 	var host := ToastHost.new()
 	host.size = Vector2(1280, 800)
 	add_child(host)
-	host.despatches.build(host)
-	host.despatches.set_lane(GazettePlate.TOAST_LANE)
+	var lane := HudDespatches.new()
+	host.add_child(lane)
+	# A compact bar (56) + 6 is well above the atlas 84 the old plate assumed.
+	lane.fit(true, 56.0, 382.0)
+	var resting: float = lane.resting_top()
+	assert_eq(resting, 62.0)
 
 	var sheet_plate := GazettePlate.new()
+	sheet_plate.despatches = lane
 	host.add_child(sheet_plate)
 	sheet_plate.open_sheet(_sheet(3), GazetteState.new(), null, VIEWER)
 	# The lane follows the laid-out sheet, so let one layout pass settle.
 	await get_tree().process_frame
 	sheet_plate._fit()
-	assert_true(
-		host.despatches.box.offset_top > GazettePlate.TOAST_LANE,
-		"the lane drops below the sheet"
-	)
+	assert_true(lane.lane_top() > resting, "the lane drops below the sheet")
 	sheet_plate.dismiss()
-	assert_eq(host.despatches.box.offset_top, GazettePlate.TOAST_LANE, "the lane comes back")
+	assert_eq(lane.lane_top(), resting, "the lane comes back to its own top")
 	host.free()
 
 
-## A stand-in for the HUD: the plate only needs a despatch lane to exist.
+## A stand-in for the HUD: the plate only needs the despatch lane.
 class ToastHost:
 	extends Control
-	var despatches := HudDespatches.new()
 
 
 # --- helpers -----------------------------------------------------------------

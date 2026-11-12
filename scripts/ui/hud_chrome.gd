@@ -11,7 +11,7 @@ static func build(hud: GameHud) -> void:
 	_zoom(hud)
 	_lenses(hud)
 	_lens_key(hud)
-	_toasts(hud)
+	_despatches(hud)
 	_end_turn(hud)
 	HudDossiers.build(hud)
 	_tooltip(hud)
@@ -20,8 +20,11 @@ static func build(hud: GameHud) -> void:
 	_gazette_plate(hud)
 
 
-static func _toasts(hud: GameHud) -> void:
-	hud.despatches.build(hud)
+## The despatch lane owns its toast column, queue and geometry (HudDespatches);
+## the chrome only mounts it under the cartouche.
+static func _despatches(hud: GameHud) -> void:
+	hud.despatches = HudDespatches.new()
+	hud.add_child(hud.despatches)
 
 
 static func _minimap(hud: GameHud) -> void:
@@ -205,6 +208,8 @@ static func _quick_battle_plate(hud: GameHud) -> void:
 static func _gazette_plate(hud: GameHud) -> void:
 	hud.gazette_plate = GazettePlate.new()
 	hud.gazette_plate.z_index = 30
+	# The sheet pushes the despatch lane below its masthead while it is up.
+	hud.gazette_plate.despatches = hud.despatches
 	hud.add_child(hud.gazette_plate)
 	# A cartouche seal reopens the news, after the two lens seals on the rail.
 	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")

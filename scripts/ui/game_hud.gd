@@ -47,17 +47,18 @@ const BAR_HEIGHT_COMPACT: float = 56.0
 var panels: HudPanels = null
 ## Treasury, income and force counts; the plaques own their own copy (REQ-P1-02).
 var stats: HudStatChips = null
-## The court's toast lane and the news a battle plate holds back (REQ-P5-05).
+## The court's despatch lane: toast plates, their queue and the lane's geometry
+## (REQ-P5-05, REQ-P5-06). HudChrome mounts it.
 var despatches: HudDespatches = null
 ## The despatch column, read-only: HudDespatches owns it. The playtest drives
 ## count plates here, so the lane keeps one handle while the board moves.
 var _toast_box: VBoxContainer:
 	get:
-		return despatches.box if despatches != null else null
+		return despatches.lane if despatches != null else null
 ## News held behind a battle plate, read-only, oldest first (REQ-P5-06).
 var _toast_queue: PackedStringArray:
 	get:
-		return despatches.held() if despatches != null else PackedStringArray()
+		return despatches.waiting() if despatches != null else PackedStringArray()
 ## Survey key, shown only while the lens is on.
 var lens_legend: LensLegend = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
@@ -155,7 +156,6 @@ func _ready() -> void:
 	touch_ui = PlatformDisplay.is_handheld()
 	stats = HudStatChips.new()
 	panels = HudPanels.new()
-	despatches = HudDespatches.new()
 	HudChrome.build(self)
 	panels.bind(self)
 	resized.connect(_relayout)
@@ -202,17 +202,18 @@ func toast(text: String, icon_name: String = "") -> void:
 	# court would only churn nodes every turn (REQ-P4-04).
 	if not visible or despatches == null:
 		return
-	despatches.post(text, icon_name, is_quick_battle_shown())
+	despatches.toast(text, icon_name)
 
 
 ## The rules resolved one of the human's land battles as Quick Battle. Queue the
 ## plates so a multi-battle turn replays them one at a time, never stacked.
 func show_quick_battle(battle: Dictionary, province: String) -> void:
-	if quick_battle_overlay == null:
+	if quick_battle_overlay == null or despatches == null:
 		return
 	if quick_battle_overlay.is_shown():
 		_quick_queue.append({"battle": battle, "province": province})
 		return
+	despatches.set_covered(true)
 	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
 
 
@@ -322,7 +323,8 @@ func _on_quick_battle_finished() -> void:
 			next["battle"], String(next["province"]), FactionCatalog.names()
 		)
 		return
-	despatches.release()
+	# The turn's news waited for the last plate; raise it now, in its own order.
+	despatches.set_covered(false)
 
 
 func set_minimap(

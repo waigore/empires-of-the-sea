@@ -224,6 +224,42 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	_hud.toast(LINE, "silenced_gun")
 	assert_eq(_hud._toast_box.get_child_count(), 0)
 
+## A board with no lane still answers the read-only handles, and a missing
+## battle plate never queues a fight (REQ-P5-06).
+func test_a_lane_less_hud_stays_quiet() -> void:
+	_setup_hud_toast()
+	assert_not_null(_hud._toast_box)
+	assert_eq(_hud._toast_queue.size(), 0)
+	_hud.despatches = null
+	assert_null(_hud._toast_box)
+	assert_eq(_hud._toast_queue.size(), 0)
+	# The plate is still mounted: the guard's second term is what refuses.
+	_hud.show_quick_battle({"rounds": []}, "Flanders")
+	assert_true(_hud._quick_queue.is_empty())
+	_hud.quick_battle_overlay = null
+	_hud.show_quick_battle({"rounds": []}, "Flanders")
+	assert_true(_hud._quick_queue.is_empty())
+
+## News raised under a plate waits, the oldest lines drop past the cap, and
+## the last plate of the turn prints what remains (REQ-P5-06).
+func test_news_waits_out_the_plate_and_the_oldest_lines_drop() -> void:
+	_setup_hud_toast()
+	var battle := {"attacker": 0, "defender": 1, "outcome": 0}
+	_hud.show_quick_battle(battle, "Flanders")
+	assert_eq(_hud.despatches.box, _hud._toast_box)
+	_hud.toast("under the plate")
+	assert_eq(_hud._toast_queue.size(), 1)
+	assert_eq(_hud.despatches.waiting().size(), 1)
+	assert_eq(_hud.despatches.held().size(), 1)
+	for index in HudDespatches.TOAST_QUEUE_CAP + 2:
+		_hud.toast("news %d" % index)
+	assert_eq(_hud.despatches.held().size(), HudDespatches.TOAST_QUEUE_CAP)
+	assert_eq(String(_hud.despatches.held()[0]), "news 2", "the oldest lines go first")
+	_hud.quick_battle_overlay.skip()
+	_hud.quick_battle_overlay._on_continue()
+	assert_false(_hud.is_quick_battle_shown())
+	assert_gt(_hud._toast_box.get_child_count(), 0, "held news reaches the court")
+
 # --- test_panel_dock ---
 
 func test_defaults_to_right() -> void:
