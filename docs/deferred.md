@@ -20,7 +20,7 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Rival GP–Tribe first contact (+ deeds) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
 | Hospitals, rival builders, staff upkeep | `HospitalRules` / `AiHospitalWork` / `EconomyConsumption` |
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
-| Regiment titles, records, named commanders | `RegimentNames` / `RegimentRecord` / `GeneralNames` |
+| Regiment titles, records, commanders, renaming | `RegimentNames` / `RegimentRecord` / `GeneralNames` / `RegimentRename`, DR-20261113-05 |
 | Raid hull losses; rival-on-rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
@@ -28,7 +28,7 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 | Field-hospital trains (player + rival) | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
 | Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
-| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
+| Citations, decorations, despatch | `RegimentDecorations`, DR-20261112-10 |
 | Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
 | Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
