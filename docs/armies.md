@@ -24,7 +24,8 @@
   1.5–4.0 fights 0.6/0.4; mutual ruin restores `ceil(20%)` era-best infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
-  alone; winners gain a chevron; the wounded recover a quarter a turn.
+  alone; winners gain a chevron. A train marches with an army
+  ([field-hospital](field-hospital.md)).
 - **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18):
   a period title (unique in its army, kept through split and merge) and the
   engagements and wins tallied in the aftermath hook; printed in the dossier

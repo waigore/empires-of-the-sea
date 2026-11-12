@@ -13,6 +13,15 @@ const MAX_LEVEL: int = 2
 ## after the living, so a famine empties the wards before it empties the fields.
 const RATION_PER_LEVEL: int = 2
 
+## A field hospital **train** marches with one army (DR-20261112-07): tents and
+## a surgeon's chest, level 1 only, never a province record. Its nurses ride in
+## the army's own ration line, so the train eats with the men rather than in the
+## wards' separate pass.
+const TRAIN_REST_SHARE: float = 0.40
+const TRAIN_FOOD: int = 2
+const TRAIN_TECH: String = "organised_regiments"
+const TRAIN_COST: Dictionary = {"lumber": 2, "fabric": 1}
+
 ## Level 0 is a bare field. `rest_bonus` adds to RegimentCondition.REST_SHARE;
 ## `triage` is the share of battle wear the province's owner still takes.
 const LEVELS: Array[Dictionary] = [
@@ -109,6 +118,78 @@ static func rest_share_at(model: MapModel, province: int) -> float:
 
 static func triage_scale_at(model: MapModel, province: int) -> float:
 	return triage_scale(level_at(model, province))
+
+
+## The better of the province's ward and the army's own train, never both
+## (DR-20261112-07). A bare field with no train reads the field's quarter.
+static func army_rest_share(model: MapModel, province: int, train: bool) -> float:
+	var share: float = RegimentCondition.REST_SHARE
+	if model != null and province != MapModel.NO_ID:
+		share = maxf(share, rest_share_at(model, province))
+	if train:
+		share = maxf(share, TRAIN_REST_SHARE)
+	return share
+
+
+# --- field hospital train (DR-20261112-07) ------------------------------------
+
+
+static func train_cost() -> Dictionary:
+	return TRAIN_COST.duplicate()
+
+
+static func train_food() -> int:
+	return TRAIN_FOOD
+
+
+static func train_tech() -> String:
+	return TRAIN_TECH
+
+
+## Validation for pitching a train, so the dossier can name the refusal before
+## the crown taps. Pure: it spends nothing.
+static func train_check(
+	model: MapModel,
+	army: ArmyState,
+	tech_unlocked: Dictionary = {},
+	stockpile: Dictionary = {}
+) -> Dictionary:
+	if army == null:
+		return _refuse("There is no army to shelter.")
+	if army.field_hospital:
+		return _refuse("This army already carries a field hospital.")
+	if army.is_embarked():
+		return _refuse("Land the army before pitching its hospital.")
+	if army.is_empty():
+		return _refuse("An army with no regiments needs no surgeon.")
+	if model == null or army.province == MapModel.NO_ID:
+		return _refuse("The army is not on the map.")
+	if model.province_owner(army.province) != army.owner:
+		return _refuse("Tents are pitched on your crown's own land.")
+	if not bool(tech_unlocked.get(TRAIN_TECH, false)):
+		return _refuse("A field hospital needs %s." % TechCatalog.display_name(TRAIN_TECH))
+	for commodity: String in TRAIN_COST.keys():
+		if int(stockpile.get(commodity, 0)) < int(TRAIN_COST[commodity]):
+			return _refuse(
+				"A field hospital needs %d %s."
+				% [int(TRAIN_COST[commodity]), CommodityCatalog.label(commodity)]
+			)
+	return {"ok": true, "reason": ""}
+
+
+## Pitching the train: the army carries it from now on. The caller spends the
+## materials (REQ-P3-03).
+static func apply_train(army: ArmyState) -> void:
+	if army != null:
+		army.field_hospital = true
+
+
+## Dossier wording for an army that carries one, e.g.
+## "Field hospital train · rest 40% · staff 2 food".
+static func train_describe() -> String:
+	return "Field hospital train · rest %d%% · staff %d food" % [
+		roundi(TRAIN_REST_SHARE * 100.0), TRAIN_FOOD
+	]
 
 
 ## Applies a finished build: the province reaches the level that project was

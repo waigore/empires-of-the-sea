@@ -30,6 +30,9 @@ var regiment_honours: Dictionary = {}
 ## transport; DR-20261109-08). An embarked army has no province and never
 ## fights on land.
 var embarked_fleet: int = -1
+## Tents that march with the standard (DR-20261112-07): one per army, level 1
+## only, and the province record never knows it. Its nurses eat with the men.
+var field_hospital: bool = false
 
 
 static func create(
@@ -275,6 +278,11 @@ static func split(
 		source.remove_regiment(regiment_id)
 	armies.append(detached)
 	if not source.home and source.is_empty():
+		# The standard that is dropped paid for the train: it marches with the
+		# men who are left rather than vanishing with an empty roster
+		# (DR-20261112-07).
+		detached.field_hospital = source.field_hospital
+		source.field_hospital = false
 		armies.erase(source)
 	return {"ok": true, "reason": "", "army": detached}
 
@@ -301,6 +309,9 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 	for army: ArmyState in selected:
 		if army == target:
 			continue
+		## One train survives a combine: the larger staff absorbs the other
+		## (DR-20261112-07).
+		target.field_hospital = target.field_hospital or army.field_hospital
 		for regiment_id: String in army.regiments:
 			var data: Dictionary = army.condition_of(regiment_id)
 			target.add_regiment(regiment_id, army.type_of(regiment_id))
@@ -333,12 +344,16 @@ static func count_of(armies: Array[ArmyState], owner: int) -> int:
 	return total
 
 
-## Grain a faction's regiments eat every turn (wiki: combat § Feeding).
+## Grain a faction's regiments eat every turn (wiki: combat § Feeding). A field
+## hospital train's nurses ride in the same line, so a hungry larder starves the
+## train with the men rather than in a ward pass of its own (DR-20261112-07).
 static func food_upkeep_of(armies: Array[ArmyState], owner: int) -> int:
 	var total: int = 0
 	for army: ArmyState in armies:
 		if army == null or army.owner != owner:
 			continue
+		if army.field_hospital:
+			total += HospitalRules.train_food()
 		for regiment_id: String in army.regiments:
 			total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total
@@ -365,6 +380,7 @@ func to_dict() -> Dictionary:
 		"regiment_wins": regiment_wins.duplicate(),
 		"regiment_honours": regiment_honours.duplicate(),
 		"embarked_fleet": embarked_fleet,
+		"field_hospital": field_hospital,
 	}
 
 
@@ -376,6 +392,7 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.home = bool(data.get("home", false))
 	army.moved = bool(data.get("moved", false))
 	army.embarked_fleet = int(data.get("embarked_fleet", -1))
+	army.field_hospital = bool(data.get("field_hospital", false))
 	var names: Array[String] = []
 	for raw: Variant in data.get("regiments", []):
 		names.append(String(raw))

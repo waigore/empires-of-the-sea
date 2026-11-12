@@ -26,6 +26,7 @@ var _detach_all: Button = null
 var _merge: Button = null
 var _embark: Button = null
 var _plan: Button = null
+var _hospital: Button = null
 
 
 func _ready() -> void:
@@ -127,6 +128,14 @@ func _build() -> void:
 	_plan.visible = false
 	shell.add_child(_plan)
 
+	# The army's own tents (DR-20261112-07): a blocked order still shows, with
+	# the rules' reason as its caption, so the crown never hunts for a hidden
+	# refusal.
+	_hospital = UiRowBuilder.button("Pitch a field hospital", 36.0, 0.0)
+	_hospital.pressed.connect(func() -> void: action_pressed.emit("hospital"))
+	_hospital.visible = false
+	shell.add_child(_hospital)
+
 	_detach_all = UiRowBuilder.button("Detach all regiments", 36.0, 0.0)
 	_detach_all.pressed.connect(func() -> void: action_pressed.emit("detach_all"))
 	_detach_all.visible = false
@@ -169,7 +178,8 @@ func refresh(
 	command: String = "",
 	muster: Array[Dictionary] = [],
 	embark: String = "",
-	plan: String = "balanced"
+	plan: String = "balanced",
+	hospital: Dictionary = {}
 ) -> void:
 	if model == null or army == null:
 		return
@@ -190,10 +200,16 @@ func refresh(
 	if chevrons > 0:
 		_strength.text += " · %d chevrons" % chevrons
 	if not army.is_embarked():
-		var hospital: int = HospitalRules.effective_level(model, army.province)
-		if hospital > 0:
+		var ward: int = HospitalRules.effective_level(model, army.province)
+		if army.field_hospital:
+			# The army's own tents carry the field's tempo wherever it stands;
+			# a province ward still beats them (DR-20261112-07).
+			_strength.text += " · field hospital · rest %d%%" % roundi(
+				HospitalRules.army_rest_share(model, army.province, true) * 100.0
+			)
+		elif ward > 0:
 			_strength.text += " · rest %d%%" % roundi(
-				HospitalRules.rest_share(hospital) * 100.0
+				HospitalRules.rest_share(ward) * 100.0
 			)
 		elif HospitalRules.level_at(model, army.province) > 0:
 			# The ward is there but its staff went unfed (DR-20261112-04).
@@ -212,6 +228,9 @@ func refresh(
 	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
 	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
 	_plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan).capitalize()
+	_hospital.visible = is_player and not army.is_embarked() and not hospital.is_empty()
+	_hospital.disabled = not bool(hospital.get("ok", false))
+	_hospital.text = String(hospital.get("caption", "Pitch a field hospital"))
 	if not is_player:
 		_status.text = "Enemy colours · no orders"
 		_hint.text = "Observe only. Orders require your own army."

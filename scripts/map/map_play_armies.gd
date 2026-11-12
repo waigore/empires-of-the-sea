@@ -44,16 +44,40 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	var command: String = ""
 	var muster: Array[Dictionary] = []
 	var embark: String = ""
+	var hospital: Dictionary = {}
 	if is_player and play.economy != null and play.economy.economy != null:
 		command = play.army_layer.command_text(army)
 		if army.home:
 			muster = ArmyTraining.rows(play.economy.economy)
+		hospital = hospital_order(play, army)
 	if is_player:
 		embark = _embark_note(play, army)
 	play.hud.panels.show_army(
 		play.model, army, is_player, can_merge(play, army), command, muster, embark,
-		play.battle_plan
+		play.battle_plan, hospital
 	)
+
+
+## The dossier's field-hospital order: `{caption, ok}` or empty when the crown
+## has nothing to offer (no ledger, or the army already carries one). A blocked
+## order still shows, disabled, with the rules' own reason as its caption
+## (DR-20261112-07).
+static func hospital_order(play: PlaySession, army: ArmyState) -> Dictionary:
+	if army == null or play.model == null or army.field_hospital:
+		return {}
+	if play.economy == null or play.economy.economy == null:
+		return {}
+	var economy: PlayerEconomy = play.economy.economy
+	var check: Dictionary = HospitalRules.train_check(
+		play.model, army, economy.tech_unlocked, economy.stockpile
+	)
+	if not bool(check.get("ok", false)):
+		return {"caption": String(check.get("reason", "")), "ok": false}
+	var parts: PackedStringArray = PackedStringArray()
+	var cost: Dictionary = HospitalRules.train_cost()
+	for commodity: String in cost.keys():
+		parts.append("%d %s" % [int(cost[commodity]), CommodityCatalog.label(commodity)])
+	return {"caption": "Pitch a field hospital (%s)" % " · ".join(parts), "ok": true}
 
 
 ## A squadron in port here that can take the army aboard (wiki: ships-and-naval
@@ -145,6 +169,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		MapPlayArmyMuster.recruit(play, action.trim_prefix("recruit:"))
 	elif action == "plan:next":
 		cycle_plan(play, army)
+	elif action == "hospital":
+		MapPlayArmyMuster.pitch_hospital(play, army)
 
 
 ## One tap cycles the crown's Quick Battle plan; the dossier names it crown-wide

@@ -30,16 +30,16 @@ list for what to ship next (`REQ-P2-02`).
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
 | Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02, [`armies.md`](armies.md) |
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
+| Travelling field hospital train | `HospitalRules` train, DR-20261112-07, [`field-hospital.md`](field-hospital.md) |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
 | 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; AI uses published numbers |
-| 2 | Travelling field hospital | Mid/late land tempo | DR-20261111-12 / 12-04 |
-| 3 | Citations / decoration ladder / history page | Immersion; no rule yet | DR-20261112-02 after honours |
-| 4 | Multi-turn production recipes | Economy depth | wiki ([`economy.md`](economy.md)) |
-| 5 | Yarn runtime and localization | Dialogue authorship | wiki ([`dialogue.md`](dialogue.md)) |
+| 2 | Citations / decoration ladder / history page | Immersion; no rule yet | DR-20261112-02 after honours |
+| 3 | Multi-turn production recipes | Economy depth | wiki ([`economy.md`](economy.md)) |
+| 4 | Yarn runtime and localization | Dialogue authorship | wiki ([`dialogue.md`](dialogue.md)) |
 
 ## Next pick
 
