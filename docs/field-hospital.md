@@ -43,10 +43,17 @@ and is saved with the army. A split leaves it with the parent standard; when a
 detach empties a field army the train marches with the men who are left; a
 combine keeps one train if either army had one.
 
+## Rival courts
+
+A rival at war pitches under the same rule (`AiHospitalTrainWork`,
+DR-20261112-08): **one a turn**, paid from its own stockpile, for the wornest
+**field army** — never the Home Army — on its own land where the ground heals
+worse than 40%, under 80% of paper strength, with the tech and the price twice
+over. At peace none is pitched; the crown sees nothing.
+
 ## Deferred (REQ-P2-02)
 
-Rival trains — [`deferred.md`](deferred.md). General-grade and battle shelter
-wait on design (DR-20261112-07).
+General-grade and battle shelter wait on design (DR-20261112-07).
 
 ## Architecture
 
@@ -57,11 +64,13 @@ wait on design (DR-20261112-07).
 | `scripts/rules/army_movement.gd` | the turn-start rest tick |
 | `scripts/map/map_play_army_muster.gd` | the order: materials, then the flag |
 | `scripts/map/map_play_armies.gd` | the dossier's caption and the action door |
+| `scripts/ai/ai_hospital_train_work.gd` | the rival's pitch: which army, when |
 | `scripts/ui/army_panel.gd` | the strength line and the button |
 
 ## Tests
 
-`tests/test_land_battle_rules.gd` (the hospital and train cases).
+`tests/test_land_battle_rules.gd` (the hospital and train cases),
+`tests/test_ai_planner_rules.gd` (the rival's pitch and the observer log).
 
 ```bash
 gd-tools test --no-cache tests/test_land_battle_rules.gd
