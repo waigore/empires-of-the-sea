@@ -348,7 +348,12 @@ func test_the_treasury_count_counts_up_to_the_standing() -> void:
 	var hud: GameHud = _screen.hud
 	hud.set_treasury(0, false)
 	hud.set_treasury(1_200)
-	await get_tree().create_timer(0.8).timeout
+	# The chip tweens for 0.6 s; wait for the standing instead of a fixed sleep
+	# so a loaded worker is not held past the animation (playbook: no sleeps).
+	for _frame in 90:
+		if hud.stats.treasury_label.text == "1,200":
+			break
+		await get_tree().process_frame
 	assert_eq(hud.stats.treasury_label.text, "1,200")
 
 
