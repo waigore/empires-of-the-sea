@@ -1,12 +1,13 @@
 class_name RegimentNames
 extends RefCounted
 ## Every regiment in play bears a name (wiki: naming § Regiment names;
-## DR-20261111-18). Pure data and arithmetic: a muster christens the regiment
-## from its crown's period pool, walking past the names the army already wears
-## and then numbering a repeat, so the same crown, army and instance id always
-## christen the same regiment and a reloaded campaign speaks the same names
-## (REQ-P2-03, REQ-P3-03). The name is stored on the army, so a regiment keeps
-## it for the life of the save.
+## DR-20261111-18). Pure data and state: a muster christens the regiment from its
+## crown's period pool, walking past the names the army already wears and then
+## numbering a repeat, so the same crown, army and instance id always christen
+## the same regiment and a reloaded campaign speaks the same names (REQ-P2-03,
+## REQ-P3-03). The pick and the digest are NameRoster's; the pool is the army's
+## own. The name is stored on the army, so a regiment keeps it for the life of
+## the save.
 
 ## One period pool of regimental titles per Great Power, ASCII so it prints on
 ## every target size. Faction ids follow FactionCatalog: Spain, England, France,
@@ -106,19 +107,11 @@ const GENERIC: Array[String] = [
 	"Provincial Company",
 ]
 
-## A pool cycled past its last free name numbers the repeats: "The Buffs II".
-const ORDINALS: Array[String] = ["", " II", " III", " IV", " V", " VI", " VII", " VIII"]
-const HASH_OFFSET: int = 2166136261
-const HASH_PRIME: int = 16777619
-
 
 ## The pool a crown names its regiments from; unknown owners read the generic
 ## one.
 static func pool_for(owner: int) -> Array[String]:
-	var raw: Variant = POOLS.get(owner, GENERIC)
-	var pool: Array[String] = []
-	pool.assign(raw)
-	return pool
+	return NameRoster.pool_of(POOLS, GENERIC, owner)
 
 
 ## The name this regiment wears, read from the army's own record. A regiment
@@ -155,51 +148,12 @@ static func fill(army: ArmyState) -> void:
 ## past the names the army already wears; once the whole pool is in service the
 ## pick repeats with an ordinal (wiki: naming § Regiment names).
 static func mint(owner: int, army_id: int, regiment_id: String, taken: Array[String]) -> String:
-	var pool: Array[String] = pool_for(owner)
-	if pool.is_empty():
-		return "Unnamed"
-	var start: int = _hash("%d:%d:%s" % [owner, army_id, regiment_id]) % pool.size()
-	var index: int = start
-	for _step in pool.size():
-		var candidate: String = pool[index % pool.size()]
-		if not taken.has(candidate):
-			return candidate
-		index += 1
-	var base: String = pool[start % pool.size()]
-	for cycle in range(1, ORDINALS.size()):
-		var numbered: String = base + ORDINALS[cycle]
-		if not taken.has(numbered):
-			return numbered
-	return base + ORDINALS[ORDINALS.size() - 1]
+	return NameRoster.pick(
+		pool_for(owner), "%d:%d:%s" % [owner, army_id, regiment_id], taken, "Unnamed"
+	)
 
 
 ## Names this army already wears, leaving out `skip_id` (the regiment being
 ## christened, which carries no name yet).
 static func taken_names(army: ArmyState, skip_id: String = "") -> Array[String]:
-	var names: Array[String] = []
-	for regiment_id: String in army.regiments:
-		if regiment_id == skip_id:
-			continue
-		var name: String = String(army.regiment_names.get(regiment_id, ""))
-		if not name.is_empty():
-			names.append(name)
-	return names
-
-
-## Reads a saved title map; JSON keys arrive as strings.
-static func map_from(raw: Variant) -> Dictionary:
-	var mapped: Dictionary = {}
-	if raw is Dictionary:
-		for key: Variant in (raw as Dictionary).keys():
-			mapped[String(key)] = String((raw as Dictionary)[key])
-	return mapped
-
-
-## FNV-1a over the key, so a name never depends on Godot's own hashing (the
-## same arithmetic ShipNames uses, DR-20261111-07).
-static func _hash(text: String) -> int:
-	var value: int = HASH_OFFSET
-	for byte in text.to_utf8_buffer():
-		value = (value ^ int(byte)) * HASH_PRIME
-		value = value & 0xFFFFFFFF
-	return value
+	return NameRoster.taken_names(army.regiments, army.regiment_names, skip_id)

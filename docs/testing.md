@@ -9,7 +9,7 @@ Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are har
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate (`tests` / `e2e-smoke` in CI). Tier 2 does **not** block PRs. Failures open/update one sticky GitHub issue labeled `ci-tier2`; the **fix-tests** agent (hourly, gated on that label) fixes, PRs, babysits, and closes it.
+Tier 1 is the merge gate (`tests` / `e2e-smoke` in CI). Tier 2 does **not** block PRs; failures open one sticky `ci-tier2` issue the **fix-tests** agent fixes, PRs, babysits, and closes.
 
 Tier 2 shards because `gd-tools` boots one Godot process **per suite** and coverage instrumentation costs ~35 s before the first test, so one job is bounded by its suites. Shards run on separate runners; `coverage-gate` merges their coverage so the 80% gate spans the project.
 
@@ -25,22 +25,23 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
 - MapScreen suites use `tests/map_fixture.gd`: one cached small world per worker via `MapScreen.preset_world`.
-- That world is right-sized (44×32): the smallest that still validates a
-  `SaveCodec` slot and seats the turn-100 civilian tier. Screen and
-  campaign-plate suites share it instead of generating their own.
-- The terrain wash bakes once per map state (`MapWash.baked`), so mounting many
-  screens on that world repaints nothing.
+- That world is the smallest that still validates a `SaveCodec` slot and seats
+  the turn-100 civilian tier; screen and campaign-plate suites share it.
+- The terrain wash (`MapWash.baked`) and each grid's fog coast table
+  (`VisibilityModel`) build once per map state, so mounting many screens — or
+  six courts' charts — repaints nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars.
-- Attach a map screen lazily (`_attach()`) so rule-only cases in a screen suite
-  never pay for painting the chart; a case that reads the map asks for it.
+- Attach a map screen lazily (`_attach()`) so rule-only cases never pay for
+  painting the chart; a case that reads the map asks for it.
 - Do not regenerate large worlds in `before_each`. Profile with `gd-tools test --durations 20`.
-- Saving and loading is the hottest integration path: a preset world is reused by
-  `SaveCodec.restore` instead of regenerating, and suites that rewrite owners or
-  buy deeds snapshot it (`MapFixture.snapshot` / `restore`) rather than build a world.
-- One Godot boot per theme: a domain's boot-cheap cases share one *rules* suite
-  (`test_naval_rules`, `test_economy_rules`) instead of a file per helper; ~8 s of
-  instrumentation precedes every suite. Keep screen suites separate.
-- Prefer one mount per case; let long screen suites stand alone.
+- Saving/loading is the hottest path: `SaveCodec.restore` reuses a preset world,
+  and suites that rewrite owners or buy deeds snapshot it (`MapFixture.snapshot`
+  / `restore`).
+- One Godot boot per theme: related pure suites share one merged file (56
+  suites, not 129) because coverage instrumentation costs ~12 s per boot. Add a
+  case to the theme's file instead of a new suite.
+- Coverage adds a fixed ~35 s per worker, so a suite's wall time is mostly its
+  mounts. Prefer one mount per case; let long screen suites stand alone.
 - Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
@@ -48,7 +49,7 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 ```bash
 # Tier 1-shaped (changed files vs HEAD / base)
 python tools/select_impacted_tests.py --base origin/main --print-command
-gd-tools test --coverage --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
+gd-tools test --coverage --timeout 240 --parallel 4 $(python tools/select_impacted_tests.py --base origin/main | grep -v '^ALL$' | grep -v '^NONE$')
 gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 
 # Tier 2-shaped (one shard; CI runs all four, then merges coverage and gates 80%)

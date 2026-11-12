@@ -190,15 +190,18 @@ func refresh(
 	if chevrons > 0:
 		_strength.text += " · %d chevrons" % chevrons
 	if not army.is_embarked():
-		var hospital: int = HospitalRules.level_at(model, army.province)
+		var hospital: int = HospitalRules.effective_level(model, army.province)
 		if hospital > 0:
 			_strength.text += " · rest %d%%" % roundi(
 				HospitalRules.rest_share(hospital) * 100.0
 			)
+		elif HospitalRules.level_at(model, army.province) > 0:
+			# The ward is there but its staff went unfed (DR-20261112-04).
+			_strength.text += " · hospital unstaffed"
 	_command.text = command
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_fill_roster(army, is_player and not army.is_embarked())
+	_fill_roster(army, is_player and not army.is_embarked(), model)
 	_fill_muster(muster)
 	if not (is_player and army.home):
 		_muster_open = false
@@ -226,7 +229,7 @@ func refresh(
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
 
 
-func _fill_roster(army: ArmyState, is_player: bool) -> void:
+func _fill_roster(army: ArmyState, is_player: bool, model: MapModel) -> void:
 	for child in _roster.get_children():
 		child.queue_free()
 	for regiment_id: String in army.regiments:
@@ -253,7 +256,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
 		_add_condition(entry, army, regiment_id)
-		_add_record(entry, army, regiment_id)
+		_add_record(entry, army, regiment_id, model)
 		if not is_player:
 			continue
 		var detach := UiRowBuilder.button("Detach", 36.0, 0.0)
@@ -301,10 +304,13 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		entry.add_child(detail)
 
 
-## The engagements a regiment has stood in, under its condition. A green
-## regiment gains no line, so a fresh roster stays short (DR-20261111-18).
-func _add_record(entry: VBoxContainer, army: ArmyState, regiment_id: String) -> void:
-	var text: String = RegimentRecord.line(army, regiment_id)
+## The engagements a regiment has stood in and the honours on its colours, under
+## its condition. A green regiment gains no line, so a fresh roster stays short
+## (DR-20261111-18, DR-20261112-02).
+func _add_record(
+	entry: VBoxContainer, army: ArmyState, regiment_id: String, model: MapModel
+) -> void:
+	var text: String = RegimentRecord.line(army, regiment_id, model)
 	if text.is_empty():
 		return
 	var service := UiRowBuilder.line(10, Palette.GOLD_PALE)

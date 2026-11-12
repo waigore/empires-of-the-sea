@@ -244,7 +244,7 @@ func combine(army: ArmyState) -> Dictionary:
 
 
 func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
-	return ArmyCombat.armies_of(armies, province_id, owner)
+	return ArmyForce.armies_of(armies, province_id, owner)
 
 
 ## Musters one regiment into the faction's Home Army, keeping the marker in step.
