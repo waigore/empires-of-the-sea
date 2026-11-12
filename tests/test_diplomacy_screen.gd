@@ -95,7 +95,7 @@ func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 
 func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
 	assert_eq(_screen.play.diplomacy.relations_of(0).size(), 11)
-	assert_true(MapPlayDiplomacy.sync_first_contact(_screen.play).is_empty())
+	assert_true(MapPlayFirstContact.sync(_screen.play).is_empty())
 	_screen._cycle_region()
 	var province: ProvinceState = _tribe_province()
 	assert_not_null(province)
@@ -108,7 +108,7 @@ func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
 	visibility.raise_to(
 		visibility.model.index_of(tile.x, tile.y), VisibilityModel.Level.FOGGED
 	)
-	var contacted: Array[int] = MapPlayDiplomacy.sync_first_contact(_screen.play)
+	var contacted: Array[int] = MapPlayFirstContact.sync(_screen.play)
 	assert_true(contacted.has(province.owner))
 	assert_true(_screen.play.diplomacy.has_relation(0, province.owner))
 
@@ -235,8 +235,8 @@ func test_the_resolver_does_not_repeat_the_passes_news() -> void:
 	var play: PlaySession = _screen.play
 	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
-	MapPlayDiplomacy.mark_announced(play)
-	MapPlayDiplomacy.show_intervention(play)
+	MapPlayDiplomacyPending.mark_announced(play)
+	MapPlayDiplomacyPending.show_intervention(play)
 	assert_eq(_news_about("Genoa"), 0, "the panel adds no second despatch")
 
 

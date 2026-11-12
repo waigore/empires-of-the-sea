@@ -20,15 +20,15 @@ static func end_turn(play: PlaySession) -> void:
 	var human: int = play.human_faction_id()
 	if CallToArms.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_call(play)
+		MapPlayDiplomacyPending.show_call(play)
 		return
 	if Intervention.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_intervention(play)
+		MapPlayDiplomacyPending.show_intervention(play)
 		return
 	if DiplomacyProposals.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_offer(play)
+		MapPlayDiplomacyPending.show_offer(play)
 		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
@@ -127,13 +127,13 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 ## ladder. True when one did.
 static func _show_pending(play: PlaySession) -> bool:
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_call(play)
+		MapPlayDiplomacyPending.show_call(play)
 		return true
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_intervention(play)
+		MapPlayDiplomacyPending.show_intervention(play)
 		return true
 	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacy.show_offer(play)
+		MapPlayDiplomacyPending.show_offer(play)
 		return true
 	return false
 

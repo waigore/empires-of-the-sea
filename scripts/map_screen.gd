@@ -187,7 +187,7 @@ func _ready() -> void:
 		MapPlayAdvanced.begin(play)
 	if restored and target_region != play.region_index:
 		load_region(target_region)
-	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlayFirstContact.sync(play)
 	MapPlaySetup.build_diplomacy_lens(play)
 	_connect()
 	if restored:
@@ -277,7 +277,7 @@ func _cycle_region() -> void:
 		return
 	MapPlayInput.deselect(play)
 	load_region((play.region_index + 1) % play.world.region_count())
-	MapPlayDiplomacy.sync_first_contact(play)
+	MapPlayFirstContact.sync(play)
 	MapPlayDiplomacy.refresh(play)
 	camera.focus_on(MapPlaySetup.capital_world(play), maxf(camera.target_zoom, 0.75))
 	RegionBriefing.arrival(hud, play.model, play.region_index)

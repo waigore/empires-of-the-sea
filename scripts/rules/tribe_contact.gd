@@ -13,7 +13,7 @@ extends RefCounted
 ##
 ## Rival courts make this contact during turn resolution, once the fog pass has
 ## settled every chart, and hear no herald. The human court's relation and its
-## herald stay in the app layer (`MapPlayDiplomacy.sync_first_contact`), so this
+## herald stay in the app layer (`MapPlayFirstContact.sync`), so this
 ## pass skips that court outright and never runs it twice.
 ## Pure rules: charts and relations in, relations out (REQ-P2-03, REQ-P3-03).
 

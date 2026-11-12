@@ -176,13 +176,13 @@ static func refresh_after_load(play: PlaySession) -> void:
 	# open for the answer (wiki: diplomacy § Alliances § Mutual defence).
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_call(play)
+		MapPlayDiplomacyPending.show_call(play)
 	elif Intervention.has_pending(play.diplomacy, play.player_faction):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_intervention(play)
+		MapPlayDiplomacyPending.show_intervention(play)
 	elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_offer(play)
+		MapPlayDiplomacyPending.show_offer(play)
 	# A slot saved after the human crown fell re-mounts the defeat plate; the
 	# defeat variant wins over military and calendar endings (wiki: victory
 	# § Victory Screen, campaign-persistence § Load and resume).

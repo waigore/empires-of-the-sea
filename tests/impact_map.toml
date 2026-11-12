@@ -246,6 +246,21 @@ domain = "oob"
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "oob"
 
+# Rival diplomacy AI pass: keep with oob/ai so a context or absorb change
+# pulls naming + AiTurn suites, not the full diplomacy screen set.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_ai.gd*"
+domain = "oob"
+
+# Pending consent presentation and human first contact: court panel suites.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_pending.gd*"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/map/map_play_first_contact.gd*"
+domain = "diplomacy"
+
 [[rules]]
 match = "scripts/map/map_play_diplomacy.gd*"
 domain = "oob"
