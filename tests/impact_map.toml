@@ -134,8 +134,8 @@ suites = [
 [domains.fleet_dossier]
 suites = [
   "test_battle_rules.gd",
-  "test_difficulty.gd",
-  "test_economy_rules.gd",
+  "test_land_battle_rules.gd",
+  "test_market_economy_rules.gd",
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
 ]
