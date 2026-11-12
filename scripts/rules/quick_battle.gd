@@ -28,8 +28,8 @@ static func resolve_exchange(
 	further: bool,
 	context: Dictionary
 ) -> Dictionary:
-	var def_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, defender)
-	var atk_side: Array[ArmyState] = ArmyCombat.armies_of(armies, province, attacker)
+	var def_side: Array[ArmyState] = ArmyForce.armies_of(armies, province, defender)
+	var atk_side: Array[ArmyState] = ArmyForce.armies_of(armies, province, attacker)
 	## The side's commander is the primary army read before the rounds
 	## (wiki: military-armies § Battle grouping): its line and any medal agree.
 	var def_lead: ArmyState = ArmyCommand.primary(def_side)
@@ -60,8 +60,8 @@ static func resolve_exchange(
 	## A hospital in the province triages the defender's survivors: the same
 	## wear scale auto-resolve applies (DR-20261111-12).
 	state["defender"]["triage"] = HospitalRules.triage_scale_at(model, province)
-	var atk_start: int = ArmyCombat.side_regiments(atk_side)
-	var def_start: int = ArmyCombat.side_regiments(def_side)
+	var atk_start: int = ArmyForce.side_regiments(atk_side)
+	var def_start: int = ArmyForce.side_regiments(def_side)
 	## Lane split when the battle opened: casualties shrink the lanes as it runs.
 	var wall_start: int = SiegeLanes.wall_ids(def_side).size()
 	var behind_start: int = SiegeLanes.behind_ids(def_side).size()
@@ -69,13 +69,13 @@ static func resolve_exchange(
 	var def_types: Dictionary = _type_counts(def_side)
 	var rounds: Array[Dictionary] = []
 	for round_index in MAX_ROUNDS:
-		if ArmyCombat.side_regiments(atk_side) == 0:
+		if ArmyForce.side_regiments(atk_side) == 0:
 			break
-		if ArmyCombat.side_regiments(def_side) == 0:
+		if ArmyForce.side_regiments(def_side) == 0:
 			break
 		rounds.append(_round(armies, state, guns, round_index, context))
-	var atk_left: int = ArmyCombat.side_regiments(atk_side)
-	var def_left: int = ArmyCombat.side_regiments(def_side)
+	var atk_left: int = ArmyForce.side_regiments(atk_side)
+	var def_left: int = ArmyForce.side_regiments(def_side)
 	var guns_left: int = QuickBattleBattery.alive(guns)
 	var fort_downgraded: bool = QuickBattleBattery.downgrade_fort(
 		model, province, fort_level, guns
@@ -197,8 +197,8 @@ static func _round(
 	var log: Dictionary = {
 		"round": round_index + 1,
 		"actions": [] as Array[Dictionary],
-		"attacker_count": ArmyCombat.side_regiments(atk_side),
-		"defender_count": ArmyCombat.side_regiments(def_side),
+		"attacker_count": ArmyForce.side_regiments(atk_side),
+		"defender_count": ArmyForce.side_regiments(def_side),
 		"guns": QuickBattleBattery.alive(guns),
 		"terrain": String(state.get("terrain", "open")),
 	}
@@ -240,8 +240,8 @@ static func _round(
 					"hits": hits,
 					"mauled": hits.size(),
 				})
-	log["attacker_count"] = ArmyCombat.side_regiments(atk_side)
-	log["defender_count"] = ArmyCombat.side_regiments(def_side)
+	log["attacker_count"] = ArmyForce.side_regiments(atk_side)
+	log["defender_count"] = ArmyForce.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)
 	log["gates"] = int((state.get("gates", {}) as Dictionary).get("broken", 0))
 	## Condition after this round: the rail reads these, never a recomputation.
