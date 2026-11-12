@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited vs code, wiki and Design Records (2026-11-12, through #359).
+Audited vs code, wiki and Design Records (2026-11-12, through #364).
 What to ship next (`REQ-P2-02`).
 
 ## Already live
@@ -37,7 +37,7 @@ What to ship next (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; published numbers |
+| 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; DR-20261112-09 designed OOB, code not on main |
 | 2 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
 | 3 | Multi-turn production recipes | Economy depth | [`economy.md`](economy.md) |
 | 4 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
@@ -45,7 +45,8 @@ What to ship next (`REQ-P2-02`).
 ## Next pick
 
 **Rank 1** — rival OOB readings and rival-vs-rival fog (DR-20261110-21).
-Highest mid/late fidelity left; needs a tight design slice first.
+Highest mid/late fidelity left; DR-20261112-09 designs the OOB slice, but
+`OobReadings` is not on main yet.
 
 ## Out of scope / blocked footnotes
 
@@ -57,3 +58,4 @@ Highest mid/late fidelity left; needs a tight design slice first.
 - Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer (DR-20261111-28).
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
+- Per-region prospected table for discovery — still deferred (DR-20261110-21).
