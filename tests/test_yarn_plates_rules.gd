@@ -1,4 +1,660 @@
 extends GdToolsTest
+## One boot for yarn dialogue, symbol plates and espionage rules. Merged from
+## test_dialogue_yarn, test_symbol_plates and test_espionage so coverage pays
+## one instrumentation pass instead of three.
+
+# --- test_dialogue_yarn ---
+
+## The court's authored voice: the Yarn runtime that reads a script, the locale
+## keys a translation follows, and the standing word the panel shows (wiki:
+## dialogue-content-and-yarn; DR-20261113-01). Pure data in, lines out — no node
+## tree, no randomness.
+
+const SCRIPT: String = """
+// A gate, a set and two nodes: everything the runtime reads, in one program.
+title: gate
+tags: category:reactive mood:calculating
+---
+Will you sign? #firm
+<<if $score >= 80>>
+Warm.
+<<elseif $score >= 40>>
+Civil.
+<<else>>
+Cold.
+<<endif>>
+<<set $seen = true>>
+Seen: {$seen} at {$score + 1}.
+===
+
+title: signed
+tags: category:diplomatic mood:pleased
+---
+It is signed.
+===
+
+title: ask
+---
+Will you sign?
+-> Accept <<jump signed>> #bold
+-> Refuse
+===
+"""
+
+
+func _program() -> Dictionary:
+	return YarnScript.parse(SCRIPT)
+
+
+## Every beat the runner reads from one node, as plain text; options are listed
+## as `-> <text>` so a test can read the whole scene in order.
+func _read(source: String, node: String, vars: Dictionary = {}) -> Array[String]:
+	var program := YarnScript.parse(source)
+	var runner := YarnRunner.new(program, vars)
+	var beats: Array[String] = []
+	if not runner.start(node):
+		return beats
+	for _step in 40:
+		var beat: Dictionary = runner.advance()
+		if String(beat.get("kind", "")) == "line":
+			beats.append(String(beat["text"]))
+			continue
+		if String(beat.get("kind", "")) == "options":
+			for option: Variant in beat.get("options", []):
+				beats.append("-> %s" % String((option as Dictionary).get("text", "")))
+			runner.choose(0)
+			continue
+		break
+	return beats
+
+
+# --- the parser -------------------------------------------------------------
+
+func test_a_node_reads_its_title_tags_lines_and_options() -> void:
+	var program := _program()
+	assert_true(bool(program["ok"]), String(program.get("error", "")))
+	assert_eq(YarnScript.node_names(program), ["ask", "gate", "signed"] as Array[String])
+	var node: Dictionary = program["nodes"]["gate"]
+	assert_eq(node["tags"], ["category:reactive", "mood:calculating"] as Array[String])
+	var steps: Array = node["steps"]
+	assert_eq(String(steps[0]["kind"]), "line")
+	assert_eq(String(steps[0]["text"]), "Will you sign?")
+	assert_eq(steps[0]["tags"], ["firm"] as Array[String])
+	assert_eq(String(steps[1]["kind"]), "if")
+	var option_steps: Array = program["nodes"]["ask"]["steps"]
+	assert_eq(String(option_steps[1]["kind"]), "options")
+	assert_eq((option_steps[1]["options"] as Array).size(), 2, "two options, one group")
+	assert_eq(String(option_steps[1]["options"][0]["command"]), "jump signed")
+	assert_eq(String(option_steps[1]["options"][1]["command"]), "", "a bare option is silent")
+
+
+func test_a_body_that_never_ends_is_refused() -> void:
+	var broken := "title: gate\n---\nWill you sign?\n"
+	var program := YarnScript.parse(broken)
+	assert_false(bool(program["ok"]), "a node without === is refused")
+	assert_true(String(program["error"]).contains("gate"), String(program["error"]))
+
+
+func test_an_unclosed_condition_is_refused() -> void:
+	var broken := "title: gate\n---\n<<if $x>>\nYes.\n===\n"
+	var program := YarnScript.parse(broken)
+	assert_false(bool(program["ok"]))
+	assert_true(String(program["error"]).contains("endif"), String(program["error"]))
+
+
+func test_an_unreadable_condition_is_refused() -> void:
+	var broken := "title: gate\n---\n<<if $x ???>>\nYes.\n<<endif>>\n===\n"
+	assert_false(bool(YarnScript.parse(broken)["ok"]))
+
+
+func test_an_unknown_command_is_refused() -> void:
+	var broken := "title: gate\n---\n<<teleport somewhere>>\n===\n"
+	var program := YarnScript.parse(broken)
+	assert_false(bool(program["ok"]))
+	assert_true(String(program["error"]).contains("teleport"), String(program["error"]))
+
+
+func test_an_option_without_text_is_refused() -> void:
+	var broken := "title: gate\n---\n-> \n===\n"
+	assert_false(bool(YarnScript.parse(broken)["ok"]))
+
+
+func test_a_body_without_a_title_is_refused() -> void:
+	assert_false(bool(YarnScript.parse("---\nA line.\n===\n")["ok"]))
+
+
+func test_the_same_title_twice_is_refused() -> void:
+	var twice := "title: gate\n---\nA.\n===\ntitle: gate\n---\nB.\n===\n"
+	assert_false(bool(YarnScript.parse(twice)["ok"]))
+
+
+# --- expressions ------------------------------------------------------------
+
+func test_an_expression_reads_numbers_variables_and_flags() -> void:
+	var vars: Dictionary = {"score": 70, "flag": true, "name": "Lisboa"}
+	var cases: Dictionary = {
+		"$score >= 40 and $flag": true,
+		"not $flag or $score < 10": false,
+		"($score + 10) * 2 == 160": true,
+		"$score % 2 == 0": true,
+		"$name == 'Lisboa'": true,
+		"$missing": null,
+		"$score / 0": 0,
+		"not ($score < 40)": true,
+	}
+	for text: String in cases.keys():
+		var ast := YarnExpr.parse(text)
+		assert_false(ast.is_empty(), "'%s' parses" % text)
+		assert_eq(YarnExpr.evaluate(ast, vars), cases[text], "'%s' reads" % text)
+
+
+func test_a_malformed_expression_is_refused() -> void:
+	for text: String in ["$x ==", "1 +", "and 2", "($x", "unknown_word", "$", "'unclosed"]:
+		assert_true(YarnExpr.parse(text).is_empty(), "'%s' is refused" % text)
+
+
+func test_arithmetic_and_string_joins_read() -> void:
+	var vars: Dictionary = {"score": 70, "name": "Lisboa"}
+	var cases: Dictionary = {
+		"'a' + 'b' == 'ab'": true,
+		"-$score == -70": true,
+		"$score >= 70 and $score <= 70": true,
+		"$score != 71": true,
+		"2.5 + 0.5 == 3": true,
+		"'12' < 20": true,
+		"$score % 4 == 2": true,
+		"$name + '!' == 'Lisboa!'": true,
+	}
+	for text: String in cases.keys():
+		var ast := YarnExpr.parse(text)
+		assert_false(ast.is_empty(), "'%s' parses" % text)
+		assert_eq(YarnExpr.evaluate(ast, vars), cases[text], "'%s' reads" % text)
+	assert_true(YarnExpr.truthy("x"), "a non-empty string is true")
+	assert_false(YarnExpr.truthy(""), "an empty string is not")
+	assert_true(YarnExpr.truthy(1), "a number is true")
+	assert_false(YarnExpr.truthy(null), "a missing value is false")
+
+
+# --- the runner -------------------------------------------------------------
+
+func test_the_runner_speaks_lines_in_order() -> void:
+	assert_eq(
+		_read(SCRIPT, "signed"), ["It is signed."] as Array[String], "one line, one beat"
+	)
+
+
+func test_a_set_feeds_the_next_line() -> void:
+	assert_eq(
+		_read(SCRIPT, "gate", {"score": 50}),
+		["Will you sign?", "Civil.", "Seen: true at 51."] as Array[String],
+		"the set is read back through interpolation"
+	)
+
+
+func test_a_condition_picks_its_branch() -> void:
+	assert_eq(_read(SCRIPT, "gate", {"score": 90})[1], "Warm.", "the first branch")
+	assert_eq(_read(SCRIPT, "gate", {"score": 40})[1], "Civil.", "the elseif branch")
+	assert_eq(_read(SCRIPT, "gate", {"score": 1})[1], "Cold.", "the else branch")
+	assert_eq(
+		_read(SCRIPT, "gate", {})[1], "Cold.", "a variable a script never set is false"
+	)
+
+
+func test_an_option_group_waits_for_the_choice() -> void:
+	assert_eq(
+		_read(SCRIPT, "ask"),
+		["Will you sign?", "-> Accept", "-> Refuse", "It is signed."] as Array[String],
+		"choosing the jump continues in the other node"
+	)
+
+
+func test_an_option_nobody_wrote_is_refused() -> void:
+	var runner := YarnRunner.new(_program())
+	assert_true(runner.start("ask"))
+	assert_eq(String(runner.advance()["kind"]), "line")
+	assert_eq(String(runner.advance()["kind"]), "options")
+	assert_false(runner.choose(9), "an option nobody wrote is not taken")
+	assert_false(runner.at_end(), "the scene waits for a real answer")
+	assert_eq(String(runner.advance()["kind"]), "options", "the same options are still on offer")
+
+
+func test_a_jump_into_a_missing_node_is_reported() -> void:
+	var orphan := YarnScript.parse("title: gate\n---\n<<jump nowhere>>\n===\n")
+	var runner := YarnRunner.new(orphan)
+	assert_true(runner.start("gate"))
+	var beat: Dictionary = runner.advance()
+	assert_eq(String(beat["kind"]), "error")
+	assert_true(String(beat["error"]).contains("nowhere"), String(beat["error"]))
+
+
+func test_stop_ends_the_scene_without_the_lines_below_it() -> void:
+	var stopped := "title: gate\n---\nOne.\n<<stop>>\nTwo.\n===\n"
+	assert_eq(_read(stopped, "gate"), ["One."] as Array[String], "the stop is obeyed")
+
+
+func test_an_unknown_node_cannot_start() -> void:
+	assert_false(YarnRunner.new(_program()).start("no_such_node"))
+
+
+func test_a_declare_is_a_set() -> void:
+	var declared := "title: gate\n---\n<<declare $x = 2>>\nCount: {$x}.\n===\n"
+	assert_eq(_read(declared, "gate"), ["Count: 2."] as Array[String])
+
+
+func test_an_option_can_stop_the_scene() -> void:
+	var scene := "title: ask\n---\nSign?\n-> Enough <<stop>>\nUnsigned.\n===\n"
+	assert_eq(
+		_read(scene, "ask"), ["Sign?", "-> Enough"] as Array[String], "the stop ends the scene"
+	)
+
+
+func test_an_unreadable_interpolation_is_left_as_written() -> void:
+	var runner := YarnRunner.new(_program())
+	assert_eq(runner.interpolate("A {$ } line."), "A {$ } line.", "no expression, no fill")
+	assert_eq(runner.interpolate("A plain line."), "A plain line.")
+	assert_eq(runner.interpolate("An open {$score line."), "An open {$score line.")
+
+
+func test_the_runner_names_the_node_it_reads() -> void:
+	var runner := YarnRunner.new(_program())
+	assert_true(runner.start("signed"))
+	assert_eq(runner.node_name(), "signed")
+	assert_false(runner.at_end(), "a node just started is not ended")
+	runner.advance()
+	assert_true(runner.at_end(), "the last line ends it")
+
+
+# --- the court's standing word ---------------------------------------------
+
+func test_the_court_speaks_its_standing_word_from_yarn() -> void:
+	var program := DialogueYarn.program()
+	assert_true(bool(program.get("ok", false)), "the authored source parses")
+	assert_eq(
+		DialogueYarn.points(),
+		[
+			"reactive/standing_alliance", "reactive/standing_cold",
+			"reactive/standing_friendly", "reactive/standing_neutral",
+			"reactive/standing_war",
+		] as Array[String],
+		"one node per band, keyed as a point"
+	)
+	for point: String in DialogueYarn.points():
+		assert_eq(DialogueYarn.category_for(point), DialogueCatalog.CAT_REACTIVE, point)
+		assert_true(DialogueYarn.lines_for(point).size() >= 2, "%s repeats less" % point)
+		assert_false(DialogueYarn.moods_for(point).is_empty(), "%s wears a face" % point)
+		for mood: Variant in DialogueYarn.moods_for(point):
+			assert_true(DialogueMood.MOODS.has(String(mood)), "%s wears a real face" % point)
+
+
+func test_the_standing_word_is_stable_and_inside_its_variants() -> void:
+	for point: String in DialogueYarn.points():
+		var lines: Array = DialogueYarn.lines_for(point)
+		for salt: int in [0, 7, 131, 1000002]:
+			var spoken: String = DialogueYarn.line_for(point, salt)
+			assert_true(lines.has(spoken), "%s speaks one of its lines" % point)
+			assert_eq(spoken, DialogueYarn.line_for(point, salt), "the same salt, the same word")
+
+
+func test_the_merged_catalogue_keeps_every_point() -> void:
+	assert_eq(
+		DialogueCatalog.table().size(),
+		DialogueCatalog.POINTS.size() + DialogueEpisodes.POINTS.size()
+		+ DialogueAgendaLines.POINTS.size() + DialogueYarn.points().size(),
+		"the merged catalogue loses no point"
+	)
+	for point: String in DialogueYarn.points():
+		assert_true(DialogueCatalog.has_point(point), "%s is reachable" % point)
+		assert_eq(DialogueCatalog.lines_for(point), DialogueYarn.lines_for(point), point)
+
+
+func test_an_unknown_point_speaks_nothing() -> void:
+	assert_eq(DialogueYarn.line_for("reactive/standing_unknown", 0), "")
+	assert_eq(DialogueCatalog.line_for("reactive/standing_unknown", 0), "")
+	assert_false(DialogueYarn.has_point("reactive/standing_unknown"))
+	assert_eq(DialogueYarn.category_for("reactive/standing_unknown"), "")
+	assert_eq(DialogueYarn.lines_for("reactive/standing_unknown"), [])
+	assert_eq(DialogueYarn.moods_for("reactive/standing_unknown"), [])
+
+
+func test_a_line_outside_a_node_is_refused() -> void:
+	var stray := "title: gate\n---\nA.\n===\nA stray line.\n"
+	var program := YarnScript.parse(stray)
+	assert_false(bool(program["ok"]))
+	assert_true(String(program["error"]).contains("stray"), String(program["error"]))
+
+
+func test_a_jump_without_a_node_is_refused() -> void:
+	assert_false(bool(YarnScript.parse("title: gate\n---\n<<jump>>\n===\n")["ok"]))
+
+
+func test_an_option_command_that_is_not_closed_is_refused() -> void:
+	var broken := "title: gate\n---\n-> Accept <<jump signed\n===\n"
+	assert_false(bool(YarnScript.parse(broken)["ok"]))
+
+
+# --- localization keys ------------------------------------------------------
+
+func test_a_line_carries_a_stable_translation_key() -> void:
+	assert_eq(
+		DialogueLocale.line_key("reactive/standing_cold", 1),
+		"DialoguePoint/reactive/standing_cold/1",
+		"the key names the point and the variant"
+	)
+
+
+func test_an_untranslated_key_falls_back_to_the_authored_line() -> void:
+	assert_eq(
+		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
+		"We have little to say.",
+		"the source language is never lost"
+	)
+	assert_true(DialogueLocale.locales().has(DialogueLocale.SOURCE_LOCALE))
+
+
+func test_the_locale_can_be_switched_and_read_back() -> void:
+	DialogueLocale.set_locale("fr")
+	assert_eq(DialogueLocale.locale(), "fr", "the game reads the locale it was given")
+	DialogueLocale.set_locale("  ")
+	assert_eq(DialogueLocale.locale(), "fr", "an empty code changes nothing")
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_translation_overrides_the_authored_line() -> void:
+	var table := Translation.new()
+	table.locale = "fr"
+	table.add_message(DialogueLocale.line_key("reactive/standing_cold", 0), "Nous n'avons rien a dire.")
+	TranslationServer.add_translation(table)
+	DialogueLocale.set_locale("fr")
+	assert_eq(
+		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
+		"Nous n'avons rien a dire."
+	)
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_cold", 0), "Nous n'avons rien a dire.",
+		"the court's own line reads the translation"
+	)
+	assert_eq(
+		DialogueLocale.line("reactive/standing_cold", 1, "Our clerks record your name."),
+		"Our clerks record your name.",
+		"a variant with no translation keeps the source"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	TranslationServer.remove_translation(table)
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_cold", 0),
+		"We have little to say to your court.",
+		"the source line comes back"
+	)
+# --- test_symbol_plates ---
+
+## One boot for the drawn plates: tech, commodity and unit icons and the map's
+## symbol stamp.
+
+## Merged from test_tech_icons, test_commodity_icons, test_unit_icons,
+## test_map_symbols.
+## One Godot boot (coverage instrumentation) per theme instead of one per file.
+## Each test runs only its own suite's setup; teardown follows the setup.
+
+const KINDS: Array[String] = [
+	"mountain", "hill", "tree", "scrub", "dune", "reed", "grass", "field",
+	"port", "capital", "town",
+]
+
+# --- test_tech_icons ---
+
+func test_every_catalog_tech_names_a_series() -> void:
+	var missing: Array[String] = []
+	for tech_id: String in TechCatalog.ids():
+		if TechIcons.series_of(tech_id).is_empty():
+			missing.append(tech_id)
+	assert_eq(missing.size(), 0, "techs without a plate: %s" % ", ".join(missing))
+
+func test_every_series_ships_a_texture() -> void:
+	var missing: Array[String] = []
+	for tech_id: String in TechCatalog.ids():
+		if TechIcons.texture(tech_id) == null:
+			missing.append(TechIcons.series_of(tech_id))
+	assert_eq(missing.size(), 0, "plates missing from assets/art/tech: %s" % ", ".join(missing))
+
+func test_a_chain_shares_one_plate() -> void:
+	assert_eq(TechIcons.series_of("crop_rotation"), TechIcons.series_of("land_enclosure"))
+	assert_eq(TechIcons.series_of("sugar_planting"), TechIcons.series_of("sugar_industry"))
+
+func test_a_long_chain_may_grow_a_grander_plate() -> void:
+	assert_ne(TechIcons.series_of("saw_mill"), TechIcons.series_of("circular_saw"))
+
+func test_an_unknown_tech_has_no_plate() -> void:
+	assert_eq(TechIcons.series_of("no_such_tech"), "")
+	assert_null(TechIcons.texture("no_such_tech"))
+
+func test_no_plate_is_listed_twice() -> void:
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for tech_id: String in TechIcons.covered_ids():
+		if seen.has(tech_id):
+			clashes.append(tech_id)
+		seen[tech_id] = true
+	assert_eq(clashes.size(), 0, "techs claimed by two plates: %s" % ", ".join(clashes))
+
+# --- test_commodity_icons ---
+
+func test_every_catalog_commodity_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for id: String in CommodityCatalog.all_ids():
+		if CommodityIcons.texture(id) == null:
+			missing.append(id)
+	assert_eq(missing.size(), 0, "goods with no plate: %s" % ", ".join(missing))
+
+func test_two_goods_never_share_one_plate() -> void:
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for id: String in CommodityCatalog.all_ids():
+		var art: Texture2D = CommodityIcons.texture(id)
+		if art == null:
+			continue
+		if seen.has(art.resource_path):
+			clashes.append("%s/%s" % [seen[art.resource_path], id])
+		seen[art.resource_path] = id
+	assert_eq(clashes.size(), 0, "goods sharing a plate: %s" % ", ".join(clashes))
+
+func test_an_unknown_good_has_no_plate() -> void:
+	assert_null(CommodityIcons.texture("no_such_good"))
+	assert_null(CommodityIcons.texture(""))
+
+func test_a_badge_draws_the_good_at_the_row_size() -> void:
+	var badge: Control = CommodityIcons.badge("grain")
+	var art: TextureRect = badge as TextureRect
+	assert_not_null(art, "a known good draws a texture")
+	assert_eq(art.texture, CommodityIcons.texture("grain"))
+	assert_eq(art.custom_minimum_size, Vector2(CommodityIcons.ROW_SIZE, CommodityIcons.ROW_SIZE))
+	badge.free()
+
+func test_a_missing_plate_leaves_a_gap_of_the_same_width() -> void:
+	var gap: Control = CommodityIcons.badge("no_such_good", 18)
+	assert_null(gap as TextureRect, "a missing plate is not a texture")
+	assert_eq(gap.custom_minimum_size, Vector2(18, 18), "the row keeps its columns")
+	gap.free()
+
+func test_a_name_cell_keeps_the_column_width() -> void:
+	var cell: HBoxContainer = CommodityIcons.cell("timber", 132.0)
+	assert_eq(cell.custom_minimum_size.x, 132.0, "the cell owns the column width")
+	var labels: Array[Node] = cell.find_children("*", "Label", true, false)
+	assert_eq(labels.size(), 1, "one label per cell")
+	assert_eq((labels[0] as Label).text, CommodityCatalog.label("timber"))
+	var art: Array[Node] = cell.find_children("*", "TextureRect", true, false)
+	assert_eq(art.size(), 1, "the medallion rides inside the cell")
+	assert_eq((art[0] as TextureRect).texture, CommodityIcons.texture("timber"))
+	cell.free()
+
+## The plate is 128 px so it survives the phone's 3× draw scale.
+func test_a_plate_is_a_128_px_source() -> void:
+	var art: Texture2D = CommodityIcons.texture("coal")
+	assert_not_null(art)
+	assert_eq(art.get_width(), 128)
+	assert_eq(art.get_height(), 128)
+
+# --- test_unit_icons ---
+
+func test_every_worker_type_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for type_id: String in CivilianCatalog.ORDER:
+		if CivilianArt.medallion(type_id) == null:
+			missing.append(type_id)
+	assert_eq(missing.size(), 0, "workers without a plate: %s" % ", ".join(missing))
+
+func test_every_hull_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for type_id: Variant in ShipStats.STATS.keys():
+		if ShipArt.medallion(String(type_id)) == null:
+			missing.append(String(type_id))
+	assert_eq(missing.size(), 0, "hulls without a plate: %s" % ", ".join(missing))
+
+func test_every_regiment_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for type_id: String in RegimentCatalog.ids():
+		if RegimentArt.medallion(type_id) == null:
+			missing.append(type_id)
+	assert_eq(missing.size(), 0, "regiments without a plate: %s" % ", ".join(missing))
+
+## Unique icons, not one plate reused under several names: every type resolves
+## a file of its own.
+func test_no_two_types_share_one_plate() -> void:
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for type_id: String in _every_type():
+		var texture: Texture2D = _plate(type_id)
+		var path: String = texture.resource_path if texture != null else ""
+		if seen.has(path):
+			clashes.append("%s = %s" % [type_id, String(seen[path])])
+		seen[path] = type_id
+	assert_eq(clashes.size(), 0, "types sharing a plate: %s" % ", ".join(clashes))
+
+func test_an_unknown_hull_falls_back_to_the_default_plate() -> void:
+	assert_eq(
+		ShipArt.medallion("no_such_hull").resource_path,
+		ShipArt.medallion(ShipStats.DEFAULT_TYPE).resource_path
+	)
+	assert_eq(
+		RegimentArt.medallion("no_such_regiment").resource_path,
+		RegimentArt.medallion(RegimentCatalog.DEFAULT_TYPE).resource_path
+	)
+
+func test_an_unknown_worker_has_no_plate() -> void:
+	assert_null(CivilianArt.medallion("no_such_worker"))
+
+## The row widget wears the plate at its own size, mipmapped, and a missing
+## plate leaves a gap of the same width so the row's columns do not shift.
+func test_the_row_widget_draws_the_plate_it_is_given() -> void:
+	var plate: Texture2D = ShipArt.medallion("frigate")
+	var medallion: UnitMedallion = UnitMedallion.of_ship("frigate", 40.0)
+	assert_eq(medallion.texture, plate)
+	assert_eq(medallion.custom_minimum_size, Vector2(40.0, 40.0))
+	assert_eq(medallion.size_flags_vertical, Control.SIZE_SHRINK_CENTER)
+	assert_eq(medallion.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	assert_eq(medallion.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS)
+	add_child(medallion)
+	medallion.queue_free()
+	var bare := UnitMedallion.new(null, 20.0)
+	assert_null(bare.texture)
+	assert_eq(bare.custom_minimum_size, Vector2(20.0, 20.0), "an absent plate keeps its width")
+	add_child(bare)
+	bare.queue_free()
+
+func test_a_regiment_medallion_names_its_own_type() -> void:
+	var medallion: UnitMedallion = UnitMedallion.of_regiment("grenadiers")
+	assert_eq(medallion.texture, RegimentArt.medallion("grenadiers"))
+	assert_eq(medallion.custom_minimum_size, Vector2(28.0, 28.0))
+
+func _every_type() -> Array[String]:
+	var all: Array[String] = []
+	all.append_array(CivilianCatalog.ORDER)
+	for type_id: Variant in ShipStats.STATS.keys():
+		all.append(String(type_id))
+	all.append_array(RegimentCatalog.ids())
+	return all
+
+func _plate(type_id: String) -> Texture2D:
+	if CivilianCatalog.known(type_id):
+		return CivilianArt.medallion(type_id)
+	if ShipStats.known(type_id):
+		return ShipArt.medallion(type_id)
+	return RegimentArt.medallion(type_id)
+
+# --- test_map_symbols ---
+
+func test_every_planned_kind_has_a_painted_stamp() -> void:
+	for kind: String in KINDS:
+		var tex: Texture2D = MapSymbols.texture(kind)
+		assert_not_null(tex, "%s has no painted stamp" % kind)
+		assert_gt(tex.get_width(), 63, "%s is drawn from a downscaled source" % kind)
+
+func test_unknown_kind_has_no_stamp() -> void:
+	assert_null(MapSymbols.texture("nonesuch"))
+
+## The stamp falls back to the ink vectors rather than drawing nothing.
+func test_stamp_refuses_a_kind_it_has_no_art_for() -> void:
+	assert_false(MapSymbols.stamp(_probe(), {"kind": "nonesuch", "position": Vector2.ZERO, "size": 20.0}))
+	assert_false(MapSymbols.stamp(_probe(), {"kind": "tree", "position": Vector2.ZERO, "size": 0.0}))
+
+## A scattered province uses more than one sprite, so a range is not one stamp.
+func test_terrain_mountains_take_several_variants() -> void:
+	var seen: Dictionary = {}
+	for i in 40:
+		var at := Vector2(float(i) * 37.0, float(i) * 91.0)
+		seen[MapSymbols.texture("mountain", at)] = true
+	assert_gt(seen.size(), 1, "a mountain range repeats one sprite")
+
+func test_stamp_draws_a_scenery_mark() -> void:
+	var drawn: bool = await _draw_mark({
+		"kind": "tree", "position": Vector2(30, 30), "size": 18.0, "flip": true,
+	})
+	assert_true(drawn, "the painted stamp drew instead of falling back")
+
+func test_stamp_draws_a_town() -> void:
+	assert_true(await _draw_mark({"kind": "town", "position": Vector2(64, 64), "size": 20.0}))
+
+## The capital flies its owner's pennant, and still draws when nobody holds it.
+func test_capital_stamp_covers_owner_and_neutral() -> void:
+	assert_true(await _draw_mark({
+		"kind": "capital", "position": Vector2(90, 90), "size": 24.0, "owner": 2,
+	}))
+	assert_true(await _draw_mark({
+		"kind": "capital", "position": Vector2(120, 120), "size": 24.0,
+		"owner": MapModel.NO_ID,
+	}))
+
+func test_ship_uses_a_painted_hull() -> void:
+	var tex: Texture2D = MapSymbols.texture("ship")
+	assert_not_null(tex, "the fleet has no painted hull")
+	assert_eq(tex.get_width(), 256)
+
+func _probe() -> _StampProbe:
+	return _StampProbe.new()
+
+## Drawing is only legal inside `_draw`, so the probe's own draw runs the stamp
+## and the test reads its result after a rendered frame.
+func _draw_mark(glyph: Dictionary) -> bool:
+	var probe := _probe()
+	probe.name = "StampProbe"
+	probe.glyph = glyph
+	add_child(probe)
+	probe.queue_redraw()
+	await get_tree().process_frame
+	var drawn: bool = probe.result
+	probe.queue_free()
+	return drawn
+
+class _StampProbe:
+	extends Node2D
+
+	var glyph: Dictionary = {}
+	var result: bool = false
+
+	func _draw() -> void:
+		result = MapSymbols.stamp(self, glyph)
+# --- test_espionage ---
+
 ## Espionage rules (wiki: civilian-units § Spy, research-state § Spy RP boost,
 ## diplomacy § Spy-death penalty) and the rival AI's spy/research policy.
 
