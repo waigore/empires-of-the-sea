@@ -1663,6 +1663,11 @@ domain = "fleet"
 match = "scripts/ui/court_dossier*.gd*"
 domain = "intel"
 
+# The open court's detail block (orders, herald, chronicle) is the same sheet.
+[[rules]]
+match = "scripts/ui/court_detail_block.gd*"
+domain = "intel"
+
 [[rules]]
 match = "scripts/ui/diplomacy_panel.gd"
 domain = "intel"
