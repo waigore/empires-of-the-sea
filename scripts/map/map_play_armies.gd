@@ -73,11 +73,7 @@ static func hospital_order(play: PlaySession, army: ArmyState) -> Dictionary:
 	)
 	if not bool(check.get("ok", false)):
 		return {"caption": String(check.get("reason", "")), "ok": false}
-	var parts: PackedStringArray = PackedStringArray()
-	var cost: Dictionary = HospitalTrain.cost()
-	for commodity: String in cost.keys():
-		parts.append("%d %s" % [int(cost[commodity]), CommodityCatalog.label(commodity)])
-	return {"caption": "Pitch a field hospital (%s)" % " · ".join(parts), "ok": true}
+	return {"caption": "Pitch a field hospital (%s)" % HospitalTrain.price_text(), "ok": true}
 
 
 ## A squadron in port here that can take the army aboard (wiki: ships-and-naval

@@ -128,9 +128,8 @@ func _build() -> void:
 	_plan.visible = false
 	shell.add_child(_plan)
 
-	# The army's own tents (DR-20261112-07): a blocked order still shows, with
-	# the rules' reason as its caption, so the crown never hunts for a hidden
-	# refusal.
+	# The army's own tents (DR-20261112-07): a blocked order still shows, its
+	# reason as the caption, so the crown never hunts for a hidden refusal.
 	_hospital = UiRowBuilder.button("Pitch a field hospital", 36.0, 0.0)
 	_hospital.pressed.connect(func() -> void: action_pressed.emit("hospital"))
 	_hospital.visible = false
@@ -202,11 +201,14 @@ func refresh(
 	if not army.is_embarked():
 		var ward: int = HospitalRules.effective_level(model, army.province)
 		if army.field_hospital:
-			# The army's own tents carry the field's tempo wherever it stands;
-			# a province ward still beats them (DR-20261112-07).
+			# The tents carry the field's tempo anywhere; a fed ward can still
+			# beat them, so both shares are named (DR-20261112-07).
 			_strength.text += " · field hospital · rest %d%%" % roundi(
-				HospitalTrain.army_rest_share(model, army.province, true) * 100.0
+				HospitalTrain.REST_SHARE * 100.0
 			)
+			var ward_share: float = HospitalRules.rest_share(ward)
+			if ward > 0 and ward_share > HospitalTrain.REST_SHARE:
+				_strength.text += " · ward %d%%" % roundi(ward_share * 100.0)
 		elif ward > 0:
 			_strength.text += " · rest %d%%" % roundi(
 				HospitalRules.rest_share(ward) * 100.0
@@ -345,9 +347,7 @@ func _add_service_line(entry: VBoxContainer, text: String, color: Color) -> void
 
 func _food(army: ArmyState) -> int:
 	var total: int = 0
-	# A train's nurses eat inside the army's own upkeep line, so the strength
-	# line counts them with the men (wiki: combat § Regiment condition;
-	# DR-20261112-07).
+	# A train's nurses eat inside the army's own upkeep line (DR-20261112-07).
 	if army.field_hospital:
 		total += HospitalTrain.food()
 	for regiment_id: String in army.regiments:
