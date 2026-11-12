@@ -817,6 +817,12 @@ domain = "economy"
 match = "tests/playtest_capital_move.gd*"
 domain = "land_turn"
 
+# The field-train drive reads the dossier, the turn-start rest, the rations,
+# split/combine and the save, so it travels with the army suites.
+[[rules]]
+match = "tests/playtest_field_train.gd*"
+domain = "army"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]
