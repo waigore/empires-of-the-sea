@@ -28,9 +28,18 @@ static func production_orders(
 	var weight: int = maxi(config.parameter("economy.recipe_weight"), 1)
 	var stock: Dictionary = economy.stockpile.duplicate()
 	var labour: int = economy.workers.labour()
+	# A batch already in the workshop counts toward the target: the court must
+	# not keep assigning alloy runs that are still serving their turns
+	# (DR-20261112-11).
+	var in_flight: Dictionary = {}
+	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+		var made: String = ProductionRecipes.output(recipe_id)
+		in_flight[made] = int(in_flight.get(made, 0)) + economy.wip_units(recipe_id)
 	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
 		var output: String = ProductionRecipes.output(recipe_id)
-		var deficit: int = maxi(target - int(stock.get(output, 0)), 0)
+		var deficit: int = maxi(
+			target - int(stock.get(output, 0)) - int(in_flight.get(output, 0)), 0
+		)
 		var score: int = _score(output, deficit, weight)
 		candidates.append({
 			"recipe": recipe_id,

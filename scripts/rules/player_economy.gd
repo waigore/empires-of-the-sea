@@ -39,6 +39,10 @@ var tech_unlocked: Dictionary:
 	set(value):
 		research.unlocked = value
 var _assignments: Array[Dictionary] = []
+## Workshop carried between turns: recipe id -> array of batches
+## {"units", "turns_left"} still serving their turns (DR-20261112-11). Inputs and
+## labour were paid when each batch started; only the output is outstanding.
+var production_wip: Dictionary = {}
 
 
 static func starting() -> PlayerEconomy:
@@ -139,6 +143,30 @@ func assigned_labour() -> int:
 	return total
 
 
+# --- workshop ----------------------------------------------------------------
+
+
+## Units of this recipe started on an earlier turn whose output has not landed.
+func wip_units(recipe_id: String) -> int:
+	return ProductionRecipes.in_flight(production_wip, recipe_id)
+
+
+## Phases the oldest batch of this recipe still has to serve; 0 when idle.
+func wip_turns(recipe_id: String) -> int:
+	var most: int = 0
+	for raw: Variant in (production_wip.get(recipe_id, []) as Array):
+		if typeof(raw) == TYPE_DICTIONARY:
+			most = maxi(most, int((raw as Dictionary).get("turns_left", 0)))
+	return most
+
+
+func wip_total() -> int:
+	var total: int = 0
+	for recipe_id: Variant in production_wip.keys():
+		total += ProductionRecipes.in_flight(production_wip, String(recipe_id))
+	return total
+
+
 # --- workers -----------------------------------------------------------------
 
 
@@ -209,6 +237,7 @@ func copy() -> PlayerEconomy:
 	clone.navy_feeding = navy_feeding
 	clone.research = research.copy()
 	clone._assignments = _assignments.duplicate(true)
+	clone.production_wip = production_wip.duplicate(true)
 	return clone
 
 
@@ -227,6 +256,7 @@ func snapshot() -> Dictionary:
 			"goal": research.goal,
 		},
 		"assignments": _assignments.duplicate(true),
+		"production_wip": production_wip.duplicate(true),
 	}
 
 
@@ -253,6 +283,32 @@ func apply_snapshot(data: Dictionary) -> void:
 		var units: int = int(entry.get("units", 0))
 		if not recipe_id.is_empty() and units > 0:
 			_assignments.append({"recipe": recipe_id, "units": units})
+	production_wip = _read_wip(data.get("production_wip", {}))
+
+
+## The workshop a save carries; a recipe the catalogue no longer knows, a batch
+## with no units, or a batch already served is dropped rather than trusted.
+func _read_wip(data: Variant) -> Dictionary:
+	var out: Dictionary = {}
+	if typeof(data) != TYPE_DICTIONARY:
+		return out
+	for raw_recipe: Variant in (data as Dictionary).keys():
+		var recipe_id: String = String(raw_recipe)
+		if not ProductionRecipes.known(recipe_id):
+			continue
+		var batches: Array = []
+		for raw_batch: Variant in ((data as Dictionary)[raw_recipe] as Array):
+			if typeof(raw_batch) != TYPE_DICTIONARY:
+				continue
+			var batch: Dictionary = raw_batch
+			var units: int = int(batch.get("units", 0))
+			var turns_left: int = int(batch.get("turns_left", 0))
+			if units <= 0 or turns_left <= 0:
+				continue
+			batches.append({"units": units, "turns_left": turns_left})
+		if not batches.is_empty():
+			out[recipe_id] = batches
+	return out
 
 
 ## Research, slots included, is restored by ResearchSlots: it drops entries the

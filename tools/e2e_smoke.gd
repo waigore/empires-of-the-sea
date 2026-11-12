@@ -651,6 +651,12 @@ func _smoke_end_turn(
 		screen.economy.economy.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
+	# A two-turn alloy names its wait on the row, so a phone player is not left
+	# wondering why the stockpile did not move (DR-20261112-11).
+	var production_body: Node = screen.hud.panels.economy_panel.page_body(
+		EconomyPanel.TAB_PRODUCTION
+	)
+	_check(_has_text(production_body, "2t"), "the alloy rows name their two-turn wait")
 	screen.hud.panels.hide_economy()
 	_check(not screen.hud.panels.is_economy_open(), "ledger closes")
 	_check(
