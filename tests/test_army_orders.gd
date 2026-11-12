@@ -198,6 +198,24 @@ func test_refused_register_orders_keep_the_armies() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+## A blooded regiment prints its service record under its condition; a green one
+## adds no line (wiki: naming § Regiment records; DR-20261111-18).
+func test_roster_rows_carry_a_service_record_once_blooded() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	army.regiment_engagements["unit_301"] = 3
+	army.regiment_wins["unit_301"] = 2
+
+	panel.refresh(model, army, true)
+
+	var entry: VBoxContainer = panel._roster.get_child(0)
+	var record: Label = entry.get_child(entry.get_child_count() - 1)
+	assert_eq(String(record.text), "3 engagements · 2 won")
+	panel.free()
+
+
 ## The dossier's one battle-plan tap is a crown-wide standing order, named so it
 ## is not mistaken for this army's (wiki: quick-battle § The crown's plan;
 ## DR-20261110-33; REQ-P5-03).
@@ -426,7 +444,13 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	var roster: VBoxContainer = panel._roster
 	assert_eq(roster.get_child_count(), 2, "one row per regiment")
 	var first: VBoxContainer = roster.get_child(0)
-	assert_eq((first.get_child(0).get_child(0) as Label).text, "Guards")
+	var name_row: HBoxContainer = first.get_child(0)
+	assert_true(name_row.get_child(0) is UnitMedallion, "the type's medallion leads the row")
+	assert_eq(
+		(name_row.get_child(1) as Label).text,
+		"%s — Guards" % RegimentNames.of(army, "unit_301"),
+		"the row names the regiment, then its type (DR-20261111-18)"
+	)
 	var detail: Label = first.get_child(1)
 	assert_eq(detail.text, RegimentCatalog.detail_line("guards"))
 	assert_true(detail.text.contains("FPN 12"), detail.text)
@@ -443,7 +467,11 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	panel.refresh(model, army, false)
 
 	var row: VBoxContainer = panel._roster.get_child(0)
-	assert_eq((row.get_child(0) as HBoxContainer).get_child_count(), 1, "no detach order")
+	assert_eq(
+		(row.get_child(0) as HBoxContainer).get_child_count(),
+		2,
+		"medallion and name, no detach order"
+	)
 	assert_true((row.get_child(1) as Label).text.contains("Spear cavalry"))
 	assert_true(String(panel._status.text).contains("Enemy colours"))
 	panel.free()
@@ -505,8 +533,8 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(
 		(row.get_child(0) as HBoxContainer).get_child_count(),
-		1,
-		"no detach order while aboard"
+		2,
+		"medallion and name, no detach order while aboard"
 	)
 	assert_true(String(panel._status.text).contains("Aboard the fleet"))
 	panel.free()
@@ -566,4 +594,23 @@ func test_a_rivals_research_raises_its_generals_at_the_combat_phase() -> void:
 
 	assert_eq(play.army_layer.generals.count(rival), 2, "organised_regiments lands a second")
 	assert_eq(play.army_layer.generals.medals(rival, "general_2"), 0)
+
+
+## The drill yard leads each row with its regiment's own plate, so a muster
+## reads like the roster above it (tools/art/unit-medallions.md).
+func test_drill_yard_rows_carry_their_medallion() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(12, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{"type_id": "grenadiers", "name": "Grenadiers", "ok": true, "cost_text": "13,000 cash", "reason": ""},
+	]
+
+	panel.refresh(model, army, true, false, "", muster)
+
+	var top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
+	assert_true(top.get_child(0) is UnitMedallion, "the plate leads the drill-yard row")
+	assert_eq((top.get_child(1) as Label).text, "Grenadiers")
+	panel.free()
 

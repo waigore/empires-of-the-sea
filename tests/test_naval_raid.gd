@@ -739,3 +739,231 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 		MapPlayFleetMissions.prize_note(play, blockader).contains("at sea")
 	)
 	economy.free()
+
+
+# --- rival-on-rival raids + prize cargo (DR-20261111-20) ----------------------
+
+
+## A wired one-region play session: the crown's ledger plus the rival ledgers a
+## prize raid writes to. `fleets` is the region roster every pass reads.
+func _session(fleets: Array[FleetState]) -> PlaySession:
+	var play := PlaySession.new()
+	play.model = _model
+	play.player_faction = 0
+	play.capital_province = 0
+	play.turn = 1
+	play.map_seed = 1
+	play.ai = AiState.new()
+	play.diplomacy = DiplomacyState.new()
+	var ships := ShipLayer.new()
+	ships.model = _model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_model)
+	play.world = world
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	return play
+
+
+## First seed where `raider`'s prize roll on `victim` lands: cargo comes aboard
+## and the hull draw misses (or hits), as the test asks.
+func _seed_for_prize(
+	play: PlaySession, raider: FleetState, home: FleetState, victim: int, sink_hull: bool
+) -> void:
+	var salt: int = NavalRaid.PRIZE_TAG_BASE + victim
+	var hull_salt: int = NavalRaid.HULL_PRIZE_TAG_BASE + victim
+	var chance: float = NavalRaid.trade_chance([raider], home, raider.mission)
+	var hull_chance: float = NavalRaid.hull_loss_chance(home)
+	while true:
+		var cargo: float = NavalInterception.roll(
+			play.map_seed, play.turn, raider.sea_zone, raider.owner, salt
+		)
+		var hull: float = NavalInterception.roll(
+			play.map_seed, play.turn, raider.sea_zone, raider.owner, 0, hull_salt
+		)
+		if cargo < chance and (hull < hull_chance) == sink_hull:
+			return
+		play.map_seed += 1
+
+
+## The other coast belongs to a rival, and the rival's blockade pays the rival:
+## the crown is not a party to the war and takes neither cargo nor a despatch.
+func test_a_rival_blockade_lands_its_prize_in_the_rival_ledger() -> void:
+	_model.province_data(0).owner = 2
+	var blockader := _fleet(1, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var laden := FleetState.in_port(20, 2, 0, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _session([blockader, laden])
+	play.diplomacy.ensure_relation(1, 2, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 1, 2, false)
+	play.economy.market.record_import("grain", 6, 2)
+	var victim: PlayerEconomy = play.ledger_for(2)
+	victim.add("grain", 6)
+	var victim_before: int = victim.quantity("grain")
+	var raider: PlayerEconomy = play.ledger_for(1)
+	var raider_before: int = raider.quantity("grain")
+	var crown_before: int = play.economy.economy.quantity("grain")
+	_seed_for_prize(play, blockader, laden, 2, false)
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	var prize: int = int(result.get("rival_prize", 0))
+	assert_gt(prize, 0, "a rival's blockade takes a rival's cargo")
+	assert_eq(raider.quantity("grain"), raider_before + prize, "the prize is the raider's")
+	assert_eq(victim.quantity("grain"), victim_before - prize, "and it leaves the victim's stockpile")
+	assert_eq(
+		play.economy.economy.quantity("grain"), crown_before,
+		"the crown was never a party to that war"
+	)
+	assert_true((result["reports"] as Array).is_empty(), "no despatch to a stranger")
+	var rival_raids: Array = result["rival_raids"] as Array
+	assert_eq(rival_raids.size(), 1)
+	var raid: Dictionary = rival_raids[0] as Dictionary
+	assert_eq(String(raid["kind"]), "rival")
+	assert_eq(int(raid["raider"]), 1)
+	assert_eq(int(raid["victim"]), 2)
+	assert_eq(laden.hulls.size(), 1, "the hull draw missed this turn")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+func test_two_rivals_at_peace_take_no_prize() -> void:
+	_model.province_data(0).owner = 2
+	var blockader := _fleet(1, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var laden := FleetState.in_port(20, 2, 0, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _session([blockader, laden])
+	play.diplomacy.ensure_relation(1, 2, 1)
+	play.economy.market.record_import("grain", 6, 2)
+	play.ledger_for(2).add("grain", 6)
+	var raider: PlayerEconomy = play.ledger_for(1)
+	var raider_before: int = raider.quantity("grain")
+	var victim_before: int = play.ledger_for(2).quantity("grain")
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_eq(int(result.get("rival_prize", 0)), 0)
+	assert_eq(raider.quantity("grain"), raider_before, "peace takes no prize")
+	assert_eq(play.ledger_for(2).quantity("grain"), victim_before, "the rival keeps its cargo")
+	assert_eq(laden.hulls.size(), 1)
+	assert_true((result["rival_raids"] as Array).is_empty())
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## The same raid that skims cargo can send the victim's merchant down, and the
+## hull leaves the rival's home fleet without a peasant or a coin returned.
+func test_a_rival_prize_sinks_the_victims_merchant_hull() -> void:
+	_model.province_data(0).owner = 2
+	var blockader := _fleet(1, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var laden := FleetState.in_port(20, 2, 0, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _session([blockader, laden])
+	play.diplomacy.ensure_relation(1, 2, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 1, 2, false)
+	play.economy.market.record_import("grain", 6, 2)
+	play.ledger_for(2).add("grain", 6)
+	_seed_for_prize(play, blockader, laden, 2, true)
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_gt(int(result.get("rival_prize", 0)), 0, "her cargo went with her")
+	assert_eq(laden.hulls.size(), 0, "the rival's merchant is gone")
+	var raid: Dictionary = (result["rival_raids"] as Array)[0] as Dictionary
+	assert_eq((raid["hulls_lost"] as Array).size(), 1)
+	assert_true(
+		String(((raid["hulls_lost"] as Array)[0] as Dictionary)["name"]).length() > 0,
+		"a rival's loss still carries the ship's name"
+	)
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## The crown suffers one raid a turn through `_incoming`; a rival's blockade off
+## its coast is never also a prize raid writing into the rival's ledger.
+func test_the_crown_is_never_a_rivals_prize() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var raider := _fleet(2, 1, 0, ["frigate"])
+	raider.mission = FleetState.Mission.PATROL
+	var play := _session([home, raider])
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	play.economy.economy.add("grain", 20)
+	play.economy.market.record_import("grain", 4, 0)
+	var rival: PlayerEconomy = play.ledger_for(1)
+	var rival_before: int = rival.quantity("grain")
+	var crown_before: int = play.economy.economy.quantity("grain")
+	var cargo_chance: float = NavalRaid.trade_chance(
+		[raider], home, FleetState.Mission.PATROL
+	)
+	var hull_chance: float = NavalRaid.hull_loss_chance(home)
+	while NavalInterception.roll(play.map_seed, 1, 0, 1, NavalRaid.ROLL_TAG) >= cargo_chance \
+			or NavalInterception.roll(
+				play.map_seed, 1, 0, 1, 0, NavalRaid.HULL_TAG
+			) < hull_chance:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	var taken: int = int(result.get("taken", 0))
+	assert_gt(taken, 0, "the crown loses the one raid its coast suffers")
+	assert_eq(play.economy.economy.quantity("grain"), crown_before - taken)
+	assert_eq(rival.quantity("grain"), rival_before, "the raider took no prize off the crown")
+	assert_true((result["rival_raids"] as Array).is_empty())
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## Two crowns blockading one coast each take their own prize: the rolls are
+## salted per raider and the tonnage lands in each raider's own ledger.
+func test_two_blockades_share_the_victims_cargo_apart() -> void:
+	var crown := _fleet(1, 0, 1, ["sloop"])
+	crown.mission = FleetState.Mission.BLOCKADE
+	crown.blockade_province = 1
+	var rival := _fleet(2, 2, 1, ["sloop"])
+	rival.mission = FleetState.Mission.BLOCKADE
+	rival.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _session([crown, rival, laden])
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	play.diplomacy.ensure_relation(2, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 2, 1, false)
+	play.economy.market.record_import("grain", 6, 1)
+	var victim: PlayerEconomy = play.ledger_for(1)
+	victim.add("grain", 6)
+	var victim_before: int = victim.quantity("grain")
+	var partner: PlayerEconomy = play.ledger_for(2)
+	var partner_before: int = partner.quantity("grain")
+	var crown_before: int = play.economy.economy.quantity("grain")
+	var salt: int = NavalRaid.PRIZE_TAG_BASE + 1
+	var hull_salt: int = NavalRaid.HULL_PRIZE_TAG_BASE + 1
+	var chance: float = NavalRaid.trade_chance([crown], laden, FleetState.Mission.BLOCKADE)
+	var hull_chance: float = NavalRaid.hull_loss_chance(laden)
+	while NavalInterception.roll(play.map_seed, 1, 1, 0, salt) >= chance \
+			or NavalInterception.roll(play.map_seed, 1, 1, 2, salt) >= chance \
+			or NavalInterception.roll(play.map_seed, 1, 1, 0, 0, hull_salt) < hull_chance \
+			or NavalInterception.roll(play.map_seed, 1, 1, 2, 0, hull_salt) < hull_chance:
+		play.map_seed += 1
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	var prize: int = int(result.get("prize", 0))
+	var rival_prize: int = int(result.get("rival_prize", 0))
+	assert_gt(prize, 0, "the crown's blockade pays the crown")
+	assert_gt(rival_prize, 0, "the rival's blockade pays the rival")
+	assert_eq(play.economy.economy.quantity("grain"), crown_before + prize)
+	assert_eq(partner.quantity("grain"), partner_before + rival_prize)
+	assert_eq(victim.quantity("grain"), victim_before - prize - rival_prize)
+	assert_eq(laden.hulls.size(), 1, "both hull draws missed")
+	play.ship_layer.free()
+	play.economy.free()

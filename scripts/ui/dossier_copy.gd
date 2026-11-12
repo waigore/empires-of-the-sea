@@ -10,6 +10,26 @@ const TOWN_TIP: String = (
 	+ " town are capped by its level; level 2 or 4 adds town manufacturing."
 )
 
+## A Minor or Tribe town has no Builder to call on: only a Merchant's deed in
+## that land raises it (wiki: civilian-units § Merchant; DR-20261112-01). The
+## tip must name the path the province on screen actually offers (REQ-P2-03).
+const DEED_TOWN_TIP: String = (
+	"A Merchant's deed raises this town, one level per tile bought in the"
+	+ " province. Level 2 or 4 adds town manufacturing; your Builder may not"
+	+ " work another crown's land."
+)
+
+
+## The town row's tip for the province being read: a Builder in a Great Power's
+## own land, a Merchant's deed in a Minor or Tribe province.
+static func town_tip(province: ProvinceState) -> String:
+	if province == null:
+		return TOWN_TIP
+	var kind: int = FactionCatalog.type_of(province.owner)
+	if kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE:
+		return DEED_TOWN_TIP
+	return TOWN_TIP
+
 
 ## What the roads actually buy: developed estates that reach the crown. A count
 ## of tiles tells the player nothing on its own (wiki: capital-and-connectivity).

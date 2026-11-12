@@ -154,8 +154,13 @@ static func health_line(battle: Dictionary, names: Array) -> String:
 			continue
 		var listed: PackedStringArray = PackedStringArray()
 		for entry: Dictionary in entries:
+			## A survivor is named by the title it wears; a regiment saved
+			## before names existed still prints its type (DR-20261111-18).
+			var label: String = String(entry.get("name", ""))
+			if label.is_empty():
+				label = RegimentCatalog.display_name(String(entry.get("type", "")))
 			listed.append("%s %d%%" % [
-				RegimentCatalog.display_name(String(entry.get("type", ""))),
+				label,
 				roundi(float(entry.get("fraction", 1.0)) * 100.0),
 			])
 		parts.append("%s: %s" % [
@@ -179,6 +184,25 @@ static func chevron_line(battle: Dictionary, names: Array) -> String:
 	if parts.is_empty():
 		return ""
 	return "Chevrons — " + " · ".join(parts)
+
+
+## The field's name added to a winning side's colours once (DR-20261112-02).
+## Empty when no colour was bare enough to take it, so a repeat win adds no line.
+static func honour_line(battle: Dictionary, province_name: String, names: Array) -> String:
+	if province_name.is_empty():
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var gained: int = int(battle.get(key + "_honours", 0))
+		if gained <= 0:
+			continue
+		parts.append("%s: %s added to %d colour%s" % [
+			faction(int(battle.get(key, -1)), names), province_name,
+			gained, "" if gained == 1 else "s",
+		])
+	if parts.is_empty():
+		return ""
+	return "Honours — " + " · ".join(parts)
 
 
 ## Up to three survivors under full strength, worst first.

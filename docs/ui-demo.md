@@ -2,7 +2,7 @@
 
 Player-facing map UI: antique-atlas look, animated world, and the input model.
 
-**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war), P3 (boundaries), P4 (latency, draw cost). Province, civilian, estate, ledger and court orders are live; economy and diplomacy resolve per turn.
+**Pillars:** P1 (presentation, animation, desktop+mobile), P2 (fog-of-war), P3 (boundaries), P4 (latency, draw cost). Province, civilian, estate, ledger and court orders are live.
 
 ## Controls
 
@@ -16,12 +16,15 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Focus capital | `F` / `Home` | CAPITAL |
 | End turn | `Space` / `Enter`, gold seal | gold seal |
 | Back | `Esc` deselects | system back closes the top layer, then quits |
+| Lenses | `L` survey, `P` court, `R` crown road, `K` defence | rail seals |
 
 Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit.
+One lens at a time: the defence reading prints each charted province's published
+garrison strength, its wall's guns and its hospital.
 
 ## Phone layout
 
-On handhelds `PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to compact chrome and thumb targets. `test_mobile_layout.gd` pins it.
+`PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to compact chrome. `test_mobile_layout.gd` pins it.
 
 ## Architecture
 
@@ -38,6 +41,7 @@ scripts/map/map_glyphs.gd   ink symbols (fallback)
 scripts/map/map_symbols.gd  painted stamps (assets/art/map)
 scripts/map/map_ground.gd   scrub, furrow and tuft marks (pure)
 scripts/map/map_overlay.gd  borders, hover, selection
+scripts/map/defence_lens.gd  garrison / wall / hospital slips (DefenceSurvey)
 scripts/map/fog_layer.gd    fog texture layer
 scripts/map/map_camera.gd   pan / zoom / inertia / clamp
 scripts/map/camera_math.gd  pure camera maths (tested)
@@ -57,11 +61,11 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, three Minor Nations; New World: ten Tribes. One seed reproduces both (`test_map_generator.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_map_generator.gd`).
 
-**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged; sea zones touching an owned coast are visible. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
+**Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 
-**Rendering:** `MapRelief` bakes the ground six texels per tile (owner wash, sand beach, shoal and sounding lines, painted drift, finer relief); `terrain.gdshader` adds hillshade, contours, hachures and paper tooth. Coast, province and country ink is traced, rounded and then wobbled along its normal (`InkPaths.hand`) so no boundary reads as a grid step; **borders above fog**; painted glyph stamps; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink, repainting on chart or crown changes.
+**Rendering:** `MapRelief` bakes the ground six texels per tile (owner wash, sand beach, shoal and sounding lines, painted drift, finer relief); `terrain.gdshader` adds hillshade, contours, hachures and paper tooth. Coast, province and country ink is traced, rounded and then wobbled along its normal (`InkPaths.hand`) **borders above fog**; painted glyph stamps; “Passage” marks; sea/grain/vignette shaders. The minimap bakes a texel per tile plus projected ink, repainting on chart or crown changes.
 
 ## Animation & performance
 
@@ -73,13 +77,13 @@ ui/shaders/*                sea, fog, grain, vignette
 | Fleet bob / wake / pennant | `scripts/map/ship.gd` |
 | Fleet sail glide / dock anchor | `ShipLayer`, `Ship` |
 | Camera intro / inertia / zoom | `MapCamera`, `MapScreen._intro` |
-| HUD slides, counts, toasts | `GameHud` |
+| HUD slides, counts, toasts | `GameHud` (`HudStatChips`, `HudDespatches`) |
 
 Build ~0.9 s (128×84), a third of it the relief bake. Static canvas once; settled fog still; overlay + ships per frame.
 
 ## Known limits
 
-Capitals follow the capital-choice rule. Province, civilian, estate, fleet,
+Province, civilian, estate, fleet,
 stations, beachhead, warp and colonisation are rules-backed
 ([`fleets.md`](fleets.md), [`world.md`](world.md)). Remaining gaps:
 [`deferred.md`](deferred.md).

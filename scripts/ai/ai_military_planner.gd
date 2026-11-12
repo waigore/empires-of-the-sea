@@ -134,7 +134,7 @@ static func _can_storm(
 	army: ArmyState,
 	province: int
 ) -> bool:
-	var defenders: Array[ArmyState] = ArmyCombat.armies_of(
+	var defenders: Array[ArmyState] = ArmyForce.armies_of(
 		armies, province, model.province_owner(province)
 	)
 	if defenders.is_empty():
@@ -142,7 +142,7 @@ static func _can_storm(
 	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
-	return attack > ArmyCombat.side_strength(defenders) * margin
+	return attack > ArmyForce.side_strength(defenders) * margin
 
 
 ## Value of a province to a court: population, its seat, its resources and its

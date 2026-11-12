@@ -26,6 +26,10 @@ var fort_level: int = 0
 ## Hospital level 0–2 (wiki: combat § Regiment condition; DR-20261111-12).
 ## Rest share and battle wear derive from it.
 var hospital_level: int = 0
+## Whether the hospital's staff ate this turn (wiki: combat § Regiment
+## condition; DR-20261112-04). An unstaffed hospital keeps its walls but heals
+## at the field's rate. Always true for a province with no hospital.
+var hospital_staffed: bool = true
 var resource: int = MapModel.NO_ID
 var resource_tile: Vector2i = Vector2i(-1, -1)
 var population: int = 0

@@ -2,10 +2,11 @@ class_name MapPlayRaids
 extends RefCounted
 ## End-of-turn raid pass, both ways (wiki: ships-and-naval § Trade and Transport
 ## Interception; DR-20261111-17). Hostile patrols and blockades off the crown's
-## coast pinch its imports and may sink one of its merchant hulls; the crown's
-## own stations take rival cargo and merchant hulls as prize. Rules stay in
+## coast pinch its imports and may sink one of its merchant hulls; every crown's
+## own stations take cargo and merchant hulls as prize — the crown's at the
+## player's court, a rival's at its own (DR-20261111-20). Rules stay in
 ## NavalRaid/NavalHullLoss (including the sink); this applies the cargo to the
-## ledgers, marks the map and reports them (REQ-P3-02, REQ-P3-03).
+## ledgers, marks the map and reports the crown's raids (REQ-P3-02, REQ-P3-03).
 
 ## Despatch lines per turn; the rest collapse into one summary.
 const MAX_REPORTS: int = 4
@@ -18,22 +19,35 @@ static func resolve(play: PlaySession) -> Dictionary:
 		return {}
 	var reports: Array[Dictionary] = []
 	var incoming: Dictionary = _incoming(play)
-	var prizes: Array[Dictionary] = _prizes(play)
+	# The crown's raids reach its own despatch; two rivals' raids are theirs
+	# alone, so they pay the raider's ledger and stay off the crown's page
+	# (DR-20261111-20).
+	var ours: Array[Dictionary] = []
+	var rivals: Array[Dictionary] = []
+	for raid: Dictionary in _prizes(play):
+		if int(raid.get("raider", -1)) == play.player_faction:
+			ours.append(raid)
+		else:
+			raid["kind"] = "rival"
+			rivals.append(raid)
 	if not incoming.is_empty():
 		reports.append(incoming)
-	reports.append_array(prizes)
+	reports.append_array(ours)
 	if reports.is_empty():
 		return {
 			"ok": false, "taken": 0, "prize": 0, "sunk": 0,
-			"prizes": [], "reports": [],
+			"prizes": [], "rival_prize": _prize_total(rivals),
+			"rival_raids": rivals, "reports": [],
 		}
 	_report(play, reports)
 	return {
 		"ok": true,
 		"taken": int(incoming.get("taken", 0)),
-		"prize": _prize_total(prizes),
+		"prize": _prize_total(ours),
+		"rival_prize": _prize_total(rivals),
 		"sunk": _sunk_total(reports),
-		"prizes": prizes,
+		"prizes": ours,
+		"rival_raids": rivals,
 		"reports": reports,
 	}
 
@@ -85,17 +99,16 @@ static func _incoming(play: PlaySession) -> Dictionary:
 	return result
 
 
-## The crown's own Patrol/Blockade squadrons take rival cargo as prize, region by
-## region: a blockade off a rival coast pays (DR-20261110-13).
+## Every crown's Patrol/Blockade squadrons take rival cargo as prize, region by
+## region: a blockade off a hostile coast pays whoever holds it (DR-20261110-13,
+## DR-20261111-20). A rival's raid pays the rival, and the crown is never one of
+## its victims — what the crown suffers is `_incoming`'s one raid.
 static func _prizes(play: PlaySession) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
 	if play.world == null:
 		return reports
 	var importing: Array[int] = play.economy.market.importing_factions()
 	if importing.is_empty():
-		return reports
-	var crown: PlayerEconomy = play.ledger_for(play.player_faction)
-	if crown == null:
 		return reports
 	for region: int in play.world.region_count():
 		var model: MapModel = play.world.region(region)
@@ -107,31 +120,51 @@ static func _prizes(play: PlaySession) -> Array[Dictionary]:
 		var victims: Dictionary = _victims(play, importing, region)
 		if victims.is_empty():
 			continue
-		var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
-			model,
-			roster,
-			play.player_faction,
-			victims,
-			hostile(play),
-			play.map_seed,
-			play.turn,
-			play.has_tech
-		)
-		for raid: Dictionary in raids:
-			var seized: Dictionary = _seize(play, raid)
-			var hulls: Array = raid.get("hulls_lost", [])
-			if seized.is_empty() and hulls.is_empty():
-				continue
-			reports.append(_prize_report(model, raid, seized))
+		for raider: int in _raiders(play, roster):
+			var raids: Array[Dictionary] = NavalRaid.resolve_prizes(
+				model,
+				roster,
+				raider,
+				victims,
+				hostile(play),
+				play.map_seed,
+				play.turn,
+				play.has_tech
+			)
+			for raid: Dictionary in raids:
+				var seized: Dictionary = _seize(play, raid)
+				var hulls: Array = raid.get("hulls_lost", [])
+				if seized.is_empty() and hulls.is_empty():
+					continue
+				reports.append(_prize_report(model, raid, seized))
 	return reports
 
 
+## Crowns with a station that raids this region's water: the owners of every
+## at-sea Patrol or standing Blockade, ascending, so each rolls its own salt.
+## A court whose ledger is missing has nowhere to land a prize, so it takes none.
+static func _raiders(play: PlaySession, roster: Array) -> Array[int]:
+	var owners: Array[int] = []
+	for fleet: FleetState in roster:
+		if fleet == null or not fleet.is_at_sea() or not fleet.is_afloat():
+			continue
+		if fleet.mission != FleetState.Mission.PATROL \
+				and fleet.mission != FleetState.Mission.BLOCKADE:
+			continue
+		if owners.has(fleet.owner) or play.ledger_for(fleet.owner) == null:
+			continue
+		owners.append(fleet.owner)
+	owners.sort()
+	return owners
+
+
 ## Victims this region can offer: a rival with cargo afloat and a home fleet in
-## port at its own seat, so its laden hulls are in these waters.
+## port at its own seat, so its laden hulls are in these waters. The crown is
+## never one of them: its own losses are the single raid `_incoming` resolves.
 static func _victims(play: PlaySession, importing: Array[int], region: int) -> Dictionary:
 	var victims: Dictionary = {}
 	for faction: int in importing:
-		if faction == play.player_faction:
+		if faction == play.player_faction or play.ledger_for(faction) == null:
 			continue
 		var imports: Dictionary = play.economy.market.imports_for(faction)
 		if imports.is_empty():
@@ -146,12 +179,13 @@ static func _victims(play: PlaySession, importing: Array[int], region: int) -> D
 	return victims
 
 
-## Moves the raid's cargo from the rival's stockpile into the crown's. The prize
-## is landed by the raiding squadron itself, so it needs no free cargo hold.
+## Moves the raid's cargo from the victim's stockpile into the raider's. The
+## prize is landed by the raiding squadron itself, so it needs no free cargo
+## hold and never joins the raider's import book.
 static func _seize(play: PlaySession, raid: Dictionary) -> Dictionary:
 	var victim: PlayerEconomy = play.ledger_for(int(raid.get("victim", -1)))
-	var crown: PlayerEconomy = play.ledger_for(play.player_faction)
-	if victim == null or crown == null:
+	var raider: PlayerEconomy = play.ledger_for(int(raid.get("raider", -1)))
+	if victim == null or raider == null:
 		return {}
 	var losses: Dictionary = raid.get("losses", {})
 	var seized: Dictionary = {}
@@ -161,7 +195,7 @@ static func _seize(play: PlaySession, raid: Dictionary) -> Dictionary:
 		if quantity <= 0:
 			continue
 		victim.take(id, quantity)
-		crown.add(id, quantity)
+		raider.add(id, quantity)
 		seized[id] = quantity
 	return seized
 

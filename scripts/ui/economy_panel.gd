@@ -141,6 +141,7 @@ func set_compact(compact: bool) -> void:
 	if _tabs == null:
 		return
 	_workers.set_compact(compact)
+	_market_page.set_compact(compact)
 	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else TAB_MIN_HEIGHT)
 	# A 27 px tab strip is a mouse target; a phone tab gets thumb padding.
 	if compact:
@@ -170,7 +171,9 @@ func refresh(
 	_summary.text = LedgerText.summary(economy, report)
 	_preview.text = LedgerText.preview(report)
 	_production.fill(economy)
-	_market_page.fill(economy, market, cargo, offers)
+	_market_page.fill(
+		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary
+	)
 	_workers.fill(economy)
 
 

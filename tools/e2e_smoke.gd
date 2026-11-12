@@ -56,6 +56,12 @@ func _run() -> void:
 		setup.advanced_option != null and setup.advanced_option.item_count == 3,
 		"setup offers the advanced-start openings"
 	)
+	# The difficulty row names the bar the chosen level sets, so the choice is
+	# never blind (wiki: victory § Military victory; DR-20261111-28).
+	_check(
+		_has_text(setup, "hold %d Old World provinces" % VictoryRules.MILITARY_THRESHOLD),
+		"setup states the crown's win bar"
+	)
 	setup.start_button.emit_signal("pressed")
 	await process_frame
 
@@ -193,6 +199,10 @@ func _run() -> void:
 		_check(field != null and not field.is_home_army(), "detached army becomes a field army")
 		_check(home_army.count() == field_before - 1, "Home Army keeps its remaining regiments")
 		_check(
+			field != null and not RegimentNames.of(field, field.regiments[0]).is_empty(),
+			"the detached regiment keeps its title"
+		)
+		_check(
 			screen.hud._army_label.text
 			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 			"troop chip counts every region"
@@ -238,7 +248,7 @@ func _run() -> void:
 	_check(not screen.hud.panels.is_diplomacy_open(), "court ledger closes")
 
 	var cues_before: int = 0
-	var audio: AudioDirector = screen.get_node_or_null("Audio") as AudioDirector
+	var audio: AudioDirector = main.get_node_or_null("Audio") as AudioDirector
 	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
 	_check(audio != null, "audio director present")
 	_check(controls != null, "sound seal present")
@@ -262,6 +272,7 @@ func _run() -> void:
 		_check(screen.hud.panels.is_panel_open(), "province panel opens")
 
 	await _smoke_crown_road_lens(screen)
+	await _smoke_defence_lens(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
@@ -313,6 +324,27 @@ func _smoke_crown_road_lens(screen: MapScreen) -> void:
 	_check(not screen.hud.lens_legend.visible, "crown road key closes")
 
 
+## The defence reading mounts on the real map: the key follows it and closes
+## with it, and every charted province carries a garrison or a wall line.
+func _smoke_defence_lens(screen: MapScreen) -> void:
+	MapPlayInput.set_defence_lens(screen.play, true)
+	await process_frame
+	var lens: DefenceLens = screen.play.defence_lens
+	_check(lens != null and lens.active, "defence lens raises")
+	_check(screen.hud.lens_legend.visible, "defence key shown")
+	_check(
+		screen.hud.lens_legend.kind == LensLegend.KIND_DEFENCE,
+		"defence key reads the lens"
+	)
+	_check(
+		(lens.survey.get("provinces", []) as Array).size() > 0,
+		"defence reading covers the chart"
+	)
+	MapPlayInput.set_defence_lens(screen.play, false)
+	await process_frame
+	_check(not screen.hud.lens_legend.visible, "defence key closes")
+
+
 ## Player civilian path: select → march → work per type → cancel → train.
 ## Returns tiles that must resolve on end turn for post-asserts.
 func _smoke_civilians(screen: MapScreen) -> Dictionary:
@@ -360,10 +392,14 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 		_check(explorer.is_idle(), "explore order cancels")
 
 	var mineral: Vector2i = _mineral_tile(screen)
-	_check(mineral.x >= 0, "mineral tile available")
+	_check(mineral.x >= 0, "survey ground available")
 	if mineral.x >= 0:
 		explorer.tile = mineral
 		screen.civilian_layer.select(explorer)
+		_check(
+			screen.overlay.survey_tiles.has(mineral),
+			"explorer marks the survey ground"
+		)
 		MapPlayCivilians.on_action(screen.play, "prospect")
 		_check(explorer.is_working() and explorer.work_action() == "prospect", "prospect order starts")
 		works["prospect"] = mineral
@@ -493,6 +529,10 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	var fabric: int = screen.economy.economy.quantity("fabric")
 	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
 	_check(home.count() == before + 1, "recruit musters a regiment")
+	_check(
+		not home.name_of(home.regiments[home.count() - 1]).is_empty(),
+		"the mustered regiment is christened"
+	)
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
@@ -742,10 +782,14 @@ func _mineral_tile(screen: MapScreen) -> Vector2i:
 		):
 			continue
 		for tile: Vector2i in province.tiles:
-			var resource: int = screen.model.resource_at(tile.x, tile.y)
-			if ImprovementCatalog.needs_prospecting(resource):
-				if not screen.land_works.is_prospected(MapScreen.PLAYER_FACTION, screen.model, tile):
-					return tile
+			# A survey target: charted prospectable ground this crown has not
+			# read yet (wiki: fog-and-exploration § Prospecting;
+			# DR-20261111-26).
+			if MineralSurvey.can_prospect(
+				screen.model, screen.land_works, MapScreen.PLAYER_FACTION, tile,
+				screen.visibility
+			):
+				return tile
 	return Vector2i(-1, -1)
 
 

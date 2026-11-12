@@ -4,9 +4,10 @@ extends RefCounted
 ## intent — `event`: tech discovered, capital threatened; DR-20261111-08).
 ##
 ## Presentation only: it reads the turn that just resolved — the studies the
-## Research phase finished and the hosts standing at the crown's seat — and
-## records the beat the court panel then speaks. Nothing here changes a rule
-## outcome (REQ-P2-03, REQ-P3-03).
+## Research phase finished, the hosts standing at the crown's seat and the
+## rivals due to speak about their own motives — and records the beat the court
+## panel then speaks. Nothing here changes a rule outcome (REQ-P2-03,
+## REQ-P3-03).
 
 
 ## Both beats of one resolved turn. A rival's turn and the observer speak
@@ -14,8 +15,29 @@ extends RefCounted
 static func record_turn(play: PlaySession, crown_report: Dictionary) -> void:
 	if play == null or play.observer_mode or play.diplomacy == null:
 		return
+	# The weakest beat goes in first: a study, a host at the seat or any act of
+	# the same turn is recorded after it and stays the court's newest word
+	# (DR-20261111-19).
+	_record_agendas(play)
 	_record_study(play, crown_report)
 	_record_seat(play)
+
+
+## A rival's veiled word about its own hidden motive, on its own seven-turn
+## cadence and only once the crown's dossier already suspects it (wiki:
+## dialogue-and-mood § Seeding / cadence; hidden-agendas § Playable slice).
+static func _record_agendas(play: PlaySession) -> void:
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == play.player_faction:
+			continue
+		DialogueAgenda.record(
+			play.diplomacy,
+			play.world,
+			play.player_faction,
+			faction,
+			play.map_seed,
+			play.turn
+		)
 
 
 ## The costliest study the turn finished, ties by ascending id: a court speaks

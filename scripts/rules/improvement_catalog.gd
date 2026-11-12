@@ -46,9 +46,15 @@ const COMMODITY_LABELS: Dictionary = {
 	"paper": "paper",
 }
 
-## Iron, coal, gold and tin are the map's prospect-required minerals
-## (wiki: fog-and-exploration § Prospect-Required Resources).
+## Prospect-required minerals (wiki: fog-and-exploration § Prospect-Required
+## Resources): iron, copper, tin, coal, silver, gold, gems, diamonds. The map's
+## own ids are listed; the commodity check keeps a chart that carries copper,
+## silver, gems or diamonds on the same rule (DR-20261111-26).
 const MINERAL_RESOURCES: Array[int] = [1, 2, 3, 8]
+const MINERAL_COMMODITIES: Array[String] = [
+	"iron", "copper", "tin", "coal", "silver", "gold", "gems", "diamonds",
+]
+static var _mineral_by_id: Dictionary = {}
 
 
 static func known(resource: int) -> bool:
@@ -103,7 +109,14 @@ static func yield_for(resource: int, level: int) -> Dictionary:
 
 
 static func needs_prospecting(resource: int) -> bool:
-	return MINERAL_RESOURCES.has(resource)
+	if resource < 0:
+		return false
+	if not _mineral_by_id.has(resource):
+		_mineral_by_id[resource] = (
+			MINERAL_RESOURCES.has(resource)
+			or MINERAL_COMMODITIES.has(commodity(resource))
+		)
+	return bool(_mineral_by_id[resource])
 
 
 static func tech_cap_for(commodity_id: String, tech_caps: Dictionary = {}) -> int:

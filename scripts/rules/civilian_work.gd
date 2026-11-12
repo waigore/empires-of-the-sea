@@ -15,7 +15,7 @@ const TOWN_TECH: String = CivilianWorkPlan.TOWN_TECH
 
 const LABELS: Dictionary = {
 	"explore": "Explore province",
-	"prospect": "Prospect minerals",
+	"prospect": "Prospect this tile",
 	"build_improvement": "Build improvement",
 	"upgrade_town": "Upgrade town",
 	"build_road": "Build road",
@@ -44,15 +44,11 @@ static func explore_turns(model: MapModel, province_id: int) -> int:
 	return CivilianWorkPlan.explore_turns(model, province_id)
 
 
-static func cost_level(
-	action: String, model: MapModel, tile: Vector2i, works: LandWorks
-) -> int:
+static func cost_level(action: String, model: MapModel, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.cost_level(action, model, tile, works)
 
 
-static func duration_for(
-	model: MapModel, action: String, tile: Vector2i, works: LandWorks
-) -> int:
+static func duration_for(model: MapModel, action: String, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.duration_for(model, action, tile, works)
 
 
@@ -137,6 +133,11 @@ static func validate(
 		if site.x >= 0:
 			tile = site
 			province = model.province_at(tile.x, tile.y)
+	## One crew a player owns builds the town's hospital (civilian-units § Per-player tile exclusivity).
+	if action == "build_hospital":
+		var free_site: Dictionary = CivilianTransport.exclusive(units, unit, tile)
+		if not bool(free_site.get("ok", false)):
+			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
@@ -216,7 +217,10 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy)
+			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy, report)
+			if action == "prospect":
+				# The despatch names what the survey found (DR-20261111-26).
+				report["find"] = MineralSurvey.find_of(model, tile)
 			unit.clear_work()
 		reports.append(report)
 	return reports
@@ -240,8 +244,8 @@ static func _check_action(
 ) -> Dictionary:
 	match action:
 		"explore":
-			var explore_gate: String = CivilianExplorerGates.refusal(
-				"explore", model, unit.owner, tile, province, visibility, context
+			var explore_gate: String = CivilianExplorerGates.explore_refusal(
+				model, unit.owner, province, context
 			)
 			if not explore_gate.is_empty():
 				return _no(explore_gate)
@@ -249,16 +253,11 @@ static func _check_action(
 				return _no("%s is already charted." % model.province_name(province))
 			return {"ok": true}
 		"prospect":
-			var prospect_gate: String = CivilianExplorerGates.refusal(
-				"prospect", model, unit.owner, tile, province, visibility, context
+			var prospect_gate: String = CivilianExplorerGates.prospect_refusal(
+				model, unit.owner, unit.tile, tile, works, visibility, context
 			)
 			if not prospect_gate.is_empty():
 				return _no(prospect_gate)
-			var resource: int = model.resource_at(tile.x, tile.y)
-			if not ImprovementCatalog.needs_prospecting(resource):
-				return _no("Only iron, coal, gold and tin tiles can be prospected.")
-			if works.is_prospected(unit.owner, model, tile):
-				return _no("This tile has already been prospected.")
 			return {"ok": true}
 		"build_improvement":
 			var owned: Dictionary = _owned_land(model, unit, tile)
@@ -349,7 +348,8 @@ static func _apply(
 	tile: Vector2i,
 	works: LandWorks,
 	visibility: VisibilityModel,
-	economy: PlayerEconomy = null
+	economy: PlayerEconomy = null,
+	report: Dictionary = {}
 ) -> Array:
 	var province: int = model.province_at(tile.x, tile.y)
 	match action:
@@ -366,8 +366,8 @@ static func _apply(
 		"upgrade_town":
 			var town_data: ProvinceState = model.province_data(province)
 			if town_data != null:
-				town_data.town_development = clampi(
-					int(unit.work_detail("town_level")), 1, CivilianWorkPlan.MAX_TOWN
+				town_data.town_development = CivilianWorkPlan.town_after_upgrade(
+					town_data.town_development, int(unit.work_detail("town_level"))
 				)
 			return [model.index_of(tile.x, tile.y)]
 		"build_fort":
@@ -378,7 +378,8 @@ static func _apply(
 		"build_hospital":
 			return HospitalRules.work_complete(model, province, unit, tile)
 		"purchase_land":
-			if LandPurchase.complete(model, tile, unit.owner, economy):
+			# `complete` records the town level it actually set (DR-20261112-01).
+			if LandPurchase.complete(model, tile, unit.owner, economy, report):
 				return [model.index_of(tile.x, tile.y)]
 			return []
 	if CivilianTransport.knows(action):

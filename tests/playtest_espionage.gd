@@ -195,9 +195,10 @@ func _boost_pass(play: PlaySession) -> void:
 			boost.size(), SpyNetworks.BOOST_PERCENT,
 		])
 	play.economy.open_research()
-	for row: Node in play.hud.panels.research_panel.find_children("*", "HBoxContainer", true, false):
-		var texts: Array[String] = _labels(row)
-		if texts.size() < 2 or not " / " in texts[1]:
+	var panel: ResearchPanel = play.hud.panels.research_panel
+	for node: Node in panel._slots_body.get_children():
+		var texts: Array[String] = _labels(node)
+		if not " RP" in " | ".join(texts):
 			continue
 		_say("  research row: %s" % " | ".join(texts))
 	play.hud.panels.hide_research()

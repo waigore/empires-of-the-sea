@@ -224,6 +224,7 @@ func snapshot() -> Dictionary:
 			"progress": research.progress.duplicate(),
 			"slots": research.slots.duplicate(true),
 			"revealed": research.revealed.duplicate(),
+			"goal": research.goal,
 		},
 		"assignments": _assignments.duplicate(true),
 	}

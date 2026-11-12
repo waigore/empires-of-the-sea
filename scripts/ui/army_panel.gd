@@ -12,6 +12,8 @@ var _header: DossierHeader = null
 var _location: Label = null
 var _strength: Label = null
 var _command: Label = null
+var _command_row: HBoxContainer = null
+var _command_icon: TextureRect = null
 var _composition: Label = null
 var _status: Label = null
 var _hint: Label = null
@@ -53,10 +55,25 @@ func _build() -> void:
 	_strength = UiRowBuilder.line(13, Palette.TEXT_DIM)
 	shell.add_child(_strength)
 
+	# The crown's commanders: a general's medallion beside every name and medal,
+	# the same shell frame a roster row wears (REQ-P1-08).
+	_command_row = HBoxContainer.new()
+	_command_row.add_theme_constant_override("separation", 8)
+	_command_row.visible = false
+	shell.add_child(_command_row)
+	_command_icon = TextureRect.new()
+	_command_icon.texture = ChromeIcons.texture("commander")
+	_command_icon.custom_minimum_size = Vector2(22, 22)
+	_command_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_command_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_command_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_command_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_command_row.add_child(_command_icon)
+
 	_command = UiRowBuilder.line(12, Palette.TEXT_DIM)
 	_command.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_command.visible = false
-	shell.add_child(_command)
+	_command.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_command_row.add_child(_command)
 
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	_composition.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -173,15 +190,18 @@ func refresh(
 	if chevrons > 0:
 		_strength.text += " · %d chevrons" % chevrons
 	if not army.is_embarked():
-		var hospital: int = HospitalRules.level_at(model, army.province)
+		var hospital: int = HospitalRules.effective_level(model, army.province)
 		if hospital > 0:
 			_strength.text += " · rest %d%%" % roundi(
 				HospitalRules.rest_share(hospital) * 100.0
 			)
+		elif HospitalRules.level_at(model, army.province) > 0:
+			# The ward is there but its staff went unfed (DR-20261112-04).
+			_strength.text += " · hospital unstaffed"
 	_command.text = command
-	_command.visible = not command.is_empty()
+	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_fill_roster(army, is_player and not army.is_embarked())
+	_fill_roster(army, is_player and not army.is_embarked(), model)
 	_fill_muster(muster)
 	if not (is_player and army.home):
 		_muster_open = false
@@ -209,7 +229,7 @@ func refresh(
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
 
 
-func _fill_roster(army: ArmyState, is_player: bool) -> void:
+func _fill_roster(army: ArmyState, is_player: bool, model: MapModel) -> void:
 	for child in _roster.get_children():
 		child.queue_free()
 	for regiment_id: String in army.regiments:
@@ -220,9 +240,15 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		entry.add_child(row)
+		row.add_child(UnitMedallion.of_regiment(type_id, 28.0))
 		var label := UiRowBuilder.line(13, Palette.TEXT)
-		label.text = RegimentCatalog.display_name(type_id)
+		## The regiment's own title, with its type beside it — the same read as
+		## a hull's name in the fleet dossier (DR-20261111-18).
+		label.text = "%s — %s" % [
+			RegimentNames.of(army, regiment_id), RegimentCatalog.display_name(type_id)
+		]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(label)
 		# Regiment detail: category, stats and its share of the food bill.
 		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
@@ -230,6 +256,7 @@ func _fill_roster(army: ArmyState, is_player: bool) -> void:
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
 		_add_condition(entry, army, regiment_id)
+		_add_record(entry, army, regiment_id, model)
 		if not is_player:
 			continue
 		var detach := UiRowBuilder.button("Detach", 36.0, 0.0)
@@ -253,6 +280,8 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		var top := HBoxContainer.new()
 		top.add_theme_constant_override("separation", 8)
 		entry.add_child(top)
+		var type_id: String = String(row["type_id"])
+		top.add_child(UnitMedallion.of_regiment(type_id, 28.0))
 		var name := UiRowBuilder.line(13, Palette.TEXT)
 		name.text = String(row["name"])
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -265,7 +294,6 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		muster.tooltip_text = (
 			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
 		)
-		var type_id: String = String(row["type_id"])
 		muster.pressed.connect(func() -> void: action_pressed.emit("recruit:%s" % type_id))
 		top.add_child(muster)
 		var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
@@ -274,6 +302,21 @@ func _fill_muster(rows: Array[Dictionary]) -> void:
 		)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
+
+
+## The engagements a regiment has stood in and the honours on its colours, under
+## its condition. A green regiment gains no line, so a fresh roster stays short
+## (DR-20261111-18, DR-20261112-02).
+func _add_record(
+	entry: VBoxContainer, army: ArmyState, regiment_id: String, model: MapModel
+) -> void:
+	var text: String = RegimentRecord.line(army, regiment_id, model)
+	if text.is_empty():
+		return
+	var service := UiRowBuilder.line(10, Palette.GOLD_PALE)
+	service.text = text
+	service.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	entry.add_child(service)
 
 
 func _food(army: ArmyState) -> int:

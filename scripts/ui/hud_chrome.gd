@@ -2,7 +2,7 @@ class_name HudChrome
 extends RefCounted
 ## Builds the map HUD's bars, toasts, minimap, zoom, end-turn seal and plates.
 ## GameHud keeps the runtime API; this only assembles the widgets. The side
-## dossiers are HudDossiers' job (REQ-P3-01).
+## dossiers are HudDossiers' job, the despatch plates HudDespatches' (REQ-P3-01).
 
 
 static func build(hud: GameHud) -> void:
@@ -11,7 +11,7 @@ static func build(hud: GameHud) -> void:
 	_zoom(hud)
 	_lenses(hud)
 	_lens_key(hud)
-	_toasts(hud)
+	_despatches(hud)
 	_end_turn(hud)
 	HudDossiers.build(hud)
 	_tooltip(hud)
@@ -20,19 +20,11 @@ static func build(hud: GameHud) -> void:
 	_gazette_plate(hud)
 
 
-static func _toasts(hud: GameHud) -> void:
-	hud._toast_box = VBoxContainer.new()
-	# Toasts are the moment's acknowledgement (REQ-P5-05) and stay legible over
-	# the soft Gazette plate that covers this lane at a turn's open.
-	hud._toast_box.z_index = 33
-	hud._toast_box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	hud._toast_box.offset_left = -230.0
-	hud._toast_box.offset_right = 230.0
-	hud._toast_box.offset_top = 84.0
-	hud._toast_box.offset_bottom = 84.0
-	hud._toast_box.add_theme_constant_override("separation", 6)
-	hud._toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(hud._toast_box)
+## The despatch lane owns its toast column, queue and geometry (HudDespatches);
+## the chrome only mounts it under the cartouche.
+static func _despatches(hud: GameHud) -> void:
+	hud.despatches = HudDespatches.new()
+	hud.add_child(hud.despatches)
 
 
 static func _minimap(hud: GameHud) -> void:
@@ -87,9 +79,9 @@ static func _square_button(icon_name: String, caption: String) -> Button:
 	return button
 
 
-## The three map lenses share one rail row beside the estates door: they are
-## estate and political readings, and the cartouche row is already at its
-## measured width budget (REQ-P5-03). The screen owns the state; the toggles
+## The four map lenses share one rail row beside the estates door: they are
+## estate, political and military readings, and the cartouche row is already at
+## its measured width budget (REQ-P5-03). The screen owns the state; the toggles
 ## only mirror it.
 static func _lenses(hud: GameHud) -> void:
 	hud._lens_button = _lens_seal(hud, 186.0, "lens", "Resource survey lens (L)")
@@ -104,15 +96,25 @@ static func _lenses(hud: GameHud) -> void:
 	hud._crown_lens_button.toggled.connect(
 		func(active: bool) -> void: hud.crown_lens_pressed.emit(active)
 	)
-	# R lives on the seal so MapScreen's key table stays free of a third lens
-	# (tier-1 impact budget). L/P stay on MapScreen with the older readings.
+	hud._defence_lens_button = _lens_seal(hud, 384.0, "swords", "Defence lens (K)")
+	hud._defence_lens_button.toggled.connect(
+		func(active: bool) -> void: hud.defence_lens_pressed.emit(active)
+	)
+	# R and K live on their seals so MapScreen's key table stays free of the
+	# newer lenses (tier-1 impact budget). L/P stay on MapScreen.
+	_shortcut(hud._crown_lens_button, InputActions.CROWN_LENS)
+	_shortcut(hud._defence_lens_button, InputActions.DEFENCE_LENS)
+
+
+## Binds an InputMap action to a seal, so the key and the toggle share one path.
+static func _shortcut(button: Button, action: String) -> void:
 	InputActions.ensure_actions()
 	var shortcut := Shortcut.new()
 	var key := InputEventAction.new()
-	key.action = InputActions.CROWN_LENS
+	key.action = action
 	key.pressed = true
 	shortcut.events = [key]
-	hud._crown_lens_button.shortcut = shortcut
+	button.shortcut = shortcut
 
 
 ## One lens seal: 56×44 points on the rail row, icon-only with a named tooltip.
@@ -200,11 +202,14 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.add_child(hud.victory_overlay)
 
 
-## Quick Battle plate: above the dossiers, below the campaign-end plate.
+## Quick Battle plate: above the dossiers, below the campaign-end plate. The HUD
+## replays the queued battles and releases the court's held news (REQ-P5-06).
 static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay = QuickBattleOverlay.new()
 	hud.quick_battle_overlay.z_index = 35
-	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
+	hud.quick_battle_overlay.finished.connect(
+		func() -> void: hud._on_quick_battle_finished()
+	)
 	hud.add_child(hud.quick_battle_overlay)
 
 
@@ -213,6 +218,8 @@ static func _quick_battle_plate(hud: GameHud) -> void:
 static func _gazette_plate(hud: GameHud) -> void:
 	hud.gazette_plate = GazettePlate.new()
 	hud.gazette_plate.z_index = 30
+	# The sheet pushes the despatch lane below its masthead while it is up.
+	hud.gazette_plate.despatches = hud.despatches
 	hud.add_child(hud.gazette_plate)
 	# A cartouche seal reopens the news, after the two lens seals on the rail.
 	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")

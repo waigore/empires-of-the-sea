@@ -151,11 +151,14 @@ func test_surf_points_always_face_open_water() -> void:
 		assert_true(_canvas.model.is_sea(tile.x, tile.y))
 
 
+## Scenery never sits in a province name's clearing. Places do carry the same
+## exemption the capital star and the port anchor always had: a town mark stands
+## on its tile whether or not a neighbouring province's name runs across it.
 func test_terrain_symbols_never_cover_province_labels() -> void:
 	var marks: int = 0
 	for glyph: Dictionary in _canvas.plan.glyphs:
 		var kind: String = String(glyph["kind"])
-		if kind == "port" or kind == "capital":
+		if kind == "port" or kind == "capital" or kind == "town":
 			continue
 		marks += 1
 		assert_false(_canvas.plan.under_label(glyph["position"]))
@@ -164,6 +167,7 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 
 ## Every non-capital province town is drawn on the chart, so a crown can see
 ## where its estates anchor (wiki: capital-and-connectivity § Town per province).
+## The mark never steps aside for the province name: the name steps aside for it.
 func test_every_non_capital_town_is_marked() -> void:
 	var marks: Dictionary = {}
 	for glyph: Dictionary in _canvas.plan.glyphs:
@@ -173,15 +177,60 @@ func test_every_non_capital_town_is_marked() -> void:
 	for province: ProvinceState in _canvas.model.provinces:
 		if province.capital or province.town_tile.x < 0:
 			continue
+		if not _canvas.model.is_land(province.town_tile.x, province.town_tile.y):
+			continue
+		expected += 1
 		var at: Vector2 = MapGeo.tile_center(
 			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
 		)
-		if _canvas.plan.under_label(at):
-			continue
-		expected += 1
 		assert_true(marks.has(at), "%s has no town mark" % province.name)
 	assert_gt(expected, 0)
 	assert_eq(marks.size(), expected)
+
+
+## The shared fixture is too small for province names on every province, so the
+## case that bit: a named inland province picks the tile nearest its centroid as
+## its town, which is where the name is drawn. The mark has to stand on that
+## tile and the name has to clear it.
+func test_a_province_name_clears_its_town_mark() -> void:
+	var region: MapModel = MapGenerator.new().generate(Fixture.SEED, 96, 64)
+	var plan := MapCanvasPlan.new()
+	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var marks: Dictionary = {}
+	for glyph: Dictionary in plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var named: Dictionary = {}
+	for label: Dictionary in plan.labels:
+		if String(label["kind"]) == "province":
+			named[String(label["text"])] = label["position"]
+	var moved: int = 0
+	var marked: int = 0
+	for province: ProvinceState in region.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		if not region.is_land(province.town_tile.x, province.town_tile.y):
+			continue
+		marked += 1
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+		if not named.has(province.name):
+			continue
+		var anchor: Vector2 = named[province.name]
+		var clear: bool = (
+			absf(at.x - anchor.x) >= MapCanvasPlan.LABEL_HALF_WIDTH
+			or at.y <= anchor.y - MapCanvasPlan.LABEL_CLEAR_ABOVE
+			or at.y >= anchor.y + MapCanvasPlan.LABEL_CLEAR_BELOW
+		)
+		assert_true(clear, "%s hides its town under its own name" % province.name)
+		if anchor != Vector2(province.center) * MapCanvas.TILE_SIZE:
+			moved += 1
+	assert_gt(marked, 20, "the chart carries a town per province")
+	assert_gt(moved, 0, "a name made room for its town mark")
+
+
 ## A province is painted, not speckled once: the scatter lays a second, smaller
 ## stamp on top of the first so a forest or an upland reads as a cluster.
 func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:

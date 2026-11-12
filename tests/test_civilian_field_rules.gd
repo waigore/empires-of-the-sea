@@ -5,6 +5,20 @@ extends GdToolsTest
 ## (docs/testing.md speed rules).
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
+
+
+## Minimal HUD for the deed despatch: the purchase path repaints the treasury
+## and toasts, and neither may build real chrome inside a rules test.
+class DeedHud extends GameHud:
+	var toasts: Array[String] = []
+
+	func set_treasury(_value: int, _animate: bool = true) -> void:
+		pass
+
+	func toast(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+
 var _model: MapModel = null
 var _works: LandWorks = null
 var _units: Array[CivilianState] = []
@@ -197,18 +211,26 @@ func test_prospecting_takes_one_turn_and_records_the_tile() -> void:
 	assert_false(_works.is_prospected(1, _model, Fixture.IRON_TILE))
 
 
-func test_only_mineral_tiles_can_be_prospected() -> void:
+func test_only_prospectable_ground_can_be_prospected() -> void:
+	# Timber on plains: the resource already shows, so there is nothing to read.
 	var explorer := _add("explorer", Fixture.TIMBER_TILE)
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_false(bool(check["ok"]))
-	assert_true(String(check["reason"]).contains("iron, coal, gold and tin"))
+	assert_true(String(check["reason"]).contains("already known"))
+	# Bare plains: not survey ground at all (wiki: fog-and-exploration
+	# § Prospectable terrain).
+	_model.resource[_model.index_of(Fixture.TIMBER_TILE.x, Fixture.TIMBER_TILE.y)] = MapModel.NO_ID
+	check = _validate(explorer, "prospect")
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("swamp, hills, mountain or desert"))
 
 
 func test_tin_tiles_can_be_prospected() -> void:
 	# Wiki: fog-and-exploration § Prospect-Required Resources lists tin with the
-	# other prospected minerals; refusals left it unopenable and unminable.
+	# other prospected minerals; tin spawns on marsh ground.
 	var tile := Vector2i(2, 2)
 	_model.resource[_model.index_of(tile.x, tile.y)] = 8
+	_model.terrain[_model.index_of(tile.x, tile.y)] = MapModel.Terrain.SWAMP
 	var explorer := _add("explorer", tile)
 	var check: Dictionary = _validate(explorer, "prospect")
 	assert_true(bool(check["ok"]), String(check.get("reason", "")))
@@ -259,6 +281,161 @@ func test_only_charted_land_can_be_prospected() -> void:
 	_view.raise_to(index, VisibilityModel.Level.FOGGED)
 	var allowed: Dictionary = _validate(explorer, "prospect")
 	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
+
+
+func test_a_survey_uncovers_the_mineral_and_the_report_names_it() -> void:
+	var explorer := _add("explorer", Fixture.IRON_TILE)
+	# Hidden until the survey lands: no row, no readable resource, no estate.
+	assert_eq(
+		MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), -1
+	)
+	assert_true(
+		ResourceSurvey.province_rows(
+			_model, _works, _units, 0, Fixture.PLAYER_PROVINCE
+		).filter(
+			func(row: Dictionary) -> bool: return row["tile"] == Fixture.IRON_TILE
+		).is_empty(),
+		"an unsurveyed mineral is never surveyed"
+	)
+	assert_true(
+		ImprovementLedger.snapshot(
+			_model, _works, _units, _stock, 0, Fixture.BARE_TILE
+		)["estates"].filter(
+			func(row: Dictionary) -> bool: return row["tile"] == Fixture.IRON_TILE
+		).is_empty(),
+		"no estate row exists for ground the crown has not read"
+	)
+	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		_model, _units, _works, _view
+	)
+	assert_eq(String(reports[0].get("find", "")), "iron", "the despatch names the find")
+	assert_eq(
+		MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), 1
+	)
+	assert_false(
+		ResourceSurvey.province_rows(
+			_model, _works, _units, 0, Fixture.PLAYER_PROVINCE
+		).filter(
+			func(row: Dictionary) -> bool: return row["tile"] == Fixture.IRON_TILE
+		).is_empty(),
+		"the survey lens now names the estate"
+	)
+	# Fog is unchanged by a survey: only the deposit became known.
+	assert_eq(
+		_view.level_at(Fixture.IRON_TILE.x, Fixture.IRON_TILE.y),
+		VisibilityModel.Level.FULLY_VISIBLE
+	)
+
+
+func test_the_survey_predicate_reads_ground_and_courts_alike() -> void:
+	# The one predicate every surface shares (wiki: fog-and-exploration
+	# § Prospecting; DR-20261111-26).
+	var iron: int = _model.resource_at(Fixture.IRON_TILE.x, Fixture.IRON_TILE.y)
+	assert_true(MineralSurvey.is_mineral(iron), "iron is a deposit")
+	assert_false(MineralSurvey.is_mineral(-1))
+	var timber: int = _model.resource_at(Fixture.TIMBER_TILE.x, Fixture.TIMBER_TILE.y)
+	assert_false(MineralSurvey.is_mineral(timber))
+	assert_true(MineralSurvey.terrain_known(timber))
+	assert_false(MineralSurvey.terrain_known(iron))
+	assert_false(MineralSurvey.terrain_known(-1))
+	# Ground: hills can be read, plains cannot, the sea never.
+	assert_true(MineralSurvey.prospectable(_model, Fixture.IRON_TILE))
+	assert_false(MineralSurvey.prospectable(_model, Fixture.TIMBER_TILE))
+	assert_false(MineralSurvey.prospectable(_model, Vector2i(0, 4)))
+	assert_false(MineralSurvey.prospectable(null, Fixture.IRON_TILE))
+	# Known: hidden before the survey, read after it, and only for that court.
+	assert_eq(MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), -1)
+	assert_eq(MineralSurvey.known_resource(null, _works, 0, Fixture.IRON_TILE), -1)
+	assert_false(MineralSurvey.is_known(_model, _works, 0, Fixture.IRON_TILE))
+	assert_eq(MineralSurvey.find_of(_model, Fixture.IRON_TILE), "iron")
+	assert_eq(MineralSurvey.find_of(_model, Fixture.HILLS_TILE), "")
+	assert_eq(MineralSurvey.find_of(null, Fixture.IRON_TILE), "")
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
+	assert_eq(
+		MineralSurvey.known_resource(_model, _works, 0, Fixture.IRON_TILE), iron
+	)
+	assert_eq(MineralSurvey.known_resource(_model, _works, 1, Fixture.IRON_TILE), -1)
+	# The set of ground left to read, per province and per court.
+	var left: Array[Vector2i] = MineralSurvey.unsurveyed_in_province(
+		_model, _works, 0, Fixture.PLAYER_PROVINCE
+	)
+	assert_false(left.has(Fixture.IRON_TILE), "a read tile leaves the set")
+	assert_true(left.has(Fixture.HILLS_TILE))
+	var counts: Dictionary = MineralSurvey.unsurveyed_by_province(_model, _works, 0)
+	assert_eq(int(counts.get(Fixture.PLAYER_PROVINCE, 0)), left.size())
+	assert_true(MineralSurvey.unsurveyed_in_province(null, _works, 0, 0).is_empty())
+	assert_true(MineralSurvey.unsurveyed_by_province(null, _works, 0).is_empty())
+	# Refusals name the one thing that is wrong, in the order a player hits it.
+	assert_true(MineralSurvey.refusal(_model, _works, 0, Vector2i(0, 4)).contains("land"))
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.IRON_TILE).contains("already been")
+	)
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.TIMBER_TILE).contains("already known")
+	)
+	# Bare plains are not survey ground; the refusal says which ground is.
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Vector2i(2, 3)).contains("swamp, hills")
+	)
+	assert_true(MineralSurvey.refusal(_model, _works, 0, Fixture.HILLS_TILE).is_empty())
+	assert_true(MineralSurvey.can_prospect(_model, _works, 0, Fixture.HILLS_TILE))
+	# Uncharted ground is never a target.
+	var view := VisibilityModel.new()
+	view.setup(_model, 0)
+	view.lower_to(
+		_model.index_of(Fixture.HILLS_TILE.x, Fixture.HILLS_TILE.y),
+		VisibilityModel.Level.UNKNOWN
+	)
+	assert_true(
+		MineralSurvey.refusal(_model, _works, 0, Fixture.HILLS_TILE, view).contains("charted")
+	)
+
+
+func test_an_empty_survey_is_legal_and_finds_nothing() -> void:
+	var explorer := _add("explorer", Fixture.HILLS_TILE)
+	assert_true(MineralSurvey.prospectable(_model, Fixture.HILLS_TILE))
+	var check: Dictionary = _validate(explorer, "prospect")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		_model, _units, _works, _view
+	)
+	assert_true(bool(reports[0]["completed"]))
+	assert_eq(String(reports[0].get("find", "x")), "", "the ground held nothing")
+	assert_true(_works.is_prospected(0, _model, Fixture.HILLS_TILE))
+	# A read tile is never a survey target again, even with nothing under it.
+	var again: Dictionary = _validate(explorer, "prospect")
+	assert_false(bool(again["ok"]))
+	assert_true(String(again["reason"]).contains("already been prospected"))
+
+
+func test_an_explorer_surveys_only_the_province_it_stands_in() -> void:
+	var far := Vector2i(4, 3)
+	_model.terrain[_model.index_of(far.x, far.y)] = MapModel.Terrain.HILLS
+	var explorer := _add("explorer", Fixture.BARE_TILE)
+	var check: Dictionary = CivilianWork.validate(
+		_model, explorer, "prospect", _works, _units, _stock, _view, far
+	)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("province it stands in"))
+	# The same Explorer may read any tile of its own province without marching.
+	var near: Dictionary = CivilianWork.validate(
+		_model, explorer, "prospect", _works, _units, _stock, _view,
+		Fixture.IRON_TILE
+	)
+	assert_true(bool(near["ok"]), String(near.get("reason", "")))
+
+
+func test_a_rivals_survey_does_not_reveal_the_deposit() -> void:
+	var explorer := _add("explorer", Fixture.IRON_TILE)
+	CivilianWork.assign(_model, explorer, "prospect", _works, _units, _stock, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_true(_works.is_prospected(0, _model, Fixture.IRON_TILE))
+	assert_eq(
+		MineralSurvey.known_resource(_model, _works, 1, Fixture.IRON_TILE), -1,
+		"another court reads nothing from our survey"
+	)
 
 
 func test_builder_pays_materials_and_raises_the_improvement_level() -> void:
@@ -319,6 +496,29 @@ func test_builder_upgrades_the_town_with_national_bureaucracy() -> void:
 	CivilianWork.resolve_turn(_model, _units, _works, _view)
 	CivilianWork.resolve_turn(_model, _units, _works, _view)
 	assert_eq(_model.provinces[0].town_development, 2)
+
+
+## A town can be raised while a Builder is still at it — a capital reassignment
+## sets the new seat to town development 4. The finished order lands its priced
+## level but never lowers what the town already holds (wiki:
+## extraction-and-improvements § Improvement Build Costs; capital-and-connectivity
+## § Capital loss and reassignment).
+func test_a_finished_town_order_never_lowers_the_town() -> void:
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var tech := {"national_bureaucracy": true}
+	var check: Dictionary = _validate(builder, "upgrade_town", tech)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(int(check["duration"]), 2)
+	var order: Dictionary = CivilianWork.assign(
+		_model, builder, "upgrade_town", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)
+	assert_true(bool(order["ok"]), String(order.get("reason", "")))
+	# The court moves here: the seat rule lifts the town to 4 mid-build.
+	_model.provinces[0].town_development = 4
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	CivilianWork.resolve_turn(_model, _units, _works, _view)
+	assert_eq(_model.provinces[0].town_development, 4)
 
 
 func test_town_upgrades_only_on_the_town_tile_and_stop_at_four() -> void:
@@ -505,6 +705,61 @@ func test_rail_builders_are_exempt_from_tile_exclusivity() -> void:
 	assert_true(bool(_validate(second, "build_rail", tech)["ok"]))
 
 
+## A Rail Builder's work never claims the tile: only Builder, Engineer and
+## Merchant work is exclusive (wiki: civilian-units § Per-player tile
+## exclusivity).
+func test_a_working_rail_builder_does_not_claim_the_tile() -> void:
+	var tile: Vector2i = Fixture.TIMBER_TILE
+	_works.set_transport(_model, tile, LandWorks.TRANSPORT_ROAD)
+	var rail := _add("rail_builder", tile)
+	var tech := {"early_steam_engine": true}
+	assert_true(bool(CivilianWork.assign(
+		_model, rail, "build_rail", _works, _units, _stock, _view,
+		CivilianState.NO_TILE, {}, tech
+	)["ok"]))
+	var builder := _add("builder", tile)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+
+
+## A Spy on counter-espionage holds a province, not its town tile, so the
+## Builder may still raise the town under it (wiki: civilian-units
+## § Per-player tile exclusivity).
+func test_a_working_spy_does_not_claim_the_town_tile() -> void:
+	var province: ProvinceState = _model.province_data(Fixture.PLAYER_PROVINCE)
+	province.town_tile = Fixture.BARE_TILE
+	province.town_development = 1
+	var spy := _add("spy", Fixture.BARE_TILE)
+	assert_true(bool(CivilianWork.assign(
+		_model, spy, "counter_spy", _works, _units, _stock, _view
+	)["ok"]))
+	var builder := _add("builder", Fixture.BARE_TILE)
+	var check: Dictionary = _validate(
+		builder, "upgrade_town", {"national_bureaucracy": true}
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+
+
+## Two Merchants are both bound by the rule, so the second deed on one tile is
+## refused (wiki: civilian-units § Per-player tile exclusivity).
+func test_a_working_merchant_claims_the_tile_against_another() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var tile := Vector2i(3, 1)
+	var first := Fixture.unit("merchant", tile)
+	first.id = 1
+	first.start_work(LandPurchase.ACTION, tile, 1)
+	var second := Fixture.unit("merchant", tile)
+	second.id = 2
+	var units: Array[CivilianState] = [first, second]
+	var check: Dictionary = CivilianWork.validate(
+		model, second, "purchase_land", works, units, Fixture.stockpile(), null,
+		tile, {}, {}, {"treasury": 5000, "diplomacy": Fixture.merchant_court()}
+	)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("Another crew"))
+
+
 func test_engineer_builds_a_port_only_on_the_coast() -> void:
 	var engineer := _add("engineer", Fixture.IRON_TILE)
 	var inland: Dictionary = _validate(engineer, "build_port")
@@ -527,6 +782,60 @@ func test_a_province_holds_one_port() -> void:
 	var second: Dictionary = _validate(engineer, "build_port")
 	assert_false(bool(second["ok"]))
 	assert_true(String(second["reason"]).contains("already has a port"))
+
+
+## One port per seaboard, not per province: a province facing two sea zones may
+## carry a port on each (wiki: extraction-and-improvements § Port Placement).
+func test_a_second_port_may_rise_on_another_seaboard() -> void:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0 if x < 2 else 1
+	var province := ProvinceState.create(
+		0, "Split", tiles, Vector2(2.0, 0.5), tiles.size(), 0, true
+	)
+	province.town_tile = Vector2i(2, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.sea_zones = [
+		SeaZoneState.create(0, "West", [Vector2i(0, 2), Vector2i(1, 2)], Vector2(0.5, 2.0), 2),
+		SeaZoneState.create(1, "East", [Vector2i(2, 2), Vector2i(3, 2), Vector2i(4, 2)], Vector2(3.0, 2.0), 3),
+	]
+	var works := LandWorks.new()
+	var stock := Fixture.stockpile()
+	var west := Vector2i(0, 1)
+	var east := Vector2i(3, 1)
+	assert_true(CivilianTransport.seaboards_of(model, west).has(0))
+	assert_true(CivilianTransport.seaboards_of(model, east).has(1))
+	var first := Fixture.unit("engineer", west)
+	first.id = 1
+	var units: Array[CivilianState] = [first]
+	assert_true(bool(CivilianWork.assign(
+		model, first, "build_port", works, units, stock
+	)["ok"]))
+	CivilianWork.resolve_turn(model, units, works)
+	CivilianWork.resolve_turn(model, units, works)
+	assert_true(works.has_port(model, west))
+	var second := Fixture.unit("engineer", east)
+	second.id = 2
+	units.append(second)
+	var check: Dictionary = CivilianWork.validate(
+		model, second, "build_port", works, units, stock
+	)
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	var same: Dictionary = CivilianWork.validate(
+		model, first, "build_port", works, units, stock
+	)
+	assert_false(bool(same["ok"]), "the same seaboard still takes one port")
 
 
 func test_port_builds_take_two_turns() -> void:
@@ -628,7 +937,8 @@ func test_options_explain_each_work_order() -> void:
 	for option: Dictionary in options:
 		if String(option["action"]) == "prospect":
 			assert_false(bool(option["ok"]))
-			assert_true(String(option["reason"]).contains("iron, coal, gold and tin"))
+			# Timber shows on the chart already, so there is nothing to read.
+			assert_true(String(option["reason"]).contains("already known"))
 		else:
 			assert_eq(String(option["label"]), "Explore province")
 			assert_eq(String(option["cost_text"]), "Free")
@@ -756,6 +1066,87 @@ func test_purchase_completes_one_turn_later_and_debits_the_purse() -> void:
 	assert_false(model.purchase_tile(tile, 7), "one deed per tile")
 
 
+# --- a deed develops the seller's town (DR-20261112-01, fixture path) --------
+## Main's `_deed_world` suite owns the rule table; this path checks the same
+## growth against `Fixture.build_minor` and the manufacture projection.
+
+
+func _sign_deed(model: MapModel, tile: Vector2i, treasury: int = 5000) -> Dictionary:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	var report: Dictionary = {}
+	assert_true(LandPurchase.complete(model, tile, 0, economy, report), "the deed is signed")
+	return report
+
+
+func test_a_deed_raises_the_minors_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	assert_eq(province.town_level(), 1, "a Minor's town starts at level 1")
+	var report: Dictionary = _sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_development, 2, "one deed lifts the town")
+	assert_true(
+		MinorTownGrowth.deed_line(
+			model, province, "Genoa", int(report.get("town_level", 0))
+		).ends_with("The town rises to level 2."),
+		"the report names it"
+	)
+
+
+func test_each_deed_raises_the_town_until_it_tops_out() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(2, 2), Vector2i(3, 2)]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	_sign_deed(model, Vector2i(3, 1))
+	_sign_deed(model, Vector2i(2, 1))
+	assert_eq(province.town_level(), 3, "two deeds")
+	_sign_deed(model, Vector2i(3, 0))
+	assert_eq(province.town_level(), 4, "three deeds")
+	_sign_deed(model, Vector2i(2, 2))
+	assert_eq(province.town_level(), 4, "a fourth deed changes nothing")
+	assert_eq(MinorTownGrowth.apply(model, province), 0, "no further rise")
+
+
+func test_a_lost_deed_never_lowers_the_town() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	province.town_development = 3
+	var report: Dictionary = _sign_deed(model, Vector2i(3, 1))
+	assert_eq(province.town_level(), 3, "a town above its deed level keeps it")
+	assert_false(
+		MinorTownGrowth.deed_line(
+			model, province, "Genoa", int(report.get("town_level", 0))
+		).contains("town"),
+		"nothing to announce"
+	)
+
+
+func test_a_great_power_province_never_grows_this_way() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(0)
+	model.resource[model.index_of(0, 1)] = 0
+	_sign_deed(model, Vector2i(0, 1))
+	assert_eq(province.town_development, 0, "a crown's own town is its Builder's work")
+	assert_eq(MinorTownGrowth.apply(model, province), 0)
+
+
+func test_a_deed_turns_the_minors_harvest_into_manufactures() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var province: ProvinceState = model.province_data(1)
+	for tile: Vector2i in province.tiles:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	assert_true(
+		MinorMarket.province_manufactures(model, province).is_empty(),
+		"a level-1 town pays no bonus"
+	)
+	_sign_deed(model, Vector2i(3, 1))
+	assert_eq(
+		MinorMarket.province_manufactures(model, province), {"lumber": 1, "paper": 1},
+		"four timber estates feed the level-2 town"
+	)
+
+
 func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	var model: MapModel = Fixture.build()
 	var works := LandWorks.new()
@@ -764,6 +1155,7 @@ func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	assert_eq(model.owner_at(tile.x, tile.y), 0)
 	assert_false(model.purchase_tile(tile, 1), "no second buyer")
 	works.set_improvement(model, tile, 1)
+	works.set_prospected(0, model, Fixture.IRON_TILE)
 	for step: Vector2i in [Vector2i(1, 0), Vector2i(2, 0), tile]:
 		works.set_transport(model, step, LandWorks.TRANSPORT_ROAD)
 	var totals: Dictionary = Extraction.yields(
@@ -979,6 +1371,7 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	_works.set_transport(_model, Fixture.TIMBER_TILE, LandWorks.TRANSPORT_RAIL)
 	_works.set_improvement(_model, Fixture.TIMBER_TILE, 2)
 	_works.set_improvement(_model, Fixture.IRON_TILE, 1)
+	_works.set_prospected(0, _model, Fixture.IRON_TILE)
 	var builder := Fixture.unit("builder", Fixture.BARE_TILE)
 	builder.id = 1
 	_units.append(builder)
@@ -988,9 +1381,9 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	var counts: Dictionary = snap["counts"]
 	assert_eq(int(counts["estates"]), 2)
 	assert_eq(int(counts["improved"]), 2)
-	assert_eq(int(counts["producing"]), 1)
+	assert_eq(int(counts["producing"]), 2)
 	assert_eq(int(counts["idle_builders"]), 1)
-	assert_eq(snap["totals"], {"timber": 1})
+	assert_eq(snap["totals"], {"timber": 1, "iron": 1})
 	var timber: Dictionary = _row_at(snap, Fixture.TIMBER_TILE)
 	assert_eq(String(timber["name"]), "Lumber camp (L2)")
 	assert_eq(String(timber["status"]), "producing")
@@ -998,9 +1391,9 @@ func test_ledger_snapshot_exposes_status_and_actions() -> void:
 	assert_eq(int(timber["output"]), 1)
 	assert_true(String(timber["status_text"]).contains("transport cap 1"))
 	var iron: Dictionary = _row_at(snap, Fixture.IRON_TILE)
-	assert_eq(String(iron["status"]), "unprospected")
+	assert_eq(String(iron["status"]), "producing")
 	assert_false(bool(iron["can_build"]))
-	assert_true(String(iron["build_reason"]).contains("prospect"))
+	assert_true(String(iron["build_reason"]).contains("tech"))
 
 
 func test_upgrades_above_the_tech_cap_are_refused() -> void:
@@ -1386,3 +1779,311 @@ func test_the_estate_row_reports_the_gap_to_the_crown() -> void:
 	assert_eq(int(nearer["link_distance"]), 0,
 		"a road beside the estate links it")
 	assert_true(bool(nearer["connected"]))
+
+
+# --- a deed raises the Minor or Tribe town (DR-20261112-01) ------------------
+## Minors and Tribes never build, so a Great Power's purchased land is the only
+## play path that develops their towns (wiki: civilian-units § Merchant;
+## extraction-and-improvements § Town manufacturing bonus).
+
+
+## A two-province map: a Great Power holds the west, Minor Nation 6 holds four
+## timber estates and a province town in the east.
+func _deed_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(5, 2)
+	for y in 2:
+		for x in 5:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(4, 0),
+		Vector2i(2, 1), Vector2i(3, 1), Vector2i(4, 1),
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 6, 6)
+	minor.town_tile = Vector2i(2, 0)
+	minor.town_development = 1
+	model.provinces = [gp, minor]
+	# Four timber estates beside the town; the town tile never holds a resource.
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1), Vector2i(3, 1)]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func test_the_deed_level_table_starts_at_one_and_caps_at_four() -> void:
+	assert_eq(MinorTownGrowth.level_for(0), 1, "no deed, no growth")
+	assert_eq(MinorTownGrowth.level_for(1), 2)
+	assert_eq(MinorTownGrowth.level_for(2), 3)
+	assert_eq(MinorTownGrowth.level_for(3), 4)
+	assert_eq(MinorTownGrowth.level_for(4), 4, "town development tops out at 4")
+	assert_eq(MinorTownGrowth.level_for(-2), 1)
+
+
+func test_each_deed_lifts_the_minor_town_one_level() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	var tiles: Array[Vector2i] = [Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1)]
+	for index in tiles.size():
+		assert_true(LandPurchase.complete(model, tiles[index], 0, economy))
+		assert_eq(minor.town_development, 2 + index, "one level per deed")
+	assert_eq(MinorTownGrowth.deeds_in(model, minor), 3)
+	assert_eq(MinorTownGrowth.apply(model, minor), 0, "a fourth deed cannot pass 4")
+
+
+func test_a_great_power_province_never_grows_from_a_deed() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var gp: ProvinceState = model.provinces[0]
+	model.resource[model.index_of(0, 0)] = 0
+	assert_true(model.purchase_tile(Vector2i(0, 0), 1))
+	assert_eq(MinorTownGrowth.apply(model, gp), 0)
+	assert_eq(gp.town_development, 0, "a crown's own town is its Builder's work")
+
+
+func test_a_lost_deed_never_lowers_a_grown_town() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	minor.town_development = 4
+	assert_true(model.purchase_tile(Vector2i(3, 0), 0))
+	assert_eq(MinorTownGrowth.apply(model, minor), 0, "development is built, not rented")
+	assert_eq(minor.town_development, 4)
+
+
+func test_the_deed_puts_the_minor_town_manufactures_on_the_market() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	assert_null(_lumber_offer(MinorMarket.emit_orders(world)), "a level-1 town pays nothing")
+	assert_true(LandPurchase.complete(model, Vector2i(3, 0), 0, economy))
+	var lumber: MarketOrder = _lumber_offer(MinorMarket.emit_orders(world))
+	assert_not_null(lumber, "the deed develops the town to level 2")
+	assert_eq(lumber.faction, 6)
+	assert_eq(lumber.quantity, 1, "floor(4 timber / 4) x 1")
+	assert_eq(lumber.origin_index, model.index_of(2, 0), "the province town is the source")
+
+
+func _lumber_offer(orders: Array[MarketOrder]) -> MarketOrder:
+	for order: MarketOrder in orders:
+		if order.commodity == "lumber":
+			return order
+	return null
+
+
+func test_the_deed_line_names_the_town_it_developed() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	assert_false(
+		MinorTownGrowth.deed_line(model, minor, "Genoa").contains("town"),
+		"a level-1 town has nothing to announce"
+	)
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 5000
+	assert_true(LandPurchase.complete(model, Vector2i(3, 0), 0, economy))
+	var line: String = MinorTownGrowth.deed_line(model, minor, "Genoa", minor.town_level())
+	assert_true(line.begins_with("The deed to Genoa is signed"), line)
+	assert_true(line.ends_with("The town rises to level 2."), line)
+	minor.town_development = 4
+	assert_false(
+		MinorTownGrowth.deed_line(model, minor, "Genoa", 0).contains("town"),
+		"a deed that did not raise the town says nothing about it"
+	)
+
+
+## The despatch names the level the completion actually set. A fourth deed (a
+## town already at 4) must not announce a rise that never happened (REQ-P5-05;
+## DR-20261112-01).
+func test_a_deed_reports_only_the_level_it_actually_raised() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var minor: ProvinceState = model.provinces[1]
+	var economy := PlayerEconomy.starting()
+	economy.treasury = 50000
+	var works := LandWorks.new()
+	var tiles: Array[Vector2i] = [
+		Vector2i(3, 0), Vector2i(4, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var expected: Array[int] = [2, 3, 4, 0]
+	for index in tiles.size():
+		var merchant: CivilianState = CivilianState.create(
+			1, 0, "merchant", tiles[index]
+		)
+		merchant.start_work(LandPurchase.ACTION, tiles[index], 1)
+		var crew: Array[CivilianState] = [merchant]
+		var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+			model, crew, works, null, economy
+		)
+		assert_eq(reports.size(), 1)
+		var raised: int = int(reports[0].get("town_level", -1))
+		assert_eq(raised, expected[index], "deed %d names the level it raised" % (index + 1))
+		assert_eq(
+			MinorTownGrowth.deed_line(model, minor, "Genoa", maxi(raised, 0)).contains("town"),
+			expected[index] > 0,
+			"only a real rise is announced"
+		)
+
+
+## The purchase toast carries the level the completion reported, so a deed a
+## fully grown town cannot lift never claims a rise (REQ-P5-05; DR-20261112-01).
+func test_the_purchase_toast_names_only_a_real_town_rise() -> void:
+	var world: WorldMap = _deed_world()
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	play.model = model
+	play.player_faction = 0
+	var hud := DeedHud.new()
+	play.hud = hud
+	var report: Dictionary = {
+		"owner": 0, "region": 0, "tile": Vector2i(3, 0), "province": 1,
+	}
+	model.purchase_tile(Vector2i(3, 0), 0)
+	MapPlayCivilians._settle_purchase(play, report)
+	assert_eq(hud.toasts.size(), 1)
+	assert_false(hud.toasts[0].contains("town"), hud.toasts[0])
+	model.purchase_tile(Vector2i(4, 0), 0)
+	report["tile"] = Vector2i(4, 0)
+	report["town_level"] = 3
+	MapPlayCivilians._settle_purchase(play, report)
+	assert_eq(hud.toasts.size(), 2)
+	assert_true(hud.toasts[1].ends_with("The town rises to level 3."), hud.toasts[1])
+	hud.free()
+
+
+func test_the_growth_rule_ignores_a_missing_model_or_province() -> void:
+	assert_eq(MinorTownGrowth.apply(null, null), 0)
+	assert_eq(MinorTownGrowth.deeds_in(null, null), 0)
+	assert_eq(
+		MinorTownGrowth.deed_line(null, null, "Genoa"),
+		"The deed to Genoa is signed; the tile answers to your crown."
+	)
+
+
+# --- another crown's crew on the dossier (DR-20261111-26, per court) ---------
+
+## A rival's crew is observe-only, and its ground is read through OUR survey
+## record: a rival's uncover does not reveal the mineral to another court, and
+## no order we could press applies to a crew that is not ours (wiki:
+## fog-and-exploration § Prospecting — per court; civilian-units § Work Order
+## Summary; REQ-P2-03, REQ-P5-06).
+func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
+	var tile: Vector2i = Fixture.IRON_TILE
+	# The rival surveyed its own ground; our crown has not.
+	_works.set_prospected(1, _model, tile)
+	assert_false(_works.is_prospected(0, _model, tile), "our crown has not surveyed it")
+	var rival := CivilianState.create(2, 1, "builder", tile)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		_model, rival, _works, [rival], Fixture.stockpile(), _view, {}, {},
+		{"treasury": 5000, "diplomacy": null}, 0
+	)
+	assert_eq(_panel_row(panel, "Resource"), "Unsurveyed ground")
+	assert_false(
+		_panel_row(panel, "Works").contains("Prospected"),
+		"the rival's survey is not our survey: " + _panel_row(panel, "Works")
+	)
+	assert_eq(panel._status.text, "Enemy colours · no orders")
+	assert_false(_dossier_offers_orders(panel), "a rival crew takes none of our orders")
+	assert_false(panel._stock_line.visible, "our stores do not price a rival's crew")
+	# Our own Builder on the same tile reads what WE know, so the sheet still
+	# names a surveyed deposit and still offers its orders.
+	_works.set_prospected(0, _model, tile)
+	var mine := CivilianState.create(3, 0, "builder", tile)
+	panel.refresh(
+		_model, mine, _works, [mine], Fixture.stockpile(), _view, {}, {}, {}, 0
+	)
+	assert_eq(_panel_row(panel, "Resource"), "Iron")
+	assert_true(
+		_panel_row(panel, "Works").contains("Prospected"),
+		"our own survey shows: " + _panel_row(panel, "Works")
+	)
+	assert_true(_dossier_offers_orders(panel), "our own crew still takes orders")
+	panel.free()
+
+
+## The value column of one dossier row, or "" when the caption is absent.
+func _panel_row(panel: CivilianPanel, caption: String) -> String:
+	var children: Array[Node] = panel._detail.get_children()
+	var index: int = 0
+	while index + 1 < children.size():
+		var key: Label = children[index] as Label
+		var value: Label = children[index + 1] as Label
+		if key != null and key.text == caption:
+			return value.text if value != null else ""
+		index += 2
+	return ""
+
+
+## True when the dossier's order block carries a pressable order.
+func _dossier_offers_orders(panel: CivilianPanel) -> bool:
+	for child: Node in panel._orders.get_children():
+		if child is Button:
+			return true
+	return false
+
+
+## Ground in a Minor or Tribe province is unreadable without a Consulate, so the
+## map draws no survey mark there and the Explorer's sheet names the gate rather
+## than promising taps the rules refuse (wiki: civilian-units § Work Order
+## Summary — explore/prospect require a Consulate; DR-20261111-26; REQ-P2-03).
+func test_no_survey_mark_or_promise_without_a_consulate() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var court: DiplomacyState = Fixture.merchant_court()
+	court.set_overture(0, 6, "none")
+	var explorer := CivilianState.create(1, 1, "explorer", Vector2i(2, 2))
+	assert_eq(
+		MineralSurvey.unsurveyed_in_province(model, works, 1, 1, null),
+		[Vector2i(2, 1)] as Array[Vector2i],
+		"the ground itself is still unsurveyed"
+	)
+	var gate: String = CivilianExplorerGates.consulate_refusal(
+		model, 1, 1, {"diplomacy": court}
+	)
+	assert_eq(gate, "Establish a consulate before exploring or prospecting")
+	# The rules refuse the order the mark would have promised.
+	var check: Dictionary = CivilianWork.validate(
+		model, explorer, "prospect", works, [explorer], Fixture.stockpile(), null,
+		Vector2i(2, 1), {}, {}, {"treasury": 5000, "diplomacy": court}
+	)
+	assert_false(bool(check["ok"]))
+	assert_eq(String(check["reason"]), gate)
+	# The mark set and the dossier line read the same gate.
+	var play := PlaySession.new()
+	play.model = model
+	play.land_works = works
+	play.player_faction = 1
+	play.diplomacy = court
+	play.economy = null
+	assert_eq(
+		MapPlayCivilians._survey_tiles(play, explorer), [] as Array[Vector2i],
+		"no survey mark is drawn where the court may not dig"
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, works, [explorer], Fixture.stockpile(), null, {}, {},
+		{"treasury": 5000, "diplomacy": court}, 1
+	)
+	assert_eq(_panel_row(panel, "Survey"), gate)
+	panel.free()
+	# With a Consulate the ground and its mark come back.
+	court.set_overture(1, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_eq(CivilianExplorerGates.consulate_refusal(model, 1, 1, {"diplomacy": court}), "")
+	assert_eq(
+		MapPlayCivilians._survey_tiles(play, explorer),
+		[Vector2i(2, 1)] as Array[Vector2i],
+		"a Consulate opens the province's ground"
+	)

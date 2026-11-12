@@ -203,7 +203,7 @@ func _troops_pass(player: int, zone: int) -> void:
 		_play.army_layer.next_regiment
 	)
 	_play.army_layer.armies.append(army)
-	_play.army_layer._rebuild_markers()
+	_play.army_layer.add_marker(army)
 	_play.army_layer.selected_army = army
 	_say("  seated a %d-regiment field army at %s (fixture)" % [
 		army.count(), _play.model.province_name(province),
@@ -256,7 +256,7 @@ func _port_pass(player: int, rival: int) -> void:
 		_play.ship_layer.next_hull + 60, rival, port
 	)
 	_play.ship_layer.fleets.append(fleet)
-	_play.ship_layer._rebuild_markers()
+	_play.ship_layer.rebuild_markers()
 	_say("  %s keeps a squadron in port at %s (fixture): %s" % [
 		FactionCatalog.name_of(rival), _play.model.province_name(port),
 		_named_hulls(fleet),
@@ -444,13 +444,13 @@ func _seat_rival_fleet(zone: int, rival: int) -> FleetState:
 			fleet.province = MapModel.NO_ID
 			fleet.clear_beachhead()
 			fleet.moved = true
-			_play.ship_layer._rebuild_markers()
+			_play.ship_layer.rebuild_markers()
 			return fleet
 	var seated: FleetState = FleetState.at_sea(
 		_play.ship_layer.next_hull + 20, rival, zone
 	)
 	_play.ship_layer.fleets.append(seated)
-	_play.ship_layer._rebuild_markers()
+	_play.ship_layer.rebuild_markers()
 	return seated
 
 
