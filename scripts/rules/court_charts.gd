@@ -11,57 +11,86 @@ extends RefCounted
 ## and a harder level buys stores and land strength, never sight.
 
 var human_faction: int = MapModel.NO_ID
-## Faction -> region -> VisibilityModel, for every rival Great Power.
+## Faction -> region -> VisibilityModel, for every rival Great Power this
+## session has charted. A rival's grid is built the first time a rule reads it
+## (see `_ensure`), so mounting a campaign screen no longer pays for five
+## courts' grids that nobody has looked at yet.
 var courts: Dictionary = {}
 ## The session's human table, held by reference so the view and the planners
 ## share one grid instead of two copies that could drift.
 var _human_views: Dictionary = {}
+## The world the rivals' initial grids are cut from; null in a fixture that
+## never charted a world, which keeps `model_for` answering null as before.
+var _world: WorldMap = null
 
 
-## Builds a model per rival per region; safe to call again as regions load. The
+## Remembers the world the rivals chart; safe to call again as regions load. The
 ## human court is never copied — `model_for` routes it to the session's table.
+## The rivals' grids themselves are cut on first read, not here.
 func setup(world: WorldMap, human: int, human_views: Dictionary) -> void:
 	human_faction = human
 	_human_views = human_views
-	if world == null:
-		return
-	for index in world.region_count():
-		add_region(index, world.region(index))
+	if world != null:
+		_world = world
 
 
-## Charts one region for every rival still missing it.
-func add_region(index: int, model: MapModel) -> void:
-	if model == null:
-		return
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction == human_faction:
-			continue
-		var by_region: Dictionary = courts.get(faction, {})
-		if by_region.has(index):
-			continue
-		var view := VisibilityModel.new()
-		view.setup(model, faction)
-		view.apply_initial()
-		by_region[index] = view
-		courts[faction] = by_region
-
-
-## A court's fog for one region: the human's own grid, or a rival's model.
+## A court's fog for one region: the human's own grid, or a rival's model,
+## which is cut from the world if this is the first rule to read it.
 func model_for(owner: int, region: int) -> VisibilityModel:
 	if owner == human_faction:
 		var human_view: Variant = _human_views.get(region, null)
 		return human_view as VisibilityModel
+	_ensure(owner, region)
 	var by_region: Dictionary = courts.get(owner, {})
 	var view: Variant = by_region.get(region, null)
 	return view as VisibilityModel
 
 
 ## Region -> model table for one court, as TechDiscovery and the save expect.
+## A rival's full table is cut here, because the caller reads every region.
 func regions_of(owner: int) -> Dictionary:
 	if owner == human_faction:
 		return _human_views
+	_ensure_faction(owner)
 	var by_region: Dictionary = courts.get(owner, {})
 	return by_region
+
+
+## Builds one rival's grid for one region when it is missing. A restored grid
+## (see `apply_dict`) is never replaced, so a load keeps what the court charted.
+func _ensure(owner: int, region: int) -> void:
+	if _world == null:
+		return
+	var by_region: Dictionary = courts.get(owner, {})
+	if by_region.has(region):
+		return
+	var model: MapModel = _world.region(region)
+	if model == null:
+		return
+	var view := VisibilityModel.new()
+	view.setup(model, owner)
+	view.apply_initial()
+	by_region[region] = view
+	courts[owner] = by_region
+
+
+## Builds every region for one rival (the save and the research reads want the
+## whole table, not one region of it).
+func _ensure_faction(owner: int) -> void:
+	if _world == null:
+		return
+	for index in _world.region_count():
+		_ensure(owner, index)
+
+
+## Builds every rival's every grid, so a save always carries the full charts.
+func _ensure_all() -> void:
+	if _world == null:
+		return
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == human_faction:
+			continue
+		_ensure_faction(faction)
 
 
 ## True when at least one tile of the province is charted (fogged or better).
@@ -135,6 +164,7 @@ func reveal_province(owner: int, region: int, province_id: int) -> Array:
 ## Plain data for a local save: the rivals' grids (the human's own table is
 ## captured beside the world half by SaveWorld).
 func to_dict() -> Dictionary:
+	_ensure_all()
 	var by_faction: Dictionary = {}
 	for raw: Variant in courts.keys():
 		var faction: int = int(raw)

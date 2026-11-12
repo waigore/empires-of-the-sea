@@ -54,13 +54,16 @@ static func disband_hint(tier: int) -> String:
 	)
 
 
-## Summary line: treasury, idle/total labour, food need and strikers.
+## Summary line: treasury, idle/total labour, food need and strikers. The food
+## need is every mouth the Consumption phase feeds — workers, the army, the navy
+## and the hospital staffs (wiki: workers-and-population § Consumption).
 static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
 	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
 		TextFormat.thousands(economy.treasury),
 		idle_labour(report),
 		economy.workers.labour(),
-		economy.workers.food_demand() + navy_food(report) + hospital_food(report),
+		economy.workers.food_demand() + army_food(report) + navy_food(report)
+		+ hospital_food(report),
 		int((report.get("consumption", {}) as Dictionary).get("strikers", 0)),
 	]
 
@@ -137,6 +140,10 @@ static func cargo_color(cargo: Dictionary) -> Color:
 
 static func idle_labour(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("idle_labour", 0))
+
+
+static func army_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("army_demand", 0))
 
 
 static func navy_food(report: Dictionary) -> int:
