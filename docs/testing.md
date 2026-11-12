@@ -140,6 +140,14 @@ godot --headless --path . --script res://tests/playtest_capital_move.gd
 # to read 40% against 25% over a real turn, seats a General hospital to read the
 # better-of rule and an unfed ward, then splits, boards, combines and saves.
 godot --headless --path . --script res://tests/playtest_field_train.gd
+
+# Court proposals — plays England (not the catalog's player slot) and answers a
+# rival's white peace, alliance, trade pact and non-aggression offer on the
+# consent banner's own buttons, reading the banner, the despatch and the court
+# chronicle in between; then saves with an offer still waiting, reloads and
+# answers it, and reads the call to arms the restored ledger still raises for an
+# ally.
+godot --headless --path . --script res://tests/playtest_court_proposal.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

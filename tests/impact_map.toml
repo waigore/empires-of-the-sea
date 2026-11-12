@@ -821,6 +821,14 @@ domain = "land_turn"
 match = "tests/playtest_field_train.gd*"
 domain = "army"
 
+# The court-proposal drive presses the consent banner's own answers (a white
+# peace, an alliance, a trade pact, a non-aggression overture), saves with an
+# offer still waiting and reads the restored court, so it travels with the
+# diplomacy suites that own the court panel and its prompts.
+[[rules]]
+match = "tests/playtest_court_proposal.gd*"
+domain = "diplomacy"
+
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
 [[rules]]
