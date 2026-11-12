@@ -11,8 +11,8 @@ const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
 const STACK_BAR_HEIGHT: float = 98.0
 ## Right edge of the cartouche's left rail (sound seal, estates seal and the
-## three lens toggles sit here).
-const LEFT_RAIL: float = 382.0
+## four lens toggles sit here).
+const LEFT_RAIL: float = 448.0
 
 var compact: bool = false
 

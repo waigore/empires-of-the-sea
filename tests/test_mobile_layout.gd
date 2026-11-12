@@ -109,6 +109,16 @@ func test_phone_chrome_fits_the_screen() -> void:
 			"diplomacy lens button %s" % size
 		)
 		_tappable(hud._diplomacy_lens_button, "diplomacy lens button %s" % size)
+		_fits(
+			hud._defence_lens_button.get_global_rect(), _screen_rect(),
+			"defence lens button %s" % size
+		)
+		_tappable(hud._defence_lens_button, "defence lens button %s" % size)
+		assert_gt(
+			hud._defence_lens_button.get_global_rect().position.x,
+			hud._crown_lens_button.get_global_rect().end.x,
+			"the defence seal clears the crown road seal %s" % size
+		)
 		assert_gt(
 			hud._diplomacy_lens_button.get_global_rect().position.x,
 			hud._lens_button.get_global_rect().end.x,

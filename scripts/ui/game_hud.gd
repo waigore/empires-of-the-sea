@@ -26,11 +26,12 @@ signal diplomacy_order(kind: String, target: int, arg: String)
 signal civilian_roster_pressed
 signal region_toggle_pressed
 signal focus_capital_pressed
-## A map-lens toggle changed state (button or keyboard): survey, diplomacy or
-## the crown road.
+## A map-lens toggle changed state (button or keyboard): survey, diplomacy, the
+## crown road or the defence reading.
 signal lens_pressed(active: bool)
 signal diplomacy_lens_pressed(active: bool)
 signal crown_lens_pressed(active: bool)
+signal defence_lens_pressed(active: bool)
 ## Status plaques double as shortcuts to the crown's forces in this region.
 signal fleet_status_pressed
 signal army_status_pressed
@@ -80,8 +81,7 @@ var quick_battle_overlay: QuickBattleOverlay = null
 var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
 var civilian_roster: CivilianRosterPanel = null
-## The court's full intelligence dossier, opened from its summary block
-## (wiki: ai-dossier; DR-20261110-25).
+## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
@@ -136,10 +136,11 @@ var _army_panel: ArmyPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
-## Left-rail toggles for the three map lenses; HudChrome owns the legend.
+## Left-rail toggles for the four map lenses; HudChrome owns the legend.
 var _lens_button: Button = null
 var _diplomacy_lens_button: Button = null
 var _crown_lens_button: Button = null
+var _defence_lens_button: Button = null
 var _glow: Panel = null
 var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
@@ -162,8 +163,7 @@ func _ready() -> void:
 	_relayout()
 
 
-## Chrome geometry follows the viewport: desktop keeps the atlas layout, a phone
-## gets the compact one (HudLayout), and the notch never eats a control.
+## Chrome follows the viewport: atlas layout or HudLayout's compact one.
 func _relayout() -> void:
 	if panels == null:
 		return
@@ -297,21 +297,24 @@ func is_victory_shown() -> bool:
 ## echoing the button signal (the screen owns the state). Only one lens is ever
 ## on, so the key shows the kind that was just raised.
 func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
-	var button: Button = _lens_button
-	if kind == LensLegend.KIND_DIPLOMACY:
-		button = _diplomacy_lens_button
-	elif kind == LensLegend.KIND_CROWN_ROAD:
-		button = _crown_lens_button
-	if button != null and button.button_pressed != active:
-		button.set_pressed_no_signal(active)
+	var seals: Array = [
+		[LensLegend.KIND_SURVEY, _lens_button],
+		[LensLegend.KIND_DIPLOMACY, _diplomacy_lens_button],
+		[LensLegend.KIND_CROWN_ROAD, _crown_lens_button],
+		[LensLegend.KIND_DEFENCE, _defence_lens_button],
+	]
+	var raised: bool = false
+	for pair: Array in seals:
+		var seal: Button = pair[1] as Button
+		if seal == null:
+			continue
+		if String(pair[0]) == kind and seal.button_pressed != active:
+			seal.set_pressed_no_signal(active)
+		raised = raised or seal.button_pressed
 	if lens_legend == null:
 		return
 	lens_legend.set_kind(kind)
-	lens_legend.visible = (
-		(_lens_button != null and _lens_button.button_pressed)
-		or (_diplomacy_lens_button != null and _diplomacy_lens_button.button_pressed)
-		or (_crown_lens_button != null and _crown_lens_button.button_pressed)
-	)
+	lens_legend.visible = raised
 
 
 ## A plate closes: the next battle of the turn takes the court, or the news the
