@@ -1257,6 +1257,7 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	panel.refresh(model, army, true, false, "", [], "", "balanced", order)
 	assert_true(panel._hospital.visible)
 	assert_false(panel._hospital.disabled)
+	var bare_food: int = panel._food(army)
 
 	# A blocked order still shows, with the rules' reason as its caption.
 	panel.refresh(
@@ -1270,6 +1271,12 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	panel.refresh(model, army, true)
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
 	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
+	# The strength line's food is the army's own upkeep line, nurses included.
+	assert_eq(panel._food(army), bare_food + HospitalTrain.food())
+	assert_true(
+		String(panel._strength.text).contains("%d food" % (bare_food + HospitalTrain.food())),
+		panel._strength.text
+	)
 	panel.free()
 
 # --- test_army_field_rules ---
@@ -1764,6 +1771,36 @@ func test_apply_re_equips_great_power_regiments_in_place() -> void:
 	assert_eq(army.type_of(bowmen), "bowmen", "bowmen have no upgrade path")
 	assert_eq(rival.type_of(squires), "cossacks", "rivals re-equip off their own techs")
 	assert_eq(army.regiments, [pikemen, bowmen], "instance ids never change")
+
+func test_a_re_equipped_regiment_keeps_its_health_inside_the_new_pool() -> void:
+	_setup_army_field_rules()
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var whole: ArmyState = ArmyState.muster(1, power, 0, true, ["pikemen"], 1)
+	var mauled: ArmyState = ArmyState.muster(2, power, 0, false, ["pikemen"], 10)
+	var veteran: String = mauled.regiments[0]
+	mauled.regiment_health[veteran] = RegimentCatalog.max_health("pikemen") / 2
+	var regions := MapRegionTable.new()
+	regions.set_region(0, [whole, mauled])
+
+	RegimentUpgrades.apply(regions, {power: {"improved_iron_weapons": true}})
+
+	for army: ArmyState in [whole, mauled]:
+		var data: Dictionary = army.condition_of(army.regiments[0])
+		assert_eq(String(data["type"]), "halberdiers")
+		assert_eq(
+			int(data["max"]), RegimentCatalog.max_health("halberdiers"),
+			"the pool is the new type's, not the old one kept by a stale max"
+		)
+	assert_eq(
+		int(whole.condition_of(whole.regiments[0])["hp"]),
+		RegimentCatalog.max_health("halberdiers"),
+		"an untouched regiment re-equips at full strength"
+	)
+	assert_true(
+		float(mauled.condition_of(veteran)["fraction"]) < 1.0,
+		"a mauled veteran keeps its wounds through the re-equip"
+	)
+
 
 func test_apply_skips_minors_tribes_and_courts_with_nothing_new() -> void:
 	_setup_army_field_rules()

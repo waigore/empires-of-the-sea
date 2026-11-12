@@ -98,7 +98,7 @@ static func apply(regions: MapRegionTable, tech_by_faction: Dictionary) -> Dicti
 				var upgraded: String = target_type(current, tech)
 				if upgraded == current:
 					continue
-				army.regiment_types[regiment_id] = upgraded
+				army.set_type(regiment_id, upgraded)
 				report["count"] = int(report["count"]) + 1
 				var by_faction: Dictionary = report["by_faction"]
 				by_faction[army.owner] = int(by_faction.get(army.owner, 0)) + 1

@@ -340,6 +340,11 @@ func _add_record(
 
 func _food(army: ArmyState) -> int:
 	var total: int = 0
+	# A train's nurses eat inside the army's own upkeep line, so the strength
+	# line counts them with the men (wiki: combat § Regiment condition;
+	# DR-20261112-07).
+	if army.field_hospital:
+		total += HospitalTrain.food()
 	for regiment_id: String in army.regiments:
 		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total

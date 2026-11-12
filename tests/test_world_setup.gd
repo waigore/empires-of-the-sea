@@ -25,6 +25,23 @@ func test_world_has_two_regions_with_clean_setup() -> void:
 	assert_eq(world.total_provinces(), world.region(0).province_count() + world.region(1).province_count())
 
 
+## The shared fixture is generated once per suite, so it must pass its fair
+## split on the first attempt: a seed that fails makes `generate_world` build a
+## second world (wiki: game-setup § Tribe assignment regen-until-pass), and every
+## mounted suite pays that second build under coverage.
+func test_the_fixture_world_passes_on_its_first_attempt() -> void:
+	var first: MapModel = MapGenerator.new().generate_region(
+		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
+	)
+	var second: MapModel = MapGenerator.new().generate_region(
+		SEED + 7919, FactionCatalog.NEW_WORLD,
+		maxi(48, int(round(float(WIDTH) * 0.88))),
+		maxi(36, int(round(float(HEIGHT) * 0.9))),
+	)
+	assert_true(first.setup_errors.is_empty(), "OW first attempt: %s" % str(first.setup_errors))
+	assert_true(second.setup_errors.is_empty(), "NW first attempt: %s" % str(second.setup_errors))
+
+
 func test_regions_host_the_expected_faction_rosters() -> void:
 	assert_eq(
 		world.factions_in(FactionCatalog.OLD_WORLD),
