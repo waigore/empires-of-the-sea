@@ -268,7 +268,7 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 
 ## A blooded regiment prints its service record under its condition, and its
 ## despatch under that once it has stood in a field; a green one adds no line
-## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10).
+## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10/-13-04).
 func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
@@ -283,7 +283,10 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 
 	var cited: VBoxContainer = panel._roster.get_child(0)
 	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
-	assert_eq(String(despatch.text), "Cited — Province 1 won", "the citation leads")
+	assert_eq(
+		String(despatch.text), "Cited +5% — Province 1 won",
+		"the citation leads, and names the rank it buys"
+	)
 	var whole: VBoxContainer = panel._roster.get_child(1)
 	var bare: Label = whole.get_child(whole.get_child_count() - 1)
 	assert_eq(

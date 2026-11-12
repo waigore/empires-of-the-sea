@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-03 (`REQ-P2-02`).
+Audited through DR-20261113-04 (`REQ-P2-02`).
 
 ## Already live
 
@@ -33,18 +33,18 @@ Audited through DR-20261113-03 (`REQ-P2-02`).
 | Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
+| A decoration that buys weight | `RegimentDecorations.strength_multiplier`, DR-20261113-04 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A decoration that buys something | Rules depth | Wiki DR-20261113-04 (`×1.05`/`×1.10`); code omits |
-| 2 | Translation content | Localization | Keys live; needs words |
+| 1 | Translation content | Localization | Keys live; needs words |
 
 ## Next pick
 
-**Rank 1** — Decoration: wiki numbers exist; main still display-only
-(`RegimentDecorations` / `ArmyModifiers`).
+**Rank 1** — Translation content: every dialogue line answers to a key
+(`DialogueLocale`), but no `.po` ships, so a non-English build reads English.
 
 ## Out of scope / blocked footnotes
 
