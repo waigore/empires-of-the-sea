@@ -1331,6 +1331,49 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 	assert_eq(int(stock["steel"]), 3)
 
 
+## What the next Production phase actually delivers from the anvil: one unit
+## from every batch due that phase, a carried one-turn batch whole
+## (wiki: production-recipes § Turns per unit; DR-20261113-02).
+func test_the_next_landing_counts_every_batch_due() -> void:
+	assert_eq(
+		ProductionRecipes.landing_next({"steel": [{"units": 3, "turns_left": 1}]}, "steel"),
+		1,
+		"one batch gives up one unit"
+	)
+	var two: Dictionary = {
+		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
+	}
+	assert_eq(ProductionRecipes.turns_left(two, "steel"), 1)
+	assert_eq(
+		ProductionRecipes.landing_next(two, "steel"), 2,
+		"two batches ordered a phase apart land two units"
+	)
+	var staggered: Dictionary = {
+		"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}],
+	}
+	assert_eq(
+		ProductionRecipes.turns_left(staggered, "steel"), 1,
+		"the soonest batch says when the next unit lands"
+	)
+	assert_eq(
+		ProductionRecipes.landing_next(staggered, "steel"), 1,
+		"only the batch due this phase lands"
+	)
+	assert_eq(
+		ProductionRecipes.landing_next({"lumber": [{"units": 2, "turns_left": 1}]}, "lumber"),
+		2,
+		"a one-turn row never waits, so a carried batch lands whole"
+	)
+	assert_eq(ProductionRecipes.landing_next({}, "steel"), 0)
+	var started: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "steel", "units": 1}], {"iron": 1, "coal": 1}, 2, {}
+	)["wip"]
+	assert_eq(
+		ProductionRecipes.landing_next(started, "steel"), 1,
+		"a run started this phase lands its first unit next phase"
+	)
+
+
 ## Drip-feeding three steel one unit a phase builds the same output from the same
 ## inputs as one batch of three, so a batch buys no front-loading.
 func test_a_batch_matches_drip_feeding() -> void:

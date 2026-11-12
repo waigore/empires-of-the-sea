@@ -200,17 +200,21 @@ static func province_name(
 	return fallback
 
 
-## Unique sea-zone name for a region (no RNG: the pools are fixed lists).
-static func sea_name(used: Dictionary, region_id: int) -> String:
+## Sea-zone display name for the zone standing `index`th in its region's sorted
+## local-id order (wiki: naming § Sea-zone display names): the region preset in
+## declared order, cycling onto it again with a numeric ordinal when a region has
+## more zones than the preset has names — `(2)`, `(3)`, … — so every zone keeps a
+## non-empty, stable label and no shuffle ever decides a name.
+static func sea_name(index: int, region_id: int) -> String:
 	var names: Array[String] = (
 		NEW_WORLD_SEA_NAMES
 		if region_id == FactionCatalog.NEW_WORLD
 		else OLD_WORLD_SEA_NAMES
 	)
-	for name: String in names:
-		if not used.has(name):
-			used[name] = true
-			return name
-	var fallback: String = "Mar %d" % (used.size() + 1)
-	used[fallback] = true
-	return fallback
+	if names.is_empty():
+		return "Mar %d" % (index + 1)
+	var cycle: int = index / names.size()
+	var name: String = names[index % names.size()]
+	if cycle <= 0:
+		return name
+	return "%s (%d)" % [name, cycle + 1]

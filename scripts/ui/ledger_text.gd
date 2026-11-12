@@ -46,10 +46,11 @@ static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
 	return "" if turns <= 1 else "%dt" % turns
 
 
-## What the tag promises, spelled out for a long press or a hover. A multi-turn
-## batch lands one unit a Production phase, so the note says how many are still
-## on the anvil and when the next one lands (wiki: production-recipes § Turns per
-## unit; DR-20261113-02).
+## What the tag promises, spelled out for a long press or a hover. The note says
+## how many units are still on the anvil, how many leave it in the next phase,
+## and when — two batches ordered a phase apart give up a unit each, so one a
+## turn per batch is not one a turn for the row (wiki: production-recipes
+## § Turns per unit; DR-20261113-02).
 static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 	var turns: int = ProductionRecipes.turns(recipe_id)
 	var serving: int = 0 if economy == null else economy.wip_units(recipe_id)
@@ -58,16 +59,20 @@ static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> Strin
 			return ""
 		return "Ready next turn: a run pays its inputs and labour, then lands one unit a turn."
 	var wait: int = maxi(economy.wip_turns(recipe_id), 1)
-	return (
-		"%d unit%s already in the workshop, landing one a turn — the next in %d turn%s. "
-		+ "Runs started now wait %d turns."
-	) % [
-		serving,
-		"" if serving == 1 else "s",
-		wait,
-		"" if wait == 1 else "s",
-		turns,
+	var landing: int = ProductionRecipes.landing_next(economy.production_wip, recipe_id)
+	var batches: int = ProductionRecipes.batches(economy.production_wip, recipe_id).size()
+	var line: String = "%d unit%s already in the workshop" % [
+		serving, "" if serving == 1 else "s",
 	]
+	if batches > 1:
+		line += " in %d batches" % batches
+	line += " — %s in %d turn%s." % [
+		"one lands" if landing == 1 else "%d land" % landing,
+		wait, "" if wait == 1 else "s",
+	]
+	if turns > 1:
+		line += " Each batch lands one a turn; runs started now wait %d turns." % turns
+	return line
 
 
 ## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.

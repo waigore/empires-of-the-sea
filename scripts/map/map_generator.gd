@@ -137,16 +137,16 @@ func _build_sea_zones(model: MapModel) -> void:
 	MapRegions.grow(model, seeds, false, _rng)
 
 	var buckets: Dictionary = _tile_buckets(model, sea, false)
-	var used_names: Dictionary = {}
 	var ids: Array = buckets.keys()
 	ids.sort()
-	for id: int in ids:
+	for order in ids.size():
+		var id: int = int(ids[order])
 		var tiles: Array[Vector2i] = buckets[id]["tiles"]
 		var sum: Vector2 = buckets[id]["sum"]
 		model.sea_zones.append(
 			SeaZoneState.create(
 				id,
-				MapNaming.sea_name(used_names, model.region_id),
+				MapNaming.sea_name(order, model.region_id),
 				tiles,
 				sum / float(tiles.size()) + Vector2(0.5, 0.5),
 				tiles.size()

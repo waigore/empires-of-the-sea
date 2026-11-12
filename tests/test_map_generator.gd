@@ -170,6 +170,48 @@ func test_names_are_unique() -> void:
 		zones[name] = true
 
 
+## A sea zone's name is the region preset in declared order — the zone standing
+## nth in sorted local-id order takes the nth preset entry — and a region with
+## more zones than names cycles the preset again behind a numeric ordinal, never
+## a shuffle and never an empty label (wiki: naming § Sea-zone display names).
+func test_sea_zone_names_cycle_the_preset_with_ordinals() -> void:
+	var old_world: int = FactionCatalog.OLD_WORLD
+	var preset: Array[String] = MapNaming.OLD_WORLD_SEA_NAMES
+	assert_eq(MapNaming.sea_name(0, old_world), preset[0], "the first zone takes the first name")
+	assert_eq(MapNaming.sea_name(preset.size() - 1, old_world), preset[preset.size() - 1])
+	assert_eq(
+		MapNaming.sea_name(preset.size(), old_world),
+		"%s (2)" % preset[0],
+		"the second cycle marks its ordinal"
+	)
+	assert_eq(
+		MapNaming.sea_name(preset.size() * 2 + 3, old_world),
+		"%s (3)" % preset[3],
+		"the third cycle reads its own ordinal"
+	)
+	var seen: Dictionary = {}
+	for index in preset.size() * 3:
+		var name: String = MapNaming.sea_name(index, old_world)
+		assert_false(name.is_empty(), "zone %d has no name" % index)
+		assert_false(seen.has(name), "two zones share %s" % name)
+		seen[name] = true
+	var new_world: int = FactionCatalog.NEW_WORLD
+	assert_eq(
+		MapNaming.sea_name(7, new_world), MapNaming.NEW_WORLD_SEA_NAMES[7],
+		"the New World reads its own preset"
+	)
+	assert_eq(
+		MapNaming.sea_name(7, new_world), MapNaming.sea_name(7, new_world),
+		"the same zone always reads the same name"
+	)
+	# The generated chart names its zones in that same sorted order.
+	for order in model.sea_zones.size():
+		assert_eq(
+			String(model.sea_zones[order].name), MapNaming.sea_name(order, model.region_id),
+			"zone %d is named by its place in the id order" % order
+		)
+
+
 ## A province must read as its owner's country: Spanish provinces get Spanish
 ## cities, English provinces English ones, and the capital its capital city.
 func test_province_names_match_their_owner() -> void:
