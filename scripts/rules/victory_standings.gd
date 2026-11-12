@@ -12,9 +12,10 @@ extends RefCounted
 const WARN_WITHIN: int = 3
 
 
-## One row per Great Power, ordered as the race stands: most Old World
-## provinces first, ties broken by player id so a draw never reshuffles
-## between turns (the same determinism the victory check uses).
+## One row per Great Power, ordered as the race stands: the crown closest to its
+## own bar first — a crown's bar carries the level, so the most provinces is not
+## the same thing as the nearest the age — ties broken by player id so a draw
+## never reshuffles between turns (the determinism the victory check uses).
 static func rows(
 	world: WorldMap,
 	human: int = MapModel.NO_ID,
@@ -129,8 +130,8 @@ static func warning(
 
 
 static func _ranked(left: Dictionary, right: Dictionary) -> bool:
-	if int(left["holdings"]) != int(right["holdings"]):
-		return int(left["holdings"]) > int(right["holdings"])
+	if int(left["need"]) != int(right["need"]):
+		return int(left["need"]) < int(right["need"])
 	return str(int(left["id"])) < str(int(right["id"]))
 
 
