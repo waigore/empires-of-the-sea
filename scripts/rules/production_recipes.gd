@@ -138,11 +138,16 @@ static func in_flight(wip: Dictionary, recipe_id: String) -> int:
 
 
 ## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
+## The soonest batch speaks for the row: a later batch cannot delay the unit that
+## is already one phase from the store (DR-20261113-02's "the next landing").
 static func turns_left(wip: Dictionary, recipe_id: String) -> int:
-	var most: int = 0
-	for cleaned: Dictionary in batches(wip, recipe_id):
-		most = maxi(most, int(cleaned["turns_left"]))
-	return most
+	var all: Array[Dictionary] = batches(wip, recipe_id)
+	if all.is_empty():
+		return 0
+	var soonest: int = int(all[0]["turns_left"])
+	for cleaned: Dictionary in all:
+		soonest = mini(soonest, int(cleaned["turns_left"]))
+	return soonest
 
 
 ## Units that leave the workshop in the next Production phase: one per batch
