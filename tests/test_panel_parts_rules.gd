@@ -457,6 +457,38 @@ func test_the_town_row_names_the_path_that_province_offers() -> void:
 		"a missing province falls back to the Builder line"
 	)
 
+## The roads tip counts one road tile and one estate in the singular: the tooltip
+## is the only place a province says how much of its network it holds.
+func test_the_roads_tip_counts_one_in_the_singular() -> void:
+	var province := ProvinceState.create(
+		0, "Cádiz", [] as Array[Vector2i], Vector2(0, 0), 1, 0, true
+	)
+	province.road_paths = [[Vector2i(1, 1)]]
+	var one: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 road tile laid here"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 estate surveyed"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_eq(DossierCopy.roads(one), "1 of 1 developed estate linked")
+	province.road_paths = [[Vector2i(1, 1), Vector2i(2, 1)]]
+	var two: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+		{"ours": true, "level": 2, "connected": false},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, two).contains("2 road tiles laid here"),
+		DossierCopy.roads_tip(province, two)
+	)
+	assert_true(DossierCopy.roads_tip(province, two).contains("2 estates surveyed"))
+	assert_eq(DossierCopy.roads(two), "1 of 2 developed estates linked")
+
+
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_setup_province_panel()
 	_show({})

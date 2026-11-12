@@ -89,27 +89,54 @@ static func town_connected(
 	return connected
 
 
-## Yield cap from town development for one connected tile (wiki: extraction
-## formula and town development cap). A capital province always caps at its town
-## level; a non-capital estate caps only when the Town rule is its only link to
-## the crown (beside a port town that reaches the capital), because an estate on
-## a road path to the crown is not limited by town development.
+## Yield cap from town development for one connected tile (wiki: extraction-and-
+## improvements § Extraction formula and town development cap). MAX_IMPROVEMENT
+## when town development does not limit this tile at all.
 static func town_cap_for(
 	model: MapModel, resolved: Dictionary, province_id: int, index: int
 ) -> int:
 	var province: ProvinceState = model.province_data(province_id)
 	if province == null or province.town_development <= 0:
 		return LandWorks.MAX_IMPROVEMENT
-	var level: int = province.town_development
-	if province.capital:
-		return level
-	var entry: Dictionary = (resolved.get("tiles", {}) as Dictionary).get(index, {})
-	if bool(entry.get("road", false)):
+	if not town_caps_yield(model, resolved, province_id, index):
 		return LandWorks.MAX_IMPROVEMENT
+	return province.town_development
+
+
+## True when town development limits this tile's yield: a capital province
+## always caps at its town level; a non-capital estate caps only when the Town
+## rule is its only link to the crown (beside a port town that reaches the
+## capital), because an estate on a road path to the crown is not limited by
+## town development. The reading and the yield share this one predicate.
+static func town_caps_yield(
+	model: MapModel, resolved: Dictionary, province_id: int, index: int
+) -> bool:
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null or province.town_development <= 0:
+		return false
+	if province.capital:
+		return true
+	if not town_caps_province(model, resolved, province_id):
+		return false
+	var entry: Dictionary = (resolved.get("tiles", {}) as Dictionary).get(index, {})
+	return bool(entry.get("town", false)) and not bool(entry.get("road", false))
+
+
+## True when town development reaches this province's town-connected estates: a
+## capital province, or a province whose town tile carries a port. A town that
+## merely stands beside a landfall port is inland for this rule, so nothing caps
+## the estates around it (wiki: extraction-and-improvements § Extraction formula
+## and town development cap).
+static func town_caps_province(
+	model: MapModel, resolved: Dictionary, province_id: int
+) -> bool:
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null or province.town_development <= 0:
+		return false
+	if province.capital:
+		return true
 	var ports: Dictionary = resolved.get("town_port_connected", {}) as Dictionary
-	if bool(entry.get("town", false)) and bool(ports.get(province_id, false)):
-		return level
-	return LandWorks.MAX_IMPROVEMENT
+	return bool(ports.get(province_id, false))
 
 
 ## Crown-network summary for the province dossier:

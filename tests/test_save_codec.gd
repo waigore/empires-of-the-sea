@@ -377,6 +377,8 @@ func test_the_crowns_battle_plan_survives_a_load() -> void:
 func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
 	var play: PlaySession = screen.play
 	play.battle_plan = "defensive"
+	# Both payloads come from the opening screen so the case pays for two loads,
+	# not a third remount just to re-capture a fresh session.
 	var data: Dictionary = SaveCodec.capture(play)
 	var session: Dictionary = data["session"]
 	session.erase("battle_plan")

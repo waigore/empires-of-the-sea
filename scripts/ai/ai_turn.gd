@@ -16,7 +16,10 @@ const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
 
 ## `context` may carry "regiments", "ships" and "stockpiles" maps by faction, plus
 ## "readings": per court, the order of battle that court has charted, so each
-## rival scores its war desire against what it has seen (DR-20261112-09).
+## rival scores its war desire against what it has seen (DR-20261112-09), and
+## "charts": the session's `CourtCharts`, so every diplomacy read — the resource
+## need behind a war and the land an envoy chain would open — stays on the
+## court's own chart (DR-20261113-03).
 static func run(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -78,6 +81,8 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 	var views: Dictionary = _views(world, supplied.get("readings", {}))
 	if not views.is_empty():
 		context["views"] = views
+	if supplied.has("charts"):
+		context["charts"] = supplied["charts"]
 	if supplied.has("stockpiles"):
 		context["stockpiles"] = supplied["stockpiles"]
 	return context

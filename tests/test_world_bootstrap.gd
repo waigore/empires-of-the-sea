@@ -13,26 +13,37 @@ const BOOT_HEIGHT: int = 48
 const NEW_WORLD_SEED: int = Fixture.SEED + 7919
 
 ## Non-underscore so before_all state is copied onto each test instance. The
-## post-pass is read-only in every case below, so one region per worker keeps
-## world generation (the suite's dominant cost under coverage) off the hot path.
+## post-pass is read-only in every case below, so region charts in before_all
+## keep world generation (the suite's dominant cost under coverage) off the
+## hot path. Old World, its determinism twin, and the New World are each
+## generated once — never via `generate_world`, which would build discarded
+## charts.
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
-## New World chart shared by the landless-seat and no-farm cases.
+var model_twin: MapModel = null
+var works_twin: LandWorks = null
 var new_world: MapModel = null
+var new_world_works: LandWorks = null
+var new_world_report: Dictionary = {}
 
 
 func before_all() -> void:
-	# Old World only — a full `generate_world` also built a New World chart this
-	# suite never read from the shared boot.
 	model = MapGenerator.new().generate_region(
 		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
+	model_twin = MapGenerator.new().generate_region(
+		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+	)
+	works_twin = LandWorks.new()
+	WorldBootstrap.apply(model_twin, works_twin)
 	new_world = MapGenerator.new().generate_region(
 		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
+	new_world_works = LandWorks.new()
+	new_world_report = WorldBootstrap.apply(new_world, new_world_works)
 
 
 func test_every_great_power_gets_four_grain_farms() -> void:
@@ -184,20 +195,13 @@ func test_town_roads_are_wired_and_counted() -> void:
 
 
 func test_the_post_pass_is_deterministic() -> void:
-	var second: MapModel = MapGenerator.new().generate_region(
-		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
-	var second_works := LandWorks.new()
-	WorldBootstrap.apply(second, second_works)
-	assert_eq(second.resource, model.resource)
-	assert_eq(second_works.improvement, works.improvement)
-	assert_eq(second_works.transport, works.transport)
-	assert_eq(second_works.ports, works.ports)
+	assert_eq(model_twin.resource, model.resource)
+	assert_eq(works_twin.improvement, works.improvement)
+	assert_eq(works_twin.transport, works.transport)
+	assert_eq(works_twin.ports, works.ports)
 
 
 func test_the_new_world_gets_no_great_power_farms() -> void:
-	var new_world_works := LandWorks.new()
-	var new_world_report: Dictionary = WorldBootstrap.apply(new_world, new_world_works)
 	assert_eq(int(new_world_report["farms"]), 0)
 	assert_eq(int(new_world_report["town_roads"]), 0, "the New World is not wired at init")
 	assert_true(new_world_works.improvement.is_empty())
