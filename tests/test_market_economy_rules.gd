@@ -1286,7 +1286,7 @@ func test_alloy_rows_take_two_turns() -> void:
 	assert_eq(ProductionRecipes.turns("unknown"), 1)
 
 
-func test_a_two_turn_run_pays_now_and_lands_next_phase() -> void:
+func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 	var stock: Dictionary = {"iron": 2, "coal": 2}
 	var first: Dictionary = ProductionRecipes.plan(
 		[{"recipe": "steel", "units": 2}], stock, 4, {}
@@ -1300,11 +1300,80 @@ func test_a_two_turn_run_pays_now_and_lands_next_phase() -> void:
 	assert_eq(ProductionRecipes.in_flight(first["wip"], "steel"), 2)
 	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"])
 	assert_eq(second["runs"], {})
-	assert_eq(second["completed"], {"steel": 2})
-	assert_eq(second["produced"], {"steel": 2})
+	assert_eq(second["completed"], {"steel": 1}, "one unit leaves the workshop a phase")
+	assert_eq(second["produced"], {"steel": 1})
 	assert_eq(second["labour_used"], 0, "the batch paid its labour when it started")
+	assert_eq(int(stock["steel"]), 1)
+	assert_eq(ProductionRecipes.in_flight(second["wip"], "steel"), 1, "the rest still serves")
+	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"])
+	assert_eq(third["completed"], {"steel": 1})
 	assert_eq(int(stock["steel"]), 2)
-	assert_eq(second["wip"], {})
+	assert_eq(third["wip"], {}, "the batch is spent")
+
+
+## A batch of three started in one phase lands its last unit two phases after the
+## first, and the drips cost the workshop nothing beyond what the start paid
+## (wiki: production-recipes § Turns per unit; DR-20261113-02).
+func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
+	var stock: Dictionary = {"iron": 3, "coal": 3}
+	var landed_at: Array[int] = []
+	var wip: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "steel", "units": 3}], stock, 6, {}
+	)["wip"]
+	assert_eq(ProductionRecipes.in_flight(wip, "steel"), 3)
+	for _phase in 4:
+		var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip)
+		wip = report["wip"]
+		landed_at.append(int(report["completed"].get("steel", 0)))
+		assert_eq(report["consumed"], {}, "a carried batch costs the phase nothing")
+		assert_eq(int(stock["iron"]), 0, "no input is paid twice for a carried batch")
+	assert_eq(landed_at, [1, 1, 1, 0], "one unit a phase, then nothing")
+	assert_eq(int(stock["steel"]), 3)
+
+
+## What leaves the workshop next phase: one unit per batch serving its last turn,
+## so a row left set across phases lands as many as it has batches (wiki:
+## production-recipes § Turns per unit; DR-20261113-02).
+func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
+	var one: Dictionary = {"steel": [{"units": 3, "turns_left": 1}]}
+	assert_eq(ProductionRecipes.next_landing(one, "steel"), 1, "one batch, one unit")
+	var two: Dictionary = {
+		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
+	}
+	assert_eq(
+		ProductionRecipes.next_landing(two, "steel"), 2,
+		"a court that leaves the row set starts a batch a phase, and each gives up a unit"
+	)
+	assert_eq(ProductionRecipes.in_flight(two, "steel"), 5, "the anvil still holds every unit")
+	assert_eq(
+		ProductionRecipes.next_landing({"steel": [{"units": 4, "turns_left": 2}]}, "steel"),
+		0, "a batch still serving its first turn lands nothing yet"
+	)
+	assert_eq(ProductionRecipes.next_landing({}, "steel"), 0, "an idle workshop lands nothing")
+	assert_eq(
+		ProductionRecipes.next_landing({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber"),
+		3, "a carried one-turn batch lands whole, as before"
+	)
+
+
+## Drip-feeding three steel one unit a phase builds the same output from the same
+## inputs as one batch of three, so a batch buys no front-loading.
+func test_a_batch_matches_drip_feeding() -> void:
+	var batch_stock: Dictionary = {"iron": 3, "coal": 3}
+	var drip_stock: Dictionary = {"iron": 3, "coal": 3}
+	var batch_wip: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "steel", "units": 3}], batch_stock, 6, {}
+	)["wip"]
+	var drip_wip: Dictionary = {}
+	for phase in 4:
+		batch_wip = ProductionRecipes.plan([], batch_stock, 0, {}, batch_wip)["wip"]
+		var drip: Array[Dictionary] = []
+		if phase < 3:
+			drip.append({"recipe": "steel", "units": 1})
+		drip_wip = ProductionRecipes.plan(drip, drip_stock, 2, {}, drip_wip)["wip"]
+	assert_eq(int(batch_stock["steel"]), int(drip_stock["steel"]), "same steel by turn four")
+	assert_eq(int(batch_stock.get("iron", 0)), int(drip_stock.get("iron", 0)))
+	assert_eq(int(batch_stock.get("coal", 0)), int(drip_stock.get("coal", 0)))
 
 
 func test_the_workshop_carries_across_turns() -> void:
@@ -1318,20 +1387,24 @@ func test_the_workshop_carries_across_turns() -> void:
 	assert_eq(economy.wip_units("steel"), 2)
 	assert_eq(economy.wip_turns("steel"), 1)
 	var second: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
-	assert_eq(second["production"]["completed"], {"steel": 2})
+	assert_eq(second["production"]["completed"], {"steel": 1}, "one unit a phase")
 	assert_eq(second["production"]["runs"], {})
+	assert_eq(economy.quantity("steel"), 1)
+	assert_eq(economy.wip_units("steel"), 1)
+	var third: Dictionary = EconomyTurn.resolve(economy, market, {}, 0)
+	assert_eq(third["production"]["completed"], {"steel": 1})
 	assert_eq(economy.quantity("steel"), 2)
 	assert_eq(economy.wip_units("steel"), 0)
 
 
-func test_projection_counts_the_workshop_landing() -> void:
+func test_projection_counts_the_next_unit_landing() -> void:
 	var economy: PlayerEconomy = _economy(4)
 	economy.stockpile = {"grain": 20, "iron": 2, "coal": 2}
 	economy.set_assignment("steel", 2)
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	EconomyTurn.resolve(economy, market, {}, 0)
 	var projection: Dictionary = EconomyTurn.project(economy, market, {}, 0)
-	assert_eq(int(projection["stockpile_delta"].get("steel", 0)), 2)
+	assert_eq(int(projection["stockpile_delta"].get("steel", 0)), 1, "one unit lands a phase")
 	assert_eq(economy.quantity("steel"), 0, "a projection never lands the batch early")
 
 

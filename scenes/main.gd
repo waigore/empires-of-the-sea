@@ -18,6 +18,9 @@ var map_seed: int = GameConfig.DEFAULT_SEED
 var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## Tests may pin the generated size while still driving the real setup screen.
 var size_override: Vector2i = Vector2i.ZERO
+## Tests may hand a pre-rolled chart so capital-choice / observer / load paths
+## skip `generate_world` under coverage (same object the campaign then plays).
+var preset_world: WorldMap = null
 
 ## One director for the whole app: the title bed keeps playing into a campaign.
 @onready var audio: AudioDirector = $Audio
@@ -84,6 +87,8 @@ func _show_capital_choice(config: GameConfig) -> void:
 		config.map_height = size_override.y
 	var page: CapitalChoiceScreen = CAPITAL_CHOICE.instantiate()
 	page.config = config
+	if preset_world != null:
+		page.world = preset_world
 	page.capital_chosen.connect(_show_intro)
 	page.back_pressed.connect(_back_to_setup)
 	add_child(page)
@@ -167,7 +172,7 @@ func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	screen.infinite_mode = config.infinite_mode
 	screen.advanced_start = config.advanced_start
 	screen.difficulty = config.difficulty
-	screen.preset_world = world
+	screen.preset_world = world if world != null else preset_world
 	_install_screen(screen)
 
 
@@ -189,6 +194,7 @@ func _start_observer() -> void:
 	screen.player_leader = config.player_leader
 	screen.infinite_mode = true
 	screen.observer_mode = true
+	screen.preset_world = preset_world
 	_install_screen(screen)
 
 
@@ -207,6 +213,8 @@ func _load_save(slot: int) -> void:
 	var screen: MapScreen = _new_screen()
 	screen.save_dir = dir
 	screen.pending_save = data
+	# Same chart the campaign saved from: skip a second generate_world on load.
+	screen.preset_world = preset_world
 	_install_screen(screen)
 
 

@@ -104,8 +104,14 @@ static func buyable_tiles(
 
 ## Cheapest deed on offer from one seller, or 0 when nothing there can be signed.
 ## A coarse reading for the diplomacy planner: the province's headline resource
-## is enough to know a court would want its envoy chain opened.
-static func cheapest_offer(model: MapModel, faction: int, seller: int, treasury: int) -> int:
+## is enough to know a court would want its envoy chain opened. `view` is the
+## buyer's chart of that region, so a province it has never reached offers
+## nothing it can price — the same `fogged` bar `buyable_tiles` holds
+## (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
+static func cheapest_offer(
+	model: MapModel, faction: int, seller: int, treasury: int,
+	view: VisibilityModel = null
+) -> int:
 	if model == null:
 		return 0
 	if FactionCatalog.type_of(seller) != FactionCatalog.Type.MINOR_NATION and (
@@ -115,6 +121,8 @@ static func cheapest_offer(model: MapModel, faction: int, seller: int, treasury:
 	var best: int = 0
 	for province: ProvinceState in model.provinces:
 		if province.owner != seller:
+			continue
+		if view != null and not view.is_province_known(province.id):
 			continue
 		var tile: Vector2i = province.resource_tile
 		if tile.x < 0 or model.is_purchased_tile(tile):

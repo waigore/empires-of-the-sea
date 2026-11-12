@@ -10,6 +10,12 @@ extends RefCounted
 ## that many Production phases, seat of the phase it started in counting as the
 ## first (wiki: production-recipes § Turns per unit; DR-20261112-11). The alloy
 ## rows combine two inputs, so they are the catalogue's two-turn work.
+##
+## A batch then lands **one unit a phase** rather than all at once: a batch of
+## three steel started in turn 1 delivers one in turn 2, the last in turn 4
+## (wiki: production-recipes § Turns per unit; DR-20261113-02). Drip-feeding the
+## same runs phase by phase builds the same output from the same inputs, so a
+## batch buys no front-loading and no larger order is punished beyond its wait.
 
 ## Fabric has two interchangeable raw inputs; the cotton row is tech-gated.
 const RECIPES: Dictionary = {
@@ -84,6 +90,16 @@ static func turns(recipe_id: String) -> int:
 	return maxi(int(entry(recipe_id).get("turns", 1)), 1)
 
 
+## Units one batch of this row lands in a Production phase: a multi-turn batch
+## lands **one** and keeps the rest for the phases after it; a one-turn row never
+## waits, so a carried batch of it (only a damaged or hand-edited save can hold
+## one) lands whole (wiki: production-recipes § Turns per unit; DR-20261113-02).
+static func landing(recipe_id: String, units: int) -> int:
+	if turns(recipe_id) <= 1:
+		return maxi(units, 0)
+	return mini(1, maxi(units, 0))
+
+
 ## One workshop row, cleaned: a batch with whole units and turns left, or {} when
 ## the value is not a batch at all. A hand-edited or damaged save is dropped,
 ## never trusted (wiki: production-recipes § Acceptance Criteria; DR-20261112-11).
@@ -121,12 +137,26 @@ static func in_flight(wip: Dictionary, recipe_id: String) -> int:
 	return total
 
 
-## Phases the oldest batch of this recipe still has to serve; 0 when idle.
+## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
 static func turns_left(wip: Dictionary, recipe_id: String) -> int:
 	var most: int = 0
 	for cleaned: Dictionary in batches(wip, recipe_id):
 		most = maxi(most, int(cleaned["turns_left"]))
 	return most
+
+
+## Units that leave the workshop in the next Production phase: one per batch
+## whose turns are served, so a court that left the row set and has two batches
+## on the anvil lands two a phase. The row's reading uses this so the note never
+## promises fewer landings than the phase pays (wiki: production-recipes
+## § Turns per unit; DR-20261113-02).
+static func next_landing(wip: Dictionary, recipe_id: String) -> int:
+	var total: int = 0
+	for cleaned: Dictionary in batches(wip, recipe_id):
+		if int(cleaned["turns_left"]) > 1:
+			continue
+		total += landing(recipe_id, int(cleaned["units"]))
+	return total
 
 
 ## A recipe with no required technology is available to everyone; a gated recipe
@@ -195,8 +225,10 @@ static func max_runs(recipe_id: String, stockpile: Dictionary, labour_points: in
 ## array of {"units", "turns_left"}). Batches already in the workshop finish
 ## first; their inputs and labour were paid when they started, so they cost this
 ## phase nothing. Runs started now pay immediately, and a multi-turn row joins
-## the workshop with one phase already served. The returned "wip" replaces the
-## caller's (DR-20261112-11).
+## the workshop with one phase already served. A multi-turn batch then lands one
+## unit a phase and keeps the rest for the phases after it, so a batch of three
+## started in turn 1 delivers its last unit in turn 4 (DR-20261113-02). The
+## returned "wip" replaces the caller's.
 static func plan(
 	assignments: Array[Dictionary],
 	stockpile: Dictionary,
@@ -222,11 +254,14 @@ static func plan(
 			if turns_left > 0:
 				kept.append({"units": units, "turns_left": turns_left})
 				continue
+			var landing_units: int = landing(recipe_id, units)
 			var landed_id: String = output(recipe_id)
-			var landed: int = units * OUTPUT_PER_RUN
+			var landed: int = landing_units * OUTPUT_PER_RUN
 			stockpile[landed_id] = int(stockpile.get(landed_id, 0)) + landed
 			produced[landed_id] = int(produced.get(landed_id, 0)) + landed
-			completed[recipe_id] = int(completed.get(recipe_id, 0)) + units
+			completed[recipe_id] = int(completed.get(recipe_id, 0)) + landing_units
+			if units > landing_units:
+				kept.append({"units": units - landing_units, "turns_left": 1})
 		if not kept.is_empty():
 			next_wip[recipe_id] = kept
 	for assignment: Dictionary in assignments:

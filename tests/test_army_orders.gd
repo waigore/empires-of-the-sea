@@ -182,6 +182,9 @@ func test_the_dossier_pitches_a_field_hospital_train() -> void:
 	assert_eq(economy.quantity("lumber"), lumber - 2)
 	assert_eq(economy.quantity("fabric"), fabric - 1)
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
+	# The receipt names what the stores paid, not just that the tents arrived.
+	assert_true(_last_toast().contains("2 Lumber"), _last_toast())
+	assert_true(_last_toast().contains("1 Fabric"), _last_toast())
 	# The strength line's food is the army's own upkeep line, so it agrees with
 	# the ledger's army ration, nurses included (DR-20261112-07).
 	var upkeep: int = ArmyState.food_upkeep_of([army], army.owner)
@@ -265,7 +268,7 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 
 ## A blooded regiment prints its service record under its condition, and its
 ## despatch under that once it has stood in a field; a green one adds no line
-## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10).
+## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10/-13-04).
 func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
@@ -280,7 +283,10 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 
 	var cited: VBoxContainer = panel._roster.get_child(0)
 	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
-	assert_eq(String(despatch.text), "Cited — Province 1 won", "the citation leads")
+	assert_eq(
+		String(despatch.text), "Cited +5% — Province 1 won",
+		"the citation leads, and names the rank it buys"
+	)
 	var whole: VBoxContainer = panel._roster.get_child(1)
 	var bare: Label = whole.get_child(whole.get_child_count() - 1)
 	assert_eq(
@@ -515,6 +521,17 @@ func _adjacent_enemy_province(capital: int) -> int:
 		return province_id
 	return -1
 
+
+## The line the court last raised, as the player reads it.
+func _last_toast() -> String:
+	var box: VBoxContainer = _screen.hud._toast_box
+	assert_gt(box.get_child_count(), 0, "a report was raised")
+	var plate: Control = box.get_child(box.get_child_count() - 1) as Control
+	for child: Node in plate.get_children():
+		if child is Label:
+			return (child as Label).text
+	return ""
+
 # --- Regiment detail in the army dossier (REQ-P1-07, REQ-P5-05) ---
 const ArmyFixture = preload("res://tests/army_fixture.gd")
 
@@ -576,6 +593,54 @@ func test_roster_names_the_hospital_rest_tempo() -> void:
 
 	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 	panel.free()
+
+
+## A host with tents keeps the field's own 40% in its line, and a fed ward that
+## out-heals them is named beside it rather than passing as the tents' tempo
+## (wiki: combat § Regiment condition; DR-20261112-07).
+func test_a_fed_ward_is_named_beside_the_tents() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 2
+	model.province_data(1).hospital_staffed = true
+	var army := ArmyFixture.army(7, 0, 1, ["guards"], false)
+	army.field_hospital = true
+
+	panel.refresh(model, army, true)
+
+	var line: String = String(panel._strength.text)
+	assert_true(line.contains("field hospital · rest 40%"), line)
+	assert_true(line.contains("ward 55%"), line)
+
+	model.province_data(1).hospital_staffed = false
+
+	panel.refresh(model, army, true)
+
+	line = String(panel._strength.text)
+	assert_true(line.contains("field hospital · rest 40%"), line)
+	assert_false(line.contains("ward"), "an unfed ward has no nurses to name")
+	panel.free()
+
+
+## A combine can move the tents to the standard that absorbs the host, so the
+## report names them: the dossier the crown was reading must not lose them in
+## silence (wiki: combat § Regiment condition; DR-20261112-07).
+func test_a_combine_names_the_tents_that_change_standards() -> void:
+	var home: ArmyState = _player_home()
+	var play: PlaySession = _screen.play
+	_screen.army_layer.select(home)
+	MapPlayArmies.on_action(play, "detach:%s" % home.regiments[0])
+	var field: ArmyState = _screen.army_layer.selected_army
+	assert_not_null(field)
+	field.field_hospital = true
+
+	_screen.army_layer.select(field)
+	MapPlayArmyMuster.merge(play, field)
+
+	assert_true(home.field_hospital, "the Home Army keeps the one train")
+	assert_true(_last_toast().contains("field hospital train"), _last_toast())
+	assert_true(_last_toast().contains("rides with it"), _last_toast())
 
 
 ## The dossier shows a regiment's own record: chevrons for experience and a
