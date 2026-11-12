@@ -628,6 +628,51 @@ func test_subsidy_surcharge_lands_on_the_minor_sale() -> void:
 	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
 	assert_eq((economies[0] as PlayerEconomy).treasury, before - 33)
 
+
+## The subsidy is charged once, at the till. The crown's price sheet carries
+## pacts and boycotts only, so the terms the diplomacy pass installs every turn
+## cannot add the surcharge a second time (wiki: world-market § Subsidy price
+## adjustment; DR-20261110-29 — the engine runs the page's rule, not price
+## terms).
+func test_a_subsidy_is_surcharged_once_when_the_terms_are_installed() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
+	assert_eq(market.buy_price("timber", 0), 30, "the sheet keeps the published price")
+	assert_eq(market.sell_price("timber", 0), 30, "and the published sale too")
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": market.buy_price("timber", 0)}
+	)
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
+	assert_eq((economies[0] as PlayerEconomy).treasury, before - 33, "one 10% surcharge on 30")
+
+
+## The adjustment belongs to the pair: a rival buying the same court's goods
+## pays the published price, and so does the subsidising crown when it buys
+## from anyone else (wiki: world-market § Subsidy price adjustment).
+func test_a_rival_buys_a_subsidised_courts_goods_at_the_published_price() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
+	MarketOrders.submit(
+			market,
+		1, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var before: int = (economies[1] as PlayerEconomy).treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
+	assert_eq((economies[1] as PlayerEconomy).treasury, before - 30)
+
+
 func test_unfilled_bid_carries_or_drops_when_cargo_is_short() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()

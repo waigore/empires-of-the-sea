@@ -8,9 +8,10 @@ extends RefCounted
 ##
 ## The product clears every crown against one global order book, so a pact's
 ## priority and a boycott's exclusion cannot be matched deal by deal. They are
-## published as per-crown price terms the market applies, and a subsidy's
-## discount/surcharge lands on the commodities that court's provinces produce
-## (docs/diplomacy.md § Trade terms).
+## published as per-crown price terms the market applies. A subsidy is **not** a
+## price term: it is charged once, at the till, on deals between the pair
+## (world-market § Subsidy price adjustment; DR-20261110-29 — the engine runs
+## the page's rule instead of re-expressing it as price terms).
 
 const KIND_FTP: String = "establish_ftp"
 const KIND_REVOKE_FTP: String = "revoke_ftp"
@@ -247,23 +248,24 @@ static func apply_terms(
 		market.set_terms(faction, terms[faction])
 
 
-## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}} for every
+## Faction -> {"buy": {"*": multiplier}, "sell": {"*": multiplier}} for every
 ## Great Power. Includes every crown so a rival's trade obeys the same rules.
-static func market_terms(state: DiplomacyState, world: WorldMap = null) -> Dictionary:
+## `world` is kept for the callers' shape; the sheet prices pacts and boycotts
+## only, so it no longer reads the map.
+static func market_terms(state: DiplomacyState, _world: WorldMap = null) -> Dictionary:
 	var terms: Dictionary = {}
 	if state == null:
 		return terms
-	var produce: Dictionary = _produce_by_faction(world)
 	for faction: int in FactionCatalog.great_power_ids():
-		terms[faction] = faction_terms(state, produce, faction)
+		terms[faction] = faction_terms(state, faction)
 	return terms
 
 
-## One crown's terms. "*" carries pacts and boycotts across every commodity; a
-## subsidy writes its own commodity rates for the goods that court produces.
-static func faction_terms(
-	state: DiplomacyState, produce: Dictionary, faction: int
-) -> Dictionary:
+## One crown's terms. "*" carries pacts and boycotts across every commodity.
+## A subsidy never enters the sheet: it is charged once, on the deal itself
+## (world-market § Subsidy price adjustment — "only to deals between the
+## subsidising GP and the Minor/Tribe it subsidises").
+static func faction_terms(state: DiplomacyState, faction: int) -> Dictionary:
 	var buy: Dictionary = {"*": 1.0}
 	var sell: Dictionary = {"*": 1.0}
 	if state == null:
@@ -271,16 +273,6 @@ static func faction_terms(
 	var partners: Array[int] = ftps_of(state, faction)
 	buy["*"] = 1.0 - DiplomacyCatalog.FTP_TERMS * float(partners.size())
 	sell["*"] = 1.0 + DiplomacyCatalog.FTP_TERMS * float(partners.size())
-	for key: String in state.subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() != 2 or int(parts[0]) != faction:
-			continue
-		var percent: int = int(state.subsidies[key])
-		var surcharge: float = 1.0 + float(percent) / 100.0
-		var discount: float = 1.0 - float(percent) / 100.0
-		for id: String in _produce_of(produce, int(parts[1])):
-			buy[id] = maxf(float(buy.get(id, 1.0)), surcharge)
-			sell[id] = minf(float(sell.get(id, 1.0)), discount)
 	var boycotts: int = boycotts_against(state, faction).size()
 	buy["*"] = float(buy["*"]) + DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
 	sell["*"] = float(sell["*"]) - DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
@@ -293,44 +285,12 @@ static func faction_terms(
 	return {"buy": buy, "sell": sell}
 
 
-## One crown's terms with the map's commodity detail (UI and tests).
+## One crown's terms (UI and tests). The `world` is kept for the callers' shape;
+## a subsidy is charged at the till, so no map lookup can change the sheet.
 static func terms_for_court(
-	state: DiplomacyState, world: WorldMap, faction: int
+	state: DiplomacyState, _world: WorldMap, faction: int
 ) -> Dictionary:
-	return faction_terms(state, _produce_by_faction(world), faction)
-
-
-## Commodities the faction's provinces can produce, keyed by faction, from the
-## map's resource table. No world (a rules fixture) means no commodity rates.
-static func _produce_by_faction(world: WorldMap) -> Dictionary:
-	var produce: Dictionary = {}
-	if world == null:
-		return produce
-	for index in world.region_count():
-		var model: MapModel = world.region(index)
-		if model == null:
-			continue
-		for province: ProvinceState in model.provinces:
-			if province.owner < 0:
-				continue
-			var ids: Dictionary = produce.get(province.owner, {})
-			for tile: Vector2i in province.tiles:
-				var id: String = Extraction.commodity_for_resource(model.resource_at(tile.x, tile.y))
-				if not id.is_empty():
-					ids[id] = true
-			produce[province.owner] = ids
-	return produce
-
-
-static func _produce_of(produce: Dictionary, faction: int) -> Array[String]:
-	var ids: Array[String] = []
-	var raw: Variant = produce.get(faction, {})
-	if typeof(raw) != TYPE_DICTIONARY:
-		return ids
-	for id: Variant in (raw as Dictionary).keys():
-		ids.append(String(id))
-	ids.sort()
-	return ids
+	return faction_terms(state, faction)
 
 
 static func _colony_tribes(state: DiplomacyState, gp: int) -> Array[int]:
