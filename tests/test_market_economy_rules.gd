@@ -1348,12 +1348,43 @@ func test_the_workshop_rides_the_snapshot() -> void:
 	assert_eq(restored.wip_total(), 0, "a recipe the catalogue dropped is not trusted")
 
 
+## A damaged workshop drops on load — a row that is not a list, an entry that is
+## not a batch, a batch with no units or no turns left — and the phase reading
+## one lands nothing instead of failing on the cast (wiki: production-recipes
+## § Acceptance Criteria; DR-20261112-11).
+func test_a_damaged_workshop_is_dropped_not_trusted() -> void:
+	var economy: PlayerEconomy = _economy(4)
+	economy.apply_snapshot({
+		"production_wip": {
+			"steel": {"units": 2, "turns_left": 1},
+			"bronze": ["two", {"units": 0, "turns_left": 1}, {"units": 2, "turns_left": 0}],
+			"lumber": [{"units": 2, "turns_left": 1}],
+		},
+	})
+	assert_eq(economy.wip_total(), 2, "only a list of whole batches is trusted")
+	assert_eq(economy.wip_units("lumber"), 2)
+	assert_eq(economy.wip_units("steel"), 0, "a row that is not a list holds nothing")
+	assert_eq(economy.wip_turns("steel"), 0)
+	var planned: Dictionary = ProductionRecipes.plan(
+		[], {}, 0, {}, {"steel": {"units": 2, "turns_left": 1}}
+	)
+	assert_eq(planned["produced"], {}, "the phase reads a damaged row as an empty workshop")
+	assert_eq(planned["wip"], {})
+	economy.stockpile = {"grain": 20}
+	var report: Dictionary = EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {}, 0
+	)
+	assert_eq(report["production"]["produced"], {"lumber": 2}, "the whole batch still lands")
+	assert_eq(economy.wip_total(), 0)
+
+
 func _economy(peasants: int) -> PlayerEconomy:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers = WorkerPool.make(peasants)
 	economy.stockpile = {"grain": 0, "wool": 2}
 	economy.treasury = 1000
 	return economy
+
 
 func test_effective_yield_takes_the_minimum() -> void:
 	assert_eq(Extraction.effective_yield(4, 4, 4, 4), 4)

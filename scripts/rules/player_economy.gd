@@ -153,11 +153,7 @@ func wip_units(recipe_id: String) -> int:
 
 ## Phases the oldest batch of this recipe still has to serve; 0 when idle.
 func wip_turns(recipe_id: String) -> int:
-	var most: int = 0
-	for raw: Variant in (production_wip.get(recipe_id, []) as Array):
-		if typeof(raw) == TYPE_DICTIONARY:
-			most = maxi(most, int((raw as Dictionary).get("turns_left", 0)))
-	return most
+	return ProductionRecipes.turns_left(production_wip, recipe_id)
 
 
 func wip_total() -> int:
@@ -287,25 +283,20 @@ func apply_snapshot(data: Dictionary) -> void:
 
 
 ## The workshop a save carries; a recipe the catalogue no longer knows, a batch
-## with no units, or a batch already served is dropped rather than trusted.
+## with no units, or a batch already served is dropped rather than trusted. The
+## row itself is read through the catalogue's batch reader, so a damaged save
+## (a row that is not a list, an entry that is not a batch) drops instead of
+## aborting the load (wiki: production-recipes § Acceptance Criteria).
 func _read_wip(data: Variant) -> Dictionary:
 	var out: Dictionary = {}
 	if typeof(data) != TYPE_DICTIONARY:
 		return out
-	for raw_recipe: Variant in (data as Dictionary).keys():
+	var stored: Dictionary = data
+	for raw_recipe: Variant in stored.keys():
 		var recipe_id: String = String(raw_recipe)
 		if not ProductionRecipes.known(recipe_id):
 			continue
-		var batches: Array = []
-		for raw_batch: Variant in ((data as Dictionary)[raw_recipe] as Array):
-			if typeof(raw_batch) != TYPE_DICTIONARY:
-				continue
-			var batch: Dictionary = raw_batch
-			var units: int = int(batch.get("units", 0))
-			var turns_left: int = int(batch.get("turns_left", 0))
-			if units <= 0 or turns_left <= 0:
-				continue
-			batches.append({"units": units, "turns_left": turns_left})
+		var batches: Array[Dictionary] = ProductionRecipes.batches(stored, recipe_id)
 		if not batches.is_empty():
 			out[recipe_id] = batches
 	return out

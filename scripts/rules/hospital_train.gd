@@ -28,6 +28,15 @@ static func cost() -> Dictionary:
 	return COST.duplicate()
 
 
+## The price the dossier's caption and the order's receipt print, e.g.
+## "2 Lumber, 1 Fabric" — one table, so no surface invents its own wording.
+static func price_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for commodity: String in COST.keys():
+		parts.append("%d %s" % [int(COST[commodity]), CommodityCatalog.label(commodity)])
+	return ", ".join(parts)
+
+
 ## The better of the province's ward and the army's own train, never both. A
 ## bare field with no train reads the field's quarter.
 static func army_rest_share(model: MapModel, province: int, train: bool) -> float:
