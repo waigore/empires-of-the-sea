@@ -28,6 +28,13 @@ func test_same_seed_is_deterministic() -> void:
 	for province: ProvinceState in model.provinces:
 		expected.append(province.name)
 	assert_eq(names, expected)
+	var waters: Array = []
+	for zone: SeaZoneState in other.sea_zones:
+		waters.append(zone.name)
+	var charted: Array = []
+	for zone: SeaZoneState in model.sea_zones:
+		charted.append(zone.name)
+	assert_eq(waters, charted, "the same chart names its waters differently")
 
 
 func test_different_seed_changes_the_map() -> void:
@@ -168,6 +175,87 @@ func test_names_are_unique() -> void:
 		var name: String = String(zone.name)
 		assert_false(zones.has(name), "duplicate sea zone name %s" % name)
 		zones[name] = true
+
+
+## A sea zone wears the name of the water it lies nearest, not the next name in
+## the list (wiki: naming § Sea-zone display names, DR-20261113-07): the western
+## ocean is the Atlantic, the northern water the Baltic, the south the
+## Mediterranean; the New World's west is the Pacific, its north-east the
+## Caribbean.
+func test_sea_names_follow_the_water() -> void:
+	assert_eq(
+		MapNaming.sea_name({}, FactionCatalog.OLD_WORLD, Vector2(0.08, 0.34)),
+		"Océano Atlántico"
+	)
+	assert_eq(
+		MapNaming.sea_name({}, FactionCatalog.OLD_WORLD, Vector2(0.60, 0.06)), "Mar Báltico"
+	)
+	assert_eq(
+		MapNaming.sea_name({}, FactionCatalog.OLD_WORLD, Vector2(0.50, 0.64)), "Mar Mediterráneo"
+	)
+	assert_eq(
+		MapNaming.sea_name({}, FactionCatalog.NEW_WORLD, Vector2(0.12, 0.40)), "Mar Pacífico"
+	)
+	assert_eq(
+		MapNaming.sea_name({}, FactionCatalog.NEW_WORLD, Vector2(0.60, 0.20)), "Mar de los Caribes"
+	)
+
+
+## One water names one zone: each further zone takes the next-nearest water, so
+## no label repeats. A chart with more zones than presets keeps labelling,
+## spending the presets again with a numeric ordinal.
+func test_sea_names_never_repeat_a_water() -> void:
+	var used: Dictionary = {}
+	var presets: Array[String] = MapNaming.sea_presets(FactionCatalog.OLD_WORLD)
+	var at := Vector2(0.42, 0.12)
+	var last_distance: float = -1.0
+	for _i in presets.size():
+		var name: String = MapNaming.sea_name(used, FactionCatalog.OLD_WORLD, at)
+		assert_true(presets.has(name), "%s is no preset of the Old World" % name)
+		var distance: float = at.distance_squared_to(
+			MapNaming.sea_anchor(FactionCatalog.OLD_WORLD, name)
+		)
+		assert_true(distance >= last_distance, "%s answered out of order" % name)
+		last_distance = distance
+	var overflow: String = MapNaming.sea_name(used, FactionCatalog.OLD_WORLD, at)
+	assert_true(overflow.ends_with(" (2)"), "%s carries no ordinal" % overflow)
+	assert_eq(used.size(), presets.size() + 1, "a label was handed out twice")
+
+
+## A chart far beyond its preset list still labels every zone: presets are spent
+## again with the next free ordinal and no label is ever repeated.
+func test_sea_names_outlast_their_presets() -> void:
+	var used: Dictionary = {}
+	var presets: Array[String] = MapNaming.sea_presets(FactionCatalog.NEW_WORLD)
+	var at := Vector2(0.5, 0.5)
+	for _i in presets.size() * 3:
+		var name: String = MapNaming.sea_name(used, FactionCatalog.NEW_WORLD, at)
+		assert_false(name.is_empty(), "a zone went unnamed")
+	assert_eq(used.size(), presets.size() * 3, "a label was handed out twice")
+	assert_true(used.has("Mar Pacífico (3)"), "the presets were not spent again")
+
+
+## The generated chart reads like a chart: its northernmost water carries a
+## northern name and its southernmost a southern one, never the reverse.
+func test_generated_sea_names_are_geographic() -> void:
+	var north: SeaZoneState = null
+	var south: SeaZoneState = null
+	for zone: SeaZoneState in model.sea_zones:
+		if north == null or zone.center.y < north.center.y:
+			north = zone
+		if south == null or zone.center.y > south.center.y:
+			south = zone
+	assert_true(north != null and south != null, "the chart holds no sea zone")
+	var north_at: float = _water_latitude(String(north.name))
+	var south_at: float = _water_latitude(String(south.name))
+	assert_true(north_at < south_at, "north reads %s, south reads %s" % [north.name, south.name])
+	assert_true(north_at < 0.45, "the northernmost water reads %s" % north.name)
+
+
+## Latitude of the preset a label names, with any overflow ordinal dropped.
+func _water_latitude(name: String) -> float:
+	var base: String = name.split(" (")[0]
+	return MapNaming.sea_anchor(FactionCatalog.OLD_WORLD, base).y
 
 
 ## A province must read as its owner's country: Spanish provinces get Spanish

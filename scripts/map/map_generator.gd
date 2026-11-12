@@ -143,15 +143,23 @@ func _build_sea_zones(model: MapModel) -> void:
 	for id: int in ids:
 		var tiles: Array[Vector2i] = buckets[id]["tiles"]
 		var sum: Vector2 = buckets[id]["sum"]
+		var center: Vector2 = sum / float(tiles.size()) + Vector2(0.5, 0.5)
 		model.sea_zones.append(
 			SeaZoneState.create(
 				id,
-				MapNaming.sea_name(used_names, model.region_id),
+				MapNaming.sea_name(used_names, model.region_id, _chart_point(model, center)),
 				tiles,
-				sum / float(tiles.size()) + Vector2(0.5, 0.5),
+				center,
 				tiles.size()
 			)
 		)
+
+
+## A point in chart-normalised coordinates (0..1 on each axis), the space
+## MapNaming's water anchors live in (wiki: naming § Sea-zone display names).
+func _chart_point(model: MapModel, center: Vector2) -> Vector2:
+	var span := Vector2(maxf(1.0, float(model.width - 1)), maxf(1.0, float(model.height - 1)))
+	return (center / span).clamp(Vector2.ZERO, Vector2.ONE)
 
 
 ## Groups tiles by province (land_only) or sea zone into {tiles, sum} buckets.
