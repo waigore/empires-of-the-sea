@@ -204,6 +204,42 @@ suites = [
   "test_map_data_rules.gd",
 ]
 
+# A court reads another court's order of battle only across its own chart
+# (wiki: military-armies § Docket, fog-and-exploration § Explorer vs Spy;
+# DR-20261112-09). The reading, the turn's handoff of it to the diplomacy phase
+# and the phase itself are one concern, so this slice names the AI turn suite and
+# the diplomacy rules suite instead of pulling the ai + fog + diplomacy domains
+# (twelve suites) past the tier-1 5 min budget.
+[domains.oob]
+suites = [
+  "test_oob_readings.gd",
+  "test_ai_rules.gd",
+  "test_diplomacy_rules.gd",
+]
+
+# The reading's own rules module, the turn that publishes it and the two map
+# hooks that carry it. First match wins, so these sit above the ai/fog/
+# diplomacy globs below.
+[[rules]]
+match = "scripts/rules/oob_readings.gd*"
+domain = "oob"
+
+[[rules]]
+match = "tests/test_oob_readings.gd*"
+domain = "oob"
+
+[[rules]]
+match = "scripts/ai/ai_turn.gd*"
+domain = "oob"
+
+[[rules]]
+match = "scripts/map/map_play_court_fog.gd*"
+domain = "oob"
+
+[[rules]]
+match = "scripts/map/map_play_diplomacy.gd*"
+domain = "oob"
+
 [domains.map]
 suites = [
   "test_advanced_start.gd",

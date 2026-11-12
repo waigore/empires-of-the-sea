@@ -32,21 +32,22 @@ What to ship next (`REQ-P2-02`).
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 | Travelling field hospital train | `HospitalTrain`, DR-20261112-07 |
 | Rival field-hospital trains | `AiHospitalTrainWork`, DR-20261112-08 |
+| Rival order-of-battle readings | `OobReadings`, `MapPlayCourtFog.oob_readings`, DR-20261112-09 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; DR-20261112-09 designed OOB, code not on main |
-| 2 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
+| 1 | Citations / decoration ladder / history | Immersion; no rule yet | DR-20261112-02 |
+| 2 | Rival-vs-rival fog for diplomacy | Mid/late AI fidelity | DR-20261110-21, deferred half |
 | 3 | Multi-turn production recipes | Economy depth | [`economy.md`](economy.md) |
 | 4 | Yarn runtime and localization | Dialogue authorship | [`dialogue.md`](dialogue.md) |
 
 ## Next pick
 
-**Rank 1** — rival OOB readings and rival-vs-rival fog (DR-20261110-21).
-Highest mid/late fidelity left; DR-20261112-09 designs the OOB slice, but
-`OobReadings` is not on main yet.
+**Rank 1** — citations / decoration ladder / history (DR-20261112-02).
+Immersion, no rule yet: needs a design slice, then hangs off the honours
+in `RegimentRecord`.
 
 ## Out of scope / blocked footnotes
 
