@@ -1,14 +1,10 @@
 class_name GazettePlate
 extends Control
-## The crown's news sheet on the map: the turn-start plate, the archive of every
-## prior sheet and the watchlist editor, all on one soft surface (wiki:
-## the-gazette § When it appears, § History screen, § Courts of interest;
-## DR-20261110-14).
-##
+## The crown's news sheet on the map: the turn-start plate, the history screen
+## and the watchlist editor on one soft surface (wiki: the-gazette; DR-20261110-14).
 ## Soft, never modal: only the ruled plate takes the pointer, so the map and the
-## crown's orders stay usable around it and one press sets it aside
-## (REQ-P5-02, REQ-P5-06, REQ-P5-07). Presentation only — it prints the lines
-## [Gazette] already built (REQ-P2-03).
+## crown's orders stay usable around it (REQ-P5-02, REQ-P5-06, REQ-P5-07).
+## Presentation only — it prints the lines [Gazette] already built (REQ-P2-03).
 
 signal dismissed
 ## The player added or removed a court on the watchlist.
@@ -75,13 +71,17 @@ func open_sheet(
 	_show()
 
 
-## Raises the newest filed sheet, with the whole archive behind it (no standing).
-func open_archive(p_state: GazetteState, p_diplomacy: DiplomacyState, who: int) -> void:
+## Raises the history screen with the live sheet one tab back: that tab keeps
+## the standing the turn-start open prints; a past sheet stays bare (DR-20261112-05).
+func open_archive(
+	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = ""
+) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_at = 0
-	_age = ""
+	_sheet = p_state.newest() if p_state != null else {}
+	_age = age_line
 	_mode = Mode.ARCHIVE
 	_show()
 

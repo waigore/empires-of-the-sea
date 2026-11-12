@@ -82,6 +82,23 @@ func test_a_sheet_without_a_reading_prints_no_standing_column() -> void:
 	assert_false(_has_text(plate, "THE STATE OF THE AGE"))
 
 
+## The seal opens the history screen; its sheet tab is the live sheet, so the
+## race stays readable on a turn that printed no news, and it is the newest
+## sheet rather than whatever was on screen last (wiki: the-gazette § History
+## screen — the Gazette and every prior turn's sheet are readable there).
+func test_the_history_screen_keeps_the_live_sheet_and_its_standing() -> void:
+	var state := GazetteState.new()
+	state.append(_sheet(2))
+	state.append(_sheet(3))
+	var age: String = "The age: you hold 12 of 31 Old World provinces; England leads with 9 of 31."
+	plate.open_archive(state, null, VIEWER, age)
+	plate._go(GazettePlate.Mode.SHEET)
+	assert_true(_has_text(plate, "THE STATE OF THE AGE"), "the live sheet keeps its standing")
+	assert_true(_has_text(plate, age), age)
+	assert_true(_has_text(plate, DiplomacyHistory.stamp_for_turn(3)), "the newest sheet is read")
+	assert_false(_has_text(plate, GazettePlate.EMPTY_LINE), "a filed sheet is not empty news")
+
+
 func test_the_archive_opens_on_the_newest_sheet_and_walks_back() -> void:
 	var state := GazetteState.new()
 	state.append(_sheet(2))

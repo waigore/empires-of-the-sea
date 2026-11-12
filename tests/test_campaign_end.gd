@@ -143,6 +143,33 @@ func test_a_crown_is_scored_on_its_whole_order_of_battle() -> void:
 	)
 
 
+## The cartouche seal opens the history screen on the live sheet, which keeps
+## the race for the age at its foot — so the number the campaign is decided by
+## stays readable on a turn that printed no news (wiki: the-gazette § History
+## screen, § Purpose; DR-20261112-05).
+func test_the_seal_opens_on_the_live_sheet_with_the_age() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	play.gazette = GazetteState.new()
+	play.gazette.append({
+		"turn": play.turn,
+		"items": [
+			{
+				"class": Gazette.Class.WORLD,
+				"kind": "warDeclared",
+				"text": "The gauntlet passes between them.",
+			},
+		],
+	})
+
+	MapPlayGazette.open_archive(play)
+	screen.hud.gazette_plate._go(GazettePlate.Mode.SHEET)
+
+	assert_true(_has_text(screen.hud.gazette_plate, "THE STATE OF THE AGE"))
+	assert_true(_has_text(screen.hud.gazette_plate, "Old World provinces"), "the race prints")
+	assert_false(_has_text(screen.hud.gazette_plate, GazettePlate.EMPTY_LINE))
+
+
 ## Splits every province of both regions evenly between the first two crowns and
 ## clears every fleet, so the standing depends only on the land forces a test
 ## gives them.
@@ -360,3 +387,16 @@ func _load(data: Dictionary) -> MapScreen:
 	node.pending_save = data
 	add_child(node)
 	return node
+
+
+## Any label or button on the plate carrying `needle` (the Gazette prints as
+## labels, its tabs as buttons).
+func _has_text(node: Node, needle: String) -> bool:
+	if node is Label and String((node as Label).text).contains(needle):
+		return true
+	if node is Button and String((node as Button).text).contains(needle):
+		return true
+	for child: Node in node.get_children():
+		if _has_text(child, needle):
+			return true
+	return false

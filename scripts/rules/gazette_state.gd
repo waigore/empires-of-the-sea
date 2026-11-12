@@ -111,6 +111,11 @@ func history() -> Array[Dictionary]:
 	return newest
 
 
+func newest() -> Dictionary:
+	var sheets: Array[Dictionary] = history()
+	return sheets[0] if not sheets.is_empty() else {}
+
+
 func newest_turn() -> int:
 	return int(sheets[sheets.size() - 1].get("turn", 0)) if not sheets.is_empty() else 0
 

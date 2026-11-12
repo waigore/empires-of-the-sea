@@ -20,10 +20,13 @@ Military victory, Great Power defeat and the calendar end (wiki:
 - **The age's race** (`VictoryStandings`, DR-20261112-05): the Gazette's sheet
   states at its foot the crown's Old World holdings against its own bar, the
   leader and the calendar; the close of a turn names a crown within **three
-  provinces** of its bar in the despatches. The threshold is a reading of the
-  check — no winner, gate, AI decision or save field moves, and a crown already
-  on its bar is never merely warned. The full-AI observer prints neither line,
-  and the archive prints no standing (the race belongs to the live sheet).
+  provinces** of its bar in the despatches. The race is ranked by distance to
+  each crown's **own** bar, so at a harder level a rival holding fewer
+  provinces can lead. The threshold is a reading of the check — no winner,
+  gate, AI decision or save field moves, and a crown already on its bar is
+  never merely warned. The seal opens the history screen on that live sheet
+  (standing included); a past sheet in the archive prints no standing. The
+  full-AI observer prints neither line.
 - **Plates** (`VictoryOverlay`): one family for military victory, defeat and
   campaign complete; "view final state" keeps the map pannable and the pause
   menu reachable.

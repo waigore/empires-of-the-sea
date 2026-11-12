@@ -38,7 +38,7 @@ func test_every_great_power_is_ranked_by_old_world_holdings() -> void:
 	_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 4, ENGLAND: 9, FRANCE: 2})
 	var standings: Array[Dictionary] = VictoryStandings.rows(world, SPAIN)
 	assert_eq(standings.size(), FactionCatalog.great_power_ids().size())
-	assert_eq(String(standings[0]["name"]), "England", "most provinces leads the race")
+	assert_eq(String(standings[0]["name"]), "England", "equal bars: the most provinces leads")
 	assert_eq(int(standings[0]["holdings"]), 9)
 	assert_eq(int(standings[0]["need"]), 22, "a rival clears the published 31")
 	assert_eq(String(standings[1]["name"]), "Spain")
@@ -80,6 +80,32 @@ func test_a_shared_holdings_count_keeps_the_smaller_id_first() -> void:
 
 
 # --- the court's line --------------------------------------------------------
+
+
+## The race ranks each crown against **its own** bar: on a harder level the crown
+## carries a 36 bar, so a rival holding fewer provinces can stand nearer the age
+## (wiki: victory § Military victory; DR-20261112-05 — `England leads with 9 of
+## 31` beside `you hold 12 of 36`).
+func test_the_race_ranks_by_distance_to_each_crown_bar() -> void:
+	var world := _old_world()
+	_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 12, ENGLAND: 9})
+	var standings: Array[Dictionary] = VictoryStandings.rows(world, SPAIN, HARD)
+	assert_eq(String(standings[0]["name"]), "England", "the nearer crown leads")
+	assert_eq(int(standings[0]["need"]), 22)
+	assert_eq(int(standings[1]["need"]), 24, "twelve of thirty-six is the longer road")
+	var line: String = VictoryStandings.line(world, 3, SPAIN, HARD)
+	assert_true(line.contains("England leads with 9 of 31"), line)
+	assert_false(line.contains("you lead"), "more provinces is not the same as nearer the age")
+
+
+## The crown can hold the most provinces in the world and still be told it is
+## behind: at hard, 30 of 36 is six away while a rival's 29 of 31 is two.
+func test_the_crown_is_named_behind_though_it_holds_the_most() -> void:
+	var world := _old_world()
+	_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 30, ENGLAND: 29})
+	var line: String = VictoryStandings.line(world, 3, SPAIN, HARD)
+	assert_true(line.contains("England leads with 29 of 31"), line)
+	assert_false(line.contains("you lead"), "the crown's own bar sets its road, not the rival's")
 
 
 func test_the_line_names_the_crown_the_leader_and_the_calendar() -> void:

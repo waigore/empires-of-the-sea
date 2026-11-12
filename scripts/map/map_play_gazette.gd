@@ -84,12 +84,15 @@ static func age_line(play: PlaySession) -> String:
 	)
 
 
-## The newest sheet, on demand from the cartouche seal.
+## The history screen on demand from the cartouche seal: the live sheet at its
+## current standing, with the archive of past sheets behind it.
 static func open_archive(play: PlaySession) -> void:
 	if play == null or play.hud == null or play.hud.gazette_plate == null:
 		return
 	ensure(play)
-	play.hud.gazette_plate.open_archive(play.gazette, play.diplomacy, play.player_faction)
+	play.hud.gazette_plate.open_archive(
+		play.gazette, play.diplomacy, play.player_faction, age_line(play)
+	)
 
 
 ## Adds or removes one court on the watchlist; the plate repaints itself.
