@@ -1203,8 +1203,11 @@ func test_quick_battle_credits_the_pregame_primary_defender() -> void:
 ## One record shape for both resolvers: the plate and the gazette read the same
 ## fields whichever route fought the battle (REQ-P2-03, REQ-P3-01).
 func test_auto_resolve_and_quick_battle_open_the_same_record() -> void:
-	var base: Dictionary = ArmyBattleRecord.open(2, 0, 1, ArmyCombat.Outcome.STALEMATE)
 	var model := Fixture.build()
+	var base: Dictionary = BattleSettlement.report_skeleton(
+		model, 2, 0, 1, ArmyCombat.Outcome.STALEMATE,
+		[] as Array[String], [] as Array[String], {}, {}
+	)
 	var auto_defender := Fixture.army(1, 1, 2, ["peasant_levies"], true)
 	var auto_attacker := Fixture.army(2, 0, 2, _guards(5))
 	auto_attacker.moved = true
@@ -1233,10 +1236,7 @@ func test_auto_resolve_and_quick_battle_open_the_same_record() -> void:
 	assert_true(quick[0].has("quick"), "the human's battle runs on the plate")
 	for key: String in base.keys():
 		assert_true(quick[0].has(key), "quick battle carries %s" % key)
-	assert_eq(
-		String(ArmyBattleRecord.open(2, 0, 1, ArmyCombat.Outcome.CAPTURE)["medal_gain"]),
-		"", "an open record names no decoration"
-	)
+	assert_eq(String(base["medal_gain"]), "", "an open record names no decoration")
 
 
 ## Every crown's roster is reconciled with its own research at the Combat phase
@@ -2541,6 +2541,31 @@ func test_the_battle_report_carries_aftermath_condition_and_chevrons() -> void:
 	assert_true(int(battle["attacker_chevrons"]) > 0)
 	assert_eq(int(battle["defender_chevrons"]), 0, "the broken side wins nothing")
 	assert_true(int(battle["defender_mauled"]) >= 0)
+
+
+## The same aftermath hook writes the field's name onto the winner's colours
+## (wiki: naming § Regiment records; DR-20261112-02). The plate reads the count.
+func test_a_won_quick_battle_honours_the_winning_colours() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, _pikes(2), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(8))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, _context("balanced"))
+
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_eq(int(reports[0]["attacker_honours"]), attacker.count())
+	assert_eq(int(reports[0]["defender_honours"]), 0, "a broken side takes no colour")
+	for regiment_id: String in attacker.regiments:
+		assert_eq(RegimentRecord.colours(attacker, regiment_id), [2])
+
+
+func test_a_defended_province_honours_its_holder() -> void:
+	var battle: Dictionary = _fight("defensive", _pikes(2), _guards(8))
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attacker_honours"]), 0, "the beaten side takes nothing")
+	assert_true(int(battle["defender_honours"]) > 0, "the field's name goes to the holder")
 
 
 func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:

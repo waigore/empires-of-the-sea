@@ -54,13 +54,16 @@ static func disband_hint(tier: int) -> String:
 	)
 
 
-## Summary line: treasury, idle/total labour, food need and strikers.
+## Summary line: treasury, idle/total labour, food need and strikers. The food
+## need is every mouth the Consumption phase feeds — workers, the army, the navy
+## and the hospital staffs (wiki: workers-and-population § Consumption).
 static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
 	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
 		TextFormat.thousands(economy.treasury),
 		idle_labour(report),
 		economy.workers.labour(),
-		economy.workers.food_demand() + navy_food(report),
+		economy.workers.food_demand() + army_food(report) + navy_food(report)
+		+ hospital_food(report),
 		int((report.get("consumption", {}) as Dictionary).get("strikers", 0)),
 	]
 
@@ -139,8 +142,18 @@ static func idle_labour(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("idle_labour", 0))
 
 
+static func army_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("army_demand", 0))
+
+
 static func navy_food(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("navy_demand", 0))
+
+
+## Rations the crown's hospital staffs eat this turn (wiki: combat § Regiment
+## condition; DR-20261112-04).
+static func hospital_food(report: Dictionary) -> int:
+	return int((report.get("consumption", {}) as Dictionary).get("hospital_demand", 0))
 
 
 ## One-line market clearing report for the turn toast: the crown's fills and
@@ -212,6 +225,13 @@ static func turn_summary(report: Dictionary) -> String:
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
 		parts.append("%d on strike" % strikes)
+	# A ward whose staff went unfed heals nothing next turn: say it, never
+	# silently (wiki: combat § Regiment condition; DR-20261112-04).
+	var hungry: Array = (report.get("hospital", {}) as Dictionary).get("hungry", [])
+	if not hungry.is_empty():
+		parts.append(
+			"%d hospital%s unstaffed" % [hungry.size(), "" if hungry.size() == 1 else "s"]
+		)
 	var research: Dictionary = report.get("research", {})
 	var researched: Array = research.get("researched", [])
 	for tech_id: Variant in researched:

@@ -84,14 +84,12 @@ static func resolve_exchange(
 	var outcome: int = _outcome(
 		atk_left, def_left, state, guns, atk_mods, def_mods
 	)
-	var report: Dictionary = ArmyBattleRecord.open(province, attacker, defender, outcome)
-	report["attacker_lost"] = state["attacker"]["lost"]
-	report["defender_lost"] = state["defender"]["lost"]
-	report["attacker_medals"] = int(atk_mods["medals"])
-	report["defender_medals"] = int(def_mods["medals"])
-	report["battle_mode"] = FortRules.battle_mode(fort_level)
-	report["fort_level"] = fort_level
-	report["hospital_level"] = HospitalRules.level_at(model, province)
+	var atk_lost: Array[String] = state["attacker"]["lost"]
+	var def_lost: Array[String] = state["defender"]["lost"]
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, attacker, defender, outcome, atk_lost, def_lost,
+		atk_mods, def_mods
+	)
 	report["quick"] = {
 		"plan": String(state["attacker"]["plan"]),
 		"defender_plan": String(state["defender"]["plan"]),
@@ -129,24 +127,10 @@ static func resolve_exchange(
 	report.merge(ArmyModifiers.line_fields(
 		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
 	))
-	var atk_up: int = 0
-	var def_up: int = 0
-	if outcome == ArmyCombat.Outcome.ATTACKER_VICTORY:
-		ArmyCombat.flip(model, province, attacker)
-		report["captured"] = true
-		atk_up = RegimentCondition.award_side(atk_side)
-		ArmyBattleRecord.credit(report, context, atk_lead, attacker)
-	elif outcome == ArmyCombat.Outcome.DEFENDER_VICTORY:
-		def_up = RegimentCondition.award_side(def_side)
-		ArmyBattleRecord.credit(report, context, def_lead, defender)
-	elif outcome == ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
-		atk_up = RegimentCondition.award_side(atk_side)
-		ArmyBattleRecord.credit(report, context, atk_lead, attacker)
-	elif outcome == ArmyCombat.Outcome.MUTUAL_ANNIHILATION and further:
-		ArmyBattleRecord.recover_garrison(
-			report, armies, province, defender, def_start, context
-		)
-	RegimentCondition.attach(report, atk_side, def_side, atk_up, def_up)
+	BattleSettlement.settle(
+		model, armies, report, atk_side, def_side, atk_lead, def_lead, context,
+		further, def_start
+	)
 	return report
 
 

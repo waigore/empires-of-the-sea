@@ -10,7 +10,7 @@ extends RefCounted
 ## before the clash (wiki: siege-mechanics; DR-20261110-22). Human land battles
 ## route through QuickBattle; every report names the line and the reserve.
 ## This module orchestrates the turn chain only: side accounting lives in
-## [ArmyForce], the shared report shape in [ArmyBattleRecord].
+## [ArmyForce], and both resolvers settle through [BattleSettlement].
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -62,8 +62,8 @@ static func resolve_turn(
 			if ArmyForce.has_third_party(armies, province, defender, attackers):
 				continue
 			var capturer: int = _lowest(attackers)
-			flip(model, province, capturer)
-			reports.append(_capture_report(province, capturer, defender))
+			BattleSettlement.flip(model, province, capturer)
+			reports.append(_capture_report(model, province, capturer, defender))
 			continue
 		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
 		ArmyState.prune(armies)
@@ -173,48 +173,29 @@ static func _exchange(
 	)
 	var atk_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, attacker))
 	var def_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, defender))
-	var atk_up: int = 0
-	var def_up: int = 0
-	var report: Dictionary = ArmyBattleRecord.open(
-		province, attacker, defender, Outcome.STALEMATE
+	var outcome: int = Outcome.STALEMATE
+	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
+		outcome = Outcome.ATTACKER_VICTORY
+	elif def_left == 0 and atk_left == 0:
+		outcome = Outcome.MUTUAL_ANNIHILATION
+	elif atk_left == 0:
+		outcome = Outcome.DEFENDER_VICTORY
+	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
+	var blunted: bool = outcome == Outcome.STALEMATE and def_left == 0 and atk_left > 0
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, attacker, defender, outcome,
+		attacker_lost, defender_lost, atk_mods, def_mods
 	)
-	report["attacker_lost"] = attacker_lost
-	report["defender_lost"] = defender_lost
-	report["attacker_medals"] = int(atk_mods["medals"])
-	report["defender_medals"] = int(def_mods["medals"])
 	report["attack_cost"] = int(fee["due"])
 	report["attack_paid"] = int(fee["paid"])
-	report["battle_mode"] = FortRules.battle_mode(int(def_mods["fort"]))
-	report["fort_level"] = int(def_mods["fort"])
-	report["hospital_level"] = HospitalRules.level_at(model, province)
 	report.merge(ArmyModifiers.line_fields(attacking, atk_limit, defending, def_limit))
 	if not siege.is_empty(): report["siege"] = siege
-	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
-		flip(model, province, attacker)
-		report["outcome"] = Outcome.ATTACKER_VICTORY
-		report["captured"] = true
-		atk_up = RegimentCondition.award_side(attacking)
-		ArmyBattleRecord.credit(report, context, atk_lead, attacker)
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	if def_left == 0 and atk_left == 0:
-		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
-		if further:
-			ArmyBattleRecord.recover_garrison(
-				report, armies, province, defender, initial_defenders, context
-			)
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	if atk_left == 0:
-		report["outcome"] = Outcome.DEFENDER_VICTORY
-		def_up = RegimentCondition.award_side(defending)
-		ArmyBattleRecord.credit(report, context, def_lead, defender)
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
-	report["blunted"] = def_left == 0 and atk_left > 0
-	report["outcome"] = Outcome.STALEMATE
-	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
+	if outcome == Outcome.STALEMATE:
+		report["blunted"] = blunted
+	BattleSettlement.settle(
+		model, armies, report, attacking, defending, atk_lead, def_lead, context,
+		further, initial_defenders
+	)
 	return report
 
 
@@ -258,18 +239,15 @@ static func outcome_label(outcome: int) -> String:
 	return "stalemate"
 
 
-static func _capture_report(province: int, attacker: int, defender: int) -> Dictionary:
-	var report: Dictionary = ArmyBattleRecord.open(
-		province, attacker, defender, Outcome.CAPTURE
+static func _capture_report(
+	model: MapModel, province: int, attacker: int, defender: int
+) -> Dictionary:
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, attacker, defender, Outcome.CAPTURE,
+		[] as Array[String], [] as Array[String], {}, {}
 	)
 	report["captured"] = true
 	return report
-
-
-static func flip(model: MapModel, province: int, owner: int) -> void:
-	var data: ProvinceState = model.get_province(province)
-	if data != null:
-		data.owner = owner
 
 
 static func _lowest(owners: Array[int]) -> int:

@@ -8,6 +8,11 @@ extends RefCounted
 
 const MAX_LEVEL: int = 2
 
+## Food a hospital's staff eats each turn, per level (wiki: combat § Regiment
+## condition; DR-20261112-04). The last ration in the larder goes to the sick,
+## after the living, so a famine empties the wards before it empties the fields.
+const RATION_PER_LEVEL: int = 2
+
 ## Level 0 is a bare field. `rest_bonus` adds to RegimentCondition.REST_SHARE;
 ## `triage` is the share of battle wear the province's owner still takes.
 const LEVELS: Array[Dictionary] = [
@@ -75,6 +80,23 @@ static func level_at(model: MapModel, province: int) -> int:
 	return clamp_level(data.hospital_level)
 
 
+## The level that heals: a hospital whose staff went unfed this turn reads as a
+## bare field for the rest tick, while its walls still shelter the wounded in
+## battle (wiki: combat § Regiment condition; DR-20261112-04).
+static func effective_level(model: MapModel, province: int) -> int:
+	if model == null:
+		return 0
+	var data: ProvinceState = model.province_data(province)
+	if data == null or not data.hospital_staffed:
+		return 0
+	return clamp_level(data.hospital_level)
+
+
+## Food this hospital's staff eats in a turn: nothing for a bare field.
+static func food_demand(level: int) -> int:
+	return clamp_level(level) * RATION_PER_LEVEL
+
+
 ## The tile a hospital is raised on: the province's town, like a fort
 ## (wiki: siege-mechanics § Fort Levels). -1 on legacy maps with no seat.
 static func site_tile(model: MapModel, province: int) -> Vector2i:
@@ -82,7 +104,7 @@ static func site_tile(model: MapModel, province: int) -> Vector2i:
 
 
 static func rest_share_at(model: MapModel, province: int) -> float:
-	return rest_share(level_at(model, province))
+	return rest_share(effective_level(model, province))
 
 
 static func triage_scale_at(model: MapModel, province: int) -> float:
@@ -90,23 +112,116 @@ static func triage_scale_at(model: MapModel, province: int) -> float:
 
 
 ## Applies a finished build: the province reaches the level that project was
-## raised for, and a later completion can never leap a level.
+## raised for, and a later completion can never leap a level. A new building
+## opens with its staff hired.
 static func apply_build(data: ProvinceState, ordered: int) -> void:
 	if data == null:
 		return
 	var target: int = ordered if ordered > 0 else next_level(data.hospital_level)
 	data.hospital_level = clampi(maxi(data.hospital_level, target), 0, MAX_LEVEL)
+	data.hospital_staffed = true
 
 
-## Dossier wording, e.g. "Field hospital · rest 40% · wear 80%".
-static func describe(level: int) -> String:
+## Every hospital this crown keeps, seat first and then the chart's own order.
+## Each row is `{region, province, level, demand, seat}`.
+static func demand_rows(world: WorldMap, faction: int) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if world == null:
+		return rows
+	var home: int = FactionCatalog.region_of(faction)
+	var seat: int = world.capital_province_of(home, faction) if home >= 0 else MapModel.NO_ID
+	var seat_at: int = -1
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		if model == null:
+			continue
+		for province in model.province_count():
+			var data: ProvinceState = model.province_data(province)
+			if data == null or data.owner != faction or data.hospital_level <= 0:
+				continue
+			var is_seat: bool = index == home and province == seat
+			if is_seat:
+				seat_at = rows.size()
+			rows.append({
+				"region": index,
+				"province": province,
+				"level": clamp_level(data.hospital_level),
+				"demand": food_demand(data.hospital_level),
+				"seat": is_seat,
+			})
+	# The seat is served first; the rest keep the chart's order.
+	if seat_at > 0:
+		rows.insert(0, rows.pop_at(seat_at))
+	return rows
+
+
+## The order the wards are fed in, as one integer per hospital: the seat first,
+## then the chart's own order (DR-20261112-04). Its sum is the crown's whole
+## hospital ration for the turn.
+static func demand_list(world: WorldMap, faction: int) -> Array[int]:
+	var demands: Array[int] = []
+	for row: Dictionary in demand_rows(world, faction):
+		demands.append(maxi(int(row["demand"]), 0))
+	return demands
+
+
+## Food the whole staffs can eat from `available` units, fed in `demands` order:
+## a hospital the larder cannot cover is skipped and the rest of the larder is
+## offered to the next, so a ration is never stranded on a ward that cannot be
+## staffed (DR-20261112-04). [method feed] walks the same rows the same way, so
+## the food the larder pays is exactly the food the seated staffs eat.
+static func ration(demands: Array[int], available: int) -> int:
+	var left: int = maxi(available, 0)
+	var spent: int = 0
+	for raw: int in demands:
+		var need: int = maxi(raw, 0)
+		if need <= 0 or need > left:
+			continue
+		left -= need
+		spent += need
+	return spent
+
+
+## Feeds the staffs from `food_available` units, whole hospitals only: a
+## hospital the larder cannot cover goes unstaffed and the rest of the larder is
+## offered to the next. Marks every hospital for the turn, so a ward that ate
+## last turn is not starved by a stale flag. Returns `{spent, demand, hungry}`.
+static func feed(world: WorldMap, faction: int, food_available: int) -> Dictionary:
+	var rows: Array[Dictionary] = demand_rows(world, faction)
+	var left: int = maxi(food_available, 0)
+	var spent: int = 0
+	var demand: int = 0
+	var hungry: Array[int] = []
+	for row: Dictionary in rows:
+		demand += int(row["demand"])
+		var model: MapModel = world.region(int(row["region"]))
+		var data: ProvinceState = model.province_data(int(row["province"])) if model != null else null
+		if data == null:
+			continue
+		var cost: int = int(row["demand"])
+		var fed: bool = cost <= left
+		data.hospital_staffed = fed
+		if fed:
+			left -= cost
+			spent += cost
+		else:
+			hungry.append(int(row["province"]))
+	return {"spent": spent, "demand": demand, "hungry": hungry}
+
+
+## Dossier wording, e.g. "Field hospital · rest 40% · wear 80% · staff 2 food".
+static func describe(level: int, staffed: bool = true) -> String:
 	if level <= 0:
 		return "No hospital"
-	return "%s · rest %d%% · wear %d%%" % [
+	var rest: float = rest_share(level) if staffed else RegimentCondition.REST_SHARE
+	var line: String = "%s · rest %d%% · wear %d%%" % [
 		level_name(level),
-		roundi(rest_share(level) * 100.0),
+		roundi(rest * 100.0),
 		roundi(triage_scale(level) * 100.0),
 	]
+	if not staffed:
+		return line + " · unstaffed — no rations this turn"
+	return line + " · staff %d food" % food_demand(level)
 
 
 static func _entry(level: int) -> Dictionary:
