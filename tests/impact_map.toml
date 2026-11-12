@@ -1386,7 +1386,7 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
-domain = "map"
+domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
 [[rules]]
@@ -1849,16 +1849,16 @@ match = "tests/test_map_screen_crown_orders.gd"
 domain = "civilian"
 
 [[rules]]
+match = "tests/test_map_data_rules.gd*"
+domain = "fog"
+
+[[rules]]
 match = "tests/test_map_*.gd"
 domain = "map"
 
 [[rules]]
 match = "tests/test_minimap*.gd"
 domain = "map"
-
-[[rules]]
-match = "tests/test_map_data_rules.gd*"
-domain = "fog"
 
 [[rules]]
 match = "tests/test_warp_*.gd"
