@@ -38,6 +38,7 @@ suites = [
 [domains.battle]
 suites = [
   "test_battle_rules.gd",
+  "test_battle_settlement.gd",
   "test_land_battle_rules.gd",
 ]
 
@@ -567,6 +568,12 @@ domain = "quick_battle"
 [[rules]]
 match = "scripts/rules/battle_scenario.gd"
 domain = "quick_battle"
+
+# Both resolvers settle here: the suite that drives auto-resolve and Quick
+# Battle already proves the shared outcome pipeline.
+[[rules]]
+match = "scripts/rules/battle_settlement.gd*"
+domain = "battle"
 
 [[rules]]
 match = "scripts/ui/battle_sim_*.gd"

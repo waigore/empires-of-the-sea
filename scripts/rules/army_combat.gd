@@ -66,7 +66,7 @@ static func resolve_turn(
 			if has_third_party(armies, province, defender, attackers):
 				continue
 			var capturer: int = _lowest(attackers)
-			flip(model, province, capturer)
+			BattleSettlement.flip(model, province, capturer)
 			reports.append(_capture_report(province, capturer, defender))
 			continue
 		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
@@ -177,61 +177,29 @@ static func _exchange(
 	)
 	var atk_left: int = side_regiments(armies_of(armies, province, attacker))
 	var def_left: int = side_regiments(armies_of(armies, province, defender))
-	var atk_up: int = 0
-	var def_up: int = 0
-	var report: Dictionary = {
-		"province": province,
-		"attacker": attacker,
-		"defender": defender,
-		"attacker_lost": attacker_lost,
-		"defender_lost": defender_lost,
-		"captured": false,
-		"garrison": 0,
-		"recovered_type": "",
-		"attacker_medals": int(atk_mods["medals"]),
-		"defender_medals": int(def_mods["medals"]),
-		"attack_cost": int(fee["due"]),
-		"attack_paid": int(fee["paid"]),
-		"battle_mode": FortRules.battle_mode(int(def_mods["fort"])),
-		"fort_level": int(def_mods["fort"]),
-		"hospital_level": HospitalRules.level_at(model, province),
-		"medal_gain": "",
-		"medal_owner": -1,
-	}
+	var outcome: int = Outcome.STALEMATE
+	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
+		outcome = Outcome.ATTACKER_VICTORY
+	elif def_left == 0 and atk_left == 0:
+		outcome = Outcome.MUTUAL_ANNIHILATION
+	elif atk_left == 0:
+		outcome = Outcome.DEFENDER_VICTORY
+	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
+	var blunted: bool = outcome == Outcome.STALEMATE and def_left == 0 and atk_left > 0
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, attacker, defender, outcome,
+		attacker_lost, defender_lost, atk_mods, def_mods
+	)
+	report["attack_cost"] = int(fee["due"])
+	report["attack_paid"] = int(fee["paid"])
 	report.merge(ArmyModifiers.line_fields(attacking, atk_limit, defending, def_limit))
 	if not siege.is_empty(): report["siege"] = siege
-	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
-		flip(model, province, attacker)
-		report["outcome"] = Outcome.ATTACKER_VICTORY
-		report["captured"] = true
-		atk_up = RegimentCondition.award_side(attacking)
-		report["medal_gain"] = ArmyCommand.award(context, atk_lead, attacker)
-		if not String(report["medal_gain"]).is_empty():
-			report["medal_owner"] = attacker
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	if def_left == 0 and atk_left == 0:
-		report["outcome"] = Outcome.MUTUAL_ANNIHILATION
-		if further:
-			var recovery: Dictionary = ArmyGarrison.recover(
-				armies, province, defender, initial_defenders, context
-			)
-			report["garrison"] = int(recovery.get("count", 0))
-			report["recovered_type"] = String(recovery.get("type", ""))
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	if atk_left == 0:
-		report["outcome"] = Outcome.DEFENDER_VICTORY
-		def_up = RegimentCondition.award_side(defending)
-		report["medal_gain"] = ArmyCommand.award(context, def_lead, defender)
-		if not String(report["medal_gain"]).is_empty():
-			report["medal_owner"] = defender
-		RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
-		return report
-	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
-	report["blunted"] = def_left == 0 and atk_left > 0
-	report["outcome"] = Outcome.STALEMATE
-	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
+	if outcome == Outcome.STALEMATE:
+		report["blunted"] = blunted
+	BattleSettlement.settle(
+		model, armies, report, attacking, defending, atk_lead, def_lead, context,
+		further, initial_defenders
+	)
 	return report
 
 
@@ -384,12 +352,6 @@ static func _capture_report(province: int, attacker: int, defender: int) -> Dict
 		"medal_gain": "",
 		"medal_owner": -1,
 	}
-
-
-static func flip(model: MapModel, province: int, owner: int) -> void:
-	var data: ProvinceState = model.get_province(province)
-	if data != null:
-		data.owner = owner
 
 
 static func _lowest(owners: Array[int]) -> int:
