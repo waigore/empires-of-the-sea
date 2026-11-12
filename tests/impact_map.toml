@@ -122,6 +122,14 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+# Capital yard helper extracted from the dossier. One suite: the dossier orders
+# already speak every yard refusal. The full fleet domain stacked on
+# naval_feeding overruns the tier-1 5 min job.
+[domains.fleet_yard]
+suites = [
+  "test_fleet_orders.gd",
+]
+
 # Naval battle pass: the resolver, the difficulty layer's sea strength, ration
 # morale and the dossier odds, with the map hub that feeds them. Kept off the
 # full fleet domain so a naval-battle PR stays inside the tier-1 5 min budget.
@@ -921,11 +929,15 @@ domain = "fleet"
 match = "scripts/map/map_play_fleets.gd*"
 domain = "naval_feeding"
 
-# Trailing star keeps the Godot .uid with the script. A bare `.gd` glob lets
-# the companion file fall through to scripts/map/** and the full map suite
-# blows the tier-1 5 min budget.
+# Before the fleet glob: the yard's .gd and .uid stay on fleet_yard. A bare
+# `.gd` glob would let the .uid fall through to scripts/map/** and pull the
+# full map suite past the tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/map_play_fleet*.gd*"
+match = "scripts/map/map_play_fleet_yard.gd*"
+domain = "fleet_yard"
+
+[[rules]]
+match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
 # Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
