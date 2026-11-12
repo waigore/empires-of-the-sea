@@ -16,6 +16,9 @@ var _orders: VBoxContainer = null
 var _cancel: Button = null
 var _stock_line: Label = null
 var _dock: Button = null
+## The court reading the sheet. A rival's crew is observe-only and its ground is
+## read through this court's survey record (DR-20261111-26).
+var _viewer: int = FactionCatalog.PLAYER_FACTION
 
 
 func _ready() -> void:
@@ -111,6 +114,10 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 	_dock.tooltip_text = tip
 
 
+## `viewer` is the court reading the sheet, which is not always the crew's owner:
+## a rival's crew is observe-only, and the dossier must read the ground through
+## the *viewer's* survey record (wiki: fog-and-exploration § Prospecting — per
+## court; DR-20261111-26). The fleet and army dossiers already split the two.
 func refresh(
 	model: MapModel,
 	unit: CivilianState,
@@ -120,10 +127,12 @@ func refresh(
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
 	tech_unlocked: Dictionary = {},
-	context: Dictionary = {}
+	context: Dictionary = {},
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	if unit == null:
 		return
+	_viewer = viewer
 	_title.text = unit.display_name()
 	_subtitle.text = "Crown of %s · %s" % [
 		FactionCatalog.name_of(unit.owner),
@@ -131,10 +140,12 @@ func refresh(
 			model.terrain_at(unit.tile.x, unit.tile.y), "Unknown"
 		),
 	]
-	_fill_detail(model, unit, works)
+	_fill_detail(model, unit, works, context)
 	_status.text = _status_text(model, unit)
-	_cancel.visible = unit.is_working()
+	_cancel.visible = unit.is_working() and _viewer == unit.owner
 	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
+	# The stores line prices our own orders; a rival's sheet has none to price.
+	_stock_line.visible = _viewer == unit.owner
 	_stock_line.text = "Stores: %d lumber · %d cast iron · %d steel · %d bronze · %d paper" % [
 		int(stockpile.get("lumber", 0)),
 		int(stockpile.get("castIron", 0)),
@@ -144,7 +155,12 @@ func refresh(
 	]
 
 
-func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> void:
+## The ground under the crew, read through the viewer's own survey record: a
+## crown standing over a rival's crew learns nothing it has not prospected
+## itself (wiki: fog-and-exploration § Prospecting — per court; DR-20261111-26).
+func _fill_detail(
+	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary
+) -> void:
 	_clear(_detail)
 	var province: int = model.province_at(unit.tile.x, unit.tile.y)
 	_add_row("Province", model.province_name(province) if province >= 0 else "—")
@@ -153,7 +169,7 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 	if model.is_purchased_tile(unit.tile):
 		_add_row("Deed", "Purchased land")
 	var resource: int = MineralSurvey.known_resource(
-		model, works, unit.owner, unit.tile
+		model, works, _viewer, unit.tile
 	)
 	if resource >= 0:
 		_add_row("Resource", String(MapGenerator.resource_info(resource).get("name", "—")))
@@ -177,11 +193,11 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 		development.append("Road")
 	if works.has_port(model, unit.tile):
 		development.append("Port")
-	if works.is_prospected(unit.owner, model, unit.tile):
+	if works.is_prospected(_viewer, model, unit.tile):
 		development.append("Prospected")
 	_add_row("Works", " · ".join(development) if not development.is_empty() else "—")
-	if unit.type_id == "explorer":
-		_add_row("Survey", _survey_text(model, works, unit, province))
+	if unit.type_id == "explorer" and _viewer == unit.owner:
+		_add_row("Survey", _survey_text(model, works, unit, province, context))
 	var province_data: ProvinceState = model.province_data(province)
 	if province_data != null and province_data.is_town_tile(unit.tile):
 		_add_row("Town", "Level %d / 4" % province_data.town_level())
@@ -191,10 +207,21 @@ func _fill_detail(model: MapModel, unit: CivilianState, works: LandWorks) -> voi
 
 ## What an Explorer has left to read here: the survey is the one order whose
 ## target is not the ground underfoot, so the dossier says how much is left and
-## whether this province can be read at all (DR-20261111-26).
+## whether this province can be read at all (DR-20261111-26). A Minor or Tribe
+## province without a Consulate offers no ground to survey, so the row names the
+## gate rather than promising taps the rules would refuse (REQ-P2-03).
 func _survey_text(
-	model: MapModel, works: LandWorks, unit: CivilianState, province: int
+	model: MapModel,
+	works: LandWorks,
+	unit: CivilianState,
+	province: int,
+	context: Dictionary
 ) -> String:
+	var gate: String = CivilianExplorerGates.consulate_refusal(
+		model, unit.owner, province, context
+	)
+	if not gate.is_empty():
+		return gate
 	var left: int = MineralSurvey.unsurveyed_in_province(
 		model, works, unit.owner, province
 	).size()
@@ -231,7 +258,12 @@ func _tradecraft_text(model: MapModel, unit: CivilianState) -> String:
 	return "Shadows %s — presence reveal only; only Great Powers share research" % name
 
 
+## A rival's crew answers to its own crown: the sheet says so with the same
+## words the fleet and army dossiers use, so no control is offered that the
+## rules would refuse (REQ-P2-03, REQ-P5-06).
 func _status_text(model: MapModel, unit: CivilianState) -> String:
+	if _viewer != unit.owner:
+		return "Enemy colours · no orders"
 	if not unit.is_working():
 		if unit.type_id == SpyNetworks.SPY_TYPE:
 			return _spy_status(model, unit)
@@ -271,6 +303,16 @@ func _fill_orders(
 	context: Dictionary = {}
 ) -> void:
 	_clear(_orders)
+	# Another crown's crew takes no orders from us — the rules refuse every one
+	# (MapPlayCivilians.assign_order), so the sheet never offers them.
+	if _viewer != unit.owner:
+		var note := Label.new()
+		note.text = "Observe only. Orders require your own crew."
+		note.add_theme_font_size_override("font_size", 11)
+		note.add_theme_color_override("font_color", Palette.TEXT_DIM)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_orders.add_child(note)
+		return
 	for option: Dictionary in CivilianWork.options(
 		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
 		context

@@ -123,12 +123,13 @@ func show_civilian(
 	visibility: VisibilityModel = null,
 	tech_caps: Dictionary = {},
 	tech_unlocked: Dictionary = {},
-	context: Dictionary = {}
+	context: Dictionary = {},
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	close_sheets(civilian)
 	civilian_panel.refresh(
 		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
-		context
+		context, viewer
 	)
 	civilian.reveal(host, dock)
 

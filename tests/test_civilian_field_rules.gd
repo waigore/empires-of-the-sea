@@ -1968,3 +1968,122 @@ func test_the_growth_rule_ignores_a_missing_model_or_province() -> void:
 		MinorTownGrowth.deed_line(null, null, "Genoa"),
 		"The deed to Genoa is signed; the tile answers to your crown."
 	)
+
+
+# --- another crown's crew on the dossier (DR-20261111-26, per court) ---------
+
+## A rival's crew is observe-only, and its ground is read through OUR survey
+## record: a rival's uncover does not reveal the mineral to another court, and
+## no order we could press applies to a crew that is not ours (wiki:
+## fog-and-exploration § Prospecting — per court; civilian-units § Work Order
+## Summary; REQ-P2-03, REQ-P5-06).
+func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
+	var tile: Vector2i = Fixture.IRON_TILE
+	# The rival surveyed its own ground; our crown has not.
+	_works.set_prospected(1, _model, tile)
+	assert_false(_works.is_prospected(0, _model, tile), "our crown has not surveyed it")
+	var rival := CivilianState.create(2, 1, "builder", tile)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		_model, rival, _works, [rival], Fixture.stockpile(), _view, {}, {},
+		{"treasury": 5000, "diplomacy": null}, 0
+	)
+	assert_eq(_panel_row(panel, "Resource"), "Unsurveyed ground")
+	assert_false(
+		_panel_row(panel, "Works").contains("Prospected"),
+		"the rival's survey is not our survey: " + _panel_row(panel, "Works")
+	)
+	assert_eq(panel._status.text, "Enemy colours · no orders")
+	assert_false(_dossier_offers_orders(panel), "a rival crew takes none of our orders")
+	assert_false(panel._stock_line.visible, "our stores do not price a rival's crew")
+	# Our own Builder on the same tile reads what WE know, so the sheet still
+	# names a surveyed deposit and still offers its orders.
+	_works.set_prospected(0, _model, tile)
+	var mine := CivilianState.create(3, 0, "builder", tile)
+	panel.refresh(
+		_model, mine, _works, [mine], Fixture.stockpile(), _view, {}, {}, {}, 0
+	)
+	assert_eq(_panel_row(panel, "Resource"), "Iron")
+	assert_true(
+		_panel_row(panel, "Works").contains("Prospected"),
+		"our own survey shows: " + _panel_row(panel, "Works")
+	)
+	assert_true(_dossier_offers_orders(panel), "our own crew still takes orders")
+	panel.free()
+
+
+## The value column of one dossier row, or "" when the caption is absent.
+func _panel_row(panel: CivilianPanel, caption: String) -> String:
+	var children: Array[Node] = panel._detail.get_children()
+	var index: int = 0
+	while index + 1 < children.size():
+		var key: Label = children[index] as Label
+		var value: Label = children[index + 1] as Label
+		if key != null and key.text == caption:
+			return value.text if value != null else ""
+		index += 2
+	return ""
+
+
+## True when the dossier's order block carries a pressable order.
+func _dossier_offers_orders(panel: CivilianPanel) -> bool:
+	for child: Node in panel._orders.get_children():
+		if child is Button:
+			return true
+	return false
+
+
+## Ground in a Minor or Tribe province is unreadable without a Consulate, so the
+## map draws no survey mark there and the Explorer's sheet names the gate rather
+## than promising taps the rules refuse (wiki: civilian-units § Work Order
+## Summary — explore/prospect require a Consulate; DR-20261111-26; REQ-P2-03).
+func test_no_survey_mark_or_promise_without_a_consulate() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var works := LandWorks.new()
+	var court: DiplomacyState = Fixture.merchant_court()
+	court.set_overture(0, 6, "none")
+	var explorer := CivilianState.create(1, 1, "explorer", Vector2i(2, 2))
+	assert_eq(
+		MineralSurvey.unsurveyed_in_province(model, works, 1, 1, null),
+		[Vector2i(2, 1)] as Array[Vector2i],
+		"the ground itself is still unsurveyed"
+	)
+	var gate: String = CivilianExplorerGates.consulate_refusal(
+		model, 1, 1, {"diplomacy": court}
+	)
+	assert_eq(gate, "Establish a consulate before exploring or prospecting")
+	# The rules refuse the order the mark would have promised.
+	var check: Dictionary = CivilianWork.validate(
+		model, explorer, "prospect", works, [explorer], Fixture.stockpile(), null,
+		Vector2i(2, 1), {}, {}, {"treasury": 5000, "diplomacy": court}
+	)
+	assert_false(bool(check["ok"]))
+	assert_eq(String(check["reason"]), gate)
+	# The mark set and the dossier line read the same gate.
+	var play := PlaySession.new()
+	play.model = model
+	play.land_works = works
+	play.player_faction = 1
+	play.diplomacy = court
+	play.economy = null
+	assert_eq(
+		MapPlayCivilians._survey_tiles(play, explorer), [] as Array[Vector2i],
+		"no survey mark is drawn where the court may not dig"
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, works, [explorer], Fixture.stockpile(), null, {}, {},
+		{"treasury": 5000, "diplomacy": court}, 1
+	)
+	assert_eq(_panel_row(panel, "Survey"), gate)
+	panel.free()
+	# With a Consulate the ground and its mark come back.
+	court.set_overture(1, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_eq(CivilianExplorerGates.consulate_refusal(model, 1, 1, {"diplomacy": court}), "")
+	assert_eq(
+		MapPlayCivilians._survey_tiles(play, explorer),
+		[Vector2i(2, 1)] as Array[Vector2i],
+		"a Consulate opens the province's ground"
+	)

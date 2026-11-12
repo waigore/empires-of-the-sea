@@ -16,7 +16,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play)
+		_context(play), play.player_faction
 	)
 	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(
@@ -31,12 +31,18 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 
 ## Ground the selected Explorer could read: the survey is a choice of where to
 ## dig, so the map has to show the choices (wiki: fog-and-exploration
-## § Prospecting; DR-20261111-26).
+## § Prospecting; DR-20261111-26). A Minor or Tribe province needs a Consulate
+## before any of its ground may be read, so no mark is drawn there until the
+## court holds one — an order the rules refuse is never offered (REQ-P2-03).
 static func _survey_tiles(play: PlaySession, unit: CivilianState) -> Array[Vector2i]:
 	if unit.type_id != "explorer":
 		return [] as Array[Vector2i]
 	var province: int = play.model.province_at(unit.tile.x, unit.tile.y)
 	if province == MapModel.NO_ID:
+		return [] as Array[Vector2i]
+	if not CivilianExplorerGates.consulate_refusal(
+		play.model, unit.owner, province, _context(play)
+	).is_empty():
 		return [] as Array[Vector2i]
 	return MineralSurvey.unsurveyed_in_province(
 		play.model, play.land_works, unit.owner, province, play.visibility
@@ -125,7 +131,7 @@ static func refresh_panel(play: PlaySession) -> void:
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play)
+		_context(play), play.player_faction
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(

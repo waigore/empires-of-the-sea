@@ -12,7 +12,7 @@ extends RefCounted
 static func explore_refusal(
 	model: MapModel, owner: int, province: int, context: Dictionary
 ) -> String:
-	return _consulate_refusal(model, owner, province, context)
+	return consulate_refusal(model, owner, province, context)
 
 
 ## Empty string when the Explorer may survey this tile now. Prospect is the
@@ -34,13 +34,15 @@ static func prospect_refusal(
 	var province: int = model.province_at(tile.x, tile.y)
 	if model.province_at(unit_tile.x, unit_tile.y) != province:
 		return "An Explorer surveys the province it stands in — march closer first."
-	return _consulate_refusal(model, owner, province, context)
+	return consulate_refusal(model, owner, province, context)
 
 
 ## Exploring or prospecting inside a Minor Nation or Tribe province needs a
 ## Consulate (or higher) with its owner. Without a court in `context` the gate
 ## is inert, so isolated rules fixtures can still exercise the work itself.
-static func _consulate_refusal(
+## Public because the map's survey marks and the Explorer's dossier must offer
+## only the ground this court may actually read (REQ-P2-03).
+static func consulate_refusal(
 	model: MapModel, owner: int, province: int, context: Dictionary
 ) -> String:
 	var owner_id: int = model.province_owner(province)
