@@ -254,6 +254,45 @@ func test_the_lane_paints_fogged_water_and_a_held_beach_fully_visible() -> void:
 		)
 
 
+## Wiki § NW sea-zone visibility leaves `unknown` only the water that is neither
+## P–S adjacent to a revealed province nor on the connecting path. A shore the
+## Passage cannot reach in one lane still charts its own water; water off both
+## stays unknown.
+func test_the_shore_charts_even_where_no_lane_reaches() -> void:
+	var model: MapModel = MapModel.new()
+	model.setup(8, 3)
+	model.region_id = NEW_WORLD
+	for y in 3:
+		for x in 8:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	# Two shores on two seas that never touch, plus one sea with no shore at all.
+	var near: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var far: Array[Vector2i] = [Vector2i(4, 0), Vector2i(5, 0)]
+	for tile: Vector2i in near + far:
+		model.province[model.index_of(tile.x, tile.y)] = 0 if near.has(tile) else 1
+	var zones: Array = [
+		SeaZoneState.create(0, "Entry", [Vector2i(0, 1), Vector2i(1, 1)], Vector2.ZERO, 2),
+		SeaZoneState.create(1, "Far", [Vector2i(4, 1), Vector2i(5, 1)], Vector2.ZERO, 2),
+		SeaZoneState.create(2, "Offshore", [Vector2i(7, 1)], Vector2.ZERO, 1),
+	]
+	model.sea_zones.clear()
+	for zone: SeaZoneState in zones:
+		model.sea_zones.append(zone)
+		for tile: Vector2i in zone.tiles:
+			model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.OCEAN
+			model.sea_zone[model.index_of(tile.x, tile.y)] = zone.id
+	model.provinces.append(ProvinceState.create(0, "Near", near, Vector2.ZERO, 2, 6))
+	model.provinces.append(ProvinceState.create(1, "Far", far, Vector2.ZERO, 2, 6))
+	var charted: Array[int] = AdvancedSeas.charted(model, [0], [0, 1])
+	assert_has(charted, 0, "the shore beside the Passage charts")
+	assert_has(charted, 1, "the far shore charts its own water")
+	assert_false(charted.has(2), "water beside no revealed province stays unknown")
+	assert_eq(AdvancedSeas.charted(model, [], [0, 1]), charted, "no entry, the shore still charts")
+	assert_eq(
+		AdvancedSeas.charted(model, [0], []), [] as Array[int], "no shore, no water"
+	)
+
+
 ## A province whose shore zone is not at the Passage mouth, preferring one that
 ## needs more than one S–S hop; -1 when the map has no such shore.
 func _far_shore(model: MapModel, from_entry: Dictionary) -> int:
@@ -327,6 +366,33 @@ func test_minor_land_is_bought_without_moving_the_province() -> void:
 				"bought land is developed"
 			)
 	assert_eq(deeds, bought, "every purchase is a deed")
+
+
+## A deed lifts the seller's town at any share of the tier (wiki: world-market
+## § Minor and tribe auto-sell — the town stands at `min(4, 1 + deeds)`,
+## DR-20261112-01). The tier's round-robin purchases bypass the Merchant's
+## completion, so the town has to rise here or the manufactures a bought-up
+## Minor used to pay never reach the book.
+func test_a_tier_deed_lifts_the_sellers_town() -> void:
+	var works: Dictionary = {}
+	var bought: int = AdvancedEstates.purchase_minor_land(
+		world, works, FactionCatalog.great_power_ids(),
+		AdvancedStart.develop_share(AdvancedStart.TURNS50)
+	)
+	assert_gte(bought, 1, "the Minor Nations have sold land")
+	var lifted: int = 0
+	for model: MapModel in world.regions:
+		for province: ProvinceState in model.provinces:
+			var deeds: int = MinorTownGrowth.deeds_in(model, province)
+			if deeds <= 0:
+				continue
+			assert_eq(
+				province.town_development, MinorTownGrowth.level_for(deeds),
+				"province %d stands on %d deeds" % [province.id, deeds]
+			)
+			if MinorTownGrowth.level_for(deeds) > 1:
+				lifted += 1
+	assert_gte(lifted, 1, "a bought-up town rose off its level-1 baseline")
 
 
 func _mineral_count(world: WorldMap, faction: int) -> int:
