@@ -1368,6 +1368,23 @@ func test_ai_economy_is_deterministic() -> void:
 	)
 
 
+func test_ai_economy_does_not_restack_the_workshop() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"copper": 60, "tin": 60}
+	economy.workers = WorkerPool.make(0, 0, 0, 8)
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var first: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	var assigned: int = 0
+	for assignment: Dictionary in first["assignments"]:
+		if String(assignment["recipe"]) == "bronze":
+			assigned = int(assignment["units"])
+	assert_true(assigned > 0, "an empty reserve makes bronze worth running")
+	economy.production_wip = {"bronze": [{"units": 99, "turns_left": 1}]}
+	var second: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	for assignment: Dictionary in second["assignments"]:
+		assert_ne(String(assignment["recipe"]), "bronze", "the workshop already fills the deficit")
+
+
 func test_ai_economy_recruits_the_highest_affordable_tier() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {
