@@ -85,3 +85,55 @@ static func decorate(
 		TextFormat.thousands(int(mark["mine"])),
 	]
 	row.add_child(label)
+
+
+## The standing a court row prints under its name: the herald's word, the state
+## of war and every treaty the pair holds (wiki: diplomacy § Order list).
+static func status_line(
+	state: DiplomacyState, player: int, faction: int, record: DiplomacyRelation
+) -> String:
+	var parts: PackedStringArray = [
+		record.meter_label(), DiplomacyCatalog.state_label(record.at_war)
+	]
+	if record.formal_alliance:
+		parts.append("Formal Alliance")
+	if DiplomacyTrade.is_ftp(state, player, faction):
+		parts.append("Trade Pact")
+	if DiplomacyTrade.is_boycotting(state, player, faction):
+		parts.append("Boycott")
+	var colony_of: int = state.colony_of(faction)
+	if colony_of >= 0:
+		parts.append("Colony of %s" % FactionCatalog.name_of(colony_of))
+	return "  ·  ".join(parts)
+
+
+## The colour that standing reads in: war in crimson, a formal alliance in the
+## friendly green, every other stand in plain ink.
+static func status_color(record: DiplomacyRelation) -> Color:
+	if record.at_war:
+		return Color(0.85, 0.38, 0.32)
+	if record.formal_alliance:
+		return Color(0.58, 0.78, 0.52)
+	return Palette.TEXT
+
+
+## The overture chain's standing for the selected court: the stage reached and
+## the stage the chain offers next, so the price of the next envoy is never
+## hidden (wiki: diplomacy § Overture chain).
+static func overture_line(state: DiplomacyState, player: int, faction: int) -> String:
+	var stage: String = state.overture(player, faction)
+	var next: String = DiplomacyCatalog.next_stage(stage)
+	var line: String = "Overture: %s" % DiplomacyCatalog.stage_label(stage)
+	if not next.is_empty():
+		line += "  ·  next: %s" % DiplomacyCatalog.stage_label(next)
+	return line
+
+
+## Court order in the panel's list: the Great Powers first, then the Minors and
+## Tribes, each band by name (wiki: diplomacy § Acceptance criteria).
+static func sorts_before(left: int, right: int) -> bool:
+	var left_type: int = FactionCatalog.type_of(left)
+	var right_type: int = FactionCatalog.type_of(right)
+	if left_type != right_type:
+		return left_type < right_type
+	return FactionCatalog.name_of(left) < FactionCatalog.name_of(right)

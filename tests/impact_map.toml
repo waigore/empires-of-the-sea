@@ -90,6 +90,9 @@ suites = [
   "test_espionage.gd",
   "test_court_ui_parts.gd",
   "test_panel_parts_rules.gd",
+  # The court panel is mounted as a phone sheet: its header now carries the
+  # age's race, so a header change must prove it still fits a phone (DR-20261112-05).
+  "test_mobile_layout.gd",
 ]
 
 # Economy rules / market math. Screen mounts stay on economy_ui so a
@@ -462,6 +465,12 @@ domain = "victory_bar"
 
 [[rules]]
 match = "scripts/rules/campaign_intro.gd*"
+domain = "victory_bar"
+
+# The age's race: the panel line and the turn's warning read one standing
+# helper, so both ride the bar's own domain instead of the rules catch-all.
+[[rules]]
+match = "scripts/rules/victory_standings.gd*"
 domain = "victory_bar"
 
 [[rules]]

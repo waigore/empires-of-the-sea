@@ -3,7 +3,8 @@ extends PanelContainer
 ## The court: one row per known crown, with relation stand, overture chain,
 ## the orders that court will entertain and the pair's chronicle (wiki:
 ## diplomacy). Presentation only — buttons emit intents and the rules layer
-## decides (REQ-P2-03).
+## decides (REQ-P2-03). The header also states the age's race, as
+## [VictoryStandings] reads it.
 
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
@@ -35,6 +36,9 @@ var _call_box: VBoxContainer = null
 var _court_reports: Dictionary = {}
 ## The full dossier sheet this summary opens, set by the HUD that builds both.
 var dossier_screen: CourtDossierScreen = null
+## The age's race as the last refresh read it (wiki: victory); kept so a court
+## selection repaints the header without the caller repeating the line.
+var _age: String = ""
 
 
 func _ready() -> void:
@@ -124,7 +128,8 @@ func refresh(
 	treasury: int,
 	tech: Dictionary = {},
 	court_reports: Dictionary = {},
-	power: Dictionary = {}
+	power: Dictionary = {},
+	age_line: String = ""
 ) -> void:
 	_state = state
 	_world = world
@@ -133,15 +138,16 @@ func refresh(
 	_tech = tech
 	_court_reports = court_reports
 	_power = power
+	_age = age_line
 	if _list == null or _detail == null:
 		return
 	var ids: Array[int] = _known_ids()
 	if not ids.has(_selected):
 		_selected = ids[0] if not ids.is_empty() else -1
-	_summary.text = (
-		"%d court%s in contact  ·  treasury %s"
-		% [ids.size(), "" if ids.size() == 1 else "s", DiplomacyCatalog.money(treasury)]
-	)
+	_summary.text = "%d court%s in contact  ·  treasury %s" % [
+		ids.size(), "" if ids.size() == 1 else "s", DiplomacyCatalog.money(treasury)]
+	if not age_line.is_empty():
+		_summary.text = "%s\n%s" % [_summary.text, age_line]
 	_fill_call()
 	_fill_list(ids)
 	_fill_detail()
@@ -155,23 +161,15 @@ func select_faction(faction_id: int) -> void:
 	if _state == null or not _state.has_relation(_player, faction_id):
 		return
 	_selected = faction_id
-	refresh(_state, _world, _player, _treasury, _tech, _court_reports, _power)
+	refresh(_state, _world, _player, _treasury, _tech, _court_reports, _power, _age)
 
 
 func _known_ids() -> Array[int]:
 	var ids: Array[int] = []
 	for record: DiplomacyRelation in _state.relations_of(_player):
 		ids.append(record.other(_player))
-	ids.sort_custom(_sorts_before)
+	ids.sort_custom(CourtRows.sorts_before)
 	return ids
-
-
-func _sorts_before(left: int, right: int) -> bool:
-	var left_type: int = FactionCatalog.type_of(left)
-	var right_type: int = FactionCatalog.type_of(right)
-	if left_type != right_type:
-		return left_type < right_type
-	return FactionCatalog.name_of(left) < FactionCatalog.name_of(right)
 
 
 func _fill_list(ids: Array[int]) -> void:
@@ -209,7 +207,7 @@ func _fill_detail() -> void:
 	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(_selected))
 	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(_selected))
 	_detail.add_child(_label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
-	var status := _label(_status_line(_selected, record), 15, _status_color(_selected, record))
+	var status := _label(_status_line(_selected, record), 15, CourtRows.status_color(record))
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.add_child(status)
 	_detail.add_child(_meter(record.score))
@@ -326,34 +324,11 @@ func _add_option(option: Dictionary) -> void:
 
 
 func _status_line(faction_id: int, record: DiplomacyRelation) -> String:
-	var parts: PackedStringArray = [record.meter_label(), DiplomacyCatalog.state_label(record.at_war)]
-	if record.formal_alliance:
-		parts.append("Formal Alliance")
-	if DiplomacyTrade.is_ftp(_state, _player, faction_id):
-		parts.append("Trade Pact")
-	if DiplomacyTrade.is_boycotting(_state, _player, faction_id):
-		parts.append("Boycott")
-	var colony_of: int = _state.colony_of(faction_id)
-	if colony_of >= 0:
-		parts.append("Colony of %s" % FactionCatalog.name_of(colony_of))
-	return "  ·  ".join(parts)
-
-
-func _status_color(_faction_id: int, record: DiplomacyRelation) -> Color:
-	if record.at_war:
-		return Color(0.85, 0.38, 0.32)
-	if record.formal_alliance:
-		return Color(0.58, 0.78, 0.52)
-	return Palette.TEXT
+	return CourtRows.status_line(_state, _player, faction_id, record)
 
 
 func _overture_line(faction_id: int) -> String:
-	var stage: String = _state.overture(_player, faction_id)
-	var next: String = DiplomacyCatalog.next_stage(stage)
-	var line: String = "Overture: %s" % DiplomacyCatalog.stage_label(stage)
-	if not next.is_empty():
-		line += "  ·  next: %s" % DiplomacyCatalog.stage_label(next)
-	return line
+	return CourtRows.overture_line(_state, _player, faction_id)
 
 
 func _meter(score: float) -> Control:
