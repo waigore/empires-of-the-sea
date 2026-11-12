@@ -290,7 +290,7 @@ func test_the_diplomacy_phase_scores_the_reading() -> void:
 	add_child(ships)
 	play.army_layer = armies
 	play.ship_layer = ships
-	MapPlayDiplomacy.run_ai(play)
+	MapPlayDiplomacyAi.run(play)
 	assert_eq(play.ai_trace.size(), 5, "every rival court took its turn")
 	assert_eq(
 		_factor({"trace": play.ai_trace}, RIVAL, OTHER, "relative_power"), 5,

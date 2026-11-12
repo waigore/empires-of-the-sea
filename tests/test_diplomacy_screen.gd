@@ -235,8 +235,8 @@ func test_the_resolver_does_not_repeat_the_passes_news() -> void:
 	var play: PlaySession = _screen.play
 	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
-	MapPlayDiplomacy.mark_announced(play)
-	MapPlayDiplomacy.show_intervention(play)
+	MapPlayDiplomacyConsent.mark_announced(play)
+	MapPlayDiplomacyConsent.show_intervention(play)
 	assert_eq(_news_about("Genoa"), 0, "the panel adds no second despatch")
 
 
