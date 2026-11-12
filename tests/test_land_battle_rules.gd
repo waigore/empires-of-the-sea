@@ -2166,8 +2166,8 @@ func test_the_ladder_names_a_cited_and_a_laurelled_regiment() -> void:
 	assert_eq(RegimentDecorations.rank(army, "unit_101"), "cited")
 	assert_eq(
 		RegimentDecorations.line(army, "unit_101", model),
-		"Cited — Province 6 won · Province 2 won",
-		"the decoration leads the despatch"
+		"Cited +5% — Province 6 won · Province 2 won",
+		"the decoration leads the despatch and names the weight it buys"
 	)
 
 	RegimentRecord.note_battle(side, true)
@@ -2178,7 +2178,7 @@ func test_the_ladder_names_a_cited_and_a_laurelled_regiment() -> void:
 	assert_eq(RegimentDecorations.rank(army, "unit_101"), "laurelled")
 	assert_eq(
 		RegimentDecorations.line(army, "unit_101", model),
-		"Laurelled — Province 0 won · Province 4 won · +2 earlier",
+		"Laurelled +10% — Province 0 won · Province 4 won · +2 earlier",
 		"two newest fields, then the fields the record still counts"
 	)
 
@@ -2208,6 +2208,77 @@ func test_a_citation_survives_a_detach_and_a_save() -> void:
 	assert_eq(RegimentDecorations.citations(restored, "unit_101"), 1, "the save carries it")
 	assert_eq(int(RegimentDecorations.history(restored, "unit_101")[0]["p"]), 2)
 	assert_eq(RegimentDecorations.rank(army, "unit_102"), "", "the colour left behind is bare")
+
+# --- what a citation buys: weight in the line (wiki: combat § Strength;
+# DR-20261113-04) ---
+
+
+func test_a_citation_weighs_half_a_chevron_and_the_laurel_a_whole_one() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	assert_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"), 1.0,
+		"a colours the crown never named weighs nothing extra"
+	)
+	var top: int = int(army.condition_of("unit_101")["max"])
+	army.regiment_health["unit_101"] = top / 2
+	RegimentDecorations.note(side, 2, true)
+	assert_almost_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"),
+		1.0 + RegimentDecorations.CITED_STEP, 0.0001,
+		"one citation is half a chevron"
+	)
+	RegimentDecorations.note(side, 3, true)
+	RegimentDecorations.note(side, 4, true)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "laurelled")
+	assert_almost_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"),
+		1.0 + RegimentDecorations.LAUREL_STEP, 0.0001,
+		"the laurel is worth the whole chevron"
+	)
+
+
+func test_a_decorated_colour_weighs_its_step_in_the_side_strength() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	_cite_and_heal(army, "unit_102")
+
+	var plain: float = ArmyModifiers.rank_of("pikemen", 0, 1.0)
+
+	assert_almost_eq(
+		ArmyModifiers.strength(side, 10, 1.0),
+		plain * 2.0 + plain * RegimentDecorations.CITED_STEP, 0.0001,
+		"only the cited colour's rank carries the step"
+	)
+	var line: Array[Dictionary] = ArmyModifiers.deployed(side, 1)
+	assert_eq(
+		String(line[0]["id"]), "unit_102",
+		"the cited colours holds the line over a bare twin"
+	)
+
+
+func test_the_cited_colour_is_the_last_to_fall() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	var armies: Array[ArmyState] = [army]
+	_cite_and_heal(army, "unit_102")
+
+	var lost: Array[String] = ArmyForce.apply_losses(armies, side, 1)
+
+	assert_eq(lost.size(), 1)
+	assert_eq(lost[0], "unit_101", "the bare colour goes first, the decorated one holds")
+
+
+## A citation is won mauled, so the colours are healed back to full before the
+## weight is read: only the decoration tells the twins apart.
+func _cite_and_heal(army: ArmyState, regiment_id: String) -> void:
+	var side: Array[ArmyState] = [army]
+	var top: int = int(army.condition_of(regiment_id)["max"])
+	army.regiment_health[regiment_id] = top / 2
+	RegimentDecorations.note(side, 2, true)
+	army.regiment_health[regiment_id] = top
+
 
 # --- test_military_parity ---
 

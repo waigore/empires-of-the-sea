@@ -114,6 +114,13 @@ func _run() -> void:
 	_check(screen.model.province_count() > 0, "provinces generated")
 	_check(screen.capital_province == seat, "the chart's seat starts the campaign")
 	_check(screen.capital_tile == seat_tile, "the chart's tile is the seat")
+	for region_index in screen.world.region_count():
+		var region: MapModel = screen.world.region(region_index)
+		for zone: SeaZoneState in region.sea_zones:
+			_check(
+				MapNaming.sea_presets(region.region_id).has(String(zone.name).split(" (")[0]),
+				"sea zone %d reads %s" % [zone.id, zone.name]
+			)
 	_check(screen.ship_layer != null, "ship layer present")
 	_check(
 		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
@@ -667,7 +674,7 @@ func _smoke_end_turn(
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
-		screen.economy.economy.assignment_units("lumber") == 1,
+		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
 	# A two-turn alloy names its wait on the row, so a phone player is not left

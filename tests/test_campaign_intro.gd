@@ -3,12 +3,13 @@ extends GdToolsTest
 ## yarn § Kinds, `game_start_intro`; dialogue-management § Kinds). One dismissal
 ## before the first turn, printed from the rules and reachable on every platform.
 
+const Fixture = preload("res://tests/map_fixture.gd")
+
 const INTRO: PackedScene = preload("res://scenes/intro.tscn")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
-## The chart's province targets clamp from 40x32 up, so this floor seats the same
-## crowns while the flow paints fewer tiles per mount (the chart and the map
-## share one world). This case reads the seat, not the roster.
-const FLOW_SIZE: Vector2i = Vector2i(40, 32)
+## Shared fixture size: the flow reuses `Fixture.world()` via `Main.preset_world`
+## so this case does not roll a chart under coverage.
+const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 
 var page: IntroScreen = null
 var _mounted: Array[SubViewport] = []
@@ -223,23 +224,28 @@ func test_escape_is_the_same_one_dismissal() -> void:
 ## The shell raises the charge between the chart and the first turn: no map runs
 ## behind it, and one press installs the campaign (wiki: dialogue-management).
 func test_the_flow_opens_the_charge_before_the_first_turn() -> void:
+	var chart_world: WorldMap = Fixture.world()
+	var snap: Array = Fixture.snapshot(chart_world)
 	var main: Node = MAIN.instantiate()
 	main.auto_start = false
 	main.size_override = FLOW_SIZE
+	main.preset_world = chart_world
 	add_child(main)
 	var menu: MainMenu = main.current_page
 	menu.new_game_button.emit_signal("pressed")
 	var setup: GameSetupScreen = main.current_page
 	setup.nation_option.select(0)
 	setup.size_option.select(0)
-	setup.seed_field.text = "1500"
+	setup.seed_field.text = str(Fixture.SEED)
 	setup.start_button.emit_signal("pressed")
 	var chart: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	assert_not_null(chart, "the chart opens before turn 1")
 	if chart == null:
 		main.free()
+		Fixture.restore(chart_world, snap)
 		return
 	await get_tree().process_frame
+	assert_true(chart.world == chart_world, "the shell reused the cached chart")
 	chart.confirm_button.emit_signal("pressed")
 
 	var charge: IntroScreen = main.current_page as IntroScreen
@@ -247,6 +253,7 @@ func test_the_flow_opens_the_charge_before_the_first_turn() -> void:
 	assert_null(main.current_screen, "no campaign runs behind the charge")
 	if charge == null:
 		main.free()
+		Fixture.restore(chart_world, snap)
 		return
 	assert_true(
 		"\n".join(_texts(charge)).contains(FactionCatalog.name_of(0)),
@@ -262,6 +269,7 @@ func test_the_flow_opens_the_charge_before_the_first_turn() -> void:
 			"the seat the charge named is the seat the campaign starts on"
 		)
 	main.free()
+	Fixture.restore(chart_world, snap)
 
 
 func _texts(node: Node) -> Array[String]:
