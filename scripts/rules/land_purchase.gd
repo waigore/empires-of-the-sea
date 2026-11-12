@@ -62,11 +62,9 @@ static func check(
 		return _no("This resource has no market price.")
 	if int(context.get("treasury", 0)) < price:
 		return _no("The treasury cannot cover the %s price." % cost_text(model, tile))
-	for other: CivilianState in units:
-		if other == null or other == unit or other.owner != unit.owner:
-			continue
-		if other.is_working() and other.work_tile() == tile:
-			return _no("Another crew is already working this tile.")
+	var free_tile: Dictionary = CivilianTransport.exclusive(units, unit, tile)
+	if not bool(free_tile.get("ok", false)):
+		return free_tile
 	return {
 		"ok": true,
 		"reason": "",
