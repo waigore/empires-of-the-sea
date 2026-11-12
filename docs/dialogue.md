@@ -1,8 +1,8 @@
 # Dialogue and mood
 
 A court speaks once an act is done. Presentation only: the rules record events,
-`DialogueEvents` reads one back into a line and a face, and no mood or word ever
-feeds an outcome (`REQ-P2-03`).
+`DialogueEvents` reads one into a line and face, and no word feeds an outcome
+(`REQ-P2-03`).
 
 ## Modules
 
@@ -15,8 +15,7 @@ feeds an outcome (`REQ-P2-03`).
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
 | `scripts/rules/dialogue_home.gd` | Which court answers the crown's own turn |
 | `scripts/rules/dialogue_yarn.gd` | The standing word authored as Yarn |
-| `scripts/rules/dialogue_locale.gd` | A locale key per line; the shipped French |
-| `assets/locales/fr.po` | The words behind every key (DR-20261113-06) |
+| `scripts/rules/dialogue_locale.gd` | Locale keys, the shipped `fr.po` |
 | `scripts/rules/yarn_*.gd` | Yarn parser, expression grammar, runner |
 | `scripts/map/map_play_court_voice.gd` | Reads the resolved turn and records its beats |
 
@@ -32,13 +31,13 @@ feeds an outcome (`REQ-P2-03`).
 
 War and peace, alliances, overtures, calls to arms, intervention, proposals
 answered, first contact, one standing remark per band, and a battle the crown
-fought (the court that read the verdict answers it, out of the chronicle).
+fought (the court that read the verdict answers it).
 Bookkeeping — subsidy, aid, colony status — is silent. Every seventh turn a
 known rival may slip a veiled word about its motive (DR-20261111-19).
 
-The crown's own turn speaks too: the rival watching a finished study closest, the
-heaviest owner of a host at the seat, a Tribe taken as a colony. Only the
-recording crown reads them
+The crown's own turn speaks too: the closest watcher of a finished study, the
+heaviest owner of a host at the seat, a Tribe taken as a colony — read only by
+the recording crown
 ([`DR-20261111-08`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-08)).
 
 ## Determinism
@@ -56,30 +55,23 @@ words and face (`REQ-P2-04`). No RNG; one line per refresh.
 | Quality ≤ −0.5 | `irritated` / `dismissive` |
 | Otherwise | `calculating` / `considering` |
 
-Quality is the surplus over what the offer requires, normalised by 40
-points, clamped to ±1.
+Quality is an offer's surplus over its requirement, normalised by 40, clamped
+to ±1.
 
 ## Yarn and localization
 
-The standing word is authored as Yarn (`DialogueYarn.SOURCE`): one node per
-point, titled with its content key, `category:`/`mood:` on its `tags:` line;
-`DialogueCatalog` merges that table with its own. The subset: lines with
-`#tags`, `->` options with a `<<command>>`, `<<set>>`, `<<if>>`/`<<elseif>>`/
-`<<else>>`/`<<endif>>`, `<<jump>>`, `<<stop>>`, `{$variable}` interpolation; a
-malformed script is refused with its line number.
+The standing word is Yarn (`DialogueYarn.SOURCE`): one node per point, titled
+with its content key, `category:`/`mood:` on its `tags:` line; `DialogueCatalog`
+merges it with its own. Subset and refusal rules:
+[dialogue-content-and-yarn](https://github.com/waigore/empires-of-the-sea/wiki/dialogue-content-and-yarn).
 
-Each variant answers to `DialoguePoint/<point>/<variant>` through
-`TranslationServer`: a translation ships without code, an untranslated key falls
-back to the authored English (`REQ-P2-03`).
-
-**French ships.** `assets/locales/fr.po` answers all 124 variants; the key is
-the `msgid`, the English a `#.` comment. The file registers on the first line a
-court speaks (`DialogueLocale.load_shipped`), so the reader's OS tongue decides —
-`fr`, `fr_FR`, `fr_CA` read French, everything else reads the English. The
-dialogue suite holds the file to the catalogue: a missing variant, a lost
-`{speaker}`/`{other}`, or a key no point authors fails CI.
+Each variant answers `DialoguePoint/<point>/<variant>` through
+`TranslationServer`; an unanswered key falls back to the authored English
+(`REQ-P2-03`). The French ships in `assets/locales/fr.po` (key as `msgid`, 124
+variants); `load_shipped()` registers it on the first line a court speaks, so the
+OS tongue picks the words. The suite refuses a missing variant or stale key.
 
 ## Deferred
 
-An in-game tongue picker, other tongues, and the blocking prompts' words; era
-change stays blocked (no era model). Ranked: [`deferred.md`](deferred.md).
+An in-game tongue picker, other tongues and the prompts' words; era change
+stays blocked (no era model). Ranked: [`deferred.md`](deferred.md).

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-04 (`REQ-P2-02`).
+Audited through DR-20261113-06 (`REQ-P2-02`).
 
 ## Already live
 
@@ -34,20 +34,18 @@ Audited through DR-20261113-04 (`REQ-P2-02`).
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
 | A decoration that buys weight | `RegimentDecorations.strength_multiplier`, DR-20261113-04 |
-| French words behind every court line | `assets/locales/fr.po` / `DialogueLocale.load_shipped`, DR-20261113-06 |
+| French words behind every court line | `assets/locales/fr.po`, DR-20261113-06 |
 
 ## Remaining gaps (impact order)
 
-| Rank | Gap | Why it matters | Notes |
-|-----:|-----|----------------|-------|
-| 1 | More tongues | Reach | French is the pattern: one `.po`, one `SHIPPED` line |
+**Rank 1 — more tongues.** Reach. One `.po`, one `SHIPPED` line per tongue.
 
 ## Next pick
 
-**Rank 1** — Another tongue ships the same way French did: a `.po` keyed by
-`DialoguePoint/<point>/<variant>` (English as a `#.` comment), registered in
-`DialogueLocale.SHIPPED`, held to the catalogue by the dialogue suite. Pick a
-tongue the audience asks for; no code change.
+**Rank 1** — Another tongue ships as French: a `.po` keyed
+`DialoguePoint/<point>/<variant>` (English as a `#.` comment), named in
+`DialogueLocale.SHIPPED`, held to the catalogue by the dialogue suite. No code
+change.
 
 ## Out of scope / blocked footnotes
 
