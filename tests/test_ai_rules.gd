@@ -299,9 +299,10 @@ func test_weak_rival_cannot_find_a_legal_war() -> void:
 
 
 func test_a_second_turn_does_not_repeat_the_war() -> void:
-	# The weak court ends a war it no longer wants (desire 10 < 50), and the
-	# stronger one cannot re-declare on the pair until its 4-turn war cooldown
-	# ends (wiki: diplomacy § Planner selection, § Cooldowns).
+	# The weak court offers the peace it wants (desire 10 < 50) and the stronger
+	# one refuses it while the war is still worth waging, so the war it declared
+	# stands and no second declaration is made (wiki: diplomacy § Planner
+	# selection, § Cooldowns).
 	var run: Dictionary = _run()
 	var result: Dictionary = AiTurn.run(
 		run["state"], AiFixture.world([2, 2, 2, 2, 1]), run["ai"], 2, 0, 1500,
@@ -309,8 +310,14 @@ func test_a_second_turn_does_not_repeat_the_war() -> void:
 	)
 	var record: Dictionary = _record_for(result["trace"], 2)
 	assert_true((record["action"] as Dictionary).is_empty())
-	assert_false((run["state"] as DiplomacyState).relation(1, 2).at_war)
-	assert_eq(String(record["candidates"][0]["blocked"]), "war cooldown")
+	assert_true(
+		(run["state"] as DiplomacyState).relation(1, 2).at_war,
+		"a war still worth waging is not signed away"
+	)
+	assert_eq(String(record["candidates"][0]["blocked"]), "war still worth waging")
+	var weak: Dictionary = _record_for(result["trace"], 1)
+	assert_eq(String(weak["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(String(weak["message"]).contains("refuses a white peace"))
 
 
 func test_same_seed_and_state_produce_the_same_orders() -> void:
