@@ -170,6 +170,10 @@ func test_the_map_seats_the_published_roster() -> void:
 			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
 		)
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
+	# Minor Nations share their reservation evenly too, and a cove one of them
+	# seals must not carry it past the band (wiki: game-setup § Minor Nation
+	# assignment — "within ±1").
+	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 	var new_world: MapModel = world.region(FactionCatalog.NEW_WORLD)
 	_assert_even_share(new_world, FactionCatalog.tribe_ids(), "New World Tribe")
 
@@ -183,6 +187,18 @@ func test_a_pocket_never_cripples_a_great_power() -> void:
 	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
 	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
+
+
+## A cove a Minor Nation seals is handed to that court, and seed 9 used to leave
+## Genoa holding five against a 3.33 even share because nothing trimmed it back
+## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
+func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
+	var chart: WorldMap = MapGenerator.new().generate_world(
+		9, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
+	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
+	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
+	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
 
 ## Every faction holds at least one province and no count strays more than one
