@@ -26,9 +26,9 @@ campaign; it is saved with the session (`advanced_start`).
 | New World | 62.5% charted | All charted, up to 6 colonies per crown |
 | Estates | 25% developed, 50% prospected | 50% developed, 75% prospected |
 
-Every Great Power gets the same tier; the inherited New World chart is the
-human court's alone — rivals still explore from the baseline (DR-20261110-21).
-Grain and luxuries are seeded for 20 turns, as at turn 0.
+Every Great Power gets the same tier, chart included: each court holds its own
+New World grid, so a rival sails the Passage lanes it was given
+(DR-20261110-21). Grain and luxuries are seeded for 20 turns, as at turn 0.
 
 ## Rules
 
@@ -36,8 +36,9 @@ Grain and luxuries are seeded for 20 turns, as at turn 0.
   Passage shore, claiming in rotation so no crown is boxed out. A Tribe keeps
   at least one province and its capital; when the New World is too small some
   crowns hold fewer.
-- **Chart:** revealed provinces are fully visible, their water fogged; water
-  beside a crown's own colonies is fully visible.
+- **Chart:** revealed provinces are fully visible; the water beside them and
+  the shortest S–S lanes from the Passage are fogged; water beside a crown's
+  own colonies is fully visible.
 - **Estates:** a developed mineral tile is prospected first; roads run from the
   estate to its province town over the crown's own land. There is no ocean
   road.
@@ -52,6 +53,7 @@ Grain and luxuries are seeded for 20 turns, as at turn 0.
 |------|------|
 | `scripts/rules/advanced_start.gd` | presets, tech lists, muster plan |
 | `scripts/rules/advanced_world.gd` | colonies and inherited chart |
+| `scripts/rules/advanced_seas.gd` | the inherited sea lanes |
 | `scripts/rules/advanced_estates.gd` | prospecting, estates, deeds |
 | `scripts/map/map_play_advanced.gd` | one-pass play adapter |
 | `scripts/session/game_config.gd` | the setup choice |

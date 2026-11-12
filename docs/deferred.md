@@ -29,12 +29,13 @@ list for what to ship next (`REQ-P2-02`).
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01, [`civilians.md`](civilians.md) |
 | Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02, [`armies.md`](armies.md) |
+| Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Rival OOB readings, rival-vs-rival fog, advanced-start rival chart | Mid/late AI/fog fidelity | DR-20261110-21; AI uses published numbers |
+| 1 | Rival OOB readings, rival-vs-rival fog | Mid/late AI/fog fidelity | DR-20261110-21; AI uses published numbers |
 | 2 | Travelling field hospital | Mid/late land tempo | DR-20261111-12 / 12-04 |
 | 3 | Citations / decoration ladder / history page | Immersion; no rule yet | DR-20261112-02 after honours |
 | 4 | Multi-turn production recipes | Economy depth | wiki ([`economy.md`](economy.md)) |
@@ -42,8 +43,8 @@ list for what to ship next (`REQ-P2-02`).
 
 ## Next pick
 
-**Rank 1** — rival OOB readings, rival-vs-rival fog, and advanced-start rival chart
-(DR-20261110-21). Highest mid/late fidelity left; needs a tight design slice first.
+**Rank 1** — rival OOB readings and rival-vs-rival fog (DR-20261110-21).
+Highest mid/late fidelity left; needs a tight design slice first.
 
 ## Out of scope / blocked footnotes
 
