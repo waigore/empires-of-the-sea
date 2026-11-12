@@ -6,7 +6,8 @@ extends RefCounted
 ## always christen the same title, so a reloaded campaign speaks the same names
 ## and a legacy save is named on read by the same arithmetic (REQ-P2-03,
 ## REQ-P3-03). The three rosters keep their own pool data and state; only the
-## pick, the numbering and the FNV-1a digest live here, once.
+## pick, the numbering, the FNV-1a digest and the reading of a saved id → map
+## live here, once, so every roster restores its store the same way.
 
 ## A pool cycled past its last free name numbers the repeats: "Revenge II".
 const ORDINALS: Array[String] = ["", " II", " III", " IV", " V", " VI", " VII", " VIII"]
@@ -63,12 +64,24 @@ static func taken_names(
 	return names
 
 
-## Reads a saved id → title map; JSON keys arrive as strings.
+## Reads a saved id → title map; a key read back from JSON may arrive as a
+## number, so both halves are read as strings.
 static func map_from(raw: Variant) -> Dictionary:
+	return _string_keys(raw, func(entry: Variant) -> Variant: return str(entry))
+
+
+## Reads a saved id → number map (a count, a condition, a province id). A JSON
+## or `.tscn` round-trip leaves the numbers as floats, so each is cast back.
+static func numbers_from(raw: Variant) -> Dictionary:
+	return _string_keys(raw, func(entry: Variant) -> Variant: return int(entry))
+
+
+## One stored object read with its keys as strings; malformed reads empty.
+static func _string_keys(raw: Variant, cast: Callable) -> Dictionary:
 	var mapped: Dictionary = {}
 	if raw is Dictionary:
 		for key: Variant in (raw as Dictionary).keys():
-			mapped[String(key)] = String((raw as Dictionary)[key])
+			mapped[str(key)] = cast.call((raw as Dictionary)[key])
 	return mapped
 
 

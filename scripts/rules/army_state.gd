@@ -7,6 +7,8 @@ extends RefCounted
 ## Regiments are stable instance ids (`unit_<n>`); `regiment_types` maps each
 ## instance to its catalog type. Every regiment belongs to exactly one army,
 ## and the Home Army is never deleted even when it has no regiments.
+## `RegimentRecord` owns each instance's store below: christened on entry,
+## re-equipped in place, released on the way out.
 
 
 var id: int = -1
@@ -122,17 +124,19 @@ func is_embarked() -> bool:
 	return embarked_fleet >= 0
 
 
-## Join Empire: an absorbed crown's regiments pass to the winner, its Home Army
-## becoming a field army so the winner keeps exactly one (wiki: diplomacy §
-## GP–Minor Rules, military-armies § Home Army). A terminal fall passes
-## `MapModel.NO_ID` and the armies leave (capital-and-connectivity § Capital loss).
-static func hand_over(groups: Array, from_id: int, to_id: int) -> void:
-	for index in range(groups.size() - 1, -1, -1):
-		var army: ArmyState = groups[index]
+## Join Empire and a terminal fall, in place. An absorbed crown's land regiments
+## change colours with its provinces, and its Home Army becomes a field army so
+## the winner keeps exactly one (wiki: diplomacy § GP–Minor Rules,
+## military-armies § Home Army). `to_id == MapModel.NO_ID` retires the crown's
+## armies: each leaves the roster and play (capital-and-connectivity
+## § Capital loss). Its owner must store the rewritten roster again.
+static func hand_over(armies: Array[ArmyState], from_id: int, to_id: int) -> void:
+	for index in range(armies.size() - 1, -1, -1):
+		var army: ArmyState = armies[index]
 		if army == null or army.owner != from_id:
 			continue
 		if to_id == MapModel.NO_ID:
-			groups.remove_at(index)
+			armies.remove_at(index)
 			continue
 		army.owner = to_id
 		army.home = false
@@ -148,11 +152,13 @@ func add_regiment(regiment_id: String, type_id: String = RegimentCatalog.DEFAULT
 	if regiments.has(regiment_id):
 		return
 	regiments.append(regiment_id)
-	var normalized: String = RegimentCatalog.normalize(type_id)
-	regiment_types[regiment_id] = normalized
-	regiment_health[regiment_id] = RegimentCatalog.max_health(normalized)
-	regiment_medals[regiment_id] = 0
+	regiment_types[regiment_id] = RegimentCatalog.normalize(type_id)
 	RegimentRecord.start(self, regiment_id)
+
+
+## Re-equips one instance (see `RegimentRecord.retype`); the one re-equip path.
+func set_type(regiment_id: String, type_id: String) -> void:
+	RegimentRecord.retype(self, regiment_id, type_id)
 
 
 func remove_regiment(regiment_id: String) -> bool:
@@ -160,9 +166,6 @@ func remove_regiment(regiment_id: String) -> bool:
 	if index < 0:
 		return false
 	regiments.remove_at(index)
-	regiment_types.erase(regiment_id)
-	regiment_health.erase(regiment_id)
-	regiment_medals.erase(regiment_id)
 	RegimentRecord.forget(self, regiment_id)
 	return true
 
@@ -377,24 +380,13 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.moved = bool(data.get("moved", false))
 	army.embarked_fleet = int(data.get("embarked_fleet", -1))
 	var names: Array[String] = []
-	for raw: Variant in data.get("regiments", []):
-		names.append(String(raw))
-	army.regiment_health = _condition_map(data.get("regiment_health", {}))
-	army.regiment_medals = _condition_map(data.get("regiment_medals", {}))
+	names.assign(data.get("regiments", []))
+	army.regiment_health = NameRoster.numbers_from(data.get("regiment_health", {}))
+	army.regiment_medals = NameRoster.numbers_from(data.get("regiment_medals", {}))
 	## A pre-record save restores empty maps; `set_regiments` christens it alike.
 	army.regiment_names = NameRoster.map_from(data.get("regiment_names", {}))
-	army.regiment_engagements = _condition_map(data.get("regiment_engagements", {}))
-	army.regiment_wins = _condition_map(data.get("regiment_wins", {}))
+	army.regiment_engagements = NameRoster.numbers_from(data.get("regiment_engagements", {}))
+	army.regiment_wins = NameRoster.numbers_from(data.get("regiment_wins", {}))
 	army.regiment_honours = RegimentRecord.honours_from(data.get("regiment_honours", {}))
 	army.set_regiments(names, data.get("regiment_types", {}))
 	return army
-
-
-## JSON object with instance keys; keys arrive as strings from disk.
-static func _condition_map(raw: Variant) -> Dictionary:
-	var mapped: Dictionary = {}
-	if raw is Dictionary:
-		for key: Variant in (raw as Dictionary).keys():
-			mapped[String(key)] = int((raw as Dictionary)[key])
-	return mapped
-

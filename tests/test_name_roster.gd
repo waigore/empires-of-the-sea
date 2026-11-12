@@ -77,8 +77,29 @@ func test_a_saved_title_map_reads_json_keys_as_strings() -> void:
 		{"1": "Revenge"},
 		"a string-keyed map survives"
 	)
+	assert_eq(
+		NameRoster.map_from({1: "Vanguard"}),
+		{"1": "Vanguard"},
+		"a numeric key is read back as the string a save writes"
+	)
 	assert_eq(NameRoster.map_from([1, 2]), {}, "a malformed map reads empty")
 	assert_eq(NameRoster.map_from(null), {}, "a missing map reads empty")
+
+
+## A JSON round-trip turns every count into a float; the reader casts it back, so
+## a restored regiment's condition and record compare equal to what was saved.
+func test_a_saved_number_map_reads_json_values_as_ints() -> void:
+	var json: String = JSON.stringify({"unit_1": 3, "unit_2": 0})
+	var raw: Variant = JSON.parse_string(json)
+
+	assert_eq(
+		NameRoster.numbers_from(raw),
+		{"unit_1": 3, "unit_2": 0},
+		"counts survive a JSON round-trip as ints"
+	)
+	assert_eq(NameRoster.numbers_from({1: "2"}), {"1": 2}, "a numeric key and a text value")
+	assert_eq(NameRoster.numbers_from("nonsense"), {}, "malformed reads empty")
+	assert_eq(NameRoster.numbers_from(null), {}, "a missing map reads empty")
 
 
 func test_the_digest_is_the_fn_1a_save_contract() -> void:

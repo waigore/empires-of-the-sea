@@ -65,10 +65,15 @@ func spawn(p_model: MapModel) -> void:
 
 ## Join Empire: an absorbed crown's land regiments change colours; a former Home
 ## Army becomes a field army so the winner keeps exactly one
-## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army).
+## (wiki: diplomacy § GP–Minor Rules, military-armies § Home Army). A fall
+## (`MapModel.NO_ID`) retires them. Every stored roster is handed over in place
+## and written back, since a retirement rewrites the list a region holds.
 func transfer_owner(from_id: int, to_id: int) -> void:
-	for raw: Variant in regions.values():
-		ArmyState.hand_over(raw, from_id, to_id)
+	for region: int in regions.region_ids():
+		var stored: Array[ArmyState] = []
+		stored.assign(regions.value(region, []))
+		ArmyState.hand_over(stored, from_id, to_id)
+		regions.set_region(region, stored)
 	ArmyState.hand_over(armies, from_id, to_id)
 	_rebuild_markers()
 	select(selected_army)
