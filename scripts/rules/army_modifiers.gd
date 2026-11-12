@@ -121,8 +121,9 @@ static func fallback_medals(leader_key: String) -> int:
 
 ## The strongest `limit` regiments of a side (limit <= 0 means all), strongest
 ## first so reserves are the weakest. A regiment's rank is its (FPN + FPM)
-## scaled by chevrons and by remaining health (wiki: combat § Strength), so a
-## mauled regiment yields its place to a fresh one.
+## scaled by chevrons, by remaining health and by the weight its citations buy
+## (wiki: combat § Strength; DR-20261113-04), so a mauled regiment yields its
+## place to a fresh one and a decorated colours holds the line over a bare twin.
 static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	for army: ArmyState in side:
@@ -133,7 +134,10 @@ static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 			candidates.append({
 				"army": army,
 				"id": regiment_id,
-				"rank": rank_of(String(data["type"]), int(data["medals"]), float(data["fraction"])),
+				"rank": rank_of(
+					String(data["type"]), int(data["medals"]), float(data["fraction"]),
+					RegimentDecorations.strength_multiplier(army, regiment_id)
+				),
 				"medals": int(data["medals"]),
 				"fraction": float(data["fraction"]),
 			})
@@ -147,19 +151,23 @@ static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 	return candidates
 
 
-## One regiment's effective strength: stats × chevrons × health.
-static func rank_of(type_id: String, medals: int, fraction: float) -> float:
+## One regiment's effective strength: stats × chevrons × health × the weight its
+## citations buy (`decoration`, DR-20261113-04; 1.0 for a colours with none).
+static func rank_of(
+	type_id: String, medals: int, fraction: float, decoration: float = 1.0
+) -> float:
 	return (
 		float(RegimentCatalog.strength(type_id))
 		* RegimentCatalog.medal_multiplier(medals)
 		* clampf(fraction, 0.0, 1.0)
+		* maxf(decoration, 1.0)
 	)
 
 
 ## Mean tactical weight of one deployed regiment: (FPN + FPM) × chevrons ×
-## health. An action spends its share of a line as weight, so a veteran line
-## absorbs more fire than a levy one (wiki: quick-battle § Cohesion and
-## effective strength).
+## health, and the citation's weight. An action spends its share of a line as
+## weight, so a veteran line absorbs more fire than a levy one (wiki:
+## quick-battle § Cohesion and effective strength).
 static func average_rank(side: Array[ArmyState], limit: int = 0) -> float:
 	var slice: Array[Dictionary] = deployed(side, limit)
 	if slice.is_empty():
