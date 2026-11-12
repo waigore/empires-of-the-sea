@@ -145,6 +145,8 @@ static func _fold_command(
 			var step: Dictionary = _set_step(String(command["rest"]))
 			if not step.has("kind"):
 				return "line %d: %s" % [line, String(step.get("error", "the value cannot be read"))]
+			# `<<declare>>` is the variable's *default*; `<<set>>` is the write.
+			step["kind"] = "declare" if word == "declare" else "set"
 			steps.append(step)
 		"if":
 			var folded: Dictionary = _if_step(body, cursor, base, String(command["rest"]), line)
