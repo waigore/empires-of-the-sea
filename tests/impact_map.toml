@@ -1923,9 +1923,9 @@ domain = "menu"
 match = "tests/test_*.gd"
 full = true
 
-# Editor-generated companion files take a light mapping: a test script and its
-# .uid always change together (Godot writes one per class_name script), and the
-# misc suite set is the catch-all for helper-only changes.
+# Editor-generated companions: select_impacted_tests maps tests/test_*.gd.uid to
+# the companion suite only (same as editing the .gd). This catch-all remains for
+# completeness / --check-complete; it should not expand a domain on its own.
 [[rules]]
 match = "tests/test_*.gd.uid"
 domain = "misc"
