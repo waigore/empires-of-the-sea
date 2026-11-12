@@ -55,7 +55,7 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 ## Deferred (REQ-P2-02)
 
-None ([`deferred.md`](deferred.md)).
+Rival-vs-rival fog for diplomacy ([`deferred.md`](deferred.md)).
 
 ## Architecture
 
