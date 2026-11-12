@@ -109,6 +109,15 @@ static func _proposal_banner(
 	)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
+	# The pact changes what the crown pays, so the rate rides the prompt the
+	# court answers rather than the market sheet it would have to find first
+	# (wiki: world-market § FTP — the pact publishes its terms).
+	if kind == DiplomacyProposals.KIND_FTP:
+		var terms := _label(
+			"Favoured terms: %s." % DiplomacyCatalog.ftp_terms_text(), 12, Palette.GOLD_PALE
+		)
+		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(terms)
 	if not spoken.is_empty():
 		var words := _label("“%s”" % String(spoken["text"]), 12, Palette.GOLD_PALE)
 		words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -457,6 +457,38 @@ func test_the_town_row_names_the_path_that_province_offers() -> void:
 		"a missing province falls back to the Builder line"
 	)
 
+## The roads tip counts one road tile and one estate in the singular: the tooltip
+## is the only place a province says how much of its network it holds.
+func test_the_roads_tip_counts_one_in_the_singular() -> void:
+	var province := ProvinceState.create(
+		0, "Cádiz", [] as Array[Vector2i], Vector2(0, 0), 1, 0, true
+	)
+	province.road_paths = [[Vector2i(1, 1)]]
+	var one: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 road tile laid here"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 estate surveyed"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_eq(DossierCopy.roads(one), "1 of 1 developed estate linked")
+	province.road_paths = [[Vector2i(1, 1), Vector2i(2, 1)]]
+	var two: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+		{"ours": true, "level": 2, "connected": false},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, two).contains("2 road tiles laid here"),
+		DossierCopy.roads_tip(province, two)
+	)
+	assert_true(DossierCopy.roads_tip(province, two).contains("2 estates surveyed"))
+	assert_eq(DossierCopy.roads(two), "1 of 2 developed estates linked")
+
+
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_setup_province_panel()
 	_show({})
@@ -755,6 +787,29 @@ func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
 		banner.size.y <= 140.0,
 		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
 	)
+
+## A rival's trade pact is answered blind unless the prompt carries the rate the
+## pact publishes: the court reads the terms beside the offer and the envoy that
+## brings it (wiki: world-market § FTP; dialogue-and-mood § Mood machine).
+func test_a_pact_proposal_names_its_terms_and_its_envoy() -> void:
+	_setup_diplomacy_panel()
+	state.relation(0, 2).score = 70.0
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_FTP)
+	panel.size = Vector2(570, 600)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "PROPOSAL"))
+	assert_true(_has_text(panel._call_box, "Favoured terms"))
+	assert_true(_has_text(panel._call_box, "95%"), "the rate the pact pays")
+	assert_true(_has_text(panel._call_box, "105%"), "and the rate it earns")
+	assert_true(_has_text(panel._call_box, "“"), "the envoy who brings it speaks")
+	await get_tree().process_frame
+	var banner: Control = panel._call_box.get_child(0) as Control
+	assert_not_null(banner, "the pact banner is up")
+	assert_true(
+		banner.size.y <= 150.0,
+		"the pact banner must fit a phone sheet (%s > 150)" % banner.size.y
+	)
+
 
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	_setup_diplomacy_panel()

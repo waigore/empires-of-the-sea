@@ -39,9 +39,9 @@ static func recipe_tooltip(recipe_id: String) -> String:
 static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
 	if economy == null:
 		return ""
-	var serving: int = economy.wip_units(recipe_id)
+	var serving: int = economy.production.wip_units(recipe_id)
 	if serving > 0:
-		return "%d→%dt" % [serving, maxi(economy.wip_turns(recipe_id), 1)]
+		return "%d→%dt" % [serving, maxi(economy.production.wip_turns(recipe_id), 1)]
 	var turns: int = ProductionRecipes.turns(recipe_id)
 	return "" if turns <= 1 else "%dt" % turns
 
@@ -50,23 +50,41 @@ static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
 ## batch lands one unit a Production phase, so the note says how many are still
 ## on the anvil and when the next one lands (wiki: production-recipes § Turns per
 ## unit; DR-20261113-02).
+##
+## A court that leaves the row set starts a fresh batch every phase, and those
+## batches each give up a unit — so the note names the cadence the phase will
+## actually pay (two batches, two a phase) rather than promising the single
+## batch's trickle (REQ-P2-03, REQ-P5-05).
 static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 	var turns: int = ProductionRecipes.turns(recipe_id)
-	var serving: int = 0 if economy == null else economy.wip_units(recipe_id)
+	var serving: int = 0 if economy == null else economy.production.wip_units(recipe_id)
 	if serving <= 0:
 		if turns <= 1:
 			return ""
 		return "Ready next turn: a run pays its inputs and labour, then lands one unit a turn."
-	var wait: int = maxi(economy.wip_turns(recipe_id), 1)
+	var wait: int = maxi(economy.production.wip_turns(recipe_id), 1)
+	# One unit leaves the workshop per batch on its landing phase, so the note
+	# counts batches, not units in flight (`ledger_market` reads its rules helper
+	# from here too).
+	var landings: int = 0 if economy == null else ProductionRecipes.next_landing(
+		economy.production_wip, recipe_id
+	)
+	var cadence: String = "still serving their turns"
+	if landings == 1:
+		cadence = "landing one a turn"
+	elif landings > 1:
+		cadence = "%d landing a turn" % landings
 	return (
-		"%d unit%s already in the workshop, landing one a turn — the next in %d turn%s. "
-		+ "Runs started now wait %d turns."
+		"%d unit%s already in the workshop, %s — the next in %d turn%s. "
+		+ "Runs started now wait %d turn%s."
 	) % [
 		serving,
 		"" if serving == 1 else "s",
+		cadence,
 		wait,
 		"" if wait == 1 else "s",
 		turns,
+		"" if turns == 1 else "s",
 	]
 
 

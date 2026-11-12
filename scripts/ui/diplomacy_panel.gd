@@ -1,9 +1,10 @@
 class_name DiplomacyPanel
 extends PanelContainer
-## The court: one row per known crown, with relation stand, and the open court's
-## page (stand, orders, chronicle, despatch, dossier) in CourtDetail (wiki:
-## diplomacy). Presentation only — buttons emit intents and the rules layer
-## decides (REQ-P2-03).
+## The court: one row per known crown, with relation stand, overture chain,
+## the orders that court will entertain and the pair's chronicle (wiki:
+## diplomacy). The open court's sheet lives on CourtDetailBlock; this shell
+## owns the crown list, consent lane and chrome (REQ-P3-01). Presentation only
+## — buttons emit intents and the rules layer decides (REQ-P2-03).
 
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
@@ -18,22 +19,15 @@ var _tech: Dictionary = {}
 var _power: Dictionary = {}
 var _selected: int = -1
 var _list: VBoxContainer = null
-var _detail: CourtDetail = null
+## The open court's sheet; tests and callers still reach this as `_detail`.
+var _detail: CourtDetailBlock = null
 var _summary: Label = null
 var _call_box: VBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
 ## reports). Read-only here; the session keeps it.
 var _court_reports: Dictionary = {}
 ## The full dossier sheet this summary opens, set by the HUD that builds both.
-var dossier_screen: CourtDossierScreen:
-	get:
-		return _dossier_screen
-	set(value):
-		_dossier_screen = value
-		if _detail != null:
-			_detail.dossier_screen = value
-
-var _dossier_screen: CourtDossierScreen = null
+var dossier_screen: CourtDossierScreen = null
 
 
 func _ready() -> void:
@@ -97,12 +91,13 @@ func _detail_column() -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_detail = CourtDetail.new()
-	_detail.dossier_screen = _dossier_screen
+	_detail = CourtDetailBlock.new()
+	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail.order_pressed.connect(
 		func(kind: String, target: int, arg: String) -> void:
 			order_pressed.emit(kind, target, arg)
 	)
+	_detail.dossier_open_pressed.connect(_on_dossier_open)
 	scroll.add_child(_detail)
 	return scroll
 
@@ -185,7 +180,7 @@ func _fill_list(ids: Array[int]) -> void:
 		var row := VBoxContainer.new()
 		row.add_theme_constant_override("separation", 0)
 		var button := Button.new()
-		var stand: String = CourtDetail.status_line(_state, _player, faction_id, record)
+		var stand: String = CourtDetailBlock.status_line(_state, _player, faction_id, record)
 		button.text = "%s\n%s" % [FactionCatalog.name_of(faction_id), stand]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.custom_minimum_size = Vector2(0, 46)
@@ -214,3 +209,9 @@ func _fill_call() -> void:
 		func(kind: String, target: int, _arg: String) -> void:
 			order_pressed.emit(kind, target, "")
 	)
+
+
+func _on_dossier_open(faction_id: int) -> void:
+	if dossier_screen == null or faction_id < 0 or _state == null:
+		return
+	dossier_screen.show_for(_state, _world, _player, faction_id)

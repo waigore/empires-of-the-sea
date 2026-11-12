@@ -1,12 +1,13 @@
-class_name CourtDetail
+class_name CourtDetailBlock
 extends VBoxContainer
-## The selected court's page inside THE COURT: stand, herald, orders, trade,
-## chronicle, despatch and dossier. Lifted out of DiplomacyPanel so the shell
-## keeps the crown list and chrome while this block owns only the open court
-## (REQ-P3-01). Presentation only — buttons emit intents; rules decide
-## (REQ-P2-03).
+## THE COURT's selected-crown column: herald stand, overture, orders, trade,
+## chronicle, spy despatch and dossier summary. Lifted out of DiplomacyPanel so
+## the shell keeps the crown list and consent lane while this block owns only
+## the open court's sheet (REQ-P3-01). Presentation only — buttons emit intents
+## and the rules layer decides (REQ-P2-03, REQ-P3-02).
 
 signal order_pressed(kind: String, target: int, arg: String)
+signal dossier_open_pressed(faction_id: int)
 
 ## Section headings for the order list; trade terms render in their own block
 ## so prices and pacts stay one glance away (REQ-P5-02).
@@ -16,18 +17,8 @@ const GROUP_LABELS: Dictionary = {
 	DiplomacyOrders.GROUP_AID: "AID",
 }
 
-## The full dossier sheet this summary opens, set by the HUD that builds both.
-var dossier_screen: CourtDossierScreen = null
 
-var _last_group: String = ""
-
-
-func _init() -> void:
-	size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_theme_constant_override("separation", 8)
-
-
-## Rebuilds the open court's page. Empty when no court is selected.
+## Rebuilds the open court's sheet for the selected faction.
 func fill(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -39,7 +30,8 @@ func fill(
 	power: Dictionary
 ) -> void:
 	UiRowBuilder.clear(self)
-	if selected < 0 or state == null:
+	add_theme_constant_override("separation", 8)
+	if selected < 0:
 		add_child(_label("No court has received an envoy.", 15, Palette.TEXT_DIM))
 		return
 	var record: DiplomacyRelation = state.relation(player, selected)
@@ -49,10 +41,14 @@ func fill(
 	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(selected))
 	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(selected))
 	add_child(_label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
-	var status := _label(status_line(state, player, selected, record), 15, status_color(record))
+	var status := _label(
+		status_line(state, player, selected, record),
+		15,
+		status_color(record)
+	)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(status)
-	add_child(meter(record.score))
+	add_child(_meter(record.score))
 	add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
 	var mark: Dictionary = CourtRows.line(power, player, selected)
 	if not mark.is_empty():
@@ -60,28 +56,7 @@ func fill(
 	_add_envoy(state, player, selected)
 	add_child(_label(overture_line(state, player, selected), 13, Palette.TEXT))
 	add_child(_caption("COURT ORDERS"))
-	var options: Array[Dictionary] = DiplomacyOrders.options(
-		state, world, treasury, player, selected, tech
-	)
-	_last_group = DiplomacyOrders.GROUP_ORDERS
-	var trade_options: Array[Dictionary] = []
-	for option: Dictionary in options:
-		if String(option.get("group", "")) == DiplomacyOrders.GROUP_TRADE:
-			trade_options.append(option)
-			continue
-		var group: String = String(option.get("group", DiplomacyOrders.GROUP_ORDERS))
-		if group != _last_group:
-			_last_group = group
-			add_child(_caption(String(GROUP_LABELS.get(group, "COURT ORDERS"))))
-		_add_option(option, selected)
-	if not trade_options.is_empty():
-		var trade := CourtTrade.new()
-		trade.fill(state, world, player, selected, trade_options)
-		trade.order_pressed.connect(
-			func(order_kind: String, target: int, arg: String) -> void:
-				order_pressed.emit(order_kind, target, arg)
-		)
-		add_child(trade)
+	_add_orders(state, world, player, selected, treasury, tech)
 	_add_chronicle(state, player, selected)
 	# The despatch is news like the chronicle, so it sits above the dossier's
 	# analysis (wiki: civilian-units § Spy — court reports; REQ-P5-02).
@@ -95,14 +70,13 @@ func fill(
 	# The summary's one door: the full sheet opens on the court in view
 	# (REQ-P5-01, DR-20261110-25).
 	dossier.open_pressed.connect(
-		func() -> void:
-			if dossier_screen != null and selected >= 0:
-				dossier_screen.show_for(state, world, player, selected)
+		func() -> void: dossier_open_pressed.emit(selected)
 	)
 	add_child(dossier)
 
 
-## The crown-list stand: herald word, war/peace, pacts and colony mark.
+## Relation stand for a court row or the open sheet: herald word, war state,
+## alliance, trade pact, boycott and colony — never the raw score (REQ-P5-02).
 static func status_line(
 	state: DiplomacyState, player: int, faction_id: int, record: DiplomacyRelation
 ) -> String:
@@ -136,25 +110,6 @@ static func overture_line(state: DiplomacyState, player: int, faction_id: int) -
 	return line
 
 
-## Ten blocks for the sealed relation meter; only the herald word is shown
-## beside it (wiki: diplomacy).
-static func meter(score: float) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	var active: int = DiplomacyCatalog.meter_step(score)
-	for step in range(1, 11):
-		var block := Panel.new()
-		block.custom_minimum_size = Vector2(18, 12)
-		block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var t: float = float(step - 1) / 9.0
-		var color: Color = Color.from_hsv(lerpf(0.0, 0.33, t), 0.62, 0.78)
-		if step > active:
-			color = Color(0.24, 0.20, 0.15, 0.65)
-		block.add_theme_stylebox_override("panel", UiTheme.box(color, color, 1, 2, Vector4.ZERO))
-		row.add_child(block)
-	return row
-
-
 ## The court's own word under its herald line: the newest voiced act between the
 ## pair, else its standing remark, with the face it wears (wiki:
 ## dialogue-and-mood; REQ-P1-07). Presentation only — the reader is never the
@@ -178,6 +133,39 @@ func _add_chronicle(state: DiplomacyState, player: int, selected: int) -> void:
 	add_child(chronicle)
 
 
+func _add_orders(
+	state: DiplomacyState,
+	world: WorldMap,
+	player: int,
+	selected: int,
+	treasury: int,
+	tech: Dictionary
+) -> void:
+	var options: Array[Dictionary] = DiplomacyOrders.options(
+		state, world, treasury, player, selected, tech
+	)
+	var last_group: String = DiplomacyOrders.GROUP_ORDERS
+	var trade_options: Array[Dictionary] = []
+	for option: Dictionary in options:
+		if String(option.get("group", "")) == DiplomacyOrders.GROUP_TRADE:
+			trade_options.append(option)
+			continue
+		var group: String = String(option.get("group", DiplomacyOrders.GROUP_ORDERS))
+		if group != last_group:
+			last_group = group
+			add_child(_caption(String(GROUP_LABELS.get(group, "COURT ORDERS"))))
+		_add_option(option, selected)
+	if trade_options.is_empty():
+		return
+	var trade := CourtTrade.new()
+	trade.fill(state, world, player, selected, trade_options)
+	trade.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			order_pressed.emit(kind, target, arg)
+	)
+	add_child(trade)
+
+
 func _add_option(option: Dictionary, selected: int) -> void:
 	var cost: String = String(option.get("cost_text", ""))
 	var text: String = String(option["label"])
@@ -185,7 +173,7 @@ func _add_option(option: Dictionary, selected: int) -> void:
 		text = "✓ %s" % text
 	if not cost.is_empty():
 		text = "%s  ·  %s" % [text, cost]
-	var button := _small_button(text)
+	var button := UiRowBuilder.button(text, 36.0, 0.0)
 	button.disabled = not bool(option["ok"])
 	var kind: String = String(option["kind"])
 	var arg: String = String(option.get("arg", ""))
@@ -203,13 +191,26 @@ func _add_option(option: Dictionary, selected: int) -> void:
 		add_child(note)
 
 
+func _meter(score: float) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	var active: int = DiplomacyCatalog.meter_step(score)
+	for step in range(1, 11):
+		var block := Panel.new()
+		block.custom_minimum_size = Vector2(18, 12)
+		block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var t: float = float(step - 1) / 9.0
+		var color: Color = Color.from_hsv(lerpf(0.0, 0.33, t), 0.62, 0.78)
+		if step > active:
+			color = Color(0.24, 0.20, 0.15, 0.65)
+		block.add_theme_stylebox_override("panel", UiTheme.box(color, color, 1, 2, Vector4.ZERO))
+		row.add_child(block)
+	return row
+
+
 func _caption(text: String) -> Label:
 	return _label(text, 11, Palette.TEXT_DIM)
 
 
 func _label(text: String, size: int, color: Color) -> Label:
 	return UiRowBuilder.label(text, size, color)
-
-
-func _small_button(text: String) -> Button:
-	return UiRowBuilder.button(text, 36.0, 0.0)

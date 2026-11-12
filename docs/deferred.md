@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-01 (`REQ-P2-02`).
+Audited through DR-20261113-04 (`REQ-P2-02`).
 
 ## Already live
 
@@ -33,18 +33,18 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
+| A decoration that buys weight | `RegimentDecorations.strength_multiplier`, DR-20261113-04 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 2 | Translation content | Localization | Keys live; needs words |
+| 1 | Translation content | Localization | Keys live; needs words |
 
 ## Next pick
 
-**Rank 1** — A decoration that buys something (DR-20261112-10): the ladder is
-display only; no number exists for a citation's worth.
+**Rank 1** — Translation content: every dialogue line answers to a key
+(`DialogueLocale`), but no `.po` ships, so a non-English build reads English.
 
 ## Out of scope / blocked footnotes
 
@@ -54,8 +54,8 @@ display only; no number exists for a citation's worth.
 - General-grade / sheltering trains — pending design (DR-20261112-07); L1 live.
 - Last-known OOB / stale figure — deferred (DR-20261112-09).
 - Alternative victory types — [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of scope.
-- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer (DR-20261111-28).
+- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
-- General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
+- General borrowing / loans — Money Lending floor live; rest deferred.
 - Per-region prospected table — deferred (DR-20261110-21).
 - Recipe gates; more multi-turn rows; queue caps; muster of the dead — DR-20261112-10/11/13-02.
