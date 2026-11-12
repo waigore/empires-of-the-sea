@@ -9,7 +9,9 @@ extends SceneTree
 ## The alliance is signed through the court's own order path; the war on the
 ## ally is a real `DiplomacyRules.declare_war`, the same call the rival planner
 ## makes; the answer, the suspended turn, the combat pass and the battle plate
-## are the game's own helpers.
+## are the game's own helpers. The drive also checks the rules it walks, so a
+## flow change fails it loudly (`RESULT: PASS` and exit 0 only when every check
+## held) instead of printing a wrong number nobody reads.
 
 const Launch = preload("res://tests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
@@ -20,6 +22,7 @@ const ALLIANCE_SCORE: float = 80.0
 var _steps: PackedStringArray = PackedStringArray()
 var _screen: MapScreen = null
 var _play: PlaySession = null
+var _failures: int = 0
 
 
 func _initialize() -> void:
@@ -74,6 +77,11 @@ func _ally_pass(ally: int, aggressor: int) -> void:
 			str(_relation(ally).formal_alliance),
 			str(CallToArms.allied_in_snapshot(_play.diplomacy, _play.player_faction, ally)),
 		])
+		_check(
+			"the treaty stands after a closed turn, on that turn's books",
+			_relation(ally).formal_alliance
+			and CallToArms.allied_in_snapshot(_play.diplomacy, _play.player_faction, ally)
+		)
 		aggressor = _declare_on_ally(ally, aggressor)
 		if aggressor < 0:
 			return
@@ -98,14 +106,26 @@ func _declare_on_ally(ally: int, aggressor: int) -> int:
 	])
 	if not CallToArms.has_pending(_play.diplomacy, _play.player_faction):
 		_say("no call reached the court")
+		_check("a formal ally of the declared-upon crown is called", false)
 		return -1
+	_check("a formal ally of the declared-upon crown is called", true)
 	_say("call waiting: pending %d" % _play.diplomacy.pending_calls.size())
 	# The calendar stops on the call; the court opens on it.
 	MapPlayTurn.end_turn(_play)
 	_say("the calendar stops: suspended %s, court open %s, turn %d" % [
-		str(_play.turn_suspended), str(_play.hud.panels.diplomacy_open), _play.turn,
+		str(_play.turn_suspended), str(_play.hud.panels.is_diplomacy_open()), _play.turn,
 	])
+	_check("the call suspends the calendar", _play.turn_suspended)
+	_check("the court opens on the call", _play.hud.panels.is_diplomacy_open())
 	_read_call_banner()
+	_check(
+		"the banner offers both answers",
+		_banner_buttons().contains("Join the war") and _banner_buttons().contains("Refuse")
+	)
+	_check(
+		"the banner names what a refusal costs",
+		_banner_text().contains("−50") and _banner_text().contains("−10")
+	)
 	_say("court pair with %s before the answer: %s" % [
 		FactionCatalog.name_of(aggressor), _stand(_relation(aggressor)),
 	])
@@ -129,6 +149,10 @@ func _declare_on_ally(ally: int, aggressor: int) -> int:
 		str(_relation(aggressor).at_war), _stand(_relation(aggressor)),
 	])
 	_say("call banner still up: %s" % str(not _banner_text().is_empty()))
+	_check("joining puts the crown at war with the aggressor", _relation(aggressor).at_war)
+	_check("joining releases the suspended calendar", not _play.turn_suspended)
+	_check("the answered call leaves the banner", _banner_text().is_empty())
+	_check("the alliance survives a joined call", _relation(ally).formal_alliance)
 	return aggressor
 
 
@@ -186,6 +210,17 @@ func _battle_pass(aggressor: int) -> void:
 		FactionCatalog.name_of(_play.model.province_owner(held)),
 		_play.army_layer.regiment_count_all(_play.player_faction),
 	])
+	# A host that never moved is no attacker: the wiki's battle is raised by an
+	# army moving into a province, and the unopposed capture needs the province
+	# to hold none of its owner's combat units (wiki: combat § Unopposed capture).
+	_check(
+		"a host standing on a held province takes nothing",
+		_play.model.province_owner(held) == _play.player_faction
+	)
+	_check(
+		"the crown's five regiments are still in the field",
+		_play.army_layer.regiment_count_all(_play.player_faction) == 5
+	)
 	_say("wash over %s: %s" % [
 		FactionCatalog.name_of(aggressor), _wash(aggressor),
 	])
@@ -219,25 +254,41 @@ func _second_call_pass(ally: int) -> void:
 	DiplomacyRules.declare_war(_play.diplomacy, first, ally)
 	DiplomacyRules.declare_war(_play.diplomacy, second, ally)
 	_say("calls waiting: %d" % _play.diplomacy.pending_calls.size())
+	_check(
+		"each declaration on the ally raises its own call",
+		_play.diplomacy.pending_calls.size() == 2
+	)
 	var score_before: float = _relation(ally).score
 	var peer_before: float = _relation(peer).score if peer >= 0 else -1.0
 	var turn_before: int = _play.turn
 	MapPlayTurn.end_turn(_play)
 	_say("the calendar stops: suspended %s, court open %s, turn %d" % [
-		str(_play.turn_suspended), str(_play.hud.panels.diplomacy_open), _play.turn,
+		str(_play.turn_suspended), str(_play.hud.panels.is_diplomacy_open()), _play.turn,
 	])
+	_check("two calls suspend the calendar once", _play.turn_suspended)
+	_check("the court opens on the first call", _play.hud.panels.is_diplomacy_open())
 	_read_call_banner()
 	# Closing the sheet must not dismiss the decision: the calendar brings it back.
 	DiplomacyHud.hide(_play.hud.panels)
-	_say("sheet closed: open %s" % str(_play.hud.panels.diplomacy_open))
+	_say("sheet closed: open %s" % str(_play.hud.panels.is_diplomacy_open()))
+	_check("closing the sheet does not answer the call", not _play.hud.panels.is_diplomacy_open())
 	MapPlayTurn.end_turn(_play)
 	_say("end turn reopens the court: %s, banner up %s" % [
-		str(_play.hud.panels.diplomacy_open), str(not _banner_text().is_empty()),
+		str(_play.hud.panels.is_diplomacy_open()), str(not _banner_text().is_empty()),
 	])
+	_check(
+		"the calendar brings the unanswered court back",
+		_play.hud.panels.is_diplomacy_open() and not _banner_text().is_empty()
+	)
 	MapPlayTurn.answer_call(_play, true)
 	_say("first call joined: turn %d, calls left %d, banner %s" % [
 		_play.turn, _play.diplomacy.pending_calls.size(), _banner_text(),
 	])
+	_check("the first answer leaves the second call waiting", _play.diplomacy.pending_calls.size() == 1)
+	_check("joining the first call starts its war", _relation(first).at_war)
+	var ally_at_refusal: float = _relation(ally).score
+	var peer_at_refusal: float = _relation(peer).score if peer >= 0 else -1.0
+	var aggressor_at_refusal: float = _relation(second).score
 	MapPlayTurn.answer_call(_play, false)
 	_say("second call refused: turn %d -> %d, alliance %s, with %s %.1f -> %.1f; %s %.1f -> %.1f" % [
 		turn_before, _play.turn, str(_relation(ally).formal_alliance),
@@ -245,6 +296,27 @@ func _second_call_pass(ally: int) -> void:
 		FactionCatalog.name_of(peer), peer_before,
 		_relation(peer).score if peer >= 0 else -1.0,
 	])
+	_check("a refusal breaks the formal alliance", not _relation(ally).formal_alliance)
+	_check(
+		"a refusal costs the abandoned ally the break penalty",
+		is_equal_approx(
+			ally_at_refusal - _relation(ally).score,
+			minf(float(DiplomacyCatalog.BREAK_ALLY_PENALTY), ally_at_refusal)
+		)
+	)
+	if peer >= 0:
+		_check(
+			"a refusal cascades to every other crown",
+			is_equal_approx(
+				peer_at_refusal - _relation(peer).score,
+				minf(float(DiplomacyCatalog.BREAK_CASCADE_PENALTY), peer_at_refusal)
+			)
+		)
+	_check(
+		"the aggressor is exempt from the cascade",
+		is_equal_approx(_relation(second).score, aggressor_at_refusal)
+	)
+	_check("a refused call leaves that aggressor at peace", not _relation(second).at_war)
 	_say("war with %s: %s; war with %s: %s" % [
 		FactionCatalog.name_of(first), str(_relation(first).at_war),
 		FactionCatalog.name_of(second), str(_relation(second).at_war),
@@ -455,6 +527,18 @@ func _say(line: String) -> void:
 	print("playtest: ", line)
 
 
+## One rule the drive walks, named: the expected outcome and whether it held.
+## A flow change fails the drive (non-zero exit) instead of printing a number
+## nobody compares.
+func _check(label: String, held: bool) -> void:
+	if held:
+		_say("  ok   %s" % label)
+		return
+	_failures += 1
+	_say("  FAIL %s" % label)
+
+
 func _finish() -> void:
 	print("\n--- playtest_allied_defence: %d steps ---" % _steps.size())
-	quit()
+	print("RESULT: %s" % ("PASS" if _failures == 0 else "%d FAILURE(S)" % _failures))
+	quit(0 if _failures == 0 else 1)
