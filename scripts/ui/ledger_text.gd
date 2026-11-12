@@ -15,15 +15,47 @@ static func recipe_title(recipe_id: String) -> String:
 	return text
 
 
-## "Timber ×2  +  Iron ×1  →  1 Planks  ·  4 labour".
+## "Timber ×2  +  Iron ×1  →  1 Planks  ·  4 labour". A multi-turn row names
+## its wait: "· 2 turns per run" (wiki: production-recipes § Turns per unit).
 static func recipe_tooltip(recipe_id: String) -> String:
 	var parts: PackedStringArray = []
 	var inputs: Dictionary = ProductionRecipes.inputs(recipe_id)
 	for commodity: Variant in inputs.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(inputs[commodity])])
-	return "  +  ".join(parts) + "  →  1 %s  ·  %d labour" % [
+	var text: String = "  +  ".join(parts) + "  →  1 %s  ·  %d labour" % [
 		CommodityCatalog.label(ProductionRecipes.output(recipe_id)),
 		ProductionRecipes.labour(recipe_id),
+	]
+	var turns: int = ProductionRecipes.turns(recipe_id)
+	if turns > 1:
+		text += "  ·  %d turns per run" % turns
+	return text
+
+
+## The workshop tag on a production row: empty for one-turn work, "2t" when the
+## row waits, "3→2t" while three units serve the last two phases. The row's
+## stepper stays what the player set; this is only what the kiln is doing.
+static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
+	if economy == null:
+		return ""
+	var serving: int = economy.wip_units(recipe_id)
+	if serving > 0:
+		return "%d→%dt" % [serving, maxi(economy.wip_turns(recipe_id), 1)]
+	var turns: int = ProductionRecipes.turns(recipe_id)
+	return "" if turns <= 1 else "%dt" % turns
+
+
+## What the tag promises, spelled out for a long press or a hover.
+static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
+	var turns: int = ProductionRecipes.turns(recipe_id)
+	var serving: int = 0 if economy == null else economy.wip_units(recipe_id)
+	if serving <= 0:
+		if turns <= 1:
+			return ""
+		return "Ready next turn: a run pays its inputs and labour, then lands its output."
+	var wait: int = maxi(economy.wip_turns(recipe_id), 1)
+	return "%d unit%s already in the workshop, landing in %d turn%s. Runs started now wait %d turns." % [
+		serving, "" if serving == 1 else "s", wait, "" if wait == 1 else "s", turns,
 	]
 
 

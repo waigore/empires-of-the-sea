@@ -668,6 +668,27 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 		)
 
 
+## A multi-turn row says so, and a batch already on the anvil names the units
+## serving their turns (wiki: production-recipes § Turns per unit; DR-20261112-11).
+func test_the_alloy_rows_name_their_wait() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(LedgerText.workshop_note(economy, "steel"), "2t")
+	assert_eq(LedgerText.workshop_note(economy, "lumber"), "", "one-turn rows need no tag")
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 1}]}
+	assert_eq(LedgerText.workshop_note(economy, "steel"), "3→1t")
+	assert_true(LedgerText.workshop_tooltip(economy, "steel").contains("3 units"))
+	_screen.economy.open_panel()
+	var body: Node = _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "2t"), "the idle alloy row shows its two-turn wait")
+
+
+func _row_has_text(body: Node, text: String) -> bool:
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text == text:
+			return true
+	return false
+
+
 ## The texture beside a label, so a row's medallion can be read without
 ## depending on where in the row it was added.
 func _medallion_of(body: Node, text: String) -> Texture2D:

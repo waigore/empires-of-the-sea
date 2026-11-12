@@ -9,7 +9,7 @@ manufactured recipes. **Pillars:** P2, P3, P5.
 
 ## Pipeline
 
-`EconomyTurn` runs four phases, then research and price discovery:
+`EconomyTurn` runs four phases, then research and prices:
 
 1. **Extraction** — connected estates add yields
    ([improvements.md](improvements.md)).
@@ -19,7 +19,7 @@ manufactured recipes. **Pillars:** P2, P3, P5.
    strike, unfed wards lose their staff.
 4. **Production** — recipes spend post-consumption inputs and idle labour.
 
-Projections never mutate live state.
+Projections never mutate state.
 
 ## Production recipes
 
@@ -39,31 +39,32 @@ Projections never mutate live state.
 
 `fabric_from_cotton` needs Cotton Weaving; other rows always run. Recipes run
 whole times, bounded by inputs and labour; incomplete rows are skipped.
-`PRODUCTION` sets desired outputs. Multi-turn: [`deferred.md`](deferred.md).
+`PRODUCTION` sets desired outputs.
+
+Steel and bronze take **two turns** (`turns` per run): inputs and labour are paid
+at the start, the output lands when the turns are served, and the batch rides the
+save (`PlayerEconomy.production_wip`, DR-20261112-11).
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
 `floor(delivered town-connected input / 4) × multiplier`, no inputs, labour or
 cargo. A colony pays on landed tons. Rivals upgrade towns
-([improvements.md](improvements.md)). A Minor or Tribe town publishes its
-manufactures as market auto-offers at the province town; estates still sell in
-full. A deed lifts that town (`min(4, 1+deeds)`).
+([improvements.md](improvements.md)). A Minor/Tribe town publishes them as market auto-offers at the province town;
+estates still sell in full. A deed lifts that town (`min(4, 1+deeds)`).
 
 ## World-market auction
 
 One global order book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
 court orders plus Minor/Tribe per-tile auto-offers at the published price.
 Tiebreaks: integer priority, pact, colony favour, Consulate, relation — a
-colony's suzerain clears its goods first inside a tier whatever the
-relations (`MarketFavoured`, wiki R7.1), while an independent court keeps
-Consulate-then-relation. First right of refusal fills a purchased tile's
-owner first and pays its relation share plus embassy kickbacks; subsidies
-adjust the deal. Unfilled orders carry when holds/stock cover them; prices
-move from filled bids and offers, and a world counterparty fills the rest.
+colony's suzerain clears first inside a tier (`MarketFavoured`, wiki R7.1).
+First right of refusal fills a purchased tile's owner first and pays its relation
+share plus embassy kickbacks. Unfilled orders carry when holds/stock cover them;
+prices move from fills, and a world counterparty fills the rest.
 
 An offer is capped by stock left after production; the `Offer` chip names the
-claim. Fills, cuts and lapses show in the toast and save.
+claim. Fills and lapses show in the toast.
 
 ## Trade terms
 
@@ -76,8 +77,8 @@ the Minor/Tribe ask carry it.
 `ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists
 staged orders, Minor/Tribe harvest and world rows as intents, each good under
 its medallion (`REQ-P1-02`, `REQ-P2-03`).
-`WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (one worker back
-to the fields, no refund). Thumb-sized on a phone.
+`WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (no refund).
+Thumb-sized on a phone.
 
 ## Architecture
 
