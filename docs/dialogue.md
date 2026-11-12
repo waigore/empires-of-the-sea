@@ -75,4 +75,4 @@ back to the authored English (`REQ-P2-03`).
 
 ## Deferred
 
-Translation words; era change stays blocked (no era model). Ranked: [`deferred.md`](deferred.md).
+No `.po` on `main`; era change blocked. Ranked: [`deferred.md`](deferred.md).
