@@ -820,7 +820,9 @@ func test_a_researched_pattern_is_the_one_that_musters() -> void:
 ## One peace-time world: England's seat at province 0, France's at province 1,
 ## with a rival ledger already resolved for France. `extra` appends the caller's
 ## field armies to the region roster.
-func _play(treasury: int = 12000, with_ledger: bool = true, extra: Array[ArmyState] = []) -> PlaySession:
+func _play(
+	treasury: int = 12000, with_ledger: bool = true, extra: Array[ArmyState] = []
+) -> PlaySession:
 	var world: WorldMap = AiFixture.land_world([HUMAN, ai_army_reinforce_OWNER], {0: true, 1: true})
 	var model: MapModel = world.region(0)
 	var armies: Array[ArmyState] = [
@@ -1033,6 +1035,25 @@ func test_the_map_pass_pitches_the_rivals_train() -> void:
 	)
 	assert_eq(economy.quantity("lumber"), lumber - 2, "the court's own timber pays")
 	assert_eq(economy.quantity("fabric"), fabric - 1)
+	play.army_layer.free()
+
+
+## Two equally worn hosts: the lowest army id carries the tents, so a given
+## roster always answers the same way.
+func test_a_tie_goes_to_the_lowest_army_id() -> void:
+	var twin := ArmyState.muster(
+		4, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 301
+	)
+	for regiment_id: String in twin.regiments:
+		twin.regiment_health[regiment_id] = 12
+	twin.moved = true
+	var play: PlaySession = _train_play(12, true, [twin] as Array[ArmyState])
+	var chosen: ArmyState = _chosen(play)
+
+	assert_not_null(chosen)
+	if chosen != null:
+		assert_eq(chosen.id, 3, "army 3 and army 4 are worn alike; the lower id wins")
 	play.army_layer.free()
 
 
