@@ -921,8 +921,11 @@ domain = "fleet"
 match = "scripts/map/map_play_fleets.gd*"
 domain = "naval_feeding"
 
+# Trailing star keeps the Godot .uid with the script. A bare `.gd` glob lets
+# the companion file fall through to scripts/map/** and the full map suite
+# blows the tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/map_play_fleet*.gd"
+match = "scripts/map/map_play_fleet*.gd*"
 domain = "fleet"
 
 # Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
