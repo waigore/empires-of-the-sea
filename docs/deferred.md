@@ -30,6 +30,7 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 | Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
 | Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
 | Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
+| Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 
 ## Remaining gaps (impact order)
@@ -38,8 +39,7 @@ Audited through DR-20261113-01 (`REQ-P2-02`).
 |-----:|-----|----------------|-------|
 | 1 | Rival-vs-rival fog for diplomacy | Mid/late AI fidelity | DR-20261110-21/12-09; OOB live |
 | 2 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 3 | Staggered per-unit completion | Economy depth | DR-20261112-11 |
-| 4 | Translation content | Localization | Keys live; needs words |
+| 3 | Translation content | Localization | Keys live; needs words |
 
 ## Next pick
 
@@ -58,4 +58,4 @@ war desire reads charted garrisons; offers still ignore charts.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
 - Per-region prospected table — deferred (DR-20261110-21).
-- Recipe gates; further multi-turn rows; muster of the dead — DR-20261112-10/11.
+- Recipe gates; more multi-turn rows; queue caps; muster of the dead — DR-20261112-10/11/13-02.
