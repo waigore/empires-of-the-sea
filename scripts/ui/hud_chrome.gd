@@ -2,7 +2,7 @@ class_name HudChrome
 extends RefCounted
 ## Builds the map HUD's bars, toasts, minimap, zoom, end-turn seal and plates.
 ## GameHud keeps the runtime API; this only assembles the widgets. The side
-## dossiers are HudDossiers' job (REQ-P3-01).
+## dossiers are HudDossiers' job, the despatch plates HudDespatches' (REQ-P3-01).
 
 
 static func build(hud: GameHud) -> void:
@@ -192,11 +192,14 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.add_child(hud.victory_overlay)
 
 
-## Quick Battle plate: above the dossiers, below the campaign-end plate.
+## Quick Battle plate: above the dossiers, below the campaign-end plate. The HUD
+## replays the queued battles and releases the court's held news (REQ-P5-06).
 static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay = QuickBattleOverlay.new()
 	hud.quick_battle_overlay.z_index = 35
-	hud.quick_battle_overlay.finished.connect(func() -> void: hud._on_quick_battle_finished())
+	hud.quick_battle_overlay.finished.connect(
+		func() -> void: hud._on_quick_battle_finished()
+	)
 	hud.add_child(hud.quick_battle_overlay)
 
 

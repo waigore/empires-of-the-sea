@@ -62,5 +62,4 @@ Node-free: dossier reads `fort_level` (`REQ-P3-03`).
 
 ## Tests
 
-`test_fort_rules`, `test_siege_depth`, `test_quick_battle_rules`,
-`test_battle_sim`.
+`test_fort_rules`, `test_battle_rules`.

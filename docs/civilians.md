@@ -79,7 +79,7 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_field_rules`, `test_civilian_voyage`, `test_spy_networks`,
+`test_civilian_field_rules`, `test_civilian_voyage`, `test_intel_rules`,
 `test_espionage`, `test_visibility`, `test_map_screen_crown_orders`.
 
 ```bash

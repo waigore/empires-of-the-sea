@@ -387,6 +387,30 @@ func test_the_plate_reads_mauled_regiments_and_chevrons() -> void:
 	overlay.free()
 
 
+## The field's name added to the winner's colours: the aftermath line the plate
+## prints, and none for a field every colour already bears (DR-20261112-02).
+func test_the_plate_names_the_honours_won() -> void:
+	var battle: Dictionary = _battle()
+	battle["attacker_honours"] = 3
+
+	assert_eq(
+		QuickBattleCopy.honour_line(battle, "Flanders", NAMES),
+		"Honours — España: Flanders added to 3 colours"
+	)
+	assert_eq(QuickBattleCopy.honour_line(_battle(), "Flanders", NAMES), "")
+	assert_eq(QuickBattleCopy.honour_line(battle, "", NAMES), "")
+
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	overlay.show_battle(battle, "Flanders", NAMES)
+	overlay.skip()
+	var text: String = ""
+	for line: Label in overlay._log.get_children():
+		text += String(line.text) + "\n"
+	assert_true(text.contains("Honours — España: Flanders added to 3 colours"), text)
+	overlay.free()
+
+
 ## The field floats the damage an action recorded, over the side it struck.
 func test_the_field_floats_the_damage_it_was_told() -> void:
 	var battle: Dictionary = _battle()

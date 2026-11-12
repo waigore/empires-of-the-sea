@@ -880,11 +880,139 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 	assert_gte(capital, 0, "the fixture crowns a capital")
 
 	_screen.play.selected_province = capital
-	MapPlayFleets.open_yard(_screen.play)
+	MapPlayFleetYard.open(_screen.play)
 
 	assert_true(_screen.hud.panels.is_fleet_panel_open())
 	assert_true(_screen.hud.panels.fleet_panel._yard._open)
 	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
+
+
+## The province dossier's Shipyard row routes straight to the yard helper.
+func test_the_province_dossier_routes_to_the_shipyard() -> void:
+	var play: PlaySession = _screen.play
+	play.selected_province = play.capital_province
+
+	MapPlayInput.on_panel_action(play, "shipyard")
+
+	assert_true(_screen.hud.panels.is_fleet_panel_open())
+	assert_true(_screen.hud.panels.fleet_panel._yard._open)
+
+
+## The yard claims its own orders only: the fleet dispatcher hands it every
+## dossier press, so a foreign intent must fall through untouched (REQ-P3-02).
+func test_the_shipyard_claims_only_its_own_intents() -> void:
+	assert_false(MapPlayFleetYard.on_action(_screen.play, "mission:patrol"))
+	assert_false(MapPlayFleetYard.on_action(_screen.play, "land:0"))
+	assert_true(MapPlayFleetYard.on_action(_screen.play, "yard:scrap:no_such_hull"))
+
+
+## A rival's squadron carries no slip: the yard is the crown's own capital.
+func test_a_rival_squadron_carries_no_yard_rows() -> void:
+	var rival: FleetState = FleetState.in_port(
+		999, 999, 0, ["frigate_1"], {"frigate_1": "frigate"}
+	)
+	assert_true(
+		MapPlayFleetYard.rows(_screen.play, rival).is_empty(),
+		"no slip for a rival's hull"
+	)
+
+
+## A lost capital says why instead of opening a slip the crown cannot use.
+func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
+	var play: PlaySession = _screen.play
+	play.capital_province = _unowned_province()
+	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.open(play)
+	MapPlayFleetYard.launch(play, "carrack")
+
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 2, "both say why")
+	assert_false(_screen.hud.panels.is_fleet_panel_open())
+
+
+## An inland capital cannot build hulls; the court is told before it pays.
+func test_the_yard_needs_a_harbour() -> void:
+	var play: PlaySession = _screen.play
+	play.capital_province = _inland_owned_province()
+	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.open(play)
+	MapPlayFleetYard.launch(play, "carrack")
+
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 2, "both say why")
+	assert_false(_screen.hud.panels.is_fleet_panel_open())
+
+
+## With no home fleet afloat the dossier still opens on the slip, so the first
+## launch has a row to press.
+func test_the_slip_shows_before_any_home_fleet() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture moors a home fleet")
+	home.location = FleetState.Location.AT_SEA
+	play.selected_province = capital
+
+	MapPlayFleetYard.open(play)
+
+	assert_true(_screen.hud.panels.is_fleet_panel_open())
+	assert_true(_screen.hud.panels.fleet_panel._yard._open)
+	assert_false(_screen.hud.panels.fleet_panel._yard._rows.is_empty())
+
+
+## A poor treasury refuses the launch and keeps the crown's peasants ashore.
+func test_a_launch_the_treasury_refuses_says_why() -> void:
+	var play: PlaySession = _screen.play
+	play.selected_province = play.capital_province
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 0
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.launch(play, "carrack")
+
+	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+
+
+## Two regiments aboard need both hulls: the break-up is refused, not half done.
+func test_a_loaded_squadron_cannot_be_broken_up() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	play.economy.economy.treasury = 60000
+	MapPlayFleetYard.launch(play, "carrack")
+	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
+	assert_not_null(fleet, "the launch selects the yard's squadron")
+	var army := ArmyState.muster(
+		98, play.player_faction, capital, false, ["pikemen", "pikemen"], 980
+	)
+	play.army_layer.armies.append(army)
+	army.embarked_fleet = fleet.id
+	fleet.embarked_army = army.id
+	var hulls: Array[String] = fleet.hulls.duplicate()
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.scrap(play, fleet.hulls[0])
+
+	assert_eq(fleet.hulls, hulls, "the hull stays afloat")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+
+
+## A hull the ledger cannot find is refused rather than silently dropped.
+func test_breaking_up_an_unknown_hull_says_why() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	play.economy.economy.treasury = 60000
+	MapPlayFleetYard.launch(play, "carrack")
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.scrap(play, "no_such_hull")
+
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
 
 
 ## Every launch row and every hull row leads with its own plate, so the yard
@@ -892,7 +1020,7 @@ func test_the_capital_dossier_opens_the_shipyard() -> void:
 func test_shipyard_rows_carry_the_hull_medallion() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
-	MapPlayFleets.open_yard(_screen.play)
+	MapPlayFleetYard.open(_screen.play)
 	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
 
 	var first: Dictionary = yard._rows[0]
@@ -1204,4 +1332,22 @@ func _remote_zone() -> int:
 		if _screen.visibility.owns_coast(zone_id) or occupied.has(zone_id):
 			continue
 		return zone_id
+	return -1
+
+
+## A province another crown holds, for the yard's "capital must be in hand" row.
+func _unowned_province() -> int:
+	for province: ProvinceState in _screen.model.provinces:
+		if province.owner != _screen.play.player_faction and province.owner != MapModel.NO_ID:
+			return province.id
+	return -1
+
+
+## An owned province with no harbour, for the yard's "no harbour" row.
+func _inland_owned_province() -> int:
+	for province: ProvinceState in _screen.model.provinces:
+		if province.owner != _screen.play.player_faction:
+			continue
+		if not NavalMovement.has_harbour(_screen.model, province.id):
+			return province.id
 	return -1

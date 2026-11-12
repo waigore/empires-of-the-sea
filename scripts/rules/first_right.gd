@@ -47,6 +47,12 @@ static func credits(
 			continue
 		var seller: int = int(deal.get("seller", MarketOrder.WORLD))
 		var buyer: int = int(deal.get("buyer", MarketOrder.WORLD))
+		if not _paid_by_a_court(buyer):
+			# The standing world counterparty is no court: nobody paid a clear
+			# price, so there is no share to take from it (wiki:
+			# world-market-first-right-of-refusal § Eligibility — "another GP
+			# buys those units"; § Treasury transfer D4).
+			continue
 		var gross: float = float(quantity) * price
 		gross_total += gross
 		var owner: int = _owner(purchased_for, deal)
@@ -85,6 +91,12 @@ static func credits(
 		"kickback_total": kickback_total,
 		"sink": maxf(gross_total - owner_total - kickback_total, 0.0),
 	}
+
+
+## Only a Great Power's clear price funds an overseas share; the standing world
+## counterparty (no court) pays nothing, so it owes nothing.
+static func _paid_by_a_court(faction: int) -> bool:
+	return FactionCatalog.type_of(faction) == FactionCatalog.Type.GREAT_POWER
 
 
 static func _owner(purchased_for: Callable, deal: Dictionary) -> int:

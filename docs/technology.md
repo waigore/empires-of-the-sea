@@ -81,5 +81,5 @@ Rules stay node-free (`REQ-P3-03`); the panel emits intents.
 
 ## Tests
 
-`test_tech_*` and `test_research_*` suites, plus `test_improvement_system`,
+`test_research_rules`, plus `test_improvement_system`,
 `test_army_field_rules`, `test_battle_rules`.

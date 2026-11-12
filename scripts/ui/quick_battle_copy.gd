@@ -186,6 +186,25 @@ static func chevron_line(battle: Dictionary, names: Array) -> String:
 	return "Chevrons — " + " · ".join(parts)
 
 
+## The field's name added to a winning side's colours once (DR-20261112-02).
+## Empty when no colour was bare enough to take it, so a repeat win adds no line.
+static func honour_line(battle: Dictionary, province_name: String, names: Array) -> String:
+	if province_name.is_empty():
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var gained: int = int(battle.get(key + "_honours", 0))
+		if gained <= 0:
+			continue
+		parts.append("%s: %s added to %d colour%s" % [
+			faction(int(battle.get(key, -1)), names), province_name,
+			gained, "" if gained == 1 else "s",
+		])
+	if parts.is_empty():
+		return ""
+	return "Honours — " + " · ".join(parts)
+
+
 ## Up to three survivors under full strength, worst first.
 static func _wounded(battle: Dictionary, key: String) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
