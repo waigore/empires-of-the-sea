@@ -188,16 +188,6 @@ static func _finish_turn(play: PlaySession) -> void:
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
 		MapPlayCampaign.close_calendar(play)
 		return
-	# The crown hears the race before it is lost: a crown standing within reach
-	# of its bar is named at the close of the turn, so the endgame is never a
-	# surprise. The threshold is a reading of the same check — no winner, no
-	# gate and no AI decision moves (wiki: victory § Victory Check).
-	if not play.observer_mode:
-		var warning: String = VictoryStandings.warning(
-			play.world, play.human_faction_id(), play.difficulty
-		)
-		if not warning.is_empty():
-			play.hud.toast(warning)
 	# The raid pass runs after the rival ledgers book the new turn's buys and
 	# before the crown's ledger closes: both sides' cargo is afloat, and losses
 	# leave the stockpile before anything resolves (wiki: ships-and-naval

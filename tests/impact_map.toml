@@ -90,9 +90,6 @@ suites = [
   "test_espionage.gd",
   "test_court_ui_parts.gd",
   "test_panel_parts_rules.gd",
-  # The court panel is mounted as a phone sheet: its header now carries the
-  # age's race, so a header change must prove it still fits a phone (DR-20261112-05).
-  "test_mobile_layout.gd",
 ]
 
 # Economy rules / market math. Screen mounts stay on economy_ui so a
@@ -348,6 +345,16 @@ suites = [
   "test_victory_screen.gd",
 ]
 
+# The age's race helper: the standing math, the sheet's foot and the turn's
+# warning. Kept off victory_bar so a standings edit stays inside tier 1.
+[domains.victory_standings]
+suites = [
+  "test_victory_standings.gd",
+  "test_gazette_plate.gd",
+  # A real turn close: the sheet opens and the warning rides the gazette adapter.
+  "test_campaign_end.gd",
+]
+
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
@@ -467,11 +474,11 @@ domain = "victory_bar"
 match = "scripts/rules/campaign_intro.gd*"
 domain = "victory_bar"
 
-# The age's race: the panel line and the turn's warning read one standing
-# helper, so both ride the bar's own domain instead of the rules catch-all.
+# The age's race: the sheet's standing and the turn's warning read one helper
+# (DR-20261112-05).
 [[rules]]
 match = "scripts/rules/victory_standings.gd*"
-domain = "victory_bar"
+domain = "victory_standings"
 
 [[rules]]
 match = "scripts/rules/difficulty.gd*"

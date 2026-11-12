@@ -71,16 +71,7 @@ static func refresh(play: PlaySession) -> void:
 		play.treasury(),
 		_tech(play),
 		play.court_reports,
-		public_power(play),
-		age_line(play)
-	)
-
-
-## The age's race as the court panel prints it: the same Old World holdings and
-## bars the end-of-turn check reads (wiki: victory § Military victory).
-static func age_line(play: PlaySession) -> String:
-	return VictoryStandings.line(
-		play.world, play.turn, play.player_faction, play.difficulty, play.infinite_mode
+		public_power(play)
 	)
 
 

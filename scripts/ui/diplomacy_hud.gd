@@ -41,13 +41,10 @@ static func show(
 	treasury: int,
 	tech: Dictionary = {},
 	court_reports: Dictionary = {},
-	power: Dictionary = {},
-	age_line: String = ""
+	power: Dictionary = {}
 ) -> void:
 	panels.close_sheets(panels.diplomacy)
-	panels.diplomacy_panel.refresh(
-		state, world, player, treasury, tech, court_reports, power, age_line
-	)
+	panels.diplomacy_panel.refresh(state, world, player, treasury, tech, court_reports, power)
 	panels.diplomacy.reveal(panels.host, panels.dock)
 
 
@@ -59,12 +56,11 @@ static func refresh(
 	treasury: int,
 	tech: Dictionary = {},
 	court_reports: Dictionary = {},
-	power: Dictionary = {},
-	age_line: String = ""
+	power: Dictionary = {}
 ) -> void:
 	if panels.is_diplomacy_open():
 		panels.diplomacy_panel.refresh(
-			state, world, player, treasury, tech, court_reports, power, age_line
+			state, world, player, treasury, tech, court_reports, power
 		)
 
 

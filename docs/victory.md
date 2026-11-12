@@ -17,12 +17,13 @@ Military victory, Great Power defeat and the calendar end (wiki:
   strictly highest power score, or no-one on a tie.
 - **Defeat:** terminal fall of the human crown mounts the defeat plate and
   seals turns; an AI crown's fall removes it and the campaign continues.
-- **The age's race** (`VictoryStandings`, DR-20261112-05): the court panel's
-  header states the crown's Old World holdings against its own bar, the leader
-  and the calendar; the close of a turn names a crown within **three
+- **The age's race** (`VictoryStandings`, DR-20261112-05): the Gazette's sheet
+  states at its foot the crown's Old World holdings against its own bar, the
+  leader and the calendar; the close of a turn names a crown within **three
   provinces** of its bar in the despatches. The threshold is a reading of the
   check — no winner, gate, AI decision or save field moves, and a crown already
-  on its bar is never merely warned. The full-AI observer prints neither line.
+  on its bar is never merely warned. The full-AI observer prints neither line,
+  and the archive prints no standing (the race belongs to the live sheet).
 - **Plates** (`VictoryOverlay`): one family for military victory, defeat and
   campaign complete; "view final state" keeps the map pannable and the pause
   menu reachable.
@@ -36,13 +37,15 @@ out of scope. Ranked gaps: [`deferred.md`](deferred.md).
 
 Rules: `victory_rules`, `victory_state`, `victory_standings`, `campaign_defeat`,
 `defeat_state`, `turn_time`. Map glue: `map/map_play_campaign`,
-`map/map_play_turn` (the check and the warning). UI: `victory_overlay`,
-`diplomacy_panel` (the race line). Rules need no nodes (`REQ-P3-03`).
+`map/map_play_turn` (the check and the warning), `map/map_play_gazette` (the
+sheet's standing). UI: `victory_overlay`, `gazette_plate` (the standing column).
+Rules need no nodes (`REQ-P3-03`).
 
 ## Tests
 
-Suites: `test_victory_standings`, `test_victory_screen`, `test_campaign_end`,
-`test_campaign_intro`, `test_campaign_defeat`, `test_capital_loss`.
+Suites: `test_victory_standings`, `test_gazette_plate`, `test_victory_screen`,
+`test_campaign_end`, `test_campaign_intro`, `test_campaign_defeat`,
+`test_capital_loss`.
 
 ```bash
 gd-tools test --coverage --min 80

@@ -89,19 +89,6 @@ func test_the_court_panel_carries_the_despatch_for_the_selected_crown() -> void:
 	assert_false(_has_text(panel._detail, "COURT REPORTS"), "Genoa has no spy")
 	panel.free()
 
-func test_the_court_panel_states_the_age_and_keeps_it_across_a_selection() -> void:
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var panel := DiplomacyPanel.new()
-	add_child(panel)
-	var age: String = "The age: you hold 12 of 31 Old World provinces; England leads with 9 of 31."
-	panel.refresh(state, null, VIEWER, 2500, {}, {}, {}, age)
-	assert_true(_has_text(panel._summary, "you hold 12 of 31"), "the header states the race")
-	panel.select_faction(ENGLAND)
-	assert_true(_has_text(panel._summary, "you hold 12 of 31"), "a selection keeps the race")
-	panel.free()
-
-
 func _has_text(node: Node, needle: String) -> bool:
 	if node is Label and String((node as Label).text).contains(needle):
 		return true
