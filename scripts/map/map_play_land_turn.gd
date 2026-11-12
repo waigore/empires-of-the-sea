@@ -66,7 +66,11 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		)
 		if int(battle.get("attack_paid", 0)) > 0:
 			line += " — %d ducats spent" % int(battle["attack_paid"])
-		if battle.has("quick") and play.hud != null:
+		# A Quick Battle plate replays this clash for the court, so the despatch
+		# that repeats its outcome is the first line the held-news cap may drop
+		# (REQ-P5-06).
+		var on_plate: bool = battle.has("quick") and play.hud != null
+		if on_plate:
 			battle["player_faction"] = play.player_faction
 			play.hud.show_quick_battle(battle, prefix + province)
 		var medal: String = String(battle.get("medal_gain", ""))
@@ -80,7 +84,10 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 				line += " — %s earns a medal (%d now)" % [
 					general, play.army_layer.generals.medals(winner, medal)
 				]
-		play.hud.toast(line, BattleReport.icon_of(battle))
+		if on_plate:
+			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
+		else:
+			play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
 	var losses: Dictionary = CapitalLoss.resolve_world(play.world, before)

@@ -142,7 +142,17 @@ static func _land_record(
 			return rec
 		ArmyCombat.Outcome.CAPTURE:
 			return _victor(rec, "battleCapture", battle, state, viewer, attacker, defender, ours, false)
-		ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
+		ArmyCombat.Outcome.ATTACKER_VICTORY:
+			# A fought win that takes the province is a capture: the crown's page
+			# must print the province lost or taken, not only the field held
+			# (wiki: the-gazette § Item catalog — "Provinces the crown took or
+			# lost"). An advantage holds the field and leaves the province be
+			# (wiki: quick-battle § Outcome and integration).
+			var kind: String = (
+				"battleCapture" if bool(battle.get("captured", false)) else "battleHeld"
+			)
+			return _victor(rec, kind, battle, state, viewer, attacker, defender, ours, false)
+		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
 			return _victor(rec, "battleHeld", battle, state, viewer, attacker, defender, ours, false)
 		ArmyCombat.Outcome.DEFENDER_VICTORY:
 			return _victor(rec, "battleHeld", battle, state, viewer, defender, attacker, ours, true)
