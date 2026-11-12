@@ -1262,6 +1262,11 @@ domain = "fort"
 match = "scripts/rules/hospital_*.gd*"
 domain = "hospital"
 
+# The train that marches with a standard is hospital rules too (DR-20261112-07).
+[[rules]]
+match = "scripts/rules/field_hospital_*.gd*"
+domain = "hospital"
+
 [[rules]]
 match = "scripts/rules/economy_*.gd"
 domain = "economy"
