@@ -12,6 +12,7 @@ extends SceneTree
 ## seal, slot rows).
 
 const Launch = preload("res://tests/playtest_launch.gd")
+const SaveDrive = preload("res://tests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 ## A directory of its own, so a hand run never touches the player's slots.
 const DIR: String = "user://playtest_persistence"
@@ -204,52 +205,23 @@ func _unreadable_pass() -> void:
 
 
 func _save(slot: int) -> void:
-	_screen.game_menu.open()
-	_screen.game_menu.open_save()
-	var button: Button = _row(slot)
-	if button == null:
-		_say("the save browser has no row for slot %d" % slot)
-		_screen.game_menu.close()
-		return
-	button.emit_signal("pressed")
-	# An occupied slot asks a second time before it is overwritten.
-	if _screen.game_menu.browser._pending_overwrite == slot:
-		button = _row(slot)
-		button.emit_signal("pressed")
+	var status: String = SaveDrive.save_slot(_screen, slot)
 	_say("save: \"%s\" (slot on disk: %s)" % [
-		_screen.game_menu._status.text, str(SaveStore.has_slot(slot, DIR)),
+		status, str(SaveStore.has_slot(slot, DIR)),
 	])
-	_screen.game_menu.close()
 
 
 func _load(slot: int) -> void:
-	var current: MapScreen = _screen
-	_screen.game_menu.open()
-	_screen.game_menu.open_load()
-	var button: Button = _row(slot)
-	if button == null:
-		_say("the load browser has no row for slot %d" % slot)
-		_screen.game_menu.close()
-		_screen = current
-		return
-	_say("load row: \"%s\" (disabled %s)" % [
-		button.text.replace("\n", " / "), str(button.disabled),
-	])
-	if button.disabled:
-		_screen.game_menu.close()
-		_screen = current
-		return
-	button.emit_signal("pressed")
-	_screen = _main.current_screen
-	if _screen != null and not is_instance_valid(_screen):
-		_screen = null
+	var button: Button = SaveDrive.row(_screen, slot)
+	if button != null:
+		_say("load row: \"%s\" (disabled %s)" % [
+			button.text.replace("\n", " / "), str(button.disabled),
+		])
+	_screen = SaveDrive.load_slot(_screen, _main, slot)
 
 
 func _row(slot: int) -> Button:
-	var browser: SaveBrowser = _screen.game_menu.browser
-	if browser == null or browser.slot_buttons.size() < slot:
-		return null
-	return browser.slot_buttons[slot - 1]
+	return SaveDrive.row(_screen, slot)
 
 
 func _read_rows(label: String) -> void:
@@ -279,7 +251,7 @@ func _reset_ending() -> void:
 ## The dossier line the player taps to cycle the crown's plan.
 func _plan_line() -> String:
 	var parts: PackedStringArray = []
-	_collect_text(_play.hud.panels.army_panel, "Battle plan:", parts)
+	_collect_text(_play.hud.panels.army_panel, "Crown battle plan:", parts)
 	return parts[0] if not parts.is_empty() else "no plan line"
 
 
@@ -290,16 +262,7 @@ func _plate_title(plate: VictoryOverlay) -> String:
 
 
 func _collect_text(node: Node, prefix: String, into: PackedStringArray) -> void:
-	if node is Label:
-		var label: Label = node
-		if label.visible and (prefix.is_empty() or label.text.begins_with(prefix)):
-			into.append(label.text)
-	elif node is Button:
-		var button: Button = node
-		if button.visible and (prefix.is_empty() or button.text.begins_with(prefix)):
-			into.append(button.text)
-	for child: Node in node.get_children():
-		_collect_text(child, prefix, into)
+	SaveDrive.collect_text(node, prefix, into)
 
 
 # --- fixtures --------------------------------------------------------------
@@ -362,14 +325,7 @@ func _last_toast() -> String:
 
 
 func _clean_dir() -> void:
-	var path: String = ProjectSettings.globalize_path(DIR)
-	if not DirAccess.dir_exists_absolute(path):
-		return
-	var dir := DirAccess.open(DIR)
-	if dir != null:
-		for file_name: String in dir.get_files():
-			dir.remove(file_name)
-	DirAccess.remove_absolute(path)
+	SaveDrive.clean_dir(DIR)
 
 
 func _say(line: String) -> void:
