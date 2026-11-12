@@ -39,10 +39,10 @@ Projections never mutate.
 whole times, bounded by inputs and labour; incomplete rows skip. `PRODUCTION`
 sets desired outputs.
 
-Steel and bronze take **two turns** (`turns` per run): inputs and labour are paid
-at the start, then the batch lands **one unit a phase** until spent, riding the
-save (`PlayerEconomy.production_wip`, DR-20261112-11/13-02). Three steel started
-in turn 1 end in turn 4 — what drip-feeding the same runs builds.
+Steel and bronze take **two turns** (`turns` per run): inputs and labour paid
+up front; the batch lands **one unit a phase** until spent, WIP riding the save
+(`PlayerEconomy.production_wip`, DR-20261112-11/13-02). Three steel begun in
+turn 1 end in turn 4.
 
 ## Town manufacturing bonus
 
@@ -78,13 +78,17 @@ medallion (`REQ-P1-02`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (no refund).
 Thumb-sized on a phone.
 
+## Deferred (REQ-P2-02)
+
+Building/tier gates; further multi-turn rows; a queue cap
+([`deferred.md`](deferred.md)).
+
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
-`commodity_catalog`, `world_market`, `market_{order,book,rules,matcher,orders,clearing}`,
-`first_right`, `market_favoured`, `town_industry`, `minor_market`,
-`ui/{commodity_icons,ledger_{production,market}}`, and `economy/economy_controller` plus
-`map/map_play_market`.
+`commodity_catalog`, `world_market`, `market_*`, `first_right`,
+`market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
+`economy/economy_controller`, `map/map_play_market`.
 
 ## Tests
 
