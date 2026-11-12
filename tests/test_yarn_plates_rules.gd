@@ -236,9 +236,62 @@ func test_an_unknown_node_cannot_start() -> void:
 	assert_false(YarnRunner.new(_program()).start("no_such_node"))
 
 
-func test_a_declare_is_a_set() -> void:
+func test_a_declare_fills_an_unset_variable() -> void:
 	var declared := "title: gate\n---\n<<declare $x = 2>>\nCount: {$x}.\n===\n"
 	assert_eq(_read(declared, "gate"), ["Count: 2."] as Array[String])
+
+
+## DR-20261113-01: "`<<declare>>` as a default". The game layer sets a script's
+## variables before the runner reads it (wiki: dialogue-content-and-yarn
+## § Architecture), so a declaration must not overwrite one.
+func test_a_declare_keeps_the_value_the_game_set() -> void:
+	var declared := (
+		"title: gate\n---\n<<declare $court = \"Ribe\">>\n"
+		+ "<<declare $court = \"Lisboa\">>\nCourt: {$court}.\n"
+		+ "<<set $court = \"Angra\">>\nSet: {$court}.\n===\n"
+	)
+	assert_eq(
+		_read(declared, "gate", {"court": "Cadiz"}),
+		["Court: Cadiz.", "Set: Angra."] as Array[String],
+		"a declare is a default; only a set writes over the game's value"
+	)
+	assert_eq(
+		_read(declared, "gate"), ["Court: Ribe.", "Set: Angra."] as Array[String],
+		"with nothing set, the first default stands and a set still writes"
+	)
+
+
+## DR-20261113-01 § P4: "a jump loop is bounded at 200 beats, so authored content
+## can never hang a refresh". A cycle with no line in it never reaches a beat, so
+## this call must return rather than spin.
+func test_a_jump_loop_that_never_speaks_is_stopped() -> void:
+	var looping := "title: gate\n---\n<<jump gate>>\n===\n"
+	var runner := YarnRunner.new(YarnScript.parse(looping))
+	assert_true(runner.start("gate"))
+	var beat: Dictionary = runner.advance()
+	assert_eq(String(beat["kind"]), "error", str(beat))
+	assert_true(String(beat.get("error", "")).contains("jump"), String(beat.get("error", "")))
+	assert_true(runner.at_end(), "the loop is closed, not left to spin")
+
+
+func test_two_nodes_jumping_to_each_other_are_stopped() -> void:
+	var looping := (
+		"title: a\n---\n<<jump b>>\n===\ntitle: b\n---\n<<jump a>>\n===\n"
+	)
+	var runner := YarnRunner.new(YarnScript.parse(looping))
+	assert_true(runner.start("a"))
+	assert_eq(String(runner.advance()["kind"]), "error", "a mutual loop is bounded too")
+
+
+## A loop that speaks is bounded by the reader's beats, not by the runner: the
+## guard must not cut a long but honest scene short.
+func test_a_loop_that_speaks_still_yields_its_lines() -> void:
+	var speaking := "title: gate\n---\nThe wheel turns.\n<<jump gate>>\n===\n"
+	var runner := YarnRunner.new(YarnScript.parse(speaking))
+	assert_true(runner.start("gate"))
+	for beat in 3:
+		var said: Dictionary = runner.advance()
+		assert_eq(String(said["kind"]), "line", "beat %d" % beat)
 
 
 func test_an_option_can_stop_the_scene() -> void:

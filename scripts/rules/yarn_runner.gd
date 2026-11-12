@@ -17,6 +17,14 @@ var _stack: Array = []
 var _pending: Array = []
 var _node: String = ""
 var _done: bool = false
+## Jumps one `advance()` call has followed without reaching a beat (DR-20261113-01
+## § P4: a jump loop is bounded, so authored content can never hang a refresh).
+var _jumps: int = 0
+
+## The most jumps one beat may follow before the runner gives up. A jump cycle
+## with no line in it resolves away from the caller's sight, so the reader's own
+## beat limit cannot stop it; this is the same 200 the reader spends on beats.
+const JUMP_LIMIT: int = 200
 
 
 func _init(program: Dictionary, vars: Dictionary = {}) -> void:
@@ -38,8 +46,10 @@ func start(node: String) -> bool:
 
 
 ## The next beat: `{kind: "line", text, tags}`, `{kind: "options", options}`,
-## `{kind: "done"}`, or `{kind: "error", error}` for a jump into a missing node.
+## `{kind: "done"}`, or `{kind: "error", error}` for a jump into a missing node
+## or a jump loop that never reaches a line.
 func advance() -> Dictionary:
+	_jumps = 0
 	while not _done:
 		if not _pending.is_empty():
 			return {"kind": "options", "options": _pending}
@@ -58,9 +68,23 @@ func advance() -> Dictionary:
 				variables[String(step.get("name", ""))] = YarnExpr.evaluate(
 					step.get("ast", {}), variables
 				)
+			"declare":
+				# A default, not an assignment: a variable the game layer already
+				# set keeps its value (wiki: dialogue-content-and-yarn § Architecture
+				# — the game layer sets Yarn variables; DR-20261113-01).
+				var name: String = String(step.get("name", ""))
+				if not variables.has(name):
+					variables[name] = YarnExpr.evaluate(step.get("ast", {}), variables)
 			"if":
 				_enter(step)
 			"jump":
+				if _jumps >= JUMP_LIMIT:
+					_done = true
+					return {
+						"kind": "error",
+						"error": "the script jumps without ever speaking",
+					}
+				_jumps += 1
 				if not _jump(String(step.get("node", ""))):
 					_done = true
 					return {
