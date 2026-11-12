@@ -213,47 +213,10 @@ const POINTS: Dictionary = {
 			"Our terms are a white peace, no more and no less. Answer it.",
 		],
 	},
-	# --- reactive: the court's standing word when nothing has happened ------
-	"reactive/standing_war": {
-		"category": CAT_REACTIVE,
-		"moods": ["dismissive"],
-		"lines": [
-			"The war stands. We shall speak again when one of us tires.",
-			"Our courts have nothing to add to the guns.",
-		],
-	},
-	"reactive/standing_alliance": {
-		"category": CAT_REACTIVE,
-		"moods": ["pleased"],
-		"lines": [
-			"Your court is always welcome here, and your squadrons beside ours.",
-			"The alliance holds. Long may it suit us both.",
-		],
-	},
-	"reactive/standing_friendly": {
-		"category": CAT_REACTIVE,
-		"moods": ["gracious", "pleased"],
-		"lines": [
-			"You will always find a friend of our court in this harbour.",
-			"Our doors are open to your envoy, at any hour.",
-		],
-	},
-	"reactive/standing_cold": {
-		"category": CAT_REACTIVE,
-		"moods": ["skeptical", "dismissive"],
-		"lines": [
-			"We have little to say to your court.",
-			"Our clerks record your name, and nothing warmer.",
-		],
-	},
-	"reactive/standing_neutral": {
-		"category": CAT_REACTIVE,
-		"moods": ["calculating", "considering"],
-		"lines": [
-			"Our clerks record your name; nothing more today.",
-			"The court is civil, and no more than civil.",
-		],
-	},
+	# --- reactive: the court's standing word when nothing has happened --------
+	# The five bands are authored in [DialogueYarn], a Yarn script keyed by the
+	# same `DialoguePoint/<category>/<situation>` point; the merged catalogue
+	# below reads them beside these rows.
 }
 
 
@@ -272,6 +235,7 @@ static func table() -> Dictionary:
 		_merged = POINTS.duplicate(true)
 		_merged.merge(DialogueEpisodes.POINTS, true)
 		_merged.merge(DialogueAgendaLines.POINTS, true)
+		_merged.merge(DialogueYarn.table(), true)
 	return _merged
 
 
@@ -302,12 +266,14 @@ static func moods_for(point: String) -> Array:
 
 
 ## One authored line, chosen by the caller's stable salt so a reload speaks the
-## same words. Unknown points speak nothing.
+## same words, in the locale the game runs (DialogueLocale keys every variant).
+## Unknown points speak nothing.
 static func line_for(point: String, salt: int) -> String:
 	var lines: Array = lines_for(point)
 	if lines.is_empty():
 		return ""
-	return String(lines[absi(salt) % lines.size()])
+	var index: int = absi(salt) % lines.size()
+	return DialogueLocale.line(point, index, String(lines[index]))
 
 
 ## The mood a point carries when the caller has no negotiation state to read.
