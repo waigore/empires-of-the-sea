@@ -313,6 +313,44 @@ func test_a_field_battle_the_crown_loses_prints_its_dead() -> void:
 	assert_true(text.contains("3 of our regiments are lost"), text)
 
 
+## A fought win that takes the province is a capture on the crown's page: the
+## sheet must say the province changed hands, not only that the field was held
+## (wiki: the-gazette § Item catalog — "Provinces the crown took or lost").
+func test_a_fought_capture_prints_the_province_lost() -> void:
+	var battle: Dictionary = {
+		"attacker": FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"captured": true,
+		"attacker_lost": [1],
+		"defender_lost": [1],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("has carried"), text)
+	assert_true(text.contains("1 of our regiments is lost"), text)
+
+
+## An advantage holds the field and leaves the province with its owner, so the
+## sheet keeps the held-field line (wiki: quick-battle § Outcome and integration).
+func test_an_advantage_still_reads_as_a_held_field() -> void:
+	var battle: Dictionary = {
+		"attacker": FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_ADVANTAGE,
+		"attacker_lost": [1],
+		"defender_lost": [1],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	assert_true(String(items[0]["text"]).contains("holds the field"), String(items[0]["text"]))
+
+
 func test_a_standoff_prints_the_crowns_own_dead() -> void:
 	var battle: Dictionary = {
 		"attacker": VIEWER,

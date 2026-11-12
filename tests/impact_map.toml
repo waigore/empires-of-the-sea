@@ -345,6 +345,16 @@ suites = [
   "test_victory_screen.gd",
 ]
 
+# The age's race helper: the standing math, the sheet's foot and the turn's
+# warning. Kept off victory_bar so a standings edit stays inside tier 1.
+[domains.victory_standings]
+suites = [
+  "test_victory_standings.gd",
+  "test_gazette_plate.gd",
+  # A real turn close: the sheet opens and the warning rides the gazette adapter.
+  "test_campaign_end.gd",
+]
+
 [domains.menu]
 suites = [
   "test_advanced_start.gd",
@@ -463,6 +473,12 @@ domain = "victory_bar"
 [[rules]]
 match = "scripts/rules/campaign_intro.gd*"
 domain = "victory_bar"
+
+# The age's race: the sheet's standing and the turn's warning read one helper
+# (DR-20261112-05).
+[[rules]]
+match = "scripts/rules/victory_standings.gd*"
+domain = "victory_standings"
 
 [[rules]]
 match = "scripts/rules/difficulty.gd*"
@@ -746,6 +762,13 @@ domain = "save"
 [[rules]]
 match = "tests/playtest_treasury.gd*"
 domain = "economy"
+
+# The seat drive storms the crown's capital and reads the court's news, the
+# Gazette sheet and the defeat plate, so it travels with the land-turn suites
+# that own capital falls.
+[[rules]]
+match = "tests/playtest_capital_move.gd*"
+domain = "land_turn"
 
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.

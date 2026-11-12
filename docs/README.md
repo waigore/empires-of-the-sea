@@ -16,6 +16,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
 | [advanced-start.md](advanced-start.md) | Opening at turn 50/100: tiers, colonies, estates |
 | [difficulty.md](difficulty.md) | Difficulty layer: rival stores and rival land strength |
+| [victory.md](victory.md) | Military victory, defeat, calendar end and the age's race |
 | [capital-choice.md](capital-choice.md) | Seating the court before turn 1: rules, chart, persistence |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
 | [dialogue.md](dialogue.md) | Court voice: dialogue points, envoy moods, proposal banners |
@@ -25,6 +26,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
+| [field-hospital.md](field-hospital.md) | A train's tents: pitching, rest tempo, rations, travel |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [battle-sim.md](battle-sim.md) | Visual Battle Simulator: a playtesting view of Quick Battle |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |

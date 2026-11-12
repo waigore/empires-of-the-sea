@@ -153,8 +153,11 @@ static func _world(play: PlaySession, tier: String) -> Dictionary:
 	return report
 
 
-## Chard New World for the human court; rival fog exploration stays deferred
-## (docs/world.md § Known limits).
+## The inherited New World chart (wiki § NW sea-zone visibility — the rule is
+## per Great Power): the human's grid lives in the session's table and every
+## rival's in `CourtCharts`, so both are charted here. A rival that starts the
+## age with colonies on the Passage shore knows the lanes that reach them, and a
+## rival that does not still knows no more than the player.
 static func _reveal(play: PlaySession, tier: String) -> void:
 	if play.world.region_count() < 2:
 		return
@@ -165,10 +168,30 @@ static func _reveal(play: PlaySession, tier: String) -> void:
 		visibility.setup(model, play.player_faction)
 		visibility.apply_initial()
 		play.visibility_by_region[id] = visibility
+	var share: float = AdvancedStart.nw_reveal(tier)
 	AdvancedWorld.reveal(
 		play.world, play.visibility_by_region[id] as VisibilityModel,
-		play.player_faction, AdvancedStart.nw_reveal(tier)
+		play.player_faction, share
 	)
+	_reveal_courts(play, id, share)
+
+
+## Every rival reads the same inherited lanes, through its own chart. The grids
+## are the ones the turn reads, so a rival's voyage and its explorer act on the
+## water its court was given rather than a copy (REQ-P2-03).
+static func _reveal_courts(play: PlaySession, region: int, share: float) -> void:
+	# Hands the session its charts (idempotent) so a fixture that never loaded a
+	# region can still inherit them.
+	MapPlayCourtFog.build(play)
+	if play.court_charts == null:
+		return
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == play.player_faction:
+			continue
+		var view: VisibilityModel = play.court_charts.model_for(faction, region)
+		if view == null:
+			continue
+		AdvancedWorld.reveal(play.world, view, faction, share)
 
 
 ## One works record per region, shared with the civilian layer.

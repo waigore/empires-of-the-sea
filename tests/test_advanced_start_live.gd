@@ -75,6 +75,48 @@ func test_a_late_campaign_opens_with_the_documented_progress() -> void:
 	screen.free()
 
 
+## Every court inherits the same New World chart (wiki § NW sea-zone visibility
+## is per Great Power): a rival reads the Passage lanes its own grid holds, so
+## its voyages are not blind to water the player was given.
+func test_rivals_inherit_the_passage_lanes() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS50)
+	var play: PlaySession = screen.play
+	var human: int = play.player_faction
+	var human_zones: Array[int] = play.court_charts.known_zones(human, NEW_WORLD)
+	assert_false(human_zones.is_empty(), "the crown inherits the Passage lanes")
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == human:
+			continue
+		var view: VisibilityModel = play.court_charts.model_for(faction, NEW_WORLD)
+		assert_not_null(view, "a rival holds a New World chart")
+		assert_eq(view.player_id, faction, "each court reads its own grid")
+		var rival_zones: Array[int] = play.court_charts.known_zones(faction, NEW_WORLD)
+		assert_eq(rival_zones, human_zones, "every court reads the same lanes")
+	screen.free()
+
+
+## A rival reads its own colony beach (100-turn claim): owned shore, fully
+## visible water, through the court's own grid rather than the player's.
+func test_a_rival_reads_its_own_colony_coast() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var play: PlaySession = screen.play
+	var model: MapModel = play.world.region(NEW_WORLD)
+	for faction: int in FactionCatalog.great_power_ids():
+		var view: VisibilityModel = play.court_charts.model_for(faction, NEW_WORLD)
+		assert_not_null(view)
+		var held: int = 0
+		for province: ProvinceState in model.provinces:
+			if province.owner != faction:
+				continue
+			held += 1
+			assert_true(
+				view.is_province_fully_visible(province.id),
+				"a crown reads its own colony"
+			)
+		assert_gte(held, 1, "the late tier seats every crown in the New World")
+	screen.free()
+
+
 func _open(tier: String) -> MapScreen:
 	var screen: MapScreen = Fixture.SCENE.instantiate()
 	screen.map_width = Fixture.WORLD_WIDTH

@@ -147,6 +147,49 @@ func test_combining_armies_uses_the_home_army_as_target() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+## The train (DR-20261112-07): the dossier names the offer or its refusal, the
+## register spends the materials, and a second pitch is refused in the rules'
+## own words.
+func test_the_dossier_pitches_a_field_hospital_train() -> void:
+	var home: ArmyState = _player_home()
+	var play: PlaySession = _screen.play
+	var economy: PlayerEconomy = _screen.economy.economy
+	_screen.army_layer.select(home)
+	MapPlayArmies.on_action(play, "detach:%s" % home.regiments[0])
+	var army: ArmyState = _screen.army_layer.selected_army
+	assert_not_null(army)
+	assert_false(army.field_hospital)
+
+	# Without the tech the order still shows, disabled, with the reason.
+	economy.tech_unlocked.erase("organised_regiments")
+	var blocked: Dictionary = MapPlayArmies.hospital_order(play, army)
+	assert_false(bool(blocked.get("ok", true)))
+	assert_true(String(blocked.get("caption", "")).contains("Organised Regiments"))
+
+	economy.tech_unlocked["organised_regiments"] = true
+	economy.stockpile["lumber"] = 6
+	economy.stockpile["fabric"] = 6
+	MapPlayArmies.show_panel(play, army)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	assert_true(panel._hospital.visible)
+	assert_false(panel._hospital.disabled)
+	assert_true(String(panel._hospital.text).contains("2 Lumber"), panel._hospital.text)
+
+	var lumber: int = economy.quantity("lumber")
+	var fabric: int = economy.quantity("fabric")
+	MapPlayArmies.on_action(play, "hospital")
+	assert_true(army.field_hospital)
+	assert_eq(economy.quantity("lumber"), lumber - 2)
+	assert_eq(economy.quantity("fabric"), fabric - 1)
+	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
+	assert_false(panel._hospital.visible, "a served order is gone")
+
+	# A second pitch is refused, and the train stays one.
+	MapPlayArmyMuster.pitch_hospital(play, army)
+	assert_true(army.field_hospital)
+	assert_eq(economy.quantity("lumber"), lumber - 2)
+
+
 func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)

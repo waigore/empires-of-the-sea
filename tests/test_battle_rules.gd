@@ -580,7 +580,7 @@ func test_a_land_advantage_reads_as_a_held_field() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
-		"España holds the field at Flanders — 1 regiments lost"
+		"España holds the field at Flanders — 1 regiment lost"
 	)
 
 
@@ -594,7 +594,7 @@ func test_a_land_repulse_reads_as_a_hold() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Burgundy", FACTIONS),
-		"France holds Burgundy — England loses 1 regiments"
+		"France holds Burgundy — England loses 1 regiment"
 	)
 
 

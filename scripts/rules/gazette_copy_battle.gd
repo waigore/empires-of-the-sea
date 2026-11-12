@@ -14,12 +14,12 @@ static func battle_capture(rec: Dictionary) -> String:
 	if bool(rec.get("self_act", false)):
 		return (
 			"Our crown takes %s at the point of the bayonet; %s yields the province and "
-			+ "%d regiments."
-		) % [place, whom, count]
+			+ "%s."
+		) % [place, whom, GazetteCopyVoice.regiments(count)]
 	if whom == GazetteCopyVoice.CROWN:
 		return (
-			"%s has carried %s from our crown; %d of our regiments are lost with it."
-		) % [who, place, count]
+			"%s has carried %s from our crown; %d of our regiments %s lost with it."
+		) % [who, place, count, GazetteCopyVoice.verb(count)]
 	return "%s has taken %s from %s at the point of the bayonet." % [who, place, whom]
 
 
@@ -30,26 +30,30 @@ static func battle_held(rec: Dictionary) -> String:
 	var defended: bool = bool(rec.get("defended", false))
 	if bool(rec.get("self_act", false)):
 		if defended:
+			var broken: int = GazetteCopyVoice.count(rec)
 			return (
-				"Our crown holds %s against %s; %d of their regiments are broken."
-			) % [place, whom, GazetteCopyVoice.count(rec)]
-		return "Our crown holds the field at %s; %d of their regiments are broken." % [
-			place, GazetteCopyVoice.count(rec)
+				"Our crown holds %s against %s; %d of their regiments %s broken."
+			) % [place, whom, broken, GazetteCopyVoice.verb(broken)]
+		var mauled: int = GazetteCopyVoice.count(rec)
+		return "Our crown holds the field at %s; %d of their regiments %s broken." % [
+			place, mauled, GazetteCopyVoice.verb(mauled)
 		]
 	if not rec.has("count"):
 		if defended:
 			return "%s holds %s against %s." % [who, place, whom]
 		return "%s holds the field at %s against %s." % [who, place, whom]
 	if defended:
-		return "%s holds %s against %s; %d regiments are broken." % [
-			who, place, whom, GazetteCopyVoice.count(rec)
+		var broken: int = GazetteCopyVoice.count(rec)
+		return "%s holds %s against %s; %d regiments %s broken." % [
+			who, place, whom, broken, GazetteCopyVoice.verb(broken)
 		]
 	# The crown's own losses always print their numbers, even in a field
 	# battle it lost (wiki: the-gazette § What the crown can know).
 	if whom == GazetteCopyVoice.CROWN:
+		var own: int = GazetteCopyVoice.own(rec)
 		return (
-			"%s holds the field at %s against our crown; %d of our regiments are lost."
-		) % [who, place, GazetteCopyVoice.own(rec)]
+			"%s holds the field at %s against our crown; %d of our regiments %s lost."
+		) % [who, place, own, GazetteCopyVoice.verb(own)]
 	return "%s holds the field at %s against %s." % [who, place, whom]
 
 
@@ -85,13 +89,15 @@ static func sea_held(rec: Dictionary) -> String:
 	var whom: String = String(rec.get("whom", ""))
 	var place: String = String(rec.get("place", ""))
 	if bool(rec.get("self_act", false)):
+		var sunk: int = GazetteCopyVoice.count(rec)
 		return (
-			"Our squadrons hold the %s, and %s loses %d hulls to the bottom."
-		) % [place, whom, GazetteCopyVoice.count(rec)]
+			"Our squadrons hold the %s, and %s loses %s to the bottom."
+		) % [place, whom, GazetteCopyVoice.hulls(sunk)]
 	if not rec.has("count"):
 		return "%s holds the %s against %s." % [who, place, whom]
-	return "%s holds the %s; %d hulls of %s are sunk or taken." % [
-		who, place, GazetteCopyVoice.count(rec), whom
+	var lost: int = GazetteCopyVoice.count(rec)
+	return "%s holds the %s; %d hulls of %s %s sunk or taken." % [
+		who, place, lost, whom, GazetteCopyVoice.verb(lost)
 	]
 
 

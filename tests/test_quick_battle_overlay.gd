@@ -114,6 +114,25 @@ func test_the_news_queue_keeps_the_newest_despatches() -> void:
 	screen.free()
 
 
+## A full queue spends the line the plate already told before the court's own
+## news: the seat lost and the court's move must never be the price of a battle
+## despatch the plate narrated (REQ-P5-06).
+func test_the_plate_line_goes_before_the_courts_news() -> void:
+	var screen: MapScreen = Fixture.attach_screen(self)
+	screen.hud.show_quick_battle(_battle(), "Flanders")
+	screen.hud.toast_plate_line("England takes Flanders")
+	for index in HudDespatches.QUEUE_CAP - 1:
+		screen.hud.toast("news %d" % index)
+	# Full: the next line must not cost the court its own news.
+	screen.hud.toast("Spain moves its court to Cuenca")
+
+	var held: PackedStringArray = screen.hud.despatches.held()
+	assert_eq(held.size(), HudDespatches.QUEUE_CAP)
+	assert_false(held.has("England takes Flanders"), "the plate's own line goes first")
+	assert_true(held.has("Spain moves its court to Cuenca"), "the court's news stays")
+	screen.free()
+
+
 ## A despatch states what the action did to the other side; an assault's price
 ## is spelled out separately, and the battery reports the men it hit.
 func test_a_despatch_reports_the_losses_it_inflicted() -> void:
