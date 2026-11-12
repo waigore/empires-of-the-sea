@@ -55,7 +55,7 @@
 
 ## Deferred (REQ-P2-02)
 
-A decoration that buys something — [`deferred.md`](deferred.md).
+Decoration strength (wiki numbers; display-only): [`deferred.md`](deferred.md).
 
 ## Architecture
 
