@@ -20,7 +20,7 @@ Audited through DR-20261113-08 (`REQ-P2-02`).
 | Rival GP–Tribe first contact (+ deeds) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
 | Hospitals, rival builders, staff upkeep | `HospitalRules` / `AiHospitalWork` / `EconomyConsumption` |
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
-| Regiment titles, records, named commanders | `RegimentNames` / `RegimentRecord` / `GeneralNames` |
+| Regiment titles, records, commanders, renaming | `RegimentNames` / `RegimentRecord` / `GeneralNames` / `RegimentRename`, DR-20261113-05 |
 | Raid hull losses; rival-on-rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
@@ -38,11 +38,11 @@ Audited through DR-20261113-08 (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | Player regiment rename | Immersion | DR-20261113-05; not on `main` |
+| 1 | Tongue picker / other tongues | Localization | after French, DR-20261113-06 |
 
 ## Next pick
 
-**Rank 1** — Player regiment rename (DR-20261113-05; not on `main`).
+**Rank 1** — Tongue picker / other tongues (after French, DR-20261113-06).
 
 ## Out of scope / blocked footnotes
 
@@ -57,6 +57,5 @@ Audited through DR-20261113-08 (`REQ-P2-02`).
 - General borrowing / loans — Money Lending floor live; rest deferred.
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
 - Works' reservation + coexistence — seed (DR-20261113-08).
-- Tongue picker / other tongues / blocking prompts — after French (DR-20261113-06).
 - Recipe gates on a building or a worker tier; multi-turn rows beyond steel and
   bronze; a workshop queue cap — wiki-deferred.
