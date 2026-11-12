@@ -60,7 +60,8 @@ Citations — [`deferred.md`](deferred.md).
 ## Architecture
 
 Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
-`quick_battle*`, `siege_lanes`, `hospital_rules`, `general_*`,
+`quick_battle*`, `siege_lanes`, `hospital_rules`, `hospital_train`,
+`general_*`,
 `naval_transport`. Presentation: `map/army_*`, `map/map_play_army*`,
 `map/map_play_land_turn`, `ui/army_panel`, `ui/quick_battle_*`, `map_screen`.
 
