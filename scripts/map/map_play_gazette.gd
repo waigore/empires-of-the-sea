@@ -50,6 +50,15 @@ static func close_turn(
 	)
 	# An empty sheet is still filed so the archive has no gaps; it is not shown.
 	play.gazette.append(sheet)
+	# The crown hears the race before it is lost: a crown standing within reach
+	# of its bar is named as the turn closes, so the endgame is never a
+	# surprise. The threshold reads the same check — no winner, gate or AI
+	# decision moves (wiki: victory § Victory Check).
+	var warning: String = VictoryStandings.warning(
+		play.world, play.human_faction_id(), play.difficulty
+	)
+	if not warning.is_empty() and play.hud != null:
+		play.hud.toast(warning)
 	if Gazette.is_empty(sheet):
 		return
 	show(play, sheet)
@@ -63,7 +72,15 @@ static func show(play: PlaySession, sheet: Dictionary) -> void:
 		return
 	play.gazette.opened_turn = int(sheet.get("turn", 0))
 	play.hud.gazette_plate.open_sheet(
-		sheet, play.gazette, play.diplomacy, play.player_faction
+		sheet, play.gazette, play.diplomacy, play.player_faction, age_line(play)
+	)
+
+
+## The age's race as the sheet's foot prints it: the same Old World holdings
+## and bars the end-of-turn check reads (wiki: victory § Victory Check).
+static func age_line(play: PlaySession) -> String:
+	return VictoryStandings.line(
+		play.world, play.turn, play.player_faction, play.difficulty, play.infinite_mode
 	)
 
 

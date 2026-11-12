@@ -64,6 +64,24 @@ func test_the_plate_takes_the_height_of_its_news() -> void:
 	assert_true(plate._scroll.custom_minimum_size.y <= 600.0, "a long sheet scrolls")
 
 
+## The sheet's foot states the race for the age; the archive, a past sheet, does
+## not (wiki: victory § Victory Check; DR-20261112-05).
+func test_the_live_sheet_states_the_race_for_the_age() -> void:
+	var age: String = "The age: you hold 12 of 31 Old World provinces; England leads with 9 of 31."
+	plate.open_sheet(_sheet(3), GazetteState.new(), null, VIEWER, age)
+	assert_true(_has_text(plate, "THE STATE OF THE AGE"), "the standing column is printed")
+	assert_true(_has_text(plate, "you hold 12 of 31"), age)
+	var state := GazetteState.new()
+	state.append(_sheet(3))
+	plate.open_archive(state, null, VIEWER)
+	assert_false(_has_text(plate, "THE STATE OF THE AGE"), "a past sheet carries no standing")
+
+
+func test_a_sheet_without_a_reading_prints_no_standing_column() -> void:
+	plate.open_sheet(_sheet(3), GazetteState.new(), null, VIEWER)
+	assert_false(_has_text(plate, "THE STATE OF THE AGE"))
+
+
 func test_the_archive_opens_on_the_newest_sheet_and_walks_back() -> void:
 	var state := GazetteState.new()
 	state.append(_sheet(2))

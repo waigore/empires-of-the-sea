@@ -27,6 +27,8 @@ const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
 var state: GazetteState = null
 var diplomacy: DiplomacyState = null
 var viewer: int = 0
+## The age's race at the live sheet's foot (wiki: victory § Victory Check).
+var _age: String = ""
 ## The HUD's despatch lane: while this sheet is up the news stacks below it
 ## instead of printing across the masthead (REQ-P5-05).
 var despatches: HudDespatches = null
@@ -59,24 +61,27 @@ func _ready() -> void:
 	resized.connect(_fit)
 
 
-## Raises the sheet the turn just produced.
+## Raises the sheet the turn just produced; `age_line` is its standing column.
 func open_sheet(
-	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int
+	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
+	age_line: String = ""
 ) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_sheet = sheet
+	_age = age_line
 	_mode = Mode.SHEET
 	_show()
 
 
-## Raises the newest filed sheet, with the whole archive behind it.
+## Raises the newest filed sheet, with the whole archive behind it (no standing).
 func open_archive(p_state: GazetteState, p_diplomacy: DiplomacyState, who: int) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_at = 0
+	_age = ""
 	_mode = Mode.ARCHIVE
 	_show()
 
@@ -269,6 +274,11 @@ func _render() -> void:
 			_title.text = "THE GAZETTE"
 			_stamp.text = DiplomacyHistory.stamp_for_turn(int(_sheet.get("turn", 0)))
 			_sections(_sheet)
+			if not _age.is_empty():
+				_body.add_child(_spacer(8))
+				_body.add_child(_rule(Palette.INK_FAINT))
+				_body.add_child(_label("THE STATE OF THE AGE", 11, INK_SOFT))
+				_body.add_child(_label(_age, 14, Palette.INK))
 		Mode.ARCHIVE:
 			_render_archive()
 		Mode.WATCHLIST:
@@ -319,6 +329,7 @@ func _render_watchlist() -> void:
 	_title.text = "THE GAZETTE  ·  WATCHLIST"
 	_stamp.text = "Courts whose doings are reported"
 	_watchlist.fill(state, diplomacy, viewer)
+
 
 
 # --- layout and helpers ------------------------------------------------------
