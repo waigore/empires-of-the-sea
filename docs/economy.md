@@ -74,7 +74,7 @@ the Minor/Tribe ask carry it.
 
 `ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists
 staged orders, Minor/Tribe harvest and world rows as intents, each under its
-medallion (`REQ-P1-02`).
+medallion (`REQ-P1-02`, `REQ-P2-03`).
 `WORKERS`: `RECRUIT` per tier; trained tiers get `DISBAND` (no refund).
 Thumb-sized on a phone.
 
