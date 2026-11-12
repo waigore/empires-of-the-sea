@@ -186,12 +186,16 @@ static func _settle(
 		var price: int = int(deal.get("price", 0))
 		var subsidy: int = _subsidy_percent(context, buyer, seller)
 		var buy_unit: int = _buy_unit(market, commodity, buyer, seller, subsidy)
-		var cost: int = buy_unit * quantity
+		var cost: int = MarketRules.deal_total_for(
+			market, commodity, quantity, buyer, seller, subsidy, true
+		)
 		var buyer_economy: PlayerEconomy = _economy(economies, buyer)
 		if buyer_economy != null:
 			if buyer_economy.treasury < cost:
 				quantity = int(floor(float(buyer_economy.treasury) / float(maxi(buy_unit, 1))))
-				cost = buy_unit * quantity
+				cost = MarketRules.deal_total_for(
+					market, commodity, quantity, buyer, seller, subsidy, true
+				)
 				notes.append({
 					"code": "bid_partial_fill_treasury_insufficient",
 					"faction": buyer,
@@ -208,7 +212,9 @@ static func _settle(
 		if seller_economy != null:
 			seller_economy.take(commodity, quantity)
 			var sell_unit: int = _sell_unit(market, commodity, seller, buyer, subsidy)
-			proceeds = sell_unit * quantity
+			proceeds = MarketRules.deal_total_for(
+				market, commodity, quantity, buyer, seller, subsidy, false
+			)
 			seller_economy.add_treasury(proceeds)
 			# The receipt names the ducats, not only the tons (REQ-P5-05): a sale
 			# is the one trade a court cannot see the price of in the ledger.
@@ -228,37 +234,16 @@ static func _settle(
 	return {"fills": fills}
 
 
-## Tax the subsidised pair at settlement (wiki: world-market § Subsidy price
-## adjustment). Only a minor/tribe sale to its subsidising court occurs here
-## today; the discount arm is kept for pure tests and future minor bids.
-static func _subsidy_percent(context: Dictionary, buyer: int, seller: int) -> int:
-	var diplomacy: DiplomacyState = context.get("diplomacy", null)
-	if diplomacy == null:
-		return 0
-	var payer: int = -1
-	var target: int = -1
-	if _is_minor(seller) and buyer >= 0:
-		payer = buyer
-		target = seller
-	elif _is_minor(buyer) and seller >= 0:
-		payer = seller
-		target = buyer
-	if payer < 0:
-		return 0
-	return maxi(diplomacy.subsidy(payer, target), 0)
-
-
+## What the buyer actually pays per unit: the published price times the crown's
+## own terms and the pair's subsidy step, inside the rails. The subsidy is a
+## step on the deal, so a deal with any other court pays its own terms alone
+## (wiki: world-market § Subsidy price adjustment).
 static func _buy_unit(
 	market: WorldMarket, commodity: String, buyer: int, seller: int, subsidy_percent: int
 ) -> int:
 	if buyer == MarketOrder.WORLD:
 		return maxi(market.price(commodity), 1)
-	var unit: float = float(market.buy_price(commodity, buyer))
-	if subsidy_percent > 0 and _is_minor(buyer) and not _is_minor(seller):
-		unit *= 1.0 - float(subsidy_percent) / 100.0
-	elif subsidy_percent > 0 and not _is_minor(buyer) and _is_minor(seller):
-		unit *= 1.0 + float(subsidy_percent) / 100.0
-	return maxi(roundi(unit), 1)
+	return MarketRules.deal_unit_for(market, commodity, buyer, seller, subsidy_percent, true)
 
 
 static func _sell_unit(
@@ -266,10 +251,27 @@ static func _sell_unit(
 ) -> int:
 	if seller == MarketOrder.WORLD:
 		return maxi(market.price(commodity), 1)
-	var unit: float = float(market.sell_price(commodity, seller))
-	if subsidy_percent > 0 and _is_minor(buyer) and not _is_minor(seller):
-		unit *= 1.0 - float(subsidy_percent) / 100.0
-	return maxi(roundi(unit), 1)
+	return MarketRules.deal_unit_for(market, commodity, buyer, seller, subsidy_percent, false)
+
+
+## The subsidy percent the pair carries: a Minor/Tribe sale to its payer, or a
+## payer's sale to the subsidised court (wiki: world-market § Subsidy price
+## adjustment). A deal between two other courts carries 0.
+static func _subsidy_percent(context: Dictionary, buyer: int, seller: int) -> int:
+	var diplomacy: DiplomacyState = context.get("diplomacy", null)
+	if diplomacy == null:
+		return 0
+	var payer: int = -1
+	var target: int = -1
+	if MarketRules.is_minor(seller) and buyer >= 0:
+		payer = buyer
+		target = seller
+	elif MarketRules.is_minor(buyer) and seller >= 0:
+		payer = seller
+		target = buyer
+	if payer < 0:
+		return 0
+	return maxi(diplomacy.subsidy(payer, target), 0)
 
 
 ## Credits the tile-owning court its relation share and every other
@@ -367,10 +369,3 @@ static func _economy(economies: Dictionary, faction: int) -> PlayerEconomy:
 	if found == null:
 		found = economies.get(str(faction), null)
 	return found as PlayerEconomy
-
-
-static func _is_minor(faction: int) -> bool:
-	if faction < 0:
-		return false
-	var kind: int = FactionCatalog.type_of(faction)
-	return kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE

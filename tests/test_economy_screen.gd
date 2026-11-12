@@ -460,6 +460,32 @@ func test_the_ledger_shows_trade_terms_and_charges_the_adjusted_price() -> void:
 	)
 
 
+## A subsidy the crown pays is a step on that pair's deals, so the banner names
+## it instead of pretending the crown's own rate moved (wiki: world-market
+## § Subsidy price adjustment; REQ-P5-05).
+func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
+	var market: WorldMarket = _screen.economy.market
+	var player: int = _screen.player_faction
+	_screen.play.diplomacy.set_subsidy(player, 7, 10)
+	DiplomacyTrade.apply_terms(_screen.play.diplomacy, _screen.world, market)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "Subsidy 10%"), "the banner names the step")
+	assert_eq(
+		market.buy_price("timber", player), market.price("timber"),
+		"the crown's own rate stays the world price"
+	)
+	assert_eq(MarketRules.subsidy_percent(market, player, 7), 10)
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", player, 7),
+		roundi(float(market.price("timber")) * 1.10),
+		"the row's ask names what the clearing charges"
+	)
+	_screen.play.diplomacy.cancel_subsidy(player, 7)
+	DiplomacyTrade.apply_terms(_screen.play.diplomacy, _screen.world, market)
+
+
 func _clear_market() -> Dictionary:
 	var cargo: Dictionary = _screen.economy.trade_cargo()
 	return MarketClearing.clear(
