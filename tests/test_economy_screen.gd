@@ -563,13 +563,12 @@ func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
 ## The turn's clearing republishes the Minor/Tribe book for the crown that
 ## played it: a court sailing as England reads her own terms and subsidy step,
 ## never Spain's (wiki: world-market § Subsidy price adjustment; REQ-P2-03,
-## REQ-P5-05).
+## REQ-P5-05). Mounts England beside the shared Spain suite screen.
 func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
-	_screen.free()
-	_screen = Fixture.attach_screen(self, 1)
-	var market: WorldMarket = _screen.economy.market
+	var english: MapScreen = Fixture.attach_screen(self, 1)
+	var market: WorldMarket = english.economy.market
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
-	MapPlayMarket.run(_screen.play, {})
+	MapPlayMarket.run(english.play, {})
 	assert_gt(market.minor_offers.size(), 0, "the minor courts publish their harvest")
 	var differs: bool = false
 	for offer: Dictionary in market.minor_offers:
@@ -583,6 +582,7 @@ func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
 		if int(offer["unit_price"]) != MinorMarket.unit_price(market, commodity, 0, seller):
 			differs = true
 	assert_true(differs, "England's terms move the ask off Spain's")
+	english.free()
 
 
 func _clear_market() -> Dictionary:
