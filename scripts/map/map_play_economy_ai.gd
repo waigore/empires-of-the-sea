@@ -35,7 +35,14 @@ static func run(play: PlaySession) -> Dictionary:
 		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
-			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
+			config, economy,
+			{
+				"at_war": _at_war(play, faction),
+				"revealed": revealed,
+				"treasury_floor": _research_floor(
+					config, economy, _regiments(play, faction), _at_war(play, faction)
+				),
+			}
 		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
@@ -249,3 +256,18 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 		if record.at_war:
 			return true
 	return false
+
+
+## The purse the court must leave behind before it pays for a study: its own cash
+## floor, raised while it is at war and short of its regiment target to the
+## muster it is saving for. Without it the research phase spends the war chest
+## down to the research rule's own barrier and the court never raises another
+## regiment (wiki: growth-stage-planner § Recruitment modulation; treasury-planner
+## § Cash discipline; ai-architecture § Land reinforcement).
+static func _research_floor(
+	config: AiConfig, economy: PlayerEconomy, regiments: int, at_war: bool
+) -> int:
+	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
+	if not at_war:
+		return floor
+	return maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))

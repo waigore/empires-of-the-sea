@@ -2092,3 +2092,81 @@ func test_the_research_funding_knob_reads_the_registry() -> void:
 	assert_true(
 		AiParameterRegistry.validate({"research.funding_index": 5}).get("ok", false) == false
 	)
+
+
+func test_research_funding_steps_down_to_what_the_purse_can_carry() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 2500
+	assert_eq(AiResearchPlanner.funding_for(config, economy), "medium")
+	economy.treasury = 100
+	assert_eq(AiResearchPlanner.funding_for(config, economy), "low", "150 does not fit")
+	economy.treasury = 20
+	assert_eq(AiResearchPlanner.funding_for(config, economy), "none", "50 does not fit")
+	assert_eq(AiResearchPlanner.funding_for(config), "medium", "no purse, published preset")
+
+
+func test_research_funding_never_spends_the_reserve_the_court_must_hold() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 2000
+	assert_eq(AiResearchPlanner.funding_for(config, economy, 1000), "medium")
+	assert_eq(
+		AiResearchPlanner.funding_for(config, economy, 1860), "low",
+		"140 spare pays the low preset, not the published medium"
+	)
+	assert_eq(
+		AiResearchPlanner.funding_for(config, economy, 1960), "none",
+		"the floor is not research's to spend"
+	)
+
+
+func test_a_court_saving_for_its_muster_funds_no_study() -> void:
+	# The muster needs army.min_treasury (1,000) after the line's own price, so a
+	# court a thousand short must not pay 450 a turn into three slots.
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 2500
+	var floor: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	assert_eq(floor, 3000, "1,000 kept + 2,000 peasant levies")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": floor}
+	)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(String(entry["funding"]), "none", "the war chest stays whole")
+	economy.treasury = 4000
+	plan = AiResearchPlanner.plan(config, economy, {"treasury_floor": floor})
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(String(entry["funding"]), "medium", "surplus funds the study")
+
+
+func test_an_occupied_slot_follows_the_purse() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(bool(economy.research.assign("crop_rotation", "high", 0)["ok"]))
+	economy.treasury = 40
+	AiResearchPlanner.plan(config, economy)
+	assert_eq(
+		economy.research.funding_at(0), "none",
+		"an underway study is not paid from ducats the court does not have"
+	)
+
+
+func test_the_muster_floor_closes_at_target_and_without_workers() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var target: int = config.parameter("army.regiment_target")
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, target, false), 0,
+		"at peace and at target: nothing to save for"
+	)
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, target - 1, true),
+		3000,
+		"under the war target: keep the price of the cheapest line"
+	)
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, 0, true), 0,
+		"no peasant to spare: no muster to save for"
+	)
