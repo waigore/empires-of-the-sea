@@ -1377,6 +1377,12 @@ domain = "dialogue"
 match = "scripts/rules/yarn_*.gd*"
 domain = "dialogue"
 
+# The words behind the court's keys (DR-20261113-06): a shipped `.po` is read by
+# the dialogue suite and nothing else, so a tongue change pays only that domain.
+[[rules]]
+match = "assets/locales/*.po*"
+domain = "dialogue"
+
 [[rules]]
 match = "scripts/rules/auto_siege.gd*"
 domain = "fort"
