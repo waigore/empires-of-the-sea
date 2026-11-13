@@ -730,9 +730,10 @@ full = true
 match = "addons/**"
 full = true
 
+# Coverage / suite config: keep on misc so an exclude tweak does not run ALL.
 [[rules]]
 match = "gd-tools.toml"
-full = true
+domain = "misc"
 
 # Map edits are exercised by the selection script in CI; a tiny chart suite is
 # enough for the required check without pulling crown_road past 5 min.

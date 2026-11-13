@@ -34,6 +34,7 @@ IN_SCOPE_FILES = {
     "project.godot",
     "icon.svg",
     "gd-tools.toml",
+    "tools/lint_arch.py",
 }
 
 
