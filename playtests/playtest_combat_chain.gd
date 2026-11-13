@@ -4,13 +4,13 @@ extends SceneTree
 ## loss and reassignment): stages rival provinces and resolves the real Combat
 ## phase, printing every battle report, the province's owner afterwards and the
 ## court's seat when it falls. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_combat_chain.gd
+##   godot --headless --path . --script res://playtests/playtest_combat_chain.gd
 ##
 ## Armies are seated by the harness (a scenario seat, the same one rules tests
 ## use); movement, war gates, the chain, Quick Battle and capital loss are the
 ## game's own helpers.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 

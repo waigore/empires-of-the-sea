@@ -3,7 +3,7 @@ extends SceneTree
 ## the ledger says while it serves, and when each unit lands (wiki:
 ## production-recipes § Turns per unit, § Recipe Catalog, § Acceptance Criteria;
 ## DR-20261112-11, DR-20261113-02). Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_workshop.gd
+##   godot --headless --path . --script res://playtests/playtest_workshop.gd
 ##
 ## The drive opens the turn-100 advanced start, stocks the anvil through the
 ## crown's own ledger, and presses the PRODUCTION tab's own buttons. Every turn
@@ -11,8 +11,8 @@ extends SceneTree
 ## the tag, the "Next turn" promise, the toast and the stockpile are the game's
 ## reads, not the drive's.
 
-const Launch = preload("res://tests/playtest_launch.gd")
-const SaveDrive = preload("res://tests/playtest_save_drive.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
+const SaveDrive = preload("res://playtests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 ## A directory of its own, so a hand run never touches the player's slots.
 const DIR: String = "user://playtest_workshop"

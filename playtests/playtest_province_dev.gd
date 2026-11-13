@@ -9,14 +9,14 @@ extends SceneTree
 ## prospects a mine. One line per step, so a run reads as a playtest diary.
 ## Not a CI gate — run it by hand:
 ##
-##   godot --headless --path . --script res://tests/playtest_province_dev.gd
-##   godot --headless --path . --script res://tests/playtest_province_dev.gd -- --start=turn0
+##   godot --headless --path . --script res://playtests/playtest_province_dev.gd
+##   godot --headless --path . --script res://playtests/playtest_province_dev.gd -- --start=turn0
 ##
 ## The default opens the turn-100 advanced start (multi-turn builds, a mine, a
 ## town upgrade); `turn0` opens the ordinary campaign and links an outlying
 ## estate that setup left without a road.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const NEIGHBORS: Array[Vector2i] = [
 	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP

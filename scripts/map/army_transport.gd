@@ -11,11 +11,7 @@ static func embark(layer: ArmyLayer, army: ArmyState, fleet: FleetState) -> Dict
 	var result: Dictionary = NavalTransport.embark(layer.model, army, fleet)
 	if not bool(result.get("ok", false)):
 		return result
-	var marker: ArmyMarker = layer.marker_for(army)
-	if marker != null:
-		layer.markers.erase(marker)
-		marker.queue_free()
-		layer.place_all()
+	layer.remove_marker(army)
 	return result
 
 
@@ -130,10 +126,7 @@ static func region_of(layer: ArmyLayer, army: ArmyState) -> int:
 static func remove_from(layer: ArmyLayer, army: ArmyState, index: int) -> void:
 	if layer.model != null and index == layer.model.region_id:
 		layer.armies.erase(army)
-		var marker: ArmyMarker = layer.marker_for(army)
-		if marker != null:
-			layer.markers.erase(marker)
-			marker.queue_free()
+		layer.remove_marker(army)
 		return
 	var members: Array[ArmyState] = roster(layer, index)
 	members.erase(army)

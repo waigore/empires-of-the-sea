@@ -85,7 +85,8 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
 	var keys: Array[String] = [
-		"faction", "name", "leader", "agenda", "provinces_old", "provinces_new",
+		"faction", "name", "leader", "agenda", "phase", "posture",
+		"provinces_old", "provinces_new",
 		"power", "regiments", "ships", "civilians", "treasury", "stock",
 		"workers", "wars", "progress", "rank", "alive", "headline",
 	]
