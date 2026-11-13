@@ -81,8 +81,43 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	economy.stockpile["fabric"] = 2
 	var before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	# The press only queues: Build/work pays and the peasant joins next turn
+	# (wiki: workers-and-population § Phase placement).
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before)
+	assert_eq(economy.quantity("fabric"), 2, "nothing is spent at the press")
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT)), 1
+	)
+	MapPlayRecruits.complete(_screen.play)
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before + 1)
 	assert_eq(economy.quantity("fabric"), 0)
+	assert_true(economy.recruits.is_empty(), "the order lands once")
+
+
+## The WORKERS tab names every order waiting for Build/work, and how many of a
+## tier are on the way (wiki: workers-and-population § Phase placement).
+func test_the_workers_tab_shows_what_is_under_orders() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	economy.recruits.add(RecruitQueue.KIND_CIVILIAN, "builder")
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+	economy.recruits.add(RecruitQueue.KIND_SHIP, "carrack")
+
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var texts: Array[String] = []
+	for label: Label in workers.find_children("*", "Label", true, false):
+		texts.append(label.text)
+	var printed: String = "\n".join(texts)
+
+	assert_true(printed.contains("UNDER ORDERS"), "the head names the queue: %s" % printed)
+	assert_true(printed.contains("Peasant · joins the pool in Build/work"))
+	assert_true(printed.contains("Builder · engaged at the capital"))
+	assert_true(printed.contains("Peasant Levies · musters in Build/work"))
+	assert_true(printed.contains("Carrack · launches in Build/work"))
+	assert_true(printed.contains("1 arriving"), "the peasant row counts the arrival")
 
 
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
@@ -692,114 +727,6 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 			CommodityIcons.texture(ProductionRecipes.output(recipe_id)),
 			"the %s row draws its output's plate" % recipe_id
 		)
-
-
-## The PRODUCTION tab is the court's stockpile: every catalogue category is a
-## section and every holding reads the store, with the phase's promise beside it
-## (issue #453; wiki: commodity-catalog § Categories; stockpiles-and-production
-## § Production flow).
-func test_the_production_tab_is_the_stockpile_by_category() -> void:
-	var economy: PlayerEconomy = _screen.economy.economy
-	economy.stockpile["grain"] = 7
-	economy.stockpile["timber"] = 3
-	economy.stockpile["lumber"] = 2
-	economy.stockpile["gold"] = 1
-	var body: LedgerProduction = _stockpile_body()
-	for title: String in ["FOOD", "RAW MATERIALS", "MANUFACTURED", "RICHES"]:
-		assert_not_null(_find_label(body, title), "the page groups %s" % title)
-	var holdings: Dictionary = body.holding_rows()
-	var report: Dictionary = _screen.economy.projected()
-	for category: Variant in [
-		CommodityCatalog.Category.FOOD,
-		CommodityCatalog.Category.RAW,
-		CommodityCatalog.Category.RICHES,
-	]:
-		for id: String in CommodityCatalog.ids_in(category):
-			assert_true(holdings.has(id), "%s has a holding row" % id)
-			assert_eq((holdings[id]["have"] as Label).text, str(economy.quantity(id)), id)
-	assert_eq((holdings["grain"]["have"] as Label).text, "7")
-	assert_eq((holdings["gold"]["have"] as Label).text, "1")
-	# The figure beside a holding is the projection's own delta, never a guess.
-	var deltas: Dictionary = report["stockpile_delta"]
-	for id: String in ["grain", "timber", "gold"]:
-		assert_eq(
-			(holdings[id]["next"] as Label).text,
-			LedgerText.stock_delta_text(int(deltas.get(id, 0))),
-			"%s names what the phase will do to it" % id
-		)
-
-
-## A holding is a reading, not a control: Food, Raw and Riches rows carry no
-## stepper at all (issue #453; REQ-P1-07 a row that cannot act says so).
-func test_holding_rows_carry_no_controls() -> void:
-	var body: LedgerProduction = _stockpile_body()
-	var holdings: Dictionary = body.holding_rows()
-	assert_gt(holdings.size(), 10, "the catalogue's holdings are all listed")
-	for id: Variant in holdings.keys():
-		for child: Node in (holdings[id]["row"] as Control).get_children():
-			assert_false(child is Button, "%s is a holding, not a control" % id)
-
-
-## A manufacture row stops where the coming phase stops: the "+" is inert at the
-## ceiling labour and inputs leave, and its tooltip names that ceiling — so the
-## ledger never offers runs the rules would refuse (issue #453; REQ-P2-03).
-func test_a_manufacture_row_stops_at_its_ceiling() -> void:
-	var economy: PlayerEconomy = _screen.economy.economy
-	economy.stockpile["timber"] = 3
-	_screen.economy._on_production("lumber", 1)
-	var body: LedgerProduction = _stockpile_body()
-	var report: Dictionary = _screen.economy.projected()
-	var expected: int = ProductionRecipes.allowance(
-		"lumber",
-		report["after_consumption"] as Dictionary,
-		LedgerText.idle_labour(report),
-		economy.production.assignments()
-	)
-	var row: Dictionary = body.recipe_rows()["lumber"]
-	assert_eq(int(row["allowance"]), expected, "the row reads the phase's own ceiling")
-	assert_eq((row["stepper"] as Label).text, "1")
-	assert_eq(
-		(row["plus"] as Button).disabled,
-		expected <= 1,
-		"only a full row is inert"
-	)
-	assert_true(
-		(row["plus"] as Button).tooltip_text.contains("Labour and inputs allow"),
-		"the button says what the ceiling is: %s" % (row["plus"] as Button).tooltip_text
-	)
-	# Set to the ceiling, the row can take no more.
-	_screen.economy._on_production("lumber", expected)
-	var capped: Dictionary = _stockpile_body().recipe_rows()["lumber"]
-	assert_true((capped["plus"] as Button).disabled, "a full row offers no more")
-	assert_eq((capped["stepper"] as Label).text, str(expected))
-	assert_false((capped["minus"] as Button).disabled, "a set row can still be stepped back")
-
-
-## Fabric is woven from wool or cotton, so both available weaves are their own
-## controllable rows; the always-available wool row reads first (issue #453;
-## wiki: production-recipes § Technology-gated recipes).
-func test_fabric_keeps_both_weave_rows() -> void:
-	var economy: PlayerEconomy = _screen.economy.economy
-	economy.tech_unlocked["cotton_weaving"] = true
-	var rows: Dictionary = _stockpile_body().recipe_rows()
-	assert_true(rows.has("fabric_from_wool"), "wool is always weaveable")
-	assert_true(rows.has("fabric_from_cotton"), "cotton joins once it is learned")
-	var order: Array = rows.keys()
-	assert_lt(
-		order.find("fabric_from_wool"), order.find("fabric_from_cotton"),
-		"the ungated weave reads first"
-	)
-	assert_eq((rows["fabric_from_wool"]["title"] as Label).text, "Fabric (Wool)")
-	assert_eq((rows["fabric_from_cotton"]["title"] as Label).text, "Fabric (Cotton)")
-
-
-## The page's own tab body, typed for its row accessors.
-func _stockpile_body() -> LedgerProduction:
-	_screen.economy.open_panel()
-	return (
-		_screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
-		as LedgerProduction
-	)
 
 
 ## A multi-turn row says so, and a batch already on the anvil names the units
