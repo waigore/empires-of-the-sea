@@ -2224,13 +2224,13 @@ func test_research_funding_never_spends_the_reserve_the_court_must_hold() -> voi
 
 
 func test_a_court_saving_for_its_muster_funds_no_study() -> void:
-	# The muster needs army.min_treasury (1,000) after the line's own price, so a
-	# court a thousand short must not pay 450 a turn into three slots.
+	# The muster needs army.min_treasury (400) after the line's own price, so a
+	# court still short of that floor must not pay into research slots.
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	economy.treasury = 2500
+	economy.treasury = 2300
 	var floor: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
-	assert_eq(floor, 3000, "1,000 kept + 2,000 peasant levies")
+	assert_eq(floor, 2400, "400 kept + 2,000 peasant levies")
 	var plan: Dictionary = AiResearchPlanner.plan(
 		config, economy, {"treasury_floor": floor}
 	)
@@ -2264,7 +2264,7 @@ func test_the_muster_floor_closes_at_target_and_without_workers() -> void:
 	)
 	assert_eq(
 		AiArmyReinforce.muster_floor(config, economy, target - 1, true),
-		3000,
+		2400,
 		"under the war target: keep the price of the cheapest line"
 	)
 	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
