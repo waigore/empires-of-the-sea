@@ -237,6 +237,28 @@ suites = [
   "test_mobile_layout.gd"
 ]
 
+# The crown's Build/work recruit queue and the pass that drains it: rules and
+# adapter travel with the ledger, and their proof rides the economy suite plus
+# the crown-order drives that press the muster, train and launch rows. Declared
+# before the broad `scripts/map/**` glob so a queue change never pulls the whole
+# map set past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/recruit_queue.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_recruits.gd*"
+domain = "economy"
+
+# The gazette lines a completed recruit prints are a sheet concern.
+[[rules]]
+match = "scripts/rules/gazette_muster.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/rules/gazette_copy_muster.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/rules/force_ledger.gd*"
 domain = "muster"
@@ -1350,26 +1372,6 @@ domain = "economy"
 [[rules]]
 match = "scripts/rules/player_economy.gd"
 domain = "economy"
-
-# The crown's Build/work recruit queue and the pass that drains it: rules and
-# adapter travel with the ledger, and their proof rides the economy suite plus
-# the crown-order drives that press the muster, train and launch rows.
-[[rules]]
-match = "scripts/rules/recruit_queue.gd*"
-domain = "economy"
-
-[[rules]]
-match = "scripts/map/map_play_recruits.gd*"
-domain = "economy"
-
-# The gazette lines a completed recruit prints are a sheet concern.
-[[rules]]
-match = "scripts/rules/gazette_muster.gd*"
-domain = "gazette"
-
-[[rules]]
-match = "scripts/rules/gazette_copy_muster.gd*"
-domain = "gazette"
 
 [[rules]]
 match = "scripts/rules/production_*.gd"
