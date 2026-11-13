@@ -23,8 +23,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  squadron (DR-20261110-21), else a warship raids a hostile coast
-  (DR-20261111-17); at peace it returns home (DR-20261110-30).
+  squadron (DR-20261110-21), else raid a hostile coast, home squadron too
+  (DR-20261111-17, DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold at peace; an invader draws
   relief.
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's own fog;

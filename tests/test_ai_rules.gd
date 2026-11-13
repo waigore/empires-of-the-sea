@@ -1124,14 +1124,52 @@ func test_ai_naval_hunts_only_charted_water() -> void:
 	assert_true(AiNavalPlanner.charts_water(null, 2, 1, 1), "a fixture chart answers yes")
 
 
-func test_ai_naval_never_sorties_the_home_fleet() -> void:
+## The home squadron is not a hulk: a hostile squadron in the water beside the
+## seat meets a sortie out of the harbour, and the fight outranks any raid
+## (DR-20261109-17; wiki: ai-architecture § Naval policy — defence first).
+func test_ai_naval_home_squadron_sorties_to_defend_its_seat() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
 	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the seat answers a hostile in reach")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_SORTIE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the water off its own harbour")
+
+
+## A fight it declines is still a threat to its own port: with a stronger
+## squadron beside the seat the home squadron keeps the harbour instead of
+## sailing off to work a coast (wiki: ai-architecture § Naval policy).
+func test_ai_naval_home_squadron_keeps_the_seat_when_a_hostile_is_beside_it() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"})
+	var fleets: Array[FleetState] = [
+		home,
+		_squadron(1, 1, 0, "galleon"),
+		_squadron(2, 1, 0, "galleon"),
+		_squadron(3, 1, 0, "galleon"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 0, "the home fleet holds its capital")
 	assert_true(home.is_in_port())
+
+
+## With no fight to be had a warship-bearing home squadron puts to sea and works
+## the enemy's trade: a rival whose whole navy berths at its seat is the common
+## case, and the raid leg is for exactly that squadron (DR-20261111-17).
+func test_ai_naval_home_squadron_sorties_to_raid_a_hostile_coast() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"})
+	var plan: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(0, 1), model, [home] as Array[FleetState]
+	)
+	assert_eq((plan["orders"] as Array).size(), 1, "the home squadron works the trade")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the first leg off its own harbour")
+	assert_eq(int(plan["orders"][0]["threat"]), 0, "a raid is not a battle")
 
 
 ## At war with no squadron to fight, a warship works the enemy's trade: it sails
@@ -1247,6 +1285,42 @@ func test_map_phase_sails_to_a_hostile_coast_then_blockades_it() -> void:
 	MapPlayFleets.run_ai(play)
 	assert_eq(raider.mission, FleetState.Mission.BLOCKADE, "next turn it works the coast")
 	assert_eq(raider.blockade_province, 1)
+	layer.free()
+
+
+## A rival whose whole navy berths at its seat is the common case: the home
+## squadron sorties out of the port through FleetSortie, takes the sea leg
+## toward the hostile coast and, arrived, works it with a blockade
+## (DR-20261109-17, DR-20261111-17). Nothing is invented: the sortie is the
+## same one the player's dossier offers, and NavalMovement owns the rest.
+func test_map_phase_sorties_the_home_squadron_to_raid_a_coast() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var home: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"}
+	)
+	var layer := ShipLayer.new()
+	layer.model = model
+	var roster: Array[FleetState] = [home]
+	layer.regions.set_region(0, roster)
+	layer.fleets = roster
+	var play := _naval_play(world, model, layer)
+	play.diplomacy = _war_state(0, 1)
+	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
+	assert_eq(trace.size(), 1, "one raid order from the home squadron")
+	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(trace[0]["zone"]), 0, "it puts to sea off its own harbour")
+	assert_true(home.is_at_sea(), "the sortie turns it into a sea-going squadron")
+	assert_eq(home.sea_zone, 0)
+	assert_eq(home.mission, FleetState.Mission.NONE, "the sortie spends the turn")
+	NavalMovement.begin_turn(roster)
+	MapPlayFleets.run_ai(play)
+	assert_eq(home.sea_zone, 1, "the second leg reaches the hostile coast")
+	NavalMovement.begin_turn(roster)
+	MapPlayFleets.run_ai(play)
+	assert_eq(home.mission, FleetState.Mission.BLOCKADE, "arrived, it works the coast")
+	assert_eq(home.blockade_province, 1)
 	layer.free()
 
 
