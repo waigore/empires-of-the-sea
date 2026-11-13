@@ -1610,6 +1610,28 @@ func test_ai_economy_training_stops_when_the_next_turn_could_repeat() -> void:
 	assert_eq(economy.treasury, 900, "planning never spends the live ledger")
 
 
+## The war chest the muster needs outranks worker growth: a court saving for its
+## next regiment trains nobody until the purse clears the muster floor its
+## planner hands it (wiki: growth-stage-planner § Recruitment modulation;
+## issue #474).
+func test_ai_economy_holds_the_muster_war_chest_before_training() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 1500
+	economy.add("paper", 10)
+	var config: AiConfig = AiConfig.build(1, 1500)
+
+	assert_true(
+		AiEconomyPlanner.recruitment_orders(config, economy, 2400).is_empty(),
+		"the purse is short of the muster, so no hand is hired"
+	)
+	assert_false(
+		AiEconomyPlanner.recruitment_orders(config, economy).is_empty(),
+		"without a muster the same purse still grows the pool"
+	)
+
+
 ## The reserve is a floor for a court with slack, not a veto: a purse that can no
 ## longer fund the next row (and more) still takes the one training it can.
 func test_ai_economy_spends_the_last_affordable_training() -> void:
