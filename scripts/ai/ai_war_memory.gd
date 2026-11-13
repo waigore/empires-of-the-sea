@@ -35,8 +35,6 @@ static func penalty(
 ) -> int:
 	if config == null or ai_state == null:
 		return 0
-	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		return 0
 	if at_war:
 		return weariness(config, ai_state, turn, faction, target)
 	return truce(config, ai_state, turn, faction, target)
@@ -46,7 +44,7 @@ static func penalty(
 static func weariness(
 	config: AiConfig, ai_state: AiState, turn: int, faction: int, target: int
 ) -> int:
-	if config == null or ai_state == null:
+	if config == null or ai_state == null or not _reads_grudge(target):
 		return 0
 	var started: int = _turn_of(ai_state.last_war_turn, faction, target)
 	if started < 0:
@@ -63,7 +61,7 @@ static func weariness(
 static func truce(
 	config: AiConfig, ai_state: AiState, turn: int, faction: int, target: int
 ) -> int:
-	if config == null or ai_state == null:
+	if config == null or ai_state == null or not _reads_grudge(target):
 		return 0
 	var ended: int = _turn_of(ai_state.last_truce_turn, faction, target)
 	if ended < 0:
@@ -72,6 +70,12 @@ static func truce(
 	if age >= maxi(config.parameter("diplomacy.truce_turns"), 0):
 		return 0
 	return mini(maxi(config.parameter("diplomacy.truce_penalty"), 0), MAX_PENALTY)
+
+
+## Only a Great Power pair leaves a grudge: a Minor Nation or Tribe is colonial
+## business (wiki: phase-planner-architecture § Playable slice).
+static func _reads_grudge(target: int) -> bool:
+	return FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 
 
 ## The turn recorded for one unordered pair, or -1 when the pair has no entry.
