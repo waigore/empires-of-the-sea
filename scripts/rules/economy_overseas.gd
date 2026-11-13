@@ -17,6 +17,8 @@ extends RefCounted
 ## deliver, so `delivered` adds them after the crossing
 ## (wiki: extraction-and-improvements § Town manufacturing bonus).
 ## `town_raw` collects region -> province -> town-connected raw for that split.
+## A sealed or cut colony ships nothing: the harbour is the only way off the
+## shore (wiki: capital-and-connectivity § Blockade).
 static func region_totals(
 	world: WorldMap,
 	home_region: int,
@@ -24,7 +26,8 @@ static func region_totals(
 	tech_caps: Dictionary,
 	works_by_region: MapRegionTable,
 	tech_unlocked: Dictionary = {},
-	town_raw: Dictionary = {}
+	town_raw: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var by_region: Dictionary = {}
 	if world == null or works_by_region == null:
@@ -38,7 +41,7 @@ static func region_totals(
 		var detail: Dictionary = {}
 		var totals: Dictionary = Extraction.yields(
 			world.region(index), owner, -1, tech_caps, works, CivilianState.NO_TILE,
-			tech_unlocked, false, detail
+			tech_unlocked, false, detail, blockade
 		)
 		if not totals.is_empty():
 			by_region[index] = totals
@@ -112,13 +115,14 @@ static func delivered(
 	tech_caps: Dictionary,
 	works_by_region: MapRegionTable,
 	holds: int,
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var town_raw: Dictionary = {}
 	var plan: Dictionary = plan(
 		region_totals(
 			world, home_region, owner, tech_caps, works_by_region, tech_unlocked,
-			town_raw
+			town_raw, blockade
 		),
 		holds
 	)

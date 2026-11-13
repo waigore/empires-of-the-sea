@@ -78,6 +78,10 @@ static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 		var text: String = "%d road tile%s" % [roads, "" if roads == 1 else "s"]
 		if bool(crown.get("linked", false)):
 			return "%s · linked to the crown" % text
+		# A sealed harbour is a rule, not a missing road: say which one
+		# (wiki: capital-and-connectivity § Blockade; REQ-P2-03).
+		if bool(crown.get("blockaded", false)):
+			return "%s · harbour blockaded, no sea path to the crown" % text
 		var gap: int = int(crown.get("distance", -1))
 		if gap > 0:
 			return "%s · no road to the crown (%d tile%s away)" % [

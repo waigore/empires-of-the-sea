@@ -1810,6 +1810,55 @@ func test_works_respect_prospecting_and_extraction_caps() -> void:
 	)
 	assert_eq(prospected, {"iron": 1})
 
+## A coast held by a hostile squadron pays the crown nothing, and the controller
+## prices the loss from its own fleet stations (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_the_ledger_prices_a_blockaded_coast() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var home: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var coast: Array[Vector2i] = [Vector2i(2, 0), Vector2i(3, 0)]
+	for tile: Vector2i in home + coast:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+	model.province[model.index_of(0, 0)] = 0
+	model.province[model.index_of(1, 0)] = 0
+	model.province[model.index_of(2, 0)] = 1
+	model.province[model.index_of(3, 0)] = 1
+	var capital := ProvinceState.create(0, "Sevilla", home, Vector2(0.5, 0.0), 2, 0)
+	capital.capital_tile = Vector2i(0, 0)
+	capital.town_tile = Vector2i(0, 0)
+	var harbour := ProvinceState.create(1, "Costa", coast, Vector2(2.5, 0.0), 2, 0)
+	harbour.town_tile = Vector2i(3, 0)
+	harbour.town_development = 0
+	model.provinces = [capital, harbour]
+	model.resource[model.index_of(2, 0)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(3, 0))
+	works.set_improvement(model, Vector2i(2, 0), 4)
+	var controller := EconomyController.new()
+	controller.model = model
+	controller.player_faction = 0
+	controller.capital_province = 0
+	controller.capital_tile = Vector2i(0, 0)
+	controller.works = works
+	controller.economy = PlayerEconomy.starting()
+	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
+	assert_eq(
+		int(controller.extraction().get("grain", 0)),
+		1 + Extraction.CAPITAL_GRAIN_BONUS,
+		"the harbour carries the estate's grain home"
+	)
+	var seals := Blockades.new()
+	seals.sealed = {model.region_id: {1: true}}
+	controller.blockade_source = func() -> Blockades: return seals
+	assert_eq(
+		int(controller.extraction().get("grain", 0)),
+		Extraction.CAPITAL_GRAIN_BONUS,
+		"the blockaded harbour carries nothing"
+	)
+	controller.free()
+
+
 func test_tech_caps_lift_the_yield_per_tile() -> void:
 	var model: MapModel = MapModel.new()
 	model.setup(3, 1)
@@ -2516,6 +2565,19 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	assert_true(line.contains("2 cast iron made in colonial towns"))
 	assert_true(line.contains("2 left on the far shore"))
 	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
+
+
+## A coast the sea has shut is a rule, not a lean harvest: the despatch names it
+## (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+func test_the_turn_summary_names_a_blockaded_coast() -> void:
+	var report: Dictionary = {
+		"extraction": {"grain": 5},
+		"blockade": "Blockaded: Cádiz — nothing there reaches the crown by sea this turn",
+	}
+	var line: String = LedgerText.turn_summary(report)
+	assert_true(line.contains("Blockaded: Cádiz"), line)
+	assert_true(line.contains("gathered 5 grain"), line)
+	assert_false(LedgerText.turn_summary({"extraction": {"grain": 5}}).contains("Blockaded"))
 
 
 ## A study the purse cannot pay is a rule with a floor, not a broken purse: the
