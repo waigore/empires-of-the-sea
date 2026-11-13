@@ -1,5 +1,5 @@
 class_name DefenceLens
-extends Node2D
+extends MapLens
 ## Military lens: one parchment slip over every charted province, showing what
 ## would meet an attack — the owner's published order of battle, the wall and
 ## the hospital (wiki: combat § Strength, siege-mechanics, hospital_rules).
@@ -7,7 +7,6 @@ extends Node2D
 ## Slips draw above the fog because a charted province is remembered knowledge;
 ## ground the crown has not charted was dropped by the projection.
 
-const TILE_SIZE: float = 22.0
 const PLATE_W: float = 96.0
 ## A slip with a headcount and a wall needs a second line; open ground does not.
 const PLATE_H: float = 40.0
@@ -15,27 +14,9 @@ const PLATE_H_OPEN: float = 26.0
 const PLATE_PAD: float = 6.0
 const RIBBON: float = 2.4
 
-var model: MapModel = null
 ## Region roster the reading is derived from; null in a hand-built test.
 var roster: ArmyLayer = null
 var armies: Array[ArmyState] = []
-var visibility: VisibilityModel = null
-## Owning crown for the reading (Node.owner is taken, so `faction`).
-var faction: int = MapModel.NO_ID
-var active: bool = false
-var hover_province: int = -1
-## Latest `DefenceSurvey.snapshot`; empty until built.
-var survey: Dictionary = {}
-
-var _font: Font = null
-var _reveal: float = 0.0
-## Laid-out slip rects by province id, packed on refresh so slips never overlap
-## each other in dense theatres.
-var _rects: Dictionary = {}
-
-
-func _ready() -> void:
-	_font = UiTheme.serif()
 
 
 ## Rebuilds the projection. Called on region load, turn end, lens activation and
@@ -56,10 +37,8 @@ func build(
 ## Fog changes move what the crown may read, and a march moves a garrison; the
 ## lens repaints on those events only (REQ-P4-01).
 func watch(fog: MapOverlay) -> void:
-	if fog != null and not fog.fog_changed.is_connected(refresh):
-		fog.fog_changed.connect(refresh)
-	if roster != null and not roster.army_moved.is_connected(_on_army_moved):
-		roster.army_moved.connect(_on_army_moved)
+	_watch(fog, &"fog_changed", refresh)
+	_watch(roster, &"army_moved", _on_army_moved)
 
 
 func _on_army_moved(_army: ArmyState, _result: Dictionary) -> void:
@@ -79,50 +58,11 @@ func refresh() -> void:
 	queue_redraw()
 
 
-func set_active(value: bool) -> void:
-	if active == value:
-		return
-	active = value
-	if active:
-		refresh()
-		_reveal = 0.0
-		var tween: Tween = create_tween()
-		tween.tween_method(_set_reveal, 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC)
-	queue_redraw()
-
-
-func toggle() -> void:
-	set_active(not active)
-
-
-## Province whose slip covers a world point (-1 when none). Slips can be packed
-## away from their centre, so taps must resolve through the slip.
-func hit_test(world_position: Vector2) -> int:
-	for raw: Variant in survey.get("provinces", []):
-		var id: int = int((raw as Dictionary)["id"])
-		if _rects.has(id) and (_rects[id] as Rect2).has_point(world_position):
-			return id
-	return -1
-
-
-func summary_for(province_id: int) -> String:
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		if int(entry["id"]) == province_id:
-			return String(entry.get("summary", ""))
-	return ""
-
-
-func _set_reveal(value: float) -> void:
-	_reveal = value
-	queue_redraw()
-
-
 # --- draw --------------------------------------------------------------------
 
 
 func _draw() -> void:
-	if not active or survey.is_empty() or _reveal <= 0.001:
+	if not _visible():
 		return
 	if _font == null:
 		_font = UiTheme.serif()
@@ -221,84 +161,7 @@ func _draw_marks(entry: Dictionary, rect: Rect2, tint: Color, alpha: float) -> v
 # --- layout ------------------------------------------------------------------
 
 
-## A paper slip with clipped corners: period-appropriate and cheap to draw.
-func _plate_shape(rect: Rect2, chamfer: float) -> PackedVector2Array:
-	var p: Vector2 = rect.position
-	var e: Vector2 = rect.end
-	return PackedVector2Array([
-		Vector2(p.x + chamfer, p.y),
-		Vector2(e.x - chamfer, p.y),
-		Vector2(e.x, p.y + chamfer),
-		Vector2(e.x, e.y - chamfer),
-		Vector2(e.x - chamfer, e.y),
-		Vector2(p.x + chamfer, e.y),
-		Vector2(p.x, e.y - chamfer),
-		Vector2(p.x, p.y + chamfer),
-	])
-
-
-func _offset_shape(shape: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
-	var moved := PackedVector2Array()
-	for point: Vector2 in shape:
-		moved.append(point + offset)
-	return moved
-
-
-func _closed(shape: PackedVector2Array) -> PackedVector2Array:
-	var result: PackedVector2Array = shape.duplicate()
-	if not result.is_empty():
-		result.append(result[0])
-	return result
-
-
-## Greedy pack: try the slip on the province's anchor, then step down until it
-## clears every slip already placed, so dense theatres never stack two readings.
-func _layout_plates() -> void:
-	_rects.clear()
-	var placed: Array[Rect2] = []
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		var size: Vector2 = _plate_size(entry)
-		var center: Vector2 = Vector2(entry["anchor"]) * TILE_SIZE
-		var chosen := Rect2(center + Vector2(-size.x * 0.5, 0.0), size)
-		for step in 32:
-			var candidate := Rect2(
-				center + Vector2(-size.x * 0.5, float(step) * 22.0), size
-			)
-			var free: bool = true
-			for other: Rect2 in placed:
-				if other.intersects(candidate.grow(4.0)):
-					free = false
-					break
-			if free:
-				chosen = candidate
-				break
-		_rects[int(entry["id"])] = chosen
-		placed.append(chosen)
-
-
 ## A held or walled province carries a second line, so its slip is taller.
 func _plate_size(entry: Dictionary) -> Vector2:
 	var tall: bool = int(entry["regiments"]) > 0 or int(entry["fort"]) > 0
 	return Vector2(PLATE_W, PLATE_H if tall else PLATE_H_OPEN)
-
-
-func _plate_rect(entry: Dictionary) -> Rect2:
-	var id: int = int(entry["id"])
-	if _rects.has(id):
-		return _rects[id]
-	return Rect2(Vector2.ZERO, _plate_size(entry))
-
-
-func _owner_tint(owner_id: int) -> Color:
-	if owner_id < 0 or not FactionCatalog.has_faction(owner_id):
-		return Color(0.52, 0.47, 0.39)
-	return Palette.faction_color(owner_id)
-
-
-func _charted_alpha(charted: int) -> float:
-	if charted == VisibilityModel.Level.FULLY_VISIBLE:
-		return 1.0
-	if charted == VisibilityModel.Level.FOGGED:
-		return 0.88
-	return 0.0

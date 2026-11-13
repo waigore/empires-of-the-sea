@@ -16,6 +16,9 @@ var stockpile: Dictionary = {}
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var faction: int = 0
 var tech_caps: Dictionary = {}
+## The play context, pushed with the data: it reaches the pause menu whose seal
+## the card parks (GameMenu, REQ-P3-02) and the HUD it covers.
+var play: PlaySession = null
 
 var _toggle: Button = null
 var _overlay: Control = null
@@ -31,6 +34,8 @@ var _close_button: Button = null
 var _data: Dictionary = {}
 var _province_filter: int = -1
 var _compact: bool = false
+## The card holds the pause door while it is up (mirrored park/release).
+var _parked_menu: bool = false
 
 
 func _ready() -> void:
@@ -94,17 +99,13 @@ func _sync_despatch_cover() -> void:
 	HudDespatchCover.refresh(screen.hud if screen != null else null)
 
 
-## The game menu's MENU seal may ride a higher canvas layer than this card (the
-## classic rail trigger), which would cut through a full-screen ledger; park it
-## while the card is up. The cartouche door (a later layout) lives on the HUD
-## layer under the overlay, so the lookup simply finds nothing there.
+## The pause menu's MENU seal sits on a higher canvas layer than this card,
+## which would cut through a full-screen ledger; park it while the card is up.
+## The card mirrors the park, so a close without an open never releases another
+## ledger's or the observer's frame.
 func _set_menu_visible(show_menu: bool) -> void:
-	var screen := _map_screen()
-	if screen == null:
-		return
-	var trigger := screen.find_child("MenuTrigger", true, false) as CanvasItem
-	if trigger != null:
-		trigger.visible = show_menu
+	var door: GameMenuDoor = play.pause_menu.door if play != null and play.pause_menu != null else null
+	_parked_menu = GameMenuDoor.set_held(door, show_menu, _parked_menu)
 
 
 func _map_screen() -> MapScreen:
