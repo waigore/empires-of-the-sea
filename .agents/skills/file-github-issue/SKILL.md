@@ -2,13 +2,14 @@
 name: file-github-issue
 description: |-
   File a GitHub issue from a user bug/defect report or feature request:
-  classify type, interview for missing details (bugs require platform),
-  search open duplicates and confirm with the user if any match, analyze
-  (incl. wiki Game rules alignment), ensure labels todo + bug|enhancement,
-  submit via gh without a final draft confirm. Confirm with the user before
-  noting a wiki follow-up when rules conflict or are silent. Use when the
-  user reports a bug, defect, issue, broken behavior, or asks for a feature /
-  enhancement, or when they ask to file/log a GitHub issue.
+  classify type, interview for missing details (platform only if stated or
+  clearly relevant; else all platforms), search open duplicates and confirm
+  with the user if any match, analyze (incl. wiki Game rules alignment),
+  ensure labels todo + bug|enhancement, submit via gh without a final draft
+  confirm. Confirm with the user before noting a wiki follow-up when rules
+  conflict or are silent. Use when the user reports a bug, defect, issue,
+  broken behavior, or asks for a feature / enhancement, or when they ask to
+  file/log a GitHub issue.
 
   Examples:
     - "fleet move ignores range on Android" → bug interview → analysis → issue
@@ -72,13 +73,14 @@ If unclear, ask once: bug or feature? Then continue.
 
 Ask **only** for missing fields. Do not re-ask what the user already gave.
 
-**Bug (all required before submit):**
+**Bug (required before submit):**
 
-1. Platform — OS/build (`desktop Windows|macOS|Linux` / `Android` / `iOS`). **Required; do not accept “unknown.”** Also capture how run + version/commit when known.
-2. Description / summary
-3. Expected result (wiki cite if known)
-4. Actual result
-5. Steps to reproduce (numbered)
+1. Description / summary
+2. Expected result (wiki cite if known)
+3. Actual result
+4. Steps to reproduce (numbered)
+
+**Platform (bugs — optional):** Record OS/build (`desktop Windows|macOS|Linux` / `Android` / `iOS`), how run, and version/commit **only** when the user stated them or the report is clearly platform-specific. Do **not** ask for platform otherwise. If omitted, assume all platforms; omit `## Platform` from the issue body (do not invent “unknown” or write “all platforms”).
 
 **Feature (all required before submit):**
 
@@ -134,7 +136,7 @@ Reply with the issue URL. Stop.
 
 ## Rules
 
-- Platform is mandatory for bugs; block submit until provided.
+- Platform only when stated or clearly relevant; otherwise omit and assume all platforms.
 - No final “approve this draft?” step after analysis (duplicate + wiki confirms only).
 - One issue per report; do not batch unrelated items.
 - Prefer `gh`; do not leave issues unlabelled.
