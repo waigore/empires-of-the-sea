@@ -15,15 +15,15 @@ extends SceneTree
 ##      trains.
 ##
 ## Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_field_train.gd
+##   godot --headless --path . --script res://playtests/playtest_field_train.gd
 ##
 ## The harness seats the ground (two field armies detached from the Home Army,
 ## a mauled host, a General hospital) because the turn-100 start opens with
 ## every army at home and no wards; the rest tick, rations, split/combine, the
 ## turn ladder and the save browser are the game's own.
 
-const Launch = preload("res://tests/playtest_launch.gd")
-const SaveDrive = preload("res://tests/playtest_save_drive.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
+const SaveDrive = preload("res://playtests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 const DIR: String = "user://playtest_field_train"
 const SLOT: int = 1

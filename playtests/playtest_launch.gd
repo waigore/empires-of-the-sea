@@ -34,13 +34,13 @@ static func open_map(
 	await tree.process_frame
 	var menu: MainMenu = main.current_page as MainMenu
 	if menu == null:
-		push_error("playtest: the title screen did not open — update tests/playtest_launch.gd")
+		push_error("playtest: the title screen did not open — update playtests/playtest_launch.gd")
 		return null
 	menu.new_game_button.emit_signal("pressed")
 	await tree.process_frame
 	var setup: GameSetupScreen = main.current_page as GameSetupScreen
 	if setup == null:
-		push_error("playtest: the setup screen did not open — update tests/playtest_launch.gd")
+		push_error("playtest: the setup screen did not open — update playtests/playtest_launch.gd")
 		return null
 	setup.seed_field.text = seed_text
 	setup.size_option.select(size_index)
@@ -62,7 +62,7 @@ static func open_map(
 	# crown's seat is confirmed (wiki: capital-choice-phase § Player choice).
 	var chart: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	if chart == null:
-		push_error("playtest: the capital chart did not open — update tests/playtest_launch.gd")
+		push_error("playtest: the capital chart did not open — update playtests/playtest_launch.gd")
 		return null
 	var waited: int = 0
 	while chart.model == null and waited < MAX_CHART_FRAMES:

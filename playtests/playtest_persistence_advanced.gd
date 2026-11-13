@@ -8,10 +8,10 @@ extends SceneTree
 ## (wiki: campaign-persistence § Snapshot contract; research-state § Slot
 ## Occupancy Persistence; extraction-and-improvements). Not a CI gate — run it
 ## by hand:
-##   godot --headless --path . --script res://tests/playtest_persistence_advanced.gd
+##   godot --headless --path . --script res://playtests/playtest_persistence_advanced.gd
 
-const Launch = preload("res://tests/playtest_launch.gd")
-const SaveDrive = preload("res://tests/playtest_save_drive.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
+const SaveDrive = preload("res://playtests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 ## A directory of its own, so a hand run never touches the player's slots.
 const DIR: String = "user://playtest_persistence_advanced"

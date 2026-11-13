@@ -3,7 +3,7 @@ extends SceneTree
 ## promised and what the turn actually pays (wiki: stockpiles-and-production
 ## § Production flow, world-market § Trade orders, tech-tree § Research Model).
 ## Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_treasury.gd
+##   godot --headless --path . --script res://playtests/playtest_treasury.gd
 ##
 ## The drive opens the turn-100 advanced start (a court with estates, a market
 ## book and funded research slots), then reads only what a player reads: the top
@@ -12,7 +12,7 @@ extends SceneTree
 ## Every order is pressed on the ledger's own buttons and every turn goes through
 ## `MapPlayTurn`, so the promise and the payout are the game's, not the drive's.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const MAX_TURN_ATTEMPTS: int = 4
 

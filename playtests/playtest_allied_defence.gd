@@ -4,7 +4,7 @@ extends SceneTree
 ## battle it did not start (wiki: diplomacy § Alliances § Mutual defence,
 ## § Breaking an alliance; quick-battle § Turn structure). Not a CI gate — run
 ## it by hand:
-##   godot --headless --path . --script res://tests/playtest_allied_defence.gd
+##   godot --headless --path . --script res://playtests/playtest_allied_defence.gd
 ##
 ## The alliance is signed through the court's own order path; the war on the
 ## ally is a real `DiplomacyRules.declare_war`, the same call the rival planner
@@ -13,7 +13,7 @@ extends SceneTree
 ## flow change fails it loudly (`RESULT: PASS` and exit 0 only when every check
 ## held) instead of printing a wrong number nobody reads.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 ## The alliance order needs this much goodwill before a court signs.

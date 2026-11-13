@@ -9,13 +9,13 @@ extends SceneTree
 ## MapPlayBeachhead, MapPlayArmies, MapPlayTurn) and every line the court reads
 ## is printed as it is, so the drive falsifies what the wiki promises against
 ## what the map actually shows. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_beachhead.gd
+##   godot --headless --path . --script res://playtests/playtest_beachhead.gd
 ##
 ## A field army is mustered at the seat (fixture) because the opening campaign
 ## has no spare field army; the boarding, sortie, marking, landing, battle and
 ## expiry are the real ones.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 

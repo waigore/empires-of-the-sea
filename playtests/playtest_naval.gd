@@ -7,13 +7,13 @@ extends SceneTree
 ## MapPlayFleetMissions, MapPlayNavalTurn, MapPlayPortLoss) and every line the
 ## court reads is printed as it is, so the drive falsifies what the wiki
 ## promises against what the map actually shows. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_naval.gd
+##   godot --headless --path . --script res://playtests/playtest_naval.gd
 ##
 ## A squadron is seated or moved only where a scenario seat is the shortest way
 ## to the rare branch (a rival squadron in the same water, a captured port); the
 ## movement, stations, combat, loss pruning and presentation are the real ones.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 
