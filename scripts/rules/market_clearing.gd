@@ -52,7 +52,12 @@ static func clear(
 	market.book.set_carry(carry)
 	market.book.last_deals = deals.duplicate(true)
 	market.book.last_notes = notes.duplicate(true)
-	MinorMarket.publish(market, world, FactionCatalog.PLAYER_FACTION)
+	# The Minor/Tribe book is priced for the crown that will read it: a court
+	# sailing as England must not be quoted Spain's terms and subsidy step
+	# (wiki: world-market § Subsidy price adjustment; REQ-P2-03, REQ-P5-05).
+	MinorMarket.publish(
+		market, world, int(context.get("viewer", FactionCatalog.PLAYER_FACTION))
+	)
 	return {
 		"deals": deals,
 		"notes": notes,
