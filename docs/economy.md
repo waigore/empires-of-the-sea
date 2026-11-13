@@ -55,13 +55,11 @@ that town (`min(4, 1+deeds)`).
 
 One global book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
 court orders plus Minor/Tribe per-tile auto-offers at the published price.
-Tiebreaks: integer priority, pact, colony favour, Consulate holders, then
-relation; a
-colony's suzerain clears first inside a tier (`MarketFavoured`, R7.1).
-First right of refusal fills a purchased tile's owner first and pays its relation
-share plus embassy kickback. Unfilled orders carry while holds cover them;
-prices move from fills.
-An offer is capped by post-production stock; fills/lapses toast.
+Tiebreaks: priority, pact, colony favour, Consulate, then relation; a colony's
+suzerain clears first inside a tier (`MarketFavoured`, R7.1). First right fills
+a purchased tile's owner first and pays relation share plus embassy kickback.
+Unfilled orders carry while holds cover them; prices move from fills. Offers
+cap at post-production stock; fills/lapses toast.
 
 ## Trade terms
 
@@ -70,13 +68,11 @@ Prices publish once; pact, boycott and subsidy terms apply at settlement
 
 ## UI
 
-The ledger's `PRODUCTION` tab is the stockpile: `FOOD`, `RAW MATERIALS`,
-`MANUFACTURED`, `RICHES` in catalogue order, each holding with its units and the
-phase's next-turn figure. Manufactured rows carry the stepper, capped by labour
-and inputs (`ProductionRecipes.allowance`). `MARKET` lists staged orders,
-Minor/Tribe harvest and world rows as intents under their medallions
-(`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: tier medallions, `RECRUIT`; trained tiers
-get `DISBAND` (no refund). Thumb-sized on a phone.
+Ledger `PRODUCTION`: stockpile by catalogue group with next-turn figures;
+manufactured steppers capped by labour/inputs (`ProductionRecipes.allowance`).
+`MARKET`: staged orders and Minor/Tribe/world rows under medallions, priced for
+the viewing crown's terms and subsidy (`REQ-P1-02`, `REQ-P2-03`). `WORKERS`:
+tier medallions, `RECRUIT`; trained tiers `DISBAND` (no refund). Phone-thumb sized.
 
 ## Deferred (REQ-P2-02)
 
