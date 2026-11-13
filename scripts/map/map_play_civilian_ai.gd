@@ -68,7 +68,7 @@ static func plan_all(
 			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],
 			"tech_unlocked": economy.tech_unlocked,
-			"at_war": _at_war(play, faction), "diplomacy": play.diplomacy,
+			"at_war": MapPlayCourt.at_war(play, faction), "diplomacy": play.diplomacy,
 			"visibility": MapPlayCourtFog.view_for(play, faction, region),
 		}
 		var muster: Vector2i = _muster_port(play, faction, region, model)
@@ -202,17 +202,6 @@ static func _train(
 		play, region, roster, faction, type_id, tile
 	)
 	return {"type_id": type_id, "unit": unit.id, "tile": tile}
-
-
-## True when any rival holds a declared war on this court: the planner's spy
-## preference reads it (wiki: civilian-units § Spies at war). No court, peace.
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
 
 
 ## Where this court musters a colonist: its own harbour, while it has no

@@ -20,8 +20,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[ArmyState] = []
-		roster.assign(play.army_layer.regions.value(region, []))
+		var roster: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
 		if roster.is_empty():
 			continue
 		if not _run_region(play, model, roster, trace):
@@ -45,11 +44,7 @@ static func _run_region(
 	play: PlaySession, model: MapModel, roster: Array[ArmyState], trace: Array[Dictionary]
 ) -> bool:
 	var changed: bool = false
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction and not play.observer_mode:
-			continue
-		if not AiControl.plans(play, faction):
-			continue
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches
@@ -98,7 +93,9 @@ static func _apply_split(
 	action: Dictionary,
 	trace: Array[Dictionary]
 ) -> bool:
-	var home: ArmyState = _army_by_id(roster, int(action["army_id"]), faction)
+	var home: ArmyState = MapPlayCourt.army_by_id(
+		roster, int(action["army_id"]), faction
+	)
 	if home == null:
 		return false
 	var ids: Array[String] = []
@@ -133,7 +130,9 @@ static func _apply_marches(
 ) -> bool:
 	var changed: bool = false
 	for order: Dictionary in plan["orders"]:
-		var army: ArmyState = _army_by_id(roster, int(order["army_id"]), faction)
+		var army: ArmyState = MapPlayCourt.army_by_id(
+			roster, int(order["army_id"]), faction
+		)
 		if army == null:
 			continue
 		var province: int = int(order["province"])
@@ -165,13 +164,6 @@ static func _report_march(
 		"%s's army marches into %s"
 		% [FactionCatalog.name_of(faction), model.province_name(province)]
 	)
-
-
-static func _army_by_id(armies: Array[ArmyState], army_id: int, owner: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.id == army_id and army.owner == owner:
-			return army
-	return null
 
 
 ## A rival court raises one line regiment a turn from its own ledger while it
@@ -207,7 +199,7 @@ static func _reinforce(
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
-		_at_war(play, faction)
+		MapPlayCourt.at_war(play, faction)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():
@@ -276,7 +268,7 @@ static func _pitch_train(
 	if economy == null:
 		return false
 	var army: ArmyState = AiHospitalTrainWork.best_army(
-		model, roster, faction, economy, _at_war(play, faction)
+		model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
 	)
 	if army == null:
 		return false
@@ -310,10 +302,3 @@ static func _capital_province(model: MapModel, faction: int) -> int:
 		if province.owner == faction and province.capital:
 			return province.id
 	return MapModel.NO_ID
-
-
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false

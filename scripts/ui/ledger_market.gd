@@ -32,6 +32,9 @@ var _offers_head: MarketOffersHead = null
 var _offers_box: VBoxContainer = null
 ## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
 var _compact: bool = false
+## The crown reading the book: its own staged orders, deals, terms and subsidy.
+## A player who sails as England must read England's trade, never Spain's.
+var _viewer: int = FactionCatalog.PLAYER_FACTION
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
@@ -41,12 +44,14 @@ func fill(
 	market: WorldMarket,
 	cargo: Dictionary,
 	offers: Array = [],
-	clearing: Dictionary = {}
+	clearing: Dictionary = {},
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	_economy = economy
 	_market = market
 	_cargo = cargo
 	_clearing = clearing
+	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
 	_add_terms_banner()
@@ -88,7 +93,7 @@ func _add_staged() -> void:
 	if _market == null:
 		return
 	var orders: Array[MarketOrder] = _market.book.orders_for(
-		FactionCatalog.PLAYER_FACTION
+		_viewer
 	)
 	UiRowBuilder.spacer(self, 6.0)
 	var title := UiRowBuilder.label("YOUR ORDERS", 11, Palette.GOLD_DIM)
@@ -146,15 +151,15 @@ func _add_deals() -> void:
 		var deal: Dictionary = raw
 		var buyer: int = int(deal.get("buyer", -2))
 		var seller: int = int(deal.get("seller", -2))
-		if buyer == FactionCatalog.PLAYER_FACTION or seller == FactionCatalog.PLAYER_FACTION:
+		if buyer == _viewer or seller == _viewer:
 			mine.append(deal)
-	var share: int = LedgerText.share_credit(_clearing, FactionCatalog.PLAYER_FACTION)
+	var share: int = LedgerText.share_credit(_clearing, _viewer)
 	if mine.is_empty() and share <= 0:
 		return
 	UiRowBuilder.spacer(self, 4.0)
 	add_child(UiRowBuilder.label("LAST CLEARING", 11, Palette.GOLD_DIM))
 	for deal: Dictionary in mine.slice(0, 4):
-		add_child(UiRowBuilder.label(LedgerText.deal_line(deal), 12, Palette.TEXT_DIM))
+		add_child(UiRowBuilder.label(LedgerText.deal_line(deal, _viewer), 12, Palette.TEXT_DIM))
 	if mine.size() > 4:
 		add_child(UiRowBuilder.label(
 			"+%d more deals" % (mine.size() - 4), 11, Palette.TEXT_DIM
@@ -305,7 +310,7 @@ func _offer_row(offer: Dictionary) -> Control:
 func _add_terms_banner() -> void:
 	if _market == null:
 		return
-	var terms: Dictionary = _market.terms_for(FactionCatalog.PLAYER_FACTION)
+	var terms: Dictionary = _market.terms_for(_viewer)
 	if terms.is_empty():
 		return
 	var buy: Dictionary = terms.get("buy", {})
@@ -330,7 +335,7 @@ func _subsidy_rate() -> int:
 	var best: int = 0
 	for key: Variant in _market.subsidy_terms.keys():
 		var parts: PackedStringArray = String(key).split(">")
-		if parts.size() != 2 or int(parts[0]) != FactionCatalog.PLAYER_FACTION:
+		if parts.size() != 2 or int(parts[0]) != _viewer:
 			continue
 		best = maxi(best, int(_market.subsidy_terms[key]))
 	return best

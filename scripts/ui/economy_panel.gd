@@ -191,7 +191,8 @@ func refresh(
 	market: WorldMarket,
 	report: Dictionary,
 	cargo: Dictionary = {},
-	offers: Array = []
+	offers: Array = [],
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	if _tabs == null:
 		return
@@ -201,7 +202,8 @@ func refresh(
 	# same projection the header promises (REQ-P2-03).
 	_production.fill(economy, report)
 	_market_page.fill(
-		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary
+		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
+		viewer
 	)
 	_workers.fill(economy)
 
