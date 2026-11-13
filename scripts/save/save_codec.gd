@@ -53,6 +53,9 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
 		"leaders": play.leaders.duplicate(),
+		# The crown's watch over rival squadrons: which ones it has read and the
+		# turn that read began (wiki: ships-and-naval § Sighted strength).
+		"naval_intel": play.naval_intel.to_dict(),
 		"infinite_mode": play.infinite_mode,
 		"advanced_start": play.advanced_start,
 		"difficulty": play.difficulty,
@@ -144,6 +147,10 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
+	# A save from before the crown kept a watch resumes with none: every rival is
+	# unread until she has been observed across a turn boundary (wiki:
+	# ships-and-naval § Sighted strength).
+	play.naval_intel = NavalIntel.from_dict(session.get("naval_intel", {}))
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.advanced_start = AdvancedStart.normalize(
 		String(session.get("advanced_start", AdvancedStart.NONE))

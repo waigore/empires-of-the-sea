@@ -2,16 +2,17 @@ class_name Ship
 extends Node2D
 ## A fleet marker drawn as a small side-view vessel with a bobbing idle and a
 ## fading wake. A squadron of several hulls draws its escorts astern, a hull
-## badge and a gold strength gauge, so one marker reads as a fleet and its
-## fighting weight (wiki: ships-and-naval § Naval Strength Aggregation Formula).
+## badge and the strength she fights with, so one marker reads as a fleet and
+## its fighting weight (wiki: ships-and-naval § Naval Strength Aggregation
+## Formula, § Sighted strength).
 ## Purely presentational: the layer owns movement, zones and the numbers.
 
-## Strength that fills the gauge: a squadron of twenty is a fleet of the line.
-const GAUGE_MAX: float = 20.0
 ## Escorts drawn astern before the badge carries the count alone.
 const ESCORT_LIMIT: int = 2
-## Zoom at which the printed strength is legible enough to show.
+## Zoom at which the strength is printed to one decimal; fit zoom keeps a whole
+## number so the plate still reads at a glance (REQ-P1-07).
 const DETAIL_ZOOM: float = 0.85
+const STRENGTH_FONT: int = 11
 
 var faction: int = 0
 var fleet_id: int = -1
@@ -25,7 +26,10 @@ var selected: bool = false
 ## Hulls in the squadron and its weighted strength, mirrored from the fleet.
 var hull_count: int = 1
 var strength: float = 0.0
-## Zoomed in enough to print the numbers beside the gauge.
+## Whether the crown has read her weight: an unread rival flies `*` and no hull
+## badge until the watch spans a turn (wiki: ships-and-naval § Sighted strength).
+var strength_known: bool = true
+## Zoomed in enough to print the strength to one decimal.
 var detail: bool = false
 
 var _time: float = 0.0
@@ -51,6 +55,15 @@ func set_selected(value: bool) -> void:
 func set_squadron(count: int, fighting_strength: float) -> void:
 	hull_count = maxi(count, 1)
 	strength = maxf(fighting_strength, 0.0)
+	queue_redraw()
+
+
+## Whether this marker may print her weight (wiki: ships-and-naval
+## § Sighted strength).
+func set_intel(known: bool) -> void:
+	if known == strength_known:
+		return
+	strength_known = known
 	queue_redraw()
 
 
@@ -171,27 +184,40 @@ func _ink_vessel(full: bool, alpha: float) -> void:
 	)
 
 
-## Hull count on a parchment drum and the gold gauge of fighting strength. A
-## lone hull keeps the gauge and drops the badge: one vessel needs no count.
+## Hull count on a parchment drum and the strength she fights with on a plate
+## beneath it. A lone hull drops the badge: one vessel needs no count. An unread
+## rival keeps the plate and flies `*` in place of a figure (wiki:
+## ships-and-naval § Sighted strength).
 func _squadron_badge() -> void:
 	var ink := Color(0.16, 0.12, 0.08, 0.9)
 	var base: float = 23.0 if docked else 17.0
-	if hull_count > 1:
+	if hull_count > 1 and strength_known:
 		draw_circle(Vector2(0, base), 7.0, Color(0.96, 0.92, 0.81, 0.95))
 		draw_arc(Vector2(0, base), 7.0, 0, TAU, 20, ink, 1.1, true)
 		draw_string(
 			ThemeDB.fallback_font, Vector2(-7, base + 4), str(hull_count),
 			HORIZONTAL_ALIGNMENT_CENTER, 14, 11, ink
 		)
-	var bar := Vector2(-11.0, base + 10.0)
-	draw_rect(Rect2(bar, Vector2(22, 3)), Color(0.10, 0.08, 0.06, 0.55))
-	draw_rect(
-		Rect2(bar, Vector2(22.0 * clampf(strength / GAUGE_MAX, 0.0, 1.0), 3)), Palette.GOLD
+	_strength_plate(base, ink)
+
+
+## The number beside the hulls: the resolver's own weighted strength. A rival
+## the crown has not read flies `*` until her watch closes.
+func _strength_plate(base: float, ink: Color) -> void:
+	var text: String = "*"
+	if strength_known:
+		text = "%.1f" % strength if detail else str(int(round(strength)))
+	var font: Font = ThemeDB.fallback_font
+	var width: float = font.get_string_size(
+		text, HORIZONTAL_ALIGNMENT_LEFT, -1, STRENGTH_FONT
+	).x + 8.0
+	var top: float = base + (9.0 if hull_count > 1 and strength_known else 4.0)
+	var plate := Rect2(
+		Vector2(-width * 0.5, top), Vector2(maxf(width, 16.0), float(STRENGTH_FONT) + 4.0)
 	)
-	draw_rect(Rect2(bar, Vector2(22, 3)), ink, false, 0.8)
-	if not detail:
-		return
+	draw_rect(plate, Color(0.96, 0.92, 0.81, 0.95))
+	draw_rect(plate, ink, false, 0.8)
 	draw_string(
-		ThemeDB.fallback_font, Vector2(-20, bar.y + 14), "%.1f" % strength,
-		HORIZONTAL_ALIGNMENT_CENTER, 40, 11, Color(0.99, 0.93, 0.72, 0.95)
+		font, Vector2(plate.position.x, plate.position.y + float(STRENGTH_FONT) + 0.5),
+		text, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, STRENGTH_FONT, ink
 	)

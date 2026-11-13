@@ -62,15 +62,23 @@ static func dossier(
 	fleet: FleetState,
 	hostile: Callable = Callable(),
 	factors: Dictionary = {},
-	leaders: Dictionary = {}
+	leaders: Dictionary = {},
+	known: Callable = Callable()
 ) -> Dictionary:
 	if fleet == null:
 		return {}
 	var row: Dictionary = squadron(fleet)
-	var zone: Dictionary = NavalStrength.zone(fleets, fleet, hostile, factors, leaders)
+	var zone: Dictionary = NavalStrength.zone(fleets, fleet, hostile, factors, leaders, known)
 	if not zone.is_empty():
 		row["zone"] = zone
 	return row
+
+
+## A sighted squadron the crown has not yet read: the dossier prints `???` and
+## no maths at all, so a first sighting never leaks her weight (wiki:
+## ships-and-naval § Sighted strength).
+static func fogged() -> Dictionary:
+	return {"count": 1, "known": false, "strength": 0.0, "durability": 0.0}
 
 
 ## Share of a contested sea zone each side holds. Own strength aggregates every
@@ -86,7 +94,8 @@ static func zone(
 	fleet: FleetState,
 	hostile: Callable = Callable(),
 	factors: Dictionary = {},
-	leaders: Dictionary = {}
+	leaders: Dictionary = {},
+	known: Callable = Callable()
 ) -> Dictionary:
 	if fleet == null or not fleet.is_at_sea():
 		return {}
@@ -95,6 +104,7 @@ static func zone(
 	var foe: float = 0.0
 	var foe_hulls: int = 0
 	var foes: Array[int] = []
+	var unread: bool = false
 	for other: FleetState in fleets:
 		if other == null or not other.is_at_sea() or other.sea_zone != fleet.sea_zone:
 			continue
@@ -103,6 +113,11 @@ static func zone(
 			own_hulls += other.ship_count()
 			continue
 		if not _hostile(hostile, fleet.owner, other.owner):
+			continue
+		# A rival the crown has not read weighs in with nothing: the share stays
+		# unknown until her watch closes (wiki: ships-and-naval § Sighted strength).
+		if known.is_valid() and not bool(known.call(other)):
+			unread = true
 			continue
 		foe += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
 		foe_hulls += other.ship_count()
@@ -117,8 +132,11 @@ static func zone(
 		"foe": foe,
 		"foe_hulls": foe_hulls,
 		"foes": foes,
+		"unread": unread,
 	}
 	row.merge(odds(own, foe))
+	if unread:
+		row["outcome"] = OUTCOME_UNKNOWN
 	return row
 
 

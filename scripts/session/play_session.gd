@@ -114,6 +114,9 @@ var feeding: Dictionary = {}
 ## Faction -> leaderKey, fixed at game start and serialized with the save
 ## (wiki: leader-bonuses § Leader Selection).
 var leaders: Dictionary = {}
+## Which rival squadrons the crown has read, and the watch it took to read them
+## (wiki: ships-and-naval § Sighted strength). Saved with the campaign.
+var naval_intel: NavalIntel = NavalIntel.new()
 
 var ship_layer: ShipLayer = null
 var civilian_layer: CivilianLayer = null

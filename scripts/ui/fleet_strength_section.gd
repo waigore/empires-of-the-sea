@@ -25,10 +25,22 @@ func _ready() -> void:
 
 ## Empty data hides the block, so the capital slip and a port with no squadron
 ## keep the dossier short. `strength["zone"]` is the sea zone's odds, when read.
+## A sighted rival the crown has not read shows `???` and none of the maths
+## (wiki: ships-and-naval § Sighted strength).
 func set_data(strength: Dictionary) -> void:
 	visible = int(strength.get("count", 0)) > 0
 	if not visible:
 		return
+	var read: bool = bool(strength.get("known", true))
+	_pool.visible = read
+	_zone.visible = false
+	if not read:
+		_strength.text = "??? strength — the fog has not yet given up her weight."
+		_strength.add_theme_color_override("font_color", Palette.TEXT_DIM)
+		_pool.text = ""
+		_zone.text = ""
+		return
+	_strength.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	var zone: Dictionary = strength.get("zone", {})
 	_strength.text = "%.1f strength = %s" % [
 		float(strength.get("strength", 0.0)), String(strength.get("formula", ""))
@@ -42,8 +54,13 @@ func set_data(strength: Dictionary) -> void:
 
 
 ## The zone's arithmetic in one line, and nothing when the water is empty: a
-## dossier that says "no enemy here" three times is noise, not evidence.
+## dossier that says "no enemy here" three times is noise, not evidence. An
+## unread rival leaves the odds unknown, so no share is printed against her.
 func _zone_line(zone: Dictionary) -> String:
+	if bool(zone.get("unread", false)):
+		return "This zone: %.1f of ours against a strength not yet read." % [
+			float(zone.get("own", 0.0))
+		]
 	if float(zone.get("foe", 0.0)) <= 0.0:
 		return ""
 	return "This zone: %.1f against %.1f — you hold %s." % [
@@ -54,6 +71,8 @@ func _zone_line(zone: Dictionary) -> String:
 
 
 func _zone_colour(zone: Dictionary) -> Color:
+	if bool(zone.get("unread", false)):
+		return Palette.GOLD_PALE
 	match NavalStrength.outcome_of(zone):
 		NavalStrength.OUTCOME_WIN:
 			return Palette.HEALTH_HIGH

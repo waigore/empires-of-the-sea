@@ -205,6 +205,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	var raid_report: Dictionary = MapPlayRaids.resolve(play)
 	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
 	play.turn += 1
+	# The new turn opens the crown's watch: a rival squadron still under the same
+	# eye that saw her last turn is read now, and her weight reaches the markers
+	# (wiki: ships-and-naval § Sighted strength).
+	MapPlayFleets.refresh_visibility(play)
 	var year: int = TurnTime.year_for_turn(play.turn)
 	var crown_report: Dictionary = {}
 	if play.observer_mode:
