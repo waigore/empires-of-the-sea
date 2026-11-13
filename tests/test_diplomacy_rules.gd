@@ -1440,6 +1440,41 @@ func test_join_empire_makes_a_tribe_a_colony_without_transfer() -> void:
 	assert_eq(diplomacy_orders_state.colony_of(9), 0)
 	assert_eq(DiplomacyRules.provinces_owned(world, 9), 2)
 	assert_eq(diplomacy_orders_economy.treasury, 11000)
+	# The chain is walked to its end, so the court reads the colony as held
+	# instead of offering the same purchase again (wiki: diplomacy § GP–Tribe).
+	assert_eq(diplomacy_orders_state.overture(0, 9), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(diplomacy_orders_state.overture(9, 0), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(DiplomacyCatalog.next_stage(diplomacy_orders_state.overture(0, 9)), "")
+
+func test_a_standing_colony_is_not_bought_twice() -> void:
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 9, 9])
+	diplomacy_orders_state.ensure_relation(0, 9, diplomacy_orders_state.turn)
+	diplomacy_orders_state.relation(0, 9).score = 60.0
+	# A save written before the chain advanced still reads NAP with a colony.
+	diplomacy_orders_state.set_overture(0, 9, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(9, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_colony(9, 0)
+	var check: Dictionary = DiplomacyRules.can_establish_overture(
+		diplomacy_orders_state, world, 0, 9, DiplomacyCatalog.STAGE_JOIN_EMPIRE, 20000
+	)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("already your colony"))
+
+func test_the_join_empire_row_names_what_it_buys() -> void:
+	var tribe: String = DiplomacyOrders.overture_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.TRIBE
+	)
+	assert_true(tribe.contains("never count"), tribe)
+	assert_true(tribe.contains("colony"), tribe)
+	var minor: String = DiplomacyOrders.overture_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.MINOR_NATION
+	)
+	assert_true(minor.contains("join your empire"), minor)
+	assert_eq(
+		DiplomacyOrders.overture_hint(DiplomacyCatalog.STAGE_NAP, FactionCatalog.Type.TRIBE),
+		""
+	)
 
 func test_join_empire_absorbs_a_nearly_defeated_great_power() -> void:
 	_setup_diplomacy_orders()
