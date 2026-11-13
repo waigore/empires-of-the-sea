@@ -283,6 +283,13 @@ domain = "blockade"
 match = "scripts/economy/economy_controller.gd"
 domain = "blockade"
 
+# The crown's ledger readings and orders: the sheet prints the figures and
+# presses the intents, so a change there runs the ledger suites (not the whole
+# blockade fan-out the controller's own mount pulls).
+[[rules]]
+match = "scripts/economy/ledger_*.gd"
+domain = "economy_ui"
+
 # Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
 # reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]

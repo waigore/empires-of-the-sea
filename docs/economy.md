@@ -76,7 +76,7 @@ phase's next-turn figure. Manufactured rows carry the stepper, capped by labour
 and inputs (`ProductionRecipes.allowance`). `MARKET` lists staged orders,
 Minor/Tribe harvest and world rows as intents under their medallions
 (`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: tier medallions, `RECRUIT`; trained tiers
-get `DISBAND` (no refund). Thumb-sized on a phone.
+get `DISBAND` (no refund). Thumb-sized on phones.
 
 ## Deferred (REQ-P2-02)
 
@@ -88,7 +88,8 @@ Building/tier gates; further multi-turn rows; a queue cap
 `player_economy`, `economy_turn`, `economy_consumption`, `production_recipes`,
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
-`economy/economy_controller`, `map/map_play_market`.
+`economy/economy_controller`, `economy/ledger_readings`,
+`economy/ledger_orders`, `map/map_play_market`.
 
 ## Tests
 

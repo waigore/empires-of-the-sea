@@ -1844,7 +1844,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	controller.economy = PlayerEconomy.starting()
 	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
 	assert_eq(
-		int(controller.extraction().get("grain", 0)),
+		int(controller.readings.extraction().get("grain", 0)),
 		1 + Extraction.CAPITAL_GRAIN_BONUS,
 		"the harbour carries the estate's grain home"
 	)
@@ -1852,7 +1852,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	seals.sealed = {model.region_id: {1: true}}
 	controller.blockade_source = func() -> Blockades: return seals
 	assert_eq(
-		int(controller.extraction().get("grain", 0)),
+		int(controller.readings.extraction().get("grain", 0)),
 		Extraction.CAPITAL_GRAIN_BONUS,
 		"the blockaded harbour carries nothing"
 	)

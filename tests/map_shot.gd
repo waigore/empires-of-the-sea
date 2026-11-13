@@ -127,7 +127,7 @@ func _queue_recruits() -> void:
 	var play: PlaySession = _screen.play
 	play.economy.economy.treasury = 60000
 	play.economy.economy.stockpile["fabric"] = 12
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	MapPlayArmyMuster.recruit(play, "peasant_levies")
 	MapPlayFleetYard.launch(play, "carrack")
 	_screen.economy.open_panel()

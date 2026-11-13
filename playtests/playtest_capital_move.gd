@@ -91,7 +91,7 @@ func _move_pass(rival: int) -> void:
 		_say("and a second front at %s" % _play.model.province_name(other))
 	_say("before: own %d provinces; purse %d, %+d per turn; income promise %d" % [
 		CapitalLoss.owned_provinces(_play.model, _play.player_faction).size(),
-		_play.treasury(), _play.income, _play.economy.projected_income(),
+		_play.treasury(), _play.income, _play.economy.readings.projected_income(),
 	])
 	var seen: int = _toast_count()
 	_take_turn()
@@ -108,7 +108,7 @@ func _move_pass(rival: int) -> void:
 	_say("home squadron after the move: %s" % _home_squadron())
 	_say("new seat's water: %s" % _seat_water())
 	_say("purse after: %d, %+d per turn (promise %d)" % [
-		_play.treasury(), _play.income, _play.economy.projected_income(),
+		_play.treasury(), _play.income, _play.economy.readings.projected_income(),
 	])
 	_say("gazette sheet for turn %d:" % _play.gazette.sheets.back().get("turn", -1))
 	var sheet: Dictionary = {} if _play.gazette.sheets.is_empty() else _play.gazette.sheets.back()

@@ -221,7 +221,7 @@ static func _finish_turn(play: PlaySession) -> void:
 		# rival's id must never carry them, and her own armies must read them at
 		# the published feeding band (wiki: combat § Feeding modifiers;
 		# game-setup § Human/AI slot assignment).
-		play.feeding[play.player_faction] = play.economy.feeding_coverage()
+		play.feeding[play.player_faction] = play.economy.readings.feeding_coverage()
 		# The crown's own turn speaks: a finished study and a host at the seat
 		# are answered by the courts before the panel is refreshed below
 		# (wiki: dialogue-and-mood § Design intent; DR-20261111-08).
@@ -229,7 +229,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# Every court has staged its orders by now: clear the shared book once.
 	MapPlayMarket.run(play, economy_report)
 	if not play.observer_mode:
-		play.income = play.economy.projected_income()
+		play.income = play.economy.readings.projected_income()
 	play.hud.set_turn(play.turn, year)
 	if not play.observer_mode:
 		play.hud.set_income(play.income)

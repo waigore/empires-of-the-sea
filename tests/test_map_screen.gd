@@ -217,7 +217,7 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
-	assert_eq(_screen.income, _screen.economy.projected_income())
+	assert_eq(_screen.income, _screen.economy.readings.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
 
 
@@ -249,7 +249,7 @@ func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
 	assert_eq(english.play.player_faction, 1)
 	MapPlayTurn.end_turn(english.play)
 	Fixture.settle(english.play)
-	var coverage: float = english.economy.feeding_coverage()
+	var coverage: float = english.economy.readings.feeding_coverage()
 	assert_true(
 		english.play.feeding.has(english.play.player_faction),
 		"England keeps her own army feeding record"

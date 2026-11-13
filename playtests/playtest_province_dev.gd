@@ -51,7 +51,7 @@ func _run() -> void:
 		play.model.province_name(play.capital_province),
 		str(play.capital_tile), play.turn,
 	])
-	_say("opening extraction %s" % str(play.economy.extraction()))
+	_say("opening extraction %s" % str(play.economy.readings.extraction()))
 	var fields: Dictionary = _pick_estate(false)
 	if fields.is_empty():
 		_check("a farmable estate in an owned province", false, "none found")
@@ -71,7 +71,7 @@ func _run() -> void:
 		_upgrade_town()
 	if _interrupted:
 		_say("the road test was cut short by a rival war (see above)")
-	_say("closing extraction %s" % str(play.economy.extraction()))
+	_say("closing extraction %s" % str(play.economy.readings.extraction()))
 	_say("RESULT: %s" % ("PASS" if _failures == 0 else "%d FAILURE(S)" % _failures))
 	quit(0 if _failures == 0 else 1)
 
@@ -213,7 +213,7 @@ func _link_home(estate: Dictionary) -> void:
 		"status %s after %d road tiles" % [String(row["status"]), laid])
 	_check("a linked estate produces", int(row["output"]) > 0,
 		"output %d" % int(row["output"]))
-	var extraction: Dictionary = play.economy.extraction()
+	var extraction: Dictionary = play.economy.readings.extraction()
 	var commodity: String = String(row["commodity"])
 	_check("its commodity reaches the stockpile", int(extraction.get(commodity, 0)) > 0,
 		"%s in %s" % [commodity, str(extraction)])
