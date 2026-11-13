@@ -10,6 +10,7 @@ const NavalFixture = preload("res://tests/naval_fixture.gd")
 const CivilianFixture = preload("res://tests/civilian_fixture.gd")
 const ai_diplomacy_offers_AiFixture = preload("res://tests/ai_fixture.gd")
 const ai_planner_AiFixture = preload("res://tests/ai_fixture.gd")
+const army_AiFixture = preload("res://tests/ai_fixture.gd")
 
 const OWNER: int = 1
 const RIVAL: int = 2
@@ -165,6 +166,27 @@ func test_a_moved_seat_recalls_the_home_army() -> void:
 	assert_eq(AiArmyReinforce.recall_target(14, 20), 20, "the army marches to the new seat")
 	assert_eq(AiArmyReinforce.recall_target(20, 20), -1, "an army already home is left alone")
 	assert_eq(AiArmyReinforce.recall_target(3, -1), -1, "no seat, no recall")
+
+
+## The recall itself: a Home Army standing off its seat marches one hop home and
+## the pass reports it, so the trace explains why no regiment was raised
+## (issue #474).
+func test_the_recall_marches_the_home_army_to_the_new_seat() -> void:
+	var world: WorldMap = army_AiFixture.land_world([OWNER, OWNER], {0: true})
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	var home: ArmyState = ArmyState.muster(1, OWNER, 1, true, ["peasant_levies"], 1)
+	var trace: Array[Dictionary] = []
+
+	assert_true(MapPlayArmyAi._recall(play, model, home, OWNER, 0, trace))
+	assert_eq(home.province, 0, "the garrison re-forms at the seat")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_RECALL)
+	assert_false(
+		MapPlayArmyAi._recall(play, model, home, OWNER, 0, trace),
+		"an army already home is not marched again"
+	)
 
 
 func test_a_war_across_the_water_detaches_a_crossing_army() -> void:

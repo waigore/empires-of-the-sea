@@ -197,11 +197,9 @@ static func _reinforce(
 	if home == null:
 		return false
 	if home.province != capital:
-		# A court whose seat moved musters nowhere: the Home Army is recalled to
-		# the new capital instead of standing at the old one for the rest of the
-		# campaign (issue #474).
+		# A court whose seat moved musters nowhere: the garrison re-forms at the
+		# new capital, then the muster below prices its regiment (issue #474).
 		_recall(play, model, home, faction, capital, trace)
-		return false
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
@@ -231,9 +229,11 @@ static func _reinforce(
 	return true
 
 
-## Marches a stranded Home Army one hop toward the new seat. The muster pass
-## calls it before it prices a regiment, so a court that lost its capital can
-## raise troops again once the army is home (issue #474).
+## Re-forms a stranded Home Army at the new seat. The Home Army is the seat's
+## garrison, not a field column — the rules never let it march (`can_move`
+## refuses it) — so when the capital moves the garrison re-forms there instead
+## of standing at the old seat for the rest of the campaign, which is what
+## blocked every muster after a capital fell (issue #474).
 static func _recall(
 	play: PlaySession,
 	model: MapModel,
@@ -244,18 +244,18 @@ static func _recall(
 ) -> bool:
 	if AiArmyReinforce.recall_target(home.province, capital) < 0:
 		return false
-	var march: Dictionary = ArmyMovement.apply_move(model, home, capital, true)
-	if not bool(march.get("ok", false)):
-		return false
+	var from: int = home.province
+	home.province = capital
+	home.moved = false
 	trace.append({
 		"faction": faction,
 		"kind": KIND_RECALL,
 		"army": home.id,
-		"province": home.province,
-		"province_name": model.province_name(home.province),
+		"province": capital,
+		"province_name": model.province_name(capital),
+		"from": from,
 		"region": model.region_id,
 	})
-	_report_march(play, model, faction, home.province)
 	return true
 
 
