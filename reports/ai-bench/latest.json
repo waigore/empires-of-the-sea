@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:5329348569a05d5e05fe8281bc14a547bbb0f03fced8f24cd02cf52ea17919c5",
-  "submission_git": "fix/474-muster-last-payment@2250bf5",
+  "submission_hash": "sha256:0374aaccc10b46df74c92c73c7b734df9022da070e93d5bc06497664fd6e5d79",
+  "submission_git": "orc/resolve-issue-agent-1/20261113T215347195412Z@3b3ee55",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 69.84848484848484,
+      "value": 69.72502805836139,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:7b67a882b7dcc17a9f732b1d538c8b51c7618269165252a4dbf0e98deade3363",
+    "ai_surface_hash": "sha256:91e0806f828a87e28d5416aaf2f04419f4ba06d400591d8bd87fcaf7509a6301",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -65,14 +65,14 @@
       "workers": 4,
       "extraction_per_turn": 2.3529411764705883,
       "income_per_turn": 197.5,
-      "funded_pct": 69.84848484848484
+      "funded_pct": 69.72502805836139
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 36,
     "resolved_turns": 36,
-    "funded_pct": 69.84848484848484
+    "funded_pct": 69.72502805836139
   },
   "params": {
     "turns": 200,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T21:44:25Z",
+  "timestamp": "2026-11-13T23:02:27Z",
   "report_version": 1,
-  "signature": "hmac-sha256:fc11a013ac1cb1d6d0ee0f0e09d02ddb92bba4bfe7a1f7e7c15f03b9e877f68f"
+  "signature": "hmac-sha256:3d23934c14aba888d451e7ddc58ae7cbce86e29e8aa7ab869b20c825dd21e4de"
 }

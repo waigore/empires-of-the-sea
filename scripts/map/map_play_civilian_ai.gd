@@ -123,6 +123,15 @@ static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
+		# A survey comes first: the deposit is hidden until the Explorer digs, so
+		# a prospect order never names the resource it is looking for and must
+		# not be read as a town level or a road. Dropping it left every rival
+		# with an idle Explorer for the whole campaign — and a mine is the only
+		# income a court has apart from sales (wiki: fog-and-exploration
+		# § Prospecting; issue #489).
+		if String(order.get("action", "")) == "prospect":
+			kept.append(order)
+			continue
 		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
 		if tile.x < 0 or model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 			continue
