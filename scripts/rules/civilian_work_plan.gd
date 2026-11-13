@@ -119,7 +119,41 @@ static func town_upgrade_refusal(
 	return ""
 
 
-## Target level whose cost/duration row applies to this order.
+## The order as the court reads it. A fort is the one order that lands at one of
+## three levels, each with its own price, wait and tech gate, so the order names
+## the level it would raise — "Build fort" alone cannot be told from "Build
+## fort" for a higher wall (wiki: siege-mechanics § Fort Levels).
+static func order_label(
+	action: String, model: MapModel, tile: Vector2i, plain: String
+) -> String:
+	if action != "build_fort":
+		return plain
+	return "Build %s fort" % FortRules.level_name(fort_target(model, tile)).to_lower()
+
+
+## One row of the work-order list: the label the court reads, the price beside
+## it and the materials the rules charge. A fort's price also names the turns it
+## takes, because its wall is the one order that arrives over several of them.
+static func option_row(
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks,
+	check: Dictionary, plain: String
+) -> Dictionary:
+	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
+	var price: String = cost_text(cost)
+	if action == LandPurchase.ACTION:
+		price = String(check.get("cost_text", LandPurchase.cost_text(model, tile)))
+	var row: Dictionary = {
+		"label": order_label(action, model, tile, plain),
+		"cost": cost,
+		"cost_text": price,
+	}
+	if action != "build_fort":
+		return row
+	var turns: int = duration_for(model, action, tile, works)
+	row["cost_text"] = "%s · %d turn%s" % [price, turns, "" if turns == 1 else "s"]
+	return row
+
+
 static func cost_level(
 	action: String, model: MapModel, tile: Vector2i, works: LandWorks
 ) -> int:

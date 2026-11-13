@@ -83,3 +83,16 @@ static func build() -> Theme:
 	theme.set_stylebox("panel", "Panel", panel_style)
 	_theme = theme
 	return theme
+
+
+## A themed progress bar: used by the battle plate for a side's line and its
+## strength. The background is the ink of a page, the fill the side's colour.
+static func progress(fill: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 14)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_theme_stylebox_override("background", box(Color(0.17, 0.14, 0.10), Palette.INK_LINE, 1, 3, Vector4(0, 0, 0, 0)))
+	bar.add_theme_stylebox_override("fill", box(fill, fill.lightened(0.25), 1, 3, Vector4(0, 0, 0, 0)))
+	return bar

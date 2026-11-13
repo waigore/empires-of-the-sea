@@ -108,7 +108,10 @@ static func assign_order(play: PlaySession, action: String, tile: Vector2i) -> b
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "")))
 		return false
-	play.hud.toast("%s begins: %s" % [unit.display_name(), CivilianWork.label(action)])
+	play.hud.toast("%s begins: %s" % [
+		unit.display_name(),
+		String(result.get("label", CivilianWork.label(action))),
+	])
 	refresh_panel(play)
 	return true
 
@@ -175,6 +178,15 @@ static func resolve_work(play: PlaySession) -> void:
 					play.model, play.selected_province,
 					MapPlayImprovements.crown_link(play, play.selected_province)
 				)
+			continue
+		if String(report["action"]) == "build_fort":
+			# A wall is the one work that changes how the province is fought
+			# over, so the despatch names the level it raised, not just the order
+			# (wiki: siege-mechanics § Fort Levels, § Emplaced Artillery).
+			play.hud.toast("%s%s in %s: %s" % [
+				_owner_label(play, int(report.get("owner", -1))), type_name, place,
+				FortRules.raise_text(int(report.get("fort_level", 0))),
+			])
 			continue
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
 		play.hud.toast("%s%s in %s: %s" % [
