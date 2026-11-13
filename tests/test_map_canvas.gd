@@ -157,6 +157,34 @@ func test_wash_paints_a_beach_and_a_shallow_band() -> void:
 	assert_gt(coast, 0.3, "inland ground sits well inside the shore")
 
 
+## A narrow gulf must read as water, not as a land-coloured wash. The shoal veil
+## follows the basin instead of a fixed width, so open water shows down the
+## middle and only a thin shelf clings to the shore (issue #456). The minimap
+## colours these tiles from terrain, so agreeing with it means the basin stays
+## water the model already called sea, with solid ground on its walls.
+func test_a_narrow_gulf_keeps_open_water_down_its_middle() -> void:
+	var model := _narrow_gulf()
+	var relief := MapRelief.new()
+	relief.build(model, MapWash.OWNER_TINT)
+	var centre: float = _painted_alpha(relief, Vector2i(11, 12))
+	assert_lt(centre, 0.02, "the gulf's middle is left to the sea backdrop")
+	# The shelf survives, just thin: it hugs the shore inside the gulf.
+	var shelf: float = _widest_alpha(relief, 12, 11, 12)
+	assert_gt(shelf, 0.10, "a thin shoal shelf still clings to the gulf's shore")
+	assert_lt(shelf, 0.45, "the shelf is a band, never a fill")
+	assert_true(model.is_sea(11, 12) and model.is_sea(12, 12))
+	assert_gt(_painted_alpha(relief, Vector2i(10, 12)), 0.9, "the walls stay solid land")
+
+
+## Open water keeps the chart's full shoal band: the veil narrows only where the
+## basin itself is narrow, so a coast does not lose its drawn shallows (#456).
+func test_open_water_keeps_the_full_shoal_band() -> void:
+	var relief := MapRelief.new()
+	relief.build(_open_coast(), MapWash.OWNER_TINT)
+	assert_gt(_painted_alpha(relief, Vector2i(12, 2)), 0.04, "the shelf is still drawn")
+	assert_lt(_painted_alpha(relief, Vector2i(12, 6)), 0.02, "deep water stays open")
+
+
 func test_animated_layers_exist() -> void:
 	var canvas: MapCanvas = _mounted()
 	var surf: MapSurf = canvas.get_node_or_null("Surf")
@@ -388,6 +416,63 @@ func test_a_full_cache_keeps_the_chart_in_use() -> void:
 	)
 	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "still bounded")
 	MapWash.clear_cache()
+
+
+## A narrow gulf cut into a solid landmass: two tiles wide and open to the sea
+## at the bottom, the basin the shoal veil used to flood from shore to shore.
+func _narrow_gulf() -> MapModel:
+	var model := MapModel.new()
+	model.setup(24, 20)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	for y in range(6, model.height):
+		for x in range(11, 13):
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.SHALLOW
+	return model
+
+
+## A straight coast with the whole sea below it, so a veil can be read at its
+## designed width away from any basin wall.
+func _open_coast() -> MapModel:
+	var model := MapModel.new()
+	model.setup(24, 20)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.PLAINS if y < 2 else MapModel.Terrain.OCEAN
+			)
+	return model
+
+
+## Mean paint alpha around a tile centre: the shoal veil's strength there.
+func _painted_alpha(relief: MapRelief, tile: Vector2i) -> float:
+	var image: Image = relief.color
+	var scale: int = relief.scale
+	var cx: int = tile.x * scale + scale / 2
+	var cy: int = tile.y * scale + scale / 2
+	var total: float = 0.0
+	var count: int = 0
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var x: int = clampi(cx + dx, 0, image.get_width() - 1)
+			var y: int = clampi(cy + dy, 0, image.get_height() - 1)
+			total += image.get_pixel(x, y).a
+			count += 1
+	return total / float(count)
+
+
+## Widest paint alpha over one bake row inside a tile span: a narrow basin's
+## shelf is only a texel or two wide, so a tile mean would read as open water.
+func _widest_alpha(relief: MapRelief, tile_y: int, x0: int, x1: int) -> float:
+	var image: Image = relief.color
+	var scale: int = relief.scale
+	var best: float = 0.0
+	for sy in scale:
+		var y: int = clampi(tile_y * scale + sy, 0, image.get_height() - 1)
+		for x in range(x0 * scale, (x1 + 1) * scale):
+			best = maxf(best, image.get_pixel(clampi(x, 0, image.get_width() - 1), y).a)
+	return best
 
 
 ## A tiny chart for cache cases: two coastal provinces on an eight by six grid,
