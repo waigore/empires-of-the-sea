@@ -96,6 +96,7 @@ static func _readings(
 		"idle_hulls": _idle_hulls(play, faction),
 		"explorer_ready": _explorer_ready(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
+		"voyage_abroad": _voyage_abroad(play, faction),
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
@@ -296,6 +297,28 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 		for raw: Variant in play.ship_layer.regions.value(region, []):
 			var fleet: FleetState = raw
 			if fleet != null and fleet.owner == faction and fleet.carries_civilians():
+				return true
+	return false
+
+
+## True while a colonist of this court already stands on the far shore (its
+## landing is the voyage's own progress, not a missing Explorer): the child that
+## musters a new one is not blocked, and the parent prices the voyage instead
+## (#497). A court with a civilian in the other region has nothing left to
+## muster either — `MapPlayCivilianAi._muster_port` holds the gate shut until
+## that colonist leaves or works.
+static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for region: int in play.civilian_layer.regions.region_ids():
+		if region == home:
+			continue
+		for raw: Variant in play.civilian_layer.regions.value(region, []):
+			var unit: CivilianState = raw
+			if unit != null and unit.owner == faction:
 				return true
 	return false
 
