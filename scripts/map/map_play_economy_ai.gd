@@ -25,6 +25,8 @@ static func run(play: PlaySession) -> Dictionary:
 	for faction: int in factions:
 		if faction == play.player_faction and not play.observer_mode:
 			continue
+		if not AiControl.plans(play, faction):
+			continue
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		MapPlayCivilianAi.seed(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)

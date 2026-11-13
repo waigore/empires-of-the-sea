@@ -28,6 +28,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# assignment; docs/ai-observer.md).
 			if faction == play.player_faction and not play.observer_mode:
 				continue
+			if not AiControl.plans(play, faction):
+				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15).

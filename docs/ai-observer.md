@@ -16,44 +16,42 @@ auto-resolve, and the campaign may run past the 1800 cap (DR-20261108-05).
 
 ```bash
 godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
-  --turns=60 --seed=1500 --size=1 --runs=1
+  --turns=60 --seed=1500 --size=1 --runs=1 --ai=full
 ```
 
 Options: `--turns`, `--seed`, `--size` (0 Small / 1 Standard / 2 Large),
 `--runs` (seeds `seed+i`), `--historical` (stop at the calendar cap),
-`--out=DIR` (default `user://ai_vs_ai`).
+`--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH live crown;
+default setup faction), `--out=DIR` (default `user://ai_vs_ai`).
+
+## Planner modes (`AiControl`)
+
+| Mode | Behaviour |
+|------|-----------|
+| `full` | Every Great Power runs the shared planners (default) |
+| `noop` | Every Great Power issues no planner orders (inert control) |
+| `bench` | Only the live crown plans; other GPs are no-op controls |
+
+Use `bench` for quantitative win-seeking checks (live AI vs idle rivals).
 
 ## Metrics
 
 Every crown — the former human slot included — is driven by the shared
-planners (`AiTurn`, `AiMilitaryPlanner`, `AiNavalPlanner`, `AiEconomyPlanner`,
-`AiCivilianPlanner`). `MapPlayObserver.snapshot` reports per crown:
-
-- leader, agenda and profile
-- war footing: `at war` (a Great Power war), `overstretched` (two or more) or
-  `at peace` (`AiPhasePlanner`, DR-20261113-15)
-- Old/New World provinces and progress toward the 31-province victory, plus rank
-- public power score, regiments, ships, civilians
-- treasury, stockpile, workers, researched techs
-- wars and alliances, alive/fallen
-- last turn's order mix and events
-
-The dashboard also shows a recent-orders feed, pause / step / speed controls and
-the campaign result. `play.ai_turns` keeps one merged record per resolved turn
+planners when `ai_plans` allows (`AiTurn`, `AiMilitaryPlanner`,
+`AiNavalPlanner`, `AiEconomyPlanner`, `AiCivilianPlanner`).
+`MapPlayObserver.snapshot` reports per crown: leader, agenda, profile, whether
+it plans, war footing, provinces / victory progress, power, forces, ledger,
+wars, last-turn order mix. Dashboard: recent-orders feed, pause / step /
+speed, campaign result. `play.ai_turns` keeps one merged record per turn
 (wiki: turn-trace-interpretation).
 
 ## Export
 
-`tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` (one snapshot per turn) and
-`run_NN_summary.json` (final standing, resolved turns) and prints a win-rate /
-average-provinces table across runs.
+`tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
+(includes `ai_mode` / `ai_live`) and prints a win-rate / average-provinces
+table across runs.
 
 ## Scope
 
-Rival fog and colonisation planners are live (`CourtCharts`,
-`AiColonisationPlanner`): each crown's Explorer crosses a Passage and charts the
-New World. No court settles or conquers there — an overseas invasion wants a
-border free of war — so no riches reach a treasury and the Old World stays a
-subsistence economy. Live campaigns are bounded by military victory; the
-observer's endless mode is the allowed exception.
-Ranked gaps: [`deferred.md`](deferred.md).
+Rival fog and colonisation planners are live under `full`/`bench` live crowns
+(`CourtCharts`, `AiColonisationPlanner`). Ranked gaps: [`deferred.md`](deferred.md).

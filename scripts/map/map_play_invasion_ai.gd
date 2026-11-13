@@ -26,6 +26,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		for faction: int in FactionCatalog.great_power_ids():
 			if faction == play.player_faction and not play.observer_mode:
 				continue
+			if not AiControl.plans(play, faction):
+				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			touched = _split(play, model, fleets, armies, faction, config, trace) or touched
 			var order: Dictionary = AiInvasionPlanner.plan(
