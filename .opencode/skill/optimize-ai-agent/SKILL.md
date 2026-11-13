@@ -14,7 +14,7 @@ description: |-
     - no target → 200-turn headless ai_vs_ai, judge, file gaps, fix
       competitiveness if failed, PR if fixed, stop
     - "AI under-uses navy" → focus naval planner evidence from a full run
-    - "bench vs no-op" → control comparison first; fix if progress fails
+    - "bench vs no-op" → --ai=bench first; fix if progress fails
 ---
 
 # Optimize AI agent (facade)

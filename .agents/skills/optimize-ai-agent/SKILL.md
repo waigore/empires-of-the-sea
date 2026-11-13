@@ -14,7 +14,7 @@ description: |-
     - no target → 200-turn headless ai_vs_ai, judge, file gaps, fix
       competitiveness if failed, PR if fixed, stop
     - "AI under-uses navy" → focus naval planner evidence from a full run
-    - "bench vs no-op" → control comparison first; fix if progress fails
+    - "bench vs no-op" → --ai=bench first; fix if progress fails
 ---
 
 # Optimize AI agent
@@ -82,25 +82,26 @@ Prefer headless full-AI:
 
 ```bash
 godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
-  --turns=200 --seed=1500 --size=1 --runs=1 \
+  --turns=200 --seed=1500 --size=1 --runs=1 --ai=full \
   --out=/tmp/eots-ai-vs-ai-$$
 ```
 
 Defaults: **200** resolved turns (or earlier campaign conclusion), Standard
-map, seed 1500 unless the user cites otherwise. Run **through to conclusion**
-(victory / halt / turn cap) — do not stop at a mid-campaign sample unless a
-blocker forces it.
+map, seed 1500, `--ai=full` unless the user cites otherwise. Run **through to
+conclusion** (victory / halt / turn cap) — do not stop at a mid-campaign sample
+unless a blocker forces it.
 
 Live AI Observer is fine when judgement needs the dashboard. Prefer reuse of
 `tools/ai_vs_ai.gd` / `MapPlayObserver` over new runners.
 
 ### 3. Observe + optional probes
 
-Use judgement: JSONL/summary, live observer, targeted headless probes, or
-small **tool extensions** that stay performant. A **no-op control** bench is
-required for the quantitative criterion when competitiveness is in doubt or
-when closing a competitiveness fix — extend harnesses minimally and reuse
-existing patterns ([`references/playbook.md`](references/playbook.md)).
+Use judgement: JSONL/summary, live observer, or targeted headless probes.
+For the quantitative bar use **`--ai=bench`** (optional `--live=ID`); use
+`--ai=noop` only as a sanity baseline — see
+[`references/playbook.md`](references/playbook.md) and
+[`docs/ai-observer.md`](../../../docs/ai-observer.md). Do not reinvent a
+no-op harness when these flags exist.
 
 Record evidence: seed, size, turns, crowns, order mix, provinces/power/
 victory progress, and where planners misfired.

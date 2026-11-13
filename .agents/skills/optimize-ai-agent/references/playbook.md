@@ -5,7 +5,7 @@
 ```bash
 OUT=/tmp/eots-ai-vs-ai-$$
 godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
-  --turns=200 --seed=1500 --size=1 --runs=1 --out="$OUT"
+  --turns=200 --seed=1500 --size=1 --runs=1 --ai=full --out="$OUT"
 ```
 
 Reads: `$OUT/run_00_turns.jsonl`, `$OUT/run_00_summary.json`, console win-rate
@@ -13,6 +13,23 @@ table. Docs: [`docs/ai-observer.md`](../../../../docs/ai-observer.md).
 
 Fresh clones need editor `.godot/` / import cache — prefer `tools/run.sh`
 patterns when bare `godot --path .` fails on globals.
+
+## Planner modes (`AiControl`)
+
+| Flag | Use |
+|------|-----|
+| `--ai=full` | All crowns plan (default observation) |
+| `--ai=noop` | All crowns inert (sanity / baseline) |
+| `--ai=bench` | Live crown plans; others no-op (`--live=ID` optional) |
+
+```bash
+# Quantitative win-seeking bar: one live AI vs no-op rivals
+godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
+  --turns=200 --seed=1500 --ai=bench --out="$OUT"
+```
+
+Snapshots expose `ai_mode`, `ai_live`, and per-crown `plans`. Prefer these
+flags over inventing a throwaway probe.
 
 ## What to look for
 
@@ -23,32 +40,29 @@ From snapshots / order mix / wars:
 - Self-sabotage (overstretch, empty treasury, ignored victory path)
 - One crown dominating only via bug vs others never fighting for 31 provinces
 - Order spam that never converts into power / provinces
+- Under `bench`: live crown fails to pull ahead of inert controls
 
 Cite wiki AI + `docs/ai.md` for intended behavior.
 
 ## No-op control (quantitative bar)
 
-Goal: **live AI vs control no-op** — no-op crowns issue no (or inert) planner
-orders; live AI should show **substantial** progress (provinces, power, or
-victory progress) by conclusion or a documented mid-run checkpoint.
-
-Prefer extending `tools/ai_vs_ai.gd` / observer hooks with a small, performant
-flag or sibling script over one-off untracked dumps. If a throwaway probe is
-faster for one run, keep it local, capture metrics into the issue/PR, then
-**delete** it in cleanup unless it ships inside the competitiveness fix PR.
-
-Match seed/size when comparing full-AI vs control benches.
+Required when judging competitiveness or closing a competitiveness fix: run
+`--ai=bench` (same seed/size as a `full` run when comparing). Live AI must show
+**substantial** progress (provinces, power, or victory progress) vs idle
+rivals by conclusion or a documented checkpoint. `--ai=noop` is optional
+sanity that nobody moves.
 
 ## Optional live observe
 
 Title → `AI OBSERVER (DEBUG)` when JSONL is ambiguous. Do not require live
-play for every run.
+play for every run. Live dashboard stays `full` unless the session’s
+`play.ai_mode` is set the same way as the headless tool.
 
 ## Tool extensions
 
-Allowed: minimal harness flags, richer snapshots, no-op mode — keep runs fast
-enough for a 200-turn campaign. Exclude throwaway harnesses from coverage
-plans the same way `tools/ai_vs_ai.gd` does (`# gd-tools: no cover`).
+Prefer existing `--ai=` / `--live=` / snapshot fields. Further harness work
+only if those are insufficient — keep runs fast for a 200-turn campaign;
+exclude throwaways from coverage (`# gd-tools: no cover`).
 
 ## Cleanup
 
