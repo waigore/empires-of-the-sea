@@ -229,7 +229,7 @@ func test_split_moves_only_the_chosen_instances() -> void:
 	var armies: Array[ArmyState] = [army]
 	var ids: Array[String] = ["unit_102"]
 
-	var result: Dictionary = ArmyState.split(armies, army, ids, 2)
+	var result: Dictionary = ArmyRoster.split(armies, army, ids, 2)
 
 	assert_true(bool(result["ok"]))
 	assert_eq(armies.size(), 2)
@@ -248,9 +248,9 @@ func test_split_rejects_unknown_or_empty_selections() -> void:
 	var army := Fixture.army(1, 0, 0, ["pikemen"], true)
 	var armies: Array[ArmyState] = [army]
 	var none: Array[String] = []
-	assert_false(bool(ArmyState.split(armies, army, none, 2)["ok"]))
+	assert_false(bool(ArmyRoster.split(armies, army, none, 2)["ok"]))
 	var foreign: Array[String] = ["unit_999"]
-	assert_false(bool(ArmyState.split(armies, army, foreign, 2)["ok"]))
+	assert_false(bool(ArmyRoster.split(armies, army, foreign, 2)["ok"]))
 	assert_eq(army.count(), 1)
 
 
@@ -261,8 +261,8 @@ func test_emptying_a_field_army_removes_it_but_the_home_army_persists() -> void:
 	var home_ids: Array[String] = ["unit_101"]
 	var field_ids: Array[String] = ["unit_201"]
 
-	ArmyState.split(armies, field, field_ids, 3)
-	ArmyState.split(armies, home, home_ids, 4)
+	ArmyRoster.split(armies, field, field_ids, 3)
+	ArmyRoster.split(armies, home, home_ids, 4)
 
 	assert_false(armies.has(field))
 	assert_true(armies.has(home))
@@ -275,7 +275,7 @@ func test_combine_uses_the_home_army_as_the_target() -> void:
 	var armies: Array[ArmyState] = [field, home]
 	var selected: Array[ArmyState] = [field, home]
 
-	var result: Dictionary = ArmyState.combine(armies, selected)
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
 
 	assert_true(bool(result["ok"]))
 	assert_eq(armies.size(), 1)
@@ -291,7 +291,7 @@ func test_combine_keeps_the_first_army_when_no_home_army_is_present() -> void:
 	var armies: Array[ArmyState] = [first, second]
 	var selected: Array[ArmyState] = [first, second]
 
-	var result: Dictionary = ArmyState.combine(armies, selected)
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
 
 	assert_true(bool(result["ok"]))
 	assert_eq(result["army"], first)
@@ -305,7 +305,7 @@ func test_combine_rejects_armies_in_different_provinces() -> void:
 	var armies: Array[ArmyState] = [here, there]
 	var selected: Array[ArmyState] = [here, there]
 
-	var result: Dictionary = ArmyState.combine(armies, selected)
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
 
 	assert_false(bool(result["ok"]))
 	assert_eq(armies.size(), 2)
@@ -317,7 +317,7 @@ func test_combine_requires_two_armies() -> void:
 	var army := Fixture.army(1, 0, 0, ["pikemen"])
 	var armies: Array[ArmyState] = [army]
 	var selected: Array[ArmyState] = [army]
-	assert_false(bool(ArmyState.combine(armies, selected)["ok"]))
+	assert_false(bool(ArmyRoster.combine(armies, selected)["ok"]))
 
 
 ## Split/combine is a land order: the wiki scopes it to armies that share a
@@ -331,7 +331,7 @@ func test_split_refuses_an_army_aboard_a_squadron() -> void:
 	var armies: Array[ArmyState] = [army]
 	var ids: Array[String] = ["unit_101"]
 
-	var result: Dictionary = ArmyState.split(armies, army, ids, 2)
+	var result: Dictionary = ArmyRoster.split(armies, army, ids, 2)
 
 	assert_false(bool(result["ok"]), "troops aboard cannot detach mid-voyage")
 	assert_eq(armies.size(), 1)
@@ -350,7 +350,7 @@ func test_combine_refuses_armies_aboard_a_squadron() -> void:
 	var armies: Array[ArmyState] = [first, second]
 	var selected: Array[ArmyState] = [first, second]
 
-	var result: Dictionary = ArmyState.combine(armies, selected)
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
 
 	assert_false(bool(result["ok"]), "two squadrons cannot pool their troops")
 	assert_eq(armies.size(), 2)
@@ -365,7 +365,7 @@ func test_prune_drops_empty_field_armies_only() -> void:
 	var home := Fixture.army(1, 0, 0, none, true)
 	var field := Fixture.army(2, 0, 1, none)
 	var armies: Array[ArmyState] = [home, field]
-	ArmyState.prune(armies)
+	ArmyRoster.prune(armies)
 	assert_eq(armies.size(), 1)
 	assert_true(armies.has(home))
 
@@ -390,7 +390,7 @@ func test_a_joined_empire_regiments_are_handed_over_in_place() -> void:
 	var field := Fixture.army(2, 6, 2, ["squires"])
 	var armies: Array[ArmyState] = [home, field]
 
-	ArmyState.hand_over(armies, 6, 4)
+	ArmyRoster.hand_over(armies, 6, 4)
 
 	assert_eq(armies.size(), 2, "an absorption retires nobody")
 	assert_eq(home.owner, 4)
@@ -404,7 +404,7 @@ func test_a_terminal_fall_retires_the_crowns_armies() -> void:
 	var keep := Fixture.army(2, 4, 2, ["squires"], true)
 	var armies: Array[ArmyState] = [die, keep]
 
-	ArmyState.hand_over(armies, 6, MapModel.NO_ID)
+	ArmyRoster.hand_over(armies, 6, MapModel.NO_ID)
 
 	assert_eq(armies, [keep] as Array[ArmyState], "only the fallen crown's armies leave")
 	assert_eq(keep.owner, 4, "the survivor's colours are untouched")
@@ -1643,14 +1643,14 @@ func test_split_and_combine_carry_condition() -> void:
 	army.regiment_medals[pikes] = 3
 	var armies: Array[ArmyState] = [army]
 
-	var split: Dictionary = ArmyState.split(armies, army, [pikes], 9)
+	var split: Dictionary = ArmyRoster.split(armies, army, [pikes], 9)
 	assert_true(bool(split["ok"]))
 	var field: ArmyState = split["army"] as ArmyState
 	assert_eq(int(field.condition_of(pikes)["hp"]), 40, "the wounded stay wounded")
 	assert_eq(int(field.condition_of(pikes)["medals"]), 3, "the chevrons travel")
 
 	var selected: Array[ArmyState] = [army, field]
-	var merged: Dictionary = ArmyState.combine(armies, selected)
+	var merged: Dictionary = ArmyRoster.combine(armies, selected)
 	assert_true(bool(merged["ok"]))
 	var home: ArmyState = merged["army"] as ArmyState
 	assert_eq(int(home.condition_of(pikes)["hp"]), 40)
