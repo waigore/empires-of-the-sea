@@ -1169,7 +1169,8 @@ domain = "prospect"
 [domains.ai_ledger]
 suites = [
   "test_ai_objective_rules.gd",
-  "test_ai_phase_rules.gd"
+  "test_ai_phase_rules.gd",
+  "test_ai_observer.gd"
 ]
 
 [[rules]]
