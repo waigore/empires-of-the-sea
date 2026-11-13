@@ -94,11 +94,10 @@ static func decide(
 	var best_peace: Dictionary = {}
 	var best_offer: Dictionary = {}
 	var player: int = int(context.get("player", -1))
-	var base: int = config.parameter("diplomacy.war_desire_base")
 	# An agenda moves the bar a war must fall below before the court puts peace
 	# to its enemy (wiki: hidden-agendas — peacemaker early peace, warmonger
 	# keeps the war alive; DR-20261111-27).
-	var peace_bar: int = clampi(base + config.peace_bias(), 0, 100)
+	var bar: int = AiPeaceStance.peace_bar(config)
 	for record: DiplomacyRelation in state.relations_of(config.faction):
 		var target: int = record.other(config.faction)
 		var desire: Dictionary = war_desire(
@@ -113,7 +112,7 @@ static func decide(
 			"blocked": "",
 		}
 		if record.at_war:
-			if int(desire["score"]) >= peace_bar:
+			if int(desire["score"]) >= bar:
 				entry["blocked"] = "war still worth waging"
 			elif target == player:
 				# The human keeps consent: a rival queues the offer and waits
@@ -123,11 +122,17 @@ static func decide(
 					entry["propose"] = true
 					if best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
 						best_peace = entry
-			elif best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"]):
+			else:
 				# A fellow court signs at once. The 4-turn war cooldown gates a
 				# new Declare War on the pair, never the peace leg (wiki:
-				# diplomacy § Cooldowns; DR-20261108-01).
-				best_peace = entry
+				# diplomacy § Cooldowns; DR-20261108-01), but the pair's
+				# peace-offer cooldown still keeps a refused offer from being
+				# repeated every turn (wiki: diplomacy § Planner selection).
+				entry["blocked"] = _peace_cooldown(config, ai_state, turn, target)
+				if String(entry["blocked"]).is_empty() and (
+					best_peace.is_empty() or int(entry["desire"]) < int(best_peace["desire"])
+				):
+					best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
 				config, state, ai_state, turn, target, record, int(desire["score"])
@@ -344,12 +349,23 @@ static func _peace_block(
 ) -> String:
 	if DiplomacyProposals.has_pending(state, target):
 		return "the court is already considering a proposal"
-	var cooldown: int = config.parameter("diplomacy.peace_cooldown_turns")
-	if ai_state.peace_on_cooldown(config.faction, target, turn, cooldown):
-		return "peace cooldown"
+	var cooling: String = _peace_cooldown(config, ai_state, turn, target)
+	if not cooling.is_empty():
+		return cooling
 	var check: Dictionary = DiplomacyRules.can_make_peace(state, config.faction, target)
 	if not bool(check.get("ok", false)):
 		return String(check.get("reason", "illegal"))
+	return ""
+
+
+## The pair's peace-offer cooldown: either answer starts it, so a court does not
+## ask again every turn (wiki: diplomacy § Planner selection; DR-20261109-07).
+static func _peace_cooldown(
+	config: AiConfig, ai_state: AiState, turn: int, target: int
+) -> String:
+	var cooldown: int = config.parameter("diplomacy.peace_cooldown_turns")
+	if ai_state.peace_on_cooldown(config.faction, target, turn, cooldown):
+		return "peace cooldown"
 	return ""
 
 
