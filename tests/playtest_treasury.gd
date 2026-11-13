@@ -372,9 +372,7 @@ func _body_labels(tab: String) -> Array[String]:
 func _market_rows() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var ids: Array[String] = []
-	for category: Variant in LedgerMarket.CATEGORIES:
-		for id: String in CommodityCatalog.ids_in(category):
-			ids.append(id)
+	ids.append_array(CommodityCatalog.tradeable_ids())
 	var rows: Array[Node] = _market_row_nodes()
 	for index in mini(ids.size(), rows.size()):
 		var row: Node = rows[index]

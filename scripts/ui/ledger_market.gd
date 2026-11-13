@@ -9,11 +9,6 @@ signal offer_requested(offer_id: String, quantity: int)
 signal cancel_requested(order_id: String)
 
 const ROW_HEIGHT: float = 38.0
-const CATEGORIES: Array = [
-	CommodityCatalog.Category.FOOD,
-	CommodityCatalog.Category.RAW,
-	CommodityCatalog.Category.MANUFACTURED,
-]
 const OFFER_HEADER: String = "MINOR NATIONS & TRIBES"
 
 var _economy: PlayerEconomy = null
@@ -58,9 +53,9 @@ func fill(
 	header.add_child(UiRowBuilder.caption("HAVE", 10, Palette.TEXT_DIM, 44.0))
 	header.add_child(UiRowBuilder.caption("PRICE", 10, Palette.TEXT_DIM, 44.0))
 	add_child(header)
-	for category: Variant in CATEGORIES:
-		for id: String in CommodityCatalog.ids_in(category):
-			add_child(_market_row(id, economy.quantity(id), claimed_by_production(economy, id)))
+	# Every good the auction clears, spices included (REQ-P2-03).
+	for id: String in CommodityCatalog.tradeable_ids():
+		add_child(_market_row(id, economy.quantity(id), claimed_by_production(economy, id)))
 	UiRowBuilder.spacer(self)
 
 

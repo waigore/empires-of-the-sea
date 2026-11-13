@@ -662,19 +662,38 @@ func test_the_offer_chip_names_what_production_claims() -> void:
 	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
 
 
+## The MARKET tab publishes a row for every good the auction clears: spices is
+## advanced, not a rich, so a crown that grows it is never left holding dead
+## stock (wiki: world-market § Tradeable commodities — "Spices trades";
+## DR-20261110-09; REQ-P2-03).
+func test_the_market_tab_publishes_every_tradeable_good() -> void:
+	var tradeable: Array[String] = CommodityCatalog.tradeable_ids()
+	assert_eq(tradeable.size(), 23, "2 food + 11 raw + 9 manufactured + spices")
+	assert_true(tradeable.has("spices"), "the advanced good trades like any other")
+	var body: Node = _market_page()
+	for id: String in tradeable:
+		assert_not_null(
+			_market_row_for(body, CommodityCatalog.label(id)),
+			"the market row for %s reaches the screen" % id
+		)
+	assert_null(
+		_market_row_for(body, CommodityCatalog.label("gold")),
+		"a rich never gets a trade row"
+	)
+
+
 ## Every MARKET row shows its good's own medallion: grain, wool and timber used
 ## to share one generic pictogram (REQ-P1-02; tools/art/goods-medallions.md).
 func test_every_market_row_carries_its_medallion() -> void:
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
-	for category: Variant in LedgerMarket.CATEGORIES:
-		for id: String in CommodityCatalog.ids_in(category):
-			assert_eq(
-				_medallion_of(body, CommodityCatalog.label(id)),
-				CommodityIcons.texture(id),
-				"the market row for %s draws its own plate" % id
-			)
+	for id: String in CommodityCatalog.tradeable_ids():
+		assert_eq(
+			_medallion_of(body, CommodityCatalog.label(id)),
+			CommodityIcons.texture(id),
+			"the market row for %s draws its own plate" % id
+		)
 
 
 ## The PRODUCTION tab names each recipe's output; that good's medallion rides
@@ -753,6 +772,22 @@ func _medallion_of(body: Node, text: String) -> Texture2D:
 		for sibling: Node in label.get_parent().get_children():
 			if sibling is TextureRect:
 				return (sibling as TextureRect).texture
+	return null
+
+
+## The MARKET row drawn for one good: a commodity row carries the good's own
+## name cell and the Offer chip (LedgerMarket._market_row).
+func _market_row_for(node: Node, name: String) -> Node:
+	for child: Node in node.get_children():
+		if not (child is HBoxContainer):
+			continue
+		var chips: Array[Button] = []
+		_collect_offer_chips(child, chips)
+		if chips.is_empty():
+			continue
+		var label: Label = _find_label(child, name)
+		if label != null and label.text == name:
+			return child
 	return null
 
 

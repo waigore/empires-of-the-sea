@@ -162,6 +162,16 @@ static func is_tradeable(id: String) -> bool:
 	return known(id) and not is_riches(id)
 
 
+## Every good the auction clears, in catalog order — the one list the ledger's
+## MARKET rows, the price book, the validator and the AI read (REQ-P2-03).
+static func tradeable_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for id: String in all_ids():
+		if is_tradeable(id):
+			ids.append(id)
+	return ids
+
+
 ## Integer catalog price: raw rows, manufactured break-even rows and riches base.
 static func base_price(id: String) -> int:
 	if RAW_PRICES.has(id):
