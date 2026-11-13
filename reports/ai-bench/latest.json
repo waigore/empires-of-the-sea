@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:776e27e537dae2d56e6276c7d0aeda9ddce5f690b53e1157d32c6bcf17f6c830",
-  "submission_git": "orc/resolve-issue-agent-1/20261113T215347195412Z@196d174",
+  "submission_hash": "sha256:f6376bd7bfb5c73ab7fc70de8ae128c948debcc185681e9816303c2d2f48a8cc",
+  "submission_git": "babysit-550@e855931",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9ecd0233b23fe9e21720986e610f0ab54653ac35ba088e09e946ce0d76b530d4",
+    "ai_surface_hash": "sha256:74c6e2beee100307aee61921467cc5ff0237fe0a514635cc0777e1c02580ebec",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T23:06:20Z",
+  "timestamp": "2026-11-13T23:09:28Z",
   "report_version": 1,
-  "signature": "hmac-sha256:f0233e88b23a09c432f0d58fb28adfc6bb9573d492f5b8b52268a9153a606218"
+  "signature": "hmac-sha256:dce7aea986850a186a8988a88d6eeb1e5ef194b8f01aa7c5f5b2194b5182c2ae"
 }
