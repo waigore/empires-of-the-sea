@@ -8,8 +8,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   `AiPersonality`, `AiAgenda`): three profiles, seven archetypes, six agendas.
 - **Money goal** (`AiIncome`): at war the reserve is the muster under
   `army.regiment_target` (+`army.war_extra`), at peace `economy.min_treasury`;
-  on `earn` research and the auction keep it back, but a Passage voyage may
-  open (DR-20261113-19/22).
+  on `earn` the auction keeps it back, a Passage voyage may open
+  (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
@@ -38,8 +38,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then down to what the purse carries after its floor —
-  at war, its muster.
+  (DR-20261111-27), then down to the purse above the cash floor (not the
+  muster reserve), keeping one standing study at Low (DR-20261113-24).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):

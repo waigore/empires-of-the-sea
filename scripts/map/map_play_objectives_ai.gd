@@ -60,8 +60,19 @@ static func _readings(
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
-	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
+	var funding: String = AiResearchPlanner.funding_for(
+		config, economy, AiResearchPlanner.research_floor(config)
+	)
+	var standing: String = AiResearchPlanner.standing_funding(config, economy)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
+	# The standing study is one slot at the cheapest preset, priced beside the
+	# surplus preset so the ledger reads what the court will actually pay
+	# (issue #490). It never lifts the index above the surplus preset.
+	var funding_index: int = ResearchFunding.ORDER.find(funding)
+	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
+	if not standing.is_empty():
+		research_cost += ResearchFunding.gold(standing)
+		funding_index = maxi(funding_index, ResearchFunding.ORDER.find(standing))
 	return {
 		"posture": String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN)),
 		"at_war": at_war,
@@ -81,8 +92,8 @@ static func _readings(
 		"idle_hulls": _idle_hulls(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
 		"research_slots": slots,
-		"research_funding": ResearchFunding.ORDER.find(funding),
-		"research_cost": ResearchFunding.gold(funding) * maxi(slots, 0),
+		"research_funding": funding_index,
+		"research_cost": research_cost,
 	}
 
 

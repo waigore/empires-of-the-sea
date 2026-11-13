@@ -1,11 +1,12 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-22 (`REQ-P2-02`).
+Audited through DR-20261113-24 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
+| War-time research | `AiResearchPlanner.research_floor`, DR-20261113-24 |
 | Difficulty (stores, field, sea, bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
 | Agenda hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
@@ -58,7 +59,7 @@ Re-audit; no ranked gap.
 - Alternative victory types — [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of scope.
 - Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config).
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
-- General borrowing / loans — Money Lending floor live.
+- Borrowing / loans — Money Lending floor live.
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
 - Recipe gates, rows beyond steel/bronze, queue cap — wiki-deferred.
 - Phase soft priority, extra domain gating, victory pressure — seed
