@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from hills import run_evaluator
 
 import eval as hill_eval
@@ -27,6 +29,41 @@ def test_weak_fixture_scores_lower_than_baseline():
     weak = run_evaluator(HILL, EXAMPLES / "weak")
     assert weak["passed"]
     assert weak["metrics"][0]["value"] < base["metrics"][0]["value"]
+
+
+def test_funded_share_reads_the_ledger_trace(tmp_path):
+    """The funded-objective metric (issue #491 T6): mean funded/ranked per turn."""
+    import json
+
+    turns = tmp_path / "turns.jsonl"
+    turns.write_text(
+        "\n".join(
+            json.dumps(
+                {
+                    "turn": turn,
+                    "rows": [
+                        {"faction": 0, "last": {"objectives": {"ranked": 4, "funded": f}}},
+                        {"faction": 1, "last": {}},
+                    ],
+                }
+            )
+            for turn, f in ((1, 2), (2, 4), (3, 3))
+        )
+    )
+    assert hill_eval._funded_share(turns, 0) == pytest.approx(75.0)
+
+
+def test_funded_share_skips_a_turn_with_no_ledger(tmp_path):
+    import json
+
+    turns = tmp_path / "turns.jsonl"
+    turns.write_text(
+        json.dumps({"turn": 1, "rows": [{"faction": 0, "last": {"objectives": {"ranked": 0}}}]})
+        + "\n"
+        + json.dumps({"turn": 2, "rows": [{"faction": 0, "last": {"objectives": {"ranked": 2, "funded": 1}}}]})
+    )
+    assert hill_eval._funded_share(turns, 0) == pytest.approx(50.0)
+    assert hill_eval._funded_share(tmp_path / "absent.jsonl", 0) == 0.0
 
 
 def test_missing_project_rejected(tmp_path):
