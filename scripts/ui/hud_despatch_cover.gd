@@ -13,7 +13,20 @@ extends RefCounted
 static func refresh(hud: GameHud) -> void:
 	if hud == null or hud.despatches == null:
 		return
-	hud.despatches.set_covered(hud.is_quick_battle_shown() or sheet_open(hud))
+	hud.despatches.set_covered(covered(hud))
+
+
+## True when a plate or a phone sheet holds the lane.
+static func covered(hud: GameHud) -> bool:
+	return battle_shown(hud) or sheet_open(hud)
+
+
+## A battle plate covers the court: the land Quick Battle plate or the sea's
+## despatch (both are the turn's plates, held and released by BattlePlates).
+static func battle_shown(hud: GameHud) -> bool:
+	if hud.is_quick_battle_shown():
+		return true
+	return hud.plates != null and hud.plates.is_sea_shown()
 
 
 ## True when a phone sheet covers the map area the lane would print in.

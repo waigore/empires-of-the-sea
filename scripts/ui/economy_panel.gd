@@ -197,7 +197,9 @@ func refresh(
 		return
 	_summary.text = LedgerText.summary(economy, report)
 	_preview.text = LedgerText.preview(report)
-	_production.fill(economy)
+	# The stockpile tab reads its holdings and its steppers' ceiling from the
+	# same projection the header promises (REQ-P2-03).
+	_production.fill(economy, report)
 	_market_page.fill(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary
 	)

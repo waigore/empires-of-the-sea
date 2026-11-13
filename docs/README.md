@@ -25,6 +25,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [ai-observer.md](ai-observer.md) | Full-AI observer: live dashboard, metrics, headless export |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
+| [naval-despatch.md](naval-despatch.md) | The sea's despatch plate: a resolved battle told on the water |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
 | [field-hospital.md](field-hospital.md) | A train's tents: pitching, rest tempo, rations, travel |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |

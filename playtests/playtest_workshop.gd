@@ -43,6 +43,7 @@ func _run() -> void:
 		_play.economy.economy.quantity("steel"),
 	])
 	await _idle_pass()
+	await _stockpile_pass()
 	await _start_pass()
 	await _landing_pass()
 	await _one_turn_pass()
@@ -83,6 +84,42 @@ func _idle_pass() -> void:
 	)
 
 
+## The stockpile itself, as the tab now reads it: holdings grouped by category,
+## the phase's promise beside each one, and a manufacture row that stops at the
+## ceiling labour and inputs leave (issue #453; wiki: commodity-catalog
+## § Categories; stockpiles-and-production § Production flow).
+func _stockpile_pass() -> void:
+	_say("")
+	_say("--- the stockpile: holdings, the phase's promise, the ceiling ---")
+	_play.economy.open_panel()
+	await process_frame
+	var labels: PackedStringArray = PackedStringArray()
+	SaveDrive.collect_text(_stockpile(), "", labels)
+	for title: String in ["FOOD", "RAW MATERIALS", "MANUFACTURED", "RICHES"]:
+		_check("the page groups %s" % title, labels.has(title))
+	for id: String in ["grain", "timber", "wool", "gold"]:
+		var holding: Dictionary = _holding(id)
+		_say("%s: have %s, next %s" % [
+			CommodityCatalog.label(id), String(holding["have"]), String(holding["next"]),
+		])
+		_check(
+			"the %s row reads the store" % id,
+			String(holding["have"]) == str(_play.economy.economy.quantity(id))
+		)
+	for widgets: Dictionary in _stockpile().recipe_rows().values():
+		var stepper: int = int((widgets["stepper"] as Label).text)
+		var allowance: int = int(widgets["allowance"])
+		var inert: bool = (widgets["plus"] as Button).disabled
+		_say("%s: set %d of a ceiling of %d (%s)" % [
+			String((widgets["title"] as Label).text), stepper, allowance,
+			(widgets["plus"] as Button).tooltip_text,
+		])
+		_check(
+			"the %s row never offers past its ceiling" % String((widgets["title"] as Label).text),
+			stepper <= allowance and inert == (stepper >= allowance)
+		)
+
+
 ## Three steel ordered from the row's own "+": the promise names the inputs this
 ## phase pays and lands no steel, and the close pays them exactly once.
 func _start_pass() -> void:
@@ -97,8 +134,13 @@ func _start_pass() -> void:
 		String(steel["stepper"]), _play.economy.economy.production.assignment_units("steel"),
 	])
 	_check("the stepper takes the order", String(steel["stepper"]) == "3")
-	_check("the promise pays iron this phase", promise.contains("Iron -3"))
-	_check("the promise pays coal this phase", promise.contains("Coal -3"))
+	# The promise nets this phase's harvest, so the drive reads the same table:
+	# a mine that yields a ton of the input this turn offsets a run's price.
+	var gathered: Dictionary = _play.economy.projected().get("extraction", {}) as Dictionary
+	var iron_gathered: int = int(gathered.get("iron", 0))
+	var coal_gathered: int = int(gathered.get("coal", 0))
+	_check("the promise pays iron this phase", promise.contains("Iron %+d" % (iron_gathered - 3)))
+	_check("the promise pays coal this phase", promise.contains("Coal %+d" % (coal_gathered - 3)))
 	_check("the promise lands no steel this phase", not promise.contains("Steel +"))
 	var iron_before: int = _play.economy.economy.quantity("iron")
 	var coal_before: int = _play.economy.economy.quantity("coal")
@@ -108,8 +150,14 @@ func _start_pass() -> void:
 		_play.economy.economy.quantity("iron"), coal_before,
 		_play.economy.economy.quantity("coal"), str(_play.economy.economy.production_wip),
 	])
-	_check("a started run pays its iron", _play.economy.economy.quantity("iron") == iron_before - 3)
-	_check("a started run pays its coal", _play.economy.economy.quantity("coal") == coal_before - 3)
+	_check(
+		"a started run pays its iron",
+		_play.economy.economy.quantity("iron") == iron_before + iron_gathered - 3
+	)
+	_check(
+		"a started run pays its coal",
+		_play.economy.economy.quantity("coal") == coal_before + coal_gathered - 3
+	)
 	steel = await _row("Steel")
 	_say("Steel row one phase in: %s  ·  tips: %s" % [String(steel["tag"]), _tips(steel)])
 	_check("nothing lands in the phase the run started", _play.economy.economy.quantity("steel") == 8)
@@ -288,20 +336,15 @@ func _row(title_prefix: String) -> Dictionary:
 	_play.economy.open_panel()
 	await process_frame
 	var found: Dictionary = {}
-	for child: Node in _body().get_children():
-		if not (child is HBoxContainer):
+	for widgets: Dictionary in _stockpile().recipe_rows().values():
+		var title: Label = widgets["title"] as Label
+		if not title.text.begins_with(title_prefix):
 			continue
-		var labels: PackedStringArray = PackedStringArray()
-		SaveDrive.collect_text(child, "", labels)
-		if labels.size() < 4 or not labels[0].begins_with(title_prefix):
-			continue
-		var tips: Array[String] = []
-		_collect_tips(child, tips)
 		found = {
-			"title": labels[0],
-			"tag": labels[1] if labels.size() == 5 else "",
-			"stepper": labels[labels.size() - 3],
-			"tips": " | ".join(tips),
+			"title": title.text,
+			"tag": (widgets["note"] as Label).text,
+			"stepper": (widgets["stepper"] as Label).text,
+			"tips": _tooltips(widgets["row"] as Control),
 		}
 		break
 	if found.is_empty():
@@ -317,25 +360,39 @@ func _press(title_prefix: String, glyph: String, times: int) -> void:
 		_play.economy.open_panel()
 		await process_frame
 		var pressed: bool = false
-		for child: Node in _body().get_children():
-			if not (child is HBoxContainer):
+		for widgets: Dictionary in _stockpile().recipe_rows().values():
+			var title: Label = widgets["title"] as Label
+			if not title.text.begins_with(title_prefix):
 				continue
-			var labels: PackedStringArray = PackedStringArray()
-			SaveDrive.collect_text(child, "", labels)
-			if labels.is_empty() or not labels[0].begins_with(title_prefix):
-				continue
-			for sub: Node in child.get_children():
-				if sub is Button and (sub as Button).text == glyph:
-					(sub as Button).emit_signal("pressed")
-					pressed = true
+			var key: String = "plus" if glyph == "+" else "minus"
+			(widgets[key] as Button).emit_signal("pressed")
+			pressed = true
 			break
 		if not pressed:
 			_check("the %s row answers %s" % [title_prefix, glyph], false)
 			return
 
 
-func _body() -> Node:
-	return _play.hud.panels.economy_panel.page_body("PRODUCTION")
+## The stockpile page the tab builds (LedgerProduction), read through the row
+## accessors the page publishes instead of its children (REQ-P3-02).
+func _stockpile() -> LedgerProduction:
+	return (
+		_play.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
+		as LedgerProduction
+	)
+
+
+## A holding as the page draws it: the units the court has and the figure the
+## phase promises beside them.
+func _holding(id: String) -> Dictionary:
+	var widgets: Dictionary = _stockpile().holding_rows().get(id, {})
+	if widgets.is_empty():
+		_check("the stockpile has a %s row" % id, false)
+		return {"have": "", "next": ""}
+	return {
+		"have": (widgets["have"] as Label).text,
+		"next": (widgets["next"] as Label).text,
+	}
 
 
 func _preview() -> String:
@@ -345,6 +402,14 @@ func _preview() -> String:
 		if text.begins_with("Next turn:"):
 			return text
 	return "no preview line"
+
+
+## Every tooltip the row carries (title, workshop tag, stepper buttons): a long
+## press or a hover is where the row's meaning is spelled out.
+func _tooltips(row: Control) -> String:
+	var found: Array[String] = []
+	_collect_tips(row, found)
+	return " | ".join(found)
 
 
 func _tips(row: Dictionary) -> String:

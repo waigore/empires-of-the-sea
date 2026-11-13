@@ -47,9 +47,27 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		)
 		var zone: String = model.sea_zone_name(int(battle["zone"])) if model != null else "—"
 		var prefix: String = ""
+		var place: String = zone
 		if region != play.region_index:
 			prefix = "%s — " % FactionCatalog.region_label(region)
-		play.hud.toast(prefix + BattleReport.describe(battle, zone, FactionCatalog.names()))
+			# The plate names one place in one sentence, so the chart rides in
+			# brackets rather than a second dash.
+			place = "%s (%s)" % [zone, FactionCatalog.region_label(region)]
+		var line: String = prefix + BattleReport.describe(
+			battle, zone, FactionCatalog.names()
+		)
+		# The human's own engagement reads on the sea's despatch plate, so the
+		# despatch that repeats its outcome is the first line the held-news cap
+		# may drop (REQ-P5-06). A rival's fight stays the court's news alone.
+		var player: int = play.human_faction_id()
+		var on_plate: bool = play.hud != null and (
+			int(battle.get("attacker", -1)) == player or int(battle.get("defender", -1)) == player
+		)
+		if on_plate:
+			play.hud.show_naval_dispatch(battle, place)
+			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
+		else:
+			play.hud.toast(line, BattleReport.icon_of(battle))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
 	return battles

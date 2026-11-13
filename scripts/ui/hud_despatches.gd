@@ -143,6 +143,11 @@ func _hold_in_queue(text: String) -> void:
 	_queue_narrated.append(false)
 
 
+## Whether the lane is holding its lines for a plate or a sheet.
+func is_covered() -> bool:
+	return _covered
+
+
 ## Lines the court has not been told yet, oldest first.
 func waiting() -> PackedStringArray:
 	var waiting_now: PackedStringArray = _queue.duplicate()

@@ -80,6 +80,9 @@ var end_turn_wrap: Control = null
 var victory_overlay: VictoryOverlay = null
 ## Quick Battle plate (wiki: quick-battle); null until the chrome builds it.
 var quick_battle_overlay: QuickBattleOverlay = null
+## The sea's despatch plate (wiki: ships-and-naval § Naval Combat Resolution);
+## null until the chrome builds it.
+var naval_plate: NavalPlate = null
 ## The crown's news sheet and its archive (wiki: the-gazette); a soft plate.
 var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
@@ -90,13 +93,17 @@ var muster_roll: ForceLedgerPanel = null
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
-## Last phone-sheet state, so the despatch lane follows a full-screen card that
-## opens without a panel-slot hook (the roster, court dossier or muster roll).
-var _sheet_open: bool = false
-
 var _turn_label: Label = null
+## The land and sea battle plates, their queues and the held news (BattlePlates).
+var plates: BattlePlates = null
 ## Battles the rules resolved for the human, replayed one plate at a time.
-var _quick_queue: Array[Dictionary] = []
+var _quick_queue: Array[Dictionary]:
+	get:
+		return plates.land_queue if plates != null else [] as Array[Dictionary]
+## Naval engagements the human fought, waiting their turn on the despatch plate.
+var _naval_queue: Array[Dictionary]:
+	get:
+		return plates.sea_queue if plates != null else [] as Array[Dictionary]
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
@@ -188,11 +195,11 @@ func apply_safe_area(insets: Vector4) -> void:
 
 
 func _process(_delta: float) -> void:
-	# A full-screen card the panel dock does not own (roster, court dossier,
-	# muster roll) still has to hold the phone's news.
-	var open: bool = HudDespatchCover.sheet_open(self)
-	if open != _sheet_open:
-		_sheet_open = open
+	# A plate or a full-screen card the panel dock does not own (roster, court
+	# dossier, muster roll) still has to hold the phone's news; BattlePlates
+	# releases its own plate, but a sheet can still be open underneath it. The
+	# lane's own state is read, so a release behind a sheet is corrected at once.
+	if despatches != null and HudDespatchCover.covered(self) != despatches.is_covered():
 		HudDespatchCover.refresh(self)
 	if _tooltip != null and _tooltip.visible:
 		var mouse: Vector2 = get_global_mouse_position()
@@ -227,20 +234,24 @@ func toast_plate_line(text: String, icon_name: String = "") -> void:
 	despatches.toast_plate_line(text, icon_name)
 
 
-## The rules resolved one of the human's land battles as Quick Battle. Queue the
-## plates so a multi-battle turn replays them one at a time, never stacked.
+## The rules resolved one of the human's land battles as Quick Battle. BattlePlates
+## queues the plates so a multi-battle turn replays them one at a time.
 func show_quick_battle(battle: Dictionary, province: String) -> void:
-	if quick_battle_overlay == null or despatches == null:
+	if plates == null:
 		return
-	if quick_battle_overlay.is_shown():
-		_quick_queue.append({"battle": battle, "province": province})
-		return
-	despatches.set_covered(true)
-	quick_battle_overlay.show_battle(battle, province, FactionCatalog.names())
+	plates.show_land(battle, province, FactionCatalog.names())
 
 
 func is_quick_battle_shown() -> bool:
 	return quick_battle_overlay != null and quick_battle_overlay.is_shown()
+
+
+## The rules resolved one of the human's naval battles. Tell it as the sea's
+## despatch, queued behind any land plate so a two-zone turn never stacks them.
+func show_naval_dispatch(battle: Dictionary, zone: String) -> void:
+	if plates == null:
+		return
+	plates.show_sea(battle, zone, FactionCatalog.names())
 
 
 ## Status plaques: the values, tooltips and tweens are HudStatChips' (REQ-P1-02).
@@ -337,20 +348,6 @@ func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
 		return
 	lens_legend.set_kind(kind)
 	lens_legend.visible = raised
-
-
-## A plate closes: the next battle of the turn takes the court, or the news the
-## turn raised while the fighting played finally reaches it.
-func _on_quick_battle_finished() -> void:
-	if not _quick_queue.is_empty():
-		var next: Dictionary = _quick_queue.pop_front()
-		quick_battle_overlay.show_battle(
-			next["battle"], String(next["province"]), FactionCatalog.names()
-		)
-		return
-	# The turn's news waited for the last plate; raise it now, in its own order,
-	# unless a phone sheet still covers the lane.
-	HudDespatchCover.refresh(self)
 
 
 func set_minimap(

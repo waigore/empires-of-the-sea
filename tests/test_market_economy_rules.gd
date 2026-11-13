@@ -1358,6 +1358,24 @@ func test_projection_matches_the_live_resolution() -> void:
 		var live: int = economy.quantity(id) - int(before.get(id, 0))
 		assert_eq(int(projection["stockpile_delta"].get(id, 0)), live, id)
 
+## The projection names the store Production will find, so the ledger can stop a
+## row at what the phase can start (wiki: stockpiles-and-production § Production
+## flow; issue #453).
+func test_the_projection_names_the_post_consumption_store() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = _economy(2)
+	economy.stockpile["grain"] = 3
+	economy.stockpile["timber"] = 4
+	var projection: Dictionary = EconomyTurn.project(economy, market, {"timber": 2}, 0)
+	var store: Dictionary = projection["after_consumption"]
+	# The harvest lands before Consumption, and two peasants eat a grain each.
+	assert_eq(int(store.get("timber", 0)), 6)
+	assert_eq(int(store.get("grain", 0)), 1)
+	# The live store is untouched: the projection is a dry run.
+	assert_eq(economy.quantity("timber"), 4)
+	assert_eq(economy.quantity("grain"), 3)
+
+
 func test_projection_has_no_side_effects() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = _economy(2)
