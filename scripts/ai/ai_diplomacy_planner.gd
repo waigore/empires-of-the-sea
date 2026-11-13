@@ -103,16 +103,27 @@ static func decide(
 		var desire: Dictionary = war_desire(
 			config, state, world, config.faction, target, context
 		)
+		# What the last war taught this court: weariness while it fights, the
+		# truce while it holds peace (wiki: diplomacy § Cooldowns; issue #475).
+		# The penalty lowers desire, never legality — every order still passes
+		# its own rules check (REQ-P2-03).
+		var memory: int = AiWarMemory.penalty(
+			config, ai_state, turn, config.faction, target, record.at_war
+		)
+		var score: int = clampi(int(desire["score"]) - memory, 0, 100)
+		var factors: Dictionary = desire["factors"]
+		if memory > 0:
+			factors["memory"] = -memory
 		var entry: Dictionary = {
 			"target": target,
-			"desire": int(desire["score"]),
+			"desire": score,
 			"at_war": record.at_war,
 			"relation": record.score,
-			"factors": desire["factors"],
+			"factors": factors,
 			"blocked": "",
 		}
 		if record.at_war:
-			if int(desire["score"]) >= bar:
+			if score >= bar:
 				entry["blocked"] = "war still worth waging"
 			elif target == player:
 				# The human keeps consent: a rival queues the offer and waits
@@ -135,7 +146,7 @@ static func decide(
 					best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
-				config, state, ai_state, turn, target, record, int(desire["score"])
+				config, state, ai_state, turn, target, record, score
 			)
 			if (
 				String(entry["blocked"]).is_empty()
@@ -145,8 +156,7 @@ static func decide(
 			# Every peaceful order the court menu offers is a candidate, whether
 			# the target is a rival court or the human one (DR-20261110-15).
 			var offer: Dictionary = AiDiplomacyOffers.best(
-				config, state, ai_state, world, turn, target, int(desire["score"]),
-				context
+				config, state, ai_state, world, turn, target, score, context
 			)
 			entry["offer"] = offer.duplicate()
 			if bool(offer.get("ok", false)) and (
