@@ -60,14 +60,12 @@ static func _readings(
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
-	var funding: String = AiResearchPlanner.funding_for(
-		config, economy, AiResearchPlanner.research_floor(config)
-	)
+	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
-	# The standing study is one slot at the cheapest preset, priced beside the
-	# surplus preset so the ledger reads what the court will actually pay
-	# (issue #490). It never lifts the index above the surplus preset.
+	# The surplus ladder reads the money-goal reserve; the standing study is one
+	# slot at the cheapest preset above half the cash floor, so the ledger prices
+	# what the court will actually pay (issue #490).
 	var funding_index: int = ResearchFunding.ORDER.find(funding)
 	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
 	if not standing.is_empty():

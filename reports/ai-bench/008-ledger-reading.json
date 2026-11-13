@@ -1,0 +1,86 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
+  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
+  "submission_hash": "sha256:dbfb40032e5701309d296964ee85e98a31876d8cb95d9263f88615ff95de0fc1",
+  "submission_git": "fix/ai-objective-research-reading@a999aec+dirty",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 3808.6916666666666,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 31.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 5.0,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:0a03559e5d1003cafeefd2bbdf72557c418dafbbb4a18dae5db1c5b63a1dfbd4",
+    "parts": {
+      "provinces_old": 31,
+      "provinces_new": 0,
+      "regiments": 3,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 2.7,
+      "income_per_turn": 133.29166666666666
+    },
+    "early_win": true,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 75,
+    "resolved_turns": 75
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-13T16:07:01Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:73f1caa8f57474fc7c2a0430334f7be95668a3a96fad77ff702f25beb167f3aa"
+}
