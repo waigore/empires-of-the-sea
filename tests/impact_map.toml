@@ -1039,7 +1039,7 @@ match = "scripts/rules/advanced_*.gd"
 domain = "advanced"
 
 [[rules]]
-match = "scripts/map/map_play_advanced.gd"
+match = "scripts/map/map_play_advanced*.gd*"
 domain = "advanced"
 
 [[rules]]
