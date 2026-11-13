@@ -307,6 +307,20 @@ domain = "pause"
 match = "scripts/map_screen.gd"
 domain = "pause"
 
+# The screen's assistants (see domains.map_mount). Named before the broad
+# `scripts/map/**` glob so a mount or wiring edit does not pull the full map set.
+[[rules]]
+match = "scripts/map/map_play_region.gd*"
+domain = "map_mount"
+
+[[rules]]
+match = "scripts/map/map_play_wiring.gd*"
+domain = "map_mount"
+
+[[rules]]
+match = "scripts/map/sea_backdrop.gd*"
+domain = "map_mount"
+
 [[rules]]
 match = "scripts/session/play_session.gd*"
 domain = "pause"
@@ -504,6 +518,16 @@ suites = [
   "test_mobile_layout.gd",
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
+]
+
+# The screen's own assistants: region mounting, the view wiring and the sea fit
+# the map and capital charts share. All three only run when a screen mounts, so
+# they take the screen-mounting suites instead of the broad `scripts/map/**`
+# bucket — a wiring PR stays inside the tier-1 5 min budget.
+[domains.map_mount]
+suites = [
+  "test_map_screen.gd",
+  "test_map_view_rules.gd"
 ]
 
 # Pause door + MENU seal: the door helper, the menu that mounts it, the three
