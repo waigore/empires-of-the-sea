@@ -2,6 +2,8 @@ class_name MapPlayDiplomacy
 extends RefCounted
 ## Court intents and the diplomacy phase for the map screen. Rules live in
 ## scripts/rules; this wires orders to the ledger and reports the outcome.
+## Rival AI lives in MapPlayDiplomacyAi; pending consent prompts in
+## MapPlayDiplomacyConsent.
 
 
 static func open(play: PlaySession) -> void:
@@ -83,17 +85,17 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	# While a call to arms waits, the court entertains no other business.
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the call to arms first.")
-		show_call(play)
+		MapPlayDiplomacyConsent.show_call(play)
 		return
 	# An intervention offer holds the court just as firmly.
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the intervention first.")
-		show_intervention(play)
+		MapPlayDiplomacyConsent.show_intervention(play)
 		return
 	# A rival proposal waits for the court's answer before any new business.
 	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the proposal first.")
-		show_offer(play)
+		MapPlayDiplomacyConsent.show_offer(play)
 		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
@@ -124,7 +126,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		if play.army_layer != null:
 			play.army_layer.transfer_owner(loser, play.player_faction)
 	if bool(result.get("map_changed", false)):
-		_rebuild_map(play)
+		play.refresh_map_views()
 	play.hud.set_treasury(play.treasury())
 	refresh(play)
 	# War, peace and alliances repaint the political wash at once.
@@ -138,19 +140,19 @@ static func resolve_turn(play: PlaySession) -> bool:
 	if play.diplomacy == null:
 		return true
 	sync_first_contact(play)
-	run_ai(play)
+	MapPlayDiplomacyAi.run(play)
 	var human: int = play.human_faction_id()
 	if CallToArms.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_call(play)
+		MapPlayDiplomacyConsent.show_call(play)
 		return false
 	if Intervention.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_intervention(play)
+		MapPlayDiplomacyConsent.show_intervention(play)
 		return false
 	if DiplomacyProposals.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacy.show_offer(play)
+		MapPlayDiplomacyConsent.show_offer(play)
 		return false
 	close_turn(play)
 	return true
@@ -165,176 +167,6 @@ static func close_turn(play: PlaySession) -> void:
 	# repeat a pair that was told about this turn.
 	play.announced_decisions.clear()
 	refresh(play)
-
-
-## One decision's identity, so the court is told about it once and not again on
-## every press that re-opens the panel (wiki: diplomacy § Intervention — the
-## choice is presented once, at war declaration time).
-static func _decision_key(kind: String, parts: Array) -> String:
-	var out: PackedStringArray = [kind]
-	for part: Variant in parts:
-		out.append(str(part))
-	return ":".join(out)
-
-
-## Raises a decision's despatch unless the court has already heard it.
-static func _announce(play: PlaySession, key: String, text: String) -> void:
-	if play.announced_decisions.has(key):
-		return
-	play.announced_decisions[key] = true
-	play.hud.toast(text)
-
-
-## Marks every decision now waiting as told. The AI pass raises each new
-## decision's line itself, so the court must not repeat it when the turn
-## resolver opens the panel on the same press.
-static func mark_announced(play: PlaySession) -> void:
-	if play.diplomacy == null:
-		return
-	for call: Dictionary in play.diplomacy.pending_calls:
-		play.announced_decisions[
-			_decision_key("call", [int(call["aggressor"]), int(call["defender"])])
-		] = true
-	for offer: Dictionary in play.diplomacy.pending_interventions:
-		play.announced_decisions[
-			_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])])
-		] = true
-	for proposal: Dictionary in play.diplomacy.pending_offers:
-		play.announced_decisions[
-			_decision_key("offer", [int(proposal["from"]), String(proposal["kind"])])
-		] = true
-
-
-## Opens the court on the waiting call and tells the player what is at stake.
-static func show_call(play: PlaySession) -> void:
-	if play.diplomacy == null or play.hud == null:
-		return
-	var call: Dictionary = CallToArms.pending_call_for(play.diplomacy, play.player_faction)
-	if call.is_empty():
-		return
-	open(play)
-	_announce(
-		play,
-		_decision_key("call", [int(call["aggressor"]), int(call["defender"])]),
-		"%s calls on our alliance against %s."
-		% [
-			FactionCatalog.name_of(int(call["defender"])),
-			FactionCatalog.name_of(int(call["aggressor"])),
-		]
-	)
-
-
-## Opens the court on a waiting intervention and names what is at stake.
-static func show_intervention(play: PlaySession) -> void:
-	if play.diplomacy == null or play.hud == null:
-		return
-	var offer: Dictionary = Intervention.pending_for(play.diplomacy, play.player_faction)
-	if offer.is_empty():
-		return
-	open(play)
-	_announce(
-		play,
-		_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])]),
-		"%s declares war on %s. %s"
-		% [
-			FactionCatalog.name_of(int(offer["aggressor"])),
-			FactionCatalog.name_of(int(offer["target"])),
-			Intervention.offer_text(offer),
-		]
-	)
-
-
-## Opens the court on a waiting rival proposal and names what is offered.
-static func show_offer(play: PlaySession) -> void:
-	if play.diplomacy == null or play.hud == null:
-		return
-	var offer: Dictionary = DiplomacyProposals.pending_for(
-		play.diplomacy, play.player_faction
-	)
-	if offer.is_empty():
-		return
-	open(play)
-	_announce(
-		play,
-		_decision_key("offer", [int(offer["from"]), String(offer["kind"])]),
-		"%s proposes %s. Answer the proposal."
-		% [
-			FactionCatalog.name_of(int(offer["from"])),
-			DiplomacyProposals.describe(
-				String(offer["kind"]), String(offer.get("stage", ""))
-			),
-		]
-	)
-
-
-## Rival Great Powers take their one diplomatic action for the turn before the
-## phase closes, so declarations apply to this turn's movement and combat
-## (wiki: diplomacy § Turn Sequence).
-static func run_ai(play: PlaySession) -> void:
-	if play.ai == null:
-		play.ai = AiState.new()
-	var result: Dictionary = AiTurn.run(
-		play.diplomacy,
-		play.world,
-		play.ai,
-		play.turn,
-		play.human_faction_id(),
-		play.map_seed,
-		_ai_context(play)
-	)
-	play.ai_trace.assign(result.get("trace", []))
-	_apply_ai_map_changes(play, result.get("trace", []))
-	if play.hud == null:
-		return
-	for message: String in result.get("messages", []):
-		play.hud.toast(message)
-	# The pass has just raised every new decision in its own words; the turn
-	# resolver must not raise them a second time on the same press.
-	mark_announced(play)
-
-
-## A rival that absorbs a Minor moves provinces: its units change colour and the
-## chart is rebuilt, exactly as the court's own Join Empire order does.
-static func _apply_ai_map_changes(play: PlaySession, trace: Array) -> void:
-	for record: Dictionary in trace:
-		var result: Dictionary = record.get("result", {})
-		if not bool(result.get("map_changed", false)) and not result.has("absorbed"):
-			continue
-		var loser: int = int(result.get("absorbed", -1))
-		if loser >= 0:
-			var winner: int = int(record.get("faction", -1))
-			if play.ship_layer != null:
-				play.ship_layer.transfer_owner(loser, winner)
-			if play.army_layer != null:
-				play.army_layer.transfer_owner(loser, winner)
-		_rebuild_map(play)
-
-
-## Unit counts the war-desire score reads plus each rival's stockpile, so the
-## resource-need bonus is live once the AI economy exists (wiki: diplomacy-planner).
-## The counts stay the published docket; "readings" hands each rival the docket
-## its own chart holds, so no court plans against unseen garrisons or hulls
-## (DR-20261112-09). "charts" rides along so the planner's other world reads —
-## the target's commodities and the land an envoy chain would open — stay on the
-## same chart (DR-20261113-03).
-static func _ai_context(play: PlaySession) -> Dictionary:
-	var regiments: Dictionary = {}
-	var ships: Dictionary = {}
-	for raw: Dictionary in FactionCatalog.all():
-		var faction: int = int(raw["id"])
-		if play.army_layer != null:
-			regiments[faction] = play.army_layer.regiment_count_all(faction)
-		if play.ship_layer != null:
-			ships[faction] = play.ship_layer.hull_count_all(faction)
-	var context: Dictionary = {"regiments": regiments, "ships": ships}
-	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)
-	if not readings.is_empty():
-		context["readings"] = readings
-	if play.court_charts != null:
-		context["charts"] = play.court_charts
-	if play.ai != null:
-		context["stockpiles"] = play.ai.stockpiles(play.human_faction_id())
-	return context
 
 
 ## A Tribe is contacted only by non-unknown tile visibility in its provinces;
@@ -374,10 +206,6 @@ static func _sees_tribe(play: PlaySession, tribe: int) -> bool:
 			if visibility.province_visibility(province.id) != VisibilityModel.Level.UNKNOWN:
 				return true
 	return false
-
-
-static func _rebuild_map(play: PlaySession) -> void:
-	play.refresh_map_views()
 
 
 ## Researched techs gate embassy and GP Join Empire orders

@@ -235,9 +235,79 @@ func test_the_resolver_does_not_repeat_the_passes_news() -> void:
 	var play: PlaySession = _screen.play
 	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
-	MapPlayDiplomacy.mark_announced(play)
-	MapPlayDiplomacy.show_intervention(play)
+	MapPlayDiplomacyConsent.mark_announced(play)
+	MapPlayDiplomacyConsent.show_intervention(play)
 	assert_eq(_news_about("Genoa"), 0, "the panel adds no second despatch")
+
+
+## Consent and AI extracts keep their own doors: null guards, a waiting call and
+## proposal, blocked court business, and a rival absorb that recolours units
+## (REQ-P3-01 — soft pressure after the charted-land AI split).
+func test_consent_and_ai_extracts_keep_their_own_doors() -> void:
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
+	play.diplomacy = null
+	MapPlayDiplomacyConsent.mark_announced(play)
+	MapPlayDiplomacyConsent.show_call(play)
+	MapPlayDiplomacyConsent.show_intervention(play)
+	MapPlayDiplomacyConsent.show_offer(play)
+	play.diplomacy = state
+	# Nothing waits yet: each show returns after the empty pending check.
+	MapPlayDiplomacyConsent.show_call(play)
+	MapPlayDiplomacyConsent.show_intervention(play)
+	MapPlayDiplomacyConsent.show_offer(play)
+
+	var pact: DiplomacyRelation = state.relation(0, 2)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 3, 2)
+	assert_true(CallToArms.has_pending(state, 0))
+	MapPlayDiplomacyConsent.mark_announced(play)
+	assert_true(play.announced_decisions.has("call:3:2"))
+	MapPlayDiplomacyConsent.show_call(play)
+	MapPlayDiplomacy.on_order(play, DiplomacyOrders.KIND_WAR, 1, "")
+	assert_true(CallToArms.has_pending(state, 0), "a waiting call blocks other business")
+	assert_false(state.relation(0, 1).at_war)
+
+	state.relation(0, 4).score = 80.0
+	assert_true(
+		DiplomacyProposals.queue(
+			state, play.world, 4, DiplomacyProposals.KIND_ALLIANCE
+		)["ok"]
+	)
+	# Answer the call while a proposal still waits: the ladder re-opens on it.
+	play.turn_suspended = true
+	MapPlayTurn.answer_call(play, false)
+	assert_true(DiplomacyProposals.has_pending(state, 0))
+	MapPlayDiplomacyConsent.show_offer(play)
+	MapPlayDiplomacy.on_order(play, DiplomacyOrders.KIND_WAR, 1, "")
+	assert_true(DiplomacyProposals.has_pending(state, 0), "a proposal blocks other business")
+	MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 4, "")
+
+	# Intervention blocks the same way once a deed invites the court.
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyRules.declare_war(state, 3, 6)
+	assert_true(Intervention.has_pending(state, 0))
+	MapPlayDiplomacy.on_order(play, DiplomacyOrders.KIND_WAR, 1, "")
+	assert_true(Intervention.has_pending(state, 0))
+	assert_false(state.relation(0, 1).at_war)
+	MapPlayTurn.answer_intervention(play, Intervention.KIND_PROTEST)
+
+	# Rival absorb: units change colour and the chart rebuilds.
+	var minor: int = 7
+	var minor_before: int = play.army_layer.regiment_count_all(minor)
+	var player_before: int = play.army_layer.regiment_count_all(0)
+	assert_gt(minor_before, 0, "the Minor holds a garrison")
+	MapPlayDiplomacyAi._apply_map_changes(
+		play, [{"faction": 0, "result": {"absorbed": minor, "map_changed": true}}]
+	)
+	assert_eq(play.army_layer.regiment_count_all(minor), 0, "no stranded regiments")
+	assert_eq(
+		play.army_layer.regiment_count_all(0),
+		player_before + minor_before,
+		"the winner takes every regiment"
+	)
 
 
 ## Toasts that name `needle`.

@@ -250,6 +250,18 @@ domain = "oob"
 match = "scripts/map/map_play_diplomacy.gd*"
 domain = "oob"
 
+# Rival diplomacy AI pass (readings + charts context); keep with OOB so a
+# charted-land planner change runs the same suites as map_play_court_fog.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_ai.gd*"
+domain = "oob"
+
+# Pending call / intervention / proposal prompts; stay on diplomacy with the
+# court panel suites rather than pulling the OOB set.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_consent.gd*"
+domain = "diplomacy"
+
 [domains.map]
 suites = [
   "test_advanced_start.gd",
