@@ -40,11 +40,7 @@ static func show_call(play: PlaySession) -> void:
 	_announce(
 		play,
 		_decision_key("call", [int(call["aggressor"]), int(call["defender"])]),
-		"%s calls on our alliance against %s."
-		% [
-			FactionCatalog.name_of(int(call["defender"])),
-			FactionCatalog.name_of(int(call["aggressor"])),
-		]
+		ConsentCopy.call_toast(call)
 	)
 
 
@@ -59,12 +55,7 @@ static func show_intervention(play: PlaySession) -> void:
 	_announce(
 		play,
 		_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])]),
-		"%s declares war on %s. %s"
-		% [
-			FactionCatalog.name_of(int(offer["aggressor"])),
-			FactionCatalog.name_of(int(offer["target"])),
-			Intervention.offer_text(offer),
-		]
+		ConsentCopy.intervention_body(offer)
 	)
 
 
@@ -81,13 +72,9 @@ static func show_offer(play: PlaySession) -> void:
 	_announce(
 		play,
 		_decision_key("offer", [int(offer["from"]), String(offer["kind"])]),
-		"%s proposes %s. Answer the proposal."
-		% [
-			FactionCatalog.name_of(int(offer["from"])),
-			DiplomacyProposals.describe(
-				String(offer["kind"]), String(offer.get("stage", ""))
-			),
-		]
+		ConsentCopy.proposal_toast(
+			int(offer["from"]), String(offer["kind"]), String(offer.get("stage", ""))
+		)
 	)
 
 
