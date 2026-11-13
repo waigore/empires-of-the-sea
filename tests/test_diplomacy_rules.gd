@@ -876,15 +876,15 @@ func test_ftp_improves_both_crowns_terms_and_war_ends_it() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
 	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
-	var mine: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 0)
-	var theirs: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 1)
+	var mine: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
+	var theirs: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 1)
 	assert_almost_eq(float(mine["buy"]["*"]), 0.95, 0.001, "pact shaves imports")
 	assert_almost_eq(float(mine["sell"]["*"]), 1.05, 0.001, "and lifts exports")
 	assert_almost_eq(float(theirs["buy"]["*"]), 0.95, 0.001, "both sides gain")
 
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 1)
 	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "war severs the pact")
-	var after: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 0)
+	var after: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(float(after["buy"]["*"]), 1.0, 0.001, "terms return to the world price")
 
 func test_boycott_needs_a_colony_and_cancels_the_targets_subsidies() -> void:
@@ -912,39 +912,62 @@ func test_boycott_worsens_the_targets_terms_and_war_revokes_it() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.set_colony(9, 0)
 	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
-	var target: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 2)
+	var target: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 2)
 	assert_almost_eq(float(target["buy"]["*"]), 1.10, 0.001, "boycotted imports cost more")
 	assert_almost_eq(float(target["sell"]["*"]), 0.90, 0.001, "and exports earn less")
-	var issuer: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 0)
+	var issuer: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(float(issuer["buy"]["*"]), 1.0, 0.001, "the issuer keeps the world price")
 
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
 
-## A subsidy is a price on the deal, not a rate on the sheet: the subsidised
-## court's goods keep the published price in every crown's sheet, and the till
-## charges the p% once when the two courts trade (wiki: world-market § Subsidy
-## price adjustment; DR-20261110-29).
-func test_a_subsidy_never_enters_the_published_price_sheet() -> void:
+## The subsidy is a step on the pair's deals, never a crown-wide rate: the crown
+## bids at the published price and pays `p%` more only to the court it subsidises
+## (wiki: world-market § Subsidy price adjustment — "the step never touches a
+## deal with another court"; DR-20261110-29).
+func test_a_subsidy_steps_only_the_subsidised_pairs_deals() -> void:
 	_setup_diplomacy_trade()
 	var world: WorldMap = _tribe_world(9, _resource_for("timber"))
 	diplomacy_trade_state.ensure_relation(0, 9, diplomacy_trade_state.turn)
 	diplomacy_trade_state.set_overture(0, 9, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyAid.set_subsidy(diplomacy_trade_state, 0, 9, 10)
 	var terms: Dictionary = DiplomacyTrade.terms_for_court(diplomacy_trade_state, world, 0)
-	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "their goods keep the world price")
-	assert_almost_eq(float(terms["sell"]["*"]), 1.0, 0.001, "so do ours")
-	assert_false((terms["buy"] as Dictionary).has("timber"), "no commodity rate for a subsidy")
-	assert_false((terms["sell"] as Dictionary).has("timber"), "on either side")
+	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "the crown's own rate never moves")
+	assert_false(terms["buy"].has("timber"), "no commodity rate: the step lands on the deal")
 	var market := WorldMarket.with_default_prices()
-	market.set_terms(0, terms)
-	assert_eq(market.buy_price("timber", 0), market.price("timber"))
-	assert_eq(market.sell_price("timber", 0), market.price("timber"))
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, world, market)
+	assert_eq(MarketRules.subsidy_percent(market, 0, 9), 10, "the pair's step is published")
+	assert_eq(MarketRules.subsidy_percent(market, 0, 7), 0, "no other court carries it")
 	assert_eq(
-		MinorMarket.unit_price(market, "timber", 0),
+		market.buy_price("timber", 0),
 		market.price("timber"),
-		"the published ask keeps the published price"
+		"a crown bids at the published price"
 	)
+	var direct: int = market.price("timber")
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", 0, 9),
+		roundi(float(direct) * 1.10),
+		"the subsidised court's ask names the step"
+	)
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", 0, 7),
+		direct,
+		"another minor's ask stays at the world price"
+	)
+
+## Only a real pair publishes a step: a malformed subsidy key and a zero percent
+## name no deal, and no court means no terms at all (wiki: world-market
+## § Subsidy price adjustment).
+func test_subsidy_terms_publish_only_real_pairs() -> void:
+	assert_true(DiplomacyTrade.subsidy_terms(null).is_empty())
+	assert_true(DiplomacyTrade.market_terms(null).is_empty())
+	var state := DiplomacyState.new()
+	state.subsidies["0>9"] = 10
+	state.subsidies["lonely"] = 10
+	state.subsidies["0>7"] = 0
+	var terms: Dictionary = DiplomacyTrade.subsidy_terms(state)
+	assert_eq(terms.size(), 1)
+	assert_eq(int(terms["0>9"]), 10)
 
 func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 	_setup_diplomacy_trade()
@@ -1063,7 +1086,7 @@ func test_terms_stay_inside_the_rails() -> void:
 	_setup_diplomacy_trade()
 	for other: int in [10, 11, 12, 13, 14, 15]:
 		diplomacy_trade_state.ftps[diplomacy_trade_state.pair_key(0, other)] = diplomacy_trade_state.turn
-	var terms: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, 0)
+	var terms: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(
 		float(terms["buy"]["*"]), DiplomacyCatalog.TERMS_BUY_MIN, 0.001, "buy floor"
 	)
