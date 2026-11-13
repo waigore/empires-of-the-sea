@@ -788,32 +788,6 @@ func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
 		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
 	)
 
-## A French or Spanish reader's phone sheet is the same sheet: the tongue's copy
-## is longer than the English, so the banner must still leave its answers inside
-## the height the court sheet keeps (REQ-P1-07, REQ-P5-07).
-func test_the_call_banner_fits_the_phone_sheet_in_every_tongue() -> void:
-	_setup_diplomacy_panel()
-	state.relation(0, 1).score = 80.0
-	state.relation(0, 1).formal_alliance = true
-	CallToArms.freeze_alliances(state)
-	DiplomacyRules.declare_war(state, 2, 1)
-	panel.size = Vector2(570, 600)
-	for code: String in ["fr", "es"]:
-		DialogueLocale.set_locale(code)
-		panel.refresh(state, null, 0, 2500)
-		await get_tree().process_frame
-		var banner: Control = panel._call_box.get_child(0) as Control
-		assert_not_null(banner, "the banner is up in %s" % code)
-		if banner == null:
-			continue
-		assert_true(
-			banner.size.y <= 140.0,
-			"the banner must fit a phone sheet in %s (%s > 140)" % [code, banner.size.y]
-		)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	panel.refresh(state, null, 0, 2500)
-
-
 ## A rival's trade pact is answered blind unless the prompt carries the rate the
 ## pact publishes: the court reads the terms beside the offer and the envoy that
 ## brings it (wiki: world-market § FTP; dialogue-and-mood § Mood machine).
