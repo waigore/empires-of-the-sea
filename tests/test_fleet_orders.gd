@@ -1472,9 +1472,9 @@ func test_an_unread_rival_dossier_keeps_her_muster() -> void:
 	assert_false(panel._ships.text.contains("upkeep"), "her bill is not the crown's yet")
 
 	# The watch closes across the turn boundary: her muster joins the reading.
-	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
 	_screen.play.turn += 1
-	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
 	MapPlayFleets.show_dossier(_screen.play, enemy)
 
 	assert_true(panel._ships.text.contains("2 ships"), panel._ships.text)
