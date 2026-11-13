@@ -960,32 +960,28 @@ func test_a_hull_line_names_its_own_numbers() -> void:
 func test_de_ruyter_lifts_only_his_own_side_at_sea() -> void:
 	var mine: FleetState = FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "carrack"})
 	var theirs: FleetState = FleetState.at_sea(2, 1, 0, ["ship_2"], {"ship_2": "carrack"})
+	var mine_base: float = NavalCombat.side_strength([mine])
+	var theirs_base: float = NavalCombat.side_strength([theirs])
 	var led: Array[Dictionary] = NavalCombat.resolve_turn(
 		[mine, theirs], Callable(), {"leaders": {0: "de_ruyter", 1: "napoleon"}}
 	)
 	assert_eq(led.size(), 1, "two hostile sides in one zone fight")
 	var record: Dictionary = led[0]
-	var mine_is_attacker: bool = int(record["attacker"]) == 0
-	var led_strength: float = float(
-		record["attacker_strength"] if mine_is_attacker else record["defender_strength"]
-	)
-	var published_strength: float = float(
-		record["defender_strength"] if mine_is_attacker else record["attacker_strength"]
-	)
-	assert_almost_eq(led_strength, NavalCombat.side_strength([mine]) * 1.15, 0.0001,
+	assert_eq(int(record["attacker"]), 0, "the lower owner id opens the fight")
+	assert_almost_eq(float(record["attacker_strength"]), mine_base * 1.15, 0.0001,
 		"de Ruyter's squadron fights 15% stronger")
-	assert_almost_eq(published_strength, NavalCombat.side_strength([theirs]), 0.0001,
+	assert_almost_eq(float(record["defender_strength"]), theirs_base, 0.0001,
 		"a court without a naval row fights as published")
 
 
 func test_a_sea_fight_without_leaders_fights_as_published() -> void:
 	var mine: FleetState = FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "carrack"})
 	var theirs: FleetState = FleetState.at_sea(2, 1, 0, ["ship_2"], {"ship_2": "frigate"})
+	var published: float = NavalCombat.side_strength([mine])
 	var plain: Array[Dictionary] = NavalCombat.resolve_turn([mine, theirs])
 	assert_eq(plain.size(), 1)
 	assert_almost_eq(
-		float(plain[0]["attacker_strength"]),
-		NavalCombat.side_strength([mine]), 0.0001,
+		float(plain[0]["attacker_strength"]), published, 0.0001,
 		"no leader context leaves the published strength alone"
 	)
 
@@ -1037,14 +1033,15 @@ func test_the_zone_sums_friend_and_hostile_sides() -> void:
 func test_the_zone_share_reads_the_published_naval_row() -> void:
 	var mine: FleetState = FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "carrack"})
 	var theirs: FleetState = FleetState.at_sea(3, 1, 0, ["ship_3"], {"ship_3": "carrack"})
+	var published: float = NavalCombat.side_strength([mine])
 	var plain: Dictionary = NavalStrength.zone([mine, theirs], mine)
-	assert_almost_eq(float(plain["own"]), 5.5, 0.0001)
+	assert_almost_eq(float(plain["own"]), published, 0.0001)
 	var led: Dictionary = NavalStrength.zone(
 		[mine, theirs], mine, Callable(), {}, {0: "de_ruyter", 1: "napoleon"}
 	)
-	assert_almost_eq(float(led["own"]), 5.5 * 1.15, 0.0001)
+	assert_almost_eq(float(led["own"]), published * 1.15, 0.0001)
 	assert_almost_eq(
-		float(led["foe"]), 5.5, 0.0001, "a land leader never touches the sea"
+		float(led["foe"]), published, 0.0001, "a land leader never touches the sea"
 	)
 
 
