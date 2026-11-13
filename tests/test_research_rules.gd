@@ -543,6 +543,36 @@ func test_industrial_funding_boosts_military_techs() -> void:
 	assert_eq(ResearchTurn.points_for(_turn_state, "land_enclosure", "medium"), 300)
 
 
+## Victoria's funding multiplier lifts the base funding RP before the spy share
+## and Industrial Funding are applied, and the phase and the ledger read one
+## figure (wiki: leader-bonuses § Bonus Table — Victoria ×1.15).
+func test_the_leader_funding_multiplier_lifts_base_rp_before_the_shares() -> void:
+	assert_eq(ResearchTurn.funded_rp("medium"), 300)
+	assert_eq(ResearchTurn.funded_rp("medium", "victoria"), 345, "300 × 1.15")
+	assert_eq(ResearchTurn.funded_rp("medium", "napoleon"), 300, "no funding row for France")
+	_turn_state.unlock("land_enclosure")
+	assert_true(bool(_turn_state.assign("organised_regiments", "medium")["ok"]))
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 0, "victoria"),
+		345
+	)
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 15, "victoria"),
+		396, "345 plus the spy's 15%"
+	)
+	_turn_state.unlock("industrial_funding_of_research")
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 15, "victoria"),
+		448, "345 plus the 30% shares"
+	)
+	var plan: Dictionary = ResearchTurn.preview(
+		_turn_state, "organised_regiments", "medium", 5000, 15, "victoria"
+	)
+	assert_eq(int(plan["rp"]), 448, "the ledger shows the same figure")
+	ResearchTurn.resolve(_turn_state, _turn_economy, {}, "victoria")
+	assert_eq(_turn_state.progress_of("organised_regiments"), 448)
+
+
 func test_none_funding_spends_and_earns_nothing() -> void:
 	assert_true(bool(_turn_state.assign("land_enclosure", "none")["ok"]))
 	var treasury: int = _turn_economy.treasury

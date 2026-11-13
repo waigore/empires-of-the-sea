@@ -20,6 +20,9 @@ signal close_pressed
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
 var _boost: Dictionary = {}
+## The crown's leaderKey, whose published funding multiplier the RP figures
+## include (wiki: leader-bonuses — Victoria).
+var _leader: String = ""
 ## The goal tech, mirrored from `_state.goal` on every refresh. It sorts the
 ## queue and funds nothing; the state keeps it so a load reopens the same order
 ## (wiki: tech-tree § Goal slot; DR-20261111-21).
@@ -172,10 +175,13 @@ func set_goal(tech_id: String) -> void:
 ## research state. `boost` carries the spy network's per-tech percent
 ## (DR-20261110-03); it marks the slots it lifts so a faster study is never
 ## silent (REQ-P5-05).
-func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> void:
+func refresh(
+	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
+) -> void:
 	_state = state
 	_treasury = treasury
 	_boost = boost
+	_leader = leader
 	if _tabs == null or _state == null:
 		return
 	_goal = TechOrder.normalize(_state.goal)
@@ -276,7 +282,7 @@ func _fill_slots() -> void:
 			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
 			_slots_body.add_child(row)
 			_slot_rows[index] = row
-		row.update(_state, _boost, left)
+		row.update(_state, _boost, left, _leader)
 		gold += row.gold_next()
 		points += row.rp_next()
 		left -= row.gold_next()

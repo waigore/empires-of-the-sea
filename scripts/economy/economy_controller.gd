@@ -25,6 +25,9 @@ var _last_consumption: Dictionary = {}
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
+## The crown's leaderKey, fixed at game start; its published funding multiplier
+## lifts the research points the phase earns (wiki: leader-bonuses — Victoria).
+var leader_key: String = ""
 ## Last world-market clearing (deals, fills, credits), so the ledger can name
 ## the auction's receipt and the overseas share it paid (wiki: world-market
 ## § First right of refusal; REQ-P5-05).
@@ -39,7 +42,8 @@ func setup(
 	p_armies: ArmyLayer,
 	p_hud: GameHud,
 	p_works: LandWorks = null,
-	p_capital_tile: Vector2i = CivilianState.NO_TILE
+	p_capital_tile: Vector2i = CivilianState.NO_TILE,
+	p_leader: String = ""
 ) -> void:
 	model = p_model
 	player_faction = p_faction
@@ -49,6 +53,7 @@ func setup(
 	_ships = p_ships
 	_armies = p_armies
 	_hud = p_hud
+	leader_key = p_leader
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
 	_connect()
@@ -175,7 +180,7 @@ func projected() -> Dictionary:
 	var world: WorldMap = _ships.world if _ships != null else null
 	var report: Dictionary = EconomyTurn.project(
 		economy, market, extraction(), fleet_ships(), army_food(), research_boost,
-		HospitalRules.demand_list(world, player_faction)
+		HospitalRules.demand_list(world, player_faction), leader_key
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the
@@ -199,7 +204,7 @@ func resolve_turn() -> Dictionary:
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food(), false,
-		research_boost, HospitalRules.demand_list(world, player_faction)
+		research_boost, HospitalRules.demand_list(world, player_faction), leader_key
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;
@@ -236,14 +241,18 @@ func open_panel() -> void:
 
 func open_research() -> void:
 	if _hud != null:
-		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
+		_hud.panels.show_research(
+			economy.research, economy.treasury, research_boost, leader_key
+		)
 
 
 func _refresh_research_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_research_open():
-		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
+		_hud.panels.show_research(
+			economy.research, economy.treasury, research_boost, leader_key
+		)
 
 
 func _on_research_assign(tech_id: String) -> void:
