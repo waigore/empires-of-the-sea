@@ -131,10 +131,7 @@ func refresh(
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	_ships.text = "%d %s · %s · upkeep %d food" % [
-		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
-		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
-	]
+	_ships.text = _muster_line(fleet, is_player, strength)
 	# A home fleet's holds are the reason to merge into her: show them here.
 	if bool(merge.get("home", false)):
 		_ships.text += " · %s" % String(merge.get("holds_text", ""))
@@ -150,6 +147,19 @@ func refresh(
 	_crew.set_data(crew)
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
 	_show_yard(yard_rows, merge)
+
+
+## The composition line under the title: count, hull types and the upkeep they
+## eat. A rival the crown has sighted but not read keeps her muster to herself —
+## no count, no types, no bill — while the map's hull badge stays off her marker
+## (wiki: ships-and-naval § Sighted strength).
+func _muster_line(fleet: FleetState, is_player: bool, strength: Dictionary) -> String:
+	if not is_player and not bool(strength.get("known", true)):
+		return "??? hulls — the fog has not yet given up her muster."
+	return "%d %s · %s · upkeep %d food" % [
+		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
+		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
+	]
 
 
 ## The status and hint lines: what the squadron may still do this turn. One

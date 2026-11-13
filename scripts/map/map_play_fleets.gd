@@ -65,6 +65,16 @@ static func intel_filter(play: PlaySession) -> Callable:
 		return strength_read(play, other)
 
 
+## What the crown's chart says of one squadron: whether she is drawn at all and,
+## for a rival, whether her weight is read. Installed on the layer so a marker
+## minted by a merge, a passage or a captured port starts where the chart stands
+## instead of handing back intel the fog withholds (wiki: ships-and-naval
+## § Sighted strength; fog-and-exploration § Visibility Levels).
+static func view_filter(play: PlaySession) -> Callable:
+	return func(fleet: FleetState) -> Dictionary:
+		return {"drawn": _known(play, fleet), "read": strength_read(play, fleet)}
+
+
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
 ## § Naval transport); a ready beachhead adds the hostile coast it marked.
 static func landing_rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
@@ -209,6 +219,12 @@ static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void
 
 
 static func refresh_visibility(play: PlaySession) -> void:
+	if play == null or play.ship_layer == null:
+		return
+	# A marker minted later (a merge, a passage, a captured port) asks the same
+	# chart this refresh just read, so a rebuild cannot hand back what the fog
+	# withholds (wiki: ships-and-naval § Sighted strength).
+	play.ship_layer.crown_view = view_filter(play)
 	var in_view: Array[int] = []
 	for ship: Ship in play.ship_layer.ships:
 		var fleet: FleetState = play.ship_layer.fleet_of(ship)

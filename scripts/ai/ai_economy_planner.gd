@@ -103,10 +103,12 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 ## worker target. A copy is spent first, so the live ledger sees only the rows
 ## the rules already accepted. Two throttles keep the court growing rather than
 ## spent out: training never consumes the court's last peasant, and it never
-## leaves the purse under `economy.min_treasury` while the court could still
-## train again next turn (wiki: workers-and-population § Rival training throttle).
+## leaves the purse under its cash floor — `economy.min_treasury` or the war
+## chest the caller passes in `floor`, whichever is higher — while the court
+## could still train again next turn (wiki: workers-and-population § Rival
+## training throttle; growth-stage-planner § Recruitment modulation).
 static func recruitment_orders(
-	config: AiConfig, economy: PlayerEconomy
+	config: AiConfig, economy: PlayerEconomy, floor: int = 0
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
@@ -115,6 +117,11 @@ static func recruitment_orders(
 	if economy.workers.total() >= target:
 		return orders
 	var min_treasury: int = maxi(config.parameter("economy.min_treasury"), 0)
+	# The muster floor a caller hands in is a hard veto: a court saving for its
+	# next regiment buys no workers with that purse (issue #474). The court's own
+	# cash floor keeps its soft throttle, so peace-time growth still takes the
+	# one training a thin purse can pay.
+	var muster_floor: int = maxi(floor, 0)
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
 		if sim.workers.total() >= target:
@@ -124,6 +131,8 @@ static func recruitment_orders(
 			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
 				and sim.workers.count(WorkerPool.Tier.PEASANT) <= 1:
+			break
+		if muster_floor > min_treasury and sim.treasury - _trains(sim, tier) < muster_floor:
 			break
 		if sim.treasury - _trains(sim, tier) < min_treasury \
 				and _next_training_affordable(sim, min_treasury):
