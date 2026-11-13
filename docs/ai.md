@@ -14,9 +14,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
-  peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
-  At war, desire below `50 + peace_bias` offers peace; an envious court adds
-  +20 against the leader; a deed resists.
+  peacemaker 30) and desire ≥ 51; goals `round(desire / 25)`.
+  At war, desire below `50 + peace_bias` offers peace; envy adds +20 against
+  the leader.
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid. Friendly acts cost desire and standing
   (DR-20261110-15); an isolationist prices a pact 20 lower, a backstabber +25
@@ -28,8 +28,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   squadron (DR-20261110-21), else raid hostile coast, home squadron too
   (DR-20261111-17, DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
-- **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's own fog;
-  voyages, invasions, work and diplomacy read it (DR-20261113-03).
+- **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog;
+  voyages, invasions and work read it (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): the squadron docks at the crown's
   harbour; board, cross, land (DR-20261111-05).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): a far
@@ -39,33 +39,31 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
   (DR-20261111-27), then down to what the purse carries after its floor —
-  at war, its muster.
+  its muster at war.
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
-  charted Tribe, then overtures and deeds
+  charted Tribe, then overtures
   (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders finish towns, engineers connect and raise road/port/fort/hospital
-  (DR-20261111-16), explorers prospect; merchants buy deeds where embassy,
-  peace, mineral and price allow (DR-20261111-10).
+  builders finish towns, engineers raise road/port/fort/hospital
+  (DR-20261111-16), explorers prospect; merchants buy deeds where allowed
+  (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs above that same floor; merchants sail home, one hull more
+  bid short inputs above that floor; merchants sail home, one hull more
   when tonnage outruns them (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
   Tribes stay 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and its saving pattern's inputs (DR-20261113-08); seat moves
-  recall it. At war the wornest army takes a train (DR-20261112-08).
+  (DR-20261111-04) and its saving pattern's inputs (DR-20261113-08). At war
+  the wornest army takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
 - **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; overstretch
   takes any peace (DR-20261113-15).
-- **Objective ledger** (`AiObjective`, `AiUtility`, `AiObjectiveLedger`,
-  `AiObjectives`, `MapPlayObjectivesAi`): each planner's turn output is
-  normalized into one 0–100 utility, ranked, and allocated against the court's
-  pools (treasury, hulls, civilians, regiments, labour, orders); funded claims
-  persist in `AiState`. Trace-only: it spends nothing and changes no order.
+- **Objective ledger** (`AiObjective`, `AiObjectiveLedger`, `AiObjectives`,
+  `MapPlayObjectivesAi`): planner output ranked into one 0–100 utility,
+  allocated against the court's pools; claims persist in `AiState`. Trace-only.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), dossier
   ([`intel-dossier.md`](intel-dossier.md)).
 
