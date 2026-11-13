@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:1ef3fe7212a0cd8038e3f907a7998ae45577deaf17b2f7375e1cf14be4120579",
-  "submission_git": "orc/resolve-issue-agent-1/20261113T101146741082Z@dddd7c5",
+  "submission_hash": "sha256:170a83e0ae50cf3b3b23be567bb81ec2926ef31e9ecf0992aed986bb3f928563",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T104951894475Z@9ff1ecf",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:49da7f43d55a6f7864eced4b4b5557f669cbd05fe46b25dae34845cd9c1b5110",
+    "ai_surface_hash": "sha256:15d54c931c83e5f430aad1a7dbc871da10bf57bcc0e7e498d0784a8a53996723",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T11:36:43Z",
+  "timestamp": "2026-11-13T12:38:09Z",
   "report_version": 1,
-  "signature": "hmac-sha256:fbaede168dd4f505bcf055804de6191da0628c61719a43474d5635199284cb29"
+  "signature": "hmac-sha256:cc57cb66421fdb56337da48270b9432b70939f18f164b50c8df5942caadeda0a"
 }
