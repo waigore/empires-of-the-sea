@@ -4,23 +4,20 @@ extends RefCounted
 ## rival's proposal, and the buttons that answer them
 ## (wiki: dialogue-content-and-yarn § Playable slice).
 ##
-## Every sentence is authored here once, in the source tongue, and read through
-## [DialogueLocale] under a stable key, exactly as a court's own line is: a
-## tongue file answers a prompt without touching code, and a key no file answers
-## keeps the authored English (REQ-P2-05). Nothing on the rules path reads what
-## comes back — the words are display only (REQ-P2-03) — and the court banner
-## and the map despatch ask this module, so both always print the same thing
-## (REQ-P5-05).
+## Every sentence is authored here once in English and read through
+## [DialogueLocale] under a stable key, exactly as a court's own line is
+## (REQ-P2-05). Nothing on the rules path reads what comes back — the words are
+## display only (REQ-P2-03) — and the court banner and the map despatch ask this
+## module, so both always print the same thing (REQ-P5-05).
 ##
 ## The sentences live together rather than beside each rule that queues a
 ## decision because a prompt is one surface: its caption, its stakes, its terms
-## and its answers must read as one voice in every tongue that ships.
+## and its answers must read as one voice.
 
 const KEY_PREFIX: String = "Prompt"
 
-## Every prompt sentence, in the source tongue. The key is what a tongue file
-## answers; the value is what a court that reads no translation prints. A `%s`
-## or `%d` is filled by the caller and must survive translation.
+## Every prompt sentence in English. The key is stable; the value is what the
+## court prints. A `%s` or `%d` is filled by the caller.
 const SOURCES: Dictionary = {
 	# Who moved, and what it costs us — the line both banners open with.
 	"declaration": "%s has declared war on %s. %s",
@@ -90,9 +87,7 @@ static func key(name: String) -> String:
 	return "%s/%s" % [KEY_PREFIX, name]
 
 
-## One prompt line in the reader's tongue, its source standing in when no file
-## answers the key. The line is filled **after** the tongue is read, so a
-## translation names the courts and the rates with its own word order.
+## One prompt line in English. Placeholders are filled after the line is read.
 static func say(name: String, args: Array = []) -> String:
 	var source: String = String(SOURCES.get(name, ""))
 	if source.is_empty():
@@ -101,8 +96,7 @@ static func say(name: String, args: Array = []) -> String:
 	return line % args if not args.is_empty() else line
 
 
-## Every prompt line this build authors, keyed as a tongue file answers it, so a
-## test can hold each file to the catalogue.
+## Every prompt line this build authors, keyed for catalogue checks.
 static func catalogue() -> Dictionary:
 	var found: Dictionary = {}
 	for name: Variant in SOURCES.keys():
@@ -195,7 +189,7 @@ static func proposal_caption(mood: String) -> String:
 
 
 ## What the rival proposes, in one sentence. The stage is named by its own line,
-## so no tongue has to bend an article around an English stage label.
+## so each offer has its own sentence rather than a shared template.
 static func proposal_body(from_id: int, kind: String, stage: String) -> String:
 	return say(_proposal_line(kind, stage), [FactionCatalog.name_of(from_id)])
 
@@ -215,7 +209,7 @@ static func proposal_terms() -> String:
 	])
 
 
-## The envoy's own words, set off in the punctuation the tongue uses.
+## The envoy's own words, set off in quotation marks.
 static func proposal_quote(words: String) -> String:
 	return say("proposal/quote", [words])
 
@@ -228,7 +222,7 @@ static func button(answer: String) -> String:
 	return say(named)
 
 
-## The envoy's face, in the reader's tongue; a mood no file names still reads.
+## The envoy's face as English copy; a mood no row names still reads.
 static func mood_word(mood: String) -> String:
 	var named: String = "mood/%s" % mood
 	if not SOURCES.has(named):

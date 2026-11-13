@@ -1,9 +1,8 @@
 class_name MainMenu
 extends Control
 ## Title screen: the app's entry point (REQ-P5-01). New game, load a local
-## slot, the settings page that carries the court's tongue, and quit. The page
-## sits on the living dusk backdrop, so the first frame already shows the period
-## world.
+## slot, and quit. The page sits on the living dusk backdrop, so the first
+## frame already shows the period world.
 
 signal new_game_pressed
 signal load_game_pressed
@@ -13,12 +12,9 @@ signal quit_pressed
 
 var new_game_button: Button = null
 var load_game_button: Button = null
-var settings_button: Button = null
 var quit_button: Button = null
 var observer_button: Button = null
 var backdrop: MenuBackdrop = null
-## The settings page over the title: the court's tongue (REQ-P5-07).
-var tongue_page: TonguePage = null
 ## The mix desk at the corner: the score starts on this page, so it can be
 ## silenced here too (REQ-P1-06).
 var audio_controls: AudioControls = null
@@ -30,13 +26,11 @@ var _title: Label = null
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = UiTheme.build()
-	# The reader's own tongue reaches the court before the first page he plays.
-	TonguePrefs.apply()
+	DialogueLocale.ensure_english()
 	backdrop = MenuBackdrop.new()
 	backdrop.name = "Backdrop"
 	add_child(backdrop)
 	_build()
-	_build_tongue_page()
 	_build_sound_seal()
 	_intro()
 
@@ -70,13 +64,6 @@ func _build() -> void:
 	load_game_button.pressed.connect(func() -> void: load_game_pressed.emit())
 	box.add_child(load_game_button)
 
-	settings_button = MenuFrame.action_button(
-		"SETTINGS", MenuFrame.BUTTON_HEIGHT_SHORT if short else MenuFrame.BUTTON_HEIGHT
-	)
-	settings_button.tooltip_text = "Settings"
-	settings_button.pressed.connect(open_settings)
-	box.add_child(settings_button)
-
 	quit_button = MenuFrame.action_button(
 		"QUIT", MenuFrame.BUTTON_HEIGHT_SHORT if short else MenuFrame.BUTTON_HEIGHT
 	)
@@ -95,26 +82,7 @@ func _build() -> void:
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(version)
 
-	_reveal([new_game_button, load_game_button, settings_button, quit_button, observer_button])
-
-
-## The settings page over the title: the court's tongue (REQ-P5-07). Built after
-## the column so it covers it, and closed again by its own BACK row.
-func _build_tongue_page() -> void:
-	tongue_page = TonguePage.new()
-	tongue_page.name = "TonguePage"
-	tongue_page.back_pressed.connect(close_settings)
-	add_child(tongue_page)
-
-
-func open_settings() -> void:
-	if tongue_page != null:
-		tongue_page.open()
-
-
-func close_settings() -> void:
-	if tongue_page != null:
-		tongue_page.close()
+	_reveal([new_game_button, load_game_button, quit_button, observer_button])
 
 
 ## The same bell seal the map carries, parked in the title page's corner: the
@@ -157,21 +125,9 @@ func set_notice(text: String) -> void:
 	_notice.visible = not text.is_empty()
 
 
-## Android/iOS back gesture: the settings page steps aside first, and only a
-## bare title screen exits the app (REQ-P5-07). Escape does the same on desktop.
+## Android/iOS back gesture: a bare title screen exits the app (REQ-P5-07).
+## Escape does the same on desktop.
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_GO_BACK_REQUEST:
 		return
-	if tongue_page != null and tongue_page.is_open():
-		close_settings()
-		return
 	get_tree().quit()
-
-
-func _input(event: InputEvent) -> void:
-	if tongue_page == null or not tongue_page.is_open():
-		return
-	if event.is_action_pressed("ui_cancel") or event.is_action_pressed(InputActions.CANCEL):
-		close_settings()
-		get_viewport().set_input_as_handled()
-

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-10 (`REQ-P2-02`).
+Audited through DR-20261113-10 (`REQ-P2-02`). Localization is English-only.
 
 ## Already live
 
@@ -32,19 +32,17 @@ Audited through DR-20261113-10 (`REQ-P2-02`).
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
 | Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
-| French + Spanish court lines | `assets/locales/{fr,es}.po`, DR-20261113-06/09 |
-| Tongue picker + record; prompt words | `TonguePage`/`TonguePrefs`, `ConsentCopy`, DR-20261113-09/10 |
+| Consent prompt catalogue | `ConsentCopy`, DR-20261113-10 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | More tongues than the two shipped | Localization | a `.po` in `assets/locales/` is offered (DR-20261113-09) |
-| 2 | Despatch lines print English | Localization | outcomes, not prompts (DR-20261113-10) |
+| — | *(none ranked)* | — | English-only; no further tongues |
 
 ## Next pick
 
-**Rank 1** — more tongues; **rank 2** — the despatch log.
+None ranked. Blocked footnotes stay design-gated.
 
 ## Blocked footnotes
 
