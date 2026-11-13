@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": null,
-  "commit": null,
-  "submission_hash": "sha256:3bb76cba5ec76b20b6a892f8f22c6dda89da14b8ea93f24af2747622bef111e2",
-  "submission_git": "feat/blockade-severs-extraction@b33db53",
+  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
+  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
+  "submission_hash": "sha256:fdfe6f78cc1f80613c33795102b19bd6eab3854e3cebc19c88a5122679d89c4b",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T104951894475Z@77c2a8b+dirty",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:b4ad25d59a119840a0d0eef65b3da16875036029d41da9f5392667be687f5aea",
+    "ai_surface_hash": "sha256:2eea8686a58f8cc767fc1267af2f483ec05bc0b162d80e24a8fa2f8e8f33e1d9",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -73,14 +73,14 @@
     "size": 1
   },
   "final": false,
-  "official": false,
-  "official_reason": "dirty-tree",
+  "official": true,
+  "official_reason": null,
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T08:45:18Z",
+  "timestamp": "2026-11-13T12:13:55Z",
   "report_version": 1,
-  "signature": "hmac-sha256:2d95d2c4fa13a17b1bc4a266e2014a4af793c4ce017951f6586550c3b14fb5a5"
+  "signature": "hmac-sha256:4435a3e9d03985c06a92aa22db5f0aae7cad67aa816646a15affce64a1d9f137"
 }

@@ -57,8 +57,13 @@ static func run(
 			})
 			continue
 		# The court's war footing rides the trace; the planners read it through
-		# AiPhasePlanner (DR-20261113-15).
+		# AiPhasePlanner (DR-20261113-15). Its money goal rides beside it: a court
+		# short of the muster it is saving for opens no new war (DR-20261113-19).
 		var phase: Dictionary = AiPhasePlanner.plan(config, state)
+		var income: Dictionary = AiIncome.plan(
+			config, _ledger(ai_state, faction), AiIncome.at_war(state, faction),
+			int((shared.get("regiments", {}) as Dictionary).get(faction, 0))
+		)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
 			config, state, ai_state, world, turn, _reading(shared, faction)
 		)
@@ -69,6 +74,7 @@ static func run(
 			"agenda": agenda,
 			"profile": config.profile,
 			"phase": phase,
+			"income": income,
 			"action": action.duplicate(true),
 			"candidates": plan["candidates"],
 		}
@@ -187,6 +193,14 @@ static func _views(world: WorldMap, readings: Variant) -> Dictionary:
 			view["strengths"] = strengths
 		views[int(raw)] = view
 	return views
+
+
+## The court's own ledger, or null when the caller kept none: a court with no
+## ledger reads no reserve and keeps the published behaviour.
+static func _ledger(ai_state: AiState, faction: int) -> PlayerEconomy:
+	if ai_state == null:
+		return null
+	return ai_state.economy_for(faction)
 
 
 ## Rival ledgers supply the treasury and tech a peaceful order must satisfy, so

@@ -29,10 +29,18 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			if not AiControl.plans(play, faction):
 				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
-			touched = _split(play, model, fleets, armies, faction, config, trace) or touched
+			# A court on **earn** sails for the far coast even while a war sits on
+			# its border: the gold that ends its impasse is overseas
+			# (DR-20261113-19). Defence still comes first on its own soil, which
+			# the planner guards.
+			var earning: bool = AiIncome.wants_income(
+				config, play.ledger_for(faction), _at_war(play, faction),
+				_regiments(play, faction)
+			)
+			touched = _split(play, model, fleets, armies, faction, config, trace, earning) or touched
 			var order: Dictionary = AiInvasionPlanner.plan(
 				config, play.diplomacy, play.world, region, model, fleets, armies,
-				play.turn, play.court_charts
+				play.turn, play.court_charts, earning
 			)
 			if order.is_empty():
 				continue
@@ -55,11 +63,13 @@ static func _split(
 	armies: Array[ArmyState],
 	faction: int,
 	config: AiConfig,
-	trace: Array[Dictionary]
+	trace: Array[Dictionary],
+	wants_income: bool = false
 ) -> bool:
 	var split_any: bool = false
 	for action: Dictionary in AiInvasionPlanner.split_orders(
-		config, play.diplomacy, play.world, model, fleets, armies, play.court_charts
+		config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
+		wants_income
 	):
 		var home: ArmyState = _army_by_id(armies, int(action.get("army_id", -1)))
 		if home == null:
@@ -272,6 +282,25 @@ static func _armies(play: PlaySession, region: int) -> Array[ArmyState]:
 		return roster
 	roster.assign(play.army_layer.regions.value(region, []))
 	return roster
+
+
+## True when any court holds a declared war on this one: the reserve the court
+## must hold is read against it (DR-20261113-19).
+static func _at_war(play: PlaySession, faction: int) -> bool:
+	if play.diplomacy == null:
+		return false
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record.at_war:
+			return true
+	return false
+
+
+## Land regiments this court holds in every region, as the muster target reads
+## them.
+static func _regiments(play: PlaySession, faction: int) -> int:
+	if play.army_layer == null:
+		return 0
+	return play.army_layer.regiment_count_all(faction)
 
 
 static func _hostile(play: PlaySession) -> Callable:

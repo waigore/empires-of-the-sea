@@ -1,9 +1,10 @@
 extends GdToolsTest
 ## A rival court's war footing (wiki: phase-planner-architecture,
-## phase-planner-dispatch § Playable slice; DR-20261113-15): the phase each court
-## reads before its planners run, and the two dispatches it opens — no new
-## colonisation voyage on a war footing, and a white peace taken by a court that
-## fights two fronts.
+## phase-planner-dispatch § Playable slice; DR-20261113-15) and its money goal
+## (wiki: ai-architecture § Money first; DR-20261113-19): the phase and goal each
+## court reads before its planners run, and the dispatches they open — no new
+## colonisation voyage on a war footing unless the court is on earn, and a white
+## peace taken by a court that fights two fronts.
 
 const AiFixture = preload("res://tests/ai_fixture.gd")
 
@@ -189,8 +190,11 @@ func _world() -> WorldMap:
 	return map
 
 
-## The same court and voyage under one footing.
-func _voyage(posture: String, embarked: bool = false) -> Dictionary:
+## The same court and voyage under one footing. `wants_income` is the court's
+## money goal (DR-20261113-19).
+func _voyage(
+	posture: String, embarked: bool = false, wants_income: bool = false
+) -> Dictionary:
 	var world: WorldMap = _world()
 	var old_world: MapModel = world.region(0)
 	var fleet := FleetState.in_port(1, OWNER, 0)
@@ -198,7 +202,7 @@ func _voyage(posture: String, embarked: bool = false) -> Dictionary:
 	if embarked:
 		assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
 	return AiColonisationPlanner.plan(
-		_config(), world, 0, old_world, [fleet], [unit], {}, null, posture
+		_config(), world, 0, old_world, [fleet], [unit], {}, null, posture, wants_income
 	)
 
 
@@ -220,6 +224,17 @@ func test_an_expedition_already_afloat_keeps_sailing() -> void:
 	assert_eq(
 		String(_voyage(AiPhasePlanner.PHASE_WAR, true).get("kind", "")), "sail",
 		"a voyage under way is not abandoned"
+	)
+
+
+func test_an_earning_court_sails_even_on_a_war_footing() -> void:
+	assert_eq(
+		String(_voyage(AiPhasePlanner.PHASE_WAR, false, true).get("kind", "")), "embark",
+		"the gold that ends the impasse is overseas (DR-20261113-19)"
+	)
+	assert_eq(
+		String(_voyage(AiPhasePlanner.PHASE_FRONTS, false, true).get("kind", "")), "embark",
+		"two fronts do not close the one voyage that pays for the war"
 	)
 
 
@@ -247,10 +262,12 @@ func _session(diplomacy: DiplomacyState) -> PlaySession:
 	play.civilian_layer.units = [unit]
 	play.civilian_layer.regions.set_region(0, [unit])
 	play.civilian_layer.regions.set_region(1, [])
+	# The court's ledger is read for its money goal (DR-20261113-19).
+	play.ensure_ai()
 	return play
 
 
-func test_the_map_adapter_closes_the_voyage_on_a_war_footing() -> void:
+func test_the_map_adapter_keeps_the_earning_court_s_voyage_open() -> void:
 	var peace: PlaySession = _session(_court())
 	var quiet: Array[Dictionary] = MapPlayColonisationAi.run(peace)
 	assert_eq(quiet.size(), 1, "with no war the published voyage opens")
@@ -258,11 +275,27 @@ func test_the_map_adapter_closes_the_voyage_on_a_war_footing() -> void:
 	peace.ship_layer.free()
 	peace.civilian_layer.free()
 
+	# A court at war with a thin purse is on earn: the gold across the water is
+	# the only thing that ends its impasse (DR-20261113-19).
+	var war: DiplomacyState = _court()
+	_war(war, RIVAL)
+	var poor: PlaySession = _session(war)
+	poor.ai.economy_for(OWNER).treasury = 1000
+	var earning: Array[Dictionary] = MapPlayColonisationAi.run(poor)
+	assert_eq(earning.size(), 1, "a court on earn still reaches for the New World")
+	assert_eq(String(earning[0]["kind"]), "embark")
+	poor.ship_layer.free()
+	poor.civilian_layer.free()
+
+
+func test_the_map_adapter_closes_the_voyage_of_a_court_that_can_pay() -> void:
 	var war: DiplomacyState = _court()
 	_war(war, RIVAL)
 	var play: PlaySession = _session(war)
+	play.ensure_ai()
+	play.ai.economy_for(OWNER).treasury = 20000
 	var footing: Array[Dictionary] = MapPlayColonisationAi.run(play)
-	assert_true(footing.is_empty(), "no voyage opens on a war footing")
+	assert_true(footing.is_empty(), "a funded court keeps its hulls for the fleet")
 	assert_false(play.civilian_layer.units[0].is_embarked(), "the Explorer stays ashore")
 	play.ship_layer.free()
 	play.civilian_layer.free()
@@ -333,3 +366,94 @@ func test_an_overstretched_court_takes_the_white_peace() -> void:
 		String(record["message"]).contains("refuses"),
 		"the court answers the offer instead of refusing it"
 	)
+
+
+# --- money first: the goal a court reads before its planners ------------------
+
+
+## The court's purse at one balance; `PlayerEconomy.starting()` carries the
+## workers and stores a running court has.
+func _purse(treasury: int) -> PlayerEconomy:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = treasury
+	return economy
+
+
+func test_a_court_short_of_its_muster_reads_earn() -> void:
+	var config: AiConfig = _config()
+	var thin: PlayerEconomy = _purse(1200)
+	var plan: Dictionary = AiIncome.plan(config, thin, true, 1)
+
+	assert_eq(String(plan["goal"]), AiIncome.GOAL_EARN)
+	assert_eq(
+		int(plan["reserve"]), AiArmyReinforce.muster_floor(config, thin, 1, true),
+		"the reserve is the muster the court is saving for"
+	)
+	assert_eq(int(plan["treasury"]), 1200)
+	assert_eq(int(plan["regiments"]), 1)
+	assert_eq(AiIncome.label(String(plan["goal"])), "earning")
+	assert_true(AiIncome.wants_income(config, thin, true, 1))
+
+
+func test_a_court_that_can_pay_plays_as_published() -> void:
+	var config: AiConfig = _config()
+	var rich: PlayerEconomy = _purse(8000)
+
+	assert_eq(AiIncome.goal_for(config, rich, true, 1), AiIncome.GOAL_SPEND)
+	assert_eq(AiIncome.label(AiIncome.GOAL_SPEND), "spending")
+	assert_false(AiIncome.wants_income(config, rich, true, 1))
+
+
+func test_a_court_at_peace_keeps_only_its_cash_floor() -> void:
+	# The bench measured the peace-time muster reserve: it traded 23 provinces
+	# for a standing army (DR-20261113-22), so only a war holds the war chest.
+	var config: AiConfig = _config()
+	var economy: PlayerEconomy = _purse(1000)
+	var target: int = config.parameter("army.regiment_target")
+
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 0),
+		config.parameter("economy.min_treasury"),
+		"a court at peace grows: only its own floor is held back"
+	)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, target),
+		config.parameter("economy.min_treasury")
+	)
+	assert_eq(
+		AiIncome.goal_for(config, economy, false, 0), AiIncome.GOAL_SPEND,
+		"a thin purse at peace still spends"
+	)
+
+
+func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
+	assert_eq(AiIncome.reserve(_config(), null, true, 0), 0)
+	assert_eq(AiIncome.goal_for(_config(), null, true, 0), AiIncome.GOAL_SPEND)
+	assert_eq(AiIncome.label(""), "spending", "an unknown goal reads as the published one")
+
+
+func test_an_earning_court_funds_no_study() -> void:
+	var config: AiConfig = _config()
+	var economy: PlayerEconomy = _purse(1200)
+	var reserve: int = AiIncome.reserve(config, economy, true, 1)
+
+	assert_eq(AiResearchPlanner.funding_for(config, economy, reserve), "none")
+	assert_ne(
+		AiResearchPlanner.funding_for(config, _purse(reserve + 1000), reserve), "none",
+		"the surplus above the reserve funds the study"
+	)
+
+
+func test_an_earning_court_bids_no_imports() -> void:
+	var config: AiConfig = _config()
+	var economy: PlayerEconomy = _purse(1200)
+	var reserve: int = AiIncome.reserve(config, economy, true, 1)
+	var market := WorldMarket.with_default_prices()
+
+	assert_true(reserve > economy.treasury, "the purse is short of the reserve")
+	var plan: Dictionary = AiMarketPlanner.plan(
+		config, economy, market, 6, {}, {}, {}, reserve
+	)
+	assert_true((plan["bids"] as Array).is_empty(), "the reserve is not the auction's to spend")
+
+

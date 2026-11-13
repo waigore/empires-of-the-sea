@@ -43,9 +43,15 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## overseas region is priced on the raw its holds actually landed.
 static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
-	overseas: Dictionary = {}, stockpile: Dictionary = {}
+	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
+	# The cash a crew may spend is what the purse carries after the court's own
+	# floor and, at war and short of its target, the muster it is saving for:
+	# training and deeds are discretionary, the war chest is not (wiki:
+	# growth-stage-planner § Recruitment modulation; treasury-planner
+	# § Cash discipline; issue #474).
+	var spendable: int = maxi(economy.treasury - maxi(floor, 0), 0)
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -55,7 +61,7 @@ static func plan_all(
 		var capital: Dictionary = WorldBootstrap.capital_seat(model, faction)
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
-			"treasury": economy.treasury,
+			"treasury": spendable,
 			"paper": economy.quantity("paper"),
 			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],

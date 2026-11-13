@@ -32,12 +32,18 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
-			# closes the voyage before the planner picks a step (DR-20261113-15).
+			# closes the voyage before the planner picks a step (DR-20261113-15) —
+			# unless the court is on **earn**, whose gold is overseas
+			# (DR-20261113-19).
 			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
+			var earning: bool = AiIncome.wants_income(
+				config, play.ledger_for(faction), _at_war(play, faction),
+				_regiments(play, faction)
+			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_abroad(play, target, faction), play.court_charts, posture
+				_abroad(play, target, faction), play.court_charts, posture, earning
 			)
 			if order.is_empty():
 				continue
@@ -195,6 +201,25 @@ static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
 		if unit != null and unit.owner == owner:
 			counts[unit.type_id] = int(counts.get(unit.type_id, 0)) + 1
 	return counts
+
+
+## True when any court holds a declared war on this one: the reserve the court
+## must hold is read against it (DR-20261113-19).
+static func _at_war(play: PlaySession, faction: int) -> bool:
+	if play.diplomacy == null:
+		return false
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record.at_war:
+			return true
+	return false
+
+
+## Land regiments this court holds in every region, as the muster target reads
+## them. A session with no army layer reads none.
+static func _regiments(play: PlaySession, faction: int) -> int:
+	if play.army_layer == null:
+		return 0
+	return play.army_layer.regiment_count_all(faction)
 
 
 static func _fleet_by_id_any(
