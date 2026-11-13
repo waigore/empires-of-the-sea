@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-10 (`REQ-P2-02`). Localization is English-only.
+Audited through DR-20261113-14 (`REQ-P2-02`). Localization is English-only.
 
 ## Already live
 
@@ -32,6 +32,7 @@ Audited through DR-20261113-10 (`REQ-P2-02`). Localization is English-only.
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
 | Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
 | Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
+| Works' reservation (crews' rows kept from the sale) | `MapPlayCivilianAi.work_rows`, DR-20261113-14 |
 | Consent prompt catalogue | `ConsentCopy`, DR-20261113-10 |
 
 ## Remaining gaps (impact order)
@@ -56,6 +57,5 @@ None ranked. Blocked footnotes stay design-gated.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - General borrowing / loans — Money Lending floor live.
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
-- Works' reservation + coexistence — seed (DR-20261113-08).
 - Recipe gates on a building or worker tier; multi-turn rows beyond steel and
   bronze; a queue cap — wiki-deferred.
