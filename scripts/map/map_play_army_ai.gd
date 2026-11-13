@@ -8,6 +8,8 @@ extends RefCounted
 const KIND_REINFORCE: String = "reinforce"
 ## Turn-trace kind for a rival army's field hospital train (DR-20261112-08).
 const KIND_HOSPITAL: String = "hospital_train"
+## The Home Army marching back to a seat that moved (issue #474).
+const KIND_RECALL: String = "recall"
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -184,8 +186,12 @@ static func _reinforce(
 	if capital < 0:
 		return false
 	var home: ArmyState = ArmyTraining.home_army(roster, faction)
-	if home == null or home.province != capital:
+	if home == null:
 		return false
+	if home.province != capital:
+		# A court whose seat moved musters nowhere: the garrison re-forms at the
+		# new capital, then the muster below prices its regiment (issue #474).
+		_recall(play, model, home, faction, capital, trace)
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
@@ -210,6 +216,36 @@ static func _reinforce(
 		"regiment": unit_id,
 		"province": home.province,
 		"province_name": model.province_name(home.province),
+		"region": model.region_id,
+	})
+	return true
+
+
+## Re-forms a stranded Home Army at the new seat. The Home Army is the seat's
+## garrison, not a field column — the rules never let it march (`can_move`
+## refuses it) — so when the capital moves the garrison re-forms there instead
+## of standing at the old seat for the rest of the campaign, which is what
+## blocked every muster after a capital fell (issue #474).
+static func _recall(
+	play: PlaySession,
+	model: MapModel,
+	home: ArmyState,
+	faction: int,
+	capital: int,
+	trace: Array[Dictionary]
+) -> bool:
+	if AiArmyReinforce.recall_target(home.province, capital) < 0:
+		return false
+	var from: int = home.province
+	home.province = capital
+	home.moved = false
+	trace.append({
+		"faction": faction,
+		"kind": KIND_RECALL,
+		"army": home.id,
+		"province": capital,
+		"province_name": model.province_name(capital),
+		"from": from,
 		"region": model.region_id,
 	})
 	return true

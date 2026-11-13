@@ -1297,6 +1297,19 @@ domain = "ai_ledger"
 match = "scripts/ai/ai_claims.gd*"
 domain = "ai_ledger"
 
+# The muster pass and the recall it owes a moved seat (issue #474): the army
+# suites only, never the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_army_reinforce.gd*"
+domain = "ai_army"
+
+[[rules]]
+match = "scripts/map/map_play_army_ai.gd*"
+domain = "ai_army"
+
+[domains.ai_army]
+suites = ["test_ai_campaign_rules.gd", "test_ai_phase_rules.gd"]
+
 [[rules]]
 match = "scripts/ai/ai_turn_log.gd*"
 domain = "ai_ledger"
