@@ -351,6 +351,37 @@ func test_ship_reveal_opens_open_water_without_touching_land() -> void:
 	assert_eq(changed.size(), 18)
 	assert_eq(_visibility.level_at(8, 0), VisibilityModel.Level.FULLY_VISIBLE)
 
+
+## A crown whose leader publishes the charting lean charts one further orthogonal
+## land ring off the strict coastal ring, and stops there (wiki: leader-bonuses
+## § Bonus Table — Henry the Navigator).
+func test_the_charting_leader_adds_one_coastal_land_ring() -> void:
+	_setup_visibility()
+	_visibility.apply_initial()
+	var charted: Array = _visibility.reveal_sea_zone(
+		0, LeaderCatalog.coastal_rings("henry")
+	)
+	assert_eq(charted.size(), 5, "the strict coastal ring plus one further step")
+	assert_eq(_visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(_visibility.level_at(3, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(
+		_visibility.level_at(4, 3), VisibilityModel.Level.FULLY_VISIBLE,
+		"the ring wraps the end of the coast, one step inland"
+	)
+	assert_eq(
+		_visibility.level_at(2, 1), VisibilityModel.Level.FOGGED,
+		"the bonus is one ring, not the province interior"
+	)
+
+
+func test_a_ship_reveal_without_the_charting_leader_keeps_the_strict_ring() -> void:
+	_setup_visibility()
+	_visibility.apply_initial()
+	assert_eq(LeaderCatalog.coastal_rings("de_ruyter"), 0)
+	var changed: Array = _visibility.reveal_sea_zone(0)
+	assert_eq(changed.size(), 2)
+	assert_eq(_visibility.level_at(2, 2), VisibilityModel.Level.FOGGED)
+
 func test_end_of_turn_decays_only_foreign_fully_visible_land() -> void:
 	_setup_visibility()
 	_visibility.apply_initial()
