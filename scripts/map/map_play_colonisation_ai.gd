@@ -43,7 +43,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_abroad(play, target, faction), play.court_charts, posture, earning
+				_abroad(play, target, faction), play.court_charts,
+				_voyage_posture(play, faction, posture), earning
 			)
 			if order.is_empty():
 				continue
@@ -83,6 +84,21 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 	if visible_touched:
 		_refresh_visible(play)
 	return trace
+
+
+## The footing the voyage reads: the court's own ledger decides whether the
+## expedition was funded, and a funded parent opens the voyage even at war — the
+## peace-window child is what bought it (issue #491 T4). A court with no ledger
+## yet (the opening turn, an old save, a fixture) keeps the published footing, so
+## the war gate still holds until the first ledger is written.
+static func _voyage_posture(play: PlaySession, faction: int, posture: String) -> String:
+	if not AiPhasePlanner.is_war_footing(posture):
+		return posture
+	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
+	if claim.is_empty():
+		return posture
+	var funded: Array = claim.get("funded_ids", [])
+	return AiPhasePlanner.PHASE_PEACE if funded.has("colonise.new_world") else posture
 
 
 static func _apply(

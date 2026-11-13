@@ -10,6 +10,9 @@ var agendas: Dictionary = {}
 var last_war_turn: Dictionary = {}
 ## "low:high" pair key -> turn the AI last saw an overture accept/reject.
 var last_overture_turn: Dictionary = {}
+## "low:high" pair key -> turn the AI last made peace on that pair. The truce it
+## carries afterwards reads this (docs/ai.md; issue #475).
+var last_truce_turn: Dictionary = {}
 ## "low:high" pair key -> turn the human court answered a peace offer.
 var last_peace_turn: Dictionary = {}
 ## Faction id -> that rival court's ledger (stockpile, treasury, workers).
@@ -70,6 +73,12 @@ func note_overture(a: int, b: int, turn: int) -> void:
 	last_overture_turn[pair_key(a, b)] = turn
 
 
+## A concluded peace starts the pair's truce: the war it ended leaves both
+## courts unwilling to fight again for `diplomacy.truce_turns` (issue #475).
+func note_truce(a: int, b: int, turn: int) -> void:
+	last_truce_turn[pair_key(a, b)] = turn
+
+
 func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	var key: String = pair_key(a, b)
 	if not last_overture_turn.has(key):
@@ -102,13 +111,35 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 	var lines: Array[String] = []
 	for raw: Variant in report.get("lines", []):
 		lines.append(String(raw))
+	# The ids by status let the next turn's planners consult the claim they were
+	# granted (e.g. the expedition's hull before the muster gate opens, #497).
+	var ids: Dictionary = {"funded": [], "deferred": [], "blocked": []}
+	_collect_ids(report.get("objectives", []), ids)
 	objective_claims[faction] = {
 		"turn": turn,
 		"phase": String(report.get("phase", "")),
 		"ranked": int(report.get("ranked", 0)),
 		"funded": int(report.get("funded", 0)),
+		"funded_ids": ids["funded"],
+		"deferred_ids": ids["deferred"],
+		"blocked_ids": ids["blocked"],
 		"lines": lines,
 	}
+
+
+## Walks the ledger tree and files every objective id under its status.
+static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
+	if typeof(rows) != TYPE_ARRAY:
+		return
+	for raw: Variant in rows:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = raw
+		var status: String = String(row.get("status", ""))
+		var list: Variant = ids.get(status, null)
+		if typeof(list) == TYPE_ARRAY:
+			(list as Array).append(String(row.get("id", "")))
+		_collect_ids(row.get("children", []), ids)
 
 
 ## The claims this court's last turn reported, or an empty row.
@@ -125,6 +156,7 @@ func to_dict() -> Dictionary:
 		"agendas": agendas.duplicate(),
 		"last_war_turn": last_war_turn.duplicate(),
 		"last_overture_turn": last_overture_turn.duplicate(),
+		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
 		"objective_claims": _claims_snapshot(),
@@ -139,6 +171,7 @@ static func from_dict(data: Dictionary) -> AiState:
 		state.agendas[int(key)] = String(stored_agendas[key])
 	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
+	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
@@ -173,13 +206,19 @@ static func _claim_row(claim: Dictionary) -> Dictionary:
 	var lines: Array[String] = []
 	for raw: Variant in claim.get("lines", []):
 		lines.append(String(raw))
-	return {
+	var row: Dictionary = {
 		"turn": int(claim.get("turn", 0)),
 		"phase": String(claim.get("phase", "")),
 		"ranked": int(claim.get("ranked", 0)),
 		"funded": int(claim.get("funded", 0)),
 		"lines": lines,
 	}
+	for key: String in ["funded_ids", "deferred_ids", "blocked_ids"]:
+		var ids: Array[String] = []
+		for raw: Variant in claim.get(key, []):
+			ids.append(String(raw))
+		row[key] = ids
+	return row
 
 
 ## One snapshot per rival ledger, keyed by faction id. Missing factions are

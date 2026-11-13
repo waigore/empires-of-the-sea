@@ -34,8 +34,11 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
 	var readings: Dictionary = _readings(play, faction, config, economy, phase)
+	# The footing and the leader's weights scale the rank without deleting an
+	# aim: a voyage at war is cheaper, not gone (issue #491 T4).
 	var report: Dictionary = AiObjectiveLedger.run(
-		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings)
+		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
+		AiPosture.modifiers(String(phase.get("phase", "")), config)
 	)
 	report["phase"] = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 	report["goal"] = String(readings["goal"])
@@ -60,14 +63,12 @@ static func _readings(
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
-	var funding: String = AiResearchPlanner.funding_for(
-		config, economy, AiResearchPlanner.research_floor(config)
-	)
+	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
-	# The standing study is one slot at the cheapest preset, priced beside the
-	# surplus preset so the ledger reads what the court will actually pay
-	# (issue #490). It never lifts the index above the surplus preset.
+	# The surplus ladder reads the money-goal reserve; the standing study is one
+	# slot at the cheapest preset above half the cash floor, so the ledger prices
+	# what the court will actually pay (issue #490).
 	var funding_index: int = ResearchFunding.ORDER.find(funding)
 	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
 	if not standing.is_empty():
@@ -90,6 +91,7 @@ static func _readings(
 			play.world.region(home), faction
 		) >= 0,
 		"idle_hulls": _idle_hulls(play, faction),
+		"explorer_ready": _explorer_ready(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
 		"research_slots": slots,
 		"research_funding": funding_index,
@@ -212,6 +214,24 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 				continue
 			total += 1
 	return total
+
+
+## An idle Explorer of this court at home: the colonist the next train slot
+## musters (issue #491 T2).
+static func _explorer_ready(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for raw: Variant in play.civilian_layer.regions.value(home, []):
+		var unit: CivilianState = raw
+		if unit == null or unit.owner != faction or unit.type_id != "explorer":
+			continue
+		if unit.is_working() or unit.moved or unit.is_embarked():
+			continue
+		return true
+	return false
 
 
 ## True while an expedition of this court is already at sea (a protected claim

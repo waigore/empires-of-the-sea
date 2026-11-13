@@ -29,6 +29,11 @@ const W_RESEARCH_STEP: int = 5
 const W_ECONOMY: int = 55
 const W_CARGO: int = 40
 const W_NAVY: int = 60
+## The expedition's children: the hull and the Explorer it must have, and a
+## voyage already afloat, which outranks every new aim of the same court.
+const W_HULL: int = 60
+const W_EXPLORER: int = 60
+const W_VOYAGE: int = 75
 
 
 static func build(readings: Dictionary) -> Array[AiObjective]:
@@ -96,25 +101,42 @@ static func _diplomacy(readings: Dictionary, at_war: bool) -> Array[AiObjective]
 	return orders
 
 
-## The expedition parent: a hull off the cargo routes, the next train slot for
-## the Explorer, and — at war — the order that opens the peace window. Its
-## children arrive with T2 (#497); T1 already prices the parent so starvation is
-## visible (issue #476).
+## The expedition: one parent with the children that actually make it sail — the
+## hull kept off the cargo routes, the Explorer mustering for the next train
+## slot, the order that opens the peace window at war, and the voyage already
+## afloat as a protected claim (issue #491 T2, #476).
+##
+## The parent carries no cost of its own: the allocator funds the children, and
+## the gate that musters the Explorer reads `expedition.hull` rather than
+## looking for a squadron a second time. A child that cannot be had is blocked
+## with its reason, and a funded parent whose children are deferred prints the
+## shortfall (e.g. `expedition.hull 0/1`).
 static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not bool(readings.get("colony_target", false)):
 		return null
-	var objective := AiObjective.create(
-		"colonise.new_world", "expansion", W_PROVINCES_NEW, {"hull": 1, "civilian": 1}
+	var parent := AiObjective.create(
+		"colonise.new_world", "expansion", W_PROVINCES_NEW, {}
 	)
+	var afloat: bool = bool(readings.get("voyage_afloat", false))
+	var harbour: bool = bool(readings.get("harbour", false))
+	var hull := AiObjective.create("expedition.hull", "naval", W_HULL, {"hull": 1})
+	if not harbour:
+		hull.block("no harbour")
+	var explorer := AiObjective.create(
+		"expedition.explorer", "civilian", W_EXPLORER, {"civilian": 1}
+	)
+	if not afloat and not bool(readings.get("explorer_ready", false)):
+		explorer.block("no Explorer free")
+	parent.with_child(hull).with_child(explorer)
 	if at_war:
-		objective.cost["orders"] = 1
-	if not bool(readings.get("harbour", false)):
-		objective.block("no harbour")
-	elif int(readings.get("idle_hulls", 0)) <= 0 and not bool(
-		readings.get("voyage_afloat", false)
-	):
-		objective.block("no hull free")
-	return objective
+		# The court's one order is already claimed by `peace.window`; the voyage
+		# needs that window funded, not a second order of its own.
+		parent.needs("peace.window")
+	if afloat:
+		# Already under way: no new hull or colonist, but the voyage outranks
+		# opening a second one.
+		parent.with_child(AiObjective.create("expedition.voyage", "expansion", W_VOYAGE, {}))
+	return parent
 
 
 ## The fleet's turn: a squadron at war sorts out; a court with no hull at sea
