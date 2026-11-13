@@ -20,6 +20,14 @@ const RES: int = 6
 const BEACH_SPAN: float = 0.58
 ## Pale shoal water outside the shore, in tiles.
 const SHOAL_SPAN: float = 1.55
+## How far a tile looks for its basin's deepest water, in tiles.
+const REACH: int = 3
+## A narrow basin's veil never spans more than this share of the deepest water
+## within `REACH`, so the veil stops short of the middle instead of flooding a
+## gulf from shore to shore.
+const NARROW_SHARE: float = 0.62
+## The thinnest shelf a narrow channel keeps along its shore, in tiles.
+const MIN_SHOAL_SPAN: float = 0.42
 
 const SAND: Color = Color(0.890, 0.843, 0.678)
 const SAND_WET: Color = Color(0.706, 0.639, 0.471)
@@ -43,6 +51,9 @@ var height: int = 0
 
 var _model: MapModel = null
 var _sd: PackedFloat32Array = PackedFloat32Array()
+## Deepest water within `REACH` tiles of each tile, in tiles: the basin's own
+## half-width, which caps the shoal veil so a narrow gulf keeps open water.
+var _reach: PackedFloat32Array = PackedFloat32Array()
 var _base: PackedColorArray = PackedColorArray()
 var _hb: PackedFloat32Array = PackedFloat32Array()
 var _rough: PackedFloat32Array = PackedFloat32Array()
@@ -58,6 +69,7 @@ func build(model: MapModel, owner_tint: float) -> void:
 	width = maxi(model.width * RES, 1)
 	height = maxi(model.height * RES, 1)
 	_coast_field(model)
+	_reach_field(model)
 	_collect(model, owner_tint)
 	_noise_layers()
 	_paint()
@@ -106,6 +118,34 @@ func _coast_field(model: MapModel) -> void:
 	_sd.resize(n)
 	for i in n:
 		_sd[i] = to_water[i] - to_land[i]
+
+
+## Deepest water within `REACH` tiles of each tile, in tiles. A gulf two tiles
+## wide never sits more than one tile from a shore, and this is the measure that
+## tells its shoal veil to stop short of the middle instead of covering the
+## whole basin and hiding the sea backdrop behind a flat wash (issue #456).
+func _reach_field(model: MapModel) -> void:
+	var w: int = model.width
+	var h: int = model.height
+	var depth := PackedFloat32Array()
+	depth.resize(w * h)
+	for i in w * h:
+		depth[i] = maxf(-_sd[i], 0.0)
+	var rows := PackedFloat32Array()
+	rows.resize(w * h)
+	for y in h:
+		for x in w:
+			var best: float = 0.0
+			for dx in range(-REACH, REACH + 1):
+				best = maxf(best, depth[y * w + clampi(x + dx, 0, w - 1)])
+			rows[y * w + x] = best
+	_reach.resize(w * h)
+	for y in h:
+		for x in w:
+			var best: float = 0.0
+			for dy in range(-REACH, REACH + 1):
+				best = maxf(best, rows[clampi(y + dy, 0, h - 1) * w + x])
+			_reach[y * w + x] = best
 
 
 ## Two-pass chamfer distance transform (1 / sqrt2 steps). Accurate enough for a
@@ -282,18 +322,28 @@ func _paint() -> void:
 					red = lerpf(red, SAND_WET.r, wet)
 					green = lerpf(green, SAND_WET.g, wet)
 					blue = lerpf(blue, SAND_WET.b, wet)
-					var shoal: float = smoothstep(-SHOAL_SPAN, -0.02, shore) * (0.34 + tooth * 0.26)
-					var pale: float = clampf(smoothstep(-SHOAL_SPAN, -0.75, shore), 0.0, 1.0)
+					# The veil follows the basin, not a fixed width: narrow water
+					# keeps a thin shelf and open water down its middle.
+					var reach: float = (
+						_reach[i00] * w00 + _reach[i10] * w10
+						+ _reach[i01] * w01 + _reach[i11] * w11
+					)
+					var veil: float = clampf(reach * NARROW_SHARE, MIN_SHOAL_SPAN, SHOAL_SPAN)
+					var shoal: float = smoothstep(-veil, -0.02, shore) * (0.34 + tooth * 0.26)
+					var pale: float = clampf(
+						smoothstep(-veil, -minf(0.75, veil * 0.5), shore), 0.0, 1.0
+					)
 					var water_r: float = lerpf(SHOAL_DEEP.r, SHOAL.r, pale)
 					var water_g: float = lerpf(SHOAL_DEEP.g, SHOAL.g, pale)
 					var water_b: float = lerpf(SHOAL_DEEP.b, SHOAL.b, pale)
 					# Sounding lines: rings of depth parallel to the shore, the way a
-					# chart plates its shallows.
+					# chart plates its shallows. A channel too narrow to carry a ring
+					# stays clean water instead of a stack of bars.
 					var depth: float = -shore
 					var band: float = absf(fposmod(depth / 0.52, 1.0) - 0.5)
 					var ring: float = smoothstep(0.40, 0.50, band)
-					ring *= clampf(1.0 - depth / (SHOAL_SPAN + 0.3), 0.0, 1.0)
-					ring *= 0.42
+					ring *= clampf(1.0 - depth / (veil + 0.3), 0.0, 1.0)
+					ring *= smoothstep(0.60, 1.10, veil) * 0.42
 					water_r = lerpf(water_r, SHOAL_RING.r, ring)
 					water_g = lerpf(water_g, SHOAL_RING.g, ring)
 					water_b = lerpf(water_b, SHOAL_RING.b, ring)
