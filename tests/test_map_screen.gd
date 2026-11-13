@@ -55,6 +55,20 @@ func test_region_toggle_switches_the_whole_view() -> void:
 	assert_eq(_screen.model.region_id, FactionCatalog.OLD_WORLD)
 
 
+## Join Empire repaints where the layers do not: the host delegate hands the
+## whole political redraw to MapPlayRegion, and the chart, fog and lens follow.
+func test_a_political_refresh_repaints_chart_and_lens() -> void:
+	MapPlayInput.set_diplomacy_lens(_screen.play, true)
+	var before: int = int(_screen.play.diplomacy_lens.survey["tiles"]["self"])
+	assert_gt(before, 0)
+	_screen.refresh_political_map()
+	assert_eq(_screen.canvas.model, _screen.model)
+	assert_eq(_screen.overlay.model, _screen.model)
+	assert_eq(_screen.play.diplomacy_lens.model, _screen.model)
+	assert_true(_screen.play.diplomacy_lens.active, "the raised lens survives the refresh")
+	assert_eq(int(_screen.play.diplomacy_lens.survey["tiles"]["self"]), before)
+
+
 func test_the_new_world_stays_uncharted_at_game_start() -> void:
 	_screen._cycle_region()
 	var model: MapModel = _screen.model

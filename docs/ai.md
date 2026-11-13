@@ -8,8 +8,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): at war the reserve is the muster under
   `army.regiment_target` (+`army.war_extra`), at peace `economy.min_treasury`;
-  on `earn` the auction keeps it back and a Passage voyage may open
-  (DR-20261113-19/22).
+  on `earn` the auction keeps it back (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
@@ -21,8 +20,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   Tribe lifts its envoy chain, not war (DR-20261114-02).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
-  (DR-20261110-15); isolationist −20, backstabber +25 on a pact
-  (DR-20261111-27).
+  (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
 - **Turn pass** (`AiTurn`): one order per rival, wars first.
 - **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
   Home regiment; armies save or storm.
@@ -30,13 +28,12 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17,
   DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
-- **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's own fog, read
+- **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
   by voyages, invasions, work, diplomacy (DR-20261113-03).
-- **Colonisation** (`AiColonisationPlanner`): the squadron docks at the crown's
-  harbour to board, cross and land, then crosses home empty (DR-20261111-05,
-  DR-20261114-03).
+- **Colonisation** (`AiColonisationPlanner`): the squadron docks at the harbour to
+  board, cross and land, then returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
-  hulls, dock, board, cross; storm the coast (DR-20261114-03).
+  hulls, dock, board, cross, storm the coast (DR-20261114-03).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
   tier keeping a peasant and the cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
@@ -57,11 +54,12 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
   (DR-20261111-04) and its pattern's inputs (DR-20261113-08); at war the wornest
-  army takes a train (DR-20261112-08).
+  takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
-  peace (DR-20261113-15).
+  peace (DR-20261113-15). **Victory pressure** (`AiVictoryPressure`): near the bar, a
+  bigger muster target and heavier war weights (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
 - **Persistence:** agendas, cooldowns, ledgers, claims
@@ -69,7 +67,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-New World colony; soft priority — [`deferred.md`](deferred.md).
+New World colony; domain gating — [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 

@@ -90,6 +90,7 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 		"provinces_old", "provinces_new",
 		"power", "regiments", "ships", "civilians", "treasury", "stock",
 		"workers", "wars", "progress", "rank", "alive", "headline",
+		"pressure", "pressure_stage", "pressure_need", "pressure_regiments",
 	]
 	for index in rows.size():
 		var row: Dictionary = rows[index]
@@ -228,6 +229,32 @@ func test_dashboard_renders_the_live_snapshot() -> void:
 	assert_true(panel._turn_label.text.begins_with("TURN"), "the panel names the turn")
 	assert_eq(panel._cards.size(), FactionCatalog.great_power_ids().size())
 	assert_ne(panel._result.text, "", "the panel reports the standing")
+
+
+## A court that can see the bar is marked on its card (DR-20261114-04): the
+## standing reads `pressing` beside the province count, and drops it when the
+## court is far from the bar.
+func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
+	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts")
+	if panel == null:
+		return
+	_step(1)
+	panel.refresh()
+	var row: Dictionary = MapPlayObserver.snapshot(_screen.play)["rows"][0].duplicate(true)
+	var progress: Label = panel._cards[int(row["faction"])]["progress"]
+	row["pressure_stage"] = AiVictoryPressure.STAGE_NEAR
+	panel._refresh_card(row)
+	assert_true(progress.text.ends_with("pressing"), "the endgame court is marked")
+	assert_true(
+		progress.text.begins_with("%d/%d" % [
+			int(row["provinces_old"]), VictoryRules.MILITARY_THRESHOLD,
+		]),
+		"the standing still leads the line"
+	)
+	row["pressure_stage"] = AiVictoryPressure.STAGE_FAR
+	panel._refresh_card(row)
+	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
 
 
 func test_dashboard_controls_step_pause_and_collapse() -> void:

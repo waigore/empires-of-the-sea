@@ -88,6 +88,9 @@ static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> voi
 		var bucket: Dictionary = factions[faction]
 		bucket["phase"] = String(ledger.get("phase", ""))
 		bucket["goal"] = String(ledger.get("goal", ""))
+		# The court's distance to the bar and the margin it presses at
+		# (DR-20261114-04): the trace explains an endgame court's thinner storm.
+		bucket["pressure"] = (ledger.get("pressure", {}) as Dictionary).duplicate(true)
 		bucket["objectives"] = {
 			"ranked": int(ledger.get("ranked", 0)),
 			"funded": int(ledger.get("funded", 0)),
