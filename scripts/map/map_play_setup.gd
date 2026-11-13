@@ -56,7 +56,7 @@ static func build_hud(play: PlaySession) -> void:
 	play.economy.works_by_region = play.civilian_layer.works_regions
 	# A blockade severs the harvest, so the ledger prices it against the court's
 	# own sealed ports (wiki: capital-and-connectivity § Blockade).
-	play.economy.blockade_source = play.crown_blockade
+	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)

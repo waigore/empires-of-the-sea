@@ -135,12 +135,7 @@ static func _overseas(
 		)
 	# The crown's own sealed ports reach its ledger the way the player's do
 	# (wiki: capital-and-connectivity § Blockade; DR-20261110-13 equal rule).
-	var seals := Blockades.new()
-	if play.ship_layer != null:
-		seals = Blockades.read(
-			play.world, play.ship_layer.regions.snapshot(), faction, home_region,
-			int(capital["province"]), MapPlayRaids.hostile(play)
-		)
+	var seals: Blockades = MapPlayBlockades.of(play, faction)
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
 		if play.ship_layer != null else 0

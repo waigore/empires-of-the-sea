@@ -53,6 +53,18 @@ static func read(
 	return result
 
 
+## Reads a court's seals from a source that answers with them (the ledger asks
+## PlaySession through a Callable so this module stays node-free). An unwired or
+## mistyped source seals nothing rather than guessing (REQ-P2-03).
+static func of(source: Callable) -> Blockades:
+	if not source.is_valid():
+		return Blockades.new()
+	var seals: Variant = source.call()
+	if seals is Blockades:
+		return seals
+	return Blockades.new()
+
+
 ## True when this province's own harbour is held by a hostile squadron.
 func seals(region: int, province_id: int) -> bool:
 	var in_region: Dictionary = sealed.get(region, {})

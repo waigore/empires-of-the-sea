@@ -870,6 +870,34 @@ func test_a_blockade_seals_a_coast_only_while_at_war_and_at_sea() -> void:
 	assert_eq(Blockades.note(Blockades.new(), world), "", "no blockade, no line")
 
 
+## The map reads a court's seals from its own stations and wars, so the hub
+## gains no method and the rules stay node-free (wiki:
+## capital-and-connectivity § Blockade; REQ-P3-02).
+func test_the_map_reads_the_courts_sealed_coasts() -> void:
+	var model: MapModel = NavalFixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var session := PlaySession.new()
+	session.world = world
+	session.model = model
+	session.diplomacy = DiplomacyState.new()
+	session.ship_layer = ShipLayer.new()
+	session.player_faction = PLAYER
+	session.capital_province = 1
+	assert_false(MapPlayBlockades.crown(session).any(), "no station, no seal")
+	var raider: FleetState = FleetState.at_sea(9, RIVAL, 0, ["h1"], {"h1": "carrack"})
+	raider.mission = FleetState.Mission.BLOCKADE
+	raider.blockade_province = 0
+	session.ship_layer.regions.set_region(0, [raider])
+	session.diplomacy.ensure_relation(RIVAL, PLAYER)
+	assert_false(MapPlayBlockades.crown(session).any(), "peace seals nothing")
+	session.diplomacy.relation(RIVAL, PLAYER).at_war = true
+	var seals: Blockades = MapPlayBlockades.crown(session)
+	assert_true(seals.seals(0, 0), "Cádiz is held")
+	assert_false(seals.sea_cut, "the capital is province 1")
+	session.ship_layer.free()
+
+
 func _blockade_of(model: MapModel, province_id: int) -> Blockades:
 	var seals := Blockades.new()
 	seals.sealed = {model.region_id: {province_id: true}}

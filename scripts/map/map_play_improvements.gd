@@ -27,7 +27,7 @@ static func on_action(play: PlaySession, action: String, tile: Vector2i) -> void
 static func crown_link(play: PlaySession, province_id: int) -> Dictionary:
 	return LandConnectivity.province_link(
 		play.model, play.land_works, play.player_faction, play.capital_tile,
-		province_id, play.crown_blockade()
+		province_id, MapPlayBlockades.crown(play)
 	)
 
 

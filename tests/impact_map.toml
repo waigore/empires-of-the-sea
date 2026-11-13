@@ -274,15 +274,15 @@ match = "scripts/map/map_play_economy_ai.gd"
 domain = "blockade"
 
 [[rules]]
+match = "scripts/map/map_play_blockades.gd*"
+domain = "blockade"
+
+[[rules]]
 match = "scripts/map/map_play_improvements.gd"
 domain = "blockade"
 
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
-domain = "blockade"
-
-[[rules]]
-match = "scripts/session/play_session.gd"
 domain = "blockade"
 
 [[rules]]
