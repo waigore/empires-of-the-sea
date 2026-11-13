@@ -1,0 +1,9 @@
+[project]
+name = "ai-bench"
+version = "0.1.0"
+description = "Evaluation environment for ai-bench"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
