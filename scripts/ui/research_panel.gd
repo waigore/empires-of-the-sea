@@ -27,6 +27,10 @@ var _goal: String = ""
 var _treasury: int = 0
 var _column: VBoxContainer = null
 var _summary: Label = null
+## The rule behind an unpaid study, named under the summary whenever a slot
+## starves. Always visible — a phone hides the standing hint, and a hover-only
+## rule is unreachable on touch (REQ-P1-05, REQ-P5-05).
+var _notice: Label = null
 var _goal_row: HBoxContainer = null
 var _slots_heading: Label = null
 var _slots_body: VBoxContainer = null
@@ -96,6 +100,11 @@ func _build() -> void:
 	_summary = _label("", 14, Palette.TEXT)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_column.add_child(_summary)
+
+	_notice = _label("", 12, Palette.CRIMSON)
+	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice.visible = false
+	_column.add_child(_notice)
 
 	_goal_row = HBoxContainer.new()
 	_goal_row.add_theme_constant_override("separation", 8)
@@ -187,7 +196,7 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 	_fill_known()
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
-	_hint.text = _hint_text(open.size())
+	_hint.text = _hint_text(open.size(), _notice.visible)
 	_fit_deferred()
 
 
@@ -257,6 +266,7 @@ func _goal_standing() -> String:
 func _fill_slots() -> void:
 	var gold: int = 0
 	var points: int = 0
+	var unpaid: int = 0
 	var left: int = _treasury
 	for index in _state.slots.size():
 		var row: ResearchSlotRow = _slot_rows.get(index)
@@ -270,7 +280,25 @@ func _fill_slots() -> void:
 		gold += row.gold_next()
 		points += row.rp_next()
 		left -= row.gold_next()
+		if row.unpaid_next():
+			unpaid += 1
 	_slots_heading.text = _slots_spend_text(gold, points)
+	_set_notice(unpaid)
+
+
+## The court's studies, and the rule that stops the ones the purse cannot pay:
+## the treasury stops at the floor the techs set, so a starved row reads as rule
+## and not as a broken purse (wiki: tech-tree-labour-economy § money_lending,
+## banking; REQ-P5-05).
+func _set_notice(unpaid: int) -> void:
+	_notice.visible = unpaid > 0
+	if unpaid <= 0:
+		_notice.text = ""
+		return
+	var subject: String = "1 study goes" if unpaid == 1 else "%d studies go" % unpaid
+	_notice.text = "%s unpaid — %s." % [
+		subject, LedgerText.research_floor_line(_state.treasury_floor()),
+	]
 
 
 func _slots_spend_text(gold: int, points: int) -> String:
@@ -331,7 +359,9 @@ func _open_advances() -> Array[String]:
 	return TechOrder.sorted(out, _goal)
 
 
-func _hint_text(open_count: int) -> String:
+func _hint_text(open_count: int, starved: bool) -> String:
+	if starved:
+		return "A study the treasury cannot cover keeps its slot and its points; it only waits."
 	if _state.free_slot() < 0 and open_count > 0:
 		return "Every slot is at study — cancel one to take another path."
 	return "Funding is paid every turn; cancelling a slot forfeits its progress."
