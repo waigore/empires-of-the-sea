@@ -303,7 +303,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	var name: String = play.model.province_name(play.selected_province)
 	# Any catalog type trains through the same intent; the rules gate each one.
 	if action.begins_with("train_"):
-		MapPlayCivilians.train(play, action.trim_prefix("train_"))
+		MapPlayTraining.train(play, action.trim_prefix("train_"))
 		return
 	match action:
 		"recruit":

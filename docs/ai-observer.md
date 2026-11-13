@@ -33,6 +33,7 @@ default setup faction), `--out=DIR` (default `user://ai_vs_ai`).
 | `bench` | Only the live crown plans; other GPs are no-op controls |
 
 Use `bench` for quantitative win-seeking checks (live AI vs idle rivals).
+Official scored climbs use hills **`ai-bench`** (`.autolab/hills/ai-bench/`).
 
 ## Metrics
 

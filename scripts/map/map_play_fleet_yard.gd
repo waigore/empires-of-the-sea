@@ -47,8 +47,10 @@ static func refresh(play: PlaySession, fleet: FleetState) -> void:
 	play.hud.panels.fleet_panel.set_yard_open(true)
 
 
-## Launches one hull into the home fleet, founding it at the capital slip when the
-## crown keeps none (wiki: ships-and-naval § Home Fleet).
+## Queues one hull at the capital slip. A launch is a `BuildUnitOrder`: the
+## ledger pays and the hull joins the home fleet in Build/work at the turn's
+## close, so she sails with the next Orders phase (wiki: ships-and-naval
+## § Ship build economy; workers-and-population § Phase placement).
 static func launch(play: PlaySession, type_id: String) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
@@ -59,19 +61,23 @@ static func launch(play: PlaySession, type_id: String) -> void:
 	if not NavalMovement.has_harbour(play.model, province):
 		play.hud.toast("Your capital has no harbour for a yard.")
 		return
-	var result: Dictionary = play.ship_layer.launch_hull(province, type_id, play.economy.economy)
-	if not bool(result.get("ok", false)):
-		play.hud.toast(String(result.get("reason", "The hull cannot launch.")))
-		return
-	var fleet: FleetState = result.get("fleet") as FleetState
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	var hull_name: String = String(result.get("name", ""))
-	if hull_name.is_empty():
-		hull_name = ShipStats.display_name(type_id)
-	play.hud.toast(
-		"%s joins the home fleet at %s" % [hull_name, play.model.province_name(province)]
+	var economy: PlayerEconomy = play.economy.economy
+	var reason: String = ShipEconomy.blocked_reason(
+		type_id,
+		economy.treasury,
+		economy.stockpile,
+		economy.available_peasants(),
+		economy.tech_unlocked
 	)
-	refresh(play, fleet)
+	if not reason.is_empty():
+		play.hud.toast(reason)
+		return
+	economy.queue_build(RecruitQueue.KIND_SHIP, type_id)
+	play.hud.toast(
+		"%s is laid down at %s — she launches next turn"
+		% [ShipStats.display_name(type_id), play.model.province_name(province)]
+	)
+	refresh(play, play.ship_layer.home_fleet(province))
 
 
 ## Breaks up one hull and returns its peasant to the pool.

@@ -23,6 +23,7 @@ enum Class { WORLD, COURT, INTEREST }
 ## `charts` is the crown's own chart: a watched court's battle prints only where
 ## the crown has the place at fogged or better (wiki: the-gazette § What the
 ## crown can know; DR-20261110-28). A caller with no chart is a headless fixture.
+## `musters` are the Build/work records the crown's own orders delivered.
 static func collect(
 	viewer: int,
 	turn: int,
@@ -35,7 +36,8 @@ static func collect(
 	research: Dictionary,
 	richness: int,
 	raids: Array,
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	musters: Array = []
 ) -> Dictionary:
 	var pages: Array[Array] = [[], [], []]
 	_diplomacy(pages, viewer, turn, state, watched)
@@ -45,6 +47,7 @@ static func collect(
 	_studies(pages, viewer, research)
 	_treasury(pages, richness)
 	_raids(pages, raids)
+	GazetteMuster.push(pages, musters)
 	var items: Array[Dictionary] = []
 	for cls: int in [Class.WORLD, Class.COURT, Class.INTEREST]:
 		for entry: Variant in pages[cls]:
@@ -78,7 +81,7 @@ static func _diplomacy(
 	for entry: Array in [[Class.WORLD, "world"], [Class.COURT, "court"], [Class.INTEREST, "interest"]]:
 		for item: Variant in sorted[String(entry[1])]:
 			var row: Dictionary = item
-			_push(pages, int(entry[0]), String(row["kind"]), row["rec"] as Dictionary)
+			push(pages, int(entry[0]), String(row["kind"]), row["rec"] as Dictionary)
 
 
 ## Land battles: the crown's own page, or a watched court's — never a World item,
@@ -111,7 +114,7 @@ static func _land(
 		var rec: Dictionary = _land_record(battle, viewer, world, state, ours)
 		if rec.is_empty():
 			continue
-		_push(pages, Class.COURT if ours else Class.INTEREST, String(rec["kind"]), rec)
+		push(pages, Class.COURT if ours else Class.INTEREST, String(rec["kind"]), rec)
 
 
 static func _land_record(
@@ -185,7 +188,7 @@ static func _naval(
 		var rec: Dictionary = _naval_record(battle, viewer, world, state, ours)
 		if rec.is_empty():
 			continue
-		_push(pages, Class.COURT if ours else Class.INTEREST, String(rec["kind"]), rec)
+		push(pages, Class.COURT if ours else Class.INTEREST, String(rec["kind"]), rec)
 
 
 static func _naval_record(
@@ -262,9 +265,7 @@ static func _own_losses(battle: Dictionary, viewer: int) -> int:
 	return (battle.get(side + "_lost", []) as Array).size()
 
 
-static func _falls(
-	pages: Array[Array], viewer: int, state: DiplomacyState, falls: Array
-) -> void:
+static func _falls(pages: Array[Array], viewer: int, state: DiplomacyState, falls: Array) -> void:
 	for raw: Variant in falls:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
@@ -276,7 +277,7 @@ static func _falls(
 			continue
 		if not _met(state, viewer, faction):
 			continue
-		_push(
+		push(
 			pages,
 			Class.WORLD,
 			"greatPowerFell",
@@ -296,7 +297,7 @@ static func _studies(pages: Array[Array], viewer: int, research: Dictionary) -> 
 	if typeof(raw) != TYPE_ARRAY:
 		return
 	for tech: Variant in raw as Array:
-		_push(
+		push(
 			pages,
 			Class.COURT,
 			"techFinished",
@@ -311,7 +312,7 @@ static func _studies(pages: Array[Array], viewer: int, research: Dictionary) -> 
 static func _treasury(pages: Array[Array], richness: int) -> void:
 	if richness <= 0:
 		return
-	_push(pages, Class.COURT, "richesRendered", {"amount": richness})
+	push(pages, Class.COURT, "richesRendered", {"amount": richness})
 
 
 ## Raids are the crown's own until the rules say otherwise, so both directions
@@ -327,18 +328,17 @@ static func _raids(pages: Array[Array], raids: Array) -> void:
 		var prize: String = BattleReport.cargo_of(raid.get("losses", {}) as Dictionary)
 		var sunk: String = BattleReport.sunk_of(raid.get("hulls_lost", []))
 		var kind: String = "raidPrize" if String(raid.get("kind", "")) == "prize" else "raidSuffered"
-		_push(pages, Class.COURT, kind, {"place": place, "prize": prize, "sunk": sunk})
+		push(pages, Class.COURT, kind, {"place": place, "prize": prize, "sunk": sunk})
 
 
 # --- internals ---------------------------------------------------------------
 
 
-static func _push(pages: Array[Array], cls: Class, kind: String, rec: Dictionary) -> void:
+static func push(pages: Array[Array], cls: Class, kind: String, rec: Dictionary) -> void:
 	rec["kind"] = kind
 	var text: String = GazetteCopy.line(rec)
-	if text.is_empty():
-		return
-	pages[cls].append({"class": cls, "kind": kind, "text": text})
+	if not text.is_empty():
+		pages[cls].append({"class": cls, "kind": kind, "text": text})
 
 
 ## A battle's combatants: the crown speaks of itself as "our crown"; a watched

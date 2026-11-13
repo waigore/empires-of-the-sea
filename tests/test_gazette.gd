@@ -654,6 +654,48 @@ func _sheet(turn: int, text: String) -> Dictionary:
 	}
 
 
+# --- build/work: what the crown's orders delivered ---------------------------
+
+
+## A completed recruit prints on Our court page, in the same sheet as the rest of
+## the turn (wiki: the-gazette § Item catalog; workers-and-population
+## § Phase placement).
+func test_a_completed_recruit_prints_on_our_court_page() -> void:
+	var musters: Array = [
+		{"kind": "workerRecruited", "label": "Apprentice"},
+		{"kind": "civilianMustered", "label": "Builder", "place": "London"},
+		{"kind": "regimentMustered", "label": "Peasant Levies"},
+		{"kind": "shipLaunched", "label": "Carrack", "place": "London"},
+	]
+	var items: Array = _muster_items(musters)
+	assert_eq(items.size(), 4)
+	for item: Dictionary in items:
+		assert_eq(int(item["class"]), Gazette.Class.COURT, "the crown's own news")
+	assert_true(String(items[0]["text"]).contains("apprentice"))
+	assert_true(String(items[1]["text"]).contains("London"))
+	assert_true(String(items[3]["text"]).contains("Carrack"))
+	assert_true(String(items[3]["text"]).contains("London"))
+
+
+## A christened regiment prints the title it mustered under
+## (DR-20261111-18); a crown with no name for it keeps the plain line.
+func test_a_regiment_line_carries_its_title_when_it_has_one() -> void:
+	var titled: String = GazetteCopyMuster.regiment_mustered(
+		{"label": "Peasant Levies", "title": "The Dorsetshire Foot"}
+	)
+	assert_true(titled.contains("The Dorsetshire Foot"))
+	assert_true(titled.contains("Peasant Levies"))
+	var plain: String = GazetteCopyMuster.regiment_mustered({"label": "Peasant Levies"})
+	assert_true(plain.contains("new regiment of Peasant Levies"))
+
+
+## A record whose kind has no copy prints nothing, so a sheet never carries an
+## empty rule (REQ-P2-03).
+func test_an_unknown_muster_kind_prints_nothing() -> void:
+	assert_eq(_muster_items([{"kind": "noSuchMuster", "label": "Hulk"}]).size(), 0)
+	assert_eq(_muster_items(["not a record"]).size(), 0)
+
+
 ## The sheet's items for one resolved turn.
 func _items(
 	state: DiplomacyState,
@@ -668,6 +710,14 @@ func _items(
 ) -> Array:
 	var sheet: Dictionary = Gazette.collect(
 		VIEWER, 3, world, state, watched, land, naval, falls, research, richness, raids, charts
+	)
+	return sheet["items"]
+
+
+## The sheet's items for one resolved turn that also delivered some orders.
+func _muster_items(musters: Array) -> Array:
+	var sheet: Dictionary = Gazette.collect(
+		VIEWER, 3, world, _state(3), [], [], [], [], {}, 0, [], null, musters
 	)
 	return sheet["items"]
 
