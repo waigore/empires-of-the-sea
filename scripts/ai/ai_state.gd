@@ -115,26 +115,11 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 	# granted (e.g. the expedition's hull before the muster gate opens, #497).
 	var ids: Dictionary = {"funded": [], "deferred": [], "blocked": []}
 	_collect_ids(report.get("objectives", []), ids)
-	# Top-level aims only: the bench's funded share asks whether the rank pass
-	# moved resources to the aims it put first, not to their children (#501).
-	var top_ranked: int = 0
-	var top_funded: int = 0
-	for raw: Variant in report.get("objectives", []):
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var status: String = String((raw as Dictionary).get("status", ""))
-		if status == AiObjective.STATUS_BLOCKED:
-			continue
-		top_ranked += 1
-		if status == AiObjective.STATUS_FUNDED:
-			top_funded += 1
 	objective_claims[faction] = {
 		"turn": turn,
 		"phase": String(report.get("phase", "")),
 		"ranked": int(report.get("ranked", 0)),
 		"funded": int(report.get("funded", 0)),
-		"top_ranked": top_ranked,
-		"top_funded": top_funded,
 		"funded_ids": ids["funded"],
 		"deferred_ids": ids["deferred"],
 		"blocked_ids": ids["blocked"],
@@ -226,8 +211,6 @@ static func _claim_row(claim: Dictionary) -> Dictionary:
 		"phase": String(claim.get("phase", "")),
 		"ranked": int(claim.get("ranked", 0)),
 		"funded": int(claim.get("funded", 0)),
-		"top_ranked": int(claim.get("top_ranked", 0)),
-		"top_funded": int(claim.get("top_funded", 0)),
 		"lines": lines,
 	}
 	for key: String in ["funded_ids", "deferred_ids", "blocked_ids"]:

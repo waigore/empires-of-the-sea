@@ -2,8 +2,7 @@
 """CI gate: AI-surface PRs must ship a signed ai-bench report ≥ baseline.
 
 Does not re-run Godot. Validates report shape, hill tree hash, AI-surface
-binding, primary config, score vs committed baseline, and — when the report
-carries it — the ledger's funded share vs baseline (issue #501).
+binding, primary config, and score vs committed baseline.
 
 Usage:
   python tools/check_ai_bench_report.py
@@ -23,14 +22,14 @@ ROOT = Path(__file__).resolve().parents[1]
 HILL = ROOT / ".autolab" / "hills" / "ai-bench"
 REPORT = ROOT / "reports" / "ai-bench" / "latest.json"
 BASELINE = ROOT / "reports" / "ai-bench" / "baseline.json"
+# Floors the frozen hill cannot carry itself: a metric whose regression is a
+# mechanism failure rather than a score drop (issue #491 T6).
+GUARDS = ROOT / "reports" / "ai-bench" / "guards.json"
 
 AI_GLOBS = (
     "scripts/ai/**/*.gd",
     "scripts/map/map_play_*ai*.gd",
 )
-
-# A funded share may wobble by rounding; a collapse is what the gate hunts.
-FUNDED_EPSILON = 1e-6
 
 EXPECTED_PRIMARY = {
     "mode": "validation",
@@ -118,20 +117,25 @@ def _metric(report: dict, name: str) -> float:
     _die(f"report missing metric {name!r}")
 
 
-def _optional_metric(report: dict, name: str) -> float | None:
-    """A metric that older reports may predate; None when absent."""
-    for entry in report.get("metrics") or []:
-        if entry.get("name") == name:
-            return float(entry["value"])
-    return None
-
-
 def _primary(report: dict) -> dict:
     return {
         c["name"]: c["value"]
         for c in report.get("config") or []
         if c.get("primary")
     }
+
+
+def _funded_floor() -> float:
+    """The funded-share floor recorded beside the baseline (issue #491 T6)."""
+    if not GUARDS.is_file():
+        _die(f"missing {GUARDS.relative_to(ROOT)} — record the funded_pct floor")
+    try:
+        data = json.loads(GUARDS.read_text())
+    except json.JSONDecodeError as exc:
+        _die(f"invalid JSON in {GUARDS}: {exc}")
+    if "funded_pct_floor" not in data:
+        _die(f"{GUARDS.relative_to(ROOT)} has no funded_pct_floor")
+    return float(data["funded_pct_floor"])
 
 
 def _maybe_verify(report_path: Path) -> None:
@@ -227,21 +231,17 @@ def main() -> None:
     if score + 1e-9 < base_score:
         _die(f"score {score} < baseline {base_score}")
 
-    # The ledger's honesty: a rank-then-allocate change that silently re-starves
-    # the top objectives must fail here even when the score holds (#501, #476).
-    funded = _optional_metric(report, "funded_pct")
-    base_funded = _optional_metric(baseline, "funded_pct")
-    if funded is not None and base_funded is not None:
-        if funded + FUNDED_EPSILON < base_funded:
-            _die(
-                f"funded_pct {funded:.4f} < baseline {base_funded:.4f} — the "
-                "ledger stopped funding the objectives it ranks first"
-            )
+    # The ledger must keep paying for the aims it ranks: a collapse here is the
+    # silent starvation the metric exists to catch (issue #491 T6).
+    funded = _metric(report, "funded_pct")
+    floor = _funded_floor()
+    if funded + 1e-9 < floor:
+        _die(f"funded_pct {funded:.2f} < floor {floor:.2f} — the allocator stopped funding its top objectives")
+    print(f"ai-bench-gate: funded_pct {funded:.2f} (floor {floor:.2f})")
 
     _maybe_verify(REPORT)
     print(
         f"ai-bench-gate: OK score={score} baseline={base_score} "
-        f"funded_pct={funded if funded is not None else 'n/a'} "
         f"surface={expected_hash[:19]}…"
     )
 

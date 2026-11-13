@@ -6,6 +6,9 @@ metrics:
   - {name: score, direction: max}
   - {name: provinces, direction: max}
   - {name: forces, direction: max}
+  # Share of the live crown's top-ranked objectives the ledger funded (issue
+  # #491 T6). Ranking priorities is worthless if the allocator never pays for
+  # them; the CI gate holds this above reports/ai-bench/guards.json.
   - {name: funded_pct, direction: max}
 
 # Full 200-turn Godot runs can take several minutes; leave headroom.

@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "e4f08b2d01a91da6dfe12551a8fcaf99adde099a",
-  "commit": "668baee0c4fb55101984c9aad7ecba4afa7e1ff6",
-  "submission_hash": "sha256:c234b6daf7a2300c192acc68add774cb30692390d2d7962964c850ada14f7e3f",
-  "submission_git": "feat/ai-bench-funded-share@0b460dc",
+  "tree_hash": "c012beb7d4ce2f663ce2f0641cfa80d51844a027",
+  "commit": "cb72ebc3086a77446e5fdcc235afb9c926991c72",
+  "submission_hash": "sha256:9fdc8a32c8e857229a012bb2d82d914fb1441018f8602487e3a94a7842e1caf1",
+  "submission_git": "feat/ai-bench-funded-metric@32bc08b",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 0.5983333333333334,
+      "value": 70.68013468013469,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:eec3ef6fc85bd29a4fed97218e2016d7ded635bf72864ef281961c92418a6a51",
+    "ai_surface_hash": "sha256:195a89833856df2daeb2eb4169a49c5e7dd65b87aaf68e1f2059cf77ee444f56",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -64,14 +64,15 @@
       "ships": 2,
       "workers": 4,
       "extraction_per_turn": 2.7,
-      "income_per_turn": 133.29166666666666
+      "income_per_turn": 133.29166666666666,
+      "funded_pct": 70.68013468013469
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 75,
     "resolved_turns": 75,
-    "funded_pct": 0.5983333333333334
+    "funded_pct": 70.68013468013469
   },
   "params": {
     "turns": 200,
@@ -86,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T18:57:32Z",
+  "timestamp": "2026-11-13T18:56:46Z",
   "report_version": 1,
-  "signature": "hmac-sha256:bde1223aa3817a169e29f74465a051ab5a545c8f82dd795ffcffb9763424c774"
+  "signature": "hmac-sha256:f2704d3ff2c0d5587e783bf99cbe506c131a3c88d803fc56b77ff399e140e874"
 }

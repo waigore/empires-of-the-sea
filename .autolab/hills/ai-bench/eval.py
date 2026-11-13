@@ -119,12 +119,13 @@ def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
 
 
 def _funded_share(turns_path: Path, faction: int) -> float:
-    """Mean share of ranked top-level objectives the live crown funded.
+    """Mean share of top-ranked objectives the ledger funded, per resolved turn.
 
-    Read straight off the T1 ledger row the observer stamps per turn (issue
-    #501). Turns where the court ranked no top-level aim are skipped: a court
-    with nothing to fund has no share to report, and counting it as 1.0 would
-    inflate the mean.
+    The turn trace carries the court's objective ledger (`last.objectives`):
+    `ranked` counts the aims that competed and `funded` the ones the allocator
+    paid for. A rank-then-allocate change that ranks priorities but never funds
+    them shows up here as a collapse — the #476 failure mode, made measurable
+    (issue #491 T6).
     """
     if not turns_path.is_file():
         return 0.0
@@ -133,20 +134,18 @@ def _funded_share(turns_path: Path, faction: int) -> float:
         if not line.strip():
             continue
         record = json.loads(line)
-        row = None
         for candidate in record.get("rows") or []:
-            if int(candidate.get("faction", -2)) == faction:
-                row = candidate
-                break
-        if row is None:
-            continue
-        objectives = row.get("objectives") or {}
-        ranked = int(objectives.get("top_ranked", 0))
-        if ranked <= 0:
-            continue
-        funded = int(objectives.get("top_funded", 0))
-        shares.append(min(max(float(funded) / float(ranked), 0.0), 1.0))
-    return sum(shares) / len(shares) if shares else 0.0
+            if int(candidate.get("faction", -2)) != faction:
+                continue
+            ledger = (candidate.get("last") or {}).get("objectives") or {}
+            ranked = int(ledger.get("ranked", 0))
+            if ranked <= 0:
+                continue
+            funded = int(ledger.get("funded", 0))
+            shares.append(100.0 * float(funded) / float(ranked))
+    if not shares:
+        return 0.0
+    return sum(shares) / len(shares)
 
 
 def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
@@ -173,6 +172,7 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
         "workers": workers,
         "extraction_per_turn": extraction_pt,
         "income_per_turn": income_pt,
+        "funded_pct": funded_pct,
     }
     score = (
         W_PROVINCES_OLD * provinces_old
@@ -285,7 +285,11 @@ def eval(
                 {"name": "score", "value": scored["score"], "direction": "max"},
                 {"name": "provinces", "value": scored["provinces"], "direction": "max"},
                 {"name": "forces", "value": scored["forces"], "direction": "max"},
-                {"name": "funded_pct", "value": scored["funded_pct"], "direction": "max"},
+                {
+                    "name": "funded_pct",
+                    "value": scored["funded_pct"],
+                    "direction": "max",
+                },
             ],
             "config": config,
             "details": {
@@ -334,7 +338,11 @@ def eval(
             {"name": "score", "value": scored["score"], "direction": "max"},
             {"name": "provinces", "value": scored["provinces"], "direction": "max"},
             {"name": "forces", "value": scored["forces"], "direction": "max"},
-            {"name": "funded_pct", "value": scored["funded_pct"], "direction": "max"},
+            {
+                "name": "funded_pct",
+                "value": scored["funded_pct"],
+                "direction": "max",
+            },
         ],
         "config": config,
         "details": {
