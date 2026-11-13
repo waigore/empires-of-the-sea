@@ -199,17 +199,19 @@ func is_economy_open() -> bool:
 
 ## The college ledger takes the same edge as the economy ledger. `boost` maps
 ## tech id -> spy-network percent, so a shadowed rival's advances show why they
-## move faster (wiki: civilian-units § Spy; DR-20261110-03). A ledger already on
-## screen is repainted in place — re-revealing it would fade the sheet back in
-## and lose the player's place (REQ-P1-05).
+## move faster (wiki: civilian-units § Spy; DR-20261110-03). `leader` is the
+## crown's leaderKey, whose published funding multiplier the RP figures include
+## (wiki: leader-bonuses — Victoria). A ledger already on screen is repainted in
+## place — re-revealing it would fade the sheet back in and lose the player's
+## place (REQ-P1-05).
 func show_research(
-	state: ResearchState, treasury: int, boost: Dictionary = {}
+	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
 ) -> void:
 	if research.open:
-		research_panel.refresh(state, treasury, boost)
+		research_panel.refresh(state, treasury, boost, leader)
 		return
 	close_sheets(research)
-	research_panel.refresh(state, treasury, boost)
+	research_panel.refresh(state, treasury, boost, leader)
 	research.reveal(host, dock)
 
 
