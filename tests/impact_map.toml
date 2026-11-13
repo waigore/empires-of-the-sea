@@ -1456,6 +1456,12 @@ domain = "chart_bake"
 match = "scripts/map/map_wash.gd.uid"
 domain = "chart_bake"
 
+# The wash's own bake: only `map_wash` reads it, so its two suites cover the
+# paint and the broad `scripts/map/**` set stays off the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_relief.gd*"
+domain = "chart_bake"
+
 [[rules]]
 # The capital chart's own marker: only scenes/capital_choice.tscn mounts it, so
 # a chart tweak stays in the campaign suites instead of pulling the whole map
