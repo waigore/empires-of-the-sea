@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:29f1fb4f89bfec04eb4f54a37e44e509b10f2f60ae87009e0f0c1ce49c0df931",
-  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261113T221240339708Z@1f5f806",
+  "submission_hash": "sha256:f6376bd7bfb5c73ab7fc70de8ae128c948debcc185681e9816303c2d2f48a8cc",
+  "submission_git": "babysit-550@e855931",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 69.84848484848484,
+      "value": 69.72502805836139,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0507df12afaf9ae87d0ba89b7b89a9f531e6792aa0ea447dc702b17109e39803",
+    "ai_surface_hash": "sha256:74c6e2beee100307aee61921467cc5ff0237fe0a514635cc0777e1c02580ebec",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -65,14 +65,14 @@
       "workers": 4,
       "extraction_per_turn": 2.3529411764705883,
       "income_per_turn": 197.5,
-      "funded_pct": 69.84848484848484
+      "funded_pct": 69.72502805836139
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 36,
     "resolved_turns": 36,
-    "funded_pct": 69.84848484848484
+    "funded_pct": 69.72502805836139
   },
   "params": {
     "turns": 200,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T23:00:02Z",
+  "timestamp": "2026-11-13T23:09:28Z",
   "report_version": 1,
-  "signature": "hmac-sha256:315b02be0ae3dc5521c42bf302eb91e28a25f351eb060cda57d6430da9839880"
+  "signature": "hmac-sha256:dce7aea986850a186a8988a88d6eeb1e5ef194b8f01aa7c5f5b2194b5182c2ae"
 }
