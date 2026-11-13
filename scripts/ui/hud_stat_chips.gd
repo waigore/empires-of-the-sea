@@ -45,6 +45,12 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	var from: int = _treasury_value
 	_treasury_value = value
 	_refresh_treasury_tooltip()
+	# A purse below zero is a debt, and the techs decided how deep it may go
+	# (wiki: tech-tree-labour-economy § money_lending, banking). Crimson keeps the
+	# chip from reading like any other balance (REQ-P5-05).
+	treasury_label.add_theme_color_override(
+		"font_color", Palette.CRIMSON if value < 0 else Palette.TEXT
+	)
 	if not animate or host == null:
 		treasury_label.text = TextFormat.thousands(value)
 		return
@@ -117,9 +123,13 @@ func flash_income(amount: int) -> void:
 
 
 ## Estates and college only — the world market clears after them (world-market).
+## A negative purse is named as debt, so a crown in the lending floor's shadow
+## reads why it cannot fund a study (REQ-P5-05).
 func _refresh_treasury_tooltip() -> void:
 	if treasury_chip == null:
 		return
-	treasury_chip.tooltip_text = "Treasury %s · %s per turn before the auction — open the ledger" % [
-		TextFormat.thousands(_treasury_value), TextFormat.delta(_income_value)
+	treasury_chip.tooltip_text = "Treasury %s%s · %s per turn before the auction — open the ledger" % [
+		TextFormat.thousands(_treasury_value),
+		" (in debt)" if _treasury_value < 0 else "",
+		TextFormat.delta(_income_value),
 	]

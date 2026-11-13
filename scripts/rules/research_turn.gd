@@ -33,6 +33,9 @@ static func resolve(
 	if state == null or economy == null:
 		return report
 	state.ensure_slots()
+	# The floor the slots are paid against, so a despatch can name the rule that
+	# left a study unpaid instead of only counting it (REQ-P5-05).
+	report["floor"] = state.treasury_floor()
 	for index in state.slots.size():
 		var row: Dictionary = _run_slot(state, economy, index, boost)
 		var rows: Array[Dictionary] = report["slots"]
