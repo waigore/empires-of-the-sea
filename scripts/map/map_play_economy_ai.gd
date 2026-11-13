@@ -32,16 +32,24 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
-		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
+		# The purse the court keeps in hand this turn: its own cash floor and, at
+		# war and short of its regiment target, the muster it is saving for. Every
+		# discretionary spend reads it, so the war chest is never auctioned away
+		# for imports (wiki: growth-stage-planner § Recruitment modulation;
+		# treasury-planner § Cash discipline).
+		var floor: int = _court_floor(
+			config, economy, _regiments(play, faction), _at_war(play, faction)
+		)
+		var trade: Dictionary = _trade(
+			play, faction, economy, config, market, overseas, production, floor
+		)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy,
 			{
 				"at_war": _at_war(play, faction),
 				"revealed": revealed,
-				"treasury_floor": _research_floor(
-					config, economy, _regiments(play, faction), _at_war(play, faction)
-				),
+				"treasury_floor": floor,
 			}
 		)
 		# The shared market clears once, after every court has staged its orders.
@@ -137,7 +145,8 @@ static func _trade(
 	config: AiConfig,
 	market: WorldMarket,
 	overseas: Dictionary,
-	production: Dictionary
+	production: Dictionary,
+	floor: int = 0
 ) -> Dictionary:
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
@@ -159,7 +168,8 @@ static func _trade(
 		var id: String = String(commodity)
 		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])
 	var plan: Dictionary = AiMarketPlanner.plan(
-		config, economy, market, free_holds, economy.tech_unlocked, reserved, need
+		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
+		floor
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiMarketPlanner.stage(
@@ -258,13 +268,13 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 	return false
 
 
-## The purse the court must leave behind before it pays for a study: its own cash
-## floor, raised while it is at war and short of its regiment target to the
-## muster it is saving for. Without it the research phase spends the war chest
-## down to the research rule's own barrier and the court never raises another
-## regiment (wiki: growth-stage-planner § Recruitment modulation; treasury-planner
+## The purse the court must leave behind before it spends on anything it can
+## defer: its own cash floor, raised while it is at war and short of its regiment
+## target to the muster it is saving for. Without it the study and the auction
+## bid away the war chest and the court never raises another regiment
+## (wiki: growth-stage-planner § Recruitment modulation; treasury-planner
 ## § Cash discipline; ai-architecture § Land reinforcement).
-static func _research_floor(
+static func _court_floor(
 	config: AiConfig, economy: PlayerEconomy, regiments: int, at_war: bool
 ) -> int:
 	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)

@@ -23,7 +23,10 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var civilians: Array = []
 		civilians.assign(play.civilian_layer.regions.value(region, []))
 		for faction: int in FactionCatalog.great_power_ids():
-			if faction == play.player_faction:
+			# The full-AI observer has no human court: the former player slot runs
+			# every planner like any rival (wiki: game-setup § Human/AI slot
+			# assignment; docs/ai-observer.md).
+			if faction == play.player_faction and not play.observer_mode:
 				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD

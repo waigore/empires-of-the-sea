@@ -16,9 +16,9 @@ Deterministic stack
   `50 + peace_bias` (peacemaker 65, warmonger 40) offers peace; an envious court
   adds +20 against a leading crown. A deed resists it (`DeedProtection`).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact, boycott,
-  subsidy and aid are candidates. Friendly acts cost
-  desire, retaliation standing (DR-20261110-15); an isolationist prices a pact
-  20 lower, a backstabber +25 against its ally (DR-20261111-27).
+  subsidy and aid are candidates. Friendly acts cost desire, retaliation
+  standing (DR-20261110-15); an isolationist prices a pact 20 lower, a
+  backstabber +25 against its ally (DR-20261111-27).
 - **Turn pass** (`AiTurn`): one order per rival; consent asks queue; war first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
@@ -48,14 +48,14 @@ Deterministic stack
   buy deeds where embassy, peace, mineral and price allow (DR-20261111-10).
 - **Spy planner** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs; merchants sail home, one hull more when tonnage outruns
-  them (DR-20261110-26).
+  bid short inputs within the same war chest; merchants sail home, one hull
+  more when tonnage outruns them (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's era,
   Tribes stay at 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and its next pattern's inputs (DR-20261113-08); at war the
-  wornest field army takes a hospital train (DR-20261112-08).
+  (DR-20261111-04) and its next pattern's inputs (DR-20261113-08); wornest field
+  army takes a hospital train at war (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), dossier
@@ -63,12 +63,11 @@ Deterministic stack
 
 ## Deferred
 
-Difficulty extras: [`deferred.md`](deferred.md).
+Deferred: [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
-Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`;
-suites `test_ai_*`, `test_military_parity`.
+Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`.
 
 ```bash
 gd-tools test --coverage --min 80

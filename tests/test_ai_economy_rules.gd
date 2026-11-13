@@ -874,3 +874,26 @@ func test_the_adapter_founds_a_slip_when_no_squadron_is_in_port() -> void:
 	assert_true(fleet.is_in_port() and fleet.province == 0)
 	assert_eq(economy.treasury, 12000, "the yard took its published price")
 	(built["ships"] as Node).free()
+
+
+func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
+	# 3,000 treasury bids freely against the published £500 floor; with the
+	# muster price held back (1,000 kept + 2,000 levies) it may bid nothing.
+	var stock: Dictionary = {"lumber": 0, "castIron": 0, "fabric": 0, "paper": 0}
+	var economy: PlayerEconomy = _economy(stock, 3000)
+	var market := WorldMarket.with_default_prices()
+	assert_true(
+		(AiMarketPlanner.plan(_config(), economy, market, 20)["bids"] as Array).size() > 0,
+		"a free purse buys its short inputs"
+	)
+	assert_eq(
+		AiMarketPlanner.plan(_config(), economy, market, 20, {}, {}, {}, 3000)["bids"],
+		[] as Array[Dictionary],
+		"the muster comes before the market"
+	)
+	economy.treasury = 3600
+	assert_true(
+		(AiMarketPlanner.plan(_config(), economy, market, 20, {}, {}, {}, 3000)["bids"]
+			as Array).size() > 0,
+		"only the surplus above the war chest is bid"
+	)
