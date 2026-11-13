@@ -67,7 +67,7 @@ static func run(play: PlaySession) -> Dictionary:
 		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
 			play, faction, economy, config, overseas,
-			(projected["economy"] as PlayerEconomy).stockpile
+			(projected["economy"] as PlayerEconomy).stockpile, floor
 		)
 		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
 		var trade: Dictionary = _trade(
@@ -89,7 +89,9 @@ static func run(play: PlaySession) -> Dictionary:
 		economy.production.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
 			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
-		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(config, economy)
+		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+			config, economy, floor
+		)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
 		var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)

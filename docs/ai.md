@@ -6,10 +6,10 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiProfile`, `AiConfig`,
   `AiPersonality`, `AiAgenda`): three profiles, seven archetypes, six agendas.
-- **Money goal** (`AiIncome`): at war the reserve is the muster while under
+- **Money goal** (`AiIncome`): at war the reserve is the muster under
   `army.regiment_target` (`army.war_extra`), at peace `economy.min_treasury`.
-  Below it the court is on `earn`: research and the auction keep the reserve
-  back, and a Passage voyage may still open (DR-20261113-19/22).
+  On `earn` research and the auction keep it back, and a Passage voyage may
+  still open (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
@@ -21,8 +21,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   boycott, subsidy, aid. Friendly acts cost desire and standing
   (DR-20261110-15); an isolationist prices a pact 20 lower, a backstabber +25
   (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival, wars first; consent asks
-  queue.
+- **Turn pass** (`AiTurn`): one order per rival, wars first; consent queues.
 - **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
   Home regiment; field armies save or storm.
 - **Naval planner** (`AiNavalPlanner`): at war, sortie or pursue the weakest
@@ -39,8 +38,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then to the purse's surplus above its floor
-  (`AiArmyReinforce.muster_floor`).
+  (DR-20261111-27), then down to what the purse carries after its floor —
+  at war, its muster.
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds
   (DR-20261111-14).
@@ -54,10 +53,10 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   when tonnage outruns them (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
   Tribes stay 1; rivals re-equip and pay attack prices.
-- **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
-  `army.regiment_target`, keeping `army.min_*`
-  (DR-20261111-04) and its next pattern's inputs (DR-20261113-08); its wornest
-  field army takes a hospital train (DR-20261112-08).
+- **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
+  (DR-20261111-04) and its saving pattern's inputs (DR-20261113-08); seat moves
+  recall it. At war the wornest army takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
 - **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; overstretch
