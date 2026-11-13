@@ -74,7 +74,7 @@ No node deps (`REQ-P3-03`).
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_rules`, `test_fleet_orders`,
+`test_naval_rules`, `test_fleet_orders`,
 `test_ship_*`, `test_economy_rules`, `test_civilian_voyage`, `test_home_merge`,
 `test_visibility`, `test_map_screen`.
 

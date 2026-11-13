@@ -64,10 +64,10 @@ preset once at new-game time, after the HUD's ledger exists.
 
 ## Tests
 
-`tests/test_advanced_start.gd` — tier tables, tech closure, balanced muster,
-colonies (contiguity, Tribe survival, parity), chart, estates, deeds, and the
-live screen path for both tiers.
+`tests/test_world_setup.gd` — tier tables, tech closure, balanced muster,
+colonies (contiguity, Tribe survival, parity), chart, estates, and deeds; the
+live screen path for both tiers is `test_advanced_start_live.gd`.
 
 ```bash
-gd-tools test tests/test_advanced_start.gd
+gd-tools test tests/test_world_setup.gd tests/test_advanced_start_live.gd
 ```

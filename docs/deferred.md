@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261114-02 (`REQ-P2-02`).
+Audited through DR-20261114-04 (`REQ-P2-02`).
 
 ## Already live
 
@@ -25,18 +25,19 @@ Audited through DR-20261114-02 (`REQ-P2-02`).
 | Rival OOB; rival-vs-rival fog | `OobReadings`; `CourtCharts`, DR-12-09/13-03 |
 | Multi-turn recipes; stagger | `ProductionRecipes`, DR-12-11/13-02 |
 | Yarn + consent keys | `DialogueYarn`, `ConsentCopy`, DR-13-10 |
-| War footing; leader bonuses; money-first | `AiPhasePlanner`; `LeaderCatalog`; `AiIncome` |
+| War footing; money-first; victory pressure | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure`, DR-13-19/14-04 |
+| Leader bonuses | `LeaderCatalog`, DR-13-18 |
 | Tribe buy ambition (envoy over storm) | `AiTribeColony`, `colonise.tribe_chain`, DR-14-02 |
 | New World landings; overseas conquest | `AiColonisationPlanner` return voyage, `AiCrossingForce`, DR-14-03 |
 
 ## Remaining gaps (impact order)
 
-1. **New World colony founded** — voyages land and a court now takes New World
-   provinces by storm (DR-14-03), but no court finishes Join Empire: the
-   `5,000 + 2,000 × provinces` price is out of reach of a rival purse.
-2. **Phase soft priority** — the weight vector and domain gating beyond the
-   voyage stay seed (DR-13-15); posture/T4 and victory pressure are live
-   (DR-14-04).
+1. **New World colony founded** — landings and storm conquest are live
+   (DR-14-03); Join Empire (`5,000 + 2,000 × provinces`) still outruns a rival
+   purse.
+2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
+   every domain still runs; only the voyage gate is live. Weights, money-first
+   and victory pressure ship.
 3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
    queue cap (wiki-deferred).
 

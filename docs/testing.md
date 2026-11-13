@@ -182,6 +182,14 @@ godot --headless --path . --script res://playtests/playtest_college_debt.gd
 # gates and the level the fort is left at, then mans the crown's own frontier wall
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Colony chain — opens the turn-100 advanced start (the New World charted, so a
+# Tribe is in contact) and walks the four overture stages on the court sheet's own
+# buttons, reading the sheet, the despatch and the chronicle at each step; then
+# founds the colony, reads what the crown now holds (status, survey, chronicle,
+# envoy), checks the court will not sell the same colony twice, and issues the
+# boycott the colony unlocks against a rival crown.
+godot --headless --path . --script res://playtests/playtest_colony.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
