@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
-  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:e63b10df2365c31998e336022d4175f9c66182ab4b23045731b96a7e3958dfed",
-  "submission_git": "main@22df4e0+dirty",
+  "tree_hash": null,
+  "commit": null,
+  "submission_hash": "sha256:6069c305322cc141feb93f820e82bedad7664a6a65013b70fb694dfc583c329c",
+  "submission_git": "feat/blockade-severs-extraction@7ead57d",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:a89f36a24d0117c0765e31e092562b1ea2f87817df6082085ac9b4178325d827",
+    "ai_surface_hash": "sha256:b0c0b56634b85e5675674431e3fad96f879942c777399891fef9b8d6131f5f88",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -73,14 +73,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
-  "official_reason": null,
+  "official": false,
+  "official_reason": "dirty-tree",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T07:25:19Z",
+  "timestamp": "2026-11-13T08:19:23Z",
   "report_version": 1,
-  "signature": "hmac-sha256:7f316c314406267dce89cb7a2862636eb7c6730e85925fb7911473a66091f58a"
+  "signature": "hmac-sha256:cbdcb6ab51c2ca348af4efabbe44f6cacd013d7d2bf576f69dc41a8e363e424f"
 }
