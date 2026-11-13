@@ -10,7 +10,10 @@ const MAX_LEVEL: int = LandWorks.MAX_IMPROVEMENT
 ## callers pass TechCatalog.extraction_caps(tech_unlocked).
 const DEFAULT_TECH_CAP: int = 1
 
-## Resource ids mirror MapGenerator.resource_table().
+## Resource ids mirror MapGenerator.resource_table(). Every index the table
+## carries has a published base name, so a copper, silver, gem or diamond estate
+## reads `Mine` and a crop reads its own work (wiki: extraction-and-improvements
+## § Improvement Naming).
 const RESOURCES: Dictionary = {
 	0: {"name": "Lumber camp", "category": "wood", "icon": "tree"},
 	1: {"name": "Mine", "category": "mine", "icon": "ore"},
@@ -21,6 +24,15 @@ const RESOURCES: Dictionary = {
 	6: {"name": "Ranch", "category": "farm", "icon": "wheat"},
 	7: {"name": "Ranch", "category": "farm", "icon": "wheat"},
 	8: {"name": "Mine", "category": "mine", "icon": "ore"},
+	9: {"name": "Mine", "category": "mine", "icon": "ore"},
+	10: {"name": "Mine", "category": "riches", "icon": "coin"},
+	11: {"name": "Mine", "category": "riches", "icon": "coin"},
+	12: {"name": "Mine", "category": "riches", "icon": "coin"},
+	13: {"name": "Plantation", "category": "farm", "icon": "wheat"},
+	14: {"name": "Plantation", "category": "farm", "icon": "wheat"},
+	15: {"name": "Plantation", "category": "farm", "icon": "wheat"},
+	16: {"name": "Fur post", "category": "farm", "icon": "wheat"},
+	17: {"name": "Plantation", "category": "farm", "icon": "wheat"},
 }
 
 const DEFAULT_ENTRY: Dictionary = {
