@@ -26,15 +26,16 @@ static func primary(side: Array[ArmyState]) -> ArmyState:
 ## into game state for subsequent engagements and turns"), so the live roster
 ## beats the phase snapshot the binding took. The snapshot stays as the fallback
 ## for a context that names medals without a roster (battle-sim scenarios).
-static func medals(side: Array[ArmyState], context: Dictionary) -> int:
-	return medals_of(primary(side), context)
+static func medals(side: Array[ArmyState], context: Dictionary, defending: bool = false) -> int:
+	return medals_of(primary(side), context, defending)
 
 
 ## Medals one army fights under: its bound general's live count, else the phase
 ## snapshot, else the leader fallback. Callers that also award the decoration
 ## read the primary army through this same entry, so the side's line and the
-## general it credits always name one commander.
-static func medals_of(lead: ArmyState, context: Dictionary) -> int:
+## general it credits always name one commander. `defending` picks the leader's
+## published side (Gustavus attacks, Frederick defends — leader-bonuses).
+static func medals_of(lead: ArmyState, context: Dictionary, defending: bool = false) -> int:
 	if lead == null:
 		return 0
 	var bindings: Dictionary = context.get("army_general", {}) as Dictionary
@@ -47,7 +48,7 @@ static func medals_of(lead: ArmyState, context: Dictionary) -> int:
 	if snapshot.has(lead.id):
 		return int(snapshot[lead.id])
 	var leaders: Dictionary = context.get("leaders", {}) as Dictionary
-	return ArmyModifiers.fallback_medals(String(leaders.get(lead.owner, "")))
+	return ArmyModifiers.fallback_medals(String(leaders.get(lead.owner, "")), defending)
 
 
 ## Credits the winning side's primary general with one medal; returns its id

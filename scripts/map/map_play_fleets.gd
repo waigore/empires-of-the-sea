@@ -36,7 +36,7 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayCivilianVoyage.crew(play, fleet),
 		NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
-			MapPlayNavalTurn.strength_multipliers(play)
+			MapPlayNavalTurn.strength_multipliers(play), play.leaders
 		),
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet)
