@@ -44,9 +44,11 @@ static func best(
 
 
 ## How much this court wants the next envoy step toward one Tribe:
-## {"target", "wanted", "stage", "cost", "bonus", "reason"}. `wanted` is false
-## with a reason when the Tribe is not in reach — no envoy, at war, another
+## {"target", "wanted", "stage", "cost", "bonus", "held", "reason"}. `wanted` is
+## false with a reason when the Tribe is not in reach — no envoy, at war, another
 ## crown's colony, an uncharted shore, or a step the treasury cannot cover.
+## `held` says a chain already stands with a charted Tribe: the court has spent
+## on it, so it does not declare war and clear it while the purse catches up.
 static func ambition(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -57,8 +59,8 @@ static func ambition(
 	tech: Dictionary
 ) -> Dictionary:
 	var read: Dictionary = {
-		"target": target, "wanted": false, "stage": "", "cost": 0, "bonus": 0,
-		"relation": 0.0, "reason": "",
+		"target": target, "wanted": false, "held": false, "stage": "", "cost": 0,
+		"bonus": 0, "relation": 0.0, "reason": "",
 	}
 	if state == null or target < 0:
 		return _deny(read, "no tribal court")
@@ -78,14 +80,16 @@ static func ambition(
 	var stage: String = DiplomacyCatalog.next_stage(state.overture(faction, target))
 	if stage.is_empty():
 		return _deny(read, "the envoy chain is complete")
+	if not charted(world, charts, faction, target):
+		return _deny(read, "the court has not charted that shore")
+	# An open chain is a stake: the court has paid for it and means to keep it.
+	read["held"] = state.overture(faction, target) != DiplomacyCatalog.STAGE_NONE
 	var provinces: int = DiplomacyRules.provinces_owned(world, target)
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
 	if treasury < cost:
 		return _deny(read, "the treasury cannot cover the %s" % (
 			DiplomacyCatalog.stage_label(stage)
 		))
-	if not charted(world, charts, faction, target):
-		return _deny(read, "the court has not charted that shore")
 	read["wanted"] = true
 	read["stage"] = stage
 	read["cost"] = cost

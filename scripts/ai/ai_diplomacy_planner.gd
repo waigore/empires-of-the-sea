@@ -198,7 +198,7 @@ static func _war_block(
 		state, world, context.get("charts", null), config.faction, target,
 		treasury, tech
 	)
-	if bool(colony.get("wanted", false)):
+	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
 		return "an envoy chain has a claim on that court"
 	if record.score > float(config.war_relation_ceiling()):
 		return "relations too warm"

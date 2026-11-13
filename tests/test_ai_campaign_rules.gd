@@ -1466,6 +1466,28 @@ func test_a_poor_court_still_fights_a_tribe_it_cannot_buy() -> void:
 	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
 
 
+## A chain already opened is a stake: a court that has paid a Consulate does not
+## clear it by declaring because the Embassy is out of reach this turn.
+func test_a_chain_already_opened_is_not_cleared_by_a_war() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	_stage(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty(), "the chain holds the court")
+	assert_eq(
+		ai_diplomacy_offers_state.overture(2, tribe),
+		DiplomacyCatalog.STAGE_CONSULATE,
+		"no declaration cleared the chain"
+	)
+
+
 ## A Tribe the court has never charted is no colony in reach: the published map
 ## is not a chart, and the offer stands down as before (DR-20261113-03).
 func test_an_uncharted_tribe_is_not_a_colony_in_reach() -> void:
@@ -1525,6 +1547,53 @@ func test_the_join_empire_is_the_prize_the_chain_is_walking_to() -> void:
 	assert_eq(int(goal["cost"]), DiplomacyCatalog.stage_cost(
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE, DiplomacyRules.provinces_owned(world, tribe)
 	))
+
+
+## Every refusal names its own reason, so a trace or a test never guesses why a
+## Tribe was passed over (wiki: turn-trace-interpretation).
+func test_the_ambition_names_why_a_tribe_is_out_of_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var none: Dictionary = AiTribeColony.ambition(null, world, null, 2, tribe, 5000, {})
+	assert_eq(String(none["reason"]), "no tribal court")
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, minor, 5000, {})["reason"]),
+		"not a tribe"
+	)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"no envoy has reached that court"
+	)
+	state.ensure_relation(2, tribe, 1).at_war = true
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"at war with the tribal court"
+	)
+	state.relation(2, tribe).at_war = false
+	state.set_colony(tribe, 2)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"already a colony of this crown"
+	)
+	state.set_colony(tribe, 3)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"another crown's colony"
+	)
+	state.colonies.clear()
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"the envoy chain is complete"
+	)
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NONE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 100, {})["reason"]),
+		"the treasury cannot cover the Trade Consulate"
+	)
 
 
 ## A court's own ledger read for the ambition tests: the treasury it must pay

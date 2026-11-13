@@ -164,7 +164,11 @@ static func _treaty(
 	var colony: Dictionary = AiTribeColony.ambition(
 		state, world, charts, config.faction, target, treasury, tech
 	)
-	if improve < min_improve and bonus == 0 and not bool(colony.get("wanted", false)):
+	if (
+		improve < min_improve and bonus == 0
+		and not bool(colony.get("wanted", false))
+		and not bool(colony.get("held", false))
+	):
 		return _blocked("improve-relations desire too low", KIND_OVERTURE)
 	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
 	if ai_state.overture_on_cooldown(config.faction, target, turn, cooldown):
