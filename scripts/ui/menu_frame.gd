@@ -151,18 +151,6 @@ static func small_button(text: String, width: float = 120.0) -> Button:
 	return button
 
 
-## Disabled entry with a quiet reason, used until settings land.
-static func dimmed_button(text: String, reason: String) -> Button:
-	var button := action_button(text)
-	button.disabled = true
-	button.tooltip_text = reason
-	button.add_theme_stylebox_override(
-		"disabled", UiTheme.box(Color(0.14, 0.12, 0.09, 0.95), Palette.GOLD_DIM, 1)
-	)
-	button.add_theme_color_override("font_disabled_color", Palette.TEXT_DIM)
-	return button
-
-
 static func separator() -> HSeparator:
 	var line := HSeparator.new()
 	line.add_theme_constant_override("separation", 18)

@@ -2,19 +2,12 @@ class_name DiplomacyPanel
 extends PanelContainer
 ## The court: one row per known crown, with relation stand, overture chain,
 ## the orders that court will entertain and the pair's chronicle (wiki:
-## diplomacy). Presentation only — buttons emit intents and the rules layer
-## decides (REQ-P2-03).
+## diplomacy). The open court's sheet lives on CourtDetailBlock; this shell
+## owns the crown list, consent lane and chrome (REQ-P3-01). Presentation only
+## — buttons emit intents and the rules layer decides (REQ-P2-03).
 
 signal order_pressed(kind: String, target: int, arg: String)
 signal close_pressed
-
-## Section headings for the order list; trade terms render in their own block
-## so prices and pacts stay one glance away (REQ-P5-02).
-const GROUP_LABELS: Dictionary = {
-	DiplomacyOrders.GROUP_ORDERS: "COURT ORDERS",
-	DiplomacyOrders.GROUP_TREATIES: "TREATIES",
-	DiplomacyOrders.GROUP_AID: "AID",
-}
 
 var _state: DiplomacyState = null
 var _world: WorldMap = null
@@ -25,9 +18,9 @@ var _tech: Dictionary = {}
 ## in a fixture that supplies none, which simply shows no power line.
 var _power: Dictionary = {}
 var _selected: int = -1
-var _last_group: String = ""
 var _list: VBoxContainer = null
-var _detail: VBoxContainer = null
+## The open court's sheet; tests and callers still reach this as `_detail`.
+var _detail: CourtDetailBlock = null
 var _summary: Label = null
 var _call_box: VBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
@@ -49,7 +42,7 @@ func _build() -> void:
 	root.add_theme_constant_override("separation", 8)
 	add_child(root)
 	root.add_child(_header())
-	_summary = _label("", 13, Palette.TEXT_DIM)
+	_summary = UiRowBuilder.label("", 13, Palette.TEXT_DIM)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_summary)
 	_call_box = VBoxContainer.new()
@@ -68,11 +61,11 @@ func _header() -> Control:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
 	header.add_child(Icon.new("crest", 30, Palette.GOLD))
-	var title := _label("THE COURT", 24, Palette.GOLD_PALE)
+	var title := UiRowBuilder.label("THE COURT", 24, Palette.GOLD_PALE)
 	title.add_theme_font_override("font", UiTheme.serif())
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	var close := _small_button("Close")
+	var close := UiRowBuilder.button("Close", 36.0, 0.0)
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(close)
 	return header
@@ -81,7 +74,7 @@ func _header() -> Control:
 func _list_column() -> Control:
 	var column := VBoxContainer.new()
 	column.custom_minimum_size = Vector2(212, 0)
-	column.add_child(_caption("CROWNS & TRIBES"))
+	column.add_child(UiRowBuilder.label("CROWNS & TRIBES", 11, Palette.TEXT_DIM))
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -98,9 +91,13 @@ func _detail_column() -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_detail = VBoxContainer.new()
+	_detail = CourtDetailBlock.new()
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_detail.add_theme_constant_override("separation", 8)
+	_detail.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			order_pressed.emit(kind, target, arg)
+	)
+	_detail.dossier_open_pressed.connect(_on_dossier_open)
 	scroll.add_child(_detail)
 	return scroll
 
@@ -108,7 +105,7 @@ func _detail_column() -> Control:
 func _footer() -> Control:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
-	var hint := _label(
+	var hint := UiRowBuilder.label(
 		"The relation score stays sealed; only the herald's word is shown.", 11, Palette.TEXT_DIM
 	)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -144,7 +141,9 @@ func refresh(
 	)
 	_fill_call()
 	_fill_list(ids)
-	_fill_detail()
+	_detail.fill(
+		_state, _world, _player, _selected, _treasury, _tech, _court_reports, _power
+	)
 
 
 func selected_faction() -> int:
@@ -175,13 +174,13 @@ func _sorts_before(left: int, right: int) -> bool:
 
 
 func _fill_list(ids: Array[int]) -> void:
-	_clear(_list)
+	UiRowBuilder.clear(_list)
 	for faction_id: int in ids:
 		var record: DiplomacyRelation = _state.relation(_player, faction_id)
 		var row := VBoxContainer.new()
 		row.add_theme_constant_override("separation", 0)
 		var button := Button.new()
-		var stand: String = _status_line(faction_id, record)
+		var stand: String = CourtDetailBlock.status_line(_state, _player, faction_id, record)
 		button.text = "%s\n%s" % [FactionCatalog.name_of(faction_id), stand]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.custom_minimum_size = Vector2(0, 46)
@@ -195,94 +194,6 @@ func _fill_list(ids: Array[int]) -> void:
 		row.add_child(button)
 		CourtRows.decorate(row, faction_id, _power, _player)
 		_list.add_child(row)
-
-
-func _fill_detail() -> void:
-	_clear(_detail)
-	if _selected < 0:
-		_detail.add_child(_label("No court has received an envoy.", 15, Palette.TEXT_DIM))
-		return
-	var record: DiplomacyRelation = _state.relation(_player, _selected)
-	var name_label := _label(FactionCatalog.name_of(_selected), 24, Palette.GOLD_PALE)
-	name_label.add_theme_font_override("font", UiTheme.serif())
-	_detail.add_child(name_label)
-	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(_selected))
-	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(_selected))
-	_detail.add_child(_label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
-	var status := _label(_status_line(_selected, record), 15, _status_color(_selected, record))
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail.add_child(status)
-	_detail.add_child(_meter(record.score))
-	_detail.add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
-	var mark: Dictionary = CourtRows.line(_power, _player, _selected)
-	if not mark.is_empty():
-		_detail.add_child(_label(CourtRows.detail_text(mark), 13, mark["color"] as Color))
-	_add_envoy()
-	_detail.add_child(_label(_overture_line(_selected), 13, Palette.TEXT))
-	_detail.add_child(_caption("COURT ORDERS"))
-	var options: Array[Dictionary] = DiplomacyOrders.options(
-		_state, _world, _treasury, _player, _selected, _tech
-	)
-	_last_group = DiplomacyOrders.GROUP_ORDERS
-	var trade_options: Array[Dictionary] = []
-	for option: Dictionary in options:
-		if String(option.get("group", "")) == DiplomacyOrders.GROUP_TRADE:
-			trade_options.append(option)
-			continue
-		var group: String = String(option.get("group", DiplomacyOrders.GROUP_ORDERS))
-		if group != _last_group:
-			_last_group = group
-			_detail.add_child(_caption(String(GROUP_LABELS.get(group, "COURT ORDERS"))))
-		_add_option(option)
-	if not trade_options.is_empty():
-		var trade := CourtTrade.new()
-		trade.fill(_state, _world, _player, _selected, trade_options)
-		trade.order_pressed.connect(
-			func(kind: String, target: int, arg: String) -> void:
-				order_pressed.emit(kind, target, arg)
-		)
-		_detail.add_child(trade)
-	_add_chronicle()
-	# The despatch is news like the chronicle, so it sits above the dossier's
-	# analysis (wiki: civilian-units § Spy — court reports; REQ-P5-02).
-	var reports := CourtReportsPanel.new()
-	reports.fill(_selected, _court_reports)
-	_detail.add_child(reports)
-	# The dossier sits under the chronicle: analysis after the news, so choice
-	# stays first and bookkeeping follows (wiki: ai-dossier; REQ-P5-02).
-	var dossier := CourtDossier.new()
-	dossier.fill(_state, _world, _player, _selected)
-	# The summary's one door: the full sheet opens on the court in view
-	# (REQ-P5-01, DR-20261110-25).
-	dossier.open_pressed.connect(
-		func() -> void:
-			if dossier_screen != null and _selected >= 0:
-				dossier_screen.show_for(_state, _world, _player, _selected)
-	)
-	_detail.add_child(dossier)
-
-
-## The court's own word under its herald line: the newest voiced act between the
-## pair, else its standing remark, with the face it wears (wiki:
-## dialogue-and-mood; REQ-P1-07). Presentation only — the reader is never the
-## speaker (REQ-P2-03).
-func _add_envoy() -> void:
-	var spoken: Dictionary = DialogueEvents.for_pair(_state, _player, _selected)
-	if spoken.is_empty():
-		return
-	var face: String = DialogueMood.label(String(spoken["mood"])).to_upper()
-	_detail.add_child(_caption("THEIR ENVOY  ·  %s" % face))
-	var words := _label("“%s”" % String(spoken["text"]), 14, Palette.GOLD_PALE)
-	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_detail.add_child(words)
-
-
-## The pair's chronicle sits under the orders: choice first, bookkeeping after
-## (wiki: diplomacy § Diplomatic History; REQ-P5-02).
-func _add_chronicle() -> void:
-	var chronicle := CourtHistory.new()
-	chronicle.fill(_state, _player, _selected)
-	_detail.add_child(chronicle)
 
 
 ## A waiting consent decision (call to arms, intervention, rival proposal) sits
@@ -300,100 +211,7 @@ func _fill_call() -> void:
 	)
 
 
-func _add_option(option: Dictionary) -> void:
-	var cost: String = String(option.get("cost_text", ""))
-	var text: String = String(option["label"])
-	if bool(option.get("active", false)):
-		text = "✓ %s" % text
-	if not cost.is_empty():
-		text = "%s  ·  %s" % [text, cost]
-	var button := _small_button(text)
-	button.disabled = not bool(option["ok"])
-	var kind: String = String(option["kind"])
-	var arg: String = String(option.get("arg", ""))
-	button.pressed.connect(func() -> void: order_pressed.emit(kind, _selected, arg))
-	_detail.add_child(button)
-	if not bool(option["ok"]):
-		var reason := _label(String(option["reason"]), 11, Color(0.80, 0.63, 0.45, 0.9))
-		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_detail.add_child(reason)
+func _on_dossier_open(faction_id: int) -> void:
+	if dossier_screen == null or faction_id < 0 or _state == null:
 		return
-	var hint: String = String(option.get("hint", ""))
-	if not hint.is_empty():
-		var note := _label(hint, 11, Palette.TEXT_DIM)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_detail.add_child(note)
-
-
-func _status_line(faction_id: int, record: DiplomacyRelation) -> String:
-	var parts: PackedStringArray = [record.meter_label(), DiplomacyCatalog.state_label(record.at_war)]
-	if record.formal_alliance:
-		parts.append("Formal Alliance")
-	if DiplomacyTrade.is_ftp(_state, _player, faction_id):
-		parts.append("Trade Pact")
-	if DiplomacyTrade.is_boycotting(_state, _player, faction_id):
-		parts.append("Boycott")
-	var colony_of: int = _state.colony_of(faction_id)
-	if colony_of >= 0:
-		parts.append("Colony of %s" % FactionCatalog.name_of(colony_of))
-	return "  ·  ".join(parts)
-
-
-func _status_color(_faction_id: int, record: DiplomacyRelation) -> Color:
-	if record.at_war:
-		return Color(0.85, 0.38, 0.32)
-	if record.formal_alliance:
-		return Color(0.58, 0.78, 0.52)
-	return Palette.TEXT
-
-
-func _overture_line(faction_id: int) -> String:
-	var stage: String = _state.overture(_player, faction_id)
-	var next: String = DiplomacyCatalog.next_stage(stage)
-	var line: String = "Overture: %s" % DiplomacyCatalog.stage_label(stage)
-	if not next.is_empty():
-		line += "  ·  next: %s" % DiplomacyCatalog.stage_label(next)
-	return line
-
-
-func _meter(score: float) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	var active: int = DiplomacyCatalog.meter_step(score)
-	for step in range(1, 11):
-		var block := Panel.new()
-		block.custom_minimum_size = Vector2(18, 12)
-		block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var t: float = float(step - 1) / 9.0
-		var color: Color = Color.from_hsv(lerpf(0.0, 0.33, t), 0.62, 0.78)
-		if step > active:
-			color = Color(0.24, 0.20, 0.15, 0.65)
-		block.add_theme_stylebox_override("panel", UiTheme.box(color, color, 1, 2, Vector4.ZERO))
-		row.add_child(block)
-	return row
-
-
-func _caption(text: String) -> Label:
-	return _label(text, 11, Palette.TEXT_DIM)
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
-func _small_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 36)
-	button.add_theme_font_size_override("font_size", 13)
-	return button
-
-
-func _clear(node: Node) -> void:
-	for child: Node in node.get_children():
-		node.remove_child(child)
-		child.queue_free()
+	dossier_screen.show_for(_state, _world, _player, faction_id)

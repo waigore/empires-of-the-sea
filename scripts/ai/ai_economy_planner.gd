@@ -80,7 +80,7 @@ static func production_orders(
 ## (DR-20261112-11).
 static func _committed(economy: PlayerEconomy) -> Dictionary:
 	var queued: Dictionary = {}
-	for assignment: Dictionary in economy.assignments():
+	for assignment: Dictionary in economy.production.assignments():
 		var queued_id: String = String(assignment.get("recipe", ""))
 		if ProductionRecipes.turns(queued_id) <= 1:
 			continue
@@ -88,7 +88,7 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 	var committed: Dictionary = {}
 	var labour: int = economy.workers.labour()
 	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
-		var units: int = economy.wip_units(recipe_id)
+		var units: int = economy.production.wip_units(recipe_id)
 		if queued.has(recipe_id):
 			units += mini(
 				int(queued[recipe_id]),
