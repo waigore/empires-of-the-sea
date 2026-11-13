@@ -163,6 +163,14 @@ static func _difficulty(context: Dictionary, owner: int) -> float:
 	return float(factors.get(owner, 1.0))
 
 
+## The leader's published naval row: only de Ruyter's +15% modifies a side's
+## strength at sea (wiki: leader-bonuses § When Bonuses Apply). An unrecorded
+## court (a hand-built fixture) reads no leader and fights as published.
+static func _leader(context: Dictionary, owner: int) -> float:
+	var leaders: Dictionary = context.get("leaders", {}) as Dictionary
+	return LeaderCatalog.naval_multiplier(String(leaders.get(owner, "")))
+
+
 ## No callback means the legacy default: every pair is hostile.
 static func _hostile(hostile: Callable, a: int, b: int) -> bool:
 	if a == b:
@@ -198,9 +206,11 @@ static func _battle(
 	# and a rival of the chosen difficulty fights its own strength
 	# (wiki: ruleset-config § Difficulty).
 	var attacker_strength: float = side_strength(attacking) \
-		* _feeding(context, attacker_id) * _difficulty(context, attacker_id)
+		* _feeding(context, attacker_id) * _difficulty(context, attacker_id) \
+		* _leader(context, attacker_id)
 	var defender_strength: float = side_strength(defending) \
-		* _feeding(context, defender_id) * _difficulty(context, defender_id)
+		* _feeding(context, defender_id) * _difficulty(context, defender_id) \
+		* _leader(context, defender_id)
 	var record: Dictionary = {
 		"zone": zone_id,
 		"attacker": attacker_id,
