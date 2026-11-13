@@ -1138,10 +1138,6 @@ domain = "misc"
 # AiState stamps the difficulty layer onto rival ledgers and keeps the
 # objective ledger's claims; the ledger slice owns it now, and the difficulty
 # domain names the ledger suite so a layer change still proves the claims row.
-[[rules]]
-match = "scripts/ai/ai_state.gd*"
-domain = "ai_ledger"
-
 # Prospect uncover (DR-20261111-26): keep mineral survey + Explorer/Builder AI
 # and the map/dossier marks off the full AI/map/civilian fan-out so tier 1
 # stays inside 5 min.
@@ -1248,10 +1244,6 @@ match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"
 
 [[rules]]
-match = "scripts/ai/ai_state.gd*"
-domain = "ai_ledger"
-
-[[rules]]
 match = "scripts/ai/ai_turn_log.gd*"
 domain = "ai_ledger"
 
@@ -1265,12 +1257,16 @@ domain = "ai_ledger"
 
 
 # War memory (issue #475): the weariness and truce clocks the diplomacy planner
-# reads before it takes or keeps a war. Its own slice so a memory tweak runs the
-# memory suite and the dispatch suite, not the whole AI fan-out.
+# reads before it takes or keeps a war, the registry group that tunes them and
+# the `AiState` row that carries them. One slice so a memory tweak runs the
+# memory, dispatch and planner suites — not the whole AI fan-out (the observer
+# and land-battle suites cost more than tier 1 can spend on a diplomacy change).
 [domains.ai_diplomacy]
 suites = [
   "test_ai_war_memory.gd",
-  "test_ai_phase_rules.gd"
+  "test_ai_phase_rules.gd",
+  "test_ai_planner_rules.gd",
+  "test_ai_objective_rules.gd"
 ]
 
 [[rules]]
@@ -1279,6 +1275,18 @@ domain = "ai_diplomacy"
 
 [[rules]]
 match = "scripts/ai/ai_parameter_diplomacy.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_registry.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_diplomacy_planner.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_state.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
