@@ -443,13 +443,13 @@ func test_a_translation_overrides_the_authored_line() -> void:
 	)
 
 
-# --- the shipped French court ------------------------------------------------
+# --- the shipped tongues -----------------------------------------------------
 #
-# The file is content: one `.po` keyed by the same stable content key
+# Each file is content: one `.po` keyed by the same stable content key
 # [DialogueLocale.line_key] builds, answered on the reader's own tongue and
-# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06).
-# These cases hold the file to the catalogue, so a rewritten or dropped point
-# fails here instead of leaving a French court an English line.
+# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06,
+# DR-20261113-09). These cases hold every file to the catalogue, so a rewritten
+# or dropped point fails here instead of leaving a court an English line.
 
 const PLACEHOLDERS: Array[String] = ["{speaker}", "{other}"]
 
@@ -464,43 +464,85 @@ func _authored() -> Dictionary:
 	return found
 
 
-func test_the_shipped_tongue_answers_every_authored_variant() -> void:
+func test_the_shipped_tongues_answer_every_authored_variant() -> void:
 	var authored: Dictionary = _authored()
 	assert_gte(authored.size(), 100, "the court authors its catalogue")
-	var unanswered: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var word: String = String(TranslationServer.translate(String(key)))
-		if word.is_empty() or word == String(key) or word == String(authored[key]):
-			unanswered.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(unanswered, [] as Array[String], "every variant ships French words: %s" % str(unanswered))
+	var tongues: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code != DialogueLocale.SOURCE_LOCALE:
+			tongues.append(code)
+	assert_gte(tongues.size(), 2, "the build ships more than one tongue")
+	for code: String in tongues:
+		var unanswered: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var word: String = String(TranslationServer.translate(String(key)))
+			if word.is_empty() or word == String(key) or word == String(authored[key]):
+				unanswered.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			unanswered,
+			[] as Array[String],
+			"%s answers every variant: %s" % [code, str(unanswered)]
+		)
 
 
-func test_the_french_keeps_the_speaker_and_the_court() -> void:
+func test_a_shipped_tongue_keeps_the_speaker_and_the_court() -> void:
 	var authored: Dictionary = _authored()
-	var broken: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var source: String = String(authored[key])
-		var word: String = String(TranslationServer.translate(String(key)))
-		for mark: String in PLACEHOLDERS:
-			if source.count(mark) != word.count(mark):
-				broken.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(broken, [] as Array[String], "a name is never dropped in translation: %s" % str(broken))
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		var broken: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var source: String = String(authored[key])
+			var word: String = String(TranslationServer.translate(String(key)))
+			for mark: String in PLACEHOLDERS:
+				if source.count(mark) != word.count(mark):
+					broken.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			broken, [] as Array[String],
+			"a name is never dropped in %s: %s" % [code, str(broken)]
+		)
 
 
-func test_the_file_answers_only_keys_the_catalogue_still_authors() -> void:
+func test_every_shipped_file_answers_only_keys_the_catalogue_still_authors() -> void:
 	DialogueLocale.load_shipped()
-	var words: Variant = load(DialogueLocale.SHIPPED)
-	assert_true(words is Translation, "the shipped file reads as a tongue")
 	var authored: Dictionary = _authored()
 	var stale: Array[String] = []
-	for key: Variant in (words as Translation).get_message_list():
-		if not authored.has(String(key)):
-			stale.append(String(key))
+	var files: int = 0
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		assert_true(words is Translation, "%s reads as a tongue" % path)
+		if not (words is Translation):
+			continue
+		files += 1
+		for key: Variant in (words as Translation).get_message_list():
+			if not authored.has(String(key)):
+				stale.append("%s in %s" % [String(key), path])
+	assert_gte(files, 2, "both tongues ship as files")
 	assert_eq(stale, [] as Array[String], "no word outlives the point it answered: %s" % str(stale))
+
+
+func test_the_shipped_directory_offers_each_tongue_once_by_its_own_name() -> void:
+	var codes: Array[String] = []
+	var names: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		codes.append(String(tongue.get("code", "")))
+		names.append(String(tongue.get("name", "")))
+	assert_eq(codes.count(DialogueLocale.SOURCE_LOCALE), 1, "the source tongue is offered once")
+	for tongue: Dictionary in DialogueLocale.tongues():
+		assert_eq(codes.count(String(tongue.get("code", ""))), 1, "one row per tongue")
+	assert_true(codes.has("fr"), "the French court is offered")
+	assert_true(codes.has("es"), "the Spanish court is offered")
+	assert_true(names.has("Français"), "a tongue is named in its own words")
+	assert_true(names.has("Español"), "and so is the Spanish one")
+	assert_eq(DialogueLocale.native_name("fr_CA"), "Français", "a regional code still names its tongue")
+	assert_eq(DialogueLocale.native_name("xx"), "XX", "a code with no name is still legible")
+	assert_eq(DialogueLocale.native_name(""), DialogueLocale.SOURCE_LOCALE.to_upper())
 
 
 func test_a_source_tongue_reads_no_translation() -> void:
@@ -528,6 +570,16 @@ func test_a_french_device_reads_the_french_court() -> void:
 			String(TranslationServer.translate(DialogueLocale.line_key("reactive/standing_war", 0))),
 			"the court speaks the tongue's own word"
 		)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_spanish_device_reads_the_spanish_court() -> void:
+	DialogueLocale.set_locale("es")
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		"La guerra se mantiene. Hablaremos otra vez cuando alguno de nosotros se canse.",
+		"a Spanish device reads the Spanish court"
+	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
@@ -569,18 +621,34 @@ func test_the_court_panel_hears_the_tongue() -> void:
 	)
 
 
-func test_the_shipped_tongue_is_registered_once() -> void:
+func test_each_shipped_tongue_is_registered_once() -> void:
 	DialogueLocale.load_shipped()
 	DialogueLocale.load_shipped()
-	assert_eq(DialogueLocale.locales().count("fr"), 1, "one file, one tongue, one entry")
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		if words is Translation:
+			var code: String = String((words as Translation).locale)
+			assert_eq(DialogueLocale.locales().count(code), 1, "one file, one tongue, one entry")
 
 
 func test_a_tongue_with_no_file_adds_nothing() -> void:
-	DialogueLocale.load_shipped("res://assets/locales/xx.po")
+	assert_false(
+		DialogueLocale.register("res://assets/locales/xx.po"), "a missing file adds no table"
+	)
 	assert_false(DialogueLocale.locales().has(""), "a missing file registers no tongue")
 	assert_false(
 		DialogueLocale.locales().has("xx"), "a missing file names no tongue either"
 	)
+
+
+func test_the_reader_can_choose_the_device_tongue_again() -> void:
+	DialogueLocale.set_locale("es")
+	assert_ne(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
+	DialogueLocale.follow_device()
+	assert_eq(
+		DialogueLocale.locale(), DialogueLocale.device_locale(), "the device decides again"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
 func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
