@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:9e7f7ea7058af66f90eb25151506f3d6fef40e239fa6a20a85f264961efdc687",
-  "submission_git": "feat/ai-ledger-t2-expedition@2a117fa",
+  "submission_hash": "sha256:e6245871643014597236769c29d3490ec9a8ae9249a22f04795380d5da550aab",
+  "submission_git": "feat/ai-ledger-t4-posture@85071f9",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3b5aac4750f6cbbeec89390f2dbf853733df3e9b68f78fc589121aa4e3f7ac8c",
+    "ai_surface_hash": "sha256:4df3eedb4ad7ce05c555eba468f70958b3f44b83bfcbe05e25636bc7a1ebbfde",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T16:30:33Z",
+  "timestamp": "2026-11-13T16:46:53Z",
   "report_version": 1,
-  "signature": "hmac-sha256:eb99311b98a4be1c7631a290178913b6713769ba9f49f34c07fa88bf06969925"
+  "signature": "hmac-sha256:f95d0ae0a1138836979b075d0c702bd7a003f714e7f04f37663abba96557befb"
 }
