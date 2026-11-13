@@ -33,14 +33,13 @@ const STANDING_FUNDING: String = "low"
 ## Assignments for the court's empty slots plus every scored candidate, for the
 ## turn trace (wiki: turn-trace-interpretation).
 ##
-## `context["treasury_floor"]` is the purse the court must leave behind — its own
-## cash floor (`economy.min_treasury`), not the muster reserve: the reserve is a
-## saving target the army planner enforces at muster time, and gating studies on
-## it froze every court at war (issue #490). Funding steps down to what the purse
-## can carry after that floor, and a court parked at the floor still keeps one
-## study alive at the cheapest preset (the standing study) rather than standing
-## still for the campaign (wiki: growth-stage-planner § Recruitment modulation;
-## treasury-planner § Cash discipline).
+## `context["treasury_floor"]` is the money-goal reserve the surplus ladder must
+## leave behind (muster at war, cash floor at peace). `context["cash_floor"]` is
+## the court's own `economy.min_treasury` for the standing study: when the ladder
+## would fund `none` against the reserve, one slot still pays the cheapest
+## preset if the purse clears half that cash floor — otherwise war-time courts
+## parked at 500 while saving 2,400 never learn (issue #490). Defaults:
+## `cash_floor` falls back to `treasury_floor`, then to `research_floor(config)`.
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
 ) -> Dictionary:
@@ -57,15 +56,16 @@ static func plan(
 		state.set_revealed(revealed)
 	var at_war: bool = bool(context.get("at_war", false))
 	candidates = _scored_candidates(config, economy, at_war)
-	var floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
-	var preset: String = funding_for(config, economy, floor)
-	# A court parked at its cash floor still keeps one study alive at the
-	# cheapest preset: the standing study is the first slot that already holds a
-	# tech, or the first slot filled this turn. It is paid before the surplus
-	# ladder, so a court that cannot afford its published preset still learns
-	# rather than standing still for the campaign (issue #490).
+	var save_floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
+	# Standing study affordability is always the cash floor, never the muster.
+	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
+	var preset: String = funding_for(config, economy, save_floor)
+	# A court that cannot clear the money-goal reserve still keeps one study
+	# alive at the cheapest preset when the purse clears half its cash floor:
+	# the standing study is the first slot that already holds a tech, or the
+	# first slot filled this turn (issue #490).
 	var can_stand: bool = (
-		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, floor)
+		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, cash_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
 	# A study already underway follows the same purse: a court that cannot fund
