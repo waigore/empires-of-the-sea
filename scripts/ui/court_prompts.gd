@@ -34,21 +34,14 @@ static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 		Color(0.22, 0.10, 0.08, 0.95), Color(0.72, 0.34, 0.26)
 	)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
-	column.add_child(_label("CALL TO ARMS", 11, Palette.GOLD_PALE))
-	var text := _label(
-		"%s has declared war on %s. %s" % [
-			FactionCatalog.name_of(int(call["aggressor"])),
-			FactionCatalog.name_of(int(call["defender"])),
-			CallToArms.offer_text(call),
-		],
-		13,
-		Palette.TEXT
-	)
+	column.add_child(_label(ConsentCopy.call_caption(), 11, Palette.GOLD_PALE))
+	var text := _label(ConsentCopy.call_body(call), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
 	var row: HBoxContainer = _row()
-	row.add_child(_button("Join the war", emit, CallToArms.KIND_JOIN, int(call["aggressor"])))
-	row.add_child(_button("Refuse", emit, CallToArms.KIND_REFUSE, int(call["aggressor"])))
+	var aggressor: int = int(call["aggressor"])
+	row.add_child(_button(ConsentCopy.button("join"), emit, CallToArms.KIND_JOIN, aggressor))
+	row.add_child(_button(ConsentCopy.button("refuse"), emit, CallToArms.KIND_REFUSE, aggressor))
 	column.add_child(row)
 	return banner
 
@@ -57,26 +50,22 @@ static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 ## embassy, the deeds, or both — comes from the offer itself (DR-20261110-20).
 static func _intervention_banner(offer: Dictionary, emit: Callable) -> Control:
 	var aggressor: int = int(offer["aggressor"])
-	var target: int = int(offer["target"])
 	var banner: PanelContainer = _banner(Color(0.18, 0.12, 0.08, 0.95), Palette.GOLD_DIM)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
-	column.add_child(_label("INTERVENTION", 11, Palette.GOLD_PALE))
-	var text := _label(
-		"%s has declared war on %s. %s"
-		% [
-			FactionCatalog.name_of(aggressor),
-			FactionCatalog.name_of(target),
-			Intervention.offer_text(offer),
-		],
-		13,
-		Palette.TEXT
-	)
+	column.add_child(_label(ConsentCopy.intervention_caption(), 11, Palette.GOLD_PALE))
+	var text := _label(ConsentCopy.intervention_body(offer), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
 	var row: HBoxContainer = _row()
-	row.add_child(_button("Intervene", emit, Intervention.KIND_INTERVENE, aggressor))
-	row.add_child(_button("Stand aside", emit, Intervention.KIND_NOTHING, aggressor))
-	row.add_child(_button("Protest", emit, Intervention.KIND_PROTEST, aggressor))
+	row.add_child(
+		_button(ConsentCopy.button("intervene"), emit, Intervention.KIND_INTERVENE, aggressor)
+	)
+	row.add_child(
+		_button(ConsentCopy.button("stand_aside"), emit, Intervention.KIND_NOTHING, aggressor)
+	)
+	row.add_child(
+		_button(ConsentCopy.button("protest"), emit, Intervention.KIND_PROTEST, aggressor)
+	)
 	column.add_child(row)
 	return banner
 
@@ -96,35 +85,31 @@ static func _proposal_banner(
 	)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
 	var spoken: Dictionary = DialogueEvents.for_offer(state, player, offer)
-	var caption: String = "PROPOSAL"
-	if not spoken.is_empty():
-		caption += "  ·  %s" % DialogueMood.label(String(spoken["mood"])).to_upper()
-	column.add_child(_label(caption, 11, Palette.GOLD_PALE))
-	var text := _label(
-		"%s proposes %s." % [
-			FactionCatalog.name_of(from_id), DiplomacyProposals.describe(kind, stage)
-		],
-		13,
-		Palette.TEXT
-	)
+	var mood: String = "" if spoken.is_empty() else String(spoken["mood"])
+	column.add_child(_label(ConsentCopy.proposal_caption(mood), 11, Palette.GOLD_PALE))
+	var text := _label(ConsentCopy.proposal_body(from_id, kind, stage), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
 	# The pact changes what the crown pays, so the rate rides the prompt the
 	# court answers rather than the market sheet it would have to find first
 	# (wiki: world-market § FTP — the pact publishes its terms).
 	if kind == DiplomacyProposals.KIND_FTP:
-		var terms := _label(
-			"Favoured terms: %s." % DiplomacyCatalog.ftp_terms_text(), 12, Palette.GOLD_PALE
-		)
+		var terms := _label(ConsentCopy.proposal_terms(), 12, Palette.GOLD_PALE)
 		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(terms)
 	if not spoken.is_empty():
-		var words := _label("“%s”" % String(spoken["text"]), 12, Palette.GOLD_PALE)
+		var words := _label(
+			ConsentCopy.proposal_quote(String(spoken["text"])), 12, Palette.GOLD_PALE
+		)
 		words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(words)
 	var row: HBoxContainer = _row()
-	row.add_child(_button("Accept", emit, DiplomacyProposals.KIND_ACCEPT, from_id))
-	row.add_child(_button("Refuse", emit, DiplomacyProposals.KIND_REFUSE, from_id))
+	row.add_child(
+		_button(ConsentCopy.button("accept"), emit, DiplomacyProposals.KIND_ACCEPT, from_id)
+	)
+	row.add_child(
+		_button(ConsentCopy.button("refuse"), emit, DiplomacyProposals.KIND_REFUSE, from_id)
+	)
 	column.add_child(row)
 	return banner
 

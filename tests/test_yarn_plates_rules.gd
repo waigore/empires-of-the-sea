@@ -512,6 +512,7 @@ func test_a_shipped_tongue_keeps_the_speaker_and_the_court() -> void:
 func test_every_shipped_file_answers_only_keys_the_catalogue_still_authors() -> void:
 	DialogueLocale.load_shipped()
 	var authored: Dictionary = _authored()
+	var prompts: Dictionary = ConsentCopy.catalogue()
 	var stale: Array[String] = []
 	var files: int = 0
 	for path: String in DialogueLocale.shipped_paths():
@@ -521,7 +522,7 @@ func test_every_shipped_file_answers_only_keys_the_catalogue_still_authors() -> 
 			continue
 		files += 1
 		for key: Variant in (words as Translation).get_message_list():
-			if not authored.has(String(key)):
+			if not authored.has(String(key)) and not prompts.has(String(key)):
 				stale.append("%s in %s" % [String(key), path])
 	assert_gte(files, 2, "both tongues ship as files")
 	assert_eq(stale, [] as Array[String], "no word outlives the point it answered: %s" % str(stale))
@@ -664,6 +665,118 @@ func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
 		"a court with no file reads the authored line"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+# --- the prompts' words ------------------------------------------------------
+#
+# A blocking decision is answered in the reader's tongue too: the caption, the
+# stakes and the buttons each answer to a key [ConsentCopy] builds, so a tongue
+# file fills a prompt without touching code and an unanswered key keeps the
+# authored English (wiki: dialogue-content-and-yarn § Playable slice;
+# DR-20261113-10). These cases hold every file to the prompt catalogue.
+
+func test_the_shipped_tongues_answer_every_prompt() -> void:
+	var prompts: Dictionary = ConsentCopy.catalogue()
+	assert_gte(prompts.size(), 30, "the prompts author their words")
+	var tongues: int = 0
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		tongues += 1
+		var unanswered: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in prompts.keys():
+			var word: String = String(TranslationServer.translate(String(key)))
+			if word.is_empty() or word == String(key) or word == String(prompts[key]):
+				unanswered.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			unanswered, [] as Array[String],
+			"%s answers every prompt: %s" % [code, str(unanswered)]
+		)
+	assert_gte(tongues, 2, "the build ships more than one tongue")
+
+
+func test_a_shipped_prompt_keeps_its_placeholders() -> void:
+	var prompts: Dictionary = ConsentCopy.catalogue()
+	var broken: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		DialogueLocale.set_locale(code)
+		for key: Variant in prompts.keys():
+			var source: String = String(prompts[key])
+			var word: String = String(TranslationServer.translate(String(key)))
+			for mark: String in ["%s", "%d"]:
+				if source.count(mark) != word.count(mark):
+					broken.append("%s in %s" % [String(key), code])
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		broken, [] as Array[String],
+		"a name or a rate is never dropped: %s" % str(broken)
+	)
+
+
+func test_a_prompt_speaks_the_tongue_and_names_the_courts() -> void:
+	var call: Dictionary = {"aggressor": 2, "defender": 1}
+	var english: String = ConsentCopy.call_body(call)
+	assert_true(english.contains("France"), english)
+	assert_true(english.contains("England"), english)
+	DialogueLocale.set_locale("fr")
+	var french: String = ConsentCopy.call_body(call)
+	var join: String = ConsentCopy.button("join")
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_ne(french, english, "the prompt answers in the reader's tongue")
+	assert_true(french.contains("guerre"), "the stakes read in French: " + french)
+	assert_true(
+		french.contains("France") and french.contains("England"),
+		"the courts keep the names they are christened with: " + french
+	)
+	assert_eq(join, "Joindre la guerre", "the button answers in the tongue too")
+
+
+func test_an_unanswered_prompt_keeps_the_authored_source() -> void:
+	DialogueLocale.set_locale("de")
+	var line: String = ConsentCopy.say("call/toast", ["England", "France"])
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		line, "England calls on our alliance against France.",
+		"a court with no file reads the authored prompt"
+	)
+
+
+## Each kind is named by its own sentence, so no tongue has to bend an article
+## around an English stage label (REQ-P2-05).
+func test_every_proposal_kind_names_its_own_offer() -> void:
+	var kinds: Dictionary = {
+		DiplomacyProposals.KIND_ALLIANCE: "a formal alliance",
+		DiplomacyProposals.KIND_FTP: "a favoured trading pact",
+		DiplomacyProposals.KIND_PEACE: "a white peace",
+	}
+	for kind: Variant in kinds.keys():
+		var line: String = ConsentCopy.proposal_body(2, String(kind), "")
+		assert_true(line.begins_with("France proposes "), line)
+		assert_true(line.contains(String(kinds[kind])), line)
+	var overture: String = ConsentCopy.proposal_body(
+		2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
+	)
+	assert_eq(overture, "France proposes the Non-Aggression Pact.", overture)
+	var by_stage: Array[String] = []
+	for stage: String in DiplomacyCatalog.STAGES:
+		by_stage.append(
+			ConsentCopy.proposal_body(2, DiplomacyProposals.KIND_OVERTURE, stage)
+		)
+	for line: String in by_stage:
+		assert_true(line.begins_with("France proposes "), line)
+	assert_eq(
+		ConsentCopy.proposal_body(
+			2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NONE
+		),
+		"France proposes the No overture.",
+		"a stage with nothing to offer still names the offer"
+	)
 
 
 # --- test_symbol_plates ---

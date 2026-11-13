@@ -23,8 +23,7 @@ static func on_war_declared(
 		if ally == state.human_faction:
 			if queue_human_call(state, aggressor, defender, ally):
 				messages.append(
-					"%s calls on our alliance against %s."
-					% [FactionCatalog.name_of(defender), FactionCatalog.name_of(aggressor)]
+					ConsentCopy.call_toast({"aggressor": aggressor, "defender": defender})
 				)
 			continue
 		var join: bool = ai_joins(state, ally, defender)
@@ -88,16 +87,10 @@ static func pending_call_for(state: DiplomacyState, ally: int) -> Dictionary:
 ## What the court is choosing between, named plainly: joining puts the crown at
 ## war with the aggressor, refusing breaks the treaty at the unified price
 ## (wiki: diplomacy § Alliances § Mutual defence, § Breaking an alliance). The
-## panel and the toast read this, so the price is never guessed at.
+## panel and the toast read this, so the price is never guessed at, and the words
+## themselves answer to a tongue in [ConsentCopy].
 static func offer_text(call: Dictionary) -> String:
-	return (
-		"Our formal alliance binds us: join the war against %s, or refuse and"
-		+ " break the treaty — −50 with %s and −10 with every other Great Power"
-		+ " but the aggressor."
-	) % [
-		FactionCatalog.name_of(int(call.get("aggressor", -1))),
-		FactionCatalog.name_of(int(call.get("defender", -1))),
-	]
+	return ConsentCopy.call_stake(call)
 
 
 ## Queues exactly one call per aggressor–defender pair for the human court.
