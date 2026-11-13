@@ -1038,7 +1038,11 @@ func test_shipyard_rows_carry_the_hull_medallion() -> void:
 	)
 
 
-func test_launching_pays_the_row_and_moors_the_hull() -> void:
+## A launch is a BuildUnitOrder: the yard queues the hull and reserves her
+## peasant, and Build/work pays the row and moors her in the home fleet
+## (wiki: ships-and-naval § Ship build economy; workers-and-population
+## § Phase placement, § Peasant reservation).
+func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
 	var econ: PlayerEconomy = _screen.play.economy.economy
@@ -1049,12 +1053,19 @@ func test_launching_pays_the_row_and_moors_the_hull() -> void:
 
 	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
 
+	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls, "no hull yet")
+	assert_eq(econ.treasury, treasury, "nothing is paid at the press")
+	assert_eq(econ.available_peasants(), peasants - 1, "her peasant is reserved")
+	assert_eq(econ.recruits.pending(RecruitQueue.KIND_SHIP, "carrack"), 1)
+
+	MapPlayRecruits.complete(_screen.play)
+
 	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(fleet, "the launch founds or joins the home fleet")
 	assert_eq(fleet.count_of_type("carrack"), 1)
 	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls + 1)
 	assert_eq(econ.treasury, treasury - ShipEconomy.treasury_cost("carrack"))
-	assert_eq(econ.available_peasants(), peasants - 1)
+	assert_eq(econ.available_peasants(), peasants - 1, "the reservation became the muster")
 
 
 func test_breaking_up_a_hull_asks_once() -> void:
@@ -1183,6 +1194,7 @@ func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
 	_screen.play.selected_province = capital
 	_screen.play.economy.economy.treasury = 60000
 	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+	MapPlayRecruits.complete(_screen.play)
 	var home: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(home, "the launch founds or joins the home fleet")
 	var marker: Ship = _screen.ship_layer.ship_for(home)

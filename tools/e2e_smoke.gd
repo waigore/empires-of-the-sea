@@ -325,10 +325,13 @@ func _run() -> void:
 	await _smoke_defence_lens(screen)
 	await _smoke_muster_roll(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
-	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
-	_smoke_army_recruit(screen)
+	_smoke_army_recruit(screen, works)
 	await _smoke_end_turn(screen, audio, cues_before, works)
+	# The colonist path boards an idle hire, and Build/work only musters the
+	# queued explorer once the turn has closed (wiki: workers-and-population
+	# § Phase placement).
+	await _smoke_colonists(screen)
 	await _smoke_victory(screen)
 
 	var old_screen: MapScreen = screen
@@ -516,9 +519,14 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 	await process_frame
 	MapPlayInput.on_panel_action(screen.play, "train_explorer")
 	_check(
-		screen.civilian_layer.units.size() == units_before + 1,
-		"capital trains an explorer"
+		screen.play.economy.economy.recruits.pending(RecruitQueue.KIND_CIVILIAN, "explorer") == 1,
+		"capital queues an explorer for Build/work"
 	)
+	_check(
+		screen.civilian_layer.units.size() == units_before,
+		"the hire waits for the turn to close"
+	)
+	works["hire"] = units_before
 	return works
 
 
@@ -593,29 +601,27 @@ func _smoke_navy(screen: MapScreen) -> void:
 
 ## Army training is live: the recruit order musters a regiment into the Home
 ## Army and spends the ledger.
-func _smoke_army_recruit(screen: MapScreen) -> void:
+func _smoke_army_recruit(screen: MapScreen, works: Dictionary) -> void:
 	var home: ArmyState = _home_army(screen)
 	if home == null:
 		return
 	var before: int = home.count()
 	# The civilian drills earlier in the smoke spent the opening purse; top it
-	# up so the muster row is payable, then prove the order debits it.
+	# up so the muster row is payable, then prove the press only queues it.
 	screen.economy.economy.add_treasury(RegimentCatalog.treasury_cost("peasant_levies"))
 	var treasury: int = screen.economy.economy.treasury
 	var fabric: int = screen.economy.economy.quantity("fabric")
 	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
-	_check(home.count() == before + 1, "recruit musters a regiment")
-	var newest: String = String(
-		home.regiment_names.get(home.regiments[home.count() - 1], "")
-	)
-	_check(not newest.is_empty(), "the mustered regiment is christened")
-	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
-	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
-		screen.hud._army_label.text
-		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
-		"troop chip counts the new regiment"
+		screen.play.economy.economy.recruits.pending(
+			RecruitQueue.KIND_REGIMENT, "peasant_levies"
+		) == 1,
+		"recruit queues a regiment for Build/work"
 	)
+	_check(home.count() == before, "the regiment waits for the turn to close")
+	_check(screen.economy.economy.treasury == treasury, "the press spends no treasury")
+	_check(screen.economy.economy.quantity("fabric") == fabric, "the press spends no fabric")
+	works["regiments"] = before
 
 
 func _smoke_end_turn(
@@ -643,6 +649,24 @@ func _smoke_end_turn(
 			"the court answer closes the proposal"
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	# Build/work delivered this turn's queued orders (wiki: workers-and-population
+	# § Phase placement).
+	if works.has("hire"):
+		_check(
+			screen.civilian_layer.unit_count_all(MapScreen.PLAYER_FACTION) > int(works["hire"]),
+			"Build/work musters the queued hire"
+		)
+	if works.has("regiments"):
+		var mustered: ArmyState = _home_army(screen)
+		_check(
+			mustered != null and mustered.count() > int(works["regiments"]),
+			"Build/work musters the queued regiment"
+		)
+		_check(
+			screen.hud._army_label.text
+			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
+			"troop chip counts the new regiment"
+		)
 	# The crown's sheet files the resolved turn and opens when it has news
 	# (wiki: the-gazette § When it appears).
 	_check(screen.play.gazette != null, "the gazette keeps its watchlist")

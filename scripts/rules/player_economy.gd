@@ -36,6 +36,9 @@ var navy_feeding: float = 1.0
 var research: ResearchState = ResearchState.new()
 ## Next-phase assignment and workshop batches still in flight.
 var production: ProductionPlan = ProductionPlan.new()
+## Recruit / muster / launch / hire orders placed this Orders phase; Build/work
+## resolves them one turn later (wiki: workers-and-population § Phase placement).
+var recruits: RecruitQueue = RecruitQueue.new()
 ## Researched techs; the research state owns the table so there is one truth.
 var tech_unlocked: Dictionary:
 	get:
@@ -115,9 +118,18 @@ func spend_treasury(amount: int) -> bool:
 # --- workers -----------------------------------------------------------------
 
 
-## Peasants not yet committed to a trained-tier conversion this phase.
+## Peasants not yet committed to a trained-tier conversion or a build this
+## phase. Orders already queued keep their peasant reserved, so a second order
+## can never promise the same one (wiki: workers-and-population
+## § Peasant reservation).
 func available_peasants() -> int:
-	return workers.count(WorkerPool.Tier.PEASANT)
+	return maxi(workers.count(WorkerPool.Tier.PEASANT) - recruits.reserved_peasants(), 0)
+
+
+## Peasants waiting orders have promised to the next Build/work (labour the pool
+## still shows but cannot be recruited twice).
+func reserved_peasants() -> int:
+	return recruits.reserved_peasants()
 
 
 ## Empty string when the recruit/train row is payable; otherwise the wiki reason.
@@ -154,6 +166,23 @@ func recruit(tier: int) -> Dictionary:
 	return {"ok": true, "reason": ""}
 
 
+## Queues a recruit / train order for the next Build/work instead of paying it
+## now; the crown's peasant stays reserved until it resolves
+## (wiki: workers-and-population § Phase placement).
+func queue_recruit(tier: int) -> Dictionary:
+	var reason: String = recruit_blocked_reason(tier)
+	if not reason.is_empty():
+		return {"ok": false, "reason": reason}
+	recruits.add(RecruitQueue.KIND_WORKER, str(tier))
+	return {"ok": true, "reason": ""}
+
+
+## Queues a civilian hire, a regiment muster or a hull launch. The caller has
+## already run that build's own gate, so this only files the order.
+func queue_build(kind: String, key: String) -> void:
+	recruits.add(kind, key)
+
+
 ## Empty string when one worker of this tier may be disbanded; otherwise the
 ## reason the control is inert. Trained tiers only, and only while the pool holds
 ## one (wiki: workers-and-population § Disband — strict demotion to peasant).
@@ -182,6 +211,7 @@ func copy() -> PlayerEconomy:
 	clone.navy_feeding = navy_feeding
 	clone.research = research.copy()
 	clone.production = production.copy()
+	clone.recruits = recruits.copy()
 	return clone
 
 
@@ -202,6 +232,7 @@ func snapshot() -> Dictionary:
 		},
 		"assignments": plan["assignments"],
 		"production_wip": plan["production_wip"],
+		"recruit_orders": recruits.snapshot(),
 	}
 
 
@@ -222,6 +253,8 @@ func apply_snapshot(data: Dictionary) -> void:
 	production = ProductionPlan.new()
 	production.read_assignments(data.get("assignments", []))
 	production.read_wip(data.get("production_wip", {}))
+	recruits = RecruitQueue.new()
+	recruits.read(data.get("recruit_orders", []))
 
 
 ## Research, slots included, is restored by ResearchSlots: it drops entries the

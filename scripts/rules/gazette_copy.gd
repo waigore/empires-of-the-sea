@@ -26,9 +26,9 @@ extends RefCounted
 ##
 ## Each desk owns one register of the sheet — [GazetteCopyWar],
 ## [GazetteCopyCourt], [GazetteCopyLeague], [GazetteCopyBattle],
-## [GazetteCopyLedger] — and this class is the one table of kinds that routes a
-## record to the desk that speaks it. A kind absent from the table prints
-## nothing, so a new event can never reach the sheet as an empty rule
+## [GazetteCopyLedger], [GazetteCopyMuster] — and this class is the one table of
+## kinds that routes a record to the desk that speaks it. A kind absent from the
+## table prints nothing, so a new event can never reach the sheet as an empty rule
 ## (REQ-P2-03, REQ-P3-01).
 
 
@@ -104,5 +104,10 @@ static func _table() -> Dictionary:
 			"richesRendered": GazetteCopyLedger.riches_rendered,
 			"raidSuffered": GazetteCopyLedger.raid_suffered,
 			"raidPrize": GazetteCopyLedger.raid_prize,
+			# Build/work: what the crown's orders delivered.
+			"workerRecruited": GazetteCopyMuster.worker_recruited,
+			"civilianMustered": GazetteCopyMuster.civilian_mustered,
+			"regimentMustered": GazetteCopyMuster.regiment_mustered,
+			"shipLaunched": GazetteCopyMuster.ship_launched,
 		}
 	return _desks

@@ -18,6 +18,7 @@ var _defence := false
 var _war := false
 var _gazette := false
 var _dossier := false
+var _recruits := false
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -54,6 +55,8 @@ func _initialize() -> void:
 			_gazette = arg.substr(8) == "1"
 		elif arg.begins_with("dossier="):
 			_dossier = arg.substr(8) == "1"
+		elif arg.begins_with("recruits="):
+			_recruits = arg.substr(9) == "1"
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
 	root.add_child(_screen)
@@ -84,6 +87,8 @@ func _process(_delta: float) -> bool:
 		_sample_war()
 	if _frames == 4 and _gazette and _screen != null:
 		_sample_gazette()
+	if _frames == 4 and _recruits and _screen != null:
+		_queue_recruits()
 	if _frames == 4 and _dossier and _screen != null:
 		var play: PlaySession = _screen.play
 		MapPlayInput.select_province(
@@ -113,6 +118,20 @@ func _save(path: String) -> void:
 		return
 	image.save_png(path)
 	print("saved ", path, " ", image.get_width(), "x", image.get_height())
+
+
+## Queues one of each recruit and opens the ledger's WORKERS tab, so a shot
+## shows the Build/work order block (wiki: workers-and-population § Phase
+## placement).
+func _queue_recruits() -> void:
+	var play: PlaySession = _screen.play
+	play.economy.economy.treasury = 60000
+	play.economy.economy.stockpile["fabric"] = 12
+	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	MapPlayArmyMuster.recruit(play, "peasant_levies")
+	MapPlayFleetYard.launch(play, "carrack")
+	_screen.economy.open_panel()
+	_screen.hud.panels.economy_panel.select_tab(2)
 
 
 ## Files a sample sheet and raises the plate, so a screenshot shows the Gazette
@@ -146,6 +165,23 @@ func _sample_gazette() -> void:
 			"class": Gazette.Class.COURT,
 			"kind": "richesRendered",
 			"amount": 1250,
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "regimentMustered",
+			"label": "Peasant Levies",
+			"title": "The Dorsetshire Foot",
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "shipLaunched",
+			"label": "Carrack",
+			"place": province,
+		},
+		{
+			"class": Gazette.Class.COURT,
+			"kind": "workerRecruited",
+			"label": "Apprentice",
 		},
 		{
 			"class": Gazette.Class.INTEREST,

@@ -197,7 +197,10 @@ func test_the_dossier_pitches_a_field_hospital_train() -> void:
 	assert_eq(economy.quantity("lumber"), lumber - 2)
 
 
-func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> void:
+## A muster is a BuildUnitOrder: the drill yard queues it and Build/work pays the
+## ledger, takes the peasant and adds the regiment (wiki: military-armies
+## § Recruitment; workers-and-population § Phase placement).
+func test_mustering_a_regiment_is_queued_then_joins_the_home_army() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)
 	assert_true(_screen.hud.panels.army_panel._muster_button.visible)
@@ -207,6 +210,15 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 
 	MapPlayArmies.on_action(_screen.play, "recruit:peasant_levies")
 
+	assert_eq(home.count(), before, "nothing joins at the press")
+	assert_eq(_screen.economy.economy.treasury, treasury, "nothing is paid at the press")
+	assert_eq(
+		_screen.economy.economy.recruits.pending(RecruitQueue.KIND_REGIMENT, "peasant_levies"),
+		1
+	)
+
+	MapPlayRecruits.complete(_screen.play)
+
 	assert_eq(home.count(), before + 1)
 	assert_eq(home.type_of(home.regiments[home.regiments.size() - 1]), "peasant_levies")
 	assert_eq(
@@ -214,7 +226,6 @@ func test_mustering_a_regiment_spends_the_ledger_and_joins_the_home_army() -> vo
 		treasury - RegimentCatalog.treasury_cost("peasant_levies")
 	)
 	assert_eq(_screen.economy.economy.quantity("fabric"), fabric - 1)
-	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
 ## The province panel's Recruit order opens the drill yard door on the Home Army
@@ -230,8 +241,32 @@ func test_the_drill_yard_door_musters_into_the_home_army() -> void:
 	assert_true(_screen.hud.panels.army_panel._muster_box.visible)
 
 	MapPlayArmyMuster.recruit(_screen.play, "peasant_levies")
+	MapPlayRecruits.complete(_screen.play)
 
 	assert_eq(home.count(), before + 1)
+
+
+## The register's gate names the same refusal the Build/work pass would, so a
+## crown with no Home Army or no ledger is told why its muster cannot stand
+## (wiki: military-armies § Recruitment; REQ-P2-03).
+func test_the_muster_gate_names_a_crown_without_a_home_army() -> void:
+	var play: PlaySession = _screen.play
+	var economy: PlayerEconomy = _screen.economy.economy
+	var none: Array[ArmyState] = []
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(economy, none, play.player_faction, "peasant_levies"),
+		"Regiments muster only in the Home Army."
+	)
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(null, play.army_layer.armies, play.player_faction, "x"),
+		"Regiments muster only in the Home Army."
+	)
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(
+			economy, play.army_layer.armies, play.player_faction, "no_such_regiment"
+		),
+		"Unknown regiment"
+	)
 
 
 ## A refusal leaves the register untouched and says why, for every register order.
