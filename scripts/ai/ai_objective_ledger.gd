@@ -162,7 +162,7 @@ static func _starved_child(objective: AiObjective) -> String:
 ## pool, in the currency's reading order so the trace is stable.
 static func _grant(cost: Dictionary, pools: Dictionary) -> Dictionary:
 	var claim: Dictionary = {}
-	for key: String in AiUtility.RESOURCES:
+	for key: String in AiUtility.ordered_keys(cost):
 		var asked: int = int(cost.get(key, 0))
 		if asked <= 0:
 			continue

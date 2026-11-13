@@ -110,6 +110,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"recruits": recruits,
 			"civilians": civilians,
 			"works_reserved": works_reserved,
+			"claims": trade.get("claims", []),
 			"research": research,
 			"income": income,
 		}
@@ -193,13 +194,13 @@ static func _trade(
 	var need: Dictionary = AiArmyReinforce.muster_reserve(
 		config, economy, _regiments(play, faction), _at_war(play, faction)
 	)
-	var reserved: Dictionary = _reserved_inputs(
+	# One primitive for every reservation: the rations, the muster's row, the
+	# works and this turn's production are ranked claims, and the market reads
+	# what the allocator funded (issue #491 T3, #498).
+	var claims: Dictionary = AiClaims.reserve(_claim_rows(
 		production, _food_demand(play, faction, economy), economy, need, works
-	)
-	var current: Dictionary = _reserved_inputs({"assignments": economy.production.assignments()})
-	for commodity: Variant in current.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])
+	))
+	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiMarketPlanner.plan(
 		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
 		floor
@@ -210,26 +211,42 @@ static func _trade(
 	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
+	result["claims"] = claims["lines"]
 	return result
 
 
-## Inputs this turn's production promised, plus the ration the consumption phase
-## eats, plus the material the next regiment is being provisioned with, plus
-## every material the crews' planned works will spend, so a sale never starves
-## the court, spends a commodity twice or sells the timber a workshop needs. The
-## ration is grain and meat, and the larder eats grain first: the reservation
-## holds what the court actually has of each, so a court whose larder is meat
-## does not sell the rations its regiments and staffs eat (wiki:
-## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
-## § Recruitment modulation; economy-planner § Reservations).
-static func _reserved_inputs(
+## The named rows one turn reserves, in the order the market must keep stock.
+## Each row is an `AiObjective` cost: the ration the consumption phase eats
+## (grain first, holding what the court actually has), the inputs this turn's
+## production promised, the row the next regiment is provisioned with, every
+## material the crews' planned works will spend, and the inputs the orders
+## already booked hold (wiki: workers-and-population § Consumption;
+## DR-20261112-04; growth-stage-planner § Recruitment modulation;
+## economy-planner § Reservations).
+static func _claim_rows(
 	production: Dictionary,
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
 	works: Dictionary = {}
-) -> Dictionary:
-	var reserved: Dictionary = {}
+) -> Array[Dictionary]:
+	var rows: Dictionary = {
+		AiClaims.RATIONS: _ration_row(food, economy),
+		AiClaims.PRODUCTION: _production_row(production),
+		AiClaims.MUSTER: muster,
+		AiClaims.WORKS: works,
+		AiClaims.KEPT: (
+			_production_row({"assignments": economy.production.assignments()})
+			if economy != null else {}
+		),
+	}
+	return AiClaims.sources(rows)
+
+
+## The ration row: grain, then meat, holding only what the court actually has of
+## each so a court whose larder is meat does not sell its regiments' dinner.
+static func _ration_row(food: int, economy: PlayerEconomy) -> Dictionary:
+	var row: Dictionary = {}
 	var ration: int = maxi(food, 0)
 	for id: String in CommodityCatalog.FOOD:
 		if ration <= 0:
@@ -237,8 +254,14 @@ static func _reserved_inputs(
 		var held: int = maxi(economy.quantity(id), 0) if economy != null else ration
 		var kept: int = mini(ration, held)
 		if kept > 0:
-			reserved[id] = kept
+			row[id] = kept
 		ration -= kept
+	return row
+
+
+## The material row a production plan promised: recipe inputs × units.
+static func _production_row(production: Dictionary) -> Dictionary:
+	var row: Dictionary = {}
 	for raw: Variant in production.get("assignments", []):
 		var assignment: Dictionary = raw
 		var units: int = int(assignment.get("units", 0))
@@ -247,14 +270,20 @@ static func _reserved_inputs(
 		var inputs: Dictionary = ProductionRecipes.inputs(String(assignment.get("recipe", "")))
 		for commodity: Variant in inputs.keys():
 			var id: String = String(commodity)
-			reserved[id] = int(reserved.get(id, 0)) + int(inputs[commodity]) * units
-	for commodity: Variant in muster.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(muster[commodity])
-	for commodity: Variant in works.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(works[commodity])
-	return reserved
+			row[id] = int(row.get(id, 0)) + int(inputs[commodity]) * units
+	return row
+
+
+## The merged reservation the market keeps back. Kept as the published shape so
+## the economy suites and any caller read the same dictionary as before.
+static func _reserved_inputs(
+	production: Dictionary,
+	food: int = 0,
+	economy: PlayerEconomy = null,
+	muster: Dictionary = {},
+	works: Dictionary = {}
+) -> Dictionary:
+	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
 
 
 static func _ships(play: PlaySession, faction: int) -> int:

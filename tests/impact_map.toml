@@ -1289,6 +1289,10 @@ match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"
 
 [[rules]]
+match = "scripts/ai/ai_claims.gd*"
+domain = "ai_ledger"
+
+[[rules]]
 match = "scripts/ai/ai_turn_log.gd*"
 domain = "ai_ledger"
 

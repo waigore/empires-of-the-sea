@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:9b085c7f1df23575d36a4b47eb5a193fa8c10ef0ee179a9bf028a14eb7ca82d8",
-  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T175151451026Z@59f9b93",
+  "submission_hash": "sha256:e593fca4f5c6df81f22c2ea1ca0418e284da5188d47c6e22570e02c5871b7f8c",
+  "submission_git": "feat/ai-ledger-t3-claims@f4135fe",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:c98286f66bc4d3952028a97eeff610460f7ecb64b1bd7622f78ef79307c373a5",
+    "ai_surface_hash": "sha256:195a89833856df2daeb2eb4169a49c5e7dd65b87aaf68e1f2059cf77ee444f56",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T18:43:14Z",
+  "timestamp": "2026-11-13T18:50:40Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cb60cb295e7c6f368a592ff4cbec47b48e50da373a7553a16cd74b0f4fa9dfaf"
+  "signature": "hmac-sha256:ff08d51e7c46dd2971326885faeaabea3f654b2b9ef4295011872a943d96ae02"
 }
