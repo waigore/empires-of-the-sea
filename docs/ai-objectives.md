@@ -27,8 +27,8 @@ reason. `AiState.note_objectives` keeps the turn's row and the save carries it.
 `colonise.new_world` is a parent with the children that make it sail: a hull off
 the cargo routes (`expedition.hull`), the Explorer's train slot
 (`expedition.explorer`), the peace window at war (`expedition.peace`, one
-diplomatic order) and a protected `expedition.voyage` once afloat. The colony
-muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`)
+diplomatic order) and a protected `expedition.voyage` once afloat or landed. The
+colony muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`)
 instead of looking for a squadron a second time, and a starved child prints its
 shortfall (`expedition.hull hull 0/1 deferred`).
 
@@ -52,6 +52,9 @@ the cheapest warship the court's techs open (`treasury` price, one `hull` slip);
 `MapPlayCargoAi` lays the hull down through `FleetYard` when the claim funds, and
 the turn trace names it ("lays down a Sloop of War for the fleet"). A court at
 peace prices no yard at all, so there is no idle churn.
+
+A colonist already ashore is the voyage's progress, not a missing Explorer: the
+parent prices `expedition.voyage`, not `no Explorer free`.
 
 ## Migration
 
