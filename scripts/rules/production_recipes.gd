@@ -202,6 +202,47 @@ static func reserved_inputs(assignments: Array) -> Dictionary:
 	return reserved
 
 
+## Labour the runs in these assignments claim: units × the recipe's labour per
+## run. The ledger's per-row ceiling subtracts the other rows' share of it, so a
+## court reading one row sees what is left for that row (REQ-P2-03).
+static func claimed_labour(assignments: Array) -> int:
+	var total: int = 0
+	for raw: Variant in assignments:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var assignment: Dictionary = raw
+		total += int(assignment.get("units", 0)) * labour(String(assignment.get("recipe", "")))
+	return total
+
+
+## Units one row may still be set to for the coming Production phase: whole runs
+## its inputs and labour could start once the court's other rows have claimed
+## theirs. `stockpile` is the post-Consumption store and `labour_points` the idle
+## labour the projection reports, so the ledger never offers what the phase
+## would refuse (wiki: stockpiles-and-production § Production flow; REQ-P2-03).
+static func allowance(
+	recipe_id: String,
+	stockpile: Dictionary,
+	labour_points: int,
+	assignments: Array
+) -> int:
+	if not known(recipe_id):
+		return 0
+	var others: Array = []
+	for raw: Variant in assignments:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		if String((raw as Dictionary).get("recipe", "")) == recipe_id:
+			continue
+		others.append(raw)
+	var left: Dictionary = stockpile.duplicate()
+	var claimed: Dictionary = reserved_inputs(others)
+	for commodity: Variant in claimed.keys():
+		var id: String = String(commodity)
+		left[id] = maxi(int(left.get(id, 0)) - int(claimed[commodity]), 0)
+	return max_runs(recipe_id, left, maxi(labour_points - claimed_labour(others), 0))
+
+
 ## Whole runs a recipe can complete with the given inputs and labour budget.
 static func max_runs(recipe_id: String, stockpile: Dictionary, labour_points: int) -> int:
 	if not known(recipe_id):

@@ -1,20 +1,17 @@
 ---
 name: optimize-ai-agent
 description: |-
-  Autonomously run a full-AI (preferably headless) campaign to conclusion
-  under default ~200-turn settings, observe AI planner behavior, judge
-  competitiveness (qualitative + progress vs a no-op control AI), file
-  GitHub issues for every distinct planner gap, and fix win-seeking /
-  competitiveness failures in one PR. Cleanup observation scratch. Ask the
-  user only on true blockers. Use when the user asks to optimize AI, audit
-  AI planners, AI-vs-AI observe, no-op control bench, or run the
-  optimize-ai agent.
+  Climb the Empires of the Sea ai-bench hills environment (~2h wall clock):
+  score the rival-court AI on a fixed headless bench campaign, edit the AI
+  surface to raise the signed score, commit reports, keep journal.html
+  current. Optionally file planner-gap issues. Use when the user asks to
+  optimize AI, climb ai-bench, run the optimize-ai agent, or improve AI
+  competitiveness via hills.
 
   Examples:
-    - no target → 200-turn headless ai_vs_ai, judge, file gaps, fix
-      competitiveness if failed, PR if fixed, stop
-    - "AI under-uses navy" → focus naval planner evidence from a full run
-    - "bench vs no-op" → control comparison first; fix if progress fails
+    - no target → hills climb ai-bench for ~2h, best report + journal
+    - "AI under-uses navy" → bias climb ideas toward naval planners
+    - "bench report only" → one hills eval, write reports/ai-bench/latest.json
 ---
 
 # Optimize AI agent (facade)

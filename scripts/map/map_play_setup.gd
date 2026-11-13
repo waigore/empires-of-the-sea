@@ -45,9 +45,12 @@ static func build_hud(play: PlaySession) -> void:
 		hud.muster_roll.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
+	# Build/work's recruits land on the session's layers when the ledger closes.
+	play.economy.play = play
 	play.economy.setup(
 		play.model, play.player_faction, play.capital_province, play.ship_layer,
-		play.army_layer, hud, play.land_works, play.capital_tile
+		play.army_layer, hud, play.land_works, play.capital_tile,
+		String(play.leaders.get(play.player_faction, ""))
 	)
 	# Colonial yield ships home from every region, so the controller reads the
 	# whole works table (the world already reaches it through the ship layer).

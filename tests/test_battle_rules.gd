@@ -115,10 +115,15 @@ func _regiment_types(type_id: String, count: int) -> Array[String]:
 func test_leader_keys_match_exact_and_variant_ids() -> void:
 	assert_almost_eq(ArmyModifiers.leader_multiplier("napoleon"), 1.25, 0.001)
 	assert_almost_eq(ArmyModifiers.leader_multiplier("france_napoleon_leader"), 1.25, 0.001)
-	assert_almost_eq(ArmyModifiers.leader_multiplier("frederick"), 1.15, 0.001)
+	assert_almost_eq(ArmyModifiers.leader_multiplier("gustavus"), 1.15, 0.001)
+	assert_almost_eq(ArmyModifiers.leader_multiplier("gustavus", true), 1.0, 0.001)
+	assert_almost_eq(ArmyModifiers.leader_multiplier("frederick", true), 1.15, 0.001)
+	assert_almost_eq(ArmyModifiers.leader_multiplier("frederick"), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.leader_multiplier(""), 1.0, 0.001)
 	assert_eq(ArmyModifiers.fallback_medals("napoleon"), 4)
-	assert_eq(ArmyModifiers.fallback_medals("frederick"), 2)
+	assert_eq(ArmyModifiers.fallback_medals("gustavus"), 2)
+	assert_eq(ArmyModifiers.fallback_medals("gustavus", true), 0)
+	assert_eq(ArmyModifiers.fallback_medals("frederick", true), 2)
 	assert_eq(ArmyModifiers.fallback_medals(""), 0)
 
 
@@ -1010,7 +1015,12 @@ func test_unbound_sides_use_the_leader_fallback_medals() -> void:
 	var army := Fixture.army(1, 0, 2, ["pikemen"])
 	var side: Array[ArmyState] = [army]
 	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "napoleon"}}), 4)
-	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "frederick"}}), 2)
+	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "frederick"}}, true), 2)
+	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "frederick"}}), 0,
+		"Frederick publishes defence only")
+	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "gustavus"}}, false), 2)
+	assert_eq(ArmyCommand.medals(side, {"leaders": {0: "gustavus"}}, true), 0,
+		"Gustavus publishes attack only")
 	assert_eq(ArmyCommand.medals(side, {}), 0)
 
 

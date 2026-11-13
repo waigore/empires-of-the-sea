@@ -237,6 +237,32 @@ suites = [
   "test_mobile_layout.gd"
 ]
 
+# The crown's Build/work recruit queue and the pass that drains it: rules and
+# adapter travel with the ledger, and their proof rides the economy suite plus
+# the crown-order drives that press the muster, train and launch rows. Declared
+# before the broad `scripts/map/**` glob so a queue change never pulls the whole
+# map set past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/recruit_queue.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_recruits.gd*"
+domain = "economy"
+
+[[rules]]
+match = "scripts/map/map_play_training.gd*"
+domain = "economy"
+
+# The gazette lines a completed recruit prints are a sheet concern.
+[[rules]]
+match = "scripts/rules/gazette_muster.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/rules/gazette_copy_muster.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/rules/force_ledger.gd*"
 domain = "muster"
@@ -405,6 +431,17 @@ suites = [
   "test_fleet_orders.gd"
 ]
 
+# Commodity ink for the resource pictograms: the glyphs, the survey lens that
+# rings them with status ink and the two HUD rows that draw the same marks.
+# Presentational only, so the lens suite (which mounts the chart) and the panel
+# parts suite (which mounts both rows) cover the patch instead of the broad
+# map + ui fan-out blowing the tier-1 5 min budget.
+[domains.resource_ink]
+suites = [
+  "test_resource_lens.gd",
+  "test_panel_parts_rules.gd"
+]
+
 # Unit medallions: the painted art for every worker, hull and regiment type and
 # the row widget that draws it. Presentational only, so the two dossiers that
 # mount the rows plus the coverage suite keep a plate change inside tier 1.
@@ -560,6 +597,18 @@ suites = [
 suites = [
   "test_quick_battle_overlay.gd",
   "test_land_battle_rules.gd"
+]
+
+# The court's news lane: one line at a time on a phone, held under a sheet or a
+# battle plate so it never covers the controls (REQ-P5-06, REQ-P1-07). Its own
+# domain keeps a lane edit off the menu/setup plates and on the suites that
+# print despatches.
+[domains.despatch]
+suites = [
+  "test_mobile_layout.gd",
+  "test_quick_battle_overlay.gd",
+  "test_gazette.gd",
+  "test_court_ui_parts.gd"
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
@@ -736,6 +785,18 @@ domain = "quick_battle"
 match = "scripts/ui/regiment_miniatures.gd*"
 domain = "quick_battle"
 
+# The sea's despatch plate is the Quick Battle view's water counterpart: it
+# stands the hull medallions and reads the resolver's record, so a plate change
+# runs the battle suites rather than the whole menu set.
+[[rules]]
+match = "scripts/ui/naval_plate.gd*"
+domain = "quick_battle"
+
+# Both battle plates, their queues and the court's held news.
+[[rules]]
+match = "scripts/ui/battle_plates.gd*"
+domain = "quick_battle"
+
 [[rules]]
 match = "scripts/rules/quick_battle.gd"
 domain = "quick_battle"
@@ -825,6 +886,33 @@ domain = "misc"
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "chart_bake"
+
+# Commodity ink for the resource pictograms. Named before the prospect /
+# crown_road / map / ui rules below (first match wins) so a colour change runs
+# the lens and the panel parts suites instead of the whole reading fan-out.
+[[rules]]
+match = "scripts/map/map_glyphs.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/palette.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/improvement_row.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "tests/test_resource_lens.gd*"
+domain = "resource_ink"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -1318,6 +1406,12 @@ domain = "naval_feeding"
 
 [[rules]]
 match = "scripts/rules/naval_strength.gd*"
+domain = "naval_feeding"
+
+# The despatch's copy reads the resolver's record; its tests live in the naval
+# theme suite, so this stays on the same slice as the battle it narrates.
+[[rules]]
+match = "scripts/rules/naval_dispatch.gd*"
 domain = "naval_feeding"
 
 [[rules]]
@@ -1829,6 +1923,17 @@ domain = "map"
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
 
+# The court's news lane is not a dossier host: pin it to the suites that print
+# despatches (a phone tells one at a time and holds them under a sheet) before
+# the broad hud_*.gd rule claims it.
+[[rules]]
+match = "scripts/ui/hud_despatches.gd*"
+domain = "despatch"
+
+[[rules]]
+match = "scripts/ui/hud_despatch_cover.gd*"
+domain = "despatch"
+
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min
 # budget.
@@ -1864,6 +1969,13 @@ domain = "chart_bake"
 [[rules]]
 match = "scripts/ui/province_facts_grid.gd*"
 domain = "ui"
+
+# HUD sheet chrome is not a menu screen. The estates head belongs to the ledger
+# it heads, so chrome work does not remount the setup/hub pages past the
+# tier-1 budget.
+[[rules]]
+match = "scripts/ui/estates_head.gd*"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/**"
@@ -1924,6 +2036,10 @@ domain = "quick_battle"
 
 [[rules]]
 match = "tests/quick_battle_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/naval_plate_shot.gd*"
 domain = "quick_battle"
 
 [[rules]]

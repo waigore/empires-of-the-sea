@@ -649,6 +649,25 @@ func test_ledger_header_fits_a_short_viewport() -> void:
 	assert_eq(panel.tabs_min_height(), 0.0)
 
 
+## The stockpile is the widest ledger page — medallion, name, workshop tag, hold,
+## figure and two stepper buttons on one row — so on a phone it must fit the
+## tab's width rather than scroll sideways (issue #453; REQ-P1-05, REQ-P1-07).
+func test_the_stockpile_tab_fits_a_phone_width() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Control = panel.page_body(EconomyPanel.TAB_PRODUCTION) as Control
+	var scroll: Control = body.get_parent() as Control
+	assert_true(
+		body.get_combined_minimum_size().x <= scroll.size.x + 0.5,
+		"the stockpile must fit the tab's width (%s > %s)"
+		% [body.get_combined_minimum_size().x, scroll.size.x]
+	)
+
+
 ## The WORKERS tab carries two actions per trained row; on a phone both must be
 ## thumb-sized and inside the sheet's edge. The tab scrolls, so a row may sit
 ## below the fold — the drag area is the body, never a button (REQ-P1-05, REQ-P1-07).
@@ -693,7 +712,166 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 		_tappable(button, "estate filter %s" % button.text)
 
 
+## --- compact sheets ---------------------------------------------------------
+
+
+## The card keeps its list: on a 411-point phone the header, filters and hint
+## must not eat the scroll viewport, and a row folds its detail into one wide
+## line instead of a narrow column (REQ-P1-07).
+func test_phone_estates_keeps_the_list_in_view() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var estates: ImprovementPanel = _screen.improvements
+	estates.open(_screen.capital_province)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var card: Rect2 = estates._panel.get_global_rect()
+	var list: Control = estates._rows.get_parent() as Control
+	assert_true(
+		list.size.y > card.size.y * 0.45,
+		"the list keeps most of the card: %s of %s" % [list.size.y, card.size.y]
+	)
+	assert_false(estates._footer_box.visible, "the build hint yields on a phone")
+	assert_false(estates._head._stores_line.visible, "the stores line yields; the ledger carries it")
+	assert_false(estates._subtitle.visible, "the subtitle yields")
+	var row: ImprovementRow = _first_estate_row(estates)
+	assert_not_null(row, "the capital holds an estate row")
+	if row == null:
+		return
+	assert_null(row._status, "no narrow state column on a phone")
+	assert_not_null(row._detail, "location and status share one wide line")
+	assert_eq(row.mouse_filter, Control.MOUSE_FILTER_PASS, "a drag on the row scrolls the list")
+	for node: Node in row.find_children("*", "Label", true, false):
+		assert_ne(
+			(node as Label).mouse_filter,
+			Control.MOUSE_FILTER_STOP,
+			"no label eats the drag that should scroll the list"
+		)
+	assert_true(row.get_global_rect().size.y <= 120.0, "one row stays compact")
+
+
+## A phone sheet holds the court's news while it is up: stacked plates over a
+## 411-point sheet would cover the very controls the player just opened. The
+## opening turn may still be raising its own lines, so assert the line we
+## raised is held (and absent from the lane), not the queue's exact size.
+func test_phone_news_waits_while_the_estates_card_is_open() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.toast("The Indies await")
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "a phone tells one line at a time")
+	_screen.improvements.open(_screen.capital_province)
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 0, "the card clears the lane")
+	assert_true(hud.despatches.held().has("The Indies await"), "the news waits")
+	_screen.improvements.close()
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "the news prints once the card closes")
+
+
+func test_phone_news_waits_while_a_dossier_is_open() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.panels.show_province(_screen.model, _screen.capital_province)
+	await get_tree().process_frame
+	hud.toast("A dispatch from the court")
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 0, "no plate over the dossier")
+	assert_eq(hud.despatches.held().size(), 1)
+	hud.panels.hide_province()
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "the news returns with the sheet closed")
+
+
+## Cards the panel dock does not own (the empire roster) cover the lane just as
+## completely; the HUD follows their open state even without a slot hook.
+func test_phone_news_waits_while_the_roster_is_open() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.toast("A dispatch from the court")
+	await get_tree().process_frame
+	hud.civilian_roster.open()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 0, "no plate over the roster")
+	assert_true(hud.despatches.held().has("A dispatch from the court"), "the news waits")
+	hud.civilian_roster.close()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "the news returns with the roster closed")
+
+
+func test_phone_tells_one_despatch_at_a_time() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.toast("one")
+	hud.toast("two")
+	hud.toast("three")
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "one plate at a time")
+	assert_eq(hud.despatches.waiting().size(), 2, "the rest wait their turn")
+
+
+## The college's fixed chrome (three slot rows, goal strip, standing line) used
+## to leave the tech list about one row tall; a phone keeps the list instead.
+func test_phone_college_keeps_the_tech_list_in_view() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	hud.research_pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel: ResearchPanel = hud.panels.research_panel
+	assert_false(panel._summary.visible, "the standing line yields")
+	assert_false(panel._hint.visible, "the standing hint yields")
+	for row: Variant in panel._slot_rows.values():
+		assert_almost_eq(
+			(row as ResearchSlotRow).custom_minimum_size.y, 26.0, 0.5, "idle slot is tight"
+		)
+	assert_gt(panel._tabs.size.y, 150.0, "the tech list keeps the sheet's room")
+
+
+## The ledger's "Next turn" projection is one clipped line on a phone, not an
+## autowrapped paragraph over the production rows.
+func test_phone_ledger_projection_is_one_line() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel: EconomyPanel = hud.panels.economy_panel
+	assert_lt(panel._preview.size.y, 20.0, "the projection is one line")
+	assert_gt(panel._tabs.size.y, 170.0, "the tab body keeps the sheet's room")
+
+
 ## --- helpers ---------------------------------------------------------------
+
+
+func _first_estate_row(estates: ImprovementPanel) -> ImprovementRow:
+	for node: Node in estates._rows.get_children():
+		if node is ImprovementRow:
+			return node as ImprovementRow
+	return null
+
+
+func _clear_news(hud: GameHud) -> void:
+	for child: Node in hud.despatches.box.get_children():
+		hud.despatches.box.remove_child(child)
+		child.free()
+	hud.despatches._live = 0
+	hud.despatches._compact_queue.clear()
+	hud.despatches._queue = PackedStringArray()
+	hud.despatches._queue_narrated.clear()
+	hud.despatches._covered = false
 
 
 func _open(size: Vector2i) -> void:

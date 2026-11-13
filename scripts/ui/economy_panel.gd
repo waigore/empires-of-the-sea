@@ -22,6 +22,8 @@ const TAB_MIN_HEIGHT: float = 300.0
 
 var _summary: Label = null
 var _preview: Label = null
+var _title: Label = null
+var _close: Button = null
 var _tabs: TabContainer = null
 var _production: LedgerProduction = null
 var _market_page: LedgerMarket = null
@@ -70,13 +72,13 @@ func _build() -> void:
 func _header() -> Control:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
-	var title := UiRowBuilder.label("THE LEDGER", 24, Palette.GOLD_PALE)
-	title.add_theme_font_override("font", UiTheme.serif())
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
-	var close := UiRowBuilder.button("Close")
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	header.add_child(close)
+	_title = UiRowBuilder.label("THE LEDGER", 24, Palette.GOLD_PALE)
+	_title.add_theme_font_override("font", UiTheme.serif())
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_title)
+	_close = UiRowBuilder.button("Close")
+	_close.pressed.connect(func() -> void: close_pressed.emit())
+	header.add_child(_close)
 	return header
 
 
@@ -136,14 +138,39 @@ func select_tab(index: int) -> void:
 
 
 ## The tab body is the part that gives way on a short (phone) viewport, so the
-## header and Close stay on screen instead of being pushed off the bottom.
+## header and Close stay on screen instead of being pushed off the bottom. The
+## masthead, summary and projection also tighten so the body keeps most of the
+## sheet (REQ-P1-07).
 func set_compact(compact: bool) -> void:
 	if _tabs == null:
 		return
 	_workers.set_compact(compact)
 	_market_page.set_compact(compact)
 	_tabs.custom_minimum_size = Vector2(0.0, 0.0 if compact else TAB_MIN_HEIGHT)
-	# A 27 px tab strip is a mouse target; a phone tab gets thumb padding.
+	add_theme_stylebox_override(
+		"panel",
+		UiTheme.box(
+			Color(0.10, 0.08, 0.06, 0.97),
+			Palette.GOLD_DIM,
+			1,
+			4,
+			Vector4(12, 8, 12, 8) if compact else Vector4(20, 14, 20, 14)
+		)
+	)
+	if _title != null:
+		_title.add_theme_font_size_override("font_size", 20 if compact else 24)
+	if _close != null:
+		_close.custom_minimum_size = Vector2(64, 40) if compact else Vector2(78, 38)
+	if _summary != null:
+		_summary.add_theme_font_size_override("font_size", 12 if compact else 14)
+	if _preview != null:
+		# One clipped line instead of an autowrapped paragraph.
+		_preview.add_theme_font_size_override("font_size", 11 if compact else 12)
+		_preview.autowrap_mode = (
+			TextServer.AUTOWRAP_OFF if compact else TextServer.AUTOWRAP_WORD_SMART
+		)
+		_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_preview.clip_text = compact
 	if compact:
 		_tabs.add_theme_stylebox_override("tab_selected", _tab_box(true))
 		_tabs.add_theme_stylebox_override("tab_unselected", _tab_box(false))
@@ -170,7 +197,9 @@ func refresh(
 		return
 	_summary.text = LedgerText.summary(economy, report)
 	_preview.text = LedgerText.preview(report)
-	_production.fill(economy)
+	# The stockpile tab reads its holdings and its steppers' ceiling from the
+	# same projection the header promises (REQ-P2-03).
+	_production.fill(economy, report)
 	_market_page.fill(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary
 	)

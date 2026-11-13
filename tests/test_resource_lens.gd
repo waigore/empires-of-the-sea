@@ -193,6 +193,59 @@ func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
 	await get_tree().process_frame
 
 
+## Every resource kind owns its commodity ink, so the lens never paints a coin,
+## a sheaf, a stone and a tree the same hue (REQ-P1-08).
+func test_each_resource_kind_owns_a_distinct_commodity_ink() -> void:
+	var seen: Array[Color] = []
+	for kind: String in ["tree", "ore", "coin", "wheat"]:
+		var ink: Color = Palette.resource_ink(kind)
+		assert_false(seen.has(ink), "%s must not borrow another kind's ink" % kind)
+		seen.append(ink)
+	assert_ne(Palette.resource_ink("coin"), Palette.GOLD, "coined gold is its own gold")
+	assert_eq(
+		Palette.resource_ink("cartload"), Palette.GOLD,
+		"an unknown kind keeps the old gold mark (REQ-P3-02)"
+	)
+
+
+## Status inks ring the emblem and never repaint its fill; only a foreign
+## holding dims the commodity, and the hue still reads through the grey.
+func test_status_ink_rings_the_emblem_without_erasing_the_commodity() -> void:
+	for status: String in ["producing", "maxed", "vacant", "building", "disconnected"]:
+		assert_eq(
+			Palette.emblem_ink("wheat", status), Palette.resource_ink("wheat"),
+			"%s must not repaint the sheaf" % status
+		)
+	var iron: Color = Palette.emblem_ink("ore", "foreign")
+	assert_ne(iron, Palette.resource_ink("ore"), "a foreign holding still dims the mark")
+	assert_ne(iron, Palette.SURVEY_FOREIGN, "and never wipes the kind to plain grey")
+	var straw: Color = Palette.emblem_ink("wheat", "foreign_worked")
+	assert_gt(straw.r, iron.r, "straw stays warmer than iron under the same tint")
+	assert_gt(iron.b, straw.b, "iron stays cooler than straw under the same tint")
+
+
+func test_all_four_emblems_draw_in_their_commodity_ink() -> void:
+	var probe := _EmblemProbe.new()
+	add_child(probe)
+	probe.queue_redraw()
+	await get_tree().process_frame
+	assert_eq(probe.kinds.size(), 4)
+	probe.queue_free()
+
+
+## Drawing is only legal inside `_draw`; the probe hosts every emblem for
+## coverage of the four inks (the lens only shows the kinds a chart seeds).
+class _EmblemProbe extends Node2D:
+	var kinds: Array[String] = ["tree", "ore", "coin", "wheat"]
+
+	func _draw() -> void:
+		for i in kinds.size():
+			MapGlyphs.resource(
+				self, kinds[i], Vector2(float(i) * 20.0, 0), 14.0,
+				Palette.resource_ink(kinds[i])
+			)
+
+
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
 class _RoadInkProbe extends Node2D:
 	var font: Font = null

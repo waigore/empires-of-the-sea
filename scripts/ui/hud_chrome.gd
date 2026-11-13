@@ -16,6 +16,10 @@ static func build(hud: GameHud) -> void:
 	_tooltip(hud)
 	_victory_plate(hud)
 	_quick_battle_plate(hud)
+	_naval_plate(hud)
+	# Owns both battle plates, their queues and the court's held news.
+	hud.plates = BattlePlates.new()
+	hud.plates.attach(hud.quick_battle_overlay, hud.naval_plate, hud.despatches)
 	_gazette_plate(hud)
 
 
@@ -148,15 +152,21 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.add_child(hud.victory_overlay)
 
 
-## Quick Battle plate: above the dossiers, below the campaign-end plate. The HUD
-## replays the queued battles and releases the court's held news (REQ-P5-06).
+## Quick Battle plate: above the dossiers, below the campaign-end plate. Its
+## queue and the court's held news are BattlePlates' (REQ-P5-06).
 static func _quick_battle_plate(hud: GameHud) -> void:
 	hud.quick_battle_overlay = QuickBattleOverlay.new()
 	hud.quick_battle_overlay.z_index = 35
-	hud.quick_battle_overlay.finished.connect(
-		func() -> void: hud._on_quick_battle_finished()
-	)
 	hud.add_child(hud.quick_battle_overlay)
+
+
+## The sea's despatch: the same layer as the land plate, so a turn that fought on
+## both elements reads one engagement at a time (wiki: ships-and-naval
+## § Naval Combat Resolution).
+static func _naval_plate(hud: GameHud) -> void:
+	hud.naval_plate = NavalPlate.new()
+	hud.naval_plate.z_index = 35
+	hud.add_child(hud.naval_plate)
 
 
 ## The crown's news sheet: over the dossiers, under the Quick Battle and

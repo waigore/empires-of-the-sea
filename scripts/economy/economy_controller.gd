@@ -13,6 +13,10 @@ var player_faction: int = 0
 var capital_province: int = -1
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var works: LandWorks = null
+## The session this ledger belongs to; Build/work's queued recruits land here,
+## before the new turn's Consumption (wiki: workers-and-population
+## § Phase placement).
+var play: PlaySession = null
 
 var _ships: ShipLayer = null
 var _armies: ArmyLayer = null
@@ -25,6 +29,9 @@ var _last_consumption: Dictionary = {}
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
+## The crown's leaderKey, fixed at game start; its published funding multiplier
+## lifts the research points the phase earns (wiki: leader-bonuses — Victoria).
+var leader_key: String = ""
 ## Last world-market clearing (deals, fills, credits), so the ledger can name
 ## the auction's receipt and the overseas share it paid (wiki: world-market
 ## § First right of refusal; REQ-P5-05).
@@ -39,7 +46,8 @@ func setup(
 	p_armies: ArmyLayer,
 	p_hud: GameHud,
 	p_works: LandWorks = null,
-	p_capital_tile: Vector2i = CivilianState.NO_TILE
+	p_capital_tile: Vector2i = CivilianState.NO_TILE,
+	p_leader: String = ""
 ) -> void:
 	model = p_model
 	player_faction = p_faction
@@ -49,6 +57,7 @@ func setup(
 	_ships = p_ships
 	_armies = p_armies
 	_hud = p_hud
+	leader_key = p_leader
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
 	_connect()
@@ -175,7 +184,7 @@ func projected() -> Dictionary:
 	var world: WorldMap = _ships.world if _ships != null else null
 	var report: Dictionary = EconomyTurn.project(
 		economy, market, extraction(), fleet_ships(), army_food(), research_boost,
-		HospitalRules.demand_list(world, player_faction)
+		HospitalRules.demand_list(world, player_faction), leader_key
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the
@@ -189,8 +198,14 @@ func projected_income() -> int:
 	return int(projected().get("treasury_delta", 0))
 
 
-## Runs Extraction -> Riches -> Consumption -> Production and refreshes the HUD.
+## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
+## Production, and refreshes the HUD.
 func resolve_turn() -> Dictionary:
+	# The crown's queued orders land before the new turn's Consumption: the new
+	# worker eats and labours with the court from this turn, and the mustered
+	# units stand for the next Orders phase. They land after the fighting this
+	# turn ordered, so a regiment mustered now never fights in its own turn.
+	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
 	var world: WorldMap = _ships.world if _ships != null else null
@@ -199,7 +214,7 @@ func resolve_turn() -> Dictionary:
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, extraction(), fleet_ships(), army_food(), false,
-		research_boost, HospitalRules.demand_list(world, player_faction)
+		research_boost, HospitalRules.demand_list(world, player_faction), leader_key
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;
@@ -209,6 +224,7 @@ func resolve_turn() -> Dictionary:
 		int((report.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 	)
 	report["overseas"] = plan
+	report["musters"] = musters
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
 	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
@@ -236,14 +252,18 @@ func open_panel() -> void:
 
 func open_research() -> void:
 	if _hud != null:
-		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
+		_hud.panels.show_research(
+			economy.research, economy.treasury, research_boost, leader_key
+		)
 
 
 func _refresh_research_panel() -> void:
 	if _hud == null:
 		return
 	if _hud.panels.is_research_open():
-		_hud.panels.show_research(economy.research, economy.treasury, research_boost)
+		_hud.panels.show_research(
+			economy.research, economy.treasury, research_boost, leader_key
+		)
 
 
 func _on_research_assign(tech_id: String) -> void:
@@ -339,9 +359,10 @@ func _on_production(recipe_id: String, units: int) -> void:
 	refresh_panel()
 
 
-## One worker action from the ledger. Recruit is paid and enters the pool now;
-## disband demotes one trained worker to a peasant at once and refunds nothing —
-## the rules own both verdicts (wiki: workers-and-population § Recruit, § Disband).
+## One worker action from the ledger. Recruit only queues: the crown pays in
+## Build/work and the new worker takes up its labour the turn after
+## (wiki: workers-and-population § Phase placement). Disband demotes one trained
+## worker to a peasant at once and refunds nothing — the rules own both verdicts.
 func _on_worker_action(tier: int, action: String) -> void:
 	if action == "disband":
 		var blocked: String = economy.disband_blocked_reason(tier)
@@ -356,11 +377,12 @@ func _on_worker_action(tier: int, action: String) -> void:
 				_hud.toast(blocked if not blocked.is_empty() else "Disband refused")
 		refresh_panel()
 		return
-	var result: Dictionary = economy.recruit(tier)
+	var result: Dictionary = economy.queue_recruit(tier)
 	if _hud != null:
 		if bool(result.get("ok", false)):
 			_hud.toast(
-				"One %s joins the capital's workshops" % WorkerPool.tier_one(tier).to_lower()
+				"One %s is engaged — they arrive next turn"
+				% WorkerPool.tier_one(tier).to_lower()
 			)
 		else:
 			_hud.toast(String(result.get("reason", "Recruit refused")))

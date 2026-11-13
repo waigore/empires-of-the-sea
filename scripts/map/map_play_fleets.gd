@@ -36,7 +36,7 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayCivilianVoyage.crew(play, fleet),
 		NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
-			MapPlayNavalTurn.strength_multipliers(play)
+			MapPlayNavalTurn.strength_multipliers(play), play.leaders
 		),
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet)
@@ -174,7 +174,12 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void:
 	if ship == null or ship.faction != play.player_faction or play.visibility == null:
 		return
-	var changed: Array = play.visibility.reveal_sea_zone(zone_id)
+	## A court whose leader publishes the charting lean charts one further land
+	## ring on the coast (wiki: leader-bonuses § Bonus Table — Henry).
+	var rings: int = LeaderCatalog.coastal_rings(
+		String(play.leaders.get(play.player_faction, ""))
+	)
+	var changed: Array = play.visibility.reveal_sea_zone(zone_id, rings)
 	if not changed.is_empty():
 		play.overlay.sync_visibility(play.visibility, changed)
 	_announce_charted_coast(play, changed)

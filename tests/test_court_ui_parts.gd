@@ -236,7 +236,9 @@ func test_a_lane_less_hud_stays_quiet() -> void:
 	# The plate is still mounted: the guard's second term is what refuses.
 	_hud.show_quick_battle({"rounds": []}, "Flanders")
 	assert_true(_hud._quick_queue.is_empty())
-	_hud.quick_battle_overlay = null
+	# The guard reads the plates' handle, not the view node (BattlePlates since
+	# the sea despatch landed), so the missing plate is unmounted there.
+	_hud.plates.land_plate = null
 	_hud.show_quick_battle({"rounds": []}, "Flanders")
 	assert_true(_hud._quick_queue.is_empty())
 
