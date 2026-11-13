@@ -54,9 +54,14 @@ static func _run_region(
 				) or changed
 				continue
 			var zone: int = int(order["zone"])
+			# A home squadron puts to sea through FleetSortie: the same
+			# one-zone sortie the player's dossier offers, which turns it
+			# into an ordinary sea-going squadron (DR-20261109-17).
 			var move: Dictionary = NavalMovement.apply_move(
 				model, fleet, FleetState.Location.AT_SEA, zone
 			)
+			if not bool(move.get("ok", false)):
+				move = FleetSortie.apply(model, fleet, zone)
 			if not bool(move.get("ok", false)):
 				continue
 			changed = true

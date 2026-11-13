@@ -135,6 +135,26 @@ static func charts_water(
 	return charts.knows_zone(faction, region, zone)
 
 
+## Sea zones this squadron could enter this turn. A home squadron sorties out of
+## the seat's port — ships leave the home fleet when they receive a naval move
+## order (FleetSortie, DR-20261109-17) — so its reach is the water beside the
+## capital; a sea-going squadron reads NavalMovement's own list.
+static func _destinations(model: MapModel, fleet: FleetState) -> Array[int]:
+	if NavalMovement.is_home_fleet(model, fleet):
+		return FleetSortie.zones(model, fleet)
+	return NavalMovement.destination_zones(model, fleet)
+
+
+## True when a hostile hull is afloat in water this squadron could enter.
+static func _hostile_beside(
+	model: MapModel, fleets: Array, fleet: FleetState, hostile: Dictionary
+) -> bool:
+	for zone: int in _destinations(model, fleet):
+		if _hostile_strength(fleets, zone, hostile) > 0.0:
+			return true
+	return false
+
+
 ## Weakest reachable hostile squadron this turn, or empty when every reachable
 ## one is a fight the court declines. Anchored ports sortie, sea squadrons
 ## pursue; both enter exactly one adjacent zone (NavalMovement owns legality).
@@ -150,7 +170,7 @@ static func _best_target(
 	var kind: String = KIND_SORTIE if fleet.is_in_port() else KIND_PURSUE
 	var best: Dictionary = {}
 	var best_threat: float = 0.0
-	for zone: int in NavalMovement.destination_zones(model, fleet):
+	for zone: int in _destinations(model, fleet):
 		# A court hunts only in water its own chart holds; a hull it has never
 		# charted is not a target (REQ-P2-03).
 		if not charts_water(charts, config.faction, model.region_id, zone):
@@ -171,10 +191,13 @@ static func _best_target(
 
 ## A warship with no squadron to fight works the enemy's trade: one legal step
 ## toward a hostile coast, where the station pass posts a blockade and the raid
-## takes cargo and merchant hulls (DR-20261111-17). A coast whose seat holds a
-## laden merchant squadron is worth the farther trip; a merchant-only squadron
-## stays out of it, and a warship already on a hostile coast holds for its
-## station instead of sailing away.
+## takes cargo and merchant hulls (DR-20261111-17). A home squadron sorties out
+## of the seat to do it (DR-20261109-17), but only when the water beside the port
+## is clear: a fight it declines is still a threat to its own harbour, so it
+## keeps the seat instead. A coast whose seat holds a laden merchant squadron is
+## worth the farther trip; a merchant-only squadron stays out of it, and a
+## warship already on a hostile coast holds for its station instead of sailing
+## away.
 static func _raid_order(
 	model: MapModel,
 	fleets: Array,
@@ -183,8 +206,12 @@ static func _raid_order(
 	hostile: Dictionary,
 	charts: CourtCharts
 ) -> Dictionary:
-	if not _has_warship(fleet) or NavalMovement.is_home_fleet(model, fleet):
+	if _has_warship(fleet) == false:
 		return {}
+	if NavalMovement.is_home_fleet(model, fleet) and _hostile_beside(
+		model, fleets, fleet, hostile
+	):
+		return {"hold": true}
 	var laden: Array[int] = []
 	var coasts: Array[int] = []
 	_trade_goals(model, fleets, faction, hostile, charts, laden, coasts)

@@ -23,6 +23,9 @@ const KIND_LAND: String = "land"
 ## sails), exactly like the land policy's split, so the adapter applies it once.
 ## `charts` is the court's own fog: only a hostile coast it has charted is worth
 ## a crossing, and a null chart is the fixture reading (DR-20261110-21).
+## `wants_income` lifts the frontier guard: a court on **earn** sails to the far
+## coast the gold is on, unless a hostile host already stands on its own soil
+## (DR-20261113-19).
 static func split_orders(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -30,7 +33,8 @@ static func split_orders(
 	model: MapModel,
 	fleets: Array,
 	armies: Array,
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	wants_income: bool = false
 ) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	if config == null or state == null or world == null or model == null:
@@ -40,7 +44,7 @@ static func split_orders(
 		return actions
 	if not _field_armies(armies, owner).is_empty():
 		return actions
-	if not _has_overseas_war(state, world, owner, charts):
+	if not _has_overseas_war(state, world, owner, charts, armies, wants_income):
 		return actions
 	var home: ArmyState = _home_army(armies, owner)
 	if home == null or home.count() < 2:
@@ -78,7 +82,8 @@ static func plan(
 	fleets: Array,
 	armies: Array,
 	turn: int = 0,
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	wants_income: bool = false
 ) -> Dictionary:
 	if config == null or state == null or world == null or model == null:
 		return {}
@@ -89,7 +94,7 @@ static func plan(
 		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
 	if region != FactionCatalog.region_of(owner):
 		return {}
-	if not _has_overseas_war(state, world, owner, charts):
+	if not _has_overseas_war(state, world, owner, charts, armies, wants_income):
 		return {}
 	return _board_step(model, fleets, armies, owner)
 
@@ -271,9 +276,13 @@ static func _other_region(world: WorldMap, home: int) -> int:
 ## Something worth a fleet: a declared enemy's or a Tribe's coast lies across the
 ## water and the court has charted it, and no hostile province touches its own
 ## border, so the land army is not needed at home (wiki: factions § Tribe;
-## DR-20261110-21 keeps an uncharted shore out of reach).
+## DR-20261110-21 keeps an uncharted shore out of reach). A court on **earn**
+## still sails into a border war — the gold that ends its impasse is overseas —
+## unless a hostile host already stands on its own soil, in which case the
+## defence comes first (DR-20261113-19).
 static func _has_overseas_war(
-	state: DiplomacyState, world: WorldMap, owner: int, charts: CourtCharts = null
+	state: DiplomacyState, world: WorldMap, owner: int,
+	charts: CourtCharts = null, armies: Array = [], wants_income: bool = false
 ) -> bool:
 	var home: int = FactionCatalog.region_of(owner)
 	if home < 0 or world.warp_zones(home).is_empty():
@@ -281,7 +290,10 @@ static func _has_overseas_war(
 	var hostile: Dictionary = _hostile_owners(state, owner)
 	var here: MapModel = world.region(home)
 	if here != null and not AiMilitaryPlanner.frontier_hostile(here, owner, state).is_empty():
-		return false
+		if not wants_income or AiMilitaryPlanner.invader_on_home_soil(
+			here, owner, armies, state
+		):
+			return false
 	for index in world.region_count():
 		var model: MapModel = world.region(index)
 		if index == home or model == null:

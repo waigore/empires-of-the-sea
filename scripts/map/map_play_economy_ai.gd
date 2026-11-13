@@ -34,19 +34,22 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
-		# The purse the court keeps in hand this turn: its own cash floor and, at
-		# war and short of its regiment target, the muster it is saving for. Every
-		# discretionary spend reads it, so the war chest is never auctioned away
-		# for imports (wiki: growth-stage-planner § Recruitment modulation;
-		# treasury-planner § Cash discipline).
-		var floor: int = _court_floor(
-			config, economy, _regiments(play, faction), _at_war(play, faction)
-		)
+		var at_war: bool = _at_war(play, faction)
+		var regiments: int = _regiments(play, faction)
+		# The goal the court plans with this turn: money first (DR-20261113-19).
+		# The reserve is the muster it is saving for while it stands under its
+		# regiment target, else its own cash floor; a court short of it is on
+		# `earn` and every deferrable spend stands down while its income planners
+		# lead. Every discretionary spend reads the same reserve, so the war chest
+		# is never auctioned away for imports (wiki: growth-stage-planner
+		# § Recruitment modulation; treasury-planner § Priority).
+		var income: Dictionary = AiIncome.plan(config, economy, at_war, regiments)
+		var floor: int = int(income["reserve"])
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy,
 			{
-				"at_war": _at_war(play, faction),
+				"at_war": at_war,
 				"revealed": revealed,
 				"treasury_floor": floor,
 			}
@@ -103,6 +106,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"civilians": civilians,
 			"works_reserved": works_reserved,
 			"research": research,
+			"income": income,
 		}
 	# Every rival ledger just closed, so the next land battle reads the rations
 	# each crown actually got — not full morale by default (wiki: combat
@@ -301,18 +305,3 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 		if record.at_war:
 			return true
 	return false
-
-
-## The purse the court must leave behind before it spends on anything it can
-## defer: its own cash floor, raised while it is at war and short of its regiment
-## target to the muster it is saving for. Without it the study and the auction
-## bid away the war chest and the court never raises another regiment
-## (wiki: growth-stage-planner § Recruitment modulation; treasury-planner
-## § Cash discipline; ai-architecture § Land reinforcement).
-static func _court_floor(
-	config: AiConfig, economy: PlayerEconomy, regiments: int, at_war: bool
-) -> int:
-	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
-	if not at_war:
-		return floor
-	return maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))

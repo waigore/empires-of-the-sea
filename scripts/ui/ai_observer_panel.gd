@@ -240,9 +240,9 @@ func _refresh_card(row: Dictionary) -> void:
 		int(row["provinces_old"]), VictoryRules.MILITARY_THRESHOLD,
 	]
 	var meta: Label = card["meta"]
-	meta.text = "%s  ·  %s  ·  %s  ·  %s" % [
+	meta.text = "%s  ·  %s  ·  %s  ·  %s  ·  %s" % [
 		String(row["leader"]), String(row["agenda"]), String(row["profile"]),
-		String(row["posture"]),
+		String(row["posture"]), String(row["intent"]),
 	]
 	var wars: Array = row["wars"]
 	var stats: Label = card["stats"]

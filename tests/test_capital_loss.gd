@@ -218,6 +218,43 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	screen.free()
 
 
+## The Home Army always stands on its court's seat: a reassignment takes the
+## guard to the new capital, so a court that lost its seat can muster again
+## (wiki: military-armies § Home Army; issue #474). Without the recall the
+## capital guard in `MapPlayArmyAi._reinforce` blocks every muster for the rest
+## of the campaign.
+func test_a_reassignment_takes_the_home_army_to_the_new_seat() -> void:
+	var screen: MapScreen = Fixture.attach_screen(self)
+	var model: MapModel = screen.model
+	var home: ArmyState = _home_of(screen, MapScreen.PLAYER_FACTION)
+	assert_not_null(home, "the crown musters a Home Army")
+	var seat: int = _successor(model, home.province)
+	assert_gt(seat, -1, "the court holds another province to move to")
+	var original: int = home.province
+
+	# The row `CapitalLoss.resolve` emits when the seat falls.
+	var changed: bool = MapPlayLandTurn.apply_capital_loss(
+		screen.play,
+		{
+			"fallen": [],
+			"reassigned": [
+				{
+					"faction": MapScreen.PLAYER_FACTION,
+					"province": seat,
+					"lost": original,
+					"region": model.region_id,
+				},
+			],
+		}
+	)
+
+	assert_true(changed)
+	assert_eq(home.province, seat, "the guard follows the court")
+
+	home.province = original
+	screen.free()
+
+
 func test_the_player_capital_framing_follows_a_reassignment() -> void:
 	var screen: MapScreen = Fixture.attach_screen(self)
 	var model: MapModel = screen.model
@@ -387,6 +424,14 @@ func _successor(model: MapModel, capital: int) -> int:
 
 func _army_count(screen: MapScreen, faction: int) -> int:
 	return _armies_of(screen, faction).size()
+
+
+## The faction's Home Army among every stored roster, or null.
+func _home_of(screen: MapScreen, faction: int) -> ArmyState:
+	for army: ArmyState in _armies_of(screen, faction):
+		if army.is_home_army():
+			return army
+	return null
 
 
 ## Every army in the regions the layer has visited (the screen's own included).
