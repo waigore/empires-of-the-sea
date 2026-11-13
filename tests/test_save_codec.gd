@@ -280,6 +280,39 @@ func test_saves_without_leaders_backfill_the_crown_roster() -> void:
 		)
 
 
+## The crown's watch over rival squadrons rides the save (wiki: ships-and-naval
+## § Sighted strength): a read squadron stays read, a sighted one stays unread.
+func test_a_sighted_strength_read_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.naval_intel.observe([7], play.turn)
+	play.naval_intel.observe([7, 8], play.turn + 1)
+
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	assert_eq(
+		(session["naval_intel"] as Dictionary)["revealed"], [7],
+		"only the watched squadron is in the read list"
+	)
+
+	play = _apply_save(data)
+	assert_true(play.naval_intel.is_revealed(7), "a read squadron stays read")
+	assert_false(play.naval_intel.is_revealed(8), "an unread squadron stays unread")
+
+
+func test_a_save_without_a_watch_resumes_unread() -> void:
+	var play: PlaySession = screen.play
+	play.naval_intel.observe([7], play.turn)
+	play.naval_intel.observe([7], play.turn + 1)
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("naval_intel")
+	data["session"] = session
+
+	play = _apply_save(data)
+
+	assert_eq(play.naval_intel.watched(), [], "a legacy save reads no squadron")
+
+
 func test_medals_and_feeding_survive_a_load() -> void:
 	var play: PlaySession = screen.play
 	var roster: GeneralRoster = play.army_layer.generals

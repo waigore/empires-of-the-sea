@@ -237,11 +237,66 @@ suites = [
   "test_mobile_layout.gd"
 ]
 
+# A rival's naval strength is read only after the crown has watched her across
+# a turn (wiki: ships-and-naval § Sighted strength; DR-20261113-20). The watch,
+# the marker that prints `*`, the dossier that prints ???, the turn hook that
+# opens the watch and the save that carries it travel as one slice: the orders
+# suite mounts the chart and the dossier, the codec suite proves the save, and
+# the new rules suite proves the clock. Declared before the fleet, chart_art,
+# ui and save globs so the intel change never pulls their whole fan-out.
+[domains.naval_intel]
+suites = [
+  "test_naval_intel.gd",
+  "test_fleet_orders.gd",
+  "test_save_codec.gd"
+]
+
 # The crown's Build/work recruit queue and the pass that drains it: rules and
 # adapter travel with the ledger, and their proof rides the economy suite plus
 # the crown-order drives that press the muster, train and launch rows. Declared
 # before the broad `scripts/map/**` glob so a queue change never pulls the whole
 # map set past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/recruit_queue.gd*"
+domain = "economy"
+
+# The crown's watch over rival squadrons (wiki: ships-and-naval § Sighted
+# strength; DR-20261113-20): one slice, declared here so the first match beats
+# the fleet, chart_art, ui and save globs below and the intel change never pulls
+# their whole fan-out. The orders suite mounts the chart and the dossier, the
+# codec suite proves the save, and the new rules suite proves the clock.
+[[rules]]
+match = "scripts/rules/naval_intel.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/rules/naval_strength.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/map/ship.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/map/map_play_fleets.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/map/map_play_turn.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/ui/fleet_strength_section.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/session/play_session.gd*"
+domain = "naval_intel"
+
+[[rules]]
+match = "scripts/save/save_codec.gd*"
+domain = "naval_intel"
+
 [[rules]]
 match = "scripts/rules/recruit_queue.gd*"
 domain = "economy"

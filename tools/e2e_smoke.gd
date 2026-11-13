@@ -581,6 +581,10 @@ func _smoke_navy(screen: MapScreen) -> void:
 		screen.ship_layer.ship_for(fleet).hull_count == fleet.ship_count(),
 		"fleet marker flies the squadron's hulls"
 	)
+	_check(
+		screen.ship_layer.ship_for(fleet).strength_known,
+		"the crown reads her own squadron's weight"
+	)
 	MapPlayFleets.on_action(screen.play, "mission:patrol")
 	_check(
 		fleet.mission == FleetState.Mission.PATROL and fleet.moved,

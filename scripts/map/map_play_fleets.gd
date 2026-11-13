@@ -28,19 +28,41 @@ static func select(play: PlaySession, ship: Ship) -> void:
 ## One dossier refresh for selection, movement, the yard, a station and a
 ## landing, so the missions section always comes from the same place.
 static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
+	# A rival the crown has sighted but not read is handed a fogged reading, so
+	# the dossier can never assemble her maths (wiki: ships-and-naval
+	# § Sighted strength).
+	var strength: Dictionary = NavalStrength.fogged()
+	if strength_read(play, fleet):
+		strength = NavalStrength.dossier(
+			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
+			MapPlayNavalTurn.strength_multipliers(play), play.leaders, intel_filter(play)
+		)
 	play.hud.panels.show_fleet(
 		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
 		MapPlayFleetYard.rows(play, fleet), -1, landing_rows(play, fleet),
 		carried(play, fleet),
 		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
 		MapPlayCivilianVoyage.crew(play, fleet),
-		NavalStrength.dossier(
-			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
-			MapPlayNavalTurn.strength_multipliers(play), play.leaders
-		),
+		strength,
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet)
 	)
+
+
+## Whether the crown may read a squadron's fighting weight: its own squadrons
+## always, a rival's only once the watch has spanned a turn (wiki:
+## ships-and-naval § Sighted strength).
+static func strength_read(play: PlaySession, fleet: FleetState) -> bool:
+	if fleet == null or fleet.owner == play.player_faction:
+		return true
+	return play.naval_intel.is_revealed(fleet.id)
+
+
+## Which squadrons in a zone the crown can weigh; an unread rival contributes
+## no figure to the odds (wiki: ships-and-naval § Sighted strength).
+static func intel_filter(play: PlaySession) -> Callable:
+	return func(other: FleetState) -> bool:
+		return strength_read(play, other)
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
@@ -182,11 +204,23 @@ static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void
 
 
 static func refresh_visibility(play: PlaySession) -> void:
+	var in_view: Array[int] = []
 	for ship: Ship in play.ship_layer.ships:
 		var fleet: FleetState = play.ship_layer.fleet_of(ship)
 		if fleet == null:
 			continue
-		ship.visible = _known(play, fleet)
+		var known: bool = _known(play, fleet)
+		ship.visible = known
+		if known and fleet.owner != play.player_faction:
+			in_view.append(fleet.id)
+	# One refresh of the crown's watch: a rival seen at the last close and still
+	# under the same eye is read now, and one that slipped away is unread again
+	# (wiki: ships-and-naval § Sighted strength).
+	play.naval_intel.observe(in_view, play.turn)
+	for ship: Ship in play.ship_layer.ships:
+		var fleet: FleetState = play.ship_layer.fleet_of(ship)
+		if fleet != null:
+			ship.set_intel(strength_read(play, fleet))
 
 
 ## First sighting of a province's coast earns a quiet note, once per province.
