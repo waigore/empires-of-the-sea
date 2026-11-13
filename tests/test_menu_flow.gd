@@ -164,6 +164,23 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 		assert_eq(home.province, target, "the Home Army holds the chosen seat")
 
 
+## Pause menu shows the live map seed; COPY confirms (clipboard is unsupported
+## under the headless display server used by gd-tools).
+func test_pause_menu_shows_and_copies_map_seed() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	assert_eq(
+		screen.game_menu.seed_label.text, str(FLOW_SEED), "pause menu shows the live seed"
+	)
+	assert_false(screen.game_menu.copy_seed_button.disabled, "copy is available")
+	screen.game_menu.copy_seed_button.emit_signal("pressed")
+	assert_eq(screen.game_menu._status.text, "Seed copied.", "copy confirms")
+	screen.game_menu.close()
+
+
 ## Back from the save browser returns to the pause rows; back again closes
 ## (REQ-P5-07). Covers the browser-visible branch of handle_back.
 func test_back_from_the_save_browser_returns_to_pause() -> void:
