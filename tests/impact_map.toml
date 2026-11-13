@@ -250,6 +250,10 @@ domain = "economy"
 match = "scripts/map/map_play_recruits.gd*"
 domain = "economy"
 
+[[rules]]
+match = "scripts/map/map_play_training.gd*"
+domain = "economy"
+
 # The gazette lines a completed recruit prints are a sheet concern.
 [[rules]]
 match = "scripts/rules/gazette_muster.gd*"

@@ -9,9 +9,6 @@ signal action_pressed(action: String)
 var town_button: Button = null
 var shipyard_button: Button = null
 var training_box: VBoxContainer = null
-## Training rows by type, and the text each carries when nothing is on order.
-var _train_rows: Dictionary = {}
-var _train_text: Dictionary = {}
 
 
 func _ready() -> void:
@@ -54,28 +51,15 @@ func _ready() -> void:
 	training_box.add_child(training)
 
 	for type_id: String in CivilianCatalog.playable_types():
-		var base_text: String = (
-			"Train %s · %s"
-			% [CivilianCatalog.display_name(type_id), CivilianCatalog.training_cost_text(type_id)]
+		var train := _order_button(
+			"Train %s · %s" % [
+				CivilianCatalog.display_name(type_id),
+				CivilianCatalog.training_cost_text(type_id),
+			]
 		)
-		var train := _order_button(base_text)
 		train.add_theme_font_size_override("font_size", 13)
 		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
 		training_box.add_child(train)
-		_train_rows[type_id] = train
-		_train_text[type_id] = base_text
-
-
-## Marks the rows already on order, so the muster list says what is coming in
-## Build/work instead of offering the same hire twice (wiki: civilian-units
-## § Training; workers-and-population § Phase placement).
-func set_training_pending(counts: Dictionary) -> void:
-	for type_id: String in _train_rows.keys():
-		var button: Button = _train_rows[type_id] as Button
-		var pending: int = int(counts.get(type_id, 0))
-		button.text = String(_train_text[type_id])
-		if pending > 0:
-			button.text += " · %d on order" % pending
 
 
 ## The town order is offered, not refused: the button greys out with the rule's

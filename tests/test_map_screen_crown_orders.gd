@@ -212,8 +212,10 @@ func test_a_hire_the_purse_cannot_close_is_refused() -> void:
 ## list never queues an order the rules would refuse.
 func test_the_civilian_gate_names_what_it_refuses() -> void:
 	var play: PlaySession = _screen.play
-	assert_eq(String(MapPlayCivilians.settle(play, "dragon")["reason"]), "Unknown civilian.")
-	assert_false(MapPlayCivilians.civilians_pending(play).has("dragon"))
+	assert_eq(String(MapPlayTraining.settle(play, "dragon")["reason"]), "Unknown civilian.")
+	assert_true(
+		play.economy.economy.recruits.is_empty(), "a refused hire is never queued"
+	)
 
 
 func test_training_is_refused_outside_the_capital() -> void:

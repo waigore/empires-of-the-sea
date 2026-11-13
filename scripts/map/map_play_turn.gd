@@ -140,10 +140,6 @@ static func _show_pending(play: PlaySession) -> bool:
 
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
-	# Build/work opens with the crown's queued recruits: worker orders before
-	# every unit build, and each lands in time for the next Orders phase
-	# (wiki: workers-and-population § Phase placement).
-	var musters: Array[Dictionary] = MapPlayRecruits.complete(play)
 	MapPlayCivilians.resolve_work(play)
 	# Rival expeditions board and sail before the field armies march, so an army
 	# chosen for the crossing is not also ordered inland (docs/ai.md).
@@ -256,7 +252,6 @@ static func _finish_turn(play: PlaySession) -> void:
 	# The sheet narrates the turn that just resolved; the overlay opens only when
 	# it found news (wiki: the-gazette § When it appears).
 	MapPlayGazette.close_turn(
-		play, land_battles, naval_battles, economy_report, crown_report, raid_report,
-		musters
+		play, land_battles, naval_battles, economy_report, crown_report, raid_report
 	)
 	play.emit_turn_ended(play.turn)

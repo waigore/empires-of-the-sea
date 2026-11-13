@@ -142,8 +142,8 @@ func is_civilian_panel_open() -> bool:
 	return civilian.open
 
 
-func set_civilian_training(visible: bool, pending: Dictionary = {}) -> void:
-	panel.set_training_visible(visible, pending)
+func set_civilian_training(visible: bool) -> void:
+	panel.set_training_visible(visible)
 
 
 func show_army(

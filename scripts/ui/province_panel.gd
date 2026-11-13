@@ -156,9 +156,8 @@ func set_compact(compact: bool) -> void:
 	_column.move_child(_orders, grid_at if compact else _orders_index)
 
 
-func set_training_visible(visible: bool, pending: Dictionary = {}) -> void:
+func set_training_visible(visible: bool) -> void:
 	_orders.set_training_visible(visible)
-	_orders.set_training_pending(pending)
 
 
 ## Repaints the live crown rows after a road completed or a town grew, without

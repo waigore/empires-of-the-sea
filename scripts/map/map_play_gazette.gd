@@ -27,8 +27,7 @@ static func close_turn(
 	naval: Array,
 	economy: Dictionary,
 	crown_report: Dictionary,
-	raids: Dictionary,
-	musters: Array = []
+	raids: Dictionary
 ) -> void:
 	if play == null or play.observer_mode or play.diplomacy == null:
 		return
@@ -48,7 +47,9 @@ static func close_turn(
 		int(crown_report.get("riches_treasury", 0)),
 		raids.get("reports", []) as Array,
 		play.court_charts,
-		musters
+		# Build/work's recruits travelled in the crown's own report, so the
+		# sheet names what the turn delivered (wiki: the-gazette § Item catalog).
+		crown_report.get("musters", []) as Array
 	)
 	# An empty sheet is still filed so the archive has no gaps; it is not shown.
 	play.gazette.append(sheet)

@@ -4,8 +4,11 @@ extends RefCounted
 ## civilian hires, the regiment musters and the hull launches, so a trained
 ## worker can fund the labour a build needs (wiki: workers-and-population
 ## § Phase placement). Rules stay in [PlayerEconomy], [ArmyTraining], [FleetYard]
-## and [CivilianCatalog]; this pass only runs them in order and files the news
+## and [MapPlayTraining]; this pass only runs them in order and files the news
 ## (REQ-P3-02).
+##
+## The crown's ledger runs it before the new turn's Consumption, so the orders
+## land after the fighting the turn ordered and before the next Orders phase.
 ##
 ## Each order was validated when it was placed; the rules are asked again here,
 ## because the turn that resolved may have spent the treasury, lost the capital
@@ -58,7 +61,7 @@ static func _worker(play: PlaySession, tier: int) -> Dictionary:
 
 ## One civilian `BuildUnitOrder`: paper and ducats buy the hire at the capital.
 static func _civilian(play: PlaySession, type_id: String) -> Dictionary:
-	var result: Dictionary = MapPlayCivilians.settle(play, type_id)
+	var result: Dictionary = MapPlayTraining.settle(play, type_id)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, CivilianCatalog.display_name(type_id), String(result.get("reason", "")))
 	return {

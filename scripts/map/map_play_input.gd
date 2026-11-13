@@ -79,9 +79,7 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	play.hud.panels.show_province(
 		play.model, province_id, MapPlayImprovements.crown_link(play, province_id)
 	)
-	play.hud.panels.set_civilian_training(
-		province_id == play.capital_province, MapPlayCivilians.civilians_pending(play)
-	)
+	play.hud.panels.set_civilian_training(province_id == play.capital_province)
 	play.emit_province_selected(province_id)
 
 
@@ -305,7 +303,7 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	var name: String = play.model.province_name(play.selected_province)
 	# Any catalog type trains through the same intent; the rules gate each one.
 	if action.begins_with("train_"):
-		MapPlayCivilians.train(play, action.trim_prefix("train_"))
+		MapPlayTraining.train(play, action.trim_prefix("train_"))
 		return
 	match action:
 		"recruit":
