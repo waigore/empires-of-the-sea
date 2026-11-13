@@ -30,7 +30,7 @@ var _last_consumption: Dictionary = {}
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
 ## Reads the court's sealed ports (wiki: capital-and-connectivity § Blockade).
-## PlaySession owns the reading — it needs the fleets and the wars — so the
+## MapPlayBlockades owns the reading — it needs the fleets and the wars — so the
 ## controller only asks for it while it prices the harvest (REQ-P2-03).
 var blockade_source: Callable = Callable()
 ## Last world-market clearing (deals, fills, credits), so the ledger can name
