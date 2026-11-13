@@ -282,6 +282,50 @@ func test_a_rivals_strength_waits_for_the_watch_to_close() -> void:
 		"a rival who returns must be watched afresh")
 
 
+## A marker minted after the watch closed keeps the chart's reading. Joining the
+## home fleet, crossing a passage or losing a port rebuilds every marker, and a
+## rebuild must not hand back a weight the crown has not read (wiki:
+## ships-and-naval § Sighted strength).
+func test_a_rebuilt_marker_keeps_the_watch() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	_screen.ship_layer.rebuild_markers()
+	var unread: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(unread)
+	assert_false(unread.strength_known, "a rebuilt marker still flies *")
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+	_screen.ship_layer.rebuild_markers()
+	var read: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(read)
+	assert_true(read.strength_known, "a read squadron stays read after a rebuild")
+
+
+## A rebuilt chart never draws a rival the crown's fog hides, nor reads her
+## weight there (wiki: fog-and-exploration § Visibility Levels; ships-and-naval
+## § Sighted strength).
+func test_a_rebuilt_marker_stays_under_the_fog() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	assert_false(enemy.visible, "the fog keeps her off the chart")
+
+	_screen.ship_layer.rebuild_markers()
+	var hidden: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(hidden)
+	assert_false(hidden.visible, "a rebuild does not draw her")
+	assert_false(hidden.strength_known, "and does not read her weight")
+
+
 ## The dossier prints ??? for a rival the crown has sighted but not read.
 func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 	var enemy: Ship = _enemy_ship()

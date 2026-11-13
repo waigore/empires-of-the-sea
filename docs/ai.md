@@ -65,7 +65,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-Difficulty extras; phase-planner seed (DR-20261113-15) —
+Money-first / `AiIncome` (DR-19); phase seed —
 [`deferred.md`](deferred.md).
 
 ## Architecture & tests

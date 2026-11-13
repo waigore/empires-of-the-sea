@@ -26,6 +26,7 @@ var player_faction: int = FactionCatalog.PLAYER_FACTION
 var next_hull: int = 1
 ## Fleet state per region: switching maps must not reroll or lose squadrons.
 var regions := MapRegionTable.new()
+var crown_view: Callable = Callable() ## the chart's reading of one squadron: drawn, read
 
 
 ## Markers the shown region draws, in mint order (view handles for taps).
@@ -67,7 +68,7 @@ func spawn(
 
 
 func _attach_marker(fleet: FleetState) -> void:
-	add_child(_markers.make(fleet))
+	add_child(_markers.make(fleet, crown_view))
 
 
 func rebuild_markers() -> void:
