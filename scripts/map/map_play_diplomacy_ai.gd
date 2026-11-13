@@ -103,10 +103,15 @@ static func _context(play: PlaySession) -> Dictionary:
 			regiments[faction] = play.army_layer.regiment_count_all(faction)
 		if play.ship_layer != null:
 			ships[faction] = play.ship_layer.hull_count_all(faction)
+	var planning: Array[int] = []
+	for faction: int in FactionCatalog.great_power_ids():
+		if AiControl.plans(play, faction):
+			planning.append(faction)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
 		"strengths": MapPlayDiplomacy.public_orders(play).get("strength", {}),
+		"planning": planning,
 	}
 	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)
 	if not readings.is_empty():

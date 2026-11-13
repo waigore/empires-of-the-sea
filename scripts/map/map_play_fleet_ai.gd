@@ -36,6 +36,8 @@ static func _run_region(
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == play.player_faction and not play.observer_mode:
 			continue
+		if not AiControl.plans(play, faction):
+			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		# The court's own chart: it hunts only what it has charted
 		# (wiki: fog-and-exploration; DR-20261110-21).

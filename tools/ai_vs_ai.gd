@@ -5,12 +5,14 @@ extends SceneTree
 ## human slot set is the full-AI observer; turn-trace-interpretation).
 ##
 ##   godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
-##       --turns=80 --seed=1500 --size=1 --runs=1
+##       --turns=80 --seed=1500 --size=1 --runs=1 --ai=full
 ##
 ## Options: --turns=N (resolved turns per run, default 60), --seed=N (default
 ## 1500), --size=0|1|2 (GameConfig.SIZES, default 1 = Standard), --runs=N
 ## (seeds seed+i, default 1), --historical (stop at the calendar cap instead of
-## the observer's endless campaign), --out=DIR (default user://ai_vs_ai).
+## the observer's endless campaign), --ai=full|noop|bench (planner gate;
+## default full), --live=ID (BENCH live Great Power; default setup crown),
+## --out=DIR (default user://ai_vs_ai).
 ##
 ## This is a headless debug harness, not shipped game code: exclude the file
 ## from the coverage plan so the 80% patch gate tracks the rules and UI it
@@ -27,6 +29,8 @@ var _size: int = GameConfig.DEFAULT_SIZE_INDEX
 var _runs: int = 1
 var _historical: bool = false
 var _quiet: bool = false
+var _ai_mode: String = AiControl.FULL
+var _live: int = MapModel.NO_ID
 var _out_dir: String = OUT_DIR
 var _failures: PackedStringArray = []
 var _wins: Dictionary = {}
@@ -75,6 +79,8 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 		_fail("run %d: MapScreen built no session" % run)
 		screen.free()
 		return {}
+	play.ai_mode = _ai_mode
+	play.ai_live_faction = _live
 	# The tool owns the calendar here; the dashboard must not step behind it.
 	var panel := screen.get_node_or_null("AiObserver") as AiObserverPanel
 	if panel != null:
@@ -136,6 +142,8 @@ func _write_run(
 	summary["run"] = run
 	summary["seed"] = seed_value
 	summary["resolved_turns"] = records.size()
+	summary["ai_mode"] = _ai_mode
+	summary["ai_live"] = _live
 	var summary_file := FileAccess.open("%s_summary.json" % stem, FileAccess.WRITE)
 	if summary_file == null:
 		_fail("run %d: cannot write %s_summary.json" % [run, stem])
@@ -148,10 +156,11 @@ func _report(seeds: PackedStringArray) -> void:
 	var rounds: int = maxi(_appearances, 1)
 	print("")
 	print(
-		"AI VS AI — %d run(s) · seeds %s · limit %d turns · %s campaign"
+		"AI VS AI — %d run(s) · seeds %s · limit %d turns · %s campaign · ai=%s"
 		% [
 			_appearances, ", ".join(seeds), _turns,
 			"historical" if _historical else "endless",
+			_ai_mode,
 		]
 	)
 	print("%-18s %5s %6s %8s %8s %6s" % ["crown", "wins", "falls", "avg OW", "avg power", "rate"])
@@ -197,6 +206,10 @@ func _parse_args() -> void:
 			_runs = maxi(argument.trim_prefix("--runs=").to_int(), 1)
 		elif argument.begins_with("--out="):
 			_out_dir = argument.trim_prefix("--out=")
+		elif argument.begins_with("--ai="):
+			_ai_mode = AiControl.parse(argument.trim_prefix("--ai="))
+		elif argument.begins_with("--live="):
+			_live = argument.trim_prefix("--live=").to_int()
 		elif not argument.is_empty():
 			_fail("unknown argument %s" % argument)
 
