@@ -1344,6 +1344,45 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 	_screen.ship_layer.fleets.erase(enemy)
 
 
+## A rival the crown has sighted but not read keeps her muster to herself: the
+## dossier prints `??? hulls` with no count, no types and no upkeep bill, and the
+## watch closing reveals the composition with the strength (wiki: ships-and-naval
+## § Sighted strength).
+func test_an_unread_rival_dossier_keeps_her_muster() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = zone
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		78, rival, zone, ["ship_78", "ship_79"], {"ship_78": "frigate", "ship_79": "carrack"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+	var panel: FleetPanel = _screen.hud._fleet_panel
+
+	assert_eq(panel._ships.text, "??? hulls — the fog has not yet given up her muster.")
+	assert_false(panel._ships.text.contains("Carrack"), "no hull type leaks")
+	assert_false(panel._ships.text.contains("upkeep"), "her bill is not the crown's yet")
+
+	# The watch closes across the turn boundary: her muster joins the reading.
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.turn += 1
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+
+	assert_true(panel._ships.text.contains("2 ships"), panel._ships.text)
+	assert_true(panel._ships.text.contains("Carrack"), panel._ships.text)
+	assert_true(panel._ships.text.contains("upkeep"), panel._ships.text)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
 ## The marker's art path draws a squadron at both chart zooms: escorts, badge,
 ## the strength plate and the printed number, plus the unread rival's `*`
 ## (REQ-P1-03, RUB-P1-04).
