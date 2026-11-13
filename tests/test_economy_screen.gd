@@ -70,7 +70,7 @@ func test_production_assignment_reaches_the_projection() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["timber"] = 4
 	_screen.economy._on_production("lumber", 2)
-	assert_eq(economy.assignment_units("lumber"), 2)
+	assert_eq(economy.production.assignment_units("lumber"), 2)
 	var preview: Dictionary = _screen.economy.projected()
 	assert_gt(int(preview["stockpile_delta"].get("lumber", 0)), 0)
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)

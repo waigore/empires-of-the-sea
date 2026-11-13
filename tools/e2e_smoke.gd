@@ -36,11 +36,17 @@ func _run() -> void:
 
 	var menu: MainMenu = main.current_page as MainMenu
 	_check(menu != null, "main menu boots first")
-	_check(menu != null and menu.settings_button.disabled, "settings is dimmed")
 	_check(main.current_screen == null, "no map runs behind the title screen")
 	if menu == null:
 		_finish()
 		return
+	# The settings door carries the court's tongue: every shipped tongue is
+	# offered, and back closes the page (REQ-P5-07).
+	_check(not menu.settings_button.disabled, "settings opens from the title")
+	menu.settings_button.emit_signal("pressed")
+	_check(menu.tongue_page != null and menu.tongue_page.is_open(), "tongue page opens")
+	_check(menu.tongue_page.rows.size() >= 3, "the device and both tongues are offered")
+	menu.tongue_page.close()
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
 
@@ -114,6 +120,13 @@ func _run() -> void:
 	_check(screen.model.province_count() > 0, "provinces generated")
 	_check(screen.capital_province == seat, "the chart's seat starts the campaign")
 	_check(screen.capital_tile == seat_tile, "the chart's tile is the seat")
+	for region_index in screen.world.region_count():
+		var region: MapModel = screen.world.region(region_index)
+		for zone: SeaZoneState in region.sea_zones:
+			_check(
+				MapNaming.sea_presets(region.region_id).has(String(zone.name).split(" (")[0]),
+				"sea zone %d reads %s" % [zone.id, zone.name]
+			)
 	_check(screen.ship_layer != null, "ship layer present")
 	_check(
 		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
@@ -154,7 +167,13 @@ func _run() -> void:
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
 	_check(paused, "in-game menu pauses the tree")
-	_check(screen.game_menu.settings_button.disabled, "in-game settings is dimmed")
+	# The pause menu's settings door reaches the same tongue page mid-campaign,
+	# and back returns to the pause rows without resuming play (REQ-P5-07).
+	_check(not screen.game_menu.settings_button.disabled, "in-game settings opens")
+	screen.game_menu.settings_button.emit_signal("pressed")
+	_check(screen.game_menu.tongue_page.is_open(), "the tongue page opens over the pause menu")
+	screen.game_menu.handle_back()
+	_check(paused, "back from the tongue page keeps the tree paused")
 	screen.game_menu.open_save()
 	_check(screen.game_menu.browser.visible, "save browser opens")
 	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)
@@ -202,6 +221,25 @@ func _run() -> void:
 			field != null and not RegimentNames.of(field, field.regiments[0]).is_empty(),
 			"the detached regiment keeps its title"
 		)
+		# The crown's own name (DR-20261113-05): the order writes the title the
+		# roster prints, and the colours keep the name they were given.
+		if field != null:
+			var colours: String = field.regiments[0]
+			MapPlayArmies.on_action(
+				screen.play, "rename:%s:Guards of the Crown" % colours
+			)
+			await process_frame
+			_check(
+				RegimentNames.of(field, colours) == "Guards of the Crown",
+				"the crown names its colours"
+			)
+			var named_row: HBoxContainer = (
+				screen.hud.panels.army_panel._roster.get_child(0) as VBoxContainer
+			).get_child(0) as HBoxContainer
+			_check(
+				(named_row.get_child(1) as Label).text.begins_with("Guards of the Crown —"),
+				"the roster prints the crown's own name"
+			)
 		# The train (DR-20261112-07): the dossier names the offer or its refusal,
 		# and a pitched train reads on the strength line.
 		if field != null:
@@ -648,7 +686,7 @@ func _smoke_end_turn(
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
-		screen.economy.economy.assignment_units("lumber") == 1,
+		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
 	# A two-turn alloy names its wait on the row, so a phone player is not left

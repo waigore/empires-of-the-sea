@@ -236,9 +236,62 @@ func test_an_unknown_node_cannot_start() -> void:
 	assert_false(YarnRunner.new(_program()).start("no_such_node"))
 
 
-func test_a_declare_is_a_set() -> void:
+func test_a_declare_fills_an_unset_variable() -> void:
 	var declared := "title: gate\n---\n<<declare $x = 2>>\nCount: {$x}.\n===\n"
 	assert_eq(_read(declared, "gate"), ["Count: 2."] as Array[String])
+
+
+## DR-20261113-01: "`<<declare>>` as a default". The game layer sets a script's
+## variables before the runner reads it (wiki: dialogue-content-and-yarn
+## § Architecture), so a declaration must not overwrite one.
+func test_a_declare_keeps_the_value_the_game_set() -> void:
+	var declared := (
+		"title: gate\n---\n<<declare $court = \"Ribe\">>\n"
+		+ "<<declare $court = \"Lisboa\">>\nCourt: {$court}.\n"
+		+ "<<set $court = \"Angra\">>\nSet: {$court}.\n===\n"
+	)
+	assert_eq(
+		_read(declared, "gate", {"court": "Cadiz"}),
+		["Court: Cadiz.", "Set: Angra."] as Array[String],
+		"a declare is a default; only a set writes over the game's value"
+	)
+	assert_eq(
+		_read(declared, "gate"), ["Court: Ribe.", "Set: Angra."] as Array[String],
+		"with nothing set, the first default stands and a set still writes"
+	)
+
+
+## DR-20261113-01 § P4: "a jump loop is bounded at 200 beats, so authored content
+## can never hang a refresh". A cycle with no line in it never reaches a beat, so
+## this call must return rather than spin.
+func test_a_jump_loop_that_never_speaks_is_stopped() -> void:
+	var looping := "title: gate\n---\n<<jump gate>>\n===\n"
+	var runner := YarnRunner.new(YarnScript.parse(looping))
+	assert_true(runner.start("gate"))
+	var beat: Dictionary = runner.advance()
+	assert_eq(String(beat["kind"]), "error", str(beat))
+	assert_true(String(beat.get("error", "")).contains("jump"), String(beat.get("error", "")))
+	assert_true(runner.at_end(), "the loop is closed, not left to spin")
+
+
+func test_two_nodes_jumping_to_each_other_are_stopped() -> void:
+	var looping := (
+		"title: a\n---\n<<jump b>>\n===\ntitle: b\n---\n<<jump a>>\n===\n"
+	)
+	var runner := YarnRunner.new(YarnScript.parse(looping))
+	assert_true(runner.start("a"))
+	assert_eq(String(runner.advance()["kind"]), "error", "a mutual loop is bounded too")
+
+
+## A loop that speaks is bounded by the reader's beats, not by the runner: the
+## guard must not cut a long but honest scene short.
+func test_a_loop_that_speaks_still_yields_its_lines() -> void:
+	var speaking := "title: gate\n---\nThe wheel turns.\n<<jump gate>>\n===\n"
+	var runner := YarnRunner.new(YarnScript.parse(speaking))
+	assert_true(runner.start("gate"))
+	for beat in 3:
+		var said: Dictionary = runner.advance()
+		assert_eq(String(said["kind"]), "line", "beat %d" % beat)
 
 
 func test_an_option_can_stop_the_scene() -> void:
@@ -334,35 +387,6 @@ func test_an_option_command_that_is_not_closed_is_refused() -> void:
 
 # --- localization keys ------------------------------------------------------
 
-## The shipped tongue is content (DR-20261113-06): `assets/locales/fr.po` answers
-## every authored variant, keyed by what [method DialogueLocale.line_key] builds,
-## so a reader whose OS speaks French reads the court in French and an English
-## reader reads exactly what he read before. The suite holds the file to the
-## catalogue: a rewritten or dropped point fails here rather than leaving a
-## French court with an English line.
-
-## Every variant the shipped file answers, as `DialoguePoint/<point>/<variant>`.
-func _shipped_keys() -> Array[String]:
-	var found: Array[String] = []
-	var text := FileAccess.get_file_as_string(DialogueLocale.SHIPPED)
-	var re := RegEx.new()
-	re.compile("msgid \"(DialoguePoint/[^\"]+)\"")
-	for row in re.search_all(text):
-		found.append(row.get_string(1))
-	return found
-
-
-## Every authored variant, as `[point, index, english]` — the catalogue as the
-## file must answer it.
-func _authored_variants() -> Array:
-	var found: Array = []
-	for point in DialogueCatalog.points():
-		var lines := DialogueCatalog.lines_for(point)
-		for index in range(lines.size()):
-			found.append([point, index, String(lines[index])])
-	return found
-
-
 func test_a_line_carries_a_stable_translation_key() -> void:
 	assert_eq(
 		DialogueLocale.line_key("reactive/standing_cold", 1),
@@ -371,14 +395,12 @@ func test_a_line_carries_a_stable_translation_key() -> void:
 	)
 
 
-func test_an_unanswered_key_falls_back_to_the_authored_line() -> void:
-	DialogueLocale.set_locale("fr")
+func test_an_untranslated_key_falls_back_to_the_authored_line() -> void:
 	assert_eq(
-		DialogueLocale.line("probe/absent", 0, "We have little to say."),
+		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
 		"We have little to say.",
-		"a key the file does not answer keeps the source"
+		"the source language is never lost"
 	)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 	assert_true(DialogueLocale.locales().has(DialogueLocale.SOURCE_LOCALE))
 
 
@@ -392,113 +414,258 @@ func test_the_locale_can_be_switched_and_read_back() -> void:
 
 
 func test_a_translation_overrides_the_authored_line() -> void:
+	# A tongue the game does not ship, so the shipped French file cannot answer
+	# this key first (DialogueLocale.load_shipped; DR-20261113-06).
 	var table := Translation.new()
-	table.locale = "fr"
-	table.add_message(DialogueLocale.line_key("probe/absent", 0), "Nous n'avons rien à dire.")
+	table.locale = "de"
+	table.add_message(DialogueLocale.line_key("reactive/standing_cold", 0), "Wir haben wenig zu sagen.")
 	TranslationServer.add_translation(table)
-	DialogueLocale.set_locale("fr")
+	DialogueLocale.set_locale("de")
 	assert_eq(
-		DialogueLocale.line("probe/absent", 0, "We have little to say."),
-		"Nous n'avons rien à dire."
+		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
+		"Wir haben wenig zu sagen."
 	)
 	assert_eq(
-		DialogueLocale.line("probe/absent", 1, "Our clerks record your name."),
+		DialogueCatalog.line_for("reactive/standing_cold", 0), "Wir haben wenig zu sagen.",
+		"the court's own line reads the translation"
+	)
+	assert_eq(
+		DialogueLocale.line("reactive/standing_cold", 1, "Our clerks record your name."),
 		"Our clerks record your name.",
 		"a variant with no translation keeps the source"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 	TranslationServer.remove_translation(table)
 	assert_eq(
-		DialogueLocale.line("probe/absent", 0, "We have little to say."),
-		"We have little to say.",
+		DialogueCatalog.line_for("reactive/standing_cold", 0),
+		"We have little to say to your court.",
 		"the source line comes back"
 	)
 
 
-func test_the_shipped_tongue_answers_every_authored_variant() -> void:
-	DialogueLocale.set_locale("fr")
-	var silent: Array[String] = []
-	for row: Array in _authored_variants():
-		var point := String(row[0])
-		var index := int(row[1])
-		var english := String(row[2])
-		var french := DialogueLocale.line(point, index, english)
-		if french == english or french.is_empty() or french == DialogueLocale.line_key(point, index):
-			silent.append(DialogueLocale.line_key(point, index))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(silent, [], "every authored variant reads French")
+# --- the shipped tongues -----------------------------------------------------
+#
+# Each file is content: one `.po` keyed by the same stable content key
+# [DialogueLocale.line_key] builds, answered on the reader's own tongue and
+# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06,
+# DR-20261113-09). These cases hold every file to the catalogue, so a rewritten
+# or dropped point fails here instead of leaving a court an English line.
+
+const PLACEHOLDERS: Array[String] = ["{speaker}", "{other}"]
 
 
-func test_the_shipped_tongue_keeps_the_names_a_line_hands_in() -> void:
-	DialogueLocale.set_locale("fr")
-	var broken: Array[String] = []
-	for row: Array in _authored_variants():
-		var english := String(row[2])
-		var french := DialogueLocale.line(String(row[0]), int(row[1]), english)
-		for holder in ["{speaker}", "{other}"]:
-			if english.count(holder) != french.count(holder):
-				broken.append(DialogueLocale.line_key(String(row[0]), int(row[1])))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(broken, [], "a name the line hands in survives the translation")
+## Every variant the catalogue authors, keyed as the translation asks for it.
+func _authored() -> Dictionary:
+	var found: Dictionary = {}
+	for point: String in DialogueCatalog.points():
+		var lines: Array = DialogueCatalog.lines_for(point)
+		for index in lines.size():
+			found[DialogueLocale.line_key(point, index)] = String(lines[index])
+	return found
 
 
-func test_the_shipped_tongue_carries_no_stale_key() -> void:
-	var stale: Array[String] = []
-	var keys := _shipped_keys()
-	for key in keys:
-		var point := key.substr(DialogueLocale.KEY_PREFIX.length() + 1)
-		var index := int(point.substr(point.rfind("/") + 1))
-		point = point.substr(0, point.rfind("/"))
-		if not DialogueCatalog.has_point(point) or index >= DialogueCatalog.lines_for(point).size():
-			stale.append(key)
-	assert_eq(stale, [], "a key the catalogue no longer authors is a failure")
-	assert_eq(keys.size(), _authored_variants().size(), "and every variant is answered")
-
-
-func test_the_source_tongue_reads_no_translation() -> void:
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	DialogueLocale.load_shipped()
-	var changed: Array[String] = []
-	for row: Array in _authored_variants():
-		var english := String(row[2])
-		if DialogueLocale.line(String(row[0]), int(row[1]), english) != english:
-			changed.append(DialogueLocale.line_key(String(row[0]), int(row[1])))
-	assert_eq(changed, [], "an English court reads exactly what it read before")
-
-
-func test_the_shipped_tongue_is_registered_once() -> void:
-	DialogueLocale.load_shipped()
-	DialogueLocale.load_shipped()
-	var count := 0
-	for code in TranslationServer.get_loaded_locales():
-		if String(code) == "fr":
-			count += 1
-	assert_eq(count, 1, "the file is registered when a court first speaks, and once")
-
-
-func test_the_shipped_tongue_answers_a_regional_tongue() -> void:
-	for code in ["fr", "fr_FR", "fr_CA"]:
+func test_the_shipped_tongues_answer_every_authored_variant() -> void:
+	var authored: Dictionary = _authored()
+	assert_gte(authored.size(), 100, "the court authors its catalogue")
+	var tongues: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code != DialogueLocale.SOURCE_LOCALE:
+			tongues.append(code)
+	assert_gte(tongues.size(), 2, "the build ships more than one tongue")
+	for code: String in tongues:
+		var unanswered: Array[String] = []
 		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var word: String = String(TranslationServer.translate(String(key)))
+			if word.is_empty() or word == String(key) or word == String(authored[key]):
+				unanswered.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 		assert_eq(
-			DialogueCatalog.line_for("reactive/standing_neutral", 0),
-			"Nos clercs inscrivent votre nom ; rien de plus aujourd'hui.",
-			"a regional French tongue reads the shipped French"
+			unanswered,
+			[] as Array[String],
+			"%s answers every variant: %s" % [code, str(unanswered)]
+		)
+
+
+func test_a_shipped_tongue_keeps_the_speaker_and_the_court() -> void:
+	var authored: Dictionary = _authored()
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		var broken: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var source: String = String(authored[key])
+			var word: String = String(TranslationServer.translate(String(key)))
+			for mark: String in PLACEHOLDERS:
+				if source.count(mark) != word.count(mark):
+					broken.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			broken, [] as Array[String],
+			"a name is never dropped in %s: %s" % [code, str(broken)]
+		)
+
+
+func test_every_shipped_file_answers_only_keys_the_catalogue_still_authors() -> void:
+	DialogueLocale.load_shipped()
+	var authored: Dictionary = _authored()
+	var stale: Array[String] = []
+	var files: int = 0
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		assert_true(words is Translation, "%s reads as a tongue" % path)
+		if not (words is Translation):
+			continue
+		files += 1
+		for key: Variant in (words as Translation).get_message_list():
+			if not authored.has(String(key)):
+				stale.append("%s in %s" % [String(key), path])
+	assert_gte(files, 2, "both tongues ship as files")
+	assert_eq(stale, [] as Array[String], "no word outlives the point it answered: %s" % str(stale))
+
+
+func test_the_shipped_directory_offers_each_tongue_once_by_its_own_name() -> void:
+	var codes: Array[String] = []
+	var names: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		codes.append(String(tongue.get("code", "")))
+		names.append(String(tongue.get("name", "")))
+	assert_eq(codes.count(DialogueLocale.SOURCE_LOCALE), 1, "the source tongue is offered once")
+	for tongue: Dictionary in DialogueLocale.tongues():
+		assert_eq(codes.count(String(tongue.get("code", ""))), 1, "one row per tongue")
+	assert_true(codes.has("fr"), "the French court is offered")
+	assert_true(codes.has("es"), "the Spanish court is offered")
+	assert_true(names.has("Français"), "a tongue is named in its own words")
+	assert_true(names.has("Español"), "and so is the Spanish one")
+	assert_eq(DialogueLocale.native_name("fr_CA"), "Français", "a regional code still names its tongue")
+	assert_eq(DialogueLocale.native_name("xx"), "XX", "a code with no name is still legible")
+	assert_eq(DialogueLocale.native_name(""), DialogueLocale.SOURCE_LOCALE.to_upper())
+
+
+func test_a_source_tongue_reads_no_translation() -> void:
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	var changed: Array[String] = []
+	for point: String in DialogueCatalog.points():
+		var lines: Array = DialogueCatalog.lines_for(point)
+		for index in lines.size():
+			if DialogueCatalog.line_for(point, index) != String(lines[index]):
+				changed.append(DialogueLocale.line_key(point, index))
+	assert_eq(changed, [] as Array[String], "the English court speaks as it was authored: %s" % str(changed))
+
+
+func test_a_french_device_reads_the_french_court() -> void:
+	# A phone set to French Canada or France reads French, not the source.
+	for code: String in ["fr", "fr_CA", "fr_FR"]:
+		DialogueLocale.set_locale(code)
+		assert_ne(
+			DialogueCatalog.line_for("reactive/standing_war", 0),
+			String(DialogueCatalog.lines_for("reactive/standing_war")[0]),
+			"a court reading %s is answered in French" % code
+		)
+		assert_eq(
+			DialogueCatalog.line_for("reactive/standing_war", 0),
+			String(TranslationServer.translate(DialogueLocale.line_key("reactive/standing_war", 0))),
+			"the court speaks the tongue's own word"
 		)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
-func test_the_court_s_own_line_speaks_the_readers_tongue() -> void:
-	DialogueLocale.set_locale("fr")
+func test_a_spanish_device_reads_the_spanish_court() -> void:
+	DialogueLocale.set_locale("es")
 	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_neutral", 0),
-		"Nos clercs inscrivent votre nom ; rien de plus aujourd'hui.",
-		"the panel's line comes back in French"
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		"La guerra se mantiene. Hablaremos otra vez cuando alguno de nosotros se canse.",
+		"a Spanish device reads the Spanish court"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_variant_the_file_does_not_answer_keeps_the_source() -> void:
+	DialogueLocale.set_locale("fr")
 	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_neutral", 0),
-		"Our clerks record your name; nothing more today."
+		DialogueLocale.line("no/such_point", 0, "A line no file answers."),
+		"A line no file answers.",
+		"a missing word never silences a court"
 	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_the_court_panel_hears_the_tongue() -> void:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	var english: Dictionary = DialogueEvents.for_pair(state, 0, 1)
+	assert_false(String(english.get("text", "")).is_empty(), "the court has a word")
+	DialogueLocale.set_locale("fr")
+	var french: Dictionary = DialogueEvents.for_pair(state, 0, 1)
+	var point: String = String(french.get("point", ""))
+	var variants: Array[String] = []
+	for index in DialogueCatalog.lines_for(point).size():
+		variants.append(
+			String(TranslationServer.translate(DialogueLocale.line_key(point, index)))
+		)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		point, String(english.get("point", "")),
+		"the tongue moves the word, not the point"
+	)
+	assert_ne(
+		String(french.get("text", "")), String(english.get("text", "")),
+		"the panel's own call answers in French"
+	)
+	assert_true(
+		variants.has(String(french.get("text", ""))),
+		"the French word is an authored variant of that point"
+	)
+
+
+func test_each_shipped_tongue_is_registered_once() -> void:
+	DialogueLocale.load_shipped()
+	DialogueLocale.load_shipped()
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		if words is Translation:
+			var code: String = String((words as Translation).locale)
+			assert_eq(DialogueLocale.locales().count(code), 1, "one file, one tongue, one entry")
+
+
+func test_a_tongue_with_no_file_adds_nothing() -> void:
+	assert_false(
+		DialogueLocale.register("res://assets/locales/xx.po"), "a missing file adds no table"
+	)
+	assert_false(DialogueLocale.locales().has(""), "a missing file registers no tongue")
+	assert_false(
+		DialogueLocale.locales().has("xx"), "a missing file names no tongue either"
+	)
+
+
+func test_the_reader_can_choose_the_device_tongue_again() -> void:
+	DialogueLocale.set_locale("es")
+	assert_ne(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		DialogueLocale.follow_device(), DialogueLocale.locale(), "the device decides again"
+	)
+	# Whatever the build machine asks for (a bare POSIX `C` on CI runners), the
+	# device's tongue is the one the court prints in and it has a name.
+	assert_false(
+		DialogueLocale.native_name(DialogueLocale.device_locale()).is_empty(),
+		"the device's own tongue has a name"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
+	DialogueLocale.set_locale("de")
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		String(DialogueCatalog.lines_for("reactive/standing_war")[0]),
+		"a court with no file reads the authored line"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
 # --- test_symbol_plates ---
 
 ## One boot for the drawn plates: tech, commodity and unit icons and the map's

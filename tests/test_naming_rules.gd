@@ -409,6 +409,22 @@ func test_a_court_always_counts_its_own_standard() -> void:
 	)
 
 
+## The docket carries the order of battle as well as the head count: three
+## peasant levies (FPN + FPM 3 each) weigh nine, the term the published power
+## score reads (wiki: diplomacy § Great Power power score).
+func test_the_docket_carries_the_seen_order_of_battle() -> void:
+	var army: ArmyState = _army(1, RIVAL, FOREIGN_PROVINCE)
+	var readings: Dictionary = _readings(_charts(_world()), _armies([army]), _fleets([]))
+	assert_eq(int(readings[OTHER]["regiments"][RIVAL]), 3, "the head count")
+	assert_almost_eq(float(readings[OTHER]["strength"][RIVAL]), 9.0, 0.001, "the weight")
+	assert_eq(
+		float(readings[RIVAL]["strength"][RIVAL]), 9.0, "its own men are its own weight"
+	)
+	assert_false(
+		readings[OTHER]["strength"].has(OTHER), "no unseen army weighs anything"
+	)
+
+
 ## Ownership is sight: an army on a court's own ground is that court's to count
 ## (wiki: fog-and-exploration § New World arrival).
 func test_an_army_on_owned_ground_is_seen() -> void:
@@ -574,7 +590,7 @@ func test_the_diplomacy_phase_scores_the_reading() -> void:
 	add_child(ships)
 	play.army_layer = armies
 	play.ship_layer = ships
-	MapPlayDiplomacy.run_ai(play)
+	MapPlayDiplomacyAi.run(play)
 	assert_eq(play.ai_trace.size(), 5, "every rival court took its turn")
 	assert_eq(
 		_factor({"trace": play.ai_trace}, RIVAL, OTHER, "relative_power"), 5,
