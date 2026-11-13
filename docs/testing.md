@@ -57,19 +57,19 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 gd-tools test --coverage --shard 1/4 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
 
-# Free-playtest drives (opt-in, not a CI gate). Every one launches the real flow
-# through `tests/playtest_launch.gd` (title -> setup -> capital chart -> crown's
-# charge -> map), so a flow change that strands a drive fails loudly instead of
-# printing one line.
+# Free-playtest drives live under playtests/ (opt-in, not a CI gate). Every one
+# launches the real flow through playtests/playtest_launch.gd (title -> setup ->
+# capital chart -> crown's charge -> map), so a flow change that strands a drive
+# fails loudly instead of printing one line.
 
 # New World exploration loop — boards an Explorer, takes the Passage, lands,
 # charts and prospects, printing one line per step.
-godot --headless --path . --script res://tests/playtest_new_world.gd
+godot --headless --path . --script res://playtests/playtest_new_world.gd
 
 # Quick Battle — declares war, resolves an attacking field battle, a siege and a
 # defending battle through the play helpers, printing every despatch line the
 # plate shows.
-godot --headless --path . --script res://tests/playtest_quick_battle.gd
+godot --headless --path . --script res://playtests/playtest_quick_battle.gd
 
 # Battle Simulator — a visual sandbox over the live Quick Battle resolver:
 # ground, fort, gates, regiments and a step-by-step plate (battle-sim.md).
@@ -78,78 +78,78 @@ tools/run.sh scenes/battle_sim.tscn
 # Land combat — a multi-attacker chain, an unopposed capture, a peaceful third
 # army blocking one, the player defending a fort through a whole AI turn, and two
 # crowns falling on one province in a single turn (plates, standards, court news).
-godot --headless --path . --script res://tests/playtest_combat_chain.gd
+godot --headless --path . --script res://playtests/playtest_combat_chain.gd
 
 # Espionage — opens a turn-100 advanced start, despatches a spy across a border,
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
 # court keeps, the research share it earns, and the counter-espionage screen.
-godot --headless --path . --script res://tests/playtest_espionage.gd
+godot --headless --path . --script res://playtests/playtest_espionage.gd
 
 # Rival espionage — the other half: plays real turns from a turn-100 advanced
 # start and prints the spies rival courts walk onto crown land (invisible by
 # rule), the screen the crown keeps at home, every line the court is told when
 # an agent is caught or turns coat (with the relations it cost), and the share a
 # rival's spy earns from the crown's own studies.
-godot --headless --path . --script res://tests/playtest_ai_spycraft.gd
+godot --headless --path . --script res://playtests/playtest_ai_spycraft.gd
 
 # Province development — opens a turn-100 advanced start, raises an estate over
 # several turns from the estates ledger, walks the Engineer tile by tile laying
 # the road to the capital, prospects and mines a mineral and upgrades a town,
 # asserting that each linked estate's commodity reaches the stockpile.
-godot --headless --path . --script res://tests/playtest_province_dev.gd
+godot --headless --path . --script res://playtests/playtest_province_dev.gd
 
 # Allied defence — signs a formal alliance at court, lets a rival declare on the
 # ally, reads the call-to-arms banner, joins, and fights the battle the court did
 # not start; then two declarations in one turn (one call at a time, a refusal's
 # price).
-godot --headless --path . --script res://tests/playtest_allied_defence.gd
+godot --headless --path . --script res://playtests/playtest_allied_defence.gd
 
 # Persistence — opens a turn-100 advanced start, sets the crown's battle plan and
 # issues orders, saves and loads through the pause menu's own browsers, then
 # walks the endings a save must carry (decided, defeated, halted) and the slots
 # that cannot be read (a newer format, a corrupt file).
-godot --headless --path . --script res://tests/playtest_persistence.gd
+godot --headless --path . --script res://playtests/playtest_persistence.gd
 
 # Persistence, advanced — closes turns, starts a study from the college's own
 # row and raises an estate, then saves and loads and compares the two snapshots
 # field by field plus the college, estate, purse and plan reads a player makes.
-godot --headless --path . --script res://tests/playtest_persistence_advanced.gd
+godot --headless --path . --script res://playtests/playtest_persistence_advanced.gd
 
 # Naval squadron — reads the crown's squadrons and their named hulls, boards a
 # field army and sorties, lands it on a crown coast, takes a blockade off a rival
 # shore, resolves a sea battle (printing the despatch against the hulls actually
 # lost), and sorts a rival squadron out of a captured port.
-godot --headless --path . --script res://tests/playtest_naval.gd
+godot --headless --path . --script res://playtests/playtest_naval.gd
 
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
-godot --headless --path . --script res://tests/playtest_beachhead.gd
+godot --headless --path . --script res://playtests/playtest_beachhead.gd
 
 # Treasury — opens a turn-100 advanced start and reads the purse the player sees
 # (the chip, the ledger's summary and "Next turn" promise, the market's own rows,
 # the college's funding), stages a sale and a study on those buttons, closes real
 # turns, and prints each promise against the ducats the turn actually paid.
-godot --headless --path . --script res://tests/playtest_treasury.gd
+godot --headless --path . --script res://playtests/playtest_treasury.gd
 
 # Workshop — opens a turn-100 advanced start and presses the PRODUCTION tab's own
 # buttons: orders three steel and reads the price the promise charges, clears the
 # order and watches the paid batch land one unit a phase, contrasts a one-turn
 # row, lets two alloy batches serve at once (the note must name the two units the
 # promise names), and saves and loads a batch off the anvil.
-godot --headless --path . --script res://tests/playtest_workshop.gd
+godot --headless --path . --script res://playtests/playtest_workshop.gd
 
 # Capital loss — storms the crown's seat while it still holds another province
 # (the court moves, the home squadron re-moors, the Gazette names the province
 # lost), then strips the crown to its seat and storms that (the defeat plate, the
 # sealed turn, and the save that restores the defeated campaign).
-godot --headless --path . --script res://tests/playtest_capital_move.gd
+godot --headless --path . --script res://playtests/playtest_capital_move.gd
 
 # Field hospital train — pitches the army's own tents from the dossier (reading
 # the caption, the receipt and the strength line), mauls two hosts on bare ground
 # to read 40% against 25% over a real turn, seats a General hospital to read the
 # better-of rule and an unfed ward, then splits, boards, combines and saves.
-godot --headless --path . --script res://tests/playtest_field_train.gd
+godot --headless --path . --script res://playtests/playtest_field_train.gd
 
 # Court proposals — plays England (not the catalog's player slot) and answers a
 # rival's white peace, alliance, trade pact and non-aggression offer on the
@@ -157,7 +157,11 @@ godot --headless --path . --script res://tests/playtest_field_train.gd
 # chronicle in between; then saves with an offer still waiting, reloads and
 # answers it, and reads the call to arms the restored ledger still raises for an
 # ally.
-godot --headless --path . --script res://tests/playtest_court_proposal.gd
+godot --headless --path . --script res://playtests/playtest_court_proposal.gd
+
+# War toasts (#426) — ends turns with spies abroad and diffs HUD war lines against
+# warDeclared / At War (duplicate AI + spy + intervention announce).
+godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

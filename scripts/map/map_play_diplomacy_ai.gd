@@ -27,11 +27,41 @@ static func run(play: PlaySession) -> void:
 	_apply_map_changes(play, result.get("trace", []))
 	if play.hud == null:
 		return
-	for message: String in result.get("messages", []):
-		play.hud.toast(message)
+	for record: Dictionary in play.ai_trace:
+		for line: String in _announcements(play, record):
+			play.hud.toast(line)
 	# The pass has just raised every new decision in its own words; the turn
 	# resolver must not raise them a second time on the same press.
 	MapPlayDiplomacyConsent.mark_announced(play)
+
+
+## What the crown hears the moment the pass resolves, in the court's own voice.
+## A declaration between two rivals is World news: the Gazette narrates it from
+## the recorded `warDeclared` event and a spy's court report carries it, so the
+## toast lane is no third announcement of the same war (wiki: the-gazette
+## § Not the Gazette; civilian-units § Spy). A declaration on the crown is told
+## at once — it governs this turn's movement and combat.
+static func _announcements(play: PlaySession, record: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	lines.assign(record.get("messages", []))
+	if lines.is_empty():
+		# A trace from before the pass kept per-court lines still speaks.
+		var message: String = String(record.get("message", ""))
+		if not message.is_empty():
+			lines.append(message)
+	# A refused or unapplied order says nothing: the record only carries the
+	# lines the rules actually resolved.
+	if _rival_declaration(play, record):
+		return []
+	return lines
+
+
+## True for a declaration the crown neither made nor suffered.
+static func _rival_declaration(play: PlaySession, record: Dictionary) -> bool:
+	var action: Dictionary = record.get("action", {}) as Dictionary
+	if String(action.get("kind", "")) != AiDiplomacyPlanner.KIND_DECLARE_WAR:
+		return false
+	return int(action.get("target", MapModel.NO_ID)) != play.human_faction_id()
 
 
 ## A rival that absorbs a Minor moves provinces: its units change colour and the

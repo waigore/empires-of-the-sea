@@ -125,6 +125,57 @@ func test_the_muster_reservation_adds_to_the_production_one() -> void:
 	assert_eq(int(reserved.get("timber", 0)), 4, "the sawmill's timber still is too")
 
 
+## The materials a crew's planned work will spend are read from the same rows
+## the assignment pays: a level-1 estate is a timber and a cast iron, a survey
+## is free (wiki: civilian-units § Work Order Summary; economy-planner
+## § Reservations).
+func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
+	var model: MapModel = Fixture.build()
+	var works := LandWorks.new()
+	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
+	var orders: Array = _plan(model, builder, null, works)["orders"]
+	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
+	MapPlayCivilianAi._price(orders, model, works)
+	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
+	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
+	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
+
+	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
+	var survey: Array = _plan(model, explorer, null, works)["orders"]
+	MapPlayCivilianAi._price(survey, model, works)
+	assert_true(
+		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
+		"a survey costs no material, so it reserves none"
+	)
+
+
+## The market cannot sell the timber and iron the crew's estate is about to
+## spend, so build, work and trade never use one commodity twice (wiki:
+## economy-planner § Reservations; DR-20261113-08's fabric row is the same
+## rule for the muster).
+func test_a_court_keeps_the_materials_its_works_will_spend() -> void:
+	var economy: PlayerEconomy = _economy({"lumber": 25, "castIron": 25, "grain": 100})
+	var market := WorldMarket.with_default_prices()
+	var plain: Dictionary = AiMarketPlanner.plan(_config(), economy, market, 0)
+	assert_eq(_offered(plain, "lumber"), 5, "the surplus above the reserve sells")
+	assert_eq(_offered(plain, "castIron"), 5)
+
+	var rows: Dictionary = {"lumber": 5, "castIron": 5}
+	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 0, economy, {}, rows)
+	assert_eq(int(reserved.get("lumber", 0)), 5, "the estate's timber is held")
+	assert_eq(int(reserved.get("castIron", 0)), 5, "and its iron")
+	var kept: Dictionary = AiMarketPlanner.plan(
+		_config(), economy, market, 0, {}, reserved
+	)
+	assert_eq(_offered(kept, "lumber"), 0, "no timber goes to market")
+	assert_eq(_offered(kept, "castIron"), 0, "no iron either")
+
+	var partly: Dictionary = AiMarketPlanner.plan(
+		_config(), economy, market, 0, {}, {"lumber": 2}
+	)
+	assert_eq(_offered(partly, "lumber"), 3, "only the row the work needs is held")
+
+
 func test_bids_short_build_inputs_with_free_holds_and_the_purse() -> void:
 	var economy: PlayerEconomy = _economy(
 		{"lumber": 0, "castIron": 0, "fabric": 0, "paper": 0}, 5000

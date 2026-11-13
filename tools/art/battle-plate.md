@@ -68,10 +68,38 @@ puts each of the three gates — the same three the rules breach. Segments are
 drawn once, the garrison is drawn over them, then the top 15 % of the segment
 is painted again over the men so the defenders stand behind their merlons.
 
+## Regiment miniatures — `regiments/<type_id>.png` (200 px tall)
+
+One painted sprite per land regiment type in `RegimentCatalog` (29 of them), so
+a formation shows its composition: a file of musketeers, a block of pikes, a
+rider, a gun. Painted, not rendered — `tools/art/regiment_miniatures.py` draws
+them all with one palette, one key light (upper left), one canvas tooth and one
+ink edge, so the set is one hand by construction.
+
+```bash
+python3 tools/art/regiment_miniatures.py . --sheet /tmp/mini.png
+```
+
+Each kit in `KITS` picks the body (foot, horse, gun), the headgear, the coat
+colour and the arm: `pike`, `halberd`, `musket`, `rifle`, `bow`, `sabre`,
+`lance`, `carbine`, plus the gun's barrel (`culverin`, `royal`, `heavy`,
+`field`, `light`, `mortar`). Two entries never share a silhouette.
+
+The sprites are painted on **one scale**, measured off a standing foot figure
+(`RegimentMiniatures.FIGURE_HEIGHT = 200`): a gun is drawn lower than a man and
+a rider taller, and the view scales every type by the foot soldier's height, so
+relative sizes survive onto the plate. Faction colour is a tint in the view, so
+the art itself stays neutral.
+
+The plate groups the line by type, stands each regiment as its own miniature
+and prints the composition under the line (`RegimentMiniatures.caption`), in
+the blocks' own order. A type with no art falls back to `soldier.png`.
+
 ## Import
 
 Mipmaps on for all of them (`mipmaps/generate=true`): the plate is drawn far
 smaller than the source in the simulator and larger in the map overlay.
+
 
 ## Verify
 

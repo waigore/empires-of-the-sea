@@ -40,6 +40,9 @@ static func run(
 			continue
 		var config: AiConfig = AiConfig.build(faction, game_seed)
 		var agenda: String = ai_state.agenda_for(config)
+		# The court's war footing rides the trace; the planners read it through
+		# AiPhasePlanner (DR-20261113-15).
+		var phase: Dictionary = AiPhasePlanner.plan(config, state)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
 			config, state, ai_state, world, turn, _reading(shared, faction)
 		)
@@ -49,6 +52,7 @@ static func run(
 			"leader": config.leader,
 			"agenda": agenda,
 			"profile": config.profile,
+			"phase": phase,
 			"action": action.duplicate(true),
 			"candidates": plan["candidates"],
 		}
@@ -59,11 +63,18 @@ static func run(
 			record["result"] = applied.get("result", {})
 			var message: String = String(applied.get("message", ""))
 			record["message"] = message
+			# The court's own player-facing lines, kept per record so a caller
+			# can put each in the channel that should carry it: the map pass
+			# toasts what changes the crown's turn and leaves World news to the
+			# Gazette (wiki: the-gazette § Not the Gazette).
+			var lines: Array[String] = []
 			if not message.is_empty():
-				messages.append(message)
+				lines.append(message)
 			for extra: String in applied.get("messages", []):
 				if not extra.is_empty():
-					messages.append(extra)
+					lines.append(extra)
+			record["messages"] = lines
+			messages.append_array(lines)
 		trace.append(record)
 	return {"trace": trace, "messages": messages}
 
@@ -264,6 +275,11 @@ static func _peace_answer(
 		# read that court's own peace stance, not a fresh roll.
 		config.agenda = agenda
 		config.agenda_traits = AiAgenda.resolve(agenda)
+	# A court fighting enough fronts takes the white peace instead of refusing it:
+	# no court wins two wars at once (wiki: phase-planner-architecture § Playable
+	# slice; DR-20261113-15).
+	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)):
+		return DiplomacyRules.DECISION_AUTO
 	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
 		config, state, world, target, offerer, _reading(shared, target)
 	)

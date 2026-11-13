@@ -30,6 +30,8 @@ planners (`AiTurn`, `AiMilitaryPlanner`, `AiNavalPlanner`, `AiEconomyPlanner`,
 `AiCivilianPlanner`). `MapPlayObserver.snapshot` reports per crown:
 
 - leader, agenda and profile
+- war footing: `at war` (a Great Power war), `overstretched` (two or more) or
+  `at peace` (`AiPhasePlanner`, DR-20261113-15)
 - Old/New World provinces and progress toward the 31-province victory, plus rank
 - public power score, regiments, ships, civilians
 - treasury, stockpile, workers, researched techs
