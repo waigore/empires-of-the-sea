@@ -18,15 +18,10 @@ static func run(play: PlaySession) -> Dictionary:
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
-	var factions: Array[int] = FactionCatalog.great_power_ids()
 	# Every rival ledger exists before any court resolves, so a spy observing a
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
-	for faction: int in factions:
-		if faction == play.player_faction and not play.observer_mode:
-			continue
-		if not AiControl.plans(play, faction):
-			continue
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		MapPlayCivilianAi.seed(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
@@ -34,8 +29,8 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
-		var at_war: bool = _at_war(play, faction)
-		var regiments: int = _regiments(play, faction)
+		var at_war: bool = MapPlayCourt.at_war(play, faction)
+		var regiments: int = MapPlayCourt.regiments(play, faction)
 		# The goal the court plans with this turn: money first (DR-20261113-19).
 		# The reserve is the muster it is saving for while it stands under its
 		# regiment target, else its own cash floor; a court short of it is on
@@ -60,14 +55,14 @@ static func run(play: PlaySession) -> Dictionary:
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
-		var hospitals: Array[int] = _hospital_demands(play, faction)
+		var hospitals: Array[int] = HospitalRules.demand_list(play.world, faction)
 		# The works a crew will start this turn are planned against the ledger
 		# the phase will close with, so the market knows which feedstock they
 		# need before it stages a sale: build, work and trade never spend the
 		# same commodity twice (wiki: economy-planner § Reservations). The same
 		# plans are applied once the phase has resolved.
 		var projected: Dictionary = EconomyTurn.project(
-			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
+			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
 			_army_food(play, faction), boost, hospitals, _leader(play, faction)
 		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
@@ -81,7 +76,7 @@ static func run(play: PlaySession) -> Dictionary:
 		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
-			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
+			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
 			_army_food(play, faction), false, boost, hospitals, _leader(play, faction)
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
@@ -192,7 +187,8 @@ static func _trade(
 		0
 	)
 	var need: Dictionary = AiArmyReinforce.muster_reserve(
-		config, economy, _regiments(play, faction), _at_war(play, faction)
+		config, economy, MapPlayCourt.regiments(play, faction),
+		MapPlayCourt.at_war(play, faction)
 	)
 	# One primitive for every reservation: the rations, the muster's row, the
 	# works and this turn's production are ranked claims, and the market reads
@@ -286,20 +282,6 @@ static func _reserved_inputs(
 	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
 
 
-static func _ships(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	return play.ship_layer.hull_count_all(faction)
-
-
-## Land regiments this court holds in every region: the muster target is read
-## against the whole order of battle, as the land pass reads it.
-static func _regiments(play: PlaySession, faction: int) -> int:
-	if play.army_layer == null:
-		return 0
-	return play.army_layer.regiment_count_all(faction)
-
-
 ## Food this court will eat before Production: army, navy, every worker ration
 ## and every hospital staff (wiki: workers-and-population § Consumption;
 ## combat § Regiment condition).
@@ -307,17 +289,12 @@ static func _food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
 	var demand: int = _army_food(play, faction)
-	demand += _ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
-	for ration: int in _hospital_demands(play, faction):
+	demand += MapPlayCourt.ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	for ration: int in HospitalRules.demand_list(play.world, faction):
 		demand += ration
 	for tier in WorkerPool.TIER_COUNT:
 		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
 	return demand
-
-
-## The ordered ration of every hospital staff in this court, seat first.
-static func _hospital_demands(play: PlaySession, faction: int) -> Array[int]:
-	return HospitalRules.demand_list(play.world, faction)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:
@@ -330,12 +307,3 @@ static func _army_food(play: PlaySession, faction: int) -> int:
 ## points (wiki: leader-bonuses § Bonus Table — Victoria).
 static func _leader(play: PlaySession, faction: int) -> String:
 	return String(play.leaders.get(faction, ""))
-
-
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false

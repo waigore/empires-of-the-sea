@@ -1479,6 +1479,13 @@ domain = "ai"
 match = "scripts/map/map_play_civilian_ai.gd*"
 domain = "ai"
 
+# The one reader every rival pass asks for a court's standing and order of
+# battle. Its suites are the observer/AI set, so keep it off the broad map
+# catch-all (tier-1 5 min budget).
+[[rules]]
+match = "scripts/map/map_play_court.gd*"
+domain = "ai"
+
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
 [[rules]]
