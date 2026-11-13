@@ -1,0 +1,4 @@
+# VC object packs are zlib; without this, small blobs look like text to git
+# and break gd-tools patch coverage (UTF-8 decode of `git diff`).
+**/.vc/objects/** binary
+**/.vc/index binary

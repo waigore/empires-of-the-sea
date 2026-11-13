@@ -31,7 +31,9 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 50000,
-		"default": 1000,
+		# Climb probe (ai-bench): lower floor so the live crown can muster more
+		# often under bench pressure (was 1000).
+		"default": 400,
 	},
 	{
 		"key": "army.min_peasants",
