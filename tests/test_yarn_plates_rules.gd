@@ -644,9 +644,14 @@ func test_a_tongue_with_no_file_adds_nothing() -> void:
 func test_the_reader_can_choose_the_device_tongue_again() -> void:
 	DialogueLocale.set_locale("es")
 	assert_ne(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
-	DialogueLocale.follow_device()
 	assert_eq(
-		DialogueLocale.locale(), DialogueLocale.device_locale(), "the device decides again"
+		DialogueLocale.follow_device(), DialogueLocale.locale(), "the device decides again"
+	)
+	# Whatever the build machine asks for (a bare POSIX `C` on CI runners), the
+	# device's tongue is the one the court prints in and it has a name.
+	assert_false(
+		DialogueLocale.native_name(DialogueLocale.device_locale()).is_empty(),
+		"the device's own tongue has a name"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 

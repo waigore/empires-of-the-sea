@@ -153,17 +153,21 @@ static func set_locale(code: String) -> void:
 
 
 ## The tongue the device itself asks for: what a reader who never picked one
-## reads, and what the picker returns to.
+## reads, and what the picker returns to. A device with no tongue set (a bare
+## POSIX `C` locale, or none at all) reads the source, as the engine would.
 static func device_locale() -> String:
-	var code: String = OS.get_locale()
-	return code if not code.is_empty() else SOURCE_LOCALE
-
-
-## Reads the device's own tongue again, undoing an explicit choice.
-static func follow_device() -> String:
-	var code: String = device_locale()
-	TranslationServer.set_locale(code)
+	var code: String = OS.get_locale().strip_edges()
+	var bare: String = code.to_upper()
+	if code.is_empty() or bare == "C" or bare == "POSIX":
+		return SOURCE_LOCALE
 	return code
+
+
+## Reads the device's own tongue again, undoing an explicit choice. Returns the
+## locale the engine settles on, which is what a court now prints in.
+static func follow_device() -> String:
+	TranslationServer.set_locale(device_locale())
+	return locale()
 
 
 ## Every locale that can be read: the shipped translations plus the source.

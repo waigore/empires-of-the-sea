@@ -205,8 +205,7 @@ func test_a_chosen_tongue_survives_the_next_boot() -> void:
 	assert_eq(DialogueLocale.locale(), "es", "the next boot speaks the picked tongue")
 	assert_true(TonguePrefs.choose("", TONGUE_CFG), "the device is a pick as well")
 	assert_eq(TonguePrefs.stored(TONGUE_CFG), "", "and it clears the record")
-	DialogueLocale.follow_device()
-	assert_eq(DialogueLocale.locale(), DialogueLocale.device_locale(), "the device decides again")
+	assert_eq(DialogueLocale.follow_device(), DialogueLocale.locale(), "the device decides again")
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
