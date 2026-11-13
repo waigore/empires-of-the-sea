@@ -3491,3 +3491,12 @@ func test_a_fed_court_bids_no_food() -> void:
 	var plan: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 4)
 	assert_eq(_bid_of(plan, "grain"), 0)
 	assert_eq(_offer_of(plan, "wool"), 5)
+
+
+## The larder reading the lock-recovery gate is built on: both ration
+## commodities, and nothing else in the stockpile (issue #489).
+func test_the_larder_reading_counts_only_food() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
+	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
+	assert_eq(MapPlayEconomyAi._food_held(null), 0)
