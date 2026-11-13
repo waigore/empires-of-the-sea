@@ -31,7 +31,7 @@ Repo: `waigore/empires-of-the-sea` (or current `gh` remote). Use `gh`.
 | [`references/bug-template.md`](references/bug-template.md) | Bug issue body |
 | [`references/feature-template.md`](references/feature-template.md) | Feature issue body |
 
-**Not this skill:** hunting/fixing defects → hunt-defects; implementing features → implement-feature; clarifying wiki design → elucidate-design.
+**Not this skill:** implementing a filed `todo` → [`resolve-issue-agent`](../resolve-issue-agent/SKILL.md); verifying `resolved` → [`review-issue-agent`](../review-issue-agent/SKILL.md); hunting defects → hunt-defects; new features from gaps → implement-feature; clarifying wiki design → elucidate-design.
 
 ## Labels
 
