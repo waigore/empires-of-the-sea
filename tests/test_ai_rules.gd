@@ -439,7 +439,7 @@ func test_ai_military_splits_the_home_army_on_a_hostile_border() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 4, "one regiment guards the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 	var field: ArmyState = split["army"] as ArmyState
 	assert_eq(field.count(), 4)
@@ -605,7 +605,7 @@ func test_a_minor_sends_a_relief_column_to_an_invaded_province() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 2, "one regiment keeps the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	assert_true(bool(split["ok"]))
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	assert_eq((plan["orders"] as Array).size(), 1)
@@ -662,7 +662,7 @@ func test_a_tribe_sends_the_same_relief_column() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	ArmyState.split(armies, armies[0], ids, 10)
+	ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 9)
 	assert_eq((plan["orders"] as Array).size(), 1)
 	assert_eq(int(plan["orders"][0]["province"]), 0)
@@ -740,7 +740,7 @@ func test_the_relief_column_joins_the_defence() -> void:
 	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 6)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	var field: ArmyState = split["army"] as ArmyState
 	ArmyMovement.apply_move(model, field, int(plan["orders"][0]["province"]), true)
@@ -809,7 +809,7 @@ func _split_home(
 	assert_eq(splits.size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 
 

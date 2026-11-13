@@ -1305,7 +1305,9 @@ match = "tests/test_naming_rules.gd*"
 domain = "naming"
 
 [[rules]]
-match = "scripts/rules/army_*.gd"
+# `.gd*` keeps companion `.uid` files on the army domain (not the rules/** misc
+# catch-all), so a new army module's uid does not pull tables_rules past tier-1.
+match = "scripts/rules/army_*.gd*"
 domain = "army"
 
 [[rules]]
