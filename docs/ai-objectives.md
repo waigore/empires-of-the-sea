@@ -74,4 +74,4 @@ same ambition and never declares on it (DR-20261114-02).
 | T3 reservations become claims | #498 | shipped |
 | T4 posture modifier + weights | #499 | shipped |
 | T5 naval build policy | #500 | shipped |
-| T6 ai-bench funded share | #501 | pending |
+| T6 ai-bench funded share | #501 | shipped |
