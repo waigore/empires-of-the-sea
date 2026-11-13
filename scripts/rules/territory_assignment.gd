@@ -15,13 +15,9 @@ const LAYOUT_ATTEMPTS: int = 6
 const ERROR_NO_PROVINCES: String = "no_provinces"
 const ERROR_TOO_FEW_PROVINCES: String = "too_few_provinces"
 const ERROR_NO_SEA_BOUND_PROVINCE: String = "missing_sea_bound_province"
-## The New World's own code: the wiki names a Tribe that owns no sea-bound
-## province `tribe_missing_sea_bound_province`, so the regen-until-pass path and
-## a reader of the failure can tell a Tribe's missing landfall from a Great
-## Power's (wiki: game-setup § Tribe assignment, § Acceptance Criteria).
+## Wiki code when a Tribe owns no sea-bound province (game-setup § Tribe assignment).
 const ERROR_TRIBE_SEA_BOUND: String = "tribe_missing_sea_bound_province"
-## A faction seated in a pocket too small for its budget leaves the split lopsided;
-## the wiki says setup fails rather than ship it (game-setup § Feasibility).
+## Unfair split: pocket too small for a faction's budget (game-setup § Feasibility).
 const ERROR_UNFAIR_SPLIT: String = "unfair_split"
 
 
@@ -33,9 +29,7 @@ static func assign_old_world(
 	return _assign(model, gp_ids, minor_ids, true)
 
 
-## New World: every Tribe must own at least one sea-bound province so fleets can
-## discover it (wiki: game-setup § Tribe assignment). A Tribe left without one
-## fails with the wiki's own code, not the Great Power one.
+## New World Tribes need a sea-bound province; miss → ERROR_TRIBE_SEA_BOUND.
 static func assign_new_world(model: MapModel, tribe_ids: Array[int]) -> Dictionary:
 	return _assign(model, tribe_ids, [] as Array[int], true, ERROR_TRIBE_SEA_BOUND)
 
