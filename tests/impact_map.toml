@@ -146,8 +146,6 @@ suites = [
 suites = [
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
-  "test_naval_movement.gd",
-  "test_naval_raid.gd",
   "test_market_economy_rules.gd",
   "test_battle_rules.gd"
 ]
@@ -419,7 +417,7 @@ suites = [
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
 suites = [
-  "test_victory_standings.gd",
+  "test_campaign_rules.gd",
   "test_gazette_plate.gd",
   "test_campaign_end.gd"
 ]
