@@ -232,8 +232,9 @@ static func sever(state: DiplomacyState, a: int, b: int) -> void:
 			state.record_event("boycottRevoked", pair.x, pair.y, {"cause": "war"})
 
 
-## Installs every crown's trade terms on the shared market. The market is pure
-## data; the caller supplies the world so a subsidy can find its court's goods.
+## Installs every crown's trade terms on the shared market, and the subsidy step
+## each pair carries beside them. The market is pure data; the caller supplies
+## the world so a subsidy can find its court's goods.
 static func apply_terms(
 	state: DiplomacyState, world: WorldMap, market: WorldMarket
 ) -> void:
@@ -245,24 +246,29 @@ static func apply_terms(
 	var terms: Dictionary = market_terms(state, world)
 	for faction: int in terms.keys():
 		market.set_terms(faction, terms[faction])
+	market.subsidy_terms = subsidy_terms(state)
 
 
 ## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}} for every
 ## Great Power. Includes every crown so a rival's trade obeys the same rules.
-static func market_terms(state: DiplomacyState, world: WorldMap = null) -> Dictionary:
+## The map no longer moves a rate: pacts and boycotts are crown-wide, and a
+## subsidy is published as a pair step (`subsidy_terms`).
+static func market_terms(state: DiplomacyState, _world: WorldMap = null) -> Dictionary:
 	var terms: Dictionary = {}
 	if state == null:
 		return terms
-	var produce: Dictionary = _produce_by_faction(world)
 	for faction: int in FactionCatalog.great_power_ids():
-		terms[faction] = faction_terms(state, produce, faction)
+		terms[faction] = faction_terms(state, {}, faction)
 	return terms
 
 
-## One crown's terms. "*" carries pacts and boycotts across every commodity; a
-## subsidy writes its own commodity rates for the goods that court produces.
+## One crown's terms. "*" carries pacts and boycotts across every commodity. A
+## subsidy is **not** a crown-wide rate: it lands on the pair at settlement
+## (wiki: world-market § Subsidy price adjustment — "the step never touches a
+## deal with another court"), so `subsidy_terms` publishes it beside the rates
+## for the surfaces that state it.
 static func faction_terms(
-	state: DiplomacyState, produce: Dictionary, faction: int
+	state: DiplomacyState, _produce: Dictionary, faction: int
 ) -> Dictionary:
 	var buy: Dictionary = {"*": 1.0}
 	var sell: Dictionary = {"*": 1.0}
@@ -271,16 +277,6 @@ static func faction_terms(
 	var partners: Array[int] = ftps_of(state, faction)
 	buy["*"] = 1.0 - DiplomacyCatalog.FTP_TERMS * float(partners.size())
 	sell["*"] = 1.0 + DiplomacyCatalog.FTP_TERMS * float(partners.size())
-	for key: String in state.subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() != 2 or int(parts[0]) != faction:
-			continue
-		var percent: int = int(state.subsidies[key])
-		var surcharge: float = 1.0 + float(percent) / 100.0
-		var discount: float = 1.0 - float(percent) / 100.0
-		for id: String in _produce_of(produce, int(parts[1])):
-			buy[id] = maxf(float(buy.get(id, 1.0)), surcharge)
-			sell[id] = minf(float(sell.get(id, 1.0)), discount)
 	var boycotts: int = boycotts_against(state, faction).size()
 	buy["*"] = float(buy["*"]) + DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
 	sell["*"] = float(sell["*"]) - DiplomacyCatalog.BOYCOTT_TERMS * float(boycotts)
@@ -293,44 +289,30 @@ static func faction_terms(
 	return {"buy": buy, "sell": sell}
 
 
-## One crown's terms with the map's commodity detail (UI and tests).
-static func terms_for_court(
-	state: DiplomacyState, world: WorldMap, faction: int
-) -> Dictionary:
-	return faction_terms(state, _produce_by_faction(world), faction)
-
-
-## Commodities the faction's provinces can produce, keyed by faction, from the
-## map's resource table. No world (a rules fixture) means no commodity rates.
-static func _produce_by_faction(world: WorldMap) -> Dictionary:
-	var produce: Dictionary = {}
-	if world == null:
-		return produce
-	for index in world.region_count():
-		var model: MapModel = world.region(index)
-		if model == null:
+## `"buyer>seller" -> percent` for every subsidy in force, so the Minor's ask and
+## the Deal Book name the step the clearing charges (wiki: world-market
+## § Subsidy price adjustment; DR-20261110-29). Only the subscribed pair appears.
+static func subsidy_terms(state: DiplomacyState) -> Dictionary:
+	var terms: Dictionary = {}
+	if state == null:
+		return terms
+	for key: String in state.subsidies.keys():
+		var parts: PackedStringArray = key.split(">")
+		if parts.size() != 2:
 			continue
-		for province: ProvinceState in model.provinces:
-			if province.owner < 0:
-				continue
-			var ids: Dictionary = produce.get(province.owner, {})
-			for tile: Vector2i in province.tiles:
-				var id: String = Extraction.commodity_for_resource(model.resource_at(tile.x, tile.y))
-				if not id.is_empty():
-					ids[id] = true
-			produce[province.owner] = ids
-	return produce
+		var percent: int = int(state.subsidies[key])
+		if percent <= 0:
+			continue
+		terms["%d>%d" % [int(parts[0]), int(parts[1])]] = percent
+	return terms
 
 
-static func _produce_of(produce: Dictionary, faction: int) -> Array[String]:
-	var ids: Array[String] = []
-	var raw: Variant = produce.get(faction, {})
-	if typeof(raw) != TYPE_DICTIONARY:
-		return ids
-	for id: Variant in (raw as Dictionary).keys():
-		ids.append(String(id))
-	ids.sort()
-	return ids
+## One crown's terms, as the court sheet states them. The map is no longer read:
+## a subsidy is a pair step (`subsidy_terms`), not a commodity rate.
+static func terms_for_court(
+	state: DiplomacyState, _world: WorldMap, faction: int
+) -> Dictionary:
+	return faction_terms(state, {}, faction)
 
 
 static func _colony_tribes(state: DiplomacyState, gp: int) -> Array[int]:
