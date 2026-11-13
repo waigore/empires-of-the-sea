@@ -128,6 +128,9 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
 	assert_eq(AiParameterRegistry.default_of("military.attack_margin_pct"), 110)
 	assert_eq(AiParameterRegistry.default_of("military.defence_weight"), 500)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 500)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_regiments"), 2)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_boost"), 1250)
 	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.entries().size())
 
 

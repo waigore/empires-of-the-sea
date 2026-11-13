@@ -26,18 +26,21 @@ const LINE_CATEGORIES: Array[int] = [
 ## Returns {muster: type id or "", target, reasons: [], candidates: []}.
 ## `candidates` lists every legal line type the court could already pay for, so a
 ## turn trace can explain the pick (wiki: turn-trace-interpretation).
+## `pressure_extra` is the extra target a court that can see the victory bar
+## arms up for (DR-20261114-04); it raises the target, never the price.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	pressure_extra: int = 0
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
 	}
 	if config == null or economy == null:
 		return result
-	var target: int = _target(config, at_war)
+	var target: int = _target(config, at_war) + maxi(pressure_extra, 0)
 	result["target"] = target
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
@@ -128,9 +131,12 @@ static func muster_reserve(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	pressure_extra: int = 0
 ) -> Dictionary:
-	if config == null or economy == null or own_regiments >= _target(config, at_war):
+	if config == null or economy == null:
+		return {}
+	if own_regiments >= _target(config, at_war) + maxi(pressure_extra, 0):
 		return {}
 	var type_id: String = saving_type(config, economy)
 	if type_id.is_empty():

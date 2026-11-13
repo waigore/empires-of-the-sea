@@ -457,3 +457,120 @@ func test_an_earning_court_bids_no_imports() -> void:
 	assert_true((plan["bids"] as Array).is_empty(), "the reserve is not the auction's to spend")
 
 
+
+# --- victory pressure --------------------------------------------------------
+## A court that can see the bar presses for it (wiki: ai-architecture § Notable
+## strategic policies; DR-20261114-04): the reading, the thinner storm margin
+## and the weight it puts on the war domains.
+
+
+## `count` Old World provinces all held by `owner`.
+func _owners(owner: int, count: int) -> Array[int]:
+	var owners: Array[int] = []
+	for _index in count:
+		owners.append(owner)
+	return owners
+
+
+func test_a_court_far_from_the_bar_keeps_the_published_margin() -> void:
+	var config: AiConfig = _config()
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(OWNER, 5)), OWNER, MapModel.NO_ID, Difficulty.DEFAULT, config
+	)
+
+	assert_eq(String(read["stage"]), AiVictoryPressure.STAGE_FAR)
+	assert_eq(int(read["holdings"]), 5)
+	assert_eq(int(read["bar"]), VictoryRules.MILITARY_THRESHOLD)
+	assert_eq(int(read["need"]), 26)
+	assert_eq(int(read["share_mille"]), 161)
+	assert_eq(
+		int(read["extra_regiments"]), 0,
+		"a court that cannot see the bar arms up as published"
+	)
+	assert_eq(int(read["boost_mille"]), AiVictoryPressure.NEUTRAL)
+	assert_false(AiVictoryPressure.presses(String(read["stage"])))
+
+
+func test_a_court_that_can_see_the_bar_presses_its_war() -> void:
+	var config: AiConfig = _config()
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(OWNER, 21)), OWNER, MapModel.NO_ID, Difficulty.DEFAULT, config
+	)
+
+	assert_eq(String(read["stage"]), AiVictoryPressure.STAGE_NEAR)
+	assert_eq(int(read["share_mille"]), 677)
+	assert_eq(int(read["need"]), 10)
+	assert_eq(
+		int(read["extra_regiments"]), config.parameter("victory.pressure_regiments"),
+		"the endgame court arms up for the finish"
+	)
+	assert_eq(int(read["boost_mille"]), config.parameter("victory.pressure_boost"))
+	assert_true(AiVictoryPressure.presses(String(read["stage"])))
+	assert_eq(AiVictoryPressure.label(String(read["stage"])), "pressing for the bar")
+
+
+func test_a_court_at_the_bar_reads_at_bar() -> void:
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(OWNER, VictoryRules.MILITARY_THRESHOLD)),
+		OWNER, MapModel.NO_ID, Difficulty.DEFAULT, _config()
+	)
+
+	assert_eq(String(read["stage"]), AiVictoryPressure.STAGE_AT_BAR)
+	assert_eq(int(read["need"]), 0)
+	assert_eq(int(read["share_mille"]), AiVictoryPressure.NEUTRAL)
+	assert_true(AiVictoryPressure.presses(String(read["stage"])))
+
+
+func test_the_pressure_threshold_is_a_registry_knob() -> void:
+	assert_eq(
+		AiVictoryPressure.stage_for(21, 31, 677, 500), AiVictoryPressure.STAGE_NEAR
+	)
+	assert_eq(
+		AiVictoryPressure.stage_for(21, 31, 677, 1000), AiVictoryPressure.STAGE_FAR,
+		"a higher start holds the court off the bar"
+	)
+	assert_eq(AiVictoryPressure.stage_for(31, 31, 1000, 1000), AiVictoryPressure.STAGE_AT_BAR)
+	assert_eq(AiVictoryPressure.share_mille(0, 0), 0, "no bar, no share")
+	assert_eq(AiVictoryPressure.share_mille(40, 31), 1000, "a share never passes the whole")
+
+
+func test_the_crown_reads_its_own_bar() -> void:
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(OWNER, 21)), OWNER, OWNER, "hard", _config()
+	)
+
+	assert_eq(int(read["bar"]), VictoryRules.crown_threshold("hard"))
+	assert_eq(
+		int(read["bar"]), VictoryRules.threshold_for(OWNER, OWNER, "hard"),
+		"the human crown's bar carries the level"
+	)
+
+
+func test_a_session_with_no_world_reads_far() -> void:
+	var read: Dictionary = AiVictoryPressure.read(
+		null, OWNER, MapModel.NO_ID, Difficulty.DEFAULT, _config()
+	)
+
+	assert_eq(String(read["stage"]), AiVictoryPressure.STAGE_FAR)
+	assert_eq(int(read["holdings"]), 0)
+	assert_eq(int(read["bar"]), VictoryRules.MILITARY_THRESHOLD)
+	assert_eq(int(read["extra_regiments"]), 0, "no world, no extra muster")
+
+
+func test_the_pressure_scales_the_war_domains_only() -> void:
+	var config: AiConfig = _config()
+	var phase: String = AiPhasePlanner.PHASE_PEACE
+	var calm: Dictionary = AiPosture.modifiers(phase, config)
+	var pressed: Dictionary = AiPosture.modifiers(
+		phase, config, config.parameter("victory.pressure_boost")
+	)
+
+	assert_true(int(pressed["military"]) > int(calm["military"]), "the army leads")
+	assert_true(int(pressed["naval"]) > int(calm["naval"]), "and the fleet with it")
+	assert_true(int(pressed["expansion"]) > int(calm["expansion"]), "and the land it takes")
+	assert_eq(int(pressed["economy"]), int(calm["economy"]), "the ledger keeps its weight")
+	assert_eq(int(pressed["research"]), int(calm["research"]), "and so does the study")
+	assert_eq(
+		int(AiPosture.modifiers(phase, config, AiVictoryPressure.NEUTRAL)["military"]),
+		int(calm["military"]), "a neutral boost changes nothing"
+	)

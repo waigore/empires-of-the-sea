@@ -34,8 +34,9 @@ Audited through DR-20261114-02 (`REQ-P2-02`).
 1. **New World colony founded** — voyages land and a court now takes New World
    provinces by storm (DR-14-03), but no court finishes Join Empire: the
    `5,000 + 2,000 × provinces` price is out of reach of a rival purse.
-2. **Phase soft priority** — weight vector, domain gating beyond the voyage,
-   victory pressure stay seed (DR-13-15); posture/T4 live.
+2. **Phase soft priority** — the weight vector and domain gating beyond the
+   voyage stay seed (DR-13-15); posture/T4 and victory pressure are live
+   (DR-14-04).
 3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
    queue cap (wiki-deferred).
 

@@ -194,7 +194,10 @@ static func _trade(
 	)
 	var need: Dictionary = AiArmyReinforce.muster_reserve(
 		config, economy, MapPlayCourt.regiments(play, faction),
-		MapPlayCourt.at_war(play, faction)
+		MapPlayCourt.at_war(play, faction),
+		int(AiVictoryPressure.read(
+			play.world, faction, play.human_faction_id(), play.difficulty, config
+		)["extra_regiments"])
 	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and

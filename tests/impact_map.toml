@@ -1385,6 +1385,16 @@ domain = "ai_diplomacy"
 match = "scripts/ai/**"
 domain = "ai"
 
+# Victory-aware military pressure (DR-20261114-04): the reading and its knobs
+# name their own rule so the new modules never lean on the catch-all above.
+[[rules]]
+match = "scripts/ai/ai_victory_pressure.gd*"
+domain = "ai"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_victory.gd*"
+domain = "ai"
+
 [[rules]]
 match = "tests/ai_fixture.gd"
 domain = "ai"
