@@ -1607,6 +1607,90 @@ func test_peace_is_offered_when_the_war_stops_being_worth_it() -> void:
 	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
 	assert_eq(int(plan["action"]["target"]), 1)
 
+## The other half of the exchange: a court still wants the war it declared, so
+## the defender's white peace is refused and the war reaches Movement (wiki:
+## diplomacy § Planner selection; hidden-agendas — a warmonger keeps the war
+## alive; DR-20261111-27). The observer run showed the opposite: every rival war
+## was dissolved in the phase it was declared.
+func test_a_warmonger_refuses_the_peace_offered_in_the_phase_it_declared() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(1, 2, 1)
+	ai_planner_state.relation(1, 2).score = 35.0
+	var war: Dictionary = DiplomacyRules.declare_war(ai_planner_state, 1, 2)
+	assert_true(bool(war["ok"]), "the declaration stands")
+	ai_planner_ai_state.agendas[1] = AiAgenda.WARMONGER
+	ai_planner_ai_state.agendas[2] = AiAgenda.ISOLATIONIST
+	var result: Dictionary = AiTurn.run(
+		ai_planner_state,
+		ai_planner_AiFixture.world([1, 1, 1, 1, 2]),
+		ai_planner_ai_state,
+		1,
+		0,
+		1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var record: Dictionary = _campaign_record_for(result["trace"], 2)
+	assert_eq(String(record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(
+		ai_planner_state.relation(1, 2).at_war,
+		"the war it declared still stands after the defender's offer"
+	)
+	assert_true(String(record["message"]).contains("refuses a white peace"))
+	assert_true(
+		ai_planner_ai_state.peace_on_cooldown(2, 1, 2, 3),
+		"the refusal starts the pair's peace-offer cooldown"
+	)
+
+## A refused white peace is not put again the next turn: the pair waits out the
+## cooldown (wiki: diplomacy § Planner selection — either answer starts it, so a
+## court does not ask again every turn; DR-20261109-07).
+func test_a_refused_peace_waits_out_the_pair_cooldown() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(1, 2, 1)
+	ai_planner_state.relation(1, 2).score = 35.0
+	DiplomacyRules.declare_war(ai_planner_state, 1, 2)
+	ai_planner_ai_state.agendas[1] = AiAgenda.WARMONGER
+	ai_planner_ai_state.agendas[2] = AiAgenda.ISOLATIONIST
+	var world: WorldMap = ai_planner_AiFixture.world([1, 1, 1, 1, 2])
+	AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 1, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var cooling: Dictionary = AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 2, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var cooling_record: Dictionary = _campaign_record_for(cooling["trace"], 2)
+	assert_true(
+		cooling_record["action"].is_empty(),
+		"a refused peace is not offered again the next turn"
+	)
+	assert_eq(
+		_campaign_blocked(cooling_record, 1), "peace cooldown",
+		"the trace explains the wait"
+	)
+	var ready: Dictionary = AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 4, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var ready_record: Dictionary = _campaign_record_for(ready["trace"], 2)
+	assert_eq(String(ready_record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(ai_planner_state.relation(1, 2).at_war, "the warmonger still refuses")
+
+## The trace row one court recorded for its target ("{}" when it did nothing).
+func _campaign_record_for(trace: Array, faction: int) -> Dictionary:
+	for record: Dictionary in trace:
+		if int(record["faction"]) == faction:
+			return record
+	return {}
+
+## The reason the planner recorded against one target ("" when it was legal).
+func _campaign_blocked(record: Dictionary, target: int) -> String:
+	for row: Dictionary in record.get("candidates", []):
+		if int(row.get("target", -1)) == target:
+			return String(row.get("blocked", ""))
+	return ""
+
 func test_peace_with_the_human_is_proposed_and_waits_for_the_player() -> void:
 	_setup_ai_planner()
 	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)

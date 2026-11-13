@@ -25,6 +25,8 @@ const SEA_NAMES: Array[String] = [
 ## Region scopes match wiki resource-terrain-region-rules (ow / nw / both).
 static func resource_table() -> Array[Dictionary]:
 	var forest: Array = [MapModel.Terrain.HARDWOOD_FOREST, MapModel.Terrain.SCRUB_FOREST]
+	## Hardwood alone hosts the New World fur catch (wiki: § Forest terrain split).
+	var hardwood: Array = [MapModel.Terrain.HARDWOOD_FOREST]
 	var hills: Array = [MapModel.Terrain.HILLS]
 	var peaks: Array = [MapModel.Terrain.MOUNTAINS]
 	var plains: Array = [MapModel.Terrain.PLAINS]
@@ -36,14 +38,23 @@ static func resource_table() -> Array[Dictionary]:
 		{"name": "Coal", "icon": "ore", "commodity": "coal", "terrain": hills + peaks, "scope": "both"},
 		{"name": "Gold", "icon": "coin", "commodity": "gold", "terrain": peaks, "scope": "nw"},
 		{"name": "Grain", "icon": "wheat", "commodity": "grain", "terrain": plains, "scope": "ow"},
-		{"name": "Wool", "icon": "wheat", "commodity": "wool", "terrain": plains + hills, "scope": "ow"},
+		{"name": "Wool", "icon": "wheat", "commodity": "wool", "terrain": hills, "scope": "ow"},
 		{"name": "Horses", "icon": "wheat", "commodity": "horses", "terrain": plains, "scope": "ow"},
-		{"name": "Meat", "icon": "wheat", "commodity": "meat", "terrain": plains + hills, "scope": "ow"},
+		{"name": "Meat", "icon": "wheat", "commodity": "meat", "terrain": plains, "scope": "ow"},
 		{"name": "Tin", "icon": "ore", "commodity": "tin", "terrain": swamp, "scope": "both"},
 		{"name": "Copper", "icon": "ore", "commodity": "copper", "terrain": hills + peaks, "scope": "both"},
 		{"name": "Silver", "icon": "coin", "commodity": "silver", "terrain": hills, "scope": "nw"},
 		{"name": "Gems", "icon": "coin", "commodity": "gems", "terrain": peaks, "scope": "nw"},
 		{"name": "Diamonds", "icon": "coin", "commodity": "diamonds", "terrain": desert, "scope": "nw"},
+		## The New World crops (wiki: resource-terrain-region-rules § Table). They
+		## are appended so every saved resource index keeps its meaning: the five
+		## discovery techs, the sugar/tobacco/fur luxuries and cotton cloth are
+		## reachable only once these can stand on a New World tile.
+		{"name": "Sugar Cane", "icon": "wheat", "commodity": "sugarCane", "terrain": plains, "scope": "nw"},
+		{"name": "Tobacco", "icon": "wheat", "commodity": "tobacco", "terrain": plains, "scope": "nw"},
+		{"name": "Cotton", "icon": "wheat", "commodity": "cotton", "terrain": plains, "scope": "nw"},
+		{"name": "Furs", "icon": "tree", "commodity": "furs", "terrain": hardwood, "scope": "nw"},
+		{"name": "Spices", "icon": "wheat", "commodity": "spices", "terrain": plains, "scope": "nw"},
 	]
 	return table
 

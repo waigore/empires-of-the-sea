@@ -25,6 +25,7 @@ ALLOWED_GD_PREFIXES = (
     "ui/",
     "autoload/",
     "tests/",
+    "playtests/",
     "tools/",
     "addons/",
 )

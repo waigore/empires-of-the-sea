@@ -2,13 +2,14 @@
 name: file-github-issue
 description: |-
   File a GitHub issue from a user bug/defect report or feature request:
-  classify type, interview for missing details (bugs require platform),
-  search open duplicates and confirm with the user if any match, analyze
-  (incl. wiki Game rules alignment), ensure labels todo + bug|enhancement,
-  submit via gh without a final draft confirm. Confirm with the user before
-  noting a wiki follow-up when rules conflict or are silent. Use when the
-  user reports a bug, defect, issue, broken behavior, or asks for a feature /
-  enhancement, or when they ask to file/log a GitHub issue.
+  classify type, interview for missing details (platform only if stated or
+  clearly relevant; else all platforms), search open duplicates and confirm
+  with the user if any match, analyze (incl. wiki Game rules alignment),
+  ensure labels todo + bug|enhancement, submit via gh without a final draft
+  confirm. Confirm with the user before noting a wiki follow-up when rules
+  conflict or are silent. Use when the user reports a bug, defect, issue,
+  broken behavior, or asks for a feature / enhancement, or when they ask to
+  file/log a GitHub issue.
 
   Examples:
     - "fleet move ignores range on Android" → bug interview → analysis → issue

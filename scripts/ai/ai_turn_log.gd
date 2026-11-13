@@ -106,6 +106,12 @@ static func _record_diplomacy(
 		var action: Dictionary = raw.get("action", {}) as Dictionary
 		if action.is_empty():
 			continue
+		# An order the rules refused never reached the court: counting it as a
+		# declaration (or inventing its sentence) would report a war that never
+		# happened (wiki: turn-trace-interpretation).
+		var result: Dictionary = raw.get("result", {}) as Dictionary
+		if result.has("ok") and not bool(result.get("ok", false)):
+			continue
 		var kind: String = String(action.get("kind", ""))
 		var target: int = int(action.get("target", NO_ID))
 		_bump(factions[faction]["actions"], _diplomacy_key(kind))

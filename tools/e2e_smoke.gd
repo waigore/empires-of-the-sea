@@ -36,11 +36,11 @@ func _run() -> void:
 
 	var menu: MainMenu = main.current_page as MainMenu
 	_check(menu != null, "main menu boots first")
-	_check(menu != null and menu.settings_button.disabled, "settings is dimmed")
 	_check(main.current_screen == null, "no map runs behind the title screen")
 	if menu == null:
 		_finish()
 		return
+	# English-only: the tongue settings door is gone.
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
 
@@ -161,7 +161,7 @@ func _run() -> void:
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
 	_check(paused, "in-game menu pauses the tree")
-	_check(screen.game_menu.settings_button.disabled, "in-game settings is dimmed")
+	# English-only: no mid-campaign tongue page.
 	screen.game_menu.open_save()
 	_check(screen.game_menu.browser.visible, "save browser opens")
 	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)

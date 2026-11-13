@@ -245,6 +245,12 @@ func scrap_hull(fleet: FleetState, hull_id: String, economy: PlayerEconomy) -> D
 	return result
 
 
+## Re-reads a squadron's hulls onto its marker after a raid sank one.
+func refresh_hulls(fleet: FleetState) -> void:
+	if fleet != null:
+		_markers.hulls(fleet)
+
+
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:

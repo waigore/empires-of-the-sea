@@ -41,6 +41,9 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var agenda: String = play.ai.agenda_for(config) if play.ai != null else config.agenda
 	var economy: PlayerEconomy = _economy(play, faction)
+	# The footing the court plans with this turn (DR-20261113-15): a war, an
+	# overstretched court with two fronts, or the published peace.
+	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
@@ -52,6 +55,8 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"leader": LeaderCatalog.label(String(play.leaders.get(faction, ""))),
 		"agenda": agenda.capitalize().replace("_", " "),
 		"profile": config.profile,
+		"phase": phase,
+		"posture": AiPhasePlanner.label(phase),
 		"provinces_old": old_world,
 		"provinces_new": new_world,
 		"provinces_total": old_world + new_world,

@@ -1,14 +1,13 @@
 ---
 name: babysit-pr-agent
 description: |-
-  Operate a soft Actions check queue (at most ~3 PRs with queued/in-progress
-  runs), then unblock one same-repo PR that is conflicted, behind, or failing
-  checks so auto-merge can squash it. Skips fork PRs. One PR fix per run. Use
-  when automation or a user asks to babysit PRs for automerge.
+  Unblock one same-repo PR that is conflicted, behind, or failing checks so
+  auto-merge can squash it. Skips fork PRs. One PR fix per run. Use when
+  automation or a user asks to babysit PRs for automerge.
 
   Examples:
-    - dispatch with no PR → reshape queue, discover one eligible PR, unblock it
-    - dispatch with #12 → reshape queue, unblock #12 when it is same-repo
+    - dispatch with no PR → discover one eligible PR, unblock it
+    - dispatch with #12 → unblock #12 when it is same-repo
 ---
 
 # Babysit PR agent (facade)

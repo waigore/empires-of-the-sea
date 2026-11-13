@@ -104,8 +104,8 @@ Open one PR with `gh` (why-focused body; link the `ci-tier2` issue with
 issue and close it explicitly after merge).
 
 Then follow [`babysit-pr-agent`](../babysit-pr-agent/SKILL.md) for **this**
-PR: respect the soft Actions queue, unblock conflicts/behind/red checks,
-arm squash auto-merge, watch required checks. Do not merge manually.
+PR: unblock conflicts/behind/red checks, arm squash auto-merge, watch
+required checks. Do not merge manually.
 
 ### 6. Close the issue
 

@@ -628,6 +628,117 @@ func test_subsidy_surcharge_lands_on_the_minor_sale() -> void:
 	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
 	assert_eq((economies[0] as PlayerEconomy).treasury, before - 33)
 
+## Live play installs the crown's trade terms too, so the step must land once
+## and not multiply the surcharge by itself (wiki: world-market § Subsidy price
+## adjustment — the debt is `round(Q × P × (1 + p/100))`).
+func test_the_subsidy_step_lands_once_with_the_terms_installed() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
+	assert_eq(market.buy_price("timber", 0), 30, "the crown's own rate is the world price")
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": market.buy_price("timber", 0)}
+	)
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
+	assert_eq(
+		(economies[0] as PlayerEconomy).treasury, before - 33,
+		"round(1 x 30 x 1.10) once, not the square of it"
+	)
+
+## The same goods bought from any other court carry no step: one unit from the
+## subsidised Minor at 33, one the standing counterparty supplies at 30.
+func test_a_subsidy_leaves_another_courts_deal_alone() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 2,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": market.buy_price("timber", 0)}
+	)
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy})
+	assert_eq(
+		(economies[0] as PlayerEconomy).treasury, before - 63,
+		"33 to the subsidised court plus 30 to the counterparty"
+	)
+
+## The step stacks on the crown's own rate inside the rails the page publishes
+## (wiki: world-market § Subsidy price adjustment — 70–150% buy, 50–130% sell).
+func test_a_subsidy_steps_inside_the_published_rails() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(0, {"buy": {"*": 1.5}, "sell": {"*": 0.5}})
+	assert_almost_eq(
+		MarketRules.deal_rate(market, "timber", 0, 1.2, true), 1.5, 0.001,
+		"a 20% step on a 150% rate stops at the buy rail"
+	)
+	assert_almost_eq(
+		MarketRules.deal_rate(market, "timber", 0, 0.8, false), 0.5, 0.001,
+		"and the sell rail holds too"
+	)
+	var plain: WorldMarket = WorldMarket.with_default_prices()
+	assert_almost_eq(MarketRules.deal_rate(plain, "timber", 0, 1.1, true), 1.1, 0.001)
+	assert_almost_eq(MarketRules.deal_rate(plain, "timber", 0, 1.0, true), 1.0, 0.001)
+
+## The step's arms and the guards around them: a crown buying a subsidised
+## Minor's goods pays more, a Minor buying a crown's pays less, and every other
+## pairing — two crowns, two minors, a minor's own sale — carries no step
+## (wiki: world-market § Subsidy price adjustment, R3.4a/b).
+func test_subsidy_step_arms_and_guards() -> void:
+	assert_eq(MarketRules.subsidy_step(0, false, true, true), 1.0)
+	assert_eq(MarketRules.subsidy_step(10, false, true, true), 1.1, "the payer buys dearer")
+	assert_eq(MarketRules.subsidy_step(10, true, false, true), 0.9, "the minor buys cheaper")
+	assert_eq(MarketRules.subsidy_step(10, true, true, true), 1.0, "two minors: no step")
+	assert_eq(MarketRules.subsidy_step(10, false, false, true), 1.0, "two crowns: no step")
+	assert_eq(
+		MarketRules.subsidy_step(10, true, false, false), 0.9,
+		"a crown's sale to the subsidised minor earns less"
+	)
+	assert_eq(MarketRules.subsidy_step(10, false, true, false), 1.0, "a minor's sale is cut")
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	assert_eq(MarketRules.subsidy_percent(null, 0, 6), 0)
+	assert_eq(MarketRules.subsidy_percent(market, -1, 6), 0)
+	assert_eq(MarketRules.subsidy_percent(market, 0, -1), 0)
+	assert_eq(MarketRules.deal_total(market, "timber", 0, 0, 1.1, true), 0, "no units, no debt")
+	assert_false(MarketRules.is_minor(-1))
+	assert_false(MarketRules.is_minor(0))
+	assert_true(MarketRules.is_minor(6), "a Minor Nation")
+	assert_true(MarketRules.is_minor(9), "a Tribe")
+	# The sell arm of the pair helpers: a crown selling to the minor it subsidises.
+	assert_eq(
+		MarketRules.deal_unit_for(market, "timber", 6, 0, 10, false),
+		roundi(float(market.price("timber")) * 0.9)
+	)
+	assert_eq(
+		MarketRules.deal_total_for(market, "timber", 2, 6, 0, 10, false),
+		roundi(float(2) * float(market.price("timber")) * 0.9)
+	)
+
+
+## The Minor's ask guards an empty market and an untradeable row, and reads a
+## court with no step at the published price (wiki: world-market § Price
+## discovery, § Subsidy price adjustment).
+func test_the_minor_ask_guards_and_the_unstepped_row() -> void:
+	assert_eq(MinorMarket.unit_price(null, "timber"), 0)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	assert_eq(MinorMarket.unit_price(market, "gold"), 0, "riches never trade")
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", 0, 7),
+		market.price("timber"),
+		"a pair with no subsidy pays the world price"
+	)
+	assert_eq(MinorMarket.unit_price(market, "timber", 0), market.price("timber"))
+
+
 func test_unfilled_bid_carries_or_drops_when_cargo_is_short() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()
@@ -1689,7 +1800,7 @@ func test_extraction_adds_the_town_manufacturing_bonus() -> void:
 	assert_eq(int(raised.get("timber", 0)), 4)
 	assert_eq(int(raised.get("lumber", 0)), 1)
 
-func test_treasury_ids_are_riches_plus_spices() -> void:
+func test_treasury_ids_are_the_riches_set() -> void:
 	assert_eq(
 		CommodityCatalog.treasury_ids(),
 		["gold", "silver", "gems", "diamonds", "spices"] as Array[String]
@@ -1716,16 +1827,16 @@ func _fixture() -> MapModel:
 
 func test_market_seeds_tradeable_catalog_prices() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	assert_eq(market.prices.size(), 23)
+	assert_eq(market.prices.size(), 22)
 	assert_eq(market.price("timber"), 30)
 	assert_eq(market.price("lumber"), 60)
 	assert_eq(market.price("iron"), 80)
 	assert_false(market.prices.has("gold"))
-	# Spices is advanced and tradeable at its fixed 50 (DR-20261110-09).
-	assert_eq(market.price("spices"), 50)
+	# Spices is a rich: excluded from the book (Imperialism II; DR-20261113-13).
+	assert_false(market.prices.has("spices"))
 	assert_false(market.can_trade("gold"))
 	assert_true(market.can_trade("lumber"))
-	assert_true(market.can_trade("spices"))
+	assert_false(market.can_trade("spices"))
 
 func test_buy_pays_the_current_price_and_records_a_bid() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
@@ -1762,11 +1873,11 @@ func test_sell_credits_treasury_and_records_an_offer() -> void:
 	assert_eq(economy.quantity("timber"), 1)
 	assert_eq(market.offer_volume("timber"), 2)
 	assert_false(bool(market.sell(economy, "timber", 5)["ok"]))
-	assert_false(bool(market.sell(economy, "spices", 1)["ok"]))
 	economy.stockpile["spices"] = 2
-	var crop: Dictionary = market.sell(economy, "spices", 2)
-	assert_true(bool(crop["ok"]), "a crown may sell its spices")
-	assert_eq(int(crop["revenue"]), 100)
+	var crop: Dictionary = market.sell(economy, "spices", 1)
+	assert_false(bool(crop["ok"]), "spices never trade (Imperialism II)")
+	assert_eq(String(crop["reason"]), "Not traded on the world market")
+	assert_eq(economy.quantity("spices"), 2)
 
 func test_price_discovery_uses_the_published_formula() -> void:
 	assert_eq(WorldMarket.next_price(30, 30, 0, 0), 30)

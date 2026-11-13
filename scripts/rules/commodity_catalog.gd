@@ -37,8 +37,11 @@ const MANUFACTURED: Array[String] = [
 ## Reserved category: no current commodity is a luxury; trained-worker luxuries are
 ## manufactured goods (wiki: commodity-catalog § Categories).
 const LUXURY: Array[String] = []
-const RICHES: Array[String] = ["gold", "silver", "gems", "diamonds"]
-const ADVANCED: Array[String] = ["spices"]
+## Five New World riches (Imperialism II): not traded; clear to treasury
+## (wiki: commodity-catalog § Riches and treasury; DR-20261113-13).
+const RICHES: Array[String] = ["gold", "silver", "gems", "diamonds", "spices"]
+## Reserved category: no current commodity is advanced (DR-20261113-13).
+const ADVANCED: Array[String] = []
 
 ## Raw-resource default market prices (wiki: resource-terrain-region-rules § Table).
 const RAW_PRICES: Dictionary = {
@@ -110,12 +113,11 @@ static func ids_in(category: int) -> Array[String]:
 
 
 ## Commodities cleared into treasury during the Riches phase (wiki:
-## stockpiles-and-production § Production flow). Riches plus spices, whose
-## fixed base price is a treasury conversion rather than a market trade.
+## stockpiles-and-production § Production flow). The riches set only —
+## spices included (Imperialism II; DR-20261113-13).
 static func treasury_ids() -> Array[String]:
 	var ids: Array[String] = []
 	ids.append_array(RICHES)
-	ids.append("spices")
 	return ids
 
 
@@ -155,9 +157,9 @@ static func is_riches(id: String) -> bool:
 	return category_of(id) == Category.RICHES
 
 
-## Riches clear through the treasury phase; every other known good clears on the
-## world market, spices included (wiki: world-market § Tradeable commodities;
-## DR-20261110-09 — spices is advanced, sold at its fixed 50).
+## Riches (including spices) clear through the treasury phase; every other known
+## good clears on the world market (wiki: world-market § Tradeable commodities;
+## Imperialism II; DR-20261113-13).
 static func is_tradeable(id: String) -> bool:
 	return known(id) and not is_riches(id)
 

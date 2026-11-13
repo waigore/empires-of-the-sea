@@ -1,45 +1,34 @@
 ---
 name: babysit-pr-agent
 description: |-
-  Operate a soft Actions check queue (at most ~3 PRs with queued/in-progress
-  runs), then unblock one same-repo PR that is conflicted, behind, or failing
-  checks so auto-merge can squash it. Skips fork PRs. One PR fix per run. Use
-  when automation or a user asks to babysit PRs for automerge.
+  Unblock one same-repo PR that is conflicted, behind, or failing checks so
+  auto-merge can squash it. Skips fork PRs. One PR fix per run. Use when
+  automation or a user asks to babysit PRs for automerge.
 
   Examples:
-    - dispatch with no PR → reshape queue, discover one eligible PR, unblock it
-    - dispatch with #12 → reshape queue, unblock #12 when it is same-repo
+    - dispatch with no PR → discover one eligible PR, unblock it
+    - dispatch with #12 → unblock #12 when it is same-repo
 ---
 
 # Babysit PR agent
 
 Get **one** open pull request ready for this repo's auto-merge: same-repo, no merge conflicts, up to date with the base branch, and required checks green. Auto-merge squash-merges that state on its own ([`docs/pull-requests.md`](../../../docs/pull-requests.md), [`.github/workflows/automerge.yml`](../../../.github/workflows/automerge.yml)). Do not merge the PR yourself.
 
-Each run: **(a)** reshape the check queue, then **(b)** unblock one PR. Soft guidance only — races and Actions lag are fine; use judgement.
-
-## Check queue
-
-Goal: at most **~3** open same-repo PRs with **queued or in-progress** Actions runs at once, so GitHub Actions is not overloaded. PRs with no such runs are **idle** (includes cancelled / not yet re-triggered).
-
-1. List open same-repo PRs and which have queued or in-progress runs.
-2. **Rank** by soft urgency, then age: conflict (`mergeable` `CONFLICTING` or `mergeStateStatus` `DIRTY`), then `BEHIND`, then a failing check, then older first. Drafts and `no-automerge` stay in the queue unless a human says otherwise.
-3. If more than ~3 have active runs, **pause** extras: `gh run cancel` on their in-progress/queued runs (lowest rank first).
-4. If fewer than ~3 have active runs and higher-rank idle PRs still need checks (e.g. cancelled, or waiting to start), **resume** the next by rank with a **no-op push** on the PR head (empty commit is fine). Never force-push.
-5. Before a push that would start checks on a PR outside the active set, free a slot (cancel a lower-rank active PR) or defer the push. Prefer fixing work that already has a slot or that you are promoting into one.
+Each run: resolve one target → unblock it → arm auto-merge. Soft guidance only — races and Actions lag are fine; use judgement. Do not cancel other PRs' Actions runs or enforce a concurrency cap.
 
 ## Resolve
 
-1. If a PR number is given, that PR is the target (after the queue pass). Give it a slot when it needs checks and ranks at or above the cut line.
-2. Otherwise run [`scripts/gate.sh`](scripts/gate.sh) and pick **one** printed number using the same ranking as the queue.
-3. The script's predicate is the eligibility rule: open, not a fork (`isCrossRepository` false), and conflicted, behind, or a check rollup of `FAILURE`, `CANCELLED`, `TIMED_OUT`, `STARTUP_FAILURE`, or `ERROR`. Pending checks and review-only holds are not eligible for the fix pass (they may still count toward the active-run cap).
+1. If a PR number is given, that PR is the target.
+2. Otherwise run [`scripts/gate.sh`](scripts/gate.sh) and pick **one** printed number. Rank by soft urgency, then age: conflict (`mergeable` `CONFLICTING` or `mergeStateStatus` `DIRTY`), then `BEHIND`, then a failing check, then older first.
+3. The script's predicate is the eligibility rule: open, not a fork (`isCrossRepository` false), and conflicted, behind, or a check rollup of `FAILURE`, `CANCELLED`, `TIMED_OUT`, `STARTUP_FAILURE`, or `ERROR`. Pending checks and review-only holds are not eligible for the fix pass.
 4. If the target is a fork, report that and stop. Do not push to it.
-5. If nothing is eligible and no number was given, still report any queue reshaping, then stop.
+5. If nothing is eligible and no number was given, stop.
 
 ## Unblock
 
 Refresh `gh pr view` and `gh pr checks` at the start of every pass. Work in this order; do not start a later item while an earlier one still applies. Check out the PR head in the worktree first (`gh pr checkout`).
 
-1. **Conflicts.** Fetch the base branch and merge it into the PR branch. Keep both sides correct. Push the merge commit (respect the check queue). Never force-push.
+1. **Conflicts.** Fetch the base branch and merge it into the PR branch. Keep both sides correct. Push the merge commit. Never force-push.
 2. **Behind.** `gh pr update-branch` when GitHub can fast-forward or merge cleanly. If that fails because of conflicts, return to step 1.
 3. **Failing checks.** Fix failures caused by this PR's changes. Read the failing log before deciding. Verify with the narrowest local check that covers the fix (`gd-tools test --coverage --min 80`, `python tools/lint_docs_words.py`, etc.), then push. Do not edit workflows or check config to force green. Do not make unrelated refactors. If the branch was behind, finish step 2 first; another PR may already have fixed an unrelated red check.
 
@@ -57,8 +46,8 @@ When the PR is same-repo, not a draft, and has no `no-automerge` label, arm squa
 gh pr merge --auto --squash "$PR_URL"
 ```
 
-`--auto` waits for required checks. It does not merge early. Leave a `no-automerge` PR unarmed and say so. After your push, watch required checks to completion (`gh pr checks --watch`) when this PR holds an active slot. Report success only when a fresh read shows the PR mergeable, up to date, required checks green, and auto-merge armed or explicitly held by `no-automerge` or draft.
+`--auto` waits for required checks. It does not merge early. Leave a `no-automerge` PR unarmed and say so. After your push, watch required checks to completion (`gh pr checks --watch`). Report success only when a fresh read shows the PR mergeable, up to date, required checks green, and auto-merge armed or explicitly held by `no-automerge` or draft.
 
 ## Report
 
-Lead with the PR URL and what blocked it. Note queue actions (cancelled / resumed) and about how many PRs had active runs. Then what you changed, check status, and whether auto-merge is armed, still running, or held (draft or `no-automerge`). If you stop short, say what you tried and what is still blocking.
+Lead with the PR URL and what blocked it. Then what you changed, check status, and whether auto-merge is armed, still running, or held (draft or `no-automerge`). If you stop short, say what you tried and what is still blocking.

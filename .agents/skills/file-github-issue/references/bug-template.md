@@ -9,6 +9,8 @@
 <1–2 sentences>
 
 ## Platform
+<!-- Include this section only when the user stated platform or it is clearly relevant.
+     Otherwise omit entirely (assumed all platforms). -->
 - OS / build: <desktop Windows | desktop macOS | desktop Linux | Android | iOS>
 - How run: <editor | exported build | debug APK | other>
 - Version / commit: <git SHA or “main @ <date>” if known>

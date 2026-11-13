@@ -36,8 +36,10 @@ const QUALITY_SPAN: float = 40.0
 const STRONG_QUALITY: float = 0.5
 
 
+## The envoy's face, in the reader's tongue: the caption a proposal banner and
+## the court panel both print (the words answer to [ConsentCopy]).
 static func label(mood: String) -> String:
-	return mood.capitalize()
+	return ConsentCopy.mood_word(mood)
 
 
 ## The envoy's face for a waiting offer: stalls tire a court first, then the

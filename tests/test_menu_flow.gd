@@ -8,6 +8,7 @@ const Fixture = preload("res://tests/map_fixture.gd")
 
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const DIR: String = "user://test_menu_flow"
+
 const FLOW_SEED: int = 777
 const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 
@@ -34,6 +35,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	get_tree().paused = false
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 	if is_instance_valid(main):
 		main.free()
 	main = null
@@ -58,13 +60,13 @@ func test_back_from_setup_returns_to_the_title() -> void:
 	assert_null(main.current_screen, "no map was started")
 
 
-func test_title_screen_offers_new_load_and_a_dimmed_settings_door() -> void:
+func test_title_screen_offers_new_and_load() -> void:
 	assert_true(main.current_page is MainMenu, "title screen boots first")
 	var menu: MainMenu = main.current_page
 	assert_true(menu.new_game_button != null)
 	assert_true(menu.load_game_button != null)
-	assert_true(menu.settings_button.disabled, "settings is dimmed")
 	assert_true(menu.quit_button != null)
+	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE, "English only")
 
 
 func test_new_game_setup_starts_the_chosen_world() -> void:
@@ -162,13 +164,32 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 		assert_eq(home.province, target, "the Home Army holds the chosen seat")
 
 
+## Back from the save browser returns to the pause rows; back again closes
+## (REQ-P5-07). Covers the browser-visible branch of handle_back.
+func test_back_from_the_save_browser_returns_to_pause() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	screen.game_menu.open_save()
+	assert_true(screen.game_menu.browser.visible, "save browser opens")
+	assert_true(screen.game_menu.handle_back(), "back is handled")
+	assert_false(screen.game_menu.browser.visible, "browser steps aside")
+	assert_true(screen.game_menu.is_open(), "pause menu stays open")
+	assert_true(get_tree().paused, "tree stays paused")
+	assert_true(screen.game_menu.handle_back(), "back closes the pause menu")
+	assert_false(screen.game_menu.is_open(), "pause menu closed")
+	assert_false(get_tree().paused, "tree resumes")
+	assert_false(screen.game_menu.handle_back(), "back is a no-op when closed")
+
+
 func test_menu_save_load_and_return_flow() -> void:
 	await _start_game()
 	var screen: MapScreen = main.current_screen
 	screen.game_menu.open()
 	assert_true(screen.game_menu.is_open(), "menu opens")
 	assert_true(get_tree().paused, "tree pauses behind the menu")
-	assert_true(screen.game_menu.settings_button.disabled, "settings is dimmed")
 	screen.game_menu.open_save()
 	screen.game_menu.browser.slot_chosen.emit(2)
 	assert_true(SaveStore.has_slot(2, DIR), "slot 2 written")

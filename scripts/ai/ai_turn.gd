@@ -15,11 +15,13 @@ const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
 
 
 ## `context` may carry "regiments", "ships" and "stockpiles" maps by faction, plus
-## "readings": per court, the order of battle that court has charted, so each
-## rival scores its war desire against what it has seen (DR-20261112-09), and
-## "charts": the session's `CourtCharts`, so every diplomacy read — the resource
-## need behind a war and the land an envoy chain would open — stays on the
-## court's own chart (DR-20261113-03).
+## "strengths": the order of battle the published power score reads, so a court
+## weighs relative power by FPN + FPM and not by a head count (wiki: diplomacy
+## § Great Power power score). "readings" is per court, the order of battle that
+## court has charted, so each rival scores its war desire against what it has seen
+## (DR-20261112-09), and "charts": the session's `CourtCharts`, so every
+## diplomacy read — the resource need behind a war and the land an envoy chain
+## would open — stays on the court's own chart (DR-20261113-03).
 static func run(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -38,6 +40,9 @@ static func run(
 			continue
 		var config: AiConfig = AiConfig.build(faction, game_seed)
 		var agenda: String = ai_state.agenda_for(config)
+		# The court's war footing rides the trace; the planners read it through
+		# AiPhasePlanner (DR-20261113-15).
+		var phase: Dictionary = AiPhasePlanner.plan(config, state)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
 			config, state, ai_state, world, turn, _reading(shared, faction)
 		)
@@ -47,37 +52,55 @@ static func run(
 			"leader": config.leader,
 			"agenda": agenda,
 			"profile": config.profile,
+			"phase": phase,
 			"action": action.duplicate(true),
 			"candidates": plan["candidates"],
 		}
 		if not action.is_empty():
-			var applied: Dictionary = _apply(state, world, ai_state, faction, action, turn)
+			var applied: Dictionary = _apply(
+				state, world, ai_state, faction, action, turn, game_seed, shared
+			)
 			record["result"] = applied.get("result", {})
 			var message: String = String(applied.get("message", ""))
 			record["message"] = message
+			# The court's own player-facing lines, kept per record so a caller
+			# can put each in the channel that should carry it: the map pass
+			# toasts what changes the crown's turn and leaves World news to the
+			# Gazette (wiki: the-gazette § Not the Gazette).
+			var lines: Array[String] = []
 			if not message.is_empty():
-				messages.append(message)
+				lines.append(message)
 			for extra: String in applied.get("messages", []):
 				if not extra.is_empty():
-					messages.append(extra)
+					lines.append(extra)
+			record["messages"] = lines
+			messages.append_array(lines)
 		trace.append(record)
 	return {"trace": trace, "messages": messages}
 
 
 ## Shared read model for the planners: absolute power per faction plus the unit
 ## counts and player id they need to explain their scores. When the caller
-## supplies per-court "readings", each court also gets its own view of the three
-## terms (see `_reading`), so no rival plans against an order of battle it has
-## never charted (DR-20261112-09).
+## supplies per-court "readings", each court also gets its own view of the terms
+## (see `_reading`), so no rival plans against an order of battle it has never
+## charted (DR-20261112-09).
+##
+## `strengths` is the order of battle the published power score reads (FPN + FPM
+## × chevrons × health, wiki: diplomacy § Great Power power score); `regiments`
+## stays the head count the invasion-capacity rule reads. A caller that supplies
+## no strengths keeps the legacy count of the old call sites.
 static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dictionary:
 	var regiments: Dictionary = supplied.get("regiments", {})
 	var ships: Dictionary = supplied.get("ships", {})
+	var strengths: Dictionary = supplied.get("strengths", {})
 	var context: Dictionary = {
-		"power": _powers(world, regiments, ships),
+		"power": _powers(world, regiments, ships, strengths),
 		"regiments": regiments,
 		"ships": ships,
 		"player": player,
 	}
+	if not strengths.is_empty():
+		context["strengths"] = strengths
 	var views: Dictionary = _views(world, supplied.get("readings", {}))
 	if not views.is_empty():
 		context["views"] = views
@@ -103,13 +126,23 @@ static func _reading(shared: Dictionary, faction: int) -> Dictionary:
 
 
 ## Absolute power per faction from one order of battle, read the published way
-## (wiki: diplomacy § Great Power power score).
-static func _powers(world: WorldMap, regiments: Dictionary, ships: Dictionary) -> Dictionary:
+## (wiki: diplomacy § Great Power power score). The strength term is the order of
+## battle — rounded as the panel and the calendar round it — and a caller that
+## supplies none falls back to the head count its context already carries.
+static func _powers(
+	world: WorldMap, regiments: Dictionary, ships: Dictionary, strengths: Dictionary = {}
+) -> Dictionary:
 	var power: Dictionary = {}
+	var by_strength: bool = not strengths.is_empty()
 	for raw: Dictionary in FactionCatalog.all():
 		var faction: int = int(raw["id"])
+		var troops: int = (
+			int(roundf(float(strengths.get(faction, 0.0))))
+			if by_strength
+			else int(regiments.get(faction, 0))
+		)
 		power[faction] = AiPower.score(
-			world, faction, int(regiments.get(faction, 0)), int(ships.get(faction, 0))
+			world, faction, troops, int(ships.get(faction, 0))
 		)
 	return power
 
@@ -128,11 +161,15 @@ static func _views(world: WorldMap, readings: Variant) -> Dictionary:
 		var docket: Dictionary = entry
 		var regiments: Dictionary = docket.get("regiments", {})
 		var ships: Dictionary = docket.get("ships", {})
-		views[int(raw)] = {
-			"power": _powers(world, regiments, ships),
+		var strengths: Dictionary = docket.get("strength", {})
+		var view: Dictionary = {
+			"power": _powers(world, regiments, ships, strengths),
 			"regiments": regiments,
 			"ships": ships,
 		}
+		if not strengths.is_empty():
+			view["strengths"] = strengths
+		views[int(raw)] = view
 	return views
 
 
@@ -160,7 +197,9 @@ static func _apply(
 	ai_state: AiState,
 	faction: int,
 	action: Dictionary,
-	turn: int
+	turn: int,
+	game_seed: int,
+	shared: Dictionary
 ) -> Dictionary:
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
@@ -192,7 +231,15 @@ static func _apply(
 			if bool(offer.get("ok", false)):
 				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
 			return {"result": offer, "message": message}
-		var peace: Dictionary = DiplomacyRules.make_peace(state, faction, target)
+		var peace: Dictionary = DiplomacyRules.make_peace(
+			state, faction, target,
+			_peace_answer(state, world, ai_state, faction, target, game_seed, shared)
+		)
+		if bool(peace.get("ok", false)) and ai_state != null:
+			# Either answer starts the pair's peace-offer cooldown, so a court
+			# does not ask again every turn (wiki: diplomacy § Planner
+			# selection; DR-20261109-07).
+			ai_state.note_peace(faction, target, turn)
 		return {
 			"result": peace,
 			"message": String(peace.get("message", "")),
@@ -200,6 +247,45 @@ static func _apply(
 	if bool(action.get("propose", false)):
 		return _propose(state, world, faction, action)
 	return _apply_order(state, world, ai_state, faction, action)
+
+
+## The answering court's own word on a white peace between two rivals. A court
+## that still wants the war it is fighting refuses the offer, so a declaration is
+## not undone by the defender in the phase it was made (wiki: diplomacy § Planner
+## selection; hidden-agendas — warmonger keeps the war alive; DR-20261111-27).
+## Only Great Powers answer by stance; a Minor or Tribe keeps the wiki's "never
+## refuses peace", and the rules' auto test answers it.
+static func _peace_answer(
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	offerer: int,
+	target: int,
+	game_seed: int,
+	shared: Dictionary
+) -> String:
+	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+		return DiplomacyRules.DECISION_AUTO
+	if ai_state == null:
+		return DiplomacyRules.DECISION_AUTO
+	var config: AiConfig = AiConfig.build(target, game_seed)
+	var agenda: String = ai_state.agenda_for(config)
+	if agenda != config.agenda:
+		# A run keeps the agenda it rolled (or a fixture fixed); the answer must
+		# read that court's own peace stance, not a fresh roll.
+		config.agenda = agenda
+		config.agenda_traits = AiAgenda.resolve(agenda)
+	# A court fighting enough fronts takes the white peace instead of refusing it:
+	# no court wins two wars at once (wiki: phase-planner-architecture § Playable
+	# slice; DR-20261113-15).
+	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)):
+		return DiplomacyRules.DECISION_AUTO
+	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+		config, state, world, target, offerer, _reading(shared, target)
+	)
+	if not AiPeaceStance.refuses(config, int(desire["score"])):
+		return DiplomacyRules.DECISION_AUTO
+	return DiplomacyRules.DECISION_REFUSE
 
 
 ## Queues a treaty or trade-pact offer for the human court's answer. The court

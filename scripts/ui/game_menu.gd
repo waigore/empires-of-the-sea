@@ -1,7 +1,7 @@
 class_name GameMenu
 extends CanvasLayer
 ## In-game pause menu (REQ-P5-01): resume, save to a local slot, load a local
-## slot (the router rebuilds the whole screen) and a dimmed settings door.
+## slot (the router rebuilds the whole screen), and the way back to the title.
 
 signal save_chosen(slot: int)
 signal load_chosen(slot: int)
@@ -12,7 +12,6 @@ const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 var trigger: Button = null
 var save_button: Button = null
 var load_button: Button = null
-var settings_button: Button = null
 var main_menu_button: Button = null
 var resume_button: Button = null
 var browser: SaveBrowser = null
@@ -100,12 +99,6 @@ func _build_overlay() -> void:
 	load_button.pressed.connect(open_load)
 	_pause_page.add_child(load_button)
 
-	settings_button = MenuFrame.dimmed_button(
-		"SETTINGS", "Settings are not available in this build."
-	)
-	settings_button.custom_minimum_size.y = row
-	_pause_page.add_child(settings_button)
-
 	main_menu_button = MenuFrame.action_button("MAIN MENU", row)
 	main_menu_button.pressed.connect(_on_main_menu)
 	_pause_page.add_child(main_menu_button)
@@ -137,7 +130,8 @@ func close() -> void:
 	if _overlay == null:
 		return
 	_overlay.visible = false
-	browser.visible = false
+	if browser != null:
+		browser.visible = false
 	if _owns_pause:
 		get_tree().paused = false
 		_owns_pause = false
@@ -216,14 +210,16 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Android/iOS back gesture: step back one layer inside the pause menu.
+## Android/iOS back gesture: the save browser steps aside before the pause menu
+## itself closes (REQ-P5-07).
 func handle_back() -> bool:
 	if not is_open():
 		return false
 	if browser != null and browser.visible:
+		# Prefer the shared closer so pause rows and the browser stay in sync.
 		_show_pause_page()
-	else:
-		close()
+		return true
+	close()
 	return true
 
 

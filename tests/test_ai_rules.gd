@@ -49,6 +49,69 @@ func test_power_score_weights_are_overridable() -> void:
 func test_power_score_without_a_world_is_zero() -> void:
 	assert_eq(AiPower.score(null, 7, 9, 9), 0)
 
+
+## The planner weighs relative power by the published order of battle — FPN + FPM
+## over every land army — and never by a head count (wiki: diplomacy § Great
+## Power power score). Forty guards against five is a strong court even though
+## the stronger court holds fewer provinces.
+func test_the_planner_reads_power_from_the_order_of_battle() -> void:
+	var owners: Array[int] = []
+	for _index in 5:
+		owners.append(0)
+	for _index in 20:
+		owners.append(1)
+	var world: WorldMap = AiFixture.world(owners)
+	var context: Dictionary = AiTurn._context(
+		world,
+		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
+		0
+	)
+	assert_eq(int(context["power"][0]), 410, "5 × 10 provinces + 360 strength")
+	assert_eq(int(context["power"][1]), 245, "20 × 10 provinces + 45 strength")
+	assert_eq(
+		int(AiPower.relative_band(
+			int(context["power"][0]), int(context["power"][1])
+		)["bonus"]),
+		30,
+		"the published score makes this a strong court"
+	)
+
+## A caller that supplies no order of battle keeps the legacy head count, so a
+## headless fixture (no army layer) still scores instead of reading zero.
+func test_a_context_without_strengths_keeps_the_head_count() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
+	)
+	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
+	assert_eq(int(context["power"][1]), 35, "3 × 10 provinces + 5 regiments")
+	assert_false(context.has("strengths"), "no strength map to hand a view")
+
+## A court's charted docket carries the orders of battle it has seen, so a rival
+## weighs the power of the armies it knows of by their weight, not their count
+## (wiki: diplomacy § Great Power power score; DR-20261112-09).
+func test_a_charted_docket_powers_the_reading_by_strength() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world,
+		{
+			"regiments": {0: 2, 1: 9},
+			"ships": {},
+			"strengths": {0: 18.0, 1: 27.0},
+			"readings": {
+				0: {
+					"regiments": {0: 2, 1: 9},
+					"ships": {},
+					"strength": {0: 18.0, 1: 27.0},
+				}
+			},
+		},
+		0
+	)
+	var reading: Dictionary = AiTurn._reading(context, 0)
+	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
+	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
+
 # --- from test_ai_parameters.gd ---
 ## AI parameter registry and blessed profiles (wiki: ai-parameter-registry,
 ## ai-profile-overrides).
@@ -299,9 +362,10 @@ func test_weak_rival_cannot_find_a_legal_war() -> void:
 
 
 func test_a_second_turn_does_not_repeat_the_war() -> void:
-	# The weak court ends a war it no longer wants (desire 10 < 50), and the
-	# stronger one cannot re-declare on the pair until its 4-turn war cooldown
-	# ends (wiki: diplomacy § Planner selection, § Cooldowns).
+	# The weak court offers the peace it wants (desire 10 < 50) and the stronger
+	# one refuses it while the war is still worth waging, so the war it declared
+	# stands and no second declaration is made (wiki: diplomacy § Planner
+	# selection, § Cooldowns).
 	var run: Dictionary = _run()
 	var result: Dictionary = AiTurn.run(
 		run["state"], AiFixture.world([2, 2, 2, 2, 1]), run["ai"], 2, 0, 1500,
@@ -309,8 +373,14 @@ func test_a_second_turn_does_not_repeat_the_war() -> void:
 	)
 	var record: Dictionary = _record_for(result["trace"], 2)
 	assert_true((record["action"] as Dictionary).is_empty())
-	assert_false((run["state"] as DiplomacyState).relation(1, 2).at_war)
-	assert_eq(String(record["candidates"][0]["blocked"]), "war cooldown")
+	assert_true(
+		(run["state"] as DiplomacyState).relation(1, 2).at_war,
+		"a war still worth waging is not signed away"
+	)
+	assert_eq(String(record["candidates"][0]["blocked"]), "war still worth waging")
+	var weak: Dictionary = _record_for(result["trace"], 1)
+	assert_eq(String(weak["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(String(weak["message"]).contains("refuses a white peace"))
 
 
 func test_same_seed_and_state_produce_the_same_orders() -> void:
@@ -333,10 +403,71 @@ func test_map_phase_runs_the_ai_without_views() -> void:
 	play.diplomacy.reset(1)
 	play.diplomacy.ensure_relation(1, 2, 1)
 	play.map_seed = 1500
-	MapPlayDiplomacy.run_ai(play)
+	MapPlayDiplomacyAi.run(play)
 	assert_not_null(play.ai)
 	assert_eq(play.ai_trace.size(), 5)
 	assert_true(play.diplomacy.relation(1, 2).at_war)
+
+
+## A rival's war on a third court is World news: the Gazette narrates it from the
+## recorded `warDeclared` event and a spy's court report carries it, so the toast
+## lane does not announce the same declaration a third time (wiki: the-gazette
+## § Not the Gazette; civilian-units § Spy (5)).
+func test_a_rival_war_on_a_third_court_is_left_to_the_gazette() -> void:
+	var play := PlaySession.new()
+	play.world = AiFixture.world([2, 2, 2, 2, 1])
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.reset(1)
+	play.diplomacy.ensure_relation(1, 2, 1)
+	play.map_seed = 1500
+	play.hud = StubHud.new()
+	add_child(play.hud)
+	MapPlayDiplomacyAi.run(play)
+	var toasts: Array[String] = (play.hud as StubHud).toasts
+	assert_true(play.diplomacy.relation(1, 2).at_war, "the declaration still resolves")
+	for line: String in toasts:
+		assert_false(line.contains("declares war"), "not toasted: %s" % line)
+	play.hud.free()
+
+
+## A declaration on the crown is told at once: it governs this turn's movement
+## and combat (wiki: diplomacy § Turn Sequence).
+func test_a_declaration_on_the_crown_is_told_at_once() -> void:
+	var play := PlaySession.new()
+	var crown: int = play.human_faction_id()
+	var record: Dictionary = {
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": crown},
+		"message": "",
+		"messages": ["France declares war on the crown."],
+	}
+	assert_eq(MapPlayDiplomacyAi._announcements(play, record).size(), 1, "the line is told")
+	# A trace from before the pass kept per-court lines still speaks.
+	var legacy: Dictionary = {
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": crown},
+		"message": "France declares war on the crown.",
+	}
+	var spoken: Array[String] = MapPlayDiplomacyAi._announcements(play, legacy)
+	assert_eq(String(spoken[0]), "France declares war on the crown.")
+	# An empty record says nothing at all.
+	assert_true(MapPlayDiplomacyAi._announcements(play, {"faction": 2}).is_empty())
+
+
+## The merged observer record counts a declaration only when the rules accepted
+## it: a refused order is not a war (wiki: turn-trace-interpretation).
+func test_a_refused_order_is_not_a_declaration_in_the_turn_log() -> void:
+	var play := PlaySession.new()
+	play.ai_trace = [{
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": 1},
+		"result": {"ok": false, "reason": "Austria is already at war with us."},
+		"message": "",
+	}]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var bucket: Dictionary = merged["factions"][2]
+	assert_false((bucket["actions"] as Dictionary).has("war"), "no war is counted")
+	assert_true((bucket["events"] as Array).is_empty(), "no declaration is invented")
 
 
 # --- from test_ai_military.gd ---
@@ -376,7 +507,7 @@ func test_ai_military_splits_the_home_army_on_a_hostile_border() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 4, "one regiment guards the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 	var field: ArmyState = split["army"] as ArmyState
 	assert_eq(field.count(), 4)
@@ -542,7 +673,7 @@ func test_a_minor_sends_a_relief_column_to_an_invaded_province() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 2, "one regiment keeps the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	assert_true(bool(split["ok"]))
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	assert_eq((plan["orders"] as Array).size(), 1)
@@ -599,7 +730,7 @@ func test_a_tribe_sends_the_same_relief_column() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	ArmyState.split(armies, armies[0], ids, 10)
+	ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 9)
 	assert_eq((plan["orders"] as Array).size(), 1)
 	assert_eq(int(plan["orders"][0]["province"]), 0)
@@ -677,7 +808,7 @@ func test_the_relief_column_joins_the_defence() -> void:
 	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 6)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	var field: ArmyState = split["army"] as ArmyState
 	ArmyMovement.apply_move(model, field, int(plan["orders"][0]["province"]), true)
@@ -746,7 +877,7 @@ func _split_home(
 	assert_eq(splits.size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 
 
@@ -1648,7 +1779,9 @@ func test_ai_civilian_never_plans_another_courts_units() -> void:
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
-func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
+## One rival court on a two-crown land world, its seat holding a worked grain
+## tile: the fixture every `MapPlayEconomyAi` case in this section reads.
+func _rival_economy_play() -> PlaySession:
 	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
 	var model: MapModel = world.region(0)
 	var grain := Vector2i(1, 1)
@@ -1663,6 +1796,12 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	play.civilian_layer = layer
 	play.map_seed = 1500
 	play.ai = AiState.new()
+	return play
+
+
+func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var layer: CivilianLayer = play.civilian_layer
 	var report: Dictionary = MapPlayEconomyAi.run(play)
 	assert_true((report["factions"] as Dictionary).has(1))
 	var entry: Dictionary = report["factions"][1]
@@ -1681,6 +1820,39 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 		"rival training respects civilian.max_civilians"
 	)
 	layer.free()
+
+
+## The sale is staged after the works are priced: what a crew is about to spend
+## is held back, so the court never sells its own workshop's timber (wiki:
+## economy-planner § Reservations — one stockpile serves build, work and trade).
+func test_the_rival_keeps_the_row_its_planned_works_will_spend() -> void:
+	var probe_play: PlaySession = _rival_economy_play()
+	var probe: Dictionary = MapPlayEconomyAi.run(probe_play)["factions"][1]["works_reserved"]
+	probe_play.civilian_layer.free()
+	assert_true(not probe.is_empty(), "a rival's planned works name their row")
+
+	# Hold exactly the reserve and the row the works claim: the surplus is nil,
+	# so not one unit of it may reach the market.
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var keep: int = config.parameter("market.sell_reserve")
+	var play: PlaySession = _rival_economy_play()
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	for commodity: Variant in probe.keys():
+		var id: String = String(commodity)
+		economy.stockpile[id] = keep + int(probe[id])
+	var entry: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	var held: Dictionary = entry["works_reserved"]
+	var offered: Dictionary = {}
+	for raw: Variant in (entry["trade"]["plan"] as Dictionary)["offers"]:
+		var offer: Dictionary = raw
+		offered[String(offer["commodity"])] = int(offer["quantity"])
+	for commodity: Variant in held.keys():
+		var id: String = String(commodity)
+		assert_eq(
+			int(offered.get(id, 0)), 0,
+			"the works' %s never goes to market" % id
+		)
+	play.civilian_layer.free()
 
 
 ## The civilian pass owns the rival roster: one seed per court per region, and
@@ -1837,7 +2009,7 @@ func test_map_phase_gives_diplomacy_the_rival_stockpiles() -> void:
 	play.diplomacy.reset(1)
 	play.diplomacy.ensure_relation(1, 2, 1)
 	play.map_seed = 1500
-	MapPlayDiplomacy.run_ai(play)
+	MapPlayDiplomacyAi.run(play)
 	assert_not_null(play.ai)
 	assert_true(play.ai.economies.has(1))
 	assert_false(play.ai.economy_for(1).stockpile.is_empty())
