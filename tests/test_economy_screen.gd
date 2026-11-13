@@ -76,6 +76,9 @@ func test_production_assignment_reaches_the_projection() -> void:
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)
 
 
+## A recruit pressed on the ledger is a queued order: the press files it, the
+## head arrives with the next Build/work, and the fabric is paid when it lands
+## (wiki: workers-and-population § Phase placement).
 func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["fabric"] = 2
@@ -152,6 +155,26 @@ func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
 		rebuilt.has("disband:%d" % WorkerPool.Tier.PEASANT),
 		"a peasant is never disbanded"
 	)
+
+
+## The WORKERS tab leads every row with its tier's own medallion, so a rank reads
+## by its metal before the label is read (REQ-P1-08).
+func test_every_worker_row_wears_its_tier_medallion() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var marks: Dictionary = workers.tier_marks()
+	assert_eq(marks.size(), WorkerPool.TIER_COUNT, "one mark per tier row")
+	for tier in WorkerPool.TIER_COUNT:
+		var mark: UnitMedallion = marks.get(tier) as UnitMedallion
+		assert_not_null(mark, "tier %d wears its plate" % tier)
+		assert_eq(mark.texture, WorkerTierArt.medallion(tier))
+		assert_eq(
+			mark.custom_minimum_size,
+			Vector2(WorkerTierArt.MARK_SIZE, WorkerTierArt.MARK_SIZE),
+			"a desktop row keeps the dense mark"
+		)
 
 
 func test_ending_the_turn_resolves_the_economy() -> void:

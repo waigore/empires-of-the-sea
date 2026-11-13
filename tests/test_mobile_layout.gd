@@ -682,10 +682,23 @@ func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
 	await get_tree().process_frame
 	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
 	assert_not_null(workers)
+	var sheet: Rect2 = hud._economy_wrap.get_global_rect()
+	var marks: Dictionary = workers.tier_marks()
+	assert_eq(marks.size(), WorkerPool.TIER_COUNT, "every tier row wears its medallion")
+	for tier: Variant in marks.keys():
+		var mark: Control = marks[tier] as Control
+		assert_eq(
+			mark.custom_minimum_size,
+			Vector2(WorkerTierArt.MARK_COMPACT, WorkerTierArt.MARK_COMPACT),
+			"a phone row grows the mark so the tier still reads"
+		)
+		assert_true(
+			mark.get_global_rect().end.x <= sheet.end.x + 0.5,
+			"the tier mark stays inside the sheet edge"
+		)
 	var buttons: Dictionary = workers.action_buttons()
 	assert_true(buttons.has("disband:%d" % WorkerPool.Tier.APPRENTICE), "a trained row offers disband")
 	assert_false(buttons.has("disband:%d" % WorkerPool.Tier.PEASANT), "a peasant row does not")
-	var sheet: Rect2 = hud._economy_wrap.get_global_rect()
 	for key: String in buttons.keys():
 		var button: Button = buttons[key] as Button
 		_tappable(button, "ledger action %s" % key)

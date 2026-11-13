@@ -1,12 +1,12 @@
 # Unit medallions (fal.ai)
 
-Every worker, hull and land regiment shows a medallion of its own, so a roster
-row reads at a glance and two types are never mistaken for one another. The
-plates live in `assets/art/civilians/`, `assets/art/ships/` and
-`assets/art/regiments/`, and belong to the same family as the shell icons
-(`tools/art/shell-icons.md`) and the tech plates (`tools/art/tech-medallions.md`):
-thick beveled brass ring, dark espresso field, top-left light, one object
-sculpted in polished brass.
+Every worker tier, worker, hull and land regiment shows a medallion of its own,
+so a roster row reads at a glance and two types are never mistaken for one
+another. The plates live in `assets/art/workers/`, `assets/art/civilians/`,
+`assets/art/ships/` and `assets/art/regiments/`, and belong to the same family as
+the shell icons (`tools/art/shell-icons.md`) and the tech plates
+(`tools/art/tech-medallions.md`): thick beveled brass ring, dark espresso field,
+top-left light, one object sculpted from metal.
 
 ## One frame, many objects
 
@@ -14,8 +14,19 @@ The frame is never generated. `assets/art/icons/ledger.png` is cleared to an
 empty field — the field's own colour sampled per radius off the source, the
 inner disc carried in with a gentle lift and a 1.2 px blur, feathered into the
 ring's shadow — and kept as the base. Only the central object is generated,
-then keyed and pasted onto that base, so all 47 plates share the exact ring,
+then keyed and pasted onto that base, so all 51 plates share the exact ring,
 field, vignette and lighting as the shell chrome.
+
+## Worker tiers: one metal per rank
+
+The four worker ranks are the one family that is not all brass. Each tier's
+tools are struck in a different metal — wrought iron, copper, blued steel, gold
+— so `LedgerWorkers` reads a rank by colour as well as silhouette (REQ-P1-08).
+The metal is not left to the model: each tier's prompt names that metal in place
+of polished brass, and the post pass then sets the plate's hue and saturation to
+the tier's own target (`TIER_INK` in `tools/art/unit_medallions.py`) while
+keeping only the render's light and shadow, so a drifting render can never hand
+two ranks the same colour.
 
 ## Prompt
 
@@ -42,9 +53,11 @@ shapes": a 30 px roster row cannot carry fine rigging.
 1. Key magenta dominance, not one hex: `alpha = 1 - (min(r,b) - g) / 0.12`,
    times a luma gate so the field's own darks do not key as brass.
 2. Despill translucent texels toward the mean grey, crop to the alpha bounds.
-3. Fit inside **0.62 × 128 px** (0.70 wide, 0.60 tall), add a soft shadow to the
+3. Worker tiers only: recast the object onto its tier's metal — hue and
+   saturation from `TIER_INK`, the render's value kept — before it is fitted.
+4. Fit inside **0.62 × 128 px** (0.70 wide, 0.60 tall), add a soft shadow to the
    lower right, composite onto the blank medallion, save 128×128 RGBA.
-4. Import with `mipmaps/generate=true`, lossless, matching the shell icons.
+5. Import with `mipmaps/generate=true`, lossless, matching the shell icons.
 
 `--only <id>` rebuilds a single plate. Nothing else owns these files, so a
 replacement render goes in the same way.
@@ -55,6 +68,11 @@ One line per plate; the tail above follows `[object]`.
 
 | Plate | `[object]` |
 |-------|------------|
+| **Worker tiers** | |
+| `peasant` | a curved reaping sickle, blade sweeping left from a short turned wooden grip |
+| `apprentice` | a copper water pail with a tall bail handle arched over its rim, body tapering to a flat base |
+| `journeyman` | a blacksmith's anvil seen almost from the front, broad face toward the viewer, one horn turning left, a wide heavy foot |
+| `master` | a ceremonial guild mace upright, a moulded grip and round pommel below a heavy orb head with three curling leaves |
 | **Workers** | |
 | `explorer` | an open compass crossed with a brass spyglass over a rolled sea chart |
 | `engineer` | a mason's trowel crossed with a pair of dividers over a small stone arched bridge |
@@ -108,10 +126,13 @@ One line per plate; the tail above follows `[object]`.
 
 ## Wiring
 
-`CivilianArt`, `ShipArt` and `RegimentArt` each load one texture per catalog id
-(`assets/art/<family>/<id>.png`), cached, null when the plate is missing so the
-row keeps its width and shows a gap. `UnitMedallion` is the fixed-size,
-mipmapped `TextureRect` the dossiers place: `FleetPanel` leads its shipyard
-launch and break-up rows with it, `ArmyPanel` its roster and drill yard.
-`test_ui_rules.gd` fails when a catalog type has no plate, or when two types
-resolve the same file.
+`CivilianArt`, `ShipArt`, `RegimentArt` and `WorkerTierArt` each load one texture
+per catalog id (`assets/art/<family>/<id>.png`), cached, null when the plate is
+missing so the row keeps its width and shows a gap. `WorkerTierArt.badge()` puts
+the tier's plate in `LedgerWorkers` — 28 px on a desktop row, 32 px on a phone
+row — and `LedgerWorkers.tier_marks()` exposes the rows' marks. `UnitMedallion` is
+the fixed-size, mipmapped `TextureRect` the dossiers place: `FleetPanel` leads
+its shipyard launch and break-up rows with it, `ArmyPanel` its roster and drill
+yard. `test_ui_rules.gd` fails when a catalog type or a worker tier has no plate,
+when two types resolve the same file, and when two tiers' marks measure as one
+metal.
