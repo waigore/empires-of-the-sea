@@ -283,9 +283,11 @@ domain = "blockade"
 match = "scripts/economy/economy_controller.gd"
 domain = "blockade"
 
+# Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
+# reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "blockade"
+domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
@@ -478,11 +480,11 @@ domain = "oob"
 match = "scripts/map/map_play_diplomacy.gd*"
 domain = "oob"
 
-# Rival diplomacy AI pass (readings + charts context); keep with OOB so a
-# charted-land planner change runs the same suites as map_play_court_fog.
+# Rival diplomacy AI pass: stay on ai with the other MapPlay*Ai files so a
+# court-reader fan-out does not union the OOB set past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_diplomacy_ai.gd*"
-domain = "oob"
+domain = "ai"
 
 # Pending call / intervention / proposal prompts; stay on diplomacy with the
 # court panel suites rather than pulling the OOB set.
@@ -971,9 +973,11 @@ domain = "economy"
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "naval_fog"
 
+# Rival fleet pass: stay on ai with the other MapPlay*Ai files so a court-
+# reader fan-out does not union naval_fog boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_fleet_ai.gd*"
-domain = "naval_fog"
+domain = "ai"
 
 [[rules]]
 match = "tests/test_ai_phase_rules.gd*"
@@ -1101,11 +1105,12 @@ full = true
 match = "gd-tools.toml"
 domain = "misc"
 
-# Map edits are exercised by the selection script in CI; a tiny chart suite is
-# enough for the required check without pulling crown_road past 5 min.
+# Map edits are exercised by the selection script in CI (--check-complete).
+# Stay on the ai set (not chart_bake/misc): an AI fan-out PR that also edits
+# the map must not add canvas/yarn/tables boots past the tier-1 5 min budget.
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "chart_bake"
+domain = "ai"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -1446,6 +1451,12 @@ domain = "army"
 match = "scripts/map/map_play_armies.gd*"
 domain = "army"
 
+# Rival army AI pass: named before the army_* glob so a court-reader fan-out
+# stays on the ai set instead of unioning army_orders / battle boots.
+[[rules]]
+match = "scripts/map/map_play_army_ai.gd*"
+domain = "ai"
+
 [[rules]]
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
@@ -1477,6 +1488,13 @@ domain = "ai"
 # civilian glob below, which would pull crown-order / map suites.
 [[rules]]
 match = "scripts/map/map_play_civilian_ai.gd*"
+domain = "ai"
+
+# The one reader every rival pass asks for a court's standing and order of
+# battle. Its suites are the observer/AI set, so keep it off the broad map
+# catch-all (tier-1 5 min budget).
+[[rules]]
+match = "scripts/map/map_play_court.gd*"
 domain = "ai"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off

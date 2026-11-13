@@ -48,7 +48,7 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	# rides beside it (DR-20261113-19).
 	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 	var income: Dictionary = AiIncome.plan(
-		config, economy, _at_war(play, faction),
+		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction)
 	)
 	var strength: float = _strength(play, faction)
@@ -117,24 +117,10 @@ static func _strength(play: PlaySession, faction: int) -> float:
 	return total
 
 
-## True when any court holds a declared war on this one: the reserve the court
-## must hold is read against it (DR-20261113-19).
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
-
-
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:
 	var names: Array[String] = []
-	if play.diplomacy == null:
-		return names
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			names.append(FactionCatalog.name_of(record.other(faction)))
+	for other: int in MapPlayCourt.at_war_with(play, faction):
+		names.append(FactionCatalog.name_of(other))
 	names.sort()
 	return names
 
