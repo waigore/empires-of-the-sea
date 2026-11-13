@@ -1816,15 +1816,21 @@ func test_works_respect_prospecting_and_extraction_caps() -> void:
 func test_the_ledger_prices_a_blockaded_coast() -> void:
 	var model := MapModel.new()
 	model.setup(4, 2)
-	var tiles: Array[Vector2i] = []
-	for x in 4:
-		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
-		model.province[model.index_of(x, 0)] = 0
-		tiles.append(Vector2i(x, 0))
-	var province := ProvinceState.create(0, "Costa", tiles, Vector2(1.5, 0.0), 4, 0, true)
-	province.town_tile = Vector2i(1, 0)
-	province.town_development = 0
-	model.provinces = [province]
+	var home: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var coast: Array[Vector2i] = [Vector2i(2, 0), Vector2i(3, 0)]
+	for tile: Vector2i in home + coast:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+	model.province[model.index_of(0, 0)] = 0
+	model.province[model.index_of(1, 0)] = 0
+	model.province[model.index_of(2, 0)] = 1
+	model.province[model.index_of(3, 0)] = 1
+	var capital := ProvinceState.create(0, "Sevilla", home, Vector2(0.5, 0.0), 2, 0)
+	capital.capital_tile = Vector2i(0, 0)
+	capital.town_tile = Vector2i(0, 0)
+	var harbour := ProvinceState.create(1, "Costa", coast, Vector2(2.5, 0.0), 2, 0)
+	harbour.town_tile = Vector2i(3, 0)
+	harbour.town_development = 0
+	model.provinces = [capital, harbour]
 	model.resource[model.index_of(2, 0)] = 4
 	var works := LandWorks.new()
 	works.add_port(model, Vector2i(3, 0))
@@ -1839,11 +1845,11 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	assert_false(controller.blockade().any(), "no stations to read yet")
 	assert_eq(
 		int(controller.extraction().get("grain", 0)),
-		4 + Extraction.CAPITAL_GRAIN_BONUS,
+		1 + Extraction.CAPITAL_GRAIN_BONUS,
 		"the harbour carries the estate's grain home"
 	)
 	var seals := Blockades.new()
-	seals.sealed = {model.region_id: {0: true}}
+	seals.sealed = {model.region_id: {1: true}}
 	controller.blockade_source = func() -> Blockades: return seals
 	assert_eq(
 		int(controller.extraction().get("grain", 0)),
