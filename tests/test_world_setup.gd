@@ -246,6 +246,35 @@ func test_a_minor_never_splits_its_own_holding_to_land_back() -> void:
 	assert_eq(grown, pool, "the pool does not grow")
 
 
+## A Tribe left without a sea-bound province fails with the wiki's own code, so
+## the regen-until-pass path and a reader of the failure can tell a Tribe's
+## missing landfall from a Great Power's (wiki: game-setup § Tribe assignment,
+## § Acceptance Criteria — `tribe_missing_sea_bound_province`).
+func test_a_tribe_without_a_landfall_names_its_own_code() -> void:
+	# An all-land chart: no province touches a sea zone, so no seed is sea-bound.
+	var model: MapModel = _grid_model(2, 1, [MapModel.NO_ID, MapModel.NO_ID])
+	var tribes: Array[int] = [
+		FactionCatalog.tribe_ids()[0], FactionCatalog.tribe_ids()[1],
+	]
+	var result: Dictionary = TerritoryAssignment.assign_new_world(model, tribes)
+	assert_false(bool(result["ok"]))
+	assert_eq(String(result["error"]), "tribe_missing_sea_bound_province")
+
+
+## The Old World keeps its own code for the same failure, so the two regions'
+## failures stay distinguishable.
+func test_a_great_power_without_a_landfall_keeps_the_old_world_code() -> void:
+	var model: MapModel = _grid_model(2, 1, [MapModel.NO_ID, MapModel.NO_ID])
+	var greats: Array[int] = [
+		FactionCatalog.great_power_ids()[0], FactionCatalog.great_power_ids()[1],
+	]
+	var result: Dictionary = TerritoryAssignment.assign_old_world(
+		model, greats, [] as Array[int]
+	)
+	assert_false(bool(result["ok"]))
+	assert_eq(String(result["error"]), TerritoryAssignment.ERROR_NO_SEA_BOUND_PROVINCE)
+
+
 func _grid_model(width: int, height: int, owners: Array) -> MapModel:
 	var model := MapModel.new()
 	model.setup(width, height)
