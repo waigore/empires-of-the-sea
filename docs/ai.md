@@ -55,7 +55,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
   (DR-20261111-04) and its saving pattern's inputs (DR-20261113-08); seat moves
-  recall it. At war its wornest field army takes a train (DR-20261112-08).
+  recall it. At war the wornest field army takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
 - **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; no new voyage
