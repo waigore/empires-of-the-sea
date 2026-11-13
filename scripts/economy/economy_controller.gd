@@ -13,6 +13,10 @@ var player_faction: int = 0
 var capital_province: int = -1
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var works: LandWorks = null
+## The session this ledger belongs to; Build/work's queued recruits land here,
+## before the new turn's Consumption (wiki: workers-and-population
+## § Phase placement).
+var play: PlaySession = null
 
 var _ships: ShipLayer = null
 var _armies: ArmyLayer = null
@@ -189,8 +193,14 @@ func projected_income() -> int:
 	return int(projected().get("treasury_delta", 0))
 
 
-## Runs Extraction -> Riches -> Consumption -> Production and refreshes the HUD.
+## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
+## Production, and refreshes the HUD.
 func resolve_turn() -> Dictionary:
+	# The crown's queued orders land before the new turn's Consumption: the new
+	# worker eats and labours with the court from this turn, and the mustered
+	# units stand for the next Orders phase. They land after the fighting this
+	# turn ordered, so a regiment mustered now never fights in its own turn.
+	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
 	var before: int = economy.treasury
 	var plan: Dictionary = overseas_plan()
 	var world: WorldMap = _ships.world if _ships != null else null
@@ -209,6 +219,7 @@ func resolve_turn() -> Dictionary:
 		int((report.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 	)
 	report["overseas"] = plan
+	report["musters"] = musters
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
 	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
@@ -339,9 +350,10 @@ func _on_production(recipe_id: String, units: int) -> void:
 	refresh_panel()
 
 
-## One worker action from the ledger. Recruit is paid and enters the pool now;
-## disband demotes one trained worker to a peasant at once and refunds nothing —
-## the rules own both verdicts (wiki: workers-and-population § Recruit, § Disband).
+## One worker action from the ledger. Recruit only queues: the crown pays in
+## Build/work and the new worker takes up its labour the turn after
+## (wiki: workers-and-population § Phase placement). Disband demotes one trained
+## worker to a peasant at once and refunds nothing — the rules own both verdicts.
 func _on_worker_action(tier: int, action: String) -> void:
 	if action == "disband":
 		var blocked: String = economy.disband_blocked_reason(tier)
@@ -356,11 +368,12 @@ func _on_worker_action(tier: int, action: String) -> void:
 				_hud.toast(blocked if not blocked.is_empty() else "Disband refused")
 		refresh_panel()
 		return
-	var result: Dictionary = economy.recruit(tier)
+	var result: Dictionary = economy.queue_recruit(tier)
 	if _hud != null:
 		if bool(result.get("ok", false)):
 			_hud.toast(
-				"One %s joins the capital's workshops" % WorkerPool.tier_one(tier).to_lower()
+				"One %s is engaged — they arrive next turn"
+				% WorkerPool.tier_one(tier).to_lower()
 			)
 		else:
 			_hud.toast(String(result.get("reason", "Recruit refused")))

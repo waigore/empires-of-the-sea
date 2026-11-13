@@ -9,25 +9,25 @@ extends RefCounted
 ## changes what a standard carries.
 
 
-## Mints one regiment into the Home Army and keeps the HUD count in step.
+## Queues one regiment into the Home Army. The drill yard's order is a
+## `BuildUnitOrder`: it is paid and christened in Build/work at the turn's close,
+## so the standard marches with the next Orders phase (wiki: military-armies
+## § Recruitment; workers-and-population § Phase placement).
 static func recruit(play: PlaySession, type_id: String) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
-	var result: Dictionary = play.army_layer.recruit(
-		play.player_faction, type_id, play.economy.economy
+	var economy: PlayerEconomy = play.economy.economy
+	var reason: String = ArmyTraining.muster_blocked_reason(
+		economy, play.army_layer.armies, play.player_faction, type_id
 	)
-	if not bool(result.get("ok", false)):
-		play.hud.toast(String(result.get("reason", "The regiment cannot muster.")))
+	if not reason.is_empty():
+		play.hud.toast(reason)
 		return
-	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
-	## The new regiment is announced by the title it was christened with
-	## (DR-20261111-18); a crown with no Home Army still gets the plain line.
-	var title: String = _title(play, String(result.get("regiment", "")))
-	var type_name: String = RegimentCatalog.display_name(type_id)
-	if title.is_empty():
-		play.hud.toast("%s joins the Home Army" % type_name)
-	else:
-		play.hud.toast("%s — %s joins the Home Army" % [title, type_name])
+	economy.queue_build(RecruitQueue.KIND_REGIMENT, type_id)
+	play.hud.toast(
+		"%s is under orders — it musters next turn"
+		% RegimentCatalog.display_name(type_id)
+	)
 	MapPlayArmies.show_panel(play, play.army_layer.selected_army)
 
 
@@ -55,17 +55,6 @@ static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> vo
 		"%d regiments form a field army in %s"
 		% [created.count(), play.model.province_name(created.province)]
 	)
-
-
-## The title a newly mustered regiment wears, read back off the Home Army; empty
-## when the layer reports no instance (the toast then keeps its plain line).
-static func _title(play: PlaySession, regiment_id: String) -> String:
-	if regiment_id.is_empty():
-		return ""
-	var home: ArmyState = ArmyTraining.home_army(
-		play.army_layer.armies, play.player_faction
-	)
-	return RegimentNames.of(home, regiment_id) if home != null else ""
 
 
 ## Pitching a field hospital train: the register's materials buy the tents that
