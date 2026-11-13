@@ -20,6 +20,9 @@ signal close_pressed
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
 var _boost: Dictionary = {}
+## The crown's leaderKey, whose published funding multiplier the RP figures
+## include (wiki: leader-bonuses — Victoria).
+var _leader: String = ""
 ## The goal tech, mirrored from `_state.goal` on every refresh. It sorts the
 ## queue and funds nothing; the state keeps it so a load reopens the same order
 ## (wiki: tech-tree § Goal slot; DR-20261111-21).
@@ -27,18 +30,23 @@ var _goal: String = ""
 var _treasury: int = 0
 var _column: VBoxContainer = null
 var _summary: Label = null
-var _goal_row: HBoxContainer = null
+## The rule behind an unpaid study, named under the summary whenever a slot
+## starves. Always visible — a phone hides the standing hint, and a hover-only
+## rule is unreachable on touch (REQ-P1-05, REQ-P5-05).
+var _notice: Label = null
+var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
 var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
 var _hint: Label = null
+var _title: Label = null
+var _close: Button = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
 ## Signatures of what each rebuilt region last drew, so a repaint that changes
 ## none of them touches no widget.
-var _goal_key: String = ""
 var _available_key: String = ""
 var _known_key: String = ""
 
@@ -55,18 +63,49 @@ func _ready() -> void:
 
 ## The tab body gives way so the header, slots and Close stay put: the pages
 ## take the room the sheet leaves, and a phone drops the standing hint instead
-## of pushing content past the panel's edge.
+## of pushing content past the panel's edge. The masthead, standing line and
+## empty goal prompt also yield, so the queue and the lists keep the height
+## (REQ-P1-07).
 func _fit_to_viewport() -> void:
 	if _tabs == null or not is_inside_tree():
 		return
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	_hint.visible = not compact
-	_column.add_theme_constant_override("separation", 4 if compact else 8)
+	set_compact(compact)
 	var top: float = 64.0 if compact else PanelDock.TOP
 	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
 	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
 	var chrome: float = get_combined_minimum_size().y - _tabs.custom_minimum_size.y
 	_tabs.custom_minimum_size = Vector2(0.0, clampf(room - chrome, 0.0, 300.0))
+
+
+## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
+## line, a goal prompt and three full-height slot rows above the list.
+func set_compact(compact: bool) -> void:
+	if _tabs == null:
+		return
+	var margins: Vector4 = Vector4(12, 8, 12, 8) if compact else Vector4(20, 14, 20, 14)
+	add_theme_stylebox_override(
+		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, margins)
+	)
+	if _title != null:
+		_title.add_theme_font_size_override("font_size", 20 if compact else 24)
+	if _close != null:
+		_close.custom_minimum_size = Vector2(64, 40) if compact else Vector2(78, 34)
+	if _summary != null:
+		_summary.visible = not compact
+	if _hint != null:
+		_hint.visible = not compact
+	if _column != null:
+		_column.add_theme_constant_override("separation", 4 if compact else 8)
+	if _goal_row != null:
+		_goal_row.visible = not compact or not _goal.is_empty()
+	if _slots_heading != null:
+		_slots_heading.add_theme_font_size_override("font_size", 10 if compact else 11)
+	if _slots_body != null:
+		_slots_body.add_theme_constant_override("separation", 2 if compact else 4)
+	for row: Variant in _slot_rows.values():
+		if row is ResearchSlotRow:
+			(row as ResearchSlotRow).set_compact(compact)
 
 
 func _build() -> void:
@@ -84,6 +123,7 @@ func _build() -> void:
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title = title
 	header.add_child(title)
 
 	var close := Button.new()
@@ -91,14 +131,20 @@ func _build() -> void:
 	close.custom_minimum_size = Vector2(78, 34)
 	close.add_theme_font_size_override("font_size", 13)
 	close.pressed.connect(func() -> void: close_pressed.emit())
+	_close = close
 	header.add_child(close)
 
 	_summary = _label("", 14, Palette.TEXT)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_column.add_child(_summary)
 
-	_goal_row = HBoxContainer.new()
-	_goal_row.add_theme_constant_override("separation", 8)
+	_notice = _label("", 12, Palette.CRIMSON)
+	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice.visible = false
+	_column.add_child(_notice)
+
+	_goal_row = ResearchGoalStrip.new()
+	_goal_row.clear_pressed.connect(func() -> void: set_goal(""))
 	_column.add_child(_goal_row)
 
 	_slots_heading = _label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
@@ -163,10 +209,13 @@ func set_goal(tech_id: String) -> void:
 ## research state. `boost` carries the spy network's per-tech percent
 ## (DR-20261110-03); it marks the slots it lifts so a faster study is never
 ## silent (REQ-P5-05).
-func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> void:
+func refresh(
+	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
+) -> void:
 	_state = state
 	_treasury = treasury
 	_boost = boost
+	_leader = leader
 	if _tabs == null or _state == null:
 		return
 	_goal = TechOrder.normalize(_state.goal)
@@ -181,13 +230,13 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 		"" if _state.unlocked_ids().size() == 1 else "s",
 	]
 	var open: Array[String] = _open_advances()
-	_fill_goal()
+	_goal_row.render(_state, _goal)
 	_fill_slots()
 	_fill_available(open)
 	_fill_known()
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
-	_hint.text = _hint_text(open.size())
+	_hint.text = _hint_text(open.size(), _notice.visible)
 	_fit_deferred()
 
 
@@ -196,54 +245,6 @@ func refresh(state: ResearchState, treasury: int, boost: Dictionary = {}) -> voi
 func _fit_deferred() -> void:
 	if is_inside_tree():
 		call_deferred("_fit_to_viewport")
-
-
-## The goal strip: the plate, the advance it steers toward, its standing and a
-## Clear button. An empty goal explains itself rather than leaving a blank line.
-func _fill_goal() -> void:
-	var key: String = "%s|%s" % [_goal, _goal_standing()]
-	if key == _goal_key:
-		return
-	_goal_key = key
-	_clear(_goal_row)
-	var tag := _label("GOAL", 11, Palette.TEXT_DIM)
-	tag.custom_minimum_size = Vector2(46, 0)
-	_goal_row.add_child(tag)
-	if _goal.is_empty():
-		var hint := _label(
-			"No goal — set one to sort the queue by the path that reaches it.",
-			12, Palette.TEXT_DIM
-		)
-		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_goal_row.add_child(hint)
-		return
-	_goal_row.add_child(ResearchRow.icon(_goal, 30.0))
-	var name_label := _label(TechCatalog.display_name(_goal), 14, Palette.GOLD_PALE)
-	name_label.tooltip_text = TechCatalog.effect_text(_goal)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_goal_row.add_child(name_label)
-	var standing := _label(_goal_standing(), 11, Palette.TEXT_DIM)
-	standing.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_goal_row.add_child(standing)
-	var clear := Button.new()
-	clear.text = "Clear"
-	clear.custom_minimum_size = Vector2(64, 30)
-	clear.add_theme_font_size_override("font_size", 12)
-	clear.tooltip_text = "Keep the goal out of the queue's order"
-	clear.pressed.connect(func() -> void: set_goal(""))
-	_goal_row.add_child(clear)
-
-
-## How far the goal has come: known, in a slot with its RP, or not yet begun.
-func _goal_standing() -> String:
-	if _state == null:
-		return ""
-	if _state.is_unlocked(_goal):
-		return "reached"
-	if _state.is_active(_goal):
-		return "%d / %d RP" % [_state.progress_of(_goal), TechCatalog.cost(_goal)]
-	return "%d RP" % TechCatalog.cost(_goal)
 
 
 ## One persistent row per slot, rewritten in place. The heading carries what the
@@ -257,6 +258,7 @@ func _goal_standing() -> String:
 func _fill_slots() -> void:
 	var gold: int = 0
 	var points: int = 0
+	var unpaid: int = 0
 	var left: int = _treasury
 	for index in _state.slots.size():
 		var row: ResearchSlotRow = _slot_rows.get(index)
@@ -266,11 +268,29 @@ func _fill_slots() -> void:
 			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
 			_slots_body.add_child(row)
 			_slot_rows[index] = row
-		row.update(_state, _boost, left)
+		row.update(_state, _boost, left, _leader)
 		gold += row.gold_next()
 		points += row.rp_next()
 		left -= row.gold_next()
+		if row.unpaid_next():
+			unpaid += 1
 	_slots_heading.text = _slots_spend_text(gold, points)
+	_set_notice(unpaid)
+
+
+## The court's studies, and the rule that stops the ones the purse cannot pay:
+## the treasury stops at the floor the techs set, so a starved row reads as rule
+## and not as a broken purse (wiki: tech-tree-labour-economy § money_lending,
+## banking; REQ-P5-05).
+func _set_notice(unpaid: int) -> void:
+	_notice.visible = unpaid > 0
+	if unpaid <= 0:
+		_notice.text = ""
+		return
+	var subject: String = "1 study goes" if unpaid == 1 else "%d studies go" % unpaid
+	_notice.text = "%s unpaid — %s." % [
+		subject, LedgerText.research_floor_line(_state.treasury_floor()),
+	]
 
 
 func _slots_spend_text(gold: int, points: int) -> String:
@@ -331,7 +351,9 @@ func _open_advances() -> Array[String]:
 	return TechOrder.sorted(out, _goal)
 
 
-func _hint_text(open_count: int) -> String:
+func _hint_text(open_count: int, starved: bool) -> String:
+	if starved:
+		return "A study the treasury cannot cover keeps its slot and its points; it only waits."
 	if _state.free_slot() < 0 and open_count > 0:
 		return "Every slot is at study — cancel one to take another path."
 	return "Funding is paid every turn; cancelling a slot forfeits its progress."

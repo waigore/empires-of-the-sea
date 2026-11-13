@@ -41,15 +41,23 @@ static func build_hud(play: PlaySession) -> void:
 	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	if hud.civilian_roster != null:
 		hud.civilian_roster.bind(play)
+	if hud.muster_roll != null:
+		hud.muster_roll.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
+	# Build/work's recruits land on the session's layers when the ledger closes.
+	play.economy.play = play
 	play.economy.setup(
 		play.model, play.player_faction, play.capital_province, play.ship_layer,
-		play.army_layer, hud, play.land_works, play.capital_tile
+		play.army_layer, hud, play.land_works, play.capital_tile,
+		String(play.leaders.get(play.player_faction, ""))
 	)
 	# Colonial yield ships home from every region, so the controller reads the
 	# whole works table (the world already reaches it through the ship layer).
 	play.economy.works_by_region = play.civilian_layer.works_regions
+	# A blockade severs the harvest, so the ledger prices it against the court's
+	# own sealed ports (wiki: capital-and-connectivity § Blockade).
+	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
@@ -60,13 +68,10 @@ static func build_hud(play: PlaySession) -> void:
 	)
 	refresh_dossier(play)
 	build_lens(play)
-	# Wired here so MapScreen._connect stays free of a third lens (tier-1 budget).
-	hud.crown_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_crown_lens(play, active)
-	)
-	hud.defence_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_defence_lens(play, active)
-	)
+	# One seal now: the click walks the readings and the menu names one, so the
+	# screen keeps a single path for all four lenses (REQ-P5-03).
+	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
+	hud.lens_selected.connect(func(kind: String) -> void: MapPlayInput.select_lens(play, kind))
 
 
 ## The province dossier reads the same live tables as the estates ledger: the

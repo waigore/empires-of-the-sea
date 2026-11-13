@@ -253,6 +253,60 @@ func test_enemy_markers_follow_fog_intel() -> void:
 	assert_true(enemy.visible)
 
 
+## A sighted rival flies `*` until the watch spans a turn, and loses the read
+## when she slips out of the crown's chart (wiki: ships-and-naval
+## § Sighted strength).
+func test_a_rivals_strength_waits_for_the_watch_to_close() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	assert_true(enemy.visible, "she is under the crown's eye")
+	assert_false(enemy.strength_known, "a first sighting gives up no weight")
+	assert_false(_screen.play.naval_intel.is_revealed(fleet.id))
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	assert_true(enemy.strength_known, "still in view next turn, her weight is read")
+	assert_true(_screen.play.naval_intel.is_revealed(fleet.id))
+
+	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	assert_false(enemy.strength_known, "out of sight is out of knowledge")
+	assert_false(_screen.play.naval_intel.is_revealed(fleet.id),
+		"a rival who returns must be watched afresh")
+
+
+## The dossier prints ??? for a rival the crown has sighted but not read.
+func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	_screen.ship_layer.select(enemy)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+
+	assert_true(block.visible, "the block names the squadron")
+	assert_true(block._strength.text.contains("???"), block._strength.text)
+	assert_false(block._pool.visible, "the hull pool is not the crown's to know")
+	assert_true(block._strength.text.contains("strength"), block._strength.text)
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+
+	assert_true(block._strength.text.contains("strength ="), block._strength.text)
+	assert_false(block._strength.text.contains("???"), block._strength.text)
+	assert_true(block._pool.visible, "a read squadron shows her full maths")
+
+
 func test_a_fleet_crosses_the_passage_into_the_new_world() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
@@ -1038,7 +1092,11 @@ func test_shipyard_rows_carry_the_hull_medallion() -> void:
 	)
 
 
-func test_launching_pays_the_row_and_moors_the_hull() -> void:
+## A launch is a BuildUnitOrder: the yard queues the hull and reserves her
+## peasant, and Build/work pays the row and moors her in the home fleet
+## (wiki: ships-and-naval § Ship build economy; workers-and-population
+## § Phase placement, § Peasant reservation).
+func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
 	var econ: PlayerEconomy = _screen.play.economy.economy
@@ -1049,12 +1107,19 @@ func test_launching_pays_the_row_and_moors_the_hull() -> void:
 
 	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
 
+	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls, "no hull yet")
+	assert_eq(econ.treasury, treasury, "nothing is paid at the press")
+	assert_eq(econ.available_peasants(), peasants - 1, "her peasant is reserved")
+	assert_eq(econ.recruits.pending(RecruitQueue.KIND_SHIP, "carrack"), 1)
+
+	MapPlayRecruits.complete(_screen.play)
+
 	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(fleet, "the launch founds or joins the home fleet")
 	assert_eq(fleet.count_of_type("carrack"), 1)
 	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls + 1)
 	assert_eq(econ.treasury, treasury - ShipEconomy.treasury_cost("carrack"))
-	assert_eq(econ.available_peasants(), peasants - 1)
+	assert_eq(econ.available_peasants(), peasants - 1, "the reservation became the muster")
 
 
 func test_breaking_up_a_hull_asks_once() -> void:
@@ -1183,6 +1248,7 @@ func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
 	_screen.play.selected_province = capital
 	_screen.play.economy.economy.treasury = 60000
 	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
+	MapPlayRecruits.complete(_screen.play)
 	var home: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(home, "the launch founds or joins the home fleet")
 	var marker: Ship = _screen.ship_layer.ship_for(home)
@@ -1229,7 +1295,9 @@ func test_the_fleet_dossier_prints_the_combat_maths() -> void:
 
 
 ## A hostile squadron in the same water shows the share of strength each side
-## holds, so the court knows what the turn's battle would decide.
+## holds, so the court knows what the turn's battle would decide. An unread
+## rival withholds the share until the crown's watch closes (wiki:
+## ships-and-naval § Sighted strength).
 func test_a_contested_zone_shows_the_share_of_strength() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
@@ -1248,6 +1316,19 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 	_screen.ship_layer.select(ship)
 	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
 
+	assert_true(block._zone.text.contains("not yet read"), block._zone.text)
+	assert_eq(
+		block._zone.get_theme_color("font_color"),
+		Palette.GOLD_PALE,
+		"an unread rival leaves the water undecided"
+	)
+
+	# The watch closes across the turn boundary: her weight joins the odds.
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.turn += 1
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+
 	assert_true(block._zone.text.contains("you hold"), block._zone.text)
 	assert_true(block._zone.text.contains("against"), block._zone.text)
 	# A rival line of the line outweighs the squadron: the verdict turns red.
@@ -1264,7 +1345,8 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 
 
 ## The marker's art path draws a squadron at both chart zooms: escorts, badge,
-## gauge and the printed number (REQ-P1-03, RUB-P1-04).
+## the strength plate and the printed number, plus the unread rival's `*`
+## (REQ-P1-03, RUB-P1-04).
 func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
 	var marker := Ship.new()
 	_screen.add_child(marker)
@@ -1281,6 +1363,17 @@ func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
 	marker.queue_redraw()
 	await get_tree().process_frame
 
+	# An unread rival flies the mark instead of her weight.
+	marker.set_squadron(4, 31.5)
+	marker.set_intel(false)
+	marker.queue_redraw()
+	await get_tree().process_frame
+
+	assert_false(marker.strength_known)
+	assert_eq(marker.hull_count, 4, "an unread squadron still flies her hulls")
+	marker.set_intel(true)
+	assert_true(marker.strength_known)
+	marker.set_squadron(1, 2.75)
 	assert_eq(marker.hull_count, 1)
 	assert_almost_eq(marker.strength, 2.75, 0.0001)
 	marker.queue_free()

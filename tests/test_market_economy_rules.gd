@@ -1144,6 +1144,115 @@ func test_training_needs_a_peasant_and_treasury() -> void:
 	assert_eq(economy.workers.count(WorkerPool.Tier.MASTER), 1)
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 0)
 
+## A recruit is a queued order: the press files it, nothing is paid, and the
+## peasant it will take is reserved so a second order cannot promise the same
+## head (wiki: workers-and-population § Phase placement, § Peasant reservation).
+func test_a_queued_recruit_reserves_the_peasant_it_will_take() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.stockpile["paper"] = 4
+	var peasants: int = economy.available_peasants()
+
+	assert_true(bool(economy.queue_recruit(WorkerPool.Tier.APPRENTICE)["ok"]))
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), peasants, "no head moves yet")
+	assert_eq(economy.available_peasants(), peasants - 1)
+	assert_eq(economy.recruits.reserved_peasants(), 1)
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY, "nothing is paid yet")
+
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 1)
+	assert_eq(
+		String(economy.queue_recruit(WorkerPool.Tier.APPRENTICE)["reason"]),
+		"Insufficient workers",
+		"the one peasant left is already promised"
+	)
+	assert_eq(economy.recruits.total(), 1, "a refused order is not filed")
+
+
+## A peasant recruit consumes no headcount, so it reserves none.
+func test_a_queued_peasant_recruit_takes_no_reservation() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 2
+	var peasants: int = economy.available_peasants()
+	assert_true(bool(economy.queue_recruit(WorkerPool.Tier.PEASANT)["ok"]))
+	assert_eq(economy.available_peasants(), peasants)
+	assert_eq(economy.recruits.reserved_peasants(), 0)
+
+
+## Build/work takes the queue whole, so an order resolves exactly once.
+func test_the_build_work_pass_drains_the_queue_once() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 2
+	economy.queue_recruit(WorkerPool.Tier.PEASANT)
+	var orders: Array[Dictionary] = economy.recruits.take_all()
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["kind"]), RecruitQueue.KIND_WORKER)
+	assert_true(economy.recruits.is_empty())
+	assert_eq(economy.recruits.take_all().size(), 0, "a second pass finds nothing")
+
+
+## A save carries the orders and the peasants they promise.
+func test_orders_and_their_reservation_survive_a_snapshot() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	economy.queue_build(RecruitQueue.KIND_CIVILIAN, "builder")
+	var restored: PlayerEconomy = PlayerEconomy.starting()
+	restored.apply_snapshot(economy.snapshot())
+	assert_eq(restored.recruits.total(), 2)
+	assert_eq(restored.recruits.pending(RecruitQueue.KIND_SHIP, "carrack"), 1)
+	assert_eq(restored.recruits.reserved_peasants(), 1, "the hull's peasant stays reserved")
+	assert_eq(restored.available_peasants(), economy.available_peasants())
+
+
+## A damaged save drops what it cannot read instead of trusting it.
+func test_a_damaged_save_drops_orders_it_cannot_read() -> void:
+	var queue := RecruitQueue.new()
+	queue.read(
+		[{"kind": "worker", "key": "1"}, {"kind": "nonsense", "key": "x"}, 7]
+	)
+	assert_eq(queue.total(), 1)
+	assert_eq(RecruitQueue.label(queue.orders[0]), "Apprentice")
+	queue.read("not a queue")
+	assert_true(queue.is_empty())
+
+
+## A planning copy carries its own queue: simulating a turn never files an order
+## on the live ledger.
+func test_a_copy_carries_its_own_queue() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.queue_recruit(WorkerPool.Tier.PEASANT)
+	var clone: PlayerEconomy = economy.copy()
+	clone.recruits.take_all()
+	assert_eq(economy.recruits.total(), 1, "the live ledger keeps its order")
+	assert_eq(clone.recruits.total(), 0)
+
+
+## The queue counts its orders by kind, names each on the ledger, and reserves
+## one peasant per trained worker or build (wiki: workers-and-population
+## § Peasant reservation).
+func test_the_queue_counts_its_orders_by_kind_and_names_them() -> void:
+	var queue := RecruitQueue.new()
+	assert_true(queue.is_empty())
+	assert_eq(queue.total(), 0)
+
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.MASTER))
+	queue.add(RecruitQueue.KIND_SHIP, "carrack")
+	assert_eq(queue.total(), 3)
+	assert_false(queue.is_empty())
+	assert_eq(queue.pending_kind(RecruitQueue.KIND_WORKER), 2)
+	assert_eq(queue.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE)), 1)
+	assert_eq(queue.pending(RecruitQueue.KIND_REGIMENT, "peasant_levies"), 0)
+	assert_eq(queue.reserved_peasants(), 3, "two trained workers and one hull")
+
+	assert_eq(RecruitQueue.label(queue.orders[0]), "Apprentice")
+	assert_eq(RecruitQueue.label(queue.orders[1]), "Master")
+	assert_eq(RecruitQueue.label(queue.orders[2]), "Carrack")
+	assert_eq(RecruitQueue.label({"kind": "civilian", "key": "builder"}), "Builder")
+	assert_eq(RecruitQueue.label({"kind": "regiment", "key": "peasant_levies"}), "Peasant Levies")
+	assert_eq(RecruitQueue.label({"kind": "mystery", "key": "x"}), "x", "an unknown kind names its key")
+	assert_eq(queue.snapshot().size(), 3)
+
+
 func test_disband_demotes_one_tier_to_peasant_without_refund() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers.set_count(WorkerPool.Tier.JOURNEYMAN, 2)
@@ -1357,6 +1466,24 @@ func test_projection_matches_the_live_resolution() -> void:
 	for id: String in CommodityCatalog.all_ids():
 		var live: int = economy.quantity(id) - int(before.get(id, 0))
 		assert_eq(int(projection["stockpile_delta"].get(id, 0)), live, id)
+
+## The projection names the store Production will find, so the ledger can stop a
+## row at what the phase can start (wiki: stockpiles-and-production § Production
+## flow; issue #453).
+func test_the_projection_names_the_post_consumption_store() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = _economy(2)
+	economy.stockpile["grain"] = 3
+	economy.stockpile["timber"] = 4
+	var projection: Dictionary = EconomyTurn.project(economy, market, {"timber": 2}, 0)
+	var store: Dictionary = projection["after_consumption"]
+	# The harvest lands before Consumption, and two peasants eat a grain each.
+	assert_eq(int(store.get("timber", 0)), 6)
+	assert_eq(int(store.get("grain", 0)), 1)
+	# The live store is untouched: the projection is a dry run.
+	assert_eq(economy.quantity("timber"), 4)
+	assert_eq(economy.quantity("grain"), 3)
+
 
 func test_projection_has_no_side_effects() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
@@ -1682,6 +1809,55 @@ func test_works_respect_prospecting_and_extraction_caps() -> void:
 		model, 0, -1, {}, works, Vector2i(0, 0)
 	)
 	assert_eq(prospected, {"iron": 1})
+
+## A coast held by a hostile squadron pays the crown nothing, and the controller
+## prices the loss from its own fleet stations (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_the_ledger_prices_a_blockaded_coast() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var home: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var coast: Array[Vector2i] = [Vector2i(2, 0), Vector2i(3, 0)]
+	for tile: Vector2i in home + coast:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+	model.province[model.index_of(0, 0)] = 0
+	model.province[model.index_of(1, 0)] = 0
+	model.province[model.index_of(2, 0)] = 1
+	model.province[model.index_of(3, 0)] = 1
+	var capital := ProvinceState.create(0, "Sevilla", home, Vector2(0.5, 0.0), 2, 0)
+	capital.capital_tile = Vector2i(0, 0)
+	capital.town_tile = Vector2i(0, 0)
+	var harbour := ProvinceState.create(1, "Costa", coast, Vector2(2.5, 0.0), 2, 0)
+	harbour.town_tile = Vector2i(3, 0)
+	harbour.town_development = 0
+	model.provinces = [capital, harbour]
+	model.resource[model.index_of(2, 0)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(3, 0))
+	works.set_improvement(model, Vector2i(2, 0), 4)
+	var controller := EconomyController.new()
+	controller.model = model
+	controller.player_faction = 0
+	controller.capital_province = 0
+	controller.capital_tile = Vector2i(0, 0)
+	controller.works = works
+	controller.economy = PlayerEconomy.starting()
+	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
+	assert_eq(
+		int(controller.extraction().get("grain", 0)),
+		1 + Extraction.CAPITAL_GRAIN_BONUS,
+		"the harbour carries the estate's grain home"
+	)
+	var seals := Blockades.new()
+	seals.sealed = {model.region_id: {1: true}}
+	controller.blockade_source = func() -> Blockades: return seals
+	assert_eq(
+		int(controller.extraction().get("grain", 0)),
+		Extraction.CAPITAL_GRAIN_BONUS,
+		"the blockaded harbour carries nothing"
+	)
+	controller.free()
+
 
 func test_tech_caps_lift_the_yield_per_tile() -> void:
 	var model: MapModel = MapModel.new()
@@ -2389,6 +2565,49 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	assert_true(line.contains("2 cast iron made in colonial towns"))
 	assert_true(line.contains("2 left on the far shore"))
 	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
+
+
+## A coast the sea has shut is a rule, not a lean harvest: the despatch names it
+## (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+func test_the_turn_summary_names_a_blockaded_coast() -> void:
+	var report: Dictionary = {
+		"extraction": {"grain": 5},
+		"blockade": "Blockaded: Cádiz — nothing there reaches the crown by sea this turn",
+	}
+	var line: String = LedgerText.turn_summary(report)
+	assert_true(line.contains("Blockaded: Cádiz"), line)
+	assert_true(line.contains("gathered 5 grain"), line)
+	assert_false(LedgerText.turn_summary({"extraction": {"grain": 5}}).contains("Blockaded"))
+
+
+## A study the purse cannot pay is a rule with a floor, not a broken purse: the
+## turn's own despatch names what stopped it, so a crown that never opens the
+## college still learns why (wiki: tech-tree-labour-economy § money_lending,
+## banking; REQ-P5-05).
+func test_the_turn_summary_names_the_lending_floor_behind_an_unpaid_slot() -> void:
+	var lending: Dictionary = {"research": {"unpaid": ["land_enclosure"], "floor": -500}}
+	var line: String = LedgerText.turn_summary(lending)
+	assert_true(line.contains("1 research slot unfunded"), line)
+	assert_true(line.contains("the -500 lending floor is reached"), line)
+
+	var borrowing: Dictionary = {"research": {"unpaid": ["a", "b"], "floor": 0}}
+	var tied: String = LedgerText.turn_summary(borrowing)
+	assert_true(tied.contains("2 research slots unfunded"), tied)
+	assert_true(tied.contains("research may not borrow"), tied)
+
+
+## The same rule spelled out for the college and the slot's own hover.
+func test_the_floor_text_follows_money_lending_and_banking() -> void:
+	assert_true(LedgerText.research_floor_line(0).contains("stops at 0 ducats"))
+	assert_true(LedgerText.research_floor_line(0).contains("Money Lending"))
+	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("-500"))
+	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("Banking"))
+	assert_true(
+		LedgerText.research_floor_line(ResearchFunding.BANK_DEBT_FLOOR).contains("-1,000"),
+		"both techs, both figures read as money"
+	)
+	assert_eq(LedgerText.research_floor_note(0), "research may not borrow")
+	assert_eq(LedgerText.research_floor_note(ResearchFunding.DEBT_FLOOR), "the -500 lending floor is reached")
 
 # --- test_trade_cargo ---
 

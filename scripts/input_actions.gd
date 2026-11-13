@@ -13,6 +13,7 @@ const END_TURN := "end_turn"
 const FOCUS_CAPITAL := "focus_capital"
 const CANCEL := "cancel"
 const MUTE := "mute"
+## The cartouche's one lens seal: walks the four map readings on each press.
 const LENS := "resource_lens"
 const DIPLOMACY_LENS := "diplomacy_lens"
 ## Third map reading: which of the crown's own tiles reach the capital by road.
@@ -21,6 +22,8 @@ const CROWN_LENS := "crown_road_lens"
 const DEFENCE_LENS := "defence_lens"
 ## Opens the whole-empire civilian roster from anywhere on the map.
 const CIVILIAN_ROSTER := "civilian_roster"
+## Opens the muster roll: every army and squadron the crown holds (DR-20261113-12).
+const MUSTER_ROLL := "muster_roll"
 
 
 static func ensure_actions() -> void:
@@ -39,6 +42,7 @@ static func ensure_actions() -> void:
 	_bind(CROWN_LENS, [KEY_R])
 	_bind(DEFENCE_LENS, [KEY_K])
 	_bind(CIVILIAN_ROSTER, [KEY_C])
+	_bind(MUSTER_ROLL, [KEY_O])
 
 
 static func _bind(action: StringName, keys: Array) -> void:

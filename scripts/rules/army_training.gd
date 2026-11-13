@@ -15,6 +15,23 @@ static func home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
 	return null
 
 
+## Empty string when a muster order may be queued for this type; otherwise the
+## first reason the rules refuse it. The register, the queue and the Build/work
+## pass all read this one gate (REQ-P2-03).
+static func muster_blocked_reason(
+	economy: PlayerEconomy, armies: Array[ArmyState], owner: int, type_id: String
+) -> String:
+	if economy == null or home_army(armies, owner) == null:
+		return "Regiments muster only in the Home Army."
+	return RegimentEconomy.blocked_reason(
+		type_id,
+		economy.treasury,
+		economy.stockpile,
+		economy.available_peasants(),
+		economy.tech_unlocked
+	)
+
+
 ## One ledger row per catalog type, tech-gated and priced for the muster panel.
 ## Buildable rows come first so the drill yard leads with what can march today.
 static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
@@ -34,6 +51,7 @@ static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
 			"cost_text": RegimentEconomy.cost_text(type_id),
 			"ok": reason.is_empty(),
 			"reason": reason,
+			"pending": economy.recruits.pending(RecruitQueue.KIND_REGIMENT, type_id),
 		}
 		if row["ok"]:
 			open_rows.append(row)

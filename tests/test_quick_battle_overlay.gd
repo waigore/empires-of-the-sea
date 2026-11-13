@@ -793,3 +793,87 @@ func test_the_simulator_scene_fights_and_steps() -> void:
 	assert_eq(screen._field.attacker_count, 0)
 
 	screen.free()
+
+
+# --- the sea's despatch plate (wiki: ships-and-naval § Naval Combat Resolution)
+
+func _sea_battle() -> Dictionary:
+	return {
+		"attacker": 0,
+		"defender": 1,
+		"attacker_strength": 182.0,
+		"defender_strength": 121.0,
+		"attacker_before": 6,
+		"defender_before": 4,
+		"attacker_hulls": [
+			"galleon", "galleon", "galleon", "galleon", "sloop", "sloop",
+		],
+		"defender_hulls": ["carrack", "carrack", "carrack", "carrack"],
+		"attacker_lost": [],
+		"attacker_lost_names": [],
+		"defender_lost": ["a", "b", "c", "d"],
+		"defender_lost_names": ["Trinidad", "Concepcion"],
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"retreat": {},
+	}
+
+
+func test_the_sea_plate_tells_the_despatch_and_finishes_on_skip() -> void:
+	var plate := NavalPlate.new()
+	add_child(plate)
+	var done: Array[bool] = [false]
+	plate.finished.connect(func() -> void: done[0] = true)
+
+	plate.show_engagement(_sea_battle(), "Mar Caribe", NAMES)
+	assert_true(plate.is_shown())
+	assert_true(plate._headline.text.contains("España against England"))
+	assert_true(plate._headline.text.contains("Mar Caribe"))
+
+	plate.skip()
+	assert_true(plate._continue.visible, "the whole despatch is told at once")
+	assert_true(plate._outcome.text.contains("España holds the Mar Caribe"))
+	assert_true(plate._log.get_child_count() <= NavalPlate.LOG_LINES)
+	var told: PackedStringArray = PackedStringArray()
+	for child in plate._log.get_children():
+		told.append(String((child as Label).text))
+	assert_true(" ".join(told).contains("England loses 4 ships"), "the dead are named")
+
+	plate._on_continue()
+	assert_true(done[0])
+	assert_false(plate.is_shown())
+	plate.free()
+
+
+func test_the_sea_plate_stands_one_medallion_per_hull_type() -> void:
+	var plate := NavalPlate.new()
+	add_child(plate)
+	plate.show_engagement(_sea_battle(), "Mar Caribe", NAMES)
+	plate.skip()
+	# Two types under the attacker's line (Galleon, Sloop), one under England's.
+	var chips: int = 0
+	for line: HBoxContainer in plate.side_lines():
+		chips += line.get_child_count() - 1
+	assert_eq(chips, 3, "one medallion per type, the name aside")
+	plate.free()
+
+
+func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
+	var screen: MapScreen = Fixture.attach_screen(self)
+	screen.hud.show_naval_dispatch(_sea_battle(), "Mar Caribe")
+	assert_true(screen.hud.naval_plate.is_shown(), "the sea's despatch takes the court")
+	screen.hud.show_naval_dispatch(_sea_battle(), "Golfo de México")
+	assert_eq(screen.hud._naval_queue.size(), 1, "the second engagement waits its turn")
+	screen.hud.show_quick_battle(_battle(), "Flanders")
+	assert_eq(screen.hud._quick_queue.size(), 1, "a land battle queues behind the sea")
+	screen.hud.naval_plate.skip()
+	screen.hud.naval_plate._on_continue()
+	assert_true(screen.hud.is_quick_battle_shown(), "land resolved first, so land is served first")
+	screen.hud.quick_battle_overlay.skip()
+	screen.hud.quick_battle_overlay._on_continue()
+	assert_true(screen.hud.naval_plate.is_shown(), "the queued sea fight takes the plate")
+	screen.hud.naval_plate.skip()
+	screen.hud.naval_plate._on_continue()
+	assert_false(screen.hud.is_quick_battle_shown())
+	assert_false(screen.hud.naval_plate.is_shown())
+	screen.free()
+

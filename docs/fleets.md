@@ -17,20 +17,20 @@ Movement, cargo, fog, battles; stations, raids:
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
 - **Named hulls** (`ShipNames`): period names, unique per squadron, kept
   through save and merge (DR-20261111-07).
-- **Yard:** launch at the capital for its row + **one peasant**; breaking up
-  returns a peasant, no refund; an empty squadron retires (DR-20261109-01).
-- **Home cargo:** merchant hulls in the home fleet give **cargo holds**
-  (1/turn) capping **imports**; exports free (DR-20261109-03).
+- **Yard:** launch for its row + **one peasant**; the hull lands next turn at
+  Build/work; breaking up returns a peasant, no refund (DR-20261109-01).
+- **Home cargo:** merchant hulls give **cargo holds** (1/turn) capping
+  **imports**; exports free (DR-20261109-03).
 - **Home-fleet merge:** docking at the seat or a dossier **Join the home
-  fleet** tap folds a squadron in (`FleetHomeMerge`); ids, names and
-  passengers keep; old saves repair.
-- **Home sortie** (DR-20261109-17): the home squadron may put to sea, spending
-  move and holds; colonists ride as passengers (one per hull) and land beside
-  the zone.
+  fleet** tap folds it in (`FleetHomeMerge`); ids, names and passengers
+  keep; old saves repair.
+- **Home sortie** (DR-20261109-17): the home squadron may sail, spending move
+  and holds; colonists ride as passengers (one per hull) and land beside the
+  zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
-- **Markers:** escorts, hull badge, strength gauge; the dossier prints the
-  maths, pool and zone share.
+- **Markers:** escorts, hull badge and her strength; a sighted rival prints
+  `*`, her dossier `???`, until watched across a turn (DR-20261113-20).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13, DR-20261109-16).
 - **Army transport** (`NavalTransport`): an army boards in port (one regiment per

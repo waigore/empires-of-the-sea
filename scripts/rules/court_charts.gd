@@ -140,11 +140,11 @@ func charted_tiles(owner: int, region: int, tiles: Array[Vector2i]) -> Array[Vec
 	return kept
 
 
-func reveal_sea_zone(owner: int, region: int, zone_id: int) -> Array:
+func reveal_sea_zone(owner: int, region: int, zone_id: int, extra_land_rings: int = 0) -> Array:
 	var view: VisibilityModel = model_for(owner, region)
 	if view == null:
 		return []
-	return view.reveal_sea_zone(zone_id)
+	return view.reveal_sea_zone(zone_id, extra_land_rings)
 
 
 func reveal_landing(owner: int, region: int, tile: Vector2i) -> Array:

@@ -1,7 +1,8 @@
 class_name GameMenu
 extends CanvasLayer
 ## In-game pause menu (REQ-P5-01): resume, save to a local slot, load a local
-## slot (the router rebuilds the whole screen), and the way back to the title.
+## slot (the router rebuilds the whole screen), the sound desk and the way back
+## to the title. The cartouche's own MENU seal opens it.
 
 signal save_chosen(slot: int)
 signal load_chosen(slot: int)
@@ -9,18 +10,27 @@ signal main_menu_chosen
 
 const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
-var trigger: Button = null
 var save_button: Button = null
 var load_button: Button = null
 var main_menu_button: Button = null
 var resume_button: Button = null
 var browser: SaveBrowser = null
+## The pause door: the cartouche's MENU crest (built here, mounted on the bar),
+## and the handle the roster and ledgers park while they are up.
+var trigger: Button = null
+## Music, effects and mute, folded into the pause page: the map itself carries
+## no sound seal (REQ-P1-06).
+var sound_desk: SoundDesk = null
+## Live campaign seed (wiki: game-setup); copy puts the digits on the clipboard.
+var seed_label: Label = null
+var copy_seed_button: Button = null
 
 var _ui: Control = null
 var _overlay: Control = null
 var _pause_page: VBoxContainer = null
 var _status: Label = null
 var _owns_pause: bool = false
+var _shown_seed: int = 0
 
 
 func _ready() -> void:
@@ -36,24 +46,22 @@ func _ready() -> void:
 	_build_browser()
 
 
+## The pause door lives in the cartouche now: the crest at the bar's upper-left
+## opens this page, so the map carries no loose seal of its own (REQ-P5-01).
+## GameMenu mounts it while the bar is already built, so a standalone pause
+## (no HUD) keeps its own corner button instead.
 func _build_trigger() -> void:
 	trigger = Button.new()
-	trigger.name = "MenuTrigger"
-	trigger.text = "MENU"
-	trigger.tooltip_text = "Menu"
-	trigger.position = Vector2(18.0, 132.0)
-	trigger.size = Vector2(46.0, 46.0)
-	trigger.add_theme_font_size_override("font_size", 10)
-	trigger.add_theme_stylebox_override(
-		"normal",
-		UiTheme.box(Color(0.09, 0.07, 0.05, 0.94), Palette.GOLD_DIM, 1, 4, Vector4(4, 4, 4, 4))
-	)
-	trigger.add_theme_stylebox_override(
-		"hover",
-		UiTheme.box(Color(0.14, 0.11, 0.08, 0.96), Palette.GOLD, 1, 4, Vector4(4, 4, 4, 4))
-	)
+	trigger.name = "MenuSeal"
 	trigger.pressed.connect(open)
-	_ui.add_child(trigger)
+	TopBar.dress(trigger, "", "MENU", "Menu — save, load, sound or return to the title")
+	var hud := get_node_or_null("../HUD/HudRoot") as GameHud
+	if hud == null or hud.top_row == null:
+		trigger.position = Vector2(18.0, 132.0)
+		_ui.add_child(trigger)
+		return
+	hud.top_row.add_child(trigger)
+	hud.top_row.move_child(trigger, 0)
 
 
 func _build_overlay() -> void:
@@ -87,6 +95,17 @@ func _build_overlay() -> void:
 	if not short:
 		_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
 
+	_pause_page.add_child(MenuFrame.caption("Map seed"))
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 8)
+	_pause_page.add_child(seed_row)
+	seed_label = MenuFrame.subtitle("—")
+	seed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seed_row.add_child(seed_label)
+	copy_seed_button = MenuFrame.small_button("COPY", 96.0)
+	copy_seed_button.pressed.connect(_on_copy_seed)
+	seed_row.add_child(copy_seed_button)
+
 	resume_button = MenuFrame.action_button("RESUME", row)
 	resume_button.pressed.connect(close)
 	_pause_page.add_child(resume_button)
@@ -103,9 +122,22 @@ func _build_overlay() -> void:
 	main_menu_button.pressed.connect(_on_main_menu)
 	_pause_page.add_child(main_menu_button)
 
+	# The mix desk lives here now: the map's cartouche carries no sound seal.
+	_pause_page.add_child(MenuFrame.separator())
+	sound_desk = SoundDesk.new()
+	sound_desk.name = "SoundDesk"
+	_pause_page.add_child(sound_desk)
+
 	_status = MenuFrame.subtitle("")
 	_status.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	_pause_page.add_child(_status)
+
+
+## The screen's director drives the pause page's desk; the title page binds its
+## own bell instead (REQ-P1-06).
+func bind_audio(director: AudioDirector) -> void:
+	if sound_desk != null:
+		sound_desk.bind(director)
 
 
 func _build_browser() -> void:
@@ -121,6 +153,7 @@ func open() -> void:
 		return
 	_overlay.visible = true
 	_show_pause_page()
+	_refresh_seed()
 	_status.text = ""
 	_owns_pause = true
 	get_tree().paused = true
@@ -200,6 +233,34 @@ func _on_main_menu() -> void:
 func _save_dir() -> String:
 	var screen := get_parent() as MapScreen
 	return screen.save_dir if screen != null else SaveStore.DIR
+
+
+## Prefer the session seed once play is live; fall back to the screen pin.
+func _resolve_seed() -> int:
+	var screen := get_parent() as MapScreen
+	if screen == null:
+		return 0
+	if screen.play != null:
+		return screen.play.map_seed
+	return screen.map_seed
+
+
+func _refresh_seed() -> void:
+	_shown_seed = _resolve_seed()
+	if seed_label != null:
+		seed_label.text = str(_shown_seed) if _shown_seed != 0 else "—"
+	if copy_seed_button != null:
+		copy_seed_button.disabled = _shown_seed == 0
+
+
+func _on_copy_seed() -> void:
+	if _shown_seed == 0:
+		_refresh_seed()
+	if _shown_seed == 0:
+		return
+	DisplayServer.clipboard_set(str(_shown_seed))
+	if _status != null:
+		_status.text = "Seed copied."
 
 
 func _input(event: InputEvent) -> void:

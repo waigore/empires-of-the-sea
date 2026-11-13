@@ -18,6 +18,9 @@ const COIN_SIZE: float = 13.0
 
 ## Slot index this row draws; set once, so its signals carry it back.
 var slot: int = 0
+## Phone rows trade height for list room; the buttons keep their thumb size.
+var _compact: bool = false
+var _idle_now: bool = true
 
 var _idle: Label = null
 var _body: HBoxContainer = null
@@ -35,6 +38,8 @@ var _next: Label = null
 
 var _gold_next: int = 0
 var _rp_next: int = 0
+## True when the Research phase cannot pay this slot at its preset next turn.
+var _unpaid: bool = false
 
 
 func _init(index: int) -> void:
@@ -64,17 +69,23 @@ func _init(index: int) -> void:
 
 ## Rewrites the row from live research state. `boost` maps tech id -> spy-network
 ## percent, so the row can name the share a shadowed court hands over
-## (DR-20261110-03).
+## (DR-20261110-03). `leader` is the crown's leaderKey, whose published funding
+## multiplier the next-turn RP already includes (leader-bonuses — Victoria).
 func update(
-	state: ResearchState, boost: Dictionary, treasury: int, animate: bool = true
+	state: ResearchState, boost: Dictionary, treasury: int, leader: String = "",
+	animate: bool = true
 ) -> void:
 	var tech_id: String = state.tech_at(slot)
 	var idle: bool = tech_id.is_empty()
+	_idle_now = idle
 	_idle.visible = idle
 	_body.visible = not idle
-	custom_minimum_size = Vector2(0.0, IDLE_HEIGHT if idle else ROW_HEIGHT)
+	var idle_height: float = 26.0 if _compact else IDLE_HEIGHT
+	var row_height: float = 46.0 if _compact else ROW_HEIGHT
+	custom_minimum_size = Vector2(0.0, idle_height if idle else row_height)
 	_gold_next = 0
 	_rp_next = 0
+	_unpaid = false
 	if idle:
 		_bar.set_progress(0, 1, 0, true, false)
 		return
@@ -83,10 +94,11 @@ func update(
 		_fill_icon(tech_id)
 	var funding: String = state.funding_at(slot)
 	var plan: Dictionary = ResearchTurn.preview(
-		state, tech_id, funding, treasury, SpyNetworks.boost_for(boost, tech_id)
+		state, tech_id, funding, treasury, SpyNetworks.boost_for(boost, tech_id), leader
 	)
 	_gold_next = int(plan["gold"])
 	_rp_next = int(plan["rp"])
+	_unpaid = not bool(plan["paid"])
 	var cost: int = int(plan["cost"])
 	var banked: int = int(plan["progress"])
 	_name.text = TechCatalog.display_name(tech_id)
@@ -110,12 +122,17 @@ func update(
 	_progress.text = "%s / %s RP" % [
 		TextFormat.thousands(banked), TextFormat.thousands(cost),
 	]
-	_fill_next(banked, cost, bool(plan["paid"]))
+	_fill_next(banked, cost, bool(plan["paid"]), state.treasury_floor())
 
 
 ## Ducats the slot spends next turn, and points it buys (0 for an idle slot).
 func gold_next() -> int:
 	return _gold_next
+
+
+## True when the treasury cannot pay this slot at its preset next turn.
+func unpaid_next() -> bool:
+	return _unpaid
 
 
 func rp_next() -> int:
@@ -124,6 +141,20 @@ func rp_next() -> int:
 
 func bar() -> ResearchBar:
 	return _bar
+
+
+## Phone geometry: a shorter slot row and smaller text, while every button keeps
+## its 40-point thumb target (REQ-P1-07).
+func set_compact(compact: bool) -> void:
+	_compact = compact
+	var idle_height: float = 26.0 if compact else IDLE_HEIGHT
+	var row_height: float = 46.0 if compact else ROW_HEIGHT
+	custom_minimum_size = Vector2(0.0, idle_height if _idle_now else row_height)
+	_idle.add_theme_font_size_override("font_size", 12 if compact else 14)
+	_name.add_theme_font_size_override("font_size", 13 if compact else 14)
+	_spend.add_theme_font_size_override("font_size", 11 if compact else 12)
+	_funding.custom_minimum_size = Vector2(84 if compact else 96, BUTTON_HEIGHT)
+	_cancel.custom_minimum_size = Vector2(62 if compact else 74, BUTTON_HEIGHT)
 
 
 # --- construction ------------------------------------------------------------
@@ -191,12 +222,16 @@ func _fill_icon(tech_id: String) -> void:
 
 ## The preview line: what the next phase adds and where it leaves the study.
 ## An unpaid slot says so in crimson rather than implying a gain it cannot pay
-## for (wiki: tech-tree § Research Model — no partial funding).
-func _fill_next(banked: int, cost: int, paid: bool) -> void:
+## for (wiki: tech-tree § Research Model — no partial funding), and its tooltip
+## names the borrowing floor that stops it, so the crown never reads a rule as a
+## broken purse (REQ-P5-05).
+func _fill_next(banked: int, cost: int, paid: bool, floor: int) -> void:
 	if not paid:
 		_next.text = "unpaid next turn"
 		_next.add_theme_color_override("font_color", Palette.CRIMSON)
-		_next.tooltip_text = "The treasury cannot cover this slot next turn."
+		_next.tooltip_text = "The treasury cannot cover this slot next turn — %s." % (
+			LedgerText.research_floor_line(floor)
+		)
 		return
 	if _rp_next <= 0:
 		_next.text = "earns nothing"

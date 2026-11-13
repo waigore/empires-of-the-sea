@@ -10,9 +10,9 @@ extends RefCounted
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
 const STACK_BAR_HEIGHT: float = 98.0
-## Right edge of the cartouche's left rail (sound seal, estates seal and the
-## four lens toggles sit here).
-const LEFT_RAIL: float = 448.0
+## Right edge of the left rail under the cartouche (the estates door and the
+## Gazette seal sit here). The lenses and the sound seal live on the bar now.
+const LEFT_RAIL: float = 252.0
 
 var compact: bool = false
 
@@ -83,12 +83,6 @@ func _bar(hud: GameHud, view: Vector2) -> void:
 	elif compact:
 		height = GameHud.BAR_HEIGHT_COMPACT
 	hud.top_bar.offset_bottom = height
-	# The sound seal is a sibling in the scene; keep it below the cartouche so a
-	# stacked bar never covers it.
-	var audio := hud.get_node_or_null("AudioControls") as Control
-	if audio != null:
-		audio.offset_top = height + 10.0
-		audio.offset_bottom = audio.offset_top + 46.0
 
 
 ## Width the cartouche row needs with every chip on it, whatever their current
@@ -169,8 +163,8 @@ func _end_turn(hud: GameHud) -> void:
 
 
 ## Toasts sit under the cartouche. On a phone the left rail already holds the
-## sound seal and the estates seal, so the column starts to their right instead
-## of running full width and covering them. The lane owns the geometry.
+## estates door and the Gazette seal, so the column starts to their right
+## instead of running full width and covering them. The lane owns the geometry.
 func _toasts(hud: GameHud) -> void:
 	if hud.despatches == null:
 		return

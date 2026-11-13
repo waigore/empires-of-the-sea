@@ -543,6 +543,37 @@ func test_industrial_funding_boosts_military_techs() -> void:
 	assert_eq(ResearchTurn.points_for(_turn_state, "land_enclosure", "medium"), 300)
 
 
+## Victoria's funding multiplier lifts the base funding RP before the spy share
+## and Industrial Funding are applied, and the phase and the ledger read one
+## figure (wiki: leader-bonuses § Bonus Table — Victoria ×1.15).
+func test_the_leader_funding_multiplier_lifts_base_rp_before_the_shares() -> void:
+	assert_eq(ResearchTurn.funded_rp("medium"), 300)
+	assert_eq(ResearchTurn.funded_rp("medium", "victoria"), 345, "300 × 1.15")
+	assert_eq(ResearchTurn.funded_rp("medium", "napoleon"), 300, "no funding row for France")
+	_turn_state.unlock("land_enclosure")
+	assert_true(bool(_turn_state.assign("organised_regiments", "medium")["ok"]))
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 0, "victoria"),
+		345
+	)
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 15, "victoria"),
+		396, "345 plus the spy's 15%"
+	)
+	_turn_state.unlock("industrial_funding_of_research")
+	assert_eq(
+		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 15, "victoria"),
+		465, "345 plus the 35% shares (spy 15 + Industrial Funding 20)"
+	)
+	var plan: Dictionary = ResearchTurn.preview(
+		_turn_state, "organised_regiments", "medium", 5000, 15, "victoria"
+	)
+	assert_eq(int(plan["rp"]), 465, "the ledger shows the same figure")
+	ResearchTurn.resolve(_turn_state, _turn_economy, {}, "victoria")
+	assert_eq(_turn_state.progress_of("organised_regiments"), 414,
+		"the phase pays 345 plus Industrial Funding's 20%, no spy share")
+
+
 func test_none_funding_spends_and_earns_nothing() -> void:
 	assert_true(bool(_turn_state.assign("land_enclosure", "none")["ok"]))
 	var treasury: int = _turn_economy.treasury
@@ -560,6 +591,19 @@ func test_an_unpayable_slot_earns_nothing() -> void:
 	assert_eq(_turn_state.progress_of("land_enclosure"), 0)
 	assert_eq(_turn_economy.treasury, 100)
 	assert_eq((report["unpaid"] as Array[String]).size(), 1)
+
+
+## The phase reports the floor it paid against, so the turn's despatch can name
+## the rule that left a study unpaid instead of only counting it (wiki:
+## tech-tree-labour-economy § money_lending, banking; REQ-P5-05).
+func test_the_phase_reports_the_floor_it_paid_against() -> void:
+	_turn_state.unlock("money_lending")
+	_turn_economy.treasury = ResearchFunding.DEBT_FLOOR + 20
+	assert_true(bool(_turn_state.assign("land_enclosure", "low")["ok"]))
+	var report: Dictionary = ResearchTurn.resolve(_turn_state, _turn_economy)
+	assert_eq(int(report["floor"]), ResearchFunding.DEBT_FLOOR)
+	assert_eq((report["unpaid"] as Array[String]).size(), 1, "20 short of a 50 payment")
+	assert_eq(_turn_economy.treasury, ResearchFunding.DEBT_FLOOR + 20, "nothing left the purse")
 
 
 # --- the ledger's preview ----------------------------------------------------
@@ -938,6 +982,41 @@ func test_a_slot_the_treasury_cannot_cover_reads_unpaid() -> void:
 	assert_not_null(_label_containing("unpaid next turn"))
 	assert_eq(_slot_row(0).gold_next(), 0)
 	assert_eq(_slot_row(0).bar().next_gain(), 0)
+
+
+## A starved study must read as the borrowing rule, not as a broken purse: the
+## college names the floor under its summary, on every form factor, and the row
+## says the same thing on a long press (wiki: tech-tree-labour-economy
+## § money_lending, banking; REQ-P5-05).
+func test_the_college_names_the_floor_that_leaves_a_study_unpaid() -> void:
+	_panel_state.assign("land_enclosure", "maximum")
+	_panel.refresh(_panel_state, 0)
+	var notice: Label = _label_containing("unpaid —")
+	assert_not_null(notice, "the college names what stops the study")
+	assert_true(notice.text.contains("stops at 0 ducats"), notice.text)
+	assert_true(notice.text.contains("Money Lending"), notice.text)
+	assert_true(_slot_row(0).unpaid_next())
+
+
+## Money Lending moves the floor, so the same college names −500 and the tech
+## that would push it to −1,000 (wiki: tech-tree-labour-economy § banking).
+func test_the_college_names_the_lending_floor_a_purse_may_reach() -> void:
+	_panel_state.unlock("money_lending")
+	_panel_state.assign("land_enclosure", "maximum")
+	_panel.refresh(_panel_state, ResearchFunding.DEBT_FLOOR)
+	var notice: Label = _label_containing("unpaid —")
+	assert_not_null(notice)
+	assert_true(notice.text.contains("-500"), notice.text)
+	assert_true(notice.text.contains("Banking"), notice.text)
+
+
+## A funded college says nothing about the floor: the notice belongs to the turn
+## the purse cannot pay, not to every visit.
+func test_a_paid_college_carries_no_floor_notice() -> void:
+	_panel_state.assign("land_enclosure", "low")
+	_panel.refresh(_panel_state, 2500)
+	assert_null(_label_containing("unpaid —"))
+	assert_false(_slot_row(0).unpaid_next())
 
 
 func test_known_techs_move_to_the_known_tab() -> void:

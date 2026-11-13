@@ -9,6 +9,10 @@ extends RefCounted
 ## a rival Great Power's province (+15% per rival that already knows the tech;
 ## wiki: civilian-units § Spy; DR-20261110-03). Percentages add, then the sum is
 ## floored once, so the two rules never compound into a third figure.
+##
+## The crown's leader may publish a funding multiplier instead of a percentage
+## (Victoria, ×1.15): it lifts the base funding RP before those percentages are
+## applied (wiki: leader-bonuses § Bonus Table).
 
 const INDUSTRIAL_FUNDING: String = "industrial_funding_of_research"
 const BONUS_CATEGORIES: Array[String] = ["military", "naval"]
@@ -17,10 +21,13 @@ const BONUS_PERCENT: int = 20
 
 ## Mutates `state` and `economy` (treasury) and reports what moved. `boost` maps
 ## tech id -> spy-network percent; it only lifts a slot funded at Low or better.
-## A slot that cannot pay its full gold earns no points that turn — the wiki
-## rules define no partial funding, so the ledger reports the slot as unpaid.
+## `leader_key` is the crown's leader, whose published funding multiplier lifts
+## the base funding RP (wiki: leader-bonuses — Victoria). A slot that cannot pay
+## its full gold earns no points that turn — the wiki rules define no partial
+## funding, so the ledger reports the slot as unpaid.
 static func resolve(
-	state: ResearchState, economy: PlayerEconomy, boost: Dictionary = {}
+	state: ResearchState, economy: PlayerEconomy, boost: Dictionary = {},
+	leader_key: String = ""
 ) -> Dictionary:
 	var report: Dictionary = {
 		"slots": [] as Array[Dictionary],
@@ -33,8 +40,11 @@ static func resolve(
 	if state == null or economy == null:
 		return report
 	state.ensure_slots()
+	# The floor the slots are paid against, so a despatch can name the rule that
+	# left a study unpaid instead of only counting it (REQ-P5-05).
+	report["floor"] = state.treasury_floor()
 	for index in state.slots.size():
-		var row: Dictionary = _run_slot(state, economy, index, boost)
+		var row: Dictionary = _run_slot(state, economy, index, boost, leader_key)
 		var rows: Array[Dictionary] = report["slots"]
 		rows.append(row)
 		report["spent"] = int(report["spent"]) + int(row["gold"])
@@ -52,11 +62,23 @@ static func resolve(
 	return report
 
 
-## Research points a slot would earn at its preset, bonuses included.
+## Research points a slot would earn at its preset, bonuses included. The
+## crown's leader may publish a funding multiplier, applied to the base funding
+## RP before the spy boost (wiki: leader-bonuses § Bonus Table — Victoria).
 static func points_for(
-	state: ResearchState, tech_id: String, funding: String, spy_percent: int = 0
+	state: ResearchState, tech_id: String, funding: String, spy_percent: int = 0,
+	leader_key: String = ""
 ) -> int:
-	return _bonus(state, tech_id, ResearchFunding.rp(funding), spy_percent)
+	return _bonus(state, tech_id, funded_rp(funding, leader_key), spy_percent)
+
+
+## Base funding RP with the leader's funding multiplier applied, in whole points.
+## The product floors in permille integer maths, so 300 × 1.15 is 345 and never
+## 344 on a float edge (wiki: leader-bonuses § Bonus Table — Victoria ×1.15).
+static func funded_rp(funding: String, leader_key: String = "") -> int:
+	var base: int = ResearchFunding.rp(funding)
+	var permille: int = int(round(LeaderCatalog.funding_multiplier(leader_key) * 1000.0))
+	return base * permille / 1000
 
 
 ## True when the preset earns points at all; the wiki gates spy gains at Low.
@@ -71,7 +93,7 @@ static func funds_research(funding: String) -> bool:
 ## network covering this tech hands over; it only lifts a funded slot.
 static func preview(
 	state: ResearchState, tech_id: String, funding: String, treasury: int,
-	spy_percent: int = 0
+	spy_percent: int = 0, leader_key: String = ""
 ) -> Dictionary:
 	var plan: Dictionary = {
 		"gold": 0,
@@ -89,7 +111,7 @@ static func preview(
 		return plan
 	plan["gold"] = gold
 	plan["boost"] = maxi(spy_percent, 0) if funds_research(funding) else 0
-	plan["rp"] = points_for(state, tech_id, funding, int(plan["boost"]))
+	plan["rp"] = points_for(state, tech_id, funding, int(plan["boost"]), leader_key)
 	return plan
 
 
@@ -99,7 +121,8 @@ static func _run_slot(
 	state: ResearchState,
 	economy: PlayerEconomy,
 	index: int,
-	boost: Dictionary
+	boost: Dictionary,
+	leader_key: String
 ) -> Dictionary:
 	var tech_id: String = state.tech_at(index)
 	var funding: String = state.funding_at(index)
@@ -119,7 +142,7 @@ static func _run_slot(
 		return row
 	var plan: Dictionary = preview(
 		state, tech_id, funding, economy.treasury,
-		SpyNetworks.boost_for(boost, tech_id)
+		SpyNetworks.boost_for(boost, tech_id), leader_key
 	)
 	row["cost"] = int(plan["cost"])
 	row["boost"] = int(plan["boost"])

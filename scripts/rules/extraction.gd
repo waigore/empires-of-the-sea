@@ -53,7 +53,8 @@ static func yields(
 	capital_tile: Vector2i = CivilianState.NO_TILE,
 	tech_unlocked: Dictionary = {},
 	town_bonus: bool = true,
-	town_raw: Dictionary = {}
+	town_raw: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var totals: Dictionary = {}
 	if model == null or owner < 0:
@@ -62,7 +63,7 @@ static func yields(
 	var connected: Dictionary = {}
 	var towns: Dictionary = {}
 	if works != null:
-		resolved = LandConnectivity.resolve(model, works, owner, capital_tile)
+		resolved = LandConnectivity.resolve(model, works, owner, capital_tile, blockade)
 		connected = resolved.get("tiles", {}) as Dictionary
 		towns = resolved.get("towns", {}) as Dictionary
 	var raw_by_province: Dictionary = {}
@@ -161,8 +162,12 @@ static func province_raw(
 	tech_caps: Dictionary = {},
 	works: LandWorks = null,
 	capital_tile: Vector2i = CivilianState.NO_TILE,
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var raw: Dictionary = {}
-	yields(model, owner, -1, tech_caps, works, capital_tile, tech_unlocked, false, raw)
+	yields(
+		model, owner, -1, tech_caps, works, capital_tile, tech_unlocked, false, raw,
+		blockade
+	)
 	return raw

@@ -19,7 +19,9 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## `free_holds` is what the colonies left this turn, never the raw fleet total.
 ## `reserved_inputs` is what the court cannot sell at all; `need` is the material
 ## its next regiment is being provisioned with, which it keeps back and buys
-## first (wiki: growth-stage-planner § Recruitment modulation).
+## first (wiki: growth-stage-planner § Recruitment modulation). `floor` is the
+## purse the caller keeps in hand — its cash floor and, at war, the muster it is
+## saving for — so bids never spend the war chest.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -27,7 +29,8 @@ static func plan(
 	free_holds: int,
 	tech_unlocked: Dictionary = {},
 	reserved_inputs: Dictionary = {},
-	need: Dictionary = {}
+	need: Dictionary = {},
+	floor: int = 0
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -59,7 +62,7 @@ static func plan(
 	if bool(tech_unlocked.get(TRADE_FAIRS, false)):
 		bid_cap = TRADE_FAIRS_BID_TYPES
 	var budget: int = maxi(
-		economy.treasury - config.parameter("market.min_treasury"), 0
+		economy.treasury - maxi(config.parameter("market.min_treasury"), floor), 0
 	)
 	var holds: int = maxi(free_holds, 0)
 	for entry: Dictionary in _deficits(economy, market, reserve, need):

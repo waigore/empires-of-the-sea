@@ -299,9 +299,9 @@ func _run() -> void:
 
 	var cues_before: int = 0
 	var audio: AudioDirector = main.get_node_or_null("Audio") as AudioDirector
-	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
+	var controls: SoundDesk = screen.game_menu.sound_desk
 	_check(audio != null, "audio director present")
-	_check(controls != null, "sound seal present")
+	_check(controls != null, "sound desk in the pause menu")
 	if audio != null:
 		_check(audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing")
 		_check(audio._ambience.playing, "sea ambience playing")
@@ -323,11 +323,15 @@ func _run() -> void:
 
 	await _smoke_crown_road_lens(screen)
 	await _smoke_defence_lens(screen)
+	await _smoke_muster_roll(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
-	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
-	_smoke_army_recruit(screen)
+	_smoke_army_recruit(screen, works)
 	await _smoke_end_turn(screen, audio, cues_before, works)
+	# The colonist path boards an idle hire, and Build/work only musters the
+	# queued explorer once the turn has closed (wiki: workers-and-population
+	# § Phase placement).
+	await _smoke_colonists(screen)
 	await _smoke_victory(screen)
 
 	var old_screen: MapScreen = screen
@@ -393,6 +397,31 @@ func _smoke_defence_lens(screen: MapScreen) -> void:
 	MapPlayInput.set_defence_lens(screen.play, false)
 	await process_frame
 	_check(not screen.hud.lens_legend.visible, "defence key closes")
+
+
+## The muster roll: the cartouche seal raises the whole-empire force ledger on
+## the real map, prints the crown's own rows, narrows to one kind and sets
+## itself aside (DR-20261113-12). No order is placed, so the turn is untouched.
+func _smoke_muster_roll(screen: MapScreen) -> void:
+	_check(screen.hud.muster_roll != null, "muster roll mounted")
+	screen.hud.muster_roll_pressed.emit()
+	await process_frame
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	_check(panel.is_open(), "muster roll opens from the seal")
+	_check(int(panel._snapshot.get("total", 0)) > 0, "the muster lists the crown's forces")
+	_check(_has_text(panel._rows, "strength"), "a row prints its strength")
+	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
+	await process_frame
+	_check(panel._kind == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
+	var only_squadrons: bool = true
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row != null and String(row.data.get("kind", "")) != ForceLedger.KIND_SQUADRON:
+			only_squadrons = false
+	_check(only_squadrons, "every printed row is a squadron")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the muster roll sets itself aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
@@ -490,9 +519,14 @@ func _smoke_civilians(screen: MapScreen) -> Dictionary:
 	await process_frame
 	MapPlayInput.on_panel_action(screen.play, "train_explorer")
 	_check(
-		screen.civilian_layer.units.size() == units_before + 1,
-		"capital trains an explorer"
+		screen.play.economy.economy.recruits.pending(RecruitQueue.KIND_CIVILIAN, "explorer") == 1,
+		"capital queues an explorer for Build/work"
 	)
+	_check(
+		screen.civilian_layer.units.size() == units_before,
+		"the hire waits for the turn to close"
+	)
+	works["hire"] = units_before
 	return works
 
 
@@ -547,6 +581,10 @@ func _smoke_navy(screen: MapScreen) -> void:
 		screen.ship_layer.ship_for(fleet).hull_count == fleet.ship_count(),
 		"fleet marker flies the squadron's hulls"
 	)
+	_check(
+		screen.ship_layer.ship_for(fleet).strength_known,
+		"the crown reads her own squadron's weight"
+	)
 	MapPlayFleets.on_action(screen.play, "mission:patrol")
 	_check(
 		fleet.mission == FleetState.Mission.PATROL and fleet.moved,
@@ -567,29 +605,27 @@ func _smoke_navy(screen: MapScreen) -> void:
 
 ## Army training is live: the recruit order musters a regiment into the Home
 ## Army and spends the ledger.
-func _smoke_army_recruit(screen: MapScreen) -> void:
+func _smoke_army_recruit(screen: MapScreen, works: Dictionary) -> void:
 	var home: ArmyState = _home_army(screen)
 	if home == null:
 		return
 	var before: int = home.count()
 	# The civilian drills earlier in the smoke spent the opening purse; top it
-	# up so the muster row is payable, then prove the order debits it.
+	# up so the muster row is payable, then prove the press only queues it.
 	screen.economy.economy.add_treasury(RegimentCatalog.treasury_cost("peasant_levies"))
 	var treasury: int = screen.economy.economy.treasury
 	var fabric: int = screen.economy.economy.quantity("fabric")
 	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
-	_check(home.count() == before + 1, "recruit musters a regiment")
 	_check(
-		not home.name_of(home.regiments[home.count() - 1]).is_empty(),
-		"the mustered regiment is christened"
+		screen.play.economy.economy.recruits.pending(
+			RecruitQueue.KIND_REGIMENT, "peasant_levies"
+		) == 1,
+		"recruit queues a regiment for Build/work"
 	)
-	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
-	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
-	_check(
-		screen.hud._army_label.text
-		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
-		"troop chip counts the new regiment"
-	)
+	_check(home.count() == before, "the regiment waits for the turn to close")
+	_check(screen.economy.economy.treasury == treasury, "the press spends no treasury")
+	_check(screen.economy.economy.quantity("fabric") == fabric, "the press spends no fabric")
+	works["regiments"] = before
 
 
 func _smoke_end_turn(
@@ -617,6 +653,24 @@ func _smoke_end_turn(
 			"the court answer closes the proposal"
 		)
 	_check(screen.turn == turn_before + 1, "end turn advances calendar")
+	# Build/work delivered this turn's queued orders (wiki: workers-and-population
+	# § Phase placement).
+	if works.has("hire"):
+		_check(
+			screen.civilian_layer.unit_count_all(MapScreen.PLAYER_FACTION) > int(works["hire"]),
+			"Build/work musters the queued hire"
+		)
+	if works.has("regiments"):
+		var mustered: ArmyState = _home_army(screen)
+		_check(
+			mustered != null and mustered.count() > int(works["regiments"]),
+			"Build/work musters the queued regiment"
+		)
+		_check(
+			screen.hud._army_label.text
+			== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
+			"troop chip counts the new regiment"
+		)
 	# The crown's sheet files the resolved turn and opens when it has news
 	# (wiki: the-gazette § When it appears).
 	_check(screen.play.gazette != null, "the gazette keeps its watchlist")

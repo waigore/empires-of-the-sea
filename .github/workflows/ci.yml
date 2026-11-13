@@ -297,6 +297,48 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: godot --headless --path . --import --quit
 
+  # Verify-only: AI-surface PRs must commit a hills ai-bench report ≥ baseline.
+  # Does not re-run Godot; binding is ai_surface_hash + primary config.
+  ai-bench-report:
+    name: ai-bench-report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect AI-surface changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            ai:
+              - 'scripts/ai/**'
+              - 'scripts/map/map_play_*ai*.gd'
+
+      - name: Skip (no AI-surface changes)
+        if: steps.filter.outputs.ai != 'true'
+        run: echo 'No AI-surface path changes — ai-bench-report no-op.'
+
+      - name: Setup Python
+        if: steps.filter.outputs.ai == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install hills (optional verify)
+        if: steps.filter.outputs.ai == 'true'
+        run: pip install hills
+
+      - name: Check committed ai-bench report ≥ baseline
+        if: steps.filter.outputs.ai == 'true'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python tools/check_ai_bench_report.py --base "origin/${{ github.base_ref }}"
+
   e2e-smoke:
     name: e2e-smoke
     needs: build

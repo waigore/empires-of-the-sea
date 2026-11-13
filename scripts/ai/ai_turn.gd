@@ -35,11 +35,27 @@ static func run(
 	var messages: Array[String] = []
 	var shared: Dictionary = _context(world, context, player)
 	_stamp_ledgers(shared, ai_state, player)
+	# Optional observer gate: when `planning` is present, only listed crowns
+	# issue orders; others append a noop trace row (docs/ai-observer.md).
+	var gated: bool = context.has("planning")
+	var planning: Array = context.get("planning", [])
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == player:
 			continue
 		var config: AiConfig = AiConfig.build(faction, game_seed)
 		var agenda: String = ai_state.agenda_for(config)
+		if gated and not planning.has(faction):
+			trace.append({
+				"faction": faction,
+				"leader": config.leader,
+				"agenda": agenda,
+				"profile": config.profile,
+				"phase": {},
+				"action": {},
+				"candidates": [],
+				"noop": true,
+			})
+			continue
 		# The court's war footing rides the trace; the planners read it through
 		# AiPhasePlanner (DR-20261113-15).
 		var phase: Dictionary = AiPhasePlanner.plan(config, state)

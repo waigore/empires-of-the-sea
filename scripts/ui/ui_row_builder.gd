@@ -10,6 +10,9 @@ static func row(height: float) -> HBoxContainer:
 	var box := HBoxContainer.new()
 	box.custom_minimum_size = Vector2(0, height)
 	box.add_theme_constant_override("separation", 8)
+	# A drag that starts on a row belongs to the list it sits in: the row and its
+	# text pass the event on, so a thumb can scroll over them (REQ-P1-05).
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
 	return box
 
 
@@ -18,6 +21,7 @@ static func label(text: String, size: int, color: Color) -> Label:
 	out.text = text
 	out.add_theme_font_size_override("font_size", size)
 	out.add_theme_color_override("font_color", color)
+	out.mouse_filter = Control.MOUSE_FILTER_PASS
 	return out
 
 

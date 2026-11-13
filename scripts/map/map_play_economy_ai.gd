@@ -25,6 +25,8 @@ static func run(play: PlaySession) -> Dictionary:
 	for faction: int in factions:
 		if faction == play.player_faction and not play.observer_mode:
 			continue
+		if not AiControl.plans(play, faction):
+			continue
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		MapPlayCivilianAi.seed(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
@@ -32,9 +34,22 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+		# The purse the court keeps in hand this turn: its own cash floor and, at
+		# war and short of its regiment target, the muster it is saving for. Every
+		# discretionary spend reads it, so the war chest is never auctioned away
+		# for imports (wiki: growth-stage-planner § Recruitment modulation;
+		# treasury-planner § Cash discipline).
+		var floor: int = _court_floor(
+			config, economy, _regiments(play, faction), _at_war(play, faction)
+		)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
-			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
+			config, economy,
+			{
+				"at_war": _at_war(play, faction),
+				"revealed": revealed,
+				"treasury_floor": floor,
+			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
 		var hospitals: Array[int] = _hospital_demands(play, faction)
@@ -45,7 +60,7 @@ static func run(play: PlaySession) -> Dictionary:
 		# plans are applied once the phase has resolved.
 		var projected: Dictionary = EconomyTurn.project(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), boost, hospitals
+			_army_food(play, faction), boost, hospitals, _leader(play, faction)
 		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
 			play, faction, economy, config, overseas,
@@ -54,12 +69,12 @@ static func run(play: PlaySession) -> Dictionary:
 		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
 		var trade: Dictionary = _trade(
 			play, faction, economy, config, market, overseas, production,
-			works_reserved
+			works_reserved, floor
 		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), false, boost, hospitals
+			_army_food(play, faction), false, boost, hospitals, _leader(play, faction)
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
 		# first, and the flags they set are what its next rest tick reads
@@ -109,21 +124,25 @@ static func _overseas(
 	if home_region < 0:
 		home_region = WorldMap.OLD_WORLD
 	var home: Dictionary = {}
+	var capital: Dictionary = {"province": -1, "tile": CivilianState.NO_TILE}
 	var home_model: MapModel = play.world.region(home_region)
 	if home_model != null and works_by_region.value(home_region, null) != null:
 		var works: LandWorks = works_by_region.value(home_region, null)
-		var capital: Dictionary = WorldBootstrap.capital_seat(home_model, faction)
+		capital = WorldBootstrap.capital_seat(home_model, faction)
 		home = Extraction.yields(
 			home_model, faction, int(capital["province"]), tech_caps, works,
 			capital["tile"], economy.tech_unlocked
 		)
+	# The crown's own sealed ports reach its ledger the way the player's do
+	# (wiki: capital-and-connectivity § Blockade; DR-20261110-13 equal rule).
+	var seals: Blockades = MapPlayBlockades.of(play, faction)
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
 		if play.ship_layer != null else 0
 	)
 	var plan: Dictionary = EconomyOverseas.delivered(
 		home, play.world, home_region, faction, tech_caps, works_by_region, holds,
-		economy.tech_unlocked
+		economy.tech_unlocked, seals
 	)
 	plan["home_region"] = home_region
 	return plan
@@ -148,7 +167,8 @@ static func _trade(
 	market: WorldMarket,
 	overseas: Dictionary,
 	production: Dictionary,
-	works: Dictionary = {}
+	works: Dictionary = {},
+	floor: int = 0
 ) -> Dictionary:
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
@@ -170,7 +190,8 @@ static func _trade(
 		var id: String = String(commodity)
 		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])
 	var plan: Dictionary = AiMarketPlanner.plan(
-		config, economy, market, free_holds, economy.tech_unlocked, reserved, need
+		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
+		floor
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiMarketPlanner.stage(
@@ -265,6 +286,12 @@ static func _army_food(play: PlaySession, faction: int) -> int:
 	return play.army_layer.food_upkeep_all(faction)
 
 
+## The rival's leaderKey, whose published funding multiplier lifts its research
+## points (wiki: leader-bonuses § Bonus Table — Victoria).
+static func _leader(play: PlaySession, faction: int) -> String:
+	return String(play.leaders.get(faction, ""))
+
+
 static func _at_war(play: PlaySession, faction: int) -> bool:
 	if play.diplomacy == null:
 		return false
@@ -272,3 +299,18 @@ static func _at_war(play: PlaySession, faction: int) -> bool:
 		if record.at_war:
 			return true
 	return false
+
+
+## The purse the court must leave behind before it spends on anything it can
+## defer: its own cash floor, raised while it is at war and short of its regiment
+## target to the muster it is saving for. Without it the study and the auction
+## bid away the war chest and the court never raises another regiment
+## (wiki: growth-stage-planner § Recruitment modulation; treasury-planner
+## § Cash discipline; ai-architecture § Land reinforcement).
+static func _court_floor(
+	config: AiConfig, economy: PlayerEconomy, regiments: int, at_war: bool
+) -> int:
+	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
+	if not at_war:
+		return floor
+	return maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))

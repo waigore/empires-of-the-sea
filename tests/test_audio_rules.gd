@@ -417,34 +417,35 @@ func test_the_era_bed_follows_the_calendar() -> void:
 	assert_eq(_audio.current_track_id(), MusicPlaylist.GILDED_MINUET)
 
 
-func test_the_sound_seal_opens_and_drives_the_mix() -> void:
+## The map carries no sound seal: the mix desk lives in its pause menu, wired
+## to the same director the score uses (REQ-P1-06).
+func test_the_pause_menu_desk_drives_the_mix() -> void:
 	_setup_map_soundtrack()
-	var controls := _screen.hud.get_node("AudioControls") as AudioControls
-	assert_not_null(controls)
-	assert_false(controls.is_open())
-	controls._trigger.pressed.emit()
-	assert_true(controls.is_open())
+	var desk: SoundDesk = _screen.game_menu.sound_desk
+	assert_not_null(desk, "the map folds the mix desk into its pause menu")
+	_screen.game_menu.open()
+	assert_not_null(desk.music, "the desk arrives with the menu")
 
-	controls.music_slider().value = 0.2
+	desk.music.value = 0.2
 	assert_almost_eq(_audio.mix.music, 0.2, 0.01)
-	controls.sfx_slider().value = 0.45
+	desk.sfx.value = 0.45
 	assert_almost_eq(_audio.mix.sfx, 0.45, 0.01)
 
-	controls._mute.button_pressed = true
-	controls._mute.pressed.emit()
+	desk.mute.button_pressed = true
+	desk.mute.pressed.emit()
 	assert_true(_audio.is_muted())
-	controls.close_panel()
-	assert_false(controls.is_open())
+	_screen.game_menu.close()
 
 
-func test_the_seal_shows_the_authoritative_mix() -> void:
+func test_the_desk_shows_the_authoritative_mix() -> void:
 	_setup_map_soundtrack()
-	var controls := _screen.hud.get_node("AudioControls") as AudioControls
+	var desk: SoundDesk = _screen.game_menu.sound_desk
+	assert_not_null(desk)
 	_audio.set_muted(true)
-	assert_true(controls._mute.button_pressed)
-	assert_eq(controls._mute.text, "UNMUTE")
+	assert_true(desk.mute.button_pressed)
+	assert_eq(desk.mute.text, "UNMUTE")
 	_audio.set_muted(false)
-	assert_false(controls._mute.button_pressed)
+	assert_false(desk.mute.button_pressed)
 
 
 func test_the_mute_key_is_bound() -> void:
@@ -513,12 +514,12 @@ func test_the_title_page_carries_the_sound_seal() -> void:
 	assert_almost_eq(app.audio.mix.music, 0.25, 0.01)
 	seal._trigger.pressed.emit()
 	assert_true(seal.is_open(), "the desk opens over the title")
-	seal._mute.button_pressed = true
-	seal._mute.pressed.emit()
+	seal.mute_button().button_pressed = true
+	seal.mute_button().pressed.emit()
 	assert_true(app.audio.is_muted(), "the title desk silences the score")
 	assert_true(seal.mute_button().button_pressed, "the seal mirrors the mix")
-	seal._mute.button_pressed = false
-	seal._mute.pressed.emit()
+	seal.mute_button().button_pressed = false
+	seal.mute_button().pressed.emit()
 	assert_false(app.audio.is_muted())
 	app.free()
 

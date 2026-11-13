@@ -56,7 +56,7 @@ python tools/lint_docs_words.py
 
 - Tests under `tests/` extend `GdToolsTest`. PR tier 1: impacted suites + patch 80% (**≤5 min**); tier 2: full suite overall 80% every 8h; e2e **≤2 min** ([`docs/testing.md`](docs/testing.md)).
 - CI: tier-1 `tests` + e2e smoke on PRs; **docs ≤ 500 words** (`docs-lint`).
-- Code/tests/assets need collaborator approval when the approval gate is enforced; docs-only PRs auto-merge (squash) when checks pass.
+- Docs-only PRs auto-merge (squash) when checks pass.
 
 - Android export presets, device builds and release signing: [`docs/android-build.md`](docs/android-build.md).
 

@@ -88,6 +88,27 @@ static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> Strin
 	]
 
 
+## The next-turn figure beside a holding: "" when the phase leaves the store
+## alone, so no row carries a column of "+0" (wiki: stockpiles-and-production
+## § Production flow; REQ-P5-05).
+static func stock_delta_text(delta: int) -> String:
+	if delta == 0:
+		return ""
+	return "%+d" % delta
+
+
+## What one manufacture row's "+" can still buy this turn: the phase's own
+## labour-and-inputs ceiling, so a court is never offered runs the Production
+## phase would refuse (wiki: stockpiles-and-production § Production flow).
+static func allowance_note(recipe_id: String, units: int) -> String:
+	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	if units <= 0:
+		return "No labour or inputs spare a %s this turn." % good
+	if units == 1:
+		return "Labour and inputs allow 1 %s this turn." % good
+	return "Labour and inputs allow %d %s this turn." % [units, good]
+
+
 ## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.
 static func recruit_cost(tier: int) -> String:
 	var cost: Dictionary = WorkerPool.recruit_cost(tier)
@@ -256,6 +277,31 @@ static func market_summary(report: Dictionary, faction: int) -> String:
 	return "The market cleared: " + "  ·  ".join(parts) + "."
 
 
+## The rule that leaves a study unpaid: the Research phase may spend the treasury
+## down to a floor the wiki sets by the techs the court knows (wiki:
+## tech-tree-labour-economy § money_lending, banking). Naming it where the slot
+## starves lets the crown read a rule instead of a broken purse (REQ-P5-05).
+static func research_floor_line(floor: int) -> String:
+	if floor >= 0:
+		return (
+			"research may not borrow yet: the treasury stops at %s ducats, and "
+			+ "Money Lending would let it spend down to %s"
+		) % [TextFormat.thousands(floor), TextFormat.thousands(ResearchFunding.DEBT_FLOOR)]
+	if floor <= ResearchFunding.BANK_DEBT_FLOOR:
+		return "Money Lending and Banking let research spend down to %s ducats" % TextFormat.thousands(floor)
+	return (
+		"Money Lending lets research spend the treasury down to %s ducats, "
+		+ "and Banking would extend it to %s"
+	) % [TextFormat.thousands(floor), TextFormat.thousands(ResearchFunding.BANK_DEBT_FLOOR)]
+
+
+## The same rule in a despatch's few words: what stopped this turn's studies.
+static func research_floor_note(floor: int) -> String:
+	if floor >= 0:
+		return "research may not borrow"
+	return "the %s lending floor is reached" % TextFormat.thousands(floor)
+
+
 ## One-line turn summary for the toast channel: what the resolved turn did.
 static func turn_summary(report: Dictionary) -> String:
 	var parts: PackedStringArray = []
@@ -272,6 +318,11 @@ static func turn_summary(report: Dictionary) -> String:
 	var left: int = int(overseas.get("left_total", 0))
 	if left > 0:
 		parts.append("%d left on the far shore" % left)
+	# Why a coast paid nothing this turn, in the court's own despatch
+	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+	var shut: String = String(report.get("blockade", ""))
+	if not shut.is_empty():
+		parts.append(shut)
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)
@@ -300,7 +351,10 @@ static func turn_summary(report: Dictionary) -> String:
 	var unpaid: Array = research.get("unpaid", [])
 	if not unpaid.is_empty():
 		var plural: String = "" if unpaid.size() == 1 else "s"
-		parts.append("%d research slot%s unfunded" % [unpaid.size(), plural])
+		parts.append("%d research slot%s unfunded — %s" % [
+			unpaid.size(), plural,
+			research_floor_note(int(research.get("floor", 0))),
+		])
 	var lifted: Array = research.get("boosted", [])
 	if not lifted.is_empty():
 		parts.append(
