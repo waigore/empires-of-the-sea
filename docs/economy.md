@@ -66,9 +66,8 @@ An offer is capped by post-production stock (`Offer` chip); fills/lapses toast.
 
 ## Trade terms
 
-Prices are published once; each crown's diplomacy rate applies at settlement
-([`diplomacy.md`](diplomacy.md) § Trade terms). `buy_price`, `sell_price` and
-the Minor ask carry it.
+Prices are published once; pact and boycott terms apply at settlement
+([`diplomacy.md`](diplomacy.md) § Trade terms). A subsidy is charged on the deal.
 
 ## UI
 
