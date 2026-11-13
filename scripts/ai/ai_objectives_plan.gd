@@ -10,7 +10,7 @@ extends RefCounted
 ## the trace already explains what each aim wants and whether it got it.
 ##
 ## The readings dictionary is the planner-facing contract:
-##   posture, at_war, war_desire, regiments, regiment_target, muster_floor,
+##   posture, at_war, war_desire, regiments, muster_due, muster_floor,
 ##   ships, hostile_ships, treasury, reserve, goal, colony_target, harbour,
 ##   idle_hulls, explorer_ready, voyage_afloat, cargo_shortfall,
 ##   research_slots, research_funding, research_cost.
@@ -68,8 +68,11 @@ static func _defend(at_war: bool) -> AiObjective:
 ## is the war chest it must leave behind (AiArmyReinforce.muster_floor), which
 ## T3 turns into a shared claim (#498).
 static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
-	var target: int = int(readings.get("regiment_target", 0))
-	if target <= 0 or int(readings.get("regiments", 0)) >= target:
+	# `muster_due` is the court's own saving flag: muster_floor is non-zero
+	# exactly while it stands under its target with a peasant and a line it can
+	# pay for (AiArmyReinforce), so the ledger prices the muster it is saving
+	# for and stays quiet once it stands at target.
+	if not bool(readings.get("muster_due", false)):
 		return null
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
 	return AiObjective.create(

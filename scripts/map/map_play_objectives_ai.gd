@@ -57,6 +57,7 @@ static func _readings(
 	var at_war: bool = AiIncome.at_war(play.diplomacy, faction)
 	var regiments: int = _regiments(play, faction)
 	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments)
+	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
@@ -66,8 +67,8 @@ static func _readings(
 		"at_war": at_war,
 		"war_desire": _war_desire(play, config, faction),
 		"regiments": regiments,
-		"regiment_target": AiArmyReinforce.target_for(config, at_war),
-		"muster_floor": AiArmyReinforce.muster_floor(config, economy, regiments, at_war),
+		"muster_floor": muster_floor,
+		"muster_due": muster_floor > 0,
 		"ships": _ships(play, faction),
 		"hostile_ships": _hostile_ships(play, faction),
 		"treasury": economy.treasury,

@@ -128,7 +128,7 @@ func _readings() -> Dictionary:
 		"at_war": false,
 		"war_desire": 40,
 		"regiments": 1,
-		"regiment_target": 3,
+		"muster_due": true,
 		"muster_floor": 300,
 		"ships": 2,
 		"hostile_ships": 0,
