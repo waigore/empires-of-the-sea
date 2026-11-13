@@ -51,7 +51,9 @@ average-provinces table across runs.
 ## Scope
 
 Rival fog and colonisation planners are live (`CourtCharts`,
-`AiColonisationPlanner`); this harness still skips warp crossings and colonial
-settlement, so runs stay in the Old World. Live campaigns are bounded by
-military victory; the observer's endless mode is the allowed exception.
+`AiColonisationPlanner`): each crown's Explorer crosses a Passage and charts the
+New World. No court settles or conquers there — an overseas invasion wants a
+border free of war — so no riches reach a treasury and the Old World stays a
+subsistence economy. Live campaigns are bounded by military victory; the
+observer's endless mode is the allowed exception.
 Ranked gaps: [`deferred.md`](deferred.md).
