@@ -22,6 +22,14 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## first (wiki: growth-stage-planner § Recruitment modulation). `floor` is the
 ## purse the caller keeps in hand — its cash floor and, at war, the muster it is
 ## saving for — so bids never spend the war chest.
+##
+## `food_shortfall` is the ration the court's own people will eat this turn and
+## its larder cannot cover. A court that cannot feed its workers loses every hand
+## to the strike, so a shortfall opens the wiki's **lock-recovery** mode
+## (treasury-planner § Modes): the comfort reserve stops holding stock back, and
+## the missing food is bought ahead of every build input out of the whole purse
+## rather than the surplus above the war chest. A court that can feed itself
+## trades exactly as published.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -30,17 +38,19 @@ static func plan(
 	tech_unlocked: Dictionary = {},
 	reserved_inputs: Dictionary = {},
 	need: Dictionary = {},
-	floor: int = 0
+	floor: int = 0,
+	food_shortfall: int = 0
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	if config == null or economy == null or market == null:
 		return {"offers": offers, "bids": bids, "candidates": candidates}
+	var starving: bool = food_shortfall > 0
 	var reserve: int = maxi(config.parameter("market.sell_reserve"), 0)
 	var sold: Dictionary = {}
 	for entry: Dictionary in _surpluses(
-		economy, market, reserve, _promised(reserved_inputs, need)
+		economy, market, reserve, _promised(reserved_inputs, need), starving
 	):
 		if offers.size() >= config.parameter("market.max_offer_types"):
 			break
@@ -64,8 +74,17 @@ static func plan(
 	var budget: int = maxi(
 		economy.treasury - maxi(config.parameter("market.min_treasury"), floor), 0
 	)
+	# Food is not a discretionary spend: a court that cannot feed its people
+	# bids out of the whole purse, because a strike costs it every hand it has
+	# (wiki: treasury-planner § Lock-recovery).
+	var food_budget: int = maxi(economy.treasury, 0) if starving else budget
 	var holds: int = maxi(free_holds, 0)
-	for entry: Dictionary in _deficits(economy, market, reserve, need):
+	var rows: Array[Dictionary] = _deficits(economy, market, reserve, need)
+	if starving:
+		var food: Array[Dictionary] = _food_deficits(market, food_shortfall)
+		food.append_array(rows)
+		rows = food
+	for entry: Dictionary in rows:
 		if bids.size() >= bid_cap:
 			break
 		var id: String = String(entry["commodity"])
@@ -74,16 +93,25 @@ static func plan(
 		var price: int = int(entry["price"])
 		if price <= 0:
 			continue
-		var quantity: int = mini(
-			int(entry["deficit"]), config.parameter("market.max_bid_units")
+		var row_budget: int = food_budget if CommodityCatalog.is_food(id) else budget
+		# The ration is bought in full, not in the five-unit trade lot: a court
+		# that can only import half its dinner still strikes (wiki:
+		# treasury-planner § Lock-recovery).
+		var lot: int = (
+			int(entry["deficit"]) if CommodityCatalog.is_food(id)
+			else config.parameter("market.max_bid_units")
 		)
+		var quantity: int = mini(int(entry["deficit"]), lot)
 		quantity = mini(quantity, holds)
-		quantity = mini(quantity, int(budget / price))
+		quantity = mini(quantity, int(row_budget / price))
 		if quantity <= 0:
 			continue
 		bids.append({"commodity": id, "quantity": quantity, "unit_price": price})
 		holds -= quantity
-		budget -= quantity * price
+		if CommodityCatalog.is_food(id):
+			food_budget -= quantity * price
+		else:
+			budget -= quantity * price
 		candidates.append({
 			"kind": "bid",
 			"commodity": id,
@@ -201,17 +229,22 @@ static func apply(
 
 
 ## Tradeable stock above the reserve and above this turn's production inputs,
-## richest surplus first.
+## richest surplus first. A starving court keeps no comfort reserve on anything
+## it is not about to spend — the stock is worth more as the food it buys than
+## as a hoard beside an empty larder (wiki: treasury-planner § Lock-recovery).
+## Food itself keeps its reserve either way: a court never sells its own dinner.
 static func _surpluses(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	reserve: int,
-	reserved_inputs: Dictionary = {}
+	reserved_inputs: Dictionary = {},
+	starving: bool = false
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for id: String in _tradeable_ids(market):
 		var promised: int = int(reserved_inputs.get(id, 0))
-		var surplus: int = economy.quantity(id) - reserve - promised
+		var keep: int = 0 if starving and not CommodityCatalog.is_food(id) else reserve
+		var surplus: int = economy.quantity(id) - keep - promised
 		if surplus > 0:
 			rows.append({"commodity": id, "surplus": surplus})
 	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -264,6 +297,27 @@ static func _deficits(
 			return int(a["deficit"]) > int(b["deficit"])
 		return String(a["commodity"]) < String(b["commodity"])
 	)
+	return rows
+
+
+## The ration the larder cannot cover, grain first: the one purchase a court
+## makes out of its whole purse, because a strike costs it every hand it has
+## (wiki: treasury-planner § Lock-recovery; workers-and-population § Consumption).
+static func _food_deficits(
+	market: WorldMarket, shortfall: int
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var remaining: int = maxi(shortfall, 0)
+	for id: String in CommodityCatalog.FOOD:
+		if remaining <= 0:
+			break
+		if not market.can_trade(id):
+			continue
+		var price: int = market.price(id)
+		if price <= 0:
+			continue
+		rows.append({"commodity": id, "deficit": remaining, "price": price})
+		remaining = 0
 	return rows
 
 

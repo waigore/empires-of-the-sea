@@ -6,19 +6,34 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var pristine_map: Array = []
 var _screen: MapScreen = null
 
 
+func before_all() -> void:
+	pristine_map = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
+
+
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	# Free immediately: queue_free leaves prior screens processing fog/ships and
-	# starves the suite under coverage (process timeout).
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
+
 
 func test_world_holds_old_and_new_world() -> void:
 	assert_not_null(_screen.world)
@@ -223,6 +238,28 @@ func test_end_turn_records_every_courts_rations() -> void:
 			ledger.navy_feeding >= 0.0 and ledger.navy_feeding <= 1.0,
 			"%s keeps a navy feeding record" % FactionCatalog.name_of(faction)
 		)
+
+
+## The crown's own rations are filed under the crown the player chose, not the
+## legacy default: a court that sails as England must still fight at the
+## published feeding band, and her record must not land on Spain
+## (wiki: combat § Feeding modifiers; game-setup § Human/AI slot assignment).
+func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
+	var english: MapScreen = Fixture.attach_screen(self, 1)
+	assert_eq(english.play.player_faction, 1)
+	MapPlayTurn.end_turn(english.play)
+	Fixture.settle(english.play)
+	var coverage: float = english.economy.feeding_coverage()
+	assert_true(
+		english.play.feeding.has(english.play.player_faction),
+		"England keeps her own army feeding record"
+	)
+	assert_almost_eq(
+		float(english.play.feeding.get(english.play.player_faction, -1.0)),
+		coverage, 0.001,
+		"the chosen crown's record is her own consumption"
+	)
+	english.free()
 
 
 func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:

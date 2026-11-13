@@ -5,17 +5,33 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var pristine_map: Array = []
 var _screen: MapScreen = null
 
 
+func before_all() -> void:
+	pristine_map = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
+
+
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
 
 
 func test_selecting_a_player_fleet_opens_orders() -> void:
@@ -1592,3 +1608,17 @@ func _inland_owned_province() -> int:
 		if not NavalMovement.has_harbour(_screen.model, province.id):
 			return province.id
 	return -1
+
+
+## The capital slip names the crown that holds it, not the legacy default: a
+## court sailing as England reads her own yard (wiki: game-setup § Human/AI slot
+## assignment; REQ-P2-03 — a sheet never answers for another crown).
+func test_the_capital_slip_names_the_crown_that_holds_it() -> void:
+	var province: int = _screen.capital_province
+	var data: ProvinceState = _screen.model.province_data(province)
+	var before: int = data.owner
+	data.owner = 1
+	_screen.hud._fleet_panel.refresh_slip(_screen.model, province, [], true)
+	var title: String = _screen.hud._fleet_panel._header.title.text
+	assert_true(title.contains("ENGLAND"), title)
+	data.owner = before

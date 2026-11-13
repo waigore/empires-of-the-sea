@@ -48,14 +48,20 @@ static func plan(
 	if target < 0:
 		return {}
 	var fleet: FleetState = _carrying_fleet(fleets, owner)
-	if fleet == null and AiPhasePlanner.is_war_footing(posture) and not wants_income:
-		return {}
 	if fleet != null:
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if carried == null:
 			return {}
 		return _voyage(world, region, model, fleet, carried, target, charts)
 	if region != home:
+		# No colonist aboard: a squadron left across the water sails home, so the
+		# court's hulls are not stranded there for the rest of the campaign (they
+		# carry the next voyage and an overseas invasion).
+		var stranded: FleetState = _stranded_fleet(fleets, owner)
+		if stranded != null:
+			return _homeward(world, region, model, stranded, charts)
+		return {}
+	if AiPhasePlanner.is_war_footing(posture) and not wants_income:
 		return {}
 	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
 	if unit == null:
@@ -235,6 +241,37 @@ static func _voyage(
 	if coast < 0:
 		return {}
 	return {"kind": "sail", "fleet": fleet.id, "zone": coast}
+
+
+## A squadron the court left across the water with nothing aboard: afloat,
+## un-moved, no colonists and no army. It is free to sail home.
+static func _stranded_fleet(fleets: Array, owner: int) -> FleetState:
+	var best: FleetState = null
+	for raw: Variant in fleets:
+		var fleet: FleetState = raw
+		if fleet == null or fleet.owner != owner or fleet.moved:
+			continue
+		if not fleet.is_at_sea() or fleet.embarked_army >= 0:
+			continue
+		if fleet.carries_civilians():
+			continue
+		if best == null or fleet.id < best.id:
+			best = fleet
+	return best
+
+
+## One step home: cross at the Passage, otherwise sail toward the next waypoint.
+## The squadron docks at its own harbour once it is back in the home region.
+static func _homeward(
+	world: WorldMap, region: int, model: MapModel, fleet: FleetState,
+	charts: CourtCharts
+) -> Dictionary:
+	if world.is_warp_zone(region, fleet.sea_zone):
+		return {"kind": "cross", "fleet": fleet.id}
+	var warp: int = _sail(model, fleet, world.warp_zones(region), charts, fleet.owner)
+	if warp < 0:
+		return {}
+	return {"kind": "sail", "fleet": fleet.id, "zone": warp}
 
 
 ## The next zone toward `goals`, walking only water this court charts. With no

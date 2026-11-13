@@ -27,8 +27,7 @@ static func run(
 	if seat < 0:
 		return report
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
-	var roster: Array[FleetState] = []
-	roster.assign(play.ship_layer.regions.value(region, []))
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
 		+ maxi(config.parameter("cargo.trade_holds"), 0)
@@ -42,7 +41,9 @@ static func run(
 	report["candidates"] = plan["candidates"]
 	for raw: Variant in plan["routes"]:
 		var route: Dictionary = raw
-		var fleet: FleetState = _fleet_by_id(roster, int(route.get("fleet_id", -1)), faction)
+		var fleet: FleetState = MapPlayCourt.fleet_by_id(
+			roster, int(route.get("fleet_id", -1)), faction
+		)
 		if fleet == null:
 			continue
 		var moved: Dictionary = AiCargoPlanner.apply_route(model, fleet, route)
@@ -69,7 +70,7 @@ static func run(
 	if not warship.is_empty():
 		report["warship"] = warship
 	play.ship_layer.regions.set_region(region, roster)
-	_refresh_visible(play)
+	MapPlayCourt.refresh_hulls(play)
 	return report
 
 
@@ -172,22 +173,3 @@ static func _slip_fleet(roster: Array, owner: int, seat: int) -> FleetState:
 			return fleet
 	return null
 
-
-static func _fleet_by_id(roster: Array, fleet_id: int, owner: int) -> FleetState:
-	for fleet: FleetState in roster:
-		if fleet != null and fleet.id == fleet_id and fleet.owner == owner:
-			return fleet
-	return null
-
-
-## Re-reads the on-screen markers after a rival moved hulls; the human's
-## selection survives the rebuild when it is still in the region.
-static func _refresh_visible(play: PlaySession) -> void:
-	if play.ship_layer.model == null:
-		return
-	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
-	play.ship_layer.spawn(
-		play.ship_layer.model, 0, 0, -1, false, play.player_faction
-	)
-	if selected != null:
-		play.ship_layer.select(play.ship_layer.ship_for(selected))

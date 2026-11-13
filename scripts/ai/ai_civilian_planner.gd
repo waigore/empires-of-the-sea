@@ -112,12 +112,13 @@ static func training_order(
 	var own: Array[CivilianState] = _owned_units(units, config.faction)
 	if own.size() >= config.parameter("civilian.max_civilians"):
 		return {}
+	var purse: int = int(context.get("hire_treasury", context.get("treasury", 0)))
 	var type_id: String = _preferred_type(
 		own,
 		bool(context.get("at_war", false)),
 		int(context.get("merchant_targets", 0)),
 		context.get("tech_unlocked", {}),
-		int(context.get("treasury", 0)),
+		purse,
 		int(context.get("paper", 0))
 	)
 	if not CivilianCatalog.is_implemented(type_id):
@@ -126,7 +127,7 @@ static func training_order(
 	if not CivilianCatalog.is_unlocked(type_id, tech):
 		return {}
 	if not CivilianCatalog.can_afford(
-		type_id, int(context.get("treasury", 0)), int(context.get("paper", 0))
+		type_id, purse, int(context.get("paper", 0))
 	):
 		return {}
 	return {"ok": true, "type_id": type_id}

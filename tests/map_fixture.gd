@@ -123,6 +123,193 @@ static func restore(world: WorldMap, snapshot: Array) -> void:
 			province.capital = bool(row[2])
 
 
+## --- one mount per suite -------------------------------------------------------
+## Coverage charges ~0.5 s to mount MapScreen and ~0.15 s to re-seat the same
+## screen from a pristine save, so a suite whose cases only need a fresh session
+## should share one mount. `test_save_codec` proved the in-place load path; the
+## helpers below keep that path in one place:
+##   before_all:  screen = attach_screen(self); pristine = suite_capture(screen)
+##   before_each: restore(world(), saved); suite_reset(screen, pristine)
+##   after_all:   screen.free()
+## The screen's own node state (selection, sheets, lenses, news) is dropped by the
+## reset; anything a case leaves on a node that is not re-read here must be
+## cleared by the suite itself.
+
+## The suite's opening state, captured once from the mounted screen.
+static func suite_capture(screen: MapScreen) -> Dictionary:
+	if screen == null or screen.play == null:
+		return {}
+	return SaveCodec.capture(screen.play)
+
+
+## Re-seats a shared screen on its pristine save without remounting it. Applies
+## the same in-place load path the pause menu's load uses, then re-reads the
+## layers, HUD and lenses a case may have moved.
+static func suite_reset(
+	screen: MapScreen, pristine: Dictionary, world: WorldMap = null
+) -> void:
+	if screen == null or not is_instance_valid(screen) or pristine.is_empty():
+		return
+	var play: PlaySession = screen.play
+	if play == null:
+		return
+	# The view's chart is the session's until the save rewrites it.
+	var shown: int = play.region_index
+	_reset_view(screen)
+	if world == null:
+		world = play.world
+	# A restore hands the session the arrays it reads (a fog grid is assigned,
+	# not copied), so a case that charts a tile would edit the pristine save and
+	# every later case would start from that chart. Reset from a copy.
+	var data: Dictionary = pristine.duplicate(true)
+	if not SaveCodec.restore(play, data, world):
+		return
+	# Economy always founds on the Old World; restore there, then return.
+	var target: int = play.region_index
+	play.region_index = 0
+	play.model = play.world.region(0)
+	SaveCodec.restore_economy(play, data)
+	play.diplomacy = DiplomacyState.new()
+	# A pristine save taken before any AI turn carries no ledgers, and a restore
+	# leaves the live ones alone; drop them so the case starts where the mount
+	# did, with rivals founded only when a turn first needs them.
+	play.ai = null
+	SaveCodec.restore_diplomacy(play, data)
+	play.diplomacy.human_faction = play.human_faction_id()
+	play.turn_suspended = false
+	if shown != target:
+		# A case left the view on the other chart: only a swap repaints, and it
+		# rebuilds every layer on the way, so the cheap path below is skipped.
+		screen.load_region(target)
+		MapPlaySetup.refresh_after_load(play)
+		return
+	play.region_index = target
+	play.model = play.world.region(target)
+	_rebind_layers(screen, play)
+	# The chart the view stands on was not rebuilt, so its fog and markers are
+	# re-read from the restored fog tables rather than repainted.
+	MapPlaySetup.build_visibility(play)
+	screen.overlay.snap_fog()
+	MapPlayFleets.refresh_visibility(play)
+	MapPlayArmies.refresh_visibility(play)
+	MapPlaySetup.refresh_after_load(play)
+
+
+## Clears the view state a previous case may have left: a selected marker would
+## otherwise keep an order highlight alive, an open sheet would answer for a case
+## that expects a bare chart, and a full news lane would queue the next case's
+## toast instead of raising it.
+static func _reset_view(screen: MapScreen) -> void:
+	if screen.ship_layer != null:
+		screen.ship_layer.deselect()
+	if screen.army_layer != null:
+		screen.army_layer.deselect()
+	if screen.civilian_layer != null:
+		screen.civilian_layer.deselect()
+	if screen.overlay != null:
+		screen.overlay.move_zones = []
+		screen.overlay.move_provinces = []
+	if screen.hud != null and screen.hud.panels != null:
+		screen.hud.panels.close_sheets()
+		DiplomacyHud.hide(screen.hud.panels)
+	if screen.hud != null:
+		# The ledger sheets and the court dossier are not dock panels; one left
+		# open would answer for a case that expects a bare chart.
+		_close_sheet(screen.hud.civilian_roster)
+		_close_sheet(screen.hud.muster_roll)
+		_close_sheet(screen.hud.dossier_screen)
+	if screen.game_menu != null and screen.game_menu.is_open():
+		screen.game_menu.close()
+	if screen.hud != null and screen.hud.gazette_plate != null:
+		if screen.hud.gazette_plate.is_shown():
+			screen.hud.gazette_plate.dismiss()
+	if screen.improvements != null and screen.improvements.is_open():
+		screen.improvements.close()
+	if screen.hud != null:
+		_reset_ledger_filters(screen.hud)
+		# A hover line from the last case would answer for a case that expects a
+		# bare cursor.
+		if screen.hud._tooltip_label != null:
+			screen.hud._tooltip_label.text = ""
+	_lower_lenses(screen.play)
+	_clear_news(screen.hud)
+
+
+static func _close_sheet(sheet: SheetFrame) -> void:
+	if sheet != null and sheet.is_open():
+		sheet.close()
+
+
+## Every reading a case may have raised, lowered in turn: the map opens on the
+## bare chart, as a mount did (`test_map_view_rules` lowers them the same way).
+static func _lower_lenses(play: PlaySession) -> void:
+	if play == null:
+		return
+	if play.lens != null and play.lens.active:
+		MapPlayInput.set_lens(play, false)
+	if play.diplomacy_lens != null and play.diplomacy_lens.active:
+		MapPlayInput.set_diplomacy_lens(play, false)
+	if play.crown_lens != null and play.crown_lens.active:
+		MapPlayInput.set_crown_lens(play, false)
+	if play.defence_lens != null and play.defence_lens.active:
+		MapPlayInput.set_defence_lens(play, false)
+
+
+## The market ledger keeps the court's chips between repaints, so a filter a
+## case set would hide the next case's book under it. A remount used to hand
+## back the unfiltered page; reset the chips instead.
+static func _reset_ledger_filters(hud: GameHud) -> void:
+	if hud._economy_panel == null:
+		return
+	var market: LedgerMarket = hud._economy_panel.page_body(
+		EconomyPanel.TAB_MARKET
+	) as LedgerMarket
+	if market == null:
+		return
+	market._seller_filter = MarketOffersHead.ALL_SELLERS
+	market._good_filter = MarketOffersHead.ALL_GOODS
+	market._offer_sort = MarketOffersHead.SORT_SELLER
+
+
+## Drops any plate covering the lane and the news queued behind it, so a case
+## reads only the news its own turn raised. The panels already up finish their
+## own fade and free themselves — freeing them here would pull the tween out
+## from under its own callback — so their lines are blanked instead.
+static func _clear_news(hud: GameHud) -> void:
+	if hud == null or hud.despatches == null:
+		return
+	var news: HudDespatches = hud.despatches
+	news._covered = false
+	news._live = 0
+	news._compact_queue.clear()
+	news._queue = PackedStringArray()
+	news._queue_narrated.clear()
+	for panel: Node in news.box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			label.text = ""
+
+
+## Restore parks units in region tables and clears the live arrays; spawn rebinds
+## the markers without rebuilding the canvas (`load_region` would repaint).
+static func _rebind_layers(screen: MapScreen, play: PlaySession) -> void:
+	var model: MapModel = play.model
+	screen.army_layer.spawn(model)
+	screen.ship_layer.world = play.world
+	screen.ship_layer.spawn(
+		model,
+		MapScreen.SHIP_COUNT,
+		MapScreen.MAP_SEED + 3 + play.region_index,
+		play.capital_province,
+		play.player_present(),
+		play.player_faction
+	)
+	screen.civilian_layer.viewer_faction = play.player_faction
+	screen.civilian_layer.spawn(
+		model, play.capital_province, play.player_faction, MapScreen.STARTING_CIVILIANS
+	)
+	play.land_works = screen.civilian_layer.works
+
+
 static func mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
