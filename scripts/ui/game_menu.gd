@@ -16,8 +16,9 @@ var main_menu_button: Button = null
 var resume_button: Button = null
 var browser: SaveBrowser = null
 ## The pause door: the cartouche's MENU crest (built here, mounted on the bar),
-## and the handle the roster and ledgers park while they are up.
-var trigger: Button = null
+## and the parking state the roster and ledgers touch while they are up
+## (GameMenuDoor, REQ-P3-02).
+var door := GameMenuDoor.new()
 ## Music, effects and mute, folded into the pause page: the map itself carries
 ## no sound seal (REQ-P1-06).
 var sound_desk: SoundDesk = null
@@ -51,17 +52,19 @@ func _ready() -> void:
 ## GameMenu mounts it while the bar is already built, so a standalone pause
 ## (no HUD) keeps its own corner button instead.
 func _build_trigger() -> void:
-	trigger = Button.new()
-	trigger.name = "MenuSeal"
-	trigger.pressed.connect(open)
-	TopBar.dress(trigger, "", "MENU", "Menu — save, load, sound or return to the title")
+	var seal := Button.new()
+	seal.name = "MenuSeal"
+	seal.pressed.connect(open)
+	TopBar.dress(seal, "", "MENU", "Menu — save, load, sound or return to the title")
 	var hud := get_node_or_null("../HUD/HudRoot") as GameHud
 	if hud == null or hud.top_row == null:
-		trigger.position = Vector2(18.0, 132.0)
-		_ui.add_child(trigger)
+		seal.position = Vector2(18.0, 132.0)
+		_ui.add_child(seal)
+		door.mount(seal)
 		return
-	hud.top_row.add_child(trigger)
-	hud.top_row.move_child(trigger, 0)
+	hud.top_row.add_child(seal)
+	hud.top_row.move_child(seal, 0)
+	door.mount(seal)
 
 
 func _build_overlay() -> void:

@@ -148,6 +148,7 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
+	play.pause_menu = game_menu
 	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
@@ -376,7 +377,7 @@ func _on_load_chosen(slot: int) -> void:
 ## Full-AI observatory: hide human chrome, seal saving, mount metrics (REQ-P5-02).
 func _setup_observer() -> void:
 	hud.visible = false
-	game_menu.trigger.visible = false  # panel owns the pause door
+	game_menu.door.seal()  # panel owns the pause door
 	game_menu.save_button.disabled = true
 	var panel := AiObserverPanel.new()
 	panel.name = "AiObserver"
