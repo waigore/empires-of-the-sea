@@ -43,7 +43,8 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## overseas region is priced on the raw its holds actually landed.
 static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
-	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0
+	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0,
+	works_floor: int = -1
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
 	# The cash a crew may spend is what the purse carries after the court's own
@@ -54,6 +55,15 @@ static func plan_all(
 	var spendable: int = int(
 		AiClaims.purse(economy.treasury, floor).get("treasury", 0)
 	)
+	# Works are income planners, so on `earn` they may spend down to the court's
+	# cash floor — but only on extraction, the works that put goods or riches in
+	# the store. Everything else keeps the standing reserve, so a court saving for
+	# a muster never starves its workshops and never builds a road instead of a
+	# mine (wiki: ai-architecture § Money first; issue #489).
+	var works_cash: int = spendable
+	var earn: bool = works_floor >= 0
+	if earn:
+		works_cash = int(AiClaims.purse(economy.treasury, works_floor).get("treasury", 0))
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -63,7 +73,9 @@ static func plan_all(
 		var capital: Dictionary = WorldBootstrap.capital_seat(model, faction)
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
-			"treasury": spendable,
+			"treasury": works_cash,
+			"hire_treasury": spendable,
+			"earn": earn,
 			"paper": economy.quantity("paper"),
 			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],
@@ -80,6 +92,8 @@ static func plan_all(
 			config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)
+		if earn:
+			_keep_extraction(plan, model)
 		_price(plan["orders"], model, works)
 		plans.append({
 			"region": region,
@@ -91,6 +105,21 @@ static func plan_all(
 			"plan": plan,
 		})
 	return plans
+
+
+## On `earn` only extraction is funded from the cash floor: a court that cannot
+## pay its next commitment still works the resources that refill the store, and
+## leaves the town levels, roads and ports for the turn it can pay for them
+## (issue #489).
+static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
+	var kept: Array[Dictionary] = []
+	for raw: Variant in plan.get("orders", []):
+		var order: Dictionary = raw
+		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+		if tile.x < 0 or model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
+			continue
+		kept.append(order)
+	plan["orders"] = kept
 
 
 ## The material row a planned work will be charged when it is assigned, read from

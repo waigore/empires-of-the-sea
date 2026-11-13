@@ -1287,6 +1287,50 @@ func test_seat_capital_refuses_foreign_inland_and_outside_tiles() -> void:
 	assert_true(model.provinces[0].capital, "a refused move changes nothing")
 	assert_eq(model.provinces[0].capital_tile, before)
 
+## A court on `earn` still works its own land, but only the extraction that
+## refills the store: town levels, roads and ports wait for the muster it is
+## saving for (issue #489).
+func test_an_earning_court_keeps_only_extraction_works() -> void:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	model.resource[model.index_of(0, 0)] = 3
+	model.resource[model.index_of(1, 0)] = MapModel.NO_ID
+	var plan: Dictionary = {
+		"orders": [
+			{"action": "build_improvement", "tile": Vector2i(0, 0)},
+			{"action": "build_improvement", "tile": Vector2i(1, 0)},
+			{"action": "build_town", "tile": Vector2i(2, 0)},
+		],
+	}
+
+	MapPlayCivilianAi._keep_extraction(plan, model)
+
+	assert_eq((plan["orders"] as Array).size(), 1, "only the resource tile survives")
+	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
+
+
+## Hires stand down while the court saves; the works purse is a separate read.
+func test_a_hire_reads_the_hire_purse() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var units: Array = []
+	var rich: Dictionary = {
+		"capital_province": 0, "treasury": 5000, "hire_treasury": 0, "paper": 5,
+	}
+	var poor: Dictionary = {
+		"capital_province": 0, "treasury": 0, "hire_treasury": 5000, "paper": 5,
+	}
+
+	assert_true(
+		AiCivilianPlanner.training_order(config, units, rich).is_empty(),
+		"a court saving for its muster hires nobody"
+	)
+	assert_false(
+		AiCivilianPlanner.training_order(config, units, poor).is_empty(),
+		"the hire purse is what pays a new civilian"
+	)
+
+
 func _is_contiguous(path: Array) -> bool:
 	for i in range(1, path.size()):
 		var step: Vector2i = path[i] - path[i - 1]
