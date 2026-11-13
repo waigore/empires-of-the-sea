@@ -60,9 +60,31 @@ static func plan(
 	result["candidates"] = candidates
 	if candidates.is_empty():
 		result["reasons"].append("nothing payable")
+		# Name the row that blocked it: a court holding its whole war chest
+		# reads `nothing payable` for a missing pattern row otherwise, which is
+		# what kept the material-row deadlock unrecorded (issue #474).
+		result["reasons"].append_array(_missing_reasons(config, economy))
 		return result
 	result["muster"] = String(candidates[0]["type_id"])
 	return result
+
+
+## The material rows the pattern this court is saving for still lacks, named for
+## the turn trace: a court holding a full war chest and no fabric musters
+## nothing, and `nothing payable` alone never said why (issue #474).
+static func _missing_reasons(config: AiConfig, economy: PlayerEconomy) -> Array[String]:
+	var reasons: Array[String] = []
+	var type_id: String = saving_type(config, economy)
+	if type_id.is_empty():
+		return reasons
+	var missing: Dictionary = RegimentEconomy.missing_inputs(type_id, economy.stockpile)
+	var ids: Array[String] = []
+	for raw: Variant in missing.keys():
+		ids.append(String(raw))
+	ids.sort()
+	for id: String in ids:
+		reasons.append("missing %s %d" % [id, int(missing[id])])
+	return reasons
 
 
 ## The province a stranded Home Army must march to, or -1 when it already stands

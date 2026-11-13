@@ -792,6 +792,20 @@ func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	assert_eq(String(priced["muster"]), "", "nothing payable leaves the floor alone")
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
+func test_the_muster_trace_names_the_row_that_blocks_it() -> void:
+	# A court holding its whole war chest and no fabric musters nothing; the
+	# trace must say which row is missing, not only `nothing payable` (#474).
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(12000)
+	economy.stockpile["fabric"] = 0
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_ai_army_reinforce_config(), economy, 5, true
+	)
+	assert_eq(String(plan["muster"]), "", "no line is payable without fabric")
+	var reasons: Array = plan["reasons"]
+	assert_true(reasons.has("nothing payable"))
+	assert_true(reasons.has("missing fabric 1"), "the trace names the row")
+
+
 func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 	var peace: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 8, false)
 	assert_eq(String(peace["muster"]), "", "eight regiments is the peace target")

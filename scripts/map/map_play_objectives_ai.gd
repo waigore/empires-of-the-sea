@@ -71,7 +71,7 @@ static func _readings(
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
-	var standing: String = AiResearchPlanner.standing_funding(config, economy)
+	var standing: String = AiResearchPlanner.standing_funding(config, economy, reserve)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
 	# The Tribe this court is drawing into its empire: the envoy chain's target,
 	# next step and price (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).

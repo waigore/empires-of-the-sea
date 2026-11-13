@@ -63,9 +63,11 @@ static func plan(
 	# A court that cannot clear the money-goal reserve still keeps one study
 	# alive at the cheapest preset when the purse clears half its cash floor:
 	# the standing study is the first slot that already holds a tech, or the
-	# first slot filled this turn (issue #490).
+	# first slot filled this turn (issue #490). It never spends the last payment
+	# of a war chest that is already within reach of its muster (issue #474).
 	var can_stand: bool = (
-		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, cash_floor)
+		preset == ResearchFunding.ORDER[0]
+		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
 	# A study already underway follows the same purse: a court that cannot fund
@@ -150,13 +152,16 @@ static func research_floor(config: AiConfig) -> int:
 ## The standing study's preset this turn, or "" when the court pays its surplus
 ## preset instead. Public so the objective ledger prices the same study the
 ## planner funds (issue #491 T1 reads this planner, it does not spend).
+## `save_floor` is the money-goal reserve the court is saving for (the muster at
+## war); a negative value keeps the cash floor alone, as at peace.
 static func standing_funding(
-	config: AiConfig, economy: PlayerEconomy
+	config: AiConfig, economy: PlayerEconomy, save_floor: int = -1
 ) -> String:
 	var floor: int = research_floor(config)
 	if funding_for(config, economy, floor) != ResearchFunding.ORDER[0]:
 		return ""
-	return STANDING_FUNDING if _can_pay_standing(economy, floor) else ""
+	var reserve: int = save_floor if save_floor >= 0 else floor
+	return STANDING_FUNDING if _can_pay_standing(economy, floor, reserve) else ""
 
 
 ## The slot that keeps the standing study: the first slot already holding a
@@ -172,11 +177,25 @@ static func _standing_slot(state: ResearchState) -> int:
 ## court's cash floor: the standing study may dip below that floor (the research
 ## phase's own floor is 0; the cash floor is a saving policy, not a legality
 ## gate) but never below half of it, so a broke court keeps a reserve.
-static func _can_pay_standing(economy: PlayerEconomy, floor: int) -> bool:
+##
+## It also never spends the last payment of a reserve the court is saving for: a
+## court within one study of its muster keeps that payment, because the study
+## would otherwise hold the war chest one regiment short of the muster forever
+## (wiki: ai-architecture § Land reinforcement — "a court saving for a muster
+## cannot spend itself one ducat short of it"; issue #474).
+static func _can_pay_standing(
+	economy: PlayerEconomy, floor: int, save_floor: int = -1
+) -> bool:
 	if economy == null:
 		return false
+	var price: int = ResearchFunding.gold(STANDING_FUNDING)
 	var keep: int = maxi(floor / 2, 0)
-	return economy.treasury >= keep + ResearchFunding.gold(STANDING_FUNDING)
+	if economy.treasury < keep + price:
+		return false
+	var reserve: int = save_floor if save_floor >= 0 else floor
+	if reserve > floor and economy.treasury >= reserve - price:
+		return false
+	return true
 
 
 # --- candidate scoring -------------------------------------------------------

@@ -27,7 +27,8 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 			var trade: Dictionary = entry.get("trade", {}) as Dictionary
 			free_holds[faction] = int(trade.get("free_holds", 0))
 	var report: Dictionary = MarketClearing.clear(
-		market, play.world, economies, free_holds, {"diplomacy": play.diplomacy}
+		market, play.world, economies, free_holds,
+		{"diplomacy": play.diplomacy, "viewer": play.player_faction}
 	)
 	play.market_report = report
 	# The ledger reads this receipt: a sale's ducats and the overseas share are
