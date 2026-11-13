@@ -78,7 +78,7 @@ static func icon(tech_id: String, size: float = ICON_SIZE) -> Control:
 	picture.custom_minimum_size = Vector2(size, size)
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	picture.mouse_filter = Control.MOUSE_FILTER_PASS
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return picture
 
 
@@ -109,6 +109,8 @@ static func _row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 	row.add_theme_constant_override("separation", 8)
+	# Dragging across a row scrolls the list; only its buttons take input.
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	return row
 
 
@@ -120,6 +122,7 @@ static func _name_column(
 	column.add_theme_constant_override("separation", 0)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.mouse_filter = Control.MOUSE_FILTER_PASS
 	var name_label := _label(TechCatalog.display_name(tech_id), 14, title_color)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.tooltip_text = TechCatalog.effect_text(tech_id)
@@ -133,6 +136,7 @@ static func _label(text: String, size: int, color: Color) -> Label:
 	label.text = text
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	return label
 
 
