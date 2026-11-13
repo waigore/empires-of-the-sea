@@ -62,13 +62,10 @@ static func build_hud(play: PlaySession) -> void:
 	)
 	refresh_dossier(play)
 	build_lens(play)
-	# Wired here so MapScreen._connect stays free of a third lens (tier-1 budget).
-	hud.crown_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_crown_lens(play, active)
-	)
-	hud.defence_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_defence_lens(play, active)
-	)
+	# One seal now: the click walks the readings and the menu names one, so the
+	# screen keeps a single path for all four lenses (REQ-P5-03).
+	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
+	hud.lens_selected.connect(func(kind: String) -> void: MapPlayInput.select_lens(play, kind))
 
 
 ## The province dossier reads the same live tables as the estates ledger: the

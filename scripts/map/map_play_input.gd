@@ -6,6 +6,14 @@ extends RefCounted
 ## Copy for land no fleet or explorer has charted. The hover tooltip is
 ## mouse-only, so a tap repeats it as a toast for touch players.
 const UNCHARTED_TEXT: String = "Uncharted land"
+## The readings in the order the bar's seal walks them (REQ-P5-03).
+const LENS_ORDER: Array = [
+	LensLegend.KIND_SURVEY,
+	LensLegend.KIND_DIPLOMACY,
+	LensLegend.KIND_CROWN_ROAD,
+	LensLegend.KIND_DEFENCE,
+]
+
 
 
 static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
@@ -102,8 +110,8 @@ static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
 	play.camera.focus_on(world_position)
 
 
-## Toggles the survey lens and keeps the cartouche toggle and key in step. The
-## map lenses are exclusive readings: raising one lowers the other two.
+## Toggles the survey lens and keeps the cartouche seal and key in step. The
+## map lenses are exclusive readings: raising one lowers the others.
 static func set_lens(play: PlaySession, active: bool) -> void:
 	_raise_lens(play, play.lens, LensLegend.KIND_SURVEY, active)
 
@@ -174,6 +182,7 @@ static func _any_lens(play: PlaySession) -> bool:
 	return survey or political or crown or defence
 
 
+## L still toggles the survey reading (the seal walks them; P names the court).
 static func toggle_lens(play: PlaySession) -> void:
 	if play.lens == null:
 		return
@@ -186,16 +195,52 @@ static func toggle_diplomacy_lens(play: PlaySession) -> void:
 	set_diplomacy_lens(play, not play.diplomacy_lens.active)
 
 
-static func toggle_crown_lens(play: PlaySession) -> void:
-	if play.crown_lens == null:
-		return
-	set_crown_lens(play, not play.crown_lens.active)
+## The reading a click on the bar's seal walks next: none -> survey ->
+## diplomacy -> crown road -> defence -> none. The last step clears the map
+## because touch has no other way to put a reading down (REQ-P5-03).
+static func cycle_lens(play: PlaySession) -> void:
+	var next: int = 0
+	for i in LENS_ORDER.size():
+		var lens: Variant = _lens_for(play, String(LENS_ORDER[i]))
+		if lens != null and bool(lens.active):
+			next = i + 1
+			break
+	for offset in LENS_ORDER.size() + 1:
+		var index: int = next + offset
+		if index >= LENS_ORDER.size():
+			select_lens(play, "")
+			return
+		if _lens_for(play, String(LENS_ORDER[index])) != null:
+			select_lens(play, String(LENS_ORDER[index]))
+			return
 
 
-static func toggle_defence_lens(play: PlaySession) -> void:
-	if play.defence_lens == null:
+## Raises one named reading, or clears them all with an empty kind. The menu
+## and the keys share this, so neither can leave two lenses on.
+static func select_lens(play: PlaySession, kind: String) -> void:
+	if kind.is_empty():
+		_lower_other_lenses(play, null)
+		_fade_field_units(play, false)
+		clear_hover(play)
 		return
-	set_defence_lens(play, not play.defence_lens.active)
+	var lens: Variant = _lens_for(play, kind)
+	if lens == null:
+		return
+	_raise_lens(play, lens, kind, true)
+
+
+## The lens that draws one reading; null before its layer exists or is bound.
+static func _lens_for(play: PlaySession, kind: String) -> Variant:
+	match kind:
+		LensLegend.KIND_SURVEY:
+			return play.lens
+		LensLegend.KIND_DIPLOMACY:
+			return play.diplomacy_lens
+		LensLegend.KIND_CROWN_ROAD:
+			return play.crown_lens
+		LensLegend.KIND_DEFENCE:
+			return play.defence_lens
+	return null
 
 
 static func on_view_changed(play: PlaySession) -> void:

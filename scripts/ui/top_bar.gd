@@ -1,8 +1,9 @@
 class_name TopBar
 extends RefCounted
-## Cartouche bar: crest, nation and turn, the region seal, five command seals
-## and the status plaques. Every element either answers a question the player
-## asks every turn or performs an action; the bar carries no vanity counters.
+## Cartouche bar: nation and turn, the region seal, the one lens seal, five
+## command seals and the status plaques; the pause menu mounts its own MENU crest
+## in the first slot. Every element either answers a question the player asks
+## every turn or performs an action; the bar carries no vanity counters.
 ## HudLayout re-anchors the parts captured on `hud` (REQ-P1-02, REQ-P1-05).
 
 const SEAL_SIZE := Vector2(58.0, 44.0)
@@ -51,13 +52,13 @@ static func build(hud: GameHud) -> void:
 	column.add_child(chip_row)
 	hud.chip_row = chip_row
 
-	row.add_child(Icon.new("crest", 34, Palette.GOLD))
 	row.add_child(_identity(hud))
 	row.add_child(_region_seal(hud))
 
 	var command := HBoxContainer.new()
 	command.add_theme_constant_override("separation", 3)
 	row.add_child(command)
+	command.add_child(_lens_seal(hud))
 	command.add_child(_seal(
 		"capitol", "CAPITAL", "Centre the map on your seat (F)",
 		func() -> void: hud.focus_capital_pressed.emit()
@@ -153,6 +154,30 @@ static func _seal(
 	compact_icon_only: bool = true
 ) -> Button:
 	var button := Button.new()
+	button.pressed.connect(action)
+	dress(button, icon_kind, caption, tip, compact_icon_only)
+	return button
+
+
+## The four readings share one cartouche seal: a click cycles them, a long press
+## names the one you want (REQ-P5-03). The screen mirrors the reading back.
+static func _lens_seal(hud: GameHud) -> Button:
+	var seal := LensSeal.new()
+	seal.name = "LensSeal"
+	dress(seal, "lens", "LENS", LensSeal.TOOLTIP)
+	seal.cycle_requested.connect(func() -> void: hud.lens_cycle_pressed.emit())
+	seal.lens_chosen.connect(func(kind: String) -> void: hud.lens_selected.emit(kind))
+	hud.lens_seal = seal
+	return seal
+
+
+## Paints a bar door: plaque states, a medallion and a one-word caption. Seals
+## that decide their own press behaviour (the lens seal) take the same dress; an
+## empty icon kind draws the bar's own vector crest, which the MENU door keeps.
+static func dress(
+	button: Button, icon_kind: String, caption: String, tip: String,
+	compact_icon_only: bool = true
+) -> void:
 	button.custom_minimum_size = SEAL_SIZE
 	button.tooltip_text = tip
 	button.focus_mode = Control.FOCUS_ALL
@@ -171,7 +196,6 @@ static func _seal(
 	button.add_theme_stylebox_override(
 		"focus", _plaque(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)
 	)
-	button.pressed.connect(action)
 	if compact_icon_only:
 		button.set_meta("compact_icon_only", true)
 		button.set_meta("wide_width", SEAL_SIZE.x)
@@ -183,15 +207,21 @@ static func _seal(
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(box)
 
-	var medallion := TextureRect.new()
-	medallion.name = "Medallion"
-	medallion.texture = ChromeIcons.texture(icon_kind)
-	medallion.custom_minimum_size = Vector2(22, 22)
-	medallion.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	medallion.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	medallion.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	medallion.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(medallion)
+	if icon_kind.is_empty():
+		var crest := Icon.new("crest", 22, Palette.GOLD)
+		crest.name = "Medallion"
+		crest.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		box.add_child(crest)
+	else:
+		var medallion := TextureRect.new()
+		medallion.name = "Medallion"
+		medallion.texture = ChromeIcons.texture(icon_kind)
+		medallion.custom_minimum_size = Vector2(22, 22)
+		medallion.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		medallion.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		medallion.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		medallion.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(medallion)
 
 	var label := Label.new()
 	label.name = "Caption"
@@ -201,7 +231,6 @@ static func _seal(
 	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(label)
-	return button
 
 
 ## A status plaque: icon, running value and (for the treasury) the net delta.
@@ -312,7 +341,7 @@ static func apply_compact(hud: GameHud, compact: bool) -> void:
 		if label != null:
 			label.visible = not compact
 		button.custom_minimum_size.x = (
-			44.0 if compact else float(button.get_meta("wide_width", SEAL_SIZE.x))
+			40.0 if compact else float(button.get_meta("wide_width", SEAL_SIZE.x))
 		)
 	for chip: Control in hud.chips:
 		var cap := chip.find_child("Caption", true, false) as Label

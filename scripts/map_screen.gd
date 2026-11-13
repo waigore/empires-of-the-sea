@@ -294,10 +294,8 @@ func _connect() -> void:
 		func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p)
 	)
 	hud.region_toggle_pressed.connect(_cycle_region)
-	hud.lens_pressed.connect(func(active: bool) -> void: MapPlayInput.set_lens(play, active))
-	hud.diplomacy_lens_pressed.connect(
-		func(active: bool) -> void: MapPlayInput.set_diplomacy_lens(play, active)
-	)
+	# The bar's one lens seal speaks through GameHud's cycle/menu signals (the
+	# seal is the screen's only lens control now, so L/P stay pure shortcuts).
 	hud.focus_capital_pressed.connect(func() -> void:
 		MapPlaySetup.focus_capital(play)
 	)

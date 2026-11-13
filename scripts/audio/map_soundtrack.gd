@@ -97,10 +97,12 @@ func _bind_widgets() -> void:
 		controls.bind(audio)
 
 
-func _controls() -> AudioControls:
-	if screen == null or screen.hud == null:
+## The pause menu carries the mix desk now; the map itself has no sound seal
+## (REQ-P1-06).
+func _controls() -> SoundDesk:
+	if screen == null or screen.game_menu == null:
 		return null
-	return screen.hud.get_node_or_null("AudioControls") as AudioControls
+	return screen.game_menu.sound_desk
 
 
 # --- cues --------------------------------------------------------------------

@@ -35,8 +35,8 @@ python tools/audio/build_audio.py --only music-synth   # offline fallback only
 Bright major-mode dances: percussion leads, reverb 1.4–1.5 s.
 
 Loops crossfade at the seam (1.5 s equal-power). Beds follow the calendar:
-branle, gigue at 1550, minuet at 1700; the title screen borrows the branle, so a
-campaign opens on a bed already playing.
+branle, gigue at 1550, minuet at 1700; the title screen borrows the branle, so
+a campaign opens mid-bed.
 
 Mix: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects 0.85.
 
@@ -50,7 +50,8 @@ Mix: music ≈ −17.5 dBFS RMS, cues ≈ −13 dBFS, music 0.50 under effects 0
 | `scripts/audio/audio_director.gd` | Crossfade pair, 6-voice SFX pool, ambience |
 | `scripts/audio/shell_soundtrack.gd` | Launch bed, global mute key |
 | `scripts/audio/map_soundtrack.gd` | Listens to map-screen signals, picks beds/cues |
-| `scripts/ui/audio_controls.gd` | Bell seal + mix desk |
+| `scripts/ui/audio_controls.gd` | Title bell seal |
+| `scripts/ui/sound_desk.gd` | Mix desk: music, effects, mute |
 
 No autoload: `main.tscn` owns the director and retires the map scene's own when
 it mounts, so the bed plays from launch; standalone mounts keep theirs.
@@ -77,8 +78,8 @@ Battle switches beds for 14 s, then the era bed returns; raids cue off
 
 ## Controls
 
-The bell seal opens the mix desk (music, effects, mute); the title page carries
-one too. `M` mutes anywhere; settings persist.
+The mix desk (music, effects, mute) lives in the pause menu; the title page
+opens the same desk from its bell seal. `M` mutes anywhere; settings persist.
 
 ## Tests
 
