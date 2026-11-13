@@ -51,7 +51,9 @@ static func plan_all(
 	# training and deeds are discretionary, the war chest is not (wiki:
 	# growth-stage-planner § Recruitment modulation; treasury-planner
 	# § Cash discipline; issue #474).
-	var spendable: int = maxi(economy.treasury - maxi(floor, 0), 0)
+	var spendable: int = int(
+		AiClaims.purse(economy.treasury, floor).get("treasury", 0)
+	)
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
