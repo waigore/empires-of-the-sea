@@ -412,18 +412,58 @@ func test_minors_tribes_and_unknown_factions_reserve_the_neutral_leader() -> voi
 	assert_eq(LeaderCatalog.default_key(-1), LeaderCatalog.DEFAULT_KEY)
 
 func test_bonus_table_matches_the_documented_multipliers() -> void:
-	assert_almost_eq(LeaderCatalog.multiplier_for("napoleon"), 1.25, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("frederick"), 1.15, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("reserve"), 1.0, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for(""), 1.0, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("isabella"), 1.0, 0.001)
-	assert_eq(LeaderCatalog.bonus_percent("napoleon"), 25)
-	assert_eq(LeaderCatalog.bonus_percent("isabella"), 0)
+	# Land is published per side: Napoleon both, Gustavus attacking, Frederick
+	# defending (wiki: leader-bonuses § Bonus Table).
+	assert_almost_eq(LeaderCatalog.land_multiplier("napoleon", false), 1.25, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("napoleon", true), 1.25, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("gustavus", false), 1.15, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("gustavus", true), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("frederick", true), 1.15, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("frederick", false), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("reserve", true), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("", false), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("isabella", false), 1.0, 0.001)
+	assert_eq(LeaderCatalog.land_percent("napoleon"), 25)
+	assert_eq(LeaderCatalog.land_percent("isabella"), 0)
+
+
+## One primary bonus per key: each non-land key publishes exactly its own domain
+## and nothing else (wiki: leader-bonuses § Design notes).
+func test_each_non_land_key_publishes_exactly_its_own_domain() -> void:
+	assert_almost_eq(LeaderCatalog.naval_multiplier("de_ruyter"), 1.15, 0.001)
+	for key: String in [
+		"napoleon", "gustavus", "frederick", "isabella", "henry", "victoria", "reserve"
+	]:
+		assert_almost_eq(
+			LeaderCatalog.naval_multiplier(key), 1.0, 0.001, "%s has no naval row" % key
+		)
+	assert_almost_eq(LeaderCatalog.first_contact_score("isabella"), 60.0, 0.001)
+	assert_almost_eq(
+		LeaderCatalog.first_contact_score("henry"), DiplomacyCatalog.INITIAL_SCORE, 0.001
+	)
+	assert_eq(LeaderCatalog.coastal_rings("henry"), 1)
+	assert_eq(LeaderCatalog.coastal_rings("isabella"), 0)
+	assert_almost_eq(LeaderCatalog.funding_multiplier("victoria"), 1.15, 0.001)
+	assert_almost_eq(LeaderCatalog.funding_multiplier("henry"), 1.0, 0.001)
+
+
+func test_bonus_labels_name_the_real_effect() -> void:
+	assert_true(LeaderCatalog.bonus_label("isabella").contains("first contact"))
+	assert_true(LeaderCatalog.bonus_label("henry").contains("coastal"))
+	assert_true(LeaderCatalog.bonus_label("de_ruyter").contains("naval"))
+	assert_true(LeaderCatalog.bonus_label("victoria").contains("research"))
+	assert_true(LeaderCatalog.bonus_label("gustavus").contains("attacking"))
+	assert_true(LeaderCatalog.bonus_label("frederick").contains("defending"))
+	assert_eq(LeaderCatalog.bonus_label("reserve"), "no bonus",
+		"a key with no row never reads as a missing land bonus")
 
 func test_variant_ids_match_exactly_first_then_by_substring() -> void:
-	assert_almost_eq(LeaderCatalog.multiplier_for("france_napoleon_leader"), 1.25, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("Prussia_Frederick_Leader"), 1.15, 0.001)
-	assert_almost_eq(LeaderCatalog.multiplier_for("unknown_court"), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("france_napoleon_leader", false), 1.25, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("Prussia_Frederick_Leader", true), 1.15, 0.001)
+	assert_almost_eq(LeaderCatalog.land_multiplier("unknown_court", false), 1.0, 0.001)
+	assert_almost_eq(LeaderCatalog.naval_multiplier("dutch_michiel_de_ruyter_leader"), 1.15, 0.001)
+	assert_almost_eq(LeaderCatalog.funding_multiplier("ENG_victoria_leader"), 1.15, 0.001)
+	assert_eq(LeaderCatalog.coastal_rings("POR_henry_leader"), 1)
 
 func test_roster_assigns_the_choice_to_the_human_crown_only() -> void:
 	var roster: Dictionary = LeaderCatalog.roster(2, "napoleon")

@@ -122,10 +122,10 @@ static func _exchange(
 	var def_lead: ArmyState = ArmyCommand.primary(defending)
 	var atk_lead: ArmyState = ArmyCommand.primary(attacking)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(def_lead, context), true, model, province, defender
+		context, ArmyCommand.medals_of(def_lead, context, true), true, model, province, defender
 	)
 	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(atk_lead, context), false, model, province, attacker
+		context, ArmyCommand.medals_of(atk_lead, context, false), false, model, province, attacker
 	)
 	var def_limit: int = int(def_mods["limit"])
 	var atk_limit: int = int(atk_mods["limit"])
