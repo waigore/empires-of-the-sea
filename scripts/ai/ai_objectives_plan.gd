@@ -14,7 +14,7 @@ extends RefCounted
 ##   ships, hostile_ships, treasury, reserve, goal, colony_target, harbour,
 ##   idle_hulls, explorer_ready, voyage_afloat, cargo_shortfall,
 ##   research_slots, research_funding, research_cost,
-##   tribe_target, tribe_stage, tribe_stage_cost.
+##   tribe_target, tribe_stage_cost.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 

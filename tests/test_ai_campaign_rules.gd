@@ -1445,7 +1445,7 @@ func test_a_charted_tribe_is_bought_before_it_is_fought() -> void:
 		_tribe_context({2: 120, tribe: 20}, {2: 5000})
 	)
 	var action: Dictionary = plan["action"]
-	assert_eq(String(action["kind"]), AiDiplomacyPlanner.KIND_OVERTURE)
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
 	assert_eq(String(action["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
 	assert_true(bool(action.get("tribe_colony", false)), "the colony ambition raised the envoy offer")
 

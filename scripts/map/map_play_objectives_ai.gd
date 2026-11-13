@@ -107,7 +107,6 @@ static func _readings(
 		"research_funding": funding_index,
 		"research_cost": research_cost,
 		"tribe_target": int(colony_ambition.get("target", -1)),
-		"tribe_stage": String(colony_ambition.get("stage", "")),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
 	}
 
