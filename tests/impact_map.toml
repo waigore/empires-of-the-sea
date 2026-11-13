@@ -295,6 +295,37 @@ domain = "blockade"
 match = "scripts/map/map_play_improvements.gd"
 domain = "blockade"
 
+# Pause door (before blockade / naval_intel / muster hub steals): the session,
+# screen and setup only hand the menu across; the ledgers only park the seal.
+# First match keeps a door PR inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ui/game_menu_door.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/map_screen.gd"
+domain = "pause"
+
+[[rules]]
+match = "scripts/session/play_session.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/civilian_roster_panel.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/improvement_panel.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/force_ledger_*.gd*"
+domain = "pause"
+
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
 domain = "blockade"
@@ -416,12 +447,6 @@ domain = "muster"
 match = "scripts/ui/hud_dossiers.gd"
 domain = "muster"
 
-# The pause door's seal state: the ledger suits that park it and the menu suites
-# that mount it already ride the menu bucket.
-[[rules]]
-match = "scripts/ui/game_menu_door.gd*"
-domain = "menu"
-
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
 domain = "muster"
@@ -476,13 +501,19 @@ suites = [
   "test_civilian_turn_rules.gd"
 ]
 
+# Pause door + MENU seal: the door helper, the menu that mounts it, the three
+# ledgers that park it, and the session/screen wires that hand the menu across
+# (REQ-P3-02). Named suites stay inside the tier-1 5 min budget — the screen,
+# menu, civilian and economy_ui catch-alls would overrun it (docs/testing.md).
 [domains.pause]
 suites = [
+  "test_menu_door.gd",
   "test_menu_flow.gd",
   "test_main.gd",
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
-  "test_mobile_layout.gd"
+  "test_mobile_layout.gd",
+  "test_force_ledger_rules.gd"
 ]
 
 [domains.map]
@@ -656,7 +687,6 @@ suites = [
   "test_court_ui_parts.gd",
   "test_main.gd",
   "test_menu_flow.gd",
-  "test_menu_door.gd",
   "test_mobile_layout.gd",
   "test_diplomacy_lens.gd",
   "test_resource_lens.gd"
