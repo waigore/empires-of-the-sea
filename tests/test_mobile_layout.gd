@@ -729,6 +729,26 @@ func test_phone_news_waits_while_a_dossier_is_open() -> void:
 	assert_eq(hud.despatches.box.get_child_count(), 1, "the news returns with the sheet closed")
 
 
+## Cards the panel dock does not own (the empire roster) cover the lane just as
+## completely; the HUD follows their open state even without a slot hook.
+func test_phone_news_waits_while_the_roster_is_open() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.toast("A dispatch from the court")
+	await get_tree().process_frame
+	hud.civilian_roster.open()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 0, "no plate over the roster")
+	assert_eq(hud.despatches.held().size(), 1)
+	hud.civilian_roster.close()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "the news returns with the roster closed")
+
+
 func test_phone_tells_one_despatch_at_a_time() -> void:
 	_open(PHONE)
 	await get_tree().process_frame

@@ -90,6 +90,9 @@ var muster_roll: ForceLedgerPanel = null
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
+## Last phone-sheet state, so the despatch lane follows a full-screen card that
+## opens without a panel-slot hook (the roster, court dossier or muster roll).
+var _sheet_open: bool = false
 
 var _turn_label: Label = null
 ## Battles the rules resolved for the human, replayed one plate at a time.
@@ -185,6 +188,12 @@ func apply_safe_area(insets: Vector4) -> void:
 
 
 func _process(_delta: float) -> void:
+	# A full-screen card the panel dock does not own (roster, court dossier,
+	# muster roll) still has to hold the phone's news.
+	var open: bool = HudDespatchCover.sheet_open(self)
+	if open != _sheet_open:
+		_sheet_open = open
+		HudDespatchCover.refresh(self)
 	if _tooltip != null and _tooltip.visible:
 		var mouse: Vector2 = get_global_mouse_position()
 		var limit: Vector2 = get_viewport_rect().size - _tooltip.size - Vector2(8, 8)

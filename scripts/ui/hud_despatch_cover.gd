@@ -26,6 +26,11 @@ static func sheet_open(hud: GameHud) -> bool:
 	for slot: HudPanelSlot in [hud.panels.economy, hud.panels.research, hud.panels.diplomacy]:
 		if slot != null and slot.open:
 			return true
+	# Full-screen cards that do not ride the panel dock: the empire roster, the
+	# court's dossier and the muster roll cover the lane just as completely.
+	for card: Control in [hud.civilian_roster, hud.dossier_screen, hud.muster_roll]:
+		if card != null and card.visible:
+			return true
 	var estates: ImprovementPanel = estates_panel(hud)
 	return estates != null and estates.is_open()
 
