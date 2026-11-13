@@ -551,6 +551,50 @@ func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	assert_true(text.contains("Unsurveyed ground"), text)
 	assert_true(text.contains("1 tile"), text)
 
+
+## A good the catalog has no medallion for keeps its pictogram, and that mark
+## wears the commodity ink the survey lens uses (REQ-P1-02, REQ-P1-08).
+func test_an_estate_without_a_medallion_keeps_its_commodity_ink() -> void:
+	_setup_province_panel()
+	var block := ProvinceResources.new()
+	add_child(block)
+	var art := block._art({"icon": "ore", "commodity": ""}) as Icon
+	assert_not_null(art, "a good outside the catalog still draws a pictogram")
+	assert_eq(art.tint, Palette.resource_ink("ore"), "iron grey, not the old gold")
+	block.free()
+
+
+## The management ledger's pictogram names the commodity; the chip and pips
+## beside it carry the works' status.
+func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
+	_setup_province_panel()
+	var row := ImprovementRow.new()
+	add_child(row)
+	row.setup({
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"status": "disconnected",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": false,
+		"output": 2,
+		"commodity": "timber",
+		"status_text": "No road to the crown",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "10 crowns",
+		"duration": 3,
+		"build_reason": "No Builder in reach",
+		"working": false,
+		"can_build": false,
+		"builder_id": -1,
+		"next_level": 3,
+	})
+	assert_eq(row._icon.kind, "tree")
+	assert_eq(row._icon.tint, Palette.resource_ink("tree"), "timber green, not the status ink")
+	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
+	row.free()
+
 func test_an_empty_estate_block_still_names_the_ground_to_read() -> void:
 	_setup_province_panel()
 	var block := ProvinceResources.new()
