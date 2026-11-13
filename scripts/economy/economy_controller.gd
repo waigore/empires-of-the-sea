@@ -255,7 +255,8 @@ func resolve_turn() -> Dictionary:
 func open_panel() -> void:
 	if _hud != null:
 		_hud.panels.show_economy(
-			economy, market, projected(), trade_cargo(), market.minor_offers
+			economy, market, projected(), trade_cargo(), market.minor_offers,
+			player_faction
 		)
 
 
@@ -309,7 +310,8 @@ func refresh_panel() -> void:
 		return
 	if _hud.panels.is_economy_open():
 		_hud.panels.show_economy(
-			economy, market, projected(), trade_cargo(), market.minor_offers
+			economy, market, projected(), trade_cargo(), market.minor_offers,
+			player_faction
 		)
 	_hud.set_treasury(economy.treasury)
 	_hud.set_income(projected_income())
