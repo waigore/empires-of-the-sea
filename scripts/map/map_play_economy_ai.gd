@@ -65,9 +65,15 @@ static func run(play: PlaySession) -> Dictionary:
 			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
 			_army_food(play, faction), boost, hospitals, _leader(play, faction)
 		)
+		# A court on `earn` still works its own land: extraction draws on the
+		# cash floor, everything else waits for the muster (issue #489).
+		var works_floor: int = (
+			config.parameter("economy.min_treasury")
+			if String(income["goal"]) == AiIncome.GOAL_EARN else -1
+		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
 			play, faction, economy, config, overseas,
-			(projected["economy"] as PlayerEconomy).stockpile, floor
+			(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor
 		)
 		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
 		var trade: Dictionary = _trade(
