@@ -119,6 +119,24 @@ agents:
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One free-playtest pass; update wiki diary/learnings; open a PR if work shipped; then exit.
 
+  # Continuous Hermes: open todo issues (gated). Separate from review-issue-agent.
+  resolve-issue-agent:
+    skill: resolve-issue-agent
+    provider: hermes
+    enabled: true
+    cooldown_seconds: 30
+    gate:
+      command:
+        - sh
+        - .agents/skills/resolve-issue-agent/scripts/gate.sh
+    prompt: |
+      Load and follow the project skill resolve-issue-agent (under .agents/skills).
+      Run it unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      If Assigned issue is a non-empty issue number, that GitHub issue #N wins;
+      otherwise pick one open todo by judgement.
+      One resolve pass; then exit.
+
   implement-then-hunt:
     enabled: true
     cooldown_seconds: 30
@@ -153,6 +171,23 @@ agents:
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One deferred-backlog audit; update docs if needed; open a docs-only PR if
       anything changed; then exit. Do not implement features.
+
+  # Continuous Cursor: open resolved issues (gated). Separate from resolve-issue-agent.
+  review-issue-agent:
+    skill: review-issue-agent
+    provider: cursor
+    enabled: true
+    cooldown_seconds: 30
+    gate:
+      command:
+        - sh
+        - .agents/skills/review-issue-agent/scripts/gate.sh
+    prompt: |
+      Run the review-issue-agent skill unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      If Assigned issue is a non-empty issue number, that GitHub issue #N wins;
+      otherwise pick one open resolved by judgement.
+      One review pass; then exit.
 
   babysit-pr-agent:
     skill: babysit-pr-agent

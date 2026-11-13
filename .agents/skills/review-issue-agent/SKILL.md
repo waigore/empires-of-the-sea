@@ -6,21 +6,23 @@ description: |-
   then either close with a brief note or send it back to todo with a concise
   comment (≤150 plain-English words either way). Skip and wait if fix PRs
   are not merged. One issue per run. Ask the user only on true blockers.
-  Safe for hourly dispatch with no user message. Use when the user or
-  automation asks to review a resolved issue, verify issue evidence, or run
-  the review-issue agent.
+  Safe for continuous/hourly dispatch with no user message. Use when the
+  user or automation asks to review a resolved issue, verify issue evidence,
+  or run the review-issue agent.
 
   Examples:
     - no target → pick an open resolved by judgement; review; stop
     - "#42" or "review #42" → that issue only
-    - hourly dispatch → same as no target; exit cleanly if queue empty
+    - continuous dispatch → same as no target; exit cleanly if queue empty
 ---
 
 # Review issue agent
 
 One **open `resolved` issue** per run. Deliverable: issue **closed** (pass) or returned to **`todo`** (fail). Do **not** implement fixes — that is [`resolve-issue-agent`](../resolve-issue-agent/SKILL.md).
 
-Fully autonomous: announce selection briefly; continue. Ask the user only on true blockers. Hourly / no-message dispatch is normal — if nothing eligible, report and stop.
+Fully autonomous: announce selection briefly; continue. Ask the user only on true blockers. Continuous / no-message dispatch is normal — if nothing eligible, report and stop.
+
+[`scripts/gate.sh`](scripts/gate.sh) exits 0 only when an open issue has label `resolved` (prints numbers); agent-orc skips the tick otherwise.
 
 ## Sources
 
