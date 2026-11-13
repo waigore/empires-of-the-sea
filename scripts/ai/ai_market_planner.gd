@@ -17,13 +17,17 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 
 ## Planned orders plus the scored rows that explain them.
 ## `free_holds` is what the colonies left this turn, never the raw fleet total.
+## `reserved_inputs` is what the court cannot sell at all; `need` is the material
+## its next regiment is being provisioned with, which it keeps back and buys
+## first (wiki: growth-stage-planner § Recruitment modulation).
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	free_holds: int,
 	tech_unlocked: Dictionary = {},
-	reserved_inputs: Dictionary = {}
+	reserved_inputs: Dictionary = {},
+	need: Dictionary = {}
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -32,7 +36,9 @@ static func plan(
 		return {"offers": offers, "bids": bids, "candidates": candidates}
 	var reserve: int = maxi(config.parameter("market.sell_reserve"), 0)
 	var sold: Dictionary = {}
-	for entry: Dictionary in _surpluses(economy, market, reserve, reserved_inputs):
+	for entry: Dictionary in _surpluses(
+		economy, market, reserve, _promised(reserved_inputs, need)
+	):
 		if offers.size() >= config.parameter("market.max_offer_types"):
 			break
 		var id: String = String(entry["commodity"])
@@ -56,7 +62,7 @@ static func plan(
 		economy.treasury - config.parameter("market.min_treasury"), 0
 	)
 	var holds: int = maxi(free_holds, 0)
-	for entry: Dictionary in _deficits(economy, market, reserve):
+	for entry: Dictionary in _deficits(economy, market, reserve, need):
 		if bids.size() >= bid_cap:
 			break
 		var id: String = String(entry["commodity"])
@@ -213,9 +219,27 @@ static func _surpluses(
 	return rows
 
 
-## Build inputs below the reserve, largest shortfall first.
+## Stores the court must not sell. Both sets are added, not maxed: every claim
+## consumes the store (wiki: economy-planner § Reservations; growth-stage-planner
+## § Recruitment modulation).
+static func _promised(
+	reserved_inputs: Dictionary, need: Dictionary
+) -> Dictionary:
+	if need.is_empty():
+		return reserved_inputs
+	var promised: Dictionary = reserved_inputs.duplicate()
+	for commodity: Variant in need.keys():
+		var id: String = String(commodity)
+		promised[id] = int(promised.get(id, 0)) + int(need[commodity])
+	return promised
+
+
+## Build inputs below the reserve, largest shortfall first. A commodity the next
+## regiment is being provisioned with leads, so the court buys its cloth before
+## it buys the rest and the bid-type cap cannot starve the muster (wiki:
+## growth-stage-planner § Recruitment modulation).
 static func _deficits(
-	economy: PlayerEconomy, market: WorldMarket, reserve: int
+	economy: PlayerEconomy, market: WorldMarket, reserve: int, need: Dictionary = {}
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for id: String in BUILD_INPUTS:
@@ -229,6 +253,10 @@ static func _deficits(
 				"price": market.price(id),
 			})
 	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var left: bool = need.has(String(a["commodity"]))
+		var right: bool = need.has(String(b["commodity"]))
+		if left != right:
+			return left
 		if int(a["deficit"]) != int(b["deficit"]):
 			return int(a["deficit"]) > int(b["deficit"])
 		return String(a["commodity"]) < String(b["commodity"])

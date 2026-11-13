@@ -1,8 +1,9 @@
 class_name MapPlayDiplomacy
 extends RefCounted
 ## Court intents and the diplomacy phase for the map screen. Rules live in
-## scripts/rules; AI, pending consent and first contact live in sibling map-play
-## modules. This wires orders to the ledger and reports the outcome.
+## scripts/rules; this wires orders to the ledger and reports the outcome.
+## Rival AI lives in MapPlayDiplomacyAi; pending consent prompts in
+## MapPlayDiplomacyConsent.
 
 
 static func open(play: PlaySession) -> void:
@@ -12,7 +13,7 @@ static func open(play: PlaySession) -> void:
 		play.diplomacy = DiplomacyState.new()
 		play.diplomacy.initialize(play.turn)
 	play.diplomacy.human_faction = play.player_faction
-	MapPlayFirstContact.sync(play)
+	sync_first_contact(play)
 	_install_terms(play)
 	DiplomacyHud.show(
 		play.hud.panels,
@@ -84,17 +85,17 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	# While a call to arms waits, the court entertains no other business.
 	if CallToArms.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the call to arms first.")
-		MapPlayDiplomacyPending.show_call(play)
+		MapPlayDiplomacyConsent.show_call(play)
 		return
 	# An intervention offer holds the court just as firmly.
 	if Intervention.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the intervention first.")
-		MapPlayDiplomacyPending.show_intervention(play)
+		MapPlayDiplomacyConsent.show_intervention(play)
 		return
 	# A rival proposal waits for the court's answer before any new business.
 	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		play.hud.toast("Answer the proposal first.")
-		MapPlayDiplomacyPending.show_offer(play)
+		MapPlayDiplomacyConsent.show_offer(play)
 		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
@@ -138,20 +139,20 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 static func resolve_turn(play: PlaySession) -> bool:
 	if play.diplomacy == null:
 		return true
-	MapPlayFirstContact.sync(play)
+	sync_first_contact(play)
 	MapPlayDiplomacyAi.run(play)
 	var human: int = play.human_faction_id()
 	if CallToArms.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacyPending.show_call(play)
+		MapPlayDiplomacyConsent.show_call(play)
 		return false
 	if Intervention.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacyPending.show_intervention(play)
+		MapPlayDiplomacyConsent.show_intervention(play)
 		return false
 	if DiplomacyProposals.has_pending(play.diplomacy, human):
 		play.turn_suspended = true
-		MapPlayDiplomacyPending.show_offer(play)
+		MapPlayDiplomacyConsent.show_offer(play)
 		return false
 	close_turn(play)
 	return true
@@ -166,6 +167,45 @@ static func close_turn(play: PlaySession) -> void:
 	# repeat a pair that was told about this turn.
 	play.announced_decisions.clear()
 	refresh(play)
+
+
+## A Tribe is contacted only by non-unknown tile visibility in its provinces;
+## sea-reachable colonial intel alone does not count (wiki: diplomacy § first contact).
+static func sync_first_contact(play: PlaySession) -> Array[int]:
+	var contacted: Array[int] = []
+	# The observer has no human court to open first contact for; rival courts
+	# keep the relations seeded at setup (wiki: game-setup § Human/AI slots).
+	if play.observer_mode:
+		return contacted
+	if play.diplomacy == null or play.world == null:
+		return contacted
+	for tribe: int in FactionCatalog.tribe_ids():
+		if play.diplomacy.has_relation(play.player_faction, tribe):
+			continue
+		if not _sees_tribe(play, tribe):
+			continue
+		play.diplomacy.ensure_relation(play.player_faction, tribe, play.turn)
+		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
+		contacted.append(tribe)
+	if not contacted.is_empty():
+		var names: PackedStringArray = []
+		for tribe: int in contacted:
+			names.append(FactionCatalog.name_of(tribe))
+		play.hud.toast("First contact: %s" % ", ".join(names))
+	return contacted
+
+
+static func _sees_tribe(play: PlaySession, tribe: int) -> bool:
+	for region_index: int in play.visibility_by_region.keys():
+		var visibility: VisibilityModel = play.visibility_by_region[region_index]
+		if visibility == null or visibility.model == null:
+			continue
+		for province: ProvinceState in visibility.model.provinces:
+			if province.owner != tribe:
+				continue
+			if visibility.province_visibility(province.id) != VisibilityModel.Level.UNKNOWN:
+				return true
+	return false
 
 
 ## Researched techs gate embassy and GP Join Empire orders

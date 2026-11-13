@@ -11,7 +11,7 @@ static func focus(play: PlaySession, region: int, unit_id: int) -> bool:
 	var same_region: bool = region == play.region_index
 	if not same_region:
 		play.switch_region(region)
-		MapPlayFirstContact.sync(play)
+		MapPlayDiplomacy.sync_first_contact(play)
 		MapPlayDiplomacy.refresh(play)
 	var unit: CivilianState = _find(play, unit_id)
 	if unit == null:

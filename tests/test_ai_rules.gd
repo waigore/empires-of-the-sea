@@ -49,6 +49,69 @@ func test_power_score_weights_are_overridable() -> void:
 func test_power_score_without_a_world_is_zero() -> void:
 	assert_eq(AiPower.score(null, 7, 9, 9), 0)
 
+
+## The planner weighs relative power by the published order of battle — FPN + FPM
+## over every land army — and never by a head count (wiki: diplomacy § Great
+## Power power score). Forty guards against five is a strong court even though
+## the stronger court holds fewer provinces.
+func test_the_planner_reads_power_from_the_order_of_battle() -> void:
+	var owners: Array[int] = []
+	for _index in 5:
+		owners.append(0)
+	for _index in 20:
+		owners.append(1)
+	var world: WorldMap = AiFixture.world(owners)
+	var context: Dictionary = AiTurn._context(
+		world,
+		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
+		0
+	)
+	assert_eq(int(context["power"][0]), 410, "5 × 10 provinces + 360 strength")
+	assert_eq(int(context["power"][1]), 245, "20 × 10 provinces + 45 strength")
+	assert_eq(
+		int(AiPower.relative_band(
+			int(context["power"][0]), int(context["power"][1])
+		)["bonus"]),
+		30,
+		"the published score makes this a strong court"
+	)
+
+## A caller that supplies no order of battle keeps the legacy head count, so a
+## headless fixture (no army layer) still scores instead of reading zero.
+func test_a_context_without_strengths_keeps_the_head_count() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
+	)
+	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
+	assert_eq(int(context["power"][1]), 35, "3 × 10 provinces + 5 regiments")
+	assert_false(context.has("strengths"), "no strength map to hand a view")
+
+## A court's charted docket carries the orders of battle it has seen, so a rival
+## weighs the power of the armies it knows of by their weight, not their count
+## (wiki: diplomacy § Great Power power score; DR-20261112-09).
+func test_a_charted_docket_powers_the_reading_by_strength() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world,
+		{
+			"regiments": {0: 2, 1: 9},
+			"ships": {},
+			"strengths": {0: 18.0, 1: 27.0},
+			"readings": {
+				0: {
+					"regiments": {0: 2, 1: 9},
+					"ships": {},
+					"strength": {0: 18.0, 1: 27.0},
+				}
+			},
+		},
+		0
+	)
+	var reading: Dictionary = AiTurn._reading(context, 0)
+	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
+	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
+
 # --- from test_ai_parameters.gd ---
 ## AI parameter registry and blessed profiles (wiki: ai-parameter-registry,
 ## ai-profile-overrides).
@@ -1318,12 +1381,12 @@ func test_ai_state_keeps_and_restores_rival_ledgers() -> void:
 	var economy: PlayerEconomy = ai.economy_for(1)
 	economy.add("grain", 7)
 	economy.add_treasury(123)
-	economy.set_assignment("lumber", 2)
+	economy.production.set_assignment("lumber", 2)
 	var restored: AiState = AiState.from_dict(ai.to_dict())
 	var loaded: PlayerEconomy = restored.economy_for(1)
 	assert_eq(loaded.quantity("grain"), economy.quantity("grain"))
 	assert_eq(loaded.treasury, economy.treasury)
-	assert_eq(loaded.assignment_units("lumber"), 2)
+	assert_eq(loaded.production.assignment_units("lumber"), 2)
 
 
 func test_ai_economy_respects_labour_and_inputs() -> void:
@@ -1396,7 +1459,7 @@ func test_ai_economy_counts_the_run_this_phase_will_start() -> void:
 		"bronze": 19,
 	}
 	var config: AiConfig = AiConfig.build(1, 1500)
-	economy.set_assignment("bronze", 1)
+	economy.production.set_assignment("bronze", 1)
 	var plan: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 	for assignment: Dictionary in plan["assignments"]:
 		assert_ne(

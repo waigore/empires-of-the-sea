@@ -162,7 +162,7 @@ static func for_offer(state: DiplomacyState, viewer: int, offer: Dictionary) -> 
 		return {}
 	var kind: String = String(offer.get("kind", ""))
 	var stage: String = String(offer.get("stage", ""))
-	var point: String = "negotiation/proposal_%s" % kind
+	var point: String = _point_for(kind, stage)
 	if not DialogueCatalog.has_point(point):
 		return {}
 	var record: DiplomacyRelation = state.relation(viewer, from_id)
@@ -281,6 +281,19 @@ static func _battle_plan(event: Dictionary, viewer: int, other: int) -> Dictiona
 	return _told("event/field_won" if speaker_won else "event/field_lost", other)
 
 
+## The negotiation beat an offer speaks. A trade pact and a non-aggression offer
+## are treaties of their own, so the envoy names the one on the table rather
+## than the chain stage beside it — the pact has its own rate and the pact's
+## words never promise a consul (wiki: dialogue-and-mood § Design intent,
+## § Mood machine; world-market § FTP).
+static func _point_for(kind: String, stage: String) -> String:
+	if kind == DiplomacyProposals.KIND_FTP:
+		return "negotiation/proposal_ftp"
+	if kind == DiplomacyProposals.KIND_OVERTURE and stage == DiplomacyCatalog.STAGE_NAP:
+		return "negotiation/proposal_nap"
+	return "negotiation/proposal_%s" % kind
+
+
 ## Relation floor the offer's own rules put under it, so quality is measured
 ## against what the court actually asked for (wiki: diplomacy § thresholds).
 static func _required(kind: String, stage: String) -> float:
@@ -289,6 +302,8 @@ static func _required(kind: String, stage: String) -> float:
 			return DiplomacyCatalog.ALLIANCE_MIN_SCORE
 		DiplomacyProposals.KIND_PEACE:
 			return DiplomacyCatalog.PEACE_MIN_SCORE
+		DiplomacyProposals.KIND_FTP:
+			return DiplomacyCatalog.FTP_MIN_SCORE
 		DiplomacyProposals.KIND_OVERTURE:
 			if stage == DiplomacyCatalog.STAGE_NAP:
 				return DiplomacyCatalog.NAP_MIN_SCORE

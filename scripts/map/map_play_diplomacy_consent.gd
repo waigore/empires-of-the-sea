@@ -1,28 +1,12 @@
-class_name MapPlayDiplomacyPending
+class_name MapPlayDiplomacyConsent
 extends RefCounted
-## Consent decisions waiting on the human court: call to arms, intervention and
-## rival proposals. Presentation only — opens the diplomacy panel and raises
-## each decision once (wiki: diplomacy § Alliances / Intervention). Split from
-## MapPlayDiplomacy so the phase orchestrator does not own the despatch copy
-## (REQ-P3-01).
-
-
-## One decision's identity, so the court is told about it once and not again on
-## every press that re-opens the panel (wiki: diplomacy § Intervention — the
-## choice is presented once, at war declaration time).
-static func decision_key(kind: String, parts: Array) -> String:
-	var out: PackedStringArray = [kind]
-	for part: Variant in parts:
-		out.append(str(part))
-	return ":".join(out)
-
-
-## Raises a decision's despatch unless the court has already heard it.
-static func announce(play: PlaySession, key: String, text: String) -> void:
-	if play.announced_decisions.has(key):
-		return
-	play.announced_decisions[key] = true
-	play.hud.toast(text)
+## Pending court decisions on the map: call to arms, intervention, and rival
+## proposals. Opens the diplomacy panel and raises each despatch once
+## (wiki: diplomacy § Alliances, § Intervention).
+##
+## The AI pass marks decisions announced after it speaks them; the turn resolver
+## then opens the panel without repeating the line. Court orders stay in
+## MapPlayDiplomacy; rival AI stays in MapPlayDiplomacyAi.
 
 
 ## Marks every decision now waiting as told. The AI pass raises each new
@@ -33,15 +17,15 @@ static func mark_announced(play: PlaySession) -> void:
 		return
 	for call: Dictionary in play.diplomacy.pending_calls:
 		play.announced_decisions[
-			decision_key("call", [int(call["aggressor"]), int(call["defender"])])
+			_decision_key("call", [int(call["aggressor"]), int(call["defender"])])
 		] = true
 	for offer: Dictionary in play.diplomacy.pending_interventions:
 		play.announced_decisions[
-			decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])])
+			_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])])
 		] = true
 	for proposal: Dictionary in play.diplomacy.pending_offers:
 		play.announced_decisions[
-			decision_key("offer", [int(proposal["from"]), String(proposal["kind"])])
+			_decision_key("offer", [int(proposal["from"]), String(proposal["kind"])])
 		] = true
 
 
@@ -53,9 +37,9 @@ static func show_call(play: PlaySession) -> void:
 	if call.is_empty():
 		return
 	MapPlayDiplomacy.open(play)
-	announce(
+	_announce(
 		play,
-		decision_key("call", [int(call["aggressor"]), int(call["defender"])]),
+		_decision_key("call", [int(call["aggressor"]), int(call["defender"])]),
 		"%s calls on our alliance against %s."
 		% [
 			FactionCatalog.name_of(int(call["defender"])),
@@ -72,9 +56,9 @@ static func show_intervention(play: PlaySession) -> void:
 	if offer.is_empty():
 		return
 	MapPlayDiplomacy.open(play)
-	announce(
+	_announce(
 		play,
-		decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])]),
+		_decision_key("intervention", [int(offer["aggressor"]), int(offer["target"])]),
 		"%s declares war on %s. %s"
 		% [
 			FactionCatalog.name_of(int(offer["aggressor"])),
@@ -94,9 +78,9 @@ static func show_offer(play: PlaySession) -> void:
 	if offer.is_empty():
 		return
 	MapPlayDiplomacy.open(play)
-	announce(
+	_announce(
 		play,
-		decision_key("offer", [int(offer["from"]), String(offer["kind"])]),
+		_decision_key("offer", [int(offer["from"]), String(offer["kind"])]),
 		"%s proposes %s. Answer the proposal."
 		% [
 			FactionCatalog.name_of(int(offer["from"])),
@@ -105,3 +89,21 @@ static func show_offer(play: PlaySession) -> void:
 			),
 		]
 	)
+
+
+## One decision's identity, so the court is told about it once and not again on
+## every press that re-opens the panel (wiki: diplomacy § Intervention — the
+## choice is presented once, at war declaration time).
+static func _decision_key(kind: String, parts: Array) -> String:
+	var out: PackedStringArray = [kind]
+	for part: Variant in parts:
+		out.append(str(part))
+	return ":".join(out)
+
+
+## Raises a decision's despatch unless the court has already heard it.
+static func _announce(play: PlaySession, key: String, text: String) -> void:
+	if play.announced_decisions.has(key):
+		return
+	play.announced_decisions[key] = true
+	play.hud.toast(text)
