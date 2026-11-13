@@ -198,6 +198,18 @@ func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
 	)
 
 
+func test_a_colonial_war_carries_no_memory() -> void:
+	# A Minor Nation is colonial business, not a grudge between crowns.
+	var config: AiConfig = _config()
+	var ai_state := AiState.new()
+	var minor: int = 6
+	ai_state.note_war(RIVAL, minor, 0)
+	ai_state.note_truce(RIVAL, minor, 4)
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, 400, RIVAL, minor), 0)
+	assert_eq(AiWarMemory.truce(config, ai_state, 5, RIVAL, minor), 0)
+
+
 func test_a_save_round_trips_the_truce() -> void:
 	var ai_state := AiState.new()
 	ai_state.note_truce(RIVAL, OWNER, 17)
