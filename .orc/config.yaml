@@ -25,14 +25,15 @@ schedules:
     cron: "0 */2 * * *"
     agents:
       - optimize-tests-agent
+  # Stagger :30 so it does not collide with optimize-tests at :00
+  bihourly-optimize-ai:
+    cron: "30 */2 * * *"
+    agents:
+      - optimize-ai-agent
   every-3h-audit-deferred:
     cron: "30 */3 * * *"
     agents:
       - audit-deferred-agent
-  half-hourly-babysit-pr:
-    cron: "*/30 * * * *"
-    agents:
-      - babysit-pr-agent
   hourly-fix-tests:
     cron: "15 * * * *"
     agents:
@@ -162,6 +163,17 @@ agents:
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One test-optimization pass; open a PR if work shipped; then exit.
 
+  optimize-ai-agent:
+    skill: optimize-ai-agent
+    provider: hermes
+    enabled: true
+    prompt: |
+      Load and follow the project skill optimize-ai-agent (under .agents/skills).
+      Run it unattended.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One AI-vs-AI observation pass; file planner-gap issues; open a PR only if
+      a competitiveness fix shipped; cleanup scratch; then exit.
+
   audit-deferred-agent:
     skill: audit-deferred-agent
     provider: cursor
@@ -189,10 +201,12 @@ agents:
       otherwise pick one open resolved by judgement.
       One review pass; then exit.
 
+  # Continuous Cursor: eligible same-repo PRs (gated). Was half-hourly cron.
   babysit-pr-agent:
     skill: babysit-pr-agent
     provider: cursor
     enabled: true
+    cooldown_seconds: 30
     gate:
       command:
         - sh

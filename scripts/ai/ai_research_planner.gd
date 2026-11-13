@@ -29,6 +29,13 @@ const SCORE_PER_WEIGHT: int = 10
 
 ## Assignments for the court's empty slots plus every scored candidate, for the
 ## turn trace (wiki: turn-trace-interpretation).
+##
+## `context["treasury_floor"]` is the purse the court must leave behind — its own
+## cash floor, raised to the muster it is saving for (`AiArmyReinforce.
+## muster_floor`). Funding steps down to what the purse can carry after that
+## floor, so a court short of its regiment target saves for the muster instead of
+## paying its last coins into a study (wiki: growth-stage-planner
+## § Recruitment modulation; treasury-planner § Cash discipline).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
 ) -> Dictionary:
@@ -45,7 +52,17 @@ static func plan(
 		state.set_revealed(revealed)
 	var at_war: bool = bool(context.get("at_war", false))
 	candidates = _scored_candidates(config, economy, at_war)
-	var preset: String = funding_for(config)
+	var preset: String = funding_for(
+		config, economy, maxi(int(context.get("treasury_floor", 0)), 0)
+	)
+	# A study already underway follows the same purse: a court that cannot fund
+	# its slots at the published preset pays a cheaper one rather than draining
+	# the war chest or stalling with unpaid rows.
+	for slot in state.slots.size():
+		if state.tech_at(slot).is_empty():
+			continue
+		if state.funding_at(slot) != preset:
+			state.set_funding(slot, preset)
 	for slot in state.slots.size():
 		if not state.tech_at(slot).is_empty():
 			continue
@@ -80,13 +97,22 @@ static func plan(
 ## personality's research weight (3 pays one step up, 1 one step down) and by the
 ## agenda's own catch-up step (wiki: research-state § Funding presets;
 ## ai-personalities § Domain weight vectors; hidden-agendas — tech_thief pays for
-## its catch-up, DR-20261111-27), clamped to the catalogue.
-static func funding_for(config: AiConfig) -> String:
+## its catch-up, DR-20261111-27), clamped to the catalogue and then to what the
+## purse can carry after `floor` — the reserve the court must not spend (its own
+## cash floor and its muster). A court that cannot pay the cheapest preset funds
+## nothing that turn and keeps saving (wiki: treasury-planner § Cash discipline).
+static func funding_for(
+	config: AiConfig, economy: PlayerEconomy = null, floor: int = 0
+) -> String:
 	var shift: int = int(config.weights().get("research", 2)) - 2
 	var index: int = clampi(
 		config.parameter("research.funding_index") + shift + config.research_bias(),
 		0, ResearchFunding.ORDER.size() - 1
 	)
+	if economy != null:
+		var spare: int = economy.treasury - maxi(floor, 0)
+		while index > 0 and ResearchFunding.gold(ResearchFunding.ORDER[index]) > spare:
+			index -= 1
 	return ResearchFunding.ORDER[index]
 
 

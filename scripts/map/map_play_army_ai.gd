@@ -46,6 +46,8 @@ static func _run_region(
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == play.player_faction and not play.observer_mode:
 			continue
+		if not AiControl.plans(play, faction):
+			continue
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches

@@ -13,6 +13,7 @@ static func build(hud: GameHud) -> void:
 	DiplomacyHud.build(hud)
 	_civilian(hud)
 	_roster(hud)
+	_muster(hud)
 	ArmyHud.build(hud)
 
 
@@ -78,3 +79,15 @@ static func _roster(hud: GameHud) -> void:
 	hud.civilian_roster = CivilianRosterPanel.new()
 	layer.add_child(hud.civilian_roster)
 	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
+
+
+## The muster roll shares the roster's treatment: its own canvas layer above the
+## pause menu, so the force ledger is modal too (DR-20261113-12).
+static func _muster(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "MusterRollLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.muster_roll = ForceLedgerPanel.new()
+	layer.add_child(hud.muster_roll)
+	hud.muster_roll_pressed.connect(hud.muster_roll.toggle)

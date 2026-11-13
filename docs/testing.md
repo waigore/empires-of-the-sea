@@ -162,6 +162,12 @@ godot --headless --path . --script res://playtests/playtest_court_proposal.gd
 # War toasts (#426) — ends turns with spies abroad and diffs HUD war lines against
 # warDeclared / At War (duplicate AI + spy + intervention announce).
 godot --headless --path . --script res://playtests/playtest_war_toasts.gd
+
+# College debt — books every slot at Maximum from the college's own buttons on a
+# turn-0 crown that may not borrow and walks real turns until a study starves,
+# then seats a Money Lending crown at the -500 floor's edge and reads the phase's
+# last payment, the floor it will not pass, and every line the court is told.
+godot --headless --path . --script res://playtests/playtest_college_debt.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

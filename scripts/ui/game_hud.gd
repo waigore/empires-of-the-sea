@@ -24,6 +24,9 @@ signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
 ## The civilian chip opens the whole-empire roster (REQ-P5-01).
 signal civilian_roster_pressed
+## The cartouche's muster seal opens the whole-empire force ledger
+## (REQ-P5-01, REQ-P5-03; DR-20261113-12).
+signal muster_roll_pressed
 signal region_toggle_pressed
 signal focus_capital_pressed
 ## A map-lens toggle changed state (button or keyboard): survey, diplomacy, the
@@ -81,6 +84,8 @@ var quick_battle_overlay: QuickBattleOverlay = null
 var gazette_plate: GazettePlate = null
 ## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
 var civilian_roster: CivilianRosterPanel = null
+## Whole-empire force ledger: every army and squadron (DR-20261113-12).
+var muster_roll: ForceLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

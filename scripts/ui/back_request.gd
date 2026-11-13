@@ -37,6 +37,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if roster != null and roster.is_open():
 		roster.close()
 		return true
+	# The muster roll sits on the same layer as the roster, so back closes it
+	# before the dossiers (REQ-P5-07; DR-20261113-12).
+	var muster: ForceLedgerPanel = play.hud.muster_roll
+	if muster != null and muster.is_open():
+		muster.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

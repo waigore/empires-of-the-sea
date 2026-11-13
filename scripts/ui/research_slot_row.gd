@@ -38,6 +38,8 @@ var _next: Label = null
 
 var _gold_next: int = 0
 var _rp_next: int = 0
+## True when the Research phase cannot pay this slot at its preset next turn.
+var _unpaid: bool = false
 
 
 func _init(index: int) -> void:
@@ -81,6 +83,7 @@ func update(
 	custom_minimum_size = Vector2(0.0, idle_height if idle else row_height)
 	_gold_next = 0
 	_rp_next = 0
+	_unpaid = false
 	if idle:
 		_bar.set_progress(0, 1, 0, true, false)
 		return
@@ -93,6 +96,7 @@ func update(
 	)
 	_gold_next = int(plan["gold"])
 	_rp_next = int(plan["rp"])
+	_unpaid = not bool(plan["paid"])
 	var cost: int = int(plan["cost"])
 	var banked: int = int(plan["progress"])
 	_name.text = TechCatalog.display_name(tech_id)
@@ -116,12 +120,17 @@ func update(
 	_progress.text = "%s / %s RP" % [
 		TextFormat.thousands(banked), TextFormat.thousands(cost),
 	]
-	_fill_next(banked, cost, bool(plan["paid"]))
+	_fill_next(banked, cost, bool(plan["paid"]), state.treasury_floor())
 
 
 ## Ducats the slot spends next turn, and points it buys (0 for an idle slot).
 func gold_next() -> int:
 	return _gold_next
+
+
+## True when the treasury cannot pay this slot at its preset next turn.
+func unpaid_next() -> bool:
+	return _unpaid
 
 
 func rp_next() -> int:
@@ -211,12 +220,16 @@ func _fill_icon(tech_id: String) -> void:
 
 ## The preview line: what the next phase adds and where it leaves the study.
 ## An unpaid slot says so in crimson rather than implying a gain it cannot pay
-## for (wiki: tech-tree § Research Model — no partial funding).
-func _fill_next(banked: int, cost: int, paid: bool) -> void:
+## for (wiki: tech-tree § Research Model — no partial funding), and its tooltip
+## names the borrowing floor that stops it, so the crown never reads a rule as a
+## broken purse (REQ-P5-05).
+func _fill_next(banked: int, cost: int, paid: bool, floor: int) -> void:
 	if not paid:
 		_next.text = "unpaid next turn"
 		_next.add_theme_color_override("font_color", Palette.CRIMSON)
-		_next.tooltip_text = "The treasury cannot cover this slot next turn."
+		_next.tooltip_text = "The treasury cannot cover this slot next turn — %s." % (
+			LedgerText.research_floor_line(floor)
+		)
 		return
 	if _rp_next <= 0:
 		_next.text = "earns nothing"

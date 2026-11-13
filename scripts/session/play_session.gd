@@ -15,6 +15,13 @@ var player_faction: int = PLAYER_FACTION
 ## Power runs the AI planners and no court holds consent decisions. Debug tool,
 ## not a player-facing campaign mode.
 var observer_mode: bool = false
+## Planner gate for observer / `tools/ai_vs_ai.gd` (`AiControl.FULL` /
+## `NOOP` / `BENCH`). Live campaigns leave this at FULL; only the observer
+## harness changes it (docs/ai-observer.md).
+var ai_mode: String = AiControl.FULL
+## When `ai_mode` is BENCH, only this Great Power plans; others are no-op.
+## `NO_ID` means the setup's `player_faction` (former human slot).
+var ai_live_faction: int = MapModel.NO_ID
 ## One merged record per resolved turn (MapPlayObserver); the observatory panel
 ## and the headless exporter read it (wiki: turn-trace-interpretation).
 var ai_turns: Array[Dictionary] = []
