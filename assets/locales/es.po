@@ -528,3 +528,150 @@ msgstr "La guerra se mantiene. Hablaremos otra vez cuando alguno de nosotros se 
 #. Our courts have nothing to add to the guns.
 msgid "DialoguePoint/reactive/standing_war/1"
 msgstr "Nuestras cortes nada tienen que añadir a los cañones."
+
+# --- the prompt's words: a blocking decision, its stakes and its answers
+# (wiki: dialogue-content-and-yarn § Playable slice; DR-20261113-10).
+
+#. %s has declared war on %s. %s
+msgid "Prompt/declaration"
+msgstr "%s ha declarado la guerra a %s. %s"
+
+#. CALL TO ARMS
+msgid "Prompt/call/caption"
+msgstr "LLAMADA A LAS ARMAS"
+
+#. Our formal alliance binds us: join the war against %s, or refuse and break the treaty — −50 with %s and −10 with every other Great Power but the aggressor.
+msgid "Prompt/call/stake"
+msgstr "Nuestra alianza formal nos obliga: uníos a la guerra contra %s, o rechazad y romped el tratado — −50 con %s y −10 con cualquier otra gran potencia salvo el agresor."
+
+#. %s calls on our alliance against %s.
+msgid "Prompt/call/toast"
+msgstr "%s apela a nuestra alianza contra %s."
+
+#. INTERVENTION
+msgid "Prompt/intervention/caption"
+msgstr "INTERVENCIÓN"
+
+#. Our embassy stands: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_embassy"
+msgstr "Nuestra embajada se mantiene: intervenid, protestad, o manteneos al margen y perded la embajada."
+
+#. Our deed there is at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deed"
+msgstr "Nuestra concesión allí está en juego: uníos a la guerra, protestad, o manteneos al margen."
+
+#. Our %d deeds there are at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deeds"
+msgstr "Nuestras %d concesiones allí están en juego: uníos a la guerra, protestad, o manteneos al margen."
+
+#. Our embassy stands and our deed there is at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deed"
+msgstr "Nuestra embajada se mantiene y nuestra concesión allí está en juego: intervenid, protestad, o manteneos al margen y perded la embajada."
+
+#. Our embassy stands and our %d deeds there are at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deeds"
+msgstr "Nuestra embajada se mantiene y nuestras %d concesiones allí están en juego: intervenid, protestad, o manteneos al margen y perded la embajada."
+
+#. PROPOSAL
+msgid "Prompt/proposal/caption"
+msgstr "PROPUESTA"
+
+#. %s proposes a formal alliance.
+msgid "Prompt/proposal/alliance"
+msgstr "%s nos propone una alianza formal."
+
+#. %s proposes a white peace.
+msgid "Prompt/proposal/peace"
+msgstr "%s nos propone una paz blanca."
+
+#. %s proposes a favoured trading pact.
+msgid "Prompt/proposal/ftp"
+msgstr "%s nos propone un pacto comercial privilegiado."
+
+#. %s proposes the Trade Consulate.
+msgid "Prompt/proposal/overture/consulate"
+msgstr "%s nos propone el consulado comercial."
+
+#. %s proposes the Embassy.
+msgid "Prompt/proposal/overture/embassy"
+msgstr "%s nos propone una embajada."
+
+#. %s proposes the Non-Aggression Pact.
+msgid "Prompt/proposal/overture/nap"
+msgstr "%s nos propone el Pacto de No Agresión."
+
+#. %s proposes the Join Empire.
+msgid "Prompt/proposal/overture/join_empire"
+msgstr "%s nos propone unirnos a su imperio."
+
+#. %s proposes the No overture.
+msgid "Prompt/proposal/overture/none"
+msgstr "%s nos propone una apertura."
+
+#. Favoured terms: imports at %d%%, exports at %d%%.
+msgid "Prompt/proposal/terms"
+msgstr "Términos del pacto: importaciones al %d%%, exportaciones al %d%%."
+
+#. “%s”
+msgid "Prompt/proposal/quote"
+msgstr "«%s»"
+
+#. Answer the proposal.
+msgid "Prompt/proposal/answer"
+msgstr "Responded a la propuesta."
+
+#. Join the war
+msgid "Prompt/button/join"
+msgstr "Unirse a la guerra"
+
+#. Refuse
+msgid "Prompt/button/refuse"
+msgstr "Rechazar"
+
+#. Intervene
+msgid "Prompt/button/intervene"
+msgstr "Intervenir"
+
+#. Stand aside
+msgid "Prompt/button/stand_aside"
+msgstr "Mantenerse al margen"
+
+#. Protest
+msgid "Prompt/button/protest"
+msgstr "Protestar"
+
+#. Accept
+msgid "Prompt/button/accept"
+msgstr "Aceptar"
+
+#. Considering
+msgid "Prompt/mood/considering"
+msgstr "Pensativo"
+
+#. Pleased
+msgid "Prompt/mood/pleased"
+msgstr "Complacido"
+
+#. Gracious
+msgid "Prompt/mood/gracious"
+msgstr "Gracioso"
+
+#. Calculating
+msgid "Prompt/mood/calculating"
+msgstr "Calculador"
+
+#. Skeptical
+msgid "Prompt/mood/skeptical"
+msgstr "Escéptico"
+
+#. Impatient
+msgid "Prompt/mood/impatient"
+msgstr "Impaciente"
+
+#. Irritated
+msgid "Prompt/mood/irritated"
+msgstr "Irritado"
+
+#. Dismissive
+msgid "Prompt/mood/dismissive"
+msgstr "Desdeñoso"
