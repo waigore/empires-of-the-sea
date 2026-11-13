@@ -148,9 +148,13 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
 	# A save from before the crown kept a watch resumes with none: every rival is
-	# unread until she has been observed across a turn boundary (wiki:
-	# ships-and-naval § Sighted strength).
-	play.naval_intel = NavalIntel.from_dict(session.get("naval_intel", {}))
+	# unread until she has been observed across a turn boundary. A save from
+	# before the watch was kept per chart carries one watch, and that watch
+	# belonged to the chart the court was standing on (wiki: ships-and-naval
+	# § Sighted strength).
+	play.naval_intel = NavalIntel.from_dict(
+		session.get("naval_intel", {}), int(session.get("region_index", -1))
+	)
 	play.infinite_mode = bool(session.get("infinite_mode", false))
 	play.advanced_start = AdvancedStart.normalize(
 		String(session.get("advanced_start", AdvancedStart.NONE))
