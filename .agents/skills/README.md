@@ -18,3 +18,5 @@ Canonical skill bodies live here (one folder per skill). Native facades and auth
 | [`map-lens`](map-lens/SKILL.md) | Add/change a map lens: pure projection, above-fog plaques, HUD key, desktop+mobile tests |
 | [`optimize-tests-agent`](optimize-tests-agent/SKILL.md) | Profile and cut suite time; keep ≤5 min coverage / ≤2 min e2e; PR; stop |
 | [`refactor-code-agent`](refactor-code-agent/SKILL.md) | Autonomously pick worst arch smell (+ recent-PR hotspots); aggressive themed refactor; PR; stop |
+| [`review-issue-agent`](review-issue-agent/SKILL.md) | Verify open `resolved` vs evidence/code; close or bounce to `todo` (≤150-word comments) |
+| [`resolve-issue-agent`](resolve-issue-agent/SKILL.md) | Take open `todo` issue; implement; wiki Evidence; after merge → `resolved` −`todo` |
