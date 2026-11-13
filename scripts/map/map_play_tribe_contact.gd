@@ -17,5 +17,6 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	if play.court_charts == null:
 		return []
 	return TribeContact.apply(
-		play.court_charts, play.diplomacy, play.human_faction_id(), play.turn
+		play.court_charts, play.diplomacy, play.human_faction_id(), play.turn,
+		play.leaders
 	)
