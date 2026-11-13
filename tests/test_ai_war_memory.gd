@@ -209,16 +209,86 @@ func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
 	)
 
 
-func test_a_colonial_war_carries_no_memory() -> void:
-	# A Minor Nation is colonial business, not a grudge between crowns.
+func test_a_colonial_war_carries_the_same_memory() -> void:
+	# A war on a Minor Nation or a Tribe is still a war the court pays for: an
+	# unprosecuted one leaves the same truce a crown war does, so a court cannot
+	# re-declare on the same colonial target at every cooldown (issue #511).
 	var config: AiConfig = _config()
 	var ai_state := AiState.new()
-	var minor: int = 6
+	var minor: int = FactionCatalog.minor_ids()[0]
 	ai_state.note_war(RIVAL, minor, 0)
 	ai_state.note_truce(RIVAL, minor, 4)
 
-	assert_eq(AiWarMemory.weariness(config, ai_state, 400, RIVAL, minor), 0)
-	assert_eq(AiWarMemory.truce(config, ai_state, 5, RIVAL, minor), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, 400, RIVAL, minor),
+		AiWarMemory.MAX_PENALTY,
+		"a colonial war that runs on wears the court down"
+	)
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 5, RIVAL, minor),
+		config.parameter("diplomacy.truce_penalty"),
+		"a white peace with a Minor holds the pair"
+	)
+
+
+# --- the colonial churn ------------------------------------------------------
+
+
+## One decision against a Tribe the court has just white-peaced at `truce`.
+func _decide_colonial(turn: int, truce: int, at_war: bool = false) -> Dictionary:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(RIVAL, tribe, 1)
+	var ai_state := AiState.new()
+	ai_state.agendas[RIVAL] = AiAgenda.WARMONGER
+	ai_state.note_war(RIVAL, tribe, 1)
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, RIVAL, tribe)["ok"]))
+	else:
+		ai_state.note_truce(RIVAL, tribe, truce)
+	return AiDiplomacyPlanner.decide(
+		_config(), state, ai_state, AiFixture.world([RIVAL, tribe]),
+		turn, {
+			"regiments": {}, "ships": {}, "player": OWNER,
+			"power": {RIVAL: 90, tribe: 5},
+		}
+	)
+
+
+func test_a_colonial_truce_is_named_in_the_turn_trace() -> void:
+	# The trace explains a colonial pair the way it explains a crown one: the
+	# memory term is what the second declaration now has to clear (acceptance
+	# of issue #511).
+	var plan: Dictionary = _decide_colonial(12, 6)
+	var candidate: Dictionary = (plan["candidates"] as Array)[0]
+	assert_eq(
+		int(candidate["factors"].get("memory", 0)),
+		-_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the colonial truce"
+	)
+
+
+func test_a_colonial_pair_is_not_re_declared_inside_its_truce() -> void:
+	# Same pair, one cooldown after the peace: with the truce read, the desire
+	# no longer clears the declaration bar (issue #511).
+	var plan: Dictionary = _decide_colonial(12, 6)
+	assert_true(
+		String(plan["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"a white-peaced Tribe is not re-declared at the cooldown"
+	)
+
+
+func test_a_court_that_outmatches_a_tribe_still_tires() -> void:
+	# The "clearly stronger" exemption is peer-only: against a Tribe the same
+	# strength is the precondition for a landing, not evidence of one, so a
+	# colonial war that takes nothing wears the court down (DR-20261114-01).
+	var plan: Dictionary = _decide_colonial(200, -1, true)
+	var candidate: Dictionary = (plan["candidates"] as Array)[0]
+	assert_true(
+		int(candidate["factors"].get("memory", 0)) < 0,
+		"a court far stronger than a Tribe still carries the weariness"
+	)
 
 
 func test_a_fought_war_leaves_no_truce() -> void:

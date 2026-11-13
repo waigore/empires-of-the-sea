@@ -103,10 +103,17 @@ static func decide(
 		var desire: Dictionary = war_desire(
 			config, state, world, config.faction, target, context
 		)
-		# War memory (issue #475): the penalty lowers desire, never legality.
+		# War memory (issue #475, #511): the penalty lowers desire, never
+		# legality. The "clearly stronger" exemption is peer-only: against a
+		# Minor or Tribe the same strength is the precondition for a landing, not
+		# evidence of one, so a colonial war still wears (DR-20261114-01).
+		var peer: bool = FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		var stronger: bool = (
+			peer
+			and int(desire["factors"].get("relative_power", 0)) >= AiPower.BONUS_STRONG
+		)
 		var memory: int = AiWarMemory.penalty(
-			config, ai_state, turn, config.faction, target, record.at_war,
-			int(desire["factors"].get("relative_power", 0)) >= AiPower.BONUS_STRONG
+			config, ai_state, turn, config.faction, target, record.at_war, stronger
 		)
 		var score: int = clampi(int(desire["score"]) - memory, 0, 100)
 		var factors: Dictionary = desire["factors"]

@@ -30,8 +30,7 @@ Audited through DR-20261113-25 (`REQ-P2-02`).
 1. **Ledger T2 expedition** — hull + Explorer + peace window; New World landings (#497/#476).
 2. **Ledger T5 naval build** — warships as objectives; no hulls laid (#500/#484).
 3. **Ledger T3 claims** — reservations become ledger claims (#498).
-4. **Colonial war memory** — GP–Tribe wars leave no weariness/truce (DR-25/#511).
-5. **Ledger T4 posture weights** — soft priority + personality weights (#499).
+4. **Ledger T4 posture weights** — soft priority + personality weights (#499).
 
 ## Next pick
 
