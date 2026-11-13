@@ -1944,6 +1944,36 @@ func test_a_partial_battery_loss_reads_without_a_fort_fall() -> void:
 	assert_eq(BattleReport.icon_of({}), "")
 
 
+## A Quick Battle's battery is the same battery: the plate carries the wall for a
+## moment, but the despatch that stays in the ledger must still say when the
+## court's own fort lost a level (wiki: siege-mechanics § Emplaced Artillery;
+## REQ-P5-05).
+func test_a_quick_battles_siege_despatch_names_the_silenced_battery() -> void:
+	var battle: Dictionary = {
+		"attacker": 0, "defender": 1, "fort_level": 3,
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": ["unit_1"], "defender_lost": [],
+		"quick": {
+			"guns_start": 3, "guns_left": 1, "guns_lost": 2,
+			"fort_downgraded": true, "fort_after": 2,
+		},
+	}
+	var line: String = BattleReport.describe_land(battle, "Burgundy", FACTIONS)
+	assert_true(line.contains("2 of 3 emplaced guns silenced"), line)
+	assert_true(line.contains("the Modern fort falls to Stone"), line)
+	assert_eq(BattleReport.icon_of(battle), "silenced_gun")
+
+	# A quick battle whose battery was never touched adds no tail.
+	var quiet: Dictionary = {
+		"attacker": 0, "defender": 1, "fort_level": 1,
+		"outcome": ArmyCombat.Outcome.STALEMATE,
+		"attacker_lost": [], "defender_lost": [],
+		"quick": {"guns_start": 1, "guns_left": 1, "guns_lost": 0},
+	}
+	assert_eq(BattleReport.siege_note(quiet), "")
+	assert_eq(BattleReport.icon_of(quiet), "")
+
+
 # --- from test_quick_battle_rules.gd ---
 ## Quick Battle contracts (wiki: quick-battle): three rounds, a player plan,
 ## deterministic casualties, the same ownership pipeline as auto-resolve, and

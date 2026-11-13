@@ -11,7 +11,7 @@ const NO_ID: int = MapModel.NO_ID
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
-	"invade", "cargo",
+	"invade", "build", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -30,6 +30,7 @@ const ACTION_LABELS: Dictionary = {
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
+	"build": "hulls laid down",
 	"cargo": "cargo routes",
 }
 
@@ -309,6 +310,12 @@ static func _record_cargo(
 		_bump(bucket["actions"], "cargo")
 		_add_event(merged, bucket, faction, "%s lays down a %s for the cargo trade." % [
 			who, ShipStats.display_name(String(launch.get("type_id", ""))),
+		])
+	var warship: Dictionary = cargo.get("warship", {})
+	if not warship.is_empty():
+		_bump(bucket["actions"], "build")
+		_add_event(merged, bucket, faction, "%s lays down a %s for the fleet." % [
+			who, ShipStats.display_name(String(warship.get("type_id", ""))),
 		])
 
 

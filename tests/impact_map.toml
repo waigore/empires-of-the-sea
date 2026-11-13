@@ -315,8 +315,12 @@ match = "scripts/map/map_play_setup.gd"
 domain = "pause"
 
 [[rules]]
+match = "scripts/ui/sheet_frame.gd*"
+domain = "sheet"
+
+[[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
-domain = "pause"
+domain = "sheet"
 
 [[rules]]
 match = "scripts/ui/improvement_panel.gd*"
@@ -324,7 +328,7 @@ domain = "pause"
 
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
-domain = "pause"
+domain = "sheet"
 
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
@@ -514,6 +518,19 @@ suites = [
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
   "test_force_ledger_rules.gd"
+]
+
+# The one full-screen sheet frame: the civilian roster, the muster roll and the
+# court dossier share its chrome, so their rows, fit, fade and pause-door suites
+# travel together (REQ-P3-01, REQ-P5-07).
+[domains.sheet]
+suites = [
+  "test_court_ui_parts.gd",
+  "test_force_ledger_rules.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+  "test_menu_door.gd",
+  "test_panel_parts_rules.gd"
 ]
 
 [domains.map]
@@ -1407,6 +1424,10 @@ match = "scripts/map/map_play_colonisation_ai.gd"
 domain = "ai"
 
 [[rules]]
+match = "scripts/map/map_play_cargo_ai.gd*"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
 domain = "ai"
 
@@ -2084,7 +2105,7 @@ domain = "fleet"
 # IntelDossier, so their suites are the intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/ui/court_dossier*.gd*"
-domain = "intel"
+domain = "sheet"
 
 # The open court's detail block (orders, herald, chronicle) is the same sheet.
 [[rules]]

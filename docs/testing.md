@@ -36,8 +36,10 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
 - Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
-  `restore`), prefer `SaveCodec.restore` over remounting. `test_save_codec`
-  keeps one MapScreen and resets via a pristine save (rebind layers; no remount).
+  `restore`), prefer `SaveCodec.restore` over remounting; a preset is reused only
+  when each chart's size matches the save, else the world regenerates.
+  `test_save_codec` keeps one MapScreen and resets via a pristine save (no
+  remount).
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
   fold leftovers into a theme suite (`test_naval_rules`, `test_campaign_rules`,
   `test_gazette`, `test_defence_lens`, `test_quick_battle_overlay`,
@@ -175,6 +177,13 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 # then seats a Money Lending crown at the -500 floor's edge and reads the phase's
 # last payment, the floor it will not pass, and every line the court is told.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
+
+# Sieges — raises a wall from the Engineer's own order (caption, receipt,
+# despatch, province sheet, military lens), storms rival walls at wood and modern
+# levels with guns and reads the plate's wall block, the battery, the lanes, the
+# gates and the level the fort is left at, then mans the crown's own frontier wall
+# and reads the defending plate.
+godot --headless --path . --script res://playtests/playtest_siege.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

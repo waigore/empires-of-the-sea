@@ -235,6 +235,52 @@ func test_the_plate_leads_with_the_players_own_plan() -> void:
 	overlay.free()
 
 
+## The plate names the wall it is fought over before the first round plays: the
+## fort, the protection it gives, its lanes and its gates are the terms every
+## action is read against, and the opening line carries no outcome — the fight
+## has not been watched yet (wiki: siege-mechanics § Quick Battle lanes,
+## § Gates and Sortie; REQ-P5-05).
+func test_the_plate_opens_with_the_wall_it_is_fought_over() -> void:
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["lanes"] = {"wall": 4, "behind": 2}
+	battle["quick"]["gates"] = {"max": 3, "broken": 0, "damage": 0, "threshold": 7}
+	battle["quick"]["fort_downgraded"] = true
+	battle["quick"]["fort_after"] = 1
+
+	overlay.show_battle(battle, "Flanders", NAMES)
+
+	assert_true(overlay._wall_label.visible, "a siege plate shows its wall")
+	var wall: String = overlay._wall_label.text
+	assert_true(wall.contains("Stone fort"), wall)
+	assert_true(wall.contains("45%"), wall)
+	assert_true(wall.contains("4 on the wall, 2 behind"), wall)
+	assert_true(wall.contains("3 gates hold"), wall)
+	assert_false(wall.contains("falls to"), "the opening must not hand over the result")
+
+	overlay.show_battle(_battle(), "Flanders", NAMES)
+	assert_false(overlay._wall_label.visible, "a field battle carries no wall")
+	overlay.free()
+
+
+## The opening and the close read the same wall, and only the close says what
+## the battery left behind.
+func test_the_wall_line_differs_only_by_the_outcome() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 3
+	battle["quick"]["lanes"] = {"wall": 2, "behind": 1}
+	battle["quick"]["fort_downgraded"] = true
+	battle["quick"]["fort_after"] = 2
+
+	var opened: String = QuickBattleCopy.siege_opening(battle)
+	var closed: String = QuickBattleCopy.siege_line(battle)
+
+	assert_eq(closed, opened + " — battery silenced, the fort falls to Stone", closed)
+	assert_eq(QuickBattleCopy.siege_opening(_battle()), "", "no wall, no line")
+
+
 ## The siege despatch tells the lanes, the wall's protection and the level a
 ## silenced battery leaves behind; a field battle says nothing extra.
 func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:

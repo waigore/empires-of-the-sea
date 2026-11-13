@@ -235,6 +235,53 @@ func test_engineer_raises_a_fort_and_lays_materials_down() -> void:
 	assert_eq(model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1)
 	assert_true(engineer.is_idle())
 
+
+## The order names the wall it buys. Three fort levels share one order name,
+## three prices and three waits, so "Build fort" cannot be told from "Build
+## fort" for a higher wall (wiki: siege-mechanics § Fort Levels), and the turn
+## that finishes it says which level was raised.
+func test_the_fort_order_names_its_level_and_its_raise() -> void:
+	_setup_fort_rules()
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var engineer := CivilianFixture.unit("engineer", CivilianFixture.BARE_TILE)
+	var units: Array[CivilianState] = [engineer]
+	var stock: Dictionary = CivilianFixture.stockpile()
+
+	var option: Dictionary = _fort_option(
+		CivilianWork.options(model, engineer, works, units, stock)
+	)
+	assert_eq(String(option["label"]), "Build wood fort")
+	assert_eq(String(option["cost_text"]), "3 lumber + 3 bronze · 1 turn")
+
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, "build_fort", works, units, stock
+	)
+	assert_eq(String(result["label"]), "Build wood fort", "the order names the level")
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(model, units, works)
+	assert_eq(int(reports[0].get("fort_level", 0)), 1, "the report carries the level raised")
+	assert_eq(
+		FortRules.raise_text(1), "wood fort raised · 10 wall hp · 1 emplaced gun",
+		"the despatch names the wall, not just the order"
+	)
+
+	# A stone wall is a different order: its own level, its own two turns.
+	model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level = 1
+	var upper: Dictionary = _fort_option(
+		CivilianWork.options(
+			model, engineer, works, units, stock, null, {}, {"mine_engineering": true}
+		)
+	)
+	assert_eq(String(upper["label"]), "Build stone fort")
+	assert_eq(String(upper["cost_text"]), "4 lumber + 4 bronze · 2 turns")
+
+
+func _fort_option(options: Array[Dictionary]) -> Dictionary:
+	for option: Dictionary in options:
+		if String(option["action"]) == "build_fort":
+			return option
+	return {}
+
 func test_upgrades_need_their_tech_and_stop_at_the_ceiling() -> void:
 	_setup_fort_rules()
 	var model := CivilianFixture.build()

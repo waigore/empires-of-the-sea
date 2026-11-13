@@ -24,6 +24,10 @@ var claim: Dictionary = {}
 var status: String = STATUS_RANKED
 var blocked: String = ""
 var children: Array[AiObjective] = []
+## Ids this aim needs funded to be worth pursuing, without claiming their
+## resources again: the expedition needs the court's peace window at war, and
+## the window already claims the order (issue #491 T4).
+var requires: Array[String] = []
 
 
 static func create(
@@ -55,6 +59,13 @@ func rank() -> int:
 
 func is_funded() -> bool:
 	return status == STATUS_FUNDED
+
+
+## Ids this objective needs funded before it can proceed.
+func needs(required_id: String) -> AiObjective:
+	if not requires.has(required_id):
+		requires.append(required_id)
+	return self
 
 
 ## A blocked objective claims nothing and says why: no harbour, no target.
@@ -99,6 +110,8 @@ func line() -> String:
 	if not claims.is_empty():
 		text += " %s" % claims
 	text += " %s" % status
-	if status == STATUS_BLOCKED and not blocked.is_empty():
+	# A blocked aim says why it cannot be had; a deferred parent names the child
+	# that starved it (issue #491 T4).
+	if not blocked.is_empty():
 		text += " (%s)" % blocked
 	return text

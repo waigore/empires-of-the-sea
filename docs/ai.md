@@ -16,7 +16,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
   peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire/25)`.
   At war, desire below `50 + peace_bias` offers peace; envy adds +20 against
-  the leader, a deed resists. Weariness and truces (#475) lower it.
+  the leader, a deed resists. Weariness and truces (#475) lower it
+  (DR-20261113-25).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15), and an isolationist prices a pact 20 lower, a backstabber
@@ -66,7 +67,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-Phase soft priority — [`deferred.md`](deferred.md).
+Ledger T2–T5 + phase soft priority — [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 

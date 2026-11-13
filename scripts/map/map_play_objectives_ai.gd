@@ -34,8 +34,11 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
 	var readings: Dictionary = _readings(play, faction, config, economy, phase)
+	# The footing and the leader's weights scale the rank without deleting an
+	# aim: a voyage at war is cheaper, not gone (issue #491 T4).
 	var report: Dictionary = AiObjectiveLedger.run(
-		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings)
+		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
+		AiPosture.modifiers(String(phase.get("phase", "")), config)
 	)
 	report["phase"] = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 	report["goal"] = String(readings["goal"])
@@ -79,7 +82,10 @@ static func _readings(
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
 		"ships": _ships(play, faction),
+		"warships": _warships(play, faction),
+		"warship_price": _warship_price(economy),
 		"hostile_ships": _hostile_ships(play, faction),
+		"hostile_warships": _hostile_warships(play, faction),
 		"treasury": economy.treasury,
 		"reserve": reserve,
 		"goal": AiIncome.goal_for(config, economy, at_war, regiments),
@@ -88,6 +94,7 @@ static func _readings(
 			play.world.region(home), faction
 		) >= 0,
 		"idle_hulls": _idle_hulls(play, faction),
+		"explorer_ready": _explorer_ready(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
 		"research_slots": slots,
 		"research_funding": funding_index,
@@ -180,6 +187,56 @@ static func _ships(play: PlaySession, faction: int) -> int:
 	return play.ship_layer.hull_count_all(faction)
 
 
+## Fighting hulls this court holds: the build objective is for a court that has
+## none, or too few for the squadrons in reach (issue #491 T5, #484).
+static func _warships(play: PlaySession, faction: int) -> int:
+	return _fighting_hulls(play, faction)
+
+
+## Fighting hulls of every court at war with this one.
+static func _hostile_warships(play: PlaySession, faction: int) -> int:
+	if play.ship_layer == null:
+		return 0
+	var total: int = 0
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record == null or not record.at_war:
+			continue
+		total += _fighting_hulls(play, record.other(faction))
+	return total
+
+
+## Hulls of a court that can fight: the build objective's own reading, so a
+## court with only merchant hulls still wants a warship.
+static func _fighting_hulls(play: PlaySession, owner: int) -> int:
+	if play.ship_layer == null:
+		return 0
+	var total: int = 0
+	for region: int in play.ship_layer.regions.region_ids():
+		for raw: Variant in play.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw
+			if fleet == null or fleet.owner != owner:
+				continue
+			for hull_id: String in fleet.hulls:
+				if ShipStats.is_warship(fleet.type_of(hull_id)):
+					total += 1
+	return total
+
+
+## The cheapest warship this court's techs open: what the build objective costs.
+static func _warship_price(economy: PlayerEconomy) -> int:
+	var best: int = 0
+	for raw: Variant in ShipEconomy.ENTRIES.keys():
+		var type_id: String = String(raw)
+		if not ShipStats.is_warship(type_id):
+			continue
+		if not ShipEconomy.buildable(type_id, economy.tech_unlocked):
+			continue
+		var price: int = ShipEconomy.treasury_cost(type_id)
+		if best == 0 or price < best:
+			best = price
+	return best
+
+
 ## Hulls of every court at war with this one: the threat the navy objective
 ## prices.
 static func _hostile_ships(play: PlaySession, faction: int) -> int:
@@ -210,6 +267,24 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 				continue
 			total += 1
 	return total
+
+
+## An idle Explorer of this court at home: the colonist the next train slot
+## musters (issue #491 T2).
+static func _explorer_ready(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for raw: Variant in play.civilian_layer.regions.value(home, []):
+		var unit: CivilianState = raw
+		if unit == null or unit.owner != faction or unit.type_id != "explorer":
+			continue
+		if unit.is_working() or unit.moved or unit.is_embarked():
+			continue
+		return true
+	return false
 
 
 ## True while an expedition of this court is already at sea (a protected claim
