@@ -700,6 +700,24 @@ func test_the_caption_fits_the_room_it_has() -> void:
 	)
 
 
+## A cold cache loads the art once and keeps it; a caption with no room draws
+## nothing rather than squeezing a word into a gap.
+func test_the_miniature_table_loads_once_and_a_caption_needs_room() -> void:
+	RegimentMiniatures._cache.clear()
+	var first: Texture2D = RegimentMiniatures.texture("guards")
+	var second: Texture2D = RegimentMiniatures.texture("guards")
+	assert_true(first != null, "a cold cache still finds the miniature")
+	assert_true(first == second, "the second read is the cached texture")
+	var field := QuickBattleField.new()
+	field.size = Vector2(200, 200)
+	add_child(field)
+	## No room, or nothing to say: the caption draws nothing (the field's own
+	## frame covers the drawing path).
+	RegimentMiniatures.draw_caption(field, "", Vector2.ZERO, 160.0, Palette.TEXT, 11)
+	RegimentMiniatures.draw_caption(field, "2 Pikemen", Vector2.ZERO, 4.0, Palette.TEXT, 11)
+	field.free()
+
+
 ## The plate itself: a battle record's types are painted and named on the field,
 ## both in the simulator and in the live plate (one shared view).
 func test_the_field_paints_each_type_and_names_the_line() -> void:
