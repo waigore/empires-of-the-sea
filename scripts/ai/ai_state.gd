@@ -111,13 +111,35 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 	var lines: Array[String] = []
 	for raw: Variant in report.get("lines", []):
 		lines.append(String(raw))
+	# The ids by status let the next turn's planners consult the claim they were
+	# granted (e.g. the expedition's hull before the muster gate opens, #497).
+	var ids: Dictionary = {"funded": [], "deferred": [], "blocked": []}
+	_collect_ids(report.get("objectives", []), ids)
 	objective_claims[faction] = {
 		"turn": turn,
 		"phase": String(report.get("phase", "")),
 		"ranked": int(report.get("ranked", 0)),
 		"funded": int(report.get("funded", 0)),
+		"funded_ids": ids["funded"],
+		"deferred_ids": ids["deferred"],
+		"blocked_ids": ids["blocked"],
 		"lines": lines,
 	}
+
+
+## Walks the ledger tree and files every objective id under its status.
+static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
+	if typeof(rows) != TYPE_ARRAY:
+		return
+	for raw: Variant in rows:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = raw
+		var status: String = String(row.get("status", ""))
+		var list: Variant = ids.get(status, null)
+		if typeof(list) == TYPE_ARRAY:
+			(list as Array).append(String(row.get("id", "")))
+		_collect_ids(row.get("children", []), ids)
 
 
 ## The claims this court's last turn reported, or an empty row.
@@ -184,13 +206,19 @@ static func _claim_row(claim: Dictionary) -> Dictionary:
 	var lines: Array[String] = []
 	for raw: Variant in claim.get("lines", []):
 		lines.append(String(raw))
-	return {
+	var row: Dictionary = {
 		"turn": int(claim.get("turn", 0)),
 		"phase": String(claim.get("phase", "")),
 		"ranked": int(claim.get("ranked", 0)),
 		"funded": int(claim.get("funded", 0)),
 		"lines": lines,
 	}
+	for key: String in ["funded_ids", "deferred_ids", "blocked_ids"]:
+		var ids: Array[String] = []
+		for raw: Variant in claim.get(key, []):
+			ids.append(String(raw))
+		row[key] = ids
+	return row
 
 
 ## One snapshot per rival ledger, keyed by faction id. Missing factions are
