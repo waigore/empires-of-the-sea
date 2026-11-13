@@ -2294,25 +2294,3 @@ func test_the_muster_floor_closes_at_target_and_without_workers() -> void:
 		AiArmyReinforce.muster_floor(config, economy, 0, true), 0,
 		"no peasant to spare: no muster to save for"
 	)
-
-
-## A court far from its first line keeps its own cash floor, not a war chest it
-## cannot reach: reserving 2,400 while the purse holds a few hundred would freeze
-## the research and works that raise the income the muster is paid from
-## (issue #474).
-func test_a_court_short_of_the_line_keeps_only_its_cash_floor() -> void:
-	var config: AiConfig = _research_config()
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	economy.treasury = 450
-
-	assert_eq(
-		AiArmyReinforce.muster_floor(config, economy, 1, true),
-		config.parameter("army.min_treasury"),
-		"the line's own price is out of reach, so nothing is hoarded for it"
-	)
-	economy.treasury = 2000
-	assert_eq(
-		AiArmyReinforce.muster_floor(config, economy, 1, true),
-		2400,
-		"one levy's price in hand: the rest of the war chest is kept"
-	)

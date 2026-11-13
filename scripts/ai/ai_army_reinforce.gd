@@ -131,12 +131,6 @@ static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
 ## court saving for its next regiment never funds itself into the deadlock where
 ## every muster is one ducat short (wiki: ai-architecture § Land reinforcement;
 ## growth-stage-planner § Recruitment modulation).
-##
-## Only a muster the court could nearly pay for today is worth reserving: a court
-## still short of the line's own price keeps its own cash floor instead, so its
-## research and its works (which are what raise the income the muster is
-## eventually paid from) are not frozen behind a war chest it cannot reach
-## (issue #474).
 static func muster_floor(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -154,8 +148,6 @@ static func muster_floor(
 	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), 0)
 	var cheapest: int = _cheapest_line(economy)
 	if cheapest < 0:
-		return floor_treasury
-	if economy.treasury < cheapest:
 		return floor_treasury
 	return floor_treasury + cheapest
 
