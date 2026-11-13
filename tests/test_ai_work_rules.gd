@@ -892,9 +892,11 @@ func test_a_court_provisions_the_regiment_it_means_to_raise() -> void:
 	)
 
 
-## Nothing is held back for a court that is not arming: at its target, at a
-## labour floor, or with a purse that cannot reach the war chest it provisions
-## nothing, and its stock goes to market as before.
+## Nothing is held back for a court that is not arming: at its target or at a
+## labour floor it provisions nothing, and its stock goes to market as before.
+## A thin purse is different: the row of the line it can actually pay for is
+## kept, because a court that only stocked up once the muster was legal would
+## starve that muster with a full war chest (issue #474).
 func test_a_court_that_is_not_arming_provisions_nothing() -> void:
 	var target: Dictionary = AiArmyReinforce.muster_reserve(_config(), _economy(), 8, false)
 	assert_true(target.is_empty(), "eight regiments is the peace target")
@@ -908,7 +910,25 @@ func test_a_court_that_is_not_arming_provisions_nothing() -> void:
 	assert_true(thin.is_empty(), "the fields keep their hands")
 
 	var poor: Dictionary = AiArmyReinforce.muster_reserve(_config(), _economy(1500), 5, false)
-	assert_true(poor.is_empty(), "a purse under the war chest provisions nothing")
+	assert_eq(
+		poor, RegimentEconomy.training_inputs("peasant_levies"),
+		"a purse under the levy price still keeps the levy's row for the muster it is saving for"
+	)
+
+
+## A court saving for its first line provisions the cheapest pattern it can
+## actually pay for, not a stronger one its purse will never reach: the cloth a
+## levy needs is what the market is bid for (issue #474).
+func test_a_court_saving_for_its_muster_provisions_the_cheapest_line() -> void:
+	var economy: PlayerEconomy = _economy(1500)
+	economy.stockpile = {}
+
+	assert_eq(AiArmyReinforce.saving_type(_config(), economy), "peasant_levies")
+	assert_eq(
+		AiArmyReinforce.muster_reserve(_config(), economy, 5, false),
+		RegimentEconomy.training_inputs("peasant_levies"),
+		"one fabric, the whole row of the levy"
+	)
 
 
 ## The reserve follows the pattern the court has actually researched, so a new
@@ -922,6 +942,33 @@ func test_the_reserve_follows_the_researched_pattern() -> void:
 		AiArmyReinforce.muster_reserve(_config(), economy, 5, false),
 		RegimentEconomy.training_inputs("musketeers")
 	)
+
+
+## The seat invariant the muster depends on: a reassigned seat takes the Home
+## Army with it, and a court whose guard died with the old seat reforms one at
+## the new, because the standard is never deleted (wiki: military-armies
+## § Home Army; issue #474).
+func test_a_moved_seat_takes_the_home_army_and_a_lost_one_reforms() -> void:
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(2, OWNER, 1, true, ["peasant_levies"] as Array[String], 101),
+	]
+
+	var settled: Dictionary = ArmyTraining.settle_seat(armies, OWNER, 7, 9)
+
+	assert_eq((settled["army"] as ArmyState).province, 7, "the guard follows the court")
+	assert_false(bool(settled["minted"]), "the same standard moved, no new one minted")
+
+	var emptied: Array[ArmyState] = []
+	var reformed: Dictionary = ArmyTraining.settle_seat(emptied, OWNER, 7, 9)
+
+	assert_true(bool(reformed["minted"]), "a court with no Home Army reforms one")
+	assert_eq(emptied.size(), 1)
+	assert_eq((reformed["army"] as ArmyState).province, 7)
+	assert_true((reformed["army"] as ArmyState).is_home_army())
+	assert_eq((reformed["army"] as ArmyState).owner, OWNER)
+
+	var missing: Dictionary = ArmyTraining.settle_seat(emptied, OWNER, -1, 9)
+	assert_eq(missing["army"], null, "no seat, no Home Army to settle")
 
 
 # --- map adapter ------------------------------------------------------------
@@ -981,6 +1028,47 @@ func test_the_map_pass_musters_a_rival_from_its_own_ledger() -> void:
 		home.regiments.has(String(trace[0]["regiment"])),
 		"the new regiment wears France's colours in the Home Army"
 	)
+	play.army_layer.free()
+
+
+## A court whose seat moved musters again: the reassignment keeps the Home Army
+## on the new seat, and the next land pass raises its regiment there (issue
+## #474). Without the recall the capital guard blocks every muster for the rest
+## of the campaign.
+func test_a_moved_seat_still_musters_at_the_new_capital() -> void:
+	var world: WorldMap = AiFixture.land_world([HUMAN, OWNER, OWNER], {0: true, 1: true})
+	var model: MapModel = world.region(0)
+	# The old seat falls; the court's other province becomes the seat.
+	model.province_data(1).capital = false
+	model.province_data(2).capital = true
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, HUMAN, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, OWNER, 1, true, ["peasant_levies"] as Array[String], 101),
+	]
+	var layer := ArmyLayer.new()
+	layer.model = model
+	layer.next_army = 100
+	layer.next_regiment = 1000
+	layer.regions.set_region(0, armies)
+	var play := PlaySession.new()
+	play.player_faction = HUMAN
+	play.world = world
+	play.model = model
+	var court := DiplomacyState.new()
+	court.reset(HUMAN)
+	court.ensure_relation(HUMAN, OWNER, 1)
+	play.diplomacy = court
+	play.army_layer = layer
+	play.map_seed = 1500
+	play.ai = AiState.new()
+	play.ai.economies[OWNER] = _economy(12000)
+
+	ArmyTraining.settle_seat(armies, OWNER, 2, layer.next_army)
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	assert_eq(trace.size(), 1, "the court raises its regiment again")
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_REINFORCE)
+	assert_eq(int(trace[0]["province"]), 2, "the regiment musters at the new seat")
 	play.army_layer.free()
 
 
