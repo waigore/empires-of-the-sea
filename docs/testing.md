@@ -30,7 +30,9 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
   turn-100 civilian tier; it must pass fair split on the **first** attempt
   (else `generate_world` rebuilds).
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
-  once per map state — mounting many screens repaints nothing.
+  once per map state — mounting many screens or six courts' charts repaints nothing.
+- A mount paints chips, minimap and readings once (`load_region`); `build_hud`
+  adds only turn, economy, income and dossier.
 - Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
@@ -40,10 +42,8 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
   own. `SaveCodec.restore` is the in-place path; reuse a preset only when each
   chart's size matches the save.
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftovers into a theme suite (`test_naval_rules`, `test_campaign_rules`,
-  `test_gazette`, `test_defence_lens`, `test_quick_battle_overlay`,
-  `test_audio_rules`). Profile with `gd-tools test --durations 20`. Smoke: short
-  boot, few `await process_frame`, no sleeps / full campaigns.
+  fold leftovers into a theme suite. Profile with `gd-tools test --durations 20`.
+  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 
