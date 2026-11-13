@@ -320,6 +320,35 @@ func test_the_boarding_step_takes_the_force_that_fits() -> void:
 	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_EMBARK)
 	assert_eq(int(order.get("army", -1)), 3, "the two-regiment force fits two hulls")
 
+## The crossing force reads the rosters: a moved, laden or foreign squadron is
+## no crossing, and the Home Army, an army too large and an army inland all stay
+## behind.
+func test_the_crossing_force_reads_the_rosters() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	var busy: FleetState = FleetState.in_port(2, OWNER, 0, HULLS, HULL_TYPES)
+	busy.moved = true
+	var laden: FleetState = FleetState.in_port(3, OWNER, 0, HULLS, HULL_TYPES)
+	laden.add_civilian(99)
+	var foreign: FleetState = FleetState.in_port(4, RIVAL, 0, HULLS, HULL_TYPES)
+	assert_true(
+		AiCrossingForce.fleet([busy, laden, foreign], OWNER) == null,
+		"a moved, laden or foreign squadron is no crossing"
+	)
+	var free: FleetState = FleetState.in_port(5, OWNER, 0, HULLS, HULL_TYPES)
+	assert_eq(AiCrossingForce.fleet([busy, laden, foreign, free], OWNER).id, 5)
+	var home: ArmyState = _home_army()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var inland: ArmyState = ArmyState.muster(4, OWNER, 1, false, ["pikemen"], 12)
+	assert_true(
+		AiCrossingForce.army(model, [home, big, inland], OWNER, 2) == null,
+		"the Home Army, an army too large and an army inland all stay"
+	)
+	var fits: ArmyState = _field_army(["pikemen", "squires"], 0)
+	assert_eq(AiCrossingForce.army(model, [home, big, inland, fits], OWNER, 2).id, fits.id)
+	assert_false(AiCrossingForce.may_sail(model, inland, OWNER), "no harbour, no crossing")
+	assert_true(AiCrossingForce.may_sail(model, fits, OWNER))
+
 func test_an_idle_squadron_docks_for_the_crossing_army() -> void:
 	var world: WorldMap = _world()
 	var order: Dictionary = AiInvasionPlanner.plan(
@@ -1162,6 +1191,17 @@ func test_a_squadron_at_home_is_not_sent_home() -> void:
 		_ai_colonisation_config(), world, 0, old_world, [fleet], [], {}
 	)
 	assert_true(order.is_empty(), "the home squadron is the naval planner's")
+
+## A squadron that already sailed this turn waits for the next one.
+func test_a_squadron_that_already_sailed_waits() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	fleet.moved = true
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "one crossing a turn")
 
 # --- test_ai_diplomacy_offers ---
 
