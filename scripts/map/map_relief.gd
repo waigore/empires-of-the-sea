@@ -120,10 +120,8 @@ func _coast_field(model: MapModel) -> void:
 		_sd[i] = to_water[i] - to_land[i]
 
 
-## Deepest water within `REACH` tiles of each tile, in tiles. A gulf two tiles
-## wide never sits more than one tile from a shore, and this is the measure that
-## tells its shoal veil to stop short of the middle instead of covering the
-## whole basin and hiding the sea backdrop behind a flat wash (issue #456).
+## Deepest water within `REACH` tiles: caps the shoal veil so a narrow gulf
+## keeps open water down its middle instead of a shore-to-shore wash (#456).
 func _reach_field(model: MapModel) -> void:
 	var w: int = model.width
 	var h: int = model.height
@@ -322,8 +320,7 @@ func _paint() -> void:
 					red = lerpf(red, SAND_WET.r, wet)
 					green = lerpf(green, SAND_WET.g, wet)
 					blue = lerpf(blue, SAND_WET.b, wet)
-					# The veil follows the basin, not a fixed width: narrow water
-					# keeps a thin shelf and open water down its middle.
+					# Basin-capped veil: narrow water keeps a thin shelf + open middle.
 					var reach: float = (
 						_reach[i00] * w00 + _reach[i10] * w10
 						+ _reach[i01] * w01 + _reach[i11] * w11
@@ -336,9 +333,7 @@ func _paint() -> void:
 					var water_r: float = lerpf(SHOAL_DEEP.r, SHOAL.r, pale)
 					var water_g: float = lerpf(SHOAL_DEEP.g, SHOAL.g, pale)
 					var water_b: float = lerpf(SHOAL_DEEP.b, SHOAL.b, pale)
-					# Sounding lines: rings of depth parallel to the shore, the way a
-					# chart plates its shallows. A channel too narrow to carry a ring
-					# stays clean water instead of a stack of bars.
+					# Sounding rings fade where the veil is too narrow for a bar.
 					var depth: float = -shore
 					var band: float = absf(fposmod(depth / 0.52, 1.0) - 0.5)
 					var ring: float = smoothstep(0.40, 0.50, band)
