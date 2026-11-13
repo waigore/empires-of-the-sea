@@ -53,6 +53,18 @@ func _init() -> void:
 	add_child(lane)
 
 
+## The lane follows what covers it: a plate (BattlePlates owns the hold) or a
+## full-screen card that opens without a panel-slot hook (the roster, court
+## dossier or muster roll). Reading the lane's own state means a plate release
+## underneath an open sheet is corrected on the next frame.
+func _process(_delta: float) -> void:
+	var hud := get_parent() as GameHud
+	if hud == null:
+		return
+	if HudDespatchCover.covered(hud) != _covered:
+		HudDespatchCover.refresh(hud)
+
+
 ## Chrome geometry follows the viewport: the atlas lane is a centred column
 ## under the cartouche; a phone's starts right of the left rail (sound, estates
 ## and lens seals) instead of running across them (REQ-P1-05).

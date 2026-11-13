@@ -93,6 +93,7 @@ var muster_roll: ForceLedgerPanel = null
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
 var campaign_over: bool = false
+
 var _turn_label: Label = null
 ## The land and sea battle plates, their queues and the held news (BattlePlates).
 var plates: BattlePlates = null
@@ -195,12 +196,6 @@ func apply_safe_area(insets: Vector4) -> void:
 
 
 func _process(_delta: float) -> void:
-	# A plate or a full-screen card the panel dock does not own (roster, court
-	# dossier, muster roll) still has to hold the phone's news; BattlePlates
-	# releases its own plate, but a sheet can still be open underneath it. The
-	# lane's own state is read, so a release behind a sheet is corrected at once.
-	if despatches != null and HudDespatchCover.covered(self) != despatches.is_covered():
-		HudDespatchCover.refresh(self)
 	if _tooltip != null and _tooltip.visible:
 		var mouse: Vector2 = get_global_mouse_position()
 		var limit: Vector2 = get_viewport_rect().size - _tooltip.size - Vector2(8, 8)
