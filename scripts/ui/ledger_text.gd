@@ -297,6 +297,11 @@ static func turn_summary(report: Dictionary) -> String:
 	var left: int = int(overseas.get("left_total", 0))
 	if left > 0:
 		parts.append("%d left on the far shore" % left)
+	# Why a coast paid nothing this turn, in the court's own despatch
+	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+	var shut: String = String(report.get("blockade", ""))
+	if not shut.is_empty():
+		parts.append(shut)
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)
