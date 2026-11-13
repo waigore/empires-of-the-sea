@@ -38,14 +38,14 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then to the purse above cash floor (not muster),
-  keeping one Low study (DR-20261113-24).
+  (DR-20261111-27), then to the purse above the money-goal reserve; when
+  that is `none`, one Low study still pays off the cash floor
+  (DR-20261113-24).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
   builders finish towns, engineers raise roads/ports/forts/hospitals
-  (DR-20261111-16), explorers prospect; merchants buy deeds on embassy,
-  peace, mineral and price (DR-20261111-10).
+  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs above that floor; merchants sail home, one hull more when
