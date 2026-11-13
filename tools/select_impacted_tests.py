@@ -27,6 +27,7 @@ IN_SCOPE_PREFIXES = (
     "ui/",
     "autoload/",
     "tests/",
+    "playtests/",
     "addons/",
 )
 IN_SCOPE_FILES = {
@@ -134,7 +135,7 @@ def select(paths: list[str], mapping: dict) -> tuple[bool, list[str], list[str]]
 
 def iter_production_gd() -> list[str]:
     files: list[str] = []
-    for base in ("scripts", "scenes", "ui", "autoload", "tests"):
+    for base in ("scripts", "scenes", "ui", "autoload", "tests", "playtests"):
         root = ROOT / base
         if not root.is_dir():
             continue

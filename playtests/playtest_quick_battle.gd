@@ -4,13 +4,13 @@ extends SceneTree
 ## phase through the real play helpers, and prints every despatch line the plate
 ## shows plus the plate's own outcome stamp. Two passes: a field battle and a
 ## siege with an emplaced battery. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_quick_battle.gd
+##   godot --headless --path . --script res://playtests/playtest_quick_battle.gd
 ##
 ## Armies are seated by the harness (a scenario seat, the same one rules tests
 ## use); the battle itself is ordered and resolved by ArmyCombat/QuickBattle and
 ## presented by the real GameHud plate.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 

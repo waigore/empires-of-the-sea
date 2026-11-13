@@ -4,13 +4,13 @@ extends SceneTree
 ## capital, takes the Passage, lands on uncharted coast, charters a province and
 ## prospects a mineral tile. Prints one line per step, so a run reads as a
 ## playtest diary. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_new_world.gd
+##   godot --headless --path . --script res://playtests/playtest_new_world.gd
 ##
 ## The fleet is staged in the Passage zone before crossing (a scenario seat, the
 ## same one rules tests use) so the loop is reachable in one run; everything
 ## after the crossing is ordered through the game's own play helpers.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 const MAX_TURNS: int = 12

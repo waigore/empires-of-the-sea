@@ -744,96 +744,96 @@ match = "tests/map_shot.gd"
 domain = "crown_road"
 
 [[rules]]
-match = "tests/playtest_new_world.gd*"
+match = "playtests/playtest_new_world.gd*"
 domain = "map"
 
 # Launch crosses the crown's charge before the map; keep it on intro so a
 # flow-hook edit does not pull the whole map domain past the 5 min budget.
 [[rules]]
-match = "tests/playtest_launch.gd*"
+match = "playtests/playtest_launch.gd*"
 domain = "intro"
 
 [[rules]]
-match = "tests/playtest_combat_chain.gd*"
+match = "playtests/playtest_combat_chain.gd*"
 domain = "battle"
 
 # Resolve rename / plate hook — battle_rules covers the land pass; keep off the
 # heavier quick_battle domain (overlay + sim) for tier-1 budget.
 [[rules]]
-match = "tests/playtest_quick_battle.gd*"
+match = "playtests/playtest_quick_battle.gd*"
 domain = "battle"
 
 [[rules]]
-match = "tests/playtest_espionage.gd*"
+match = "playtests/playtest_espionage.gd*"
 domain = "espionage"
 
 # The rival half of the same domain: AI spies against the crown, the screen,
 # and the lines the court hears when an agent is taken.
 [[rules]]
-match = "tests/playtest_ai_spycraft.gd*"
+match = "playtests/playtest_ai_spycraft.gd*"
 domain = "espionage"
 
 [[rules]]
-match = "tests/playtest_province_dev.gd*"
+match = "playtests/playtest_province_dev.gd*"
 domain = "civilian"
 
 [[rules]]
-match = "tests/playtest_allied_defence.gd*"
+match = "playtests/playtest_allied_defence.gd*"
 domain = "campaign"
 
 # The squadron's own drive: roster, sortie, station, sea battle, troops and a
 # captured port travel with the fleet suites.
 [[rules]]
-match = "tests/playtest_naval.gd*"
+match = "playtests/playtest_naval.gd*"
 domain = "fleet"
 
 # The overseas invasion drive: marking, the ready turn, the landing battle and
 # the site's three deaths all read fleet rules and the fleet dossier.
 [[rules]]
-match = "tests/playtest_beachhead.gd*"
+match = "playtests/playtest_beachhead.gd*"
 domain = "fleet"
 
 # The save/load drive walks slots, endings and the slot browser, so it travels
 # with the save suites.
 [[rules]]
-match = "tests/playtest_persistence.gd*"
+match = "playtests/playtest_persistence.gd*"
 domain = "save"
 
 # The advanced save/load drive closes turns, starts a study and raises an
 # estate before the slot is written, so it travels with the save suites too.
 [[rules]]
-match = "tests/playtest_persistence_advanced.gd*"
+match = "playtests/playtest_persistence_advanced.gd*"
 domain = "save"
 
 # Shared save/load plumbing for both persistence drives.
 [[rules]]
-match = "tests/playtest_save_drive.gd*"
+match = "playtests/playtest_save_drive.gd*"
 domain = "save"
 
 # The purse drive walks the ledger, the auction receipt and the college's gold,
 # so it travels with the economy suites.
 [[rules]]
-match = "tests/playtest_treasury.gd*"
+match = "playtests/playtest_treasury.gd*"
 domain = "economy"
 
 # The workshop drive presses the PRODUCTION tab's own buttons and reads the tag,
 # the note and the promise over real turns, so it travels with the economy
 # suites too.
 [[rules]]
-match = "tests/playtest_workshop.gd*"
+match = "playtests/playtest_workshop.gd*"
 domain = "economy"
 
 # The seat drive storms the crown's capital and reads the court's news, the
 # Gazette sheet and the defeat plate, so it travels with the land-turn suites
 # that own capital falls.
 [[rules]]
-match = "tests/playtest_capital_move.gd*"
+match = "playtests/playtest_capital_move.gd*"
 domain = "land_turn"
 
 # The field-train drive reads the dossier, the turn-start rest, the rations,
 # split/combine and the save, so it travels with the army suites.
 [[rules]]
-match = "tests/playtest_field_train.gd*"
+match = "playtests/playtest_field_train.gd*"
 domain = "army"
 
 # The court-proposal drive presses the consent banner's own answers (a white
@@ -841,7 +841,12 @@ domain = "army"
 # offer still waiting and reads the restored court, so it travels with the
 # diplomacy suites that own the court panel and its prompts.
 [[rules]]
-match = "tests/playtest_court_proposal.gd*"
+match = "playtests/playtest_court_proposal.gd*"
+domain = "diplomacy"
+
+# War-declaration toast flood repro (#426): travels with diplomacy.
+[[rules]]
+match = "playtests/playtest_war_toasts.gd*"
 domain = "diplomacy"
 
 # Selector edits are checked by --check-complete; do not pull the full suite

@@ -6,12 +6,12 @@ extends SceneTree
 ## research line, presence reveal, the toast and the court panel's despatch.
 ## Then it exercises counter-espionage over several resolutions and the minor
 ## court a spy can shadow. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_espionage.gd
+##   godot --headless --path . --script res://playtests/playtest_espionage.gd
 ##
 ## The spies are seated by the harness (a scenario seat, the same one rules
 ## tests use); movement, resolution, presentation and the HUD are the real ones.
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 ## Turn 100 hands the crown two spies and a treasury (wiki: advanced-starts).
