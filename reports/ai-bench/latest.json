@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:5bb415e16fb19e171c1c8c58d4b5b93759d32828cce7de632676c88a3cf4fa58",
-  "submission_git": "fix/ai-war-weariness@4c7f814+dirty",
+  "submission_hash": "sha256:b8fa95737307108da7a537f4171eab9c4de4f7fb345f05ae21a0b5ef4e74f365",
+  "submission_git": "fix/ai-war-weariness@a53f418+dirty",
   "passed": true,
   "config": [
     {
@@ -35,12 +35,12 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3205.0133333333333,
+      "value": 1713.9236629231132,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 30.0,
+      "value": 16.0,
       "direction": "max"
     },
     {
@@ -51,15 +51,15 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:d23a59c0cebc0cdd17620163c3da517b578e35296fdeec1d6c52fb019cb27fac",
+    "ai_surface_hash": "sha256:fe1620dbc03e07029d48de1bbc2fd3ca404aae2f0d2ff11067f349b3860c5ac3",
     "parts": {
-      "provinces_old": 30,
+      "provinces_old": 16,
       "provinces_new": 0,
       "regiments": 1,
       "ships": 2,
-      "workers": 10,
-      "extraction_per_turn": 2.01,
-      "income_per_turn": 120.99333333333334
+      "workers": 4,
+      "extraction_per_turn": 1.8403361344537814,
+      "income_per_turn": 60.242990654205606
     },
     "early_win": false,
     "live_faction": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T15:38:15Z",
+  "timestamp": "2026-11-13T15:54:33Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cb51fe4d8bc3115a3c9cf66409e09a5b6f8055f882b9db237b38358ce5a855af"
+  "signature": "hmac-sha256:56f4cc56a99869589472e94d3ae115f386a0ceff4e833d68ec94a2c3d24e4df9"
 }

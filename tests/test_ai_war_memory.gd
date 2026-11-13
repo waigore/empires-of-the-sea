@@ -54,6 +54,7 @@ func test_weariness_grows_turn_by_turn_and_stops_at_the_scale() -> void:
 func test_a_truce_holds_the_pair_and_then_expires() -> void:
 	var config: AiConfig = _config()
 	var ai_state := AiState.new()
+	ai_state.note_war(RIVAL, OWNER, 10)  # a two-turn war: unfought
 	ai_state.note_truce(RIVAL, OWNER, 12)
 	var turns: int = config.parameter("diplomacy.truce_turns")
 
@@ -71,7 +72,8 @@ func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
 	var at_war := AiState.new()
 	at_war.note_war(RIVAL, OWNER, 0)
 	var peaceful := AiState.new()
-	peaceful.note_truce(RIVAL, OWNER, 0)
+	peaceful.note_war(RIVAL, OWNER, 0)
+	peaceful.note_truce(RIVAL, OWNER, 1)
 	var fought: int = config.parameter("diplomacy.war_weariness_grace") + 2
 	var later: int = config.parameter("diplomacy.truce_turns") + 1
 
@@ -82,7 +84,7 @@ func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
 	assert_eq(
 		AiWarMemory.penalty(config, peaceful, 1, RIVAL, OWNER, false),
 		config.parameter("diplomacy.truce_penalty"),
-		"at peace inside the truce it carries the truce"
+		"at peace inside the truce an unfought war left it carries the truce"
 	)
 	assert_eq(
 		AiWarMemory.penalty(config, peaceful, later, RIVAL, OWNER, false), 0,
@@ -97,7 +99,7 @@ func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
 
 ## One decision by the warmonger against a relation at war. The declaration is
 ## recorded so the weariness clock has a start.
-func _decide(at_war: bool, turn: int, truce: int = -1) -> Dictionary:
+func _decide(at_war: bool, turn: int, truce: int = -1, power: int = 10) -> Dictionary:
 	var state: DiplomacyState = _court()
 	var ai_state := AiState.new()
 	ai_state.agendas[RIVAL] = AiAgenda.WARMONGER
@@ -110,12 +112,12 @@ func _decide(at_war: bool, turn: int, truce: int = -1) -> Dictionary:
 		_config(), state, ai_state, AiFixture.world([OWNER, RIVAL, RIVAL, RIVAL]),
 		turn, {
 			"regiments": {}, "ships": {}, "player": OWNER,
-			"power": {RIVAL: 30, OWNER: 10},
+			"power": {RIVAL: power, OWNER: 10},
 		}
 	)
 
 
-func test_a_worn_attacker_puts_peace_to_an_enemy_it_still_outnumbers() -> void:
+func test_a_worn_attacker_puts_peace_to_an_even_enemy() -> void:
 	var fresh: Dictionary = _decide(true, 1)
 	assert_true(
 		String(fresh["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
@@ -128,6 +130,15 @@ func test_a_worn_attacker_puts_peace_to_an_enemy_it_still_outnumbers() -> void:
 	)
 	var candidate: Dictionary = (worn["candidates"] as Array)[0]
 	assert_true(int(candidate["factors"].get("memory", 0)) < 0, "the trace names the weariness")
+
+
+func test_a_court_that_clearly_outmatches_its_enemy_does_not_tire() -> void:
+	# The war it is winning is the war it wants: no weariness, no white peace.
+	var plan: Dictionary = _decide(true, 200, -1, 90)
+	assert_true(
+		String(plan["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a stronger court prosecutes its war"
+	)
 
 
 func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
@@ -147,7 +158,7 @@ func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
 
 func test_the_declaration_returns_once_the_truce_expires() -> void:
 	var turn: int = 4 + _config().parameter("diplomacy.truce_turns")
-	var freed: Dictionary = _decide(false, turn, 4)
+	var freed: Dictionary = _decide(false, turn, 4, 90)
 	assert_eq(
 		String(freed["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
 		"the war may be declared again after the truce"
@@ -165,7 +176,7 @@ func test_a_peace_concludes_and_records_the_truce() -> void:
 	ai_state.agendas[OWNER] = AiAgenda.WARMONGER
 	ai_state.note_war(RIVAL, OWNER, 1)
 	var run: Dictionary = AiTurn.run(
-		state, AiFixture.world([OWNER, RIVAL, RIVAL, RIVAL]), ai_state,
+		state, AiFixture.world([OWNER, RIVAL]), ai_state,
 		200, 4, SEED, {"regiments": {}, "ships": {}}
 	)
 
@@ -188,7 +199,7 @@ func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
 	ai_state.agendas[RIVAL] = AiAgenda.WARMONGER
 	ai_state.note_war(RIVAL, OWNER, 1)
 	AiTurn.run(
-		state, AiFixture.world([OWNER, RIVAL, RIVAL, RIVAL]), ai_state,
+		state, AiFixture.world([OWNER, RIVAL]), ai_state,
 		200, 4, SEED, {"regiments": {}, "ships": {}}
 	)
 
@@ -210,8 +221,21 @@ func test_a_colonial_war_carries_no_memory() -> void:
 	assert_eq(AiWarMemory.truce(config, ai_state, 5, RIVAL, minor), 0)
 
 
+func test_a_fought_war_leaves_no_truce() -> void:
+	var config: AiConfig = _config()
+	var ai_state := AiState.new()
+	ai_state.note_war(RIVAL, OWNER, 4)
+	ai_state.note_truce(RIVAL, OWNER, 20)  # a 16-turn war: prosecuted
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 21, RIVAL, OWNER), 0,
+		"a war that was fought ends in a real settlement"
+	)
+
+
 func test_a_save_round_trips_the_truce() -> void:
 	var ai_state := AiState.new()
+	ai_state.note_war(RIVAL, OWNER, 16)
 	ai_state.note_truce(RIVAL, OWNER, 17)
 	var restored := AiState.from_dict(ai_state.to_dict())
 
