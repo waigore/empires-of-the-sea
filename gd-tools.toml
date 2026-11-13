@@ -42,7 +42,9 @@ exclude = [
     ".gd-tools",
     ".git",
     "tests",
+    "playtests",
 ]
 test_dirs = [
     "tests",
+    "playtests",
 ]

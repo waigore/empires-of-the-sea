@@ -732,14 +732,18 @@ func test_describe_names_the_offer() -> void:
 func test_a_recent_declaration_does_not_stop_a_fellow_court_making_peace() -> void:
 	_setup_diplomacy_proposals()
 	# The war cooldown is a Declare War clock only: a court that declared last
-	# turn still signs peace once the war stops being worth waging (wiki:
-	# diplomacy § Cooldowns, § Configurable Values).
+	# turn still makes peace once the war stops being worth waging (wiki:
+	# diplomacy § Cooldowns, § Configurable Values). Both courts are peacemakers,
+	# so whichever asks first, the other answers yes (wiki: diplomacy § Planner
+	# selection — a court below its peace bar signs).
 	var fresh := DiplomacyState.new()
 	fresh.reset(1)
 	fresh.ensure_relation(1, 2, 1)
 	fresh.relation(1, 2).score = 35.0
 	DiplomacyRules.declare_war(fresh, 2, 1)
 	var ai := AiState.new()
+	ai.agendas[1] = AiAgenda.PEACEMAKER
+	ai.agendas[2] = AiAgenda.PEACEMAKER
 	ai.note_war(2, 1, 1)
 	var result: Dictionary = AiTurn.run(
 		fresh,
@@ -752,9 +756,8 @@ func test_a_recent_declaration_does_not_stop_a_fellow_court_making_peace() -> vo
 	)
 	assert_false(fresh.relation(1, 2).at_war, "the fellow court's peace is signed at once")
 	assert_eq(fresh.pending_offers.size(), 0, "no human answer is involved")
-	var record: Dictionary = _record_for(result["trace"], 2)
-	assert_eq(String(record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
-	assert_true(String(record["message"]).contains("Peace is concluded"))
+	var record: Dictionary = _peace_record(result["trace"])
+	assert_true(String(record.get("message", "")).contains("Peace is concluded"))
 
 func test_an_ai_court_offers_a_non_aggression_pact_and_waits() -> void:
 	_setup_diplomacy_proposals()
@@ -840,6 +843,14 @@ func _record_for(trace: Array, faction: int) -> Dictionary:
 			return record
 	return {}
 
+## The trace row whose action was a white peace ("{}" when no court asked).
+func _peace_record(trace: Array) -> Dictionary:
+	for record: Dictionary in trace:
+		var action: Dictionary = record.get("action", {})
+		if String(action.get("kind", "")) == AiDiplomacyPlanner.KIND_OFFER_PEACE:
+			return record
+	return {}
+
 func _diplomacy_proposals_event(kind: String) -> bool:
 	for event: Dictionary in diplomacy_proposals_state.events:
 		if String(event["kind"]) == kind:
@@ -921,30 +932,53 @@ func test_boycott_worsens_the_targets_terms_and_war_revokes_it() -> void:
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
 
-func test_a_subsidy_sets_rates_on_the_subsidised_courts_goods() -> void:
+## The subsidy is a step on the pair's deals, never a crown-wide rate: the crown
+## bids at the published price and pays `p%` more only to the court it subsidises
+## (wiki: world-market § Subsidy price adjustment — "the step never touches a
+## deal with another court"; DR-20261110-29).
+func test_a_subsidy_steps_only_the_subsidised_pairs_deals() -> void:
 	_setup_diplomacy_trade()
 	var world: WorldMap = _tribe_world(9, _resource_for("timber"))
 	diplomacy_trade_state.ensure_relation(0, 9, diplomacy_trade_state.turn)
 	diplomacy_trade_state.set_overture(0, 9, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyAid.set_subsidy(diplomacy_trade_state, 0, 9, 10)
 	var terms: Dictionary = DiplomacyTrade.terms_for_court(diplomacy_trade_state, world, 0)
-	assert_almost_eq(float(terms["buy"]["timber"]), 1.10, 0.001, "surcharge on their goods")
-	assert_almost_eq(float(terms["sell"]["timber"]), 0.90, 0.001, "discount on our goods")
-	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "only that court's goods move")
+	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "the crown's own rate never moves")
+	assert_false(terms["buy"].has("timber"), "no commodity rate: the step lands on the deal")
 	var market := WorldMarket.with_default_prices()
-	market.set_terms(0, terms)
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, world, market)
+	assert_eq(MarketRules.subsidy_percent(market, 0, 9), 10, "the pair's step is published")
+	assert_eq(MarketRules.subsidy_percent(market, 0, 7), 0, "no other court carries it")
 	assert_eq(
 		market.buy_price("timber", 0),
-		roundi(float(market.price("timber")) * 1.10)
+		market.price("timber"),
+		"a crown bids at the published price"
 	)
-	assert_eq(market.buy_price("grain", 0), market.price("grain"))
-	assert_eq(market.sell_price("timber", 1), market.price("timber"), "other crowns untouched")
 	var direct: int = market.price("timber")
 	assert_eq(
-		MinorMarket.unit_price(market, "timber", 0),
+		MinorMarket.unit_price(market, "timber", 0, 9),
 		roundi(float(direct) * 1.10),
-		"the published ask names the court's own rate"
+		"the subsidised court's ask names the step"
 	)
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", 0, 7),
+		direct,
+		"another minor's ask stays at the world price"
+	)
+
+## Only a real pair publishes a step: a malformed subsidy key and a zero percent
+## name no deal, and no court means no terms at all (wiki: world-market
+## § Subsidy price adjustment).
+func test_subsidy_terms_publish_only_real_pairs() -> void:
+	assert_true(DiplomacyTrade.subsidy_terms(null).is_empty())
+	assert_true(DiplomacyTrade.market_terms(null).is_empty())
+	var state := DiplomacyState.new()
+	state.subsidies["0>9"] = 10
+	state.subsidies["lonely"] = 10
+	state.subsidies["0>7"] = 0
+	var terms: Dictionary = DiplomacyTrade.subsidy_terms(state)
+	assert_eq(terms.size(), 1)
+	assert_eq(int(terms["0>9"]), 10)
 
 func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 	_setup_diplomacy_trade()

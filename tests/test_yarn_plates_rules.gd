@@ -404,107 +404,18 @@ func test_an_untranslated_key_falls_back_to_the_authored_line() -> void:
 	assert_true(DialogueLocale.locales().has(DialogueLocale.SOURCE_LOCALE))
 
 
-func test_the_locale_can_be_switched_and_read_back() -> void:
+func test_english_is_the_only_supported_locale() -> void:
 	DialogueLocale.set_locale("fr")
-	assert_eq(DialogueLocale.locale(), "fr", "the game reads the locale it was given")
-	DialogueLocale.set_locale("  ")
-	assert_eq(DialogueLocale.locale(), "fr", "an empty code changes nothing")
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
-
-
-func test_a_translation_overrides_the_authored_line() -> void:
-	# A tongue the game does not ship, so the shipped French file cannot answer
-	# this key first (DialogueLocale.load_shipped; DR-20261113-06).
-	var table := Translation.new()
-	table.locale = "de"
-	table.add_message(DialogueLocale.line_key("reactive/standing_cold", 0), "Wir haben wenig zu sagen.")
-	TranslationServer.add_translation(table)
-	DialogueLocale.set_locale("de")
+	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE, "foreign codes are ignored")
+	assert_eq(DialogueLocale.locales(), PackedStringArray([DialogueLocale.SOURCE_LOCALE]))
 	assert_eq(
-		DialogueLocale.line("reactive/standing_cold", 0, "We have little to say."),
-		"Wir haben wenig zu sagen."
-	)
-	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_cold", 0), "Wir haben wenig zu sagen.",
-		"the court's own line reads the translation"
-	)
-	assert_eq(
-		DialogueLocale.line("reactive/standing_cold", 1, "Our clerks record your name."),
-		"Our clerks record your name.",
-		"a variant with no translation keeps the source"
-	)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	TranslationServer.remove_translation(table)
-	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_cold", 0),
-		"We have little to say to your court.",
-		"the source line comes back"
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		String(DialogueCatalog.lines_for("reactive/standing_war")[0]),
+		"the court always speaks English"
 	)
 
 
-# --- the shipped French court ------------------------------------------------
-#
-# The file is content: one `.po` keyed by the same stable content key
-# [DialogueLocale.line_key] builds, answered on the reader's own tongue and
-# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06).
-# These cases hold the file to the catalogue, so a rewritten or dropped point
-# fails here instead of leaving a French court an English line.
-
-const PLACEHOLDERS: Array[String] = ["{speaker}", "{other}"]
-
-
-## Every variant the catalogue authors, keyed as the translation asks for it.
-func _authored() -> Dictionary:
-	var found: Dictionary = {}
-	for point: String in DialogueCatalog.points():
-		var lines: Array = DialogueCatalog.lines_for(point)
-		for index in lines.size():
-			found[DialogueLocale.line_key(point, index)] = String(lines[index])
-	return found
-
-
-func test_the_shipped_tongue_answers_every_authored_variant() -> void:
-	var authored: Dictionary = _authored()
-	assert_gte(authored.size(), 100, "the court authors its catalogue")
-	var unanswered: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var word: String = String(TranslationServer.translate(String(key)))
-		if word.is_empty() or word == String(key) or word == String(authored[key]):
-			unanswered.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(unanswered, [] as Array[String], "every variant ships French words: %s" % str(unanswered))
-
-
-func test_the_french_keeps_the_speaker_and_the_court() -> void:
-	var authored: Dictionary = _authored()
-	var broken: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var source: String = String(authored[key])
-		var word: String = String(TranslationServer.translate(String(key)))
-		for mark: String in PLACEHOLDERS:
-			if source.count(mark) != word.count(mark):
-				broken.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(broken, [] as Array[String], "a name is never dropped in translation: %s" % str(broken))
-
-
-func test_the_file_answers_only_keys_the_catalogue_still_authors() -> void:
-	DialogueLocale.load_shipped()
-	var words: Variant = load(DialogueLocale.SHIPPED)
-	assert_true(words is Translation, "the shipped file reads as a tongue")
-	var authored: Dictionary = _authored()
-	var stale: Array[String] = []
-	for key: Variant in (words as Translation).get_message_list():
-		if not authored.has(String(key)):
-			stale.append(String(key))
-	assert_eq(stale, [] as Array[String], "no word outlives the point it answered: %s" % str(stale))
-
-
-func test_a_source_tongue_reads_no_translation() -> void:
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+func test_the_english_court_speaks_as_authored() -> void:
 	var changed: Array[String] = []
 	for point: String in DialogueCatalog.points():
 		var lines: Array = DialogueCatalog.lines_for(point)
@@ -514,83 +425,58 @@ func test_a_source_tongue_reads_no_translation() -> void:
 	assert_eq(changed, [] as Array[String], "the English court speaks as it was authored: %s" % str(changed))
 
 
-func test_a_french_device_reads_the_french_court() -> void:
-	# A phone set to French Canada or France reads French, not the source.
-	for code: String in ["fr", "fr_CA", "fr_FR"]:
-		DialogueLocale.set_locale(code)
-		assert_ne(
-			DialogueCatalog.line_for("reactive/standing_war", 0),
-			String(DialogueCatalog.lines_for("reactive/standing_war")[0]),
-			"a court reading %s is answered in French" % code
-		)
-		assert_eq(
-			DialogueCatalog.line_for("reactive/standing_war", 0),
-			String(TranslationServer.translate(DialogueLocale.line_key("reactive/standing_war", 0))),
-			"the court speaks the tongue's own word"
-		)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+# --- the prompts' words ------------------------------------------------------
+#
+# Blocking decisions print English from [ConsentCopy] (wiki:
+# dialogue-content-and-yarn § Playable slice; DR-20261113-10).
+
+func test_a_prompt_names_the_courts_in_english() -> void:
+	var call: Dictionary = {"aggressor": 2, "defender": 1}
+	var english: String = ConsentCopy.call_body(call)
+	assert_true(english.contains("France"), english)
+	assert_true(english.contains("England"), english)
+	assert_eq(ConsentCopy.button("join"), "Join the war")
 
 
-func test_a_variant_the_file_does_not_answer_keeps_the_source() -> void:
-	DialogueLocale.set_locale("fr")
-	assert_eq(
-		DialogueLocale.line("no/such_point", 0, "A line no file answers."),
-		"A line no file answers.",
-		"a missing word never silences a court"
-	)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-
-
-func test_the_court_panel_hears_the_tongue() -> void:
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var english: Dictionary = DialogueEvents.for_pair(state, 0, 1)
-	assert_false(String(english.get("text", "")).is_empty(), "the court has a word")
-	DialogueLocale.set_locale("fr")
-	var french: Dictionary = DialogueEvents.for_pair(state, 0, 1)
-	var point: String = String(french.get("point", ""))
-	var variants: Array[String] = []
-	for index in DialogueCatalog.lines_for(point).size():
-		variants.append(
-			String(TranslationServer.translate(DialogueLocale.line_key(point, index)))
-		)
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(
-		point, String(english.get("point", "")),
-		"the tongue moves the word, not the point"
-	)
-	assert_ne(
-		String(french.get("text", "")), String(english.get("text", "")),
-		"the panel's own call answers in French"
-	)
-	assert_true(
-		variants.has(String(french.get("text", ""))),
-		"the French word is an authored variant of that point"
-	)
-
-
-func test_the_shipped_tongue_is_registered_once() -> void:
-	DialogueLocale.load_shipped()
-	DialogueLocale.load_shipped()
-	assert_eq(DialogueLocale.locales().count("fr"), 1, "one file, one tongue, one entry")
-
-
-func test_a_tongue_with_no_file_adds_nothing() -> void:
-	DialogueLocale.load_shipped("res://assets/locales/xx.po")
-	assert_false(DialogueLocale.locales().has(""), "a missing file registers no tongue")
-	assert_false(
-		DialogueLocale.locales().has("xx"), "a missing file names no tongue either"
-	)
-
-
-func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
+func test_a_prompt_keeps_the_authored_source() -> void:
 	DialogueLocale.set_locale("de")
-	assert_eq(
-		DialogueCatalog.line_for("reactive/standing_war", 0),
-		String(DialogueCatalog.lines_for("reactive/standing_war")[0]),
-		"a court with no file reads the authored line"
-	)
+	var line: String = ConsentCopy.say("call/toast", ["England", "France"])
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		line, "England calls on our alliance against France.",
+		"English is the only court copy"
+	)
+
+
+## Each kind is named by its own sentence (REQ-P2-05).
+func test_every_proposal_kind_names_its_own_offer() -> void:
+	var kinds: Dictionary = {
+		DiplomacyProposals.KIND_ALLIANCE: "a formal alliance",
+		DiplomacyProposals.KIND_FTP: "a favoured trading pact",
+		DiplomacyProposals.KIND_PEACE: "a white peace",
+	}
+	for kind: Variant in kinds.keys():
+		var line: String = ConsentCopy.proposal_body(2, String(kind), "")
+		assert_true(line.begins_with("France proposes "), line)
+		assert_true(line.contains(String(kinds[kind])), line)
+	var overture: String = ConsentCopy.proposal_body(
+		2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
+	)
+	assert_eq(overture, "France proposes the Non-Aggression Pact.", overture)
+	var by_stage: Array[String] = []
+	for stage: String in DiplomacyCatalog.STAGES:
+		by_stage.append(
+			ConsentCopy.proposal_body(2, DiplomacyProposals.KIND_OVERTURE, stage)
+		)
+	for line: String in by_stage:
+		assert_true(line.begins_with("France proposes "), line)
+	assert_eq(
+		ConsentCopy.proposal_body(
+			2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NONE
+		),
+		"France proposes the No overture.",
+		"a stage with nothing to offer still names the offer"
+	)
 
 
 # --- test_symbol_plates ---
@@ -1486,6 +1372,51 @@ func test_a_structured_act_masks_an_unmet_target() -> void:
 	MapPlaySpies.report(play, [], [], {})
 	var kept: Dictionary = play.court_reports["lines"] as Dictionary
 	assert_eq(String((kept[RIVAL] as Array)[0]), "England declares war on Unknown faction.")
+	play.hud.free()
+	play.economy.free()
+
+
+## An order the rules refused never reached the court: a despatch that reported
+## it would invent a war (wiki: civilian-units § Spy (5); issue #426).
+func test_a_refused_act_is_not_reported() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": 9},
+		"result": {"ok": false, "reason": "No envoy has reached that court."},
+		"message": "",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	assert_true(play.hud.toasts.is_empty(), "no despatch for an act that never resolved")
+	play.hud.free()
+	play.economy.free()
+
+
+## The despatch says what resolved, not what the planner meant: a refused peace
+## reads as refused and a one-sided act keeps its own verb (issue #426).
+func test_peace_and_acts_read_as_they_resolved() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyPlanner.KIND_OFFER_PEACE, "target": 9},
+		"result": {"ok": true, "accepted": false},
+		"message": "Unknown faction refuses a white peace.",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq(
+		String((kept[RIVAL] as Array)[0]),
+		"England sues for peace with Unknown faction and is refused."
+	)
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": 9},
+		"result": {"ok": true},
+		"message": "England sends aid to France.",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	kept = play.court_reports["lines"] as Dictionary
+	assert_eq(String((kept[RIVAL] as Array)[0]), "England sends aid to Unknown faction.")
 	play.hud.free()
 	play.economy.free()
 

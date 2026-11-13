@@ -64,7 +64,8 @@ static func at_risk(home: FleetState) -> Dictionary:
 		if ShipStats.is_warship(type_id):
 			continue
 		var cargo: int = int(ShipStats.entry(type_id).get("cargo", 0))
-		if pick_id.is_empty() or cargo > pick_cargo:
+		if pick_id.is_empty() or cargo > pick_cargo \
+				or (cargo == pick_cargo and _lower_id(hull_id, pick_id)):
 			pick_id = hull_id
 			pick_type = type_id
 			pick_cargo = cargo
@@ -75,6 +76,27 @@ static func at_risk(home: FleetState) -> Dictionary:
 		"type_id": pick_type,
 		"name": ShipNames.of(home, pick_id),
 	}
+
+
+## "Lower instance id" on a cargo tie: `ship_<n>` hulls compare by their number,
+## so `ship_2` is lower than `ship_10`; any other id reads as a string. A
+## squadron that absorbed another is not in id order, so the roster position is
+## no guide (wiki: ships-and-naval § Trade and Transport Interception).
+static func _lower_id(candidate: String, current: String) -> bool:
+	var left: int = _hull_number(candidate)
+	var right: int = _hull_number(current)
+	if left >= 0 and right >= 0:
+		return left < right
+	return candidate < current
+
+
+static func _hull_number(hull_id: String) -> int:
+	if not hull_id.begins_with("ship_"):
+		return -1
+	var tail: String = hull_id.substr(5)
+	if not tail.is_valid_int():
+		return -1
+	return tail.to_int()
 
 
 ## One draw: a roll inside `chance` removes one merchant hull from the victim's
