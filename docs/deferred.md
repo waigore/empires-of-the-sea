@@ -39,7 +39,7 @@ Audited through DR-20261113-10 (`REQ-P2-02`).
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | More tongues than the two shipped | Localization | a `.po` in `assets/locales/` is offered (DR-20261113-09) |
+| 1 | More tongues than the three shipped | Localization | a `.po` in `assets/locales/` is offered (DR-20261113-09, DR-20261113-11) |
 | 2 | Despatch lines print English | Localization | outcomes, not prompts (DR-20261113-10) |
 
 ## Next pick

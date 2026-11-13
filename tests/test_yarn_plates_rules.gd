@@ -472,7 +472,7 @@ func test_the_shipped_tongues_answer_every_authored_variant() -> void:
 		var code: String = String(tongue.get("code", ""))
 		if code != DialogueLocale.SOURCE_LOCALE:
 			tongues.append(code)
-	assert_gte(tongues.size(), 2, "the build ships more than one tongue")
+	assert_gte(tongues.size(), 3, "the build ships more than one tongue")
 	for code: String in tongues:
 		var unanswered: Array[String] = []
 		DialogueLocale.set_locale(code)
@@ -539,8 +539,10 @@ func test_the_shipped_directory_offers_each_tongue_once_by_its_own_name() -> voi
 		assert_eq(codes.count(String(tongue.get("code", ""))), 1, "one row per tongue")
 	assert_true(codes.has("fr"), "the French court is offered")
 	assert_true(codes.has("es"), "the Spanish court is offered")
+	assert_true(codes.has("nl"), "the Dutch court is offered")
 	assert_true(names.has("Français"), "a tongue is named in its own words")
 	assert_true(names.has("Español"), "and so is the Spanish one")
+	assert_true(names.has("Nederlands"), "and the Dutch one")
 	assert_eq(DialogueLocale.native_name("fr_CA"), "Français", "a regional code still names its tongue")
 	assert_eq(DialogueLocale.native_name("xx"), "XX", "a code with no name is still legible")
 	assert_eq(DialogueLocale.native_name(""), DialogueLocale.SOURCE_LOCALE.to_upper())
@@ -580,6 +582,16 @@ func test_a_spanish_device_reads_the_spanish_court() -> void:
 		DialogueCatalog.line_for("reactive/standing_war", 0),
 		"La guerra se mantiene. Hablaremos otra vez cuando alguno de nosotros se canse.",
 		"a Spanish device reads the Spanish court"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_dutch_device_reads_the_dutch_court() -> void:
+	DialogueLocale.set_locale("nl")
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		"De oorlog staat. Wij spreken elkaar weer wanneer één van ons vermoeid raakt.",
+		"a Dutch device reads the Dutch court"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
@@ -735,6 +747,22 @@ func test_a_prompt_speaks_the_tongue_and_names_the_courts() -> void:
 		"the courts keep the names they are christened with: " + french
 	)
 	assert_eq(join, "Joindre la guerre", "the button answers in the tongue too")
+
+
+func test_a_dutch_prompt_names_both_courts_and_answers_in_dutch() -> void:
+	var call: Dictionary = {"aggressor": 2, "defender": 1}
+	DialogueLocale.set_locale("nl")
+	var dutch: String = ConsentCopy.call_body(call)
+	var join: String = ConsentCopy.button("join")
+	var terms: String = ConsentCopy.proposal_terms()
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_true(dutch.contains("oorlog"), dutch)
+	assert_true(
+		dutch.contains("France") and dutch.contains("England"),
+		"the courts keep the names they are christened with: " + dutch
+	)
+	assert_eq(join, "Deelnemen aan de oorlog", "the answer reads in Dutch too")
+	assert_true(terms.contains("95%") and terms.contains("105%"), terms)
 
 
 func test_an_unanswered_prompt_keeps_the_authored_source() -> void:

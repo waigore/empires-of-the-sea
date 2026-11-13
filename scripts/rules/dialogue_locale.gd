@@ -26,6 +26,7 @@ const SHIPPED_DIR: String = "res://assets/locales"
 const SHIPPED: Array[String] = [
 	"res://assets/locales/fr.po",
 	"res://assets/locales/es.po",
+	"res://assets/locales/nl.po",
 ]
 ## A tongue's own name, so the picker prints Français rather than FR.
 const NATIVE_NAMES: Dictionary = {

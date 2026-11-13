@@ -1,0 +1,674 @@
+# The Dutch court (wiki: dialogue-content-and-yarn; DR-20261113-11).
+# The msgid is the content key DialogueLocale.line_key builds, so a lookup
+# answers directly; the English source sits above each entry as a comment.
+msgid ""
+msgstr ""
+"Project-Id-Version: Empires of the Sea\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Keep our friendship close. It has served us both, and it shall serve one of us again.
+msgid "DialoguePoint/agenda/backstabber/0"
+msgstr "Houd onze vriendschap nauw aan het hart. Zij heeft ons beiden gediend, en zij zal nog eens één van ons dienen."
+
+#. There is no quarrel between us — yet. Consider how rare that is in these waters.
+msgid "DialoguePoint/agenda/backstabber/1"
+msgstr "Er is geen twist tussen ons — nog niet. Bedenk hoe zeldzaam dat is in deze wateren."
+
+#. Do not mistake a warm letter for a warm intention. We write to several courts.
+msgid "DialoguePoint/agenda/backstabber/2"
+msgstr "Verwar een warme brief niet met een warm voornemen. Wij schrijven aan verscheidene hoven."
+
+#. Your new buildings are fine work. Ours shall be finer, and sooner than you think.
+msgid "DialoguePoint/agenda/envy/0"
+msgstr "Uw nieuwe gebouwen zijn fraai werk. De onze zullen fraaier zijn, en eerder dan u denkt."
+
+#. We watch your ledgers the way a rival merchant watches a loaded cart.
+msgid "DialoguePoint/agenda/envy/1"
+msgstr "Wij slaan uw koopboeken gade zoals een mededinger een beladen kar gadeslaat."
+
+#. Whatever you raise, we shall raise beside it. That is simply how it must be.
+msgid "DialoguePoint/agenda/envy/2"
+msgstr "Wat u ook optrekt, wij trekken het ernaast op. Zo moet het nu eenmaal zijn."
+
+#. We shall not be dragged through your quarrels. Our own fields interest us more than your treaties.
+msgid "DialoguePoint/agenda/isolationist/0"
+msgstr "Wij laten ons niet door uw twisten meeslepen. Onze eigen akkers gaan ons meer aan dan uw verdragen."
+
+#. An alliance is a rope with two ends, and we prefer our hands free.
+msgid "DialoguePoint/agenda/isolationist/1"
+msgstr "Een bondgenootschap is een touw met twee einden, en wij houden onze handen liever vrij."
+
+#. Your envoy will find our harbour open and our court busy with its own accounts.
+msgid "DialoguePoint/agenda/isolationist/2"
+msgstr "Uw gezant zal onze haven open vinden en ons hof bezig met zijn eigen rekeningen."
+
+#. Every war ends. We would rather it ended before the terms cost us both a province.
+msgid "DialoguePoint/agenda/peacemaker/0"
+msgstr "Elke oorlog eindigt. Wij zagen hem liever eindigen voordat de voorwaarden ons beiden een provincie kosten."
+
+#. Our squadrons sail to see a fight stopped, not to start one.
+msgid "DialoguePoint/agenda/peacemaker/1"
+msgstr "Onze eskaders varen uit om een gevecht te doen ophouden, niet om er een te beginnen."
+
+#. When the next crown is carved up, we intend to be the hand on the knife's wrist.
+msgid "DialoguePoint/agenda/peacemaker/2"
+msgstr "Wanneer de volgende kroon wordt verdeeld, willen wij de hand zijn aan de pols die het mes houdt."
+
+#. Your colleges publish; ours listen. It is cheaper than teaching our own scholars.
+msgid "DialoguePoint/agenda/tech_thief/0"
+msgstr "Uw hogescholen geven uit; de onze luisteren. Dat is goedkoper dan onze eigen geleerden te onderwijzen."
+
+#. A study kept secret is worth less than one our agents can read. You should consider that.
+msgid "DialoguePoint/agenda/tech_thief/1"
+msgstr "Een studie die geheim blijft, is minder waard dan een die onze agenten kunnen lezen. Dat moest u overwegen."
+
+#. Our gentlemen of letters are patient men. They read the papers your court leaves out.
+msgid "DialoguePoint/agenda/tech_thief/2"
+msgstr "Onze heren van de pen zijn geduldige mannen. Zij lezen de papieren die uw hof laat slingeren."
+
+#. There is a crown in these waters with a thin wall and a fat treasury. We are patient, not idle.
+msgid "DialoguePoint/agenda/warmonger/0"
+msgstr "Er is een kroon in deze wateren met een dunne muur en een dikke schatkist. Wij zijn geduldig, niet ledig."
+
+#. Our regiments drill while your merchants count. One of those numbers will matter more.
+msgid "DialoguePoint/agenda/warmonger/1"
+msgstr "Onze regimenten oefenen terwijl uw kooplieden tellen. Eén van die getallen zal zwaarder wegen."
+
+#. A neighbour's weakness is a standing invitation. We have never been good at refusing one.
+msgid "DialoguePoint/agenda/warmonger/2"
+msgstr "De zwakheid van een buur is een staande uitnodiging. Wij hebben er nooit goed in geweest haar af te slaan."
+
+#. The treaty served its season. It serves no longer.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/0"
+msgstr "Het verdrag heeft zijn seizoen gediend. Het dient niet langer."
+
+#. We renounce the alliance; our ships sail where we bid them.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/1"
+msgstr "Wij zeggen het bondgenootschap op; onze schepen varen waar wij ze heenzenden."
+
+#. Do not look for our squadrons. You will not find them beside you.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/2"
+msgstr "Zoek onze eskaders niet. U zult ze niet aan uw zijde vinden."
+
+#. You break your word before witnesses. We shall remember it.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/0"
+msgstr "U breekt uw woord voor getuigen. Wij zullen het onthouden."
+
+#. Our clerks have written your name beside this day.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/1"
+msgstr "Onze klerken hebben uw naam naast deze dag geschreven."
+
+#. So a crown keeps faith. Good to know before the next treaty.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/2"
+msgstr "Zo houdt een kroon trouw. Goed om te weten vóór het volgende verdrag."
+
+#. Your enemies are ours now, and ours are yours.
+msgid "DialoguePoint/diplomatic/alliance_formed/0"
+msgstr "Uw vijanden zijn nu de onze, en de onze de uwe."
+
+#. Let the treaty be read aloud in both our harbours.
+msgid "DialoguePoint/diplomatic/alliance_formed/1"
+msgstr "Laat het verdrag in beide onze havens hardop worden voorgelezen."
+
+#. We stand with you, so long as the terms stand.
+msgid "DialoguePoint/diplomatic/alliance_formed/2"
+msgstr "Wij staan u bij, zolang de voorwaarden staan."
+
+#. Our regiments are yours in this quarrel.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/0"
+msgstr "Onze regimenten zijn de uwe in deze twist."
+
+#. The treaty speaks plainly, and so do we. We march.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/1"
+msgstr "Het verdrag spreekt duidelijk, en wij ook. Wij trekken op."
+
+#. Consider the aggressor answered.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/2"
+msgstr "Beschouw de aanvaller van antwoord gediend."
+
+#. The treaty did not bind us to this ruin. Our regiments stay home.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/0"
+msgstr "Het verdrag bond ons niet aan deze ondergang. Onze regimenten blijven thuis."
+
+#. We have weighed this war. You will fight it without us.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/1"
+msgstr "Wij hebben deze oorlog gewogen. U zult hem zonder ons voeren."
+
+#. Do not mistake our refusal for friendship to the other side.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/2"
+msgstr "Verwar onze weigering niet met vriendschap voor de andere zijde."
+
+#. We had heard of your crown. Now we shall learn what it is worth.
+msgid "DialoguePoint/diplomatic/first_contact/0"
+msgstr "Wij hadden van uw kroon gehoord. Nu zullen wij leren wat zij waard is."
+
+#. Send word who you are, that our clerks may enter it properly.
+msgid "DialoguePoint/diplomatic/first_contact/1"
+msgstr "Laat weten wie u bent, opdat onze klerken het behoorlijk kunnen inschrijven."
+
+#. A new flag in these waters. {other}, is it? We shall watch where it sails.
+msgid "DialoguePoint/diplomatic/first_contact/2"
+msgstr "Een nieuwe vlag in deze wateren. {other}, nietwaar? Wij zullen gadeslaan waar zij heen vaart."
+
+#. We will not stand by while a crown is carved up.
+msgid "DialoguePoint/diplomatic/intervention_joined/0"
+msgstr "Wij blijven niet toezien terwijl een kroon wordt verdeeld."
+
+#. Our squadrons sail. The aggressor had better mind its charts.
+msgid "DialoguePoint/diplomatic/intervention_joined/1"
+msgstr "Onze eskaders varen uit. De aanvaller kan maar beter op zijn zeekaarten letten."
+
+#. The embassy stood for this. We answer it now.
+msgid "DialoguePoint/diplomatic/intervention_joined/2"
+msgstr "De ambassade stond hiervoor. Wij geven er nu antwoord op."
+
+#. This war is an outrage, and our court says so plainly.
+msgid "DialoguePoint/diplomatic/intervention_protested/0"
+msgstr "Deze oorlog is een schande, en ons hof zegt het ronduit."
+
+#. We protest this aggression in every court that will hear us.
+msgid "DialoguePoint/diplomatic/intervention_protested/1"
+msgstr "Wij protesteren tegen deze aanval aan elk hof dat ons wil aanhoren."
+
+#. There will be a reckoning for this, though not today with guns.
+msgid "DialoguePoint/diplomatic/intervention_protested/2"
+msgstr "Hiervoor komt er een afrekening, al is het vandaag niet met geschut."
+
+#. Our embassy is closed. What follows is not our affair.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/0"
+msgstr "Onze ambassade is gesloten. Wat volgt is onze zaak niet."
+
+#. We have taken the papers home. The war is yours.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/1"
+msgstr "Wij hebben de papieren mee naar huis genomen. De oorlog is de uwe."
+
+#. We choose our quarrels. This is not one of them.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/2"
+msgstr "Wij kiezen onze twisten. Deze is er geen van."
+
+#. Your envoy is welcome. Our clerks will find him a chair.
+msgid "DialoguePoint/diplomatic/overture_accepted/0"
+msgstr "Uw gezant is welkom. Onze klerken zullen hem een stoel geven."
+
+#. We accept. Let it be entered in the book of treaties.
+msgid "DialoguePoint/diplomatic/overture_accepted/1"
+msgstr "Wij nemen aan. Laat het in het boek der verdragen worden ingeschreven."
+
+#. A small step, and a useful one. Come, let us sign.
+msgid "DialoguePoint/diplomatic/overture_accepted/2"
+msgstr "Een kleine stap, en een nuttige. Kom, laat ons tekenen."
+
+#. Our envoy shall keep your court, and your merchants our ports.
+msgid "DialoguePoint/diplomatic/overture_granted/0"
+msgstr "Onze gezant zal uw hof houden, en uw kooplieden onze havens."
+
+#. It is agreed. Let the papers be sealed and the wine poured.
+msgid "DialoguePoint/diplomatic/overture_granted/1"
+msgstr "Het is afgesproken. Laat de papieren worden bezegeld en de wijn ingeschonken."
+
+#. We receive your envoy kindly, and expect the courtesy returned.
+msgid "DialoguePoint/diplomatic/overture_granted/2"
+msgstr "Wij ontvangen uw gezant minzaam, en verwachten dat de hoffelijkheid wordt beantwoord."
+
+#. The terms do not suit us. Keep your envoy at home.
+msgid "DialoguePoint/diplomatic/overture_refused/0"
+msgstr "De voorwaarden bevallen ons niet. Houd uw gezant thuis."
+
+#. A consul from your court would find little to do here.
+msgid "DialoguePoint/diplomatic/overture_refused/1"
+msgstr "Een consul van uw hof zou hier weinig te doen vinden."
+
+#. No. We need nothing from you badly enough to grant this.
+msgid "DialoguePoint/diplomatic/overture_refused/2"
+msgstr "Neen. Wij hebben niets van u zo hard nodig dat wij dit toestaan."
+
+#. Very well. We shall not ask twice.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/0"
+msgstr "Goed dan. Wij zullen het geen tweede maal vragen."
+
+#. Your refusal is entered in the ledger, and not in your favour.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/1"
+msgstr "Uw weigering staat in het grootboek, en niet in uw voordeel."
+
+#. Then we keep our envoy, and our money, at home.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/2"
+msgstr "Dan houden wij onze gezant, en ons geld, thuis."
+
+#. Enough blood has gone to the fishes. The war is done.
+msgid "DialoguePoint/diplomatic/peace_made/0"
+msgstr "Er is bloed genoeg naar de vissen gegaan. De oorlog is voorbij."
+
+#. The treaty is signed. Let no captain test the ink.
+msgid "DialoguePoint/diplomatic/peace_made/1"
+msgstr "Het verdrag is getekend. Laat geen kapitein de inkt op de proef stellen."
+
+#. We shall have peace, and watch you the closer for it.
+msgid "DialoguePoint/diplomatic/peace_made/2"
+msgstr "Wij zullen vrede hebben, en u des te nauwer gadeslaan."
+
+#. It is agreed. Our clerks will draw it up before the day is out.
+msgid "DialoguePoint/diplomatic/proposal_accepted/0"
+msgstr "Het is afgesproken. Onze klerken stellen het op vóór de dag om is."
+
+#. You have dealt with us fairly. We shall remember it.
+msgid "DialoguePoint/diplomatic/proposal_accepted/1"
+msgstr "U hebt eerlijk met ons gehandeld. Wij zullen het onthouden."
+
+#. Then let it be finished, and let both fleets know it.
+msgid "DialoguePoint/diplomatic/proposal_accepted/2"
+msgstr "Laat het dan worden afgerond, en laat beide vloten het weten."
+
+#. Very well. The offer is withdrawn.
+msgid "DialoguePoint/diplomatic/proposal_refused/0"
+msgstr "Goed dan. Het aanbod is ingetrokken."
+
+#. We had expected better of your court. So be it.
+msgid "DialoguePoint/diplomatic/proposal_refused/1"
+msgstr "Wij hadden meer van uw hof verwacht. Het zij zo."
+
+#. The offer dies here. Do not come asking after it.
+msgid "DialoguePoint/diplomatic/proposal_refused/2"
+msgstr "Het aanbod sterft hier. Kom er niet achter vragen."
+
+#. You have had our patience. Now you shall have our broadsides.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/0"
+msgstr "U hebt ons geduld gehad. Nu zult u onze bordées krijgen."
+
+#. Our guns are laid, our letters are finished, and our patience is spent.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/1"
+msgstr "Ons geschut staat gericht, onze brieven zijn geschreven, en ons geduld is op."
+
+#. Let the sea judge between our crowns, since the court could not.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/2"
+msgstr "Laat de zee tussen onze kronen richten, daar het hof het niet kon."
+
+#. So be it. Every sail you take shall be answered for at the peace.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/0"
+msgstr "Het zij zo. Elke zeil die u neemt, wordt bij de vrede verantwoord."
+
+#. You strike first. We shall be the last to strike.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/1"
+msgstr "U slaat het eerst toe. Wij zullen de laatsten zijn die toeslaan."
+
+#. Our harbours are shut to your flag, and our cruisers are not idle.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/2"
+msgstr "Onze havens zijn voor uw vlag gesloten, en onze kruisers zitten niet stil."
+
+#. Your seat lies under our guns. Open the gates and spare the houses.
+msgid "DialoguePoint/event/capital_threatened/0"
+msgstr "Uw zetel ligt onder ons geschut. Open de poorten en spaar de huizen."
+
+#. We stand before your palace, and the question left is only how long.
+msgid "DialoguePoint/event/capital_threatened/1"
+msgstr "Wij staan voor uw paleis, en de enige vraag die overblijft is hoe lang."
+
+#. The town is ours to take when we choose it. Sleep on that.
+msgid "DialoguePoint/event/capital_threatened/2"
+msgstr "De stad is van ons te nemen wanneer wij het willen. Slaap daar maar op."
+
+#. Your flag is over our land. We were not asked, only told.
+msgid "DialoguePoint/event/colony_founded/0"
+msgstr "Uw vlag hangt boven ons land. Men heeft ons niet gevraagd, alleen gezegd."
+
+#. You have bought our elders and our ground in the same handshake.
+msgid "DialoguePoint/event/colony_founded/1"
+msgstr "U hebt onze oudsten en onze grond in dezelfde handdruk gekocht."
+
+#. The musket and the chapel came off the same ship. We carry both now.
+msgid "DialoguePoint/event/colony_founded/2"
+msgstr "De musket en de kapel kwamen van hetzelfde schip. Wij dragen nu beide."
+
+#. Our line broke on yours. The court has read every name aloud.
+msgid "DialoguePoint/event/field_lost/0"
+msgstr "Onze linie brak op de uwe. Het hof heeft elke naam hardop gelezen."
+
+#. We shall not dress it: the field was yours, and the colours with it.
+msgid "DialoguePoint/event/field_lost/1"
+msgstr "Wij zullen het niet mooier maken: het veld was het uwe, en de vaandels ermee."
+
+#. Our colours are in your hands. Do not think the war is in them.
+msgid "DialoguePoint/event/field_lost/2"
+msgstr "Onze vaandels zijn in uw handen. Denk niet dat de oorlog erin zit."
+
+#. Our line broke theirs in the open. The prisoners are already counting themselves.
+msgid "DialoguePoint/event/field_won/0"
+msgstr "Onze linie brak de hunne in het open veld. De gevangenen tellen zichzelf al."
+
+#. You brought your regiments into the open, and the open kept ours.
+msgid "DialoguePoint/event/field_won/1"
+msgstr "U bracht uw regimenten in het open veld, en het open veld hield de onze."
+
+#. The field is ours. We shall bury theirs and thank the ground for it.
+msgid "DialoguePoint/event/field_won/2"
+msgstr "Het veld is van ons. Wij zullen de hunnen begraven en de grond ervoor danken."
+
+#. Our squadron went down with the sun. The sea keeps what it takes.
+msgid "DialoguePoint/event/sea_lost/0"
+msgstr "Ons eskader ging met de zon ten onder. De zee houdt wat zij neemt."
+
+#. The water is yours. Our captains will be asked hard questions.
+msgid "DialoguePoint/event/sea_lost/1"
+msgstr "Het water is het uwe. Onze kapiteins zullen harde vragen moeten beantwoorden."
+
+#. We lost the station and the hulls with it. That is the whole of the news.
+msgid "DialoguePoint/event/sea_lost/2"
+msgstr "Wij verloren de post en de schepen ermee. Dat is het hele nieuws."
+
+#. Our broadsides settled it. The water is ours, and the wreckage with it.
+msgid "DialoguePoint/event/sea_won/0"
+msgstr "Onze bordées beslisten het. Het water is van ons, en het wrakhout ermee."
+
+#. Your squadron went down with the sun. We counted the masts from the shore.
+msgid "DialoguePoint/event/sea_won/1"
+msgstr "Uw eskader ging met de zon ten onder. Wij telden de masten vanaf de kust."
+
+#. The sea answered for us. Send no more sail where ours keeps station.
+msgid "DialoguePoint/event/sea_won/2"
+msgstr "De zee heeft voor ons geantwoord. Zend geen zeil meer waar de onze post houdt."
+
+#. The walls held. Your batteries bought nothing but smoke and patience.
+msgid "DialoguePoint/event/siege_held/0"
+msgstr "De muren hielden stand. Uw batterijen kochten niets dan rook en geduld."
+
+#. You broke on our ramparts. The guns are still ours, and so is the town.
+msgid "DialoguePoint/event/siege_held/1"
+msgstr "U brak op onze wallen. Het geschut is nog van ons, en de stad ook."
+
+#. Our stones outlasted your train. Come again when you have more of it.
+msgid "DialoguePoint/event/siege_held/2"
+msgstr "Onze stenen doorstonden uw trein. Kom terug wanneer u er meer hebt."
+
+#. Our guns fell silent before the wall did. The siege is raised.
+msgid "DialoguePoint/event/siege_lost/0"
+msgstr "Ons geschut zweeg vóór de muur. Het beleg is opgeheven."
+
+#. We shall not spend another train on those stones this year.
+msgid "DialoguePoint/event/siege_lost/1"
+msgstr "Wij besteden dit jaar geen tweede trein aan die stenen."
+
+#. The wall stood and our batteries did not. The court will hear of it.
+msgid "DialoguePoint/event/siege_lost/2"
+msgstr "De muur stond en onze batterijen niet. Het hof zal ervan horen."
+
+#. The breach is yours and the town with it. We shall want it back.
+msgid "DialoguePoint/event/siege_taken/0"
+msgstr "De bres is de uwe en de stad ermee. Wij zullen haar terug willen."
+
+#. Our walls failed us. The court is being told so this very hour.
+msgid "DialoguePoint/event/siege_taken/1"
+msgstr "Onze muren hebben ons begeven. Het hof wordt het juist dit uur gezegd."
+
+#. You have the town. The stones remember who raised them.
+msgid "DialoguePoint/event/siege_taken/2"
+msgstr "U hebt de stad. De stenen herinneren zich wie ze heeft opgetrokken."
+
+#. The breach is ours and the town with it. Our batteries did the talking.
+msgid "DialoguePoint/event/siege_won/0"
+msgstr "De bres is van ons en de stad ermee. Onze batterijen hebben het woord gedaan."
+
+#. Your walls came down in the end. We shall hold them better than you did.
+msgid "DialoguePoint/event/siege_won/1"
+msgstr "Uw muren zijn uiteindelijk gevallen. Wij zullen ze beter houden dan u."
+
+#. The garrison answered our last summons with a flag. The town is ours.
+msgid "DialoguePoint/event/siege_won/2"
+msgstr "Het garnizoen antwoordde op onze laatste sommatie met een vlag. De stad is van ons."
+
+#. Your scholars publish while ours still argue. We have taken note of it.
+msgid "DialoguePoint/event/tech_studied/0"
+msgstr "Uw geleerden geven uit terwijl de onze nog twisten. Wij hebben het opgemerkt."
+
+#. So the crown has learned something new. Our admirals will want to hear it.
+msgid "DialoguePoint/event/tech_studied/1"
+msgstr "Zo heeft de kroon iets nieuws geleerd. Onze admiralen zullen het willen horen."
+
+#. Every study your court finishes makes our own colleges quieter. Go carefully.
+msgid "DialoguePoint/event/tech_studied/2"
+msgstr "Elke studie die uw hof voltooit, maakt onze eigen hogescholen stiller. Wees voorzichtig."
+
+#. An alliance, then. Two crowns hold a sea better than one.
+msgid "DialoguePoint/negotiation/proposal_alliance/0"
+msgstr "Dan een bondgenootschap. Twee kronen houden een zee beter dan één."
+
+#. Our courts are close enough in mind. Shall we put it in ink?
+msgid "DialoguePoint/negotiation/proposal_alliance/1"
+msgstr "Onze hoven staan dicht genoeg bij elkaar. Zullen wij het op papier zetten?"
+
+#. Sign with us, and neither of us faces the next war alone.
+msgid "DialoguePoint/negotiation/proposal_alliance/2"
+msgstr "Teken met ons, en geen van ons beiden staat de volgende oorlog alleen."
+
+#. Let our merchants be favoured partners, and our ports will know it.
+msgid "DialoguePoint/negotiation/proposal_ftp/0"
+msgstr "Laat onze kooplieden bevoorrechte partners zijn, en onze havens zullen het weten."
+
+#. A trading pact between our crowns: your lots clear first at our quay.
+msgid "DialoguePoint/negotiation/proposal_ftp/1"
+msgstr "Een handelsverdrag tussen onze kronen: uw partijen worden eerst aan onze kaai afgehandeld."
+
+#. Put your name to a favoured pact, and we shall both sell at better rates.
+msgid "DialoguePoint/negotiation/proposal_ftp/2"
+msgstr "Zet uw naam onder een bevoorrecht verdrag, en wij verkopen beiden tegen betere prijzen."
+
+#. The pact of non-aggression, then. Our clerks have the draft ready.
+msgid "DialoguePoint/negotiation/proposal_nap/0"
+msgstr "Dan het niet-aanvalsverdrag. Onze klerken hebben het ontwerp gereed."
+
+#. One more step between our crowns. Put your seal to the pact.
+msgid "DialoguePoint/negotiation/proposal_nap/1"
+msgstr "Nog een stap tussen onze kronen. Zet uw zegel op het verdrag."
+
+#. We are near enough to sign it. Let the non-aggression pact stand.
+msgid "DialoguePoint/negotiation/proposal_nap/2"
+msgstr "Wij staan dicht genoeg om te tekenen. Laat het niet-aanvalsverdrag staan."
+
+#. A consul at your court and your merchants at our quay. Shall we?
+msgid "DialoguePoint/negotiation/proposal_overture/0"
+msgstr "Een consul aan uw hof en uw kooplieden aan onze kaai. Zullen wij?"
+
+#. We propose an arrangement of mutual use. The papers are ready.
+msgid "DialoguePoint/negotiation/proposal_overture/1"
+msgstr "Wij stellen een regeling van wederzijds nut voor. De papieren zijn gereed."
+
+#. Small treaties keep the peace. Come, agree to one.
+msgid "DialoguePoint/negotiation/proposal_overture/2"
+msgstr "Kleine verdragen bewaren de vrede. Kom, stem erin toe."
+
+#. Let the guns fall silent. We offer a white peace.
+msgid "DialoguePoint/negotiation/proposal_peace/0"
+msgstr "Laat het geschut zwijgen. Wij bieden een witte vrede aan."
+
+#. We have both lost enough ships to this war. Shall we stop?
+msgid "DialoguePoint/negotiation/proposal_peace/1"
+msgstr "Wij hebben beiden schepen genoeg aan deze oorlog verloren. Zullen wij ophouden?"
+
+#. Our terms are a white peace, no more and no less. Answer it.
+msgid "DialoguePoint/negotiation/proposal_peace/2"
+msgstr "Onze voorwaarden zijn een witte vrede, niet meer en niet minder. Antwoord."
+
+#. Your court is always welcome here, and your squadrons beside ours.
+msgid "DialoguePoint/reactive/standing_alliance/0"
+msgstr "Uw hof is hier altijd welkom, en uw eskaders naast de onze."
+
+#. The alliance holds. Long may it suit us both.
+msgid "DialoguePoint/reactive/standing_alliance/1"
+msgstr "Het bondgenootschap houdt. Moge het ons beiden lang bevallen."
+
+#. We have little to say to your court.
+msgid "DialoguePoint/reactive/standing_cold/0"
+msgstr "Wij hebben uw hof weinig te zeggen."
+
+#. Our clerks record your name, and nothing warmer.
+msgid "DialoguePoint/reactive/standing_cold/1"
+msgstr "Onze klerken schrijven uw naam op, en niets hartelijkers."
+
+#. You will always find a friend of our court in this harbour.
+msgid "DialoguePoint/reactive/standing_friendly/0"
+msgstr "U zult in deze haven altijd een vriend van ons hof vinden."
+
+#. Our doors are open to your envoy, at any hour.
+msgid "DialoguePoint/reactive/standing_friendly/1"
+msgstr "Onze deuren staan voor uw gezant open, op elk uur."
+
+#. Our clerks record your name; nothing more today.
+msgid "DialoguePoint/reactive/standing_neutral/0"
+msgstr "Onze klerken schrijven uw naam op; vandaag niet meer."
+
+#. The court is civil, and no more than civil.
+msgid "DialoguePoint/reactive/standing_neutral/1"
+msgstr "Het hof is hoffelijk, en niet meer dan hoffelijk."
+
+#. The war stands. We shall speak again when one of us tires.
+msgid "DialoguePoint/reactive/standing_war/0"
+msgstr "De oorlog staat. Wij spreken elkaar weer wanneer één van ons vermoeid raakt."
+
+#. Our courts have nothing to add to the guns.
+msgid "DialoguePoint/reactive/standing_war/1"
+msgstr "Onze hoven hebben aan het geschut niets toe te voegen."
+
+#. %s has declared war on %s. %s
+msgid "Prompt/declaration"
+msgstr "%s heeft de oorlog verklaard aan %s. %s"
+
+#. CALL TO ARMS
+msgid "Prompt/call/caption"
+msgstr "OPROEP TEN WAPEN"
+
+#. Our formal alliance binds us: join the war against %s, or refuse and break the treaty — −50 with %s and −10 with every other Great Power but the aggressor.
+msgid "Prompt/call/stake"
+msgstr "Ons plechtig bondgenootschap bindt ons: neem deel aan de oorlog tegen %s, of weiger en breek het verdrag — −50 met %s en −10 met elke andere grote mogendheid behalve de aanvaller."
+
+#. %s calls on our alliance against %s.
+msgid "Prompt/call/toast"
+msgstr "%s roept ons bondgenootschap in tegen %s."
+
+#. INTERVENTION
+msgid "Prompt/intervention/caption"
+msgstr "TUSSENKOMST"
+
+#. Our embassy stands: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_embassy"
+msgstr "Onze ambassade staat: kom tussenbeide, protesteer, of blijf afzijdig en verlies de ambassade."
+
+#. Our deed there is at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deed"
+msgstr "Onze concessie aldaar staat op het spel: neem deel aan de oorlog, protesteer, of blijf afzijdig."
+
+#. Our %d deeds there are at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deeds"
+msgstr "Onze %d concessies aldaar staan op het spel: neem deel aan de oorlog, protesteer, of blijf afzijdig."
+
+#. Our embassy stands and our deed there is at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deed"
+msgstr "Onze ambassade staat en onze concessie aldaar staat op het spel: kom tussenbeide, protesteer, of blijf afzijdig en verlies de ambassade."
+
+#. Our embassy stands and our %d deeds there are at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deeds"
+msgstr "Onze ambassade staat en onze %d concessies aldaar staan op het spel: kom tussenbeide, protesteer, of blijf afzijdig en verlies de ambassade."
+
+#. PROPOSAL
+msgid "Prompt/proposal/caption"
+msgstr "VOORSTEL"
+
+#. %s proposes a formal alliance.
+msgid "Prompt/proposal/alliance"
+msgstr "%s stelt een plechtig bondgenootschap voor."
+
+#. %s proposes a white peace.
+msgid "Prompt/proposal/peace"
+msgstr "%s stelt een witte vrede voor."
+
+#. %s proposes a favoured trading pact.
+msgid "Prompt/proposal/ftp"
+msgstr "%s stelt een bevoorrecht handelsverdrag voor."
+
+#. %s proposes the Trade Consulate.
+msgid "Prompt/proposal/overture/consulate"
+msgstr "%s stelt het handelsconsulaat voor."
+
+#. %s proposes the Embassy.
+msgid "Prompt/proposal/overture/embassy"
+msgstr "%s stelt de ambassade voor."
+
+#. %s proposes the Non-Aggression Pact.
+msgid "Prompt/proposal/overture/nap"
+msgstr "%s stelt het niet-aanvalsverdrag voor."
+
+#. %s proposes the Join Empire.
+msgid "Prompt/proposal/overture/join_empire"
+msgstr "%s stelt de aansluiting bij zijn rijk voor."
+
+#. %s proposes the No overture.
+msgid "Prompt/proposal/overture/none"
+msgstr "%s stelt geen toenadering voor."
+
+#. Favoured terms: imports at %d%%, exports at %d%%.
+msgid "Prompt/proposal/terms"
+msgstr "Bevoorrechte voorwaarden: invoer tegen %d%%, uitvoer tegen %d%%."
+
+#. “%s”
+msgid "Prompt/proposal/quote"
+msgstr "„%s”"
+
+#. Answer the proposal.
+msgid "Prompt/proposal/answer"
+msgstr "Beantwoord het voorstel."
+
+#. Join the war
+msgid "Prompt/button/join"
+msgstr "Deelnemen aan de oorlog"
+
+#. Refuse
+msgid "Prompt/button/refuse"
+msgstr "Weigeren"
+
+#. Intervene
+msgid "Prompt/button/intervene"
+msgstr "Tussenbeide komen"
+
+#. Stand aside
+msgid "Prompt/button/stand_aside"
+msgstr "Afzijdig blijven"
+
+#. Protest
+msgid "Prompt/button/protest"
+msgstr "Protesteren"
+
+#. Accept
+msgid "Prompt/button/accept"
+msgstr "Aanvaarden"
+
+#. Considering
+msgid "Prompt/mood/considering"
+msgstr "Overwegend"
+
+#. Pleased
+msgid "Prompt/mood/pleased"
+msgstr "Voldaan"
+
+#. Gracious
+msgid "Prompt/mood/gracious"
+msgstr "Genadig"
+
+#. Calculating
+msgid "Prompt/mood/calculating"
+msgstr "Berekenend"
+
+#. Skeptical
+msgid "Prompt/mood/skeptical"
+msgstr "Sceptisch"
+
+#. Impatient
+msgid "Prompt/mood/impatient"
+msgstr "Ongeduldig"
+
+#. Irritated
+msgid "Prompt/mood/irritated"
+msgstr "Geërgerd"
+
+#. Dismissive
+msgid "Prompt/mood/dismissive"
+msgstr "Minachtend"

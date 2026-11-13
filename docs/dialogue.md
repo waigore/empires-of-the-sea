@@ -61,7 +61,7 @@ jump loop is bounded.
 
 Each variant answers to `DialoguePoint/<point>/<variant>` through
 `TranslationServer`; an untranslated key keeps the authored English
-(`REQ-P2-03`). `fr.po` and `es.po` ship, each answering every variant; any `.po`
+(`REQ-P2-03`). `fr.po`, `es.po` and `nl.po` ship, each answering every variant; any `.po`
 in `assets/locales/` is a tongue, and CI holds every file to the catalogue. The device's tongue decides unless the reader picks one; `TonguePage`
 on the title and the pause menu moves the next line and keeps the pick in
 `user://tongue.cfg` (`REQ-P5-07`).

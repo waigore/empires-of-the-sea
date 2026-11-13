@@ -45,7 +45,10 @@ func _run() -> void:
 	_check(not menu.settings_button.disabled, "settings opens from the title")
 	menu.settings_button.emit_signal("pressed")
 	_check(menu.tongue_page != null and menu.tongue_page.is_open(), "tongue page opens")
-	_check(menu.tongue_page.rows.size() >= 3, "the device and both tongues are offered")
+	_check(
+		menu.tongue_page.rows.size() >= 4, "the device and all three tongues are offered"
+	)
+	_check(_has_text(menu.tongue_page, "Nederlands"), "the Dutch court is offered by its own name")
 	menu.tongue_page.close()
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
