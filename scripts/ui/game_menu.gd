@@ -216,9 +216,10 @@ func handle_back() -> bool:
 	if not is_open():
 		return false
 	if browser != null and browser.visible:
+		# Prefer the shared closer so pause rows and the browser stay in sync.
 		_show_pause_page()
-	else:
-		close()
+		return true
+	close()
 	return true
 
 

@@ -39,8 +39,7 @@ static func set_locale(_code: String) -> void:
 
 ## Pins the engine to English so an OS tongue never steers court copy.
 static func ensure_english() -> void:
-	if String(TranslationServer.get_locale()) != SOURCE_LOCALE:
-		TranslationServer.set_locale(SOURCE_LOCALE)
+	TranslationServer.set_locale(SOURCE_LOCALE)
 
 
 ## The only supported locale.

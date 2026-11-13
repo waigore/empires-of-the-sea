@@ -164,6 +164,26 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 		assert_eq(home.province, target, "the Home Army holds the chosen seat")
 
 
+## Back from the save browser returns to the pause rows; back again closes
+## (REQ-P5-07). Covers the browser-visible branch of handle_back.
+func test_back_from_the_save_browser_returns_to_pause() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	screen.game_menu.open_save()
+	assert_true(screen.game_menu.browser.visible, "save browser opens")
+	assert_true(screen.game_menu.handle_back(), "back is handled")
+	assert_false(screen.game_menu.browser.visible, "browser steps aside")
+	assert_true(screen.game_menu.is_open(), "pause menu stays open")
+	assert_true(get_tree().paused, "tree stays paused")
+	assert_true(screen.game_menu.handle_back(), "back closes the pause menu")
+	assert_false(screen.game_menu.is_open(), "pause menu closed")
+	assert_false(get_tree().paused, "tree resumes")
+	assert_false(screen.game_menu.handle_back(), "back is a no-op when closed")
+
+
 func test_menu_save_load_and_return_flow() -> void:
 	await _start_game()
 	var screen: MapScreen = main.current_screen

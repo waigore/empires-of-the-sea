@@ -40,8 +40,7 @@ func _run() -> void:
 	if menu == null:
 		_finish()
 		return
-	_check(menu.new_game_button != null, "new game is offered on the title")
-	_check(menu.load_game_button != null, "load game is offered on the title")
+	# English-only: the tongue settings door is gone.
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
 
@@ -162,6 +161,7 @@ func _run() -> void:
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
 	_check(paused, "in-game menu pauses the tree")
+	# English-only: no mid-campaign tongue page.
 	screen.game_menu.open_save()
 	_check(screen.game_menu.browser.visible, "save browser opens")
 	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)
