@@ -2390,6 +2390,36 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	assert_true(line.contains("2 left on the far shore"))
 	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
 
+
+## A study the purse cannot pay is a rule with a floor, not a broken purse: the
+## turn's own despatch names what stopped it, so a crown that never opens the
+## college still learns why (wiki: tech-tree-labour-economy § money_lending,
+## banking; REQ-P5-05).
+func test_the_turn_summary_names_the_lending_floor_behind_an_unpaid_slot() -> void:
+	var lending: Dictionary = {"research": {"unpaid": ["land_enclosure"], "floor": -500}}
+	var line: String = LedgerText.turn_summary(lending)
+	assert_true(line.contains("1 research slot unfunded"), line)
+	assert_true(line.contains("the -500 lending floor is reached"), line)
+
+	var borrowing: Dictionary = {"research": {"unpaid": ["a", "b"], "floor": 0}}
+	var tied: String = LedgerText.turn_summary(borrowing)
+	assert_true(tied.contains("2 research slots unfunded"), tied)
+	assert_true(tied.contains("research may not borrow"), tied)
+
+
+## The same rule spelled out for the college and the slot's own hover.
+func test_the_floor_text_follows_money_lending_and_banking() -> void:
+	assert_true(LedgerText.research_floor_line(0).contains("stops at 0 ducats"))
+	assert_true(LedgerText.research_floor_line(0).contains("Money Lending"))
+	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("-500"))
+	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("Banking"))
+	assert_true(
+		LedgerText.research_floor_line(ResearchFunding.BANK_DEBT_FLOOR).contains("-1,000"),
+		"both techs, both figures read as money"
+	)
+	assert_eq(LedgerText.research_floor_note(0), "research may not borrow")
+	assert_eq(LedgerText.research_floor_note(ResearchFunding.DEBT_FLOOR), "the -500 lending floor is reached")
+
 # --- test_trade_cargo ---
 
 func _trade_cargo_world() -> WorldMap:
