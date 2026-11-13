@@ -66,6 +66,12 @@ static func _readings(
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
+	# The Tribe this court is drawing into its empire: the envoy chain's target,
+	# next step and price (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+	var colony_ambition: Dictionary = AiTribeColony.best(
+		play.diplomacy, play.world, play.court_charts, faction,
+		economy.treasury, economy.tech_unlocked
+	)
 	# The surplus ladder reads the money-goal reserve; the standing study is one
 	# slot at the cheapest preset above half the cash floor, so the ledger prices
 	# what the court will actually pay (issue #490).
@@ -100,6 +106,9 @@ static func _readings(
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
+		"tribe_target": int(colony_ambition.get("target", -1)),
+		"tribe_stage": String(colony_ambition.get("stage", "")),
+		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
 	}
 
 
