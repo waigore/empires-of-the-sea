@@ -49,7 +49,8 @@ static func build_hud(play: PlaySession) -> void:
 	play.economy.play = play
 	play.economy.setup(
 		play.model, play.player_faction, play.capital_province, play.ship_layer,
-		play.army_layer, hud, play.land_works, play.capital_tile
+		play.army_layer, hud, play.land_works, play.capital_tile,
+		String(play.leaders.get(play.player_faction, ""))
 	)
 	# Colonial yield ships home from every region, so the controller reads the
 	# whole works table (the world already reaches it through the ship layer).

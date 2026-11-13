@@ -69,9 +69,11 @@ func _init(index: int) -> void:
 
 ## Rewrites the row from live research state. `boost` maps tech id -> spy-network
 ## percent, so the row can name the share a shadowed court hands over
-## (DR-20261110-03).
+## (DR-20261110-03). `leader` is the crown's leaderKey, whose published funding
+## multiplier the next-turn RP already includes (leader-bonuses — Victoria).
 func update(
-	state: ResearchState, boost: Dictionary, treasury: int, animate: bool = true
+	state: ResearchState, boost: Dictionary, treasury: int, leader: String = "",
+	animate: bool = true
 ) -> void:
 	var tech_id: String = state.tech_at(slot)
 	var idle: bool = tech_id.is_empty()
@@ -92,7 +94,7 @@ func update(
 		_fill_icon(tech_id)
 	var funding: String = state.funding_at(slot)
 	var plan: Dictionary = ResearchTurn.preview(
-		state, tech_id, funding, treasury, SpyNetworks.boost_for(boost, tech_id)
+		state, tech_id, funding, treasury, SpyNetworks.boost_for(boost, tech_id), leader
 	)
 	_gold_next = int(plan["gold"])
 	_rp_next = int(plan["rp"])

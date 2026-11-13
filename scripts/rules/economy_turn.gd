@@ -9,7 +9,8 @@ extends RefCounted
 ## `advance_market` is false for rival courts sharing one world market: the
 ## player's own resolution moves prices once per turn. `hospital_demands` is the
 ## ordered ration of every hospital staff in the crown, seat first
-## (DR-20261112-04).
+## (DR-20261112-04). `leader_key` is the crown's leader, whose published funding
+## multiplier lifts its research points (wiki: leader-bonuses — Victoria).
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -18,11 +19,12 @@ static func resolve(
 	army_food: int = 0,
 	advance_market: bool = true,
 	research_boost: Dictionary = {},
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	leader_key: String = ""
 ) -> Dictionary:
 	return _run(
 		economy, market, extraction, ship_count, army_food, advance_market,
-		research_boost, hospital_demands
+		research_boost, hospital_demands, leader_key
 	)
 
 
@@ -34,13 +36,14 @@ static func project(
 	ship_count: int,
 	army_food: int = 0,
 	research_boost: Dictionary = {},
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	leader_key: String = ""
 ) -> Dictionary:
 	var before: Dictionary = economy.stockpile.duplicate()
 	var treasury_before: int = economy.treasury
 	var report: Dictionary = _run(
 		economy.copy(), market.copy(), extraction, ship_count, army_food, false,
-		research_boost, hospital_demands
+		research_boost, hospital_demands, leader_key
 	)
 	var deltas: Dictionary = {}
 	for id: String in CommodityCatalog.all_ids():
@@ -60,7 +63,8 @@ static func _run(
 	army_food: int,
 	advance_market: bool,
 	research_boost: Dictionary = {},
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	leader_key: String = ""
 ) -> Dictionary:
 	var extracted: Dictionary = {}
 	for commodity: Variant in extraction.keys():
@@ -104,7 +108,7 @@ static func _run(
 	economy.production.wip = (planned.get("wip", {}) as Dictionary).duplicate(true)
 	# Research runs last: its gold comes out of the treasury Production left.
 	var research: Dictionary = ResearchTurn.resolve(
-		economy.research, economy, research_boost
+		economy.research, economy, research_boost, leader_key
 	)
 	var prices: Dictionary = {}
 	if advance_market:
