@@ -688,18 +688,18 @@ func _smoke_end_turn(
 	)
 	_check(screen.economy.economy.total_units() > 0, "stockpile holds goods")
 	_check(
-		screen.economy.readings.extraction().size() > 0,
+		screen.economy.extraction().size() > 0,
 		"owned provinces yield commodities"
 	)
 	screen.economy.open_panel()
 	await process_frame
 	_check(screen.hud.panels.is_economy_open(), "ledger opens")
 	_check(
-		int(screen.economy.readings.trade_cargo().get("holds", 0)) > 0,
+		int(screen.economy.trade_cargo().get("holds", 0)) > 0,
 		"the home fleet carries trade cargo"
 	)
 	var grain_before: int = screen.economy.economy.quantity("grain")
-	screen.economy.orders.trade("grain", 1, true)
+	screen.economy._on_trade("grain", 1, true)
 	_check(
 		screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
 		"the ledger stages imports against cargo holds"
@@ -726,7 +726,7 @@ func _smoke_end_turn(
 			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
 			"the turn-end auction fills the offer bid"
 		)
-	screen.economy.orders.set_production("lumber", 1)
+	screen.economy._on_production("lumber", 1)
 	_check(
 		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
@@ -945,7 +945,7 @@ func _options_has(options: Array[Dictionary], action: String) -> bool:
 
 ## Runs one world-market clearing pass for the human ledger, as the turn does.
 func _clear_market(screen: MapScreen) -> void:
-	var cargo: Dictionary = screen.economy.readings.trade_cargo()
+	var cargo: Dictionary = screen.economy.trade_cargo()
 	MarketClearing.clear(
 		screen.economy.market,
 		screen.play.world,

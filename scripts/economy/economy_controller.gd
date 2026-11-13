@@ -41,11 +41,66 @@ var leader_key: String = ""
 var readings: LedgerReadings = null
 ## The ledger's and the college's button presses, as intents.
 var orders: LedgerOrders = null
+## Last world-market clearing receipt; owned by [member readings], exposed here
+## so map helpers keep one ledger handle (REQ-P3-01).
+var last_clearing: Dictionary:
+	get:
+		return readings.last_clearing if readings != null else {}
+	set(value):
+		if readings != null:
+			readings.last_clearing = value
 
 
 func _init() -> void:
 	readings = LedgerReadings.new(self)
 	orders = LedgerOrders.new(self)
+
+
+## Thin pass-throughs: callers that only need a figure keep talking to this
+## node; the reading still has one owner (REQ-P3-01).
+func fleet_ships() -> int:
+	return readings.fleet_ships() if readings != null else 0
+
+
+func tech_caps() -> Dictionary:
+	return readings.tech_caps() if readings != null else {}
+
+
+func army_food() -> int:
+	return readings.army_food() if readings != null else 0
+
+
+func trade_cargo() -> Dictionary:
+	return readings.trade_cargo() if readings != null else {}
+
+
+func cargo_holds() -> int:
+	return readings.cargo_holds() if readings != null else 0
+
+
+func overseas_plan() -> Dictionary:
+	return readings.overseas_plan() if readings != null else {}
+
+
+func feeding_coverage() -> float:
+	return readings.feeding_coverage() if readings != null else 1.0
+
+
+func extraction() -> Dictionary:
+	return readings.extraction() if readings != null else {}
+
+
+func projected() -> Dictionary:
+	return readings.projected() if readings != null else {}
+
+
+func projected_income() -> int:
+	return readings.projected_income() if readings != null else 0
+
+
+func _on_worker_action(tier: int, action: String) -> void:
+	if orders != null:
+		orders.worker_action(tier, action)
 
 
 func setup(

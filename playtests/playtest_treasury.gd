@@ -248,11 +248,11 @@ func _read_chip(label: String) -> void:
 
 
 func _promised_delta() -> int:
-	return _play.economy.readings.projected_income()
+	return _play.economy.projected_income()
 
 
 func _projection() -> Dictionary:
-	return _play.economy.readings.projected()
+	return _play.economy.projected()
 
 
 ## The panel's summary sentence: treasury, labour, food need and strikes

@@ -136,7 +136,7 @@ func _start_pass() -> void:
 	_check("the stepper takes the order", String(steel["stepper"]) == "3")
 	# The promise nets this phase's harvest, so the drive reads the same table:
 	# a mine that yields a ton of the input this turn offsets a run's price.
-	var gathered: Dictionary = _play.economy.readings.projected().get("extraction", {}) as Dictionary
+	var gathered: Dictionary = _play.economy.projected().get("extraction", {}) as Dictionary
 	var iron_gathered: int = int(gathered.get("iron", 0))
 	var coal_gathered: int = int(gathered.get("coal", 0))
 	_check("the promise pays iron this phase", promise.contains("Iron %+d" % (iron_gathered - 3)))
@@ -229,7 +229,7 @@ func _one_turn_pass() -> void:
 	# The turn gathers timber before the workshop spends it, so the check reads the
 	# promise's own harvest beside the order's price.
 	var harvested: int = int(
-		(_play.economy.readings.projected().get("extraction", {}) as Dictionary).get("timber", 0)
+		(_play.economy.projected().get("extraction", {}) as Dictionary).get("timber", 0)
 	)
 	_check("the calendar moves", _advance())
 	_say("turn %d: lumber %d -> %d, timber %d -> %d (harvest +%d)" % [

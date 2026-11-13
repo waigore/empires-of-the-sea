@@ -54,7 +54,7 @@ static func build_hud(play: PlaySession) -> void:
 	# own sealed ports (wiki: capital-and-connectivity § Blockade).
 	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
 	hud.set_treasury(play.treasury(), false)
-	play.income = play.economy.readings.projected_income()
+	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
 	MapPlayFocus.bind(play)
 	play.improvements.play = play
@@ -151,7 +151,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	if play.economy == null:
 		return
 	play.refresh_research()
-	play.income = play.economy.readings.projected_income()
+	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
 	play.improvements.play = play
 	play.improvements.set_data(

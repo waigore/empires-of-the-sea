@@ -25,7 +25,7 @@ static func begin(play: PlaySession) -> void:
 	if play.hud == null or play.economy == null:
 		return
 	play.hud.set_treasury(play.treasury(), false)
-	play.income = play.economy.readings.projected_income()
+	play.income = play.economy.projected_income()
 	play.hud.set_income(play.income)
 
 

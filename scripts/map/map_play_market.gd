@@ -20,7 +20,7 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 		if ledger != null:
 			economies[faction] = ledger
 		if faction == play.player_faction and not play.observer_mode:
-			var cargo: Dictionary = play.economy.readings.trade_cargo()
+			var cargo: Dictionary = play.economy.trade_cargo()
 			free_holds[faction] = int(cargo.get("clear_free", cargo.get("free", 0)))
 		else:
 			var entry: Dictionary = _faction_report(economy_report, faction)
@@ -33,7 +33,7 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 	play.market_report = report
 	# The ledger reads this receipt: a sale's ducats and the overseas share are
 	# otherwise invisible on every surface the player has (REQ-P5-05).
-	play.economy.readings.last_clearing = report
+	play.economy.last_clearing = report
 	play.economy.refresh_panel()
 	return report
 
