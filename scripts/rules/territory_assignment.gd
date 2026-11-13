@@ -15,8 +15,9 @@ const LAYOUT_ATTEMPTS: int = 6
 const ERROR_NO_PROVINCES: String = "no_provinces"
 const ERROR_TOO_FEW_PROVINCES: String = "too_few_provinces"
 const ERROR_NO_SEA_BOUND_PROVINCE: String = "missing_sea_bound_province"
-## A faction seated in a pocket too small for its budget leaves the split lopsided;
-## the wiki says setup fails rather than ship it (game-setup § Feasibility).
+## Wiki code when a Tribe owns no sea-bound province (game-setup § Tribe assignment).
+const ERROR_TRIBE_SEA_BOUND: String = "tribe_missing_sea_bound_province"
+## Unfair split: pocket too small for a faction's budget (game-setup § Feasibility).
 const ERROR_UNFAIR_SPLIT: String = "unfair_split"
 
 
@@ -28,17 +29,17 @@ static func assign_old_world(
 	return _assign(model, gp_ids, minor_ids, true)
 
 
-## New World: every Tribe must own at least one sea-bound province so fleets can
-## discover it (wiki: game-setup § Tribe assignment).
+## New World Tribes need a sea-bound province; miss → ERROR_TRIBE_SEA_BOUND.
 static func assign_new_world(model: MapModel, tribe_ids: Array[int]) -> Dictionary:
-	return _assign(model, tribe_ids, [] as Array[int], true)
+	return _assign(model, tribe_ids, [] as Array[int], true, ERROR_TRIBE_SEA_BOUND)
 
 
 static func _assign(
 	model: MapModel,
 	primary_ids: Array[int],
 	minor_ids: Array[int],
-	sea_bound_required: bool
+	sea_bound_required: bool,
+	sea_bound_error: String = ERROR_NO_SEA_BOUND_PROVINCE
 ) -> Dictionary:
 	if model.provinces.is_empty():
 		return _failure(ERROR_NO_PROVINCES)
@@ -94,7 +95,7 @@ static func _assign(
 			var pool: Array = _sea_pool(model, chunk_ids) if sea_bound_required else chunk_ids
 			if pool.size() < group.size():
 				if sea_bound_required:
-					return _failure(ERROR_NO_SEA_BOUND_PROVINCE)
+					return _failure(sea_bound_error)
 				pool = chunk_ids
 			var targets: Dictionary = {}
 			_share(chunk_ids.size(), group, targets)
