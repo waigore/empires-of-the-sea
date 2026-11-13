@@ -23,6 +23,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [intel-dossier.md](intel-dossier.md) | Court dossier: agenda suspicion, evidence, bands |
 | [ai.md](ai.md) | Rival-court AI: registry, personalities, agendas, diplomacy planner |
 | [ai-observer.md](ai-observer.md) | Full-AI observer: live dashboard, metrics, headless export |
+| [ai-objectives.md](ai-objectives.md) | AI objective ledger: one utility, rank and allocate (#491) |
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [naval-despatch.md](naval-despatch.md) | The sea's despatch plate: a resolved battle told on the water |

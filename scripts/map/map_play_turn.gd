@@ -141,6 +141,10 @@ static func _show_pending(play: PlaySession) -> bool:
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+	# The objective ledger ranks every court's aims before the expedition pass
+	# reads its hulls; T1 stamps that ranking into the trace and changes no order
+	# (docs/ai.md; issue #491).
+	var objective_ledgers: Dictionary = MapPlayObjectivesAi.run(play)
 	# Rival expeditions board and sail before the field armies march, so an army
 	# chosen for the crossing is not also ordered inland (docs/ai.md).
 	var invasion_trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
@@ -203,7 +207,7 @@ static func _finish_turn(play: PlaySession) -> void:
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
 	var raid_report: Dictionary = MapPlayRaids.resolve(play)
-	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
+	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace, objective_ledgers)
 	play.turn += 1
 	# The new turn opens the crown's watch: a rival squadron still under the same
 	# eye that saw her last turn is read now, and her weight reaches the markers

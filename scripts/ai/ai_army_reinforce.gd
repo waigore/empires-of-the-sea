@@ -37,7 +37,7 @@ static func plan(
 	}
 	if config == null or economy == null:
 		return result
-	var target: int = _target(config, at_war)
+	var target: int = target_for(config, at_war)
 	result["target"] = target
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
@@ -63,8 +63,9 @@ static func plan(
 
 
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
-## war (wiki: ai-architecture § Land reinforcement).
-static func _target(config: AiConfig, at_war: bool) -> int:
+## war (wiki: ai-architecture § Land reinforcement). Public so the objective
+## ledger prices the muster against the same target (issue #491 T1).
+static func target_for(config: AiConfig, at_war: bool) -> int:
 	var target: int = config.parameter("army.regiment_target")
 	if at_war:
 		target += config.parameter("army.war_extra")
@@ -98,7 +99,7 @@ static func muster_reserve(
 	own_regiments: int,
 	at_war: bool
 ) -> Dictionary:
-	if config == null or economy == null or own_regiments >= _target(config, at_war):
+	if config == null or economy == null or own_regiments >= target_for(config, at_war):
 		return {}
 	var type_id: String = saving_type(config, economy)
 	if type_id.is_empty():
@@ -139,7 +140,7 @@ static func muster_floor(
 ) -> int:
 	if config == null or economy == null:
 		return 0
-	if own_regiments >= _target(config, at_war):
+	if own_regiments >= target_for(config, at_war):
 		return 0
 	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
 		"army.min_peasants"
