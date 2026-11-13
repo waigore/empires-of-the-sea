@@ -51,6 +51,20 @@ func test_weariness_grows_turn_by_turn_and_stops_at_the_scale() -> void:
 	assert_eq(AiWarMemory.weariness(config, ai_state, 400, RIVAL, OWNER), 100, "capped at the scale")
 
 
+func test_a_missing_ledger_or_calendar_reads_no_memory() -> void:
+	# The terms are pure: a caller with no config or no book of grudges reads 0
+	# rather than guessing (REQ-P2-03).
+	var config: AiConfig = _config()
+	var ai_state := AiState.new()
+	ai_state.note_war(RIVAL, OWNER, 0)
+	ai_state.note_truce(RIVAL, OWNER, 1)
+
+	assert_eq(AiWarMemory.weariness(null, ai_state, 20, RIVAL, OWNER), 0)
+	assert_eq(AiWarMemory.weariness(config, null, 20, RIVAL, OWNER), 0)
+	assert_eq(AiWarMemory.truce(null, ai_state, 2, RIVAL, OWNER), 0)
+	assert_eq(AiWarMemory.truce(config, null, 2, RIVAL, OWNER), 0)
+
+
 func test_a_truce_holds_the_pair_and_then_expires() -> void:
 	var config: AiConfig = _config()
 	var ai_state := AiState.new()
