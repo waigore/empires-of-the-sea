@@ -15,12 +15,16 @@ var load_button: Button = null
 var main_menu_button: Button = null
 var resume_button: Button = null
 var browser: SaveBrowser = null
+## Live campaign seed (wiki: game-setup); copy puts the digits on the clipboard.
+var seed_label: Label = null
+var copy_seed_button: Button = null
 
 var _ui: Control = null
 var _overlay: Control = null
 var _pause_page: VBoxContainer = null
 var _status: Label = null
 var _owns_pause: bool = false
+var _shown_seed: int = 0
 
 
 func _ready() -> void:
@@ -87,6 +91,17 @@ func _build_overlay() -> void:
 	if not short:
 		_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
 
+	_pause_page.add_child(MenuFrame.caption("Map seed"))
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 8)
+	_pause_page.add_child(seed_row)
+	seed_label = MenuFrame.subtitle("—")
+	seed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seed_row.add_child(seed_label)
+	copy_seed_button = MenuFrame.small_button("COPY", 96.0)
+	copy_seed_button.pressed.connect(_on_copy_seed)
+	seed_row.add_child(copy_seed_button)
+
 	resume_button = MenuFrame.action_button("RESUME", row)
 	resume_button.pressed.connect(close)
 	_pause_page.add_child(resume_button)
@@ -121,6 +136,7 @@ func open() -> void:
 		return
 	_overlay.visible = true
 	_show_pause_page()
+	_refresh_seed()
 	_status.text = ""
 	_owns_pause = true
 	get_tree().paused = true
@@ -200,6 +216,34 @@ func _on_main_menu() -> void:
 func _save_dir() -> String:
 	var screen := get_parent() as MapScreen
 	return screen.save_dir if screen != null else SaveStore.DIR
+
+
+## Prefer the session seed once play is live; fall back to the screen pin.
+func _resolve_seed() -> int:
+	var screen := get_parent() as MapScreen
+	if screen == null:
+		return 0
+	if screen.play != null:
+		return screen.play.map_seed
+	return screen.map_seed
+
+
+func _refresh_seed() -> void:
+	_shown_seed = _resolve_seed()
+	if seed_label != null:
+		seed_label.text = str(_shown_seed) if _shown_seed != 0 else "—"
+	if copy_seed_button != null:
+		copy_seed_button.disabled = _shown_seed == 0
+
+
+func _on_copy_seed() -> void:
+	if _shown_seed == 0:
+		_refresh_seed()
+	if _shown_seed == 0:
+		return
+	DisplayServer.clipboard_set(str(_shown_seed))
+	if _status != null:
+		_status.text = "Seed copied."
 
 
 func _input(event: InputEvent) -> void:
