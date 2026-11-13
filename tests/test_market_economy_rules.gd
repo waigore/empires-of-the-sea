@@ -1842,7 +1842,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	controller.capital_tile = Vector2i(0, 0)
 	controller.works = works
 	controller.economy = PlayerEconomy.starting()
-	assert_false(controller.blockade().any(), "no stations to read yet")
+	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
 	assert_eq(
 		int(controller.extraction().get("grain", 0)),
 		1 + Extraction.CAPITAL_GRAIN_BONUS,
