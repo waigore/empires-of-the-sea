@@ -299,9 +299,9 @@ func _run() -> void:
 
 	var cues_before: int = 0
 	var audio: AudioDirector = main.get_node_or_null("Audio") as AudioDirector
-	var controls: AudioControls = screen.hud.get_node_or_null("AudioControls") as AudioControls
+	var controls: SoundDesk = screen.game_menu.sound_desk
 	_check(audio != null, "audio director present")
-	_check(controls != null, "sound seal present")
+	_check(controls != null, "sound desk in the pause menu")
 	if audio != null:
 		_check(audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing")
 		_check(audio._ambience.playing, "sea ambience playing")

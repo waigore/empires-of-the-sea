@@ -24,11 +24,12 @@ func test_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_false(lens.active)
 	assert_false(_screen.hud.lens_legend.visible)
 
-	MapPlayInput.toggle_diplomacy_lens(_screen.play)
+	MapPlayInput.set_diplomacy_lens(_screen.play, true)
 	assert_true(lens.active)
 	assert_true(_screen.hud.lens_legend.visible)
 	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_DIPLOMACY)
-	assert_true(_screen.hud._diplomacy_lens_button.button_pressed)
+	assert_true(_screen.hud.lens_seal.button_pressed)
+	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_DIPLOMACY)
 	assert_gt(int(lens.survey["tiles"]["self"]), 0)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
@@ -36,10 +37,10 @@ func test_toggle_raises_the_key_and_builds_a_survey() -> void:
 	lens.queue_redraw()
 	await get_tree().process_frame
 
-	MapPlayInput.toggle_diplomacy_lens(_screen.play)
+	MapPlayInput.set_diplomacy_lens(_screen.play, false)
 	assert_false(lens.active)
 	assert_false(_screen.hud.lens_legend.visible)
-	assert_false(_screen.hud._diplomacy_lens_button.button_pressed)
+	assert_false(_screen.hud.lens_seal.button_pressed)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 1.0, 0.001)
 
 
@@ -53,13 +54,14 @@ func test_the_two_lenses_are_exclusive() -> void:
 	MapPlayInput.set_diplomacy_lens(_screen.play, true)
 	assert_false(_screen.play.lens.active)
 	assert_true(_screen.play.diplomacy_lens.active)
-	assert_false(_screen.hud._lens_button.button_pressed)
+	assert_true(_screen.hud.lens_seal.button_pressed, "the one seal stays raised")
+	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_DIPLOMACY)
 	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_DIPLOMACY)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
 	MapPlayInput.set_lens(_screen.play, true)
 	assert_false(_screen.play.diplomacy_lens.active)
-	assert_false(_screen.hud._diplomacy_lens_button.button_pressed)
+	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_SURVEY)
 	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_SURVEY)
 
 

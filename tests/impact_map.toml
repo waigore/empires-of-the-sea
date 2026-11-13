@@ -336,6 +336,30 @@ domain = "oob"
 match = "scripts/map/map_play_diplomacy_consent.gd*"
 domain = "diplomacy"
 
+# The map screen controller and the pause page: only the suites that mount
+# them (tier-1 budget; the rules buckets stay on their own files).
+[domains.screen]
+suites = [
+  "test_map_screen.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_main.gd",
+  "test_menu_flow.gd",
+  "test_save_codec.gd",
+  "test_army_orders.gd",
+  "test_mobile_layout.gd",
+  "test_map_view_rules.gd",
+  "test_civilian_turn_rules.gd"
+]
+
+[domains.pause]
+suites = [
+  "test_menu_flow.gd",
+  "test_main.gd",
+  "test_court_ui_parts.gd",
+  "test_audio_rules.gd",
+  "test_mobile_layout.gd"
+]
+
 [domains.map]
 suites = [
   "test_advanced_start.gd",
@@ -987,6 +1011,16 @@ domain = "prospect"
 match = "scripts/ui/lens_legend.gd*"
 domain = "crown_road"
 
+# The bar's one reading seal (click cycles, hold names) and the shared mix desk
+# are their own widgets: keep them off the scripts/ui/** → menu catch-all.
+[[rules]]
+match = "scripts/ui/lens_seal.gd*"
+domain = "layout"
+
+[[rules]]
+match = "scripts/ui/sound_desk.gd*"
+domain = "audio"
+
 [[rules]]
 match = "scripts/ui/palette.gd*"
 domain = "crown_road"
@@ -1065,11 +1099,12 @@ full = true
 match = "ui/**"
 domain = "ui"
 
-# MapScreen carries setup fields into PlaySession; difficulty owns that bridge
-# so the layer does not pull the whole map suite set (domains.difficulty).
+# The screen controller's own edit (input wiring, HUD mounting) is exercised by
+# the suites that mount it; the rules buckets it used to borrow (difficulty,
+# menu) send AI, battle and advanced-start suites that never mount a screen.
 [[rules]]
 match = "scripts/map_screen.gd"
-domain = "difficulty"
+domain = "screen"
 
 [[rules]]
 match = "scripts/rules/difficulty.gd*"
@@ -1865,9 +1900,11 @@ domain = "menu"
 match = "scripts/ui/menu_frame.gd"
 domain = "menu"
 
+# The pause page mounts in these suites; the menu bucket's advanced-start and
+# land-battle suites never open it.
 [[rules]]
 match = "scripts/ui/game_menu.gd"
-domain = "menu"
+domain = "pause"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"
