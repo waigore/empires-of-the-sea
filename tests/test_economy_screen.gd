@@ -76,13 +76,21 @@ func test_production_assignment_reaches_the_projection() -> void:
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)
 
 
+## A recruit pressed on the ledger is a queued order: the press files it, the
+## head arrives with the next Build/work, and the fabric is paid when it lands
+## (wiki: workers-and-population § Phase placement).
 func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["fabric"] = 2
 	var before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
-	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before + 1)
-	assert_eq(economy.quantity("fabric"), 0)
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before, "the head arrives next turn")
+	assert_eq(economy.quantity("fabric"), 2, "the order is paid when it resolves")
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT)),
+		1,
+		"the order is filed on the crown's queue"
+	)
 
 
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
