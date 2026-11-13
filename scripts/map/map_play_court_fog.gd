@@ -56,7 +56,8 @@ static func research_revealed(play: PlaySession, faction: int) -> Dictionary:
 
 
 ## A squadron entering a zone charts its water and the strict coastal ring, for
-## its own court only (wiki: ships-and-naval § Ship Reveal Mechanic).
+## its own court only (wiki: ships-and-naval § Ship Reveal Mechanic). The court's
+## leader may publish one further orthogonal land ring (leader-bonuses § Henry).
 static func note_fleet_entry(
 	play: PlaySession, region: int, fleet: FleetState, zone: int
 ) -> void:
@@ -64,7 +65,8 @@ static func note_fleet_entry(
 		return
 	if play.court_charts == null:
 		return
-	var changed: Array = play.court_charts.reveal_sea_zone(fleet.owner, region, zone)
+	var rings: int = LeaderCatalog.coastal_rings(String(play.leaders.get(fleet.owner, "")))
+	var changed: Array = play.court_charts.reveal_sea_zone(fleet.owner, region, zone, rings)
 	_sync_owner(play, region, fleet.owner, changed)
 
 
