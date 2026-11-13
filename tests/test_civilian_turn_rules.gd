@@ -1289,7 +1289,9 @@ func test_seat_capital_refuses_foreign_inland_and_outside_tiles() -> void:
 
 ## A court on `earn` still works its own land, but only the extraction that
 ## refills the store: town levels, roads and ports wait for the muster it is
-## saving for (issue #489).
+## saving for (issue #489). A survey survives: the deposit is hidden until the
+## Explorer digs, so its order names no resource — dropping it left every rival
+## with an idle Explorer for the whole campaign.
 func test_an_earning_court_keeps_only_extraction_works() -> void:
 	var model := MapModel.new()
 	model.setup(3, 1)
@@ -1301,13 +1303,15 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 			{"action": "build_improvement", "tile": Vector2i(0, 0)},
 			{"action": "build_improvement", "tile": Vector2i(1, 0)},
 			{"action": "build_town", "tile": Vector2i(2, 0)},
+			{"action": "prospect", "tile": Vector2i(1, 0)},
 		],
 	}
 
 	MapPlayCivilianAi._keep_extraction(plan, model)
 
-	assert_eq((plan["orders"] as Array).size(), 1, "only the resource tile survives")
+	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
+	assert_eq(String((plan["orders"] as Array)[1]["action"]), "prospect")
 
 
 ## The two purses: a court on `earn` keeps the works open down to its cash floor
