@@ -2328,9 +2328,10 @@ func test_a_court_saving_for_its_muster_pays_only_the_standing_study() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.treasury = 2300
 	var floor: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	var cash: int = AiResearchPlanner.research_floor(config)
 	assert_eq(floor, 2400, "400 kept + 2,000 peasant levies")
 	var plan: Dictionary = AiResearchPlanner.plan(
-		config, economy, {"treasury_floor": floor}
+		config, economy, {"treasury_floor": floor, "cash_floor": cash}
 	)
 	var paid: int = 0
 	for entry: Dictionary in plan["assignments"]:
@@ -2339,8 +2340,23 @@ func test_a_court_saving_for_its_muster_pays_only_the_standing_study() -> void:
 		paid += 1
 		assert_eq(String(entry["funding"]), "low", "only the standing study is paid")
 	assert_eq(paid, 1, "one standing study, the war chest stays whole")
+	# Parked at the cash floor while the muster is still open: the surplus ladder
+	# stays at none, but the standing study still pays (issue #490).
+	economy.treasury = 500
+	AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": floor, "cash_floor": cash}
+	)
+	var funded: int = 0
+	for slot in economy.research.slots.size():
+		if economy.research.funding_at(slot) == "none":
+			continue
+		funded += 1
+		assert_eq(economy.research.funding_at(slot), "low")
+	assert_eq(funded, 1, "a war chest at the cash floor still studies")
 	economy.treasury = 4000
-	plan = AiResearchPlanner.plan(config, economy, {"treasury_floor": floor})
+	AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": floor, "cash_floor": cash}
+	)
 	for slot in economy.research.slots.size():
 		assert_eq(
 			economy.research.funding_at(slot), "medium", "surplus funds the study"
