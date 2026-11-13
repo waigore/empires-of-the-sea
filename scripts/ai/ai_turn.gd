@@ -260,9 +260,8 @@ static func _apply(
 			var message: String = ""
 			if bool(offer.get("ok", false)):
 				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
-				# The court is done fighting this war: it holds the truce from
-				# the offer, so a refusal does not hand it a fresh war either
-				# (issue #475).
+				# Done fighting either way: the truce starts with the offer so a
+				# refusal does not hand the court a fresh war (issue #475).
 				ai_state.note_truce(faction, target, turn)
 			return {"result": offer, "message": message}
 		var peace: Dictionary = DiplomacyRules.make_peace(
@@ -275,9 +274,7 @@ static func _apply(
 			# selection; DR-20261109-07).
 			ai_state.note_peace(faction, target, turn)
 			if bool(peace.get("accepted", false)):
-				# A concluded peace starts the pair's truce: the halted war is
-				# not re-declared at the first legal turn (issue #475).
-				ai_state.note_truce(faction, target, turn)
+				ai_state.note_truce(faction, target, turn)  # issue #475
 		return {
 			"result": peace,
 			"message": String(peace.get("message", "")),
@@ -322,8 +319,7 @@ static func _peace_answer(
 	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
 		config, state, world, target, offerer, _reading(shared, target)
 	)
-	# Weariness ends a war the court cannot win even when its raw desire still
-	# sits above the bar (wiki: diplomacy § War goals; issue #475).
+	# Weariness ends a war the court cannot win (wiki: diplomacy § War goals).
 	var worn: int = AiWarMemory.penalty(config, ai_state, turn, target, offerer, true)
 	if not AiPeaceStance.refuses(config, maxi(int(desire["score"]) - worn, 0)):
 		return DiplomacyRules.DECISION_AUTO

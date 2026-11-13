@@ -14,14 +14,14 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
-  peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
-  At war, desire below `50 + peace_bias` offers peace; an envious court adds
-  +20 against the leader; a deed resists.
+  peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire/25)`.
+  At war, desire below `50 + peace_bias` offers peace; envy adds +20 against
+  the leader, a deed resists. Weariness and truces (#475) lower it.
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
-  boycott, subsidy, aid. Friendly acts cost desire and standing
-  (DR-20261110-15); an isolationist prices a pact 20 lower, a backstabber +25
-  (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival, wars first; consents queue.
+  boycott, subsidy, aid; friendly acts cost desire and standing
+  (DR-20261110-15), and an isolationist prices a pact 20 lower, a backstabber
+  +25 (DR-20261111-27).
+- **Turn pass** (`AiTurn`): one order per rival, wars first.
 - **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
   Home regiment; field armies save or storm.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
@@ -49,16 +49,16 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs above that floor; merchants sail home, one hull more when
   tonnage outruns them (DR-20261110-26).
-- **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
-  Tribes stay 1; rivals re-equip and pay attack prices.
+- **Regiment parity** (`MilitaryParity`): Minors match the leading era; Tribes
+  stay 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and its saving pattern's inputs (DR-20261113-08); seat moves
-  recall it. At war the wornest army takes a train (DR-20261112-08).
+  (DR-20261111-04) and its pattern's inputs (DR-20261113-08); seat moves recall
+  it. At war the wornest army takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; overstretch
-  takes any peace (DR-20261113-15).
+- **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
+  any peace (DR-20261113-15).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate in a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
 - **Persistence:** agendas, cooldowns, ledgers, claims

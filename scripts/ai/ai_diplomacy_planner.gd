@@ -103,10 +103,7 @@ static func decide(
 		var desire: Dictionary = war_desire(
 			config, state, world, config.faction, target, context
 		)
-		# What the last war taught this court: weariness while it fights, the
-		# truce while it holds peace (wiki: diplomacy § Cooldowns; issue #475).
-		# The penalty lowers desire, never legality — every order still passes
-		# its own rules check (REQ-P2-03).
+		# War memory (issue #475): the penalty lowers desire, never legality.
 		var memory: int = AiWarMemory.penalty(
 			config, ai_state, turn, config.faction, target, record.at_war
 		)

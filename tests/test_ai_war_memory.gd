@@ -177,6 +177,27 @@ func test_a_peace_concludes_and_records_the_truce() -> void:
 	assert_true(run.has("trace"))
 
 
+func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
+	# The worn warmonger puts the white peace to the human court instead of
+	# signing it: the offer alone ends its appetite, so a refusal does not hand
+	# the court a fresh war at the cooldown (issue #475).
+	var state: DiplomacyState = _court()
+	state.human_faction = OWNER
+	assert_true(bool(DiplomacyRules.declare_war(state, RIVAL, OWNER)["ok"]))
+	var ai_state := AiState.new()
+	ai_state.agendas[RIVAL] = AiAgenda.WARMONGER
+	ai_state.note_war(RIVAL, OWNER, 1)
+	AiTurn.run(
+		state, AiFixture.world([OWNER, RIVAL, RIVAL, RIVAL]), ai_state,
+		200, 4, SEED, {"regiments": {}, "ships": {}}
+	)
+
+	assert_true(
+		ai_state.last_truce_turn.has(AiState.pair_key(OWNER, RIVAL)),
+		"the offer starts the truce"
+	)
+
+
 func test_a_save_round_trips_the_truce() -> void:
 	var ai_state := AiState.new()
 	ai_state.note_truce(RIVAL, OWNER, 17)
