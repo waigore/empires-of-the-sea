@@ -29,6 +29,9 @@ const W_RESEARCH_STEP: int = 5
 const W_ECONOMY: int = 55
 const W_CARGO: int = 40
 const W_NAVY: int = 60
+## A court at war with no fighting hull puts the yard ahead of a sortie: it has
+## nothing to sortie with (issue #484, #500).
+const W_NAVY_BUILD: int = 90
 ## The expedition's children: the hull and the Explorer it must have, and a
 ## voyage already afloat, which outranks every new aim of the same court.
 const W_HULL: int = 60
@@ -141,14 +144,25 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 
 ## The fleet's turn: a squadron at war sorts out; a court with no hull at sea
 ## builds one (T5 makes the build a funded objective, #500).
+## The fleet's turn: a squadron with hulls sorts out; a court with no fighting
+## hull, or one outmatched on its own coast, lays one down instead. The build's
+## cost is the cheapest warship its techs open (issue #491 T5, #484).
 static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not at_war:
 		return null
-	var own: int = int(readings.get("ships", 0))
-	var hostile: int = int(readings.get("hostile_ships", 0))
+	var own: int = int(readings.get("warships", 0))
+	var hostile: int = int(readings.get("hostile_warships", 0))
+	var threat: int = AiUtility.ratio(hostile, maxi(own + hostile, 1))
 	if own <= 0:
-		return AiObjective.create("navy.build", "naval", W_NAVY, {"treasury": 1, "hull": 1})
-	var threat: int = AiUtility.ratio(hostile, maxi(own, 1))
+		return AiObjective.create(
+			"navy.build", "naval", W_NAVY_BUILD,
+			{"treasury": int(readings.get("warship_price", 0)), "hull": 1}
+		)
+	if hostile > own:
+		return AiObjective.create(
+			"navy.build", "naval", AiUtility.clamp_utility(W_NAVY_BUILD - 20 + threat / 2),
+			{"treasury": int(readings.get("warship_price", 0)), "hull": 1}
+		)
 	return AiObjective.create(
 		"navy.sortie", "naval", AiUtility.clamp_utility(W_NAVY + threat / 2), {"hull": 1}
 	)

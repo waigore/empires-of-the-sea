@@ -44,6 +44,15 @@ the aim it waited on. The voyage's footing is read from the ledger: a funded
 `colonise.new_world` opens the muster even at war, because the peace window is
 what bought it.
 
+## The navy's build leg
+
+`navy.build` is a funded aim at war when the court has no fighting hull or is
+outmatched on its own coast (utility 90 / 70 against a sortie's 60). Its cost is
+the cheapest warship the court's techs open (`treasury` price, one `hull` slip);
+`MapPlayCargoAi` lays the hull down through `FleetYard` when the claim funds, and
+the turn trace names it ("lays down a Sloop of War for the fleet"). A court at
+peace prices no yard at all, so there is no idle churn.
+
 ## Migration
 
 | Step | Issue | State |
@@ -52,5 +61,5 @@ what bought it.
 | T2 expedition package | #497 | shipped |
 | T3 reservations become claims | #498 | pending |
 | T4 posture modifier + weights | #499 | shipped |
-| T5 naval build policy | #500 | pending |
+| T5 naval build policy | #500 | shipped |
 | T6 ai-bench funded share | #501 | pending |

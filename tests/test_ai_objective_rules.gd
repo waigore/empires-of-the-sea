@@ -131,7 +131,10 @@ func _readings() -> Dictionary:
 		"muster_due": true,
 		"muster_floor": 300,
 		"ships": 2,
+		"warships": 4,
+		"warship_price": 5500,
 		"hostile_ships": 0,
+		"hostile_warships": 0,
 		"treasury": 2000,
 		"reserve": 500,
 		"goal": AiIncome.GOAL_SPEND,
@@ -193,6 +196,7 @@ func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	readings["posture"] = AiPhasePlanner.PHASE_WAR
 	readings["war_desire"] = 70
 	readings["hostile_ships"] = 3
+	readings["hostile_warships"] = 3
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 
 	assert_eq(int(_by_id(objectives, "peace.window").utility), 30)
@@ -228,6 +232,39 @@ func test_a_starved_expedition_names_the_child_it_lacks() -> void:
 
 	assert_true(line.contains("deferred"), "the starved hull is reported: %s" % line)
 	assert_true(line.contains("hull 0/1"), "with its shortfall: %s" % line)
+
+
+func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "a court at war with no fighting hull builds one")
+	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
+	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
+	assert_eq(int(build.cost["hull"]), 1)
+
+
+func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 1
+	readings["hostile_warships"] = 3
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "outmatched, the court replaces its hulls")
+	assert_true(
+		int(build.utility) > int(AiObjectivesPlan.W_NAVY),
+		"and the replacement outranks a sortie"
+	)
+
+
+func test_a_court_at_peace_lays_down_nothing() -> void:
+	var readings: Dictionary = _readings()
+	readings["warships"] = 0
+	assert_eq(_by_id(AiObjectivesPlan.build(readings), "navy.build"), null)
 
 
 # --- the adapter and the trace ----------------------------------------------
@@ -392,6 +429,37 @@ func test_a_peaceful_court_with_a_funded_claim_issues_the_voyage() -> void:
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
+
+## Issue #500: a court at war with a hostile squadron and a funded build aim
+## lays a warship down through the yard, not just on paper.
+func test_a_funded_navy_build_lays_a_warship_down() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OWNER, RIVAL).at_war = true
+	var play: PlaySession = _session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var report: Dictionary = MapPlayObjectivesAi.run(play)
+	assert_true(
+		((report[OWNER] as Dictionary)["lines"] as Array).any(
+			func(line: Variant) -> bool: return String(line).begins_with("navy.build")
+		),
+		"the court at war prices its yard"
+	)
+	assert_true(
+		(play.ai.objectives_for(OWNER)["funded_ids"] as Array).has("navy.build"),
+		"a rich court funds it"
+	)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OWNER, economy)
+	assert_false((cargo.get("warship", {}) as Dictionary).is_empty(), "the hull is laid down")
+	assert_eq(
+		String((cargo["warship"] as Dictionary)["type_id"]), "sloop",
+		"the cheapest warship its techs open"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
 # --- posture as a modifier ---------------------------------------------------
 

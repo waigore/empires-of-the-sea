@@ -82,7 +82,10 @@ static func _readings(
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
 		"ships": _ships(play, faction),
+		"warships": _warships(play, faction),
+		"warship_price": _warship_price(economy),
 		"hostile_ships": _hostile_ships(play, faction),
+		"hostile_warships": _hostile_warships(play, faction),
 		"treasury": economy.treasury,
 		"reserve": reserve,
 		"goal": AiIncome.goal_for(config, economy, at_war, regiments),
@@ -182,6 +185,56 @@ static func _ships(play: PlaySession, faction: int) -> int:
 	if play.ship_layer == null:
 		return 0
 	return play.ship_layer.hull_count_all(faction)
+
+
+## Fighting hulls this court holds: the build objective is for a court that has
+## none, or too few for the squadrons in reach (issue #491 T5, #484).
+static func _warships(play: PlaySession, faction: int) -> int:
+	return _fighting_hulls(play, faction)
+
+
+## Fighting hulls of every court at war with this one.
+static func _hostile_warships(play: PlaySession, faction: int) -> int:
+	if play.ship_layer == null:
+		return 0
+	var total: int = 0
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record == null or not record.at_war:
+			continue
+		total += _fighting_hulls(play, record.other(faction))
+	return total
+
+
+## Hulls of a court that can fight: the build objective's own reading, so a
+## court with only merchant hulls still wants a warship.
+static func _fighting_hulls(play: PlaySession, owner: int) -> int:
+	if play.ship_layer == null:
+		return 0
+	var total: int = 0
+	for region: int in play.ship_layer.regions.region_ids():
+		for raw: Variant in play.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw
+			if fleet == null or fleet.owner != owner:
+				continue
+			for hull_id: String in fleet.hulls:
+				if ShipStats.is_warship(fleet.type_of(hull_id)):
+					total += 1
+	return total
+
+
+## The cheapest warship this court's techs open: what the build objective costs.
+static func _warship_price(economy: PlayerEconomy) -> int:
+	var best: int = 0
+	for raw: Variant in ShipEconomy.ENTRIES.keys():
+		var type_id: String = String(raw)
+		if not ShipStats.is_warship(type_id):
+			continue
+		if not ShipEconomy.buildable(type_id, economy.tech_unlocked):
+			continue
+		var price: int = ShipEconomy.treasury_cost(type_id)
+		if best == 0 or price < best:
+			best = price
+	return best
 
 
 ## Hulls of every court at war with this one: the threat the navy objective
