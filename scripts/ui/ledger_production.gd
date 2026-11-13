@@ -26,7 +26,16 @@ func _recipe_row(recipe_id: String) -> Control:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_label)
 
-	var units: int = _economy.assignment_units(recipe_id)
+	# The workshop tag: how long a multi-turn row waits, and what is already
+	# serving its turns. Text only, so a phone row keeps its thumb-sized buttons.
+	var note: String = LedgerText.workshop_note(_economy, recipe_id)
+	if not note.is_empty():
+		var tag := UiRowBuilder.label(note, 12, Palette.TEXT_DIM)
+		var hint: String = LedgerText.workshop_tooltip(_economy, recipe_id)
+		tag.tooltip_text = hint
+		row.add_child(tag)
+
+	var units: int = _economy.production.assignment_units(recipe_id)
 	var stepper := UiRowBuilder.label("%d" % units, 14, Palette.GOLD_PALE)
 	stepper.custom_minimum_size = Vector2(48, 0)
 	stepper.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

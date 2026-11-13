@@ -113,7 +113,7 @@ func test_observer_former_crown_plays_through_the_planners() -> void:
 	_step(1)
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)
 	assert_true(
-		economy.assignments().size() > 0,
+		economy.production.assignments().size() > 0,
 		"the former human crown sets production like a rival"
 	)
 	var record: Dictionary = play.ai_turns[0]["factions"][play.player_faction]

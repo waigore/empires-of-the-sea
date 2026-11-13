@@ -1019,8 +1019,12 @@ func test_plan_respects_assignment_order_and_labour_budget() -> void:
 		4,
 		{}
 	)
+	# Steel takes the full labour budget first; castIron never starts. Alloy
+	# output stays in the workshop until the next Production phase.
 	assert_eq(report["runs"], {"steel": 2})
-	assert_eq(stock["steel"], 2)
+	assert_eq(report["produced"], {})
+	assert_eq(int(stock.get("steel", 0)), 0)
+	assert_eq(ProductionRecipes.in_flight(report["wip"], "steel"), 2)
 	assert_eq(stock["iron"], 2)
 	assert_eq(stock["coal"], 0)
 	assert_eq(report["labour_used"], 4)

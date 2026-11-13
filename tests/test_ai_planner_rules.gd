@@ -818,8 +818,11 @@ func test_a_researched_pattern_is_the_one_that_musters() -> void:
 	assert_eq(String(plan["muster"]), "musketeers", "the newest legal line wins")
 
 ## One peace-time world: England's seat at province 0, France's at province 1,
-## with a rival ledger already resolved for France.
-func _play(treasury: int = 12000, with_ledger: bool = true) -> PlaySession:
+## with a rival ledger already resolved for France. `extra` appends the caller's
+## field armies to the region roster.
+func _play(
+	treasury: int = 12000, with_ledger: bool = true, extra: Array[ArmyState] = []
+) -> PlaySession:
 	var world: WorldMap = AiFixture.land_world([HUMAN, ai_army_reinforce_OWNER], {0: true, 1: true})
 	var model: MapModel = world.region(0)
 	var armies: Array[ArmyState] = [
@@ -828,6 +831,7 @@ func _play(treasury: int = 12000, with_ledger: bool = true) -> PlaySession:
 			2, ai_army_reinforce_OWNER, 1, true, ["peasant_levies", "peasant_levies"] as Array[String], 101
 		),
 	]
+	armies.append_array(extra)
 	var layer := ArmyLayer.new()
 	layer.model = model
 	layer.next_army = 100
@@ -902,6 +906,207 @@ func test_the_observer_log_reads_the_muster() -> void:
 	var lines: Array = record["events"]
 	assert_true(lines.size() > 0, "the event list names the pattern")
 	play.army_layer.free()
+
+# --- test_ai_hospital_train_work ---
+
+## France's ledger at war: enough lumber and cloth for a train and a yard's work
+## behind it, Organised Regiments, and three peasants — so the fields keep their
+## hands and the muster stays silent in these tests.
+func _train_economy(lumber: int = 40, fabric: int = 12, tech: bool = true) -> PlayerEconomy:
+	var economy: PlayerEconomy = _ai_army_reinforce_economy()
+	economy.stockpile["lumber"] = lumber
+	economy.stockpile["fabric"] = fabric
+	economy.workers = WorkerPool.make(3)
+	if tech:
+		economy.tech_unlocked["organised_regiments"] = true
+	return economy
+
+
+## A worn field army of France's standing on France's own ground, and a war on.
+## `extra` adds more field armies for the one-train-a-turn case.
+func _train_play(
+	worn_health: int = 12, war: bool = true, extra: Array[ArmyState] = []
+) -> PlaySession:
+	var field := ArmyState.muster(
+		3, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 201
+	)
+	for regiment_id: String in field.regiments:
+		field.regiment_health[regiment_id] = worn_health
+	## It has marched already, so the turn's trace carries the surgeons alone.
+	field.moved = true
+	var armies: Array[ArmyState] = [field]
+	armies.append_array(extra)
+	var play: PlaySession = _play(12000, true, armies)
+	play.ai.economies[ai_army_reinforce_OWNER] = _train_economy()
+	if war:
+		DiplomacyRules.declare_war(play.diplomacy, ai_army_reinforce_OWNER, HUMAN)
+	return play
+
+
+func _train_ledger(play: PlaySession) -> PlayerEconomy:
+	return play.ai.economies[ai_army_reinforce_OWNER]
+
+
+func _train_roster(play: PlaySession) -> Array[ArmyState]:
+	var roster: Array[ArmyState] = []
+	roster.assign(play.army_layer.regions.value(0, []))
+	return roster
+
+
+func _chosen(play: PlaySession, at_war: bool = true) -> ArmyState:
+	return AiHospitalTrainWork.best_army(
+		play.model, _train_roster(play), ai_army_reinforce_OWNER, _train_ledger(play), at_war
+	)
+
+
+func test_a_worn_field_army_gets_the_rivals_surgeons() -> void:
+	var play: PlaySession = _train_play()
+	var chosen: ArmyState = _chosen(play)
+
+	assert_not_null(chosen, "a court at war will not leave a mauled host in the field")
+	if chosen != null:
+		assert_eq(chosen.id, 3, "the field army, not the Home Army at its seat")
+		assert_true(
+			AiHospitalTrainWork.worn(chosen) < AiHospitalTrainWork.WORN_SHARE,
+			"one wound short of a rest is all the policy asks",
+		)
+	play.army_layer.free()
+
+
+func test_peace_leaves_the_tents_in_the_wagon() -> void:
+	var play: PlaySession = _train_play(12, false)
+
+	assert_true(_chosen(play, false) == null, "nurses eat: no tents are pitched in peace")
+	play.army_layer.free()
+
+
+func test_a_fresh_army_needs_no_surgeon() -> void:
+	var play: PlaySession = _train_play(9999)
+
+	assert_true(_chosen(play) == null, "an unwounded host has nothing to mend")
+	play.army_layer.free()
+
+
+func test_a_province_ward_beats_the_train() -> void:
+	var play: PlaySession = _train_play()
+	for province: ProvinceState in play.model.provinces:
+		if province.owner == ai_army_reinforce_OWNER:
+			province.hospital_level = HospitalRules.MAX_LEVEL
+
+	assert_true(_chosen(play) == null, "a General hospital already heals better")
+	play.army_layer.free()
+
+
+func test_the_train_waits_for_organised_regiments() -> void:
+	var play: PlaySession = _train_play()
+	_train_ledger(play).tech_unlocked.erase("organised_regiments")
+
+	assert_true(_chosen(play) == null, "the rule's tech gate is the planner's too")
+	play.army_layer.free()
+
+
+func test_the_yard_keeps_its_timber() -> void:
+	var play: PlaySession = _train_play()
+	_train_ledger(play).stockpile["lumber"] = 3
+
+	assert_true(_chosen(play) == null, "the price must leave a working stock behind")
+	play.army_layer.free()
+
+
+func test_the_map_pass_pitches_the_rivals_train() -> void:
+	var play: PlaySession = _train_play()
+	var economy: PlayerEconomy = _train_ledger(play)
+	var lumber: int = economy.quantity("lumber")
+	var fabric: int = economy.quantity("fabric")
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	var hops: Array[Dictionary] = []
+	for record: Dictionary in trace:
+		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+			hops.append(record)
+	assert_eq(hops.size(), 1, "one train in the turn")
+	assert_eq(int(hops[0]["faction"]), ai_army_reinforce_OWNER)
+	assert_eq(int(hops[0]["army"]), 3)
+	assert_true(
+		_field_army(play).field_hospital,
+		"the standard carries the tents from now on"
+	)
+	assert_eq(economy.quantity("lumber"), lumber - 2, "the court's own timber pays")
+	assert_eq(economy.quantity("fabric"), fabric - 1)
+	play.army_layer.free()
+
+
+## Two equally worn hosts: the lowest army id carries the tents, so a given
+## roster always answers the same way.
+func test_a_tie_goes_to_the_lowest_army_id() -> void:
+	var twin := ArmyState.muster(
+		4, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 301
+	)
+	for regiment_id: String in twin.regiments:
+		twin.regiment_health[regiment_id] = 12
+	twin.moved = true
+	var play: PlaySession = _train_play(12, true, [twin] as Array[ArmyState])
+	var chosen: ArmyState = _chosen(play)
+
+	assert_not_null(chosen)
+	if chosen != null:
+		assert_eq(chosen.id, 3, "army 3 and army 4 are worn alike; the lower id wins")
+	play.army_layer.free()
+
+
+func test_the_court_brings_one_train_a_turn() -> void:
+	var second := ArmyState.muster(
+		4, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 301
+	)
+	for regiment_id: String in second.regiments:
+		second.regiment_health[regiment_id] = 12
+	second.moved = true
+	var play: PlaySession = _train_play(12, true, [second] as Array[ArmyState])
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	var trained: int = 0
+	for record: Dictionary in trace:
+		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+			trained += 1
+	assert_eq(trained, 1, "a court equips one train a turn")
+	var carrying: int = 0
+	for army: ArmyState in _train_roster(play):
+		if army != null and army.field_hospital:
+			carrying += 1
+	assert_eq(carrying, 1)
+	play.army_layer.free()
+
+
+func test_the_observer_log_reads_the_train() -> void:
+	var play: PlaySession = _train_play()
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	var merged: Dictionary = AiTurnLog.record(play, trace, [], {})
+	var record: Dictionary = merged["factions"][ai_army_reinforce_OWNER]
+
+	assert_eq(int(record["actions"].get("hospital", 0)), 1, "the train is its own act")
+	assert_eq(int(record["actions"].get("march", 0)), 0, "never miscounted as a march")
+	var named: bool = false
+	for line: Dictionary in merged["events"]:
+		if String(line.get("text", "")).contains("field hospital train"):
+			named = true
+	assert_true(named, "the log names the train and the ground")
+	assert_true(
+		AiTurnLog.headline(record).contains("field hospitals ×1"),
+		"the observer panel headline counts the train",
+	)
+	play.army_layer.free()
+
+
+func _field_army(play: PlaySession) -> ArmyState:
+	for army: ArmyState in _train_roster(play):
+		if army != null and army.id == 3:
+			return army
+	return null
 
 # --- test_ai_builder_work ---
 

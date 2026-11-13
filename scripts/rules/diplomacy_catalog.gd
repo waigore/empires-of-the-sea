@@ -108,6 +108,16 @@ static func stage_label(stage: String) -> String:
 	return String(STAGE_LABELS.get(stage, "No overture"))
 
 
+## The pact's published rate, in the words the court that must answer it reads:
+## a favoured pact clears the crown's lots at 95% of the price and sells at
+## 105% (wiki: world-market § FTP — the pact publishes those terms; DR-20261110-10).
+static func ftp_terms_text() -> String:
+	return "imports at %d%%, exports at %d%%" % [
+		roundi((1.0 - FTP_TERMS) * 100.0),
+		roundi((1.0 + FTP_TERMS) * 100.0),
+	]
+
+
 ## Next link in the overture chain, or "" when Join Empire is already held.
 static func next_stage(stage: String) -> String:
 	match stage:

@@ -26,6 +26,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [fleets.md](fleets.md) | Fleet movement, docking, ship reveal and naval combat |
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
+| [field-hospital.md](field-hospital.md) | A train's tents: pitching, rest tempo, rations, travel |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [battle-sim.md](battle-sim.md) | Visual Battle Simulator: a playtesting view of Quick Battle |
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |

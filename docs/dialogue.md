@@ -1,7 +1,7 @@
 # Dialogue and mood
 
 A court speaks once an act is done. Presentation only: the rules record events,
-`DialogueEvents` reads one back into a line and a face, and no mood or word ever
+`DialogueEvents` reads one into a line and a face, and no mood or word ever
 feeds an outcome (`REQ-P2-03`).
 
 ## Modules
@@ -11,64 +11,68 @@ feeds an outcome (`REQ-P2-03`).
 | `scripts/rules/dialogue_catalog.gd` | Points and lines (`DialoguePoint/<category>/<situation>`) |
 | `scripts/rules/dialogue_episodes.gd` | The `event` beats: verdicts, a study, the seat, a colony |
 | `scripts/rules/dialogue_agenda*.gd` | The `agenda` beat: cadence, evidence gate, veiled points |
-| `scripts/rules/dialogue_mood.gd` | The eight portrait moods and the mood machine |
+| `scripts/rules/dialogue_mood.gd` | The eight moods, the mood machine |
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
-| `scripts/rules/dialogue_home.gd` | Which court answers the crown's own turn |
-| `scripts/map/map_play_court_voice.gd` | Reads the resolved turn and records its beats |
+| `scripts/rules/dialogue_yarn.gd` | The standing word authored as Yarn |
+| `scripts/rules/dialogue_locale.gd` | Locale keys, and the French tongue that ships |
+| `scripts/rules/yarn_*.gd` | Yarn parser, expression grammar, runner |
+| `scripts/map/map_play_court_voice.gd` | Reads the resolved turn, records its beats |
 
 ## Where it shows
 
-- **Court panel** — `THEIR ENVOY · <MOOD>` under the herald line: the pair's
-  newest voiced act, else the standing word for the band. The reader is never
-  the speaker.
-- **Proposal banner** — a waiting offer carries its face and line above
-  Accept / Refuse (`CourtPrompts`).
+- **Court panel** — `THEIR ENVOY · <MOOD>` under the herald line: the newest
+  voiced act, else the standing word. The reader never speaks.
+- **Proposal banner** — a waiting offer's face and line (`CourtPrompts`).
+- **Crown's charge** — a broadside names the seat and the age's terms; one press
+  begins (DR-20261110-35).
 
 ## What is voiced
 
-War and peace, alliances formed and broken, overtures, calls to arms,
-interventions, proposals answered, first contact, one standing remark per band,
-and a battle the crown fought (the court that read the verdict answers it; the
-line stays out of the chronicle). Bookkeeping — subsidy, aid, colony status —
-is silent. Every seventh turn a known rival may slip a veiled word about its
-own motive, once the dossier reads that motive as Likely (DR-20261111-19).
+War and peace, alliances, overtures, calls to arms, intervention, proposals
+answered, first contact, a standing remark per band, and a battle the crown
+fought (the court that read the verdict answers it).
+Bookkeeping — subsidy, aid, colony status — is silent. Every seventh turn a
+known rival may slip a veiled word on its motive (DR-20261111-19).
 
-The crown's own turn speaks too. A finished study is answered by the rival that
-watches it closest (lowest relation, ties by id) — one beat a turn, the
-costliest study. A hostile host in the crown's capital province is answered by
-its heaviest owner while the crown still holds the seat. A Tribe taken as a
-colony answers for its flag. Only the recording crown reads them, so a rival
-never quotes the crown to itself
+The crown's own turn speaks too — a finished study, a hostile host at the seat, a
+Tribe taken as a colony — read only by the recording crown
 ([`DR-20261111-08`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-08)).
 
 ## Determinism
 
-Every pick hashes `(turn, speaker, viewer, point)`: a reloaded campaign speaks
-the same words and face (`REQ-P2-04`). No RNG, no per-frame work — one line per
-panel refresh.
+Every pick hashes `(turn, speaker, viewer, point)`: a reload speaks the same
+words and face (`REQ-P2-04`). No RNG.
 
 ## Mood machine
 
-A waiting offer's face reads two inputs, then the seed breaks the tie:
-
 | Condition | Face |
 |-----------|------|
-| Fresh, unremarkable offer | `considering` (open mood) |
+| Fresh, unremarkable offer | `considering` |
 | Waited ≥ 3 turns | `impatient` / `skeptical` |
 | Quality ≥ +0.5 | `pleased` / `gracious` |
 | Quality ≤ −0.5 | `irritated` / `dismissive` |
 | Otherwise | `calculating` / `considering` |
 
-Quality is the relation surplus over what the offer requires (alliance, peace,
-NAP / Join Empire), normalised by 40 points, clamped to ±1.
+Quality is the surplus over the requirement, normalised by 40 and
+clamped to ±1.
 
-## The crown's charge
+## Yarn and localization
 
-Before the first turn a broadside addresses the leader, names the seat and prints
-the age's terms; one press begins, and a load skips it
-([`DR-20261110-35`](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261110-35)).
+The standing word is authored as Yarn (`DialogueYarn.SOURCE`): one node per point
+titled with its content key, `category:`/`mood:` in `tags:`; `DialogueCatalog`
+merges that table. The subset: `#tags`, `->`
+options with a `<<command>>`, `<<set>>`, `<<declare>>`, `<<if>>` /
+`<<elseif>>` / `<<else>>` / `<<endif>>`, `<<jump>>`, `<<stop>>` and
+`{$variable}`; a malformed script is refused with its line number and a jump loop
+is bounded.
+
+Each variant answers to `DialoguePoint/<point>/<variant>` through
+`TranslationServer`; an untranslated key keeps the authored English
+(`REQ-P2-03`). One tongue ships: `assets/locales/fr.po` answers every variant in
+period French, `load_shipped()` registers it on the first line a court speaks, the
+reader's OS tongue decides, and CI holds the file to the catalogue.
 
 ## Deferred
 
-Yarn/localization. Era-change stays blocked (no era model). Home-front and
-agenda beats are live (DR-20261111-08/19). Ranked: [`deferred.md`](deferred.md).
+Era change blocked; a tongue picker after French. Ranked:
+[`deferred.md`](deferred.md).

@@ -67,6 +67,25 @@ func _new_screen(pending: Dictionary = {}) -> MapScreen:
 	return node
 
 
+## Applies a save onto the mounted screen without tearing it down. Remounting
+## MapScreen is the suite's dominant cost under coverage; most cases only need
+## the PlaySession fields a load restores (preset world already matches).
+func _apply_save(data: Dictionary) -> PlaySession:
+	var play: PlaySession = screen.play
+	assert_true(SaveCodec.restore(play, data, _world()), "save restores over the preset")
+	var target: int = play.region_index
+	# Economy always founds on the Old World; restore there, then return.
+	play.region_index = 0
+	play.model = play.world.region(0)
+	SaveCodec.restore_economy(play, data)
+	play.diplomacy = DiplomacyState.new()
+	SaveCodec.restore_diplomacy(play, data)
+	play.diplomacy.human_faction = play.human_faction_id()
+	if target != play.region_index:
+		screen.load_region(target)
+	return play
+
+
 func test_round_trip_restores_session_world_and_layers() -> void:
 	var play: PlaySession = screen.play
 	MapPlayTurn.end_turn(play)
@@ -121,6 +140,7 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	var loaded: Dictionary = SaveStore.read(DIR + "/roundtrip.sav")
 	assert_false(loaded.is_empty(), "save file reads back")
 
+	# Remount once: this case also proves the HUD wires the restored nation.
 	screen.free()
 	screen = _new_screen(loaded)
 	play = screen.play
@@ -205,11 +225,10 @@ func test_saves_without_leaders_backfill_the_crown_roster() -> void:
 	session.erase("leaders")
 	data["session"] = session
 
-	screen.free()
-	screen = _new_screen(data)
+	play = _apply_save(data)
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_eq(
-			String(screen.play.leaders.get(faction, "")),
+			String(play.leaders.get(faction, "")),
 			LeaderCatalog.default_key(faction),
 			"crown %d gets its configured leader" % faction
 		)
@@ -232,9 +251,7 @@ func test_medals_and_feeding_survive_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/generals.sav", data), "save file is written")
 	var loaded: Dictionary = SaveStore.read(DIR + "/generals.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
-	play = screen.play
+	play = _apply_save(loaded)
 	assert_eq(
 		play.army_layer.generals.medals(play.player_faction, "general_1"),
 		2,
@@ -270,12 +287,11 @@ func test_saved_region_index_reopens_that_map() -> void:
 	assert_true(SaveStore.write(DIR + "/region.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/region.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
-	assert_eq(screen.play.region_index, 1, "saved region reopened")
-	assert_eq(screen.play.model.region_id, FactionCatalog.NEW_WORLD)
-	assert_eq(screen.play.turn, 9)
-	assert_eq(screen.play.economy.model.region_id, FactionCatalog.OLD_WORLD)
+	play = _apply_save(loaded)
+	assert_eq(play.region_index, 1, "saved region reopened")
+	assert_eq(play.model.region_id, FactionCatalog.NEW_WORLD)
+	assert_eq(play.turn, 9)
+	assert_eq(play.economy.model.region_id, FactionCatalog.OLD_WORLD)
 
 
 func test_invalid_and_corrupt_saves_are_refused() -> void:
@@ -302,10 +318,9 @@ func test_a_fort_stands_after_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/forts.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/forts.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
+	play = _apply_save(loaded)
 	assert_eq(
-		screen.play.model.get_province(province.id).fort_level,
+		play.model.get_province(province.id).fort_level,
 		FortRules.MAX_LEVEL,
 		"walls are part of the world state a load restores"
 	)
@@ -324,10 +339,10 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/call.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/call.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
-	assert_true(CallToArms.has_pending(screen.play.diplomacy, 0), "the call is restored")
-	assert_true(screen.play.turn_suspended, "the loaded turn is still suspended")
+	play = _apply_save(loaded)
+	MapPlaySetup.refresh_after_load(play)
+	assert_true(CallToArms.has_pending(play.diplomacy, 0), "the call is restored")
+	assert_true(play.turn_suspended, "the loaded turn is still suspended")
 	assert_true(
 		screen.hud.panels.diplomacy_panel._call_box.visible,
 		"the court re-opens for the answer"
@@ -349,10 +364,9 @@ func test_the_crowns_battle_plan_survives_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/plan.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/plan.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
+	play = _apply_save(loaded)
 	assert_eq(
-		screen.play.battle_plan, "aggressive",
+		play.battle_plan, "aggressive",
 		"the loaded crown still fights with its own plan"
 	)
 
@@ -363,27 +377,25 @@ func test_the_crowns_battle_plan_survives_a_load() -> void:
 func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
 	var play: PlaySession = screen.play
 	play.battle_plan = "defensive"
+	# Both payloads come from the opening screen so the case pays for two loads,
+	# not a third remount just to re-capture a fresh session.
 	var data: Dictionary = SaveCodec.capture(play)
 	var session: Dictionary = data["session"]
 	session.erase("battle_plan")
 	data["session"] = session
-	screen.free()
-	screen = _new_screen(data)
+	play = _apply_save(data)
 	assert_eq(
-		screen.play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
 		"a legacy slot opens on the default stance"
 	)
 
-	screen.free()
-	screen = _new_screen()
-	var fresh: Dictionary = SaveCodec.capture(screen.play)
+	var fresh: Dictionary = SaveCodec.capture(play)
 	var fresh_session: Dictionary = fresh["session"]
 	fresh_session["battle_plan"] = "reckless"
 	fresh["session"] = fresh_session
-	screen.free()
-	screen = _new_screen(fresh)
+	play = _apply_save(fresh)
 	assert_eq(
-		screen.play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
 		"an unknown script falls back to the default"
 	)
 
@@ -426,9 +438,7 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/difficulty.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/difficulty.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
-	play = screen.play
+	play = _apply_save(loaded)
 	assert_eq(play.difficulty, "hard", "the layer is fixed for the campaign")
 	assert_eq(play.ai.difficulty, "hard")
 	assert_eq(play.ai.economy_for(1).treasury, purse, "the rival purse returns as saved")
@@ -448,9 +458,7 @@ func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
 	assert_true(SaveStore.write(DIR + "/gazette.sav", data))
 	var loaded: Dictionary = SaveStore.read(DIR + "/gazette.sav")
 
-	screen.free()
-	screen = _new_screen(loaded)
-	play = screen.play
+	play = _apply_save(loaded)
 	assert_true(play.gazette != null, "the sheet returns on load")
 	assert_eq(play.gazette.sheets.size(), filed, "the archive comes back whole")
 	assert_false(play.gazette.is_watched(1), "a struck-off court stays struck off")

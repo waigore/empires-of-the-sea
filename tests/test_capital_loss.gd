@@ -262,6 +262,58 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	screen.free()
 
 
+# --- transfer and retirement (wiki: diplomacy § GP–Minor Rules) --------------
+
+
+func test_a_retired_crown_leaves_the_regions_it_was_stored_in() -> void:
+	var screen: MapScreen = Fixture.attach_screen(self)
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var roster: Array = []
+	roster.assign(screen.army_layer.regions.value(screen.model.region_id, []))
+	var doomed: ArmyState = null
+	for raw: Variant in roster:
+		var army: ArmyState = raw
+		if army != null and army.owner == minor:
+			doomed = army
+			break
+	assert_not_null(doomed, "the minor musters a Home Army")
+
+	# Handing a crown to nobody retires its armies, not just the on-screen list.
+	screen.army_layer.transfer_owner(minor, MapModel.NO_ID)
+
+	roster = []
+	roster.assign(screen.army_layer.regions.value(screen.model.region_id, []))
+	assert_false(roster.has(doomed), "a fallen crown's army leaves the stored roster")
+	assert_eq(_army_count(screen, minor), 0)
+	assert_null(screen.army_layer.marker_for(doomed), "and its standard leaves the map")
+	# A roster on another map is not on screen at all; a fall rewrites it too.
+	var elsewhere: Array[ArmyState] = [ArmyState.muster(77, minor, 0, true, ["pikemen"], 1)]
+	screen.army_layer.regions.set_region(FactionCatalog.NEW_WORLD, elsewhere)
+	screen.army_layer.transfer_owner(minor, MapModel.NO_ID)
+	var stored: Array = []
+	stored.assign(screen.army_layer.regions.value(FactionCatalog.NEW_WORLD, []))
+	assert_eq(stored.size(), 0, "an off-screen roster is retired, not merely the shown one")
+	screen.free()
+
+
+func test_a_join_empire_keeps_every_army_in_play() -> void:
+	var screen: MapScreen = Fixture.attach_screen(self)
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var won: Array[ArmyState] = _armies_of(screen, minor)
+	assert_gt(won.size(), 0)
+
+	screen.army_layer.transfer_owner(minor, MapScreen.PLAYER_FACTION)
+
+	assert_eq(_army_count(screen, minor), 0)
+	for army: ArmyState in won:
+		assert_true(
+			_armies_of(screen, MapScreen.PLAYER_FACTION).has(army),
+			"an absorbed army stays in play under the winner's colours"
+		)
+		assert_false(army.home, "and becomes a field army so the winner keeps one Home Army")
+	screen.free()
+
+
 # --- fixtures ----------------------------------------------------------------
 
 ## Lands and waters of the test chart, in tile coordinates.
@@ -334,13 +386,18 @@ func _successor(model: MapModel, capital: int) -> int:
 
 
 func _army_count(screen: MapScreen, faction: int) -> int:
-	var total: int = 0
+	return _armies_of(screen, faction).size()
+
+
+## Every army in the regions the layer has visited (the screen's own included).
+func _armies_of(screen: MapScreen, faction: int) -> Array[ArmyState]:
+	var found: Array[ArmyState] = []
 	for raw: Variant in screen.army_layer.regions.values():
 		var roster: Array = raw
 		for army: ArmyState in roster:
 			if army != null and army.owner == faction:
-				total += 1
-	return total
+				found.append(army)
+	return found
 
 
 ## Marks a province next to the player's capital as a rival crown's only seat,

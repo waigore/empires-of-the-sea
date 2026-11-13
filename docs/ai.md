@@ -7,23 +7,21 @@ Deterministic stack
 
 - **Registry, profiles, courts** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six agendas whose traits reach peace, treaties, trade, war targets and
-  research.
+  six agendas whose traits reach peace, treaties, trade, war and research.
 - **Power score** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire from base 50, power,
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
   peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
   At war, desire below `50 + peace_bias` (peacemaker 65, warmonger 40) offers
-  peace; an envious court adds +20 against a human crown that leads it. A deed
-  resists a declaration (`DeedProtection`).
-- **Court menu** (`AiDiplomacyOffers`): every panel order is a candidate —
-  overtures, alliance, trade pact, boycott (impose/lift), subsidy, aid.
-  Friendly acts cost desire, retaliation standing (DR-20261110-15); an
-  isolationist prices a pact 20 lower, a backstabber's desire against its ally
-  +25 (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival; consent asks queue for the
-  human; declarations first.
+  peace; an envious court adds +20 against a leading human crown. A deed
+  resists it (`DeedProtection`).
+- **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact, boycott,
+  subsidy and aid are candidates. Friendly acts cost
+  desire, retaliation standing (DR-20261110-15); an isolationist prices a pact
+  20 lower, a backstabber +25 against its ally (DR-20261111-27).
+- **Turn pass** (`AiTurn`): one order per rival; consent asks queue;
+  declarations first.
 - **Land planner** (`AiMilitaryPlanner`): at war on its border detach all but
   one Home Army regiment; field armies save, storm or stage.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
@@ -32,7 +30,7 @@ Deterministic stack
 - **Minor / Tribe defence** (`AiDefensePlanner`): hold at peace, never attack;
   an invader draws a relief column.
 - **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court holds its own
-  fog; voyages, invasions and work read that chart.
+  fog; voyages, invasions, work and diplomacy read that chart (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`, `MapPlayColonisationAi`): the
   squadron docks at the crown's harbour (seat first), the Explorer musters;
   board, cross, land (DR-20261111-05).
@@ -44,29 +42,31 @@ Deterministic stack
   funding shifts with the leader weight and a tech thief's +1 step
   (DR-20261111-27).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
-  charted Tribe at the turn's close, then work overtures and deeds
+  charted Tribe at the close, then overtures and deeds
   (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders improve or finish towns, engineers connect then road/port/fort/hospital
+  builders finish towns, engineers connect then road/port/fort/hospital
   (DR-20261111-16), explorers prospect, rail builders upgrade roads; merchants
   buy a deed when embassy, peace, mineral and price allow (DR-20261111-10).
-- **Spy planner** (`AiSpyPlanner`): station abroad; screen at war.
+- **Spy planner** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs; merchants sail home, one hull more when tonnage
   outruns them (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
-  Tribes stay at level 1; rivals re-equip and pay attack prices.
+  Tribes stay at 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04).
+  (DR-20261111-04); its next pattern's input row is never sold (DR-20261113-08);
+  at war the wornest field army takes a hospital train
+  (`AiHospitalTrainWork`, DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **Persistence & dossier:** agendas, cooldowns, ledgers (`AiState.to_dict`);
-  `IntelDossier` ([`intel-dossier.md`](intel-dossier.md)).
+- **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), the dossier
+  ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
-Difficulty extras sit outside the layer (wiki): [`deferred.md`](deferred.md).
+Difficulty extras outside ([`deferred.md`](deferred.md)).
 
 ## Architecture & tests
 

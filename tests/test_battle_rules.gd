@@ -369,6 +369,46 @@ func test_prune_drops_empty_field_armies_only() -> void:
 	assert_eq(armies.size(), 1)
 	assert_true(armies.has(home))
 
+
+## A detached or combined-away regiment leaves nothing behind on its old army:
+## the condition and the record are one store, released together.
+func test_a_removed_regiment_leaves_no_condition_behind() -> void:
+	var army := Fixture.army(1, 0, 0, ["pikemen", "pikemen", "guards"], true)
+
+	assert_true(army.remove_regiment("unit_102"))
+	assert_false(army.remove_regiment("unit_102"), "a second removal is refused")
+
+	assert_false(army.regiment_health.has("unit_102"), "no health for a departed regiment")
+	assert_false(army.regiment_medals.has("unit_102"), "no chevrons for a departed regiment")
+	assert_false(army.regiment_names.has("unit_102"), "no title for a departed regiment")
+	assert_false(army.regiment_engagements.has("unit_102"))
+	assert_true(army.regiment_health.has("unit_101"), "the survivors keep theirs")
+
+
+func test_a_joined_empire_regiments_are_handed_over_in_place() -> void:
+	var home := Fixture.army(1, 6, 1, ["pikemen"], true)
+	var field := Fixture.army(2, 6, 2, ["squires"])
+	var armies: Array[ArmyState] = [home, field]
+
+	ArmyState.hand_over(armies, 6, 4)
+
+	assert_eq(armies.size(), 2, "an absorption retires nobody")
+	assert_eq(home.owner, 4)
+	assert_eq(field.owner, 4)
+	assert_false(home.home, "the winner keeps exactly one Home Army")
+	assert_false(field.home)
+
+
+func test_a_terminal_fall_retires_the_crowns_armies() -> void:
+	var die := Fixture.army(1, 6, 1, ["pikemen"], true)
+	var keep := Fixture.army(2, 4, 2, ["squires"], true)
+	var armies: Array[ArmyState] = [die, keep]
+
+	ArmyState.hand_over(armies, 6, MapModel.NO_ID)
+
+	assert_eq(armies, [keep] as Array[ArmyState], "only the fallen crown's armies leave")
+	assert_eq(keep.owner, 4, "the survivor's colours are untouched")
+
 # --- from test_battle_report.gd ---
 ## Despatch wording for resolved battles (moved out of the screen controller).
 
@@ -540,7 +580,7 @@ func test_a_land_advantage_reads_as_a_held_field() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
-		"España holds the field at Flanders — 1 regiments lost"
+		"España holds the field at Flanders — 1 regiment lost"
 	)
 
 
@@ -554,7 +594,7 @@ func test_a_land_repulse_reads_as_a_hold() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Burgundy", FACTIONS),
-		"France holds Burgundy — England loses 1 regiments"
+		"France holds Burgundy — England loses 1 regiment"
 	)
 
 

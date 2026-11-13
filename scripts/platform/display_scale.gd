@@ -74,16 +74,76 @@ static func screen_scale() -> float:
 
 ## Screen edges hidden by a notch, rounded corner or system bar, in content
 ## units (left, top, right, bottom). Zero on desktop and on a clean screen.
+##
+## Which source a build may read is the whole rule, and it lives in
+## [method insets_for]: Android reads the display cutouts, never the safe area.
+## Godot 4.7's safe-area bridge (`GodotIO.getDisplaySafeArea`) hands the decor
+## view to AndroidX' `WindowInsetsCompat`, which walked `getRootWindowInsets`
+## into itself and aborted the process on a Java stack overflow on Android 17
+## (see docs/android-build.md).
 static func safe_insets(window: Window) -> Vector4:
 	if window == null or not is_handheld():
 		return Vector4.ZERO
 	var screen: Vector2 = Vector2(DisplayServer.screen_get_size())
-	var area: Rect2i = DisplayServer.get_display_safe_area()
-	if screen.x <= 0.0 or screen.y <= 0.0 or area.size.x <= 0 or area.size.y <= 0:
-		return Vector4.ZERO
 	var units: Vector2 = point_size(window)
-	var left: float = float(area.position.x) / screen.x * units.x
-	var top: float = float(area.position.y) / screen.y * units.y
-	var right: float = (screen.x - float(area.position.x + area.size.x)) / screen.x * units.x
-	var bottom: float = (screen.y - float(area.position.y + area.size.y)) / screen.y * units.y
-	return Vector4(maxf(left, 0.0), maxf(top, 0.0), maxf(right, 0.0), maxf(bottom, 0.0))
+	if OS.has_feature("android"):
+		return insets_for(true, DisplayServer.get_display_cutouts(), Rect2(), screen, units)
+	return insets_for(false, [] as Array[Rect2], Rect2(DisplayServer.get_display_safe_area()), screen, units)
+
+
+## Pure: the insets a platform's rectangles describe. Android takes the cutouts
+## and ignores the safe area it is handed — asking the engine for that area
+## kills the process on Android 17 (docs/android-build.md), so no edit may route
+## Android back through it. Every other handheld takes the safe area.
+static func insets_for(
+	android: bool,
+	cutouts: Array[Rect2],
+	area: Rect2,
+	screen: Vector2,
+	units: Vector2
+) -> Vector4:
+	if android:
+		return cutout_insets(cutouts, screen, units)
+	return edge_insets(area, screen, units)
+
+
+## Pure: a reported safe-area rectangle inside the screen, in content units.
+static func edge_insets(area: Rect2, screen: Vector2, units: Vector2) -> Vector4:
+	if screen.x <= 0.0 or screen.y <= 0.0 or area.size.x <= 0.0 or area.size.y <= 0.0:
+		return Vector4.ZERO
+	var left: float = maxf(area.position.x, 0.0) / screen.x * units.x
+	var top: float = maxf(area.position.y, 0.0) / screen.y * units.y
+	var right: float = maxf(screen.x - area.end.x, 0.0) / screen.x * units.x
+	var bottom: float = maxf(screen.y - area.end.y, 0.0) / screen.y * units.y
+	return Vector4(left, top, right, bottom)
+
+
+## Pure: cutout rectangles (pixels, window space) to the edges they eat, in
+## content units. A notch eats the edge it is cut into and no other, however far
+## along that edge it sits: a punch-hole in the middle of the top edge costs
+## height there, never a band down the left side.
+static func cutout_insets(cutouts: Array[Rect2], screen: Vector2, units: Vector2) -> Vector4:
+	if screen.x <= 0.0 or screen.y <= 0.0:
+		return Vector4.ZERO
+	var left: float = 0.0
+	var top: float = 0.0
+	var right: float = 0.0
+	var bottom: float = 0.0
+	for raw: Rect2 in cutouts:
+		var cut: Rect2 = raw
+		if cut.size.x <= 0.0 or cut.size.y <= 0.0:
+			continue
+		if cut.position.y <= 0.0:
+			top = maxf(top, cut.end.y)
+		if cut.end.y >= screen.y:
+			bottom = maxf(bottom, screen.y - cut.position.y)
+		if cut.position.x <= 0.0:
+			left = maxf(left, cut.end.x)
+		if cut.end.x >= screen.x:
+			right = maxf(right, screen.x - cut.position.x)
+	return Vector4(
+		left / screen.x * units.x,
+		top / screen.y * units.y,
+		right / screen.x * units.x,
+		bottom / screen.y * units.y,
+	)

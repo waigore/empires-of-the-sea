@@ -28,9 +28,15 @@ static func production_orders(
 	var weight: int = maxi(config.parameter("economy.recipe_weight"), 1)
 	var stock: Dictionary = economy.stockpile.duplicate()
 	var labour: int = economy.workers.labour()
+	# A batch already in the workshop counts toward the target: the court must
+	# not keep assigning alloy runs that are still serving their turns
+	# (DR-20261112-11).
+	var committed: Dictionary = _committed(economy)
 	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
 		var output: String = ProductionRecipes.output(recipe_id)
-		var deficit: int = maxi(target - int(stock.get(output, 0)), 0)
+		var deficit: int = maxi(
+			target - int(stock.get(output, 0)) - int(committed.get(output, 0)), 0
+		)
 		var score: int = _score(output, deficit, weight)
 		candidates.append({
 			"recipe": recipe_id,
@@ -63,6 +69,34 @@ static func production_orders(
 		return String(a["recipe"]) < String(b["recipe"])
 	)
 	return {"assignments": assignments, "candidates": candidates}
+
+
+## Units already promised to a recipe's output by the time this plan takes
+## effect: the batches on the anvil plus the multi-turn run this phase still
+## starts from the assignment already queued (the map adapter applies a new plan
+## after the phase resolves). A one-turn run lands in that same phase, so the
+## stockpile already speaks for it. Without the queued allowance a court starts a
+## second alloy batch while one serves, spending two runs against one reserve
+## (DR-20261112-11).
+static func _committed(economy: PlayerEconomy) -> Dictionary:
+	var queued: Dictionary = {}
+	for assignment: Dictionary in economy.production.assignments():
+		var queued_id: String = String(assignment.get("recipe", ""))
+		if ProductionRecipes.turns(queued_id) <= 1:
+			continue
+		queued[queued_id] = int(queued.get(queued_id, 0)) + int(assignment.get("units", 0))
+	var committed: Dictionary = {}
+	var labour: int = economy.workers.labour()
+	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+		var units: int = economy.production.wip_units(recipe_id)
+		if queued.has(recipe_id):
+			units += mini(
+				int(queued[recipe_id]),
+				ProductionRecipes.max_runs(recipe_id, economy.stockpile, labour)
+			)
+		var made: String = ProductionRecipes.output(recipe_id)
+		committed[made] = int(committed.get(made, 0)) + units
+	return committed
 
 
 ## Recruit orders, highest affordable tier first, capped per turn and at the

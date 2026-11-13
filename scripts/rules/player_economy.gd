@@ -1,8 +1,10 @@
 class_name PlayerEconomy
 extends RefCounted
 ## One Great Power's economy: central stockpile, treasury, worker pool and the
-## production assignment for the next turn (wiki: stockpiles-and-production).
+## production board for the next turn (wiki: stockpiles-and-production).
 ## Storage is unbounded by design, so quantities are plain non-negative integers.
+## Assignments and workshop WIP live on [ProductionPlan] so this bag stays
+## ledger + labour under the P3 size bar (REQ-P3-01).
 
 ## Starting conditions (ruleset-config § Starting stockpiles; treasury is the
 ## slice's starting purse). Grain is seeded from peasants x turns of food. The
@@ -32,13 +34,21 @@ var workers: WorkerPool = WorkerPool.new()
 var navy_feeding: float = 1.0
 ## Slots, funding and progress for the Research phase (wiki: research-state).
 var research: ResearchState = ResearchState.new()
+## Next-phase assignment and workshop batches still in flight.
+var production: ProductionPlan = ProductionPlan.new()
 ## Researched techs; the research state owns the table so there is one truth.
 var tech_unlocked: Dictionary:
 	get:
 		return research.unlocked
 	set(value):
 		research.unlocked = value
-var _assignments: Array[Dictionary] = []
+## Workshop dictionary kept under this name for turn/fixture readers; the plan
+## owns the store.
+var production_wip: Dictionary:
+	get:
+		return production.wip
+	set(value):
+		production.wip = value
 
 
 static func starting() -> PlayerEconomy:
@@ -46,6 +56,7 @@ static func starting() -> PlayerEconomy:
 	econ.treasury = START_TREASURY
 	econ.workers = WorkerPool.make(START_PEASANTS)
 	econ.research = ResearchState.make()
+	econ.production = ProductionPlan.new()
 	econ.stockpile = {
 		"grain": START_PEASANTS * START_GRAIN_TURNS,
 		"lumber": START_WORKS_LUMBER,
@@ -82,61 +93,23 @@ func take(id: String, amount: int) -> bool:
 
 func total_units() -> int:
 	var total: int = 0
-	for value: Variant in stockpile.values():
-		total += int(value)
+	for key: Variant in stockpile.keys():
+		total += int(stockpile[key])
 	return total
 
 
 func add_treasury(amount: int) -> void:
-	treasury += amount
+	if amount > 0:
+		treasury += amount
 
 
 func spend_treasury(amount: int) -> bool:
-	if amount < 0 or treasury < amount:
+	if amount <= 0:
+		return true
+	if treasury < amount:
 		return false
 	treasury -= amount
 	return true
-
-
-# --- production assignment ---------------------------------------------------
-
-
-func assignment_units(recipe_id: String) -> int:
-	for entry: Dictionary in _assignments:
-		if String(entry.get("recipe", "")) == recipe_id:
-			return int(entry.get("units", 0))
-	return 0
-
-
-## Desired output units for the next Production phase; 0 or less clears the row.
-func set_assignment(recipe_id: String, units: int) -> void:
-	if not ProductionRecipes.known(recipe_id):
-		return
-	for index in _assignments.size():
-		if String(_assignments[index].get("recipe", "")) == recipe_id:
-			if units <= 0:
-				_assignments.remove_at(index)
-			else:
-				_assignments[index] = {"recipe": recipe_id, "units": units}
-			return
-	if units > 0:
-		_assignments.append({"recipe": recipe_id, "units": units})
-
-
-func assignments() -> Array[Dictionary]:
-	return _assignments.duplicate(true)
-
-
-func clear_assignments() -> void:
-	_assignments.clear()
-
-
-func assigned_labour() -> int:
-	var total: int = 0
-	for entry: Dictionary in _assignments:
-		var recipe_id: String = String(entry.get("recipe", ""))
-		total += int(entry.get("units", 0)) * ProductionRecipes.labour(recipe_id)
-	return total
 
 
 # --- workers -----------------------------------------------------------------
@@ -208,12 +181,13 @@ func copy() -> PlayerEconomy:
 	clone.workers = workers.copy()
 	clone.navy_feeding = navy_feeding
 	clone.research = research.copy()
-	clone._assignments = _assignments.duplicate(true)
+	clone.production = production.copy()
 	return clone
 
 
 ## Plain data for local saves: ledger, labour pool, research and assignments.
 func snapshot() -> Dictionary:
+	var plan: Dictionary = production.snapshot()
 	return {
 		"treasury": treasury,
 		"stockpile": stockpile.duplicate(),
@@ -226,7 +200,8 @@ func snapshot() -> Dictionary:
 			"revealed": research.revealed.duplicate(),
 			"goal": research.goal,
 		},
-		"assignments": _assignments.duplicate(true),
+		"assignments": plan["assignments"],
+		"production_wip": plan["production_wip"],
 	}
 
 
@@ -244,15 +219,9 @@ func apply_snapshot(data: Dictionary) -> void:
 	var research_data: Variant = data.get("research", {})
 	if typeof(research_data) == TYPE_DICTIONARY:
 		_apply_research(research_data)
-	_assignments.clear()
-	for raw: Variant in data.get("assignments", []):
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var entry: Dictionary = raw
-		var recipe_id: String = String(entry.get("recipe", ""))
-		var units: int = int(entry.get("units", 0))
-		if not recipe_id.is_empty() and units > 0:
-			_assignments.append({"recipe": recipe_id, "units": units})
+	production = ProductionPlan.new()
+	production.read_assignments(data.get("assignments", []))
+	production.read_wip(data.get("production_wip", {}))
 
 
 ## Research, slots included, is restored by ResearchSlots: it drops entries the

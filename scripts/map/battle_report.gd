@@ -235,13 +235,13 @@ static func _land_core(
 	match outcome:
 		ArmyCombat.Outcome.ATTACKER_VICTORY:
 			var broken: int = (battle.get("defender_lost", []) as Array).size()
-			return "%s takes %s — %s loses %d regiments" % [
-				attacker, province_name, defender, broken
+			return "%s takes %s — %s loses %s" % [
+				attacker, province_name, defender, _regiments(broken)
 			]
 		ArmyCombat.Outcome.DEFENDER_VICTORY:
 			var spent: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s holds %s — %s loses %d regiments" % [
-				defender, province_name, attacker, spent
+			return "%s holds %s — %s loses %s" % [
+				defender, province_name, attacker, _regiments(spent)
 			]
 		ArmyCombat.Outcome.MUTUAL_ANNIHILATION:
 			var garrison: int = int(battle.get("garrison", 0))
@@ -259,7 +259,12 @@ static func _land_core(
 			return "%s occupies %s unopposed" % [attacker, province_name]
 		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
 			var spent: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s holds the field at %s — %d regiments lost" % [
-				attacker, province_name, spent
+			return "%s holds the field at %s — %s lost" % [
+				attacker, province_name, _regiments(spent)
 			]
 	return "%s and %s stand off at %s" % [attacker, defender, province_name]
+
+
+## "1 regiment" / "2 regiments": a despatch never says "1 regiments".
+static func _regiments(count: int) -> String:
+	return "%d regiment%s" % [count, "" if count == 1 else "s"]

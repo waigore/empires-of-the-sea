@@ -111,11 +111,13 @@ static func begin_turn(armies: Array[ArmyState], model: MapModel = null) -> void
 		if army != null:
 			army.moved = false
 			# Field depots replace part of the battle's wear each turn; a
-			# province hospital sets a faster tempo (wiki: combat § Strength;
-			# DR-20261110-19, DR-20261111-12).
-			var share: float = RegimentCondition.REST_SHARE
-			if model != null and army.province != NO_PROVINCE:
-				share = HospitalRules.rest_share_at(model, army.province)
+			# province hospital sets a faster tempo, and an army's own train
+			# carries the field's tempo wherever it stands — the better of the
+			# two, never both (wiki: combat § Strength; DR-20261110-19,
+			# DR-20261111-12, DR-20261112-07).
+			var share: float = HospitalTrain.army_rest_share(
+				model, army.province, army.field_hospital
+			)
 			RegimentCondition.rest(army, share)
 
 

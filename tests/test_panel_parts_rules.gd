@@ -457,6 +457,38 @@ func test_the_town_row_names_the_path_that_province_offers() -> void:
 		"a missing province falls back to the Builder line"
 	)
 
+## The roads tip counts one road tile and one estate in the singular: the tooltip
+## is the only place a province says how much of its network it holds.
+func test_the_roads_tip_counts_one_in_the_singular() -> void:
+	var province := ProvinceState.create(
+		0, "Cádiz", [] as Array[Vector2i], Vector2(0, 0), 1, 0, true
+	)
+	province.road_paths = [[Vector2i(1, 1)]]
+	var one: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 road tile laid here"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_true(
+		DossierCopy.roads_tip(province, one).contains("1 estate surveyed"),
+		DossierCopy.roads_tip(province, one)
+	)
+	assert_eq(DossierCopy.roads(one), "1 of 1 developed estate linked")
+	province.road_paths = [[Vector2i(1, 1), Vector2i(2, 1)]]
+	var two: Array[Dictionary] = [
+		{"ours": true, "level": 1, "connected": true},
+		{"ours": true, "level": 2, "connected": false},
+	]
+	assert_true(
+		DossierCopy.roads_tip(province, two).contains("2 road tiles laid here"),
+		DossierCopy.roads_tip(province, two)
+	)
+	assert_true(DossierCopy.roads_tip(province, two).contains("2 estates surveyed"))
+	assert_eq(DossierCopy.roads(two), "1 of 2 developed estates linked")
+
+
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_setup_province_panel()
 	_show({})
@@ -756,6 +788,29 @@ func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
 		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
 	)
 
+## A rival's trade pact is answered blind unless the prompt carries the rate the
+## pact publishes: the court reads the terms beside the offer and the envoy that
+## brings it (wiki: world-market § FTP; dialogue-and-mood § Mood machine).
+func test_a_pact_proposal_names_its_terms_and_its_envoy() -> void:
+	_setup_diplomacy_panel()
+	state.relation(0, 2).score = 70.0
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_FTP)
+	panel.size = Vector2(570, 600)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "PROPOSAL"))
+	assert_true(_has_text(panel._call_box, "Favoured terms"))
+	assert_true(_has_text(panel._call_box, "95%"), "the rate the pact pays")
+	assert_true(_has_text(panel._call_box, "105%"), "and the rate it earns")
+	assert_true(_has_text(panel._call_box, "“"), "the envoy who brings it speaks")
+	await get_tree().process_frame
+	var banner: Control = panel._call_box.get_child(0) as Control
+	assert_not_null(banner, "the pact banner is up")
+	assert_true(
+		banner.size.y <= 150.0,
+		"the pact banner must fit a phone sheet (%s > 150)" % banner.size.y
+	)
+
+
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	_setup_diplomacy_panel()
 	state.relation(0, 2).score = 80.0
@@ -908,3 +963,112 @@ func _find_button(node: Node, needle: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+# --- Army dossier roster / muster blocks (ui domain; REQ-P3-01) ---
+const ArmyFixture = preload("res://tests/army_fixture.gd")
+
+
+## Drill-yard rows render cost or refusal, and a Muster tap emits recruit.
+func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(20, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+		},
+		{
+			"type_id": "grenadiers",
+			"name": "Grenadiers",
+			"ok": false,
+			"cost_text": "",
+			"reason": "Need Organised Regiments",
+		},
+	]
+	var heard: Array[String] = []
+	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	assert_eq(panel._muster_box.get_child_count(), 2)
+	var ok_top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
+	assert_true(ok_top.get_child(0) is UnitMedallion)
+	assert_eq((ok_top.get_child(1) as Label).text, "Peasant Levies")
+	var ok_btn: Button = ok_top.get_child(2) as Button
+	assert_false(ok_btn.disabled)
+	assert_eq(ok_btn.tooltip_text, "2,000 cash · 1 fabric")
+	assert_eq(
+		(panel._muster_box.get_child(0).get_child(1) as Label).text,
+		"2,000 cash · 1 fabric"
+	)
+	ok_btn.pressed.emit()
+	assert_eq(heard, ["recruit:peasant_levies"])
+
+	var blocked_top: HBoxContainer = panel._muster_box.get_child(1).get_child(0)
+	var blocked_btn: Button = blocked_top.get_child(2) as Button
+	assert_true(blocked_btn.disabled)
+	assert_eq(blocked_btn.tooltip_text, "Need Organised Regiments")
+	assert_eq(
+		(panel._muster_box.get_child(1).get_child(1) as Label).text,
+		"Need Organised Regiments"
+	)
+	panel.free()
+
+
+## Chevrons and a mauled bar live on the roster block; strength names the count.
+func test_army_roster_block_shows_chevrons_wounds_and_record() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(21, 0, 1, ["guards", "pikemen"], false)
+	var veteran: String = army.regiments[0]
+	army.regiment_medals[veteran] = 2
+	army.regiment_health[veteran] = 60
+	army.regiment_engagements[veteran] = 3
+	army.regiment_wins[veteran] = 2
+	var heard: Array[String] = []
+	panel._roster.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true)
+
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_true(String(panel._strength.text).contains("2 chevrons"), panel._strength.text)
+	var condition: HBoxContainer = row.get_child(2)
+	assert_true(condition.get_child(0) is TextureRect)
+	assert_eq((condition.get_child(1) as Label).text, "×2")
+	assert_almost_eq((condition.get_child(2) as ProgressBar).value, 0.5, 0.01)
+	assert_eq((condition.get_child(3) as Label).text, "50%")
+	var record: Label = row.get_child(row.get_child_count() - 1)
+	assert_eq(String(record.text), "3 engagements · 2 won")
+	var detach: Button = (row.get_child(0) as HBoxContainer).get_child(2) as Button
+	detach.pressed.emit()
+	assert_eq(heard, ["detach:%s" % veteran])
+	panel.free()
+
+
+## Embarked armies keep roster detail but drop detach; strength says aboard.
+func test_army_roster_block_hides_detach_while_embarked() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 0, ["guards", "pikemen"], false)
+	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
+	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
+
+	panel.refresh(model, army, true)
+
+	assert_true(String(panel._location.text).contains("Aboard"), panel._location.text)
+	var row: VBoxContainer = panel._roster.get_child(0)
+	assert_eq(
+		(row.get_child(0) as HBoxContainer).get_child_count(),
+		2,
+		"medallion and name only while aboard"
+	)
+	panel.free()

@@ -79,7 +79,8 @@ static func _assign(
 				model, remaining, minors, minor_seeds,
 				_minor_targets(remaining.size(), minors), false, true
 			)
-			remaining = _absorb_pockets(model, ids, minors, primary_ids.size())
+			remaining = MinorShare.trim(model, _absorb_pockets(
+				model, ids, minors, primary_ids.size()), ids, minors)
 		if greats.is_empty():
 			continue
 		var chunks: Array = _chunks(model, remaining)

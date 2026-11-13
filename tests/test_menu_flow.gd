@@ -1,18 +1,34 @@
 extends GdToolsTest
 ## App flow: title -> setup -> map, in-game menu, save slot, load rebuilds the
 ## screen (clearing the old game), and back to the title (REQ-P5-01, P5-07).
+## One chart is rolled in `before_all` and handed through `Main.preset_world` so
+## coverage does not pay `generate_world` on every new-game / load path.
+
+const Fixture = preload("res://tests/map_fixture.gd")
 
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const DIR: String = "user://test_menu_flow"
-const FLOW_SIZE: Vector2i = Vector2i(48, 32)
+const FLOW_SEED: int = 777
+const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 
 var main: Node = null
+## Non-underscore: gd-tools copies these from `before_all` onto each test instance.
+var flow_world: WorldMap = null
+var flow_snapshot: Array = []
+
+
+func before_all() -> void:
+	flow_world = MapGenerator.new().generate_world(FLOW_SEED, FLOW_SIZE.x, FLOW_SIZE.y)
+	flow_snapshot = Fixture.snapshot(flow_world)
 
 
 func before_each() -> void:
 	_clean_dir()
+	Fixture.restore(flow_world, flow_snapshot)
 	main = MAIN.instantiate()
 	main.auto_start = false
+	main.size_override = FLOW_SIZE
+	main.preset_world = flow_world
 	add_child(main)
 
 
@@ -21,6 +37,7 @@ func after_each() -> void:
 	if is_instance_valid(main):
 		main.free()
 	main = null
+	Fixture.restore(flow_world, flow_snapshot)
 	_clean_dir()
 
 
@@ -51,7 +68,6 @@ func test_title_screen_offers_new_load_and_a_dimmed_settings_door() -> void:
 
 
 func test_new_game_setup_starts_the_chosen_world() -> void:
-	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page
 	menu.new_game_button.emit_signal("pressed")
 	assert_true(main.current_page is GameSetupScreen, "setup opens")
@@ -59,7 +75,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 	var setup: GameSetupScreen = main.current_page
 	setup.nation_option.select(2)
 	setup.size_option.select(0)
-	setup.seed_field.text = "777"
+	setup.seed_field.text = str(FLOW_SEED)
 	setup.start_button.emit_signal("pressed")
 
 	var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
@@ -69,6 +85,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 	assert_null(main.current_screen, "no campaign runs behind the chart")
 	await get_tree().process_frame
 	assert_not_null(page.model, "the chart is generated")
+	assert_true(page.world == flow_world, "the shell reused the cached chart")
 	assert_eq(page.model.province_owner(page.selected_province), 2, "the seat is French")
 	assert_false(page.confirm_button.disabled, "the recommended seat can be confirmed")
 	page.confirm_button.emit_signal("pressed")
@@ -80,7 +97,7 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 		return
 	assert_eq(screen.player_faction, 2, "France is the human crown")
 	assert_eq(screen.play.player_faction, 2)
-	assert_eq(screen.play.map_seed, 777)
+	assert_eq(screen.play.map_seed, FLOW_SEED)
 	assert_eq(screen.map_width, FLOW_SIZE.x)
 	assert_eq(screen.map_height, FLOW_SIZE.y)
 	assert_eq(screen.model.province_owner(screen.capital_province), 2, "seat is French")
@@ -106,13 +123,12 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 ## The chart's pick is the campaign's seat: home fleet, Home Army and fog all
 ## muster on the province the player chose, not the auto-choice one.
 func test_a_chosen_seat_reaches_the_campaign() -> void:
-	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page
 	menu.new_game_button.emit_signal("pressed")
 	var setup: GameSetupScreen = main.current_page
 	setup.nation_option.select(0)
 	setup.size_option.select(0)
-	setup.seed_field.text = "1500"
+	setup.seed_field.text = str(FLOW_SEED)
 	setup.start_button.emit_signal("pressed")
 	var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	assert_not_null(page, "the capital-choice phase opens")
@@ -300,15 +316,14 @@ func test_a_slot_row_names_its_campaign_length() -> void:
 
 
 func _start_game() -> void:
-	main.size_override = FLOW_SIZE
 	var menu: MainMenu = main.current_page
 	menu.new_game_button.emit_signal("pressed")
 	var setup: GameSetupScreen = main.current_page
 	setup.nation_option.select(2)
 	setup.size_option.select(0)
-	setup.seed_field.text = "777"
+	setup.seed_field.text = str(FLOW_SEED)
 	setup.start_button.emit_signal("pressed")
-	# The capital-choice chart generates on the next idle frame; confirming the
+	# The capital-choice chart binds the cached world on ready; confirming the
 	# recommended seat is the default setup path (wiki: capital-choice-phase).
 	var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	if page != null:

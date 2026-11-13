@@ -27,6 +27,21 @@ static func view_for(play: PlaySession, faction: int, region: int) -> Visibility
 	return play.court_charts.model_for(faction, region)
 
 
+## Every court's docket as its own chart reads it: a rival counts the garrisons
+## and hulls it has charted, never a crown's whole order of battle (wiki:
+## military-armies § Docket; DR-20261112-09). Empty before the charts exist, so
+## a session without layers keeps reading the published numbers.
+static func oob_readings(play: PlaySession) -> Dictionary:
+	if play == null or play.court_charts == null:
+		return {}
+	if play.army_layer == null or play.ship_layer == null:
+		return {}
+	var courts: Array[int] = FactionCatalog.great_power_ids()
+	return OobReadings.by_court(
+		play.court_charts, play.army_layer.regions, play.ship_layer.regions, courts
+	)
+
+
 ## Commodities a court has charted (and, for minerals, prospected): the gate on
 ## its discovery techs, which a rival earns only by exploring (wiki: tech-tree
 ## § Discovery; DR-20261109-20).

@@ -88,12 +88,16 @@ static func _run(
 	# The next sea battle reads how many hulls this turn's granary fed in full
 	# (wiki: workers-and-population § Consumption).
 	economy.navy_feeding = EconomyConsumption.navy_coverage(consumption)
-	var production: Dictionary = ProductionRecipes.plan(
-		economy.assignments(),
+	var planned: Dictionary = ProductionRecipes.plan(
+		economy.production.assignments(),
 		economy.stockpile,
 		int(consumption["idle_labour"]),
-		economy.tech_unlocked
+		economy.tech_unlocked,
+		economy.production.wip
 	)
+	# The workshop rides into the next turn: multi-turn batches keep serving
+	# until their output lands (DR-20261112-11).
+	economy.production.wip = (planned.get("wip", {}) as Dictionary).duplicate(true)
 	# Research runs last: its gold comes out of the treasury Production left.
 	var research: Dictionary = ResearchTurn.resolve(
 		economy.research, economy, research_boost
@@ -107,7 +111,7 @@ static func _run(
 		"riches": riches,
 		"riches_treasury": riches_total,
 		"consumption": consumption,
-		"production": production,
+		"production": planned,
 		"research": research,
 		"prices": prices,
 		"economy": economy,

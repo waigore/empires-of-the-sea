@@ -205,6 +205,14 @@ func toast(text: String, icon_name: String = "") -> void:
 	despatches.toast(text, icon_name)
 
 
+## A despatch the open battle plate has already told: the court still hears it,
+## but it is the first line the held-news cap spends (REQ-P5-06).
+func toast_plate_line(text: String, icon_name: String = "") -> void:
+	if not visible or despatches == null:
+		return
+	despatches.toast_plate_line(text, icon_name)
+
+
 ## The rules resolved one of the human's land battles as Quick Battle. Queue the
 ## plates so a multi-battle turn replays them one at a time, never stacked.
 func show_quick_battle(battle: Dictionary, province: String) -> void:
