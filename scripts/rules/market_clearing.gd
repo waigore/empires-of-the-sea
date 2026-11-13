@@ -159,7 +159,7 @@ static func _matcher_context(
 				return MarketFavoured.UNDEFINED
 			return MarketFavoured.of(diplomacy, seller)
 		out["consulate_for"] = func(gp: int, minor: int) -> bool:
-			return DiplomacyRules.has_embassy(diplomacy, gp, minor)
+			return DiplomacyRules.has_consulate(diplomacy, gp, minor)
 		out["relation_for"] = func(gp: int, minor: int) -> float:
 			var record: DiplomacyRelation = diplomacy.relation(gp, minor)
 			return record.score if record != null else 0.0

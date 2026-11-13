@@ -3226,3 +3226,149 @@ func test_a_plate_is_a_128_px_source() -> void:
 	assert_eq(art.get_height(), 128)
 
 
+
+# --- the Minor/Tribe sale order and its receipt ---
+
+## One Minor estate and nothing else: whoever wins it takes the only timber.
+func _sale_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	for y in 2:
+		for x in 4:
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 4, 6)
+	model.provinces = [gp, minor]
+	model.resource[model.index_of(2, 0)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func _timber_buyer(report: Dictionary) -> int:
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) == "timber" and int(deal.get("seller", -2)) == 6:
+			return int(deal.get("buyer", -1))
+	return -1
+
+
+## A Trade Consulate is the first overture stage, and R7.3 serves its holder
+## ahead of every consulate-less buyer whatever the rivals' relations (wiki:
+## world-market § Sell-priority relation tiebreaker). The holder carries the
+## higher faction id, so a gate read as "no Consulate anywhere" would hand the
+## estate to the stranger by the default order.
+func test_a_trade_consulate_clears_before_a_warmer_stranger() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(90.0)
+	diplomacy.ensure_relation(1, 6, 0).set_score(10.0)
+	diplomacy.set_overture(1, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	# The stranger speaks first, so the deal proves the tiebreak, not the book order.
+	for gp: int in [0, 1]:
+		MarketOrders.submit(
+			market,
+			gp, "timber", MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+		)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, _economies(), {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(_timber_buyer(report), 1, "the Consulate holder takes the estate")
+
+
+## R7.3's relation arm needs a Consulate on both sides; two consulate-less courts
+## keep the default order (ascending faction id) however warm one of them is.
+func test_two_consulate_less_buyers_keep_the_default_order() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 1, 1),
+	]
+	var context: Dictionary = _context()
+	context["consulate_for"] = func(_gp: int, _minor: int) -> bool: return false
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(
+		int((result["deals"] as Array)[0]["buyer"]), 1,
+		"a consulate-less court never jumps the default order"
+	)
+
+
+## The Deal Book line names the price the pair was charged — the crown's terms
+## and the subsidy step included — not the untaxed published price (wiki:
+## world-market § Subsidy price adjustment; REQ-P5-05).
+func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	var economies: Dictionary = _economies()
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketOrders.submit(
+		market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": before, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+	assert_eq(before - (economies[0] as PlayerEconomy).treasury, 33, "one timber, 10% over")
+	var line: String = LedgerText.deal_line(deal)
+	assert_true(line.contains("at 33"), line)
+	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
+
+
+## The other two Deal Book lines: a sale names its receipt, a favoured fill says
+## so, and a legacied row with no `buy_unit` still reads at its published price
+## (REQ-P5-05; wiki: world-market § Favored Trading Partner).
+func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber",
+			"quantity": 2, "price": 30, "earned": 60,
+		}),
+		"Sold 2 Timber to %s at 30 — 60 ducats" % FactionCatalog.name_of(1)
+	)
+	assert_true(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber",
+			"quantity": 1, "price": 30, "is_favoured": true,
+		}).ends_with("as its favoured partner")
+	)
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1, "price": 30,
+		}),
+		"Bought 1 Timber from %s at 30 — 30 ducats" % FactionCatalog.name_of(6),
+		"a row saved before `buy_unit` reads at the published price"
+	)
+
+
+## The Minor offer's Bid names the ask the clearing will charge — the published
+## price with the crown's terms and the pair's subsidy step (wiki: world-market
+## § Subsidy price adjustment; REQ-P5-05).
+func test_the_minor_offer_bid_names_the_ask() -> void:
+	var ledger := LedgerMarket.new()
+	var row: Control = ledger._offer_row({
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 1, "unit_price": 33,
+	})
+	var buy: Button = row.get_child(row.get_child_count() - 1) as Button
+	assert_eq(buy.text, "Bid")
+	assert_true(buy.tooltip_text.contains("ask of 33"), buy.tooltip_text)
+	row.free()
+	ledger.free()
