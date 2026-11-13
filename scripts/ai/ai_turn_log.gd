@@ -42,14 +42,13 @@ static func record(
 	fleet_trace: Array[Dictionary],
 	economy_report: Dictionary,
 	invasion_trace: Array[Dictionary] = [],
-	objectives_report: Dictionary = {}
+	objectives: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
 		"turn": play.turn,
 		"year": TurnTime.year_for_turn(play.turn),
 		"factions": {},
 		"events": [],
-		"objectives": objectives_report.get("factions", {}),
 	}
 	var factions: Dictionary = merged["factions"]
 	for faction: int in FactionCatalog.great_power_ids():
@@ -59,8 +58,42 @@ static func record(
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
 	_record_invasion(merged, factions, invasion_trace)
+	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged
+
+
+## The turn's ledger: the caller's if one was handed in, else the pass read here
+## at turn close. T1's ledger changes no order, so reading it where the trace is
+## written is enough; T2 moves the read before the expedition pass, where its
+## claims are consulted (issue #491).
+static func _ledgers(play: PlaySession, handed_in: Dictionary) -> Dictionary:
+	if not handed_in.is_empty():
+		return handed_in
+	if play == null or play.world == null or play.diplomacy == null:
+		return {}
+	return MapPlayObjectivesAi.run(play)
+
+
+## The objective ledger's reading of one court: its footing, its money goal and
+## every ranked aim with its utility, cost, claim and deferred/blocked reason
+## (docs/ai.md; issue #491 T1). T1 records the ledger without changing an order.
+static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> void:
+	for raw: Variant in ledgers.keys():
+		var faction: int = int(raw)
+		if not factions.has(faction):
+			continue
+		var ledger: Dictionary = ledgers[raw]
+		var bucket: Dictionary = factions[faction]
+		bucket["phase"] = String(ledger.get("phase", ""))
+		bucket["goal"] = String(ledger.get("goal", ""))
+		bucket["objectives"] = {
+			"ranked": int(ledger.get("ranked", 0)),
+			"funded": int(ledger.get("funded", 0)),
+			"blocked": int(ledger.get("blocked", 0)),
+			"rows": (ledger.get("objectives", []) as Array).duplicate(true),
+			"lines": (ledger.get("lines", []) as Array).duplicate(),
+		}
 
 
 ## Feeding coverage per crown from the resolved consumption pass; the next
@@ -93,18 +126,6 @@ static func headline(last: Dictionary) -> String:
 	if parts.is_empty():
 		return "held station, no orders"
 	return " · ".join(parts)
-
-
-## The ledger lines one court's objectives printed this turn, or an empty list
-## before its first resolved turn (T1, trace-only).
-static func ledger_lines(merged: Dictionary, faction: int) -> Array[String]:
-	var lines: Array[String] = []
-	var objectives: Dictionary = merged.get("objectives", {})
-	var row: Variant = objectives.get(faction, {})
-	if typeof(row) != TYPE_DICTIONARY:
-		return lines
-	lines.assign((row as Dictionary).get("lines", []))
-	return lines
 
 
 # --- turn record -------------------------------------------------------------

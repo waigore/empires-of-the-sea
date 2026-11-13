@@ -16,13 +16,13 @@ var last_peace_turn: Dictionary = {}
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
+## Faction id -> the claims the objective ledger last ranked and funded, with
+## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
+## save carries the ledger the court reported.
+var objective_claims: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
-## Faction id -> the claims its objective ledger funded last turn (T1,
-## trace-only). The ledger rebuilds its tree every turn; only the claims it
-## granted persist, so a later task can read what a court committed to.
-var claims: Dictionary = {}
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -95,6 +95,28 @@ static func pair_key(a: int, b: int) -> String:
 	return "%d:%d" % [mini(a, b), maxi(a, b)]
 
 
+## The turn's ledger summary for one court: what it ranked, what it funded and
+## the lines that explain the rest. Claims are per turn, so a later turn simply
+## replaces the row (docs/ai.md; issue #491 T1).
+func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
+	var lines: Array[String] = []
+	for raw: Variant in report.get("lines", []):
+		lines.append(String(raw))
+	objective_claims[faction] = {
+		"turn": turn,
+		"phase": String(report.get("phase", "")),
+		"ranked": int(report.get("ranked", 0)),
+		"funded": int(report.get("funded", 0)),
+		"lines": lines,
+	}
+
+
+## The claims this court's last turn reported, or an empty row.
+func objectives_for(faction: int) -> Dictionary:
+	var claim: Dictionary = _dictionary(objective_claims.get(faction, {}))
+	return claim
+
+
 ## Plain data for local saves. Agendas are rolled once per court and cooldowns
 ## span turns, so a load must not re-roll a hidden agenda or restart a war
 ## cooldown (wiki: hidden-agendas, diplomacy § Cooldowns).
@@ -105,8 +127,8 @@ func to_dict() -> Dictionary:
 		"last_overture_turn": last_overture_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
+		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
-		"claims": _claims_snapshots(),
 	}
 
 
@@ -119,9 +141,45 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
+	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
-	state.claims = _claims_from(data.get("claims", {}))
 	return state
+
+
+## One row per court's last ledger: turn, phase, counts and the claim lines. An
+## old save has none, so the ledger simply starts empty (issue #491 T1).
+func _claims_snapshot() -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in objective_claims.keys():
+		result[int(raw)] = _claim_row(_dictionary(objective_claims[raw]))
+	return result
+
+
+static func _claims_from(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		var row: Dictionary = _claim_row(_dictionary(stored[key]))
+		if row.is_empty():
+			continue
+		result[int(key)] = row
+	return result
+
+
+## A JSON-safe claim row: the trace lines become strings, never Variants.
+static func _claim_row(claim: Dictionary) -> Dictionary:
+	if claim.is_empty():
+		return {}
+	var lines: Array[String] = []
+	for raw: Variant in claim.get("lines", []):
+		lines.append(String(raw))
+	return {
+		"turn": int(claim.get("turn", 0)),
+		"phase": String(claim.get("phase", "")),
+		"ranked": int(claim.get("ranked", 0)),
+		"funded": int(claim.get("funded", 0)),
+		"lines": lines,
+	}
 
 
 ## One snapshot per rival ledger, keyed by faction id. Missing factions are
@@ -155,33 +213,6 @@ static func _turn_dictionary(raw: Variant) -> Dictionary:
 	for key: Variant in stored.keys():
 		turns[String(key)] = int(stored[key])
 	return turns
-
-
-## One deep copy per court's funded claims, keyed by faction id. A save must
-## carry them so a load resumes the same commitments (T1, trace-only).
-func _claims_snapshots() -> Dictionary:
-	var result: Dictionary = {}
-	for raw: Variant in claims.keys():
-		result[int(raw)] = _claim_rows(claims[raw])
-	return result
-
-
-static func _claims_from(raw: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	var stored: Dictionary = _dictionary(raw)
-	for key: Variant in stored.keys():
-		result[int(key)] = _claim_rows(stored[key])
-	return result
-
-
-static func _claim_rows(raw: Variant) -> Array:
-	var rows: Array = []
-	if typeof(raw) != TYPE_ARRAY:
-		return rows
-	for row: Variant in raw:
-		if typeof(row) == TYPE_DICTIONARY:
-			rows.append((row as Dictionary).duplicate(true))
-	return rows
 
 
 static func _dictionary(raw: Variant) -> Dictionary:

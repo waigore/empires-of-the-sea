@@ -1,104 +1,117 @@
 class_name AiObjectiveLedger
 extends RefCounted
-## Rank and allocate passes over a court's objectives (T1, trace-only).
+## The rank pass and the allocate pass of a rival court's objective ledger
+## (docs/ai.md; issue #491 T1).
 ##
-## `rank` orders objectives by utility, highest first, with the objective id as
-## the deterministic tie-break. `allocate` walks that order and grants each
-## objective its whole cost from the court's pools; an objective that cannot be
-## paid in full is `deferred` with the shortfall recorded, and a blocked
-## objective is skipped. Nothing is spent: the pools are a read model, so the
-## ledger changes no rules state (REQ-P2-03, REQ-P4-03).
+## `rank` sorts the tree into one order — parents before their children, each
+## level by utility with the id breaking ties — so the same state always funds
+## the same objective first. `allocate` walks that order top-down: each
+## objective claims its cost from the pools, a pool never goes below zero, and
+## an objective the pools cannot cover is marked `deferred` with the shortfall
+## the trace prints. A blocked objective claims nothing and passes its reason
+## up the tree (issue #491 T2).
+##
+## Pure: state in (objectives + pools), decisions out. No order is issued here,
+## so T1's ledger cannot move the rules (REQ-P2-03, REQ-P4-03).
 
 
-## Ranked copy, highest utility first, ties broken by id so the same state
-## always yields the same order.
-static func rank(objectives: Array[AiObjective]) -> Array[AiObjective]:
-	var ranked: Array[AiObjective] = []
-	ranked.assign(objectives)
-	ranked.sort_custom(func(a: AiObjective, b: AiObjective) -> bool:
-		if a.utility != b.utility:
-			return a.utility > b.utility
-		return a.id < b.id
-	)
-	for index in ranked.size():
-		ranked[index].rank = index + 1
-	return ranked
-
-
-## Grants each ranked objective its cost from `pools` until a pool empties.
-## Returns the same array with `claim`, `status` and `shortfall` stamped.
-static func allocate(
-	objectives: Array[AiObjective], pools: Dictionary
+## Rank the tree in place: parents and their children by utility, id breaks the
+## tie. Deterministic, so a replay never funds a different objective first.
+static func rank(
+	objectives: Array[AiObjective], modifiers: Dictionary = {}
 ) -> Array[AiObjective]:
-	var remaining: Dictionary = {}
-	for resource: String in AiObjective.RESOURCES:
-		remaining[resource] = maxi(int(pools.get(resource, 0)), 0)
-	for objective: AiObjective in objectives:
-		if objective.is_blocked():
-			objective.status = AiObjective.STATUS_BLOCKED
-			continue
-		var missing: Dictionary = {}
-		for resource: String in objective.cost.keys():
-			var need: int = int(objective.cost[resource])
-			var have: int = int(remaining.get(resource, 0))
-			if need > have:
-				missing[resource] = need - have
-		if missing.is_empty():
-			for resource: String in objective.cost.keys():
-				remaining[resource] = (
-					int(remaining.get(resource, 0)) - int(objective.cost[resource])
-				)
-			objective.claim = objective.cost.duplicate()
-			objective.status = AiObjective.STATUS_FUNDED
-			objective.shortfall = {}
-		else:
-			objective.claim = {}
-			objective.status = AiObjective.STATUS_DEFERRED
-			objective.shortfall = missing
-	return objectives
+	var sorted: Array[AiObjective] = []
+	sorted.assign(objectives)
+	sorted.sort_custom(
+		func(a: AiObjective, b: AiObjective) -> bool: return _before(a, b, modifiers)
+	)
+	for objective: AiObjective in sorted:
+		objective.children = rank(objective.children, modifiers)
+	return sorted
 
 
-## The claims a court carries into the next turn, for `AiState` persistence.
-static func claims_of(objectives: Array[AiObjective]) -> Array[Dictionary]:
-	var claims: Array[Dictionary] = []
-	for objective: AiObjective in objectives:
-		if objective.status != AiObjective.STATUS_FUNDED:
-			continue
-		claims.append({
-			"id": objective.id,
-			"domain": objective.domain,
-			"claim": objective.claim.duplicate(),
-		})
-	return claims
-
-
-## One line per objective for the turn trace: utility, cost, claim and the
-## blocked/deferred reason (wiki: turn-trace-interpretation).
-static func trace_lines(objectives: Array[AiObjective]) -> Array[String]:
+## Walk the ranked tree top-down: each objective claims its cost from the pools
+## in the currency's reading order, and one the pools cannot cover is deferred
+## with its shortfall. Returns the report the turn trace keeps.
+static func allocate(
+	objectives: Array[AiObjective], pools: Dictionary = {}
+) -> Dictionary:
+	var ranked: int = 0
+	var funded: int = 0
+	var blocked: int = 0
 	var lines: Array[String] = []
+	for objective: AiObjective in walk(objectives):
+		if objective.status == AiObjective.STATUS_BLOCKED:
+			blocked += 1
+			lines.append(objective.line())
+			continue
+		ranked += 1
+		objective.claim = _grant(objective.cost, pools)
+		if objective.shortfall().is_empty():
+			objective.status = AiObjective.STATUS_FUNDED
+			funded += 1
+		else:
+			objective.status = AiObjective.STATUS_DEFERRED
+		lines.append(objective.line())
+	return {
+		"ranked": ranked,
+		"funded": funded,
+		"blocked": blocked,
+		"pools": pools,
+		"lines": lines,
+		"objectives": to_dict(objectives),
+	}
+
+
+## Rank then allocate in one call: the shape the turn adapter and the tests use.
+static func run(
+	objectives: Array[AiObjective],
+	pools: Dictionary = {},
+	modifiers: Dictionary = {}
+) -> Dictionary:
+	var report: Dictionary = allocate(rank(objectives, modifiers), pools)
+	report["modifiers"] = modifiers
+	return report
+
+
+## Every objective in rank order, parent before child.
+static func walk(objectives: Array[AiObjective]) -> Array[AiObjective]:
+	var out: Array[AiObjective] = []
 	for objective: AiObjective in objectives:
-		lines.append(_line(objective))
-	return lines
+		out.append(objective)
+		out.append_array(walk(objective.children))
+	return out
 
 
-static func _line(objective: AiObjective) -> String:
-	var head: String = "#%d %s u%d" % [objective.rank, objective.id, objective.utility]
-	var cost: String = _pairs(objective.cost)
-	if not cost.is_empty():
-		head += " cost " + cost
-	match objective.status:
-		AiObjective.STATUS_FUNDED:
-			return head + " funded " + _pairs(objective.claim)
-		AiObjective.STATUS_DEFERRED:
-			return head + " deferred, short " + _pairs(objective.shortfall)
-		AiObjective.STATUS_BLOCKED:
-			return head + " blocked: " + objective.blocked
-	return head + " ranked"
+## Trace rows for the turn log, without mutating the tree.
+static func to_dict(objectives: Array[AiObjective]) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for objective: AiObjective in objectives:
+		rows.append(objective.to_dict())
+	return rows
 
 
-static func _pairs(raw: Dictionary) -> String:
-	var parts: PackedStringArray = []
-	for resource: String in AiObjective.RESOURCES:
-		if raw.has(resource):
-			parts.append("%s %d" % [resource, int(raw[resource])])
-	return ", ".join(parts)
+## Grant as much of `cost` as the pools hold. Each resource draws on its own
+## pool, in the currency's reading order so the trace is stable.
+static func _grant(cost: Dictionary, pools: Dictionary) -> Dictionary:
+	var claim: Dictionary = {}
+	for key: String in AiUtility.RESOURCES:
+		var asked: int = int(cost.get(key, 0))
+		if asked <= 0:
+			continue
+		var left: int = int(pools.get(key, AiUtility.UNBOUNDED))
+		var granted: int = mini(asked, maxi(left, 0))
+		claim[key] = granted
+		if pools.has(key):
+			pools[key] = maxi(left - granted, 0)
+	return claim
+
+
+static func _before(a: AiObjective, b: AiObjective, modifiers: Dictionary) -> bool:
+	var left: int = AiUtility.modified(a.utility, int(modifiers.get(a.domain, 1000)))
+	var right: int = AiUtility.modified(b.utility, int(modifiers.get(b.domain, 1000)))
+	if left != right:
+		return left > right
+	if a.id != b.id:
+		return a.id < b.id
+	return a.domain < b.domain

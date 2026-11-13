@@ -62,6 +62,7 @@ static func build_hud(play: PlaySession) -> void:
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
 	MapPlayFocus.bind(play)
+	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
@@ -158,6 +159,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	play.refresh_research()
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
+	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()

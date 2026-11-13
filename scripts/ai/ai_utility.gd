@@ -1,96 +1,84 @@
 class_name AiUtility
 extends RefCounted
-## The ledger's shared 0–100 currency (T1, trace-only).
+## The one currency a rival court's objectives are priced in (docs/ai.md;
+## issue #491 T1). Planners score in their own scales — desire 0–100, holds,
+## ducats, funding steps — and each normalizes into this 0–100 scale here, so
+## the ledger can rank a voyage against a regiment without inventing an
+## exchange rate per planner (REQ-P2-02, REQ-P2-03).
 ##
-## Each planner scores in its own scale — war desire 0–100, production runs,
-## research points, cargo holds. `normalize` maps a raw score into the shared
-## currency; `adjust` then applies the court's posture and agenda as a
-## **modifier, not a kill switch**: at war defence rises and colonisation
-## falls, but the objective stays alive and schedules (DR-20261113-15).
+## Pure arithmetic: no state, no nodes, safe to drive from tests.
 
-const POSTURE_WAR: String = "war"
-const POSTURE_FRONTS: String = "fronts"
-const POSTURE_PEACE: String = "peace"
-
-## Domain posture modifiers. Above 1 raises the objective's rank, below 1
-## lowers it; nothing is zeroed, so a deferred objective still explains itself
-## in the trace.
-const POSTURE_MODIFIERS: Dictionary = {
-	POSTURE_WAR: {
-		"military": 1.5, "defence": 1.5, "naval": 1.2, "invasion": 1.2,
-		"muster": 1.3, "spy": 1.1, "diplomacy": 1.0, "colonisation": 0.6,
-		"economy": 0.9, "research": 0.9, "civilian": 0.9, "cargo": 0.9,
-		"market": 0.9,
-	},
-	POSTURE_FRONTS: {
-		"military": 1.3, "defence": 1.3, "muster": 1.2, "naval": 1.1,
-		"diplomacy": 1.1, "invasion": 1.0, "spy": 1.0, "colonisation": 0.8,
-		"economy": 0.95, "research": 0.95, "civilian": 0.95, "cargo": 0.95,
-		"market": 0.95,
-	},
-	POSTURE_PEACE: {
-		"economy": 1.1, "research": 1.1, "civilian": 1.1, "cargo": 1.1,
-		"market": 1.1, "colonisation": 1.0, "diplomacy": 1.0, "naval": 0.9,
-		"spy": 0.9, "muster": 0.9, "military": 0.8, "defence": 0.8,
-		"invasion": 0.7,
-	},
-}
-
-## Agenda biases: the court's own book of grudges reweights a domain on top of
-## its posture (wiki: hidden-agendas; DR-20261111-27).
-const AGENDA_BIAS: Dictionary = {
-	"warmonger": {"military": 1.2, "naval": 1.1, "muster": 1.1},
-	"peacemaker": {"diplomacy": 1.2, "military": 0.85},
-	"isolationist": {"diplomacy": 0.85, "colonisation": 0.9},
-	"backstabber": {"diplomacy": 1.1, "spy": 1.1},
-	"tech_thief": {"research": 1.2},
-	"envy": {"military": 1.1, "diplomacy": 1.1},
-}
-
-## The published bench weight per domain, used when a planner's turn output
-## carries no score of its own (the parent issue's bench: colonisation 50 per
-## province, and so on). One table so the trace's numbers stay auditable.
-const DOMAIN_BASE: Dictionary = {
-	"diplomacy": 50, "military": 60, "defence": 60, "naval": 55,
-	"invasion": 55, "colonisation": 50, "economy": 45, "research": 45,
-	"civilian": 40, "cargo": 40, "market": 35, "muster": 55, "spy": 30,
-}
-
-## Each planner's own score ceiling, so `normalize` maps its scale onto 0–100
-## without a per-call guess. A domain missing here falls back to DOMAIN_BASE.
-const SCORE_CEILING: Dictionary = {
-	"diplomacy": 100, "economy": 84, "research": 120, "civilian": 100,
-	"cargo": 20, "market": 20,
-}
+## Resources an objective may claim, in the trace's reading order. Treasury is
+## ducats, hull a slip at the yard, civilian the next train slot, regiment the
+## next muster slot, labour a crew hand, orders the court's one order a turn.
+const RESOURCES: Array[String] = [
+	"treasury", "hull", "civilian", "regiment", "labour", "orders",
+]
+## A pool no caller states is not scarce: a claim against it always succeeds.
+const UNBOUNDED: int = 1 << 30
 
 
-## Map a raw planner score into 0–100. `high` is the scale's ceiling; a
-## non-positive ceiling falls back to the domain's published ceiling so a trace
-## never divides by zero.
-static func normalize(raw: int, high: int = 0, domain: String = "") -> int:
-	var ceiling: int = high
-	if ceiling <= 0:
-		ceiling = int(SCORE_CEILING.get(domain, DOMAIN_BASE.get(domain, 100)))
-	if ceiling <= 0:
-		return 0
-	return clampi(int(roundf(float(raw) * 100.0 / float(ceiling))), 0, 100)
+static func clamp_utility(value: int) -> int:
+	return clampi(value, 0, 100)
 
 
-static func posture_modifier(domain: String, phase: String) -> float:
-	var table: Dictionary = POSTURE_MODIFIERS.get(phase, {})
-	return float(table.get(domain, 1.0))
+## A planner's own score mapped onto 0–100 between `low` and `high`.
+static func scale(value: int, low: int, high: int) -> int:
+	if high <= low:
+		return 100 if value >= high else 0
+	return clamp_utility(roundi(100.0 * float(value - low) / float(high - low)))
 
 
-static func agenda_bias(domain: String, agenda: String) -> float:
-	var table: Dictionary = AGENDA_BIAS.get(agenda, {})
-	return float(table.get(domain, 1.0))
+## A part of a whole as 0–100: the shape a "strength against the enemy" reading
+## takes.
+static func ratio(part: int, whole: int) -> int:
+	if whole <= 0:
+		return 100 if part > 0 else 0
+	return clamp_utility(roundi(100.0 * float(maxi(part, 0)) / float(whole)))
 
 
-## The objective's ranked utility: normalized score × posture × agenda, clamped
-## to 0–100. A blocked objective keeps its utility so the trace can still show
-## what it was worth.
-static func adjust(utility: int, domain: String, phase: String, agenda: String) -> int:
-	var scaled: float = (
-		float(utility) * posture_modifier(domain, phase) * agenda_bias(domain, agenda)
-	)
-	return clampi(int(roundf(scaled)), 0, 100)
+## Rank = clamp(utility × modifier / 1000, 0, 100). T1 passes no modifier; the
+## posture vector becomes a modifier in T4 (#499).
+static func modified(utility: int, per_mille: int = 1000) -> int:
+	return clamp_utility((utility * maxi(per_mille, 0)) / 1000)
+
+
+## A cost row with zero and unknown keys dropped, so the trace reads only what
+## the objective actually asks for.
+static func clean_cost(cost: Dictionary) -> Dictionary:
+	var clean: Dictionary = {}
+	for key: String in RESOURCES:
+		var amount: int = int(cost.get(key, 0))
+		if amount > 0:
+			clean[key] = amount
+	return clean
+
+
+## What a grant left unfunded: cost − claim, positive entries only.
+static func shortfall(cost: Dictionary, claim: Dictionary) -> Dictionary:
+	var short: Dictionary = {}
+	for key: String in RESOURCES:
+		var missing: int = int(cost.get(key, 0)) - int(claim.get(key, 0))
+		if missing > 0:
+			short[key] = missing
+	return short
+
+
+## "hull 0/1, civilian 0/1" — the trace's starvation line (issue #491 T2).
+static func claim_text(cost: Dictionary, claim: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for key: String in RESOURCES:
+		var asked: int = int(cost.get(key, 0))
+		if asked <= 0:
+			continue
+		parts.append("%s %d/%d" % [key, int(claim.get(key, 0)), asked])
+	return ", ".join(parts)
+
+
+## A readable cost row for the trace: "treasury 120, orders 1".
+static func cost_text(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for key: String in RESOURCES:
+		if int(cost.get(key, 0)) > 0:
+			parts.append("%s %d" % [key, int(cost[key])])
+	return ", ".join(parts)

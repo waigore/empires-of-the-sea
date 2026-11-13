@@ -1,25 +1,20 @@
 class_name AiObjective
 extends RefCounted
-## One ranked objective in a rival court's ledger (T1, trace-only).
+## One objective in a rival court's turn ledger (docs/ai.md; issue #491 T1).
 ##
-## The ledger's shared currency is `utility` (0–100): every planner normalizes
-## its own score into it, so priorities from different domains can finally be
-## compared (wiki: ai-architecture; DR-20261113-15). `cost` declares what the
-## objective needs from the court's resource pools; `claim` records what the
-## allocate pass actually granted. Nothing here spends or mutates rules state —
-## the ledger is a read model until a later task converts a spender
-## (REQ-P2-03, REQ-P4-03).
+## A planner emits an objective instead of spending directly: `utility` is the
+## shared 0–100 currency (AiUtility), `cost` names the resources it would claim,
+## and `children` decompose a composite aim — the expedition is a parent whose
+## children are the hull, the Explorer and the peace window (issue #491 T2).
+## The ledger ranks and allocates the tree; this type only carries it, so it
+## stays pure data (REQ-P2-02, REQ-P2-03).
 
+## The four states a ranked objective can hold. `ranked` is the state an
+## emitter hands over; the allocate pass writes the other three.
 const STATUS_RANKED: String = "ranked"
 const STATUS_FUNDED: String = "funded"
 const STATUS_DEFERRED: String = "deferred"
 const STATUS_BLOCKED: String = "blocked"
-
-## The pools an objective can claim. `orders` is the court's per-turn order
-## attention: one diplomatic order, one civilian train slot, and so on.
-const RESOURCES: Array[String] = [
-	"treasury", "hull", "civilian", "regiment", "labour", "orders",
-]
 
 var id: String = ""
 var domain: String = ""
@@ -28,103 +23,82 @@ var cost: Dictionary = {}
 var claim: Dictionary = {}
 var status: String = STATUS_RANKED
 var blocked: String = ""
-## 1-based position after the rank pass; 0 before it.
-var rank: int = 0
-var shortfall: Dictionary = {}
 var children: Array[AiObjective] = []
 
 
-static func make(
+static func create(
 	objective_id: String,
 	objective_domain: String,
-	objective_utility: int,
-	objective_cost: Dictionary = {},
-	objective_blocked: String = ""
+	value: int,
+	objective_cost: Dictionary = {}
 ) -> AiObjective:
 	var objective := AiObjective.new()
 	objective.id = objective_id
 	objective.domain = objective_domain
-	objective.utility = clampi(objective_utility, 0, 100)
-	objective.cost = _clean_cost(objective_cost)
-	objective.blocked = objective_blocked
-	if not objective.blocked.is_empty():
-		objective.status = STATUS_BLOCKED
+	objective.utility = AiUtility.clamp_utility(value)
+	objective.cost = AiUtility.clean_cost(objective_cost)
 	return objective
 
 
-## A cost dictionary with only the known pools and positive amounts, so a
-## planner cannot invent a resource the allocator would silently ignore.
-static func _clean_cost(raw: Dictionary) -> Dictionary:
-	var cost: Dictionary = {}
-	for resource: String in RESOURCES:
-		var amount: int = int(raw.get(resource, 0))
-		if amount > 0:
-			cost[resource] = amount
-	return cost
+## Chainable child, so a parent reads as one expression.
+func with_child(child: AiObjective) -> AiObjective:
+	if child != null:
+		children.append(child)
+	return self
 
 
-func is_blocked() -> bool:
-	return not blocked.is_empty()
+## The value the rank pass sorts on. T1 ranks by utility alone; T4 applies the
+## posture modifier vector (#499).
+func rank() -> int:
+	return utility
 
 
-func cost_of(resource: String) -> int:
-	return int(cost.get(resource, 0))
+func is_funded() -> bool:
+	return status == STATUS_FUNDED
 
 
-func claim_of(resource: String) -> int:
-	return int(claim.get(resource, 0))
+## A blocked objective claims nothing and says why: no harbour, no target.
+func block(reason: String) -> AiObjective:
+	status = STATUS_BLOCKED
+	blocked = reason
+	return self
 
 
-func shortfall_of(resource: String) -> int:
-	return int(shortfall.get(resource, 0))
+func shortfall() -> Dictionary:
+	return AiUtility.shortfall(cost, claim)
 
 
-## Total units of every pool the objective asks for; the trace's headline.
-func total_cost() -> int:
-	var total: int = 0
-	for resource: String in cost.keys():
-		total += int(cost[resource])
-	return total
-
-
+## One trace row: every reading the ledger made, so a starved objective explains
+## itself instead of vanishing (issue #491 T1 acceptance).
 func to_dict() -> Dictionary:
-	var kids: Array = []
-	for child: AiObjective in children:
-		kids.append(child.to_dict())
-	return {
+	var row: Dictionary = {
 		"id": id,
 		"domain": domain,
 		"utility": utility,
-		"cost": cost.duplicate(),
-		"claim": claim.duplicate(),
+		"cost": cost,
+		"claim": claim,
 		"status": status,
-		"blocked": blocked,
-		"rank": rank,
-		"shortfall": shortfall.duplicate(),
-		"children": kids,
 	}
+	if not blocked.is_empty():
+		row["blocked"] = blocked
+	var short: Dictionary = shortfall()
+	if not short.is_empty():
+		row["shortfall"] = short
+	if not children.is_empty():
+		var kids: Array[Dictionary] = []
+		for child: AiObjective in children:
+			kids.append(child.to_dict())
+		row["children"] = kids
+	return row
 
 
-static func from_dict(data: Dictionary) -> AiObjective:
-	var objective := AiObjective.new()
-	objective.id = String(data.get("id", ""))
-	objective.domain = String(data.get("domain", ""))
-	objective.utility = clampi(int(data.get("utility", 0)), 0, 100)
-	objective.cost = _clean_cost(_dictionary(data.get("cost", {})))
-	objective.claim = _clean_cost(_dictionary(data.get("claim", {})))
-	objective.status = String(data.get("status", STATUS_RANKED))
-	objective.blocked = String(data.get("blocked", ""))
-	objective.rank = int(data.get("rank", 0))
-	objective.shortfall = _clean_cost(_dictionary(data.get("shortfall", {})))
-	for raw: Variant in _array(data.get("children", [])):
-		if typeof(raw) == TYPE_DICTIONARY:
-			objective.children.append(from_dict(raw))
-	return objective
-
-
-static func _dictionary(raw: Variant) -> Dictionary:
-	return raw if typeof(raw) == TYPE_DICTIONARY else {}
-
-
-static func _array(raw: Variant) -> Array:
-	return raw if typeof(raw) == TYPE_ARRAY else []
+## "colonise.new_world u50 hull 1/1, civilian 0/1 deferred" — the trace line.
+func line() -> String:
+	var text: String = "%s u%d" % [id, utility]
+	var claims: String = AiUtility.claim_text(cost, claim)
+	if not claims.is_empty():
+		text += " %s" % claims
+	text += " %s" % status
+	if status == STATUS_BLOCKED and not blocked.is_empty():
+		text += " (%s)" % blocked
+	return text

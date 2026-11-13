@@ -37,6 +37,9 @@ var difficulty: String = Difficulty.DEFAULT
 ## Set once the calendar cap closes an undecided campaign; turns stay shut even
 ## though no victory was declared (wiki: victory § Calendar campaign end).
 var campaign_halted: bool = false
+## The pause menu whose MENU seal full-screen ledgers park while they are up
+## (GameMenu; null when the map runs without one).
+var pause_menu: GameMenu = null
 ## Generation recipe, kept so a save can rebuild the identical world.
 var map_seed: int = 1500
 var map_width: int = 128
