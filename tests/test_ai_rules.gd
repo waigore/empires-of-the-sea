@@ -49,6 +49,69 @@ func test_power_score_weights_are_overridable() -> void:
 func test_power_score_without_a_world_is_zero() -> void:
 	assert_eq(AiPower.score(null, 7, 9, 9), 0)
 
+
+## The planner weighs relative power by the published order of battle — FPN + FPM
+## over every land army — and never by a head count (wiki: diplomacy § Great
+## Power power score). Forty guards against five is a strong court even though
+## the stronger court holds fewer provinces.
+func test_the_planner_reads_power_from_the_order_of_battle() -> void:
+	var owners: Array[int] = []
+	for _index in 5:
+		owners.append(0)
+	for _index in 20:
+		owners.append(1)
+	var world: WorldMap = AiFixture.world(owners)
+	var context: Dictionary = AiTurn._context(
+		world,
+		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
+		0
+	)
+	assert_eq(int(context["power"][0]), 410, "5 × 10 provinces + 360 strength")
+	assert_eq(int(context["power"][1]), 245, "20 × 10 provinces + 45 strength")
+	assert_eq(
+		int(AiPower.relative_band(
+			int(context["power"][0]), int(context["power"][1])
+		)["bonus"]),
+		30,
+		"the published score makes this a strong court"
+	)
+
+## A caller that supplies no order of battle keeps the legacy head count, so a
+## headless fixture (no army layer) still scores instead of reading zero.
+func test_a_context_without_strengths_keeps_the_head_count() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
+	)
+	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
+	assert_eq(int(context["power"][1]), 35, "3 × 10 provinces + 5 regiments")
+	assert_false(context.has("strengths"), "no strength map to hand a view")
+
+## A court's charted docket carries the orders of battle it has seen, so a rival
+## weighs the power of the armies it knows of by their weight, not their count
+## (wiki: diplomacy § Great Power power score; DR-20261112-09).
+func test_a_charted_docket_powers_the_reading_by_strength() -> void:
+	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
+	var context: Dictionary = AiTurn._context(
+		world,
+		{
+			"regiments": {0: 2, 1: 9},
+			"ships": {},
+			"strengths": {0: 18.0, 1: 27.0},
+			"readings": {
+				0: {
+					"regiments": {0: 2, 1: 9},
+					"ships": {},
+					"strength": {0: 18.0, 1: 27.0},
+				}
+			},
+		},
+		0
+	)
+	var reading: Dictionary = AiTurn._reading(context, 0)
+	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
+	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
+
 # --- from test_ai_parameters.gd ---
 ## AI parameter registry and blessed profiles (wiki: ai-parameter-registry,
 ## ai-profile-overrides).
@@ -376,7 +439,7 @@ func test_ai_military_splits_the_home_army_on_a_hostile_border() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 4, "one regiment guards the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 	var field: ArmyState = split["army"] as ArmyState
 	assert_eq(field.count(), 4)
@@ -542,7 +605,7 @@ func test_a_minor_sends_a_relief_column_to_an_invaded_province() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 2, "one regiment keeps the seat")
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	assert_true(bool(split["ok"]))
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	assert_eq((plan["orders"] as Array).size(), 1)
@@ -599,7 +662,7 @@ func test_a_tribe_sends_the_same_relief_column() -> void:
 	assert_eq((splits[0]["regiments"] as Array).size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	ArmyState.split(armies, armies[0], ids, 10)
+	ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 9)
 	assert_eq((plan["orders"] as Array).size(), 1)
 	assert_eq(int(plan["orders"][0]["province"]), 0)
@@ -677,7 +740,7 @@ func test_the_relief_column_joins_the_defence() -> void:
 	var splits: Array[Dictionary] = AiDefensePlanner.split_orders(state, model, armies, 6)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[0], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[0], ids, 10)
 	var plan: Dictionary = AiDefensePlanner.march_orders(state, model, armies, 6)
 	var field: ArmyState = split["army"] as ArmyState
 	ArmyMovement.apply_move(model, field, int(plan["orders"][0]["province"]), true)
@@ -746,7 +809,7 @@ func _split_home(
 	assert_eq(splits.size(), 1)
 	var ids: Array[String] = []
 	ids.assign(splits[0]["regiments"])
-	var split: Dictionary = ArmyState.split(armies, armies[1], ids, 10)
+	var split: Dictionary = ArmyRoster.split(armies, armies[1], ids, 10)
 	assert_true(bool(split["ok"]))
 
 

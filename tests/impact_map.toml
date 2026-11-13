@@ -1307,7 +1307,9 @@ match = "tests/test_naming_rules.gd*"
 domain = "naming"
 
 [[rules]]
-match = "scripts/rules/army_*.gd"
+# `.gd*` keeps companion `.uid` files on the army domain (not the rules/** misc
+# catch-all), so a new army module's uid does not pull tables_rules past tier-1.
+match = "scripts/rules/army_*.gd*"
 domain = "army"
 
 [[rules]]
@@ -1381,6 +1383,12 @@ domain = "dialogue"
 # change never pays for the campaign flow the queues belong to.
 [[rules]]
 match = "scripts/rules/consent_copy.gd*"
+domain = "dialogue"
+
+# The words behind the court's keys (DR-20261113-06): a shipped `.po` is read by
+# the dialogue suite and nothing else, so a tongue change pays only that domain.
+[[rules]]
+match = "assets/locales/*.po*"
 domain = "dialogue"
 
 [[rules]]

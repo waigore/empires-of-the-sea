@@ -57,6 +57,28 @@ func test_the_court_reads_each_crowns_public_power() -> void:
 	assert_true(CourtRows.line(panel._power, 0, 6).is_empty(), "a Minor Nation carries none")
 
 
+## The rival pass weighs relative power by that same public order of battle, not
+## by a head count: the planner's score for a crown is the published one the
+## court panel prints (wiki: diplomacy § Great Power power score).
+func test_the_rival_pass_weighs_power_the_published_way() -> void:
+	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	assert_false(
+		(context.get("strengths", {}) as Dictionary).is_empty(),
+		"the pass hands the planner the order of battle"
+	)
+	var shared: Dictionary = AiTurn._context(
+		_screen.play.world, context, _screen.play.player_faction
+	)
+	var published: Dictionary = MapPlayDiplomacy.public_power(_screen.play)
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			int(shared["power"][faction]),
+			int(published[faction]),
+			"the planner and the panel read one score for %s"
+			% FactionCatalog.name_of(faction)
+		)
+
+
 func test_orders_from_the_court_change_relations_and_toast() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
