@@ -24,28 +24,26 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 ## Speed rules
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
-- MapScreen and app-shell suites reuse one cached small world per worker via
-  `MapScreen.preset_world` / `Main.preset_world` (capital-choice, observer, load).
-  Snapshot/restore when a case seats or mutates the chart.
+- One cached small world per worker via `MapScreen.preset_world` /
+  `Main.preset_world`. Snapshot/restore when a case seats or mutates the chart.
 - That world is the smallest that validates a `SaveCodec` slot and seats the
   turn-100 civilian tier; it must pass fair split on the **first** attempt
-  (else `generate_world` rebuilds). Screen and campaign-plate suites share it.
+  (else `generate_world` rebuilds).
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
   once per map state — mounting many screens or six courts' charts repaints nothing.
+- A mount paints chips, minimap and readings once (`load_region`); `build_hud`
+  adds only turn, economy, income and dossier.
 - Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
-- Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
-  `restore`), prefer `SaveCodec.restore` over remounting; a preset is reused only
-  when each chart's size matches the save, else the world regenerates.
-  `test_save_codec` keeps one MapScreen and resets via a pristine save (no
-  remount).
+- **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
+  case on a pristine save (~0.15 s) instead of remounting (~0.5 s). The reset
+  drops selection, sheets, lenses and news; a suite that swaps screens frees its
+  own. `SaveCodec.restore` is the in-place path; reuse a preset only when each
+  chart's size matches the save.
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftovers into a theme suite (`test_naval_rules`, `test_campaign_rules`,
-  `test_gazette`, `test_defence_lens`, `test_quick_battle_overlay`,
-  `test_audio_rules`). Prefer one mount per case. Profile with
-  `gd-tools test --durations 20`. Smoke: short boot, few `await process_frame`,
-  no sleeps / full campaigns.
+  fold leftovers into a theme suite. Profile with `gd-tools test --durations 20`.
+  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 
