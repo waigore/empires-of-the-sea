@@ -1,0 +1,86 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
+  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
+  "submission_hash": "sha256:492039f47ae30cead6e4855a4235d5e3784364859c5dd7b82c033f6dc318f1f1",
+  "submission_git": "feat/blockade-severs-the-harvest@f9030a6",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 3787.7836398224476,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 31.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 4.0,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:b4ad25d59a119840a0d0eef65b3da16875036029d41da9f5392667be687f5aea",
+    "parts": {
+      "provinces_old": 31,
+      "provinces_new": 0,
+      "regiments": 2,
+      "ships": 2,
+      "workers": 10,
+      "extraction_per_turn": 2.0602409638554215,
+      "income_per_turn": 93.66315789473684
+    },
+    "early_win": true,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 123,
+    "resolved_turns": 123
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-13T08:51:24Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:2b862f9004bcba3243ebfae00163d1d0532f2265814f52fb6a153d944d7e07a2"
+}
