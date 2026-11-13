@@ -246,6 +246,29 @@ func test_the_drill_yard_door_musters_into_the_home_army() -> void:
 	assert_eq(home.count(), before + 1)
 
 
+## The register's gate names the same refusal the Build/work pass would, so a
+## crown with no Home Army or no ledger is told why its muster cannot stand
+## (wiki: military-armies § Recruitment; REQ-P2-03).
+func test_the_muster_gate_names_a_crown_without_a_home_army() -> void:
+	var play: PlaySession = _screen.play
+	var economy: PlayerEconomy = _screen.economy.economy
+	var none: Array[ArmyState] = []
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(economy, none, play.player_faction, "peasant_levies"),
+		"Regiments muster only in the Home Army."
+	)
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(null, play.army_layer.armies, play.player_faction, "x"),
+		"Regiments muster only in the Home Army."
+	)
+	assert_eq(
+		ArmyTraining.muster_blocked_reason(
+			economy, play.army_layer.armies, play.player_faction, "no_such_regiment"
+		),
+		"Unknown regiment"
+	)
+
+
 ## A refusal leaves the register untouched and says why, for every register order.
 func test_refused_register_orders_keep_the_armies() -> void:
 	var home: ArmyState = _player_home()

@@ -173,6 +173,49 @@ func test_a_hull_ordered_at_a_lost_capital_is_refused() -> void:
 	assert_true(play.economy.economy.recruits.is_empty())
 
 
+## A worker order whose cloth was sold before Build/work is refused there with
+## the wiki's reason, and the pool keeps its count (REQ-P2-03).
+func test_a_worker_order_the_ledger_cannot_pay_is_refused() -> void:
+	var play: PlaySession = _screen.play
+	var economy: PlayerEconomy = play.economy.economy
+	economy.stockpile["fabric"] = 2
+	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
+	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	economy.stockpile["fabric"] = 0
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), peasants)
+	assert_true(economy.recruits.is_empty(), "the order is dropped, not retried")
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+
+
+## A hire whose purse is spent before Build/work is refused there and the order
+## is dropped, so the crown never keeps a promise it cannot pay (REQ-P2-03).
+func test_a_hire_the_purse_cannot_close_is_refused() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var civilians: int = _screen.civilian_layer.unit_count_all(play.player_faction)
+	MapPlayInput.on_panel_action(play, "train_explorer")
+	play.economy.economy.treasury = 0
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(_screen.civilian_layer.unit_count_all(play.player_faction), civilians)
+	assert_true(play.economy.economy.recruits.is_empty(), "the order is dropped")
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+
+
+## The civilian gate names an unknown type and a deferred one, so the muster
+## list never queues an order the rules would refuse.
+func test_the_civilian_gate_names_what_it_refuses() -> void:
+	var play: PlaySession = _screen.play
+	assert_eq(String(MapPlayCivilians.settle(play, "dragon")["reason"]), "Unknown civilian.")
+	assert_false(MapPlayCivilians.civilians_pending(play).has("dragon"))
+
+
 func test_training_is_refused_outside_the_capital() -> void:
 	var province_id: int = Fixture.foreign_province(_screen.model)
 	MapPlayInput.select_province(

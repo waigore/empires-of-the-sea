@@ -1226,6 +1226,33 @@ func test_a_copy_carries_its_own_queue() -> void:
 	assert_eq(clone.recruits.total(), 0)
 
 
+## The queue counts its orders by kind, names each on the ledger, and reserves
+## one peasant per trained worker or build (wiki: workers-and-population
+## § Peasant reservation).
+func test_the_queue_counts_its_orders_by_kind_and_names_them() -> void:
+	var queue := RecruitQueue.new()
+	assert_true(queue.is_empty())
+	assert_eq(queue.total(), 0)
+
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.MASTER))
+	queue.add(RecruitQueue.KIND_SHIP, "carrack")
+	assert_eq(queue.total(), 3)
+	assert_false(queue.is_empty())
+	assert_eq(queue.pending_kind(RecruitQueue.KIND_WORKER), 2)
+	assert_eq(queue.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE)), 1)
+	assert_eq(queue.pending(RecruitQueue.KIND_REGIMENT, "peasant_levies"), 0)
+	assert_eq(queue.reserved_peasants(), 3, "two trained workers and one hull")
+
+	assert_eq(RecruitQueue.label(queue.orders[0]), "Apprentice")
+	assert_eq(RecruitQueue.label(queue.orders[1]), "Master")
+	assert_eq(RecruitQueue.label(queue.orders[2]), "Carrack")
+	assert_eq(RecruitQueue.label({"kind": "civilian", "key": "builder"}), "Builder")
+	assert_eq(RecruitQueue.label({"kind": "regiment", "key": "peasant_levies"}), "Peasant Levies")
+	assert_eq(RecruitQueue.label({"kind": "mystery", "key": "x"}), "x", "an unknown kind names its key")
+	assert_eq(queue.snapshot().size(), 3)
+
+
 func test_disband_demotes_one_tier_to_peasant_without_refund() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers.set_count(WorkerPool.Tier.JOURNEYMAN, 2)

@@ -94,6 +94,32 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	assert_true(economy.recruits.is_empty(), "the order lands once")
 
 
+## The WORKERS tab names every order waiting for Build/work, and how many of a
+## tier are on the way (wiki: workers-and-population § Phase placement).
+func test_the_workers_tab_shows_what_is_under_orders() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	economy.recruits.add(RecruitQueue.KIND_CIVILIAN, "builder")
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+	economy.recruits.add(RecruitQueue.KIND_SHIP, "carrack")
+
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var texts: Array[String] = []
+	for label: Label in workers.find_children("*", "Label", true, false):
+		texts.append(label.text)
+	var printed: String = "\n".join(texts)
+
+	assert_true(printed.contains("UNDER ORDERS"), "the head names the queue: %s" % printed)
+	assert_true(printed.contains("Peasant · joins the pool in Build/work"))
+	assert_true(printed.contains("Builder · engaged at the capital"))
+	assert_true(printed.contains("Peasant Levies · musters in Build/work"))
+	assert_true(printed.contains("Carrack · launches in Build/work"))
+	assert_true(printed.contains("1 arriving"), "the peasant row counts the arrival")
+
+
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
