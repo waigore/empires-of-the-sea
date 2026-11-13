@@ -38,9 +38,11 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 - Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
   `restore`), prefer `SaveCodec.restore` over remounting unless HUD is under test.
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftover pure cases into a theme file instead of a new suite.
-  Prefer one mount per case. Profile with `gd-tools test --durations 20`.
-  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
+  fold leftover pure cases into a theme file instead of a new suite (gazette plate
+  in `test_gazette`; defence survey in `test_defence_lens`; battle sim in
+  `test_quick_battle_overlay`; map soundtrack in `test_audio_rules`). Prefer one
+  mount per case. Profile with `gd-tools test --durations 20`. Smoke: short boot,
+  few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 

@@ -39,8 +39,7 @@ suites = [
 
 [domains.audio]
 suites = [
-  "test_audio_rules.gd",
-  "test_map_soundtrack.gd"
+  "test_audio_rules.gd"
 ]
 
 [domains.battle]
@@ -288,8 +287,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_defence_lens.gd",
-  "test_defence_survey.gd"
+  "test_defence_lens.gd"
 ]
 
 # The defence reading's own files; first match wins, so they are named before
@@ -408,7 +406,7 @@ suites = [
 [domains.victory_standings]
 suites = [
   "test_victory_standings.gd",
-  "test_gazette_plate.gd",
+  "test_gazette.gd",
   "test_campaign_end.gd"
 ]
 
@@ -487,16 +485,14 @@ suites = [
 [domains.quick_battle]
 suites = [
   "test_quick_battle_overlay.gd",
-  "test_land_battle_rules.gd",
-  "test_battle_sim.gd"
+  "test_land_battle_rules.gd"
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
 # plate that prints them (wiki: the-gazette; DR-20261110-14).
 [domains.gazette]
 suites = [
-  "test_gazette.gd",
-  "test_gazette_plate.gd"
+  "test_gazette.gd"
 ]
 
 # The crown's charge at the opening of a campaign (wiki: dialogue-management
@@ -1883,10 +1879,6 @@ match = "tests/test_audio_*.gd"
 domain = "audio"
 
 [[rules]]
-match = "tests/test_map_soundtrack.gd"
-domain = "audio"
-
-[[rules]]
 match = "tests/test_battle_*.gd"
 domain = "battle"
 
@@ -1896,10 +1888,6 @@ domain = "quick_battle"
 
 [[rules]]
 match = "tests/test_land_battle_rules.gd*"
-domain = "quick_battle"
-
-[[rules]]
-match = "tests/test_battle_sim.gd"
 domain = "quick_battle"
 
 # Screenshot harnesses for the plate (run by hand, never as suites).
