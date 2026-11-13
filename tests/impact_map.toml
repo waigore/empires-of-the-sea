@@ -641,6 +641,7 @@ suites = [
 [domains.difficulty]
 suites = [
   "test_ai_rules.gd",
+  "test_ai_objective_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
@@ -1105,11 +1106,12 @@ domain = "misc"
 match = "tools/lint_arch.py"
 domain = "misc"
 
-# AiState stamps the difficulty layer onto rival ledgers; keep it on the
-# difficulty domain so a layer change does not pull every AI planner suite.
+# AiState stamps the difficulty layer onto rival ledgers and keeps the
+# objective ledger's claims; the ledger slice owns it now, and the difficulty
+# domain names the ledger suite so a layer change still proves the claims row.
 [[rules]]
-match = "scripts/ai/ai_state.gd"
-domain = "difficulty"
+match = "scripts/ai/ai_state.gd*"
+domain = "ai_ledger"
 
 # Prospect uncover (DR-20261111-26): keep mineral survey + Explorer/Builder AI
 # and the map/dossier marks off the full AI/map/civilian fan-out so tier 1
@@ -1196,6 +1198,41 @@ domain = "crown_road"
 [[rules]]
 match = "tests/civilian_fixture.gd*"
 domain = "prospect"
+
+# The rival objective ledger (docs/ai.md; issue #491): one utility currency, the
+# rank/allocate passes, the claims a court keeps and the adapter that stamps
+# them into the turn trace. Kept its own small slice so a ledger change runs its
+# own suite plus the phase rules it prices, instead of the whole AI fan-out.
+[domains.ai_ledger]
+suites = [
+  "test_ai_objective_rules.gd",
+  "test_ai_phase_rules.gd",
+  "test_ai_observer.gd"
+]
+
+[[rules]]
+match = "scripts/ai/ai_objective*.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_utility.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_state.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_turn_log.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/map/map_play_objectives_ai.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "tests/test_ai_objective_rules.gd*"
+domain = "ai_ledger"
 
 [[rules]]
 match = "scripts/ai/**"
