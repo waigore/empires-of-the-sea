@@ -182,6 +182,9 @@ func test_the_dossier_pitches_a_field_hospital_train() -> void:
 	assert_eq(economy.quantity("lumber"), lumber - 2)
 	assert_eq(economy.quantity("fabric"), fabric - 1)
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
+	# The receipt names what the stores paid, not just that the tents arrived.
+	assert_true(_last_toast().contains("2 Lumber"), _last_toast())
+	assert_true(_last_toast().contains("1 Fabric"), _last_toast())
 	# The strength line's food is the army's own upkeep line, so it agrees with
 	# the ledger's army ration, nurses included (DR-20261112-07).
 	var upkeep: int = ArmyRoster.food_upkeep_of([army], army.owner)
@@ -265,7 +268,7 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 
 ## A blooded regiment prints its service record under its condition, and its
 ## despatch under that once it has stood in a field; a green one adds no line
-## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10).
+## (wiki: naming § Regiment records; DR-20261111-18, DR-20261112-10/-13-04).
 func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
@@ -280,7 +283,10 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 
 	var cited: VBoxContainer = panel._roster.get_child(0)
 	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
-	assert_eq(String(despatch.text), "Cited — Province 1 won", "the citation leads")
+	assert_eq(
+		String(despatch.text), "Cited +5% — Province 1 won",
+		"the citation leads, and names the rank it buys"
+	)
 	var whole: VBoxContainer = panel._roster.get_child(1)
 	var bare: Label = whole.get_child(whole.get_child_count() - 1)
 	assert_eq(
@@ -515,6 +521,17 @@ func _adjacent_enemy_province(capital: int) -> int:
 		return province_id
 	return -1
 
+
+## The line the court last raised, as the player reads it.
+func _last_toast() -> String:
+	var box: VBoxContainer = _screen.hud._toast_box
+	assert_gt(box.get_child_count(), 0, "a report was raised")
+	var plate: Control = box.get_child(box.get_child_count() - 1) as Control
+	for child: Node in plate.get_children():
+		if child is Label:
+			return (child as Label).text
+	return ""
+
 # --- Regiment detail in the army dossier (REQ-P1-07, REQ-P5-05) ---
 const ArmyFixture = preload("res://tests/army_fixture.gd")
 
@@ -576,6 +593,54 @@ func test_roster_names_the_hospital_rest_tempo() -> void:
 
 	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 	panel.free()
+
+
+## A host with tents keeps the field's own 40% in its line, and a fed ward that
+## out-heals them is named beside it rather than passing as the tents' tempo
+## (wiki: combat § Regiment condition; DR-20261112-07).
+func test_a_fed_ward_is_named_beside_the_tents() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 2
+	model.province_data(1).hospital_staffed = true
+	var army := ArmyFixture.army(7, 0, 1, ["guards"], false)
+	army.field_hospital = true
+
+	panel.refresh(model, army, true)
+
+	var line: String = String(panel._strength.text)
+	assert_true(line.contains("field hospital · rest 40%"), line)
+	assert_true(line.contains("ward 55%"), line)
+
+	model.province_data(1).hospital_staffed = false
+
+	panel.refresh(model, army, true)
+
+	line = String(panel._strength.text)
+	assert_true(line.contains("field hospital · rest 40%"), line)
+	assert_false(line.contains("ward"), "an unfed ward has no nurses to name")
+	panel.free()
+
+
+## A combine can move the tents to the standard that absorbs the host, so the
+## report names them: the dossier the crown was reading must not lose them in
+## silence (wiki: combat § Regiment condition; DR-20261112-07).
+func test_a_combine_names_the_tents_that_change_standards() -> void:
+	var home: ArmyState = _player_home()
+	var play: PlaySession = _screen.play
+	_screen.army_layer.select(home)
+	MapPlayArmies.on_action(play, "detach:%s" % home.regiments[0])
+	var field: ArmyState = _screen.army_layer.selected_army
+	assert_not_null(field)
+	field.field_hospital = true
+
+	_screen.army_layer.select(field)
+	MapPlayArmyMuster.merge(play, field)
+
+	assert_true(home.field_hospital, "the Home Army keeps the one train")
+	assert_true(_last_toast().contains("field hospital train"), _last_toast())
+	assert_true(_last_toast().contains("rides with it"), _last_toast())
 
 
 ## The dossier shows a regiment's own record: chevrons for experience and a
@@ -700,3 +765,133 @@ func test_drill_yard_rows_carry_their_medallion() -> void:
 	assert_eq((top.get_child(1) as Label).text, "Grenadiers")
 	panel.free()
 
+
+
+## The crown names its own colours: the dossier's name row writes a title the
+## army carries, and no rule moves (wiki: naming § Regiment names;
+## DR-20261113-03).
+func test_the_crown_names_its_colours() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var regiment: String = home.regiments[0]
+	var strength: float = home.strength()
+	var rations: int = ArmyState.food_upkeep_of([home], home.owner)
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:  Tercio   de la Mar " % regiment)
+
+	assert_eq(
+		RegimentNames.of(home, regiment), "Tercio de la Mar",
+		"the typed name is tidied and kept"
+	)
+	assert_true(_last_toast().contains("Tercio de la Mar"), _last_toast())
+	assert_eq(home.strength(), strength, "a name buys no strength")
+	assert_eq(ArmyState.food_upkeep_of([home], home.owner), rations, "a name eats nothing")
+	assert_true(_screen.hud.panels.is_army_panel_open(), "the dossier repaints with the name")
+	var row: HBoxContainer = (
+		_screen.hud.panels.army_panel._roster.get_child(0) as VBoxContainer
+	).get_child(0) as HBoxContainer
+	assert_true((row.get_child(1) as Label).text.begins_with("Tercio de la Mar —"), "the row prints it")
+
+
+## A name a title cannot bear is refused with its reason, and the colours keep
+## the name they had (wiki: naming § Regiment names; DR-20261113-03).
+func test_a_name_the_rules_refuse_leaves_the_colours() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var first: String = home.regiments[0]
+	var second: String = home.regiments[1]
+	var borne: String = RegimentNames.of(home, first)
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:   " % first)
+	assert_true(_last_toast().contains("needs a name"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "an empty name changes nothing")
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:%s" % [first, "A".repeat(29)])
+	assert_true(_last_toast().contains("28"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "an over-long name changes nothing")
+
+	MapPlayArmies.on_action(
+		_screen.play, "rename:%s:%s" % [first, RegimentNames.of(home, second).to_lower()]
+	)
+	assert_true(_last_toast().contains("Another colour"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "a double name changes nothing")
+
+
+## A rename rides the split and the save exactly as the christened title does,
+## because it is the same store (DR-20261113-03).
+func test_a_renamed_title_rides_the_split_and_the_save() -> void:
+	var field: ArmyState = _detach_one()
+	var regiment: String = field.regiments[0]
+	assert_true(bool(RegimentRename.apply(field, regiment, "Tercio de la Mar")["ok"]))
+
+	var saved := ArmyState.from_dict(field.to_dict())
+	assert_eq(
+		RegimentNames.of(saved, regiment), "Tercio de la Mar",
+		"a save keeps the crown's own name"
+	)
+
+	var armies: Array[ArmyState] = [field]
+	var split: Dictionary = ArmyState.split(armies, field, [regiment], 99)
+	assert_true(bool(split["ok"]), String(split["reason"]))
+	assert_eq(
+		RegimentNames.of(split["army"] as ArmyState, regiment), "Tercio de la Mar",
+		"a detach carries the name"
+	)
+
+
+## The name row is the crown's door: it opens on the row, commits what was
+## typed and never offers itself for a rival's colours (REQ-P5-07).
+func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var asked: Array = []
+	panel.rename_pressed.connect(
+		func(regiment_id: String, wanted: String) -> void:
+			asked.append("%s=%s" % [regiment_id, wanted])
+	)
+
+	panel.refresh(model, army, true)
+
+	var row: HBoxContainer = (panel._roster.get_child(0) as VBoxContainer).get_child(0) as HBoxContainer
+	assert_eq(row.get_child_count(), 4, "medallion, name, detach, the name order")
+	assert_eq((row.get_child(3) as Button).text, "Name", "the crown's door sits beside detach")
+	(row.get_child(3) as Button).pressed.emit()
+	var field: LineEdit = panel._roster._field
+	assert_not_null(field, "the name row opens under the colours")
+	assert_eq(field.text, RegimentNames.of(army, "unit_301"), "the row starts at the name borne")
+	field.text = "Royal Scots"
+	panel._roster.commit_rename("unit_301")
+	assert_eq(asked, ["unit_301=Royal Scots"], "the typed name is handed to the rules")
+
+	# The way out: cancel closes the row and changes nothing.
+	var borne: String = RegimentNames.of(army, "unit_301")
+	panel._roster.begin_rename("unit_301")
+	panel._roster.cancel_rename()
+	assert_null(panel._roster._field, "cancel closes the name row")
+	assert_eq(RegimentNames.of(army, "unit_301"), borne, "cancel keeps the name borne")
+	panel.free()
+
+	var rival := ArmyFixture.army(4, 1, 2, ["knights"], false)
+	var enemy_panel := ArmyPanel.new()
+	add_child(enemy_panel)
+	enemy_panel.refresh(model, rival, false)
+	var enemy_row: HBoxContainer = (
+		enemy_panel._roster.get_child(0) as VBoxContainer
+	).get_child(0) as HBoxContainer
+	assert_eq(enemy_row.get_child_count(), 2, "a rival's colours carry no order")
+	enemy_panel.free()
+
+
+## An order with no instance id is ignored rather than renaming the wrong
+## colours (DR-20261113-03).
+func test_a_malformed_name_order_changes_nothing() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var borne: String = RegimentNames.of(home, home.regiments[0])
+
+	MapPlayArmies.on_action(_screen.play, "rename:")
+	MapPlayArmies.on_action(_screen.play, "rename::Foo")
+
+	assert_eq(RegimentNames.of(home, home.regiments[0]), borne)

@@ -8,6 +8,9 @@ extends PanelContainer
 signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
+## The crown named one of its colours: the roster's edit row committed text
+## (wiki: naming § Regiment names; DR-20261113-03).
+signal rename_pressed(regiment_id: String, wanted: String)
 
 var _header: DossierHeader = null
 var _location: Label = null
@@ -101,6 +104,10 @@ func _build() -> void:
 
 	_roster = ArmyRosterBlock.new()
 	_roster.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	_roster.rename_pressed.connect(
+		func(regiment_id: String, wanted: String) -> void:
+			rename_pressed.emit(regiment_id, wanted)
+	)
 	content.add_child(_roster)
 
 	_muster_box = ArmyMusterBlock.new()
@@ -126,9 +133,8 @@ func _build() -> void:
 	_plan.visible = false
 	shell.add_child(_plan)
 
-	# The army's own tents (DR-20261112-07): a blocked order still shows, with
-	# the rules' reason as its caption, so the crown never hunts for a hidden
-	# refusal.
+	# The army's own tents (DR-20261112-07): a blocked order still shows, its
+	# reason as the caption, so the crown never hunts for a hidden refusal.
 	_hospital = UiRowBuilder.button("Pitch a field hospital", 36.0, 0.0)
 	_hospital.pressed.connect(func() -> void: action_pressed.emit("hospital"))
 	_hospital.visible = false
@@ -224,11 +230,14 @@ func _strength_line(model: MapModel, army: ArmyState) -> String:
 		return text
 	var ward: int = HospitalRules.effective_level(model, army.province)
 	if army.field_hospital:
-		# The army's own tents carry the field's tempo wherever it stands;
-		# a province ward still beats them (DR-20261112-07).
+		# The tents carry the field's tempo anywhere; a fed ward can still
+		# beat them, so both shares are named (DR-20261112-07).
 		text += " · field hospital · rest %d%%" % roundi(
-			HospitalTrain.army_rest_share(model, army.province, true) * 100.0
+			HospitalTrain.REST_SHARE * 100.0
 		)
+		var ward_share: float = HospitalRules.rest_share(ward)
+		if ward > 0 and ward_share > HospitalTrain.REST_SHARE:
+			text += " · ward %d%%" % roundi(ward_share * 100.0)
 	elif ward > 0:
 		text += " · rest %d%%" % roundi(HospitalRules.rest_share(ward) * 100.0)
 	elif HospitalRules.level_at(model, army.province) > 0:
@@ -257,9 +266,7 @@ func _apply_status(army: ArmyState, is_player: bool) -> void:
 
 func _food(army: ArmyState) -> int:
 	var total: int = 0
-	# A train's nurses eat inside the army's own upkeep line, so the strength
-	# line counts them with the men (wiki: combat § Regiment condition;
-	# DR-20261112-07).
+	# A train's nurses eat inside the army's own upkeep line (DR-20261112-07).
 	if army.field_hospital:
 		total += HospitalTrain.food()
 	for regiment_id: String in army.regiments:

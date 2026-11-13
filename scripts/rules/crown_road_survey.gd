@@ -69,19 +69,34 @@ static func summary_text(entry: Dictionary) -> String:
 	var cut: int = int(entry.get("cut_tiles", 0))
 	if state == STATE_ROAD:
 		if cut > 0:
-			return "Crown road: linked by road · %d tiles cut off" % cut
+			return "Crown road: linked by road · %s cut off" % _tiles(cut)
 		return "Crown road: linked by road"
 	if state == STATE_TOWN:
-		var level: int = int(entry.get("town_level", 0))
-		if level > 0:
-			return "Crown road: town only — town level %d caps its yield" % level
-		return "Crown road: town only"
+		return _town_text(entry)
 	var gap: int = int(entry.get("gap", -1))
 	if gap < 0:
 		return "Crown road: no owned-land route to the crown"
-	if gap == 0:
+	if gap <= 1:
 		return "Crown road: one road tile from the crown"
 	return "Crown road: %d road tiles from the crown" % gap
+
+
+## A Town-rule reading. Only a port town (or a capital province) caps yield, so
+## a town-only province whose town carries no port says the cap does not apply
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap) — the same predicate the yield itself reads.
+static func _town_text(entry: Dictionary) -> String:
+	var level: int = int(entry.get("town_level", 0))
+	if level <= 0:
+		return "Crown road: town only"
+	if bool(entry.get("town_caps", false)):
+		return "Crown road: town only — town level %d caps its yield" % level
+	return "Crown road: town only — town development does not cap it"
+
+
+## "1 tile" / "2 tiles": a reading never prints "1 tiles".
+static func _tiles(count: int) -> String:
+	return "%d tile%s" % [count, "" if count == 1 else "s"]
 
 
 # --- tiles -------------------------------------------------------------------
@@ -191,6 +206,7 @@ static func _collect_provinces(
 			"gap": gap,
 			"town": town,
 			"town_level": province.town_development,
+			"town_caps": LandConnectivity.town_caps_province(model, resolved, province.id),
 			"anchor": _anchor(model, province, town, states),
 			"cut_tiles": _cut_tiles(model, province, states),
 			"charted": charted,

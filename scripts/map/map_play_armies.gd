@@ -73,11 +73,7 @@ static func hospital_order(play: PlaySession, army: ArmyState) -> Dictionary:
 	)
 	if not bool(check.get("ok", false)):
 		return {"caption": String(check.get("reason", "")), "ok": false}
-	var parts: PackedStringArray = PackedStringArray()
-	var cost: Dictionary = HospitalTrain.cost()
-	for commodity: String in cost.keys():
-		parts.append("%d %s" % [int(cost[commodity]), CommodityCatalog.label(commodity)])
-	return {"caption": "Pitch a field hospital (%s)" % " · ".join(parts), "ok": true}
+	return {"caption": "Pitch a field hospital (%s)" % HospitalTrain.price_text(), "ok": true}
 
 
 ## A squadron in port here that can take the army aboard (wiki: ships-and-naval
@@ -171,6 +167,28 @@ static func on_action(play: PlaySession, action: String) -> void:
 		cycle_plan(play, army)
 	elif action == "hospital":
 		MapPlayArmyMuster.pitch_hospital(play, army)
+	elif action.begins_with("rename:"):
+		rename_colours(play, army, action.trim_prefix("rename:"))
+
+
+## The crown names its colours (wiki: naming § Regiment names; DR-20261113-03).
+## A name is identity only, so the order spends no move, coin or phase: the
+## dossier offers it, the rules tidy it and refuse what a title cannot bear, and
+## the army carries it through a split, a merge and the save like any christened
+## title. `args` is `<instance id>:<typed name>`, the instance id holding no
+## colon, so a name may contain one.
+static func rename_colours(play: PlaySession, army: ArmyState, args: String) -> void:
+	var cut: int = args.find(":")
+	if cut <= 0:
+		return
+	var regiment_id: String = args.substr(0, cut)
+	var result: Dictionary = RegimentRename.apply(army, regiment_id, args.substr(cut + 1))
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "That name cannot be borne.")))
+		show_panel(play, army)
+		return
+	play.hud.toast("The colours are renamed — %s" % String(result["name"]))
+	show_panel(play, army)
 
 
 ## One tap cycles the crown's Quick Battle plan; the dossier names it crown-wide

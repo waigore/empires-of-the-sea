@@ -1,63 +1,63 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-01.
-What to ship next (`REQ-P2-02`).
+Audited through DR-20261113-09 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
-| Difficulty (stores, field, sea, crown's bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
-| Every agenda's decision hooks | `AiAgenda`, DR-20261111-27, [`ai.md`](ai.md) |
+| Difficulty (stores, field, sea, bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
+| Agenda hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
 | Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home` |
-| Forts + rival/AI builders | [`forts.md`](forts.md), `AiCivilianPlanner` |
-| Rival civilian AI | `AiCivilianPlanner` / `MapPlayCivilianAi` |
-| Minor/Tribe town offers + overseas town bonus | `MinorMarket`, `TownIndustry` |
+| Forts + rival civilian AI | [`forts.md`](forts.md), `AiCivilianPlanner` |
+| Minor/Tribe town offers, overseas bonus | `MinorMarket`, `TownIndustry` |
 | Merchant overseas cargo | `EconomyOverseas` |
 | Colony profit share + near-defeat Join Empire | `FirstRight`, `DiplomacyRules` |
 | Counter-spy + court reports | [`espionage.md`](espionage.md) |
 | Rival fog / Passage colonisation | `CourtCharts`, DR-20261111-05 |
-| Colony Tribe favoured-partner override | `MarketFavoured` (R7.1), DR-20261111-11 |
-| Rival GP–Tribe first contact (+ deeds) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
-| Hospitals, rival builders, staff upkeep | `HospitalRules` / `AiHospitalWork` / `EconomyConsumption` |
+| Colony Tribe favoured-partner override | `MarketFavoured`, DR-20261111-11 |
+| Rival GP–Tribe first contact | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
+| Hospitals, rival builders, staff upkeep | `HospitalRules`, `AiHospitalWork` |
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
-| Regiment titles, records, named commanders | `RegimentNames` / `RegimentRecord` / `GeneralNames` |
-| Raid hull losses + civilian hulls | `NavalRaid`/`NavalHullLoss` (DR-20261111-17) |
-| Rival-on-rival raids + prize cargo | `MapPlayRaids` (DR-20261111-20) |
-| Agenda dialogue beats + cadence | `DialogueAgenda` (DR-20261111-19) |
+| Regiment titles, records, commanders, renaming | `RegimentRecord` kit, DR-20261113-05 |
+| Raid hull losses; rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
-| Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02 |
+| Battle honours; citations; decoration weight | `RegimentRecord` / `RegimentDecorations`, DR-20261112-02/10/13-04 |
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
-| Travelling field hospital train | `HospitalTrain`, DR-20261112-07 |
-| Rival field-hospital trains | `AiHospitalTrainWork`, DR-20261112-08 |
-| Rival order-of-battle readings | `OobReadings`, `MapPlayCourtFog.oob_readings`, DR-20261112-09 |
-| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
-| Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
-| Yarn runtime + locale keys | `DialogueYarn` / `Yarn*` / `DialogueLocale`, DR-20261113-01 |
+| Field-hospital trains | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
+| Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
+| Multi-turn recipes; per-unit stagger | `ProductionRecipes`, DR-20261112-11/13-02 |
+| Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
+| Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
+| Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
+| French + Spanish court lines | `assets/locales/{fr,es}.po`, DR-20261113-06/09 |
+| Tongue picker + record | `TonguePage` / `TonguePrefs`, DR-20261113-09 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A decoration that buys something | Rules depth | DR-20261112-10; needs numbers |
-| 2 | Staggered per-unit completion | Economy depth | DR-20261112-11 |
-| 3 | Translation content | Localization | Keys live (DR-20261113-01); needs words |
+| 1 | More tongues than the two shipped | Localization | a `.po` in `assets/locales/` is offered (DR-20261113-09) |
+| 2 | The blocking prompts' words | Localization | consent lines print English |
 
 ## Next pick
 
-**Rank 1** — A decoration that buys something (DR-20261112-10): needs published
-numbers.
+**Rank 1** — more tongues; **rank 2** — the prompts.
 
-## Out of scope / blocked footnotes
+## Blocked footnotes
 
 - Predict-the-line preview — declined ([combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) / DR-20261112-02).
 - Era-change dialogue — blocked: no era model (DR-20261111-08).
 - Healing at health 0 — casualty list only (DR-20261112-04).
-- General-grade / sheltering trains — pending design (DR-20261112-07); L1 rest-only live.
+- General-grade / sheltering trains — pending design (DR-20261112-07); L1 live.
+- Last-known OOB / stale figure — deferred (DR-20261112-09).
 - Alternative victory types — [victory](https://github.com/waigore/empires-of-the-sea/wiki/victory) out of scope.
-- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer (DR-20261111-28).
+- Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
-- General borrowing / loans — Money Lending floor live; rest deferred ([tech-tree-labour-economy](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree-labour-economy)).
-- Per-region prospected table for discovery — still deferred (DR-20261110-21).
+- General borrowing / loans — Money Lending floor live.
+- Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
+- Works' reservation + coexistence — seed (DR-20261113-08).
+- Recipe gates on a building or worker tier; multi-turn rows beyond steel and
+  bronze; a queue cap — wiki-deferred.

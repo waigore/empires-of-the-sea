@@ -18,6 +18,15 @@ func _economy(stock: Dictionary, treasury: int = 5000) -> PlayerEconomy:
 	return economy
 
 
+## The units of one commodity a plan offers, or 0 when it offers none.
+func _offered(plan: Dictionary, id: String) -> int:
+	for raw: Variant in plan.get("offers", []):
+		var offer: Dictionary = raw
+		if String(offer["commodity"]) == id:
+			return int(offer["quantity"])
+	return 0
+
+
 func test_a_court_sells_surplus_above_the_reserve() -> void:
 	var economy: PlayerEconomy = _economy({"grain": 100})
 	var market := WorldMarket.with_default_prices()
@@ -70,6 +79,50 @@ func test_production_inputs_are_never_sold_under_the_court() -> void:
 	for raw: Variant in plan["offers"]:
 		var offer: Dictionary = raw
 		assert_ne(String(offer["commodity"]), "lumber")
+
+
+## The cloth the next regiment needs is kept back: the muster's row is withheld
+## from the offer and only the stock above it is sold (wiki: growth-stage-planner
+## § Recruitment modulation — "military fabric reservation holds inputs for
+## upcoming recruits").
+func test_a_court_keeps_the_cloth_its_next_regiment_needs() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 22, "grain": 100})
+	var market := WorldMarket.with_default_prices()
+	var plain: Dictionary = AiMarketPlanner.plan(_config(), economy, market, 0)
+	assert_eq(_offered(plain, "fabric"), 2, "the surplus above the reserve sells")
+
+	var kept: Dictionary = AiMarketPlanner.plan(
+		_config(), economy, market, 0, {}, {}, {"fabric": 1}
+	)
+	assert_eq(_offered(kept, "fabric"), 1, "one bolt is the regiment's, the rest sells")
+
+
+## A regiment's input leads the bid list even when its shortfall is the smallest,
+## so the bid-type cap cannot starve the muster.
+func test_the_regiments_input_leads_the_bids() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 15}, 5000)
+	var market := WorldMarket.with_default_prices()
+	var plain: Array = AiMarketPlanner.plan(_config(), economy, market, 20)["bids"]
+	assert_ne(String(plain[0]["commodity"]), "fabric", "the largest shortfall leads")
+
+	var need: Array = AiMarketPlanner.plan(
+		_config(), economy, market, 20, {}, {}, {"fabric": 1}
+	)["bids"]
+	assert_eq(
+		String(need[0]["commodity"]), "fabric",
+		"the cloth the muster needs is bid for first"
+	)
+
+
+## Lumber for the works and cloth for the regiment are both kept: the muster's
+## claim is added to the production reservation rather than replacing it.
+func test_the_muster_reservation_adds_to_the_production_one() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 4, "timber": 40})
+	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs(
+		{"assignments": [{"recipe": "lumber", "units": 2}]}, 0, economy, {"fabric": 1}
+	)
+	assert_eq(int(reserved.get("fabric", 0)), 1, "the regiment's bolt is held")
+	assert_eq(int(reserved.get("timber", 0)), 4, "the sawmill's timber still is too")
 
 
 func test_bids_short_build_inputs_with_free_holds_and_the_purse() -> void:
