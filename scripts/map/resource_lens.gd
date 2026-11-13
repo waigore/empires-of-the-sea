@@ -1,12 +1,11 @@
 class_name ResourceLens
-extends Node2D
+extends MapLens
 ## Survey lens: one parchment plaque over every charted province, showing its
 ## resource estates in a glance (wiki: extraction-and-improvements).
 ## Pure view — `ResourceSurvey` decides what exists. Plates draw above the fog
 ## (like painted borders) because they are remembered knowledge, but a resource
 ## tile that is still unknown is never surveyed.
 
-const TILE_SIZE: float = 22.0
 const EMBLEM: float = 16.0
 const EMBLEM_GAP: float = 8.0
 const PLATE_PAD: float = 7.0
@@ -15,32 +14,15 @@ const BADGE_W: float = 28.0
 const PLATE_H: float = 44.0
 const LABEL_DROP: float = 28.0
 
-var model: MapModel = null
 var works: LandWorks = null
 var units: Array[CivilianState] = []
-## Owning crown for the survey (Node.owner is taken, so `faction`).
-var faction: int = MapModel.NO_ID
-var visibility: VisibilityModel = null
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var tech_caps: Dictionary = {}
-var active: bool = false
-var hover_province: int = -1
-## Latest `ResourceSurvey.snapshot`; empty until built.
-var survey: Dictionary = {}
 
-var _font: Font = null
 var _pulse: float = 0.0
-var _reveal: float = 0.0
 var _clock: float = 0.0
 ## True while any estate is under works; only then does the lens repaint.
 var _animating: bool = false
-## Laid-out plaque rects by province id, packed on refresh so plates never
-## overlap each other in dense theatres.
-var _rects: Dictionary = {}
-
-
-func _ready() -> void:
-	_font = UiTheme.serif()
 
 
 func build(
@@ -65,10 +47,8 @@ func build(
 ## Source nodes whose changes invalidate the projection. Kept as a narrow
 ## subscription so the lens never polls the map (REQ-P4-01).
 func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
-	if civilians != null and not civilians.works_changed.is_connected(refresh):
-		civilians.works_changed.connect(refresh)
-	if fog != null and not fog.fog_changed.is_connected(refresh):
-		fog.fog_changed.connect(refresh)
+	_watch(civilians, &"works_changed", refresh)
+	_watch(fog, &"fog_changed", refresh)
 
 
 ## Recomputes the projection. Called on region load, work completion, turn end
@@ -76,6 +56,7 @@ func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
 func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
+		_animating = false
 		queue_redraw()
 		return
 	survey = ResourceSurvey.snapshot(
@@ -85,43 +66,23 @@ func refresh() -> void:
 	survey["routes"] = ResourceRoutes.snapshot(
 		model, works, faction, capital_tile, visibility
 	)["segments"]
+	_animating = false
+	for raw: Variant in survey.get("provinces", []):
+		for raw_row: Variant in (raw as Dictionary)["rows"]:
+			var status: String = String((raw_row as Dictionary)["status"])
+			if status == "building" or status == "foreign_building":
+				_animating = true
 	_layout_plates()
 	queue_redraw()
 
 
-func set_active(value: bool) -> void:
-	if active == value:
-		return
-	active = value
-	if active:
-		refresh()
-		_reveal = 0.0
-		var tween: Tween = create_tween()
-		tween.tween_method(_set_reveal, 0.0, 1.0, 0.26).set_trans(Tween.TRANS_CUBIC)
-	queue_redraw()
+## The survey lens holds its fade a beat longer than the wash-only readings.
+func _reveal_seconds() -> float:
+	return 0.26
 
 
-## Province whose plaque covers a world point (-1 when none). Plates can be
-## packed away from their centre, so taps must resolve through the slip.
-func hit_test(world_position: Vector2) -> int:
-	for raw: Variant in survey.get("provinces", []):
-		var id: int = int((raw as Dictionary)["id"])
-		if _rects.has(id) and (_rects[id] as Rect2).has_point(world_position):
-			return id
-	return -1
-
-
-func summary_for(province_id: int) -> String:
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		if int(entry["id"]) == province_id:
-			return ResourceSurvey.summary_text(entry)
-	return ""
-
-
-func _set_reveal(value: float) -> void:
-	_reveal = value
-	queue_redraw()
+func _summary_of(entry: Dictionary) -> String:
+	return ResourceSurvey.summary_text(entry)
 
 
 func _process(delta: float) -> void:
@@ -139,7 +100,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	if not active or survey.is_empty() or _reveal <= 0.001:
+	if not _visible():
 		return
 	if _font == null:
 		_font = UiTheme.serif()
@@ -295,68 +256,16 @@ func _draw_badge(entry: Dictionary, rect: Rect2, alpha: float) -> void:
 # --- layout ------------------------------------------------------------------
 
 
-## A paper slip with clipped corners: period-appropriate and cheap to draw.
-func _plate_shape(rect: Rect2, chamfer: float) -> PackedVector2Array:
-	var p: Vector2 = rect.position
-	var e: Vector2 = rect.end
-	return PackedVector2Array([
-		Vector2(p.x + chamfer, p.y),
-		Vector2(e.x - chamfer, p.y),
-		Vector2(e.x, p.y + chamfer),
-		Vector2(e.x, e.y - chamfer),
-		Vector2(e.x - chamfer, e.y),
-		Vector2(p.x + chamfer, e.y),
-		Vector2(p.x, e.y - chamfer),
-		Vector2(p.x, p.y + chamfer),
-	])
+## Plates are 32 px tall and the survey steps 24 px, so a free lane often needs
+## step ≥ 2; four tries used to leave overlaps on the fixture chart.
+func _pack_step() -> float:
+	return 24.0
 
 
-func _offset_shape(shape: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
-	var moved := PackedVector2Array()
-	for point: Vector2 in shape:
-		moved.append(point + offset)
-	return moved
-
-
-func _closed(shape: PackedVector2Array) -> PackedVector2Array:
-	var result: PackedVector2Array = shape.duplicate()
-	if not result.is_empty():
-		result.append(result[0])
-	return result
-
-
-## Greedy pack: try the slip below the name, then further down, so dense
-## theatres never stack one province's survey over another's. Keep walking
-## (plates are 32 px tall and steps are 24 px, so a free lane often needs
-## step ≥ 2); four tries used to leave overlaps on the fixture chart.
-func _layout_plates() -> void:
-	_rects.clear()
-	_animating = false
-	var placed: Array[Rect2] = []
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		for raw_row: Variant in entry["rows"]:
-			var status: String = String((raw_row as Dictionary)["status"])
-			if status == "building" or status == "foreign_building":
-				_animating = true
-		var size: Vector2 = _plate_size(entry)
-		var center: Vector2 = Vector2(entry["anchor"]) * TILE_SIZE
-		var drop: float = LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
-		var chosen := Rect2(center + Vector2(-size.x * 0.5, drop), size)
-		for step in 32:
-			var candidate := Rect2(
-				center + Vector2(-size.x * 0.5, drop + float(step) * 24.0), size
-			)
-			var free: bool = true
-			for other: Rect2 in placed:
-				if other.intersects(candidate.grow(4.0)):
-					free = false
-					break
-			if free:
-				chosen = candidate
-				break
-		_rects[int(entry["id"])] = chosen
-		placed.append(chosen)
+## Slips drop below the province name where the chart prints one, so the label
+## is never covered.
+func _pack_drop(entry: Dictionary) -> float:
+	return LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
 
 
 func _plate_size(entry: Dictionary) -> Vector2:
@@ -369,13 +278,6 @@ func _plate_size(entry: Dictionary) -> Vector2:
 	return Vector2(width, PLATE_H)
 
 
-func _plate_rect(entry: Dictionary) -> Rect2:
-	var id: int = int(entry["id"])
-	if _rects.has(id):
-		return _rects[id]
-	return Rect2(Vector2.ZERO, _plate_size(entry))
-
-
 func _status_tint(status: String) -> Color:
 	match status:
 		"foreign", "foreign_worked":
@@ -383,17 +285,3 @@ func _status_tint(status: String) -> Color:
 		"foreign_building":
 			return Palette.SURVEY_BUILDING
 	return Palette.survey_color(status)
-
-
-func _owner_tint(owner_id: int) -> Color:
-	if owner_id < 0 or not FactionCatalog.has_faction(owner_id):
-		return Color(0.52, 0.47, 0.39)
-	return Palette.faction_color(owner_id)
-
-
-func _charted_alpha(charted: int) -> float:
-	if charted == VisibilityModel.Level.FULLY_VISIBLE:
-		return 1.0
-	if charted == VisibilityModel.Level.FOGGED:
-		return 0.88
-	return 0.0

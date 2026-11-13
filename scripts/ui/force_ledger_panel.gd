@@ -31,6 +31,8 @@ var _fade: Tween = null
 ## Last applied layout profile (-1 before the first fit); an orientation change
 ## rebuilds the rows because a row fixes its medallion size at construction.
 var _was_compact: int = -1
+## This ledger holds the pause door while it is up (mirrored park/release).
+var _parked_menu: bool = false
 
 
 func _ready() -> void:
@@ -367,13 +369,12 @@ func _fit() -> void:
 
 
 ## The pause trigger sits on a higher canvas layer than the HUD; park it while
-## the ledger is up so its gold seal does not cut through the frame.
+## the ledger is up so its gold seal does not cut through the frame. The
+## notifier mirrors the park: a ledger that closes without ever opening does not
+## release another ledger's or the observer's frame.
 func _set_menu_visible(show_menu: bool) -> void:
-	if play == null or not is_instance_valid(play.host):
-		return
-	var menu: Node = play.host.get_node_or_null("GameMenu")
-	if menu is GameMenu and (menu as GameMenu).trigger != null:
-		(menu as GameMenu).trigger.visible = show_menu
+	var door: GameMenuDoor = play.pause_menu.door if play != null and play.pause_menu != null else null
+	_parked_menu = GameMenuDoor.set_held(door, show_menu, _parked_menu)
 
 
 func _exit_tree() -> void:

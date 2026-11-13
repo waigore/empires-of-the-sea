@@ -1,7 +1,6 @@
 # Technology and research
 
-Research turns gold into advances that lift caps, re-equip regiments and
-cheapen attacks.
+Research turns gold into advances: caps, re-equipping, cheaper attacks.
 **Pillars:** P2, P3, P4.
 
 **Wiki:** [tech-tree](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree),
@@ -27,7 +26,7 @@ cheapen attacks.
   silver, gems, diamonds must be prospected.
 - **Extraction caps:** techs cap extraction, estates and Builder orders:
   `min(improvement, tech cap, terrain, path transport, town cap)`; exceptions
-  per wiki (horses 1, wool 3).
+  (horses 1, wool 3).
 - **Unlocks (`TechUnlocks`):** build orders from the canonical gates (regiments,
   hulls, civilians, workers, forts, batteries, roads, generals) plus each
   military tech's upgrade path and attack price.
@@ -39,18 +38,17 @@ cheapen attacks.
   per exchange, floored at zero.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam Engine
   (flat), Later Steam Engine (hills, swamps), Dynamite (mountains).
-- **Privateering Companies:** a charter holder's patrol/blockade interception
-  and raids rise 25%.
-- **Rivals:** AI courts fill slots via `ResearchTurn`.
+- **Privateering Companies:** a charter holder's interception and raids rise 25%.
+- **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its cash
+  floor keeps one standing study at Low (DR-20261113-24).
 - **Goal slot:** a goal orders the queue (goal, prerequisites nearest-first,
   catalog); it funds nothing and rides the save (`ResearchState.goal`,
   DR-20261111-21).
 - **Slot persistence:** saves keep each slot's tech and funding; load drops what
   the catalog cannot hold and forfeits unbound progress.
 - **UI:** `RESEARCH` opens the college ledger: goal strip, slot rows,
-  AVAILABLE/KNOWN tabs. A slot names its ducats a turn beside an animated gauge
-  of banked points plus the next turn's gain (`ResearchBar`); rows repaint in
-  place.
+  AVAILABLE/KNOWN tabs. A slot names its ducats beside an animated gauge of
+  banked points plus next turn's gain (`ResearchBar`); rows repaint in place.
 
 ## Deferred (REQ-P2-02)
 

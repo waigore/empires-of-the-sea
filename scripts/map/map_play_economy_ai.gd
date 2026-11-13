@@ -45,6 +45,10 @@ static func run(play: PlaySession) -> Dictionary:
 		# § Recruitment modulation; treasury-planner § Priority).
 		var income: Dictionary = AiIncome.plan(config, economy, at_war, regiments)
 		var floor: int = int(income["reserve"])
+		# Surplus research still leaves the money-first reserve alone; the standing
+		# study alone may dip to the cash floor so a war-time court parked at 500
+		# while saving 2,400 still learns (issue #490).
+		var research_floor: int = AiResearchPlanner.research_floor(config)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy,
@@ -52,6 +56,7 @@ static func run(play: PlaySession) -> Dictionary:
 				"at_war": at_war,
 				"revealed": revealed,
 				"treasury_floor": floor,
+				"cash_floor": research_floor,
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
