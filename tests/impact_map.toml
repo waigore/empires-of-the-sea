@@ -1101,12 +1101,12 @@ full = true
 match = "gd-tools.toml"
 domain = "misc"
 
-# Map edits are exercised by the selection script in CI (--check-complete);
-# keep them on misc with the other selector/tooling rules so an AI fan-out PR
-# that also touches the map does not pull chart_bake past the tier-1 5 min budget.
+# Map edits are exercised by the selection script in CI (--check-complete).
+# Stay on the ai set (not chart_bake/misc): an AI fan-out PR that also edits
+# the map must not add canvas/yarn/tables boots past the tier-1 5 min budget.
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "misc"
+domain = "ai"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
