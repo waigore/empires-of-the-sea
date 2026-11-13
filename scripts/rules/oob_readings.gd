@@ -16,9 +16,12 @@ extends RefCounted
 ## REQ-P3-03).
 
 
-## Per court: `{"regiments": {faction: count}, "ships": {faction: count}}`, the
-## docket that court has charted. Every court is present, even with no forces
-## seen, so a caller never has to guess a missing reading.
+## Per court: `{"regiments": {faction: count}, "ships": {faction: count},
+## "strength": {faction: strength}}`, the docket that court has charted. The
+## count is the head count the invasion-capacity rule reads; the strength is the
+## order of battle the published power score reads (FPN + FPM × chevrons ×
+## health, wiki: diplomacy § Great Power power score). Every court is present,
+## even with no forces seen, so a caller never has to guess a missing reading.
 static func by_court(
 	charts: CourtCharts,
 	armies: MapRegionTable,
@@ -27,7 +30,7 @@ static func by_court(
 ) -> Dictionary:
 	var out: Dictionary = {}
 	for reader: int in courts:
-		out[reader] = {"regiments": {}, "ships": {}}
+		out[reader] = {"regiments": {}, "ships": {}, "strength": {}}
 	if out.is_empty():
 		return out
 	var carriers: Dictionary = _fleets_by_id(fleets)
@@ -40,6 +43,7 @@ static func by_court(
 			for reader: int in courts:
 				if _sees_army(charts, reader, region, army, carriers):
 					_credit(out[reader], "regiments", army.owner, army.count())
+					_credit_strength(out[reader], army.owner, army.strength())
 	for region: int in fleets.region_ids():
 		var roster: Array[FleetState] = []
 		roster.assign(fleets.value(region, []))
@@ -115,3 +119,10 @@ static func _knows_zone(
 static func _credit(docket: Dictionary, term: String, faction: int, count: int) -> void:
 	var counts: Dictionary = docket[term]
 	counts[faction] = int(counts.get(faction, 0)) + count
+
+
+## The strength term is fractional (a mauled regiment carries a fraction of its
+## paper weight), so it is credited on its own map.
+static func _credit_strength(docket: Dictionary, faction: int, strength: float) -> void:
+	var strengths: Dictionary = docket["strength"]
+	strengths[faction] = float(strengths.get(faction, 0.0)) + strength
