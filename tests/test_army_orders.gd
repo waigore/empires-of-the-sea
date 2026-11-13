@@ -31,7 +31,7 @@ func test_home_armies_muster_at_each_capital() -> void:
 	assert_true(home.is_home_army())
 	assert_eq(home.province, _screen.capital_province)
 	assert_eq(home.owner, MapScreen.PLAYER_FACTION)
-	assert_eq(home.count(), ArmyLayer.GREAT_POWER_ROSTER.size())
+	assert_eq(home.count(), ArmyMuster.GREAT_POWER_ROSTER.size())
 	for army: ArmyState in _screen.army_layer.armies:
 		if army.is_home_army():
 			var province: ProvinceState = _screen.model.province_data(army.province)

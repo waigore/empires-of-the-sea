@@ -6,15 +6,14 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiProfile`,
   `AiConfig`, `AiPersonality`, `AiAgenda`): three profiles, seven archetypes,
-  six agendas whose traits reach peace, treaties, trade, war and research.
+  six agendas.
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): war desire: base 50, power,
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
   peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
-  At war, desire below `50 + peace_bias` (peacemaker 65, warmonger 40) offers
-  peace; an envious court adds +20 against a leading crown. A deed
-  resists (`DeedProtection`).
+  At war, desire below `50 + peace_bias` offers peace; an envious court adds
+  +20 against a leading crown. A deed resists (`DeedProtection`).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid. Friendly acts cost desire and standing
   (DR-20261110-15); an isolationist prices a pact 20 lower, a backstabber +25
@@ -38,36 +37,36 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier, keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27).
+  (DR-20261111-27), then down to what the purse carries after its floor —
+  at war, its next muster (`AiArmyReinforce.muster_floor`).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds
   (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders finish towns, engineers connect then road/port/fort/hospital
+  builders finish towns, engineers connect and raise road/port/fort/hospital
   (DR-20261111-16), explorers prospect, rail builders upgrade roads; merchants
-  buy a deed when embassy, peace, mineral and price allow (DR-20261111-10).
+  buy deeds where embassy, peace, mineral and price allow (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs; merchants sail home, one hull more when tonnage
-  outruns them (DR-20261110-26).
+  bid short inputs above that same floor; merchants sail home, one hull more
+  when tonnage outruns them (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
   Tribes stay 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): one line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04); its next pattern's input row is never sold (DR-20261113-08);
-  at war its wornest field army takes a hospital train
-  (`AiHospitalTrainWork`, DR-20261112-08).
+  (DR-20261111-04) and its next pattern's inputs (DR-20261113-08); at war its
+  wornest field army takes a hospital train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **War footing** (`AiPhasePlanner`): `war` (a Great Power war), `fronts` (2+,
-  `phase.overstretch_fronts`) or `peace`. A war footing opens no new voyage; an
-  overstretched court takes any white peace (DR-20261113-15).
+- **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; no new voyage
+  at war; overstretch takes any white peace (DR-20261113-15).
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), the dossier
   ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
-Difficulty extras ([`deferred.md`](deferred.md)).
+Difficulty extras; phase-planner seed (DR-20261113-15) —
+[`deferred.md`](deferred.md).
 
 ## Architecture & tests
 

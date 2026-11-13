@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-14 (`REQ-P2-02`). Localization is English-only.
+Audited through DR-20261113-16 (`REQ-P2-02`). Localization is English-only.
 
 ## Already live
 
@@ -34,6 +34,7 @@ Audited through DR-20261113-14 (`REQ-P2-02`). Localization is English-only.
 | Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
 | Works' reservation (crews' rows kept from the sale) | `MapPlayCivilianAi.work_rows`, DR-20261113-14 |
 | Consent prompt catalogue | `ConsentCopy`, DR-20261113-10 |
+| War footing (voyage hold + overstretch peace) | `AiPhasePlanner`, DR-20261113-15 |
 
 ## Remaining gaps (impact order)
 
@@ -59,3 +60,6 @@ None ranked. Blocked footnotes stay design-gated.
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
 - Recipe gates on a building or worker tier; multi-turn rows beyond steel and
   bronze; a queue cap — wiki-deferred.
+- Phase-planner seed (soft priority, treasury-recovery, domain gating beyond
+  voyage, victory-aware pressure) — DR-20261113-15.
+- Growth-stage coexistence flag — seed (DR-20261113-08).

@@ -323,6 +323,7 @@ func _run() -> void:
 
 	await _smoke_crown_road_lens(screen)
 	await _smoke_defence_lens(screen)
+	await _smoke_muster_roll(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_colonists(screen)
 	await _smoke_navy(screen)
@@ -393,6 +394,31 @@ func _smoke_defence_lens(screen: MapScreen) -> void:
 	MapPlayInput.set_defence_lens(screen.play, false)
 	await process_frame
 	_check(not screen.hud.lens_legend.visible, "defence key closes")
+
+
+## The muster roll: the cartouche seal raises the whole-empire force ledger on
+## the real map, prints the crown's own rows, narrows to one kind and sets
+## itself aside (DR-20261113-12). No order is placed, so the turn is untouched.
+func _smoke_muster_roll(screen: MapScreen) -> void:
+	_check(screen.hud.muster_roll != null, "muster roll mounted")
+	screen.hud.muster_roll_pressed.emit()
+	await process_frame
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	_check(panel.is_open(), "muster roll opens from the seal")
+	_check(int(panel._snapshot.get("total", 0)) > 0, "the muster lists the crown's forces")
+	_check(_has_text(panel._rows, "strength"), "a row prints its strength")
+	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
+	await process_frame
+	_check(panel._kind == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
+	var only_squadrons: bool = true
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row != null and String(row.data.get("kind", "")) != ForceLedger.KIND_SQUADRON:
+			only_squadrons = false
+	_check(only_squadrons, "every printed row is a squadron")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the muster roll sets itself aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
@@ -579,10 +605,10 @@ func _smoke_army_recruit(screen: MapScreen) -> void:
 	var fabric: int = screen.economy.economy.quantity("fabric")
 	MapPlayArmyMuster.recruit(screen.play, "peasant_levies")
 	_check(home.count() == before + 1, "recruit musters a regiment")
-	_check(
-		not home.name_of(home.regiments[home.count() - 1]).is_empty(),
-		"the mustered regiment is christened"
+	var newest: String = String(
+		home.regiment_names.get(home.regiments[home.count() - 1], "")
 	)
+	_check(not newest.is_empty(), "the mustered regiment is christened")
 	_check(screen.economy.economy.treasury < treasury, "recruit spends treasury")
 	_check(screen.economy.economy.quantity("fabric") < fabric, "recruit spends fabric")
 	_check(
