@@ -51,6 +51,7 @@ static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
 			"cost_text": RegimentEconomy.cost_text(type_id),
 			"ok": reason.is_empty(),
 			"reason": reason,
+			"pending": economy.recruits.pending(RecruitQueue.KIND_REGIMENT, type_id),
 		}
 		if row["ok"]:
 			open_rows.append(row)
