@@ -321,6 +321,7 @@ static func entries() -> Array[Dictionary]:
 	all.append_array(AiParameterArmy.PARAMETERS)
 	all.append_array(AiParameterCargo.PARAMETERS)
 	all.append_array(AiParameterPhase.PARAMETERS)
+	all.append_array(AiParameterDiplomacy.PARAMETERS)
 	return all
 
 

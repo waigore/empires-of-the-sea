@@ -10,6 +10,9 @@ var agendas: Dictionary = {}
 var last_war_turn: Dictionary = {}
 ## "low:high" pair key -> turn the AI last saw an overture accept/reject.
 var last_overture_turn: Dictionary = {}
+## "low:high" pair key -> turn the AI last made peace on that pair. The truce it
+## carries afterwards reads this (docs/ai.md; issue #475).
+var last_truce_turn: Dictionary = {}
 ## "low:high" pair key -> turn the human court answered a peace offer.
 var last_peace_turn: Dictionary = {}
 ## Faction id -> that rival court's ledger (stockpile, treasury, workers).
@@ -70,6 +73,12 @@ func note_overture(a: int, b: int, turn: int) -> void:
 	last_overture_turn[pair_key(a, b)] = turn
 
 
+## A concluded peace starts the pair's truce: the war it ended leaves both
+## courts unwilling to fight again for `diplomacy.truce_turns` (issue #475).
+func note_truce(a: int, b: int, turn: int) -> void:
+	last_truce_turn[pair_key(a, b)] = turn
+
+
 func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	var key: String = pair_key(a, b)
 	if not last_overture_turn.has(key):
@@ -125,6 +134,7 @@ func to_dict() -> Dictionary:
 		"agendas": agendas.duplicate(),
 		"last_war_turn": last_war_turn.duplicate(),
 		"last_overture_turn": last_overture_turn.duplicate(),
+		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
 		"objective_claims": _claims_snapshot(),
@@ -139,6 +149,7 @@ static func from_dict(data: Dictionary) -> AiState:
 		state.agendas[int(key)] = String(stored_agendas[key])
 	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
+	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
