@@ -1308,6 +1308,11 @@ domain = "ai_diplomacy"
 match = "scripts/ai/ai_diplomacy_planner.gd*"
 domain = "ai_diplomacy"
 
+# The desire tally the planner prices war with: same courts, same suites.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_desire.gd*"
+domain = "ai_diplomacy"
+
 [[rules]]
 match = "scripts/ai/ai_state.gd*"
 domain = "ai_diplomacy"

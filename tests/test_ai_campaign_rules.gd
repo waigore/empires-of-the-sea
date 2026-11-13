@@ -1112,7 +1112,7 @@ func test_a_warm_rival_signs_a_trade_pact_with_a_fellow_court() -> void:
 	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
 	var world: Array[int] = [0, 2, 3, 3, 3, 3]
 	var first: Dictionary = _run(world, [[2, 3, 70.0]], 1)
-	assert_eq(String(_action(first, 2)["kind"]), AiDiplomacyPlanner.KIND_OVERTURE)
+	assert_eq(String(_action(first, 2)["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
 	assert_eq(String(_action(first, 2)["stage"]), DiplomacyCatalog.STAGE_NAP)
 	assert_eq(ai_diplomacy_offers_state.overture(2, 3), DiplomacyCatalog.STAGE_NAP, "a fellow court answers")
 	# The warmer court, acting later in the same pass, spends its one order on
@@ -1432,7 +1432,7 @@ func _event(kind: String) -> bool:
 func test_desire_starts_at_the_base_and_adds_power_and_relation() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 1]), 0, 1,
 		ai_planner_AiFixture.context({0: 100, 1: 100})
 	)
@@ -1447,11 +1447,11 @@ func test_relative_power_dominates_the_score() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
-	var strong: Dictionary = AiDiplomacyPlanner.war_desire(
+	var strong: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 135, 1: 100})
 	)
 	assert_eq(int(strong["score"]), 60, "50 + 30 strong - 20 neutral")
-	var weak: Dictionary = AiDiplomacyPlanner.war_desire(
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 84, 1: 100})
 	)
 	assert_eq(int(weak["score"]), 5, "50 - 25 weak - 20 neutral")
@@ -1462,21 +1462,21 @@ func test_relation_pressure_bands() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
 	ai_planner_state.ensure_relation(0, 1, 1)
 	ai_planner_state.relation(0, 1).score = 25.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 65)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 65)
 	ai_planner_state.relation(0, 1).score = 40.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 55)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 55)
 	ai_planner_state.relation(0, 1).score = 75.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 15)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 15)
 
 func test_minor_targets_pay_the_invasion_capacity_cost() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 6, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
-	var weak: Dictionary = AiDiplomacyPlanner.war_desire(
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
 	assert_eq(int(weak["score"]), 15, "no regiments is -20")
-	var ready: Dictionary = AiDiplomacyPlanner.war_desire(
+	var ready: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
 	)
 	assert_eq(int(ready["score"]), 45, "superior regiments is +10")
@@ -1488,7 +1488,7 @@ func test_two_active_wars_add_the_multi_war_penalty() -> void:
 	ai_planner_state.ensure_relation(0, 8, 1)
 	DiplomacyRules.declare_war(ai_planner_state, 0, 7)
 	DiplomacyRules.declare_war(ai_planner_state, 0, 8)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
 	)
@@ -1501,10 +1501,10 @@ func test_missing_stockpiles_are_scored_against_the_target() -> void:
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6, 6, 6, 6], {1: 0, 2: 1, 3: 2, 4: 3})
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100})
 	context["stockpiles"] = {0: {}}
-	var need: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var need: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(need["factors"]["resource_need"]), 15, "four missing resources cap at +15")
 	context["stockpiles"] = {0: {"timber": 4, "iron": 4, "coal": 4}}
-	var partly: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var partly: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(partly["factors"]["resource_need"]), 5)
 
 ## The commodity term reads only land the court has charted: a province it has
@@ -1516,7 +1516,7 @@ func test_the_resource_need_counts_only_charted_land() -> void:
 	var world: WorldMap = _uncharted_tribe_world()
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, TRIBE: 100})
 	context["stockpiles"] = {0: {}}
-	var published: Dictionary = AiDiplomacyPlanner.war_desire(
+	var published: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(
@@ -1524,12 +1524,12 @@ func test_the_resource_need_counts_only_charted_land() -> void:
 	)
 	var charts: CourtCharts = _charts(world)
 	context["charts"] = charts
-	var blind: Dictionary = AiDiplomacyPlanner.war_desire(
+	var blind: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(int(blind["factors"]["resource_need"]), 0, "unseen land offers no commodity")
 	charts.reveal_province(0, 0, 0)
-	var seen: Dictionary = AiDiplomacyPlanner.war_desire(
+	var seen: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(int(seen["factors"]["resource_need"]), 5, "charted ground prices the commodity")
@@ -1545,14 +1545,14 @@ func test_rival_embassies_add_the_intervention_risk_penalty() -> void:
 	ai_planner_state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_EMBASSY)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
 	assert_eq(int(desire["factors"]["intervention"]), -24, "three embassies cap at -24")
 	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_NONE)
 	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_NONE)
-	var single: Dictionary = AiDiplomacyPlanner.war_desire(
+	var single: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
@@ -1567,11 +1567,11 @@ func test_a_rival_deed_in_the_minors_land_adds_the_intervention_risk_penalty() -
 	ai_planner_state.ensure_relation(0, 6, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
-	var bare: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var bare: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(bare["factors"]["intervention"]), 0, "no one would answer")
 	var model: MapModel = world.region(0)
 	assert_true(model.ownership.purchase(model.index_of(1, 0), 1), "a rival buys land")
-	var bought: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var bought: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(bought["factors"]["intervention"]), -8, "the deed holder answers")
 	assert_true(
 		int(bought["score"]) < int(bare["score"]),
@@ -1829,11 +1829,11 @@ func test_a_backstabber_breaks_an_alliance_it_would_otherwise_keep() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 135, 1: 100})
 	context["player"] = 5
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
-	var honest: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)
+	var honest: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)
 	assert_false((honest["factors"] as Dictionary).has("betrayal"))
 	assert_eq(int(honest["score"]), 40, "50 + 30 strong - 40 allied")
 	var snake: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.BACKSTABBER)
-	var snake_desire: Dictionary = AiDiplomacyPlanner.war_desire(snake, ai_planner_state, world, 0, 1, context)
+	var snake_desire: Dictionary = AiDiplomacyDesire.war_desire(snake, ai_planner_state, world, 0, 1, context)
 	assert_eq(int(snake_desire["factors"]["betrayal"]), 25)
 	var keep: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context)
 	assert_true(
@@ -1851,10 +1851,10 @@ func test_an_envious_court_resents_a_human_crown_that_pulled_ahead() -> void:
 	context["player"] = 0
 	var world: WorldMap = ai_planner_AiFixture.world([0, 2, 2])
 	var plain_config: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
-	var plain: Dictionary = AiDiplomacyPlanner.war_desire(plain_config, ai_planner_state, world, 2, 0, context)
+	var plain: Dictionary = AiDiplomacyDesire.war_desire(plain_config, ai_planner_state, world, 2, 0, context)
 	assert_false((plain["factors"] as Dictionary).has("rival"))
 	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
-	var envy: Dictionary = AiDiplomacyPlanner.war_desire(jealous, ai_planner_state, world, 2, 0, context)
+	var envy: Dictionary = AiDiplomacyDesire.war_desire(jealous, ai_planner_state, world, 2, 0, context)
 	assert_eq(int(envy["factors"]["rival"]), 20)
 	assert_eq(
 		int(envy["score"]) - int(plain["score"]), 25,
@@ -1868,12 +1868,12 @@ func test_an_envious_court_does_not_resent_a_crown_that_trails_it() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 2: 135})
 	context["player"] = 0
 	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 2, 2]), 2, 0, context
 	)
 	assert_false((desire["factors"] as Dictionary).has("rival"), "envy is not a grudge")
 	# Nor is it a grudge against another rival: the pull is for the human crown.
-	var other: Dictionary = AiDiplomacyPlanner.war_desire(
+	var other: Dictionary = AiDiplomacyDesire.war_desire(
 		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 1, 2]), 2, 1, context
 	)
 	assert_false((other["factors"] as Dictionary).has("rival"))

@@ -355,7 +355,7 @@ func test_weak_rival_cannot_find_a_legal_war() -> void:
 	var record: Dictionary = _record_for(run["result"]["trace"], 1)
 	assert_eq(
 		String((record["action"] as Dictionary).get("kind", "")),
-		AiDiplomacyPlanner.KIND_OVERTURE,
+		AiDiplomacyOffers.KIND_OVERTURE,
 		"a court that cannot fight courts a friend instead"
 	)
 	assert_eq(String(record["candidates"][0]["blocked"]), "war desire too low")

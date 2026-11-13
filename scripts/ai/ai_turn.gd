@@ -314,7 +314,7 @@ static func _peace_answer(
 	# slice; DR-20261113-15).
 	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)):
 		return DiplomacyRules.DECISION_AUTO
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		config, state, world, target, offerer, _reading(shared, target)
 	)
 	# Weariness ends a war the court cannot win (wiki: diplomacy § War goals).
