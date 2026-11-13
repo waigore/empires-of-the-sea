@@ -196,16 +196,24 @@ static func _trade(
 		config, economy, MapPlayCourt.regiments(play, faction),
 		MapPlayCourt.at_war(play, faction)
 	)
+	# The ration the larder cannot cover: a court that cannot feed its own people
+	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
+	# buys the missing food before any build input (wiki: treasury-planner
+	# § Lock-recovery; issue #489). The reading is forward-looking — the larder
+	# must cover this turn's ration and leave the next one in hand, because a
+	# court that eats its last grain this turn strikes tomorrow.
+	var food: int = _food_demand(play, faction, economy)
+	var food_short: int = maxi(food * 2 - _food_held(economy), 0)
 	# One primitive for every reservation: the rations, the muster's row, the
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
 	var claims: Dictionary = AiClaims.reserve(_claim_rows(
-		production, _food_demand(play, faction, economy), economy, need, works
+		production, food, economy, need, works
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiMarketPlanner.plan(
 		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor
+		floor, food_short
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiMarketPlanner.stage(
@@ -286,6 +294,16 @@ static func _reserved_inputs(
 	works: Dictionary = {}
 ) -> Dictionary:
 	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
+
+
+## Food the larder already holds: the two ration commodities, grain first.
+static func _food_held(economy: PlayerEconomy) -> int:
+	if economy == null:
+		return 0
+	var held: int = 0
+	for id: String in CommodityCatalog.FOOD:
+		held += maxi(economy.quantity(id), 0)
+	return held
 
 
 ## Food this court will eat before Production: army, navy, every worker ration
