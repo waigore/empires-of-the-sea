@@ -33,13 +33,14 @@ const STANDING_FUNDING: String = "low"
 ## Assignments for the court's empty slots plus every scored candidate, for the
 ## turn trace (wiki: turn-trace-interpretation).
 ##
-## `context["treasury_floor"]` is the purse the court must leave behind — its own
-## cash floor (`economy.min_treasury`), not the muster reserve: the reserve is a
-## saving target the army planner enforces at muster time, and gating studies on
-## it froze every court at war (issue #490). Funding steps down to what the purse
-## can carry after that floor, and a court parked at the floor still keeps one
-## study alive at the cheapest preset (the standing study) rather than standing
-## still for the campaign (wiki: growth-stage-planner § Recruitment modulation;
+## `context["treasury_floor"]` is the purse the court must leave behind — the
+## money-first reserve (its cash floor at peace, the muster it is saving for at
+## war). Funding steps down to what the purse carries after that floor, so a
+## court short of its regiment target saves for the muster instead of paying its
+## last coins into three studies. A court that cannot pay the cheapest preset
+## still keeps one study alive at that preset (the standing study) while it can
+## pay it above half its own cash floor, so it never stands still for the whole
+## campaign (issue #490; wiki: growth-stage-planner § Recruitment modulation;
 ## treasury-planner § Cash discipline).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
@@ -59,13 +60,15 @@ static func plan(
 	candidates = _scored_candidates(config, economy, at_war)
 	var floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
 	var preset: String = funding_for(config, economy, floor)
-	# A court parked at its cash floor still keeps one study alive at the
+	# A court parked at its own cash floor still keeps one study alive at the
 	# cheapest preset: the standing study is the first slot that already holds a
-	# tech, or the first slot filled this turn. It is paid before the surplus
-	# ladder, so a court that cannot afford its published preset still learns
-	# rather than standing still for the campaign (issue #490).
+	# tech, or the first slot filled this turn. The surplus ladder above stays on
+	# the money-first reserve, but the standing study reads the cash floor, so a
+	# court saving for its muster still learns without paying the war chest into
+	# three slots (issue #490).
+	var cash_floor: int = research_floor(config)
 	var can_stand: bool = (
-		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, floor)
+		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, cash_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
 	# A study already underway follows the same purse: a court that cannot fund
@@ -119,9 +122,9 @@ static func plan(
 ## ai-personalities § Domain weight vectors; hidden-agendas — tech_thief pays for
 ## its catch-up, DR-20261111-27), clamped to the catalogue and then to what the
 ## purse can carry after `floor` — the reserve the court must not spend (its own
-## cash floor; the muster reserve is the army planner's, not research's). A court
-## that cannot pay the cheapest preset funds nothing that turn and keeps saving;
-## one that can still keeps its standing study alive at that preset (`plan`).
+## cash floor and its muster). A court that cannot pay the cheapest preset funds
+## nothing that turn and keeps saving; one that can still keeps its standing
+## study alive at that preset (`plan`).
 static func funding_for(
 	config: AiConfig, economy: PlayerEconomy = null, floor: int = 0
 ) -> String:
@@ -137,10 +140,9 @@ static func funding_for(
 	return ResearchFunding.ORDER[index]
 
 
-## The purse research must leave behind: the court's own cash floor, never the
-## muster reserve. The reserve is a saving target the army planner enforces at
-## muster time; gating studies on it froze every court at war for the whole
-## campaign (issue #490).
+## The court's own cash floor (`economy.min_treasury`): the standing study reads
+## it, never the money-first reserve. Gating every slot on the reserve froze
+## every court at war for the whole campaign (issue #490).
 static func research_floor(config: AiConfig) -> int:
 	if config == null:
 		return 0

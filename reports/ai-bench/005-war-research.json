@@ -1,0 +1,86 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
+  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
+  "submission_hash": "sha256:1eda62d9b5c5413d522875575ac2770ee2a5816a0a4aa0694c010d6582250552",
+  "submission_git": "fix/ai-war-time-research@08f6604",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 1713.9236629231132,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 16.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 3.0,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:6048017183154bd571a162052e057d0a58b70da0c3acf8fe0208b24d737afa68",
+    "parts": {
+      "provinces_old": 16,
+      "provinces_new": 0,
+      "regiments": 1,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 1.8403361344537814,
+      "income_per_turn": 60.242990654205606
+    },
+    "early_win": false,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 201,
+    "resolved_turns": 200
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-13T15:44:15Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:599e03232dfa79aa3cd59c570d859956a69ac6179149f8463b982696d4d86d85"
+}

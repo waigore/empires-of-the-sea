@@ -38,8 +38,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then down to the purse above the cash floor (not the
-  muster reserve), keeping one standing study at Low (DR-20261113-24).
+  (DR-20261111-27), then down to the purse above the reserve, but one
+  standing study at Low survives half the cash floor (DR-20261113-24).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
