@@ -32,6 +32,7 @@ static func label(action: String) -> String:
 	return String(LABELS.get(action, action.capitalize()))
 
 
+
 static func cost_for(action: String, level: int = 1) -> Dictionary:
 	return CivilianWorkPlan.cost_for(action, level)
 
@@ -73,21 +74,14 @@ static func options(
 			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
 			tech_caps, tech_unlocked, context
 		)
-		var cost: Dictionary = cost_for(
-			action, cost_level(action, model, unit.tile, works)
+		var row: Dictionary = CivilianWorkPlan.option_row(
+			action, model, unit.tile, works, check, label(action)
 		)
-		var price_text: String = cost_text(cost)
-		if action == LandPurchase.ACTION:
-			price_text = String(check.get("cost_text", LandPurchase.cost_text(model, unit.tile)))
-		result.append({
-			"action": action,
-			"label": label(action),
-			"ok": bool(check.get("ok", false)),
-			"reason": String(check.get("reason", "")),
-			"cost": cost,
-			"cost_text": price_text,
-			"duration": int(check.get("duration", 1)),
-		})
+		row["action"] = action
+		row["ok"] = bool(check.get("ok", false))
+		row["reason"] = String(check.get("reason", ""))
+		row["duration"] = int(check.get("duration", 1))
+		result.append(row)
 	return result
 
 
@@ -183,7 +177,7 @@ static func assign(
 	elif action == LandPurchase.ACTION:
 		details["treasury_cost"] = int(check.get("treasury_cost", 0))
 	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
-	check["label"] = label(action)
+	check["label"] = CivilianWorkPlan.order_label(action, model, Vector2i(check["tile"]), label(action))
 	return check
 
 
@@ -374,6 +368,8 @@ static func _apply(
 			FortRules.apply_build(
 				model.province_data(province), unit.work_detail("fort_level")
 			)
+			# The level the turn actually raised, so the despatch can name it.
+			report["fort_level"] = FortRules.level_at(model, province)
 			return [model.index_of(tile.x, tile.y)]
 		"build_hospital":
 			return HospitalRules.work_complete(model, province, unit, tile)
