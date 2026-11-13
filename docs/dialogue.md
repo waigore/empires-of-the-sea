@@ -73,4 +73,4 @@ rates (`REQ-P5-05`).
 
 ## Deferred
 
-Era change blocked; more tongues are content ([`deferred.md`](deferred.md)).
+Era blocked; more tongues and despatch outcomes ([`deferred.md`](deferred.md)).
