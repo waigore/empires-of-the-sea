@@ -695,7 +695,9 @@ func test_phone_estates_keeps_the_list_in_view() -> void:
 
 
 ## A phone sheet holds the court's news while it is up: stacked plates over a
-## 411-point sheet would cover the very controls the player just opened.
+## 411-point sheet would cover the very controls the player just opened. The
+## opening turn may still be raising its own lines, so assert the line we
+## raised is held (and absent from the lane), not the queue's exact size.
 func test_phone_news_waits_while_the_estates_card_is_open() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
@@ -707,7 +709,7 @@ func test_phone_news_waits_while_the_estates_card_is_open() -> void:
 	_screen.improvements.open(_screen.capital_province)
 	await get_tree().process_frame
 	assert_eq(hud.despatches.box.get_child_count(), 0, "the card clears the lane")
-	assert_eq(hud.despatches.held().size(), 1, "the news waits")
+	assert_true(hud.despatches.held().has("The Indies await"), "the news waits")
 	_screen.improvements.close()
 	await get_tree().process_frame
 	assert_eq(hud.despatches.box.get_child_count(), 1, "the news prints once the card closes")
@@ -742,7 +744,7 @@ func test_phone_news_waits_while_the_roster_is_open() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_eq(hud.despatches.box.get_child_count(), 0, "no plate over the roster")
-	assert_eq(hud.despatches.held().size(), 1)
+	assert_true(hud.despatches.held().has("A dispatch from the court"), "the news waits")
 	hud.civilian_roster.close()
 	await get_tree().process_frame
 	await get_tree().process_frame
