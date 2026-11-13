@@ -142,7 +142,7 @@ func test_a_turn_delivers_every_queued_recruit_and_the_gazette_names_them() -> v
 	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
 	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	MapPlayInput.on_panel_action(play, "train_explorer")
 	MapPlayArmyMuster.recruit(play, "peasant_levies")
 	MapPlayFleetYard.launch(play, "carrack")
@@ -222,7 +222,7 @@ func test_a_worker_order_the_ledger_cannot_pay_is_refused() -> void:
 	var economy: PlayerEconomy = play.economy.economy
 	economy.stockpile["fabric"] = 2
 	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	economy.stockpile["fabric"] = 0
 	var toasts: int = _screen.hud._toast_box.get_child_count()
 
@@ -379,15 +379,15 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 
 
 func test_empire_counters_survive_a_region_switch() -> void:
-	var ships: int = _screen.economy.fleet_ships()
+	var ships: int = _screen.economy.readings.fleet_ships()
 	assert_gt(ships, 0)
 	_screen._cycle_region()
-	assert_eq(_screen.economy.fleet_ships(), ships, "navy upkeep follows the empire")
+	assert_eq(_screen.economy.readings.fleet_ships(), ships, "navy upkeep follows the empire")
 	assert_eq(_screen.hud._fleet_label.text, str(ships))
 	assert_eq(
 		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
-	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
+	var need: int = int(_screen.economy.readings.projected()["consumption"]["navy_demand"])
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
 
 

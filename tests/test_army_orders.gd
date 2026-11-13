@@ -391,8 +391,8 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	var home: ArmyState = _player_home()
 	var expected: int = _screen.army_layer.food_upkeep_all(MapScreen.PLAYER_FACTION)
 	assert_gt(expected, 0)
-	assert_eq(_screen.economy.army_food(), expected)
-	var consumption: Dictionary = _screen.economy.projected()["consumption"]
+	assert_eq(_screen.economy.readings.army_food(), expected)
+	var consumption: Dictionary = _screen.economy.readings.projected()["consumption"]
 	assert_eq(int(consumption["army_demand"]), expected)
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 

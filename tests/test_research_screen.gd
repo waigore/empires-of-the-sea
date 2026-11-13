@@ -53,10 +53,10 @@ func test_the_research_ledger_opens_and_closes() -> void:
 func test_assigning_through_the_controller_holds_the_slot() -> void:
 	var state: ResearchState = _screen.economy.economy.research
 	_screen.economy.open_research()
-	_screen.economy._on_research_assign("land_enclosure")
+	_screen.economy.orders.assign_research("land_enclosure")
 	assert_eq(state.tech_at(0), "land_enclosure")
 	assert_eq(state.funding_at(0), ResearchFunding.DEFAULT)
-	_screen.economy._on_research_cancel(0)
+	_screen.economy.orders.cancel_research(0)
 	assert_eq(state.tech_at(0), ResearchState.EMPTY_TECH)
 
 
@@ -72,13 +72,13 @@ func test_researched_techs_lift_the_estate_caps() -> void:
 	assert_eq(int(_screen.play.tech_caps().get("timber", 1)), 1)
 	_screen.economy.economy.research.unlock("saw_mill")
 	assert_eq(int(_screen.play.tech_caps().get("timber", 1)), 2)
-	assert_eq(int(_screen.economy.tech_caps().get("timber", 1)), 2)
+	assert_eq(int(_screen.economy.readings.tech_caps().get("timber", 1)), 2)
 
 
 func test_the_projection_includes_research_gold() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	assert_true(bool(economy.research.assign("crop_rotation", "low")["ok"]))
-	var preview: Dictionary = _screen.economy.projected()
+	var preview: Dictionary = _screen.economy.readings.projected()
 	var research: Dictionary = preview["research"]
 	assert_eq(int(research["spent"]), ResearchFunding.gold("low"))
 
@@ -88,11 +88,11 @@ func test_the_projection_includes_research_gold() -> void:
 ## (REQ-P1-05).
 func test_a_priority_change_repaints_the_slot_at_once_without_reloading() -> void:
 	_screen.economy.open_research()
-	_screen.economy._on_research_assign("land_enclosure")
+	_screen.economy.orders.assign_research("land_enclosure")
 	var panel: ResearchPanel = _screen.hud.panels.research_panel
 	var row: ResearchSlotRow = panel._slots_body.get_child(0)
 	assert_eq(row.bar().next_gain(), 300, "Medium buys 300 points")
-	_screen.economy._on_research_funding(0)
+	_screen.economy.orders.cycle_research_funding(0)
 	assert_is(row, panel._slots_body.get_child(0), "the slot is repainted, not rebuilt")
 	assert_true(_screen.hud.panels.is_research_open())
 	assert_eq(row.bar().next_gain(), 800, "High buys 800 points")
@@ -101,10 +101,10 @@ func test_a_priority_change_repaints_the_slot_at_once_without_reloading() -> voi
 
 func test_cancelling_a_study_keeps_the_ledger_and_its_rows() -> void:
 	_screen.economy.open_research()
-	_screen.economy._on_research_assign("land_enclosure")
+	_screen.economy.orders.assign_research("land_enclosure")
 	var panel: ResearchPanel = _screen.hud.panels.research_panel
 	var row: ResearchSlotRow = panel._slots_body.get_child(0)
-	_screen.economy._on_research_cancel(0)
+	_screen.economy.orders.cancel_research(0)
 	assert_is(row, panel._slots_body.get_child(0), "no button rebuilds the slot")
 	assert_true(_screen.hud.panels.is_research_open())
 	assert_eq(row.bar().next_gain(), 0, "an idle slot buys nothing")
