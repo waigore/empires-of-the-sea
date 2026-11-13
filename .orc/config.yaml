@@ -200,7 +200,7 @@ agents:
     prompt: |
       Run the babysit-pr-agent skill unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
-      Reshape the Actions check queue (~3 active), then one same-repo PR; exit.
+      Pick and unblock one same-repo PR; exit.
       Skip fork PRs.
 
   fix-tests-agent:
