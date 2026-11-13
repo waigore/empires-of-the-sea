@@ -262,6 +262,10 @@ static func can_establish_overture(
 			return _deny("Join Empire requires Friendly or Allied standing.")
 		if provinces < 1:
 			return _deny("That faction holds no provinces to join.")
+		# A colony is bought once: the Tribe keeps its land, so a second Join
+		# Empire would charge the full price for a record that already stands.
+		if target_type == FactionCatalog.Type.TRIBE and state.colony_of(target) == player:
+			return _deny("That tribe is already your colony.")
 		if target_type == FactionCatalog.Type.GREAT_POWER and not nearly_defeated(world, target):
 			return _deny("Only a nearly defeated Great Power may be absorbed.")
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
@@ -307,16 +311,7 @@ static func establish_overture(
 		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
-			state.set_colony(target, player)
-			state.touch(player, target, "colonyFormed", {"stage": stage})
-			return {
-				"ok": true,
-				"accepted": true,
-				"cost": cost,
-				"message": "%s becomes a colony of %s." % [
-					FactionCatalog.name_of(target), FactionCatalog.name_of(player)
-				],
-			}
+			return DiplomacyColony.found(state, player, target, stage, cost)
 		_absorb(world, state, player, target)
 		return {
 			"ok": true,
