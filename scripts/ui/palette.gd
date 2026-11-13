@@ -21,6 +21,16 @@ const NAVY := Color(0.176, 0.267, 0.435)
 const VIOLET := Color(0.435, 0.325, 0.502)
 const MOSS := Color(0.243, 0.376, 0.267)
 
+## Commodity inks: a resource emblem is filled in the colour its good carries in
+## the world — timber green, iron blue-grey, coined gold, straw wheat — so kinds
+## read apart at a glance even while status ink rings them (REQ-P1-08).
+const RESOURCE_INK: Dictionary = {
+	"tree": Color(0.235, 0.404, 0.247),
+	"ore": Color(0.376, 0.427, 0.502),
+	"coin": Color(0.847, 0.612, 0.129),
+	"wheat": Color(0.898, 0.796, 0.365),
+}
+
 const SEA_DEEP := Color(0.302, 0.443, 0.475)
 const SEA_MID := Color(0.471, 0.604, 0.604)
 const SEA_PALE := Color(0.663, 0.769, 0.749)
@@ -102,6 +112,22 @@ static func survey_color(status: String) -> Color:
 		"disconnected":
 			return SURVEY_OFFLINE
 	return SURVEY_OFFLINE
+
+
+## Fill ink for one resource pictogram kind. An unknown kind keeps the old gold,
+## so a new catalog row never loses its mark (REQ-P3-02).
+static func resource_ink(kind: String) -> Color:
+	return RESOURCE_INK.get(kind, GOLD)
+
+
+## Emblem ink for a surveyed estate: the commodity ink, pulled toward survey
+## grey while the holding is foreign, so ownership reads without erasing which
+## good the tile yields (REQ-P1-08).
+static func emblem_ink(kind: String, status: String) -> Color:
+	var ink: Color = resource_ink(kind)
+	if status.begins_with("foreign"):
+		return ink.lerp(SURVEY_FOREIGN, 0.55)
+	return ink
 
 
 ## Wash ink for one diplomatic band (DiplomacySurvey.BANDS).

@@ -381,6 +381,17 @@ suites = [
   "test_fleet_orders.gd"
 ]
 
+# Commodity ink for the resource pictograms: the glyphs, the survey lens that
+# rings them with status ink and the two HUD rows that draw the same marks.
+# Presentational only, so the lens suite (which mounts the chart) and the panel
+# parts suite (which mounts both rows) cover the patch instead of the broad
+# map + ui fan-out blowing the tier-1 5 min budget.
+[domains.resource_ink]
+suites = [
+  "test_resource_lens.gd",
+  "test_panel_parts_rules.gd"
+]
+
 # Unit medallions: the painted art for every worker, hull and regiment type and
 # the row widget that draws it. Presentational only, so the two dossiers that
 # mount the rows plus the coverage suite keep a plate change inside tier 1.
@@ -825,6 +836,33 @@ domain = "misc"
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "chart_bake"
+
+# Commodity ink for the resource pictograms. Named before the prospect /
+# crown_road / map / ui rules below (first match wins) so a colour change runs
+# the lens and the panel parts suites instead of the whole reading fan-out.
+[[rules]]
+match = "scripts/map/map_glyphs.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/palette.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "scripts/ui/improvement_row.gd*"
+domain = "resource_ink"
+
+[[rules]]
+match = "tests/test_resource_lens.gd*"
+domain = "resource_ink"
 
 [[rules]]
 match = "tests/map_fixture.gd"

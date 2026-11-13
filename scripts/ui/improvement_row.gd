@@ -224,7 +224,9 @@ func _fill() -> void:
 	]
 	var status_text: String = String(data["status_text"])
 	_icon.kind = ImprovementCatalog.icon_kind(int(data["resource"]))
-	_icon.tint = _status_color(status)
+	# The pictogram is the commodity (timber green, iron blue-grey, gold, straw);
+	# the status chip and pips beside it carry how far the works have come.
+	_icon.tint = Palette.resource_ink(_icon.kind)
 	_icon.queue_redraw()
 	_name.text = String(data["name"])
 	_status_chip.text = status.to_upper()

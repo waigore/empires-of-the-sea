@@ -3,13 +3,13 @@ name: file-github-issue
 description: |-
   File a GitHub issue from a user bug/defect report or feature request:
   classify type, interview for missing details (platform only if stated or
-  clearly relevant; else all platforms), search open duplicates and confirm
-  with the user if any match, analyze (incl. wiki Game rules alignment),
-  ensure labels todo + bug|enhancement, submit via gh without a final draft
-  confirm. Confirm with the user before noting a wiki follow-up when rules
-  conflict or are silent. Use when the user reports a bug, defect, issue,
-  broken behavior, or asks for a feature / enhancement, or when they ask to
-  file/log a GitHub issue.
+  clearly relevant; else all platforms; map seed when layout/generation
+  repro would benefit), search open duplicates and confirm with the user if
+  any match, analyze (incl. wiki Game rules alignment), ensure labels todo +
+  bug|enhancement, submit via gh without a final draft confirm. Confirm with
+  the user before noting a wiki follow-up when rules conflict or are silent.
+  Use when the user reports a bug, defect, issue, broken behavior, or asks
+  for a feature / enhancement, or when they ask to file/log a GitHub issue.
 
   Examples:
     - "fleet move ignores range on Android" → bug interview → analysis → issue
@@ -82,6 +82,8 @@ Ask **only** for missing fields. Do not re-ask what the user already gave.
 
 **Platform (bugs — optional):** Record OS/build (`desktop Windows|macOS|Linux` / `Android` / `iOS`), how run, and version/commit **only** when the user stated them or the report is clearly platform-specific. Do **not** ask for platform otherwise. If omitted, assume all platforms; omit `## Platform` from the issue body (do not invent “unknown” or write “all platforms”).
 
+**Map seed (bugs — optional):** Ask for the campaign map seed **only** when repro likely depends on world layout, generation, or seed-driven rolls (map gen, province/coast layout, capitals, fog/geography, “same seed” claims, etc.). Do **not** ask for pure UI/chrome, audio, or seed-independent rules bugs. Point the user to pause menu → Map seed → COPY. If they omit it after the ask, still file and note seed unknown in Analysis notes. Omit `## Map seed` from the body when not provided or not relevant.
+
 **Feature (all required before submit):**
 
 1. Summary of the capability
@@ -137,6 +139,7 @@ Reply with the issue URL. Stop.
 ## Rules
 
 - Platform only when stated or clearly relevant; otherwise omit and assume all platforms.
+- Map seed only when it would help reproduce (layout / generation / seed-driven rolls); otherwise omit.
 - No final “approve this draft?” step after analysis (duplicate + wiki confirms only).
 - One issue per report; do not batch unrelated items.
 - Prefer `gh`; do not leave issues unlabelled.
