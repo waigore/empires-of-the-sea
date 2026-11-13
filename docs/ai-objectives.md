@@ -29,8 +29,8 @@ status; the save carries them.
 ## The expedition
 
 `colonise.new_world` parents `expedition.hull` (hull off cargo routes),
-`expedition.explorer` (Explorer train slot) and a `requires` link to the court's
-one `peace.window` at war; afloat or landed it adds `expedition.voyage`. The
+`expedition.explorer` (Explorer train slot) and a `requires` link to
+`peace.window` at war; afloat or landed it adds `expedition.voyage`. The
 colony muster gate reads the funded hull claim
 (`MapPlayCivilianAi._hull_claimed`); a starved child prints
 `expedition.hull hull 0/1 deferred`. Ashore, the parent prices
