@@ -89,7 +89,7 @@ func _offer_pass() -> void:
 	_say("stockpile: %s -> %s" % [_counts_text(before), _stockpile()])
 	_dump_panel("after pitching")
 	_say("the upkeep the rules count: %d food (panel reads the same line)" % [
-		ArmyState.food_upkeep_of([_army], _army.owner),
+		ArmyRoster.food_upkeep_of([_army], _army.owner),
 	])
 	_say("pitch again pressed: %s" % _press("Pitch a field hospital"))
 
@@ -496,7 +496,7 @@ func _verdict(result: Dictionary) -> String:
 
 
 func _food_upkeep(army: ArmyState) -> int:
-	return ArmyState.food_upkeep_of([army], army.owner)
+	return ArmyRoster.food_upkeep_of([army], army.owner)
 
 
 func _stockpile() -> String:

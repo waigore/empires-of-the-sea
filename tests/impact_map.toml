@@ -90,6 +90,18 @@ suites = [
   "test_panel_parts_rules.gd"
 ]
 
+# The court's tongue (wiki: dialogue-content-and-yarn § Localization;
+# DR-20261113-09): the settings page both menus share, its record, and the two
+# menu doors that open it. Kept its own (small) domain so a picker change stays
+# inside tier 1 instead of pulling the broad menu set past the 5 min bar.
+[domains.tongue]
+suites = [
+  "test_menu_flow.gd",
+  "test_main.gd",
+  "test_mobile_layout.gd",
+  "test_yarn_plates_rules.gd"
+]
+
 [domains.intel]
 # Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
 # court's acts and the spy despatch that feeds them. Kept apart from the broad
@@ -133,8 +145,6 @@ suites = [
 suites = [
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
-  "test_naval_movement.gd",
-  "test_naval_raid.gd",
   "test_market_economy_rules.gd",
   "test_battle_rules.gd"
 ]
@@ -405,8 +415,9 @@ suites = [
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
 suites = [
-  "test_victory_standings.gd",
+  "test_campaign_rules.gd",
   "test_gazette.gd",
+
   "test_campaign_end.gd"
 ]
 
@@ -519,6 +530,28 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+
+# The court's tongue: the settings page, its record and the two menu doors that
+# open it (DR-20261113-09). Named before the menu rules so a picker change runs
+# the tongue slice only.
+[[rules]]
+match = "scripts/ui/tongue_*.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/main_menu.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/game_menu.gd*"
+domain = "tongue"
+
+# The out-of-map furniture the tongue page is built from: the menu and layout
+# suites that mount those pages prove it.
+[[rules]]
+match = "scripts/ui/menu_frame.gd*"
+domain = "tongue"
+
 [[rules]]
 match = "scripts/rules/victory_rules.gd*"
 domain = "victory_bar"
@@ -1269,7 +1302,9 @@ match = "tests/test_naming_rules.gd*"
 domain = "naming"
 
 [[rules]]
-match = "scripts/rules/army_*.gd"
+# `.gd*` keeps companion `.uid` files on the army domain (not the rules/** misc
+# catch-all), so a new army module's uid does not pull tables_rules past tier-1.
+match = "scripts/rules/army_*.gd*"
 domain = "army"
 
 [[rules]]
@@ -1335,6 +1370,12 @@ domain = "dialogue"
 # expression grammar and its runner travel with the dialogue domain.
 [[rules]]
 match = "scripts/rules/yarn_*.gd*"
+domain = "dialogue"
+
+# The words behind the court's keys (DR-20261113-06): a shipped `.po` is read by
+# the dialogue suite and nothing else, so a tongue change pays only that domain.
+[[rules]]
+match = "assets/locales/*.po*"
 domain = "dialogue"
 
 [[rules]]

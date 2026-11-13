@@ -36,13 +36,14 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
 - Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
-  `restore`), prefer `SaveCodec.restore` over remounting unless HUD is under test.
+  `restore`), prefer `SaveCodec.restore` over remounting. `test_save_codec`
+  keeps one MapScreen and resets via a pristine save (rebind layers; no remount).
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftover pure cases into a theme file instead of a new suite (gazette plate
-  in `test_gazette`; defence survey in `test_defence_lens`; battle sim in
-  `test_quick_battle_overlay`; map soundtrack in `test_audio_rules`). Prefer one
-  mount per case. Profile with `gd-tools test --durations 20`. Smoke: short boot,
-  few `await process_frame`, no sleeps / full campaigns.
+  fold leftovers into a theme suite (`test_naval_rules`, `test_campaign_rules`,
+  `test_gazette`, `test_defence_lens`, `test_quick_battle_overlay`,
+  `test_audio_rules`). Prefer one mount per case. Profile with
+  `gd-tools test --durations 20`. Smoke: short boot, few `await process_frame`,
+  no sleeps / full campaigns.
 
 ## Local
 

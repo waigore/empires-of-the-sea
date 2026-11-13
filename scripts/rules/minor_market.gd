@@ -60,18 +60,30 @@ static func province_manufactures(model: MapModel, province: ProvinceState) -> D
 	)
 
 
-## Display ask: deals clear at the published price (wiki: § Price discovery).
+## Display ask: deals clear at the published price, adjusted by the reader's own
+## terms and by the subsidy step this pair carries, so the row names the ducats
+## the clearing will charge (wiki: world-market § Price discovery, § Subsidy
+## price adjustment; REQ-P5-05).
 static func unit_price(
 	market: WorldMarket,
 	commodity: String,
-	buyer: int = FactionCatalog.PLAYER_FACTION
+	buyer: int = FactionCatalog.PLAYER_FACTION,
+	seller: int = -1
 ) -> int:
 	if market == null or not market.can_trade(commodity):
 		return 0
-	return maxi(
-		roundi(float(market.price(commodity)) * market.term_multiplier(buyer, commodity, true)),
-		1
+	var percent: int = MarketRules.subsidy_percent(market, buyer, seller)
+	var step: float = MarketRules.subsidy_step(
+		percent, _is_minor(buyer), seller >= 0 and _is_minor(seller), true
 	)
+	return MarketRules.deal_unit(market, commodity, buyer, step, true)
+
+
+static func _is_minor(faction: int) -> bool:
+	if faction < 0:
+		return false
+	var kind: int = FactionCatalog.type_of(faction)
+	return kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE
 
 
 ## One auto-offer per Minor/Tribe estate, purchased deeds included, plus one per
@@ -144,9 +156,10 @@ static func emit_orders(world: WorldMap) -> Array[MarketOrder]:
 
 
 ## The ledger's aggregated book: one row per seller and commodity, richest
-## first. `buyer` is kept for signature compatibility; the market is global.
+## first. Every row is priced for the reader against that seller, so a subsidy
+## the pair carries shows in the ask the clearing will charge.
 static func emit(
-	world: WorldMap, market: WorldMarket, _buyer: int = FactionCatalog.PLAYER_FACTION
+	world: WorldMap, market: WorldMarket, buyer: int = FactionCatalog.PLAYER_FACTION
 ) -> Array[Dictionary]:
 	var rows: Dictionary = {}
 	if world == null or market == null:
@@ -159,7 +172,7 @@ static func emit(
 				"faction": order.faction,
 				"commodity": order.commodity,
 				"quantity": 0,
-				"unit_price": unit_price(market, order.commodity),
+				"unit_price": unit_price(market, order.commodity, buyer, order.faction),
 			}
 		var row: Dictionary = rows[key]
 		row["quantity"] = int(row["quantity"]) + order.remaining()

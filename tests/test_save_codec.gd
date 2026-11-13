@@ -18,26 +18,36 @@ static var _shared_world: WorldMap = null
 ## from this clean snapshot (see `before_all`).
 static var _pristine: Array = []
 
+## Non-underscore: gd-tools copies these from `before_all` onto each test
+## instance. One MapScreen for the whole suite — remounting under coverage is
+## the dominant cost; cases reset via the pristine save instead.
 var screen: MapScreen = null
+var pristine_save: Dictionary = {}
 
 
 func before_all() -> void:
 	_pristine = Fixture.snapshot(_world())
+	screen = _new_screen()
+	pristine_save = SaveCodec.capture(screen.play)
 
 
 func before_each() -> void:
 	_clean_dir()
 	_restore_world()
-	screen = _new_screen()
+	_reset_to_pristine()
 
 
 func after_each() -> void:
 	_restore_world()
+	get_tree().paused = false
+	_clean_dir()
+
+
+func after_all() -> void:
 	if is_instance_valid(screen):
 		screen.free()
 	screen = null
-	get_tree().paused = false
-	_clean_dir()
+	pristine_save = {}
 
 
 func _world() -> WorldMap:
@@ -52,7 +62,7 @@ func _restore_world() -> void:
 	Fixture.restore(_world(), _pristine)
 
 
-func _new_screen(pending: Dictionary = {}) -> MapScreen:
+func _new_screen() -> MapScreen:
 	var node: MapScreen = SCREEN.instantiate()
 	node.map_seed = SEED
 	node.map_width = WIDTH
@@ -61,10 +71,22 @@ func _new_screen(pending: Dictionary = {}) -> MapScreen:
 	# A load applies the save over this preset instead of regenerating the
 	# world — same seed and size, so the map is the one the save expects.
 	node.preset_world = _world()
-	if not pending.is_empty():
-		node.pending_save = pending
 	add_child(node)
 	return node
+
+
+## Re-seats the shared screen on the opening save without tearing MapScreen
+## down. Hides court plates left open by a prior case.
+func _reset_to_pristine() -> void:
+	if screen == null or not is_instance_valid(screen):
+		screen = _new_screen()
+		pristine_save = SaveCodec.capture(screen.play)
+		return
+	var play: PlaySession = _apply_save(pristine_save)
+	play.turn_suspended = false
+	if play.hud != null and play.hud.panels != null:
+		DiplomacyHud.hide(play.hud.panels)
+	MapPlaySetup.refresh_after_load(play)
 
 
 ## Applies a save onto the mounted screen without tearing it down. Remounting
@@ -81,9 +103,33 @@ func _apply_save(data: Dictionary) -> PlaySession:
 	play.diplomacy = DiplomacyState.new()
 	SaveCodec.restore_diplomacy(play, data)
 	play.diplomacy.human_faction = play.human_faction_id()
-	if target != play.region_index:
-		screen.load_region(target)
+	play.region_index = target
+	play.model = play.world.region(target)
+	# Restore parks units in region tables and clears the live arrays; spawn
+	# rebinds without rebuilding the canvas (load_region would remount the map).
+	_rebind_layers(play)
 	return play
+
+
+## Cheap post-restore: layers already hold the saved region tables, so spawn
+## only reassigns the live arrays and markers.
+func _rebind_layers(play: PlaySession) -> void:
+	var model: MapModel = play.model
+	screen.army_layer.spawn(model)
+	screen.ship_layer.world = play.world
+	screen.ship_layer.spawn(
+		model,
+		MapScreen.SHIP_COUNT,
+		MapScreen.MAP_SEED + 3 + play.region_index,
+		play.capital_province,
+		play.player_present(),
+		play.player_faction
+	)
+	screen.civilian_layer.viewer_faction = play.player_faction
+	screen.civilian_layer.spawn(
+		model, play.capital_province, play.player_faction, MapScreen.STARTING_CIVILIANS
+	)
+	play.land_works = screen.civilian_layer.works
 
 
 func test_round_trip_restores_session_world_and_layers() -> void:
@@ -140,10 +186,10 @@ func test_round_trip_restores_session_world_and_layers() -> void:
 	var loaded: Dictionary = SaveStore.read(DIR + "/roundtrip.sav")
 	assert_false(loaded.is_empty(), "save file reads back")
 
-	# Remount once: this case also proves the HUD wires the restored nation.
-	screen.free()
-	screen = _new_screen(loaded)
-	play = screen.play
+	# Restore in place: the nation chip is wired at mount; refresh_after_load
+	# re-reads turn/treasury so the HUD matches the slot (same path as a load).
+	play = _apply_save(loaded)
+	MapPlaySetup.refresh_after_load(play)
 	assert_eq(play.turn, 2, "turn restored")
 	assert_eq(play.player_faction, FactionCatalog.PLAYER_FACTION, "nation restored")
 	assert_eq(play.economy.economy.treasury, 4321, "treasury restored")

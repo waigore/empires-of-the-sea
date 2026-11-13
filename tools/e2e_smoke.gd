@@ -36,11 +36,17 @@ func _run() -> void:
 
 	var menu: MainMenu = main.current_page as MainMenu
 	_check(menu != null, "main menu boots first")
-	_check(menu != null and menu.settings_button.disabled, "settings is dimmed")
 	_check(main.current_screen == null, "no map runs behind the title screen")
 	if menu == null:
 		_finish()
 		return
+	# The settings door carries the court's tongue: every shipped tongue is
+	# offered, and back closes the page (REQ-P5-07).
+	_check(not menu.settings_button.disabled, "settings opens from the title")
+	menu.settings_button.emit_signal("pressed")
+	_check(menu.tongue_page != null and menu.tongue_page.is_open(), "tongue page opens")
+	_check(menu.tongue_page.rows.size() >= 3, "the device and both tongues are offered")
+	menu.tongue_page.close()
 	menu.new_game_button.emit_signal("pressed")
 	await process_frame
 
@@ -161,7 +167,13 @@ func _run() -> void:
 	screen.game_menu.open()
 	_check(screen.game_menu.is_open(), "in-game menu opens")
 	_check(paused, "in-game menu pauses the tree")
-	_check(screen.game_menu.settings_button.disabled, "in-game settings is dimmed")
+	# The pause menu's settings door reaches the same tongue page mid-campaign,
+	# and back returns to the pause rows without resuming play (REQ-P5-07).
+	_check(not screen.game_menu.settings_button.disabled, "in-game settings opens")
+	screen.game_menu.settings_button.emit_signal("pressed")
+	_check(screen.game_menu.tongue_page.is_open(), "the tongue page opens over the pause menu")
+	screen.game_menu.handle_back()
+	_check(paused, "back from the tongue page keeps the tree paused")
 	screen.game_menu.open_save()
 	_check(screen.game_menu.browser.visible, "save browser opens")
 	screen.game_menu.browser.slot_chosen.emit(SAVE_SLOT)

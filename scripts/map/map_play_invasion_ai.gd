@@ -45,7 +45,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 	return trace
 
 
-## Detaches the crossing army through ArmyState.split, keeping the Home Army.
+## Detaches the crossing army through ArmyRoster.split, keeping the Home Army.
 static func _split(
 	play: PlaySession,
 	model: MapModel,
@@ -64,7 +64,7 @@ static func _split(
 			continue
 		var ids: Array[String] = []
 		ids.assign(action.get("regiments", []))
-		var split: Dictionary = ArmyState.split(
+		var split: Dictionary = ArmyRoster.split(
 			armies, home, ids, play.army_layer.next_army
 		)
 		if not bool(split.get("ok", false)):
