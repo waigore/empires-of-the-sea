@@ -3583,3 +3583,95 @@ func test_a_record_without_hull_types_still_tells_the_meeting() -> void:
 		NavalDispatch.headline(battle, "", DESPATCH_NAMES), "España against England"
 	)
 
+
+# --- the turn pass raises the plate for the crown's own fight -----------------
+
+const despatch_NavalFixture = preload("res://tests/naval_fixture.gd")
+
+
+class DespatchHud extends GameHud:
+	var dispatched: Array[String] = []
+	var toasts: Array[String] = []
+
+	func toast(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+	func toast_plate_line(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+	func show_naval_dispatch(_battle: Dictionary, zone: String) -> void:
+		dispatched.append(zone)
+
+
+## One session with two hostile squadrons in the Caribbean, and a stub court that
+## records what the pass told it.
+func _despatch_play(hud: GameHud, fleets: Array[FleetState]) -> PlaySession:
+	var model: MapModel = despatch_NavalFixture.build()
+	var play := PlaySession.new()
+	play.model = model
+	play.player_faction = 0
+	play.turn = 1
+	play.map_seed = 7
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	play.diplomacy.ensure_relation(0, 2, 1)
+	play.diplomacy.ensure_relation(1, 2, 1)
+	var ships := ShipLayer.new()
+	ships.model = model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(model)
+	play.world = world
+	var armies := ArmyLayer.new()
+	armies.model = model
+	armies.regions.set_region(model.region_id, [] as Array[ArmyState])
+	play.army_layer = armies
+	var civilians := CivilianLayer.new()
+	civilians.model = model
+	civilians.regions.set_region(model.region_id, [] as Array[CivilianState])
+	play.civilian_layer = civilians
+	play.hud = hud
+	return play
+
+
+func test_the_crowns_sea_fight_opens_the_despatch_plate() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "galleon"})
+	strong.moved = true
+	var weak := FleetState.at_sea(2, 1, 0, ["ship_2"], {"ship_2": "carrack"})
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [strong, weak] as Array[FleetState])
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+
+	assert_eq(battles.size(), 1, "two hostile squadrons in one zone fight")
+	assert_eq(hud.dispatched.size(), 1, "the crown's fight opens the plate")
+	assert_eq(hud.dispatched[0], "Mar Caribe", "the plate names the water")
+	assert_eq(hud.toasts.size(), 1, "the despatch line still reaches the court")
+	hud.free()
+	play.ship_layer.free()
+
+
+func test_a_rivals_sea_fight_stays_the_courts_news_alone() -> void:
+	var strong := FleetState.at_sea(1, 1, 0, ["ship_1"], {"ship_1": "galleon"})
+	strong.moved = true
+	var weak := FleetState.at_sea(2, 2, 0, ["ship_2"], {"ship_2": "carrack"})
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [strong, weak] as Array[FleetState])
+	# Only the rivals strike each other: the crown keeping its peace hears news.
+	DiplomacyRules.declare_war(play.diplomacy, 1, 2, false)
+
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+
+	assert_eq(battles.size(), 1, "the rivals fight")
+	assert_true(hud.dispatched.is_empty(), "the crown's plate is not raised for them")
+	assert_eq(hud.toasts.size(), 1, "the outcome still reaches the court")
+	hud.free()
+	play.ship_layer.free()
+
+
