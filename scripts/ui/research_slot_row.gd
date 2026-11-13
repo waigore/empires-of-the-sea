@@ -18,6 +18,9 @@ const COIN_SIZE: float = 13.0
 
 ## Slot index this row draws; set once, so its signals carry it back.
 var slot: int = 0
+## Phone rows trade height for list room; the buttons keep their thumb size.
+var _compact: bool = false
+var _idle_now: bool = true
 
 var _idle: Label = null
 var _body: HBoxContainer = null
@@ -70,9 +73,12 @@ func update(
 ) -> void:
 	var tech_id: String = state.tech_at(slot)
 	var idle: bool = tech_id.is_empty()
+	_idle_now = idle
 	_idle.visible = idle
 	_body.visible = not idle
-	custom_minimum_size = Vector2(0.0, IDLE_HEIGHT if idle else ROW_HEIGHT)
+	var idle_height: float = 26.0 if _compact else IDLE_HEIGHT
+	var row_height: float = 46.0 if _compact else ROW_HEIGHT
+	custom_minimum_size = Vector2(0.0, idle_height if idle else row_height)
 	_gold_next = 0
 	_rp_next = 0
 	if idle:
@@ -124,6 +130,20 @@ func rp_next() -> int:
 
 func bar() -> ResearchBar:
 	return _bar
+
+
+## Phone geometry: a shorter slot row and smaller text, while every button keeps
+## its 40-point thumb target (REQ-P1-07).
+func set_compact(compact: bool) -> void:
+	_compact = compact
+	var idle_height: float = 26.0 if compact else IDLE_HEIGHT
+	var row_height: float = 46.0 if compact else ROW_HEIGHT
+	custom_minimum_size = Vector2(0.0, idle_height if _idle_now else row_height)
+	_idle.add_theme_font_size_override("font_size", 12 if compact else 14)
+	_name.add_theme_font_size_override("font_size", 13 if compact else 14)
+	_spend.add_theme_font_size_override("font_size", 11 if compact else 12)
+	_funding.custom_minimum_size = Vector2(84 if compact else 96, BUTTON_HEIGHT)
+	_cancel.custom_minimum_size = Vector2(62 if compact else 74, BUTTON_HEIGHT)
 
 
 # --- construction ------------------------------------------------------------

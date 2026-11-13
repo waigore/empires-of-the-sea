@@ -34,6 +34,8 @@ var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
 var _hint: Label = null
+var _title: Label = null
+var _close: Button = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
 ## Signatures of what each rebuilt region last drew, so a repaint that changes
@@ -55,18 +57,49 @@ func _ready() -> void:
 
 ## The tab body gives way so the header, slots and Close stay put: the pages
 ## take the room the sheet leaves, and a phone drops the standing hint instead
-## of pushing content past the panel's edge.
+## of pushing content past the panel's edge. The masthead, standing line and
+## empty goal prompt also yield, so the queue and the lists keep the height
+## (REQ-P1-07).
 func _fit_to_viewport() -> void:
 	if _tabs == null or not is_inside_tree():
 		return
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	_hint.visible = not compact
-	_column.add_theme_constant_override("separation", 4 if compact else 8)
+	set_compact(compact)
 	var top: float = 64.0 if compact else PanelDock.TOP
 	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
 	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
 	var chrome: float = get_combined_minimum_size().y - _tabs.custom_minimum_size.y
 	_tabs.custom_minimum_size = Vector2(0.0, clampf(room - chrome, 0.0, 300.0))
+
+
+## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
+## line, a goal prompt and three full-height slot rows above the list.
+func set_compact(compact: bool) -> void:
+	if _tabs == null:
+		return
+	var margins: Vector4 = Vector4(12, 8, 12, 8) if compact else Vector4(20, 14, 20, 14)
+	add_theme_stylebox_override(
+		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, margins)
+	)
+	if _title != null:
+		_title.add_theme_font_size_override("font_size", 20 if compact else 24)
+	if _close != null:
+		_close.custom_minimum_size = Vector2(64, 40) if compact else Vector2(78, 34)
+	if _summary != null:
+		_summary.visible = not compact
+	if _hint != null:
+		_hint.visible = not compact
+	if _column != null:
+		_column.add_theme_constant_override("separation", 4 if compact else 8)
+	if _goal_row != null:
+		_goal_row.visible = not compact or not _goal.is_empty()
+	if _slots_heading != null:
+		_slots_heading.add_theme_font_size_override("font_size", 10 if compact else 11)
+	if _slots_body != null:
+		_slots_body.add_theme_constant_override("separation", 2 if compact else 4)
+	for row: Variant in _slot_rows.values():
+		if row is ResearchSlotRow:
+			(row as ResearchSlotRow).set_compact(compact)
 
 
 func _build() -> void:
@@ -84,6 +117,7 @@ func _build() -> void:
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title = title
 	header.add_child(title)
 
 	var close := Button.new()
@@ -91,6 +125,7 @@ func _build() -> void:
 	close.custom_minimum_size = Vector2(78, 34)
 	close.add_theme_font_size_override("font_size", 13)
 	close.pressed.connect(func() -> void: close_pressed.emit())
+	_close = close
 	header.add_child(close)
 
 	_summary = _label("", 14, Palette.TEXT)

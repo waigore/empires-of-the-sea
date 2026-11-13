@@ -488,6 +488,18 @@ suites = [
   "test_land_battle_rules.gd"
 ]
 
+# The court's news lane: one line at a time on a phone, held under a sheet or a
+# battle plate so it never covers the controls (REQ-P5-06, REQ-P1-07). Its own
+# domain keeps a lane edit off the menu/setup plates and on the suites that
+# print despatches.
+[domains.despatch]
+suites = [
+  "test_mobile_layout.gd",
+  "test_quick_battle_overlay.gd",
+  "test_gazette.gd",
+  "test_court_ui_parts.gd"
+]
+
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
 # plate that prints them (wiki: the-gazette; DR-20261110-14).
 [domains.gazette]
@@ -1738,6 +1750,17 @@ domain = "map"
 match = "scripts/ui/ai_observer_panel.gd"
 domain = "ai"
 
+# The court's news lane is not a dossier host: pin it to the suites that print
+# despatches (a phone tells one at a time and holds them under a sheet) before
+# the broad hud_*.gd rule claims it.
+[[rules]]
+match = "scripts/ui/hud_despatches.gd*"
+domain = "despatch"
+
+[[rules]]
+match = "scripts/ui/hud_despatch_cover.gd*"
+domain = "despatch"
+
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min
 # budget.
@@ -1773,6 +1796,13 @@ domain = "chart_bake"
 [[rules]]
 match = "scripts/ui/province_facts_grid.gd*"
 domain = "ui"
+
+# HUD sheet chrome is not a menu screen. The estates head belongs to the ledger
+# it heads, so chrome work does not remount the setup/hub pages past the
+# tier-1 budget.
+[[rules]]
+match = "scripts/ui/estates_head.gd*"
+domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/**"

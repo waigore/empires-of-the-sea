@@ -334,8 +334,9 @@ func _on_quick_battle_finished() -> void:
 			next["battle"], String(next["province"]), FactionCatalog.names()
 		)
 		return
-	# The turn's news waited for the last plate; raise it now, in its own order.
-	despatches.set_covered(false)
+	# The turn's news waited for the last plate; raise it now, in its own order,
+	# unless a phone sheet still covers the lane.
+	HudDespatchCover.refresh(self)
 
 
 func set_minimap(
