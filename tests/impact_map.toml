@@ -662,6 +662,18 @@ domain = "quick_battle"
 match = "scripts/ui/regiment_miniatures.gd*"
 domain = "quick_battle"
 
+# The sea's despatch plate is the Quick Battle view's water counterpart: it
+# stands the hull medallions and reads the resolver's record, so a plate change
+# runs the battle suites rather than the whole menu set.
+[[rules]]
+match = "scripts/ui/naval_plate.gd*"
+domain = "quick_battle"
+
+# Both battle plates, their queues and the court's held news.
+[[rules]]
+match = "scripts/ui/battle_plates.gd*"
+domain = "quick_battle"
+
 [[rules]]
 match = "scripts/rules/quick_battle.gd"
 domain = "quick_battle"
@@ -1229,6 +1241,12 @@ domain = "naval_feeding"
 
 [[rules]]
 match = "scripts/rules/naval_strength.gd*"
+domain = "naval_feeding"
+
+# The despatch's copy reads the resolver's record; its tests live in the naval
+# theme suite, so this stays on the same slice as the battle it narrates.
+[[rules]]
+match = "scripts/rules/naval_dispatch.gd*"
 domain = "naval_feeding"
 
 [[rules]]
@@ -1833,6 +1851,10 @@ domain = "quick_battle"
 
 [[rules]]
 match = "tests/quick_battle_shot.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/naval_plate_shot.gd*"
 domain = "quick_battle"
 
 [[rules]]
