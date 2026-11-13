@@ -12,7 +12,7 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 10,
-		"default": 2,
+		"default": 1,
 	},
 	{
 		"key": "diplomacy.war_weariness_grace",
@@ -20,7 +20,7 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 40,
-		"default": 8,
+		"default": 12,
 	},
 	{
 		"key": "diplomacy.truce_turns",
@@ -28,7 +28,7 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 60,
-		"default": 30,
+		"default": 8,
 	},
 	{
 		"key": "diplomacy.truce_penalty",
@@ -36,6 +36,6 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 100,
-		"default": 40,
+		"default": 30,
 	},
 ]
