@@ -1278,6 +1278,21 @@ domain = "ai_colony"
 # rank/allocate passes, the claims a court keeps and the adapter that stamps
 # them into the turn trace. Kept its own small slice so a ledger change runs its
 # own suite plus the phase rules it prices, instead of the whole AI fan-out.
+[domains.ai_works]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_ai_phase_rules.gd",
+]
+
+[domains.ai_economy]
+suites = [
+  "test_market_economy_rules.gd",
+  "test_ai_economy_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_ai_rules.gd",
+]
+
 [domains.ai_ledger]
 suites = [
   "test_ai_objective_rules.gd",
@@ -1494,14 +1509,16 @@ domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "ai"
+domain = "ai_economy"
 
 # The rival civilian pass was split out of the economy turn but its only suite
 # is still test_ai_rules, so keep it (and its .uid) here instead of the
-# civilian glob below, which would pull crown-order / map suites.
+# civilian glob below, which would pull crown-order / map suites. The works
+# floor and the extraction filter (issue #489) are covered by the AI and
+# civilian-turn suites, not the whole AI fan-out.
 [[rules]]
 match = "scripts/map/map_play_civilian_ai.gd*"
-domain = "ai"
+domain = "ai_works"
 
 # The one reader every rival pass asks for a court's standing and order of
 # battle. Its suites are the observer/AI set, so keep it off the broad map
