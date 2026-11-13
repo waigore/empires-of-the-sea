@@ -53,7 +53,8 @@ over. At peace none is pitched; the crown sees nothing.
 
 ## Deferred (REQ-P2-02)
 
-General-grade and battle shelter wait on design (DR-20261112-07).
+General-grade and battle shelter wait on design (DR-20261112-07);
+see [`deferred.md`](deferred.md).
 
 ## Architecture
 

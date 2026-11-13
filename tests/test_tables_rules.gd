@@ -664,6 +664,29 @@ func test_discovery_techs_name_their_resources() -> void:
 	assert_eq(TechCatalog.discovery_resources("saw_mill"), [] as Array[String])
 	assert_eq(TechCatalog.display_name("discovery_of_sugar"), "Discovery of Sugar")
 
+## Every resource the map can place carries its published base name (wiki:
+## extraction-and-improvements § Improvement Naming): minerals read Mine, the
+## crops their own work, and no index falls back to the generic "Improvement".
+func test_every_placeable_resource_has_its_published_improvement() -> void:
+	var names: Dictionary = {
+		"timber": "Lumber camp", "iron": "Mine", "coal": "Mine", "gold": "Mine",
+		"grain": "Farm", "wool": "Pasture", "horses": "Ranch", "meat": "Ranch",
+		"tin": "Mine", "copper": "Mine", "silver": "Mine", "gems": "Mine",
+		"diamonds": "Mine", "sugarCane": "Plantation", "tobacco": "Plantation",
+		"cotton": "Plantation", "furs": "Fur post", "spices": "Plantation",
+	}
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	assert_eq(table.size(), names.size())
+	for index in table.size():
+		var commodity: String = String(table[index]["commodity"])
+		assert_true(names.has(commodity), "unpublished resource %s" % commodity)
+		assert_eq(ImprovementCatalog.base_name(index), String(names[commodity]), commodity)
+		assert_eq(
+			ImprovementCatalog.display_name(index, 2),
+			"%s (L2)" % String(names[commodity]),
+			commodity
+		)
+
 func test_effect_text_uses_the_fixed_phrases() -> void:
 	assert_true(TechCatalog.effect_text("saw_mill").contains("Improves:"))
 	assert_true(TechCatalog.effect_text("saw_mill").to_lower().contains("timber"))
