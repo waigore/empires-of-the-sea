@@ -1011,6 +1011,12 @@ domain = "quick_battle"
 match = "scripts/ui/battle_plates.gd*"
 domain = "quick_battle"
 
+# The frame both plates wear: a furniture change rides the same suites as the
+# plates it dresses, not the menu catch-all.
+[[rules]]
+match = "scripts/ui/battle_plate_frame.gd*"
+domain = "quick_battle"
+
 [[rules]]
 match = "scripts/rules/quick_battle.gd"
 domain = "quick_battle"
