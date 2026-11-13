@@ -172,7 +172,7 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.defeat = SaveDefeat.from_dict(data.get("defeat", {}), play.player_faction)
 	SaveGazette.restore(play, data)
 
-	var world: WorldMap = SaveWorld.reusable(reuse, play.map_width, play.map_height)
+	var world: WorldMap = SaveWorld.reusable(reuse, data.get("regions", []))
 	if world == null:
 		world = MapGenerator.new().generate_world(
 			play.map_seed, play.map_width, play.map_height

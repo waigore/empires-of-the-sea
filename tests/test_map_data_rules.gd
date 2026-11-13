@@ -950,18 +950,41 @@ func test_apply_refuses_shape_mismatches_and_corrupt_entries() -> void:
 
 func test_reusable_requires_matching_region_sizes() -> void:
 	var world: WorldMap = _world()
-	var width: int = world.region(0).width
-	var height: int = world.region(0).height
+	var regions: Array[Dictionary] = SaveWorld.capture(world)
 
-	assert_null(SaveWorld.reusable(null, width, height))
-	assert_null(SaveWorld.reusable(WorldMap.new(), width, height))
-	assert_eq(SaveWorld.reusable(world, width, height), world)
+	assert_null(SaveWorld.reusable(null, regions))
+	assert_null(SaveWorld.reusable(WorldMap.new(), regions))
+	assert_eq(SaveWorld.reusable(world, regions), world, "matching region sizes reuse")
 
 	var other: WorldMap = WorldMap.new()
 	var model: MapModel = MapModel.new()
-	model.setup(width + 1, height)
+	model.setup(world.region(0).width + 1, world.region(0).height)
 	other.add_region(model)
-	assert_null(SaveWorld.reusable(other, width, height), "wrong size is not reused")
+	assert_null(SaveWorld.reusable(other, regions), "wrong size is not reused")
+	assert_null(SaveWorld.reusable(world, {}), "non-array regions refuse")
+	assert_null(SaveWorld.reusable(world, []), "wrong region count refuses")
+
+## A world's charts are sized per region (the New World is wider than the Old),
+## so the save's own sizes must be the check — one shared width rejected every
+## real preset and regenerated the whole world on each load.
+func test_reusable_accepts_charts_of_differing_sizes() -> void:
+	var world := WorldMap.new()
+	var old: MapModel = MapModel.new()
+	old.setup(4, 3)
+	world.add_region(old)
+	var new_world: MapModel = MapModel.new()
+	new_world.setup(6, 3)
+	world.add_region(new_world)
+
+	var regions: Array = [
+		{"width": 4, "height": 3},
+		{"width": 6, "height": 3},
+	]
+	assert_eq(SaveWorld.reusable(world, regions), world, "per-chart sizes reuse")
+	regions[1] = {"width": 5, "height": 3}
+	assert_null(SaveWorld.reusable(world, regions), "a mismatched chart refuses")
+	regions[1] = "x"
+	assert_null(SaveWorld.reusable(world, regions), "a non-dict chart refuses")
 
 func test_resource_tile_accepts_vector2i_and_falls_back() -> void:
 	var world: WorldMap = _world()
