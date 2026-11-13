@@ -36,22 +36,20 @@ Projections never mutate.
 | bronze | copper ×1 + tin ×1 | 3 |
 
 `fabric_from_cotton` needs Cotton Weaving; others always run. Runs are whole,
-bounded by inputs and labour; incomplete rows skip. `PRODUCTION` sets desired
-outputs.
+bounded by inputs and labour; incomplete rows skip.
 
 Steel and bronze take **two turns** (`turns` per run): inputs and labour paid
 up front; the batch lands **one unit a phase** until spent, WIP riding the save
-(`PlayerEconomy.production_wip`, DR-20261112-11/13-02). Three steel begun in
-turn 1 end in turn 4. A row left set starts a batch a phase, so `5→1t` lands
-two (`ProductionRecipes.next_landing`).
+(`PlayerEconomy.production_wip`, DR-20261112-11/13-02). A row left set starts a
+batch a phase, so `5→1t` lands two (`ProductionRecipes.next_landing`).
 
 ## Town manufacturing bonus
 
-Town development 2 or 4 turns town-connected raw into ×1/×2 manufactures:
+Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
 `floor(input / 4) × multiplier`, no inputs, labour or cargo. A colony pays on
 landed tons; rivals upgrade towns ([improvements.md](improvements.md)). A
-Minor/Tribe town auto-offers them at its province town; estates still sell in
-full, and a deed lifts that town (`min(4, 1+deeds)`).
+Minor/Tribe town auto-offers them; estates still sell in full, and a deed lifts
+that town (`min(4, 1+deeds)`).
 
 ## World-market auction
 
@@ -61,18 +59,21 @@ Tiebreaks: integer priority, pact, colony favour, Consulate, relation; a
 colony's suzerain clears first inside a tier (`MarketFavoured`, R7.1).
 First right of refusal fills a purchased tile's owner first and pays its relation
 share plus embassy kickback. Unfilled orders carry while holds cover them;
-prices move from fills; a counterparty fills the rest.
-An offer is capped by post-production stock (`Offer` chip); fills/lapses toast.
+prices move from fills.
+An offer is capped by post-production stock; fills/lapses toast.
 
 ## Trade terms
 
-Prices are published once; pact and boycott terms apply at settlement
-([`diplomacy.md`](diplomacy.md) § Trade terms). A subsidy is charged on the deal.
+Prices publish once; pact, boycott and subsidy terms apply at settlement
+([`diplomacy.md`](diplomacy.md) § Trade terms).
 
 ## UI
 
-`ECONOMY` shows treasury, stockpile, trade, projection. `MARKET` lists staged
-orders, Minor/Tribe harvest and world rows as intents under their medallions
+The ledger's `PRODUCTION` tab is the stockpile: `FOOD`, `RAW MATERIALS`,
+`MANUFACTURED`, `RICHES` in catalogue order, each holding with its units and the
+phase's next-turn figure. Manufactured rows carry the stepper, capped by labour
+and inputs (`ProductionRecipes.allowance`). `MARKET` lists staged orders,
+Minor/Tribe harvest and world rows as intents under their medallions
 (`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: `RECRUIT` per tier; trained tiers get
 `DISBAND` (no refund). Thumb-sized on a phone.
 

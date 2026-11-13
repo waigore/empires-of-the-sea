@@ -209,6 +209,11 @@ static func _battle(
 		"defender_strength": defender_strength,
 		"attacker_before": side_hull_count(attacking),
 		"defender_before": side_hull_count(defending),
+		# The hulls themselves, by type, in the order they stood in the water:
+		# the despatch plate stands one medallion per type (REQ-P1-08) and reads
+		# them from this record rather than recomputing a side (REQ-P2-03).
+		"attacker_hulls": _hull_types(attacking),
+		"defender_hulls": _hull_types(defending),
 		"attacker_lost": [],
 		"defender_lost": [],
 		"outcome": Outcome.NONE,
@@ -260,6 +265,16 @@ static func _battle(
 	record["defender_lost_names"] = _names_of(record["defender_lost"], names)
 	record["outcome"] = outcome
 	return record
+
+
+## Every hull id a side had in the water, by type id, in roster order. Read
+## before any shot so a despatch can name what each colour flew.
+static func _hull_types(side: Array) -> Array[String]:
+	var types: Array[String] = []
+	for fleet: FleetState in side:
+		for hull_id: String in fleet.hulls:
+			types.append(fleet.type_of(hull_id))
+	return types
 
 
 ## Instance id -> the name the hull flies, read before any hull leaves the roster.

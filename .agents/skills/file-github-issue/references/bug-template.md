@@ -15,6 +15,11 @@
 - How run: <editor | exported build | debug APK | other>
 - Version / commit: <git SHA or “main @ <date>” if known>
 
+## Map seed
+<!-- Include only when the user provided a seed and it helps repro (layout / generation).
+     Otherwise omit entirely. -->
+- Seed: <int>
+
 ## Steps to reproduce
 1. …
 2. …

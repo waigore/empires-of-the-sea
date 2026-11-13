@@ -53,6 +53,27 @@ and the cut-out alpha comes from "magenta-ness" (`min(r, b) - g`), with a
 despill pass on the edge. Crop to the alpha bounds, then scale by height —
 320 px for figures, 256 px for rubble.
 
+## Sea panorama — `sea_open.jpg` (1600×900)
+
+The sea's despatch plate (`scripts/ui/naval_plate.gd`) stands both colours'
+hull medallions on a painted stretch of water. One panorama, the same
+composition line as the battle plates (horizon 60 % down), so a wide overlay
+and a phone sheet both sit the fleets on the water.
+
+> Wide cinematic oil painting on aged canvas of an open sea battle scene, circa
+> 1650. Composition: the horizon line sits exactly 60 percent down from the top
+> edge; the sky occupies the upper 60 percent (heavy clouds, a break of pale gold
+> light on the right), the open water the lower 40 percent. Calm empty water in
+> the foreground with light swell and grey-green Italian blue tones, a low
+> distant coastline smudge on the far left, faint distant sails no larger than a
+> thumbnail on the horizon. No ships in the foreground, no figures, no buildings,
+> no cannon smoke, no text, no signature, no watermark, no frame. Painted in the
+> manner of 17th-century Dutch marine masters: visible brushwork, glazed shadows,
+> muted palette of pewter, olive and gold. Keep the lower centre calm and
+> uncluttered so figures can stand on the water.
+
+Post: crop to 16:9, resize to 1600×900, JPEG q90.
+
 ## Wall segments — `wall_wood.png`, `wall_stone.png`, `wall_modern.png`
 
 > One section of a <wooden palisade / stone curtain wall / bastioned brick
