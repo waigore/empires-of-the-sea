@@ -100,7 +100,7 @@ rows ([fleets.md](fleets.md) for map controls).
 
 ## Tests
 
-`test_fleet_rules`, `test_naval_rules`, `test_fleet_orders`,
+`test_naval_rules`, `test_fleet_orders`,
 `test_battle_rules`, `test_map_screen`.
 
 ```bash

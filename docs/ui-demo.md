@@ -61,7 +61,7 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_map_generator.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_world_setup.gd`).
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 

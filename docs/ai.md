@@ -67,7 +67,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-New World colony; soft priority — [`deferred.md`](deferred.md).
+New World colony; domain gating — [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
