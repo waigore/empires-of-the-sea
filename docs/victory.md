@@ -46,9 +46,9 @@ Rules need no nodes (`REQ-P3-03`).
 
 ## Tests
 
-Suites: `test_victory_standings`, `test_gazette_plate`, `test_victory_screen`,
-`test_campaign_end`, `test_campaign_intro`, `test_campaign_defeat`,
-`test_capital_loss`.
+Suites: `test_campaign_rules` (standings), `test_gazette_plate`,
+`test_victory_screen`, `test_campaign_end`, `test_campaign_intro`,
+`test_campaign_defeat`, `test_capital_loss`.
 
 ```bash
 gd-tools test --coverage --min 80

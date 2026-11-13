@@ -443,13 +443,13 @@ func test_a_translation_overrides_the_authored_line() -> void:
 	)
 
 
-# --- the shipped French court ------------------------------------------------
+# --- the shipped tongues -----------------------------------------------------
 #
-# The file is content: one `.po` keyed by the same stable content key
+# Each file is content: one `.po` keyed by the same stable content key
 # [DialogueLocale.line_key] builds, answered on the reader's own tongue and
-# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06).
-# These cases hold the file to the catalogue, so a rewritten or dropped point
-# fails here instead of leaving a French court an English line.
+# never on the rules path (wiki: dialogue-content-and-yarn; DR-20261113-06,
+# DR-20261113-09). These cases hold every file to the catalogue, so a rewritten
+# or dropped point fails here instead of leaving a court an English line.
 
 const PLACEHOLDERS: Array[String] = ["{speaker}", "{other}"]
 
@@ -464,43 +464,86 @@ func _authored() -> Dictionary:
 	return found
 
 
-func test_the_shipped_tongue_answers_every_authored_variant() -> void:
+func test_the_shipped_tongues_answer_every_authored_variant() -> void:
 	var authored: Dictionary = _authored()
 	assert_gte(authored.size(), 100, "the court authors its catalogue")
-	var unanswered: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var word: String = String(TranslationServer.translate(String(key)))
-		if word.is_empty() or word == String(key) or word == String(authored[key]):
-			unanswered.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(unanswered, [] as Array[String], "every variant ships French words: %s" % str(unanswered))
+	var tongues: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code != DialogueLocale.SOURCE_LOCALE:
+			tongues.append(code)
+	assert_gte(tongues.size(), 2, "the build ships more than one tongue")
+	for code: String in tongues:
+		var unanswered: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var word: String = String(TranslationServer.translate(String(key)))
+			if word.is_empty() or word == String(key) or word == String(authored[key]):
+				unanswered.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			unanswered,
+			[] as Array[String],
+			"%s answers every variant: %s" % [code, str(unanswered)]
+		)
 
 
-func test_the_french_keeps_the_speaker_and_the_court() -> void:
+func test_a_shipped_tongue_keeps_the_speaker_and_the_court() -> void:
 	var authored: Dictionary = _authored()
-	var broken: Array[String] = []
-	DialogueLocale.set_locale("fr")
-	for key: Variant in authored.keys():
-		var source: String = String(authored[key])
-		var word: String = String(TranslationServer.translate(String(key)))
-		for mark: String in PLACEHOLDERS:
-			if source.count(mark) != word.count(mark):
-				broken.append(String(key))
-	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	assert_eq(broken, [] as Array[String], "a name is never dropped in translation: %s" % str(broken))
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		var broken: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in authored.keys():
+			var source: String = String(authored[key])
+			var word: String = String(TranslationServer.translate(String(key)))
+			for mark: String in PLACEHOLDERS:
+				if source.count(mark) != word.count(mark):
+					broken.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			broken, [] as Array[String],
+			"a name is never dropped in %s: %s" % [code, str(broken)]
+		)
 
 
-func test_the_file_answers_only_keys_the_catalogue_still_authors() -> void:
+func test_every_shipped_file_answers_only_keys_the_catalogue_still_authors() -> void:
 	DialogueLocale.load_shipped()
-	var words: Variant = load(DialogueLocale.SHIPPED)
-	assert_true(words is Translation, "the shipped file reads as a tongue")
 	var authored: Dictionary = _authored()
+	var prompts: Dictionary = ConsentCopy.catalogue()
 	var stale: Array[String] = []
-	for key: Variant in (words as Translation).get_message_list():
-		if not authored.has(String(key)):
-			stale.append(String(key))
+	var files: int = 0
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		assert_true(words is Translation, "%s reads as a tongue" % path)
+		if not (words is Translation):
+			continue
+		files += 1
+		for key: Variant in (words as Translation).get_message_list():
+			if not authored.has(String(key)) and not prompts.has(String(key)):
+				stale.append("%s in %s" % [String(key), path])
+	assert_gte(files, 2, "both tongues ship as files")
 	assert_eq(stale, [] as Array[String], "no word outlives the point it answered: %s" % str(stale))
+
+
+func test_the_shipped_directory_offers_each_tongue_once_by_its_own_name() -> void:
+	var codes: Array[String] = []
+	var names: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		codes.append(String(tongue.get("code", "")))
+		names.append(String(tongue.get("name", "")))
+	assert_eq(codes.count(DialogueLocale.SOURCE_LOCALE), 1, "the source tongue is offered once")
+	for tongue: Dictionary in DialogueLocale.tongues():
+		assert_eq(codes.count(String(tongue.get("code", ""))), 1, "one row per tongue")
+	assert_true(codes.has("fr"), "the French court is offered")
+	assert_true(codes.has("es"), "the Spanish court is offered")
+	assert_true(names.has("Français"), "a tongue is named in its own words")
+	assert_true(names.has("Español"), "and so is the Spanish one")
+	assert_eq(DialogueLocale.native_name("fr_CA"), "Français", "a regional code still names its tongue")
+	assert_eq(DialogueLocale.native_name("xx"), "XX", "a code with no name is still legible")
+	assert_eq(DialogueLocale.native_name(""), DialogueLocale.SOURCE_LOCALE.to_upper())
 
 
 func test_a_source_tongue_reads_no_translation() -> void:
@@ -528,6 +571,16 @@ func test_a_french_device_reads_the_french_court() -> void:
 			String(TranslationServer.translate(DialogueLocale.line_key("reactive/standing_war", 0))),
 			"the court speaks the tongue's own word"
 		)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+func test_a_spanish_device_reads_the_spanish_court() -> void:
+	DialogueLocale.set_locale("es")
+	assert_eq(
+		DialogueCatalog.line_for("reactive/standing_war", 0),
+		"La guerra se mantiene. Hablaremos otra vez cuando alguno de nosotros se canse.",
+		"a Spanish device reads the Spanish court"
+	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
@@ -569,18 +622,39 @@ func test_the_court_panel_hears_the_tongue() -> void:
 	)
 
 
-func test_the_shipped_tongue_is_registered_once() -> void:
+func test_each_shipped_tongue_is_registered_once() -> void:
 	DialogueLocale.load_shipped()
 	DialogueLocale.load_shipped()
-	assert_eq(DialogueLocale.locales().count("fr"), 1, "one file, one tongue, one entry")
+	for path: String in DialogueLocale.shipped_paths():
+		var words: Variant = load(path)
+		if words is Translation:
+			var code: String = String((words as Translation).locale)
+			assert_eq(DialogueLocale.locales().count(code), 1, "one file, one tongue, one entry")
 
 
 func test_a_tongue_with_no_file_adds_nothing() -> void:
-	DialogueLocale.load_shipped("res://assets/locales/xx.po")
+	assert_false(
+		DialogueLocale.register("res://assets/locales/xx.po"), "a missing file adds no table"
+	)
 	assert_false(DialogueLocale.locales().has(""), "a missing file registers no tongue")
 	assert_false(
 		DialogueLocale.locales().has("xx"), "a missing file names no tongue either"
 	)
+
+
+func test_the_reader_can_choose_the_device_tongue_again() -> void:
+	DialogueLocale.set_locale("es")
+	assert_ne(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		DialogueLocale.follow_device(), DialogueLocale.locale(), "the device decides again"
+	)
+	# Whatever the build machine asks for (a bare POSIX `C` on CI runners), the
+	# device's tongue is the one the court prints in and it has a name.
+	assert_false(
+		DialogueLocale.native_name(DialogueLocale.device_locale()).is_empty(),
+		"the device's own tongue has a name"
+	)
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
 
 
 func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
@@ -591,6 +665,118 @@ func test_a_tongue_that_ships_nothing_keeps_the_source() -> void:
 		"a court with no file reads the authored line"
 	)
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+
+
+# --- the prompts' words ------------------------------------------------------
+#
+# A blocking decision is answered in the reader's tongue too: the caption, the
+# stakes and the buttons each answer to a key [ConsentCopy] builds, so a tongue
+# file fills a prompt without touching code and an unanswered key keeps the
+# authored English (wiki: dialogue-content-and-yarn § Playable slice;
+# DR-20261113-10). These cases hold every file to the prompt catalogue.
+
+func test_the_shipped_tongues_answer_every_prompt() -> void:
+	var prompts: Dictionary = ConsentCopy.catalogue()
+	assert_gte(prompts.size(), 30, "the prompts author their words")
+	var tongues: int = 0
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		tongues += 1
+		var unanswered: Array[String] = []
+		DialogueLocale.set_locale(code)
+		for key: Variant in prompts.keys():
+			var word: String = String(TranslationServer.translate(String(key)))
+			if word.is_empty() or word == String(key) or word == String(prompts[key]):
+				unanswered.append(String(key))
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+		assert_eq(
+			unanswered, [] as Array[String],
+			"%s answers every prompt: %s" % [code, str(unanswered)]
+		)
+	assert_gte(tongues, 2, "the build ships more than one tongue")
+
+
+func test_a_shipped_prompt_keeps_its_placeholders() -> void:
+	var prompts: Dictionary = ConsentCopy.catalogue()
+	var broken: Array[String] = []
+	for tongue: Dictionary in DialogueLocale.tongues():
+		var code: String = String(tongue.get("code", ""))
+		if code == DialogueLocale.SOURCE_LOCALE:
+			continue
+		DialogueLocale.set_locale(code)
+		for key: Variant in prompts.keys():
+			var source: String = String(prompts[key])
+			var word: String = String(TranslationServer.translate(String(key)))
+			for mark: String in ["%s", "%d"]:
+				if source.count(mark) != word.count(mark):
+					broken.append("%s in %s" % [String(key), code])
+		DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		broken, [] as Array[String],
+		"a name or a rate is never dropped: %s" % str(broken)
+	)
+
+
+func test_a_prompt_speaks_the_tongue_and_names_the_courts() -> void:
+	var call: Dictionary = {"aggressor": 2, "defender": 1}
+	var english: String = ConsentCopy.call_body(call)
+	assert_true(english.contains("France"), english)
+	assert_true(english.contains("England"), english)
+	DialogueLocale.set_locale("fr")
+	var french: String = ConsentCopy.call_body(call)
+	var join: String = ConsentCopy.button("join")
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_ne(french, english, "the prompt answers in the reader's tongue")
+	assert_true(french.contains("guerre"), "the stakes read in French: " + french)
+	assert_true(
+		french.contains("France") and french.contains("England"),
+		"the courts keep the names they are christened with: " + french
+	)
+	assert_eq(join, "Joindre la guerre", "the button answers in the tongue too")
+
+
+func test_an_unanswered_prompt_keeps_the_authored_source() -> void:
+	DialogueLocale.set_locale("de")
+	var line: String = ConsentCopy.say("call/toast", ["England", "France"])
+	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
+	assert_eq(
+		line, "England calls on our alliance against France.",
+		"a court with no file reads the authored prompt"
+	)
+
+
+## Each kind is named by its own sentence, so no tongue has to bend an article
+## around an English stage label (REQ-P2-05).
+func test_every_proposal_kind_names_its_own_offer() -> void:
+	var kinds: Dictionary = {
+		DiplomacyProposals.KIND_ALLIANCE: "a formal alliance",
+		DiplomacyProposals.KIND_FTP: "a favoured trading pact",
+		DiplomacyProposals.KIND_PEACE: "a white peace",
+	}
+	for kind: Variant in kinds.keys():
+		var line: String = ConsentCopy.proposal_body(2, String(kind), "")
+		assert_true(line.begins_with("France proposes "), line)
+		assert_true(line.contains(String(kinds[kind])), line)
+	var overture: String = ConsentCopy.proposal_body(
+		2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
+	)
+	assert_eq(overture, "France proposes the Non-Aggression Pact.", overture)
+	var by_stage: Array[String] = []
+	for stage: String in DiplomacyCatalog.STAGES:
+		by_stage.append(
+			ConsentCopy.proposal_body(2, DiplomacyProposals.KIND_OVERTURE, stage)
+		)
+	for line: String in by_stage:
+		assert_true(line.begins_with("France proposes "), line)
+	assert_eq(
+		ConsentCopy.proposal_body(
+			2, DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NONE
+		),
+		"France proposes the No overture.",
+		"a stage with nothing to offer still names the offer"
+	)
 
 
 # --- test_symbol_plates ---

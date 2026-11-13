@@ -15,11 +15,13 @@ const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
 
 
 ## `context` may carry "regiments", "ships" and "stockpiles" maps by faction, plus
-## "readings": per court, the order of battle that court has charted, so each
-## rival scores its war desire against what it has seen (DR-20261112-09), and
-## "charts": the session's `CourtCharts`, so every diplomacy read — the resource
-## need behind a war and the land an envoy chain would open — stays on the
-## court's own chart (DR-20261113-03).
+## "strengths": the order of battle the published power score reads, so a court
+## weighs relative power by FPN + FPM and not by a head count (wiki: diplomacy
+## § Great Power power score). "readings" is per court, the order of battle that
+## court has charted, so each rival scores its war desire against what it has seen
+## (DR-20261112-09), and "charts": the session's `CourtCharts`, so every
+## diplomacy read — the resource need behind a war and the land an envoy chain
+## would open — stays on the court's own chart (DR-20261113-03).
 static func run(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -68,18 +70,26 @@ static func run(
 
 ## Shared read model for the planners: absolute power per faction plus the unit
 ## counts and player id they need to explain their scores. When the caller
-## supplies per-court "readings", each court also gets its own view of the three
-## terms (see `_reading`), so no rival plans against an order of battle it has
-## never charted (DR-20261112-09).
+## supplies per-court "readings", each court also gets its own view of the terms
+## (see `_reading`), so no rival plans against an order of battle it has never
+## charted (DR-20261112-09).
+##
+## `strengths` is the order of battle the published power score reads (FPN + FPM
+## × chevrons × health, wiki: diplomacy § Great Power power score); `regiments`
+## stays the head count the invasion-capacity rule reads. A caller that supplies
+## no strengths keeps the legacy count of the old call sites.
 static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dictionary:
 	var regiments: Dictionary = supplied.get("regiments", {})
 	var ships: Dictionary = supplied.get("ships", {})
+	var strengths: Dictionary = supplied.get("strengths", {})
 	var context: Dictionary = {
-		"power": _powers(world, regiments, ships),
+		"power": _powers(world, regiments, ships, strengths),
 		"regiments": regiments,
 		"ships": ships,
 		"player": player,
 	}
+	if not strengths.is_empty():
+		context["strengths"] = strengths
 	var views: Dictionary = _views(world, supplied.get("readings", {}))
 	if not views.is_empty():
 		context["views"] = views
@@ -105,13 +115,23 @@ static func _reading(shared: Dictionary, faction: int) -> Dictionary:
 
 
 ## Absolute power per faction from one order of battle, read the published way
-## (wiki: diplomacy § Great Power power score).
-static func _powers(world: WorldMap, regiments: Dictionary, ships: Dictionary) -> Dictionary:
+## (wiki: diplomacy § Great Power power score). The strength term is the order of
+## battle — rounded as the panel and the calendar round it — and a caller that
+## supplies none falls back to the head count its context already carries.
+static func _powers(
+	world: WorldMap, regiments: Dictionary, ships: Dictionary, strengths: Dictionary = {}
+) -> Dictionary:
 	var power: Dictionary = {}
+	var by_strength: bool = not strengths.is_empty()
 	for raw: Dictionary in FactionCatalog.all():
 		var faction: int = int(raw["id"])
+		var troops: int = (
+			int(roundf(float(strengths.get(faction, 0.0))))
+			if by_strength
+			else int(regiments.get(faction, 0))
+		)
 		power[faction] = AiPower.score(
-			world, faction, int(regiments.get(faction, 0)), int(ships.get(faction, 0))
+			world, faction, troops, int(ships.get(faction, 0))
 		)
 	return power
 
@@ -130,11 +150,15 @@ static func _views(world: WorldMap, readings: Variant) -> Dictionary:
 		var docket: Dictionary = entry
 		var regiments: Dictionary = docket.get("regiments", {})
 		var ships: Dictionary = docket.get("ships", {})
-		views[int(raw)] = {
-			"power": _powers(world, regiments, ships),
+		var strengths: Dictionary = docket.get("strength", {})
+		var view: Dictionary = {
+			"power": _powers(world, regiments, ships, strengths),
 			"regiments": regiments,
 			"ships": ships,
 		}
+		if not strengths.is_empty():
+			view["strengths"] = strengths
+		views[int(raw)] = view
 	return views
 
 

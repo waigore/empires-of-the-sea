@@ -44,7 +44,7 @@ static func resolve_region_turn(
 		)
 		if battles.is_empty():
 			continue
-		ArmyState.prune(region_armies)
+		ArmyRoster.prune(region_armies)
 		by_region[index] = region_armies
 		for battle: Dictionary in battles:
 			battle["region"] = index
