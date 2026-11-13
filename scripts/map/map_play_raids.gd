@@ -92,6 +92,10 @@ static func _incoming(play: PlaySession) -> Dictionary:
 	var sunk: Array = result.get("hulls_lost", [])
 	if taken <= 0 and sunk.is_empty():
 		return {}
+	# The hull leaves the fleet at once, so the marker must stop drawing her
+	# (wiki: ships-and-naval § Trade and Transport Interception).
+	if not sunk.is_empty():
+		_refresh_hulls(play, fleet)
 	result["kind"] = "incoming"
 	result["taken"] = taken
 	result["region"] = model.region_id
@@ -136,6 +140,9 @@ static func _prizes(play: PlaySession) -> Array[Dictionary]:
 				var hulls: Array = raid.get("hulls_lost", [])
 				if seized.is_empty() and hulls.is_empty():
 					continue
+				# A prize sinks the victim's merchant where her court can see it.
+				if not hulls.is_empty():
+					_refresh_hulls(play, _victim_home(victims, raid))
 				reports.append(_prize_report(model, raid, seized))
 	return reports
 
@@ -198,6 +205,20 @@ static func _seize(play: PlaySession, raid: Dictionary) -> Dictionary:
 		raider.add(id, quantity)
 		seized[id] = quantity
 	return seized
+
+
+## The squadron whose hull a prize took, from the victim table the raid was
+## priced against.
+static func _victim_home(victims: Dictionary, raid: Dictionary) -> FleetState:
+	var entry: Dictionary = victims.get(int(raid.get("victim", -1)), {}) as Dictionary
+	return entry.get("home", null) as FleetState
+
+
+## Sends the loss to the chart: a hull the rules sank leaves her squadron's
+## marker at once (wiki: ships-and-naval § Trade and Transport Interception).
+static func _refresh_hulls(play: PlaySession, fleet: FleetState) -> void:
+	if play.ship_layer != null:
+		play.ship_layer.refresh_hulls(fleet)
 
 
 static func _prize_report(model: MapModel, raid: Dictionary, seized: Dictionary) -> Dictionary:
