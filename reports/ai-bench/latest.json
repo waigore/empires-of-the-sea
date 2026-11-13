@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:28b76f429341c55e409b96fde718cbd59d6669d797e5b6128863a4c48fad9e04",
-  "submission_git": "fix/ai-war-weariness@7eea300",
+  "submission_hash": "sha256:5bb415e16fb19e171c1c8c58d4b5b93759d32828cce7de632676c88a3cf4fa58",
+  "submission_git": "fix/ai-war-weariness@4c7f814+dirty",
   "passed": true,
   "config": [
     {
@@ -35,31 +35,31 @@
   "metrics": [
     {
       "name": "score",
-      "value": 2507.898162812797,
+      "value": 3205.0133333333333,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 23.0,
+      "value": 30.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 5.0,
+      "value": 3.0,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:6cbff32aa9540e1be39b805ba347598145913313a497f5e716d9b4dae0ad277b",
+    "ai_surface_hash": "sha256:d23a59c0cebc0cdd17620163c3da517b578e35296fdeec1d6c52fb019cb27fac",
     "parts": {
-      "provinces_old": 23,
+      "provinces_old": 30,
       "provinces_new": 0,
-      "regiments": 3,
+      "regiments": 1,
       "ships": 2,
-      "workers": 7,
-      "extraction_per_turn": 2.1341463414634148,
-      "income_per_turn": 118.62987012987013
+      "workers": 10,
+      "extraction_per_turn": 2.01,
+      "income_per_turn": 120.99333333333334
     },
     "early_win": false,
     "live_faction": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T15:25:01Z",
+  "timestamp": "2026-11-13T15:38:15Z",
   "report_version": 1,
-  "signature": "hmac-sha256:9ecf53c2473ec633bfe8eb18e056c83c2cbe1286a90cf1263c907f6315cfe931"
+  "signature": "hmac-sha256:cb51fe4d8bc3115a3c9cf66409e09a5b6f8055f882b9db237b38358ce5a855af"
 }
