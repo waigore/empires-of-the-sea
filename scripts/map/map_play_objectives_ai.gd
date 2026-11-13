@@ -135,7 +135,7 @@ static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> in
 		"ships": {faction: _ships(play, faction), target: _ships(play, target)},
 	}
 	return int(
-		AiDiplomacyPlanner.war_desire(
+		AiDiplomacyDesire.war_desire(
 			config, play.diplomacy, play.world, faction, target, context
 		).get("score", 0)
 	)

@@ -12,12 +12,12 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
-- **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
-  relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
-  peacemaker 30) and desire ≥ 51 off-cooldown; goals `round(desire/25)`.
-  At war, desire below `50 + peace_bias` offers peace; envy adds +20 against
-  the leader, a deed resists. Weariness and truces (#475) lower it, colonial
-  too (DR-20261113-25, DR-20261114-01).
+- **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
+  `round(desire/25)`. Envy +20; a deed resists. Weariness and truces (#475)
+  lower it (DR-20261113-25, DR-20261114-01).
+- **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
+  Declarations need relation ≤ ceiling (50; warmonger 70, peacemaker 30) and
+  desire ≥ 51; at war, below `50 + peace_bias` offers peace.
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15), and an isolationist prices a pact 20 lower, a backstabber

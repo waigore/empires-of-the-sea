@@ -776,7 +776,7 @@ func test_an_ai_court_offers_a_non_aggression_pact_and_waits() -> void:
 	)
 	var record: Dictionary = _record_for(result["trace"], 2)
 	var action: Dictionary = record["action"]
-	assert_eq(String(action["kind"]), AiDiplomacyPlanner.KIND_OVERTURE)
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
 	assert_eq(String(action["stage"]), DiplomacyCatalog.STAGE_NAP)
 	assert_eq(fresh.pending_offers.size(), 1, "the offer waits for the human court")
 	assert_eq(
@@ -801,7 +801,7 @@ func test_an_allied_court_proposes_a_formal_alliance() -> void:
 		config, fresh, AiState.new(), diplomacy_proposals_AiFixture.world([2, 2, 2, 2, 1]), 1, context
 	)
 	assert_eq(
-		String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_ALLIANCE,
+		String(plan["action"]["kind"]), AiDiplomacyOffers.KIND_ALLIANCE,
 		"the Allied band and a neutral agenda prefer the treaty"
 	)
 
