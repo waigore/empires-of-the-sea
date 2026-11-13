@@ -82,5 +82,5 @@ one too. `M` mutes anywhere; settings persist.
 
 ## Tests
 
-`tests/test_audio_*.gd`, `tests/test_map_soundtrack.gd`: cue files exist, eras
-map correctly, mute silences both buses, and the launch bed carries into play.
+`tests/test_audio_rules.gd` (mix, director, map soundtrack): cue files exist,
+eras map correctly, mute silences both buses, and the launch bed carries into play.
