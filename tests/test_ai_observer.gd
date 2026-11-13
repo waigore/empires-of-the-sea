@@ -85,7 +85,7 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
 	var keys: Array[String] = [
-		"faction", "name", "leader", "agenda", "phase", "posture",
+		"faction", "name", "leader", "agenda", "phase", "posture", "plans",
 		"provinces_old", "provinces_new",
 		"power", "regiments", "ships", "civilians", "treasury", "stock",
 		"workers", "wars", "progress", "rank", "alive", "headline",
@@ -122,6 +122,61 @@ func test_observer_former_crown_plays_through_the_planners() -> void:
 		int(record["actions"].get("production", 0)) > 0,
 		"the merged trace records that order"
 	)
+
+
+func test_noop_mode_issues_no_planner_orders() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_mode = AiControl.NOOP
+	assert_false(AiControl.plans(play, play.player_faction), "noop crowns do not plan")
+	_step(1)
+	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)
+	assert_eq(
+		economy.production.assignments().size(), 0,
+		"a noop crown never opens a workshop run"
+	)
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	assert_eq(String(snapshot["ai_mode"]), AiControl.NOOP)
+	for row: Dictionary in snapshot["rows"]:
+		assert_false(bool(row["plans"]), "every crown is inert under noop")
+
+
+func test_bench_mode_only_the_live_crown_plans() -> void:
+	var play: PlaySession = _screen.play
+	var live: int = play.player_faction
+	play.ai_mode = AiControl.BENCH
+	play.ai_live_faction = live
+	assert_true(AiControl.plans(play, live), "the live crown plans")
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == live:
+			continue
+		assert_false(AiControl.plans(play, faction), "controls stay inert")
+	_step(1)
+	var live_economy: PlayerEconomy = play.ai.economy_for(live)
+	assert_true(
+		live_economy.production.assignments().size() > 0,
+		"the live crown still sets production"
+	)
+	var control: int = -1
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != live:
+			control = faction
+			break
+	assert_ne(control, -1)
+	var control_economy: PlayerEconomy = play.ai.economy_for(control)
+	assert_eq(
+		control_economy.production.assignments().size(), 0,
+		"a control crown never opens a workshop run"
+	)
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	assert_eq(String(snapshot["ai_mode"]), AiControl.BENCH)
+	assert_eq(int(snapshot["ai_live"]), live)
+
+
+func test_ai_control_parse_accepts_known_modes() -> void:
+	assert_eq(AiControl.parse("FULL"), AiControl.FULL)
+	assert_eq(AiControl.parse("noop"), AiControl.NOOP)
+	assert_eq(AiControl.parse("bench"), AiControl.BENCH)
+	assert_eq(AiControl.parse("mystery"), AiControl.FULL)
 
 
 func test_observer_keeps_the_calendar_open_past_the_cap() -> void:

@@ -103,6 +103,50 @@ static func muster_reserve(
 	return RegimentEconomy.training_inputs(type_id)
 
 
+## Treasury a court must hold before any muster is legal: `army.min_treasury`
+## still in the purse after paying for the cheapest line pattern its techs open.
+## 0 when it already stands at its target, can raise nothing, or has no peasant
+## to spare. Other planners read it as the war chest they must not spend, so a
+## court saving for its next regiment never funds itself into the deadlock where
+## every muster is one ducat short (wiki: ai-architecture § Land reinforcement;
+## growth-stage-planner § Recruitment modulation).
+static func muster_floor(
+	config: AiConfig,
+	economy: PlayerEconomy,
+	own_regiments: int,
+	at_war: bool
+) -> int:
+	if config == null or economy == null:
+		return 0
+	if own_regiments >= _target(config, at_war):
+		return 0
+	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
+		"army.min_peasants"
+	):
+		return 0
+	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), 0)
+	var cheapest: int = _cheapest_line(economy)
+	if cheapest < 0:
+		return floor_treasury
+	return floor_treasury + cheapest
+
+
+## Price of the cheapest line pattern this court's techs open today, ignoring the
+## purse: what it has to save for, not what it can pay right now. -1 when its
+## techs open no line at all.
+static func _cheapest_line(economy: PlayerEconomy) -> int:
+	var cheapest: int = -1
+	for type_id: String in RegimentCatalog.ids():
+		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
+			continue
+		if not RegimentEconomy.buildable(type_id, economy.tech_unlocked):
+			continue
+		var cost: int = RegimentCatalog.treasury_cost(type_id)
+		if cheapest < 0 or cost < cheapest:
+			cheapest = cost
+	return cheapest
+
+
 ## Line patterns this court's treasury, labour pool and techs open today,
 ## strongest first. Materials are not read here; `plan` and `next_type` each
 ## decide what to do with a pattern the stores cannot yet pay for.

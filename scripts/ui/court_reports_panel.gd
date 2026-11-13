@@ -1,9 +1,9 @@
 class_name CourtReportsPanel
 extends VBoxContainer
 ## A shadowed court's despatch, kept after its toast has gone (wiki:
-## civilian-units § Spy — court reports). Presented only: [MapPlaySpies] builds
-## the lines and the session keeps them, so the panel reads no hidden value
-## (REQ-P2-03, REQ-P5-02).
+## civilian-units § Spy — court reports). Presented only: [MapPlaySpyReports]
+## builds the lines and the session keeps them, so the panel reads no hidden
+## value (REQ-P2-03, REQ-P5-02).
 
 const QUIET_LINE: String = "The court did nothing worth a despatch this turn."
 

@@ -41,6 +41,8 @@ static func build_hud(play: PlaySession) -> void:
 	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	if hud.civilian_roster != null:
 		hud.civilian_roster.bind(play)
+	if hud.muster_roll != null:
+		hud.muster_roll.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	play.economy.setup(
