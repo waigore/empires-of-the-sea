@@ -1424,6 +1424,10 @@ match = "scripts/map/map_play_colonisation_ai.gd"
 domain = "ai"
 
 [[rules]]
+match = "scripts/map/map_play_cargo_ai.gd*"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
 domain = "ai"
 

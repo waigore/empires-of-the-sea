@@ -32,6 +32,15 @@ muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`)
 instead of looking for a squadron a second time, and a starved child prints its
 shortfall (`expedition.hull hull 0/1 deferred`).
 
+## The navy's build leg
+
+`navy.build` is a funded aim at war when the court has no fighting hull or is
+outmatched on its own coast (utility 90 / 70 against a sortie's 60). Its cost is
+the cheapest warship the court's techs open (`treasury` price, one `hull` slip);
+`MapPlayCargoAi` lays the hull down through `FleetYard` when the claim funds, and
+the turn trace names it ("lays down a Sloop of War for the fleet"). A court at
+peace prices no yard at all, so there is no idle churn.
+
 ## Migration
 
 | Step | Issue | State |
@@ -40,5 +49,5 @@ shortfall (`expedition.hull hull 0/1 deferred`).
 | T2 expedition package | #497 | shipped |
 | T3 reservations become claims | #498 | pending |
 | T4 posture modifier + weights | #499 | pending |
-| T5 naval build policy | #500 | pending |
+| T5 naval build policy | #500 | shipped |
 | T6 ai-bench funded share | #501 | pending |
