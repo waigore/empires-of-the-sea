@@ -181,32 +181,16 @@ func test_phone_chrome_fits_the_screen() -> void:
 		for button: Node in hud.zoom_box.get_children():
 			_fits((button as Control).get_global_rect(), _screen_rect(), "zoom %s" % size)
 			_tappable(button as Control, "zoom %s" % size)
-		_tappable(hud.get_node("AudioControls/Trigger"), "audio %s" % size)
+		# The map carries no sound seal now: the pause menu holds the mix desk.
+		assert_not_null(_screen.game_menu.sound_desk, "pause menu carries the desk %s" % size)
 		var estates: Control = _screen.get_node("HUD/Improvements")
 		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
 		_tappable(estates._toggle, "estates %s" % size)
 		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
-		_fits(hud._lens_button.get_global_rect(), _screen_rect(), "lens button %s" % size)
-		_tappable(hud._lens_button, "lens button %s" % size)
-		_fits(
-			hud._diplomacy_lens_button.get_global_rect(), _screen_rect(),
-			"diplomacy lens button %s" % size
-		)
-		_tappable(hud._diplomacy_lens_button, "diplomacy lens button %s" % size)
-		_fits(
-			hud._defence_lens_button.get_global_rect(), _screen_rect(),
-			"defence lens button %s" % size
-		)
-		_tappable(hud._defence_lens_button, "defence lens button %s" % size)
-		assert_gt(
-			hud._defence_lens_button.get_global_rect().position.x,
-			hud._crown_lens_button.get_global_rect().end.x,
-			"the defence seal clears the crown road seal %s" % size
-		)
-		assert_gt(
-			hud._diplomacy_lens_button.get_global_rect().position.x,
-			hud._lens_button.get_global_rect().end.x,
-			"the two lens seals never overlap %s" % size
+		_fits(hud.lens_seal.get_global_rect(), hud.top_bar.get_global_rect(), "lens seal %s" % size)
+		assert_eq(_caption(hud.lens_seal), "LENS", "the one lens seal is named %s" % size)
+		assert_not_null(
+			hud.top_row.find_child("MenuSeal", true, false), "menu seal on the bar %s" % size
 		)
 		_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "survey key %s" % size)
 		assert_gt(
@@ -376,6 +360,59 @@ func test_status_plaques_find_the_next_force() -> void:
 	_chip(hud, "ArmyChip").pressed.emit()
 	await get_tree().process_frame
 	assert_not_null(_screen.army_layer.selected_army, "troop plaque selects an army")
+
+
+## The bar's one reading seal: a click walks every lens and wraps back to the
+## plain map, and a long press names one on the menu instead. The crest beside
+## it opens the pause menu, which now carries the mix desk.
+func test_the_bar_seals_cycle_the_readings_and_open_the_menu() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var seal: LensSeal = hud.lens_seal
+	assert_not_null(seal, "the bar carries one lens seal")
+	assert_eq(seal.active_kind, "", "the map opens plain")
+
+	for kind: String in [
+		LensLegend.KIND_SURVEY, LensLegend.KIND_DIPLOMACY,
+		LensLegend.KIND_CROWN_ROAD, LensLegend.KIND_DEFENCE,
+	]:
+		seal.pressed.emit()
+		assert_eq(seal.active_kind, kind, "the click walks to %s" % kind)
+		assert_true(seal.button_pressed, "%s shows the seal raised" % kind)
+		assert_true(hud.lens_legend.visible, "%s raises the key" % kind)
+		assert_eq(hud.lens_legend.kind, kind, "%s dresses the key" % kind)
+
+	seal.pressed.emit()
+	assert_eq(seal.active_kind, "", "the last step puts the map back to plain")
+	assert_false(seal.button_pressed)
+	assert_false(hud.lens_legend.visible)
+
+	# A hold (or a right click) names the reading instead of walking it.
+	seal._on_held()
+	assert_true(seal.is_menu_open(), "the hold opens the lens list")
+	seal.choose(LensLegend.KIND_CROWN_ROAD)
+	assert_eq(seal.active_kind, LensLegend.KIND_CROWN_ROAD, "the pick raises its reading")
+	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
+	var medallion := seal.find_child("Medallion", true, false) as TextureRect
+	assert_not_null(medallion, "the seal keeps a medallion")
+	if medallion != null:
+		assert_eq(medallion.texture, ChromeIcons.texture("road"), "the pictogram follows the lens")
+	assert_true(seal.tooltip_text.contains("crown road"), "the tooltip names the reading")
+	seal.choose("")
+	assert_eq(seal.active_kind, "", "the menu can put the reading down")
+	assert_eq(medallion.texture, ChromeIcons.texture("lens"))
+
+	# The crest opens the pause menu, and the desk is bound there.
+	var door := hud.top_row.find_child("MenuSeal", true, false) as Button
+	assert_not_null(door, "the cartouche carries the pause door")
+	if door != null:
+		door.pressed.emit()
+	assert_true(_screen.game_menu.is_open(), "the crest opens the pause menu")
+	assert_not_null(_screen.game_menu.sound_desk, "the pause menu carries the mix desk")
+	assert_not_null(_screen.game_menu.sound_desk.music, "with its music slider")
+	_screen.game_menu.close()
+	assert_false(_screen.game_menu.is_open())
 
 
 func test_region_seal_goes_inert_with_a_single_region() -> void:
@@ -645,10 +682,23 @@ func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
 	await get_tree().process_frame
 	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
 	assert_not_null(workers)
+	var sheet: Rect2 = hud._economy_wrap.get_global_rect()
+	var marks: Dictionary = workers.tier_marks()
+	assert_eq(marks.size(), WorkerPool.TIER_COUNT, "every tier row wears its medallion")
+	for tier: Variant in marks.keys():
+		var mark: Control = marks[tier] as Control
+		assert_eq(
+			mark.custom_minimum_size,
+			Vector2(WorkerTierArt.MARK_COMPACT, WorkerTierArt.MARK_COMPACT),
+			"a phone row grows the mark so the tier still reads"
+		)
+		assert_true(
+			mark.get_global_rect().end.x <= sheet.end.x + 0.5,
+			"the tier mark stays inside the sheet edge"
+		)
 	var buttons: Dictionary = workers.action_buttons()
 	assert_true(buttons.has("disband:%d" % WorkerPool.Tier.APPRENTICE), "a trained row offers disband")
 	assert_false(buttons.has("disband:%d" % WorkerPool.Tier.PEASANT), "a peasant row does not")
-	var sheet: Rect2 = hud._economy_wrap.get_global_rect()
 	for key: String in buttons.keys():
 		var button: Button = buttons[key] as Button
 		_tappable(button, "ledger action %s" % key)
@@ -895,9 +945,10 @@ func _bar_doors(hud: GameHud) -> Array[Button]:
 	return doors
 
 
-func _medallion(button: Button) -> Texture2D:
-	var rect := button.find_child("Medallion", true, false) as TextureRect
-	return rect.texture if rect != null else null
+## Every bar door keeps a pictogram: the brass PNG medallions, and the vector
+## crest the MENU door has always carried.
+func _medallion(button: Button) -> Control:
+	return button.find_child("Medallion", true, false) as Control
 
 
 func _caption(button: Button) -> String:

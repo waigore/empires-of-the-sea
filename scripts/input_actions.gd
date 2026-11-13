@@ -13,6 +13,7 @@ const END_TURN := "end_turn"
 const FOCUS_CAPITAL := "focus_capital"
 const CANCEL := "cancel"
 const MUTE := "mute"
+## The cartouche's one lens seal: walks the four map readings on each press.
 const LENS := "resource_lens"
 const DIPLOMACY_LENS := "diplomacy_lens"
 ## Third map reading: which of the crown's own tiles reach the capital by road.

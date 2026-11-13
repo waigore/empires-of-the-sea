@@ -74,8 +74,8 @@ The ledger's `PRODUCTION` tab is the stockpile: `FOOD`, `RAW MATERIALS`,
 phase's next-turn figure. Manufactured rows carry the stepper, capped by labour
 and inputs (`ProductionRecipes.allowance`). `MARKET` lists staged orders,
 Minor/Tribe harvest and world rows as intents under their medallions
-(`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: `RECRUIT` per tier; trained tiers get
-`DISBAND` (no refund). Thumb-sized on a phone.
+(`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: tier medallions, `RECRUIT`; trained tiers
+get `DISBAND` (no refund). Thumb-sized on a phone.
 
 ## Deferred (REQ-P2-02)
 

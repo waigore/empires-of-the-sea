@@ -23,10 +23,11 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_false(lens.active)
 	assert_false(_screen.hud.lens_legend.visible)
 
-	MapPlayInput.toggle_lens(_screen.play)
+	MapPlayInput.set_lens(_screen.play, true)
 	assert_true(lens.active)
 	assert_true(_screen.hud.lens_legend.visible)
-	assert_true(_screen.hud._lens_button.button_pressed)
+	assert_true(_screen.hud.lens_seal.button_pressed)
+	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_SURVEY)
 	assert_gt(int(lens.survey["counts"]["estates"]), 0)
 	assert_gt((lens.survey.get("routes", []) as Array).size(), 0, "the lens carries the roads")
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
@@ -35,10 +36,10 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	lens.queue_redraw()
 	await get_tree().process_frame
 
-	MapPlayInput.toggle_lens(_screen.play)
+	MapPlayInput.set_lens(_screen.play, false)
 	assert_false(lens.active)
 	assert_false(_screen.hud.lens_legend.visible)
-	assert_false(_screen.hud._lens_button.button_pressed)
+	assert_false(_screen.hud.lens_seal.button_pressed)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 1.0, 0.001)
 
 

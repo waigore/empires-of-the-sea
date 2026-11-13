@@ -29,12 +29,9 @@ signal civilian_roster_pressed
 signal muster_roll_pressed
 signal region_toggle_pressed
 signal focus_capital_pressed
-## A map-lens toggle changed state (button or keyboard): survey, diplomacy, the
-## crown road or the defence reading.
-signal lens_pressed(active: bool)
-signal diplomacy_lens_pressed(active: bool)
-signal crown_lens_pressed(active: bool)
-signal defence_lens_pressed(active: bool)
+## The one lens seal: a click asks for the next reading, the menu names one.
+signal lens_cycle_pressed
+signal lens_selected(kind: String)
 ## Status plaques double as shortcuts to the crown's forces in this region.
 signal fleet_status_pressed
 signal army_status_pressed
@@ -63,8 +60,10 @@ var _toast_box: VBoxContainer:
 var _toast_queue: PackedStringArray:
 	get:
 		return despatches.waiting() if despatches != null else PackedStringArray()
-## Survey key, shown only while the lens is on.
+## Survey key, shown only while a lens is on.
 var lens_legend: LensLegend = null
+## The bar's one lens seal (HudChrome builds it); null before the chrome mounts.
+var lens_seal: LensSeal = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
 var touch_ui: bool = false
 
@@ -152,11 +151,6 @@ var _army_panel: ArmyPanel = null
 var _tooltip: PanelContainer = null
 var _tooltip_label: Label = null
 var _end_turn_button: Button = null
-## Left-rail toggles for the four map lenses; HudChrome owns the legend.
-var _lens_button: Button = null
-var _diplomacy_lens_button: Button = null
-var _crown_lens_button: Button = null
-var _defence_lens_button: Button = null
 var _glow: Panel = null
 var _economy_wrap: Control = null
 var _economy_panel: EconomyPanel = null
@@ -321,28 +315,16 @@ func is_victory_shown() -> bool:
 	return victory_overlay != null and victory_overlay.is_shown()
 
 
-## Mirrors a lens state onto its toggle and the shared key cartouche, without
-## echoing the button signal (the screen owns the state). Only one lens is ever
+## Mirrors a lens state onto the bar's one seal and the shared key cartouche,
+## without echoing a signal (the screen owns the state). Only one lens is ever
 ## on, so the key shows the kind that was just raised.
 func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
-	var seals: Array = [
-		[LensLegend.KIND_SURVEY, _lens_button],
-		[LensLegend.KIND_DIPLOMACY, _diplomacy_lens_button],
-		[LensLegend.KIND_CROWN_ROAD, _crown_lens_button],
-		[LensLegend.KIND_DEFENCE, _defence_lens_button],
-	]
-	var raised: bool = false
-	for pair: Array in seals:
-		var seal: Button = pair[1] as Button
-		if seal == null:
-			continue
-		if String(pair[0]) == kind and seal.button_pressed != active:
-			seal.set_pressed_no_signal(active)
-		raised = raised or seal.button_pressed
+	if lens_seal != null:
+		lens_seal.mirror(active, kind)
 	if lens_legend == null:
 		return
 	lens_legend.set_kind(kind)
-	lens_legend.visible = raised
+	lens_legend.visible = active
 
 
 func set_minimap(
