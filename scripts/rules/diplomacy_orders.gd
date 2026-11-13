@@ -80,7 +80,7 @@ static func options(
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
 				next,
 				GROUP_TREATIES,
-				overture_hint(next, type)
+				DiplomacyOvertures.stage_hint(next, type)
 			)
 		)
 	if not record.at_war:
@@ -256,7 +256,7 @@ static func apply(
 		KIND_BREAK:
 			return DiplomacyRules.break_alliance(state, player, target)
 		KIND_OVERTURE:
-			return DiplomacyRules.establish_overture(
+			return DiplomacyOvertures.establish_overture(
 				state, economy, world, player, target, String(order.get("stage", "")), tech
 			)
 		KIND_AID:
@@ -283,25 +283,6 @@ static func apply(
 		KIND_REVOKE_BOYCOTT:
 			return DiplomacyTrade.revoke_boycott(state, player, target)
 	return _deny("Unknown court order.")
-
-
-## What the last link of the chain buys, in the words the court that pays it
-## reads: a Tribe keeps its land, so its provinces never count toward victory
-## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules). Earlier links are
-## steps, not purchases, and stay quiet.
-static func overture_hint(stage: String, target_type: int) -> String:
-	if stage != DiplomacyCatalog.STAGE_JOIN_EMPIRE:
-		return ""
-	match target_type:
-		FactionCatalog.Type.TRIBE:
-			return (
-				"A colony: the tribe keeps its land, so its provinces never count "
-				+ "toward victory — its trade favours your court."
-			)
-		FactionCatalog.Type.MINOR_NATION:
-			return "Its provinces and regiments join your empire."
-		_:
-			return "A nearly defeated crown's provinces and armies join yours."
 
 
 static func _valued(
