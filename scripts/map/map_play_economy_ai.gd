@@ -51,9 +51,9 @@ static func run(play: PlaySession) -> Dictionary:
 			play.world, faction,
 			int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 		)
-		economy.clear_assignments()
+		economy.production.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
-			economy.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
+			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
 		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(config, economy)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
@@ -120,7 +120,9 @@ static func _market(play: PlaySession) -> WorldMarket:
 
 
 ## Sells above the reserve and this turn's inputs, then bids short build inputs
-## with the holds the colonies left (wiki: world-market § Cargo).
+## with the holds the colonies left (wiki: world-market § Cargo). The cloth the
+## next regiment must have is kept back and bid for first (wiki:
+## growth-stage-planner § Recruitment modulation).
 static func _trade(
 	play: PlaySession,
 	faction: int,
@@ -139,15 +141,18 @@ static func _trade(
 		- TradeCargo.used(market, faction),
 		0
 	)
-	var reserved: Dictionary = _reserved_inputs(
-		production, _food_demand(play, faction, economy), economy
+	var need: Dictionary = AiArmyReinforce.muster_reserve(
+		config, economy, _regiments(play, faction), _at_war(play, faction)
 	)
-	var current: Dictionary = _reserved_inputs({"assignments": economy.assignments()})
+	var reserved: Dictionary = _reserved_inputs(
+		production, _food_demand(play, faction, economy), economy, need
+	)
+	var current: Dictionary = _reserved_inputs({"assignments": economy.production.assignments()})
 	for commodity: Variant in current.keys():
 		var id: String = String(commodity)
 		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])
 	var plan: Dictionary = AiMarketPlanner.plan(
-		config, economy, market, free_holds, economy.tech_unlocked, reserved
+		config, economy, market, free_holds, economy.tech_unlocked, reserved, need
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiMarketPlanner.stage(
@@ -159,13 +164,18 @@ static func _trade(
 
 
 ## Inputs this turn's production promised, plus the ration the consumption phase
-## eats, so a sale never starves the court or spends a commodity twice. The
-## ration is grain and meat, and the larder eats grain first: the reservation
-## holds what the court actually has of each, so a court whose larder is meat
-## does not sell the rations its regiments and staffs eat (wiki:
-## workers-and-population § Consumption; DR-20261112-04).
+## eats, plus the material the next regiment is being provisioned with, so a sale
+## never starves the court, spends a commodity twice or sells the cloth a muster
+## needs. The ration is grain and meat, and the larder eats grain first: the
+## reservation holds what the court actually has of each, so a court whose larder
+## is meat does not sell the rations its regiments and staffs eat (wiki:
+## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
+## § Recruitment modulation).
 static func _reserved_inputs(
-	production: Dictionary, food: int = 0, economy: PlayerEconomy = null
+	production: Dictionary,
+	food: int = 0,
+	economy: PlayerEconomy = null,
+	muster: Dictionary = {}
 ) -> Dictionary:
 	var reserved: Dictionary = {}
 	var ration: int = maxi(food, 0)
@@ -186,6 +196,9 @@ static func _reserved_inputs(
 		for commodity: Variant in inputs.keys():
 			var id: String = String(commodity)
 			reserved[id] = int(reserved.get(id, 0)) + int(inputs[commodity]) * units
+	for commodity: Variant in muster.keys():
+		var id: String = String(commodity)
+		reserved[id] = int(reserved.get(id, 0)) + int(muster[commodity])
 	return reserved
 
 
@@ -193,6 +206,14 @@ static func _ships(play: PlaySession, faction: int) -> int:
 	if play.ship_layer == null:
 		return 0
 	return play.ship_layer.hull_count_all(faction)
+
+
+## Land regiments this court holds in every region: the muster target is read
+## against the whole order of battle, as the land pass reads it.
+static func _regiments(play: PlaySession, faction: int) -> int:
+	if play.army_layer == null:
+		return 0
+	return play.army_layer.regiment_count_all(faction)
 
 
 ## Food this court will eat before Production: army, navy, every worker ration

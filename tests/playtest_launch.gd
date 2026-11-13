@@ -15,9 +15,15 @@ const MAX_CHART_FRAMES: int = 300
 
 
 ## `advanced` picks an advanced-start preset (see AdvancedStart); empty keeps the
-## turn-0 campaign, so every existing drive is unchanged.
+## turn-0 campaign, so every existing drive is unchanged. `faction` picks the
+## crown at setup (default Spain, the catalog's player slot); a drive that walks
+## court state must be able to play a crown that is not faction 0.
 static func open_map(
-	tree: SceneTree, seed_text: String, size_index: int = 0, advanced: String = ""
+	tree: SceneTree,
+	seed_text: String,
+	size_index: int = 0,
+	advanced: String = "",
+	faction: int = -1
 ) -> MapScreen:
 	var packed: PackedScene = load("res://scenes/main.tscn") as PackedScene
 	if packed == null:
@@ -38,6 +44,12 @@ static func open_map(
 		return null
 	setup.seed_field.text = seed_text
 	setup.size_option.select(size_index)
+	if faction >= 0 and setup.nation_option != null:
+		for index in setup.nation_option.item_count:
+			if setup.nation_option.get_item_id(index) == faction:
+				setup.nation_option.select(index)
+				setup.nation_option.item_selected.emit(index)
+				break
 	if not advanced.is_empty() and setup.advanced_option != null:
 		var preset: String = AdvancedStart.normalize(advanced)
 		var index: int = AdvancedStart.IDS.find(preset)

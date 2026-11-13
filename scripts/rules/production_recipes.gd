@@ -138,11 +138,30 @@ static func in_flight(wip: Dictionary, recipe_id: String) -> int:
 
 
 ## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
+## The soonest batch speaks for the row: a later batch cannot delay the unit that
+## is already one phase from the store (DR-20261113-02's "the next landing").
 static func turns_left(wip: Dictionary, recipe_id: String) -> int:
-	var most: int = 0
+	var all: Array[Dictionary] = batches(wip, recipe_id)
+	if all.is_empty():
+		return 0
+	var soonest: int = int(all[0]["turns_left"])
+	for cleaned: Dictionary in all:
+		soonest = mini(soonest, int(cleaned["turns_left"]))
+	return soonest
+
+
+## Units that leave the workshop in the next Production phase: one per batch
+## whose turns are served, so a court that left the row set and has two batches
+## on the anvil lands two a phase. The row's reading uses this so the note never
+## promises fewer landings than the phase pays (wiki: production-recipes
+## § Turns per unit; DR-20261113-02).
+static func next_landing(wip: Dictionary, recipe_id: String) -> int:
+	var total: int = 0
 	for cleaned: Dictionary in batches(wip, recipe_id):
-		most = maxi(most, int(cleaned["turns_left"]))
-	return most
+		if int(cleaned["turns_left"]) > 1:
+			continue
+		total += landing(recipe_id, int(cleaned["units"]))
+	return total
 
 
 ## A recipe with no required technology is available to everyone; a gated recipe
