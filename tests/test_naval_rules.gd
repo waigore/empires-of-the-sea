@@ -3468,3 +3468,210 @@ func test_two_blockades_share_the_victims_cargo_apart() -> void:
 	assert_eq(laden.hulls.size(), 1, "both hull draws missed")
 	play.ship_layer.free()
 	play.economy.free()
+
+
+# --- the sea's despatch (wiki: ships-and-naval § Naval Combat Resolution) -----
+
+const DESPATCH_NAMES: Array[String] = ["España", "England"]
+
+
+func _dispatch_battle() -> Dictionary:
+	return {
+		"attacker": 0,
+		"defender": 1,
+		"attacker_strength": 182.0,
+		"defender_strength": 121.0,
+		"attacker_before": 6,
+		"defender_before": 4,
+		"attacker_hulls": [
+			"galleon", "galleon", "galleon", "galleon", "sloop", "sloop",
+		],
+		"defender_hulls": ["carrack", "carrack", "carrack", "carrack"],
+		"attacker_lost": ["ship_9"],
+		"attacker_lost_names": ["San Juan"],
+		"defender_lost": ["a", "b", "c", "d"],
+		"defender_lost_names": ["Trinidad", "Concepcion"],
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"retreat": {},
+	}
+
+
+func test_the_record_carries_the_hulls_each_side_flew() -> void:
+	var strong := FleetState.at_sea(
+		1, 0, 0, ["ship_1", "ship_2", "ship_3"],
+		{"ship_1": "galleon", "ship_2": "galleon", "ship_3": "sloop"}
+	)
+	strong.moved = true
+	var weak := FleetState.at_sea(2, 1, 0, ["ship_4"], {"ship_4": "carrack"})
+	var battles: Array[Dictionary] = NavalCombat.resolve_turn([strong, weak])
+	var battle: Dictionary = battles[0]
+	assert_eq(
+		battle["attacker_hulls"], ["galleon", "galleon", "sloop"] as Array[String],
+		"the attacker's hulls, by type, in roster order"
+	)
+	assert_eq(battle["defender_hulls"], ["carrack"] as Array[String])
+	assert_eq((battle["attacker_hulls"] as Array).size(), int(battle["attacker_before"]))
+
+
+func test_the_despatch_groups_the_hulls_by_type() -> void:
+	var battle: Dictionary = _dispatch_battle()
+	var groups: Array[Dictionary] = NavalDispatch.groups(battle, NavalDispatch.ATTACKER)
+	assert_eq(groups.size(), 2, "one medallion per type")
+	assert_eq(String(groups[0]["type"]), "galleon", "the biggest group leads")
+	assert_eq(int(groups[0]["count"]), 4)
+	assert_eq(int(groups[1]["count"]), 2)
+	assert_eq(
+		NavalDispatch.groups_text(battle, NavalDispatch.ATTACKER),
+		"4 Galleon and 2 Sloop"
+	)
+	assert_eq(NavalDispatch.hull_count(battle, NavalDispatch.DEFENDER), 4)
+
+
+func test_the_despatch_strikes_the_share_the_resolver_struck() -> void:
+	var battle: Dictionary = _dispatch_battle()
+	assert_eq(NavalDispatch.strength(battle, NavalDispatch.ATTACKER), 182)
+	assert_eq(NavalDispatch.share_percent(battle), 60)
+	var maths: String = NavalDispatch.maths_line(battle, DESPATCH_NAMES)
+	assert_true(maths.contains("Strength 182 against 121"))
+	assert_true(maths.contains("share 60 of 100"), "the share is printed, not guessed")
+	assert_true(maths.contains("better than 53"), "the bar the rules use is named")
+
+
+func test_the_despatch_names_the_meeting_and_the_dead() -> void:
+	var battle: Dictionary = _dispatch_battle()
+	var opening: String = NavalDispatch.opening(battle, "Mar Caribe", DESPATCH_NAMES)
+	assert_true(opening.contains("España's 6 hulls (4 Galleon and 2 Sloop)"))
+	assert_true(opening.contains("England's 4 (4 Carrack)"))
+	assert_true(opening.contains("in the Mar Caribe"))
+	var beats: Array[String] = NavalDispatch.beats(battle, "Mar Caribe", DESPATCH_NAMES)
+	assert_eq(beats.size(), 5, "the meeting, the maths, two losses, the verdict")
+	assert_eq(beats[2], "España loses 1 ship (San Juan).")
+	assert_eq(beats[3], "England loses 4 ships (Trinidad, Concepcion).")
+	assert_eq(
+		NavalDispatch.outcome_text(battle, "Mar Caribe", DESPATCH_NAMES),
+		"España holds the Mar Caribe"
+	)
+
+
+func test_a_withdrawal_and_a_standoff_are_told_differently() -> void:
+	var battle: Dictionary = _dispatch_battle()
+	battle["retreat"] = {"success": true, "beaten": 1}
+	assert_eq(
+		NavalDispatch.outcome_text(battle, "Mar Caribe", DESPATCH_NAMES),
+		"England withdraws — España holds the Mar Caribe"
+	)
+	battle["retreat"] = {}
+	battle["outcome"] = NavalCombat.Outcome.STALEMATE
+	assert_eq(
+		NavalDispatch.outcome_text(battle, "Mar Caribe", DESPATCH_NAMES),
+		"Neither colour holds the Mar Caribe"
+	)
+	assert_true(
+		NavalDispatch.closing(battle, DESPATCH_NAMES).contains("neither holds the zone")
+	)
+
+
+func test_a_record_without_hull_types_still_tells_the_meeting() -> void:
+	var battle: Dictionary = _dispatch_battle()
+	battle.erase("attacker_hulls")
+	battle.erase("defender_hulls")
+	battle["attacker_before"] = 6
+	battle["defender_before"] = 4
+	var opening: String = NavalDispatch.opening(battle, "", DESPATCH_NAMES)
+	assert_eq(opening, "España's 6 hulls meet England's 4 at sea.")
+	assert_eq(
+		NavalDispatch.headline(battle, "", DESPATCH_NAMES), "España against England"
+	)
+
+
+# --- the turn pass raises the plate for the crown's own fight -----------------
+
+const despatch_NavalFixture = preload("res://tests/naval_fixture.gd")
+
+
+class DespatchHud extends GameHud:
+	var dispatched: Array[String] = []
+	var toasts: Array[String] = []
+
+	func toast(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+	func toast_plate_line(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+	func show_naval_dispatch(_battle: Dictionary, zone: String) -> void:
+		dispatched.append(zone)
+
+
+## One session with two hostile squadrons in the Caribbean, and a stub court that
+## records what the pass told it.
+func _despatch_play(hud: GameHud, fleets: Array[FleetState]) -> PlaySession:
+	var model: MapModel = despatch_NavalFixture.build()
+	var play := PlaySession.new()
+	play.model = model
+	play.player_faction = 0
+	play.turn = 1
+	play.map_seed = 7
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.ensure_relation(0, 1, 1)
+	play.diplomacy.ensure_relation(0, 2, 1)
+	play.diplomacy.ensure_relation(1, 2, 1)
+	var ships := ShipLayer.new()
+	ships.model = model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(model)
+	play.world = world
+	var armies := ArmyLayer.new()
+	armies.model = model
+	armies.regions.set_region(model.region_id, [] as Array[ArmyState])
+	play.army_layer = armies
+	var civilians := CivilianLayer.new()
+	civilians.model = model
+	civilians.regions.set_region(model.region_id, [] as Array[CivilianState])
+	play.civilian_layer = civilians
+	play.hud = hud
+	return play
+
+
+func test_the_crowns_sea_fight_opens_the_despatch_plate() -> void:
+	var strong := FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "galleon"})
+	strong.moved = true
+	var weak := FleetState.at_sea(2, 1, 0, ["ship_2"], {"ship_2": "carrack"})
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [strong, weak] as Array[FleetState])
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+
+	assert_eq(battles.size(), 1, "two hostile squadrons in one zone fight")
+	assert_eq(hud.dispatched.size(), 1, "the crown's fight opens the plate")
+	assert_eq(hud.dispatched[0], "Mar Caribe", "the plate names the water")
+	assert_eq(hud.toasts.size(), 1, "the despatch line still reaches the court")
+	hud.free()
+	play.ship_layer.free()
+
+
+func test_a_rivals_sea_fight_stays_the_courts_news_alone() -> void:
+	var strong := FleetState.at_sea(1, 1, 0, ["ship_1"], {"ship_1": "galleon"})
+	strong.moved = true
+	var weak := FleetState.at_sea(2, 2, 0, ["ship_2"], {"ship_2": "carrack"})
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [strong, weak] as Array[FleetState])
+	# Only the rivals strike each other: the crown keeping its peace hears news.
+	DiplomacyRules.declare_war(play.diplomacy, 1, 2, false)
+
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+
+	assert_eq(battles.size(), 1, "the rivals fight")
+	assert_true(hud.dispatched.is_empty(), "the crown's plate is not raised for them")
+	assert_eq(hud.toasts.size(), 1, "the outcome still reaches the court")
+	hud.free()
+	play.ship_layer.free()
+
+
