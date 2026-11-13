@@ -1,12 +1,14 @@
 # Deferred features (ranked)
 
-Audited through DR-20261114-01 (`REQ-P2-02`).
+Audited through DR-20261114-02 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
 | War research; war memory; ledger T1 | `research_floor`; `AiWarMemory`; `AiObjective*`, DR-24/25/#496 |
+| Ledger T2–T5 (expedition, claims, posture, navy) | `AiObjectivesPlan`, `AiClaims`, `AiPosture`, `navy.build` #497–#500 |
+| Ledger T6 funded-share metric | `funded_pct` / ai-bench guards, #501 |
 | Difficulty layer | `Difficulty` / `VictoryRules`, DR-11-25/28 |
 | Agenda + dialogue beats; boycotts | `AiAgenda`, `DialogueAgenda`, `AiDiplomacyOffers` |
 | Home-fleet merge; forts; civilian AI | `FleetHomeMerge`, `AiCivilianPlanner`, forts |
@@ -24,18 +26,23 @@ Audited through DR-20261114-01 (`REQ-P2-02`).
 | Multi-turn recipes; stagger | `ProductionRecipes`, DR-12-11/13-02 |
 | Yarn + consent keys | `DialogueYarn`, `ConsentCopy`, DR-13-10 |
 | War footing; leader bonuses; money-first | `AiPhasePlanner`; `LeaderCatalog`; `AiIncome` |
+| Tribe buy ambition (envoy over storm) | `AiTribeColony`, `colonise.tribe_chain`, DR-14-02 |
+| New World landings; overseas conquest | `AiColonisationPlanner` return voyage, `AiCrossingForce`, DR-14-03 |
 
 ## Remaining gaps (impact order)
 
-1. **New World province** — courts land but never finish the Tribe chain
-   (first contact → overtures → Join Empire) (#476).
-2. **Ledger T3 claims** — reservations become ledger claims (#498).
-3. **Ledger T6 funded-share metric** — #501.
+1. **New World colony founded** — voyages land and a court now takes New World
+   provinces by storm (DR-14-03), but no court finishes Join Empire: the
+   `5,000 + 2,000 × provinces` price is out of reach of a rival purse.
+2. **Phase soft priority** — weight vector, domain gating beyond the voyage,
+   victory pressure stay seed (DR-13-15); posture/T4 live.
+3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
+   queue cap (wiki-deferred).
 
 ## Next pick
 
-The Tribe colony chain: a landed court opens the envoy chain and buys the
-Join Empire (#476).
+A Tribe colony founded: a court that can pay the Join Empire step after the buy
+chain (DR-14-02), or a windfall that makes it affordable.
 
 ## Blocked footnotes
 
@@ -49,9 +56,6 @@ Join Empire (#476).
 - Quick Battle multi-lane / collapse — quick-battle.
 - Borrowing / loans — Money Lending floor live.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
-- Recipe gates, rows beyond steel/bronze, queue cap — wiki-deferred.
-- Phase soft priority, domain gating, victory pressure — seed (DR-13-15); T4 may close soft priority.
 - Growth coexistence flag — seed (DR-13-08).
 - Per-hull / round naval plate; rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12).
-- Ledger T6 funded-share metric — #501.

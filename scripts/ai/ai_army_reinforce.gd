@@ -62,6 +62,16 @@ static func plan(
 	return result
 
 
+## The province a stranded Home Army must march to, or -1 when it already stands
+## at its seat. A court whose capital moves musters nowhere until the Home Army
+## is recalled, so the recall is the first thing the muster pass does — the
+## regiment joins the Home Army, and the Home Army is at the seat (issue #474).
+static func recall_target(home_province: int, capital: int) -> int:
+	if capital < 0 or home_province == capital:
+		return -1
+	return capital
+
+
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
 ## war (wiki: ai-architecture § Land reinforcement).
 static func _target(config: AiConfig, at_war: bool) -> int:

@@ -18,15 +18,10 @@ static func run(play: PlaySession) -> Dictionary:
 	var by_faction: Dictionary = report["factions"]
 	var order_log: Array = report["orders"]
 	var market: WorldMarket = _market(play)
-	var factions: Array[int] = FactionCatalog.great_power_ids()
 	# Every rival ledger exists before any court resolves, so a spy observing a
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
-	for faction: int in factions:
-		if faction == play.player_faction and not play.observer_mode:
-			continue
-		if not AiControl.plans(play, faction):
-			continue
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		MapPlayCivilianAi.seed(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
@@ -34,8 +29,8 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
-		var at_war: bool = _at_war(play, faction)
-		var regiments: int = _regiments(play, faction)
+		var at_war: bool = MapPlayCourt.at_war(play, faction)
+		var regiments: int = MapPlayCourt.regiments(play, faction)
 		# The goal the court plans with this turn: money first (DR-20261113-19).
 		# The reserve is the muster it is saving for while it stands under its
 		# regiment target, else its own cash floor; a court short of it is on
@@ -60,19 +55,25 @@ static func run(play: PlaySession) -> Dictionary:
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
-		var hospitals: Array[int] = _hospital_demands(play, faction)
+		var hospitals: Array[int] = HospitalRules.demand_list(play.world, faction)
 		# The works a crew will start this turn are planned against the ledger
 		# the phase will close with, so the market knows which feedstock they
 		# need before it stages a sale: build, work and trade never spend the
 		# same commodity twice (wiki: economy-planner § Reservations). The same
 		# plans are applied once the phase has resolved.
 		var projected: Dictionary = EconomyTurn.project(
-			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
+			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
 			_army_food(play, faction), boost, hospitals, _leader(play, faction)
+		)
+		# A court on `earn` still works its own land: extraction draws on the
+		# cash floor, everything else waits for the muster (issue #489).
+		var works_floor: int = (
+			config.parameter("economy.min_treasury")
+			if String(income["goal"]) == AiIncome.GOAL_EARN else -1
 		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
 			play, faction, economy, config, overseas,
-			(projected["economy"] as PlayerEconomy).stockpile, floor
+			(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor
 		)
 		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
 		var trade: Dictionary = _trade(
@@ -81,7 +82,7 @@ static func run(play: PlaySession) -> Dictionary:
 		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
-			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
+			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
 			_army_food(play, faction), false, boost, hospitals, _leader(play, faction)
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
@@ -110,6 +111,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"recruits": recruits,
 			"civilians": civilians,
 			"works_reserved": works_reserved,
+			"claims": trade.get("claims", []),
 			"research": research,
 			"income": income,
 		}
@@ -191,18 +193,27 @@ static func _trade(
 		0
 	)
 	var need: Dictionary = AiArmyReinforce.muster_reserve(
-		config, economy, _regiments(play, faction), _at_war(play, faction)
+		config, economy, MapPlayCourt.regiments(play, faction),
+		MapPlayCourt.at_war(play, faction)
 	)
-	var reserved: Dictionary = _reserved_inputs(
-		production, _food_demand(play, faction, economy), economy, need, works
-	)
-	var current: Dictionary = _reserved_inputs({"assignments": economy.production.assignments()})
-	for commodity: Variant in current.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(current[commodity])
+	# The ration the larder cannot cover: a court that cannot feed its own people
+	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
+	# buys the missing food before any build input (wiki: treasury-planner
+	# § Lock-recovery; issue #489). The reading is forward-looking — the larder
+	# must cover this turn's ration and leave the next one in hand, because a
+	# court that eats its last grain this turn strikes tomorrow.
+	var food: int = _food_demand(play, faction, economy)
+	var food_short: int = maxi(food * 2 - _food_held(economy), 0)
+	# One primitive for every reservation: the rations, the muster's row, the
+	# works and this turn's production are ranked claims, and the market reads
+	# what the allocator funded (issue #491 T3, #498).
+	var claims: Dictionary = AiClaims.reserve(_claim_rows(
+		production, food, economy, need, works
+	))
+	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiMarketPlanner.plan(
 		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor
+		floor, food_short
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiMarketPlanner.stage(
@@ -210,26 +221,42 @@ static func _trade(
 	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
+	result["claims"] = claims["lines"]
 	return result
 
 
-## Inputs this turn's production promised, plus the ration the consumption phase
-## eats, plus the material the next regiment is being provisioned with, plus
-## every material the crews' planned works will spend, so a sale never starves
-## the court, spends a commodity twice or sells the timber a workshop needs. The
-## ration is grain and meat, and the larder eats grain first: the reservation
-## holds what the court actually has of each, so a court whose larder is meat
-## does not sell the rations its regiments and staffs eat (wiki:
-## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
-## § Recruitment modulation; economy-planner § Reservations).
-static func _reserved_inputs(
+## The named rows one turn reserves, in the order the market must keep stock.
+## Each row is an `AiObjective` cost: the ration the consumption phase eats
+## (grain first, holding what the court actually has), the inputs this turn's
+## production promised, the row the next regiment is provisioned with, every
+## material the crews' planned works will spend, and the inputs the orders
+## already booked hold (wiki: workers-and-population § Consumption;
+## DR-20261112-04; growth-stage-planner § Recruitment modulation;
+## economy-planner § Reservations).
+static func _claim_rows(
 	production: Dictionary,
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
 	works: Dictionary = {}
-) -> Dictionary:
-	var reserved: Dictionary = {}
+) -> Array[Dictionary]:
+	var rows: Dictionary = {
+		AiClaims.RATIONS: _ration_row(food, economy),
+		AiClaims.PRODUCTION: _production_row(production),
+		AiClaims.MUSTER: muster,
+		AiClaims.WORKS: works,
+		AiClaims.KEPT: (
+			_production_row({"assignments": economy.production.assignments()})
+			if economy != null else {}
+		),
+	}
+	return AiClaims.sources(rows)
+
+
+## The ration row: grain, then meat, holding only what the court actually has of
+## each so a court whose larder is meat does not sell its regiments' dinner.
+static func _ration_row(food: int, economy: PlayerEconomy) -> Dictionary:
+	var row: Dictionary = {}
 	var ration: int = maxi(food, 0)
 	for id: String in CommodityCatalog.FOOD:
 		if ration <= 0:
@@ -237,8 +264,14 @@ static func _reserved_inputs(
 		var held: int = maxi(economy.quantity(id), 0) if economy != null else ration
 		var kept: int = mini(ration, held)
 		if kept > 0:
-			reserved[id] = kept
+			row[id] = kept
 		ration -= kept
+	return row
+
+
+## The material row a production plan promised: recipe inputs × units.
+static func _production_row(production: Dictionary) -> Dictionary:
+	var row: Dictionary = {}
 	for raw: Variant in production.get("assignments", []):
 		var assignment: Dictionary = raw
 		var units: int = int(assignment.get("units", 0))
@@ -247,28 +280,30 @@ static func _reserved_inputs(
 		var inputs: Dictionary = ProductionRecipes.inputs(String(assignment.get("recipe", "")))
 		for commodity: Variant in inputs.keys():
 			var id: String = String(commodity)
-			reserved[id] = int(reserved.get(id, 0)) + int(inputs[commodity]) * units
-	for commodity: Variant in muster.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(muster[commodity])
-	for commodity: Variant in works.keys():
-		var id: String = String(commodity)
-		reserved[id] = int(reserved.get(id, 0)) + int(works[commodity])
-	return reserved
+			row[id] = int(row.get(id, 0)) + int(inputs[commodity]) * units
+	return row
 
 
-static func _ships(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
+## The merged reservation the market keeps back. Kept as the published shape so
+## the economy suites and any caller read the same dictionary as before.
+static func _reserved_inputs(
+	production: Dictionary,
+	food: int = 0,
+	economy: PlayerEconomy = null,
+	muster: Dictionary = {},
+	works: Dictionary = {}
+) -> Dictionary:
+	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
+
+
+## Food the larder already holds: the two ration commodities, grain first.
+static func _food_held(economy: PlayerEconomy) -> int:
+	if economy == null:
 		return 0
-	return play.ship_layer.hull_count_all(faction)
-
-
-## Land regiments this court holds in every region: the muster target is read
-## against the whole order of battle, as the land pass reads it.
-static func _regiments(play: PlaySession, faction: int) -> int:
-	if play.army_layer == null:
-		return 0
-	return play.army_layer.regiment_count_all(faction)
+	var held: int = 0
+	for id: String in CommodityCatalog.FOOD:
+		held += maxi(economy.quantity(id), 0)
+	return held
 
 
 ## Food this court will eat before Production: army, navy, every worker ration
@@ -278,17 +313,12 @@ static func _food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
 	var demand: int = _army_food(play, faction)
-	demand += _ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
-	for ration: int in _hospital_demands(play, faction):
+	demand += MapPlayCourt.ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	for ration: int in HospitalRules.demand_list(play.world, faction):
 		demand += ration
 	for tier in WorkerPool.TIER_COUNT:
 		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
 	return demand
-
-
-## The ordered ration of every hospital staff in this court, seat first.
-static func _hospital_demands(play: PlaySession, faction: int) -> Array[int]:
-	return HospitalRules.demand_list(play.world, faction)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:
@@ -301,12 +331,3 @@ static func _army_food(play: PlaySession, faction: int) -> int:
 ## points (wiki: leader-bonuses § Bonus Table — Victoria).
 static func _leader(play: PlaySession, faction: int) -> String:
 	return String(play.leaders.get(faction, ""))
-
-
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false

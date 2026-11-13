@@ -58,7 +58,7 @@ static func _readings(
 	phase: Dictionary
 ) -> Dictionary:
 	var at_war: bool = AiIncome.at_war(play.diplomacy, faction)
-	var regiments: int = _regiments(play, faction)
+	var regiments: int = MapPlayCourt.regiments(play, faction)
 	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
@@ -66,6 +66,12 @@ static func _readings(
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
+	# The Tribe this court is drawing into its empire: the envoy chain's target,
+	# next step and price (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+	var colony_ambition: Dictionary = AiTribeColony.best(
+		play.diplomacy, play.world, play.court_charts, faction,
+		economy.treasury, economy.tech_unlocked
+	)
 	# The surplus ladder reads the money-goal reserve; the standing study is one
 	# slot at the cheapest preset above half the cash floor, so the ledger prices
 	# what the court will actually pay (issue #490).
@@ -81,11 +87,11 @@ static func _readings(
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
-		"ships": _ships(play, faction),
-		"warships": _warships(play, faction),
+		"ships": MapPlayCourt.ships(play, faction),
+		"warships": MapPlayCourt.warships(play, faction),
 		"warship_price": _warship_price(economy),
-		"hostile_ships": _hostile_ships(play, faction),
-		"hostile_warships": _hostile_warships(play, faction),
+		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
+		"hostile_warships": MapPlayCourt.hostile_warships(play, faction),
 		"treasury": economy.treasury,
 		"reserve": reserve,
 		"goal": AiIncome.goal_for(config, economy, at_war, regiments),
@@ -100,6 +106,8 @@ static func _readings(
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
+		"tribe_target": int(colony_ambition.get("target", -1)),
+		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
 	}
 
 
@@ -131,11 +139,17 @@ static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> in
 	}
 	var context: Dictionary = {
 		"power": powers,
-		"regiments": {faction: _regiments(play, faction), target: _regiments(play, target)},
-		"ships": {faction: _ships(play, faction), target: _ships(play, target)},
+		"regiments": {
+			faction: MapPlayCourt.regiments(play, faction),
+			target: MapPlayCourt.regiments(play, target),
+		},
+		"ships": {
+			faction: MapPlayCourt.ships(play, faction),
+			target: MapPlayCourt.ships(play, target),
+		},
 	}
 	return int(
-		AiDiplomacyPlanner.war_desire(
+		AiDiplomacyDesire.war_desire(
 			config, play.diplomacy, play.world, faction, target, context
 		).get("score", 0)
 	)
@@ -169,58 +183,12 @@ static func _weakest_rival(play: PlaySession, faction: int) -> int:
 
 static func _power(play: PlaySession, faction: int) -> int:
 	return AiPower.score(
-		play.world, faction, _regiments(play, faction), _ships(play, faction)
+		play.world, faction, MapPlayCourt.regiments(play, faction),
+		MapPlayCourt.ships(play, faction)
 	)
 
 
 # --- state reads -------------------------------------------------------------
-
-
-static func _regiments(play: PlaySession, faction: int) -> int:
-	if play.army_layer == null:
-		return 0
-	return play.army_layer.regiment_count_all(faction)
-
-
-static func _ships(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	return play.ship_layer.hull_count_all(faction)
-
-
-## Fighting hulls this court holds: the build objective is for a court that has
-## none, or too few for the squadrons in reach (issue #491 T5, #484).
-static func _warships(play: PlaySession, faction: int) -> int:
-	return _fighting_hulls(play, faction)
-
-
-## Fighting hulls of every court at war with this one.
-static func _hostile_warships(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	var total: int = 0
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record == null or not record.at_war:
-			continue
-		total += _fighting_hulls(play, record.other(faction))
-	return total
-
-
-## Hulls of a court that can fight: the build objective's own reading, so a
-## court with only merchant hulls still wants a warship.
-static func _fighting_hulls(play: PlaySession, owner: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	var total: int = 0
-	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in play.ship_layer.regions.value(region, []):
-			var fleet: FleetState = raw
-			if fleet == null or fleet.owner != owner:
-				continue
-			for hull_id: String in fleet.hulls:
-				if ShipStats.is_warship(fleet.type_of(hull_id)):
-					total += 1
-	return total
 
 
 ## The cheapest warship this court's techs open: what the build objective costs.
@@ -238,19 +206,6 @@ static func _warship_price(economy: PlayerEconomy) -> int:
 	return best
 
 
-## Hulls of every court at war with this one: the threat the navy objective
-## prices.
-static func _hostile_ships(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	var total: int = 0
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record == null or not record.at_war:
-			continue
-		total += _ships(play, record.other(faction))
-	return total
-
-
 ## Squadrons that could take an expedition: afloat, un-moved, no troops and no
 ## colonists aboard. The same hull reading the colonisation planner sails.
 static func _idle_hulls(play: PlaySession, faction: int) -> int:
@@ -258,7 +213,7 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 		return 0
 	var total: int = 0
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in play.ship_layer.regions.value(region, []):
+		for raw: Variant in MapPlayCourt.region_fleets(play, region):
 			var fleet: FleetState = raw
 			if fleet == null or fleet.owner != faction or fleet.moved:
 				continue
@@ -294,7 +249,7 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 	if play.ship_layer == null:
 		return false
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in play.ship_layer.regions.value(region, []):
+		for raw: Variant in MapPlayCourt.region_fleets(play, region):
 			var fleet: FleetState = raw
 			if fleet != null and fleet.owner == faction and fleet.carries_civilians():
 				return true

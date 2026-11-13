@@ -217,7 +217,11 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.refresh_research()
 		play.economy.research_boost = MapPlayEspionage.research_boost(play)
 		crown_report = play.economy.resolve_turn()
-		play.feeding[PlaySession.PLAYER_FACTION] = play.economy.feeding_coverage()
+		# The crown's own rations are filed under the crown the player chose: a
+		# rival's id must never carry them, and her own armies must read them at
+		# the published feeding band (wiki: combat § Feeding modifiers;
+		# game-setup § Human/AI slot assignment).
+		play.feeding[play.player_faction] = play.economy.feeding_coverage()
 		# The crown's own turn speaks: a finished study and a host at the seat
 		# are answered by the courts before the panel is refreshed below
 		# (wiki: dialogue-and-mood § Design intent; DR-20261111-08).

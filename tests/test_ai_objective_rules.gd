@@ -190,6 +190,37 @@ func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
 	assert_eq(int(_by_id(objectives, "research.study").utility), 55, "the funding step lifts the study")
 
 
+func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
+	var readings: Dictionary = _readings()
+	readings["tribe_target"] = FactionCatalog.tribe_ids()[0]
+	readings["tribe_stage"] = DiplomacyCatalog.STAGE_EMBASSY
+	readings["tribe_stage_cost"] = DiplomacyCatalog.EMBASSY_COST
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
+
+	assert_true(chain != null, "a colony in reach is a priced aim")
+	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	assert_true(chain.status == AiObjective.STATUS_FUNDED, "the purse can buy this step")
+	assert_eq(
+		_by_id(objectives, "war.declare").status, AiObjective.STATUS_DEFERRED,
+		"the envoy chain outranks a war the court does not need"
+	)
+	var line: String = ""
+	for raw: String in report["lines"]:
+		if raw.begins_with("colonise.tribe_chain"):
+			line = raw
+	assert_true(line.ends_with("funded"), "the trace says the chain is bought")
+
+
+func test_a_court_with_no_charted_tribe_prices_no_chain() -> void:
+	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "colonise.tribe_chain"), null)
+
+
 func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
@@ -313,8 +344,35 @@ func test_the_adapter_reads_the_colonist_ashore() -> void:
 	play.civilian_layer.free()
 
 
-# --- the adapter and the trace ----------------------------------------------
+## The adapter prices the Tribe the court is drawing in: a charted shore and a
+## purse that covers the next envoy step put the chain in the ledger
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state: DiplomacyState = _court()
+	state.ensure_relation(OWNER, tribe, 1).score = 55.0
+	state.set_overture(OWNER, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var play: PlaySession = _session(state)
+	play.ai.economy_for(OWNER).treasury = 20000
+	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
+	var shore: Array[Vector2i] = [Vector2i(0, 0)]
+	new_world.provinces = [
+		ProvinceState.create(0, "Shore", shore, Vector2.ZERO, 1, tribe, false)
+	]
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OWNER]
+	var chain: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.tribe_chain":
+			chain = row
+	assert_false(chain.is_empty(), "the envoy chain is priced")
+	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
+
+# --- the adapter and the trace ----------------------------------------------
 
 func _court() -> DiplomacyState:
 	var state := DiplomacyState.new()
@@ -584,6 +642,83 @@ func test_a_won_peace_window_opens_the_voyage_at_war() -> void:
 	_statuses(report["objectives"], status)
 	assert_eq(String(status["peace.window"]), AiObjective.STATUS_FUNDED)
 	assert_eq(String(status["colonise.new_world"]), AiObjective.STATUS_FUNDED)
+
+
+# --- commodity claims: the reservations (issue #498) -------------------------
+
+
+func test_a_commodity_claim_reads_after_the_named_resources() -> void:
+	var objective: AiObjective = AiObjective.create(
+		"reserve.muster", "economy", 90, {"fabric": 1, "treasury": 400, "grain": 2}
+	)
+
+	assert_eq(
+		String(objective.line()),
+		"reserve.muster u90 treasury 0/400, fabric 0/1, grain 0/2 ranked",
+		"named resources first, commodities sorted after them"
+	)
+
+
+func test_the_reservation_rows_merge_into_one_claim_set() -> void:
+	var rows: Array[Dictionary] = AiClaims.sources({
+		AiClaims.RATIONS: {"grain": 5},
+		AiClaims.MUSTER: {"fabric": 1, "grain": 2},
+		AiClaims.WORKS: {"lumber": 3},
+	})
+	var report: Dictionary = AiClaims.reserve(rows)
+	var reserved: Dictionary = report["reserved"]
+
+	assert_eq(int(reserved["grain"]), 7, "the rows add up")
+	assert_eq(int(reserved["fabric"]), 1)
+	assert_eq(int(reserved["lumber"]), 3)
+	assert_eq((report["lines"] as Array).size(), 3, "every reservation is a claim line")
+	assert_true(
+		String((report["lines"] as Array)[0]).begins_with(AiClaims.RATIONS),
+		"rations outrank the rest"
+	)
+
+
+func test_a_pool_short_of_a_commodity_defers_the_rest() -> void:
+	var rows: Array[Dictionary] = AiClaims.sources({
+		AiClaims.RATIONS: {"grain": 3},
+		AiClaims.MUSTER: {"grain": 4},
+	})
+	var report: Dictionary = AiClaims.reserve(rows, {"grain": 3})
+
+	assert_eq(int((report["reserved"] as Dictionary)["grain"]), 3, "only what is held")
+	var second: Dictionary = (report["rows"] as Array)[1]
+	assert_eq(String(second["status"]), AiObjective.STATUS_DEFERRED)
+	assert_eq(int((second["shortfall"] as Dictionary)["grain"]), 4)
+
+
+func test_the_civilian_purse_is_one_treasury_claim() -> void:
+	assert_eq(int(AiClaims.purse(2000, 500)["treasury"]), 1500)
+	assert_eq(int(AiClaims.purse(400, 500).get("treasury", 0)), 0, "no purse below its floor")
+	assert_eq(int(AiClaims.purse(500, 500).get("treasury", 0)), 0)
+
+
+func test_the_routes_of_the_economy_pass_are_the_same_reservation() -> void:
+	# The parity invariant: the claim set merges to the dictionary the market has
+	# always read, so no sale, bid or work changes (issue #498).
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var production: Dictionary = {
+		"assignments": [{"recipe": ProductionRecipes.ids()[0], "units": 2}],
+	}
+	var muster: Dictionary = {"fabric": 1}
+	var works: Dictionary = {"lumber": 2}
+	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+		production, 4, economy, muster, works
+	)
+	var merged: Dictionary = AiClaims.reserve(rows)["reserved"]
+	var published: Dictionary = MapPlayEconomyAi._reserved_inputs(
+		production, 4, economy, muster, works
+	)
+
+	assert_eq(merged, published, "one primitive, the same floor")
+	var ids: Array[String] = []
+	for row: Dictionary in rows:
+		ids.append(String(row["id"]))
+	assert_true(ids.has(AiClaims.RATIONS) and ids.has(AiClaims.WORKS))
 
 
 # --- the save round-trip -----------------------------------------------------

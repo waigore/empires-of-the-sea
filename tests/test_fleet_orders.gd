@@ -1608,3 +1608,17 @@ func _inland_owned_province() -> int:
 		if not NavalMovement.has_harbour(_screen.model, province.id):
 			return province.id
 	return -1
+
+
+## The capital slip names the crown that holds it, not the legacy default: a
+## court sailing as England reads her own yard (wiki: game-setup § Human/AI slot
+## assignment; REQ-P2-03 — a sheet never answers for another crown).
+func test_the_capital_slip_names_the_crown_that_holds_it() -> void:
+	var province: int = _screen.capital_province
+	var data: ProvinceState = _screen.model.province_data(province)
+	var before: int = data.owner
+	data.owner = 1
+	_screen.hud._fleet_panel.refresh_slip(_screen.model, province, [], true)
+	var title: String = _screen.hud._fleet_panel._header.title.text
+	assert_true(title.contains("ENGLAND"), title)
+	data.owner = before

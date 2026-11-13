@@ -240,6 +240,28 @@ func test_end_turn_records_every_courts_rations() -> void:
 		)
 
 
+## The crown's own rations are filed under the crown the player chose, not the
+## legacy default: a court that sails as England must still fight at the
+## published feeding band, and her record must not land on Spain
+## (wiki: combat § Feeding modifiers; game-setup § Human/AI slot assignment).
+func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
+	var english: MapScreen = Fixture.attach_screen(self, 1)
+	assert_eq(english.play.player_faction, 1)
+	MapPlayTurn.end_turn(english.play)
+	Fixture.settle(english.play)
+	var coverage: float = english.economy.feeding_coverage()
+	assert_true(
+		english.play.feeding.has(english.play.player_faction),
+		"England keeps her own army feeding record"
+	)
+	assert_almost_eq(
+		float(english.play.feeding.get(english.play.player_faction, -1.0)),
+		coverage, 0.001,
+		"the chosen crown's record is her own consumption"
+	)
+	english.free()
+
+
 func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
 	var province_id: int = Fixture.inland_province(_screen.model)
 	MapPlayInput.on_tapped(

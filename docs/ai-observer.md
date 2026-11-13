@@ -46,11 +46,22 @@ wars, last-turn order mix. Dashboard: recent-orders feed, pause / step /
 speed, campaign result. `play.ai_turns` keeps one merged record per turn
 (wiki: turn-trace-interpretation).
 
+### Bench metric: funded_pct
+
+`.autolab/hills/ai-bench` reports `funded_pct` beside `score` / `provinces` /
+`forces`: the mean share of a live crown's **top-ranked objectives the ledger
+actually funded** per resolved turn, read from `last.objectives`
+(`ranked` / `funded`) in the turn trace. Ranking priorities is worthless if the
+allocator never pays for them, so `tools/check_ai_bench_report.py` holds it
+above `reports/ai-bench/guards.json` (`funded_pct_floor`, 60 on seed 1500 —
+measured 70.68) and fails the `ai-bench-report` check when it collapses.
+
 ## Export
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
 (includes `ai_mode` / `ai_live`) and prints a win-rate / average-provinces
-table across runs.
+table across runs. Each turn record also carries the court's `objectives`
+(`ranked`/`funded`/`blocked`, rows and lines) and the economy pass's `claims`.
 
 ## Scope
 
