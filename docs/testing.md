@@ -126,6 +126,13 @@ godot --headless --path . --script res://playtests/playtest_naval.gd
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
 
+# Sighted strength — sights a hostile squadron in charted water and reads the
+# marker's `*`, the dossier's `???` and the zone that takes no verdict; closes a
+# real turn to read the watch's news, then presses the seal and the pause menu to
+# see whether the read survives another chart and a save, and drops it when she
+# leaves the crown's water.
+godot --headless --path . --script res://playtests/playtest_naval_intel.gd
+
 # Treasury — opens a turn-100 advanced start and reads the purse the player sees
 # (the chip, the ledger's summary and "Next turn" promise, the market's own rows,
 # the college's funding), stages a sale and a study on those buttons, closes real

@@ -281,28 +281,32 @@ func test_saves_without_leaders_backfill_the_crown_roster() -> void:
 
 
 ## The crown's watch over rival squadrons rides the save (wiki: ships-and-naval
-## § Sighted strength): a read squadron stays read, a sighted one stays unread.
+## § Sighted strength): a read squadron stays read, a sighted one stays unread,
+## and each chart's watch lands back on its own map.
 func test_a_sighted_strength_read_survives_a_load() -> void:
 	var play: PlaySession = screen.play
-	play.naval_intel.observe([7], play.turn)
-	play.naval_intel.observe([7, 8], play.turn + 1)
+	var region: int = play.region_index
+	play.naval_intel.observe([7], play.turn, region)
+	play.naval_intel.observe([7, 8], play.turn + 1, region)
 
 	var data: Dictionary = SaveCodec.capture(play)
 	var session: Dictionary = data["session"]
+	var watches: Dictionary = (session["naval_intel"] as Dictionary)["regions"]
 	assert_eq(
-		(session["naval_intel"] as Dictionary)["revealed"], [7],
+		(watches[region] as Dictionary)["revealed"], [7],
 		"only the watched squadron is in the read list"
 	)
 
 	play = _apply_save(data)
-	assert_true(play.naval_intel.is_revealed(7), "a read squadron stays read")
-	assert_false(play.naval_intel.is_revealed(8), "an unread squadron stays unread")
+	assert_true(play.naval_intel.is_revealed(7, region), "a read squadron stays read")
+	assert_false(play.naval_intel.is_revealed(8, region), "an unread squadron stays unread")
 
 
 func test_a_save_without_a_watch_resumes_unread() -> void:
 	var play: PlaySession = screen.play
-	play.naval_intel.observe([7], play.turn)
-	play.naval_intel.observe([7], play.turn + 1)
+	var region: int = play.region_index
+	play.naval_intel.observe([7], play.turn, region)
+	play.naval_intel.observe([7], play.turn + 1, region)
 	var data: Dictionary = SaveCodec.capture(play)
 	var session: Dictionary = data["session"]
 	session.erase("naval_intel")
@@ -310,7 +314,7 @@ func test_a_save_without_a_watch_resumes_unread() -> void:
 
 	play = _apply_save(data)
 
-	assert_eq(play.naval_intel.watched(), [], "a legacy save reads no squadron")
+	assert_eq(play.naval_intel.watched(region), [], "a legacy save reads no squadron")
 
 
 func test_medals_and_feeding_survive_a_load() -> void:
