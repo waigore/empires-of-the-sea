@@ -1,0 +1,117 @@
+class_name AiObjectiveLedger
+extends RefCounted
+## The rank pass and the allocate pass of a rival court's objective ledger
+## (docs/ai.md; issue #491 T1).
+##
+## `rank` sorts the tree into one order — parents before their children, each
+## level by utility with the id breaking ties — so the same state always funds
+## the same objective first. `allocate` walks that order top-down: each
+## objective claims its cost from the pools, a pool never goes below zero, and
+## an objective the pools cannot cover is marked `deferred` with the shortfall
+## the trace prints. A blocked objective claims nothing and passes its reason
+## up the tree (issue #491 T2).
+##
+## Pure: state in (objectives + pools), decisions out. No order is issued here,
+## so T1's ledger cannot move the rules (REQ-P2-03, REQ-P4-03).
+
+
+## Rank the tree in place: parents and their children by utility, id breaks the
+## tie. Deterministic, so a replay never funds a different objective first.
+static func rank(
+	objectives: Array[AiObjective], modifiers: Dictionary = {}
+) -> Array[AiObjective]:
+	var sorted: Array[AiObjective] = []
+	sorted.assign(objectives)
+	sorted.sort_custom(
+		func(a: AiObjective, b: AiObjective) -> bool: return _before(a, b, modifiers)
+	)
+	for objective: AiObjective in sorted:
+		objective.children = rank(objective.children, modifiers)
+	return sorted
+
+
+## Walk the ranked tree top-down: each objective claims its cost from the pools
+## in the currency's reading order, and one the pools cannot cover is deferred
+## with its shortfall. Returns the report the turn trace keeps.
+static func allocate(
+	objectives: Array[AiObjective], pools: Dictionary = {}
+) -> Dictionary:
+	var ranked: int = 0
+	var funded: int = 0
+	var blocked: int = 0
+	var lines: Array[String] = []
+	for objective: AiObjective in walk(objectives):
+		if objective.status == AiObjective.STATUS_BLOCKED:
+			blocked += 1
+			lines.append(objective.line())
+			continue
+		ranked += 1
+		objective.claim = _grant(objective.cost, pools)
+		if objective.shortfall().is_empty():
+			objective.status = AiObjective.STATUS_FUNDED
+			funded += 1
+		else:
+			objective.status = AiObjective.STATUS_DEFERRED
+		lines.append(objective.line())
+	return {
+		"ranked": ranked,
+		"funded": funded,
+		"blocked": blocked,
+		"pools": pools,
+		"lines": lines,
+		"objectives": to_dict(objectives),
+	}
+
+
+## Rank then allocate in one call: the shape the turn adapter and the tests use.
+static func run(
+	objectives: Array[AiObjective],
+	pools: Dictionary = {},
+	modifiers: Dictionary = {}
+) -> Dictionary:
+	var report: Dictionary = allocate(rank(objectives, modifiers), pools)
+	report["modifiers"] = modifiers
+	return report
+
+
+## Every objective in rank order, parent before child.
+static func walk(objectives: Array[AiObjective]) -> Array[AiObjective]:
+	var out: Array[AiObjective] = []
+	for objective: AiObjective in objectives:
+		out.append(objective)
+		out.append_array(walk(objective.children))
+	return out
+
+
+## Trace rows for the turn log, without mutating the tree.
+static func to_dict(objectives: Array[AiObjective]) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for objective: AiObjective in objectives:
+		rows.append(objective.to_dict())
+	return rows
+
+
+## Grant as much of `cost` as the pools hold. Each resource draws on its own
+## pool, in the currency's reading order so the trace is stable.
+static func _grant(cost: Dictionary, pools: Dictionary) -> Dictionary:
+	var claim: Dictionary = {}
+	for key: String in AiUtility.RESOURCES:
+		var asked: int = int(cost.get(key, 0))
+		if asked <= 0:
+			continue
+		var left: int = int(pools.get(key, AiUtility.UNBOUNDED))
+		var granted: int = mini(asked, maxi(left, 0))
+		claim[key] = granted
+		if pools.has(key):
+			pools[key] = maxi(left - granted, 0)
+	return claim
+
+
+static func _before(a: AiObjective, b: AiObjective, modifiers: Dictionary) -> bool:
+	var left: int = AiUtility.modified(a.utility, int(modifiers.get(a.domain, 1000)))
+	var right: int = AiUtility.modified(b.utility, int(modifiers.get(b.domain, 1000)))
+	if left != right:
+		return left > right
+	if a.id != b.id:
+		return a.id < b.id
+	return a.domain < b.domain

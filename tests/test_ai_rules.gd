@@ -2397,6 +2397,20 @@ func test_a_broke_court_keeps_no_standing_study() -> void:
 		assert_eq(String(entry["funding"]), "none", "40 ducats pays nothing")
 
 
+func test_the_standing_study_helper_reads_the_same_purse_as_the_planner() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	assert_eq(AiResearchPlanner.standing_funding(config, economy), "low")
+	economy.treasury = 40
+	assert_eq(AiResearchPlanner.standing_funding(config, economy), "")
+	economy.treasury = 3000
+	assert_eq(
+		AiResearchPlanner.standing_funding(config, economy), "",
+		"the surplus preset pays; there is no standing study to price"
+	)
+
+
 func test_the_standing_study_stops_at_half_the_floor() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()

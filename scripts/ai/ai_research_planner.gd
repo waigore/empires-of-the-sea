@@ -147,6 +147,18 @@ static func research_floor(config: AiConfig) -> int:
 	return maxi(int(config.parameter("economy.min_treasury")), 0)
 
 
+## The standing study's preset this turn, or "" when the court pays its surplus
+## preset instead. Public so the objective ledger prices the same study the
+## planner funds (issue #491 T1 reads this planner, it does not spend).
+static func standing_funding(
+	config: AiConfig, economy: PlayerEconomy
+) -> String:
+	var floor: int = research_floor(config)
+	if funding_for(config, economy, floor) != ResearchFunding.ORDER[0]:
+		return ""
+	return STANDING_FUNDING if _can_pay_standing(economy, floor) else ""
+
+
 ## The slot that keeps the standing study: the first slot already holding a
 ## tech, or -1 when every slot is free (the first assignment takes it).
 static func _standing_slot(state: ResearchState) -> int:
