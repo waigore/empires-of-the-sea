@@ -21,11 +21,16 @@ var _toggle: Button = null
 var _overlay: Control = null
 var _margin: MarginContainer = null
 var _panel: PanelContainer = null
+var _column: VBoxContainer = null
 var _rows: VBoxContainer = null
 var _head: EstatesHead = null
+var _title: Label = null
 var _subtitle: Label = null
+var _footer_box: Control = null
+var _close_button: Button = null
 var _data: Dictionary = {}
 var _province_filter: int = -1
+var _compact: bool = false
 
 
 func _ready() -> void:
@@ -68,14 +73,52 @@ func set_tech_caps(p_tech_caps: Dictionary) -> void:
 func open(province_id: int = -1, filter_key: String = "all") -> void:
 	_province_filter = province_id
 	_overlay.visible = true
+	_set_menu_visible(false)
 	if _head != null:
 		_head.set_filter(filter_key)
 	refresh()
+	_sync_despatch_cover()
 
 
 func close() -> void:
 	if _overlay != null:
 		_overlay.visible = false
+	_set_menu_visible(true)
+	_sync_despatch_cover()
+
+
+## The card covers the court, so on a phone the HUD holds its despatches while
+## it is up instead of stacking them over the list (REQ-P1-07).
+func _sync_despatch_cover() -> void:
+	var screen := _map_screen()
+	HudDespatchCover.refresh(screen.hud if screen != null else null)
+
+
+## The game menu's MENU seal may ride a higher canvas layer than this card (the
+## classic rail trigger), which would cut through a full-screen ledger; park it
+## while the card is up. The cartouche door (a later layout) lives on the HUD
+## layer under the overlay, so the lookup simply finds nothing there.
+func _set_menu_visible(show_menu: bool) -> void:
+	var screen := _map_screen()
+	if screen == null:
+		return
+	var trigger := screen.find_child("MenuTrigger", true, false) as CanvasItem
+	if trigger != null:
+		trigger.visible = show_menu
+
+
+func _map_screen() -> MapScreen:
+	var node: Node = get_parent()
+	while node != null:
+		var screen := node as MapScreen
+		if screen != null:
+			return screen
+		node = node.get_parent()
+	return null
+
+
+func _exit_tree() -> void:
+	_set_menu_visible(true)
 
 
 func is_open() -> bool:
@@ -155,6 +198,7 @@ func _build_overlay() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	_panel.add_child(column)
+	_column = column
 	column.add_child(_header())
 	_head = EstatesHead.new()
 	_head.filter_selected.connect(_press_filter)
@@ -170,7 +214,8 @@ func _build_overlay() -> void:
 	_rows.add_theme_constant_override("separation", 5)
 	scroll.add_child(_rows)
 
-	column.add_child(_footer())
+	_footer_box = _footer()
+	column.add_child(_footer_box)
 
 
 func _header() -> Control:
@@ -182,23 +227,25 @@ func _header() -> Control:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
 
-	var title := Label.new()
-	title.text = "THE CROWN'S ESTATES"
-	title.add_theme_font_override("font", UiTheme.serif())
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	titles.add_child(title)
+	_title = Label.new()
+	_title.text = "THE CROWN'S ESTATES"
+	_title.add_theme_font_override("font", UiTheme.serif())
+	_title.add_theme_font_size_override("font_size", 26)
+	_title.add_theme_color_override("font_color", Palette.GOLD_PALE)
+	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_title.clip_text = true
+	titles.add_child(_title)
 
 	_subtitle = Label.new()
 	_subtitle.add_theme_font_size_override("font_size", 12)
 	_subtitle.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	titles.add_child(_subtitle)
 
-	var close_button := Button.new()
-	close_button.text = "Close"
-	close_button.custom_minimum_size = Vector2(92, 38)
-	close_button.pressed.connect(close)
-	header.add_child(close_button)
+	_close_button = Button.new()
+	_close_button.text = "Close"
+	_close_button.custom_minimum_size = Vector2(92, 38)
+	_close_button.pressed.connect(close)
+	header.add_child(_close_button)
 	return header
 
 
@@ -259,7 +306,7 @@ func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:
 		"" if rows.size() == 1 else "s",
 		int(group["producing"]),
 	]
-	heading.add_theme_font_size_override("font_size", 11)
+	heading.add_theme_font_size_override("font_size", 10 if _compact else 11)
 	heading.add_theme_color_override("font_color", Palette.GOLD_DIM)
 	_rows.add_child(heading)
 	for row: Dictionary in rows:
@@ -284,17 +331,43 @@ func filter_buttons() -> Dictionary:
 	return _head.filter_buttons() if _head != null else {}
 
 
-## Compact estates card: thin margins, thumb-sized filters, and the summary
-## block traded for list rows (the group headings still count each region and
-## the projection line still carries the yield).
+## Compact estates card: thin margins and panel padding, a smaller masthead, the
+## subtitle and footer hint traded for list rows, thumb-sized filters, and rows
+## that fold their columns into full-width lines (REQ-P3-02, REQ-P1-07).
 func set_compact(compact: bool) -> void:
-	if _margin == null:
+	if _margin == null or compact == _compact:
 		return
-	_margin.add_theme_constant_override("margin_left", 12 if compact else 42)
-	_margin.add_theme_constant_override("margin_right", 12 if compact else 42)
-	_margin.add_theme_constant_override("margin_top", 66 if compact else 88)
-	_margin.add_theme_constant_override("margin_bottom", 8 if compact else 34)
+	_compact = compact
+	_margin.add_theme_constant_override("margin_left", 8 if compact else 42)
+	_margin.add_theme_constant_override("margin_right", 8 if compact else 42)
+	_margin.add_theme_constant_override("margin_top", 60 if compact else 88)
+	_margin.add_theme_constant_override("margin_bottom", 6 if compact else 34)
+	if _panel != null:
+		_panel.add_theme_stylebox_override(
+			"panel",
+			UiTheme.box(
+				Color(0.10, 0.08, 0.06, 0.98),
+				Palette.GOLD_DIM,
+				1,
+				4,
+				Vector4(10, 8, 10, 8) if compact else Vector4(20, 16, 20, 16)
+			)
+		)
+	if _column != null:
+		_column.add_theme_constant_override("separation", 6 if compact else 10)
+	if _title != null:
+		_title.add_theme_font_size_override("font_size", 20 if compact else 26)
+	if _close_button != null:
+		_close_button.custom_minimum_size = Vector2(72, 40) if compact else Vector2(92, 38)
+	if _rows != null:
+		_rows.add_theme_constant_override("separation", 4 if compact else 5)
 	if _head != null:
 		_head.set_compact(compact)
 	if _subtitle != null:
 		_subtitle.visible = not compact
+	if _footer_box != null:
+		_footer_box.visible = not compact
+	# Rows are built for one geometry, so an open card repaints for the new one.
+	if is_open() and not _data.is_empty():
+		_apply_filter()
+
