@@ -1779,7 +1779,9 @@ func test_ai_civilian_never_plans_another_courts_units() -> void:
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
-func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
+## One rival court on a two-crown land world, its seat holding a worked grain
+## tile: the fixture every `MapPlayEconomyAi` case in this section reads.
+func _rival_economy_play() -> PlaySession:
 	var world: WorldMap = AiFixture.land_world([0, 1], {0: true, 1: true})
 	var model: MapModel = world.region(0)
 	var grain := Vector2i(1, 1)
@@ -1794,6 +1796,12 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	play.civilian_layer = layer
 	play.map_seed = 1500
 	play.ai = AiState.new()
+	return play
+
+
+func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var layer: CivilianLayer = play.civilian_layer
 	var report: Dictionary = MapPlayEconomyAi.run(play)
 	assert_true((report["factions"] as Dictionary).has(1))
 	var entry: Dictionary = report["factions"][1]
@@ -1812,6 +1820,39 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 		"rival training respects civilian.max_civilians"
 	)
 	layer.free()
+
+
+## The sale is staged after the works are priced: what a crew is about to spend
+## is held back, so the court never sells its own workshop's timber (wiki:
+## economy-planner § Reservations — one stockpile serves build, work and trade).
+func test_the_rival_keeps_the_row_its_planned_works_will_spend() -> void:
+	var probe_play: PlaySession = _rival_economy_play()
+	var probe: Dictionary = MapPlayEconomyAi.run(probe_play)["factions"][1]["works_reserved"]
+	probe_play.civilian_layer.free()
+	assert_true(not probe.is_empty(), "a rival's planned works name their row")
+
+	# Hold exactly the reserve and the row the works claim: the surplus is nil,
+	# so not one unit of it may reach the market.
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var keep: int = config.parameter("market.sell_reserve")
+	var play: PlaySession = _rival_economy_play()
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	for commodity: Variant in probe.keys():
+		var id: String = String(commodity)
+		economy.stockpile[id] = keep + int(probe[id])
+	var entry: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	var held: Dictionary = entry["works_reserved"]
+	var offered: Dictionary = {}
+	for raw: Variant in (entry["trade"]["plan"] as Dictionary)["offers"]:
+		var offer: Dictionary = raw
+		offered[String(offer["commodity"])] = int(offer["quantity"])
+	for commodity: Variant in held.keys():
+		var id: String = String(commodity)
+		assert_eq(
+			int(offered.get(id, 0)), 0,
+			"the works' %s never goes to market" % id
+		)
+	play.civilian_layer.free()
 
 
 ## The civilian pass owns the rival roster: one seed per court per region, and

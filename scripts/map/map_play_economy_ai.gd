@@ -32,17 +32,34 @@ static func run(play: PlaySession) -> Dictionary:
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
 		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
-		var trade: Dictionary = _trade(play, faction, economy, config, market, overseas, production)
 		# Plan before the phase resolves, so the study starts this turn.
 		var research: Dictionary = AiResearchPlanner.plan(
 			config, economy, {"at_war": _at_war(play, faction), "revealed": revealed}
 		)
+		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
+		var hospitals: Array[int] = _hospital_demands(play, faction)
+		# The works a crew will start this turn are planned against the ledger
+		# the phase will close with, so the market knows which feedstock they
+		# need before it stages a sale: build, work and trade never spend the
+		# same commodity twice (wiki: economy-planner § Reservations). The same
+		# plans are applied once the phase has resolved.
+		var projected: Dictionary = EconomyTurn.project(
+			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
+			_army_food(play, faction), boost, hospitals
+		)
+		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
+			play, faction, economy, config, overseas,
+			(projected["economy"] as PlayerEconomy).stockpile
+		)
+		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
+		var trade: Dictionary = _trade(
+			play, faction, economy, config, market, overseas, production,
+			works_reserved
+		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), false,
-			MapPlaySpyAi.research_bonus(play, faction, economy),
-			_hospital_demands(play, faction)
+			_army_food(play, faction), false, boost, hospitals
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
 		# first, and the flags they set are what its next rest tick reads
@@ -57,9 +74,7 @@ static func run(play: PlaySession) -> Dictionary:
 		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(config, economy)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
-		var civilians: Dictionary = MapPlayCivilianAi.run(
-			play, faction, economy, config, overseas
-		)
+		var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)
 		order_log.append_array(civilians["orders"])
 		by_faction[faction] = {
 			"extraction": overseas["extraction"],
@@ -69,6 +84,7 @@ static func run(play: PlaySession) -> Dictionary:
 			"cargo": cargo,
 			"recruits": recruits,
 			"civilians": civilians,
+			"works_reserved": works_reserved,
 			"research": research,
 		}
 	# Every rival ledger just closed, so the next land battle reads the rations
@@ -122,7 +138,8 @@ static func _market(play: PlaySession) -> WorldMarket:
 ## Sells above the reserve and this turn's inputs, then bids short build inputs
 ## with the holds the colonies left (wiki: world-market § Cargo). The cloth the
 ## next regiment must have is kept back and bid for first (wiki:
-## growth-stage-planner § Recruitment modulation).
+## growth-stage-planner § Recruitment modulation), and so is every material a
+## crew's planned work will spend (wiki: economy-planner § Reservations).
 static func _trade(
 	play: PlaySession,
 	faction: int,
@@ -130,7 +147,8 @@ static func _trade(
 	config: AiConfig,
 	market: WorldMarket,
 	overseas: Dictionary,
-	production: Dictionary
+	production: Dictionary,
+	works: Dictionary = {}
 ) -> Dictionary:
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
@@ -145,7 +163,7 @@ static func _trade(
 		config, economy, _regiments(play, faction), _at_war(play, faction)
 	)
 	var reserved: Dictionary = _reserved_inputs(
-		production, _food_demand(play, faction, economy), economy, need
+		production, _food_demand(play, faction, economy), economy, need, works
 	)
 	var current: Dictionary = _reserved_inputs({"assignments": economy.production.assignments()})
 	for commodity: Variant in current.keys():
@@ -164,18 +182,20 @@ static func _trade(
 
 
 ## Inputs this turn's production promised, plus the ration the consumption phase
-## eats, plus the material the next regiment is being provisioned with, so a sale
-## never starves the court, spends a commodity twice or sells the cloth a muster
-## needs. The ration is grain and meat, and the larder eats grain first: the
-## reservation holds what the court actually has of each, so a court whose larder
-## is meat does not sell the rations its regiments and staffs eat (wiki:
+## eats, plus the material the next regiment is being provisioned with, plus
+## every material the crews' planned works will spend, so a sale never starves
+## the court, spends a commodity twice or sells the timber a workshop needs. The
+## ration is grain and meat, and the larder eats grain first: the reservation
+## holds what the court actually has of each, so a court whose larder is meat
+## does not sell the rations its regiments and staffs eat (wiki:
 ## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
-## § Recruitment modulation).
+## § Recruitment modulation; economy-planner § Reservations).
 static func _reserved_inputs(
 	production: Dictionary,
 	food: int = 0,
 	economy: PlayerEconomy = null,
-	muster: Dictionary = {}
+	muster: Dictionary = {},
+	works: Dictionary = {}
 ) -> Dictionary:
 	var reserved: Dictionary = {}
 	var ration: int = maxi(food, 0)
@@ -199,6 +219,9 @@ static func _reserved_inputs(
 	for commodity: Variant in muster.keys():
 		var id: String = String(commodity)
 		reserved[id] = int(reserved.get(id, 0)) + int(muster[commodity])
+	for commodity: Variant in works.keys():
+		var id: String = String(commodity)
+		reserved[id] = int(reserved.get(id, 0)) + int(works[commodity])
 	return reserved
 
 
