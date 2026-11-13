@@ -198,12 +198,13 @@ static func blunted_note(battle: Dictionary) -> String:
 	return " — the hungrier attacker could not press the win"
 
 
-## An auto-resolved siege's tail: how many emplaced guns the besieging train
-## silenced and the fort level they left behind. Empty when the battery was not
-## touched, so every other despatch reads as before (REQ-P5-05,
-## DR-20261110-22).
+## A siege's tail: how many emplaced guns the besieging train silenced and the
+## fort level they left behind. Empty when the battery was not touched, so every
+## other despatch reads as before (REQ-P5-05, DR-20261110-22). A Quick Battle
+## keeps the same count under `quick`, and the court's own wall must not change
+## a level in silence simply because the plate carried the news for a moment.
 static func siege_note(battle: Dictionary) -> String:
-	var siege: Dictionary = battle.get("siege", {}) as Dictionary
+	var siege: Dictionary = _battery(battle)
 	var lost: int = int(siege.get("guns_lost", 0))
 	if lost <= 0:
 		return ""
@@ -218,6 +219,25 @@ static func siege_note(battle: Dictionary) -> String:
 		FortRules.level_name(int(siege.get("fort_before", 0))),
 		FortRules.level_name(after) if after > 0 else "open field",
 	]
+
+
+## The battery a battle carries: an auto-resolved siege reports it under
+## `siege`, a Quick Battle under `quick`. Both count the same pieces, so the
+## despatch reads one shape (wiki: siege-mechanics § Emplaced Artillery).
+static func _battery(battle: Dictionary) -> Dictionary:
+	var siege: Dictionary = battle.get("siege", {}) as Dictionary
+	if not siege.is_empty():
+		return siege
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	if int(quick.get("guns_start", 0)) <= 0:
+		return {}
+	return {
+		"guns_start": int(quick.get("guns_start", 0)),
+		"guns_lost": int(quick.get("guns_lost", 0)),
+		"fort_before": int(battle.get("fort_level", 0)),
+		"fort_downgraded": bool(quick.get("fort_downgraded", false)),
+		"fort_after": int(quick.get("fort_after", 0)),
+	}
 
 
 ## The medallion an auto-resolved siege earns: a silenced battery. Empty for

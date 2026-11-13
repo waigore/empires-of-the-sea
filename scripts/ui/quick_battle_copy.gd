@@ -56,9 +56,11 @@ static func plan_text(battle: Dictionary) -> String:
 	return text
 
 
-## Siege despatch: the fort, the wall's protection, the lanes it shelters, and
-## the level a silenced battery leaves behind. Empty in a field battle.
-static func siege_line(battle: Dictionary) -> String:
+## The wall the plate is fought over, as it stands when the plate opens: the
+## fort, the protection it gives, the lanes it shelters and the gates still
+## standing. No outcome in it — the plate is populated before the first round
+## plays, so this line must not hand the court the result (REQ-P5-05).
+static func siege_opening(battle: Dictionary) -> String:
 	var level: int = int(battle.get("fort_level", 0))
 	if level <= 0:
 		return ""
@@ -75,9 +77,18 @@ static func siege_line(battle: Dictionary) -> String:
 		text += " · %d sortie%s" % [
 			int(quick.get("sorties", 0)), "" if int(quick.get("sorties", 0)) == 1 else "s"
 		]
-	text += gates_text(quick)
+	return text + gates_text(quick)
+
+
+## Siege despatch at the close: the wall as it opened, and the level a silenced
+## battery leaves behind. Empty in a field battle.
+static func siege_line(battle: Dictionary) -> String:
+	var text: String = siege_opening(battle)
+	if text.is_empty():
+		return ""
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
 	if bool(quick.get("fort_downgraded", false)):
-		var after: int = int(quick.get("fort_after", maxi(0, level - 1)))
+		var after: int = int(quick.get("fort_after", maxi(0, int(battle.get("fort_level", 0)) - 1)))
 		text += " — battery silenced, the fort falls to %s" % (
 			FortRules.level_name(after) if after > 0 else "open field"
 		)

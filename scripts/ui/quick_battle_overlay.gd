@@ -26,6 +26,7 @@ var _def_name: Label = null
 var _atk_bar: ProgressBar = null
 var _def_bar: ProgressBar = null
 var _plan_label: Label = null
+var _wall_label: Label = null
 var _log: VBoxContainer = null
 var _continue: Button = null
 var _skip: Button = null
@@ -139,12 +140,12 @@ func _build_bars(column: VBoxContainer) -> void:
 	_atk_name = _label("", 13, Palette.TEXT)
 	_atk_name.custom_minimum_size = Vector2(120, 0)
 	row.add_child(_atk_name)
-	_atk_bar = _bar(Palette.CRIMSON)
+	_atk_bar = UiTheme.progress(Palette.CRIMSON)
 	row.add_child(_atk_bar)
 	_def_name = _label("", 13, Palette.TEXT)
 	_def_name.custom_minimum_size = Vector2(120, 0)
 	_def_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_def_bar = _bar(Palette.NAVY)
+	_def_bar = UiTheme.progress(Palette.NAVY)
 	row.add_child(_def_bar)
 	row.add_child(_def_name)
 	_def_bar.fill_mode = ProgressBar.FILL_END_TO_BEGIN
@@ -163,6 +164,11 @@ func _build_bars(column: VBoxContainer) -> void:
 
 
 func _build_log(column: VBoxContainer) -> void:
+	# The wall a siege is fought over, kept apart from the three-line round log.
+	_wall_label = _label("", 12, Palette.TEXT)
+	_wall_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_wall_label.visible = false
+	column.add_child(_wall_label)
 	_log = VBoxContainer.new()
 	_log.add_theme_constant_override("separation", 2)
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -203,6 +209,13 @@ func _populate() -> void:
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
 	_plan_label.text = QuickBattleCopy.plan_text(battle)
+	# A siege plate names the wall before the first round — the fort, its
+	# protection, its lanes and its gates — not only in the aftermath
+	# (wiki: siege-mechanics § Quick Battle lanes, § Gates and Sortie). The round
+	# log holds three lines, so it cannot carry it.
+	var wall: String = QuickBattleCopy.siege_opening(battle)
+	_wall_label.text = wall
+	_wall_label.visible = not wall.is_empty()
 	_set_bars(
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1)),
 		int(quick.get("attacker_start", 1)), int(quick.get("defender_start", 1))
@@ -219,6 +232,8 @@ func _reset() -> void:
 	for pip: Label in _pips:
 		pip.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_outcome.text = ""
+	_wall_label.text = ""
+	_wall_label.visible = false
 	_continue.visible = false
 	_skip.visible = true
 
@@ -383,17 +398,3 @@ func _label(text: String, size_px: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	return label
 
-
-func _bar(color: Color) -> ProgressBar:
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = Vector2(0, 14)
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.add_theme_stylebox_override(
-		"background", UiTheme.box(Color(0.17, 0.14, 0.10), Palette.INK_LINE, 1, 3, Vector4(0, 0, 0, 0))
-	)
-	bar.add_theme_stylebox_override(
-		"fill", UiTheme.box(color, color.lightened(0.25), 1, 3, Vector4(0, 0, 0, 0))
-	)
-	return bar

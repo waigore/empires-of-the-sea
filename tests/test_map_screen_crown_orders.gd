@@ -61,6 +61,33 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	assert_true(builder.is_idle())
 
 
+## A wall is the one work whose completion changes how the province is fought
+## over, so the despatch names the level raised and the battery it mounts — a
+## crown that spent its materials and a turn learns what it bought (wiki:
+## siege-mechanics § Fort Levels, § Emplaced Artillery; REQ-P5-05).
+func test_a_finished_fort_names_the_wall_it_raised() -> void:
+	var engineer: CivilianState = null
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "engineer":
+			engineer = unit
+			break
+	assert_true(engineer != null, "the crown keeps an Engineer")
+	var province: int = _screen.model.province_at(engineer.tile.x, engineer.tile.y)
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["bronze"] = 12
+	_screen.civilian_layer.select(engineer)
+
+	MapPlayCivilians.on_action(_screen.play, "build_fort")
+	assert_true(engineer.is_working(), "the order is taken from the dossier")
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(FortRules.level_at(_screen.model, province), 1)
+	var said: String = _toast_text()
+	assert_true(said.contains("wood fort raised"), said)
+	assert_true(said.contains("1 emplaced gun"), said)
+
+
 ## The hire is a BuildUnitOrder: the press queues it, and Build/work pays the
 ## 1,000 ducats and 2 paper and musters the explorer that turn
 ## (wiki: civilian-units § Training; workers-and-population § Phase placement).
@@ -841,3 +868,20 @@ func _buildable_owned_resource_tile() -> Vector2i:
 				continue
 			return tile
 	return Vector2i(-1, -1)
+
+
+## Everything the court has been told this turn, as the toast box holds it.
+func _toast_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	_collect(_screen.hud._toast_box, parts)
+	return " | ".join(parts)
+
+
+func _collect(node: Node, out: PackedStringArray) -> void:
+	if node == null:
+		return
+	var label: Label = node as Label
+	if label != null and not label.text.is_empty():
+		out.append(label.text)
+	for child: Node in node.get_children():
+		_collect(child, out)
