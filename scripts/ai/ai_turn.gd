@@ -53,7 +53,9 @@ static func run(
 			"candidates": plan["candidates"],
 		}
 		if not action.is_empty():
-			var applied: Dictionary = _apply(state, world, ai_state, faction, action, turn)
+			var applied: Dictionary = _apply(
+				state, world, ai_state, faction, action, turn, game_seed, shared
+			)
 			record["result"] = applied.get("result", {})
 			var message: String = String(applied.get("message", ""))
 			record["message"] = message
@@ -184,7 +186,9 @@ static func _apply(
 	ai_state: AiState,
 	faction: int,
 	action: Dictionary,
-	turn: int
+	turn: int,
+	game_seed: int,
+	shared: Dictionary
 ) -> Dictionary:
 	var target: int = int(action.get("target", -1))
 	var kind: String = String(action.get("kind", ""))
@@ -216,7 +220,15 @@ static func _apply(
 			if bool(offer.get("ok", false)):
 				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
 			return {"result": offer, "message": message}
-		var peace: Dictionary = DiplomacyRules.make_peace(state, faction, target)
+		var peace: Dictionary = DiplomacyRules.make_peace(
+			state, faction, target,
+			_peace_answer(state, world, ai_state, faction, target, game_seed, shared)
+		)
+		if bool(peace.get("ok", false)) and ai_state != null:
+			# Either answer starts the pair's peace-offer cooldown, so a court
+			# does not ask again every turn (wiki: diplomacy § Planner
+			# selection; DR-20261109-07).
+			ai_state.note_peace(faction, target, turn)
 		return {
 			"result": peace,
 			"message": String(peace.get("message", "")),
@@ -224,6 +236,40 @@ static func _apply(
 	if bool(action.get("propose", false)):
 		return _propose(state, world, faction, action)
 	return _apply_order(state, world, ai_state, faction, action)
+
+
+## The answering court's own word on a white peace between two rivals. A court
+## that still wants the war it is fighting refuses the offer, so a declaration is
+## not undone by the defender in the phase it was made (wiki: diplomacy § Planner
+## selection; hidden-agendas — warmonger keeps the war alive; DR-20261111-27).
+## Only Great Powers answer by stance; a Minor or Tribe keeps the wiki's "never
+## refuses peace", and the rules' auto test answers it.
+static func _peace_answer(
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	offerer: int,
+	target: int,
+	game_seed: int,
+	shared: Dictionary
+) -> String:
+	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+		return DiplomacyRules.DECISION_AUTO
+	if ai_state == null:
+		return DiplomacyRules.DECISION_AUTO
+	var config: AiConfig = AiConfig.build(target, game_seed)
+	var agenda: String = ai_state.agenda_for(config)
+	if agenda != config.agenda:
+		# A run keeps the agenda it rolled (or a fixture fixed); the answer must
+		# read that court's own peace stance, not a fresh roll.
+		config.agenda = agenda
+		config.agenda_traits = AiAgenda.resolve(agenda)
+	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+		config, state, world, target, offerer, _reading(shared, target)
+	)
+	if not AiPeaceStance.refuses(config, int(desire["score"])):
+		return DiplomacyRules.DECISION_AUTO
+	return DiplomacyRules.DECISION_REFUSE
 
 
 ## Queues a treaty or trade-pact offer for the human court's answer. The court
