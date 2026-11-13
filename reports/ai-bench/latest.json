@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "c012beb7d4ce2f663ce2f0641cfa80d51844a027",
   "commit": "cb72ebc3086a77446e5fdcc235afb9c926991c72",
-  "submission_hash": "sha256:24fc0ff23d4ebc349d68ad6298335edaf794882c6d5081242d63cb6e5b8e898f",
-  "submission_git": "refactor/one-court-reader@511813d",
+  "submission_hash": "sha256:4288f9cb614df8c6a43123be32d5300f9394164f6b94a1b306ce63a8de0154c8",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T193500741280Z@0db6649",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 70.68013468013469,
+      "value": 65.10437710437711,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:10e363a8d54b5e63580033125b4a6aa57edbb604d0321f46d51e5da9f9e7851c",
+    "ai_surface_hash": "sha256:df959e102b0fc23b04e5139a87b48a54713c2f3b681a2f96af0532529e137d83",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -65,14 +65,14 @@
       "workers": 4,
       "extraction_per_turn": 2.7,
       "income_per_turn": 133.29166666666666,
-      "funded_pct": 70.68013468013469
+      "funded_pct": 65.10437710437711
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 75,
     "resolved_turns": 75,
-    "funded_pct": 70.68013468013469
+    "funded_pct": 65.10437710437711
   },
   "params": {
     "turns": 200,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T19:28:37Z",
+  "timestamp": "2026-11-13T20:21:44Z",
   "report_version": 1,
-  "signature": "hmac-sha256:ba9c34131214302969f2fc6063f60a7748fefe51e1cec615bf4659d1191be70f"
+  "signature": "hmac-sha256:8b494a9bef414d12bb2073a8cd90abeb4725a61e5216afd0a291bcad889bdf40"
 }
