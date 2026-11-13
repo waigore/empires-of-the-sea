@@ -29,10 +29,6 @@ schedules:
     cron: "30 */3 * * *"
     agents:
       - audit-deferred-agent
-  half-hourly-babysit-pr:
-    cron: "*/30 * * * *"
-    agents:
-      - babysit-pr-agent
   hourly-fix-tests:
     cron: "15 * * * *"
     agents:
@@ -189,10 +185,12 @@ agents:
       otherwise pick one open resolved by judgement.
       One review pass; then exit.
 
+  # Continuous Cursor: eligible same-repo PRs (gated). Was half-hourly cron.
   babysit-pr-agent:
     skill: babysit-pr-agent
     provider: cursor
     enabled: true
+    cooldown_seconds: 30
     gate:
       command:
         - sh
