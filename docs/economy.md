@@ -55,7 +55,8 @@ that town (`min(4, 1+deeds)`).
 
 One global book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
 court orders plus Minor/Tribe per-tile auto-offers at the published price.
-Tiebreaks: integer priority, pact, colony favour, Consulate, relation; a
+Tiebreaks: integer priority, pact, colony favour, Consulate holders, then
+relation; a
 colony's suzerain clears first inside a tier (`MarketFavoured`, R7.1).
 First right of refusal fills a purchased tile's owner first and pays its relation
 share plus embassy kickback. Unfilled orders carry while holds cover them;
