@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": null,
   "commit": null,
-  "submission_hash": "sha256:6069c305322cc141feb93f820e82bedad7664a6a65013b70fb694dfc583c329c",
-  "submission_git": "feat/blockade-severs-extraction@7ead57d",
+  "submission_hash": "sha256:3bb76cba5ec76b20b6a892f8f22c6dda89da14b8ea93f24af2747622bef111e2",
+  "submission_git": "feat/blockade-severs-extraction@b33db53",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:b0c0b56634b85e5675674431e3fad96f879942c777399891fef9b8d6131f5f88",
+    "ai_surface_hash": "sha256:b4ad25d59a119840a0d0eef65b3da16875036029d41da9f5392667be687f5aea",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T08:19:23Z",
+  "timestamp": "2026-11-13T08:45:18Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cbdcb6ab51c2ca348af4efabbe44f6cacd013d7d2bf576f69dc41a8e363e424f"
+  "signature": "hmac-sha256:2d95d2c4fa13a17b1bc4a266e2014a4af793c4ce017951f6586550c3b14fb5a5"
 }
