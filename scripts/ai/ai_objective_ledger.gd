@@ -47,11 +47,15 @@ static func allocate(
 			continue
 		ranked += 1
 		objective.claim = _grant(objective.cost, pools)
-		if objective.shortfall().is_empty():
+		if objective.shortfall().is_empty() and _children_funded(objective):
 			objective.status = AiObjective.STATUS_FUNDED
 			funded += 1
 		else:
+			# A parent is only as funded as its children: a composite aim whose
+			# hull or peace window deferred is deferred itself, and keeps the
+			# child's shortfall as its reason (issue #491 T4).
 			objective.status = AiObjective.STATUS_DEFERRED
+			objective.blocked = _starved_child(objective)
 		lines.append(objective.line())
 	return {
 		"ranked": ranked,
@@ -89,6 +93,27 @@ static func to_dict(objectives: Array[AiObjective]) -> Array[Dictionary]:
 	for objective: AiObjective in objectives:
 		rows.append(objective.to_dict())
 	return rows
+
+
+## True when every child of this objective ended funded (or it has none).
+static func _children_funded(objective: AiObjective) -> bool:
+	for child: AiObjective in objective.children:
+		if child.status != AiObjective.STATUS_FUNDED:
+			return false
+	return true
+
+
+## The first child that did not fund, named with its shortfall, e.g.
+## "expedition.peace (orders 0/1)" — the reason a composite aim waited.
+static func _starved_child(objective: AiObjective) -> String:
+	for child: AiObjective in objective.children:
+		if child.status == AiObjective.STATUS_FUNDED:
+			continue
+		var claims: String = AiUtility.claim_text(child.cost, child.claim)
+		if claims.is_empty():
+			return child.id
+		return "%s (%s)" % [child.id, claims]
+	return ""
 
 
 ## Grant as much of `cost` as the pools hold. Each resource draws on its own

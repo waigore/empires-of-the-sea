@@ -99,6 +99,8 @@ func line() -> String:
 	if not claims.is_empty():
 		text += " %s" % claims
 	text += " %s" % status
-	if status == STATUS_BLOCKED and not blocked.is_empty():
+	# A blocked aim says why it cannot be had; a deferred parent names the child
+	# that starved it (issue #491 T4).
+	if not blocked.is_empty():
 		text += " (%s)" % blocked
 	return text
