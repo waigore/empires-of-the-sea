@@ -35,12 +35,26 @@ func test_offers_every_great_power_and_size_preset() -> void:
 func test_leader_choices_follow_the_chosen_crown() -> void:
 	assert_eq(setup.leader_option.item_count, LeaderCatalog.keys_for(0).size())
 	assert_true(setup.leader_option.get_item_text(0).contains("Isabella I"))
-	assert_true(setup.leader_option.get_item_text(0).contains("no land-combat bonus"))
+	assert_true(
+		setup.leader_option.get_item_text(0).contains("Tribe first contact"),
+		"the label names Spain's real effect, not a missing land bonus"
+	)
 	setup.nation_option.select(2)
 	setup.nation_option.emit_signal("item_selected", 2)
 	assert_eq(setup.leader_option.item_count, LeaderCatalog.keys_for(2).size())
 	assert_true(setup.leader_option.get_item_text(0).contains("Napoleon"))
 	assert_true(setup.leader_option.get_item_text(0).contains("+25%"))
+	# Every default crown names its own published bonus (leader-bonuses § UI).
+	for faction: int in FactionCatalog.great_power_ids():
+		setup.nation_option.select(faction)
+		setup.nation_option.emit_signal("item_selected", faction)
+		var text: String = setup.leader_option.get_item_text(0)
+		assert_true(text.contains(LeaderCatalog.bonus_label(LeaderCatalog.default_key(faction))),
+			"%s's label names its effect" % FactionCatalog.name_of(faction))
+		assert_false(
+			text.contains("no bonus"),
+			"%s fields a published bonus" % FactionCatalog.name_of(faction)
+		)
 
 
 func test_start_carries_the_chosen_leader_into_the_config() -> void:
