@@ -14,14 +14,22 @@ var selected_ship: Ship = null
 var rng := RandomNumberGenerator.new()
 
 
-## Mints a marker and places it where the fleet already stands.
-func make(fleet: FleetState) -> Ship:
+## Mints a marker and places it where the fleet already stands. `crown_view`
+## answers what the crown's chart says of one squadron (`drawn`, `read`), so a
+## marker reminted by a merge, a passage or a captured port starts where the
+## chart stands instead of handing back what the fog withholds (wiki:
+## ships-and-naval § Sighted strength; fog-and-exploration § Visibility Levels).
+func make(fleet: FleetState, crown_view: Callable = Callable()) -> Ship:
 	var ship := Ship.new()
 	ship.fleet_id = fleet.id
 	ship.faction = fleet.owner
 	ship.bob_phase = rng.randf() * TAU
 	ship.speed = 26.0 + rng.randf() * 16.0
 	refit(ship, fleet)
+	if crown_view.is_valid():
+		var view: Dictionary = crown_view.call(fleet)
+		ship.visible = bool(view.get("drawn", true))
+		ship.set_intel(bool(view.get("read", false)))
 	ships.append(ship)
 	return ship
 
