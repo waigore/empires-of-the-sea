@@ -46,7 +46,10 @@ static func close_turn(
 		research_report(play, economy, crown_report),
 		int(crown_report.get("riches_treasury", 0)),
 		raids.get("reports", []) as Array,
-		play.court_charts
+		play.court_charts,
+		# Build/work's recruits travelled in the crown's own report, so the
+		# sheet names what the turn delivered (wiki: the-gazette § Item catalog).
+		crown_report.get("musters", []) as Array
 	)
 	# An empty sheet is still filed so the archive has no gaps; it is not shown.
 	play.gazette.append(sheet)
