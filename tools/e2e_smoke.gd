@@ -114,6 +114,13 @@ func _run() -> void:
 	_check(screen.model.province_count() > 0, "provinces generated")
 	_check(screen.capital_province == seat, "the chart's seat starts the campaign")
 	_check(screen.capital_tile == seat_tile, "the chart's tile is the seat")
+	for region_index in screen.world.region_count():
+		var region: MapModel = screen.world.region(region_index)
+		for zone: SeaZoneState in region.sea_zones:
+			_check(
+				MapNaming.sea_presets(region.region_id).has(String(zone.name).split(" (")[0]),
+				"sea zone %d reads %s" % [zone.id, zone.name]
+			)
 	_check(screen.ship_layer != null, "ship layer present")
 	_check(
 		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
@@ -202,6 +209,25 @@ func _run() -> void:
 			field != null and not RegimentNames.of(field, field.regiments[0]).is_empty(),
 			"the detached regiment keeps its title"
 		)
+		# The crown's own name (DR-20261113-05): the order writes the title the
+		# roster prints, and the colours keep the name they were given.
+		if field != null:
+			var colours: String = field.regiments[0]
+			MapPlayArmies.on_action(
+				screen.play, "rename:%s:Guards of the Crown" % colours
+			)
+			await process_frame
+			_check(
+				RegimentNames.of(field, colours) == "Guards of the Crown",
+				"the crown names its colours"
+			)
+			var named_row: HBoxContainer = (
+				screen.hud.panels.army_panel._roster.get_child(0) as VBoxContainer
+			).get_child(0) as HBoxContainer
+			_check(
+				(named_row.get_child(1) as Label).text.begins_with("Guards of the Crown —"),
+				"the roster prints the crown's own name"
+			)
 		# The train (DR-20261112-07): the dossier names the offer or its refusal,
 		# and a pitched train reads on the strength line.
 		if field != null:
@@ -648,7 +674,7 @@ func _smoke_end_turn(
 		)
 	screen.economy._on_production("lumber", 1)
 	_check(
-		screen.economy.economy.assignment_units("lumber") == 1,
+		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
 	)
 	# A two-turn alloy names its wait on the row, so a phone player is not left

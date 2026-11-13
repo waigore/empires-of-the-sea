@@ -213,6 +213,26 @@ const POINTS: Dictionary = {
 			"Our terms are a white peace, no more and no less. Answer it.",
 		],
 	},
+	# A pact and a non-aggression offer are treaties of their own: the envoy
+	# names the one on the table, never a consul it is not offering.
+	"negotiation/proposal_ftp": {
+		"category": CAT_NEGOTIATION,
+		"moods": ["considering", "calculating"],
+		"lines": [
+			"Let our merchants be favoured partners, and our ports will know it.",
+			"A trading pact between our crowns: your lots clear first at our quay.",
+			"Put your name to a favoured pact, and we shall both sell at better rates.",
+		],
+	},
+	"negotiation/proposal_nap": {
+		"category": CAT_NEGOTIATION,
+		"moods": ["considering", "calculating"],
+		"lines": [
+			"The pact of non-aggression, then. Our clerks have the draft ready.",
+			"One more step between our crowns. Put your seal to the pact.",
+			"We are near enough to sign it. Let the non-aggression pact stand.",
+		],
+	},
 	# --- reactive: the court's standing word when nothing has happened --------
 	# The five bands are authored in [DialogueYarn], a Yarn script keyed by the
 	# same `DialoguePoint/<category>/<situation>` point; the merged catalogue

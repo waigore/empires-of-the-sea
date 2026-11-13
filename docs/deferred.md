@@ -1,13 +1,13 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-03 (`REQ-P2-02`).
+Audited through DR-20261113-08 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
 | Difficulty (stores, field, sea, crown's bar) | `Difficulty` / `VictoryRules`, DR-20261111-25/28 |
-| Agenda decision hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
+| Agenda hooks + dialogue beats | `AiAgenda`, `DialogueAgenda`, DR-20261111-27/19 |
 | Rival boycotts | `AiDiplomacyOffers`, [`ai.md`](ai.md) |
 | Home-fleet merge | `FleetHomeMerge` / `NavalMovement.merge_into_home` |
 | Forts + rival civilian AI | [`forts.md`](forts.md), `AiCivilianPlanner` |
@@ -20,31 +20,29 @@ Audited through DR-20261113-03 (`REQ-P2-02`).
 | Rival GP–Tribe first contact (+ deeds) | `TribeContact`, `AiMerchantWork`, DR-20261111-14 |
 | Hospitals, rival builders, staff upkeep | `HospitalRules` / `AiHospitalWork` / `EconomyConsumption` |
 | Research goal in the save | `ResearchState.goal` / `ResearchSlots` (DR-20261111-21) |
-| Regiment titles, records, named commanders | `RegimentNames` / `RegimentRecord` / `GeneralNames` |
+| Regiment titles, records, commanders, renaming | `RegimentNames` / `RegimentRecord` / `GeneralNames` / `RegimentRename`, DR-20261113-05 |
 | Raid hull losses; rival-on-rival raids | `NavalRaid` / `MapPlayRaids`, DR-20261111-17/20 |
 | Road L2, gathering caps, path transport | `TechUnlocks` / `Extraction` |
 | Minor/Tribe town development (deed raises town) | `MinorTownGrowth`, DR-20261112-01 |
-| Battle honours (province on the colours) | `RegimentRecord`, DR-20261112-02 |
+| Battle honours; citations; decoration weight | `RegimentRecord` / `RegimentDecorations`, DR-20261112-02/10/13-04 |
 | Advanced-start rival chart + Passage lanes | `AdvancedSeas`, DR-20261112-06 |
 | Field-hospital trains (player + rival) | `HospitalTrain` / `AiHospitalTrainWork`, DR-20261112-07/08 |
 | Rival order-of-battle readings | `OobReadings`, DR-20261112-09 |
-| Citations, decoration ladder, despatch history | `RegimentDecorations`, DR-20261112-10 |
-| Multi-turn recipes (two-turn alloys) | `ProductionRecipes.turns` / `PlayerEconomy.production_wip`, DR-20261112-11 |
-| Per-unit staggered completion | `ProductionRecipes.landing` / `plan`, DR-20261113-02 |
+| Multi-turn recipes; per-unit stagger | `ProductionRecipes` / `production_wip`, DR-20261112-11/13-02 |
 | Yarn runtime + locale keys | `DialogueYarn` / `DialogueLocale`, DR-20261113-01 |
-| Rival-vs-rival fog for diplomacy | `CourtCharts` in the planner context, DR-20261113-03 |
+| Rival-vs-rival fog for diplomacy | `CourtCharts` planner context, DR-20261113-03 |
+| Military fabric reservation (next muster) | `AiArmyReinforce.muster_reserve`, DR-20261113-08 |
+| French court lines | `assets/locales/fr.po`, DR-20261113-06 |
 
 ## Remaining gaps (impact order)
 
 | Rank | Gap | Why it matters | Notes |
 |-----:|-----|----------------|-------|
-| 1 | A decoration that buys something | Rules depth | Wiki DR-20261113-04 (`×1.05`/`×1.10`); code omits |
-| 2 | Translation content | Localization | Keys live; needs words |
+| 1 | Tongue picker / other tongues | Localization | after French, DR-20261113-06 |
 
 ## Next pick
 
-**Rank 1** — Decoration: wiki numbers exist; main still display-only
-(`RegimentDecorations` / `ArmyModifiers`).
+**Rank 1** — Tongue picker / other tongues (after French, DR-20261113-06).
 
 ## Out of scope / blocked footnotes
 
@@ -57,5 +55,7 @@ Audited through DR-20261113-03 (`REQ-P2-02`).
 - Difficulty extras — [ruleset-config](https://github.com/waigore/empires-of-the-sea/wiki/ruleset-config) § Outside this layer.
 - Quick Battle multi-lane / collapse — [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle).
 - General borrowing / loans — Money Lending floor live; rest deferred.
-- Per-region prospected table — deferred (DR-20261110-21).
-- Recipe gates; more multi-turn rows; queue caps; muster of the dead — DR-20261112-10/11/13-02.
+- Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
+- Works' reservation + coexistence — seed (DR-20261113-08).
+- Recipe gates on a building or a worker tier; multi-turn rows beyond steel and
+  bronze; a workshop queue cap — wiki-deferred.

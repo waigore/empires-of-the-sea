@@ -10,7 +10,6 @@ const SEED: int = 1500
 ## The province targets clamp from 40x32 up, so this smaller chart seats the same
 ## 19 crowns while the page paints far fewer tiles on every case.
 const SIZE: Vector2i = Vector2i(40, 32)
-const FLOW_SIZE: Vector2i = Vector2i(48, 32)
 
 var world: WorldMap = null
 var page: CapitalChoiceScreen = null
@@ -411,15 +410,18 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 
 ## Back out of the chart and start a new game: the second chart must roll a new
 ## world and the campaign must start on it, never on the abandoned roll.
+## The first chart reuses the suite's cached world; only the second roll pays
+## `generate_world` so the case still proves the abandoned chart is discarded.
 func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	var main: Node = MAIN.instantiate()
 	main.auto_start = false
-	main.size_override = FLOW_SIZE
+	main.size_override = SIZE
+	main.preset_world = world
 	add_child(main)
 	var menu: MainMenu = main.current_page
 	menu.new_game_button.emit_signal("pressed")
 	var setup: GameSetupScreen = main.current_page
-	setup.seed_field.text = "777"
+	setup.seed_field.text = str(SEED)
 	setup.start_button.emit_signal("pressed")
 	var first: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	assert_not_null(first, "the first chart opens")
@@ -429,7 +431,8 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	await get_tree().process_frame
 	var first_world: WorldMap = first.world
 	var first_model: int = first.model.get_instance_id()
-	assert_eq(first.config.map_seed, 777)
+	assert_eq(first.config.map_seed, SEED)
+	assert_true(first_world == world, "the first chart reused the suite cache")
 	first.back_pressed.emit()
 	await get_tree().process_frame
 	var setup2: GameSetupScreen = main.current_page as GameSetupScreen
@@ -437,6 +440,8 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	if setup2 == null:
 		main.free()
 		return
+	# Clear the preset so the second start must roll a fresh chart.
+	main.preset_world = null
 	setup2.seed_field.text = "424242"
 	setup2.start_button.emit_signal("pressed")
 	var second: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen

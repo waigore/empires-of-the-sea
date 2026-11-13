@@ -1318,12 +1318,12 @@ func test_ai_state_keeps_and_restores_rival_ledgers() -> void:
 	var economy: PlayerEconomy = ai.economy_for(1)
 	economy.add("grain", 7)
 	economy.add_treasury(123)
-	economy.set_assignment("lumber", 2)
+	economy.production.set_assignment("lumber", 2)
 	var restored: AiState = AiState.from_dict(ai.to_dict())
 	var loaded: PlayerEconomy = restored.economy_for(1)
 	assert_eq(loaded.quantity("grain"), economy.quantity("grain"))
 	assert_eq(loaded.treasury, economy.treasury)
-	assert_eq(loaded.assignment_units("lumber"), 2)
+	assert_eq(loaded.production.assignment_units("lumber"), 2)
 
 
 func test_ai_economy_respects_labour_and_inputs() -> void:
@@ -1396,7 +1396,7 @@ func test_ai_economy_counts_the_run_this_phase_will_start() -> void:
 		"bronze": 19,
 	}
 	var config: AiConfig = AiConfig.build(1, 1500)
-	economy.set_assignment("bronze", 1)
+	economy.production.set_assignment("bronze", 1)
 	var plan: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 	for assignment: Dictionary in plan["assignments"]:
 		assert_ne(

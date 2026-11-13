@@ -10,9 +10,20 @@ extends RefCounted
 ## authored source line, so the source language is never lost and a shipped
 ## `.po` / `.translation` fills one point at a time (REQ-P2-05). No rule reads a
 ## translated string (REQ-P2-03).
+##
+## One tongue ships today: the French words in [constant SHIPPED], loaded once
+## on the first line a court speaks, so a build with no file still speaks the
+## source (wiki: dialogue-content-and-yarn; DR-20261113-06). The reader's own
+## tongue decides — the [TranslationServer] reads the OS locale, and a line the
+## file does not answer keeps the English variant.
 
 const SOURCE_LOCALE: String = "en"
 const KEY_PREFIX: String = "DialoguePoint"
+## The one shipped tongue: its file names the locale, so a `.po` dropped beside
+## it (or renamed) is content the build learns without a project setting.
+const SHIPPED: String = "res://assets/locales/fr.po"
+
+static var _shipped: Dictionary = {}
 
 ## The key one authored variant answers to, e.g.
 ## `DialoguePoint/diplomatic/peace_made/0`.
@@ -22,10 +33,25 @@ static func line_key(point: String, index: int) -> String:
 
 ## A translated line, or the authored one when the key has no translation.
 static func translate(key: String, fallback: String) -> String:
+	load_shipped()
 	var found: String = String(TranslationServer.translate(key))
 	if found.is_empty() or found == key:
 		return fallback
 	return found
+
+
+## Registers a shipped tongue once per path. A build that has no file — or a
+## project whose assets were never imported — is not an error: every line keeps
+## the authored source, so a court is never silent (REQ-P2-05).
+static func load_shipped(path: String = SHIPPED) -> void:
+	if _shipped.has(path):
+		return
+	_shipped[path] = true
+	if not ResourceLoader.exists(path):
+		return
+	var words: Variant = load(path)
+	if words is Translation:
+		TranslationServer.add_translation(words as Translation)
 
 
 ## One variant of one point, in the locale the game is running.
