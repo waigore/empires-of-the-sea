@@ -1,8 +1,11 @@
 class_name EconomyController
 extends Node
-## Connects the player's economy to the map screen: builds the opening economy,
-## runs turn resolution, and turns ledger button presses into market/production
-## intents. Rules live in scripts/rules; this node only wires and reports.
+## Mounts the crown's economy on the map screen: builds the opening ledger, runs
+## the end-of-turn phases and repaints the sheet.
+##
+## The figures the sheet prints belong to [LedgerReadings]; every ledger and
+## college button press belongs to [LedgerOrders]. This node owns the mount, the
+## turn and the panel surface — never a rule (REQ-P3-01, REQ-P2-03).
 
 signal treasury_changed(value: int)
 
@@ -18,13 +21,11 @@ var works: LandWorks = null
 ## § Phase placement).
 var play: PlaySession = null
 
-var _ships: ShipLayer = null
-var _armies: ArmyLayer = null
-var _hud: GameHud = null
+var ship_layer: ShipLayer = null
+var army_layer: ArmyLayer = null
+var hud: GameHud = null
 ## Every region's works, so overseas estates yield (DR-20261109-17).
 var works_by_region: MapRegionTable = null
-## Consumption report of the last resolved turn, for feeding coverage.
-var _last_consumption: Dictionary = {}
 ## Tech id -> percent the crown's spy network adds this Research phase, set by
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
@@ -36,10 +37,70 @@ var blockade_source: Callable = Callable()
 ## The crown's leaderKey, fixed at game start; its published funding multiplier
 ## lifts the research points the phase earns (wiki: leader-bonuses — Victoria).
 var leader_key: String = ""
-## Last world-market clearing (deals, fills, credits), so the ledger can name
-## the auction's receipt and the overseas share it paid (wiki: world-market
-## § First right of refusal; REQ-P5-05).
-var last_clearing: Dictionary = {}
+## The figures the sheet prints this turn (harvest, cargo, projection).
+var readings: LedgerReadings = null
+## The ledger's and the college's button presses, as intents.
+var orders: LedgerOrders = null
+## Last world-market clearing receipt; owned by [member readings], exposed here
+## so map helpers keep one ledger handle (REQ-P3-01).
+var last_clearing: Dictionary:
+	get:
+		return readings.last_clearing if readings != null else {}
+	set(value):
+		if readings != null:
+			readings.last_clearing = value
+
+
+func _init() -> void:
+	readings = LedgerReadings.new(self)
+	orders = LedgerOrders.new(self)
+
+
+## Thin pass-throughs: callers that only need a figure keep talking to this
+## node; the reading still has one owner (REQ-P3-01).
+func fleet_ships() -> int:
+	return readings.fleet_ships() if readings != null else 0
+
+
+func tech_caps() -> Dictionary:
+	return readings.tech_caps() if readings != null else {}
+
+
+func army_food() -> int:
+	return readings.army_food() if readings != null else 0
+
+
+func trade_cargo() -> Dictionary:
+	return readings.trade_cargo() if readings != null else {}
+
+
+func cargo_holds() -> int:
+	return readings.cargo_holds() if readings != null else 0
+
+
+func overseas_plan() -> Dictionary:
+	return readings.overseas_plan() if readings != null else {}
+
+
+func feeding_coverage() -> float:
+	return readings.feeding_coverage() if readings != null else 1.0
+
+
+func extraction() -> Dictionary:
+	return readings.extraction() if readings != null else {}
+
+
+func projected() -> Dictionary:
+	return readings.projected() if readings != null else {}
+
+
+func projected_income() -> int:
+	return readings.projected_income() if readings != null else 0
+
+
+func _on_worker_action(tier: int, action: String) -> void:
+	if orders != null:
+		orders.worker_action(tier, action)
 
 
 func setup(
@@ -58,150 +119,36 @@ func setup(
 	capital_province = p_capital
 	capital_tile = p_capital_tile
 	works = p_works
-	_ships = p_ships
-	_armies = p_armies
-	_hud = p_hud
+	ship_layer = p_ships
+	army_layer = p_armies
+	hud = p_hud
 	leader_key = p_leader
 	economy = PlayerEconomy.starting()
 	market = WorldMarket.with_default_prices()
 	_connect()
-	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
+	MinorMarket.publish(
+		market, ship_layer.world if ship_layer != null else null, player_faction
+	)
 
 
+## The ledger and the college press their own orders straight into the intent
+## owner; this node only gives them the panels to live on.
 func _connect() -> void:
-	if _hud == null:
+	if hud == null:
 		return
-	_hud.economy_pressed.connect(open_panel)
-	_hud.research_pressed.connect(open_research)
-	var panel: EconomyPanel = _hud.panels.economy_panel
-	panel.trade_requested.connect(_on_trade)
-	panel.offer_requested.connect(func(offer_id: String, quantity: int) -> void:
-		var index: int = MinorMarket.index_of(market.minor_offers, offer_id)
-		if index < 0:
-			if _hud != null:
-				_hud.toast("That court has nothing left to sell this turn.")
-			return
-		var commodity: String = String(
-			(market.minor_offers[index] as Dictionary).get("commodity", "")
-		)
-		_on_trade(commodity, quantity, true)
-	)
-	panel.cancel_requested.connect(_on_cancel)
-	panel.production_changed.connect(_on_production)
-	panel.recruit_requested.connect(_on_worker_action.bind("recruit"))
-	panel.disband_requested.connect(_on_worker_action.bind("disband"))
-	var research: ResearchPanel = _hud.panels.research_panel
-	research.assign_requested.connect(_on_research_assign)
-	research.cancel_requested.connect(_on_research_cancel)
-	research.funding_requested.connect(_on_research_funding)
-
-
-## Ships in the player's fleets drive naval food upkeep this turn. Every region
-## counts: a squadron parked on the other map still eats.
-func fleet_ships() -> int:
-	if _ships == null:
-		return 0
-	return _ships.hull_count_all(player_faction)
-
-
-## Extraction ceilings from the researched tech tree (wiki:
-## tech-and-extraction-cap), per commodity.
-func tech_caps() -> Dictionary:
-	return TechCatalog.extraction_caps(economy.tech_unlocked)
-
-
-## Army rations across every region (wiki: economy § Consumption: army first).
-func army_food() -> int:
-	if _armies == null:
-		return 0
-	return _armies.food_upkeep_all(player_faction)
-
-
-## Merchant cargo for the ledger: holds in the home fleet, this turn's colonial
-## delivery reserved first, imports laden this turn (wiki: ships-and-naval
-## § Cargo holds and capacity; DR-20261109-03, DR-20261109-17).
-func trade_cargo() -> Dictionary:
-	var status: Dictionary
-	if _ships == null or _ships.world == null:
-		status = {"holds": 0, "used": TradeCargo.used(market), "reserved": 0, "free": 0}
-	else:
-		status = TradeCargo.status(
-			_ships.world, _ships.regions.snapshot(), player_faction, market,
-			int(overseas_plan().get("used", 0))
-		)
-	# The ledger shows what is still free after staged bids; the clearing pass
-	# needs the gross figure, because the bids themselves are not yet laden.
-	var pending: int = market.book.pending_buy_units(player_faction) if market != null else 0
-	var gross: int = int(status.get("free", 0))
-	status["pending"] = pending
-	status["clear_free"] = gross
-	status["free"] = maxi(gross - pending, 0)
-	return status
-
-
-## Holds the crown's home squadron carries this turn (0 while it is away).
-func cargo_holds() -> int:
-	if _ships == null or _ships.world == null:
-		return 0
-	return TradeCargo.capacity(_ships.world, _ships.regions.snapshot(), player_faction)
-
-
-## Overseas yield delivered this turn. Extraction takes the home fleet's holds
-## before trade, richest commodity first; undelivered cargo stays abroad
-## (wiki: extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
-func overseas_plan() -> Dictionary:
-	var by_region: Dictionary = {}
-	if _ships != null and _ships.world != null:
-		var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
-		by_region = EconomyOverseas.region_totals(
-			_ships.world, home_region, player_faction, tech_caps(), works_by_region,
-			{}, {}, Blockades.of(blockade_source)
-		)
-	return EconomyOverseas.plan(by_region, cargo_holds())
-
-
-## Share of last turn's army rations the granary could cover (0..1). Full
-## rations before the first Consumption; armies fight at this coverage.
-func feeding_coverage() -> float:
-	var demand: int = int(_last_consumption.get("army_demand", 0))
-	if demand <= 0:
-		return 1.0
-	return clampf(float(int(_last_consumption.get("army_fed", 0))) / float(demand), 0.0, 1.0)
-
-
-## Everything that reaches the crown's stockpile this turn: home-region land
-## yield plus the overseas cargo the home fleet actually delivers.
-func extraction() -> Dictionary:
-	var seals: Blockades = Blockades.of(blockade_source)
-	var home: Dictionary = Extraction.yields(
-		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile, economy.tech_unlocked, true, {}, seals
-	)
-	if _ships == null or _ships.world == null:
-		return home
-	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
-	return EconomyOverseas.delivered(
-		home, _ships.world, home_region, player_faction, tech_caps(),
-		works_by_region, cargo_holds(), economy.tech_unlocked, seals
-	)["extraction"] as Dictionary
-
-
-func projected() -> Dictionary:
-	var world: WorldMap = _ships.world if _ships != null else null
-	var report: Dictionary = EconomyTurn.project(
-		economy, market, extraction(), fleet_ships(), army_food(), research_boost,
-		HospitalRules.demand_list(world, player_faction), leader_key
-	)
-	# The auction clears after these phases, so the ledger names what is staged
-	# and what the last clearing paid: the per-turn figure alone is not the
-	# whole purse movement (wiki: world-market § Trade orders; REQ-P5-05).
-	report["staged_orders"] = market.book.orders_for(player_faction).size() if market != null else 0
-	report["clearing"] = last_clearing
-	return report
-
-
-func projected_income() -> int:
-	return int(projected().get("treasury_delta", 0))
+	hud.economy_pressed.connect(open_panel)
+	hud.research_pressed.connect(open_research)
+	var panel: EconomyPanel = hud.panels.economy_panel
+	panel.trade_requested.connect(orders.trade)
+	panel.offer_requested.connect(orders.offer)
+	panel.cancel_requested.connect(orders.withdraw)
+	panel.production_changed.connect(orders.set_production)
+	panel.recruit_requested.connect(orders.worker_action.bind("recruit"))
+	panel.disband_requested.connect(orders.worker_action.bind("disband"))
+	var research: ResearchPanel = hud.panels.research_panel
+	research.assign_requested.connect(orders.assign_research)
+	research.cancel_requested.connect(orders.cancel_research)
+	research.funding_requested.connect(orders.cycle_research_funding)
 
 
 ## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
@@ -213,14 +160,15 @@ func resolve_turn() -> Dictionary:
 	# turn ordered, so a regiment mustered now never fights in its own turn.
 	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
 	var before: int = economy.treasury
-	var plan: Dictionary = overseas_plan()
-	var world: WorldMap = _ships.world if _ships != null else null
+	var plan: Dictionary = readings.overseas_plan()
+	var world: WorldMap = ship_layer.world if ship_layer != null else null
 	# The share stays on the controller after the phase so the research panel can
 	# still show the "+15%" it just spent (REQ-P5-05); the next end-turn sets it
 	# afresh before it is spent again.
 	var report: Dictionary = EconomyTurn.resolve(
-		economy, market, extraction(), fleet_ships(), army_food(), false,
-		research_boost, HospitalRules.demand_list(world, player_faction), leader_key
+		economy, market, readings.extraction(), readings.fleet_ships(),
+		readings.army_food(), false, research_boost,
+		HospitalRules.demand_list(world, player_faction), leader_key
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;
@@ -234,167 +182,79 @@ func resolve_turn() -> Dictionary:
 	# A sealed harbour is a rule, not a lean harvest: the despatch names it
 	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
 	report["blockade"] = Blockades.note(Blockades.of(blockade_source), world)
-	_last_consumption = report.get("consumption", {}) as Dictionary
+	readings.last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
-	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
-	if _armies != null:
-		_armies.sync_generals(player_faction, economy.tech_unlocked)
-	if _hud != null:
-		_hud.set_treasury(economy.treasury)
-		_hud.flash_income(economy.treasury - before)
-		_hud.set_income(projected_income())
-		_hud.set_fleets(fleet_ships())
-		if _armies != null:
-			_hud.set_armies(_armies.regiment_count_all(player_faction))
-		_hud.toast(LedgerText.turn_summary(report))
-	_refresh_research_panel()
+	MinorMarket.publish(
+		market, ship_layer.world if ship_layer != null else null, player_faction
+	)
+	if army_layer != null:
+		army_layer.sync_generals(player_faction, economy.tech_unlocked)
+	if hud != null:
+		hud.set_treasury(economy.treasury)
+		hud.flash_income(economy.treasury - before)
+		hud.set_income(readings.projected_income())
+		hud.set_fleets(readings.fleet_ships())
+		if army_layer != null:
+			hud.set_armies(army_layer.regiment_count_all(player_faction))
+		hud.toast(LedgerText.turn_summary(report))
+	refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report
 
 
 func open_panel() -> void:
-	if _hud != null:
-		_hud.panels.show_economy(
-			economy, market, projected(), trade_cargo(), market.minor_offers,
-			player_faction
-		)
+	if hud == null:
+		return
+	hud.panels.show_economy(
+		economy, market, readings.projected(), readings.trade_cargo(),
+		market.minor_offers, player_faction
+	)
 
 
 func open_research() -> void:
-	if _hud != null:
-		_hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key
-		)
-
-
-func _refresh_research_panel() -> void:
-	if _hud == null:
+	if hud == null:
 		return
-	if _hud.panels.is_research_open():
-		_hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key
-		)
-
-
-func _on_research_assign(tech_id: String) -> void:
-	var result: Dictionary = economy.research.assign(tech_id)
-	_after_research(result)
-
-
-func _on_research_cancel(slot: int) -> void:
-	var result: Dictionary = economy.research.cancel(slot)
-	_after_research(result)
-
-
-func _on_research_funding(slot: int) -> void:
-	economy.research.cycle_funding(slot)
-	_refresh_research_panel()
-	# A preset change moves the gold the purse pays every turn, and the chip is
-	# the only place that figure is always visible (REQ-P5-05).
-	if _hud != null:
-		_hud.set_income(projected_income())
-
-
-func _after_research(result: Dictionary) -> void:
-	if _hud != null:
-		_hud.toast(String(result.get("message", "")))
-	_refresh_research_panel()
-	# Starting or abandoning a study changes the per-turn gold; the top bar must
-	# read the new figure before the turn is even closed.
-	if _hud != null:
-		_hud.set_income(projected_income())
+	hud.panels.show_research(economy.research, economy.treasury, research_boost, leader_key)
 
 
 func refresh_panel() -> void:
-	if _hud == null:
+	if hud == null:
 		return
-	if _hud.panels.is_economy_open():
-		_hud.panels.show_economy(
-			economy, market, projected(), trade_cargo(), market.minor_offers,
-			player_faction
+	if hud.panels.is_economy_open():
+		hud.panels.show_economy(
+			economy, market, readings.projected(), readings.trade_cargo(),
+			market.minor_offers, player_faction
 		)
-	_hud.set_treasury(economy.treasury)
-	_hud.set_income(projected_income())
+	hud.set_treasury(economy.treasury)
+	hud.set_income(readings.projected_income())
 	treasury_changed.emit(economy.treasury)
 
 
-func _on_trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
-	var result: Dictionary
-	if is_buy:
-		var cargo: Dictionary = trade_cargo()
-		result = MarketOrders.submit(
-			market,
-			player_faction, commodity, MarketOrder.SIDE_BID, quantity,
-			{
-				"cargo_free": int(cargo.get("clear_free", cargo.get("free", 0))),
-				"treasury": economy.treasury,
-				"tech_unlocked": economy.tech_unlocked,
-				"buy_price": market.buy_price(commodity, player_faction),
-			}
-		)
-	else:
-		result = MarketOrders.submit(
-			market,
-			player_faction, commodity, MarketOrder.SIDE_OFFER, quantity,
-			{
-				"stock": economy.quantity(commodity),
-				# The assigned runs eat their inputs before the auction clears
-				# (wiki: world-market § Trade orders — offer cap; the AI planners
-				# reserve the same tons).
-				"reserved": ProductionRecipes.reserved_inputs(economy.production.assignments()),
-			},
-			2
-		)
-	if _hud != null:
-		if bool(result.get("ok", false)):
-			var side: String = "Bid" if is_buy else "Offer"
-			_hud.toast("%s staged: %d %s. The market clears when the turn closes." % [
-				side, quantity, CommodityCatalog.label(commodity)
-			])
-		else:
-			_hud.toast(String(result.get("reason", "Trade refused")))
-	refresh_panel()
-	return result
-
-
-## Cancels one staged order; carry-forward orders are left alone.
-func _on_cancel(order_id: String) -> void:
-	if not MarketOrders.cancel(market, player_faction, order_id):
-		if _hud != null:
-			_hud.toast("That order can no longer be withdrawn.")
-	refresh_panel()
-
-
-func _on_production(recipe_id: String, units: int) -> void:
-	economy.production.set_assignment(recipe_id, units)
-	refresh_panel()
-
-
-## One worker action from the ledger. Recruit only queues: the crown pays in
-## Build/work and the new worker takes up its labour the turn after
-## (wiki: workers-and-population § Phase placement). Disband demotes one trained
-## worker to a peasant at once and refunds nothing — the rules own both verdicts.
-func _on_worker_action(tier: int, action: String) -> void:
-	if action == "disband":
-		var blocked: String = economy.disband_blocked_reason(tier)
-		var sent: bool = blocked.is_empty() and economy.disband(tier)
-		if _hud != null:
-			if sent:
-				_hud.toast(
-					"One %s returns to the fields — no cost is refunded."
-					% WorkerPool.tier_one(tier).to_lower()
-				)
-			else:
-				_hud.toast(blocked if not blocked.is_empty() else "Disband refused")
-		refresh_panel()
+## Repaints the college sheet while it is open: a study moved the figures.
+func refresh_research_panel() -> void:
+	if hud == null:
 		return
-	var result: Dictionary = economy.queue_recruit(tier)
-	if _hud != null:
-		if bool(result.get("ok", false)):
-			_hud.toast(
-				"One %s is engaged — they arrive next turn"
-				% WorkerPool.tier_one(tier).to_lower()
-			)
-		else:
-			_hud.toast(String(result.get("reason", "Recruit refused")))
-	refresh_panel()
+	if hud.panels.is_research_open():
+		hud.panels.show_research(
+			economy.research, economy.treasury, research_boost, leader_key
+		)
+
+
+## A study's verdict: its message on the bar, the sheet repainted, and the
+## per-turn figure the chip prints moved with it (REQ-P5-05).
+func report_research(result: Dictionary) -> void:
+	if hud != null:
+		hud.toast(String(result.get("message", "")))
+	refresh_research_panel()
+	# Starting or abandoning a study changes the per-turn gold; the top bar must
+	# read the new figure before the turn is even closed.
+	if hud != null:
+		hud.set_income(readings.projected_income())
+
+
+## A funding preset moved the gold the purse pays every turn, and the chip is
+## the only place that figure is always visible (REQ-P5-05).
+func report_funding() -> void:
+	refresh_research_panel()
+	if hud != null:
+		hud.set_income(readings.projected_income())

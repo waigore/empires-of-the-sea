@@ -3,17 +3,33 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var pristine_map: Array = []
 var _screen: MapScreen = null
 
 
+func before_all() -> void:
+	pristine_map = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
+
+
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
 
 
 func test_the_screen_owns_a_starting_economy() -> void:
@@ -25,7 +41,7 @@ func test_the_screen_owns_a_starting_economy() -> void:
 		_screen.economy.economy.workers.count(WorkerPool.Tier.PEASANT),
 		PlayerEconomy.START_PEASANTS
 	)
-	assert_gt(_screen.economy.extraction().size(), 0)
+	assert_gt(_screen.economy.readings.extraction().size(), 0)
 
 
 func test_the_ledger_opens_and_closes() -> void:
@@ -44,7 +60,7 @@ func test_buying_stages_a_bid_then_clears_it() -> void:
 	var treasury_before: int = economy.treasury
 	var grain_before: int = economy.quantity("grain")
 	var unit: int = _screen.economy.market.buy_price("grain")
-	_screen.economy._on_trade("grain", 2, true)
+	_screen.economy.orders.trade("grain", 2, true)
 	assert_eq(_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2)
 	assert_eq(economy.quantity("grain"), grain_before, "stock waits for the clearing")
 	_clear_market()
@@ -58,7 +74,7 @@ func test_selling_needs_stock_and_clears_at_the_close() -> void:
 	economy.stockpile["timber"] = 1
 	var treasury_before: int = economy.treasury
 	var unit: int = _screen.economy.market.sell_price("timber")
-	_screen.economy._on_trade("timber", 1, false)
+	_screen.economy.orders.trade("timber", 1, false)
 	assert_eq(economy.quantity("timber"), 1, "the offer waits for the clearing")
 	assert_eq(economy.treasury, treasury_before)
 	_clear_market()
@@ -69,9 +85,9 @@ func test_selling_needs_stock_and_clears_at_the_close() -> void:
 func test_production_assignment_reaches_the_projection() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["timber"] = 4
-	_screen.economy._on_production("lumber", 2)
+	_screen.economy.orders.set_production("lumber", 2)
 	assert_eq(economy.production.assignment_units("lumber"), 2)
-	var preview: Dictionary = _screen.economy.projected()
+	var preview: Dictionary = _screen.economy.readings.projected()
 	assert_gt(int(preview["stockpile_delta"].get("lumber", 0)), 0)
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)
 
@@ -83,7 +99,7 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["fabric"] = 2
 	var before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	# The press only queues: Build/work pays and the peasant joins next turn
 	# (wiki: workers-and-population § Phase placement).
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before)
@@ -221,7 +237,7 @@ func test_the_crowns_wards_eat_from_the_larder() -> void:
 
 
 func test_the_opening_home_fleet_carries_four_holds() -> void:
-	var cargo: Dictionary = _screen.economy.trade_cargo()
+	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
 	assert_eq(int(cargo["holds"]), 4)
 	assert_eq(int(cargo["used"]), 0)
 	assert_eq(int(cargo["free"]), 4)
@@ -234,13 +250,13 @@ func test_the_opening_home_fleet_carries_four_holds() -> void:
 func test_imports_stop_when_the_holds_are_full() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var grain_before: int = economy.quantity("grain")
-	var free: int = int(_screen.economy.trade_cargo()["clear_free"])
+	var free: int = int(_screen.economy.readings.trade_cargo()["clear_free"])
 	for index in free:
-		_screen.economy._on_trade("grain", 1, true)
+		_screen.economy.orders.trade("grain", 1, true)
 	assert_eq(economy.quantity("grain"), grain_before, "imports clear at the close")
-	assert_eq(_screen.economy.trade_cargo()["free"], 0)
+	assert_eq(_screen.economy.readings.trade_cargo()["free"], 0)
 
-	_screen.economy._on_trade("grain", 1, true)
+	_screen.economy.orders.trade("grain", 1, true)
 
 	assert_eq(_screen.economy.market.book.pending_buy_units(_screen.player_faction), free)
 	_clear_market()
@@ -250,12 +266,12 @@ func test_imports_stop_when_the_holds_are_full() -> void:
 func test_selling_still_works_with_full_holds() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["timber"] = 1
-	var free: int = int(_screen.economy.trade_cargo()["clear_free"])
+	var free: int = int(_screen.economy.readings.trade_cargo()["clear_free"])
 	for index in free:
-		_screen.economy._on_trade("grain", 1, true)
+		_screen.economy.orders.trade("grain", 1, true)
 	var grain_before: int = economy.quantity("grain")
 
-	_screen.economy._on_trade("timber", 1, false)
+	_screen.economy.orders.trade("timber", 1, false)
 	_clear_market()
 
 	assert_eq(economy.quantity("grain"), grain_before + free)
@@ -270,9 +286,9 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	assert_not_null(line)
 	assert_true(line.text.contains("4 holds"))
 
-	var free: int = int(_screen.economy.trade_cargo()["clear_free"])
+	var free: int = int(_screen.economy.readings.trade_cargo()["clear_free"])
 	for index in free:
-		_screen.economy._on_trade("grain", 1, true)
+		_screen.economy.orders.trade("grain", 1, true)
 
 	var buys: Array[Button] = []
 	_collect_buttons(market_body, buys)
@@ -286,17 +302,67 @@ func test_a_bare_controller_reports_an_empty_ledger() -> void:
 	var controller := EconomyController.new()
 	controller.economy = PlayerEconomy.starting()
 
-	assert_eq(controller.cargo_holds(), 0)
-	assert_eq(controller.extraction(), {})
-	assert_eq(int(controller.overseas_plan()["holds"]), 0)
-	assert_eq(int(controller.trade_cargo()["free"]), 0)
+	assert_eq(controller.readings.cargo_holds(), 0)
+	assert_eq(controller.readings.extraction(), {})
+	assert_eq(int(controller.readings.overseas_plan()["holds"]), 0)
+	assert_eq(int(controller.readings.trade_cargo()["free"]), 0)
+	# Every owner answers alone: the figures priced, the sheet's own entry points
+	# pressed, and each order refused where the rules say so (REQ-P3-01).
+	assert_eq(controller.readings.fleet_ships(), 0)
+	assert_eq(controller.readings.army_food(), 0)
+	assert_eq(controller.readings.feeding_coverage(), 1.0, "no Consumption yet: full rations")
+	controller.market = WorldMarket.with_default_prices()
+	assert_eq(int(controller.readings.trade_cargo()["holds"]), 0, "no ship layer carries cargo")
+	controller.open_panel()
+	controller.open_research()
+	controller.refresh_panel()
+	controller.refresh_research_panel()
+	controller.report_research({})
+	controller.report_funding()
+	assert_false(
+		bool(controller.orders.trade("grain", 1, true).get("ok", true)),
+		"no holds, no bid",
+	)
+	controller.orders.offer("no-court-sells-this", 1)
+	controller.orders.withdraw("no-such-order")
+	controller.orders.worker_action(WorkerPool.Tier.PEASANT, "disband")
+	controller.orders.worker_action(WorkerPool.Tier.MASTER, "recruit")  # rules refuse
+	controller.orders.assign_research("land_enclosure")
+	controller.orders.cancel_research(0)
+	controller.orders.cycle_research_funding(0)
+	var bare := EconomyController.new()
+	assert_eq(bare.readings.tech_caps(), {})
+	assert_eq(bare.readings.projected_income(), 0)
+	assert_eq(bare.orders.trade("grain", 1, true), {}, "no book, no bid")
+	bare.orders.offer("no-court-sells-this", 1)
+	bare.orders.withdraw("no-such-order")
+	bare.orders.set_production("lumber", 1)
+	bare.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	bare.orders.assign_research("land_enclosure")
+	bare.orders.cancel_research(0)
+	bare.orders.cycle_research_funding(0)
+	bare.free()
 	controller.free()
+
+
+## The sheet presses its own orders: `_connect` binds the panel signals to the
+## order owner, so a Bid row stages on the book without the controller spelling
+## the intent out (one owner per surface, REQ-P3-01; REQ-P2-03).
+func test_the_sheet_stages_its_own_trade_press() -> void:
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var orders: MarketBook = _screen.economy.market.book
+	var before: int = orders.orders_for(_screen.player_faction).size()
+	panel.trade_requested.emit("grain", 1, true)
+	assert_eq(
+		orders.orders_for(_screen.player_faction).size(), before + 1,
+		"the sheet's bid reached the book through the order owner",
+	)
 
 
 func test_a_crown_without_a_home_fleet_cannot_import() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
-		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		_screen.economy.economy, _screen.economy.market, _screen.economy.readings.projected(),
 		{"holds": 0, "used": 0, "free": 0}
 	)
 	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
@@ -315,7 +381,7 @@ func test_a_new_world_port_ships_its_yield_on_the_home_holds() -> void:
 	var tile: Vector2i = province.tiles[0]
 	var resource_index: int = nw.index_of(tile.x, tile.y)
 	var old_resource: int = nw.resource[resource_index]
-	var home_before: Dictionary = _screen.economy.extraction().duplicate()
+	var home_before: Dictionary = _screen.economy.readings.extraction().duplicate()
 	province.owner = _screen.player_faction
 	nw.resource[resource_index] = 0
 	var works := LandWorks.new()
@@ -323,13 +389,13 @@ func test_a_new_world_port_ships_its_yield_on_the_home_holds() -> void:
 	works.set_improvement(nw, tile, 1)
 	_screen.play.civilian_layer.works_regions.set_region(WorldMap.NEW_WORLD, works)
 
-	var plan: Dictionary = _screen.economy.overseas_plan()
-	var cargo: Dictionary = _screen.economy.trade_cargo()
+	var plan: Dictionary = _screen.economy.readings.overseas_plan()
+	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
 
 	assert_eq(int(plan["used"]), 1, "one connected estate ships one ton")
 	assert_eq(plan["shipped"], {"timber": 1})
 	assert_eq(
-		int(_screen.economy.extraction().get("timber", 0)),
+		int(_screen.economy.readings.extraction().get("timber", 0)),
 		int(home_before.get("timber", 0)) + 1,
 		"the colonial ton reaches the stockpile"
 	)
@@ -379,7 +445,7 @@ func test_bidding_from_an_offer_row_enters_the_auction() -> void:
 func test_an_empty_offer_book_says_so() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
-		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		_screen.economy.economy, _screen.economy.market, _screen.economy.readings.projected(),
 		{"holds": 2, "used": 0, "free": 2}, []
 	)
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
@@ -473,7 +539,7 @@ func test_a_filter_never_edits_the_book_and_a_shown_row_still_bids() -> void:
 func test_an_empty_offer_book_offers_no_chips() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
-		_screen.economy.economy, _screen.economy.market, _screen.economy.projected(),
+		_screen.economy.economy, _screen.economy.market, _screen.economy.readings.projected(),
 		{"holds": 2, "used": 0, "free": 2}, []
 	)
 	var market: LedgerMarket = panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
@@ -509,7 +575,7 @@ func test_the_ledger_shows_trade_terms_and_charges_the_adjusted_price() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var before: int = economy.treasury
 	var unit: int = market.buy_price("grain", _screen.player_faction)
-	_screen.economy._on_trade("grain", 1, true)
+	_screen.economy.orders.trade("grain", 1, true)
 	_clear_market()
 	assert_eq(
 		economy.treasury,
@@ -544,8 +610,33 @@ func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
 	DiplomacyTrade.apply_terms(_screen.play.diplomacy, _screen.world, market)
 
 
+## The turn's clearing republishes the Minor/Tribe book for the crown that
+## played it: a court sailing as England reads her own terms and subsidy step,
+## never Spain's (wiki: world-market § Subsidy price adjustment; REQ-P2-03,
+## REQ-P5-05). Mounts England beside the shared Spain suite screen.
+func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
+	var english: MapScreen = Fixture.attach_screen(self, 1)
+	var market: WorldMarket = english.economy.market
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
+	MapPlayMarket.run(english.play, {})
+	assert_gt(market.minor_offers.size(), 0, "the minor courts publish their harvest")
+	var differs: bool = false
+	for offer: Dictionary in market.minor_offers:
+		var commodity: String = String(offer["commodity"])
+		var seller: int = int(offer["faction"])
+		assert_eq(
+			int(offer["unit_price"]),
+			MinorMarket.unit_price(market, commodity, 1, seller),
+			"%s must be priced for England" % String(offer["id"])
+		)
+		if int(offer["unit_price"]) != MinorMarket.unit_price(market, commodity, 0, seller):
+			differs = true
+	assert_true(differs, "England's terms move the ask off Spain's")
+	english.free()
+
+
 func _clear_market() -> Dictionary:
-	var cargo: Dictionary = _screen.economy.trade_cargo()
+	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
 	return MarketClearing.clear(
 		_screen.economy.market,
 		_screen.world,
@@ -628,7 +719,7 @@ func test_the_ledger_names_a_sale_and_the_overseas_share() -> void:
 		"price": 50,
 		"earned": 50,
 	}]
-	_screen.economy.last_clearing = {"credits": {"by_gp": {faction: 89.0}}}
+	_screen.economy.readings.last_clearing = {"credits": {"by_gp": {faction: 89.0}}}
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
@@ -640,7 +731,7 @@ func test_the_ledger_names_a_sale_and_the_overseas_share() -> void:
 ## staged bid is never read as already counted in the promise (wiki:
 ## stockpiles-and-production § Production flow).
 func test_the_ledger_preview_names_the_staged_auction() -> void:
-	_screen.economy._on_trade("grain", 1, true)
+	_screen.economy.orders.trade("grain", 1, true)
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	assert_not_null(_find_label(panel, "settles at the auction"))
@@ -654,23 +745,23 @@ func test_starting_a_study_moves_the_per_turn_figure() -> void:
 	var open: Array[String] = economy.research.researchable()
 	assert_gt(open.size(), 0, "the opening college has an advance to start")
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income())
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income())
 	)
-	_screen.economy._on_research_assign(open[0])
+	_screen.economy.orders.assign_research(open[0])
 	var gold: int = ResearchFunding.gold(ResearchFunding.DEFAULT)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"the chip follows the study it just funded",
 	)
-	assert_eq(_screen.economy.projected_income(), -gold, "the slot pays its preset")
-	_screen.economy._on_research_funding(0)
+	assert_eq(_screen.economy.readings.projected_income(), -gold, "the slot pays its preset")
+	_screen.economy.orders.cycle_research_funding(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"a preset change moves the figure too",
 	)
-	_screen.economy._on_research_cancel(0)
+	_screen.economy.orders.cancel_research(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.projected_income()),
+		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"abandoning the study gives the gold back",
 	)
 
@@ -681,13 +772,13 @@ func test_starting_a_study_moves_the_per_turn_figure() -> void:
 func test_an_offer_cannot_sell_what_production_will_eat() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["timber"] = 4
-	_screen.economy._on_production("lumber", 2)  # 2 runs x 2 timber = all of it
-	var refused: Dictionary = _screen.economy._on_trade("timber", 1, false)
+	_screen.economy.orders.set_production("lumber", 2)  # 2 runs x 2 timber = all of it
+	var refused: Dictionary = _screen.economy.orders.trade("timber", 1, false)
 	assert_false(bool(refused.get("ok", true)), "the assigned runs have claimed the timber")
 	assert_eq(economy.quantity("timber"), 4, "a refused offer leaves the stock alone")
 	assert_eq(_screen.economy.market.offer_volume("timber"), 0, "nothing is staged")
-	_screen.economy._on_production("lumber", 0)
-	var admitted: Dictionary = _screen.economy._on_trade("timber", 1, false)
+	_screen.economy.orders.set_production("lumber", 0)
+	var admitted: Dictionary = _screen.economy.orders.trade("timber", 1, false)
 	assert_true(bool(admitted.get("ok", false)), String(admitted.get("reason", "")))
 	assert_eq(_screen.economy.market.offer_volume("timber"), 1)
 	# The admitted ton really ships at the close.
@@ -704,7 +795,7 @@ func test_an_offer_cannot_sell_what_production_will_eat() -> void:
 func test_the_offer_chip_names_what_production_claims() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.stockpile["timber"] = 4
-	_screen.economy._on_production("lumber", 2)
+	_screen.economy.orders.set_production("lumber", 2)
 	assert_eq(LedgerMarket.claimed_by_production(economy, "timber"), 4)
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel

@@ -123,8 +123,8 @@ func _staged_row(order: MarketOrder) -> Control:
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(quantity)
 	var price: int = (
-		_market.buy_price(order.commodity) if order.is_bid()
-		else _market.sell_price(order.commodity)
+		_market.buy_price(order.commodity, _viewer) if order.is_bid()
+		else _market.sell_price(order.commodity, _viewer)
 	)
 	var notional := UiRowBuilder.label("%d" % (price * order.remaining()), 12, Palette.TEXT_DIM)
 	notional.custom_minimum_size = Vector2(52, 0)
@@ -350,8 +350,8 @@ func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 	qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(qty)
 
-	var buy_unit: int = _market.buy_price(id)
-	var sell_unit: int = _market.sell_price(id)
+	var buy_unit: int = _market.buy_price(id, _viewer)
+	var sell_unit: int = _market.sell_price(id, _viewer)
 	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
 	price.custom_minimum_size = Vector2(44, 0)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
