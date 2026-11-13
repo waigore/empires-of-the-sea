@@ -190,6 +190,37 @@ func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
 	assert_eq(int(_by_id(objectives, "research.study").utility), 55, "the funding step lifts the study")
 
 
+func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
+	var readings: Dictionary = _readings()
+	readings["tribe_target"] = FactionCatalog.tribe_ids()[0]
+	readings["tribe_stage"] = DiplomacyCatalog.STAGE_EMBASSY
+	readings["tribe_stage_cost"] = DiplomacyCatalog.EMBASSY_COST
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
+
+	assert_true(chain != null, "a colony in reach is a priced aim")
+	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	assert_true(chain.status == AiObjective.STATUS_FUNDED, "the purse can buy this step")
+	assert_eq(
+		_by_id(objectives, "war.declare").status, AiObjective.STATUS_DEFERRED,
+		"the envoy chain outranks a war the court does not need"
+	)
+	var line: String = ""
+	for raw: String in report["lines"]:
+		if raw.begins_with("colonise.tribe_chain"):
+			line = raw
+	assert_true(line.ends_with("funded"), "the trace says the chain is bought")
+
+
+func test_a_court_with_no_charted_tribe_prices_no_chain() -> void:
+	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "colonise.tribe_chain"), null)
+
+
 func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
@@ -313,8 +344,35 @@ func test_the_adapter_reads_the_colonist_ashore() -> void:
 	play.civilian_layer.free()
 
 
-# --- the adapter and the trace ----------------------------------------------
+## The adapter prices the Tribe the court is drawing in: a charted shore and a
+## purse that covers the next envoy step put the chain in the ledger
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state: DiplomacyState = _court()
+	state.ensure_relation(OWNER, tribe, 1).score = 55.0
+	state.set_overture(OWNER, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var play: PlaySession = _session(state)
+	play.ai.economy_for(OWNER).treasury = 20000
+	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
+	var shore: Array[Vector2i] = [Vector2i(0, 0)]
+	new_world.provinces = [
+		ProvinceState.create(0, "Shore", shore, Vector2.ZERO, 1, tribe, false)
+	]
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OWNER]
+	var chain: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.tribe_chain":
+			chain = row
+	assert_false(chain.is_empty(), "the envoy chain is priced")
+	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
+
+# --- the adapter and the trace ----------------------------------------------
 
 func _court() -> DiplomacyState:
 	var state := DiplomacyState.new()

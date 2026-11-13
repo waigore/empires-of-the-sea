@@ -13,7 +13,8 @@ extends RefCounted
 ##   posture, at_war, war_desire, regiments, muster_due, muster_floor,
 ##   ships, hostile_ships, treasury, reserve, goal, colony_target, harbour,
 ##   idle_hulls, explorer_ready, voyage_afloat, cargo_shortfall,
-##   research_slots, research_funding, research_cost.
+##   research_slots, research_funding, research_cost,
+##   tribe_target, tribe_stage_cost.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -37,6 +38,10 @@ const W_NAVY_BUILD: int = 90
 const W_HULL: int = 60
 const W_EXPLORER: int = 60
 const W_VOYAGE: int = 75
+## The envoy chain that turns a charted Tribe into a colony: the next step of
+## the chain, priced at its published cost and the court's one order
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+const W_TRIBE_COLONY: int = 55
 
 
 static func build(readings: Dictionary) -> Array[AiObjective]:
@@ -50,6 +55,9 @@ static func build(readings: Dictionary) -> Array[AiObjective]:
 	var colony: AiObjective = _colonise(readings, at_war)
 	if colony != null:
 		objectives.append(colony)
+	var tribe_chain: AiObjective = _tribe_chain(readings)
+	if tribe_chain != null:
+		objectives.append(tribe_chain)
 	var navy: AiObjective = _navy(readings, at_war)
 	if navy != null:
 		objectives.append(navy)
@@ -144,8 +152,22 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 	return parent
 
 
-## The fleet's turn: a squadron at war sorts out; a court with no hull at sea
-## builds one (T5 makes the build a funded objective, #500).
+## The colony the court is buying: the next envoy step toward the Tribe it has
+## charted, priced at the published stage cost and the court's one order. The
+## aim is only a reading — `AiTribeColony` is what the diplomacy planner weighs —
+## so the trace explains a rival's colonial diplomacy even on the turn it spends
+## the order elsewhere (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+static func _tribe_chain(readings: Dictionary) -> AiObjective:
+	var target: int = int(readings.get("tribe_target", -1))
+	if target < 0:
+		return null
+	var aim := AiObjective.create(
+		"colonise.tribe_chain", "expansion", W_TRIBE_COLONY,
+		{"treasury": int(readings.get("tribe_stage_cost", 0)), "orders": 1}
+	)
+	return aim
+
+
 ## The fleet's turn: a squadron with hulls sorts out; a court with no fighting
 ## hull, or one outmatched on its own coast, lays one down instead. The build's
 ## cost is the cheapest warship its techs open (issue #491 T5, #484).
