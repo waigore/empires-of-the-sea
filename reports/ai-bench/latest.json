@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "c012beb7d4ce2f663ce2f0641cfa80d51844a027",
-  "commit": "cb72ebc3086a77446e5fdcc235afb9c926991c72",
-  "submission_hash": "sha256:2938284c5c4945166d1f0f8ca6af7c7b47bb4f9bb7058050a63ea7f0ba34459b",
-  "submission_git": "fix/489-rival-lock-recovery@404ce4a",
+  "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
+  "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
+  "submission_hash": "sha256:5afdb56a51311a25a752f8f4ca344a30b06f9b4d3421f9c5acc9cea5abf0b654",
+  "submission_git": "fix/489-rival-lock-recovery@33a6559",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3881.779411764706,
+      "value": 3890.4555555555553,
       "direction": "max"
     },
     {
@@ -50,29 +50,29 @@
     },
     {
       "name": "funded_pct",
-      "value": 71.74523007856342,
+      "value": 70.85858585858585,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1e980f7d0c10c3560e843733b5f60a60b1c4e842211ef03fdcd7995ec06638bb",
+    "ai_surface_hash": "sha256:6edaf7c96e77b1fcce4f7814d1acde100ccd31ac420450354af5a279b8fdf8ea",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
       "regiments": 2,
       "ships": 2,
       "workers": 4,
-      "extraction_per_turn": 2.625,
-      "income_per_turn": 216.52941176470588,
-      "funded_pct": 71.74523007856342
+      "extraction_per_turn": 2.8666666666666667,
+      "income_per_turn": 224.72222222222223,
+      "funded_pct": 70.85858585858585
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 36,
     "resolved_turns": 36,
-    "funded_pct": 71.74523007856342
+    "funded_pct": 70.85858585858585
   },
   "params": {
     "turns": 200,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T20:18:18Z",
+  "timestamp": "2026-11-13T20:26:17Z",
   "report_version": 1,
-  "signature": "hmac-sha256:9ebe7024d63817f47b4fd2662c00eae13ba5f214e0853addadc6a24aa75a163f"
+  "signature": "hmac-sha256:89357157ab03e018d3b3d9ef663c7a57e140e786561228371233e39e3162f5d6"
 }
