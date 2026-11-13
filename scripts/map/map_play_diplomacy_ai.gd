@@ -58,6 +58,12 @@ static func _apply_map_changes(play: PlaySession, trace: Array) -> void:
 ## (DR-20261112-09). "charts" rides along so the planner's other world reads —
 ## the target's commodities and the land an envoy chain would open — stay on the
 ## same chart (DR-20261113-03).
+##
+## "strengths" is the order of battle the published power score reads (wiki:
+## diplomacy § Great Power power score): the planner's relative-power factor is
+## the public FPN + FPM over every land army, the same terms the court panel and
+## the calendar's declared winner print. The head count above answers the
+## invasion-capacity rule, which reads regiments and not their weight.
 static func _context(play: PlaySession) -> Dictionary:
 	var regiments: Dictionary = {}
 	var ships: Dictionary = {}
@@ -67,7 +73,11 @@ static func _context(play: PlaySession) -> Dictionary:
 			regiments[faction] = play.army_layer.regiment_count_all(faction)
 		if play.ship_layer != null:
 			ships[faction] = play.ship_layer.hull_count_all(faction)
-	var context: Dictionary = {"regiments": regiments, "ships": ships}
+	var context: Dictionary = {
+		"regiments": regiments,
+		"ships": ships,
+		"strengths": MapPlayDiplomacy.public_orders(play).get("strength", {}),
+	}
 	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)
 	if not readings.is_empty():
 		context["readings"] = readings
