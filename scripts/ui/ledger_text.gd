@@ -88,6 +88,27 @@ static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> Strin
 	]
 
 
+## The next-turn figure beside a holding: "" when the phase leaves the store
+## alone, so no row carries a column of "+0" (wiki: stockpiles-and-production
+## § Production flow; REQ-P5-05).
+static func stock_delta_text(delta: int) -> String:
+	if delta == 0:
+		return ""
+	return "%+d" % delta
+
+
+## What one manufacture row's "+" can still buy this turn: the phase's own
+## labour-and-inputs ceiling, so a court is never offered runs the Production
+## phase would refuse (wiki: stockpiles-and-production § Production flow).
+static func allowance_note(recipe_id: String, units: int) -> String:
+	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	if units <= 0:
+		return "No labour or inputs spare a %s this turn." % good
+	if units == 1:
+		return "Labour and inputs allow 1 %s this turn." % good
+	return "Labour and inputs allow %d %s this turn." % [units, good]
+
+
 ## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.
 static func recruit_cost(tier: int) -> String:
 	var cost: Dictionary = WorkerPool.recruit_cost(tier)

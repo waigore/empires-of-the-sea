@@ -1012,6 +1012,36 @@ func test_max_runs_is_limited_by_inputs_and_labour() -> void:
 	assert_eq(ProductionRecipes.max_runs("bronze", {"copper": 5, "tin": 2}, 2), 0)
 	assert_eq(ProductionRecipes.max_runs("unknown", {"timber": 10}, 10), 0)
 
+## The ledger's per-row ceiling: the whole runs the coming phase could start from
+## the post-Consumption store once the other rows hold their claims. The row's
+## own assignment is not counted against itself, so a full board still reads a
+## true ceiling for each row (wiki: stockpiles-and-production § Production flow;
+## issue #453).
+func test_allowance_holds_back_the_other_rows_claims() -> void:
+	assert_eq(ProductionRecipes.allowance("lumber", {"timber": 4}, 20, []), 2)
+	# Paper and lumber share timber: two paper runs eat the whole tonnage.
+	assert_eq(
+		ProductionRecipes.allowance("lumber", {"timber": 4}, 20, [{"recipe": "paper", "units": 2}]),
+		0
+	)
+	assert_eq(
+		ProductionRecipes.allowance("lumber", {"timber": 4}, 20, [{"recipe": "lumber", "units": 1}]),
+		2
+	)
+	# Labour is shared too: two paper runs spend four of six points.
+	assert_eq(
+		ProductionRecipes.allowance("lumber", {"timber": 8}, 6, [{"recipe": "paper", "units": 2}]),
+		1
+	)
+	assert_eq(ProductionRecipes.allowance("unknown", {"timber": 4}, 20, []), 0)
+	assert_eq(ProductionRecipes.claimed_labour([{"recipe": "steel", "units": 3}]), 6)
+	# A row with no recipe, and a row that is not a dictionary, claim nothing.
+	assert_eq(
+		ProductionRecipes.claimed_labour([{"recipe": "bronze", "units": 2}, {"units": 5}, 7]),
+		6
+	)
+
+
 func test_plan_runs_whole_recipes_and_scales_io() -> void:
 	var stock: Dictionary = {"timber": 5}
 	var report: Dictionary = ProductionRecipes.plan(
