@@ -27,11 +27,13 @@ Audited through DR-20261114-02 (`REQ-P2-02`).
 | Yarn + consent keys | `DialogueYarn`, `ConsentCopy`, DR-13-10 |
 | War footing; leader bonuses; money-first | `AiPhasePlanner`; `LeaderCatalog`; `AiIncome` |
 | Tribe buy ambition (envoy over storm) | `AiTribeColony`, `colonise.tribe_chain`, DR-14-02 |
+| New World landings; overseas conquest | `AiColonisationPlanner` return voyage, `AiCrossingForce`, DR-14-03 |
 
 ## Remaining gaps (impact order)
 
-1. **New World colony founded** — buy ambition and voyage planners are live,
-   but no court lands (#476) or finishes Join Empire in play.
+1. **New World colony founded** — voyages land and a court now takes New World
+   provinces by storm (DR-14-03), but no court finishes Join Empire: the
+   `5,000 + 2,000 × provinces` price is out of reach of a rival purse.
 2. **Phase soft priority** — weight vector, domain gating beyond the voyage,
    victory pressure stay seed (DR-13-15); posture/T4 live.
 3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
@@ -39,8 +41,8 @@ Audited through DR-20261114-02 (`REQ-P2-02`).
 
 ## Next pick
 
-A New World province owned: either a Passage voyage lands (#476) or a court
-pays Join Empire after the buy chain.
+A Tribe colony founded: a court that can pay the Join Empire step after the buy
+chain (DR-14-02), or a windfall that makes it affordable.
 
 ## Blocked footnotes
 

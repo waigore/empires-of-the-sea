@@ -289,6 +289,37 @@ func test_a_field_army_already_afield_is_not_split_again() -> void:
 		[_home_army(), _field_army()]
 	).is_empty())
 
+## One hull carries one regiment (wiki: ships-and-naval § Naval transport), so a
+## field army too large for the only squadron is cut down to the hulls: a court
+## with two hulls still lands a two-regiment beachhead instead of keeping the
+## whole host at home.
+func test_a_field_army_too_large_for_the_squadron_is_cut_to_the_hulls() -> void:
+	var world: WorldMap = _world()
+	var field: ArmyState = _field_army(
+		["pikemen", "squires", "peasant_levies", "musketeers"]
+	)
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], [field]
+	)
+	assert_eq(actions.size(), 1)
+	assert_eq(String(actions[0]["kind"]), AiInvasionPlanner.KIND_SPLIT)
+	assert_eq(int(actions[0]["army_id"]), field.id, "the field army is cut, not the seat")
+	assert_eq(int(actions[0]["regiments"].size()), 2, "two hulls carry two regiments")
+
+## The boarding step takes the force the hulls can hold, not the first army in
+## the list.
+func test_the_boarding_step_takes_the_force_that_fits() -> void:
+	var world: WorldMap = _world()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var small: ArmyState = ArmyState.muster(3, OWNER, 0, false, ["pikemen", "squires"], 11)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0, HULLS, HULL_TYPES)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _war(), world, 0, world.region(0), [fleet],
+		[_home_army(), big, small]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_EMBARK)
+	assert_eq(int(order.get("army", -1)), 3, "the two-regiment force fits two hulls")
+
 func test_an_idle_squadron_docks_for_the_crossing_army() -> void:
 	var world: WorldMap = _world()
 	var order: Dictionary = AiInvasionPlanner.plan(
@@ -1108,6 +1139,29 @@ func test_the_adapter_docks_and_refuses_illegal_orders() -> void:
 	).is_empty())
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+## A squadron left across the water with nothing aboard sails home, so the
+## court's hulls are not stranded there for the rest of the campaign: they carry
+## the next voyage and an overseas invasion.
+func test_a_stranded_squadron_sails_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_eq(String(order.get("kind", "")), "cross", "the empty squadron crosses home")
+
+## The home squadron is the naval planner's: the colonisation pass never sends a
+## court's own water home.
+func test_a_squadron_at_home_is_not_sent_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "the home squadron is the naval planner's")
 
 # --- test_ai_diplomacy_offers ---
 

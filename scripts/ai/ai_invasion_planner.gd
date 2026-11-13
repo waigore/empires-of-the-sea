@@ -18,9 +18,13 @@ const KIND_BEACHHEAD: String = "beachhead"
 const KIND_LAND: String = "land"
 
 
-## Detach a field army for the crossing when a war lies across the water and no
-## field army exists yet. One regiment keeps the seat (the Home Army never
-## sails), exactly like the land policy's split, so the adapter applies it once.
+## Detach a crossing force when a war lies across the water. A court with no
+## field army cuts one from the Home Army (one regiment keeps the seat, the Home
+## Army never sails). A court that already has a field army sends it as it
+## stands when the hulls can hold it; an army too large for the only squadron is
+## cut down to the hulls, because one hull carries one regiment (wiki:
+## ships-and-naval § Naval transport) and a small squadron would otherwise keep
+## the whole host at home and never land a beachhead.
 ## `charts` is the court's own fog: only a hostile coast it has charted is worth
 ## a crossing, and a null chart is the fixture reading (DR-20261110-21).
 ## `wants_income` lifts the frontier guard: a court on **earn** sails to the far
@@ -42,24 +46,41 @@ static func split_orders(
 	var owner: int = config.faction
 	if model.region_id != FactionCatalog.region_of(owner):
 		return actions
-	if not _field_armies(armies, owner).is_empty():
-		return actions
 	if not _has_overseas_war(state, world, owner, charts, armies, wants_income):
+		return actions
+	var fleet: FleetState = AiCrossingForce.fleet(fleets, owner)
+	if fleet == null:
+		return actions
+	var field: Array[ArmyState] = _field_armies(armies, owner)
+	if not field.is_empty():
+		# A force that already fits the squadron boards as it stands; only an
+		# army too large to carry is cut down to the hulls.
+		if AiCrossingForce.army(model, armies, owner, fleet.ship_count()) != null:
+			return actions
+		for army: ArmyState in field:
+			if AiCrossingForce.may_sail(model, army, owner):
+				_detach(actions, army, fleet.ship_count())
+				return actions
 		return actions
 	var home: ArmyState = _home_army(armies, owner)
 	if home == null or home.count() < 2:
 		return actions
-	var fleet: FleetState = _idle_fleet(fleets, owner, 1)
-	if fleet == null:
-		return actions
-	# Only as many regiments as the hulls can carry; one always keeps the seat.
-	var spare: int = mini(fleet.ship_count(), home.count() - 1)
+	_detach(actions, home, fleet.ship_count())
+	return actions
+
+
+## The crossing force: the weakest spare regiments, always keeping one in the
+## parent army. The squadron carries one regiment a hull.
+static func _detach(
+	actions: Array[Dictionary], source: ArmyState, hulls: int
+) -> void:
+	var spare: int = mini(hulls, source.count() - 1)
 	if spare < 1:
-		return actions
-	var ordered: Array[String] = home.regiments.duplicate()
+		return
+	var ordered: Array[String] = source.regiments.duplicate()
 	ordered.sort_custom(func(a: String, b: String) -> bool:
-		var left: int = RegimentCatalog.strength(home.type_of(a))
-		var right: int = RegimentCatalog.strength(home.type_of(b))
+		var left: int = RegimentCatalog.strength(source.type_of(a))
+		var right: int = RegimentCatalog.strength(source.type_of(b))
 		if left != right:
 			return left < right
 		return a < b
@@ -67,8 +88,7 @@ static func split_orders(
 	var ids: Array[String] = []
 	for index in range(1, spare + 1):
 		ids.append(ordered[index])
-	actions.append({"kind": KIND_SPLIT, "army_id": home.id, "regiments": ids})
-	return actions
+	actions.append({"kind": KIND_SPLIT, "army_id": source.id, "regiments": ids})
 
 
 ## One legal step of this court's expedition in this region, or an empty
@@ -101,15 +121,16 @@ static func plan(
 
 ## An army boards a squadron that reaches its port; a squadron already there
 ## takes it aboard. Rivals' squadrons usually start at sea, so docking first is
-## the common first step.
+## the common first step. The biggest force the hulls can hold goes, so a small
+## squadron still lands a beachhead (one hull carries one regiment).
 static func _board_step(
 	model: MapModel, fleets: Array, armies: Array, owner: int
 ) -> Dictionary:
-	var army: ArmyState = _army_to_sail(model, armies, owner)
-	if army == null:
-		return {}
-	var fleet: FleetState = _idle_fleet(fleets, owner, army.count())
+	var fleet: FleetState = AiCrossingForce.fleet(fleets, owner)
 	if fleet == null:
+		return {}
+	var army: ArmyState = AiCrossingForce.army(model, armies, owner, fleet.ship_count())
+	if army == null:
 		return {}
 	if fleet.is_in_port():
 		if fleet.province == army.province:
@@ -317,37 +338,6 @@ static func _expedition(fleets: Array, owner: int) -> FleetState:
 		if best == null or fleet.id < best.id:
 			best = fleet
 	return best
-
-
-## Lowest-id squadron that can still take troops: afloat, un-moved, no army and
-## no colonists aboard, with room for `needed` regiments.
-static func _idle_fleet(fleets: Array, owner: int, needed: int) -> FleetState:
-	var best: FleetState = null
-	for raw: Variant in fleets:
-		var fleet: FleetState = raw
-		if fleet == null or fleet.owner != owner or fleet.moved:
-			continue
-		if not fleet.is_afloat() or fleet.embarked_army >= 0 or fleet.carries_civilians():
-			continue
-		if fleet.ship_count() < needed:
-			continue
-		if best == null or fleet.id < best.id:
-			best = fleet
-	return best
-
-
-## A field army that can march to a harbour and sail: un-moved, non-empty and
-## standing in an own coastal province with a harbour.
-static func _army_to_sail(model: MapModel, armies: Array, owner: int) -> ArmyState:
-	for army: ArmyState in _field_armies(armies, owner):
-		if army.moved or army.is_embarked() or army.is_empty():
-			continue
-		if model.province_owner(army.province) != owner:
-			continue
-		if not NavalMovement.has_harbour(model, army.province):
-			continue
-		return army
-	return null
 
 
 static func _carried_army(armies: Array, fleet: FleetState) -> ArmyState:
