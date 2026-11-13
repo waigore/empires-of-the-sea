@@ -16,7 +16,9 @@ extends RefCounted
 ##   cooldown with the same desire that failed last time.
 ##
 ## Neither term deletes a war: the desire is reduced, never the legality, so
-## every declaration still passes the rules check (REQ-P2-03).
+## every declaration still passes the rules check (REQ-P2-03). Both read only a
+## Great Power pair: a war on a Minor Nation or a Tribe is colonial business and
+## leaves no grudge between crowns (wiki: phase-planner-architecture).
 
 const MAX_PENALTY: int = 100
 
@@ -32,6 +34,8 @@ static func penalty(
 	at_war: bool
 ) -> int:
 	if config == null or ai_state == null:
+		return 0
+	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
 		return 0
 	if at_war:
 		return weariness(config, ai_state, turn, faction, target)
