@@ -12,14 +12,14 @@ extends SceneTree
 ##      the defeated campaign saves and loads back defeated.
 ##
 ## Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_capital_move.gd
+##   godot --headless --path . --script res://playtests/playtest_capital_move.gd
 ##
 ## Armies are seated by the harness (the same scenario seat the rules tests and
 ## `playtest_combat_chain` use); combat, capital verdicts, port settlement, the
 ## turn ladder and the save browser are the game's own.
 
-const Launch = preload("res://tests/playtest_launch.gd")
-const SaveDrive = preload("res://tests/playtest_save_drive.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
+const SaveDrive = preload("res://playtests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 const DIR: String = "user://playtest_capital_move"
 const SLOT: int = 1

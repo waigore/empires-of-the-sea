@@ -8,6 +8,7 @@ suites = [
   "test_ai_campaign_rules.gd",
   "test_ai_observer.gd",
   "test_ai_rules.gd",
+  "test_ai_phase_rules.gd",
   "test_land_battle_rules.gd"
 ]
 
@@ -637,6 +638,10 @@ domain = "naval_fog"
 match = "scripts/map/map_play_fleet_ai.gd*"
 domain = "naval_fog"
 
+[[rules]]
+match = "tests/test_ai_phase_rules.gd*"
+domain = "ai"
+
 # The planner's own suite; the other AI suites say nothing about sight.
 [[rules]]
 match = "tests/test_ai_rules.gd*"
@@ -725,9 +730,10 @@ full = true
 match = "addons/**"
 full = true
 
+# Coverage / suite config: keep on misc so an exclude tweak does not run ALL.
 [[rules]]
 match = "gd-tools.toml"
-full = true
+domain = "misc"
 
 # Map edits are exercised by the selection script in CI; a tiny chart suite is
 # enough for the required check without pulling crown_road past 5 min.
@@ -743,111 +749,20 @@ domain = "map_fixture"
 match = "tests/map_shot.gd"
 domain = "crown_road"
 
+# Opt-in drives are not the suite: a harness move/edit must not union every
+# gameplay domain past the tier-1 5 min budget (docs/testing.md).
 [[rules]]
-match = "tests/playtest_new_world.gd*"
-domain = "map"
+match = "playtests/**"
+domain = "misc"
 
-# Launch crosses the crown's charge before the map; keep it on intro so a
-# flow-hook edit does not pull the whole map domain past the 5 min budget.
-[[rules]]
-match = "tests/playtest_launch.gd*"
-domain = "intro"
-
-[[rules]]
-match = "tests/playtest_combat_chain.gd*"
-domain = "battle"
-
-# Resolve rename / plate hook — battle_rules covers the land pass; keep off the
-# heavier quick_battle domain (overlay + sim) for tier-1 budget.
-[[rules]]
-match = "tests/playtest_quick_battle.gd*"
-domain = "battle"
-
-[[rules]]
-match = "tests/playtest_espionage.gd*"
-domain = "espionage"
-
-# The rival half of the same domain: AI spies against the crown, the screen,
-# and the lines the court hears when an agent is taken.
-[[rules]]
-match = "tests/playtest_ai_spycraft.gd*"
-domain = "espionage"
-
-[[rules]]
-match = "tests/playtest_province_dev.gd*"
-domain = "civilian"
-
-[[rules]]
-match = "tests/playtest_allied_defence.gd*"
-domain = "campaign"
-
-# The squadron's own drive: roster, sortie, station, sea battle, troops and a
-# captured port travel with the fleet suites.
-[[rules]]
-match = "tests/playtest_naval.gd*"
-domain = "fleet"
-
-# The overseas invasion drive: marking, the ready turn, the landing battle and
-# the site's three deaths all read fleet rules and the fleet dossier.
-[[rules]]
-match = "tests/playtest_beachhead.gd*"
-domain = "fleet"
-
-# The save/load drive walks slots, endings and the slot browser, so it travels
-# with the save suites.
-[[rules]]
-match = "tests/playtest_persistence.gd*"
-domain = "save"
-
-# The advanced save/load drive closes turns, starts a study and raises an
-# estate before the slot is written, so it travels with the save suites too.
-[[rules]]
-match = "tests/playtest_persistence_advanced.gd*"
-domain = "save"
-
-# Shared save/load plumbing for both persistence drives.
-[[rules]]
-match = "tests/playtest_save_drive.gd*"
-domain = "save"
-
-# The purse drive walks the ledger, the auction receipt and the college's gold,
-# so it travels with the economy suites.
-[[rules]]
-match = "tests/playtest_treasury.gd*"
-domain = "economy"
-
-# The workshop drive presses the PRODUCTION tab's own buttons and reads the tag,
-# the note and the promise over real turns, so it travels with the economy
-# suites too.
-[[rules]]
-match = "tests/playtest_workshop.gd*"
-domain = "economy"
-
-# The seat drive storms the crown's capital and reads the court's news, the
-# Gazette sheet and the defeat plate, so it travels with the land-turn suites
-# that own capital falls.
-[[rules]]
-match = "tests/playtest_capital_move.gd*"
-domain = "land_turn"
-
-# The field-train drive reads the dossier, the turn-start rest, the rations,
-# split/combine and the save, so it travels with the army suites.
-[[rules]]
-match = "tests/playtest_field_train.gd*"
-domain = "army"
-
-# The court-proposal drive presses the consent banner's own answers (a white
-# peace, an alliance, a trade pact, a non-aggression overture), saves with an
-# offer still waiting and reads the restored court, so it travels with the
-# diplomacy suites that own the court panel and its prompts.
-[[rules]]
-match = "tests/playtest_court_proposal.gd*"
-domain = "diplomacy"
-
-# Selector edits are checked by --check-complete; do not pull the full suite
-# past the tier-1 5 min budget.
+# Selector / arch-lint edits are checked by --check-complete; keep them on the
+# small misc set so a tooling PR stays inside the tier-1 budget.
 [[rules]]
 match = "tools/select_impacted_tests.py"
+domain = "misc"
+
+[[rules]]
+match = "tools/lint_arch.py"
 domain = "misc"
 
 # AiState stamps the difficulty layer onto rival ledgers; keep it on the

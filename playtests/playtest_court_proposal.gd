@@ -9,7 +9,7 @@ extends SceneTree
 ## Spain, so a court bug that reads a defaulted faction instead of the crown the
 ## session resumes as is invisible in every Spain-only drive.
 ##
-##   godot --headless --path . --script res://tests/playtest_court_proposal.gd
+##   godot --headless --path . --script res://playtests/playtest_court_proposal.gd
 ##
 ## Every answer is pressed on the banner's own button, so the drive walks the
 ## panel's intent path, the router and the turn resolver, and it reads what a
@@ -17,8 +17,8 @@ extends SceneTree
 ## pair line. A flow change fails the drive (non-zero exit) instead of printing
 ## a number nobody compares.
 
-const Launch = preload("res://tests/playtest_launch.gd")
-const SaveDrive = preload("res://tests/playtest_save_drive.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
+const SaveDrive = preload("res://playtests/playtest_save_drive.gd")
 const SEED_TEXT: String = "1500"
 ## England: a Great Power that is not FactionCatalog.PLAYER_FACTION.
 const NATION: int = 1

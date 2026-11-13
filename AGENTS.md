@@ -37,7 +37,7 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). CI
 | `ui/` | UI scenes, themes, components |
 | `assets/` | Art, audio, fonts |
 | `autoload/` | Allowlisted cross-cutting only (`arch-lint`) |
-| `tests/` | Unit tests (`extends GdToolsTest`) |
+| `tests/` · `playtests/` | Suite / drives |
 | `addons/gd-tools-*` | Vendored gd-tools addons |
 
 ## Conventions

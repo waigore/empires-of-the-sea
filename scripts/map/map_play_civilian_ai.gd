@@ -35,13 +35,17 @@ static func seed(play: PlaySession, faction: int) -> void:
 		play.civilian_layer.regions.set_region(region, roster)
 
 
-## Runs the civilian planner in every region this court owns units in; an overseas
-## region is priced on the raw its holds actually landed.
-static func run(
+## One planning pass over every region this court holds, priced on `stockpile`
+## and applying nothing. The economy turn plans the works before the market
+## stages its sale, so the feedstock a crew will spend is known in advance and
+## can be kept back (wiki: economy-planner § Reservations — one stockpile serves
+## build, work and trade); the same plans are applied once the ledger closes. An
+## overseas region is priced on the raw its holds actually landed.
+static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
-	overseas: Dictionary = {}
-) -> Dictionary:
-	var report: Dictionary = {"orders": [], "moves": [], "training": []}
+	overseas: Dictionary = {}, stockpile: Dictionary = {}
+) -> Array[Dictionary]:
+	var plans: Array[Dictionary] = []
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -65,9 +69,67 @@ static func run(
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
 		var plan: Dictionary = AiCivilianPlanner.plan(
-			config, model, roster, works, economy.stockpile, tech_caps,
+			config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)
+		_price(plan["orders"], model, works)
+		plans.append({
+			"region": region,
+			"model": model,
+			"roster": roster,
+			"works": works,
+			"tech_caps": tech_caps,
+			"context": context,
+			"plan": plan,
+		})
+	return plans
+
+
+## The material row a planned work will be charged when it is assigned, read from
+## the same two rules the assignment itself reads, so the row the market keeps
+## back is the row the crew pays (wiki: civilian-units § Work Order Summary).
+static func _price(orders: Array, model: MapModel, works: LandWorks) -> void:
+	for raw: Variant in orders:
+		var order: Dictionary = raw
+		var action: String = String(order.get("action", ""))
+		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+		order["cost"] = CivilianWork.cost_for(
+			action, CivilianWork.cost_level(action, model, tile, works)
+		)
+
+
+## The material rows the planned works will be charged, read ahead of the sale
+## they must survive (wiki: economy-planner § Reservations). Training's paper is
+## a separate claim and stays with the ledger.
+static func work_rows(plans: Array[Dictionary]) -> Dictionary:
+	var rows: Dictionary = {}
+	for entry: Dictionary in plans:
+		var plan: Dictionary = entry.get("plan", {})
+		for raw: Variant in plan.get("orders", []):
+			var order: Dictionary = raw
+			var cost: Dictionary = order.get("cost", {})
+			for commodity: Variant in cost.keys():
+				var id: String = String(commodity)
+				var amount: int = int(cost[commodity])
+				if amount > 0:
+					rows[id] = int(rows.get(id, 0)) + amount
+	return rows
+
+
+## Applies what `plan_all` decided: the moves, the work orders (paid through the
+## same rules a crown's own orders use) and the next civilian to train.
+static func apply(
+	play: PlaySession, faction: int, economy: PlayerEconomy, plans: Array[Dictionary]
+) -> Dictionary:
+	var report: Dictionary = {"orders": [], "moves": [], "training": []}
+	for entry: Dictionary in plans:
+		var region: int = int(entry["region"])
+		var model: MapModel = entry["model"]
+		var roster: Array = entry["roster"]
+		var works: LandWorks = entry["works"]
+		var tech_caps: Dictionary = entry["tech_caps"]
+		var context: Dictionary = entry["context"]
+		var plan: Dictionary = entry["plan"]
 		for move: Dictionary in plan["moves"]:
 			var unit: CivilianState = _unit_by_id(roster, int(move["unit_id"]))
 			if unit != null:

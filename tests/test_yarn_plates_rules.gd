@@ -1376,6 +1376,51 @@ func test_a_structured_act_masks_an_unmet_target() -> void:
 	play.economy.free()
 
 
+## An order the rules refused never reached the court: a despatch that reported
+## it would invent a war (wiki: civilian-units § Spy (5); issue #426).
+func test_a_refused_act_is_not_reported() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": 9},
+		"result": {"ok": false, "reason": "No envoy has reached that court."},
+		"message": "",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	assert_true(play.hud.toasts.is_empty(), "no despatch for an act that never resolved")
+	play.hud.free()
+	play.economy.free()
+
+
+## The despatch says what resolved, not what the planner meant: a refused peace
+## reads as refused and a one-sided act keeps its own verb (issue #426).
+func test_peace_and_acts_read_as_they_resolved() -> void:
+	var play: PlaySession = _play_with_spy()
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyPlanner.KIND_OFFER_PEACE, "target": 9},
+		"result": {"ok": true, "accepted": false},
+		"message": "Unknown faction refuses a white peace.",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	var kept: Dictionary = play.court_reports["lines"] as Dictionary
+	assert_eq(
+		String((kept[RIVAL] as Array)[0]),
+		"England sues for peace with Unknown faction and is refused."
+	)
+	play.ai_trace = [{
+		"faction": RIVAL,
+		"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": 9},
+		"result": {"ok": true},
+		"message": "England sends aid to France.",
+	}]
+	MapPlaySpies.report(play, [], [], {})
+	kept = play.court_reports["lines"] as Dictionary
+	assert_eq(String((kept[RIVAL] as Array)[0]), "England sends aid to Unknown faction.")
+	play.hud.free()
+	play.economy.free()
+
+
 func test_court_report_is_silent_without_a_spy() -> void:
 	var play: PlaySession = _play_with_spy()
 	play.civilian_layer.units.clear()

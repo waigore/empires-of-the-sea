@@ -5,9 +5,9 @@ extends SceneTree
 ## keeps at home, and what the human is actually told about either.
 ##
 ## Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://tests/playtest_ai_spycraft.gd
+##   godot --headless --path . --script res://playtests/playtest_ai_spycraft.gd
 
-const Launch = preload("res://tests/playtest_launch.gd")
+const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
 const SETUP_SIZE_INDEX: int = 0
 const ADVANCED: String = "turns100"
