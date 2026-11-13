@@ -1,0 +1,10 @@
+# Track hills in the project repo. `.vc/` is included so tree hashes stay
+# identical across clones (CI + local). Drop disposable VC noise.
+hills/*/.venv/
+hills/*/__pycache__/
+hills/*/.pytest_cache/
+hills/*/private/
+hills/*/.vc/hooks/
+hills/*/.vc/COMMIT_EDITMSG
+hills/*/.vc/description
+*.pyc

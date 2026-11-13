@@ -1,0 +1,16 @@
+spec_version: 2
+name: ai-bench
+version: 0.1.0
+
+metrics:
+  - {name: score, direction: max}
+  - {name: provinces, direction: max}
+  - {name: forces, direction: max}
+
+# Full 200-turn Godot runs can take several minutes; leave headroom.
+watchdog_timeout_s: 1800
+
+params:
+  turns: {type: int, default: 200, min: 1, max: 2000}
+  seed: {type: int, default: 1500}
+  size: {type: int, default: 1, min: 0, max: 2}

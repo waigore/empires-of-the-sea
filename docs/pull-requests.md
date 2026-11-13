@@ -24,6 +24,7 @@ Base rules for opening and landing PRs (humans and agents).
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words — always |
 | `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 bars (`tools/lint_arch.py`) — always |
 | `skills-isolation` | [CI](../.github/workflows/ci.yml) | PR-only: fail if code **and** skills both change |
+| `ai-bench-report` | [CI](../.github/workflows/ci.yml) | PR AI paths: hills report ≥ baseline |
 | `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path review hook (**no-op** for now) |
 
 Code paths (`tests`/`build`/`e2e-smoke`/`skills-isolation`): `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Skills: `.agents/skills/`, `.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`. Docs-only and skills-only OK. `workflow_dispatch` runs tests/build/smoke. `docs-lint` / `arch-lint` always.
@@ -83,6 +84,5 @@ Never merge to `main` outside a PR that satisfied the ruleset checks.
 
 - [ ] Maps to a pillar (`P1`–`P5`) or is docs/tooling-only
 - [ ] Opened/updated with `gh`
-- [ ] Required checks green (incl. `skills-isolation`)
-- [ ] Branch up to date with `main`
-- [ ] Squash merge (or `--auto`) — no check bypass
+- [ ] Checks green (`skills-isolation`, `ai-bench-report` if AI)
+- [ ] Branch current with `main`; squash / `--auto` — no bypass
