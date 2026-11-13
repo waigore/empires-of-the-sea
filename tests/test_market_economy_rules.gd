@@ -3405,6 +3405,74 @@ func test_the_minor_offer_bid_names_the_ask() -> void:
 	ledger.free()
 
 
+## The Deal Book prices every commodity row for the crown reading it: a court
+## sailing as England must not read Spain's trade terms (wiki: world-market
+## § Subsidy price adjustment — "trade terms still stack"; REQ-P2-03, REQ-P5-05).
+func test_the_deal_book_prices_its_rows_for_the_viewing_crown() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
+	var english := LedgerMarket.new()
+	english.fill(PlayerEconomy.starting(), market, {"free": 2}, [], {}, 1)
+	var bid: Button = _bid_for(english, CommodityCatalog.label("grain"))
+	assert_not_null(bid, "the grain row offers a bid")
+	assert_true(
+		bid.tooltip_text.contains("at %d ducats" % market.buy_price("grain", 1)),
+		bid.tooltip_text
+	)
+	assert_false(
+		bid.tooltip_text.contains("at %d ducats" % market.buy_price("grain", 0)),
+		"the row must not read the default crown's terms: %s" % bid.tooltip_text
+	)
+	english.free()
+
+
+## A staged order's notional is the crown's own price, not the default crown's
+## (wiki: world-market § Trade orders; REQ-P2-03).
+func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
+	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
+	var ledger := LedgerMarket.new()
+	ledger.fill(PlayerEconomy.starting(), market, {}, [], {}, 1)
+	var row: Control = ledger._staged_row(order)
+	var notional: Label = row.get_child(3) as Label
+	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
+	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
+	row.free()
+	ledger.free()
+
+
+## The clearing republishes the Minor/Tribe book for the crown that will read
+## it: a court sailing as England must not be quoted Spain's terms
+## (wiki: world-market § Subsidy price adjustment; REQ-P2-03, REQ-P5-05).
+func test_the_clearing_publishes_the_minor_book_for_the_reading_crown() -> void:
+	var world: WorldMap = _offer_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4}, {"viewer": 1})
+	var english: Dictionary = market.minor_offers[
+		MinorMarket.index_of(market.minor_offers, "6:timber")
+	]
+	assert_eq(int(english["unit_price"]), 27, "England reads her own terms")
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
+	var spain: Dictionary = market.minor_offers[
+		MinorMarket.index_of(market.minor_offers, "6:timber")
+	]
+	assert_eq(int(spain["unit_price"]), 30, "no viewer keeps the published price")
+
+
+## The Bid button of one commodity row, found by the good its tooltip names.
+func _bid_for(node: Node, label: String) -> Button:
+	var button := node as Button
+	if button != null and button.text == "Bid" and button.tooltip_text.contains(label):
+		return button
+	for child: Node in node.get_children():
+		var found: Button = _bid_for(child, label)
+		if found != null:
+			return found
+	return null
+
+
 # --- rival lock-recovery (issue #489) ---------------------------------------
 
 func _ai_config() -> AiConfig:
