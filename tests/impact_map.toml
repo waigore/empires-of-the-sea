@@ -1247,6 +1247,28 @@ domain = "crown_road"
 match = "tests/civilian_fixture.gd*"
 domain = "prospect"
 
+# The Tribe a court draws into its empire (DR-20261114-02): the ambition read,
+# the envoy offer it raises and the ledger aim that prices it. Kept narrow so a
+# colonial-diplomacy change runs the campaign and ledger suites, not the whole
+# AI fan-out or the battle suites the generic `scripts/ai/**` rule pulls in.
+[domains.ai_colony]
+suites = [
+  "test_ai_campaign_rules.gd",
+  "test_ai_objective_rules.gd"
+]
+
+[[rules]]
+match = "scripts/ai/ai_tribe_colony.gd*"
+domain = "ai_colony"
+
+[[rules]]
+match = "scripts/ai/ai_diplomacy_offers.gd*"
+domain = "ai_colony"
+
+[[rules]]
+match = "scripts/ai/ai_objectives_plan.gd*"
+domain = "ai_colony"
+
 # The rival objective ledger (docs/ai.md; issue #491): one utility currency, the
 # rank/allocate passes, the claims a court keeps and the adapter that stamps
 # them into the turn trace. Kept its own small slice so a ledger change runs its
@@ -1264,6 +1286,10 @@ domain = "ai_ledger"
 
 [[rules]]
 match = "scripts/ai/ai_utility.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_claims.gd*"
 domain = "ai_ledger"
 
 [[rules]]

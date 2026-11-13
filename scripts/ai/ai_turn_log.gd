@@ -288,6 +288,16 @@ static func _record_economy(
 			_bump(bucket["actions"], "train")
 			_add_event(merged, bucket, faction, "%s musters a civilian." % who)
 		_record_cargo(merged, bucket, faction, details.get("cargo", {}))
+		_record_claims(bucket, details.get("claims", []))
+
+
+## Every reservation the court claimed this turn — rations, the muster's row,
+## the works, this turn's production — with what it was granted, so the trace
+## shows the same floor every spender left (issue #491 T3).
+static func _record_claims(bucket: Dictionary, lines: Variant) -> void:
+	if typeof(lines) != TYPE_ARRAY or (lines as Array).is_empty():
+		return
+	bucket["claims"] = (lines as Array).duplicate()
 
 
 ## Cargo routes and a new hull from the yard: the colonies' left tonnage and the

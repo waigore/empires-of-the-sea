@@ -43,21 +43,39 @@ static func modified(utility: int, per_mille: int = 1000) -> int:
 	return clamp_utility((utility * maxi(per_mille, 0)) / 1000)
 
 
-## A cost row with zero and unknown keys dropped, so the trace reads only what
-## the objective actually asks for.
+## A cost row with zero entries dropped, the named resources first and any
+## commodity a claim reserves after them — the order the trace prints in
+## (issue #491 T3).
 static func clean_cost(cost: Dictionary) -> Dictionary:
 	var clean: Dictionary = {}
-	for key: String in RESOURCES:
+	for key: String in ordered_keys(cost):
 		var amount: int = int(cost.get(key, 0))
 		if amount > 0:
 			clean[key] = amount
 	return clean
 
 
+## Every key a cost row carries, in reading order: the six named resources, then
+## the commodity claims (rations, inputs, works rows) sorted by id.
+static func ordered_keys(cost: Dictionary) -> Array[String]:
+	var keys: Array[String] = []
+	for key: String in RESOURCES:
+		if cost.has(key):
+			keys.append(key)
+	var rest: Array[String] = []
+	for raw: Variant in cost.keys():
+		var key: String = String(raw)
+		if not RESOURCES.has(key):
+			rest.append(key)
+	rest.sort()
+	keys.append_array(rest)
+	return keys
+
+
 ## What a grant left unfunded: cost − claim, positive entries only.
 static func shortfall(cost: Dictionary, claim: Dictionary) -> Dictionary:
 	var short: Dictionary = {}
-	for key: String in RESOURCES:
+	for key: String in ordered_keys(cost):
 		var missing: int = int(cost.get(key, 0)) - int(claim.get(key, 0))
 		if missing > 0:
 			short[key] = missing
@@ -67,7 +85,7 @@ static func shortfall(cost: Dictionary, claim: Dictionary) -> Dictionary:
 ## "hull 0/1, civilian 0/1" — the trace's starvation line (issue #491 T2).
 static func claim_text(cost: Dictionary, claim: Dictionary) -> String:
 	var parts: PackedStringArray = []
-	for key: String in RESOURCES:
+	for key: String in ordered_keys(cost):
 		var asked: int = int(cost.get(key, 0))
 		if asked <= 0:
 			continue
@@ -78,7 +96,7 @@ static func claim_text(cost: Dictionary, claim: Dictionary) -> String:
 ## A readable cost row for the trace: "treasury 120, orders 1".
 static func cost_text(cost: Dictionary) -> String:
 	var parts: PackedStringArray = []
-	for key: String in RESOURCES:
+	for key: String in ordered_keys(cost):
 		if int(cost.get(key, 0)) > 0:
 			parts.append("%s %d" % [key, int(cost[key])])
 	return ", ".join(parts)
