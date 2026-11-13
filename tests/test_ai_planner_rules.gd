@@ -804,6 +804,30 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 	var full: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 12, true)
 	assert_eq(String(full["muster"]), "", "the war target is a ceiling too")
 
+## A court that can see the bar arms up for the finish (DR-20261114-04): the
+## target rises by the pressure extra, so a court already at its published
+## target keeps mustering, and the price rules are unchanged.
+func test_the_victory_pressure_raises_the_muster_target() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy()
+	var peace: Dictionary = AiArmyReinforce.plan(config, economy, 8, false)
+	var extra: int = config.parameter("victory.pressure_regiments")
+	var pressed: Dictionary = AiArmyReinforce.plan(config, economy, 8, false, extra)
+
+	assert_eq(int(peace["target"]), config.parameter("army.regiment_target"))
+	assert_eq(int(pressed["target"]), int(peace["target"]) + extra, "the pressing court aims higher")
+	assert_eq(String(peace["muster"]), "", "at the published target")
+	assert_eq(String(pressed["muster"]), "arquebusiers", "the pressing court keeps arming")
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, 8, false).is_empty(),
+		"a court at its published target reserves no more cloth"
+	)
+	assert_false(
+		AiArmyReinforce.muster_reserve(config, economy, 8, false, extra).is_empty(),
+		"the pressing court provisions for the bigger army"
+	)
+
+
 func test_a_thin_labour_pool_stops_the_muster() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 5, false)
 

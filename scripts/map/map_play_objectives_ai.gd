@@ -34,16 +34,23 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
 	var readings: Dictionary = _readings(play, faction, config, economy, phase)
-	# The footing and the leader's weights scale the rank without deleting an
-	# aim: a voyage at war is cheaper, not gone (issue #491 T4).
+	# The footing, the leader's weights and the court's distance to the bar
+	# scale the rank without deleting an aim: a voyage at war is cheaper, not
+	# gone (issue #491 T4; DR-20261114-04).
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
 	var report: Dictionary = AiObjectiveLedger.run(
 		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
-		AiPosture.modifiers(String(phase.get("phase", "")), config)
+		AiPosture.modifiers(
+			String(phase.get("phase", "")), config, int(pressure["boost_mille"])
+		)
 	)
 	report["phase"] = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 	report["goal"] = String(readings["goal"])
 	report["treasury"] = int(readings["treasury"])
 	report["reserve"] = int(readings["reserve"])
+	report["pressure"] = pressure
 	play.ai.note_objectives(faction, report, play.turn)
 	return report
 

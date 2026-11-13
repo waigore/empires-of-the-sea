@@ -48,19 +48,34 @@ static func weight_mille(config: AiConfig, domain: String) -> int:
 	return NEUTRAL + (weight - 2) * config.parameter("posture.weight_step")
 
 
-## One domain's combined modifier: footing × weight, never below the floor.
-static func modifier(phase: String, domain: String, config: AiConfig) -> int:
+## One domain's combined modifier: footing × weight × victory pressure, never
+## below the floor. `pressure_mille` is `AiVictoryPressure`'s boost — a court
+## that can see the bar presses its military, naval and expansion aims
+## (DR-20261114-04); every other domain reads it as neutral.
+static func modifier(
+	phase: String, domain: String, config: AiConfig, pressure_mille: int = NEUTRAL
+) -> int:
 	var combined: int = posture_mille(phase, domain, config) * weight_mille(config, domain)
 	combined /= NEUTRAL
+	if _presses(domain):
+		combined = combined * maxi(pressure_mille, 0) / NEUTRAL
 	return maxi(combined, config.parameter("posture.floor") if config != null else 0)
 
 
 ## The whole vector, keyed by domain: what the rank pass multiplies utilities by.
-static func modifiers(phase: String, config: AiConfig) -> Dictionary:
+static func modifiers(
+	phase: String, config: AiConfig, pressure_mille: int = NEUTRAL
+) -> Dictionary:
 	var vector: Dictionary = {}
 	for domain: String in DOMAINS:
-		vector[domain] = modifier(phase, domain, config)
+		vector[domain] = modifier(phase, domain, config, pressure_mille)
 	return vector
+
+
+## Domains the victory pressure scales: the war the court presses and the land
+## it takes. Diplomacy, economy and research keep their own weights.
+static func _presses(domain: String) -> bool:
+	return domain == "military" or domain == "naval" or domain == "expansion"
 
 
 ## A domain that carries no weight of its own reads the weight of the domain it

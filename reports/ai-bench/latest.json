@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:da5ce5b200babb535d0faf2b62a0927be2a7a2bd00264bef5a8a6f15100b7409",
-  "submission_git": "fix/489-rival-lock-recovery@65598de",
+  "submission_hash": "sha256:75f375b8fe7a543ab0cb3632ed377d25a5d0ba791f6dca9ad063e83964017a24",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T205422192386Z@7a1e5db+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:e8e14a11289118c397bc17115e6722e749a05fb56c88d3867446b4b13879bc52",
+    "ai_surface_hash": "sha256:36baab1f23ef74ba3b6611ec7bf91ae78d30a6305ab86fb3188542bb819de9c6",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T20:32:50Z",
+  "timestamp": "2026-11-13T21:42:56Z",
   "report_version": 1,
-  "signature": "hmac-sha256:7763b0df64914eed1d3c06ca7e3abaf31abdd75511b9a063c4b638320fb1c71d"
+  "signature": "hmac-sha256:08313ea55312c405b20dc9e59ee49206cb130b461befb3d80ee858b0a521507e"
 }

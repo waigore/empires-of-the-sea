@@ -166,6 +166,15 @@ static func _report_march(
 	)
 
 
+## The extra regiments this court arms up for while it can see the victory bar
+## (wiki: ai-architecture § Notable strategic policies; DR-20261114-04). A
+## session with no world reads none, so the published target stands.
+static func _extra_regiments(play: PlaySession, faction: int, config: AiConfig) -> int:
+	return int(AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)["extra_regiments"])
+
+
 ## A rival court raises one line regiment a turn from its own ledger while it
 ## stands under its target strength and its economy can carry the muster — the
 ## growth-stage throttle (wiki: ai-architecture § Land reinforcement;
@@ -199,7 +208,8 @@ static func _reinforce(
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.at_war(play, faction)
+		MapPlayCourt.at_war(play, faction),
+		_extra_regiments(play, faction, config)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

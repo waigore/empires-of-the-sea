@@ -55,6 +55,11 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var ships: int = play.ship_layer.hull_count_all(faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
+	# How close the court stands to the bar it must clear, and whether it is
+	# pressing for it (DR-20261114-04).
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
 	var last: Dictionary = _last_turn(play, faction)
 	return {
 		"faction": faction,
@@ -83,6 +88,10 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"wars": _war_names(play, faction),
 		"alliances": _alliance_count(play, faction),
 		"progress": float(old_world) / float(VictoryRules.MILITARY_THRESHOLD),
+		"pressure_stage": String(pressure["stage"]),
+		"pressure": AiVictoryPressure.label(String(pressure["stage"])),
+		"pressure_need": int(pressure["need"]),
+		"pressure_regiments": int(pressure["extra_regiments"]),
 		"alive": old_world + new_world > 0,
 		"last": last,
 		"headline": AiTurnLog.headline(last),
