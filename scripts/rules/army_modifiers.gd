@@ -101,13 +101,16 @@ static func terrain_for(model: MapModel, province: int) -> int:
 	return best
 
 
-static func leader_multiplier(leader_key: String) -> float:
-	return LeaderCatalog.multiplier_for(leader_key)
+## Land-strength multiplier for one side of a battle: Napoleon both sides,
+## Gustavus attacking, Frederick defending (wiki: leader-bonuses § Bonus Table).
+static func leader_multiplier(leader_key: String, defending: bool = false) -> float:
+	return LeaderCatalog.land_multiplier(leader_key, defending)
 
 
-## Fallback medals when no general is available (wiki: combat § Modifiers).
-static func fallback_medals(leader_key: String) -> int:
-	var multiplier: float = leader_multiplier(leader_key)
+## Fallback medals when no general is available, read from the side's own land
+## multiplier (wiki: combat § Modifiers; military-generals § Assignment).
+static func fallback_medals(leader_key: String, defending: bool = false) -> int:
+	var multiplier: float = leader_multiplier(leader_key, defending)
 	if multiplier >= 1.25:
 		return 4
 	if multiplier >= 1.20:
@@ -225,7 +228,7 @@ static func modifiers(
 	var tech: Dictionary = context.get("tech", {}) as Dictionary
 	var multiplier: float = medal_aura(medals)
 	multiplier *= morale(context, owner)
-	multiplier *= leader_multiplier(String(leaders.get(owner, "")))
+	multiplier *= leader_multiplier(String(leaders.get(owner, "")), is_defender)
 	## Difficulty scales a rival side against the human crown (wiki: combat
 	## § Modifiers; ruleset-config § Layers). No context key = published maths.
 	var difficulty: Dictionary = context.get("difficulty", {}) as Dictionary

@@ -19,8 +19,10 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		# (wiki: workers-and-population § Consumption).
 		"navy_feeding": _navy_feeding(play),
 		# A rival of the chosen difficulty fights its own strength
-		# (wiki: ruleset-config § Difficulty).
+		# (wiki: ruleset-config § Difficulty), and a crown whose leader publishes
+		# a naval row (de Ruyter) fights at that multiplier (leader-bonuses).
 		"difficulty": strength_multipliers(play),
+		"leaders": play.leaders,
 	}
 	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
 		play.world, hostile, context
