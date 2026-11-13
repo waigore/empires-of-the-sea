@@ -1,0 +1,677 @@
+# The French court (wiki: dialogue-content-and-yarn; DR-20261113-06).
+# The msgid is the content key DialogueLocale.line_key builds, so a lookup
+# answers directly; the English source sits above each entry as a comment.
+msgid ""
+msgstr ""
+"Project-Id-Version: Empires of the Sea\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Keep our friendship close. It has served us both, and it shall serve one of us again.
+msgid "DialoguePoint/agenda/backstabber/0"
+msgstr "Gardons notre amitié serrée. Elle nous a servis tous deux, et elle en servira de nouveau un seul."
+
+#. There is no quarrel between us — yet. Consider how rare that is in these waters.
+msgid "DialoguePoint/agenda/backstabber/1"
+msgstr "Il n'y a nulle querelle entre nous — pas encore. Songez combien cela est rare en ces eaux."
+
+#. Do not mistake a warm letter for a warm intention. We write to several courts.
+msgid "DialoguePoint/agenda/backstabber/2"
+msgstr "Ne prenez point une lettre chaude pour une intention chaude. Nous écrivons à plusieurs cours."
+
+#. Your new buildings are fine work. Ours shall be finer, and sooner than you think.
+msgid "DialoguePoint/agenda/envy/0"
+msgstr "Vos nouveaux bâtiments sont bel ouvrage. Les nôtres seront plus beaux, et plus tôt que vous ne croyez."
+
+#. We watch your ledgers the way a rival merchant watches a loaded cart.
+msgid "DialoguePoint/agenda/envy/1"
+msgstr "Nous regardons vos registres comme un marchand rival regarde une charrette chargée."
+
+#. Whatever you raise, we shall raise beside it. That is simply how it must be.
+msgid "DialoguePoint/agenda/envy/2"
+msgstr "Tout ce que vous élèverez, nous l'élèverons à côté. C'est ainsi qu'il doit en être, rien de plus."
+
+#. We shall not be dragged through your quarrels. Our own fields interest us more than your treaties.
+msgid "DialoguePoint/agenda/isolationist/0"
+msgstr "On ne nous traînera point dans vos querelles. Nos propres champs nous intéressent plus que vos traités."
+
+#. An alliance is a rope with two ends, and we prefer our hands free.
+msgid "DialoguePoint/agenda/isolationist/1"
+msgstr "Une alliance est une corde à deux bouts, et nous préférons avoir les mains libres."
+
+#. Your envoy will find our harbour open and our court busy with its own accounts.
+msgid "DialoguePoint/agenda/isolationist/2"
+msgstr "Votre envoyé trouvera notre port ouvert et notre cour occupée à ses propres comptes."
+
+#. Every war ends. We would rather it ended before the terms cost us both a province.
+msgid "DialoguePoint/agenda/peacemaker/0"
+msgstr "Toute guerre prend fin. Nous aimerions mieux qu'elle finît avant que les conditions ne nous coûtent, à l'un comme à l'autre, une province."
+
+#. Our squadrons sail to see a fight stopped, not to start one.
+msgid "DialoguePoint/agenda/peacemaker/1"
+msgstr "Nos escadres appareillent pour voir cesser une querelle, non pour en allumer une."
+
+#. When the next crown is carved up, we intend to be the hand on the knife's wrist.
+msgid "DialoguePoint/agenda/peacemaker/2"
+msgstr "Quand la prochaine couronne sera découpée, nous entendons être la main sur le poignet qui tient le couteau."
+
+#. Your colleges publish; ours listen. It is cheaper than teaching our own scholars.
+msgid "DialoguePoint/agenda/tech_thief/0"
+msgstr "Vos collèges publient ; les nôtres écoutent. Cela coûte moins que d'instruire nos propres savants."
+
+#. A study kept secret is worth less than one our agents can read. You should consider that.
+msgid "DialoguePoint/agenda/tech_thief/1"
+msgstr "Une étude tenue secrète vaut moins qu'une que nos agents peuvent lire. Vous devriez y songer."
+
+#. Our gentlemen of letters are patient men. They read the papers your court leaves out.
+msgid "DialoguePoint/agenda/tech_thief/2"
+msgstr "Nos gens de lettres sont des hommes patients. Ils lisent les papiers que votre cour laisse traîner."
+
+#. There is a crown in these waters with a thin wall and a fat treasury. We are patient, not idle.
+msgid "DialoguePoint/agenda/warmonger/0"
+msgstr "Il est céans une couronne à la muraille mince et au trésor gras. Nous sommes patients, non oisifs."
+
+#. Our regiments drill while your merchants count. One of those numbers will matter more.
+msgid "DialoguePoint/agenda/warmonger/1"
+msgstr "Nos régiments font l'exercice tandis que vos marchands comptent. L'un de ces nombres comptera davantage."
+
+#. A neighbour's weakness is a standing invitation. We have never been good at refusing one.
+msgid "DialoguePoint/agenda/warmonger/2"
+msgstr "La faiblesse d'un voisin est une invitation permanente. Nous n'avons jamais su en refuser une."
+
+#. The treaty served its season. It serves no longer.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/0"
+msgstr "Le traité a servi sa saison. Il ne sert plus."
+
+#. We renounce the alliance; our ships sail where we bid them.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/1"
+msgstr "Nous renonçons à l'alliance ; nos vaisseaux vont où nous les commandons."
+
+#. Do not look for our squadrons. You will not find them beside you.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_them/2"
+msgstr "Ne cherchez point nos escadres. Vous ne les trouverez point à vos côtés."
+
+#. You break your word before witnesses. We shall remember it.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/0"
+msgstr "Vous rompez votre parole devant témoins. Nous nous en souviendrons."
+
+#. Our clerks have written your name beside this day.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/1"
+msgstr "Nos clercs ont écrit votre nom auprès de ce jour."
+
+#. So a crown keeps faith. Good to know before the next treaty.
+msgid "DialoguePoint/diplomatic/alliance_broken_by_you/2"
+msgstr "Voilà donc comme une couronne garde la foi. Bon à savoir avant le prochain traité."
+
+#. Your enemies are ours now, and ours are yours.
+msgid "DialoguePoint/diplomatic/alliance_formed/0"
+msgstr "Vos ennemis sont désormais les nôtres, et les nôtres sont vôtres."
+
+#. Let the treaty be read aloud in both our harbours.
+msgid "DialoguePoint/diplomatic/alliance_formed/1"
+msgstr "Que le traité soit lu à haute voix dans nos deux ports."
+
+#. We stand with you, so long as the terms stand.
+msgid "DialoguePoint/diplomatic/alliance_formed/2"
+msgstr "Nous nous tenons avec vous, tant que les conditions tiendront."
+
+#. Our regiments are yours in this quarrel.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/0"
+msgstr "Nos régiments sont vôtres en cette querelle."
+
+#. The treaty speaks plainly, and so do we. We march.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/1"
+msgstr "Le traité parle clair, et nous aussi. Nous marchons."
+
+#. Consider the aggressor answered.
+msgid "DialoguePoint/diplomatic/call_to_arms_joined/2"
+msgstr "Tenez l'agresseur pour répondu."
+
+#. The treaty did not bind us to this ruin. Our regiments stay home.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/0"
+msgstr "Le traité ne nous liait point à cette ruine. Nos régiments restent au pays."
+
+#. We have weighed this war. You will fight it without us.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/1"
+msgstr "Nous avons pesé cette guerre. Vous la ferez sans nous."
+
+#. Do not mistake our refusal for friendship to the other side.
+msgid "DialoguePoint/diplomatic/call_to_arms_refused/2"
+msgstr "Ne prenez point notre refus pour de l'amitié envers l'autre parti."
+
+#. We had heard of your crown. Now we shall learn what it is worth.
+msgid "DialoguePoint/diplomatic/first_contact/0"
+msgstr "Nous avions ouï parler de votre couronne. Nous apprendrons à présent ce qu'elle vaut."
+
+#. Send word who you are, that our clerks may enter it properly.
+msgid "DialoguePoint/diplomatic/first_contact/1"
+msgstr "Mandatez qui vous êtes, afin que nos clercs l'inscrivent comme il faut."
+
+#. A new flag in these waters. {other}, is it? We shall watch where it sails.
+msgid "DialoguePoint/diplomatic/first_contact/2"
+msgstr "Un pavillon neuf en ces eaux. {other}, n'est-ce pas ? Nous regarderons où il navigue."
+
+#. We will not stand by while a crown is carved up.
+msgid "DialoguePoint/diplomatic/intervention_joined/0"
+msgstr "Nous ne resterons point les bras croisés tandis qu'on découpe une couronne."
+
+#. Our squadrons sail. The aggressor had better mind its charts.
+msgid "DialoguePoint/diplomatic/intervention_joined/1"
+msgstr "Nos escadres appareillent. L'agresseur fera bien de veiller à ses cartes."
+
+#. The embassy stood for this. We answer it now.
+msgid "DialoguePoint/diplomatic/intervention_joined/2"
+msgstr "L'ambassade s'est portée garante de ceci. Nous y répondons à présent."
+
+#. This war is an outrage, and our court says so plainly.
+msgid "DialoguePoint/diplomatic/intervention_protested/0"
+msgstr "Cette guerre est un forfait, et notre cour le dit sans détour."
+
+#. We protest this aggression in every court that will hear us.
+msgid "DialoguePoint/diplomatic/intervention_protested/1"
+msgstr "Nous protestons contre cette agression en toute cour qui nous voudra ouïr."
+
+#. There will be a reckoning for this, though not today with guns.
+msgid "DialoguePoint/diplomatic/intervention_protested/2"
+msgstr "Il y aura un compte à rendre pour ceci, mais point aujourd'hui par le canon."
+
+#. Our embassy is closed. What follows is not our affair.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/0"
+msgstr "Notre ambassade est close. Ce qui suit n'est point notre affaire."
+
+#. We have taken the papers home. The war is yours.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/1"
+msgstr "Nous avons remporté les papiers chez nous. La guerre est vôtre."
+
+#. We choose our quarrels. This is not one of them.
+msgid "DialoguePoint/diplomatic/intervention_stood_aside/2"
+msgstr "Nous choisissons nos querelles. Celle-ci n'en est point."
+
+#. Your envoy is welcome. Our clerks will find him a chair.
+msgid "DialoguePoint/diplomatic/overture_accepted/0"
+msgstr "Votre envoyé est le bienvenu. Nos clercs lui trouveront un siège."
+
+#. We accept. Let it be entered in the book of treaties.
+msgid "DialoguePoint/diplomatic/overture_accepted/1"
+msgstr "Nous acceptons. Qu'on l'inscrive au livre des traités."
+
+#. A small step, and a useful one. Come, let us sign.
+msgid "DialoguePoint/diplomatic/overture_accepted/2"
+msgstr "Un pas petit, et utile. Allons, signons."
+
+#. Our envoy shall keep your court, and your merchants our ports.
+msgid "DialoguePoint/diplomatic/overture_granted/0"
+msgstr "Notre envoyé tiendra votre cour, et vos marchands nos ports."
+
+#. It is agreed. Let the papers be sealed and the wine poured.
+msgid "DialoguePoint/diplomatic/overture_granted/1"
+msgstr "C'est accordé. Qu'on scelle les papiers et qu'on verse le vin."
+
+#. We receive your envoy kindly, and expect the courtesy returned.
+msgid "DialoguePoint/diplomatic/overture_granted/2"
+msgstr "Nous recevons votre envoyé de bon cœur, et comptons que la courtoisie nous soit rendue."
+
+#. The terms do not suit us. Keep your envoy at home.
+msgid "DialoguePoint/diplomatic/overture_refused/0"
+msgstr "Les conditions ne nous agréent point. Gardez votre envoyé chez vous."
+
+#. A consul from your court would find little to do here.
+msgid "DialoguePoint/diplomatic/overture_refused/1"
+msgstr "Un consul de votre cour trouverait peu à faire céans."
+
+#. No. We need nothing from you badly enough to grant this.
+msgid "DialoguePoint/diplomatic/overture_refused/2"
+msgstr "Non. Nous n'avons besoin de rien de vous au point de l'accorder."
+
+#. Very well. We shall not ask twice.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/0"
+msgstr "Fort bien. Nous ne demanderons point deux fois."
+
+#. Your refusal is entered in the ledger, and not in your favour.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/1"
+msgstr "Votre refus est porté au registre, et non à votre avantage."
+
+#. Then we keep our envoy, and our money, at home.
+msgid "DialoguePoint/diplomatic/overture_withdrawn/2"
+msgstr "Nous garderons donc notre envoyé, et notre argent, chez nous."
+
+#. Enough blood has gone to the fishes. The war is done.
+msgid "DialoguePoint/diplomatic/peace_made/0"
+msgstr "Assez de sang est allé aux poissons. La guerre est faite."
+
+#. The treaty is signed. Let no captain test the ink.
+msgid "DialoguePoint/diplomatic/peace_made/1"
+msgstr "Le traité est signé. Qu'aucun capitaine ne vienne éprouver l'encre."
+
+#. We shall have peace, and watch you the closer for it.
+msgid "DialoguePoint/diplomatic/peace_made/2"
+msgstr "Nous aurons la paix, et vous en guetterons d'autant plus près."
+
+#. It is agreed. Our clerks will draw it up before the day is out.
+msgid "DialoguePoint/diplomatic/proposal_accepted/0"
+msgstr "C'est accordé. Nos clercs le rédigeront avant la fin du jour."
+
+#. You have dealt with us fairly. We shall remember it.
+msgid "DialoguePoint/diplomatic/proposal_accepted/1"
+msgstr "Vous avez traité avec nous loyalement. Nous nous en souviendrons."
+
+#. Then let it be finished, and let both fleets know it.
+msgid "DialoguePoint/diplomatic/proposal_accepted/2"
+msgstr "Qu'on l'achève donc, et que les deux flottes le sachent."
+
+#. Very well. The offer is withdrawn.
+msgid "DialoguePoint/diplomatic/proposal_refused/0"
+msgstr "Fort bien. L'offre est retirée."
+
+#. We had expected better of your court. So be it.
+msgid "DialoguePoint/diplomatic/proposal_refused/1"
+msgstr "Nous attendions mieux de votre cour. Ainsi soit-il."
+
+#. The offer dies here. Do not come asking after it.
+msgid "DialoguePoint/diplomatic/proposal_refused/2"
+msgstr "L'offre meurt ici. Ne venez point la réclamer."
+
+#. You have had our patience. Now you shall have our broadsides.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/0"
+msgstr "Vous avez eu notre patience. Vous aurez à présent nos bordées."
+
+#. Our guns are laid, our letters are finished, and our patience is spent.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/1"
+msgstr "Nos canons sont pointés, nos lettres sont closes, et notre patience est à bout."
+
+#. Let the sea judge between our crowns, since the court could not.
+msgid "DialoguePoint/diplomatic/war_declared_by_them/2"
+msgstr "Que la mer juge entre nos couronnes, puisque la cour n'a su le faire."
+
+#. So be it. Every sail you take shall be answered for at the peace.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/0"
+msgstr "Ainsi soit-il. Chaque voile que vous prendrez sera comptée à la paix."
+
+#. You strike first. We shall be the last to strike.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/1"
+msgstr "Vous frappez le premier. Nous serons les derniers à frapper."
+
+#. Our harbours are shut to your flag, and our cruisers are not idle.
+msgid "DialoguePoint/diplomatic/war_declared_by_you/2"
+msgstr "Nos ports sont clos à votre pavillon, et nos frégates ne chôment point."
+
+#. Your seat lies under our guns. Open the gates and spare the houses.
+msgid "DialoguePoint/event/capital_threatened/0"
+msgstr "Votre siège est sous nos canons. Ouvrez les portes et épargnez les maisons."
+
+#. We stand before your palace, and the question left is only how long.
+msgid "DialoguePoint/event/capital_threatened/1"
+msgstr "Nous sommes devant votre palais, et la seule question qui reste est celle du temps."
+
+#. The town is ours to take when we choose it. Sleep on that.
+msgid "DialoguePoint/event/capital_threatened/2"
+msgstr "La ville est nôtre à prendre quand il nous plaira. Dormez là-dessus."
+
+#. Your flag is over our land. We were not asked, only told.
+msgid "DialoguePoint/event/colony_founded/0"
+msgstr "Votre pavillon est sur notre terre. On ne nous a point demandé, on nous a dit."
+
+#. You have bought our elders and our ground in the same handshake.
+msgid "DialoguePoint/event/colony_founded/1"
+msgstr "Vous avez acheté nos anciens et notre sol dans la même poignée de main."
+
+#. The musket and the chapel came off the same ship. We carry both now.
+msgid "DialoguePoint/event/colony_founded/2"
+msgstr "Le mousquet et la chapelle sont descendus du même vaisseau. Nous portons l'un et l'autre à présent."
+
+#. Our line broke on yours. The court has read every name aloud.
+msgid "DialoguePoint/event/field_lost/0"
+msgstr "Notre ligne s'est rompue sur la vôtre. La cour a lu chaque nom à haute voix."
+
+#. We shall not dress it: the field was yours, and the colours with it.
+msgid "DialoguePoint/event/field_lost/1"
+msgstr "Nous ne l'embellirons point : le champ fut vôtre, et les couleurs avec lui."
+
+#. Our colours are in your hands. Do not think the war is in them.
+msgid "DialoguePoint/event/field_lost/2"
+msgstr "Nos couleurs sont en vos mains. Ne croyez pas que la guerre y soit."
+
+#. Our line broke theirs in the open. The prisoners are already counting themselves.
+msgid "DialoguePoint/event/field_won/0"
+msgstr "Notre ligne a rompu la leur en rase campagne. Les prisonniers se comptent déjà."
+
+#. You brought your regiments into the open, and the open kept ours.
+msgid "DialoguePoint/event/field_won/1"
+msgstr "Vous avez mené vos régiments en rase campagne, et la campagne a gardé les nôtres."
+
+#. The field is ours. We shall bury theirs and thank the ground for it.
+msgid "DialoguePoint/event/field_won/2"
+msgstr "Le champ est nôtre. Nous ensevelirons les leurs et en remercierons la terre."
+
+#. Our squadron went down with the sun. The sea keeps what it takes.
+msgid "DialoguePoint/event/sea_lost/0"
+msgstr "Notre escadre a sombré avec le soleil. La mer garde ce qu'elle prend."
+
+#. The water is yours. Our captains will be asked hard questions.
+msgid "DialoguePoint/event/sea_lost/1"
+msgstr "L'eau est vôtre. On posera de rudes questions à nos capitaines."
+
+#. We lost the station and the hulls with it. That is the whole of the news.
+msgid "DialoguePoint/event/sea_lost/2"
+msgstr "Nous avons perdu la station, et les coques avec elle. Voilà toute la nouvelle."
+
+#. Our broadsides settled it. The water is ours, and the wreckage with it.
+msgid "DialoguePoint/event/sea_won/0"
+msgstr "Nos bordées en ont décidé. L'eau est nôtre, et les débris avec elle."
+
+#. Your squadron went down with the sun. We counted the masts from the shore.
+msgid "DialoguePoint/event/sea_won/1"
+msgstr "Votre escadre a sombré avec le soleil. Nous avons compté les mâts depuis le rivage."
+
+#. The sea answered for us. Send no more sail where ours keeps station.
+msgid "DialoguePoint/event/sea_won/2"
+msgstr "La mer a répondu pour nous. N'envoyez plus de voiles où les nôtres tiennent la station."
+
+#. The walls held. Your batteries bought nothing but smoke and patience.
+msgid "DialoguePoint/event/siege_held/0"
+msgstr "Les murailles ont tenu. Vos batteries n'ont acheté que fumée et patience."
+
+#. You broke on our ramparts. The guns are still ours, and so is the town.
+msgid "DialoguePoint/event/siege_held/1"
+msgstr "Vous vous êtes brisé sur nos remparts. Les canons sont encore nôtres, et la ville aussi."
+
+#. Our stones outlasted your train. Come again when you have more of it.
+msgid "DialoguePoint/event/siege_held/2"
+msgstr "Nos pierres ont duré plus que votre train. Revenez quand vous en aurez davantage."
+
+#. Our guns fell silent before the wall did. The siege is raised.
+msgid "DialoguePoint/event/siege_lost/0"
+msgstr "Nos canons se sont tus avant la muraille. Le siège est levé."
+
+#. We shall not spend another train on those stones this year.
+msgid "DialoguePoint/event/siege_lost/1"
+msgstr "Nous ne dépenserons point d'autre train contre ces pierres cette année."
+
+#. The wall stood and our batteries did not. The court will hear of it.
+msgid "DialoguePoint/event/siege_lost/2"
+msgstr "La muraille a tenu et nos batteries non. La cour en entendra parler."
+
+#. The breach is yours and the town with it. We shall want it back.
+msgid "DialoguePoint/event/siege_taken/0"
+msgstr "La brèche est vôtre, et la ville avec elle. Nous la voudrons reconquérir."
+
+#. Our walls failed us. The court is being told so this very hour.
+msgid "DialoguePoint/event/siege_taken/1"
+msgstr "Nos murailles nous ont failli. On le mande à la cour à cette heure même."
+
+#. You have the town. The stones remember who raised them.
+msgid "DialoguePoint/event/siege_taken/2"
+msgstr "Vous tenez la ville. Les pierres se souviennent de qui les a élevées."
+
+#. The breach is ours and the town with it. Our batteries did the talking.
+msgid "DialoguePoint/event/siege_won/0"
+msgstr "La brèche est nôtre, et la ville avec elle. Nos batteries ont fait le discours."
+
+#. Your walls came down in the end. We shall hold them better than you did.
+msgid "DialoguePoint/event/siege_won/1"
+msgstr "Vos murailles sont enfin tombées. Nous les tiendrons mieux que vous."
+
+#. The garrison answered our last summons with a flag. The town is ours.
+msgid "DialoguePoint/event/siege_won/2"
+msgstr "La garnison a répondu à notre dernière sommation par un drapeau. La ville est nôtre."
+
+#. Your scholars publish while ours still argue. We have taken note of it.
+msgid "DialoguePoint/event/tech_studied/0"
+msgstr "Vos savants publient tandis que les nôtres disputent encore. Nous en avons pris note."
+
+#. So the crown has learned something new. Our admirals will want to hear it.
+msgid "DialoguePoint/event/tech_studied/1"
+msgstr "La couronne a donc appris du neuf. Nos amiraux voudront l'apprendre."
+
+#. Every study your court finishes makes our own colleges quieter. Go carefully.
+msgid "DialoguePoint/event/tech_studied/2"
+msgstr "Chaque étude achevée par votre cour rend nos collèges plus silencieux. Allez prudemment."
+
+#. An alliance, then. Two crowns hold a sea better than one.
+msgid "DialoguePoint/negotiation/proposal_alliance/0"
+msgstr "Une alliance, donc. Deux couronnes tiennent une mer mieux qu'une."
+
+#. Our courts are close enough in mind. Shall we put it in ink?
+msgid "DialoguePoint/negotiation/proposal_alliance/1"
+msgstr "Nos cours sont assez proches d'esprit. Le mettrons-nous à l'encre ?"
+
+#. Sign with us, and neither of us faces the next war alone.
+msgid "DialoguePoint/negotiation/proposal_alliance/2"
+msgstr "Signez avec nous, et nul de nous n'affrontera seul la prochaine guerre."
+
+#. Let our merchants be favoured partners, and our ports will know it.
+msgid "DialoguePoint/negotiation/proposal_ftp/0"
+msgstr "Que nos marchands soient partenaires privilégiés, et nos ports le sauront."
+
+#. A trading pact between our crowns: your lots clear first at our quay.
+msgid "DialoguePoint/negotiation/proposal_ftp/1"
+msgstr "Un pacte de commerce entre nos couronnes : vos lots passeront les premiers sur notre quai."
+
+#. Put your name to a favoured pact, and we shall both sell at better rates.
+msgid "DialoguePoint/negotiation/proposal_ftp/2"
+msgstr "Mettez votre nom à un pacte privilégié, et nous vendrons tous deux à meilleur prix."
+
+#. The pact of non-aggression, then. Our clerks have the draft ready.
+msgid "DialoguePoint/negotiation/proposal_nap/0"
+msgstr "Le pacte de non-agression, donc. Nos clercs ont le projet prêt."
+
+#. One more step between our crowns. Put your seal to the pact.
+msgid "DialoguePoint/negotiation/proposal_nap/1"
+msgstr "Un pas de plus entre nos couronnes. Apposez votre sceau au pacte."
+
+#. We are near enough to sign it. Let the non-aggression pact stand.
+msgid "DialoguePoint/negotiation/proposal_nap/2"
+msgstr "Nous sommes assez proches pour le signer. Que le pacte de non-agression tienne."
+
+#. A consul at your court and your merchants at our quay. Shall we?
+msgid "DialoguePoint/negotiation/proposal_overture/0"
+msgstr "Un consul en votre cour et vos marchands sur notre quai. Le voulons-nous ?"
+
+#. We propose an arrangement of mutual use. The papers are ready.
+msgid "DialoguePoint/negotiation/proposal_overture/1"
+msgstr "Nous proposons un arrangement d'utilité commune. Les papiers sont prêts."
+
+#. Small treaties keep the peace. Come, agree to one.
+msgid "DialoguePoint/negotiation/proposal_overture/2"
+msgstr "Les petits traités gardent la paix. Allons, accordez-en un."
+
+#. Let the guns fall silent. We offer a white peace.
+msgid "DialoguePoint/negotiation/proposal_peace/0"
+msgstr "Que les canons se taisent. Nous offrons une paix blanche."
+
+#. We have both lost enough ships to this war. Shall we stop?
+msgid "DialoguePoint/negotiation/proposal_peace/1"
+msgstr "Nous avons tous deux perdu assez de vaisseaux à cette guerre. Cesserons-nous ?"
+
+#. Our terms are a white peace, no more and no less. Answer it.
+msgid "DialoguePoint/negotiation/proposal_peace/2"
+msgstr "Nos conditions sont une paix blanche, rien de plus ni de moins. Répondez-y."
+
+#. Your court is always welcome here, and your squadrons beside ours.
+msgid "DialoguePoint/reactive/standing_alliance/0"
+msgstr "Votre cour est toujours la bienvenue céans, et vos escadres auprès des nôtres."
+
+#. The alliance holds. Long may it suit us both.
+msgid "DialoguePoint/reactive/standing_alliance/1"
+msgstr "L'alliance tient. Puissent nos deux cours s'en trouver longtemps bien."
+
+#. We have little to say to your court.
+msgid "DialoguePoint/reactive/standing_cold/0"
+msgstr "Nous avons peu à dire à votre cour."
+
+#. Our clerks record your name, and nothing warmer.
+msgid "DialoguePoint/reactive/standing_cold/1"
+msgstr "Nos clercs inscrivent votre nom, et rien de plus chaud."
+
+#. You will always find a friend of our court in this harbour.
+msgid "DialoguePoint/reactive/standing_friendly/0"
+msgstr "Vous trouverez toujours en ce port un ami de notre cour."
+
+#. Our doors are open to your envoy, at any hour.
+msgid "DialoguePoint/reactive/standing_friendly/1"
+msgstr "Nos portes sont ouvertes à votre envoyé, à toute heure."
+
+#. Our clerks record your name; nothing more today.
+msgid "DialoguePoint/reactive/standing_neutral/0"
+msgstr "Nos clercs inscrivent votre nom ; rien de plus aujourd'hui."
+
+#. The court is civil, and no more than civil.
+msgid "DialoguePoint/reactive/standing_neutral/1"
+msgstr "La cour est civile, et rien de plus que civile."
+
+#. The war stands. We shall speak again when one of us tires.
+msgid "DialoguePoint/reactive/standing_war/0"
+msgstr "La guerre demeure. Nous reparlerons quand l'un de nous se lassera."
+
+#. Our courts have nothing to add to the guns.
+msgid "DialoguePoint/reactive/standing_war/1"
+msgstr "Nos cours n'ont rien à ajouter aux canons."
+
+# --- the prompt's words: a blocking decision, its stakes and its answers
+# (wiki: dialogue-content-and-yarn § Playable slice; DR-20261113-10).
+
+#. %s has declared war on %s. %s
+msgid "Prompt/declaration"
+msgstr "%s a déclaré la guerre à %s. %s"
+
+#. CALL TO ARMS
+msgid "Prompt/call/caption"
+msgstr "APPEL AUX ARMES"
+
+#. Our formal alliance binds us: join the war against %s, or refuse and break the treaty — −50 with %s and −10 with every other Great Power but the aggressor.
+msgid "Prompt/call/stake"
+msgstr "Notre alliance formelle nous engage : joindre la guerre contre %s, ou refuser et rompre le traité — −50 avec %s et −10 avec toutes les autres grandes puissances hormis l'agresseur."
+
+#. %s calls on our alliance against %s.
+msgid "Prompt/call/toast"
+msgstr "%s en appelle à notre alliance contre %s."
+
+#. INTERVENTION
+msgid "Prompt/intervention/caption"
+msgstr "INGÉRENCE"
+
+#. Our embassy stands: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_embassy"
+msgstr "Notre ambassade tient : intervenez, protestez, ou restez à l'écart et perdez l'ambassade."
+
+#. Our deed there is at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deed"
+msgstr "Notre concession y est en jeu : joignez la guerre, protestez, ou restez à l'écart."
+
+#. Our %d deeds there are at stake: join the war, protest, or stand aside.
+msgid "Prompt/intervention/stake_deeds"
+msgstr "Nos %d concessions y sont en jeu : joignez la guerre, protestez, ou restez à l'écart."
+
+#. Our embassy stands and our deed there is at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deed"
+msgstr "Notre ambassade tient et notre concession y est en jeu : intervenez, protestez, ou restez à l'écart et perdez l'ambassade."
+
+#. Our embassy stands and our %d deeds there are at stake: intervene, protest, or stand aside and lose the embassy.
+msgid "Prompt/intervention/stake_both_deeds"
+msgstr "Notre ambassade tient et nos %d concessions y sont en jeu : intervenez, protestez, ou restez à l'écart et perdez l'ambassade."
+
+#. PROPOSAL
+msgid "Prompt/proposal/caption"
+msgstr "PROPOSITION"
+
+#. %s proposes a formal alliance.
+msgid "Prompt/proposal/alliance"
+msgstr "%s nous propose une alliance formelle."
+
+#. %s proposes a white peace.
+msgid "Prompt/proposal/peace"
+msgstr "%s nous propose une paix blanche."
+
+#. %s proposes a favoured trading pact.
+msgid "Prompt/proposal/ftp"
+msgstr "%s nous propose un pacte commercial privilégié."
+
+#. %s proposes the Trade Consulate.
+msgid "Prompt/proposal/overture/consulate"
+msgstr "%s nous propose le consulat commercial."
+
+#. %s proposes the Embassy.
+msgid "Prompt/proposal/overture/embassy"
+msgstr "%s nous propose une ambassade."
+
+#. %s proposes the Non-Aggression Pact.
+msgid "Prompt/proposal/overture/nap"
+msgstr "%s nous propose le pacte de non-agression."
+
+#. %s proposes the Join Empire.
+msgid "Prompt/proposal/overture/join_empire"
+msgstr "%s nous propose de joindre son empire."
+
+#. %s proposes the No overture.
+msgid "Prompt/proposal/overture/none"
+msgstr "%s nous propose une ouverture."
+
+#. Favoured terms: imports at %d%%, exports at %d%%.
+msgid "Prompt/proposal/terms"
+msgstr "Conditions du pacte : importations à %d %%, exportations à %d %%."
+
+#. “%s”
+msgid "Prompt/proposal/quote"
+msgstr "« %s »"
+
+#. Answer the proposal.
+msgid "Prompt/proposal/answer"
+msgstr "Répondez à la proposition."
+
+#. Join the war
+msgid "Prompt/button/join"
+msgstr "Joindre la guerre"
+
+#. Refuse
+msgid "Prompt/button/refuse"
+msgstr "Refuser"
+
+#. Intervene
+msgid "Prompt/button/intervene"
+msgstr "Intervenir"
+
+#. Stand aside
+msgid "Prompt/button/stand_aside"
+msgstr "Rester à l'écart"
+
+#. Protest
+msgid "Prompt/button/protest"
+msgstr "Protester"
+
+#. Accept
+msgid "Prompt/button/accept"
+msgstr "Accepter"
+
+#. Considering
+msgid "Prompt/mood/considering"
+msgstr "Réfléchi"
+
+#. Pleased
+msgid "Prompt/mood/pleased"
+msgstr "Satisfait"
+
+#. Gracious
+msgid "Prompt/mood/gracious"
+msgstr "Gracieux"
+
+#. Calculating
+msgid "Prompt/mood/calculating"
+msgstr "Calculateur"
+
+#. Skeptical
+msgid "Prompt/mood/skeptical"
+msgstr "Sceptique"
+
+#. Impatient
+msgid "Prompt/mood/impatient"
+msgstr "Pressé"
+
+#. Irritated
+msgid "Prompt/mood/irritated"
+msgstr "Irrité"
+
+#. Dismissive
+msgid "Prompt/mood/dismissive"
+msgstr "Dédaigneux"

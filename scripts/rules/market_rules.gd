@@ -104,6 +104,108 @@ static func notional(order: MarketOrder, unit_price: int) -> int:
 	return order.remaining() * maxi(unit_price, 0)
 
 
+## The subsidy step one deal carries, 1.0 for a pair with none: a subsidised
+## Minor/Tribe's goods cost its payer `1 + p%` and the other arms move `1 − p%`
+## (wiki: world-market § Subsidy price adjustment, R3.4a/b). The step is scoped
+## to the pair, so a deal with any other court carries 1.0.
+static func subsidy_step(
+	percent: int, buyer_is_minor: bool, seller_is_minor: bool, is_buy: bool
+) -> float:
+	if percent <= 0:
+		return 1.0
+	var step: float = float(percent) / 100.0
+	if is_buy:
+		if seller_is_minor and not buyer_is_minor:
+			return 1.0 + step
+		if buyer_is_minor and not seller_is_minor:
+			return 1.0 - step
+		return 1.0
+	if buyer_is_minor and not seller_is_minor:
+		return 1.0 - step
+	return 1.0
+
+
+## The subsidy percent a published pair carries, 0 when it carries none.
+static func subsidy_percent(market: WorldMarket, buyer: int, seller: int) -> int:
+	if market == null or buyer < 0 or seller < 0:
+		return 0
+	return int(market.subsidy_terms.get("%d>%d" % [buyer, seller], 0))
+
+
+## The multiplier one deal actually lands at: the court's own terms times the
+## pair's subsidy step, kept inside the rails the page publishes — "trade terms
+## still stack with it inside the 70–150% (buy) and 50–130% (sell) rails"
+## (wiki: world-market § Subsidy price adjustment). One read for the settlement,
+## the ask and the UI, so none of them can drift.
+static func deal_rate(
+	market: WorldMarket, commodity: String, court: int, step: float, is_buy: bool
+) -> float:
+	var rate: float = market.term_multiplier(court, commodity, is_buy) * step
+	if is_buy:
+		return clampf(rate, DiplomacyCatalog.TERMS_BUY_MIN, DiplomacyCatalog.TERMS_BUY_MAX)
+	return clampf(rate, DiplomacyCatalog.TERMS_SELL_MIN, DiplomacyCatalog.TERMS_SELL_MAX)
+
+
+## One unit at the published price and the deal's rate; what the ask prints.
+static func deal_unit(
+	market: WorldMarket, commodity: String, court: int, step: float, is_buy: bool
+) -> int:
+	var rate: float = deal_rate(market, commodity, court, step, is_buy)
+	return maxi(roundi(float(market.price(commodity)) * rate), 1)
+
+
+## One deal's total, rounded once from the published price and the whole rate
+## (wiki: world-market § Subsidy price adjustment — the debt is
+## `round(Q × P × (1 ± p/100))`, never a sum of per-unit roundings).
+static func deal_total(
+	market: WorldMarket,
+	commodity: String,
+	quantity: int,
+	court: int,
+	step: float,
+	is_buy: bool
+) -> int:
+	if quantity <= 0:
+		return 0
+	var rate: float = deal_rate(market, commodity, court, step, is_buy)
+	return maxi(roundi(float(quantity) * float(market.price(commodity)) * rate), quantity)
+
+
+## Whether a court is a Minor Nation or a Tribe; the subsidy arms read it.
+static func is_minor(faction: int) -> bool:
+	if faction < 0:
+		return false
+	var kind: int = FactionCatalog.type_of(faction)
+	return kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE
+
+
+## One unit of a deal between two named courts, the step read from the pair.
+static func deal_unit_for(
+	market: WorldMarket, commodity: String, buyer: int, seller: int,
+	subsidy_percent: int, is_buy: bool
+) -> int:
+	if is_buy:
+		var buy_step: float = subsidy_step(
+			subsidy_percent, is_minor(buyer), is_minor(seller), true
+		)
+		return deal_unit(market, commodity, buyer, buy_step, true)
+	var sell_step: float = subsidy_step(
+		subsidy_percent, is_minor(buyer), is_minor(seller), false
+	)
+	return deal_unit(market, commodity, seller, sell_step, false)
+
+
+## One deal's whole cost or receipt between two named courts.
+static func deal_total_for(
+	market: WorldMarket, commodity: String, quantity: int, buyer: int, seller: int,
+	subsidy_percent: int, is_buy: bool
+) -> int:
+	var step: float = subsidy_step(
+		subsidy_percent, is_minor(buyer), is_minor(seller), is_buy
+	)
+	return deal_total(market, commodity, quantity, buyer if is_buy else seller, step, is_buy)
+
+
 static func _yes() -> Dictionary:
 	return {"ok": true, "reason": "", "code": ""}
 
