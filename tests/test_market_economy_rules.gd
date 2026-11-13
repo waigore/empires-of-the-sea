@@ -3330,3 +3330,45 @@ func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
 	var line: String = LedgerText.deal_line(deal)
 	assert_true(line.contains("at 33"), line)
 	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
+
+
+## The other two Deal Book lines: a sale names its receipt, a favoured fill says
+## so, and a legacied row with no `buy_unit` still reads at its published price
+## (REQ-P5-05; wiki: world-market § Favored Trading Partner).
+func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber",
+			"quantity": 2, "price": 30, "earned": 60,
+		}),
+		"Sold 2 Timber to %s at 30 — 60 ducats" % FactionCatalog.name_of(1)
+	)
+	assert_true(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber",
+			"quantity": 1, "price": 30, "is_favoured": true,
+		}).ends_with("as its favoured partner")
+	)
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1, "price": 30,
+		}),
+		"Bought 1 Timber from %s at 30 — 30 ducats" % FactionCatalog.name_of(6),
+		"a row saved before `buy_unit` reads at the published price"
+	)
+
+
+## The Minor offer's Bid names the ask the clearing will charge — the published
+## price with the crown's terms and the pair's subsidy step (wiki: world-market
+## § Subsidy price adjustment; REQ-P5-05).
+func test_the_minor_offer_bid_names_the_ask() -> void:
+	var ledger := LedgerMarket.new()
+	var row: Control = ledger._offer_row({
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 1, "unit_price": 33,
+	})
+	var buy: Button = row.get_child(row.get_child_count() - 1) as Button
+	assert_eq(buy.text, "Bid")
+	assert_true(buy.tooltip_text.contains("ask of 33"), buy.tooltip_text)
+	row.free()
+	ledger.free()
