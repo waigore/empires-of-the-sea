@@ -980,10 +980,14 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian*.gd*"
 domain = "civilian"
 
-# The spy despatch hook writes the court's intelligence; its own suites are the
-# intel domain (DR-20261110-25).
+# The spy resolve hook and the court despatch both write intelligence; their
+# own suites are the intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/map/map_play_spies.gd*"
+domain = "intel"
+
+[[rules]]
+match = "scripts/map/map_play_spy_reports.gd*"
 domain = "intel"
 
 [[rules]]

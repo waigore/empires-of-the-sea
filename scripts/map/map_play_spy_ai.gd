@@ -3,8 +3,9 @@ extends RefCounted
 ## Spy intelligence for rival economies (wiki: research-state § Spy RP boost).
 ## Keeps the spy-network wiring out of the economy adapter: prepare every rival
 ## ledger once, then read the tech set each observed court already knows.
-## Pure map helper: it reads session state and returns percentages; it never
-## resolves a rule itself (REQ-P3-02, REQ-P3-03).
+## Also owns the shared roster / qualifying-rival walk every spy map helper uses
+## (resolve, RP boost, despatch). Pure map helper: it reads session state and
+## returns percentages; it never resolves a rule itself (REQ-P3-02, REQ-P3-03).
 
 
 ## Every rival ledger exists before any court resolves, so a spy observing a
@@ -32,7 +33,9 @@ static func research_bonus(
 	return SpyNetworks.research_boost(qualifying, rival_techs)
 
 
-## Rival Great Powers observed by this court's spies in any region.
+## Rival Great Powers observed by this court's spies in any region. Shared by
+## research boost, resolve screening and court despatches so every map helper
+## walks the same roster table (REQ-P3-01).
 static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 	var result: Array[int] = []
 	if play == null or play.world == null or play.civilian_layer == null:
@@ -42,7 +45,7 @@ static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 		if model == null:
 			continue
 		for rival: int in SpyNetworks.qualifying_rivals(
-			model, _roster(play, region), faction
+			model, roster_for(play, region), faction
 		):
 			if not result.has(rival):
 				result.append(rival)
@@ -50,8 +53,11 @@ static func qualifying_rivals(play: PlaySession, faction: int) -> Array[int]:
 	return result
 
 
-## Live roster for the shown region, stored table for the other.
-static func _roster(play: PlaySession, region: int) -> Array[CivilianState]:
+## Live roster for the shown region, stored table for the other. One path for
+## every spy map helper (resolve, RP boost, despatch).
+static func roster_for(play: PlaySession, region: int) -> Array[CivilianState]:
+	if play == null or play.civilian_layer == null:
+		return []
 	if play.model != null and region == play.model.region_id:
 		return play.civilian_layer.units
 	var units: Array[CivilianState] = []
