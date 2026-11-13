@@ -59,15 +59,15 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   (`AiHospitalTrainWork`, DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **War footing** (`AiPhasePlanner`): `war` (a Great Power war), `fronts` (2+,
-  `phase.overstretch_fronts`) or `peace`. A war footing opens no new voyage; an
-  overstretched court takes any white peace (DR-20261113-15).
+- **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; no new voyage
+  at war; overstretch takes any white peace (DR-20261113-15).
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), the dossier
   ([`intel-dossier.md`](intel-dossier.md)).
 
 ## Deferred (REQ-P2-02)
 
-Difficulty extras ([`deferred.md`](deferred.md)).
+Difficulty extras; phase-planner seed (DR-20261113-15) —
+[`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
