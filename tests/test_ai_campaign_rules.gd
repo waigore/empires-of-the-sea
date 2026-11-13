@@ -159,6 +159,14 @@ func _field_army(
 func _squadron(id: int = 1, owner: int = OWNER, zone: int = 0) -> FleetState:
 	return FleetState.at_sea(id, owner, zone, HULLS, HULL_TYPES)
 
+## The seat moves when the old capital is taken; the Home Army must follow it or
+## the court can never muster again (issue #474).
+func test_a_moved_seat_recalls_the_home_army() -> void:
+	assert_eq(AiArmyReinforce.recall_target(14, 20), 20, "the army marches to the new seat")
+	assert_eq(AiArmyReinforce.recall_target(20, 20), -1, "an army already home is left alone")
+	assert_eq(AiArmyReinforce.recall_target(3, -1), -1, "no seat, no recall")
+
+
 func test_a_war_across_the_water_detaches_a_crossing_army() -> void:
 	var world: WorldMap = _world()
 	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(

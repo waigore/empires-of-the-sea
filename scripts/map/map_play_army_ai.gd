@@ -8,6 +8,8 @@ extends RefCounted
 const KIND_REINFORCE: String = "reinforce"
 ## Turn-trace kind for a rival army's field hospital train (DR-20261112-08).
 const KIND_HOSPITAL: String = "hospital_train"
+## The Home Army marching back to a seat that moved (issue #474).
+const KIND_RECALL: String = "recall"
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -192,7 +194,13 @@ static func _reinforce(
 	if capital < 0:
 		return false
 	var home: ArmyState = ArmyTraining.home_army(roster, faction)
-	if home == null or home.province != capital:
+	if home == null:
+		return false
+	if home.province != capital:
+		# A court whose seat moved musters nowhere: the Home Army is recalled to
+		# the new capital instead of standing at the old one for the rest of the
+		# campaign (issue #474).
+		_recall(play, model, home, faction, capital, trace)
 		return false
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
@@ -220,6 +228,34 @@ static func _reinforce(
 		"province_name": model.province_name(home.province),
 		"region": model.region_id,
 	})
+	return true
+
+
+## Marches a stranded Home Army one hop toward the new seat. The muster pass
+## calls it before it prices a regiment, so a court that lost its capital can
+## raise troops again once the army is home (issue #474).
+static func _recall(
+	play: PlaySession,
+	model: MapModel,
+	home: ArmyState,
+	faction: int,
+	capital: int,
+	trace: Array[Dictionary]
+) -> bool:
+	if AiArmyReinforce.recall_target(home.province, capital) < 0:
+		return false
+	var march: Dictionary = ArmyMovement.apply_move(model, home, capital, true)
+	if not bool(march.get("ok", false)):
+		return false
+	trace.append({
+		"faction": faction,
+		"kind": KIND_RECALL,
+		"army": home.id,
+		"province": home.province,
+		"province_name": model.province_name(home.province),
+		"region": model.region_id,
+	})
+	_report_march(play, model, faction, home.province)
 	return true
 
 
