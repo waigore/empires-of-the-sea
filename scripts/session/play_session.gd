@@ -245,6 +245,25 @@ func tech_unlocked() -> Dictionary:
 	return economy.economy.tech_unlocked
 
 
+## The ports a hostile squadron holds sealed against this court this turn, and
+## whether the court's own capital harbour is one of them (wiki:
+## capital-and-connectivity § Blockade). Taken from the fleet stations every time
+## it is asked, so it is never saved and no blockade outlives its war
+## (REQ-P2-03).
+func crown_blockade() -> Blockades:
+	if world == null or ship_layer == null or diplomacy == null:
+		return Blockades.new()
+	var home: int = FactionCatalog.region_of(player_faction)
+	if home < 0:
+		return Blockades.new()
+	return Blockades.read(
+		world, ship_layer.regions.snapshot(), player_faction, home,
+		capital_province,
+		func(a: int, b: int) -> bool:
+			return DiplomacyRules.at_war_with(diplomacy, a, b)
+	)
+
+
 ## The ledger that answers for a crown: the human's, or a rival's. In the
 ## full-AI observer no human ledger resolves, so every crown answers from its
 ## AI ledger — the same rule the observer scoreboard reads (REQ-P2-03).

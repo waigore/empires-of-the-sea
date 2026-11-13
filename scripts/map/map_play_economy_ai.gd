@@ -124,13 +124,22 @@ static func _overseas(
 	if home_region < 0:
 		home_region = WorldMap.OLD_WORLD
 	var home: Dictionary = {}
+	var capital: Dictionary = {"province": -1, "tile": CivilianState.NO_TILE}
 	var home_model: MapModel = play.world.region(home_region)
 	if home_model != null and works_by_region.value(home_region, null) != null:
 		var works: LandWorks = works_by_region.value(home_region, null)
-		var capital: Dictionary = WorldBootstrap.capital_seat(home_model, faction)
+		capital = WorldBootstrap.capital_seat(home_model, faction)
 		home = Extraction.yields(
 			home_model, faction, int(capital["province"]), tech_caps, works,
 			capital["tile"], economy.tech_unlocked
+		)
+	# The crown's own sealed ports reach its ledger the way the player's do
+	# (wiki: capital-and-connectivity § Blockade; DR-20261110-13 equal rule).
+	var seals := Blockades.new()
+	if play.ship_layer != null:
+		seals = Blockades.read(
+			play.world, play.ship_layer.regions.snapshot(), faction, home_region,
+			int(capital["province"]), MapPlayRaids.hostile(play)
 		)
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
@@ -138,7 +147,7 @@ static func _overseas(
 	)
 	var plan: Dictionary = EconomyOverseas.delivered(
 		home, play.world, home_region, faction, tech_caps, works_by_region, holds,
-		economy.tech_unlocked
+		economy.tech_unlocked, seals
 	)
 	plan["home_region"] = home_region
 	return plan

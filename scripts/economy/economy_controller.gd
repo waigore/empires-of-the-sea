@@ -29,6 +29,10 @@ var _last_consumption: Dictionary = {}
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
+## Reads the court's sealed ports (wiki: capital-and-connectivity § Blockade).
+## PlaySession owns the reading — it needs the fleets and the wars — so the
+## controller only asks for it while it prices the harvest (REQ-P2-03).
+var blockade_source: Callable = Callable()
 ## Last world-market clearing (deals, fills, credits), so the ledger can name
 ## the auction's receipt and the overseas share it paid (wiki: world-market
 ## § First right of refusal; REQ-P5-05).
@@ -137,6 +141,16 @@ func cargo_holds() -> int:
 	return TradeCargo.capacity(_ships.world, _ships.regions.snapshot(), player_faction)
 
 
+## The court's sealed ports this turn; empty when nothing of its own is held.
+func blockade() -> Blockades:
+	if not blockade_source.is_valid():
+		return Blockades.new()
+	var seals: Variant = blockade_source.call()
+	if seals is Blockades:
+		return seals
+	return Blockades.new()
+
+
 ## Overseas yield delivered this turn. Extraction takes the home fleet's holds
 ## before trade, richest commodity first; undelivered cargo stays abroad
 ## (wiki: extraction-and-improvements § Flow to Stockpile; DR-20261109-17).
@@ -145,7 +159,8 @@ func overseas_plan() -> Dictionary:
 	if _ships != null and _ships.world != null:
 		var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 		by_region = EconomyOverseas.region_totals(
-			_ships.world, home_region, player_faction, tech_caps(), works_by_region
+			_ships.world, home_region, player_faction, tech_caps(), works_by_region,
+			{}, {}, blockade()
 		)
 	return EconomyOverseas.plan(by_region, cargo_holds())
 
@@ -162,16 +177,17 @@ func feeding_coverage() -> float:
 ## Everything that reaches the crown's stockpile this turn: home-region land
 ## yield plus the overseas cargo the home fleet actually delivers.
 func extraction() -> Dictionary:
+	var seals: Blockades = blockade()
 	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile, economy.tech_unlocked
+		capital_tile, economy.tech_unlocked, true, {}, seals
 	)
 	if _ships == null or _ships.world == null:
 		return home
 	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 	return EconomyOverseas.delivered(
 		home, _ships.world, home_region, player_faction, tech_caps(),
-		works_by_region, cargo_holds(), economy.tech_unlocked
+		works_by_region, cargo_holds(), economy.tech_unlocked, seals
 	)["extraction"] as Dictionary
 
 
@@ -220,6 +236,9 @@ func resolve_turn() -> Dictionary:
 	)
 	report["overseas"] = plan
 	report["musters"] = musters
+	# A sealed harbour is a rule, not a lean harvest: the despatch names it
+	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+	report["blockade"] = Blockades.note(blockade(), world)
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
 	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
