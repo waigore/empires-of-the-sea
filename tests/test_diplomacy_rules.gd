@@ -2821,6 +2821,29 @@ func test_a_negotiation_beat_says_what_is_on_the_table() -> void:
 		"negotiation/proposal_overture"
 	)
 
+## A trade pact and a non-aggression offer are deal-making beats of their own:
+## the envoy names the treaty on the table, so each carries its own face and
+## word (wiki: dialogue-and-mood § Design intent, § Mood machine; world-market
+## § FTP; diplomacy § Court proposals).
+func test_a_pact_and_a_pact_overture_are_voiced_beats() -> void:
+	_setup_dialogue_rules()
+	dialogue_rules_state.relation(0, 2).score = 70.0
+	var pact: Dictionary = DialogueEvents.for_offer(
+		dialogue_rules_state, 0, {"from": 2, "kind": "establish_ftp", "turn": 1}
+	)
+	assert_eq(String(pact.get("point", "")), "negotiation/proposal_ftp")
+	assert_true(String(pact.get("text", "")).length() > 10, "the pact is spoken for")
+	assert_false(String(pact.get("mood", "")).is_empty(), "and wears a face")
+	var nap: Dictionary = DialogueEvents.for_offer(
+		dialogue_rules_state, 0, {"from": 6, "kind": "overture", "stage": "nap", "turn": 1}
+	)
+	assert_eq(String(nap.get("point", "")), "negotiation/proposal_nap")
+	assert_true(String(nap.get("text", "")).length() > 10, "the non-aggression offer is spoken for")
+	assert_false(
+		String(nap.get("text", "")).to_lower().contains("consul"),
+		"the pact's word never promises the stage beside it"
+	)
+
 func test_the_face_of_an_offer_reads_its_wait_and_its_generosity() -> void:
 	_setup_dialogue_rules()
 	dialogue_rules_state.relation(0, 2).score = 92.0

@@ -24,8 +24,8 @@ const LINE_CATEGORIES: Array[int] = [
 
 ## One turn's muster decision.
 ## Returns {muster: type id or "", target, reasons: [], candidates: []}.
-## `candidates` lists every legal line type with its score, so a turn trace can
-## explain the pick (wiki: turn-trace-interpretation).
+## `candidates` lists every legal line type the court could already pay for, so a
+## turn trace can explain the pick (wiki: turn-trace-interpretation).
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -37,35 +37,92 @@ static func plan(
 	}
 	if config == null or economy == null:
 		return result
-	var target: int = config.parameter("army.regiment_target")
-	if at_war:
-		target += config.parameter("army.war_extra")
+	var target: int = _target(config, at_war)
 	result["target"] = target
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
 		return result
-	var peasants: int = economy.available_peasants()
-	var floor_treasury: int = config.parameter("army.min_treasury")
-	var floor_peasants: int = config.parameter("army.min_peasants")
-	if peasants - RegimentEconomy.WORKER_COST < floor_peasants:
+	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
+		"army.min_peasants"
+	):
 		result["reasons"].append("labour floor")
 		return result
 	var candidates: Array[Dictionary] = []
+	for entry: Dictionary in _legal_candidates(config, economy):
+		if not RegimentEconomy.missing_inputs(
+			String(entry["type_id"]), economy.stockpile
+		).is_empty():
+			continue
+		candidates.append(entry)
+	result["candidates"] = candidates
+	if candidates.is_empty():
+		result["reasons"].append("nothing payable")
+		return result
+	result["muster"] = String(candidates[0]["type_id"])
+	return result
+
+
+## Regiments the court aims at: the peace target, raised by `army.war_extra` at
+## war (wiki: ai-architecture § Land reinforcement).
+static func _target(config: AiConfig, at_war: bool) -> int:
+	var target: int = config.parameter("army.regiment_target")
+	if at_war:
+		target += config.parameter("army.war_extra")
+	return target
+
+
+## The line regiment this court would raise if its stores could pay for it:
+## strongest `FPN + FPM`, then the newer era, then the lowest id. Materials are
+## deliberately not read — this is the pattern the court is provisioning for, and
+## the muster itself checks what it can already pay (wiki: growth-stage-planner
+## § Recruitment modulation).
+static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
+	var legal: Array[Dictionary] = _legal_candidates(config, economy)
+	if legal.is_empty():
+		return ""
+	return String(legal[0]["type_id"])
+
+
+## Commodities this court keeps back so the regiment it means to raise can be
+## mustered: the whole input row of `next_type` (wiki: growth-stage-planner
+## § Recruitment modulation, "military fabric reservation holds inputs for
+## upcoming recruits"; economy-planner § Reservations). Empty when the court sits
+## at its target or could not pay a muster even with the stores, so a court that
+## is not arming sells freely.
+static func muster_reserve(
+	config: AiConfig,
+	economy: PlayerEconomy,
+	own_regiments: int,
+	at_war: bool
+) -> Dictionary:
+	if config == null or economy == null or own_regiments >= _target(config, at_war):
+		return {}
+	var type_id: String = next_type(config, economy)
+	if type_id.is_empty():
+		return {}
+	return RegimentEconomy.training_inputs(type_id)
+
+
+## Line patterns this court's treasury, labour pool and techs open today,
+## strongest first. Materials are not read here; `plan` and `next_type` each
+## decide what to do with a pattern the stores cannot yet pay for.
+static func _legal_candidates(
+	config: AiConfig, economy: PlayerEconomy
+) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	if config == null or economy == null:
+		return candidates
+	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
+		"army.min_peasants"
+	):
+		return candidates
+	var floor_treasury: int = config.parameter("army.min_treasury")
 	for type_id: String in RegimentCatalog.ids():
 		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
 			continue
-		var reason: String = RegimentEconomy.blocked_reason(
-			type_id,
-			economy.treasury,
-			economy.stockpile,
-			peasants,
-			economy.tech_unlocked
-		)
-		if reason.is_empty() and economy.treasury - RegimentCatalog.treasury_cost(
-			type_id
-		) < floor_treasury:
-			reason = "would break the war chest"
-		if not reason.is_empty():
+		if not RegimentEconomy.buildable(type_id, economy.tech_unlocked):
+			continue
+		if economy.treasury - RegimentCatalog.treasury_cost(type_id) < floor_treasury:
 			continue
 		candidates.append({
 			"type_id": type_id,
@@ -73,12 +130,7 @@ static func plan(
 			"era": RegimentCatalog.era(type_id),
 		})
 	candidates.sort_custom(_better)
-	result["candidates"] = candidates
-	if candidates.is_empty():
-		result["reasons"].append("nothing payable")
-		return result
-	result["muster"] = String(candidates[0]["type_id"])
-	return result
+	return candidates
 
 
 ## Strongest first, then the newer pattern, then the lowest id — one stable

@@ -28,13 +28,14 @@
   ([field-hospital](field-hospital.md)).
 - **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): a
   period title, unique per army, kept through split/merge, with its tally.
+  Rename from the dossier (`RegimentRename`, DR-20261113-05); ≤28 letters,
+  identity only.
 - **Colours and citations** (`RegimentRecord`, `RegimentDecorations`,
   DR-20261112-02/-10, DR-20261113-04): winners take the province once; every
   survivor's despatch keeps its newest eight fields, one won mauled being a
   **citation** (`cited` ×1, `laurelled` ×3). A citation buys rank — +5%, or
   +10% laurelled — so decorated colours lead and fall last. Dossier:
-  `Évora · Lisboa` then `Cited +5% — Lisboa won`; plate:
-  `Honours — Évora added to 3 colours` · `Citations — 2 cited (+5% each)`.
+  `Cited +5% — Lisboa won`; plate: `Citations — 2 cited (+5% each)`.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
   general, saved (legacy rosters christened on load); the dossier names him
   with his medals.
@@ -76,7 +77,7 @@ ArmyLayer        hands a crown over in place, then writes stored rosters back
 | Action | Desktop | Touch |
 |--------|---------|-------|
 | Select / march | click standard, then province | tap both |
-| Detach / combine / muster | dossier | dossier |
+| Detach / combine / muster / rename | dossier | dossier |
 | Embark / land | dossier | dossier |
 
 ## Tests
