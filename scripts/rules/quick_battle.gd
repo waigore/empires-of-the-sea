@@ -35,10 +35,10 @@ static func resolve_exchange(
 	var def_lead: ArmyState = ArmyCommand.primary(def_side)
 	var atk_lead: ArmyState = ArmyCommand.primary(atk_side)
 	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(def_lead, context), true, model, province, defender
+		context, ArmyCommand.medals_of(def_lead, context, true), true, model, province, defender
 	)
 	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(atk_lead, context), false, model, province, attacker
+		context, ArmyCommand.medals_of(atk_lead, context, false), false, model, province, attacker
 	)
 	var fort_level: int = int(def_mods["fort"])
 	var guns: Array[Dictionary] = QuickBattleBattery.make(fort_level, context, defender)
@@ -299,10 +299,10 @@ static func _order(state: Dictionary, context: Dictionary) -> Array[int]:
 	var atk_side: Array[ArmyState] = atk["side"]
 	var def_side: Array[ArmyState] = def["side"]
 	var atk_score: float = ArmyCommand.initiative(
-		atk_side, ArmyCommand.medals(atk_side, context)
+		atk_side, ArmyCommand.medals(atk_side, context, false)
 	)
 	var def_score: float = ArmyCommand.initiative(
-		def_side, ArmyCommand.medals(def_side, context)
+		def_side, ArmyCommand.medals(def_side, context, true)
 	)
 	var atk_owner: int = int(atk["owner"])
 	var def_owner: int = int(def["owner"])
