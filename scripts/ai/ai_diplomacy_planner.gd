@@ -80,7 +80,7 @@ static func decide(
 					best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
-				config, state, ai_state, turn, target, record, score
+				config, state, ai_state, turn, target, record, score, world, context
 			)
 			if (
 				String(entry["blocked"]).is_empty()
@@ -171,7 +171,10 @@ static func _peace_cooldown(
 	return ""
 
 
-## Why this court will not declare war right now ("" when it may).
+## Why this court will not declare war right now ("" when it may). A Tribe the
+## court is drawing into its empire is not a war target: the declaration would
+## clear the envoy chain, and its provinces never count toward victory
+## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules; DR-20261114-02).
 static func _war_block(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -179,7 +182,9 @@ static func _war_block(
 	turn: int,
 	target: int,
 	record: DiplomacyRelation,
-	desire: int
+	desire: int,
+	world: WorldMap = null,
+	context: Dictionary = {}
 ) -> String:
 	var check: Dictionary = DiplomacyRules.can_declare_war(state, config.faction, target)
 	if not bool(check.get("ok", false)):
@@ -187,6 +192,14 @@ static func _war_block(
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"
+	var treasury: int = int((context.get("treasury", {}) as Dictionary).get(config.faction, 0))
+	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(config.faction, {})
+	var colony: Dictionary = AiTribeColony.ambition(
+		state, world, context.get("charts", null), config.faction, target,
+		treasury, tech
+	)
+	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
+		return "an envoy chain has a claim on that court"
 	if record.score > float(config.war_relation_ceiling()):
 		return "relations too warm"
 	if desire < config.parameter("diplomacy.war_declare_min_desire"):

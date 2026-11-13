@@ -11,53 +11,59 @@ stay in the wiki; this page is the shipped slice and its migration steps.
 | `AiUtility` | one currency: `scale`/`ratio`/`modified`, cost and shortfall text |
 | `AiObjectiveLedger` | rank pass + allocate pass over per-turn pools |
 | `AiObjectivesPlan` | pure emitter: readings in, objectives out |
-| `AiClaims` | the reservation primitive: commodity claims against the stockpile |
+| `AiClaims` | reservation primitive: commodity claims against the stockpile |
 | `MapPlayObjectivesAi` | per-court adapter; stamps the ledger into the turn trace |
 
-Costs name the six resources (`treasury, hull, civilian, regiment, labour,
-orders`) plus any commodity a reservation claims; the trace prints the named
-resources first, commodities sorted after them.
+Costs name six resources (`treasury, hull, civilian, regiment, labour, orders`)
+plus any commodity a reservation claims; named resources print first.
 
 ## Turn
 
-`MapPlayObjectivesAi.run` prices every planning court: readings (footing,
-desire, muster, hulls, purse, research) become objectives, ranked (utility ×
-posture modifier, id breaks ties) and allocated over the pools. Each aim ends
-`funded`, `deferred` with its shortfall (`hull 0/1`), or `blocked` with a
-reason. `AiState.note_objectives` keeps the row and the ids by status, and the
-save carries them.
-
-## Posture and weights
-
-`AiPosture` turns the footing into a per-mille vector (`posture.war_boost`,
-`posture.war_expansion`, `posture.fronts_expansion`) multiplied by the leader's
-domain weights (`posture.weight_step`, floor `posture.floor`), so a domain is
-scaled, never zeroed. A parent with a starved child, or whose required aim
-deferred (`requires`), is deferred and names what it waited on.
+`MapPlayObjectivesAi.run` prices every planning court before the expedition
+pass: readings (footing, desire, muster, hulls, purse, research, tribe) become
+objectives, ranked (`utility × modifier / 1000`, id breaks ties) and allocated
+over the pools. Each aim ends `funded`, `deferred` with shortfall
+(`hull 0/1`), or `blocked`. `AiState.note_objectives` keeps the row and ids by
+status; the save carries them.
 
 ## The expedition
 
-`colonise.new_world` parents `expedition.hull`, `expedition.explorer` and a
-`requires` link to the court's one `peace.window` at war; a colonist already
-ashore prices `expedition.voyage` instead of a missing Explorer. The colony
-muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`), so
-a funded parent opens the voyage even at war, and a starved child prints
-`expedition.hull hull 0/1 deferred`.
+`colonise.new_world` parents `expedition.hull` (hull off cargo routes),
+`expedition.explorer` (Explorer train slot) and a `requires` link to the court's
+one `peace.window` at war; afloat or landed it adds `expedition.voyage`. The
+colony muster gate reads the funded hull claim
+(`MapPlayCivilianAi._hull_claimed`); a starved child prints
+`expedition.hull hull 0/1 deferred`. Ashore, the parent prices
+`expedition.voyage`, not `no Explorer free`.
+
+## Posture and weights
+
+`AiPosture` turns footing into a per-mille vector (`posture.war_boost`,
+`posture.war_expansion`, `posture.fronts_expansion`) × leader domain weights
+(`posture.weight_step`, floor `posture.floor`) — scaled, never zeroed. A parent
+with a starved child, or whose required aim deferred (`requires`), is deferred
+and names what it waited on. A funded `colonise.new_world` opens the muster even
+at war: the peace window bought it.
 
 ## The navy's build leg
 
-`navy.build` is priced at war (90 with no fighting hull, 70 when outmatched,
-against a sortie's 60) at the cheapest warship the court's techs open.
-`MapPlayCargoAi` lays the hull down through `FleetYard` when the claim funds, and
-the trace names it ("lays down a Sloop of War for the fleet").
+`navy.build` funds at war with no fighting hull or an outmatched coast (utility
+90 / 70 vs a sortie's 60) at the cheapest open warship (`treasury` + one `hull`
+slip). `MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop
+of War for the fleet"); peace prices no yard.
 
 ## Reservations as claims
 
-`AiClaims` ranks the ration the consumption phase eats, the next regiment's row,
-the planned works and this turn's production against the stockpile; the market
-reads their merged grant (the dictionary it always read, so the trade stays
-behaviour-identical), the civilian purse is one treasury claim, and the turn
-record keeps `claims` beside the ledger lines.
+`AiClaims` ranks the ration consumption eats, the next regiment, planned works
+and this turn's production against the stockpile; the market reads their merged
+grant (same dictionary, trade behaviour-identical), the civilian purse is one
+treasury claim, and the turn record keeps `claims` beside ledger lines.
+
+## The colony
+
+`colonise.tribe_chain` prices the next envoy step toward a charted Tribe the
+court can still buy (stage cost, one order); the diplomacy planner reads the
+same ambition and never declares on it (DR-20261114-02).
 
 ## Migration
 

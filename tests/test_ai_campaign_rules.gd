@@ -1291,15 +1291,18 @@ func test_an_isolationist_values_a_trade_pact_less() -> void:
 ## DR-20261113-03).
 func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	_setup_ai_diplomacy_offers()
-	ai_diplomacy_offers_state.ensure_relation(2, TRIBE, 1)
-	ai_diplomacy_offers_state.relation(2, TRIBE).score = 50.0
-	var world: WorldMap = _uncharted_tribe_world()
-	var context: Dictionary = _context({2: 100, TRIBE: 100})
+	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers
+	# to the colony ambition (DR-20261114-02), priced in its own test.
+	var minor: int = FactionCatalog.minor_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
+	ai_diplomacy_offers_state.relation(2, minor).score = 50.0
+	var world: WorldMap = _uncharted_tribe_world(minor)
+	var context: Dictionary = _context({2: 100, minor: 100})
 	context["treasury"] = {2: 2000}
 	context["tech"] = {2: {"merchant_companies": true}}
 	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
@@ -1309,7 +1312,7 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	context["charts"] = charts
 	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
@@ -1319,7 +1322,7 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	charts.reveal_province(2, 0, 0)
 	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
@@ -1361,12 +1364,12 @@ func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {
 ## A New World region (every tile unknown at setup) holding one Tribe province
 ## with a timber tile, so only a court that charts it can price the land or the
 ## commodity (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
-func _uncharted_tribe_world() -> WorldMap:
+func _uncharted_tribe_world(owner: int = TRIBE) -> WorldMap:
 	var model := MapModel.new()
 	model.setup(3, 2)
 	model.region_id = FactionCatalog.NEW_WORLD
 	model.region_key = "new_world"
-	model.faction_ids = [TRIBE]
+	model.faction_ids = [owner]
 	var tiles: Array[Vector2i] = []
 	for x in 3:
 		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
@@ -1374,7 +1377,7 @@ func _uncharted_tribe_world() -> WorldMap:
 		tiles.append(Vector2i(x, 0))
 	model.resource[model.index_of(0, 0)] = 0
 	var province := ProvinceState.create(
-		0, "P0", tiles, Vector2(0.0, 0.0), 3, TRIBE, false
+		0, "P0", tiles, Vector2(0.0, 0.0), 3, owner, false
 	)
 	province.resource = 0
 	province.resource_tile = Vector2i(0, 0)
@@ -1427,8 +1430,189 @@ func _event(kind: String) -> bool:
 			return true
 	return false
 
-# --- test_ai_planner ---
+## A Tribe the court has charted and can still buy is drawn into the empire
+## before it is fought: the declaration would clear the chain, and its provinces
+## never count toward victory (wiki: factions § Tribe; DR-20261114-02).
+func test_a_charted_tribe_is_bought_before_it_is_fought() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000})
+	)
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(action["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
+	assert_true(bool(action.get("tribe_colony", false)), "the colony ambition raised the envoy offer")
 
+
+## The same court with no money to buy the colony still fights: the ambition
+## lowers no legality, it only says what the court wants (REQ-P2-03).
+func test_a_poor_court_still_fights_a_tribe_it_cannot_buy() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## A chain already opened is a stake: a court that has paid a Consulate does not
+## clear it by declaring because the Embassy is out of reach this turn.
+func test_a_chain_already_opened_is_not_cleared_by_a_war() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	_stage(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty(), "the chain holds the court")
+	assert_eq(
+		ai_diplomacy_offers_state.overture(2, tribe),
+		DiplomacyCatalog.STAGE_CONSULATE,
+		"no declaration cleared the chain"
+	)
+
+
+## A Tribe the court has never charted is no colony in reach: the published map
+## is not a chart, and the offer stands down as before (DR-20261113-03).
+func test_an_uncharted_tribe_is_not_a_colony_in_reach() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = _uncharted_tribe_world()
+	var goal: Dictionary = AiTribeColony.ambition(
+		ai_diplomacy_offers_state, world, _charts(world), 2, tribe, 5000, {}
+	)
+	assert_false(bool(goal["wanted"]), "an uncharted shore offers nothing it can price")
+	assert_eq(String(goal["reason"]), "the court has not charted that shore")
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000}, _charts(world))
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## The Tribe nearest the colony wins the court's ambition: the furthest overture
+## stage, then the warmer herald, then the lower id (REQ-P2-03).
+func test_the_tribe_furthest_along_the_chain_is_the_one_wanted() -> void:
+	var first: int = FactionCatalog.tribe_ids()[0]
+	var second: int = FactionCatalog.tribe_ids()[1]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, first, 1).score = 70.0
+	state.ensure_relation(2, second, 1).score = 55.0
+	state.set_overture(2, first, DiplomacyCatalog.STAGE_CONSULATE)
+	state.set_overture(2, second, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, first, second])
+	var best: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(best["target"]), second, "the embassy is nearer the colony than the consulate")
+	assert_eq(String(best["stage"]), DiplomacyCatalog.STAGE_NAP)
+	assert_eq(int(best["bonus"]), AiTribeColony.BONUS)
+	# Another crown's colony is closed to this one, so the consulate stands in.
+	state.set_colony(second, 3)
+	var fallback: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(fallback["target"]), first)
+	assert_eq(String(fallback["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+
+
+## The step that founds the colony is worth more than the steps before it.
+func test_the_join_empire_is_the_prize_the_chain_is_walking_to() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NAP)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var goal: Dictionary = AiTribeColony.ambition(state, world, null, 2, tribe, 12000, {})
+	assert_true(bool(goal["wanted"]))
+	assert_eq(String(goal["stage"]), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(int(goal["bonus"]), AiTribeColony.BONUS + AiTribeColony.JOIN_BONUS)
+	assert_eq(int(goal["cost"]), DiplomacyCatalog.stage_cost(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, DiplomacyRules.provinces_owned(world, tribe)
+	))
+
+
+## Every refusal names its own reason, so a trace or a test never guesses why a
+## Tribe was passed over (wiki: turn-trace-interpretation).
+func test_the_ambition_names_why_a_tribe_is_out_of_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var none: Dictionary = AiTribeColony.ambition(null, world, null, 2, tribe, 5000, {})
+	assert_eq(String(none["reason"]), "no tribal court")
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, minor, 5000, {})["reason"]),
+		"not a tribe"
+	)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"no envoy has reached that court"
+	)
+	state.ensure_relation(2, tribe, 1).at_war = true
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"at war with the tribal court"
+	)
+	state.relation(2, tribe).at_war = false
+	state.set_colony(tribe, 2)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"already a colony of this crown"
+	)
+	state.set_colony(tribe, 3)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"another crown's colony"
+	)
+	state.colonies.clear()
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"the envoy chain is complete"
+	)
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NONE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 100, {})["reason"]),
+		"the treasury cannot cover the Trade Consulate"
+	)
+
+
+## A court's own ledger read for the ambition tests: the treasury it must pay
+## from and the chart it priced the shore on.
+func _tribe_context(
+	power: Dictionary, treasury: Dictionary, charts: CourtCharts = null
+) -> Dictionary:
+	var context: Dictionary = ai_diplomacy_offers_AiFixture.context(
+		power, {power.keys()[0]: 10}
+	)
+	context["treasury"] = treasury
+	context["tech"] = {}
+	context["player"] = 0
+	if charts != null:
+		context["charts"] = charts
+	return context
+
+
+# --- test_ai_planner ---
 func test_desire_starts_at_the_base_and_adds_power_and_relation() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
