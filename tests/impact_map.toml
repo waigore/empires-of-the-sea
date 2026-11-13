@@ -1372,6 +1372,14 @@ domain = "dialogue"
 match = "scripts/rules/yarn_*.gd*"
 domain = "dialogue"
 
+# The consent prompts' words (wiki: dialogue-content-and-yarn § Playable slice;
+# DR-20261113-10): one catalogue a tongue file answers, shared by the court
+# banner and the map despatch. Kept on the dialogue domain so a word or a key
+# change never pays for the campaign flow the queues belong to.
+[[rules]]
+match = "scripts/rules/consent_copy.gd*"
+domain = "dialogue"
+
 # The words behind the court's keys (DR-20261113-06): a shipped `.po` is read by
 # the dialogue suite and nothing else, so a tongue change pays only that domain.
 [[rules]]

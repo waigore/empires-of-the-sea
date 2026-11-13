@@ -84,14 +84,7 @@ static func on_war_declared(
 		if court == state.human_faction:
 			if queue_human(state, aggressor, target, court, world):
 				var offer: Dictionary = pending_for(state, court)
-				messages.append(
-					"%s declares war on %s. %s"
-					% [
-						FactionCatalog.name_of(aggressor),
-						FactionCatalog.name_of(target),
-						offer_text(offer),
-					]
-				)
+				messages.append(ConsentCopy.intervention_body(offer))
 			continue
 		var choice: String = ai_choice(state, court, aggressor, target, world)
 		var line: String = _resolve(
@@ -241,26 +234,10 @@ static func queue_human(
 
 
 ## The sentence that says what is at stake, shared by the court banner and the
-## map toast so both always print the same reason (REQ-P2-05, REQ-P5-05).
+## map toast so both always print the same reason (REQ-P2-05, REQ-P5-05). The
+## words answer to a tongue in [ConsentCopy].
 static func offer_text(offer: Dictionary) -> String:
-	var basis: String = String(offer.get("basis", "embassy"))
-	var deeds: int = int(offer.get("deeds", 0))
-	var stake: String = (
-		"Our deed there is at stake"
-		if deeds <= 1
-		else "Our %d deeds there are at stake" % deeds
-	)
-	if basis == "deed":
-		return stake + ": join the war, protest, or stand aside."
-	if basis == "both":
-		return (
-			"Our embassy stands and %s: intervene, protest, or stand aside and"
-			+ " lose the embassy."
-		) % stake.to_lower()
-	return (
-		"Our embassy stands: intervene, protest, or stand aside and lose the"
-		+ " embassy."
-	)
+	return ConsentCopy.intervention_stake(offer)
 
 
 ## Applies the human court's answer to the oldest waiting offer.
