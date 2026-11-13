@@ -24,7 +24,6 @@ Base rules for opening and landing PRs (humans and agents).
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words — always |
 | `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 bars (`tools/lint_arch.py`) — always |
 | `skills-isolation` | [CI](../.github/workflows/ci.yml) | PR-only: fail if code **and** skills both change |
-| `approval-gate` | [Approval gate](../.github/workflows/approval-gate.yml) | Path review hook (**no-op** for now) |
 
 Code paths (`tests`/`build`/`e2e-smoke`/`skills-isolation`): `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.svg` (+ `tools/e2e_smoke.gd` for build/smoke). Skills: `.agents/skills/`, `.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`. Docs-only and skills-only OK. `workflow_dispatch` runs tests/build/smoke. `docs-lint` / `arch-lint` always.
 
@@ -39,14 +38,6 @@ Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; smoke **≤2 min**.
 - Do not use `--admin`, overrides, or rule disablement for a red PR.
 - Fix forward on the PR branch; don’t close/reopen to clear failures.
 - Keep the branch current with `main` under strict status policy.
-
-### Approval gate (no-op)
-
-`ENFORCE_APPROVAL=false` → always pass. When `true`, non-draft PRs touching game code/tests/assets need one approving review from a write collaborator other than the author. Docs/CI-only paths stay exempt.
-
-```bash
-gh pr review <number> --approve
-```
 
 ## Workflow with `gh`
 
