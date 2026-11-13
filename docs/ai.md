@@ -67,7 +67,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-Phase soft priority — [`deferred.md`](deferred.md).
+Ledger T2–T5 + phase soft priority — [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
