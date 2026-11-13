@@ -24,9 +24,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Turn pass** (`AiTurn`): one order per rival, wars first; consent queues.
 - **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
   Home regiment; field armies save or storm.
-- **Naval planner** (`AiNavalPlanner`): at war, sortie or pursue the weakest
-  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
-  peace, return home (DR-20261110-30).
+- **Naval planner** (`AiNavalPlanner`): at war, sortie/pursue weakest
+  squadron (DR-20261110-21), else raid hostile coast, home squadron too
+  (DR-20261111-17, DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's own fog;
   voyages, invasions, work and diplomacy read it (DR-20261113-03).
