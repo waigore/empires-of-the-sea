@@ -1144,6 +1144,88 @@ func test_training_needs_a_peasant_and_treasury() -> void:
 	assert_eq(economy.workers.count(WorkerPool.Tier.MASTER), 1)
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 0)
 
+## A recruit is a queued order: the press files it, nothing is paid, and the
+## peasant it will take is reserved so a second order cannot promise the same
+## head (wiki: workers-and-population § Phase placement, § Peasant reservation).
+func test_a_queued_recruit_reserves_the_peasant_it_will_take() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.stockpile["paper"] = 4
+	var peasants: int = economy.available_peasants()
+
+	assert_true(bool(economy.queue_recruit(WorkerPool.Tier.APPRENTICE)["ok"]))
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), peasants, "no head moves yet")
+	assert_eq(economy.available_peasants(), peasants - 1)
+	assert_eq(economy.recruits.reserved_peasants(), 1)
+	assert_eq(economy.treasury, PlayerEconomy.START_TREASURY, "nothing is paid yet")
+
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 1)
+	assert_eq(
+		String(economy.queue_recruit(WorkerPool.Tier.APPRENTICE)["reason"]),
+		"Insufficient workers",
+		"the one peasant left is already promised"
+	)
+	assert_eq(economy.recruits.total(), 1, "a refused order is not filed")
+
+
+## A peasant recruit consumes no headcount, so it reserves none.
+func test_a_queued_peasant_recruit_takes_no_reservation() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 2
+	var peasants: int = economy.available_peasants()
+	assert_true(bool(economy.queue_recruit(WorkerPool.Tier.PEASANT)["ok"]))
+	assert_eq(economy.available_peasants(), peasants)
+	assert_eq(economy.recruits.reserved_peasants(), 0)
+
+
+## Build/work takes the queue whole, so an order resolves exactly once.
+func test_the_build_work_pass_drains_the_queue_once() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 2
+	economy.queue_recruit(WorkerPool.Tier.PEASANT)
+	var orders: Array[Dictionary] = economy.recruits.take_all()
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["kind"]), RecruitQueue.KIND_WORKER)
+	assert_true(economy.recruits.is_empty())
+	assert_eq(economy.recruits.take_all().size(), 0, "a second pass finds nothing")
+
+
+## A save carries the orders and the peasants they promise.
+func test_orders_and_their_reservation_survive_a_snapshot() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	economy.queue_build(RecruitQueue.KIND_CIVILIAN, "builder")
+	var restored: PlayerEconomy = PlayerEconomy.starting()
+	restored.apply_snapshot(economy.snapshot())
+	assert_eq(restored.recruits.total(), 2)
+	assert_eq(restored.recruits.pending(RecruitQueue.KIND_SHIP, "carrack"), 1)
+	assert_eq(restored.recruits.reserved_peasants(), 1, "the hull's peasant stays reserved")
+	assert_eq(restored.available_peasants(), economy.available_peasants())
+
+
+## A damaged save drops what it cannot read instead of trusting it.
+func test_a_damaged_save_drops_orders_it_cannot_read() -> void:
+	var queue := RecruitQueue.new()
+	queue.read(
+		[{"kind": "worker", "key": "1"}, {"kind": "nonsense", "key": "x"}, 7]
+	)
+	assert_eq(queue.total(), 1)
+	assert_eq(RecruitQueue.label(queue.orders[0]), "Apprentice")
+	queue.read("not a queue")
+	assert_true(queue.is_empty())
+
+
+## A planning copy carries its own queue: simulating a turn never files an order
+## on the live ledger.
+func test_a_copy_carries_its_own_queue() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.queue_recruit(WorkerPool.Tier.PEASANT)
+	var clone: PlayerEconomy = economy.copy()
+	clone.recruits.take_all()
+	assert_eq(economy.recruits.total(), 1, "the live ledger keeps its order")
+	assert_eq(clone.recruits.total(), 0)
+
+
 func test_disband_demotes_one_tier_to_peasant_without_refund() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers.set_count(WorkerPool.Tier.JOURNEYMAN, 2)

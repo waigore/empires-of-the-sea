@@ -286,36 +286,83 @@ static func _context(play: PlaySession) -> Dictionary:
 	return {"treasury": play.treasury(), "diplomacy": play.diplomacy}
 
 
+## Queues a civilian hire at the capital. Training is a `BuildUnitOrder`: the
+## treasury and paper are paid and the unit musters in Build/work at the turn's
+## close, so it takes orders with the next turn (wiki: civilian-units § Training;
+## workers-and-population § Phase placement).
 static func train(play: PlaySession, type_id: String) -> void:
-	if not CivilianCatalog.known(type_id):
-		return
-	if not CivilianCatalog.is_implemented(type_id):
-		play.hud.toast(CivilianCatalog.deferred_reason(type_id))
-		return
-	if not CivilianCatalog.is_unlocked(type_id, play.tech_unlocked()):
-		play.hud.toast(
-			"Requires %s." % TechCatalog.display_name(CivilianCatalog.unlock_tech(type_id))
-		)
-		return
 	if play.selected_province != play.capital_province:
 		play.hud.toast("Civilians are trained at the capital.")
 		return
+	var reason: String = _train_blocked_reason(play, type_id)
+	if not reason.is_empty():
+		play.hud.toast(reason)
+		return
+	play.economy.economy.queue_build(RecruitQueue.KIND_CIVILIAN, type_id)
+	play.hud.panels.set_civilian_training(true, civilians_pending(play))
+	play.hud.toast(
+		"%s is engaged at %s — ready next turn"
+		% [
+			CivilianCatalog.display_name(type_id),
+			play.model.province_name(play.capital_province),
+		]
+	)
+
+
+## Civilian hires already queued at the capital, by type, so the muster list can
+## say what is on order (wiki: civilian-units § Training; the-gazette
+## § Item catalog).
+static func civilians_pending(play: PlaySession) -> Dictionary:
+	var counts: Dictionary = {}
+	if play.economy == null or play.economy.economy == null:
+		return counts
+	for row: Dictionary in play.economy.economy.recruits.orders:
+		if String(row.get("kind", "")) != RecruitQueue.KIND_CIVILIAN:
+			continue
+		var type_id: String = String(row.get("key", ""))
+		counts[type_id] = int(counts.get(type_id, 0)) + 1
+	return counts
+
+
+## Pays for and musters one queued civilian in Build/work. The gate is read
+## again at resolution, so a purse spent elsewhere in the turn still refuses the
+## hire (wiki: civilian-units § Training; REQ-P2-03).
+static func settle(play: PlaySession, type_id: String) -> Dictionary:
+	var reason: String = _train_blocked_reason(play, type_id)
+	if not reason.is_empty():
+		return {"ok": false, "reason": reason}
 	var state: PlayerEconomy = play.economy.economy
-	var paper: int = state.quantity("paper")
-	if not CivilianCatalog.can_afford(type_id, state.treasury, paper):
-		play.hud.toast("The crown cannot afford a %s." % CivilianCatalog.display_name(type_id))
-		return
-	var tile: Vector2i = play.civilian_layer.mustering_tile(play.capital_province)
-	if tile.x < 0:
-		play.hud.toast("There is no room to muster another civilian.")
-		return
 	state.spend_treasury(CivilianCatalog.treasury_cost(type_id))
 	state.take("paper", CivilianCatalog.paper_cost(type_id))
 	var unit: CivilianState = play.civilian_layer.add_unit(
-		play.player_faction, type_id, tile
+		play.player_faction, type_id, play.civilian_layer.mustering_tile(play.capital_province)
 	)
-	play.hud.set_treasury(play.treasury())
-	play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
-	play.hud.toast(
-		"%s musters at %s" % [unit.display_name(), play.model.province_name(play.capital_province)]
-	)
+	if play.hud != null:
+		play.hud.set_treasury(play.treasury())
+		play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+	return {"ok": true, "reason": "", "unit": unit}
+
+
+## Empty string when a civilian may be engaged at the capital; otherwise the
+## wiki reason. The order path and the Build/work pass share this one gate.
+static func _train_blocked_reason(play: PlaySession, type_id: String) -> String:
+	if not CivilianCatalog.known(type_id):
+		return "Unknown civilian."
+	if not CivilianCatalog.is_implemented(type_id):
+		return CivilianCatalog.deferred_reason(type_id)
+	if not CivilianCatalog.is_unlocked(type_id, play.tech_unlocked()):
+		return (
+			"Requires %s."
+			% TechCatalog.display_name(CivilianCatalog.unlock_tech(type_id))
+		)
+	if play.economy == null or play.economy.economy == null:
+		return "The crown keeps no ledger."
+	var state: PlayerEconomy = play.economy.economy
+	if not CivilianCatalog.can_afford(
+		type_id, state.treasury, state.quantity("paper")
+	):
+		return "The crown cannot afford a %s." % CivilianCatalog.display_name(type_id)
+	if play.civilian_layer.mustering_tile(play.capital_province).x < 0:
+		return "There is no room to muster another civilian."
+	return ""
+

@@ -61,15 +61,116 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	assert_true(builder.is_idle())
 
 
-func test_training_a_civilian_spends_treasury_and_paper() -> void:
+## The hire is a BuildUnitOrder: the press queues it, and Build/work pays the
+## 1,000 ducats and 2 paper and musters the explorer that turn
+## (wiki: civilian-units § Training; workers-and-population § Phase placement).
+func test_training_a_civilian_is_queued_then_mustered_in_build_work() -> void:
 	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
 	var units_before: int = _screen.civilian_layer.units.size()
 	var treasury_before: int = _screen.treasury
 	var paper_before: int = int(_screen.stockpile["paper"])
 	MapPlayInput.on_panel_action(_screen.play, "train_explorer")
+	assert_eq(_screen.civilian_layer.units.size(), units_before, "nothing musters at the press")
+	assert_eq(_screen.treasury, treasury_before, "nothing is paid at the press")
+	assert_eq(
+		_screen.play.economy.economy.recruits.pending(RecruitQueue.KIND_CIVILIAN, "explorer"),
+		1
+	)
+
+	MapPlayRecruits.complete(_screen.play)
+
 	assert_eq(_screen.treasury, treasury_before - 1000)
 	assert_eq(int(_screen.stockpile["paper"]), paper_before - 2)
 	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
+
+
+## Every kind of recruit is one turn of work: the Orders press files the order,
+## the turn's Build/work pays and delivers it, and the gazette names what landed
+## (wiki: workers-and-population § Phase placement; the-gazette § Item catalog).
+func test_a_turn_delivers_every_queued_recruit_and_the_gazette_names_them() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var economy: PlayerEconomy = play.economy.economy
+	economy.treasury = 60000
+	economy.stockpile["fabric"] = 12
+	economy.stockpile["paper"] = 12
+	economy.stockpile["lumber"] = 40
+	var civilians: int = _screen.civilian_layer.unit_count_all(play.player_faction)
+	var regiments: int = _screen.army_layer.regiment_count_all(play.player_faction)
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
+
+	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	MapPlayInput.on_panel_action(play, "train_explorer")
+	MapPlayArmyMuster.recruit(play, "peasant_levies")
+	MapPlayFleetYard.launch(play, "carrack")
+
+	assert_eq(economy.recruits.total(), 4, "four orders wait for Build/work")
+	assert_eq(
+		_screen.civilian_layer.unit_count_all(play.player_faction), civilians,
+		"nothing lands at the press"
+	)
+	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments)
+	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
+
+	MapPlayTurn.end_turn(play)
+	Fixture.settle(play)
+
+	assert_eq(
+		_screen.civilian_layer.unit_count_all(play.player_faction), civilians + 1,
+		"the hire musters"
+	)
+	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments + 1)
+	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls + 1)
+	assert_eq(
+		economy.workers.count(WorkerPool.Tier.PEASANT), peasants - 1,
+		"one peasant hired, two mustered"
+	)
+	assert_true(economy.recruits.is_empty(), "Build/work drained the queue")
+
+	var kinds: Array[String] = []
+	for item: Dictionary in play.gazette.sheets.back().get("items", []) as Array:
+		kinds.append(String(item.get("kind", "")))
+	for expected: String in [
+		"workerRecruited", "civilianMustered", "regimentMustered", "shipLaunched"
+	]:
+		assert_true(kinds.has(expected), "the sheet names %s (%s)" % [expected, kinds])
+
+
+## A promise the turn cannot keep is spoken and dropped: a muster the purse can
+## no longer pay leaves no phantom order behind (REQ-P2-03).
+func test_an_order_the_build_work_cannot_pay_is_refused_and_dropped() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var economy: PlayerEconomy = play.economy.economy
+	economy.treasury = 60000
+	var regiments: int = _screen.army_layer.regiment_count_all(play.player_faction)
+	MapPlayArmyMuster.recruit(play, "peasant_levies")
+	economy.treasury = 0
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments)
+	assert_true(economy.recruits.is_empty(), "the order is dropped, not retried")
+	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+
+
+## A hull ordered at the slip is not delivered once the capital has fallen: the
+## crown keeps no phantom squadron (wiki: ships-and-naval § Ship build economy).
+func test_a_hull_ordered_at_a_lost_capital_is_refused() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	play.economy.economy.treasury = 60000
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	MapPlayFleetYard.launch(play, "carrack")
+	play.capital_province = Fixture.foreign_province(_screen.model)
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
+	assert_true(play.economy.economy.recruits.is_empty())
 
 
 func test_training_is_refused_outside_the_capital() -> void:
@@ -93,6 +194,8 @@ func test_training_a_rail_builder_waits_for_early_steam_engine() -> void:
 	_screen.play.economy.economy.research.unlock("early_steam_engine")
 	var treasury_before: int = _screen.treasury
 	MapPlayInput.on_panel_action(_screen.play, "train_rail_builder")
+	assert_eq(_screen.civilian_layer.units.size(), units_before, "queued, not mustered")
+	MapPlayRecruits.complete(_screen.play)
 	assert_eq(_screen.civilian_layer.units.size(), units_before + 1)
 	assert_eq(_screen.civilian_layer.units.back().type_id, "rail_builder")
 	assert_eq(_screen.treasury, treasury_before - 2000)

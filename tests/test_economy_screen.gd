@@ -81,8 +81,17 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	economy.stockpile["fabric"] = 2
 	var before: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	# The press only queues: Build/work pays and the peasant joins next turn
+	# (wiki: workers-and-population § Phase placement).
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before)
+	assert_eq(economy.quantity("fabric"), 2, "nothing is spent at the press")
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT)), 1
+	)
+	MapPlayRecruits.complete(_screen.play)
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), before + 1)
 	assert_eq(economy.quantity("fabric"), 0)
+	assert_true(economy.recruits.is_empty(), "the order lands once")
 
 
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:

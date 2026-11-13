@@ -27,7 +27,8 @@ static func close_turn(
 	naval: Array,
 	economy: Dictionary,
 	crown_report: Dictionary,
-	raids: Dictionary
+	raids: Dictionary,
+	musters: Array = []
 ) -> void:
 	if play == null or play.observer_mode or play.diplomacy == null:
 		return
@@ -46,7 +47,8 @@ static func close_turn(
 		research_report(play, economy, crown_report),
 		int(crown_report.get("riches_treasury", 0)),
 		raids.get("reports", []) as Array,
-		play.court_charts
+		play.court_charts,
+		musters
 	)
 	# An empty sheet is still filed so the archive has no gaps; it is not shown.
 	play.gazette.append(sheet)

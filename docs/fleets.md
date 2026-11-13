@@ -17,8 +17,9 @@ Movement, cargo, fog, battles; stations, raids:
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
 - **Named hulls** (`ShipNames`): period names, unique per squadron, kept
   through save and merge (DR-20261111-07).
-- **Yard:** launch at the capital for its row + **one peasant**; breaking up
-  returns a peasant, no refund; an empty squadron retires (DR-20261109-01).
+- **Yard:** launch at the capital for its row + **one peasant**; the hull
+  joins a turn later at Build/work (gazette line); breaking up returns a
+  peasant, no refund; an empty squadron retires (DR-20261109-01).
 - **Home cargo:** merchant hulls in the home fleet give **cargo holds**
   (1/turn) capping **imports**; exports free (DR-20261109-03).
 - **Home-fleet merge:** docking at the seat or a dossier **Join the home

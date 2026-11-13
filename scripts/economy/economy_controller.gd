@@ -339,9 +339,10 @@ func _on_production(recipe_id: String, units: int) -> void:
 	refresh_panel()
 
 
-## One worker action from the ledger. Recruit is paid and enters the pool now;
-## disband demotes one trained worker to a peasant at once and refunds nothing —
-## the rules own both verdicts (wiki: workers-and-population § Recruit, § Disband).
+## One worker action from the ledger. Recruit only queues: the crown pays in
+## Build/work and the new worker takes up its labour the turn after
+## (wiki: workers-and-population § Phase placement). Disband demotes one trained
+## worker to a peasant at once and refunds nothing — the rules own both verdicts.
 func _on_worker_action(tier: int, action: String) -> void:
 	if action == "disband":
 		var blocked: String = economy.disband_blocked_reason(tier)
@@ -356,11 +357,12 @@ func _on_worker_action(tier: int, action: String) -> void:
 				_hud.toast(blocked if not blocked.is_empty() else "Disband refused")
 		refresh_panel()
 		return
-	var result: Dictionary = economy.recruit(tier)
+	var result: Dictionary = economy.queue_recruit(tier)
 	if _hud != null:
 		if bool(result.get("ok", false)):
 			_hud.toast(
-				"One %s joins the capital's workshops" % WorkerPool.tier_one(tier).to_lower()
+				"One %s is engaged — they arrive next turn"
+				% WorkerPool.tier_one(tier).to_lower()
 			)
 		else:
 			_hud.toast(String(result.get("reason", "Recruit refused")))
