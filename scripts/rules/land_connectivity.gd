@@ -18,7 +18,11 @@ const CAPITAL_TRANSPORT: int = 4
 ## the roaded crown network itself (the tiles a crew can extend); `tiles` also
 ## carries the ring beside it and the Town-rule neighbours.
 static func resolve(
-	model: MapModel, works: LandWorks, owner: int, capital_tile: Vector2i
+	model: MapModel,
+	works: LandWorks,
+	owner: int,
+	capital_tile: Vector2i,
+	blockade: Blockades = null
 ) -> Dictionary:
 	var tiles: Dictionary = {}
 	var towns: Dictionary = {}
@@ -43,7 +47,7 @@ static func resolve(
 	_spread(model, works, owned, land, land_queue)
 	var best: Dictionary = land.duplicate()
 	var queue: Array[Vector2i] = []
-	_seed_ports(model, works, owned, best, queue)
+	_seed_ports(model, works, owned, best, queue, blockade)
 	_spread(model, works, owned, best, queue)
 	for raw: Variant in best.keys():
 		tiles[int(raw)] = {
@@ -146,11 +150,11 @@ static func town_caps_province(
 ## the crown network (-1 when no owned-land route exists, 0 when linked).
 static func province_link(
 	model: MapModel, works: LandWorks, owner: int, capital_tile: Vector2i,
-	province_id: int
+	province_id: int, blockade: Blockades = null
 ) -> Dictionary:
 	var result: Dictionary = {
 		"linked": false, "roads": 0, "distance": -1,
-		"town": Vector2i(-1, -1),
+		"town": Vector2i(-1, -1), "blockaded": false,
 	}
 	if model == null or works == null or province_id < 0 or owner < 0:
 		return result
@@ -158,6 +162,8 @@ static func province_link(
 		model, works, province_id, capital_tile
 	)
 	result["town"] = town
+	if blockade != null:
+		result["blockaded"] = blockade.cuts(model.region_id, province_id)
 	var roads: int = 0
 	for tile: Vector2i in model.province_tiles(province_id):
 		if works.transport_at(model, tile) >= LandWorks.TRANSPORT_ROAD:
@@ -167,7 +173,7 @@ static func province_link(
 	result["roads"] = roads
 	if town.x < 0:
 		return result
-	var resolved: Dictionary = resolve(model, works, owner, capital_tile)
+	var resolved: Dictionary = resolve(model, works, owner, capital_tile, blockade)
 	if (resolved.get("tiles", {}) as Dictionary).has(model.index_of(town.x, town.y)):
 		result["linked"] = true
 		result["distance"] = 0
@@ -250,14 +256,22 @@ static func _seed_capital(
 ## A port is a landfall: it seeds the province's own roads, but it is not a road
 ## to the crown, so its bare tile does not exempt its neighbours from the town
 ## cap (overseas provinces have no road path to the capital at all).
+## A sealed harbour is no landfall: a hostile squadron holding the coast cuts the
+## province's sea path, and a blockade of the capital cuts every one of them
+## (wiki: capital-and-connectivity § Blockade).
 static func _seed_ports(
 	model: MapModel, works: LandWorks, owned: Dictionary, best: Dictionary,
-	queue: Array[Vector2i]
+	queue: Array[Vector2i], blockade: Blockades = null
 ) -> void:
 	for raw: Variant in works.ports.keys():
 		var index: int = int(raw)
-		if owned.has(index):
-			_raise(model, best, queue, _tile_of(model, index), CAPITAL_TRANSPORT)
+		if not owned.has(index):
+			continue
+		if blockade != null:
+			var tile: Vector2i = _tile_of(model, index)
+			if blockade.cuts(model.region_id, model.province_at(tile.x, tile.y)):
+				continue
+		_raise(model, best, queue, _tile_of(model, index), CAPITAL_TRANSPORT)
 
 
 ## Maximise the bottleneck: a tile's path cap can only improve, so re-queue it

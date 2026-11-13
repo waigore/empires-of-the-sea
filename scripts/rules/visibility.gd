@@ -89,8 +89,11 @@ func apply_initial() -> Array:
 
 ## Ship reveal (wiki: ships-and-naval § Ship Reveal Mechanic): entering a sea
 ## zone makes its water fully visible and reveals the strict coastal ring — only
-## land tiles sharing an orthogonal edge with that zone's water.
-func reveal_sea_zone(zone_id: int) -> Array:
+## land tiles sharing an orthogonal edge with that zone's water. `extra_land_rings`
+## grows that coastal band by further orthogonal land steps, all `fullyVisible`
+## (wiki: leader-bonuses § Bonus Table — Henry the Navigator). Water never
+## spreads the extra rings: only land does.
+func reveal_sea_zone(zone_id: int, extra_land_rings: int = 0) -> Array:
 	var changed: Array = []
 	var data: SeaZoneState = model.sea_zone_data(zone_id)
 	if data == null:
@@ -100,6 +103,7 @@ func reveal_sea_zone(zone_id: int) -> Array:
 		var index: int = model.index_of(tile.x, tile.y)
 		if raise_to(index, Level.FULLY_VISIBLE):
 			changed.append(index)
+	var coast: Array[Vector2i] = []
 	for tile: Vector2i in water:
 		for offset: Vector2i in NEIGHBORS:
 			var nx: int = tile.x + offset.x
@@ -107,8 +111,25 @@ func reveal_sea_zone(zone_id: int) -> Array:
 			if not model.in_bounds(nx, ny) or not model.is_land(nx, ny):
 				continue
 			var index: int = model.index_of(nx, ny)
+			coast.append(Vector2i(nx, ny))
 			if raise_to(index, Level.FULLY_VISIBLE):
 				changed.append(index)
+	for _ring in maxi(extra_land_rings, 0):
+		var frontier: Array[Vector2i] = []
+		for tile: Vector2i in coast:
+			for offset: Vector2i in NEIGHBORS:
+				var nx: int = tile.x + offset.x
+				var ny: int = tile.y + offset.y
+				if not model.in_bounds(nx, ny) or not model.is_land(nx, ny):
+					continue
+				var step := Vector2i(nx, ny)
+				if frontier.has(step):
+					continue
+				frontier.append(step)
+				var index: int = model.index_of(nx, ny)
+				if raise_to(index, Level.FULLY_VISIBLE):
+					changed.append(index)
+		coast = frontier
 	return changed
 
 

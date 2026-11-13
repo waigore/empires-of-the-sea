@@ -237,6 +237,70 @@ suites = [
   "test_mobile_layout.gd"
 ]
 
+# A blockade severs the harvest, not only the cargo (wiki:
+# capital-and-connectivity § Blockade): the reading, the connectivity gate it
+# feeds, the two extraction paths, the ledger that prices it and the two readings
+# that name it. Named first because the civilian, economy, crown_road, muster and
+# ui rules below each own one of these files and would run twelve to fifteen
+# suites for a change none of them describes.
+[domains.blockade]
+suites = [
+  "test_civilian_turn_rules.gd",
+  "test_market_economy_rules.gd"
+]
+
+[[rules]]
+match = "scripts/rules/blockades.gd*"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/rules/land_connectivity.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/rules/extraction.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/rules/economy_overseas.gd*"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/economy/economy_controller.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/map/map_play_economy_ai.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/map/map_play_blockades.gd*"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/map/map_play_improvements.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/ui/dossier_copy.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/ui/ledger_text.gd"
+domain = "blockade"
+
+[[rules]]
+match = "tests/test_civilian_turn_rules.gd*"
+domain = "blockade"
+
+[[rules]]
+match = "tests/test_market_economy_rules.gd*"
+domain = "blockade"
+
 # The crown's Build/work recruit queue and the pass that drains it: rules and
 # adapter travel with the ledger, and their proof rides the economy suite plus
 # the crown-order drives that press the muster, train and launch rows. Declared
@@ -335,6 +399,30 @@ domain = "oob"
 [[rules]]
 match = "scripts/map/map_play_diplomacy_consent.gd*"
 domain = "diplomacy"
+
+# The map screen controller and the pause page: only the suites that mount
+# them (tier-1 budget; the rules buckets stay on their own files).
+[domains.screen]
+suites = [
+  "test_map_screen.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_main.gd",
+  "test_menu_flow.gd",
+  "test_save_codec.gd",
+  "test_army_orders.gd",
+  "test_mobile_layout.gd",
+  "test_map_view_rules.gd",
+  "test_civilian_turn_rules.gd"
+]
+
+[domains.pause]
+suites = [
+  "test_menu_flow.gd",
+  "test_main.gd",
+  "test_court_ui_parts.gd",
+  "test_audio_rules.gd",
+  "test_mobile_layout.gd"
+]
 
 [domains.map]
 suites = [
@@ -721,6 +809,16 @@ domain = "economy_ui"
 match = "scripts/ui/commodity_icons.gd*"
 domain = "economy_ui"
 
+# The tier medallions are the WORKERS tab's art table, and its by-hand shot
+# harness draws that tab: both stay on the same light domain.
+[[rules]]
+match = "scripts/ui/worker_tier_art.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "tests/ledger_shot.gd*"
+domain = "economy_ui"
+
 [[rules]]
 match = "tests/test_market_economy_rules.gd*"
 domain = "economy"
@@ -977,6 +1075,16 @@ domain = "prospect"
 match = "scripts/ui/lens_legend.gd*"
 domain = "crown_road"
 
+# The bar's one reading seal (click cycles, hold names) and the shared mix desk
+# are their own widgets: keep them off the scripts/ui/** → menu catch-all.
+[[rules]]
+match = "scripts/ui/lens_seal.gd*"
+domain = "layout"
+
+[[rules]]
+match = "scripts/ui/sound_desk.gd*"
+domain = "audio"
+
 [[rules]]
 match = "scripts/ui/palette.gd*"
 domain = "crown_road"
@@ -1055,11 +1163,12 @@ full = true
 match = "ui/**"
 domain = "ui"
 
-# MapScreen carries setup fields into PlaySession; difficulty owns that bridge
-# so the layer does not pull the whole map suite set (domains.difficulty).
+# The screen controller's own edit (input wiring, HUD mounting) is exercised by
+# the suites that mount it; the rules buckets it used to borrow (difficulty,
+# menu) send AI, battle and advanced-start suites that never mount a screen.
 [[rules]]
 match = "scripts/map_screen.gd"
-domain = "difficulty"
+domain = "screen"
 
 [[rules]]
 match = "scripts/rules/difficulty.gd*"
@@ -1861,9 +1970,11 @@ domain = "menu"
 match = "scripts/ui/menu_frame.gd"
 domain = "menu"
 
+# The pause page mounts in these suites; the menu bucket's advanced-start and
+# land-battle suites never open it.
 [[rules]]
 match = "scripts/ui/game_menu.gd"
-domain = "menu"
+domain = "pause"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"

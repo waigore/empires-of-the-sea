@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/map_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://scripts/map/map_canvas.gd" id="2_canvas"]
@@ -11,7 +11,6 @@
 [ext_resource type="Shader" path="res://ui/shaders/grain.gdshader" id="8_grain"]
 [ext_resource type="Shader" path="res://ui/shaders/vignette.gdshader" id="9_vignette"]
 [ext_resource type="Script" path="res://scripts/audio/audio_director.gd" id="10_audio"]
-[ext_resource type="Script" path="res://scripts/ui/audio_controls.gd" id="11_sound"]
 [ext_resource type="Script" path="res://scripts/audio/map_soundtrack.gd" id="12_score"]
 [ext_resource type="Script" path="res://scripts/ui/improvement_panel.gd" id="13_improvements"]
 [ext_resource type="Script" path="res://scripts/map/army_layer.gd" id="14_armies"]
@@ -107,14 +106,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("6_hud")
-
-[node name="AudioControls" type="Control" parent="HUD/HudRoot"]
-z_index = 4
-offset_left = 18.0
-offset_top = 78.0
-offset_right = 64.0
-offset_bottom = 124.0
-script = ExtResource("11_sound")
 
 [node name="Improvements" type="Control" parent="HUD"]
 z_index = 20

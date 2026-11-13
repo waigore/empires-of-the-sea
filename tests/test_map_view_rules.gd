@@ -897,7 +897,13 @@ func test_the_key_action_binds_the_r_key() -> void:
 	assert_true(InputMap.has_action(InputActions.CROWN_LENS))
 	assert_ne(InputActions.CROWN_LENS, InputActions.LENS)
 	assert_ne(InputActions.CROWN_LENS, InputActions.DIPLOMACY_LENS)
-	assert_not_null(screen.hud._crown_lens_button.shortcut)
+	# The key still lands on the bar's one seal, which raises its reading.
+	var event := InputEventAction.new()
+	event.action = InputActions.CROWN_LENS
+	event.pressed = true
+	screen.hud.lens_seal._shortcut_input(event)
+	assert_true(screen.play.crown_lens.active, "R names the crown road")
+	MapPlayInput.set_crown_lens(screen.play, false)
 
 func test_toggle_key_exclusivity_road_and_draw() -> void:
 	_setup_crown_road_lens()
@@ -905,11 +911,12 @@ func test_toggle_key_exclusivity_road_and_draw() -> void:
 	assert_not_null(lens)
 	assert_false(lens.active)
 
-	MapPlayInput.toggle_crown_lens(screen.play)
+	MapPlayInput.set_crown_lens(screen.play, true)
 	assert_true(lens.active)
 	assert_true(screen.hud.lens_legend.visible)
 	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
-	assert_true(screen.hud._crown_lens_button.button_pressed)
+	assert_true(screen.hud.lens_seal.button_pressed)
+	assert_eq(screen.hud.lens_seal.active_kind, LensLegend.KIND_CROWN_ROAD)
 	assert_gt(int(lens.survey["tiles"][CrownRoadSurvey.STATE_ROAD]), 0)
 	assert_almost_eq(screen.civilian_layer.modulate.a, 0.22, 0.001)
 
@@ -969,9 +976,8 @@ func test_toggle_key_exclusivity_road_and_draw() -> void:
 		MapPlayInput.update_hover(screen.play, point)
 		assert_true(screen.hud._tooltip_label.text.contains("Crown road: "))
 
-	# Seal shortcut drops the lens (same path as pressing R).
-	screen.hud._crown_lens_button.set_pressed(false)
-	screen.hud._crown_lens_button.toggled.emit(false)
+	# The seal's menu names "No lens", which drops the reading.
+	screen.hud.lens_seal.choose("")
 	assert_false(lens.active)
 	assert_false(screen.hud.lens_legend.visible)
 
@@ -984,12 +990,13 @@ func test_region_switch_and_rail_budget() -> void:
 	assert_true(screen.play.crown_lens.survey.has("runs"))
 	screen.load_region(0)
 
-	# Three seals share the left rail: crown sits past diplomacy, inside LEFT_RAIL.
+	# The reading rides the cartouche now: the rail below is back to two seals.
 	var hud: GameHud = screen.hud
-	var crown: Rect2 = hud._crown_lens_button.get_global_rect()
-	var diplo: Rect2 = hud._diplomacy_lens_button.get_global_rect()
-	assert_gt(crown.position.x, diplo.end.x, "the three lens seals never overlap")
-	assert_lt(crown.end.x, HudLayout.LEFT_RAIL + 1.0, "crown seal stays inside LEFT_RAIL")
+	var seal: Rect2 = hud.lens_seal.get_global_rect()
+	var bar: Rect2 = hud.top_bar.get_global_rect()
+	assert_gt(seal.size.x, 0.0, "the lens seal is on the bar")
+	assert_true(seal.position.y >= bar.position.y and seal.end.y <= bar.end.y + 0.5, "seal inside the bar")
+	assert_lt(HudLayout.LEFT_RAIL, 260.0, "the rail covers only ESTATES and the Gazette")
 	MapPlayInput.set_crown_lens(screen.play, true)
 	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
 	assert_true(hud.lens_legend.visible)

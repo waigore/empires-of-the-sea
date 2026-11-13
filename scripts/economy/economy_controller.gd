@@ -29,6 +29,10 @@ var _last_consumption: Dictionary = {}
 ## the turn helper before resolution (wiki: civilian-units § Spy;
 ## DR-20261110-03). Empty when no spy sits in a rival Great Power's province.
 var research_boost: Dictionary = {}
+## Reads the court's sealed ports (wiki: capital-and-connectivity § Blockade).
+## MapPlayBlockades owns the reading — it needs the fleets and the wars — so the
+## controller only asks for it while it prices the harvest (REQ-P2-03).
+var blockade_source: Callable = Callable()
 ## The crown's leaderKey, fixed at game start; its published funding multiplier
 ## lifts the research points the phase earns (wiki: leader-bonuses — Victoria).
 var leader_key: String = ""
@@ -150,7 +154,8 @@ func overseas_plan() -> Dictionary:
 	if _ships != null and _ships.world != null:
 		var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 		by_region = EconomyOverseas.region_totals(
-			_ships.world, home_region, player_faction, tech_caps(), works_by_region
+			_ships.world, home_region, player_faction, tech_caps(), works_by_region,
+			{}, {}, Blockades.of(blockade_source)
 		)
 	return EconomyOverseas.plan(by_region, cargo_holds())
 
@@ -167,16 +172,17 @@ func feeding_coverage() -> float:
 ## Everything that reaches the crown's stockpile this turn: home-region land
 ## yield plus the overseas cargo the home fleet actually delivers.
 func extraction() -> Dictionary:
+	var seals: Blockades = Blockades.of(blockade_source)
 	var home: Dictionary = Extraction.yields(
 		model, player_faction, capital_province, tech_caps(), works,
-		capital_tile, economy.tech_unlocked
+		capital_tile, economy.tech_unlocked, true, {}, seals
 	)
 	if _ships == null or _ships.world == null:
 		return home
 	var home_region: int = model.region_id if model != null else WorldMap.OLD_WORLD
 	return EconomyOverseas.delivered(
 		home, _ships.world, home_region, player_faction, tech_caps(),
-		works_by_region, cargo_holds(), economy.tech_unlocked
+		works_by_region, cargo_holds(), economy.tech_unlocked, seals
 	)["extraction"] as Dictionary
 
 
@@ -225,6 +231,9 @@ func resolve_turn() -> Dictionary:
 	)
 	report["overseas"] = plan
 	report["musters"] = musters
+	# A sealed harbour is a rule, not a lean harvest: the despatch names it
+	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
+	report["blockade"] = Blockades.note(Blockades.of(blockade_source), world)
 	_last_consumption = report.get("consumption", {}) as Dictionary
 	# A new turn's harvest is on the table before the ledger repaints.
 	MinorMarket.publish(market, _ships.world if _ships != null else null, player_faction)
