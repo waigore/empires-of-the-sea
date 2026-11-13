@@ -25,17 +25,22 @@ const CATEGORY_DOMAIN: Dictionary = {
 }
 const WAR_BRANCHES: Array[String] = ["military", "naval"]
 const SCORE_PER_WEIGHT: int = 10
+## The cheapest preset a court can pay; a court parked at its cash floor keeps
+## one study alive at this rate rather than standing still (issue #490).
+const STANDING_FUNDING: String = "low"
 
 
 ## Assignments for the court's empty slots plus every scored candidate, for the
 ## turn trace (wiki: turn-trace-interpretation).
 ##
 ## `context["treasury_floor"]` is the purse the court must leave behind — its own
-## cash floor, raised to the muster it is saving for (`AiArmyReinforce.
-## muster_floor`). Funding steps down to what the purse can carry after that
-## floor, so a court short of its regiment target saves for the muster instead of
-## paying its last coins into a study (wiki: growth-stage-planner
-## § Recruitment modulation; treasury-planner § Cash discipline).
+## cash floor (`economy.min_treasury`), not the muster reserve: the reserve is a
+## saving target the army planner enforces at muster time, and gating studies on
+## it froze every court at war (issue #490). Funding steps down to what the purse
+## can carry after that floor, and a court parked at the floor still keeps one
+## study alive at the cheapest preset (the standing study) rather than standing
+## still for the campaign (wiki: growth-stage-planner § Recruitment modulation;
+## treasury-planner § Cash discipline).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
 ) -> Dictionary:
@@ -52,17 +57,26 @@ static func plan(
 		state.set_revealed(revealed)
 	var at_war: bool = bool(context.get("at_war", false))
 	candidates = _scored_candidates(config, economy, at_war)
-	var preset: String = funding_for(
-		config, economy, maxi(int(context.get("treasury_floor", 0)), 0)
+	var floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
+	var preset: String = funding_for(config, economy, floor)
+	# A court parked at its cash floor still keeps one study alive at the
+	# cheapest preset: the standing study is the first slot that already holds a
+	# tech, or the first slot filled this turn. It is paid before the surplus
+	# ladder, so a court that cannot afford its published preset still learns
+	# rather than standing still for the campaign (issue #490).
+	var can_stand: bool = (
+		preset == ResearchFunding.ORDER[0] and _can_pay_standing(economy, floor)
 	)
+	var standing: int = _standing_slot(state) if can_stand else -1
 	# A study already underway follows the same purse: a court that cannot fund
 	# its slots at the published preset pays a cheaper one rather than draining
 	# the war chest or stalling with unpaid rows.
 	for slot in state.slots.size():
 		if state.tech_at(slot).is_empty():
 			continue
-		if state.funding_at(slot) != preset:
-			state.set_funding(slot, preset)
+		var funding: String = STANDING_FUNDING if slot == standing else preset
+		if state.funding_at(slot) != funding:
+			state.set_funding(slot, funding)
 	for slot in state.slots.size():
 		if not state.tech_at(slot).is_empty():
 			continue
@@ -74,14 +88,20 @@ static func plan(
 			if state.is_active(tech):
 				entry["taken"] = true
 				continue
-			var result: Dictionary = state.assign(tech, preset, slot)
+			var wants_standing: bool = standing < 0 and can_stand
+			var slot_funding: String = (
+				STANDING_FUNDING if slot == standing or wants_standing else preset
+			)
+			var result: Dictionary = state.assign(tech, slot_funding, slot)
 			if not bool(result.get("ok", false)):
 				entry["taken"] = true
 				continue
+			if wants_standing:
+				standing = slot
 			pick = {
 				"tech": tech,
 				"slot": slot,
-				"funding": preset,
+				"funding": slot_funding,
 				"score": int(entry["score"]),
 			}
 			entry["taken"] = true
@@ -99,8 +119,9 @@ static func plan(
 ## ai-personalities § Domain weight vectors; hidden-agendas — tech_thief pays for
 ## its catch-up, DR-20261111-27), clamped to the catalogue and then to what the
 ## purse can carry after `floor` — the reserve the court must not spend (its own
-## cash floor and its muster). A court that cannot pay the cheapest preset funds
-## nothing that turn and keeps saving (wiki: treasury-planner § Cash discipline).
+## cash floor; the muster reserve is the army planner's, not research's). A court
+## that cannot pay the cheapest preset funds nothing that turn and keeps saving;
+## one that can still keeps its standing study alive at that preset (`plan`).
 static func funding_for(
 	config: AiConfig, economy: PlayerEconomy = null, floor: int = 0
 ) -> String:
@@ -114,6 +135,36 @@ static func funding_for(
 		while index > 0 and ResearchFunding.gold(ResearchFunding.ORDER[index]) > spare:
 			index -= 1
 	return ResearchFunding.ORDER[index]
+
+
+## The purse research must leave behind: the court's own cash floor, never the
+## muster reserve. The reserve is a saving target the army planner enforces at
+## muster time; gating studies on it froze every court at war for the whole
+## campaign (issue #490).
+static func research_floor(config: AiConfig) -> int:
+	if config == null:
+		return 0
+	return maxi(int(config.parameter("economy.min_treasury")), 0)
+
+
+## The slot that keeps the standing study: the first slot already holding a
+## tech, or -1 when every slot is free (the first assignment takes it).
+static func _standing_slot(state: ResearchState) -> int:
+	for slot in state.slots.size():
+		if not state.tech_at(slot).is_empty():
+			return slot
+	return -1
+
+
+## True when the purse can pay the cheapest preset while still keeping half the
+## court's cash floor: the standing study may dip below that floor (the research
+## phase's own floor is 0; the cash floor is a saving policy, not a legality
+## gate) but never below half of it, so a broke court keeps a reserve.
+static func _can_pay_standing(economy: PlayerEconomy, floor: int) -> bool:
+	if economy == null:
+		return false
+	var keep: int = maxi(floor / 2, 0)
+	return economy.treasury >= keep + ResearchFunding.gold(STANDING_FUNDING)
 
 
 # --- candidate scoring -------------------------------------------------------

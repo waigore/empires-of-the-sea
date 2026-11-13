@@ -8,8 +8,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   `AiPersonality`, `AiAgenda`): three profiles, seven archetypes, six agendas.
 - **Money goal** (`AiIncome`): at war the reserve is the muster under
   `army.regiment_target` (`army.war_extra`), at peace `economy.min_treasury`.
-  On `earn` research and the auction keep it back, and a Passage voyage may
-  still open (DR-20261113-19/22).
+  On `earn` the auction keeps it back, and a Passage voyage may still open
+  (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **Diplomacy planner** (`AiDiplomacyPlanner`): desire: base 50, power,
@@ -38,15 +38,15 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then down to what the purse carries after its floor —
-  at war, its muster.
+  (DR-20261111-27), then down to the purse above the cash floor (not the
+  muster reserve), keeping one standing study at Low (DR-20261113-24).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds
   (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders finish towns, engineers connect and raise road/port/fort/hospital
-  (DR-20261111-16), explorers prospect; merchants buy deeds where embassy,
-  peace, mineral and price allow (DR-20261111-10).
+  builders finish towns, engineers raise works (DR-20261111-16), explorers
+  prospect; merchants buy deeds where embassy, peace, mineral and price allow
+  (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs above that same floor; merchants sail home, one hull more

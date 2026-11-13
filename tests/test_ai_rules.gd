@@ -2319,9 +2319,11 @@ func test_research_funding_never_spends_the_reserve_the_court_must_hold() -> voi
 	)
 
 
-func test_a_court_saving_for_its_muster_funds_no_study() -> void:
+func test_a_court_saving_for_its_muster_pays_only_the_standing_study() -> void:
 	# The muster needs army.min_treasury (400) after the line's own price, so a
-	# court still short of that floor must not pay into research slots.
+	# court still short of that floor pays no published preset into its slots.
+	# The standing study — one slot at the cheapest preset — is the exception
+	# that keeps a war-time court learning (issue #490).
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.treasury = 2300
@@ -2330,12 +2332,102 @@ func test_a_court_saving_for_its_muster_funds_no_study() -> void:
 	var plan: Dictionary = AiResearchPlanner.plan(
 		config, economy, {"treasury_floor": floor}
 	)
+	var paid: int = 0
 	for entry: Dictionary in plan["assignments"]:
-		assert_eq(String(entry["funding"]), "none", "the war chest stays whole")
+		if String(entry["funding"]) == "none":
+			continue
+		paid += 1
+		assert_eq(String(entry["funding"]), "low", "only the standing study is paid")
+	assert_eq(paid, 1, "one standing study, the war chest stays whole")
 	economy.treasury = 4000
 	plan = AiResearchPlanner.plan(config, economy, {"treasury_floor": floor})
+	for slot in economy.research.slots.size():
+		assert_eq(
+			economy.research.funding_at(slot), "medium", "surplus funds the study"
+		)
+
+
+func test_the_research_floor_is_the_cash_floor_not_the_muster_reserve() -> void:
+	# The muster reserve is a saving target the army planner enforces at muster
+	# time; a study paid against it never happens, because the war chest is never
+	# reached (issue #490).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		AiResearchPlanner.research_floor(config),
+		maxi(int(config.parameter("economy.min_treasury")), 0)
+	)
+	assert_true(
+		AiResearchPlanner.research_floor(config)
+			< AiArmyReinforce.muster_floor(config, economy, 1, true),
+		"research never waits on the muster"
+	)
+	assert_eq(AiResearchPlanner.research_floor(null), 0)
+
+
+func test_a_court_parked_at_its_floor_keeps_one_standing_study() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": AiResearchPlanner.research_floor(config)}
+	)
+	var paid: Array[String] = []
 	for entry: Dictionary in plan["assignments"]:
-		assert_eq(String(entry["funding"]), "medium", "surplus funds the study")
+		var funding: String = String(entry["funding"])
+		if funding != "none":
+			paid.append(funding)
+	assert_eq(paid, ["low"] as Array[String], "one slot at the cheapest preset")
+	assert_eq(
+		economy.research.funding_at(0), "low",
+		"the standing study is the first occupied slot"
+	)
+	for slot in range(1, economy.research.slots.size()):
+		assert_eq(economy.research.funding_at(slot), "none", "the rest wait")
+
+
+func test_a_broke_court_keeps_no_standing_study() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 40
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": AiResearchPlanner.research_floor(config)}
+	)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(String(entry["funding"]), "none", "40 ducats pays nothing")
+
+
+func test_the_standing_study_stops_at_half_the_floor() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 299
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": 500}
+	)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(
+			String(entry["funding"]), "none",
+			"below half the cash floor nothing is paid"
+		)
+	economy.treasury = 300
+	plan = AiResearchPlanner.plan(config, economy, {"treasury_floor": 500})
+	var funded: int = 0
+	for slot in economy.research.slots.size():
+		if economy.research.funding_at(slot) != "none":
+			funded += 1
+	assert_eq(funded, 1, "300 is the floor for the standing study")
+
+
+func test_the_standing_study_never_undercuts_a_published_preset() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	# 3,000 ducats clears the medium preset; the standing study must not demote
+	# any slot to the cheapest preset when the purse carries the published one.
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": AiResearchPlanner.research_floor(config)}
+	)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(String(entry["funding"]), "medium")
 
 
 func test_an_occupied_slot_follows_the_purse() -> void:
