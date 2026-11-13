@@ -26,10 +26,13 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			if faction == play.player_faction:
 				continue
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
+			# A court on a war footing keeps its hulls for the fleet: the posture
+			# closes the voyage before the planner picks a step (DR-20261113-15).
+			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_abroad(play, target, faction), play.court_charts
+				_abroad(play, target, faction), play.court_charts, posture
 			)
 			if order.is_empty():
 				continue

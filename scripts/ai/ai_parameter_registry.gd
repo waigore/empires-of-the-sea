@@ -312,14 +312,15 @@ const PARAMETERS: Array[Dictionary] = [
 static var _by_key: Dictionary = {}
 
 
-## Every knob in catalog order: this module's entries, then the market, army
-## and cargo groups.
+## Every knob in catalog order: this module's entries, then the market, army,
+## cargo and posture groups.
 static func entries() -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	all.append_array(PARAMETERS)
 	all.append_array(AiParameterMarket.PARAMETERS)
 	all.append_array(AiParameterArmy.PARAMETERS)
 	all.append_array(AiParameterCargo.PARAMETERS)
+	all.append_array(AiParameterPhase.PARAMETERS)
 	return all
 
 

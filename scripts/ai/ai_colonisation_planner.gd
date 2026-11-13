@@ -21,7 +21,10 @@ extends RefCounted
 ## has seen and walks only water it charts, with one blind step into the unknown
 ## to extend the chart (DR-20261110-21). A null chart is the fixture reading —
 ## every tile charted — and production always hands the court's charts in
-## (MapPlayColonisationAi).
+## (MapPlayColonisationAi). `posture` is the court's war footing: a court
+## fighting a Great Power opens no new voyage, while an expedition already afloat
+## keeps sailing (wiki: phase-planner-architecture § Playable slice;
+## DR-20261113-15).
 static func plan(
 	config: AiConfig,
 	world: WorldMap,
@@ -30,7 +33,8 @@ static func plan(
 	fleets: Array,
 	civilians: Array,
 	abroad: Dictionary = {},
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -42,6 +46,8 @@ static func plan(
 	if target < 0:
 		return {}
 	var fleet: FleetState = _carrying_fleet(fleets, owner)
+	if fleet == null and AiPhasePlanner.is_war_footing(posture):
+		return {}
 	if fleet != null:
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if carried == null:
