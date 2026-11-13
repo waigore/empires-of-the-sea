@@ -51,7 +51,7 @@ static func resolve_turn(
 	var reports: Array[Dictionary] = []
 	if model == null:
 		return reports
-	ArmyState.prune(armies)
+	ArmyRoster.prune(armies)
 	for province: int in contested_provinces(model, armies):
 		var defender: int = model.province_owner(province)
 		var attackers: Array[int] = ordered_attackers(armies, province, defender, context)
@@ -66,7 +66,7 @@ static func resolve_turn(
 			reports.append(_capture_report(model, province, capturer, defender))
 			continue
 		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
-		ArmyState.prune(armies)
+		ArmyRoster.prune(armies)
 	return reports
 
 
@@ -96,7 +96,7 @@ static func _resolve_chain(
 		reports.append(report)
 		if bool(report.get("captured", false)):
 			break
-		ArmyState.prune(armies)
+		ArmyRoster.prune(armies)
 	return reports
 
 
