@@ -282,6 +282,50 @@ func test_a_rivals_strength_waits_for_the_watch_to_close() -> void:
 		"a rival who returns must be watched afresh")
 
 
+## A marker minted after the watch closed keeps the chart's reading. Joining the
+## home fleet, crossing a passage or losing a port rebuilds every marker, and a
+## rebuild must not hand back a weight the crown has not read (wiki:
+## ships-and-naval § Sighted strength).
+func test_a_rebuilt_marker_keeps_the_watch() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	_screen.ship_layer.rebuild_markers()
+	var unread: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(unread)
+	assert_false(unread.strength_known, "a rebuilt marker still flies *")
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+	_screen.ship_layer.rebuild_markers()
+	var read: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(read)
+	assert_true(read.strength_known, "a read squadron stays read after a rebuild")
+
+
+## A rebuilt chart never draws a rival the crown's fog hides, nor reads her
+## weight there (wiki: fog-and-exploration § Visibility Levels; ships-and-naval
+## § Sighted strength).
+func test_a_rebuilt_marker_stays_under_the_fog() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	assert_false(enemy.visible, "the fog keeps her off the chart")
+
+	_screen.ship_layer.rebuild_markers()
+	var hidden: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(hidden)
+	assert_false(hidden.visible, "a rebuild does not draw her")
+	assert_false(hidden.strength_known, "and does not read her weight")
+
+
 ## The dossier prints ??? for a rival the crown has sighted but not read, and
 ## names the watch that would earn her weight.
 func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
@@ -1397,6 +1441,45 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 		Palette.HEALTH_LOW,
 		"a losing share reads as a loss"
 	)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
+## A rival the crown has sighted but not read keeps her muster to herself: the
+## dossier prints `??? hulls` with no count, no types and no upkeep bill, and the
+## watch closing reveals the composition with the strength (wiki: ships-and-naval
+## § Sighted strength).
+func test_an_unread_rival_dossier_keeps_her_muster() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = zone
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		78, rival, zone, ["ship_78", "ship_79"], {"ship_78": "frigate", "ship_79": "carrack"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+	var panel: FleetPanel = _screen.hud._fleet_panel
+
+	assert_eq(panel._ships.text, "??? hulls — the fog has not yet given up her muster.")
+	assert_false(panel._ships.text.contains("Carrack"), "no hull type leaks")
+	assert_false(panel._ships.text.contains("upkeep"), "her bill is not the crown's yet")
+
+	# The watch closes across the turn boundary: her muster joins the reading.
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.turn += 1
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+
+	assert_true(panel._ships.text.contains("2 ships"), panel._ships.text)
+	assert_true(panel._ships.text.contains("Carrack"), panel._ships.text)
+	assert_true(panel._ships.text.contains("upkeep"), panel._ships.text)
 	_screen.ship_layer.fleets.erase(enemy)
 
 
