@@ -135,5 +135,25 @@ static func food_upkeep_of(armies: Array[ArmyState], owner: int) -> int:
 	return total
 
 
+## Regiments for one faction across every stored region: the HUD counts them all.
+static func count_all(regions: MapRegionTable, owner: int) -> int:
+	var total: int = 0
+	for raw: Variant in regions.values():
+		var stored: Array[ArmyState] = []
+		stored.assign(raw)
+		total += count_of(stored, owner)
+	return total
+
+
+## Grain every region owes for one crown's regiments (wiki: combat § Feeding).
+static func food_upkeep_all(regions: MapRegionTable, owner: int) -> int:
+	var total: int = 0
+	for raw: Variant in regions.values():
+		var stored: Array[ArmyState] = []
+		stored.assign(raw)
+		total += food_upkeep_of(stored, owner)
+	return total
+
+
 static func _deny(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason, "army": null}

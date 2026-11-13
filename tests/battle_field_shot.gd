@@ -18,6 +18,10 @@ var _round := 2
 var _w := W
 var _h := H
 var _field: QuickBattleField = null
+## The line it paints: a mixed muster, so every arm of the plate is exercised.
+## `types=` overrides it with a comma list for one side.
+var _attacker_types: Array[String] = []
+var _defender_types: Array[String] = []
 
 
 func _initialize() -> void:
@@ -42,6 +46,10 @@ func _initialize() -> void:
 			_w = float(arg.substr(2))
 		elif arg.begins_with("h="):
 			_h = float(arg.substr(2))
+		elif arg.begins_with("types="):
+			_attacker_types = Array(arg.substr(6).split(","), TYPE_STRING, "", null)
+		elif arg.begins_with("foe="):
+			_defender_types = Array(arg.substr(4).split(","), TYPE_STRING, "", null)
 	_field = QuickBattleField.new()
 	_field.position = Vector2.ZERO
 	_field.size = Vector2(_w, _h)
@@ -56,8 +64,27 @@ func _initialize() -> void:
 	_field.defender_start = 10
 	_field.guns = _guns
 	_field.round_index = _round
-	_field.attacker_health = [{"fraction": 0.9, "medals": 0}, {"fraction": 0.6, "medals": 1}]
-	_field.defender_health = [{"fraction": 0.4, "medals": 2}]
+	_field.attacker_health = _line(_attacker_types, [
+		"guards", "guards", "musketeers", "musketeers", "pikemen", "pikemen",
+		"knights", "culverin",
+	], [0.9, 0.6, 1.0, 0.75, 1.0, 0.5, 0.8, 1.0])
+	_field.defender_health = _line(_defender_types, [
+		"bowmen", "bowmen", "halberdiers", "halberdiers", "hussars", "field_artillery",
+		"siege_guns",
+	], [1.0, 0.7, 0.9, 1.0, 0.55, 1.0, 0.85])
+
+
+## One condition entry per regiment: its type, health fraction and chevrons.
+func _line(types: Array[String], fallback: Array, fractions: Array) -> Array:
+	var ids: Array = types if not types.is_empty() else fallback
+	var entries: Array = []
+	for index in ids.size():
+		entries.append({
+			"type": String(ids[index]),
+			"fraction": float(fractions[index % fractions.size()]),
+			"medals": index % 3,
+		})
+	return entries
 
 
 func _process(_delta: float) -> bool:
