@@ -106,7 +106,7 @@ static func decide(
 		# War memory (issue #475): the penalty lowers desire, never legality.
 		var memory: int = AiWarMemory.penalty(
 			config, ai_state, turn, config.faction, target, record.at_war,
-			int(desire["factors"].get("relative_power", 0)) >= AiPower.BONUS_STRONG
+			AiWarMemory.outmatches(target, int(desire["factors"].get("relative_power", 0)))
 		)
 		var score: int = clampi(int(desire["score"]) - memory, 0, 100)
 		var factors: Dictionary = desire["factors"]

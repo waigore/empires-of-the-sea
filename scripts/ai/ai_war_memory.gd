@@ -18,9 +18,11 @@ extends RefCounted
 ##   last time. A war actually prosecuted ends in a real settlement.
 ##
 ## Neither term deletes a war: the desire is reduced, never the legality, so
-## every declaration still passes the rules check (REQ-P2-03). Both read only a
-## Great Power pair: a war on a Minor Nation or a Tribe is colonial business and
-## leaves no grudge between crowns (wiki: phase-planner-architecture).
+## every declaration still passes the rules check (REQ-P2-03). Both read **every**
+## pair, colonial ones included: a war on a Minor Nation or a Tribe is still a
+## war the court pays for, and the carousel it used to run — declare, white
+## peace in the same phase, re-declare at the 4-turn cooldown — is the same
+## unfought war the truce exists to stop (issue #511, DR-20261114-01).
 
 const MAX_PENALTY: int = 100
 
@@ -54,7 +56,7 @@ static func weariness(
 	target: int,
 	stronger: bool = false
 ) -> int:
-	if config == null or ai_state == null or stronger or not _reads_grudge(target):
+	if config == null or ai_state == null or stronger:
 		return 0
 	var started: int = _turn_of(ai_state.last_war_turn, faction, target)
 	if started < 0:
@@ -72,7 +74,7 @@ static func weariness(
 static func truce(
 	config: AiConfig, ai_state: AiState, turn: int, faction: int, target: int
 ) -> int:
-	if config == null or ai_state == null or not _reads_grudge(target):
+	if config == null or ai_state == null:
 		return 0
 	var ended: int = _turn_of(ai_state.last_truce_turn, faction, target)
 	if ended < 0:
@@ -97,10 +99,16 @@ static func _fought(
 	return ended - started >= maxi(config.parameter("diplomacy.truce_fought_turns"), 0)
 
 
-## Only a Great Power pair leaves a grudge: a Minor Nation or Tribe is colonial
-## business (wiki: phase-planner-architecture § Playable slice).
-static func _reads_grudge(target: int) -> bool:
-	return FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+## True when this court's own reading of the balance excuses it from tiring: a
+## court that clearly outmatches a **peer** is winning the war it wants. That
+## reading is peer-only — strength against a Minor Nation or Tribe is the
+## precondition for a landing, not evidence of one, so a colonial war still
+## wears (issue #511).
+static func outmatches(target: int, power_bonus: int) -> bool:
+	return (
+		power_bonus >= AiPower.BONUS_STRONG
+		and FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+	)
 
 
 ## The turn recorded for one unordered pair, or -1 when the pair has no entry.
