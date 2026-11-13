@@ -898,6 +898,38 @@ func test_the_map_reads_the_courts_sealed_coasts() -> void:
 	session.ship_layer.free()
 
 
+## The reading's own edges: no world, no court, no station, and a source that
+## answers with the wrong thing all seal nothing rather than guessing
+## (REQ-P2-03).
+func test_the_blockade_reading_keeps_its_edges_quiet() -> void:
+	var world := WorldMap.new()
+	assert_false(Blockades.read(world, {}, PLAYER, 0, 0).any(), "no regions, no seals")
+	assert_false(Blockades.read(null, {0: []}, PLAYER, 0, 0).any())
+	assert_false(Blockades.read(world, {}, MapModel.NO_ID, 0, 0).any())
+	assert_false(Blockades.of(Callable()).any(), "unwired")
+	assert_false(Blockades.of(func() -> int: return 3).any(), "not a reading")
+	var cut := Blockades.new()
+	cut.sea_cut = true
+	assert_eq(
+		Blockades.note(cut, world),
+		"The capital's harbour is blockaded — only what the roads reach yields this turn"
+	)
+	assert_eq(Blockades.note(cut, null), "", "no world, no place to name")
+	# A court with no map, no rosters or no court at all has no reading either.
+	var bare := PlaySession.new()
+	assert_false(MapPlayBlockades.crown(null).any())
+	assert_false(MapPlayBlockades.crown(bare).any(), "no world yet")
+	bare.world = world
+	assert_false(MapPlayBlockades.crown(bare).any(), "no fleets yet")
+	# A rival's own ports are read from its seat, not the human court's.
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	bare.ship_layer = ShipLayer.new()
+	bare.diplomacy = DiplomacyState.new()
+	assert_false(MapPlayBlockades.of(bare, RIVAL).any(), "no wars to read")
+	bare.ship_layer.free()
+
+
 func _blockade_of(model: MapModel, province_id: int) -> Blockades:
 	var seals := Blockades.new()
 	seals.sealed = {model.region_id: {province_id: true}}
