@@ -203,16 +203,15 @@ static func _place(play: PlaySession, event: Dictionary) -> String:
 	return model.province_name(province)
 
 
-## The court's own acts this turn. A structured act is reworded with masked
-## names, so a stranger court never leaks through the trace's sentence; anything
-## without one falls back to the recorded wording.
+## The court's own acts this turn, as its spy's despatch tells them: reworded
+## from what the rules resolved with masked names, so a stranger court never
+## leaks through the trace's sentence (wiki: civilian-units § Spy (5)).
 static func _diplomacy_lines(play: PlaySession, rival: int) -> Array[String]:
 	var lines: Array[String] = []
 	for record: Dictionary in play.ai_trace:
 		if int(record.get("faction", -1)) != rival:
 			continue
-		var action: Dictionary = record.get("action", {}) as Dictionary
-		var line: String = _act_line(play, rival, action)
+		var line: String = _act_line(play, rival, record)
 		if line.is_empty():
 			line = String(record.get("message", ""))
 		if not line.is_empty():
@@ -220,22 +219,47 @@ static func _diplomacy_lines(play: PlaySession, rival: int) -> Array[String]:
 	return lines
 
 
-static func _act_line(play: PlaySession, rival: int, action: Dictionary) -> String:
+## A resolved act's line by the kind the planner emits; war and peace answer for
+## themselves below. A kind no row names keeps the court's own wording.
+const ACT_LINES: Dictionary = {
+	AiDiplomacyOffers.KIND_ALLIANCE: "%s proposes a formal alliance to %s.",
+	AiDiplomacyOffers.KIND_OVERTURE: "%s sends an envoy to %s.",
+	AiDiplomacyOffers.KIND_FTP: "%s proposes a favoured trading pact to %s.",
+	AiDiplomacyOffers.KIND_REVOKE_FTP: "%s ends its trade pact with %s.",
+	AiDiplomacyOffers.KIND_BOYCOTT: "%s closes its colonies to %s.",
+	AiDiplomacyOffers.KIND_REVOKE_BOYCOTT: "%s reopens its colonies to %s.",
+	AiDiplomacyOffers.KIND_AID: "%s sends aid to %s.",
+	AiDiplomacyOffers.KIND_SUBSIDY: "%s sets a subsidy for %s.",
+	AiDiplomacyOffers.KIND_CANCEL_SUBSIDY: "%s ends its subsidy to %s.",
+	AiDiplomacyOffers.KIND_BREAK: "%s breaks its alliance with %s.",
+}
+
+
+static func _act_line(play: PlaySession, rival: int, record: Dictionary) -> String:
+	var action: Dictionary = record.get("action", {}) as Dictionary
 	if action.is_empty():
+		return ""
+	# An order the rules refused never reached the court: no war, no proposal.
+	var result: Dictionary = record.get("result", {}) as Dictionary
+	if result.has("ok") and not bool(result.get("ok", false)):
 		return ""
 	var target: int = int(action.get("target", MapModel.NO_ID))
 	if target == MapModel.NO_ID:
 		return ""
+	var kind: String = String(action.get("kind", ""))
 	var who: String = FactionCatalog.name_of(rival)
 	var them: String = _name(play, target)
-	match String(action.get("kind", "")):
+	match kind:
 		AiDiplomacyPlanner.KIND_DECLARE_WAR:
 			return "%s declares war on %s." % [who, them]
 		AiDiplomacyPlanner.KIND_OFFER_PEACE:
-			return "%s sues for peace with %s." % [who, them]
-		"":
-			return ""
-	return "%s proposes a treaty to %s." % [who, them]
+			if bool(action.get("propose", false)):
+				return "%s offers a white peace to %s." % [who, them]
+			if result.has("accepted") and not bool(result.get("accepted", true)):
+				return "%s sues for peace with %s and is refused." % [who, them]
+			return "%s makes peace with %s." % [who, them]
+	var template: String = String(ACT_LINES.get(kind, ""))
+	return template % [who, them] if not template.is_empty() else ""
 
 
 static func _battle_lines(

@@ -59,11 +59,18 @@ static func run(
 			record["result"] = applied.get("result", {})
 			var message: String = String(applied.get("message", ""))
 			record["message"] = message
+			# The court's own player-facing lines, kept per record so a caller
+			# can put each in the channel that should carry it: the map pass
+			# toasts what changes the crown's turn and leaves World news to the
+			# Gazette (wiki: the-gazette § Not the Gazette).
+			var lines: Array[String] = []
 			if not message.is_empty():
-				messages.append(message)
+				lines.append(message)
 			for extra: String in applied.get("messages", []):
 				if not extra.is_empty():
-					messages.append(extra)
+					lines.append(extra)
+			record["messages"] = lines
+			messages.append_array(lines)
 		trace.append(record)
 	return {"trace": trace, "messages": messages}
 

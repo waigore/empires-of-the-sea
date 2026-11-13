@@ -409,6 +409,67 @@ func test_map_phase_runs_the_ai_without_views() -> void:
 	assert_true(play.diplomacy.relation(1, 2).at_war)
 
 
+## A rival's war on a third court is World news: the Gazette narrates it from the
+## recorded `warDeclared` event and a spy's court report carries it, so the toast
+## lane does not announce the same declaration a third time (wiki: the-gazette
+## § Not the Gazette; civilian-units § Spy (5)).
+func test_a_rival_war_on_a_third_court_is_left_to_the_gazette() -> void:
+	var play := PlaySession.new()
+	play.world = AiFixture.world([2, 2, 2, 2, 1])
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.reset(1)
+	play.diplomacy.ensure_relation(1, 2, 1)
+	play.map_seed = 1500
+	play.hud = StubHud.new()
+	add_child(play.hud)
+	MapPlayDiplomacyAi.run(play)
+	var toasts: Array[String] = (play.hud as StubHud).toasts
+	assert_true(play.diplomacy.relation(1, 2).at_war, "the declaration still resolves")
+	for line: String in toasts:
+		assert_false(line.contains("declares war"), "not toasted: %s" % line)
+	play.hud.free()
+
+
+## A declaration on the crown is told at once: it governs this turn's movement
+## and combat (wiki: diplomacy § Turn Sequence).
+func test_a_declaration_on_the_crown_is_told_at_once() -> void:
+	var play := PlaySession.new()
+	var crown: int = play.human_faction_id()
+	var record: Dictionary = {
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": crown},
+		"message": "",
+		"messages": ["France declares war on the crown."],
+	}
+	assert_eq(MapPlayDiplomacyAi._announcements(play, record).size(), 1, "the line is told")
+	# A trace from before the pass kept per-court lines still speaks.
+	var legacy: Dictionary = {
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": crown},
+		"message": "France declares war on the crown.",
+	}
+	var spoken: Array[String] = MapPlayDiplomacyAi._announcements(play, legacy)
+	assert_eq(String(spoken[0]), "France declares war on the crown.")
+	# An empty record says nothing at all.
+	assert_true(MapPlayDiplomacyAi._announcements(play, {"faction": 2}).is_empty())
+
+
+## The merged observer record counts a declaration only when the rules accepted
+## it: a refused order is not a war (wiki: turn-trace-interpretation).
+func test_a_refused_order_is_not_a_declaration_in_the_turn_log() -> void:
+	var play := PlaySession.new()
+	play.ai_trace = [{
+		"faction": 2,
+		"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": 1},
+		"result": {"ok": false, "reason": "Austria is already at war with us."},
+		"message": "",
+	}]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var bucket: Dictionary = merged["factions"][2]
+	assert_false((bucket["actions"] as Dictionary).has("war"), "no war is counted")
+	assert_true((bucket["events"] as Array).is_empty(), "no declaration is invented")
+
+
 # --- from test_ai_military.gd ---
 ## Rival land pass: a court at war on its border detaches a field army, then
 ## defends, storms or stages through the shared ArmyMovement rules (docs/ai.md).
