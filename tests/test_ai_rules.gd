@@ -2448,6 +2448,70 @@ func test_the_standing_study_stops_at_half_the_floor() -> void:
 	assert_eq(funded, 1, "300 is the floor for the standing study")
 
 
+func test_a_court_one_payment_short_of_its_muster_keeps_that_payment() -> void:
+	# A court at war that holds all but one study payment of its muster must not
+	# pay the study: the purse would sit one regiment short forever (issue #474).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	assert_true(muster > 0, "a court at war under target saves for a muster")
+	economy.treasury = muster - 1
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": muster,
+			"cash_floor": AiResearchPlanner.research_floor(config),
+		}
+	)
+	for entry: Dictionary in plan["assignments"]:
+		assert_eq(
+			String(entry["funding"]), "none",
+			"the last payment stays in the war chest"
+		)
+	assert_eq(
+		AiResearchPlanner.standing_funding(config, economy, muster), "",
+		"the ledger prices no study the planner will not pay"
+	)
+
+
+func test_a_court_far_from_its_muster_still_learns() -> void:
+	# The standing study survives for a court that cannot reach its muster yet:
+	# only the last payment is protected (issue #490, #474).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	economy.treasury = 500
+	assert_true(
+		economy.treasury
+			< muster - ResearchFunding.gold(AiResearchPlanner.STANDING_FUNDING),
+		"500 is far from the muster"
+	)
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": muster,
+			"cash_floor": AiResearchPlanner.research_floor(config),
+		}
+	)
+	var paid: Array[String] = []
+	for entry: Dictionary in plan["assignments"]:
+		var funding: String = String(entry["funding"])
+		if funding != "none":
+			paid.append(funding)
+	assert_eq(paid, ["low"] as Array[String], "one slot at the cheapest preset")
+	assert_eq(AiResearchPlanner.standing_funding(config, economy, muster), "low")
+
+
+func test_a_peaceful_court_keeps_its_standing_study() -> void:
+	# At peace the reserve is the cash floor alone, so the guard never fires and
+	# a court that is not fighting still learns (DR-20261113-22).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var floor: int = AiResearchPlanner.research_floor(config)
+	economy.treasury = floor
+	assert_eq(AiResearchPlanner.standing_funding(config, economy, floor), "low")
+
+
 func test_the_standing_study_never_undercuts_a_published_preset() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
