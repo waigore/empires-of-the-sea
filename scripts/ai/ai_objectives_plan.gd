@@ -121,6 +121,8 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 		"colonise.new_world", "expansion", W_PROVINCES_NEW, {}
 	)
 	var afloat: bool = bool(readings.get("voyage_afloat", false))
+	var abroad: bool = bool(readings.get("voyage_abroad", false))
+	var under_way: bool = afloat or abroad
 	var harbour: bool = bool(readings.get("harbour", false))
 	var hull := AiObjective.create("expedition.hull", "naval", W_HULL, {"hull": 1})
 	if not harbour:
@@ -128,16 +130,16 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 	var explorer := AiObjective.create(
 		"expedition.explorer", "civilian", W_EXPLORER, {"civilian": 1}
 	)
-	if not afloat and not bool(readings.get("explorer_ready", false)):
+	if not under_way and not bool(readings.get("explorer_ready", false)):
 		explorer.block("no Explorer free")
 	parent.with_child(hull).with_child(explorer)
 	if at_war:
 		# The court's one order is already claimed by `peace.window`; the voyage
 		# needs that window funded, not a second order of its own.
 		parent.needs("peace.window")
-	if afloat:
-		# Already under way: no new hull or colonist, but the voyage outranks
-		# opening a second one.
+	if under_way:
+		# Already under way — at sea or landed on the far shore: no new hull or
+		# colonist, but the voyage outranks opening a second one.
 		parent.with_child(AiObjective.create("expedition.voyage", "expansion", W_VOYAGE, {}))
 	return parent
 

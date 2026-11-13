@@ -267,6 +267,52 @@ func test_a_court_at_peace_lays_down_nothing() -> void:
 	assert_eq(_by_id(AiObjectivesPlan.build(readings), "navy.build"), null)
 
 
+## A colonist already on the far shore is the voyage's progress, not a missing
+## Explorer: the child that musters a new one is not blocked, and the parent
+## prices the protected voyage instead (#497).
+func test_a_colonist_ashore_is_the_voyage_in_progress() -> void:
+	var readings: Dictionary = _readings()
+	readings["explorer_ready"] = false
+	readings["voyage_abroad"] = true
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
+
+	assert_eq(
+		_child_ids(colony), ["expedition.hull", "expedition.explorer", "expedition.voyage"],
+		"the landed colonist keeps the voyage priced"
+	)
+	assert_eq(_by_id(objectives, "expedition.explorer").status, AiObjective.STATUS_RANKED)
+	var report: Dictionary = AiObjectiveLedger.run(objectives, {"hull": 1, "civilian": 1})
+	assert_eq(
+		_by_id(objectives, "colonise.new_world").status, AiObjective.STATUS_FUNDED,
+		"a funded hull and a landed colonist leave nothing deferred"
+	)
+
+
+## The adapter reads a colonist ashore as a voyage under way (issue #497).
+func test_the_adapter_reads_the_colonist_ashore() -> void:
+	var play: PlaySession = _session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(2, OWNER, "explorer", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_FUNDED)
+	var voyage: bool = false
+	for child: Dictionary in colony.get("children", []):
+		if String(child["id"]) == "expedition.voyage":
+			voyage = true
+	assert_true(voyage, "the voyage child stands in for the landed colonist")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 # --- the adapter and the trace ----------------------------------------------
 
 
