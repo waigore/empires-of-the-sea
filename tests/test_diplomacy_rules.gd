@@ -732,14 +732,18 @@ func test_describe_names_the_offer() -> void:
 func test_a_recent_declaration_does_not_stop_a_fellow_court_making_peace() -> void:
 	_setup_diplomacy_proposals()
 	# The war cooldown is a Declare War clock only: a court that declared last
-	# turn still signs peace once the war stops being worth waging (wiki:
-	# diplomacy § Cooldowns, § Configurable Values).
+	# turn still makes peace once the war stops being worth waging (wiki:
+	# diplomacy § Cooldowns, § Configurable Values). Both courts are peacemakers,
+	# so whichever asks first, the other answers yes (wiki: diplomacy § Planner
+	# selection — a court below its peace bar signs).
 	var fresh := DiplomacyState.new()
 	fresh.reset(1)
 	fresh.ensure_relation(1, 2, 1)
 	fresh.relation(1, 2).score = 35.0
 	DiplomacyRules.declare_war(fresh, 2, 1)
 	var ai := AiState.new()
+	ai.agendas[1] = AiAgenda.PEACEMAKER
+	ai.agendas[2] = AiAgenda.PEACEMAKER
 	ai.note_war(2, 1, 1)
 	var result: Dictionary = AiTurn.run(
 		fresh,
@@ -752,9 +756,8 @@ func test_a_recent_declaration_does_not_stop_a_fellow_court_making_peace() -> vo
 	)
 	assert_false(fresh.relation(1, 2).at_war, "the fellow court's peace is signed at once")
 	assert_eq(fresh.pending_offers.size(), 0, "no human answer is involved")
-	var record: Dictionary = _record_for(result["trace"], 2)
-	assert_eq(String(record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
-	assert_true(String(record["message"]).contains("Peace is concluded"))
+	var record: Dictionary = _peace_record(result["trace"])
+	assert_true(String(record.get("message", "")).contains("Peace is concluded"))
 
 func test_an_ai_court_offers_a_non_aggression_pact_and_waits() -> void:
 	_setup_diplomacy_proposals()
@@ -837,6 +840,14 @@ func _offer_blocked(record: Dictionary, kind: String) -> String:
 func _record_for(trace: Array, faction: int) -> Dictionary:
 	for record: Dictionary in trace:
 		if int(record["faction"]) == faction:
+			return record
+	return {}
+
+## The trace row whose action was a white peace ("{}" when no court asked).
+func _peace_record(trace: Array) -> Dictionary:
+	for record: Dictionary in trace:
+		var action: Dictionary = record.get("action", {})
+		if String(action.get("kind", "")) == AiDiplomacyPlanner.KIND_OFFER_PEACE:
 			return record
 	return {}
 
