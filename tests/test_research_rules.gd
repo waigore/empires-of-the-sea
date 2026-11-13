@@ -563,14 +563,15 @@ func test_the_leader_funding_multiplier_lifts_base_rp_before_the_shares() -> voi
 	_turn_state.unlock("industrial_funding_of_research")
 	assert_eq(
 		ResearchTurn.points_for(_turn_state, "organised_regiments", "medium", 15, "victoria"),
-		448, "345 plus the 30% shares"
+		465, "345 plus the 35% shares (spy 15 + Industrial Funding 20)"
 	)
 	var plan: Dictionary = ResearchTurn.preview(
 		_turn_state, "organised_regiments", "medium", 5000, 15, "victoria"
 	)
-	assert_eq(int(plan["rp"]), 448, "the ledger shows the same figure")
+	assert_eq(int(plan["rp"]), 465, "the ledger shows the same figure")
 	ResearchTurn.resolve(_turn_state, _turn_economy, {}, "victoria")
-	assert_eq(_turn_state.progress_of("organised_regiments"), 448)
+	assert_eq(_turn_state.progress_of("organised_regiments"), 414,
+		"the phase pays 345 plus Industrial Funding's 20%, no spy share")
 
 
 func test_none_funding_spends_and_earns_nothing() -> void:
