@@ -85,7 +85,8 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
 	var keys: Array[String] = [
-		"faction", "name", "leader", "agenda", "phase", "posture", "plans",
+		"faction", "name", "leader", "agenda", "phase", "posture",
+		"goal", "intent", "reserve", "plans",
 		"provinces_old", "provinces_new",
 		"power", "regiments", "ships", "civilians", "treasury", "stock",
 		"workers", "wars", "progress", "rank", "alive", "headline",
@@ -95,6 +96,11 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 		assert_eq(int(row["rank"]), index + 1, "rows arrive already ranked")
 		for key: String in keys:
 			assert_true(row.has(key), "row exposes %s" % key)
+		assert_true(
+			[AiIncome.GOAL_EARN, AiIncome.GOAL_SPEND].has(String(row["goal"])),
+			"the row prints the court's money goal (DR-20261113-19)"
+		)
+		assert_eq(String(row["intent"]), AiIncome.label(String(row["goal"])))
 		if index > 0:
 			assert_true(
 				int(rows[index - 1]["provinces_old"]) >= int(row["provinces_old"]),

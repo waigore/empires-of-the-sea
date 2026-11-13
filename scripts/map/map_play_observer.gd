@@ -44,8 +44,13 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var agenda: String = play.ai.agenda_for(config) if play.ai != null else config.agenda
 	var economy: PlayerEconomy = _economy(play, faction)
 	# The footing the court plans with this turn (DR-20261113-15): a war, an
-	# overstretched court with two fronts, or the published peace.
+	# overstretched court with two fronts, or the published peace. The money goal
+	# rides beside it (DR-20261113-19).
 	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
+	var income: Dictionary = AiIncome.plan(
+		config, economy, _at_war(play, faction),
+		play.army_layer.regiment_count_all(faction)
+	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
@@ -59,6 +64,9 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"profile": config.profile,
 		"phase": phase,
 		"posture": AiPhasePlanner.label(phase),
+		"goal": String(income["goal"]),
+		"intent": AiIncome.label(String(income["goal"])),
+		"reserve": int(income["reserve"]),
 		"plans": AiControl.plans(play, faction),
 		"provinces_old": old_world,
 		"provinces_new": new_world,
@@ -107,6 +115,17 @@ static func _strength(play: PlaySession, faction: int) -> float:
 			if army != null and army.owner == faction:
 				total += army.strength()
 	return total
+
+
+## True when any court holds a declared war on this one: the reserve the court
+## must hold is read against it (DR-20261113-19).
+static func _at_war(play: PlaySession, faction: int) -> bool:
+	if play.diplomacy == null:
+		return false
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record.at_war:
+			return true
+	return false
 
 
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:

@@ -169,6 +169,13 @@ func test_a_war_across_the_water_detaches_a_crossing_army() -> void:
 	assert_eq(int(actions[0]["regiments"].size()), 2, "one regiment keeps the seat")
 
 func test_a_war_on_the_court_s_own_border_stays_a_land_war() -> void:
+	var world: WorldMap = _border_world()
+	assert_true(AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], [_home_army()]
+	).is_empty(), "the field army is needed on the border")
+
+## The Passage map with a hostile province on the seat's land border.
+func _border_world() -> WorldMap:
 	var world := WorldMap.new()
 	world.add_region(_old_world(true))
 	world.add_region(_new_world())
@@ -176,9 +183,35 @@ func test_a_war_on_the_court_s_own_border_stays_a_land_war() -> void:
 		{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0},
 		{"from_region": 1, "from_zone": 0, "to_region": 0, "to_zone": 0},
 	]
+	return world
+
+## The money goal lifts the frontier guard: a court on **earn** sends its spare
+## regiments across the Passage even while a war sits on its border, because the
+## gold that ends the impasse is overseas (DR-20261113-19).
+func test_an_earning_court_sails_into_a_border_war() -> void:
+	var world: WorldMap = _border_world()
+	var armies: Array = [_home_army()]
 	assert_true(AiInvasionPlanner.split_orders(
-		_config(), _war(), world, world.region(0), [_squadron()], [_home_army()]
-	).is_empty(), "the field army is needed on the border")
+		_config(), _war(), world, world.region(0), [_squadron()], armies
+	).is_empty(), "the published rule keeps the army home")
+	var earning: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], armies, null, true
+	)
+	assert_eq(earning.size(), 1, "a court on earn sails for the far coast")
+	assert_eq(
+		int(earning[0]["regiments"].size()), 2,
+		"one regiment always keeps the seat"
+	)
+
+## The defence guard survives the goal: a hostile host already standing on the
+## court's own soil is never left behind (DR-20261113-19).
+func test_a_hostile_host_on_the_court_s_soil_keeps_the_army_home() -> void:
+	var world: WorldMap = _border_world()
+	var invader: ArmyState = ArmyState.muster(9, RIVAL, 0, false, ["pikemen"], 5)
+	assert_true(AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()],
+		[_home_army(), invader], null, true
+	).is_empty(), "a war on its own soil comes before a voyage")
 
 func test_only_a_declared_enemy_or_a_tribe_may_be_invaded() -> void:
 	assert_true(DiplomacyRules.invadable(_peace(), OWNER, TRIBE), "tribes need no declaration")

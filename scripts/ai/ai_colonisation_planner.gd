@@ -24,7 +24,8 @@ extends RefCounted
 ## (MapPlayColonisationAi). `posture` is the court's war footing: a court
 ## fighting a Great Power opens no new voyage, while an expedition already afloat
 ## keeps sailing (wiki: phase-planner-architecture § Playable slice;
-## DR-20261113-15).
+## DR-20261113-15) — unless it is on **earn**, whose gold is across the water
+## (DR-20261113-19).
 static func plan(
 	config: AiConfig,
 	world: WorldMap,
@@ -34,7 +35,8 @@ static func plan(
 	civilians: Array,
 	abroad: Dictionary = {},
 	charts: CourtCharts = null,
-	posture: String = AiPhasePlanner.PHASE_UNKNOWN
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN,
+	wants_income: bool = false
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -46,7 +48,7 @@ static func plan(
 	if target < 0:
 		return {}
 	var fleet: FleetState = _carrying_fleet(fleets, owner)
-	if fleet == null and AiPhasePlanner.is_war_footing(posture):
+	if fleet == null and AiPhasePlanner.is_war_footing(posture) and not wants_income:
 		return {}
 	if fleet != null:
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
