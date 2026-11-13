@@ -46,6 +46,7 @@ func reveal(host: Node, dock: PanelDock) -> void:
 	if open:
 		return
 	open = true
+	_sync_despatch_cover(host)
 	if slides and dock != null:
 		dock.slide_in(host, wrap)
 		return
@@ -58,10 +59,19 @@ func conceal(host: Node, dock: PanelDock) -> void:
 	if not open:
 		return
 	open = false
+	_sync_despatch_cover(host)
 	if slides and dock != null:
 		dock.slide_out(host, wrap, func() -> void: wrap.visible = false)
 		return
 	wrap.visible = false
+
+
+## A phone sheet holds the court's news while it is up (HudDespatchCover owns
+## the rule); a desktop sheet leaves the lane alone. Hosts without a HUD simply
+## skip it.
+func _sync_despatch_cover(host: Node) -> void:
+	if host != null:
+		HudDespatchCover.refresh(host as GameHud)
 
 
 ## A ledger taking the whole edge closes a sliding dossier outright: its
