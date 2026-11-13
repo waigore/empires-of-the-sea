@@ -158,6 +158,14 @@ func _by_id(objectives: Array[AiObjective], objective_id: String) -> AiObjective
 	return null
 
 
+## Flattens the trace rows to id → status.
+func _statuses(rows: Variant, out: Dictionary) -> void:
+	for raw: Variant in rows:
+		var row: Dictionary = raw
+		out[String(row["id"])] = String(row["status"])
+		_statuses(row.get("children", []), out)
+
+
 func _child_ids(objective: AiObjective) -> Array[String]:
 	var ids: Array[String] = []
 	for child: AiObjective in objective.children:
@@ -188,9 +196,9 @@ func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 
 	assert_eq(int(_by_id(objectives, "peace.window").utility), 30)
-	assert_eq(
-		int(_by_id(objectives, "expedition.peace").cost["orders"]), 1,
-		"the expedition's peace window costs the court's order"
+	assert_true(
+		_by_id(objectives, "colonise.new_world").requires.has("peace.window"),
+		"the expedition waits on the court's one peace window, not a second order"
 	)
 	assert_true(_by_id(objectives, "navy.sortie") != null)
 	assert_eq(_by_id(objectives, "navy.build"), null, "a court with hulls sorties instead of building")
@@ -383,6 +391,85 @@ func test_a_peaceful_court_with_a_funded_claim_issues_the_voyage() -> void:
 	assert_eq(int(trace[0]["faction"]), OWNER)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+# --- posture as a modifier ---------------------------------------------------
+
+
+func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
+	var config: AiConfig = _config()
+	var peace: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_PEACE, config)
+	var war: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_WAR, config)
+	var fronts: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_FRONTS, config)
+
+	assert_eq(int(peace["military"]), AiPosture.weight_mille(config, "military"))
+	assert_true(int(war["military"]) > int(peace["military"]), "the army leads at war")
+	assert_true(int(war["expansion"]) < int(peace["expansion"]), "the voyage is cheaper at war")
+	assert_true(int(fronts["expansion"]) < int(war["expansion"]), "and cheaper still on two fronts")
+	assert_true(int(fronts["expansion"]) >= config.parameter("posture.floor"), "never zeroed")
+
+
+func test_the_leader_s_weights_reorder_the_rank() -> void:
+	var napoleon: AiConfig = AiConfig.build(OWNER, SEED, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	napoleon.personality = AiPersonality.resolve("napoleon")
+	var victoria: AiConfig = AiConfig.build(OWNER, SEED, AiProfile.NORMAL, AiAgenda.ISOLATIONIST)
+	victoria.personality = AiPersonality.resolve("victoria")
+	var phase: String = AiPhasePlanner.PHASE_WAR
+
+	assert_true(
+		int(AiPosture.modifiers(phase, napoleon)["military"])
+		> int(AiPosture.modifiers(phase, victoria)["military"]),
+		"a soldier ranks the army higher than a trader does"
+	)
+	assert_true(
+		int(AiPosture.modifiers(phase, victoria)["economy"])
+		> int(AiPosture.modifiers(phase, napoleon)["economy"]),
+		"and a trader ranks the ledger higher"
+	)
+
+
+func test_a_parent_defers_with_the_child_that_starved_it() -> void:
+	# At war the expedition needs the court's one order for its peace window; a
+	# war it still wants spends that order pressing the war instead.
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 70
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
+	)
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+
+	assert_false(colony.is_empty(), "the voyage is still ranked at war")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_DEFERRED)
+	assert_true(
+		String(colony.get("blocked", "")).contains("peace.window"),
+		"the trace names the aim the voyage waited on"
+	)
+	var line: String = ""
+	for raw: Variant in report["lines"]:
+		if String(raw).begins_with("colonise.new_world"):
+			line = String(raw)
+	assert_true(line.contains("deferred"), "and the line says so: %s" % line)
+
+
+func test_a_won_peace_window_opens_the_voyage_at_war() -> void:
+	# A court that wants peace more than it wants the war spends its order on
+	# the window, so the expedition funds and the muster gate opens (issue #497).
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 20
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
+	)
+	var status: Dictionary = {}
+	_statuses(report["objectives"], status)
+	assert_eq(String(status["peace.window"]), AiObjective.STATUS_FUNDED)
+	assert_eq(String(status["colonise.new_world"]), AiObjective.STATUS_FUNDED)
 
 
 # --- the save round-trip -----------------------------------------------------
