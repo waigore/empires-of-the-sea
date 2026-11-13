@@ -15,8 +15,6 @@ var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
 var _dock: Button = null
 var _column: VBoxContainer = null
-var _shell: VBoxContainer = null
-var _hint: Label = null
 var _orders_index: int = -1
 
 ## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
@@ -50,7 +48,6 @@ func _build() -> void:
 	shell.add_theme_constant_override("separation", 8)
 	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(shell)
-	_shell = shell
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -93,7 +90,6 @@ func _build() -> void:
 	hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.6))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(hint)
-	_hint = hint
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
@@ -148,28 +144,10 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 
 
 ## A phone sheet is short, so orders move above the survey table: every action
-## stays one tap away and only the details scroll. The sheet's padding, section
-## gaps and standing hint also tighten so the sheet carries content, not chrome
-## (REQ-P1-07). Idempotent.
+## stays one tap away and only the details scroll. Idempotent.
 func set_compact(compact: bool) -> void:
 	if _orders == null or _grid == null or _column == null:
 		return
-	add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.96),
-			Palette.GOLD_DIM,
-			1,
-			4,
-			Vector4(12, 10, 12, 10) if compact else Vector4(20, 18, 20, 18)
-		)
-	)
-	if _column != null:
-		_column.add_theme_constant_override("separation", 6 if compact else 10)
-	if _shell != null:
-		_shell.add_theme_constant_override("separation", 6 if compact else 8)
-	if _hint != null:
-		_hint.visible = not compact
 	# Recruit is a live order now, so it stays on the phone sheet too.
 	var orders_at: int = _orders.get_index()
 	var grid_at: int = _grid.get_index()
