@@ -775,7 +775,7 @@ func test_the_crown_names_its_colours() -> void:
 	_screen.army_layer.select(home)
 	var regiment: String = home.regiments[0]
 	var strength: float = home.strength()
-	var rations: int = ArmyState.food_upkeep_of([home], home.owner)
+	var rations: int = ArmyRoster.food_upkeep_of([home], home.owner)
 
 	MapPlayArmies.on_action(_screen.play, "rename:%s:  Tercio   de la Mar " % regiment)
 
@@ -785,7 +785,7 @@ func test_the_crown_names_its_colours() -> void:
 	)
 	assert_true(_last_toast().contains("Tercio de la Mar"), _last_toast())
 	assert_eq(home.strength(), strength, "a name buys no strength")
-	assert_eq(ArmyState.food_upkeep_of([home], home.owner), rations, "a name eats nothing")
+	assert_eq(ArmyRoster.food_upkeep_of([home], home.owner), rations, "a name eats nothing")
 	assert_true(_screen.hud.panels.is_army_panel_open(), "the dossier repaints with the name")
 	var row: HBoxContainer = (
 		_screen.hud.panels.army_panel._roster.get_child(0) as VBoxContainer
@@ -831,7 +831,7 @@ func test_a_renamed_title_rides_the_split_and_the_save() -> void:
 	)
 
 	var armies: Array[ArmyState] = [field]
-	var split: Dictionary = ArmyState.split(armies, field, [regiment], 99)
+	var split: Dictionary = ArmyRoster.split(armies, field, [regiment], 99)
 	assert_true(bool(split["ok"]), String(split["reason"]))
 	assert_eq(
 		RegimentNames.of(split["army"] as ArmyState, regiment), "Tercio de la Mar",
