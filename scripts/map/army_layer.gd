@@ -72,9 +72,9 @@ func transfer_owner(from_id: int, to_id: int) -> void:
 	for region: int in regions.region_ids():
 		var stored: Array[ArmyState] = []
 		stored.assign(regions.value(region, []))
-		ArmyState.hand_over(stored, from_id, to_id)
+		ArmyRoster.hand_over(stored, from_id, to_id)
 		regions.set_region(region, stored)
-	ArmyState.hand_over(armies, from_id, to_id)
+	ArmyRoster.hand_over(armies, from_id, to_id)
 	_rebuild_markers()
 	select(selected_army)
 
@@ -213,7 +213,7 @@ func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary
 
 ## Detaches regiment instances into a new field army (wiki: military-armies).
 func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
-	var result: Dictionary = ArmyState.split(armies, army, regiment_ids, next_army)
+	var result: Dictionary = ArmyRoster.split(armies, army, regiment_ids, next_army)
 	if not bool(result.get("ok", false)):
 		return result
 	next_army += 1
@@ -234,7 +234,7 @@ func combine(army: ArmyState) -> Dictionary:
 		if other != army and other.province == army.province and other.owner == army.owner:
 			selected.append(other)
 	var before: Array[ArmyState] = selected.duplicate()
-	var result: Dictionary = ArmyState.combine(armies, selected)
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
 	if not bool(result.get("ok", false)):
 		return result
 	for old: ArmyState in before:
@@ -355,7 +355,7 @@ func regiment_count_all(owner: int) -> int:
 	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
-		total += ArmyState.count_of(stored, owner)
+		total += ArmyRoster.count_of(stored, owner)
 	return total
 
 
@@ -364,7 +364,7 @@ func food_upkeep_all(owner: int) -> int:
 	for raw: Variant in regions.values():
 		var stored: Array[ArmyState] = []
 		stored.assign(raw)
-		total += ArmyState.food_upkeep_of(stored, owner)
+		total += ArmyRoster.food_upkeep_of(stored, owner)
 	return total
 
 

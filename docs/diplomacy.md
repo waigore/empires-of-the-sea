@@ -31,14 +31,14 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   (≤3 provinces) needs Empire Building.
 - **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy 5–20% in
   fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
-- **Trade terms** (`DiplomacyTrade`): pacts, boycotts and subsidies publish
-  price terms; no deal book.
-  **Favoured pact** (GP–GP, embassy, accepts at 65+): imports 95%, exports
+- **Trade terms** (`DiplomacyTrade`): pacts and boycotts publish price terms;
+  a subsidy is not.
+  **Favoured pact** (GP–GP, embassy, accepts 65+): imports 95%, exports
   105%; war ends it. **Boycott** (needs a colony, GP at peace): target's terms
-  drop 10%, its subsidies to our colonies are cancelled and aid there
-  barred; war revokes.
-  **Subsidy** prices that court's goods: we pay p% more, earn p%
-  less. Rails 70–150% buy, 50–130% sell; court and ledger state the rate.
+  drop 10%, its subsidies to our colonies are cancelled and aid barred; war
+  revokes.
+  **Subsidy** never moves the published price: deals with that court pay p%
+  more, earn p% less. Rails 70–150% buy, 50–130% sell; the court states it.
 - **First contact:** a Tribe enters court on a seen tile in its provinces, not by
   sea-reach; rivals open theirs at the turn's close, the crown with a herald.
 - **Chronicle** (`DiplomacyHistory`): newest first, `Year Y (Turn N)`; unmet

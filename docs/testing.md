@@ -129,6 +129,13 @@ godot --headless --path . --script res://tests/playtest_beachhead.gd
 # turns, and prints each promise against the ducats the turn actually paid.
 godot --headless --path . --script res://tests/playtest_treasury.gd
 
+# Workshop — opens a turn-100 advanced start and presses the PRODUCTION tab's own
+# buttons: orders three steel and reads the price the promise charges, clears the
+# order and watches the paid batch land one unit a phase, contrasts a one-turn
+# row, lets two alloy batches serve at once (the note must name the two units the
+# promise names), and saves and loads a batch off the anvil.
+godot --headless --path . --script res://tests/playtest_workshop.gd
+
 # Capital loss — storms the crown's seat while it still holds another province
 # (the court moves, the home squadron re-moors, the Gazette names the province
 # lost), then strips the crown to its seat and storms that (the defeat plate, the
