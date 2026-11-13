@@ -1617,6 +1617,65 @@ func test_war_cooldown_blocks_the_pair_for_four_turns() -> void:
 	var ready: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 5, context)
 	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
 
+## A peace cools the pair: the war the courts just signed away is not declared
+## again at the 4-turn cooldown, and the trace says why (wiki: diplomacy
+## § Planner selection; DR-20261113-25). The observer run showed England-France
+## and France-Maya each declared and undone 46 times in 200 turns.
+func test_a_peace_cools_the_pair_off_the_declaration_bar() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 200, 1: 100})
+	var hot: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 5, context
+	)
+	assert_eq(String(hot["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_false(
+		(hot["candidates"][0]["factors"] as Dictionary).has("truce"),
+		"a pair that never made peace carries no cooling term"
+	)
+	ai_planner_ai_state.note_peace(0, 1, 5)
+	var cooling: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 6, context
+	)
+	assert_true(
+		(cooling["action"] as Dictionary).is_empty(),
+		"the peace is not undone on the next turn"
+	)
+	assert_eq(String(cooling["candidates"][0]["blocked"]), "war desire too low")
+	assert_eq(
+		int(cooling["candidates"][0]["factors"]["truce"]),
+		-AiPeaceStance.TRUCE_DESIRE_PENALTY,
+		"the trace names the cooling term"
+	)
+	var restored: AiState = AiState.from_dict(ai_planner_ai_state.to_dict())
+	assert_true(
+		restored.peace_on_cooldown(0, 1, 6, AiPeaceStance.TRUCE_TURNS),
+		"a save keeps the truce"
+	)
+	var expiring: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world,
+		5 + AiPeaceStance.TRUCE_TURNS, context
+	)
+	assert_eq(
+		String(expiring["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the pair may go back to war once the truce has run"
+	)
+
+## The truce prices a new declaration only: a war in progress still reads its
+## full desire, so the defender's white peace is answered as before.
+func test_a_truce_does_not_price_the_war_in_progress() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_ai_state.note_peace(0, 1, 5)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 1)
+	assert_eq(
+		AiPeaceStance.truce_penalty(
+			ai_planner_ai_state, 6, 0, 1, ai_planner_state.relation(0, 1)
+		),
+		0, "a war already on carries no cooling term"
+	)
+
 func test_war_desire_below_the_minimum_blocks_war() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)

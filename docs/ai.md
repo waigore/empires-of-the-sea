@@ -8,7 +8,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   `AiPersonality`, `AiAgenda`): three profiles, seven archetypes, six agendas.
 - **Money goal** (`AiIncome`): at war the reserve is the muster under
   `army.regiment_target` (+`army.war_extra`), at peace `economy.min_treasury`;
-  on `earn` the auction keeps it back, a Passage voyage may open
+  on `earn` the auction keeps it, a Passage voyage may open
   (DR-20261113-19/22).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
@@ -16,7 +16,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   relations, agenda. Declarations need relation ≤ ceiling (50; warmonger 70,
   peacemaker 30) and desire ≥ 51 off cooldown; goals `round(desire / 25)`.
   At war, desire below `50 + peace_bias` offers peace; an envious court adds
-  +20 against the leader; a deed resists.
+  +20; a deed resists. A peace cools the pair 24 turns (DR-20261113-25).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid. Friendly acts cost desire and standing
   (DR-20261110-15); an isolationist prices a pact 20 lower, a backstabber +25
@@ -38,18 +38,18 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   tier keeping a peasant and `economy.min_treasury`.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with the leader weight and a tech thief's +1 step
-  (DR-20261111-27), then down to the purse above the cash floor (not the
+  (DR-20261111-27), then to the purse above the cash floor (not the
   muster reserve), keeping one standing study at Low (DR-20261113-24).
 - **Tribal courts** (`TribeContact`): rivals open first contact with every
   charted Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders finish towns, engineers raise roads/ports/forts/hospitals
-  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10).
+  builders finish towns, engineers raise works (DR-20261111-16), explorers
+  prospect, merchants buy deeds (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs above that floor; merchants sail home, one hull more when
+  bid short inputs above it; merchants sail home, one hull more when
   tonnage outruns them (DR-20261110-26).
-- **Regiment parity** (`MilitaryParity`): Minors match the leading power's era;
+- **Regiment parity** (`MilitaryParity`): Minors match the leading era;
   Tribes stay 1; rivals re-equip and pay attack prices.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
@@ -57,7 +57,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   recall it. At war the wornest army takes a train (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians, Extraction → Riches →
   Consumption → Production, trade.
-- **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; overstretch
+- **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
   takes any peace (DR-20261113-15).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate in a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).

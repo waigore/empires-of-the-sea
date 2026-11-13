@@ -103,6 +103,14 @@ static func decide(
 		var desire: Dictionary = war_desire(
 			config, state, world, config.faction, target, context
 		)
+		# A pair that signed a peace cools the appetite behind a new war
+		# (wiki: diplomacy § Planner selection; DR-20261113-25).
+		var truce: int = AiPeaceStance.truce_penalty(
+			ai_state, turn, config.faction, target, record
+		)
+		if truce != 0:
+			(desire["factors"] as Dictionary)["truce"] = -truce
+			desire["score"] = maxi(int(desire["score"]) - truce, 0)
 		var entry: Dictionary = {
 			"target": target,
 			"desire": int(desire["score"]),
