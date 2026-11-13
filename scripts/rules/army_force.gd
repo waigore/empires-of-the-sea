@@ -35,7 +35,9 @@ static func side_regiments(side: Array[ArmyState]) -> int:
 
 
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
-## `accept` filters the pool by type, so one siege lane can bleed alone.
+## A colours' citations count in its rank, so a decorated regiment falls later
+## (DR-20261113-04). `accept` filters the pool by type, so one siege lane can
+## bleed alone.
 static func apply_losses(
 	armies: Array[ArmyState], side: Array[ArmyState], wanted: int,
 	limit: int = 0, accept: Callable = Callable()
@@ -52,7 +54,8 @@ static func apply_losses(
 				"army": army,
 				"id": regiment_id,
 				"rank": ArmyModifiers.rank_of(
-					String(data["type"]), int(data["medals"]), float(data["fraction"])
+					String(data["type"]), int(data["medals"]), float(data["fraction"]),
+					RegimentDecorations.strength_multiplier(army, regiment_id)
 				),
 			})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:

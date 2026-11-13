@@ -6,6 +6,8 @@ extends RefCounted
 
 ## Turn-trace kind for a rival court's own muster (DR-20261111-04).
 const KIND_REINFORCE: String = "reinforce"
+## Turn-trace kind for a rival army's field hospital train (DR-20261112-08).
+const KIND_HOSPITAL: String = "hospital_train"
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -49,6 +51,10 @@ static func _run_region(
 		# regiment can hold the seat or join the field army it detaches
 		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04).
 		changed = _reinforce(play, model, roster, faction, config, trace) or changed
+		# The court brings its surgeons along before it gives the march: a worn
+		# field army on its own ground pitches a train (DR-20261112-07,
+		# DR-20261112-08).
+		changed = _pitch_train(play, model, roster, faction, trace) or changed
 		for action: Dictionary in AiMilitaryPlanner.split_orders(
 			config, play.diplomacy, model, roster
 		):
@@ -213,6 +219,52 @@ static func _reinforce(
 		"region": model.region_id,
 	})
 	return true
+
+
+## A court at war pitches its surgeons: the wornest field army on the court's own
+## ground takes a train, paid from the same table the crown's dossier prints
+## (DR-20261112-07, DR-20261112-08). One train a turn per court, and nothing is
+## invented when a court lacks the tech, the material or a wound to tend.
+static func _pitch_train(
+	play: PlaySession,
+	model: MapModel,
+	roster: Array[ArmyState],
+	faction: int,
+	trace: Array[Dictionary]
+) -> bool:
+	if play.ai == null or play.army_layer == null or _trained_this_turn(trace, faction):
+		return false
+	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
+	if economy == null:
+		return false
+	var army: ArmyState = AiHospitalTrainWork.best_army(
+		model, roster, faction, economy, _at_war(play, faction)
+	)
+	if army == null:
+		return false
+	var cost: Dictionary = HospitalTrain.cost()
+	for commodity: String in cost.keys():
+		economy.take(commodity, int(cost[commodity]))
+	HospitalTrain.apply(army)
+	trace.append({
+		"faction": faction,
+		"kind": KIND_HOSPITAL,
+		"army": army.id,
+		"province": army.province,
+		"province_name": model.province_name(army.province),
+		"region": model.region_id,
+	})
+	return true
+
+
+## A court brings one train a turn, however many regions its armies stand in.
+static func _trained_this_turn(trace: Array[Dictionary], faction: int) -> bool:
+	for record: Dictionary in trace:
+		if String(record.get("kind", "")) != KIND_HOSPITAL:
+			continue
+		if int(record.get("faction", MapModel.NO_ID)) == faction:
+			return true
+	return false
 
 
 static func _capital_province(model: MapModel, faction: int) -> int:

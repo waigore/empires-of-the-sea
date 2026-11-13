@@ -7,6 +7,8 @@ extends RefCounted
 ## Regiments are stable instance ids (`unit_<n>`); `regiment_types` maps each
 ## instance to its catalog type. Every regiment belongs to exactly one army,
 ## and the Home Army is never deleted even when it has no regiments.
+## `RegimentRecord` owns each instance's store below: christened on entry,
+## re-equipped in place, released on the way out.
 
 
 var id: int = -1
@@ -16,20 +18,22 @@ var home: bool = false
 var moved: bool = false
 var regiments: Array[String] = []
 var regiment_types: Dictionary = {}
-## Per-instance condition (wiki: combat § Strength): each `unit_<n>`'s remaining
-## health pool and its 0-4 chevrons; keyed like `regiment_types`, saved with them.
+## Per-instance condition (wiki: combat § Strength): health pool and chevrons.
 var regiment_health: Dictionary = {}
 var regiment_medals: Dictionary = {}
-## Each instance's title, record and battle honours (DR-20261111-18,
-## DR-20261112-02). Honours are province ids, newest first.
+## Each instance's title, record and honours (DR-20261111-18, DR-20261112-02),
+## plus the despatch fields and citations it holds (DR-20261112-10).
 var regiment_names: Dictionary = {}
 var regiment_engagements: Dictionary = {}
 var regiment_wins: Dictionary = {}
 var regiment_honours: Dictionary = {}
+var regiment_history: Dictionary = {}
 ## Fleet instance id carrying this army, or -1 (wiki: ships-and-naval § Naval
-## transport; DR-20261109-08). An embarked army has no province and never
-## fights on land.
+## transport; DR-20261109-08). An embarked army has no province.
 var embarked_fleet: int = -1
+## Tents that march with the standard (DR-20261112-07); its nurses eat with the
+## men and the province record never knows it.
+var field_hospital: bool = false
 
 
 static func create(
@@ -49,9 +53,7 @@ static func create(
 	return army
 
 
-## Builds a roster from catalog types, minting `unit_<n>` ids in sequence.
-## `first_unit` is the first free instance number; the caller advances its
-## counter by `types.size()`.
+## Builds a roster from catalog types, minting `unit_<n>` ids from `first_unit`.
 static func muster(
 	p_id: int,
 	p_owner: int,
@@ -79,6 +81,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	var kept_engagements: Dictionary = regiment_engagements.duplicate()
 	var kept_wins: Dictionary = regiment_wins.duplicate()
 	var kept_honours: Dictionary = regiment_honours.duplicate()
+	var kept_history: Dictionary = regiment_history.duplicate()
 	regiments = p_regiments.duplicate()
 	regiment_types = {}
 	regiment_health = {}
@@ -87,6 +90,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 	regiment_engagements = {}
 	regiment_wins = {}
 	regiment_honours = {}
+	regiment_history = {}
 	for regiment_id: String in regiments:
 		var type_id: String = RegimentCatalog.normalize(
 			String(p_types.get(regiment_id, RegimentCatalog.DEFAULT_TYPE))
@@ -103,6 +107,7 @@ func set_regiments(p_regiments: Array[String], p_types: Dictionary = {}) -> void
 		regiment_engagements[regiment_id] = int(kept_engagements.get(regiment_id, 0))
 		regiment_wins[regiment_id] = int(kept_wins.get(regiment_id, 0))
 		regiment_honours[regiment_id] = kept_honours.get(regiment_id, [])
+		regiment_history[regiment_id] = kept_history.get(regiment_id, {})
 	RegimentNames.fill(self)
 
 
@@ -122,17 +127,17 @@ func is_embarked() -> bool:
 	return embarked_fleet >= 0
 
 
-## Join Empire: an absorbed crown's regiments pass to the winner, its Home Army
-## becoming a field army so the winner keeps exactly one (wiki: diplomacy §
-## GP–Minor Rules, military-armies § Home Army). A terminal fall passes
-## `MapModel.NO_ID` and the armies leave (capital-and-connectivity § Capital loss).
-static func hand_over(groups: Array, from_id: int, to_id: int) -> void:
-	for index in range(groups.size() - 1, -1, -1):
-		var army: ArmyState = groups[index]
+## Join Empire and a terminal fall, in place: an absorbed crown's land regiments
+## change colours and its Home Army becomes a field army (diplomacy § GP–Minor
+## Rules, military-armies § Home Army); `to_id == MapModel.NO_ID` retires its
+## armies (capital-and-connectivity § Capital loss). The owner stores again.
+static func hand_over(armies: Array[ArmyState], from_id: int, to_id: int) -> void:
+	for index in range(armies.size() - 1, -1, -1):
+		var army: ArmyState = armies[index]
 		if army == null or army.owner != from_id:
 			continue
 		if to_id == MapModel.NO_ID:
-			groups.remove_at(index)
+			armies.remove_at(index)
 			continue
 		army.owner = to_id
 		army.home = false
@@ -148,11 +153,13 @@ func add_regiment(regiment_id: String, type_id: String = RegimentCatalog.DEFAULT
 	if regiments.has(regiment_id):
 		return
 	regiments.append(regiment_id)
-	var normalized: String = RegimentCatalog.normalize(type_id)
-	regiment_types[regiment_id] = normalized
-	regiment_health[regiment_id] = RegimentCatalog.max_health(normalized)
-	regiment_medals[regiment_id] = 0
+	regiment_types[regiment_id] = RegimentCatalog.normalize(type_id)
 	RegimentRecord.start(self, regiment_id)
+
+
+## Re-equips one instance (see `RegimentRecord.retype`); the one re-equip path.
+func set_type(regiment_id: String, type_id: String) -> void:
+	RegimentRecord.retype(self, regiment_id, type_id)
 
 
 func remove_regiment(regiment_id: String) -> bool:
@@ -160,9 +167,6 @@ func remove_regiment(regiment_id: String) -> bool:
 	if index < 0:
 		return false
 	regiments.remove_at(index)
-	regiment_types.erase(regiment_id)
-	regiment_health.erase(regiment_id)
-	regiment_medals.erase(regiment_id)
 	RegimentRecord.forget(self, regiment_id)
 	return true
 
@@ -176,8 +180,7 @@ func count_of_type(type_id: String) -> int:
 	return total
 
 
-## Auto-resolve strength basis: Σ (FPN + FPM), each regiment scaled by its
-## chevrons and its remaining health (wiki: combat § Strength).
+## Auto-resolve strength basis: Σ (FPN + FPM) × chevrons × health (wiki: combat).
 func strength() -> float:
 	var total: float = 0.0
 	for regiment_id: String in regiments:
@@ -191,9 +194,7 @@ func strength() -> float:
 
 
 ## One regiment's condition: `type`, `hp`, `max`, `medals` and the health
-## fraction its firepower is scaled by. Missing records read as a fresh
-## regiment, so old saves and new instances behave alike. The name is a
-## separate read (`name_of`) because the strength path must not pay for it.
+## fraction its firepower is scaled by; missing records read as a fresh regiment.
 func condition_of(regiment_id: String) -> Dictionary:
 	var type_id: String = type_of(regiment_id)
 	var top: int = RegimentCatalog.max_health(type_id)
@@ -237,9 +238,8 @@ func composition_text() -> String:
 	return " · ".join(parts)
 
 
-## Splits the named regiment instances into a new field army in the same
-## province. The source keeps its Home Army flag (and is never deleted, even
-## when emptied); the caller owns the army list and receives the new army.
+## Splits the named instances into a new field army in the same province; the
+## source keeps its Home Army flag (never deleted) and the caller owns the list.
 static func split(
 	armies: Array[ArmyState],
 	source: ArmyState,
@@ -275,6 +275,7 @@ static func split(
 		source.remove_regiment(regiment_id)
 	armies.append(detached)
 	if not source.home and source.is_empty():
+		HospitalTrain.split_carry(source, detached)
 		armies.erase(source)
 	return {"ok": true, "reason": "", "army": detached}
 
@@ -301,6 +302,7 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 	for army: ArmyState in selected:
 		if army == target:
 			continue
+		HospitalTrain.combine_carry(target, army)
 		for regiment_id: String in army.regiments:
 			var data: Dictionary = army.condition_of(regiment_id)
 			target.add_regiment(regiment_id, army.type_of(regiment_id))
@@ -333,12 +335,15 @@ static func count_of(armies: Array[ArmyState], owner: int) -> int:
 	return total
 
 
-## Grain a faction's regiments eat every turn (wiki: combat § Feeding).
+## Grain a faction's regiments eat every turn (wiki: combat § Feeding); a train's
+## nurses eat inside the same line (DR-20261112-07).
 static func food_upkeep_of(armies: Array[ArmyState], owner: int) -> int:
 	var total: int = 0
 	for army: ArmyState in armies:
 		if army == null or army.owner != owner:
 			continue
+		if army.field_hospital:
+			total += HospitalTrain.food()
 		for regiment_id: String in army.regiments:
 			total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
 	return total
@@ -364,7 +369,9 @@ func to_dict() -> Dictionary:
 		"regiment_engagements": regiment_engagements.duplicate(),
 		"regiment_wins": regiment_wins.duplicate(),
 		"regiment_honours": regiment_honours.duplicate(),
+		"regiment_history": regiment_history.duplicate(),
 		"embarked_fleet": embarked_fleet,
+		"field_hospital": field_hospital,
 	}
 
 
@@ -376,25 +383,16 @@ static func from_dict(data: Dictionary) -> ArmyState:
 	army.home = bool(data.get("home", false))
 	army.moved = bool(data.get("moved", false))
 	army.embarked_fleet = int(data.get("embarked_fleet", -1))
+	army.field_hospital = bool(data.get("field_hospital", false))
 	var names: Array[String] = []
-	for raw: Variant in data.get("regiments", []):
-		names.append(String(raw))
-	army.regiment_health = _condition_map(data.get("regiment_health", {}))
-	army.regiment_medals = _condition_map(data.get("regiment_medals", {}))
+	names.assign(data.get("regiments", []))
+	army.regiment_health = NameRoster.numbers_from(data.get("regiment_health", {}))
+	army.regiment_medals = NameRoster.numbers_from(data.get("regiment_medals", {}))
 	## A pre-record save restores empty maps; `set_regiments` christens it alike.
 	army.regiment_names = NameRoster.map_from(data.get("regiment_names", {}))
-	army.regiment_engagements = _condition_map(data.get("regiment_engagements", {}))
-	army.regiment_wins = _condition_map(data.get("regiment_wins", {}))
+	army.regiment_engagements = NameRoster.numbers_from(data.get("regiment_engagements", {}))
+	army.regiment_wins = NameRoster.numbers_from(data.get("regiment_wins", {}))
 	army.regiment_honours = RegimentRecord.honours_from(data.get("regiment_honours", {}))
+	army.regiment_history = RegimentDecorations.history_from(data.get("regiment_history", {}))
 	army.set_regiments(names, data.get("regiment_types", {}))
 	return army
-
-
-## JSON object with instance keys; keys arrive as strings from disk.
-static func _condition_map(raw: Variant) -> Dictionary:
-	var mapped: Dictionary = {}
-	if raw is Dictionary:
-		for key: Variant in (raw as Dictionary).keys():
-			mapped[String(key)] = int((raw as Dictionary)[key])
-	return mapped
-

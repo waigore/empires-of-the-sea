@@ -126,10 +126,11 @@ static func candidates(
 	var min_improve: int = config.parameter("diplomacy.improve_min_desire")
 	var treasury: int = int((context.get("treasury", {}) as Dictionary).get(faction, 0))
 	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(faction, {})
+	var charts: CourtCharts = context.get("charts", null)
 	return [
 		_treaty(
 			config, state, ai_state, world, turn, target, improve, min_improve,
-			treasury, tech
+			treasury, tech, charts
 		),
 		_trade_pact(config, state, faction, target, desire, improve, min_improve, record.score),
 		_aid(state, faction, target, improve, min_improve, treasury, record.score),
@@ -151,10 +152,11 @@ static func _treaty(
 	improve: int,
 	min_improve: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var bonus: int = _land_envoy_bonus(
-		state, world, config.faction, target, treasury, tech
+		state, world, config.faction, target, treasury, tech, charts
 	)
 	if improve < min_improve and bonus == 0:
 		return _blocked("improve-relations desire too low", KIND_OVERTURE)
@@ -192,16 +194,19 @@ static func _treaty(
 
 ## The land-deed nudge for this target: a Minor or Tribe this court could buy
 ## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. Any region's offer counts (the deed's price must fit the
-## treasury), so a court that has not yet met the seller can still want the door
-## opened (wiki: civilian-units § Merchant).
+## the merchant tech. Only land the court has **charted** counts: a province it
+## has never reached offers nothing it can price (wiki: fog-and-exploration
+## § Visibility Levels; DR-20261113-03). Any charted region's offer counts (the
+## deed's price must fit the treasury), so a court that has not yet met the
+## seller can still want the door opened (wiki: civilian-units § Merchant).
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
 	faction: int,
 	target: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	charts: CourtCharts = null
 ) -> int:
 	if world == null or state == null:
 		return 0
@@ -212,8 +217,12 @@ static func _land_envoy_bonus(
 		return 0
 	if not CivilianCatalog.is_unlocked("merchant", tech):
 		return 0
-	for model: MapModel in world.regions:
-		if AiMerchantWork.cheapest_offer(model, faction, target, treasury) > 0:
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		if model == null:
+			continue
+		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
+		if AiMerchantWork.cheapest_offer(model, faction, target, treasury, view) > 0:
 			return LAND_ENVOY_BONUS
 	return 0
 

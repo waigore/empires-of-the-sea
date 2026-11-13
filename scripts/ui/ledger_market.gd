@@ -70,7 +70,7 @@ func fill(
 static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> int:
 	if economy == null:
 		return 0
-	var reserved: Dictionary = ProductionRecipes.reserved_inputs(economy.assignments())
+	var reserved: Dictionary = ProductionRecipes.reserved_inputs(economy.production.assignments())
 	return maxi(int(reserved.get(commodity, 0)), 0)
 
 

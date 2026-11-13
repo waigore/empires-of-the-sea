@@ -1251,6 +1251,58 @@ func test_an_isolationist_values_a_trade_pact_less() -> void:
 		"the envoy chain is untouched"
 	)
 
+## A rival opens an envoy chain to a Minor or Tribe because it has seen land worth
+## buying there; a province it has never charted buys no nudge at all, so the
+## overture stays closed while the court is in no mood to improve relations
+## (wiki: civilian-units § Merchant, fog-and-exploration § Visibility Levels;
+## DR-20261113-03).
+func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, TRIBE, 1)
+	ai_diplomacy_offers_state.relation(2, TRIBE).score = 50.0
+	var world: WorldMap = _uncharted_tribe_world()
+	var context: Dictionary = _context({2: 100, TRIBE: 100})
+	context["treasury"] = {2: 2000}
+	context["tech"] = {2: {"merchant_companies": true}}
+	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+	)
+	assert_eq(
+		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
+		"no chart at all still prices the published map"
+	)
+	var charts: CourtCharts = _charts(world)
+	context["charts"] = charts
+	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+	)
+	assert_eq(
+		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
+		"improve-relations desire too low",
+		"a chart that never reached the province buys no nudge"
+	)
+	charts.reveal_province(2, 0, 0)
+	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+	)
+	assert_eq(
+		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
+		"charted land lifts the overture by the deed nudge"
+	)
+
+
+## The refusal an offers candidate list recorded for one order kind ("" when the
+## candidate was legal).
+func _offer_blocked_kind(entries: Array[Dictionary], kind: String) -> String:
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) == kind and not bool(entry.get("ok", false)):
+			return String(entry.get("blocked", ""))
+	return ""
+
+
 ## The legal candidate's utility for one kind, or -1 when it was refused.
 func _utility_of(entries: Array[Dictionary], kind: String) -> int:
 	for entry: Dictionary in entries:
@@ -1272,6 +1324,40 @@ func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {
 		ai_diplomacy_offers_state, ai_diplomacy_offers_AiFixture.world(world), ai_diplomacy_offers_ai_state, turn, 0, 1500,
 		{"regiments": regiments, "ships": {}}
 	)
+
+## A New World region (every tile unknown at setup) holding one Tribe province
+## with a timber tile, so only a court that charts it can price the land or the
+## commodity (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
+func _uncharted_tribe_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(3, 2)
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.region_key = "new_world"
+	model.faction_ids = [TRIBE]
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	model.resource[model.index_of(0, 0)] = 0
+	var province := ProvinceState.create(
+		0, "P0", tiles, Vector2(0.0, 0.0), 3, TRIBE, false
+	)
+	province.resource = 0
+	province.resource_tile = Vector2i(0, 0)
+	model.provinces.append(province)
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+## Charts cut from `world`. `human` is a court the tests never read as, so every
+## reader gets its own rival grid (the human's table stays empty).
+func _charts(world: WorldMap, human: int = 7) -> CourtCharts:
+	var charts := CourtCharts.new()
+	charts.setup(world, human, {})
+	return charts
+
 
 func _context(power: Dictionary) -> Dictionary:
 	var context: Dictionary = ai_diplomacy_offers_AiFixture.context(power)
@@ -1387,6 +1473,38 @@ func test_missing_stockpiles_are_scored_against_the_target() -> void:
 	context["stockpiles"] = {0: {"timber": 4, "iron": 4, "coal": 4}}
 	var partly: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(partly["factors"]["resource_need"]), 5)
+
+## The commodity term reads only land the court has charted: a province it has
+## never sailed past adds nothing to its war desire, and charting it restores the
+## bonus (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
+func test_the_resource_need_counts_only_charted_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, TRIBE, 1)
+	var world: WorldMap = _uncharted_tribe_world()
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, TRIBE: 100})
+	context["stockpiles"] = {0: {}}
+	var published: Dictionary = AiDiplomacyPlanner.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(
+		int(published["factors"]["resource_need"]), 5, "no chart still reads the published map"
+	)
+	var charts: CourtCharts = _charts(world)
+	context["charts"] = charts
+	var blind: Dictionary = AiDiplomacyPlanner.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(int(blind["factors"]["resource_need"]), 0, "unseen land offers no commodity")
+	charts.reveal_province(0, 0, 0)
+	var seen: Dictionary = AiDiplomacyPlanner.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(int(seen["factors"]["resource_need"]), 5, "charted ground prices the commodity")
+	assert_eq(
+		int(seen["score"]),
+		int(blind["score"]),
+		"the chart moved the one term the fog reaches, not the whole formula"
+	)
 
 func test_rival_embassies_add_the_intervention_risk_penalty() -> void:
 	_setup_ai_planner()

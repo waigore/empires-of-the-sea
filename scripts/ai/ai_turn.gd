@@ -14,7 +14,12 @@ const KIND_DECLARE_WAR: String = AiDiplomacyPlanner.KIND_DECLARE_WAR
 const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
 
 
-## `context` may carry "regiments", "ships" and "stockpiles" maps by faction.
+## `context` may carry "regiments", "ships" and "stockpiles" maps by faction, plus
+## "readings": per court, the order of battle that court has charted, so each
+## rival scores its war desire against what it has seen (DR-20261112-09), and
+## "charts": the session's `CourtCharts`, so every diplomacy read — the resource
+## need behind a war and the land an envoy chain would open — stays on the
+## court's own chart (DR-20261113-03).
 static func run(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -34,7 +39,7 @@ static func run(
 		var config: AiConfig = AiConfig.build(faction, game_seed)
 		var agenda: String = ai_state.agenda_for(config)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
-			config, state, ai_state, world, turn, shared
+			config, state, ai_state, world, turn, _reading(shared, faction)
 		)
 		var action: Dictionary = plan["action"]
 		var record: Dictionary = {
@@ -60,25 +65,75 @@ static func run(
 
 
 ## Shared read model for the planners: absolute power per faction plus the unit
-## counts and player id they need to explain their scores.
+## counts and player id they need to explain their scores. When the caller
+## supplies per-court "readings", each court also gets its own view of the three
+## terms (see `_reading`), so no rival plans against an order of battle it has
+## never charted (DR-20261112-09).
 static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dictionary:
 	var regiments: Dictionary = supplied.get("regiments", {})
 	var ships: Dictionary = supplied.get("ships", {})
+	var context: Dictionary = {
+		"power": _powers(world, regiments, ships),
+		"regiments": regiments,
+		"ships": ships,
+		"player": player,
+	}
+	var views: Dictionary = _views(world, supplied.get("readings", {}))
+	if not views.is_empty():
+		context["views"] = views
+	if supplied.has("charts"):
+		context["charts"] = supplied["charts"]
+	if supplied.has("stockpiles"):
+		context["stockpiles"] = supplied["stockpiles"]
+	return context
+
+
+## The read model one court decides with: its own charted docket when the caller
+## supplied readings, else the shared published one.
+static func _reading(shared: Dictionary, faction: int) -> Dictionary:
+	var views: Variant = shared.get("views", null)
+	if typeof(views) != TYPE_DICTIONARY:
+		return shared
+	var view: Variant = (views as Dictionary).get(faction, null)
+	if typeof(view) != TYPE_DICTIONARY:
+		return shared
+	var reading: Dictionary = shared.duplicate()
+	reading.merge(view, true)
+	return reading
+
+
+## Absolute power per faction from one order of battle, read the published way
+## (wiki: diplomacy § Great Power power score).
+static func _powers(world: WorldMap, regiments: Dictionary, ships: Dictionary) -> Dictionary:
 	var power: Dictionary = {}
 	for raw: Dictionary in FactionCatalog.all():
 		var faction: int = int(raw["id"])
 		power[faction] = AiPower.score(
 			world, faction, int(regiments.get(faction, 0)), int(ships.get(faction, 0))
 		)
-	var context: Dictionary = {
-		"power": power,
-		"regiments": regiments,
-		"ships": ships,
-		"player": player,
-	}
-	if supplied.has("stockpiles"):
-		context["stockpiles"] = supplied["stockpiles"]
-	return context
+	return power
+
+
+## One view per court that supplied a reading. Empty when the caller supplied
+## none, which keeps a headless trace on the published order of battle.
+static func _views(world: WorldMap, readings: Variant) -> Dictionary:
+	var views: Dictionary = {}
+	if typeof(readings) != TYPE_DICTIONARY:
+		return views
+	var by_court: Dictionary = readings
+	for raw: Variant in by_court.keys():
+		var entry: Variant = by_court[raw]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var docket: Dictionary = entry
+		var regiments: Dictionary = docket.get("regiments", {})
+		var ships: Dictionary = docket.get("ships", {})
+		views[int(raw)] = {
+			"power": _powers(world, regiments, ships),
+			"regiments": regiments,
+			"ships": ships,
+		}
+	return views
 
 
 ## Rival ledgers supply the treasury and tech a peaceful order must satisfy, so

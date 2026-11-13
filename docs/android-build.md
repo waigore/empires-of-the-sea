@@ -57,3 +57,23 @@ is **not** required on `main`.
   `gradle_build/export_format` to AAB.
 - Version bumps live in `scripts/game_version.gd` (`GameVersion`) and the presets' `version/name`
   and `version/code` — update all three together.
+
+## Device quirks
+
+### Never ask for the safe area on Android
+
+`DisplayServer.get_display_safe_area()` **aborts the process on Android 17** (SDK 37). Godot 4.7's
+`GodotIO.getDisplaySafeArea` wraps the decor view in AndroidX `WindowInsetsCompat`, which calls
+`ViewCompat.getRootWindowInsets`, which wraps again — a Java recursion that exhausts the thread's
+4 MB stack. The tombstone reads `JNI DETECTED ERROR … java.lang.StackOverflowError` on
+`GetArrayLength`, with `getDisplaySafeArea → step → onDrawFrame`.
+
+Any screen that mounts the HUD hits it, because `GameHud._relayout()` asks for insets; the title,
+setup and crown's-charge pages do not, so the crash looked like "the map screen never opens".
+
+`PlatformDisplay.safe_insets()` therefore reads `DisplayServer.get_display_cutouts()` on Android
+(plain `WindowInsets.getDisplayCutout()`, no compat layer) and turns the rectangles into edge insets
+— `PlatformDisplay.insets_for()` and `test_mobile_layout.gd` pin that rule. In fullscreen play the
+cutouts are the only thing over the canvas, so nothing is lost. iOS keeps the safe-area call.
+Revisit only when the engine bumps its bundled AndroidX.
+

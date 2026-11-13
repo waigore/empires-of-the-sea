@@ -15,10 +15,17 @@ const HEIGHT: int = 32
 ## crowned capitals) while painting far fewer tiles per mounted screen. Two
 ## floors hold it here: sides stay at or above `SaveCodec.MIN_MAP_SIDE` (32) or
 ## a slot written from this world would not validate, and a crown needs ~16 free
-## land tiles for the turn-100 advanced-start civilians (44x32 leaves the
+## land tiles for the turn-100 advanced-start civilians (44x34 leaves the
 ## tightest crown 32).
+##
+## The height is 34, not 32, because `generate_world` regenerates with a bumped
+## seed while a region fails `unfair_split` (wiki: game-setup § Tribe assignment
+## regen-until-pass) and this seed's Old World splits unfairly two rows short.
+## A world that passes on its first attempt costs a suite one generation instead
+## of two (~2.7 s → ~1.1 s per worker before coverage instrumentation), paid by
+## ~30 mounted suites. Re-probe before shrinking this again.
 const WORLD_WIDTH: int = 44
-const WORLD_HEIGHT: int = 32
+const WORLD_HEIGHT: int = 34
 
 static var _world: WorldMap = null
 static var _region: MapModel = null

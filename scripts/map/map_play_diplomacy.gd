@@ -312,6 +312,11 @@ static func _apply_ai_map_changes(play: PlaySession, trace: Array) -> void:
 
 ## Unit counts the war-desire score reads plus each rival's stockpile, so the
 ## resource-need bonus is live once the AI economy exists (wiki: diplomacy-planner).
+## The counts stay the published docket; "readings" hands each rival the docket
+## its own chart holds, so no court plans against unseen garrisons or hulls
+## (DR-20261112-09). "charts" rides along so the planner's other world reads —
+## the target's commodities and the land an envoy chain would open — stay on the
+## same chart (DR-20261113-03).
 static func _ai_context(play: PlaySession) -> Dictionary:
 	var regiments: Dictionary = {}
 	var ships: Dictionary = {}
@@ -322,6 +327,11 @@ static func _ai_context(play: PlaySession) -> Dictionary:
 		if play.ship_layer != null:
 			ships[faction] = play.ship_layer.hull_count_all(faction)
 	var context: Dictionary = {"regiments": regiments, "ships": ships}
+	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)
+	if not readings.is_empty():
+		context["readings"] = readings
+	if play.court_charts != null:
+		context["charts"] = play.court_charts
 	if play.ai != null:
 		context["stockpiles"] = play.ai.stockpiles(play.human_faction_id())
 	return context

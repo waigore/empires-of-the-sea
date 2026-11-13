@@ -1115,6 +1115,170 @@ func test_the_army_dossier_names_an_unstaffed_ward() -> void:
 	assert_false(String(panel._strength.text).contains("rest 40%"))
 	panel.free()
 
+
+# --- the field hospital train (DR-20261112-07) --------------------------------
+
+func test_the_train_table_follows_the_design_record() -> void:
+	assert_almost_eq(HospitalTrain.REST_SHARE, 0.40, 0.001)
+	assert_eq(HospitalTrain.food(), 2)
+	assert_eq(HospitalTrain.tech(), "organised_regiments")
+	assert_eq(HospitalTrain.cost(), {"lumber": 2, "fabric": 1})
+	assert_true(HospitalTrain.describe().contains("rest 40%"))
+	assert_true(HospitalTrain.describe().contains("staff 2 food"))
+
+
+func test_the_better_of_the_tents_and_the_ward_sets_the_tempo() -> void:
+	var model := hospital_rules_Fixture.build()
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, false), 0.25, 0.001)
+	assert_almost_eq(HospitalTrain.army_rest_share(model, 1, true), 0.40, 0.001)
+	model.province_data(1).hospital_level = 2
+	assert_almost_eq(
+		HospitalTrain.army_rest_share(model, 1, true), 0.55, 0.001,
+		"the ward's nurses still beat the tents"
+	)
+	var no_model: MapModel = null
+	assert_almost_eq(
+		HospitalTrain.army_rest_share(no_model, MapModel.NO_ID, true), 0.40, 0.001,
+		"a train heals with no map at all"
+	)
+
+
+func test_the_train_speeds_the_rest_wherever_the_army_stands() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var regiment: String = army.regiments[0]
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 83, "a bare field restores a quarter")
+
+	army.field_hospital = true
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 99, "the train restores 40%")
+
+	# Enemy land: the tents travel with the standard, not the province.
+	army.province = 2
+	army.regiment_health[regiment] = 55
+	ArmyMovement.begin_turn([army], model)
+	assert_eq(int(army.condition_of(regiment)["hp"]), 99)
+
+
+func test_the_trains_staff_eat_with_the_men() -> void:
+	var plain := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var train := hospital_rules_Fixture.army(2, 0, 1, ["pikemen"])
+	train.field_hospital = true
+	var bare: int = ArmyState.food_upkeep_of([plain], 0)
+	assert_eq(ArmyState.food_upkeep_of([train], 0), bare + 2)
+	assert_eq(ArmyState.food_upkeep_of([train], 1), 0, "another crown pays nothing")
+
+
+func test_a_train_is_pitched_on_the_crowns_own_land() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["pikemen"])
+	var tech: Dictionary = {"organised_regiments": true}
+	var stock: Dictionary = {"lumber": 2, "fabric": 1}
+	assert_true(bool(HospitalTrain.check(model, army, tech, stock)["ok"]))
+
+	assert_false(bool(HospitalTrain.check(null, army, tech, stock)["ok"]))
+	assert_false(bool(HospitalTrain.check(model, null, tech, stock)["ok"]))
+
+	var foreign := hospital_rules_Fixture.army(2, 0, 2, ["pikemen"])
+	var check: Dictionary = HospitalTrain.check(model, foreign, tech, stock)
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("own land"))
+
+	var embarked := hospital_rules_Fixture.army(3, 0, 1, ["pikemen"])
+	embarked.embarked_fleet = 7
+	assert_false(bool(HospitalTrain.check(model, embarked, tech, stock)["ok"]))
+
+	var carrying := hospital_rules_Fixture.army(4, 0, 1, ["pikemen"])
+	carrying.field_hospital = true
+	assert_false(bool(HospitalTrain.check(model, carrying, tech, stock)["ok"]))
+
+	var empty := hospital_rules_Fixture.army(5, 0, 1, [])
+	assert_false(bool(HospitalTrain.check(model, empty, tech, stock)["ok"]))
+
+	var locked: Dictionary = HospitalTrain.check(model, army, {}, stock)
+	assert_false(bool(locked["ok"]))
+	assert_true(String(locked["reason"]).contains("Organised Regiments"))
+
+	var short: Dictionary = HospitalTrain.check(model, army, tech, {"lumber": 1})
+	assert_false(bool(short["ok"]))
+
+	# Pitching changes only the standard that carries it.
+	HospitalTrain.apply(army)
+	assert_true(army.field_hospital)
+
+
+func test_a_train_stays_with_its_standard_through_split_and_combine() -> void:
+	var army := ArmyState.muster(1, 0, 1, false, ["pikemen", "pikemen"])
+	army.field_hospital = true
+	var armies: Array[ArmyState] = [army]
+	var split: Dictionary = ArmyState.split(armies, army, [army.regiments[0]], 2)
+	assert_true(bool(split["ok"]))
+	var detached: ArmyState = split["army"]
+	assert_true(army.field_hospital, "the parent standard keeps the tents")
+	assert_false(detached.field_hospital)
+
+	# A full detach drops the emptied standard, and the train marches with the men.
+	var rest: Array[ArmyState] = [army]
+	var all_out: Dictionary = ArmyState.split(
+		rest, army, army.regiments.duplicate(), 3
+	)
+	assert_true(bool(all_out["ok"]))
+	var moved: ArmyState = all_out["army"]
+	assert_eq(rest.size(), 1)
+	assert_true(moved.field_hospital)
+
+	var other := ArmyState.muster(4, 0, 1, false, ["pikemen"])
+	var pair: Array[ArmyState] = [moved, other]
+	var combined: Dictionary = ArmyState.combine(pair, pair)
+	assert_true(bool(combined["ok"]))
+	assert_true((combined["army"] as ArmyState).field_hospital, "one train survives")
+	assert_eq(pair.size(), 1)
+
+
+func test_the_train_rides_in_the_save_and_an_old_save_has_none() -> void:
+	var army := ArmyState.muster(1, 0, 1, false, ["pikemen"])
+	HospitalTrain.apply(army)
+	var restored: ArmyState = ArmyState.from_dict(army.to_dict())
+	assert_true(restored.field_hospital)
+	var legacy: ArmyState = ArmyState.from_dict({"id": 2, "owner": 0, "province": 1})
+	assert_false(legacy.field_hospital)
+
+
+func test_the_dossier_offers_the_train_and_then_names_it() -> void:
+	var model := hospital_rules_Fixture.build()
+	var army := hospital_rules_Fixture.army(1, 0, 1, ["guards"])
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	var order: Dictionary = {"caption": "Pitch a field hospital (2 lumber · 1 fabric)", "ok": true}
+	panel.refresh(model, army, true, false, "", [], "", "balanced", order)
+	assert_true(panel._hospital.visible)
+	assert_false(panel._hospital.disabled)
+	var bare_food: int = panel._food(army)
+
+	# A blocked order still shows, with the rules' reason as its caption.
+	panel.refresh(
+		model, army, true, false, "", [], "", "balanced",
+		{"caption": "Tents are pitched on your crown's own land.", "ok": false}
+	)
+	assert_true(panel._hospital.visible)
+	assert_true(panel._hospital.disabled)
+
+	HospitalTrain.apply(army)
+	panel.refresh(model, army, true)
+	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
+	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
+	# The strength line's food is the army's own upkeep line, nurses included.
+	assert_eq(panel._food(army), bare_food + HospitalTrain.food())
+	assert_true(
+		String(panel._strength.text).contains("%d food" % (bare_food + HospitalTrain.food())),
+		panel._strength.text
+	)
+	panel.free()
+
 # --- test_army_field_rules ---
 
 func test_owned_provinces_are_reachable_and_enemy_land_must_border() -> void:
@@ -1608,6 +1772,36 @@ func test_apply_re_equips_great_power_regiments_in_place() -> void:
 	assert_eq(rival.type_of(squires), "cossacks", "rivals re-equip off their own techs")
 	assert_eq(army.regiments, [pikemen, bowmen], "instance ids never change")
 
+func test_a_re_equipped_regiment_keeps_its_health_inside_the_new_pool() -> void:
+	_setup_army_field_rules()
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var whole: ArmyState = ArmyState.muster(1, power, 0, true, ["pikemen"], 1)
+	var mauled: ArmyState = ArmyState.muster(2, power, 0, false, ["pikemen"], 10)
+	var veteran: String = mauled.regiments[0]
+	mauled.regiment_health[veteran] = RegimentCatalog.max_health("pikemen") / 2
+	var regions := MapRegionTable.new()
+	regions.set_region(0, [whole, mauled])
+
+	RegimentUpgrades.apply(regions, {power: {"improved_iron_weapons": true}})
+
+	for army: ArmyState in [whole, mauled]:
+		var data: Dictionary = army.condition_of(army.regiments[0])
+		assert_eq(String(data["type"]), "halberdiers")
+		assert_eq(
+			int(data["max"]), RegimentCatalog.max_health("halberdiers"),
+			"the pool is the new type's, not the old one kept by a stale max"
+		)
+	assert_eq(
+		int(whole.condition_of(whole.regiments[0])["hp"]),
+		RegimentCatalog.max_health("halberdiers"),
+		"an untouched regiment re-equips at full strength"
+	)
+	assert_true(
+		float(mauled.condition_of(veteran)["fraction"]) < 1.0,
+		"a mauled veteran keeps its wounds through the re-equip"
+	)
+
+
 func test_apply_skips_minors_tribes_and_courts_with_nothing_new() -> void:
 	_setup_army_field_rules()
 	var minor: int = FactionCatalog.minor_ids()[0]
@@ -1878,6 +2072,213 @@ func test_an_unhonoured_regiment_reads_only_its_tally() -> void:
 
 	assert_eq(RegimentRecord.honour_line(army, "unit_101", model), "")
 	assert_eq(RegimentRecord.line(army, "unit_101", model), "1 engagement · 0 won")
+
+
+# --- citations and the despatch a regiment holds (wiki: naming § Regiment
+# records; DR-20261112-10) ---
+
+
+func test_a_won_field_is_written_into_every_survivors_despatch() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var defender := army_regiment_names_Fixture.army(1, 1, 2, ["peasant_levies"], true)
+	var attacker := army_regiment_names_Fixture.army(2, 0, 2, ["guards", "guards", "guards"])
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	var report: Dictionary = reports[0]
+	assert_eq(int(report["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	var bled: int = 0
+	for entry: Dictionary in report["attacker_health"]:
+		if float(entry["fraction"]) < 1.0:
+			bled += 1
+	assert_eq(int(report["attacker_citations"]), bled, "every mauled colour is cited")
+	assert_eq(int(report["defender_citations"]), 0, "a broken side takes no citation")
+	for regiment_id: String in attacker.regiments:
+		var fields: Array = RegimentDecorations.history(attacker, regiment_id)
+		assert_eq(fields.size(), 1, "the field is written once")
+		assert_eq(int(fields[0]["p"]), 2, "the field's province is kept")
+		assert_true(bool(fields[0]["w"]), "the side won it")
+
+
+func test_a_clean_win_cites_nobody_but_still_writes_the_field() -> void:
+	var attacker := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var defender := army_regiment_names_Fixture.army(2, 1, 2, ["pikemen"], true)
+	var won: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.ATTACKER_VICTORY}
+
+	RegimentCondition.attach(won, [attacker], [defender], 1, 0)
+
+	assert_eq(int(won["attacker_citations"]), 0, "no colour bled, none is cited")
+	assert_eq(RegimentDecorations.citations(attacker, "unit_101"), 0)
+	var fields: Array = RegimentDecorations.history(attacker, "unit_101")
+	assert_eq(fields.size(), 1, "the field is still on the record")
+	assert_true(bool(fields[0]["w"]))
+	assert_false(bool(fields[0]["c"]), "an untouched colour is not cited")
+
+
+func test_a_lost_field_counts_but_cites_nothing() -> void:
+	var attacker := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var defender := army_regiment_names_Fixture.army(2, 1, 2, ["pikemen"], true)
+	var beaten: Dictionary = {"province": 2, "outcome": ArmyCombat.Outcome.DEFENDER_VICTORY}
+
+	RegimentCondition.attach(beaten, [attacker], [defender], 0, 1)
+
+	assert_eq(int(beaten["attacker_citations"]), 0)
+	assert_eq(int(beaten["defender_citations"]), 0, "a clean defence cites nobody")
+	assert_false(bool(RegimentDecorations.history(attacker, "unit_101")[0]["w"]))
+	assert_true(bool(RegimentDecorations.history(defender, "unit_201")[0]["w"]))
+
+
+func test_the_despatch_keeps_the_newest_fields_and_the_tally_counts_all() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+	for province: int in 12:
+		RegimentRecord.note_battle(side, true)
+		RegimentDecorations.note(side, province, true)
+
+	var fields: Array = RegimentDecorations.history(army, "unit_101")
+	assert_eq(fields.size(), RegimentDecorations.KEPT, "the despatch is bounded")
+	assert_eq(int(fields[0]["p"]), 11, "newest first")
+	assert_eq(int(fields[fields.size() - 1]["p"]), 12 - RegimentDecorations.KEPT)
+	assert_eq(int(RegimentRecord.of(army, "unit_101")["engagements"]), 12, "the tally counts all")
+
+
+func test_the_ladder_names_a_cited_and_a_laurelled_regiment() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	var top: int = int(army.condition_of("unit_101")["max"])
+
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 2, true)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "", "a clean win cites nobody")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"History — Province 2 won",
+		"an undecorated record still names the field"
+	)
+
+	army.regiment_health["unit_101"] = top / 2
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 6, true)
+	assert_eq(RegimentDecorations.citations(army, "unit_101"), 1)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "cited")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"Cited +5% — Province 6 won · Province 2 won",
+		"the decoration leads the despatch and names the weight it buys"
+	)
+
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 4, true)
+	RegimentRecord.note_battle(side, true)
+	RegimentDecorations.note(side, 0, true)
+	assert_eq(RegimentDecorations.citations(army, "unit_101"), RegimentDecorations.LAUREL_AT)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "laurelled")
+	assert_eq(
+		RegimentDecorations.line(army, "unit_101", model),
+		"Laurelled +10% — Province 0 won · Province 4 won · +2 earlier",
+		"two newest fields, then the fields the record still counts"
+	)
+
+
+func test_a_green_regiment_holds_no_despatch() -> void:
+	var model := army_regiment_names_Fixture.build()
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+
+	assert_true(RegimentDecorations.history(army, "unit_101").is_empty())
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "")
+	assert_eq(RegimentDecorations.line(army, "unit_101", model), "", "a fresh roster stays short")
+
+
+func test_a_citation_survives_a_detach_and_a_save() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	army.regiment_health["unit_101"] = int(army.condition_of("unit_101")["max"]) / 2
+	RegimentDecorations.note(side, 2, true)
+	var armies: Array[ArmyState] = [army]
+
+	var result: Dictionary = ArmyState.split(armies, army, ["unit_101"], 2)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	var detached: ArmyState = result["army"] as ArmyState
+	assert_eq(RegimentDecorations.citations(detached, "unit_101"), 1, "the citation travels")
+	var restored: ArmyState = ArmyState.from_dict(detached.to_dict())
+	assert_eq(RegimentDecorations.citations(restored, "unit_101"), 1, "the save carries it")
+	assert_eq(int(RegimentDecorations.history(restored, "unit_101")[0]["p"]), 2)
+	assert_eq(RegimentDecorations.rank(army, "unit_102"), "", "the colour left behind is bare")
+
+# --- what a citation buys: weight in the line (wiki: combat § Strength;
+# DR-20261113-04) ---
+
+
+func test_a_citation_weighs_half_a_chevron_and_the_laurel_a_whole_one() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen"])
+	var side: Array[ArmyState] = [army]
+
+	assert_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"), 1.0,
+		"a colours the crown never named weighs nothing extra"
+	)
+	var top: int = int(army.condition_of("unit_101")["max"])
+	army.regiment_health["unit_101"] = top / 2
+	RegimentDecorations.note(side, 2, true)
+	assert_almost_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"),
+		1.0 + RegimentDecorations.CITED_STEP, 0.0001,
+		"one citation is half a chevron"
+	)
+	RegimentDecorations.note(side, 3, true)
+	RegimentDecorations.note(side, 4, true)
+	assert_eq(RegimentDecorations.rank(army, "unit_101"), "laurelled")
+	assert_almost_eq(
+		RegimentDecorations.strength_multiplier(army, "unit_101"),
+		1.0 + RegimentDecorations.LAUREL_STEP, 0.0001,
+		"the laurel is worth the whole chevron"
+	)
+
+
+func test_a_decorated_colour_weighs_its_step_in_the_side_strength() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	_cite_and_heal(army, "unit_102")
+
+	var plain: float = ArmyModifiers.rank_of("pikemen", 0, 1.0)
+
+	assert_almost_eq(
+		ArmyModifiers.strength(side, 10, 1.0),
+		plain * 2.0 + plain * RegimentDecorations.CITED_STEP, 0.0001,
+		"only the cited colour's rank carries the step"
+	)
+	var line: Array[Dictionary] = ArmyModifiers.deployed(side, 1)
+	assert_eq(
+		String(line[0]["id"]), "unit_102",
+		"the cited colours holds the line over a bare twin"
+	)
+
+
+func test_the_cited_colour_is_the_last_to_fall() -> void:
+	var army := army_regiment_names_Fixture.army(1, 0, 2, ["pikemen", "pikemen"])
+	var side: Array[ArmyState] = [army]
+	var armies: Array[ArmyState] = [army]
+	_cite_and_heal(army, "unit_102")
+
+	var lost: Array[String] = ArmyForce.apply_losses(armies, side, 1)
+
+	assert_eq(lost.size(), 1)
+	assert_eq(lost[0], "unit_101", "the bare colour goes first, the decorated one holds")
+
+
+## A citation is won mauled, so the colours are healed back to full before the
+## weight is read: only the decoration tells the twins apart.
+func _cite_and_heal(army: ArmyState, regiment_id: String) -> void:
+	var side: Array[ArmyState] = [army]
+	var top: int = int(army.condition_of(regiment_id)["max"])
+	army.regiment_health[regiment_id] = top / 2
+	RegimentDecorations.note(side, 2, true)
+	army.regiment_health[regiment_id] = top
+
 
 # --- test_military_parity ---
 

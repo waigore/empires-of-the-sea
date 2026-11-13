@@ -4,14 +4,27 @@ extends GdToolsTest
 ## the player can read, and symbols must never bury a province name.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+## The plan's name floor (a province needs 26 tiles to carry its name) is too
+## tight on the shared 48x32 fixture, so the two placement cases read a
+## 72x52 chart. It is generated once per worker: under coverage a chart costs
+## seconds, and a case that rebuilt it would pay that again. Old World only —
+## the placement rules never read a world's sea lanes, and one region keeps the
+## retry loop (setup_errors -> a fresh seed) from paying for a second chart.
+const NAME_CHART: Vector2i = Vector2i(72, 52)
+
+static var _name_chart: MapModel = null
 
 var _canvas: MapCanvas = null
 
 
-func before_each() -> void:
-	_canvas = MapCanvas.new()
-	_canvas.build(Fixture.region())
-	add_child(_canvas)
+## Mounted lazily: only the cases that read the artwork pay for a canvas, and
+## the plan cases below read the chart without one.
+func _mounted() -> MapCanvas:
+	if not is_instance_valid(_canvas):
+		_canvas = MapCanvas.new()
+		_canvas.build(Fixture.region())
+		add_child(_canvas)
+	return _canvas
 
 
 func after_each() -> void:
@@ -20,26 +33,38 @@ func after_each() -> void:
 	_canvas = null
 
 
+## The name-placement chart the two placement cases share, generated once per
+## worker.
+func _name_chart_model() -> MapModel:
+	if _name_chart == null:
+		_name_chart = MapGenerator.new().generate_region(
+			Fixture.SEED, FactionCatalog.OLD_WORLD, NAME_CHART.x, NAME_CHART.y
+		)
+	return _name_chart
+
+
 func test_wash_draws_behind_the_inked_layer() -> void:
-	var wash: Sprite2D = _canvas.get_node_or_null("Wash")
+	var canvas: MapCanvas = _mounted()
+	var wash: Sprite2D = canvas.get_node_or_null("Wash")
 	assert_not_null(wash)
 	assert_true(wash.show_behind_parent)
 	assert_true(wash.material is ShaderMaterial)
 	# The paint is baked finer than the tile grid but the sprite still covers
 	# exactly one map.
-	var relief: MapRelief = _canvas.relief
+	var relief: MapRelief = canvas.relief
 	assert_true(relief.scale > 1, "the wash is baked at sub-tile resolution")
 	assert_almost_eq(wash.scale.x * float(relief.scale), MapCanvas.TILE_SIZE, 0.001)
 	assert_almost_eq(
-		wash.scale.x * float(wash.texture.get_width()), _canvas.map_size().x, 0.05
+		wash.scale.x * float(wash.texture.get_width()), canvas.map_size().x, 0.05
 	)
 
 
 func test_land_shadow_sits_under_the_wash() -> void:
-	var shade: Sprite2D = _canvas.get_node_or_null("Shade")
+	var canvas: MapCanvas = _mounted()
+	var shade: Sprite2D = canvas.get_node_or_null("Shade")
 	assert_not_null(shade)
 	assert_true(shade.show_behind_parent)
-	assert_lt(_canvas.get_children().find(shade), _canvas.get_children().find(_canvas.get_node("Wash")))
+	assert_lt(canvas.get_children().find(shade), canvas.get_children().find(canvas.get_node("Wash")))
 
 
 ## The ink coast is what demarcates the land the wash fills, so it has to sit on
@@ -71,6 +96,7 @@ func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
 ## each owned tile toward its crown's heraldic colour, and the baked paint keeps
 ## that tint despite the noise laid over it.
 func test_owned_land_is_washed_toward_its_crown() -> void:
+	_mounted()
 	var model: MapModel = _canvas.model
 	var tile: Vector2i = _inland_owned_tile(model)
 	assert_true(tile.x >= 0, "fixture has an owned inland tile")
@@ -91,7 +117,7 @@ func test_owned_land_is_washed_toward_its_crown() -> void:
 ## The bake owns the shore: land on one side of the distance field, water on the
 ## other, so the painted edge and the ink agree instead of blurring together.
 func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
-	var model: MapModel = _canvas.model
+	var model: MapModel = _mounted().model
 	var relief: MapRelief = _canvas.relief
 	var wrong: int = 0
 	for y in model.height:
@@ -108,7 +134,7 @@ func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
 ## A beach inside the shore and a pale shoal outside it: that band is what makes
 ## a coastline read as drawn water rather than a soft smear.
 func test_wash_paints_a_beach_and_a_shallow_band() -> void:
-	var model: MapModel = _canvas.model
+	var model: MapModel = _mounted().model
 	var relief: MapRelief = _canvas.relief
 	var image: Image = relief.color
 	var sand: int = 0
@@ -132,36 +158,39 @@ func test_wash_paints_a_beach_and_a_shallow_band() -> void:
 
 
 func test_animated_layers_exist() -> void:
-	var surf: MapSurf = _canvas.get_node_or_null("Surf")
+	var canvas: MapCanvas = _mounted()
+	var surf: MapSurf = canvas.get_node_or_null("Surf")
 	assert_not_null(surf)
 	assert_gt(surf.dash_count(), 0)
-	var cloud: ColorRect = _canvas.get_node_or_null("CloudShade")
+	var cloud: ColorRect = canvas.get_node_or_null("CloudShade")
 	assert_not_null(cloud)
 	assert_true(cloud.material is ShaderMaterial)
-	assert_gt(cloud.size.x, _canvas.map_size().x)
+	assert_gt(cloud.size.x, canvas.map_size().x)
 
 
 func test_surf_points_always_face_open_water() -> void:
-	var surf: MapSurf = _canvas.get_node("Surf")
+	var canvas: MapCanvas = _mounted()
+	var surf: MapSurf = canvas.get_node("Surf")
 	for dash: Dictionary in surf._dashes:
 		var origin: Vector2 = dash["position"]
 		var normal: Vector2 = dash["normal"]
 		var probe: Vector2 = origin + normal * MapCanvas.TILE_SIZE * 0.7
 		var tile: Vector2i = MapGeo.tile_at_world(probe, MapCanvas.TILE_SIZE)
-		assert_true(_canvas.model.is_sea(tile.x, tile.y))
+		assert_true(canvas.model.is_sea(tile.x, tile.y))
 
 
 ## Scenery never sits in a province name's clearing. Places do carry the same
 ## exemption the capital star and the port anchor always had: a town mark stands
 ## on its tile whether or not a neighbouring province's name runs across it.
 func test_terrain_symbols_never_cover_province_labels() -> void:
+	var plan: MapCanvasPlan = _mounted().plan
 	var marks: int = 0
-	for glyph: Dictionary in _canvas.plan.glyphs:
+	for glyph: Dictionary in plan.glyphs:
 		var kind: String = String(glyph["kind"])
 		if kind == "port" or kind == "capital" or kind == "town":
 			continue
 		marks += 1
-		assert_false(_canvas.plan.under_label(glyph["position"]))
+		assert_false(plan.under_label(glyph["position"]))
 	assert_gt(marks, 0)
 
 
@@ -169,15 +198,16 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 ## where its estates anchor (wiki: capital-and-connectivity § Town per province).
 ## The mark never steps aside for the province name: the name steps aside for it.
 func test_every_non_capital_town_is_marked() -> void:
+	var model: MapModel = _mounted().model
 	var marks: Dictionary = {}
 	for glyph: Dictionary in _canvas.plan.glyphs:
 		if String(glyph["kind"]) == "town":
 			marks[glyph["position"]] = true
 	var expected: int = 0
-	for province: ProvinceState in _canvas.model.provinces:
+	for province: ProvinceState in model.provinces:
 		if province.capital or province.town_tile.x < 0:
 			continue
-		if not _canvas.model.is_land(province.town_tile.x, province.town_tile.y):
+		if not model.is_land(province.town_tile.x, province.town_tile.y):
 			continue
 		expected += 1
 		var at: Vector2 = MapGeo.tile_center(
@@ -193,7 +223,7 @@ func test_every_non_capital_town_is_marked() -> void:
 ## its town, which is where the name is drawn. The mark has to stand on that
 ## tile and the name has to clear it.
 func test_a_province_name_clears_its_town_mark() -> void:
-	var region: MapModel = MapGenerator.new().generate(Fixture.SEED, 96, 64)
+	var region: MapModel = _name_chart_model()
 	var plan := MapCanvasPlan.new()
 	plan.build(region, null, MapCanvas.TILE_SIZE)
 	var marks: Dictionary = {}
@@ -234,9 +264,10 @@ func test_a_province_name_clears_its_town_mark() -> void:
 ## A province is painted, not speckled once: the scatter lays a second, smaller
 ## stamp on top of the first so a forest or an upland reads as a cluster.
 func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:
+	var canvas: MapCanvas = _mounted()
 	var kinds: Dictionary = {}
 	var per_tile: Dictionary = {}
-	for glyph: Dictionary in _canvas.plan.glyphs:
+	for glyph: Dictionary in canvas.plan.glyphs:
 		var kind: String = String(glyph["kind"])
 		kinds[kind] = int(kinds.get(kind, 0)) + 1
 		if kind == "port" or kind == "capital":
@@ -245,9 +276,9 @@ func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:
 		var tile: Vector2i = MapGeo.tile_at_world(at, MapCanvas.TILE_SIZE)
 		per_tile[tile] = int(per_tile.get(tile, 0)) + 1
 	var land: int = 0
-	for y in _canvas.model.height:
-		for x in _canvas.model.width:
-			if _canvas.model.is_land(x, y):
+	for y in canvas.model.height:
+		for x in canvas.model.width:
+			if canvas.model.is_land(x, y):
 				land += 1
 	var marks: int = 0
 	for kind: String in kinds.keys():
@@ -272,10 +303,10 @@ func test_capital_star_has_ten_points() -> void:
 
 ## Placement stays pure: the plan can be built headless, and every province
 ## with enough land carries its name at the province centre. The shared
-## Fixture region is too small for the fixed 60-province chart to clear the
-## label area floor, so this case builds a Small-preset grid of its own.
+## Fixture region is too small to clear the label area floor, so this case
+## reads the per-worker name chart (see `NAME_CHART`) without mounting a canvas.
 func test_plan_places_names_without_a_node() -> void:
-	var region: MapModel = MapGenerator.new().generate(Fixture.SEED, 96, 64)
+	var region: MapModel = _name_chart_model()
 	var plan := MapCanvasPlan.new()
 	plan.build(region, null, MapCanvas.TILE_SIZE)
 	var named: Dictionary = {}
