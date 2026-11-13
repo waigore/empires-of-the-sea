@@ -1,0 +1,92 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "e4f08b2d01a91da6dfe12551a8fcaf99adde099a",
+  "commit": "668baee0c4fb55101984c9aad7ecba4afa7e1ff6",
+  "submission_hash": "sha256:f6431b89247b006a9b450d9fa92f2d1bc5814786ff70556aed0ec8e858509c87",
+  "submission_git": "feat/ai-bench-funded-share@b9e1136",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 3808.6916666666666,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 31.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 5.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 0.5983333333333334,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:3bc05cf2b9a19161603e229323b3de06b43b8d985806792105240a7331aae9a3",
+    "parts": {
+      "provinces_old": 31,
+      "provinces_new": 0,
+      "regiments": 3,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 2.7,
+      "income_per_turn": 133.29166666666666
+    },
+    "early_win": true,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 75,
+    "resolved_turns": 75,
+    "funded_pct": 0.5983333333333334
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-13T18:38:45Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:b40ad03199b2c099746990b1a0569e68274730d756ecf01e1020e8472b6c4aca"
+}

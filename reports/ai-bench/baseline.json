@@ -47,6 +47,11 @@
       "name": "forces",
       "value": 3.0,
       "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 0.5983333333333334,
+      "direction": "max"
     }
   ],
   "details": {

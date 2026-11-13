@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
-  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:51290968ef12d6f6e9c73facc05572a06b14c91fa6e986628d42e5f7dd173598",
-  "submission_git": "fix/colonial-war-memory@d83562f",
+  "tree_hash": "e4f08b2d01a91da6dfe12551a8fcaf99adde099a",
+  "commit": "668baee0c4fb55101984c9aad7ecba4afa7e1ff6",
+  "submission_hash": "sha256:f6431b89247b006a9b450d9fa92f2d1bc5814786ff70556aed0ec8e858509c87",
+  "submission_git": "feat/ai-bench-funded-share@b9e1136",
   "passed": true,
   "config": [
     {
@@ -47,11 +47,16 @@
       "name": "forces",
       "value": 5.0,
       "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 0.5983333333333334,
+      "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3b32698bc47a40e7684206affb4ec1a946735ed6e36af45c995bb71383d38801",
+    "ai_surface_hash": "sha256:3bc05cf2b9a19161603e229323b3de06b43b8d985806792105240a7331aae9a3",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -65,7 +70,8 @@
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 75,
-    "resolved_turns": 75
+    "resolved_turns": 75,
+    "funded_pct": 0.5983333333333334
   },
   "params": {
     "turns": 200,
@@ -80,7 +86,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T17:32:45Z",
+  "timestamp": "2026-11-13T18:38:45Z",
   "report_version": 1,
-  "signature": "hmac-sha256:ce7b560a9b672324b82d6598ecd7fef3638216dab1f60fb554cf09d6d33448a5"
+  "signature": "hmac-sha256:b40ad03199b2c099746990b1a0569e68274730d756ecf01e1020e8472b6c4aca"
 }
