@@ -760,8 +760,11 @@ func test_catalog_covers_the_wiki_lists() -> void:
 	assert_eq(CommodityCatalog.RAW.size(), 11)
 	assert_eq(CommodityCatalog.MANUFACTURED.size(), 9)
 	assert_eq(CommodityCatalog.LUXURY.size(), 0)
-	assert_eq(CommodityCatalog.RICHES, ["gold", "silver", "gems", "diamonds"] as Array[String])
-	assert_eq(CommodityCatalog.ADVANCED, ["spices"] as Array[String])
+	assert_eq(
+		CommodityCatalog.RICHES,
+		["gold", "silver", "gems", "diamonds", "spices"] as Array[String]
+	)
+	assert_eq(CommodityCatalog.ADVANCED, [] as Array[String])
 	assert_eq(CommodityCatalog.all_ids().size(), 27)
 
 func test_categories_match_the_table() -> void:
@@ -769,7 +772,7 @@ func test_categories_match_the_table() -> void:
 	assert_eq(CommodityCatalog.category_of("timber"), CommodityCatalog.Category.RAW)
 	assert_eq(CommodityCatalog.category_of("castIron"), CommodityCatalog.Category.MANUFACTURED)
 	assert_eq(CommodityCatalog.category_of("gold"), CommodityCatalog.Category.RICHES)
-	assert_eq(CommodityCatalog.category_of("spices"), CommodityCatalog.Category.ADVANCED)
+	assert_eq(CommodityCatalog.category_of("spices"), CommodityCatalog.Category.RICHES)
 	assert_eq(CommodityCatalog.category_of("silk"), CommodityCatalog.NO_CATEGORY)
 	assert_false(CommodityCatalog.known("silk"))
 	assert_eq(CommodityCatalog.category_label(CommodityCatalog.Category.RAW), "Raw materials")
@@ -778,9 +781,9 @@ func test_tradeable_excludes_only_riches() -> void:
 	assert_true(CommodityCatalog.is_tradeable("timber"))
 	assert_true(CommodityCatalog.is_tradeable("lumber"))
 	assert_true(CommodityCatalog.is_tradeable("grain"))
-	# Spices is an advanced good, not a rich: it trades at its fixed 50
-	# (wiki: world-market § Tradeable commodities; DR-20261110-09).
-	assert_true(CommodityCatalog.is_tradeable("spices"))
+	# Spices is a rich: not traded; clears to treasury at 50 (Imperialism II;
+	# wiki: world-market § Tradeable commodities; DR-20261113-13).
+	assert_false(CommodityCatalog.is_tradeable("spices"))
 	assert_false(CommodityCatalog.is_tradeable("gold"))
 	assert_false(CommodityCatalog.is_tradeable("diamonds"))
 	assert_false(CommodityCatalog.is_tradeable("silk"))
@@ -788,7 +791,7 @@ func test_tradeable_excludes_only_riches() -> void:
 	for id: String in CommodityCatalog.all_ids():
 		if CommodityCatalog.is_tradeable(id):
 			tradeable += 1
-	assert_eq(tradeable, 23)
+	assert_eq(tradeable, 22)
 
 func test_manufactured_prices_are_break_even() -> void:
 	for id: String in MANUFACTURED_ROWS.keys():

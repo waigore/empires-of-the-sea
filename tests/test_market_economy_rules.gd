@@ -1800,7 +1800,7 @@ func test_extraction_adds_the_town_manufacturing_bonus() -> void:
 	assert_eq(int(raised.get("timber", 0)), 4)
 	assert_eq(int(raised.get("lumber", 0)), 1)
 
-func test_treasury_ids_are_riches_plus_spices() -> void:
+func test_treasury_ids_are_the_riches_set() -> void:
 	assert_eq(
 		CommodityCatalog.treasury_ids(),
 		["gold", "silver", "gems", "diamonds", "spices"] as Array[String]
@@ -1827,16 +1827,16 @@ func _fixture() -> MapModel:
 
 func test_market_seeds_tradeable_catalog_prices() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	assert_eq(market.prices.size(), 23)
+	assert_eq(market.prices.size(), 22)
 	assert_eq(market.price("timber"), 30)
 	assert_eq(market.price("lumber"), 60)
 	assert_eq(market.price("iron"), 80)
 	assert_false(market.prices.has("gold"))
-	# Spices is advanced and tradeable at its fixed 50 (DR-20261110-09).
-	assert_eq(market.price("spices"), 50)
+	# Spices is a rich: excluded from the book (Imperialism II; DR-20261113-13).
+	assert_false(market.prices.has("spices"))
 	assert_false(market.can_trade("gold"))
 	assert_true(market.can_trade("lumber"))
-	assert_true(market.can_trade("spices"))
+	assert_false(market.can_trade("spices"))
 
 func test_buy_pays_the_current_price_and_records_a_bid() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
@@ -1873,11 +1873,11 @@ func test_sell_credits_treasury_and_records_an_offer() -> void:
 	assert_eq(economy.quantity("timber"), 1)
 	assert_eq(market.offer_volume("timber"), 2)
 	assert_false(bool(market.sell(economy, "timber", 5)["ok"]))
-	assert_false(bool(market.sell(economy, "spices", 1)["ok"]))
 	economy.stockpile["spices"] = 2
-	var crop: Dictionary = market.sell(economy, "spices", 2)
-	assert_true(bool(crop["ok"]), "a crown may sell its spices")
-	assert_eq(int(crop["revenue"]), 100)
+	var crop: Dictionary = market.sell(economy, "spices", 1)
+	assert_false(bool(crop["ok"]), "spices never trade (Imperialism II)")
+	assert_eq(String(crop["reason"]), "Not traded on the world market")
+	assert_eq(economy.quantity("spices"), 2)
 
 func test_price_discovery_uses_the_published_formula() -> void:
 	assert_eq(WorldMarket.next_price(30, 30, 0, 0), 30)
