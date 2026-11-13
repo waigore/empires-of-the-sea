@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-21 (`REQ-P2-02`).
+Audited through DR-20261113-22 (`REQ-P2-02`).
 
 ## Already live
 
@@ -37,11 +37,12 @@ Audited through DR-20261113-21 (`REQ-P2-02`).
 | Sea battles on a plate | `NavalPlate` / `NavalDispatch`, DR-20261113-17 |
 | War footing (voyage hold + overstretch peace) | `AiPhasePlanner`, DR-20261113-15 |
 | Per-leader primary bonuses | `LeaderCatalog`, DR-20261113-18 |
-| Money-first / `AiIncome` | `AiIncome`, DR-20261113-19 |
+| Money-first / `AiIncome` | `AiIncome`, DR-20261113-19/22 |
 
 ## Remaining gaps (impact order)
 
-None ranked through DR-20261113-19: money-first / `AiIncome` shipped.
+None ranked through DR-20261113-22: money-first / `AiIncome` shipped
+(war reserve; peace keeps growth).
 
 ## Next pick
 
@@ -60,7 +61,8 @@ Re-audit; no ranked gap.
 - General borrowing / loans — Money Lending floor live.
 - Per-region prospected table; muster of the dead — DR-20261110-21/12-10.
 - Recipe gates, rows beyond steel/bronze, queue cap — wiki-deferred.
-- Phase soft priority, extra domain gating, victory pressure — seed (DR-20261113-15).
+- Phase soft priority, extra domain gating, victory pressure — seed
+  (DR-20261113-15); treasury-recovery closed by money-first (DR-19/22).
 - Growth-stage coexistence flag — seed (DR-20261113-08).
 - Per-hull / round naval plate; rival-fight plate — DR-20261113-17.
 - Further tongues — out of scope (DR-20261113-12).
