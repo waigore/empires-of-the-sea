@@ -136,14 +136,26 @@ static func draw_caption(
 	var rows: Array[String] = caption_rows(text, max_width, font, font_size, max_lines)
 	for index in rows.size():
 		var span: float = _measure(rows[index], font, font_size)
-		var pos := Vector2(centre.x - span * 0.5, centre.y + float(index) * (font_size + 3))
+		var y: float = centre.y + float(index) * (font_size + 3)
+		var pos := Vector2(centre.x - span * 0.5, y)
+		## A nameplate, not floating letters: the ground behind a caption can be
+		## grass, haze or a sunlit wall, and a phone is read outdoors.
+		canvas.draw_rect(
+			Rect2(pos.x - 4.0, y - float(font_size) * 0.95, span + 8.0,
+				float(font_size) * 1.30),
+			Color(0.07, 0.06, 0.05, 0.66)
+		)
+		canvas.draw_rect(
+			Rect2(pos.x - 4.0, y - float(font_size) * 0.95, span + 8.0, 1.0),
+			Color(colour.r, colour.g, colour.b, 0.85)
+		)
 		canvas.draw_string_outline(
 			font, pos, rows[index], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 3,
-			Color(0.06, 0.05, 0.04, 0.88)
+			Color(0.05, 0.04, 0.03, 0.9)
 		)
 		canvas.draw_string(
 			font, pos, rows[index], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
-			colour.lightened(0.30)
+			colour.lightened(0.55)
 		)
 
 
