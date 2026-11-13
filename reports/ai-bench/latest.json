@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:da5ce5b200babb535d0faf2b62a0927be2a7a2bd00264bef5a8a6f15100b7409",
-  "submission_git": "fix/489-rival-lock-recovery@65598de",
+  "submission_hash": "sha256:5329348569a05d5e05fe8281bc14a547bbb0f03fced8f24cd02cf52ea17919c5",
+  "submission_git": "fix/474-muster-last-payment@2250bf5",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:e8e14a11289118c397bc17115e6722e749a05fb56c88d3867446b4b13879bc52",
+    "ai_surface_hash": "sha256:7b67a882b7dcc17a9f732b1d538c8b51c7618269165252a4dbf0e98deade3363",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T20:32:50Z",
+  "timestamp": "2026-11-13T21:44:25Z",
   "report_version": 1,
-  "signature": "hmac-sha256:7763b0df64914eed1d3c06ca7e3abaf31abdd75511b9a063c4b638320fb1c71d"
+  "signature": "hmac-sha256:fc11a013ac1cb1d6d0ee0f0e09d02ddb92bba4bfe7a1f7e7c15f03b9e877f68f"
 }
