@@ -508,19 +508,48 @@ suites = [
   "test_defence_lens.gd"
 ]
 
-# The defence reading's own files; first match wins, so they are named before
-# the broader scripts/map and scripts/rules globs.
+# The defence reading's projection; first match wins, so it is named before the
+# broader scripts/rules globs. Its view routes through `lens_kit` below.
 [[rules]]
 match = "scripts/rules/defence_survey.gd*"
 domain = "crown_road"
 
 [[rules]]
-match = "scripts/map/defence_lens.gd*"
-domain = "crown_road"
-
-[[rules]]
 match = "tests/test_defence_*.gd*"
 domain = "crown_road"
+
+# Shared lens kit: activation, tap resolution and slip packing every reading
+# inherits. One kit change reaches all four readings, so their four suites
+# travel together; the broad scripts/map fan-out stays off the tier-1 budget.
+[domains.lens_kit]
+suites = [
+  "test_map_view_rules.gd",
+  "test_defence_lens.gd",
+  "test_diplomacy_lens.gd",
+  "test_resource_lens.gd"
+]
+
+[[rules]]
+match = "scripts/map/map_lens.gd*"
+domain = "lens_kit"
+
+# Every reading inherits the kit; route each lens here before the broader
+# resource-ink / crown-road / scripts/map globs so one reading stays small.
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/defence_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/crown_road_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/diplomacy_lens.gd*"
+domain = "lens_kit"
 
 # Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
 # Catalog + seeder + survey + Explorer policy travel together; kept off the full

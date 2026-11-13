@@ -1,5 +1,5 @@
 class_name CrownRoadLens
-extends Node2D
+extends MapLens
 ## Crown-road lens: a wash over the crown's own land showing what reaches the
 ## capital — gold where the road network already carries an estate's yield,
 ## amber where only the province town links it (so town development caps it),
@@ -11,7 +11,6 @@ extends Node2D
 ## wash draws above the fog because the crown's own works are remembered
 ## knowledge; unknown ground was already dropped by the projection.
 
-const TILE_SIZE: float = 22.0
 ## Wash strength over the terrain: readable at fit zoom, light enough that
 ## coastlines, borders and glyphs stay legible.
 const WASH_ALPHA: float = 0.62
@@ -22,22 +21,8 @@ const VEIL_ALPHA: float = 0.58
 const ROUTE_ALPHA: float = 0.95
 const ROUTE_WIDTH: float = 2.0
 
-var model: MapModel = null
 var works: LandWorks = null
-## Owning crown for the reading (Node.owner is taken, so `faction`).
-var faction: int = MapModel.NO_ID
-var visibility: VisibilityModel = null
 var capital_tile: Vector2i = CivilianState.NO_TILE
-var active: bool = false
-## Latest `CrownRoadSurvey.snapshot`; empty until built.
-var survey: Dictionary = {}
-
-var _font: Font = null
-var _reveal: float = 0.0
-
-
-func _ready() -> void:
-	_font = UiTheme.serif()
 
 
 ## Recomputes the projection. Called on region load, work completion, fog change
@@ -60,10 +45,8 @@ func build(
 ## Source nodes whose changes invalidate the projection: a finished road, a
 ## charted province. Kept as a narrow subscription so the lens never polls.
 func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
-	if civilians != null and not civilians.works_changed.is_connected(refresh):
-		civilians.works_changed.connect(refresh)
-	if fog != null and not fog.fog_changed.is_connected(refresh):
-		fog.fog_changed.connect(refresh)
+	_watch(civilians, &"works_changed", refresh)
+	_watch(fog, &"fog_changed", refresh)
 
 
 func refresh() -> void:
@@ -77,42 +60,17 @@ func refresh() -> void:
 	queue_redraw()
 
 
-func set_active(value: bool) -> void:
-	if active == value:
-		return
-	active = value
-	if active:
-		refresh()
-		_reveal = 0.0
-		var tween: Tween = create_tween()
-		tween.tween_method(_set_reveal, 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC)
-	queue_redraw()
-
-
-func toggle() -> void:
-	set_active(not active)
-
-
 ## One hover line for a province: what links it, or how far the road still has
 ## to run (wiki: extraction-and-improvements § Extraction formula).
-func summary_for(province_id: int) -> String:
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		if int(entry["id"]) == province_id:
-			return CrownRoadSurvey.summary_text(entry)
-	return ""
-
-
-func _set_reveal(value: float) -> void:
-	_reveal = value
-	queue_redraw()
+func _summary_of(entry: Dictionary) -> String:
+	return CrownRoadSurvey.summary_text(entry)
 
 
 # --- draw --------------------------------------------------------------------
 
 
 func _draw() -> void:
-	if not active or survey.is_empty() or _reveal <= 0.001:
+	if not _visible():
 		return
 	_draw_wash()
 	_draw_routes()
