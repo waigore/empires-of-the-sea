@@ -530,6 +530,7 @@ suites = [
   "test_ai_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
+  "test_estate_rows_rules.gd",
   "test_map_generator.gd",
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
@@ -1111,6 +1112,17 @@ domain = "prospect"
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd*"
 domain = "prospect"
+
+# The per-row estate reading (split out of the ledger for REQ-P3-01) and its own
+# suite: estate rows are a civilian-ledger concern, so a row change runs the
+# civilian field suite beside it instead of the broad prospect slice.
+[[rules]]
+match = "scripts/rules/estate_rows.gd*"
+domain = "civilian"
+
+[[rules]]
+match = "tests/test_estate_rows_rules.gd*"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/ui/civilian_panel.gd*"
