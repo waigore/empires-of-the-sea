@@ -55,7 +55,7 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 ## Deferred (REQ-P2-02)
 
-Colonial war memory — [`deferred.md`](deferred.md).
+None — see [`deferred.md`](deferred.md).
 
 ## Architecture
 

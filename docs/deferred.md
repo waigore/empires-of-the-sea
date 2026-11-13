@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261113-25 (`REQ-P2-02`).
+Audited through DR-20261114-01 (`REQ-P2-02`).
 
 ## Already live
 
@@ -27,15 +27,15 @@ Audited through DR-20261113-25 (`REQ-P2-02`).
 
 ## Remaining gaps (impact order)
 
-1. **Ledger T2 expedition** — hull + Explorer + peace window; New World landings (#497/#476).
-2. **Ledger T5 naval build** — warships as objectives; no hulls laid (#500/#484).
-3. **Ledger T3 claims** — reservations become ledger claims (#498).
-4. **Colonial war memory** — GP–Tribe wars leave no weariness/truce (DR-25/#511).
-5. **Ledger T4 posture weights** — soft priority + personality weights (#499).
+1. **New World province** — courts land but never finish the Tribe chain
+   (first contact → overtures → Join Empire) (#476).
+2. **Ledger T3 claims** — reservations become ledger claims (#498).
+3. **Ledger T6 funded-share metric** — #501.
 
 ## Next pick
 
-Ledger T2 expedition package (colonise children → funded claims).
+The Tribe colony chain: a landed court opens the envoy chain and buys the
+Join Empire (#476).
 
 ## Blocked footnotes
 

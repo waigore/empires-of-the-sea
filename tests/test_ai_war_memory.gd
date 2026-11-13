@@ -8,6 +8,7 @@ const AiFixture = preload("res://tests/ai_fixture.gd")
 
 const OWNER: int = 0
 const RIVAL: int = 1
+const TRIBE: int = 11
 const SEED: int = 1500
 
 
@@ -92,6 +93,9 @@ func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
 	)
 	assert_eq(AiWarMemory.penalty(null, at_war, fought, RIVAL, OWNER, true), 0)
 	assert_eq(AiWarMemory.penalty(config, null, fought, RIVAL, OWNER, true), 0)
+	# Each reading has its own empty guard, so a caller may ask it directly.
+	assert_eq(AiWarMemory.weariness(null, at_war, fought, RIVAL, OWNER), 0)
+	assert_eq(AiWarMemory.truce(null, peaceful, 1, RIVAL, OWNER), 0)
 
 
 # --- the planner -------------------------------------------------------------
@@ -209,16 +213,100 @@ func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
 	)
 
 
-func test_a_colonial_war_carries_no_memory() -> void:
-	# A Minor Nation is colonial business, not a grudge between crowns.
+func test_a_colonial_war_carries_the_truce() -> void:
+	# A war on a Minor Nation or Tribe is still a war: the peace that ended an
+	# unfought one holds the pair below the declaration bar (issue #511).
 	var config: AiConfig = _config()
 	var ai_state := AiState.new()
 	var minor: int = 6
 	ai_state.note_war(RIVAL, minor, 0)
 	ai_state.note_truce(RIVAL, minor, 4)
 
-	assert_eq(AiWarMemory.weariness(config, ai_state, 400, RIVAL, minor), 0)
-	assert_eq(AiWarMemory.truce(config, ai_state, 5, RIVAL, minor), 0)
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 5, RIVAL, minor),
+		config.parameter("diplomacy.truce_penalty"),
+		"a colonial peace leaves the same truce a crown one does"
+	)
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 4 + config.parameter("diplomacy.truce_turns"), RIVAL, minor),
+		0,
+		"and it expires on the same clock"
+	)
+
+
+func test_a_colonial_war_wears_the_attacker_down() -> void:
+	var config: AiConfig = _config()
+	var ai_state := AiState.new()
+	var tribe: int = 11
+	ai_state.note_war(RIVAL, tribe, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var step: int = config.parameter("diplomacy.war_weariness")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, grace, RIVAL, tribe), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, grace + 2, RIVAL, tribe), step * 2,
+		"a colonial war that takes nothing tires the court too"
+	)
+
+
+## One decision by the warmonger against a Tribe. `power` is the court's own
+## reading of the balance against it.
+func _decide_colonial(
+	at_war: bool, turn: int, truce: int = -1, power: int = 10
+) -> Dictionary:
+	var state: DiplomacyState = _court()
+	state.ensure_relation(RIVAL, TRIBE, 1)
+	var ai_state := AiState.new()
+	ai_state.agendas[RIVAL] = AiAgenda.WARMONGER
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, RIVAL, TRIBE)["ok"]))
+		ai_state.note_war(RIVAL, TRIBE, 1)
+	if truce >= 0:
+		ai_state.note_truce(RIVAL, TRIBE, truce)
+	return AiDiplomacyPlanner.decide(
+		_config(), state, ai_state,
+		AiFixture.world([OWNER, RIVAL, RIVAL, RIVAL, TRIBE]), turn, {
+			"regiments": {}, "ships": {}, "player": OWNER,
+			"power": {RIVAL: power, TRIBE: 1},
+		}
+	)
+
+
+func _candidate(plan: Dictionary, target: int) -> Dictionary:
+	for raw: Variant in plan.get("candidates", []):
+		var entry: Dictionary = raw
+		if int(entry.get("target", -1)) == target:
+			return entry
+	return {}
+
+
+func test_a_colonial_truce_keeps_the_tribe_below_the_declaration_bar() -> void:
+	# The carousel #511 measured: declare, white peace in the same phase, and
+	# re-declare at the 4-turn cooldown. The truce now holds the pair.
+	var barred: Dictionary = _decide_colonial(false, 8, 4)
+	var entry: Dictionary = _candidate(barred, TRIBE)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "war desire too low",
+		"the cooldown alone no longer re-opens a colonial war"
+	)
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)),
+		-_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the colonial truce"
+	)
+
+
+func test_a_court_that_outmatches_a_tribe_still_tires() -> void:
+	# Strength against a Tribe is the precondition for a landing, not proof of
+	# one, so the peer-only exemption does not cover a colonial war (#511).
+	var plan: Dictionary = _decide_colonial(true, 200, -1, 90)
+	var entry: Dictionary = _candidate(plan, TRIBE)
+
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)), -100,
+		"a colonial war that takes nothing wears the court to the scale"
+	)
 
 
 func test_a_fought_war_leaves_no_truce() -> void:
