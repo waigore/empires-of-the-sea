@@ -1101,11 +1101,12 @@ full = true
 match = "gd-tools.toml"
 domain = "misc"
 
-# Map edits are exercised by the selection script in CI; a tiny chart suite is
-# enough for the required check without pulling crown_road past 5 min.
+# Map edits are exercised by the selection script in CI (--check-complete);
+# keep them on misc with the other selector/tooling rules so an AI fan-out PR
+# that also touches the map does not pull chart_bake past the tier-1 5 min budget.
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "chart_bake"
+domain = "misc"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
