@@ -54,7 +54,7 @@ the turn trace names it ("lays down a Sloop of War for the fleet"). A court at
 peace prices no yard at all, so there is no idle churn.
 
 A colonist already ashore is the voyage's progress, not a missing Explorer: the
-parent prices `expedition.voyage` instead of `no Explorer free`.
+parent prices `expedition.voyage`, not `no Explorer free`.
 
 ## Migration
 
