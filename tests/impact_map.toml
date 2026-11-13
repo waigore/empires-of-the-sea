@@ -416,6 +416,12 @@ domain = "muster"
 match = "scripts/ui/hud_dossiers.gd"
 domain = "muster"
 
+# The pause door's seal state: the ledger suits that park it and the menu suites
+# that mount it already ride the menu bucket.
+[[rules]]
+match = "scripts/ui/game_menu_door.gd*"
+domain = "menu"
+
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
 domain = "muster"
@@ -650,6 +656,7 @@ suites = [
   "test_court_ui_parts.gd",
   "test_main.gd",
   "test_menu_flow.gd",
+  "test_menu_door.gd",
   "test_mobile_layout.gd",
   "test_diplomacy_lens.gd",
   "test_resource_lens.gd"
