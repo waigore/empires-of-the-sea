@@ -129,11 +129,9 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 		explorer.block("no Explorer free")
 	parent.with_child(hull).with_child(explorer)
 	if at_war:
-		parent.with_child(AiObjective.create(
-			"expedition.peace", "diplomacy",
-			AiUtility.clamp_utility(100 - int(readings.get("war_desire", 0))),
-			{"orders": 1}
-		))
+		# The court's one order is already claimed by `peace.window`; the voyage
+		# needs that window funded, not a second order of its own.
+		parent.needs("peace.window")
 	if afloat:
 		# Already under way: no new hull or colonist, but the voyage outranks
 		# opening a second one.

@@ -36,27 +36,34 @@ static func rank(
 static func allocate(
 	objectives: Array[AiObjective], pools: Dictionary = {}
 ) -> Dictionary:
+	# Every aim claims its own cost first, in rank order; a parent's state is
+	# settled after its children, so a composite aim is only as funded as they
+	# are (issue #491 T4).
+	for objective: AiObjective in walk(objectives):
+		if objective.status == AiObjective.STATUS_BLOCKED:
+			continue
+		objective.claim = _grant(objective.cost, pools)
+		if objective.shortfall().is_empty():
+			objective.status = AiObjective.STATUS_FUNDED
+		else:
+			objective.status = AiObjective.STATUS_DEFERRED
+	_resolve_parents(objectives)
+	var statuses: Dictionary = {}
+	for objective: AiObjective in walk(objectives):
+		statuses[objective.id] = objective.status
+	_resolve_requires(objectives, statuses)
 	var ranked: int = 0
 	var funded: int = 0
 	var blocked: int = 0
 	var lines: Array[String] = []
 	for objective: AiObjective in walk(objectives):
+		lines.append(objective.line())
 		if objective.status == AiObjective.STATUS_BLOCKED:
 			blocked += 1
-			lines.append(objective.line())
 			continue
 		ranked += 1
-		objective.claim = _grant(objective.cost, pools)
-		if objective.shortfall().is_empty() and _children_funded(objective):
-			objective.status = AiObjective.STATUS_FUNDED
+		if objective.status == AiObjective.STATUS_FUNDED:
 			funded += 1
-		else:
-			# A parent is only as funded as its children: a composite aim whose
-			# hull or peace window deferred is deferred itself, and keeps the
-			# child's shortfall as its reason (issue #491 T4).
-			objective.status = AiObjective.STATUS_DEFERRED
-			objective.blocked = _starved_child(objective)
-		lines.append(objective.line())
 	return {
 		"ranked": ranked,
 		"funded": funded,
@@ -65,6 +72,22 @@ static func allocate(
 		"lines": lines,
 		"objectives": to_dict(objectives),
 	}
+
+
+## Settle every parent bottom-up: funded only when each child funded, else
+## deferred with the first child that starved it named.
+static func _resolve_parents(objectives: Array[AiObjective]) -> void:
+	for objective: AiObjective in objectives:
+		if objective.children.is_empty():
+			continue
+		_resolve_parents(objective.children)
+		if objective.status == AiObjective.STATUS_BLOCKED:
+			continue
+		if _children_funded(objective):
+			objective.status = AiObjective.STATUS_FUNDED
+			continue
+		objective.status = AiObjective.STATUS_DEFERRED
+		objective.blocked = _starved_child(objective)
 
 
 ## Rank then allocate in one call: the shape the turn adapter and the tests use.
@@ -93,6 +116,25 @@ static func to_dict(objectives: Array[AiObjective]) -> Array[Dictionary]:
 	for objective: AiObjective in objectives:
 		rows.append(objective.to_dict())
 	return rows
+
+
+## A parent whose required aim was deferred is deferred too, naming it: the
+## expedition waits on the peace window it cannot claim twice.
+static func _resolve_requires(
+	objectives: Array[AiObjective], statuses: Dictionary
+) -> void:
+	for objective: AiObjective in objectives:
+		for required_id: String in objective.requires:
+			if String(statuses.get(required_id, AiObjective.STATUS_DEFERRED)) == (
+				AiObjective.STATUS_FUNDED
+			):
+				continue
+			if objective.status == AiObjective.STATUS_BLOCKED:
+				continue
+			objective.status = AiObjective.STATUS_DEFERRED
+			if objective.blocked.is_empty():
+				objective.blocked = required_id
+		_resolve_requires(objective.children, statuses)
 
 
 ## True when every child of this objective ended funded (or it has none).

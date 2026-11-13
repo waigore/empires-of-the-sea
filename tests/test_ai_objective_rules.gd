@@ -158,6 +158,14 @@ func _by_id(objectives: Array[AiObjective], objective_id: String) -> AiObjective
 	return null
 
 
+## Flattens the trace rows to id → status.
+func _statuses(rows: Variant, out: Dictionary) -> void:
+	for raw: Variant in rows:
+		var row: Dictionary = raw
+		out[String(row["id"])] = String(row["status"])
+		_statuses(row.get("children", []), out)
+
+
 func _child_ids(objective: AiObjective) -> Array[String]:
 	var ids: Array[String] = []
 	for child: AiObjective in objective.children:
@@ -188,9 +196,9 @@ func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 
 	assert_eq(int(_by_id(objectives, "peace.window").utility), 30)
-	assert_eq(
-		int(_by_id(objectives, "expedition.peace").cost["orders"]), 1,
-		"the expedition's peace window costs the court's order"
+	assert_true(
+		_by_id(objectives, "colonise.new_world").requires.has("peace.window"),
+		"the expedition waits on the court's one peace window, not a second order"
 	)
 	assert_true(_by_id(objectives, "navy.sortie") != null)
 	assert_eq(_by_id(objectives, "navy.build"), null, "a court with hulls sorties instead of building")
@@ -428,7 +436,7 @@ func test_a_parent_defers_with_the_child_that_starved_it() -> void:
 	readings["posture"] = AiPhasePlanner.PHASE_WAR
 	readings["war_desire"] = 70
 	var report: Dictionary = AiObjectiveLedger.run(
-		AiObjectivesPlan.build(readings), {"hull": 1, "civilian": 1, "orders": 1}
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
 	)
 	var colony: Dictionary = {}
 	for row: Dictionary in report["objectives"]:
@@ -438,8 +446,8 @@ func test_a_parent_defers_with_the_child_that_starved_it() -> void:
 	assert_false(colony.is_empty(), "the voyage is still ranked at war")
 	assert_eq(String(colony["status"]), AiObjective.STATUS_DEFERRED)
 	assert_true(
-		String(colony.get("blocked", "")).contains("expedition.peace"),
-		"the trace names the child that starved the voyage"
+		String(colony.get("blocked", "")).contains("peace.window"),
+		"the trace names the aim the voyage waited on"
 	)
 	var line: String = ""
 	for raw: Variant in report["lines"]:
@@ -456,10 +464,12 @@ func test_a_won_peace_window_opens_the_voyage_at_war() -> void:
 	readings["posture"] = AiPhasePlanner.PHASE_WAR
 	readings["war_desire"] = 20
 	var report: Dictionary = AiObjectiveLedger.run(
-		AiObjectivesPlan.build(readings), {"hull": 1, "civilian": 1, "orders": 1}
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
 	)
-	assert_true((report["funded_ids"] as Array).has("expedition.peace"))
-	assert_true((report["funded_ids"] as Array).has("colonise.new_world"))
+	var status: Dictionary = {}
+	_statuses(report["objectives"], status)
+	assert_eq(String(status["peace.window"]), AiObjective.STATUS_FUNDED)
+	assert_eq(String(status["colonise.new_world"]), AiObjective.STATUS_FUNDED)
 
 
 # --- the save round-trip -----------------------------------------------------

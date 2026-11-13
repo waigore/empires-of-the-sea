@@ -32,6 +32,18 @@ muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`)
 instead of looking for a squadron a second time, and a starved child prints its
 shortfall (`expedition.hull hull 0/1 deferred`).
 
+## Posture and weights
+
+`AiPosture` turns the footing into a per-mille vector (`posture.war_boost`,
+`posture.war_expansion`, `posture.fronts_expansion`) and multiplies it by the
+leader's domain weights (`posture.weight_step`, floor `posture.floor`), so a
+domain is scaled, never zeroed. Ranking is `utility × modifier / 1000`. A parent
+with a starved child, or with a required aim that deferred (`requires`, e.g. the
+expedition needs the court's one `peace.window`), is itself deferred and names
+the aim it waited on. The voyage's footing is read from the ledger: a funded
+`colonise.new_world` opens the muster even at war, because the peace window is
+what bought it.
+
 ## Migration
 
 | Step | Issue | State |
@@ -39,6 +51,6 @@ shortfall (`expedition.hull hull 0/1 deferred`).
 | T1 skeleton, trace-only | #496 | shipped |
 | T2 expedition package | #497 | shipped |
 | T3 reservations become claims | #498 | pending |
-| T4 posture modifier + weights | #499 | pending |
+| T4 posture modifier + weights | #499 | shipped |
 | T5 naval build policy | #500 | pending |
 | T6 ai-bench funded share | #501 | pending |
