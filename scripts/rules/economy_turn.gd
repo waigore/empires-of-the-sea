@@ -88,6 +88,10 @@ static func _run(
 	# The next sea battle reads how many hulls this turn's granary fed in full
 	# (wiki: workers-and-population § Consumption).
 	economy.navy_feeding = EconomyConsumption.navy_coverage(consumption)
+	# The store Production spends from, named for the ledger's per-row ceiling:
+	# a row may only be set to what these inputs and this idle labour can start
+	# (wiki: stockpiles-and-production § Production flow).
+	var after_consumption: Dictionary = economy.stockpile.duplicate()
 	var planned: Dictionary = ProductionRecipes.plan(
 		economy.production.assignments(),
 		economy.stockpile,
@@ -111,6 +115,10 @@ static func _run(
 		"riches": riches,
 		"riches_treasury": riches_total,
 		"consumption": consumption,
+		# The stockpile as Production found it: every holding after Extraction,
+		# the Riches phase and Consumption (wiki: stockpiles-and-production
+		# § Production flow).
+		"after_consumption": after_consumption,
 		"production": planned,
 		"research": research,
 		"prices": prices,

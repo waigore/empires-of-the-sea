@@ -612,6 +612,25 @@ func test_ledger_header_fits_a_short_viewport() -> void:
 	assert_eq(panel.tabs_min_height(), 0.0)
 
 
+## The stockpile is the widest ledger page — medallion, name, workshop tag, hold,
+## figure and two stepper buttons on one row — so on a phone it must fit the
+## tab's width rather than scroll sideways (issue #453; REQ-P1-05, REQ-P1-07).
+func test_the_stockpile_tab_fits_a_phone_width() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Control = panel.page_body(EconomyPanel.TAB_PRODUCTION) as Control
+	var scroll: Control = body.get_parent() as Control
+	assert_true(
+		body.get_combined_minimum_size().x <= scroll.size.x + 0.5,
+		"the stockpile must fit the tab's width (%s > %s)"
+		% [body.get_combined_minimum_size().x, scroll.size.x]
+	)
+
+
 ## The WORKERS tab carries two actions per trained row; on a phone both must be
 ## thumb-sized and inside the sheet's edge. The tab scrolls, so a row may sit
 ## below the fold — the drag area is the body, never a button (REQ-P1-05, REQ-P1-07).

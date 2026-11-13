@@ -114,22 +114,27 @@ static func _hill(item: CanvasItem, center: Vector2, size: float) -> void:
 
 
 ## Broadleaf grove: shadow, trunk, a secondary crown, then the lit main crown.
-static func _tree(item: CanvasItem, center: Vector2, size: float, flip: float) -> void:
+## `base` is the wash the crowns are cut from: terrain hillsides pass the fixed
+## timber green, the survey lens passes the commodity ink of the tile.
+static func _tree(
+	item: CanvasItem, center: Vector2, size: float, flip: float,
+	base: Color = Color(0.271, 0.361, 0.259, 0.74)
+) -> void:
 	var trunk_base: Vector2 = center + Vector2(0, size * 0.46)
 	var crown: Vector2 = center + Vector2(size * 0.05 * flip, -size * 0.16)
 	var radius: float = size * 0.40
 	item.draw_circle(trunk_base + Vector2(size * 0.12, -radius * 0.10), radius * 0.62, SHADOW)
 	if size >= 11.0:
-		_crown(item, crown + Vector2(-radius * 0.90 * flip, radius * 0.80), radius * 0.64)
+		_crown(item, crown + Vector2(-radius * 0.90 * flip, radius * 0.80), radius * 0.64, base)
 	if size >= 15.0:
-		_crown(item, crown + Vector2(radius * 0.86 * flip, radius * 0.62), radius * 0.52)
+		_crown(item, crown + Vector2(radius * 0.86 * flip, radius * 0.62), radius * 0.52, base)
 	item.draw_line(trunk_base, crown + Vector2(0, radius * 0.35), INK, 1.3, true)
-	_crown(item, crown, radius)
+	_crown(item, crown, radius, base)
 
 
 ## A crown is wobbled and spun from its own position hash, so a forest reads as
 ## separate trees rather than one stamp repeated across the province.
-static func _crown(item: CanvasItem, center: Vector2, radius: float) -> void:
+static func _crown(item: CanvasItem, center: Vector2, radius: float, base: Color) -> void:
 	var spin: float = (_hash(center.y + 3.0, center.x + 5.0) - 0.5) * 0.9
 	# Each crown is washed a little lighter or darker, so a forest never reads as
 	# the same stamp repeated across the province.
@@ -148,9 +153,14 @@ static func _crown(item: CanvasItem, center: Vector2, radius: float) -> void:
 	var lit := PackedVector2Array()
 	for k in 6:
 		lit.append(points[(start + k) % 10])
-	item.draw_colored_polygon(points, Color(0.271, 0.361, 0.259, 0.74) * tone)
-	item.draw_colored_polygon(lit, Color(0.384, 0.471, 0.345, 0.62) * tone)
+	item.draw_colored_polygon(points, _shade(base, tone))
+	item.draw_colored_polygon(lit, _shade(base.lightened(0.16), tone))
 	item.draw_polyline(_closed(points), Color(0.137, 0.180, 0.133, 0.72), 1.0, true)
+
+
+## The wash for one crown: the base ink run through the crown's own tone.
+static func _shade(base: Color, tone: float) -> Color:
+	return Color(base.r * tone, base.g * tone, base.b * tone, base.a * tone)
 
 
 static func _dune(item: CanvasItem, center: Vector2, size: float) -> void:
@@ -167,12 +177,14 @@ static func _dune(item: CanvasItem, center: Vector2, size: float) -> void:
 
 ## Resource emblem for the survey lens: the commodity a tile yields, drawn as a
 ## map symbol rather than a HUD pictogram so it sits in the chart's ink language.
+## `tint` is the commodity ink (`Palette.RESOURCE_INK`), never the status ink:
+## the ring and slash around the emblem carry the estate's status.
 static func resource(
 	item: CanvasItem, kind: String, center: Vector2, size: float, tint: Color
 ) -> void:
 	match kind:
 		"tree":
-			_tree(item, center, size, 1.0)
+			_tree(item, center, size, 1.0, tint)
 		"coin":
 			_coin_emblem(item, center, size, tint)
 		"wheat":
