@@ -260,6 +260,10 @@ static func _apply(
 			var message: String = ""
 			if bool(offer.get("ok", false)):
 				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
+				# The court is done fighting this war: it holds the truce from
+				# the offer, so a refusal does not hand it a fresh war either
+				# (issue #475).
+				ai_state.note_truce(faction, target, turn)
 			return {"result": offer, "message": message}
 		var peace: Dictionary = DiplomacyRules.make_peace(
 			state, faction, target,

@@ -108,10 +108,6 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 	if play.ai != null:
 		if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
 			play.ai.note_peace(from_id, play.player_faction, play.turn)
-			# A signed white peace starts the pair's truce, so the same war is
-			# not re-declared at the first legal turn (issue #475).
-			if bool(result.get("accepted", false)):
-				play.ai.note_truce(from_id, play.player_faction, play.turn)
 		else:
 			play.ai.note_overture(from_id, play.player_faction, play.turn)
 	if play.hud != null:
