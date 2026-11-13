@@ -193,6 +193,34 @@ static func share_credit(report: Dictionary, faction: int) -> int:
 	return roundi(float(by_gp.get(faction, by_gp.get(str(faction), 0.0))))
 
 
+## One line of the Deal Book. A purchase names the price the pair was charged —
+## the crown's terms and the subsidy step included — and the ducats it cost; a
+## sale names its receipt (wiki: world-market § Subsidy price adjustment;
+## REQ-P5-05). `price` is the untaxed published price, so older saved rows that
+## carry no `buy_unit` still read.
+static func deal_line(deal: Dictionary) -> String:
+	var quantity: int = int(deal.get("quantity", 0))
+	var commodity: String = CommodityCatalog.label(String(deal.get("commodity", "")))
+	var price: int = int(deal.get("price", 0))
+	var buyer: int = int(deal.get("buyer", -2))
+	var seller: int = int(deal.get("seller", -2))
+	var mine: bool = buyer == FactionCatalog.PLAYER_FACTION
+	var other_id: int = seller if mine else buyer
+	var other: String = "the world market" if other_id < 0 else FactionCatalog.name_of(other_id)
+	if mine:
+		var claim: String = (
+			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
+		)
+		var unit: int = int(deal.get("buy_unit", price))
+		return "Bought %d %s from %s at %d — %d ducats%s" % [
+			quantity, commodity, other, unit, unit * quantity, claim,
+		]
+	var earned: int = int(deal.get("earned", price * quantity))
+	return "Sold %d %s to %s at %d — %d ducats" % [
+		quantity, commodity, other, price, earned,
+	]
+
+
 ## The cargo-holds banner above the market rows (wiki: ships-and-naval).
 ## Extraction ships before trade, so the banner names the colonial tonnage the
 ## home fleet must carry first (DR-20261109-17).

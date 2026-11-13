@@ -3226,3 +3226,107 @@ func test_a_plate_is_a_128_px_source() -> void:
 	assert_eq(art.get_height(), 128)
 
 
+
+# --- the Minor/Tribe sale order and its receipt ---
+
+## One Minor estate and nothing else: whoever wins it takes the only timber.
+func _sale_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	for y in 2:
+		for x in 4:
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 4, 6)
+	model.provinces = [gp, minor]
+	model.resource[model.index_of(2, 0)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func _timber_buyer(report: Dictionary) -> int:
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) == "timber" and int(deal.get("seller", -2)) == 6:
+			return int(deal.get("buyer", -1))
+	return -1
+
+
+## A Trade Consulate is the first overture stage, and R7.3 serves its holder
+## ahead of every consulate-less buyer whatever the rivals' relations (wiki:
+## world-market § Sell-priority relation tiebreaker). The holder carries the
+## higher faction id, so a gate read as "no Consulate anywhere" would hand the
+## estate to the stranger by the default order.
+func test_a_trade_consulate_clears_before_a_warmer_stranger() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(90.0)
+	diplomacy.ensure_relation(1, 6, 0).set_score(10.0)
+	diplomacy.set_overture(1, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	# The stranger speaks first, so the deal proves the tiebreak, not the book order.
+	for gp: int in [0, 1]:
+		MarketOrders.submit(
+			market,
+			gp, "timber", MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+		)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, _economies(), {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(_timber_buyer(report), 1, "the Consulate holder takes the estate")
+
+
+## R7.3's relation arm needs a Consulate on both sides; two consulate-less courts
+## keep the default order (ascending faction id) however warm one of them is.
+func test_two_consulate_less_buyers_keep_the_default_order() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 1, 1),
+	]
+	var context: Dictionary = _context()
+	context["consulate_for"] = func(_gp: int, _minor: int) -> bool: return false
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(
+		int((result["deals"] as Array)[0]["buyer"]), 1,
+		"a consulate-less court never jumps the default order"
+	)
+
+
+## The Deal Book line names the price the pair was charged — the crown's terms
+## and the subsidy step included — not the untaxed published price (wiki:
+## world-market § Subsidy price adjustment; REQ-P5-05).
+func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	var economies: Dictionary = _economies()
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketOrders.submit(
+		market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": before, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+	assert_eq(before - (economies[0] as PlayerEconomy).treasury, 33, "one timber, 10% over")
+	var line: String = LedgerText.deal_line(deal)
+	assert_true(line.contains("at 33"), line)
+	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
