@@ -16,6 +16,8 @@ var _economy: PlayerEconomy = null
 var _compact: bool = false
 ## Row actions keyed "<action>:<tier>" ("recruit:2", "disband:1") for tooling.
 var _buttons: Dictionary = {}
+## Tier badges keyed by tier, so tooling reads the mark without walking rows.
+var _marks: Dictionary = {}
 
 
 ## Phone geometry from the panel that owns the tab; a live rotation re-fills so
@@ -31,6 +33,7 @@ func set_compact(compact: bool) -> void:
 func fill(economy: PlayerEconomy) -> void:
 	_economy = economy
 	_buttons.clear()
+	_marks.clear()
 	UiRowBuilder.clear(self)
 	add_child(
 		UiRowBuilder.label(
@@ -46,7 +49,11 @@ func fill(economy: PlayerEconomy) -> void:
 
 func _tier_row(tier: int) -> Control:
 	var height: float = COMPACT_ROW_HEIGHT if _compact else ROW_HEIGHT
+	var mark: int = WorkerTierArt.MARK_COMPACT if _compact else WorkerTierArt.MARK_SIZE
 	var row := UiRowBuilder.row(height)
+	var badge := WorkerTierArt.badge(tier, mark)
+	row.add_child(badge)
+	_marks[tier] = badge
 	var name_label := UiRowBuilder.label(WorkerPool.tier_name(tier), 14, Palette.TEXT)
 	name_label.custom_minimum_size = Vector2(132, 0)
 	row.add_child(name_label)
@@ -58,6 +65,7 @@ func _tier_row(tier: int) -> Control:
 		13,
 		Palette.TEXT_DIM
 	)
+	detail.clip_text = true
 	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(detail)
 	row.add_child(
@@ -105,3 +113,8 @@ func _action(
 ## instead of walking row children (REQ-P3-02).
 func action_buttons() -> Dictionary:
 	return _buttons
+
+
+## Tier badges keyed by tier; the roster mark a row wears for that rank.
+func tier_marks() -> Dictionary:
+	return _marks

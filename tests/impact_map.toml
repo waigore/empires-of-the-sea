@@ -672,6 +672,16 @@ domain = "economy_ui"
 match = "scripts/ui/commodity_icons.gd*"
 domain = "economy_ui"
 
+# The tier medallions are the WORKERS tab's art table, and its by-hand shot
+# harness draws that tab: both stay on the same light domain.
+[[rules]]
+match = "scripts/ui/worker_tier_art.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "tests/ledger_shot.gd*"
+domain = "economy_ui"
+
 [[rules]]
 match = "tests/test_market_economy_rules.gd*"
 domain = "economy"

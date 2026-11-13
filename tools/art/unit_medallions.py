@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Prepare the unit medallions (workers, hulls, regiments) for the project.
+"""Prepare the unit medallions (worker tiers, hulls, regiments) for the project.
 
-Sources are FLUX renders of one brass object each, on a flat magenta backdrop
-(see tools/art/unit-medallions.md for the prompts). The frame is never
-generated: it is rebuilt from `assets/art/icons/ledger.png` with the open book
-cleared out of the field, exactly as tools/art/tech-medallions.md describes, so
-every medallion shares the shell's ring, field, vignette and lighting.
+Sources are FLUX renders of one object each, on a flat magenta backdrop (see
+tools/art/unit-medallions.md for the prompts). The frame is never generated: it
+is rebuilt from `assets/art/icons/ledger.png` with the open book cleared out of
+the field, exactly as tools/art/tech-medallions.md describes, so every medallion
+shares the shell's ring, field, vignette and lighting.
 
 This script produces the shipped assets:
 
+  assets/art/workers/<tier>.png      one worker tier
   assets/art/civilians/<type>.png    one worker type
   assets/art/ships/<type>.png        one hull type
   assets/art/regiments/<type>.png    one land regiment type
+
+Worker tiers are the one family that keeps its own colour: each tier's tools are
+struck in a different metal, so a rank reads at a glance and not only by
+silhouette.
 
 Usage:
   python3 tools/art/unit_medallions.py <source-dir> <project-root> [--only id]
@@ -33,9 +38,25 @@ FIELD_RADIUS = 53.0
 FIT = 0.62
 FIT_WIDE = 0.70
 FIT_TALL = 0.60
+# A tier mark sits beside a label in a dense row, so it fills more of the frame
+# than a dossier plate does: the field's inner edge is at 53 px (106 across).
+TIER_FIT = (0.72, 0.76, 0.66)
+# The tiers are the one family struck in dark metals (iron, blued steel), so the
+# key's dark gate sits lower or their shaded faces fade into the magenta.
+TIER_KEY_FLOOR = 0.015
 SHADOW_OFFSET = (2, 3)
 
 CIVILIANS = ["explorer", "engineer", "builder", "spy", "merchant", "rail_builder"]
+TIERS = ["peasant", "apprentice", "journeyman", "master"]
+# One metal per tier, in rank order: wrought iron, copper, blued steel, gold.
+# (hue 0-255, saturation) — the model's own metal is replaced by these, so the
+# four ranks stay distinct in colour whatever the render drifts to.
+TIER_INK = {
+    "peasant": (26.0, 0.10),
+    "apprentice": (15.0, 0.70),
+    "journeyman": (168.0, 0.55),
+    "master": (33.0, 0.62),
+}
 SHIPS = [
     "carrack", "fluyte", "sloop", "trader", "galleon", "indiaman",
     "frigate", "raider", "ship_of_the_line", "clipper", "merchant_steamship",
@@ -49,7 +70,12 @@ REGIMENTS = [
     "heavy_artillery", "sharpshooters", "rifle_infantry", "guards", "scouts",
     "carbine_cavalry", "field_artillery", "siege_guns",
 ]
-FAMILIES = {"civilians": CIVILIANS, "ships": SHIPS, "regiments": REGIMENTS}
+FAMILIES = {
+    "workers": TIERS,
+    "civilians": CIVILIANS,
+    "ships": SHIPS,
+    "regiments": REGIMENTS,
+}
 
 LUMA = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
 
@@ -98,15 +124,18 @@ def blank_frame(source: Path) -> Image.Image:
     return Image.fromarray((np.clip(out, 0.0, 1.0) * 255.0).astype(np.uint8), "RGBA")
 
 
-def key(src: Path) -> Image.Image:
-    """Key one painted brass object off its flat magenta backdrop."""
+def key(src: Path, floor: float = 0.07) -> Image.Image:
+    """Key one painted object off its flat magenta backdrop.
+
+    `floor` is the luminance below which texels fade out, because a model painting
+    a dark backdrop must not key as object. The worker tiers are deliberately
+    dark metals, so that gate is lowered for them (see `build`).
+    """
     rgb = np.asarray(Image.open(src).convert("RGB")).astype(np.float32) / 255.0
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     magenta = np.minimum(r, b) - g
     alpha = np.clip(1.0 - (magenta - 0.03) / 0.12, 0.0, 1.0)
-    # A dark field would otherwise key as "object": brass is bright, its bronze
-    # shadows still sit well above the backdrop.
-    alpha *= np.clip((_luma(rgb) - 0.07) / 0.10, 0.0, 1.0)
+    alpha *= np.clip((_luma(rgb) - floor) / 0.10, 0.0, 1.0)
     grey = (r + g + b) / 3.0
     edge = alpha < 0.98
     r = np.where(edge, np.minimum(r, grey + 0.05), r)
@@ -119,13 +148,31 @@ def key(src: Path) -> Image.Image:
     return img.crop(box)
 
 
-def fit(obj: Image.Image) -> Image.Image:
+def grade(obj: Image.Image, hue: float, sat: float) -> Image.Image:
+    """Recast one object's metal: hue and saturation become the tier's, while the
+    render's own light and shadow (value) are kept, so form survives the tint. A
+    slight lift keeps the darker metals clear of the espresso field."""
+    hsv = np.asarray(obj.convert("HSV")).astype(np.float32)
+    hsv[..., 0] = hue
+    hsv[..., 1] = sat * 255.0
+    hsv[..., 2] = np.clip(hsv[..., 2] * 1.12 + 0.04 * 255.0, 0.0, 255.0)
+    out = Image.fromarray(np.clip(hsv, 0.0, 255.0).astype(np.uint8), "HSV").convert("RGBA")
+    out.putalpha(obj.split()[3])
+    return out
+
+
+def fit(
+    obj: Image.Image,
+    base: float = FIT,
+    wide: float = FIT_WIDE,
+    tall: float = FIT_TALL,
+) -> Image.Image:
     """Scale the object to the medallion's useful area, keeping its proportions."""
-    span = int(round(SIZE * FIT))
+    span = int(round(SIZE * base))
     if obj.width > obj.height * 1.35:
-        span = int(round(SIZE * FIT_WIDE))
+        span = int(round(SIZE * wide))
     elif obj.height > obj.width * 1.35:
-        span = int(round(SIZE * FIT_TALL))
+        span = int(round(SIZE * tall))
     scale = span / float(max(obj.width, obj.height))
     target = (max(1, round(obj.width * scale)), max(1, round(obj.height * scale)))
     return obj.resize(target, Image.LANCZOS)
@@ -150,7 +197,12 @@ def build(family: str, unit_id: str, sources: Path, root: Path, frame: Image.Ima
         raise SystemExit(f"missing source render: {src}")
     dest = root / "assets" / "art" / family / f"{unit_id}.png"
     dest.parent.mkdir(parents=True, exist_ok=True)
-    compose(frame, fit(key(src))).save(dest)
+    obj = key(src, TIER_KEY_FLOOR if family == "workers" else 0.07)
+    if family == "workers":
+        obj = grade(obj, *TIER_INK[unit_id])
+        compose(frame, fit(obj, *TIER_FIT)).save(dest)
+    else:
+        compose(frame, fit(obj)).save(dest)
     return dest
 
 

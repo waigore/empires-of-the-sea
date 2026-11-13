@@ -119,6 +119,26 @@ func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
 	)
 
 
+## The WORKERS tab leads every row with its tier's own medallion, so a rank reads
+## by its metal before the label is read (REQ-P1-08).
+func test_every_worker_row_wears_its_tier_medallion() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var marks: Dictionary = workers.tier_marks()
+	assert_eq(marks.size(), WorkerPool.TIER_COUNT, "one mark per tier row")
+	for tier in WorkerPool.TIER_COUNT:
+		var mark: UnitMedallion = marks.get(tier) as UnitMedallion
+		assert_not_null(mark, "tier %d wears its plate" % tier)
+		assert_eq(mark.texture, WorkerTierArt.medallion(tier))
+		assert_eq(
+			mark.custom_minimum_size,
+			Vector2(WorkerTierArt.MARK_SIZE, WorkerTierArt.MARK_SIZE),
+			"a desktop row keeps the dense mark"
+		)
+
+
 func test_ending_the_turn_resolves_the_economy() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var before: Dictionary = economy.stockpile.duplicate()
