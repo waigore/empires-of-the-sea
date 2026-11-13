@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:2a51846bb5abc738da4ee3d26506359425942b4be822f519b4c1d2e3a5e135d8",
-  "submission_git": "fix/ai-objective-research-reading@1d71ea6",
+  "submission_hash": "sha256:9e7f7ea7058af66f90eb25151506f3d6fef40e239fa6a20a85f264961efdc687",
+  "submission_git": "feat/ai-ledger-t2-expedition@2a117fa",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:fd6428cd0d8dfa5324917132fec335cdfe5fd1eeb3d53837948fa59856e82390",
+    "ai_surface_hash": "sha256:3b5aac4750f6cbbeec89390f2dbf853733df3e9b68f78fc589121aa4e3f7ac8c",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T16:16:11Z",
+  "timestamp": "2026-11-13T16:30:33Z",
   "report_version": 1,
-  "signature": "hmac-sha256:913e7890ddfe04882c0985e65c186c3cdd735927f48041605742a79725b6909f"
+  "signature": "hmac-sha256:eb99311b98a4be1c7631a290178913b6713769ba9f49f34c07fa88bf06969925"
 }

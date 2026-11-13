@@ -88,6 +88,7 @@ static func _readings(
 			play.world.region(home), faction
 		) >= 0,
 		"idle_hulls": _idle_hulls(play, faction),
+		"explorer_ready": _explorer_ready(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
 		"research_slots": slots,
 		"research_funding": funding_index,
@@ -210,6 +211,24 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 				continue
 			total += 1
 	return total
+
+
+## An idle Explorer of this court at home: the colonist the next train slot
+## musters (issue #491 T2).
+static func _explorer_ready(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for raw: Variant in play.civilian_layer.regions.value(home, []):
+		var unit: CivilianState = raw
+		if unit == null or unit.owner != faction or unit.type_id != "explorer":
+			continue
+		if unit.is_working() or unit.moved or unit.is_embarked():
+			continue
+		return true
+	return false
 
 
 ## True while an expedition of this court is already at sea (a protected claim
