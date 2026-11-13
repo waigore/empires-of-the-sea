@@ -1197,6 +1197,29 @@ domain = "ai_ledger"
 match = "tests/test_ai_objective_rules.gd*"
 domain = "ai_ledger"
 
+
+# War memory (issue #475): the weariness and truce clocks the diplomacy planner
+# reads before it takes or keeps a war. Its own slice so a memory tweak runs the
+# memory suite and the dispatch suite, not the whole AI fan-out.
+[domains.ai_diplomacy]
+suites = [
+  "test_ai_war_memory.gd",
+  "test_ai_phase_rules.gd"
+]
+
+[[rules]]
+match = "scripts/ai/ai_war_memory.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_diplomacy.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "tests/test_ai_war_memory.gd*"
+domain = "ai_diplomacy"
+
+
 [[rules]]
 match = "scripts/ai/**"
 domain = "ai"
