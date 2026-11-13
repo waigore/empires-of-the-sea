@@ -52,6 +52,7 @@ row with `plans: true`.
 | `score`     | max       | weighted progress (primary)                  |
 | `provinces` | max       | live crown province count (tie-break)        |
 | `forces`    | max       | regiments + ships (tie-break)                |
+| `funded_pct`| max       | mean share of ranked top-level objectives the ledger funded (mechanism, not score) |
 
 Weights (frozen): Old World provinces ×100, New World ×50, regiments ×10,
 ships ×10, workers ×5, mean positive stock Δ/turn ×2, mean positive treasury

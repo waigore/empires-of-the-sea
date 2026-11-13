@@ -65,4 +65,4 @@ parent prices `expedition.voyage`, not `no Explorer free`.
 | T3 reservations become claims | #498 | pending |
 | T4 posture modifier + weights | #499 | shipped |
 | T5 naval build policy | #500 | shipped |
-| T6 ai-bench funded share | #501 | pending |
+| T6 ai-bench funded share | #501 | shipped |

@@ -2,7 +2,8 @@
 """CI gate: AI-surface PRs must ship a signed ai-bench report ≥ baseline.
 
 Does not re-run Godot. Validates report shape, hill tree hash, AI-surface
-binding, primary config, and score vs committed baseline.
+binding, primary config, score vs committed baseline, and — when the report
+carries it — the ledger's funded share vs baseline (issue #501).
 
 Usage:
   python tools/check_ai_bench_report.py
@@ -27,6 +28,9 @@ AI_GLOBS = (
     "scripts/ai/**/*.gd",
     "scripts/map/map_play_*ai*.gd",
 )
+
+# A funded share may wobble by rounding; a collapse is what the gate hunts.
+FUNDED_EPSILON = 1e-6
 
 EXPECTED_PRIMARY = {
     "mode": "validation",
@@ -112,6 +116,14 @@ def _metric(report: dict, name: str) -> float:
         if entry.get("name") == name:
             return float(entry["value"])
     _die(f"report missing metric {name!r}")
+
+
+def _optional_metric(report: dict, name: str) -> float | None:
+    """A metric that older reports may predate; None when absent."""
+    for entry in report.get("metrics") or []:
+        if entry.get("name") == name:
+            return float(entry["value"])
+    return None
 
 
 def _primary(report: dict) -> dict:
@@ -215,9 +227,21 @@ def main() -> None:
     if score + 1e-9 < base_score:
         _die(f"score {score} < baseline {base_score}")
 
+    # The ledger's honesty: a rank-then-allocate change that silently re-starves
+    # the top objectives must fail here even when the score holds (#501, #476).
+    funded = _optional_metric(report, "funded_pct")
+    base_funded = _optional_metric(baseline, "funded_pct")
+    if funded is not None and base_funded is not None:
+        if funded + FUNDED_EPSILON < base_funded:
+            _die(
+                f"funded_pct {funded:.4f} < baseline {base_funded:.4f} — the "
+                "ledger stopped funding the objectives it ranks first"
+            )
+
     _maybe_verify(REPORT)
     print(
         f"ai-bench-gate: OK score={score} baseline={base_score} "
+        f"funded_pct={funded if funded is not None else 'n/a'} "
         f"surface={expected_hash[:19]}…"
     )
 

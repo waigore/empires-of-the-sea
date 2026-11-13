@@ -6,6 +6,7 @@ metrics:
   - {name: score, direction: max}
   - {name: provinces, direction: max}
   - {name: forces, direction: max}
+  - {name: funded_pct, direction: max}
 
 # Full 200-turn Godot runs can take several minutes; leave headroom.
 watchdog_timeout_s: 1800

@@ -1,2 +1,4 @@
 0000000000000000000000000000000000000000 2f57c408f0d6df4926eea9180307c4d469766e6a waigore <32946806+waigore@users.noreply.github.com> 1794554014 +0800	commit (initial): Freeze ai-bench: weighted bench campaign score for rival-court AI.
 2f57c408f0d6df4926eea9180307c4d469766e6a 62052814209667c3ff98cbc9a19a80039d3676ba waigore <32946806+waigore@users.noreply.github.com> 1794554427 +0800	commit: Track hill .vc in project git; drop nested .vc ignore.
+62052814209667c3ff98cbc9a19a80039d3676ba eccc58ed78c2216398c66665181a08702b230542 waigore <32946806+waigore@users.noreply.github.com> 1794594849 +0800	commit: add funded_pct: share of ranked top-level objectives the ledger funds (#501)
+eccc58ed78c2216398c66665181a08702b230542 668baee0c4fb55101984c9aad7ecba4afa7e1ff6 waigore <32946806+waigore@users.noreply.github.com> 1794594990 +0800	commit: add funded_pct: share of ranked top-level objectives the ledger funds (#501)

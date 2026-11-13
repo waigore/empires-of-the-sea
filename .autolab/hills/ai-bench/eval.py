@@ -118,6 +118,37 @@ def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
     return income, extraction
 
 
+def _funded_share(turns_path: Path, faction: int) -> float:
+    """Mean share of ranked top-level objectives the live crown funded.
+
+    Read straight off the T1 ledger row the observer stamps per turn (issue
+    #501). Turns where the court ranked no top-level aim are skipped: a court
+    with nothing to fund has no share to report, and counting it as 1.0 would
+    inflate the mean.
+    """
+    if not turns_path.is_file():
+        return 0.0
+    shares: list[float] = []
+    for line in turns_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        row = None
+        for candidate in record.get("rows") or []:
+            if int(candidate.get("faction", -2)) == faction:
+                row = candidate
+                break
+        if row is None:
+            continue
+        objectives = row.get("objectives") or {}
+        ranked = int(objectives.get("top_ranked", 0))
+        if ranked <= 0:
+            continue
+        funded = int(objectives.get("top_funded", 0))
+        shares.append(min(max(float(funded) / float(ranked), 0.0), 1.0))
+    return sum(shares) / len(shares) if shares else 0.0
+
+
 def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
     row = _live_row(summary)
     if row is None:
@@ -129,8 +160,10 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
     ships = int(row.get("ships", 0))
     workers = int(row.get("workers", 0))
     income_pt, extraction_pt = (0.0, 0.0)
+    funded_pct = 0.0
     if turns_path is not None:
         income_pt, extraction_pt = _rates_from_turns(turns_path, faction)
+        funded_pct = _funded_share(turns_path, faction)
 
     parts = {
         "provinces_old": provinces_old,
@@ -160,6 +193,7 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
         "score": float(score),
         "provinces": float(provinces),
         "forces": float(forces),
+        "funded_pct": float(funded_pct),
         "parts": parts,
         "early_win": early_win,
         "live_faction": faction,
@@ -251,12 +285,13 @@ def eval(
                 {"name": "score", "value": scored["score"], "direction": "max"},
                 {"name": "provinces", "value": scored["provinces"], "direction": "max"},
                 {"name": "forces", "value": scored["forces"], "direction": "max"},
+                {"name": "funded_pct", "value": scored["funded_pct"], "direction": "max"},
             ],
             "config": config,
             "details": {
                 "fixture": True,
                 "ai_surface_hash": "fixture",
-                **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns")},
+                **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns", "funded_pct")},
             },
         }
 
@@ -299,11 +334,12 @@ def eval(
             {"name": "score", "value": scored["score"], "direction": "max"},
             {"name": "provinces", "value": scored["provinces"], "direction": "max"},
             {"name": "forces", "value": scored["forces"], "direction": "max"},
+            {"name": "funded_pct", "value": scored["funded_pct"], "direction": "max"},
         ],
         "config": config,
         "details": {
             "fixture": False,
             "ai_surface_hash": surface,
-            **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns")},
+            **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns", "funded_pct")},
         },
     }

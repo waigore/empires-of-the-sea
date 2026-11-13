@@ -46,6 +46,16 @@ wars, last-turn order mix. Dashboard: recent-orders feed, pause / step /
 speed, campaign result. `play.ai_turns` keeps one merged record per turn
 (wiki: turn-trace-interpretation).
 
+Each row also carries `objectives`: the court's last ledger in one compact
+row — `ranked` / `funded` over the whole tree and `top_ranked` / `top_funded`
+over its top-level aims. The ai-bench evaluator reads the live crown's
+`top_funded / top_ranked` per resolved turn and reports the mean as
+`funded_pct` (issue #501): the share of the objectives the ledger ranked first
+that it actually funded. Turns where the court ranked no top-level aim are
+skipped, not counted as 1.0. `tools/check_ai_bench_report.py` fails the
+`ai-bench-report` gate when `funded_pct` drops below the committed baseline,
+so a rank-then-allocate change cannot silently re-starve the top aims (#476).
+
 ## Export
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`

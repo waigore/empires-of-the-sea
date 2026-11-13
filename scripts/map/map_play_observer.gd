@@ -82,6 +82,7 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"techs": economy.tech_unlocked.size() if economy != null else 0,
 		"wars": _war_names(play, faction),
 		"alliances": _alliance_count(play, faction),
+		"objectives": _objectives(play, faction),
 		"progress": float(old_world) / float(VictoryRules.MILITARY_THRESHOLD),
 		"alive": old_world + new_world > 0,
 		"last": last,
@@ -100,6 +101,25 @@ static func _last_turn(play: PlaySession, faction: int) -> Dictionary:
 
 static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
 	return play.ledger_for(faction)
+
+
+## The court's last ledger in one compact row: how many top-level aims it ranked
+## and funded. The bench reads the funded share from the turn trace; the counts
+## are already on `AiState`, so this is a copy, not a second planning pass
+## (issue #501, REQ-P4-03).
+static func _objectives(play: PlaySession, faction: int) -> Dictionary:
+	if play.ai == null:
+		return {}
+	var claim: Dictionary = play.ai.objectives_for(faction)
+	if claim.is_empty():
+		return {}
+	return {
+		"turn": int(claim.get("turn", 0)),
+		"ranked": int(claim.get("ranked", 0)),
+		"funded": int(claim.get("funded", 0)),
+		"top_ranked": int(claim.get("top_ranked", 0)),
+		"top_funded": int(claim.get("top_funded", 0)),
+	}
 
 
 ## Public order-of-battle strength: FPN + FPM over every land army, no medals
