@@ -1675,6 +1675,17 @@ func test_a_truce_does_not_price_the_war_in_progress() -> void:
 		),
 		0, "a war already on carries no cooling term"
 	)
+	var unread: DiplomacyRelation = null
+	assert_eq(
+		AiPeaceStance.truce_penalty(ai_planner_ai_state, 6, 0, 99, unread), 0,
+		"a pair with no relation carries no cooling term"
+	)
+	assert_eq(
+		AiPeaceStance.truce_penalty(
+			null, 6, 0, 1, ai_planner_state.relation(0, 1)
+		),
+		0, "a run with no AI bookkeeping keeps the published score"
+	)
 
 func test_war_desire_below_the_minimum_blocks_war() -> void:
 	_setup_ai_planner()
