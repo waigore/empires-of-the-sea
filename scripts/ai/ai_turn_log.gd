@@ -41,13 +41,15 @@ static func record(
 	army_trace: Array[Dictionary],
 	fleet_trace: Array[Dictionary],
 	economy_report: Dictionary,
-	invasion_trace: Array[Dictionary] = []
+	invasion_trace: Array[Dictionary] = [],
+	objectives_report: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
 		"turn": play.turn,
 		"year": TurnTime.year_for_turn(play.turn),
 		"factions": {},
 		"events": [],
+		"objectives": objectives_report.get("factions", {}),
 	}
 	var factions: Dictionary = merged["factions"]
 	for faction: int in FactionCatalog.great_power_ids():
@@ -91,6 +93,18 @@ static func headline(last: Dictionary) -> String:
 	if parts.is_empty():
 		return "held station, no orders"
 	return " · ".join(parts)
+
+
+## The ledger lines one court's objectives printed this turn, or an empty list
+## before its first resolved turn (T1, trace-only).
+static func ledger_lines(merged: Dictionary, faction: int) -> Array[String]:
+	var lines: Array[String] = []
+	var objectives: Dictionary = merged.get("objectives", {})
+	var row: Variant = objectives.get(faction, {})
+	if typeof(row) != TYPE_DICTIONARY:
+		return lines
+	lines.assign((row as Dictionary).get("lines", []))
+	return lines
 
 
 # --- turn record -------------------------------------------------------------

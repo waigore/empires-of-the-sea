@@ -19,6 +19,10 @@ var economies: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
+## Faction id -> the claims its objective ledger funded last turn (T1,
+## trace-only). The ledger rebuilds its tree every turn; only the claims it
+## granted persist, so a later task can read what a court committed to.
+var claims: Dictionary = {}
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -102,6 +106,7 @@ func to_dict() -> Dictionary:
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
 		"difficulty": difficulty,
+		"claims": _claims_snapshots(),
 	}
 
 
@@ -115,6 +120,7 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
+	state.claims = _claims_from(data.get("claims", {}))
 	return state
 
 
@@ -149,6 +155,33 @@ static func _turn_dictionary(raw: Variant) -> Dictionary:
 	for key: Variant in stored.keys():
 		turns[String(key)] = int(stored[key])
 	return turns
+
+
+## One deep copy per court's funded claims, keyed by faction id. A save must
+## carry them so a load resumes the same commitments (T1, trace-only).
+func _claims_snapshots() -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in claims.keys():
+		result[int(raw)] = _claim_rows(claims[raw])
+	return result
+
+
+static func _claims_from(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		result[int(key)] = _claim_rows(stored[key])
+	return result
+
+
+static func _claim_rows(raw: Variant) -> Array:
+	var rows: Array = []
+	if typeof(raw) != TYPE_ARRAY:
+		return rows
+	for row: Variant in raw:
+		if typeof(row) == TYPE_DICTIONARY:
+			rows.append((row as Dictionary).duplicate(true))
+	return rows
 
 
 static func _dictionary(raw: Variant) -> Dictionary:

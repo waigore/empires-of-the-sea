@@ -9,6 +9,7 @@ suites = [
   "test_ai_observer.gd",
   "test_ai_rules.gd",
   "test_ai_phase_rules.gd",
+  "test_ai_objective_ledger.gd",
   "test_land_battle_rules.gd"
 ]
 
@@ -1274,6 +1275,13 @@ domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
+domain = "ai"
+
+# The objective ledger adapter (T1, trace-only): it reads the rival planners'
+# turn output and stamps the ranked tree, so it rides the AI suites rather than
+# the broad map set.
+[[rules]]
+match = "scripts/map/map_play_objectives_ai.gd*"
 domain = "ai"
 
 [[rules]]

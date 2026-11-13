@@ -203,7 +203,15 @@ static func _finish_turn(play: PlaySession) -> void:
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
 	var raid_report: Dictionary = MapPlayRaids.resolve(play)
-	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
+	# The objective ledger reads the orders every planner just staged and stamps
+	# its ranked, allocated tree into the turn record. Trace-only: it spends
+	# nothing, so the same seed yields the same orders (T1, REQ-P2-03).
+	var objectives_report: Dictionary = MapPlayObjectivesAi.run(
+		play, economy_report, army_trace, fleet_trace, invasion_trace
+	)
+	AiTurnLog.record(
+		play, army_trace, fleet_trace, economy_report, invasion_trace, objectives_report
+	)
 	play.turn += 1
 	# The new turn opens the crown's watch: a rival squadron still under the same
 	# eye that saw her last turn is read now, and her weight reaches the markers

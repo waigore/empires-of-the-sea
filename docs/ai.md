@@ -61,6 +61,11 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   Consumption → Production, trade.
 - **War footing** (`AiPhasePlanner`): `war` / `fronts` / `peace`; overstretch
   takes any peace (DR-20261113-15).
+- **Objective ledger** (`AiObjective`, `AiUtility`, `AiObjectiveLedger`,
+  `AiObjectives`, `MapPlayObjectivesAi`): each planner's turn output is
+  normalized into one 0–100 utility, ranked, and allocated against the court's
+  pools (treasury, hulls, civilians, regiments, labour, orders); funded claims
+  persist in `AiState`. Trace-only: it spends nothing and changes no order.
 - **Persistence:** agendas, cooldowns, ledgers (`AiState.to_dict`), dossier
   ([`intel-dossier.md`](intel-dossier.md)).
 
