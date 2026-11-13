@@ -91,6 +91,18 @@ suites = [
   "test_panel_parts_rules.gd"
 ]
 
+# The court's tongue (wiki: dialogue-content-and-yarn § Localization;
+# DR-20261113-09): the settings page both menus share, its record, and the two
+# menu doors that open it. Kept its own (small) domain so a picker change stays
+# inside tier 1 instead of pulling the broad menu set past the 5 min bar.
+[domains.tongue]
+suites = [
+  "test_menu_flow.gd",
+  "test_main.gd",
+  "test_mobile_layout.gd",
+  "test_yarn_plates_rules.gd"
+]
+
 [domains.intel]
 # Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
 # court's acts and the spy despatch that feeds them. Kept apart from the broad
@@ -523,6 +535,28 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+
+# The court's tongue: the settings page, its record and the two menu doors that
+# open it (DR-20261113-09). Named before the menu rules so a picker change runs
+# the tongue slice only.
+[[rules]]
+match = "scripts/ui/tongue_*.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/main_menu.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/game_menu.gd*"
+domain = "tongue"
+
+# The out-of-map furniture the tongue page is built from: the menu and layout
+# suites that mount those pages prove it.
+[[rules]]
+match = "scripts/ui/menu_frame.gd*"
+domain = "tongue"
+
 [[rules]]
 match = "scripts/rules/victory_rules.gd*"
 domain = "victory_bar"
