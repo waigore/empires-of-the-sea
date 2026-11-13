@@ -765,3 +765,133 @@ func test_drill_yard_rows_carry_their_medallion() -> void:
 	assert_eq((top.get_child(1) as Label).text, "Grenadiers")
 	panel.free()
 
+
+
+## The crown names its own colours: the dossier's name row writes a title the
+## army carries, and no rule moves (wiki: naming § Regiment names;
+## DR-20261113-03).
+func test_the_crown_names_its_colours() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var regiment: String = home.regiments[0]
+	var strength: float = home.strength()
+	var rations: int = ArmyState.food_upkeep_of([home], home.owner)
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:  Tercio   de la Mar " % regiment)
+
+	assert_eq(
+		RegimentNames.of(home, regiment), "Tercio de la Mar",
+		"the typed name is tidied and kept"
+	)
+	assert_true(_last_toast().contains("Tercio de la Mar"), _last_toast())
+	assert_eq(home.strength(), strength, "a name buys no strength")
+	assert_eq(ArmyState.food_upkeep_of([home], home.owner), rations, "a name eats nothing")
+	assert_true(_screen.hud.panels.is_army_panel_open(), "the dossier repaints with the name")
+	var row: HBoxContainer = (
+		_screen.hud.panels.army_panel._roster.get_child(0) as VBoxContainer
+	).get_child(0) as HBoxContainer
+	assert_true((row.get_child(1) as Label).text.begins_with("Tercio de la Mar —"), "the row prints it")
+
+
+## A name a title cannot bear is refused with its reason, and the colours keep
+## the name they had (wiki: naming § Regiment names; DR-20261113-03).
+func test_a_name_the_rules_refuse_leaves_the_colours() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var first: String = home.regiments[0]
+	var second: String = home.regiments[1]
+	var borne: String = RegimentNames.of(home, first)
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:   " % first)
+	assert_true(_last_toast().contains("needs a name"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "an empty name changes nothing")
+
+	MapPlayArmies.on_action(_screen.play, "rename:%s:%s" % [first, "A".repeat(29)])
+	assert_true(_last_toast().contains("28"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "an over-long name changes nothing")
+
+	MapPlayArmies.on_action(
+		_screen.play, "rename:%s:%s" % [first, RegimentNames.of(home, second).to_lower()]
+	)
+	assert_true(_last_toast().contains("Another colour"), _last_toast())
+	assert_eq(RegimentNames.of(home, first), borne, "a double name changes nothing")
+
+
+## A rename rides the split and the save exactly as the christened title does,
+## because it is the same store (DR-20261113-03).
+func test_a_renamed_title_rides_the_split_and_the_save() -> void:
+	var field: ArmyState = _detach_one()
+	var regiment: String = field.regiments[0]
+	assert_true(bool(RegimentRename.apply(field, regiment, "Tercio de la Mar")["ok"]))
+
+	var saved := ArmyState.from_dict(field.to_dict())
+	assert_eq(
+		RegimentNames.of(saved, regiment), "Tercio de la Mar",
+		"a save keeps the crown's own name"
+	)
+
+	var armies: Array[ArmyState] = [field]
+	var split: Dictionary = ArmyState.split(armies, field, [regiment], 99)
+	assert_true(bool(split["ok"]), String(split["reason"]))
+	assert_eq(
+		RegimentNames.of(split["army"] as ArmyState, regiment), "Tercio de la Mar",
+		"a detach carries the name"
+	)
+
+
+## The name row is the crown's door: it opens on the row, commits what was
+## typed and never offers itself for a rival's colours (REQ-P5-07).
+func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var asked: Array = []
+	panel.rename_pressed.connect(
+		func(regiment_id: String, wanted: String) -> void:
+			asked.append("%s=%s" % [regiment_id, wanted])
+	)
+
+	panel.refresh(model, army, true)
+
+	var row: HBoxContainer = (panel._roster.get_child(0) as VBoxContainer).get_child(0) as HBoxContainer
+	assert_eq(row.get_child_count(), 4, "medallion, name, detach, the name order")
+	assert_eq((row.get_child(3) as Button).text, "Name", "the crown's door sits beside detach")
+	(row.get_child(3) as Button).pressed.emit()
+	var field: LineEdit = panel._roster._field
+	assert_not_null(field, "the name row opens under the colours")
+	assert_eq(field.text, RegimentNames.of(army, "unit_301"), "the row starts at the name borne")
+	field.text = "Royal Scots"
+	panel._roster.commit_rename("unit_301")
+	assert_eq(asked, ["unit_301=Royal Scots"], "the typed name is handed to the rules")
+
+	# The way out: cancel closes the row and changes nothing.
+	var borne: String = RegimentNames.of(army, "unit_301")
+	panel._roster.begin_rename("unit_301")
+	panel._roster.cancel_rename()
+	assert_null(panel._roster._field, "cancel closes the name row")
+	assert_eq(RegimentNames.of(army, "unit_301"), borne, "cancel keeps the name borne")
+	panel.free()
+
+	var rival := ArmyFixture.army(4, 1, 2, ["knights"], false)
+	var enemy_panel := ArmyPanel.new()
+	add_child(enemy_panel)
+	enemy_panel.refresh(model, rival, false)
+	var enemy_row: HBoxContainer = (
+		enemy_panel._roster.get_child(0) as VBoxContainer
+	).get_child(0) as HBoxContainer
+	assert_eq(enemy_row.get_child_count(), 2, "a rival's colours carry no order")
+	enemy_panel.free()
+
+
+## An order with no instance id is ignored rather than renaming the wrong
+## colours (DR-20261113-03).
+func test_a_malformed_name_order_changes_nothing() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var borne: String = RegimentNames.of(home, home.regiments[0])
+
+	MapPlayArmies.on_action(_screen.play, "rename:")
+	MapPlayArmies.on_action(_screen.play, "rename::Foo")
+
+	assert_eq(RegimentNames.of(home, home.regiments[0]), borne)

@@ -8,6 +8,9 @@ extends PanelContainer
 signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
+## The crown named one of its colours: the roster's edit row committed text
+## (wiki: naming § Regiment names; DR-20261113-03).
+signal rename_pressed(regiment_id: String, wanted: String)
 
 var _header: DossierHeader = null
 var _location: Label = null
@@ -101,6 +104,10 @@ func _build() -> void:
 
 	_roster = ArmyRosterBlock.new()
 	_roster.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	_roster.rename_pressed.connect(
+		func(regiment_id: String, wanted: String) -> void:
+			rename_pressed.emit(regiment_id, wanted)
+	)
 	content.add_child(_roster)
 
 	_muster_box = ArmyMusterBlock.new()
