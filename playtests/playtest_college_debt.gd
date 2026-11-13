@@ -321,14 +321,6 @@ func _ledger_summary() -> String:
 	return "no summary line"
 
 
-func _last_toast() -> String:
-	if _play.hud._toast_box == null:
-		return "none"
-	var labels: PackedStringArray = PackedStringArray()
-	_collect(_play.hud._toast_box, labels)
-	return labels[labels.size() - 1] if not labels.is_empty() else "none"
-
-
 ## Every despatch plate standing in the lane at this moment, oldest first, so a
 ## turn's news is read as the court reads it (the lane stacks plates).
 func _toasts() -> Array[String]:
