@@ -13,9 +13,8 @@ recorded events into a line and a face; no word feeds an outcome (`REQ-P2-03`).
 | `scripts/rules/dialogue_mood.gd` | The eight moods and the machine |
 | `scripts/rules/dialogue_events.gd` | Event/offer → speaker, point, face, text |
 | `scripts/rules/dialogue_yarn.gd`, `yarn_*.gd` | The standing word as Yarn: parser, grammar, runner |
-| `scripts/rules/dialogue_locale.gd` | Locale keys, and every tongue that ships |
+| `scripts/rules/dialogue_locale.gd` | Stable content keys; English only |
 | `scripts/rules/consent_copy.gd` | The consent prompts' words and their keys |
-| `scripts/ui/tongue_*.gd` | The settings page that picks the tongue, and its record |
 | `scripts/map/map_play_court_voice.gd` | Reads the resolved turn, records its beats |
 
 ## Where it shows
@@ -51,7 +50,7 @@ words (`REQ-P2-04`).
 
 Quality is the surplus over the requirement, normalised by 40, clamped to ±1.
 
-## Yarn and tongues
+## Yarn and English copy
 
 The standing word is Yarn (`DialogueYarn.SOURCE`): one node per point titled
 with its content key, `category:`/`mood:` in `tags:`, merged by
@@ -59,18 +58,14 @@ with its content key, `category:`/`mood:` in `tags:`, merged by
 stops and variables; a malformed script is refused with its line number and a
 jump loop is bounded.
 
-Each variant answers to `DialoguePoint/<point>/<variant>` through
-`TranslationServer`; an untranslated key keeps the authored English
-(`REQ-P2-03`). `fr.po` and `es.po` ship, each answering every variant; any `.po`
-in `assets/locales/` is a tongue, and CI holds every file to the catalogue. The device's tongue decides unless the reader picks one; `TonguePage`
-on the title and the pause menu moves the next line and keeps the pick in
-`user://tongue.cfg` (`REQ-P5-07`).
+Each variant carries a stable key `DialoguePoint/<point>/<variant>`; the court
+prints the authored English (`REQ-P2-03`). English is the only supported
+language.
 
 Blocking prompts answer to `Prompt/<subject>/<line>` (`ConsentCopy`): caption,
 stakes, terms, the envoy's face, each answer. Banner and despatch read one
-catalogue, filled after the tongue, so a translation names its own courts and
-rates (`REQ-P5-05`).
+catalogue (`REQ-P5-05`).
 
 ## Deferred
 
-Era blocked; more tongues and despatch outcomes ([`deferred.md`](deferred.md)).
+Era blocked ([`deferred.md`](deferred.md)).
