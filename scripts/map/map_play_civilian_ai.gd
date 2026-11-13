@@ -52,18 +52,10 @@ static func plan_all(
 	# training and deeds are discretionary, the war chest is not (wiki:
 	# growth-stage-planner § Recruitment modulation; treasury-planner
 	# § Cash discipline; issue #474).
-	var spendable: int = int(
-		AiClaims.purse(economy.treasury, floor).get("treasury", 0)
-	)
-	# Works are income planners, so on `earn` they may spend down to the court's
-	# cash floor — but only on extraction, the works that put goods or riches in
-	# the store. Everything else keeps the standing reserve, so a court saving for
-	# a muster never starves its workshops and never builds a road instead of a
-	# mine (wiki: ai-architecture § Money first; issue #489).
-	var works_cash: int = spendable
-	var earn: bool = works_floor >= 0
-	if earn:
-		works_cash = int(AiClaims.purse(economy.treasury, works_floor).get("treasury", 0))
+	var purses: Dictionary = purses_for(economy.treasury, floor, works_floor)
+	var spendable: int = int(purses["spendable"])
+	var works_cash: int = int(purses["works"])
+	var earn: bool = bool(purses["earn"])
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -105,6 +97,22 @@ static func plan_all(
 			"plan": plan,
 		})
 	return plans
+
+
+## The two purses a crew reads. A hire may spend what the standing reserve
+## leaves; the works may spend down to the cash floor when the court is on
+## `earn`, because extraction is what refills the store the muster is saved for
+## (wiki: ai-architecture § Money first; issue #489). `works_floor` below zero
+## keeps both purses on the standing reserve.
+static func purses_for(treasury: int, floor: int, works_floor: int) -> Dictionary:
+	var spendable: int = int(AiClaims.purse(treasury, floor).get("treasury", 0))
+	if works_floor < 0:
+		return {"spendable": spendable, "works": spendable, "earn": false}
+	return {
+		"spendable": spendable,
+		"works": int(AiClaims.purse(treasury, works_floor).get("treasury", 0)),
+		"earn": true,
+	}
 
 
 ## On `earn` only extraction is funded from the cash floor: a court that cannot

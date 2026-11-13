@@ -1310,6 +1310,20 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
 
 
+## The two purses: a court on `earn` keeps the works open down to its cash floor
+## while hires still wait for the muster (issue #489).
+func test_the_works_purse_opens_when_the_court_is_earning() -> void:
+	var saving: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, -1)
+	assert_eq(int(saving["spendable"]), 0, "nothing is discretionary below the reserve")
+	assert_eq(int(saving["works"]), 0)
+	assert_false(bool(saving["earn"]))
+
+	var earning: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, 400)
+	assert_eq(int(earning["spendable"]), 0, "hires still stand down")
+	assert_eq(int(earning["works"]), 600, "extraction may draw on the purse")
+	assert_true(bool(earning["earn"]))
+
+
 ## Hires stand down while the court saves; the works purse is a separate read.
 func test_a_hire_reads_the_hire_purse() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
