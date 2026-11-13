@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
   "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:51290968ef12d6f6e9c73facc05572a06b14c91fa6e986628d42e5f7dd173598",
-  "submission_git": "fix/colonial-war-memory@d83562f",
+  "submission_hash": "sha256:b0c9f7d665b136ea789ac600fd7fead8427b9554c8d574da1b4f4178442556fb",
+  "submission_git": "refactor/ai-diplomacy-desire@af09ebd",
   "passed": true,
   "config": [
     {
@@ -51,7 +51,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3b32698bc47a40e7684206affb4ec1a946735ed6e36af45c995bb71383d38801",
+    "ai_surface_hash": "sha256:c0f8636b7581cf0e854d20b8c6aa3882e6363575f59cadc026e219e81574e36c",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -80,7 +80,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T17:32:45Z",
+  "timestamp": "2026-11-13T18:14:38Z",
   "report_version": 1,
-  "signature": "hmac-sha256:ce7b560a9b672324b82d6598ecd7fef3638216dab1f60fb554cf09d6d33448a5"
+  "signature": "hmac-sha256:8d44f81d86781c1904d8b2abe741daf9c409d3c1f0d34912873fa22a6654a023"
 }
