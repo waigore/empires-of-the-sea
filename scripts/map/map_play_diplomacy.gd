@@ -184,7 +184,15 @@ static func sync_first_contact(play: PlaySession) -> Array[int]:
 			continue
 		if not _sees_tribe(play, tribe):
 			continue
-		play.diplomacy.ensure_relation(play.player_faction, tribe, play.turn)
+		var relation: DiplomacyRelation = play.diplomacy.ensure_relation(
+			play.player_faction, tribe, play.turn
+		)
+		## A crown whose leader publishes the Tribe lean opens friendlier than the
+		## Neutral equilibrium (wiki: leader-bonuses § Bonus Table — Isabella).
+		if relation != null:
+			relation.set_score(LeaderCatalog.first_contact_score(
+				String(play.leaders.get(play.player_faction, ""))
+			))
 		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
 		contacted.append(tribe)
 	if not contacted.is_empty():

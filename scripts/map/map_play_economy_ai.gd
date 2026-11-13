@@ -60,7 +60,7 @@ static func run(play: PlaySession) -> Dictionary:
 		# plans are applied once the phase has resolved.
 		var projected: Dictionary = EconomyTurn.project(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), boost, hospitals
+			_army_food(play, faction), boost, hospitals, _leader(play, faction)
 		)
 		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
 			play, faction, economy, config, overseas,
@@ -74,7 +74,7 @@ static func run(play: PlaySession) -> Dictionary:
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
 			economy, market, overseas["extraction"] as Dictionary, _ships(play, faction),
-			_army_food(play, faction), false, boost, hospitals
+			_army_food(play, faction), false, boost, hospitals, _leader(play, faction)
 		)
 		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
 		# first, and the flags they set are what its next rest tick reads
@@ -280,6 +280,12 @@ static func _army_food(play: PlaySession, faction: int) -> int:
 	if play.army_layer == null:
 		return 0
 	return play.army_layer.food_upkeep_all(faction)
+
+
+## The rival's leaderKey, whose published funding multiplier lifts its research
+## points (wiki: leader-bonuses § Bonus Table — Victoria).
+static func _leader(play: PlaySession, faction: int) -> String:
+	return String(play.leaders.get(faction, ""))
 
 
 static func _at_war(play: PlaySession, faction: int) -> bool:

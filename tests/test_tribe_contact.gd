@@ -97,6 +97,29 @@ func test_a_charted_province_opens_first_contact() -> void:
 	assert_false(record.formal_alliance)
 
 
+## A crown whose leader publishes the Tribe lean opens on score 60, while a crown
+## with no diplomacy row still opens at the Neutral equilibrium (wiki:
+## leader-bonuses § Bonus Table — Isabella).
+func test_a_leader_with_the_tribe_lean_opens_first_contact_at_sixty() -> void:
+	var charts: CourtCharts = _charts([HUMAN, _rival, _tribe])
+	_reveal(charts, _rival, 2)
+	var found: Array[Dictionary] = TribeContact.apply(
+		charts, _state, HUMAN, TURN, {_rival: "isabella"}
+	)
+	assert_eq(found.size(), 1)
+	var record: DiplomacyRelation = _state.relation(_rival, _tribe)
+	assert_eq(record.score, 60.0, "Spain opens friendlier than the equilibrium")
+	assert_false(record.at_war)
+
+
+func test_a_crown_without_the_tribe_lean_opens_at_the_equilibrium() -> void:
+	var charts: CourtCharts = _charts([HUMAN, _rival, _tribe])
+	_reveal(charts, _rival, 2)
+	TribeContact.apply(charts, _state, HUMAN, TURN, {_rival: "victoria"})
+	var record: DiplomacyRelation = _state.relation(_rival, _tribe)
+	assert_eq(record.score, 50.0, "research funding buys no Tribal welcome")
+
+
 ## The discovery is a chronicle beat of the turn that resolved, so the court's
 ## sheet narrates it beside the turn's other acts.
 func test_the_beat_is_stamped_with_the_resolved_turn() -> void:
