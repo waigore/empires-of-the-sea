@@ -19,8 +19,8 @@ const PARAMETERS: Array[Dictionary] = [
 		"category": "diplomacy",
 		"type": TYPE_INT,
 		"min": 0,
-		"max": 40,
-		"default": 12,
+		"max": 100,
+		"default": 80,
 	},
 	{
 		"key": "diplomacy.truce_turns",
@@ -28,7 +28,7 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 60,
-		"default": 30,
+		"default": 16,
 	},
 	{
 		"key": "diplomacy.truce_penalty",
@@ -36,6 +36,6 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 100,
-		"default": 40,
+		"default": 25,
 	},
 ]
