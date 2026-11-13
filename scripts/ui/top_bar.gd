@@ -1,6 +1,6 @@
 class_name TopBar
 extends RefCounted
-## Cartouche bar: crest, nation and turn, the region seal, four command seals
+## Cartouche bar: crest, nation and turn, the region seal, five command seals
 ## and the status plaques. Every element either answers a question the player
 ## asks every turn or performs an action; the bar carries no vanity counters.
 ## HudLayout re-anchors the parts captured on `hud` (REQ-P1-02, REQ-P1-05).
@@ -73,6 +73,10 @@ static func build(hud: GameHud) -> void:
 	command.add_child(_seal(
 		"crown", "COURT", "Diplomacy, alliances and war",
 		func() -> void: hud.diplomacy_pressed.emit()
+	))
+	command.add_child(_seal(
+		"commander", "MUSTER", "Every army and squadron in one ledger (O)",
+		func() -> void: hud.muster_roll_pressed.emit()
 	))
 
 	var spacer := Control.new()

@@ -2,7 +2,9 @@ class_name MapPlayEspionage
 extends RefCounted
 ## Session glue for the spy network: folds every region's roster into the
 ## Research-phase share (wiki: civilian-units § Spy; DR-20261110-03). The rules
-## live in SpyNetworks; this only reads the live rosters and the rival ledgers.
+## live in SpyNetworks; qualifying courts and rosters live on MapPlaySpyAi; this
+## only reads the rival ledgers for the human crown's boost.
+
 
 const SPY_TYPE: String = "spy"
 
@@ -13,26 +15,10 @@ const SPY_TYPE: String = "spy"
 static func research_boost(play: PlaySession) -> Dictionary:
 	if play == null or play.civilian_layer == null or play.ai == null:
 		return {}
-	var rivals: Array[int] = []
-	for index in play.world.region_count():
-		var model: MapModel = play.world.region(index)
-		for rival: int in SpyNetworks.qualifying_rivals(
-			model, _roster(play, index), play.player_faction
-		):
-			if not rivals.has(rival):
-				rivals.append(rival)
+	var rivals: Array[int] = MapPlaySpyAi.qualifying_rivals(play, play.player_faction)
 	if rivals.is_empty():
 		return {}
 	var tech: Dictionary = {}
 	for faction: int in rivals:
 		tech[faction] = play.ai.economy_for(faction).tech_unlocked
 	return SpyNetworks.research_boost(rivals, tech)
-
-
-## Live roster for the shown region, stored table for the other.
-static func _roster(play: PlaySession, index: int) -> Array[CivilianState]:
-	var units: Array[CivilianState] = []
-	if index == play.region_index:
-		return play.civilian_layer.units
-	units.assign(play.civilian_layer.regions.value(index, []))
-	return units

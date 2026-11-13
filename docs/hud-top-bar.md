@@ -14,17 +14,16 @@ turn or performs an action on the map (`REQ-P1-02`, `REQ-P1-05`).
 | Ledger | Treasury, trade and upkeep. |
 | Research | College slots and funding. |
 | Court | Diplomacy, alliances and war. |
+| Muster seal | Where are all my pieces? Opens the whole-empire force ledger (`O`): armies and squadrons, by chart. |
 | Treasury plaque | Can I afford this? Shows the projected net income beside the count; opens the ledger. |
 | Ships / Troops plaques | Where are my pieces? Each press selects the next own squadron or army in the region on screen and brings it under the camera. |
 | Civilians plaque | Where is my crew? Opens the whole-empire roster (`C`) with region and craft filters. |
 
 ## What was removed
 
-`PRESTIGE` was a saved integer that began at 38 and rose by one each turn. No
-rule read it, no panel explained it, and its value was always `turn + 37`: a
-vanity counter that echoed the calendar. It was removed from the bar, the
-session, and the save shape. Older saves keep loading; the unknown key is
-ignored.
+`PRESTIGE` was a vanity counter no rule read: its value was always `turn + 37`.
+It left the bar, the session and the save shape; older saves ignore the unknown
+key.
 
 A region select on a one-region map is equally false affordance: the seal stays
 as context but goes inert, with copy that says it is the only charted region.
@@ -33,7 +32,7 @@ as context but goes inert, with copy that says it is the only charted region.
 
 - Desktop bar: **60 px**; compact bar: **56 px** (was 68 / 58).
 - Command seals are **58×44 px**, icon over a one-word caption. On a compact
-  bar the four commands collapse to **44×44** medallions; the region keeps its
+  bar the five commands collapse to **44×44** medallions; the region keeps its
   word because map identity is context, not a command.
 - Status plaques are **40 px** tall. On compact they keep the medallion and
   value and drop the caption word, so the bar stays one row on an 800-point

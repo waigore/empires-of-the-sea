@@ -275,17 +275,19 @@ static func draw_standard(canvas: CanvasItem, pos: Vector2, color: Color, time: 
 	canvas.draw_circle(pos + Vector2(5.0, -18.0), 2.0, Palette.GOLD_PALE)
 
 
-## A painted musketeer: shadow, sprite, health bar and chevrons. The sprite is
-## tinted toward its faction so both sides read at a glance (REQ-P1-07).
+## A painted miniature of its own type — musketeer, pikeman, rider, gun — with
+## its shadow, health bar and chevrons. The sprite is tinted toward its faction
+## so both sides read at a glance (REQ-P1-07). Every miniature is painted on one
+## scale, so a gun stands lower than a man and a rider taller.
 static func draw_soldier(
 	canvas: CanvasItem, pos: Vector2, soldier_h: float, color: Color, facing: float,
-	index: int, health: float, medals: int
+	index: int, health: float, medals: int, type_id: String = ""
 ) -> void:
-	var tex: Texture2D = _texture(SOLDIER)
+	var tex: Texture2D = RegimentMiniatures.texture(type_id)
 	if tex == null:
 		return
 	var art := Vector2(float(tex.get_width()), float(tex.get_height()))
-	var size := art * (soldier_h / art.y)
+	var size := art * (soldier_h / RegimentMiniatures.FIGURE_HEIGHT)
 	var tint: Color = Color(1.0, 1.0, 1.0).lerp(color.lightened(0.12), 0.55)
 	# A file of identical clones reads as a texture; vary the coat a shade.
 	tint = tint * (0.94 + 0.06 * float(index % 3) / 2.0)
@@ -303,11 +305,11 @@ static func draw_soldier(
 	)
 	canvas.draw_texture_rect(tex, body, false, tint)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	_draw_condition(canvas, pos, size.x, soldier_h, health, medals)
+	_draw_condition(canvas, pos, size.x, size.y, health, medals)
 
 
 static func _draw_condition(
-	canvas: CanvasItem, pos: Vector2, width: float, soldier_h: float, health: float,
+	canvas: CanvasItem, pos: Vector2, width: float, height: float, health: float,
 	medals: int
 ) -> void:
 	var clamped: float = clampf(health, 0.0, 1.0)
@@ -321,7 +323,7 @@ static func _draw_condition(
 	if medals > 0:
 		canvas.draw_texture_rect(
 			ChromeIcons.texture("chevron"),
-			Rect2(pos.x - 4.5, pos.y - soldier_h - 4.0, 9.0, 7.0), false,
+			Rect2(pos.x - 4.5, pos.y - height - 4.0, 9.0, 7.0), false,
 			Color(1.0, 1.0, 1.0, 0.55 + 0.1 * float(medals))
 		)
 
