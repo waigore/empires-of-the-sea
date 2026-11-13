@@ -138,6 +138,7 @@ func _readings() -> Dictionary:
 		"colony_target": true,
 		"harbour": true,
 		"idle_hulls": 1,
+		"explorer_ready": true,
 		"voyage_afloat": false,
 		"cargo_shortfall": 0,
 		"research_slots": 1,
@@ -146,11 +147,22 @@ func _readings() -> Dictionary:
 	}
 
 
+## Walks the ledger tree: T2 prices the expedition on its children.
 func _by_id(objectives: Array[AiObjective], objective_id: String) -> AiObjective:
 	for objective: AiObjective in objectives:
 		if objective.id == objective_id:
 			return objective
+		var found: AiObjective = _by_id(objective.children, objective_id)
+		if found != null:
+			return found
 	return null
+
+
+func _child_ids(objective: AiObjective) -> Array[String]:
+	var ids: Array[String] = []
+	for child: AiObjective in objective.children:
+		ids.append(child.id)
+	return ids
 
 
 func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
@@ -159,8 +171,9 @@ func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
 	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
 	assert_true(colony != null, "the expedition is always priced while it has a target")
 	assert_eq(int(colony.utility), AiObjectivesPlan.W_PROVINCES_NEW)
-	assert_eq(int(colony.cost["hull"]), 1)
-	assert_eq(int(colony.cost["civilian"]), 1)
+	assert_eq(_child_ids(colony), ["expedition.hull", "expedition.explorer"])
+	assert_eq(int(_by_id(objectives, "expedition.hull").cost["hull"]), 1)
+	assert_eq(int(_by_id(objectives, "expedition.explorer").cost["civilian"]), 1)
 	assert_eq(_by_id(objectives, "muster.line").cost["regiment"], 1)
 	assert_eq(int(_by_id(objectives, "war.declare").cost["orders"]), 1)
 	assert_eq(int(_by_id(objectives, "research.study").utility), 55, "the funding step lifts the study")
@@ -175,18 +188,38 @@ func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 
 	assert_eq(int(_by_id(objectives, "peace.window").utility), 30)
-	assert_eq(int(_by_id(objectives, "colonise.new_world").cost["orders"]), 1, "the window costs an order")
+	assert_eq(
+		int(_by_id(objectives, "expedition.peace").cost["orders"]), 1,
+		"the expedition's peace window costs the court's order"
+	)
 	assert_true(_by_id(objectives, "navy.sortie") != null)
 	assert_eq(_by_id(objectives, "navy.build"), null, "a court with hulls sorties instead of building")
 
 
-func test_a_court_with_no_harbour_blocks_the_voyage_with_a_reason() -> void:
+func test_a_court_with_no_harbour_blocks_the_hull_with_a_reason() -> void:
 	var readings: Dictionary = _readings()
 	readings["harbour"] = false
-	var colony: AiObjective = _by_id(AiObjectivesPlan.build(readings), "colonise.new_world")
+	var hull: AiObjective = _by_id(AiObjectivesPlan.build(readings), "expedition.hull")
 
-	assert_eq(colony.status, AiObjective.STATUS_BLOCKED)
-	assert_eq(colony.blocked, "no harbour")
+	assert_eq(hull.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(hull.blocked, "no harbour")
+
+
+func test_a_starved_expedition_names_the_child_it_lacks() -> void:
+	# No squadron to spare: the hull child defers and the trace says so, instead
+	# of the voyage vanishing without a word (issue #476, #497).
+	var readings: Dictionary = _readings()
+	readings["idle_hulls"] = 0
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 0, "civilian": 1, "orders": 1}
+	)
+	var line: String = ""
+	for raw: Variant in report["lines"]:
+		if String(raw).begins_with("expedition.hull"):
+			line = String(raw)
+
+	assert_true(line.contains("deferred"), "the starved hull is reported: %s" % line)
+	assert_true(line.contains("hull 0/1"), "with its shortfall: %s" % line)
 
 
 # --- the adapter and the trace ----------------------------------------------
@@ -245,7 +278,8 @@ func _session(diplomacy: DiplomacyState) -> PlaySession:
 	play.ship_layer.regions.set_region(1, [])
 	play.civilian_layer = CivilianLayer.new()
 	play.civilian_layer.model = model
-	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.units = [CivilianState.create(1, OWNER, "explorer", Vector2i(0, 0))]
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ensure_ai()
 	return play
@@ -287,6 +321,66 @@ func test_the_turn_trace_carries_every_objective() -> void:
 		assert_true(row.has("cost"), "every row carries its cost")
 		assert_true(row.has("claim"), "every row carries its claim")
 		assert_true(row.has("status"), "every row carries its status")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_the_ledger_prices_the_standing_study_not_the_war_chest() -> void:
+	# The surplus ladder reads the money-goal reserve, so at war no slot pays the
+	# published preset; the one standing study at Low is what the court actually
+	# spends, and the ledger must name that figure (issue #490).
+	var court: DiplomacyState = _court()
+	court.relation(OWNER, RIVAL).at_war = true
+	var play: PlaySession = _session(court)
+	play.ai.economy_for(OWNER).treasury = 500
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OWNER)
+	var study: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "research.study":
+			study = row
+	assert_false(study.is_empty(), "the study is priced")
+	assert_eq(
+		int((study["cost"] as Dictionary).get("treasury", 0)), 50,
+		"one standing study at Low, not three slots on the war chest"
+	)
+
+
+## The voyage musters behind the ledger's claim (issue #491 T2): a funded hull
+## opens the harbour gate, a deferred one leaves the Explorer ashore.
+func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
+	var play: PlaySession = _session(_court())
+	MapPlayObjectivesAi.run(play)
+	var claim: Dictionary = play.ai.objectives_for(OWNER)
+	assert_true((claim["funded_ids"] as Array).has("expedition.hull"))
+	var open_port: Vector2i = MapPlayCivilianAi._muster_port(
+		play, OWNER, play.model.region_id, play.model
+	)
+	assert_true(open_port.x >= 0, "a funded hull opens the muster")
+
+	# The same ledger with the hull starved: the gate stays shut.
+	play.ai.note_objectives(OWNER, {
+		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
+		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
+	}, play.turn)
+	var shut: Vector2i = MapPlayCivilianAi._muster_port(
+		play, OWNER, play.model.region_id, play.model
+	)
+	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #497's scripted case: a court at peace, with a harbour, a free hull and
+## an Explorer, issues its colonisation order on the turn the ledger funds the
+## claim — no 200 turns of luck.
+func test_a_peaceful_court_with_a_funded_claim_issues_the_voyage() -> void:
+	var play: PlaySession = _session(_court())
+	MapPlayObjectivesAi.run(play)
+	var trace: Array[Dictionary] = MapPlayColonisationAi.run(play)
+
+	assert_eq(trace.size(), 1, "the court under way gets one step")
+	assert_eq(String(trace[0]["kind"]), "embark")
+	assert_eq(int(trace[0]["faction"]), OWNER)
 	play.ship_layer.free()
 	play.civilian_layer.free()
 

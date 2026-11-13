@@ -22,12 +22,22 @@ the pools `treasury, hull, civilian, regiment, labour, orders`. Each aim ends
 `funded`, `deferred` with its shortfall (`hull 0/1`), or `blocked` with a
 reason. `AiState.note_objectives` keeps the turn's row and the save carries it.
 
+## The expedition
+
+`colonise.new_world` is a parent with the children that make it sail: a hull off
+the cargo routes (`expedition.hull`), the Explorer's train slot
+(`expedition.explorer`), the peace window at war (`expedition.peace`, one
+diplomatic order) and a protected `expedition.voyage` once afloat. The colony
+muster gate reads the funded hull claim (`MapPlayCivilianAi._hull_claimed`)
+instead of looking for a squadron a second time, and a starved child prints its
+shortfall (`expedition.hull hull 0/1 deferred`).
+
 ## Migration
 
 | Step | Issue | State |
 |------|-------|-------|
 | T1 skeleton, trace-only | #496 | shipped |
-| T2 expedition package | #497 | pending |
+| T2 expedition package | #497 | shipped |
 | T3 reservations become claims | #498 | pending |
 | T4 posture modifier + weights | #499 | pending |
 | T5 naval build policy | #500 | pending |

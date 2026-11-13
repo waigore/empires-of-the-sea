@@ -229,7 +229,7 @@ static func _muster_port(
 	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 	if _has_owner(_roster(play, other), faction):
 		return CivilianState.NO_TILE
-	if not _has_free_squadron(play, region, faction):
+	if not _hull_claimed(play, faction, region):
 		return CivilianState.NO_TILE
 	var port: int = AiColonisationPlanner.harbour(model, faction)
 	if port < 0:
@@ -238,6 +238,19 @@ static func _muster_port(
 	if data == null or data.port_tile.x < 0:
 		return CivilianState.NO_TILE
 	return data.port_tile
+
+
+## True when the court's last ledger funded the expedition's hull claim — the
+## gate the voyage now musters behind, instead of looking for a squadron a
+## second time (issue #491 T2). A court with no ledger yet (the opening turn, an
+## old save, a fixture) falls back to the free-squadron check, so the muster
+## behaves as published until the first ledger exists. A deferred claim leaves
+## the Explorer ashore, and the ledger's line already names the shortfall.
+static func _hull_claimed(play: PlaySession, faction: int, region: int) -> bool:
+	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
+	if claim.is_empty():
+		return _has_free_squadron(play, region, faction)
+	return (claim.get("funded_ids", []) as Array).has("expedition.hull")
 
 
 ## A squadron of this court that could take a colonist: hulls aloft, no troops
