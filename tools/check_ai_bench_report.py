@@ -22,6 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 HILL = ROOT / ".autolab" / "hills" / "ai-bench"
 REPORT = ROOT / "reports" / "ai-bench" / "latest.json"
 BASELINE = ROOT / "reports" / "ai-bench" / "baseline.json"
+# Floors the frozen hill cannot carry itself: a metric whose regression is a
+# mechanism failure rather than a score drop (issue #491 T6).
+GUARDS = ROOT / "reports" / "ai-bench" / "guards.json"
 
 AI_GLOBS = (
     "scripts/ai/**/*.gd",
@@ -122,6 +125,19 @@ def _primary(report: dict) -> dict:
     }
 
 
+def _funded_floor() -> float:
+    """The funded-share floor recorded beside the baseline (issue #491 T6)."""
+    if not GUARDS.is_file():
+        _die(f"missing {GUARDS.relative_to(ROOT)} — record the funded_pct floor")
+    try:
+        data = json.loads(GUARDS.read_text())
+    except json.JSONDecodeError as exc:
+        _die(f"invalid JSON in {GUARDS}: {exc}")
+    if "funded_pct_floor" not in data:
+        _die(f"{GUARDS.relative_to(ROOT)} has no funded_pct_floor")
+    return float(data["funded_pct_floor"])
+
+
 def _maybe_verify(report_path: Path) -> None:
     """Run hills verify when the CLI + key are present (local / shared-key CI)."""
     try:
@@ -214,6 +230,14 @@ def main() -> None:
     base_score = _metric(baseline, "score")
     if score + 1e-9 < base_score:
         _die(f"score {score} < baseline {base_score}")
+
+    # The ledger must keep paying for the aims it ranks: a collapse here is the
+    # silent starvation the metric exists to catch (issue #491 T6).
+    funded = _metric(report, "funded_pct")
+    floor = _funded_floor()
+    if funded + 1e-9 < floor:
+        _die(f"funded_pct {funded:.2f} < floor {floor:.2f} — the allocator stopped funding its top objectives")
+    print(f"ai-bench-gate: funded_pct {funded:.2f} (floor {floor:.2f})")
 
     _maybe_verify(REPORT)
     print(

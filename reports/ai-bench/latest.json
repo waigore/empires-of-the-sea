@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
-  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
-  "submission_hash": "sha256:9b085c7f1df23575d36a4b47eb5a193fa8c10ef0ee179a9bf028a14eb7ca82d8",
-  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261113T175151451026Z@59f9b93",
+  "tree_hash": "c012beb7d4ce2f663ce2f0641cfa80d51844a027",
+  "commit": "cb72ebc3086a77446e5fdcc235afb9c926991c72",
+  "submission_hash": "sha256:24fc0ff23d4ebc349d68ad6298335edaf794882c6d5081242d63cb6e5b8e898f",
+  "submission_git": "refactor/one-court-reader@511813d",
   "passed": true,
   "config": [
     {
@@ -47,11 +47,16 @@
       "name": "forces",
       "value": 5.0,
       "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 70.68013468013469,
+      "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:c98286f66bc4d3952028a97eeff610460f7ecb64b1bd7622f78ef79307c373a5",
+    "ai_surface_hash": "sha256:10e363a8d54b5e63580033125b4a6aa57edbb604d0321f46d51e5da9f9e7851c",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -59,13 +64,15 @@
       "ships": 2,
       "workers": 4,
       "extraction_per_turn": 2.7,
-      "income_per_turn": 133.29166666666666
+      "income_per_turn": 133.29166666666666,
+      "funded_pct": 70.68013468013469
     },
     "early_win": true,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 75,
-    "resolved_turns": 75
+    "resolved_turns": 75,
+    "funded_pct": 70.68013468013469
   },
   "params": {
     "turns": 200,
@@ -80,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-13T18:43:14Z",
+  "timestamp": "2026-11-13T19:28:37Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cb60cb295e7c6f368a592ff4cbec47b48e50da373a7553a16cd74b0f4fa9dfaf"
+  "signature": "hmac-sha256:ba9c34131214302969f2fc6063f60a7748fefe51e1cec615bf4659d1191be70f"
 }
