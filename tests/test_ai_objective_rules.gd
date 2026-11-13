@@ -291,6 +291,28 @@ func test_the_turn_trace_carries_every_objective() -> void:
 	play.civilian_layer.free()
 
 
+func test_the_ledger_prices_the_standing_study_not_the_war_chest() -> void:
+	# The surplus ladder reads the money-goal reserve, so at war no slot pays the
+	# published preset; the one standing study at Low is what the court actually
+	# spends, and the ledger must name that figure (issue #490).
+	var court: DiplomacyState = _court()
+	court.relation(OWNER, RIVAL).at_war = true
+	var play: PlaySession = _session(court)
+	play.ai.economy_for(OWNER).treasury = 500
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OWNER)
+	var study: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "research.study":
+			study = row
+	assert_false(study.is_empty(), "the study is priced")
+	assert_eq(
+		int((study["cost"] as Dictionary).get("treasury", 0)), 50,
+		"one standing study at Low, not three slots on the war chest"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 # --- the save round-trip -----------------------------------------------------
 
 
