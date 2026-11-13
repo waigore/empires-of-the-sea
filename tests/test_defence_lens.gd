@@ -45,7 +45,13 @@ func test_the_key_action_binds_the_k_key() -> void:
 	assert_ne(InputActions.DEFENCE_LENS, InputActions.LENS)
 	assert_ne(InputActions.DEFENCE_LENS, InputActions.DIPLOMACY_LENS)
 	assert_ne(InputActions.DEFENCE_LENS, InputActions.CROWN_LENS)
-	assert_not_null(screen.hud._defence_lens_button.shortcut)
+	# The key still lands on the bar's one seal, which raises its reading.
+	var event := InputEventAction.new()
+	event.action = InputActions.DEFENCE_LENS
+	event.pressed = true
+	screen.hud.lens_seal._shortcut_input(event)
+	assert_true(screen.play.defence_lens.active, "K names the defence reading")
+	MapPlayInput.set_defence_lens(screen.play, false)
 
 
 func test_toggle_key_exclusivity_and_draw() -> void:
@@ -53,11 +59,12 @@ func test_toggle_key_exclusivity_and_draw() -> void:
 	assert_not_null(lens)
 	assert_false(lens.active)
 
-	MapPlayInput.toggle_defence_lens(screen.play)
+	MapPlayInput.set_defence_lens(screen.play, true)
 	assert_true(lens.active)
 	assert_true(screen.hud.lens_legend.visible)
 	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_DEFENCE)
-	assert_true(screen.hud._defence_lens_button.button_pressed)
+	assert_true(screen.hud.lens_seal.button_pressed)
+	assert_eq(screen.hud.lens_seal.active_kind, LensLegend.KIND_DEFENCE)
 	assert_gt((lens.survey["provinces"] as Array).size(), 0)
 	assert_almost_eq(screen.civilian_layer.modulate.a, 0.22, 0.001)
 
@@ -72,16 +79,16 @@ func test_toggle_key_exclusivity_and_draw() -> void:
 	assert_true(lens.active)
 	assert_false(screen.play.crown_lens.active)
 	assert_eq(screen.hud.lens_legend.kind, LensLegend.KIND_DEFENCE)
-	assert_false(screen.hud._crown_lens_button.button_pressed)
+	assert_eq(screen.hud.lens_seal.active_kind, LensLegend.KIND_DEFENCE)
 
 	lens._reveal = 1.0
 	lens.queue_redraw()
 	await get_tree().process_frame
 
-	MapPlayInput.toggle_defence_lens(screen.play)
+	MapPlayInput.set_defence_lens(screen.play, false)
 	assert_false(lens.active)
 	assert_false(screen.hud.lens_legend.visible)
-	assert_false(screen.hud._defence_lens_button.button_pressed)
+	assert_false(screen.hud.lens_seal.button_pressed)
 	assert_almost_eq(screen.civilian_layer.modulate.a, 1.0, 0.001)
 
 

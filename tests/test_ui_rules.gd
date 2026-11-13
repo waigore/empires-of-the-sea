@@ -263,6 +263,85 @@ func test_an_unknown_worker_has_no_plate() -> void:
 	assert_null(CivilianArt.medallion("no_such_worker"))
 
 
+## --- worker tiers: one plate per rank, struck in its own metal -------------
+
+
+## Every worker tier carries a plate of its own, and the art ids follow the
+## roster's own names so a renamed tier cannot silently lose its medallion
+## (REQ-P1-08; tools/art/unit-medallions.md).
+func test_every_worker_tier_ships_a_medallion() -> void:
+	var missing: Array[String] = []
+	for tier in WorkerPool.TIER_COUNT:
+		assert_eq(
+			WorkerTierArt.tier_id(tier),
+			WorkerPool.tier_one(tier).to_lower(),
+			"tier %d keeps the roster's name" % tier
+		)
+		if WorkerTierArt.medallion(tier) == null:
+			missing.append(WorkerPool.tier_name(tier))
+	assert_eq(missing.size(), 0, "tiers without a plate: %s" % ", ".join(missing))
+
+
+func test_an_unknown_tier_has_no_plate() -> void:
+	assert_eq(WorkerTierArt.tier_id(-1), "")
+	assert_eq(WorkerTierArt.tier_id(WorkerPool.TIER_COUNT), "")
+	assert_null(WorkerTierArt.medallion(-1))
+	assert_null(WorkerTierArt.medallion(WorkerPool.TIER_COUNT))
+
+
+func test_no_two_worker_tiers_share_a_plate() -> void:
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for tier in WorkerPool.TIER_COUNT:
+		var plate: Texture2D = WorkerTierArt.medallion(tier)
+		var path: String = plate.resource_path if plate != null else ""
+		if seen.has(path):
+			clashes.append("%s = %s" % [WorkerPool.tier_name(tier), String(seen[path])])
+		seen[path] = WorkerPool.tier_name(tier)
+	assert_eq(clashes.size(), 0, "tiers sharing a plate: %s" % ", ".join(clashes))
+
+
+## Distinct in silhouette *and* colour: the frame is identical on every plate, so
+## the mean mark colour of two ranks must sit well apart — iron, copper, blued
+## steel and gold, never one metal under four names (REQ-P1-08).
+func test_each_worker_tier_strikes_its_own_metal() -> void:
+	var inks: Dictionary = {}
+	for tier in WorkerPool.TIER_COUNT:
+		inks[tier] = _mark_colour(WorkerTierArt.medallion(tier))
+	for first in WorkerPool.TIER_COUNT:
+		for second in range(first + 1, WorkerPool.TIER_COUNT):
+			var a: Color = inks[first]
+			var b: Color = inks[second]
+			var gap: float = Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+			assert_gt(
+				gap,
+				0.08,
+				"%s and %s read as one metal (%.3f)"
+				% [WorkerPool.tier_name(first), WorkerPool.tier_name(second), gap]
+			)
+
+
+## Mean colour of a plate's subject: the field's own darks and the shell's ring
+## are left out, so only the tier's metal is measured.
+func _mark_colour(plate: Texture2D) -> Color:
+	var image: Image = plate.get_image()
+	var centre := Vector2(image.get_width(), image.get_height()) * 0.5
+	var field: float = minf(centre.x, centre.y) * 0.82
+	var sum := Vector3.ZERO
+	var count: int = 0
+	for y in image.get_height():
+		for x in image.get_width():
+			if Vector2(x, y).distance_to(centre) > field:
+				continue
+			var ink: Color = image.get_pixel(x, y)
+			if ink.a < 0.9 or ink.get_luminance() <= 0.35:
+				continue
+			sum += Vector3(ink.r, ink.g, ink.b)
+			count += 1
+	assert_gt(count, 40, "the tier's mark fills enough of the field to measure")
+	return Color(sum.x / float(count), sum.y / float(count), sum.z / float(count))
+
+
 ## The row widget wears the plate at its own size, mipmapped, and a missing
 ## plate leaves a gap of the same width so the row's columns do not shift.
 func test_the_row_widget_draws_the_plate_it_is_given() -> void:

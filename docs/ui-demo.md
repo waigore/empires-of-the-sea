@@ -16,7 +16,7 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Focus capital | `F` / `Home` | CAPITAL |
 | End turn | `Space` / `Enter`, gold seal | gold seal |
 | Back | `Esc` deselects | system back closes the top layer, then quits |
-| Lenses | `L` survey, `P` court, `R` crown road, `K` defence | rail seals |
+| Lenses | `L` survey; `P`/`R`/`K` name one | one bar seal, hold for the list |
 
 Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit.
 One lens at a time: the defence reading prints each charted province's published

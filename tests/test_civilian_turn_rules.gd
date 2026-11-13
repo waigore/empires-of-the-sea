@@ -768,6 +768,174 @@ func test_summary_names_the_gap() -> void:
 		"Crown road: no owned-land route to the crown"
 	)
 
+## A harbour held by a hostile squadron is no landfall: the province's estates
+## stop reaching the crown, while an estate on a road still does (wiki:
+## capital-and-connectivity § Blockade; ships-and-naval § Missions and Movement).
+func test_a_sealed_harbour_cuts_the_provinces_harvest() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	model.provinces[2].town_development = 0
+	var estate := Vector2i(6, 2)
+	_works.set_improvement(model, estate, 4)
+	model.resource[model.index_of(estate.x, estate.y)] = 4
+	var open: Dictionary = Extraction.yields(
+		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(-1, -1)
+	)
+	assert_eq(open, {"grain": 4}, "the harbour reaches the crown by sea")
+	var seals: Blockades = _blockade_of(model, 2)
+	var shut: Dictionary = Extraction.yields(
+		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(-1, -1), {}, true, {}, seals
+	)
+	assert_eq(shut, {}, "a blockaded harbour carries nothing home")
+	# A road to the crown still pays: the blockade severs the sea path, not the
+	# land. The road carries one grade where the harbour carried four.
+	for x in 7:
+		_works.set_transport(model, Vector2i(x, 2), LandWorks.TRANSPORT_ROAD)
+	var road: Dictionary = Extraction.yields(
+		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(0, 1), {}, true, {}, seals
+	)
+	assert_eq(road, {"grain": 1}, "the road survives the blockade")
+
+
+## A blockade of the court's own capital harbour cuts every sea path at once, so
+## only ground the roads reach is left (wiki: capital-and-connectivity § Blockade).
+func test_a_blockade_of_the_capital_cuts_every_sea_path() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	model.provinces[2].town_development = 0
+	var estate := Vector2i(6, 2)
+	_works.set_improvement(model, estate, 4)
+	model.resource[model.index_of(estate.x, estate.y)] = 4
+	var seals := Blockades.new()
+	seals.sealed = {model.region_id: {0: true}}
+	seals.sea_cut = true
+	assert_eq(
+		Extraction.yields(
+			model, PLAYER, -1, {"grain": 4}, _works, Vector2i(-1, -1), {}, true, {}, seals
+		),
+		{},
+		"the capital's fall closes every harbour"
+	)
+
+
+## The province dossier names the rule that cut it: a sealed harbour is not a
+## missing road (wiki: capital-and-connectivity § Blockade; REQ-P2-03).
+func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	var seals: Blockades = _blockade_of(model, 2)
+	var link: Dictionary = LandConnectivity.province_link(
+		model, _works, PLAYER, CAPITAL, 2, seals
+	)
+	assert_false(bool(link["linked"]), "the sea path is cut")
+	assert_true(bool(link["blockaded"]))
+	var copy: String = DossierCopy.crown_roads(model.provinces[2], link)
+	assert_true(copy.contains("harbour blockaded"), copy)
+	var open: Dictionary = LandConnectivity.province_link(
+		model, _works, PLAYER, CAPITAL, 2
+	)
+	assert_false(bool(open["blockaded"]), "no blockade, no excuse")
+
+
+## A station seals a coast only while it is at sea, at war, and over a province
+## the asking court still holds (wiki: capital-and-connectivity § Blockade).
+func test_a_blockade_seals_a_coast_only_while_at_war_and_at_sea() -> void:
+	var model: MapModel = NavalFixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var at_war := func(a: int, b: int) -> bool: return a != b
+	var raider: FleetState = FleetState.at_sea(9, RIVAL, 0, ["h1"], {"h1": "carrack"})
+	raider.mission = FleetState.Mission.BLOCKADE
+	raider.blockade_province = 0
+	var seals: Blockades = Blockades.read(world, {0: [raider]}, PLAYER, 0, 1, at_war)
+	assert_true(seals.seals(0, 0), "Cádiz is held")
+	assert_false(seals.sea_cut, "the capital is another province")
+	assert_eq(
+		Blockades.note(seals, world),
+		"Blockaded: Cádiz — nothing there reaches the crown by sea this turn"
+	)
+	# In port there is no station to keep.
+	var docked: FleetState = FleetState.in_port(9, RIVAL, 0, ["h1"], {"h1": "carrack"})
+	docked.mission = FleetState.Mission.BLOCKADE
+	docked.blockade_province = 0
+	assert_false(Blockades.read(world, {0: [docked]}, PLAYER, 0, 1, at_war).any())
+	# Peace lapses it.
+	var at_peace := func(_a: int, _b: int) -> bool: return false
+	assert_false(Blockades.read(world, {0: [raider]}, PLAYER, 0, 1, at_peace).any())
+	# A coast this court does not hold is no loss of its own.
+	assert_false(Blockades.read(world, {0: [raider]}, 1, 0, 1, at_war).any())
+	assert_eq(Blockades.note(Blockades.new(), world), "", "no blockade, no line")
+
+
+## The map reads a court's seals from its own stations and wars, so the hub
+## gains no method and the rules stay node-free (wiki:
+## capital-and-connectivity § Blockade; REQ-P3-02).
+func test_the_map_reads_the_courts_sealed_coasts() -> void:
+	var model: MapModel = NavalFixture.build()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var session := PlaySession.new()
+	session.world = world
+	session.model = model
+	session.diplomacy = DiplomacyState.new()
+	session.ship_layer = ShipLayer.new()
+	session.player_faction = PLAYER
+	session.capital_province = 1
+	assert_false(MapPlayBlockades.crown(session).any(), "no station, no seal")
+	var raider: FleetState = FleetState.at_sea(9, RIVAL, 0, ["h1"], {"h1": "carrack"})
+	raider.mission = FleetState.Mission.BLOCKADE
+	raider.blockade_province = 0
+	session.ship_layer.regions.set_region(0, [raider])
+	session.diplomacy.ensure_relation(RIVAL, PLAYER)
+	assert_false(MapPlayBlockades.crown(session).any(), "peace seals nothing")
+	session.diplomacy.relation(RIVAL, PLAYER).at_war = true
+	var seals: Blockades = MapPlayBlockades.crown(session)
+	assert_true(seals.seals(0, 0), "Cádiz is held")
+	assert_false(seals.sea_cut, "the capital is province 1")
+	session.ship_layer.free()
+
+
+## The reading's own edges: no world, no court, no station, and a source that
+## answers with the wrong thing all seal nothing rather than guessing
+## (REQ-P2-03).
+func test_the_blockade_reading_keeps_its_edges_quiet() -> void:
+	var world := WorldMap.new()
+	assert_false(Blockades.read(world, {}, PLAYER, 0, 0).any(), "no regions, no seals")
+	assert_false(Blockades.read(null, {0: []}, PLAYER, 0, 0).any())
+	assert_false(Blockades.read(world, {}, MapModel.NO_ID, 0, 0).any())
+	assert_false(Blockades.of(Callable()).any(), "unwired")
+	assert_false(Blockades.of(func() -> int: return 3).any(), "not a reading")
+	var cut := Blockades.new()
+	cut.sea_cut = true
+	assert_eq(
+		Blockades.note(cut, world),
+		"The capital's harbour is blockaded — only what the roads reach yields this turn"
+	)
+	assert_eq(Blockades.note(cut, null), "", "no world, no place to name")
+	# A court with no map, no rosters or no court at all has no reading either.
+	var bare := PlaySession.new()
+	assert_false(MapPlayBlockades.crown(null).any())
+	assert_false(MapPlayBlockades.crown(bare).any(), "no world yet")
+	bare.world = world
+	assert_false(MapPlayBlockades.crown(bare).any(), "no fleets yet")
+	# A rival's own ports are read from its seat, not the human court's.
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	bare.ship_layer = ShipLayer.new()
+	bare.diplomacy = DiplomacyState.new()
+	assert_false(MapPlayBlockades.of(bare, RIVAL).any(), "no wars to read")
+	bare.ship_layer.free()
+
+
+func _blockade_of(model: MapModel, province_id: int) -> Blockades:
+	var seals := Blockades.new()
+	seals.sealed = {model.region_id: {province_id: true}}
+	return seals
+
+
 ## Tile index -> state, rebuilt from the merged runs the view draws.
 func _states(survey: Dictionary) -> Dictionary:
 	var states: Dictionary = {}
