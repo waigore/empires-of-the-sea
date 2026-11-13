@@ -225,7 +225,57 @@ suites = [
   "test_diplomacy_rules.gd"
 ]
 
-# The reading's own rules module, the turn that publishes it and the two map
+# The crown's muster roll (DR-20261113-12): the force projection, its ledger
+# row and panel, the map jump behind Visit and the chrome that opens it. Kept
+# its own small domain — the boards it touches (bar, back chain, HUD bind) are
+# all driven by the roster/chrome suites named here — so a ledger change never
+# pulls the map, menu or ui catch-alls past the tier-1 5 min budget.
+[domains.muster]
+suites = [
+  "test_force_ledger_rules.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd"
+]
+
+[[rules]]
+match = "scripts/rules/force_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/force_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_force_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_force_ledger_*.gd*"
+domain = "muster"
+
+# The cartouche seal, the Android back chain and the HUD build/bind that mount
+# the ledger: all three are read by the roster screen suite the muster domain
+# already names, so they ride with it instead of the menu/map catch-alls.
+[[rules]]
+match = "scripts/ui/top_bar.gd"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/back_request.gd"
+domain = "muster"
+
+# The HUD mount table that builds the ledger (and the civilian roster beside
+# it): the roster screen suite boots the whole HUD and opens both, so it rides
+# here instead of the ui catch-all's battle/court suites.
+[[rules]]
+match = "scripts/ui/hud_dossiers.gd"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "muster"
+
+# A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
 # diplomacy globs below.
 [[rules]]
