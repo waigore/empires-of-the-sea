@@ -225,7 +225,11 @@ func _draw_plate(entry: Dictionary) -> void:
 
 func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
 	var status: String = String(row["status"])
-	var tint: Color = _status_tint(status)
+	# Status ink rings the emblem; the commodity ink fills it, so the estate's
+	# state reads without painting every kind the same hue (REQ-P1-08).
+	var ring: Color = _status_tint(status)
+	ring.a *= alpha
+	var tint: Color = Palette.emblem_ink(String(row["icon"]), status)
 	tint.a *= alpha
 	var radius: float = 9.2
 	var worked: bool = int(row["level"]) > 0
@@ -234,14 +238,14 @@ func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
 	MapGlyphs.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
 	match status:
 		"disconnected":
-			draw_arc(center, radius, 0, TAU, 22, tint, 1.3, true)
+			draw_arc(center, radius, 0, TAU, 22, ring, 1.3, true)
 			draw_line(center + Vector2(-radius * 0.7, radius * 0.7),
-				center + Vector2(radius * 0.7, -radius * 0.7), tint, 1.5, true)
+				center + Vector2(radius * 0.7, -radius * 0.7), ring, 1.5, true)
 		_:
-			draw_arc(center, radius, 0, TAU, 22, tint, 1.6, true)
+			draw_arc(center, radius, 0, TAU, 22, ring, 1.6, true)
 	if status == "building" or status == "foreign_building":
 		var spin: float = _pulse * 2.4
-		draw_arc(center, radius + 2.4, spin, spin + 1.5, 10, tint, 1.2, true)
+		draw_arc(center, radius + 2.4, spin, spin + 1.5, 10, ring, 1.2, true)
 	# One gold pip per completed level, so a worked estate reads at a glance.
 	var level: int = mini(int(row["level"]), ImprovementCatalog.MAX_LEVEL)
 	for i in level:

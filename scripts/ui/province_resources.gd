@@ -110,12 +110,14 @@ func _text(value: String, size: int, ink: Color, width: float = 0.0) -> Label:
 
 
 ## The estate's own commodity medallion; a row whose good is not in the catalog
-## keeps the category pictogram, so the line never loses its mark (REQ-P1-02).
+## keeps the category pictogram in that kind's commodity ink, so the line never
+## loses its mark and the pictogram matches the survey lens (REQ-P1-02).
 func _art(row: Dictionary) -> Control:
 	var commodity: String = String(row["commodity"])
 	if not commodity.is_empty():
 		return CommodityIcons.badge(commodity, CommodityIcons.LINE_SIZE)
-	return Icon.new(String(row["icon"]), 16, Palette.GOLD)
+	var kind: String = String(row["icon"])
+	return Icon.new(kind, 16, Palette.resource_ink(kind))
 
 
 ## The raw resource, not the works: "Timber", "Iron", "Grain".
