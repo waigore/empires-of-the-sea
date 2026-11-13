@@ -32,7 +32,6 @@ static func rows(economy: PlayerEconomy, at_home: bool = true) -> Array[Dictiona
 			"cost_text": ShipEconomy.cost_text(type_id),
 			"ok": reason.is_empty(),
 			"reason": reason,
-			"pending": economy.recruits.pending(RecruitQueue.KIND_SHIP, type_id),
 		}
 		if row["ok"]:
 			open_rows.append(row)

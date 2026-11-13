@@ -146,9 +146,6 @@ func _build_row(row: Dictionary) -> Control:
 	top.add_child(launch)
 	var detail := UiRowBuilder.line(10, Palette.TEXT_DIM)
 	detail.text = String(row["cost_text"]) if ok else String(row["reason"])
-	var pending: int = int(row.get("pending", 0))
-	if pending > 0:
-		detail.text += "  ·  %d under orders" % pending
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.add_child(detail)
 	return entry
