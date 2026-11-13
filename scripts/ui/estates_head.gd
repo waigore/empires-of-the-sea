@@ -127,10 +127,16 @@ func filter_buttons() -> Dictionary:
 	return _filter_buttons
 
 
-## Phone layout: thumb-sized filters and the stat boxes traded for list rows
-## (the projection line still carries the yield).
+## Phone layout: thumb-sized filters, the stat boxes and the stores line traded
+## for list rows (the projection line still carries the yield, and the ledger
+## carries the stores).
 func set_compact(compact: bool) -> void:
 	for button: Button in _filter_buttons.values():
 		button.custom_minimum_size.y = 40.0 if compact else 28.0
 	if _stats != null:
 		_stats.visible = not compact
+	if _stores_line != null:
+		_stores_line.visible = not compact
+	if _output_line != null:
+		_output_line.add_theme_font_size_override("font_size", 12 if compact else 13)
+	add_theme_constant_override("separation", 6 if compact else 10)
