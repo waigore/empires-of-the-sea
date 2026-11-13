@@ -1,0 +1,4 @@
+{
+  "funded_pct_floor": 60.0,
+  "note": "Share of a live crown's top-ranked objectives the ledger must fund (issue #491 T6). Measured 70.68 on seed 1500 / Standard / 200 turns; a collapse below 60 is the silent starvation the metric exists to catch."
+}

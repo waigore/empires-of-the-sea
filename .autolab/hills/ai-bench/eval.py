@@ -118,6 +118,36 @@ def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
     return income, extraction
 
 
+def _funded_share(turns_path: Path, faction: int) -> float:
+    """Mean share of top-ranked objectives the ledger funded, per resolved turn.
+
+    The turn trace carries the court's objective ledger (`last.objectives`):
+    `ranked` counts the aims that competed and `funded` the ones the allocator
+    paid for. A rank-then-allocate change that ranks priorities but never funds
+    them shows up here as a collapse — the #476 failure mode, made measurable
+    (issue #491 T6).
+    """
+    if not turns_path.is_file():
+        return 0.0
+    shares: list[float] = []
+    for line in turns_path.read_text().splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        for candidate in record.get("rows") or []:
+            if int(candidate.get("faction", -2)) != faction:
+                continue
+            ledger = (candidate.get("last") or {}).get("objectives") or {}
+            ranked = int(ledger.get("ranked", 0))
+            if ranked <= 0:
+                continue
+            funded = int(ledger.get("funded", 0))
+            shares.append(100.0 * float(funded) / float(ranked))
+    if not shares:
+        return 0.0
+    return sum(shares) / len(shares)
+
+
 def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
     row = _live_row(summary)
     if row is None:
@@ -129,8 +159,10 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
     ships = int(row.get("ships", 0))
     workers = int(row.get("workers", 0))
     income_pt, extraction_pt = (0.0, 0.0)
+    funded_pct = 0.0
     if turns_path is not None:
         income_pt, extraction_pt = _rates_from_turns(turns_path, faction)
+        funded_pct = _funded_share(turns_path, faction)
 
     parts = {
         "provinces_old": provinces_old,
@@ -140,6 +172,7 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
         "workers": workers,
         "extraction_per_turn": extraction_pt,
         "income_per_turn": income_pt,
+        "funded_pct": funded_pct,
     }
     score = (
         W_PROVINCES_OLD * provinces_old
@@ -160,6 +193,7 @@ def score_summary(summary: dict, turns_path: Path | None = None) -> dict:
         "score": float(score),
         "provinces": float(provinces),
         "forces": float(forces),
+        "funded_pct": float(funded_pct),
         "parts": parts,
         "early_win": early_win,
         "live_faction": faction,
@@ -251,12 +285,17 @@ def eval(
                 {"name": "score", "value": scored["score"], "direction": "max"},
                 {"name": "provinces", "value": scored["provinces"], "direction": "max"},
                 {"name": "forces", "value": scored["forces"], "direction": "max"},
+                {
+                    "name": "funded_pct",
+                    "value": scored["funded_pct"],
+                    "direction": "max",
+                },
             ],
             "config": config,
             "details": {
                 "fixture": True,
                 "ai_surface_hash": "fixture",
-                **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns")},
+                **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns", "funded_pct")},
             },
         }
 
@@ -299,11 +338,16 @@ def eval(
             {"name": "score", "value": scored["score"], "direction": "max"},
             {"name": "provinces", "value": scored["provinces"], "direction": "max"},
             {"name": "forces", "value": scored["forces"], "direction": "max"},
+            {
+                "name": "funded_pct",
+                "value": scored["funded_pct"],
+                "direction": "max",
+            },
         ],
         "config": config,
         "details": {
             "fixture": False,
             "ai_surface_hash": surface,
-            **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns")},
+            **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns", "funded_pct")},
         },
     }
