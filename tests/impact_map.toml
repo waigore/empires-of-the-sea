@@ -91,6 +91,18 @@ suites = [
   "test_panel_parts_rules.gd"
 ]
 
+# The court's tongue (wiki: dialogue-content-and-yarn § Localization;
+# DR-20261113-09): the settings page both menus share, its record, and the two
+# menu doors that open it. Kept its own (small) domain so a picker change stays
+# inside tier 1 instead of pulling the broad menu set past the 5 min bar.
+[domains.tongue]
+suites = [
+  "test_menu_flow.gd",
+  "test_main.gd",
+  "test_mobile_layout.gd",
+  "test_yarn_plates_rules.gd"
+]
+
 [domains.intel]
 # Court dossier depth (wiki: ai-dossier; DR-20261110-25): the rules that read a
 # court's acts and the spy despatch that feeds them. Kept apart from the broad
@@ -247,6 +259,18 @@ domain = "oob"
 [[rules]]
 match = "scripts/map/map_play_diplomacy.gd*"
 domain = "oob"
+
+# Rival diplomacy AI pass (readings + charts context); keep with OOB so a
+# charted-land planner change runs the same suites as map_play_court_fog.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_ai.gd*"
+domain = "oob"
+
+# Pending call / intervention / proposal prompts; stay on diplomacy with the
+# court panel suites rather than pulling the OOB set.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_consent.gd*"
+domain = "diplomacy"
 
 [domains.map]
 suites = [
@@ -509,6 +533,28 @@ suites = [
 ]
 
 # First matching rule wins. More specific globs before broader ones.
+
+# The court's tongue: the settings page, its record and the two menu doors that
+# open it (DR-20261113-09). Named before the menu rules so a picker change runs
+# the tongue slice only.
+[[rules]]
+match = "scripts/ui/tongue_*.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/main_menu.gd*"
+domain = "tongue"
+
+[[rules]]
+match = "scripts/ui/game_menu.gd*"
+domain = "tongue"
+
+# The out-of-map furniture the tongue page is built from: the menu and layout
+# suites that mount those pages prove it.
+[[rules]]
+match = "scripts/ui/menu_frame.gd*"
+domain = "tongue"
+
 [[rules]]
 match = "scripts/rules/victory_rules.gd*"
 domain = "victory_bar"
@@ -806,6 +852,13 @@ domain = "save"
 match = "tests/playtest_treasury.gd*"
 domain = "economy"
 
+# The workshop drive presses the PRODUCTION tab's own buttons and reads the tag,
+# the note and the promise over real turns, so it travels with the economy
+# suites too.
+[[rules]]
+match = "tests/playtest_workshop.gd*"
+domain = "economy"
+
 # The seat drive storms the crown's capital and reads the court's news, the
 # Gazette sheet and the defeat plate, so it travels with the land-turn suites
 # that own capital falls.
@@ -818,6 +871,14 @@ domain = "land_turn"
 [[rules]]
 match = "tests/playtest_field_train.gd*"
 domain = "army"
+
+# The court-proposal drive presses the consent banner's own answers (a white
+# peace, an alliance, a trade pact, a non-aggression overture), saves with an
+# offer still waiting and reads the restored court, so it travels with the
+# diplomacy suites that own the court panel and its prompts.
+[[rules]]
+match = "tests/playtest_court_proposal.gd*"
+domain = "diplomacy"
 
 # Selector edits are checked by --check-complete; do not pull the full suite
 # past the tier-1 5 min budget.
@@ -1310,6 +1371,12 @@ domain = "dialogue"
 # expression grammar and its runner travel with the dialogue domain.
 [[rules]]
 match = "scripts/rules/yarn_*.gd*"
+domain = "dialogue"
+
+# The words behind the court's keys (DR-20261113-06): a shipped `.po` is read by
+# the dialogue suite and nothing else, so a tongue change pays only that domain.
+[[rules]]
+match = "assets/locales/*.po*"
 domain = "dialogue"
 
 [[rules]]

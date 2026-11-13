@@ -15,6 +15,11 @@ var world_depth: int = DEFAULT_WORLD_DEPTH
 ## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}}. Trade
 ## diplomacy publishes these; an empty book means the published price for all.
 var trade_terms: Dictionary = {}
+## `"buyer>seller" -> percent`: the subsidy step between one pair, published so
+## the Minor's ask names the price the clearing charges (wiki: world-market
+## § Subsidy price adjustment). The step lands on the deal, never on the crown's
+## own rate, so it cannot touch a deal with another court.
+var subsidy_terms: Dictionary = {}
 ## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
 ## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
 var minor_offers: Array[Dictionary] = []
@@ -56,6 +61,7 @@ func set_terms(faction: int, terms: Dictionary) -> void:
 
 func clear_terms() -> void:
 	trade_terms.clear()
+	subsidy_terms.clear()
 
 
 func terms_for(faction: int) -> Dictionary:
@@ -267,6 +273,7 @@ func copy() -> WorldMarket:
 	clone.prices = prices.duplicate()
 	clone.world_depth = world_depth
 	clone.trade_terms = trade_terms.duplicate(true)
+	clone.subsidy_terms = subsidy_terms.duplicate()
 	clone.minor_offers = minor_offers.duplicate(true)
 	clone.book = book.copy()
 	clone._bids = _bids.duplicate()

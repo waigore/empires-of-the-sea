@@ -131,6 +131,13 @@ godot --headless --path . --script res://tests/playtest_beachhead.gd
 # turns, and prints each promise against the ducats the turn actually paid.
 godot --headless --path . --script res://tests/playtest_treasury.gd
 
+# Workshop — opens a turn-100 advanced start and presses the PRODUCTION tab's own
+# buttons: orders three steel and reads the price the promise charges, clears the
+# order and watches the paid batch land one unit a phase, contrasts a one-turn
+# row, lets two alloy batches serve at once (the note must name the two units the
+# promise names), and saves and loads a batch off the anvil.
+godot --headless --path . --script res://tests/playtest_workshop.gd
+
 # Capital loss — storms the crown's seat while it still holds another province
 # (the court moves, the home squadron re-moors, the Gazette names the province
 # lost), then strips the crown to its seat and storms that (the defeat plate, the
@@ -142,6 +149,14 @@ godot --headless --path . --script res://tests/playtest_capital_move.gd
 # to read 40% against 25% over a real turn, seats a General hospital to read the
 # better-of rule and an unfed ward, then splits, boards, combines and saves.
 godot --headless --path . --script res://tests/playtest_field_train.gd
+
+# Court proposals — plays England (not the catalog's player slot) and answers a
+# rival's white peace, alliance, trade pact and non-aggression offer on the
+# consent banner's own buttons, reading the banner, the despatch and the court
+# chronicle in between; then saves with an offer still waiting, reloads and
+# answers it, and reads the call to arms the restored ledger still raises for an
+# ally.
+godot --headless --path . --script res://tests/playtest_court_proposal.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

@@ -310,7 +310,7 @@ func _on_trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 				# The assigned runs eat their inputs before the auction clears
 				# (wiki: world-market § Trade orders — offer cap; the AI planners
 				# reserve the same tons).
-				"reserved": ProductionRecipes.reserved_inputs(economy.assignments()),
+				"reserved": ProductionRecipes.reserved_inputs(economy.production.assignments()),
 			},
 			2
 		)
@@ -335,7 +335,7 @@ func _on_cancel(order_id: String) -> void:
 
 
 func _on_production(recipe_id: String, units: int) -> void:
-	economy.set_assignment(recipe_id, units)
+	economy.production.set_assignment(recipe_id, units)
 	refresh_panel()
 
 

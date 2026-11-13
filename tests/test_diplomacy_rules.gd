@@ -921,30 +921,53 @@ func test_boycott_worsens_the_targets_terms_and_war_revokes_it() -> void:
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
 
-func test_a_subsidy_sets_rates_on_the_subsidised_courts_goods() -> void:
+## The subsidy is a step on the pair's deals, never a crown-wide rate: the crown
+## bids at the published price and pays `p%` more only to the court it subsidises
+## (wiki: world-market § Subsidy price adjustment — "the step never touches a
+## deal with another court"; DR-20261110-29).
+func test_a_subsidy_steps_only_the_subsidised_pairs_deals() -> void:
 	_setup_diplomacy_trade()
 	var world: WorldMap = _tribe_world(9, _resource_for("timber"))
 	diplomacy_trade_state.ensure_relation(0, 9, diplomacy_trade_state.turn)
 	diplomacy_trade_state.set_overture(0, 9, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyAid.set_subsidy(diplomacy_trade_state, 0, 9, 10)
 	var terms: Dictionary = DiplomacyTrade.terms_for_court(diplomacy_trade_state, world, 0)
-	assert_almost_eq(float(terms["buy"]["timber"]), 1.10, 0.001, "surcharge on their goods")
-	assert_almost_eq(float(terms["sell"]["timber"]), 0.90, 0.001, "discount on our goods")
-	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "only that court's goods move")
+	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "the crown's own rate never moves")
+	assert_false(terms["buy"].has("timber"), "no commodity rate: the step lands on the deal")
 	var market := WorldMarket.with_default_prices()
-	market.set_terms(0, terms)
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, world, market)
+	assert_eq(MarketRules.subsidy_percent(market, 0, 9), 10, "the pair's step is published")
+	assert_eq(MarketRules.subsidy_percent(market, 0, 7), 0, "no other court carries it")
 	assert_eq(
 		market.buy_price("timber", 0),
-		roundi(float(market.price("timber")) * 1.10)
+		market.price("timber"),
+		"a crown bids at the published price"
 	)
-	assert_eq(market.buy_price("grain", 0), market.price("grain"))
-	assert_eq(market.sell_price("timber", 1), market.price("timber"), "other crowns untouched")
 	var direct: int = market.price("timber")
 	assert_eq(
-		MinorMarket.unit_price(market, "timber", 0),
+		MinorMarket.unit_price(market, "timber", 0, 9),
 		roundi(float(direct) * 1.10),
-		"the published ask names the court's own rate"
+		"the subsidised court's ask names the step"
 	)
+	assert_eq(
+		MinorMarket.unit_price(market, "timber", 0, 7),
+		direct,
+		"another minor's ask stays at the world price"
+	)
+
+## Only a real pair publishes a step: a malformed subsidy key and a zero percent
+## name no deal, and no court means no terms at all (wiki: world-market
+## § Subsidy price adjustment).
+func test_subsidy_terms_publish_only_real_pairs() -> void:
+	assert_true(DiplomacyTrade.subsidy_terms(null).is_empty())
+	assert_true(DiplomacyTrade.market_terms(null).is_empty())
+	var state := DiplomacyState.new()
+	state.subsidies["0>9"] = 10
+	state.subsidies["lonely"] = 10
+	state.subsidies["0>7"] = 0
+	var terms: Dictionary = DiplomacyTrade.subsidy_terms(state)
+	assert_eq(terms.size(), 1)
+	assert_eq(int(terms["0>9"]), 10)
 
 func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 	_setup_diplomacy_trade()
@@ -2796,6 +2819,29 @@ func test_a_negotiation_beat_says_what_is_on_the_table() -> void:
 			)["point"]
 		),
 		"negotiation/proposal_overture"
+	)
+
+## A trade pact and a non-aggression offer are deal-making beats of their own:
+## the envoy names the treaty on the table, so each carries its own face and
+## word (wiki: dialogue-and-mood § Design intent, § Mood machine; world-market
+## § FTP; diplomacy § Court proposals).
+func test_a_pact_and_a_pact_overture_are_voiced_beats() -> void:
+	_setup_dialogue_rules()
+	dialogue_rules_state.relation(0, 2).score = 70.0
+	var pact: Dictionary = DialogueEvents.for_offer(
+		dialogue_rules_state, 0, {"from": 2, "kind": "establish_ftp", "turn": 1}
+	)
+	assert_eq(String(pact.get("point", "")), "negotiation/proposal_ftp")
+	assert_true(String(pact.get("text", "")).length() > 10, "the pact is spoken for")
+	assert_false(String(pact.get("mood", "")).is_empty(), "and wears a face")
+	var nap: Dictionary = DialogueEvents.for_offer(
+		dialogue_rules_state, 0, {"from": 6, "kind": "overture", "stage": "nap", "turn": 1}
+	)
+	assert_eq(String(nap.get("point", "")), "negotiation/proposal_nap")
+	assert_true(String(nap.get("text", "")).length() > 10, "the non-aggression offer is spoken for")
+	assert_false(
+		String(nap.get("text", "")).to_lower().contains("consul"),
+		"the pact's word never promises the stage beside it"
 	)
 
 func test_the_face_of_an_offer_reads_its_wait_and_its_generosity() -> void:

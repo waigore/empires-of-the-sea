@@ -788,6 +788,29 @@ func test_the_call_banner_keeps_the_phone_sheet_height() -> void:
 		"the call banner must fit a phone sheet (%s > 140)" % banner.size.y
 	)
 
+## A rival's trade pact is answered blind unless the prompt carries the rate the
+## pact publishes: the court reads the terms beside the offer and the envoy that
+## brings it (wiki: world-market § FTP; dialogue-and-mood § Mood machine).
+func test_a_pact_proposal_names_its_terms_and_its_envoy() -> void:
+	_setup_diplomacy_panel()
+	state.relation(0, 2).score = 70.0
+	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_FTP)
+	panel.size = Vector2(570, 600)
+	panel.refresh(state, null, 0, 2500)
+	assert_true(_has_text(panel._call_box, "PROPOSAL"))
+	assert_true(_has_text(panel._call_box, "Favoured terms"))
+	assert_true(_has_text(panel._call_box, "95%"), "the rate the pact pays")
+	assert_true(_has_text(panel._call_box, "105%"), "and the rate it earns")
+	assert_true(_has_text(panel._call_box, "“"), "the envoy who brings it speaks")
+	await get_tree().process_frame
+	var banner: Control = panel._call_box.get_child(0) as Control
+	assert_not_null(banner, "the pact banner is up")
+	assert_true(
+		banner.size.y <= 150.0,
+		"the pact banner must fit a phone sheet (%s > 150)" % banner.size.y
+	)
+
+
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	_setup_diplomacy_panel()
 	state.relation(0, 2).score = 80.0
