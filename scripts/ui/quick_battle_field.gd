@@ -177,19 +177,24 @@ func _draw_formation(
 ) -> void:
 	var soldier_h: float = BattlePlate.soldier_height(size.y)
 	var shown: int = clampi(count, 0, MAX_BLOCKS)
-	var spacing: float = soldier_h * 0.66
-	var width: float = float(maxi(shown - 1, 0)) * spacing
-	var origin: float = centre.x - width * 0.5
+	## Each regiment stands as its own miniature — musketeer, pikeman, rider,
+	## gun — grouped by type so the line reads in blocks (REQ-P1-02).
+	var slots: Array[Dictionary] = RegimentMiniatures.slots(health, shown, MAX_BLOCKS)
+	var spacing: float = RegimentMiniatures.spacing(slots, soldier_h)
+	var span: float = float(maxi(shown - 1, 0)) * spacing
+	var origin: float = centre.x - span * 0.5
 	for index in shown:
+		var slot: Dictionary = slots[index]
+		var data: Dictionary = slot["entry"] as Dictionary
 		var jitter: float = _hash(float(index) * 3.0 + facing)
 		var tall: float = soldier_h * (0.92 + jitter * 0.16)
 		var bob: float = sin(_time * 2.6 + float(index) * 0.9) * 0.9
-		var data: Dictionary = health[index] if index < health.size() else {}
 		BattlePlate.draw_soldier(
 			self,
 			Vector2(origin + float(index) * spacing, centre.y + bob + (jitter - 0.5) * 3.0),
 			tall, color, facing, index,
-			float(data.get("fraction", 1.0)), int(data.get("medals", 0))
+			float(data.get("fraction", 1.0)), int(data.get("medals", 0)),
+			String(slot["type"])
 		)
 	for index in shown:
 		if index % 4 == 0:
@@ -197,6 +202,15 @@ func _draw_formation(
 				self, Vector2(origin + float(index) * spacing, centre.y - soldier_h * 0.30),
 				color, _time + float(index)
 			)
+	## What stands here, named under the line in the blocks' own order, so the
+	## composition is read without waiting for the despatch (REQ-P1-07).
+	## A tall plate has room for a third row; the map overlay does not.
+	RegimentMiniatures.draw_caption(
+		self, RegimentMiniatures.caption(slots),
+		Vector2(centre.x, centre.y + maxf(soldier_h * 1.05, 14.0)),
+		size.x * 0.42, color, int(clampf(soldier_h * 0.55, 10.0, 15.0)),
+		3 if size.y >= 300.0 else 2
+	)
 	# Faded marks where the regiments already lost stood.
 	var lost: int = maxi(0, start - count)
 	for index in mini(lost, 6):

@@ -608,6 +608,142 @@ func test_the_painted_plate_assets_exist() -> void:
 		assert_true(ResourceLoader.exists(path), "missing %s" % path)
 
 
+## --- per-type miniatures (issue #427) ---------------------------------------
+## Every playable type stands as its own miniature: one sprite per catalog id,
+## all painted by tools/art/regiment_miniatures.py on one scale. A type that
+## falls back to the shared musketeer is a missing asset, so this fails here.
+
+
+func test_every_regiment_type_has_its_own_miniature() -> void:
+	var seen: Dictionary = {}
+	for type_id: String in RegimentCatalog.ids():
+		assert_true(RegimentMiniatures.has_art(type_id), "no miniature for %s" % type_id)
+		var path: String = RegimentMiniatures.art_path(type_id)
+		assert_false(seen.has(path), "%s shares another type's art" % type_id)
+		seen[path] = type_id
+		var tex: Texture2D = RegimentMiniatures.texture(type_id)
+		assert_true(tex != null, "miniature did not load for %s" % type_id)
+		var image: Image = tex.get_image()
+		assert_true(image != null and image.get_height() > 0, "empty art for %s" % type_id)
+		var ctx := HashingContext.new()
+		ctx.start(HashingContext.HASH_MD5)
+		ctx.update(image.get_data())
+		var digest: String = ctx.finish().hex_encode()
+		assert_false(
+			seen.has(digest), "%s is a copy of %s" % [type_id, String(seen.get(digest, ""))]
+		)
+		seen[digest] = type_id
+	var unknown: Texture2D = RegimentMiniatures.texture("not_a_regiment")
+	assert_true(unknown != null, "an unknown type still fields a miniature")
+	assert_eq(RegimentMiniatures.art_path("not_a_regiment"),
+		RegimentMiniatures.art_path(RegimentCatalog.DEFAULT_TYPE),
+		"an unknown type normalises to the levy's art")
+
+
+## Each miniature is painted on the foot figure's scale, so a gun is drawn low
+## and a rider tall instead of every type filling the same box.
+func test_the_miniatures_keep_their_natural_size() -> void:
+	var foot: float = RegimentMiniatures.width("musketeers", 20.0)
+	var horse: float = RegimentMiniatures.width("knights", 20.0)
+	var gun: Texture2D = RegimentMiniatures.texture("culverin")
+	assert_true(horse > foot, "a horseman stands wider than a file of musketeers")
+	assert_true(
+		float(gun.get_height()) < RegimentMiniatures.FIGURE_HEIGHT * 0.8,
+		"a gun sprite is painted lower than a standing man"
+	)
+	assert_true(
+		RegimentMiniatures.spacing(_slots(["culverin"]), 20.0)
+			> RegimentMiniatures.spacing(_slots(["musketeers"]), 20.0),
+		"a gun needs more room in the line"
+	)
+
+
+## The line stands in type blocks and the caption names them in the order they
+## stand, so a player can point at a block and read its type.
+func test_the_line_stands_in_type_blocks_and_names_them() -> void:
+	var slots: Array[Dictionary] = _slots(["musketeers", "pikemen", "musketeers", ""])
+	assert_eq(slots.size(), 4)
+	var named: Array[String] = []
+	for slot: Dictionary in slots:
+		named.append(String(slot["type"]))
+	assert_eq(
+		"|".join(named), "|musketeers|musketeers|pikemen",
+		"same types stand together, the unnamed slot first"
+	)
+	assert_eq(RegimentMiniatures.caption(slots), "2 Musketeers · Pikemen")
+	assert_eq(RegimentMiniatures.caption(_slots([])), "", "no men, no caption")
+	assert_eq(
+		RegimentMiniatures.caption(_slots(["", ""])), "",
+		"a record that names no type adds no caption"
+	)
+
+
+## A long composition is elided to the room it has, never drawn over the other
+## side's caption (a phone plate is half a desktop one).
+func test_the_caption_fits_the_room_it_has() -> void:
+	var slots: Array[Dictionary] = _slots([
+		"guards", "guards", "pikemen", "hussars", "culverin", "bowmen",
+		"arquebusiers", "siege_guns",
+	])
+	var text: String = RegimentMiniatures.caption(slots)
+	assert_true(text.ends_with("…"), text)
+	var font: Font = UiTheme.serif()
+	var narrow: String = RegimentMiniatures.fit(text, 60.0, font, 11)
+	assert_true(narrow.ends_with("…"), narrow)
+	assert_true(
+		font.get_string_size(narrow, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x <= 60.0,
+		"the cut caption still fits its room: %s" % narrow
+	)
+	assert_eq(
+		RegimentMiniatures.fit("2 Pikemen", 400.0, font, 11), "2 Pikemen",
+		"a caption with room to spare is untouched"
+	)
+
+
+## The plate itself: a battle record's types are painted and named on the field,
+## both in the simulator and in the live plate (one shared view).
+func test_the_field_paints_each_type_and_names_the_line() -> void:
+	var field := QuickBattleField.new()
+	field.custom_minimum_size = Vector2(520, 360)
+	field.size = Vector2(520, 360)
+	add_child(field)
+	field.attacker_color = Palette.CRIMSON
+	field.defender_color = Palette.NAVY
+	field.attacker_count = 3
+	field.defender_count = 2
+	field.attacker_health = [
+		{"id": "a", "type": "guards", "hp": 120, "max": 120, "medals": 0, "fraction": 1.0},
+		{"id": "b", "type": "cuirassiers", "hp": 110, "max": 110, "medals": 1, "fraction": 1.0},
+		{"id": "c", "type": "culverin", "hp": 80, "max": 80, "medals": 0, "fraction": 1.0},
+	]
+	field.defender_health = [
+		{"id": "d", "type": "pikemen", "hp": 110, "max": 110, "medals": 0, "fraction": 0.6},
+		{"id": "e", "type": "bowmen", "hp": 80, "max": 80, "medals": 0, "fraction": 1.0},
+	]
+	field.queue_redraw()
+	await get_tree().process_frame
+
+	var slots: Array[Dictionary] = RegimentMiniatures.slots(field.attacker_health, 3, 12)
+	assert_eq(
+		RegimentMiniatures.caption(slots), "Cuirassiers · Culverin · Guards",
+		"the plate names what the attacker fielded"
+	)
+	assert_true(
+		RegimentMiniatures.width("cuirassiers", 20.0) > RegimentMiniatures.width("guards", 20.0),
+		"the rider is drawn on its own miniature, not the musketeer's"
+	)
+	var defender: Array[Dictionary] = RegimentMiniatures.slots(field.defender_health, 2, 12)
+	assert_eq(RegimentMiniatures.caption(defender), "Bowmen · Pikemen")
+	field.free()
+
+
+func _slots(types: Array) -> Array[Dictionary]:
+	var entries: Array = []
+	for index in types.size():
+		entries.append({"type": String(types[index]), "fraction": 1.0, "medals": 0})
+	return RegimentMiniatures.slots(entries, entries.size(), 12)
+
+
 ## The wall must read as a fortification: taller than a man, with the garrison
 ## standing on the parapet above the field line.
 func test_the_wall_towers_over_the_garrison() -> void:
