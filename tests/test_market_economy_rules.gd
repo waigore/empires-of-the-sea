@@ -3743,6 +3743,63 @@ func test_a_fed_court_bids_no_food() -> void:
 	assert_eq(_offer_of(plan, "wool"), 5)
 
 
+## A court saving for a commitment its purse cannot reach does not sit on a hoard
+## it is not about to spend: the comfort reserve stops holding back the stock the
+## allocator did not claim, so the hoard becomes the purse it is saving for
+## (wiki: treasury-planner § Lock-recovery; issue #489).
+func test_a_saving_court_liquidates_the_hoard_it_cannot_use() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	# Under market.sell_reserve (20): a spending pass offers nothing; a saving
+	# pass that sees the trapped hoard sells it (issue #489).
+	economy.stockpile = {"wool": 15}
+	var market := WorldMarket.with_default_prices()
+	var spending: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 0)
+	assert_eq(_offer_of(spending, "wool"), 0, "a spending court keeps market.sell_reserve")
+	var saving: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 2400, 0, true
+	)
+	assert_eq(
+		_offer_of(saving, "wool"), 10,
+		"a saving court sells a trapped hoard down to market.max_offer_units"
+	)
+	# A saving court with a normal surplus still keeps the comfort reserve —
+	# only the trapped shape liquidates.
+	economy.stockpile = {"wool": 25}
+	var loose: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 2400, 0, true
+	)
+	assert_eq(_offer_of(loose, "wool"), 5, "a loose surplus keeps market.sell_reserve")
+
+
+## The row the next regiment is provisioned with is claimed before the market
+## sees the stock, so a saving court never sells the cloth its muster needs
+## (wiki: growth-stage-planner § Recruitment modulation).
+func test_a_saving_court_keeps_the_row_its_muster_needs() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	economy.stockpile = {"wool": 25}
+	var market := WorldMarket.with_default_prices()
+	var saving: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {"wool": 20}, 2400, 0, true
+	)
+	assert_eq(_offer_of(saving, "wool"), 5, "the muster's own row stays in the store")
+
+
+## Saving for a muster never sells the court's dinner: food keeps its comfort
+## reserve in lock-recovery, exactly as it does for a starving court
+## (wiki: workers-and-population § Consumption).
+func test_a_saving_court_never_sells_its_own_dinner() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	economy.stockpile = {"grain": 25}
+	var market := WorldMarket.with_default_prices()
+	var saving: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 2400, 0, true
+	)
+	assert_eq(_offer_of(saving, "grain"), 5, "the ration reserve still applies")
+
+
 ## The larder reading the lock-recovery gate is built on: both ration
 ## commodities, and nothing else in the stockpile (issue #489).
 func test_the_larder_reading_counts_only_food() -> void:

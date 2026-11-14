@@ -30,6 +30,15 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## the missing food is bought ahead of every build input out of the whole purse
 ## rather than the surplus above the war chest. A court that can feed itself
 ## trades exactly as published.
+##
+## `saving` is true while the court is on its money goal — its purse stands under
+## the reserve it is saving for (the muster at war, its cash floor at peace). The
+## same lock-recovery reading applies only when the comfort reserve has trapped
+## the whole hoard: every tradeable row sits at or under `market.sell_reserve`,
+## so a spending pass would offer nothing while the purse stays under its
+## commitment (issue #489). A court that already has a normal surplus keeps the
+## published reserve. Food keeps its reserve either way, and the row the next
+## regiment is provisioned with is claimed before the market ever sees the stock.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -39,7 +48,8 @@ static func plan(
 	reserved_inputs: Dictionary = {},
 	need: Dictionary = {},
 	floor: int = 0,
-	food_shortfall: int = 0
+	food_shortfall: int = 0,
+	saving: bool = false
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -48,9 +58,11 @@ static func plan(
 		return {"offers": offers, "bids": bids, "candidates": candidates}
 	var starving: bool = food_shortfall > 0
 	var reserve: int = maxi(config.parameter("market.sell_reserve"), 0)
+	var promised: Dictionary = _promised(reserved_inputs, need)
+	var trapped: bool = saving and _hoard_trapped(economy, market, reserve, promised)
 	var sold: Dictionary = {}
 	for entry: Dictionary in _surpluses(
-		economy, market, reserve, _promised(reserved_inputs, need), starving
+		economy, market, reserve, promised, starving or trapped
 	):
 		if offers.size() >= config.parameter("market.max_offer_types"):
 			break
@@ -228,22 +240,49 @@ static func apply(
 	return {"sold": sold, "bought": bought, "refused": refused}
 
 
+## True when a saving court would offer nothing under the comfort reserve, yet
+## still holds stock above its claims: every tradeable row is trapped under
+## `market.sell_reserve`, the France shape in issue #489. A court with any
+## normal surplus is not trapped — it already sells under the published rule.
+static func _hoard_trapped(
+	economy: PlayerEconomy,
+	market: WorldMarket,
+	reserve: int,
+	reserved_inputs: Dictionary = {}
+) -> bool:
+	if economy == null or market == null:
+		return false
+	var any_stock: bool = false
+	for id: String in _tradeable_ids(market):
+		if CommodityCatalog.is_food(id):
+			continue
+		var promised: int = int(reserved_inputs.get(id, 0))
+		var quantity: int = economy.quantity(id)
+		if quantity > promised:
+			any_stock = true
+		if quantity - reserve - promised > 0:
+			return false
+	return any_stock
+
+
 ## Tradeable stock above the reserve and above this turn's production inputs,
-## richest surplus first. A starving court keeps no comfort reserve on anything
-## it is not about to spend — the stock is worth more as the food it buys than
-## as a hoard beside an empty larder (wiki: treasury-planner § Lock-recovery).
-## Food itself keeps its reserve either way: a court never sells its own dinner.
+## richest surplus first. A court in lock-recovery — starving for food, or a
+## saving court whose whole non-food hoard sits under the comfort reserve —
+## keeps no comfort reserve on anything it is not about to spend: the stock is
+## worth more as the food or the regiment it buys than as a hoard beside an
+## empty purse (wiki: treasury-planner § Lock-recovery; issue #489). Food itself
+## keeps its reserve either way: a court never sells its own dinner.
 static func _surpluses(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	reserve: int,
 	reserved_inputs: Dictionary = {},
-	starving: bool = false
+	liquidate: bool = false
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for id: String in _tradeable_ids(market):
 		var promised: int = int(reserved_inputs.get(id, 0))
-		var keep: int = 0 if starving and not CommodityCatalog.is_food(id) else reserve
+		var keep: int = 0 if liquidate and not CommodityCatalog.is_food(id) else reserve
 		var surplus: int = economy.quantity(id) - keep - promised
 		if surplus > 0:
 			rows.append({"commodity": id, "surplus": surplus})
