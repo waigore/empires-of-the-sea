@@ -40,7 +40,7 @@ static func orders(
 	var candidates: Array[Dictionary] = []
 	if config == null or state == null or model == null:
 		return {"orders": planned, "candidates": candidates}
-	var hostile: Dictionary = _hostile_owners(state, config.faction)
+	var hostile: Dictionary = Hostility.owners(state, config.faction)
 	for fleet: FleetState in _squadrons(fleets, config.faction):
 		# At war a squadron hunts what it can match, then works the enemy's
 		# trade; at peace it has no station to keep, so it sails home
@@ -372,15 +372,6 @@ static func _hostile_strength(fleets: Array, zone: int, hostile: Dictionary) -> 
 	if present.is_empty():
 		return 0.0
 	return NavalCombat.side_strength(present)
-
-
-## Factions this court is at war with, as a membership set.
-static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
-	var hostile: Dictionary = {}
-	for record: DiplomacyRelation in state.relations_of(owner):
-		if record.at_war:
-			hostile[record.other(owner)] = true
-	return hostile
 
 
 ## Own squadrons that can still sail: afloat, un-moved, in id order. A squadron

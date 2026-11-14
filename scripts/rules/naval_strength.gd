@@ -112,7 +112,7 @@ static func zone(
 			own += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
 			own_hulls += other.ship_count()
 			continue
-		if not _hostile(hostile, fleet.owner, other.owner):
+		if not Hostility.between(hostile, fleet.owner, other.owner):
 			continue
 		# A rival the crown has not read weighs in with nothing: the share stays
 		# unknown until her watch closes (wiki: ships-and-naval § Sighted strength).
@@ -248,14 +248,6 @@ static func _zero_totals() -> Dictionary:
 	for key: String in STAT_KEYS:
 		totals[key] = 0
 	return totals
-
-
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))
 
 
 ## The difficulty layer's factor for one owner; an unrecorded side fights as

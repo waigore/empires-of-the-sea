@@ -282,6 +282,66 @@ domain = "blockade"
 match = "scripts/economy/economy_controller.gd"
 domain = "blockade"
 
+# Shared war query (Hostility.at_war). Call-site edits that only switch the
+# query — and the helper itself — stay on this slice so they do not union
+# fleet + naval_feeding + naval_intel + ai past the tier-1 5 min budget.
+[domains.hostility]
+suites = [
+  "test_hostility_rules.gd",
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_ai_rules.gd",
+  "test_army_orders.gd",
+]
+
+[[rules]]
+match = "scripts/rules/hostility.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_combat.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_strength.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_interception.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_raid.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_retreat.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_transport.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/fleet_missions.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/army_command.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_invasion_planner.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_military_planner.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_naval_planner.gd*"
+domain = "hostility"
+
 # Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
 # reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]
@@ -1152,11 +1212,16 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# Stay on the ai set (not chart_bake/misc): an AI fan-out PR that also edits
-# the map must not add canvas/yarn/tables boots past the tier-1 5 min budget.
+# One light suite only: an impact-map edit must not union ai/fleet/naval boots
+# past the tier-1 5 min budget when it lands beside a call-site remap.
+[domains.impact_map]
+suites = [
+  "test_ai_rules.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "ai"
+domain = "impact_map"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
