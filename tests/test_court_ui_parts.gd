@@ -3,10 +3,12 @@ extends GdToolsTest
 ## toasts, the panel dock, ledger text/helpers and the civilian layer parts.
 
 ## Merged from test_court_reports, test_court_dossier_screen, test_hud_toast,
-## test_panel_dock, test_ledger_text, test_ledger_helpers, test_civilian_layer_parts.
+## test_panel_dock, test_ledger_text, test_ledger_helpers, test_civilian_layer_parts,
+## test_unit_icons, test_menu_door.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const Fixture = preload("res://tests/civilian_fixture.gd")
+const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 const VIEWER: int = 0
 const ENGLAND: int = 1
@@ -36,6 +38,10 @@ func _setup_hud_toast() -> void:
 
 func _setup_panel_dock() -> void:
 	_suite_setup = "panel_dock"
+	pass
+
+func _setup_unit_icons() -> void:
+	_suite_setup = "unit_icons"
 	pass
 
 func _teardown_hud_toast() -> void:
@@ -654,3 +660,383 @@ func test_paint_covers_mines_woods_riches_and_ports() -> void:
 	layer.queue_redraw()
 	await get_tree().process_frame
 	layer.free()
+
+
+# --- the HUD's despatches and unit medallions (from test_ui_rules) ---
+## Toast plates, the plaque handles the playtests read, the quick-battle
+## queue, and one carved medallion per worker, hull and regiment
+## (REQ-P1-02, REQ-P5-05, DR-20261110-22).
+
+func test_the_hud_keeps_a_read_only_view_of_its_despatches() -> void:
+	_setup_hud_toast()
+	_hud.toast("The turn opens")
+	assert_eq(_hud._toast_box.get_child_count(), 1)
+	assert_true(_hud._toast_queue.is_empty(), "a raised line is not still waiting")
+
+
+## Drives still reach the plaques through the HUD; the getters only forward
+## HudStatChips' widgets (REQ-P1-02).
+
+func test_the_hud_forwards_its_plaque_handles() -> void:
+	_setup_hud_toast()
+	_hud.set_treasury(900, false)
+	_hud.set_income(0)
+	_hud.set_fleets(2)
+	_hud.set_civilians(1)
+	_hud.set_armies(4)
+	assert_eq(_hud._treasury_label, _hud.stats.treasury_label)
+	assert_eq(_hud._income_label, _hud.stats.income_label)
+	assert_eq(_hud._fleet_label, _hud.stats.fleet_label)
+	assert_eq(_hud._civilian_label, _hud.stats.civilian_label)
+	assert_eq(_hud._army_label, _hud.stats.army_label)
+	assert_eq(_hud._treasury_chip, _hud.stats.treasury_chip)
+	assert_eq(_hud._fleet_chip, _hud.stats.fleet_chip)
+	assert_eq(_hud._civilian_chip, _hud.stats.civilian_chip)
+	assert_eq(_hud._army_chip, _hud.stats.army_chip)
+	assert_eq(_hud._treasury_value, 900)
+	_hud.stats = null
+	assert_eq(_hud._treasury_value, 0)
+	assert_null(_hud._treasury_label)
+
+
+## Unbound plaques refuse to paint; a missing battle plate never queues a fight.
+
+func test_unbound_plaques_and_a_missing_battle_plate_stay_quiet() -> void:
+	_setup_hud_toast()
+	var chips := HudStatChips.new()
+	chips.set_treasury(1)
+	chips.set_income(1)
+	chips.set_fleets(1)
+	chips.set_civilians(1)
+	chips.set_armies(1)
+	chips.flash_income(1)
+	chips._refresh_treasury_tooltip()
+	_hud.quick_battle_overlay = null
+	assert_false(_hud.is_quick_battle_shown())
+	_hud.show_quick_battle({"rounds": []}, "Flanders")
+	assert_true(_hud._quick_queue.is_empty())
+	_hud.despatches = null
+	_hud.toast("silence")
+
+
+## A second fight of the turn waits behind the plate; closing it releases held news.
+
+func test_a_second_battle_waits_then_releases_held_news() -> void:
+	_setup_hud_toast()
+	var battle := {"attacker": 0, "defender": 1, "outcome": 0}
+	_hud.show_quick_battle(battle, "Flanders")
+	assert_true(_hud.is_quick_battle_shown())
+	_hud.toast("news under the plate")
+	_hud.show_quick_battle(battle, "Burgundy")
+	assert_eq(_hud._quick_queue.size(), 1)
+	_hud.quick_battle_overlay.skip()
+	_hud.quick_battle_overlay._on_continue()
+	assert_true(_hud.is_quick_battle_shown(), "the queued fight takes the plate")
+	_hud.quick_battle_overlay.skip()
+	_hud.quick_battle_overlay._on_continue()
+	assert_false(_hud.is_quick_battle_shown())
+	assert_eq(_hud._toast_box.get_child_count(), 1, "held news reaches the court")
+
+
+# --- merged from tests/test_panel_dock.gd ---
+
+
+## Left/right selection-dossier dock persistence and layout (REQ-P1 / P3).
+
+func test_every_worker_type_ships_a_medallion() -> void:
+	_setup_unit_icons()
+	var missing: Array[String] = []
+	for type_id: String in CivilianCatalog.ORDER:
+		if CivilianArt.medallion(type_id) == null:
+			missing.append(type_id)
+	assert_eq(missing.size(), 0, "workers without a plate: %s" % ", ".join(missing))
+
+func test_every_hull_ships_a_medallion() -> void:
+	_setup_unit_icons()
+	var missing: Array[String] = []
+	for type_id: Variant in ShipStats.STATS.keys():
+		if ShipArt.medallion(String(type_id)) == null:
+			missing.append(String(type_id))
+	assert_eq(missing.size(), 0, "hulls without a plate: %s" % ", ".join(missing))
+
+func test_every_regiment_ships_a_medallion() -> void:
+	_setup_unit_icons()
+	var missing: Array[String] = []
+	for type_id: String in RegimentCatalog.ids():
+		if RegimentArt.medallion(type_id) == null:
+			missing.append(type_id)
+	assert_eq(missing.size(), 0, "regiments without a plate: %s" % ", ".join(missing))
+
+
+## Unique icons, not one plate reused under several names: every type resolves
+## a file of its own.
+
+func test_no_two_types_share_one_plate() -> void:
+	_setup_unit_icons()
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for type_id: String in _every_type():
+		var texture: Texture2D = _plate(type_id)
+		var path: String = texture.resource_path if texture != null else ""
+		if seen.has(path):
+			clashes.append("%s = %s" % [type_id, String(seen[path])])
+		seen[path] = type_id
+	assert_eq(clashes.size(), 0, "types sharing a plate: %s" % ", ".join(clashes))
+
+func test_an_unknown_hull_falls_back_to_the_default_plate() -> void:
+	_setup_unit_icons()
+	assert_eq(
+		ShipArt.medallion("no_such_hull").resource_path,
+		ShipArt.medallion(ShipStats.DEFAULT_TYPE).resource_path
+	)
+	assert_eq(
+		RegimentArt.medallion("no_such_regiment").resource_path,
+		RegimentArt.medallion(RegimentCatalog.DEFAULT_TYPE).resource_path
+	)
+
+func test_an_unknown_worker_has_no_plate() -> void:
+	_setup_unit_icons()
+	assert_null(CivilianArt.medallion("no_such_worker"))
+
+
+## --- worker tiers: one plate per rank, struck in its own metal -------------
+
+
+## Every worker tier carries a plate of its own, and the art ids follow the
+## roster's own names so a renamed tier cannot silently lose its medallion
+## (REQ-P1-08; tools/art/unit-medallions.md).
+
+func test_every_worker_tier_ships_a_medallion() -> void:
+	_setup_unit_icons()
+	var missing: Array[String] = []
+	for tier in WorkerPool.TIER_COUNT:
+		assert_eq(
+			WorkerTierArt.tier_id(tier),
+			WorkerPool.tier_one(tier).to_lower(),
+			"tier %d keeps the roster's name" % tier
+		)
+		if WorkerTierArt.medallion(tier) == null:
+			missing.append(WorkerPool.tier_name(tier))
+	assert_eq(missing.size(), 0, "tiers without a plate: %s" % ", ".join(missing))
+
+func test_an_unknown_tier_has_no_plate() -> void:
+	_setup_unit_icons()
+	assert_eq(WorkerTierArt.tier_id(-1), "")
+	assert_eq(WorkerTierArt.tier_id(WorkerPool.TIER_COUNT), "")
+	assert_null(WorkerTierArt.medallion(-1))
+	assert_null(WorkerTierArt.medallion(WorkerPool.TIER_COUNT))
+
+func test_no_two_worker_tiers_share_a_plate() -> void:
+	_setup_unit_icons()
+	var seen: Dictionary = {}
+	var clashes: Array[String] = []
+	for tier in WorkerPool.TIER_COUNT:
+		var plate: Texture2D = WorkerTierArt.medallion(tier)
+		var path: String = plate.resource_path if plate != null else ""
+		if seen.has(path):
+			clashes.append("%s = %s" % [WorkerPool.tier_name(tier), String(seen[path])])
+		seen[path] = WorkerPool.tier_name(tier)
+	assert_eq(clashes.size(), 0, "tiers sharing a plate: %s" % ", ".join(clashes))
+
+
+## Distinct in silhouette *and* colour: the frame is identical on every plate, so
+## the mean mark colour of two ranks must sit well apart — iron, copper, blued
+## steel and gold, never one metal under four names (REQ-P1-08).
+
+func test_each_worker_tier_strikes_its_own_metal() -> void:
+	_setup_unit_icons()
+	var inks: Dictionary = {}
+	for tier in WorkerPool.TIER_COUNT:
+		inks[tier] = _mark_colour(WorkerTierArt.medallion(tier))
+	for first in WorkerPool.TIER_COUNT:
+		for second in range(first + 1, WorkerPool.TIER_COUNT):
+			var a: Color = inks[first]
+			var b: Color = inks[second]
+			var gap: float = Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+			assert_gt(
+				gap,
+				0.08,
+				"%s and %s read as one metal (%.3f)"
+				% [WorkerPool.tier_name(first), WorkerPool.tier_name(second), gap]
+			)
+
+
+## Mean colour of a plate's subject: the field's own darks and the shell's ring
+## are left out, so only the tier's metal is measured.
+
+func test_the_row_widget_draws_the_plate_it_is_given() -> void:
+	_setup_unit_icons()
+	var plate: Texture2D = ShipArt.medallion("frigate")
+	var medallion: UnitMedallion = UnitMedallion.of_ship("frigate", 40.0)
+	assert_eq(medallion.texture, plate)
+	assert_eq(medallion.custom_minimum_size, Vector2(40.0, 40.0))
+	assert_eq(medallion.size_flags_vertical, Control.SIZE_SHRINK_CENTER)
+	assert_eq(medallion.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	assert_eq(medallion.texture_filter, CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS)
+	add_child(medallion)
+	medallion.queue_free()
+	var bare := UnitMedallion.new(null, 20.0)
+	assert_null(bare.texture)
+	assert_eq(bare.custom_minimum_size, Vector2(20.0, 20.0), "an absent plate keeps its width")
+	add_child(bare)
+	bare.queue_free()
+
+func test_a_regiment_medallion_names_its_own_type() -> void:
+	_setup_unit_icons()
+	var medallion: UnitMedallion = UnitMedallion.of_regiment("grenadiers")
+	assert_eq(medallion.texture, RegimentArt.medallion("grenadiers"))
+	assert_eq(medallion.custom_minimum_size, Vector2(28.0, 28.0))
+
+func _mark_colour(plate: Texture2D) -> Color:
+	var image: Image = plate.get_image()
+	var centre := Vector2(image.get_width(), image.get_height()) * 0.5
+	var field: float = minf(centre.x, centre.y) * 0.82
+	var sum := Vector3.ZERO
+	var count: int = 0
+	for y in image.get_height():
+		for x in image.get_width():
+			if Vector2(x, y).distance_to(centre) > field:
+				continue
+			var ink: Color = image.get_pixel(x, y)
+			if ink.a < 0.9 or ink.get_luminance() <= 0.35:
+				continue
+			sum += Vector3(ink.r, ink.g, ink.b)
+			count += 1
+	assert_gt(count, 40, "the tier's mark fills enough of the field to measure")
+	return Color(sum.x / float(count), sum.y / float(count), sum.z / float(count))
+
+
+## The row widget wears the plate at its own size, mipmapped, and a missing
+## plate leaves a gap of the same width so the row's columns do not shift.
+
+func _every_type() -> Array[String]:
+	var all: Array[String] = []
+	all.append_array(CivilianCatalog.ORDER)
+	for type_id: Variant in ShipStats.STATS.keys():
+		all.append(String(type_id))
+	all.append_array(RegimentCatalog.ids())
+	return all
+
+func _plate(type_id: String) -> Texture2D:
+	if CivilianCatalog.known(type_id):
+		return CivilianArt.medallion(type_id)
+	if ShipStats.known(type_id):
+		return ShipArt.medallion(type_id)
+	return RegimentArt.medallion(type_id)
+
+
+# --- the pause door (from test_menu_door) ---
+## One MENU seal, parked by every full-screen ledger and sealed for good by
+## the full-AI observer (REQ-P3-02, REQ-P5-02, REQ-P3-04).
+
+func _seal() -> Button:
+	var seal := Button.new()
+	add_child(seal)
+	return seal
+
+
+func test_a_parked_door_hides_the_seal_and_a_release_shows_it() -> void:
+	var door := GameMenuDoor.new()
+	var seal := _seal()
+	door.mount(seal)
+	assert_true(seal.visible, "a fresh menu shows its seal")
+
+	door.park()
+	assert_false(seal.visible, "a ledger parks the seal")
+	assert_true(door.is_parked(), "the door knows a ledger holds it")
+
+	door.release()
+	assert_true(seal.visible, "closing the ledger gives the seal back")
+	assert_false(door.is_parked())
+
+
+## The estates card, the civilian roster and the muster roll all use this rule:
+## the first to open parks, the second leaves it alone, and the second to close
+## does not hand the seal back while the first still holds it.
+func test_two_ledgers_keep_the_door_parked_until_the_last_closes() -> void:
+	var door := GameMenuDoor.new()
+	var seal := _seal()
+	door.mount(seal)
+
+	var first: bool = GameMenuDoor.set_held(door, false, false)
+	assert_true(first, "the first ledger parks the door")
+	var second: bool = GameMenuDoor.set_held(door, false, false)
+	assert_false(second, "a second ledger finds it already parked and claims nothing")
+	assert_false(seal.visible)
+
+	# The second ledger closes: it claimed no hold, so the door stays parked.
+	assert_false(GameMenuDoor.set_held(door, true, second), "the second close releases nothing")
+	assert_false(seal.visible, "the first ledger's frame keeps the seal parked")
+	# The first ledger closes: the last close hands the seal back.
+	assert_false(GameMenuDoor.set_held(door, true, first), "the last close is not its own either")
+	assert_true(seal.visible, "the seal returns once the last ledger closes")
+
+
+## A ledger that closes without opening (the estates card lives on the map all
+## turn) must not hand the seal to the observer's hidden chrome.
+func test_a_close_without_an_open_never_releases_the_seal() -> void:
+	var door := GameMenuDoor.new()
+	var seal := _seal()
+	door.mount(seal)
+	door.seal()
+
+	assert_false(
+		GameMenuDoor.set_held(door, true, false),
+		"a stray close claims no hold"
+	)
+	assert_false(seal.visible, "the observer keeps its chrome sealed")
+
+
+func test_a_standalone_menu_without_a_page_keeps_its_seal() -> void:
+	var door := GameMenuDoor.new()
+	var seal := _seal()
+	door.mount(seal)
+	assert_false(GameMenuDoor.set_held(null, true, false), "no menu, no hold")
+	assert_true(GameMenuDoor.set_held(null, false, true), "no menu, nothing parked")
+	assert_true(seal.visible)
+
+
+## The observer's seal outlives every ledger: a panel that parks and releases
+## while the observatory runs still leaves the human chrome hidden.
+func test_a_release_never_lifts_the_observers_seal() -> void:
+	var door := GameMenuDoor.new()
+	var seal := _seal()
+	door.mount(seal)
+	door.seal()
+	door.park()
+	door.release()
+	assert_false(seal.visible, "the observer keeps its seal")
+
+
+## A door that never got its crest (a menu built without a page) still tracks
+## parking instead of crashing on the missing button.
+func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
+	var door := GameMenuDoor.new()
+	door.park()
+	assert_true(door.is_parked(), "no crest, the state still moves")
+	door.release()
+	assert_false(door.is_parked())
+
+
+## The map screen hands its menu to the session, so the ledgers reach the seal
+## through the narrow session surface, and the observer seals it for the run.
+func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
+	var screen: MapScreen = SCREEN.instantiate()
+	screen.map_width = 32
+	screen.map_height = 24
+	screen.observer_mode = true
+	add_child(screen)
+	assert_not_null(screen.play, "the session is live")
+	if screen.play == null:
+		return
+	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
+	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
+	assert_not_null(seal, "the MENU seal is mounted on the bar")
+	if seal == null:
+		return
+	assert_false(seal.visible, "the observer owns no pause door")
+	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
+	# The card is built on this screen all turn and closes on every back press:
+	# that close must never hand the observer's chrome back.
+	screen.improvements.close()
+	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
