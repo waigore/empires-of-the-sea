@@ -22,13 +22,14 @@ static func disembark(
 	fleet: FleetState,
 	province_id: int,
 	turn: int = 0,
-	hostile: Callable = Callable()
+	hostile: Callable = Callable(),
+	state: DiplomacyState = null
 ) -> Dictionary:
 	if fleet == null:
 		return {"ok": false, "reason": "No fleet is selected."}
 	var army: ArmyState = army_by_id(layer, fleet.embarked_army)
 	var result: Dictionary = NavalTransport.disembark(
-		layer.model, army, fleet, province_id, turn, hostile
+		layer.model, army, fleet, province_id, turn, hostile, state
 	)
 	if not bool(result.get("ok", false)):
 		return result

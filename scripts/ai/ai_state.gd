@@ -19,6 +19,11 @@ var last_peace_turn: Dictionary = {}
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
+## Faction id -> the deferred-aim stall records the escalation tracker keeps
+## (`AiDeferral`, issue #603): how many turns each aim has been deferred
+## without its shortfall shrinking. Read back by the readings and the reserve,
+## so a stalled war chest re-routes instead of freezing the court.
+var deferrals: Dictionary = {}
 ## Faction id -> the claims the objective ledger last ranked and funded, with
 ## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
 ## save carries the ledger the court reported.
@@ -125,6 +130,11 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 		"blocked_ids": ids["blocked"],
 		"lines": lines,
 	}
+	# The escalation tracker folds the same rows: one stall map per court, so a
+	# save carries how long each aim has stood still (issue #603).
+	deferrals[faction] = AiDeferral.note(
+		_dictionary(deferrals.get(faction, {})), report.get("objectives", [])
+	)
 
 
 ## Walks the ledger tree and files every objective id under its status.
@@ -159,6 +169,9 @@ func to_dict() -> Dictionary:
 		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
+		# The escalation's stall records are plain {aim -> {turns, shortfall}},
+		# JSON-safe as they stand (issue #603).
+		"deferrals": deferrals.duplicate(true),
 		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
 	}
@@ -174,6 +187,13 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
+	# A JSON round-trip turns the faction keys into strings: file them back as
+	# ints, and drop any row a save could not describe (issue #603).
+	var stored_deferrals: Dictionary = _dictionary(data.get("deferrals", {}))
+	for faction: Variant in stored_deferrals.keys():
+		var records: Dictionary = AiDeferral.clean(_dictionary(stored_deferrals[faction]))
+		if not records.is_empty():
+			state.deferrals[int(faction)] = records
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state
