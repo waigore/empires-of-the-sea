@@ -78,8 +78,8 @@ medallions, `RECRUIT`; trained tiers `DISBAND` (no refund). Phone-thumb sized.
 
 ## Deferred (REQ-P2-02)
 
-Building/tier gates; further multi-turn rows; a queue cap
-([`deferred.md`](deferred.md)).
+Building/tier gates (DR-14-07 luxury tiers await #565); further multi-turn
+rows; a queue cap ([`deferred.md`](deferred.md)).
 
 ## Architecture
 

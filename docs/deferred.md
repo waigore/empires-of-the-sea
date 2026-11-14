@@ -1,14 +1,13 @@
 # Deferred features (ranked)
 
-Audited through DR-20261114-04 (`REQ-P2-02`).
+Audited through DR-20261114-06 (`REQ-P2-02`).
 
 ## Already live
 
 | Was listed as deferred | Where it lives |
 |------------------------|----------------|
 | War research; war memory; ledger T1 | `research_floor`; `AiWarMemory`; `AiObjective*`, DR-24/25/#496 |
-| Ledger T2–T5 (expedition, claims, posture, navy) | `AiObjectivesPlan`, `AiClaims`, `AiPosture`, `navy.build` #497–#500 |
-| Ledger T6 funded-share metric | `funded_pct` / ai-bench guards, #501 |
+| Ledger T2–T6 (expedition→funded_pct) | `AiObjective*`, `AiClaims`, `AiPosture`, `navy.build` #497–#501 |
 | Difficulty layer | `Difficulty` / `VictoryRules`, DR-11-25/28 |
 | Agenda + dialogue beats; boycotts | `AiAgenda`, `DialogueAgenda`, `AiDiplomacyOffers` |
 | Home-fleet merge; forts; civilian AI | `FleetHomeMerge`, `AiCivilianPlanner`, forts |
@@ -28,24 +27,25 @@ Audited through DR-20261114-04 (`REQ-P2-02`).
 | War footing; money-first; victory pressure | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure`, DR-13-19/14-04 |
 | Leader bonuses | `LeaderCatalog`, DR-13-18 |
 | Tribe buy ambition (envoy over storm) | `AiTribeColony`, `colonise.tribe_chain`, DR-14-02 |
-| New World landings; overseas conquest | `AiColonisationPlanner` return voyage, `AiCrossingForce`, DR-14-03 |
+| New World landings; overseas conquest | `AiColonisationPlanner`, `AiCrossingForce`, DR-14-03 |
+| Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
+| Hull chest for navy.build | `AiNavy` / `AiIncome.reserve`, DR-14-06/#558 |
 
 ## Remaining gaps (impact order)
 
-1. **New World colony founded** — landings and storm conquest are live
-   (DR-14-03), and the chain's door is studied (DR-14-05). Join Empire
-   (`5,000 + 2,000 × provinces`) still outruns a rival purse held at hundreds
-   by the starvation defect (#530/#489).
+1. **New World colony founded** — landings, storm conquest (DR-14-03), and
+   the chain's door (DR-14-05) are live. Join Empire
+   (`5,000 + 2,000 × provinces`) still outruns a rival purse (#530/#489;
+   #552 sheds mouths, not the price).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
-   every domain still runs; only the voyage gate is live. Weights, money-first
-   and victory pressure ship.
+   every domain still runs; only the voyage gate is live.
 3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
-   queue cap (wiki-deferred).
+   queue cap (wiki-deferred; DR-14-07 luxury tiers await #565).
 
 ## Next pick
 
-A Tribe colony founded: the chain is studied open (DR-14-05) and the price is
-the wiki's, so the blocker is the rival purse (#530/#489).
+A Tribe colony founded: the chain is studied open (DR-14-05); the blocker is
+the rival purse (#530/#489).
 
 ## Blocked footnotes
 
