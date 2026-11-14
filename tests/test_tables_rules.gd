@@ -1293,6 +1293,56 @@ func test_a_cigar_batch_lands_one_unit_a_phase() -> void:
 	assert_eq(stock["cigars"], 2)
 	assert_true(third["wip"].is_empty(), "the batch is spent")
 
+
+## A slow row's bench holds three pieces: a fourth run waits for a landing, the
+## ledger's ceiling stops where the phase would, and a one-turn row is never
+## capped (wiki: production-recipes § Workshop queue; DR-20261114-12).
+func test_the_workshop_holds_three_pieces_of_a_slow_row() -> void:
+	assert_eq(ProductionWorkshop.QUEUE_CAP, 3)
+	var stock: Dictionary = {"tobacco": 20}
+	var apprentices: WorkerPool = WorkerPool.make(3, 1)
+	var report: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 5}], stock, 20, {}, {}, apprentices
+	)
+	assert_eq(report["runs"], {"cigars": 3}, "the bench takes three pieces")
+	assert_eq(ProductionWorkshop.units(report["wip"], "cigars"), 3)
+	assert_eq(stock["tobacco"], 14, "the fourth run pays nothing")
+	# A batch still serving its first turn leaves the bench full: no new run,
+	# even with inputs and labour to spare.
+	var held: Dictionary = {"cigars": [{"units": 3, "turns_left": 2}]}
+	var again: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 2}], stock, 20, {}, held, apprentices
+	)
+	assert_eq(again["runs"], {})
+	assert_eq(stock["tobacco"], 14)
+	# Two assignments of one row share the same bench.
+	var split: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 2}, {"recipe": "cigars", "units": 2}],
+		{"tobacco": 20}, 20, {}, {}, apprentices
+	)
+	assert_eq(split["runs"], {"cigars": 3}, "two assignments share one bench")
+	# The ceiling the ledger offers stops at the room the coming phase leaves.
+	assert_eq(
+		ProductionRecipes.allowance("cigars", stock, 20, [], apprentices, held), 0
+	)
+	assert_eq(
+		ProductionRecipes.allowance(
+			"cigars", stock, 20, [], apprentices, {"cigars": [{"units": 2, "turns_left": 1}]}
+		),
+		2,
+		"a landing frees its place for the run set now"
+	)
+	# A one-turn row never waits, so the cap never binds it.
+	assert_eq(ProductionRecipes.allowance("lumber", {"timber": 20}, 20, [], null, {}), 10)
+	# A batch already on the anvil keeps its place: a save over the cap still
+	# lands, and only new runs wait.
+	var legacy: Dictionary = {"cigars": [{"units": 5, "turns_left": 1}]}
+	var served: Dictionary = ProductionRecipes.plan([], {}, 0, {}, legacy, apprentices)
+	assert_eq(served["produced"], {"cigars": 1}, "a paid batch still lands")
+	assert_eq(ProductionWorkshop.units(served["wip"], "cigars"), 4)
+	assert_eq(ProductionWorkshop.room(legacy, "cigars", 2), 0, "an over-full bench has no room")
+
+
 func test_every_track_points_at_a_shipped_file() -> void:
 	var ids: Array[String] = MusicPlaylist.ids()
 	assert_gte(ids.size(), 6)

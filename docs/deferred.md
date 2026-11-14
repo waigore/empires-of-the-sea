@@ -38,9 +38,9 @@ Audited through DR-20261114-10 + #568 (`REQ-P2-02`).
 2. **Domain gating beyond the voyage** — the declare slot ships (DR-14-11): an
    overstretched court opens no war on a crown it cannot beat. The rest stays
    seed.
-3. **Building gates / queue cap** — worker-tier gates (DR-14-07) and the alloy
-   + luxury four (DR-14-10) shipped; building gates, further rows, and the
-   queue cap remain (wiki-deferred).
+3. **Building gates / further rows** — worker-tier gates (DR-14-07), the alloy
+   + luxury four (DR-14-10) and the workshop queue cap (DR-14-12) shipped;
+   building gates and further rows remain (wiki-deferred).
 
 ## Next pick
 

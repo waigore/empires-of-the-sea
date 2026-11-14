@@ -52,7 +52,8 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var income: Dictionary = AiIncome.plan(
 		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.navy_chest(play, faction)
+		MapPlayCourt.navy_chest(play, faction),
+		MapPlayCourt.warships(play, faction)
 	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)

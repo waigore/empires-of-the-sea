@@ -89,11 +89,14 @@ static func _build_warship(
 	var claim: Dictionary = play.ai.objectives_for(faction)
 	if not (claim.get("funded_ids", []) as Array).has("navy.build"):
 		return {}
-	var type_id: String = _warship_type(economy)
+	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
+	var type_id: String = _warship_type(economy, flown)
 	if type_id.is_empty():
 		return {}
 	var chest: int = MapPlayCourt.navy_chest(play, faction)
-	var laid: Dictionary = _launch(play, roster, faction, economy, seat, {"type_id": type_id})
+	var laid: Dictionary = _launch(
+		play, roster, faction, economy, seat, {"type_id": type_id}, flown
+	)
 	if laid.is_empty():
 		return {}
 	laid["price"] = ShipEconomy.treasury_cost(type_id)
@@ -103,8 +106,9 @@ static func _build_warship(
 
 ## The strongest warship this court can pay for today: what its yard opens, its
 ## purse and stores cover, and its fields can spare a hand for. Empty when the
-## court can lay nothing down.
-static func _warship_type(economy: PlayerEconomy) -> String:
+## court can lay nothing down. `flown` lets a starting sloop be rebuilt without
+## Navigation (issue #484).
+static func _warship_type(economy: PlayerEconomy, flown: Array = []) -> String:
 	var best: String = ""
 	var best_strength: float = 0.0
 	var peasants: int = economy.available_peasants()
@@ -113,7 +117,8 @@ static func _warship_type(economy: PlayerEconomy) -> String:
 		if not ShipStats.is_warship(type_id):
 			continue
 		var reason: String = ShipEconomy.blocked_reason(
-			type_id, economy.treasury, economy.stockpile, peasants, economy.tech_unlocked
+			type_id, economy.treasury, economy.stockpile, peasants,
+			economy.tech_unlocked, flown
 		)
 		if not reason.is_empty():
 			continue
@@ -132,7 +137,8 @@ static func _launch(
 	faction: int,
 	economy: PlayerEconomy,
 	seat: int,
-	order: Dictionary
+	order: Dictionary,
+	flown: Array = []
 ) -> Dictionary:
 	var type_id: String = String(order.get("type_id", ""))
 	if type_id.is_empty():
@@ -149,7 +155,8 @@ static func _launch(
 	while fleet.hulls.has(hull_id):
 		play.ship_layer.next_hull += 1
 		hull_id = "ship_%d" % play.ship_layer.next_hull
-	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id)
+	var known: Array = flown if not flown.is_empty() else ShipEconomy.types_flown(roster)
+	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id, known)
 	if not bool(result.get("ok", false)):
 		return {}
 	play.ship_layer.next_hull += 1

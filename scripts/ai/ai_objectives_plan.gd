@@ -174,14 +174,10 @@ static func _tribe_chain(readings: Dictionary) -> AiObjective:
 
 
 ## The fleet's turn: a squadron with hulls sorts out; a court with no fighting
-## hull, or one outmatched on its own coast, lays one down instead. The build
-## claims the yard's treasury row — the chest the money goal reserves — and a
-## court whose techs open no warship says so instead of claiming a hull it
-## cannot lay (issue #491 T5, #484). A chest the court has not reached ranks
-## below the muster it would otherwise starve (issue #591).
+## hull (peace or war), or one outmatched on its own coast, lays one down. The
+## build claims the yard's treasury row; a chest not yet reached ranks below the
+## muster (issue #491 T5, #484, #591).
 static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
-	if not at_war:
-		return null
 	var own: int = int(readings.get("warships", 0))
 	var hostile: int = int(readings.get("hostile_warships", 0))
 	var threat: int = AiUtility.ratio(hostile, maxi(own + hostile, 1))
@@ -201,10 +197,13 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		# The yard founds a slip of its own, so the build asks for the treasury
 		# row and the hull's material row — the chest the money goal reserves and
 		# the cloth the economy reserves, so the launch is never funded into a
-		# store the court already sold (issue #484).
-		if int(readings.get("warship_price", 0)) <= 0:
+		# store the court already sold (issue #484). A court still studying the
+		# unlock keeps that chest but does not claim a launch it cannot lay.
+		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
 		return build
+	if not at_war:
+		return null
 	return AiObjective.create(
 		"navy.sortie", "naval", AiUtility.clamp_utility(W_NAVY + threat / 2), {"hull": 1}
 	)
@@ -212,26 +211,21 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 
 ## True while the court is still short of the yard's price and a regiment is
 ## due: the chest it means to fill is out of reach, so the army's claim outranks
-## it (issue #591, `AiIncome.hull_held`).
+## it (issue #591, `AiIncome.hull_held`). A fleetless court keeps the yard ahead
+## of the muster — the same own-warships gate as `hull_held` (issue #484).
 static func _chest_beyond_reach(readings: Dictionary) -> bool:
+	if int(readings.get("warships", -1)) == 0:
+		return false
 	if not bool(readings.get("muster_due", false)):
 		return false
 	var price: int = int(readings.get("warship_price", 0))
 	return price > 0 and int(readings.get("treasury", 0)) < price
 
 
-## What laying that hull claims from the court's pools: the yard's treasury row
-## and the hull's own material row (`warship_row`), the same two rows the money
-## goal and the economy reserve. A reading without a row keeps the treasury-only
-## cost, so a fixture that has never read the catalog prices as it always did
-## (issue #484).
+## Treasury claim only: cloth stays on `AiClaims.NAVY` so the objective does not
+## double-book the bolt the market already held (issue #484).
 static func _build_cost(readings: Dictionary) -> Dictionary:
-	var cost: Dictionary = {"treasury": int(readings.get("warship_price", 0))}
-	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
-		cost[String(commodity)] = int(
-			(readings["warship_row"] as Dictionary)[commodity]
-		)
-	return cost
+	return {"treasury": int(readings.get("warship_price", 0))}
 
 
 

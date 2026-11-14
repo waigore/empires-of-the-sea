@@ -123,9 +123,16 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 		if AiControl.court_kind(play, faction) == AiControl.KIND_RANDOM:
 			continue
 		planning.append(faction)
+	var hull_chests: Dictionary = {}
+	var warships: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		warships[faction] = MapPlayCourt.warships(play, faction)
+		hull_chests[faction] = MapPlayCourt.navy_chest(play, faction)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
+		"warships": warships,
+		"hull_chests": hull_chests,
 		"strengths": MapPlayDiplomacy.public_orders(play).get("strength", {}),
 		"planning": planning,
 	}

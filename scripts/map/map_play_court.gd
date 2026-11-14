@@ -108,9 +108,31 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 		return 0
 	return AiNavy.chest(
 		at_war(play, faction), warships(play, faction), hostile_warships(play, faction),
-		ledger
+		ledger, hull_types(play, faction)
 	)
 
+
+## Hull types this court flies or has flown — craft its yard may rebuild
+## without the unlocking tech, kept after the last of that type is lost
+## (issue #484).
+static func hull_types(play: PlaySession, faction: int) -> Array[String]:
+	if play == null or play.ship_layer == null:
+		return []
+	var owned: Array[FleetState] = []
+	for region: int in play.ship_layer.regions.region_ids():
+		for raw: Variant in play.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw
+			if fleet != null and fleet.owner == faction:
+				owned.append(fleet)
+	var flown: Array[String] = ShipEconomy.types_flown(owned)
+	var ledger: PlayerEconomy = play.ledger_for(faction)
+	if ledger == null:
+		return flown
+	ledger.note_shipcraft(flown)
+	for type_id: String in ledger.shipcraft:
+		if not flown.has(type_id):
+			flown.append(type_id)
+	return flown
 
 ## The courts at war with this one, in relation order. Empty when the session
 ## carries no diplomacy.
