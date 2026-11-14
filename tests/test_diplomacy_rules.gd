@@ -1462,17 +1462,17 @@ func test_a_standing_colony_is_not_bought_twice() -> void:
 	assert_true(String(check["reason"]).contains("already your colony"))
 
 func test_the_join_empire_row_names_what_it_buys() -> void:
-	var tribe: String = DiplomacyOrders.overture_hint(
+	var tribe: String = DiplomacyOvertures.stage_hint(
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.TRIBE
 	)
 	assert_true(tribe.contains("never count"), tribe)
 	assert_true(tribe.contains("colony"), tribe)
-	var minor: String = DiplomacyOrders.overture_hint(
+	var minor: String = DiplomacyOvertures.stage_hint(
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.MINOR_NATION
 	)
 	assert_true(minor.contains("join your empire"), minor)
 	assert_eq(
-		DiplomacyOrders.overture_hint(DiplomacyCatalog.STAGE_NAP, FactionCatalog.Type.TRIBE),
+		DiplomacyOvertures.stage_hint(DiplomacyCatalog.STAGE_NAP, FactionCatalog.Type.TRIBE),
 		""
 	)
 

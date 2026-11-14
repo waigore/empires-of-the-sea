@@ -5,6 +5,7 @@ extends GdToolsTest
 ## Consolidated rulebook: AiMarket + AiMerchant + AiCargo (one Godot boot per domain).
 
 const CONFIG_FACTION: int = 1
+const MapFixture = preload("res://tests/map_fixture.gd")
 
 
 func _config() -> AiConfig:
@@ -948,3 +949,70 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 			as Array).size() > 0,
 		"only the surplus above the war chest is bid"
 	)
+
+
+## A rival's home harvest is priced against its own sealed ports, exactly as the
+## crown's is (wiki: capital-and-connectivity § Blockade — "rival ledgers take
+## the same reading so a crown's own blockade bites on both sides"; REQ-P2-03).
+## The seat's own ground still yields: a blockade severs the sea, not the land.
+func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
+	var screen: MapScreen = MapFixture.attach_screen(self)
+	var play: PlaySession = screen.play
+	play.ensure_ai()
+	var rival: int = -1
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != play.player_faction:
+			rival = faction
+			break
+	var economy: PlayerEconomy = play.ledger_for(rival)
+	var home: int = FactionCatalog.region_of(rival)
+	var model: MapModel = play.world.region(home)
+	var works: LandWorks = play.civilian_layer.works_regions.value(home, null)
+	var seat: int = int(WorldBootstrap.capital_seat(model, rival)["province"])
+	# Strip the home roads, then wire one province away from the seat by sea
+	# alone: its estates reach the crown through its harbour and nothing else.
+	for province: ProvinceState in model.provinces:
+		for tile: Vector2i in province.tiles:
+			works.set_transport(model, tile, 0)
+	var target: int = -1
+	var zone: int = -1
+	for sea_zone: SeaZoneState in model.sea_zones:
+		for raw: Variant in NavalMovement.provinces_by_zone(model, sea_zone.id):
+			var province: ProvinceState = model.province_data(int(raw))
+			if province == null or province.owner != rival or province.id == seat:
+				continue
+			var estate: bool = false
+			for tile: Vector2i in province.tiles:
+				if model.resource_at(tile.x, tile.y) >= 0:
+					estate = true
+					break
+			if not estate:
+				continue
+			target = province.id
+			zone = sea_zone.id
+			break
+		if target >= 0:
+			break
+	assert_gt(target, 0, "the rival holds a coastal estate province away from its seat")
+	var chosen: ProvinceState = model.province_data(target)
+	for tile: Vector2i in chosen.tiles:
+		works.set_transport(model, tile, 1)
+		if model.resource_at(tile.x, tile.y) >= 0:
+			works.set_improvement(model, tile, 1)
+	works.add_port(model, chosen.tiles[0])
+	var before: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	# A hostile squadron at sea beside that harbour, on blockade duty.
+	assert_gt(zone, -1, "the harbour faces a sea zone")
+	play.diplomacy.ensure_relation(play.player_faction, rival, play.turn)
+	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
+	var fleet := FleetState.at_sea(999, play.player_faction, zone)
+	fleet.mission = FleetState.Mission.BLOCKADE
+	fleet.blockade_province = target
+	play.ship_layer.regions.value(home, []).append(fleet)
+	var after: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	assert_ne(before, after, "the sealed harbour's estates leave the rival's harvest")
+	assert_true(
+		int(after.get("grain", 0)) >= Extraction.CAPITAL_GRAIN_BONUS,
+		"the seat's own ground still yields: a blockade severs the sea, not the land"
+	)
+	screen.free()
