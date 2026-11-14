@@ -990,6 +990,13 @@ domain = "economy_ui"
 match = "scripts/ui/commodity_icons.gd*"
 domain = "economy_ui"
 
+# The WORKERS tab forecasts the next Consumption phase (store, appetite, who
+# strikes). Declared before the `scripts/ui/**` menu catch-all so a larder line
+# never remounts the hub pages.
+[[rules]]
+match = "scripts/ui/ledger_workers.gd*"
+domain = "economy_ui"
+
 # The tier medallions are the WORKERS tab's art table, and its by-hand shot
 # harness draws that tab: both stay on the same light domain.
 [[rules]]
@@ -1907,6 +1914,12 @@ domain = "hospital"
 
 [[rules]]
 match = "scripts/rules/economy_*.gd"
+domain = "economy"
+
+# The larder forecast the WORKERS tab reads: the Consumption phase's own order
+# over copies, so it travels with the economy rules it mirrors.
+[[rules]]
+match = "scripts/rules/larder_read.gd*"
 domain = "economy"
 
 [[rules]]
