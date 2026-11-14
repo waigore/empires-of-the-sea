@@ -1,8 +1,9 @@
 class_name ShipLayer
 extends Node2D
 ## Owns fleet markers and applies naval orders. NavalMovement decides outcomes;
-## this layer animates them and reports zone entries for exploration. Roster
-## arithmetic lives in FleetRosters, marker nodes in ShipMarkers (REQ-P3-01).
+## NavalBattles resolves the turn's battles in every region; this layer only
+## animates them and reports zone entries for exploration. Roster surgery lives
+## in FleetRosters, marker nodes in ShipMarkers (REQ-P3-01, REQ-P3-03).
 
 signal zone_entered(zone_id: int, ship: Ship)
 signal ship_selected(ship: Ship)
@@ -136,19 +137,15 @@ func ship_for(fleet: FleetState) -> Ship:
 
 
 ## Crosses a passage: rules verify the link, then the fleet leaves this roster
-## for the counterpart's, renumbered so regions never share an id.
+## for the counterpart's, renumbered so regions never share an id
+## (FleetRosters.hand_to_region).
 func cross(fleet: FleetState) -> Dictionary:
 	var result: Dictionary = WarpTravel.apply_crossing(world, model.region_id, fleet)
 	if not bool(result.get("ok", false)):
 		return result
-	var to_region: int = int(result["to_region"])
-	var destination: Array[FleetState] = []
-	destination.assign(regions.value(to_region, []))
-	fleets.erase(fleet)
-	fleet.id = FleetRosters.next_id_all(regions)
-	destination.append(fleet)
-	regions.set_region(to_region, destination)
-	regions.set_region(model.region_id, fleets)
+	FleetRosters.hand_to_region(
+		regions, model.region_id, fleet, int(result["to_region"]), fleets
+	)
 	rebuild_markers()
 	warp_crossed.emit(fleet, result)
 	return result
@@ -190,7 +187,7 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 			ShipMarkers.sail(ship, model.sea_zone_center(fleet.sea_zone) * TILE_SIZE)
 			zone_entered.emit(fleet.sea_zone, ship)
 		else:
-			ShipMarkers.sail(ship, _port_position(fleet.province))
+			ShipMarkers.sail(ship, ShipMarkers.port_position(model, fleet.province))
 	fleet_moved.emit(arrived, result)
 	return result
 
@@ -255,65 +252,53 @@ func refresh_hulls(fleet: FleetState) -> void:
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:
-	for roster: Array in FleetRosters.all(regions):
-		var region_fleets: Array[FleetState] = []
-		region_fleets.assign(roster)
-		NavalMovement.begin_turn(region_fleets)
+	FleetRosters.each(regions, NavalMovement.begin_turn)
 
 
 ## Expires landing sites whose one full turn has run (wiki: ships-and-naval
 ## § Missions and Movement), in every region.
 func expire_beachheads(turn: int) -> void:
-	for roster: Array in FleetRosters.all(regions):
-		var region_fleets: Array[FleetState] = []
-		region_fleets.assign(roster)
-		NavalTransport.expire_beachheads(region_fleets, turn)
+	FleetRosters.each(regions, NavalTransport.expire_beachheads.bind(turn))
 
 
 ## Resolves contested zones in every region, visible or not (wiki: map-topology
-## § two regions). `hostile` gates each pair; without it all pairs are hostile.
-## `context` carries the campaign seed/turn and is completed with the region
-## model so interception and retreat resolve per map (DR-20261109-16).
+## § two regions). NavalBattles decides who fights and who drowns; this layer
+## only drops the markers that lost their command and sails the retreats.
+## `hostile` gates each pair; without it all pairs are hostile. `context`
+## carries the campaign seed/turn and is completed with the region model so
+## interception and retreat resolve per map (DR-20261109-16).
 func resolve_battles(
 	world: WorldMap, hostile: Callable = Callable(), context: Dictionary = {}
 ) -> Array[Dictionary]:
-	var all: Array[Dictionary] = []
-	for index in world.region_count():
-		var region_fleets: Array[FleetState] = []
-		if model != null and index == model.region_id:
-			region_fleets = fleets
-		else:
-			region_fleets.assign(regions.value(index, []))
-		if region_fleets.is_empty():
+	var shown: int = model.region_id if model != null else MapModel.NO_ID
+	if model != null:
+		# The table holds the layer's live roster; a battle must resolve the
+		# squadrons the chart is showing, not a stale copy of them.
+		regions.set_region(shown, fleets)
+	var battles: Array[Dictionary] = NavalBattles.resolve_region_turn(
+		world, regions, hostile, context
+	)
+	var on_screen: bool = false
+	for battle: Dictionary in battles:
+		if int(battle.get("region", -1)) == shown:
+			on_screen = true
+			break
+	if not on_screen:
+		return battles
+	var alive: Array[FleetState] = []
+	alive.assign(regions.value(shown, []))
+	# The layer and the table share one roster array, so later orders store once.
+	regions.set_region(shown, alive)
+	fleets = alive
+	# Sunk hulls leave the marker: the survivor flies its new count.
+	_markers.prune(fleets)
+	_markers.sync(fleets)
+	for battle: Dictionary in battles:
+		if int(battle.get("region", -1)) != shown:
 			continue
-		var region_context: Dictionary = context.duplicate(true)
-		region_context["model"] = world.region(index)
-		region_context["fleets"] = region_fleets
-		var battles: Array[Dictionary] = NavalCombat.resolve_turn(
-			region_fleets, hostile, region_context
-		)
-		if battles.is_empty():
-			continue
-		var alive: Array[FleetState] = []
-		var on_screen: bool = model != null and index == model.region_id
-		for fleet: FleetState in region_fleets:
-			if fleet.is_afloat():
-				alive.append(fleet)
-				continue
-			if on_screen:
-				_markers.remove(ship_for(fleet))
-		regions.set_region(index, alive)
-		if on_screen:
-			fleets = alive
-			# Sunk hulls leave the marker: the survivor flies its new count.
-			_markers.sync(alive)
-		for battle: Dictionary in battles:
-			battle["region"] = index
-			all.append(battle)
-			if on_screen:
-				for marker: Ship in _markers.retreat(battle, region_fleets):
-					zone_entered.emit(marker.zone, marker)
-	return all
+		for marker: Ship in _markers.retreat(battle, fleets):
+			zone_entered.emit(marker.zone, marker)
+	return battles
 
 
 ## Applies the port-capture rules after a Combat phase: a reassigned crown's
@@ -355,26 +340,21 @@ func sortie(fleet: FleetState, zone: int) -> Dictionary:
 
 
 ## A Join Empire absorption transfers the loser's squadrons and markers.
-## `MapModel.NO_ID` retires them instead: the crown leaves the map.
+## `MapModel.NO_ID` retires them instead: the crown leaves the map. The roster
+## surgery is FleetRosters.hand_over; this layer keeps the shown roster live and
+## repaints the colours (or drops the markers).
 func transfer_owner(from_id: int, to_id: int) -> void:
-	var retire: bool = to_id == MapModel.NO_ID
-	for roster: Array in FleetRosters.all(regions):
-		var stored: Array = roster
-		for index in range(stored.size() - 1, -1, -1):
-			var fleet: FleetState = stored[index]
-			if fleet == null or fleet.owner != from_id:
-				continue
-			if retire:
-				stored.remove_at(index)
-				continue
-			fleet.owner = to_id
-	for ship: Ship in _markers.ships.duplicate():
-		if ship.faction != from_id:
-			continue
-		if retire:
-			_markers.remove(ship)
-			continue
-		ship.faction = to_id
+	for region: int in regions.region_ids():
+		var stored: Array[FleetState] = []
+		stored.assign(regions.value(region, []))
+		FleetRosters.hand_over(stored, from_id, to_id)
+		regions.set_region(region, stored)
+		if model != null and region == model.region_id:
+			fleets = stored
+	for ship: Ship in _markers.ships:
+		if ship.faction == from_id and to_id != MapModel.NO_ID:
+			ship.faction = to_id
+	_markers.prune(fleets)
 
 
 ## Every region counts: reading another map must not hide hulls or upkeep.
@@ -383,18 +363,5 @@ func hull_count_all(owner: int) -> int:
 
 
 func at_sea_zones(owner: int) -> Array[int]:
-	var zones: Array[int] = []
-	for fleet: FleetState in fleets:
-		if fleet.owner != owner or not fleet.is_at_sea():
-			continue
-		if not zones.has(fleet.sea_zone):
-			zones.append(fleet.sea_zone)
-	return zones
+	return FleetRosters.zones_at_sea(fleets, owner)
 
-
-func _port_position(province_id: int) -> Vector2:
-	var data: ProvinceState = model.province_data(province_id)
-	var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
-	if port.x < 0 or port.y < 0:
-		return model.province_center(province_id) * TILE_SIZE
-	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
