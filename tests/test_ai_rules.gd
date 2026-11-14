@@ -2249,6 +2249,26 @@ func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
 	)
 
 
+## The door the court walked up to is a gate, not a preference: the study that
+## opens the next link of a chain with a charted Tribe is taken first, and the
+## ordinary ranking stands when there is no door (DR-20261114-05).
+func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
+	var config: AiConfig = _research_config()
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, PlayerEconomy.starting(), {"door": "diplomatic_expertise"}
+	)
+	assert_false(plan["assignments"].is_empty(), "the court has a slot to fill")
+	assert_eq(
+		String(plan["assignments"][0]["tech"]), "diplomatic_expertise",
+		"the door is taken first"
+	)
+	var plain: Dictionary = AiResearchPlanner.plan(config, PlayerEconomy.starting())
+	assert_ne(
+		String(plain["assignments"][0]["tech"]), "diplomatic_expertise",
+		"without a door the ordinary ranking stands"
+	)
+
+
 func test_research_personality_weights_steer_the_branch() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
