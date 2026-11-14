@@ -34,7 +34,16 @@ static func regiment_mustered(rec: Dictionary) -> String:
 	return "The drill yard has done its work: %s — %s musters at the capital." % [title, label]
 
 
+## A launched hull keeps the name it was christened with (wiki: the-gazette
+## § Item catalog — "a hull keeps the name it was christened with"; naming
+## § Ship names — the launch despatch prints it). A record with no name (a
+## legacy fixture) still prints the plain line.
 static func ship_launched(rec: Dictionary) -> String:
 	var label: String = String(rec.get("label", "hull"))
 	var place: String = String(rec.get("place", "the capital"))
-	return "A %s slides from the slips at %s and joins the home fleet." % [label, place]
+	var hull: String = String(rec.get("name", ""))
+	if hull.is_empty():
+		return "A %s slides from the slips at %s and joins the home fleet." % [label, place]
+	return "%s — a new %s — takes the water at %s and joins the home fleet." % [
+		hull, label, place
+	]
