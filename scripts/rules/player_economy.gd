@@ -153,21 +153,13 @@ func reserved_peasants() -> int:
 
 
 ## Empty string when the recruit/train row is payable; otherwise the wiki reason.
+## One head is payable exactly when the batch limit allows one, so the row and
+## the batch read the same rule (REQ-P2-03).
 func recruit_blocked_reason(tier: int) -> String:
-	if tier < 0 or tier >= WorkerPool.TIER_COUNT:
-		return "Unknown worker tier"
-	if not WorkerPool.techs_unlocked(tier, tech_unlocked):
-		return "Required technology not unlocked"
-	if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] and available_peasants() < 1:
-		return "Insufficient workers"
-	var cost: Dictionary = WorkerPool.recruit_cost(tier)
-	if treasury < int(cost.get("treasury", 0)):
-		return "Insufficient treasury"
-	var materials: Dictionary = cost.get("materials", {})
-	for commodity: Variant in materials.keys():
-		if quantity(String(commodity)) < int(materials[commodity]):
-			return "Insufficient materials"
-	return ""
+	var limit: Dictionary = _recruit_limit(tier)
+	if int(limit["limit"]) > 0:
+		return ""
+	return String(limit["reason"])
 
 
 ## Recruit or train one worker of the target tier (wiki: workers-and-population).
@@ -186,15 +178,66 @@ func recruit(tier: int) -> Dictionary:
 	return {"ok": true, "reason": ""}
 
 
-## Queues a recruit / train order for the next Build/work instead of paying it
-## now; the crown's peasant stays reserved until it resolves
-## (wiki: workers-and-population § Phase placement).
-func queue_recruit(tier: int) -> Dictionary:
-	var reason: String = recruit_blocked_reason(tier)
-	if not reason.is_empty():
-		return {"ok": false, "reason": reason}
-	recruits.add(RecruitQueue.KIND_WORKER, str(tier))
-	return {"ok": true, "reason": ""}
+## How many workers of this tier the crown could queue right now: the tightest
+## of the free peasants, the treasury and the materials the cost row asks per
+## head (wiki: workers-and-population § Recruiting, § Peasant reservation). 0
+## when the tier's tech is locked or the row is not payable at all.
+func recruit_affordable(tier: int) -> int:
+	return int(_recruit_limit(tier)["limit"])
+
+
+## The tightest limit on a batch of this tier and the wiki reason it binds, so
+## the ledger can name why a batch stopped short (REQ-P5-05). The order of the
+## checks is `recruit_blocked_reason`'s own: tech, peasants, treasury, materials.
+func _recruit_limit(tier: int) -> Dictionary:
+	if tier < 0 or tier >= WorkerPool.TIER_COUNT:
+		return {"limit": 0, "reason": "Unknown worker tier"}
+	if not WorkerPool.techs_unlocked(tier, tech_unlocked):
+		return {"limit": 0, "reason": "Required technology not unlocked"}
+	var limit: int = 1 << 30
+	var reason: String = ""
+	if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier]:
+		var free: int = available_peasants()
+		if free < limit:
+			limit = free
+			reason = "Insufficient workers"
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	var gold: int = int(cost.get("treasury", 0))
+	if gold > 0:
+		var by_gold: int = treasury / gold
+		if by_gold < limit:
+			limit = by_gold
+			reason = "Insufficient treasury"
+	var materials: Dictionary = cost.get("materials", {})
+	for commodity: Variant in materials.keys():
+		var per: int = int(materials[commodity])
+		if per <= 0:
+			continue
+		var by_stock: int = quantity(String(commodity)) / per
+		if by_stock < limit:
+			limit = by_stock
+			reason = "Insufficient materials"
+	return {"limit": maxi(limit, 0), "reason": reason}
+
+
+## Queues up to `count` recruit / train orders, stopping at the first head the
+## rules refuse (wiki: workers-and-population § Phase placement). Nothing is
+## paid now: each order reserves its peasant and pays in Build/work, so a batch
+## never promises a purse or a peasant the crown does not hold. Returns
+## {ok, asked, queued, reason} — `reason` is why the batch stopped, empty when
+## every order was filed.
+func queue_recruit(tier: int, count: int = 1) -> Dictionary:
+	var asked: int = maxi(count, 1)
+	var limit: Dictionary = _recruit_limit(tier)
+	var queued: int = mini(asked, int(limit["limit"]))
+	for _index in queued:
+		recruits.add(RecruitQueue.KIND_WORKER, str(tier))
+	var reason: String = ""
+	if queued < asked:
+		reason = String(limit["reason"])
+		if reason.is_empty():
+			reason = "Recruit refused"
+	return {"ok": queued > 0, "asked": asked, "queued": queued, "reason": reason}
 
 
 ## Queues a civilian hire, a regiment muster or a hull launch. The caller has

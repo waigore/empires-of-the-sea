@@ -1,6 +1,6 @@
 # Diplomacy
 
-War, peace, treaties, aid, intervention, the chronicle (wiki:
+War, peace, treaties, aid, intervention, chronicle (wiki:
 [diplomacy](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy)).
 
 **Pillars:** P1–P4.
@@ -9,23 +9,24 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
 
 - **Relations** (`DiplomacyState`): pair score, war, turn stamps; same-region
   seed 50; bands 0–25/26–50/51–75/76–100; GP pairs keep Embassy
-  through war.
+  in war.
 - **Decay:** non-war pairs drift 4.0 to 50; war freezes.
 - **Spy death:** −8 for a Spy killed abroad.
 - **War / peace:** war needs peace, freezes the score, clears overtures
-  (GP pairs keep Embassy); battles need war. Minors/Tribes accept peace; GP 26+.
+  (GP pairs keep Embassy); battles need war, except a Tribe — unless another
+  crown has bought land there. Minors/Tribes accept peace; GP 26+.
 - **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs
   −50 with the ally, −10 with others; never in war.
 - **Call to arms:** a GP war calls each ally once. AI allies join at 50+;
   human calls wait; refusal breaks the treaty.
 - **Intervention:** a war on a Minor/Tribe lets embassy and deed holders
   answer: intervene, stand aside (losing the embassy) or protest −10 (−5 with
-  Propaganda). Else it protests at 26+ relation, or stands aside. **A
-  deed is a stake** (`DeedProtection`): one deed lifts the trial to 25% and
+  Propaganda). Else it protests at 26+, or stands aside. **A
+  deed is a stake** (`DeedProtection`): one lifts the trial to 25% and
   blocks standing aside, two to 50%; a deed-only court loses no embassy.
   Declare War names them.
 - **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
-  £5,000 + £2,000/province; one per target per turn; Minor/Tribe embassies need
+  £5,000 + £2,000/province; one per target/turn; Minor/Tribe embassies need
   Diplomatic Expertise.
 - **Join Empire:** absorbs a Minor, colonizes a Tribe; a near-defeated GP
   (≤3 provinces) needs Empire Building.
@@ -40,17 +41,17 @@ War, peace, treaties, aid, intervention, the chronicle (wiki:
   **Subsidy** never moves the published price: deals with that court pay p%
   more, earn p% less. Rails 70–150% buy, 50–130% sell; the court states it.
 - **First contact:** a Tribe enters court on a seen tile in its provinces, not by
-  sea-reach; rivals open theirs at the turn's close, the crown with a herald.
+  sea-reach; rivals open theirs at turn close, the crown with a herald.
 - **Chronicle** (`DiplomacyHistory`): newest first, `Year Y (Turn N)`; unmet
   crowns `Unknown faction`.
-- **Power line:** each Great Power reads its score against yours — red
+- **Power line:** each GP reads its score against yours — red
   stronger, green matched.
-- **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion and
-  behaviour per court ([`intel-dossier.md`](intel-dossier.md)).
-- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): washed blue (yours),
+- **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion, behaviour per
+  court ([`intel-dossier.md`](intel-dossier.md)).
+- **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): blue (yours),
   green (friendly), grey (neutral), red (war).
 - **Rival AI courts:** one order per turn ([`ai.md`](ai.md)): war, peace or the
-  court menu. Below 50 desire: white peace; consent asks wait, one-sided acts
+  court menu. Below 50 desire: white peace; consent waits, one-sided acts
   land.
 
 ## Deferred (REQ-P2-02)
@@ -67,7 +68,7 @@ Rules: `diplomacy_catalog`, `diplomacy_state`,
 `tribe_contact`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`,
 `map/map_play_tribe_contact`. UI:
 `ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
-`diplomacy_history_panel`. Rules need no nodes (`REQ-P3-03`); panel →
+`diplomacy_history_panel`. No nodes (`REQ-P3-03`); panel →
 `DiplomacyOrders.apply`, phase → `end_turn`.
 
 ## Tests

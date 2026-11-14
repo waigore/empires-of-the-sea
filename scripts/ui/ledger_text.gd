@@ -53,6 +53,23 @@ static func recruit_cost(tier: int) -> String:
 	return "   ".join(parts)
 
 
+## The whole batch's price: "600 ducats and Paper ×6" — the row's promise before
+## the press, so a batch is never a surprise (REQ-P5-05).
+static func recruit_batch_cost(tier: int, count: int) -> String:
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	var parts: PackedStringArray = []
+	var gold: int = int(cost.get("treasury", 0)) * count
+	if gold > 0:
+		parts.append("%d ducats" % gold)
+	var materials: Dictionary = cost.get("materials", {})
+	for commodity: Variant in materials.keys():
+		parts.append(
+			"%s ×%d"
+			% [CommodityCatalog.label(String(commodity)), int(materials[commodity]) * count]
+		)
+	return " and ".join(parts)
+
+
 ## "Send one back to the fields — no recruit cost is refunded. An apprentice eats
 ## 2 food and a unit of Refined Sugar a turn." The row's promise and its saving.
 static func disband_hint(tier: int) -> String:

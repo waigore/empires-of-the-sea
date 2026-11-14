@@ -143,7 +143,9 @@ func _connect() -> void:
 	panel.offer_requested.connect(orders.offer)
 	panel.cancel_requested.connect(orders.withdraw)
 	panel.production_changed.connect(orders.set_production)
-	panel.recruit_requested.connect(orders.worker_action.bind("recruit"))
+	panel.recruit_requested.connect(
+		func(tier: int, count: int) -> void: orders.worker_action(tier, "recruit", count)
+	)
 	panel.disband_requested.connect(orders.worker_action.bind("disband"))
 	var research: ResearchPanel = hud.panels.research_panel
 	research.assign_requested.connect(orders.assign_research)
