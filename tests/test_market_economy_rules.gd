@@ -1412,6 +1412,62 @@ func test_turn_runs_all_four_phases_in_order() -> void:
 	assert_eq(economy.quantity("lumber"), 1)
 	assert_eq(economy.quantity("wool"), 2)
 
+## The phase keeps what it turned out, so the ledger and the save can read the
+## work the court just paid for (wiki: production-recipes § Acceptance Criteria,
+## `productionByRecipe`).
+func test_the_phase_records_what_the_workshop_made() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("lumber", 1)
+	EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "timber": 4}, 0
+	)
+	assert_eq(economy.production.made_units("lumber"), 1)
+	assert_eq(economy.production.made_total(), 1)
+	assert_eq(economy.production.made_units("steel"), 0, "a row that did not run made nothing")
+
+
+## A two-turn row is recorded in the phase its unit lands, not the phase it
+## started (wiki: production-recipes § Turns per unit; DR-20261113-02).
+func test_a_two_turn_batch_is_recorded_when_its_unit_lands() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("steel", 1)
+	EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "iron": 2, "coal": 2}, 0
+	)
+	assert_eq(economy.production.made_units("steel"), 0, "the steel is still on the anvil")
+	EconomyTurn.resolve(economy, WorldMarket.with_default_prices(), {}, 0)
+	assert_eq(economy.production.made_units("steel"), 1, "the landing is the record")
+
+
+## The end-of-turn projection runs on a copy, so it never rewrites the phase the
+## court already lived (REQ-P2-03).
+func test_a_projection_does_not_record_the_phase() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("lumber", 1)
+	EconomyTurn.project(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "timber": 4}, 0
+	)
+	assert_eq(economy.production.made, {}, "a preview is not a phase")
+
+
+## The record rides the save, and a damaged row drops instead of aborting the
+## load (wiki: production-recipes § Acceptance Criteria).
+func test_the_workshop_record_round_trips_and_drops_junk() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_made({"lumber": 3, "steel": 1, "ghost": 2, "bronze": 0})
+	assert_eq(economy.production.made, {"lumber": 3, "steel": 1})
+	var saved: Dictionary = economy.snapshot()
+	assert_eq(saved["production_made"], {"lumber": 3, "steel": 1})
+	var restored: PlayerEconomy = PlayerEconomy.starting()
+	restored.apply_snapshot(saved)
+	assert_eq(restored.production.made_units("lumber"), 3)
+	assert_eq(restored.production.made_total(), 4)
+	restored.apply_snapshot({"production_made": "junk"})
+	assert_eq(restored.production.made, {}, "a damaged record reads as an idle workshop")
+	restored.production.set_made({"lumber": {}, "steel": 2})
+	assert_eq(restored.production.made, {"steel": 2}, "a count that is not a number drops")
+
+
 func test_gold_clears_into_treasury() -> void:
 	var economy: PlayerEconomy = _economy(1)
 	economy.stockpile["gold"] = 2

@@ -888,6 +888,37 @@ func test_the_alloy_rows_name_their_wait() -> void:
 ## A luxury row names the hand it waits for on the row itself, and its "+" is
 ## inert until the court trains one: a touch player never sees a hover hint
 ## (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
+##
+## The row remembers the phase the court paid for: an idle row that worked says
+## what it turned out, and the MANUFACTURED heading totals the workshop's last
+## phase (wiki: production-recipes § Acceptance Criteria, `productionByRecipe`).
+func test_a_production_row_reports_the_phase_it_just_worked() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.production.set_made({"lumber": 2, "steel": 1})
+	_screen.economy.open_panel()
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "made 2"), "the lumber row names its last output")
+	assert_eq(
+		LedgerText.workshop_note(economy, "steel"), "2t",
+		"a waiting row keeps its tag: the present is what the next phase pays"
+	)
+	var hints: PackedStringArray = []
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text == "MANUFACTURED":
+			hints.append(label.tooltip_text)
+	assert_true(
+		not hints.is_empty() and hints[0].contains("Last phase the workshop made 3 goods"),
+		"the heading totals the workshop's last phase: %s" % [hints]
+	)
+	economy.production.set_made({})
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "made 2"), "an idle workshop claims no last output")
+
+
 func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
