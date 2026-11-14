@@ -13,6 +13,7 @@ const COMPACT_ROW_HEIGHT: float = 44.0
 const ACTION_WIDTH: float = 88.0
 
 var _economy: PlayerEconomy = null
+var _report: Dictionary = {}
 var _compact: bool = false
 ## Row actions keyed "<action>:<tier>" ("recruit:2", "disband:1") for tooling.
 var _buttons: Dictionary = {}
@@ -27,11 +28,12 @@ func set_compact(compact: bool) -> void:
 		return
 	_compact = compact
 	if _economy != null:
-		fill(_economy)
+		fill(_economy, _report)
 
 
-func fill(economy: PlayerEconomy) -> void:
+func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_economy = economy
+	_report = report
 	_buttons.clear()
 	_marks.clear()
 	UiRowBuilder.clear(self)
@@ -42,10 +44,98 @@ func fill(economy: PlayerEconomy) -> void:
 			Palette.TEXT_DIM
 		)
 	)
+	add_child(_larder(economy, report))
 	for tier in WorkerPool.TIER_COUNT:
 		add_child(_tier_row(tier))
 	UiRowBuilder.spacer(self)
 	_pending(economy)
+
+
+## The larder the next Consumption phase will eat: what the store holds, what
+## every mouth wants, and the tier that strikes first when it runs short. The
+## phase report only speaks after the fact, so this is the reading a crown needs
+## **before** it recruits into a thin larder (wiki: workers-and-population
+## § Consumption; REQ-P5-06). Touch parity: every line is on the tab, not in a
+## hover hint (REQ-P1-05, REQ-P5-07).
+func _larder(economy: PlayerEconomy, report: Dictionary) -> Control:
+	var read: Dictionary = LarderRead.forecast(economy, LarderRead.mouths(report))
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	box.add_child(_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
+	box.add_child(_line(_store_copy(read), 12, Palette.TEXT))
+	box.add_child(_line(_appetite_copy(read), 12, Palette.TEXT_DIM))
+	var short: bool = int(read["strikers"]) > 0
+	box.add_child(
+		_line(
+			_shortfall_copy(read),
+			12,
+			Palette.CRIMSON if short else Palette.TEXT_DIM
+		)
+	)
+	box.add_child(_pad(4))
+	return box
+
+
+## A wrapping ledger line: a phone narrows instead of clipping the sentence
+## (REQ-P1-05).
+func _line(text: String, size: int, color: Color) -> Label:
+	var out: Label = UiRowBuilder.label(text, size, color)
+	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return out
+
+
+func _pad(height: float) -> Control:
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(0, height)
+	return pad
+
+
+## "Store 16 food · 3 Refined Sugar" — the larder as it stands, naming only the
+## luxuries this pool actually wants.
+func _store_copy(read: Dictionary) -> String:
+	var parts: PackedStringArray = ["%d food" % int(read["store_food"])]
+	var store: Dictionary = read["store_luxury"]
+	for id: Variant in store.keys():
+		parts.append("%d %s" % [int(store[id]), CommodityCatalog.label(String(id))])
+	return "Store " + "  ·  ".join(parts)
+
+
+## "24 mouths eat 18 food · 3 Refined Sugar · 2 arriving" — every appetite the
+## phase pays before the larder can be called short.
+func _appetite_copy(read: Dictionary) -> String:
+	var text: String = "%d mouths eat %d food" % [int(read["mouths"]), int(read["food"])]
+	var want: Dictionary = read["luxury"]
+	for id: Variant in want.keys():
+		text += "  ·  %d %s" % [int(want[id]), CommodityCatalog.label(String(id))]
+	var arriving: int = int(read["arriving"])
+	if arriving > 0:
+		text += "  ·  %d arriving" % arriving
+	return text
+
+
+## "Short 2 food — 1 striker, masters first." or the calm cover line. Food is
+## named first because the phase feeds it before any luxury, and the tier named
+## is the one a shortfall bites first: the highest tier in the pool
+## (wiki: workers-and-population § Consumption).
+func _shortfall_copy(read: Dictionary) -> String:
+	var strikers: int = int(read["strikers"])
+	if strikers <= 0:
+		return "The larder covers every mouth."
+	var tier: int = int(read["striking_tier"])
+	var who: String = "%d striker%s, %s first" % [
+		strikers,
+		"" if strikers == 1 else "s",
+		WorkerPool.tier_name(maxi(tier, 0)).to_lower(),
+	]
+	var short: int = int(read["food_short"])
+	if short > 0:
+		return "Short %d food — %s." % [short, who]
+	var luxuries: Dictionary = read["luxury_short"]
+	for id: Variant in luxuries.keys():
+		return "Short %d %s — %s." % [
+			int(luxuries[id]), CommodityCatalog.label(String(id)), who
+		]
+	return "The larder runs short — %s." % who
 
 
 ## The crown's Build/work queue: each order arrives with next turn, so a player

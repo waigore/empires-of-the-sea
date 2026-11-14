@@ -85,6 +85,19 @@ static func resolve(
 	}
 
 
+## The phase's own answer without spending the store: `resolve` over a copy, so
+## the ledger can forecast a turn it has not taken yet (REQ-P2-03). The pool is
+## only read, never changed, so the caller's roster is untouched.
+static func preview(
+	pool: WorkerPool,
+	stockpile: Dictionary,
+	ship_count: int,
+	army_food: int = 0,
+	hospital_demands: Array[int] = []
+) -> Dictionary:
+	return resolve(pool, stockpile.duplicate(), ship_count, army_food, hospital_demands)
+
+
 ## Fully fed hulls over hulls: each hull eats two food units, so a half-fed ship
 ## does not count. The next sea battle scales the crown's strength by this
 ## coverage (wiki: workers-and-population § Consumption).

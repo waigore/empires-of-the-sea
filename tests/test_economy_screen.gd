@@ -139,6 +139,43 @@ func test_the_workers_tab_shows_what_is_under_orders() -> void:
 	assert_true(printed.contains("1 arriving"), "the peasant row counts the arrival")
 
 
+## The WORKERS tab reads the larder before the crown recruits into it: the store,
+## every appetite and the tier a shortfall strikes first, on the tab rather than
+## in a hover hint (wiki: workers-and-population § Consumption; REQ-P5-06,
+## REQ-P1-05).
+func test_the_workers_tab_reads_the_larder() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var printed: String = _printed(workers)
+
+	assert_true(printed.contains("LARDER · NEXT TURN"), "the head names the reading: %s" % printed)
+	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
+	assert_true(printed.contains("2 mouths eat 3 food"), "every appetite: %s" % printed)
+	assert_true(printed.contains("Short 2 food"), "the shortfall: %s" % printed)
+	assert_true(printed.contains("1 striker, masters first"), "who strikes first: %s" % printed)
+
+	# A full larder reads calm instead of warning.
+	economy.stockpile = {"grain": 4, "meat": 4, "furHats": 1}
+	_screen.economy.open_panel()
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var calm: String = _printed(workers)
+	assert_true(calm.contains("The larder covers every mouth."), calm)
+	assert_false(calm.contains("striker"), "no striker when the larder covers: %s" % calm)
+
+
+## Every label a tab printed, so a test reads the page instead of its privates.
+func _printed(node: Node) -> String:
+	var texts: Array[String] = []
+	for label: Label in node.find_children("*", "Label", true, false):
+		texts.append(label.text)
+	return "\n".join(texts)
+
+
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
