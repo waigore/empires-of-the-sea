@@ -244,6 +244,11 @@ static func _finish_turn(play: PlaySession) -> void:
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn(play.world)
+	# The sea settles its seats before the new turn's ledgers read the harbour: a
+	# rival that docked at its own capital through any planner folds into the home
+	# fleet, so her holds count at home and a turn never ends with two squadrons
+	# in port at a crown's capital (wiki: ships-and-naval § Home Fleet).
+	MapPlayHomeMerge.settle_seats(play)
 	# A turn's falls feed the Gazette's World page (DR-20261110-14).
 	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)
