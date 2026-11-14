@@ -9,7 +9,7 @@ extends RefCounted
 const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
-	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
+	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue", "home",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
 	"invade", "voyage", "colony", "build", "cargo",
 ]
@@ -22,6 +22,7 @@ const ACTION_LABELS: Dictionary = {
 	"march": "marches",
 	"sortie": "sorties",
 	"pursue": "pursuits",
+	"home": "sailings home",
 	"work": "work orders",
 	"production": "production",
 	"recruit": "workers",
@@ -216,9 +217,16 @@ static func _record_fleets(
 		if not factions.has(faction):
 			continue
 		var kind: String = String(raw.get("kind", ""))
-		_bump(factions[faction]["actions"], "sortie" if kind.ends_with("sortie") else "pursue")
+		var key: String = "home" if kind == AiNavalPlanner.KIND_HOME else (
+			"sortie" if kind.ends_with("sortie") else "pursue"
+		)
+		_bump(factions[faction]["actions"], key)
 		var zone: String = String(raw.get("zone_name", ""))
 		if zone.is_empty():
+			continue
+		if String(raw.get("reason", "")) == AiNavalPlanner.REASON_TRADE:
+			var trade: String = "%s's squadron gives up its station to keep its holds home."
+			_add_event(merged, factions[faction], faction, trade % FactionCatalog.name_of(faction))
 			continue
 		_add_event(
 			merged,
