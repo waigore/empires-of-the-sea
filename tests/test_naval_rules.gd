@@ -7,7 +7,7 @@ extends GdToolsTest
 ## Merged from test_fleet_yard, test_fleet_yard_block, test_fleet_names,
 ## test_fleet_rosters, test_fleet_sortie, test_fleet_missions, test_naval_strength,
 ## test_naval_retreat, test_naval_port_loss, test_naval_interception,
-## test_naval_movement, test_naval_raid, test_naval_intel.
+## test_naval_movement, test_naval_raid, test_naval_intel, test_hostility_rules.
 ## test_fleet_rules was a re-pointed copy of these 36 cases and is folded in.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
@@ -3913,3 +3913,37 @@ func test_a_sighted_rival_dossier_is_fogged() -> void:
 	assert_eq(int(fogged["count"]), 1, "the block still shows")
 	assert_false(bool(fogged["known"]))
 	assert_almost_eq(float(fogged["strength"]), 0.0, 0.0001, "no weight leaks")
+
+
+# --- the shared war query (from test_hostility_rules) ---
+## The naval rules and the rival planners read one hostility predicate
+## and one at-war membership set (REQ-P3-03, REQ-P3-04).
+
+func test_a_faction_is_never_hostile_to_itself() -> void:
+	assert_false(Hostility.between(Callable(), 3, 3))
+	assert_false(Hostility.between(func(_a: int, _b: int) -> bool: return true, 3, 3))
+
+
+func test_an_unset_query_keeps_every_other_faction_hostile() -> void:
+	assert_true(Hostility.between(Callable(), 1, 2))
+
+
+func test_a_set_query_decides_the_pair() -> void:
+	var at_war: Callable = func(a: int, b: int) -> bool: return a == 1 and b == 2
+	assert_true(Hostility.between(at_war, 1, 2))
+	assert_false(Hostility.between(at_war, 2, 1))
+
+
+func test_no_court_reads_no_known_wars() -> void:
+	assert_true(Hostility.owners(null, 1).is_empty())
+
+
+func test_owners_lists_every_court_at_war() -> void:
+	var state: DiplomacyState = DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(1, 2).at_war = true
+	state.ensure_relation(1, 3).at_war = false
+	var hostile: Dictionary = Hostility.owners(state, 1)
+	assert_true(hostile.has(2))
+	assert_false(hostile.has(3))
+	assert_false(hostile.has(1))

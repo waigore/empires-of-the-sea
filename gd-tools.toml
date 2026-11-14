@@ -10,6 +10,10 @@ runtime = "native"
 # Per-test budget. CI runs with --parallel 4 and must finish ≤5 min overall
 # (docs/testing.md). Shared map fixtures keep world gen off the hot path.
 timeout_seconds = 30.0
+# Suite workers by default. gd-tools boots one Godot process per suite, so a
+# bare `gd-tools test` runs the full suite sequentially (~18 min) and blows the
+# tier-1 budget; 4 keeps an unflagged run inside `docs/testing.md`'s 5 min.
+parallel = 4
 retries = 0
 tags = []
 random_order = false

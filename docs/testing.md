@@ -23,27 +23,29 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`. Snapshot/restore when a case seats or mutates the chart.
-- That world is the smallest that validates a `SaveCodec` slot and seats the
-  turn-100 civilian tier; it must pass fair split on the **first** attempt
-  (else `generate_world` rebuilds).
+  `Main.preset_world`; snapshot/restore when a case mutates the chart.
+- Smallest world that validates a `SaveCodec` slot and seats the turn-100
+  civilians; it must pass fair split on the **first** attempt, else
+  `generate_world` rebuilds.
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
-  once per map state — mounting many screens or six courts' charts repaints nothing.
+  once per map state, so mounting many screens repaints nothing.
 - A mount paints chips, minimap and readings once (`load_region`); `build_hud`
-  adds only turn, economy, income and dossier.
-- Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
+  adds turn, economy, income and dossier.
+- Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
 - **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
-  case on a pristine save (~0.15 s) instead of remounting (~0.5 s). The reset
-  drops selection, sheets, lenses and news; a suite that swaps screens frees its
-  own. `SaveCodec.restore` is the in-place path; reuse a preset only when each
-  chart's size matches the save.
-- One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftovers into a theme suite. Profile with `gd-tools test --durations 20`.
-  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
+  case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
+  selection, sheets, lenses and news; a suite that swaps screens frees its own.
+  `SaveCodec.restore` is the in-place path; reuse a preset only when the chart
+  sizes match.
+- One Godot boot per theme (merged pure suites) — coverage costs ~6 s a boot,
+  the largest line item: fold leftovers into a theme suite and delete a suite
+  whose cases already run in one (duplicates buy nothing). `gd-tools.toml` keeps
+  `parallel = 4`. Profile with `gd-tools test --durations 20`. Smoke: short boot,
+  no sleeps / full campaigns.
 
 ## Local
 
