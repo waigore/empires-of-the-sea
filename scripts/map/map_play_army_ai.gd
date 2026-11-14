@@ -45,23 +45,26 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in MapPlayCourt.planning_factions(play):
-		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var kind: String = AiControl.court_kind(play, faction)
+		if kind == AiControl.KIND_RANDOM:
+			continue
+		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches
 		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04). A court
 		# striking for food raises none: its own men would go hungry instead
 		# (issue #489).
-		changed = _reinforce(play, model, roster, faction, config, trace) or changed
+		changed = _reinforce(play, model, roster, faction, config, kind, trace) or changed
 		# The court brings its surgeons along before it gives the march: a worn
 		# field army on its own ground pitches a train (DR-20261112-07,
 		# DR-20261112-08).
-		changed = _pitch_train(play, model, roster, faction, trace) or changed
-		for action: Dictionary in AiMilitaryPlanner.split_orders(
-			config, play.diplomacy, model, roster
+		changed = _pitch_train(play, model, roster, faction, kind, trace) or changed
+		for action: Dictionary in AiBind.military_split(
+			kind, config, play.diplomacy, model, roster
 		):
 			changed = _apply_split(play, model, roster, faction, action, trace) or changed
-		var plan: Dictionary = AiMilitaryPlanner.march_orders(
-			config, play.diplomacy, model, roster
+		var plan: Dictionary = AiBind.military_march(
+			kind, config, play.diplomacy, model, roster
 		)
 		changed = _apply_marches(
 			play, model, roster, faction, plan, AiMilitaryPlanner.KIND_MARCH, trace
@@ -171,7 +174,7 @@ static func _report_march(
 ## The extra regiments this court arms up for while it can see the victory bar
 ## (wiki: ai-architecture § Notable strategic policies; DR-20261114-04). A
 ## session with no world reads none, so the published target stands.
-static func _extra_regiments(play: PlaySession, faction: int, config: AiConfig) -> int:
+static func _extra_regiments(play: PlaySession, faction: int, config: Variant) -> int:
 	return int(AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)["extra_regiments"])
@@ -188,7 +191,8 @@ static func _reinforce(
 	model: MapModel,
 	roster: Array[ArmyState],
 	faction: int,
-	config: AiConfig,
+	config: Variant,
+	kind: String,
 	trace: Array[Dictionary]
 ) -> bool:
 	if play.ai == null or play.army_layer == null or play.diplomacy == null:
@@ -206,16 +210,20 @@ static func _reinforce(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
-	var plan: Dictionary = AiArmyReinforce.plan(
+	var plan: Dictionary = AiBind.reinforce_plan(
+		kind,
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
 		MapPlayCourt.at_war(play, faction),
 		_extra_regiments(play, faction, config),
-		AiArmyReinforce.fed_slack(
-			economy, play.army_layer.food_upkeep_all(faction),
+		AiBind.fed_slack(
+			kind, economy, play.army_layer.food_upkeep_all(faction),
 			MapPlayCourt.ships(play, faction)
-		)
+		),
+		# The hull the court is saving for outranks the next regiment: the
+		# muster spends only what stands above that chest (issue #484).
+		MapPlayCourt.navy_chest(play, faction)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():
@@ -276,6 +284,7 @@ static func _pitch_train(
 	model: MapModel,
 	roster: Array[ArmyState],
 	faction: int,
+	kind: String,
 	trace: Array[Dictionary]
 ) -> bool:
 	if play.ai == null or play.army_layer == null or _trained_this_turn(trace, faction):
@@ -283,9 +292,9 @@ static func _pitch_train(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
-	var army: ArmyState = AiHospitalTrainWork.best_army(
-		model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
-	)
+	var army: ArmyState = AiBind.hospital_best_army(
+		kind, model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
+	) as ArmyState
 	if army == null:
 		return false
 	var cost: Dictionary = HospitalTrain.cost()

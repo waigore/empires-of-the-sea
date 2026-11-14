@@ -25,19 +25,29 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		# every planner like any rival (wiki: game-setup § Human/AI slot
 		# assignment; docs/ai-observer.md).
 		for faction: int in MapPlayCourt.planning_factions(play):
-			var config: AiConfig = AiConfig.build(faction, play.map_seed)
+			var kind: String = AiControl.court_kind(play, faction)
+			if kind == AiControl.KIND_RANDOM:
+				continue
+			var config: Variant = AiBind.config(kind, faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —
 			# unless the court is on **earn**, whose gold is overseas
 			# (DR-20261113-19).
-			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
-			var earning: bool = AiIncome.wants_income(
-				config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+			var earning: bool = (
+				str(
+					AiBind.income_plan(
+						kind, config, play.ledger_for(faction),
+						MapPlayCourt.at_war(play, faction),
+						MapPlayCourt.regiments(play, faction),
+						MapPlayCourt.navy_chest(play, faction)
+					).get("goal", "")
+				)
+				== "earn"
 			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-			var order: Dictionary = AiColonisationPlanner.plan(
-				config, play.world, region, model, fleets, civilians,
+			var order: Dictionary = AiBind.colonisation_plan(
+				kind, config, play.world, region, model, fleets, civilians,
 				_abroad(play, target, faction), play.court_charts,
 				_voyage_posture(play, faction, posture), earning
 			)
