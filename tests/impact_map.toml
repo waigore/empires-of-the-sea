@@ -323,6 +323,13 @@ domain = "hostility"
 match = "scripts/rules/naval_combat.gd*"
 domain = "hostility"
 
+# The turn's battles across every region (one pass, node-free): the fleet and
+# naval suites prove it, so it rides with the same domain instead of the rules
+# catch-all.
+[[rules]]
+match = "scripts/rules/naval_battles.gd*"
+domain = "hostility"
+
 [[rules]]
 match = "scripts/rules/naval_strength.gd*"
 domain = "hostility"
