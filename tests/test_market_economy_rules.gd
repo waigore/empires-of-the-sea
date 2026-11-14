@@ -3720,17 +3720,26 @@ func test_a_fed_court_bids_no_food() -> void:
 func test_a_saving_court_liquidates_the_hoard_it_cannot_use() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.treasury = 100
-	economy.stockpile = {"wool": 25}
+	# Under market.sell_reserve (20): a spending pass offers nothing; a saving
+	# pass that sees the trapped hoard sells it (issue #489).
+	economy.stockpile = {"wool": 15}
 	var market := WorldMarket.with_default_prices()
 	var spending: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 0)
-	assert_eq(_offer_of(spending, "wool"), 5, "a spending court keeps market.sell_reserve")
+	assert_eq(_offer_of(spending, "wool"), 0, "a spending court keeps market.sell_reserve")
 	var saving: Dictionary = AiMarketPlanner.plan(
 		_ai_config(), economy, market, 0, {}, {}, {}, 2400, 0, true
 	)
 	assert_eq(
 		_offer_of(saving, "wool"), 10,
-		"a saving court sells down to market.max_offer_units"
+		"a saving court sells a trapped hoard down to market.max_offer_units"
 	)
+	# A saving court with a normal surplus still keeps the comfort reserve —
+	# only the trapped shape liquidates.
+	economy.stockpile = {"wool": 25}
+	var loose: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 2400, 0, true
+	)
+	assert_eq(_offer_of(loose, "wool"), 5, "a loose surplus keeps market.sell_reserve")
 
 
 ## The row the next regiment is provisioned with is claimed before the market
