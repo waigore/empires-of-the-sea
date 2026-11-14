@@ -1433,6 +1433,15 @@ suites = [
 match = "scripts/ai/ai_objective*.gd*"
 domain = "ai_ledger"
 
+# The deferred-aim escalation tracker and the reserve it re-routes (issue #603).
+[[rules]]
+match = "scripts/ai/ai_deferral.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_income.gd*"
+domain = "ai_ledger"
+
 [[rules]]
 match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"
@@ -1644,9 +1653,12 @@ domain = "ai"
 match = "scripts/map/map_play_cargo_ai.gd*"
 domain = "ai"
 
+# Rival invasion landing: same narrow army AI slice as map_play_army_ai — the
+# full ai domain (observer + land battle) overruns tier 1 when stacked on
+# diplomacy / hostility / fleet call sites for a deed-gated landing.
 [[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
-domain = "ai"
+domain = "ai_army"
 
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
@@ -1730,11 +1742,12 @@ domain = "fleet_yard"
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
-# Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
-# off scripts/map/** so a hint-line PR does not pull the full map suite past 5 min.
+# Beachhead mark / ready / lapse helpers: landing gates share hostility /
+# transport suites with naval_transport (deed-barred Tribe shores). Kept off
+# the fleet domain so a gate change does not also remount market_economy.
 [[rules]]
 match = "scripts/map/map_play_beachhead.gd*"
-domain = "fleet"
+domain = "hostility"
 
 # Naval combat pass + ration and difficulty context for each crown; keep it on
 # the naval-battle slice so a battle-hook change does not pull fleet/map past
@@ -2156,9 +2169,12 @@ domain = "campaign"
 match = "scripts/rules/intervention.gd"
 domain = "campaign"
 
+# Purchased-tile stake the intervention path and Tribe invadable gate read.
+# Diplomacy suites cover deeds / intervention; campaign (defeat / capital /
+# victory) overruns tier 1 when stacked on army / naval call-site remaps.
 [[rules]]
 match = "scripts/rules/deed_protection.gd"
-domain = "campaign"
+domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/intervention_copy.gd"

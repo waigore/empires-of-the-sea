@@ -226,7 +226,8 @@ static func can_disembark(
 	fleet: FleetState,
 	province_id: int,
 	turn: int = 0,
-	hostile: Callable = Callable()
+	hostile: Callable = Callable(),
+	state: DiplomacyState = null
 ) -> Dictionary:
 	if army == null or fleet == null:
 		return _deny("No army is aboard this fleet.")
@@ -253,6 +254,15 @@ static func can_disembark(
 					% model.province_name(province_id)
 				)
 			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
+		# A Tribe shore another crown has bought land in is no undeclared
+		# landing (wiki: factions § Tribe; DR-20261110-20).
+		if state != null and not DiplomacyRules.invadable(
+			state, army.owner, model.province_owner(province_id), model, province_id
+		):
+			return _deny(
+				"Another crown has bought land in %s; declare war before landing."
+				% model.province_name(province_id)
+			)
 		return _allow()
 	if fleet.is_in_port():
 		if province_id != fleet.province:
@@ -271,10 +281,11 @@ static func disembark(
 	fleet: FleetState,
 	province_id: int,
 	turn: int = 0,
-	hostile: Callable = Callable()
+	hostile: Callable = Callable(),
+	state: DiplomacyState = null
 ) -> Dictionary:
 	var check: Dictionary = can_disembark(
-		model, army, fleet, province_id, turn, hostile
+		model, army, fleet, province_id, turn, hostile, state
 	)
 	if not bool(check.get("ok", false)):
 		return check

@@ -2730,6 +2730,46 @@ func test_the_standing_study_helper_reads_the_same_purse_as_the_planner() -> voi
 	)
 
 
+func test_the_ledger_helper_prices_the_study_the_planner_pays() -> void:
+	# The helper reads the same reserve the planner's ladder does: at war a
+	# purse above half the cash floor but under the muster pays the standing
+	# study, and the ledger must price it, not read a 0-gold row (issue #590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	economy.treasury = 600
+	assert_true(muster > 600, "600 sits under the war chest")
+	assert_eq(
+		AiResearchPlanner.standing_funding(config, economy, muster), "low",
+		"the standing study the planner pays is the one the ledger prices"
+	)
+
+
+func test_the_refusal_names_the_bar_a_broke_court_cannot_clear() -> void:
+	# The ledger's blocked reading for a study the planner will not pay (#590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	economy.treasury = 40
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"purse under half the cash floor",
+		"under half the floor no study is paid"
+	)
+	economy.treasury = muster - 1
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"saving for its reserve",
+		"the last payment of a war chest stays in it"
+	)
+	economy.treasury = 3000
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster), "",
+		"the surplus ladder pays; there is no refusal to name"
+	)
+
+
 func test_the_standing_study_stops_at_half_the_floor() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
@@ -3430,6 +3470,83 @@ func test_a_court_at_peace_keeps_only_its_cash_floor() -> void:
 	assert_eq(
 		AiIncome.goal_for(config, economy, false, 0), AiIncome.GOAL_SPEND,
 		"a thin purse at peace still spends"
+	)
+
+
+func test_a_stalled_war_chest_re_routes_the_reserve() -> void:
+	# The deferred-aim escalation (#603): a muster the court has stalled on for
+	# the escalation bar's turns drops the war chest out of the reserve, so the
+	# court's own income planners lead again instead of freezing behind a chest
+	# it cannot reach. Below the bar the chest stands as published.
+	var config: AiConfig = _phase_config()
+	var thin: PlayerEconomy = _purse(300)
+	var floor: int = config.parameter("economy.min_treasury")
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var chest: int = AiArmyReinforce.muster_floor(config, thin, 1, true)
+	assert_true(chest > floor, "the war chest is the muster the court saves for")
+
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1), chest,
+		"below the bar the court still banks for its regiment"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, -1, bar - 1), chest,
+		"one turn short of the bar changes nothing"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, -1, bar), floor,
+		"a stalled chest re-routes to the cash floor"
+	)
+	assert_eq(
+		String(AiIncome.plan(config, thin, true, 1, 0, -1, bar)["goal"]),
+		AiIncome.GOAL_EARN,
+		"the re-routed court still reads its own purse first"
+	)
+
+
+func test_a_stalled_chest_keeps_the_hull_chest_it_can_fill() -> void:
+	# The hull chest keeps its own reach rule (#591) through the re-route: a
+	# chest the purse already fills is the fleet's, one it cannot fill waits
+	# behind the army (issue #484, #603).
+	var config: AiConfig = _phase_config()
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var rich: PlayerEconomy = _purse(6000)
+	var thin: PlayerEconomy = _purse(300)
+	var tech: String = ShipEconomy.tech_for("sloop")
+	rich.tech_unlocked[tech] = true
+	thin.tech_unlocked[tech] = true
+	var chest: int = AiNavy.price(rich)
+	assert_true(chest > 0, "the yard price is real")
+
+	assert_eq(
+		AiIncome.reserve(config, rich, true, 1, chest, -1, bar), chest,
+		"a reachable hull chest survives the re-route"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, chest, -1, bar),
+		config.parameter("economy.min_treasury"),
+		"an unreachable hull chest never outmuscles the cash floor"
+	)
+
+
+func test_a_peaceful_court_in_reach_banks_its_war_chest() -> void:
+	# At peace the war chest is kept only once the purse already holds the
+	# cheapest line's own price (wiki: ai-architecture § Land reinforcement):
+	# a poorer court grows, and a court in reach banks the last of the chest
+	# instead of auctioning it away the turn peace opens (issue #603).
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var price: int = AiArmyReinforce.cheapest_line_price(_purse(0))
+	assert_true(price > 0, "the techs open a line to save for")
+
+	assert_eq(
+		AiIncome.reserve(config, _purse(price - 1), false, 1), floor,
+		"below the line's own price the court grows"
+	)
+	assert_eq(
+		AiIncome.reserve(config, _purse(price), false, 1),
+		AiArmyReinforce.muster_floor(config, _purse(price), 1, false),
+		"in reach the chest stands: the last ducats are not auctioned"
 	)
 
 
@@ -4897,3 +5014,83 @@ func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
 
 	assert_eq(starved.size(), 0, "no ration, no hire")
 	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")
+
+
+# --- a land march (AiLandRoute, shared by the rival civilians) ---------------
+
+## The same walk the Explorer, Merchant and Spy planners ask for: one legal land
+## tile toward a goal, a field step for a Spy, and the nearest goal of a list
+## (wiki: civilian-work-planner § Relations; the land counterpart of AiSeaRoute).
+
+
+## A goal pulls the walk closer, the step is on land, and it names the unit it
+## belongs to so any planner's order reads the same.
+func test_a_land_step_closes_on_its_goal() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+	var step: Dictionary = AiLandRoute.step_toward(model, unit, Vector2i(2, 2))
+	var tile: Vector2i = step.get("tile", CivilianState.NO_TILE)
+
+	assert_eq(String(step.get("kind", "")), AiLandRoute.KIND_MOVE)
+	assert_eq(int(step.get("unit_id", -1)), 1)
+	assert_eq(
+		AiLandRoute.manhattan(tile, Vector2i(2, 2)),
+		AiLandRoute.manhattan(unit.tile, Vector2i(2, 2)) - 1,
+		"one tile nearer"
+	)
+	assert_true(model.is_land(tile.x, tile.y), "a civilian never walks onto water")
+
+
+## A march with no goal, no unit or no chart offers nothing rather than a
+## plausible-looking tile.
+func test_a_land_step_needs_a_goal_and_a_unit() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+
+	assert_true(AiLandRoute.step_toward(model, unit, CivilianState.NO_TILE).is_empty())
+	assert_true(AiLandRoute.step_toward(null, unit, Vector2i(1, 1)).is_empty())
+	assert_true(AiLandRoute.step_toward(model, null, Vector2i(1, 1)).is_empty())
+
+
+## A Spy walks its own distance field: the step must be one the field reaches
+## cheaply, and a field that reaches nothing this turn offers no march.
+func test_a_field_step_takes_only_a_reachable_tile() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "spy", Vector2i(1, 1))
+
+	var reachable: Dictionary = AiLandRoute.step_by_field(
+		model, unit, {Vector2i(2, 1): 3}
+	)
+	assert_eq(Vector2i(reachable.get("tile", CivilianState.NO_TILE)), Vector2i(2, 1))
+	assert_eq(int(reachable.get("distance", -1)), 3)
+
+	assert_true(
+		AiLandRoute.step_by_field(model, unit, {Vector2i(0, 3): 0}).is_empty(),
+		"a field that reaches no neighbouring tile is no march"
+	)
+	assert_true(AiLandRoute.step_by_field(model, unit, {}).is_empty())
+	assert_true(AiLandRoute.step_by_field(null, unit, {Vector2i(2, 1): 0}).is_empty())
+
+
+## The nearest goal of a list, with the lower tile breaking a tie so the same
+## state always picks the same goal; an empty list has none.
+func test_the_nearest_goal_wins_a_tie_by_its_lower_tile() -> void:
+	var goals: Array[Vector2i] = [Vector2i(3, 1), Vector2i(1, 1)]
+
+	assert_eq(AiLandRoute.nearest(goals, Vector2i(2, 2)), Vector2i(1, 1))
+	assert_eq(AiLandRoute.nearest([] as Array[Vector2i], Vector2i(2, 2)), CivilianState.NO_TILE)
+
+
+## A Spy's field counts land tiles away from its targets and leaves open water
+## with no entry, so a BFS never pretends a hull's route is a walk.
+func test_the_land_distance_field_counts_land_and_leaves_water_out() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var water: Vector2i = Vector2i(1, 4)
+	var field: Dictionary = AiLandRoute.distance_field(
+		model, [CivilianFixture.BARE_TILE, water, CivilianFixture.BARE_TILE]
+	)
+
+	assert_eq(int(field.get(CivilianFixture.BARE_TILE, -1)), 0)
+	assert_eq(int(field.get(Vector2i(1, 0), -1)), 1)
+	assert_eq(int(field.get(Vector2i(2, 0), -1)), 2)
+	assert_false(field.has(water), "water is not a step")

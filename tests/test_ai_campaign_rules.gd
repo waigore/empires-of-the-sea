@@ -1354,6 +1354,9 @@ func test_a_warm_rival_sends_aid_and_pays_from_its_own_purse() -> void:
 	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
 	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
 	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	# A healthy purse below the war chest's reach: the court is not saving for
+	# a regiment it is one payment short of, so the gift goes out (#603).
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 1500
 	var result: Dictionary = _run([0, 2, 3, 3, 3, 3], [], 1)
 	var action: Dictionary = _action(result, 2)
 	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_AID)
