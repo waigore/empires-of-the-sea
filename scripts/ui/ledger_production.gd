@@ -61,7 +61,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 		add_child(_holding_row(id))
 	_section(
 		"MANUFACTURED",
-		"Set this turn's output on each row: labour and raw inputs cap the rest.",
+		_manufacture_hint(),
 		MANUFACTURE_COLUMNS
 	)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
@@ -152,13 +152,13 @@ func _recipe_row(recipe_id: String) -> Control:
 	var gated: bool = not ProductionRecipes.tier_met(recipe_id, _economy.workers)
 	var note_text: String = (
 		_gate_note(recipe_id) if gated
-		else LedgerText.workshop_note(_economy, recipe_id)
+		else _workshop_note(recipe_id)
 	)
 	var note := UiRowBuilder.label(note_text, 12, Palette.TEXT_DIM)
 	if gated:
 		note.tooltip_text = _gate_tooltip(recipe_id)
 	elif not note_text.is_empty():
-		note.tooltip_text = LedgerText.workshop_tooltip(_economy, recipe_id)
+		note.tooltip_text = _workshop_tooltip(recipe_id)
 	row.add_child(note)
 
 	var held := _figure(str(_economy.quantity(output_id)), 14, Palette.GOLD_PALE, QTY_WIDTH)
@@ -258,3 +258,42 @@ func _gate_tooltip(recipe_id: String) -> String:
 		"This row is a trained hand's work: it needs %s %s. Train one in the "
 		+ "WORKERS tab and the workshop will take it."
 	) % [article, hand]
+
+
+## The MANUFACTURED heading's hint, plus what the workshop turned out in the last
+## Production phase: the phase's own record, so the page remembers the work the
+## court just paid for (wiki: production-recipes § Acceptance Criteria,
+## `productionByRecipe`).
+func _manufacture_hint() -> String:
+	var hint: String = "Set this turn's output on each row: labour and raw inputs cap the rest."
+	var made: int = 0 if _economy == null else _economy.production.made_total()
+	if made <= 0:
+		return hint
+	var plural: String = "" if made == 1 else "s"
+	return "%s Last phase the workshop made %d good%s." % [hint, made, plural]
+
+
+## The row's workshop tag, or — for an idle one-turn row that worked last phase —
+## what it turned out. A row still serving keeps its tag: the present is what the
+## next phase pays (DR-20261113-02).
+func _workshop_note(recipe_id: String) -> String:
+	var tag: String = LedgerText.workshop_note(_economy, recipe_id)
+	if not tag.is_empty():
+		return tag
+	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
+	if made <= 0:
+		return ""
+	return "made %d" % made
+
+
+## The tag's long form, with the last phase's output for this row when it made
+## any: the detail a hover or a long press reads (REQ-P5-07 keeps the row's own
+## note the visible reading).
+func _workshop_tooltip(recipe_id: String) -> String:
+	var text: String = LedgerText.workshop_tooltip(_economy, recipe_id)
+	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
+	if made <= 0:
+		return text
+	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	var line: String = "Last phase it made %d %s." % [made, good]
+	return line if text.is_empty() else "%s %s" % [text, line]
