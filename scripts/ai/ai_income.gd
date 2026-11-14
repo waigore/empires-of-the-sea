@@ -42,39 +42,43 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 
 
 ## The purse this court must hold before it may spend on anything it can defer:
-## at war, the muster it is saving for (its own cash floor plus the cheapest
-## line) while it stands under its target, and the hull it means to lay
-## (`AiNavy`, issue #484) once that chest is in reach — whichever is larger; at
-## peace, its own cash floor, so a court that is not fighting still grows. 0
-## when the caller has no ledger to read.
+## At war: the muster it is saving for and the hull it means to lay (`AiNavy`,
+## issue #484) once that chest is in reach — whichever is larger. At peace: its
+## cash floor, or the hull chest when rebuilding with no fighting hull left so
+## the yard is not gifted away before the next war (#484). 0 when the caller
+## has no ledger to read.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, own_warships: int = -1
 ) -> int:
 	if config == null or economy == null:
 		return 0
 	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
 	if not at_war:
-		return floor
+		return maxi(
+			floor, hull_held(config, economy, false, regiments, hull_chest, own_warships)
+		)
 	var muster: int = maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))
-	return maxi(muster, hull_held(config, economy, true, regiments, hull_chest))
+	return maxi(
+		muster, hull_held(config, economy, true, regiments, hull_chest, own_warships)
+	)
 
 
 ## The yard's chest as this court holds it this turn. A chest the court can
 ## already fill is the fleet's — the purse waits for the hull and the yard leads.
-## A chest it cannot afford yet stands behind the army: a court under its
-## regiment target raises the regiment it can pay for instead of holding the
-## yard's price turn after turn for a hull it never reaches, which is how a
-## naval tech used to shrink a rival's army for the rest of the campaign
-## (issue #591). 0 when there is no hull to save for.
+## A chest it cannot afford yet stands behind the army, unless the court has no
+## fighting hull left — then the rebuild chest is held even while the muster is
+## due (#484, #591). 0 when there is no hull to save for.
 static func hull_held(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int
+	hull_chest: int, own_warships: int = -1
 ) -> int:
 	var chest: int = maxi(hull_chest, 0)
 	if config == null or economy == null or chest <= 0:
 		return chest
 	if economy.treasury >= chest:
+		return chest
+	if own_warships == 0:
 		return chest
 	if AiArmyReinforce.muster_floor(config, economy, regiments, at_war) > 0:
 		return 0
@@ -86,9 +90,9 @@ static func hull_held(
 ## it is not rebuilding its fleet.
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, own_warships: int = -1
 ) -> Dictionary:
-	var need: int = reserve(config, economy, at_war, regiments, hull_chest)
+	var need: int = reserve(config, economy, at_war, regiments, hull_chest, own_warships)
 	var held: int = economy.treasury if economy != null else 0
 	return {
 		"goal": GOAL_EARN if held < need else GOAL_SPEND,
@@ -102,17 +106,17 @@ static func plan(
 ## Goal name only, for callers that do not keep the readings.
 static func goal_for(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, own_warships: int = -1
 ) -> String:
-	return String(plan(config, economy, at_war, regiments, hull_chest)["goal"])
+	return String(plan(config, economy, at_war, regiments, hull_chest, own_warships)["goal"])
 
 
 ## True while the court's money comes before anything it can defer.
 static func wants_income(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, own_warships: int = -1
 ) -> bool:
-	return goal_for(config, economy, at_war, regiments, hull_chest) == GOAL_EARN
+	return goal_for(config, economy, at_war, regiments, hull_chest, own_warships) == GOAL_EARN
 
 
 ## The refusal a deferrable spender records while the court is still filling its

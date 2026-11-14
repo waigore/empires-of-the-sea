@@ -47,9 +47,10 @@ static func run(play: PlaySession) -> Dictionary:
 		# lead. Every discretionary spend reads the same reserve, so the war chest
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
+		var own_warships: int = MapPlayCourt.warships(play, faction)
 		var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 		var income: Dictionary = AiBind.income_plan(
-			kind, config, economy, at_war, regiments, hull_chest
+			kind, config, economy, at_war, regiments, hull_chest, own_warships
 		)
 		# Skip production buys while earning for the navy chest (issue #484).
 		var production: Dictionary = (

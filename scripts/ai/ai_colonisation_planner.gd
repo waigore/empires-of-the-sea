@@ -61,7 +61,7 @@ static func plan(
 		if stranded != null:
 			return _homeward(world, region, model, stranded, charts)
 		return {}
-	if AiPhasePlanner.is_war_footing(posture) and not wants_income:
+	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE) and not wants_income:
 		return {}
 	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
 	if unit == null:

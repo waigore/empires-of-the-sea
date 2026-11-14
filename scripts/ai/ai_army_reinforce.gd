@@ -39,7 +39,8 @@ const LINE_CATEGORIES: Array[int] = [
 ## the fleet's chest survives the army's turn (issue #484) — but only when the
 ## court can already fill that chest: a yard price it is still short of is not
 ## held back at all while a regiment is due, so unlocking a warship can never
-## starve the line (issue #591, `AiIncome.hull_held`).
+## starve the line (issue #591, `AiIncome.hull_held`). `own_warships` is that
+## same gate: a fleetless court keeps the chest even while short (issue #484).
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -48,7 +49,8 @@ static func plan(
 	pressure_extra: int = 0,
 	fed_slack: int = -1,
 	reserve: int = 0,
-	held_row: Dictionary = {}
+	held_row: Dictionary = {},
+	own_warships: int = -1
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -68,7 +70,9 @@ static func plan(
 	if fed_slack >= 0 and fed_slack < 1:
 		result["reasons"].append("striking for food")
 		return result
-	var chest: int = AiIncome.hull_held(config, economy, at_war, own_regiments, reserve)
+	var chest: int = AiIncome.hull_held(
+		config, economy, at_war, own_regiments, reserve, own_warships
+	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the
 	# chest. A court that wove one cloth a turn and mustered it away could never
