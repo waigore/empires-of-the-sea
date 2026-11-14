@@ -122,20 +122,6 @@ static func muster_reserve(
 	return AiArmyReinforce.muster_reserve(config, economy, regiments, at_war, pressure_extra)
 
 
-## The hull's own material row while the court means to lay one (issue #484).
-## Mainline has no naval reservation, so a baseline rival keeps none.
-static func hull_reserve(
-	kind: String,
-	at_war: bool,
-	own_warships: int,
-	hostile_warships: int,
-	economy: PlayerEconomy
-) -> Dictionary:
-	if _baseline(kind):
-		return {}
-	return AiNavy.reserve(at_war, own_warships, hostile_warships, economy)
-
-
 static func reinforce_plan(
 	kind: String,
 	config: Variant,

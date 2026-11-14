@@ -225,8 +225,10 @@ static func _trade(
 	# The hull the court means to lay keeps its own timber and cloth: the chest
 	# alone never floats a hull, and a court that sells its last cloth is refused
 	# at the slip (issue #484, DR-20261114-09).
-	var hull: Dictionary = AiBind.hull_reserve(
-		kind, MapPlayCourt.at_war(play, faction),
+	# Read straight off `AiNavy`, the way `MapPlayCourt.navy_chest` already reads
+	# the chest: the claim is the court's own, not a baseline planner's.
+	var hull: Dictionary = AiNavy.reserve(
+		MapPlayCourt.at_war(play, faction),
 		MapPlayCourt.warships(play, faction),
 		MapPlayCourt.hostile_warships(play, faction), economy
 	)
