@@ -7,15 +7,24 @@ extends RefCounted
 
 
 ## The workshop tag on a production row: empty for one-turn work, "2t" when the
-## row waits, "3→1t" while three units serve and the next lands in one phase. The
-## row's stepper stays what the player set; this is only what the kiln is doing,
-## and one unit leaves it each Production phase (DR-20261113-02).
+## row waits, "3→1t" while three units serve and the next lands in one phase. A
+## row whose bench is full reads "3/3→1t": three of the three pieces it holds,
+## and the next landing (wiki: production-recipes § Workshop queue;
+## DR-20261114-12). The row's stepper stays what the player set; this is only
+## what the kiln is doing, and one unit leaves it each Production phase
+## (DR-20261113-02).
 static func note(economy: PlayerEconomy, recipe_id: String) -> String:
 	if economy == null:
 		return ""
 	var serving: int = economy.production.wip_units(recipe_id)
 	if serving > 0:
-		return "%d→%dt" % [serving, maxi(economy.production.wip_turns(recipe_id), 1)]
+		var wait: int = maxi(economy.production.wip_turns(recipe_id), 1)
+		var room: int = ProductionWorkshop.room(
+			economy.production_wip, recipe_id, ProductionRecipes.turns(recipe_id)
+		)
+		if room <= 0:
+			return "%d/%d→%dt" % [serving, ProductionWorkshop.QUEUE_CAP, wait]
+		return "%d→%dt" % [serving, wait]
 	var turns: int = ProductionRecipes.turns(recipe_id)
 	return "" if turns <= 1 else "%dt" % turns
 
@@ -48,7 +57,7 @@ static func tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 		cadence = "landing one a turn"
 	elif landings > 1:
 		cadence = "%d landing a turn" % landings
-	return (
+	var text: String = (
 		"%d unit%s already in the workshop, %s — the next in %d turn%s. "
 		+ "Runs started now wait %d turn%s."
 	) % [
@@ -60,13 +69,29 @@ static func tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 		turns,
 		"" if turns == 1 else "s",
 	]
+	# A full bench is why the row's "+" is inert: say so, and say what frees it
+	# (wiki: production-recipes § Workshop queue; DR-20261114-12).
+	if economy != null and ProductionWorkshop.room(
+		economy.production_wip, recipe_id, turns
+	) <= 0:
+		text += " The workshop holds %d pieces; no new run starts until one lands." % (
+			ProductionWorkshop.QUEUE_CAP
+		)
+	return text
 
 
 ## What one manufacture row's "+" can still buy this turn: the phase's own
 ## labour-and-inputs ceiling, so a court is never offered runs the Production
-## phase would refuse (wiki: stockpiles-and-production § Production flow).
-static func allowance_note(recipe_id: String, units: int) -> String:
+## phase would refuse (wiki: stockpiles-and-production § Production flow). A full
+## bench is named first, because that is the ceiling the court can lift by
+## waiting rather than by stocking (wiki: production-recipes § Workshop queue).
+static func allowance_note(recipe_id: String, units: int, full: bool = false) -> String:
 	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	if full:
+		return (
+			"The workshop holds %d pieces; no new %s starts until one lands."
+			% [ProductionWorkshop.QUEUE_CAP, good]
+		)
 	if units <= 0:
 		return "No labour or inputs spare a %s this turn." % good
 	if units == 1:
