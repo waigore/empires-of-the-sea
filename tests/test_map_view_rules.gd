@@ -362,6 +362,27 @@ func test_uncharted_ground_stays_parchment_without_ink() -> void:
 	assert_true(_minimap._province_ink.is_empty(), "no province ink off the chart")
 	assert_true(_minimap._country_borders.is_empty(), "no crown ink off the chart")
 
+## A paint that never ran (a mount whose inset build was missed, or one made
+## before its region existed) must not leave the frame's near-black panel
+## showing for the campaign: the next frame bakes the chart itself (#563).
+func test_a_chart_that_never_baked_heals_on_the_next_frame() -> void:
+	_setup_minimap()
+	_visibility.apply_initial()
+	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
+	assert_not_null(_minimap._texture, "the build bakes the chart")
+	_minimap._texture = null
+	_minimap._process(0.0)
+	assert_not_null(_minimap._texture, "the inset bakes rather than staying blank")
+
+
+## With no chart there is nothing to bake: the inset stays empty rather than
+## painting a chartless wash over the chrome's frame.
+func test_an_inset_with_no_chart_bakes_nothing() -> void:
+	_setup_minimap()
+	_minimap._process(0.0)
+	assert_null(_minimap._texture, "no chart, no bake")
+
+
 func test_charted_region_draws_coast_province_and_crown_ink() -> void:
 	_setup_minimap()
 	_visibility.apply_initial()

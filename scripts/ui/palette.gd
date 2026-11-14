@@ -31,9 +31,16 @@ const RESOURCE_INK: Dictionary = {
 	"wheat": Color(0.898, 0.796, 0.365),
 }
 
-const SEA_DEEP := Color(0.302, 0.443, 0.475)
-const SEA_MID := Color(0.471, 0.604, 0.604)
-const SEA_PALE := Color(0.663, 0.769, 0.749)
+## One water for the chart and the minimap: the sea shader is fed these by
+## `SeaBackdrop.fit`, and the minimap paints them directly, so the two views can
+## never disagree about which side of the coast is water (#456). Every sea tone
+## is cool (blue above red) while every land tone below is warm, so a basin can
+## never be read as barren ground.
+const SEA_DEEP := Color(0.176, 0.302, 0.380)
+const SEA_MID := Color(0.243, 0.396, 0.463)
+const SEA_PALE := Color(0.365, 0.510, 0.565)
+## The crest of a rolling wave: a cool glint, never the green of grass.
+const SEA_CREST := Color(0.075, 0.098, 0.110)
 
 const TEXT := Color(0.941, 0.894, 0.784)
 const TEXT_DIM := Color(0.741, 0.678, 0.553)

@@ -232,6 +232,7 @@ func snapshot() -> Dictionary:
 		},
 		"assignments": plan["assignments"],
 		"production_wip": plan["production_wip"],
+		"production_made": plan["production_made"],
 		"recruit_orders": recruits.snapshot(),
 	}
 
@@ -253,6 +254,7 @@ func apply_snapshot(data: Dictionary) -> void:
 	production = ProductionPlan.new()
 	production.read_assignments(data.get("assignments", []))
 	production.read_wip(data.get("production_wip", {}))
+	production.read_made(data.get("production_made", {}))
 	recruits = RecruitQueue.new()
 	recruits.read(data.get("recruit_orders", []))
 
