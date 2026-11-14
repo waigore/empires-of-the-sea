@@ -187,7 +187,7 @@ static func _land(
 	var army: ArmyState = _carried_army(armies, fleet)
 	var province: int = int(order.get("province", -1))
 	var result: Dictionary = NavalTransport.disembark(
-		model, army, fleet, province, play.turn, _hostile(play)
+		model, army, fleet, province, play.turn, _hostile(play), play.diplomacy
 	)
 	if not bool(result.get("ok", false)):
 		return {}
