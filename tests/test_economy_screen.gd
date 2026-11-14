@@ -885,6 +885,29 @@ func test_the_alloy_rows_name_their_wait() -> void:
 	assert_true(_row_has_text(body, "2t"), "the idle alloy row shows its two-turn wait")
 
 
+## A luxury row names the hand it waits for on the row itself, and its "+" is
+## inert until the court trains one: a touch player never sees a hover hint
+## (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
+func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	var economy: PlayerEconomy = _screen.economy.economy
+	assert_eq(
+		economy.workers.count(WorkerPool.Tier.APPRENTICE), 0,
+		"the opening court has no trained hand"
+	)
+	assert_true(_row_has_text(body, "needs an Apprentice"), "the cigar row names its gate")
+	assert_true(_row_has_text(body, "needs a Journeyman"), "the fur hat row names its gate")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["cigars"]["plus"] as Button).disabled, "a gated row offers no run")
+	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "needs an Apprentice"), "the trained hand opens the row")
+	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
+
+
 func _row_has_text(body: Node, text: String) -> bool:
 	for node: Node in body.find_children("*", "Label", true, false):
 		if (node as Label).text == text:

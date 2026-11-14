@@ -101,7 +101,8 @@ static func _run(
 		economy.stockpile,
 		int(consumption["idle_labour"]),
 		economy.tech_unlocked,
-		economy.production.wip
+		economy.production.wip,
+		economy.workers
 	)
 	# The workshop rides into the next turn: multi-turn batches keep serving
 	# until their output lands (DR-20261112-11).

@@ -39,8 +39,9 @@ Audited through DR-20261114-06 (`REQ-P2-02`).
    #552 sheds mouths, not the price).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
    every domain still runs; only the voyage gate is live.
-3. **Recipe gates / queue** — building/tier gates, rows past steel/bronze,
-   queue cap (wiki-deferred; DR-14-07 luxury tiers await #565).
+3. **Recipe gates / queue** — cigars need an apprentice, fur hats a journeyman
+   (DR-14-07); building gates, rows past steel/bronze and the queue cap remain
+   (wiki-deferred).
 
 ## Next pick
 

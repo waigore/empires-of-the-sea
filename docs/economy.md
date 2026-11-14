@@ -29,14 +29,16 @@ Projections never mutate.
 | fabric | wool ×2 or cotton ×2 | 2 |
 | cast iron | iron ×2 | 2 |
 | refined sugar | sugar cane ×2 | 2 |
-| cigars | tobacco ×2 | 2 |
-| fur hats | furs ×2 | 2 |
+| cigars | tobacco ×2 | 2 · apprentice |
+| fur hats | furs ×2 | 2 · journeyman |
 | steel | iron ×1 + coal ×1 | 2 |
 | paper | timber ×2 | 2 |
 | bronze | copper ×1 + tin ×1 | 3 |
 
-`fabric_from_cotton` needs Cotton Weaving; others always run. Runs are whole,
-bounded by inputs and labour; incomplete rows skip.
+`fabric_from_cotton` needs Cotton Weaving. A hand in the Labour column is a
+worker-tier gate (`min_tier`): the row is inert until the court trains one.
+Other rows always run. Runs are whole, bounded by inputs and labour; incomplete
+rows skip.
 
 Steel and bronze take **two turns** (`turns` per run): inputs and labour paid
 up front; the batch lands **one unit a phase** until spent, WIP riding the save
@@ -64,7 +66,7 @@ cap at post-production stock; fills/lapses toast.
 ## Trade terms
 
 Prices publish once; pact, boycott and subsidy terms apply at settlement
-([`diplomacy.md`](diplomacy.md) § Trade terms).
+([`diplomacy.md`](diplomacy.md)).
 
 ## UI
 
@@ -73,13 +75,13 @@ Ledger `PRODUCTION`: stockpile by catalogue group (`FOOD`, `RAW MATERIALS`,
 steppers capped by labour/inputs (`ProductionRecipes.allowance`). `MARKET`:
 staged orders and Minor/Tribe/world rows under medallions, priced for the
 viewing crown's terms and subsidy (`REQ-P1-02`, `REQ-P2-03`). `WORKERS`: tier
-medallions, `RECRUIT`; trained tiers `DISBAND` (no refund). Phone-thumb sized.
+medallions, `RECRUIT`; trained tiers `DISBAND` (no refund).
 
 
 ## Deferred (REQ-P2-02)
 
-Building/tier gates (DR-14-07 luxury tiers await #565); further multi-turn
-rows; a queue cap ([`deferred.md`](deferred.md)).
+Building gates; further multi-turn rows; a queue cap
+([`deferred.md`](deferred.md)).
 
 ## Architecture
 

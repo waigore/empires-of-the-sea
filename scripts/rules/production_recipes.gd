@@ -16,6 +16,11 @@ extends RefCounted
 ## (wiki: production-recipes § Turns per unit; DR-20261113-02). Drip-feeding the
 ## same runs phase by phase builds the same output from the same inputs, so a
 ## batch buys no front-loading and no larger order is punished beyond its wait.
+##
+## A row may also need a **trained hand**: `min_tier` names the lowest worker
+## tier whose presence opens it (a higher tier satisfies it), checked wherever a
+## row is offered or run — the phase, the ledger's ceiling and the AI's
+## candidates (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
 
 ## Fabric has two interchangeable raw inputs; the cotton row is tech-gated.
 const RECIPES: Dictionary = {
@@ -30,8 +35,8 @@ const RECIPES: Dictionary = {
 	},
 	"castIron": {"output": "castIron", "inputs": {"iron": 2}, "labour": 2},
 	"refinedSugar": {"output": "refinedSugar", "inputs": {"sugarCane": 2}, "labour": 2},
-	"cigars": {"output": "cigars", "inputs": {"tobacco": 2}, "labour": 2},
-	"furHats": {"output": "furHats", "inputs": {"furs": 2}, "labour": 2},
+	"cigars": {"output": "cigars", "inputs": {"tobacco": 2}, "labour": 2, "min_tier": 1},
+	"furHats": {"output": "furHats", "inputs": {"furs": 2}, "labour": 2, "min_tier": 2},
 	"steel":
 	{
 		"output": "steel",
@@ -82,6 +87,45 @@ static func labour(recipe_id: String) -> int:
 
 static func required_tech(recipe_id: String) -> String:
 	return String(entry(recipe_id).get("requires", ""))
+
+
+## The lowest worker tier whose presence opens the row; 0 when any hand may run
+## it (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
+static func min_tier(recipe_id: String) -> int:
+	return int(entry(recipe_id).get("min_tier", 0))
+
+
+## True when the court's pool holds a worker at or above the row's gate. A gate
+## is a presence test, not a headcount: one master satisfies a journeyman row,
+## and a court with no pool at all (a projection without workers) fails closed.
+static func tier_met(recipe_id: String, workers: WorkerPool) -> bool:
+	var need: int = min_tier(recipe_id)
+	if need <= 0:
+		return true
+	if workers == null:
+		return false
+	for tier: int in range(need, WorkerPool.TIER_COUNT):
+		if workers.count(tier) > 0:
+			return true
+	return false
+
+
+## Both gates a row declares: the study it needs and the hand it needs.
+static func available_for(
+	recipe_id: String, tech_unlocked: Dictionary, workers: WorkerPool
+) -> bool:
+	return available(recipe_id, tech_unlocked) and tier_met(recipe_id, workers)
+
+
+## Rows a court may actually run: tech and hand both open (REQ-P2-03).
+static func available_ids_for(
+	tech_unlocked: Dictionary, workers: WorkerPool
+) -> Array[String]:
+	var out: Array[String] = []
+	for recipe_id: String in ids():
+		if available_for(recipe_id, tech_unlocked, workers):
+			out.append(recipe_id)
+	return out
 
 
 ## Turns one run occupies the workshop before its output lands; 1 unless the
@@ -224,15 +268,20 @@ static func allowance(
 	recipe_id: String,
 	stockpile: Dictionary,
 	labour_points: int,
-	assignments: Array
+	assignments: Array,
+	workers: WorkerPool = null
 ) -> int:
-	if not known(recipe_id):
+	if not known(recipe_id) or not tier_met(recipe_id, workers):
 		return 0
 	var others: Array = []
 	for raw: Variant in assignments:
 		if typeof(raw) != TYPE_DICTIONARY:
 			continue
-		if String((raw as Dictionary).get("recipe", "")) == recipe_id:
+		var other_id: String = String((raw as Dictionary).get("recipe", ""))
+		if other_id == recipe_id:
+			continue
+		# A gated row never runs, so it claims nothing from the rows that do.
+		if not tier_met(other_id, workers):
 			continue
 		others.append(raw)
 	var left: Dictionary = stockpile.duplicate()
@@ -280,7 +329,8 @@ static func plan(
 	stockpile: Dictionary,
 	labour_points: int,
 	tech_unlocked: Dictionary,
-	wip: Dictionary = {}
+	wip: Dictionary = {},
+	workers: WorkerPool = null
 ) -> Dictionary:
 	var remaining_labour: int = maxi(labour_points, 0)
 	var runs_by_recipe: Dictionary = {}
@@ -312,7 +362,7 @@ static func plan(
 			next_wip[recipe_id] = kept
 	for assignment: Dictionary in assignments:
 		var recipe_id: String = String(assignment.get("recipe", ""))
-		if not available(recipe_id, tech_unlocked):
+		if not available_for(recipe_id, tech_unlocked, workers):
 			continue
 		var desired: int = int(assignment.get("units", 0))
 		if desired <= 0:
