@@ -43,7 +43,7 @@ rows skip.
 Steel and bronze take **two turns** (`turns` per run): inputs and labour paid
 up front; the batch lands **one unit a phase** until spent, WIP riding the save
 (`PlayerEconomy.production_wip`, DR-20261112-11/13-02). A row left set starts a
-batch a phase, so `5→1t` lands two (`ProductionRecipes.next_landing`).
+batch a phase, so `5→1t` lands two (`ProductionWorkshop.ready_units`).
 
 ## Town manufacturing bonus
 

@@ -21,6 +21,9 @@ extends RefCounted
 ## tier whose presence opens it (a higher tier satisfies it), checked wherever a
 ## row is offered or run — the phase, the ledger's ceiling and the AI's
 ## candidates (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
+##
+## The catalogue owns the rows, their gates and the phase plan; the batches a
+## court has already paid for are read and served by `ProductionWorkshop`.
 
 ## Fabric has two interchangeable raw inputs; the cotton row is tech-gated.
 const RECIPES: Dictionary = {
@@ -132,80 +135,6 @@ static func available_ids_for(
 ## row declares more (wiki: production-recipes § Turns per unit).
 static func turns(recipe_id: String) -> int:
 	return maxi(int(entry(recipe_id).get("turns", 1)), 1)
-
-
-## Units one batch of this row lands in a Production phase: a multi-turn batch
-## lands **one** and keeps the rest for the phases after it; a one-turn row never
-## waits, so a carried batch of it (only a damaged or hand-edited save can hold
-## one) lands whole (wiki: production-recipes § Turns per unit; DR-20261113-02).
-static func landing(recipe_id: String, units: int) -> int:
-	if turns(recipe_id) <= 1:
-		return maxi(units, 0)
-	return mini(1, maxi(units, 0))
-
-
-## One workshop row, cleaned: a batch with whole units and turns left, or {} when
-## the value is not a batch at all. A hand-edited or damaged save is dropped,
-## never trusted (wiki: production-recipes § Acceptance Criteria; DR-20261112-11).
-static func batch(raw: Variant) -> Dictionary:
-	if typeof(raw) != TYPE_DICTIONARY:
-		return {}
-	var units: int = int((raw as Dictionary).get("units", 0))
-	var turns_left: int = int((raw as Dictionary).get("turns_left", 0))
-	if units <= 0 or turns_left <= 0:
-		return {}
-	return {"units": units, "turns_left": turns_left}
-
-
-## The batches a recipe's workshop entry holds. An entry of any other shape holds
-## none, so the phase, the save and the ledger all read a malformed row as an
-## empty workshop instead of failing on the cast.
-static func batches(wip: Dictionary, recipe_id: String) -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	var raw_entry: Variant = wip.get(recipe_id, [])
-	if typeof(raw_entry) != TYPE_ARRAY:
-		return out
-	for raw: Variant in (raw_entry as Array):
-		var cleaned: Dictionary = batch(raw)
-		if not cleaned.is_empty():
-			out.append(cleaned)
-	return out
-
-
-## Units of this recipe still in the workshop: started on an earlier turn, their
-## output not landed yet (DR-20261112-11).
-static func in_flight(wip: Dictionary, recipe_id: String) -> int:
-	var total: int = 0
-	for cleaned: Dictionary in batches(wip, recipe_id):
-		total += int(cleaned["units"])
-	return total
-
-
-## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
-## The soonest batch speaks for the row: a later batch cannot delay the unit that
-## is already one phase from the store (DR-20261113-02's "the next landing").
-static func turns_left(wip: Dictionary, recipe_id: String) -> int:
-	var all: Array[Dictionary] = batches(wip, recipe_id)
-	if all.is_empty():
-		return 0
-	var soonest: int = int(all[0]["turns_left"])
-	for cleaned: Dictionary in all:
-		soonest = mini(soonest, int(cleaned["turns_left"]))
-	return soonest
-
-
-## Units that leave the workshop in the next Production phase: one per batch
-## whose turns are served, so a court that left the row set and has two batches
-## on the anvil lands two a phase. The row's reading uses this so the note never
-## promises fewer landings than the phase pays (wiki: production-recipes
-## § Turns per unit; DR-20261113-02).
-static func next_landing(wip: Dictionary, recipe_id: String) -> int:
-	var total: int = 0
-	for cleaned: Dictionary in batches(wip, recipe_id):
-		if int(cleaned["turns_left"]) > 1:
-			continue
-		total += landing(recipe_id, int(cleaned["units"]))
-	return total
 
 
 ## A recipe with no required technology is available to everyone; a gated recipe
@@ -343,21 +272,15 @@ static func plan(
 		var recipe_id: String = String(raw_recipe)
 		if not known(recipe_id):
 			continue
-		var kept: Array[Dictionary] = []
-		for carried: Dictionary in batches(wip, recipe_id):
-			var units: int = int(carried["units"])
-			var turns_left: int = int(carried["turns_left"]) - 1
-			if turns_left > 0:
-				kept.append({"units": units, "turns_left": turns_left})
-				continue
-			var landing_units: int = landing(recipe_id, units)
+		var served: Dictionary = ProductionWorkshop.serve(wip, recipe_id, turns(recipe_id))
+		var landing_units: int = int(served["landed"])
+		if landing_units > 0:
 			var landed_id: String = output(recipe_id)
 			var landed: int = landing_units * OUTPUT_PER_RUN
 			stockpile[landed_id] = int(stockpile.get(landed_id, 0)) + landed
 			produced[landed_id] = int(produced.get(landed_id, 0)) + landed
 			completed[recipe_id] = int(completed.get(recipe_id, 0)) + landing_units
-			if units > landing_units:
-				kept.append({"units": units - landing_units, "turns_left": 1})
+		var kept: Array[Dictionary] = served["kept"]
 		if not kept.is_empty():
 			next_wip[recipe_id] = kept
 	for assignment: Dictionary in assignments:
