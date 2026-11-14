@@ -1587,6 +1587,73 @@ func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
 	assert_true((plan["assignments"] as Array).is_empty())
 
 
+## A luxury row is a trained hand's work: a court with tobacco and furs but no
+## apprentice is offered neither cigars nor fur hats, because the Production
+## phase would refuse the run (wiki: production-recipes § Worker-tier gates;
+## DR-20261114-07; REQ-P2-03).
+func test_ai_economy_offers_no_gated_row_without_the_hand() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "furs": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	for assignment: Dictionary in plan["assignments"]:
+		assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+		assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
+	for candidate: Dictionary in plan["candidates"]:
+		assert_ne(String(candidate["recipe"]), "cigars", "a gated row is no candidate")
+		assert_ne(String(candidate["recipe"]), "furHats", "a gated row is no candidate")
+	# One apprentice opens the cigar row, and the court takes it.
+	economy.workers = WorkerPool.make(5, 1)
+	var opened: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var cigars: int = 0
+	for assignment: Dictionary in opened["assignments"]:
+		if String(assignment["recipe"]) == "cigars":
+			cigars = int(assignment["units"])
+	assert_true(cigars > 0, "an apprentice opens the cigar row")
+	for assignment: Dictionary in opened["assignments"]:
+		assert_ne(String(assignment["recipe"]), "furHats", "an apprentice is no journeyman")
+
+
+## A phantom run spends the plan's labour and reserves its inputs, then the phase
+## refuses it: the court works less than it could. The plan must spend the whole
+## idle labour on rows the phase will actually run (REQ-P2-03).
+func test_ai_economy_plan_spends_the_labour_the_phase_will_use() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "timber": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		{},
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+
+
+## The bench's random filler court draws from the same legal rows: a gated row is
+## never its pick (wiki: production-recipes § Worker-tier gates; REQ-P2-03).
+func test_random_court_never_picks_a_gated_row() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 40, "furs": 40}
+	economy.workers = WorkerPool.make(8)
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+			assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
+
+
 func test_ai_economy_is_deterministic() -> void:
 	var first := PlayerEconomy.starting()
 	first.stockpile = {"timber": 8, "wool": 6}
