@@ -50,7 +50,8 @@ static func _run_region(
 				continue
 			if bool(order.get("dock", false)):
 				changed = _dock_home(
-					model, roster, fleet, int(order.get("province", -1)), faction, trace
+					model, roster, fleet, int(order.get("province", -1)), faction, trace,
+					String(order.get("reason", ""))
 				) or changed
 				continue
 			var zone: int = int(order["zone"])
@@ -76,9 +77,10 @@ static func _run_region(
 				"zone_name": model.sea_zone_name(zone),
 				"region": model.region_id,
 				"threat": int(order.get("threat", 0)),
+				"reason": String(order.get("reason", "")),
 			})
 			_report_sighting(play, model, faction, zone)
-		_station_orders(play, model, roster, faction)
+		_station_orders(play, model, roster, faction, trace)
 	return changed
 
 
@@ -92,7 +94,8 @@ static func _dock_home(
 	fleet: FleetState,
 	province: int,
 	faction: int,
-	trace: Array[Dictionary]
+	trace: Array[Dictionary],
+	reason: String = ""
 ) -> bool:
 	if province < 0:
 		return false
@@ -111,6 +114,7 @@ static func _dock_home(
 		"threat": 0,
 		"dock": true,
 		"province": province,
+		"reason": reason,
 	}
 	var merge: Dictionary = NavalMovement.merge_into_home(model, roster, fleet)
 	var home: FleetState = merge.get("fleet") as FleetState
@@ -124,16 +128,26 @@ static func _dock_home(
 ## in its zone when one is at war, otherwise hold (wiki: ships-and-naval
 ## § Missions and Movement; DR-20261109-16). A blockade is posted only on water
 ## the court has charted, and one that is no longer charted lapses
-## (wiki: fog-and-exploration § Visibility Levels; DR-20261110-21).
+## (wiki: fog-and-exploration § Visibility Levels; DR-20261110-21). A court that
+## keeps no holds in port at its seat gives a station up instead: the holds it
+## carries are the import gate every build input passes, so they come home
+## (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
 static func _station_orders(
-	play: PlaySession, model: MapModel, roster: Array[FleetState], faction: int
+	play: PlaySession, model: MapModel, roster: Array[FleetState], faction: int,
+	trace: Array[Dictionary]
 ) -> void:
 	var hostile := func(a: int, b: int) -> bool:
 		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
 	for fleet: FleetState in roster:
 		if fleet == null or fleet.owner != faction:
 			continue
-		if not fleet.is_at_sea() or not fleet.is_afloat() or fleet.moved:
+		if not fleet.is_at_sea() or not fleet.is_afloat():
+			continue
+		if MapPlayCourt.at_war(play, faction) \
+				and AiNavalPlanner.trade_garrison(model, roster, fleet):
+			_release_station(model, fleet, faction, trace)
+			continue
+		if fleet.moved:
 			continue
 		var charted: bool = AiNavalPlanner.charts_water(
 			play.court_charts, faction, model.region_id, fleet.sea_zone
@@ -158,6 +172,30 @@ static func _station_orders(
 			FleetMissions.assign(
 				model, fleet, FleetState.Mission.DEFEND, MapModel.NO_ID, hostile
 			)
+
+
+## A station spends the squadron where it is, so a court that needs the holds
+## ashore gives it up: the mission and its blockade hook go, and the trace names
+## the station abandoned so the choice reads in the turn log (issue #530).
+static func _release_station(
+	model: MapModel, fleet: FleetState, faction: int, trace: Array[Dictionary]
+) -> void:
+	if fleet.mission == FleetState.Mission.NONE:
+		return
+	var station: String = FleetMissions.id_of(fleet.mission)
+	fleet.clear_mission()
+	trace.append({
+		"faction": faction,
+		"kind": AiNavalPlanner.KIND_HOME,
+		"fleet": fleet.id,
+		"zone": fleet.sea_zone,
+		"zone_name": model.sea_zone_name(fleet.sea_zone),
+		"region": model.region_id,
+		"threat": 0,
+		"dock": false,
+		"reason": AiNavalPlanner.REASON_TRADE,
+		"released": station,
+	})
 
 
 ## Re-reads the on-screen markers after the rules moved a squadron; the player's
