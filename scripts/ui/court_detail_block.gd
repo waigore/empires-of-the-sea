@@ -32,30 +32,28 @@ func fill(
 	UiRowBuilder.clear(self)
 	add_theme_constant_override("separation", 8)
 	if selected < 0:
-		add_child(_label("No court has received an envoy.", 15, Palette.TEXT_DIM))
+		add_child(UiRowBuilder.label("No court has received an envoy.", 15, Palette.TEXT_DIM))
 		return
 	var record: DiplomacyRelation = state.relation(player, selected)
-	var name_label := _label(FactionCatalog.name_of(selected), 24, Palette.GOLD_PALE)
+	var name_label := UiRowBuilder.label(FactionCatalog.name_of(selected), 24, Palette.GOLD_PALE)
 	name_label.add_theme_font_override("font", UiTheme.serif())
 	add_child(name_label)
 	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(selected))
 	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(selected))
-	add_child(_label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
-	var status := _label(
-		status_line(state, player, selected, record),
-		15,
-		status_color(record)
+	add_child(UiRowBuilder.label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))
+	add_child(
+		UiRowBuilder.wrapped_line(
+			status_line(state, player, selected, record), 15, status_color(record)
+		)
 	)
-	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(status)
 	add_child(_meter(record.score))
-	add_child(_label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
+	add_child(UiRowBuilder.label("Herald: %s" % record.meter_label(), 13, Palette.TEXT))
 	var mark: Dictionary = CourtRows.line(power, player, selected)
 	if not mark.is_empty():
-		add_child(_label(CourtRows.detail_text(mark), 13, mark["color"] as Color))
+		add_child(UiRowBuilder.label(CourtRows.detail_text(mark), 13, mark["color"] as Color))
 	_add_envoy(state, player, selected)
-	add_child(_label(overture_line(state, player, selected), 13, Palette.TEXT))
-	add_child(_caption("COURT ORDERS"))
+	add_child(UiRowBuilder.label(overture_line(state, player, selected), 13, Palette.TEXT))
+	add_child(UiRowBuilder.caption("COURT ORDERS", 11, Palette.TEXT_DIM))
 	_add_orders(state, world, player, selected, treasury, tech)
 	_add_chronicle(state, player, selected)
 	# The despatch is news like the chronicle, so it sits above the dossier's
@@ -119,10 +117,12 @@ func _add_envoy(state: DiplomacyState, player: int, selected: int) -> void:
 	if spoken.is_empty():
 		return
 	var face: String = DialogueMood.label(String(spoken["mood"])).to_upper()
-	add_child(_caption("THEIR ENVOY  ·  %s" % face))
-	var words := _label("“%s”" % String(spoken["text"]), 14, Palette.GOLD_PALE)
-	words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(words)
+	add_child(UiRowBuilder.caption("THEIR ENVOY  ·  %s" % face, 11, Palette.TEXT_DIM))
+	add_child(
+		UiRowBuilder.wrapped_line(
+			"“%s”" % String(spoken["text"]), 14, Palette.GOLD_PALE
+		)
+	)
 
 
 ## The pair's chronicle sits under the orders: choice first, bookkeeping after
@@ -153,7 +153,9 @@ func _add_orders(
 		var group: String = String(option.get("group", DiplomacyOrders.GROUP_ORDERS))
 		if group != last_group:
 			last_group = group
-			add_child(_caption(String(GROUP_LABELS.get(group, "COURT ORDERS"))))
+			add_child(UiRowBuilder.caption(
+				String(GROUP_LABELS.get(group, "COURT ORDERS")), 11, Palette.TEXT_DIM
+			))
 		_add_option(option, selected)
 	if trade_options.is_empty():
 		return
@@ -180,15 +182,15 @@ func _add_option(option: Dictionary, selected: int) -> void:
 	button.pressed.connect(func() -> void: order_pressed.emit(kind, selected, arg))
 	add_child(button)
 	if not bool(option["ok"]):
-		var reason := _label(String(option["reason"]), 11, Color(0.80, 0.63, 0.45, 0.9))
-		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		add_child(reason)
+		add_child(
+			UiRowBuilder.wrapped_line(
+				String(option["reason"]), 11, Color(0.80, 0.63, 0.45, 0.9)
+			)
+		)
 		return
 	var hint: String = String(option.get("hint", ""))
 	if not hint.is_empty():
-		var note := _label(hint, 11, Palette.TEXT_DIM)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		add_child(note)
+		add_child(UiRowBuilder.wrapped_line(hint, 11, Palette.TEXT_DIM))
 
 
 func _meter(score: float) -> Control:
@@ -206,11 +208,3 @@ func _meter(score: float) -> Control:
 		block.add_theme_stylebox_override("panel", UiTheme.box(color, color, 1, 2, Vector4.ZERO))
 		row.add_child(block)
 	return row
-
-
-func _caption(text: String) -> Label:
-	return _label(text, 11, Palette.TEXT_DIM)
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	return UiRowBuilder.label(text, size, color)

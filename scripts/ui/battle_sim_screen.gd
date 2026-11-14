@@ -48,13 +48,15 @@ func _ready() -> void:
 
 
 func _build_centre(column: VBoxContainer) -> void:
-	_header = _label("", 15, Palette.GOLD_PALE)
+	_header = UiRowBuilder.serif_wrapped("", 15, Palette.GOLD_PALE)
 	column.add_child(_header)
 	_field = QuickBattleField.new()
 	_field.custom_minimum_size = Vector2(0, 220)
 	_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_field)
-	_status = _label("Ready — set the ground, the fort and the men, then Fight.", 12, Palette.TEXT)
+	_status = UiRowBuilder.serif_wrapped(
+		"Ready — set the ground, the fort and the men, then Fight.", 12, Palette.TEXT
+	)
 	column.add_child(_status)
 	_round_buttons = HBoxContainer.new()
 	_round_buttons.add_theme_constant_override("separation", 6)
@@ -83,14 +85,14 @@ func _build_log_panel() -> Control:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
 	panel.add_child(column)
-	column.add_child(_label("DESPATCHES", 13, Palette.GOLD))
-	_readout = _label("", 11, Palette.TEXT_DIM)
+	column.add_child(UiRowBuilder.serif_wrapped("DESPATCHES", 13, Palette.GOLD))
+	_readout = UiRowBuilder.serif_wrapped("", 11, Palette.TEXT_DIM)
 	column.add_child(_readout)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
-	_log = _label("", 12, Palette.TEXT)
+	_log = UiRowBuilder.serif_wrapped("", 12, Palette.TEXT)
 	_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_log)
 	return panel
@@ -268,13 +270,3 @@ func _rounds() -> Array:
 	return ((_result.get("report", {}) as Dictionary).get("quick", {}) as Dictionary).get(
 		"rounds", []
 	) as Array
-
-
-func _label(text: String, size_px: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_override("font", UiTheme.serif())
-	label.add_theme_font_size_override("font_size", size_px)
-	label.add_theme_color_override("font_color", color)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label

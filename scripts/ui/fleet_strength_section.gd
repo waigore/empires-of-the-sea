@@ -15,11 +15,11 @@ var _zone: Label = null
 func _ready() -> void:
 	visible = false
 	add_theme_constant_override("separation", 2)
-	_strength = _line(12, Palette.GOLD_PALE)
+	_strength = UiRowBuilder.wrapped_line("", 12, Palette.GOLD_PALE)
 	add_child(_strength)
-	_pool = _line(10, Palette.TEXT_DIM)
+	_pool = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_pool)
-	_zone = _line(11, Palette.TEXT)
+	_zone = UiRowBuilder.wrapped_line("", 11, Palette.TEXT)
 	add_child(_zone)
 
 
@@ -85,11 +85,3 @@ func _zone_colour(zone: Dictionary) -> Color:
 
 func _need() -> int:
 	return int(round(NavalStrength.need() * 100.0))
-
-
-func _line(size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label

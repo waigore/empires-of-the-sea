@@ -1,9 +1,9 @@
 class_name UiRowBuilder
 extends RefCounted
-## Shared row widgets for the sidebar ledgers: a fixed-height row, a themed
-## label, a small button, a spacer and a non-deferred clear. Replaces the private
-## `_label` / `_small_button` / `_add_spacer` copies each panel used to carry
-## (REQ-P3-01, RUB-P3-01).
+## Shared widgets for the sidebar ledgers, dossier sheets and plate screens: a
+## fixed-height row, a themed label, a serif plate label, a small button, a
+## spacer and a non-deferred clear. Every panel reads these instead of carrying
+## its own `_label` / `_line` / `_caption` / `_clear` copy (REQ-P3-01, RUB-P3-01).
 
 
 static func row(height: float) -> HBoxContainer:
@@ -25,17 +25,45 @@ static func label(text: String, size: int, color: Color) -> Label:
 	return out
 
 
-static func caption(text: String, size: int, color: Color, width: float) -> Label:
+static func caption(text: String, size: int, color: Color, width: float = 0.0) -> Label:
 	var out := label(text, size, color)
-	out.custom_minimum_size = Vector2(width, 0)
+	if width > 0.0:
+		out.custom_minimum_size = Vector2(width, 0)
 	return out
 
 
-static func button(text: String, height: float = 38.0, width: float = 78.0) -> Button:
+## A prose line: wraps at the sheet's width, and reserves a column when `width`
+## is positive so a ledger's facts stay aligned.
+static func wrapped_line(text: String, size: int, color: Color, width: float = 0.0) -> Label:
+	var out := label(text, size, color)
+	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if width > 0.0:
+		out.custom_minimum_size = Vector2(width, 0)
+	return out
+
+
+## The plate screens' serif voice (battle plates, setup copy): the period face
+## on a label; `serif_wrapped` adds the prose wrap a narrow plate needs.
+static func serif_line(text: String, size: int, color: Color) -> Label:
+	var out := label(text, size, color)
+	out.add_theme_font_override("font", UiTheme.serif())
+	return out
+
+
+## A plate's prose line: serif, wrapped so a phone never clips the sentence.
+static func serif_wrapped(text: String, size: int, color: Color) -> Label:
+	var out := serif_line(text, size, color)
+	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return out
+
+
+static func button(
+	text: String, height: float = 38.0, width: float = 78.0, font_size: int = 13
+) -> Button:
 	var out := Button.new()
 	out.text = text
 	out.custom_minimum_size = Vector2(width, height)
-	out.add_theme_font_size_override("font_size", 13)
+	out.add_theme_font_size_override("font_size", font_size)
 	return out
 
 

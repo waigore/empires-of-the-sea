@@ -23,7 +23,7 @@ static func available(
 	goal_id: String = "",
 	on_goal: Callable = Callable()
 ) -> Control:
-	var row := _row()
+	var row := UiRowBuilder.row(ROW_HEIGHT)
 	row.add_child(icon(tech_id))
 	row.add_child(goal_mark(tech_id, goal_id))
 	row.add_child(_name_column(
@@ -35,7 +35,9 @@ static func available(
 
 	if on_goal.is_valid():
 		var is_goal: bool = tech_id == goal_id
-		var goal := _button("Goal " + GOAL_ITSELF if is_goal else "Goal")
+		var goal := UiRowBuilder.button(
+			"Goal " + GOAL_ITSELF if is_goal else "Goal", 0.0, 0.0
+		)
 		goal.custom_minimum_size = Vector2(80, ROW_HEIGHT)
 		goal.tooltip_text = (
 			"Clear the goal" if is_goal else "Steer the queue toward this advance"
@@ -45,7 +47,7 @@ static func available(
 		goal.pressed.connect(func() -> void: on_goal.call(tech_id))
 		row.add_child(goal)
 
-	var start := _button("Research")
+	var start := UiRowBuilder.button("Research", 0.0, 0.0)
 	start.custom_minimum_size = Vector2(92, ROW_HEIGHT)
 	start.disabled = state.free_slot() < 0
 	if start.disabled:
@@ -57,7 +59,7 @@ static func available(
 
 ## A tech the crown already knows.
 static func known(tech_id: String, goal_id: String = "") -> Control:
-	var row := _row()
+	var row := UiRowBuilder.row(ROW_HEIGHT)
 	row.add_child(icon(tech_id))
 	row.add_child(goal_mark(tech_id, goal_id))
 	row.add_child(_name_column(
@@ -93,7 +95,7 @@ static func goal_mark(tech_id: String, goal_id: String) -> Control:
 		color = Palette.GOLD_PALE
 	elif depth > 0:
 		text = GOAL_ON_PATH
-	var mark := _label(text, 13, color)
+	var mark := UiRowBuilder.label(text, 13, color)
 	mark.custom_minimum_size = Vector2(MARK_WIDTH, 0)
 	if depth >= 0:
 		mark.tooltip_text = (
@@ -105,15 +107,6 @@ static func goal_mark(tech_id: String, goal_id: String) -> Control:
 	return mark
 
 
-static func _row() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, ROW_HEIGHT)
-	row.add_theme_constant_override("separation", 8)
-	# Dragging across a row scrolls the list; only its buttons take input.
-	row.mouse_filter = Control.MOUSE_FILTER_PASS
-	return row
-
-
 ## Name over a small meta line: one column, so the buttons keep their room.
 static func _name_column(
 	tech_id: String, meta: String, title_color: Color, meta_color: Color
@@ -123,25 +116,9 @@ static func _name_column(
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.mouse_filter = Control.MOUSE_FILTER_PASS
-	var name_label := _label(TechCatalog.display_name(tech_id), 14, title_color)
+	var name_label := UiRowBuilder.label(TechCatalog.display_name(tech_id), 14, title_color)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.tooltip_text = TechCatalog.effect_text(tech_id)
 	column.add_child(name_label)
-	column.add_child(_label(meta, 11, meta_color))
+	column.add_child(UiRowBuilder.label(meta, 11, meta_color))
 	return column
-
-
-static func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	label.mouse_filter = Control.MOUSE_FILTER_PASS
-	return label
-
-
-static func _button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", 13)
-	return button
