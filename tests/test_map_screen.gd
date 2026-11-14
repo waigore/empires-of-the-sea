@@ -114,6 +114,36 @@ func test_minimap_repaints_when_a_province_is_charted() -> void:
 	assert_ne(before, after, "a charted tile repaints the inset")
 
 
+## The mount is the inset's only paint, so a missed build leaves the frame's
+## near-black panel showing and the player reads an empty chart (issue #563).
+func test_minimap_paints_the_chart_on_the_mount_path() -> void:
+	var minimap: Minimap = _screen.hud._minimap
+	assert_not_null(minimap, "the chrome mounts the inset")
+	assert_gt(minimap.size.x, 0.0, "the inset is laid out")
+	assert_gt(minimap.size.y, 0.0, "the inset is laid out")
+	assert_not_null(minimap._texture, "the mount bakes the chart")
+	var image: Image = minimap._texture.get_image()
+	assert_eq(image.get_width(), _screen.model.width, "one texel per map column")
+	assert_false(_blank_chart(image), "the inset is not a flat or near-black fill")
+
+
+## A blank inset is either one flat wash (nothing baked) or a near-black fill
+## (the frame's panel showing through); sample a grid instead of every texel.
+func _blank_chart(image: Image) -> bool:
+	var first: Color = image.get_pixel(0, 0)
+	var flat: bool = true
+	var total: float = 0.0
+	var count: int = 0
+	for y in range(0, image.get_height(), 4):
+		for x in range(0, image.get_width(), 4):
+			var pixel: Color = image.get_pixel(x, y)
+			total += (pixel.r + pixel.g + pixel.b) / 3.0
+			count += 1
+			if not pixel.is_equal_approx(first):
+				flat = false
+	return flat or total / maxf(float(count), 1.0) < 0.2
+
+
 func test_country_borders_are_built_for_every_owner() -> void:
 	var borders: Dictionary = _screen.overlay._country_borders
 	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
