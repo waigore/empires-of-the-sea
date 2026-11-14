@@ -500,6 +500,14 @@ domain = "naval_intel"
 match = "scripts/map/map_play_turn.gd*"
 domain = "naval_intel"
 
+# The turn's finish phases (movement → rearmament → combat → close → new turn):
+# the campaign-close suites, the observer's headless turn and the consent-answer
+# screen prove every phase, so the split travels with its own proof instead of
+# the broad `scripts/map/**` set.
+[[rules]]
+match = "scripts/map/map_play_turn_finish.gd*"
+domain = "turn_closure"
+
 [[rules]]
 match = "scripts/ui/fleet_strength_section.gd*"
 domain = "naval_intel"
@@ -1010,6 +1018,16 @@ suites = [
   "test_diplomacy_screen.gd",
   "test_map_data_rules.gd",
   "test_ai_rules.gd",
+]
+
+# The turn's finish: one phase per step, closing on a decided campaign, an
+# observed headless turn or an answered consent decision.
+[domains.turn_closure]
+suites = [
+  "test_campaign_end.gd",
+  "test_campaign_defeat.gd",
+  "test_ai_observer.gd",
+  "test_diplomacy_screen.gd",
 ]
 
 # First matching rule wins. More specific globs before broader ones.
