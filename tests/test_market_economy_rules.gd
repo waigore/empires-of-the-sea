@@ -3530,6 +3530,20 @@ func test_a_taxed_sale_names_the_rate_that_moved_it() -> void:
 		}),
 		"Sold 10 Timber to %s at 25 — 250 ducats" % FactionCatalog.name_of(1)
 	)
+	# A row with no stake (no tons, no price) names no rate: there is no rate to
+	# name, and dividing by it would be the only wrong answer.
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 0, "price": 25,
+		}),
+		"Sold 0 Timber to %s at 25 — 0 ducats" % FactionCatalog.name_of(1)
+	)
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 3, "price": 0,
+		}),
+		"Sold 3 Timber to %s at 0 — 0 ducats" % FactionCatalog.name_of(1)
+	)
 
 
 ## The clearing's own receipt for a boycotted crown: the 10% the boycott costs
