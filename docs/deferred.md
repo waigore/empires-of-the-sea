@@ -19,13 +19,14 @@ Audited through DR-20261114-09 (`REQ-P2-02`).
 | Raid hulls; rival raids; naval plate | `NavalRaid`, `NavalPlate`, DR-11-17/20/13-17 |
 | Road L2; gathering; path transport | `TechUnlocks` / `Extraction` |
 | Advanced chart; Passage; rival OOB/fog | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
-| Multi-turn recipes; Yarn + consent | `ProductionRecipes`; `DialogueYarn`, `ConsentCopy` |
+| Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing; money-first; victory pressure | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure` |
 | Leader bonuses | `LeaderCatalog`, DR-13-18 |
 | Tribe buy; landings; overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
 | Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
 | Hull chest for navy.build | `AiNavy` / `AiIncome.reserve`, DR-14-06/#558 |
 | Worker-tier gates (cigars / fur hats) | `ProductionRecipes.min_tier`, DR-14-07/#565 |
+| Slow luxury rows (2 turns) | `ProductionRecipes.turns`, DR-14-10 |
 | Hull material row (timber/cloth) | `AiNavy.inputs` / `AiClaims.HULLS`, DR-14-09 |
 
 ## Remaining gaps (impact order)
@@ -36,9 +37,9 @@ Audited through DR-20261114-09 (`REQ-P2-02`).
    #552 sheds mouths, not the price).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
    every domain still runs; only the voyage gate is live.
-3. **Building gates / further multi-turn / queue cap** — luxury worker-tier
-   gates shipped (DR-14-07); building gates, rows past steel/bronze and the
-   queue cap remain (wiki-deferred).
+3. **Building gates / queue cap** — worker-tier gates (DR-14-07) and slow
+   luxury rows (DR-14-10) shipped; building gates, rows past these four, and
+   the queue cap remain (wiki-deferred).
 4. **AI recipe candidates ignore worker-tier** — planners still walk
    `available_ids` (tech only); phase refuses gated rows (DR-14-07
    follow-up; needs ai-bench re-bind).
