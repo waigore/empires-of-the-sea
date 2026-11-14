@@ -697,6 +697,7 @@ domain = "lens_kit"
 [domains.prospect]
 suites = [
   "test_ai_rules.gd",
+  "test_ai_planner_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
   "test_world_setup.gd",
@@ -1296,6 +1297,11 @@ domain = "prospect"
 
 [[rules]]
 match = "scripts/ai/ai_civilian_planner.gd*"
+domain = "prospect"
+
+# The shared civilian gate and ranker every work module calls.
+[[rules]]
+match = "scripts/ai/ai_civilian_candidate.gd*"
 domain = "prospect"
 
 [[rules]]
