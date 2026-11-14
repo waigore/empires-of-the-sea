@@ -244,14 +244,16 @@ suites = [
   "test_diplomacy_rules.gd",
 ]
 
-# The crown's muster roll (DR-20261113-12): the force projection, its ledger
-# row and panel, the map jump behind Visit and the chrome that opens it. Kept
-# its own small domain — the boards it touches (bar, back chain, HUD bind) are
-# all driven by the roster/chrome suites named here — so a ledger change never
-# pulls the map, menu or ui catch-alls past the tier-1 5 min budget.
+# The crown's sheets (DR-20261113-12, DR-20261115-09): the force projection,
+# its ledger row and panel, the map jump behind Visit, the province ledger
+# beside it and the chrome that opens both. Kept its own small domain — the
+# boards they touch (bar, back chain, HUD bind, dossier door) are all driven by
+# the suites named here — so a ledger change never pulls the map, menu or ui
+# catch-alls past the tier-1 5 min budget.
 [domains.muster]
 suites = [
   "test_force_ledger_rules.gd",
+  "test_province_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -319,6 +321,13 @@ domain = "hostility"
 
 [[rules]]
 match = "scripts/rules/naval_combat.gd*"
+domain = "hostility"
+
+# The turn's battles across every region (one pass, node-free): the fleet and
+# naval suites prove it, so it rides with the same domain instead of the rules
+# catch-all.
+[[rules]]
+match = "scripts/rules/naval_battles.gd*"
 domain = "hostility"
 
 [[rules]]
@@ -526,6 +535,26 @@ domain = "gazette"
 
 [[rules]]
 match = "scripts/rules/force_ledger.gd*"
+domain = "muster"
+
+# The crown's province ledger (DR-20261115-09): the projection, its row and
+# panel, the map hooks behind Visit and the dossier door that opens it. It
+# rides the muster domain — one sheet chrome, one modal layer — so a ledger
+# change never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/province_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/province_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_provinces.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_province_ledger.gd*"
 domain = "muster"
 
 [[rules]]

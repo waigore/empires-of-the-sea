@@ -21,18 +21,25 @@ static func ensure(play: PlaySession) -> void:
 ## Files the sheet for the turn that just resolved and opens it when it printed
 ## anything. `land`/`naval` are the phase records, `economy` the rival ledgers'
 ## report, `crown_report` the human ledger's, `raids` MapPlayRaids' result.
+## `resolved_turn` overrides the turn the sheet is filed under: the calendar
+## advances after a normal close, but the turn that decides the campaign is
+## filed on itself. With `raise_plate` false the sheet is still filed — the
+## archive has no gaps — while the campaign-end plate keeps the screen, and no
+## race warning is raised for a race already decided.
 static func close_turn(
 	play: PlaySession,
 	land: Array,
 	naval: Array,
 	economy: Dictionary,
 	crown_report: Dictionary,
-	raids: Dictionary
+	raids: Dictionary,
+	resolved_turn: int = -1,
+	raise_plate: bool = true
 ) -> void:
 	if play == null or play.observer_mode or play.diplomacy == null:
 		return
 	# The calendar already advanced: the sheet narrates the turn that resolved.
-	var resolved: int = maxi(play.turn - 1, 1)
+	var resolved: int = resolved_turn if resolved_turn > 0 else maxi(play.turn - 1, 1)
 	ensure(play)
 	var sheet: Dictionary = Gazette.collect(
 		play.player_faction,
@@ -53,6 +60,8 @@ static func close_turn(
 	)
 	# An empty sheet is still filed so the archive has no gaps; it is not shown.
 	play.gazette.append(sheet)
+	if not raise_plate:
+		return
 	# The crown hears the race before it is lost: a crown standing within reach
 	# of its bar is named as the turn closes, so the endgame is never a
 	# surprise. The threshold reads the same check — no winner, gate or AI

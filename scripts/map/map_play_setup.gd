@@ -44,6 +44,8 @@ static func build_hud(play: PlaySession) -> void:
 		hud.civilian_roster.bind(play)
 	if hud.muster_roll != null:
 		hud.muster_roll.bind(play)
+	if hud.province_ledger != null:
+		hud.province_ledger.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	# Build/work's recruits land on the session's layers when the ledger closes.

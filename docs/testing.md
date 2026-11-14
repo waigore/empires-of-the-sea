@@ -201,6 +201,15 @@ godot --headless --path . --script res://playtests/playtest_siege.gd
 # envoy), checks the court will not sell the same colony twice, and issues the
 # boycott the colony unlocks against a rival crown.
 godot --headless --path . --script res://playtests/playtest_colony.gd
+
+# Campaign end — the hardest state in the game to reach (the calendar cap is turn
+# 201 and the bar is 31 Old World provinces). Seats the turn number and the
+# holdings, then closes real turns: reads the Gazette's age tab and the sheet's
+# foot, the three-province warning, the campaign-complete plate and the seal at
+# the cap, the halted save reloaded, an Endless campaign sailing past the cap,
+# and a rival on the bar taking the military plate — then reads the deciding
+# turn's own sheet once the plate steps aside.
+godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
