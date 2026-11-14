@@ -22,6 +22,10 @@ extends RefCounted
 ## row is offered or run — the phase, the ledger's ceiling and the AI's
 ## candidates (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
 ##
+## A slow row's bench holds **three pieces**: a fourth run of the same row waits
+## for a landing, so a court cannot pay ten turns of inputs ahead (wiki:
+## production-recipes § Workshop queue; DR-20261114-12).
+##
 ## The catalogue owns the rows, their gates and the phase plan; the batches a
 ## court has already paid for are read and served by `ProductionWorkshop`.
 
@@ -198,7 +202,8 @@ static func allowance(
 	stockpile: Dictionary,
 	labour_points: int,
 	assignments: Array,
-	workers: WorkerPool = null
+	workers: WorkerPool = null,
+	wip: Dictionary = {}
 ) -> int:
 	if not known(recipe_id) or not tier_met(recipe_id, workers):
 		return 0
@@ -218,7 +223,13 @@ static func allowance(
 	for commodity: Variant in claimed.keys():
 		var id: String = String(commodity)
 		left[id] = maxi(int(left.get(id, 0)) - int(claimed[commodity]), 0)
-	return max_runs(recipe_id, left, maxi(labour_points - claimed_labour(others), 0))
+	var runs: int = max_runs(recipe_id, left, maxi(labour_points - claimed_labour(others), 0))
+	# A slow row's bench holds three pieces: the fourth run waits for a landing,
+	# so the stepper stops where the phase would (wiki: production-recipes
+	# § Workshop queue; DR-20261114-12).
+	if turns(recipe_id) > 1:
+		runs = mini(runs, ProductionWorkshop.room(wip, recipe_id, turns(recipe_id)))
+	return runs
 
 
 ## Whole runs a recipe can complete with the given inputs and labour budget.
@@ -290,7 +301,14 @@ static func plan(
 		var desired: int = int(assignment.get("units", 0))
 		if desired <= 0:
 			continue
+		var turns: int = turns(recipe_id)
 		var affordable: int = mini(desired, max_runs(recipe_id, stockpile, remaining_labour))
+		# A slow row's bench holds three pieces; a fourth waits for a landing
+		# (wiki: production-recipes § Workshop queue; DR-20261114-12). The room
+		# is read from the workshop this phase will leave, so two assignments of
+		# one row cannot both fill the same bench.
+		if turns > 1:
+			affordable = mini(affordable, ProductionWorkshop.open_room(next_wip, recipe_id))
 		if affordable <= 0:
 			continue
 		var needed: Dictionary = inputs(recipe_id)
@@ -302,7 +320,6 @@ static func plan(
 		runs_by_recipe[recipe_id] = int(runs_by_recipe.get(recipe_id, 0)) + affordable
 		started_units[recipe_id] = int(started_units.get(recipe_id, 0)) + affordable
 		remaining_labour -= affordable * labour(recipe_id)
-		var turns: int = turns(recipe_id)
 		if turns > 1:
 			var batches: Array = next_wip.get(recipe_id, [])
 			batches.append({"units": affordable, "turns_left": turns - 1})

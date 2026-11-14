@@ -42,7 +42,7 @@ static func best_candidate(
 	var connected: Dictionary = ImprovementSystem.connected_tiles(
 		model, works, unit.owner, context.get("capital_tile", CivilianState.NO_TILE)
 	)
-	var best: Dictionary = _better(
+	var best: Dictionary = AiCivilianCandidate.better(
 		_network_candidate(
 			config, model, unit, units, works, stockpile, tech_caps,
 			tech_unlocked, context, reserved, connected
@@ -53,11 +53,11 @@ static func best_candidate(
 		)
 	)
 	if bool(context.get("at_war", false)):
-		best = _better(best, fort_candidate(
+		best = AiCivilianCandidate.better(best, fort_candidate(
 			config, model, unit, units, works, stockpile, tech_caps,
 			tech_unlocked, context
 		))
-	best = _better(best, AiHospitalWork.best_candidate(
+	best = AiCivilianCandidate.better(best, AiHospitalWork.best_candidate(
 		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
 		context, reserved
 	))
@@ -95,12 +95,12 @@ static func _network_candidate(
 			# A road only earns its keep as the link to a resource tile.
 			if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 				continue
-			best = _better(best, _road(
+			best = AiCivilianCandidate.better(best, _road(
 				config, model, unit, tile, works, units, stockpile, tech_caps,
 				tech_unlocked, context, target, road_weight, connected
 			))
 		else:
-			best = _better(best, _candidate(
+			best = AiCivilianCandidate.better(best, _candidate(
 				config, model, unit, "build_rail", tile, works, units, stockpile,
 				tech_caps, tech_unlocked, context, RAIL_BASE
 			))
@@ -208,21 +208,3 @@ static func _candidate(
 		model, unit, action, tile, works, units, stockpile, tech_caps,
 		tech_unlocked, context, score, target
 	)
-
-
-## Higher score wins; a tile tie goes to the earlier action name, so the same
-## save always produces the same order, and stays fixed across candidates.
-static func _better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var left: Vector2i = candidate["tile"]
-	var right: Vector2i = best["tile"]
-	if left.y != right.y:
-		return candidate if left.y < right.y else best
-	if left.x != right.x:
-		return candidate if left.x < right.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best

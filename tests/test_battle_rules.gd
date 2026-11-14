@@ -375,6 +375,23 @@ func test_prune_drops_empty_field_armies_only() -> void:
 	assert_true(armies.has(home))
 
 
+## Field armies are the court's deployed columns in stable id order: the Home
+## Army, an emptied column and a foreign army stay out (REQ-P3-01, REQ-P3-04).
+func test_field_armies_reads_the_deployed_columns_in_id_order() -> void:
+	var none: Array[String] = []
+	var home := Fixture.army(1, 0, 0, none, true)
+	var late := Fixture.army(7, 0, 2, ["pikemen"])
+	var early := Fixture.army(3, 0, 1, ["squires"])
+	var empty := Fixture.army(5, 0, 3, none)
+	var foreign := Fixture.army(2, 1, 1, ["pikemen"])
+	var field: Array[ArmyState] = ArmyRoster.field_armies(
+		[home, late, early, empty, foreign], 0
+	)
+	assert_eq(field.size(), 2)
+	assert_eq(field[0], early)
+	assert_eq(field[1], late)
+
+
 ## A detached or combined-away regiment leaves nothing behind on its old army:
 ## the condition and the record are one store, released together.
 func test_a_removed_regiment_leaves_no_condition_behind() -> void:

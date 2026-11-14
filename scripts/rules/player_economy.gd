@@ -119,13 +119,20 @@ func spend_treasury(amount: int) -> bool:
 
 
 ## Remembers hull types currently afloat so a lost last sloop can still be laid
-## without Navigation (issue #484).
+## without Navigation. Flying any warship also teaches the sloop rebuild so a
+## lost frigate is not a 10,500-ducat dead end (issue #484).
 func note_shipcraft(types: Array) -> void:
+	var saw_warship: bool = false
 	for raw: Variant in types:
 		var type_id: String = ShipStats.normalize(String(raw))
-		if type_id.is_empty() or shipcraft.has(type_id):
+		if type_id.is_empty():
 			continue
-		shipcraft.append(type_id)
+		if ShipStats.is_warship(type_id):
+			saw_warship = true
+		if not shipcraft.has(type_id):
+			shipcraft.append(type_id)
+	if saw_warship and not shipcraft.has("sloop"):
+		shipcraft.append("sloop")
 
 
 # --- workers -----------------------------------------------------------------

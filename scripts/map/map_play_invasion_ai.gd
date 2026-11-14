@@ -38,7 +38,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 						kind, config, play.ledger_for(faction),
 						MapPlayCourt.at_war(play, faction),
 						MapPlayCourt.regiments(play, faction),
-						MapPlayCourt.navy_chest(play, faction)
+						MapPlayCourt.navy_chest(play, faction),
+						MapPlayCourt.warships(play, faction)
 					).get("goal", "")
 				)
 				== "earn"

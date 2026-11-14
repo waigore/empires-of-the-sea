@@ -13,7 +13,7 @@ static func regiments(play: PlaySession, tier: String) -> void:
 	var armies: Array = play.army_layer.regions.value(0, [])
 	play.army_layer.regions.set_region(0, armies)
 	for faction: int in FactionCatalog.great_power_ids():
-		var army: ArmyState = _home_army(armies, faction)
+		var army: ArmyState = ArmyTraining.home_army(armies, faction)
 		if army == null:
 			continue
 		for type_id: String in types:
@@ -47,14 +47,6 @@ static func ships(play: PlaySession, tier: String) -> int:
 			fleet.add_hull(hull, "galleon")
 			added += 1
 	return added
-
-
-static func _home_army(armies: Array, faction: int) -> ArmyState:
-	for raw: Variant in armies:
-		var army: ArmyState = raw as ArmyState
-		if army != null and army.owner == faction and army.is_home_army():
-			return army
-	return null
 
 
 static func _home_squadron(

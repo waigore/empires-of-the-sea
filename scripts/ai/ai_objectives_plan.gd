@@ -211,8 +211,11 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 
 ## True while the court is still short of the yard's price and a regiment is
 ## due: the chest it means to fill is out of reach, so the army's claim outranks
-## it (issue #591, `AiIncome.hull_held`).
+## it (issue #591, `AiIncome.hull_held`). A fleetless court keeps the yard ahead
+## of the muster — the same own-warships gate as `hull_held` (issue #484).
 static func _chest_beyond_reach(readings: Dictionary) -> bool:
+	if int(readings.get("warships", -1)) == 0:
+		return false
 	if not bool(readings.get("muster_due", false)):
 		return false
 	var price: int = int(readings.get("warship_price", 0))

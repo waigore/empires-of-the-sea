@@ -29,9 +29,9 @@ static func split_orders(
 	var owner: int = config.faction
 	if frontier_hostile(model, owner, state).is_empty():
 		return actions
-	if not _field_armies(armies, owner).is_empty():
+	if not ArmyRoster.field_armies(armies, owner).is_empty():
 		return actions
-	var home: ArmyState = _home_army(armies, owner)
+	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null or home.count() < 2:
 		return actions
 	var ordered: Array[String] = home.regiments.duplicate()
@@ -66,7 +66,7 @@ static func march_orders(
 	if hostile.is_empty():
 		return {"orders": orders, "candidates": candidates}
 	var frontier: Array[int] = _staging_provinces(model, owner, state)
-	for army: ArmyState in _field_armies(armies, owner):
+	for army: ArmyState in ArmyRoster.field_armies(armies, owner):
 		if army.moved or army.is_empty():
 			continue
 		var best: Dictionary = _best_order(config, model, armies, army, hostile, frontier)
@@ -227,22 +227,6 @@ static func _hostile_army_at(
 		if army.owner != owner and hostile.has(army.owner):
 			return true
 	return false
-
-
-static func _home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and army.home:
-			return army
-	return null
-
-
-static func _field_armies(armies: Array[ArmyState], owner: int) -> Array[ArmyState]:
-	var field: Array[ArmyState] = []
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and not army.home and not army.is_empty():
-			field.append(army)
-	field.sort_custom(func(a: ArmyState, b: ArmyState) -> bool: return a.id < b.id)
-	return field
 
 
 ## BFS distance through the court's own provinces, so staging picks the nearest

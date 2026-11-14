@@ -61,7 +61,7 @@ static func plan(
 		if stranded != null:
 			return _homeward(world, region, model, stranded, charts)
 		return {}
-	if AiPhasePlanner.is_war_footing(posture) and not wants_income:
+	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE) and not wants_income:
 		return {}
 	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
 	if unit == null:
@@ -274,27 +274,13 @@ static func _homeward(
 	return {"kind": "sail", "fleet": fleet.id, "zone": warp}
 
 
-## The next zone toward `goals`, walking only water this court charts. With no
-## charted route it takes the lowest-id adjacent zone it has not seen: that blind
-## step is how a passage or a far coast is found (DR-20261110-21).
+## Next zone toward `goals` on water this court charts (see
+## [method AiSeaRoute.sail_charted]); the shared voyage rule keeps the invasion
+## and colonisation planners walking the same route (DR-20261110-21).
 static func _sail(
 	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
 ) -> int:
-	if charts == null:
-		return AiSeaRoute.sail_toward(model, fleet, goals)
-	var known: Array[int] = charts.known_zones(owner, model.region_id)
-	var charted: Array[int] = []
-	for zone: int in goals:
-		if known.has(zone):
-			charted.append(zone)
-	if not charted.is_empty():
-		var step: int = AiSeaRoute.sail_toward(model, fleet, charted)
-		if step >= 0:
-			return step
-	for zone: int in NavalMovement.destination_zones(model, fleet):
-		if not known.has(zone):
-			return zone
-	return -1
+	return AiSeaRoute.sail_charted(model, fleet, goals, charts, owner)
 
 
 ## Sea zones with at least one land tile this type may land on, and whose water
