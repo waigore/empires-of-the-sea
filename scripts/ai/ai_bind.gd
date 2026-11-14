@@ -28,12 +28,12 @@ static func production_orders(kind: String, config: Variant, economy: PlayerEcon
 
 
 static func recruitment_orders(
-	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0
+	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1
 ) -> Array[Dictionary]:
 	var raw: Variant = (
-		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor])
+		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor, fed_slack])
 		if uses_mainline(kind)
-		else AiEconomyPlanner.recruitment_orders(config, economy, floor)
+		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack)
 	)
 	var out: Array[Dictionary] = []
 	out.assign(raw)
@@ -64,6 +64,12 @@ static func research_plan(
 	return AiResearchPlanner.plan(config, economy, context)
 
 
+static func research_floor(kind: String, config: Variant) -> int:
+	if uses_mainline(kind):
+		return int(_ml("ai_research_planner.gd", "research_floor", [config]))
+	return AiResearchPlanner.research_floor(config)
+
+
 static func market_plan(
 	kind: String,
 	config: Variant,
@@ -73,16 +79,17 @@ static func market_plan(
 	tech_unlocked: Dictionary,
 	reserved: Dictionary,
 	need: Dictionary,
-	floor: int
+	floor: int = 0,
+	food_shortfall: int = 0
 ) -> Dictionary:
 	if uses_mainline(kind):
 		return _ml(
 			"ai_market_planner.gd",
 			"plan",
-			[config, economy, market, free_holds, tech_unlocked, reserved, need, floor]
+			[config, economy, market, free_holds, tech_unlocked, reserved, need, floor, food_shortfall]
 		)
 	return AiMarketPlanner.plan(
-		config, economy, market, free_holds, tech_unlocked, reserved, need, floor
+		config, economy, market, free_holds, tech_unlocked, reserved, need, floor, food_shortfall
 	)
 
 
@@ -102,21 +109,46 @@ static func market_stage(
 
 
 static func muster_reserve(
-	kind: String, config: Variant, economy: PlayerEconomy, regiments: int, at_war: bool
+	kind: String,
+	config: Variant,
+	economy: PlayerEconomy,
+	regiments: int,
+	at_war: bool,
+	pressure_extra: int = 0
 ) -> Dictionary:
 	if uses_mainline(kind):
 		return _ml(
-			"ai_army_reinforce.gd", "muster_reserve", [config, economy, regiments, at_war]
+			"ai_army_reinforce.gd",
+			"muster_reserve",
+			[config, economy, regiments, at_war, pressure_extra]
 		)
-	return AiArmyReinforce.muster_reserve(config, economy, regiments, at_war)
+	return AiArmyReinforce.muster_reserve(config, economy, regiments, at_war, pressure_extra)
 
 
 static func reinforce_plan(
-	kind: String, config: Variant, economy: PlayerEconomy, regiments: int, at_war: bool
+	kind: String,
+	config: Variant,
+	economy: PlayerEconomy,
+	regiments: int,
+	at_war: bool,
+	pressure_extra: int = 0,
+	fed_slack: int = -1
 ) -> Dictionary:
 	if uses_mainline(kind):
-		return _ml("ai_army_reinforce.gd", "plan", [config, economy, regiments, at_war])
-	return AiArmyReinforce.plan(config, economy, regiments, at_war)
+		return _ml(
+			"ai_army_reinforce.gd",
+			"plan",
+			[config, economy, regiments, at_war, pressure_extra, fed_slack]
+		)
+	return AiArmyReinforce.plan(config, economy, regiments, at_war, pressure_extra, fed_slack)
+
+
+static func fed_slack(
+	kind: String, economy: PlayerEconomy, army_food: int, ships: int
+) -> int:
+	if uses_mainline(kind):
+		return int(_ml("ai_army_reinforce.gd", "fed_slack", [economy, army_food, ships]))
+	return AiArmyReinforce.fed_slack(economy, army_food, ships)
 
 
 static func civilian_plan(

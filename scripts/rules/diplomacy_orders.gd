@@ -79,7 +79,8 @@ static func options(
 				KIND_OVERTURE,
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
 				next,
-				GROUP_TREATIES
+				GROUP_TREATIES,
+				DiplomacyOvertures.stage_hint(next, type)
 			)
 		)
 	if not record.at_war:
@@ -255,7 +256,7 @@ static func apply(
 		KIND_BREAK:
 			return DiplomacyRules.break_alliance(state, player, target)
 		KIND_OVERTURE:
-			return DiplomacyRules.establish_overture(
+			return DiplomacyOvertures.establish_overture(
 				state, economy, world, player, target, String(order.get("stage", "")), tech
 			)
 		KIND_AID:

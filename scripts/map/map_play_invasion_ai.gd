@@ -21,13 +21,9 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var fleets: Array = _fleets(play, region)
-		var armies: Array[ArmyState] = _armies(play, region)
-		for faction: int in FactionCatalog.great_power_ids():
-			if faction == play.player_faction and not play.observer_mode:
-				continue
-			if not AiControl.plans(play, faction):
-				continue
+		var fleets: Array = MapPlayCourt.region_fleets(play, region)
+		var armies: Array[ArmyState] = MapPlayCourt.visible_armies(play, region)
+		for faction: int in MapPlayCourt.planning_factions(play):
 			var kind: String = AiControl.court_kind(play, faction)
 			if kind == AiControl.KIND_RANDOM:
 				continue
@@ -37,8 +33,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
 			var earning: bool = AiBind.wants_income(
-				kind, config, play.ledger_for(faction), _at_war(play, faction),
-				_regiments(play, faction)
+				kind, config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
+				MapPlayCourt.regiments(play, faction)
 			)
 			touched = _split(
 				play, model, fleets, armies, faction, config, kind, trace, earning
@@ -77,7 +73,7 @@ static func _split(
 		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):
-		var home: ArmyState = _army_by_id(armies, int(action.get("army_id", -1)))
+		var home: ArmyState = MapPlayCourt.army_by_id(armies, int(action.get("army_id", -1)))
 		if home == null:
 			continue
 		var ids: Array[String] = []
@@ -110,7 +106,7 @@ static func _apply(
 	order: Dictionary
 ) -> Dictionary:
 	var kind: String = String(order.get("kind", ""))
-	var fleet: FleetState = _fleet_by_id(fleets, int(order.get("fleet", -1)))
+	var fleet: FleetState = MapPlayCourt.fleet_by_id(fleets, int(order.get("fleet", -1)))
 	if fleet == null:
 		return {}
 	var entry: Dictionary = {
@@ -118,7 +114,7 @@ static func _apply(
 	}
 	match kind:
 		AiInvasionPlanner.KIND_EMBARK:
-			var army: ArmyState = _army_by_id(armies, int(order.get("army", -1)))
+			var army: ArmyState = MapPlayCourt.army_by_id(armies, int(order.get("army", -1)))
 			if not bool(NavalTransport.embark(model, army, fleet).get("ok", false)):
 				return {}
 			entry["army"] = army.id
@@ -207,7 +203,7 @@ static func _cross(
 		return result
 	var to_region: int = int(result["to_region"])
 	fleets.erase(fleet)
-	var source: Array = _fleets(play, region)
+	var source: Array = MapPlayCourt.region_fleets(play, region)
 	source.erase(fleet)
 	play.ship_layer.regions.set_region(region, source)
 	var carried: Array[ArmyState] = []
@@ -217,7 +213,7 @@ static func _cross(
 			carried.append(army)
 	# The seat is renumbered in the new region, so the troops follow it after.
 	fleet.id = FleetRosters.next_id_all(play.ship_layer.regions)
-	var destination: Array = _fleets(play, to_region)
+	var destination: Array = MapPlayCourt.region_fleets(play, to_region)
 	destination.append(fleet)
 	play.ship_layer.regions.set_region(to_region, destination)
 	for army: ArmyState in carried:
@@ -245,25 +241,19 @@ static func _report_landing(
 ## human's selections survive the rebuild when they are still in the region.
 static func _refresh_visible(play: PlaySession) -> void:
 	if play.ship_layer.model != null:
-		var ship: Ship = play.ship_layer.selected()
-		var fleet: FleetState = play.ship_layer.fleet_of(ship)
-		play.ship_layer.spawn(
-			play.ship_layer.model, 0, 0, -1, false, play.player_faction
-		)
-		if fleet != null:
-			play.ship_layer.select(play.ship_layer.ship_for(fleet))
+		MapPlayCourt.refresh_hulls(play)
 	if play.army_layer.model != null:
 		var selected: ArmyState = play.army_layer.selected_army
 		play.army_layer.spawn(play.army_layer.model)
 		if selected != null and play.army_layer.armies.has(selected):
 			play.army_layer.select(selected)
 	if play.hud != null:
-		play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+		play.hud.set_fleets(MapPlayCourt.ships(play, play.player_faction))
 
 
 static func _store(play: PlaySession, region: int, fleets: Array, armies: Array) -> void:
-	_merge_stored(_fleets(play, region), fleets)
-	_merge_stored(_armies(play, region), armies)
+	_merge_stored(MapPlayCourt.region_fleets(play, region), fleets)
+	_merge_stored(MapPlayCourt.visible_armies(play, region), armies)
 	play.ship_layer.regions.set_region(region, fleets)
 	play.army_layer.regions.set_region(region, armies)
 
@@ -275,59 +265,10 @@ static func _merge_stored(stored: Array, local: Array) -> void:
 			local.append(entity)
 
 
-static func _fleets(play: PlaySession, region: int) -> Array:
-	var roster: Array = []
-	roster.assign(play.ship_layer.regions.value(region, []))
-	return roster
-
-
-static func _armies(play: PlaySession, region: int) -> Array[ArmyState]:
-	var roster: Array[ArmyState] = []
-	if play.army_layer.model != null and play.army_layer.model.region_id == region:
-		roster.assign(play.army_layer.armies)
-		return roster
-	roster.assign(play.army_layer.regions.value(region, []))
-	return roster
-
-
-## True when any court holds a declared war on this one: the reserve the court
-## must hold is read against it (DR-20261113-19).
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
-
-
-## Land regiments this court holds in every region, as the muster target reads
-## them.
-static func _regiments(play: PlaySession, faction: int) -> int:
-	if play.army_layer == null:
-		return 0
-	return play.army_layer.regiment_count_all(faction)
-
-
+## The invadable test the planner weighs, in the form it expects.
 static func _hostile(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
 		return DiplomacyRules.invadable(play.diplomacy, a, b)
-
-
-static func _fleet_by_id(fleets: Array, fleet_id: int) -> FleetState:
-	for raw: Variant in fleets:
-		var fleet: FleetState = raw
-		if fleet != null and fleet.id == fleet_id:
-			return fleet
-	return null
-
-
-static func _army_by_id(armies: Array, army_id: int) -> ArmyState:
-	for raw: Variant in armies:
-		var army: ArmyState = raw
-		if army != null and army.id == army_id:
-			return army
-	return null
 
 
 static func _carried_army(armies: Array, fleet: FleetState) -> ArmyState:

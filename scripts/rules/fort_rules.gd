@@ -157,6 +157,20 @@ static func describe(level: int) -> String:
 	]
 
 
+## The line a finished build reports: the level raised, the wall it stands
+## behind and the battery it mounts. A crown that spends two turns and its
+## materials learns exactly what it bought (wiki: § Fort Levels, § Emplaced
+## Artillery).
+static func raise_text(level: int) -> String:
+	if not is_siege(level):
+		return "no fort raised"
+	var pieces: int = guns(level)
+	return "%s fort raised · %d wall hp · %d emplaced gun%s" % [
+		level_name(level).to_lower(), roundi(wall_hp(level)), pieces,
+		"" if pieces == 1 else "s",
+	]
+
+
 ## Applies a finished build: the province reaches the level that project was
 ## ordered for, never past it. Two projects running in one province cannot
 ## leap a level (or the tech gate and materials that level costs).

@@ -3,13 +3,14 @@ extends GdToolsTest
 ## the planner that orders them (docs/ai.md).
 
 ## Merged from test_ai_invasion, test_ai_colonisation, test_ai_diplomacy_offers,
-## test_ai_planner.
+## test_ai_planner, test_ai_war_memory.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const NavalFixture = preload("res://tests/naval_fixture.gd")
 const CivilianFixture = preload("res://tests/civilian_fixture.gd")
 const ai_diplomacy_offers_AiFixture = preload("res://tests/ai_fixture.gd")
 const ai_planner_AiFixture = preload("res://tests/ai_fixture.gd")
+const army_AiFixture = preload("res://tests/ai_fixture.gd")
 
 const OWNER: int = 1
 const RIVAL: int = 2
@@ -159,6 +160,35 @@ func _field_army(
 func _squadron(id: int = 1, owner: int = OWNER, zone: int = 0) -> FleetState:
 	return FleetState.at_sea(id, owner, zone, HULLS, HULL_TYPES)
 
+## The seat moves when the old capital is taken; the Home Army must follow it or
+## the court can never muster again (issue #474).
+func test_a_moved_seat_recalls_the_home_army() -> void:
+	assert_eq(AiArmyReinforce.recall_target(14, 20), 20, "the army marches to the new seat")
+	assert_eq(AiArmyReinforce.recall_target(20, 20), -1, "an army already home is left alone")
+	assert_eq(AiArmyReinforce.recall_target(3, -1), -1, "no seat, no recall")
+
+
+## The recall itself: a Home Army standing off its seat marches one hop home and
+## the pass reports it, so the trace explains why no regiment was raised
+## (issue #474).
+func test_the_recall_marches_the_home_army_to_the_new_seat() -> void:
+	var world: WorldMap = army_AiFixture.land_world([OWNER, OWNER], {0: true})
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	var home: ArmyState = ArmyState.muster(1, OWNER, 1, true, ["peasant_levies"], 1)
+	var trace: Array[Dictionary] = []
+
+	assert_true(MapPlayArmyAi._recall(play, model, home, OWNER, 0, trace))
+	assert_eq(home.province, 0, "the garrison re-forms at the seat")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_RECALL)
+	assert_false(
+		MapPlayArmyAi._recall(play, model, home, OWNER, 0, trace),
+		"an army already home is not marched again"
+	)
+
+
 func test_a_war_across_the_water_detaches_a_crossing_army() -> void:
 	var world: WorldMap = _world()
 	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
@@ -258,6 +288,66 @@ func test_a_field_army_already_afield_is_not_split_again() -> void:
 		_config(), _war(), world, world.region(0), [_squadron()],
 		[_home_army(), _field_army()]
 	).is_empty())
+
+## One hull carries one regiment (wiki: ships-and-naval § Naval transport), so a
+## field army too large for the only squadron is cut down to the hulls: a court
+## with two hulls still lands a two-regiment beachhead instead of keeping the
+## whole host at home.
+func test_a_field_army_too_large_for_the_squadron_is_cut_to_the_hulls() -> void:
+	var world: WorldMap = _world()
+	var field: ArmyState = _field_army(
+		["pikemen", "squires", "peasant_levies", "musketeers"]
+	)
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		_config(), _war(), world, world.region(0), [_squadron()], [field]
+	)
+	assert_eq(actions.size(), 1)
+	assert_eq(String(actions[0]["kind"]), AiInvasionPlanner.KIND_SPLIT)
+	assert_eq(int(actions[0]["army_id"]), field.id, "the field army is cut, not the seat")
+	assert_eq(int(actions[0]["regiments"].size()), 2, "two hulls carry two regiments")
+
+## The boarding step takes the force the hulls can hold, not the first army in
+## the list.
+func test_the_boarding_step_takes_the_force_that_fits() -> void:
+	var world: WorldMap = _world()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var small: ArmyState = ArmyState.muster(3, OWNER, 0, false, ["pikemen", "squires"], 11)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 0, HULLS, HULL_TYPES)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _war(), world, 0, world.region(0), [fleet],
+		[_home_army(), big, small]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_EMBARK)
+	assert_eq(int(order.get("army", -1)), 3, "the two-regiment force fits two hulls")
+
+## The crossing force reads the rosters: a moved, laden or foreign squadron is
+## no crossing, and the Home Army, an army too large and an army inland all stay
+## behind.
+func test_the_crossing_force_reads_the_rosters() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	var busy: FleetState = FleetState.in_port(2, OWNER, 0, HULLS, HULL_TYPES)
+	busy.moved = true
+	var laden: FleetState = FleetState.in_port(3, OWNER, 0, HULLS, HULL_TYPES)
+	laden.add_civilian(99)
+	var foreign: FleetState = FleetState.in_port(4, RIVAL, 0, HULLS, HULL_TYPES)
+	assert_true(
+		AiCrossingForce.fleet([busy, laden, foreign], OWNER) == null,
+		"a moved, laden or foreign squadron is no crossing"
+	)
+	var free: FleetState = FleetState.in_port(5, OWNER, 0, HULLS, HULL_TYPES)
+	assert_eq(AiCrossingForce.fleet([busy, laden, foreign, free], OWNER).id, 5)
+	var home: ArmyState = _home_army()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var inland: ArmyState = ArmyState.muster(4, OWNER, 1, false, ["pikemen"], 12)
+	assert_true(
+		AiCrossingForce.army(model, [home, big, inland], OWNER, 2) == null,
+		"the Home Army, an army too large and an army inland all stay"
+	)
+	var fits: ArmyState = _field_army(["pikemen", "squires"], 0)
+	assert_eq(AiCrossingForce.army(model, [home, big, inland, fits], OWNER, 2).id, fits.id)
+	assert_false(AiCrossingForce.may_sail(model, inland, OWNER), "no harbour, no crossing")
+	assert_true(AiCrossingForce.may_sail(model, fits, OWNER))
 
 func test_an_idle_squadron_docks_for_the_crossing_army() -> void:
 	var world: WorldMap = _world()
@@ -1079,6 +1169,40 @@ func test_the_adapter_docks_and_refuses_illegal_orders() -> void:
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
+## A squadron left across the water with nothing aboard sails home, so the
+## court's hulls are not stranded there for the rest of the campaign: they carry
+## the next voyage and an overseas invasion.
+func test_a_stranded_squadron_sails_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_eq(String(order.get("kind", "")), "cross", "the empty squadron crosses home")
+
+## The home squadron is the naval planner's: the colonisation pass never sends a
+## court's own water home.
+func test_a_squadron_at_home_is_not_sent_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "the home squadron is the naval planner's")
+
+## A squadron that already sailed this turn waits for the next one.
+func test_a_squadron_that_already_sailed_waits() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	fleet.moved = true
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "one crossing a turn")
+
 # --- test_ai_diplomacy_offers ---
 
 func test_every_court_menu_order_has_a_rival_policy() -> void:
@@ -1112,7 +1236,7 @@ func test_a_warm_rival_signs_a_trade_pact_with_a_fellow_court() -> void:
 	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
 	var world: Array[int] = [0, 2, 3, 3, 3, 3]
 	var first: Dictionary = _run(world, [[2, 3, 70.0]], 1)
-	assert_eq(String(_action(first, 2)["kind"]), AiDiplomacyPlanner.KIND_OVERTURE)
+	assert_eq(String(_action(first, 2)["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
 	assert_eq(String(_action(first, 2)["stage"]), DiplomacyCatalog.STAGE_NAP)
 	assert_eq(ai_diplomacy_offers_state.overture(2, 3), DiplomacyCatalog.STAGE_NAP, "a fellow court answers")
 	# The warmer court, acting later in the same pass, spends its one order on
@@ -1291,15 +1415,18 @@ func test_an_isolationist_values_a_trade_pact_less() -> void:
 ## DR-20261113-03).
 func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	_setup_ai_diplomacy_offers()
-	ai_diplomacy_offers_state.ensure_relation(2, TRIBE, 1)
-	ai_diplomacy_offers_state.relation(2, TRIBE).score = 50.0
-	var world: WorldMap = _uncharted_tribe_world()
-	var context: Dictionary = _context({2: 100, TRIBE: 100})
+	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers
+	# to the colony ambition (DR-20261114-02), priced in its own test.
+	var minor: int = FactionCatalog.minor_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
+	ai_diplomacy_offers_state.relation(2, minor).score = 50.0
+	var world: WorldMap = _uncharted_tribe_world(minor)
+	var context: Dictionary = _context({2: 100, minor: 100})
 	context["treasury"] = {2: 2000}
 	context["tech"] = {2: {"merchant_companies": true}}
 	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
@@ -1309,7 +1436,7 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	context["charts"] = charts
 	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
@@ -1319,7 +1446,7 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	charts.reveal_province(2, 0, 0)
 	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, TRIBE, 60, context
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
 	)
 	assert_eq(
 		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
@@ -1361,12 +1488,12 @@ func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {
 ## A New World region (every tile unknown at setup) holding one Tribe province
 ## with a timber tile, so only a court that charts it can price the land or the
 ## commodity (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
-func _uncharted_tribe_world() -> WorldMap:
+func _uncharted_tribe_world(owner: int = TRIBE) -> WorldMap:
 	var model := MapModel.new()
 	model.setup(3, 2)
 	model.region_id = FactionCatalog.NEW_WORLD
 	model.region_key = "new_world"
-	model.faction_ids = [TRIBE]
+	model.faction_ids = [owner]
 	var tiles: Array[Vector2i] = []
 	for x in 3:
 		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
@@ -1374,7 +1501,7 @@ func _uncharted_tribe_world() -> WorldMap:
 		tiles.append(Vector2i(x, 0))
 	model.resource[model.index_of(0, 0)] = 0
 	var province := ProvinceState.create(
-		0, "P0", tiles, Vector2(0.0, 0.0), 3, TRIBE, false
+		0, "P0", tiles, Vector2(0.0, 0.0), 3, owner, false
 	)
 	province.resource = 0
 	province.resource_tile = Vector2i(0, 0)
@@ -1427,12 +1554,193 @@ func _event(kind: String) -> bool:
 			return true
 	return false
 
-# --- test_ai_planner ---
+## A Tribe the court has charted and can still buy is drawn into the empire
+## before it is fought: the declaration would clear the chain, and its provinces
+## never count toward victory (wiki: factions § Tribe; DR-20261114-02).
+func test_a_charted_tribe_is_bought_before_it_is_fought() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000})
+	)
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(action["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
+	assert_true(bool(action.get("tribe_colony", false)), "the colony ambition raised the envoy offer")
 
+
+## The same court with no money to buy the colony still fights: the ambition
+## lowers no legality, it only says what the court wants (REQ-P2-03).
+func test_a_poor_court_still_fights_a_tribe_it_cannot_buy() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## A chain already opened is a stake: a court that has paid a Consulate does not
+## clear it by declaring because the Embassy is out of reach this turn.
+func test_a_chain_already_opened_is_not_cleared_by_a_war() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	_stage(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty(), "the chain holds the court")
+	assert_eq(
+		ai_diplomacy_offers_state.overture(2, tribe),
+		DiplomacyCatalog.STAGE_CONSULATE,
+		"no declaration cleared the chain"
+	)
+
+
+## A Tribe the court has never charted is no colony in reach: the published map
+## is not a chart, and the offer stands down as before (DR-20261113-03).
+func test_an_uncharted_tribe_is_not_a_colony_in_reach() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = _uncharted_tribe_world()
+	var goal: Dictionary = AiTribeColony.ambition(
+		ai_diplomacy_offers_state, world, _charts(world), 2, tribe, 5000, {}
+	)
+	assert_false(bool(goal["wanted"]), "an uncharted shore offers nothing it can price")
+	assert_eq(String(goal["reason"]), "the court has not charted that shore")
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000}, _charts(world))
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## The Tribe nearest the colony wins the court's ambition: the furthest overture
+## stage, then the warmer herald, then the lower id (REQ-P2-03).
+func test_the_tribe_furthest_along_the_chain_is_the_one_wanted() -> void:
+	var first: int = FactionCatalog.tribe_ids()[0]
+	var second: int = FactionCatalog.tribe_ids()[1]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, first, 1).score = 70.0
+	state.ensure_relation(2, second, 1).score = 55.0
+	state.set_overture(2, first, DiplomacyCatalog.STAGE_CONSULATE)
+	state.set_overture(2, second, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, first, second])
+	var best: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(best["target"]), second, "the embassy is nearer the colony than the consulate")
+	assert_eq(String(best["stage"]), DiplomacyCatalog.STAGE_NAP)
+	assert_eq(int(best["bonus"]), AiTribeColony.BONUS)
+	# Another crown's colony is closed to this one, so the consulate stands in.
+	state.set_colony(second, 3)
+	var fallback: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(fallback["target"]), first)
+	assert_eq(String(fallback["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+
+
+## The step that founds the colony is worth more than the steps before it.
+func test_the_join_empire_is_the_prize_the_chain_is_walking_to() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NAP)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var goal: Dictionary = AiTribeColony.ambition(state, world, null, 2, tribe, 12000, {})
+	assert_true(bool(goal["wanted"]))
+	assert_eq(String(goal["stage"]), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(int(goal["bonus"]), AiTribeColony.BONUS + AiTribeColony.JOIN_BONUS)
+	assert_eq(int(goal["cost"]), DiplomacyCatalog.stage_cost(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, DiplomacyRules.provinces_owned(world, tribe)
+	))
+
+
+## Every refusal names its own reason, so a trace or a test never guesses why a
+## Tribe was passed over (wiki: turn-trace-interpretation).
+func test_the_ambition_names_why_a_tribe_is_out_of_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var none: Dictionary = AiTribeColony.ambition(null, world, null, 2, tribe, 5000, {})
+	assert_eq(String(none["reason"]), "no tribal court")
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, minor, 5000, {})["reason"]),
+		"not a tribe"
+	)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"no envoy has reached that court"
+	)
+	state.ensure_relation(2, tribe, 1).at_war = true
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"at war with the tribal court"
+	)
+	state.relation(2, tribe).at_war = false
+	state.set_colony(tribe, 2)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"already a colony of this crown"
+	)
+	state.set_colony(tribe, 3)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"another crown's colony"
+	)
+	state.colonies.clear()
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"the envoy chain is complete"
+	)
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NONE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 100, {})["reason"]),
+		"the treasury cannot cover the Trade Consulate"
+	)
+
+
+## A court's own ledger read for the ambition tests: the treasury it must pay
+## from and the chart it priced the shore on.
+func _tribe_context(
+	power: Dictionary, treasury: Dictionary, charts: CourtCharts = null
+) -> Dictionary:
+	var context: Dictionary = ai_diplomacy_offers_AiFixture.context(
+		power, {power.keys()[0]: 10}
+	)
+	context["treasury"] = treasury
+	context["tech"] = {}
+	context["player"] = 0
+	if charts != null:
+		context["charts"] = charts
+	return context
+
+
+# --- test_ai_planner ---
 func test_desire_starts_at_the_base_and_adds_power_and_relation() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 1]), 0, 1,
 		ai_planner_AiFixture.context({0: 100, 1: 100})
 	)
@@ -1447,11 +1755,11 @@ func test_relative_power_dominates_the_score() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
-	var strong: Dictionary = AiDiplomacyPlanner.war_desire(
+	var strong: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 135, 1: 100})
 	)
 	assert_eq(int(strong["score"]), 60, "50 + 30 strong - 20 neutral")
-	var weak: Dictionary = AiDiplomacyPlanner.war_desire(
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 84, 1: 100})
 	)
 	assert_eq(int(weak["score"]), 5, "50 - 25 weak - 20 neutral")
@@ -1462,21 +1770,21 @@ func test_relation_pressure_bands() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
 	ai_planner_state.ensure_relation(0, 1, 1)
 	ai_planner_state.relation(0, 1).score = 25.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 65)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 65)
 	ai_planner_state.relation(0, 1).score = 40.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 55)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 55)
 	ai_planner_state.relation(0, 1).score = 75.0
-	assert_eq(int(AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 15)
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 15)
 
 func test_minor_targets_pay_the_invasion_capacity_cost() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 6, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
-	var weak: Dictionary = AiDiplomacyPlanner.war_desire(
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
 	assert_eq(int(weak["score"]), 15, "no regiments is -20")
-	var ready: Dictionary = AiDiplomacyPlanner.war_desire(
+	var ready: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
 	)
 	assert_eq(int(ready["score"]), 45, "superior regiments is +10")
@@ -1488,7 +1796,7 @@ func test_two_active_wars_add_the_multi_war_penalty() -> void:
 	ai_planner_state.ensure_relation(0, 8, 1)
 	DiplomacyRules.declare_war(ai_planner_state, 0, 7)
 	DiplomacyRules.declare_war(ai_planner_state, 0, 8)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
 	)
@@ -1501,10 +1809,10 @@ func test_missing_stockpiles_are_scored_against_the_target() -> void:
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6, 6, 6, 6], {1: 0, 2: 1, 3: 2, 4: 3})
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100})
 	context["stockpiles"] = {0: {}}
-	var need: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var need: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(need["factors"]["resource_need"]), 15, "four missing resources cap at +15")
 	context["stockpiles"] = {0: {"timber": 4, "iron": 4, "coal": 4}}
-	var partly: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var partly: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(partly["factors"]["resource_need"]), 5)
 
 ## The commodity term reads only land the court has charted: a province it has
@@ -1516,7 +1824,7 @@ func test_the_resource_need_counts_only_charted_land() -> void:
 	var world: WorldMap = _uncharted_tribe_world()
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, TRIBE: 100})
 	context["stockpiles"] = {0: {}}
-	var published: Dictionary = AiDiplomacyPlanner.war_desire(
+	var published: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(
@@ -1524,12 +1832,12 @@ func test_the_resource_need_counts_only_charted_land() -> void:
 	)
 	var charts: CourtCharts = _charts(world)
 	context["charts"] = charts
-	var blind: Dictionary = AiDiplomacyPlanner.war_desire(
+	var blind: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(int(blind["factors"]["resource_need"]), 0, "unseen land offers no commodity")
 	charts.reveal_province(0, 0, 0)
-	var seen: Dictionary = AiDiplomacyPlanner.war_desire(
+	var seen: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
 	)
 	assert_eq(int(seen["factors"]["resource_need"]), 5, "charted ground prices the commodity")
@@ -1545,14 +1853,14 @@ func test_rival_embassies_add_the_intervention_risk_penalty() -> void:
 	ai_planner_state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_EMBASSY)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
 	assert_eq(int(desire["factors"]["intervention"]), -24, "three embassies cap at -24")
 	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_NONE)
 	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_NONE)
-	var single: Dictionary = AiDiplomacyPlanner.war_desire(
+	var single: Dictionary = AiDiplomacyDesire.war_desire(
 		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
 		ai_planner_AiFixture.context({0: 100, 6: 100})
 	)
@@ -1567,11 +1875,11 @@ func test_a_rival_deed_in_the_minors_land_adds_the_intervention_risk_penalty() -
 	ai_planner_state.ensure_relation(0, 6, 1)
 	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
-	var bare: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var bare: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(bare["factors"]["intervention"]), 0, "no one would answer")
 	var model: MapModel = world.region(0)
 	assert_true(model.ownership.purchase(model.index_of(1, 0), 1), "a rival buys land")
-	var bought: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	var bought: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
 	assert_eq(int(bought["factors"]["intervention"]), -8, "the deed holder answers")
 	assert_true(
 		int(bought["score"]) < int(bare["score"]),
@@ -1829,11 +2137,11 @@ func test_a_backstabber_breaks_an_alliance_it_would_otherwise_keep() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 135, 1: 100})
 	context["player"] = 5
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
-	var honest: Dictionary = AiDiplomacyPlanner.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)
+	var honest: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)
 	assert_false((honest["factors"] as Dictionary).has("betrayal"))
 	assert_eq(int(honest["score"]), 40, "50 + 30 strong - 40 allied")
 	var snake: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.BACKSTABBER)
-	var snake_desire: Dictionary = AiDiplomacyPlanner.war_desire(snake, ai_planner_state, world, 0, 1, context)
+	var snake_desire: Dictionary = AiDiplomacyDesire.war_desire(snake, ai_planner_state, world, 0, 1, context)
 	assert_eq(int(snake_desire["factors"]["betrayal"]), 25)
 	var keep: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context)
 	assert_true(
@@ -1851,10 +2159,10 @@ func test_an_envious_court_resents_a_human_crown_that_pulled_ahead() -> void:
 	context["player"] = 0
 	var world: WorldMap = ai_planner_AiFixture.world([0, 2, 2])
 	var plain_config: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
-	var plain: Dictionary = AiDiplomacyPlanner.war_desire(plain_config, ai_planner_state, world, 2, 0, context)
+	var plain: Dictionary = AiDiplomacyDesire.war_desire(plain_config, ai_planner_state, world, 2, 0, context)
 	assert_false((plain["factors"] as Dictionary).has("rival"))
 	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
-	var envy: Dictionary = AiDiplomacyPlanner.war_desire(jealous, ai_planner_state, world, 2, 0, context)
+	var envy: Dictionary = AiDiplomacyDesire.war_desire(jealous, ai_planner_state, world, 2, 0, context)
 	assert_eq(int(envy["factors"]["rival"]), 20)
 	assert_eq(
 		int(envy["score"]) - int(plain["score"]), 25,
@@ -1868,12 +2176,347 @@ func test_an_envious_court_does_not_resent_a_crown_that_trails_it() -> void:
 	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 2: 135})
 	context["player"] = 0
 	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 2, 2]), 2, 0, context
 	)
 	assert_false((desire["factors"] as Dictionary).has("rival"), "envy is not a grudge")
 	# Nor is it a grudge against another rival: the pull is for the human crown.
-	var other: Dictionary = AiDiplomacyPlanner.war_desire(
+	var other: Dictionary = AiDiplomacyDesire.war_desire(
 		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 1, 2]), 2, 1, context
 	)
 	assert_false((other["factors"] as Dictionary).has("rival"))
+
+# --- from test_ai_war_memory.gd ---
+## War memory: an unfought war wears the attacker down.
+## War memory (wiki: diplomacy § Cooldowns, § War goals and in-war reassessment;
+## issue #475): a war that takes nothing wears the attacker down, and a peace
+## that ends an unfought war holds the pair below the declaration bar past the
+## 4-turn cooldown — so a crown stops re-declaring on the same enemy forever.
+
+const AiFixture = preload("res://tests/ai_fixture.gd")
+
+const WAR_OWNER: int = 0
+const WAR_RIVAL: int = 1
+const WAR_TRIBE: int = 11
+const WAR_SEED: int = 1500
+
+
+func _war_config(faction: int = WAR_RIVAL, agenda: String = AiAgenda.WARMONGER) -> AiConfig:
+	return AiConfig.build(faction, WAR_SEED, AiProfile.NORMAL, agenda)
+
+
+func _war_court() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(WAR_OWNER, WAR_RIVAL, 1)
+	return state
+
+
+# --- the arithmetic ----------------------------------------------------------
+
+
+func test_a_war_inside_the_grace_carries_no_weariness() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 10)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, 10, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(AiWarMemory.weariness(config, ai_state, 10 + grace, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, 10 + grace + 1, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.war_weariness"),
+		"the first turn beyond the grace costs one step"
+	)
+
+
+func test_weariness_grows_turn_by_turn_and_stops_at_the_scale() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var step: int = config.parameter("diplomacy.war_weariness")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, grace + 3, WAR_RIVAL, WAR_OWNER), step * 3)
+	assert_eq(AiWarMemory.weariness(config, ai_state, 400, WAR_RIVAL, WAR_OWNER), 100, "capped at the scale")
+
+
+func test_a_truce_holds_the_pair_and_then_expires() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 10)  # a two-turn war: unfought
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 12)
+	var turns: int = config.parameter("diplomacy.truce_turns")
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 12, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.truce_penalty")
+	)
+	assert_eq(AiWarMemory.truce(config, ai_state, 12 + turns - 1, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.truce_penalty"))
+	assert_eq(AiWarMemory.truce(config, ai_state, 12 + turns, WAR_RIVAL, WAR_OWNER), 0)
+
+
+func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
+	var config: AiConfig = _war_config()
+	var at_war := AiState.new()
+	at_war.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var peaceful := AiState.new()
+	peaceful.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	peaceful.note_truce(WAR_RIVAL, WAR_OWNER, 1)
+	var fought: int = config.parameter("diplomacy.war_weariness_grace") + 2
+	var later: int = config.parameter("diplomacy.truce_turns") + 1
+
+	assert_true(
+		AiWarMemory.penalty(config, at_war, fought, WAR_RIVAL, WAR_OWNER, true) > 0,
+		"at war the court reads its weariness"
+	)
+	assert_eq(
+		AiWarMemory.penalty(config, peaceful, 1, WAR_RIVAL, WAR_OWNER, false),
+		config.parameter("diplomacy.truce_penalty"),
+		"at peace inside the truce an unfought war left it carries the truce"
+	)
+	assert_eq(
+		AiWarMemory.penalty(config, peaceful, later, WAR_RIVAL, WAR_OWNER, false), 0,
+		"past the truce a peace carries nothing"
+	)
+	assert_eq(AiWarMemory.penalty(null, at_war, fought, WAR_RIVAL, WAR_OWNER, true), 0)
+	assert_eq(AiWarMemory.penalty(config, null, fought, WAR_RIVAL, WAR_OWNER, true), 0)
+	# Each reading has its own empty guard, so a caller may ask it directly.
+	assert_eq(AiWarMemory.weariness(null, at_war, fought, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(AiWarMemory.truce(null, peaceful, 1, WAR_RIVAL, WAR_OWNER), 0)
+
+
+# --- the planner -------------------------------------------------------------
+
+
+## One decision by the warmonger against a relation at war. The declaration is
+## recorded so the weariness clock has a start.
+func _decide(at_war: bool, turn: int, truce: int = -1, power: int = 10) -> Dictionary:
+	var state: DiplomacyState = _war_court()
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+		ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	if truce >= 0:
+		ai_state.note_truce(WAR_RIVAL, WAR_OWNER, truce)
+	return AiDiplomacyPlanner.decide(
+		_war_config(), state, ai_state, AiFixture.world([WAR_OWNER, WAR_RIVAL, WAR_RIVAL, WAR_RIVAL]),
+		turn, {
+			"regiments": {}, "ships": {}, "player": WAR_OWNER,
+			"power": {WAR_RIVAL: power, WAR_OWNER: 10},
+		}
+	)
+
+
+func test_a_worn_attacker_puts_peace_to_an_even_enemy() -> void:
+	var fresh: Dictionary = _decide(true, 1)
+	assert_true(
+		String(fresh["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"inside the grace a warmonger keeps its war"
+	)
+	var worn: Dictionary = _decide(true, 200)
+	assert_eq(
+		String(worn["action"].get("kind", "")), AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"weariness ends a war no assault has won"
+	)
+	var candidate: Dictionary = (worn["candidates"] as Array)[0]
+	assert_true(int(candidate["factors"].get("memory", 0)) < 0, "the trace names the weariness")
+
+
+func test_a_court_that_clearly_outmatches_its_enemy_does_not_tire() -> void:
+	# The war it is winning is the war it wants: no weariness, no white peace.
+	var plan: Dictionary = _decide(true, 200, -1, 90)
+	assert_true(
+		String(plan["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a stronger court prosecutes its war"
+	)
+
+
+func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
+	var barred: Dictionary = _decide(false, 8, 4)
+	assert_true(
+		String(barred["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the 4-turn cooldown alone no longer re-opens the war"
+	)
+	var candidate: Dictionary = (barred["candidates"] as Array)[0]
+	assert_eq(String(candidate["blocked"]), "war desire too low")
+	assert_eq(
+		int(candidate["factors"].get("memory", 0)),
+		-_war_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the truce"
+	)
+
+
+func test_the_declaration_returns_once_the_truce_expires() -> void:
+	var turn: int = 4 + _war_config().parameter("diplomacy.truce_turns")
+	var freed: Dictionary = _decide(false, turn, 4, 90)
+	assert_eq(
+		String(freed["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the war may be declared again after the truce"
+	)
+
+
+func test_a_peace_concludes_and_records_the_truce() -> void:
+	# The warmonger is worn past its bar, so the target takes the white peace the
+	# planning pass offers; the pair then carries a truce.
+	var state: DiplomacyState = _war_court()
+	state.human_faction = -1
+	assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	ai_state.agendas[WAR_OWNER] = AiAgenda.WARMONGER
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	var run: Dictionary = AiTurn.run(
+		state, AiFixture.world([WAR_OWNER, WAR_RIVAL]), ai_state,
+		200, 4, WAR_SEED, {"regiments": {}, "ships": {}}
+	)
+
+	assert_true(
+		ai_state.last_truce_turn.has(AiState.pair_key(WAR_OWNER, WAR_RIVAL)),
+		"a concluded peace starts the truce"
+	)
+	assert_false((state.relation(WAR_RIVAL, WAR_OWNER) as DiplomacyRelation).at_war)
+	assert_true(run.has("trace"))
+
+
+func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
+	# The worn warmonger puts the white peace to the human court instead of
+	# signing it: the offer alone ends its appetite, so a refusal does not hand
+	# the court a fresh war at the cooldown (issue #475).
+	var state: DiplomacyState = _war_court()
+	state.human_faction = WAR_OWNER
+	assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	AiTurn.run(
+		state, AiFixture.world([WAR_OWNER, WAR_RIVAL]), ai_state,
+		200, 4, WAR_SEED, {"regiments": {}, "ships": {}}
+	)
+
+	assert_true(
+		ai_state.last_truce_turn.has(AiState.pair_key(WAR_OWNER, WAR_RIVAL)),
+		"the offer starts the truce"
+	)
+
+
+func test_a_colonial_war_carries_the_truce() -> void:
+	# A war on a Minor Nation or Tribe is still a war: the peace that ended an
+	# unfought one holds the pair below the declaration bar (issue #511).
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	var minor: int = 6
+	ai_state.note_war(WAR_RIVAL, minor, 0)
+	ai_state.note_truce(WAR_RIVAL, minor, 4)
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 5, WAR_RIVAL, minor),
+		config.parameter("diplomacy.truce_penalty"),
+		"a colonial peace leaves the same truce a crown one does"
+	)
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 4 + config.parameter("diplomacy.truce_turns"), WAR_RIVAL, minor),
+		0,
+		"and it expires on the same clock"
+	)
+
+
+func test_a_colonial_war_wears_the_attacker_down() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	var tribe: int = 11
+	ai_state.note_war(WAR_RIVAL, tribe, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var step: int = config.parameter("diplomacy.war_weariness")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, grace, WAR_RIVAL, tribe), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, grace + 2, WAR_RIVAL, tribe), step * 2,
+		"a colonial war that takes nothing tires the court too"
+	)
+
+
+## One decision by the warmonger against a Tribe. `power` is the court's own
+## reading of the balance against it.
+func _decide_colonial(
+	at_war: bool, turn: int, truce: int = -1, power: int = 10
+) -> Dictionary:
+	var state: DiplomacyState = _war_court()
+	state.ensure_relation(WAR_RIVAL, WAR_TRIBE, 1)
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_TRIBE)["ok"]))
+		ai_state.note_war(WAR_RIVAL, WAR_TRIBE, 1)
+	if truce >= 0:
+		ai_state.note_truce(WAR_RIVAL, WAR_TRIBE, truce)
+	return AiDiplomacyPlanner.decide(
+		_war_config(), state, ai_state,
+		AiFixture.world([WAR_OWNER, WAR_RIVAL, WAR_RIVAL, WAR_RIVAL, WAR_TRIBE]), turn, {
+			"regiments": {}, "ships": {}, "player": WAR_OWNER,
+			"power": {WAR_RIVAL: power, WAR_TRIBE: 1},
+		}
+	)
+
+
+func _candidate(plan: Dictionary, target: int) -> Dictionary:
+	for raw: Variant in plan.get("candidates", []):
+		var entry: Dictionary = raw
+		if int(entry.get("target", -1)) == target:
+			return entry
+	return {}
+
+
+func test_a_colonial_truce_keeps_the_tribe_below_the_declaration_bar() -> void:
+	# The carousel #511 measured: declare, white peace in the same phase, and
+	# re-declare at the 4-turn cooldown. The truce now holds the pair.
+	var barred: Dictionary = _decide_colonial(false, 8, 4)
+	var entry: Dictionary = _candidate(barred, WAR_TRIBE)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "war desire too low",
+		"the cooldown alone no longer re-opens a colonial war"
+	)
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)),
+		-_war_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the colonial truce"
+	)
+
+
+func test_a_court_that_outmatches_a_tribe_still_tires() -> void:
+	# Strength against a Tribe is the precondition for a landing, not proof of
+	# one, so the peer-only exemption does not cover a colonial war (#511).
+	var plan: Dictionary = _decide_colonial(true, 200, -1, 90)
+	var entry: Dictionary = _candidate(plan, WAR_TRIBE)
+
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)), -100,
+		"a colonial war that takes nothing wears the court to the scale"
+	)
+
+
+func test_a_fought_war_leaves_no_truce() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 4)
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 20)  # a 16-turn war: prosecuted
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 21, WAR_RIVAL, WAR_OWNER), 0,
+		"a war that was fought ends in a real settlement"
+	)
+
+
+func test_a_save_round_trips_the_truce() -> void:
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 16)
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 17)
+	var restored := AiState.from_dict(ai_state.to_dict())
+
+	assert_eq(
+		AiWarMemory.truce(_war_config(), restored, 18, WAR_RIVAL, WAR_OWNER),
+		_war_config().parameter("diplomacy.truce_penalty")
+	)

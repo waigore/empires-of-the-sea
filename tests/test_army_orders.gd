@@ -4,25 +4,35 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-var _screen: MapScreen = null
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
 ## The shared world as generated: combat tests shift ownership, so every case
 ## starts from the same map instead of the previous case's aftermath.
 var _saved: Array = []
+var _screen: MapScreen = null
 
 
 func before_all() -> void:
 	_saved = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
 
 
 func before_each() -> void:
 	Fixture.restore(Fixture.world(), _saved)
-	_screen = Fixture.attach_screen(self)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
 
 
 func test_home_armies_muster_at_each_capital() -> void:
@@ -381,8 +391,8 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	var home: ArmyState = _player_home()
 	var expected: int = _screen.army_layer.food_upkeep_all(MapScreen.PLAYER_FACTION)
 	assert_gt(expected, 0)
-	assert_eq(_screen.economy.army_food(), expected)
-	var consumption: Dictionary = _screen.economy.projected()["consumption"]
+	assert_eq(_screen.economy.readings.army_food(), expected)
+	var consumption: Dictionary = _screen.economy.readings.projected()["consumption"]
 	assert_eq(int(consumption["army_demand"]), expected)
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 

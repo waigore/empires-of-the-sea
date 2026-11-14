@@ -224,9 +224,14 @@ func refresh_slip(
 		return
 	_fleet = null
 	_is_player = is_player
-	_header.flag.color = Palette.faction_color(FactionCatalog.PLAYER_FACTION)
-	_header.title.text = "SHIPYARD OF %s" % (
-		FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION).to_upper())
+	# The yard belongs to the crown that holds the province, not to the legacy
+	# default: a court sailing as England reads her own name over her slip
+	# (wiki: game-setup § Human/AI slot assignment; REQ-P2-03).
+	var crown: int = model.province_owner(province_id)
+	if crown == MapModel.NO_ID:
+		crown = FactionCatalog.PLAYER_FACTION
+	_header.flag.color = Palette.faction_color(crown)
+	_header.title.text = "SHIPYARD OF %s" % FactionCatalog.name_of(crown).to_upper()
 	_location.text = "At %s · capital port" % model.province_name(province_id)
 	_ships.text = "No home fleet — your first launch founds one."
 	_strength.set_data({})

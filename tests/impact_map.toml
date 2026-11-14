@@ -8,15 +8,14 @@ suites = [
   "test_ai_campaign_rules.gd",
   "test_ai_observer.gd",
   "test_ai_rules.gd",
-  "test_ai_phase_rules.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 [domains.army]
 suites = [
   "test_land_battle_rules.gd",
   "test_army_orders.gd",
-  "test_battle_rules.gd"
+  "test_battle_rules.gd",
 ]
 
 # Deterministic christening core and its three rosters (hulls, regiments,
@@ -24,7 +23,7 @@ suites = [
 # suites instead of pulling the fleet and army domains past the tier-1 budget.
 [domains.naming]
 suites = [
-  "test_naming_rules.gd"
+  "test_naming_rules.gd",
 ]
 
 [domains.land_turn]
@@ -35,19 +34,19 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_campaign_defeat.gd",
-  "test_capital_loss.gd"
+  "test_capital_loss.gd",
 ]
 
 [domains.audio]
 suites = [
-  "test_audio_rules.gd"
+  "test_audio_rules.gd",
 ]
 
 [domains.battle]
 suites = [
   "test_battle_rules.gd",
   "test_naming_rules.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 [domains.campaign]
@@ -58,7 +57,7 @@ suites = [
   "test_civilian_turn_rules.gd",
   "test_capital_loss.gd",
   "test_capital_seat_screen.gd",
-  "test_victory_screen.gd"
+  "test_victory_screen.gd",
 ]
 
 [domains.civilian]
@@ -68,7 +67,7 @@ suites = [
   "test_civilian_turn_rules.gd",
   "test_yarn_plates_rules.gd",
   "test_map_screen_crown_orders.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 [domains.diplomacy]
@@ -77,7 +76,7 @@ suites = [
   "test_diplomacy_lens.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
-  "test_spycraft_rules.gd"
+  "test_spycraft_rules.gd",
 ]
 
 # The court's authored voice (wiki: dialogue-content-and-yarn): the catalogue,
@@ -88,7 +87,7 @@ suites = [
 suites = [
   "test_yarn_plates_rules.gd",
   "test_diplomacy_rules.gd",
-  "test_panel_parts_rules.gd"
+  "test_panel_parts_rules.gd",
 ]
 
 [domains.intel]
@@ -99,7 +98,7 @@ suites = [
   "test_spycraft_rules.gd",
   "test_yarn_plates_rules.gd",
   "test_court_ui_parts.gd",
-  "test_panel_parts_rules.gd"
+  "test_panel_parts_rules.gd",
 ]
 
 # Economy rules / market math. Screen mounts stay on economy_ui so a
@@ -107,7 +106,7 @@ suites = [
 [domains.economy]
 suites = [
   "test_market_economy_rules.gd",
-  "test_diplomacy_rules.gd"
+  "test_diplomacy_rules.gd",
 ]
 
 # Ledger / market sheet presentation. Rules paths stay on economy.
@@ -116,7 +115,7 @@ suites = [
   "test_market_economy_rules.gd",
   "test_economy_screen.gd",
   "test_court_ui_parts.gd",
-  "test_yarn_plates_rules.gd"
+  "test_yarn_plates_rules.gd",
 ]
 
 [domains.espionage]
@@ -127,7 +126,7 @@ suites = [
   "test_map_data_rules.gd",
   "test_research_rules.gd",
   "test_civilian_field_rules.gd",
-  "test_map_screen.gd"
+  "test_map_screen.gd",
 ]
 
 [domains.fleet]
@@ -135,7 +134,7 @@ suites = [
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_market_economy_rules.gd",
-  "test_battle_rules.gd"
+  "test_battle_rules.gd",
 ]
 
 # Capital yard helper extracted from the dossier. One suite: the dossier orders
@@ -143,7 +142,7 @@ suites = [
 # naval_feeding overruns the tier-1 5 min job.
 [domains.fleet_yard]
 suites = [
-  "test_fleet_orders.gd"
+  "test_fleet_orders.gd",
 ]
 
 # Dossier odds without the MapScreen and codec round-trips (~2 min each).
@@ -155,7 +154,7 @@ suites = [
   "test_land_battle_rules.gd",
   "test_market_economy_rules.gd",
   "test_naval_rules.gd",
-  "test_fleet_orders.gd"
+  "test_fleet_orders.gd",
 ]
 
 # Naval battle pass: the resolver, difficulty sea strength, ration morale and
@@ -167,7 +166,7 @@ suites = [
   "test_land_battle_rules.gd",
   "test_market_economy_rules.gd",
   "test_map_screen.gd",
-  "test_naval_rules.gd"
+  "test_naval_rules.gd",
 ]
 
 
@@ -180,12 +179,12 @@ suites = [
   "test_map_view_rules.gd",
   "test_save_codec.gd",
   "test_ai_rules.gd",
-  "test_ai_campaign_rules.gd"
+  "test_ai_campaign_rules.gd",
 ]
 
 [domains.fort]
 suites = [
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 # Hospitals: the province building, its rest tempo and its battle triage
@@ -196,7 +195,7 @@ suites = [
   "test_ai_planner_rules.gd",
   "test_battle_rules.gd",
   "test_civilian_field_rules.gd",
-  "test_map_data_rules.gd"
+  "test_map_data_rules.gd",
 ]
 
 # The fleet AI's sight: the rival hunts and blockades only where its own chart
@@ -209,7 +208,7 @@ suites = [
   "test_ai_rules.gd",
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
-  "test_map_data_rules.gd"
+  "test_map_data_rules.gd",
 ]
 
 # A court reads another court's order of battle only across its own chart
@@ -222,7 +221,7 @@ suites = [
 suites = [
   "test_naming_rules.gd",
   "test_ai_rules.gd",
-  "test_diplomacy_rules.gd"
+  "test_diplomacy_rules.gd",
 ]
 
 # The crown's muster roll (DR-20261113-12): the force projection, its ledger
@@ -234,7 +233,7 @@ suites = [
 suites = [
   "test_force_ledger_rules.gd",
   "test_map_screen_crown_orders.gd",
-  "test_mobile_layout.gd"
+  "test_mobile_layout.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -246,9 +245,9 @@ suites = [
 # ui and save globs so the intel change never pulls their whole fan-out.
 [domains.naval_intel]
 suites = [
-  "test_naval_intel.gd",
+  "test_naval_rules.gd",
   "test_fleet_orders.gd",
-  "test_save_codec.gd"
+  "test_save_codec.gd",
 ]
 
 # A blockade severs the harvest, not only the cargo (wiki:
@@ -260,7 +259,7 @@ suites = [
 [domains.blockade]
 suites = [
   "test_civilian_turn_rules.gd",
-  "test_market_economy_rules.gd"
+  "test_market_economy_rules.gd",
 ]
 
 [[rules]]
@@ -283,9 +282,11 @@ domain = "blockade"
 match = "scripts/economy/economy_controller.gd"
 domain = "blockade"
 
+# Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
+# reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "blockade"
+domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
@@ -294,6 +295,55 @@ domain = "blockade"
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
 domain = "blockade"
+
+# Pause door (before blockade / naval_intel / muster hub steals): the session,
+# screen and setup only hand the menu across; the ledgers only park the seal.
+# First match keeps a door PR inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ui/game_menu_door.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/map_screen.gd"
+domain = "pause"
+
+# The screen's assistants (see domains.map_mount). Named before the broad
+# `scripts/map/**` glob so a mount or wiring edit does not pull the full map set.
+[[rules]]
+match = "scripts/map/map_play_region.gd*"
+domain = "map_mount"
+
+[[rules]]
+match = "scripts/map/map_play_wiring.gd*"
+domain = "map_mount"
+
+[[rules]]
+match = "scripts/map/sea_backdrop.gd*"
+domain = "map_mount"
+
+[[rules]]
+match = "scripts/session/play_session.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/map/map_play_setup.gd"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/sheet_frame.gd*"
+domain = "sheet"
+
+[[rules]]
+match = "scripts/ui/civilian_roster_panel.gd*"
+domain = "sheet"
+
+[[rules]]
+match = "scripts/ui/improvement_panel.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/force_ledger_*.gd*"
+domain = "sheet"
 
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
@@ -443,11 +493,11 @@ domain = "oob"
 match = "scripts/map/map_play_diplomacy.gd*"
 domain = "oob"
 
-# Rival diplomacy AI pass (readings + charts context); keep with OOB so a
-# charted-land planner change runs the same suites as map_play_court_fog.
+# Rival diplomacy AI pass: stay on ai with the other MapPlay*Ai files so a
+# court-reader fan-out does not union the OOB set past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_diplomacy_ai.gd*"
-domain = "oob"
+domain = "ai"
 
 # Pending call / intervention / proposal prompts; stay on diplomacy with the
 # court panel suites rather than pulling the OOB set.
@@ -467,26 +517,54 @@ suites = [
   "test_army_orders.gd",
   "test_mobile_layout.gd",
   "test_map_view_rules.gd",
-  "test_civilian_turn_rules.gd"
+  "test_civilian_turn_rules.gd",
 ]
 
+# The screen's own assistants: region mounting, the view wiring and the sea fit
+# the map and capital charts share. All three only run when a screen mounts, so
+# they take the screen-mounting suites instead of the broad `scripts/map/**`
+# bucket — a wiring PR stays inside the tier-1 5 min budget.
+[domains.map_mount]
+suites = [
+  "test_map_screen.gd",
+  "test_map_view_rules.gd"
+]
+
+# Pause door + MENU seal: the door helper, the menu that mounts it, the three
+# ledgers that park it, and the session/screen wires that hand the menu across
+# (REQ-P3-02). Named suites stay inside the tier-1 5 min budget — the screen,
+# menu, civilian and economy_ui catch-alls would overrun it (docs/testing.md).
 [domains.pause]
 suites = [
+  "test_menu_door.gd",
   "test_menu_flow.gd",
   "test_main.gd",
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
-  "test_mobile_layout.gd"
+  "test_mobile_layout.gd",
+  "test_force_ledger_rules.gd",
+]
+
+# The one full-screen sheet frame: the civilian roster, the muster roll and the
+# court dossier share its chrome, so their rows, fit, fade and pause-door suites
+# travel together (REQ-P3-01, REQ-P5-07).
+[domains.sheet]
+suites = [
+  "test_court_ui_parts.gd",
+  "test_force_ledger_rules.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+  "test_menu_door.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 [domains.map]
 suites = [
-  "test_advanced_start.gd",
+  "test_world_setup.gd",
   "test_advanced_start_live.gd",
   "test_map_view_rules.gd",
   "test_map_canvas.gd",
   "test_yarn_plates_rules.gd",
-  "test_map_generator.gd",
   "test_map_data_rules.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
@@ -494,8 +572,6 @@ suites = [
   "test_diplomacy_rules.gd",
   "test_resource_lens.gd",
   "test_civilian_turn_rules.gd",
-  "test_world_bootstrap.gd",
-  "test_world_setup.gd"
 ]
 
 # Map lenses: each reading's projection, view and the chrome that threads it.
@@ -505,22 +581,51 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_defence_lens.gd"
+  "test_defence_lens.gd",
 ]
 
-# The defence reading's own files; first match wins, so they are named before
-# the broader scripts/map and scripts/rules globs.
+# The defence reading's projection; first match wins, so it is named before the
+# broader scripts/rules globs. Its view routes through `lens_kit` below.
 [[rules]]
 match = "scripts/rules/defence_survey.gd*"
 domain = "crown_road"
 
 [[rules]]
-match = "scripts/map/defence_lens.gd*"
-domain = "crown_road"
-
-[[rules]]
 match = "tests/test_defence_*.gd*"
 domain = "crown_road"
+
+# Shared lens kit: activation, tap resolution and slip packing every reading
+# inherits. One kit change reaches all four readings, so their four suites
+# travel together; the broad scripts/map fan-out stays off the tier-1 budget.
+[domains.lens_kit]
+suites = [
+  "test_map_view_rules.gd",
+  "test_defence_lens.gd",
+  "test_diplomacy_lens.gd",
+  "test_resource_lens.gd",
+]
+
+[[rules]]
+match = "scripts/map/map_lens.gd*"
+domain = "lens_kit"
+
+# Every reading inherits the kit; route each lens here before the broader
+# resource-ink / crown-road / scripts/map globs so one reading stays small.
+[[rules]]
+match = "scripts/map/resource_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/defence_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/crown_road_lens.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/diplomacy_lens.gd*"
+domain = "lens_kit"
 
 # Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
 # Catalog + seeder + survey + Explorer policy travel together; kept off the full
@@ -530,14 +635,12 @@ suites = [
   "test_ai_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
-  "test_estate_rows_rules.gd",
-  "test_map_generator.gd",
+  "test_world_setup.gd",
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
   "test_resource_lens.gd",
   "test_map_view_rules.gd",
-  "test_world_setup.gd"
 ]
 
 # Painted chart art: symbol stamps, the canvas that draws them and the fleet
@@ -548,7 +651,7 @@ suites = [
   "test_yarn_plates_rules.gd",
   "test_map_canvas.gd",
   "test_map_screen.gd",
-  "test_fleet_orders.gd"
+  "test_fleet_orders.gd",
 ]
 
 # Commodity ink for the resource pictograms: the glyphs, the survey lens that
@@ -559,7 +662,7 @@ suites = [
 [domains.resource_ink]
 suites = [
   "test_resource_lens.gd",
-  "test_panel_parts_rules.gd"
+  "test_panel_parts_rules.gd",
 ]
 
 # Unit medallions: the painted art for every worker, hull and regiment type and
@@ -569,7 +672,7 @@ suites = [
 suites = [
   "test_yarn_plates_rules.gd",
   "test_fleet_orders.gd",
-  "test_army_orders.gd"
+  "test_army_orders.gd",
 ]
 
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch. chart_art
@@ -577,7 +680,7 @@ suites = [
 [domains.chart_bake]
 suites = [
   "test_map_canvas.gd",
-  "test_yarn_plates_rules.gd"
+  "test_yarn_plates_rules.gd",
 ]
 
 # Shared chart behind MapScreen suites (docs/testing.md). Fixture edits gate
@@ -586,16 +689,16 @@ suites = [
 # dozen heavy MapScreen suites miss the 5 min tier-1 budget.
 [domains.map_fixture]
 suites = [
-  "test_advanced_start.gd",
+  "test_world_setup.gd",
   "test_map_screen.gd",
   "test_save_codec.gd",
-  "test_victory_screen.gd"
+  "test_victory_screen.gd",
 ]
 
 [domains.advanced]
 suites = [
-  "test_advanced_start.gd",
-  "test_advanced_start_live.gd"
+  "test_world_setup.gd",
+  "test_advanced_start_live.gd",
 ]
 
 # Setup difficulty layer (wiki: ruleset-config § Layers). Hub files that only
@@ -604,6 +707,7 @@ suites = [
 [domains.difficulty]
 suites = [
   "test_ai_rules.gd",
+  "test_ai_planner_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
@@ -612,7 +716,7 @@ suites = [
   "test_map_screen.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
-  "test_save_codec.gd"
+  "test_save_codec.gd",
 ]
 
 # The crown's own victory bar (wiki: victory § Military victory; DR-20261111-26):
@@ -628,7 +732,7 @@ suites = [
   "test_game_setup.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
-  "test_victory_screen.gd"
+  "test_victory_screen.gd",
 ]
 
 # The age's race helper: the standing math, the sheet's foot and the turn's
@@ -636,14 +740,12 @@ suites = [
 [domains.victory_standings]
 suites = [
   "test_campaign_rules.gd",
-  "test_gazette.gd",
-
-  "test_campaign_end.gd"
+  "test_campaign_end.gd",
 ]
 
 [domains.menu]
 suites = [
-  "test_advanced_start.gd",
+  "test_world_setup.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
   "test_game_setup.gd",
@@ -652,13 +754,13 @@ suites = [
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
   "test_diplomacy_lens.gd",
-  "test_resource_lens.gd"
+  "test_resource_lens.gd",
 ]
 
 [domains.misc]
 suites = [
   "test_tables_rules.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 # Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
@@ -666,9 +768,7 @@ suites = [
 [domains.world]
 suites = [
   "test_tables_rules.gd",
-  "test_map_generator.gd",
-  "test_world_bootstrap.gd",
-  "test_world_setup.gd"
+  "test_world_setup.gd",
 ]
 
 [domains.research]
@@ -676,7 +776,7 @@ suites = [
   "test_panel_parts_rules.gd",
   "test_research_screen.gd",
   "test_research_rules.gd",
-  "test_yarn_plates_rules.gd"
+  "test_yarn_plates_rules.gd",
 ]
 
 # Slot / SaveWorld capture (in map_data_rules). World-field edits skip the
@@ -684,14 +784,14 @@ suites = [
 [domains.save]
 suites = [
   "test_map_data_rules.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 # Full session codec (MapScreen mount). Only the codec / layer serializers.
 [domains.save_codec]
 suites = [
   "test_save_codec.gd",
-  "test_map_data_rules.gd"
+  "test_map_data_rules.gd",
 ]
 
 # Dossier / HUD sheet content. Phone geometry stays on layout / menu so a
@@ -700,7 +800,7 @@ suites = [
 suites = [
   "test_court_ui_parts.gd",
   "test_panel_parts_rules.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 # Phone / density chrome. Menu and intro still carry mobile_layout for their
@@ -708,7 +808,7 @@ suites = [
 [domains.layout]
 suites = [
   "test_mobile_layout.gd",
-  "test_court_ui_parts.gd"
+  "test_court_ui_parts.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -716,7 +816,7 @@ suites = [
 [domains.quick_battle]
 suites = [
   "test_quick_battle_overlay.gd",
-  "test_land_battle_rules.gd"
+  "test_land_battle_rules.gd",
 ]
 
 # The court's news lane: one line at a time on a phone, held under a sheet or a
@@ -727,15 +827,15 @@ suites = [
 suites = [
   "test_mobile_layout.gd",
   "test_quick_battle_overlay.gd",
-  "test_gazette.gd",
-  "test_court_ui_parts.gd"
+  "test_campaign_rules.gd",
+  "test_court_ui_parts.gd",
 ]
 
 # The Gazette's rules (classification, prose, watchlist, archive) and the soft
 # plate that prints them (wiki: the-gazette; DR-20261110-14).
 [domains.gazette]
 suites = [
-  "test_gazette.gd"
+  "test_campaign_rules.gd",
 ]
 
 # The crown's charge at the opening of a campaign (wiki: dialogue-management
@@ -747,7 +847,7 @@ suites = [
   "test_campaign_intro.gd",
   "test_diplomacy_rules.gd",
   "test_menu_flow.gd",
-  "test_mobile_layout.gd"
+  "test_mobile_layout.gd",
 ]
 
 # Rival first contact with a Tribe (wiki: diplomacy § GP–Tribe first contact):
@@ -758,7 +858,7 @@ suites = [
   "test_tribe_contact.gd",
   "test_diplomacy_screen.gd",
   "test_map_data_rules.gd",
-  "test_ai_rules.gd"
+  "test_ai_rules.gd",
 ]
 
 # First matching rule wins. More specific globs before broader ones.
@@ -887,12 +987,14 @@ domain = "economy"
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "naval_fog"
 
+# Rival fleet pass: stay on ai with the other MapPlay*Ai files so a court-
+# reader fan-out does not union naval_fog boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_fleet_ai.gd*"
-domain = "naval_fog"
+domain = "ai"
 
 [[rules]]
-match = "tests/test_ai_phase_rules.gd*"
+match = "tests/test_ai_rules.gd*"
 domain = "ai"
 
 # The planner's own suite; the other AI suites say nothing about sight.
@@ -925,6 +1027,12 @@ domain = "quick_battle"
 # Both battle plates, their queues and the court's held news.
 [[rules]]
 match = "scripts/ui/battle_plates.gd*"
+domain = "quick_battle"
+
+# The frame both plates wear: a furniture change rides the same suites as the
+# plates it dresses, not the menu catch-all.
+[[rules]]
+match = "scripts/ui/battle_plate_frame.gd*"
 domain = "quick_battle"
 
 [[rules]]
@@ -1011,11 +1119,12 @@ full = true
 match = "gd-tools.toml"
 domain = "misc"
 
-# Map edits are exercised by the selection script in CI; a tiny chart suite is
-# enough for the required check without pulling crown_road past 5 min.
+# Map edits are exercised by the selection script in CI (--check-complete).
+# Stay on the ai set (not chart_bake/misc): an AI fan-out PR that also edits
+# the map must not add canvas/yarn/tables boots past the tier-1 5 min budget.
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "chart_bake"
+domain = "ai"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -1068,12 +1177,9 @@ domain = "misc"
 match = "tools/lint_arch.py"
 domain = "misc"
 
-# AiState stamps the difficulty layer onto rival ledgers; keep it on the
-# difficulty domain so a layer change does not pull every AI planner suite.
-[[rules]]
-match = "scripts/ai/ai_state.gd"
-domain = "difficulty"
-
+# AiState stamps the difficulty layer onto rival ledgers and keeps the
+# objective ledger's claims; the ledger slice owns it now, and the difficulty
+# domain names the ledger suite so a layer change still proves the claims row.
 # Prospect uncover (DR-20261111-26): keep mineral survey + Explorer/Builder AI
 # and the map/dossier marks off the full AI/map/civilian fan-out so tier 1
 # stays inside 5 min.
@@ -1121,7 +1227,7 @@ match = "scripts/rules/estate_rows.gd*"
 domain = "civilian"
 
 [[rules]]
-match = "tests/test_estate_rows_rules.gd*"
+match = "tests/test_civilian_field_rules.gd*"
 domain = "civilian"
 
 [[rules]]
@@ -1160,8 +1266,148 @@ domain = "crown_road"
 match = "tests/civilian_fixture.gd*"
 domain = "prospect"
 
+# The Tribe a court draws into its empire (DR-20261114-02): the ambition read,
+# the envoy offer it raises and the ledger aim that prices it. Kept narrow so a
+# colonial-diplomacy change runs the campaign and ledger suites, not the whole
+# AI fan-out or the battle suites the generic `scripts/ai/**` rule pulls in.
+[domains.ai_colony]
+suites = [
+  "test_ai_campaign_rules.gd",
+  "test_ai_planner_rules.gd",
+]
+
+[[rules]]
+match = "scripts/ai/ai_tribe_colony.gd*"
+domain = "ai_colony"
+
+[[rules]]
+match = "scripts/ai/ai_diplomacy_offers.gd*"
+domain = "ai_colony"
+
+[[rules]]
+match = "scripts/ai/ai_objectives_plan.gd*"
+domain = "ai_colony"
+
+# The rival objective ledger (docs/ai.md; issue #491): one utility currency, the
+# rank/allocate passes, the claims a court keeps and the adapter that stamps
+# them into the turn trace. Kept its own small slice so a ledger change runs its
+# own suite plus the phase rules it prices, instead of the whole AI fan-out.
+[domains.ai_works]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+]
+
+[domains.ai_economy]
+suites = [
+  "test_market_economy_rules.gd",
+  "test_ai_economy_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_ai_rules.gd",
+]
+
+[domains.ai_ledger]
+suites = [
+  "test_ai_planner_rules.gd",
+  "test_ai_rules.gd",
+  "test_ai_observer.gd",
+]
+
+[[rules]]
+match = "scripts/ai/ai_objective*.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_utility.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_claims.gd*"
+domain = "ai_ledger"
+
+# The muster pass and the recall it owes a moved seat (issue #474): the army
+# suites only, never the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_army_reinforce.gd*"
+domain = "ai_army"
+
+[[rules]]
+match = "scripts/map/map_play_army_ai.gd*"
+domain = "ai_army"
+
+[domains.ai_army]
+suites = [
+  "test_ai_campaign_rules.gd",
+  "test_ai_rules.gd",
+]
+
+[[rules]]
+match = "scripts/ai/ai_turn_log.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/map/map_play_objectives_ai.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "tests/test_ai_planner_rules.gd*"
+domain = "ai_ledger"
+
+
+# War memory (issue #475): the weariness and truce clocks the diplomacy planner
+# reads before it takes or keeps a war, the registry group that tunes them and
+# the `AiState` row that carries them. One slice so a memory tweak runs the
+# memory, dispatch and planner suites — not the whole AI fan-out (the observer
+# and land-battle suites cost more than tier 1 can spend on a diplomacy change).
+[domains.ai_diplomacy]
+suites = [
+  "test_ai_campaign_rules.gd",
+  "test_ai_rules.gd",
+  "test_ai_planner_rules.gd",
+]
+
+[[rules]]
+match = "scripts/ai/ai_war_memory.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_diplomacy.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_registry.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_diplomacy_planner.gd*"
+domain = "ai_diplomacy"
+
+# The desire tally the planner prices war with: same courts, same suites.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_desire.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_state.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "tests/test_ai_campaign_rules.gd*"
+domain = "ai_diplomacy"
+
+
 [[rules]]
 match = "scripts/ai/**"
+domain = "ai"
+
+# Victory-aware military pressure (DR-20261114-04): the reading and its knobs
+# name their own rule so the new modules never lean on the catch-all above.
+[[rules]]
+match = "scripts/ai/ai_victory_pressure.gd*"
+domain = "ai"
+
+[[rules]]
+match = "scripts/ai/ai_parameter_victory.gd*"
 domain = "ai"
 
 [[rules]]
@@ -1258,6 +1504,12 @@ domain = "army"
 match = "scripts/map/map_play_armies.gd*"
 domain = "army"
 
+# Rival army AI pass: named before the army_* glob so a court-reader fan-out
+# stays on the ai set instead of unioning army_orders / battle boots.
+[[rules]]
+match = "scripts/map/map_play_army_ai.gd*"
+domain = "ai"
+
 [[rules]]
 match = "scripts/map/map_play_army_*.gd*"
 domain = "army"
@@ -1273,18 +1525,31 @@ match = "scripts/map/map_play_colonisation_ai.gd"
 domain = "ai"
 
 [[rules]]
+match = "scripts/map/map_play_cargo_ai.gd*"
+domain = "ai"
+
+[[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
 domain = "ai"
 
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "ai"
+domain = "ai_economy"
 
 # The rival civilian pass was split out of the economy turn but its only suite
 # is still test_ai_rules, so keep it (and its .uid) here instead of the
-# civilian glob below, which would pull crown-order / map suites.
+# civilian glob below, which would pull crown-order / map suites. The works
+# floor and the extraction filter (issue #489) are covered by the AI and
+# civilian-turn suites, not the whole AI fan-out.
 [[rules]]
 match = "scripts/map/map_play_civilian_ai.gd*"
+domain = "ai_works"
+
+# The one reader every rival pass asks for a court's standing and order of
+# battle. Its suites are the observer/AI set, so keep it off the broad map
+# catch-all (tier-1 5 min budget).
+[[rules]]
+match = "scripts/map/map_play_court.gd*"
 domain = "ai"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
@@ -1950,7 +2215,7 @@ domain = "fleet"
 # IntelDossier, so their suites are the intel domain (DR-20261110-25).
 [[rules]]
 match = "scripts/ui/court_dossier*.gd*"
-domain = "intel"
+domain = "sheet"
 
 # The open court's detail block (orders, herald, chronicle) is the same sheet.
 [[rules]]
@@ -2369,7 +2634,7 @@ match = "tests/test_spy_*.gd*"
 domain = "espionage"
 
 [[rules]]
-match = "tests/test_advanced_start.gd*"
+match = "tests/test_world_setup.gd*"
 domain = "advanced"
 
 [[rules]]

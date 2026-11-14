@@ -110,9 +110,9 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 	for raw: Dictionary in FactionCatalog.all():
 		var faction: int = int(raw["id"])
 		if play.army_layer != null:
-			regiments[faction] = play.army_layer.regiment_count_all(faction)
+			regiments[faction] = MapPlayCourt.regiments(play, faction)
 		if play.ship_layer != null:
-			ships[faction] = play.ship_layer.hull_count_all(faction)
+			ships[faction] = MapPlayCourt.ships(play, faction)
 	var planning: Array[int] = []
 	for faction: int in FactionCatalog.great_power_ids():
 		if not AiControl.plans(play, faction):

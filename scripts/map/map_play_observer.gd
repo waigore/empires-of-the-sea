@@ -50,13 +50,18 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	# rides beside it (DR-20261113-19).
 	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 	var income: Dictionary = AiIncome.plan(
-		config, economy, _at_war(play, faction),
+		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction)
 	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
+	# How close the court stands to the bar it must clear, and whether it is
+	# pressing for it (DR-20261114-04).
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
 	var last: Dictionary = _last_turn(play, faction)
 	return {
 		"faction": faction,
@@ -86,6 +91,10 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"wars": _war_names(play, faction),
 		"alliances": _alliance_count(play, faction),
 		"progress": float(old_world) / float(VictoryRules.MILITARY_THRESHOLD),
+		"pressure_stage": String(pressure["stage"]),
+		"pressure": AiVictoryPressure.label(String(pressure["stage"])),
+		"pressure_need": int(pressure["need"]),
+		"pressure_regiments": int(pressure["extra_regiments"]),
 		"alive": old_world + new_world > 0,
 		"last": last,
 		"headline": AiTurnLog.headline(last),
@@ -120,24 +129,10 @@ static func _strength(play: PlaySession, faction: int) -> float:
 	return total
 
 
-## True when any court holds a declared war on this one: the reserve the court
-## must hold is read against it (DR-20261113-19).
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
-
-
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:
 	var names: Array[String] = []
-	if play.diplomacy == null:
-		return names
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			names.append(FactionCatalog.name_of(record.other(faction)))
+	for other: int in MapPlayCourt.at_war_with(play, faction):
+		names.append(FactionCatalog.name_of(other))
 	names.sort()
 	return names
 

@@ -158,7 +158,17 @@ static func _treaty(
 	var bonus: int = _land_envoy_bonus(
 		state, world, config.faction, target, treasury, tech, charts
 	)
-	if improve < min_improve and bonus == 0:
+	# The colony ambition: a charted Tribe the court can still buy is worth the
+	# next envoy step even when the court is in no mood to improve relations for
+	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+	var colony: Dictionary = AiTribeColony.ambition(
+		state, world, charts, config.faction, target, treasury, tech
+	)
+	if (
+		improve < min_improve and bonus == 0
+		and not bool(colony.get("wanted", false))
+		and not bool(colony.get("held", false))
+	):
 		return _blocked("improve-relations desire too low", KIND_OVERTURE)
 	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
 	if ai_state.overture_on_cooldown(config.faction, target, turn, cooldown):
@@ -176,19 +186,29 @@ static func _treaty(
 				improve + int(config.agenda_traits.get("alliance_bias", 0)),
 			)
 	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
+	var colony_raise: int = (
+		int(colony.get("bonus", 0))
+		if String(colony.get("stage", "")) == next
+		else 0
+	)
 	if not next.is_empty():
 		var check: Dictionary = DiplomacyRules.can_establish_overture(
 			state, world, config.faction, target, next, treasury, tech
 		)
 		if bool(check.get("ok", false)) and (
-			best_entry.is_empty() or improve > int(best_entry["utility"])
+			best_entry.is_empty() or improve + colony_raise > int(best_entry["utility"])
 		):
 			best_entry = _offer(KIND_OVERTURE, target, improve)
 			best_entry["stage"] = next
+			if colony_raise > 0:
+				best_entry["tribe_colony"] = true
 	if best_entry.is_empty():
 		return _blocked("no legal treaty", KIND_OVERTURE)
 	if String(best_entry["kind"]) == KIND_OVERTURE:
-		best_entry["utility"] = clampi(int(best_entry["utility"]) + bonus, 0, 100)
+		var raise: int = bonus
+		if bool(best_entry.get("tribe_colony", false)):
+			raise += colony_raise
+		best_entry["utility"] = clampi(int(best_entry["utility"]) + raise, 0, 100)
 	return best_entry
 
 

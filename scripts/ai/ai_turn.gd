@@ -260,16 +260,19 @@ static func _apply(
 			var message: String = ""
 			if bool(offer.get("ok", false)):
 				message = "%s proposes a white peace." % FactionCatalog.name_of(faction)
+				ai_state.note_truce(faction, target, turn)  # issue #475: done fighting
 			return {"result": offer, "message": message}
 		var peace: Dictionary = DiplomacyRules.make_peace(
 			state, faction, target,
-			_peace_answer(state, world, ai_state, faction, target, game_seed, shared)
+			_peace_answer(state, world, ai_state, faction, target, turn, game_seed, shared)
 		)
 		if bool(peace.get("ok", false)) and ai_state != null:
 			# Either answer starts the pair's peace-offer cooldown, so a court
 			# does not ask again every turn (wiki: diplomacy § Planner
 			# selection; DR-20261109-07).
 			ai_state.note_peace(faction, target, turn)
+			if bool(peace.get("accepted", false)):
+				ai_state.note_truce(faction, target, turn)  # issue #475
 		return {
 			"result": peace,
 			"message": String(peace.get("message", "")),
@@ -291,6 +294,7 @@ static func _peace_answer(
 	ai_state: AiState,
 	offerer: int,
 	target: int,
+	turn: int,
 	game_seed: int,
 	shared: Dictionary
 ) -> String:
@@ -310,10 +314,14 @@ static func _peace_answer(
 	# slice; DR-20261113-15).
 	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)):
 		return DiplomacyRules.DECISION_AUTO
-	var desire: Dictionary = AiDiplomacyPlanner.war_desire(
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		config, state, world, target, offerer, _reading(shared, target)
 	)
-	if not AiPeaceStance.refuses(config, int(desire["score"])):
+	# Weariness ends a war the court cannot win (wiki: diplomacy § War goals).
+	var power: int = int((desire["factors"] as Dictionary).get("relative_power", 0))
+	var stronger: bool = power >= AiPower.BONUS_STRONG
+	var worn: int = AiWarMemory.penalty(config, ai_state, turn, target, offerer, true, stronger)
+	if not AiPeaceStance.refuses(config, maxi(int(desire["score"]) - worn, 0)):
 		return DiplomacyRules.DECISION_AUTO
 	return DiplomacyRules.DECISION_REFUSE
 

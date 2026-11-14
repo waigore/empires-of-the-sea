@@ -8,6 +8,8 @@ extends RefCounted
 const KIND_REINFORCE: String = "reinforce"
 ## Turn-trace kind for a rival army's field hospital train (DR-20261112-08).
 const KIND_HOSPITAL: String = "hospital_train"
+## The Home Army marching back to a seat that moved (issue #474).
+const KIND_RECALL: String = "recall"
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -18,8 +20,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[ArmyState] = []
-		roster.assign(play.army_layer.regions.value(region, []))
+		var roster: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
 		if roster.is_empty():
 			continue
 		if not _run_region(play, model, roster, trace):
@@ -43,18 +44,16 @@ static func _run_region(
 	play: PlaySession, model: MapModel, roster: Array[ArmyState], trace: Array[Dictionary]
 ) -> bool:
 	var changed: bool = false
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction and not play.observer_mode:
-			continue
-		if not AiControl.plans(play, faction):
-			continue
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var kind: String = AiControl.court_kind(play, faction)
 		if kind == AiControl.KIND_RANDOM:
 			continue
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches
-		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04).
+		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04). A court
+		# striking for food raises none: its own men would go hungry instead
+		# (issue #489).
 		changed = _reinforce(play, model, roster, faction, config, kind, trace) or changed
 		# The court brings its surgeons along before it gives the march: a worn
 		# field army on its own ground pitches a train (DR-20261112-07,
@@ -99,7 +98,9 @@ static func _apply_split(
 	action: Dictionary,
 	trace: Array[Dictionary]
 ) -> bool:
-	var home: ArmyState = _army_by_id(roster, int(action["army_id"]), faction)
+	var home: ArmyState = MapPlayCourt.army_by_id(
+		roster, int(action["army_id"]), faction
+	)
 	if home == null:
 		return false
 	var ids: Array[String] = []
@@ -134,7 +135,9 @@ static func _apply_marches(
 ) -> bool:
 	var changed: bool = false
 	for order: Dictionary in plan["orders"]:
-		var army: ArmyState = _army_by_id(roster, int(order["army_id"]), faction)
+		var army: ArmyState = MapPlayCourt.army_by_id(
+			roster, int(order["army_id"]), faction
+		)
 		if army == null:
 			continue
 		var province: int = int(order["province"])
@@ -168,11 +171,13 @@ static func _report_march(
 	)
 
 
-static func _army_by_id(armies: Array[ArmyState], army_id: int, owner: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.id == army_id and army.owner == owner:
-			return army
-	return null
+## The extra regiments this court arms up for while it can see the victory bar
+## (wiki: ai-architecture § Notable strategic policies; DR-20261114-04). A
+## session with no world reads none, so the published target stands.
+static func _extra_regiments(play: PlaySession, faction: int, config: Variant) -> int:
+	return int(AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)["extra_regiments"])
 
 
 ## A rival court raises one line regiment a turn from its own ledger while it
@@ -196,8 +201,12 @@ static func _reinforce(
 	if capital < 0:
 		return false
 	var home: ArmyState = ArmyTraining.home_army(roster, faction)
-	if home == null or home.province != capital:
+	if home == null:
 		return false
+	if home.province != capital:
+		# A court whose seat moved musters nowhere: the garrison re-forms at the
+		# new capital, then the muster below prices its regiment (issue #474).
+		_recall(play, model, home, faction, capital, trace)
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
@@ -206,7 +215,12 @@ static func _reinforce(
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
-		_at_war(play, faction)
+		MapPlayCourt.at_war(play, faction),
+		_extra_regiments(play, faction, config),
+		AiBind.fed_slack(
+			kind, economy, play.army_layer.food_upkeep_all(faction),
+			MapPlayCourt.ships(play, faction)
+		)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():
@@ -223,6 +237,36 @@ static func _reinforce(
 		"regiment": unit_id,
 		"province": home.province,
 		"province_name": model.province_name(home.province),
+		"region": model.region_id,
+	})
+	return true
+
+
+## Re-forms a stranded Home Army at the new seat. The Home Army is the seat's
+## garrison, not a field column — the rules never let it march (`can_move`
+## refuses it) — so when the capital moves the garrison re-forms there instead
+## of standing at the old seat for the rest of the campaign, which is what
+## blocked every muster after a capital fell (issue #474).
+static func _recall(
+	play: PlaySession,
+	model: MapModel,
+	home: ArmyState,
+	faction: int,
+	capital: int,
+	trace: Array[Dictionary]
+) -> bool:
+	if AiArmyReinforce.recall_target(home.province, capital) < 0:
+		return false
+	var from: int = home.province
+	home.province = capital
+	home.moved = false
+	trace.append({
+		"faction": faction,
+		"kind": KIND_RECALL,
+		"army": home.id,
+		"province": capital,
+		"province_name": model.province_name(capital),
+		"from": from,
 		"region": model.region_id,
 	})
 	return true
@@ -246,7 +290,7 @@ static func _pitch_train(
 	if economy == null:
 		return false
 	var army: ArmyState = AiBind.hospital_best_army(
-		kind, model, roster, faction, economy, _at_war(play, faction)
+		kind, model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
 	) as ArmyState
 	if army == null:
 		return false
@@ -280,10 +324,3 @@ static func _capital_province(model: MapModel, faction: int) -> int:
 		if province.owner == faction and province.capital:
 			return province.id
 	return MapModel.NO_ID
-
-
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
