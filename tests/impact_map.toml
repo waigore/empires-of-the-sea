@@ -319,7 +319,11 @@ domain = "map_mount"
 
 [[rules]]
 match = "scripts/map/sea_backdrop.gd*"
-domain = "map_mount"
+domain = "sea_tone"
+
+[[rules]]
+match = "ui/shaders/sea.gdshader*"
+domain = "sea_tone"
 
 [[rules]]
 match = "scripts/session/play_session.gd*"
@@ -663,6 +667,27 @@ suites = [
 suites = [
   "test_resource_lens.gd",
   "test_panel_parts_rules.gd",
+]
+
+# The shared colour language: commodity ink plus the chart's water. A palette
+# edit runs the ink suites and the chart suites that paint the sea, so a sea
+# tone can never drift away from the minimap that draws the same table (#456).
+[domains.palette]
+suites = [
+  "test_resource_lens.gd",
+  "test_panel_parts_rules.gd",
+  "test_map_canvas.gd",
+  "test_map_view_rules.gd",
+]
+
+# The chart's water: the sea shader, the backdrop that feeds it the palette and
+# the minimap that paints the same tones. The three suites that mount the chart
+# cover a water change; the broad map domain would blow the tier-1 budget.
+[domains.sea_tone]
+suites = [
+  "test_map_canvas.gd",
+  "test_map_view_rules.gd",
+  "test_map_screen.gd",
 ]
 
 # Unit medallions: the painted art for every worker, hull and regiment type and
@@ -1139,7 +1164,7 @@ domain = "resource_ink"
 
 [[rules]]
 match = "scripts/ui/palette.gd*"
-domain = "resource_ink"
+domain = "palette"
 
 [[rules]]
 match = "scripts/ui/province_resources.gd*"
