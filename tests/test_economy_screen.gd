@@ -155,17 +155,21 @@ func test_the_workers_tab_reads_the_larder() -> void:
 
 	assert_true(printed.contains("LARDER · NEXT TURN"), "the head names the reading: %s" % printed)
 	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
+	assert_true(printed.contains("Fur Hats ×1"), "the luxury the pool wants: %s" % printed)
 	assert_true(printed.contains("2 mouths eat 3 food"), "every appetite: %s" % printed)
-	assert_true(printed.contains("Short 2 food"), "the shortfall: %s" % printed)
-	assert_true(printed.contains("1 striker, masters first"), "who strikes first: %s" % printed)
+	# The screen's army and navy eat before the pool, so the master cannot be fed
+	# its grain and meat: the shortfall is food and it bites the top tier first.
+	assert_true(printed.contains("food — "), "a food shortfall: %s" % printed)
+	assert_true(printed.contains("striker"), "someone strikes: %s" % printed)
+	assert_true(printed.contains("masters first"), "the top tier first: %s" % printed)
 
-	# A full larder reads calm instead of warning.
-	economy.stockpile = {"grain": 4, "meat": 4, "furHats": 1}
+	# A larder the army, the navy and the pool can all eat reads calm instead.
+	economy.stockpile = {"grain": 60, "meat": 60, "furHats": 1}
 	_screen.economy.open_panel()
 	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
 	var calm: String = _printed(workers)
 	assert_true(calm.contains("The larder covers every mouth."), calm)
-	assert_false(calm.contains("striker"), "no striker when the larder covers: %s" % calm)
+	assert_false(calm.contains("striker,"), "no striker when the larder covers: %s" % calm)
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.

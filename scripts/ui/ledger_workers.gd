@@ -90,23 +90,23 @@ func _pad(height: float) -> Control:
 	return pad
 
 
-## "Store 16 food · 3 Refined Sugar" — the larder as it stands, naming only the
+## "Store 16 food · Fur Hats ×1" — the larder as it stands, naming only the
 ## luxuries this pool actually wants.
 func _store_copy(read: Dictionary) -> String:
 	var parts: PackedStringArray = ["%d food" % int(read["store_food"])]
 	var store: Dictionary = read["store_luxury"]
 	for id: Variant in store.keys():
-		parts.append("%d %s" % [int(store[id]), CommodityCatalog.label(String(id))])
+		parts.append("%s ×%d" % [CommodityCatalog.label(String(id)), int(store[id])])
 	return "Store " + "  ·  ".join(parts)
 
 
-## "24 mouths eat 18 food · 3 Refined Sugar · 2 arriving" — every appetite the
+## "24 mouths eat 18 food · Refined Sugar ×3 · 2 arriving" — every appetite the
 ## phase pays before the larder can be called short.
 func _appetite_copy(read: Dictionary) -> String:
 	var text: String = "%d mouths eat %d food" % [int(read["mouths"]), int(read["food"])]
 	var want: Dictionary = read["luxury"]
 	for id: Variant in want.keys():
-		text += "  ·  %d %s" % [int(want[id]), CommodityCatalog.label(String(id))]
+		text += "  ·  %s ×%d" % [CommodityCatalog.label(String(id)), int(want[id])]
 	var arriving: int = int(read["arriving"])
 	if arriving > 0:
 		text += "  ·  %d arriving" % arriving
