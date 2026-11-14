@@ -110,6 +110,31 @@ func _mount(view_live: bool) -> void:
 	add_child(_screen)
 
 
+func test_ai_bind_caches_each_mainline_script_once() -> void:
+	# `scripts/ai_mainline/` is gitignored and only materialised for ai-bench, so
+	# the cache path under AiBind._ml never ran in CI (docs/ai-observer.md §
+	# Performance budget). Drop a tiny probe for the assert, then clear it.
+	var abs_dir: String = ProjectSettings.globalize_path(AiBind.MAINLINE_ROOT)
+	DirAccess.make_dir_recursive_absolute(abs_dir)
+	var probe: String = "_cache_probe.gd"
+	var abs_file: String = abs_dir.path_join(probe)
+	var file: FileAccess = FileAccess.open(abs_file, FileAccess.WRITE)
+	assert_not_null(file, "the probe script opens for write")
+	file.store_string(
+		"extends RefCounted\nstatic func ping(value: int) -> int:\n\treturn value\n"
+	)
+	file.close()
+	AiBind._scripts.clear()
+	assert_eq(AiBind._ml(probe, "ping", [3]), 3, "first call loads and runs")
+	assert_true(
+		AiBind._scripts.has(AiBind.MAINLINE_ROOT + probe),
+		"the script stays cached"
+	)
+	assert_eq(AiBind._ml(probe, "ping", [5]), 5, "second call reuses the cache")
+	DirAccess.remove_absolute(abs_file)
+	AiBind._scripts.clear()
+
+
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var play: PlaySession = _screen.play
 	_step(1)
