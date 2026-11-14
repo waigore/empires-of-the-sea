@@ -16,6 +16,10 @@ extends RefCounted
 ##    every fit (the Gazette).
 
 const GRIP_SIZE := Vector2(18.0, 24.0)
+## How much of a plate must stay on screen: enough header to grab it back. A
+## full-screen ledger has to be able to uncover the chart it covers, so the
+## clamp keeps a strip, not the whole plate.
+const MIN_VISIBLE := Vector2(160.0, 48.0)
 ## Meta key holding the helper on the mover, so a re-anchored plate can reset it.
 const META: String = "modal_drag"
 
@@ -125,10 +129,9 @@ func _begin(at: Vector2) -> void:
 	_base = _mover.position - _offset
 	var host_rect: Rect2 = _host.get_global_rect()
 	var panel_rect: Rect2 = _panel.get_global_rect()
-	_min = host_rect.position - panel_rect.position
-	_max = host_rect.end - panel_rect.end
-	# A plate larger than the host cannot be kept inside it; it stays put on the
-	# axis that does not fit instead of jumping to one edge.
+	_min = host_rect.position - panel_rect.end + MIN_VISIBLE
+	_max = host_rect.end - panel_rect.position - MIN_VISIBLE
+	# A host too small to leave that strip on screen only pins the plate.
 	for axis: int in [0, 1]:
 		if _max[axis] < _min[axis]:
 			_min[axis] = 0.0
