@@ -104,6 +104,109 @@ func test_the_summary_names_the_gap_not_only_the_gain() -> void:
 	assert_true(SpyLedger.boost_note().contains("%d%%" % SpyNetworks.BOOST_PERCENT))
 
 
+# --- projection edges -------------------------------------------------------
+
+
+func test_an_empty_world_and_a_foreign_roster_read_nothing() -> void:
+	var empty: Dictionary = SpyLedger.snapshot(null, null, 0)
+	assert_eq(int(empty["spies"]), 0, "no chart, no network")
+	assert_true((empty["courts"] as Array).is_empty(), "and no court to read")
+	assert_true(
+		SpyLedger.summary(empty).contains("No spy answers the crown"),
+		"the empty head names the gap"
+	)
+	assert_true(
+		SpyLedger.courts_note(empty).contains("No rival Great Power"),
+		"an empty court list says so"
+	)
+	# A rival's spy and a Builder are not the crown's eyes.
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [
+		CivilianState.create(1, 1, "spy", Vector2i(0, 0)),
+		CivilianState.create(2, 0, "builder", Vector2i(0, 0)),
+		null,
+	])
+	table.set_region(FactionCatalog.NEW_WORLD, [] as Array)
+	var snapshot: Dictionary = SpyLedger.snapshot(_world(), table, 0)
+	assert_eq(int(snapshot["spies"]), 0, "only the crown's spies are counted")
+
+
+func test_every_great_power_shadowed_reads_as_a_closed_gap() -> void:
+	# The note is a pure string read over the court list, so a closed gap is
+	# proven without a chart that seats every rival.
+	var closed: Dictionary = {
+		"courts": [{"shadowed": true}, {"shadowed": true}],
+		"unobserved": 0,
+	}
+	assert_true(
+		SpyLedger.courts_note(closed).contains("Every Great Power is shadowed"),
+		"and the note says the gap is closed"
+	)
+	var open: Dictionary = {
+		"courts": [{"shadowed": false}, {"shadowed": false}],
+		"unobserved": 2,
+	}
+	assert_true(
+		SpyLedger.courts_note(open).contains("0 of 2 Great Powers shadowed"),
+		"an open gap is counted"
+	)
+
+
+func test_a_spy_aboard_or_on_a_bare_tile_names_its_own_duty() -> void:
+	var model: MapModel = Naval.build()
+	var aboard := CivilianState.create(1, 0, "spy", Vector2i(0, 0))
+	aboard.embark_on(7)
+	assert_eq(SpyLedger.duty_of(model, aboard), SpyLedger.DUTY_ABOARD, "a passenger sails")
+	assert_true(
+		SpyLedger.duty_text(SpyLedger.DUTY_ABOARD, 0, "").contains("Aboard a squadron")
+	)
+	assert_eq(SpyLedger.duty_of(model, null), SpyLedger.DUTY_IDLE, "no unit, no duty")
+	# A tile no crown holds is neither shadow nor watch.
+	var open := CivilianState.create(2, 0, "spy", Vector2i(3, 0))
+	assert_eq(SpyLedger.duty_of(model, open), SpyLedger.DUTY_IDLE, "neutral ground is idle")
+	assert_true(
+		SpyLedger.duty_text(SpyLedger.DUTY_IDLE, 0, "").contains("Idle — no order")
+	)
+	assert_true(
+		SpyLedger.duty_text(SpyLedger.DUTY_SCREEN, 0, "Cádiz").contains("Counter-espionage")
+	)
+
+
+func test_the_reading_orders_shadows_screens_watches_idle_and_passengers() -> void:
+	# Two charts: the Old World holds a rival Great Power (Coro, England) and the
+	# New World a Minor (Genoa), so one reading carries every duty but the screen.
+	var old: MapModel = Naval.build()
+	var new: MapModel = Civilians.build_minor()
+	new.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(old)
+	world.add_region(new)
+	var aboard := CivilianState.create(5, 0, "spy", Vector2i(0, 0))
+	aboard.embark_on(7)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [
+		aboard,
+		CivilianState.create(4, 0, "spy", Vector2i(0, 0)),
+		_screening(2, Vector2i(0, 0)),
+		CivilianState.create(1, 0, "spy", Vector2i(5, 0)),
+	])
+	table.set_region(FactionCatalog.NEW_WORLD, [
+		CivilianState.create(3, 0, "spy", Vector2i(2, 0)),
+	])
+	var snapshot: Dictionary = SpyLedger.snapshot(world, table, 0)
+	var duties: Array[String] = []
+	for raw: Variant in snapshot["rows"]:
+		duties.append(String((raw as Dictionary)["duty"]))
+	assert_eq(
+		duties,
+		[SpyLedger.DUTY_SHADOW, SpyLedger.DUTY_SCREEN, SpyLedger.DUTY_WATCH,
+			SpyLedger.DUTY_IDLE, SpyLedger.DUTY_ABOARD],
+		"the network reads gains first, passengers last"
+	)
+	assert_eq(int(snapshot["watched"]), 1, "the Minor's land is a watch, not a shadow")
+	assert_eq(int(snapshot["aboard"]), 1, "the passenger is counted apart")
+
+
 # --- the sheet --------------------------------------------------------------
 
 
@@ -138,11 +241,40 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 	panel.refresh()
 	assert_true(panel._subtitle.text.contains("2 spies"), "the head counts the network")
 	assert_true(_row_widgets(panel) > 2, "the network and the courts are painted")
+	# Every row wears the chip its own duty names.
+	for raw: Variant in panel._snapshot.get("rows", []):
+		var duty: String = String((raw as Dictionary)["duty"])
+		assert_true(
+			_has_duty_word(panel, panel._duty_word(duty)),
+			"a %s row wears its chip" % duty
+		)
 	var visit: Button = _first_visit(panel)
 	assert_not_null(visit, "a spy row carries its Visit")
 	visit.pressed.emit()
 	assert_false(panel.is_open(), "Visit opens the spy and sets the sheet aside")
 	_clear_spies(play)
+
+
+## The compact and narrow profiles repaint the sheet without losing its rows,
+## and every duty has its own one-word chip.
+func test_the_phone_profile_repaints_the_reading() -> void:
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	screen.hud.spy_ledger_pressed.emit()
+	assert_true(panel.is_open())
+	var before: int = _row_widgets(panel)
+	panel._apply_profile(true, true)
+	panel._on_profile_changed()
+	assert_eq(_row_widgets(panel), before, "the phone profile keeps every row")
+	panel._apply_profile(false, false)
+	panel._on_profile_changed()
+	assert_eq(_row_widgets(panel), before, "and the atlas profile restores it")
+	for duty: String in [
+		SpyLedger.DUTY_SHADOW, SpyLedger.DUTY_SCREEN, SpyLedger.DUTY_WATCH,
+		SpyLedger.DUTY_IDLE, SpyLedger.DUTY_ABOARD,
+	]:
+		assert_ne(panel._duty_word(duty), "", "every duty has a chip word")
+	assert_eq(panel._duty_word(SpyLedger.DUTY_WATCH), "WATCH")
+	panel.close()
 
 
 func test_back_and_the_key_close_the_sheet() -> void:
@@ -226,6 +358,16 @@ func _first_visit(panel: SpyLedgerPanel) -> Button:
 		if button != null and button.text == "Visit":
 			return button
 	return null
+
+
+## Whether a row's duty chip prints the word, found by text so the suite reads
+## what the player reads.
+func _has_duty_word(panel: SpyLedgerPanel, word: String) -> bool:
+	for node: Node in panel._rows.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label != null and label.text == word:
+			return true
+	return false
 
 
 ## The mounted session's own roster, emptied so a case reads only its spies.
