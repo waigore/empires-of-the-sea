@@ -794,16 +794,25 @@ func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
 
-## The hull the court is saving for outranks the next regiment: a muster spends
-## only what stands above that chest, so the yard's price survives the army's
-## turn and the hull is actually laid (issue #484).
+## The hull the court is saving for outranks the next regiment once it can fill
+## the chest: a muster spends only what stands above it, so the yard's price
+## survives the army's turn and the hull is actually laid (issue #484). A chest
+## the court cannot fill yet is not held back at all (issue #591).
 func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
 	var config: AiConfig = _ai_army_reinforce_config()
 	var economy: PlayerEconomy = _ai_army_reinforce_economy(4600)
 	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true)
 	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
 
-	var held: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	# 4,600 ducats is short of the 5,500 yard: the army it can pay for is raised.
+	var short: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	assert_ne(String(short["muster"]), "", "a chest it cannot fill is not the army's ceiling")
+	assert_false((short["reasons"] as Array).has("saving for a hull"))
+
+	# With the chest in hand the fleet's claim comes first again.
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, _ai_army_reinforce_economy(5500), 5, true, 0, -1, 5500
+	)
 	assert_eq(String(held["muster"]), "", "the hull's chest is not the army's to spend")
 	assert_true(
 		(held["reasons"] as Array).has("saving for a hull"),
@@ -2103,6 +2112,7 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	readings["at_war"] = true
 	readings["warships"] = 0
 	readings["hostile_warships"] = 2
+	readings["treasury"] = 5500
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "a court at war with no fighting hull builds one")
@@ -2111,6 +2121,51 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	assert_false(
 		(build.cost as Dictionary).has("hull"),
 		"the yard founds its own slip, so the build claims no idle hull (#484)"
+	)
+
+
+## Issue #591: a chest the court has not reached yet yields to the muster in the
+## ledger too, so the purse the yard's phantom price pinned goes to the line the
+## court can actually raise.
+func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["treasury"] = 5342
+	readings["muster_floor"] = 2400
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var build: AiObjective = _by_id(objectives, "navy.build")
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_true(build != null, "the yard is still the court's aim")
+	assert_eq(
+		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		"but the yard waits behind the army it would starve"
+	)
+	assert_true(
+		int(muster.utility) > int(build.utility),
+		"so the ledger funds the regiment first"
+	)
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives,
+		{"treasury": 5342, "regiment": 2, "labour": 3, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	var statuses: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		statuses[String(row["id"])] = String(row["status"])
+	assert_eq(String(statuses["muster.line"]), AiObjective.STATUS_FUNDED, "the line musters")
+	assert_eq(
+		String(statuses["navy.build"]), AiObjective.STATUS_DEFERRED,
+		"and the hull it cannot fill declares its shortfall instead"
+	)
+
+	# A court that already holds the yard's price puts the fleet first again.
+	readings["treasury"] = 5500
+	assert_eq(
+		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
+		AiObjectivesPlan.W_NAVY_BUILD,
+		"the chest is in hand: the yard leads"
 	)
 
 
