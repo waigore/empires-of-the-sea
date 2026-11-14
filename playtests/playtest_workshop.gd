@@ -213,8 +213,10 @@ func _landing_pass() -> void:
 	_check("the row falls back to its idle wait", String(steel["tag"]) == "2t")
 
 
-## The contrast: a one-turn row lands every unit in the phase it runs, and no
-## workshop tag ever appears for it (wiki: production-recipes § Turns per unit).
+## The contrast: a one-turn row lands every unit in the phase it runs, and it
+## never waits on the anvil — its tag is the last output the phase turned out,
+## never a wait (wiki: production-recipes § Turns per unit; § Scope — the
+## PRODUCTION ledger names a row's last output, "made 3").
 func _one_turn_pass() -> void:
 	_say("")
 	_say("--- one-turn work: the whole order lands in its phase ---")
@@ -242,19 +244,25 @@ func _one_turn_pass() -> void:
 		_play.economy.economy.quantity("timber") == timber_before + harvested - 4
 	)
 	row = await _row("Lumber")
-	_check("a one-turn row never grows a workshop tag", String(row["tag"]).is_empty())
+	_check(
+		"a one-turn row's tag is its last output, never a wait",
+		String(row["tag"]) == "made 2"
+	)
+	_check("the tag carries no bench count", not String(row["tag"]).contains("→"))
 
 
-## Two batches ordered a phase apart: the row lands two units a phase, and its
-## note must say so instead of promising one. This is the run the previous copy
-## got wrong — the tag read 5→1t while the note said one a turn, and the promise
-## beside it read "Steel +2" (wiki: production-recipes § Turns per unit;
-## DR-20261113-02).
+## Two batches on the anvil at once: the row lands two units a phase, and its
+## note must say so instead of promising one. A run of two leaves one bench
+## free, so the phase after it starts a second batch of two and the bench reads
+## three (wiki: production-recipes § Workshop queue — three pieces at most;
+## § Turns per unit; DR-20261113-02, DR-20261114-12). This is the run the
+## previous copy got wrong — the note said one a turn while the promise beside
+## it read "Steel +2".
 func _batches_pass() -> void:
 	_say("")
 	_say("--- two batches: the row lands what the promise names ---")
 	_seed_anvil()
-	await _press("Steel", "+", 3)
+	await _press("Steel", "+", 2)
 	_check("the calendar moves", _advance())
 	_check("the calendar moves", _advance())
 	var row: Dictionary = await _row("Steel")
@@ -264,7 +272,7 @@ func _batches_pass() -> void:
 	_say("Steel row with two batches: tag %s" % String(row["tag"]))
 	_say("note: %s" % note)
 	_say("promise: %s" % promise)
-	_check("two batches serve the anvil", String(row["tag"]) == "5→1t")
+	_check("two batches serve the anvil", String(row["tag"]) == "3→1t")
 	_check("the note counts the units this phase", note.contains("2 landing a turn"))
 	_check("the promise names the same two units", promise.contains("Steel +2"))
 	_check("the note does not promise a single-batch trickle", not note.contains("landing one a turn"))
@@ -276,7 +284,7 @@ func _batches_pass() -> void:
 		"the phase delivers the two units both lines named",
 		_play.economy.economy.quantity("steel") == steel_before + 2
 	)
-	await _press("Steel", "−", 3)
+	await _press("Steel", "−", 2)
 	# Let the pair drain, so the save pass starts from an idle anvil.
 	for _phase in 4:
 		if _play.economy.economy.production.wip_units("steel") == 0:
