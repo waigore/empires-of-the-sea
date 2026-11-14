@@ -179,6 +179,12 @@ static func _before(a: AiObjective, b: AiObjective, modifiers: Dictionary) -> bo
 	var right: int = AiUtility.modified(b.utility, int(modifiers.get(b.domain, 1000)))
 	if left != right:
 		return left > right
+	# A war footing scales every war domain to the same ceiling, so two aims can
+	# tie at the clamp: the tie reads the unmodified utility before the id, or
+	# the court's own ranking is lost the moment it is at war and the fleet claim
+	# the purse is saved for queues behind the muster it outranks (issue #484).
+	if a.utility != b.utility:
+		return a.utility > b.utility
 	if a.id != b.id:
 		return a.id < b.id
 	return a.domain < b.domain

@@ -220,7 +220,10 @@ static func _reinforce(
 		AiBind.fed_slack(
 			kind, economy, play.army_layer.food_upkeep_all(faction),
 			MapPlayCourt.ships(play, faction)
-		)
+		),
+		# The hull the court is saving for outranks the next regiment: the
+		# muster spends only what stands above that chest (issue #484).
+		MapPlayCourt.navy_chest(play, faction)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():
