@@ -13,8 +13,8 @@ const UNREACHABLE: int = 1 << 30
 
 
 ## One legal march toward `goal`, or {} when the unit may not move or the goal is
-## unset. Ties go to the earlier tile in row-major order, so the same state
-## always walks the same way.
+## unset. The lower tile breaks a tie, so the same state always walks the same
+## way.
 static func step_toward(
 	model: MapModel, unit: CivilianState, goal: Vector2i,
 	view: VisibilityModel = null
@@ -45,8 +45,8 @@ static func step_by_field(
 	return best
 
 
-## Nearest tile of `goals` to `from`; the earlier tile in row-major order breaks a
-## tie, and no goal is [constant CivilianState.NO_TILE].
+## Nearest tile of `goals` to `from`; the lower tile breaks a tie, and no goal is
+## [constant CivilianState.NO_TILE].
 static func nearest(goals: Array[Vector2i], from: Vector2i) -> Vector2i:
 	var best: Vector2i = CivilianState.NO_TILE
 	var best_distance: int = UNREACHABLE
@@ -91,7 +91,7 @@ static func distance_field(model: MapModel, targets: Array) -> Dictionary:
 	return distance
 
 
-## The step so far that walks least toward the goal; the earlier tile wins a tie.
+## The step so far that walks least toward the goal; the lower tile wins a tie.
 static func _closer(
 	best: Dictionary, unit: CivilianState, tile: Vector2i, distance: int
 ) -> Dictionary:

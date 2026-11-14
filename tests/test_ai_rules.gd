@@ -4897,3 +4897,83 @@ func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
 
 	assert_eq(starved.size(), 0, "no ration, no hire")
 	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")
+
+
+# --- a land march (AiLandRoute, shared by the rival civilians) ---------------
+
+## The same walk the Explorer, Merchant and Spy planners ask for: one legal land
+## tile toward a goal, a field step for a Spy, and the nearest goal of a list
+## (wiki: civilian-work-planner § Relations; the land counterpart of AiSeaRoute).
+
+
+## A goal pulls the walk closer, the step is on land, and it names the unit it
+## belongs to so any planner's order reads the same.
+func test_a_land_step_closes_on_its_goal() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+	var step: Dictionary = AiLandRoute.step_toward(model, unit, Vector2i(2, 2))
+	var tile: Vector2i = step.get("tile", CivilianState.NO_TILE)
+
+	assert_eq(String(step.get("kind", "")), AiLandRoute.KIND_MOVE)
+	assert_eq(int(step.get("unit_id", -1)), 1)
+	assert_eq(
+		AiLandRoute.manhattan(tile, Vector2i(2, 2)),
+		AiLandRoute.manhattan(unit.tile, Vector2i(2, 2)) - 1,
+		"one tile nearer"
+	)
+	assert_true(model.is_land(tile.x, tile.y), "a civilian never walks onto water")
+
+
+## A march with no goal, no unit or no chart offers nothing rather than a
+## plausible-looking tile.
+func test_a_land_step_needs_a_goal_and_a_unit() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+
+	assert_true(AiLandRoute.step_toward(model, unit, CivilianState.NO_TILE).is_empty())
+	assert_true(AiLandRoute.step_toward(null, unit, Vector2i(1, 1)).is_empty())
+	assert_true(AiLandRoute.step_toward(model, null, Vector2i(1, 1)).is_empty())
+
+
+## A Spy walks its own distance field: the step must be one the field reaches
+## cheaply, and a field that reaches nothing this turn offers no march.
+func test_a_field_step_takes_only_a_reachable_tile() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "spy", Vector2i(1, 1))
+
+	var reachable: Dictionary = AiLandRoute.step_by_field(
+		model, unit, {Vector2i(2, 1): 3}
+	)
+	assert_eq(Vector2i(reachable.get("tile", CivilianState.NO_TILE)), Vector2i(2, 1))
+	assert_eq(int(reachable.get("distance", -1)), 3)
+
+	assert_true(
+		AiLandRoute.step_by_field(model, unit, {Vector2i(0, 3): 0}).is_empty(),
+		"a field that reaches no neighbouring tile is no march"
+	)
+	assert_true(AiLandRoute.step_by_field(model, unit, {}).is_empty())
+	assert_true(AiLandRoute.step_by_field(null, unit, {Vector2i(2, 1): 0}).is_empty())
+
+
+## The nearest goal of a list, with the lower tile breaking a tie so the same
+## state always picks the same goal; an empty list has none.
+func test_the_nearest_goal_wins_a_tie_by_its_lower_tile() -> void:
+	var goals: Array[Vector2i] = [Vector2i(3, 1), Vector2i(1, 1)]
+
+	assert_eq(AiLandRoute.nearest(goals, Vector2i(2, 2)), Vector2i(1, 1))
+	assert_eq(AiLandRoute.nearest([] as Array[Vector2i], Vector2i(2, 2)), CivilianState.NO_TILE)
+
+
+## A Spy's field counts land tiles away from its targets and leaves open water
+## with no entry, so a BFS never pretends a hull's route is a walk.
+func test_the_land_distance_field_counts_land_and_leaves_water_out() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var water: Vector2i = Vector2i(1, 4)
+	var field: Dictionary = AiLandRoute.distance_field(
+		model, [CivilianFixture.BARE_TILE, water, CivilianFixture.BARE_TILE]
+	)
+
+	assert_eq(int(field.get(CivilianFixture.BARE_TILE, -1)), 0)
+	assert_eq(int(field.get(Vector2i(1, 0), -1)), 1)
+	assert_eq(int(field.get(Vector2i(2, 0), -1)), 2)
+	assert_false(field.has(water), "water is not a step")
