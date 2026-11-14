@@ -81,22 +81,3 @@ static func make(
 		"cost": check.get("cost", {}),
 		"duration": int(check.get("duration", 1)),
 	}
-
-
-## The better of two candidates under one shared ranking: higher score wins;
-## row-major tile order then action name break ties, so the same state always
-## makes the same order. Every civilian planner ranks through here.
-static func better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var left: Vector2i = candidate["tile"]
-	var right: Vector2i = best["tile"]
-	if left.y != right.y:
-		return candidate if left.y < right.y else best
-	if left.x != right.x:
-		return candidate if left.x < right.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best
