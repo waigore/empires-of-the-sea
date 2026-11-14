@@ -1,13 +1,13 @@
 class_name DiplomacyPanel
-extends PanelContainer
+extends LedgerFrame
 ## The court: one row per known crown, with relation stand, overture chain,
 ## the orders that court will entertain and the pair's chronicle (wiki:
 ## diplomacy). The open court's sheet lives on CourtDetailBlock; this shell
-## owns the crown list, consent lane and chrome (REQ-P3-01). Presentation only
-## — buttons emit intents and the rules layer decides (REQ-P2-03).
+## owns the crown list, consent lane and body (REQ-P3-01). Presentation only
+## — buttons emit intents and the rules layer decides (REQ-P2-03). The sheet,
+## masthead and phone profile are LedgerFrame's (REQ-P3-01).
 
 signal order_pressed(kind: String, target: int, arg: String)
-signal close_pressed
 
 var _state: DiplomacyState = null
 var _world: WorldMap = null
@@ -24,10 +24,6 @@ var _list_column_box: VBoxContainer = null
 var _detail: CourtDetailBlock = null
 var _summary: Label = null
 var _call_box: VBoxContainer = null
-var _crest: Icon = null
-var _title: Label = null
-var _close: Button = null
-var _hint: Label = null
 var _body: HBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
 ## reports). Read-only here; the session keeps it.
@@ -36,86 +32,42 @@ var _court_reports: Dictionary = {}
 var dossier_screen: CourtDossierScreen = null
 
 
-func _ready() -> void:
-	add_theme_stylebox_override(
-		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 16, 20, 16))
-	)
-	_build()
-	get_viewport().size_changed.connect(_fit_to_viewport)
-	_fit_to_viewport()
+func _init() -> void:
+	title_text = "THE COURT"
+
+
+## The court's medallion: the same gold crest the cartouche carries.
+func _build_crest() -> Control:
+	return Icon.new("crest", CREST_PIXELS, Palette.GOLD)
 
 
 ## Phone geometry: the court keeps its two columns but sheds the masthead bulk,
 ## the standing line and the footer hint so the crown list and the detail keep
-## the sheet's height (REQ-P1-07).
-func _fit_to_viewport() -> void:
-	if _body == null or not is_inside_tree():
-		return
-	set_compact(HudLayout.is_compact(get_viewport_rect().size))
-
-
-func set_compact(compact: bool) -> void:
-	add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.97),
-			Palette.GOLD_DIM,
-			1,
-			4,
-			Vector4(12, 8, 12, 8) if compact else Vector4(20, 16, 20, 16)
-		)
-	)
-	if _crest != null:
-		var crest_size: float = 24.0 if compact else 30.0
-		_crest.custom_minimum_size = Vector2(crest_size, crest_size)
-	if _title != null:
-		_title.add_theme_font_size_override("font_size", 20 if compact else 24)
-	if _close != null:
-		_close.custom_minimum_size = Vector2(0, 40) if compact else Vector2(0, 36)
+## the sheet's height (REQ-P1-07). The masthead and hint are LedgerFrame's.
+func _apply_profile(compact: bool) -> void:
 	if _summary != null:
 		_summary.visible = not compact
-	if _hint != null:
-		_hint.visible = not compact
 	if _list_column_box != null:
 		_list_column_box.custom_minimum_size = Vector2(156 if compact else 212, 0)
 	if _body != null:
 		_body.add_theme_constant_override("separation", 8 if compact else 14)
 
 
-func _build() -> void:
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 8)
-	add_child(root)
-	root.add_child(_header())
+func _build_body(column: VBoxContainer) -> void:
 	_summary = UiRowBuilder.label("", 13, Palette.TEXT_DIM)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(_summary)
+	column.add_child(_summary)
 	_call_box = VBoxContainer.new()
 	_call_box.add_theme_constant_override("separation", 6)
-	root.add_child(_call_box)
+	column.add_child(_call_box)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 14)
-	root.add_child(body)
+	column.add_child(body)
 	_body = body
 	body.add_child(_list_column())
 	body.add_child(_detail_column())
-	root.add_child(_footer())
-
-
-func _header() -> Control:
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	_crest = Icon.new("crest", 30, Palette.GOLD)
-	header.add_child(_crest)
-	_title = UiRowBuilder.label("THE COURT", 24, Palette.GOLD_PALE)
-	_title.add_theme_font_override("font", UiTheme.serif())
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(_title)
-	_close = UiRowBuilder.button("Close", 36.0, 0.0)
-	_close.pressed.connect(func() -> void: close_pressed.emit())
-	header.add_child(_close)
-	return header
+	_make_hint("The relation score stays sealed; only the herald's word is shown.")
 
 
 func _list_column() -> Control:
@@ -148,18 +100,6 @@ func _detail_column() -> Control:
 	_detail.dossier_open_pressed.connect(_on_dossier_open)
 	scroll.add_child(_detail)
 	return scroll
-
-
-func _footer() -> Control:
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	_hint = UiRowBuilder.label(
-		"The relation score stays sealed; only the herald's word is shown.", 11, Palette.TEXT_DIM
-	)
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(_hint)
-	return footer
 
 
 func refresh(
