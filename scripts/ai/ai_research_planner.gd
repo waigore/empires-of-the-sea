@@ -55,7 +55,11 @@ static func plan(
 	if typeof(revealed) == TYPE_DICTIONARY:
 		state.set_revealed(revealed)
 	var at_war: bool = bool(context.get("at_war", false))
-	candidates = _scored_candidates(config, economy, at_war)
+	# The study that opens the door the court walked up to: an envoy chain with a
+	# charted Tribe is only as open as its next stage, so the tech that stage
+	# needs outranks the ordinary candidates (DR-20261114-05).
+	var door: String = String(context.get("door", ""))
+	candidates = _scored_candidates(config, economy, at_war, door)
 	var save_floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
 	# Standing study affordability is always the cash floor, never the muster.
 	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
@@ -202,7 +206,7 @@ static func _can_pay_standing(
 
 
 static func _scored_candidates(
-	config: AiConfig, economy: PlayerEconomy, at_war: bool
+	config: AiConfig, economy: PlayerEconomy, at_war: bool, door: String = ""
 ) -> Array[Dictionary]:
 	var research: ResearchState = economy.research
 	var rows: Array[Dictionary] = []
@@ -216,6 +220,18 @@ static func _scored_candidates(
 			"score": score_for(config, economy, tech_id, at_war),
 		})
 	rows.sort_custom(_better)
+	# The door the court walked up to is a gate, not a preference: a chain with a
+	# charted Tribe is only as open as its next stage, so the study that stage
+	# needs is taken first. A court that opened an envoy chain and never studies
+	# its next door has paid for a stake it cannot reach (DR-20261114-05).
+	if not door.is_empty():
+		for index in rows.size():
+			if String(rows[index]["tech"]) != door:
+				continue
+			var entry: Dictionary = rows[index]
+			rows.remove_at(index)
+			rows.insert(0, entry)
+			break
 	return rows
 
 
