@@ -26,15 +26,18 @@ static func run(
 	var seat: int = WorldBootstrap.capital_province(model, faction)
 	if seat < 0:
 		return report
-	var config: AiConfig = AiConfig.build(faction, play.map_seed)
+	var kind: String = AiControl.court_kind(play, faction)
+	if kind == AiControl.KIND_RANDOM:
+		return report
+	var config: Variant = AiBind.config(kind, faction, play.map_seed)
 	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
-		+ maxi(config.parameter("cargo.trade_holds"), 0)
+		+ maxi(int(config.parameter("cargo.trade_holds")), 0)
 	)
 	var blocked: Dictionary = _hostile_zones(play, faction, roster)
-	var plan: Dictionary = AiCargoPlanner.plan(
-		config, economy, model, roster, seat, want, blocked
+	var plan: Dictionary = AiBind.cargo_plan(
+		kind, config, economy, model, roster, seat, want, blocked
 	)
 	report["want"] = int(plan["want"])
 	report["holds"] = int(plan["holds"])
@@ -46,7 +49,7 @@ static func run(
 		)
 		if fleet == null:
 			continue
-		var moved: Dictionary = AiCargoPlanner.apply_route(model, fleet, route)
+		var moved: Dictionary = AiBind.cargo_apply_route(kind, model, fleet, route)
 		if not bool(moved.get("ok", false)):
 			continue
 		# A rival merchant charts the water it enters for its own court

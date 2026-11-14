@@ -24,18 +24,29 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var fleets: Array = MapPlayCourt.region_fleets(play, region)
 		var armies: Array[ArmyState] = MapPlayCourt.visible_armies(play, region)
 		for faction: int in MapPlayCourt.planning_factions(play):
-			var config: AiConfig = AiConfig.build(faction, play.map_seed)
+			var kind: String = AiControl.court_kind(play, faction)
+			if kind == AiControl.KIND_RANDOM:
+				continue
+			var config: Variant = AiBind.config(kind, faction, play.map_seed)
 			# A court on **earn** sails for the far coast even while a war sits on
 			# its border: the gold that ends its impasse is overseas
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
-			var earning: bool = AiIncome.wants_income(
-				config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+			var earning: bool = (
+				str(
+					AiBind.income_plan(
+						kind, config, play.ledger_for(faction),
+						MapPlayCourt.at_war(play, faction),
+						MapPlayCourt.regiments(play, faction)
+					).get("goal", "")
+				)
+				== "earn"
 			)
-			touched = _split(play, model, fleets, armies, faction, config, trace, earning) or touched
-			var order: Dictionary = AiInvasionPlanner.plan(
-				config, play.diplomacy, play.world, region, model, fleets, armies,
+			touched = _split(
+				play, model, fleets, armies, faction, config, kind, trace, earning
+			) or touched
+			var order: Dictionary = AiBind.invasion_plan(
+				kind, config, play.diplomacy, play.world, region, model, fleets, armies,
 				play.turn, play.court_charts, earning
 			)
 			if order.is_empty():
@@ -58,13 +69,14 @@ static func _split(
 	fleets: Array,
 	armies: Array[ArmyState],
 	faction: int,
-	config: AiConfig,
+	config: Variant,
+	kind: String,
 	trace: Array[Dictionary],
 	wants_income: bool = false
 ) -> bool:
 	var split_any: bool = false
-	for action: Dictionary in AiInvasionPlanner.split_orders(
-		config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
+	for action: Dictionary in AiBind.invasion_split(
+		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):
 		var home: ArmyState = MapPlayCourt.army_by_id(armies, int(action.get("army_id", -1)))

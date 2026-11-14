@@ -42,11 +42,12 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## build, work and trade); the same plans are applied once the ledger closes. An
 ## overseas region is priced on the raw its holds actually landed.
 static func plan_all(
-	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
+	play: PlaySession, faction: int, economy: PlayerEconomy, config: Variant,
 	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0,
 	works_floor: int = -1
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
+	var kind: String = AiControl.court_kind(play, faction)
 	# The cash a crew may spend is what the purse carries after the court's own
 	# floor and, at war and short of its target, the muster it is saving for:
 	# training and deeds are discretionary, the war chest is not (wiki:
@@ -80,8 +81,8 @@ static func plan_all(
 			context["muster_port"] = muster
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
-		var plan: Dictionary = AiCivilianPlanner.plan(
-			config, model, roster, works, stockpile, tech_caps,
+		var plan: Dictionary = AiBind.civilian_plan(
+			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)
 		if earn:
@@ -268,7 +269,7 @@ static func _muster_port(
 		return CivilianState.NO_TILE
 	if not _hull_claimed(play, faction, region):
 		return CivilianState.NO_TILE
-	var port: int = AiColonisationPlanner.harbour(model, faction)
+	var port: int = AiBind.harbour(AiControl.court_kind(play, faction), model, faction)
 	if port < 0:
 		return CivilianState.NO_TILE
 	var data: ProvinceState = model.province_data(port)

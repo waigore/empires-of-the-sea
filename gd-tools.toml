@@ -20,6 +20,7 @@ exclude = [
     ".godot",
     ".gd-tools",
     ".git",
+    ".autolab",
 ]
 
 [format]
@@ -28,6 +29,7 @@ exclude = [
     ".godot",
     ".gd-tools",
     ".git",
+    ".autolab",
 ]
 max_line_length = 100
 
@@ -41,6 +43,7 @@ exclude = [
     ".godot",
     ".gd-tools",
     ".git",
+    ".autolab",
     "tests",
     "playtests",
 ]
