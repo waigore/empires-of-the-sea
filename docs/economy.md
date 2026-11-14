@@ -58,9 +58,9 @@ sell in full; a deed lifts it (`min(4, 1+deeds)`).
 One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders
 plus Minor/Tribe auto-offers.
 Tiebreaks: priority, pact, colony favour, Consulate, relation; a colony's
-suzerain clears (`MarketFavoured`, R7.1). First right pays
+suzerain clears (`MarketFavoured`, R7.1). A boycott bars the pair. First right pays
 a purchased tile's owner, relation share and embassy cut.
-Unfilled orders carry while holds cover; offers cap at post-production.
+Unfilled orders carry while holds cover; offers cap post-production.
 
 ## Trade terms
 
@@ -79,7 +79,7 @@ store, every appetite in its order, and the striking tier.
 
 ## Deferred (REQ-P2-02)
 
-Building gates; rows past the four; rival bench room
+Building gates; rows past the four
 ([`deferred.md`](deferred.md)).
 
 ## Architecture
