@@ -1206,17 +1206,21 @@ func test_every_close_door_emits_the_one_signal() -> void:
 
 
 ## The tabbed ledgers share the strip: same name, same scroll wrapper and the
-## same body gap, so a page added to either reads the same (REQ-P3-01).
+## same body gap, so a page added to either reads the same (REQ-P3-01). The
+## college's tree is the one page that brings its own scroll, so its branch chips
+## stay pinned while 113 rows move under them (DR-20261115-08).
 func test_both_tabbed_ledgers_share_the_strip() -> void:
 	var economy := EconomyPanel.new()
 	add_child(economy)
 	var college := ResearchPanel.new()
 	add_child(college)
 	assert_eq(economy._tabs.get_tab_count(), 3)
-	assert_eq(college._tabs.get_tab_count(), 2)
+	assert_eq(college._tabs.get_tab_count(), 3)
 	for tabs: TabContainer in [economy._tabs, college._tabs]:
 		assert_eq(tabs.name, "Tabs")
 		for page: Node in tabs.get_children():
+			if page is ResearchTreeTab:
+				continue
 			var scroll := page as ScrollContainer
 			assert_not_null(scroll, "each page is a scroll")
 			assert_true(scroll.get_child(0) is VBoxContainer, "each page holds a column")

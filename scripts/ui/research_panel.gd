@@ -39,6 +39,9 @@ var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
+## The whole tree, read by branch: every advance and what it still needs
+## (wiki: tech-tree § Categories; REQ-P5-03).
+var _tree: ResearchTreeTab = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
 ## Signatures of what each rebuilt region last drew, so a repaint that changes
@@ -83,6 +86,8 @@ func _apply_profile(compact: bool) -> void:
 	for row: Variant in _slot_rows.values():
 		if row is ResearchSlotRow:
 			(row as ResearchSlotRow).set_compact(compact)
+	if _tree != null:
+		_tree.set_compact(compact)
 
 
 func _build_body(column: VBoxContainer) -> void:
@@ -109,6 +114,15 @@ func _build_body(column: VBoxContainer) -> void:
 	_tabs = _make_tabs(300.0)
 	_available_body = _add_tab(_tabs, "AVAILABLE", VBoxContainer.new())
 	_known_body = _add_tab(_tabs, "KNOWN", VBoxContainer.new())
+	# The tree keeps its own scroll so the branch chips stay put while the list
+	# moves (REQ-P1-07); the panel only mounts it and relays the goal intent.
+	_tree = ResearchTreeTab.new()
+	_tree.name = "TREE"
+	_tree.goal_requested.connect(
+		func(tech_id: String) -> void: set_goal("" if tech_id == _goal else tech_id)
+	)
+
+	_tabs.add_child(_tree)
 
 	_make_hint("")
 
@@ -167,8 +181,10 @@ func refresh(
 	_fill_slots()
 	_fill_available(open)
 	_fill_known()
+	_tree.refresh(_state, _goal)
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
+	_tabs.set_tab_title(2, "TREE (%d)" % TechCatalog.ids().size())
 	_hint.text = _hint_text(open.size(), _notice.visible)
 	_fit_deferred()
 

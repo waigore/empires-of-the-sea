@@ -1120,7 +1120,132 @@ func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
 	assert_eq(_first_available(), "Printing Press", "the saved goal still sorts the queue")
 
 
+# --- the whole tree ----------------------------------------------------------
+## The tree tab reads the catalog, not a second copy of it: every advance is
+## listed, and each row says where it stands for this crown (REQ-P5-03).
+func test_the_tree_tab_lists_every_advance() -> void:
+	_panel.refresh(_panel_state, 2500)
+	_panel.select_tab(2)
+	assert_not_null(_panel._tree)
+	assert_eq(_panel._tree._body.get_child_count(), TechCatalog.ids().size())
+
+
+func test_a_branch_chip_narrows_the_tree() -> void:
+	_panel.refresh(_panel_state, 2500)
+	var naval: int = 0
+	for tech_id: String in TechCatalog.ids():
+		if TechCatalog.category(tech_id) == "naval":
+			naval += 1
+	_panel._tree._chips["naval"].pressed.emit()
+	assert_eq(_panel._tree.category, "naval")
+	assert_eq(_panel._tree._body.get_child_count(), naval)
+	_panel._tree._chips["naval"].pressed.emit()
+	assert_eq(_panel._tree.category, ResearchTreeTab.CATEGORY_ALL, "the lit chip clears itself")
+
+
+func test_a_tree_row_steers_the_goal() -> void:
+	_panel.refresh(_panel_state, 2500)
+	var goal: Button = _tree_button("Goal")
+	assert_not_null(goal)
+	var leading: String = TechOrder.sorted(TechCatalog.ids(), "")[0]
+	goal.pressed.emit()
+	assert_eq(_panel.goal_tech(), leading, "the first catalog advance takes the goal")
+	assert_eq(_panel_state.goal, leading, "the goal is state the save carries")
+
+
+func test_the_tree_names_what_a_locked_advance_needs() -> void:
+	_panel.refresh(_panel_state, 2500)
+	assert_not_null(_label_containing("Needs Printing Press"))
+
+
+func test_the_tree_road_follows_the_goal() -> void:
+	_panel.refresh(_panel_state, 2500)
+	_panel.set_goal("national_bureaucracy")
+	await get_tree().process_frame
+	assert_not_null(_label_containing("study Printing Press next"))
+
+
+func test_the_tree_invites_a_goal_when_none_is_set() -> void:
+	_panel.refresh(_panel_state, 2500)
+	assert_not_null(_label_containing("Set a goal on any advance"))
+
+
+# --- the road to an advance (TechPlan) ---------------------------------------
+func test_the_road_lists_prerequisites_before_the_advance() -> void:
+	var road: Array[String] = TechPlan.road(_state, "national_bureaucracy")
+	assert_eq(road.back(), "national_bureaucracy", "the advance closes its own road")
+	for tech_id: String in road:
+		for prereq: String in TechCatalog.prerequisites(tech_id):
+			if road.has(prereq):
+				assert_lt(
+					road.find(prereq), road.find(tech_id),
+					"%s is studied before %s" % [prereq, tech_id]
+				)
+
+
+func test_a_known_prerequisite_leaves_the_road() -> void:
+	_state.unlock("printing_press")
+	assert_false(TechPlan.road(_state, "national_bureaucracy").has("printing_press"))
+	assert_eq(TechPlan.road(_state, "printing_press"), [] as Array[String], "a known advance has no road")
+
+
+func test_the_next_step_is_the_first_open_study() -> void:
+	assert_eq(TechPlan.next_step(_state, "national_bureaucracy"), "printing_press")
+	assert_eq(TechPlan.next_step(_state, "crop_rotation"), "crop_rotation", "an open advance is its own step")
+
+
+func test_a_studying_advance_is_not_the_next_step() -> void:
+	assert_true(bool(_state.assign("printing_press", "low")["ok"]))
+	assert_eq(TechPlan.next_step(_state, "national_bureaucracy"), "land_enclosure")
+
+
+func test_a_discovery_gate_names_the_explorer() -> void:
+	assert_eq(TechPlan.state_of(_state, "discovery_of_sugar"), TechPlan.State.LOCKED)
+	assert_true(TechPlan.reason(_state, "discovery_of_sugar").contains("explorer must find"))
+	_state.set_revealed({"sugarCane": true})
+	assert_eq(TechPlan.state_of(_state, "discovery_of_sugar"), TechPlan.State.OPEN)
+
+
+func test_a_locked_advance_names_what_it_needs() -> void:
+	var reason: String = TechPlan.reason(_state, "national_bureaucracy")
+	assert_true(reason.begins_with("Needs "))
+	assert_true(reason.contains("Printing Press"))
+
+
+func test_the_counts_cover_the_whole_catalog() -> void:
+	var counts: Dictionary = TechPlan.counts(_state)
+	var total: int = 0
+	for kind: Variant in counts.keys():
+		total += int(counts[kind])
+	assert_eq(total, TechCatalog.ids().size())
+	assert_eq(int(counts[TechPlan.State.KNOWN]), 0)
+	_state.unlock("crop_rotation")
+	assert_eq(int(TechPlan.counts(_state)[TechPlan.State.KNOWN]), 1)
+
+
+func test_the_road_line_names_the_next_study() -> void:
+	assert_true(TechPlan.road_line(_state, "national_bureaucracy").contains("study Printing Press next"))
+	_state.unlock("national_bureaucracy")
+	assert_true(TechPlan.road_line(_state, "national_bureaucracy").contains("is known"))
+
+
+## A road whose first step is itself gated says so, and an advance waiting only
+## on its own discovery names the explorer rather than a study (REQ-P5-05).
+func test_the_road_line_explains_a_road_that_cannot_start() -> void:
+	assert_true(TechPlan.road_line(_state, "tobacco_planting").contains("nothing on the road can start"))
+	assert_true(TechPlan.road_line(_state, "discovery_of_sugar").contains("explorer must find"))
+
+
 # --- helpers -----------------------------------------------------------------
+## The first button with this caption inside the tree tab, so a tree row is
+## never confused with the AVAILABLE tab's own Goal door.
+func _tree_button(text: String) -> Button:
+	for node: Node in _collect(_panel._tree, [] as Array[Node]):
+		if node is Button and (node as Button).text == text:
+			return node as Button
+	return null
+
+
 ## The persistent row the panel keeps for one slot.
 func _slot_row(index: int) -> ResearchSlotRow:
 	return _panel._slots_body.get_child(index) as ResearchSlotRow
