@@ -69,6 +69,9 @@ AI_CLASS_NAMES: tuple[str, ...] = tuple(
             "AiAgenda",
             "AiIncome",
             "AiPower",
+            # The turn pass and its two seams (read model, order application).
+            "AiTurnApply",
+            "AiTurnRead",
             # AiState stays unrenamed: the session owns one shared ledger object
             # that mainline planners must accept from map_play callv.
             "AiTurn",
