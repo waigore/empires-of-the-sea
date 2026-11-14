@@ -1,6 +1,6 @@
 # Testing
 
-Unit/integration tests and the headless e2e smoke. Two tiers; budgets are hard gates.
+Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are hard gates.
 
 ## Tiers
 
@@ -25,32 +25,33 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`. Snapshot/restore when a case seats or mutates the chart.
-- The world is the smallest that validates a `SaveCodec` slot and seats
-  turn-100 civilians; it must pass fair split on the **first** attempt.
+  `Main.preset_world`; snapshot/restore when a case mutates the chart.
+- Smallest world that validates a `SaveCodec` slot and seats the turn-100
+  civilians; it must pass fair split on the **first** attempt, else
+  `generate_world` rebuilds.
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
   once per map state — many mounts repaint nothing.
 - A mount paints chips, minimap and readings once (`load_region`); `build_hud`
   adds turn, economy, income and dossier.
-- Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
+- Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Region-only suites cache their
   charts in `before_all`.
 - **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
-  case on a pristine save (~0.15 s) instead of remounting (~0.5 s). The reset
-  drops selection, sheets, lenses and news; a suite that swaps screens frees its
-  own. `SaveCodec.restore` is the in-place path; reuse a preset only when sizes
-  match.
-- **One resolved turn per suite**: resolve it once in `before_all`, capture the
-  session and its `ai_turns`, then re-seat each case from that capture (a
-  six-crown turn is ~1.5–2 s; a re-seat ~0.2 s). Mode cases start at turn 1.
-  `test_ai_observer` is the reference.
+  case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
+  selection, sheets, lenses and news; a suite that swaps screens frees its own.
+  `SaveCodec.restore` is the in-place path; reuse a preset only when sizes match.
+- **One resolved turn per suite**: resolve once in `before_all`, capture the
+  session and `ai_turns`, then re-seat each case (~0.2 s vs ~1.5–2 s). Mode
+  cases start at turn 1. `test_ai_observer` is the reference.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
-  not `generate_world` (which builds and discards the other region).
-- One Godot boot per theme (merged pure suites) — coverage costs ~6 s per boot;
-  fold leftovers in. Profile with `gd-tools test --durations 20`. Smoke: short
-  boot, few `await process_frame`, no sleeps.
+  not `generate_world` (builds and discards the other region).
+- One Godot boot per theme (merged pure suites) — coverage ~6 s a boot: fold
+  leftovers in; delete suites whose cases already run elsewhere.
+  `gd-tools.toml` keeps `parallel = 4`. Profile with
+  `gd-tools test --durations 20`. Smoke: short boot, no sleeps / full campaigns.
 
 ## Local
+
 
 ```bash
 # Tier 1-shaped (changed files vs HEAD / base)

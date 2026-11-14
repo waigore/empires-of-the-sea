@@ -1787,6 +1787,95 @@ func test_ai_economy_does_not_restack_the_workshop() -> void:
 		assert_ne(String(assignment["recipe"]), "bronze", "the workshop already fills the deficit")
 
 
+## A slow row's bench holds three pieces, so a fourth run waits for a landing.
+## A plan that asks for it anyway spends the labour and reserves the inputs for
+## a run the phase refuses, and the court works less than it could (wiki:
+## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+func test_ai_economy_asks_no_run_the_full_bench_will_refuse() -> void:
+	var economy := PlayerEconomy.starting()
+	# Only lumber and steel are short: the bench's row is the one the plan must
+	# leave alone, and the lumber runs are what the freed labour goes to.
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "timber": 40, "lumber": 0,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(6)
+	# The bench is full and still serving its first phase: no steel run starts.
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 0, "a full bench takes no fourth run")
+	# The labour the phantom run would have eaten goes to the rows that start.
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		economy.production.wip.duplicate(true),
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+	assert_eq(
+		int((report["runs"] as Dictionary).get("steel", 0)), 0,
+		"the phase starts no steel run the plan did not ask for"
+	)
+
+
+## A bench with one place left takes exactly one run: the plan reads the room,
+## never the row's whole reserve (DR-20261114-12).
+func test_ai_economy_fills_only_the_room_left_on_the_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "lumber": 20,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(8)
+	economy.production_wip = {"steel": [{"units": 2, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 1, "two pieces on the anvil leave one place, not a whole batch")
+
+
+## The bench's random filler court draws from the rows that can start: a full
+## bench is no candidate either (wiki: production-recipes § Workshop queue;
+## REQ-P2-03).
+func test_random_court_never_asks_a_full_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "copper": 40, "tin": 40, "tobacco": 40, "furs": 40,
+	}
+	economy.workers = WorkerPool.make(0, 0, 1, 8)
+	economy.production_wip = {
+		"steel": [{"units": 3, "turns_left": 2}],
+		"bronze": [{"units": 3, "turns_left": 2}],
+		"cigars": [{"units": 3, "turns_left": 2}],
+		"furHats": [{"units": 3, "turns_left": 2}],
+	}
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			var recipe_id: String = String(assignment["recipe"])
+			assert_true(
+				ProductionWorkshop.room(
+					economy.production.wip, recipe_id,
+					ProductionRecipes.turns(recipe_id)
+				) > 0,
+				"a full bench is no candidate: %s" % recipe_id
+			)
+
+
 ## A plan takes effect after this phase resolves, so the run the queued
 ## assignment will start this phase already fills the reserve: the court must not
 ## stack a second alloy batch against it (DR-20261112-11).

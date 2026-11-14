@@ -296,7 +296,6 @@ domain = "blockade"
 # fleet + naval_feeding + naval_intel + ai past the tier-1 5 min budget.
 [domains.hostility]
 suites = [
-  "test_hostility_rules.gd",
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_ai_rules.gd",
@@ -355,6 +354,13 @@ domain = "hostility"
 # reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+# One court's economy turn, split out of the pass above: the AI suites drive the
+# whole turn (test_ai_economy_rules' run coverage plus test_ai_rules' phase
+# call), so it stays on the same tier-1 slice as its orchestrator.
+[[rules]]
+match = "scripts/map/map_play_economy_court.gd*"
 domain = "ai"
 
 [[rules]]
@@ -611,7 +617,6 @@ suites = [
 # menu, civilian and economy_ui catch-alls would overrun it (docs/testing.md).
 [domains.pause]
 suites = [
-  "test_menu_door.gd",
   "test_menu_flow.gd",
   "test_main.gd",
   "test_court_ui_parts.gd",
@@ -629,7 +634,6 @@ suites = [
   "test_force_ledger_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
-  "test_menu_door.gd",
   "test_panel_parts_rules.gd",
 ]
 

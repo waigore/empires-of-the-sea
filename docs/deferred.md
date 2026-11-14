@@ -28,6 +28,7 @@ Audited through DR-20261114-14 + #616 (`REQ-P2-02`).
 | Worker tiers; slow luxury rows; bench cap | `min_tier`/`turns`, `QUEUE_CAP`, DR-14-07/10/12 |
 | AI candidates respect worker-tier | `AiEconomyPlanner` / `AiRandomCourt`, #568 |
 | War-time trade garrison (holds home) | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
+| Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
 
 ## Remaining gaps (impact order)
 
@@ -42,8 +43,6 @@ Audited through DR-20261114-14 + #616 (`REQ-P2-02`).
 3. **Building gates / further rows** — worker tiers, the alloy + luxury four
    and the bench cap ship (DR-14-07/10/12); building-gated recipes and rows
    beyond remain (wiki).
-4. **Rival bench room** — `AiEconomyPlanner` plans a fourth run blind to
-   `ProductionWorkshop.room`, which the phase refuses (DR-14-12 follow-up).
 
 ## Next pick
 

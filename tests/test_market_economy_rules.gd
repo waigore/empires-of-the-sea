@@ -613,6 +613,139 @@ func test_the_suzerain_clears_a_colonys_harvest_at_turn_end() -> void:
 	assert_eq(int(from_world[0]["buyer"]), 1)
 	assert_false(bool(from_world[0]["is_favoured"]))
 
+# --- Boycott: the blocked-deal half (wiki: diplomacy § GP–Tribe — Boycott, R6) ---
+
+## The bar is the pair's, not the offer's: the boycotted court is no bid at all
+## for that seller, so the next court in the tier takes the goods.
+func test_a_boycott_bars_the_pair_and_the_next_bid_takes_the_goods() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(0, "timber", MarketOrder.SIDE_BID, 5, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 5, 1),
+	]
+	var context: Dictionary = _context()
+	context["boycott_for"] = func(a: int, b: int) -> bool: return (
+		(a == 1 and b == 12) or (a == 12 and b == 1)
+	)
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	var deals: Array = result["deals"]
+	assert_eq(deals.size(), 1, "one deal, and it is not the barred pair's")
+	assert_eq(int(deals[0]["buyer"]), 0)
+	assert_eq(int(deals[0]["seller"]), 12)
+	assert_eq(int(deals[0]["quantity"]), 5)
+
+## Both sides of a barred pair carry at their unfilled quantity: a boycott
+## leaves the order in the book (R6 — "both orders carry forward").
+func test_a_boycott_leaves_both_orders_carrying() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 4, 1),
+		_order(12, "timber", MarketOrder.SIDE_OFFER, 3, 1),
+	]
+	var context: Dictionary = _context()
+	context["boycott_for"] = func(a: int, b: int) -> bool: return (
+		(a == 1 and b == 12) or (a == 12 and b == 1)
+	)
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq((result["deals"] as Array).size(), 0, "no deal across the boycott")
+	var left: Array = result["residuals"]
+	assert_eq(left.size(), 2)
+	for row: Variant in left:
+		var quantity: int = int((row as Dictionary).get("quantity", 0))
+		var faction: int = int((row as Dictionary).get("faction", -1))
+		assert_eq(quantity, 4 if faction == 1 else 3, "the order keeps every unit")
+
+## The bar runs both ways: a colony Tribe may not buy the goods the boycotted
+## court offers either (R6 — all trade between the pair).
+func test_a_boycott_bars_the_colonys_bid_too() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(12, "timber", MarketOrder.SIDE_BID, 2, 1),
+		_order(1, "timber", MarketOrder.SIDE_OFFER, 2, 1),
+	]
+	var context: Dictionary = _context()
+	context["stock"] = {1: {"timber": 2}}
+	context["treasuries"] = {12: 10000, 1: 10000}
+	context["free_holds"] = {12: 4, 1: 4}
+	context["boycott_for"] = func(a: int, b: int) -> bool: return (
+		(a == 1 and b == 12) or (a == 12 and b == 1)
+	)
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq((result["deals"] as Array).size(), 0)
+	assert_eq((result["residuals"] as Array).size(), 2)
+
+## Live clearing: the issuer's colony keeps its goods off the boycotted court's
+## ledger, and the boycotted court buys them nowhere from that seller.
+func test_boycott_blocks_the_deal_at_turn_end() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var tribe: int = int(FactionCatalog.TRIBES[3]["id"])
+	var world: WorldMap = _market_engine_world(tribe)
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_colony(tribe, 0)
+	diplomacy.ensure_relation(0, tribe, 0).set_score(30.0)
+	diplomacy.set_overture(0, tribe, DiplomacyCatalog.STAGE_EMBASSY)
+	diplomacy.ensure_relation(0, 1, 0).set_score(30.0)
+	var ordered: Dictionary = DiplomacyTrade.boycott(diplomacy, 0, 1)
+	assert_true(bool(ordered["ok"]), String(ordered.get("reason", "")))
+	MarketOrders.submit(
+			market,
+		1, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var crossed: int = 0
+	var to_world: int = 0
+	var from_world: int = 0
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) != "timber":
+			continue
+		var seller: int = int(deal.get("seller", -2))
+		var buyer: int = int(deal.get("buyer", -2))
+		if seller == tribe and buyer == 1:
+			crossed += 1
+		if seller == tribe and buyer == MarketOrder.WORLD:
+			to_world += 1
+		if seller == MarketOrder.WORLD and buyer == 1:
+			from_world += 1
+	assert_eq(crossed, 0, "the colony's offer never reaches the boycotted court")
+	assert_eq(to_world, 1, "it clears at the standing counterparty instead")
+	assert_eq(from_world, 1, "and the boycotted court buys the goods elsewhere")
+
+## A third court is untouched: the boycott blocks one Great Power, not the sale
+## (R6 — "not trade between A's colony Tribes and other GPs").
+func test_a_boycott_leaves_a_third_court_free_to_buy() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var tribe: int = int(FactionCatalog.TRIBES[3]["id"])
+	var world: WorldMap = _market_engine_world(tribe)
+	var economies: Dictionary = _economies()
+	economies[2] = PlayerEconomy.starting()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_colony(tribe, 0)
+	diplomacy.ensure_relation(0, tribe, 0).set_score(30.0)
+	diplomacy.set_overture(0, tribe, DiplomacyCatalog.STAGE_EMBASSY)
+	diplomacy.ensure_relation(0, 1, 0).set_score(30.0)
+	assert_true(bool(DiplomacyTrade.boycott(diplomacy, 0, 1)["ok"]))
+	MarketOrders.submit(
+			market,
+		2, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4, 2: 4}, {"diplomacy": diplomacy}
+	)
+	var from_colony: Array[Dictionary] = []
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if (
+			String(deal.get("commodity", "")) == "timber"
+			and int(deal.get("seller", -2)) == tribe
+		):
+			from_colony.append(deal)
+	assert_eq(from_colony.size(), 1, "the colony still sells to the world")
+	assert_eq(int(from_colony[0]["buyer"]), 2)
+
 func test_subsidy_surcharge_lands_on_the_minor_sale() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()
@@ -1607,6 +1740,35 @@ func test_larder_forecast_reads_the_other_mouths() -> void:
 	assert_eq(int(read["strikers"]), 2, "the army and the hull eat before the pool")
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
 	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
+
+## Every appetite the phase pays, in its own deduction order, so the ledger can
+## show why a store that covers the pool still strikes it
+## (wiki: workers-and-population § Consumption; REQ-P2-03).
+func test_larder_reading_names_every_appetite() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(6)
+	economy.stockpile = {"grain": 12, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 8, "ships": 2, "hospital": 2}
+	)
+	assert_eq(int(read["store_food"]), 12)
+	assert_eq(
+		read["appetites"],
+		{"army": 8, "navy": 4, "pool": 6, "wards": 2},
+		"army, navy, pool then wards: the phase's own order",
+	)
+	assert_eq(int(read["strikers"]), 6, "the army and the navy eat the store first")
+	assert_eq(int(read["food_short"]), 6)
+
+## A court with no army, navy or ward reads the pool alone, and the appetites
+## still add up to the pool's own rations.
+func test_larder_reading_with_no_other_mouths() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(3)
+	economy.stockpile = {"grain": 5, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(read["appetites"], {"army": 0, "navy": 0, "pool": 3, "wards": 0})
+	assert_eq(int(read["strikers"]), 0, "five grain feeds three peasants")
 
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)

@@ -133,6 +133,6 @@ the tier's plate in `LedgerWorkers` — 28 px on a desktop row, 32 px on a phone
 row — and `LedgerWorkers.tier_marks()` exposes the rows' marks. `UnitMedallion` is
 the fixed-size, mipmapped `TextureRect` the dossiers place: `FleetPanel` leads
 its shipyard launch and break-up rows with it, `ArmyPanel` its roster and drill
-yard. `test_ui_rules.gd` fails when a catalog type or a worker tier has no plate,
+yard. `test_court_ui_parts.gd` fails when a catalog type or a worker tier has no plate,
 when two types resolve the same file, and when two tiers' marks measure as one
 metal.
