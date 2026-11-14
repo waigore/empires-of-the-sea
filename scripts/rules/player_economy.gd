@@ -39,6 +39,9 @@ var production: ProductionPlan = ProductionPlan.new()
 ## Recruit / muster / launch / hire orders placed this Orders phase; Build/work
 ## resolves them one turn later (wiki: workers-and-population § Phase placement).
 var recruits: RecruitQueue = RecruitQueue.new()
+## Hull types this crown has flown — craft the yard may rebuild without the
+## unlocking tech even after the last of that type is lost (issue #484).
+var shipcraft: Array[String] = []
 ## Researched techs; the research state owns the table so there is one truth.
 var tech_unlocked: Dictionary:
 	get:
@@ -113,6 +116,23 @@ func spend_treasury(amount: int) -> bool:
 		return false
 	treasury -= amount
 	return true
+
+
+## Remembers hull types currently afloat so a lost last sloop can still be laid
+## without Navigation. Flying any warship also teaches the sloop rebuild so a
+## lost frigate is not a 10,500-ducat dead end (issue #484).
+func note_shipcraft(types: Array) -> void:
+	var saw_warship: bool = false
+	for raw: Variant in types:
+		var type_id: String = ShipStats.normalize(String(raw))
+		if type_id.is_empty():
+			continue
+		if ShipStats.is_warship(type_id):
+			saw_warship = true
+		if not shipcraft.has(type_id):
+			shipcraft.append(type_id)
+	if saw_warship and not shipcraft.has("sloop"):
+		shipcraft.append("sloop")
 
 
 # --- workers -----------------------------------------------------------------
@@ -212,6 +232,7 @@ func copy() -> PlayerEconomy:
 	clone.research = research.copy()
 	clone.production = production.copy()
 	clone.recruits = recruits.copy()
+	clone.shipcraft = shipcraft.duplicate()
 	return clone
 
 
@@ -223,6 +244,7 @@ func snapshot() -> Dictionary:
 		"stockpile": stockpile.duplicate(),
 		"workers": workers.counts.duplicate(),
 		"navy_feeding": navy_feeding,
+		"shipcraft": shipcraft.duplicate(),
 		"research": {
 			"unlocked": research.unlocked.duplicate(),
 			"progress": research.progress.duplicate(),
@@ -248,6 +270,8 @@ func apply_snapshot(data: Dictionary) -> void:
 	for tier in WorkerPool.TIER_COUNT:
 		workers.set_count(tier, int(counts[tier]) if tier < counts.size() else 0)
 	navy_feeding = clampf(float(data.get("navy_feeding", 1.0)), 0.0, 1.0)
+	shipcraft.clear()
+	note_shipcraft(data.get("shipcraft", []) as Array)
 	var research_data: Variant = data.get("research", {})
 	if typeof(research_data) == TYPE_DICTIONARY:
 		_apply_research(research_data)

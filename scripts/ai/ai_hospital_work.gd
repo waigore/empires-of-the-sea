@@ -47,7 +47,7 @@ static func best_candidate(
 			model, unit, "build_hospital", tile, works, units, stockpile,
 			tech_caps, tech_unlocked, context, score
 		)
-		best = _better(best, candidate)
+		best = AiCivilianCandidate.better(best, candidate)
 	return best
 
 
@@ -60,21 +60,3 @@ static func holds_over_town_link(best: Dictionary, context: Dictionary) -> bool:
 	if action == "build_fort":
 		return true
 	return action == "build_hospital" and bool(context.get("at_war", false))
-
-
-## Higher score wins; row-major tile then action name break ties, matching the
-## civilian planner's own ordering.
-static func _better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var left: Vector2i = candidate["tile"]
-	var right: Vector2i = best["tile"]
-	if left.y != right.y:
-		return candidate if left.y < right.y else best
-	if left.x != right.x:
-		return candidate if left.x < right.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best

@@ -14,14 +14,8 @@ const KIND_DECLARE_WAR: String = AiDiplomacyPlanner.KIND_DECLARE_WAR
 const KIND_OFFER_PEACE: String = AiDiplomacyPlanner.KIND_OFFER_PEACE
 
 
-## `context` may carry "regiments", "ships" and "stockpiles" maps by faction, plus
-## "strengths": the order of battle the published power score reads, so a court
-## weighs relative power by FPN + FPM and not by a head count (wiki: diplomacy
-## § Great Power power score). "readings" is per court, the order of battle that
-## court has charted, so each rival scores its war desire against what it has seen
-## (DR-20261112-09), and "charts": the session's `CourtCharts`, so every
-## diplomacy read — the resource need behind a war and the land an envoy chain
-## would open — stays on the court's own chart (DR-20261113-03).
+## `context`: regiments/ships/stockpiles/strengths, per-court readings
+## (DR-20261112-09), charts (DR-20261113-03), hull_chests/warships (#484, #580).
 static func run(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -62,7 +56,9 @@ static func run(
 		var phase: Dictionary = AiPhasePlanner.plan(config, state)
 		var income: Dictionary = AiIncome.plan(
 			config, _ledger(ai_state, faction), AiIncome.at_war(state, faction),
-			int((shared.get("regiments", {}) as Dictionary).get(faction, 0))
+			int((shared.get("regiments", {}) as Dictionary).get(faction, 0)),
+			int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
+			int((shared.get("warships", {}) as Dictionary).get(faction, -1))
 		)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
 			config, state, ai_state, world, turn, _reading(shared, faction, income)
@@ -130,6 +126,9 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 		context["charts"] = supplied["charts"]
 	if supplied.has("stockpiles"):
 		context["stockpiles"] = supplied["stockpiles"]
+	for key: String in ["hull_chests", "warships"]:
+		if supplied.has(key):
+			context[key] = supplied[key]
 	return context
 
 

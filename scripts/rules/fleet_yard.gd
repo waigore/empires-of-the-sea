@@ -10,7 +10,9 @@ extends RefCounted
 ## One ledger row per catalog type, payable rows first so the yard leads with
 ## what can launch today. `at_home` is false when the crown has no capital port
 ## to launch from; every row then carries that reason.
-static func rows(economy: PlayerEconomy, at_home: bool = true) -> Array[Dictionary]:
+static func rows(
+	economy: PlayerEconomy, at_home: bool = true, flown: Array = []
+) -> Array[Dictionary]:
 	var open_rows: Array[Dictionary] = []
 	var locked: Array[Dictionary] = []
 	if economy == null:
@@ -22,7 +24,8 @@ static func rows(economy: PlayerEconomy, at_home: bool = true) -> Array[Dictiona
 		var reason: String = ""
 		if at_home:
 			reason = ShipEconomy.blocked_reason(
-				type_id, economy.treasury, economy.stockpile, peasants, economy.tech_unlocked
+				type_id, economy.treasury, economy.stockpile, peasants,
+				economy.tech_unlocked, flown
 			)
 		else:
 			reason = "Launch hulls at your capital port."
@@ -45,7 +48,11 @@ static func rows(economy: PlayerEconomy, at_home: bool = true) -> Array[Dictiona
 ## Pays for one hull and appends it to the fleet. `hull_id` is the caller's
 ## stable instance id (wiki: ships-and-naval § Ship instances).
 static func launch(
-	economy: PlayerEconomy, fleet: FleetState, type_id: String, hull_id: String
+	economy: PlayerEconomy,
+	fleet: FleetState,
+	type_id: String,
+	hull_id: String,
+	flown: Array = []
 ) -> Dictionary:
 	if economy == null or fleet == null:
 		return _deny("There is no fleet to launch into.")
@@ -54,7 +61,8 @@ static func launch(
 		economy.treasury,
 		economy.stockpile,
 		economy.available_peasants(),
-		economy.tech_unlocked
+		economy.tech_unlocked,
+		flown
 	)
 	if not reason.is_empty():
 		return _deny(reason)

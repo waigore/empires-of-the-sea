@@ -2055,6 +2055,47 @@ func test_ai_civilian_leaves_a_working_unit_alone() -> void:
 	assert_true((plan["moves"] as Array).is_empty())
 
 
+## One ranker for every civilian work module (REQ-P3-01 reuse): the highest
+## score wins, and a tie falls back to the earlier tile, then the earlier action
+## name, so two closures over one tile never depend on evaluation order.
+func test_civilian_candidate_ranking_is_one_shared_rule() -> void:
+	var low: Dictionary = {"action": "build_road", "tile": Vector2i(4, 4), "score": 10}
+	var high: Dictionary = {"action": "build_rail", "tile": Vector2i(9, 9), "score": 30}
+	assert_eq(
+		String(AiCivilianCandidate.better(low, high)["action"]), "build_rail"
+	)
+	assert_eq(String(AiCivilianCandidate.better(high, low)["action"]), "build_rail")
+	var east: Dictionary = {"action": "build_road", "tile": Vector2i(5, 2), "score": 10}
+	var north: Dictionary = {"action": "build_road", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(AiCivilianCandidate.better(east, north)["tile"], Vector2i(1, 1))
+	var rail: Dictionary = {"action": "build_rail", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(String(AiCivilianCandidate.better(rail, north)["action"]), "build_rail")
+	assert_eq(String(AiCivilianCandidate.better(north, rail)["action"]), "build_rail")
+	assert_eq(
+		AiCivilianCandidate.better(low, {}).get("action"), low["action"],
+		"an empty candidate never displaces a real one"
+	)
+	assert_eq(AiCivilianCandidate.better({}, low).get("action"), low["action"])
+	assert_true(AiCivilianCandidate.better({}, {}).is_empty())
+
+
+## A closure that decides somewhere other than where its unit stands ranks by
+## that site, so a sailed charter is ordered by its destination.
+func test_civilian_candidate_ranks_by_site_before_the_unit() -> void:
+	var stand: Vector2i = CivilianFixture.BARE_TILE
+	var unit: CivilianState = CivilianState.create(1, 0, "merchant", stand)
+	assert_eq(AiCivilianCandidate.rank_tile({"tile": Vector2i(3, 1)}), Vector2i(3, 1))
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"tile": CivilianState.NO_TILE, "target": Vector2i(7, 2)}),
+		Vector2i(7, 2)
+	)
+	assert_eq(AiCivilianCandidate.rank_tile({"unit": unit}), stand)
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"action": "sail"}),
+		CivilianState.NO_TILE
+	)
+
+
 func test_ai_civilian_never_plans_another_courts_units() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var rival: CivilianState = CivilianState.create(
@@ -2437,6 +2478,52 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 		String(plain["assignments"][0]["tech"]), "diplomatic_expertise",
 		"without a door the ordinary ranking stands"
 	)
+
+
+## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
+## the same door pattern a Tribe chain uses, so the chest fills for a hull the
+## yard will actually accept.
+## Issue #484: while the navy chest is the money-goal reserve, the standing
+## study must not drip 50 ducats a turn — that income has to reach the yard.
+func test_a_navy_chest_defers_the_standing_study() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(400)
+	# An empty slot + a purse parked under the surplus ladder: without deferral
+	# the standing study still fills it at the cheapest preset (#490).
+	var without: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": 5500, "cash_floor": 500}
+	)
+	assert_false(without["assignments"].is_empty(), "standing study fills a slot")
+	assert_eq(
+		String(without["assignments"][0]["funding"]),
+		AiResearchPlanner.STANDING_FUNDING
+	)
+	var with_hull: Dictionary = AiResearchPlanner.plan(
+		config, economy, {
+			"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true
+		}
+	)
+	assert_true(
+		with_hull["assignments"].is_empty(),
+		"the navy chest pays no standing study — every ducat waits for the yard"
+	)
+
+
+func test_a_due_navy_studies_the_unlock_before_other_branches() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var door: String = AiNavy.unlock_tech(economy)
+	assert_eq(door, "superior_hull_design", "the first door on the path to a sloop")
+	var plan: Dictionary = AiResearchPlanner.plan(config, economy, {"door": door})
+	assert_false(plan["assignments"].is_empty())
+	assert_eq(
+		String(plan["assignments"][0]["tech"]), door,
+		"the navy door is taken first"
+	)
+	economy.tech_unlocked[door] = true
+	assert_eq(AiNavy.unlock_tech(economy), ShipEconomy.tech_for("sloop"))
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(AiNavy.unlock_tech(economy), "", "open, so no navy door remains")
 
 
 func test_research_personality_weights_steer_the_branch() -> void:
@@ -3233,31 +3320,74 @@ func test_an_earning_court_bids_no_imports() -> void:
 # --- the fleet claim: the hull a court saves for (issue #484) ----------------
 
 
-## A court at war with no fighting hull, or one outmatched at sea, means to lay
-## one down; a fleet that matches its enemies has nothing to save for.
+## A court with no fighting hull, or one outmatched at sea, means to lay one
+## down; a fleet that matches its enemies has nothing to save for.
 func test_the_fleet_claim_reads_the_war_and_the_odds_at_sea() -> void:
 	var economy: PlayerEconomy = _purse(0)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
 
-	assert_false(AiNavy.due(false, 0, 5), "a court at peace lays down no hull")
+	assert_true(AiNavy.due(false, 0, 5), "no fighting hull: rebuild even at peace")
 	assert_true(AiNavy.due(true, 0, 0), "a court at war with no fighting hull wants one")
 	assert_true(AiNavy.due(true, 1, 2), "outmatched at sea, it wants one too")
 	assert_false(AiNavy.due(true, 2, 2), "a fleet that matches its enemies holds")
+	assert_false(AiNavy.due(false, 2, 5), "at peace with hulls, no yard claim")
 	assert_eq(AiNavy.chest(true, 2, 2, economy), 0, "and reserves nothing for the yard")
-	assert_eq(AiNavy.chest(false, 0, 3, economy), 0, "peace reserves nothing either")
+	assert_eq(
+		AiNavy.chest(false, 0, 3, economy), ShipEconomy.treasury_cost("sloop"),
+		"peace still reserves the yard when no fighting hull remains"
+	)
 
 
-## The chest is the yard row of the cheapest warship the court's techs open: the
-## price a saving court must hold, not the one it could pay today.
+## Issue #484: a court that already flies a sloop may rebuild it without
+## Navigation — the craft is aboard — so the chest opens at once.
+func test_a_court_that_flies_a_sloop_can_rebuild_it_without_navigation() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	var flown: Array[String] = ["sloop"]
+	assert_eq(AiNavy.saving_type(economy, flown), "sloop")
+	assert_eq(AiNavy.unlock_tech(economy, flown), "", "already flown, no door")
+	assert_eq(
+		AiNavy.chest(true, 0, 1, economy, flown), ShipEconomy.treasury_cost("sloop"),
+		"the chest opens without the tech unlock"
+	)
+	assert_true(ShipEconomy.buildable("sloop", {}, flown))
+
+
+## Issue #484: shipcraft remembers a lost last sloop so the yard stays open.
+func test_shipcraft_remembers_a_lost_sloop() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	economy.note_shipcraft(["sloop"])
+	assert_true(economy.shipcraft.has("sloop"))
+	assert_true(ShipEconomy.buildable("sloop", {}, economy.shipcraft))
+	assert_eq(AiNavy.unlock_tech(economy, economy.shipcraft), "")
+	assert_eq(
+		AiNavy.chest(false, 0, 0, economy, economy.shipcraft),
+		ShipEconomy.treasury_cost("sloop")
+	)
+
+
+## The chest is the yard row of the cheapest warship: a type the court's techs
+## already open, else the catalog's cheapest so the court saves while it studies
+## the unlock (issue #484).
 func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
 	var economy: PlayerEconomy = _purse(0)
 
-	assert_eq(AiNavy.saving_type(economy), "", "no naval tech opens no warship")
-	assert_eq(AiNavy.price(economy), 0)
-	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "so the court saves for nothing")
+	assert_eq(AiNavy.saving_type(economy), "sloop", "the catalog names the hull it means to lay")
+	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		AiNavy.chest(true, 0, 1, economy), 0,
+		"no chest while the unlock is still shut — research must be able to pay"
+	)
+	assert_eq(
+		AiNavy.unlock_tech(economy), "superior_hull_design",
+		"Navigation's prerequisite is the first door"
+	)
 
+	economy.tech_unlocked["superior_hull_design"] = true
+	assert_eq(AiNavy.unlock_tech(economy), ShipEconomy.tech_for("sloop"))
+	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "still shut until Navigation lands")
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
 	assert_eq(AiNavy.saving_type(economy), "sloop")
-	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(AiNavy.unlock_tech(economy), "", "open, so research walks no navy door")
 	assert_eq(AiNavy.chest(true, 0, 1, economy), ShipEconomy.treasury_cost("sloop"))
 
 	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
@@ -3265,20 +3395,21 @@ func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
 
 
 ## A hull the court can already pay for outranks the muster: the purse is the
-## fleet's, the army waits (issue #484).
+## fleet's, the army waits (issue #484). A ducat short with fighting hulls still
+## afloat, the unaffordable chest yields to the muster (#591).
 func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 
 	assert_true(chest > muster, "the hull is the larger commitment")
-	var plan: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest)
+	var plan: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest, 1)
 	assert_eq(String(plan["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
 	assert_eq(int(plan["reserve"]), chest, "the reserve is the hull, not the muster")
 	assert_eq(int(plan["hull_chest"]), chest)
-	var short: Dictionary = AiIncome.plan(config, _purse(chest - 1), true, 1, chest)
+	var short: Dictionary = AiIncome.plan(config, _purse(chest - 1), true, 1, chest, 1)
 	assert_eq(int(short["reserve"]), muster, "a ducat short, the yard's price is not the reserve")
 	assert_eq(String(short["goal"]), AiIncome.GOAL_SPEND, "so the court is not frozen on earn")
 	assert_eq(
@@ -3287,22 +3418,21 @@ func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
 	)
 
 
-## Issue #591: unlocking a warship used to jump the reserve to the yard's price
-## and starve the muster for the rest of the campaign, while the court oscillated
-## one payment short of a hull no planner ever laid.
+## Issue #591: an outmatched court that still has a fighting hull does not freeze
+## the purse on an unaffordable yard price — the muster it can pay for leads.
 func test_a_chest_the_court_cannot_fill_waits_behind_the_muster() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 
-	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest), 0, "the yard holds nothing")
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 1), 0, "the yard holds nothing")
 	assert_eq(
-		AiIncome.reserve(config, economy, true, 1, chest), muster,
+		AiIncome.reserve(config, economy, true, 1, chest, 1), muster,
 		"a court under its target saves for the regiment it can raise"
 	)
-	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest)
+	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest, 1)
 	assert_eq(int(plan["reserve"]), muster)
 	assert_eq(int(plan["hull_chest"]), chest, "the yard's price is still the reading")
 
@@ -3312,21 +3442,28 @@ func test_a_chest_the_court_cannot_fill_waits_behind_the_muster() -> void:
 		"army.war_extra"
 	)
 	assert_eq(
-		AiIncome.hull_held(config, economy, true, at_target, chest), chest,
+		AiIncome.hull_held(config, economy, true, at_target, chest, 1), chest,
 		"a court at target saves for its hull again"
 	)
 	# A hull its techs never open is no claim at all.
-	assert_eq(AiIncome.hull_held(config, economy, true, 1, 0), 0)
-	assert_eq(AiIncome.hull_held(null, economy, true, 1, chest), chest, "no config, no claim")
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, 0, 1), 0)
+	assert_eq(AiIncome.hull_held(null, economy, true, 1, chest, 1), chest, "no config, no claim")
+	# Fleetless rebuild holds the chest even under the muster (#484).
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 0), chest)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1, chest, 0), chest,
+		"at peace a lost last sloop still reserves the yard"
+	)
 
 
 ## The muster reads the same rule: a chest it cannot fill is not the army's
-## ceiling, so the regiment it can pay for is raised (issue #591).
+## ceiling when fighting hulls remain, so the regiment it can pay for is raised
+## (issue #591).
 func test_the_muster_spends_a_chest_it_cannot_fill() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var plan: Dictionary = AiArmyReinforce.plan(config, economy, 1, true, 0, -1, chest)
 
 	assert_eq(
@@ -4019,21 +4156,6 @@ func test_a_fort_always_holds_over_the_town_sweep() -> void:
 		{"action": "build_hospital"}, _hospital_context(true)
 	))
 	assert_false(AiHospitalWork.holds_over_town_link({}, _hospital_context(true)))
-
-
-func test_the_tie_break_is_row_major_then_action_name() -> void:
-	var upper: Dictionary = {"action": "build_hospital", "tile": Vector2i(1, 2), "score": 40}
-	var lower: Dictionary = {"action": "build_hospital", "tile": Vector2i(4, 3), "score": 40}
-	var left: Dictionary = {"action": "build_hospital", "tile": Vector2i(2, 3), "score": 40}
-	var early: Dictionary = {"action": "build_fort", "tile": Vector2i(1, 2), "score": 40}
-	assert_eq(Vector2i(AiHospitalWork._better(lower, upper)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(upper, lower)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(lower, left)["tile"]), Vector2i(2, 3))
-	assert_eq(Vector2i(AiHospitalWork._better(left, lower)["tile"]), Vector2i(2, 3))
-	assert_eq(String(AiHospitalWork._better(upper, early)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better(early, upper)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better({}, upper)["action"]), "build_hospital")
-	assert_eq(String(AiHospitalWork._better(upper, {})["action"]), "build_hospital")
 
 
 ## AI engineers connect every province town to the capital network (wiki:

@@ -9,8 +9,9 @@ extends RefCounted
 ## The default chart recipe seed. The ship muster offsets it per region, so
 ## every campaign musters the same squadrons on the same chart recipe.
 const MAP_SEED: int = 1500
-## Hulls mustered per region at game start.
-const SHIP_COUNT: int = 7
+## Squadrons mustered per region at game start. At least one per Great Power
+## after the player's three, so `_ensure_warship` never adds a spare (issue #484).
+const SHIP_COUNT: int = 8
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
 
