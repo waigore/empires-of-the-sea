@@ -39,7 +39,48 @@ func build(
 		var fleet: FleetState = _make_fleet(model, index, owner, player_capital, player)
 		_assign_hulls(fleet, index)
 		fleets.append(fleet)
+	# Every Great Power keeps at least one fighting hull so a lost warship can
+	# be rebuilt from craft already flown (issue #484).
+	_ensure_warship(fleets, model)
 	return fleets
+
+
+## Adds a sloop to the first squadron of any owner that still has only merchants,
+## or founds a new coastal squadron for a Great Power that received no fleet.
+func _ensure_warship(fleets: Array[FleetState], model: MapModel) -> void:
+	var has_warship: Dictionary = {}
+	var has_fleet: Dictionary = {}
+	var next_id: int = 0
+	for fleet: FleetState in fleets:
+		if fleet == null:
+			continue
+		has_fleet[fleet.owner] = true
+		next_id = maxi(next_id, fleet.id + 1)
+		if bool(has_warship.get(fleet.owner, false)):
+			continue
+		for hull_id: String in fleet.hulls:
+			if ShipStats.is_warship(fleet.type_of(hull_id)):
+				has_warship[fleet.owner] = true
+				break
+	for fleet: FleetState in fleets:
+		if fleet == null or bool(has_warship.get(fleet.owner, false)):
+			continue
+		var hull_id: String = "ship_%d" % next_hull
+		next_hull += 1
+		fleet.add_hull(hull_id, "sloop")
+		has_warship[fleet.owner] = true
+	for power: int in FactionCatalog.great_power_ids():
+		if bool(has_warship.get(power, false)):
+			continue
+		var fleet: FleetState = _make_fleet(model, next_id, power, -1, -1)
+		next_id += 1
+		fleet.set_hulls([], {})
+		var hull_id: String = "ship_%d" % next_hull
+		next_hull += 1
+		fleet.add_hull(hull_id, "sloop")
+		fleets.append(fleet)
+		has_warship[power] = true
+		has_fleet[power] = true
 
 
 ## Fleets belong to Great Powers only; the player owns squadrons where it holds land.

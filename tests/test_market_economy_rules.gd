@@ -2854,6 +2854,22 @@ func test_capacity_counts_only_the_crowns_squadrons_in_port_at_its_seat() -> voi
 	assert_eq(TradeCargo.capacity(world, fleets, 0), 7)
 	assert_eq(TradeCargo.capacity(world, fleets, 1), 0)
 
+func test_a_fleetless_seat_harbour_grants_one_hold() -> void:
+	# A court with no merchant hull still imports one ton from its seat harbour
+	# so it can buy the cloth for a first launch (issue #484, DR-20261114-11).
+	var world: WorldMap = _trade_cargo_world()
+	assert_eq(TradeCargo.capacity(world, {}, 0), TradeCargo.PORT_ALLOWANCE)
+	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
+	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.fleet_holds(warships), 0)
+
+func test_merchants_away_from_the_seat_do_not_get_the_port_allowance() -> void:
+	# Holds that exist but have sortied stay at 0 — the allowance is for a
+	# fleetless court, not a home squadron that left the harbour.
+	var world: WorldMap = _trade_cargo_world()
+	var at_sea := FleetState.at_sea(2, 0, 0, ["c"], {"c": "fluyte"})
+	assert_eq(TradeCargo.capacity(world, {0: [at_sea]}, 0), 0)
+
 func test_a_crown_without_a_seat_has_no_cargo() -> void:
 	var world: WorldMap = _trade_cargo_world()
 	var home := FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})

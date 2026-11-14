@@ -2002,6 +2002,7 @@ func _readings() -> Dictionary:
 		"ships": 2,
 		"warships": 4,
 		"warship_price": 5500,
+		"warship_open": true,
 		"hostile_ships": 0,
 		"hostile_warships": 0,
 		"treasury": 2000,
@@ -2197,13 +2198,15 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 
 
 ## A court whose techs open no warship says so instead of claiming a hull it can
-## never lay — the trace used to read `funded` forever (issue #484).
+## never lay — the trace used to read `funded` forever (issue #484). The chest
+## is still priced so the money goal can save while research opens the door.
 func test_a_court_with_no_warship_open_blocks_the_build() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
 	readings["warships"] = 0
 	readings["hostile_warships"] = 2
-	readings["warship_price"] = 0
+	readings["warship_price"] = 5500
+	readings["warship_open"] = false
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "the yard is still the court's aim")
@@ -2225,9 +2228,17 @@ func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> vo
 	)
 
 
-func test_a_court_at_peace_lays_down_nothing() -> void:
+func test_a_court_at_peace_with_no_fighting_hull_still_rebuilds() -> void:
 	var readings: Dictionary = _readings()
 	readings["warships"] = 0
+	readings["warship_open"] = true
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_true(build != null, "a lost last warship is replaced even at peace")
+
+
+func test_a_court_at_peace_with_hulls_lays_down_nothing() -> void:
+	var readings: Dictionary = _readings()
+	readings["warships"] = 2
 	assert_eq(_by_id(AiObjectivesPlan.build(readings), "navy.build"), null)
 
 
@@ -2538,18 +2549,25 @@ func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
 
 ## Issue #484: the fleet claim holds the hull's material row the way the muster
 ## holds its own — the cloth and lumber the yard wants, read off the catalog for
-## the cheapest warship the court's techs open.
+## the cheapest warship (open, or the one the court is studying toward).
 func test_the_fleet_claim_knows_the_hull_s_material_row() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	assert_true(AiNavy.saving_row(economy).is_empty(), "no warship open, no row")
+	assert_eq(
+		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
+		"the row is reserved while the unlock is still shut"
+	)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
 	assert_eq(
 		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
 		"the row the yard charges for the hull it is saving for"
 	)
+	assert_eq(
+		AiNavy.due_row(false, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
+		"no fighting hull: the row is held even at peace"
+	)
 	assert_true(
-		AiNavy.due_row(false, 0, 3, economy).is_empty(),
-		"a court at peace is not saving for a hull"
+		AiNavy.due_row(false, 2, 3, economy).is_empty(),
+		"at peace with hulls, no fleet claim"
 	)
 	assert_eq(
 		AiNavy.due_row(true, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
@@ -2557,10 +2575,10 @@ func test_the_fleet_claim_knows_the_hull_s_material_row() -> void:
 	)
 
 
-## Issue #484: a court that saved the whole chest but sold its cloth reads a
-## deferred fleet claim naming the missing row, instead of a funded launch the
-## yard would refuse.
-func test_a_fleet_claim_short_of_cloth_defers_and_names_the_row() -> void:
+## Issue #484: a court that saved the whole chest but sold its cloth still
+## funds the treasury claim (cloth stays on AiClaims.NAVY, not double-booked on
+## the objective), yet the yard refuses the launch without fabric.
+func test_a_fleet_claim_short_of_cloth_does_not_launch() -> void:
 	var war: DiplomacyState = _court()
 	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
 	var play: PlaySession = _objective_session(war)
@@ -2569,19 +2587,14 @@ func test_a_fleet_claim_short_of_cloth_defers_and_names_the_row() -> void:
 	economy.stockpile["lumber"] = 10
 	economy.stockpile["fabric"] = 0
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var report: Dictionary = MapPlayObjectivesAi.run(play)
-	var line: String = ""
-	for raw: Variant in (report[OBJ_OWNER] as Dictionary)["lines"]:
-		if String(raw).begins_with("navy.build"):
-			line = String(raw)
-	assert_true(line.contains("fabric 0/1"), "the trace names the row that blocked it: %s" % line)
-	assert_false(
+	MapPlayObjectivesAi.run(play)
+	assert_true(
 		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
-		"a hull whose row the court does not hold is not funded"
+		"the chest claim funds without double-booking cloth"
 	)
 	assert_true(
 		(MapPlayCargoAi.run(play, OBJ_OWNER, economy).get("warship", {}) as Dictionary).is_empty(),
-		"and no hull is laid down"
+		"the yard still refuses without fabric"
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
