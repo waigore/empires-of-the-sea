@@ -233,9 +233,13 @@ func set_view_rect(rect: Rect2) -> void:
 
 
 func _draw() -> void:
+	var fit: Rect2 = _fit_rect()
+	# Plate under the chart: parchment, so an inset that was never built (a
+	# mount that missed `set_minimap`) reads as an empty cartouche instead of
+	# the frame's near-black fill (issue #563).
+	draw_rect(fit, Palette.PAPER)
 	if _texture == null or model == null:
 		return
-	var fit: Rect2 = _fit_rect()
 	draw_texture_rect(_texture, fit, false)
 	_draw_ink()
 	_draw_capitals()

@@ -114,6 +114,34 @@ func test_minimap_repaints_when_a_province_is_charted() -> void:
 	assert_ne(before, after, "a charted tile repaints the inset")
 
 
+## Issue #563: the inset must already be painted by the mount. A mount that
+## skips `set_minimap` leaves the frame's near-black panel showing, which reads
+## as a broken chart; this pins the mounted size, the built texture and real
+## chart pixels (never a solid near-black fill, never one flat wash).
+func test_the_mounted_minimap_paints_the_region_chart() -> void:
+	var minimap: Minimap = _screen.hud._minimap
+	assert_not_null(minimap, "the campaign mount keeps a minimap inset")
+	assert_gt(minimap.size.x, 0.0, "the inset is laid out, not a zero-size control")
+	assert_gt(minimap.size.y, 0.0)
+	assert_not_null(minimap._texture, "the mount built the chart texture")
+	var image: Image = minimap._texture.get_image()
+	var dark: int = 0
+	var total: int = 0
+	var washes := {}
+	var step_x: int = maxi(1, image.get_width() / 12)
+	var step_y: int = maxi(1, image.get_height() / 12)
+	for y in range(0, image.get_height(), step_y):
+		for x in range(0, image.get_width(), step_x):
+			var colour: Color = image.get_pixel(x, y)
+			total += 1
+			if colour.r < 0.16 and colour.g < 0.16 and colour.b < 0.16:
+				dark += 1
+			washes[colour.to_rgba32()] = true
+	assert_gt(total, 0, "the inset has pixels to read")
+	assert_lt(float(dark) / float(total), 0.4, "the inset is not a solid near-black fill")
+	assert_gt(washes.size(), 3, "the inset shows terrain, not one flat wash")
+
+
 func test_country_borders_are_built_for_every_owner() -> void:
 	var borders: Dictionary = _screen.overlay._country_borders
 	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
