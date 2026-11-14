@@ -39,15 +39,19 @@ func build(
 		var fleet: FleetState = _make_fleet(model, index, owner, player_capital, player)
 		_assign_hulls(fleet, index)
 		fleets.append(fleet)
-	# Every Great Power keeps at least one fighting hull so a lost warship can
-	# be rebuilt from craft already flown (issue #484).
-	_ensure_warship(fleets, model)
+	# Every Great Power that seats a squadron keeps at least one fighting hull
+	# so a lost warship can be rebuilt from craft already flown (issue #484).
+	_ensure_warship(fleets, model, player_present, player)
 	return fleets
 
 
 ## Adds a sloop to the first squadron of any owner that still has only merchants,
-## or founds a new coastal squadron for a Great Power that received no fleet.
-func _ensure_warship(fleets: Array[FleetState], model: MapModel) -> void:
+## or founds a new coastal squadron for a Great Power that drew no slot. Skips
+## the player when they hold no land here — the crown's Old World craft still
+## remembers the hull for rebuilds.
+func _ensure_warship(
+	fleets: Array[FleetState], model: MapModel, player_present: bool, player: int
+) -> void:
 	var has_warship: Dictionary = {}
 	var has_fleet: Dictionary = {}
 	var next_id: int = 0
@@ -71,6 +75,8 @@ func _ensure_warship(fleets: Array[FleetState], model: MapModel) -> void:
 		has_warship[fleet.owner] = true
 	for power: int in FactionCatalog.great_power_ids():
 		if bool(has_warship.get(power, false)):
+			continue
+		if not player_present and power == player:
 			continue
 		var fleet: FleetState = _make_fleet(model, next_id, power, -1, -1)
 		next_id += 1
