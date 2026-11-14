@@ -10,9 +10,12 @@ extends RefCounted
 
 ## Resources an objective may claim, in the trace's reading order. Treasury is
 ## ducats, hull a slip at the yard, civilian the next train slot, regiment the
-## next muster slot, labour a crew hand, orders the court's one order a turn.
+## next muster slot, labour a crew hand, orders the court's one order a turn,
+## and standing the one standing-study budget a turn (#590): the bounded
+## exception that may dip into the chest the muster claims, so the ledger
+## prices it beside the chest instead of losing the purse race to it.
 const RESOURCES: Array[String] = [
-	"treasury", "hull", "civilian", "regiment", "labour", "orders",
+	"treasury", "hull", "civilian", "regiment", "labour", "orders", "standing",
 ]
 ## A pool no caller states is not scarce: a claim against it always succeeds.
 const UNBOUNDED: int = 1 << 30

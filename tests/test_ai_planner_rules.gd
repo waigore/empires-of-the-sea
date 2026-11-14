@@ -2091,6 +2091,148 @@ func test_a_court_with_no_charted_tribe_prices_no_chain() -> void:
 	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "colonise.tribe_chain"), null)
 
 
+# --- the deferred-aim escalation (issue #603) --------------------------------
+
+
+func _row(id: String, status: String, shortfall: Dictionary = {}) -> Dictionary:
+	var row: Dictionary = {"id": id, "status": status}
+	if not shortfall.is_empty():
+		row["shortfall"] = shortfall
+	return row
+
+
+func test_a_stalled_aim_counts_its_deferred_turns() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1)
+	# Standing still is the same stall — and so is falling further behind: the
+	# count only restarts when the shortfall actually shrinks (issue #603).
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 2)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2200})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 3)
+
+
+func test_an_aim_that_closes_its_shortfall_restarts_the_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2000})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"progress is not a stall: the count restarts"
+	)
+
+
+func test_a_funded_or_absent_aim_clears_its_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_FUNDED, {"treasury": 0})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 0, "funded ends the stall")
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	# The note rebuilds from this turn's rows, so an aim the court no longer
+	# emits (at target, say) leaves no record behind.
+	records = AiDeferral.note(records, [])
+	assert_eq(AiDeferral.stall(records, "muster.line"), 0)
+
+
+func test_a_starved_parent_carries_no_stall_of_its_own() -> void:
+	# The parent names the child that starved it; the child's shortfall is the
+	# stall the tracker follows, so the parent's empty shortfall counts nothing.
+	var parent: Dictionary = _row("colonise.new_world", AiObjective.STATUS_DEFERRED)
+	parent["children"] = [
+		_row("expedition.hull", AiObjective.STATUS_DEFERRED, {"hull": 1}),
+	]
+	var records: Dictionary = AiDeferral.note({}, [parent])
+	assert_eq(AiDeferral.stall(records, "colonise.new_world"), 0)
+	assert_eq(AiDeferral.stall(records, "expedition.hull"), 1)
+
+
+func test_a_blocked_aim_keeps_the_stall_its_reason_names() -> void:
+	# An escalation-blocked reading keeps the count (so the escalation stays
+	# applied while the aim stays out of reach); a rule-blocked aim never had a
+	# record to keep.
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})])
+	records = AiDeferral.note(records, [_row("muster.line", AiObjective.STATUS_BLOCKED)])
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 2,
+		"blocked keeps the stall it names"
+	)
+	records = AiDeferral.note({}, [_row("expedition.hull", AiObjective.STATUS_BLOCKED)])
+	assert_eq(AiDeferral.stall(records, "expedition.hull"), 0)
+
+
+func test_the_escalated_map_names_the_aims_past_the_bar() -> void:
+	var records: Dictionary = {}
+	var rows: Array = []
+	for turn in 12:
+		rows.append(_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100}))
+		records = AiDeferral.note(records, rows)
+	var escalated: Dictionary = AiDeferral.escalated(records, 10)
+	assert_true(escalated.has("muster.line"), "a 12-turn stall escalates")
+	assert_eq(int(escalated["muster.line"]), 12)
+	assert_true(AiDeferral.escalated(records, 13).is_empty(), "13 turns would not")
+	assert_true(
+		AiDeferral.escalated(records, 1).has("muster.line"),
+		"every recorded stall is at least 1"
+	)
+
+
+func test_a_muster_stalled_past_the_blocked_bar_names_its_reason() -> void:
+	# The escalation's explicit terminal reading: a stall past the blocked bar
+	# is a blocked row with its reason, never another silent deferred line.
+	var readings: Dictionary = _readings()
+	readings["blockings"] = {"muster.line": 41}
+	var muster: AiObjective = _by_id(AiObjectivesPlan.build(readings), "muster.line")
+	assert_eq(muster.status, AiObjective.STATUS_BLOCKED)
+	assert_true(String(muster.blocked).contains("41"), "the stall length is named")
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"treasury": 2000, "regiment": 1, "labour": 1, "orders": 1}
+	)
+	assert_eq(int(report["blocked"]), 1, "a blocked muster claims nothing")
+
+	readings["blockings"] = {}
+	assert_eq(
+		String(_by_id(AiObjectivesPlan.build(readings), "muster.line").blocked), "",
+		"a stall below the bar stays a deferred row"
+	)
+
+
+func test_an_unpayable_study_reads_blocked_not_funded() -> void:
+	# A study the purse cannot fund must never read `funded` at zero gold: the
+	# refusal the planner made is the row's reason (issue #590).
+	var readings: Dictionary = _readings()
+	readings["research_cost"] = 50
+	readings["research_refusal"] = "purse under half the cash floor"
+	var study: AiObjective = _by_id(AiObjectivesPlan.build(readings), "research.study")
+	assert_eq(study.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(String(study.blocked), "purse under half the cash floor")
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"treasury": 40, "orders": 1, "hull": 1, "civilian": 1}
+	)
+	assert_eq(String(study.status), AiObjective.STATUS_BLOCKED, "a blocked study funds nothing")
+	assert_true((study.claim as Dictionary).is_empty(), "a blocked study claims nothing")
+
+
+
 func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
@@ -2432,7 +2574,8 @@ func test_the_turn_trace_carries_every_objective() -> void:
 func test_the_ledger_prices_the_standing_study_not_the_war_chest() -> void:
 	# The surplus ladder reads the money-goal reserve, so at war no slot pays the
 	# published preset; the one standing study at Low is what the court actually
-	# spends, and the ledger must name that figure (issue #490).
+	# spends, and the ledger must name that figure — beside the chest the muster
+	# claims, not against the purse the chest consumes (issues #490, #590).
 	var court: DiplomacyState = _court()
 	court.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
 	var play: PlaySession = _objective_session(court)
@@ -2443,10 +2586,64 @@ func test_the_ledger_prices_the_standing_study_not_the_war_chest() -> void:
 		if String(row["id"]) == "research.study":
 			study = row
 	assert_false(study.is_empty(), "the study is priced")
+	assert_eq(int((study["cost"] as Dictionary).get("standing", 0)), 1,
+		"one standing study at Low, priced on its own budget")
 	assert_eq(
-		int((study["cost"] as Dictionary).get("treasury", 0)), 50,
-		"one standing study at Low, not three slots on the war chest"
+		String(study["status"]), AiObjective.STATUS_FUNDED,
+		"the bounded exception funds even under the chest claim"
 	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_a_broke_court_reads_a_blocked_study_not_a_funded_zero() -> void:
+	# A purse under half the cash floor funds no study; the ledger says so
+	# instead of reading a 0-gold study as funded for 200 turns (issue #590).
+	var play: PlaySession = _objective_session(_court())
+	play.ai.economy_for(OBJ_OWNER).treasury = 40
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OBJ_OWNER)
+	var study: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "research.study":
+			study = row
+	assert_eq(String(study["status"]), AiObjective.STATUS_BLOCKED)
+	assert_eq(String(study["blocked"]), "purse under half the cash floor")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_a_stalled_war_chest_re_routes_the_reserve() -> void:
+	# The escalation's acting lever (issue #603): a muster deferred past the
+	# escalation bar with its shortfall standing still drops the war chest out
+	# of the reserve, so every spend floor that reads it opens. The muster row
+	# itself stays deferred (the blocked bar is farther out), and the report
+	# names the escalation.
+	var court: DiplomacyState = _court()
+	court.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(court)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 300
+	var rows: Array = []
+	var stall: Dictionary = {}
+	for turn in 12:
+		rows = [{
+			"id": "muster.line", "status": AiObjective.STATUS_DEFERRED,
+			"shortfall": {"treasury": 2100},
+		}]
+		stall = {"objectives": rows}
+		play.ai.note_objectives(OBJ_OWNER, stall, play.turn)
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OBJ_OWNER)
+	var floor: int = AiConfig.build(OBJ_OWNER, OBJ_SEED).parameter("economy.min_treasury")
+	assert_eq(
+		int(report["reserve"]), floor,
+		"a stalled chest re-routes to the cash floor"
+	)
+	var escalations: Dictionary = report["escalations"]
+	assert_true(escalations.has("muster.line"), "the escalation rides the report")
+	assert_eq(int(escalations["muster.line"]), 12)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
 
 
 ## The voyage musters behind the ledger's claim (issue #491 T2): a funded hull
@@ -2805,8 +3002,30 @@ func test_a_save_round_trips_the_ledger() -> void:
 	assert_eq(String((claim["lines"] as Array)[0]), "colonise.new_world u50 hull 0/1 deferred")
 
 
+func test_a_save_round_trips_the_deferral_stalls() -> void:
+	# The escalation's records ride the save, so a stalled war chest survives a
+	# load instead of restarting its count (issue #603).
+	var state := AiState.new()
+	var rows: Array = []
+	for turn in 3:
+		rows = [{
+			"id": "muster.line", "status": AiObjective.STATUS_DEFERRED,
+			"shortfall": {"treasury": 2100},
+		}]
+		state.note_objectives(OBJ_OWNER, {"objectives": rows}, turn)
+	assert_eq(AiDeferral.stall(state.deferrals_for(OBJ_OWNER), "muster.line"), 3)
+	var restored := AiState.from_dict(state.to_dict())
+	assert_eq(
+		AiDeferral.stall(restored.deferrals_for(OBJ_OWNER), "muster.line"), 3,
+		"the stall count carries the load"
+	)
+	# A funded aim leaves no record, so a fresh campaign reads none either.
+	assert_true(restored.deferrals_for(OBJ_RIVAL).is_empty(), "other courts read empty")
+
+
 func test_an_old_save_reads_an_empty_ledger() -> void:
 	var restored := AiState.from_dict({"difficulty": Difficulty.DEFAULT})
 
 	assert_true(restored.objectives_for(OBJ_OWNER).is_empty(), "an old save simply has no ledger")
 	assert_eq(int(restored.to_dict().get("objective_claims", {}).size()), 0)
+	assert_true(restored.deferrals_for(OBJ_OWNER).is_empty(), "and no stall records")
