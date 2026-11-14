@@ -37,14 +37,19 @@ var _zone_outlines: Dictionary = {}
 var _country_borders: Dictionary = {}
 ## Visibility the cached borders were filtered by; null draws every border.
 var _border_visibility: VisibilityModel = null
+## Chart the cached ink was built from, so a repaint of the same chart is free.
+var _border_key: int = 0
+var _border_baked: bool = false
 var _ripples: Array[Dictionary] = []
 
 
 func build(p_model: MapModel) -> void:
 	model = p_model
 	_border_visibility = null
+	_border_key = 0
+	_border_baked = false
 	_build_fog_layer()
-	_build_country_borders()
+	refresh_borders()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	queue_redraw()
 
@@ -98,10 +103,11 @@ func set_fog_rect(rect: Rect2i, state: int) -> void:
 
 
 func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
-	fog_layer.sync_visibility(visibility, indices)
+	var moved: bool = fog_layer.sync_visibility(visibility, indices)
 	_border_visibility = visibility
-	_build_country_borders()
-	queue_redraw()
+	refresh_borders()
+	if not moved:
+		return
 	fog_changed.emit()
 
 
@@ -263,10 +269,19 @@ func _build_country_borders() -> void:
 		_country_borders[owner] = inked
 
 
+## Repaints the political ink only when the chart it reads moved: a re-seat from
+## the same save, a region repaint or a fog pass that charted nothing draws the
+## borders already on the layer (`CountryBorders.signature`).
 func refresh_borders() -> void:
-	if model != null:
-		_build_country_borders()
-		queue_redraw()
+	if model == null:
+		return
+	var key: int = CountryBorders.signature(model, _border_visibility)
+	if _border_baked and key == _border_key:
+		return
+	_border_key = key
+	_border_baked = true
+	_build_country_borders()
+	queue_redraw()
 
 
 func _draw_province_outline(id: int, color: Color, width: float) -> void:
