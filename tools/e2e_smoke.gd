@@ -324,6 +324,7 @@ func _run() -> void:
 	await _smoke_crown_road_lens(screen)
 	await _smoke_defence_lens(screen)
 	await _smoke_muster_roll(screen)
+	await _smoke_province_ledger(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen, works)
@@ -422,6 +423,34 @@ func _smoke_muster_roll(screen: MapScreen) -> void:
 	panel.close()
 	await process_frame
 	_check(not panel.is_open(), "the muster roll sets itself aside")
+
+
+## The province ledger: the dossier's Realm door raises the whole-empire
+## province reading on the real map, prints the crown's own holdings, narrows to
+## one reading and sets itself aside (DR-20261115-09). No order is placed.
+func _smoke_province_ledger(screen: MapScreen) -> void:
+	_check(screen.hud.province_ledger != null, "province ledger mounted")
+	var door: Button = null
+	for node: Node in screen.hud._panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Realm":
+			door = button
+			break
+	_check(door != null, "the province dossier carries the realm door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await process_frame
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	_check(panel.is_open(), "province ledger opens from the realm door")
+	_check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's provinces")
+	_check(_has_text(panel._rows, "Town"), "a row prints what the province is built to")
+	panel._on_filter(ProvinceLedger.FILTER_UNGARRISONED, false)
+	await process_frame
+	_check(panel._filter == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the province ledger sets itself aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.

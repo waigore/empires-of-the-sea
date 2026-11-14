@@ -14,6 +14,7 @@ static func build(hud: GameHud) -> void:
 	_civilian(hud)
 	_roster(hud)
 	_muster(hud)
+	_provinces(hud)
 	ArmyHud.build(hud)
 
 
@@ -24,6 +25,14 @@ static func _province(hud: GameHud) -> void:
 	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud.panels.province = HudPanelSlot.build(hud, hud._panel, GameHud.PANEL_WIDTH, true)
 	hud._panel_wrap = hud.panels.province.wrap
+	# The dossier's head owns the realm door (DR-20261115-09); the panel builds
+	# the head in its own first frame, so the HUD wires the door after the slot
+	# has mounted it.
+	for node: Node in hud._panel.find_children("*", "ProvinceSheetHead", true, false):
+		var head := node as ProvinceSheetHead
+		if head != null:
+			head.realm_pressed.connect(func() -> void: hud.provinces_pressed.emit())
+			break
 
 
 static func _fleet(hud: GameHud) -> void:
@@ -91,3 +100,15 @@ static func _muster(hud: GameHud) -> void:
 	hud.muster_roll = ForceLedgerPanel.new()
 	layer.add_child(hud.muster_roll)
 	hud.muster_roll_pressed.connect(hud.muster_roll.toggle)
+
+
+## The province ledger is the muster roll's sibling: the same modal layer, the
+## same sheet chrome, one row per province the crown holds (DR-20261115-09).
+static func _provinces(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "ProvinceLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.province_ledger = ProvinceLedgerPanel.new()
+	layer.add_child(hud.province_ledger)
+	hud.provinces_pressed.connect(hud.province_ledger.toggle)

@@ -34,6 +34,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [civilians.md](civilians.md) | Civilian units: training, movement, work orders |
 | [espionage.md](espionage.md) | Spies: presence, counter-espionage, research and reports |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
+| [provinces.md](provinces.md) | The crown's provinces: one ledger for every holding |
 | [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
