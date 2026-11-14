@@ -834,6 +834,24 @@ func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
 			rect.position.x >= sheet.position.x - 0.5 and rect.end.x <= sheet.end.x + 0.5,
 			"ledger action %s stays inside the sheet edge: %s in %s" % [key, rect, sheet]
 		)
+	# A tier the crown can pay for more than once adds one full-width batch press
+	# under its row; it must be thumb-sized and inside the sheet too (REQ-P5-04).
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["fabric"] = 6
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var batches: Dictionary = workers.batch_buttons()
+	assert_true(batches.has(WorkerPool.Tier.PEASANT), "six fabric pay for three peasants")
+	for tier: Variant in batches.keys():
+		var batch: Button = batches[tier] as Button
+		_tappable(batch, "ledger batch %s" % tier)
+		var batch_rect: Rect2 = batch.get_global_rect()
+		assert_true(
+			batch_rect.position.x >= sheet.position.x - 0.5
+			and batch_rect.end.x <= sheet.end.x + 0.5,
+			"ledger batch %s stays inside the sheet edge: %s in %s" % [tier, batch_rect, sheet]
+		)
 
 
 func test_estates_rows_are_thumb_sized_on_a_phone() -> void:

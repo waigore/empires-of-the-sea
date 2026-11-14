@@ -1178,6 +1178,93 @@ func test_a_queued_peasant_recruit_takes_no_reservation() -> void:
 	assert_eq(economy.recruits.reserved_peasants(), 0)
 
 
+## One press still files exactly one order, and the batch keys read the same
+## verdict the single-head row does (REQ-P5-04).
+func test_one_press_files_one_order() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 4
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.PEASANT)
+	assert_true(bool(result["ok"]))
+	assert_eq(int(result["asked"]), 1)
+	assert_eq(int(result["queued"]), 1)
+	assert_eq(String(result["reason"]), "")
+	assert_eq(economy.recruits.total(), 1)
+
+
+## A batch files as many heads as the purse, the paper and the free peasants
+## allow, and names the limit that stopped it (wiki: workers-and-population
+## § Recruiting; REQ-P5-04, REQ-P5-05).
+func test_a_batch_stops_at_the_purse() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 5)
+	economy.treasury = 500
+	economy.stockpile["paper"] = 10
+
+	assert_eq(economy.recruit_affordable(WorkerPool.Tier.APPRENTICE), 2, "500 / 200")
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.APPRENTICE, 5)
+	assert_eq(int(result["queued"]), 2)
+	assert_eq(int(result["asked"]), 5)
+	assert_eq(String(result["reason"]), "Insufficient treasury")
+	assert_eq(economy.recruits.total(), 2, "two orders are filed, not five")
+	assert_eq(economy.recruits.reserved_peasants(), 2)
+	assert_eq(economy.treasury, 500, "nothing is paid until Build/work")
+
+
+## The materials row binds before the purse when the paper runs out first.
+func test_a_batch_stops_at_the_paper() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 5)
+	economy.treasury = 10000
+	economy.stockpile["paper"] = 3
+
+	assert_eq(economy.recruit_affordable(WorkerPool.Tier.APPRENTICE), 1, "3 paper / 2")
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.APPRENTICE, 4)
+	assert_eq(int(result["queued"]), 1)
+	assert_eq(String(result["reason"]), "Insufficient materials")
+
+
+## A trained head takes a peasant, so the free peasants cap the batch too.
+func test_a_batch_stops_at_the_peasants() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 2)
+	economy.treasury = 10000
+	economy.stockpile["paper"] = 10
+
+	assert_eq(economy.recruit_affordable(WorkerPool.Tier.APPRENTICE), 2)
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.APPRENTICE, 3)
+	assert_eq(int(result["queued"]), 2)
+	assert_eq(String(result["reason"]), "Insufficient workers")
+	assert_eq(economy.available_peasants(), 0, "both heads are promised")
+
+
+## A peasant recruit takes no head, so only the fabric bounds the batch.
+func test_a_peasant_batch_is_bounded_by_the_fabric() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 5
+	assert_eq(economy.recruit_affordable(WorkerPool.Tier.PEASANT), 2, "5 fabric / 2")
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.PEASANT, 4)
+	assert_eq(int(result["queued"]), 2)
+	assert_eq(String(result["reason"]), "Insufficient materials")
+	assert_eq(economy.recruits.reserved_peasants(), 0, "a peasant takes no head")
+
+
+## A locked tier affords nothing, and the batch reports the tech, not a purse.
+func test_a_locked_tier_affords_nothing() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 5)
+	economy.treasury = 10000
+	economy.stockpile["paper"] = 10
+	assert_eq(economy.recruit_affordable(WorkerPool.Tier.APPRENTICE), 0)
+	var result: Dictionary = economy.queue_recruit(WorkerPool.Tier.APPRENTICE, 3)
+	assert_false(bool(result["ok"]))
+	assert_eq(int(result["queued"]), 0)
+	assert_eq(String(result["reason"]), "Required technology not unlocked")
+	assert_eq(economy.recruits.total(), 0)
+
+
 ## Build/work takes the queue whole, so an order resolves exactly once.
 func test_the_build_work_pass_drains_the_queue_once() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
