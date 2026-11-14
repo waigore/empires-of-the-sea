@@ -127,14 +127,17 @@ static func candidates(
 	var treasury: int = int((context.get("treasury", {}) as Dictionary).get(faction, 0))
 	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(faction, {})
 	var charts: CourtCharts = context.get("charts", null)
+	var income: Dictionary = context.get("income", {})
+	var saving: String = AiIncome.saving_reason(income)
+	var gift: String = AiIncome.saving_reason(income, AID_AMOUNT)
 	return [
 		_treaty(
 			config, state, ai_state, world, turn, target, improve, min_improve,
 			treasury, tech, charts
 		),
 		_trade_pact(config, state, faction, target, desire, improve, min_improve, record.score),
-		_aid(state, faction, target, improve, min_improve, treasury, record.score),
-		_subsidy(config, state, faction, target, desire, improve, min_improve),
+		_aid(state, faction, target, improve, min_improve, treasury, record.score, gift),
+		_subsidy(config, state, faction, target, desire, improve, min_improve, saving),
 		_boycott(state, faction, target, record.score, improve),
 		_break_alliance(target, record, desire),
 	]
@@ -276,8 +279,8 @@ static func _trade_pact(
 	return _offer(KIND_FTP, target, improve - FTP_UTILITY_COST + config.trade_bias())
 
 
-## One gift of gold: only to a court this one wants to keep close, and only
-## while its own treasury covers the step (wiki: diplomacy § GP–Minor Rules).
+## One gift of gold: only to a court this one wants to keep close, while its own
+## purse covers the step and keeps the reserve it is saving (diplomacy § GP–Minor Rules).
 static func _aid(
 	state: DiplomacyState,
 	faction: int,
@@ -285,8 +288,10 @@ static func _aid(
 	improve: int,
 	min_improve: int,
 	treasury: int,
-	relation: float
+	relation: float, saving: String = ""
 ) -> Dictionary:
+	if not saving.is_empty():
+		return _blocked(saving, KIND_AID)
 	if improve < min_improve:
 		return _blocked("aid is spent only on friends", KIND_AID)
 	if relation >= AID_MAX_RELATION:
@@ -303,7 +308,7 @@ static func _aid(
 
 ## A subsidy to a Minor or Tribe while the friendship holds; cancelled once the
 ## court stops wanting it (wiki: world-market § Subsidy price adjustment). An
-## agenda that keeps to itself values it just as little as a trade pact.
+## agenda that keeps to itself values it as little as a pact; a saver sets none (#580).
 static func _subsidy(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -311,12 +316,14 @@ static func _subsidy(
 	target: int,
 	desire: int,
 	improve: int,
-	min_improve: int
+	min_improve: int, saving: String = ""
 ) -> Dictionary:
 	if state.subsidy(faction, target) > 0:
 		if improve >= min_improve:
 			return _blocked("the subsidy still buys goodwill", KIND_CANCEL_SUBSIDY)
 		return _offer(KIND_CANCEL_SUBSIDY, target, desire - SUBSIDY_UTILITY_COST)
+	if not saving.is_empty():
+		return _blocked(saving, KIND_SUBSIDY)
 	if improve < min_improve:
 		return _blocked("subsidies are for friends", KIND_SUBSIDY)
 	var check: Dictionary = DiplomacyAid.can_set_subsidy(
