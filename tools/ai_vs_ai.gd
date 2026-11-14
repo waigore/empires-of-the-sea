@@ -11,8 +11,10 @@ extends SceneTree
 ## 1500), --size=0|1|2 (GameConfig.SIZES, default 1 = Standard), --runs=N
 ## (seeds seed+i, default 1), --historical (stop at the calendar cap instead of
 ## the observer's endless campaign), --ai=full|noop|bench (planner gate;
-## default full), --live=ID (BENCH live Great Power; default setup crown),
-## --out=DIR (default user://ai_vs_ai).
+## default full), --live=ID (BENCH subject Great Power; default setup crown),
+## --out=DIR (default user://ai_vs_ai). BENCH: subject = submission AI, two
+## baselines = origin/main planners (scripts/ai_mainline/), three = random.
+## Run `python tools/sync_ai_mainline.py` before a local --ai=bench.
 ##
 ## This is a headless debug harness, not shipped game code: exclude the file
 ## from the coverage plan so the 80% patch gate tracks the rules and UI it
@@ -143,7 +145,9 @@ func _write_run(
 	summary["seed"] = seed_value
 	summary["resolved_turns"] = records.size()
 	summary["ai_mode"] = _ai_mode
-	summary["ai_live"] = _live
+	# Prefer the snapshot's resolved live crown; fall back to the CLI override.
+	if not summary.has("ai_live") or int(summary.get("ai_live", MapModel.NO_ID)) < 0:
+		summary["ai_live"] = _live
 	var summary_file := FileAccess.open("%s_summary.json" % stem, FileAccess.WRITE)
 	if summary_file == null:
 		_fail("run %d: cannot write %s_summary.json" % [run, stem])

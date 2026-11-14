@@ -1546,14 +1546,36 @@ func test_ai_economy_respects_labour_and_inputs() -> void:
 	assert_false(assignments.is_empty())
 	var labour_used: int = 0
 	var timber_used: int = 0
+	var recipes: Array[String] = []
 	for assignment: Dictionary in assignments:
 		var recipe: String = String(assignment["recipe"])
 		var units: int = int(assignment["units"])
+		recipes.append(recipe)
 		labour_used += units * ProductionRecipes.labour(recipe)
 		timber_used += units * int(ProductionRecipes.inputs(recipe).get("timber", 0))
 	assert_eq(labour_used, 6, "the plan spends exactly the available labour")
 	assert_true(timber_used <= 10, "the same timber is never promised twice")
-	assert_eq(assignments.size(), 2, "wool fabric and lumber fill their deficits")
+	# One run each in rank order: no build input takes the whole labour while
+	# the muster's cloth goes unwoven (issue #474).
+	assert_eq(recipes, ["fabric_from_wool", "lumber", "paper"] as Array[String])
+
+
+func test_ai_economy_spreads_the_labour_across_the_build_inputs() -> void:
+	# Iron and wool both in store, castIron's deficit as deep as fabric's: a
+	# greedy plan wove no cloth at all, because castIron (which works spend
+	# every turn) won the tie on every turn and the muster starved with a full
+	# war chest (issue #474).
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"iron": 20, "wool": 21, "timber": 20}
+	economy.workers = WorkerPool.make(10)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var woven: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "fabric_from_wool":
+			woven = int(assignment["units"])
+	assert_true(woven >= 1, "the court weaves cloth from the wool it holds")
 
 
 func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
@@ -3018,6 +3040,65 @@ func test_an_earning_court_bids_no_imports() -> void:
 	assert_true((plan["bids"] as Array).is_empty(), "the reserve is not the auction's to spend")
 
 
+# --- the fleet claim: the hull a court saves for (issue #484) ----------------
+
+
+## A court at war with no fighting hull, or one outmatched at sea, means to lay
+## one down; a fleet that matches its enemies has nothing to save for.
+func test_the_fleet_claim_reads_the_war_and_the_odds_at_sea() -> void:
+	var economy: PlayerEconomy = _purse(0)
+
+	assert_false(AiNavy.due(false, 0, 5), "a court at peace lays down no hull")
+	assert_true(AiNavy.due(true, 0, 0), "a court at war with no fighting hull wants one")
+	assert_true(AiNavy.due(true, 1, 2), "outmatched at sea, it wants one too")
+	assert_false(AiNavy.due(true, 2, 2), "a fleet that matches its enemies holds")
+	assert_eq(AiNavy.chest(true, 2, 2, economy), 0, "and reserves nothing for the yard")
+	assert_eq(AiNavy.chest(false, 0, 3, economy), 0, "peace reserves nothing either")
+
+
+## The chest is the yard row of the cheapest warship the court's techs open: the
+## price a saving court must hold, not the one it could pay today.
+func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
+	var economy: PlayerEconomy = _purse(0)
+
+	assert_eq(AiNavy.saving_type(economy), "", "no naval tech opens no warship")
+	assert_eq(AiNavy.price(economy), 0)
+	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "so the court saves for nothing")
+
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(AiNavy.saving_type(economy), "sloop")
+	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(AiNavy.chest(true, 0, 1, economy), ShipEconomy.treasury_cost("sloop"))
+
+	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
+	assert_eq(AiNavy.saving_type(economy), "sloop", "the cheapest row is the one it saves for")
+
+
+## The hull outranks the muster: a court holding a purse that would raise a
+## regiment reads `earn` until the yard's price is in hand (issue #484).
+func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(4600)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	assert_true(chest > muster, "the hull is the larger commitment")
+	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest)
+	assert_eq(String(plan["goal"]), AiIncome.GOAL_EARN, "4,600 ducats is short of the yard")
+	assert_eq(int(plan["reserve"]), chest, "the reserve is the hull, not the muster")
+	assert_eq(int(plan["hull_chest"]), chest)
+	assert_true(AiIncome.wants_income(config, economy, true, 1, chest))
+
+	var paid: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest)
+	assert_eq(String(paid["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
+	assert_eq(
+		AiIncome.reserve(config, economy, true, 1), muster,
+		"with no fleet claim the muster is the whole reserve"
+	)
+
+
+
 
 # --- victory pressure --------------------------------------------------------
 ## A court that can see the bar presses for it (wiki: ai-architecture § Notable
@@ -4241,3 +4322,56 @@ func test_the_observer_log_reads_the_muster() -> void:
 	var lines: Array = record["events"]
 	assert_true(lines.size() > 0, "the event list names the pattern")
 	play.army_layer.free()
+
+
+# --- famine: shed the force a court cannot feed (issue #489) -----------------
+
+
+func test_fed_slack_reads_the_ration_after_army_and_navy() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 10
+	economy.stockpile["meat"] = 0
+
+	# 10 grain − 3 army − 2 navy (one hull) − 4 peasants
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 1)
+	assert_true(not AiArmyReinforce.starving(economy, 3, 1))
+
+
+func test_a_short_worker_ration_is_a_strike() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 5
+	economy.stockpile["meat"] = 0
+
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 0), -2)
+	assert_true(AiArmyReinforce.starving(economy, 3, 0))
+
+
+func test_a_court_striking_for_food_musters_nothing() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 0
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true((plan["reasons"] as Array).has("striking for food"))
+
+
+func test_a_court_with_room_for_one_more_ration_musters() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1
+	)
+
+	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+
+	var starved: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		_work_config(), economy, 0, 0
+	)
+	var fed: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		_work_config(), economy, 0, 1
+	)
+
+	assert_eq(starved.size(), 0, "no ration, no hire")
+	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")

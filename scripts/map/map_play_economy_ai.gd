@@ -22,13 +22,23 @@ static func run(play: PlaySession) -> Dictionary:
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
 	for faction: int in MapPlayCourt.planning_factions(play):
+		var kind: String = AiControl.court_kind(play, faction)
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
 		MapPlayCivilianAi.seed(play, faction)
 		var overseas: Dictionary = _overseas(play, faction, economy)
-		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		if kind == AiControl.KIND_RANDOM:
+			var random_row: Dictionary = AiRandomCourt.economy(
+				play, faction, market, overseas
+			)
+			order_log.append_array(
+				(random_row.get("civilians", {}) as Dictionary).get("orders", [])
+			)
+			by_faction[faction] = random_row
+			continue
+		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
-		var production: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+		var production: Dictionary = AiBind.production_orders(kind, config, economy)
 		var at_war: bool = MapPlayCourt.at_war(play, faction)
 		var regiments: int = MapPlayCourt.regiments(play, faction)
 		# The goal the court plans with this turn: money first (DR-20261113-19).
@@ -38,15 +48,17 @@ static func run(play: PlaySession) -> Dictionary:
 		# lead. Every discretionary spend reads the same reserve, so the war chest
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
-		var income: Dictionary = AiIncome.plan(config, economy, at_war, regiments)
+		var income: Dictionary = AiBind.income_plan(
+			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction)
+		)
 		var floor: int = int(income["reserve"])
 		# Surplus research still leaves the money-first reserve alone; the standing
 		# study alone may dip to the cash floor so a war-time court parked at 500
 		# while saving 2,400 still learns (issue #490).
-		var research_floor: int = AiResearchPlanner.research_floor(config)
+		var research_floor: int = AiBind.research_floor(kind, config)
 		# Plan before the phase resolves, so the study starts this turn.
-		var research: Dictionary = AiResearchPlanner.plan(
-			config, economy,
+		var research: Dictionary = AiBind.research_plan(
+			kind, config, economy,
 			{
 				"at_war": at_war,
 				"revealed": revealed,
@@ -95,8 +107,11 @@ static func run(play: PlaySession) -> Dictionary:
 		economy.production.clear_assignments()
 		for assignment: Dictionary in production["assignments"]:
 			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
-		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-			config, economy, floor
+		var recruits: Array[Dictionary] = AiBind.recruitment_orders(
+			kind, config, economy, floor,
+			AiBind.fed_slack(
+				kind, economy, _army_food(play, faction), MapPlayCourt.ships(play, faction)
+			)
 		)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
@@ -176,13 +191,14 @@ static func _trade(
 	play: PlaySession,
 	faction: int,
 	economy: PlayerEconomy,
-	config: AiConfig,
+	config: Variant,
 	market: WorldMarket,
 	overseas: Dictionary,
 	production: Dictionary,
 	works: Dictionary = {},
 	floor: int = 0
 ) -> Dictionary:
+	var kind: String = AiControl.court_kind(play, faction)
 	var holds: int = (
 		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
 		if play.ship_layer != null else 0
@@ -192,8 +208,8 @@ static func _trade(
 		- TradeCargo.used(market, faction),
 		0
 	)
-	var need: Dictionary = AiArmyReinforce.muster_reserve(
-		config, economy, MapPlayCourt.regiments(play, faction),
+	var need: Dictionary = AiBind.muster_reserve(
+		kind, config, economy, MapPlayCourt.regiments(play, faction),
 		MapPlayCourt.at_war(play, faction),
 		int(AiVictoryPressure.read(
 			play.world, faction, play.human_faction_id(), play.difficulty, config
@@ -214,13 +230,13 @@ static func _trade(
 		production, food, economy, need, works
 	))
 	var reserved: Dictionary = claims["reserved"]
-	var plan: Dictionary = AiMarketPlanner.plan(
-		config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
+	var plan: Dictionary = AiBind.market_plan(
+		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
 		floor, food_short
 	)
 	plan["free_holds"] = free_holds
-	var result: Dictionary = AiMarketPlanner.stage(
-		economy, market, plan, faction, economy.tech_unlocked
+	var result: Dictionary = AiBind.market_stage(
+		kind, economy, market, plan, faction, economy.tech_unlocked
 	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
