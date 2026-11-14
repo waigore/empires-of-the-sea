@@ -1379,6 +1379,41 @@ func test_consumption_preview_spends_nothing() -> void:
 	assert_eq(real["strikers"], report["strikers"])
 	assert_eq(spent["grain"], 0)
 
+## The phase's larder read is one order, served or not: a pass the caller holds
+## answers the forecast's questions (what every mouth wants, who strikes, which
+## tier first) and its report is the phase's own, so the dry-run cannot drift
+## from the turn that spends (REQ-P2-03, REQ-P3-01).
+func test_a_larder_pass_answers_before_it_is_served() -> void:
+	var pool: WorkerPool = WorkerPool.make(1, 0, 0, 1)
+	var stock: Dictionary = {"grain": 1, "meat": 0, "furHats": 1}
+	var larder: EconomyConsumption.Pass = EconomyConsumption.pass_over(pool, stock.duplicate(), 0)
+	assert_eq(larder.food_wanted(), 3, "a master eats two, a peasant one")
+	assert_eq(larder.food_fed(), 0, "nothing is served yet")
+	assert_eq(larder.striking_tier(), WorkerPool.Tier.MASTER, "an empty larder bites from the top")
+	larder.serve()
+	assert_eq(larder.food_fed(), 1, "one ration feeds the master, not the peasant")
+	assert_eq(larder.strikers(), 1)
+	assert_eq(larder.striking_tier(), WorkerPool.Tier.MASTER)
+	assert_eq(larder.report()["fed_counts"], [1, 0, 0, 0], "the master eats first")
+	assert_eq(stock["grain"], 1, "the pass read a copy, the store is untouched")
+
+## The forecast reads a pool the caller already made: arriving recruits stay a
+## count of their own, so a caller who built the pool keeps `mouths` straight
+## (REQ-P2-03).
+func test_larder_reading_takes_a_built_pool() -> void:
+	var pool: WorkerPool = WorkerPool.make(3)
+	var read: Dictionary = LarderRead.reading(
+		pool,
+		{"grain": 2, "meat": 0},
+		{"army": 1, "ships": 0, "hospital": 0},
+		2,
+	)
+	assert_eq(int(read["mouths"]), 3)
+	assert_eq(int(read["arriving"]), 2)
+	assert_eq(int(read["strikers"]), 2, "the army eats one ration before the pool")
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
+	assert_eq(int(read["store_food"]), 2)
+
 ## The WORKERS tab's larder reading: the store, every appetite, and the tier a
 ## shortfall bites first — Masters before Peasants
 ## (wiki: workers-and-population § Consumption; REQ-P5-06).

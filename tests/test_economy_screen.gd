@@ -889,21 +889,21 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 ## § Turns per unit; DR-20261112-11, DR-20261113-02).
 func test_the_alloy_rows_name_their_wait() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "2t")
-	assert_eq(LedgerText.workshop_note(economy, "lumber"), "", "one-turn rows need no tag")
-	assert_eq(LedgerText.workshop_tooltip(economy, "lumber"), "", "nothing waits on a one-turn row")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "2t")
+	assert_eq(LedgerWorkshop.note(economy, "lumber"), "", "one-turn rows need no tag")
+	assert_eq(LedgerWorkshop.tooltip(economy, "lumber"), "", "nothing waits on a one-turn row")
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("one unit a turn"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("one unit a turn"),
 		"an idle alloy row promises the trickle"
 	)
 	economy.production_wip = {"steel": [{"units": 3, "turns_left": 1}]}
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "3→1t")
-	var serving: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "3→1t")
+	var serving: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(serving.contains("3 units"))
 	assert_true(serving.contains("one a turn"), "the serving tag says one unit lands a phase")
 	economy.production_wip = {"steel": [{"units": 1, "turns_left": 1}]}
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("1 unit already"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("1 unit already"),
 		"one unit left on the anvil reads in the singular"
 	)
 	# A row left set starts a fresh batch every phase, and each batch gives up a
@@ -911,14 +911,14 @@ func test_the_alloy_rows_name_their_wait() -> void:
 	economy.production_wip = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "5→1t", "the tag counts every unit")
-	var twinned: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "5→1t", "the tag counts every unit")
+	var twinned: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(twinned.contains("5 units"), "the note counts what is on the anvil")
 	assert_true(twinned.contains("2 landing a turn"), "two batches land two a turn: %s" % twinned)
 	assert_false(twinned.contains("one a turn"), "a twin batch is never promised as a trickle")
 	economy.production_wip = {"steel": [{"units": 4, "turns_left": 2}]}
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("still serving their turns"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("still serving their turns"),
 		"a batch that does not land this phase promises no unit"
 	)
 	_screen.economy.open_panel()
@@ -942,7 +942,7 @@ func test_a_production_row_reports_the_phase_it_just_worked() -> void:
 	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_true(_row_has_text(body, "made 2"), "the lumber row names its last output")
 	assert_eq(
-		LedgerText.workshop_note(economy, "steel"), "2t",
+		LedgerWorkshop.note(economy, "steel"), "2t",
 		"a waiting row keeps its tag: the present is what the next phase pays"
 	)
 	var hints: PackedStringArray = []
