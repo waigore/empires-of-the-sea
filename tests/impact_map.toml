@@ -1864,6 +1864,13 @@ domain = "naval_feeding"
 match = "scripts/map/map_play_home_merge.gd*"
 domain = "fleet"
 
+# Port-loss toasts and put_ashore land a displaced army for the home-fleet merge;
+# keep them on fleet so a headless-null HUD guard does not pull the map set past
+# the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_play_port_loss.gd*"
+domain = "fleet"
+
 [[rules]]
 match = "scripts/map/map_play_observer.gd"
 domain = "ai"

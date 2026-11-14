@@ -105,7 +105,9 @@ static func settle_seats(play: PlaySession) -> int:
 			for report: Dictionary in reports:
 				changed = true
 				joined += 1
-				if int(report.get("displaced", -1)) >= 0 and play.hud != null:
+				# put_ashore is quiet without a HUD, so the pass still lands a
+				# displaced army when the harness runs headless.
+				if int(report.get("displaced", -1)) >= 0:
 					MapPlayPortLoss.put_ashore(play, int(report["displaced"]), int(report["seat"]))
 		if changed:
 			play.ship_layer.regions.set_region(region, roster)

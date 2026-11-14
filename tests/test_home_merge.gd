@@ -269,6 +269,67 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(_screen.play), 0, "the pass is idempotent")
 
 
+## A missing play, chart or roster leaves the harbour alone (the headless pass
+## must not crash when a harness tears the session down mid-turn).
+func test_settle_seats_guards_a_missing_play() -> void:
+	assert_eq(MapPlayHomeMerge.settle_seats(null), 0)
+	var bare := PlaySession.new()
+	assert_eq(MapPlayHomeMerge.settle_seats(bare), 0, "no ship layer yet")
+	bare.ship_layer = ShipLayer.new()
+	assert_eq(MapPlayHomeMerge.settle_seats(bare), 0, "no world yet")
+
+
+## When two armies ride the merge, the surplus lands ashore (wiki: ships-and-naval
+## § Home Fleet). put_ashore stays quiet when no HUD is mounted, so the same
+## landing works headless.
+func test_settle_seats_lands_a_displaced_army() -> void:
+	_screen = Fixture.attach_screen(self)
+	var play: PlaySession = _screen.play
+	var rival: int = _rival()
+	var region: int = -1
+	var seat: int = MapModel.NO_ID
+	for index in play.world.region_count():
+		var found: int = play.world.capital_province_of(index, rival)
+		if found != MapModel.NO_ID:
+			region = index
+			seat = found
+			break
+	assert_gte(seat, 0, "the rival seats a capital on the chart")
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var home := FleetState.in_port(
+		FleetRosters.next_id(roster), rival, seat, ["ship_92"], {"ship_92": "fluyte"}
+	)
+	var stray := FleetState.in_port(
+		FleetRosters.next_id(roster) + 1, rival, seat, ["ship_93"], {"ship_93": "fluyte"}
+	)
+	var kept := ArmyState.muster(190, rival, seat, false, ["pikemen"], 1900)
+	var surplus := ArmyState.muster(191, rival, seat, false, ["pikemen"], 1910)
+	play.army_layer.armies.append(kept)
+	play.army_layer.armies.append(surplus)
+	home.embarked_army = kept.id
+	kept.embarked_fleet = home.id
+	stray.embarked_army = surplus.id
+	surplus.embarked_fleet = stray.id
+	roster.append(home)
+	roster.append(stray)
+	play.ship_layer.regions.set_region(region, roster)
+
+	assert_gte(MapPlayHomeMerge.settle_seats(play), 1)
+	assert_eq(surplus.embarked_fleet, -1, "the surplus army goes ashore")
+	assert_eq(surplus.province, seat)
+
+	# The HUD-null path: same landing, no toast (REQ-P3-02 headless turn close).
+	var quiet := PlaySession.new()
+	quiet.army_layer = play.army_layer
+	quiet.hud = null
+	var second := ArmyState.muster(192, rival, seat, false, ["pikemen"], 1920)
+	quiet.army_layer.armies.append(second)
+	second.embarked_fleet = 1
+	MapPlayPortLoss.put_ashore(quiet, second.id, seat)
+	assert_eq(second.embarked_fleet, -1)
+	assert_eq(second.province, seat)
+
+
 ## The first rival court in the catalog: the one the fixture's chart seats.
 func _rival() -> int:
 	for faction: int in FactionCatalog.great_power_ids():
