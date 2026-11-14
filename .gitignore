@@ -15,6 +15,9 @@ keystore/
 .gd-tools/
 *.gd.bak
 
+# ai-bench mainline planners (materialized from origin/main)
+scripts/ai_mainline/
+
 # OS / editors
 .DS_Store
 Thumbs.db

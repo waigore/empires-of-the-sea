@@ -265,8 +265,8 @@ def check_layout(failures: list[str]) -> None:
         rel = path.relative_to(ROOT).as_posix()
         if any(rel.startswith(prefix) for prefix in ALLOWED_GD_PREFIXES):
             continue
-        # Ignore editor/generated under .godot if present.
-        if rel.startswith(".godot/"):
+        # Ignore editor/generated and hill fixtures (frozen planners for eval).
+        if rel.startswith(".godot/") or rel.startswith(".autolab/"):
             continue
         failures.append(
             f"{rel}:1: RUB-P3-01 game .gd must live under "

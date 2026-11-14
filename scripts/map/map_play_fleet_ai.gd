@@ -33,11 +33,14 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in MapPlayCourt.planning_factions(play):
-		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var kind: String = AiControl.court_kind(play, faction)
+		if kind == AiControl.KIND_RANDOM:
+			continue
+		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court's own chart: it hunts only what it has charted
 		# (wiki: fog-and-exploration; DR-20261110-21).
-		var plan: Dictionary = AiNavalPlanner.orders(
-			config, play.diplomacy, model, roster, play.court_charts
+		var plan: Dictionary = AiBind.naval_orders(
+			kind, config, play.diplomacy, model, roster, play.court_charts
 		)
 		for order: Dictionary in plan["orders"]:
 			var fleet: FleetState = MapPlayCourt.fleet_by_id(
