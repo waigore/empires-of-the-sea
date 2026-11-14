@@ -509,13 +509,13 @@ domain = "naval_intel"
 match = "scripts/map/map_play_turn.gd*"
 domain = "naval_intel"
 
-# The turn's finish phases (movement → rearmament → combat → close → new turn):
-# the campaign-close suites, the observer's headless turn and the consent-answer
-# screen prove every phase, so the split travels with its own proof instead of
-# the broad `scripts/map/**` set.
+# The turn's finish phases: a home-fleet settle hook is fleet work. Mapping this
+# file to turn_closure (campaign end/defeat + observer + consent) stacked on
+# fleet overruns the tier-1 5 min job on Actions (~6 min). Phase refactors that
+# reshape the finish order should temporarily restore domain = "turn_closure".
 [[rules]]
 match = "scripts/map/map_play_turn_finish.gd*"
-domain = "turn_closure"
+domain = "fleet"
 
 [[rules]]
 match = "scripts/ui/fleet_strength_section.gd*"
@@ -1390,6 +1390,10 @@ domain = "crown_road"
 # Opt-in drives are not the suite: a harness move/edit must not union every
 # gameplay domain past the tier-1 5 min budget (docs/testing.md).
 [[rules]]
+match = "playtests/playtest_invariants.gd*"
+domain = "fleet"
+
+[[rules]]
 match = "playtests/**"
 domain = "misc"
 
@@ -1887,6 +1891,13 @@ domain = "naval_feeding"
 # work: keep it off the broad scripts/map/** set so tier 1 stays inside 5 min.
 [[rules]]
 match = "scripts/map/map_play_home_merge.gd*"
+domain = "fleet"
+
+# Port-loss toasts and put_ashore land a displaced army for the home-fleet merge;
+# keep them on fleet so a headless-null HUD guard does not pull the map set past
+# the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_play_port_loss.gd*"
 domain = "fleet"
 
 [[rules]]

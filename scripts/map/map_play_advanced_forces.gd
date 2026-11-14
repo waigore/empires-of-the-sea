@@ -38,7 +38,11 @@ static func ships(play: PlaySession, tier: String) -> int:
 			continue
 		var fleet: FleetState = _home_squadron(fleets, faction, province.id)
 		if fleet == null:
-			fleet = FleetState.in_port(fleets.size(), faction, province.id)
+			# A yard slip, never a hull: a fleet born with an empty roster would
+			# otherwise take the `ship_<fleet id>` default, an id already minted
+			# for another squadron (wiki: ships-and-naval § Ship instances —
+			# "the same id must never appear in two fleets").
+			fleet = FleetState.empty_in_port(fleets.size(), faction, province.id)
 			fleets.append(fleet)
 		var have: int = _galleons(fleet)
 		for _index in maxi(ships - have, 0):

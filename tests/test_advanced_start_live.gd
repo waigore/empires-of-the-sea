@@ -117,6 +117,29 @@ func test_a_rival_reads_its_own_colony_coast() -> void:
 	screen.free()
 
 
+## Every hull id is minted once for the life of the save (wiki: ships-and-naval
+## § Ship instances — "the same id must never appear in two fleets"). The tier's
+## cargo muster founds a squadron at each seat, so a fleet born with an empty
+## roster must not take the `ship_<fleet id>` default.
+func test_the_tier_musters_unique_hull_ids() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var seen: Dictionary = {}
+	for region: int in screen.ship_layer.regions.region_ids():
+		for raw: Variant in screen.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw as FleetState
+			if fleet == null:
+				continue
+			for hull_id: String in fleet.hulls:
+				assert_false(
+					seen.has(hull_id),
+					"%s sails in two fleets (%d and %d)" % [
+						hull_id, int(seen.get(hull_id, -1)), fleet.id,
+					]
+				)
+				seen[hull_id] = fleet.id
+	screen.free()
+
+
 func _open(tier: String) -> MapScreen:
 	var screen: MapScreen = Fixture.SCENE.instantiate()
 	screen.map_width = Fixture.WORLD_WIDTH
