@@ -699,7 +699,7 @@ func _smoke_end_turn(
 		"the home fleet carries trade cargo"
 	)
 	var grain_before: int = screen.economy.economy.quantity("grain")
-	screen.economy._on_trade("grain", 1, true)
+	screen.economy.orders.trade("grain", 1, true)
 	_check(
 		screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
 		"the ledger stages imports against cargo holds"
@@ -726,7 +726,7 @@ func _smoke_end_turn(
 			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
 			"the turn-end auction fills the offer bid"
 		)
-	screen.economy._on_production("lumber", 1)
+	screen.economy.orders.set_production("lumber", 1)
 	_check(
 		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
@@ -739,6 +739,21 @@ func _smoke_end_turn(
 	_check(_has_text(production_body, "2t"), "the alloy rows name their two-turn wait")
 	screen.hud.panels.hide_economy()
 	_check(not screen.hud.panels.is_economy_open(), "ledger closes")
+	# The college's tree tab prints the whole catalog and what stands between the
+	# crown and any advance, so a goal can be aimed at from far out (REQ-P5-03).
+	screen.economy.open_research()
+	await process_frame
+	_check(screen.hud.panels.is_research_open(), "college opens")
+	var college: ResearchPanel = screen.hud.panels.research_panel
+	college.select_tab(2)
+	var tree: ResearchTreeTab = college._tree
+	_check(
+		tree != null and tree._body.get_child_count() == TechCatalog.ids().size(),
+		"the tree tab lists every advance"
+	)
+	_check(_has_text(tree, "Needs "), "a locked advance names what it needs")
+	screen.hud.panels.hide_research()
+	_check(not screen.hud.panels.is_research_open(), "college closes")
 	_check(
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"
