@@ -1720,6 +1720,42 @@ func test_the_ambition_names_why_a_tribe_is_out_of_reach() -> void:
 	)
 
 
+## The door the court is walking to: a chain with a charted Tribe is only as open
+## as its next stage, so the tech that stage needs is the study the court owes
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-05).
+func test_the_door_names_the_study_the_chain_needs() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	# The Consulate needs no study, so the first link has no door.
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	# The Embassy does: a court that never studies it leaves the chain dead.
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {}), "diplomatic_expertise"
+	)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {"diplomatic_expertise": true}), "",
+		"the study is already held"
+	)
+	# A war clears the chain, so there is no door to walk to.
+	state.relation(2, tribe).at_war = true
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	state.relation(2, tribe).at_war = false
+	# Another crown's colony is closed to this one.
+	state.set_colony(tribe, 3)
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	state.colonies.clear()
+	# An uncharted shore is not a chain the court is buying (DR-20261113-03).
+	var uncharted: WorldMap = _uncharted_tribe_world()
+	assert_eq(AiTribeColony.door(state, uncharted, _charts(uncharted), 2, {}), "")
+	# A chain already complete has no next link.
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+
+
 ## A court's own ledger read for the ambition tests: the treasury it must pay
 ## from and the chart it priced the shore on.
 func _tribe_context(

@@ -52,6 +52,13 @@ static func run(play: PlaySession) -> Dictionary:
 				"revealed": revealed,
 				"treasury_floor": floor,
 				"cash_floor": research_floor,
+				# The study that opens the next link of a colony this court is
+				# buying: a chain with a charted Tribe is only as open as its
+				# next stage (wiki: diplomacy § GP–Tribe Rules; DR-20261114-05).
+				"door": AiTribeColony.door(
+					play.diplomacy, play.world, play.court_charts, faction,
+					economy.tech_unlocked
+				),
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)

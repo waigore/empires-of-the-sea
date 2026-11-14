@@ -97,6 +97,40 @@ static func ambition(
 	return read
 
 
+## The technology that stands between this court and the next link of the colony
+## it is buying, or "" when nothing does. A chain with a charted Tribe that the
+## court means to finish is only as open as its next stage: an Embassy needs
+## Diplomatic Expertise, and a court that never studies it leaves the chain dead
+## at the Consulate (wiki: diplomacy § GP–Minor Rules, § GP–Tribe Rules;
+## tech-tree-diplomacy-civilian; DR-20261114-05).
+static func door(
+	state: DiplomacyState,
+	world: WorldMap,
+	charts: CourtCharts,
+	faction: int,
+	tech: Dictionary
+) -> String:
+	if state == null:
+		return ""
+	for tribe: int in FactionCatalog.tribe_ids():
+		var relation: DiplomacyRelation = state.relation(faction, tribe)
+		if relation == null or relation.at_war:
+			continue
+		if state.colony_of(tribe) >= 0:
+			continue
+		var stage: String = DiplomacyCatalog.next_stage(state.overture(faction, tribe))
+		if stage.is_empty():
+			continue
+		if not charted(world, charts, faction, tribe):
+			continue
+		var needed: String = DiplomacyCatalog.tech_needed(
+			stage, FactionCatalog.Type.TRIBE
+		)
+		if not needed.is_empty() and not tech.has(needed):
+			return needed
+	return ""
+
+
 ## True when this court's chart holds one tile of the Tribe's land at `fogged`
 ## or better. A session with no chart reads the published map, as the other
 ## chart-backed reads do (DR-20261113-03).
