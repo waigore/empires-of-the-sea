@@ -44,7 +44,8 @@ static func plan(
 	at_war: bool,
 	pressure_extra: int = 0,
 	fed_slack: int = -1,
-	reserve: int = 0
+	reserve: int = 0,
+	held_row: Dictionary = {}
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -65,11 +66,14 @@ static func plan(
 		result["reasons"].append("striking for food")
 		return result
 	var chest: int = maxi(reserve, 0)
+	# The hull's row is the fleet's once the chest is full: the muster spends
+	# only what stands above it, exactly as it spends only the purse above the
+	# chest. A court that wove one cloth a turn and mustered it away could never
+	# lay the hull it had already paid for (issue #484).
+	var stores: Dictionary = _stores_above(economy.stockpile, held_row)
 	var candidates: Array[Dictionary] = []
 	for entry: Dictionary in _legal_candidates(config, economy, chest):
-		if not RegimentEconomy.missing_inputs(
-			String(entry["type_id"]), economy.stockpile
-		).is_empty():
+		if not RegimentEconomy.missing_inputs(String(entry["type_id"]), stores).is_empty():
 			continue
 		candidates.append(entry)
 	result["candidates"] = candidates
@@ -81,21 +85,38 @@ static func plan(
 			# Name the row that blocked it: a court holding its whole war chest
 			# reads `nothing payable` for a missing pattern row otherwise, which
 			# is what kept the material-row deadlock unrecorded (issue #474).
-			result["reasons"].append_array(_missing_reasons(config, economy))
+			result["reasons"].append_array(_missing_reasons(config, economy, stores))
 		return result
 	result["muster"] = String(candidates[0]["type_id"])
 	return result
 
 
+## The stockpile a muster may spend: everything the court holds, less the row a
+## higher-ranked claim keeps back (the hull's cloth). Empty `held` returns the
+## store untouched, so a court with no hull due musters exactly as before.
+static func _stores_above(stockpile: Dictionary, held: Dictionary) -> Dictionary:
+	if held.is_empty():
+		return stockpile
+	var stores: Dictionary = stockpile.duplicate()
+	for commodity: Variant in held.keys():
+		var id: String = String(commodity)
+		stores[id] = maxi(int(stores.get(id, 0)) - int(held[commodity]), 0)
+	return stores
+
+
 ## The material rows the pattern this court is saving for still lacks, named for
 ## the turn trace: a court holding a full war chest and no fabric musters
 ## nothing, and `nothing payable` alone never said why (issue #474).
-static func _missing_reasons(config: AiConfig, economy: PlayerEconomy) -> Array[String]:
+static func _missing_reasons(
+	config: AiConfig, economy: PlayerEconomy, stores: Dictionary = {}
+) -> Array[String]:
 	var reasons: Array[String] = []
 	var type_id: String = saving_type(config, economy)
 	if type_id.is_empty():
 		return reasons
-	var missing: Dictionary = RegimentEconomy.missing_inputs(type_id, economy.stockpile)
+	var missing: Dictionary = RegimentEconomy.missing_inputs(
+		type_id, stores if not stores.is_empty() else economy.stockpile
+	)
 	var ids: Array[String] = []
 	for raw: Variant in missing.keys():
 		ids.append(String(raw))

@@ -184,18 +184,32 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		if own > 0:
 			utility = AiUtility.clamp_utility(W_NAVY_BUILD - 20 + threat / 2)
 		var build := AiObjective.create(
-			"navy.build", "naval", utility,
-			{"treasury": int(readings.get("warship_price", 0))}
+			"navy.build", "naval", utility, _build_cost(readings)
 		)
 		# The yard founds a slip of its own, so the build asks for the treasury
-		# row and nothing else; a court with no warship its techs open is blocked
-		# rather than funded into a launch that can never happen (issue #484).
+		# row and the hull's material row — the chest the money goal reserves and
+		# the cloth the economy reserves, so the launch is never funded into a
+		# store the court already sold (issue #484).
 		if int(readings.get("warship_price", 0)) <= 0:
 			build.block("no warship its techs open")
 		return build
 	return AiObjective.create(
 		"navy.sortie", "naval", AiUtility.clamp_utility(W_NAVY + threat / 2), {"hull": 1}
 	)
+
+
+## What laying that hull claims from the court's pools: the yard's treasury row
+## and the hull's own material row (`warship_row`), the same two rows the money
+## goal and the economy reserve. A reading without a row keeps the treasury-only
+## cost, so a fixture that has never read the catalog prices as it always did
+## (issue #484).
+static func _build_cost(readings: Dictionary) -> Dictionary:
+	var cost: Dictionary = {"treasury": int(readings.get("warship_price", 0))}
+	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
+		cost[String(commodity)] = int(
+			(readings["warship_row"] as Dictionary)[commodity]
+		)
+	return cost
 
 
 ## Merchant tonnage short of the seat's need: sail the hulls home.
