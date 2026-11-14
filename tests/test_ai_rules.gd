@@ -124,6 +124,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_relation_ceiling"), 50)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_cooldown_turns"), 4)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.overture_cooldown_turns"), 2)
+	assert_eq(AiParameterRegistry.default_of("diplomacy.peace_refusal_cap"), 24)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_province_weight"), 10)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_regiment_weight"), 1)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)

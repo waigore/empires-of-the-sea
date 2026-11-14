@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:f88d6f45dc8d951aa21851d6a7ca862a4862172fcfcffe1924c082ea4587d34b",
-  "submission_git": "babysit-619@59ff8eba",
+  "submission_hash": "sha256:264bdca3e813eb2b9b3ddc3f0c00b6a1a3ba5ae8b53acfd5e71cfd96d395f1fb",
+  "submission_git": "fix/ai-refused-peace-remembers@merged-main",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0e64c5003530e688f2c6ac11dbcec4a2ead171a2ef3579a7695e672dcf79eaa3",
+    "ai_surface_hash": "sha256:598a57da224daf97eae8ed82de114011a46adcde31d0aadee7186634511b5e1e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 18,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T16:40:56Z",
+  "timestamp": "2026-11-14T16:59:40Z",
   "report_version": 1,
-  "signature": "hmac-sha256:10e22b895948bd6ed1cff6a2def3dc31b74a6540fd32d5a476f7557f44ec9355"
+  "signature": "hmac-sha256:da4f273fc4db3a1c38fe5d2c125b88a5d28f68fcecfbc6be03f4a988f37fe1cb"
 }

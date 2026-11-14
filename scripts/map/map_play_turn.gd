@@ -109,11 +109,12 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 		return
 	# The proposing court pays for its overture; the human treasury is untouched.
 	# A peace offer starts its own cooldown once the court answers; every other
-	# proposal starts the improve-relations cooldown (DR-20261109-06/07).
+	# proposal starts the improve-relations cooldown (DR-20261109-06/07). The
+	# answer is the asking court's memory either way (DR-20261115-01).
 	var from_id: int = int(result.get("from", -1))
 	if play.ai != null:
 		if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
-			play.ai.note_peace(from_id, play.player_faction, play.turn)
+			play.ai.note_peace(from_id, play.player_faction, play.turn, accept)
 		else:
 			play.ai.note_overture(from_id, play.player_faction, play.turn)
 	if play.hud != null:
