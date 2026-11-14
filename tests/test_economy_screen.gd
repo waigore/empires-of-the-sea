@@ -113,6 +113,63 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	assert_true(economy.recruits.is_empty(), "the order lands once")
 
 
+## A tier the crown can pay for more than once offers one batch press under its
+## row: the count and the whole price are on the button, so a batch is never a
+## surprise (wiki: workers-and-population § Recruiting; REQ-P5-04, REQ-P5-05).
+func test_the_workers_tab_offers_a_batch_press() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 2000
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var batches: Dictionary = workers.batch_buttons()
+	assert_true(batches.has(WorkerPool.Tier.APPRENTICE), "four heads are payable")
+	var button: Button = batches[WorkerPool.Tier.APPRENTICE] as Button
+	assert_true(button.text.contains("Recruit ×4"), button.text)
+	assert_true(button.text.contains("800 ducats"), "the whole price is named: %s" % button.text)
+	assert_true(button.text.contains("Paper ×8"), button.text)
+
+
+## The batch press files every head it names, pays nothing yet, and the queue
+## reads as one line instead of four (REQ-P5-04, REQ-P5-05).
+func test_a_batch_press_files_every_head() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 2000
+	economy.stockpile["paper"] = 10
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 4)
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE)), 4
+	)
+	assert_eq(economy.treasury, 2000, "nothing is paid at the press")
+	assert_eq(economy.available_peasants(), 0, "every head is promised")
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var printed: String = _printed(workers)
+	assert_true(printed.contains("Apprentice ×4 · joins the pool in Build/work"), printed)
+
+
+## A tier the crown can pay for once keeps its single press and no batch row.
+func test_a_single_head_offers_no_batch_press() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 200
+	economy.stockpile["paper"] = 2
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.APPRENTICE), "one head is all the purse pays"
+	)
+
+
 ## The WORKERS tab names every order waiting for Build/work, and how many of a
 ## tier are on the way (wiki: workers-and-population § Phase placement).
 func test_the_workers_tab_shows_what_is_under_orders() -> void:

@@ -73,7 +73,11 @@ Ledger `PRODUCTION`: stockpile by catalogue group, holdings and next figures;
 steppers capped by labour/inputs (`allowance`), a worked row
 naming its output (`made 3`). `MARKET`: staged orders and Minor/Tribe/world rows
 under medallions. `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`; a `LARDER`
-block forecasts the next Consumption (`LarderRead`).
+block forecasts the next Consumption (`LarderRead`). A tier the crown can pay
+for more than once adds one full-width **batch press** under its row — the
+count, the whole price and the press that files them all
+(`recruit_affordable`, `queue_recruit(tier, count)`); `UNDER ORDERS` reads a
+batch as one line.
 
 
 ## Deferred (REQ-P2-02)
