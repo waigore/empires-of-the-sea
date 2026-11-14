@@ -96,7 +96,10 @@ static func run(play: PlaySession) -> Dictionary:
 		for assignment: Dictionary in production["assignments"]:
 			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
 		var recruits: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-			config, economy, floor
+			config, economy, floor,
+			AiArmyReinforce.fed_slack(
+				economy, _army_food(play, faction), MapPlayCourt.ships(play, faction)
+			)
 		)
 		for order: Dictionary in recruits:
 			economy.recruit(int(order["tier"]))
