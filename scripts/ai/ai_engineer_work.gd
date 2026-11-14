@@ -96,12 +96,12 @@ static func _network_candidate(
 			if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 				continue
 			best = AiCivilianCandidate.better(best, _road(
-				config, model, unit, tile, works, units, stockpile, tech_caps,
+				model, unit, tile, works, units, stockpile, tech_caps,
 				tech_unlocked, context, target, road_weight, connected
 			))
 		else:
-			best = AiCivilianCandidate.better(best, _candidate(
-				config, model, unit, "build_rail", tile, works, units, stockpile,
+			best = AiCivilianCandidate.better(best, AiCivilianCandidate.make(
+				model, unit, "build_rail", tile, works, units, stockpile,
 				tech_caps, tech_unlocked, context, RAIL_BASE
 			))
 	return best
@@ -110,8 +110,8 @@ static func _network_candidate(
 ## A road to a resource tile without road: worth more the shorter the stores
 ## are of its crop, and a premium beside the capital network.
 static func _road(
-	config: AiConfig, model: MapModel, unit: CivilianState, tile: Vector2i,
-	works: LandWorks, units: Array, stockpile: Dictionary, tech_caps: Dictionary,
+	model: MapModel, unit: CivilianState, tile: Vector2i, works: LandWorks,
+	units: Array, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, target: int,
 	road_weight: int, connected: Dictionary
 ) -> Dictionary:
@@ -126,8 +126,8 @@ static func _road(
 		score += IMPROVEMENT_BONUS
 	if _touches_connected(model, tile, connected):
 		score += CONNECTED_BONUS
-	return _candidate(
-		config, model, unit, "build_road", tile, works, units, stockpile,
+	return AiCivilianCandidate.make(
+		model, unit, "build_road", tile, works, units, stockpile,
 		tech_caps, tech_unlocked, context, score
 	)
 
@@ -159,8 +159,8 @@ static func _port_candidate(
 		for tile: Vector2i in province.tiles:
 			if reserved.has(tile) or not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				continue
-			return _candidate(
-				config, model, unit, "build_port", tile, works, units, stockpile,
+			return AiCivilianCandidate.make(
+				model, unit, "build_port", tile, works, units, stockpile,
 				tech_caps, tech_unlocked, context,
 				config.parameter("civilian.port_weight")
 			)
@@ -183,28 +183,8 @@ static func fort_candidate(
 	var site: Vector2i = FortRules.site_tile(model, province)
 	if site.x < 0:
 		return {}
-	return _candidate(
-		config, model, unit, "build_fort", site, works, units, stockpile,
+	return AiCivilianCandidate.make(
+		model, unit, "build_fort", site, works, units, stockpile,
 		tech_caps, tech_unlocked, context,
 		config.parameter("civilian.fort_weight") + FORT_URGENCY
-	)
-
-
-# --- shared helpers ---------------------------------------------------------
-
-
-## AiCivilianCandidate.make with the shared planner arguments, guarded against
-## a missing config so a narrow caller cannot raise an error. `target` lets a
-## caller validate the work somewhere other than the tile it names.
-static func _candidate(
-	config: AiConfig, model: MapModel, unit: CivilianState, action: String,
-	tile: Vector2i, works: LandWorks, units: Array, stockpile: Dictionary,
-	tech_caps: Dictionary, tech_unlocked: Dictionary, context: Dictionary,
-	score: int, target: Vector2i = CivilianState.NO_TILE
-) -> Dictionary:
-	if config == null:
-		return {}
-	return AiCivilianCandidate.make(
-		model, unit, action, tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score, target
 	)

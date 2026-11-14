@@ -41,7 +41,7 @@ func _look() -> Dictionary:
 
 ## The round counter joins the header beside the place and the Skip.
 func _build_header_tail(header: HBoxContainer) -> void:
-	_round_label = _label("", 13, Palette.GOLD)
+	_round_label = UiRowBuilder.serif_line("", 13, Palette.GOLD)
 	header.add_child(_round_label)
 
 
@@ -59,16 +59,16 @@ func _build_after_bars(column: VBoxContainer) -> void:
 	var pips := HBoxContainer.new()
 	pips.add_theme_constant_override("separation", 6)
 	column.add_child(pips)
-	pips.add_child(_label("ROUNDS", 11, Palette.TEXT_DIM))
+	pips.add_child(UiRowBuilder.serif_line("ROUNDS", 11, Palette.TEXT_DIM))
 	for index in 3:
-		var pip := _label(QuickBattleCopy.roman(index + 1), 13, Palette.TEXT_DIM)
+		var pip := UiRowBuilder.serif_line(QuickBattleCopy.roman(index + 1), 13, Palette.TEXT_DIM)
 		_pips.append(pip)
 		pips.add_child(pip)
-	_plan_label = _label("", 11, Palette.TEXT_DIM)
+	_plan_label = UiRowBuilder.serif_line("", 11, Palette.TEXT_DIM)
 	_plan_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_plan_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	pips.add_child(_plan_label)
-	_wall_label = _label("", 12, Palette.TEXT)
+	_wall_label = UiRowBuilder.serif_line("", 12, Palette.TEXT)
 	_wall_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_wall_label.visible = false
 	column.add_child(_wall_label)

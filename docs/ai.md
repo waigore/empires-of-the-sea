@@ -7,7 +7,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`,
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
-  (`AiNavy`, incl. no fighting hull at peace; chest in reach at war); else
+  (`AiNavy`: no fighting hull at peace, chest in reach at war); else
   `economy.min_treasury`. On `earn` the auction holds it back
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
@@ -17,8 +17,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   (DR-20261113-25/14-01).
 - **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
   Declarations need relation ≤ ceiling (50; warmonger 70, peacemaker 30) and
-  desire ≥ 51; at war, below `50 + peace_bias` peace is offered. A buyable
-  Tribe lifts its envoy chain, not war (DR-20261114-02).
+  desire ≥ 51; at war, below `50 + peace_bias` peace is offered, each refusal
+  doubling the wait to `peace_refusal_cap` (DR-20261115-01). A buyable Tribe
+  lifts its envoy chain, not war (DR-20261114-02).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
@@ -30,9 +31,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
-  by voyages, invasions and diplomacy (DR-20261113-03).
-- **Colonisation** (`AiColonisationPlanner`): the squadron docks at the harbour to
-  board, cross and land, then returns empty (DR-20261111-05, DR-20261114-03).
+  by voyages, invasions, diplomacy (DR-20261113-03).
+- **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
+  crosses, lands and returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
   hulls, dock, board, cross, storm the coast (DR-20261114-03).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
@@ -48,10 +49,10 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs; merchants sail home, one hull more when tonnage
+  bid short inputs; merchants sail home, a hull more when tonnage
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading era; Tribes
-  stay 1; rivals re-equip and pay to attack.
+  stay 1; rivals re-equip, pay to attack.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
   (DR-20261111-04) and its pattern's inputs (DR-20261113-08); at war the wornest

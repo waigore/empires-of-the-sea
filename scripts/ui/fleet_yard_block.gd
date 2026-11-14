@@ -107,20 +107,14 @@ func _apply_open() -> void:
 
 func _fill() -> void:
 	UiRowBuilder.clear(_box)
-	_box.add_child(_caption("LAUNCH A HULL"))
+	_box.add_child(UiRowBuilder.caption("LAUNCH A HULL", 11, Palette.TEXT_DIM))
 	for row: Dictionary in _rows:
 		_box.add_child(_build_row(row))
 	if _fleet == null or not _is_player:
 		return
-	_box.add_child(_caption("BREAK UP A HULL"))
+	_box.add_child(UiRowBuilder.caption("BREAK UP A HULL", 11, Palette.TEXT_DIM))
 	for hull_id: String in _fleet.hulls:
 		_box.add_child(_hull_row(hull_id))
-
-
-func _caption(text: String) -> Label:
-	var label := UiRowBuilder.line(11, Palette.TEXT_DIM)
-	label.text = text
-	return label
 
 
 func _build_row(row: Dictionary) -> Control:

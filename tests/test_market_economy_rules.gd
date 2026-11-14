@@ -3652,6 +3652,81 @@ func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
 	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
 
 
+## The Deal Book names the ducats the clearing charged, not the per-unit ask
+## multiplied out: the debt is rounded once from the whole deal, so a pact's
+## 95% on five tons costs 333 while the ask reads 67 (wiki: world-market
+## § Subsidy price adjustment — "never a sum of per-unit roundings"; REQ-P5-05).
+func test_a_purchase_line_names_the_ducats_the_clearing_charged() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(0, {"buy": {"*": 0.95}, "sell": {"*": 1.0}})
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	var before: int = buyer.treasury
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "copper", MarketOrder.SIDE_BID, 5,
+		{"cargo_free": 10, "treasury": before, "buy_price": market.buy_price("copper", 0)}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, _market_engine_world(), economies, {0: 10, 1: 10}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+			break
+	assert_false(deal.is_empty(), "the world counterparty filled the bid")
+	assert_eq(int(deal["quantity"]), 5)
+	assert_eq(int(deal["buy_unit"]), 67, "the ask rounds the unit")
+	assert_eq(int(deal["cost"]), 333, "the debt rounds the whole deal")
+	assert_eq(before - buyer.treasury, 333, "and that is what the purse paid")
+	assert_eq(
+		LedgerText.deal_line(deal),
+		"Bought 5 Copper from the world market at 67 — 333 ducats (rounded from the deal)"
+	)
+
+
+## A purse-truncated deal buys fewer tons than the matcher proposed, so the row
+## must carry the settled quantity: the Deal Book would otherwise name tons the
+## crown never received (wiki: world-market § Treasury budget for bids — the
+## resolver-side clamp; REQ-P5-05).
+func test_a_truncated_deal_records_the_tons_it_settled() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer := MarketOrder.create(6, "timber", MarketOrder.SIDE_OFFER, 3, 1)
+	offer.auto = true
+	market.book.submit(offer)
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	buyer.treasury = 100
+	var diplomacy := DiplomacyState.new()
+	# The surcharge is invisible to the matcher's cap, so the settle truncates.
+	diplomacy.set_subsidy(0, 6, 20)
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "timber", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 10, "treasury": 100, "buy_price": 30}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, null, economies, {0: 10}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+			break
+	assert_false(deal.is_empty(), "the minor's offer filled the bid")
+	assert_eq(int(deal["quantity"]), 2, "two tons fit the purse at the surcharge")
+	assert_eq(int(deal["cost"]), 72, "2 x 30 x 1.2, rounded once")
+	assert_eq(buyer.quantity("timber"), 2)
+	assert_eq(buyer.treasury, 28)
+	assert_true(
+		LedgerText.deal_line(deal).begins_with("Bought 2 Timber"),
+		LedgerText.deal_line(deal)
+	)
+
+
 ## The other two Deal Book lines: a sale names its receipt, a favoured fill says
 ## so, and a legacied row with no `buy_unit` still reads at its published price
 ## (REQ-P5-05; wiki: world-market § Favored Trading Partner).

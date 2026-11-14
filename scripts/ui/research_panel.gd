@@ -134,11 +134,11 @@ func _build() -> void:
 	_close = close
 	header.add_child(close)
 
-	_summary = _label("", 14, Palette.TEXT)
+	_summary = UiRowBuilder.label("", 14, Palette.TEXT)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_column.add_child(_summary)
 
-	_notice = _label("", 12, Palette.CRIMSON)
+	_notice = UiRowBuilder.label("", 12, Palette.CRIMSON)
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_notice.visible = false
 	_column.add_child(_notice)
@@ -147,7 +147,7 @@ func _build() -> void:
 	_goal_row.clear_pressed.connect(func() -> void: set_goal(""))
 	_column.add_child(_goal_row)
 
-	_slots_heading = _label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
+	_slots_heading = UiRowBuilder.label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
 	_column.add_child(_slots_heading)
 
 	_slots_body = VBoxContainer.new()
@@ -163,7 +163,7 @@ func _build() -> void:
 	_available_body = _add_page("AVAILABLE")
 	_known_body = _add_page("KNOWN")
 
-	_hint = _label("", 11, Palette.TEXT_DIM)
+	_hint = UiRowBuilder.label("", 11, Palette.TEXT_DIM)
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_column.add_child(_hint)
 
@@ -310,7 +310,7 @@ func _fill_available(techs: Array[String]) -> void:
 	_available_key = key
 	_rebuild(_available_body, func() -> void:
 		if techs.is_empty():
-			_available_body.add_child(_label(
+			_available_body.add_child(UiRowBuilder.label(
 				"No advances are open — finish a prerequisite or chart a resource.",
 				12, Palette.TEXT_DIM
 			))
@@ -333,7 +333,7 @@ func _fill_known() -> void:
 	_known_key = key
 	_rebuild(_known_body, func() -> void:
 		if known.is_empty():
-			_known_body.add_child(_label(
+			_known_body.add_child(UiRowBuilder.label(
 				"Nothing is known beyond the old learning.", 12, Palette.TEXT_DIM
 			))
 			return
@@ -364,21 +364,7 @@ func _hint_text(open_count: int, starved: bool) -> String:
 func _rebuild(body: Container, paint: Callable) -> void:
 	var scroll := body.get_parent() as ScrollContainer
 	var keep: int = scroll.scroll_vertical if scroll != null else 0
-	_clear(body)
+	UiRowBuilder.clear(body)
 	paint.call()
 	if scroll != null:
 		scroll.set_deferred("scroll_vertical", keep)
-
-
-func _clear(body: Container) -> void:
-	for child in body.get_children():
-		body.remove_child(child)
-		child.queue_free()
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label

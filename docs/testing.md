@@ -109,21 +109,24 @@ godot --headless --path . --script res://playtests/playtest_allied_defence.gd
 # that cannot be read (a newer format, a corrupt file).
 godot --headless --path . --script res://playtests/playtest_persistence.gd
 
-# Persistence, advanced — closes turns, starts a study and raises an estate,
-# then saves, loads and compares the snapshots plus the college, estate, purse
-# and plan reads a player makes.
+# Persistence, advanced — closes turns, then saves and compares the college,
+# estate, purse and plan reads a player makes.
 godot --headless --path . --script res://playtests/playtest_persistence_advanced.gd
 
-# Naval squadron — reads the crown's squadrons and their named hulls, boards a
-# field army and sorties, lands it on a crown coast, takes a blockade off a rival
-# shore, resolves a sea battle (printing the despatch against the hulls actually
-# lost), and sorts a rival squadron out of a captured port.
+# Naval squadron — boards a field army and sorties, lands it, blockades a rival
+# shore, resolves a sea battle (the despatch against the hulls actually lost),
+# and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
 
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
+
+# Rival overseas invasion — plays an all-AI campaign and reads every expedition
+# (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
+# so a stalled expedition names the gate that refused it.
+godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
 
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
 # dossier's `???` and the zone that takes no verdict; closes a turn to read the
@@ -174,6 +177,11 @@ godot --headless --path . --script res://playtests/playtest_college_debt.gd
 # must name the favoured fill), boycotts a rival and reads that crown's taxed
 # sale receipt against the rate its page prints.
 godot --headless --path . --script res://playtests/playtest_trade_terms.gd
+
+# Market receipt — signs a favoured trading pact, buys five tons at its rate and
+# reads the Deal Book line against the ducats the clearing charged, then claims a
+# good with production runs and reads the row's sellable cap.
+godot --headless --path . --script res://playtests/playtest_market_receipt.gd
 
 # Sieges — raises a wall from the Engineer's own order (caption, receipt,
 # despatch, province sheet, military lens), storms rival walls at wood and modern

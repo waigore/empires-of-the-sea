@@ -48,3 +48,4 @@ venv/
 .orc/config.local.yaml
 .orc/worktrees/
 .orc/logs/
+.local/

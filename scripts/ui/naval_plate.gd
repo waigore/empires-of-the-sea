@@ -131,12 +131,12 @@ func _fill_row(row: HBoxContainer, side: String) -> void:
 		row.remove_child(child)
 		child.queue_free()
 	var owner: int = _owner(side)
-	row.add_child(_label(NavalDispatch.name_of(faction_names, owner), 13,
+	row.add_child(UiRowBuilder.serif_line(NavalDispatch.name_of(faction_names, owner), 13,
 		Palette.faction_color(owner)))
 	for group: Dictionary in NavalDispatch.groups(battle, side):
 		row.add_child(_medal_chip(String(group["type"]), int(group["count"])))
 	if row.get_child_count() == 1:
-		row.add_child(_label("%d hulls" % NavalDispatch.hull_count(battle, side), 12,
+		row.add_child(UiRowBuilder.serif_line("%d hulls" % NavalDispatch.hull_count(battle, side), 12,
 			Palette.TEXT_DIM))
 
 
@@ -173,7 +173,7 @@ func _medal_chip(type_id: String, count: int) -> Control:
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		chip.add_child(icon)
-	var tally := _label("×%d" % count, 12, Palette.TEXT)
+	var tally := UiRowBuilder.serif_line("×%d" % count, 12, Palette.TEXT)
 	tally.custom_minimum_size = Vector2(0, size)
 	tally.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	chip.add_child(tally)

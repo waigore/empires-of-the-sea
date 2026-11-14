@@ -205,12 +205,22 @@ static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
 
 
 ## Land a Great Power may enter: a declared enemy's, or a Tribe's without a
-## declaration (wiki: factions § Tribe).
-## Purchased-tile protection is deferred with land purchase (DR-20261108-06).
-static func invadable(state: DiplomacyState, attacker: int, target: int) -> bool:
+## declaration (wiki: factions § Tribe). A Tribe province another crown has
+## bought land in is the exception: the investment is a stake, so the march
+## needs a declaration like any other foreign land (wiki: factions § Tribe —
+## "unless another GP has invested in the province"; DR-20261110-20).
+## `model`/`province` are optional so the coarse war query (combat, beachhead
+## targeting) keeps its two-argument reading.
+static func invadable(
+	state: DiplomacyState, attacker: int, target: int,
+	model: MapModel = null, province: int = -1
+) -> bool:
 	if attacker == target:
 		return false
 	if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
+		if not at_war_with(state, attacker, target) \
+				and DeedProtection.invested_in_province(model, province, attacker):
+			return false
 		return true
 	return at_war_with(state, attacker, target)
 

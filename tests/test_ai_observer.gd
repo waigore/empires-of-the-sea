@@ -396,3 +396,22 @@ func test_court_reader_reads_region_rosters() -> void:
 		play.army_layer.armies.size(), armies.size(),
 		"a hull refresh leaves the field armies alone"
 	)
+
+
+## The former human slot is a planning crown in the observer, so it must chart
+## like one: its New World grid is its own, never the screen's region table,
+## which no pass grows (issue #603).
+func test_the_observed_court_charts_like_any_rival() -> void:
+	var play: PlaySession = _screen.play
+	assert_true(play.observer_mode, "the session is an all-AI observer")
+	var charts: CourtCharts = play.court_charts
+	assert_eq(
+		charts.human_faction, MapModel.NO_ID,
+		"no planning crown reads the screen's own region table"
+	)
+	for faction: int in FactionCatalog.great_power_ids():
+		for region in play.world.region_count():
+			assert_true(
+				charts.model_for(faction, region) != null,
+				"%s charts region %d" % [FactionCatalog.name_of(faction), region]
+			)

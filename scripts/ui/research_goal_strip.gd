@@ -28,13 +28,13 @@ func render(state: ResearchState, goal_id: String) -> void:
 	for child: Node in get_children():
 		remove_child(child)
 		child.queue_free()
-	var tag := _label("GOAL", 11, Palette.TEXT_DIM)
+	var tag := UiRowBuilder.label("GOAL", 11, Palette.TEXT_DIM)
 	tag.custom_minimum_size = Vector2(46, 0)
 	add_child(tag)
 	if goal.is_empty():
 		# The prompt explains the empty state; a phone hides the whole strip
 		# instead of spending a line on it.
-		var hint := _label(
+		var hint := UiRowBuilder.label(
 			"No goal — set one to sort the queue by the path that reaches it.",
 			12, Palette.TEXT_DIM
 		)
@@ -43,11 +43,11 @@ func render(state: ResearchState, goal_id: String) -> void:
 		add_child(hint)
 		return
 	add_child(ResearchRow.icon(goal, 30.0))
-	var name_label := _label(TechCatalog.display_name(goal), 14, Palette.GOLD_PALE)
+	var name_label := UiRowBuilder.label(TechCatalog.display_name(goal), 14, Palette.GOLD_PALE)
 	name_label.tooltip_text = TechCatalog.effect_text(goal)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(name_label)
-	var standing_label := _label(standing, 11, Palette.TEXT_DIM)
+	var standing_label := UiRowBuilder.label(standing, 11, Palette.TEXT_DIM)
 	standing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(standing_label)
 	var clear := Button.new()
@@ -68,11 +68,3 @@ static func _standing(state: ResearchState, goal_id: String) -> String:
 	if state.is_active(goal_id):
 		return "%d / %d RP" % [state.progress_of(goal_id), TechCatalog.cost(goal_id)]
 	return "%d RP" % TechCatalog.cost(goal_id)
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label

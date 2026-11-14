@@ -15,10 +15,20 @@ var last_overture_turn: Dictionary = {}
 var last_truce_turn: Dictionary = {}
 ## "low:high" pair key -> turn the human court answered a peace offer.
 var last_peace_turn: Dictionary = {}
+## "low:high" pair key -> refused white-peace offers since the pair last made
+## peace or last went to war. A refusal is information: the planner widens its
+## next ask from this count instead of retrying on every cooldown turn (wiki:
+## diplomacy § Cooldowns; DR-20261115-01).
+var peace_refusals: Dictionary = {}
 ## Faction id -> that rival court's ledger (stockpile, treasury, workers).
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
+## Faction id -> the deferred-aim stall records the escalation tracker keeps
+## (`AiDeferral`, issue #603): how many turns each aim has been deferred
+## without its shortfall shrinking. Read back by the readings and the reserve,
+## so a stalled war chest re-routes instead of freezing the court.
+var deferrals: Dictionary = {}
 ## Faction id -> the claims the objective ledger last ranked and funded, with
 ## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
 ## save carries the ledger the court reported.
@@ -60,6 +70,8 @@ func stockpiles(exclude: int = -1) -> Dictionary:
 
 func note_war(a: int, b: int, turn: int) -> void:
 	last_war_turn[pair_key(a, b)] = turn
+	# A new war is a new question: the refusals of the last one are spent.
+	peace_refusals.erase(pair_key(a, b))
 
 
 func war_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
@@ -77,6 +89,9 @@ func note_overture(a: int, b: int, turn: int) -> void:
 ## courts unwilling to fight again for `diplomacy.truce_turns` (issue #475).
 func note_truce(a: int, b: int, turn: int) -> void:
 	last_truce_turn[pair_key(a, b)] = turn
+	# The war is over, so the refusals it collected are no longer a reason to
+	# wait when it resumes (DR-20261115-01).
+	peace_refusals.erase(pair_key(a, b))
 
 
 func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
@@ -87,9 +102,23 @@ func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 
 
 ## A refused peace offer is not repeated immediately: the peace cooldown runs
-## from the turn the human court answered (DR-20261109-07).
-func note_peace(a: int, b: int, turn: int) -> void:
-	last_peace_turn[pair_key(a, b)] = turn
+## from the turn the court answering it spoke (DR-20261109-07). A refusal is
+## also remembered, because the same answer asked again on every cooldown turn
+## is not a question — the planner widens the wait from this count
+## (DR-20261115-01).
+func note_peace(a: int, b: int, turn: int, accepted: bool = true) -> void:
+	var key: String = pair_key(a, b)
+	last_peace_turn[key] = turn
+	if accepted:
+		peace_refusals.erase(key)
+		return
+	peace_refusals[key] = int(peace_refusals.get(key, 0)) + 1
+
+
+## How many white-peace offers this pair has refused since it last made peace
+## (or last went to war). 0 means the court has not been told no.
+func peace_refusals_for(a: int, b: int) -> int:
+	return int(peace_refusals.get(pair_key(a, b), 0))
 
 
 func peace_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
@@ -125,6 +154,11 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 		"blocked_ids": ids["blocked"],
 		"lines": lines,
 	}
+	# The escalation tracker folds the same rows: one stall map per court, so a
+	# save carries how long each aim has stood still (issue #603).
+	deferrals[faction] = AiDeferral.note(
+		_dictionary(deferrals.get(faction, {})), report.get("objectives", [])
+	)
 
 
 ## Walks the ledger tree and files every objective id under its status.
@@ -158,7 +192,11 @@ func to_dict() -> Dictionary:
 		"last_overture_turn": last_overture_turn.duplicate(),
 		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
+		"peace_refusals": peace_refusals.duplicate(),
 		"economies": _economy_snapshots(),
+		# The escalation's stall records are plain {aim -> {turns, shortfall}},
+		# JSON-safe as they stand (issue #603).
+		"deferrals": deferrals.duplicate(true),
 		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
 	}
@@ -173,7 +211,15 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
 	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
+	state.peace_refusals = _turn_dictionary(data.get("peace_refusals", {}))
 	state.economies = _economies_from(data.get("economies", {}))
+	# A JSON round-trip turns the faction keys into strings: file them back as
+	# ints, and drop any row a save could not describe (issue #603).
+	var stored_deferrals: Dictionary = _dictionary(data.get("deferrals", {}))
+	for faction: Variant in stored_deferrals.keys():
+		var records: Dictionary = AiDeferral.clean(_dictionary(stored_deferrals[faction]))
+		if not records.is_empty():
+			state.deferrals[int(faction)] = records
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state
