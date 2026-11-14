@@ -62,7 +62,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 	for _index in 20:
 		owners.append(1)
 	var world: WorldMap = AiFixture.world(owners)
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
 		0
@@ -81,7 +81,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 ## headless fixture (no army layer) still scores instead of reading zero.
 func test_a_context_without_strengths_keeps_the_head_count() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
 	)
 	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
@@ -93,7 +93,7 @@ func test_a_context_without_strengths_keeps_the_head_count() -> void:
 ## (wiki: diplomacy § Great Power power score; DR-20261112-09).
 func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{
 			"regiments": {0: 2, 1: 9},
@@ -109,7 +109,7 @@ func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 		},
 		0
 	)
-	var reading: Dictionary = AiTurn._reading(context, 0)
+	var reading: Dictionary = AiTurnRead.reading(context, 0)
 	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
 	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
 
