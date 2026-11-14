@@ -10,6 +10,13 @@ extends RefCounted
 ## (REQ-P3-01, REQ-P3-03).
 
 
+## The most units one row may hold on the anvil at once: the workshop has three
+## benches, so a court cannot pay for a fourth piece of the same work until one
+## lands (wiki: production-recipes § Workshop queue; DR-20261114-12). A one-turn
+## row never waits, so the cap never binds it.
+const QUEUE_CAP: int = 3
+
+
 ## One workshop row, cleaned: a batch with whole units and turns left, or {} when
 ## the value is not a batch at all. A hand-edited or damaged save is dropped,
 ## never trusted (wiki: production-recipes § Acceptance Criteria; DR-20261112-11).
@@ -45,6 +52,34 @@ static func units(wip: Dictionary, recipe_id: String) -> int:
 	for cleaned: Dictionary in batches(wip, recipe_id):
 		total += int(cleaned["units"])
 	return total
+
+
+## Units this row keeps on the anvil after this phase's landings are served: the
+## pieces a new run must share the bench with (wiki: production-recipes
+## § Workshop queue; DR-20261114-12).
+static func kept_after_serving(
+	wip: Dictionary, recipe_id: String, turns_per_run: int
+) -> int:
+	var kept: int = 0
+	for batch: Dictionary in serve(wip, recipe_id, turns_per_run)["kept"]:
+		kept += int(batch["units"])
+	return kept
+
+
+## Room left on a row's bench in a workshop that is **already this phase's**
+## (its landings served): the pieces on it now, against the cap.
+static func open_room(wip: Dictionary, recipe_id: String) -> int:
+	return maxi(QUEUE_CAP - units(wip, recipe_id), 0)
+
+
+## Units a new run of this row may still take this phase; 0 means the bench is
+## full. A batch already on the anvil keeps its place — the cap stops new runs,
+## never a paid one (DR-20261112-11). The room is read **after** the phase's
+## landings, because a unit that leaves the bench this phase frees its place for
+## the run a court sets now (REQ-P2-03: the ceiling the ledger offers is what the
+## phase will start).
+static func room(wip: Dictionary, recipe_id: String, turns_per_run: int) -> int:
+	return maxi(QUEUE_CAP - kept_after_serving(wip, recipe_id, turns_per_run), 0)
 
 
 ## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
