@@ -28,18 +28,23 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				continue
 			if not AiControl.plans(play, faction):
 				continue
-			var config: AiConfig = AiConfig.build(faction, play.map_seed)
+			var kind: String = AiControl.court_kind(play, faction)
+			if kind == AiControl.KIND_RANDOM:
+				continue
+			var config: Variant = AiBind.config(kind, faction, play.map_seed)
 			# A court on **earn** sails for the far coast even while a war sits on
 			# its border: the gold that ends its impasse is overseas
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
-			var earning: bool = AiIncome.wants_income(
-				config, play.ledger_for(faction), _at_war(play, faction),
+			var earning: bool = AiBind.wants_income(
+				kind, config, play.ledger_for(faction), _at_war(play, faction),
 				_regiments(play, faction)
 			)
-			touched = _split(play, model, fleets, armies, faction, config, trace, earning) or touched
-			var order: Dictionary = AiInvasionPlanner.plan(
-				config, play.diplomacy, play.world, region, model, fleets, armies,
+			touched = _split(
+				play, model, fleets, armies, faction, config, kind, trace, earning
+			) or touched
+			var order: Dictionary = AiBind.invasion_plan(
+				kind, config, play.diplomacy, play.world, region, model, fleets, armies,
 				play.turn, play.court_charts, earning
 			)
 			if order.is_empty():
@@ -62,13 +67,14 @@ static func _split(
 	fleets: Array,
 	armies: Array[ArmyState],
 	faction: int,
-	config: AiConfig,
+	config: Variant,
+	kind: String,
 	trace: Array[Dictionary],
 	wants_income: bool = false
 ) -> bool:
 	var split_any: bool = false
-	for action: Dictionary in AiInvasionPlanner.split_orders(
-		config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
+	for action: Dictionary in AiBind.invasion_split(
+		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):
 		var home: ArmyState = _army_by_id(armies, int(action.get("army_id", -1)))

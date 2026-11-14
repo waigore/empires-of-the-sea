@@ -7,10 +7,15 @@ extends RefCounted
 ## Readings and charts ride the context so no court plans against unseen
 ## garrisons or land (DR-20261112-09, DR-20261113-03). Consent prompts stay in
 ## MapPlayDiplomacyConsent; court orders stay in MapPlayDiplomacy.
+##
+## Under BENCH, the subject uses the submission AiTurn and baseline rivals use
+## mainline AiTurn; random courts issue no diplomacy.
 
 
 ## Rival Great Powers take their one diplomatic action for the turn before the
 ## phase closes, so declarations apply to this turn's movement and combat.
+## BENCH baselines share the submission diplomacy planner (session AiState is
+## not dual-loadable); economy/land/sea still route through AiBind mainline.
 static func run(play: PlaySession) -> void:
 	if play.ai == null:
 		play.ai = AiState.new()
@@ -23,8 +28,10 @@ static func run(play: PlaySession) -> void:
 		play.map_seed,
 		_context(play)
 	)
-	play.ai_trace.assign(result.get("trace", []))
-	_apply_map_changes(play, result.get("trace", []))
+	var trace: Array = []
+	trace.assign(result.get("trace", []))
+	play.ai_trace.assign(trace)
+	_apply_map_changes(play, trace)
 	if play.hud == null:
 		return
 	for record: Dictionary in play.ai_trace:
@@ -94,7 +101,10 @@ static func _apply_map_changes(play: PlaySession, trace: Array) -> void:
 ## the public FPN + FPM over every land army, the same terms the court panel and
 ## the calendar's declared winner print. The head count above answers the
 ## invasion-capacity rule, which reads regiments and not their weight.
-static func _context(play: PlaySession) -> Dictionary:
+##
+## When `only` is set, only those faction ids enter the planning gate (BENCH
+## subject vs baseline passes).
+static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 	var regiments: Dictionary = {}
 	var ships: Dictionary = {}
 	for raw: Dictionary in FactionCatalog.all():
@@ -105,8 +115,14 @@ static func _context(play: PlaySession) -> Dictionary:
 			ships[faction] = play.ship_layer.hull_count_all(faction)
 	var planning: Array[int] = []
 	for faction: int in FactionCatalog.great_power_ids():
-		if AiControl.plans(play, faction):
-			planning.append(faction)
+		if not AiControl.plans(play, faction):
+			continue
+		if not only.is_empty() and not only.has(faction):
+			continue
+		# Random BENCH fillers never take diplomacy.
+		if AiControl.court_kind(play, faction) == AiControl.KIND_RANDOM:
+			continue
+		planning.append(faction)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,

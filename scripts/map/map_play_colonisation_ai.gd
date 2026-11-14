@@ -30,19 +30,22 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				continue
 			if not AiControl.plans(play, faction):
 				continue
-			var config: AiConfig = AiConfig.build(faction, play.map_seed)
+			var kind: String = AiControl.court_kind(play, faction)
+			if kind == AiControl.KIND_RANDOM:
+				continue
+			var config: Variant = AiBind.config(kind, faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —
 			# unless the court is on **earn**, whose gold is overseas
 			# (DR-20261113-19).
-			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
-			var earning: bool = AiIncome.wants_income(
-				config, play.ledger_for(faction), _at_war(play, faction),
+			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+			var earning: bool = AiBind.wants_income(
+				kind, config, play.ledger_for(faction), _at_war(play, faction),
 				_regiments(play, faction)
 			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-			var order: Dictionary = AiColonisationPlanner.plan(
-				config, play.world, region, model, fleets, civilians,
+			var order: Dictionary = AiBind.colonisation_plan(
+				kind, config, play.world, region, model, fleets, civilians,
 				_abroad(play, target, faction), play.court_charts, posture, earning
 			)
 			if order.is_empty():

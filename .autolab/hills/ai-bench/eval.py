@@ -1,7 +1,8 @@
 """Frozen evaluator for Empires of the Sea rival-court AI (ai-bench).
 
-Runs a headless bench campaign (one planning crown vs idle rivals) and scores
-how far the live crown gets toward winning. The climber may read this file.
+Runs a headless BENCH campaign: one subject crown (submission AI) vs two
+baseline rivals (planners from origin/main) vs three random courts. Scores
+only the subject's weighted progress. The climber may read this file.
 """
 
 from __future__ import annotations
@@ -11,10 +12,13 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 HILL = Path(__file__).resolve().parent
+REPO_ROOT = HILL.parents[2]  # .autolab/hills/ai-bench → repo root
+SYNC_SCRIPT = REPO_ROOT / "tools" / "sync_ai_mainline.py"
 
 # Weights: provinces dominate, then forces, workforce, extraction, income.
 W_PROVINCES_OLD = 100.0
@@ -29,6 +33,11 @@ W_EARLY_WIN = 500.0
 AI_SURFACE_GLOBS = (
     "scripts/ai/**/*.gd",
     "scripts/map/map_play_*ai*.gd",
+)
+
+# Ignore generated mainline tree when hashing the submission surface.
+AI_SURFACE_SKIP_PREFIXES = (
+    "scripts/ai_mainline/",
 )
 
 
@@ -52,16 +61,24 @@ def _config(turns: int, seed: int, size: int, mode: str) -> list[dict]:
 
 
 def ai_surface_files(root: Path) -> list[Path]:
+    base = root.resolve()
     files: list[Path] = []
     for pattern in AI_SURFACE_GLOBS:
-        files.extend(p for p in root.glob(pattern) if p.is_file())
-    return sorted({p.resolve() for p in files}, key=lambda p: str(p))
+        files.extend(p for p in base.glob(pattern) if p.is_file())
+    kept: list[Path] = []
+    for path in files:
+        rel = path.resolve().relative_to(base).as_posix()
+        if any(rel.startswith(prefix) for prefix in AI_SURFACE_SKIP_PREFIXES):
+            continue
+        kept.append(path.resolve())
+    return sorted({p for p in kept}, key=lambda p: str(p))
 
 
 def ai_surface_hash(root: Path) -> str:
+    base = root.resolve()
     h = hashlib.sha256()
-    for path in ai_surface_files(root):
-        rel = path.relative_to(root).as_posix()
+    for path in ai_surface_files(base):
+        rel = path.relative_to(base).as_posix()
         h.update(rel.encode())
         h.update(b"\0")
         h.update(path.read_bytes())
@@ -76,6 +93,9 @@ def _live_row(summary: dict) -> dict | None:
         for row in rows:
             if int(row.get("faction", -2)) == live:
                 return row
+    for row in rows:
+        if str(row.get("court_kind", "")) == "subject":
+            return row
     for row in rows:
         if bool(row.get("plans")):
             return row
@@ -179,6 +199,113 @@ def _find_godot() -> str:
     raise FileNotFoundError("godot not found on PATH (set GODOT=...)")
 
 
+def _origin_main_sha(project: Path) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "origin/main^{commit}"],
+            cwd=project,
+            text=True,
+        ).strip()
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            "origin/main is required for ai-bench baselines "
+            f"(git rev-parse failed: {exc})"
+        ) from exc
+
+
+def _copy_frozen_mainline(dest: Path) -> str:
+    frozen = HILL / "baseline_planners"
+    if not frozen.is_dir() or not any(frozen.glob("*.gd")):
+        raise RuntimeError(
+            "hill baseline_planners/ missing; run "
+            "python3 tools/sync_ai_mainline.py --dest "
+            ".autolab/hills/ai-bench/baseline_planners"
+        )
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(frozen, dest)
+    sha_path = dest / ".mainline_sha"
+    if sha_path.is_file():
+        return sha_path.read_text().strip()
+    return "frozen"
+
+
+def _sync_mainline(dest_project: Path, git_repo: Path) -> str:
+    dest = dest_project / "scripts" / "ai_mainline"
+    script = dest_project / "tools" / "sync_ai_mainline.py"
+    if not script.is_file():
+        script = SYNC_SCRIPT
+    # Prefer origin/main when the submission tree has git (local climbs).
+    # Hills sandboxes often omit .git — fall back to the hill's frozen copy.
+    git_dir = git_repo / ".git"
+    if script.is_file() and (git_dir.is_dir() or git_dir.is_file()):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--ref",
+                "origin/main",
+                "--repo",
+                str(git_repo.resolve()),
+                "--dest",
+                str(dest),
+            ],
+            cwd=git_repo,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            sha_path = dest / ".mainline_sha"
+            if sha_path.is_file():
+                return sha_path.read_text().strip()
+            return _origin_main_sha(git_repo)
+        # Fall through to frozen planners when origin/main is unavailable.
+    return _copy_frozen_mainline(dest)
+
+
+def _stage_project(submission: Path, stage: Path) -> str:
+    """Copy submission into stage and materialize origin/main planners."""
+    ignore = shutil.ignore_patterns(
+        ".godot",
+        ".git",
+        "reports",
+        "__pycache__",
+        "*.pyc",
+        ".venv",
+        "venv",
+        "build",
+        "dist",
+        "ai_mainline",
+    )
+    shutil.copytree(submission, stage, symlinks=True, ignore=ignore, dirs_exist_ok=True)
+    sync_src = submission / "tools" / "sync_ai_mainline.py"
+    if sync_src.is_file():
+        (stage / "tools").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(sync_src, stage / "tools" / "sync_ai_mainline.py")
+    # Git metadata stays on the submission tree; planners land in the stage.
+    return _sync_mainline(stage, submission)
+
+
+def _expected_roles(summary: dict) -> str | None:
+    """Return an error string if BENCH role split is wrong; else None."""
+    live = int(summary.get("ai_live", -1))
+    rows = summary.get("rows") or []
+    kinds: dict[int, str] = {}
+    for row in rows:
+        kinds[int(row.get("faction", -1))] = str(row.get("court_kind", ""))
+    if live < 0:
+        return "summary missing ai_live"
+    if kinds.get(live) != "subject":
+        return f"live faction {live} court_kind={kinds.get(live)!r}, expected subject"
+    baselines = sorted(fid for fid, kind in kinds.items() if kind == "baseline")
+    randoms = sorted(fid for fid, kind in kinds.items() if kind == "random")
+    if len(baselines) != 2:
+        return f"expected 2 baseline crowns, got {baselines}"
+    if len(randoms) != 3:
+        return f"expected 3 random crowns, got {randoms}"
+    return None
+
+
 def _run_bench(project: Path, out_dir: Path, turns: int, seed: int, size: int) -> None:
     godot = _find_godot()
     run_sh = project / "tools" / "run.sh"
@@ -272,10 +399,12 @@ def eval(
 
     surface = ai_surface_hash(project)
     with tempfile.TemporaryDirectory(prefix="ai-bench-") as tmp:
+        stage = Path(tmp) / "project"
         out_dir = Path(tmp) / "out"
         out_dir.mkdir()
         try:
-            _run_bench(project, out_dir, turns, seed, size)
+            mainline_sha = _stage_project(project, stage)
+            _run_bench(stage, out_dir, turns, seed, size)
         except FileNotFoundError as exc:
             return _fail(str(exc), config)
         except RuntimeError as exc:
@@ -288,6 +417,9 @@ def eval(
         summary = json.loads(summary_path.read_text())
         if str(summary.get("ai_mode", "")) != "bench":
             return _fail(f"expected ai_mode=bench, got {summary.get('ai_mode')!r}", config)
+        role_err = _expected_roles(summary)
+        if role_err:
+            return _fail(role_err, config)
         try:
             scored = score_summary(summary, turns_path)
         except ValueError as exc:
@@ -304,6 +436,7 @@ def eval(
         "details": {
             "fixture": False,
             "ai_surface_hash": surface,
+            "mainline_git_sha": mainline_sha,
             **{k: scored[k] for k in ("parts", "early_win", "live_faction", "live_name", "turn", "resolved_turns")},
         },
     }

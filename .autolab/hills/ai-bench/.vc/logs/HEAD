@@ -1,2 +1,5 @@
 0000000000000000000000000000000000000000 2f57c408f0d6df4926eea9180307c4d469766e6a waigore <32946806+waigore@users.noreply.github.com> 1794554014 +0800	commit (initial): Freeze ai-bench: weighted bench campaign score for rival-court AI.
 2f57c408f0d6df4926eea9180307c4d469766e6a 62052814209667c3ff98cbc9a19a80039d3676ba waigore <32946806+waigore@users.noreply.github.com> 1794554427 +0800	commit: Track hill .vc in project git; drop nested .vc ignore.
+62052814209667c3ff98cbc9a19a80039d3676ba 625b8feb93bf124a989d47545a941750c0098ded waigore <32946806+waigore@users.noreply.github.com> 1794579591 +0800	commit: Replace idle-rival bench with subject vs origin/main baselines vs random courts.
+625b8feb93bf124a989d47545a941750c0098ded 742171fd3a6b1d23ecd75c3ed7770ecab8efb5ca waigore <32946806+waigore@users.noreply.github.com> 1794579736 +0800	commit: Ship frozen baseline_planners for sandboxed evals without git.
+742171fd3a6b1d23ecd75c3ed7770ecab8efb5ca a5e3a0f1c04183c2f54717c558298fecafa1cc99 waigore <32946806+waigore@users.noreply.github.com> 1794579927 +0800	commit: Document frozen baseline_planners fallback in README.

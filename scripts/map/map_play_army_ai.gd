@@ -48,21 +48,24 @@ static func _run_region(
 			continue
 		if not AiControl.plans(play, faction):
 			continue
-		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var kind: String = AiControl.court_kind(play, faction)
+		if kind == AiControl.KIND_RANDOM:
+			continue
+		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches
 		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04).
-		changed = _reinforce(play, model, roster, faction, config, trace) or changed
+		changed = _reinforce(play, model, roster, faction, config, kind, trace) or changed
 		# The court brings its surgeons along before it gives the march: a worn
 		# field army on its own ground pitches a train (DR-20261112-07,
 		# DR-20261112-08).
-		changed = _pitch_train(play, model, roster, faction, trace) or changed
-		for action: Dictionary in AiMilitaryPlanner.split_orders(
-			config, play.diplomacy, model, roster
+		changed = _pitch_train(play, model, roster, faction, kind, trace) or changed
+		for action: Dictionary in AiBind.military_split(
+			kind, config, play.diplomacy, model, roster
 		):
 			changed = _apply_split(play, model, roster, faction, action, trace) or changed
-		var plan: Dictionary = AiMilitaryPlanner.march_orders(
-			config, play.diplomacy, model, roster
+		var plan: Dictionary = AiBind.military_march(
+			kind, config, play.diplomacy, model, roster
 		)
 		changed = _apply_marches(
 			play, model, roster, faction, plan, AiMilitaryPlanner.KIND_MARCH, trace
@@ -183,7 +186,8 @@ static func _reinforce(
 	model: MapModel,
 	roster: Array[ArmyState],
 	faction: int,
-	config: AiConfig,
+	config: Variant,
+	kind: String,
 	trace: Array[Dictionary]
 ) -> bool:
 	if play.ai == null or play.army_layer == null or play.diplomacy == null:
@@ -197,7 +201,8 @@ static func _reinforce(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
-	var plan: Dictionary = AiArmyReinforce.plan(
+	var plan: Dictionary = AiBind.reinforce_plan(
+		kind,
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
@@ -232,6 +237,7 @@ static func _pitch_train(
 	model: MapModel,
 	roster: Array[ArmyState],
 	faction: int,
+	kind: String,
 	trace: Array[Dictionary]
 ) -> bool:
 	if play.ai == null or play.army_layer == null or _trained_this_turn(trace, faction):
@@ -239,9 +245,9 @@ static func _pitch_train(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
-	var army: ArmyState = AiHospitalTrainWork.best_army(
-		model, roster, faction, economy, _at_war(play, faction)
-	)
+	var army: ArmyState = AiBind.hospital_best_army(
+		kind, model, roster, faction, economy, _at_war(play, faction)
+	) as ArmyState
 	if army == null:
 		return false
 	var cost: Dictionary = HospitalTrain.cost()

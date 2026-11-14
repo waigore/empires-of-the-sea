@@ -21,8 +21,12 @@ godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
 
 Options: `--turns`, `--seed`, `--size` (0 Small / 1 Standard / 2 Large),
 `--runs` (seeds `seed+i`), `--historical` (stop at the calendar cap),
-`--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH live crown;
+`--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH subject;
 default setup faction), `--out=DIR` (default `user://ai_vs_ai`).
+
+Local bench needs mainline planners once:
+
+`python tools/sync_ai_mainline.py`
 
 ## Planner modes (`AiControl`)
 
@@ -30,29 +34,28 @@ default setup faction), `--out=DIR` (default `user://ai_vs_ai`).
 |------|-----------|
 | `full` | Every Great Power runs the shared planners (default) |
 | `noop` | Every Great Power issues no planner orders (inert control) |
-| `bench` | Only the live crown plans; other GPs are no-op controls |
+| `bench` | Subject (live) = submission AI; two baselines = `origin/main` planners in `scripts/ai_mainline/`; three fillers = random legal economy/civilian actions |
 
-Use `bench` for quantitative win-seeking checks (live AI vs idle rivals).
 Official scored climbs use hills **`ai-bench`** (`.autolab/hills/ai-bench/`).
+The hill scores **only the subject**.
 
 ## Metrics
 
-Every crown — the former human slot included — is driven by the shared
-planners when `ai_plans` allows (`AiTurn`, `AiMilitaryPlanner`,
-`AiNavalPlanner`, `AiEconomyPlanner`, `AiCivilianPlanner`).
-`MapPlayObserver.snapshot` reports per crown: leader, agenda, profile, whether
-it plans, war footing, provinces / victory progress, power, forces, ledger,
-wars, last-turn order mix. Dashboard: recent-orders feed, pause / step /
-speed, campaign result. `play.ai_turns` keeps one merged record per turn
-(wiki: turn-trace-interpretation).
+Every crown — the former human slot included — is driven when `AiControl.plans`
+allows. `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
+`court_kind`, whether it plans, war footing, provinces / victory progress,
+power, forces, ledger, wars, last-turn order mix. Dashboard: recent-orders
+feed, pause / step / speed, campaign result. `play.ai_turns` keeps one merged
+record per turn (wiki: turn-trace-interpretation).
 
 ## Export
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
-(includes `ai_mode` / `ai_live`) and prints a win-rate / average-provinces
-table across runs.
+(includes `ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate /
+average-provinces table across runs.
 
 ## Scope
 
-Rival fog and colonisation planners are live under `full`/`bench` live crowns
-(`CourtCharts`, `AiColonisationPlanner`). Ranked gaps: [`deferred.md`](deferred.md).
+Rival fog and colonisation planners are live under `full` and BENCH subject /
+baseline crowns (`CourtCharts`, `AiColonisationPlanner`). Ranked gaps:
+[`deferred.md`](deferred.md).

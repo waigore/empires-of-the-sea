@@ -19,7 +19,8 @@ var observer_mode: bool = false
 ## `NOOP` / `BENCH`). Live campaigns leave this at FULL; only the observer
 ## harness changes it (docs/ai-observer.md).
 var ai_mode: String = AiControl.FULL
-## When `ai_mode` is BENCH, only this Great Power plans; others are no-op.
+## When `ai_mode` is BENCH, this Great Power is the scored subject; two other
+## GPs use origin/main planners and the rest take random legal actions.
 ## `NO_ID` means the setup's `player_faction` (former human slot).
 var ai_live_faction: int = MapModel.NO_ID
 ## One merged record per resolved turn (MapPlayObserver); the observatory panel

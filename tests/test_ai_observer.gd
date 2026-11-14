@@ -146,36 +146,35 @@ func test_noop_mode_issues_no_planner_orders() -> void:
 		assert_false(bool(row["plans"]), "every crown is inert under noop")
 
 
-func test_bench_mode_only_the_live_crown_plans() -> void:
+func test_bench_mode_assigns_subject_baseline_and_random() -> void:
 	var play: PlaySession = _screen.play
 	var live: int = play.player_faction
 	play.ai_mode = AiControl.BENCH
 	play.ai_live_faction = live
-	assert_true(AiControl.plans(play, live), "the live crown plans")
+	assert_true(AiControl.plans(play, live), "the subject plans")
+	assert_eq(AiControl.court_kind(play, live), AiControl.KIND_SUBJECT)
+	var baselines: Array[int] = AiControl.baseline_factions(play)
+	assert_eq(baselines.size(), 2, "two baseline rivals")
+	for faction: int in baselines:
+		assert_eq(AiControl.court_kind(play, faction), AiControl.KIND_BASELINE)
+		assert_true(AiControl.plans(play, faction), "baselines plan")
+	var randoms: int = 0
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == live:
-			continue
-		assert_false(AiControl.plans(play, faction), "controls stay inert")
+		if AiControl.court_kind(play, faction) == AiControl.KIND_RANDOM:
+			randoms += 1
+			assert_true(AiControl.plans(play, faction), "random courts act")
+	assert_eq(randoms, 3, "three random fillers")
 	_step(1)
 	var live_economy: PlayerEconomy = play.ai.economy_for(live)
 	assert_true(
 		live_economy.production.assignments().size() > 0,
-		"the live crown still sets production"
-	)
-	var control: int = -1
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != live:
-			control = faction
-			break
-	assert_ne(control, -1)
-	var control_economy: PlayerEconomy = play.ai.economy_for(control)
-	assert_eq(
-		control_economy.production.assignments().size(), 0,
-		"a control crown never opens a workshop run"
+		"the subject still sets production"
 	)
 	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
 	assert_eq(String(snapshot["ai_mode"]), AiControl.BENCH)
 	assert_eq(int(snapshot["ai_live"]), live)
+	for row: Dictionary in snapshot["rows"]:
+		assert_false(String(row.get("court_kind", "")).is_empty(), "row names court_kind")
 
 
 func test_ai_control_parse_accepts_known_modes() -> void:

@@ -23,12 +23,14 @@ static func snapshot(play: PlaySession) -> Dictionary:
 	var leader: int = winner
 	if leader == NO_ID and not rows.is_empty():
 		leader = int(rows[0]["faction"])
+	var live: int = AiControl.live_faction(play)
 	return {
 		"turn": play.turn,
 		"year": TurnTime.year_for_turn(play.turn),
 		"seed": play.map_seed,
 		"ai_mode": play.ai_mode,
-		"ai_live": AiControl.live_faction(play),
+		"ai_live": live,
+		"ai_baselines": AiControl.baseline_factions(play) if play.ai_mode == AiControl.BENCH else [],
 		"campaign_over": play.campaign_over(),
 		"winner": winner,
 		"leader": leader,
@@ -68,6 +70,7 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"intent": AiIncome.label(String(income["goal"])),
 		"reserve": int(income["reserve"]),
 		"plans": AiControl.plans(play, faction),
+		"court_kind": AiControl.court_kind(play, faction),
 		"provinces_old": old_world,
 		"provinces_new": new_world,
 		"provinces_total": old_world + new_world,
@@ -174,8 +177,8 @@ static func _result_text(play: PlaySession, winner: int) -> String:
 ## Provinces first (the victory currency), then power, then faction id so the
 ## same state always ranks the same way.
 static func _better_row(a: Dictionary, b: Dictionary) -> bool:
-	if int(a["provinces_old"]) != int(b["provinces_old"]):
-		return int(a["provinces_old"]) > int(b["provinces_old"])
-	if int(a["power"]) != int(b["power"]):
-		return int(a["power"]) > int(b["power"])
-	return int(a["faction"]) < int(b["faction"])
+	if int(a.get("provinces_old", 0)) != int(b.get("provinces_old", 0)):
+		return int(a.get("provinces_old", 0)) > int(b.get("provinces_old", 0))
+	if int(a.get("power", 0)) != int(b.get("power", 0)):
+		return int(a.get("power", 0)) > int(b.get("power", 0))
+	return int(a.get("faction", 0)) < int(b.get("faction", 0))
