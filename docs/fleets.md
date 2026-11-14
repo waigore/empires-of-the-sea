@@ -70,6 +70,11 @@ No node deps (`REQ-P3-03`).
 | Shipyard | capital dossier → Shipyard | same |
 | Cancel | `Esc` | close panel |
 
+## Deferred (REQ-P2-02)
+
+Fleetless import leg: no holds, so no first-hull cloth (rules call); see
+[`deferred.md`](deferred.md).
+
 ## Tests
 
 `test_naval_rules`, `test_fleet_orders`,
