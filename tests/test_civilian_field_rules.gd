@@ -5,6 +5,10 @@ extends GdToolsTest
 ## (docs/testing.md speed rules).
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
+## A Tribe that a rival crown has colonised, and the crown that colonised it:
+## the pair a colonial boycott bars (wiki: diplomacy § GP–Tribe — Boycott, R6).
+const FALSE_COLONY_TRIBE: int = 9
+const BOYCOTT_ISSUER: int = 2
 
 
 ## Minimal HUD for the deed despatch: the purchase path repaints the treasury
@@ -1036,6 +1040,39 @@ func test_minerals_must_be_prospected_before_purchase() -> void:
 	var allowed: Dictionary = CivilianWork.validate(
 		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
 		iron, {}, {}, context
+	)
+	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
+
+
+## A boycott bars the deed: the boycotted crown may not buy land from a Tribe
+## the issuing crown colonised (wiki: diplomacy § GP–Tribe — Boycott, R6).
+func test_a_boycott_bars_the_deed_to_a_colonys_land() -> void:
+	var model: MapModel = Fixture.build_minor()
+	model.provinces[1].owner = FALSE_COLONY_TRIBE
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, FALSE_COLONY_TRIBE, 1)
+	court.set_overture(0, FALSE_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
+	court.set_colony(FALSE_COLONY_TRIBE, BOYCOTT_ISSUER)
+	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
+	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	var works := LandWorks.new()
+	var merchant := Fixture.unit("merchant", Vector2i(1, 1))
+	var units: Array[CivilianState] = [merchant]
+	var tile := Vector2i(3, 1)
+	var context: Dictionary = {"treasury": 5000, "diplomacy": court}
+	var refused: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
+		tile, {}, {}, context
+	)
+	assert_false(bool(refused["ok"]), "a boycott bars trade with that colony")
+	assert_true(String(refused["reason"]).contains("boycott"))
+	# Lifting the boycott opens the deed again: the gate is the pair, not the tile.
+	court.end_turn()
+	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	var allowed: Dictionary = CivilianWork.validate(
+		model, merchant, "purchase_land", works, units, Fixture.stockpile(), null,
+		tile, {}, {}, context
 	)
 	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
 

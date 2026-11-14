@@ -50,6 +50,10 @@ static func check(
 		return _no("No court is open to sign a deed.")
 	if DiplomacyRules.at_war_with(diplomacy, unit.owner, seller):
 		return _no("Your crown is at war with %s." % FactionCatalog.name_of(seller))
+	# A colonial boycott bars the deed as it bars every other deal with that
+	# court (wiki: diplomacy § GP–Tribe — Boycott, R6).
+	if DiplomacyTrade.blocked_by_boycott(diplomacy, unit.owner, seller):
+		return _no("A boycott bars trade with that court.")
 	if not DiplomacyRules.has_embassy(diplomacy, unit.owner, seller):
 		return _no("An embassy with %s is required." % FactionCatalog.name_of(seller))
 	if (
