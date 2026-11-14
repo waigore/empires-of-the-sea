@@ -78,8 +78,8 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_field_rules`, `test_civilian_voyage`, `test_intel_rules`,
-`test_espionage`, `test_visibility`, `test_map_screen_crown_orders`.
+`test_civilian_field_rules`, `test_civilian_turn_rules`, `test_spycraft_rules`,
+`test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

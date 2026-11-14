@@ -2680,6 +2680,10 @@ match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
 
 [[rules]]
+match = "tests/test_hostility*.gd"
+domain = "hostility"
+
+[[rules]]
 match = "tests/test_intel_*.gd"
 domain = "intel"
 
