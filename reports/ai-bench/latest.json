@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:ae7ae52489fb59397d9a04b3bda230e1d6cef82cc758caa0285efb12aa1b95c5",
-  "submission_git": "perf/ai-harness-budget@69e4275",
+  "submission_hash": "sha256:ae80637386c7941362042087ac5bd3e7fac94a4a43a5df43a3d3ba776da762b7",
+  "submission_git": "fix/484-hull-material-row@0b4f578",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0285d7de17343c286512755707a1e00a1d134303a11a982b851cd6e49d1f90e6",
+    "ai_surface_hash": "sha256:d4ca48cc6e16a69426c2a03123f2145a47b1873d7a1f84370793a4bd937e4d18",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T13:06:22Z",
+  "timestamp": "2026-11-14T13:27:38Z",
   "report_version": 1,
-  "signature": "hmac-sha256:3387038149fc42460aa7b1d71ac03339132b0ca1ce233980bf01372938c98be0"
+  "signature": "hmac-sha256:ac17259666321ba161870b8da09b0035dc36c3b7bcc97dd1b6f7f309dfc8afd9"
 }
