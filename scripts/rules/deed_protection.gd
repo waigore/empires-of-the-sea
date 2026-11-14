@@ -45,6 +45,26 @@ static func deed_count(world: WorldMap, court: int, target: int) -> int:
 	return deeds(world, court, target).size()
 
 
+## True when any crown other than `except_court` has bought a tile of this
+## province. A Tribe province with a foreign deed may not be invaded without a
+## declaration (wiki: factions § Tribe — "unless another GP has invested in the
+## province"). Reads the province's own tiles, so a deed in a neighbouring
+## province never bars the march.
+static func invested_in_province(
+	model: MapModel, province_id: int, except_court: int
+) -> bool:
+	if model == null or province_id < 0:
+		return false
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null:
+		return false
+	for tile: Vector2i in province.tiles:
+		var buyer: int = model.ownership.purchaser(model.index_of(tile.x, tile.y))
+		if buyer >= 0 and buyer != except_court:
+			return true
+	return false
+
+
 static func holds_deed(world: WorldMap, court: int, target: int) -> bool:
 	return deed_count(world, court, target) > 0
 

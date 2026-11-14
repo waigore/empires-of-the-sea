@@ -2303,6 +2303,68 @@ func test_standing_aside_without_an_embassy_leaves_the_deed_alone() -> void:
 	assert_true(String(answer["message"]).contains("deeds"), String(answer["message"]))
 	assert_eq(DeedProtection.deed_count(world, 0, 6), 1, "the land stays bought")
 
+## A Tribe province another crown has bought land in may not be invaded without
+## a declaration (wiki: factions § Tribe — "unless another GP has invested in the
+## province"); a bare Tribe province still needs none.
+func test_a_foreign_deed_bars_an_undeclared_tribe_invasion() -> void:
+	_setup_intervention()
+	var tribe: int = 9
+	var buyer: int = 1
+	var model: MapModel = _Fixture.build()
+	var province: ProvinceState = model.provinces[1]
+	province.owner = tribe
+	assert_true(
+		DiplomacyRules.invadable(intervention_state, 0, tribe, model, province.id),
+		"a bare Tribe province needs no declaration"
+	)
+	assert_true(model.purchase_tile(province.tiles[0], buyer), "a rival buys land there")
+	assert_true(
+		DeedProtection.invested_in_province(model, province.id, 0),
+		"the rival's deed is read"
+	)
+	assert_false(
+		DiplomacyRules.invadable(intervention_state, 0, tribe, model, province.id),
+		"the deed is the stake that bars an undeclared march"
+	)
+	assert_true(
+		DiplomacyRules.invadable(intervention_state, buyer, tribe, model, province.id),
+		"the buyer may enter the province it has paid into"
+	)
+	assert_true(
+		DiplomacyRules.invadable(intervention_state, 0, tribe),
+		"the coarse war query still treats a Tribe as fair game"
+	)
+	intervention_state.ensure_relation(0, tribe)
+	DiplomacyRules.declare_war(intervention_state, 0, tribe, false)
+	assert_true(
+		DiplomacyRules.invadable(intervention_state, 0, tribe, model, province.id),
+		"a declaration opens the shore"
+	)
+
+## The deed bars only the province it was bought in: a neighbouring Tribe
+## province stays open to an undeclared march.
+func test_a_deed_in_another_province_does_not_bar_the_march() -> void:
+	_setup_intervention()
+	var tribe: int = 9
+	var model: MapModel = _Fixture.build()
+	var bought: ProvinceState = model.provinces[1]
+	bought.owner = tribe
+	var other: ProvinceState = model.provinces[0]
+	other.owner = tribe
+	assert_true(model.purchase_tile(bought.tiles[0], 1), "a deed in the next province")
+	assert_true(
+		DeedProtection.invested_in_province(model, bought.id, 0),
+		"the deed is read where it was signed"
+	)
+	assert_false(
+		DeedProtection.invested_in_province(model, other.id, 0),
+		"and nowhere else"
+	)
+	assert_true(
+		DiplomacyRules.invadable(intervention_state, 0, tribe, model, other.id),
+		"the neighbouring province still needs no declaration"
+	)
+
 ## The first turn whose trial roll clears the 25% band, so a protest test reads
 ## the band rather than the sample.
 func _turn_above_the_first_band(aggressor: int, target: int, court: int) -> int:
