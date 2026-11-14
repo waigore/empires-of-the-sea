@@ -1,7 +1,7 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "73ad6050430391a1f9e5cdc8f5b1f5902bd168ec",
-  "commit": "f5d5cdfd4e7e5f3406f6e23ad8583f09099db8d9",
+  "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
+  "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
   "submission_hash": "sha256:bb89c47071e3c6b07350cd4cb79f4b6762b76c5e15d2383690c2ab6e686c08fe",
   "submission_git": "feat/ai-bench-subject-mainline-random@9b2f0aa+dirty",
   "passed": true,
@@ -56,8 +56,8 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:4245365cac8197623cf9f17ab7f38947bc3a97359a311c185f276cc2bf9a1c74",
-    "mainline_git_sha": "7e86a1f7e0b579f780ed50139413b770d4d98373",
+    "ai_surface_hash": "sha256:ffb0d8caf8f91846e66e0ce298ef3dab40dcf6e71e6c58102328577ac953dbee",
+    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
       "provinces_new": 0,
