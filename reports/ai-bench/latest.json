@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ffb0d8caf8f91846e66e0ce298ef3dab40dcf6e71e6c58102328577ac953dbee",
+    "ai_surface_hash": "sha256:4d2948b3e45ba993b8f3d1819ab38868fe519f9ce0c5047d7aa9025fb4a7a74e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,

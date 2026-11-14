@@ -320,8 +320,11 @@ static func _record_cargo(
 	var warship: Dictionary = cargo.get("warship", {})
 	if not warship.is_empty():
 		_bump(bucket["actions"], "build")
-		_add_event(merged, bucket, faction, "%s lays down a %s for the fleet." % [
+		# The row names the yard's price and the chest that allowed the launch,
+		# so the trace explains the build itself (issue #484).
+		_add_event(merged, bucket, faction, "%s lays down a %s for the fleet: %d ducats against a %d chest." % [
 			who, ShipStats.display_name(String(warship.get("type_id", ""))),
+			int(warship.get("price", 0)), int(warship.get("chest", 0)),
 		])
 
 

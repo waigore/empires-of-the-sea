@@ -40,11 +40,17 @@ static func recruitment_orders(
 
 
 static func income_plan(
-	kind: String, config: Variant, economy: PlayerEconomy, at_war: bool, regiments: int
+	kind: String,
+	config: Variant,
+	economy: PlayerEconomy,
+	at_war: bool,
+	regiments: int,
+	hull_chest: int = 0
 ) -> Dictionary:
 	if _baseline(kind):
+		# Mainline income has no hull_chest arg yet.
 		return _ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
-	return AiIncome.plan(config, economy, at_war, regiments)
+	return AiIncome.plan(config, economy, at_war, regiments, hull_chest)
 
 
 static func research_plan(
@@ -123,15 +129,19 @@ static func reinforce_plan(
 	regiments: int,
 	at_war: bool,
 	pressure_extra: int = 0,
-	fed_slack: int = -1
+	fed_slack: int = -1,
+	reserve: int = 0
 ) -> Dictionary:
 	if _baseline(kind):
+		# Mainline reinforce has no hull reserve arg yet.
 		return _ml(
 			"ai_army_reinforce.gd",
 			"plan",
 			[config, economy, regiments, at_war, pressure_extra, fed_slack]
 		)
-	return AiArmyReinforce.plan(config, economy, regiments, at_war, pressure_extra, fed_slack)
+	return AiArmyReinforce.plan(
+		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve
+	)
 
 
 static func fed_slack(

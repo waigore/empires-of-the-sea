@@ -793,6 +793,29 @@ func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	assert_eq(String(priced["muster"]), "", "nothing payable leaves the floor alone")
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
+
+## The hull the court is saving for outranks the next regiment: a muster spends
+## only what stands above that chest, so the yard's price survives the army's
+## turn and the hull is actually laid (issue #484).
+func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(4600)
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true)
+	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
+
+	var held: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	assert_eq(String(held["muster"]), "", "the hull's chest is not the army's to spend")
+	assert_true(
+		(held["reasons"] as Array).has("saving for a hull"),
+		"and the trace says which claim held it back"
+	)
+
+	# Once the purse covers the chest and the line, the muster resumes.
+	var rich: Dictionary = AiArmyReinforce.plan(
+		config, _ai_army_reinforce_economy(9000), 5, true, 0, -1, 5500
+	)
+	assert_ne(String(rich["muster"]), "", "a purse above the chest may arm up again")
+
 func test_the_muster_trace_names_the_row_that_blocks_it() -> void:
 	# A court holding its whole war chest and no fabric musters nothing; the
 	# trace must say which row is missing, not only `nothing payable` (#474).
@@ -2085,7 +2108,25 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	assert_true(build != null, "a court at war with no fighting hull builds one")
 	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
 	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
-	assert_eq(int(build.cost["hull"]), 1)
+	assert_false(
+		(build.cost as Dictionary).has("hull"),
+		"the yard founds its own slip, so the build claims no idle hull (#484)"
+	)
+
+
+## A court whose techs open no warship says so instead of claiming a hull it can
+## never lay — the trace used to read `funded` forever (issue #484).
+func test_a_court_with_no_warship_open_blocks_the_build() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["warship_price"] = 0
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "the yard is still the court's aim")
+	assert_eq(build.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(build.blocked, "no warship its techs open")
 
 
 func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> void:
@@ -2377,7 +2418,40 @@ func test_a_funded_navy_build_lays_a_warship_down() -> void:
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
-# --- posture as a modifier ---------------------------------------------------
+
+## Issue #484: the purse a court held for its hull is the fleet's, even though a
+## war footing clamps the yard and the muster to the same ceiling. The unmodified
+## utility breaks the tie, so the chest funds the hull and the army keeps saving.
+func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = ShipEconomy.treasury_cost("sloop")
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
+
+	assert_true(
+		(claim["funded_ids"] as Array).has("navy.build"),
+		"the chest is the fleet's, not the army's"
+	)
+	assert_false(
+		(claim["funded_ids"] as Array).has("muster.line"),
+		"the muster it outranks waits its turn"
+	)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	var warship: Dictionary = cargo.get("warship", {})
+	assert_false(warship.is_empty(), "the hull the court saved for is laid down")
+	assert_eq(int(warship.get("price", 0)), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		int(warship.get("chest", 0)), ShipEconomy.treasury_cost("sloop"),
+		"the launch names the chest that allowed it"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
 
 func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:

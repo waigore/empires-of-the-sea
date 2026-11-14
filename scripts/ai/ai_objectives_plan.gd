@@ -11,10 +11,10 @@ extends RefCounted
 ##
 ## The readings dictionary is the planner-facing contract:
 ##   posture, at_war, war_desire, regiments, muster_due, muster_floor,
-##   ships, hostile_ships, treasury, reserve, goal, colony_target, harbour,
-##   idle_hulls, explorer_ready, voyage_afloat, cargo_shortfall,
-##   research_slots, research_funding, research_cost,
-##   tribe_target, tribe_stage_cost.
+##   ships, warships, warship_price, navy_due, hostile_ships, hostile_warships,
+##   treasury, reserve, goal, colony_target, harbour, idle_hulls, explorer_ready,
+##   voyage_afloat, cargo_shortfall, research_slots, research_funding,
+##   research_cost, tribe_target, tribe_stage_cost.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -169,24 +169,30 @@ static func _tribe_chain(readings: Dictionary) -> AiObjective:
 
 
 ## The fleet's turn: a squadron with hulls sorts out; a court with no fighting
-## hull, or one outmatched on its own coast, lays one down instead. The build's
-## cost is the cheapest warship its techs open (issue #491 T5, #484).
+## hull, or one outmatched on its own coast, lays one down instead. The build
+## claims the yard's treasury row — the chest the money goal reserves — and a
+## court whose techs open no warship says so instead of claiming a hull it
+## cannot lay (issue #491 T5, #484).
 static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not at_war:
 		return null
 	var own: int = int(readings.get("warships", 0))
 	var hostile: int = int(readings.get("hostile_warships", 0))
 	var threat: int = AiUtility.ratio(hostile, maxi(own + hostile, 1))
-	if own <= 0:
-		return AiObjective.create(
-			"navy.build", "naval", W_NAVY_BUILD,
-			{"treasury": int(readings.get("warship_price", 0)), "hull": 1}
+	if AiNavy.due(at_war, own, hostile):
+		var utility: int = W_NAVY_BUILD
+		if own > 0:
+			utility = AiUtility.clamp_utility(W_NAVY_BUILD - 20 + threat / 2)
+		var build := AiObjective.create(
+			"navy.build", "naval", utility,
+			{"treasury": int(readings.get("warship_price", 0))}
 		)
-	if hostile > own:
-		return AiObjective.create(
-			"navy.build", "naval", AiUtility.clamp_utility(W_NAVY_BUILD - 20 + threat / 2),
-			{"treasury": int(readings.get("warship_price", 0)), "hull": 1}
-		)
+		# The yard founds a slip of its own, so the build asks for the treasury
+		# row and nothing else; a court with no warship its techs open is blocked
+		# rather than funded into a launch that can never happen (issue #484).
+		if int(readings.get("warship_price", 0)) <= 0:
+			build.block("no warship its techs open")
+		return build
 	return AiObjective.create(
 		"navy.sortie", "naval", AiUtility.clamp_utility(W_NAVY + threat / 2), {"hull": 1}
 	)

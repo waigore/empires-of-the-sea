@@ -3040,6 +3040,65 @@ func test_an_earning_court_bids_no_imports() -> void:
 	assert_true((plan["bids"] as Array).is_empty(), "the reserve is not the auction's to spend")
 
 
+# --- the fleet claim: the hull a court saves for (issue #484) ----------------
+
+
+## A court at war with no fighting hull, or one outmatched at sea, means to lay
+## one down; a fleet that matches its enemies has nothing to save for.
+func test_the_fleet_claim_reads_the_war_and_the_odds_at_sea() -> void:
+	var economy: PlayerEconomy = _purse(0)
+
+	assert_false(AiNavy.due(false, 0, 5), "a court at peace lays down no hull")
+	assert_true(AiNavy.due(true, 0, 0), "a court at war with no fighting hull wants one")
+	assert_true(AiNavy.due(true, 1, 2), "outmatched at sea, it wants one too")
+	assert_false(AiNavy.due(true, 2, 2), "a fleet that matches its enemies holds")
+	assert_eq(AiNavy.chest(true, 2, 2, economy), 0, "and reserves nothing for the yard")
+	assert_eq(AiNavy.chest(false, 0, 3, economy), 0, "peace reserves nothing either")
+
+
+## The chest is the yard row of the cheapest warship the court's techs open: the
+## price a saving court must hold, not the one it could pay today.
+func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
+	var economy: PlayerEconomy = _purse(0)
+
+	assert_eq(AiNavy.saving_type(economy), "", "no naval tech opens no warship")
+	assert_eq(AiNavy.price(economy), 0)
+	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "so the court saves for nothing")
+
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(AiNavy.saving_type(economy), "sloop")
+	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(AiNavy.chest(true, 0, 1, economy), ShipEconomy.treasury_cost("sloop"))
+
+	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
+	assert_eq(AiNavy.saving_type(economy), "sloop", "the cheapest row is the one it saves for")
+
+
+## The hull outranks the muster: a court holding a purse that would raise a
+## regiment reads `earn` until the yard's price is in hand (issue #484).
+func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(4600)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	assert_true(chest > muster, "the hull is the larger commitment")
+	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest)
+	assert_eq(String(plan["goal"]), AiIncome.GOAL_EARN, "4,600 ducats is short of the yard")
+	assert_eq(int(plan["reserve"]), chest, "the reserve is the hull, not the muster")
+	assert_eq(int(plan["hull_chest"]), chest)
+	assert_true(AiIncome.wants_income(config, economy, true, 1, chest))
+
+	var paid: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest)
+	assert_eq(String(paid["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
+	assert_eq(
+		AiIncome.reserve(config, economy, true, 1), muster,
+		"with no fleet claim the muster is the whole reserve"
+	)
+
+
+
 
 # --- victory pressure --------------------------------------------------------
 ## A court that can see the bar presses for it (wiki: ai-architecture § Notable

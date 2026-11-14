@@ -48,7 +48,9 @@ static func run(play: PlaySession) -> Dictionary:
 		# lead. Every discretionary spend reads the same reserve, so the war chest
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
-		var income: Dictionary = AiBind.income_plan(kind, config, economy, at_war, regiments)
+		var income: Dictionary = AiBind.income_plan(
+			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction)
+		)
 		var floor: int = int(income["reserve"])
 		# Surplus research still leaves the money-first reserve alone; the standing
 		# study alone may dip to the cash floor so a war-time court parked at 500

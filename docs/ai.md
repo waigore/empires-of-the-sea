@@ -6,9 +6,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiProfile`, `AiConfig`,
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
-- **Money goal** (`AiIncome`): at war the reserve is the muster under
-  `army.regiment_target` (+`army.war_extra`), at peace `economy.min_treasury`;
-  on `earn` the auction keeps it back (DR-20261113-19/22).
+- **Money goal** (`AiIncome`): at war the reserve is the next muster or the
+  hull it means to lay (`AiNavy`); at peace `economy.min_treasury`. On `earn`
+  the auction keeps it back (DR-20261113-19/22, DR-20261114-06).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
@@ -58,8 +58,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
-  peace (DR-20261113-15). **Victory pressure** (`AiVictoryPressure`): near the bar, a
-  bigger muster target and heavier war weights (DR-20261114-04).
+  peace (DR-20261113-15). **Victory pressure** (`AiVictoryPressure`): bigger aims
+  near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
 - **Persistence:** agendas, cooldowns, ledgers, claims
@@ -72,7 +72,7 @@ New World colony; domain gating — [`deferred.md`](deferred.md).
 ## Architecture & tests
 
 Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`;
-suites `test_ai_*`, `test_military_parity`, `test_espionage`, `test_visibility`.
+suites `test_ai_*`, `test_military_parity`.
 
 ```bash
 gd-tools test --coverage --min 80
