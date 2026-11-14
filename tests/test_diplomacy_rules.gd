@@ -2102,6 +2102,42 @@ func test_an_absorbed_faction_drops_its_waiting_offer() -> void:
 	intervention_state.clear_relations_of(6)
 	assert_false(Intervention.has_pending(intervention_state, 0))
 
+## Wiki: diplomacy § GP–Minor Rules § Join Empire — an absorbed crown leaves the
+## game and every record involving it is removed, so the court is never asked to
+## answer a call to arms for a court that no longer exists.
+func test_an_absorbed_aggressor_drops_its_waiting_call_to_arms() -> void:
+	_setup_call_to_arms()
+	_ally(0, 2, 80.0)
+	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
+	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
+	call_to_arms_state.clear_relations_of(3)
+	assert_false(
+		CallToArms.has_pending(call_to_arms_state, 0),
+		"the aggressor left play, so the call goes with it"
+	)
+	assert_eq(call_to_arms_state.pending_calls.size(), 0)
+
+func test_an_absorbed_defender_drops_the_call_too() -> void:
+	_setup_call_to_arms()
+	_ally(0, 2, 80.0)
+	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
+	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
+	call_to_arms_state.clear_relations_of(2)
+	assert_false(CallToArms.has_pending(call_to_arms_state, 0))
+
+## The frozen mutual-defence map is a treaty record as well: a pair whose court
+## has left play is dropped with the relations it was read from.
+func test_an_absorbed_faction_leaves_no_frozen_alliance() -> void:
+	_setup_call_to_arms()
+	_ally(1, 2, 80.0)
+	CallToArms.freeze_alliances(call_to_arms_state)
+	assert_true(CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2))
+	call_to_arms_state.clear_relations_of(2)
+	assert_false(
+		CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2),
+		"the pact is not a record we keep of a crown that left play"
+	)
+
 ## Wiki: diplomacy § GP–Minor Rules § Intervention — the trigger is an Embassy
 ## with the victim **or** purchased land recorded in its provinces, so a deed
 ## holder is offered the choice without an embassy.

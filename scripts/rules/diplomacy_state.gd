@@ -260,6 +260,24 @@ func clear_relations_of(faction: int) -> void:
 	for index in range(pending_offers.size() - 1, -1, -1):
 		if int(pending_offers[index].get("from", -1)) == faction:
 			pending_offers.remove_at(index)
+	# A call to arms is a decision waiting on a court, and a crown that left play
+	# can neither answer one nor be answered for: the call goes with it, so the
+	# court is never asked to honour a treaty with a court that no longer exists
+	# (wiki: diplomacy § GP–Minor Rules — Join Empire; § Alliances).
+	for index in range(pending_calls.size() - 1, -1, -1):
+		var call: Dictionary = pending_calls[index]
+		if (
+			int(call.get("aggressor", -1)) == faction
+			or int(call.get("defender", -1)) == faction
+			or int(call.get("ally", -1)) == faction
+		):
+			pending_calls.remove_at(index)
+	# The frozen mutual-defence map is a treaty record too, read from the
+	# relations just dropped.
+	for key: String in alliance_snapshot.keys():
+		var pair: PackedStringArray = key.split(":")
+		if int(pair[0]) == faction or int(pair[1]) == faction:
+			alliance_snapshot.erase(key)
 	for key: String in overtures.keys():
 		var parts: PackedStringArray = key.split(">")
 		if int(parts[0]) == faction or int(parts[1]) == faction:
