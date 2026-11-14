@@ -3354,20 +3354,21 @@ func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
 
 
 ## A hull the court can already pay for outranks the muster: the purse is the
-## fleet's, the army waits (issue #484).
+## fleet's, the army waits (issue #484). A ducat short with fighting hulls still
+## afloat, the unaffordable chest yields to the muster (#591).
 func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 
 	assert_true(chest > muster, "the hull is the larger commitment")
-	var plan: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest)
+	var plan: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest, 1)
 	assert_eq(String(plan["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
 	assert_eq(int(plan["reserve"]), chest, "the reserve is the hull, not the muster")
 	assert_eq(int(plan["hull_chest"]), chest)
-	var short: Dictionary = AiIncome.plan(config, _purse(chest - 1), true, 1, chest)
+	var short: Dictionary = AiIncome.plan(config, _purse(chest - 1), true, 1, chest, 1)
 	assert_eq(int(short["reserve"]), muster, "a ducat short, the yard's price is not the reserve")
 	assert_eq(String(short["goal"]), AiIncome.GOAL_SPEND, "so the court is not frozen on earn")
 	assert_eq(
@@ -3376,22 +3377,21 @@ func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
 	)
 
 
-## Issue #591: unlocking a warship used to jump the reserve to the yard's price
-## and starve the muster for the rest of the campaign, while the court oscillated
-## one payment short of a hull no planner ever laid.
+## Issue #591: an outmatched court that still has a fighting hull does not freeze
+## the purse on an unaffordable yard price — the muster it can pay for leads.
 func test_a_chest_the_court_cannot_fill_waits_behind_the_muster() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 
-	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest), 0, "the yard holds nothing")
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 1), 0, "the yard holds nothing")
 	assert_eq(
-		AiIncome.reserve(config, economy, true, 1, chest), muster,
+		AiIncome.reserve(config, economy, true, 1, chest, 1), muster,
 		"a court under its target saves for the regiment it can raise"
 	)
-	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest)
+	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest, 1)
 	assert_eq(int(plan["reserve"]), muster)
 	assert_eq(int(plan["hull_chest"]), chest, "the yard's price is still the reading")
 
@@ -3401,21 +3401,28 @@ func test_a_chest_the_court_cannot_fill_waits_behind_the_muster() -> void:
 		"army.war_extra"
 	)
 	assert_eq(
-		AiIncome.hull_held(config, economy, true, at_target, chest), chest,
+		AiIncome.hull_held(config, economy, true, at_target, chest, 1), chest,
 		"a court at target saves for its hull again"
 	)
 	# A hull its techs never open is no claim at all.
-	assert_eq(AiIncome.hull_held(config, economy, true, 1, 0), 0)
-	assert_eq(AiIncome.hull_held(null, economy, true, 1, chest), chest, "no config, no claim")
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, 0, 1), 0)
+	assert_eq(AiIncome.hull_held(null, economy, true, 1, chest, 1), chest, "no config, no claim")
+	# Fleetless rebuild holds the chest even under the muster (#484).
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 0), chest)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1, chest, 0), chest,
+		"at peace a lost last sloop still reserves the yard"
+	)
 
 
 ## The muster reads the same rule: a chest it cannot fill is not the army's
-## ceiling, so the regiment it can pay for is raised (issue #591).
+## ceiling when fighting hulls remain, so the regiment it can pay for is raised
+## (issue #591).
 func test_the_muster_spends_a_chest_it_cannot_fill() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var plan: Dictionary = AiArmyReinforce.plan(config, economy, 1, true, 0, -1, chest)
 
 	assert_eq(

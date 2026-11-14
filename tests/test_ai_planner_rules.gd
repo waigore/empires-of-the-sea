@@ -2154,11 +2154,12 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 
 ## Issue #591: a chest the court has not reached yet yields to the muster in the
 ## ledger too, so the purse the yard's phantom price pinned goes to the line the
-## court can actually raise.
+## court can actually raise. A court that still has a fighting hull is the case;
+## a fleetless rebuild keeps the yard ahead (#484).
 func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
-	readings["warships"] = 0
+	readings["warships"] = 1
 	readings["hostile_warships"] = 2
 	readings["treasury"] = 5342
 	readings["muster_floor"] = 2400
@@ -2188,12 +2189,20 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 		"and the hull it cannot fill declares its shortfall instead"
 	)
 
-	# A court that already holds the yard's price puts the fleet first again.
+	# A court that already holds the yard's price is no longer beyond reach.
 	readings["treasury"] = 5500
+	assert_true(
+		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility)
+		> AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		"the chest is in hand: the yard is no longer parked behind the line"
+	)
+	# Fleetless rebuild never yields the yard to the muster (#484).
+	readings["warships"] = 0
+	readings["treasury"] = 5342
 	assert_eq(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
 		AiObjectivesPlan.W_NAVY_BUILD,
-		"the chest is in hand: the yard leads"
+		"a lost last sloop keeps the yard ahead of the line"
 	)
 
 

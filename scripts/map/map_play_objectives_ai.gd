@@ -74,7 +74,9 @@ static func _readings(
 	var hull_chest: int = AiNavy.chest(
 		at_war, warships, hostile_warships, economy, flown
 	)
-	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
+	var reserve: int = AiIncome.reserve(
+		config, economy, at_war, regiments, hull_chest, warships
+	)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
@@ -120,7 +122,9 @@ static func _readings(
 		"hostile_warships": hostile_warships,
 		"treasury": economy.treasury,
 		"reserve": reserve,
-		"goal": AiIncome.goal_for(config, economy, at_war, regiments, hull_chest),
+		"goal": AiIncome.goal_for(
+			config, economy, at_war, regiments, hull_chest, warships
+		),
 		"colony_target": home == WorldMap.OLD_WORLD and not _owns_land(new_world, faction),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
