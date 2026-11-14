@@ -7,8 +7,8 @@ extends RefCounted
 ## beside a town that itself reaches the capital. This scorer walks the owned
 ## land from each unconnected town toward the crown's road network and offers
 ## the first unroaded tile on that shortest path, so an Engineer extends the
-## network one legal work order at a time. Pure rules: CivilianWork validates
-## every candidate before it is emitted (REQ-P2-03, REQ-P3-03).
+## network one legal work order at a time. Pure rules: [AiCivilianCandidate]
+## validates every candidate before it is emitted (REQ-P2-03, REQ-P3-03).
 
 const NEIGHBORS: Array[Vector2i] = [
 	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
@@ -55,7 +55,7 @@ static func best_candidate(
 		var score: int = weight + province.town_level() * 10
 		if province.capital:
 			score += 10
-		var candidate: Dictionary = _candidate(
+		var candidate: Dictionary = AiCivilianCandidate.make(
 			model, unit, "build_road", step, works, units, stockpile,
 			tech_caps, tech_unlocked, context, score
 		)
@@ -124,35 +124,3 @@ static func _walk_back(
 		cursor = Vector2i(previous - y * model.width, y)
 	path.reverse()
 	return path
-
-
-## Runs the shared validation so the emitted order is exactly one the player
-## could issue through CivilianWork.
-static func _candidate(
-	model: MapModel,
-	unit: CivilianState,
-	action: String,
-	tile: Vector2i,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	score: int
-) -> Dictionary:
-	var roster: Array[CivilianState] = []
-	roster.assign(units)
-	var check: Dictionary = CivilianWork.validate(
-		model, unit, action, works, roster, stockpile, null, tile, tech_caps,
-		tech_unlocked, context
-	)
-	if not bool(check.get("ok", false)):
-		return {}
-	return {
-		"action": action,
-		"tile": tile,
-		"score": score,
-		"cost": check.get("cost", {}),
-		"duration": int(check.get("duration", 1)),
-	}

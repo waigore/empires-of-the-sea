@@ -8,8 +8,6 @@ extends RefCounted
 ## toward the nearest unobserved rival province. Pure rules: state in, orders
 ## out; the map adapter applies them (REQ-P2-03, REQ-P3-03).
 
-const KIND_MOVE: String = "move"
-
 
 ## Work the spy should take this turn, or {} to move/stay. `counter_spy` is the
 ## only spy order; it is raised when the court is at war and has no screen.
@@ -62,17 +60,10 @@ static func best_move(
 static func _step_to_province(
 	model: MapModel, unit: CivilianState, province: int
 ) -> Dictionary:
-	var distance: Dictionary = _distance_field(model, model.province_tiles(province))
-	var best: Dictionary = {}
-	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit):
-		var step: int = int(distance.get(tile, 1 << 30))
-		if step >= 1 << 30:
-			continue
-		if best.is_empty() or step < int(best["distance"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": step}
-		elif step == int(best["distance"]) and tile < Vector2i(best["tile"]):
-			best = {"kind": KIND_MOVE, "unit_id": unit.id, "tile": tile, "distance": step}
-	return best
+	var field: Dictionary = AiLandRoute.distance_field(
+		model, model.province_tiles(province)
+	)
+	return AiLandRoute.step_by_field(model, unit, field)
 
 
 ## Nearest own province, used as the recall destination at war.
@@ -98,7 +89,7 @@ static func target_province(
 		if not SpyRules.is_foreign(model, other):
 			continue
 		watched[model.province_at(other.tile.x, other.tile.y)] = true
-	var field: Dictionary = _distance_field(model, [unit.tile])
+	var field: Dictionary = AiLandRoute.distance_field(model, [unit.tile])
 	var best: int = -1
 	var best_distance: int = 1 << 30
 	var fallback: int = -1
@@ -147,30 +138,3 @@ static func _province_distance(
 	for tile: Vector2i in model.province_tiles(province.id):
 		best = mini(best, int(field.get(tile, 1 << 30)))
 	return best
-
-
-## Land-only BFS distances (in tiles) from a set of target tiles. Spies walk one
-## orthogonal land tile per turn, so water simply has no entry.
-static func _distance_field(model: MapModel, targets: Array) -> Dictionary:
-	var distance: Dictionary = {}
-	var frontier: Array[Vector2i] = []
-	for raw: Variant in targets:
-		var tile: Vector2i = raw
-		if not model.is_land(tile.x, tile.y) or distance.has(tile):
-			continue
-		distance[tile] = 0
-		frontier.append(tile)
-	while not frontier.is_empty():
-		var next: Array[Vector2i] = []
-		for tile: Vector2i in frontier:
-			var step: int = int(distance[tile]) + 1
-			for offset: Vector2i in CivilianMovement.NEIGHBORS:
-				var neighbour: Vector2i = tile + offset
-				if not model.in_bounds(neighbour.x, neighbour.y):
-					continue
-				if not model.is_land(neighbour.x, neighbour.y) or distance.has(neighbour):
-					continue
-				distance[neighbour] = step
-				next.append(neighbour)
-		frontier = next
-	return distance
