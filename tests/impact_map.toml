@@ -11,6 +11,15 @@ suites = [
   "test_land_battle_rules.gd",
 ]
 
+# Observer panel chrome only: the planner/campaign AI fan-out overruns tier-1
+# when a sheet factory PR also touches other UI domains (docs/testing.md).
+[domains.ai_panel]
+suites = [
+  "test_ai_observer.gd",
+  "test_panel_parts_rules.gd",
+  "test_court_ui_parts.gd",
+]
+
 [domains.army]
 suites = [
   "test_land_battle_rules.gd",
@@ -393,9 +402,11 @@ domain = "pause"
 match = "scripts/map/map_play_setup.gd"
 domain = "pause"
 
+# Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
+# ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
 match = "scripts/ui/sheet_frame.gd*"
-domain = "sheet"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
@@ -1346,9 +1357,11 @@ domain = "civilian"
 match = "tests/test_civilian_field_rules.gd*"
 domain = "civilian"
 
+# Civilian sheet chrome — civilian suites cover orders/roster; prospect's
+# map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
 match = "scripts/ui/civilian_panel.gd*"
-domain = "prospect"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -2351,9 +2364,10 @@ domain = "fleet"
 
 # The dossier sheet and the court panel that opens it are presentation over
 # IntelDossier, so their suites are the intel domain (DR-20261110-25).
+# Court dossier body is intel depth (acts, suspicion), not sheet chrome fan-out.
 [[rules]]
 match = "scripts/ui/court_dossier*.gd*"
-domain = "sheet"
+domain = "intel"
 
 # The open court's detail block (orders, herald, chronicle) is the same sheet.
 [[rules]]
@@ -2471,7 +2485,7 @@ domain = "map"
 
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"
-domain = "ai"
+domain = "ai_panel"
 
 # The court's news lane is not a dossier host: pin it to the suites that print
 # despatches (a phone tells one at a time and holds them under a sheet) before
