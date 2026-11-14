@@ -126,7 +126,7 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 		context["charts"] = supplied["charts"]
 	if supplied.has("stockpiles"):
 		context["stockpiles"] = supplied["stockpiles"]
-	for key: String in ["hull_chests", "warships"]:
+	for key: String in ["hull_chests", "warships", "victory_press"]:
 		if supplied.has(key):
 			context[key] = supplied[key]
 	return context

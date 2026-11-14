@@ -33,13 +33,13 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ai.economy_for(faction)
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
-	var readings: Dictionary = _readings(play, faction, config, economy, phase)
 	# The footing, the leader's weights and the court's distance to the bar
 	# scale the rank without deleting an aim: a voyage at war is cheaper, not
 	# gone (issue #491 T4; DR-20261114-04).
 	var pressure: Dictionary = AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)
+	var readings: Dictionary = _readings(play, faction, config, economy, phase, pressure)
 	var report: Dictionary = AiObjectiveLedger.run(
 		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
 		AiPosture.modifiers(
@@ -65,7 +65,7 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 ## or fleet layer still reads (zeros), so a fixture never needs both.
 static func _readings(
 	play: PlaySession, faction: int, config: AiConfig, economy: PlayerEconomy,
-	phase: Dictionary
+	phase: Dictionary, pressure: Dictionary = {}
 ) -> Dictionary:
 	var at_war: bool = AiIncome.at_war(play.diplomacy, faction)
 	var regiments: int = MapPlayCourt.regiments(play, faction)
@@ -125,7 +125,7 @@ static func _readings(
 	return {
 		"posture": String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN)),
 		"at_war": at_war,
-		"war_desire": _war_desire(play, config, faction),
+		"war_desire": _war_desire(play, config, faction, pressure),
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
@@ -198,7 +198,11 @@ static func _pools(
 
 ## War desire against the court's enemy, else against the weakest Great Power —
 ## the same score the diplomacy planner weighs, read once per turn for the trace.
-static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> int:
+## The victory press rides the same reading, so the ledger's war aim and the
+## planner's declaration price the same war (DR-20261115-04).
+static func _war_desire(
+	play: PlaySession, config: AiConfig, faction: int, pressure: Dictionary = {}
+) -> int:
 	var target: int = _war_target(play, faction)
 	if target < 0:
 		target = _weakest_rival(play, faction)
@@ -209,6 +213,7 @@ static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> in
 	}
 	var context: Dictionary = {
 		"power": powers,
+		"victory_press": int(pressure.get("war_press", 0)),
 		"regiments": {
 			faction: MapPlayCourt.regiments(play, faction),
 			target: MapPlayCourt.regiments(play, target),

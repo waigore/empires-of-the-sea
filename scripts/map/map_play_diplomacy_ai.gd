@@ -128,11 +128,22 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 	for faction: int in FactionCatalog.great_power_ids():
 		warships[faction] = MapPlayCourt.warships(play, faction)
 		hull_chests[faction] = MapPlayCourt.navy_chest(play, faction)
+	# The victory press each court carries into its war aim: a crown that can see
+	# the bar wants the war that takes the provinces it still needs
+	# (wiki: ai-architecture § victory pressure; DR-20261115-04, issue #601).
+	var press: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		var config: AiConfig = AiConfig.build(faction, play.map_seed)
+		var stage: String = String(AiVictoryPressure.read(
+			play.world, faction, play.human_faction_id(), play.difficulty, config
+		).get("stage", AiVictoryPressure.STAGE_FAR))
+		press[faction] = AiVictoryPressure.war_press(stage, config)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
 		"warships": warships,
 		"hull_chests": hull_chests,
+		"victory_press": press,
 		"strengths": MapPlayDiplomacy.public_orders(play).get("strength", {}),
 		"planning": planning,
 	}

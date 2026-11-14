@@ -59,6 +59,14 @@ static func war_desire(
 	if rivalry != 0:
 		factors["rival"] = rivalry
 		score += rivalry
+	# The victory press reaches the war aim: a court that can see the bar wants
+	# the war that takes the provinces it still needs, and the bar counts Old
+	# World land, so a target holding none of it is no answer to the press
+	# (wiki: ai-architecture § victory pressure; DR-20261115-04, issue #601).
+	var press: int = _press_for(world, attacker, target, context)
+	if press > 0:
+		factors["victory_press"] = press
+		score += press
 	if _is_weak_target(target):
 		factors["resource_need"] = _resource_need(attacker, world, target, context)
 		factors["intervention"] = _intervention_penalty(state, world, attacker, target)
@@ -212,3 +220,30 @@ static func _rival_pull(
 
 static func _is_weak_target(target: int) -> bool:
 	return FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER
+
+
+## True when the court holds at least one Old World province — the land the
+## victory bar counts (`VictoryRules.old_world_holdings`), so a target whose
+## ground the bar never reads is no answer to the press (DR-20261115-04).
+static func _holds_old_world(world: WorldMap, target: int) -> bool:
+	if world == null:
+		return false
+	return world.owned_provinces(WorldMap.OLD_WORLD, target) > 0
+
+
+## The points the attacker's war aim carries against this target: the context
+## carries either one court's press (the ledger's own reading) or the per-court
+## map the map pass hands every rival, so each court prices its own finish and
+## never a neighbour's (DR-20261115-04).
+static func _press_for(
+	world: WorldMap, attacker: int, target: int, context: Dictionary
+) -> int:
+	var raw: Variant = context.get("victory_press", 0)
+	var press: int = 0
+	if typeof(raw) == TYPE_DICTIONARY:
+		press = int((raw as Dictionary).get(attacker, 0))
+	else:
+		press = int(raw)
+	if press <= 0 or not _holds_old_world(world, target):
+		return 0
+	return press

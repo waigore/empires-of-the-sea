@@ -133,6 +133,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 500)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_regiments"), 2)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_boost"), 1250)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_war"), 30)
 	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.entries().size())
 
 
@@ -3890,6 +3891,31 @@ func test_a_court_at_the_bar_reads_at_bar() -> void:
 	assert_eq(int(read["need"]), 0)
 	assert_eq(int(read["share_mille"]), AiVictoryPressure.NEUTRAL)
 	assert_true(AiVictoryPressure.presses(String(read["stage"])))
+
+
+func test_the_press_reaches_the_war_aim_only_from_near_the_bar() -> void:
+	var config: AiConfig = _phase_config()
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_FAR, config), 0,
+		"a court that cannot see the bar wants no war for it"
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_AT_BAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, null), 0)
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(PHASE_OWNER, 21)), PHASE_OWNER, MapModel.NO_ID,
+		Difficulty.DEFAULT, config
+	)
+	assert_eq(
+		int(read["war_press"]), config.parameter("victory.pressure_war"),
+		"the reading hands the planner the press"
+	)
 
 
 func test_the_pressure_threshold_is_a_registry_knob() -> void:
