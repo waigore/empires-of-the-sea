@@ -70,7 +70,10 @@ static func _readings(
 	# alongside the next muster (issue #484).
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
-	var hull_chest: int = AiNavy.chest(at_war, warships, hostile_warships, economy)
+	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
+	var hull_chest: int = AiNavy.chest(
+		at_war, warships, hostile_warships, economy, flown
+	)
 	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
@@ -101,8 +104,17 @@ static func _readings(
 		"muster_due": muster_floor > 0,
 		"ships": MapPlayCourt.ships(play, faction),
 		"warships": warships,
-		"warship_price": AiNavy.price(economy),
-		"warship_row": AiNavy.saving_row(economy),
+		"warship_price": AiNavy.price(economy, flown),
+		"warship_row": AiNavy.saving_row(economy, flown),
+		# False while the court still studies the unlock: the build keeps its
+		# chest and cloth reserved but will not fund a launch the yard refuses
+		# (issue #484). A type the court already flies counts as open.
+		"warship_open": (
+			not AiNavy.saving_type(economy, flown).is_empty()
+			and ShipEconomy.buildable(
+				AiNavy.saving_type(economy, flown), economy.tech_unlocked, flown
+			)
+		),
 		"navy_due": hull_chest > 0,
 		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
 		"hostile_warships": hostile_warships,

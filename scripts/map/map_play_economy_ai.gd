@@ -38,7 +38,6 @@ static func run(play: PlaySession) -> Dictionary:
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
-		var production: Dictionary = AiBind.production_orders(kind, config, economy)
 		var at_war: bool = MapPlayCourt.at_war(play, faction)
 		var regiments: int = MapPlayCourt.regiments(play, faction)
 		# The goal the court plans with this turn: money first (DR-20261113-19).
@@ -48,15 +47,33 @@ static func run(play: PlaySession) -> Dictionary:
 		# lead. Every discretionary spend reads the same reserve, so the war chest
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
+		var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 		var income: Dictionary = AiBind.income_plan(
-			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction)
+			kind, config, economy, at_war, regiments, hull_chest
+		)
+		# Skip production buys while earning for the navy chest (issue #484).
+		var production: Dictionary = (
+			{"assignments": []}
+			if hull_chest > 0 and String(income["goal"]) == AiIncome.GOAL_EARN
+			else AiBind.production_orders(kind, config, economy)
 		)
 		var floor: int = int(income["reserve"])
 		# Surplus research still leaves the money-first reserve alone; the standing
 		# study alone may dip to the cash floor so a war-time court parked at 500
 		# while saving 2,400 still learns (issue #490).
 		var research_floor: int = AiBind.research_floor(kind, config)
-		# Plan before the phase resolves, so the study starts this turn.
+		# Navy unlock door first, else Tribe chain (issue #484; DR-20261114-05).
+		var door: String = ""
+		if AiNavy.due(
+			at_war, MapPlayCourt.warships(play, faction),
+			MapPlayCourt.hostile_warships(play, faction)
+		):
+			door = AiNavy.unlock_tech(economy, MapPlayCourt.hull_types(play, faction))
+		if door.is_empty():
+			door = AiTribeColony.door(
+				play.diplomacy, play.world, play.court_charts, faction,
+				economy.tech_unlocked
+			)
 		var research: Dictionary = AiBind.research_plan(
 			kind, config, economy,
 			{
@@ -64,13 +81,8 @@ static func run(play: PlaySession) -> Dictionary:
 				"revealed": revealed,
 				"treasury_floor": floor,
 				"cash_floor": research_floor,
-				# The study that opens the next link of a colony this court is
-				# buying: a chain with a charted Tribe is only as open as its
-				# next stage (wiki: diplomacy § GP–Tribe Rules; DR-20261114-05).
-				"door": AiTribeColony.door(
-					play.diplomacy, play.world, play.court_charts, faction,
-					economy.tech_unlocked
-				),
+				"door": door,
+				"defer_standing": hull_chest > 0,  # yard fills before standing (#484)
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
@@ -230,7 +242,8 @@ static func _trade(
 		MapPlayCourt.at_war(play, faction),
 		MapPlayCourt.warships(play, faction),
 		MapPlayCourt.hostile_warships(play, faction),
-		economy
+		economy,
+		MapPlayCourt.hull_types(play, faction)
 	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and

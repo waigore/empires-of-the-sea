@@ -14,25 +14,80 @@ extends RefCounted
 ## REQ-P3-03).
 
 
-## True when the court is rebuilding its navy: at war and outmatched at sea. The
-## same reading `navy.build` is priced on (issue #491 T5).
+## True when the court is rebuilding its navy: no fighting hull left (peace or
+## war — a lost last sloop must still be replaced), or at war and outmatched at
+## sea. The same reading `navy.build` is priced on (issue #491 T5, #484).
 static func due(at_war: bool, own_warships: int, hostile_warships: int) -> bool:
+	if own_warships <= 0:
+		return true
 	if not at_war:
 		return false
-	return own_warships <= 0 or hostile_warships > own_warships
+	return hostile_warships > own_warships
 
 
-## Cheapest warship this court's techs open, ignoring its purse: the hull a
-## saving court is saving for. Empty when its techs open none.
-static func saving_type(economy: PlayerEconomy) -> String:
+## Cheapest warship this court means to lay, ignoring its purse: a type its
+## techs already open or that it already flies, else the cheapest warship in
+## the frozen catalog so the chest and the cloth are reserved while the court
+## studies the unlock (issue #484). Empty only when the catalog has no warship.
+## `flown` is the court's current hull types (ShipEconomy.types_flown).
+static func saving_type(economy: PlayerEconomy, flown: Array = []) -> String:
 	if economy == null:
 		return ""
+	var open: String = _cheapest_warship(economy.tech_unlocked, true, flown)
+	if not open.is_empty():
+		return open
+	return _cheapest_warship({}, false, [])
+
+
+## The next tech on the path that opens [method saving_type] when the court
+## cannot yet lay it — the research "door" a due navy walks first, the way a
+## Tribe chain pins its next stage (DR-20261114-05 / #484). Walks prerequisites
+## so a shut Navigation first studies Superior Hull Design. Empty when a
+## warship is already open (tech or already flown).
+static func unlock_tech(economy: PlayerEconomy, flown: Array = []) -> String:
+	var type_id: String = saving_type(economy, flown)
+	if type_id.is_empty() or economy == null:
+		return ""
+	if ShipEconomy.buildable(type_id, economy.tech_unlocked, flown):
+		return ""
+	var goal: String = String(ShipEconomy.TECH.get(type_id, ""))
+	if goal.is_empty():
+		return ""
+	return _next_tech_door(goal, economy.tech_unlocked)
+
+
+## First locked tech on the path to `goal`: a missing prerequisite, else the
+## goal itself once its prerequisites are open.
+static func _next_tech_door(goal: String, unlocked: Dictionary) -> String:
+	if bool(unlocked.get(goal, false)):
+		return ""
+	for raw: Variant in TechCatalog.prerequisites(goal):
+		var need: String = String(raw)
+		if bool(unlocked.get(need, false)):
+			continue
+		var prior: String = _next_tech_door(need, unlocked)
+		return prior if not prior.is_empty() else need
+	return goal
+
+
+## The treasury row of that hull, or 0 when the catalog has no warship.
+static func price(economy: PlayerEconomy, flown: Array = []) -> int:
+	var type_id: String = saving_type(economy, flown)
+	return 0 if type_id.is_empty() else ShipEconomy.treasury_cost(type_id)
+
+
+## Cheapest warship by treasury cost. When `must_buildable` is set, only types
+## the court's techs open or that it already flies; otherwise every catalog
+## warship is a candidate.
+static func _cheapest_warship(
+	unlocked: Dictionary, must_buildable: bool, flown: Array = []
+) -> String:
 	var cheapest: String = ""
 	for raw: Variant in ShipEconomy.ENTRIES.keys():
 		var type_id: String = String(raw)
 		if not ShipStats.is_warship(type_id):
 			continue
-		if not ShipEconomy.buildable(type_id, economy.tech_unlocked):
+		if must_buildable and not ShipEconomy.buildable(type_id, unlocked, flown):
 			continue
 		if cheapest.is_empty() or (
 			ShipEconomy.treasury_cost(type_id) < ShipEconomy.treasury_cost(cheapest)
@@ -41,18 +96,12 @@ static func saving_type(economy: PlayerEconomy) -> String:
 	return cheapest
 
 
-## The treasury row of that hull, or 0 when the court's techs open no warship.
-static func price(economy: PlayerEconomy) -> int:
-	var type_id: String = saving_type(economy)
-	return 0 if type_id.is_empty() else ShipEconomy.treasury_cost(type_id)
-
-
 ## The material row of that hull — the cloth and lumber the yard wants beside the
 ## chest. The fleet claim holds this row back the way the army holds its muster's
 ## (`AiArmyReinforce.muster_reserve`), so a court that saves 5,500 ducats does not
 ## sell the last fabric it needs to lay the hull (issue #484).
-static func saving_row(economy: PlayerEconomy) -> Dictionary:
-	var type_id: String = saving_type(economy)
+static func saving_row(economy: PlayerEconomy, flown: Array = []) -> Dictionary:
+	var type_id: String = saving_type(economy, flown)
 	if type_id.is_empty():
 		return {}
 	return ShipEconomy.build_inputs(type_id)
@@ -62,19 +111,31 @@ static func saving_row(economy: PlayerEconomy) -> Dictionary:
 ## reserves it beside the muster's, so the cloth is not sold while the chest
 ## fills (issue #484).
 static func due_row(
-	at_war: bool, own_warships: int, hostile_warships: int, economy: PlayerEconomy
+	at_war: bool,
+	own_warships: int,
+	hostile_warships: int,
+	economy: PlayerEconomy,
+	flown: Array = []
 ) -> Dictionary:
 	if not due(at_war, own_warships, hostile_warships):
 		return {}
-	return saving_row(economy)
+	return saving_row(economy, flown)
 
 
 ## The purse a court must hold before it lays the hull it is saving for: the
 ## yard takes the whole treasury row in one payment (wiki: ships-and-naval
-## § Ship build economy). 0 when no hull is due or none is open to it.
+## § Ship build economy). 0 when no hull is due, when the unlock is still shut
+## (the research door must be able to pay a slot — issue #484), or when the
+## catalog has no warship.
 static func chest(
-	at_war: bool, own_warships: int, hostile_warships: int, economy: PlayerEconomy
+	at_war: bool,
+	own_warships: int,
+	hostile_warships: int,
+	economy: PlayerEconomy,
+	flown: Array = []
 ) -> int:
 	if not due(at_war, own_warships, hostile_warships):
 		return 0
-	return price(economy)
+	if not unlock_tech(economy, flown).is_empty():
+		return 0
+	return price(economy, flown)

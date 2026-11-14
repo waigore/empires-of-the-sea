@@ -1,9 +1,15 @@
 class_name TradeCargo
 extends RefCounted
 ## Merchant cargo holds that cap world-market imports (wiki: ships-and-naval
-## § Cargo holds and capacity; world-market § Cargo; DR-20261109-03). Pure rules:
-## capacity comes from the crown's home fleet, use from this turn's buys, so the
-## ledger, the order path and tests share one gate (REQ-P3-03).
+## § Cargo holds and capacity; world-market § Cargo; DR-20261109-03,
+## DR-20261114-11). Pure rules: capacity comes from the crown's home fleet, use
+## from this turn's buys, so the ledger, the order path and tests share one gate
+## (REQ-P3-03).
+
+## One hold a seat harbour grants a crown that owns no merchant hull: enough to
+## buy the cloth for a first launch, so a fleetless court is not locked out of
+## the yard by the holds the yard itself would create (issue #484).
+const PORT_ALLOWANCE: int = 1
 
 
 ## Holds one squadron carries: merchant hulls only, one hold per cargo point.
@@ -18,6 +24,8 @@ static func fleet_holds(fleet: FleetState) -> int:
 
 ## Holds across every region: only the crown's squadrons in port at its seat
 ## count, because the home fleet never leaves the capital (wiki: § Home Fleet).
+## A seat harbour still grants [constant PORT_ALLOWANCE] when the crown owns no
+## merchant hull anywhere — merchants away from the seat keep capacity at 0.
 static func capacity(
 	world: WorldMap, fleets_by_region: Dictionary, owner: int
 ) -> int:
@@ -35,7 +43,39 @@ static func capacity(
 			if fleet.province != seat:
 				continue
 			total += fleet_holds(fleet)
-	return total
+	if total > 0:
+		return total
+	if _owns_merchant_hull(fleets_by_region, owner):
+		return 0
+	if _seat_has_harbour(world, owner):
+		return PORT_ALLOWANCE
+	return 0
+
+
+## True when any of the crown's squadrons carries a merchant hull — holds that
+## are merely away from the seat, not a fleetless court.
+static func _owns_merchant_hull(fleets_by_region: Dictionary, owner: int) -> bool:
+	for raw: Variant in fleets_by_region.values():
+		if not (raw is Array):
+			continue
+		for fleet: FleetState in raw:
+			if fleet == null or fleet.owner != owner:
+				continue
+			if fleet_holds(fleet) > 0:
+				return true
+	return false
+
+
+## True when the crown's seat in any region still has a harbour to trade from.
+static func _seat_has_harbour(world: WorldMap, owner: int) -> bool:
+	for region_index in world.region_count():
+		var seat: int = world.seat_province(region_index, owner)
+		if seat == MapModel.NO_ID:
+			continue
+		var model: MapModel = world.region(region_index)
+		if model != null and NavalMovement.has_harbour(model, seat):
+			return true
+	return false
 
 
 ## Units one crown bought this turn: the buyer ships every imported ton, the
