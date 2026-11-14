@@ -66,8 +66,8 @@ static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> Strin
 	# One unit leaves the workshop per batch on its landing phase, so the note
 	# counts batches, not units in flight (`ledger_market` reads its rules helper
 	# from here too).
-	var landings: int = 0 if economy == null else ProductionRecipes.next_landing(
-		economy.production_wip, recipe_id
+	var landings: int = 0 if economy == null else ProductionWorkshop.ready_units(
+		economy.production_wip, recipe_id, turns
 	)
 	var cadence: String = "still serving their turns"
 	if landings == 1:

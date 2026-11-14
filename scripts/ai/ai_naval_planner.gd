@@ -17,6 +17,10 @@ const KIND_HOME: String = "home"
 ## A warship with no squadron to fight sails for a hostile coast to raid its
 ## trade (DR-20261111-17): the move is the first leg of that station.
 const KIND_RAID: String = "raid"
+## Why a squadron gives up its station and makes for home: it carries the holds
+## its court keeps its imports with, and the court has none in port at its seat
+## (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
+const REASON_TRADE: String = "trade"
 
 
 ## One order per sea-going squadron: the zone to enter and the strength it means
@@ -42,7 +46,15 @@ static func orders(
 		# trade; at peace it has no station to keep, so it sails home
 		# (DR-20261110-30, DR-20261111-17).
 		var order: Dictionary = {}
-		if not hostile.is_empty():
+		if not hostile.is_empty() and trade_garrison(model, fleets, fleet) \
+				and not _defends_seat(model, fleets, fleet, hostile):
+			# The holds come home first: a court with none in port at its seat
+			# buys no build input and ships no colonist, whatever the war wants
+			# (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
+			order = _home_order(model, fleet, config.faction, charts, true)
+			if not order.is_empty():
+				order["reason"] = REASON_TRADE
+		elif not hostile.is_empty():
 			order = _best_target(config, model, fleets, fleet, hostile, charts)
 			if order.is_empty():
 				order = _raid_order(
@@ -83,13 +95,74 @@ static func home_port(model: MapModel, owner: int) -> int:
 	return -1
 
 
+## The harbour whose holds count for trade: only a squadron in port at the
+## crown's own seat reaches the ledger (wiki: ships-and-naval § Cargo holds and
+## capacity), so a court whose seat has no harbour imports nothing at all.
+static func seat_port(model: MapModel, owner: int) -> int:
+	if model == null:
+		return -1
+	var seat: int = WorldBootstrap.capital_province(model, owner)
+	if seat >= 0 and NavalMovement.has_harbour(model, seat):
+		return seat
+	return -1
+
+
+## Holds the crown keeps in port at its seat, ignoring one squadron by id so a
+## caller can ask what the court would still have ashore without it.
+static func holds_ashore(
+	model: MapModel, fleets: Array, owner: int, except_id: int = -1
+) -> int:
+	var port: int = seat_port(model, owner)
+	if port < 0:
+		return 0
+	var total: int = 0
+	for fleet: FleetState in fleets:
+		if fleet == null or fleet.owner != owner or fleet.id == except_id:
+			continue
+		if fleet.is_in_port() and fleet.province == port:
+			total += TradeCargo.fleet_holds(fleet)
+	return total
+
+
+## True when this squadron carries the holds its court has nowhere else: without
+## it at the seat the court imports nothing, so it sails home rather than hunt,
+## raid or keep a station (wiki: ships-and-naval § Home Fleet, § Ship Types;
+## issue #530). Expeditions answer false, and so does a crown with no harbour
+## at its seat: no sail can help it.
+static func trade_garrison(model: MapModel, fleets: Array, fleet: FleetState) -> bool:
+	if fleet == null or TradeCargo.fleet_holds(fleet) <= 0:
+		return false
+	if fleet.has_beachhead() or not fleet.embarked_civilians.is_empty():
+		return false
+	if seat_port(model, fleet.owner) < 0:
+		return false
+	return holds_ashore(model, fleets, fleet.owner, fleet.id) <= 0
+
+
+## True when the squadron is the seat's own guard with a hostile squadron in the
+## water beside it: defence outranks the trade, so the hold policy stands aside
+## (wiki: ai-architecture § Naval policy — defence first; issue #530).
+static func _defends_seat(
+	model: MapModel, fleets: Array, fleet: FleetState, hostile: Dictionary
+) -> bool:
+	return fleet.is_in_port() and _hostile_beside(model, fleets, fleet, hostile)
+
+
 ## One step home for an unengaged squadron: dock when the home harbour borders
 ## its zone, else the next charted zone on the sea path. A squadron on a station
-## (patrol, blockade, beachhead) or carrying an expedition keeps its post.
+## (patrol, blockade, beachhead) or carrying an expedition keeps its post, unless
+## `release` says the court needs its holds ashore more than its station
+## (issue #530).
 static func _home_order(
-	model: MapModel, fleet: FleetState, owner: int, charts: CourtCharts
+	model: MapModel, fleet: FleetState, owner: int, charts: CourtCharts,
+	release: bool = false
 ) -> Dictionary:
-	if fleet.is_in_port() or _stationed(fleet):
+	if fleet.is_in_port():
+		return {}
+	# An expedition's hulls are the invasion planner's, holds and all.
+	if fleet.has_beachhead() or not fleet.embarked_civilians.is_empty():
+		return {}
+	if _stationed(fleet) and not release:
 		return {}
 	var port: int = home_port(model, owner)
 	if port < 0:
