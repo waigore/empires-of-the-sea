@@ -31,7 +31,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# the planner guards.
 			var earning: bool = AiIncome.wants_income(
 				config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+				MapPlayCourt.regiments(play, faction),
+				MapPlayCourt.navy_chest(play, faction)
 			)
 			touched = _split(play, model, fleets, armies, faction, config, trace, earning) or touched
 			var order: Dictionary = AiInvasionPlanner.plan(

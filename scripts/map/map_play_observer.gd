@@ -49,7 +49,8 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 	var income: Dictionary = AiIncome.plan(
 		config, economy, MapPlayCourt.at_war(play, faction),
-		play.army_layer.regiment_count_all(faction)
+		play.army_layer.regiment_count_all(faction),
+		MapPlayCourt.navy_chest(play, faction)
 	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)

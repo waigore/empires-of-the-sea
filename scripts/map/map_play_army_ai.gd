@@ -209,7 +209,10 @@ static func _reinforce(
 		economy,
 		play.army_layer.regiment_count_all(faction),
 		MapPlayCourt.at_war(play, faction),
-		_extra_regiments(play, faction, config)
+		_extra_regiments(play, faction, config),
+		# The hull the court is saving for outranks the next regiment: the
+		# muster spends only what stands above that chest (issue #484).
+		MapPlayCourt.navy_chest(play, faction)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

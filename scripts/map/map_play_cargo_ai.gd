@@ -75,7 +75,9 @@ static func run(
 
 
 ## The fighting hull the court's ledger asked for, laid down through the yard, or
-## an empty row when the claim was not funded or no warship is payable.
+## an empty row when the claim was not funded or no warship is payable. The row
+## carries the yard's price and the chest the court held for it, so the turn
+## trace explains what allowed the launch (issue #484).
 static func _build_warship(
 	play: PlaySession, faction: int, roster: Array, economy: PlayerEconomy, seat: int
 ) -> Dictionary:
@@ -87,7 +89,13 @@ static func _build_warship(
 	var type_id: String = _warship_type(economy)
 	if type_id.is_empty():
 		return {}
-	return _launch(play, roster, faction, economy, seat, {"type_id": type_id})
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
+	var laid: Dictionary = _launch(play, roster, faction, economy, seat, {"type_id": type_id})
+	if laid.is_empty():
+		return {}
+	laid["price"] = ShipEconomy.treasury_cost(type_id)
+	laid["chest"] = chest
+	return laid
 
 
 ## The strongest warship this court can pay for today: what its yard opens, its

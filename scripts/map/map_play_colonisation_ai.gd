@@ -33,7 +33,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
 			var earning: bool = AiIncome.wants_income(
 				config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+				MapPlayCourt.regiments(play, faction),
+				MapPlayCourt.navy_chest(play, faction)
 			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
