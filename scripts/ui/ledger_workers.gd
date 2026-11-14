@@ -91,10 +91,34 @@ func _store_copy(read: Dictionary) -> String:
 	return "Store " + "  ·  ".join(parts)
 
 
-## "24 mouths eat 18 food · Refined Sugar ×3 · 2 arriving" — every appetite the
-## phase pays before the larder can be called short.
+## "20 food wanted — army 8 · navy 4 · pool 6 · wards 2 · Refined Sugar ×3", or
+## the short form "24 mouths eat 24 food" when the pool is the only appetite.
+## Every appetite the phase pays is named in its own deduction order, because the
+## army and the navy eat before the pool: a store that covers the pool alone still
+## strikes it, and a reading that showed only the pool's mouths had the store
+## cover them (wiki: workers-and-population § Consumption; REQ-P2-03).
 func _appetite_copy(read: Dictionary) -> String:
-	var text: String = "%d mouths eat %d food" % [int(read["mouths"]), int(read["food"])]
+	var appetites: Dictionary = read.get("appetites", {}) as Dictionary
+	var army: int = int(appetites.get("army", 0))
+	var navy: int = int(appetites.get("navy", 0))
+	var pool: int = int(appetites.get("pool", int(read["food"])))
+	var wards: int = int(appetites.get("wards", 0))
+	var text: String
+	if army + navy + wards <= 0:
+		text = "%d mouths eat %d food" % [int(read["mouths"]), pool]
+	else:
+		var parts: PackedStringArray = []
+		if army > 0:
+			parts.append("army %d" % army)
+		if navy > 0:
+			parts.append("navy %d" % navy)
+		if pool > 0:
+			parts.append("pool %d" % pool)
+		if wards > 0:
+			parts.append("wards %d" % wards)
+		text = "%d food wanted — %s" % [
+			army + navy + pool + wards, " · ".join(parts),
+		]
 	var want: Dictionary = read["luxury"]
 	for id: Variant in want.keys():
 		text += "  ·  %s ×%d" % [CommodityCatalog.label(String(id)), int(want[id])]
