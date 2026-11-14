@@ -43,7 +43,7 @@ What keeps a headless run inside it (keep these when editing):
 
 | Lever | Why |
 |-------|-----|
-| `PlaySession.view_live = false` | No chart on screen: the turn skips the lens/dossier/panel follow-up (`MapPlayTurn._follow_view`) and the observatory panel is not built. Rules outcome is unchanged. |
+| `MapPlayTurn.view_live = false` | No chart on screen: the turn skips the lens/dossier/panel follow-up and civilian marker sync. Rules outcome is unchanged. |
 | One snapshot per turn | The batch takes the standing itself; no dashboard refresh is mounted. |
 | Grouped estate ledger | `EstateRows.project` reads the network walk the ledger already made instead of re-seeding a BFS per disconnected tile. |
 

@@ -5,6 +5,12 @@ extends RefCounted
 ## MapPlayLandTurn, sea battles in MapPlayNavalTurn, fog decay in MapPlayFogTurn
 ## (REQ-P3-02). This only orders them and reports what the rules decided.
 
+## False when no view is mounted to follow: the headless harness
+## (`tools/ai_vs_ai.gd`) runs the same rules with no chart, HUD or lens refresh,
+## so the turn skips the pure-view pass (docs/ai-observer.md § Performance
+## budget). Live play leaves this true.
+static var view_live: bool = true
+
 
 static func end_turn(play: PlaySession) -> void:
 	# The battle plate owns input while a Quick Battle plays; a second turn would
@@ -143,7 +149,7 @@ static func _show_pending(play: PlaySession) -> bool:
 ## has nothing on screen to follow, so it skips the whole pass and the rules
 ## outcome is unchanged (docs/ai-observer.md § Performance budget).
 static func _follow_view(play: PlaySession, year: int) -> void:
-	if not play.view_live:
+	if not view_live:
 		return
 	var market_line: String = LedgerText.market_summary(
 		play.market_report, play.player_faction

@@ -65,6 +65,7 @@ func _run() -> void:
 		var result: Dictionary = await _run_one(run, seed_value)
 		_aggregate(result)
 	_elapsed_usec = Time.get_ticks_usec() - started
+	MapPlayTurn.view_live = true
 	_report(seeds)
 	quit(0 if _failures.is_empty() else 1)
 
@@ -82,7 +83,7 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 	# No chart, HUD or lens is followed in a headless batch: the turn skips the
 	# pure-view refresh it would do on screen, so a 200-turn run fits the
 	# harness budget (docs/ai-observer.md § Performance budget).
-	screen.view_live = false
+	MapPlayTurn.view_live = false
 	# Only a whole-game observer may run past the calendar cap
 	# (wiki: game-setup § Campaign length; DR-20261108-05).
 	screen.infinite_mode = not _historical

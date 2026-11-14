@@ -29,6 +29,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	MapPlayTurn.view_live = true
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
@@ -79,12 +80,11 @@ func test_observer_never_queues_a_human_decision() -> void:
 
 
 func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
-	# `view_live = false` is the batch harness (docs/ai-observer.md § Performance
-	# budget): same rules, no dashboard and no per-turn view follow-up.
-	_mount(false)
+	# `MapPlayTurn.view_live = false` is the batch harness (docs/ai-observer.md §
+	# Performance budget): same rules, no per-turn view follow-up.
+	MapPlayTurn.view_live = false
 	var play: PlaySession = _screen.play
-	assert_false(play.view_live, "the session knows no view is followed")
-	assert_null(_screen.get_node_or_null("AiObserver"), "no dashboard is mounted")
+	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
 	var before: int = play.turn
 	_step(6)
 	assert_eq(play.turn, before + 6, "the calendar still advances")
@@ -95,19 +95,6 @@ func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 			play.ai.economies.has(faction),
 			"%s still plans without a view" % FactionCatalog.name_of(faction)
 		)
-
-
-func _mount(view_live: bool) -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
-	_screen = SCENE.instantiate()
-	_screen.map_width = Fixture.WORLD_WIDTH
-	_screen.map_height = Fixture.WORLD_HEIGHT
-	_screen.preset_world = Fixture.world()
-	_screen.observer_mode = true
-	_screen.infinite_mode = true
-	_screen.view_live = view_live
-	add_child(_screen)
 
 
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:

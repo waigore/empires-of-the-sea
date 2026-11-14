@@ -47,10 +47,6 @@ var difficulty: String = Difficulty.DEFAULT
 ## Full-AI observer: every Great Power is AI (title / tools/ai_vs_ai.gd;
 ## wiki: game-setup § Human/AI slot assignment).
 var observer_mode: bool = false
-## False when the caller mounts no view to follow (the headless harness): the
-## turn then skips pure-view refresh and the observatory panel is not built
-## (docs/ai-observer.md § Performance budget).
-var view_live: bool = true
 ## When set (load), skip generation and restore this save instead.
 var pending_save: Dictionary = {}
 ## Overridable for tests so saves do not touch the player's slots.
@@ -157,7 +153,6 @@ func _ready() -> void:
 	play.bind_host(self)
 	play.pause_menu = game_menu
 	play.observer_mode = observer_mode
-	play.view_live = view_live
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
 		$World/ResourceLens, $World/DiplomacyLens
@@ -273,14 +268,10 @@ func _on_load_chosen(slot: int) -> void:
 
 
 ## Full-AI observatory: hide human chrome, seal saving, mount metrics (REQ-P5-02).
-## A headless run (`view_live` false) has no screen to draw the panel on, so it
-## keeps the session and skips the dashboard.
 func _setup_observer() -> void:
 	hud.visible = false
 	game_menu.door.seal()  # panel owns the pause door
 	game_menu.save_button.disabled = true
-	if not view_live:
-		return
 	var panel := AiObserverPanel.new()
 	panel.name = "AiObserver"
 	panel.play = play
