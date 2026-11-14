@@ -220,11 +220,21 @@ static func _finish_turn(play: PlaySession) -> void:
 		play.victory, play.world, play.turn, play.human_faction_id(), play.difficulty
 	)
 	if victory != null:
+		# The sheet still narrates the turn that decided the age: filed on its own
+		# turn and left unraised, so the archive has no gap and the final turn's
+		# news is read after the plate steps aside (wiki: the-gazette
+		# § When it appears; victory § Victory Screen).
+		MapPlayGazette.close_turn(
+			play, land_battles, naval_battles, {}, {}, {}, play.turn, false
+		)
 		MapPlayCampaign.close_victory(play, victory)
 		return
 	# Military victory wins the turn; otherwise the calendar cap closes an
 	# undecided campaign on its last full turn (wiki: turn-time-mapping).
 	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
+		MapPlayGazette.close_turn(
+			play, land_battles, naval_battles, {}, {}, {}, play.turn, false
+		)
 		MapPlayCampaign.close_calendar(play)
 		return
 	# The raid pass runs after the rival ledgers book the new turn's buys and
