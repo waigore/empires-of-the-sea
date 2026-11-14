@@ -211,7 +211,8 @@ static func apply(
 				report["training"].append(hired)
 		play.civilian_layer.regions.set_region(region, roster)
 		if (
-			play.model != null and region == play.model.region_id
+			play.view_live
+			and play.model != null and region == play.model.region_id
 			and play.civilian_layer.is_inside_tree()
 		):
 			play.civilian_layer.sync()

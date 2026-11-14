@@ -22,7 +22,33 @@ godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
 Options: `--turns`, `--seed`, `--size` (0 Small / 1 Standard / 2 Large),
 `--runs` (seeds `seed+i`), `--historical` (stop at the calendar cap),
 `--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH subject;
-default setup faction), `--out=DIR` (default `user://ai_vs_ai`).
+default setup faction), `--out=DIR` (default `user://ai_vs_ai`),
+`--budget=S` (per-run wall-clock budget, default 420).
+
+## Performance budget
+
+**One 200-turn run must finish in ≤ 7 minutes** wall clock (bench: seed 1500,
+Standard, `--ai=bench`). Every AI change is validated on it, so a run that
+outgrows the budget is a defect, not a slow machine.
+
+The harness reports what it spent:
+
+```text
+Elapsed: 104.3s for 1 run(s) · 104.3s per run · budget 420s per run
+```
+
+An over-budget run still scores normally and is named `OVER BUDGET` on stderr.
+
+What keeps a headless run inside it (keep these when editing):
+
+| Lever | Why |
+|-------|-----|
+| `PlaySession.view_live = false` | No chart on screen: the turn skips the lens/dossier/panel follow-up (`MapPlayTurn._follow_view`) and the observatory panel is not built. Rules outcome is unchanged. |
+| One snapshot per turn | The batch takes the standing itself; no dashboard refresh is mounted. |
+| Grouped estate ledger | `EstateRows.project` reads the network walk the ledger already made instead of re-seeding a BFS per disconnected tile. |
+
+A new per-turn full-map scan (a fresh `LandConnectivity.resolve`, an
+`ImprovementLedger.snapshot` per unit) is what pushes a run over budget.
 
 Local bench needs mainline planners once:
 

@@ -138,6 +138,36 @@ static func _show_pending(play: PlaySession) -> bool:
 	return false
 
 
+## The turn's view follow-up: the toast, the open dossiers, the survey lens and
+## the province sheet. Pure presentation — a headless run (`view_live` false)
+## has nothing on screen to follow, so it skips the whole pass and the rules
+## outcome is unchanged (docs/ai-observer.md § Performance budget).
+static func _follow_view(play: PlaySession, year: int) -> void:
+	if not play.view_live:
+		return
+	var market_line: String = LedgerText.market_summary(
+		play.market_report, play.player_faction
+	)
+	if play.observer_mode or market_line.is_empty():
+		play.hud.toast("Turn %d — %d" % [play.turn, year])
+	else:
+		play.hud.toast("Turn %d — %d. %s" % [play.turn, year, market_line])
+	var selected: Ship = play.ship_layer.selected()
+	if selected != null:
+		var fleet: FleetState = play.ship_layer.fleet_of(selected)
+		if fleet != null:
+			MapPlayFleets.show_dossier(play, fleet)
+			MapPlayFleets.refresh_options(play, fleet)
+	if play.civilian_layer.selected_unit != null:
+		MapPlayCivilians.refresh_panel(play)
+	if play.army_layer.selected_army != null:
+		MapPlayArmies.refresh_panel(play)
+	play.improvements.refresh_if_open()
+	# An open dossier follows the works, the town and the tech the turn changed.
+	MapPlaySetup.refresh_dossier(play)
+	MapPlaySetup.build_lens(play)
+
+
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
 static func _finish_turn(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
@@ -239,28 +269,8 @@ static func _finish_turn(play: PlaySession) -> void:
 	if not play.observer_mode:
 		play.hud.set_income(play.income)
 		MapPlayDiplomacy.refresh(play)
-	var market_line: String = LedgerText.market_summary(
-		play.market_report, play.player_faction
-	)
-	if play.observer_mode or market_line.is_empty():
-		play.hud.toast("Turn %d — %d" % [play.turn, year])
-	else:
-		play.hud.toast("Turn %d — %d. %s" % [play.turn, year, market_line])
-	var selected: Ship = play.ship_layer.selected()
-	if selected != null:
-		var fleet: FleetState = play.ship_layer.fleet_of(selected)
-		if fleet != null:
-			MapPlayFleets.show_dossier(play, fleet)
-			MapPlayFleets.refresh_options(play, fleet)
-	if play.civilian_layer.selected_unit != null:
-		MapPlayCivilians.refresh_panel(play)
-	if play.army_layer.selected_army != null:
-		MapPlayArmies.refresh_panel(play)
 	play.improvements.set_tech_caps(play.tech_caps())
-	play.improvements.refresh_if_open()
-	# An open dossier follows the works, the town and the tech the turn changed.
-	MapPlaySetup.refresh_dossier(play)
-	MapPlaySetup.build_lens(play)
+	_follow_view(play, year)
 	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
 	# The sheet narrates the turn that just resolved; the overlay opens only when
 	# it found news (wiki: the-gazette § When it appears).

@@ -15,6 +15,12 @@ var player_faction: int = PLAYER_FACTION
 ## Power runs the AI planners and no court holds consent decisions. Debug tool,
 ## not a player-facing campaign mode.
 var observer_mode: bool = false
+## False when no view is mounted to follow: the headless harness
+## (`tools/ai_vs_ai.gd`) runs the same rules with no chart, HUD or lens on
+## screen, so the turn skips the pure-view refresh it would otherwise do
+## (docs/ai-observer.md § Performance budget). Live play and the on-screen
+## observatory leave this true.
+var view_live: bool = true
 ## Planner gate for observer / `tools/ai_vs_ai.gd` (`AiControl.FULL` /
 ## `NOOP` / `BENCH`). Live campaigns leave this at FULL; only the observer
 ## harness changes it (docs/ai-observer.md).

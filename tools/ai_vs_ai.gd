@@ -12,7 +12,9 @@ extends SceneTree
 ## (seeds seed+i, default 1), --historical (stop at the calendar cap instead of
 ## the observer's endless campaign), --ai=full|noop|bench (planner gate;
 ## default full), --live=ID (BENCH subject Great Power; default setup crown),
-## --out=DIR (default user://ai_vs_ai). BENCH: subject = submission AI, two
+## --out=DIR (default user://ai_vs_ai), --budget=S (per-run wall-clock budget,
+## default 420s — a slower run is reported, never scored differently).
+## BENCH: subject = submission AI, two
 ## baselines = origin/main planners (scripts/ai_mainline/), three = random.
 ## Run `python tools/sync_ai_mainline.py` before a local --ai=bench.
 ##
@@ -34,6 +36,11 @@ var _quiet: bool = false
 var _ai_mode: String = AiControl.FULL
 var _live: int = MapModel.NO_ID
 var _out_dir: String = OUT_DIR
+## Wall-clock budget for one run, in seconds: the harness passes its own budget
+## to the report so a slow host is named, not silently worse
+## (docs/ai-observer.md § Performance budget).
+var _budget_s: int = 420
+var _elapsed_usec: int = 0
 var _failures: PackedStringArray = []
 var _wins: Dictionary = {}
 var _unfinished: int = 0
@@ -50,12 +57,14 @@ func _initialize() -> void:
 func _run() -> void:
 	_parse_args()
 	_ensure_dir()
+	var started: int = Time.get_ticks_usec()
 	var seeds: PackedStringArray = []
 	for run in _runs:
 		var seed_value: int = _seed + run
 		seeds.append(str(seed_value))
 		var result: Dictionary = await _run_one(run, seed_value)
 		_aggregate(result)
+	_elapsed_usec = Time.get_ticks_usec() - started
 	_report(seeds)
 	quit(0 if _failures.is_empty() else 1)
 
@@ -70,6 +79,10 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 	screen.map_width = int(entry["width"])
 	screen.map_height = int(entry["height"])
 	screen.observer_mode = true
+	# No chart, HUD or lens is followed in a headless batch: the turn skips the
+	# pure-view refresh it would do on screen, so a 200-turn run fits the
+	# harness budget (docs/ai-observer.md § Performance budget).
+	screen.view_live = false
 	# Only a whole-game observer may run past the calendar cap
 	# (wiki: game-setup § Campaign length; DR-20261108-05).
 	screen.infinite_mode = not _historical
@@ -181,6 +194,20 @@ func _report(seeds: PackedStringArray) -> void:
 			]
 		)
 	print("Unfinished / no declared winner: %d of %d" % [_unfinished, _appearances])
+	var seconds: float = float(_elapsed_usec) / 1e6
+	var per_run: float = seconds / float(maxi(_appearances, 1))
+	print(
+		"Elapsed: %.1fs for %d run(s) · %.1fs per run · budget %ds per run%s"
+		% [
+			seconds, _appearances, per_run, _budget_s,
+			"" if per_run <= float(_budget_s) else "  OVER BUDGET",
+		]
+	)
+	if per_run > float(_budget_s):
+		printerr(
+			"ai_vs_ai: run took %.1fs, over the %ds harness budget "
+			+ "(docs/ai-observer.md § Performance budget)" % [per_run, _budget_s]
+		)
 	print("Per-turn metrics: %s/run_NN_turns.jsonl · final standing: %s/run_NN_summary.json" % [
 		ProjectSettings.globalize_path(_out_dir), ProjectSettings.globalize_path(_out_dir),
 	])
@@ -210,6 +237,8 @@ func _parse_args() -> void:
 			_runs = maxi(argument.trim_prefix("--runs=").to_int(), 1)
 		elif argument.begins_with("--out="):
 			_out_dir = argument.trim_prefix("--out=")
+		elif argument.begins_with("--budget="):
+			_budget_s = maxi(argument.trim_prefix("--budget=").to_int(), 1)
 		elif argument.begins_with("--ai="):
 			_ai_mode = AiControl.parse(argument.trim_prefix("--ai="))
 		elif argument.begins_with("--live="):
