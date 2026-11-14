@@ -6,6 +6,10 @@ extends GdToolsTest
 
 const CONFIG_FACTION: int = 1
 const MapFixture = preload("res://tests/map_fixture.gd")
+## A Tribe a rival crown has colonised, and the crown that colonised it: the pair
+## a colonial boycott bars (wiki: diplomacy § GP–Tribe — Boycott, R6).
+const BOYCOTTED_COLONY_TRIBE: int = 9
+const BOYCOTT_ISSUER: int = 2
 
 
 func _config() -> AiConfig:
@@ -601,6 +605,36 @@ func test_an_empty_purse_and_a_great_power_land_offer_nothing() -> void:
 	)
 	assert_eq(AiMerchantWork.cheapest_offer(gp, 0, 1, 5000), 0)
 	assert_true(AiMerchantWork.best_move(gp, _merchant(GRAIN), LandWorks.new()).is_empty())
+
+
+## A boycott leaves the rival merchant no deed to walk to: the rules would refuse
+## every purchase from the issuer's colony, so the planner must not name one
+## (wiki: diplomacy § GP–Tribe — Boycott, R6; REQ-P2-03).
+func test_a_boycott_leaves_the_rival_merchant_no_deed_to_walk_to() -> void:
+	var model: MapModel = Fixture.build_minor()
+	model.provinces[1].owner = BOYCOTTED_COLONY_TRIBE
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, BOYCOTTED_COLONY_TRIBE, 1)
+	court.set_overture(0, BOYCOTTED_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
+	court.set_colony(BOYCOTTED_COLONY_TRIBE, BOYCOTT_ISSUER)
+	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
+	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	var context: Dictionary = _context(model, court)
+	assert_true(
+		AiMerchantWork.buyable_tiles(model, 0, LandWorks.new(), context).is_empty(),
+		"no deed is on offer across the boycott"
+	)
+	assert_true(
+		AiMerchantWork.best_move(model, _merchant(GRAIN), LandWorks.new(), context).is_empty(),
+		"and the merchant has nowhere to march"
+	)
+	court.end_turn()
+	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_false(
+		AiMerchantWork.buyable_tiles(model, 0, LandWorks.new(), context).is_empty(),
+		"lifting the boycott puts the deed back on offer"
+	)
 
 
 # --- fixtures ----------------------------------------------------------------

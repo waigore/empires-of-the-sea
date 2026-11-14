@@ -36,7 +36,7 @@ War, peace, treaties, aid, intervention, chronicle (wiki:
   **Favoured pact** (GP–GP, embassy, accepts 65+): imports 95%, exports
   105%; war ends it. **Boycott** (needs a colony, GP at peace): no trade with
   our colony Tribes (no fill, both orders carry); its terms drop 10%, subsidies
-  to our colonies cancelled, aid barred; war revokes.
+  to our colonies cancelled, deeds and aid barred; war revokes.
   **Subsidy** never moves the published price: deals with that court pay p%
   more, earn p% less. Rails 70–150% buy, 50–130% sell; the court states it.
 - **First contact:** a Tribe enters court on a seen tile in its provinces, not by
