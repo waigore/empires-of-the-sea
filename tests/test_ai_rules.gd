@@ -2987,6 +2987,153 @@ func test_the_same_state_reads_the_same_footing() -> void:
 	assert_eq(first, second, "replay-safe: the footing is a pure function")
 
 
+# --- dispatch: an overstretched court opens no third front -------------------
+
+
+const PHASE_OTHER: int = 3
+
+
+## A court at `wars` Great Power fronts beside a crown next door. `peer` puts that
+## crown on the court's own power score — a war it could not count on winning —
+## while without it the neighbour is the weak one every planner prefers.
+## `colonial` adds a Minor Nation next door; `posted` hands the footing in with
+## the reading, and a caller that hands in none must read the same footing.
+func _front_turn(
+	wars: int, peer: bool = false, colonial: bool = false, posted: bool = true,
+	powers: bool = true
+) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	var neighbours: Array[int] = [PHASE_RIVAL, PHASE_THIRD, PHASE_OTHER]
+	if colonial:
+		neighbours.append(PHASE_MINOR)
+	for other: int in neighbours:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+	for index in wars:
+		_phase_war(state, [PHASE_RIVAL, PHASE_THIRD][index])
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var theirs: int = 4 if peer else 1
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_OTHER: theirs, PHASE_MINOR: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_OTHER: theirs, PHASE_MINOR: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+	}
+	if posted:
+		context["posture"] = posture
+	if not powers:
+		context.erase("power")
+		context.erase("regiments")
+	var world: WorldMap = AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, AiState.new(), world, 1, context
+	)
+	return {"plan": plan, "posture": posture}
+
+
+## The court's candidate row for one target in a decide() result.
+func _candidate(plan: Dictionary, target: int) -> Dictionary:
+	for raw: Variant in plan.get("candidates", []):
+		var entry: Dictionary = raw
+		if int(entry.get("target", -1)) == target:
+			return entry
+	return {}
+
+
+func test_the_footing_opens_only_its_published_slots() -> void:
+	assert_true(AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_VOYAGE))
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_VOYAGE))
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_VOYAGE))
+	assert_true(AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_DECLARE_WAR))
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_DECLARE_WAR),
+		"one front leaves the court free to open a second"
+	)
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_DECLARE_WAR))
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_DECLARE_WAR),
+		"a caller with no relations concludes nothing"
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, "diplomacy.pact"),
+		"a slot no footing names keeps the dispatch default"
+	)
+
+
+func test_an_overstretched_court_opens_no_war_on_a_peer() -> void:
+	var run: Dictionary = _front_turn(2, true)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_ne(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the frontier is full: no third Great Power war on a crown it cannot beat"
+	)
+	assert_eq(String(candidate.get("blocked", "")), "overstretched: no third front")
+
+
+func test_an_overstretched_court_still_takes_a_crown_it_outmatches() -> void:
+	var run: Dictionary = _front_turn(2)
+	var action: Dictionary = run["plan"]["action"]
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(action.get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the cheap province next door is a war the court can already win"
+	)
+	assert_eq(int(action.get("target", -1)), PHASE_OTHER)
+	assert_eq(String(candidate.get("blocked", "")), "")
+
+
+func test_a_court_at_one_front_still_opens_its_next_war() -> void:
+	var run: Dictionary = _front_turn(1, true)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_WAR)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"one front is under the threshold: the published planner declares"
+	)
+	assert_eq(String(candidate.get("blocked", "")), "")
+
+
+func test_an_overstretched_court_still_takes_the_cheap_province_next_door() -> void:
+	var run: Dictionary = _front_turn(2, true, true)
+	var action: Dictionary = run["plan"]["action"]
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_MINOR)
+
+	assert_eq(String(action.get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_eq(int(action.get("target", -1)), PHASE_MINOR)
+	assert_eq(
+		String(candidate.get("blocked", "")), "",
+		"a Minor Nation is colonial business, not a Great Power front"
+	)
+
+
+func test_a_caller_with_no_order_of_battle_keeps_the_published_planner() -> void:
+	var run: Dictionary = _front_turn(2, true, false, true, false)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_ne(
+		String(candidate.get("blocked", "")), "overstretched: no third front",
+		"an unknown order of battle is not a war the court cannot win"
+	)
+
+
+func test_the_planner_reads_the_footing_it_is_not_handed() -> void:
+	var run: Dictionary = _front_turn(2, true, false, false)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(candidate.get("blocked", "")), "overstretched: no third front",
+		"a caller that hands in no posture gets the same reading"
+	)
+
+
 # --- dispatch: no new voyage on a war footing ---------------------------------
 
 

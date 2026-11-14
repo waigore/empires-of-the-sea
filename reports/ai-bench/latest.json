@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:1ab0be5b75249d882705e118cf891fac73d1bde9afd57a6b194c0226a4172e64",
-  "submission_git": "fix/484-yard-chest-aid@9aa5fa2e",
+  "submission_hash": "sha256:ddf621dcd7daeea16ec1a3ba334b4223a5bfda59effbbbf0a9ba8f7c65c0ee9d",
+  "submission_git": "feat/phase-declare-slot@ac794445",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:2ae2f80ef34f3c0af05a9c47a70887c756bbfda8514bda865ac6cc553072b6a7",
+    "ai_surface_hash": "sha256:47ad3f894f77b6b5d65ea0d59bd0059c561f8b7f7b6a08356cbb1f43a4ce8dd5",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 23,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T15:05:21Z",
+  "timestamp": "2026-11-14T15:29:42Z",
   "report_version": 1,
-  "signature": "hmac-sha256:2805fe9bb6e5c991211961dc6dca2b1163f76b7953118ac877d7de700a1abd83"
+  "signature": "hmac-sha256:fb71ededbfd18d99be0cadbf9c38fe6345304b4a8039704bc1cb633f6473ed89"
 }
