@@ -1313,6 +1313,56 @@ func test_aid_stops_when_the_purse_cannot_cover_it() -> void:
 	assert_true((plan["action"] as Dictionary).is_empty())
 	assert_eq(_offer_blocked(plan, AiDiplomacyOffers.KIND_AID), "The treasury cannot cover that aid.")
 
+func test_a_saving_rival_grants_no_aid_and_names_the_reserve_it_keeps() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	# The purse is under the court's own cash floor, so it reads `earn` and every
+	# spender that can wait stands down (wiki: treasury-planner § Priority; #580).
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 10
+	var result: Dictionary = _run([0, 2, 3, 3, 3, 3], [], 1)
+	assert_false(_event("grantAid"), "a saving court gifts nothing")
+	assert_ne(String(_action(result, 2).get("kind", "")), AiDiplomacyOffers.KIND_AID)
+	var reserve: int = int(_record(result, 2)["income"]["reserve"])
+	assert_true(reserve > 10, "the court reads earn below its reserve")
+	assert_eq(
+		_offer_blocked(_record(result, 2), AiDiplomacyOffers.KIND_AID),
+		"the court is saving for its reserve (%d)" % reserve,
+		"the refusal names the reserve the court keeps",
+	)
+
+func test_a_saving_rival_sets_no_subsidy() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
+	ai_diplomacy_offers_state.relation(2, 6).score = 70.0
+	_stage(2, 6, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 10
+	var result: Dictionary = _run([0, 0, 0, 2, 6], [], 1)
+	assert_eq(ai_diplomacy_offers_state.subsidy(2, 6), 0, "no subsidy is set")
+	var reserve: int = int(_record(result, 2)["income"]["reserve"])
+	assert_eq(
+		_offer_blocked(_record(result, 2), AiDiplomacyOffers.KIND_SUBSIDY),
+		"the court is saving for its reserve (%d)" % reserve,
+	)
+
+func test_a_gift_that_would_break_the_reserve_is_refused() -> void:
+	# A court above its reserve may still not gift itself back under it: the
+	# reserve is the purse the muster is waiting for (wiki: treasury-planner
+	# § Priority; #580).
+	var income: Dictionary = {"goal": "spend", "reserve": 2400, "treasury": 3000}
+	assert_eq(
+		AiIncome.saving_reason(income, 1000),
+		"the court is saving for its reserve (2400)",
+	)
+	assert_eq(AiIncome.saving_reason(income, 0), "", "a subsidy takes nothing today")
+	income["treasury"] = 3400
+	assert_eq(AiIncome.saving_reason(income, 1000), "", "the gift leaves the reserve whole")
+	assert_eq(
+		AiIncome.saving_reason({"goal": "earn", "reserve": 500, "treasury": 900}),
+		"the court is saving for its reserve (500)",
+	)
+
 func test_a_rival_subsidises_a_minor_it_wants_close() -> void:
 	_setup_ai_diplomacy_offers()
 	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)

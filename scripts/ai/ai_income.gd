@@ -115,6 +115,22 @@ static func wants_income(
 	return goal_for(config, economy, at_war, regiments, hull_chest) == GOAL_EARN
 
 
+## The refusal a deferrable spender records while the court is still filling its
+## purse, naming the reserve it keeps (wiki: treasury-planner § Priority; issue
+## #580). `amount` is what the order would take out of the purse today (0 for an
+## order that only promises future money, like a subsidy). Empty when the court
+## may spend without dipping under the reserve it is saving for.
+static func saving_reason(income: Dictionary, amount: int = 0) -> String:
+	# No money goal read (a caller with no ledger) keeps the published behaviour.
+	if income.is_empty():
+		return ""
+	var reserve: int = int(income.get("reserve", 0))
+	var held: int = int(income.get("treasury", 0))
+	if String(income.get("goal", GOAL_SPEND)) != GOAL_EARN and held - amount >= reserve:
+		return ""
+	return "the court is saving for its reserve (%d)" % reserve
+
+
 ## Reader-facing goal for the observer panel and the turn trace.
 static func label(goal: String) -> String:
 	return String(LABELS.get(goal, LABELS[GOAL_SPEND]))

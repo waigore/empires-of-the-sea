@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:d203f4e9b3eb527a1d50140abff5fd146f9298d11e03b1cef28728d645d557ff",
-  "submission_git": "fix/591-hull-chest-waits-for-the-line@440f467",
+  "submission_hash": "sha256:6013f1e3de6c4ebfe1fd74aef5d9acb7ba0c484b196af26c6188fb65bc3b0651",
+  "submission_git": "fix/580-saving-court-aid@8ade9e1+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:54848c84fe20ccef94f9159eef4f6404173f898d4b7b0c165abf840a64560ae8",
+    "ai_surface_hash": "sha256:669a096c1bc72e98451295bcf162497bf6c4e9539e396ef5b2f17c2142e3849a",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T13:59:21Z",
+  "timestamp": "2026-11-14T13:56:33Z",
   "report_version": 1,
-  "signature": "hmac-sha256:a11f2b11b66027f9a37fea3ae7a8ce1ee57aece598d38bdb41626fb7d1081a93"
+  "signature": "hmac-sha256:87b1b0ff8c6d60fcb097e16372e4b428d4a2a600733ed709cddbc92d96ee15b3"
 }
