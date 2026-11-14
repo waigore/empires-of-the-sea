@@ -13,12 +13,18 @@ extends RefCounted
 
 
 ## The pool the next phase feeds: the roster plus the recruits already under
-## orders, which the crown's ledger drains before Consumption runs
-## (wiki: workers-and-population § Phase placement).
+## orders, less the peasants those orders spend, because the crown's ledger
+## drains the queue before Consumption runs (wiki: workers-and-population
+## § Phase placement). A waiting train trades a peasant for its tier, and a
+## mustered regiment or a launched hull takes a headcount too, so counting only
+## the arrivals would feed one mouth that is no longer there
+## (wiki: workers-and-population § Recruiting; § Military and naval
+## construction).
 static func pool_next(economy: PlayerEconomy) -> WorkerPool:
 	var pool: WorkerPool = economy.workers.copy()
 	for tier in WorkerPool.TIER_COUNT:
 		pool.add(tier, economy.recruits.pending(RecruitQueue.KIND_WORKER, str(tier)))
+	pool.remove(WorkerPool.Tier.PEASANT, economy.recruits.reserved_peasants())
 	return pool
 
 
