@@ -102,6 +102,42 @@ func test_tapping_uncharted_land_opens_no_dossier() -> void:
 	assert_false(_screen.hud.panels.is_panel_open())
 
 
+## The inset is chart chrome, not a black panel. A real region mount is the
+## only painter since a mount paints the chips and the minimap once (#539), so
+## the mount path itself has to leave a laid-out control holding the region's
+## chart: one texel per tile, terrain and owner colours, and coast ink on top
+## (issue #563).
+func test_a_region_mount_paints_the_minimap_chart() -> void:
+	_screen.load_region(0)
+	var minimap: Minimap = _screen.hud._minimap
+	assert_not_null(minimap, "the HUD owns the inset")
+	assert_gt(minimap.size.x, 0.0, "the inset is laid out after the mount")
+	assert_gt(minimap.size.y, 0.0, "the inset is laid out after the mount")
+	assert_eq(minimap.model, _screen.model, "the inset shows the mounted region")
+	assert_eq(minimap.visibility, _screen.visibility, "the inset honours the court's chart")
+	assert_not_null(minimap._texture, "a mount builds the chart texture")
+	var image: Image = minimap._texture.get_image()
+	assert_eq(
+		image.get_size(),
+		Vector2i(_screen.model.width, _screen.model.height),
+		"one texel per map tile"
+	)
+	var colors := {}
+	var dark: int = 0
+	for y in image.get_height():
+		for x in image.get_width():
+			var color: Color = image.get_pixel(x, y)
+			colors[color] = true
+			if color.r < 0.15 and color.g < 0.15 and color.b < 0.15:
+				dark += 1
+	assert_gt(colors.size(), 8, "terrain and owner colours reach the inset")
+	var texels: int = image.get_width() * image.get_height()
+	assert_lt(float(dark) / float(texels), 0.1, "the inset is not a solid near-black fill")
+	assert_gt(minimap._coast.size(), 0, "the charted coast is inked")
+	assert_gt(minimap._province_ink.size(), 0, "province hairlines subdivide it")
+	assert_gt(minimap._country_borders.size(), 0, "owners' borders are inked")
+
+
 func test_minimap_repaints_when_a_province_is_charted() -> void:
 	var minimap: Minimap = _screen.hud._minimap
 	var province: int = Fixture.foreign_province(_screen.model)
