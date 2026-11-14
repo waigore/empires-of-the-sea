@@ -30,6 +30,12 @@ static func decide(
 	var best_peace: Dictionary = {}
 	var best_offer: Dictionary = {}
 	var player: int = int(context.get("player", -1))
+	# The court's footing, read once for the whole pass — a caller that already
+	# read it this turn posts it in the context: an overstretched court opens no
+	# third front (DR-20261113-15, DR-20261114-11).
+	var posture: String = String(context.get("posture", ""))
+	if posture.is_empty():
+		posture = AiPhasePlanner.phase_for(config, state)
 	# An agenda moves the bar a war must fall below before the court puts peace
 	# to its enemy (wiki: hidden-agendas — peacemaker early peace, warmonger
 	# keeps the war alive; DR-20261111-27).
@@ -80,7 +86,7 @@ static func decide(
 					best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
-				config, state, ai_state, turn, target, record, score, world, context
+				config, state, ai_state, turn, target, record, score, world, context, posture
 			)
 			if (
 				String(entry["blocked"]).is_empty()
@@ -175,6 +181,12 @@ static func _peace_cooldown(
 ## court is drawing into its empire is not a war target: the declaration would
 ## clear the envoy chain, and its provinces never count toward victory
 ## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules; DR-20261114-02).
+##
+## An overstretched court opens no third Great Power front: the same footing that
+## takes any white peace it is offered does not go looking for another war
+## (DR-20261113-15, DR-20261114-11). Colonial business is untouched — a war on a
+## Minor Nation or a Tribe is not a front, and the court still takes the cheap
+## province next door.
 static func _war_block(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -184,11 +196,17 @@ static func _war_block(
 	record: DiplomacyRelation,
 	desire: int,
 	world: WorldMap = null,
-	context: Dictionary = {}
+	context: Dictionary = {},
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> String:
 	var check: Dictionary = DiplomacyRules.can_declare_war(state, config.faction, target)
 	if not bool(check.get("ok", false)):
 		return String(check.get("reason", "illegal"))
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
+	):
+		return "overstretched: no third front"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"

@@ -25,7 +25,7 @@ Audited through DR-20261114-10 (`REQ-P2-02`).
 | Tribe buy; landings; overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
 | Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
 | Hull chest + material row | `AiNavy` / `AiClaims.HULLS`, DR-14-06/09 |
-| Worker-tier gates; slow luxury rows | `ProductionRecipes.min_tier`/`turns`, DR-14-07/10 |
+| Worker-tier gates; slow luxury rows; AI candidates | `ProductionRecipes.min_tier`/`turns`; `AiEconomyPlanner`, DR-14-07/10 |
 | War-time trade garrison (holds home) | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 
 ## Remaining gaps (impact order)
@@ -34,14 +34,11 @@ Audited through DR-20261114-10 (`REQ-P2-02`).
    chain door (DR-14-05), and holds-at-seat (DR-14-08) are live. Join Empire
    (`5,000 + 2,000 × provinces`) still outruns a rival purse (#489; #552 sheds
    mouths, not the price).
-2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
-   every domain still runs; only the voyage gate is live.
+2. **Domain gating beyond the voyage** — the declare slot ships (DR-14-11): an
+   overstretched court opens no third Great Power front. The rest stays seed.
 3. **Building gates / queue cap** — worker-tier gates (DR-14-07) and the alloy
    + luxury four (DR-14-10) shipped; building gates, further rows, and the
    queue cap remain (wiki-deferred).
-4. **AI recipe candidates ignore worker-tier** — planners still walk
-   `available_ids` (tech only); phase refuses gated rows (DR-14-07
-   follow-up; needs ai-bench re-bind).
 
 ## Next pick
 
