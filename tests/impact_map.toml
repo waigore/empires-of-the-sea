@@ -1207,6 +1207,13 @@ domain = "gazette"
 match = "scripts/ui/gazette*.gd*"
 domain = "gazette"
 
+# The age's own tab on the Gazette plate (DR-20261115-05): the room prints the
+# standings the end-of-turn check reads, so it rides the gazette slice instead
+# of the broad `scripts/ui/**` menu catch-all.
+[[rules]]
+match = "scripts/ui/age_room.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/map/map_play_gazette.gd*"
 domain = "gazette"
