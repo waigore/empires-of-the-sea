@@ -8,6 +8,9 @@ extends LedgerFrame
 ## masthead and phone profile are LedgerFrame's (REQ-P3-01).
 
 signal order_pressed(kind: String, target: int, arg: String)
+## The court's own eyes: the intelligence sheet is one press from the crowns it
+## shadows (DR-20261115-10).
+signal eyes_pressed
 
 var _state: DiplomacyState = null
 var _world: WorldMap = null
@@ -54,9 +57,19 @@ func _apply_profile(compact: bool) -> void:
 
 
 func _build_body(column: VBoxContainer) -> void:
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	column.add_child(head)
 	_summary = UiRowBuilder.label("", 13, Palette.TEXT_DIM)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_summary)
+	_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(_summary)
+	# The court's eyes: the intelligence reading sits one press from the crowns
+	# it shadows, and stays on a phone where the summary line folds away.
+	var eyes := UiRowBuilder.button("EYES ›", 30.0, 78.0, 12)
+	eyes.tooltip_text = "The crown's spies, the courts they shadow and the screen (I)"
+	eyes.pressed.connect(func() -> void: eyes_pressed.emit())
+	head.add_child(eyes)
 	_call_box = VBoxContainer.new()
 	_call_box.add_theme_constant_override("separation", 6)
 	column.add_child(_call_box)

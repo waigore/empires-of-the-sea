@@ -48,6 +48,11 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if provinces != null and provinces.is_open():
 		provinces.close()
 		return true
+	# The crown's eyes is the same sibling (DR-20261115-10).
+	var eyes: SpyLedgerPanel = play.hud.spy_ledger
+	if eyes != null and eyes.is_open():
+		eyes.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

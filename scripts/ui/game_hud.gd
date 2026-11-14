@@ -44,6 +44,10 @@ signal estates_pressed
 ## The cartouche's provinces door opens the crown's holdings ledger
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-09).
 signal provinces_pressed
+## The court's eyes door opens the intelligence sheet — the spies the crown
+## holds, the courts they shadow and the screen (REQ-P5-01, REQ-P5-03;
+## DR-20261115-10).
+signal spy_ledger_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -95,6 +99,8 @@ var civilian_roster: CivilianRosterPanel = null
 var muster_roll: ForceLedgerPanel = null
 ## Whole-empire province ledger: every province the crown holds (DR-20261115-09).
 var province_ledger: ProvinceLedgerPanel = null
+## The crown's eyes: every spy, the courts they shadow, the screen (DR-20261115-10).
+var spy_ledger: SpyLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

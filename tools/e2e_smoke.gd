@@ -325,6 +325,7 @@ func _run() -> void:
 	await _smoke_defence_lens(screen)
 	await _smoke_muster_roll(screen)
 	await _smoke_province_ledger(screen)
+	await _smoke_spy_ledger(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen, works)
@@ -451,6 +452,33 @@ func _smoke_province_ledger(screen: MapScreen) -> void:
 	panel.close()
 	await process_frame
 	_check(not panel.is_open(), "the province ledger sets itself aside")
+
+
+## The crown's eyes: the court ledger's EYES door raises the intelligence
+## reading on the real map, prints the courts it shadows and sets itself aside
+## (DR-20261115-10). No spy is moved and no order is placed.
+func _smoke_spy_ledger(screen: MapScreen) -> void:
+	_check(screen.hud.spy_ledger != null, "the crown's eyes mounted")
+	screen.hud.diplomacy_pressed.emit()
+	await process_frame
+	var door: Button = null
+	for node: Node in screen.hud._diplomacy_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("EYES"):
+			door = button
+			break
+	_check(door != null, "the court ledger carries the eyes door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await process_frame
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_check(panel.is_open(), "the crown's eyes open from the court's door")
+	_check(_has_text(panel._rows, "THE COURTS"), "the sheet prints the courts it reads")
+	_check(_has_text(panel._rows, "THE SCREEN"), "and whether the screen is up")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the crown's eyes set themselves aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
