@@ -185,6 +185,45 @@ func test_open_water_keeps_the_full_shoal_band() -> void:
 	assert_lt(_painted_alpha(relief, Vector2i(12, 6)), 0.02, "deep water stays open")
 
 
+## A gulf must read as water by its tone, not only by its thin veil. Water is
+## cool and land is warm, and no sea or shelf tone may sit within a confounding
+## distance of any land tone — the chart's pale bands were exactly land-coloured
+## and made a basin look like barren ground (issue #456).
+func test_sea_tones_never_read_as_land() -> void:
+	var land_tones: Array[Color] = []
+	for terrain in Palette.TERRAIN_COLORS.size():
+		if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+			continue
+		land_tones.append(Palette.TERRAIN_COLORS[terrain])
+	for sea: Color in [Palette.SEA_DEEP, Palette.SEA_MID, Palette.SEA_PALE]:
+		assert_gt(sea.b, sea.r + 0.12, "a sea tone stays cool; land is warm")
+		for land: Color in land_tones:
+			assert_gt(_tone_distance(sea, land), 0.30, "sea and land keep their distance")
+	for shelf: Color in [MapRelief.SHOAL, MapRelief.SHOAL_DEEP, MapRelief.SHOAL_RING]:
+		assert_gt(shelf.b, shelf.r + 0.12, "the coastal shelf is painted as water too")
+
+
+## The chart's water comes from the palette table the minimap paints, so the two
+## views can never disagree about which side of the coast is sea (issue #456).
+func test_chart_water_is_the_minimap_water() -> void:
+	# Shader defaults are not readable until set; pin them in the source so a
+	# backdrop that has not been fitted yet still paints the same water.
+	var src := FileAccess.get_file_as_string("res://ui/shaders/sea.gdshader")
+	for tone: Color in [Palette.SEA_DEEP, Palette.SEA_MID, Palette.SEA_PALE, Palette.SEA_CREST]:
+		var lit := "%.3f, %.3f, %.3f" % [tone.r, tone.g, tone.b]
+		assert_true(src.contains(lit), "sea shader default matches palette %s" % lit)
+	var material := ShaderMaterial.new()
+	material.shader = load("res://ui/shaders/sea.gdshader")
+	var backdrop := ColorRect.new()
+	backdrop.material = material
+	SeaBackdrop.fit(backdrop, Vector2(1000.0, 700.0))
+	assert_eq(material.get_shader_parameter("deep_color"), Palette.SEA_DEEP)
+	assert_eq(material.get_shader_parameter("mid_color"), Palette.SEA_MID)
+	assert_eq(material.get_shader_parameter("pale_color"), Palette.SEA_PALE)
+	assert_eq(material.get_shader_parameter("crest_color"), Palette.SEA_CREST)
+	backdrop.free()
+
+
 func test_animated_layers_exist() -> void:
 	var canvas: MapCanvas = _mounted()
 	var surf: MapSurf = canvas.get_node_or_null("Surf")
@@ -443,6 +482,11 @@ func _open_coast() -> MapModel:
 				MapModel.Terrain.PLAINS if y < 2 else MapModel.Terrain.OCEAN
 			)
 	return model
+
+
+## Straight RGB distance between two tones: how far apart they read.
+func _tone_distance(a: Color, b: Color) -> float:
+	return Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
 
 
 ## Mean paint alpha around a tile centre: the shoal veil's strength there.

@@ -31,10 +31,12 @@ const MIN_SHOAL_SPAN: float = 0.42
 
 const SAND: Color = Color(0.890, 0.843, 0.678)
 const SAND_WET: Color = Color(0.706, 0.639, 0.471)
-const SHOAL: Color = Color(0.616, 0.769, 0.749)
-const SHOAL_DEEP: Color = Color(0.451, 0.616, 0.616)
+## Shoal water on the chart, kept in the sea's own cool family: a shelf that is
+## paler than the water but never as green as the grass it sits beside (#456).
+const SHOAL: Color = Color(0.443, 0.612, 0.655)
+const SHOAL_DEEP: Color = Color(0.298, 0.443, 0.506)
 ## Sounding lines: the darker aqua bars an atlas draws inside its shallows.
-const SHOAL_RING: Color = Color(0.361, 0.525, 0.529)
+const SHOAL_RING: Color = Color(0.243, 0.373, 0.435)
 
 ## Terrain height fed to the hillshade, indexed by MapModel.Terrain.
 const TERRAIN_HEIGHT: Array[float] = [0.0, 0.0, 0.20, 0.32, 0.60, 0.95, 0.26, 0.16, 0.24]

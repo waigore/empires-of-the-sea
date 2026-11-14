@@ -9,7 +9,9 @@ const MARGIN: float = 1400.0
 
 
 ## Sizes `backdrop` to the chart plus `margin` of sea on every side and mirrors
-## that size onto the drifting-water shader.
+## that size onto the drifting-water shader. The water's palette comes from
+## `Palette` rather than the shader's own defaults, so the chart and the minimap
+## are painted from one table of sea tones (#456).
 static func fit(backdrop: ColorRect, map_size: Vector2, margin: float = MARGIN) -> void:
 	if backdrop == null:
 		return
@@ -18,3 +20,7 @@ static func fit(backdrop: ColorRect, map_size: Vector2, margin: float = MARGIN) 
 	var shader: ShaderMaterial = backdrop.material as ShaderMaterial
 	if shader != null:
 		shader.set_shader_parameter("world_size", backdrop.size)
+		shader.set_shader_parameter("deep_color", Palette.SEA_DEEP)
+		shader.set_shader_parameter("mid_color", Palette.SEA_MID)
+		shader.set_shader_parameter("pale_color", Palette.SEA_PALE)
+		shader.set_shader_parameter("crest_color", Palette.SEA_CREST)
