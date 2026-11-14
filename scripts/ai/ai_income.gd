@@ -43,10 +43,10 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 
 ## The purse this court must hold before it may spend on anything it can defer:
 ## at war, the muster it is saving for (its own cash floor plus the cheapest
-## line) and the hull it means to lay (`AiNavy`, issue #484), whichever is
-## larger, while it stands under the target that asks for either; at peace, its
-## own cash floor, so a court that is not fighting still grows. 0 when the caller
-## has no ledger to read.
+## line) while it stands under its target, and the hull it means to lay
+## (`AiNavy`, issue #484) once that chest is in reach — whichever is larger; at
+## peace, its own cash floor, so a court that is not fighting still grows. 0
+## when the caller has no ledger to read.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
 	hull_chest: int = 0
