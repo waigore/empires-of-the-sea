@@ -128,11 +128,14 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 
 ## Every layer turns over onto the new turn before any ledger resolves: launched
 ## squadrons lose last turn's beachheads, and a turn's falls feed the Gazette's
-## World page (DR-20261110-14).
+## World page (DR-20261110-14). The sea settles its seats before the new turn's
+## ledgers read the harbour: a rival that docked at its own capital through any
+## planner folds into the home fleet (wiki: ships-and-naval § Home Fleet).
 static func _begin_layers(play: PlaySession) -> void:
 	play.ship_layer.expire_beachheads(play.turn)
 	play.ship_layer.begin_turn()
 	play.army_layer.begin_turn(play.world)
+	MapPlayHomeMerge.settle_seats(play)
 	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
