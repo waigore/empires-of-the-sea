@@ -182,11 +182,12 @@ static func _peace_cooldown(
 ## clear the envoy chain, and its provinces never count toward victory
 ## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules; DR-20261114-02).
 ##
-## An overstretched court opens no third Great Power front: the same footing that
-## takes any white peace it is offered does not go looking for another war
-## (DR-20261113-15, DR-20261114-11). Colonial business is untouched — a war on a
-## Minor Nation or a Tribe is not a front, and the court still takes the cheap
-## province next door.
+## An overstretched court opens no third Great Power front against a crown it does
+## not outmatch: the same footing that takes any white peace it is offered does
+## not reach for a war it would need another army for (DR-20261113-15,
+## DR-20261114-11). The cheap province next door stays on — a court recovering
+## from two fronts takes the war it can already win — and so does colonial
+## business, because a war on a Minor Nation or a Tribe is not a front.
 static func _war_block(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -205,6 +206,7 @@ static func _war_block(
 	if (
 		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
+		and not _outmatches(config.faction, target, context)
 	):
 		return "overstretched: no third front"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
@@ -223,3 +225,14 @@ static func _war_block(
 	if desire < config.parameter("diplomacy.war_declare_min_desire"):
 		return "war desire too low"
 	return ""
+
+
+## Whether this court is the stronger of the pair on the published power score —
+## the cheap province next door, which an overstretched court may still take
+## (DR-20261114-11). A caller that reads no power for the pair keeps the published
+## planner: an unknown order of battle is not a war it cannot win.
+static func _outmatches(faction: int, target: int, context: Dictionary) -> bool:
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(faction) or not powers.has(target):
+		return true
+	return int(powers[faction]) > int(powers[target])
