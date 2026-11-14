@@ -123,6 +123,11 @@ godot --headless --path . --script res://playtests/playtest_naval.gd
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
 
+# Rival overseas invasion — plays an all-AI campaign and reads every expedition
+# (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
+# so a stalled expedition names the gate that refused it.
+godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
+
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
 # dossier's `???` and the zone that takes no verdict; closes a turn to read the
 # watch's news, then checks the read survives another chart and a save.

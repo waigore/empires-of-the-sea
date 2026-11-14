@@ -2079,6 +2079,30 @@ func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:
 	assert_eq(ArmyCombat.contested_provinces(_naval_movement_model, armies), [1])
 
 
+## A site open by the clock but no longer a hostile shore names the loss, not a
+## wait: the coast changed hands or the war ended, so no turn will open it.
+func test_a_lapsed_beachhead_names_the_loss_not_a_wait() -> void:
+	_setup_naval_movement()
+	var pair: Array = _naval_movement_transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_naval_movement_model, army, fleet)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 1
+	fleet.province = MapModel.NO_ID
+	assert_true(bool(NavalTransport.establish_beachhead(
+		_naval_movement_model, fleet, 1, 5
+	)["ok"]))
+	# The war ends before the site opens.
+	var peace: Callable = func(_a: int, _b: int) -> bool: return false
+	var lapsed: Dictionary = NavalTransport.disembark(
+		_naval_movement_model, army, fleet, 1, 6, peace
+	)
+	assert_false(bool(lapsed["ok"]))
+	assert_true(String(lapsed["reason"]).contains("lapsed"), String(lapsed["reason"]))
+	assert_false(String(lapsed["reason"]).contains("opens next turn"))
+
+
 func test_beachhead_lasts_one_full_turn_then_expires() -> void:
 	_setup_naval_movement()
 	var fleet := FleetState.at_sea(3, 0, 1, ["ship_3"])
