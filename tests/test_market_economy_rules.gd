@@ -3540,6 +3540,75 @@ func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
 	)
 
 
+## A sale whose exports are taxed names the rate that moved the receipt: the
+## published price it prints need not multiply to the ducats it earned, so a
+## boycotted or pact-bearing crown would otherwise read a line that does not add
+## up (wiki: diplomacy § GP–Tribe — Boycott; world-market § FTP; REQ-P5-05).
+func test_a_taxed_sale_names_the_rate_that_moved_it() -> void:
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber",
+			"quantity": 10, "price": 25, "earned": 225,
+		}),
+		"Sold 10 Timber to %s at 25 — 225 ducats (exports 90%%)" % FactionCatalog.name_of(1)
+	)
+	# An untaxed sale keeps the plain line: nothing moved the price.
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber",
+			"quantity": 10, "price": 25, "earned": 250,
+		}),
+		"Sold 10 Timber to %s at 25 — 250 ducats" % FactionCatalog.name_of(1)
+	)
+	# A row with no stake (no tons, no price) names no rate: there is no rate to
+	# name, and dividing by it would be the only wrong answer.
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 0, "price": 25,
+		}),
+		"Sold 0 Timber to %s at 25 — 0 ducats" % FactionCatalog.name_of(1)
+	)
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 3, "price": 0,
+		}),
+		"Sold 3 Timber to %s at 0 — 0 ducats" % FactionCatalog.name_of(1)
+	)
+
+
+## The clearing's own receipt for a boycotted crown: the 10% the boycott costs
+## is named on the line, and the ducats it earned are the taxed ones.
+func test_a_boycotted_crowns_sale_receipt_names_the_boycott_rate() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.boycotts["1>0"] = 0
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
+	var economies: Dictionary = _economies()
+	var seller: PlayerEconomy = economies[0]
+	seller.add("timber", 10)
+	var before: int = seller.treasury
+	MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 10, {"stock": 10, "reserved": {}}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("seller", -2)) == 0:
+			deal = raw
+	assert_false(deal.is_empty(), "the boycotted crown's timber sold")
+	var line: String = LedgerText.deal_line(deal, 0)
+	assert_true(line.contains("(exports 90%)"), line)
+	assert_eq(seller.treasury - before, int(deal.get("earned", 0)), "the receipt is the purse")
+	assert_eq(
+		int(deal.get("earned", 0)),
+		roundi(float(deal.get("price", 0)) * 10.0 * 0.9),
+		"the receipt is the published price less the boycott's 10%"
+	)
+
+
 ## The Deal Book is the crown's own: a court that sails as England reads her
 ## staged orders and her clearing, never Spain's (wiki: world-market § Trade
 ## orders; REQ-P2-03 — the sheet cannot answer for another crown).

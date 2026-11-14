@@ -216,8 +216,13 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 			quantity, commodity, other, unit, unit * quantity, claim,
 		]
 	var earned: int = int(deal.get("earned", price * quantity))
-	return "Sold %d %s to %s at %d — %d ducats" % [
-		quantity, commodity, other, price, earned,
+	# A sale's receipt is rounded from the whole deal, so the published price need
+	# not multiply to it: name the rate that moved it (REQ-P5-05).
+	var note: String = ""
+	if quantity > 0 and price * quantity > 0 and earned != price * quantity:
+		note = " (exports %d%%)" % roundi(100.0 * float(earned) / float(price * quantity))
+	return "Sold %d %s to %s at %d — %d ducats%s" % [
+		quantity, commodity, other, price, earned, note,
 	]
 
 
