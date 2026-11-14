@@ -114,7 +114,7 @@ static func is_blockading(
 	if province_id < 0 or model.province_data(province_id) == null:
 		return false
 	var owner: int = model.province_owner(province_id)
-	if owner == fleet.owner or not _hostile(hostile, fleet.owner, owner):
+	if owner == fleet.owner or not Hostility.between(hostile, fleet.owner, owner):
 		return false
 	return NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id)
 
@@ -169,7 +169,7 @@ static func can_assign(
 			return _deny("A blockade needs an enemy coast.")
 		if owner == MapModel.NO_ID:
 			return _deny("That coast belongs to no crown.")
-		if not _hostile(hostile, fleet.owner, owner):
+		if not Hostility.between(hostile, fleet.owner, owner):
 			return _deny("A blockade needs a declared war with %s." % FactionCatalog.name_of(owner))
 		if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
 			return _deny("That coast does not border the fleet's sea zone.")
@@ -241,14 +241,6 @@ static func _message(model: MapModel, fleet: FleetState) -> String:
 		FleetState.Mission.DEFEND:
 			return "The squadron holds station in the %s." % model.sea_zone_name(fleet.sea_zone)
 	return "The squadron stands down."
-
-
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))
 
 
 static func _allow() -> Dictionary:
