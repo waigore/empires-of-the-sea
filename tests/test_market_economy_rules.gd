@@ -1608,6 +1608,35 @@ func test_larder_forecast_reads_the_other_mouths() -> void:
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
 	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
 
+## Every appetite the phase pays, in its own deduction order, so the ledger can
+## show why a store that covers the pool still strikes it
+## (wiki: workers-and-population § Consumption; REQ-P2-03).
+func test_larder_reading_names_every_appetite() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(6)
+	economy.stockpile = {"grain": 12, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 8, "ships": 2, "hospital": 2}
+	)
+	assert_eq(int(read["store_food"]), 12)
+	assert_eq(
+		read["appetites"],
+		{"army": 8, "navy": 4, "pool": 6, "wards": 2},
+		"army, navy, pool then wards: the phase's own order",
+	)
+	assert_eq(int(read["strikers"]), 6, "the army and the navy eat the store first")
+	assert_eq(int(read["food_short"]), 6)
+
+## A court with no army, navy or ward reads the pool alone, and the appetites
+## still add up to the pool's own rations.
+func test_larder_reading_with_no_other_mouths() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(3)
+	economy.stockpile = {"grain": 5, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(read["appetites"], {"army": 0, "navy": 0, "pool": 3, "wards": 0})
+	assert_eq(int(read["strikers"]), 0, "five grain feeds three peasants")
+
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)
 	var stock: Dictionary = {"grain": 2, "meat": 2, "refinedSugar": 1}
