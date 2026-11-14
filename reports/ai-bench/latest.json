@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:a890a08973080422a923023198f32e44600064572afbd6114d82b51abec3cdbb",
-  "submission_git": "fix/476-colony-voyage-trace@a38ebcf",
+  "submission_hash": "sha256:223125427e82590a0eb941addfad6763e9cf968412bbe63211b25abe26a810c3",
+  "submission_git": "fix/476-colony-voyage-trace-v2@31e77bc",
   "passed": true,
   "config": [
     {
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T01:18:57Z",
+  "timestamp": "2026-11-14T01:48:34Z",
   "report_version": 1,
-  "signature": "hmac-sha256:c7dd61d91d44551d48284d50e5527c234442c08064521d8acf2923e78e3736f1"
+  "signature": "hmac-sha256:c14ee2d2997418cc02002e50b54f036c43e09f54234162e028968308315b998d"
 }
