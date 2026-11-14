@@ -88,11 +88,11 @@ func _build() -> void:
 	footer.add_theme_constant_override("separation", 8)
 	shell.add_child(footer)
 
-	_cancel = _make_button("Cancel Work")
+	_cancel = UiRowBuilder.button("Cancel Work", 38.0, 0.0, 14)
 	_cancel.pressed.connect(func() -> void: cancel_pressed.emit())
 	footer.add_child(_cancel)
 
-	_dock = _make_button("◀")
+	_dock = UiRowBuilder.button("◀", 38.0, 0.0, 14)
 	_dock.tooltip_text = "Dock left"
 	# A dock affordance is a glyph, not a titled bar: it must match the other
 	# dossiers' corner buttons (REQ-P1-02).
@@ -102,7 +102,7 @@ func _build() -> void:
 	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
 	footer.add_child(_dock)
 
-	var close := _make_button("Close")
+	var close := UiRowBuilder.button("Close", 38.0, 0.0, 14)
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	footer.add_child(close)
 
@@ -161,7 +161,7 @@ func refresh(
 func _fill_detail(
 	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary
 ) -> void:
-	_clear(_detail)
+	UiRowBuilder.clear(_detail)
 	var province: int = model.province_at(unit.tile.x, unit.tile.y)
 	_add_row("Province", model.province_name(province) if province >= 0 else "—")
 	_add_row("Tile", "%d, %d" % [unit.tile.x, unit.tile.y])
@@ -302,7 +302,7 @@ func _fill_orders(
 	tech_unlocked: Dictionary = {},
 	context: Dictionary = {}
 ) -> void:
-	_clear(_orders)
+	UiRowBuilder.clear(_orders)
 	# Another crown's crew takes no orders from us — the rules refuse every one
 	# (MapPlayCivilians.assign_order), so the sheet never offers them.
 	if _viewer != unit.owner:
@@ -318,8 +318,11 @@ func _fill_orders(
 		context
 	):
 		var action: String = String(option["action"])
-		var button := _make_button(
-			"%s · %s" % [String(option["label"]), String(option["cost_text"])]
+		var button := UiRowBuilder.button(
+			"%s · %s" % [String(option["label"]), String(option["cost_text"])],
+			38.0,
+			0.0,
+			14
 		)
 		button.disabled = not bool(option["ok"]) or unit.is_working()
 		button.pressed.connect(func() -> void: action_pressed.emit(action))
@@ -346,17 +349,3 @@ func _add_row(caption: String, value: String) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail.add_child(label)
-
-
-func _clear(node: Node) -> void:
-	for child: Node in node.get_children():
-		node.remove_child(child)
-		child.queue_free()
-
-
-func _make_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 38)
-	button.add_theme_font_size_override("font_size", 14)
-	return button

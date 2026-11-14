@@ -161,8 +161,15 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
 		)
 		var unit: int = int(deal.get("buy_unit", price))
+		# The debt is rounded once from the whole deal, so the per-unit ask need
+		# not multiply to it: name the ducats the clearing charged, and say so
+		# when the rounded rate is what moved them (wiki: world-market § Subsidy
+		# price adjustment; REQ-P5-05).
+		var paid: int = int(deal.get("cost", unit * quantity))
+		if quantity > 0 and unit * quantity != paid:
+			claim += " (rounded from the deal)"
 		return "Bought %d %s from %s at %d — %d ducats%s" % [
-			quantity, commodity, other, unit, unit * quantity, claim,
+			quantity, commodity, other, unit, paid, claim,
 		]
 	var earned: int = int(deal.get("earned", price * quantity))
 	# A sale's receipt is rounded from the whole deal, so the published price need

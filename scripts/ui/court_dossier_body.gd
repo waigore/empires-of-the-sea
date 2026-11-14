@@ -30,7 +30,7 @@ func show_report(
 	var guess: Dictionary = report.get("guess", {}) as Dictionary
 	if not guess.is_empty():
 		_expanded[String(guess["id"])] = true
-	_clear()
+	UiRowBuilder.clear(self)
 	_add_intel(state, world, viewer, report)
 	_reading(report)
 	_add_agendas(report)
@@ -50,11 +50,11 @@ func _add_intel(
 	if not face.is_empty():
 		line = "%s  ·  %s" % [leader, face] if not leader.is_empty() else face
 	if not line.is_empty():
-		add_child(_line(line, 13, Palette.TEXT))
+		add_child(UiRowBuilder.wrapped_line(line, 13, Palette.TEXT))
 	var provinces: int = int((report.get("notes", {}) as Dictionary).get("province", 0))
 	var mine: int = DiplomacyRules.provinces_owned(world, viewer) if world != null else 0
 	add_child(
-		_line(
+		UiRowBuilder.wrapped_line(
 			"Holds %d province%s to your %d." % [
 				provinces, "" if provinces == 1 else "s", mine
 			],
@@ -65,13 +65,13 @@ func _add_intel(
 	var record: DiplomacyRelation = state.relation(viewer, subject) if state != null else null
 	if record != null:
 		add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"Herald: %s  ·  %s" % [record.meter_label(), _standing(record)],
 				13,
 				Palette.TEXT_DIM
 			)
 		)
-	add_child(_caption("SUSPICION"))
+	add_child(UiRowBuilder.caption("SUSPICION", 11, Palette.GOLD_DIM))
 
 
 ## The best guess in one line: a band and a percentage, never a claim of what
@@ -85,7 +85,7 @@ func _reading(report: Dictionary) -> void:
 		]
 	elif (report.get("evidence", []) as Array).is_empty():
 		text = "Reading: no act has yet spoken of this court."
-	add_child(_line(text, 16, Palette.GOLD_PALE))
+	add_child(UiRowBuilder.wrapped_line(text, 16, Palette.GOLD_PALE))
 
 
 func _add_agendas(report: Dictionary) -> void:
@@ -116,13 +116,17 @@ func _add_agenda(row: Dictionary) -> void:
 
 func _add_agenda_lines(box: VBoxContainer, timeline: Array) -> void:
 	if timeline.is_empty():
-		box.add_child(_line("No observable act feeds this reading yet.", 12, Palette.TEXT_DIM))
+		box.add_child(
+			UiRowBuilder.wrapped_line(
+				"No observable act feeds this reading yet.", 12, Palette.TEXT_DIM
+			)
+		)
 		return
 	var shown: int = mini(timeline.size(), MAX_PER_AGENDA)
 	for index in shown:
 		var entry: Dictionary = timeline[index] as Dictionary
 		box.add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"%s  ·  %s  ·  +%d" % [
 					DiplomacyHistory.stamp_for_turn(int(entry["turn"])),
 					String(entry["text"]),
@@ -134,7 +138,7 @@ func _add_agenda_lines(box: VBoxContainer, timeline: Array) -> void:
 		)
 	if timeline.size() > shown:
 		box.add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"…and %d earlier observation%s." % [
 					timeline.size() - shown, "" if timeline.size() - shown == 1 else "s"
 				],
@@ -147,14 +151,18 @@ func _add_agenda_lines(box: VBoxContainer, timeline: Array) -> void:
 ## The whole record, newest first — the same page the summary trims to three.
 func _add_timeline(report: Dictionary) -> void:
 	var entries: Array = report.get("evidence", []) as Array
-	add_child(_caption("TIMELINE  ·  EVERY OBSERVATION"))
+	add_child(UiRowBuilder.caption("TIMELINE  ·  EVERY OBSERVATION", 11, Palette.GOLD_DIM))
 	if entries.is_empty():
-		add_child(_line("No observable act has been written down.", 13, Palette.TEXT_DIM))
+		add_child(
+			UiRowBuilder.wrapped_line(
+				"No observable act has been written down.", 13, Palette.TEXT_DIM
+			)
+		)
 		return
 	for raw: Variant in entries:
 		var entry: Dictionary = raw as Dictionary
 		add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"%s  ·  %s" % [
 					DiplomacyHistory.stamp_for_turn(int(entry["turn"])), String(entry["text"])
 				],
@@ -168,9 +176,9 @@ func _add_timeline(report: Dictionary) -> void:
 ## inference, and no agenda weighed on them (DR-20261110-25).
 func _add_notes(report: Dictionary) -> void:
 	var notes: Dictionary = report.get("notes", {}) as Dictionary
-	add_child(_caption("BEHAVIOUR & BUILD NOTES"))
+	add_child(UiRowBuilder.caption("BEHAVIOUR & BUILD NOTES", 11, Palette.GOLD_DIM))
 	add_child(
-		_line(
+		UiRowBuilder.wrapped_line(
 			"%d war%s  ·  %d alliance%s  ·  %d broken  ·  %d call%s refused  ·  %d peace%s" % [
 				int(notes.get("war", 0)), _plural(int(notes.get("war", 0))),
 				int(notes.get("alliance", 0)), _plural(int(notes.get("alliance", 0))),
@@ -182,7 +190,7 @@ func _add_notes(report: Dictionary) -> void:
 			Palette.TEXT
 		)
 	)
-	add_child(_line(_build_line(notes), 13, Palette.TEXT_DIM))
+	add_child(UiRowBuilder.wrapped_line(_build_line(notes), 13, Palette.TEXT_DIM))
 
 
 func _agenda_text(row: Dictionary, open: bool) -> String:
@@ -250,33 +258,6 @@ static func _build_label(what: String, count: int) -> String:
 
 
 func _row_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
+	var button := UiRowBuilder.button(text, 38.0, 0.0, 14)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.custom_minimum_size = Vector2(0, 38)
-	button.add_theme_font_size_override("font_size", 14)
 	return button
-
-
-func _caption(text: String) -> Label:
-	return _label(text, 11, Palette.GOLD_DIM)
-
-
-func _line(text: String, size: int, ink: Color) -> Label:
-	var label := _label(text, size, ink)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label
-
-
-func _label(text: String, size: int, ink: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", ink)
-	return label
-
-
-func _clear() -> void:
-	for child: Node in get_children():
-		remove_child(child)
-		child.queue_free()

@@ -34,11 +34,11 @@ static func _call_banner(call: Dictionary, emit: Callable) -> Control:
 		Color(0.22, 0.10, 0.08, 0.95), Color(0.72, 0.34, 0.26)
 	)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
-	column.add_child(_label(ConsentCopy.call_caption(), 11, Palette.GOLD_PALE))
-	var text := _label(ConsentCopy.call_body(call), 13, Palette.TEXT)
+	column.add_child(UiRowBuilder.label(ConsentCopy.call_caption(), 11, Palette.GOLD_PALE))
+	var text := UiRowBuilder.label(ConsentCopy.call_body(call), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
-	var row: HBoxContainer = _row()
+	var row := UiRowBuilder.row(0.0)
 	var aggressor: int = int(call["aggressor"])
 	row.add_child(_button(ConsentCopy.button("join"), emit, CallToArms.KIND_JOIN, aggressor))
 	row.add_child(_button(ConsentCopy.button("refuse"), emit, CallToArms.KIND_REFUSE, aggressor))
@@ -52,11 +52,11 @@ static func _intervention_banner(offer: Dictionary, emit: Callable) -> Control:
 	var aggressor: int = int(offer["aggressor"])
 	var banner: PanelContainer = _banner(Color(0.18, 0.12, 0.08, 0.95), Palette.GOLD_DIM)
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
-	column.add_child(_label(ConsentCopy.intervention_caption(), 11, Palette.GOLD_PALE))
-	var text := _label(ConsentCopy.intervention_body(offer), 13, Palette.TEXT)
+	column.add_child(UiRowBuilder.label(ConsentCopy.intervention_caption(), 11, Palette.GOLD_PALE))
+	var text := UiRowBuilder.label(ConsentCopy.intervention_body(offer), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
-	var row: HBoxContainer = _row()
+	var row := UiRowBuilder.row(0.0)
 	row.add_child(
 		_button(ConsentCopy.button("intervene"), emit, Intervention.KIND_INTERVENE, aggressor)
 	)
@@ -86,24 +86,24 @@ static func _proposal_banner(
 	var column: VBoxContainer = banner.get_child(0) as VBoxContainer
 	var spoken: Dictionary = DialogueEvents.for_offer(state, player, offer)
 	var mood: String = "" if spoken.is_empty() else String(spoken["mood"])
-	column.add_child(_label(ConsentCopy.proposal_caption(mood), 11, Palette.GOLD_PALE))
-	var text := _label(ConsentCopy.proposal_body(from_id, kind, stage), 13, Palette.TEXT)
+	column.add_child(UiRowBuilder.label(ConsentCopy.proposal_caption(mood), 11, Palette.GOLD_PALE))
+	var text := UiRowBuilder.label(ConsentCopy.proposal_body(from_id, kind, stage), 13, Palette.TEXT)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(text)
 	# The pact changes what the crown pays, so the rate rides the prompt the
 	# court answers rather than the market sheet it would have to find first
 	# (wiki: world-market § FTP — the pact publishes its terms).
 	if kind == DiplomacyProposals.KIND_FTP:
-		var terms := _label(ConsentCopy.proposal_terms(), 12, Palette.GOLD_PALE)
+		var terms := UiRowBuilder.label(ConsentCopy.proposal_terms(), 12, Palette.GOLD_PALE)
 		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(terms)
 	if not spoken.is_empty():
-		var words := _label(
+		var words := UiRowBuilder.label(
 			ConsentCopy.proposal_quote(String(spoken["text"])), 12, Palette.GOLD_PALE
 		)
 		words.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(words)
-	var row: HBoxContainer = _row()
+	var row := UiRowBuilder.row(0.0)
 	row.add_child(
 		_button(ConsentCopy.button("accept"), emit, DiplomacyProposals.KIND_ACCEPT, from_id)
 	)
@@ -126,24 +126,7 @@ static func _banner(fill_color: Color, border: Color) -> PanelContainer:
 	return banner
 
 
-static func _row() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	return row
-
-
 static func _button(text: String, emit: Callable, kind: String, target: int) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 36)
-	button.add_theme_font_size_override("font_size", 13)
+	var button := UiRowBuilder.button(text, 36.0, 0.0)
 	button.pressed.connect(func() -> void: emit.call(kind, target, ""))
 	return button
-
-
-static func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
