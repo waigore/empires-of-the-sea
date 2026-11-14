@@ -17,7 +17,7 @@ const MIN_WIDTH: float = 288.0
 const PLATE_TOP: float = 88.0
 const VIEWPORT_MARGIN: float = 12.0
 const EMPTY_LINE: String = GazetteParts.EMPTY_LINE
-const NO_HISTORY: String = "The presses have not run yet."
+const NO_HISTORY: String = GazetteArchiveRoom.NO_HISTORY
 const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
 
 var state: GazetteState = null
@@ -34,8 +34,9 @@ var despatches: HudDespatches = null
 
 var _mode: Mode = Mode.SHEET
 var _sheet: Dictionary = {}
-## Index into `state.history()` (newest first) while reading the archive.
-var _at: int = 0
+## The archive's page and its reading filter — every class, or one class alone
+## (wiki: the-gazette § History screen; DR-20261115-06).
+var _archive_room: GazetteArchiveRoom = null
 var _shown: bool = false
 
 var _panel: PanelContainer = null
@@ -92,7 +93,8 @@ func open_archive(
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
-	_at = 0
+	if _archive_room != null:
+		_archive_room.at = 0
 	_sheet = p_state.newest() if p_state != null else {}
 	_age = age_line
 	_age_data = age
@@ -196,6 +198,13 @@ func _build() -> void:
 	_age_room = AgeRoom.new()
 	_age_room.visible = false
 	_body.add_child(_age_room)
+	# The archive's page: the filed sheets, the reading filter and the walk
+	# through them (wiki: the-gazette § History screen; DR-20261115-06).
+	_archive_room = GazetteArchiveRoom.new()
+	_archive_room.visible = false
+	# A chip press re-reads the page; the plate's stamp and walk follow it.
+	_archive_room.filter_changed.connect(func(_cls: int) -> void: _render())
+	_body.add_child(_archive_room)
 
 
 func _header() -> Control:
@@ -258,25 +267,27 @@ func _nav_row() -> HBoxContainer:
 func _go(mode: int) -> void:
 	_mode = mode
 	if _mode == Mode.ARCHIVE:
-		_at = 0
+		if _archive_room != null:
+			_archive_room.at = 0
 	_render()
 
 
 func _step(delta: int) -> void:
-	if state == null:
+	if _archive_room == null:
 		return
-	_at = clampi(_at + delta, 0, maxi(state.sheets.size() - 1, 0))
+	_archive_room.step(delta)
 	_render()
 
 
 func _render() -> void:
 	for child: Node in _body.get_children():
-		if child == _watchlist or child == _age_room:
+		if child == _watchlist or child == _age_room or child == _archive_room:
 			continue
 		_body.remove_child(child)
 		child.queue_free()
 	_watchlist.visible = _mode == Mode.WATCHLIST
 	_age_room.visible = _mode == Mode.AGE
+	_archive_room.visible = _mode == Mode.ARCHIVE
 	for child: Node in _tabs.get_children():
 		var button: Button = child as Button
 		if button == null:
@@ -315,18 +326,11 @@ func _render() -> void:
 
 func _render_archive() -> void:
 	_title.text = "THE GAZETTE  ·  ARCHIVE"
-	var sheets: Array[Dictionary] = state.history() if state != null else []
-	if sheets.is_empty():
-		_stamp.text = ""
-		_body.add_child(GazetteParts.label(NO_HISTORY, 14, Palette.INK))
-		return
-	_at = clampi(_at, 0, sheets.size() - 1)
-	var sheet: Dictionary = sheets[_at]
-	_stamp.text = DiplomacyHistory.stamp_for_turn(int(sheet.get("turn", 0)))
-	_nav_label.text = "%d of %d" % [_at + 1, sheets.size()]
-	_newer.disabled = _at <= 0
-	_older.disabled = _at >= sheets.size() - 1
-	GazetteParts.sections(_body, sheet)
+	_archive_room.fill(state, _archive_room.filter)
+	_stamp.text = _archive_room.stamp()
+	_nav_label.text = _archive_room.position_text()
+	_newer.disabled = _archive_room.at_newest()
+	_older.disabled = _archive_room.at_oldest()
 
 
 ## The whole race on its own tab: the foot's one line is the live sheet's

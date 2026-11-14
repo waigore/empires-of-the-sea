@@ -2211,6 +2211,132 @@ func test_an_archive_without_sheets_says_the_presses_have_not_run() -> void:
 	assert_true(_has_text(plate, GazettePlate.NO_HISTORY))
 
 
+# --- the archive's reading filter (DR-20261115-06) ---------------------------
+## A campaign files one sheet a turn and keeps every one, so a long age's
+## archive is a hundred pages of three classes mixed together. The chips read
+## one class across the whole campaign; the filter never re-orders, re-words or
+## invents a line (wiki: the-gazette § History screen; REQ-P2-03, REQ-P5-03).
+
+
+func test_the_filter_keeps_the_sheets_order_and_prose() -> void:
+	var sheet: Dictionary = gazette_plate_sheet(3)
+	var court: Dictionary = GazetteArchive.sheet(sheet, Gazette.Class.COURT)
+	assert_eq(int(court["turn"]), 3, "the page keeps its turn")
+	assert_eq((court["items"] as Array).size(), 1, "only the chosen class prints")
+	assert_eq(
+		String((court["items"] as Array)[0]["text"]),
+		"Our scholars have finished the Crop Rotation.",
+		"the line is the one the turn wrote"
+	)
+	assert_eq(
+		GazetteArchive.sheet(sheet, GazetteArchive.ALL), sheet,
+		"the unfiltered page is the filed one, untouched"
+	)
+	assert_true(GazetteArchive.holds(sheet, Gazette.Class.WORLD))
+	assert_false(GazetteArchive.holds(sheet, Gazette.Class.INTEREST))
+	assert_eq(GazetteArchive.tally([sheet], GazetteArchive.ALL), 2)
+	assert_eq(GazetteArchive.tally([sheet], Gazette.Class.WORLD), 1)
+	assert_true(GazetteArchive.walk([sheet], Gazette.Class.INTEREST).is_empty())
+	assert_eq(GazetteArchive.label(Gazette.Class.COURT), "Our court", "a chip keeps the sheet's heading")
+	assert_false(GazetteArchive.hint(Gazette.Class.INTEREST).is_empty(), "a chip says what it buys")
+
+
+func test_the_archive_reads_one_class_across_the_campaign() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(_court_only_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_true(_has_text(plate, "The gauntlet passes between them."), "every class prints")
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	assert_false(
+		_has_text(plate, "The gauntlet passes between them."), "the world's news is set aside"
+	)
+	assert_true(_has_text(plate, "Our scholars have finished the Crop Rotation."))
+	assert_eq(plate._nav_label.text, "1 of 2", "the walk counts the pages that hold the class")
+	plate._step(1)
+	assert_true(_has_text(plate, DiplomacyHistory.stamp_for_turn(2)))
+	assert_true(plate._older.disabled, "the oldest page that holds the class ends the walk")
+
+
+func test_a_class_filter_skips_the_quiet_turns_the_archive_still_keeps() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append({"turn": 2, "items": []})
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq(plate._nav_label.text, "1 of 2", "the unfiltered archive keeps the quiet turn")
+	plate._step(1)
+	assert_true(_has_text(plate, GazettePlate.EMPTY_LINE), "a quiet turn still reads as quiet")
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	assert_eq(plate._nav_label.text, "1 of 1", "a class filter walks only the pages that hold it")
+
+
+func test_a_filter_that_matches_nothing_says_so() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	(_chip(plate, Gazette.Class.INTEREST) as Button).pressed.emit()
+	assert_true(_has_text(plate, GazetteArchive.NONE_LINE))
+	assert_eq(plate._nav_label.text, "", "there is no page to count")
+	assert_true(plate._newer.disabled and plate._older.disabled, "there is nowhere to walk")
+
+
+func test_the_filter_chips_carry_the_archive_tally() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq((_chip(plate, GazetteArchive.ALL) as Button).text, "All news 4")
+	assert_eq((_chip(plate, Gazette.Class.WORLD) as Button).text, "The world 2")
+	assert_eq((_chip(plate, Gazette.Class.COURT) as Button).text, "Our court 2")
+	assert_true(
+		(_chip(plate, GazetteArchive.ALL) as Button).button_pressed, "the archive opens unfiltered"
+	)
+	(_chip(plate, Gazette.Class.WORLD) as Button).pressed.emit()
+	assert_true(
+		(_chip(plate, Gazette.Class.WORLD) as Button).button_pressed, "the chip shows the reading"
+	)
+	assert_false((_chip(plate, GazetteArchive.ALL) as Button).button_pressed)
+
+
+## The filter is the reader's, not the page's: reopening the archive keeps it
+## and starts again at the newest page that holds the class.
+func test_reopening_the_archive_keeps_the_filter() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(_court_only_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	plate._step(1)
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq(plate._nav_label.text, "1 of 2", "the walk restarts at the newest page")
+	assert_false(
+		_has_text(plate, "The gauntlet passes between them."), "the reading is still the crown's own"
+	)
+
+
+func _chip(node: Node, cls: int) -> Button:
+	var chips: Dictionary = (node as GazettePlate)._archive_room.filter_buttons()
+	return chips.get(cls, null) as Button
+
+
+func _court_only_sheet(turn: int) -> Dictionary:
+	return {
+		"turn": turn,
+		"items": [
+			{
+				"class": Gazette.Class.COURT,
+				"kind": "techFinished",
+				"text": "Our scholars have finished the Crop Rotation.",
+			},
+		],
+	}
+
+
 func test_the_watchlist_lists_met_courts_and_toggles_the_list() -> void:
 	_setup_gazette_plate()
 	var state := GazetteState.new()
@@ -2234,6 +2360,28 @@ func test_the_plate_narrows_to_a_phone_viewport() -> void:
 	var width: float = plate._panel.offset_right - plate._panel.offset_left
 	assert_true(width <= 480.0, "the sheet never outgrows the screen")
 	assert_true(width >= GazettePlate.MIN_WIDTH)
+
+
+## The archive's filter chips ride a strip that scrolls sideways, so a phone's
+## plate never widens for them (REQ-P1-05, REQ-P5-07).
+func test_the_archive_filter_strip_never_widens_a_phone_plate() -> void:
+	_setup_gazette_plate()
+	plate.size = Vector2(320, 640)
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	plate._fit()
+	var width: float = plate._panel.offset_right - plate._panel.offset_left
+	assert_true(width <= 320.0, "the sheet never outgrows the screen")
+	var chips: Dictionary = plate._archive_room.filter_buttons()
+	var chips_width: float = 0.0
+	for key: Variant in chips.keys():
+		chips_width += (chips[key] as Button).get_combined_minimum_size().x
+	assert_true(chips_width > width, "the chips are wider than a phone's plate")
+	assert_true(
+		plate._archive_room.get_combined_minimum_size().x <= width,
+		"the strip scrolls instead of widening the sheet"
+	)
 
 
 ## Toasts stay readable: while the sheet is up they are pushed to the lane under
