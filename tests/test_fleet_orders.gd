@@ -5,17 +5,33 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var pristine_map: Array = []
 var _screen: MapScreen = null
 
 
+func before_all() -> void:
+	pristine_map = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
+
+
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
 
 
 func test_selecting_a_player_fleet_opens_orders() -> void:
@@ -266,23 +282,68 @@ func test_a_rivals_strength_waits_for_the_watch_to_close() -> void:
 
 	assert_true(enemy.visible, "she is under the crown's eye")
 	assert_false(enemy.strength_known, "a first sighting gives up no weight")
-	assert_false(_screen.play.naval_intel.is_revealed(fleet.id))
+	assert_false(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index))
 
 	_screen.play.turn += 1
 	MapPlayFleets.refresh_visibility(_screen.play)
 
 	assert_true(enemy.strength_known, "still in view next turn, her weight is read")
-	assert_true(_screen.play.naval_intel.is_revealed(fleet.id))
+	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index))
 
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	MapPlayFleets.refresh_visibility(_screen.play)
 
 	assert_false(enemy.strength_known, "out of sight is out of knowledge")
-	assert_false(_screen.play.naval_intel.is_revealed(fleet.id),
+	assert_false(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index),
 		"a rival who returns must be watched afresh")
 
 
-## The dossier prints ??? for a rival the crown has sighted but not read.
+## A marker minted after the watch closed keeps the chart's reading. Joining the
+## home fleet, crossing a passage or losing a port rebuilds every marker, and a
+## rebuild must not hand back a weight the crown has not read (wiki:
+## ships-and-naval § Sighted strength).
+func test_a_rebuilt_marker_keeps_the_watch() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	_screen.ship_layer.rebuild_markers()
+	var unread: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(unread)
+	assert_false(unread.strength_known, "a rebuilt marker still flies *")
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+	_screen.ship_layer.rebuild_markers()
+	var read: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(read)
+	assert_true(read.strength_known, "a read squadron stays read after a rebuild")
+
+
+## A rebuilt chart never draws a rival the crown's fog hides, nor reads her
+## weight there (wiki: fog-and-exploration § Visibility Levels; ships-and-naval
+## § Sighted strength).
+func test_a_rebuilt_marker_stays_under_the_fog() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	assert_false(enemy.visible, "the fog keeps her off the chart")
+
+	_screen.ship_layer.rebuild_markers()
+	var hidden: Ship = _screen.ship_layer.ship_for(fleet)
+	assert_not_null(hidden)
+	assert_false(hidden.visible, "a rebuild does not draw her")
+	assert_false(hidden.strength_known, "and does not read her weight")
+
+
+## The dossier prints ??? for a rival the crown has sighted but not read, and
+## names the watch that would earn her weight.
 func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 	var enemy: Ship = _enemy_ship()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
@@ -295,7 +356,10 @@ func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 
 	assert_true(block.visible, "the block names the squadron")
 	assert_true(block._strength.text.contains("???"), block._strength.text)
-	assert_false(block._pool.visible, "the hull pool is not the crown's to know")
+	assert_false(block._pool.text.contains("Hull pool"),
+		"the hull pool is not the crown's to know")
+	assert_true(block._pool.visible, "the block still says how the weight is earned")
+	assert_true(block._pool.text.contains("watch"), block._pool.text)
 	assert_true(block._strength.text.contains("strength"), block._strength.text)
 
 	_screen.play.turn += 1
@@ -305,6 +369,58 @@ func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 	assert_true(block._strength.text.contains("strength ="), block._strength.text)
 	assert_false(block._strength.text.contains("???"), block._strength.text)
 	assert_true(block._pool.visible, "a read squadron shows her full maths")
+	assert_true(block._pool.text.contains("Hull pool"), block._pool.text)
+
+
+## The seal's chart switch hides a region's squadrons from the view, not from
+## the crown's water: a read rival keeps her weight when the crown looks at the
+## other hemisphere (wiki: ships-and-naval § Sighted strength).
+func test_a_read_rival_keeps_her_weight_across_the_chart_switch() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, FactionCatalog.OLD_WORLD))
+
+	_screen.load_region(FactionCatalog.NEW_WORLD)
+
+	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, FactionCatalog.OLD_WORLD),
+		"another chart is not another water")
+
+	_screen.load_region(FactionCatalog.OLD_WORLD)
+	var marker: Ship = _screen.ship_layer.ship_for(fleet)
+
+	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, FactionCatalog.OLD_WORLD))
+	assert_not_null(marker)
+	assert_true(marker.strength_known, "her plate still prints the weight she gave")
+
+
+## The watch closing is a beat: her weight appears on the plate, so the court is
+## told that it was read (wiki: ships-and-naval § Sighted strength).
+func test_the_watch_closing_names_the_read() -> void:
+	var enemy: Ship = _enemy_ship()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(enemy)
+	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
+	var index: int = _screen.model.index_of(tile.x, tile.y)
+	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayFleets.refresh_visibility(_screen.play)
+	var before: Array[String] = _toast_texts()
+
+	_screen.play.turn += 1
+	MapPlayFleets.refresh_visibility(_screen.play)
+
+	var named: String = ""
+	for text: String in _toast_texts():
+		if before.has(text) or not text.contains("is read"):
+			continue
+		if text.contains(FactionCatalog.name_of(fleet.owner)):
+			named = text
+	assert_false(named.is_empty(), "the closing watch speaks and names her court")
+	assert_true(named.contains("strength"), named)
 
 
 func test_a_fleet_crosses_the_passage_into_the_new_world() -> void:
@@ -1324,9 +1440,9 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 	)
 
 	# The watch closes across the turn boundary: her weight joins the odds.
-	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
 	_screen.play.turn += 1
-	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn)
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
 	MapPlayFleets.show_dossier(_screen.play, fleet)
 
 	assert_true(block._zone.text.contains("you hold"), block._zone.text)
@@ -1341,6 +1457,45 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 		Palette.HEALTH_LOW,
 		"a losing share reads as a loss"
 	)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
+## A rival the crown has sighted but not read keeps her muster to herself: the
+## dossier prints `??? hulls` with no count, no types and no upkeep bill, and the
+## watch closing reveals the composition with the strength (wiki: ships-and-naval
+## § Sighted strength).
+func test_an_unread_rival_dossier_keeps_her_muster() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var zone: int = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = zone
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		78, rival, zone, ["ship_78", "ship_79"], {"ship_78": "frigate", "ship_79": "carrack"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+	var panel: FleetPanel = _screen.hud._fleet_panel
+
+	assert_eq(panel._ships.text, "??? hulls — the fog has not yet given up her muster.")
+	assert_false(panel._ships.text.contains("Carrack"), "no hull type leaks")
+	assert_false(panel._ships.text.contains("upkeep"), "her bill is not the crown's yet")
+
+	# The watch closes across the turn boundary: her muster joins the reading.
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
+	_screen.play.turn += 1
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
+	MapPlayFleets.show_dossier(_screen.play, enemy)
+
+	assert_true(panel._ships.text.contains("2 ships"), panel._ships.text)
+	assert_true(panel._ships.text.contains("Carrack"), panel._ships.text)
+	assert_true(panel._ships.text.contains("upkeep"), panel._ships.text)
 	_screen.ship_layer.fleets.erase(enemy)
 
 
@@ -1418,6 +1573,15 @@ func _enemy_ship() -> Ship:
 	return _screen.ship_layer.ships[0]
 
 
+## Every line the court's toasts currently show.
+func _toast_texts() -> Array[String]:
+	var texts: Array[String] = []
+	for panel: Node in _screen.hud._toast_box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			texts.append(label.text)
+	return texts
+
+
 func _remote_zone() -> int:
 	var occupied: Array[int] = _screen.ship_layer.at_sea_zones(MapScreen.PLAYER_FACTION)
 	for zone: SeaZoneState in _screen.model.sea_zones:
@@ -1444,3 +1608,17 @@ func _inland_owned_province() -> int:
 		if not NavalMovement.has_harbour(_screen.model, province.id):
 			return province.id
 	return -1
+
+
+## The capital slip names the crown that holds it, not the legacy default: a
+## court sailing as England reads her own yard (wiki: game-setup § Human/AI slot
+## assignment; REQ-P2-03 — a sheet never answers for another crown).
+func test_the_capital_slip_names_the_crown_that_holds_it() -> void:
+	var province: int = _screen.capital_province
+	var data: ProvinceState = _screen.model.province_data(province)
+	var before: int = data.owner
+	data.owner = 1
+	_screen.hud._fleet_panel.refresh_slip(_screen.model, province, [], true)
+	var title: String = _screen.hud._fleet_panel._header.title.text
+	assert_true(title.contains("ENGLAND"), title)
+	data.owner = before

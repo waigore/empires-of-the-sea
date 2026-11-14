@@ -26,18 +26,21 @@ const LINE_CATEGORIES: Array[int] = [
 ## Returns {muster: type id or "", target, reasons: [], candidates: []}.
 ## `candidates` lists every legal line type the court could already pay for, so a
 ## turn trace can explain the pick (wiki: turn-trace-interpretation).
+## `pressure_extra` is the extra target a court that can see the victory bar
+## arms up for (DR-20261114-04); it raises the target, never the price.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	pressure_extra: int = 0
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
 	}
 	if config == null or economy == null:
 		return result
-	var target: int = _target(config, at_war)
+	var target: int = _target(config, at_war) + maxi(pressure_extra, 0)
 	result["target"] = target
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
@@ -57,9 +60,41 @@ static func plan(
 	result["candidates"] = candidates
 	if candidates.is_empty():
 		result["reasons"].append("nothing payable")
+		# Name the row that blocked it: a court holding its whole war chest
+		# reads `nothing payable` for a missing pattern row otherwise, which is
+		# what kept the material-row deadlock unrecorded (issue #474).
+		result["reasons"].append_array(_missing_reasons(config, economy))
 		return result
 	result["muster"] = String(candidates[0]["type_id"])
 	return result
+
+
+## The material rows the pattern this court is saving for still lacks, named for
+## the turn trace: a court holding a full war chest and no fabric musters
+## nothing, and `nothing payable` alone never said why (issue #474).
+static func _missing_reasons(config: AiConfig, economy: PlayerEconomy) -> Array[String]:
+	var reasons: Array[String] = []
+	var type_id: String = saving_type(config, economy)
+	if type_id.is_empty():
+		return reasons
+	var missing: Dictionary = RegimentEconomy.missing_inputs(type_id, economy.stockpile)
+	var ids: Array[String] = []
+	for raw: Variant in missing.keys():
+		ids.append(String(raw))
+	ids.sort()
+	for id: String in ids:
+		reasons.append("missing %s %d" % [id, int(missing[id])])
+	return reasons
+
+
+## The province a stranded Home Army must march to, or -1 when it already stands
+## at its seat. A court whose capital moves musters nowhere until the Home Army
+## is recalled, so the recall is the first thing the muster pass does — the
+## regiment joins the Home Army, and the Home Army is at the seat (issue #474).
+static func recall_target(home_province: int, capital: int) -> int:
+	if capital < 0 or home_province == capital:
+		return -1
+	return capital
 
 
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
@@ -84,23 +119,47 @@ static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
 
 
 ## Commodities this court keeps back so the regiment it means to raise can be
-## mustered: the whole input row of `next_type` (wiki: growth-stage-planner
-## § Recruitment modulation, "military fabric reservation holds inputs for
-## upcoming recruits"; economy-planner § Reservations). Empty when the court sits
-## at its target or could not pay a muster even with the stores, so a court that
-## is not arming sells freely.
+## mustered: the whole input row of the pattern it is saving for (wiki:
+## growth-stage-planner § Recruitment modulation, "military fabric reservation
+## holds inputs for upcoming recruits"; economy-planner § Reservations). The row
+## is held even while the purse is still short of the muster — a court that only
+## provisioned once it could pay would never stock the cloth it needs, and the
+## muster would starve with a full war chest (issue #474). Empty when the court
+## sits at its target or its fields cannot spare a hand, so a court that is not
+## arming sells freely.
 static func muster_reserve(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	pressure_extra: int = 0
 ) -> Dictionary:
-	if config == null or economy == null or own_regiments >= _target(config, at_war):
+	if config == null or economy == null:
 		return {}
-	var type_id: String = next_type(config, economy)
+	if own_regiments >= _target(config, at_war) + maxi(pressure_extra, 0):
+		return {}
+	var type_id: String = saving_type(config, economy)
 	if type_id.is_empty():
 		return {}
 	return RegimentEconomy.training_inputs(type_id)
+
+
+## The line this court is saving for: the pattern it could raise today if its
+## stores allowed, else the cheapest line its techs and fields open — the one a
+## war chest it cannot yet spend will actually buy. Never empty unless its techs
+## open no line at all or its fields cannot spare a hand (wiki:
+## growth-stage-planner § Recruitment modulation; issue #474).
+static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
+	if config == null or economy == null:
+		return ""
+	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
+		"army.min_peasants"
+	):
+		return ""
+	var type_id: String = next_type(config, economy)
+	if not type_id.is_empty():
+		return type_id
+	return _cheapest_line_type(economy)
 
 
 ## Treasury a court must hold before any muster is legal: `army.min_treasury`
@@ -135,15 +194,26 @@ static func muster_floor(
 ## purse: what it has to save for, not what it can pay right now. -1 when its
 ## techs open no line at all.
 static func _cheapest_line(economy: PlayerEconomy) -> int:
-	var cheapest: int = -1
+	var type_id: String = _cheapest_line_type(economy)
+	if type_id.is_empty():
+		return -1
+	return RegimentCatalog.treasury_cost(type_id)
+
+
+## The cheapest line pattern this court's techs open today, ignoring the purse.
+## The lowest id breaks a tie, so the answer is stable across turns.
+static func _cheapest_line_type(economy: PlayerEconomy) -> String:
+	var cheapest: String = ""
+	var cost: int = -1
 	for type_id: String in RegimentCatalog.ids():
 		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
 			continue
 		if not RegimentEconomy.buildable(type_id, economy.tech_unlocked):
 			continue
-		var cost: int = RegimentCatalog.treasury_cost(type_id)
-		if cheapest < 0 or cost < cheapest:
-			cheapest = cost
+		var price: int = RegimentCatalog.treasury_cost(type_id)
+		if cost < 0 or price < cost or (price == cost and type_id < cheapest):
+			cheapest = type_id
+			cost = price
 	return cheapest
 
 

@@ -18,33 +18,35 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var fleets: Array = []
-		fleets.assign(play.ship_layer.regions.value(region, []))
+		var fleets: Array = MapPlayCourt.region_fleets(play, region)
 		var civilians: Array = []
 		civilians.assign(play.civilian_layer.regions.value(region, []))
-		for faction: int in FactionCatalog.great_power_ids():
-			# The full-AI observer has no human court: the former player slot runs
-			# every planner like any rival (wiki: game-setup § Human/AI slot
-			# assignment; docs/ai-observer.md).
-			if faction == play.player_faction and not play.observer_mode:
-				continue
-			if not AiControl.plans(play, faction):
-				continue
+		# The full-AI observer has no human court: the former player slot runs
+		# every planner like any rival (wiki: game-setup § Human/AI slot
+		# assignment; docs/ai-observer.md).
+		for faction: int in MapPlayCourt.planning_factions(play):
 			var config: AiConfig = AiConfig.build(faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
-			# closes the voyage before the planner picks a step (DR-20261113-15).
+			# closes the voyage before the planner picks a step (DR-20261113-15) —
+			# unless the court is on **earn**, whose gold is overseas
+			# (DR-20261113-19).
 			var posture: String = AiPhasePlanner.phase_for(config, play.diplomacy)
+			var earning: bool = AiIncome.wants_income(
+				config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
+				MapPlayCourt.regiments(play, faction)
+			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiColonisationPlanner.plan(
 				config, play.world, region, model, fleets, civilians,
-				_abroad(play, target, faction), play.court_charts, posture
+				_abroad(play, target, faction), play.court_charts,
+				_voyage_posture(play, faction, posture), earning
 			)
 			if order.is_empty():
 				continue
 			var crossing: FleetState = null
 			var leaving: Array[int] = []
 			if String(order.get("kind", "")) == "cross":
-				crossing = _fleet_by_id_any(play, region, int(order.get("fleet", -1)))
+				crossing = MapPlayCourt.fleet_in(play, region, int(order.get("fleet", -1)))
 				if crossing != null:
 					for unit_id: int in crossing.embarked_civilians:
 						leaving.append(unit_id)
@@ -75,15 +77,30 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				civilians.append(unit)
 		play.civilian_layer.regions.set_region(region, civilians)
 	if visible_touched:
-		_refresh_visible(play)
+		MapPlayCourt.refresh_hulls(play)
 	return trace
+
+
+## The footing the voyage reads: the court's own ledger decides whether the
+## expedition was funded, and a funded parent opens the voyage even at war — the
+## peace-window child is what bought it (issue #491 T4). A court with no ledger
+## yet (the opening turn, an old save, a fixture) keeps the published footing, so
+## the war gate still holds until the first ledger is written.
+static func _voyage_posture(play: PlaySession, faction: int, posture: String) -> String:
+	if not AiPhasePlanner.is_war_footing(posture):
+		return posture
+	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
+	if claim.is_empty():
+		return posture
+	var funded: Array = claim.get("funded_ids", [])
+	return AiPhasePlanner.PHASE_PEACE if funded.has("colonise.new_world") else posture
 
 
 static func _apply(
 	play: PlaySession, region: int, model: MapModel, order: Dictionary
 ) -> Dictionary:
 	var kind: String = String(order.get("kind", ""))
-	var fleet: FleetState = _fleet_by_id_any(
+	var fleet: FleetState = MapPlayCourt.fleet_in(
 		play, region, int(order.get("fleet", -1))
 	)
 	if fleet == null:
@@ -197,18 +214,6 @@ static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
 	return counts
 
 
-static func _fleet_by_id_any(
-	play: PlaySession, region: int, fleet_id: int
-) -> FleetState:
-	var roster: Array = []
-	roster.assign(play.ship_layer.regions.value(region, []))
-	for raw: Variant in roster:
-		var fleet: FleetState = raw
-		if fleet != null and fleet.id == fleet_id:
-			return fleet
-	return null
-
-
 static func _erase_unit(units: Array, unit_id: int) -> void:
 	var index: int = -1
 	for cursor in units.size():
@@ -218,15 +223,3 @@ static func _erase_unit(units: Array, unit_id: int) -> void:
 			break
 	if index >= 0:
 		units.remove_at(index)
-
-
-## Rebuilds the visible markers after a rival moved a squadron or a colonist.
-static func _refresh_visible(play: PlaySession) -> void:
-	if play.ship_layer.model == null:
-		return
-	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
-	play.ship_layer.spawn(
-		play.ship_layer.model, 0, 0, -1, false, play.player_faction
-	)
-	if selected != null:
-		play.ship_layer.select(play.ship_layer.ship_for(selected))

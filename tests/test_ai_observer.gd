@@ -1,8 +1,8 @@
 extends GdToolsTest
 ## Full-AI observer (wiki: game-setup § Human/AI slot assignment, an empty human
 ## slot set is the full-AI observer; turn-trace-interpretation): every crown on
-## the shared AI planners, the merged per-turn record, and the dashboard's
-## snapshot contract.
+## the shared AI planners, the one court reader they all ask, the merged
+## per-turn record, and the dashboard's snapshot contract.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
@@ -85,16 +85,23 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
 	var keys: Array[String] = [
-		"faction", "name", "leader", "agenda", "phase", "posture", "plans",
+		"faction", "name", "leader", "agenda", "phase", "posture",
+		"goal", "intent", "reserve", "plans",
 		"provinces_old", "provinces_new",
 		"power", "regiments", "ships", "civilians", "treasury", "stock",
 		"workers", "wars", "progress", "rank", "alive", "headline",
+		"pressure", "pressure_stage", "pressure_need", "pressure_regiments",
 	]
 	for index in rows.size():
 		var row: Dictionary = rows[index]
 		assert_eq(int(row["rank"]), index + 1, "rows arrive already ranked")
 		for key: String in keys:
 			assert_true(row.has(key), "row exposes %s" % key)
+		assert_true(
+			[AiIncome.GOAL_EARN, AiIncome.GOAL_SPEND].has(String(row["goal"])),
+			"the row prints the court's money goal (DR-20261113-19)"
+		)
+		assert_eq(String(row["intent"]), AiIncome.label(String(row["goal"])))
 		if index > 0:
 			assert_true(
 				int(rows[index - 1]["provinces_old"]) >= int(row["provinces_old"]),
@@ -224,6 +231,32 @@ func test_dashboard_renders_the_live_snapshot() -> void:
 	assert_ne(panel._result.text, "", "the panel reports the standing")
 
 
+## A court that can see the bar is marked on its card (DR-20261114-04): the
+## standing reads `pressing` beside the province count, and drops it when the
+## court is far from the bar.
+func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
+	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts")
+	if panel == null:
+		return
+	_step(1)
+	panel.refresh()
+	var row: Dictionary = MapPlayObserver.snapshot(_screen.play)["rows"][0].duplicate(true)
+	var progress: Label = panel._cards[int(row["faction"])]["progress"]
+	row["pressure_stage"] = AiVictoryPressure.STAGE_NEAR
+	panel._refresh_card(row)
+	assert_true(progress.text.ends_with("pressing"), "the endgame court is marked")
+	assert_true(
+		progress.text.begins_with("%d/%d" % [
+			int(row["provinces_old"]), VictoryRules.MILITARY_THRESHOLD,
+		]),
+		"the standing still leads the line"
+	)
+	row["pressure_stage"] = AiVictoryPressure.STAGE_FAR
+	panel._refresh_card(row)
+	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
+
+
 func test_dashboard_controls_step_pause_and_collapse() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
@@ -245,3 +278,103 @@ func test_dashboard_controls_step_pause_and_collapse() -> void:
 	assert_true(panel._tab.visible, "a tab keeps it reachable")
 	panel._toggle_panel()
 	assert_true(panel._frame.visible, "the panel returns")
+
+
+# --- one court reader --------------------------------------------------------
+
+
+func test_court_reader_names_the_planning_courts() -> void:
+	var play: PlaySession = _screen.play
+	var planning: Array[int] = MapPlayCourt.planning_factions(play)
+	assert_true(planning.has(play.player_faction), "the observer's former player court plans")
+	assert_eq(planning.size(), FactionCatalog.great_power_ids().size(), "every crown plans")
+	# The human's own court is never handed to a rival pass.
+	play.observer_mode = false
+	assert_false(
+		MapPlayCourt.planning_factions(play).has(play.player_faction),
+		"a human court keeps its own orders"
+	)
+	play.observer_mode = true
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayCourt.planning_factions(play).is_empty(), "a noop session plans nowhere")
+
+
+func test_court_reader_counts_the_order_of_battle() -> void:
+	var play: PlaySession = _screen.play
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			MapPlayCourt.regiments(play, faction),
+			play.army_layer.regiment_count_all(faction),
+			"regiments read the whole order of battle"
+		)
+		assert_eq(
+			MapPlayCourt.ships(play, faction),
+			play.ship_layer.hull_count_all(faction),
+			"hulls read the whole navy"
+		)
+
+
+func test_court_reader_counts_only_fighting_hulls() -> void:
+	var play: PlaySession = _screen.play
+	var owner: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var region: int = play.region_index
+	var fleets: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var before_ships: int = MapPlayCourt.ships(play, owner)
+	var before_warships: int = MapPlayCourt.warships(play, owner)
+	fleets.append(
+		FleetState.at_sea(
+			900, owner, 0, ["court_a", "court_b", "court_c"],
+			{"court_a": "sloop", "court_b": "carrack", "court_c": "sloop"}
+		)
+	)
+	play.ship_layer.regions.set_region(region, fleets)
+	assert_eq(MapPlayCourt.ships(play, owner), before_ships + 3, "every hull counts")
+	assert_eq(
+		MapPlayCourt.warships(play, owner), before_warships + 2,
+		"merchant hulls are not fighting hulls"
+	)
+	# The enemy's navy is the threat only once a war is declared.
+	var war: DiplomacyRelation = play.diplomacy.ensure_relation(owner, rival, play.turn)
+	war.at_war = true
+	assert_true(MapPlayCourt.at_war(play, owner), "the declaring court reads at war")
+	var enemies: Array[int] = [rival]
+	assert_eq(MapPlayCourt.at_war_with(play, owner), enemies, "the enemy is named")
+	assert_eq(
+		MapPlayCourt.hostile_ships(play, owner), MapPlayCourt.ships(play, rival),
+		"the threat counts the enemy's hulls"
+	)
+	assert_eq(
+		MapPlayCourt.hostile_warships(play, owner), MapPlayCourt.warships(play, rival),
+		"the threat counts the enemy's fighting hulls"
+	)
+
+
+func test_court_reader_looks_up_forces_by_owner() -> void:
+	var fleet: FleetState = FleetState.at_sea(7, 3, 0, ["hull_a"], {"hull_a": "sloop"})
+	var other: FleetState = FleetState.at_sea(7, 4, 0, ["hull_b"], {"hull_b": "sloop"})
+	var roster: Array[FleetState] = [fleet, other]
+	assert_eq(MapPlayCourt.fleet_by_id(roster, 7), fleet, "the first match wins")
+	assert_eq(MapPlayCourt.fleet_by_id(roster, 7, 4), other, "the owner narrows the id")
+	assert_null(MapPlayCourt.fleet_by_id(roster, 7, 5), "a stranger holds no such squadron")
+	assert_null(MapPlayCourt.fleet_by_id(roster, 8), "an unknown id reads nothing")
+	var army: ArmyState = ArmyState.new()
+	army.id = 11
+	army.owner = 3
+	var armies: Array[ArmyState] = [army]
+	assert_eq(MapPlayCourt.army_by_id(armies, 11), army, "the standard answers by id")
+	assert_null(MapPlayCourt.army_by_id(armies, 11, 4), "another court holds no such army")
+
+
+func test_court_reader_reads_region_rosters() -> void:
+	var play: PlaySession = _screen.play
+	var region: int = play.region_index
+	var fleets: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	assert_eq(fleets.size(), play.ship_layer.regions.value(region, []).size(), "one roster")
+	var armies: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
+	assert_eq(armies.size(), play.army_layer.armies.size(), "the live region answers")
+	MapPlayCourt.refresh_hulls(play)
+	assert_eq(
+		play.army_layer.armies.size(), armies.size(),
+		"a hull refresh leaves the field armies alone"
+	)

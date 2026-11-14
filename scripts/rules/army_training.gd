@@ -15,6 +15,27 @@ static func home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
 	return null
 
 
+## The Home Army always stands in the court's seat (wiki: military-armies
+## § Home Army). A reassignment moves the court when its old capital falls, so
+## the guard goes with it; a court whose Home Army died with the old seat reforms
+## one at the new seat, because the standard is never deleted. Without this the
+## Home Army is stranded off the seat and no muster can ever land again
+## (wiki: capital-and-connectivity § Capital loss and reassignment; issue #474).
+## Returns {army, minted}; `army` is null when `seat` is no province.
+static func settle_seat(
+	armies: Array[ArmyState], owner: int, seat: int, next_army_id: int
+) -> Dictionary:
+	if seat < 0:
+		return {"army": null, "minted": false}
+	var home: ArmyState = home_army(armies, owner)
+	if home == null:
+		home = ArmyState.muster(next_army_id, owner, seat, true, [])
+		armies.append(home)
+		return {"army": home, "minted": true}
+	home.province = seat
+	return {"army": home, "minted": false}
+
+
 ## Empty string when a muster order may be queued for this type; otherwise the
 ## first reason the rules refuse it. The register, the queue and the Build/work
 ## pass all read this one gate (REQ-P2-03).

@@ -112,14 +112,29 @@ static func apply(world: WorldMap, regions: Variant) -> bool:
 	return true
 
 
-## A candidate world is reusable only when its region sizes match the save, so a
-## mismatched preset still gets a fresh generation instead of a wrong map.
-static func reusable(candidate: WorldMap, width: int, height: int) -> WorldMap:
+## A candidate world is reusable only when every region it holds matches the
+## size the save records for that same region, so a mismatched preset still gets
+## a fresh generation instead of a wrong map. A world's charts are not all one
+## size (the New World is wider than the Old), so the save's own per-region
+## sizes are the only honest check; comparing every region to one width used to
+## reject every real multi-chart preset and pay for a whole regeneration on
+## each load.
+static func reusable(candidate: WorldMap, regions: Variant) -> WorldMap:
 	if candidate == null or candidate.region_count() == 0:
+		return null
+	if typeof(regions) != TYPE_ARRAY:
+		return null
+	var saved: Array = regions
+	if saved.size() != candidate.region_count():
 		return null
 	for index in candidate.region_count():
 		var model: MapModel = candidate.region(index)
-		if model == null or model.width != width or model.height != height:
+		if model == null or typeof(saved[index]) != TYPE_DICTIONARY:
+			return null
+		var data: Dictionary = saved[index]
+		if int(data.get("width", 0)) != model.width:
+			return null
+		if int(data.get("height", 0)) != model.height:
 			return null
 	return candidate
 

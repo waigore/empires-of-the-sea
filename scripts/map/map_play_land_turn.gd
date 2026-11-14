@@ -144,6 +144,8 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		play.hud.toast(
 			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 		)
+		if _recall_home(play, faction, province, region) and play.model != null:
+			play.refresh_map_views()
 		changed = true
 	MapPlayFleets.settle_ports(play, reassigned)
 	if changed:
@@ -152,6 +154,29 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		play.hud.show_defeat(play.defeat, play.player_faction)
 		play.emit_campaign_end(null, play.defeat)
 	return changed
+
+
+## The court's guard follows its court: a reassigned seat takes the Home Army
+## with it, and a court that lost its Home Army with the old seat reforms one at
+## the new, because the standard is never deleted (wiki: military-armies
+## § Home Army; capital-and-connectivity § Capital loss and reassignment;
+## issue #474). Returns true when the region's roster changed.
+static func _recall_home(
+	play: PlaySession, faction: int, seat: int, region: int
+) -> bool:
+	if play.army_layer == null or seat < 0:
+		return false
+	var roster: Array[ArmyState] = []
+	roster.assign(play.army_layer.regions.value(region, []))
+	var settled: Dictionary = ArmyTraining.settle_seat(
+		roster, faction, seat, play.army_layer.next_army
+	)
+	if settled["army"] == null:
+		return false
+	if bool(settled.get("minted", false)):
+		play.army_layer.next_army += 1
+	play.army_layer.regions.set_region(region, roster)
+	return true
 
 
 ## The human crown's terminal fall becomes the session's defeat exactly once.

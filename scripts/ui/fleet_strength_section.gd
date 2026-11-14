@@ -25,21 +25,23 @@ func _ready() -> void:
 
 ## Empty data hides the block, so the capital slip and a port with no squadron
 ## keep the dossier short. `strength["zone"]` is the sea zone's odds, when read.
-## A sighted rival the crown has not read shows `???` and none of the maths
-## (wiki: ships-and-naval § Sighted strength).
+## A sighted rival the crown has not read shows `???` and none of the maths, and
+## names the watch that would earn it (wiki: ships-and-naval § Sighted strength).
 func set_data(strength: Dictionary) -> void:
 	visible = int(strength.get("count", 0)) > 0
 	if not visible:
 		return
 	var read: bool = bool(strength.get("known", true))
-	_pool.visible = read
-	_zone.visible = false
 	if not read:
-		_strength.text = "??? strength — the fog has not yet given up her weight."
+		_strength.text = "??? strength — watch her across a turn to read her weight."
 		_strength.add_theme_color_override("font_color", Palette.TEXT_DIM)
-		_pool.text = ""
+		_pool.text = "Lose sight of her and the watch starts over."
+		_pool.visible = true
 		_zone.text = ""
+		_zone.visible = false
 		return
+	_pool.visible = true
+	_zone.visible = false
 	_strength.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	var zone: Dictionary = strength.get("zone", {})
 	_strength.text = "%.1f strength = %s" % [

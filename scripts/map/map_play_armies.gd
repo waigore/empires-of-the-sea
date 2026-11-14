@@ -235,6 +235,10 @@ static func run_ai(play: PlaySession) -> Array[Dictionary]:
 	return MapPlayArmyAi.run(play)
 
 
+static func hide_dossier(play: PlaySession) -> void:
+	play.hud.panels.hide_army()
+
+
 static func refresh_visibility(play: PlaySession) -> void:
 	play.army_layer.sync_visibility(play.visibility, play.player_faction)
 

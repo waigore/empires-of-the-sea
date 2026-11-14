@@ -248,17 +248,18 @@ static func _bid_less(
 				if b.faction == favoured:
 					return false
 		var consulate_for: Variant = context.get("consulate_for", null)
+		# R7.3's relation arm is a tiebreak between Consulate holders only; a
+		# consulate-less court keeps the default order below. A caller that
+		# publishes no Consulate reading has nothing to gate on.
+		var relation_applies: bool = not (consulate_for is Callable)
 		if consulate_for is Callable:
-			var a_consul: bool = bool((consulate_for as Callable).call(
-				a.faction, offer.faction
-			))
-			var b_consul: bool = bool((consulate_for as Callable).call(
-				b.faction, offer.faction
-			))
+			var a_consul: bool = bool((consulate_for as Callable).call(a.faction, offer.faction))
+			var b_consul: bool = bool((consulate_for as Callable).call(b.faction, offer.faction))
 			if a_consul != b_consul:
 				return a_consul
+			relation_applies = a_consul and b_consul
 		var relation_for: Variant = context.get("relation_for", null)
-		if relation_for is Callable:
+		if relation_applies and relation_for is Callable:
 			var a_score: float = float((relation_for as Callable).call(a.faction, offer.faction))
 			var b_score: float = float((relation_for as Callable).call(b.faction, offer.faction))
 			if not is_equal_approx(a_score, b_score):

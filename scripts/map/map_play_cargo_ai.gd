@@ -27,8 +27,7 @@ static func run(
 	if seat < 0:
 		return report
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
-	var roster: Array[FleetState] = []
-	roster.assign(play.ship_layer.regions.value(region, []))
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
 		+ maxi(config.parameter("cargo.trade_holds"), 0)
@@ -42,7 +41,9 @@ static func run(
 	report["candidates"] = plan["candidates"]
 	for raw: Variant in plan["routes"]:
 		var route: Dictionary = raw
-		var fleet: FleetState = _fleet_by_id(roster, int(route.get("fleet_id", -1)), faction)
+		var fleet: FleetState = MapPlayCourt.fleet_by_id(
+			roster, int(route.get("fleet_id", -1)), faction
+		)
 		if fleet == null:
 			continue
 		var moved: Dictionary = AiCargoPlanner.apply_route(model, fleet, route)
@@ -62,9 +63,54 @@ static func run(
 		)
 		if not laid.is_empty():
 			report["launch"] = laid
+	# A court whose ledger funded the navy's build aim lays a fighting hull down
+	# through the same yard: a rival can rebuild the fleet it lost instead of
+	# only watching it shrink (issue #491 T5, #484).
+	var warship: Dictionary = _build_warship(play, faction, roster, economy, seat)
+	if not warship.is_empty():
+		report["warship"] = warship
 	play.ship_layer.regions.set_region(region, roster)
-	_refresh_visible(play)
+	MapPlayCourt.refresh_hulls(play)
 	return report
+
+
+## The fighting hull the court's ledger asked for, laid down through the yard, or
+## an empty row when the claim was not funded or no warship is payable.
+static func _build_warship(
+	play: PlaySession, faction: int, roster: Array, economy: PlayerEconomy, seat: int
+) -> Dictionary:
+	if play.ai == null:
+		return {}
+	var claim: Dictionary = play.ai.objectives_for(faction)
+	if not (claim.get("funded_ids", []) as Array).has("navy.build"):
+		return {}
+	var type_id: String = _warship_type(economy)
+	if type_id.is_empty():
+		return {}
+	return _launch(play, roster, faction, economy, seat, {"type_id": type_id})
+
+
+## The strongest warship this court can pay for today: what its yard opens, its
+## purse and stores cover, and its fields can spare a hand for. Empty when the
+## court can lay nothing down.
+static func _warship_type(economy: PlayerEconomy) -> String:
+	var best: String = ""
+	var best_strength: float = 0.0
+	var peasants: int = economy.available_peasants()
+	for raw: Variant in ShipEconomy.ENTRIES.keys():
+		var type_id: String = String(raw)
+		if not ShipStats.is_warship(type_id):
+			continue
+		var reason: String = ShipEconomy.blocked_reason(
+			type_id, economy.treasury, economy.stockpile, peasants, economy.tech_unlocked
+		)
+		if not reason.is_empty():
+			continue
+		var strength: float = ShipStats.strength(type_id)
+		if best.is_empty() or strength > best_strength:
+			best = type_id
+			best_strength = strength
+	return best
 
 
 ## Paying for one hull: the slip is the crown's squadron already in port at its
@@ -86,7 +132,12 @@ static func _launch(
 		fleet = FleetState.empty_in_port(
 			FleetRosters.next_id_all(play.ship_layer.regions), faction, seat
 		)
+	# A hull id already afloat at this berth is skipped, so a roster restored
+	# from a save or a fixture never denies the launch (issue #491 T5).
 	var hull_id: String = "ship_%d" % play.ship_layer.next_hull
+	while fleet.hulls.has(hull_id):
+		play.ship_layer.next_hull += 1
+		hull_id = "ship_%d" % play.ship_layer.next_hull
 	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id)
 	if not bool(result.get("ok", false)):
 		return {}
@@ -122,22 +173,3 @@ static func _slip_fleet(roster: Array, owner: int, seat: int) -> FleetState:
 			return fleet
 	return null
 
-
-static func _fleet_by_id(roster: Array, fleet_id: int, owner: int) -> FleetState:
-	for fleet: FleetState in roster:
-		if fleet != null and fleet.id == fleet_id and fleet.owner == owner:
-			return fleet
-	return null
-
-
-## Re-reads the on-screen markers after a rival moved hulls; the human's
-## selection survives the rebuild when it is still in the region.
-static func _refresh_visible(play: PlaySession) -> void:
-	if play.ship_layer.model == null:
-		return
-	var selected: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
-	play.ship_layer.spawn(
-		play.ship_layer.model, 0, 0, -1, false, play.player_faction
-	)
-	if selected != null:
-		play.ship_layer.select(play.ship_layer.ship_for(selected))

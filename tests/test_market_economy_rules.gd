@@ -1844,7 +1844,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	controller.economy = PlayerEconomy.starting()
 	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
 	assert_eq(
-		int(controller.extraction().get("grain", 0)),
+		int(controller.readings.extraction().get("grain", 0)),
 		1 + Extraction.CAPITAL_GRAIN_BONUS,
 		"the harbour carries the estate's grain home"
 	)
@@ -1852,7 +1852,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	seals.sealed = {model.region_id: {1: true}}
 	controller.blockade_source = func() -> Blockades: return seals
 	assert_eq(
-		int(controller.extraction().get("grain", 0)),
+		int(controller.readings.extraction().get("grain", 0)),
 		Extraction.CAPITAL_GRAIN_BONUS,
 		"the blockaded harbour carries nothing"
 	)
@@ -3226,3 +3226,345 @@ func test_a_plate_is_a_128_px_source() -> void:
 	assert_eq(art.get_height(), 128)
 
 
+
+# --- the Minor/Tribe sale order and its receipt ---
+
+## One Minor estate and nothing else: whoever wins it takes the only timber.
+func _sale_world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	for y in 2:
+		for x in 4:
+			model.province[model.index_of(x, y)] = 0 if x < 2 else 1
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	var gp_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)
+	]
+	var minor_tiles: Array[Vector2i] = [
+		Vector2i(2, 0), Vector2i(3, 0), Vector2i(2, 1), Vector2i(3, 1)
+	]
+	var gp := ProvinceState.create(0, "P0", gp_tiles, Vector2.ZERO, 4, 0)
+	var minor := ProvinceState.create(1, "P1", minor_tiles, Vector2.ZERO, 4, 6)
+	model.provinces = [gp, minor]
+	model.resource[model.index_of(2, 0)] = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+func _timber_buyer(report: Dictionary) -> int:
+	for raw: Variant in report["deals"]:
+		var deal: Dictionary = raw
+		if String(deal.get("commodity", "")) == "timber" and int(deal.get("seller", -2)) == 6:
+			return int(deal.get("buyer", -1))
+	return -1
+
+
+## A Trade Consulate is the first overture stage, and R7.3 serves its holder
+## ahead of every consulate-less buyer whatever the rivals' relations (wiki:
+## world-market § Sell-priority relation tiebreaker). The holder carries the
+## higher faction id, so a gate read as "no Consulate anywhere" would hand the
+## estate to the stranger by the default order.
+func test_a_trade_consulate_clears_before_a_warmer_stranger() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(90.0)
+	diplomacy.ensure_relation(1, 6, 0).set_score(10.0)
+	diplomacy.set_overture(1, 6, DiplomacyCatalog.STAGE_CONSULATE)
+	# The stranger speaks first, so the deal proves the tiebreak, not the book order.
+	for gp: int in [0, 1]:
+		MarketOrders.submit(
+			market,
+			gp, "timber", MarketOrder.SIDE_BID, 1,
+			{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+		)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, _economies(), {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_eq(_timber_buyer(report), 1, "the Consulate holder takes the estate")
+
+
+## R7.3's relation arm needs a Consulate on both sides; two consulate-less courts
+## keep the default order (ascending faction id) however warm one of them is.
+func test_two_consulate_less_buyers_keep_the_default_order() -> void:
+	var orders: Array[MarketOrder] = [
+		_order(1, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(2, "timber", MarketOrder.SIDE_BID, 1, 1),
+		_order(6, "timber", MarketOrder.SIDE_OFFER, 1, 1),
+	]
+	var context: Dictionary = _context()
+	context["consulate_for"] = func(_gp: int, _minor: int) -> bool: return false
+	context["relation_for"] = func(gp: int, _minor: int) -> float:
+		return 90.0 if gp == 2 else 10.0
+	var result: Dictionary = MarketMatcher.match(orders, context)
+	assert_eq(
+		int((result["deals"] as Array)[0]["buyer"]), 1,
+		"a consulate-less court never jumps the default order"
+	)
+
+
+## The Deal Book line names the price the pair was charged — the crown's terms
+## and the subsidy step included — not the untaxed published price (wiki:
+## world-market § Subsidy price adjustment; REQ-P5-05).
+func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
+	var world: WorldMap = _sale_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 10)
+	var economies: Dictionary = _economies()
+	var before: int = (economies[0] as PlayerEconomy).treasury
+	MarketOrders.submit(
+		market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": before, "buy_price": 30}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+	assert_eq(before - (economies[0] as PlayerEconomy).treasury, 33, "one timber, 10% over")
+	var line: String = LedgerText.deal_line(deal)
+	assert_true(line.contains("at 33"), line)
+	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
+
+
+## The other two Deal Book lines: a sale names its receipt, a favoured fill says
+## so, and a legacied row with no `buy_unit` still reads at its published price
+## (REQ-P5-05; wiki: world-market § Favored Trading Partner).
+func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 1, "seller": 0, "commodity": "timber",
+			"quantity": 2, "price": 30, "earned": 60,
+		}),
+		"Sold 2 Timber to %s at 30 — 60 ducats" % FactionCatalog.name_of(1)
+	)
+	assert_true(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber",
+			"quantity": 1, "price": 30, "is_favoured": true,
+		}).ends_with("as its favoured partner")
+	)
+	assert_eq(
+		LedgerText.deal_line({
+			"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1, "price": 30,
+		}),
+		"Bought 1 Timber from %s at 30 — 30 ducats" % FactionCatalog.name_of(6),
+		"a row saved before `buy_unit` reads at the published price"
+	)
+
+
+## The Deal Book is the crown's own: a court that sails as England reads her
+## staged orders and her clearing, never Spain's (wiki: world-market § Trade
+## orders; REQ-P2-03 — the sheet cannot answer for another crown).
+func test_the_deal_book_reads_the_viewing_crowns_orders() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	assert_true(bool(MarketOrders.submit(
+		market, 1, "timber", MarketOrder.SIDE_OFFER, 3,
+		{"stock": 10, "reserved": {}}
+	)["ok"]))
+	var english := LedgerMarket.new()
+	english.fill(PlayerEconomy.starting(), market, {}, [], {}, 1)
+	assert_true(_has_cancel(english), "England reads her own staged offer")
+	english.free()
+	var spain := LedgerMarket.new()
+	spain.fill(PlayerEconomy.starting(), market, {}, [], {}, 0)
+	assert_false(_has_cancel(spain), "Spain does not read England's book")
+	spain.free()
+
+
+## A staged order is the only row that offers a Cancel, so its presence is the
+## sheet's own answer to "is this my book?".
+func _has_cancel(node: Node) -> bool:
+	var button := node as Button
+	if button != null and button.text == "Cancel":
+		return true
+	for child: Node in node.get_children():
+		if _has_cancel(child):
+			return true
+	return false
+
+
+## The Minor offer's Bid names the ask the clearing will charge — the published
+## price with the crown's terms and the pair's subsidy step (wiki: world-market
+## § Subsidy price adjustment; REQ-P5-05).
+func test_the_minor_offer_bid_names_the_ask() -> void:
+	var ledger := LedgerMarket.new()
+	var row: Control = ledger._offer_row({
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 1, "unit_price": 33,
+	})
+	var buy: Button = row.get_child(row.get_child_count() - 1) as Button
+	assert_eq(buy.text, "Bid")
+	assert_true(buy.tooltip_text.contains("ask of 33"), buy.tooltip_text)
+	row.free()
+	ledger.free()
+
+
+## The Deal Book prices every commodity row for the crown reading it: a court
+## sailing as England must not read Spain's trade terms (wiki: world-market
+## § Subsidy price adjustment — "trade terms still stack"; REQ-P2-03, REQ-P5-05).
+func test_the_deal_book_prices_its_rows_for_the_viewing_crown() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
+	var english := LedgerMarket.new()
+	english.fill(PlayerEconomy.starting(), market, {"free": 2}, [], {}, 1)
+	var bid: Button = _bid_for(english, CommodityCatalog.label("grain"))
+	assert_not_null(bid, "the grain row offers a bid")
+	assert_true(
+		bid.tooltip_text.contains("at %d ducats" % market.buy_price("grain", 1)),
+		bid.tooltip_text
+	)
+	assert_false(
+		bid.tooltip_text.contains("at %d ducats" % market.buy_price("grain", 0)),
+		"the row must not read the default crown's terms: %s" % bid.tooltip_text
+	)
+	english.free()
+
+
+## A staged order's notional is the crown's own price, not the default crown's
+## (wiki: world-market § Trade orders; REQ-P2-03).
+func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
+	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
+	var ledger := LedgerMarket.new()
+	ledger.fill(PlayerEconomy.starting(), market, {}, [], {}, 1)
+	var row: Control = ledger._staged_row(order)
+	var notional: Label = row.get_child(3) as Label
+	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
+	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
+	row.free()
+	ledger.free()
+
+
+## The clearing republishes the Minor/Tribe book for the crown that will read
+## it: a court sailing as England must not be quoted Spain's terms
+## (wiki: world-market § Subsidy price adjustment; REQ-P2-03, REQ-P5-05).
+func test_the_clearing_publishes_the_minor_book_for_the_reading_crown() -> void:
+	var world: WorldMap = _offer_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4}, {"viewer": 1})
+	var english: Dictionary = market.minor_offers[
+		MinorMarket.index_of(market.minor_offers, "6:timber")
+	]
+	assert_eq(int(english["unit_price"]), 27, "England reads her own terms")
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
+	var spain: Dictionary = market.minor_offers[
+		MinorMarket.index_of(market.minor_offers, "6:timber")
+	]
+	assert_eq(int(spain["unit_price"]), 30, "no viewer keeps the published price")
+
+
+## The Bid button of one commodity row, found by the good its tooltip names.
+func _bid_for(node: Node, label: String) -> Button:
+	var button := node as Button
+	if button != null and button.text == "Bid" and button.tooltip_text.contains(label):
+		return button
+	for child: Node in node.get_children():
+		var found: Button = _bid_for(child, label)
+		if found != null:
+			return found
+	return null
+
+
+# --- rival lock-recovery (issue #489) ---------------------------------------
+
+func _ai_config() -> AiConfig:
+	return AiConfig.build(1, 1500)
+
+
+## Units of one commodity a rival plan offers, or 0 when it offers none.
+func _offer_of(plan: Dictionary, id: String) -> int:
+	for raw: Variant in plan.get("offers", []):
+		var offer: Dictionary = raw
+		if String(offer["commodity"]) == id:
+			return int(offer["quantity"])
+	return 0
+
+
+## Units of one commodity a rival plan bids for, or 0 when it bids for none.
+func _bid_of(plan: Dictionary, id: String) -> int:
+	for raw: Variant in plan.get("bids", []):
+		var bid: Dictionary = raw
+		if String(bid["commodity"]) == id:
+			return int(bid["quantity"])
+	return 0
+
+
+## A court that cannot feed its own people stops holding a comfort reserve on
+## the stock it is not about to spend: the hoard is worth more as the food it
+## buys than as a shelf beside an empty larder (wiki: treasury-planner
+## § Lock-recovery; issue #489).
+func test_a_starving_court_liquidates_its_hoard() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	economy.stockpile = {"wool": 25}
+	var market := WorldMarket.with_default_prices()
+	var fed: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 0)
+	assert_eq(_offer_of(fed, "wool"), 5, "a fed court keeps market.sell_reserve (20)")
+	var starving: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 0, 6
+	)
+	assert_eq(
+		_offer_of(starving, "wool"), 10,
+		"a starving court sells down to market.max_offer_units"
+	)
+
+
+## The reserve still holds the court's own dinner: a starving court liquidates
+## its manufactures and raw, never the grain its regiments and staffs eat
+## (wiki: workers-and-population § Consumption).
+func test_a_starving_court_never_sells_its_own_dinner() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	economy.stockpile = {"grain": 25}
+	var market := WorldMarket.with_default_prices()
+	var starving: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 0, {}, {}, {}, 0, 6
+	)
+	assert_eq(_offer_of(starving, "grain"), 5, "the ration reserve still applies")
+
+
+## Food is not a discretionary spend: a court short of rations bids for it out of
+## the whole purse, not the surplus above the war chest it is saving for — a
+## strike costs it every hand it has (wiki: treasury-planner § Lock-recovery).
+func test_a_starving_court_buys_food_out_of_the_whole_purse() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 100
+	economy.stockpile = {}
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(
+		_ai_config(), economy, market, 2, {}, {}, {}, 2400, 6
+	)
+	assert_eq(
+		_bid_of(plan, "grain"), 2,
+		"two holds and 100 ducats buy two grain at 50, under a 2,400 war chest"
+	)
+	assert_eq(_bid_of(plan, "lumber"), 0, "the war chest still holds every build input")
+
+
+## A court that can feed itself trades exactly as published: no food bid, and
+## the comfort reserve stays on every commodity.
+func test_a_fed_court_bids_no_food() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 5000
+	economy.stockpile = {"wool": 25}
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 4)
+	assert_eq(_bid_of(plan, "grain"), 0)
+	assert_eq(_offer_of(plan, "wool"), 5)
+
+
+## The larder reading the lock-recovery gate is built on: both ration
+## commodities, and nothing else in the stockpile (issue #489).
+func test_the_larder_reading_counts_only_food() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
+	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
+	assert_eq(MapPlayEconomyAi._food_held(null), 0)

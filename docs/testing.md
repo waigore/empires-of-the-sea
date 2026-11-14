@@ -24,26 +24,26 @@ Smoke boots the title, starts a new game, opens the in-game menu, saves, complet
 ## Speed rules
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
-- MapScreen and app-shell suites reuse one cached small world per worker via
-  `MapScreen.preset_world` / `Main.preset_world` (capital-choice, observer, load).
-  Snapshot/restore when a case seats or mutates the chart.
+- One cached small world per worker via `MapScreen.preset_world` /
+  `Main.preset_world`. Snapshot/restore when a case seats or mutates the chart.
 - That world is the smallest that validates a `SaveCodec` slot and seats the
   turn-100 civilian tier; it must pass fair split on the **first** attempt
-  (else `generate_world` rebuilds). Screen and campaign-plate suites share it.
+  (else `generate_world` rebuilds).
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
   once per map state — mounting many screens or six courts' charts repaints nothing.
+- A mount paints chips, minimap and readings once (`load_region`); `build_hud`
+  adds only turn, economy, income and dossier.
 - Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
   (`_attach()`) so rule-only cases never paint. Region-only suites use
   `generate_region` and cache twin / New World charts in `before_all`.
-- Saving/loading: reuse a preset, snapshot owners/deeds (`MapFixture.snapshot`/
-  `restore`), prefer `SaveCodec.restore` over remounting. `test_save_codec`
-  keeps one MapScreen and resets via a pristine save (rebind layers; no remount).
+- **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
+  case on a pristine save (~0.15 s) instead of remounting (~0.5 s). The reset
+  drops selection, sheets, lenses and news; a suite that swaps screens frees its
+  own. `SaveCodec.restore` is the in-place path; reuse a preset only when each
+  chart's size matches the save.
 - One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftovers into a theme suite (`test_naval_rules`, `test_campaign_rules`,
-  `test_gazette`, `test_defence_lens`, `test_quick_battle_overlay`,
-  `test_audio_rules`). Prefer one mount per case. Profile with
-  `gd-tools test --durations 20`. Smoke: short boot, few `await process_frame`,
-  no sleeps / full campaigns.
+  fold leftovers into a theme suite. Profile with `gd-tools test --durations 20`.
+  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
 
 ## Local
 
@@ -126,6 +126,13 @@ godot --headless --path . --script res://playtests/playtest_naval.gd
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
 
+# Sighted strength — sights a hostile squadron in charted water and reads the
+# marker's `*`, the dossier's `???` and the zone that takes no verdict; closes a
+# real turn to read the watch's news, then presses the seal and the pause menu to
+# see whether the read survives another chart and a save, and drops it when she
+# leaves the crown's water.
+godot --headless --path . --script res://playtests/playtest_naval_intel.gd
+
 # Treasury — opens a turn-100 advanced start and reads the purse the player sees
 # (the chip, the ledger's summary and "Next turn" promise, the market's own rows,
 # the college's funding), stages a sale and a study on those buttons, closes real
@@ -168,6 +175,21 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 # then seats a Money Lending crown at the -500 floor's edge and reads the phase's
 # last payment, the floor it will not pass, and every line the court is told.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
+
+# Sieges — raises a wall from the Engineer's own order (caption, receipt,
+# despatch, province sheet, military lens), storms rival walls at wood and modern
+# levels with guns and reads the plate's wall block, the battery, the lanes, the
+# gates and the level the fort is left at, then mans the crown's own frontier wall
+# and reads the defending plate.
+godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Colony chain — opens the turn-100 advanced start (the New World charted, so a
+# Tribe is in contact) and walks the four overture stages on the court sheet's own
+# buttons, reading the sheet, the despatch and the chronicle at each step; then
+# founds the colony, reads what the crown now holds (status, survey, chronicle,
+# envoy), checks the court will not sell the same colony twice, and issues the
+# boycott the colony unlocks against a rival crown.
+godot --headless --path . --script res://playtests/playtest_colony.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

@@ -32,6 +32,9 @@ var _offers_head: MarketOffersHead = null
 var _offers_box: VBoxContainer = null
 ## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
 var _compact: bool = false
+## The crown reading the book: its own staged orders, deals, terms and subsidy.
+## A player who sails as England must read England's trade, never Spain's.
+var _viewer: int = FactionCatalog.PLAYER_FACTION
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
@@ -41,12 +44,14 @@ func fill(
 	market: WorldMarket,
 	cargo: Dictionary,
 	offers: Array = [],
-	clearing: Dictionary = {}
+	clearing: Dictionary = {},
+	viewer: int = FactionCatalog.PLAYER_FACTION
 ) -> void:
 	_economy = economy
 	_market = market
 	_cargo = cargo
 	_clearing = clearing
+	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
 	_add_terms_banner()
@@ -88,7 +93,7 @@ func _add_staged() -> void:
 	if _market == null:
 		return
 	var orders: Array[MarketOrder] = _market.book.orders_for(
-		FactionCatalog.PLAYER_FACTION
+		_viewer
 	)
 	UiRowBuilder.spacer(self, 6.0)
 	var title := UiRowBuilder.label("YOUR ORDERS", 11, Palette.GOLD_DIM)
@@ -118,8 +123,8 @@ func _staged_row(order: MarketOrder) -> Control:
 	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(quantity)
 	var price: int = (
-		_market.buy_price(order.commodity) if order.is_bid()
-		else _market.sell_price(order.commodity)
+		_market.buy_price(order.commodity, _viewer) if order.is_bid()
+		else _market.sell_price(order.commodity, _viewer)
 	)
 	var notional := UiRowBuilder.label("%d" % (price * order.remaining()), 12, Palette.TEXT_DIM)
 	notional.custom_minimum_size = Vector2(52, 0)
@@ -146,15 +151,15 @@ func _add_deals() -> void:
 		var deal: Dictionary = raw
 		var buyer: int = int(deal.get("buyer", -2))
 		var seller: int = int(deal.get("seller", -2))
-		if buyer == FactionCatalog.PLAYER_FACTION or seller == FactionCatalog.PLAYER_FACTION:
+		if buyer == _viewer or seller == _viewer:
 			mine.append(deal)
-	var share: int = LedgerText.share_credit(_clearing, FactionCatalog.PLAYER_FACTION)
+	var share: int = LedgerText.share_credit(_clearing, _viewer)
 	if mine.is_empty() and share <= 0:
 		return
 	UiRowBuilder.spacer(self, 4.0)
 	add_child(UiRowBuilder.label("LAST CLEARING", 11, Palette.GOLD_DIM))
 	for deal: Dictionary in mine.slice(0, 4):
-		add_child(UiRowBuilder.label(_deal_line(deal), 12, Palette.TEXT_DIM))
+		add_child(UiRowBuilder.label(LedgerText.deal_line(deal, _viewer), 12, Palette.TEXT_DIM))
 	if mine.size() > 4:
 		add_child(UiRowBuilder.label(
 			"+%d more deals" % (mine.size() - 4), 11, Palette.TEXT_DIM
@@ -168,26 +173,6 @@ func _add_deals() -> void:
 			+ "and embassy kickbacks (wiki: world-market § First right of refusal)."
 		)
 		add_child(shares)
-
-
-func _deal_line(deal: Dictionary) -> String:
-	var quantity: int = int(deal.get("quantity", 0))
-	var commodity: String = CommodityCatalog.label(String(deal.get("commodity", "")))
-	var price: int = int(deal.get("price", 0))
-	var buyer: int = int(deal.get("buyer", -2))
-	var seller: int = int(deal.get("seller", -2))
-	var other: String = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
-	if buyer == FactionCatalog.PLAYER_FACTION:
-		other = "the world market" if seller < 0 else FactionCatalog.name_of(seller)
-		var claim: String = (
-			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
-		)
-		return "Bought %d %s from %s at %d%s" % [quantity, commodity, other, price, claim]
-	other = "the world market" if buyer < 0 else FactionCatalog.name_of(buyer)
-	var earned: int = int(deal.get("earned", price * quantity))
-	return "Sold %d %s to %s at %d — %d ducats" % [
-		quantity, commodity, other, price, earned,
-	]
 
 
 ## Direct offers sit above the world price rows: who sells, what is left, and
@@ -287,7 +272,6 @@ func _offer_row(offer: Dictionary) -> Control:
 	var commodity: String = String(offer.get("commodity", ""))
 	var left: int = int(offer.get("quantity", 0))
 	var ask: int = int(offer.get("unit_price", 0))
-	var world_price: int = _market.price(commodity) if _market != null else ask
 
 	row.add_child(
 		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)
@@ -305,8 +289,11 @@ func _offer_row(offer: Dictionary) -> Control:
 	row.add_child(ask_label)
 
 	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 54.0)
-	buy.tooltip_text = "Bid 1 %s at the published price of %d — it clears when the turn closes" % [
-		CommodityCatalog.label(commodity), world_price
+	# The ask is what the clearing charges this pair — the published price with
+	# the crown's terms and any subsidy step — so the tooltip names it rather
+	# than the untaxed price (wiki: world-market § Subsidy price adjustment).
+	buy.tooltip_text = "Bid 1 %s at the ask of %d — it clears when the turn closes" % [
+		CommodityCatalog.label(commodity), ask
 	]
 	# Imports need a free hold in the home fleet (DR-20261109-03).
 	if int(_cargo.get("free", -1)) == 0:
@@ -323,7 +310,7 @@ func _offer_row(offer: Dictionary) -> Control:
 func _add_terms_banner() -> void:
 	if _market == null:
 		return
-	var terms: Dictionary = _market.terms_for(FactionCatalog.PLAYER_FACTION)
+	var terms: Dictionary = _market.terms_for(_viewer)
 	if terms.is_empty():
 		return
 	var buy: Dictionary = terms.get("buy", {})
@@ -348,7 +335,7 @@ func _subsidy_rate() -> int:
 	var best: int = 0
 	for key: Variant in _market.subsidy_terms.keys():
 		var parts: PackedStringArray = String(key).split(">")
-		if parts.size() != 2 or int(parts[0]) != FactionCatalog.PLAYER_FACTION:
+		if parts.size() != 2 or int(parts[0]) != _viewer:
 			continue
 		best = maxi(best, int(_market.subsidy_terms[key]))
 	return best
@@ -363,8 +350,8 @@ func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 	qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(qty)
 
-	var buy_unit: int = _market.buy_price(id)
-	var sell_unit: int = _market.sell_price(id)
+	var buy_unit: int = _market.buy_price(id, _viewer)
+	var sell_unit: int = _market.sell_price(id, _viewer)
 	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
 	price.custom_minimum_size = Vector2(44, 0)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

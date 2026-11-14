@@ -1,0 +1,86 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "e2f3c3d9774c2cde95013a1b85f5226f1cd8b5af",
+  "commit": "62052814209667c3ff98cbc9a19a80039d3676ba",
+  "submission_hash": "sha256:8b2f594d73e63bc6f8da729be51a4e5c244ec04106f36d9f9767050d5651f7b6",
+  "submission_git": "orc/resolve-issue-agent-1/20261113T101146741082Z@9c1c227",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 1771.3831009023788,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 16.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 3.0,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:e6d548dca15dd3c6da2cd2c95d7da8f76ccf51b6ca72b1cab73457367645d075",
+    "parts": {
+      "provinces_old": 16,
+      "provinces_new": 0,
+      "regiments": 1,
+      "ships": 2,
+      "workers": 10,
+      "extraction_per_turn": 2.0217391304347827,
+      "income_per_turn": 87.33962264150944
+    },
+    "early_win": false,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 201,
+    "resolved_turns": 200
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-13T12:13:00Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:cf52fac97a0de61ca7dea38a34678c99a41ff3d5c6d224eb0a19dbf74b7a07ae"
+}

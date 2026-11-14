@@ -43,9 +43,19 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## overseas region is priced on the raw its holds actually landed.
 static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: AiConfig,
-	overseas: Dictionary = {}, stockpile: Dictionary = {}
+	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0,
+	works_floor: int = -1
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
+	# The cash a crew may spend is what the purse carries after the court's own
+	# floor and, at war and short of its target, the muster it is saving for:
+	# training and deeds are discretionary, the war chest is not (wiki:
+	# growth-stage-planner § Recruitment modulation; treasury-planner
+	# § Cash discipline; issue #474).
+	var purses: Dictionary = purses_for(economy.treasury, floor, works_floor)
+	var spendable: int = int(purses["spendable"])
+	var works_cash: int = int(purses["works"])
+	var earn: bool = bool(purses["earn"])
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -55,12 +65,14 @@ static func plan_all(
 		var capital: Dictionary = WorldBootstrap.capital_seat(model, faction)
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
-			"treasury": economy.treasury,
+			"treasury": works_cash,
+			"hire_treasury": spendable,
+			"earn": earn,
 			"paper": economy.quantity("paper"),
 			"capital_province": int(capital["province"]),
 			"capital_tile": capital["tile"],
 			"tech_unlocked": economy.tech_unlocked,
-			"at_war": _at_war(play, faction), "diplomacy": play.diplomacy,
+			"at_war": MapPlayCourt.at_war(play, faction), "diplomacy": play.diplomacy,
 			"visibility": MapPlayCourtFog.view_for(play, faction, region),
 		}
 		var muster: Vector2i = _muster_port(play, faction, region, model)
@@ -72,6 +84,8 @@ static func plan_all(
 			config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)
+		if earn:
+			_keep_extraction(plan, model)
 		_price(plan["orders"], model, works)
 		plans.append({
 			"region": region,
@@ -83,6 +97,46 @@ static func plan_all(
 			"plan": plan,
 		})
 	return plans
+
+
+## The two purses a crew reads. A hire may spend what the standing reserve
+## leaves; the works may spend down to the cash floor when the court is on
+## `earn`, because extraction is what refills the store the muster is saved for
+## (wiki: ai-architecture § Money first; issue #489). `works_floor` below zero
+## keeps both purses on the standing reserve.
+static func purses_for(treasury: int, floor: int, works_floor: int) -> Dictionary:
+	var spendable: int = int(AiClaims.purse(treasury, floor).get("treasury", 0))
+	if works_floor < 0:
+		return {"spendable": spendable, "works": spendable, "earn": false}
+	return {
+		"spendable": spendable,
+		"works": int(AiClaims.purse(treasury, works_floor).get("treasury", 0)),
+		"earn": true,
+	}
+
+
+## On `earn` only extraction is funded from the cash floor: a court that cannot
+## pay its next commitment still works the resources that refill the store, and
+## leaves the town levels, roads and ports for the turn it can pay for them
+## (issue #489).
+static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
+	var kept: Array[Dictionary] = []
+	for raw: Variant in plan.get("orders", []):
+		var order: Dictionary = raw
+		# A survey comes first: the deposit is hidden until the Explorer digs, so
+		# a prospect order never names the resource it is looking for and must
+		# not be read as a town level or a road. Dropping it left every rival
+		# with an idle Explorer for the whole campaign — and a mine is the only
+		# income a court has apart from sales (wiki: fog-and-exploration
+		# § Prospecting; issue #489).
+		if String(order.get("action", "")) == "prospect":
+			kept.append(order)
+			continue
+		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+		if tile.x < 0 or model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
+			continue
+		kept.append(order)
+	plan["orders"] = kept
 
 
 ## The material row a planned work will be charged when it is assigned, read from
@@ -196,17 +250,6 @@ static func _train(
 	return {"type_id": type_id, "unit": unit.id, "tile": tile}
 
 
-## True when any rival holds a declared war on this court: the planner's spy
-## preference reads it (wiki: civilian-units § Spies at war). No court, peace.
-static func _at_war(play: PlaySession, faction: int) -> bool:
-	if play.diplomacy == null:
-		return false
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record.at_war:
-			return true
-	return false
-
-
 ## Where this court musters a colonist: its own harbour, while it has no
 ## civilian in the other region and a squadron free to carry one. The Explorer
 ## policy holds an idle Explorer there instead of marching it off to survey
@@ -223,7 +266,7 @@ static func _muster_port(
 	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 	if _has_owner(_roster(play, other), faction):
 		return CivilianState.NO_TILE
-	if not _has_free_squadron(play, region, faction):
+	if not _hull_claimed(play, faction, region):
 		return CivilianState.NO_TILE
 	var port: int = AiColonisationPlanner.harbour(model, faction)
 	if port < 0:
@@ -232,6 +275,19 @@ static func _muster_port(
 	if data == null or data.port_tile.x < 0:
 		return CivilianState.NO_TILE
 	return data.port_tile
+
+
+## True when the court's last ledger funded the expedition's hull claim — the
+## gate the voyage now musters behind, instead of looking for a squadron a
+## second time (issue #491 T2). A court with no ledger yet (the opening turn, an
+## old save, a fixture) falls back to the free-squadron check, so the muster
+## behaves as published until the first ledger exists. A deferred claim leaves
+## the Explorer ashore, and the ledger's line already names the shortfall.
+static func _hull_claimed(play: PlaySession, faction: int, region: int) -> bool:
+	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
+	if claim.is_empty():
+		return _has_free_squadron(play, region, faction)
+	return (claim.get("funded_ids", []) as Array).has("expedition.hull")
 
 
 ## A squadron of this court that could take a colonist: hulls aloft, no troops

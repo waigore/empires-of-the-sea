@@ -11,7 +11,7 @@ const NO_ID: int = MapModel.NO_ID
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
-	"invade", "cargo",
+	"invade", "build", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -30,6 +30,7 @@ const ACTION_LABELS: Dictionary = {
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
+	"build": "hulls laid down",
 	"cargo": "cargo routes",
 }
 
@@ -41,7 +42,8 @@ static func record(
 	army_trace: Array[Dictionary],
 	fleet_trace: Array[Dictionary],
 	economy_report: Dictionary,
-	invasion_trace: Array[Dictionary] = []
+	invasion_trace: Array[Dictionary] = [],
+	objectives: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
 		"turn": play.turn,
@@ -57,8 +59,45 @@ static func record(
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
 	_record_invasion(merged, factions, invasion_trace)
+	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged
+
+
+## The turn's ledger: the caller's if one was handed in, else the pass read here
+## at turn close. T1's ledger changes no order, so reading it where the trace is
+## written is enough; T2 moves the read before the expedition pass, where its
+## claims are consulted (issue #491).
+static func _ledgers(play: PlaySession, handed_in: Dictionary) -> Dictionary:
+	if not handed_in.is_empty():
+		return handed_in
+	if play == null or play.world == null or play.diplomacy == null:
+		return {}
+	return MapPlayObjectivesAi.run(play)
+
+
+## The objective ledger's reading of one court: its footing, its money goal and
+## every ranked aim with its utility, cost, claim and deferred/blocked reason
+## (docs/ai.md; issue #491 T1). T1 records the ledger without changing an order.
+static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> void:
+	for raw: Variant in ledgers.keys():
+		var faction: int = int(raw)
+		if not factions.has(faction):
+			continue
+		var ledger: Dictionary = ledgers[raw]
+		var bucket: Dictionary = factions[faction]
+		bucket["phase"] = String(ledger.get("phase", ""))
+		bucket["goal"] = String(ledger.get("goal", ""))
+		# The court's distance to the bar and the margin it presses at
+		# (DR-20261114-04): the trace explains an endgame court's thinner storm.
+		bucket["pressure"] = (ledger.get("pressure", {}) as Dictionary).duplicate(true)
+		bucket["objectives"] = {
+			"ranked": int(ledger.get("ranked", 0)),
+			"funded": int(ledger.get("funded", 0)),
+			"blocked": int(ledger.get("blocked", 0)),
+			"rows": (ledger.get("objectives", []) as Array).duplicate(true),
+			"lines": (ledger.get("lines", []) as Array).duplicate(),
+		}
 
 
 ## Feeding coverage per crown from the resolved consumption pass; the next
@@ -252,6 +291,16 @@ static func _record_economy(
 			_bump(bucket["actions"], "train")
 			_add_event(merged, bucket, faction, "%s musters a civilian." % who)
 		_record_cargo(merged, bucket, faction, details.get("cargo", {}))
+		_record_claims(bucket, details.get("claims", []))
+
+
+## Every reservation the court claimed this turn — rations, the muster's row,
+## the works, this turn's production — with what it was granted, so the trace
+## shows the same floor every spender left (issue #491 T3).
+static func _record_claims(bucket: Dictionary, lines: Variant) -> void:
+	if typeof(lines) != TYPE_ARRAY or (lines as Array).is_empty():
+		return
+	bucket["claims"] = (lines as Array).duplicate()
 
 
 ## Cargo routes and a new hull from the yard: the colonies' left tonnage and the
@@ -274,6 +323,12 @@ static func _record_cargo(
 		_bump(bucket["actions"], "cargo")
 		_add_event(merged, bucket, faction, "%s lays down a %s for the cargo trade." % [
 			who, ShipStats.display_name(String(launch.get("type_id", ""))),
+		])
+	var warship: Dictionary = cargo.get("warship", {})
+	if not warship.is_empty():
+		_bump(bucket["actions"], "build")
+		_add_event(merged, bucket, faction, "%s lays down a %s for the fleet." % [
+			who, ShipStats.display_name(String(warship.get("type_id", ""))),
 		])
 
 

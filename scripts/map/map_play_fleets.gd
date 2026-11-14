@@ -50,12 +50,12 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 
 
 ## Whether the crown may read a squadron's fighting weight: its own squadrons
-## always, a rival's only once the watch has spanned a turn (wiki:
-## ships-and-naval § Sighted strength).
+## always, a rival's only once the watch has spanned a turn on this chart
+## (wiki: ships-and-naval § Sighted strength).
 static func strength_read(play: PlaySession, fleet: FleetState) -> bool:
 	if fleet == null or fleet.owner == play.player_faction:
 		return true
-	return play.naval_intel.is_revealed(fleet.id)
+	return play.naval_intel.is_revealed(fleet.id, play.region_index)
 
 
 ## Which squadrons in a zone the crown can weigh; an unread rival contributes
@@ -63,6 +63,16 @@ static func strength_read(play: PlaySession, fleet: FleetState) -> bool:
 static func intel_filter(play: PlaySession) -> Callable:
 	return func(other: FleetState) -> bool:
 		return strength_read(play, other)
+
+
+## What the crown's chart says of one squadron: whether she is drawn at all and,
+## for a rival, whether her weight is read. Installed on the layer so a marker
+## minted by a merge, a passage or a captured port starts where the chart stands
+## instead of handing back intel the fog withholds (wiki: ships-and-naval
+## § Sighted strength; fog-and-exploration § Visibility Levels).
+static func view_filter(play: PlaySession) -> Callable:
+	return func(fleet: FleetState) -> Dictionary:
+		return {"drawn": _known(play, fleet), "read": strength_read(play, fleet)}
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
@@ -209,6 +219,12 @@ static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void
 
 
 static func refresh_visibility(play: PlaySession) -> void:
+	if play == null or play.ship_layer == null:
+		return
+	# A marker minted later (a merge, a passage, a captured port) asks the same
+	# chart this refresh just read, so a rebuild cannot hand back what the fog
+	# withholds (wiki: ships-and-naval § Sighted strength).
+	play.ship_layer.crown_view = view_filter(play)
 	var in_view: Array[int] = []
 	for ship: Ship in play.ship_layer.ships:
 		var fleet: FleetState = play.ship_layer.fleet_of(ship)
@@ -218,14 +234,33 @@ static func refresh_visibility(play: PlaySession) -> void:
 		ship.visible = known
 		if known and fleet.owner != play.player_faction:
 			in_view.append(fleet.id)
-	# One refresh of the crown's watch: a rival seen at the last close and still
-	# under the same eye is read now, and one that slipped away is unread again
-	# (wiki: ships-and-naval § Sighted strength).
-	play.naval_intel.observe(in_view, play.turn)
+	# One refresh of the crown's watch on this chart: a rival seen at the last
+	# close and still under the same eye is read now, and one that slipped away
+	# is unread again. The other chart's watch is untouched — a rival there never
+	# left the crown's water (wiki: ships-and-naval § Sighted strength).
+	var revealed: Array[int] = play.naval_intel.observe(in_view, play.turn, play.region_index)
 	for ship: Ship in play.ship_layer.ships:
 		var fleet: FleetState = play.ship_layer.fleet_of(ship)
 		if fleet != null:
 			ship.set_intel(strength_read(play, fleet))
+	# The watch closing is a beat the court should hear: her weight appears on the
+	# plate, and a player who never saw the rule would otherwise watch a number
+	# arrive from nowhere.
+	for fleet_id: int in revealed:
+		var fleet: FleetState = FleetRosters.find(play.ship_layer.fleets, fleet_id)
+		if fleet != null and play.hud != null:
+			play.hud.toast(read_line(play, fleet))
+
+
+## "Portugal's squadron in the Mar Egeo is read — 5.5 strength.": the news the
+## closing watch earns (wiki: ships-and-naval § Sighted strength).
+static func read_line(play: PlaySession, fleet: FleetState) -> String:
+	var where: String = "at %s" % play.model.province_name(fleet.province)
+	if fleet.is_at_sea():
+		where = "in the %s" % play.model.sea_zone_name(fleet.sea_zone)
+	return "%s's squadron %s is read — %.1f strength." % [
+		FactionCatalog.name_of(fleet.owner), where, NavalStrength.strength(fleet),
+	]
 
 
 ## First sighting of a province's coast earns a quiet note, once per province.

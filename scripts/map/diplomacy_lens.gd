@@ -1,5 +1,5 @@
 class_name DiplomacyLens
-extends Node2D
+extends MapLens
 ## Diplomatic lens: a political wash over every charted province, coloured by
 ## the owner's standing toward the human court — blue for the crown's own land,
 ## green for friendly or allied courts, grey for neutral and red for those at
@@ -8,7 +8,6 @@ extends Node2D
 ## above the fog because ownership is remembered knowledge; unknown ground was
 ## already dropped by the projection.
 
-const TILE_SIZE: float = 22.0
 ## Wash strength over the terrain: strong enough to read at fit zoom, light
 ## enough that coastlines, borders and glyphs stay legible.
 const WASH_ALPHA: float = 0.70
@@ -16,16 +15,7 @@ const WASH_ALPHA: float = 0.70
 ## turn the blue band purple: the map's own ownership wash is neutralised first.
 const VEIL_ALPHA: float = 0.62
 
-var model: MapModel = null
 var state: DiplomacyState = null
-## Owning crown for the reading (Node.owner is taken, so `faction`).
-var faction: int = MapModel.NO_ID
-var visibility: VisibilityModel = null
-var active: bool = false
-## Latest `DiplomacySurvey.snapshot`; empty until built.
-var survey: Dictionary = {}
-
-var _reveal: float = 0.0
 
 
 ## Recomputes the projection. Called on region load, after diplomacy changes
@@ -45,8 +35,7 @@ func build(
 
 ## Fog changes move what the crown may read; nothing else repaints the lens.
 func watch(fog: MapOverlay) -> void:
-	if fog != null and not fog.fog_changed.is_connected(refresh):
-		fog.fog_changed.connect(refresh)
+	_watch(fog, &"fog_changed", refresh)
 
 
 func refresh() -> void:
@@ -54,40 +43,15 @@ func refresh() -> void:
 	queue_redraw()
 
 
-func set_active(value: bool) -> void:
-	if active == value:
-		return
-	active = value
-	if active:
-		refresh()
-		_reveal = 0.0
-		var tween: Tween = create_tween()
-		tween.tween_method(_set_reveal, 0.0, 1.0, 0.24).set_trans(Tween.TRANS_CUBIC)
-	queue_redraw()
-
-
-func toggle() -> void:
-	set_active(not active)
-
-
-func summary_for(province_id: int) -> String:
-	for raw: Variant in survey.get("provinces", []):
-		var entry: Dictionary = raw
-		if int(entry["id"]) == province_id:
-			return String(entry["standing"])
-	return ""
-
-
-func _set_reveal(value: float) -> void:
-	_reveal = value
-	queue_redraw()
+func _summary_of(entry: Dictionary) -> String:
+	return String(entry["standing"])
 
 
 # --- draw --------------------------------------------------------------------
 
 
 func _draw() -> void:
-	if not active or survey.is_empty() or _reveal <= 0.001:
+	if not _visible():
 		return
 	var runs: Dictionary = survey.get("runs", {})
 	for band: String in DiplomacySurvey.BANDS:

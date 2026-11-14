@@ -10,12 +10,19 @@ var agendas: Dictionary = {}
 var last_war_turn: Dictionary = {}
 ## "low:high" pair key -> turn the AI last saw an overture accept/reject.
 var last_overture_turn: Dictionary = {}
+## "low:high" pair key -> turn the AI last made peace on that pair. The truce it
+## carries afterwards reads this (docs/ai.md; issue #475).
+var last_truce_turn: Dictionary = {}
 ## "low:high" pair key -> turn the human court answered a peace offer.
 var last_peace_turn: Dictionary = {}
 ## Faction id -> that rival court's ledger (stockpile, treasury, workers).
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
+## Faction id -> the claims the objective ledger last ranked and funded, with
+## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
+## save carries the ledger the court reported.
+var objective_claims: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
@@ -66,6 +73,12 @@ func note_overture(a: int, b: int, turn: int) -> void:
 	last_overture_turn[pair_key(a, b)] = turn
 
 
+## A concluded peace starts the pair's truce: the war it ended leaves both
+## courts unwilling to fight again for `diplomacy.truce_turns` (issue #475).
+func note_truce(a: int, b: int, turn: int) -> void:
+	last_truce_turn[pair_key(a, b)] = turn
+
+
 func overture_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	var key: String = pair_key(a, b)
 	if not last_overture_turn.has(key):
@@ -91,6 +104,50 @@ static func pair_key(a: int, b: int) -> String:
 	return "%d:%d" % [mini(a, b), maxi(a, b)]
 
 
+## The turn's ledger summary for one court: what it ranked, what it funded and
+## the lines that explain the rest. Claims are per turn, so a later turn simply
+## replaces the row (docs/ai.md; issue #491 T1).
+func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
+	var lines: Array[String] = []
+	for raw: Variant in report.get("lines", []):
+		lines.append(String(raw))
+	# The ids by status let the next turn's planners consult the claim they were
+	# granted (e.g. the expedition's hull before the muster gate opens, #497).
+	var ids: Dictionary = {"funded": [], "deferred": [], "blocked": []}
+	_collect_ids(report.get("objectives", []), ids)
+	objective_claims[faction] = {
+		"turn": turn,
+		"phase": String(report.get("phase", "")),
+		"ranked": int(report.get("ranked", 0)),
+		"funded": int(report.get("funded", 0)),
+		"funded_ids": ids["funded"],
+		"deferred_ids": ids["deferred"],
+		"blocked_ids": ids["blocked"],
+		"lines": lines,
+	}
+
+
+## Walks the ledger tree and files every objective id under its status.
+static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
+	if typeof(rows) != TYPE_ARRAY:
+		return
+	for raw: Variant in rows:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var row: Dictionary = raw
+		var status: String = String(row.get("status", ""))
+		var list: Variant = ids.get(status, null)
+		if typeof(list) == TYPE_ARRAY:
+			(list as Array).append(String(row.get("id", "")))
+		_collect_ids(row.get("children", []), ids)
+
+
+## The claims this court's last turn reported, or an empty row.
+func objectives_for(faction: int) -> Dictionary:
+	var claim: Dictionary = _dictionary(objective_claims.get(faction, {}))
+	return claim
+
+
 ## Plain data for local saves. Agendas are rolled once per court and cooldowns
 ## span turns, so a load must not re-roll a hidden agenda or restart a war
 ## cooldown (wiki: hidden-agendas, diplomacy § Cooldowns).
@@ -99,8 +156,10 @@ func to_dict() -> Dictionary:
 		"agendas": agendas.duplicate(),
 		"last_war_turn": last_war_turn.duplicate(),
 		"last_overture_turn": last_overture_turn.duplicate(),
+		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
+		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
 	}
 
@@ -112,10 +171,54 @@ static func from_dict(data: Dictionary) -> AiState:
 		state.agendas[int(key)] = String(stored_agendas[key])
 	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
+	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
+	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state
+
+
+## One row per court's last ledger: turn, phase, counts and the claim lines. An
+## old save has none, so the ledger simply starts empty (issue #491 T1).
+func _claims_snapshot() -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in objective_claims.keys():
+		result[int(raw)] = _claim_row(_dictionary(objective_claims[raw]))
+	return result
+
+
+static func _claims_from(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for key: Variant in stored.keys():
+		var row: Dictionary = _claim_row(_dictionary(stored[key]))
+		if row.is_empty():
+			continue
+		result[int(key)] = row
+	return result
+
+
+## A JSON-safe claim row: the trace lines become strings, never Variants.
+static func _claim_row(claim: Dictionary) -> Dictionary:
+	if claim.is_empty():
+		return {}
+	var lines: Array[String] = []
+	for raw: Variant in claim.get("lines", []):
+		lines.append(String(raw))
+	var row: Dictionary = {
+		"turn": int(claim.get("turn", 0)),
+		"phase": String(claim.get("phase", "")),
+		"ranked": int(claim.get("ranked", 0)),
+		"funded": int(claim.get("funded", 0)),
+		"lines": lines,
+	}
+	for key: String in ["funded_ids", "deferred_ids", "blocked_ids"]:
+		var ids: Array[String] = []
+		for raw: Variant in claim.get(key, []):
+			ids.append(String(raw))
+		row[key] = ids
+	return row
 
 
 ## One snapshot per rival ledger, keyed by faction id. Missing factions are

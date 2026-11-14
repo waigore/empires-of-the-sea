@@ -6,19 +6,34 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
+## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`).
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var pristine_map: Array = []
 var _screen: MapScreen = null
 
 
+func before_all() -> void:
+	pristine_map = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
+
+
 func before_each() -> void:
-	_screen = Fixture.attach_screen(self)
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_screen = mounted
 
 
-func after_each() -> void:
-	# Free immediately: queue_free leaves prior screens processing fog/ships and
-	# starves the suite under coverage (process timeout).
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
+
 
 func test_civilians_muster_at_the_capital() -> void:
 	assert_eq(
@@ -61,6 +76,33 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	assert_true(builder.is_idle())
 
 
+## A wall is the one work whose completion changes how the province is fought
+## over, so the despatch names the level raised and the battery it mounts — a
+## crown that spent its materials and a turn learns what it bought (wiki:
+## siege-mechanics § Fort Levels, § Emplaced Artillery; REQ-P5-05).
+func test_a_finished_fort_names_the_wall_it_raised() -> void:
+	var engineer: CivilianState = null
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "engineer":
+			engineer = unit
+			break
+	assert_true(engineer != null, "the crown keeps an Engineer")
+	var province: int = _screen.model.province_at(engineer.tile.x, engineer.tile.y)
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["bronze"] = 12
+	_screen.civilian_layer.select(engineer)
+
+	MapPlayCivilians.on_action(_screen.play, "build_fort")
+	assert_true(engineer.is_working(), "the order is taken from the dossier")
+	MapPlayTurn.end_turn(_screen.play)
+	Fixture.settle(_screen.play)
+
+	assert_eq(FortRules.level_at(_screen.model, province), 1)
+	var said: String = _toast_text()
+	assert_true(said.contains("wood fort raised"), said)
+	assert_true(said.contains("1 emplaced gun"), said)
+
+
 ## The hire is a BuildUnitOrder: the press queues it, and Build/work pays the
 ## 1,000 ducats and 2 paper and musters the explorer that turn
 ## (wiki: civilian-units § Training; workers-and-population § Phase placement).
@@ -100,7 +142,7 @@ func test_a_turn_delivers_every_queued_recruit_and_the_gazette_names_them() -> v
 	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
 	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	MapPlayInput.on_panel_action(play, "train_explorer")
 	MapPlayArmyMuster.recruit(play, "peasant_levies")
 	MapPlayFleetYard.launch(play, "carrack")
@@ -180,7 +222,7 @@ func test_a_worker_order_the_ledger_cannot_pay_is_refused() -> void:
 	var economy: PlayerEconomy = play.economy.economy
 	economy.stockpile["fabric"] = 2
 	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
-	_screen.economy._on_worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	economy.stockpile["fabric"] = 0
 	var toasts: int = _screen.hud._toast_box.get_child_count()
 
@@ -337,15 +379,15 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 
 
 func test_empire_counters_survive_a_region_switch() -> void:
-	var ships: int = _screen.economy.fleet_ships()
+	var ships: int = _screen.economy.readings.fleet_ships()
 	assert_gt(ships, 0)
 	_screen._cycle_region()
-	assert_eq(_screen.economy.fleet_ships(), ships, "navy upkeep follows the empire")
+	assert_eq(_screen.economy.readings.fleet_ships(), ships, "navy upkeep follows the empire")
 	assert_eq(_screen.hud._fleet_label.text, str(ships))
 	assert_eq(
 		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
-	var need: int = int(_screen.economy.projected()["consumption"]["navy_demand"])
+	var need: int = int(_screen.economy.readings.projected()["consumption"]["navy_demand"])
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
 
 
@@ -604,9 +646,10 @@ func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 
 
 func test_setup_leader_choice_reaches_land_combat() -> void:
-	_screen.free()
-	_screen = Fixture.attach_screen(self, 2, "napoleon")
-	var play: PlaySession = _screen.play
+	# A second crown's opening, on its own screen: the suite's shared chart keeps
+	# the fixture's seat for every other case.
+	var chosen: MapScreen = Fixture.attach_screen(self, 2, "napoleon")
+	var play: PlaySession = chosen.play
 	assert_eq(play.player_faction, 2)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "the human crown keeps its choice")
 	var context: Dictionary = MapPlayLandTurn.battle_context(play)
@@ -615,6 +658,7 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	MapPlayTurn.end_turn(play)
 	Fixture.settle(play)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
+	chosen.free()
 
 
 func test_the_home_fleet_carries_a_field_army_across_its_port() -> void:
@@ -841,3 +885,20 @@ func _buildable_owned_resource_tile() -> Vector2i:
 				continue
 			return tile
 	return Vector2i(-1, -1)
+
+
+## Everything the court has been told this turn, as the toast box holds it.
+func _toast_text() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	_collect(_screen.hud._toast_box, parts)
+	return " | ".join(parts)
+
+
+func _collect(node: Node, out: PackedStringArray) -> void:
+	if node == null:
+		return
+	var label: Label = node as Label
+	if label != null and not label.text.is_empty():
+		out.append(label.text)
+	for child: Node in node.get_children():
+		_collect(child, out)

@@ -131,10 +131,7 @@ func refresh(
 		_location.text = "At sea · %s" % model.sea_zone_name(fleet.sea_zone)
 	else:
 		_location.text = "In port · %s" % model.province_name(fleet.province)
-	_ships.text = "%d %s · %s · upkeep %d food" % [
-		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
-		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
-	]
+	_ships.text = _muster_line(fleet, is_player, strength)
 	# A home fleet's holds are the reason to merge into her: show them here.
 	if bool(merge.get("home", false)):
 		_ships.text += " · %s" % String(merge.get("holds_text", ""))
@@ -150,6 +147,19 @@ func refresh(
 	_crew.set_data(crew)
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
 	_show_yard(yard_rows, merge)
+
+
+## The composition line under the title: count, hull types and the upkeep they
+## eat. A rival the crown has sighted but not read keeps her muster to herself —
+## no count, no types, no bill — while the map's hull badge stays off her marker
+## (wiki: ships-and-naval § Sighted strength).
+func _muster_line(fleet: FleetState, is_player: bool, strength: Dictionary) -> String:
+	if not is_player and not bool(strength.get("known", true)):
+		return "??? hulls — the fog has not yet given up her muster."
+	return "%d %s · %s · upkeep %d food" % [
+		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
+		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
+	]
 
 
 ## The status and hint lines: what the squadron may still do this turn. One
@@ -214,9 +224,14 @@ func refresh_slip(
 		return
 	_fleet = null
 	_is_player = is_player
-	_header.flag.color = Palette.faction_color(FactionCatalog.PLAYER_FACTION)
-	_header.title.text = "SHIPYARD OF %s" % (
-		FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION).to_upper())
+	# The yard belongs to the crown that holds the province, not to the legacy
+	# default: a court sailing as England reads her own name over her slip
+	# (wiki: game-setup § Human/AI slot assignment; REQ-P2-03).
+	var crown: int = model.province_owner(province_id)
+	if crown == MapModel.NO_ID:
+		crown = FactionCatalog.PLAYER_FACTION
+	_header.flag.color = Palette.faction_color(crown)
+	_header.title.text = "SHIPYARD OF %s" % FactionCatalog.name_of(crown).to_upper()
 	_location.text = "At %s · capital port" % model.province_name(province_id)
 	_ships.text = "No home fleet — your first launch founds one."
 	_strength.set_data({})

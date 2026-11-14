@@ -4,7 +4,7 @@ extends GdToolsTest
 
 ## Merged from test_fort_rules, test_siege_depth, test_hospital_rules,
 ## test_army_field_rules, test_army_regiment_names, test_military_parity,
-## test_difficulty, test_quick_battle_rules.
+## test_difficulty, test_quick_battle_rules, test_army_markers.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const ArmyFixture = preload("res://tests/army_fixture.gd")
@@ -234,6 +234,53 @@ func test_engineer_raises_a_fort_and_lays_materials_down() -> void:
 	CivilianWork.resolve_turn(model, units, works)
 	assert_eq(model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level, 1)
 	assert_true(engineer.is_idle())
+
+
+## The order names the wall it buys. Three fort levels share one order name,
+## three prices and three waits, so "Build fort" cannot be told from "Build
+## fort" for a higher wall (wiki: siege-mechanics § Fort Levels), and the turn
+## that finishes it says which level was raised.
+func test_the_fort_order_names_its_level_and_its_raise() -> void:
+	_setup_fort_rules()
+	var model := CivilianFixture.build()
+	var works := LandWorks.new()
+	var engineer := CivilianFixture.unit("engineer", CivilianFixture.BARE_TILE)
+	var units: Array[CivilianState] = [engineer]
+	var stock: Dictionary = CivilianFixture.stockpile()
+
+	var option: Dictionary = _fort_option(
+		CivilianWork.options(model, engineer, works, units, stock)
+	)
+	assert_eq(String(option["label"]), "Build wood fort")
+	assert_eq(String(option["cost_text"]), "3 lumber + 3 bronze · 1 turn")
+
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, "build_fort", works, units, stock
+	)
+	assert_eq(String(result["label"]), "Build wood fort", "the order names the level")
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(model, units, works)
+	assert_eq(int(reports[0].get("fort_level", 0)), 1, "the report carries the level raised")
+	assert_eq(
+		FortRules.raise_text(1), "wood fort raised · 10 wall hp · 1 emplaced gun",
+		"the despatch names the wall, not just the order"
+	)
+
+	# A stone wall is a different order: its own level, its own two turns.
+	model.get_province(CivilianFixture.PLAYER_PROVINCE).fort_level = 1
+	var upper: Dictionary = _fort_option(
+		CivilianWork.options(
+			model, engineer, works, units, stock, null, {}, {"mine_engineering": true}
+		)
+	)
+	assert_eq(String(upper["label"]), "Build stone fort")
+	assert_eq(String(upper["cost_text"]), "4 lumber + 4 bronze · 2 turns")
+
+
+func _fort_option(options: Array[Dictionary]) -> Dictionary:
+	for option: Dictionary in options:
+		if String(option["action"]) == "build_fort":
+			return option
+	return {}
 
 func test_upgrades_need_their_tech_and_stop_at_the_ceiling() -> void:
 	_setup_fort_rules()
@@ -3335,3 +3382,68 @@ func _cp_spent(round: Dictionary, side: int) -> int:
 			continue
 		spent += int(QuickBattleActions.ACTION_CP.get(String(entry["action"]), 0))
 	return spent
+
+# --- from test_army_markers.gd ---
+## ArmyMarkers and ArmyMuster leave ArmyLayer.
+## ArmyMarkers and ArmyMuster leave ArmyLayer: marker mint/clear/place and
+## opening Home Army rosters stay testable without the map screen (REQ-P3-01,
+## REQ-P3-04).
+
+
+func test_muster_builds_a_home_army_per_capital() -> void:
+	var model := MapModel.new()
+	model.region_id = 0
+	model.faction_ids = [0, 1]
+	var seat_a := ProvinceState.new()
+	seat_a.id = 0
+	seat_a.owner = 0
+	seat_a.capital = true
+	seat_a.center = Vector2(1, 1)
+	var seat_b := ProvinceState.new()
+	seat_b.id = 1
+	seat_b.owner = 1
+	seat_b.capital = true
+	seat_b.center = Vector2(2, 2)
+	model.provinces = [seat_a, seat_b]
+	var muster := ArmyMuster.new()
+	var armies: Array[ArmyState] = muster.build(model)
+	assert_eq(armies.size(), 2)
+	assert_true(armies[0].is_home_army())
+	assert_true(armies[1].is_home_army())
+	assert_eq(armies[0].count(), ArmyMuster.GREAT_POWER_ROSTER.size())
+	assert_eq(muster.next_army, 3)
+
+
+func test_markers_mint_place_and_drop() -> void:
+	var model := MapModel.new()
+	model.region_id = 0
+	var province := ProvinceState.new()
+	province.id = 0
+	province.owner = 0
+	province.capital = true
+	province.center = Vector2(3, 4)
+	model.provinces = [province]
+	var army := ArmyState.muster(1, 0, 0, true, ["peasant_levies", "pikemen"], 10)
+	var helpers := ArmyMarkers.new()
+	helpers.model = model
+	var marker: ArmyMarker = helpers.make(army)
+	assert_not_null(marker)
+	assert_eq(helpers.markers.size(), 1)
+	helpers.place_all([army])
+	assert_eq(marker.position, province.center * ArmyMarkers.TILE_SIZE)
+	helpers.refresh(army)
+	assert_eq(helpers.find_army(army), marker)
+	helpers.remove(marker)
+	assert_eq(helpers.markers.size(), 0)
+	assert_null(helpers.find(1))
+
+
+func test_roster_counts_every_region() -> void:
+	var regions := MapRegionTable.new()
+	var home := ArmyState.muster(1, 0, 0, true, ["peasant_levies", "pikemen"], 10)
+	var field := ArmyState.muster(2, 0, 1, false, ["bowmen"], 20)
+	regions.set_region(0, [home])
+	regions.set_region(1, [field])
+	assert_eq(ArmyRoster.count_all(regions, 0), 3)
+	assert_eq(ArmyRoster.count_all(regions, 1), 0)
+	assert_true(ArmyRoster.food_upkeep_all(regions, 0) > 0)

@@ -190,6 +190,22 @@ static func frontier_hostile(
 	return frontier
 
 
+## True when a hostile army already stands in one of this court's own provinces:
+## the land war is on its soil, so no regiment may leave for the Passage
+## (DR-20261113-19).
+static func invader_on_home_soil(
+	model: MapModel, owner: int, armies: Array, state: DiplomacyState
+) -> bool:
+	var hostile: Dictionary = _hostile_owners(state, owner)
+	for raw: Variant in armies:
+		var army: ArmyState = raw
+		if army == null or army.is_empty() or army.owner == owner:
+			continue
+		if hostile.has(army.owner) and model.province_owner(army.province) == owner:
+			return true
+	return false
+
+
 ## Own provinces on the hostile border: where a field army stages before it can
 ## storm an adjacent hostile province.
 static func _staging_provinces(

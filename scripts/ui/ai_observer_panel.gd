@@ -236,13 +236,18 @@ func _refresh_card(row: Dictionary) -> void:
 		String(row["name"]), "" if bool(row["alive"]) else " (fallen)",
 	]
 	var progress: Label = card["progress"]
-	progress.text = "%d/%d" % [
+	# A court that can see the bar presses for it (DR-20261114-04): the reading
+	# sits beside its standing so the observer sees the endgame coming.
+	progress.text = "%d/%d%s" % [
 		int(row["provinces_old"]), VictoryRules.MILITARY_THRESHOLD,
+		"  ·  pressing" if AiVictoryPressure.presses(
+			String(row.get("pressure_stage", ""))
+		) else "",
 	]
 	var meta: Label = card["meta"]
-	meta.text = "%s  ·  %s  ·  %s  ·  %s" % [
+	meta.text = "%s  ·  %s  ·  %s  ·  %s  ·  %s" % [
 		String(row["leader"]), String(row["agenda"]), String(row["profile"]),
-		String(row["posture"]),
+		String(row["posture"]), String(row["intent"]),
 	]
 	var wars: Array = row["wars"]
 	var stats: Label = card["stats"]

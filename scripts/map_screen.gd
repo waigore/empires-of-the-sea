@@ -1,8 +1,9 @@
 class_name MapScreen
 extends Node2D
-## Map screen controller: builds the world, wires camera + HUD, and turns input
-## into intents. Presentation only — no rule outcomes are decided here.
-## Play steps live on MapPlay* against PlaySession (REQ-P3-02).
+## Map screen host: builds the world, hands the camera + HUD to the session and
+## turns input into intents. Presentation only — no rule outcomes are decided
+## here. Region mounting is MapPlayRegion's, view wiring MapPlayWiring's, and
+## play steps live on MapPlay* against PlaySession (REQ-P3-02).
 ## Presentation moments are broadcast as signals; audio/motion listen.
 
 signal province_selected(province_id: int)
@@ -21,12 +22,14 @@ signal load_slot_requested(slot: int)
 signal main_menu_requested
 
 const TILE_SIZE: float = PlaySession.TILE_SIZE
-const MAP_SEED: int = 1500
+## The chart recipe seed and the opening roster live with the mount owner; kept
+## here for callers/tests that still name the screen.
+const MAP_SEED: int = MapPlayRegion.MAP_SEED
 ## Kept for callers/tests that assume the default human slot; the live value is
 ## play.player_faction.
 const PLAYER_FACTION: int = FactionCatalog.PLAYER_FACTION
-const SHIP_COUNT: int = 7
-const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
+const SHIP_COUNT: int = MapPlayRegion.SHIP_COUNT
+const STARTING_CIVILIANS: Array[String] = MapPlayRegion.STARTING_CIVILIANS
 
 var play: PlaySession = null
 var map_seed: int = MAP_SEED
@@ -148,6 +151,7 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	play = PlaySession.new()
 	play.bind_host(self)
+	play.pause_menu = game_menu
 	play.observer_mode = observer_mode
 	play.bind_views(
 		ship_layer, civilian_layer, army_layer, canvas, overlay, camera, hud, improvements,
@@ -232,133 +236,23 @@ func _notification(what: int) -> void:
 
 
 ## Swap the view onto one region: canvas, fog, units, works, minimap, camera.
+## The host keeps the name (session, tests and the warp step call it); the
+## mounting itself belongs to MapPlayRegion.
 func load_region(index: int) -> void:
-	play.region_index = clampi(index, 0, play.world.region_count() - 1)
-	play.model = play.world.region(play.region_index)
-	civilian_layer.viewer_faction = play.player_faction
-	ship_layer.world = play.world
-	var map_size: Vector2 = MapGeo.world_size(play.model, TILE_SIZE)
-	var margin: float = 1400.0
-	sea_backdrop.position = Vector2(-margin, -margin)
-	sea_backdrop.size = map_size + Vector2(margin, margin) * 2.0
-	if sea_backdrop.material is ShaderMaterial:
-		var shader: ShaderMaterial = sea_backdrop.material
-		shader.set_shader_parameter("world_size", sea_backdrop.size)
-	play.capital_province = MapPlaySetup.find_capital(play)
-	play.capital_tile = play.model.capital_tile_of(play.capital_province)
-	# Prepare works first so the post-pass can wire them before units muster.
-	if not play.bootstrapped_regions.has(play.region_index):
-		civilian_layer.spawn(
-			play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS, false
-		)
-		MapPlaySetup.bootstrap_region(play)
-	canvas.build(play.model, play.world)
-	overlay.build(play.model)
-	ship_layer.spawn(
-		play.model, SHIP_COUNT, MAP_SEED + 3 + play.region_index, play.capital_province,
-		play.player_present(), play.player_faction
-	)
-	army_layer.spawn(play.model)
-	civilian_layer.spawn(play.model, play.capital_province, play.player_faction, STARTING_CIVILIANS)
-	play.land_works = civilian_layer.works
-	camera.configure(map_size)
-	MapPlaySetup.build_visibility(play)
-	MapPlayCourtFog.build(play)
-	overlay.snap_fog()
-	MapPlayFleets.refresh_visibility(play)
-	MapPlayArmies.refresh_visibility(play)
-	MapPlaySetup.build_lens(play)
-	MapPlaySetup.refresh_region_hud(play, map_size)
+	MapPlayRegion.mount(play, sea_backdrop, index)
 
 
 ## Cycles Old World -> New World and back. Intents never change rules state.
 func _cycle_region() -> void:
-	if play.world == null or play.world.region_count() < 2:
-		return
-	MapPlayInput.deselect(play)
-	load_region((play.region_index + 1) % play.world.region_count())
-	MapPlayDiplomacy.sync_first_contact(play)
-	MapPlayDiplomacy.refresh(play)
-	camera.focus_on(MapPlaySetup.capital_world(play), maxf(camera.target_zoom, 0.75))
-	RegionBriefing.arrival(hud, play.model, play.region_index)
-	MapPlayInput.on_view_changed(play)
+	MapPlayRegion.cycle(play, sea_backdrop)
 
 
+## Every view signal names its owner in MapPlayWiring; the screen keeps the
+## pause menu's seals and the region seal, which parks the frame around the
+## mounted chart.
 func _connect() -> void:
-	camera.tapped.connect(func(p: Vector2) -> void: MapPlayInput.on_tapped(play, p))
-	camera.view_changed.connect(func() -> void: MapPlayInput.on_view_changed(play))
-	hud.end_turn_pressed.connect(func() -> void: MapPlayTurn.end_turn(play))
-	hud.zoom_in_pressed.connect(camera.zoom_in)
-	hud.zoom_out_pressed.connect(camera.zoom_out)
-	hud.minimap_jump.connect(
-		func(p: Vector2) -> void: MapPlayInput.on_minimap_jump(play, p)
-	)
+	MapPlayWiring.connect_views(play)
 	hud.region_toggle_pressed.connect(_cycle_region)
-	# The bar's one lens seal speaks through GameHud's cycle/menu signals (the
-	# seal is the screen's only lens control now, so L/P stay pure shortcuts).
-	hud.focus_capital_pressed.connect(func() -> void:
-		MapPlaySetup.focus_capital(play)
-	)
-	hud.diplomacy_pressed.connect(func() -> void:
-		MapPlayDiplomacy.open(play)
-	)
-	hud.diplomacy_order.connect(func(kind: String, target: int, arg: String) -> void:
-		MapCourtOrders.apply(play, kind, target, arg)
-	)
-	hud.panel_action.connect(func(action: String) -> void:
-		MapPlayInput.on_panel_action(play, action)
-	)
-	hud.panel_closed.connect(func() -> void: MapPlayInput.deselect(play))
-	ship_layer.zone_entered.connect(func(zone_id: int, ship: Ship) -> void:
-		MapPlayFleets.on_zone_entered(play, zone_id, ship)
-	)
-	ship_layer.ship_selected.connect(func(ship: Ship) -> void:
-		MapPlayFleets.select(play, ship)
-	)
-	ship_layer.fleet_moved.connect(func(fleet: FleetState, result: Dictionary) -> void:
-		MapPlayFleets.on_moved(play, fleet, result)
-	)
-	ship_layer.warp_crossed.connect(func(fleet: FleetState, result: Dictionary) -> void:
-		MapPlayWarp.on_crossed(play, fleet, result)
-	)
-	army_layer.army_selected.connect(func(army: ArmyState) -> void:
-		if army != null:
-			MapPlayArmies.select(play, army)
-		else:
-			play.hud.panels.hide_army()
-	)
-	army_layer.army_moved.connect(func(army: ArmyState, result: Dictionary) -> void:
-		MapPlayArmies.on_moved(play, army, result)
-	)
-	hud.army_action.connect(func(action: String) -> void:
-		MapPlayArmies.on_action(play, action)
-	)
-	hud.army_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
-	hud.fleet_closed.connect(func() -> void: MapPlayInput.deselect(play))
-	hud.fleet_action.connect(func(action: String) -> void: MapPlayFleets.on_action(play, action))
-	civilian_layer.unit_selected.connect(func(unit: CivilianState) -> void:
-		MapPlayCivilians.select(play, unit)
-	)
-	civilian_layer.unit_moved.connect(func(unit: CivilianState, result: Dictionary) -> void:
-		MapPlayCivilians.on_moved(play, unit, result)
-	)
-	hud.civilian_action.connect(func(action: String) -> void:
-		MapPlayCivilians.on_action(play, action)
-	)
-	hud.civilian_cancel.connect(func() -> void:
-		MapPlayCivilians.on_cancel(play)
-	)
-	hud.civilian_closed.connect(func() -> void:
-		MapPlayInput.deselect(play)
-	)
-	improvements.action_pressed.connect(func(action: String, tile: Vector2i) -> void:
-		MapPlayImprovements.on_action(play, action, tile)
-	)
-	improvements.focus_pressed.connect(func(tile: Vector2i) -> void:
-		MapPlayImprovements.on_action(play, "focus", tile)
-	)
 	game_menu.save_chosen.connect(_on_save_chosen)
 	game_menu.load_chosen.connect(_on_load_chosen)
 	game_menu.main_menu_chosen.connect(func() -> void: main_menu_requested.emit())
@@ -376,7 +270,7 @@ func _on_load_chosen(slot: int) -> void:
 ## Full-AI observatory: hide human chrome, seal saving, mount metrics (REQ-P5-02).
 func _setup_observer() -> void:
 	hud.visible = false
-	game_menu.trigger.visible = false  # panel owns the pause door
+	game_menu.door.seal()  # panel owns the pause door
 	game_menu.save_button.disabled = true
 	var panel := AiObserverPanel.new()
 	panel.name = "AiObserver"
@@ -388,11 +282,4 @@ func _setup_observer() -> void:
 
 ## Ownership changed outside the map layers (Join Empire): redraw politics.
 func refresh_political_map() -> void:
-	if play == null or play.model == null:
-		return
-	canvas.build(play.model, play.world)
-	overlay.build(play.model)
-	MapPlaySetup.build_lens(play)
-	if play.visibility != null:
-		overlay.sync_visibility(play.visibility)
-	MapPlaySetup.refresh_region_hud(play, MapGeo.world_size(play.model, TILE_SIZE))
+	MapPlayRegion.refresh_political(play)

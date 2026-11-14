@@ -23,22 +23,17 @@ static func capital_world(play: PlaySession) -> Vector2:
 	return MapGeo.world_size(play.model, PlaySession.TILE_SIZE) * 0.5
 
 
+## Builds the HUD against a region `load_region` has just painted: the chips,
+## minimap and chart readings are already there (`refresh_region_hud`), so this
+## creates the economy and fills the values the region load could not know
+## (turn, treasury, income, improvements, dossier, lens wiring).
 static func build_hud(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	HudChrome.set_nation(hud, FactionCatalog.name_of(play.player_faction))
-	HudChrome.set_region_label(
-		hud, FactionCatalog.region_label(play.region_index), play.world.region_count() > 1
-	)
-	hud.set_minimap(
-		play.model, MapGeo.world_size(play.model, PlaySession.TILE_SIZE), play.visibility
-	)
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	# The Gazette's cartouche seal reopens the crown's news and its archive at
 	# any time (wiki: the-gazette).
 	hud.gazette_pressed.connect(func() -> void: MapPlayGazette.open_archive(play))
-	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
-	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	if hud.civilian_roster != null:
 		hud.civilian_roster.bind(play)
 	if hud.muster_roll != null:
@@ -62,12 +57,12 @@ static func build_hud(play: PlaySession) -> void:
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
 	MapPlayFocus.bind(play)
+	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
 	refresh_dossier(play)
-	build_lens(play)
 	# One seal now: the click walks the readings and the menu names one, so the
 	# screen keeps a single path for all four lenses (REQ-P5-03).
 	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
@@ -158,6 +153,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	play.refresh_research()
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
+	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
