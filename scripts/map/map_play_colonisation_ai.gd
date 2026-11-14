@@ -124,6 +124,7 @@ static func _apply(
 				return {}
 			CivilianVoyageMap.hide(play.civilian_layer, unit)
 			entry["unit"] = unit.id
+			entry["province_name"] = model.province_name(fleet.province)
 		"sail":
 			var zone: int = int(order.get("zone", -1))
 			var sailed: Dictionary = NavalMovement.apply_move(
@@ -166,6 +167,9 @@ static func _apply(
 			CivilianVoyageMap.show_ashore(play.civilian_layer, unit)
 			entry["unit"] = unit.id
 			entry["tile"] = tile
+			entry["province_name"] = model.province_name(
+				model.province_at(tile.x, tile.y)
+			)
 		_:
 			return {}
 	entry["ok"] = true
