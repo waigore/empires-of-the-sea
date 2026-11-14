@@ -102,6 +102,7 @@ static func _readings(
 		"ships": MapPlayCourt.ships(play, faction),
 		"warships": warships,
 		"warship_price": AiNavy.price(economy),
+		"warship_row": AiNavy.saving_row(economy),
 		"navy_due": hull_chest > 0,
 		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
 		"hostile_warships": hostile_warships,
@@ -131,11 +132,13 @@ static func _readings(
 
 
 ## The pools the allocate pass draws on. A pool is a per-turn grant: one order,
-## one train slot, one muster slot, and the purse as it stands.
+## one train slot, one muster slot, and the purse as it stands. The hull's
+## material row is bounded by the store, so a fleet claim short of cloth reads
+## `deferred fabric 0/1` instead of funded against an unlimited pool (issue #484).
 static func _pools(
 	play: PlaySession, faction: int, economy: PlayerEconomy, readings: Dictionary
 ) -> Dictionary:
-	return {
+	var pools: Dictionary = {
 		"treasury": maxi(economy.treasury, 0),
 		"hull": int(readings["idle_hulls"]),
 		"civilian": 1,
@@ -143,6 +146,9 @@ static func _pools(
 		"labour": economy.available_peasants(),
 		"orders": 1,
 	}
+	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
+		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
+	return pools
 
 
 ## War desire against the court's enemy, else against the weakest Great Power —

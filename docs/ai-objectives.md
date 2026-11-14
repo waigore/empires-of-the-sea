@@ -14,8 +14,8 @@ stay in the wiki; this page is the shipped slice and its migration steps.
 | `AiClaims` | reservation primitive: commodity claims against the stockpile |
 | `MapPlayObjectivesAi` | per-court adapter; stamps the ledger into the turn trace |
 
-Costs name six resources (`treasury, hull, civilian, regiment, labour, orders`)
-plus any commodity a reservation claims; named resources print first.
+Costs name six resources plus any commodity a reservation claims; named
+resources print first.
 
 ## Turn
 
@@ -40,24 +40,25 @@ colony muster gate reads the funded hull claim
 
 `AiPosture` turns footing into a per-mille vector (`posture.war_boost`,
 `posture.war_expansion`, `posture.fronts_expansion`) × leader domain weights
-(`posture.weight_step`, floor `posture.floor`) — scaled, never zeroed. A parent
-with a starved child, or whose required aim deferred (`requires`), is deferred
-and names what it waited on. A funded `colonise.new_world` opens the muster even
+(`posture.weight_step`, floor `posture.floor`) — scaled, never zeroed. A parent with a starved child, or a
+deferred required aim (`requires`), names what it waited on. A funded `colonise.new_world` opens the muster even
 at war: the peace window bought it.
 
 ## The navy's build leg
 
 `navy.build` funds at war with no fighting hull or an outmatched coast (utility
-90 / 70 vs a sortie's 60) at the cheapest open warship (`treasury` + one `hull`
-slip). `MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop
-of War for the fleet"); peace prices no yard.
+90 / 70 vs a sortie's 60) at the cheapest open warship: its `treasury` chest and
+the hull's material row, both held by `AiClaims.NAVY`.
+`MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop of War
+for the fleet"); peace prices no yard.
 
 ## Reservations as claims
 
-`AiClaims` ranks the ration consumption eats, the next regiment, planned works
-and this turn's production against the stockpile; the market reads their merged
-grant (same dictionary, trade behaviour-identical), the civilian purse is one
-treasury claim, and the turn record keeps `claims` beside ledger lines.
+`AiClaims` ranks the ration consumption eats, the next regiment, the saving
+hull's row, planned works and this turn's production against the stockpile; the
+market reads their merged grant (same dictionary, trade behaviour-identical),
+the civilian purse is one treasury claim, and the turn record keeps `claims`
+beside ledger lines.
 
 ## The colony
 
