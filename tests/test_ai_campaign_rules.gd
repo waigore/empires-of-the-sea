@@ -1332,6 +1332,29 @@ func test_a_saving_rival_grants_no_aid_and_names_the_reserve_it_keeps() -> void:
 		"the refusal names the reserve the court keeps",
 	)
 
+
+## A fleetless court saving for its yard does not gift the chest as aid — the
+## diplomacy pass reads the same hull claim the money goal reserves (#484, #580).
+func test_a_fleetless_court_saving_for_a_hull_grants_no_aid() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	var economy: PlayerEconomy = ai_diplomacy_offers_ai_state.economy_for(2)
+	economy.treasury = 4000
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = ShipEconomy.treasury_cost("sloop")
+	var result: Dictionary = _run(
+		[0, 2, 3, 3, 3, 3], [], 1, {}, {2: chest}, {2: 0}
+	)
+	assert_false(_event("grantAid"), "the yard chest is not gifted away")
+	assert_ne(String(_action(result, 2).get("kind", "")), AiDiplomacyOffers.KIND_AID)
+	assert_eq(int(_record(result, 2)["income"]["reserve"]), chest)
+	assert_eq(
+		_offer_blocked(_record(result, 2), AiDiplomacyOffers.KIND_AID),
+		"the court is saving for its reserve (%d)" % chest,
+	)
+
 func test_a_saving_rival_sets_no_subsidy() -> void:
 	_setup_ai_diplomacy_offers()
 	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
@@ -1568,13 +1591,19 @@ func _utility_of(entries: Array[Dictionary], kind: String) -> int:
 	return -1
 
 ## Opens the turn pass with the given relation scores applied (default 50).
-func _run(world: Array[int], scores: Array, turn: int, regiments: Dictionary = {}) -> Dictionary:
+func _run(
+	world: Array[int], scores: Array, turn: int, regiments: Dictionary = {},
+	hull_chests: Dictionary = {}, warships: Dictionary = {}
+) -> Dictionary:
 	for entry: Array in scores:
 		ai_diplomacy_offers_state.ensure_relation(int(entry[0]), int(entry[1]), turn)
 		ai_diplomacy_offers_state.relation(int(entry[0]), int(entry[1])).score = float(entry[2])
 	return AiTurn.run(
 		ai_diplomacy_offers_state, ai_diplomacy_offers_AiFixture.world(world), ai_diplomacy_offers_ai_state, turn, 0, 1500,
-		{"regiments": regiments, "ships": {}}
+		{
+			"regiments": regiments, "ships": {},
+			"hull_chests": hull_chests, "warships": warships,
+		}
 	)
 
 ## A New World region (every tile unknown at setup) holding one Tribe province

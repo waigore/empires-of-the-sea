@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:e83fcaf552f5084d164782ddde7e754fd2010c7bc9162465cfb68607f16d835c",
-  "submission_git": "refactor/ai-civilian-candidate-rank@9cf0f0a5",
+  "submission_hash": "sha256:1ab0be5b75249d882705e118cf891fac73d1bde9afd57a6b194c0226a4172e64",
+  "submission_git": "fix/484-yard-chest-aid@9aa5fa2e",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:06cad8825bcab9b37aedaf9fe48b1aab05a630f211cf1a044a23c74ecdf51341",
+    "ai_surface_hash": "sha256:2ae2f80ef34f3c0af05a9c47a70887c756bbfda8514bda865ac6cc553072b6a7",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 23,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T14:53:40Z",
+  "timestamp": "2026-11-14T15:05:21Z",
   "report_version": 1,
-  "signature": "hmac-sha256:b6bd42f92b5ac5ac10be362c6101f7b4f31177ef1c7652f506bb7504372feac5"
+  "signature": "hmac-sha256:2805fe9bb6e5c991211961dc6dca2b1163f76b7953118ac877d7de700a1abd83"
 }
