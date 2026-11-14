@@ -1,0 +1,93 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
+  "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
+  "submission_hash": "sha256:1ef48164884f6516e6c793370434cd1b32a4622a037a8dbef687bf7147264d4e",
+  "submission_git": "feat/colony-door@3e9ad07",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 3862.205882352941,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 31.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 4.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 69.72502805836139,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:e3067e01f4efdfed383f141d9ef2945aa44496051f4799b9aaaab1e5dd044a2f",
+    "parts": {
+      "provinces_old": 31,
+      "provinces_new": 0,
+      "regiments": 2,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 2.3529411764705883,
+      "income_per_turn": 197.5,
+      "funded_pct": 69.72502805836139
+    },
+    "early_win": true,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 36,
+    "resolved_turns": 36,
+    "funded_pct": 69.72502805836139
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-14T00:03:19Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:43739192cfad0dc3ae747a166946da42e198c01335b18a34e74ea569b2254f5e"
+}

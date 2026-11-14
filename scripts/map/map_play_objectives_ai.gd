@@ -66,7 +66,12 @@ static func _readings(
 ) -> Dictionary:
 	var at_war: bool = AiIncome.at_war(play.diplomacy, faction)
 	var regiments: int = MapPlayCourt.regiments(play, faction)
-	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments)
+	# The hull this court means to lay: the yard row its money goal reserves
+	# alongside the next muster (issue #484).
+	var warships: int = MapPlayCourt.warships(play, faction)
+	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
+	var hull_chest: int = AiNavy.chest(at_war, warships, hostile_warships, economy)
+	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
@@ -95,13 +100,14 @@ static func _readings(
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
 		"ships": MapPlayCourt.ships(play, faction),
-		"warships": MapPlayCourt.warships(play, faction),
-		"warship_price": _warship_price(economy),
+		"warships": warships,
+		"warship_price": AiNavy.price(economy),
+		"navy_due": hull_chest > 0,
 		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
-		"hostile_warships": MapPlayCourt.hostile_warships(play, faction),
+		"hostile_warships": hostile_warships,
 		"treasury": economy.treasury,
 		"reserve": reserve,
-		"goal": AiIncome.goal_for(config, economy, at_war, regiments),
+		"goal": AiIncome.goal_for(config, economy, at_war, regiments, hull_chest),
 		"colony_target": home == WorldMap.OLD_WORLD and not _owns_land(new_world, faction),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
@@ -115,6 +121,12 @@ static func _readings(
 		"research_cost": research_cost,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
+		# The study that opens the chain's next link, so the trace names the door
+		# the court is walking to (DR-20261114-05).
+		"tribe_door": AiTribeColony.door(
+			play.diplomacy, play.world, play.court_charts, faction,
+			economy.tech_unlocked
+		),
 	}
 
 
@@ -196,21 +208,6 @@ static func _power(play: PlaySession, faction: int) -> int:
 
 
 # --- state reads -------------------------------------------------------------
-
-
-## The cheapest warship this court's techs open: what the build objective costs.
-static func _warship_price(economy: PlayerEconomy) -> int:
-	var best: int = 0
-	for raw: Variant in ShipEconomy.ENTRIES.keys():
-		var type_id: String = String(raw)
-		if not ShipStats.is_warship(type_id):
-			continue
-		if not ShipEconomy.buildable(type_id, economy.tech_unlocked):
-			continue
-		var price: int = ShipEconomy.treasury_cost(type_id)
-		if best == 0 or price < best:
-			best = price
-	return best
 
 
 ## Squadrons that could take an expedition: afloat, un-moved, no troops and no

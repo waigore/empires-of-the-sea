@@ -36,11 +36,13 @@ static func read(
 	faction: int,
 	human: int,
 	difficulty: String,
-	config: AiConfig
+	config: Variant
 ) -> Dictionary:
 	var bar: int = VictoryRules.threshold_for(faction, human, difficulty)
 	var holdings: int = VictoryRules.old_world_holdings(world, faction)
-	var start: int = config.parameter("victory.pressure_start") if config != null else NEUTRAL
+	var start: int = (
+		int(config.parameter("victory.pressure_start")) if config != null else NEUTRAL
+	)
 	var share: int = share_mille(holdings, bar)
 	var stage: String = stage_for(holdings, bar, share, start)
 	return {
@@ -57,10 +59,10 @@ static func read(
 
 ## The muster extra alone, for an adapter that only needs the target: the
 ## regiments a pressing court arms up for, else zero.
-static func extra_regiments(stage: String, config: AiConfig) -> int:
+static func extra_regiments(stage: String, config: Variant) -> int:
 	if not presses(stage) or config == null:
 		return 0
-	return maxi(config.parameter("victory.pressure_regiments"), 0)
+	return maxi(int(config.parameter("victory.pressure_regiments")), 0)
 
 
 ## Holdings as a per-mille share of the bar, clamped to 0–1000. A bar of zero
@@ -83,10 +85,10 @@ static func stage_for(holdings: int, bar: int, share: int, start: int) -> String
 
 ## The weight the ledger's military, naval and expansion aims carry: neutral
 ## while the court is far from the bar, the registry boost once it presses.
-static func boost_mille(stage: String, config: AiConfig) -> int:
+static func boost_mille(stage: String, config: Variant) -> int:
 	if stage == STAGE_FAR or config == null:
 		return NEUTRAL
-	return config.parameter("victory.pressure_boost")
+	return int(config.parameter("victory.pressure_boost"))
 
 
 ## True while the court presses: it arms up and its war aims lead.

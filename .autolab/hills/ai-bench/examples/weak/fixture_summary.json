@@ -1,5 +1,5 @@
 {
-  "ai_live": -1,
+  "ai_live": 0,
   "ai_mode": "bench",
   "campaign_over": false,
   "leader": 0,
@@ -54,7 +54,8 @@
         "Scotland",
         "Venice"
       ],
-      "workers": 2
+      "workers": 2,
+      "court_kind": "subject"
     },
     {
       "agenda": "Warmonger",
@@ -70,7 +71,7 @@
       "leader": "Victoria",
       "name": "England",
       "phase": "peace",
-      "plans": false,
+      "plans": true,
       "posture": "at peace",
       "power": 106,
       "profile": "normal",
@@ -86,7 +87,8 @@
       "techs": 0,
       "treasury": 2500,
       "wars": [],
-      "workers": 6
+      "workers": 6,
+      "court_kind": "baseline"
     },
     {
       "agenda": "Isolationist",
@@ -102,7 +104,7 @@
       "leader": "Napoleon",
       "name": "France",
       "phase": "peace",
-      "plans": false,
+      "plans": true,
       "posture": "at peace",
       "power": 101,
       "profile": "normal",
@@ -118,7 +120,8 @@
       "techs": 0,
       "treasury": 2500,
       "wars": [],
-      "workers": 6
+      "workers": 6,
+      "court_kind": "baseline"
     },
     {
       "agenda": "Backstabber",
@@ -134,7 +137,7 @@
       "leader": "Henry the Navigator",
       "name": "Portugal",
       "phase": "peace",
-      "plans": false,
+      "plans": true,
       "posture": "at peace",
       "power": 101,
       "profile": "normal",
@@ -150,7 +153,8 @@
       "techs": 0,
       "treasury": 2500,
       "wars": [],
-      "workers": 6
+      "workers": 6,
+      "court_kind": "random"
     },
     {
       "agenda": "Tech Thief",
@@ -166,7 +170,7 @@
       "leader": "Michiel de Ruyter",
       "name": "United Provinces",
       "phase": "peace",
-      "plans": false,
+      "plans": true,
       "posture": "at peace",
       "power": 101,
       "profile": "normal",
@@ -182,7 +186,8 @@
       "techs": 0,
       "treasury": 2500,
       "wars": [],
-      "workers": 6
+      "workers": 6,
+      "court_kind": "random"
     },
     {
       "agenda": "Peacemaker",
@@ -198,7 +203,7 @@
       "leader": "Gustavus Adolphus",
       "name": "Sweden",
       "phase": "peace",
-      "plans": false,
+      "plans": true,
       "posture": "at peace",
       "power": 81,
       "profile": "normal",
@@ -214,7 +219,8 @@
       "techs": 0,
       "treasury": 2500,
       "wars": [],
-      "workers": 6
+      "workers": 6,
+      "court_kind": "random"
     }
   ],
   "run": 0,

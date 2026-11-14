@@ -188,7 +188,8 @@ jobs:
           python tools/select_impacted_tests.py --base "$BASE" --github-output | tee /tmp/impact-suites.txt
           echo "Base: $BASE ($(git rev-parse --short "$BASE"))"
           echo "Changed vs base:"
-          git diff --name-only --diff-filter=ACMR "${BASE}...HEAD" | head -50
+          # Avoid SIGPIPE+pipefail (exit 141) when the diff has >50 paths.
+          git diff --name-only --diff-filter=ACMR "${BASE}...HEAD" | head -50 || true
           LIST=".gd-tools/impact-suites.txt"
           if [ ! -f "$LIST" ] || [ ! -s "$LIST" ]; then
             echo "Strict impact map: code paths changed but no suites selected." >&2

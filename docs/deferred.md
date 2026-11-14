@@ -33,8 +33,9 @@ Audited through DR-20261114-04 (`REQ-P2-02`).
 ## Remaining gaps (impact order)
 
 1. **New World colony founded** — landings and storm conquest are live
-   (DR-14-03); Join Empire (`5,000 + 2,000 × provinces`) still outruns a rival
-   purse.
+   (DR-14-03), and the chain's door is studied (DR-14-05). Join Empire
+   (`5,000 + 2,000 × provinces`) still outruns a rival purse held at hundreds
+   by the starvation defect (#530/#489).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
    every domain still runs; only the voyage gate is live. Weights, money-first
    and victory pressure ship.
@@ -44,8 +45,8 @@ Audited through DR-20261114-04 (`REQ-P2-02`).
 
 ## Next pick
 
-A Tribe colony founded: a court that can pay the Join Empire step after the buy
-chain (DR-14-02), or a windfall that makes it affordable.
+A Tribe colony founded: the chain is studied open (DR-14-05) and the price is
+the wiki's, so the blocker is the rival purse (#530/#489).
 
 ## Blocked footnotes
 
