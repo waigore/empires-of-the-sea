@@ -1360,6 +1360,102 @@ func test_peasants_take_one_food_unit_of_either_kind() -> void:
 	assert_eq(stock["grain"], 0)
 	assert_eq(stock["meat"], 1)
 
+## The ledger forecasts a turn it has not taken: the phase's own answer, over a
+## copy, so asking the question never spends a ration (REQ-P2-03).
+func test_consumption_preview_spends_nothing() -> void:
+	var pool: WorkerPool = WorkerPool.make(2, 1)
+	var stock: Dictionary = {"grain": 3, "meat": 1, "refinedSugar": 1}
+	var report: Dictionary = EconomyConsumption.preview(pool, stock, 1)
+	assert_eq(stock["grain"], 3, "the preview leaves the larder alone")
+	assert_eq(stock["meat"], 1)
+	assert_eq(stock["refinedSugar"], 1)
+	assert_eq(report["navy_demand"], 2)
+	assert_eq(report["fed_workers"], 1, "the navy eats first, then the pool")
+	assert_eq(report["strikers"], 2)
+	# The same state resolved for real spends exactly what the preview promised.
+	var spent: Dictionary = stock.duplicate()
+	var real: Dictionary = EconomyConsumption.resolve(pool, spent, 1)
+	assert_eq(real["fed_workers"], report["fed_workers"])
+	assert_eq(real["strikers"], report["strikers"])
+	assert_eq(spent["grain"], 0)
+
+## The WORKERS tab's larder reading: the store, every appetite, and the tier a
+## shortfall bites first — Masters before Peasants
+## (wiki: workers-and-population § Consumption; REQ-P5-06).
+func test_larder_forecast_names_the_tier_that_strikes_first() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["mouths"]), 2)
+	assert_eq(int(read["food"]), 3, "a master eats two, a peasant one")
+	assert_eq(int(read["store_food"]), 1)
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.MASTER, "the master strikes first")
+	assert_eq(int(read["food_short"]), 2)
+	assert_eq(read["luxury"], {"furHats": 1})
+	assert_eq(read["store_luxury"], {"furHats": 1})
+
+## A larder that covers every mouth reads calm, and the luxury appetite is the
+## one unit per trained worker the phase deducts
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_covers_a_full_store() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 1)
+	economy.stockpile = {"grain": 4, "meat": 4, "refinedSugar": 1}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["strikers"]), 0)
+	assert_eq(int(read["striking_tier"]), -1)
+	assert_eq(int(read["food_short"]), 0)
+	assert_eq(read["luxury_short"], {})
+	assert_eq(read["luxury"], {"refinedSugar": 1})
+
+## A trained worker fed but without their tier luxury strikes too, and the
+## reading names the luxury rather than a food shortfall
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_names_a_luxury_shortfall() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(0, 1)
+	economy.stockpile = {"grain": 2, "meat": 2, "refinedSugar": 0}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["food_short"]), 0)
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.APPRENTICE)
+	assert_eq(read["luxury_short"], {"refinedSugar": 1})
+
+## Recruits already under orders eat at the next Consumption, so the forecast
+## counts them before the crown presses another row
+## (wiki: workers-and-population § Phase placement).
+func test_larder_forecast_counts_arriving_recruits() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1)
+	economy.stockpile = {"grain": 2, "meat": 0}
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["arriving"]), 1)
+	assert_eq(int(read["mouths"]), 2, "the arriving peasant is a mouth too")
+	assert_eq(int(read["food"]), 2)
+	assert_eq(int(read["strikers"]), 0, "two food feeds both")
+	economy.stockpile = {"grain": 1, "meat": 0}
+	var thin: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(thin["strikers"]), 1, "one ration, two mouths")
+
+## The other appetites the phase feeds first come from the last resolution, so
+## the forecast never promises a ration the army or the navy will take
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_reads_the_other_mouths() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 4, "meat": 0}
+	var mouths: Dictionary = LarderRead.mouths(
+		{"consumption": {"army_demand": 2, "navy_demand": 2, "hospital_demand": 0}}
+	)
+	assert_eq(mouths, {"army": 2, "ships": 1, "hospital": 0})
+	var read: Dictionary = LarderRead.forecast(economy, mouths)
+	assert_eq(int(read["strikers"]), 2, "the army and the hull eat before the pool")
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
+	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
+
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)
 	var stock: Dictionary = {"grain": 2, "meat": 2, "refinedSugar": 1}
