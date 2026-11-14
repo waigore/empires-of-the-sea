@@ -56,6 +56,48 @@ static func escalated(records: Dictionary, threshold: int) -> Dictionary:
 	return out
 
 
+## One snapshot per court's stall records, keyed by faction id. Rows are plain
+## {id -> {turns, shortfall}} and JSON-safe as they stand (issue #603).
+static func snapshots(by_faction: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in by_faction.keys():
+		var records: Dictionary = _dictionary(by_faction[raw])
+		var rows: Dictionary = {}
+		for aim_id: Variant in records.keys():
+			var record: Dictionary = _dictionary(records[aim_id])
+			if record.is_empty():
+				continue
+			rows[String(aim_id)] = {
+				"turns": maxi(int(record.get("turns", 0)), 0),
+				"shortfall": _dictionary(record.get("shortfall", {})).duplicate(),
+			}
+		result[int(raw)] = rows
+	return result
+
+
+## Rebuild the per-court stall map from a save row (issue #603).
+static func from_stored(raw: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	var stored: Dictionary = _dictionary(raw)
+	for faction: Variant in stored.keys():
+		var records: Dictionary = _dictionary(stored[faction])
+		var rows: Dictionary = {}
+		for aim_id: Variant in records.keys():
+			var record: Dictionary = _dictionary(records[aim_id])
+			if record.is_empty():
+				continue
+			var shortfall: Dictionary = _dictionary(record.get("shortfall", {}))
+			if shortfall.is_empty():
+				continue
+			rows[String(aim_id)] = {
+				"turns": maxi(int(record.get("turns", 0)), 0),
+				"shortfall": shortfall,
+			}
+		if not rows.is_empty():
+			result[int(faction)] = rows
+	return result
+
+
 # --- fold ---------------------------------------------------------------------
 
 

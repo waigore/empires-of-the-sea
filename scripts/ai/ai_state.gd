@@ -19,10 +19,7 @@ var last_peace_turn: Dictionary = {}
 ## Rival economies are seeded on first read and then persist like the player's
 ## (docs/ai.md, wiki: stockpiles-and-production).
 var economies: Dictionary = {}
-## Faction id -> the deferred-aim stall records the escalation tracker keeps
-## (`AiDeferral`, issue #603): how many turns each aim has been deferred
-## without its shortfall shrinking. Read back by the readings and the reserve,
-## so a stalled war chest re-routes instead of freezing the court.
+## Faction id -> deferred-aim stall records (`AiDeferral`, issue #603).
 var deferrals: Dictionary = {}
 ## Faction id -> the claims the objective ledger last ranked and funded, with
 ## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
@@ -130,8 +127,7 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 		"blocked_ids": ids["blocked"],
 		"lines": lines,
 	}
-	# The escalation tracker folds the same rows: one stall map per court, so a
-	# save carries how long each aim has stood still (issue #603).
+	# Escalation stall map for this court (issue #603).
 	deferrals[faction] = AiDeferral.note(
 		_dictionary(deferrals.get(faction, {})), report.get("objectives", [])
 	)
@@ -174,7 +170,7 @@ func to_dict() -> Dictionary:
 		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
-		"deferrals": _deferral_snapshots(),
+		"deferrals": AiDeferral.snapshots(deferrals),
 		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
 	}
@@ -190,51 +186,10 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
-	state.deferrals = _deferrals_from(data.get("deferrals", {}))
+	state.deferrals = AiDeferral.from_stored(data.get("deferrals", {}))
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state
-
-
-## One snapshot per court's stall records, keyed by faction id. Rows are plain
-## {id -> {turns, shortfall}} and JSON-safe as they stand (issue #603).
-func _deferral_snapshots() -> Dictionary:
-	var result: Dictionary = {}
-	for raw: Variant in deferrals.keys():
-		var records: Dictionary = _dictionary(deferrals[raw])
-		var rows: Dictionary = {}
-		for aim_id: Variant in records.keys():
-			var record: Dictionary = _dictionary(records[aim_id])
-			if record.is_empty():
-				continue
-			rows[String(aim_id)] = {
-				"turns": maxi(int(record.get("turns", 0)), 0),
-				"shortfall": _dictionary(record.get("shortfall", {})).duplicate(),
-			}
-		result[int(raw)] = rows
-	return result
-
-
-static func _deferrals_from(raw: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	var stored: Dictionary = _dictionary(raw)
-	for faction: Variant in stored.keys():
-		var records: Dictionary = _dictionary(stored[faction])
-		var rows: Dictionary = {}
-		for aim_id: Variant in records.keys():
-			var record: Dictionary = _dictionary(records[aim_id])
-			if record.is_empty():
-				continue
-			var shortfall: Dictionary = _dictionary(record.get("shortfall", {}))
-			if shortfall.is_empty():
-				continue
-			rows[String(aim_id)] = {
-				"turns": maxi(int(record.get("turns", 0)), 0),
-				"shortfall": shortfall,
-			}
-		if not rows.is_empty():
-			result[int(faction)] = rows
-	return result
 
 
 ## One row per court's last ledger: turn, phase, counts and the claim lines. An
