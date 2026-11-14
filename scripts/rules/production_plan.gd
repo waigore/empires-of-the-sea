@@ -87,18 +87,18 @@ func read_assignments(data: Variant) -> void:
 
 ## Units of this recipe started on an earlier turn whose output has not landed.
 func wip_units(recipe_id: String) -> int:
-	return ProductionRecipes.in_flight(wip, recipe_id)
+	return ProductionWorkshop.units(wip, recipe_id)
 
 
 ## Phases until the next unit of this recipe lands; 0 when the workshop is idle.
 func wip_turns(recipe_id: String) -> int:
-	return ProductionRecipes.turns_left(wip, recipe_id)
+	return ProductionWorkshop.soonest(wip, recipe_id)
 
 
 func wip_total() -> int:
 	var total: int = 0
 	for recipe_id: Variant in wip.keys():
-		total += ProductionRecipes.in_flight(wip, String(recipe_id))
+		total += ProductionWorkshop.units(wip, String(recipe_id))
 	return total
 
 
@@ -116,7 +116,7 @@ func read_wip(data: Variant) -> void:
 		var recipe_id: String = String(raw_recipe)
 		if not ProductionRecipes.known(recipe_id):
 			continue
-		var batches: Array[Dictionary] = ProductionRecipes.batches(stored, recipe_id)
+		var batches: Array[Dictionary] = ProductionWorkshop.batches(stored, recipe_id)
 		if not batches.is_empty():
 			wip[recipe_id] = batches
 
