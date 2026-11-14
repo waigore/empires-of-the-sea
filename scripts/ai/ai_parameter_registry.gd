@@ -312,12 +312,11 @@ const PARAMETERS: Array[Dictionary] = [
 static var _by_key: Dictionary = {}
 
 
-## Every knob in catalog order: this module's entries, then the ledger, market,
-## army, cargo, posture and victory groups.
+## Every knob in catalog order: this module's entries, then the market, army,
+## cargo, posture, victory and ledger groups.
 static func entries() -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	all.append_array(PARAMETERS)
-	all.append_array(AiParameterLedger.PARAMETERS)
 	all.append_array(AiParameterMarket.PARAMETERS)
 	all.append_array(AiParameterArmy.PARAMETERS)
 	all.append_array(AiParameterCargo.PARAMETERS)
@@ -325,6 +324,7 @@ static func entries() -> Array[Dictionary]:
 	all.append_array(AiParameterDiplomacy.PARAMETERS)
 	all.append_array(AiParameterPosture.PARAMETERS)
 	all.append_array(AiParameterVictory.PARAMETERS)
+	all.append_array(AiParameterLedger.PARAMETERS)
 	return all
 
 

@@ -51,7 +51,8 @@ static func run(play: PlaySession) -> Dictionary:
 		var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 		var income: Dictionary = AiBind.income_plan(
 			kind, config, economy, at_war, regiments, hull_chest, own_warships,
-			AiDeferral.stall(play.ai.deferrals_for(faction), "muster.line")
+			# A war chest the court has stalled on re-routes (#603).
+			AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line")
 		)
 		# Skip production buys while earning for the navy chest (issue #484).
 		var production: Dictionary = (

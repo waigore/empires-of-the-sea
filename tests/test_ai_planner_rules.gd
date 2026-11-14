@@ -3013,14 +3013,19 @@ func test_a_save_round_trips_the_deferral_stalls() -> void:
 			"shortfall": {"treasury": 2100},
 		}]
 		state.note_objectives(OBJ_OWNER, {"objectives": rows}, turn)
-	assert_eq(AiDeferral.stall(state.deferrals_for(OBJ_OWNER), "muster.line"), 3)
+	assert_eq(
+		AiDeferral.stall(AiDeferral.records_for(state.deferrals, OBJ_OWNER), "muster.line"), 3,
+	)
 	var restored := AiState.from_dict(state.to_dict())
 	assert_eq(
-		AiDeferral.stall(restored.deferrals_for(OBJ_OWNER), "muster.line"), 3,
+		AiDeferral.stall(AiDeferral.records_for(restored.deferrals, OBJ_OWNER), "muster.line"), 3,
 		"the stall count carries the load"
 	)
 	# A funded aim leaves no record, so a fresh campaign reads none either.
-	assert_true(restored.deferrals_for(OBJ_RIVAL).is_empty(), "other courts read empty")
+	assert_true(
+		AiDeferral.records_for(restored.deferrals, OBJ_RIVAL).is_empty(),
+		"other courts read empty"
+	)
 
 
 func test_an_old_save_reads_an_empty_ledger() -> void:
@@ -3028,4 +3033,7 @@ func test_an_old_save_reads_an_empty_ledger() -> void:
 
 	assert_true(restored.objectives_for(OBJ_OWNER).is_empty(), "an old save simply has no ledger")
 	assert_eq(int(restored.to_dict().get("objective_claims", {}).size()), 0)
-	assert_true(restored.deferrals_for(OBJ_OWNER).is_empty(), "and no stall records")
+	assert_true(
+		AiDeferral.records_for(restored.deferrals, OBJ_OWNER).is_empty(),
+		"and no stall records"
+	)

@@ -37,6 +37,7 @@ const ACTION_LABELS: Dictionary = {
 	"cargo": "cargo routes",
 }
 
+
 ## Appends one merged turn record to `play.ai_turns` and returns it. Call right
 ## after the rival/economy pass, while the turn traces are still in hand.
 static func record(
@@ -91,6 +92,8 @@ static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> voi
 		var bucket: Dictionary = factions[faction]
 		bucket["phase"] = String(ledger.get("phase", ""))
 		bucket["goal"] = String(ledger.get("goal", ""))
+		# The court's distance to the bar and the margin it presses at
+		# (DR-20261114-04): the trace explains an endgame court's thinner storm.
 		bucket["pressure"] = (ledger.get("pressure", {}) as Dictionary).duplicate(true)
 		bucket["objectives"] = {
 			"ranked": int(ledger.get("ranked", 0)),
@@ -99,9 +102,6 @@ static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> voi
 			"rows": (ledger.get("objectives", []) as Array).duplicate(true),
 			"lines": (ledger.get("lines", []) as Array).duplicate(),
 		}
-		var escalations: Dictionary = ledger.get("escalations", {}) as Dictionary
-		if not escalations.is_empty():
-			bucket["escalations"] = escalations.duplicate()
 
 
 ## Feeding coverage per crown from the resolved consumption pass; the next

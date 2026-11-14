@@ -1,11 +1,12 @@
 class_name AiParameterLedger
 extends RefCounted
-## Deferred-aim escalation knobs (wiki: ai-parameter-registry; issue #603).
+## Deferred-aim escalation knobs (wiki: ai-parameter-registry
+## § Deferred-aim escalation; DR-20261114-14).
 ##
-## The registry holds one catalog; the ledger group lives here so the registry
-## module stays under the size cap. Keys, ranges and defaults are published on
-## the wiki page exactly as they appear here, and `AiParameterRegistry.entries()`
-## appends this group after the base catalog so the catalog order never changes.
+## The registry holds one catalog; this group lives apart so the registry
+## module stays under the architecture size cap. Keys, ranges and defaults are
+## published on the wiki page exactly as they appear here, and
+## `AiParameterRegistry.entries()` appends this group after the victory group.
 
 const PARAMETERS: Array[Dictionary] = [
 	{
