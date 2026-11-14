@@ -356,6 +356,13 @@ domain = "hostility"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
+# One court's economy turn, split out of the pass above: the AI suites drive the
+# whole turn (test_ai_economy_rules' run coverage plus test_ai_rules' phase
+# call), so it stays on the same tier-1 slice as its orchestrator.
+[[rules]]
+match = "scripts/map/map_play_economy_court.gd*"
+domain = "ai"
+
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
