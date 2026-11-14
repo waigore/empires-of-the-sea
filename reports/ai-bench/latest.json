@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:17569e08ac0b8291334d897410dc5c4c1dd18eee5aa45d7211ba3b217147a1bf",
-  "submission_git": "orc/resolve-issue-agent-1/20261113T231008569475Z@5d23423",
+  "submission_hash": "sha256:e225ec84c102869c24061e8ed81eee4e71fd952f269809dcd64dc39e63bfca8f",
+  "submission_git": "fix/474-cloth-for-the-muster@c0d62f1+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:412ba9dd9cf6028def57e7bdcc3eef5b5a4c967b1934fcfa454cb7c1997535f9",
+    "ai_surface_hash": "sha256:35e5667a2b5bda93198669e6c67ccced39f9c09cfb7f8f621bfc818283f7226b",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T00:08:40Z",
+  "timestamp": "2026-11-14T01:25:06Z",
   "report_version": 1,
-  "signature": "hmac-sha256:fe250b26869cf907b6e3d1b6bf8990d1eb6c834d3dfb5ebfa93f58f02e586e90"
+  "signature": "hmac-sha256:9d7f64daac544a52b9f54cd9bd9cfb4954eb34aae65fafcfc3460142714f51c1"
 }
