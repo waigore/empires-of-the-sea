@@ -61,8 +61,7 @@ static func record(
 	_record_armies(merged, factions, army_trace)
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
-	_record_invasion(merged, factions, invasion_trace)
-	_record_colonisation(merged, factions, colonisation_trace)
+	_record_expeditions(merged, factions, invasion_trace, colonisation_trace)
 	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged
@@ -229,70 +228,23 @@ static func _record_fleets(
 		)
 
 
-## Overseas expeditions: the split, the boarding, the crossing and the landing
-## read as one campaign, so the headline counts landings rather than each leg.
-static func _record_invasion(
-	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
+## Overseas expeditions: the invasion and colonisation passes hand their traces
+## to `AiExpeditionLog`, which prices each leg as an action row (the split, the
+## landing, the voyage step and the colony landing); this pass counts and prints
+## them. Colonisation rows keep a voyage in the trace even when no army is aboard
+## (issue #476).
+static func _record_expeditions(
+	merged: Dictionary,
+	factions: Dictionary,
+	invasion_trace: Array[Dictionary],
+	colonisation_trace: Array[Dictionary]
 ) -> void:
-	for raw: Dictionary in trace:
-		var faction: int = int(raw.get("faction", NO_ID))
+	for row: Dictionary in AiExpeditionLog.rows(invasion_trace, colonisation_trace):
+		var faction: int = int(row.get("faction", NO_ID))
 		if not factions.has(faction):
 			continue
-		var kind: String = String(raw.get("kind", ""))
-		if kind == AiInvasionPlanner.KIND_SPLIT:
-			_bump(factions[faction]["actions"], "split")
-			continue
-		_bump(factions[faction]["actions"], "invade")
-		var who: String = FactionCatalog.name_of(faction)
-		match kind:
-			AiInvasionPlanner.KIND_EMBARK:
-				_add_event(merged, factions[faction], faction, "%s's expedition boards its squadron." % who)
-			AiInvasionPlanner.KIND_CROSS:
-				_add_event(merged, factions[faction], faction, "%s's expedition crosses the Passage." % who)
-			AiInvasionPlanner.KIND_LAND:
-				var place: String = String(raw.get("province_name", ""))
-				if not place.is_empty():
-					_add_event(
-						merged, factions[faction], faction,
-						"%s's army lands at %s." % [who, place],
-					)
-
-
-## A rival court's colonisation voyage (issue #476): every applied step — dock,
-## sail, embark, cross, land — is a voyage order, and the landing is also
-## counted as a colony landing, so the observer sees an expedition even when no
-## army crosses. The adapter's kinds are the plain strings
-## `MapPlayColonisationAi._apply` writes.
-static func _record_colonisation(
-	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
-) -> void:
-	for raw: Dictionary in trace:
-		var faction: int = int(raw.get("faction", NO_ID))
-		if not factions.has(faction):
-			continue
-		var kind: String = String(raw.get("kind", ""))
-		_bump(factions[faction]["actions"], "voyage")
-		var who: String = FactionCatalog.name_of(faction)
-		var place: String = String(raw.get("province_name", ""))
-		match kind:
-			"embark":
-				if not place.is_empty():
-					_add_event(
-						merged, factions[faction], faction,
-						"%s's Explorer boards at %s." % [who, place],
-					)
-			"cross":
-				_add_event(
-					merged, factions[faction], faction,
-					"%s's voyage crosses the Passage." % who,
-				)
-			"land":
-				_bump(factions[faction]["actions"], "colony")
-				if not place.is_empty():
-					_add_event(
-						merged, factions[faction], faction,
-						"%s's Explorer lands at %s." % [who, place],
-					)
+		_bump(factions[faction]["actions"], String(row.get("action", "")))
+		_add_event(merged, factions[faction], faction, String(row.get("event", "")))
 
 
 static func _record_economy(

@@ -477,6 +477,22 @@ func test_the_observer_counts_a_colony_voyage() -> void:
 	assert_true(joined.contains("crosses the Passage"), joined)
 	assert_true(joined.contains("lands at Coast"), joined)
 
+func test_the_expedition_log_reads_both_traces() -> void:
+	var rows: Array[Dictionary] = AiExpeditionLog.rows(
+		[{"faction": OWNER, "kind": AiInvasionPlanner.KIND_LAND, "province_name": ""}],
+		[
+			{"faction": OWNER, "kind": "sail", "zone": 2},
+			{"faction": OWNER, "kind": "land"},
+		]
+	)
+	assert_eq(rows.size(), 4, "a landing is a voyage order and a colony landing")
+	assert_eq(String(rows[0]["action"]), "invade")
+	assert_eq(String(rows[0].get("event", "")), "", "no place name, no line")
+	assert_eq(String(rows[1]["action"]), "voyage")
+	assert_eq(String(rows[1].get("event", "")), "", "a sail carries no line")
+	assert_eq(String(rows[2]["action"]), "voyage")
+	assert_eq(String(rows[3]["action"]), "colony")
+
 func test_the_naval_planner_leaves_a_troop_ship_to_its_expedition() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
