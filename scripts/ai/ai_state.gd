@@ -137,11 +137,6 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 	)
 
 
-## This court's deferred-aim stall records (`AiDeferral`, issue #603).
-func deferrals_for(faction: int) -> Dictionary:
-	return _dictionary(deferrals.get(faction, {}))
-
-
 ## Walks the ledger tree and files every objective id under its status.
 static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
 	if typeof(rows) != TYPE_ARRAY:
@@ -174,7 +169,9 @@ func to_dict() -> Dictionary:
 		"last_truce_turn": last_truce_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"economies": _economy_snapshots(),
-		"deferrals": _deferral_snapshots(),
+		# The escalation's stall records are plain {aim -> {turns, shortfall}},
+		# JSON-safe as they stand (issue #603).
+		"deferrals": deferrals.duplicate(true),
 		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
 	}
@@ -190,7 +187,13 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.economies = _economies_from(data.get("economies", {}))
-	state.deferrals = _deferrals_from(data.get("deferrals", {}))
+	# A JSON round-trip turns the faction keys into strings: file them back as
+	# ints, and drop any row a save could not describe (issue #603).
+	var stored_deferrals: Dictionary = _dictionary(data.get("deferrals", {}))
+	for faction: Variant in stored_deferrals.keys():
+		var records: Dictionary = AiDeferral.clean(_dictionary(stored_deferrals[faction]))
+		if not records.is_empty():
+			state.deferrals[int(faction)] = records
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
 	return state

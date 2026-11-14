@@ -81,7 +81,7 @@ static func _readings(
 	# deferred without its shortfall shrinking. A stalled war chest re-routes
 	# (`AiIncome.reserve`); a stall past the blocked bar names its reason in the
 	# trace instead of another silent deferred row.
-	var records: Dictionary = play.ai.deferrals_for(faction)
+	var records: Dictionary = AiDeferral.records_for(play.ai.deferrals, faction)
 	var escalations: Dictionary = AiDeferral.escalated(
 		records, maxi(config.parameter("ledger.escalate_turns"), 1)
 	)

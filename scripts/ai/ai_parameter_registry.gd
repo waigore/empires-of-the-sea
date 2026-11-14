@@ -307,26 +307,6 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 1000,
 		"default": 45,
 	},
-	{
-		"key": "ledger.escalate_turns",
-		"category": "ledger",
-		"type": TYPE_INT,
-		"min": 1,
-		"max": 60,
-		# The deferred-aim escalation (#603): a reserve the court cannot reach
-		# re-routes once the aim it is saved for has stalled this many turns.
-		"default": 10,
-	},
-	{
-		"key": "ledger.blocked_turns",
-		"category": "ledger",
-		"type": TYPE_INT,
-		"min": 2,
-		"max": 200,
-		# The trace names an aim stalled this long as blocked with its reason,
-		# instead of another silent deferred row (issue #603).
-		"default": 40,
-	},
 ]
 
 static var _by_key: Dictionary = {}
@@ -344,6 +324,7 @@ static func entries() -> Array[Dictionary]:
 	all.append_array(AiParameterDiplomacy.PARAMETERS)
 	all.append_array(AiParameterPosture.PARAMETERS)
 	all.append_array(AiParameterVictory.PARAMETERS)
+	all.append_array(AiParameterLedger.PARAMETERS)
 	return all
 
 

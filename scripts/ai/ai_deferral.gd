@@ -56,6 +56,38 @@ static func escalated(records: Dictionary, threshold: int) -> Dictionary:
 	return out
 
 
+## One court's stall records out of the whole state's deferral table
+## (faction -> records): faction keys a JSON round trip turned into strings
+## are filed back as ints (issue #603).
+static func records_for(deferrals: Dictionary, faction: int) -> Dictionary:
+	for raw: Variant in deferrals.keys():
+		if int(raw) == faction:
+			return _dictionary(deferrals[raw])
+	return {}
+
+
+## The stall length of one aim for one court, read straight off the state's
+## deferral table: 0 when the court has none.
+static func stall_for(deferrals: Dictionary, faction: int, aim_id: String) -> int:
+	return stall(records_for(deferrals, faction), aim_id)
+
+
+## A loaded stall map, validated: a record a save could not describe is
+## dropped, and the survivor is the plain {turns, shortfall} row (issue #603).
+static func clean(records: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for aim_id: Variant in records.keys():
+		var record: Dictionary = _dictionary(records[aim_id])
+		var shortfall: Dictionary = _dictionary(record.get("shortfall", {}))
+		if shortfall.is_empty():
+			continue
+		out[String(aim_id)] = {
+			"turns": maxi(int(record.get("turns", 0)), 0),
+			"shortfall": shortfall,
+		}
+	return out
+
+
 # --- fold ---------------------------------------------------------------------
 
 
