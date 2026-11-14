@@ -192,11 +192,19 @@ static func tech_for(type_id: String) -> String:
 	return String(TECH.get(ShipStats.normalize(type_id), ""))
 
 
-## A hull is buildable iff it has no unlocking tech or that tech is researched
-## (wiki: tech-tree § Regiment and ship buildability).
-static func buildable(type_id: String, tech_unlocked: Dictionary) -> bool:
+## A hull is buildable iff it has no unlocking tech, that tech is researched, or
+## the crown flies (or has flown) that type — a starting sloop may be replaced
+## without Navigation even after the last one is lost, because the craft was
+## aboard (wiki: tech-tree § Regiment and ship buildability; DR-20261114-11 /
+## issue #484).
+static func buildable(
+	type_id: String, tech_unlocked: Dictionary, flown: Array = []
+) -> bool:
 	if not known(type_id):
 		return false
+	var normalized: String = ShipStats.normalize(type_id)
+	if flown.has(normalized) or flown.has(type_id):
+		return true
 	var tech: String = tech_for(type_id)
 	return tech.is_empty() or bool(tech_unlocked.get(tech, false))
 
@@ -208,11 +216,12 @@ static func blocked_reason(
 	treasury: int,
 	stockpile: Dictionary,
 	peasants: int,
-	tech_unlocked: Dictionary
+	tech_unlocked: Dictionary,
+	flown: Array = []
 ) -> String:
 	if not known(type_id):
 		return "Unknown ship"
-	if not buildable(type_id, tech_unlocked):
+	if not buildable(type_id, tech_unlocked, flown):
 		return "Requires %s" % TechCatalog.display_name(tech_for(type_id))
 	if treasury < treasury_cost(type_id):
 		return "Insufficient treasury"
@@ -221,6 +230,20 @@ static func blocked_reason(
 	if peasants < WORKER_COST:
 		return "Insufficient workers"
 	return ""
+
+
+## Distinct hull types across a court's squadrons — the craft it already flies.
+static func types_flown(fleets: Array) -> Array[String]:
+	var seen: Array[String] = []
+	for fleet: FleetState in fleets:
+		if fleet == null:
+			continue
+		for hull_id: String in fleet.hulls:
+			var type_id: String = ShipStats.normalize(fleet.type_of(hull_id))
+			if type_id.is_empty() or seen.has(type_id):
+				continue
+			seen.append(type_id)
+	return seen
 
 
 ## "8,000 ducats · 2 Lumber · 1 Fabric · 1 worker" for the yard ledger.

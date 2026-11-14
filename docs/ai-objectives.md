@@ -46,11 +46,10 @@ at war: the peace window bought it.
 
 ## The navy's build leg
 
-`navy.build` funds at war with no fighting hull or an outmatched coast (utility
-90 / 70 vs a sortie's 60) at the cheapest open warship: its `treasury` chest and
-the hull's material row, both held by `AiClaims.NAVY`.
-`MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop of War
-for the fleet"); peace prices no yard.
+`navy.build` funds with no fighting hull or an outmatched coast (utility 90 /
+70) at the cheapest open warship: `AiClaims.NAVY` holds its chest and materials.
+Flown craft stays open after loss. `MapPlayCargoAi` / `FleetYard` lay it when
+funded.
 
 ## Reservations as claims
 

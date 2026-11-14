@@ -69,8 +69,13 @@ static func plan(
 	# the standing study is the first slot that already holds a tech, or the
 	# first slot filled this turn (issue #490). It never spends the last payment
 	# of a war chest that is already within reach of its muster (issue #474).
+	# A hull chest must actually fill: the standing study's cheapest preset
+	# otherwise eats the income that should reach the yard (issue #484). Muster
+	# reserves still allow the #490 standing study — only a caller that names
+	# the navy chest sets `defer_standing`.
 	var can_stand: bool = (
-		preset == ResearchFunding.ORDER[0]
+		not bool(context.get("defer_standing", false))
+		and preset == ResearchFunding.ORDER[0]
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
@@ -98,6 +103,19 @@ static func plan(
 			var slot_funding: String = (
 				STANDING_FUNDING if slot == standing or wants_standing else preset
 			)
+			# A navy (or Tribe) door pays the richest preset the purse can spare
+			# above the cash floor, so the unlock lands before the court burns
+			# its opening chest on musters (issue #484). When even Low is too
+			# dear, fall back to the standing preset if the #490 gate allows —
+			# never skip the door for a lower-ranked candidate.
+			if tech == door and not door.is_empty():
+				slot_funding = _door_funding(economy, cash_floor)
+				if slot_funding == ResearchFunding.ORDER[0]:
+					if can_stand or wants_standing:
+						slot_funding = STANDING_FUNDING
+					else:
+						entry["taken"] = true
+						continue
 			var result: Dictionary = state.assign(tech, slot_funding, slot)
 			if not bool(result.get("ok", false)):
 				entry["taken"] = true
@@ -141,6 +159,24 @@ static func funding_for(
 		while index > 0 and ResearchFunding.gold(ResearchFunding.ORDER[index]) > spare:
 			index -= 1
 	return ResearchFunding.ORDER[index]
+
+
+## Richest funding preset that still leaves `cash_floor` in the purse, or
+## `none` when even Low would dip below it. Used for a door study that must
+## finish before the court spends its opening treasury (issue #484).
+static func _door_funding(economy: PlayerEconomy, cash_floor: int) -> String:
+	if economy == null:
+		return ResearchFunding.ORDER[0]
+	var spare: int = economy.treasury - maxi(cash_floor, 0)
+	# Prefer richer presets first; Low is the last that still teaches.
+	for index in range(ResearchFunding.ORDER.size() - 1, 0, -1):
+		var name: String = ResearchFunding.ORDER[index]
+		if ResearchFunding.gold(name) <= spare:
+			return name
+	# Standing Low may dip to half the cash floor — same gate as #490.
+	if _can_pay_standing(economy, cash_floor):
+		return STANDING_FUNDING
+	return ResearchFunding.ORDER[0]
 
 
 ## The purse research must leave behind: the court's own cash floor, never the

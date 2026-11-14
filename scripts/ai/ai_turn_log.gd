@@ -312,7 +312,10 @@ static func _record_cargo(
 ) -> void:
 	var routes: Array = cargo.get("routes", [])
 	var launch: Dictionary = cargo.get("launch", {})
-	if routes.is_empty() and launch.is_empty():
+	var warship: Dictionary = cargo.get("warship", {})
+	# A fleet launch with no merchant routes must still print — the early empty
+	# guard used to drop the yard event entirely (issue #484).
+	if routes.is_empty() and launch.is_empty() and warship.is_empty():
 		return
 	var who: String = FactionCatalog.name_of(faction)
 	if not routes.is_empty():
@@ -325,7 +328,6 @@ static func _record_cargo(
 		_add_event(merged, bucket, faction, "%s lays down a %s for the cargo trade." % [
 			who, ShipStats.display_name(String(launch.get("type_id", ""))),
 		])
-	var warship: Dictionary = cargo.get("warship", {})
 	if not warship.is_empty():
 		_bump(bucket["actions"], "build")
 		# The row names the yard's price and the chest that allowed the launch,

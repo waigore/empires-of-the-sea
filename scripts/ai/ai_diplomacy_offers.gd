@@ -65,7 +65,6 @@ const BREAK_UTILITY_COST: int = 20
 ## mood to improve relations for their own sake (wiki: civilian-units § Merchant).
 const LAND_ENVOY_BONUS: int = 12
 
-
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
 ## the turn trace can print. `context` carries the planner read model:
 ## "treasury" and "tech" maps by faction plus the human court id.
@@ -280,7 +279,8 @@ static func _trade_pact(
 
 
 ## One gift of gold: only to a court this one wants to keep close, while its own
-## purse covers the step and keeps the reserve it is saving (diplomacy § GP–Minor Rules).
+## purse covers the step and keeps the reserve it is saving (diplomacy § GP–Minor
+## Rules; issue #484).
 static func _aid(
 	state: DiplomacyState,
 	faction: int,
