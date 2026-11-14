@@ -803,7 +803,7 @@ func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
 	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true)
 	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
 
-	var held: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, 5500)
+	var held: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
 	assert_eq(String(held["muster"]), "", "the hull's chest is not the army's to spend")
 	assert_true(
 		(held["reasons"] as Array).has("saving for a hull"),
@@ -812,7 +812,7 @@ func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
 
 	# Once the purse covers the chest and the line, the muster resumes.
 	var rich: Dictionary = AiArmyReinforce.plan(
-		config, _ai_army_reinforce_economy(9000), 5, true, 0, 5500
+		config, _ai_army_reinforce_economy(9000), 5, true, 0, -1, 5500
 	)
 	assert_ne(String(rich["muster"]), "", "a purse above the chest may arm up again")
 

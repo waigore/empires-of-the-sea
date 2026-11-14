@@ -48,7 +48,9 @@ static func _run_region(
 		var config: AiConfig = AiConfig.build(faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
 		# regiment can hold the seat or join the field army it detaches
-		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04).
+		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04). A court
+		# striking for food raises none: its own men would go hungry instead
+		# (issue #489).
 		changed = _reinforce(play, model, roster, faction, config, trace) or changed
 		# The court brings its surgeons along before it gives the march: a worn
 		# field army on its own ground pitches a train (DR-20261112-07,
@@ -210,6 +212,10 @@ static func _reinforce(
 		play.army_layer.regiment_count_all(faction),
 		MapPlayCourt.at_war(play, faction),
 		_extra_regiments(play, faction, config),
+		AiArmyReinforce.fed_slack(
+			economy, play.army_layer.food_upkeep_all(faction),
+			MapPlayCourt.ships(play, faction)
+		),
 		# The hull the court is saving for outranks the next regiment: the
 		# muster spends only what stands above that chest (issue #484).
 		MapPlayCourt.navy_chest(play, faction)

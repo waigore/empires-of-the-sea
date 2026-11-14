@@ -28,6 +28,12 @@ const LINE_CATEGORIES: Array[int] = [
 ## turn trace can explain the pick (wiki: turn-trace-interpretation).
 ## `pressure_extra` is the extra target a court that can see the victory bar
 ## arms up for (DR-20261114-04); it raises the target, never the price.
+## `fed_slack` is the grain the larder leaves after the army, the navy and the
+## workers eat (see `fed_slack`); a court with no room for one more ration
+## raises no more men, because the men it has would go hungry instead
+## (wiki: workers-and-population § Strike workers; issue #489). A negative
+## reading means the caller has no larder to read, and the food gates do not
+## apply.
 ## `reserve` is the purse a claim above this muster holds back — the hull the
 ## court is saving for (`AiNavy`). A muster spends only what stands above it, so
 ## the fleet's chest survives the army's turn (issue #484).
@@ -37,6 +43,7 @@ static func plan(
 	own_regiments: int,
 	at_war: bool,
 	pressure_extra: int = 0,
+	fed_slack: int = -1,
 	reserve: int = 0
 ) -> Dictionary:
 	var result: Dictionary = {
@@ -53,6 +60,9 @@ static func plan(
 		"army.min_peasants"
 	):
 		result["reasons"].append("labour floor")
+		return result
+	if fed_slack >= 0 and fed_slack < 1:
+		result["reasons"].append("striking for food")
 		return result
 	var chest: int = maxi(reserve, 0)
 	var candidates: Array[Dictionary] = []
@@ -103,6 +113,40 @@ static func recall_target(home_province: int, capital: int) -> int:
 	if capital < 0 or home_province == capital:
 		return -1
 	return capital
+
+
+## Grain and meat the larder holds: the two ration commodities, nothing else
+## (wiki: workers-and-population § Consumption).
+static func larder(economy: PlayerEconomy) -> int:
+	if economy == null:
+		return 0
+	var held: int = 0
+	for id: String in CommodityCatalog.FOOD:
+		held += maxi(economy.quantity(id), 0)
+	return held
+
+
+## Grain the larder leaves once the consumption phase has fed the army, the navy
+## and every worker (wiki: workers-and-population § Consumption: land military
+## first, then navy, then workers). Negative means the workers strike for food
+## and the court's labour is gone for the turn; 0 means they eat but nothing is
+## left for one more man. The reading is the same one the strike rule makes, so
+## a court never musters into a famine it cannot feed (issue #489).
+static func fed_slack(economy: PlayerEconomy, army_food: int, ships: int) -> int:
+	if economy == null:
+		return 0
+	var navy: int = maxi(ships, 0) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
+	var workers: int = 0
+	for tier in WorkerPool.TIER_COUNT:
+		workers += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
+	return larder(economy) - maxi(army_food, 0) - navy - workers
+
+
+## True when this court's own people are on strike for food: the ration the
+## consumption phase owes its workers is more than the larder leaves after the
+## army and the navy eat (wiki: workers-and-population § Strike workers).
+static func starving(economy: PlayerEconomy, army_food: int, ships: int) -> bool:
+	return fed_slack(economy, army_food, ships) < 0
 
 
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
