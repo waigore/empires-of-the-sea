@@ -415,7 +415,8 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 
 	_screen.hud.civilian_roster_pressed.emit()
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
-	roster._head.filter_changed.emit(CivilianRoster.REGION_NEW, "merchant")
+	roster._head._region_buttons[CivilianRoster.REGION_NEW].pressed.emit()
+	roster._head._type_buttons["merchant"].pressed.emit()
 	assert_eq(
 		CivilianRoster.count(roster._snapshot, CivilianRoster.REGION_NEW, "merchant"), 1
 	)
@@ -450,6 +451,52 @@ func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
 	assert_true(roster._empty.visible, "an empty world gets an explanation")
 	assert_true(String(roster._empty.text).contains("No civilians"))
 	assert_true(roster.is_open())
+
+
+func test_the_roster_reads_who_waits_for_orders() -> void:
+	_screen.hud.civilian_roster_pressed.emit()
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	var head: CivilianRosterHead = roster._head
+	head._region_buttons[CivilianRoster.REGION_ALL].pressed.emit()
+	head._type_buttons[CivilianRosterHead.TYPE_ALL].pressed.emit()
+	var total: int = int(roster._snapshot["total"])
+	var idle: int = int(roster._snapshot["idle"])
+	var working: int = int(roster._snapshot["working"])
+	assert_eq(idle + working, total, "every crew is either waiting or at work")
+	head._status_buttons[CivilianRoster.STATUS_IDLE].pressed.emit()
+	assert_eq(roster._status, CivilianRoster.STATUS_IDLE)
+	assert_eq(
+		CivilianRoster.count(
+			roster._snapshot, roster._region, roster._type, roster._status
+		),
+		idle,
+		"the idle view is the roster's own idle tally",
+	)
+	assert_true(String(roster._subtitle.text).contains("idle only"))
+	head._status_buttons[CivilianRoster.STATUS_WORKING].pressed.emit()
+	assert_eq(
+		CivilianRoster.count(
+			roster._snapshot, roster._region, roster._type, roster._status
+		),
+		working,
+	)
+	if working == 0:
+		assert_true(roster._empty.visible, "an empty at-work view is explained")
+		assert_true(String(roster._empty.text).contains("is at work"))
+	else:
+		assert_false(roster._empty.visible)
+	head._status_buttons[CivilianRoster.STATUS_WORKING].pressed.emit()
+	assert_eq(roster._status, CivilianRoster.STATUS_ALL, "tapping the lit chip clears it")
+	assert_eq(
+		CivilianRoster.count(roster._snapshot, roster._region, roster._type, roster._status),
+		total,
+	)
+	head._status_buttons[CivilianRoster.STATUS_IDLE].pressed.emit()
+	roster.close()
+	_screen.hud.civilian_roster_pressed.emit()
+	assert_eq(roster._status, CivilianRoster.STATUS_IDLE, "the filter is the reader's")
+	assert_eq(roster._head.status, CivilianRoster.STATUS_IDLE, "the chips mirror it back")
+	roster.close()
 
 
 func test_the_roster_opens_and_closes_from_the_keyboard() -> void:
