@@ -1440,6 +1440,36 @@ func test_larder_forecast_counts_arriving_recruits() -> void:
 	var thin: Dictionary = LarderRead.forecast(economy)
 	assert_eq(int(thin["strikers"]), 1, "one ration, two mouths")
 
+## A waiting train trades a peasant for its tier in Build/work, so the next
+## Consumption feeds one mouth, not two: the forecast must spend the peasant the
+## order takes or it reads a shortfall the phase will never strike
+## (wiki: workers-and-population § Recruiting; § Phase placement).
+func test_larder_forecast_spends_the_peasant_a_train_takes() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1)
+	economy.stockpile = {"grain": 1, "meat": 1, "refinedSugar": 1}
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["mouths"]), 1, "the peasant becomes the apprentice")
+	assert_eq(int(read["food"]), 2, "one apprentice ration, not a peasant's too")
+	assert_eq(int(read["strikers"]), 0, "the larder covers the one mouth")
+	assert_eq(int(read["food_short"]), 0)
+	assert_eq(int(read["striking_tier"]), -1)
+	assert_eq(read["luxury"], {"refinedSugar": 1})
+
+## A mustered regiment or a launched hull takes a headcount too, so a waiting
+## muster is one peasant fewer at the next Consumption
+## (wiki: workers-and-population § Military and naval construction).
+func test_larder_forecast_counts_a_waiting_muster_as_a_peasant_spent() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 4, "meat": 0}
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["mouths"]), 1, "the muster takes one peasant")
+	assert_eq(int(read["food"]), 1)
+	assert_eq(int(read["strikers"]), 0)
+
 ## The other appetites the phase feeds first come from the last resolution, so
 ## the forecast never promises a ration the army or the navy will take
 ## (wiki: workers-and-population § Consumption).
