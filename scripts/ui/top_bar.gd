@@ -6,7 +6,7 @@ extends RefCounted
 ## every turn or performs an action; the bar carries no vanity counters.
 ## HudLayout re-anchors the parts captured on `hud` (REQ-P1-02, REQ-P1-05).
 
-const SEAL_SIZE := Vector2(58.0, 44.0)
+const SEAL_SIZE := Vector2(52.0, 44.0)
 const REGION_SIZE := Vector2(68.0, 44.0)
 const TREASURY_SIZE := Vector2(122.0, 40.0)
 const CHIP_SIZE := Vector2(88.0, 40.0)
@@ -79,12 +79,27 @@ static func build(hud: GameHud) -> void:
 		"commander", "MUSTER", "Every army and squadron in one ledger (O)",
 		func() -> void: hud.muster_roll_pressed.emit()
 	))
+	# Non-navigation chrome lives on the bar, never as a loose seal over the
+	# chart (REQ-P1-07): the estates ledger and the crown's news.
+	var estates := _seal(
+		"manor", "ESTATES", "The crown's estates and works",
+		func() -> void: hud.estates_pressed.emit()
+	)
+	estates.name = "EstatesSeal"
+	command.add_child(estates)
+	var gazette := _seal(
+		"gazette", "GAZETTE", "This turn's news and the archive",
+		func() -> void: hud.gazette_pressed.emit()
+	)
+	gazette.name = "GazetteSeal"
+	command.add_child(gazette)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
 
 	_add_chips(hud, row)
+	_end_turn(hud, row)
 
 
 static func _identity(hud: GameHud) -> VBoxContainer:
@@ -145,6 +160,13 @@ static func _add_chips(hud: GameHud, row: HBoxContainer) -> void:
 
 	# The plaque values and their copy belong to HudStatChips, not the bar.
 	hud.stats.bind(hud, treasury, fleets, civilians, troops)
+
+
+## The turn's one gold door: the bar's right end, so the chart keeps its corner
+## and the turn stays one reach from anywhere (REQ-P1-07, REQ-P5-01). The soft
+## glow still marks it as the turn's action without covering the map.
+static func _end_turn(hud: GameHud, row: HBoxContainer) -> void:
+	EndTurnDoor.build(hud, row)
 
 
 ## One command seal: pictogram over a one-word caption, so the icon carries the
