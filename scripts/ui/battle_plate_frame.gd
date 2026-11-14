@@ -29,6 +29,11 @@ var battle: Dictionary = {}
 var faction_names: Array = []
 
 var _panel: PanelContainer = null
+var _margin: MarginContainer = null
+var _header_row: HBoxContainer = null
+## The plate is movable by its header, so the chart it covers can be read while
+## the report plays (REQ-P1-07).
+var _drag: ModalDrag = null
 var _title: Label = null
 ## The place of the fight (land) or the despatch's headline (sea).
 var _headline: Label = null
@@ -124,6 +129,7 @@ func _build() -> void:
 	for side: String in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, MARGIN)
 	add_child(margin)
+	_margin = margin
 
 	_panel = PanelContainer.new()
 	_panel.add_theme_stylebox_override(
@@ -149,6 +155,10 @@ func _build_header(column: VBoxContainer) -> void:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
 	column.add_child(header)
+	header.add_child(ModalDrag.grip())
+	_header_row = header
+	var grabs: Array[Control] = [header]
+	_drag = ModalDrag.attach(self, _margin, grabs, _panel)
 	_title = _label(
 		String(_look_data.get("title", "")), int(_look_data.get("title_pixels", 24)),
 		Palette.GOLD_PALE
@@ -307,6 +317,7 @@ func stamp_outcome(text: String, good: bool) -> void:
 func _on_continue() -> void:
 	_shown = false
 	visible = false
+	ModalDrag.reset_on(_margin)
 	finished.emit()
 
 

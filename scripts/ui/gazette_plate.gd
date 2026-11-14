@@ -46,6 +46,12 @@ var _watchlist: GazetteWatchlist = null
 var _newer: Button = null
 var _older: Button = null
 var _nav_label: Label = null
+var _header_row: HBoxContainer = null
+## The sheet is movable by its masthead, so the chart it covers can be read
+## without setting the news aside (REQ-P1-07). The plate repaints its own rect
+## on every fit, so the drag hands it an offset instead of a position.
+var _drag: ModalDrag = null
+var _drag_offset: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -105,6 +111,7 @@ func dismiss() -> void:
 		return
 	_shown = false
 	visible = false
+	_drag_offset = Vector2.ZERO
 	_fit()
 	dismissed.emit()
 
@@ -149,10 +156,12 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 6)
 	_panel.add_child(column)
 	column.add_child(_header())
+	var grabs: Array[Control] = [_header_row]
+	_drag = ModalDrag.attach(self, _panel, grabs, _panel, _place)
 	# Double rule under the masthead, the way a printed gazette divides its flag
 	# from the field (REQ-P1-02).
-	column.add_child(_rule(Palette.INK_LINE))
-	column.add_child(_rule(Palette.GOLD, 2))
+	column.add_child(GazetteParts.rule(Palette.INK_LINE))
+	column.add_child(GazetteParts.rule(Palette.GOLD, 2))
 	_tabs = _tabs_row()
 	column.add_child(_tabs)
 	_nav = _nav_row()
@@ -179,12 +188,14 @@ func _build() -> void:
 func _header() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
+	row.add_child(ModalDrag.grip())
+	_header_row = row
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 0)
-	_title = _label("THE GAZETTE", 26, Palette.INK)
+	_title = GazetteParts.label("THE GAZETTE", 26, Palette.INK)
 	column.add_child(_title)
-	_stamp = _label("", 12, INK_SOFT, true)
+	_stamp = GazetteParts.label("", 12, INK_SOFT, true)
 	column.add_child(_stamp)
 	row.add_child(column)
 	var close := Button.new()
@@ -216,7 +227,7 @@ func _nav_row() -> HBoxContainer:
 	_newer.text = "◀  Newer"
 	_newer.pressed.connect(_step.bind(-1))
 	row.add_child(_newer)
-	_nav_label = _label("", 13, INK_SOFT)
+	_nav_label = GazetteParts.label("", 13, INK_SOFT)
 	_nav_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_nav_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(_nav_label)
@@ -275,10 +286,10 @@ func _render() -> void:
 			_stamp.text = DiplomacyHistory.stamp_for_turn(int(_sheet.get("turn", 0)))
 			_sections(_sheet)
 			if not _age.is_empty():
-				_body.add_child(_spacer(8))
-				_body.add_child(_rule(Palette.INK_FAINT))
-				_body.add_child(_label("THE STATE OF THE AGE", 11, INK_SOFT))
-				_body.add_child(_label(_age, 14, Palette.INK))
+				_body.add_child(GazetteParts.spacer(8))
+				_body.add_child(GazetteParts.rule(Palette.INK_FAINT))
+				_body.add_child(GazetteParts.label("THE STATE OF THE AGE", 11, INK_SOFT))
+				_body.add_child(GazetteParts.label(_age, 14, Palette.INK))
 		Mode.ARCHIVE:
 			_render_archive()
 		Mode.WATCHLIST:
@@ -290,7 +301,7 @@ func _render_archive() -> void:
 	var sheets: Array[Dictionary] = state.history() if state != null else []
 	if sheets.is_empty():
 		_stamp.text = ""
-		_body.add_child(_label(NO_HISTORY, 14, Palette.INK))
+		_body.add_child(GazetteParts.label(NO_HISTORY, 14, Palette.INK))
 		return
 	_at = clampi(_at, 0, sheets.size() - 1)
 	var sheet: Dictionary = sheets[_at]
@@ -306,7 +317,7 @@ func _render_archive() -> void:
 func _sections(sheet: Dictionary) -> void:
 	var items: Array = sheet.get("items", []) as Array
 	if items.is_empty():
-		_body.add_child(_label(EMPTY_LINE, 14, Palette.INK))
+		_body.add_child(GazetteParts.label(EMPTY_LINE, 14, Palette.INK))
 		return
 	var last: int = -1
 	for raw: Variant in items:
@@ -316,13 +327,13 @@ func _sections(sheet: Dictionary) -> void:
 		var cls: int = int(item.get("class", Gazette.Class.COURT))
 		if cls != last:
 			if last >= 0:
-				_body.add_child(_spacer(8))
-			_body.add_child(_rule(Palette.INK_FAINT))
-			_body.add_child(_label(Gazette.heading(cls), 11, Color(0.45, 0.33, 0.12)))
+				_body.add_child(GazetteParts.spacer(8))
+			_body.add_child(GazetteParts.rule(Palette.INK_FAINT))
+			_body.add_child(GazetteParts.label(Gazette.heading(cls), 11, Color(0.45, 0.33, 0.12)))
 			last = cls
 		var text: String = String(item.get("text", ""))
 		if not text.is_empty():
-			_body.add_child(_label(text, 14, Palette.INK))
+			_body.add_child(GazetteParts.label(text, 14, Palette.INK))
 
 
 func _render_watchlist() -> void:
@@ -342,17 +353,25 @@ func _fit() -> void:
 		return
 	var room: float = maxf(size.x - VIEWPORT_MARGIN * 2.0, MIN_WIDTH)
 	var width: float = minf(MAX_WIDTH, room)
-	var left: float = (size.x - width) * 0.5
+	var left: float = (size.x - width) * 0.5 + _drag_offset.x
+	var top: float = PLATE_TOP + _drag_offset.y
 	_panel.offset_left = left
 	_panel.offset_right = left + width
-	_panel.offset_top = PLATE_TOP
+	_panel.offset_top = top
 	# The container takes its own content height; only the news scroll is capped,
 	# so a quiet sheet is a short plate and a busy one runs on inside the scroll.
-	_panel.offset_bottom = PLATE_TOP
-	var room_left: float = maxf(size.y - PLATE_TOP - VIEWPORT_MARGIN - 150.0, 120.0)
+	_panel.offset_bottom = top
+	var room_left: float = maxf(size.y - top - VIEWPORT_MARGIN - 150.0, 120.0)
 	var content: float = _body.get_combined_minimum_size().y
 	_scroll.custom_minimum_size = Vector2(0, clampf(content, 120.0, room_left))
 	_avoid_toasts()
+
+
+## A drag moved the sheet: repaint its rect around the new place (the plate owns
+## its own geometry, so the offset rides the fit rather than a position).
+func _place(offset: Vector2) -> void:
+	_drag_offset = offset
+	_fit()
 
 
 ## Toasts are the moment's acknowledgement (REQ-P5-05). While the sheet is up
@@ -367,34 +386,10 @@ func _avoid_toasts() -> void:
 	if height <= 0.0:
 		return
 	# Room below the sheet for three plates: push the lane under it, else leave
-	# the lane where the viewport put it (a phone's bar is shorter than 84).
-	if _shown and size.y - (PLATE_TOP + height) >= 180.0:
-		despatches.push_below(PLATE_TOP + height + 10.0)
+	# the lane where the viewport put it (a phone's bar is shorter than 84). The
+	# foot follows a dragged sheet, so the lane never prints across it.
+	var bottom: float = _panel.position.y + height
+	if _shown and size.y - bottom >= 180.0:
+		despatches.push_below(bottom + 10.0)
 		return
 	despatches.clear_plate()
-
-
-func _label(text: String, pixels: int, ink: Color, italic: bool = false) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_override("font", UiTheme.serif_italic() if italic else UiTheme.serif())
-	label.add_theme_font_size_override("font_size", pixels)
-	label.add_theme_color_override("font_color", ink)
-	return label
-
-
-func _rule(ink: Color, thickness: int = 1) -> Control:
-	var line := ColorRect.new()
-	line.color = ink
-	line.custom_minimum_size = Vector2(0, thickness)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return line
-
-
-func _spacer(height: int) -> Control:
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, height)
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return gap
