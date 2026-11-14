@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:6efd1d33b0b1512cf6cff63c5b036b5f82de9b3117f3e7bb83e471ac96a902fd",
-  "submission_git": "fix/484-navy-chest@e364a4b",
+  "submission_hash": "sha256:f0d4fbee230520dc0f9fcade29cea12403697923a2e8175fe44e782895b75b83",
+  "submission_git": "fix/484-navy-chest@079eb18",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:b6f56fb4da74dec64a0b97ea1c1d860ada41b9e0f8f1517a04020eb2a8736186",
+    "ai_surface_hash": "sha256:c59ae4b095edb8744dc9eb22764f4aa45f845284606bb5f42c3e9352d6e5091c",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T02:50:30Z",
+  "timestamp": "2026-11-14T04:05:05Z",
   "report_version": 1,
-  "signature": "hmac-sha256:a073cc9c333bc46fb435957c7af004bd488aaa6b5cdcdad81ddf518288700a0f"
+  "signature": "hmac-sha256:3c660189ad3f037db2d6b50c5accf2b4c52b9693b6731beccf9f42450fa7c04e"
 }
