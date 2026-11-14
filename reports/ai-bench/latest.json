@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
   "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:17569e08ac0b8291334d897410dc5c4c1dd18eee5aa45d7211ba3b217147a1bf",
-  "submission_git": "orc/resolve-issue-agent-1/20261113T231008569475Z@5d23423",
+  "submission_hash": "sha256:a890a08973080422a923023198f32e44600064572afbd6114d82b51abec3cdbb",
+  "submission_git": "fix/476-colony-voyage-trace@a38ebcf",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:412ba9dd9cf6028def57e7bdcc3eef5b5a4c967b1934fcfa454cb7c1997535f9",
+    "ai_surface_hash": "sha256:279f200568a286035163bd14a208de23c42f672b4824883c8dc31af46167d946",
     "parts": {
       "provinces_old": 31,
       "provinces_new": 0,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T00:08:40Z",
+  "timestamp": "2026-11-14T01:18:57Z",
   "report_version": 1,
-  "signature": "hmac-sha256:fe250b26869cf907b6e3d1b6bf8990d1eb6c834d3dfb5ebfa93f58f02e586e90"
+  "signature": "hmac-sha256:c7dd61d91d44551d48284d50e5527c234442c08064521d8acf2923e78e3736f1"
 }
