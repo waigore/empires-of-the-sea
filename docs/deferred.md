@@ -34,14 +34,13 @@ Audited through DR-20261114-04 (`REQ-P2-02`).
 
 1. **New World colony founded** — landings and storm conquest are live
    (DR-14-03), and the chain's door is studied (DR-14-05). Join Empire
-   (`5,000 + 2,000 × provinces`) still outruns a rival purse held at hundreds
-   by the starvation defect (#530/#489).
+   (`5,000 + 2,000 × provinces`) still outruns a rival purse under the
+   starvation defect (#530/#489).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
-   every domain still runs; only the voyage gate is live. Weights, money-first
-   and victory pressure ship.
-3. **Recipe gates / queue** — worker-tier gates shipped for cigars
-   (apprentice) and fur hats (journeyman), DR-20261114-07; building gates, rows
-   past steel/bronze and the queue cap remain (wiki-deferred).
+   every domain runs; only the voyage gate is live.
+3. **Recipe gates / queue** — cigars need an apprentice, fur hats a journeyman
+   (DR-20261114-07); building gates, rows past steel/bronze and the queue cap
+   remain (wiki-deferred).
 
 ## Next pick
 
