@@ -12,7 +12,7 @@ The job exports preset `Android Debug` via [`.github/scripts/export_android_debu
 
 ## Publish
 
-On success the workflow creates or updates a **prerelease** tagged `android-debug/<sha>` with asset `empires-of-the-sea-<12-char-sha>-debug.apk`.
+On success the workflow creates or updates a **prerelease** tagged `android-debug/<YYYY-MM-DD>/<sha>` (UTC date), titled `android-debug <YYYY-MM-DD> <12-char-sha>`, with asset `empires-of-the-sea-<12-char-sha>-debug.apk`.
 
 Install over a previous build: `adb install -r <apk>`.
 

@@ -2,7 +2,7 @@ name: Android debug
 
 # Debug APK for a pull request into the long-lived android-debug branch.
 # Exports that pull request's head commit with Godot 4.7.2 and publishes a
-# GitHub Release tagged android-debug/<sha>. A push to the branch does not build.
+# GitHub Release tagged android-debug/<YYYY-MM-DD>/<sha>. A push to the branch does not build.
 
 on:
   pull_request:
@@ -111,7 +111,8 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           set -euo pipefail
-          tag="android-debug/${SHA}"
+          day="$(date -u +%Y-%m-%d)"
+          tag="android-debug/${day}/${SHA}"
           short="${SHA:0:12}"
           notes="${RUNNER_TEMP}/android-debug-notes.md"
           printf '%s\n' \
@@ -127,7 +128,7 @@ jobs:
             gh release create "$tag" "$APK_PATH" \
               --target "$SHA" \
               --prerelease \
-              --title "android-debug ${short}" \
+              --title "android-debug ${day} ${short}" \
               --notes-file "$notes"
           fi
           gh release view "$tag" --json url,tagName --jq '"\(.tagName) \(.url)"'

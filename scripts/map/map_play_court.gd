@@ -96,6 +96,22 @@ static func hostile_warships(play: PlaySession, faction: int) -> int:
 	return total
 
 
+## The purse this court must hold before it may lay the hull it means to build:
+## the fleet claim every other spender defers to (issue #484). 0 when it is not
+## rebuilding — no war, a fleet that already matches its enemies, or techs that
+## open no warship at all.
+static func navy_chest(play: PlaySession, faction: int) -> int:
+	if play == null:
+		return 0
+	var ledger: PlayerEconomy = play.ledger_for(faction)
+	if ledger == null:
+		return 0
+	return AiNavy.chest(
+		at_war(play, faction), warships(play, faction), hostile_warships(play, faction),
+		ledger
+	)
+
+
 ## The courts at war with this one, in relation order. Empty when the session
 ## carries no diplomacy.
 static func at_war_with(play: PlaySession, faction: int) -> Array[int]:
