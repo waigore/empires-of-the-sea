@@ -101,11 +101,25 @@ static func _run(
 		economy.stockpile,
 		int(consumption["idle_labour"]),
 		economy.tech_unlocked,
-		economy.production.wip
+		economy.production.wip,
+		economy.workers
 	)
 	# The workshop rides into the next turn: multi-turn batches keep serving
 	# until their output lands (DR-20261112-11).
 	economy.production.wip = (planned.get("wip", {}) as Dictionary).duplicate(true)
+	# What the phase turned out, kept for the ledger and the save: the wiki's
+	# `productionByRecipe` record (wiki: production-recipes § Acceptance Criteria).
+	# A batch on the anvil pays in the phase its unit lands (`completed`); a
+	# one-turn run lands in the phase it runs, so its runs are landings too.
+	var landed: Dictionary = (planned.get("completed", {}) as Dictionary).duplicate()
+	var runs: Dictionary = planned.get("runs", {}) as Dictionary
+	for raw_recipe: Variant in runs.keys():
+		var recipe_id: String = String(raw_recipe)
+		if ProductionRecipes.turns(recipe_id) > 1:
+			continue
+		var units: int = int(runs[raw_recipe]) * ProductionRecipes.OUTPUT_PER_RUN
+		landed[recipe_id] = int(landed.get(recipe_id, 0)) + units
+	economy.production.set_made(landed)
 	# Research runs last: its gold comes out of the treasury Production left.
 	var research: Dictionary = ResearchTurn.resolve(
 		economy.research, economy, research_boost, leader_key

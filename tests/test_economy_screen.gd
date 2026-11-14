@@ -139,6 +139,47 @@ func test_the_workers_tab_shows_what_is_under_orders() -> void:
 	assert_true(printed.contains("1 arriving"), "the peasant row counts the arrival")
 
 
+## The WORKERS tab reads the larder before the crown recruits into it: the store,
+## every appetite and the tier a shortfall strikes first, on the tab rather than
+## in a hover hint (wiki: workers-and-population § Consumption; REQ-P5-06,
+## REQ-P1-05).
+func test_the_workers_tab_reads_the_larder() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var printed: String = _printed(workers)
+
+	assert_true(printed.contains("LARDER · NEXT TURN"), "the head names the reading: %s" % printed)
+	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
+	assert_true(printed.contains("Fur Hats ×1"), "the luxury the pool wants: %s" % printed)
+	assert_true(printed.contains("2 mouths eat 3 food"), "every appetite: %s" % printed)
+	# The screen's army and navy eat before the pool, so the master cannot be fed
+	# its grain and meat: the shortfall is food and it bites the top tier first.
+	assert_true(printed.contains("food — "), "a food shortfall: %s" % printed)
+	assert_true(printed.contains("striker"), "someone strikes: %s" % printed)
+	assert_true(printed.contains("masters first"), "the top tier first: %s" % printed)
+
+	# A larder the army, the navy and the pool can all eat reads calm instead.
+	economy.stockpile = {"grain": 60, "meat": 60, "furHats": 1}
+	_screen.economy.open_panel()
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var calm: String = _printed(workers)
+	assert_true(calm.contains("The larder covers every mouth."), calm)
+	assert_false(calm.contains("striker,"), "no striker when the larder covers: %s" % calm)
+
+
+## Every label a tab printed, so a test reads the page instead of its privates.
+func _printed(node: Node) -> String:
+	var texts: Array[String] = []
+	for label: Label in node.find_children("*", "Label", true, false):
+		texts.append(label.text)
+	return "\n".join(texts)
+
+
 func test_the_ledger_sends_a_trained_worker_back_to_the_fields() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
@@ -883,6 +924,60 @@ func test_the_alloy_rows_name_their_wait() -> void:
 	_screen.economy.open_panel()
 	var body: Node = _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_true(_row_has_text(body, "2t"), "the idle alloy row shows its two-turn wait")
+
+
+## A luxury row names the hand it waits for on the row itself, and its "+" is
+## inert until the court trains one: a touch player never sees a hover hint
+## (wiki: production-recipes § Worker-tier gates; DR-20261114-07).
+##
+## The row remembers the phase the court paid for: an idle row that worked says
+## what it turned out, and the MANUFACTURED heading totals the workshop's last
+## phase (wiki: production-recipes § Acceptance Criteria, `productionByRecipe`).
+func test_a_production_row_reports_the_phase_it_just_worked() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.production.set_made({"lumber": 2, "steel": 1})
+	_screen.economy.open_panel()
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "made 2"), "the lumber row names its last output")
+	assert_eq(
+		LedgerText.workshop_note(economy, "steel"), "2t",
+		"a waiting row keeps its tag: the present is what the next phase pays"
+	)
+	var hints: PackedStringArray = []
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text == "MANUFACTURED":
+			hints.append(label.tooltip_text)
+	assert_true(
+		not hints.is_empty() and hints[0].contains("Last phase the workshop made 3 goods"),
+		"the heading totals the workshop's last phase: %s" % [hints]
+	)
+	economy.production.set_made({})
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "made 2"), "an idle workshop claims no last output")
+
+
+func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	var economy: PlayerEconomy = _screen.economy.economy
+	assert_eq(
+		economy.workers.count(WorkerPool.Tier.APPRENTICE), 0,
+		"the opening court has no trained hand"
+	)
+	assert_true(_row_has_text(body, "needs an Apprentice"), "the cigar row names its gate")
+	assert_true(_row_has_text(body, "needs a Journeyman"), "the fur hat row names its gate")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["cigars"]["plus"] as Button).disabled, "a gated row offers no run")
+	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "needs an Apprentice"), "the trained hand opens the row")
+	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
 
 
 func _row_has_text(body: Node, text: String) -> bool:
