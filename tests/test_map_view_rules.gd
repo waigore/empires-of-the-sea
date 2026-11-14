@@ -375,6 +375,14 @@ func test_a_chart_that_never_baked_heals_on_the_next_frame() -> void:
 	assert_not_null(_minimap._texture, "the inset bakes rather than staying blank")
 
 
+## With no chart there is nothing to bake: the inset stays empty rather than
+## painting a chartless wash over the chrome's frame.
+func test_an_inset_with_no_chart_bakes_nothing() -> void:
+	_setup_minimap()
+	_minimap._process(0.0)
+	assert_null(_minimap._texture, "no chart, no bake")
+
+
 func test_charted_region_draws_coast_province_and_crown_ink() -> void:
 	_setup_minimap()
 	_visibility.apply_initial()

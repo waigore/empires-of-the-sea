@@ -68,8 +68,8 @@ func refresh_ownership() -> void:
 	rebuild()
 
 
-## Reveals arrive after the inset is built; repaint when the view moved on.
-## A chart that never baked — a mount whose paint missed the inset, or one made
+## Reveals arrive after the inset is built; repaint when the view moved on. A
+## chart that never baked — a mount whose paint missed the inset, or one made
 ## before its region existed — bakes on the next frame instead of leaving the
 ## frame's near-black panel showing for the whole campaign (issue #563).
 func _process(_delta: float) -> void:
@@ -94,10 +94,6 @@ func rebuild() -> void:
 
 
 func _rebuild_texture() -> void:
-	# A region with no tiles has no chart to bake; keep the last texture rather
-	# than minting a zero-sized one that draws nothing.
-	if model.width <= 0 or model.height <= 0:
-		return
 	var image := Image.create(model.width, model.height, false, Image.FORMAT_RGBA8)
 	for y in model.height:
 		for x in model.width:
@@ -245,16 +241,9 @@ func set_view_rect(rect: Rect2) -> void:
 
 
 func _draw() -> void:
-	if model == null:
+	if _texture == null or model == null:
 		return
 	var fit: Rect2 = _fit_rect()
-	if _texture == null:
-		# The bake runs on the next frame (`_process`); until it does, the inset
-		# reads as bare parchment instead of the frame's near-black panel
-		# (issue #563).
-		draw_rect(Rect2(Vector2.ZERO, size), Palette.PAPER)
-		_draw_frame(fit)
-		return
 	draw_texture_rect(_texture, fit, false)
 	_draw_ink()
 	_draw_capitals()
