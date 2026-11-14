@@ -268,9 +268,10 @@ static func _apply(
 		)
 		if bool(peace.get("ok", false)) and ai_state != null:
 			# Either answer starts the pair's peace-offer cooldown, so a court
-			# does not ask again every turn (wiki: diplomacy § Planner
-			# selection; DR-20261109-07).
-			ai_state.note_peace(faction, target, turn)
+			# does not ask again every turn; a refusal also widens the next wait
+			# (wiki: diplomacy § Planner selection; DR-20261109-07,
+			# DR-20261115-01).
+			ai_state.note_peace(faction, target, turn, bool(peace.get("accepted", false)))
 			if bool(peace.get("accepted", false)):
 				ai_state.note_truce(faction, target, turn)  # issue #475
 		return {
