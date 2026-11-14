@@ -46,25 +46,36 @@ static func production_orders(
 			"assigned": 0,
 		})
 	candidates.sort_custom(_better_candidate)
+	# One run at a time in rank order, cycling while labour and inputs last: the
+	# highest-scoring input must not take the court's whole labour while every
+	# other build input starves. A court whose stores carry iron and wool wove no
+	# cloth at all — castIron's deficit never fell (works spend it every turn), so
+	# it outranked fabric on every turn and the muster starved with a full war
+	# chest (issue #474).
+	var progress: bool = true
+	while progress and labour > 0:
+		progress = false
+		for entry: Dictionary in candidates:
+			if int(entry["deficit"]) <= 0 or labour <= 0:
+				continue
+			var recipe_id: String = String(entry["recipe"])
+			var runs: int = mini(1, ProductionRecipes.max_runs(recipe_id, stock, labour))
+			if runs <= 0:
+				continue
+			entry["assigned"] = int(entry["assigned"]) + runs
+			_reserve(recipe_id, runs, stock)
+			labour -= runs * ProductionRecipes.labour(recipe_id)
+			# Interchangeable recipes (wool/cotton fabric) must not both fill the
+			# same deficit in one plan.
+			for other: Dictionary in candidates:
+				if String(other["output"]) == String(entry["output"]):
+					other["deficit"] = maxi(int(other["deficit"]) - runs, 0)
+			progress = true
 	for entry: Dictionary in candidates:
-		if int(entry["deficit"]) <= 0 or labour <= 0:
+		var units: int = int(entry["assigned"])
+		if units <= 0:
 			continue
-		var recipe_id: String = String(entry["recipe"])
-		var runs: int = mini(
-			int(entry["deficit"]),
-			ProductionRecipes.max_runs(recipe_id, stock, labour)
-		)
-		if runs <= 0:
-			continue
-		entry["assigned"] = runs
-		assignments.append({"recipe": recipe_id, "units": runs})
-		_reserve(recipe_id, runs, stock)
-		labour -= runs * ProductionRecipes.labour(recipe_id)
-		# Interchangeable recipes (wool/cotton fabric) must not both fill the
-		# same deficit in one plan.
-		for other: Dictionary in candidates:
-			if String(other["output"]) == String(entry["output"]):
-				other["deficit"] = maxi(int(other["deficit"]) - runs, 0)
+		assignments.append({"recipe": String(entry["recipe"]), "units": units})
 	assignments.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return String(a["recipe"]) < String(b["recipe"])
 	)

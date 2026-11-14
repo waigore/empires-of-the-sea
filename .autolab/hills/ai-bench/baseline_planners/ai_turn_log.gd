@@ -11,7 +11,7 @@ const NO_ID: int = MapModel.NO_ID
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
-	"invade", "build", "cargo",
+	"invade", "voyage", "colony", "build", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -30,6 +30,8 @@ const ACTION_LABELS: Dictionary = {
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
+	"voyage": "voyage orders",
+	"colony": "colony landings",
 	"build": "hulls laid down",
 	"cargo": "cargo routes",
 }
@@ -43,6 +45,7 @@ static func record(
 	fleet_trace: Array[Dictionary],
 	economy_report: Dictionary,
 	invasion_trace: Array[Dictionary] = [],
+	colonisation_trace: Array[Dictionary] = [],
 	objectives: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
@@ -58,7 +61,7 @@ static func record(
 	_record_armies(merged, factions, army_trace)
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
-	_record_invasion(merged, factions, invasion_trace)
+	_record_expeditions(merged, factions, invasion_trace, colonisation_trace)
 	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged
@@ -225,33 +228,23 @@ static func _record_fleets(
 		)
 
 
-## Overseas expeditions: the split, the boarding, the crossing and the landing
-## read as one campaign, so the headline counts landings rather than each leg.
-static func _record_invasion(
-	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
+## Overseas expeditions: the invasion and colonisation passes hand their traces
+## to `AiExpeditionLog`, which prices each leg as an action row (the split, the
+## landing, the voyage step and the colony landing); this pass counts and prints
+## them. Colonisation rows keep a voyage in the trace even when no army is aboard
+## (issue #476).
+static func _record_expeditions(
+	merged: Dictionary,
+	factions: Dictionary,
+	invasion_trace: Array[Dictionary],
+	colonisation_trace: Array[Dictionary]
 ) -> void:
-	for raw: Dictionary in trace:
-		var faction: int = int(raw.get("faction", NO_ID))
+	for row: Dictionary in AiExpeditionLog.rows(invasion_trace, colonisation_trace):
+		var faction: int = int(row.get("faction", NO_ID))
 		if not factions.has(faction):
 			continue
-		var kind: String = String(raw.get("kind", ""))
-		if kind == MainlineAiInvasionPlanner.KIND_SPLIT:
-			_bump(factions[faction]["actions"], "split")
-			continue
-		_bump(factions[faction]["actions"], "invade")
-		var who: String = FactionCatalog.name_of(faction)
-		match kind:
-			MainlineAiInvasionPlanner.KIND_EMBARK:
-				_add_event(merged, factions[faction], faction, "%s's expedition boards its squadron." % who)
-			MainlineAiInvasionPlanner.KIND_CROSS:
-				_add_event(merged, factions[faction], faction, "%s's expedition crosses the Passage." % who)
-			MainlineAiInvasionPlanner.KIND_LAND:
-				var place: String = String(raw.get("province_name", ""))
-				if not place.is_empty():
-					_add_event(
-						merged, factions[faction], faction,
-						"%s's army lands at %s." % [who, place],
-					)
+		_bump(factions[faction]["actions"], String(row.get("action", "")))
+		_add_event(merged, factions[faction], faction, String(row.get("event", "")))
 
 
 static func _record_economy(

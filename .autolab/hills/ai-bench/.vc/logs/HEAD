@@ -4,3 +4,4 @@
 625b8feb93bf124a989d47545a941750c0098ded 742171fd3a6b1d23ecd75c3ed7770ecab8efb5ca waigore <32946806+waigore@users.noreply.github.com> 1794579736 +0800	commit: Ship frozen baseline_planners for sandboxed evals without git.
 742171fd3a6b1d23ecd75c3ed7770ecab8efb5ca a5e3a0f1c04183c2f54717c558298fecafa1cc99 waigore <32946806+waigore@users.noreply.github.com> 1794579927 +0800	commit: Document frozen baseline_planners fallback in README.
 a5e3a0f1c04183c2f54717c558298fecafa1cc99 f5d5cdfd4e7e5f3406f6e23ad8583f09099db8d9 waigore <32946806+waigore@users.noreply.github.com> 1794617430 +0800	commit: Subject vs origin/main baselines vs random; freeze mainline planners; funded_pct.
+f5d5cdfd4e7e5f3406f6e23ad8583f09099db8d9 5597ee26c0b357ae2779a7186c8de52c976a7dfb waigore <32946806+waigore@users.noreply.github.com> 1794624870 +0800	commit: Refresh frozen planners from origin/main after economy/expedition merge.
