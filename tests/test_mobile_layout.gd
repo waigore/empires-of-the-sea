@@ -523,6 +523,14 @@ func test_opened_plates_can_be_pushed_aside() -> void:
 	var moved: Vector2 = card._panel.get_global_rect().position
 	assert_almost_eq(moved.x, start.x - 30.0, 1.0, "the card follows its header west")
 	assert_almost_eq(moved.y, start.y + 20.0, 1.0, "and south")
+	# A near-full-screen card can still be pushed clear of the chart: only a
+	# grabbable strip has to stay on screen.
+	_drag(card._header_row, Vector2(-1400.0, 0.0))
+	await get_tree().process_frame
+	assert_almost_eq(
+		card._panel.get_global_rect().end.x, ModalDrag.MIN_VISIBLE.x, 1.0,
+		"a grabbable strip stays on screen"
+	)
 	card.close()
 	await get_tree().process_frame
 	assert_almost_eq(
