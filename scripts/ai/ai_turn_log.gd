@@ -11,7 +11,7 @@ const NO_ID: int = MapModel.NO_ID
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
-	"invade", "build", "cargo",
+	"invade", "voyage", "colony", "build", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -30,6 +30,8 @@ const ACTION_LABELS: Dictionary = {
 	"train": "civilians",
 	"split": "splits",
 	"invade": "landings",
+	"voyage": "voyage orders",
+	"colony": "colony landings",
 	"build": "hulls laid down",
 	"cargo": "cargo routes",
 }
@@ -43,6 +45,7 @@ static func record(
 	fleet_trace: Array[Dictionary],
 	economy_report: Dictionary,
 	invasion_trace: Array[Dictionary] = [],
+	colonisation_trace: Array[Dictionary] = [],
 	objectives: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
@@ -59,6 +62,7 @@ static func record(
 	_record_fleets(merged, factions, fleet_trace)
 	_record_economy(merged, factions, economy_report)
 	_record_invasion(merged, factions, invasion_trace)
+	_record_colonisation(merged, factions, colonisation_trace)
 	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged
@@ -251,6 +255,43 @@ static func _record_invasion(
 					_add_event(
 						merged, factions[faction], faction,
 						"%s's army lands at %s." % [who, place],
+					)
+
+
+## A rival court's colonisation voyage (issue #476): every applied step — dock,
+## sail, embark, cross, land — is a voyage order, and the landing is also
+## counted as a colony landing, so the observer sees an expedition even when no
+## army crosses. The adapter's kinds are the plain strings
+## `MapPlayColonisationAi._apply` writes.
+static func _record_colonisation(
+	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
+) -> void:
+	for raw: Dictionary in trace:
+		var faction: int = int(raw.get("faction", NO_ID))
+		if not factions.has(faction):
+			continue
+		var kind: String = String(raw.get("kind", ""))
+		_bump(factions[faction]["actions"], "voyage")
+		var who: String = FactionCatalog.name_of(faction)
+		var place: String = String(raw.get("province_name", ""))
+		match kind:
+			"embark":
+				if not place.is_empty():
+					_add_event(
+						merged, factions[faction], faction,
+						"%s's Explorer boards at %s." % [who, place],
+					)
+			"cross":
+				_add_event(
+					merged, factions[faction], faction,
+					"%s's voyage crosses the Passage." % who,
+				)
+			"land":
+				_bump(factions[faction]["actions"], "colony")
+				if not place.is_empty():
+					_add_event(
+						merged, factions[faction], faction,
+						"%s's Explorer lands at %s." % [who, place],
 					)
 
 
