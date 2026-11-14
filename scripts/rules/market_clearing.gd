@@ -212,6 +212,15 @@ static func _settle(
 			buyer_economy.spend_treasury(cost)
 			buyer_economy.add(commodity, quantity)
 			market.record_import(commodity, quantity, buyer)
+		# The row carries what the clearing actually settled, not what the matcher
+		# proposed: a purse-truncated deal buys fewer tons, and the debt is rounded
+		# once from the whole deal, so the Deal Book must read the charged total
+		# (wiki: world-market § Subsidy price adjustment — "never a sum of per-unit
+		# roundings"; REQ-P5-05).
+		deal["quantity"] = quantity
+		deal["cost"] = cost
+		deal["buy_unit"] = buy_unit
+		deal["subsidy_percent"] = subsidy
 		var seller_economy: PlayerEconomy = _economy(economies, seller)
 		var proceeds: int = 0
 		if seller_economy != null:
@@ -224,9 +233,6 @@ static func _settle(
 			# The receipt names the ducats, not only the tons (REQ-P5-05): a sale
 			# is the one trade a court cannot see the price of in the ledger.
 			deal["earned"] = proceeds
-		deal["quantity"] = quantity
-		deal["buy_unit"] = buy_unit
-		deal["subsidy_percent"] = subsidy
 		var row: Dictionary = fills.get(buyer, {}) as Dictionary
 		row["bought"] = int(row.get("bought", 0)) + quantity
 		row["spent"] = int(row.get("spent", 0)) + cost

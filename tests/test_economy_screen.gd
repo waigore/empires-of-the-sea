@@ -909,6 +909,25 @@ func test_the_offer_chip_names_what_production_claims() -> void:
 	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
 
 
+## The claim is a readout on the page, not only a hover: a phone player sees why
+## the Offer is dead (wiki: world-market § Trade orders — the per-commodity
+## sellable readout; REQ-P1-05, REQ-P5-05).
+func test_the_market_row_prints_the_sellable_cap() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	_screen.economy.orders.set_production("lumber", 2)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var caption: Label = null
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text.contains("claimed by production"):
+			caption = label
+	assert_not_null(caption, "the row prints the claim, not only a tooltip")
+	assert_eq(caption.text, "4 Timber claimed by production — 0 sellable")
+
+
 ## Every MARKET row shows its good's own medallion: grain, wool and timber used
 ## to share one generic pictogram (REQ-P1-02; tools/art/goods-medallions.md).
 func test_every_market_row_carries_its_medallion() -> void:

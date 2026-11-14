@@ -357,18 +357,20 @@ func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
 
-	# The court can only sell what its own production runs leave behind.
+	# The court can only sell what its own production runs leave behind, and the
+	# cap is a readout on the page, not a hover: a phone player must see why the
+	# Offer is dead (wiki: world-market § Trade orders — the sellable readout;
+	# REQ-P1-05, REQ-P5-05).
 	var sellable: int = maxi(held - claimed, 0)
 	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
 	sell.disabled = sellable <= 0
 	if claimed > 0:
-		sell.tooltip_text = (
-			"%d of %d %s claimed by production — %d sellable at %d ducats"
-			% [claimed, held, CommodityCatalog.label(id), sellable, sell_unit]
-		)
+		sell.tooltip_text = "%d %s claimed by production — %d sellable at %d ducats" % [
+			claimed, CommodityCatalog.label(id), sellable, sell_unit,
+		]
 	else:
 		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
-			CommodityCatalog.label(id), sell_unit
+			CommodityCatalog.label(id), sell_unit,
 		]
 	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
 	row.add_child(sell)
@@ -383,4 +385,14 @@ func _market_row(id: String, held: int, claimed: int = 0) -> Control:
 		buy.tooltip_text = "No cargo holds free this turn"
 	buy.pressed.connect(func() -> void: trade_requested.emit(id, 1, true))
 	row.add_child(buy)
-	return row
+	if claimed <= 0:
+		return row
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 2)
+	block.add_child(row)
+	block.add_child(UiRowBuilder.caption(
+		"%d %s claimed by production — %d sellable"
+		% [claimed, CommodityCatalog.label(id), sellable],
+		10, Palette.TEXT_DIM, 0.0
+	))
+	return block
