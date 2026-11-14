@@ -4261,3 +4261,56 @@ func test_the_observer_log_reads_the_muster() -> void:
 	var lines: Array = record["events"]
 	assert_true(lines.size() > 0, "the event list names the pattern")
 	play.army_layer.free()
+
+
+# --- famine: shed the force a court cannot feed (issue #489) -----------------
+
+
+func test_fed_slack_reads_the_ration_after_army_and_navy() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 10
+	economy.stockpile["meat"] = 0
+
+	# 10 grain − 3 army − 2 navy (one hull) − 4 peasants
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 1)
+	assert_true(not AiArmyReinforce.starving(economy, 3, 1))
+
+
+func test_a_short_worker_ration_is_a_strike() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 5
+	economy.stockpile["meat"] = 0
+
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 0), -2)
+	assert_true(AiArmyReinforce.starving(economy, 3, 0))
+
+
+func test_a_court_striking_for_food_musters_nothing() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 0
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true((plan["reasons"] as Array).has("striking for food"))
+
+
+func test_a_court_with_room_for_one_more_ration_musters() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1
+	)
+
+	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+
+	var starved: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		_work_config(), economy, 0, 0
+	)
+	var fed: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		_work_config(), economy, 0, 1
+	)
+
+	assert_eq(starved.size(), 0, "no ration, no hire")
+	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")

@@ -59,8 +59,9 @@ None — see [`deferred.md`](deferred.md).
 
 ## Architecture
 
-Rules: `diplomacy_catalog` (costs, bands, gates), `diplomacy_state`,
-`diplomacy_rules`, `diplomacy_aid`, `diplomacy_orders` (validate/apply),
+Rules: `diplomacy_catalog`, `diplomacy_state`,
+`diplomacy_rules` (treaties), `diplomacy_overtures` (rung taken), `diplomacy_aid`,
+`diplomacy_orders` (validate/apply),
 `diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
 `diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`, `deed_protection`,
 `tribe_contact`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`,

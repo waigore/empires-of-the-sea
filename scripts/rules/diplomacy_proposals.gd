@@ -111,7 +111,7 @@ static func resolve_human(
 	if kind == KIND_ALLIANCE:
 		result = DiplomacyRules.form_alliance(state, from_id, state.human_faction, decision)
 	elif kind == KIND_OVERTURE:
-		result = DiplomacyRules.establish_overture(
+		result = DiplomacyOvertures.establish_overture(
 			state, null, world, from_id, state.human_faction, stage, {}, decision
 		)
 	elif kind == KIND_FTP:
