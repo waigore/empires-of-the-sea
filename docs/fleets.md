@@ -72,8 +72,7 @@ No node deps (`REQ-P3-03`).
 
 ## Deferred (REQ-P2-02)
 
-Fleetless import leg: no holds, so no first-hull cloth (rules call); see
-[`deferred.md`](deferred.md).
+None — ranked gaps: [`deferred.md`](deferred.md).
 
 ## Tests
 

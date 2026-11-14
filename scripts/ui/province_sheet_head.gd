@@ -1,13 +1,20 @@
 class_name ProvinceSheetHead
 extends VBoxContainer
-## The province dossier's title block: the province's name, its CAPITAL badge and
-## the court that holds it. The section owns the head's widgets, so the dossier
-## builds one row instead of growing its own build (REQ-P3-01).
+## The province dossier's title block: the province's name, its CAPITAL badge,
+## the court that holds it and the door to the whole realm. The section owns the
+## head's widgets, so the dossier builds one row instead of growing its own
+## build (REQ-P3-01).
+
+## The whole realm: every province the crown holds, read in one ledger
+## (DR-20261115-09). The dossier is where a crown asks about its land, so the
+## door to the whole of it lives here rather than as a loose seal over the chart.
+signal realm_pressed
 
 var name_label: Label = null
 var capital_badge: Label = null
 var owner_swatch: ColorRect = null
 var owner_label: Label = null
+var realm_button: Button = null
 
 
 func _ready() -> void:
@@ -45,6 +52,18 @@ func _ready() -> void:
 	owner_label.add_theme_font_size_override("font_size", 14)
 	owner_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	owner_row.add_child(owner_label)
+
+	# The realm door: the dossier is one province, the crown's holding is not.
+	# It sits on the owner row so the title keeps its width on a phone sheet.
+	owner_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	realm_button = Button.new()
+	realm_button.text = "Realm"
+	realm_button.tooltip_text = "Every province the crown holds (T)"
+	realm_button.custom_minimum_size = Vector2(72, 28)
+	realm_button.add_theme_font_size_override("font_size", 12)
+	realm_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	realm_button.pressed.connect(func() -> void: realm_pressed.emit())
+	owner_row.add_child(realm_button)
 
 
 func show_province(data: ProvinceState) -> void:

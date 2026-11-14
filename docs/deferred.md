@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-04 + #631 (`REQ-P2-02`).
+Audited through DR-20261115-08 + #644 (`REQ-P2-02`).
 
 ## Already live
 
@@ -11,6 +11,7 @@ Audited through DR-20261115-04 + #631 (`REQ-P2-02`).
 | Home-fleet; forts; civilian AI | `FleetHomeMerge`, `AiCivilianPlanner`, forts |
 | Minor/Tribe market + town growth | `MinorMarket`, `TownIndustry`, `MinorTownGrowth` |
 | Overseas cargo; colony profit; Join Empire | `EconomyOverseas`, `FirstRight`, `DiplomacyOvertures` |
+| Fleetless first-hull import (seat harbour hold) | `TradeCargo.PORT_ALLOWANCE`, #606 |
 | Counter-spy; court reports; fog/Passage | espionage; `CourtCharts`, DR-11-05 |
 | Favoured partner; GP–Tribe contact | `MarketFavoured`; `TribeContact`, DR-11-11/14 |
 | Hospitals; rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
@@ -33,18 +34,16 @@ Audited through DR-20261115-04 + #631 (`REQ-P2-02`).
 
 1. **Rival purse behind Join Empire** — the colony waits on
    `5,000 + 2,000 × provinces` (#489) while landings and storms grow colonies
-   (DR-14-14); the famine/income deadlock is a rules call.
-2. **Fleetless import leg** — no hull means no holds, so the cloth for a first
-   hull cannot be imported (#530/#484); a rules question (DR-14-11).
-3. **Building gates / further rows** — worker tiers, the alloy + luxury four and
+   (DR-14-14); the famine/income deadlock behind it is a rules call.
+2. **Building gates / further rows** — worker tiers, the alloy + luxury four and
    the bench cap ship (DR-14-07/10/12); building-gated recipes remain.
-4. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship;
+3. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship;
    the soft priority weight vector and treasury-recovery reweighting stay seed
    (DR-13-15) — internal knobs.
 
 ## Next pick
 
-The rival purse (#489); the fleetless import leg (#530) is the rules call.
+The rival purse (#489) — a rules call.
 
 ## Blocked footnotes
 
@@ -59,4 +58,6 @@ The rival purse (#489); the fleetless import leg (#530) is the rules call.
 - Further tongues — out of scope (DR-13-12).
 - Wiki drift (read-only): `civilian-units` calls Road L2/gathering deferred;
   `ai-architecture`'s seed list names victory pressure; `phase-planner-*` cite
-  DR-14-11 for DR-14-13's declare slot.
+  DR-14-11 for DR-14-13's declare slot; DR-14-11 still calls the fleetless
+  import leg unshipped (#606); `playtest-learnings` calls the boycott's
+  blocked deal unread.
