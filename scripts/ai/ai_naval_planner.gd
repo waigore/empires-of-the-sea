@@ -127,9 +127,8 @@ static func holds_ashore(
 ## True when this squadron carries the holds its court has nowhere else: without
 ## it at the seat the court imports nothing, so it sails home rather than hunt,
 ## raid or keep a station (wiki: ships-and-naval § Home Fleet, § Ship Types;
-## issue #530). Expeditions answer false — their hulls belong to the invasion
-## planner — and so does a crown with no harbour at its seat, which no sail can
-## help.
+## issue #530). Expeditions answer false, and so does a crown with no harbour
+## at its seat: no sail can help it.
 static func trade_garrison(model: MapModel, fleets: Array, fleet: FleetState) -> bool:
 	if fleet == null or TradeCargo.fleet_holds(fleet) <= 0:
 		return false
@@ -146,9 +145,7 @@ static func trade_garrison(model: MapModel, fleets: Array, fleet: FleetState) ->
 static func _defends_seat(
 	model: MapModel, fleets: Array, fleet: FleetState, hostile: Dictionary
 ) -> bool:
-	if not fleet.is_in_port():
-		return false
-	return _hostile_beside(model, fleets, fleet, hostile)
+	return fleet.is_in_port() and _hostile_beside(model, fleets, fleet, hostile)
 
 
 ## One step home for an unengaged squadron: dock when the home harbour borders
