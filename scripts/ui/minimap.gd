@@ -28,6 +28,10 @@ var _map_size: Vector2 = Vector2.ZERO
 var _tile_world: float = 22.0
 var _dragging: bool = false
 var _seen_revision: int = 0
+## Chart the baked texture and ink were drawn from; a rebake of the same chart
+## (a re-seat from the same save, a region repaint) draws nothing again.
+var _baked_key: int = 0
+var _baked: bool = false
 ## Cached ink, first in world coordinates then projected into the inset's own
 ## pixels so strokes are drawn at device scale with true antialiasing.
 var _coast: Array[PackedVector2Array] = []
@@ -84,13 +88,32 @@ func _process(_delta: float) -> void:
 	rebuild()
 
 
+## Bakes only when the chart moved: the inset is one texel per tile plus cached
+## ink, so a second bake of the same ownership and fog redraws what is already
+## there (a suite re-seats the same save once per case; a region repaint of an
+## unmoved chart is the same cost in play).
 func rebuild() -> void:
 	if model == null:
 		return
+	var key: int = _chart_key()
+	if _baked and _texture != null and key == _baked_key:
+		return
+	_baked_key = key
+	_baked = true
 	_rebuild_texture()
 	_rebuild_ink()
 	_project_ink()
 	queue_redraw()
+
+
+func _chart_key() -> int:
+	return hash([
+		CountryBorders.signature(model, visibility),
+		_map_size,
+		_tile_world,
+		model.width,
+		model.height,
+	])
 
 
 func _rebuild_texture() -> void:

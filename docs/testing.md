@@ -15,7 +15,7 @@ Tier 2 shards because `gd-tools` boots one Godot process **per suite**; shards r
 
 Strict map: unmapped in-scope paths fail. `full = true` runs every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
 
-Patch coverage uses gd-tools’ plan (test dirs are not instrumented); changed tests are gated by running their suites. Empty patches pass.
+Patch coverage uses gd-tools’ plan (test dirs are not instrumented). Empty patches pass.
 
 ## E2E smoke (tier 1)
 
@@ -27,15 +27,16 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
-  civilians; it must pass fair split on the **first** attempt, else
-  `generate_world` rebuilds.
+  civilians, passing fair split on the **first** attempt.
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
   once per map state — many mounts repaint nothing.
+- Chart layers bake on change (`CountryBorders.signature`, `MapLens.source_key`):
+  a re-seat of the same chart redraws nothing; `sync_visibility` raises
+  `fog_changed` only when a tile moved.
 - A mount paints chips, minimap and readings once (`load_region`); `build_hud`
   adds turn, economy, income and dossier.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint. Region-only suites cache their
-  charts in `before_all`.
+  (`_attach()`) so rule-only cases never paint; region-only suites too.
 - **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
   case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
   selection, sheets, lenses and news; a suite that swaps screens frees its own.
@@ -46,9 +47,8 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   not `generate_world` (builds and discards the other region).
 - One Godot boot per theme (merged pure suites) — coverage ~6 s a boot: fold
-  leftovers in; delete suites whose cases already run elsewhere.
-  `gd-tools.toml` keeps `parallel = 4`. Profile with
-  `gd-tools test --durations 20`. Smoke: short boot, no sleeps / full campaigns.
+  leftovers in; delete suites already covered elsewhere. `gd-tools.toml` keeps
+  `parallel = 4`; profile with `--durations 20`. Smoke: short boot, no sleeps.
 
 ## Local
 
