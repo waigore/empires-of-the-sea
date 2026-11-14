@@ -2416,7 +2416,40 @@ func test_a_funded_navy_build_lays_a_warship_down() -> void:
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
-# --- posture as a modifier ---------------------------------------------------
+
+## Issue #484: the purse a court held for its hull is the fleet's, even though a
+## war footing clamps the yard and the muster to the same ceiling. The unmodified
+## utility breaks the tie, so the chest funds the hull and the army keeps saving.
+func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = ShipEconomy.treasury_cost("sloop")
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
+
+	assert_true(
+		(claim["funded_ids"] as Array).has("navy.build"),
+		"the chest is the fleet's, not the army's"
+	)
+	assert_false(
+		(claim["funded_ids"] as Array).has("muster.line"),
+		"the muster it outranks waits its turn"
+	)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	var warship: Dictionary = cargo.get("warship", {})
+	assert_false(warship.is_empty(), "the hull the court saved for is laid down")
+	assert_eq(int(warship.get("price", 0)), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		int(warship.get("chest", 0)), ShipEconomy.treasury_cost("sloop"),
+		"the launch names the chest that allowed it"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
 
 func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
