@@ -16,19 +16,21 @@ extends RefCounted
 
 ## Claim ids, in the order the trace reads them (the order the market must keep
 ## stock in: rations the living eat first, then the regiment being raised, then
-## the works, then this turn's production, then what the booked orders hold).
+## the hull being laid, then the works, then this turn's production, then what
+## the booked orders hold).
 const RATIONS: String = "reserve.rations"
 const MUSTER: String = "reserve.muster"
+const HULLS: String = "reserve.hull"
 const WORKS: String = "reserve.works"
 const PRODUCTION: String = "reserve.production"
 const KEPT: String = "reserve.kept"
 ## The aim a running order keeps its own inputs back under.
-const ORDER: Array[String] = [RATIONS, MUSTER, WORKS, PRODUCTION, KEPT]
+const ORDER: Array[String] = [RATIONS, MUSTER, HULLS, WORKS, PRODUCTION, KEPT]
 ## Utility per claim: rations outrank everything (a court that sells the food
-## its regiments eat starves), then the muster's fabric, the works, and the
-## production this turn already promised.
+## its regiments eat starves), then the muster's fabric, the hull's timber and
+## cloth, the works, and the production this turn already promised.
 const UTILITY: Dictionary = {
-	RATIONS: 95, MUSTER: 90, WORKS: 80, PRODUCTION: 70, KEPT: 85,
+	RATIONS: 95, MUSTER: 90, HULLS: 88, WORKS: 80, PRODUCTION: 70, KEPT: 85,
 }
 
 

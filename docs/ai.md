@@ -7,8 +7,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Registry, profiles** (`AiParameterRegistry`, `AiProfile`, `AiConfig`,
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): at war the reserve is the next muster or the
-  hull it means to lay (`AiNavy`); at peace `economy.min_treasury`. On `earn`
-  the auction keeps it back (DR-20261113-19/22, DR-20261114-06).
+  hull it means to lay (`AiNavy`, row kept); at peace
+  `economy.min_treasury`. On `earn` the auction keeps it
+  (DR-20261113-19/22, DR-20261114-06/09).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals

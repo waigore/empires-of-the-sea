@@ -115,6 +115,42 @@ func test_the_regiments_input_leads_the_bids() -> void:
 	)
 
 
+## The hull's timber and cloth are kept back and bid for first, exactly as the
+## next regiment's cloth is: a court saving for a hull must not sell the row the
+## yard takes (issue #484, DR-20261114-09).
+func test_a_court_keeps_the_row_its_hull_is_laid_with() -> void:
+	var economy: PlayerEconomy = _economy({"lumber": 25, "fabric": 25, "grain": 100})
+	var market := WorldMarket.with_default_prices()
+	var plain: Dictionary = AiMarketPlanner.plan(_config(), economy, market, 0)
+	assert_eq(_offered(plain, "lumber"), 5, "the surplus above the reserve sells")
+	assert_eq(_offered(plain, "fabric"), 5)
+
+	var hull: Dictionary = {"lumber": 1, "fabric": 1}
+	var kept: Dictionary = AiMarketPlanner.plan(
+		_config(), economy, market, 0, {}, {}, hull
+	)
+	assert_eq(_offered(kept, "lumber"), 4, "one timber is the hull's")
+	assert_eq(_offered(kept, "fabric"), 4, "and one bolt of cloth")
+
+	var short: PlayerEconomy = _economy({"grain": 100}, 5000)
+	var bids: Array = AiMarketPlanner.plan(
+		_config(), short, market, 20, {}, {}, hull
+	)["bids"]
+	assert_eq(
+		String(bids[0]["commodity"]), "fabric",
+		"the hull's row leads the bids, so the cap cannot starve the yard"
+	)
+
+	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs(
+		{}, 0, economy, {"fabric": 1}, {}, hull
+	)
+	assert_eq(int(reserved.get("lumber", 0)), 1, "the hull's timber is a claim")
+	assert_eq(
+		int(reserved.get("fabric", 0)), 2,
+		"the muster's bolt and the hull's are both kept"
+	)
+
+
 ## Lumber for the works and cloth for the regiment are both kept: the muster's
 ## claim is added to the production reservation rather than replacing it.
 func test_the_muster_reservation_adds_to_the_production_one() -> void:

@@ -222,6 +222,14 @@ static func _trade(
 			play.world, faction, play.human_faction_id(), play.difficulty, config
 		)["extra_regiments"])
 	)
+	# The hull the court means to lay keeps its own timber and cloth: the chest
+	# alone never floats a hull, and a court that sells its last cloth is refused
+	# at the slip (issue #484, DR-20261114-09).
+	var hull: Dictionary = AiBind.hull_reserve(
+		kind, MapPlayCourt.at_war(play, faction),
+		MapPlayCourt.warships(play, faction),
+		MapPlayCourt.hostile_warships(play, faction), economy
+	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
 	# buys the missing food before any build input (wiki: treasury-planner
@@ -234,12 +242,12 @@ static func _trade(
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
 	var claims: Dictionary = AiClaims.reserve(_claim_rows(
-		production, food, economy, need, works
+		production, food, economy, need, works, hull
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiBind.market_plan(
-		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor, food_short
+		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
+		_merged(need, hull), floor, food_short
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
@@ -264,12 +272,14 @@ static func _claim_rows(
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	hull: Dictionary = {}
 ) -> Array[Dictionary]:
 	var rows: Dictionary = {
 		AiClaims.RATIONS: _ration_row(food, economy),
 		AiClaims.PRODUCTION: _production_row(production),
 		AiClaims.MUSTER: muster,
+		AiClaims.HULLS: hull,
 		AiClaims.WORKS: works,
 		AiClaims.KEPT: (
 			_production_row({"assignments": economy.production.assignments()})
@@ -277,6 +287,19 @@ static func _claim_rows(
 		),
 	}
 	return AiClaims.sources(rows)
+
+
+## Two provisioning rows as one: the muster's cloth and the hull's timber are
+## both kept back and bid for first, and a commodity both need is asked for once
+## at the larger count (issue #484).
+static func _merged(a: Dictionary, b: Dictionary) -> Dictionary:
+	if b.is_empty():
+		return a
+	var out: Dictionary = a.duplicate()
+	for commodity: Variant in b.keys():
+		var id: String = String(commodity)
+		out[id] = maxi(int(out.get(id, 0)), int(b[commodity]))
+	return out
 
 
 ## The ration row: grain, then meat, holding only what the court actually has of
@@ -317,9 +340,12 @@ static func _reserved_inputs(
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	hull: Dictionary = {}
 ) -> Dictionary:
-	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
+	return AiClaims.reserve(
+		_claim_rows(production, food, economy, muster, works, hull)
+	)["reserved"]
 
 
 ## Food the larder already holds: the two ration commodities, grain first.

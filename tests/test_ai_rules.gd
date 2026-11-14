@@ -3094,6 +3094,56 @@ func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
 	assert_eq(AiNavy.saving_type(economy), "sloop", "the cheapest row is the one it saves for")
 
 
+## The hull's own row is kept back and bid for while the court means to lay one:
+## the chest alone never floats a hull, and a court that sells its last cloth is
+## refused at the slip (issue #484, DR-20261114-09).
+func test_the_hull_keeps_the_timber_and_cloth_it_is_laid_with() -> void:
+	var economy: PlayerEconomy = _purse(0)
+
+	assert_true(AiNavy.inputs(economy).is_empty(), "no naval tech opens no hull row")
+	assert_true(AiNavy.reserve(true, 0, 1, economy).is_empty())
+
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var row: Dictionary = AiNavy.inputs(economy)
+	assert_eq(int(row.get("lumber", 0)), 1, "the yard takes a timber")
+	assert_eq(int(row.get("fabric", 0)), 1, "and a bolt of cloth")
+	assert_eq(
+		AiNavy.reserve(true, 0, 1, economy), row,
+		"a court at war with no fighting hull keeps the row"
+	)
+	assert_eq(
+		AiNavy.reserve(true, 1, 2, economy), row, "outmatched at sea, it keeps it too"
+	)
+	assert_true(
+		AiNavy.reserve(false, 0, 3, economy).is_empty(), "a court at peace keeps nothing"
+	)
+	assert_true(
+		AiNavy.reserve(true, 2, 2, economy).is_empty(),
+		"a fleet that matches its enemies sells freely"
+	)
+
+
+## The hull's row is a claim of its own, ranked under the muster and above the
+## works, so the turn trace names what the yard is waiting for (issue #484).
+func test_the_hull_claim_ranks_under_the_muster() -> void:
+	assert_true(AiClaims.ORDER.has(AiClaims.HULLS), "the hull is a named claim")
+	assert_true(
+		AiClaims.ORDER.find(AiClaims.HULLS) > AiClaims.ORDER.find(AiClaims.MUSTER),
+		"the regiment is raised before the hull is laid"
+	)
+	assert_true(
+		AiClaims.ORDER.find(AiClaims.HULLS) < AiClaims.ORDER.find(AiClaims.WORKS),
+		"but the hull outranks a crew's works"
+	)
+	var rows: Array[Dictionary] = AiClaims.sources({
+		AiClaims.MUSTER: {"fabric": 1},
+		AiClaims.HULLS: {"lumber": 1, "fabric": 1},
+	})
+	assert_eq(rows.size(), 2)
+	assert_eq(String(rows[1]["id"]), AiClaims.HULLS)
+	assert_eq(int(rows[1]["cost"]["lumber"]), 1)
+
+
 ## The hull outranks the muster: a court holding a purse that would raise a
 ## regiment reads `earn` until the yard's price is in hand (issue #484).
 func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:

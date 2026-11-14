@@ -56,3 +56,25 @@ static func chest(
 	if not due(at_war, own_warships, hostile_warships):
 		return 0
 	return price(economy)
+
+
+## The material row of the hull the court means to lay: the timber and cloth the
+## yard takes when it launches (wiki: ships-and-naval § Ship build economy). Empty
+## when its techs open no warship. The chest alone never floats a hull — a court
+## that sells its last cloth is refused at the slip (issue #484).
+static func inputs(economy: PlayerEconomy) -> Dictionary:
+	var type_id: String = saving_type(economy)
+	if type_id.is_empty():
+		return {}
+	return ShipEconomy.build_inputs(type_id)
+
+
+## The row a court at war keeps back and bids for while it means to lay a hull —
+## the naval twin of `AiArmyReinforce.muster_reserve` (issue #484). Empty when no
+## hull is due or its techs open none, so a court with a fleet sells freely.
+static func reserve(
+	at_war: bool, own_warships: int, hostile_warships: int, economy: PlayerEconomy
+) -> Dictionary:
+	if not due(at_war, own_warships, hostile_warships):
+		return {}
+	return inputs(economy)

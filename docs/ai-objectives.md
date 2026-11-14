@@ -54,9 +54,9 @@ of War for the fleet"); peace prices no yard.
 
 ## Reservations as claims
 
-`AiClaims` ranks the ration consumption eats, the next regiment, planned works
-and this turn's production against the stockpile; the market reads their merged
-grant (same dictionary, trade behaviour-identical), the civilian purse is one
+`AiClaims` ranks the ration consumption eats, the next regiment, the hull being
+laid, planned works and this turn's production against the stockpile; the market
+reads their merged grant (trade behaviour-identical), the civilian purse is one
 treasury claim, and the turn record keeps `claims` beside ledger lines.
 
 ## The colony
