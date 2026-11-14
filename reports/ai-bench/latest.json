@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
-  "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
-  "submission_hash": "sha256:223125427e82590a0eb941addfad6763e9cf968412bbe63211b25abe26a810c3",
-  "submission_git": "fix/476-colony-voyage-trace-v2@31e77bc",
+  "tree_hash": "73ad6050430391a1f9e5cdc8f5b1f5902bd168ec",
+  "commit": "f5d5cdfd4e7e5f3406f6e23ad8583f09099db8d9",
+  "submission_hash": "sha256:bb89c47071e3c6b07350cd4cb79f4b6762b76c5e15d2383690c2ab6e686c08fe",
+  "submission_git": "feat/ai-bench-subject-mainline-random@9b2f0aa+dirty",
   "passed": true,
   "config": [
     {
@@ -35,44 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3974.777777777778,
+      "value": 1852.9915422885574,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 31.0,
+      "value": 17.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 4.0,
+      "value": 8.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 69.2199775533109,
+      "value": 63.73232323232323,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:279f200568a286035163bd14a208de23c42f672b4824883c8dc31af46167d946",
+    "ai_surface_hash": "sha256:4245365cac8197623cf9f17ab7f38947bc3a97359a311c185f276cc2bf9a1c74",
+    "mainline_git_sha": "7e86a1f7e0b579f780ed50139413b770d4d98373",
     "parts": {
-      "provinces_old": 31,
+      "provinces_old": 17,
       "provinces_new": 0,
-      "regiments": 2,
+      "regiments": 6,
       "ships": 2,
       "workers": 4,
-      "extraction_per_turn": 2.5555555555555554,
-      "income_per_turn": 309.6666666666667,
-      "funded_pct": 69.2199775533109
+      "extraction_per_turn": 1.0666666666666667,
+      "income_per_turn": 50.85820895522388,
+      "funded_pct": 63.73232323232323
     },
-    "early_win": true,
+    "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
-    "turn": 36,
-    "resolved_turns": 36,
-    "funded_pct": 69.2199775533109
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 63.73232323232323
   },
   "params": {
     "turns": 200,
@@ -87,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T01:48:34Z",
+  "timestamp": "2026-11-14T02:53:55Z",
   "report_version": 1,
-  "signature": "hmac-sha256:c14ee2d2997418cc02002e50b54f036c43e09f54234162e028968308315b998d"
+  "signature": "hmac-sha256:5fb79ba48cfbca0e749ef75fbd4be511c277ede4779b9855f5ae172da2a0c646"
 }

@@ -32,9 +32,15 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# its border: the gold that ends its impasse is overseas
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
-			var earning: bool = AiBind.wants_income(
-				kind, config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+			var earning: bool = (
+				str(
+					AiBind.income_plan(
+						kind, config, play.ledger_for(faction),
+						MapPlayCourt.at_war(play, faction),
+						MapPlayCourt.regiments(play, faction)
+					).get("goal", "")
+				)
+				== "earn"
 			)
 			touched = _split(
 				play, model, fleets, armies, faction, config, kind, trace, earning

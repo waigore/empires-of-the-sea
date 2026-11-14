@@ -7,22 +7,21 @@ extends RefCounted
 const MAINLINE_ROOT: String = "res://scripts/ai_mainline/"
 
 
-static func mainline_ready() -> bool:
-	return ResourceLoader.exists(MAINLINE_ROOT + "ai_config.gd")
-
-
-static func uses_mainline(kind: String) -> bool:
-	return kind == AiControl.KIND_BASELINE and mainline_ready()
+static func _baseline(kind: String) -> bool:
+	return (
+		kind == AiControl.KIND_BASELINE
+		and ResourceLoader.exists(MAINLINE_ROOT + "ai_config.gd")
+	)
 
 
 static func config(kind: String, faction: int, game_seed: int) -> Variant:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml("ai_config.gd", "build", [faction, game_seed])
 	return AiConfig.build(faction, game_seed)
 
 
 static func production_orders(kind: String, config: Variant, economy: PlayerEconomy) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml("ai_economy_planner.gd", "production_orders", [config, economy])
 	return AiEconomyPlanner.production_orders(config, economy)
 
@@ -32,7 +31,7 @@ static func recruitment_orders(
 ) -> Array[Dictionary]:
 	var raw: Variant = (
 		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor, fed_slack])
-		if uses_mainline(kind)
+		if _baseline(kind)
 		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack)
 	)
 	var out: Array[Dictionary] = []
@@ -43,29 +42,21 @@ static func recruitment_orders(
 static func income_plan(
 	kind: String, config: Variant, economy: PlayerEconomy, at_war: bool, regiments: int
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
 	return AiIncome.plan(config, economy, at_war, regiments)
-
-
-static func wants_income(
-	kind: String, config: Variant, economy: PlayerEconomy, at_war: bool, regiments: int
-) -> bool:
-	if uses_mainline(kind):
-		return bool(_ml("ai_income.gd", "wants_income", [config, economy, at_war, regiments]))
-	return AiIncome.wants_income(config, economy, at_war, regiments)
 
 
 static func research_plan(
 	kind: String, config: Variant, economy: PlayerEconomy, context: Dictionary
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml("ai_research_planner.gd", "plan", [config, economy, context])
 	return AiResearchPlanner.plan(config, economy, context)
 
 
 static func research_floor(kind: String, config: Variant) -> int:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return int(_ml("ai_research_planner.gd", "research_floor", [config]))
 	return AiResearchPlanner.research_floor(config)
 
@@ -82,7 +73,7 @@ static func market_plan(
 	floor: int = 0,
 	food_shortfall: int = 0
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_market_planner.gd",
 			"plan",
@@ -101,7 +92,7 @@ static func market_stage(
 	faction: int,
 	tech_unlocked: Dictionary
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_market_planner.gd", "stage", [economy, market, plan, faction, tech_unlocked]
 		)
@@ -116,7 +107,7 @@ static func muster_reserve(
 	at_war: bool,
 	pressure_extra: int = 0
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_army_reinforce.gd",
 			"muster_reserve",
@@ -134,7 +125,7 @@ static func reinforce_plan(
 	pressure_extra: int = 0,
 	fed_slack: int = -1
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_army_reinforce.gd",
 			"plan",
@@ -146,7 +137,7 @@ static func reinforce_plan(
 static func fed_slack(
 	kind: String, economy: PlayerEconomy, army_food: int, ships: int
 ) -> int:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return int(_ml("ai_army_reinforce.gd", "fed_slack", [economy, army_food, ships]))
 	return AiArmyReinforce.fed_slack(economy, army_food, ships)
 
@@ -162,7 +153,7 @@ static func civilian_plan(
 	tech_unlocked: Dictionary,
 	context: Dictionary
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_civilian_planner.gd",
 			"plan",
@@ -176,7 +167,7 @@ static func civilian_plan(
 static func military_split(
 	kind: String, config: Variant, diplomacy: DiplomacyState, model: MapModel, roster: Array
 ) -> Array:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_military_planner.gd", "split_orders", [config, diplomacy, model, roster]
 		)
@@ -186,7 +177,7 @@ static func military_split(
 static func military_march(
 	kind: String, config: Variant, diplomacy: DiplomacyState, model: MapModel, roster: Array
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_military_planner.gd", "march_orders", [config, diplomacy, model, roster]
 		)
@@ -201,7 +192,7 @@ static func naval_orders(
 	roster: Array,
 	charts: Variant
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_naval_planner.gd", "orders", [config, diplomacy, model, roster, charts]
 		)
@@ -221,7 +212,7 @@ static func invasion_plan(
 	charts: Variant,
 	earning: bool
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_invasion_planner.gd",
 			"plan",
@@ -243,7 +234,7 @@ static func invasion_split(
 	charts: Variant,
 	wants_income: bool
 ) -> Array:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_invasion_planner.gd",
 			"split_orders",
@@ -267,7 +258,7 @@ static func colonisation_plan(
 	posture: String,
 	earning: bool
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_colonisation_planner.gd",
 			"plan",
@@ -279,13 +270,13 @@ static func colonisation_plan(
 
 
 static func harbour(kind: String, model: MapModel, faction: int) -> int:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return int(_ml("ai_colonisation_planner.gd", "harbour", [model, faction]))
 	return AiColonisationPlanner.harbour(model, faction)
 
 
 static func phase_for(kind: String, config: Variant, diplomacy: DiplomacyState) -> String:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return String(_ml("ai_phase_planner.gd", "phase_for", [config, diplomacy]))
 	return AiPhasePlanner.phase_for(config, diplomacy)
 
@@ -300,7 +291,7 @@ static func cargo_plan(
 	want: int,
 	blocked: Dictionary
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_cargo_planner.gd",
 			"plan",
@@ -312,7 +303,7 @@ static func cargo_plan(
 static func cargo_apply_route(
 	kind: String, model: MapModel, fleet: FleetState, route: Dictionary
 ) -> Dictionary:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml("ai_cargo_planner.gd", "apply_route", [model, fleet, route])
 	return AiCargoPlanner.apply_route(model, fleet, route)
 
@@ -325,7 +316,7 @@ static func hospital_best_army(
 	economy: PlayerEconomy,
 	at_war: bool
 ) -> Variant:
-	if uses_mainline(kind):
+	if _baseline(kind):
 		return _ml(
 			"ai_hospital_train_work.gd",
 			"best_army",

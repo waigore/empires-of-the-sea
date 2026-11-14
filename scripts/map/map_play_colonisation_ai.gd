@@ -34,9 +34,15 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# unless the court is on **earn**, whose gold is overseas
 			# (DR-20261113-19).
 			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
-			var earning: bool = AiBind.wants_income(
-				kind, config, play.ledger_for(faction), MapPlayCourt.at_war(play, faction),
-				MapPlayCourt.regiments(play, faction)
+			var earning: bool = (
+				str(
+					AiBind.income_plan(
+						kind, config, play.ledger_for(faction),
+						MapPlayCourt.at_war(play, faction),
+						MapPlayCourt.regiments(play, faction)
+					).get("goal", "")
+				)
+				== "earn"
 			)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiBind.colonisation_plan(
