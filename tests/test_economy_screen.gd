@@ -897,21 +897,30 @@ func test_the_alloy_rows_name_their_wait() -> void:
 		"an idle alloy row promises the trickle"
 	)
 	economy.production_wip = {"steel": [{"units": 3, "turns_left": 1}]}
-	assert_eq(LedgerWorkshop.note(economy, "steel"), "3→1t")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "3→1t", "a landing frees a place")
 	var serving: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(serving.contains("3 units"))
 	assert_true(serving.contains("one a turn"), "the serving tag says one unit lands a phase")
+	# A bench still serving its first turn has no room: the tag says so, and the
+	# long form says why no run starts (wiki: production-recipes § Workshop queue).
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 2}]}
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "3/3→2t", "a full bench names its three pieces")
+	assert_true(
+		LedgerWorkshop.tooltip(economy, "steel").contains("no new run starts"),
+		"a full bench says why no run starts"
+	)
 	economy.production_wip = {"steel": [{"units": 1, "turns_left": 1}]}
 	assert_true(
 		LedgerWorkshop.tooltip(economy, "steel").contains("1 unit already"),
 		"one unit left on the anvil reads in the singular"
 	)
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "1→1t", "a bench with room keeps the plain tag")
 	# A row left set starts a fresh batch every phase, and each batch gives up a
 	# unit: two batches land two a phase, so the note must not promise one.
 	economy.production_wip = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
-	assert_eq(LedgerWorkshop.note(economy, "steel"), "5→1t", "the tag counts every unit")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "5/3→1t", "the tag counts every unit")
 	var twinned: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(twinned.contains("5 units"), "the note counts what is on the anvil")
 	assert_true(twinned.contains("2 landing a turn"), "two batches land two a turn: %s" % twinned)
@@ -978,6 +987,32 @@ func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
 	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_false(_row_has_text(body, "needs an Apprentice"), "the trained hand opens the row")
 	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
+
+
+## A full bench is named on the row itself and its "+" is inert: a touch player
+## never sees a hover hint (wiki: production-recipes § Workshop queue;
+## DR-20261114-12).
+func test_a_full_bench_names_itself_and_offers_no_run() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
+	economy.stockpile["tobacco"] = 20
+	economy.production_wip = {"cigars": [{"units": 3, "turns_left": 2}]}
+	_screen.economy.open_panel()
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "3/3→2t"), "the row names its full bench")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["cigars"]["plus"] as Button).disabled, "a full bench offers no run")
+	assert_true(
+		(rows["cigars"]["plus"] as Button).tooltip_text.contains("holds 3 pieces"),
+		"the + says why it is inert"
+	)
+	economy.production_wip = {"cigars": [{"units": 1, "turns_left": 1}]}
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	rows = (body as LedgerProduction).recipe_rows()
+	assert_false((rows["cigars"]["plus"] as Button).disabled, "room on the bench opens the +")
 
 
 func _row_has_text(body: Node, text: String) -> bool:
