@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:879ea1b97769cd79f42a56128f59a6f86c233c491423f37f54ccb0ea4510c566",
-  "submission_git": "refactor/hostility-war-query@b77fdde",
+  "submission_hash": "sha256:12dff06a3aeff2ec70e2ff6248ea01572009bee9833d0946a9137b3ceb3c2d44",
+  "submission_git": "fix/591-hull-chest-waits-for-the-line@a3dcc5c",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:38ac6eec44d1112b6a27de33e0de7f418fd205ee570bb05bc6348dcfb479722a",
+    "ai_surface_hash": "sha256:b08313c0a20eb92e2f99b30feccf7244061eebf95b63d0d11ed035c1507196fb",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T10:55:52Z",
+  "timestamp": "2026-11-14T14:09:12Z",
   "report_version": 1,
-  "signature": "hmac-sha256:099af7e5ca533fc213665b4a83f610dbcfe52df98f24d4037d3bcd7afaa97613"
+  "signature": "hmac-sha256:4361e84198d3bf24d417f6f6c2effae243998d861c7e60ce6d0df4ec372e8297"
 }

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261114-10 (`REQ-P2-02`).
+Audited through DR-20261114-10 + #568 (`REQ-P2-02`).
 
 ## Already live
 
@@ -25,7 +25,8 @@ Audited through DR-20261114-10 (`REQ-P2-02`).
 | Tribe buy; landings; overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
 | Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
 | Hull chest + material row | `AiNavy` / `AiClaims.HULLS`, DR-14-06/09 |
-| Worker-tier gates; slow luxury rows; AI candidates | `ProductionRecipes.min_tier`/`turns`; `AiEconomyPlanner`, DR-14-07/10 |
+| Worker-tier gates; slow luxury rows | `ProductionRecipes.min_tier`/`turns`, DR-14-07/10 |
+| AI candidates respect worker-tier | `AiEconomyPlanner` / `AiRandomCourt`, #568 |
 | War-time trade garrison (holds home) | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 
 ## Remaining gaps (impact order)

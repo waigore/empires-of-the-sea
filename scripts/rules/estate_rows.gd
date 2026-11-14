@@ -49,8 +49,17 @@ static func project(
 	var is_connected: bool = not entry.is_empty()
 	var gap: int = 0
 	if not is_connected:
-		gap = LandConnectivity.road_gap(
-			model, owner, resolved.get("network", {}) as Dictionary, tile
+		# The grouped ledger already walked the crown's network once for every
+		# estate (`gaps`); a one-tile read passes none and walks it here. Reading
+		# the shared walk keeps a full ledger from re-running the same BFS per
+		# disconnected tile (docs/ai-observer.md § Performance budget).
+		var index: int = model.index_of(tile.x, tile.y)
+		gap = (
+			int(gaps.get(index, -1))
+			if not gaps.is_empty()
+			else LandConnectivity.road_gap(
+				model, owner, resolved.get("network", {}) as Dictionary, tile
+			)
 		)
 	var transport: int = int(entry.get("transport", 0))
 	var town_cap: int = LandConnectivity.town_cap_for(

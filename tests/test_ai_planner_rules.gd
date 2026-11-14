@@ -794,16 +794,25 @@ func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
 
-## The hull the court is saving for outranks the next regiment: a muster spends
-## only what stands above that chest, so the yard's price survives the army's
-## turn and the hull is actually laid (issue #484).
+## The hull the court is saving for outranks the next regiment once it can fill
+## the chest: a muster spends only what stands above it, so the yard's price
+## survives the army's turn and the hull is actually laid (issue #484). A chest
+## the court cannot fill yet is not held back at all (issue #591).
 func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
 	var config: AiConfig = _ai_army_reinforce_config()
 	var economy: PlayerEconomy = _ai_army_reinforce_economy(4600)
 	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true)
 	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
 
-	var held: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	# 4,600 ducats is short of the 5,500 yard: the army it can pay for is raised.
+	var short: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	assert_ne(String(short["muster"]), "", "a chest it cannot fill is not the army's ceiling")
+	assert_false((short["reasons"] as Array).has("saving for a hull"))
+
+	# With the chest in hand the fleet's claim comes first again.
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, _ai_army_reinforce_economy(5500), 5, true, 0, -1, 5500
+	)
 	assert_eq(String(held["muster"]), "", "the hull's chest is not the army's to spend")
 	assert_true(
 		(held["reasons"] as Array).has("saving for a hull"),
@@ -828,6 +837,33 @@ func test_the_muster_trace_names_the_row_that_blocks_it() -> void:
 	var reasons: Array = plan["reasons"]
 	assert_true(reasons.has("nothing payable"))
 	assert_true(reasons.has("missing fabric 1"), "the trace names the row")
+
+
+## Issue #484: once the chest is full the hull's row is the fleet's too. A court
+## that wove one cloth a turn and mustered it away could never lay the hull it
+## had already paid for, so the muster spends only the cloth above that row.
+func test_the_muster_yields_the_hull_s_row_once_the_chest_is_full() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(9000)
+	economy.stockpile["fabric"] = 1
+	var row: Dictionary = {"lumber": 1, "fabric": 1}
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_eq(String(held["muster"]), "", "the last cloth is the hull's")
+	assert_true(
+		(held["reasons"] as Array).has("missing fabric 1"),
+		"and the trace names the row the fleet holds"
+	)
+	# One cloth above the row is the army's again.
+	economy.stockpile["fabric"] = 2
+	var spare: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_ne(String(spare["muster"]), "", "the surplus above the row may be spent")
+	# With no hull due the row is not held at all.
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	assert_ne(String(free["muster"]), "", "no fleet claim, no held row")
 
 
 func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
@@ -2103,6 +2139,7 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	readings["at_war"] = true
 	readings["warships"] = 0
 	readings["hostile_warships"] = 2
+	readings["treasury"] = 5500
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "a court at war with no fighting hull builds one")
@@ -2111,6 +2148,51 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	assert_false(
 		(build.cost as Dictionary).has("hull"),
 		"the yard founds its own slip, so the build claims no idle hull (#484)"
+	)
+
+
+## Issue #591: a chest the court has not reached yet yields to the muster in the
+## ledger too, so the purse the yard's phantom price pinned goes to the line the
+## court can actually raise.
+func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["treasury"] = 5342
+	readings["muster_floor"] = 2400
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var build: AiObjective = _by_id(objectives, "navy.build")
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_true(build != null, "the yard is still the court's aim")
+	assert_eq(
+		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		"but the yard waits behind the army it would starve"
+	)
+	assert_true(
+		int(muster.utility) > int(build.utility),
+		"so the ledger funds the regiment first"
+	)
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives,
+		{"treasury": 5342, "regiment": 2, "labour": 3, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	var statuses: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		statuses[String(row["id"])] = String(row["status"])
+	assert_eq(String(statuses["muster.line"]), AiObjective.STATUS_FUNDED, "the line musters")
+	assert_eq(
+		String(statuses["navy.build"]), AiObjective.STATUS_DEFERRED,
+		"and the hull it cannot fill declares its shortfall instead"
+	)
+
+	# A court that already holds the yard's price puts the fleet first again.
+	readings["treasury"] = 5500
+	assert_eq(
+		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
+		AiObjectivesPlan.W_NAVY_BUILD,
+		"the chest is in hand: the yard leads"
 	)
 
 
@@ -2452,6 +2534,77 @@ func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## Issue #484: the fleet claim holds the hull's material row the way the muster
+## holds its own — the cloth and lumber the yard wants, read off the catalog for
+## the cheapest warship the court's techs open.
+func test_the_fleet_claim_knows_the_hull_s_material_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(AiNavy.saving_row(economy).is_empty(), "no warship open, no row")
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(
+		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
+		"the row the yard charges for the hull it is saving for"
+	)
+	assert_true(
+		AiNavy.due_row(false, 0, 3, economy).is_empty(),
+		"a court at peace is not saving for a hull"
+	)
+	assert_eq(
+		AiNavy.due_row(true, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
+		"a court at war with no warship holds the row"
+	)
+
+
+## Issue #484: a court that saved the whole chest but sold its cloth reads a
+## deferred fleet claim naming the missing row, instead of a funded launch the
+## yard would refuse.
+func test_a_fleet_claim_short_of_cloth_defers_and_names_the_row() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 0
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var report: Dictionary = MapPlayObjectivesAi.run(play)
+	var line: String = ""
+	for raw: Variant in (report[OBJ_OWNER] as Dictionary)["lines"]:
+		if String(raw).begins_with("navy.build"):
+			line = String(raw)
+	assert_true(line.contains("fabric 0/1"), "the trace names the row that blocked it: %s" % line)
+	assert_false(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"a hull whose row the court does not hold is not funded"
+	)
+	assert_true(
+		(MapPlayCargoAi.run(play, OBJ_OWNER, economy).get("warship", {}) as Dictionary).is_empty(),
+		"and no hull is laid down"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #484: the economy keeps the hull's row back beside the muster's, so a
+## court saving 5,500 ducats does not sell the cloth the yard wants.
+func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var production: Dictionary = {"assignments": []}
+	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+		production, 0, economy, {"fabric": 1}, {}, {"lumber": 1, "fabric": 1}
+	)
+	var reserved: Dictionary = AiClaims.reserve(rows)["reserved"]
+
+	assert_eq(int(reserved["fabric"]), 2, "the muster's cloth plus the hull's")
+	assert_eq(int(reserved["lumber"]), 1, "and the hull's timber")
+	assert_true(
+		(rows as Array).any(
+			func(row: Variant) -> bool: return String((row as Dictionary)["id"]) == AiClaims.NAVY
+		),
+		"the hull's row is its own claim, not the muster's"
+	)
 
 
 func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
