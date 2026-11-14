@@ -32,7 +32,9 @@ static func production_orders(
 	# not keep assigning alloy runs that are still serving their turns
 	# (DR-20261112-11).
 	var committed: Dictionary = _committed(economy)
-	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+	for recipe_id: String in ProductionRecipes.available_ids_for(
+		economy.tech_unlocked, economy.workers
+	):
 		var output: String = ProductionRecipes.output(recipe_id)
 		var deficit: int = maxi(
 			target - int(stock.get(output, 0)) - int(committed.get(output, 0)), 0
