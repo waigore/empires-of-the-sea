@@ -1338,12 +1338,17 @@ func test_breaking_an_alliance_applies_the_unified_penalty() -> void:
 	assert_eq(diplomacy_orders_state.relation(0, 5).score, 40.0)
 	assert_false(_apply("break_alliance", 1)["ok"])
 
-func test_alliance_needs_friendly_standing() -> void:
+func test_alliance_needs_a_warmer_court() -> void:
 	_setup_diplomacy_orders()
-	diplomacy_orders_state.relation(0, 1).score = 50.0
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 1)
+	record.score = 50.0
 	var result: Dictionary = _apply("alliance", 1)
 	assert_false(result["ok"])
-	assert_true(String(result["reason"]).contains("friendly"))
+	# The sheet reads Neutral at 50, so the refusal names warmth instead of a
+	# ladder word the court has not reached (wiki: diplomacy
+	# § Player-facing relation display).
+	assert_true(String(result["reason"]).contains("warm"), String(result["reason"]))
+	assert_false(_names_a_herald_word(String(result["reason"])), String(result["reason"]))
 
 func test_overture_chain_pays_once_per_stage_and_turn() -> void:
 	_setup_diplomacy_orders()
@@ -1500,6 +1505,52 @@ func test_join_empire_refuses_a_great_power_still_holding_its_capital() -> void:
 	var result: Dictionary = _apply("overture", 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, world)
 	assert_false(result["ok"])
 	assert_true(String(result["reason"]).contains("nearly defeated"))
+
+func test_the_join_empire_gate_is_not_the_heralds_word() -> void:
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 2, 2, 2])
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	# The sheet reads Neutral at 50, and the refusal may not answer with a word
+	# the ladder keeps for a much warmer court (wiki: diplomacy
+	# § Player-facing relation display).
+	record.score = 50.0
+	var shut: Dictionary = DiplomacyRules.can_establish_overture(
+		diplomacy_orders_state, world, 0, 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, 30000,
+		diplomacy_orders_economy.tech_unlocked
+	)
+	assert_false(bool(shut["ok"]))
+	assert_eq(DiplomacyCatalog.meter_label(record.score), "Neutral")
+	assert_false(_names_a_herald_word(String(shut["reason"])), String(shut["reason"]))
+	# One point past the hidden gate the order is legal while the herald still
+	# reads Neutral: the rule is the score, never the word.
+	record.score = DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+	assert_eq(DiplomacyCatalog.meter_label(record.score), "Neutral")
+	var open: Dictionary = DiplomacyRules.can_establish_overture(
+		diplomacy_orders_state, world, 0, 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, 30000,
+		diplomacy_orders_economy.tech_unlocked
+	)
+	assert_true(bool(open["ok"]), String(open.get("reason", "")))
+
+
+func test_the_alliance_refusal_is_not_the_heralds_word() -> void:
+	_setup_diplomacy_orders()
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	record.score = 20.0
+	var check: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_false(bool(check["ok"]))
+	assert_false(_names_a_herald_word(String(check["reason"])), String(check["reason"]))
+
+
+## A rule refusal speaks the gate, never one of the ten words the court sheet
+## shows for the same hidden score (wiki: diplomacy § 10-step relation meter).
+func _names_a_herald_word(text: String) -> bool:
+	for word: String in DiplomacyCatalog.METER_LABELS:
+		if text.contains(word):
+			return true
+	return false
+
 
 func test_grant_aid_needs_embassy_step_and_fixed_relation_gain() -> void:
 	_setup_diplomacy_orders()

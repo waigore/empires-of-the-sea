@@ -1546,14 +1546,36 @@ func test_ai_economy_respects_labour_and_inputs() -> void:
 	assert_false(assignments.is_empty())
 	var labour_used: int = 0
 	var timber_used: int = 0
+	var recipes: Array[String] = []
 	for assignment: Dictionary in assignments:
 		var recipe: String = String(assignment["recipe"])
 		var units: int = int(assignment["units"])
+		recipes.append(recipe)
 		labour_used += units * ProductionRecipes.labour(recipe)
 		timber_used += units * int(ProductionRecipes.inputs(recipe).get("timber", 0))
 	assert_eq(labour_used, 6, "the plan spends exactly the available labour")
 	assert_true(timber_used <= 10, "the same timber is never promised twice")
-	assert_eq(assignments.size(), 2, "wool fabric and lumber fill their deficits")
+	# One run each in rank order: no build input takes the whole labour while
+	# the muster's cloth goes unwoven (issue #474).
+	assert_eq(recipes, ["fabric_from_wool", "lumber", "paper"] as Array[String])
+
+
+func test_ai_economy_spreads_the_labour_across_the_build_inputs() -> void:
+	# Iron and wool both in store, castIron's deficit as deep as fabric's: a
+	# greedy plan wove no cloth at all, because castIron (which works spend
+	# every turn) won the tie on every turn and the muster starved with a full
+	# war chest (issue #474).
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"iron": 20, "wool": 21, "timber": 20}
+	economy.workers = WorkerPool.make(10)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var woven: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "fabric_from_wool":
+			woven = int(assignment["units"])
+	assert_true(woven >= 1, "the court weaves cloth from the wool it holds")
 
 
 func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
