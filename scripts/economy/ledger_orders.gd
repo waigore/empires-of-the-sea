@@ -96,9 +96,12 @@ func set_production(recipe_id: String, units: int) -> void:
 
 ## One worker action from the ledger. Recruit only queues: the crown pays in
 ## Build/work and the new worker takes up its labour the turn after
-## (wiki: workers-and-population § Phase placement). Disband demotes one trained
-## worker to a peasant at once and refunds nothing — the rules own both verdicts.
-func worker_action(tier: int, action: String) -> void:
+## (wiki: workers-and-population § Phase placement). A press may file a batch —
+## `count` heads, each paying its own published cost — and the toast names how
+## many landed and why a batch stopped short (REQ-P5-04, REQ-P5-05). Disband
+## demotes one trained worker to a peasant at once and refunds nothing — the
+## rules own both verdicts.
+func worker_action(tier: int, action: String, count: int = 1) -> void:
 	if host == null or host.economy == null:
 		return
 	if action == "disband":
@@ -113,14 +116,27 @@ func worker_action(tier: int, action: String) -> void:
 			_toast(blocked if not blocked.is_empty() else "Disband refused")
 		host.refresh_panel()
 		return
-	var result: Dictionary = host.economy.queue_recruit(tier)
-	if bool(result.get("ok", false)):
-		_toast(
-			"One %s is engaged — they arrive next turn"
-			% WorkerPool.tier_one(tier).to_lower()
-		)
-	else:
+	var result: Dictionary = host.economy.queue_recruit(tier, count)
+	var queued: int = int(result.get("queued", 0))
+	var asked: int = int(result.get("asked", maxi(count, 1)))
+	if queued <= 0:
 		_toast(String(result.get("reason", "Recruit refused")))
+		host.refresh_panel()
+		return
+	var line: String
+	if queued == 1:
+		line = "One %s is engaged — they arrive next turn" % WorkerPool.tier_one(tier).to_lower()
+	else:
+		line = "%d %s are engaged — %s, arriving next turn" % [
+			queued,
+			WorkerPool.tier_name(tier).to_lower(),
+			LedgerText.recruit_batch_cost(tier, queued),
+		]
+	if queued < asked:
+		line += " (%d of %d — %s)" % [
+			queued, asked, String(result.get("reason", "")).to_lower()
+		]
+	_toast(line)
 	host.refresh_panel()
 
 
