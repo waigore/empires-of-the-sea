@@ -28,7 +28,6 @@ const AiMerchantWork = preload("res://scripts/ai/ai_merchant_work.gd")
 const AiSpyPlanner = preload("res://scripts/ai/ai_spy_planner.gd")
 
 const KIND_WORK: String = "work"
-const KIND_MOVE: String = "move"
 
 
 ## Work and movement orders for one court in one region, plus the scored
@@ -169,18 +168,6 @@ static func _best_work(
 				tech_unlocked, context, reserved
 			)
 	return {}
-
-
-static func _best_builder(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	town_raw: Dictionary = {}, estates: Array = []
-) -> Dictionary:
-	return AiBuilderWork.best_candidate(
-		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-		context, reserved, town_raw, estates
-	)
 
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest

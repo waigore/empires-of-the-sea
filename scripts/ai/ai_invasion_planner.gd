@@ -178,9 +178,16 @@ static func _voyage(
 	if fleet.has_beachhead():
 		if not NavalTransport.beachhead_ready(fleet, turn):
 			return {}
-		return {
-			"kind": KIND_LAND, "fleet": fleet.id, "province": fleet.beachhead_province,
-		}
+		# The rules own the landing gate. A site whose shore changed hands, or
+		# whose war ended, is no landing at all (ships-and-naval § Missions and
+		# Movement), so the court marks a fresh coast this turn rather than
+		# ordering a landing the rules refuse and losing the turn.
+		if NavalTransport.beachhead_allows(
+			model, fleet, fleet.beachhead_province, turn, _invadable_query(hostile)
+		):
+			return {
+				"kind": KIND_LAND, "fleet": fleet.id, "province": fleet.beachhead_province,
+			}
 	var target: int = _target(config, model, armies, army, hostile, charts)
 	if target < 0:
 		return _retire(model, fleet, turn, hostile)
@@ -247,6 +254,15 @@ static func _can_storm(
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
 	return attack > ArmyForce.side_strength(defenders) * margin
+
+
+## The landing gate's target test, in the form NavalTransport expects: a declared
+## enemy's coast, or a Tribe's, which needs no declaration (wiki: factions § Tribe).
+static func _invadable_query(hostile: Dictionary) -> Callable:
+	return func(a: int, b: int) -> bool:
+		return a != b and (
+			hostile.has(b) or FactionCatalog.type_of(b) == FactionCatalog.Type.TRIBE
+		)
 
 
 ## No war target left (peace signed mid-voyage): land on an own coast instead of
