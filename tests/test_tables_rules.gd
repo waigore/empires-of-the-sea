@@ -1249,7 +1249,7 @@ func test_a_carried_batch_lands_even_when_the_hand_is_gone() -> void:
 	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, WorkerPool.make(4))
 	assert_eq(report["produced"], {"cigars": 1}, "a slow row gives up one unit a phase")
 	assert_eq(stock["cigars"], 1)
-	assert_eq(ProductionRecipes.in_flight(report["wip"], "cigars"), 1, "the rest waits")
+	assert_eq(ProductionWorkshop.units(report["wip"], "cigars"), 1, "the rest waits")
 
 
 ## A one-turn row never waits: a carried batch of it (only a damaged or
@@ -1284,10 +1284,10 @@ func test_a_cigar_batch_lands_one_unit_a_phase() -> void:
 	assert_eq(first["runs"], {"cigars": 2})
 	assert_eq(first["produced"], {}, "a two-turn row lands nothing in the phase it starts")
 	assert_eq(stock["tobacco"], 0, "the batch pays its inputs up front")
-	assert_eq(ProductionRecipes.in_flight(first["wip"], "cigars"), 2)
+	assert_eq(ProductionWorkshop.units(first["wip"], "cigars"), 2)
 	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"], apprentices)
 	assert_eq(second["produced"], {"cigars": 1}, "one unit a phase")
-	assert_eq(ProductionRecipes.in_flight(second["wip"], "cigars"), 1)
+	assert_eq(ProductionWorkshop.units(second["wip"], "cigars"), 1)
 	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"], apprentices)
 	assert_eq(third["produced"], {"cigars": 1})
 	assert_eq(stock["cigars"], 2)
