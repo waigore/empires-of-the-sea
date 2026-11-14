@@ -79,7 +79,7 @@ forecasting the next Consumption (`LarderRead`).
 
 ## Deferred (REQ-P2-02)
 
-Building gates; multi-turn rows beyond these four
+Building gates; rows past the four; rival bench room
 ([`deferred.md`](deferred.md)).
 
 ## Architecture

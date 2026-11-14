@@ -31,9 +31,9 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   DR-20261109-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
-  by voyages, invasions, diplomacy (DR-20261113-03).
+  by voyages, invasions and diplomacy (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
-  crosses, lands and returns empty (DR-20261111-05, DR-20261114-03).
+  crosses and lands, then returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
   hulls, dock, board, cross, storm the coast (DR-20261114-03).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
@@ -69,7 +69,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 
 ## Deferred (REQ-P2-02)
 
-New World colony; domain gating — [`deferred.md`](deferred.md).
+New World colony; domain gating beyond the voyage — [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
