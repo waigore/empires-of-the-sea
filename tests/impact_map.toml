@@ -566,6 +566,16 @@ domain = "oob"
 match = "scripts/ai/ai_turn.gd*"
 domain = "oob"
 
+# The turn pass's two seams travel with it: a court-read change is still the
+# OOB suite set, not the wider planner fan-out.
+[[rules]]
+match = "scripts/ai/ai_turn_read.gd*"
+domain = "oob"
+
+[[rules]]
+match = "scripts/ai/ai_turn_apply.gd*"
+domain = "oob"
+
 [[rules]]
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "oob"

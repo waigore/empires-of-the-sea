@@ -1,6 +1,6 @@
 # AI courts
 
-Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
+Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture)).
 
 ## Implemented
 
@@ -8,7 +8,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
   (`AiNavy`: no fighting hull at peace, chest in reach at war); else
-  `economy.min_treasury`. On `earn` the auction holds it back
+  `economy.min_treasury`. On `earn` the auction holds it
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
   +30/+5/−25.
@@ -23,7 +23,8 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival, wars first.
+- **Turn pass** (`AiTurn`): one order per rival, wars first; `AiTurnRead`
+  reads, `AiTurnApply` applies.
 - **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
   Home regiment; armies save or storm.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
@@ -33,7 +34,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
   by voyages, invasions, diplomacy (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
-  crosses, lands and returns empty (DR-20261111-05, DR-20261114-03).
+  crosses, lands, returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
   hulls, dock, board, cross, storm the coast (DR-20261114-03).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
@@ -55,8 +56,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
   stay 1; rivals re-equip, pay to attack.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and its pattern's inputs (DR-20261113-08); at war the wornest
-  takes a train (DR-20261112-08).
+  (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
