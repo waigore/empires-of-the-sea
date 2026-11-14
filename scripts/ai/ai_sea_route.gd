@@ -23,6 +23,30 @@ static func sail_toward(model: MapModel, fleet: FleetState, goals: Array[int]) -
 	return best
 
 
+## The next zone toward `goals`, walking only water this court charts. With no
+## charted route it takes the lowest-id adjacent zone it has not seen: that blind
+## step is how a passage or a far coast is found (DR-20261110-21). A caller with
+## no charts at all keeps the published sighting of every goal.
+static func sail_charted(
+	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
+) -> int:
+	if charts == null:
+		return sail_toward(model, fleet, goals)
+	var known: Array[int] = charts.known_zones(owner, model.region_id)
+	var charted: Array[int] = []
+	for zone: int in goals:
+		if known.has(zone):
+			charted.append(zone)
+	if not charted.is_empty():
+		var step: int = sail_toward(model, fleet, charted)
+		if step >= 0:
+			return step
+	for zone: int in NavalMovement.destination_zones(model, fleet):
+		if not known.has(zone):
+			return zone
+	return -1
+
+
 ## First step of a breadth-first walk from `start` to any goal zone; -1 when the
 ## goal is already reached or no route exists.
 static func step_toward(model: MapModel, start: int, goals: Array[int]) -> int:

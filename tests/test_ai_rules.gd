@@ -4115,14 +4115,14 @@ func test_the_tie_break_is_row_major_then_action_name() -> void:
 	var lower: Dictionary = {"action": "build_hospital", "tile": Vector2i(4, 3), "score": 40}
 	var left: Dictionary = {"action": "build_hospital", "tile": Vector2i(2, 3), "score": 40}
 	var early: Dictionary = {"action": "build_fort", "tile": Vector2i(1, 2), "score": 40}
-	assert_eq(Vector2i(AiHospitalWork._better(lower, upper)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(upper, lower)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(lower, left)["tile"]), Vector2i(2, 3))
-	assert_eq(Vector2i(AiHospitalWork._better(left, lower)["tile"]), Vector2i(2, 3))
-	assert_eq(String(AiHospitalWork._better(upper, early)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better(early, upper)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better({}, upper)["action"]), "build_hospital")
-	assert_eq(String(AiHospitalWork._better(upper, {})["action"]), "build_hospital")
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, upper)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(upper, lower)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, left)["tile"]), Vector2i(2, 3))
+	assert_eq(Vector2i(AiCivilianCandidate.better(left, lower)["tile"]), Vector2i(2, 3))
+	assert_eq(String(AiCivilianCandidate.better(upper, early)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better(early, upper)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better({}, upper)["action"]), "build_hospital")
+	assert_eq(String(AiCivilianCandidate.better(upper, {})["action"]), "build_hospital")
 
 
 ## AI engineers connect every province town to the capital network (wiki:

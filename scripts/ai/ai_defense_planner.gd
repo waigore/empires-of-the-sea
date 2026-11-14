@@ -25,12 +25,12 @@ static func split_orders(
 	var actions: Array[Dictionary] = []
 	if not _can_plan(state, model, faction):
 		return actions
-	var home: ArmyState = _home_army(armies, faction)
+	var home: ArmyState = ArmyTraining.home_army(armies, faction)
 	var wanted: Array[int] = []
 	for province: int in _threatened(state, model, armies, faction):
 		if home == null or home.province != province:
 			wanted.append(province)
-	if wanted.is_empty() or not _field_armies(armies, faction).is_empty():
+	if wanted.is_empty() or not ArmyRoster.field_armies(armies, faction).is_empty():
 		return actions
 	if home == null or home.count() < 2:
 		return actions
@@ -68,7 +68,7 @@ static func march_orders(
 	var threatened: Array[int] = _threatened(state, model, armies, faction)
 	if threatened.is_empty():
 		return {"orders": orders, "candidates": candidates}
-	for army: ArmyState in _field_armies(armies, faction):
+	for army: ArmyState in ArmyRoster.field_armies(armies, faction):
 		if army.moved or army.is_empty():
 			continue
 		var target: int = _relief_target(model, army, faction, threatened)
@@ -131,19 +131,3 @@ static func _can_plan(state: DiplomacyState, model: MapModel, faction: int) -> b
 	if state == null or model == null or faction < 0:
 		return false
 	return FactionCatalog.type_of(faction) != FactionCatalog.Type.GREAT_POWER
-
-
-static func _home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and army.home:
-			return army
-	return null
-
-
-static func _field_armies(armies: Array[ArmyState], owner: int) -> Array[ArmyState]:
-	var field: Array[ArmyState] = []
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and not army.home and not army.is_empty():
-			field.append(army)
-	field.sort_custom(func(a: ArmyState, b: ArmyState) -> bool: return a.id < b.id)
-	return field

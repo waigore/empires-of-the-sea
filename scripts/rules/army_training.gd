@@ -7,9 +7,12 @@ extends RefCounted
 ## New regiments always join the Home Army at the capital (wiki: military-armies).
 
 
-## The faction's Home Army among the given armies, or null.
-static func home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
-	for army: ArmyState in armies:
+## The faction's Home Army among the given armies, or null. The list is read as
+## the layer's generic roster, so a caller holding an untyped `Array` needs no
+## copy of this scan.
+static func home_army(armies: Array, owner: int) -> ArmyState:
+	for raw: Variant in armies:
+		var army: ArmyState = raw
 		if army != null and army.owner == owner and army.is_home_army():
 			return army
 	return null
