@@ -257,7 +257,7 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		clear_hover(play)
 		return
 	var view: Viewport = play.viewport()
-	if view != null and view.gui_get_hovered_control() != null:
+	if view != null and _over_gui(view):
 		clear_hover(play)
 		return
 	var mouse: Vector2 = screen_position
@@ -311,6 +311,17 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		if not defence.is_empty():
 			text += "\nDefence: " + defence
 	HudChrome.show_tooltip(play.hud, text)
+
+
+## True when the pointer stands over a control that really owns it. The bar
+## re-lays itself on every resize, and a control the viewport still remembers
+## from before that sort no longer sits under the pointer — a stale memory must
+## not silence the map's own reading (REQ-P1-07).
+static func _over_gui(view: Viewport) -> bool:
+	var hovered: Control = view.gui_get_hovered_control()
+	if hovered == null or not hovered.is_visible_in_tree():
+		return false
+	return hovered.get_global_rect().has_point(view.get_mouse_position())
 
 
 static func clear_hover(play: PlaySession) -> void:

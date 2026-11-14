@@ -152,7 +152,13 @@ func test_phone_chrome_fits_the_screen() -> void:
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_true(HudLayout.is_compact(hud.size), "compact at %s" % size)
-		assert_almost_eq(hud.top_bar.size.y, 56.0, 0.5, "one-row bar at %s" % size)
+		# One row while the measured row fits; the plaques fall to a second row
+		# otherwise (never a third, never clipped text).
+		assert_true(
+			is_equal_approx(hud.top_bar.size.y, 56.0)
+			or is_equal_approx(hud.top_bar.size.y, HudLayout.STACK_BAR_HEIGHT),
+			"measured bar at %s (%.0f)" % [size, hud.top_bar.size.y]
+		)
 		_fits(hud.top_bar.get_global_rect(), _screen_rect(), "bar %s" % size)
 		for chip: Control in hud.chips:
 			_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip %s" % size)
@@ -177,16 +183,17 @@ func test_phone_chrome_fits_the_screen() -> void:
 				assert_true(caption_label.visible, "region keeps its label %s" % size)
 		_fits(hud.minimap_frame.get_global_rect(), _screen_rect(), "minimap %s" % size)
 		_fits(hud.end_turn_wrap.get_global_rect(), _screen_rect(), "end turn %s" % size)
-		_tappable(hud.end_turn_wrap.get_child(1), "end turn %s" % size)
+		_tappable(hud._end_turn_button, "end turn %s" % size)
 		for button: Node in hud.zoom_box.get_children():
 			_fits((button as Control).get_global_rect(), _screen_rect(), "zoom %s" % size)
 			_tappable(button as Control, "zoom %s" % size)
 		# The map carries no sound seal now: the pause menu holds the mix desk.
 		assert_not_null(_screen.game_menu.sound_desk, "pause menu carries the desk %s" % size)
-		var estates: Control = _screen.get_node("HUD/Improvements")
-		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
-		_tappable(estates._toggle, "estates %s" % size)
-		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
+		var estates: Button = hud.top_row.find_child("EstatesSeal", true, false) as Button
+		assert_not_null(estates, "estates door on the bar %s" % size)
+		_fits(estates.get_global_rect(), hud.top_bar.get_global_rect(), "estates %s" % size)
+		_tappable(estates, "estates %s" % size)
+		assert_not_null(_medallion(estates), "estates door keeps its medallion %s" % size)
 		_fits(hud.lens_seal.get_global_rect(), hud.top_bar.get_global_rect(), "lens seal %s" % size)
 		assert_eq(_caption(hud.lens_seal), "LENS", "the one lens seal is named %s" % size)
 		assert_not_null(
@@ -446,8 +453,120 @@ func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 			assert_false(_caption(door).is_empty(), "desktop door keeps its caption")
 			assert_true(_caption_label(door).visible, "desktop door keeps its word")
 		assert_almost_eq(hud.minimap_frame.size.x, 250.0, 0.5)
-		assert_almost_eq(hud.end_turn_wrap.size.x, 212.0, 0.5)
+		assert_almost_eq(hud.end_turn_wrap.size.x, EndTurnDoor.SIZE.x, 0.5)
 		assert_eq(hud.panels.dock.width, GameHud.PANEL_WIDTH)
+
+
+## --- map chrome ------------------------------------------------------------
+
+
+## Non-navigation chrome lives on the bar: the chart keeps its corner, and the
+## ledgers open from a seal that never sits over the map (REQ-P1-07).
+func test_estates_and_gazette_doors_live_on_the_bar() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var estates := hud.top_row.find_child("EstatesSeal", true, false) as Button
+	var gazette := hud.top_row.find_child("GazetteSeal", true, false) as Button
+	assert_not_null(estates, "the estates door is on the bar")
+	assert_not_null(gazette, "the Gazette door is on the bar")
+	assert_eq(HudLayout.LEFT_RAIL, 0.0, "nothing is parked on the left rail")
+	var panel: ImprovementPanel = _screen.improvements
+	var loose: int = 0
+	for node: Node in panel.find_children("*", "Button", true, false):
+		if (node as Button).is_visible_in_tree():
+			loose += 1
+	assert_eq(loose, 0, "the estates ledger parks no door over the chart")
+	estates.pressed.emit()
+	await get_tree().process_frame
+	assert_true(panel.is_open(), "the bar door opens the estates ledger")
+	panel.close()
+	gazette.pressed.emit()
+	await get_tree().process_frame
+	assert_true(hud.gazette_plate.is_shown(), "the bar door opens the Gazette")
+	hud.gazette_plate.dismiss()
+
+
+## The turn is the bar's gold door: one reach from anywhere, no corner plate
+## over the chart (REQ-P1-07, REQ-P5-01).
+func test_end_turn_is_the_bars_gold_door() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var bar: Rect2 = hud.top_bar.get_global_rect()
+	var door: Rect2 = hud.end_turn_wrap.get_global_rect()
+	assert_true(
+		door.position.y >= bar.position.y and door.end.y <= bar.end.y + 0.5,
+		"the end-turn door sits in the bar"
+	)
+	assert_gt(door.position.x, hud.size.x - 220.0, "the door holds the bar's right end")
+	_tappable(hud._end_turn_button, "end turn")
+	assert_eq(hud._end_turn_button.text, "END TURN")
+	assert_false(
+		hud._end_turn_button.pressed.get_connections().is_empty(),
+		"the door ends the turn"
+	)
+
+
+## An opened plate is movable by its own chrome, so the chart feature it covers
+## can be read without closing it (REQ-P1-07).
+func test_opened_plates_can_be_pushed_aside() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var card: ImprovementPanel = _screen.improvements
+	card.open()
+	await get_tree().process_frame
+	var start: Vector2 = card._panel.get_global_rect().position
+	_drag(card._header_row, Vector2(-30.0, 20.0))
+	await get_tree().process_frame
+	var moved: Vector2 = card._panel.get_global_rect().position
+	assert_almost_eq(moved.x, start.x - 30.0, 1.0, "the card follows its header west")
+	assert_almost_eq(moved.y, start.y + 20.0, 1.0, "and south")
+	card.close()
+	await get_tree().process_frame
+	assert_almost_eq(
+		card._panel.get_global_rect().position.x, start.x, 1.0, "a closed card docks again"
+	)
+
+	# The soft Gazette paints its own rect, so its drag rides an offset instead.
+	hud.gazette_plate.open_watchlist(
+		_screen.play.gazette, _screen.play.diplomacy, _screen.play.player_faction
+	)
+	await get_tree().process_frame
+	var sheet: Vector2 = hud.gazette_plate._panel.get_global_rect().position
+	_drag(hud.gazette_plate._header_row, Vector2(60.0, 20.0))
+	await get_tree().process_frame
+	assert_almost_eq(
+		hud.gazette_plate._panel.get_global_rect().position.x,
+		sheet.x + 60.0, 1.0, "the Gazette follows its masthead"
+	)
+	hud.gazette_plate.dismiss()
+	await get_tree().process_frame
+	assert_almost_eq(
+		hud.gazette_plate._panel.get_global_rect().position.x,
+		sheet.x, 1.0, "setting the news aside resets its place"
+	)
+
+	# A docked dossier moves too, and opens from the dock again next time.
+	hud.panels.show_province(_screen.model, _screen.capital_province)
+	hud.panels.dock.place_shown(hud._panel_wrap)
+	await get_tree().process_frame
+	var wrap: Control = hud._panel_wrap
+	var docked: Vector2 = wrap.get_global_rect().position
+	_drag(hud._panel, Vector2(-40.0, 0.0))
+	await get_tree().process_frame
+	assert_almost_eq(
+		wrap.get_global_rect().position.x, docked.x - 40.0, 1.0, "the dossier follows the drag"
+	)
+	hud.panels.hide_province()
+	await get_tree().process_frame
+	hud.panels.show_province(_screen.model, _screen.capital_province)
+	await get_tree().process_frame
+	var engine: ModalDrag = wrap.get_meta(ModalDrag.META) as ModalDrag
+	assert_not_null(engine, "the dossier carries its drag")
+	if engine != null:
+		assert_eq(engine.offset(), Vector2.ZERO, "a reopened dossier starts from the dock")
 
 
 ## --- dossiers --------------------------------------------------------------
@@ -929,6 +1048,24 @@ func _tappable(control: Control, what: String) -> void:
 	assert_gt(control.get_global_rect().size.y, TOUCH_MIN - 0.5, "%s touch height" % what)
 
 
+## One left-press, move and release on a plate's grab: the pointer path a
+## player's mouse (or an emulated touch) takes through ModalDrag.
+func _drag(grab: Control, delta: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(8.0, 8.0)
+	grab.gui_input.emit(press)
+	var move := InputEventMouseMotion.new()
+	move.position = press.position + delta
+	grab.gui_input.emit(move)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = move.position
+	grab.gui_input.emit(release)
+
+
 func _chip(hud: GameHud, name_text: String) -> Button:
 	var button := hud.find_child(name_text, true, false) as Button
 	assert_not_null(button, "%s exists" % name_text)
@@ -940,6 +1077,9 @@ func _bar_doors(hud: GameHud) -> Array[Button]:
 	for node: Node in hud.top_row.find_children("*", "Button", true, false):
 		var button := node as Button
 		if button == null or hud.chips.has(button):
+			continue
+		# The turn's gold door is a plaque with its own caption, not a seal.
+		if button == hud._end_turn_button:
 			continue
 		doors.append(button)
 	return doors
