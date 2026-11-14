@@ -73,7 +73,9 @@ static func _random_production(economy: PlayerEconomy, rng: RandomNumberGenerato
 	var assignments: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	var ids: Array[String] = []
-	ids.assign(ProductionRecipes.available_ids(economy.tech_unlocked))
+	ids.assign(
+		ProductionRecipes.available_ids_for(economy.tech_unlocked, economy.workers)
+	)
 	if ids.is_empty():
 		return {"assignments": assignments, "candidates": candidates}
 	if rng.randf() < 0.35:

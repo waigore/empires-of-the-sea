@@ -1011,13 +1011,16 @@ func test_region_switch_and_rail_budget() -> void:
 	assert_true(screen.play.crown_lens.survey.has("runs"))
 	screen.load_region(0)
 
-	# The reading rides the cartouche now: the rail below is back to two seals.
+	# The reading rides the cartouche now, and the rail below it is empty: the
+	# estates and Gazette doors moved onto the bar (REQ-P1-07).
 	var hud: GameHud = screen.hud
 	var seal: Rect2 = hud.lens_seal.get_global_rect()
 	var bar: Rect2 = hud.top_bar.get_global_rect()
 	assert_gt(seal.size.x, 0.0, "the lens seal is on the bar")
 	assert_true(seal.position.y >= bar.position.y and seal.end.y <= bar.end.y + 0.5, "seal inside the bar")
-	assert_lt(HudLayout.LEFT_RAIL, 260.0, "the rail covers only ESTATES and the Gazette")
+	assert_eq(HudLayout.LEFT_RAIL, 0.0, "nothing is parked on the left rail")
+	assert_not_null(hud.top_row.find_child("EstatesSeal", true, false), "estates door on the bar")
+	assert_not_null(hud.top_row.find_child("GazetteSeal", true, false), "Gazette door on the bar")
 	MapPlayInput.set_crown_lens(screen.play, true)
 	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
 	assert_true(hud.lens_legend.visible)

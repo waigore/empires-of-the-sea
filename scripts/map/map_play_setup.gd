@@ -34,6 +34,12 @@ static func build_hud(play: PlaySession) -> void:
 	# The Gazette's cartouche seal reopens the crown's news and its archive at
 	# any time (wiki: the-gazette).
 	hud.gazette_pressed.connect(func() -> void: MapPlayGazette.open_archive(play))
+	# The cartouche's estates door opens the works ledger from anywhere on the
+	# map: no chrome of its own sits over the chart (REQ-P1-07).
+	hud.estates_pressed.connect(func() -> void:
+		if play.improvements != null:
+			play.improvements.open()
+	)
 	if hud.civilian_roster != null:
 		hud.civilian_roster.bind(play)
 	if hud.muster_roll != null:

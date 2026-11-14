@@ -10,9 +10,9 @@ extends RefCounted
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
 const STACK_BAR_HEIGHT: float = 98.0
-## Right edge of the left rail under the cartouche (the estates door and the
-## Gazette seal sit here). The lenses and the sound seal live on the bar now.
-const LEFT_RAIL: float = 252.0
+## The left rail under the cartouche is empty now: the estates door and the
+## Gazette seal moved onto the bar, so nothing but the chart sits there.
+const LEFT_RAIL: float = 0.0
 
 var compact: bool = false
 
@@ -153,18 +153,11 @@ func _lens_key(hud: GameHud) -> void:
 
 
 func _end_turn(hud: GameHud) -> void:
-	var wrap: Control = hud.end_turn_wrap
-	if wrap == null:
-		return
-	wrap.offset_left = -176.0 if compact else -232.0
-	wrap.offset_top = -84.0 if compact else -96.0
-	wrap.offset_right = -10.0 if compact else -20.0
-	wrap.offset_bottom = -10.0 if compact else -20.0
+	EndTurnDoor.apply_compact(hud, compact)
 
 
-## Toasts sit under the cartouche. On a phone the left rail already holds the
-## estates door and the Gazette seal, so the column starts to their right
-## instead of running full width and covering them. The lane owns the geometry.
+## Toasts sit under the cartouche. The rail below it is empty now, so the lane
+## runs the full width on a phone too. The lane owns the geometry.
 func _toasts(hud: GameHud) -> void:
 	if hud.despatches == null:
 		return

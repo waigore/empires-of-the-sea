@@ -39,6 +39,8 @@ signal army_status_pressed
 signal victory_dismissed
 ## The cartouche seal opens the Gazette's archive (wiki: the-gazette).
 signal gazette_pressed
+## The cartouche's estates door opens the crown's works ledger (REQ-P1-07).
+signal estates_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0

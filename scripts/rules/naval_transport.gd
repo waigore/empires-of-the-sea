@@ -104,7 +104,7 @@ static func hostile_coasts(
 		var owner: int = model.province_owner(province_id)
 		if owner == MapModel.NO_ID or owner == fleet.owner:
 			continue
-		if not _hostile(hostile, fleet.owner, owner):
+		if not Hostility.between(hostile, fleet.owner, owner):
 			continue
 		coasts.append(province_id)
 	return coasts
@@ -133,7 +133,7 @@ static func can_establish_beachhead(
 		return _deny("A beachhead is only needed on a hostile coast.")
 	if owner == MapModel.NO_ID:
 		return _deny("That coast belongs to no crown.")
-	if not _hostile(hostile, fleet.owner, owner):
+	if not Hostility.between(hostile, fleet.owner, owner):
 		return _deny("A beachhead needs a declared war with %s." % FactionCatalog.name_of(owner))
 	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
 		return _deny("That coast does not border the fleet's sea zone.")
@@ -203,7 +203,7 @@ static func beachhead_target_valid(
 	var owner: int = model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == fleet.owner:
 		return false
-	return _hostile(hostile, fleet.owner, owner)
+	return Hostility.between(hostile, fleet.owner, owner)
 
 
 ## Expires every beachhead whose one full turn has run; called at end of turn.
@@ -299,15 +299,6 @@ static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
 
 static func _allow() -> Dictionary:
 	return {"ok": true, "reason": ""}
-
-
-## No callback means the isolated-fixture default: every other crown is hostile.
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))
 
 
 static func _deny(reason: String) -> Dictionary:

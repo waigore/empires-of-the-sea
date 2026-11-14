@@ -120,7 +120,7 @@ static func attacker_owner(
 			continue
 		var targets: Array = []
 		for other: int in owners:
-			if other == owner or not _hostile(hostile, owner, other):
+			if other == owner or not Hostility.between(hostile, owner, other):
 				continue
 			for fleet: FleetState in sides[other] as Array:
 				if fleet.is_at_sea() and fleet.is_afloat():
@@ -190,11 +190,3 @@ static func _owner(group: Array) -> int:
 	for fleet: FleetState in group:
 		return fleet.owner
 	return 0
-
-
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))

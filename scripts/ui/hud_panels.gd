@@ -38,6 +38,13 @@ func bind(hud: GameHud) -> void:
 	_sync_dock_buttons()
 	for slot: HudPanelSlot in selections():
 		dock.prepare_wrap(slot.wrap)
+		# A selection dossier is movable by its own chrome, so the fleet or
+		# province it covers can be read without closing it (REQ-P1-07). The
+		# dock still owns where it opens; a drag moves it for this opening.
+		if slot.panel != null:
+			slot.panel.tooltip_text = "Drag to move this dossier"
+			var grabs: Array[Control] = [slot.panel]
+			ModalDrag.attach(host, slot.wrap, grabs, slot.panel)
 
 
 func toggle_dock_side() -> void:

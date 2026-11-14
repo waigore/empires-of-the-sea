@@ -108,7 +108,7 @@ static func plan(
 	if config == null or state == null or world == null or model == null:
 		return {}
 	var owner: int = config.faction
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	var fleet: FleetState = _expedition(fleets, owner)
 	if fleet != null:
 		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
@@ -308,7 +308,7 @@ static func _has_overseas_war(
 	var home: int = FactionCatalog.region_of(owner)
 	if home < 0 or world.warp_zones(home).is_empty():
 		return false
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	var here: MapModel = world.region(home)
 	if here != null and not AiMilitaryPlanner.frontier_hostile(here, owner, state).is_empty():
 		if not wants_income or AiMilitaryPlanner.invader_on_home_soil(
@@ -356,15 +356,6 @@ static func _invadable(owner: int, hostile: Dictionary) -> bool:
 	if hostile.has(owner):
 		return true
 	return FactionCatalog.type_of(owner) == FactionCatalog.Type.TRIBE
-
-
-## Factions this court is at war with, as a membership set.
-static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
-	var hostile: Dictionary = {}
-	for record: DiplomacyRelation in state.relations_of(owner):
-		if record.at_war:
-			hostile[record.other(owner)] = true
-	return hostile
 
 
 static func _home_army(armies: Array, owner: int) -> ArmyState:

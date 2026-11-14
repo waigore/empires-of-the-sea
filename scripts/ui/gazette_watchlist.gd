@@ -19,10 +19,11 @@ func _init() -> void:
 func fill(state: GazetteState, diplomacy: DiplomacyState, viewer: int) -> void:
 	_clear()
 	add_child(
-		_label(
+		GazetteParts.label(
 			"Every court your crown has met may be followed. Struck-off courts stay "
 			+ "struck off, even if a new treaty binds them.",
-			13
+			13,
+			INK_SOFT
 		)
 	)
 	var followed: int = 0
@@ -40,7 +41,7 @@ func fill(state: GazetteState, diplomacy: DiplomacyState, viewer: int) -> void:
 		row.toggled.connect(_on_toggled.bind(state, faction))
 		add_child(row)
 	if followed == 0:
-		add_child(_label("No court is followed — the sheet will be quiet.", 13))
+		add_child(GazetteParts.label("No court is followed — the sheet will be quiet.", 13, INK_SOFT))
 
 
 func _on_toggled(on: bool, state: GazetteState, faction: int) -> void:
@@ -64,17 +65,6 @@ static func _known_courts(state: GazetteState, diplomacy: DiplomacyState, viewer
 				ids.append(other)
 	ids.sort()
 	return ids
-
-
-func _label(text: String, pixels: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_override("font", UiTheme.serif())
-	label.add_theme_font_size_override("font_size", pixels)
-	label.add_theme_color_override("font_color", INK_SOFT)
-	return label
 
 
 func _clear() -> void:

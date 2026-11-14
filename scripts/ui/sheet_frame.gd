@@ -37,6 +37,10 @@ var _subtitle: Label = null
 var _crest: Control = null
 var _close: Button = null
 var _hint: Label = null
+var _header_row: HBoxContainer = null
+## The sheet is movable by its header, so the chart it covers can be read
+## without closing the ledger (REQ-P1-07).
+var _drag: ModalDrag = null
 var _fade: Tween = null
 ## Last applied layout profile (-1 before the first fit).
 var _was_compact: int = -1
@@ -123,6 +127,8 @@ func _build() -> void:
 	_column.add_theme_constant_override("separation", 10)
 	_panel.add_child(_column)
 	_column.add_child(_header())
+	var grabs: Array[Control] = [_header_row]
+	_drag = ModalDrag.attach(self, _margin, grabs, _panel)
 	_build_body(_column)
 	_column.add_child(_footer())
 
@@ -130,6 +136,8 @@ func _build() -> void:
 func _header() -> Control:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 14)
+	header.add_child(ModalDrag.grip())
+	_header_row = header
 
 	_crest = _build_crest()
 	_crest.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -206,6 +214,7 @@ func close() -> void:
 	if _fade != null and _fade.is_valid():
 		_fade.kill()
 	modulate.a = 1.0
+	ModalDrag.reset_on(_margin)
 	_set_menu_visible(true)
 
 

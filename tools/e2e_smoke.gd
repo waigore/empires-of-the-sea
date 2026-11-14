@@ -258,9 +258,9 @@ func _run() -> void:
 			"troop chip counts every region"
 		)
 
-	var estates_toggle: Button = screen.improvements._toggle
-	_check(estates_toggle != null, "estates toggle present")
-	screen.improvements.open()
+	var estates_door: Button = screen.hud.top_row.find_child("EstatesSeal", true, false) as Button
+	_check(estates_door != null, "estates door on the bar")
+	estates_door.pressed.emit()
 	await process_frame
 	_check(screen.improvements.is_open(), "estates ledger opens")
 	_check(

@@ -6,6 +6,10 @@ extends RefCounted
 ## runs greedily under the labour and input budget the next Production phase
 ## will enforce. Recruitment spends the same ledger through PlayerEconomy, so a
 ## rival never invents resources or bypasses a tech gate (REQ-P2-03, REQ-P3-03).
+## A row that needs a trained hand is no candidate until the pool holds one: the
+## phase would refuse it, and a phantom run would spend the plan's labour and
+## reserve inputs for output that never lands (wiki: production-recipes
+## § Worker-tier gates; DR-20261114-07).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 ## Outputs that unblock civilian work and industry; they win ties over purely
@@ -32,7 +36,9 @@ static func production_orders(
 	# not keep assigning alloy runs that are still serving their turns
 	# (DR-20261112-11).
 	var committed: Dictionary = _committed(economy)
-	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+	for recipe_id: String in ProductionRecipes.available_ids_for(
+		economy.tech_unlocked, economy.workers
+	):
 		var output: String = ProductionRecipes.output(recipe_id)
 		var deficit: int = maxi(
 			target - int(stock.get(output, 0)) - int(committed.get(output, 0)), 0
