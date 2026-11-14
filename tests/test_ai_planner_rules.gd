@@ -2268,7 +2268,9 @@ func test_the_adapter_stamps_a_ledger_for_every_planning_court() -> void:
 func test_the_turn_trace_carries_every_objective() -> void:
 	var play: PlaySession = _objective_session(_court())
 	var ledgers: Dictionary = MapPlayObjectivesAi.run(play)
-	var merged: Dictionary = AiTurnLog.record(play, [], [], {"factions": {}}, [], ledgers)
+	var merged: Dictionary = AiTurnLog.record(
+		play, [], [], {"factions": {}}, [], [], ledgers
+	)
 	var bucket: Dictionary = (merged["factions"] as Dictionary)[OBJ_OWNER]
 
 	assert_eq(String(bucket["phase"]), AiPhasePlanner.PHASE_PEACE)

@@ -145,7 +145,9 @@ static func _finish_turn(play: PlaySession) -> void:
 	# chosen for the crossing is not also ordered inland (docs/ai.md).
 	var invasion_trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
 	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
-	MapPlayColonisationAi.run(play)
+	# Colonisation counts every applied voyage step, so the observer's trace can
+	# show an expedition crossing even when no army is aboard (issue #476).
+	var colonisation_trace: Array[Dictionary] = MapPlayColonisationAi.run(play)
 	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
 	# Regiment upgrade runs after movement and before combat: a crown's men take
 	# up the newest pattern its own techs allow, and Minors follow the leading
@@ -203,7 +205,10 @@ static func _finish_turn(play: PlaySession) -> void:
 	# the new turn; the observer runs every crown on that same pass.
 	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
 	var raid_report: Dictionary = MapPlayRaids.resolve(play)
-	AiTurnLog.record(play, army_trace, fleet_trace, economy_report, invasion_trace)
+	AiTurnLog.record(
+		play, army_trace, fleet_trace, economy_report, invasion_trace,
+		colonisation_trace
+	)
 	play.turn += 1
 	# The new turn opens the crown's watch: a rival squadron still under the same
 	# eye that saw her last turn is read now, and her weight reaches the markers

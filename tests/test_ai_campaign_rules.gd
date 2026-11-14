@@ -452,6 +452,31 @@ func test_the_observer_counts_an_expedition_and_its_landing() -> void:
 	var court: Dictionary = record["factions"][OWNER]
 	assert_true(AiTurnLog.headline(court).contains("landings"))
 
+func test_the_observer_counts_a_colony_voyage() -> void:
+	var play := PlaySession.new()
+	play.turn = 3
+	var trace: Array[Dictionary] = [
+		{"faction": OWNER, "kind": "embark", "province_name": "Seat"},
+		{"faction": OWNER, "kind": "sail", "zone": 0},
+		{"faction": OWNER, "kind": "cross"},
+		{"faction": OWNER, "kind": "land", "province_name": "Coast"},
+	]
+	var record: Dictionary = AiTurnLog.record(play, [], [], {}, [], trace)
+	var actions: Dictionary = record["factions"][OWNER]["actions"]
+	assert_eq(int(actions.get("voyage", 0)), 4, "every applied step is a voyage order")
+	assert_eq(int(actions.get("colony", 0)), 1, "only the landing is a colony landing")
+	var court: Dictionary = record["factions"][OWNER]
+	var line: String = AiTurnLog.headline(court)
+	assert_true(line.contains("voyage orders"), line)
+	assert_true(line.contains("colony landings"), line)
+	var texts: PackedStringArray = []
+	for event: Dictionary in record["events"]:
+		texts.append(String(event["text"]))
+	var joined: String = " · ".join(texts)
+	assert_true(joined.contains("boards at Seat"), joined)
+	assert_true(joined.contains("crosses the Passage"), joined)
+	assert_true(joined.contains("lands at Coast"), joined)
+
 func test_the_naval_planner_leaves_a_troop_ship_to_its_expedition() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
@@ -720,6 +745,7 @@ func test_the_map_adapter_embarks_and_sails_the_rival() -> void:
 	var first: Array[Dictionary] = MapPlayColonisationAi.run(play)
 	assert_eq(first.size(), 1)
 	assert_eq(String(first[0]["kind"]), "embark")
+	assert_eq(String(first[0].get("province_name", "")), "Seat")
 	assert_true(unit.is_embarked())
 	assert_eq(fleet.civilian_count(), 1)
 	var second: Array[Dictionary] = MapPlayColonisationAi.run(play)
