@@ -15,6 +15,7 @@ static func build(hud: GameHud) -> void:
 	_roster(hud)
 	_muster(hud)
 	_provinces(hud)
+	_eyes(hud)
 	ArmyHud.build(hud)
 
 
@@ -112,3 +113,20 @@ static func _provinces(hud: GameHud) -> void:
 	hud.province_ledger = ProvinceLedgerPanel.new()
 	layer.add_child(hud.province_ledger)
 	hud.provinces_pressed.connect(hud.province_ledger.toggle)
+
+
+## The crown's eyes is the same sibling sheet: its own canvas layer above the
+## pause menu, opened by the court's EYES door or the I key (DR-20261115-10).
+static func _eyes(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "SpyLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.spy_ledger = SpyLedgerPanel.new()
+	layer.add_child(hud.spy_ledger)
+	hud.spy_ledger_pressed.connect(hud.spy_ledger.toggle)
+	# The court ledger carries the door: the crowns a spy shadows are the crowns
+	# that ledger lists, so the reading is one press from them (REQ-P5-01).
+	hud._diplomacy_panel.eyes_pressed.connect(
+		func() -> void: hud.spy_ledger_pressed.emit()
+	)

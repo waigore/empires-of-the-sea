@@ -258,6 +258,15 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
+# One suite — it mounts the map screen, presses the court's EYES door and reads
+# the network — so the espionage domain's seven suites (test_map_screen among
+# them) never ride a reading change.
+[domains.eyes]
+suites = [
+  "test_spy_ledger.gd",
+]
+
 # A rival's naval strength is read only after the crown has watched her across
 # a turn (wiki: ships-and-naval § Sighted strength; DR-20261113-20). The watch,
 # the marker that prints `*`, the dossier that prints ???, the turn hook that
@@ -564,6 +573,22 @@ domain = "muster"
 [[rules]]
 match = "tests/test_province_ledger.gd*"
 domain = "muster"
+
+# The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
+# The sheet rides the court ledger's door, so it is mapped before the ui glob;
+# its suite is named before the espionage glob so a reading change never pulls
+# that domain's seven suites.
+[[rules]]
+match = "scripts/rules/spy_ledger.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "scripts/ui/spy_ledger_panel.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "tests/test_spy_ledger.gd*"
+domain = "eyes"
 
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
