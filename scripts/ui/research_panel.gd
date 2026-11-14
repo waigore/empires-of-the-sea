@@ -1,10 +1,11 @@
 class_name ResearchPanel
-extends PanelContainer
+extends LedgerFrame
 ## The college ledger: a goal strip, the research slots with their funding and
 ## progress, plus the advances open now and the techs already known (wiki:
 ## research-state, tech-tree § Research Model — the goal slot sorts the display
 ## and spends nothing). Presentation only — every button emits an intent and the
-## economy controller asks the rules layer (REQ-P2-03).
+## economy controller asks the rules layer (REQ-P2-03). The sheet, masthead and
+## phone profile are LedgerFrame's (REQ-P3-01).
 ##
 ## Repaints are in place: one ResearchSlotRow lives per slot, and each page is
 ## rebuilt only when its list actually changes. A funding change therefore
@@ -15,7 +16,6 @@ signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
 signal funding_requested(slot: int)
 signal goal_changed(tech_id: String)
-signal close_pressed
 
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
@@ -28,7 +28,6 @@ var _leader: String = ""
 ## (wiki: tech-tree § Goal slot; DR-20261111-21).
 var _goal: String = ""
 var _treasury: int = 0
-var _column: VBoxContainer = null
 var _summary: Label = null
 ## The rule behind an unpaid study, named under the summary whenever a slot
 ## starves. Always visible — a phone hides the standing hint, and a hover-only
@@ -40,9 +39,6 @@ var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
-var _hint: Label = null
-var _title: Label = null
-var _close: Button = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
 ## Signatures of what each rebuilt region last drew, so a repaint that changes
@@ -51,14 +47,8 @@ var _available_key: String = ""
 var _known_key: String = ""
 
 
-func _ready() -> void:
-	add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 14, 20, 14))
-	)
-	_build()
-	get_viewport().size_changed.connect(_fit_to_viewport)
-	_fit_to_viewport()
+func _init() -> void:
+	title_text = "THE COLLEGE"
 
 
 ## The tab body gives way so the header, slots and Close stay put: the pages
@@ -69,8 +59,8 @@ func _ready() -> void:
 func _fit_to_viewport() -> void:
 	if _tabs == null or not is_inside_tree():
 		return
+	super._fit_to_viewport()
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	set_compact(compact)
 	var top: float = 64.0 if compact else PanelDock.TOP
 	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
 	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
@@ -79,24 +69,11 @@ func _fit_to_viewport() -> void:
 
 
 ## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
-## line, a goal prompt and three full-height slot rows above the list.
-func set_compact(compact: bool) -> void:
-	if _tabs == null:
-		return
-	var margins: Vector4 = Vector4(12, 8, 12, 8) if compact else Vector4(20, 14, 20, 14)
-	add_theme_stylebox_override(
-		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, margins)
-	)
-	if _title != null:
-		_title.add_theme_font_size_override("font_size", 20 if compact else 24)
-	if _close != null:
-		_close.custom_minimum_size = Vector2(64, 40) if compact else Vector2(78, 34)
+## line, a goal prompt and three full-height slot rows above the list. The
+## masthead and standing line are LedgerFrame's; the college's own rows follow.
+func _apply_profile(compact: bool) -> void:
 	if _summary != null:
 		_summary.visible = not compact
-	if _hint != null:
-		_hint.visible = not compact
-	if _column != null:
-		_column.add_theme_constant_override("separation", 4 if compact else 8)
 	if _goal_row != null:
 		_goal_row.visible = not compact or not _goal.is_empty()
 	if _slots_heading != null:
@@ -108,76 +85,32 @@ func set_compact(compact: bool) -> void:
 			(row as ResearchSlotRow).set_compact(compact)
 
 
-func _build() -> void:
-	_column = VBoxContainer.new()
-	_column.add_theme_constant_override("separation", 8)
-	add_child(_column)
-
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 10)
-	_column.add_child(header)
-
-	var title := Label.new()
-	title.text = "THE COLLEGE"
-	title.add_theme_font_override("font", UiTheme.serif())
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title = title
-	header.add_child(title)
-
-	var close := Button.new()
-	close.text = "Close"
-	close.custom_minimum_size = Vector2(78, 34)
-	close.add_theme_font_size_override("font_size", 13)
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	_close = close
-	header.add_child(close)
-
+func _build_body(column: VBoxContainer) -> void:
 	_summary = UiRowBuilder.label("", 14, Palette.TEXT)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_column.add_child(_summary)
+	column.add_child(_summary)
 
 	_notice = UiRowBuilder.label("", 12, Palette.CRIMSON)
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_notice.visible = false
-	_column.add_child(_notice)
+	column.add_child(_notice)
 
 	_goal_row = ResearchGoalStrip.new()
 	_goal_row.clear_pressed.connect(func() -> void: set_goal(""))
-	_column.add_child(_goal_row)
+	column.add_child(_goal_row)
 
 	_slots_heading = UiRowBuilder.label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
-	_column.add_child(_slots_heading)
+	column.add_child(_slots_heading)
 
 	_slots_body = VBoxContainer.new()
 	_slots_body.add_theme_constant_override("separation", 4)
-	_column.add_child(_slots_body)
+	column.add_child(_slots_body)
 
-	_tabs = TabContainer.new()
-	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_tabs.custom_minimum_size = Vector2(0, 300)
-	_tabs.add_theme_color_override("font_selected_color", Palette.GOLD_PALE)
-	_tabs.add_theme_color_override("font_unselected_color", Palette.TEXT_DIM)
-	_column.add_child(_tabs)
-	_available_body = _add_page("AVAILABLE")
-	_known_body = _add_page("KNOWN")
+	_tabs = _make_tabs(300.0)
+	_available_body = _add_tab(_tabs, "AVAILABLE", VBoxContainer.new())
+	_known_body = _add_tab(_tabs, "KNOWN", VBoxContainer.new())
 
-	_hint = UiRowBuilder.label("", 11, Palette.TEXT_DIM)
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_column.add_child(_hint)
-
-
-func _add_page(title: String) -> VBoxContainer:
-	var scroll := ScrollContainer.new()
-	scroll.name = title
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_tabs.add_child(scroll)
-	var body := VBoxContainer.new()
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 4)
-	scroll.add_child(body)
-	return body
+	_make_hint("")
 
 
 func select_tab(index: int) -> void:

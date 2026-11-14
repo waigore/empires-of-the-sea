@@ -127,6 +127,17 @@ suites = [
   "test_yarn_plates_rules.gd",
 ]
 
+[domains.ledger_shell]
+# The shared docked-ledger chrome: each ledger's own suite proves its body on
+# the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
+suites = [
+  "test_economy_screen.gd",
+  "test_research_screen.gd",
+  "test_court_ui_parts.gd",
+  "test_panel_parts_rules.gd",
+  "test_spycraft_rules.gd",
+]
+
 [domains.espionage]
 suites = [
   "test_yarn_plates_rules.gd",
@@ -2444,6 +2455,12 @@ domain = "diplomacy"
 [[rules]]
 match = "scripts/ui/economy_*.gd"
 domain = "economy_ui"
+
+# The one sheet the three docked ledgers stand in. A chrome change lands in all
+# of them, so its suites follow instead of the ledger_* glob's economy_ui alone.
+[[rules]]
+match = "scripts/ui/ledger_frame.gd*"
+domain = "ledger_shell"
 
 [[rules]]
 match = "scripts/ui/ledger_*.gd"
