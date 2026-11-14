@@ -997,6 +997,12 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workers.gd*"
 domain = "economy_ui"
 
+# The production row's workshop copy (tag, long form, allowance) lives beside
+# the ledger text so a copy change runs the same economy_ui rows.
+[[rules]]
+match = "scripts/ui/ledger_workshop.gd*"
+domain = "economy_ui"
+
 # The tier medallions are the WORKERS tab's art table, and its by-hand shot
 # harness draws that tab: both stay on the same light domain.
 [[rules]]

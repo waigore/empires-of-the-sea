@@ -178,7 +178,7 @@ func _recipe_row(recipe_id: String) -> Control:
 	plus.disabled = units >= limit
 	plus.tooltip_text = (
 		_gate_tooltip(recipe_id) if gated
-		else LedgerText.allowance_note(recipe_id, limit)
+		else LedgerWorkshop.allowance_note(recipe_id, limit)
 	)
 	plus.pressed.connect(func() -> void: production_changed.emit(recipe_id, units + 1))
 	row.add_child(plus)
@@ -277,7 +277,7 @@ func _manufacture_hint() -> String:
 ## what it turned out. A row still serving keeps its tag: the present is what the
 ## next phase pays (DR-20261113-02).
 func _workshop_note(recipe_id: String) -> String:
-	var tag: String = LedgerText.workshop_note(_economy, recipe_id)
+	var tag: String = LedgerWorkshop.note(_economy, recipe_id)
 	if not tag.is_empty():
 		return tag
 	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
@@ -290,7 +290,7 @@ func _workshop_note(recipe_id: String) -> String:
 ## any: the detail a hover or a long press reads (REQ-P5-07 keeps the row's own
 ## note the visible reading).
 func _workshop_tooltip(recipe_id: String) -> String:
-	var text: String = LedgerText.workshop_tooltip(_economy, recipe_id)
+	var text: String = LedgerWorkshop.tooltip(_economy, recipe_id)
 	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
 	if made <= 0:
 		return text

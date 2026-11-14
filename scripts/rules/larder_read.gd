@@ -9,7 +9,7 @@ extends RefCounted
 ## **after** the fact, so a crown that recruits into a thin larder learns of the
 ## strike a turn late. This reading runs the phase's own deduction order over
 ## copies: the store is never spent to answer a question, and the answer is the
-## phase's own (REQ-P2-03, REQ-P3-03).
+## phase's own (REQ-P2-03, REQ-P3-01, REQ-P3-03).
 
 
 ## The pool the next phase feeds: the roster plus the recruits already under
@@ -49,19 +49,30 @@ static func mouths(report: Dictionary) -> Dictionary:
 ## from the top down (wiki: workers-and-population § Consumption).
 static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Dictionary:
 	var pool: WorkerPool = pool_next(economy)
-	var report: Dictionary = EconomyConsumption.preview(
+	return reading(
 		pool,
 		economy.stockpile,
+		mouths,
+		economy.recruits.pending_kind(RecruitQueue.KIND_WORKER),
+	)
+
+
+## The same dry-run for a pool the caller already made. The pool is read, never
+## changed, and the store is served over a copy, so the answer is the phase's own
+## and asking it spends nothing (REQ-P2-03). The phase owns the order; this owns
+## the before-shot a crown needs to plan a recruit.
+static func reading(
+	pool: WorkerPool, stockpile: Dictionary, mouths: Dictionary = {}, arriving: int = 0
+) -> Dictionary:
+	var larder: EconomyConsumption.Pass = EconomyConsumption.pass_over(
+		pool,
+		stockpile.duplicate(),
 		int(mouths.get("ships", 0)),
 		int(mouths.get("army", 0)),
 		[int(mouths.get("hospital", 0))],
 	)
-	var idle: Array = report.get("idle_counts", [])
-	var striking_tier: int = -1
-	for tier: int in EconomyConsumption.FEED_ORDER:
-		if pool.count(tier) > int(idle[tier]):
-			striking_tier = tier
-			break
+	larder.serve()
+	var report: Dictionary = larder.report()
 	var luxury: Dictionary = {}
 	for tier in WorkerPool.TIER_COUNT:
 		var id: String = WorkerPool.luxury_for(tier)
@@ -70,37 +81,23 @@ static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Diction
 		luxury[id] = int(luxury.get(id, 0)) + pool.count(tier)
 	var store_luxury: Dictionary = {}
 	for id: Variant in luxury.keys():
-		store_luxury[id] = int(economy.stockpile.get(String(id), 0))
-	var fed_counts: Array = report.get("fed_counts", [])
-	var fed_food: int = 0
-	for tier in WorkerPool.TIER_COUNT:
-		fed_food += int(fed_counts[tier]) * WorkerPool.FOOD_PER_WORKER[tier]
-	var spent: Dictionary = report.get("luxury_spent", {})
+		store_luxury[id] = int(stockpile.get(String(id), 0))
 	var luxury_short: Dictionary = {}
 	for id: Variant in luxury.keys():
-		var short: int = int(luxury[id]) - int(spent.get(String(id), 0))
+		var short: int = int(luxury[id]) - int(larder.luxury_spent.get(String(id), 0))
 		if short > 0:
 			luxury_short[id] = short
 	return {
 		"mouths": pool.total(),
-		"arriving": economy.recruits.pending_kind(RecruitQueue.KIND_WORKER),
-		"food": pool.food_demand(),
+		"arriving": arriving,
+		"food": larder.food_wanted(),
 		"luxury": luxury,
-		"store_food": _store_food(economy.stockpile),
+		"store_food": EconomyConsumption.food_available(stockpile),
 		"store_luxury": store_luxury,
-		"fed": int(report.get("fed_workers", 0)),
-		"strikers": int(report.get("strikers", 0)),
-		"striking_tier": striking_tier,
-		"food_short": maxi(pool.food_demand() - fed_food, 0),
+		"fed": int(report["fed_workers"]),
+		"strikers": int(report["strikers"]),
+		"striking_tier": larder.striking_tier(),
+		"food_short": maxi(larder.food_wanted() - larder.food_fed(), 0),
 		"luxury_short": luxury_short,
 		"report": report,
 	}
-
-
-## Food units the larder holds now: grain and meat, the same two the phase eats
-## (wiki: workers-and-population § Consumption).
-static func _store_food(stockpile: Dictionary) -> int:
-	var total: int = 0
-	for id: String in CommodityCatalog.FOOD:
-		total += maxi(int(stockpile.get(id, 0)), 0)
-	return total
