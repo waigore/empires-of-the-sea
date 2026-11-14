@@ -170,6 +170,20 @@ func test_the_seal_opens_on_the_live_sheet_with_the_age() -> void:
 	assert_false(_has_text(screen.hud.gazette_plate, GazettePlate.EMPTY_LINE))
 
 
+## Hands `faction` Old World provinces until it holds `target`, the way a
+## campaign's conquests would: the victory check reads nothing else.
+func _seat_holdings(play: PlaySession, faction: int, target: int) -> void:
+	var model: MapModel = play.world.region(WorldMap.OLD_WORLD)
+	var held: int = VictoryRules.old_world_holdings(play.world, faction)
+	for province: ProvinceState in model.provinces:
+		if held >= target:
+			return
+		if province.owner == faction:
+			continue
+		province.owner = faction
+		held += 1
+
+
 ## Splits every province of both regions evenly between the first two crowns and
 ## clears every fleet, so the standing depends only on the land forces a test
 ## gives them.
@@ -264,6 +278,46 @@ func test_the_complete_plate_speaks_the_wikis_calendar_copy() -> void:
 
 	overlay.show_campaign_complete(MapModel.NO_ID, CAP, player)
 	assert_eq(overlay._tagline.text, "The age is divided — no crown is declared.")
+
+
+## The turn that decides the age still files its sheet: the archive has no gap
+## and the final turn's news stays readable once the plate steps aside (wiki:
+## the-gazette § When it appears; victory § Victory Screen).
+func test_the_deciding_turn_still_files_its_sheet() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var crowns: Array[int] = FactionCatalog.great_power_ids()
+	var rival: int = crowns[0] if crowns[0] != play.player_faction else crowns[1]
+	_seat_holdings(play, rival, VictoryRules.MILITARY_THRESHOLD)
+
+	MapPlayTurn.end_turn(play)
+	Fixture.settle(play)
+
+	assert_not_null(play.victory, "the rival takes the age")
+	assert_not_null(play.gazette)
+	assert_true(
+		play.gazette.has_sheet(play.turn),
+		"the deciding turn's sheet is filed under its own turn"
+	)
+	assert_false(
+		play.hud.gazette_plate.is_shown(),
+		"the campaign-end plate keeps the screen; the sheet waits in the archive"
+	)
+
+
+## The calendar's last full turn is a resolved turn too: its sheet is filed on
+## the cap, so the archive does not stop a turn short of the end.
+func test_the_calendar_cap_turn_still_files_its_sheet() -> void:
+	_attach()
+	screen.play.turn = CAP
+
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+
+	assert_true(screen.play.campaign_halted)
+	assert_not_null(screen.play.gazette)
+	assert_true(screen.play.gazette.has_sheet(CAP), "the cap turn's sheet is filed")
+	assert_false(screen.play.gazette.has_sheet(CAP - 1), "no sheet is filed twice")
 
 
 func test_an_endless_campaign_sails_past_the_cap() -> void:
