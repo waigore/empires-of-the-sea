@@ -224,6 +224,36 @@ func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
 
+## A landmass too small to seat both rosters is infeasible, and the wiki wants a
+## clear failure rather than a half-painted chart (wiki: game-setup
+## § Feasibility). Seed 103's Old World holds 20 provinces: the six Minor
+## Nations' three-province reservation takes every one of them, so no chunk is
+## left for a Great Power. The split used to index an empty chunk list here —
+## a `SCRIPT ERROR` the runner counts as a broken suite — and only then report
+## `unfair_split` by accident.
+func test_a_chart_with_no_land_left_for_the_great_powers_fails_cleanly() -> void:
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		103, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
+	assert_eq(
+		old_world.setup_errors,
+		["unfair_split"] as Array[String],
+		"the chart is rejected with the wiki's own code"
+	)
+	for faction_id: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			_count_owned(old_world, faction_id), 0,
+			"no Great Power is seated on a rejected chart"
+		)
+
+
+## The split itself never indexes a chunk list it was not given: a landmass with
+## nothing left to hand out yields no group rather than a runtime error.
+func test_the_split_handles_a_landmass_with_no_chunk_left() -> void:
+	var groups: Array = TerritoryAssignment._spread([] as Array, [0, 1])
+	assert_true(groups.is_empty(), "no chunk, no group")
+
+
 ## A court above the band hands back a province that already borders the
 ## Great-Power pool (wiki: game-setup § Minor Nation assignment — "within ±1").
 func test_a_minor_over_the_band_hands_back_a_border_province() -> void:

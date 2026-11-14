@@ -1,15 +1,14 @@
 class_name TerritoryAssignment
 extends RefCounted
-## Old World / New World province assignment (wiki: game-setup).
-## Each faction grows from a sea-bound seed inside one P–P continent, so a
-## faction's holdings stay contiguous and never span two landmasses. Great
-## Powers and Tribes are seeded on sea-bound provinces; Minor Nations may take an
-## inland province. Pure rules: no nodes, deterministic, unit-testable.
+## Old World / New World province assignment (wiki: game-setup). Each faction
+## grows from a sea-bound seed inside one P–P continent, so its holdings stay
+## contiguous and never span two landmasses. Great Powers and Tribes are seeded
+## on sea-bound provinces; Minor Nations may take an inland province. Pure rules:
+## no nodes, deterministic, unit-testable.
 
 const MINOR_PROVINCES: int = 3
 ## Seed rotations tried before a landmass is called infeasible: a faction seeded
-## into a pocket too small for its budget leaves the split lopsided, and the wiki
-## says setup fails rather than ship it (wiki: game-setup § Feasibility).
+## into a pocket too small for its budget leaves the split lopsided (game-setup § Feasibility).
 const LAYOUT_ATTEMPTS: int = 6
 
 const ERROR_NO_PROVINCES: String = "no_provinces"
@@ -106,9 +105,9 @@ static func _assign(
 
 
 ## Paints every landmass of the region, keeping the first rotation whose split is
-## even across the region. A faction seated in a pocket too small for its budget
-## leaves the split lopsided, so the seed rotation is retried and the landmass is
-## reported infeasible when none is even (wiki: game-setup § GP assignment).
+## even across the region; a pocket too small for a faction's budget leaves the
+## split lopsided, so the rotation is retried and the landmass reported infeasible
+## when none is even (wiki: game-setup § GP assignment).
 static func _paint_even(model: MapModel, layouts: Array, factions: Array) -> bool:
 	for attempt in LAYOUT_ATTEMPTS:
 		for layout: Dictionary in layouts:
@@ -185,8 +184,7 @@ static func _component(model: MapModel, start: int, seen: Dictionary) -> Array[i
 	return group
 
 
-## Round-robin factions onto continents, preferring a continent that still has a
-## free sea-bound province for the next seed.
+## Round-robin factions onto continents, preferring one with a free sea-bound seed.
 static func _distribute(
 	continents: Array, factions: Array[int], sea_bound_required: bool
 ) -> Array:
@@ -265,11 +263,14 @@ static func _chunks(model: MapModel, ids: Array) -> Array:
 	return result
 
 
-## One Great Power per chunk, then the rest by share so no chunk goes unheld.
+## One Great Power per chunk, then the rest by share so no chunk goes unheld. A
+## landmass the Minor reservation took whole yields no chunk, so no group either.
 static func _spread(chunks: Array, factions: Array[int]) -> Array:
 	var groups: Array = []
 	for _index in chunks.size():
 		groups.append([] as Array[int])
+	if chunks.is_empty():
+		return groups
 	var start: int = mini(chunks.size(), factions.size())
 	for index in start:
 		(groups[index] as Array[int]).append(factions[index])
@@ -379,8 +380,7 @@ static func _share(total: int, factions: Array[int], targets: Dictionary) -> voi
 
 
 ## An even split: every faction holds at least one province and no count strays
-## more than one from the even share (wiki: game-setup § GP / Minor / Tribe
-## assignment, "within ±1").
+## more than one from the even share (game-setup § GP / Minor / Tribe, "within ±1").
 static func _split_even(model: MapModel, ids: Array, factions: Array) -> bool:
 	var counts: Dictionary = _owner_counts(model, ids)
 	var total: int = 0
