@@ -41,7 +41,7 @@ Runs are whole; incomplete rows skip.
 Steel, bronze, cigars and fur hats take **two turns** (`turns`): the alloys
 combine two inputs (DR-20261114-10). Inputs and labour are paid up front; the batch lands **one unit a phase**, WIP riding the
 save (`PlayerEconomy.production_wip`, DR-20261112-11/13-02). A row left set
-starts a batch a phase, so `5→1t` lands two (`ProductionRecipes.next_landing`).
+starts a batch a phase, so `5→1t` lands two (`ProductionWorkshop.ready_units`).
 
 ## Town manufacturing bonus
 

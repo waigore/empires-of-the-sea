@@ -1687,14 +1687,14 @@ func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 	assert_eq(first["consumed"], {"iron": 2, "coal": 2})
 	assert_eq(first["labour_used"], 4)
 	assert_eq(int(stock.get("steel", 0)), 0, "the steel is still on the anvil")
-	assert_eq(ProductionRecipes.in_flight(first["wip"], "steel"), 2)
+	assert_eq(ProductionWorkshop.units(first["wip"], "steel"), 2)
 	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"])
 	assert_eq(second["runs"], {})
 	assert_eq(second["completed"], {"steel": 1}, "one unit leaves the workshop a phase")
 	assert_eq(second["produced"], {"steel": 1})
 	assert_eq(second["labour_used"], 0, "the batch paid its labour when it started")
 	assert_eq(int(stock["steel"]), 1)
-	assert_eq(ProductionRecipes.in_flight(second["wip"], "steel"), 1, "the rest still serves")
+	assert_eq(ProductionWorkshop.units(second["wip"], "steel"), 1, "the rest still serves")
 	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"])
 	assert_eq(third["completed"], {"steel": 1})
 	assert_eq(int(stock["steel"]), 2)
@@ -1710,7 +1710,7 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 	var wip: Dictionary = ProductionRecipes.plan(
 		[{"recipe": "steel", "units": 3}], stock, 6, {}
 	)["wip"]
-	assert_eq(ProductionRecipes.in_flight(wip, "steel"), 3)
+	assert_eq(ProductionWorkshop.units(wip, "steel"), 3)
 	for _phase in 4:
 		var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip)
 		wip = report["wip"]
@@ -1726,22 +1726,22 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 ## production-recipes § Turns per unit; DR-20261113-02).
 func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
 	var one: Dictionary = {"steel": [{"units": 3, "turns_left": 1}]}
-	assert_eq(ProductionRecipes.next_landing(one, "steel"), 1, "one batch, one unit")
+	assert_eq(ProductionWorkshop.ready_units(one, "steel", ProductionRecipes.turns("steel")), 1, "one batch, one unit")
 	var two: Dictionary = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
 	assert_eq(
-		ProductionRecipes.next_landing(two, "steel"), 2,
+		ProductionWorkshop.ready_units(two, "steel", ProductionRecipes.turns("steel")), 2,
 		"a court that leaves the row set starts a batch a phase, and each gives up a unit"
 	)
-	assert_eq(ProductionRecipes.in_flight(two, "steel"), 5, "the anvil still holds every unit")
+	assert_eq(ProductionWorkshop.units(two, "steel"), 5, "the anvil still holds every unit")
 	assert_eq(
-		ProductionRecipes.next_landing({"steel": [{"units": 4, "turns_left": 2}]}, "steel"),
+		ProductionWorkshop.ready_units({"steel": [{"units": 4, "turns_left": 2}]}, "steel", 2),
 		0, "a batch still serving its first turn lands nothing yet"
 	)
-	assert_eq(ProductionRecipes.next_landing({}, "steel"), 0, "an idle workshop lands nothing")
+	assert_eq(ProductionWorkshop.ready_units({}, "steel", 2), 0, "an idle workshop lands nothing")
 	assert_eq(
-		ProductionRecipes.next_landing({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber"),
+		ProductionWorkshop.ready_units({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber", 1),
 		3, "a carried one-turn batch lands whole, as before"
 	)
 
@@ -1751,22 +1751,22 @@ func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
 ## unit; DR-20261113-02).
 func test_the_workshop_wait_reads_the_soonest_batch() -> void:
 	assert_eq(
-		ProductionRecipes.turns_left(
+		ProductionWorkshop.soonest(
 			{"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}]}, "steel"
 		),
 		1
 	)
 	assert_eq(
-		ProductionRecipes.turns_left(
+		ProductionWorkshop.soonest(
 			{"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}]}, "steel"
 		),
 		1,
 		"the soonest batch says when the next unit lands"
 	)
 	assert_eq(
-		ProductionRecipes.turns_left({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
+		ProductionWorkshop.soonest({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
 	)
-	assert_eq(ProductionRecipes.turns_left({}, "steel"), 0)
+	assert_eq(ProductionWorkshop.soonest({}, "steel"), 0)
 
 
 ## Drip-feeding three steel one unit a phase builds the same output from the same
