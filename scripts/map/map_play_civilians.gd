@@ -155,10 +155,12 @@ static func resolve_work(play: PlaySession) -> void:
 			continue
 		if String(report["action"]) == LandPurchase.ACTION:
 			_settle_purchase(play, report)
-			if int(report["region"]) == play.region_index:
+			if MapPlayTurn.view_live and int(report["region"]) == play.region_index:
 				# The tile's owner changed, so borders, tint and the region chip
 				# all redraw whoever holds the new deed.
 				play.refresh_map_views()
+			continue
+		if not MapPlayTurn.view_live:
 			continue
 		if int(report["region"]) != play.region_index:
 			continue
@@ -192,6 +194,8 @@ static func resolve_work(play: PlaySession) -> void:
 		play.hud.toast("%s%s in %s: %s" % [
 			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
 		])
+	if not MapPlayTurn.view_live:
+		return
 	play.civilian_layer.sync()
 	play.civilian_layer.refresh_works()
 	# A completed road or a grown town changes what the province sheet says, so

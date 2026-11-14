@@ -29,6 +29,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	MapPlayTurn.view_live = true
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
@@ -76,6 +77,24 @@ func test_observer_never_queues_a_human_decision() -> void:
 	MapPlayDiplomacy.open(play)
 	MapPlayDiplomacy.refresh(play)
 	assert_false(_screen.hud.panels.is_diplomacy_open(), "the court never opens")
+
+
+func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
+	# `MapPlayTurn.view_live = false` is the batch harness (docs/ai-observer.md §
+	# Performance budget): same rules, no per-turn view follow-up.
+	MapPlayTurn.view_live = false
+	var play: PlaySession = _screen.play
+	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
+	var before: int = play.turn
+	_step(6)
+	assert_eq(play.turn, before + 6, "the calendar still advances")
+	assert_eq(play.ai_turns.size(), 6, "every turn still records")
+	# Same rules as an on-screen observer: every crown still holds a ledger.
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_true(
+			play.ai.economies.has(faction),
+			"%s still plans without a view" % FactionCatalog.name_of(faction)
+		)
 
 
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
