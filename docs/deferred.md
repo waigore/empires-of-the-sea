@@ -36,7 +36,8 @@ Audited through DR-20261114-10 + #568 (`REQ-P2-02`).
    (`5,000 + 2,000 × provinces`) still outruns a rival purse (#489; #552 sheds
    mouths, not the price).
 2. **Domain gating beyond the voyage** — the declare slot ships (DR-14-11): an
-   overstretched court opens no third Great Power front. The rest stays seed.
+   overstretched court opens no war on a crown it cannot beat. The rest stays
+   seed.
 3. **Building gates / queue cap** — worker-tier gates (DR-14-07) and the alloy
    + luxury four (DR-14-10) shipped; building gates, further rows, and the
    queue cap remain (wiki-deferred).

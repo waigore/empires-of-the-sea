@@ -58,7 +58,7 @@ Deterministic ([AI architecture](https://github.com/waigore/empires-of-the-sea/w
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
-  peace, opens no third front (DR-20261113-15/11). **Victory pressure**
+  peace, no peer war (DR-20261113-15/11). **Victory pressure**
   (`AiVictoryPressure`): bigger aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
