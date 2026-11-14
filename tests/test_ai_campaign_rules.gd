@@ -418,6 +418,67 @@ func test_a_ready_beachhead_lands_the_army_the_next_turn() -> void:
 	assert_eq(String(land.get("kind", "")), AiInvasionPlanner.KIND_LAND)
 	assert_eq(int(land.get("province", -1)), 0)
 
+## A site marked in good faith lapses when the war ends before the landing: the
+## rules refuse it, so the court must not order it and lose the turn — it brings
+## the troops ashore on an own coast instead (wiki: ships-and-naval § Missions
+## and Movement).
+func test_a_lapsed_beachhead_is_not_ordered_as_a_landing() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# Peace is signed before the site opens, so the marked shore is no enemy's.
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_true(
+		String(order.get("kind", "")) != AiInvasionPlanner.KIND_LAND
+		or int(order.get("province", -1)) != 0,
+		"the lapsed site is never ordered as a landing"
+	)
+	assert_eq(
+		int(order.get("province", -1)), 1,
+		"the troops go ashore on the crown's own coast"
+	)
+
+
+## A site that lapsed while another hostile coast lies in the same water is
+## replaced in the same turn: the expedition marks a fresh shore instead of
+## spending the turn on a landing the rules refuse.
+func test_a_lapsed_beachhead_is_replaced_by_a_fresh_coast() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# A second hostile shore on the same water: a Tribe coast beside the colony.
+	var tiles: Array[Vector2i] = [Vector2i(2, 1)]
+	new_world.province[new_world.index_of(2, 1)] = 2
+	var extra := ProvinceState.create(2, "Second Coast", tiles, Vector2(2.0, 1.0), 1, TRIBE, false)
+	extra.coastal = true
+	new_world.provinces.append(extra)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(order.get("province", -1)), 2, "a fresh coast is marked this turn")
+
+
 func test_a_coast_the_army_cannot_storm_sends_it_home() -> void:
 	var world: WorldMap = _world()
 	var new_world: MapModel = world.region(1)

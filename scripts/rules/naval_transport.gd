@@ -240,7 +240,18 @@ static func can_disembark(
 			# not asked to find a beachhead it already holds (wiki: ships-and-naval
 			# § Missions and Movement).
 			if fleet.beachhead_province == province_id and fleet.has_beachhead():
-				return _deny("The beachhead at %s opens next turn." % model.province_name(province_id))
+				if not beachhead_ready(fleet, turn):
+					return _deny(
+						"The beachhead at %s opens next turn."
+						% model.province_name(province_id)
+					)
+				# Open by the clock but no longer a hostile shore (it changed
+				# hands or the war ended): waiting never opens it, so the refusal
+				# names the loss instead of promising a turn that never comes.
+				return _deny(
+					"The beachhead at %s has lapsed — that shore is no longer an enemy's."
+					% model.province_name(province_id)
+				)
 			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
 		return _allow()
 	if fleet.is_in_port():
