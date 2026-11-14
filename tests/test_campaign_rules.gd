@@ -2309,3 +2309,140 @@ func _has_text(node: Node, needle: String) -> bool:
 		if _has_text(child, needle):
 			return true
 	return false
+
+
+# --- the age's room (DR-20261115-05) -----------------------------------------
+## The whole race on the Gazette's own tab: one row per Great Power, read from
+## the same standings the end-of-turn check acts on (wiki: victory § Victory
+## Check; REQ-P2-03, REQ-P5-03). Presentation only — the room counts nothing.
+
+var age_room_room: AgeRoom = null
+
+
+func _setup_age_room() -> void:
+	age_room_room = AgeRoom.new()
+	add_child(age_room_room)
+
+
+func _teardown_age_room() -> void:
+	if is_instance_valid(age_room_room):
+		age_room_room.free()
+	age_room_room = null
+
+
+func _age_row(id: int, name: String, holdings: int, bar: int, human: bool) -> Dictionary:
+	return {
+		"id": id,
+		"name": name,
+		"holdings": holdings,
+		"bar": bar,
+		"need": maxi(bar - holdings, 0),
+		"human": human,
+		"leader": false,
+	}
+
+
+func test_the_age_room_prints_every_crown_against_its_own_bar() -> void:
+	_setup_age_room()
+	var rows: Array[Dictionary] = [
+		_age_row(ENGLAND, "England", 28, 31, false),
+		_age_row(SPAIN, "Spain", 12, 36, true),
+	]
+	rows[0]["leader"] = true
+	age_room_room.fill(
+		{
+			"rows": rows,
+			"human": SPAIN,
+			"calendar": "the calendar closes in 140 turns",
+			"note": VictoryStandings.bar_note(SPAIN, HARD),
+		}
+	)
+	assert_true(_has_text(age_room_room, "England · leads"), "the race's leader is named")
+	assert_true(_has_text(age_room_room, "28 of 31 · 3 to go"), "holdings against its own bar")
+	assert_true(_has_text(age_room_room, "Spain · your crown"), "the reader's row is marked")
+	assert_true(_has_text(age_room_room, "12 of 36 · 24 to go"), "the crown's bar is the level's")
+	assert_true(
+		_has_text(age_room_room, "The calendar closes in 140 turns"),
+		"the calendar opens the sentence"
+	)
+	assert_true(_has_text(age_room_room, "every rival keeps 31"), "the bar rule is printed")
+	_teardown_age_room()
+
+
+## A crown already on its bar is never told it has "0 to go": the check would
+## have closed the campaign first (wiki: victory § Victory Check).
+func test_a_crown_on_its_bar_reads_on_the_bar() -> void:
+	assert_eq(
+		AgeRoom.standing_text(_age_row(SPAIN, "Spain", 31, 31, true)), "31 of 31 · on the bar"
+	)
+	assert_eq(
+		AgeRoom.standing_text(_age_row(ENGLAND, "England", 30, 31, false)), "30 of 31 · 1 to go"
+	)
+
+
+func test_the_age_room_names_no_crown_when_the_session_has_none() -> void:
+	_setup_age_room()
+	age_room_room.fill({})
+	assert_true(_has_text(age_room_room, AgeRoom.EMPTY_LINE))
+	_teardown_age_room()
+
+
+func test_the_plate_prints_the_whole_race_on_its_age_tab() -> void:
+	_setup_gazette_plate()
+	var rows: Array[Dictionary] = [
+		_age_row(ENGLAND, "England", 28, 31, false),
+		_age_row(SPAIN, "Spain", 12, 31, true),
+	]
+	rows[0]["leader"] = true
+	plate.open_sheet(
+		gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER,
+		"",
+		{"rows": rows, "human": SPAIN, "calendar": "", "note": VictoryStandings.bar_note()}
+	)
+	plate._go(GazettePlate.Mode.AGE)
+	assert_true(_has_text(plate, "THE GAZETTE  ·  THE AGE"))
+	assert_true(_has_text(plate, "28 of 31 · 3 to go"))
+	assert_true(_has_text(plate, "12 of 31 · 19 to go"))
+	assert_true(plate._age_room.visible, "the room takes the body on its tab")
+	plate._go(GazettePlate.Mode.SHEET)
+	assert_false(plate._age_room.visible, "and gives it back on any other tab")
+	assert_true(_has_text(plate, "The gauntlet passes between them."), "the sheet still prints")
+	_teardown_gazette_plate()
+
+
+## The payload is the check's own read: same rows, same order, the leader
+## stamped from that order, and the calendar and bar in the sheet's words.
+func test_the_age_payload_carries_the_checks_own_rows() -> void:
+	_setup_victory_standings()
+	var world := _victory_standings_old_world()
+	_victory_standings_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 12, ENGLAND: 9})
+	var play := PlaySession.new()
+	play.world = world
+	play.turn = 5
+	play.player_faction = SPAIN
+	play.difficulty = HARD
+	var payload: Dictionary = MapPlayGazette.age_payload(play)
+	assert_eq(int(payload["human"]), SPAIN)
+	var rows: Array = payload["rows"] as Array
+	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
+	assert_eq(String(rows[0]["name"]), "England", "the nearer crown leads")
+	assert_true(bool(rows[0]["leader"]), "the leader is the race's first row")
+	assert_false(bool(rows[1]["leader"]), "only one crown leads")
+	assert_eq(
+		String(payload["note"]), VictoryStandings.bar_note(SPAIN, HARD), "the bar's own words"
+	)
+	assert_eq(
+		String(payload["calendar"]), VictoryStandings.calendar_text(5), "the sheet's calendar"
+	)
+	victory_standings_Fixture.restore(
+		victory_standings_Fixture.world(), victory_standings_saved_world
+	)
+
+
+func test_the_age_payload_is_empty_without_a_world() -> void:
+	assert_eq(MapPlayGazette.age_payload(null), {})
+
+
+func test_an_endless_age_closes_no_calendar_in_the_table() -> void:
+	assert_eq(VictoryStandings.calendar_text(5, true), "no calendar closes this age")
+	assert_eq(VictoryStandings.calendar_text(5), VictoryStandings.calendar_text(5, false))

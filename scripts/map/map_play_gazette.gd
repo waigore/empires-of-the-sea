@@ -75,7 +75,8 @@ static func show(play: PlaySession, sheet: Dictionary) -> void:
 		return
 	play.gazette.opened_turn = int(sheet.get("turn", 0))
 	play.hud.gazette_plate.open_sheet(
-		sheet, play.gazette, play.diplomacy, play.player_faction, age_line(play)
+		sheet, play.gazette, play.diplomacy, play.player_faction, age_line(play),
+		age_payload(play)
 	)
 
 
@@ -87,6 +88,29 @@ static func age_line(play: PlaySession) -> String:
 	)
 
 
+## The whole race for the plate's age tab: the same [VictoryStandings] rows the
+## end-of-turn check acts on, stamped so the room can name the leader, plus the
+## calendar and the bar in the words the sheet prints (DR-20261115-05).
+## Presentation only — every number is the check's own read (REQ-P2-03).
+static func age_payload(play: PlaySession) -> Dictionary:
+	if play == null or play.world == null:
+		return {}
+	var human: int = play.human_faction_id()
+	var standings: Array[Dictionary] = VictoryStandings.rows(
+		play.world, human, play.difficulty
+	)
+	# The race is ordered nearest-the-bar first, so the first row leads; the mark
+	# is a reading of that order, never a second ranking (victory § Victory Check).
+	for index: int in standings.size():
+		standings[index]["leader"] = index == 0
+	return {
+		"rows": standings,
+		"human": human,
+		"calendar": VictoryStandings.calendar_text(play.turn, play.infinite_mode),
+		"note": VictoryStandings.bar_note(human, play.difficulty),
+	}
+
+
 ## The history screen on demand from the cartouche seal: the live sheet at its
 ## current standing, with the archive of past sheets behind it.
 static func open_archive(play: PlaySession) -> void:
@@ -94,7 +118,8 @@ static func open_archive(play: PlaySession) -> void:
 		return
 	ensure(play)
 	play.hud.gazette_plate.open_archive(
-		play.gazette, play.diplomacy, play.player_faction, age_line(play)
+		play.gazette, play.diplomacy, play.player_faction, age_line(play),
+		age_payload(play)
 	)
 
 

@@ -96,8 +96,33 @@ static func line(
 			"%s leads with %d of %d"
 			% [String(lead["name"]), int(lead["holdings"]), int(lead["bar"])]
 		)
-	parts.append("no calendar closes this age" if infinite else _calendar(turn))
+	parts.append(calendar_text(turn, infinite))
 	return "%s." % "; ".join(parts)
+
+
+## The calendar the campaign has left, or the Endless campaign's own answer
+## (wiki: turn-time-mapping § Campaign calendar cap; victory § Endless campaign).
+## The age's table prints the same line the sheet's foot does.
+static func calendar_text(turn: int, infinite: bool = false) -> String:
+	if infinite:
+		return "no calendar closes this age"
+	return _calendar(turn)
+
+
+## The bar the age is won at, in the words the table's foot prints: the
+## published 31 for every rival, and the level's own bar for the human crown
+## (wiki: victory § Military victory; DR-20261111-28). A session with no crown
+## (the full-AI observer) reads the published bar alone.
+static func bar_note(human: int = MapModel.NO_ID, difficulty: String = Difficulty.DEFAULT) -> String:
+	var published: String = "A crown takes the age at %d Old World provinces" % VictoryRules.MILITARY_THRESHOLD
+	if human == MapModel.NO_ID or Difficulty.normalize(difficulty) == Difficulty.DEFAULT:
+		return "%s; every crown's bar is the same." % published
+	return "%s; at %s your crown's bar is %d, and every rival keeps %d." % [
+		published,
+		Difficulty.label(difficulty),
+		VictoryRules.crown_threshold(difficulty),
+		VictoryRules.MILITARY_THRESHOLD,
+	]
 
 
 ## The turn's warning, or "" while the age is still a distant thing. Only the

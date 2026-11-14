@@ -10,13 +10,13 @@ signal dismissed
 ## The player added or removed a court on the watchlist.
 signal watch_changed(faction: int)
 
-enum Mode { SHEET, ARCHIVE, WATCHLIST }
+enum Mode { SHEET, ARCHIVE, WATCHLIST, AGE }
 
 const MAX_WIDTH: float = 640.0
 const MIN_WIDTH: float = 288.0
 const PLATE_TOP: float = 88.0
 const VIEWPORT_MARGIN: float = 12.0
-const EMPTY_LINE: String = "Nothing reached the presses this turn."
+const EMPTY_LINE: String = GazetteParts.EMPTY_LINE
 const NO_HISTORY: String = "The presses have not run yet."
 const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
 
@@ -25,6 +25,9 @@ var diplomacy: DiplomacyState = null
 var viewer: int = 0
 ## The age's race at the live sheet's foot (wiki: victory § Victory Check).
 var _age: String = ""
+## The whole race, for the age's own tab: `rows`, `human`, `calendar`, `note`
+## (see MapPlayGazette.age_payload). Empty when the session has no crown.
+var _age_data: Dictionary = {}
 ## The HUD's despatch lane: while this sheet is up the news stacks below it
 ## instead of printing across the masthead (REQ-P5-05).
 var despatches: HudDespatches = null
@@ -43,6 +46,7 @@ var _scroll: ScrollContainer = null
 var _tabs: HBoxContainer = null
 var _nav: HBoxContainer = null
 var _watchlist: GazetteWatchlist = null
+var _age_room: AgeRoom = null
 var _newer: Button = null
 var _older: Button = null
 var _nav_label: Label = null
@@ -63,16 +67,18 @@ func _ready() -> void:
 	resized.connect(_fit)
 
 
-## Raises the sheet the turn just produced; `age_line` is its standing column.
+## Raises the sheet the turn just produced; `age_line` is its standing column and
+## `age` the whole race its own tab prints (MapPlayGazette.age_payload).
 func open_sheet(
 	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
-	age_line: String = ""
+	age_line: String = "", age: Dictionary = {}
 ) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_sheet = sheet
 	_age = age_line
+	_age_data = age
 	_mode = Mode.SHEET
 	_show()
 
@@ -80,7 +86,8 @@ func open_sheet(
 ## Raises the history screen with the live sheet one tab back: that tab keeps
 ## the standing the turn-start open prints; a past sheet stays bare (DR-20261112-05).
 func open_archive(
-	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = ""
+	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = "",
+	age: Dictionary = {}
 ) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
@@ -88,6 +95,7 @@ func open_archive(
 	_at = 0
 	_sheet = p_state.newest() if p_state != null else {}
 	_age = age_line
+	_age_data = age
 	_mode = Mode.ARCHIVE
 	_show()
 
@@ -183,6 +191,11 @@ func _build() -> void:
 	_watchlist.visible = false
 	_watchlist.watch_changed.connect(func(faction: int) -> void: watch_changed.emit(faction))
 	_body.add_child(_watchlist)
+	# The age's own tab: the whole race, printed from the same read the check
+	# acts on (wiki: victory § Victory Check; DR-20261115-05).
+	_age_room = AgeRoom.new()
+	_age_room.visible = false
+	_body.add_child(_age_room)
 
 
 func _header() -> Control:
@@ -210,7 +223,8 @@ func _tabs_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	for entry: Array in [
-		[Mode.SHEET, "The sheet"], [Mode.ARCHIVE, "History"], [Mode.WATCHLIST, "Watchlist"]
+		[Mode.SHEET, "The sheet"], [Mode.ARCHIVE, "History"], [Mode.WATCHLIST, "Watchlist"],
+		[Mode.AGE, "The age"]
 	]:
 		var button := Button.new()
 		button.text = String(entry[1])
@@ -257,11 +271,12 @@ func _step(delta: int) -> void:
 
 func _render() -> void:
 	for child: Node in _body.get_children():
-		if child == _watchlist:
+		if child == _watchlist or child == _age_room:
 			continue
 		_body.remove_child(child)
 		child.queue_free()
 	_watchlist.visible = _mode == Mode.WATCHLIST
+	_age_room.visible = _mode == Mode.AGE
 	for child: Node in _tabs.get_children():
 		var button: Button = child as Button
 		if button == null:
@@ -284,7 +299,7 @@ func _render() -> void:
 		Mode.SHEET:
 			_title.text = "THE GAZETTE"
 			_stamp.text = DiplomacyHistory.stamp_for_turn(int(_sheet.get("turn", 0)))
-			_sections(_sheet)
+			GazetteParts.sections(_body, _sheet)
 			if not _age.is_empty():
 				_body.add_child(GazetteParts.spacer(8))
 				_body.add_child(GazetteParts.rule(Palette.INK_FAINT))
@@ -294,6 +309,8 @@ func _render() -> void:
 			_render_archive()
 		Mode.WATCHLIST:
 			_render_watchlist()
+		Mode.AGE:
+			_render_age()
 
 
 func _render_archive() -> void:
@@ -309,31 +326,15 @@ func _render_archive() -> void:
 	_nav_label.text = "%d of %d" % [_at + 1, sheets.size()]
 	_newer.disabled = _at <= 0
 	_older.disabled = _at >= sheets.size() - 1
-	_sections(sheet)
+	GazetteParts.sections(_body, sheet)
 
 
-## Items arrive grouped World -> Our court -> Courts of interest, so a heading is
-## printed whenever the class changes (wiki: the-gazette § Classes).
-func _sections(sheet: Dictionary) -> void:
-	var items: Array = sheet.get("items", []) as Array
-	if items.is_empty():
-		_body.add_child(GazetteParts.label(EMPTY_LINE, 14, Palette.INK))
-		return
-	var last: int = -1
-	for raw: Variant in items:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var item: Dictionary = raw
-		var cls: int = int(item.get("class", Gazette.Class.COURT))
-		if cls != last:
-			if last >= 0:
-				_body.add_child(GazetteParts.spacer(8))
-			_body.add_child(GazetteParts.rule(Palette.INK_FAINT))
-			_body.add_child(GazetteParts.label(Gazette.heading(cls), 11, Color(0.45, 0.33, 0.12)))
-			last = cls
-		var text: String = String(item.get("text", ""))
-		if not text.is_empty():
-			_body.add_child(GazetteParts.label(text, 14, Palette.INK))
+## The whole race on its own tab: the foot's one line is the live sheet's
+## standing; this prints every crown against its own bar (DR-20261115-05).
+func _render_age() -> void:
+	_title.text = "THE GAZETTE  ·  THE AGE"
+	_stamp.text = "The Old World against every crown's bar"
+	_age_room.fill(_age_data)
 
 
 func _render_watchlist() -> void:
