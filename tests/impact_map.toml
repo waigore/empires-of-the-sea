@@ -1504,6 +1504,16 @@ suites = [
 match = "scripts/ai/ai_turn_log.gd*"
 domain = "ai_ledger"
 
+# The turn trace's two recorders: each pass that hands a report in owns its own
+# rows, so a recorder edit runs its pass's slice, not the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_trace.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_economy_trace.gd*"
+domain = "ai_economy"
+
 [[rules]]
 match = "scripts/map/map_play_objectives_ai.gd*"
 domain = "ai_ledger"
