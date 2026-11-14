@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:d108b51a23d82c266522780e7befb08a560bec676877aeb157916141539079a1",
-  "submission_git": "refactor/economy-court-turn@504f504f",
+  "submission_hash": "sha256:bb45fe6d50bbdd94f1b15b20fe015a711df90491528223def694eb537f550087",
+  "submission_git": "feat/601-press-reaches-the-war-aim@fbfaffe9",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1973.3708609271523,
+      "value": 1973.4370860927152,
       "direction": "max"
     },
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 72.2260101010101,
+      "value": 71.18156565656565,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:2af23e08031b36be4a2ad3b0347ef34e6c20c5871aaafbbdb66b1f147f8f0534",
+    "ai_surface_hash": "sha256:a3f2bc6e78a43a5dcbe59e2ead91f8c94f0ab50328ac2dd2a522cae2e2bcad20",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 18,
@@ -65,15 +65,15 @@
       "ships": 2,
       "workers": 4,
       "extraction_per_turn": 1.0,
-      "income_per_turn": 81.37086092715232,
-      "funded_pct": 72.2260101010101
+      "income_per_turn": 81.43708609271523,
+      "funded_pct": 71.18156565656565
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 72.2260101010101
+    "funded_pct": 71.18156565656565
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T18:23:56Z",
+  "timestamp": "2026-11-14T19:03:49Z",
   "report_version": 1,
-  "signature": "hmac-sha256:d239600b72f90d06eb46fd7cb17c69af8bc35ab5922b54d400279426f9a12b01"
+  "signature": "hmac-sha256:4efbde60e47f20bd42798d264efcf2732d6fa35afd1a83aae9137b29772ff731"
 }
