@@ -1360,6 +1360,102 @@ func test_peasants_take_one_food_unit_of_either_kind() -> void:
 	assert_eq(stock["grain"], 0)
 	assert_eq(stock["meat"], 1)
 
+## The ledger forecasts a turn it has not taken: the phase's own answer, over a
+## copy, so asking the question never spends a ration (REQ-P2-03).
+func test_consumption_preview_spends_nothing() -> void:
+	var pool: WorkerPool = WorkerPool.make(2, 1)
+	var stock: Dictionary = {"grain": 3, "meat": 1, "refinedSugar": 1}
+	var report: Dictionary = EconomyConsumption.preview(pool, stock, 1)
+	assert_eq(stock["grain"], 3, "the preview leaves the larder alone")
+	assert_eq(stock["meat"], 1)
+	assert_eq(stock["refinedSugar"], 1)
+	assert_eq(report["navy_demand"], 2)
+	assert_eq(report["fed_workers"], 1, "the navy eats first, then the pool")
+	assert_eq(report["strikers"], 2)
+	# The same state resolved for real spends exactly what the preview promised.
+	var spent: Dictionary = stock.duplicate()
+	var real: Dictionary = EconomyConsumption.resolve(pool, spent, 1)
+	assert_eq(real["fed_workers"], report["fed_workers"])
+	assert_eq(real["strikers"], report["strikers"])
+	assert_eq(spent["grain"], 0)
+
+## The WORKERS tab's larder reading: the store, every appetite, and the tier a
+## shortfall bites first — Masters before Peasants
+## (wiki: workers-and-population § Consumption; REQ-P5-06).
+func test_larder_forecast_names_the_tier_that_strikes_first() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["mouths"]), 2)
+	assert_eq(int(read["food"]), 3, "a master eats two, a peasant one")
+	assert_eq(int(read["store_food"]), 1)
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.MASTER, "the master strikes first")
+	assert_eq(int(read["food_short"]), 2)
+	assert_eq(read["luxury"], {"furHats": 1})
+	assert_eq(read["store_luxury"], {"furHats": 1})
+
+## A larder that covers every mouth reads calm, and the luxury appetite is the
+## one unit per trained worker the phase deducts
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_covers_a_full_store() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 1)
+	economy.stockpile = {"grain": 4, "meat": 4, "refinedSugar": 1}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["strikers"]), 0)
+	assert_eq(int(read["striking_tier"]), -1)
+	assert_eq(int(read["food_short"]), 0)
+	assert_eq(read["luxury_short"], {})
+	assert_eq(read["luxury"], {"refinedSugar": 1})
+
+## A trained worker fed but without their tier luxury strikes too, and the
+## reading names the luxury rather than a food shortfall
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_names_a_luxury_shortfall() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(0, 1)
+	economy.stockpile = {"grain": 2, "meat": 2, "refinedSugar": 0}
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["food_short"]), 0)
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.APPRENTICE)
+	assert_eq(read["luxury_short"], {"refinedSugar": 1})
+
+## Recruits already under orders eat at the next Consumption, so the forecast
+## counts them before the crown presses another row
+## (wiki: workers-and-population § Phase placement).
+func test_larder_forecast_counts_arriving_recruits() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1)
+	economy.stockpile = {"grain": 2, "meat": 0}
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	var read: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(read["arriving"]), 1)
+	assert_eq(int(read["mouths"]), 2, "the arriving peasant is a mouth too")
+	assert_eq(int(read["food"]), 2)
+	assert_eq(int(read["strikers"]), 0, "two food feeds both")
+	economy.stockpile = {"grain": 1, "meat": 0}
+	var thin: Dictionary = LarderRead.forecast(economy)
+	assert_eq(int(thin["strikers"]), 1, "one ration, two mouths")
+
+## The other appetites the phase feeds first come from the last resolution, so
+## the forecast never promises a ration the army or the navy will take
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_reads_the_other_mouths() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 4, "meat": 0}
+	var mouths: Dictionary = LarderRead.mouths(
+		{"consumption": {"army_demand": 2, "navy_demand": 2, "hospital_demand": 0}}
+	)
+	assert_eq(mouths, {"army": 2, "ships": 1, "hospital": 0})
+	var read: Dictionary = LarderRead.forecast(economy, mouths)
+	assert_eq(int(read["strikers"]), 2, "the army and the hull eat before the pool")
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
+	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
+
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)
 	var stock: Dictionary = {"grain": 2, "meat": 2, "refinedSugar": 1}
@@ -1411,6 +1507,62 @@ func test_turn_runs_all_four_phases_in_order() -> void:
 	assert_eq(economy.quantity("timber"), 2)
 	assert_eq(economy.quantity("lumber"), 1)
 	assert_eq(economy.quantity("wool"), 2)
+
+## The phase keeps what it turned out, so the ledger and the save can read the
+## work the court just paid for (wiki: production-recipes § Acceptance Criteria,
+## `productionByRecipe`).
+func test_the_phase_records_what_the_workshop_made() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("lumber", 1)
+	EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "timber": 4}, 0
+	)
+	assert_eq(economy.production.made_units("lumber"), 1)
+	assert_eq(economy.production.made_total(), 1)
+	assert_eq(economy.production.made_units("steel"), 0, "a row that did not run made nothing")
+
+
+## A two-turn row is recorded in the phase its unit lands, not the phase it
+## started (wiki: production-recipes § Turns per unit; DR-20261113-02).
+func test_a_two_turn_batch_is_recorded_when_its_unit_lands() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("steel", 1)
+	EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "iron": 2, "coal": 2}, 0
+	)
+	assert_eq(economy.production.made_units("steel"), 0, "the steel is still on the anvil")
+	EconomyTurn.resolve(economy, WorldMarket.with_default_prices(), {}, 0)
+	assert_eq(economy.production.made_units("steel"), 1, "the landing is the record")
+
+
+## The end-of-turn projection runs on a copy, so it never rewrites the phase the
+## court already lived (REQ-P2-03).
+func test_a_projection_does_not_record_the_phase() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_assignment("lumber", 1)
+	EconomyTurn.project(
+		economy, WorldMarket.with_default_prices(), {"grain": 10, "timber": 4}, 0
+	)
+	assert_eq(economy.production.made, {}, "a preview is not a phase")
+
+
+## The record rides the save, and a damaged row drops instead of aborting the
+## load (wiki: production-recipes § Acceptance Criteria).
+func test_the_workshop_record_round_trips_and_drops_junk() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.production.set_made({"lumber": 3, "steel": 1, "ghost": 2, "bronze": 0})
+	assert_eq(economy.production.made, {"lumber": 3, "steel": 1})
+	var saved: Dictionary = economy.snapshot()
+	assert_eq(saved["production_made"], {"lumber": 3, "steel": 1})
+	var restored: PlayerEconomy = PlayerEconomy.starting()
+	restored.apply_snapshot(saved)
+	assert_eq(restored.production.made_units("lumber"), 3)
+	assert_eq(restored.production.made_total(), 4)
+	restored.apply_snapshot({"production_made": "junk"})
+	assert_eq(restored.production.made, {}, "a damaged record reads as an idle workshop")
+	restored.production.set_made({"lumber": {}, "steel": 2})
+	assert_eq(restored.production.made, {"steel": 2}, "a count that is not a number drops")
+
 
 func test_gold_clears_into_treasury() -> void:
 	var economy: PlayerEconomy = _economy(1)
@@ -1535,14 +1687,14 @@ func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 	assert_eq(first["consumed"], {"iron": 2, "coal": 2})
 	assert_eq(first["labour_used"], 4)
 	assert_eq(int(stock.get("steel", 0)), 0, "the steel is still on the anvil")
-	assert_eq(ProductionRecipes.in_flight(first["wip"], "steel"), 2)
+	assert_eq(ProductionWorkshop.units(first["wip"], "steel"), 2)
 	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"])
 	assert_eq(second["runs"], {})
 	assert_eq(second["completed"], {"steel": 1}, "one unit leaves the workshop a phase")
 	assert_eq(second["produced"], {"steel": 1})
 	assert_eq(second["labour_used"], 0, "the batch paid its labour when it started")
 	assert_eq(int(stock["steel"]), 1)
-	assert_eq(ProductionRecipes.in_flight(second["wip"], "steel"), 1, "the rest still serves")
+	assert_eq(ProductionWorkshop.units(second["wip"], "steel"), 1, "the rest still serves")
 	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"])
 	assert_eq(third["completed"], {"steel": 1})
 	assert_eq(int(stock["steel"]), 2)
@@ -1558,7 +1710,7 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 	var wip: Dictionary = ProductionRecipes.plan(
 		[{"recipe": "steel", "units": 3}], stock, 6, {}
 	)["wip"]
-	assert_eq(ProductionRecipes.in_flight(wip, "steel"), 3)
+	assert_eq(ProductionWorkshop.units(wip, "steel"), 3)
 	for _phase in 4:
 		var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip)
 		wip = report["wip"]
@@ -1574,22 +1726,22 @@ func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 ## production-recipes § Turns per unit; DR-20261113-02).
 func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
 	var one: Dictionary = {"steel": [{"units": 3, "turns_left": 1}]}
-	assert_eq(ProductionRecipes.next_landing(one, "steel"), 1, "one batch, one unit")
+	assert_eq(ProductionWorkshop.ready_units(one, "steel", ProductionRecipes.turns("steel")), 1, "one batch, one unit")
 	var two: Dictionary = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
 	assert_eq(
-		ProductionRecipes.next_landing(two, "steel"), 2,
+		ProductionWorkshop.ready_units(two, "steel", ProductionRecipes.turns("steel")), 2,
 		"a court that leaves the row set starts a batch a phase, and each gives up a unit"
 	)
-	assert_eq(ProductionRecipes.in_flight(two, "steel"), 5, "the anvil still holds every unit")
+	assert_eq(ProductionWorkshop.units(two, "steel"), 5, "the anvil still holds every unit")
 	assert_eq(
-		ProductionRecipes.next_landing({"steel": [{"units": 4, "turns_left": 2}]}, "steel"),
+		ProductionWorkshop.ready_units({"steel": [{"units": 4, "turns_left": 2}]}, "steel", 2),
 		0, "a batch still serving its first turn lands nothing yet"
 	)
-	assert_eq(ProductionRecipes.next_landing({}, "steel"), 0, "an idle workshop lands nothing")
+	assert_eq(ProductionWorkshop.ready_units({}, "steel", 2), 0, "an idle workshop lands nothing")
 	assert_eq(
-		ProductionRecipes.next_landing({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber"),
+		ProductionWorkshop.ready_units({"lumber": [{"units": 3, "turns_left": 1}]}, "lumber", 1),
 		3, "a carried one-turn batch lands whole, as before"
 	)
 
@@ -1599,22 +1751,22 @@ func test_the_workshop_reads_how_many_units_land_next_phase() -> void:
 ## unit; DR-20261113-02).
 func test_the_workshop_wait_reads_the_soonest_batch() -> void:
 	assert_eq(
-		ProductionRecipes.turns_left(
+		ProductionWorkshop.soonest(
 			{"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}]}, "steel"
 		),
 		1
 	)
 	assert_eq(
-		ProductionRecipes.turns_left(
+		ProductionWorkshop.soonest(
 			{"steel": [{"units": 1, "turns_left": 2}, {"units": 2, "turns_left": 1}]}, "steel"
 		),
 		1,
 		"the soonest batch says when the next unit lands"
 	)
 	assert_eq(
-		ProductionRecipes.turns_left({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
+		ProductionWorkshop.soonest({"steel": [{"units": 4, "turns_left": 2}]}, "steel"), 2
 	)
-	assert_eq(ProductionRecipes.turns_left({}, "steel"), 0)
+	assert_eq(ProductionWorkshop.soonest({}, "steel"), 0)
 
 
 ## Drip-feeding three steel one unit a phase builds the same output from the same

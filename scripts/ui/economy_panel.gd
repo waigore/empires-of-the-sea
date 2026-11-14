@@ -205,7 +205,7 @@ func refresh(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
 		viewer
 	)
-	_workers.fill(economy)
+	_workers.fill(economy, report)
 
 
 ## Body container for one tab ("PRODUCTION", "MARKET", "WORKERS"); tests and

@@ -68,8 +68,16 @@ func refresh_ownership() -> void:
 	rebuild()
 
 
-## Reveals arrive after the inset is built; repaint when the view moved on.
+## Reveals arrive after the inset is built; repaint when the view moved on. A
+## chart that never baked — a mount whose paint missed the inset, or one made
+## before its region existed — bakes on the next frame instead of leaving the
+## frame's near-black panel showing for the whole campaign (issue #563).
 func _process(_delta: float) -> void:
+	if model == null:
+		return
+	if _texture == null:
+		rebuild()
+		return
 	if visibility == null or visibility.revision == _seen_revision:
 		return
 	_seen_revision = visibility.revision
