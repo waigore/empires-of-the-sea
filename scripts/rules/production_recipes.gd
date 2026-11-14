@@ -9,7 +9,9 @@ extends RefCounted
 ## Its inputs and labour are paid when the run starts; its output lands after
 ## that many Production phases, seat of the phase it started in counting as the
 ## first (wiki: production-recipes § Turns per unit; DR-20261112-11). The alloy
-## rows combine two inputs, so they are the catalogue's two-turn work.
+## rows combine two inputs, and the two luxury rows are slow craft — a cigar
+## ages and a fur hat cures — so those four are the catalogue's two-turn work
+## (wiki: production-recipes § Recipe Catalog; DR-20261114-10).
 ##
 ## A batch then lands **one unit a phase** rather than all at once: a batch of
 ## three steel started in turn 1 delivers one in turn 2, the last in turn 4
@@ -35,8 +37,22 @@ const RECIPES: Dictionary = {
 	},
 	"castIron": {"output": "castIron", "inputs": {"iron": 2}, "labour": 2},
 	"refinedSugar": {"output": "refinedSugar", "inputs": {"sugarCane": 2}, "labour": 2},
-	"cigars": {"output": "cigars", "inputs": {"tobacco": 2}, "labour": 2, "min_tier": 1},
-	"furHats": {"output": "furHats", "inputs": {"furs": 2}, "labour": 2, "min_tier": 2},
+	"cigars":
+	{
+		"output": "cigars",
+		"inputs": {"tobacco": 2},
+		"labour": 2,
+		"min_tier": 1,
+		"turns": 2,
+	},
+	"furHats":
+	{
+		"output": "furHats",
+		"inputs": {"furs": 2},
+		"labour": 2,
+		"min_tier": 2,
+		"turns": 2,
+	},
 	"steel":
 	{
 		"output": "steel",
