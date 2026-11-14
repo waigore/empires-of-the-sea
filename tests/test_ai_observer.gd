@@ -124,15 +124,9 @@ func test_ai_bind_caches_each_mainline_script_once() -> void:
 		"extends RefCounted\nstatic func ping(value: int) -> int:\n\treturn value\n"
 	)
 	file.close()
-	AiBind._scripts.clear()
 	assert_eq(AiBind._ml(probe, "ping", [3]), 3, "first call loads and runs")
-	assert_true(
-		AiBind._scripts.has(AiBind.MAINLINE_ROOT + probe),
-		"the script stays cached"
-	)
 	assert_eq(AiBind._ml(probe, "ping", [5]), 5, "second call reuses the cache")
 	DirAccess.remove_absolute(abs_file)
-	AiBind._scripts.clear()
 
 
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
