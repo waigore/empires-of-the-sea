@@ -162,37 +162,27 @@ func _add_card(faction: int) -> void:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 8)
 	box.add_child(head)
-	var rank := _label("#–", 11, Palette.GOLD_DIM)
+	var rank := UiRowBuilder.label("#–", 11, Palette.GOLD_DIM)
 	rank.custom_minimum_size = Vector2(30.0, 0.0)
 	head.add_child(rank)
-	var name_label := _label("", 16, Palette.GOLD_PALE, true)
+	var name_label := UiRowBuilder.serif_line("", 16, Palette.GOLD_PALE)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(name_label)
-	var progress := _label("", 11, Palette.TEXT)
+	var progress := UiRowBuilder.label("", 11, Palette.TEXT)
 	head.add_child(progress)
-	var meta := _label("", 10, Palette.TEXT_DIM, true)
+	var meta := UiRowBuilder.serif_line("", 10, Palette.TEXT_DIM)
 	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(meta)
-	var stats := _label("", 11, Palette.TEXT, true)
+	var stats := UiRowBuilder.serif_line("", 11, Palette.TEXT)
 	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(stats)
-	var last := _label("", 11, Palette.GOLD, true)
+	var last := UiRowBuilder.serif_line("", 11, Palette.GOLD)
 	last.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(last)
 	_cards[int(faction)] = {
 		"rank": rank, "name": name_label, "progress": progress,
 		"meta": meta, "stats": stats, "last": last,
 	}
-
-
-func _label(text: String, size: int, color: Color, serif: bool = false) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	if serif:
-		label.add_theme_font_override("font", UiTheme.serif())
-	return label
 
 
 ## Phone widths keep the panel readable; desktops give the map more room.

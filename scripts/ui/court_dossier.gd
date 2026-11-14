@@ -16,13 +16,13 @@ func _init() -> void:
 
 
 func fill(state: DiplomacyState, world: WorldMap, viewer: int, subject: int) -> void:
-	_clear()
+	UiRowBuilder.clear(self)
 	var report: Dictionary = IntelDossier.report(state, world, viewer, subject)
-	add_child(_caption("DOSSIER"))
-	add_child(_line(_reading(report), 13, Palette.GOLD_PALE))
+	add_child(UiRowBuilder.caption("DOSSIER", 11, Palette.TEXT_DIM))
+	add_child(UiRowBuilder.wrapped_line(_reading(report), 13, Palette.GOLD_PALE))
 	_add_suspicion(report)
 	_add_evidence(report)
-	add_child(_line(_behaviour(report), 12, Palette.TEXT_DIM))
+	add_child(UiRowBuilder.wrapped_line(_behaviour(report), 12, Palette.TEXT_DIM))
 	_add_open(report)
 
 
@@ -68,7 +68,7 @@ func _add_suspicion(report: Dictionary) -> void:
 		if String(row["band"]) == "Confirmed" or String(row["band"]) == "Almost certain":
 			ink = Palette.GOLD
 		add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"%s  ·  %s %d%%" % [String(row["label"]), String(row["band"]), int(row["confidence"])],
 				13,
 				ink
@@ -79,14 +79,16 @@ func _add_suspicion(report: Dictionary) -> void:
 func _add_evidence(report: Dictionary) -> void:
 	var entries: Array = report.get("evidence", []) as Array
 	if entries.is_empty():
-		add_child(_line("No observable act has been written down.", 12, Palette.TEXT_DIM))
+		add_child(
+			UiRowBuilder.wrapped_line("No observable act has been written down.", 12, Palette.TEXT_DIM)
+		)
 		return
-	add_child(_caption("EVIDENCE"))
+	add_child(UiRowBuilder.caption("EVIDENCE", 11, Palette.TEXT_DIM))
 	var shown: int = mini(entries.size(), EVIDENCE_SHOWN)
 	for index in shown:
 		var entry: Dictionary = entries[index] as Dictionary
 		add_child(
-			_line(
+			UiRowBuilder.wrapped_line(
 				"%s  ·  %s" % [
 					DiplomacyHistory.stamp_for_turn(int(entry["turn"])), String(entry["text"])
 				],
@@ -96,7 +98,7 @@ func _add_evidence(report: Dictionary) -> void:
 		)
 	if entries.size() > shown:
 		add_child(
-			_line("…and %d earlier observation%s." % [
+			UiRowBuilder.wrapped_line("…and %d earlier observation%s." % [
 				entries.size() - shown, "" if entries.size() - shown == 1 else "s"
 			], 11, Palette.TEXT_DIM)
 		)
@@ -111,27 +113,3 @@ static func _behaviour(report: Dictionary) -> String:
 		int(notes.get("alliance", 0)), "" if int(notes.get("alliance", 0)) == 1 else "s",
 		int(notes.get("refused", 0)), "" if int(notes.get("refused", 0)) == 1 else "s",
 	]
-
-
-func _caption(text: String) -> Label:
-	return _label(text, 11, Palette.TEXT_DIM)
-
-
-func _line(text: String, size: int, ink: Color) -> Label:
-	var label := _label(text, size, ink)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label
-
-
-func _label(text: String, size: int, ink: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", ink)
-	return label
-
-
-func _clear() -> void:
-	for child: Node in get_children():
-		remove_child(child)
-		child.queue_free()

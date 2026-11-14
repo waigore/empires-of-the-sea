@@ -59,7 +59,7 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 5)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(column)
-	column.add_child(_title("BATTLE SIMULATOR", 18, Palette.GOLD_PALE))
+	column.add_child(UiRowBuilder.serif_wrapped("BATTLE SIMULATOR", 18, Palette.GOLD_PALE))
 	column.add_child(_hint("Runs the live Quick Battle resolver. Change a number and fight again."))
 	column.add_child(_section("Ground"))
 	_terrain = _option(TERRAIN_ROWS)
@@ -182,31 +182,15 @@ func _plan_picker(row: HBoxContainer, label: String) -> OptionButton:
 
 
 func _button(text: String, output: Signal) -> Button:
-	var button := Button.new()
-	button.text = text
+	var button := UiRowBuilder.button(text, 0.0, 0.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(func() -> void: output.emit())
 	return button
 
 
-func _title(text: String, size_px: int, color: Color) -> Label:
-	var label := _hint(text)
-	label.add_theme_font_size_override("font_size", size_px)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
 func _section(text: String) -> Label:
-	var label := _hint(text.to_upper())
-	label.add_theme_color_override("font_color", Palette.GOLD)
-	return label
+	return UiRowBuilder.serif_wrapped(text.to_upper(), 12, Palette.GOLD)
 
 
 func _hint(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_override("font", UiTheme.serif())
-	label.add_theme_font_size_override("font_size", 12)
-	label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label
+	return UiRowBuilder.serif_wrapped(text, 12, Palette.TEXT_DIM)
