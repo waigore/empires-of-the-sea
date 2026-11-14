@@ -114,6 +114,37 @@ func test_minimap_repaints_when_a_province_is_charted() -> void:
 	assert_ne(before, after, "a charted tile repaints the inset")
 
 
+## The mount must leave a readable chart in the inset: the frame around it is a
+## near-black panel, so an inset that never built — or built at zero size, which
+## projects no ink — reads as a black box on the opening screen (issue #563).
+func test_the_minimap_inset_paints_the_chart_on_mount() -> void:
+	var minimap: Minimap = _screen.hud._minimap
+	assert_not_null(minimap)
+	assert_gt(minimap.size.x, 0.0, "the inset has a positive width")
+	assert_gt(minimap.size.y, 0.0, "the inset has a positive height")
+	assert_not_null(minimap._texture, "the mount built the chart texture")
+	var image: Image = minimap._texture.get_image()
+	assert_eq(
+		image.get_size(), Vector2i(_screen.model.width, _screen.model.height),
+		"one texel per chart tile"
+	)
+	# Ink is projected against the inset's own size, so a zero-size build is what
+	# leaves the coast and the owners' ribbons empty.
+	assert_gt(minimap._ink_coast.size(), 0, "the coast is inked into the inset")
+	assert_gt(minimap._ink_borders.size(), 0, "the owners' borders are inked too")
+	var dark: int = 0
+	var distinct: Dictionary = {}
+	for y in image.get_height():
+		for x in image.get_width():
+			var color: Color = image.get_pixel(x, y)
+			if (color.r + color.g + color.b) / 3.0 < 0.12:
+				dark += 1
+			distinct[color.to_rgba32()] = true
+	var total: int = image.get_width() * image.get_height()
+	assert_lt(float(dark) / float(total), 0.02, "the inset is not a solid black fill")
+	assert_gt(distinct.size(), 8, "sea, terrain and the owner wash all read")
+
+
 func test_country_borders_are_built_for_every_owner() -> void:
 	var borders: Dictionary = _screen.overlay._country_borders
 	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())

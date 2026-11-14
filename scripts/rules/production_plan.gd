@@ -12,12 +12,18 @@ var _assignments: Array[Dictionary] = []
 ## {"units", "turns_left"} still serving their turns. Inputs and labour were
 ## paid when each batch started; only the output is outstanding.
 var wip: Dictionary = {}
+## What the last Production phase turned out, recipe id -> whole units that left
+## the workshop (wiki: production-recipes § Acceptance Criteria — the phase
+## records which recipes ran and what each produced, `productionByRecipe`).
+## Carried in the save, so the ledger still reads the last phase after a reload.
+var made: Dictionary = {}
 
 
 func copy() -> ProductionPlan:
 	var clone := ProductionPlan.new()
 	clone._assignments = _assignments.duplicate(true)
 	clone.wip = wip.duplicate(true)
+	clone.made = made.duplicate(true)
 	return clone
 
 
@@ -119,4 +125,49 @@ func snapshot() -> Dictionary:
 	return {
 		"assignments": _assignments.duplicate(true),
 		"production_wip": wip.duplicate(true),
+		"production_made": made.duplicate(true),
 	}
+
+
+# --- last phase ---------------------------------------------------------------
+
+
+## Whole units this recipe turned out in the last Production phase; 0 for a row
+## that did not run. A multi-turn batch pays in the phase its unit lands, so this
+## reads the landings, not the runs started (wiki: production-recipes
+## § Acceptance Criteria; DR-20261113-02).
+func made_units(recipe_id: String) -> int:
+	return maxi(int(made.get(recipe_id, 0)), 0)
+
+
+## Everything the workshop turned out in the last phase, whole units.
+func made_total() -> int:
+	var total: int = 0
+	for recipe_id: Variant in made.keys():
+		total += maxi(int(made[recipe_id]), 0)
+	return total
+
+
+## Records one Production phase's landings (`ProductionRecipes.plan`'s
+## `completed`). Unknown recipes and non-positive counts are dropped, so the
+## record is always something the ledger can name.
+func set_made(completed: Variant) -> void:
+	made = {}
+	if typeof(completed) != TYPE_DICTIONARY:
+		return
+	var counts: Dictionary = completed
+	for raw_recipe: Variant in counts.keys():
+		var recipe_id: String = String(raw_recipe)
+		var raw: Variant = counts[raw_recipe]
+		if typeof(raw) != TYPE_INT and typeof(raw) != TYPE_FLOAT:
+			continue
+		var units: int = int(raw)
+		if units > 0 and ProductionRecipes.known(recipe_id):
+			made[recipe_id] = units
+
+
+## The last phase's record as a save carries it: a damaged row (unknown recipe, a
+## count that is not a number) drops instead of aborting the load, the way the
+## workshop's batches do (wiki: production-recipes § Acceptance Criteria).
+func read_made(data: Variant) -> void:
+	set_made(data)
