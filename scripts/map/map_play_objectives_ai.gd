@@ -121,6 +121,12 @@ static func _readings(
 		"research_cost": research_cost,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
+		# The study that opens the chain's next link, so the trace names the door
+		# the court is walking to (DR-20261114-05).
+		"tribe_door": AiTribeColony.door(
+			play.diplomacy, play.world, play.court_charts, faction,
+			economy.tech_unlocked
+		),
 	}
 
 

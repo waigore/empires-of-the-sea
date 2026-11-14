@@ -188,23 +188,25 @@ static func is_valid_subsidy(percent: int) -> bool:
 	)
 
 
-## Tech gate for an overture, or "" when the stage is allowed. GP→GP embassies
-## are exempt; Empire Building gates absorbing a Great Power only
-## (wiki: tech-tree-diplomacy-civilian).
-static func tech_gate(stage: String, target_type: int, tech: Dictionary) -> String:
-	if (
-		stage == STAGE_EMBASSY
-		and target_type != FactionCatalog.Type.GREAT_POWER
-		and not tech.has("diplomatic_expertise")
-	):
-		return "Diplomatic Expertise is required for an embassy."
-	if (
-		stage == STAGE_JOIN_EMPIRE
-		and target_type == FactionCatalog.Type.GREAT_POWER
-		and not tech.has("empire_building")
-	):
-		return "Empire Building is required to absorb a Great Power."
+## The technology an overture stage needs for this target type, or "" when the
+## stage is open to every court. GP→GP embassies are exempt; Empire Building
+## gates absorbing a Great Power only (wiki: tech-tree-diplomacy-civilian).
+static func tech_needed(stage: String, target_type: int) -> String:
+	if stage == STAGE_EMBASSY and target_type != FactionCatalog.Type.GREAT_POWER:
+		return "diplomatic_expertise"
+	if stage == STAGE_JOIN_EMPIRE and target_type == FactionCatalog.Type.GREAT_POWER:
+		return "empire_building"
 	return ""
+
+
+## Tech gate for an overture, or "" when the stage is allowed.
+static func tech_gate(stage: String, target_type: int, tech: Dictionary) -> String:
+	var needed: String = tech_needed(stage, target_type)
+	if needed.is_empty() or tech.has(needed):
+		return ""
+	if needed == "diplomatic_expertise":
+		return "Diplomatic Expertise is required for an embassy."
+	return "Empire Building is required to absorb a Great Power."
 
 
 static func state_label(at_war: bool) -> String:

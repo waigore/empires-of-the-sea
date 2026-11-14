@@ -1,0 +1,93 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "8741241aa0a44a2d34123ea65e9cae6d230c24eb",
+  "commit": "bf9d43cafd9e3ec2e9f04769e8c7b841b1bee8f6",
+  "submission_hash": "sha256:5852ffc69d0ac90a11b4e93f845c5890f1d8c1f87df34435a91064f1408ec7f4",
+  "submission_git": "feat/colony-door@f560249",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 3974.777777777778,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 31.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 4.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 69.2199775533109,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:c5fea9a00220243f92cd9d5a38b5afe41929edf78fc75eb7c7e321868946d282",
+    "parts": {
+      "provinces_old": 31,
+      "provinces_new": 0,
+      "regiments": 2,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 2.5555555555555554,
+      "income_per_turn": 309.6666666666667,
+      "funded_pct": 69.2199775533109
+    },
+    "early_win": true,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 36,
+    "resolved_turns": 36,
+    "funded_pct": 69.2199775533109
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-14T03:19:11Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:52af7f309689381bcedad5ef382ccfd5ecc562012a85f9ec7fd9abc50b992e59"
+}
