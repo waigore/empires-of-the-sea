@@ -97,7 +97,7 @@ static func run(play: PlaySession) -> Dictionary:
 		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
 		var trade: Dictionary = _trade(
 			play, faction, economy, config, market, overseas, production,
-			works_reserved, floor
+			works_reserved, floor, String(income["goal"]) == AiIncome.GOAL_EARN
 		)
 		# The shared market clears once, after every court has staged its orders.
 		var resolved: Dictionary = EconomyTurn.resolve(
@@ -203,7 +203,8 @@ static func _trade(
 	overseas: Dictionary,
 	production: Dictionary,
 	works: Dictionary = {},
-	floor: int = 0
+	floor: int = 0,
+	saving: bool = false
 ) -> Dictionary:
 	var kind: String = AiControl.court_kind(play, faction)
 	var holds: int = (
@@ -239,7 +240,7 @@ static func _trade(
 	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiBind.market_plan(
 		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor, food_short
+		floor, food_short, saving
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
