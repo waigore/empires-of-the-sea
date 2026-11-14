@@ -65,7 +65,7 @@ static func run(
 			int((shared.get("regiments", {}) as Dictionary).get(faction, 0))
 		)
 		var plan: Dictionary = AiDiplomacyPlanner.decide(
-			config, state, ai_state, world, turn, _reading(shared, faction)
+			config, state, ai_state, world, turn, _reading(shared, faction, income)
 		)
 		var action: Dictionary = plan["action"]
 		var record: Dictionary = {
@@ -134,16 +134,17 @@ static func _context(world: WorldMap, supplied: Dictionary, player: int) -> Dict
 
 
 ## The read model one court decides with: its own charted docket when the caller
-## supplied readings, else the shared published one.
-static func _reading(shared: Dictionary, faction: int) -> Dictionary:
+## supplied readings, else the shared published one, plus the court's own money
+## goal so a spender that can wait stands down (issue #580).
+static func _reading(shared: Dictionary, faction: int, income: Dictionary = {}) -> Dictionary:
+	var reading: Dictionary = shared.duplicate()
+	reading["income"] = income
 	var views: Variant = shared.get("views", null)
 	if typeof(views) != TYPE_DICTIONARY:
-		return shared
+		return reading
 	var view: Variant = (views as Dictionary).get(faction, null)
-	if typeof(view) != TYPE_DICTIONARY:
-		return shared
-	var reading: Dictionary = shared.duplicate()
-	reading.merge(view, true)
+	if typeof(view) == TYPE_DICTIONARY:
+		reading.merge(view, true)
 	return reading
 
 

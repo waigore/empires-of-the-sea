@@ -14,8 +14,11 @@ extends RefCounted
 ## extraction works, prizes) and every spender that can wait stands down: no
 ## studies, no hires, no imports, no new war. A court that can pay reads
 ## `spend` and plays as published. The commitment can be the hull it means to
-## lay as readily as the next regiment (issue #484). Pure and deterministic:
-## the purse and the target are the only inputs (REQ-P2-03, REQ-P3-03).
+## lay as readily as the next regiment (issue #484) — but only once the court can
+## already fill that chest: a yard price it is still short of waits behind the
+## army, because a reserve no planner can pay out starves the regiment the court
+## could have raised (issue #591). Pure and deterministic: the purse and the
+## target are the only inputs (REQ-P2-03, REQ-P3-03).
 
 const GOAL_EARN: String = "earn"
 const GOAL_SPEND: String = "spend"
@@ -40,10 +43,10 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 
 ## The purse this court must hold before it may spend on anything it can defer:
 ## at war, the muster it is saving for (its own cash floor plus the cheapest
-## line) and the hull it means to lay (`AiNavy`, issue #484), whichever is
-## larger, while it stands under the target that asks for either; at peace, its
-## own cash floor, so a court that is not fighting still grows. 0 when the caller
-## has no ledger to read.
+## line) while it stands under its target, and the hull it means to lay
+## (`AiNavy`, issue #484) once that chest is in reach — whichever is larger; at
+## peace, its own cash floor, so a court that is not fighting still grows. 0
+## when the caller has no ledger to read.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
 	hull_chest: int = 0
@@ -54,7 +57,28 @@ static func reserve(
 	if not at_war:
 		return floor
 	var muster: int = maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))
-	return maxi(muster, maxi(hull_chest, 0))
+	return maxi(muster, hull_held(config, economy, true, regiments, hull_chest))
+
+
+## The yard's chest as this court holds it this turn. A chest the court can
+## already fill is the fleet's — the purse waits for the hull and the yard leads.
+## A chest it cannot afford yet stands behind the army: a court under its
+## regiment target raises the regiment it can pay for instead of holding the
+## yard's price turn after turn for a hull it never reaches, which is how a
+## naval tech used to shrink a rival's army for the rest of the campaign
+## (issue #591). 0 when there is no hull to save for.
+static func hull_held(
+	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
+	hull_chest: int
+) -> int:
+	var chest: int = maxi(hull_chest, 0)
+	if config == null or economy == null or chest <= 0:
+		return chest
+	if economy.treasury >= chest:
+		return chest
+	if AiArmyReinforce.muster_floor(config, economy, regiments, at_war) > 0:
+		return 0
+	return chest
 
 
 ## One turn's goal plus the readings behind it, for the turn trace and the
@@ -89,6 +113,22 @@ static func wants_income(
 	hull_chest: int = 0
 ) -> bool:
 	return goal_for(config, economy, at_war, regiments, hull_chest) == GOAL_EARN
+
+
+## The refusal a deferrable spender records while the court is still filling its
+## purse, naming the reserve it keeps (wiki: treasury-planner § Priority; issue
+## #580). `amount` is what the order would take out of the purse today (0 for an
+## order that only promises future money, like a subsidy). Empty when the court
+## may spend without dipping under the reserve it is saving for.
+static func saving_reason(income: Dictionary, amount: int = 0) -> String:
+	# No money goal read (a caller with no ledger) keeps the published behaviour.
+	if income.is_empty():
+		return ""
+	var reserve: int = int(income.get("reserve", 0))
+	var held: int = int(income.get("treasury", 0))
+	if String(income.get("goal", GOAL_SPEND)) != GOAL_EARN and held - amount >= reserve:
+		return ""
+	return "the court is saving for its reserve (%d)" % reserve
 
 
 ## Reader-facing goal for the observer panel and the turn trace.

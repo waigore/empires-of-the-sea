@@ -70,7 +70,10 @@ static func _readings(
 	# alongside the next muster (issue #484).
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
-	var hull_chest: int = AiNavy.chest(at_war, warships, hostile_warships, economy)
+	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
+	var hull_chest: int = AiNavy.chest(
+		at_war, warships, hostile_warships, economy, flown
+	)
 	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
@@ -101,7 +104,17 @@ static func _readings(
 		"muster_due": muster_floor > 0,
 		"ships": MapPlayCourt.ships(play, faction),
 		"warships": warships,
-		"warship_price": AiNavy.price(economy),
+		"warship_price": AiNavy.price(economy, flown),
+		"warship_row": AiNavy.saving_row(economy, flown),
+		# False while the court still studies the unlock: the build keeps its
+		# chest and cloth reserved but will not fund a launch the yard refuses
+		# (issue #484). A type the court already flies counts as open.
+		"warship_open": (
+			not AiNavy.saving_type(economy, flown).is_empty()
+			and ShipEconomy.buildable(
+				AiNavy.saving_type(economy, flown), economy.tech_unlocked, flown
+			)
+		),
 		"navy_due": hull_chest > 0,
 		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
 		"hostile_warships": hostile_warships,
@@ -131,11 +144,13 @@ static func _readings(
 
 
 ## The pools the allocate pass draws on. A pool is a per-turn grant: one order,
-## one train slot, one muster slot, and the purse as it stands.
+## one train slot, one muster slot, and the purse as it stands. The hull's
+## material row is bounded by the store, so a fleet claim short of cloth reads
+## `deferred fabric 0/1` instead of funded against an unlimited pool (issue #484).
 static func _pools(
 	play: PlaySession, faction: int, economy: PlayerEconomy, readings: Dictionary
 ) -> Dictionary:
-	return {
+	var pools: Dictionary = {
 		"treasury": maxi(economy.treasury, 0),
 		"hull": int(readings["idle_hulls"]),
 		"civilian": 1,
@@ -143,6 +158,9 @@ static func _pools(
 		"labour": economy.available_peasants(),
 		"orders": 1,
 	}
+	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
+		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
+	return pools
 
 
 ## War desire against the court's enemy, else against the weakest Great Power —

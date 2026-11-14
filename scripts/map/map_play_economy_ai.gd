@@ -38,7 +38,6 @@ static func run(play: PlaySession) -> Dictionary:
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
 		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
-		var production: Dictionary = AiBind.production_orders(kind, config, economy)
 		var at_war: bool = MapPlayCourt.at_war(play, faction)
 		var regiments: int = MapPlayCourt.regiments(play, faction)
 		# The goal the court plans with this turn: money first (DR-20261113-19).
@@ -48,15 +47,33 @@ static func run(play: PlaySession) -> Dictionary:
 		# lead. Every discretionary spend reads the same reserve, so the war chest
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
+		var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 		var income: Dictionary = AiBind.income_plan(
-			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction)
+			kind, config, economy, at_war, regiments, hull_chest
+		)
+		# Skip production buys while earning for the navy chest (issue #484).
+		var production: Dictionary = (
+			{"assignments": []}
+			if hull_chest > 0 and String(income["goal"]) == AiIncome.GOAL_EARN
+			else AiBind.production_orders(kind, config, economy)
 		)
 		var floor: int = int(income["reserve"])
 		# Surplus research still leaves the money-first reserve alone; the standing
 		# study alone may dip to the cash floor so a war-time court parked at 500
 		# while saving 2,400 still learns (issue #490).
 		var research_floor: int = AiBind.research_floor(kind, config)
-		# Plan before the phase resolves, so the study starts this turn.
+		# Navy unlock door first, else Tribe chain (issue #484; DR-20261114-05).
+		var door: String = ""
+		if AiNavy.due(
+			at_war, MapPlayCourt.warships(play, faction),
+			MapPlayCourt.hostile_warships(play, faction)
+		):
+			door = AiNavy.unlock_tech(economy, MapPlayCourt.hull_types(play, faction))
+		if door.is_empty():
+			door = AiTribeColony.door(
+				play.diplomacy, play.world, play.court_charts, faction,
+				economy.tech_unlocked
+			)
 		var research: Dictionary = AiBind.research_plan(
 			kind, config, economy,
 			{
@@ -64,13 +81,8 @@ static func run(play: PlaySession) -> Dictionary:
 				"revealed": revealed,
 				"treasury_floor": floor,
 				"cash_floor": research_floor,
-				# The study that opens the next link of a colony this court is
-				# buying: a chain with a charted Tribe is only as open as its
-				# next stage (wiki: diplomacy § GP–Tribe Rules; DR-20261114-05).
-				"door": AiTribeColony.door(
-					play.diplomacy, play.world, play.court_charts, faction,
-					economy.tech_unlocked
-				),
+				"door": door,
+				"defer_standing": hull_chest > 0,  # yard fills before standing (#484)
 			}
 		)
 		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
@@ -223,6 +235,16 @@ static func _trade(
 			play.world, faction, play.human_faction_id(), play.difficulty, config
 		)["extra_regiments"])
 	)
+	# The hull the court is saving for holds its own material row beside the
+	# muster's: a court that sells the last cloth it needs can save the whole
+	# 5,500-ducat chest and still never lay the hull (issue #484).
+	var navy: Dictionary = AiNavy.due_row(
+		MapPlayCourt.at_war(play, faction),
+		MapPlayCourt.warships(play, faction),
+		MapPlayCourt.hostile_warships(play, faction),
+		economy,
+		MapPlayCourt.hull_types(play, faction)
+	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
 	# buys the missing food before any build input (wiki: treasury-planner
@@ -235,12 +257,12 @@ static func _trade(
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
 	var claims: Dictionary = AiClaims.reserve(_claim_rows(
-		production, food, economy, need, works
+		production, food, economy, need, works, navy
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiBind.market_plan(
-		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor, food_short, saving
+		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
+		_merge_rows(need, navy), floor, food_short, saving
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
@@ -255,22 +277,24 @@ static func _trade(
 ## The named rows one turn reserves, in the order the market must keep stock.
 ## Each row is an `AiObjective` cost: the ration the consumption phase eats
 ## (grain first, holding what the court actually has), the inputs this turn's
-## production promised, the row the next regiment is provisioned with, every
-## material the crews' planned works will spend, and the inputs the orders
-## already booked hold (wiki: workers-and-population § Consumption;
-## DR-20261112-04; growth-stage-planner § Recruitment modulation;
-## economy-planner § Reservations).
+## production promised, the row the next regiment is provisioned with, the row
+## the hull the court is saving for needs, every material the crews' planned
+## works will spend, and the inputs the orders already booked hold (wiki:
+## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
+## § Recruitment modulation; economy-planner § Reservations; issue #484).
 static func _claim_rows(
 	production: Dictionary,
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	navy: Dictionary = {}
 ) -> Array[Dictionary]:
 	var rows: Dictionary = {
 		AiClaims.RATIONS: _ration_row(food, economy),
 		AiClaims.PRODUCTION: _production_row(production),
 		AiClaims.MUSTER: muster,
+		AiClaims.NAVY: navy,
 		AiClaims.WORKS: works,
 		AiClaims.KEPT: (
 			_production_row({"assignments": economy.production.assignments()})
@@ -278,6 +302,18 @@ static func _claim_rows(
 		),
 	}
 	return AiClaims.sources(rows)
+
+
+## Two material rows added together: the muster's cloth and the hull's, so the
+## market bids for both before the rest of the build inputs (issue #484).
+static func _merge_rows(left: Dictionary, right: Dictionary) -> Dictionary:
+	if right.is_empty():
+		return left
+	var merged: Dictionary = left.duplicate()
+	for commodity: Variant in right.keys():
+		var id: String = String(commodity)
+		merged[id] = int(merged.get(id, 0)) + int(right[commodity])
+	return merged
 
 
 ## The ration row: grain, then meat, holding only what the court actually has of
@@ -318,9 +354,10 @@ static func _reserved_inputs(
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	navy: Dictionary = {}
 ) -> Dictionary:
-	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
+	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works, navy))["reserved"]
 
 
 ## Food the larder already holds: the two ration commodities, grain first.
