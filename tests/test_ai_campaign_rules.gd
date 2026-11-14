@@ -1985,6 +1985,57 @@ func test_relative_power_dominates_the_score() -> void:
 	)
 	assert_eq(int(weak["score"]), 5, "50 - 25 weak - 20 neutral")
 
+func test_a_pressing_court_prices_the_war_that_takes_its_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var calm: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	var pressed: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	pressed["victory_press"] = 30
+	var before: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, calm
+	)
+	var after: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, pressed
+	)
+	assert_eq(int(before["score"]), 35, "a court far from the bar keeps the published score")
+	assert_eq(int(after["score"]), 65, "the press reaches the war aim")
+	assert_eq(int((after["factors"] as Dictionary)["victory_press"]), 30)
+	assert_false(
+		(before["factors"] as Dictionary).has("victory_press"),
+		"no press, no factor"
+	)
+
+func test_the_press_is_read_per_court_from_the_map_pass() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = {0: 30, 1: 0}
+	var mine: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	var theirs: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 1, 0, context
+	)
+	assert_eq(int(mine["score"]), 65, "the pressing court prices its own finish")
+	assert_eq(int(theirs["score"]), 35, "a neighbour's press arms nothing")
+
+func test_the_press_ignores_a_target_with_no_old_world_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = 30
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	assert_eq(
+		int(desire["score"]), 35,
+		"the bar counts Old World land, and this court holds none"
+	)
+	assert_false((desire["factors"] as Dictionary).has("victory_press"))
+
 func test_relation_pressure_bands() -> void:
 	_setup_ai_planner()
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
