@@ -315,7 +315,7 @@ static func _raider_groups(
 			continue
 		if not fleet.is_afloat() or not relevant.has(fleet.sea_zone):
 			continue
-		if not _hostile(hostile, fleet.owner, victim):
+		if not Hostility.between(hostile, fleet.owner, victim):
 			continue
 		if fleet.mission != FleetState.Mission.PATROL \
 				and fleet.mission != FleetState.Mission.BLOCKADE:
@@ -357,11 +357,3 @@ static func _nothing(reason: String, victim: int) -> Dictionary:
 		"hull_chance": 0.0,
 		"hull_roll": 1.0,
 	}
-
-
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))

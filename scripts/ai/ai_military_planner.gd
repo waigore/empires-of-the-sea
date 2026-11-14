@@ -62,7 +62,7 @@ static func march_orders(
 	if config == null or state == null or model == null:
 		return {"orders": orders, "candidates": candidates}
 	var owner: int = config.faction
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	if hostile.is_empty():
 		return {"orders": orders, "candidates": candidates}
 	var frontier: Array[int] = _staging_provinces(model, owner, state)
@@ -161,15 +161,6 @@ static func province_score(config: AiConfig, model: MapModel, province: int) -> 
 	return score
 
 
-## Factions this court is at war with, as a membership set.
-static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
-	var hostile: Dictionary = {}
-	for record: DiplomacyRelation in state.relations_of(owner):
-		if record.at_war:
-			hostile[record.other(owner)] = true
-	return hostile
-
-
 ## Provinces owned by the court that touch a province of a hostile faction. The
 ## invasion planner reads it too: a war on the court's own border is a land war.
 static func frontier_hostile(
@@ -196,7 +187,7 @@ static func frontier_hostile(
 static func invader_on_home_soil(
 	model: MapModel, owner: int, armies: Array, state: DiplomacyState
 ) -> bool:
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	for raw: Variant in armies:
 		var army: ArmyState = raw
 		if army == null or army.is_empty() or army.owner == owner:

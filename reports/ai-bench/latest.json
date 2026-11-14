@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:a58e5d40e2aa8fd5ec473a79c44d2fab2ebf0f70869342e3db36710487477b55",
-  "submission_git": "fix/489-saving-court-liquidates-hoard@90ffb02+dirty",
+  "submission_hash": "sha256:879ea1b97769cd79f42a56128f59a6f86c233c491423f37f54ccb0ea4510c566",
+  "submission_git": "refactor/hostility-war-query@b77fdde",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:6e67cd680f79c5733d1c1918dfbee67b7523402e447ffd242c398c2d5a04aab6",
+    "ai_surface_hash": "sha256:38ac6eec44d1112b6a27de33e0de7f418fd205ee570bb05bc6348dcfb479722a",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T10:48:30Z",
+  "timestamp": "2026-11-14T10:55:52Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cd8258e6e7ea87a09752c1d120a58c6cb3a6d0d24ceec34604192f7eb0452a7f"
+  "signature": "hmac-sha256:099af7e5ca533fc213665b4a83f610dbcfe52df98f24d4037d3bcd7afaa97613"
 }

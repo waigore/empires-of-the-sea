@@ -93,7 +93,7 @@ static func _resolve_zone(
 	var belligerents: Array[int] = []
 	for owner: int in owners:
 		for other: int in owners:
-			if owner != other and _hostile(hostile, owner, other):
+			if owner != other and Hostility.between(hostile, owner, other):
 				belligerents.append(owner)
 				break
 	if belligerents.size() < 2:
@@ -107,7 +107,7 @@ static func _resolve_zone(
 	var attacker: int = int(initiative.get("owner", belligerents[0]))
 	var defender_owners: Array[int] = []
 	for owner: int in belligerents:
-		if owner != attacker and _hostile(hostile, attacker, owner):
+		if owner != attacker and Hostility.between(hostile, attacker, owner):
 			defender_owners.append(owner)
 	for defender: int in defender_owners:
 		var attacking: Array = _surviving(sides.get(attacker, []), zone_id)
@@ -171,19 +171,10 @@ static func _leader(context: Dictionary, owner: int) -> float:
 	return LeaderCatalog.naval_multiplier(String(leaders.get(owner, "")))
 
 
-## No callback means the legacy default: every pair is hostile.
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))
-
-
 static func _any_hostile(owners: Array[int], hostile: Callable) -> bool:
 	for first in owners.size():
 		for second in range(first + 1, owners.size()):
-			if _hostile(hostile, owners[first], owners[second]):
+			if Hostility.between(hostile, owners[first], owners[second]):
 				return true
 	return false
 
