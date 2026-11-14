@@ -2055,6 +2055,47 @@ func test_ai_civilian_leaves_a_working_unit_alone() -> void:
 	assert_true((plan["moves"] as Array).is_empty())
 
 
+## One ranker for every civilian work module (REQ-P3-01 reuse): the highest
+## score wins, and a tie falls back to the earlier tile, then the earlier action
+## name, so two closures over one tile never depend on evaluation order.
+func test_civilian_candidate_ranking_is_one_shared_rule() -> void:
+	var low: Dictionary = {"action": "build_road", "tile": Vector2i(4, 4), "score": 10}
+	var high: Dictionary = {"action": "build_rail", "tile": Vector2i(9, 9), "score": 30}
+	assert_eq(
+		String(AiCivilianCandidate.better(low, high)["action"]), "build_rail"
+	)
+	assert_eq(String(AiCivilianCandidate.better(high, low)["action"]), "build_rail")
+	var east: Dictionary = {"action": "build_road", "tile": Vector2i(5, 2), "score": 10}
+	var north: Dictionary = {"action": "build_road", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(AiCivilianCandidate.better(east, north)["tile"], Vector2i(1, 1))
+	var rail: Dictionary = {"action": "build_rail", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(String(AiCivilianCandidate.better(rail, north)["action"]), "build_rail")
+	assert_eq(String(AiCivilianCandidate.better(north, rail)["action"]), "build_rail")
+	assert_eq(
+		AiCivilianCandidate.better(low, {}).get("action"), low["action"],
+		"an empty candidate never displaces a real one"
+	)
+	assert_eq(AiCivilianCandidate.better({}, low).get("action"), low["action"])
+	assert_true(AiCivilianCandidate.better({}, {}).is_empty())
+
+
+## A closure that decides somewhere other than where its unit stands ranks by
+## that site, so a sailed charter is ordered by its destination.
+func test_civilian_candidate_ranks_by_site_before_the_unit() -> void:
+	var stand: Vector2i = CivilianFixture.BARE_TILE
+	var unit: CivilianState = CivilianState.create(1, 0, "merchant", stand)
+	assert_eq(AiCivilianCandidate.rank_tile({"tile": Vector2i(3, 1)}), Vector2i(3, 1))
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"tile": CivilianState.NO_TILE, "target": Vector2i(7, 2)}),
+		Vector2i(7, 2)
+	)
+	assert_eq(AiCivilianCandidate.rank_tile({"unit": unit}), stand)
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"action": "sail"}),
+		CivilianState.NO_TILE
+	)
+
+
 func test_ai_civilian_never_plans_another_courts_units() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var rival: CivilianState = CivilianState.create(
@@ -4108,21 +4149,6 @@ func test_a_fort_always_holds_over_the_town_sweep() -> void:
 		{"action": "build_hospital"}, _hospital_context(true)
 	))
 	assert_false(AiHospitalWork.holds_over_town_link({}, _hospital_context(true)))
-
-
-func test_the_tie_break_is_row_major_then_action_name() -> void:
-	var upper: Dictionary = {"action": "build_hospital", "tile": Vector2i(1, 2), "score": 40}
-	var lower: Dictionary = {"action": "build_hospital", "tile": Vector2i(4, 3), "score": 40}
-	var left: Dictionary = {"action": "build_hospital", "tile": Vector2i(2, 3), "score": 40}
-	var early: Dictionary = {"action": "build_fort", "tile": Vector2i(1, 2), "score": 40}
-	assert_eq(Vector2i(AiHospitalWork._better(lower, upper)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(upper, lower)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(lower, left)["tile"]), Vector2i(2, 3))
-	assert_eq(Vector2i(AiHospitalWork._better(left, lower)["tile"]), Vector2i(2, 3))
-	assert_eq(String(AiHospitalWork._better(upper, early)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better(early, upper)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better({}, upper)["action"]), "build_hospital")
-	assert_eq(String(AiHospitalWork._better(upper, {})["action"]), "build_hospital")
 
 
 ## AI engineers connect every province town to the capital network (wiki:
