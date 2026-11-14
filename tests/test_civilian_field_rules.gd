@@ -1660,6 +1660,79 @@ func test_roster_rows_carry_posting_and_work_status() -> void:
 	assert_eq(String(explorer["status_text"]), "Idle — ready for orders")
 
 
+func test_roster_status_filter_reads_who_waits_for_orders() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(
+		CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_IDLE),
+		4,
+		"four crews have no order",
+	)
+	assert_eq(
+		CivilianRoster.count(
+			snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_WORKING
+		),
+		1,
+	)
+	for group: Dictionary in CivilianRoster.groups(
+		snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_WORKING
+	):
+		for row: Dictionary in group["rows"]:
+			assert_true(bool(row["working"]), "only a working crew answers the at-work view")
+	assert_eq(
+		CivilianRoster.count(
+			snapshot, CivilianRoster.REGION_OLD, "", CivilianRoster.STATUS_WORKING
+		),
+		0,
+		"the Old World column has no work running",
+	)
+	assert_eq(
+		CivilianRoster.count(
+			snapshot, CivilianRoster.REGION_OLD, "", CivilianRoster.STATUS_IDLE
+		),
+		3,
+		"the status reads against the world filter, not beside it",
+	)
+	assert_eq(
+		CivilianRoster.count(
+			snapshot, CivilianRoster.REGION_ALL, "merchant", CivilianRoster.STATUS_IDLE
+		),
+		0,
+		"the merchant is at work, so the idle craft view is empty",
+	)
+
+
+func test_roster_status_and_craft_tallies_agree_with_the_other_filters() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	var counts: Dictionary = CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_ALL)
+	assert_eq(int(counts[CivilianRoster.STATUS_ALL]), 5)
+	assert_eq(int(counts[CivilianRoster.STATUS_IDLE]), 4)
+	assert_eq(int(counts[CivilianRoster.STATUS_WORKING]), 1)
+	assert_eq(
+		int(CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_NEW)[
+			CivilianRoster.STATUS_WORKING
+		]),
+		1,
+	)
+	assert_eq(
+		int(CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_ALL, "spy")[
+			CivilianRoster.STATUS_IDLE
+		]),
+		1,
+		"the idle tally counts what the craft filter leaves (the rival's spy is not ours)",
+	)
+	var types: Dictionary = CivilianRoster.type_counts(
+		snapshot, CivilianRoster.REGION_ALL, CivilianRoster.STATUS_WORKING
+	)
+	assert_eq(int(types["merchant"]), 1)
+	assert_eq(int(types["spy"]), 0, "a craft tally follows the order filter too")
+	assert_eq(CivilianRoster.status_label(CivilianRoster.STATUS_WORKING), "At work")
+	assert_eq(CivilianRoster.status_label(CivilianRoster.STATUS_IDLE), "Idle")
+
+
 func test_roster_empty_inputs_make_an_empty_roster() -> void:
 	var snapshot: Dictionary = CivilianRoster.snapshot(null, null, 0)
 	assert_eq(int(snapshot["total"]), 0)
