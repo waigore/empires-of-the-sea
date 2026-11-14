@@ -3,23 +3,21 @@ extends RefCounted
 ## Pure world-market deal matcher (wiki: world-market § Trade orders, § Price
 ## discovery; world-market-first-right-of-refusal § Priority override). Orders
 ## clear at the published integer price. Supply is scarce Minor/Tribe and Great
-## Power offers; the caller may add a WORLD counterparty so an otherwise
-## unmatched order still fills at the published price.
+## Power offers; the caller may add a WORLD counterparty so an unmatched order
+## still fills at the published price.
 ##
-## Ordering, in this order:
-##   1. first right of refusal: a purchased tile's auto-offer fills the owning
-##      Great Power's bid before any priority tier;
-##   2. integer priority tiers, lowest first;
-##   3. within a tier: a favoured trading pact (GP–GP), then a colony Tribe's
-##      suzerain, then (for Minor/Tribe sellers) Consulate holders and the
-##      higher relation score;
-##   4. ascending faction id, then order id.
+## Ordering: (1) first right of refusal — a purchased tile's auto-offer fills
+## the owning Great Power's bid before any tier; (2) integer priority tiers,
+## lowest first; (3) within a tier a favoured pact (GP–GP), then a colony
+## Tribe's suzerain, then (for Minor/Tribe sellers) Consulate holders and the
+## higher relation score; (4) ascending faction id, then order id.
 ##
+## A colonial boycott bars a pair outright — no fill between the boycotted court
+## and the issuer's colony Tribes; both orders carry (wiki: diplomacy § Boycott).
 ## No RNG, no logging, no Game/Node access (REQ-P3-03).
 
 
-## Returns {deals, residuals, notes}. Orders are cloned, so the input book keeps
-## its quantities and the caller decides what to carry forward.
+## Returns {deals, residuals, notes}. Orders are cloned; the caller carries.
 static func match(orders: Array[MarketOrder], context: Dictionary = {}) -> Dictionary:
 	var deals: Array[Dictionary] = []
 	var notes: Array[Dictionary] = []
@@ -57,8 +55,7 @@ static func match(orders: Array[MarketOrder], context: Dictionary = {}) -> Dicti
 	return {"deals": deals, "residuals": _residuals(orders, left_by_id), "notes": notes}
 
 
-## FRR pre-pass: purchased-tile offers fill the owning court's bid first,
-## regardless of the bid's integer priority tier.
+## FRR pre-pass: purchased-tile offers fill the owning court's bid first.
 static func _first_right(
 	commodity: String, bids: Array, offers: Array, state: Dictionary, deals: Array
 ) -> void:
@@ -80,11 +77,11 @@ static func _first_right(
 			var bid: MarketOrder = bid_raw
 			if bid.faction != owner or bid.remaining() <= 0:
 				continue
+			if _barred(state["context"], bid.faction, offer.faction):
+				continue
 			var filled: int = _fill(bid, offer, commodity, state, deals, true)
 			if filled <= 0:
 				continue
-	# A purchased-tile offer is scarce: after the owner's pre-pass it joins the
-	# ordinary tier loop with whatever remains.
 
 
 static func _match_tiers(
@@ -101,9 +98,7 @@ static func _match_tiers(
 			var filled: int = _fill(bid, offer, commodity, state, deals, false)
 			if filled <= 0:
 				blocked[bid.id] = true
-	# Anything left is a carry-forward candidate. Name the constraint that
-	# actually stopped it: the wiki attributes a cut by cargo or the purse, and
-	# a bid no offer could reach carries in silence (wiki: world-market
+	# Anything left carries. Name the constraint that stopped it (wiki: world-market
 	# § Treasury budget for bids — `bidPartialFill*Insufficient`; REQ-P5-05).
 	var had_offer: bool = false
 	for raw: Variant in offers:
@@ -131,8 +126,8 @@ static func _match_tiers(
 		})
 
 
-## Fills one bid/offer pair, capped by the buyer's holds, purse, the seller's
-## stock and the order quantities. Returns the units cleared.
+## Fills one bid/offer pair, capped by the buyer's holds, purse and the seller's
+## stock. Returns the units cleared.
 static func _fill(
 	bid: MarketOrder,
 	offer: MarketOrder,
@@ -150,8 +145,7 @@ static func _fill(
 	if gated_seller:
 		var stock_left: int = _stock_left(state, offer.faction, commodity)
 		if stock_left < quantity:
-			# The tons the seller no longer holds are named, so the Deal Book shows
-			# the shortfall instead of a silently smaller deal (REQ-P5-05).
+			# The tons the seller no longer holds are named (REQ-P5-05).
 			(state["notes"] as Array).append({
 				"code": "offer_partial_fill_stock_insufficient",
 				"faction": offer.faction,
@@ -175,8 +169,7 @@ static func _fill(
 	var ftp_for: Variant = state["context"].get("ftp_for", null)
 	if ftp_for is Callable:
 		is_ftp = bool((ftp_for as Callable).call(bid.faction, offer.faction))
-	# Flags the sale a colony's suzerain took as the favoured partner, so the
-	# Deal Book can explain why the rivals' bids waited (DR-20261111-11).
+	# Flags the sale a colony's suzerain took (DR-20261111-11).
 	var is_favoured: bool = false
 	var favoured_for: Variant = state["context"].get("favoured_for", null)
 	if favoured_for is Callable and not bid.is_world() and _is_minor(offer.faction):
@@ -219,9 +212,21 @@ static func _best_bid(
 		var bid: MarketOrder = raw
 		if bid.remaining() <= 0 or blocked.has(bid.id):
 			continue
+		# A barred pair is no bid at all for this seller, so the next court in
+		# the tier takes the goods (wiki: diplomacy § GP–Tribe — Boycott, R6).
+		if _barred(context, bid.faction, offer.faction):
+			continue
 		if best == null or _bid_less(bid, best, offer, context):
 			best = bid
 	return best
+
+
+## True when a colonial boycott stands between the two courts (wiki: diplomacy
+## § GP–Tribe — Boycott, R6). The caller publishes the reading; no diplomacy,
+## nothing to bar.
+static func _barred(context: Dictionary, a: int, b: int) -> bool:
+	var callable: Variant = context.get("boycott_for", null)
+	return callable is Callable and bool((callable as Callable).call(a, b))
 
 
 static func _bid_less(
@@ -237,8 +242,8 @@ static func _bid_less(
 			return a_ftp
 	if _is_minor(offer.faction):
 		# A colony's suzerain clears its goods first inside the tier, whatever
-		# the rivals' relations (wiki: diplomacy § Favoured trading partner,
-		# R7.1; DR-20261111-11). Independent courts keep the R7.3 order below.
+		# the rivals' relations (wiki: diplomacy § Favoured trading partner, R7.1;
+		# DR-20261111-11). Independent courts keep the R7.3 order below.
 		var favoured_for: Variant = context.get("favoured_for", null)
 		if favoured_for is Callable:
 			var favoured: int = int((favoured_for as Callable).call(offer.faction))
@@ -249,8 +254,7 @@ static func _bid_less(
 					return false
 		var consulate_for: Variant = context.get("consulate_for", null)
 		# R7.3's relation arm is a tiebreak between Consulate holders only; a
-		# consulate-less court keeps the default order below. A caller that
-		# publishes no Consulate reading has nothing to gate on.
+		# court with no Consulate reading has nothing to gate on.
 		var relation_applies: bool = not (consulate_for is Callable)
 		if consulate_for is Callable:
 			var a_consul: bool = bool((consulate_for as Callable).call(a.faction, offer.faction))

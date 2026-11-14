@@ -168,6 +168,11 @@ static func _matcher_context(
 		out["relation_for"] = func(gp: int, minor: int) -> float:
 			var record: DiplomacyRelation = diplomacy.relation(gp, minor)
 			return record.score if record != null else 0.0
+		# A boycott bars the deal, not the price: the boycotted court may not buy
+		# from or sell to a Tribe that is the issuer's colony, so the pair never
+		# fills and both orders carry (wiki: diplomacy § GP–Tribe — Boycott, R6).
+		out["boycott_for"] = func(a: int, b: int) -> bool:
+			return DiplomacyTrade.blocked_by_boycott(diplomacy, a, b)
 	return out
 
 
