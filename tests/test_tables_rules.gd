@@ -1156,6 +1156,74 @@ func test_plan_cannot_drive_quantities_negative() -> void:
 	assert_eq(stock["iron"], 0)
 	assert_eq(stock["coal"], 0)
 
+
+## A luxury is a trained hand's work: cigars need an apprentice, fur hats a
+## journeyman, and a higher tier satisfies the gate (wiki: production-recipes
+## § Worker-tier gates; DR-20261114-07).
+func test_luxury_rows_need_a_trained_hand() -> void:
+	assert_eq(ProductionRecipes.min_tier("cigars"), WorkerPool.Tier.APPRENTICE)
+	assert_eq(ProductionRecipes.min_tier("furHats"), WorkerPool.Tier.JOURNEYMAN)
+	assert_eq(ProductionRecipes.min_tier("lumber"), 0, "a plain row needs no hand")
+	var peasants: WorkerPool = WorkerPool.make(4)
+	assert_false(ProductionRecipes.tier_met("cigars", peasants))
+	assert_false(ProductionRecipes.tier_met("furHats", peasants))
+	assert_true(ProductionRecipes.tier_met("lumber", peasants))
+	var apprentices: WorkerPool = WorkerPool.make(3, 1)
+	assert_true(ProductionRecipes.tier_met("cigars", apprentices))
+	assert_false(ProductionRecipes.tier_met("furHats", apprentices))
+	var masters: WorkerPool = WorkerPool.make(3, 0, 0, 1)
+	assert_true(ProductionRecipes.tier_met("cigars", masters), "a master runs an apprentice row")
+	assert_true(ProductionRecipes.tier_met("furHats", masters), "a master runs a journeyman row")
+	# A projection with no pool fails closed rather than opening every row.
+	assert_false(ProductionRecipes.tier_met("cigars", null))
+	assert_true(ProductionRecipes.tier_met("lumber", null))
+	assert_false(ProductionRecipes.available_for("cigars", {}, peasants))
+	assert_true(ProductionRecipes.available_for("cigars", {}, apprentices))
+	assert_false(ProductionRecipes.available_ids_for({}, peasants).has("cigars"))
+	assert_true(ProductionRecipes.available_ids_for({}, apprentices).has("cigars"))
+	assert_false(ProductionRecipes.available_ids_for({}, apprentices).has("furHats"))
+
+
+## A gated row neither runs nor offers a ceiling, and the phase leaves its
+## inputs alone (wiki: production-recipes § Worker-tier gates; REQ-P2-03).
+func test_a_gated_row_does_not_run_and_its_ceiling_is_zero() -> void:
+	var stock: Dictionary = {"tobacco": 4, "furs": 4}
+	var peasants: WorkerPool = WorkerPool.make(4)
+	var report: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 2}, {"recipe": "furHats", "units": 2}],
+		stock, 20, {}, {}, peasants
+	)
+	assert_eq(report["runs"], {})
+	assert_eq(stock["tobacco"], 4)
+	assert_eq(stock["furs"], 4)
+	assert_eq(ProductionRecipes.allowance("cigars", stock, 20, [], peasants), 0)
+	# A gated row set by the court claims no labour from the rows that do run.
+	assert_eq(
+		ProductionRecipes.allowance(
+			"lumber", {"timber": 8}, 6, [{"recipe": "cigars", "units": 2}], peasants
+		),
+		3,
+		"a gated row claims nothing from the rows that run"
+	)
+	var apprentices: WorkerPool = WorkerPool.make(3, 1)
+	assert_eq(ProductionRecipes.allowance("cigars", stock, 20, [], apprentices), 2)
+	assert_eq(ProductionRecipes.allowance("furHats", stock, 20, [], apprentices), 0)
+	var allowed: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 2}], stock, 20, {}, {}, apprentices
+	)
+	assert_eq(allowed["runs"], {"cigars": 2})
+	assert_eq(stock["tobacco"], 0)
+
+
+## A batch already on the anvil was paid when it started: losing the hand that
+## opened the row does not strand its output (DR-20261112-11, DR-20261114-07).
+func test_a_carried_batch_lands_even_when_the_hand_is_gone() -> void:
+	var stock: Dictionary = {}
+	var wip: Dictionary = {"cigars": [{"units": 2, "turns_left": 1}]}
+	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, WorkerPool.make(4))
+	assert_eq(report["produced"], {"cigars": 2})
+	assert_eq(stock["cigars"], 2)
+
 func test_every_track_points_at_a_shipped_file() -> void:
 	var ids: Array[String] = MusicPlaylist.ids()
 	assert_gte(ids.size(), 6)
