@@ -45,12 +45,13 @@ static func income_plan(
 	economy: PlayerEconomy,
 	at_war: bool,
 	regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0,
+	muster_stall: int = 0
 ) -> Dictionary:
 	if _baseline(kind):
-		# Mainline income has no hull_chest arg yet.
+		# Mainline income has no hull_chest or escalation arg yet.
 		return _ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
-	return AiIncome.plan(config, economy, at_war, regiments, hull_chest)
+	return AiIncome.plan(config, economy, at_war, regiments, hull_chest, muster_stall)
 
 
 static func research_plan(

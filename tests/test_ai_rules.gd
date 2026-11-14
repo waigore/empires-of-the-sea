@@ -2643,6 +2643,46 @@ func test_the_standing_study_helper_reads_the_same_purse_as_the_planner() -> voi
 	)
 
 
+func test_the_ledger_helper_prices_the_study_the_planner_pays() -> void:
+	# The helper reads the same reserve the planner's ladder does: at war a
+	# purse above half the cash floor but under the muster pays the standing
+	# study, and the ledger must price it, not read a 0-gold row (issue #590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	economy.treasury = 600
+	assert_true(muster > 600, "600 sits under the war chest")
+	assert_eq(
+		AiResearchPlanner.standing_funding(config, economy, muster), "low",
+		"the standing study the planner pays is the one the ledger prices"
+	)
+
+
+func test_the_refusal_names_the_bar_a_broke_court_cannot_clear() -> void:
+	# The ledger's blocked reading for a study the planner will not pay (#590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	economy.treasury = 40
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"purse under half the cash floor",
+		"under half the floor no study is paid"
+	)
+	economy.treasury = muster - 1
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"saving for its reserve",
+		"the last payment of a war chest stays in it"
+	)
+	economy.treasury = 3000
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster), "",
+		"the surplus ladder pays; there is no refusal to name"
+	)
+
+
 func test_the_standing_study_stops_at_half_the_floor() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
@@ -3196,6 +3236,82 @@ func test_a_court_at_peace_keeps_only_its_cash_floor() -> void:
 	assert_eq(
 		AiIncome.goal_for(config, economy, false, 0), AiIncome.GOAL_SPEND,
 		"a thin purse at peace still spends"
+	)
+
+
+func test_a_stalled_war_chest_re_routes_the_reserve() -> void:
+	# The deferred-aim escalation (#603): a muster the court has stalled on for
+	# the escalation bar's turns drops the war chest out of the reserve, so the
+	# court's own income planners lead again instead of freezing behind a chest
+	# it cannot reach. Below the bar the chest stands as published.
+	var config: AiConfig = _phase_config()
+	var thin: PlayerEconomy = _purse(300)
+	var floor: int = config.parameter("economy.min_treasury")
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var chest: int = AiArmyReinforce.muster_floor(config, thin, 1, true)
+	assert_true(chest > floor, "the war chest is the muster the court saves for")
+
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1), chest,
+		"below the bar the court still banks for its regiment"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, bar - 1), chest,
+		"one turn short of the bar changes nothing"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, bar), floor,
+		"a stalled chest re-routes to the cash floor"
+	)
+	assert_eq(
+		String(AiIncome.plan(config, thin, true, 1, 0, bar)["goal"]), AiIncome.GOAL_EARN,
+		"the re-routed court still reads its own purse first"
+	)
+
+
+func test_a_stalled_chest_keeps_the_hull_chest_it_can_fill() -> void:
+	# The hull chest keeps its own reach rule (#591) through the re-route: a
+	# chest the purse already fills is the fleet's, one it cannot fill waits
+	# behind the army (issue #484, #603).
+	var config: AiConfig = _phase_config()
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var rich: PlayerEconomy = _purse(6000)
+	var thin: PlayerEconomy = _purse(300)
+	var tech: String = ShipEconomy.tech_for("sloop")
+	rich.tech_unlocked[tech] = true
+	thin.tech_unlocked[tech] = true
+	var chest: int = AiNavy.price(rich)
+	assert_true(chest > 0, "the yard price is real")
+
+	assert_eq(
+		AiIncome.reserve(config, rich, true, 1, chest, bar), chest,
+		"a reachable hull chest survives the re-route"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, chest, bar),
+		config.parameter("economy.min_treasury"),
+		"an unreachable hull chest never outmuscles the cash floor"
+	)
+
+
+func test_a_peaceful_court_in_reach_banks_its_war_chest() -> void:
+	# At peace the war chest is kept only once the purse already holds the
+	# cheapest line's own price (wiki: ai-architecture § Land reinforcement):
+	# a poorer court grows, and a court in reach banks the last of the chest
+	# instead of auctioning it away the turn peace opens (issue #603).
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var price: int = AiArmyReinforce.cheapest_line_price(_purse(0))
+	assert_true(price > 0, "the techs open a line to save for")
+
+	assert_eq(
+		AiIncome.reserve(config, _purse(price - 1), false, 1), floor,
+		"below the line's own price the court grows"
+	)
+	assert_eq(
+		AiIncome.reserve(config, _purse(price), false, 1),
+		AiArmyReinforce.muster_floor(config, _purse(price), 1, false),
+		"in reach the chest stands: the last ducats are not auctioned"
 	)
 
 

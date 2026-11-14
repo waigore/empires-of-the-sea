@@ -50,6 +50,9 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	report["goal"] = String(readings["goal"])
 	report["treasury"] = int(readings["treasury"])
 	report["reserve"] = int(readings["reserve"])
+	# The deferred-aim escalations this reading applied (issue #603): the aims
+	# stalled past the escalation bar, with their stall length.
+	report["escalations"] = (readings["escalations"] as Dictionary).duplicate()
 	report["pressure"] = pressure
 	play.ai.note_objectives(faction, report, play.turn)
 	return report
@@ -71,7 +74,21 @@ static func _readings(
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
 	var hull_chest: int = AiNavy.chest(at_war, warships, hostile_warships, economy)
-	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
+	# The deferred-aim escalation readings (#603): how long each aim has been
+	# deferred without its shortfall shrinking. A stalled war chest re-routes
+	# (`AiIncome.reserve`); a stall past the blocked bar names its reason in the
+	# trace instead of another silent deferred row.
+	var records: Dictionary = play.ai.deferrals_for(faction)
+	var escalations: Dictionary = AiDeferral.escalated(
+		records, maxi(config.parameter("ledger.escalate_turns"), 1)
+	)
+	var blockings: Dictionary = AiDeferral.escalated(
+		records, maxi(config.parameter("ledger.blocked_turns"), 1)
+	)
+	var reserve: int = AiIncome.reserve(
+		config, economy, at_war, regiments, hull_chest,
+		AiDeferral.stall(records, "muster.line")
+	)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
@@ -89,9 +106,19 @@ static func _readings(
 	# what the court will actually pay (issue #490).
 	var funding_index: int = ResearchFunding.ORDER.find(funding)
 	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
+	# The study the purse cannot fund this turn: the ledger names the refusal
+	# instead of reading a 0-gold study as funded (issue #590).
+	var research_refusal: String = ""
+	var standing_study: int = 0
 	if not standing.is_empty():
-		research_cost += ResearchFunding.gold(standing)
+		# The standing study is the bounded exception that may dip into the
+		# chest the muster claims, so it prices its own one-slot budget beside
+		# the chest rather than against the purse the chest consumes (#590).
+		standing_study = 1
 		funding_index = maxi(funding_index, ResearchFunding.ORDER.find(standing))
+	elif funding == ResearchFunding.ORDER[0]:
+		research_refusal = AiResearchPlanner.standing_refusal(config, economy, reserve)
+		research_cost = ResearchFunding.gold(AiResearchPlanner.STANDING_FUNDING)
 	return {
 		"posture": String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN)),
 		"at_war": at_war,
@@ -99,6 +126,8 @@ static func _readings(
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
+		"escalations": escalations,
+		"blockings": blockings,
 		"ships": MapPlayCourt.ships(play, faction),
 		"warships": warships,
 		"warship_price": AiNavy.price(economy),
@@ -120,6 +149,8 @@ static func _readings(
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
+		"standing_study": standing_study,
+		"research_refusal": research_refusal,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
 		# The study that opens the chain's next link, so the trace names the door
@@ -146,6 +177,10 @@ static func _pools(
 		"labour": economy.available_peasants(),
 		"orders": 1,
 	}
+	# The standing study's own one-slot budget beside the chest the muster
+	# claims — the bounded exception the planner pays from the purse (#590).
+	if int(readings.get("standing_study", 0)) > 0:
+		pools["standing"] = 1
 	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
 		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
 	return pools

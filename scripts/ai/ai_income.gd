@@ -47,17 +47,38 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 ## (`AiNavy`, issue #484) once that chest is in reach — whichever is larger; at
 ## peace, its own cash floor, so a court that is not fighting still grows. 0
 ## when the caller has no ledger to read.
+##
+## `muster_stall` is the deferred-aim escalation reading (#603): the number of
+## turns the muster aim has been deferred without its shortfall shrinking. A
+## war chest the court cannot reach must not freeze the court forever — once
+## the muster has stalled that long, the chest re-routes (the reserve falls
+## back to the cash floor and the reachable hull chest) and the court's own
+## income planners lead again; the moment the shortfall starts shrinking the
+## chest resumes and the court banks for its regiment as published.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, muster_stall: int = 0
 ) -> int:
 	if config == null or economy == null:
 		return 0
 	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
-	if not at_war:
-		return floor
-	var muster: int = maxi(floor, AiArmyReinforce.muster_floor(config, economy, regiments, true))
-	return maxi(muster, hull_held(config, economy, true, regiments, hull_chest))
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, regiments, true)
+	if muster_stall >= maxi(config.parameter("ledger.escalate_turns"), 1):
+		# The re-route: the reserve the court cannot reach stands down so every
+		# planner that reads it leads again (issue #603). The hull chest keeps
+		# its own reach rule below.
+		muster = 0
+	elif not at_war:
+		# At peace the war chest is kept only once the purse already holds the
+		# cheapest line's own price (wiki: ai-architecture § Land
+		# reinforcement): a poorer court keeps its cash floor and grows — no
+		# peace-time save phase (DR-20261113-22) — and a court in reach banks
+		# the last of the chest instead of auctioning it away the turn peace
+		# opens, so the muster it was saving for actually fires (issue #603).
+		if economy.treasury < AiArmyReinforce.cheapest_line_price(economy):
+			muster = 0
+	var held: int = hull_held(config, economy, at_war, regiments, hull_chest)
+	return maxi(floor, maxi(muster, held))
 
 
 ## The yard's chest as this court holds it this turn. A chest the court can
@@ -83,12 +104,13 @@ static func hull_held(
 
 ## One turn's goal plus the readings behind it, for the turn trace and the
 ## observer row. `hull_chest` is the yard price the court is saving for, 0 when
-## it is not rebuilding its fleet.
+## it is not rebuilding its fleet. `muster_stall` is the deferred-aim
+## escalation reading (issue #603; see `reserve`).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0, muster_stall: int = 0
 ) -> Dictionary:
-	var need: int = reserve(config, economy, at_war, regiments, hull_chest)
+	var need: int = reserve(config, economy, at_war, regiments, hull_chest, muster_stall)
 	var held: int = economy.treasury if economy != null else 0
 	return {
 		"goal": GOAL_EARN if held < need else GOAL_SPEND,

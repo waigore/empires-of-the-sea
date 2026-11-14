@@ -102,6 +102,11 @@ static func _record_objectives(factions: Dictionary, ledgers: Dictionary) -> voi
 			"rows": (ledger.get("objectives", []) as Array).duplicate(true),
 			"lines": (ledger.get("lines", []) as Array).duplicate(),
 		}
+		# The deferred-aim escalations the reading applied this turn (issue
+		# #603): the aims stalled past the escalation bar, with the stall length.
+		var escalations: Dictionary = ledger.get("escalations", {})
+		if not escalations.is_empty():
+			bucket["escalations"] = (escalations as Dictionary).duplicate()
 
 
 ## Feeding coverage per crown from the resolved consumption pass; the next

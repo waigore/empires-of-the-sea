@@ -158,14 +158,43 @@ static func research_floor(config: AiConfig) -> int:
 ## planner funds (issue #491 T1 reads this planner, it does not spend).
 ## `save_floor` is the money-goal reserve the court is saving for (the muster at
 ## war); a negative value keeps the cash floor alone, as at peace.
+##
+## The helper reads the same purse as `plan`: the standing study exists only
+## when the surplus ladder — priced against that same reserve — cannot fund the
+## cheapest preset, else the ladder preset pays and no standing slot is priced
+## (issue #590: a ledger that priced the study against the cash floor alone
+## read a study the planner funds at Low as a 0-gold `funded` row).
 static func standing_funding(
 	config: AiConfig, economy: PlayerEconomy, save_floor: int = -1
 ) -> String:
 	var floor: int = research_floor(config)
-	if funding_for(config, economy, floor) != ResearchFunding.ORDER[0]:
-		return ""
 	var reserve: int = save_floor if save_floor >= 0 else floor
+	if funding_for(config, economy, reserve) != ResearchFunding.ORDER[0]:
+		return ""
 	return STANDING_FUNDING if _can_pay_standing(economy, floor, reserve) else ""
+
+
+## Why the court's slots go unfunded this turn, for the ledger's blocked
+## reading (issue #590): "" when a study will actually be paid — the surplus
+## ladder above the reserve, or the standing study above half the cash floor —
+## otherwise the refusal the trace names, instead of a 0-gold `funded` row.
+## Same purse as `plan` and `standing_funding`.
+static func standing_refusal(
+	config: AiConfig, economy: PlayerEconomy, save_floor: int = -1
+) -> String:
+	if config == null or economy == null:
+		return ""
+	var floor: int = research_floor(config)
+	var reserve: int = save_floor if save_floor >= 0 else floor
+	if funding_for(config, economy, reserve) != ResearchFunding.ORDER[0]:
+		return ""
+	var price: int = ResearchFunding.gold(STANDING_FUNDING)
+	var keep: int = maxi(floor / 2, 0)
+	if economy.treasury < keep + price:
+		return "purse under half the cash floor"
+	if reserve > floor and economy.treasury >= reserve - price:
+		return "saving for its reserve"
+	return ""
 
 
 ## The slot that keeps the standing study: the first slot already holding a

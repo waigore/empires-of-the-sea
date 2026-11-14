@@ -49,7 +49,13 @@ static func run(play: PlaySession) -> Dictionary:
 		# is never auctioned away for imports (wiki: growth-stage-planner
 		# § Recruitment modulation; treasury-planner § Priority).
 		var income: Dictionary = AiBind.income_plan(
-			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction)
+			kind, config, economy, at_war, regiments, MapPlayCourt.navy_chest(play, faction),
+			# The deferred-aim escalation (#603): how long the muster aim has
+			# been deferred without its shortfall shrinking. A war chest the
+			# court has stalled on re-routes (`AiIncome.reserve`), so every
+			# spend floor that reads the reserve opens and the court's own
+			# income planners lead again.
+			AiDeferral.stall(play.ai.deferrals_for(faction), "muster.line")
 		)
 		var floor: int = int(income["reserve"])
 		# Surplus research still leaves the money-first reserve alone; the standing

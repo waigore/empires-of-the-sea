@@ -271,6 +271,15 @@ static func muster_floor(
 
 
 ## Price of the cheapest line pattern this court's techs open today, ignoring the
+## purse: what it has to save for, not what it can pay right now. 0 when its
+## techs open no line at all. The reach test the money goal reads for a
+## peace-time war chest (wiki: ai-architecture § Land reinforcement).
+static func cheapest_line_price(economy: PlayerEconomy) -> int:
+	var type_id: String = _cheapest_line_type(economy)
+	return 0 if type_id.is_empty() else RegimentCatalog.treasury_cost(type_id)
+
+
+## Price of the cheapest line pattern this court's techs open today, ignoring the
 ## purse: what it has to save for, not what it can pay right now. -1 when its
 ## techs open no line at all.
 static func _cheapest_line(economy: PlayerEconomy) -> int:

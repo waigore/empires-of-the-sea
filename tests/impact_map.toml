@@ -1420,6 +1420,15 @@ suites = [
 match = "scripts/ai/ai_objective*.gd*"
 domain = "ai_ledger"
 
+# The deferred-aim escalation tracker and the reserve it re-routes (issue #603).
+[[rules]]
+match = "scripts/ai/ai_deferral.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_income.gd*"
+domain = "ai_ledger"
+
 [[rules]]
 match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"
