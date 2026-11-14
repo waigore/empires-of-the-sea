@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:83f45ce1590b4cfee15d8b5fcfdb69f1f2d65f3ec056924c994eecbf4bd3b8b2",
-  "submission_git": "feat/603-deferral-escalation-r2@f1bca882",
+  "submission_hash": "sha256:264bdca3e813eb2b9b3ddc3f0c00b6a1a3ba5ae8b53acfd5e71cfd96d395f1fb",
+  "submission_git": "fix/ai-refused-peace-remembers@c7d2b87d",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ecb6eec760266e8b429641ada4912f34d7c18032578496dbd9d19bdf9cabddc5",
+    "ai_surface_hash": "sha256:e17ec62e7bf8dab6a46d0721ba34918315f61e94fdec25f017a50b6778c84c73",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 18,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T16:19:45Z",
+  "timestamp": "2026-11-14T16:46:18Z",
   "report_version": 1,
-  "signature": "hmac-sha256:a0481eb551827072297c44908e333b3ef94f8d30dfd1b55ccacd2e02d44138df"
+  "signature": "hmac-sha256:a15d769fb8160a1819add0be1b3e10f24765828a9ab8c623c43e525c5ab9cde4"
 }
