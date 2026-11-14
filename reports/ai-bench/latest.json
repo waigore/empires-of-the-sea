@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:d108b51a23d82c266522780e7befb08a560bec676877aeb157916141539079a1",
-  "submission_git": "refactor/economy-court-turn@504f504f",
+  "submission_hash": "sha256:5de10776fef936bbea8a4b041c7bdf75f410b68f5b11a30b0600dd77afea8287",
+  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261114T182936342707Z@4c9adbc8",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:2af23e08031b36be4a2ad3b0347ef34e6c20c5871aaafbbdb66b1f147f8f0534",
+    "ai_surface_hash": "sha256:f8d0ebe9825424e63cef6695f5508056ccb2b6c53b8aa8ae059d6fa993c89131",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 18,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T18:23:56Z",
+  "timestamp": "2026-11-14T18:48:56Z",
   "report_version": 1,
-  "signature": "hmac-sha256:d239600b72f90d06eb46fd7cb17c69af8bc35ab5922b54d400279426f9a12b01"
+  "signature": "hmac-sha256:ee19e40edf4715223f8a90cc3efc57f03cb9c0e126a81c7221792dc1c209443e"
 }
