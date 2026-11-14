@@ -210,6 +210,19 @@ static func _reinforce(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
+	# The hull the court is saving for outranks the next regiment: the muster
+	# spends only what stands above that chest, and — once the chest is full —
+	# only the cloth above the hull's own row, so the launch the purse was saved
+	# for can actually be laid (issue #484).
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
+	var held: Dictionary = {}
+	if chest > 0 and economy.treasury >= chest:
+		held = AiNavy.due_row(
+			MapPlayCourt.at_war(play, faction),
+			MapPlayCourt.warships(play, faction),
+			MapPlayCourt.hostile_warships(play, faction),
+			economy
+		)
 	var plan: Dictionary = AiBind.reinforce_plan(
 		kind,
 		config,
@@ -221,9 +234,8 @@ static func _reinforce(
 			kind, economy, play.army_layer.food_upkeep_all(faction),
 			MapPlayCourt.ships(play, faction)
 		),
-		# The hull the court is saving for outranks the next regiment: the
-		# muster spends only what stands above that chest (issue #484).
-		MapPlayCourt.navy_chest(play, faction)
+		chest,
+		held
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

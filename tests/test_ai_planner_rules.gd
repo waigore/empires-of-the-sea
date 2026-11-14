@@ -830,6 +830,33 @@ func test_the_muster_trace_names_the_row_that_blocks_it() -> void:
 	assert_true(reasons.has("missing fabric 1"), "the trace names the row")
 
 
+## Issue #484: once the chest is full the hull's row is the fleet's too. A court
+## that wove one cloth a turn and mustered it away could never lay the hull it
+## had already paid for, so the muster spends only the cloth above that row.
+func test_the_muster_yields_the_hull_s_row_once_the_chest_is_full() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(9000)
+	economy.stockpile["fabric"] = 1
+	var row: Dictionary = {"lumber": 1, "fabric": 1}
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_eq(String(held["muster"]), "", "the last cloth is the hull's")
+	assert_true(
+		(held["reasons"] as Array).has("missing fabric 1"),
+		"and the trace names the row the fleet holds"
+	)
+	# One cloth above the row is the army's again.
+	economy.stockpile["fabric"] = 2
+	var spare: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_ne(String(spare["muster"]), "", "the surplus above the row may be spent")
+	# With no hull due the row is not held at all.
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	assert_ne(String(free["muster"]), "", "no fleet claim, no held row")
+
+
 func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 	var peace: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 8, false)
 	assert_eq(String(peace["muster"]), "", "eight regiments is the peace target")
