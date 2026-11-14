@@ -19,16 +19,19 @@ extends RefCounted
 ## the works, then this turn's production, then what the booked orders hold).
 const RATIONS: String = "reserve.rations"
 const MUSTER: String = "reserve.muster"
+## The material row of the hull the court is saving for (`AiNavy.saving_row`):
+## the fleet claim holds its cloth the way the muster holds its own (issue #484).
+const NAVY: String = "reserve.navy"
 const WORKS: String = "reserve.works"
 const PRODUCTION: String = "reserve.production"
 const KEPT: String = "reserve.kept"
 ## The aim a running order keeps its own inputs back under.
-const ORDER: Array[String] = [RATIONS, MUSTER, WORKS, PRODUCTION, KEPT]
+const ORDER: Array[String] = [RATIONS, MUSTER, NAVY, WORKS, PRODUCTION, KEPT]
 ## Utility per claim: rations outrank everything (a court that sells the food
-## its regiments eat starves), then the muster's fabric, the works, and the
-## production this turn already promised.
+## its regiments eat starves), then the muster's fabric, the hull's row, the
+## works, and the production this turn already promised.
 const UTILITY: Dictionary = {
-	RATIONS: 95, MUSTER: 90, WORKS: 80, PRODUCTION: 70, KEPT: 85,
+	RATIONS: 95, MUSTER: 90, NAVY: 88, WORKS: 80, PRODUCTION: 70, KEPT: 85,
 }
 
 

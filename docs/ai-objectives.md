@@ -48,16 +48,18 @@ at war: the peace window bought it.
 ## The navy's build leg
 
 `navy.build` funds at war with no fighting hull or an outmatched coast (utility
-90 / 70 vs a sortie's 60) at the cheapest open warship (`treasury` + one `hull`
-slip). `MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop
-of War for the fleet"); peace prices no yard.
+90 / 70 vs a sortie's 60) at the cheapest open warship: its `treasury` chest and
+the hull's material row, held by the money goal and `AiClaims.NAVY`.
+`MapPlayCargoAi` lays it via `FleetYard` when funded ("lays down a Sloop of War
+for the fleet"); peace prices no yard.
 
 ## Reservations as claims
 
-`AiClaims` ranks the ration consumption eats, the next regiment, planned works
-and this turn's production against the stockpile; the market reads their merged
-grant (same dictionary, trade behaviour-identical), the civilian purse is one
-treasury claim, and the turn record keeps `claims` beside ledger lines.
+`AiClaims` ranks the ration consumption eats, the next regiment, the saving
+hull's row, planned works and this turn's production against the stockpile; the
+market reads their merged grant (same dictionary, trade behaviour-identical),
+the civilian purse is one treasury claim, and the turn record keeps `claims`
+beside ledger lines.
 
 ## The colony
 

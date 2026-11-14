@@ -222,6 +222,15 @@ static func _trade(
 			play.world, faction, play.human_faction_id(), play.difficulty, config
 		)["extra_regiments"])
 	)
+	# The hull the court is saving for holds its own material row beside the
+	# muster's: a court that sells the last cloth it needs can save the whole
+	# 5,500-ducat chest and still never lay the hull (issue #484).
+	var navy: Dictionary = AiNavy.due_row(
+		MapPlayCourt.at_war(play, faction),
+		MapPlayCourt.warships(play, faction),
+		MapPlayCourt.hostile_warships(play, faction),
+		economy
+	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
 	# buys the missing food before any build input (wiki: treasury-planner
@@ -234,12 +243,12 @@ static func _trade(
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
 	var claims: Dictionary = AiClaims.reserve(_claim_rows(
-		production, food, economy, need, works
+		production, food, economy, need, works, navy
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var plan: Dictionary = AiBind.market_plan(
-		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved, need,
-		floor, food_short
+		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
+		_merge_rows(need, navy), floor, food_short
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
@@ -254,22 +263,24 @@ static func _trade(
 ## The named rows one turn reserves, in the order the market must keep stock.
 ## Each row is an `AiObjective` cost: the ration the consumption phase eats
 ## (grain first, holding what the court actually has), the inputs this turn's
-## production promised, the row the next regiment is provisioned with, every
-## material the crews' planned works will spend, and the inputs the orders
-## already booked hold (wiki: workers-and-population § Consumption;
-## DR-20261112-04; growth-stage-planner § Recruitment modulation;
-## economy-planner § Reservations).
+## production promised, the row the next regiment is provisioned with, the row
+## the hull the court is saving for needs, every material the crews' planned
+## works will spend, and the inputs the orders already booked hold (wiki:
+## workers-and-population § Consumption; DR-20261112-04; growth-stage-planner
+## § Recruitment modulation; economy-planner § Reservations; issue #484).
 static func _claim_rows(
 	production: Dictionary,
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	navy: Dictionary = {}
 ) -> Array[Dictionary]:
 	var rows: Dictionary = {
 		AiClaims.RATIONS: _ration_row(food, economy),
 		AiClaims.PRODUCTION: _production_row(production),
 		AiClaims.MUSTER: muster,
+		AiClaims.NAVY: navy,
 		AiClaims.WORKS: works,
 		AiClaims.KEPT: (
 			_production_row({"assignments": economy.production.assignments()})
@@ -277,6 +288,18 @@ static func _claim_rows(
 		),
 	}
 	return AiClaims.sources(rows)
+
+
+## Two material rows added together: the muster's cloth and the hull's, so the
+## market bids for both before the rest of the build inputs (issue #484).
+static func _merge_rows(left: Dictionary, right: Dictionary) -> Dictionary:
+	if right.is_empty():
+		return left
+	var merged: Dictionary = left.duplicate()
+	for commodity: Variant in right.keys():
+		var id: String = String(commodity)
+		merged[id] = int(merged.get(id, 0)) + int(right[commodity])
+	return merged
 
 
 ## The ration row: grain, then meat, holding only what the court actually has of
@@ -317,9 +340,10 @@ static func _reserved_inputs(
 	food: int = 0,
 	economy: PlayerEconomy = null,
 	muster: Dictionary = {},
-	works: Dictionary = {}
+	works: Dictionary = {},
+	navy: Dictionary = {}
 ) -> Dictionary:
-	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works))["reserved"]
+	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works, navy))["reserved"]
 
 
 ## Food the larder already holds: the two ration commodities, grain first.

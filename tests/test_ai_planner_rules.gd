@@ -2454,6 +2454,77 @@ func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
 	play.civilian_layer.free()
 
 
+## Issue #484: the fleet claim holds the hull's material row the way the muster
+## holds its own — the cloth and lumber the yard wants, read off the catalog for
+## the cheapest warship the court's techs open.
+func test_the_fleet_claim_knows_the_hull_s_material_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_true(AiNavy.saving_row(economy).is_empty(), "no warship open, no row")
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(
+		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
+		"the row the yard charges for the hull it is saving for"
+	)
+	assert_true(
+		AiNavy.due_row(false, 0, 3, economy).is_empty(),
+		"a court at peace is not saving for a hull"
+	)
+	assert_eq(
+		AiNavy.due_row(true, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
+		"a court at war with no warship holds the row"
+	)
+
+
+## Issue #484: a court that saved the whole chest but sold its cloth reads a
+## deferred fleet claim naming the missing row, instead of a funded launch the
+## yard would refuse.
+func test_a_fleet_claim_short_of_cloth_defers_and_names_the_row() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 0
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var report: Dictionary = MapPlayObjectivesAi.run(play)
+	var line: String = ""
+	for raw: Variant in (report[OBJ_OWNER] as Dictionary)["lines"]:
+		if String(raw).begins_with("navy.build"):
+			line = String(raw)
+	assert_true(line.contains("fabric 0/1"), "the trace names the row that blocked it: %s" % line)
+	assert_false(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"a hull whose row the court does not hold is not funded"
+	)
+	assert_true(
+		(MapPlayCargoAi.run(play, OBJ_OWNER, economy).get("warship", {}) as Dictionary).is_empty(),
+		"and no hull is laid down"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #484: the economy keeps the hull's row back beside the muster's, so a
+## court saving 5,500 ducats does not sell the cloth the yard wants.
+func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var production: Dictionary = {"assignments": []}
+	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+		production, 0, economy, {"fabric": 1}, {}, {"lumber": 1, "fabric": 1}
+	)
+	var reserved: Dictionary = AiClaims.reserve(rows)["reserved"]
+
+	assert_eq(int(reserved["fabric"]), 2, "the muster's cloth plus the hull's")
+	assert_eq(int(reserved["lumber"]), 1, "and the hull's timber")
+	assert_true(
+		(rows as Array).any(
+			func(row: Variant) -> bool: return String((row as Dictionary)["id"]) == AiClaims.NAVY
+		),
+		"the hull's row is its own claim, not the muster's"
+	)
+
+
 func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
 	var config: AiConfig = _objective_config()
 	var peace: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_PEACE, config)
