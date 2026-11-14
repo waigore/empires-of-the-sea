@@ -1985,6 +1985,23 @@ func test_a_regiment_line_carries_its_title_when_it_has_one() -> void:
 	assert_true(plain.contains("new regiment of Peasant Levies"))
 
 
+## A launched hull prints the name it was christened with beside its type and
+## the capital it slid from (wiki: the-gazette § Item catalog — "a hull keeps
+## the name it was christened with"; naming § Ship names).
+func test_a_launched_hull_line_carries_its_christened_name() -> void:
+	var named: String = GazetteCopyMuster.ship_launched(
+		{"label": "Carrack", "name": "Trinidad", "place": "Madrid"}
+	)
+	assert_true(named.contains("Trinidad"), "the christened name prints")
+	assert_true(named.contains("Carrack"), "the hull's type prints")
+	assert_true(named.contains("Madrid"), "the capital she slid from prints")
+	## A record that carries no name keeps the plain launch line.
+	var plain: String = GazetteCopyMuster.ship_launched(
+		{"label": "Carrack", "place": "Madrid"}
+	)
+	assert_true(plain.contains("A Carrack slides from the slips at Madrid"))
+
+
 ## A record whose kind has no copy prints nothing, so a sheet never carries an
 ## empty rule (REQ-P2-03).
 func test_an_unknown_muster_kind_prints_nothing() -> void:
