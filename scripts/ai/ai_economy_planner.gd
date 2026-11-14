@@ -107,8 +107,12 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 ## chest the caller passes in `floor`, whichever is higher — while the court
 ## could still train again next turn (wiki: workers-and-population § Rival
 ## training throttle; growth-stage-planner § Recruitment modulation).
+## `fed_slack` is the grain the larder leaves after the army, the navy and the
+## workers eat: a court hires no mouth it cannot feed, because a peasant it
+## cannot feed strikes instead of working (issue #489). A negative reading means
+## the caller has no larder to read, and the gate does not apply.
 static func recruitment_orders(
-	config: AiConfig, economy: PlayerEconomy, floor: int = 0
+	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
@@ -129,6 +133,8 @@ static func recruitment_orders(
 		var tier: int = _best_tier(sim)
 		if tier < 0:
 			break
+		if fed_slack >= 0 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
+			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
 				and sim.workers.count(WorkerPool.Tier.PEASANT) <= 1:
 			break
@@ -140,6 +146,7 @@ static func recruitment_orders(
 		var result: Dictionary = sim.recruit(tier)
 		if not bool(result.get("ok", false)):
 			break
+		fed_slack -= WorkerPool.FOOD_PER_WORKER[tier]
 		orders.append({"tier": tier})
 	return orders
 
