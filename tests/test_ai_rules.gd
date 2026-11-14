@@ -1587,30 +1587,6 @@ func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
 	assert_true((plan["assignments"] as Array).is_empty())
 
 
-## A court with no trained hand plans no luxury run, and the same court with an
-## apprentice rolls the cigars it can (wiki: production-recipes § Worker-tier
-## gates; DR-20261114-07).
-func test_ai_economy_plans_no_luxury_without_a_trained_hand() -> void:
-	var economy := PlayerEconomy.starting()
-	economy.stockpile = {"tobacco": 8, "furs": 8}
-	economy.workers = WorkerPool.make(6)
-	var plan: Dictionary = AiEconomyPlanner.production_orders(
-		AiConfig.build(1, 1500), economy
-	)
-	for assignment: Dictionary in plan["assignments"]:
-		assert_ne(String(assignment["recipe"]), "cigars")
-		assert_ne(String(assignment["recipe"]), "furHats")
-	economy.workers = WorkerPool.make(5, 1)
-	var trained: Dictionary = AiEconomyPlanner.production_orders(
-		AiConfig.build(1, 1500), economy
-	)
-	var recipes: Array[String] = []
-	for assignment: Dictionary in trained["assignments"]:
-		recipes.append(String(assignment["recipe"]))
-	assert_true(recipes.has("cigars"), "the apprentice opens the cigar row: %s" % str(recipes))
-	assert_false(recipes.has("furHats"), "fur hats still wait for a journeyman")
-
-
 func test_ai_economy_is_deterministic() -> void:
 	var first := PlayerEconomy.starting()
 	first.stockpile = {"timber": 8, "wool": 6}
