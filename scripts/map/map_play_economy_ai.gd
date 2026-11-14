@@ -4,8 +4,11 @@ extends RefCounted
 ## for every rival, driving `AiEconomyPlanner` / `AiMarketPlanner` and applying
 ## the legal orders, and reports the trace (REQ-P2-03, REQ-P3-03).
 ##
-## The civilian pass lives in `MapPlayCivilianAi`; this file keeps the ledger
-## side (overseas yield, food, trade) so neither pass owns the other's domain.
+## One court's plan and its application live in `MapPlayEconomyCourt`, so a
+## court's ledger turns once and its report row cannot drift from the orders it
+## booked. The civilian pass lives in `MapPlayCivilianAi`; this file keeps the
+## ledger side (overseas yield, food, reservations) so neither pass owns the
+## other's domain.
 
 ## Resolves every rival economy once, then plans the next turn. Call after the
 ## Build/Work pass and before the player's own economy so both read the works
@@ -22,142 +25,27 @@ static func run(play: PlaySession) -> Dictionary:
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
 	for faction: int in MapPlayCourt.planning_factions(play):
-		var kind: String = AiControl.court_kind(play, faction)
-		var economy: PlayerEconomy = play.ai.economy_for(faction)
-		MapPlayCivilianAi.seed(play, faction)
-		var overseas: Dictionary = _overseas(play, faction, economy)
-		if kind == AiControl.KIND_RANDOM:
-			var random_row: Dictionary = AiRandomCourt.economy(
-				play, faction, market, overseas
-			)
-			order_log.append_array(
-				(random_row.get("civilians", {}) as Dictionary).get("orders", [])
-			)
-			by_faction[faction] = random_row
-			continue
-		var config: Variant = AiBind.config(kind, faction, play.map_seed)
-		var cargo: Dictionary = MapPlayCargoAi.run(play, faction, economy, overseas)
-		var revealed: Dictionary = MapPlayCourtFog.research_revealed(play, faction)
-		var at_war: bool = MapPlayCourt.at_war(play, faction)
-		var regiments: int = MapPlayCourt.regiments(play, faction)
-		# The goal the court plans with this turn: money first (DR-20261113-19).
-		# The reserve is the muster it is saving for while it stands under its
-		# regiment target, else its own cash floor; a court short of it is on
-		# `earn` and every deferrable spend stands down while its income planners
-		# lead. Every discretionary spend reads the same reserve, so the war chest
-		# is never auctioned away for imports (wiki: growth-stage-planner
-		# § Recruitment modulation; treasury-planner § Priority).
-		var own_warships: int = MapPlayCourt.warships(play, faction)
-		var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
-		var income: Dictionary = AiBind.income_plan(
-			kind, config, economy, at_war, regiments, hull_chest, own_warships,
-			# A war chest the court has stalled on re-routes (#603).
-			AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line")
-		)
-		# Skip production buys while earning for the navy chest (issue #484).
-		var production: Dictionary = (
-			{"assignments": []}
-			if hull_chest > 0 and String(income["goal"]) == AiIncome.GOAL_EARN
-			else AiBind.production_orders(kind, config, economy)
-		)
-		var floor: int = int(income["reserve"])
-		# Surplus research still leaves the money-first reserve alone; the standing
-		# study alone may dip to the cash floor so a war-time court parked at 500
-		# while saving 2,400 still learns (issue #490).
-		var research_floor: int = AiBind.research_floor(kind, config)
-		# Navy unlock door first, else Tribe chain (issue #484; DR-20261114-05).
-		var door: String = ""
-		if AiNavy.due(
-			at_war, MapPlayCourt.warships(play, faction),
-			MapPlayCourt.hostile_warships(play, faction)
-		):
-			door = AiNavy.unlock_tech(economy, MapPlayCourt.hull_types(play, faction))
-		if door.is_empty():
-			door = AiTribeColony.door(
-				play.diplomacy, play.world, play.court_charts, faction,
-				economy.tech_unlocked
-			)
-		var research: Dictionary = AiBind.research_plan(
-			kind, config, economy,
-			{
-				"at_war": at_war,
-				"revealed": revealed,
-				"treasury_floor": floor,
-				"cash_floor": research_floor,
-				"door": door,
-				"defer_standing": hull_chest > 0,  # yard fills before standing (#484)
-			}
-		)
-		var boost: Dictionary = MapPlaySpyAi.research_bonus(play, faction, economy)
-		var hospitals: Array[int] = HospitalRules.demand_list(play.world, faction)
-		# The works a crew will start this turn are planned against the ledger
-		# the phase will close with, so the market knows which feedstock they
-		# need before it stages a sale: build, work and trade never spend the
-		# same commodity twice (wiki: economy-planner § Reservations). The same
-		# plans are applied once the phase has resolved.
-		var projected: Dictionary = EconomyTurn.project(
-			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
-			_army_food(play, faction), boost, hospitals, _leader(play, faction)
-		)
-		# A court on `earn` still works its own land: extraction draws on the
-		# cash floor, everything else waits for the muster (issue #489).
-		var works_floor: int = (
-			config.parameter("economy.min_treasury")
-			if String(income["goal"]) == AiIncome.GOAL_EARN else -1
-		)
-		var plans: Array[Dictionary] = MapPlayCivilianAi.plan_all(
-			play, faction, economy, config, overseas,
-			(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor
-		)
-		var works_reserved: Dictionary = MapPlayCivilianAi.work_rows(plans)
-		var trade: Dictionary = _trade(
-			play, faction, economy, config, market, overseas, production,
-			works_reserved, floor, String(income["goal"]) == AiIncome.GOAL_EARN
-		)
-		# The shared market clears once, after every court has staged its orders.
-		var resolved: Dictionary = EconomyTurn.resolve(
-			economy, market, overseas["extraction"] as Dictionary, MapPlayCourt.ships(play, faction),
-			_army_food(play, faction), false, boost, hospitals, _leader(play, faction)
-		)
-		# A rival's wards eat in the same pass as the crown's: whole staffs, seat
-		# first, and the flags they set are what its next rest tick reads
-		# (wiki: combat § Regiment condition; DR-20261112-04).
-		HospitalRules.feed(
-			play.world, faction,
-			int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
-		)
-		economy.production.clear_assignments()
-		for assignment: Dictionary in production["assignments"]:
-			economy.production.set_assignment(String(assignment["recipe"]), int(assignment["units"]))
-		var recruits: Array[Dictionary] = AiBind.recruitment_orders(
-			kind, config, economy, floor,
-			AiBind.fed_slack(
-				kind, economy, _army_food(play, faction), MapPlayCourt.ships(play, faction)
-			)
-		)
-		for order: Dictionary in recruits:
-			economy.recruit(int(order["tier"]))
-		var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)
-		order_log.append_array(civilians["orders"])
-		by_faction[faction] = {
-			"extraction": overseas["extraction"],
-			"resolved": resolved,
-			"production": production,
-			"trade": trade,
-			"cargo": cargo,
-			"recruits": recruits,
-			"civilians": civilians,
-			"works_reserved": works_reserved,
-			"claims": trade.get("claims", []),
-			"research": research,
-			"income": income,
-		}
+		var row: Dictionary = _court_row(play, faction, market)
+		order_log.append_array((row.get("civilians", {}) as Dictionary).get("orders", []))
+		by_faction[faction] = row
 	# Every rival ledger just closed, so the next land battle reads the rations
 	# each crown actually got — not full morale by default (wiki: combat
 	# § Feeding modifiers; workers-and-population § Consumption). Observer mode
 	# still reapplies from MapPlayTurn; a second pass is idempotent.
 	AiTurnLog.apply_feeding(play, report)
 	return report
+
+
+## One court's row: a BENCH filler draws seeded random legal orders, a planned
+## court runs its full economy turn through `MapPlayEconomyCourt`.
+static func _court_row(play: PlaySession, faction: int, market: WorldMarket) -> Dictionary:
+	if AiControl.court_kind(play, faction) == AiControl.KIND_RANDOM:
+		var economy: PlayerEconomy = play.ai.economy_for(faction)
+		MapPlayCivilianAi.seed(play, faction)
+		return AiRandomCourt.economy(play, faction, market, _overseas(play, faction, economy))
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.open(play, faction, market)
+	court.plan_turn()
+	return court.apply_turn()
 
 
 # --- economy -----------------------------------------------------------------
@@ -202,79 +90,6 @@ static func _market(play: PlaySession) -> WorldMarket:
 	if play.economy != null and play.economy.market != null:
 		return play.economy.market
 	return WorldMarket.with_default_prices()
-
-
-## Sells above the reserve and this turn's inputs, then bids short build inputs
-## with the holds the colonies left (wiki: world-market § Cargo). The cloth the
-## next regiment must have is kept back and bid for first (wiki:
-## growth-stage-planner § Recruitment modulation), and so is every material a
-## crew's planned work will spend (wiki: economy-planner § Reservations).
-static func _trade(
-	play: PlaySession,
-	faction: int,
-	economy: PlayerEconomy,
-	config: Variant,
-	market: WorldMarket,
-	overseas: Dictionary,
-	production: Dictionary,
-	works: Dictionary = {},
-	floor: int = 0,
-	saving: bool = false
-) -> Dictionary:
-	var kind: String = AiControl.court_kind(play, faction)
-	var holds: int = (
-		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
-		if play.ship_layer != null else 0
-	)
-	var free_holds: int = maxi(
-		holds - EconomyOverseas.shipped_total(overseas)
-		- TradeCargo.used(market, faction),
-		0
-	)
-	var need: Dictionary = AiBind.muster_reserve(
-		kind, config, economy, MapPlayCourt.regiments(play, faction),
-		MapPlayCourt.at_war(play, faction),
-		int(AiVictoryPressure.read(
-			play.world, faction, play.human_faction_id(), play.difficulty, config
-		)["extra_regiments"])
-	)
-	# The hull the court is saving for holds its own material row beside the
-	# muster's: a court that sells the last cloth it needs can save the whole
-	# 5,500-ducat chest and still never lay the hull (issue #484).
-	var navy: Dictionary = AiNavy.due_row(
-		MapPlayCourt.at_war(play, faction),
-		MapPlayCourt.warships(play, faction),
-		MapPlayCourt.hostile_warships(play, faction),
-		economy,
-		MapPlayCourt.hull_types(play, faction)
-	)
-	# The ration the larder cannot cover: a court that cannot feed its own people
-	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
-	# buys the missing food before any build input (wiki: treasury-planner
-	# § Lock-recovery; issue #489). The reading is forward-looking — the larder
-	# must cover this turn's ration and leave the next one in hand, because a
-	# court that eats its last grain this turn strikes tomorrow.
-	var food: int = _food_demand(play, faction, economy)
-	var food_short: int = maxi(food * 2 - _food_held(economy), 0)
-	# One primitive for every reservation: the rations, the muster's row, the
-	# works and this turn's production are ranked claims, and the market reads
-	# what the allocator funded (issue #491 T3, #498).
-	var claims: Dictionary = AiClaims.reserve(_claim_rows(
-		production, food, economy, need, works, navy
-	))
-	var reserved: Dictionary = claims["reserved"]
-	var plan: Dictionary = AiBind.market_plan(
-		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
-		_merge_rows(need, navy), floor, food_short, saving
-	)
-	plan["free_holds"] = free_holds
-	var result: Dictionary = AiBind.market_stage(
-		kind, economy, market, plan, faction, economy.tech_unlocked
-	)
-	result["plan"] = plan
-	result["free_holds"] = free_holds
-	result["claims"] = claims["lines"]
-	return result
 
 
 ## The named rows one turn reserves, in the order the market must keep stock.
