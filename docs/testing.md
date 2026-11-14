@@ -1,6 +1,6 @@
 # Testing
 
-Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are hard gates.
+Unit/integration tests and the headless e2e smoke. Two tiers; budgets are hard gates.
 
 ## Tiers
 
@@ -9,41 +9,46 @@ Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are har
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate (`tests` / `e2e-smoke` in CI). Tier 2 does **not** block PRs; failures open one sticky `ci-tier2` issue the **fix-tests** agent fixes, PRs, babysits, and closes.
+Tier 1 is the merge gate (`tests` / `e2e-smoke`). Tier 2 does not block PRs; failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
 
-Tier 2 shards because `gd-tools` boots one Godot process **per suite** and coverage instrumentation costs ~35 s before the first test, so one job is bounded by its suites. Shards run on separate runners; `coverage-gate` merges their coverage so the 80% gate spans the project.
+Tier 2 shards because `gd-tools` boots one Godot process **per suite**; shards run on separate runners and `coverage-gate` merges their coverage so the 80% gate spans the project.
 
-Strict map: unmapped in-scope paths fail selection. `full = true` rules run every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
+Strict map: unmapped in-scope paths fail. `full = true` runs every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
 
-Patch coverage uses gd-tools’ plan (test dirs are not instrumented); changed test files are gated by running their suites. Empty patches pass.
+Patch coverage uses gd-tools’ plan (test dirs are not instrumented); changed tests are gated by running their suites. Empty patches pass.
 
 ## E2E smoke (tier 1)
 
-Smoke boots the title, starts a new game, opens the in-game menu, saves, completes **one player turn** (civilians / navy / army actions), loads the save, returns to title. Deep rules stay in `tests/`.
+Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** (civilians / navy / army), loads, returns to title. Deep rules stay in `tests/`.
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over full map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`. Snapshot/restore when a case seats or mutates the chart.
-- That world is the smallest that validates a `SaveCodec` slot and seats the
-  turn-100 civilian tier; it must pass fair split on the **first** attempt
-  (else `generate_world` rebuilds).
+- The world is the smallest that validates a `SaveCodec` slot and seats
+  turn-100 civilians; it must pass fair split on the **first** attempt.
 - Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
-  once per map state — mounting many screens or six courts' charts repaints nothing.
+  once per map state — many mounts repaint nothing.
 - A mount paints chips, minimap and readings once (`load_region`); `build_hud`
-  adds only turn, economy, income and dossier.
+  adds turn, economy, income and dossier.
 - Cache shared maps in `before_all` on **non-underscore** vars; attach lazily
-  (`_attach()`) so rule-only cases never paint. Region-only suites use
-  `generate_region` and cache twin / New World charts in `before_all`.
+  (`_attach()`) so rule-only cases never paint. Region-only suites cache their
+  charts in `before_all`.
 - **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
   case on a pristine save (~0.15 s) instead of remounting (~0.5 s). The reset
   drops selection, sheets, lenses and news; a suite that swaps screens frees its
-  own. `SaveCodec.restore` is the in-place path; reuse a preset only when each
-  chart's size matches the save.
-- One Godot boot per theme (merged pure suites) — coverage costs ~12 s per boot;
-  fold leftovers into a theme suite. Profile with `gd-tools test --durations 20`.
-  Smoke: short boot, few `await process_frame`, no sleeps / full campaigns.
+  own. `SaveCodec.restore` is the in-place path; reuse a preset only when sizes
+  match.
+- **One resolved turn per suite**: resolve it once in `before_all`, capture the
+  session and its `ai_turns`, then re-seat each case from that capture (a
+  six-crown turn is ~1.5–2 s; a re-seat ~0.2 s). Mode cases start at turn 1.
+  `test_ai_observer` is the reference.
+- **Generate only what a case reads**: one-region rules call `generate_region`,
+  not `generate_world` (which builds and discards the other region).
+- One Godot boot per theme (merged pure suites) — coverage costs ~6 s per boot;
+  fold leftovers in. Profile with `gd-tools test --durations 20`. Smoke: short
+  boot, few `await process_frame`, no sleeps.
 
 ## Local
 

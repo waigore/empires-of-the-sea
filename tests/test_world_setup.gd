@@ -202,11 +202,13 @@ func test_the_map_seats_the_published_roster() -> void:
 
 ## A Great Power seated in a pocket used to start with a third of a rival's land
 ## (wiki: game-setup § GP assignment — "fair split"). Seed 4 was such a chart.
+## Only the Old World is read, so the chart is generated without the New World
+## `generate_world` would build and discard (`generate_region` is the same
+## first-attempt Old World, at half the cost under coverage).
 func test_a_pocket_never_cripples_a_great_power() -> void:
-	var chart: WorldMap = MapGenerator.new().generate_world(
-		4, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		4, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
 	)
-	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
 	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
 
@@ -215,10 +217,9 @@ func test_a_pocket_never_cripples_a_great_power() -> void:
 ## Genoa holding five against a 3.33 even share because nothing trimmed it back
 ## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
 func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
-	var chart: WorldMap = MapGenerator.new().generate_world(
-		9, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		9, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
 	)
-	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
 	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
