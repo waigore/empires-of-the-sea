@@ -7,32 +7,76 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 
+## One mount and one resolved turn for the whole suite: under coverage a mount
+## costs ~0.5 s and a turn that plans six crowns ~1.5 s, so the cases share the
+## chart and re-seat from the turn-1 save (~0.2 s) instead of mounting and
+## re-planning again (docs/testing.md speed rules). Cases that prove a *mode*
+## changing what the turn plans ask for the top of turn 1 (`_seat(0)`).
+##
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
 var world_snapshot: Array = []
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var turn_one: Dictionary = {}
+var turn_one_ai: Dictionary = {}
+var turn_one_log: Array = []
 var _screen: MapScreen = null
 
 
 func before_all() -> void:
 	world_snapshot = Fixture.snapshot(Fixture.world())
+	mounted = _mount()
+	pristine = Fixture.suite_capture(mounted)
+	# The first turn is resolved once: every case that reads a court's ledger,
+	# plan or merged record reads the state this turn actually wrote.
+	MapPlayTurn.end_turn(mounted.play)
+	turn_one = Fixture.suite_capture(mounted)
+	if mounted.play.ai != null:
+		turn_one_ai = mounted.play.ai.to_dict()
+	turn_one_log = mounted.play.ai_turns.duplicate(true)
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), world_snapshot)
-	_screen = SCENE.instantiate()
-	_screen.map_width = Fixture.WORLD_WIDTH
-	_screen.map_height = Fixture.WORLD_HEIGHT
-	_screen.preset_world = Fixture.world()
-	_screen.observer_mode = true
-	_screen.infinite_mode = true
-	add_child(_screen)
+	_seat(1)
 
 
-func after_each() -> void:
+func after_all() -> void:
 	MapPlayTurn.view_live = true
-	if is_instance_valid(_screen):
-		_screen.free()
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
+	turn_one = {}
+	turn_one_ai = {}
+	turn_one_log = []
+
+
+func _mount() -> MapScreen:
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = Fixture.world()
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	add_child(screen)
+	return screen
+
+
+## Re-seats the shared chart at the top of turn 1 (`after_turns = 0`) or just
+## after its first resolved turn (the default), then hands the case back the
+## turn log that turn wrote.
+func _seat(after_turns: int = 1) -> void:
+	Fixture.restore(Fixture.world(), world_snapshot)
+	Fixture.suite_reset(mounted, pristine if after_turns == 0 else turn_one)
+	_screen = mounted
+	if after_turns == 0:
+		MapPlayTurn.view_live = true
+		return
+	_screen.play.ai = AiState.from_dict(turn_one_ai.duplicate(true))
+	_screen.play.ai_turns.assign(turn_one_log.duplicate(true))
+	MapPlayTurn.view_live = true
 
 
 func _step(turns: int = 1) -> void:
@@ -44,7 +88,6 @@ func test_observer_gives_every_great_power_an_ai_ledger() -> void:
 	var play: PlaySession = _screen.play
 	assert_true(play.observer_mode, "the session is an all-AI observer")
 	assert_eq(play.diplomacy.human_faction, MapModel.NO_ID, "no court holds consent")
-	_step(1)
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
 			play.ai.economies.has(faction),
@@ -55,8 +98,8 @@ func test_observer_gives_every_great_power_an_ai_ledger() -> void:
 func test_observer_resolves_a_turn_for_every_crown() -> void:
 	var play: PlaySession = _screen.play
 	var before: int = play.turn
-	_step(2)
-	assert_eq(play.turn, before + 2, "the calendar advances")
+	_step(1)
+	assert_eq(play.turn, before + 1, "the calendar advances")
 	assert_eq(play.ai_turns.size(), 2, "one merged record per resolved turn")
 	var factions: Dictionary = play.ai_turns[0]["factions"]
 	assert_eq(factions.size(), FactionCatalog.great_power_ids().size())
@@ -67,8 +110,10 @@ func test_observer_resolves_a_turn_for_every_crown() -> void:
 
 
 func test_observer_never_queues_a_human_decision() -> void:
+	# The turn that resolved in `before_all` is a real observer turn: had the
+	# pass queued a consent, an intervention or a proposal, it would still wait
+	# on the freshly seated session.
 	var play: PlaySession = _screen.play
-	_step(2)
 	assert_true(play.diplomacy.pending_calls.is_empty(), "no call to arms waits")
 	assert_true(play.diplomacy.pending_interventions.is_empty(), "no intervention waits")
 	assert_true(play.diplomacy.pending_offers.is_empty(), "no proposal waits")
@@ -86,8 +131,8 @@ func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 	var play: PlaySession = _screen.play
 	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
 	var before: int = play.turn
-	_step(6)
-	assert_eq(play.turn, before + 6, "the calendar still advances")
+	_step(5)
+	assert_eq(play.turn, before + 5, "the calendar still advances")
 	assert_eq(play.ai_turns.size(), 6, "every turn still records")
 	# Same rules as an on-screen observer: every crown still holds a ledger.
 	for faction: int in FactionCatalog.great_power_ids():
@@ -99,7 +144,6 @@ func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var play: PlaySession = _screen.play
-	_step(1)
 	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
@@ -137,7 +181,6 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 
 func test_observer_former_crown_plays_through_the_planners() -> void:
 	var play: PlaySession = _screen.play
-	_step(1)
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)
 	assert_true(
 		economy.production.assignments().size() > 0,
@@ -151,6 +194,9 @@ func test_observer_former_crown_plays_through_the_planners() -> void:
 
 
 func test_noop_mode_issues_no_planner_orders() -> void:
+	# Noop is proved from the top of turn 1: a court that never planned keeps an
+	# empty roster and an empty workshop.
+	_seat(0)
 	var play: PlaySession = _screen.play
 	play.ai_mode = AiControl.NOOP
 	assert_false(AiControl.plans(play, play.player_faction), "noop crowns do not plan")
@@ -167,6 +213,7 @@ func test_noop_mode_issues_no_planner_orders() -> void:
 
 
 func test_bench_mode_assigns_subject_baseline_and_random() -> void:
+	_seat(0)
 	var play: PlaySession = _screen.play
 	var live: int = play.player_faction
 	play.ai_mode = AiControl.BENCH
@@ -242,7 +289,6 @@ func test_dashboard_renders_the_live_snapshot() -> void:
 	assert_not_null(panel, "the observatory panel mounts")
 	if panel == null:
 		return
-	_step(1)
 	panel.refresh()
 	assert_true(panel._turn_label.text.begins_with("TURN"), "the panel names the turn")
 	assert_eq(panel._cards.size(), FactionCatalog.great_power_ids().size())
@@ -257,7 +303,6 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 	assert_not_null(panel, "the observatory panel mounts")
 	if panel == null:
 		return
-	_step(1)
 	panel.refresh()
 	var row: Dictionary = MapPlayObserver.snapshot(_screen.play)["rows"][0].duplicate(true)
 	var progress: Label = panel._cards[int(row["faction"])]["progress"]
@@ -333,6 +378,9 @@ func test_court_reader_counts_the_order_of_battle() -> void:
 
 
 func test_court_reader_counts_only_fighting_hulls() -> void:
+	# From the top of turn 1: the cached turn's AI pass may already hold wars,
+	# and this case names its own.
+	_seat(0)
 	var play: PlaySession = _screen.play
 	var owner: int = FactionCatalog.great_power_ids()[0]
 	var rival: int = FactionCatalog.great_power_ids()[1]
