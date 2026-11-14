@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:c888f7fa12e1352c790829aafc65cdde269b5d1c84bf95959efdd1450991390c",
-  "submission_git": "fix/530-trade-garrison@a6039af",
+  "submission_hash": "sha256:c154010590990fd2c753c95d7e3811c3a43879268739404bedf931e668d8cb58",
+  "submission_git": "fix/ai-tier-gate-candidates@027eff2",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ca113de83b92c780c9b0a761fd9643b6f1e27a4e81fbbe2d5edd23d0341b94fc",
+    "ai_surface_hash": "sha256:416126757b1b4e36370c2a59e2add35e5e6a8926927577247be69121f95aeeb7",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T10:16:05Z",
+  "timestamp": "2026-11-14T10:34:15Z",
   "report_version": 1,
-  "signature": "hmac-sha256:b11737eb90edc8ef29548ceddcbc78e7697de1dd9ce4ff5a6831f1c344dd2477"
+  "signature": "hmac-sha256:24906f9e0e6d88ccf069c81f0e4fcb1f335b3110c3edb614c3557d4402573192"
 }
