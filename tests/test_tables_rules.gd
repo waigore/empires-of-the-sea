@@ -1120,7 +1120,7 @@ func test_plan_respects_assignment_order_and_labour_budget() -> void:
 	assert_eq(report["runs"], {"steel": 2})
 	assert_eq(report["produced"], {})
 	assert_eq(int(stock.get("steel", 0)), 0)
-	assert_eq(ProductionRecipes.in_flight(report["wip"], "steel"), 2)
+	assert_eq(ProductionWorkshop.units(report["wip"], "steel"), 2)
 	assert_eq(stock["iron"], 2)
 	assert_eq(stock["coal"], 0)
 	assert_eq(report["labour_used"], 4)
@@ -1146,6 +1146,32 @@ func test_plan_ignores_unavailable_and_zero_unit_rows() -> void:
 	assert_eq(allowed["runs"], {"fabric_from_cotton": 2})
 	assert_eq(stock["cotton"], 0)
 	assert_eq(stock["fabric"], 2)
+
+## The workshop owner cleans a save's batches and serves the landings a phase
+## pays, without knowing any recipe (wiki: production-recipes § Turns per unit;
+## DR-20261112-11, DR-20261113-02).
+func test_workshop_cleans_batches_and_serves_landings() -> void:
+	assert_eq(ProductionWorkshop.clean_batch({"units": 2, "turns_left": 1}), {
+		"units": 2, "turns_left": 1
+	})
+	assert_eq(ProductionWorkshop.clean_batch({"units": 0, "turns_left": 1}), {})
+	assert_eq(ProductionWorkshop.clean_batch({"units": 2, "turns_left": 0}), {})
+	assert_eq(ProductionWorkshop.clean_batch("steel"), {})
+	var wip: Dictionary = {
+		"steel": [{"units": 3, "turns_left": 1}, {"units": 2, "turns_left": 2}, "bad"],
+	}
+	assert_eq(ProductionWorkshop.batches(wip, "steel").size(), 2)
+	assert_eq(ProductionWorkshop.batches({"steel": "bad"}, "steel"), [])
+	assert_eq(ProductionWorkshop.units(wip, "steel"), 5)
+	assert_eq(ProductionWorkshop.soonest(wip, "steel"), 1)
+	assert_eq(ProductionWorkshop.soonest({}, "steel"), 0)
+	assert_eq(ProductionWorkshop.ready_units(wip, "steel", 2), 1, "only the served batch lands")
+	assert_eq(ProductionWorkshop.serve(wip, "steel", 2), {
+		"landed": 1,
+		"kept": [{"units": 2, "turns_left": 1}, {"units": 2, "turns_left": 1}],
+	})
+	assert_eq(ProductionWorkshop.serve({}, "steel", 2), {"landed": 0, "kept": []})
+
 
 func test_plan_cannot_drive_quantities_negative() -> void:
 	var stock: Dictionary = {"iron": 1, "coal": 1, "timber": 0}
@@ -1221,8 +1247,51 @@ func test_a_carried_batch_lands_even_when_the_hand_is_gone() -> void:
 	var stock: Dictionary = {}
 	var wip: Dictionary = {"cigars": [{"units": 2, "turns_left": 1}]}
 	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, WorkerPool.make(4))
-	assert_eq(report["produced"], {"cigars": 2})
+	assert_eq(report["produced"], {"cigars": 1}, "a slow row gives up one unit a phase")
+	assert_eq(stock["cigars"], 1)
+	assert_eq(ProductionWorkshop.units(report["wip"], "cigars"), 1, "the rest waits")
+
+
+## A one-turn row never waits: a carried batch of it (only a damaged or
+## hand-edited save can hold one) lands whole (DR-20261113-02).
+func test_a_carried_one_turn_batch_lands_whole() -> void:
+	var stock: Dictionary = {}
+	var wip: Dictionary = {"lumber": [{"units": 2, "turns_left": 1}]}
+	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, null)
+	assert_eq(report["produced"], {"lumber": 2})
+	assert_eq(stock["lumber"], 2)
+
+
+## A luxury is slow work: a cigar ages and a fur hat cures, so both rows take
+## two turns while refined sugar — the apprentice's own ration — stays one
+## (wiki: production-recipes § Recipe Catalog; DR-20261114-10).
+func test_the_luxury_rows_take_two_turns() -> void:
+	assert_eq(ProductionRecipes.turns("cigars"), 2)
+	assert_eq(ProductionRecipes.turns("furHats"), 2)
+	assert_eq(ProductionRecipes.turns("refinedSugar"), 1, "the apprentice's own ration is quick work")
+	assert_eq(ProductionRecipes.turns("steel"), 2)
+	assert_eq(ProductionRecipes.turns("lumber"), 1)
+
+
+## A cigar batch pays its tobacco and labour when it starts, lands nothing that
+## phase, then gives up one unit a phase (DR-20261113-02, DR-20261114-10).
+func test_a_cigar_batch_lands_one_unit_a_phase() -> void:
+	var stock: Dictionary = {"tobacco": 4}
+	var apprentices: WorkerPool = WorkerPool.make(3, 1)
+	var first: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "cigars", "units": 2}], stock, 20, {}, {}, apprentices
+	)
+	assert_eq(first["runs"], {"cigars": 2})
+	assert_eq(first["produced"], {}, "a two-turn row lands nothing in the phase it starts")
+	assert_eq(stock["tobacco"], 0, "the batch pays its inputs up front")
+	assert_eq(ProductionWorkshop.units(first["wip"], "cigars"), 2)
+	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"], apprentices)
+	assert_eq(second["produced"], {"cigars": 1}, "one unit a phase")
+	assert_eq(ProductionWorkshop.units(second["wip"], "cigars"), 1)
+	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"], apprentices)
+	assert_eq(third["produced"], {"cigars": 1})
 	assert_eq(stock["cigars"], 2)
+	assert_true(third["wip"].is_empty(), "the batch is spent")
 
 func test_every_track_points_at_a_shipped_file() -> void:
 	var ids: Array[String] = MusicPlaylist.ids()

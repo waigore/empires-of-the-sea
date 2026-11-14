@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261114-09 (`REQ-P2-02`).
+Audited through DR-20261114-10 (`REQ-P2-02`).
 
 ## Already live
 
@@ -19,25 +19,25 @@ Audited through DR-20261114-09 (`REQ-P2-02`).
 | Raid hulls; rival raids; naval plate | `NavalRaid`, `NavalPlate`, DR-11-17/20/13-17 |
 | Road L2; gathering; path transport | `TechUnlocks` / `Extraction` |
 | Advanced chart; Passage; rival OOB/fog | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
-| Multi-turn recipes; Yarn + consent | `ProductionRecipes`; `DialogueYarn`, `ConsentCopy` |
+| Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing; money-first; victory pressure | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure` |
 | Leader bonuses | `LeaderCatalog`, DR-13-18 |
 | Tribe buy; landings; overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
 | Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
-| Hull chest for navy.build | `AiNavy` / `AiIncome.reserve`, DR-14-06/#558 |
-| Worker-tier gates (cigars / fur hats) | `ProductionRecipes.min_tier`, DR-14-07/#565 |
-| Hull material row (timber/cloth) | `AiNavy.inputs` / `AiClaims.HULLS`, DR-14-09 |
+| Hull chest + material row | `AiNavy` / `AiClaims.HULLS`, DR-14-06/09 |
+| Worker-tier gates; slow luxury rows | `ProductionRecipes.min_tier`/`turns`, DR-14-07/10 |
+| War-time trade garrison (holds home) | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 
 ## Remaining gaps (impact order)
 
-1. **New World colony founded** — landings, storm conquest (DR-14-03), and
-   the chain door (DR-14-05) are live. Join Empire
-   (`5,000 + 2,000 × provinces`) still outruns a rival purse (#530/#489;
-   #552 sheds mouths, not the price).
+1. **New World colony founded** — landings, storm conquest (DR-14-03), the
+   chain door (DR-14-05), and holds-at-seat (DR-14-08) are live. Join Empire
+   (`5,000 + 2,000 × provinces`) still outruns a rival purse (#489; #552 sheds
+   mouths, not the price).
 2. **Domain gating beyond the voyage** — last soft-priority seed (DR-13-15):
    every domain still runs; only the voyage gate is live.
-3. **Building gates / further multi-turn / queue cap** — luxury worker-tier
-   gates shipped (DR-14-07); building gates, rows past steel/bronze and the
+3. **Building gates / queue cap** — worker-tier gates (DR-14-07) and the alloy
+   + luxury four (DR-14-10) shipped; building gates, further rows, and the
    queue cap remain (wiki-deferred).
 4. **AI recipe candidates ignore worker-tier** — planners still walk
    `available_ids` (tech only); phase refuses gated rows (DR-14-07
@@ -45,8 +45,8 @@ Audited through DR-20261114-09 (`REQ-P2-02`).
 
 ## Next pick
 
-A Tribe colony founded: the chain is studied open (DR-14-05); the blocker is
-the rival purse (#530/#489).
+A Tribe colony founded: the chain and holds are open (DR-14-05/08); the
+blocker is the rival purse (#489).
 
 ## Blocked footnotes
 

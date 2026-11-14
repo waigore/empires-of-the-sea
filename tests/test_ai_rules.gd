@@ -1356,16 +1356,119 @@ func test_ai_naval_blockades_only_charted_water() -> void:
 	play.court_charts.setup(world, 0, {})
 	var fleet := FleetState.at_sea(1, 2, 1)
 	var roster: Array[FleetState] = [fleet]
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	var trace: Array[Dictionary] = []
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.NONE, "no blockade on uncharted water")
 	fleet.mission = FleetState.Mission.BLOCKADE
 	fleet.blockade_province = 1
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.NONE, "the blockade lapses there")
 	play.court_charts.reveal_sea_zone(2, 1, 1)
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.BLOCKADE, "charted water takes the station")
 	assert_eq(fleet.blockade_province, 1)
+
+
+## A court that keeps no holds in port at its seat is closed to every import,
+## so the squadron carrying them comes home even with a weaker hostile one zone
+## over: a merchant hull is cargo, and the holds are the build inputs and the
+## colony voyage (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
+func test_ai_naval_a_trade_garrison_comes_home_instead_of_hunting() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(String(plan["orders"][0]["reason"]), AiNavalPlanner.REASON_TRADE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "one leg toward Cádiz")
+
+
+## The garrison stays berthed: a court with its holds nowhere else does not sail
+## the squadron that carries them out to work a coast (issue #530).
+func test_ai_naval_a_trade_garrison_does_not_put_to_sea_to_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var moored := FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String], {"h0": "sloop", "h1": "galleon"}
+	)
+	var fleets: Array[FleetState] = [moored]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0, "the holds stay berthed")
+	assert_true(moored.is_in_port())
+
+
+## A berth ashore is what the policy answers: with another squadron's holds in
+## port at the seat the first is free to hunt again (issue #530).
+func test_ai_naval_a_berth_ashore_frees_a_squadron_to_hunt() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var berthed := FleetState.in_port(
+		9, 0, 0, ["h9"] as Array[String], {"h9": "fluyte"}
+	)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		berthed,
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	var order: Dictionary = {}
+	for raw: Variant in plan["orders"]:
+		if int((raw as Dictionary)["fleet_id"]) == 0:
+			order = raw
+	assert_eq(String(order.get("kind", "")), AiNavalPlanner.KIND_PURSUE, "the holds can wait")
+
+
+## The station pass gives the station up rather than strand the holds: a court
+## at war that keeps none in port at its seat needs them ashore, and the trace
+## names the station abandoned (wiki: ships-and-naval § Missions and Movement;
+## issue #530).
+func test_map_phase_releases_a_trade_garrison_from_its_station() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var raider: FleetState = _squadron(0, 0, 0, "galleon")
+	raider.mission = FleetState.Mission.BLOCKADE
+	raider.blockade_province = 1
+	var roster: Array[FleetState] = [raider]
+	var play := _naval_play(world, model, ShipLayer.new())
+	play.diplomacy = _war_state(0, 1)
+	play.court_charts = CourtCharts.new()
+	play.court_charts.setup(world, 0, {})
+	var trace: Array[Dictionary] = []
+	MapPlayFleetAi._station_orders(play, model, roster, 0, trace)
+	assert_eq(raider.mission, FleetState.Mission.NONE, "the station is given up")
+	assert_eq(raider.blockade_province, MapModel.NO_ID, "the blockade hook goes with it")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["reason"]), AiNavalPlanner.REASON_TRADE)
+	assert_eq(String(trace[0]["released"]), "blockade")
+
+
+## The turn log names the trade garrison: the row reads as the holds coming
+## home, not as a squadron sailing into the sea zone it just left (issue #530).
+func test_the_observer_log_reads_the_trade_garrison() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_HOME,
+			"fleet": 0,
+			"zone": 0,
+			"zone_name": "Mar Caribe",
+			"region": 0,
+			"threat": 0,
+			"reason": AiNavalPlanner.REASON_TRADE,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(int(record["actions"].get("home", 0)), 1, "a sailing home, not a pursuit")
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 1)
+	assert_true(String(lines[0]).contains("holds home"), "the row names why")
 
 
 func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
@@ -1585,6 +1688,73 @@ func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
 		AiConfig.build(1, 1500), economy
 	)
 	assert_true((plan["assignments"] as Array).is_empty())
+
+
+## A luxury row is a trained hand's work: a court with tobacco and furs but no
+## apprentice is offered neither cigars nor fur hats, because the Production
+## phase would refuse the run (wiki: production-recipes § Worker-tier gates;
+## DR-20261114-07; REQ-P2-03).
+func test_ai_economy_offers_no_gated_row_without_the_hand() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "furs": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	for assignment: Dictionary in plan["assignments"]:
+		assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+		assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
+	for candidate: Dictionary in plan["candidates"]:
+		assert_ne(String(candidate["recipe"]), "cigars", "a gated row is no candidate")
+		assert_ne(String(candidate["recipe"]), "furHats", "a gated row is no candidate")
+	# One apprentice opens the cigar row, and the court takes it.
+	economy.workers = WorkerPool.make(5, 1)
+	var opened: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var cigars: int = 0
+	for assignment: Dictionary in opened["assignments"]:
+		if String(assignment["recipe"]) == "cigars":
+			cigars = int(assignment["units"])
+	assert_true(cigars > 0, "an apprentice opens the cigar row")
+	for assignment: Dictionary in opened["assignments"]:
+		assert_ne(String(assignment["recipe"]), "furHats", "an apprentice is no journeyman")
+
+
+## A phantom run spends the plan's labour and reserves its inputs, then the phase
+## refuses it: the court works less than it could. The plan must spend the whole
+## idle labour on rows the phase will actually run (REQ-P2-03).
+func test_ai_economy_plan_spends_the_labour_the_phase_will_use() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "timber": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		{},
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+
+
+## The bench's random filler court draws from the same legal rows: a gated row is
+## never its pick (wiki: production-recipes § Worker-tier gates; REQ-P2-03).
+func test_random_court_never_picks_a_gated_row() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 40, "furs": 40}
+	economy.workers = WorkerPool.make(8)
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+			assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
 
 
 func test_ai_economy_is_deterministic() -> void:
