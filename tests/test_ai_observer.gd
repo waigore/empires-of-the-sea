@@ -284,6 +284,195 @@ func test_headline_handles_an_empty_record() -> void:
 	assert_eq(AiTurnLog.headline({"actions": {}}), "held station, no orders")
 
 
+# --- the turn trace's recorders (REQ-P3-01) ---
+## Each pass that hands a report in owns its rows: the diplomacy recorder reads
+## the pass's own trace, the economy recorder the economy report, and AiTurnLog
+## keeps the merged record, its one event cap and the headline.
+
+
+## A bare session: the recorders need only the turn, the domestic trace and the
+## merged list, so these cases skip a mounted chart.
+func _trace_session() -> PlaySession:
+	var play := PlaySession.new()
+	play.turn = 12
+	return play
+
+
+func _diplomacy_row(faction: int, kind: String, target: int) -> Dictionary:
+	return {"faction": faction, "action": {"kind": kind, "target": target}}
+
+
+func test_the_trace_counts_every_diplomacy_kind_under_its_key() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.ai_trace = [
+		_diplomacy_row(crown, AiDiplomacyPlanner.KIND_DECLARE_WAR, rival),
+		_diplomacy_row(crown, AiDiplomacyPlanner.KIND_OFFER_PEACE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_ALLIANCE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_OVERTURE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_BREAK, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_FTP, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_REVOKE_FTP, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_BOYCOTT, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_REVOKE_BOYCOTT, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_AID, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_SUBSIDY, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_CANCEL_SUBSIDY, rival),
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var actions: Dictionary = merged["factions"][crown]["actions"]
+	assert_eq(int(actions.get("war", 0)), 1, "a declaration keeps the war row")
+	assert_eq(int(actions.get("peace", 0)), 1, "a peace offer keeps its own row")
+	assert_eq(int(actions.get("treaty", 0)), 3, "alliance, overture and a broken alliance read as treaty")
+	assert_eq(int(actions.get("trade", 0)), 7, "the pact, boycott, aid and subsidy family read as trade")
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(events.size(), 12, "every accepted order prints one sentence")
+	assert_eq(
+		String(events[0]),
+		"%s declares war on %s." % [
+			FactionCatalog.name_of(crown), FactionCatalog.name_of(rival),
+		],
+		"the declaration prints its own line"
+	)
+
+
+func test_the_trace_prints_the_pass_message_or_its_own_diplomacy_line() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.ai_trace = [
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": rival},
+			"message": "Aid reaches the court.",
+		},
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_SUBSIDY, MapModel.NO_ID),
+		_diplomacy_row(crown, "mystery", rival),
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(String(events[0]), "Aid reaches the court.", "the pass's own sentence wins")
+	assert_eq(
+		String(events[1]),
+		"%s adjusts its court." % FactionCatalog.name_of(crown),
+		"an order with no target names no court"
+	)
+	assert_eq(
+		String(events[2]),
+		"%s proposes a treaty to %s." % [
+			FactionCatalog.name_of(crown), FactionCatalog.name_of(rival),
+		],
+		"an unfamiliar kind still reads as a treaty"
+	)
+
+
+func test_the_trace_drops_a_refused_order_and_a_foreign_court() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	play.ai_trace = [
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": rival},
+			"result": {"ok": false},
+		},
+		_diplomacy_row(minor, AiDiplomacyOffers.KIND_AID, crown),
+		{"faction": crown, "action": {}},
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_FTP, "target": rival},
+			"result": {"ok": true},
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var actions: Dictionary = merged["factions"][crown]["actions"]
+	assert_eq(int(actions.get("war", 0)), 0, "a refused declaration never happened")
+	assert_eq(int(actions.get("trade", 0)), 1, "the accepted pact still counts")
+	assert_eq((merged["factions"][crown]["events"] as Array).size(), 1, "only the accepted order prints")
+	assert_false(merged["factions"].has(minor), "a minor nation has no trace bucket")
+
+
+func test_the_trace_reads_every_economy_row_the_pass_handed() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var report: Dictionary = {"factions": {crown: {
+		"production": {"assignments": [{"workshop": 1}]},
+		"recruits": [{"trade": "peasant"}],
+		"civilians": {
+			"orders": [{"workshop": 1}, {"workshop": 2}],
+			"training": [{"trade": "peasant"}],
+		},
+		"cargo": {
+			"routes": [{"colony": 1}],
+			"launch": {"type_id": "fluyte"},
+			"warship": {"type_id": "frigate", "price": 120, "chest": 300},
+		},
+		"claims": ["rations 4/6"],
+	}}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	var actions: Dictionary = bucket["actions"]
+	assert_eq(int(actions.get("production", 0)), 1, "the runs are one production row")
+	assert_eq(int(actions.get("recruit", 0)), 1, "one muster is one recruit row")
+	assert_eq(int(actions.get("work", 0)), 2, "two work orders count twice")
+	assert_eq(int(actions.get("train", 0)), 1, "a mustered civilian is its own row")
+	assert_eq(int(actions.get("cargo", 0)), 2, "a route and a merchant launch both count as cargo")
+	assert_eq(int(actions.get("build", 0)), 1, "the warship is the yard's build row")
+	var who: String = FactionCatalog.name_of(crown)
+	var events: Array = bucket["events"]
+	assert_eq(events.size(), 7, "every economy row prints one sentence")
+	assert_eq(String(events[4]), "%s routes 1 merchant squadron home." % who)
+	assert_eq(
+		String(events[6]),
+		"%s lays down a Frigate for the fleet: 120 ducats against a 300 chest." % who,
+		"the yard row names its price and the chest that allowed it"
+	)
+	assert_eq(bucket["claims"], ["rations 4/6"], "the reservations travel with the record")
+
+
+func test_the_trace_skips_an_empty_cargo_and_a_foreign_ledger() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var report: Dictionary = {"factions": {
+		crown: {"production": {}, "cargo": {}, "claims": "not a list"},
+		minor: {"production": {"assignments": [{"workshop": 1}]}, "recruits": [{}]},
+	}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_true((bucket["actions"] as Dictionary).is_empty(), "a quiet ledger counts nothing")
+	assert_true((bucket["events"] as Array).is_empty(), "and prints nothing")
+	assert_false(bucket.has("claims"), "a claims field that is not a list is dropped")
+
+
+func test_the_trace_caps_one_crown_events_and_ignores_an_empty_key() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var trace: Array[Dictionary] = []
+	for step in 70:
+		trace.append({
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": rival},
+			"message": "Aid %d." % step,
+		})
+	play.ai_trace = trace
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_eq((bucket["events"] as Array).size(), 60, "the panel's event cap holds")
+	assert_eq((merged["events"] as Array).size(), 60, "the merged list is capped with it")
+	var before: int = (bucket["events"] as Array).size()
+	AiTurnLog.event(merged, bucket, crown, "")
+	assert_eq((bucket["events"] as Array).size(), before, "an empty sentence adds no row")
+	var actions: Dictionary = {"aid": 1}
+	AiTurnLog.bump(actions, "")
+	AiTurnLog.bump(actions, "aid", 2)
+	assert_eq(int(actions["aid"]), 3)
+	assert_false(actions.has(""), "an empty key adds no row")
+
+
 func test_dashboard_renders_the_live_snapshot() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
