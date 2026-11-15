@@ -13,10 +13,16 @@ var _dashes: Array[Dictionary] = []
 var _time: float = 0.0
 
 
-func setup(model: MapModel, coast: Array[PackedVector2Array], tile_size: float) -> void:
+func setup(
+	model: MapModel,
+	coast: Array[PackedVector2Array],
+	tile_size: float,
+	room: Array[PackedByteArray] = []
+) -> void:
 	_dashes.clear()
-	for path: PackedVector2Array in coast:
-		_collect(model, path, tile_size)
+	for index in coast.size():
+		var open: PackedByteArray = room[index] if index < room.size() else PackedByteArray()
+		_collect(model, coast[index], tile_size, open)
 		if _dashes.size() >= MAX_DASHES:
 			break
 	_time = 0.0
@@ -27,7 +33,9 @@ func dash_count() -> int:
 	return _dashes.size()
 
 
-func _collect(model: MapModel, path: PackedVector2Array, tile_size: float) -> void:
+func _collect(
+	model: MapModel, path: PackedVector2Array, tile_size: float, open: PackedByteArray
+) -> void:
 	if path.size() < 2:
 		return
 	var carry: float = SPACING * 0.5
@@ -38,6 +46,10 @@ func _collect(model: MapModel, path: PackedVector2Array, tile_size: float) -> vo
 		if carry < SPACING:
 			continue
 		carry = 0.0
+		# A narrow bank keeps no surf: two rows of breakers would meet in the
+		# middle and print the channel as a pale band of ground (#456).
+		if i + 1 < open.size() and open[i + 1] == 0:
+			continue
 		var normal: Vector2 = _sea_normal(model, a, b, tile_size)
 		if normal == Vector2.ZERO:
 			continue
