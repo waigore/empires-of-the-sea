@@ -85,26 +85,32 @@ static func larder_reading(
 		"pool": int(appetites["pool"]),
 		"wards": int(appetites["wards"]),
 		"strikers": int(reading["strikers"]),
-		"short": maxi(wanted - store, 0),
+		# The reading's own whole-larder shortfall, so the trace and the WORKERS
+		# tab can never disagree about what the store is short (REQ-P2-03).
+		"short": int(reading["store_short"]),
 	}
 
 
 ## The mouths the next Consumption phase feeds before the worker pool: the army's
 ## rations, the navy's upkeep and the hospital wards, each read the way the
 ## phase itself reads it (wiki: workers-and-population § Consumption). A session
-## with no army or hospital yet reads zeros, so a fixture needs neither.
+## with no army or hospital yet reads zeros, so a fixture needs neither. The wards
+## ride **one per staff**, because the phase feeds them in order and whole.
 static func _mouths(play: PlaySession, faction: int) -> Dictionary:
 	var army: int = 0
 	if play.army_layer != null:
 		army = play.army_layer.food_upkeep_all(faction)
-	var wards: int = 0
+	var wards: Array[int] = []
+	var wards_food: int = 0
 	if play.world != null:
-		for ration: int in HospitalRules.demand_list(play.world, faction):
-			wards += ration
+		wards = HospitalRules.demand_list(play.world, faction)
+		for ration: int in wards:
+			wards_food += ration
 	return {
 		"army": army,
 		"ships": MapPlayCourt.ships(play, faction),
-		"hospital": wards,
+		"hospital": wards_food,
+		"wards": wards,
 	}
 
 

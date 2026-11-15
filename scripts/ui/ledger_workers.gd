@@ -131,18 +131,24 @@ func _appetite_copy(read: Dictionary) -> String:
 ## "Short 2 food — 1 striker, masters first." or the calm cover line. Food is
 ## named first because the phase feeds it before any luxury, and the tier named
 ## is the one a shortfall bites first: the highest tier in the pool
-## (wiki: workers-and-population § Consumption).
+## (wiki: workers-and-population § Consumption). The figure is the **whole
+## larder's** shortfall — every appetite the phase pays, not the pool alone — so a
+## store that keeps the workers fed while a ward or an army goes short never
+## reads calm (total food demand = workers + navy + army + hospital staffs), and
+## the mouth that missed is named from the dry run's own fed figures.
 func _shortfall_copy(read: Dictionary) -> String:
+	var short: int = int(read.get("store_short", read.get("food_short", 0)))
 	var strikers: int = int(read["strikers"])
 	if strikers <= 0:
-		return "The larder covers every mouth."
+		if short <= 0:
+			return "The larder covers every mouth."
+		return "Short %d food — %s." % [short, _hungry_mouth(read)]
 	var tier: int = int(read["striking_tier"])
 	var who: String = "%d striker%s, %s first" % [
 		strikers,
 		"" if strikers == 1 else "s",
 		WorkerPool.tier_name(maxi(tier, 0)).to_lower(),
 	]
-	var short: int = int(read["food_short"])
 	if short > 0:
 		return "Short %d food — %s." % [short, who]
 	var luxuries: Dictionary = read["luxury_short"]
@@ -151,6 +157,20 @@ func _shortfall_copy(read: Dictionary) -> String:
 			int(luxuries[id]), CommodityCatalog.label(String(id)), who
 		]
 	return "The larder runs short — %s." % who
+
+
+## The appetite the dry run could not serve, in the phase's own order, for a
+## crown whose workers ate: a starving army or navy, or a ward that lost its
+## staff (wiki: combat § Regiment condition; DR-20261112-04).
+func _hungry_mouth(read: Dictionary) -> String:
+	var report: Dictionary = read.get("report", {}) as Dictionary
+	if int(report.get("army_demand", 0)) > int(report.get("army_fed", 0)):
+		return "the army goes short"
+	if int(report.get("navy_demand", 0)) > int(report.get("navy_fed", 0)):
+		return "the navy goes short"
+	if int(report.get("hospital_demand", 0)) > int(report.get("hospital_fed", 0)):
+		return "the wards go unfed"
+	return "the store cannot cover every mouth"
 
 
 ## The crown's Build/work queue: each order arrives with next turn, so a player
