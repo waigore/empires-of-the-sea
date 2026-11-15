@@ -28,6 +28,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [naval-missions.md](naval-missions.md) | Patrol, blockade, interception, retreat and cargo raids |
 | [naval-despatch.md](naval-despatch.md) | The sea's despatch plate: a resolved battle told on the water |
 | [armies.md](armies.md) | Land regiments, Home Army, marches and field battles |
+| [command.md](command.md) | The crown's commanders: the pool, its medals, the cap road |
 | [field-hospital.md](field-hospital.md) | A train's tents: pitching, rest tempo, rations, travel |
 | [forts.md](forts.md) | Fort levels, engineer builds, walls and emplaced batteries |
 | [battle-sim.md](battle-sim.md) | Visual Battle Simulator: a playtesting view of Quick Battle |

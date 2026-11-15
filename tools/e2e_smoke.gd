@@ -326,6 +326,7 @@ func _run() -> void:
 	await _smoke_muster_roll(screen)
 	await _smoke_province_ledger(screen)
 	await _smoke_spy_ledger(screen)
+	await _smoke_command_ledger(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen, works)
@@ -479,6 +480,31 @@ func _smoke_spy_ledger(screen: MapScreen) -> void:
 	panel.close()
 	await process_frame
 	_check(not panel.is_open(), "the crown's eyes set themselves aside")
+
+
+## The command ledger: the army dossier's Commanders door raises the crown's
+## pool on the real map, prints the cap road and the medal note, and sets itself
+## aside (DR-20261115-11). No commander is appointed and no order is placed.
+func _smoke_command_ledger(screen: MapScreen) -> void:
+	_check(screen.hud.command_ledger != null, "command ledger mounted")
+	var door: Button = null
+	for node: Node in screen.hud._army_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Commanders":
+			door = button
+			break
+	_check(door != null, "the army dossier carries the command door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await process_frame
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	_check(panel.is_open(), "the command ledger opens from the dossier's door")
+	_check(_has_text(panel._road, "Cap 2"), "the sheet prints the road to the next commander")
+	_check(_has_text(panel._medal, "Each medal"), "and what a medal buys in the field")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the command ledger sets itself aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
