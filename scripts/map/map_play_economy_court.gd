@@ -212,10 +212,15 @@ func _plan_trade() -> Dictionary:
 	)
 	# The hull the court is saving for holds its own material row beside the
 	# muster's: a court that sells the last cloth it needs can save the whole
-	# 5,500-ducat chest and still never lay the hull (issue #484).
-	var navy: Dictionary = AiNavy.due_row(
-		at_war, warships, MapPlayCourt.hostile_warships(play, faction),
-		economy, MapPlayCourt.hull_types(play, faction)
+	# 5,500-ducat chest and still never lay the hull (issue #484). A chest that
+	# has stood down (the yard re-routed to the muster, issue #603) holds no row
+	# either, so the cloth it would have kept back is the regiment's.
+	var navy: Dictionary = (
+		AiNavy.due_row(
+			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
+		if hull_chest > 0 else {}
 	)
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and

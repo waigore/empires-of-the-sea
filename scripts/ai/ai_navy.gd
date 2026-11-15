@@ -127,15 +127,25 @@ static func due_row(
 ## § Ship build economy). 0 when no hull is due, when the unlock is still shut
 ## (the research door must be able to pay a slot — issue #484), or when the
 ## catalog has no warship.
+##
+## `yard_yields` is the deferred-aim escalation reading for `navy.build`
+## (#603): true when the court has stalled on the yard past `escalate_turns`
+## while a regiment is due **and it already holds that regiment's chest**. The
+## yard then stands down, so the chest it never fills stops holding the purse
+## the muster needs to buy its material row — the same re-route the war chest
+## already takes (`AiIncome.reserve`). The shortfall shrinking resumes it.
 static func chest(
 	at_war: bool,
 	own_warships: int,
 	hostile_warships: int,
 	economy: PlayerEconomy,
-	flown: Array = []
+	flown: Array = [],
+	yard_yields: bool = false
 ) -> int:
 	if not due(at_war, own_warships, hostile_warships):
 		return 0
 	if not unlock_tech(economy, flown).is_empty():
+		return 0
+	if yard_yields:
 		return 0
 	return price(economy, flown)

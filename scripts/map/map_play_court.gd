@@ -154,9 +154,26 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 	var ledger: PlayerEconomy = play.ledger_for(faction)
 	if ledger == null:
 		return 0
+	var config: AiConfig = AiConfig.build(faction, play.map_seed)
+	var at_war_now: bool = at_war(play, faction)
+	var muster: int = AiArmyReinforce.muster_floor(
+		config, ledger, regiments(play, faction), at_war_now
+	)
+	# The yard's chest re-routes like the war chest (issue #603): a court that
+	# has stalled on `navy.build` past the escalation bar while a regiment is
+	# due — and already holds that regiment's chest — stops holding the purse
+	# for a hull it never lays, so the muster can buy its material row. Every
+	# consumer reads the one chest.
+	var stalled: int = (
+		AiDeferral.stall_for(play.ai.deferrals, faction, "navy.build")
+		if play.ai != null else 0
+	)
 	return AiNavy.chest(
-		at_war(play, faction), warships(play, faction), hostile_warships(play, faction),
-		ledger, hull_types(play, faction)
+		at_war_now, warships(play, faction), hostile_warships(play, faction),
+		ledger, hull_types(play, faction),
+		muster > 0
+		and stalled >= maxi(config.parameter("ledger.escalate_turns"), 1)
+		and ledger.treasury >= muster
 	)
 
 
