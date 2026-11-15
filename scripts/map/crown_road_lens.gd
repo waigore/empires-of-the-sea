@@ -82,26 +82,18 @@ func _summary_of(entry: Dictionary) -> String:
 func _draw() -> void:
 	if not _visible():
 		return
-	_draw_wash()
+	_draw_state_wash()
 	_draw_routes()
 	_draw_gaps()
 
 
-## Flat tint per state, one rect per merged run — the same recipe the political
-## lens uses, so a 10k-tile map costs a few hundred draw calls.
-func _draw_wash() -> void:
-	var runs: Dictionary = survey.get("runs", {})
-	for state: String in CrownRoadSurvey.STATES:
-		var veil := Color(
-			Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, VEIL_ALPHA * _reveal
-		)
-		var tint: Color = Palette.crown_color(state)
-		tint.a = WASH_ALPHA * _reveal
-		for raw: Variant in runs.get(state, []):
-			var run: Rect2 = raw
-			var rect := Rect2(run.position * TILE_SIZE, run.size * TILE_SIZE)
-			draw_rect(rect, veil)
-			draw_rect(rect, tint)
+## Flat tint per state, one rect per merged run — the same wash recipe the
+## political lens prints, so a 10k-tile map costs a few hundred draw calls.
+func _draw_state_wash() -> void:
+	LensSlip.wash(
+		self, _reveal, survey.get("runs", {}), CrownRoadSurvey.STATES,
+		Palette.crown_color, WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
+	)
 
 
 ## The road still to lay: one gold mark per tile, joined by a dashed line, so the
@@ -111,7 +103,7 @@ func _draw_routes() -> void:
 		Palette.GOLD_PALE.r, Palette.GOLD_PALE.g, Palette.GOLD_PALE.b,
 		ROUTE_ALPHA * _reveal
 	)
-	var edge := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55 * _reveal)
+	var edge: Color = Palette.ink(0.55 * _reveal)
 	for raw: Variant in survey.get("routes", []):
 		var route: Dictionary = raw
 		var tiles: Array = route.get("tiles", [])
@@ -133,8 +125,7 @@ func _draw_routes() -> void:
 
 ## Gap badge over a cut province town: "3" reads as three road tiles to lay.
 func _draw_gaps() -> void:
-	if _font == null:
-		_font = UiTheme.serif()
+	_ensure_font()
 	for raw: Variant in survey.get("provinces", []):
 		var entry: Dictionary = raw
 		if bool(entry.get("linked", false)):
@@ -148,7 +139,7 @@ func _draw_gaps() -> void:
 		var center := Vector2(anchor) * TILE_SIZE + Vector2.ONE * TILE_SIZE * 0.5
 		var label: String = str(gap)
 		var plate := Rect2(center + Vector2(3.0, -16.0), Vector2(20.0, 14.0))
-		draw_rect(plate, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.82 * _reveal))
+		draw_rect(plate, Palette.ink(0.82 * _reveal))
 		draw_rect(plate, Color(Palette.GOLD_DIM.r, Palette.GOLD_DIM.g, Palette.GOLD_DIM.b, _reveal), false, 1.0)
 		draw_string(
 			_font, plate.position + Vector2(5.0, 10.5), label,

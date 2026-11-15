@@ -140,6 +140,12 @@ func _summary_of(entry: Dictionary) -> String:
 	return String(entry.get("summary", ""))
 
 
+## The slip's serif face, made once per lens rather than once per draw.
+func _ensure_font() -> void:
+	if _font == null:
+		_font = UiTheme.serif()
+
+
 # --- slip kit ----------------------------------------------------------------
 
 
@@ -196,32 +202,11 @@ func _plate_rect(entry: Dictionary) -> Rect2:
 
 ## A paper slip with clipped corners: period-appropriate and cheap to draw.
 func _plate_shape(rect: Rect2, chamfer: float) -> PackedVector2Array:
-	var p: Vector2 = rect.position
-	var e: Vector2 = rect.end
-	return PackedVector2Array([
-		Vector2(p.x + chamfer, p.y),
-		Vector2(e.x - chamfer, p.y),
-		Vector2(e.x, p.y + chamfer),
-		Vector2(e.x, e.y - chamfer),
-		Vector2(e.x - chamfer, e.y),
-		Vector2(p.x + chamfer, e.y),
-		Vector2(p.x, e.y - chamfer),
-		Vector2(p.x, p.y + chamfer),
-	])
+	return LensSlip.shape(rect, chamfer)
 
 
 func _offset_shape(shape: PackedVector2Array, offset: Vector2) -> PackedVector2Array:
-	var moved := PackedVector2Array()
-	for point: Vector2 in shape:
-		moved.append(point + offset)
-	return moved
-
-
-func _closed(shape: PackedVector2Array) -> PackedVector2Array:
-	var result: PackedVector2Array = shape.duplicate()
-	if not result.is_empty():
-		result.append(result[0])
-	return result
+	return LensSlip.offset(shape, offset)
 
 
 func _owner_tint(owner_id: int) -> Color:
