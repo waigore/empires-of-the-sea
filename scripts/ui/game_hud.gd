@@ -64,6 +64,10 @@ signal navy_pressed
 ## holds that can carry a fort and the step the Engineer would take next
 ## (REQ-P5-01, REQ-P5-03; DR-20261116-01).
 signal walls_pressed
+## The realm ledger's hospitals door opens the crown's hospitals — every
+## province it holds that can carry a ward, the level it stands at and the step
+## the Engineer would take next (REQ-P5-01, REQ-P5-03; DR-20261116-02).
+signal hospitals_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -134,6 +138,9 @@ var navy_ledger: NavalLedgerPanel = null
 ## The crown's walls: every province it holds that can carry a fort and the step
 ## the Engineer would take next (DR-20261116-01).
 var walls_ledger: WallLedgerPanel = null
+## The crown's hospitals: every province it holds that can carry a ward and the
+## step the Engineer would take next (DR-20261116-02).
+var hospitals_ledger: HospitalLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

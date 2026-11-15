@@ -97,17 +97,9 @@ static func _estates(
 	if works == null:
 		return {}
 	return ImprovementLedger.snapshot(
-		model, works, _civilians(play, region), play.stockpile(), owner, seat,
+		model, works, MapPlayCharts.crews(play, region), play.stockpile(), owner, seat,
 		play.tech_caps()
 	)
-
-
-static func _civilians(play: PlaySession, region: int) -> Array[CivilianState]:
-	if play.civilian_layer == null:
-		return [] as Array[CivilianState]
-	var units: Array[CivilianState] = []
-	units.assign(play.civilian_layer.regions.value(region, []))
-	return units
 
 
 static func _stored(table: MapRegionTable, region: int) -> Array:

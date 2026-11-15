@@ -42,6 +42,8 @@ func _draw() -> void:
 			_draw_compass(center, radius)
 		"wall":
 			_draw_wall(center, radius)
+		"hospital":
+			_draw_hospital(center, radius)
 		"bell":
 			_draw_bell(center, radius)
 		"play":
@@ -260,6 +262,21 @@ func _draw_wall(center: Vector2, radius: float) -> void:
 	draw_line(
 		center + Vector2(-radius * 0.82, radius * 0.72),
 		center + Vector2(radius * 0.82, radius * 0.72), tint, maxf(1.0, radius * 0.12), true
+	)
+
+
+## A ward: the surgeon's cross on a roundel, so the sheet's crest reads as the
+## building the row raises rather than a second wall.
+func _draw_hospital(center: Vector2, radius: float) -> void:
+	draw_circle(center, radius * 0.86, tint)
+	draw_circle(center, radius * 0.86, Palette.INK, false, maxf(1.0, radius * 0.1), true)
+	var arm: float = radius * 0.52
+	var thick: float = radius * 0.26
+	draw_rect(
+		Rect2(center + Vector2(-thick * 0.5, -arm), Vector2(thick, arm * 2.0)), Palette.INK
+	)
+	draw_rect(
+		Rect2(center + Vector2(-arm, -thick * 0.5), Vector2(arm * 2.0, thick)), Palette.INK
 	)
 
 

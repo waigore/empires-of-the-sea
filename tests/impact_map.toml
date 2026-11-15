@@ -279,6 +279,7 @@ suites = [
 [domains.muster]
 suites = [
   "test_ledgers.gd",
+  "test_hospital_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -657,6 +658,18 @@ domain = "muster"
 # with the other sheets — one chrome, one modal layer — so a reading change
 # never pulls the map, menu or ui catch-alls past the tier-1 budget.
 [[rules]]
+match = "scripts/rules/raise_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/raise_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_charts.gd*"
+domain = "muster"
+
+[[rules]]
 match = "scripts/rules/town_ledger.gd*"
 domain = "muster"
 
@@ -682,6 +695,27 @@ domain = "muster"
 
 [[rules]]
 match = "scripts/map/map_play_walls.gd*"
+domain = "muster"
+
+# The crown's hospitals (DR-20261116-02): the projection, its row and panel, the
+# map hook behind Raise and the realm ledger's third door. Named before the
+# hospital rules glob so a reading change rides the muster domain with the other
+# sheets instead of pulling the hospital domain's five suites, and before the
+# tests glob for the same reason.
+[[rules]]
+match = "scripts/rules/hospital_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/hospital_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_hospitals.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_hospital_ledger.gd*"
 domain = "muster"
 
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.

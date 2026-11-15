@@ -15,6 +15,7 @@ extends LedgerSheet
 ## the walls sheet is the step that raises it (DR-20261116-01).
 signal towns_pressed
 signal walls_pressed
+signal hospitals_pressed
 
 
 func _init() -> void:
@@ -54,9 +55,10 @@ func _build_body(column: VBoxContainer) -> void:
 
 
 ## The doors a step is one reach from the reading that raises it: the realm
-## prints the town level and the fort, so the towns and walls sheets are the
-## steps that raise them (REQ-P5-01, REQ-P5-04; DR-20261115-12,
-## DR-20261116-01). Full-width rows keep each a thumb-sized tap on a phone.
+## prints the town level, the fort and the ward, so the towns, walls and
+## hospitals sheets are the steps that raise them (REQ-P5-01, REQ-P5-04;
+## DR-20261115-12, DR-20261116-01, DR-20261116-02). Full-width rows keep each a
+## thumb-sized tap on a phone.
 func _doors() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
@@ -67,6 +69,10 @@ func _doors() -> Control:
 	row.add_child(_door(
 		"Walls ›", "Every wall the crown holds, and the step that raises it (V)",
 		func() -> void: walls_pressed.emit()
+	))
+	row.add_child(_door(
+		"Hospitals ›", "Every ward the crown holds, and the step that raises it",
+		func() -> void: hospitals_pressed.emit()
 	))
 	return row
 

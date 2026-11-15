@@ -36,8 +36,9 @@ raw its own estates deliver, so a town with no works pays nothing.
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / developed) — each carrying its own tally. The reading leads
-with what can be raised now, then what is in hand, then what waits on a study or
-a crew, and the finished towns last; within a state the cheapest step leads.
+with what can be raised now, then what is in hand, then what waits on a study, a
+crew or the stores, and the finished towns last; within a state the cheapest
+step leads.
 
 ## Raise
 
@@ -45,7 +46,9 @@ a crew, and the finished towns last; within a state the cheapest step leads.
 order (`ImprovementOrders.upgrade_town`), swapping the chart first when the
 province lies on the other one. The order's message reaches the court as the
 toast, and the row repaints as `AT WORK`. A row that cannot be raised carries no
-press: the note names the wait instead.
+press: the note names the wait. That includes the crown's stores — a town it
+cannot pay for reads `LOCKED` and names the materials, so the press is never
+offered an order the Builder would refuse.
 
 ## Architecture
 

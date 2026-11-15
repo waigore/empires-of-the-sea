@@ -54,6 +54,8 @@ static func build_hud(play: PlaySession) -> void:
 		hud.towns_ledger.bind(play)
 	if hud.walls_ledger != null:
 		hud.walls_ledger.bind(play)
+	if hud.hospitals_ledger != null:
+		hud.hospitals_ledger.bind(play)
 	if hud.navy_ledger != null:
 		hud.navy_ledger.bind(play)
 	_seat_commanders(play)
@@ -107,7 +109,7 @@ static func refresh_dossier(play: PlaySession) -> void:
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked()
+		play.tech_unlocked(), play.stockpile()
 	)
 
 

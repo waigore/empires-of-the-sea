@@ -26,6 +26,9 @@ var _capital_tile: Vector2i = CivilianState.NO_TILE
 var _faction: int = -1
 var _tech_caps: Dictionary = {}
 var _tech_unlocked: Dictionary = {}
+## The crown's live purse, or null when the caller keeps no stores: the town
+## order reads one money gate with the order itself (REQ-P2-03).
+var _stockpile: Variant = null
 var _province_id: int = -1
 
 
@@ -109,7 +112,9 @@ func _build() -> void:
 
 ## Live tables for the survey rows and the town gate. The panel keeps the
 ## references, so a turn that changes works or research re-renders the open
-## dossier without the map layer handing it over again.
+## dossier without the map layer handing it over again. `stockpile` is the
+## crown's live purse (null when the caller has none), so the town order greys
+## out for the materials it cannot pay as well as the study it lacks.
 func set_data(
 	model: MapModel,
 	works: LandWorks,
@@ -118,7 +123,8 @@ func set_data(
 	capital_tile: Vector2i,
 	faction: int,
 	tech_caps: Dictionary,
-	tech_unlocked: Dictionary
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
 ) -> void:
 	var same_map: bool = model != null and model == _model
 	_model = model
@@ -129,6 +135,7 @@ func set_data(
 	_faction = faction
 	_tech_caps = tech_caps
 	_tech_unlocked = tech_unlocked
+	_stockpile = stockpile
 	if not same_map:
 		# A region switch invalidates the province id it was showing.
 		_province_id = -1
@@ -187,7 +194,7 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	).size()
 	_resources.render(rows, unsurveyed, _road_plans(model, rows))
 	_grid.set_estate_roads(data, rows, crown)
-	_orders.set_town_order(data, _faction, _tech_unlocked)
+	_orders.set_town_order(data, _faction, _tech_unlocked, _stockpile)
 	_orders.set_shipyard_visible(
 		data.owner == _faction and data.capital and data.port_tile.x >= 0
 	)

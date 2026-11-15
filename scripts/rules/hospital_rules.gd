@@ -228,9 +228,25 @@ static func _entry(level: int) -> Dictionary:
 	return LEVELS[clamp_level(level)]
 
 
+## Why this crown cannot raise the province's ward now, or "" when the order is
+## open. The province dossier's order and the hospitals ledger's rows read this
+## one wording, so a row can never offer a ward the order would refuse (wiki:
+## combat § Regiment condition; DR-20261116-02).
+static func refusal(level: int, tech_unlocked: Dictionary = {}) -> String:
+	if clamp_level(level) >= MAX_LEVEL:
+		return "This province already holds a general hospital."
+	var next: int = next_level(level)
+	var gate: String = tech_gate(next)
+	if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
+		return "A %s needs %s." % [level_name(next), TechCatalog.display_name(gate)]
+	return ""
+
+
 ## Validation for the Engineer's `build_hospital` order. Returns `{"ok": true}`
 ## (with the level to raise in `details`) or a refusal shaped like
-## CivilianWork's `_no`.
+## CivilianWork's `_no`. The level and the study are `refusal`'s own wording, so
+## the hospitals ledger's rows can never offer a ward this order would refuse
+## (DR-20261116-02).
 static func work_check(
 	model: MapModel,
 	unit: CivilianState,
@@ -238,17 +254,14 @@ static func work_check(
 	province: int,
 	tech_unlocked: Dictionary
 ) -> Dictionary:
+	var refusal_reason: String = ""
 	if model.owner_at(tile.x, tile.y) != unit.owner:
-		return _refuse("This land is not held by your crown.")
-	if level_at(model, province) >= MAX_LEVEL:
-		return _refuse("This province already holds a general hospital.")
-	var next: int = next_level(level_at(model, province))
-	var gate: String = tech_gate(next)
-	if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
-		return _refuse(
-			"A %s needs %s." % [level_name(next), TechCatalog.display_name(gate)]
-		)
-	return {"ok": true, "details": {"hospital_level": next}}
+		refusal_reason = "This land is not held by your crown."
+	else:
+		refusal_reason = refusal(level_at(model, province), tech_unlocked)
+	if not refusal_reason.is_empty():
+		return {"ok": false, "reason": refusal_reason, "cost": {}, "duration": 0}
+	return {"ok": true, "details": {"hospital_level": next_level(level_at(model, province))}}
 
 
 ## The work detail a hospital order records, for CivilianWork.assign.
@@ -262,7 +275,3 @@ static func work_complete(
 ) -> Array:
 	apply_build(model.province_data(province), unit.work_detail("hospital_level"))
 	return [model.index_of(tile.x, tile.y)]
-
-
-static func _refuse(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "cost": {}, "duration": 0}

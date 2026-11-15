@@ -1901,6 +1901,41 @@ func test_a_town_without_the_study_is_locked_and_names_it() -> void:
 	)
 
 
+## The third gate the order charges is the purse: a crown with no stores was
+## offered a Raise the work order refused (wiki: civilian-units § Builder,
+## extraction-and-improvements § Town manufacturing bonus; DR-20261115-12 —
+## "a row that cannot be raised carries no press").
+func test_a_town_the_stores_cannot_pay_for_is_locked_and_names_the_shortfall() -> void:
+	var tech: Dictionary = {"national_bureaucracy": true}
+	var regions: Array[Dictionary] = _town_regions(_builders(), tech, {})
+	var snapshot: Dictionary = TownLedger.snapshot(regions, 0)
+	var home: Dictionary = _row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), TownLedger.STATE_LOCKED, "the order would refuse the level")
+	assert_eq(
+		String(home["note"]),
+		CivilianWorkPlan.town_upgrade_refusal(
+			(regions[0]["model"] as MapModel).provinces[0], tech, {}
+		),
+		"the row speaks the order's own refusal"
+	)
+	assert_true(
+		String(home["note"]).contains("4 lumber + 4 cast iron"),
+		"the note names what the crown is short of: %s" % home["note"]
+	)
+	assert_eq(
+		int(TownLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)[TownLedger.FILTER_READY]),
+		0,
+		"a town the stores cannot pay for is not counted as ready"
+	)
+	var paid: Dictionary = TownLedger.snapshot(
+		_town_regions(_builders(), tech, {"lumber": 4, "castIron": 4}), 0
+	)
+	assert_eq(
+		String(_row(paid, FactionCatalog.OLD_WORLD)["state"]), TownLedger.STATE_READY,
+		"the materials, and nothing else, open the row"
+	)
+
+
 func test_a_town_with_no_idle_crew_waits_on_a_builder() -> void:
 	var snapshot: Dictionary = TownLedger.snapshot(_town_regions([] as Array), 0)
 	var home: Dictionary = _row(snapshot, FactionCatalog.OLD_WORLD)
@@ -1954,6 +1989,47 @@ func test_the_bonus_note_states_where_the_bonus_sits() -> void:
 	assert_true(note.contains("levels 2 and 4"), "the rule a crown pays by is printed")
 
 
+# --- the shared raise spine -------------------------------------------------
+
+
+## The spine under both raise sheets: a tally per state, the reading order and
+## the state words each sheet passes in (DR-20261115-12, DR-20261116-01).
+func test_the_spine_counts_every_state_a_row_can_carry() -> void:
+	var counts: Dictionary = RaiseLedger.empty_counts(TownLedger.STATES)
+	assert_eq(counts.size(), TownLedger.STATES.size(), "one tally per state")
+	for state: String in TownLedger.STATES:
+		assert_eq(int(counts[state]), 0, "a zero stays legible")
+
+
+func test_the_spine_orders_a_ready_step_before_a_finished_one() -> void:
+	var rows: Array[Dictionary] = [
+		{"state": TownLedger.STATE_DEVELOPED, "level": 1, "region": 0, "id": 1},
+		{"state": TownLedger.STATE_READY, "level": 3, "region": 1, "id": 2},
+		{"state": TownLedger.STATE_READY, "level": 1, "region": 0, "id": 3},
+	]
+	RaiseLedger.sort_rows(rows, TownLedger.STATE_ORDER)
+	assert_eq(int(rows[0]["id"]), 3, "the weakest ready step leads")
+	assert_eq(int(rows[1]["id"]), 2, "then the stronger ready step")
+	assert_eq(int(rows[2]["id"]), 1, "the finished work reads last")
+
+
+func test_the_spine_reads_the_finished_and_no_crew_words_the_sheet_passes() -> void:
+	assert_eq(
+		RaiseLedger.state_for(
+			4, 4, null, "", false, TownLedger.STATE_DEVELOPED, TownLedger.STATE_NO_BUILDER
+		),
+		TownLedger.STATE_DEVELOPED,
+		"a finished work is the sheet's own word"
+	)
+	assert_eq(
+		RaiseLedger.state_for(
+			1, 4, null, "", false, TownLedger.STATE_DEVELOPED, TownLedger.STATE_NO_BUILDER
+		),
+		TownLedger.STATE_NO_BUILDER,
+		"a missing crew is the sheet's own word"
+	)
+
+
 # --- towns: the sheet ---
 
 
@@ -1981,12 +2057,46 @@ func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
 	panel.open()
 	var row: TownLedgerRow = _row_for(panel, province.id)
 	assert_not_null(row, "the province is on the sheet")
-	row._raise_town()
+	row.press_raise()
 	assert_true(builder.is_working(), "the press files the order")
 	assert_eq(builder.work_action(), "upgrade_town", "the Builder raises the town")
 	assert_eq(builder.work_tile(), town, "on the province's own town tile")
 	assert_eq(int(stock["lumber"]), 36, "the price is the table's own")
 	assert_true(_state_of(_row_for(panel, province.id)) == "at_work", "and the row reads it")
+
+
+## The purse is the third gate on the sheet itself: with every store at zero the
+## row reads LOCKED and carries no press, and the materials arriving open it —
+## no press the order would refuse (wiki: civilian-units § Builder;
+## DR-20261115-12, REQ-P2-03, REQ-P5-05).
+func test_a_short_purse_leaves_the_town_raise_press_off_the_sheet() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	_cancel_works()
+	var province: ProvinceState = _crown_town()
+	assert_not_null(province, "the campaign seats the crown in a town")
+	var stock: Dictionary = screen.play.stockpile()
+	for key: Variant in stock.keys():
+		stock[key] = 0
+	panel.open()
+	var row: TownLedgerRow = _row_for(panel, province.id)
+	assert_not_null(row, "the province is on the sheet")
+	assert_eq(String(row.data.get("state", "")), TownLedger.STATE_LOCKED, "the order would refuse")
+	assert_false(row._raise.visible, "a row that cannot be raised carries no press")
+	assert_true(
+		String(row.data.get("note", "")).contains("Stores are short of"),
+		String(row.data.get("note", ""))
+	)
+	## The materials arrive: the same row opens without the sheet reopening.
+	var price: Dictionary = CivilianWork.cost_for(
+		"upgrade_town", CivilianWorkPlan.town_upgrade_level(screen.play.model, province.town_tile)
+	)
+	for key: Variant in price.keys():
+		stock[key] = int(price[key])
+	panel.refresh()
+	var paid: TownLedgerRow = _row_for(panel, province.id)
+	assert_eq(String(paid.data.get("state", "")), TownLedger.STATE_READY, "paid, the step opens")
+	assert_true(paid._raise.visible, "and the press returns")
 
 
 ## The map hooks answer a missing session and an unreadable province without
@@ -2021,7 +2131,9 @@ func test_back_and_the_key_close_the_towns_ledger() -> void:
 ## Two charts of the naval fixture: the crown holds Cádiz at home (a level-1
 ## town) and Veracruz abroad (a finished town), and the rival's Coro carries a
 ## town of its own that must never reach the reading.
-func _town_regions(units: Array, tech: Dictionary = {"national_bureaucracy": true}) -> Array[Dictionary]:
+func _town_regions(
+	units: Array, tech: Dictionary = {"national_bureaucracy": true}, stockpile: Variant = null
+) -> Array[Dictionary]:
 	var old: MapModel = Naval.build()
 	var new: MapModel = Naval.build()
 	new.region_id = FactionCatalog.NEW_WORLD
@@ -2039,12 +2151,14 @@ func _town_regions(units: Array, tech: Dictionary = {"national_bureaucracy": tru
 			"model": old,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 		{
 			"region": FactionCatalog.NEW_WORLD,
 			"model": new,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 	]
 
@@ -2083,6 +2197,14 @@ func _towns_door() -> Button:
 		if button != null and button.text == "Towns ›":
 			return button
 	return null
+
+
+## Frees every crew this suite put to work, so a case that reads a row does not
+## inherit the order an earlier case filed.
+func _cancel_works() -> void:
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit != null and unit.owner == screen.play.player_faction and unit.is_working():
+			unit.cancel_work()
 
 
 func _row_for(panel: TownLedgerPanel, province_id: int) -> TownLedgerRow:
@@ -2178,6 +2300,36 @@ func test_a_wall_without_the_study_is_locked_and_names_it() -> void:
 		int(WallLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)[WallLedger.FILTER_READY]),
 		1,
 		"a locked wall is not counted as ready"
+	)
+
+
+## The third gate the order charges is the purse: a crown with no stores was
+## offered a Raise the work order refused (wiki: siege-mechanics § Fort Levels —
+## "a row that cannot be raised carries no press"; DR-20261116-01).
+func test_a_shore_the_stores_cannot_pay_for_is_locked_and_names_the_shortfall() -> void:
+	var snapshot: Dictionary = WallLedger.snapshot(_wall_regions(_engineers(), {}, {}), 0)
+	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), WallLedger.STATE_LOCKED, "the order would refuse the wall")
+	assert_eq(
+		String(home["note"]),
+		CivilianWorkPlan.fort_refusal(0, {"mine_engineering": true}, {}),
+		"the row speaks the order's own refusal"
+	)
+	assert_true(
+		String(home["note"]).contains("3 lumber + 3 bronze"),
+		"the note names what the crown is short of"
+	)
+	assert_eq(
+		int(WallLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)[WallLedger.FILTER_READY]),
+		0,
+		"a wall the stores cannot pay for is not counted as ready"
+	)
+	var paid: Dictionary = WallLedger.snapshot(
+		_wall_regions(_engineers(), {}, {"lumber": 3, "bronze": 3}), 0
+	)
+	assert_eq(
+		String(_wall_row(paid, FactionCatalog.OLD_WORLD)["state"]), WallLedger.STATE_READY,
+		"the materials, and nothing else, open the row"
 	)
 
 
@@ -2277,7 +2429,7 @@ func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 	var row: WallLedgerRow = _wall_row_for(panel, province.id)
 	assert_not_null(row, "the province is on the sheet")
 	assert_eq(String(row.data.get("state", "")), WallLedger.STATE_READY, "the row offers the press")
-	row._raise_wall()
+	row.press_raise()
 	var crew: CivilianState = _wall_crew(site)
 	assert_not_null(crew, "the press sends an Engineer")
 	assert_eq(crew.work_action(), "build_fort", "and files the wall order")
@@ -2287,6 +2439,36 @@ func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 		"the price is the fort table's own"
 	)
 	assert_eq(_wall_state_of(_wall_row_for(panel, province.id)), "at_work", "and the row reads it")
+
+
+## The purse is the third gate on the sheet itself: with every store at zero the
+## row reads LOCKED and carries no press, and the materials arriving open it —
+## no press the order would refuse (wiki: siege-mechanics § Fort Levels;
+## DR-20261116-01, REQ-P2-03, REQ-P5-05).
+func test_a_short_purse_leaves_the_wall_raise_press_off_the_sheet() -> void:
+	var panel: WallLedgerPanel = screen.hud.walls_ledger
+	screen.play.tech_unlocked()["mine_engineering"] = true
+	screen.play.tech_unlocked()["modern_forts"] = true
+	_cancel_works()
+	var province: ProvinceState = _crown_wall()
+	assert_not_null(province, "the campaign seats the crown on ground that can carry a wall")
+	var stock: Dictionary = screen.play.stockpile()
+	for key: Variant in stock.keys():
+		stock[key] = 0
+	panel.open()
+	var row: WallLedgerRow = _wall_row_for(panel, province.id)
+	assert_not_null(row, "the province is on the sheet")
+	assert_eq(String(row.data.get("state", "")), WallLedger.STATE_LOCKED, "the order would refuse")
+	assert_false(row._raise.visible, "a row that cannot be raised carries no press")
+	assert_true(String(row.data.get("note", "")).contains("Stores are short of"), row.data.get("note", ""))
+	## The materials arrive: the same row opens without the sheet reopening.
+	var price: Dictionary = FortRules.cost(FortRules.next_level(province.fort_level))
+	for key: Variant in price.keys():
+		stock[key] = int(price[key])
+	panel.refresh()
+	var paid: WallLedgerRow = _wall_row_for(panel, province.id)
+	assert_eq(String(paid.data.get("state", "")), WallLedger.STATE_READY, "paid, the step opens")
+	assert_true(paid._raise.visible, "and the press returns")
 
 
 ## The map hooks answer a missing session and an unreadable province without
@@ -2321,7 +2503,9 @@ func test_back_and_the_key_close_the_walls_ledger() -> void:
 ## Two charts of the naval fixture: the crown holds Cádiz at home (a bare town)
 ## and Veracruz abroad (a wood wall), and the rival's Coro carries a town of its
 ## own that must never reach the reading.
-func _wall_regions(units: Array, tech: Dictionary = {"mine_engineering": true}) -> Array[Dictionary]:
+func _wall_regions(
+	units: Array, tech: Dictionary = {"mine_engineering": true}, stockpile: Variant = null
+) -> Array[Dictionary]:
 	var old: MapModel = Naval.build()
 	var new: MapModel = Naval.build()
 	new.region_id = FactionCatalog.NEW_WORLD
@@ -2337,12 +2521,14 @@ func _wall_regions(units: Array, tech: Dictionary = {"mine_engineering": true}) 
 			"model": old,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 		{
 			"region": FactionCatalog.NEW_WORLD,
 			"model": new,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 	]
 
