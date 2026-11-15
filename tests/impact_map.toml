@@ -1593,9 +1593,9 @@ suites = [
   "test_generated_world_rules.gd",
 ]
 
-# One-suite themes for the twelve folds in this PR — named before test_ai_*,
-# test_campaign_*, test_naval_* and the test_* catch-alls so a deletion re-runs
-# only the boot that absorbed it (docs/testing.md tier-1 5 min budget).
+# One-suite themes for folded leftovers — named before test_ai_*, test_map_*,
+# test_civilian_*, test_hospital_* and the test_* catch-alls so a deletion
+# re-runs only the boot that absorbed it (docs/testing.md tier-1 5 min budget).
 [domains.fold_court]
 suites = [
   "test_diplomacy_rules.gd",
@@ -1616,9 +1616,58 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+[domains.fold_ai]
+suites = [
+  "test_ai_rules.gd",
+]
+
+[domains.fold_civilian_turn]
+suites = [
+  "test_civilian_turn_rules.gd",
+]
+
+[domains.fold_map_view]
+suites = [
+  "test_map_view_rules.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "impact_map"
+
+# Nine folds in #789: deleted suite names must still hit the host boot, not the
+# wide ai / map / civilian / hospital domains (paths-filter treats D as code).
+[[rules]]
+match = "tests/test_ai_planner_rules.gd*"
+domain = "fold_ai"
+
+[[rules]]
+match = "tests/test_ai_campaign_rules.gd*"
+domain = "fold_ai"
+
+[[rules]]
+match = "tests/test_land_battle_rules.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "tests/test_civilian_field_rules.gd*"
+domain = "fold_civilian_turn"
+
+[[rules]]
+match = "tests/test_hospital_ledger.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "tests/test_map_data_rules.gd*"
+domain = "fold_map_view"
+
+[[rules]]
+match = "tests/test_map_canvas.gd*"
+domain = "fold_map_view"
+
+[[rules]]
+match = "tests/test_court_ui_parts.gd*"
+domain = "fold_panel"
 
 [[rules]]
 match = "tests/test_resource_lens.gd*"
