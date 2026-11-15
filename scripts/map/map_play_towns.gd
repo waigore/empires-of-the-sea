@@ -1,11 +1,11 @@
 class_name MapPlayTowns
 extends RefCounted
 ## The towns ledger's two map hooks: the reading (both charts assembled into one
-## projection) and Raise (swap the chart when the province lies on the other
-## one, then file the Builder's order). Presentation only — the rows come from
-## [TownLedger], the two-chart read from [MapPlayCharts], and the order goes
-## through [MapPlayImprovements], so the press is the province dossier's own
-## order and the rules stay in one place (REQ-P2-03, REQ-P3-02).
+## projection) and Raise (file the Builder's order on the chart the province
+## lies on). Presentation only — the rows come from [TownLedger], the two-chart
+## read from [MapPlayCharts], and the press goes through
+## [MapPlayImprovements], the same door the province dossier's town order uses,
+## so the rules stay in one place (REQ-P2-03, REQ-P3-02).
 
 
 ## One entry per chart, in the order the ledger prints them: the region's own
@@ -15,20 +15,12 @@ static func snapshot(play: PlaySession) -> Dictionary:
 	return TownLedger.snapshot(MapPlayCharts.charts(play), MapPlayCharts.owner(play))
 
 
-## Files the town order on the chart the province lies on. The order reads the
-## mounted chart's works and crews, so the chart is swapped first when the
-## province is on the other one — the same step Visit takes. The order's own
-## message reaches the court as the toast (REQ-P5-05); `quiet` keeps it off the
-## lane for a batch press, whose receipt is the one line the court reads
-## (DR-20261116-03).
+## Files the town order on the chart the province lies on, on the province's own
+## town site. `quiet` keeps the order's line off the lane for a batch press,
+## whose receipt is the one line the court reads (REQ-P5-05; DR-20261116-03).
 static func raise(
 	play: PlaySession, region: int, province_id: int, quiet: bool = false
 ) -> Dictionary:
-	if play == null or play.world == null:
-		return {"ok": false, "message": ""}
-	var model: MapModel = play.world.region(region)
-	if model == null or model.province_data(province_id) == null:
-		return {"ok": false, "message": ""}
-	if region != play.region_index:
-		play.switch_region(region)
-	return MapPlayImprovements.upgrade_town(play, province_id, quiet)
+	return MapPlayImprovements.raise(
+		play, region, province_id, MapPlayImprovements.RAISE_TOWN, quiet
+	)

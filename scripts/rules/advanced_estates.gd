@@ -126,10 +126,7 @@ static func _road_to_town(
 	var province: ProvinceState = model.get_province(model.province_at(tile.x, tile.y))
 	if province == null:
 		return
-	var goal: Vector2i = province.town_tile
-	if goal.x < 0:
-		goal = province.capital_tile
-	var path: Array[Vector2i] = _path(model, faction, tile, goal)
+	var path: Array[Vector2i] = _path(model, faction, tile, province.town_site())
 	for step: Vector2i in path:
 		if works.transport_at(model, step) < LandWorks.TRANSPORT_ROAD:
 			works.set_transport(model, step, LandWorks.TRANSPORT_ROAD)

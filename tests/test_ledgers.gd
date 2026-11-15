@@ -2194,6 +2194,39 @@ func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
 	assert_true(_state_of(_row_for(panel, province.id)) == "at_work", "and the row reads it")
 
 
+## A hand-built chart predates town assignment: the seat stands, the town tile
+## was never written. The row, its press and the Builder's order all read the
+## one site rule (`ProvinceState.town_site`), so the press files on the seat
+## instead of being refused for a town the chart never assigned
+## (REQ-P2-03, REQ-P5-05).
+func test_the_town_press_files_on_the_seat_a_hand_built_chart_never_assigned() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	var province: ProvinceState = _crown_town()
+	assert_not_null(province, "the campaign seats the crown in a town")
+	_cancel_works()
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	var stock: Dictionary = screen.play.stockpile()
+	stock["lumber"] = 40
+	stock["castIron"] = 40
+	var seat: Vector2i = province.town_tile
+	province.town_tile = Vector2i(-1, -1)
+	province.capital = true
+	province.capital_tile = seat
+	assert_eq(province.town_site(), seat, "the seat is the province's town site")
+	var builder: CivilianState = CivilianState.create(
+		91, screen.play.player_faction, "builder", seat
+	)
+	screen.play.civilian_layer.units.append(builder)
+	panel.open()
+	var row: TownLedgerRow = _row_for(panel, province.id)
+	assert_not_null(row, "the seat still carries a town row")
+	assert_eq(String(row.data.get("state", "")), TownLedger.STATE_READY, "and offers the step")
+	assert_true(row._raise.visible, "with the press on it")
+	row.press_raise()
+	assert_eq(builder.work_action(), "upgrade_town", "the press files the Builder's order")
+	assert_eq(builder.work_tile(), seat, "on the seat the chart does carry")
+
+
 ## The purse is the third gate on the sheet itself: with every store at zero the
 ## row reads LOCKED and carries no press, and the materials arriving open it —
 ## no press the order would refuse (wiki: civilian-units § Builder;
