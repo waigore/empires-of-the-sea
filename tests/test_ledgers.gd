@@ -961,6 +961,107 @@ func test_the_flat_list_prints_rows_without_headings() -> void:
 	assert_eq(list.get_child_count(), 1, "an empty reading leaves only its notice")
 
 
+## --- the force plaques -------------------------------------------------------
+
+
+## Collects the lines a plaque press raises, so an empty press is read without a
+## mounted chart (issue #670).
+class StubHud extends GameHud:
+	var toasts: Array[String] = []
+
+	func toast(text: String, _icon_name: String = "") -> void:
+		toasts.append(text)
+
+
+## The plaques read "Where are my pieces?" with no region qualifier, so a press
+## walks every chart and comes back to the one it started on (issue #670).
+func test_the_ships_plaque_cycles_every_squadron_across_charts() -> void:
+	_boot_both_charts()
+	var play: PlaySession = screen.play
+	var total: int = _own_fleet_ids(play, FactionCatalog.OLD_WORLD).size() \
+		+ _own_fleet_ids(play, FactionCatalog.NEW_WORLD).size()
+	assert_gt(total, 1, "the crown floats squadrons on both charts")
+	var visited: Array[String] = []
+	var charts: Array[int] = []
+	for press: int in total:
+		screen.hud.fleet_status_pressed.emit()
+		var ship: Ship = play.ship_layer.selected()
+		assert_not_null(ship, "every press selects a squadron")
+		assert_eq(ship.faction, play.player_faction, "only the crown's own hulls")
+		visited.append(_piece_key(play.region_index, ship.fleet_id))
+		charts.append(play.region_index)
+	assert_eq(visited.size(), total, "one press per squadron")
+	assert_eq(_unique(visited).size(), total, "no squadron is visited twice")
+	assert_true(charts.has(FactionCatalog.NEW_WORLD), "the cycle crosses to the other chart")
+	screen.hud.fleet_status_pressed.emit()
+	assert_eq(play.region_index, FactionCatalog.OLD_WORLD, "the cycle wraps onto the first chart")
+	assert_eq(
+		_piece_key(play.region_index, play.ship_layer.selected().fleet_id),
+		visited[0],
+		"and onto the first squadron"
+	)
+
+
+func test_the_troops_plaque_cycles_every_army_across_charts() -> void:
+	_boot_both_charts()
+	var play: PlaySession = screen.play
+	_raise_army_on_the_far_chart(play)
+	var total: int = _own_army_ids(play, FactionCatalog.OLD_WORLD).size() \
+		+ _own_army_ids(play, FactionCatalog.NEW_WORLD).size()
+	assert_gt(total, 1, "the crown keeps a standard on both charts")
+	var visited: Array[String] = []
+	var charts: Array[int] = []
+	for press: int in total:
+		screen.hud.army_status_pressed.emit()
+		var army: ArmyState = play.army_layer.selected_army
+		assert_not_null(army, "every press selects an army")
+		assert_eq(army.owner, play.player_faction, "only the crown's own standards")
+		visited.append(_piece_key(play.region_index, army.id))
+		charts.append(play.region_index)
+	assert_eq(_unique(visited).size(), total, "no army is visited twice")
+	assert_true(charts.has(FactionCatalog.NEW_WORLD), "the cycle crosses to the other chart")
+	screen.hud.army_status_pressed.emit()
+	assert_eq(play.region_index, FactionCatalog.OLD_WORLD, "the cycle wraps onto the first chart")
+	assert_eq(
+		_piece_key(play.region_index, play.army_layer.selected_army.id),
+		visited[0],
+		"and onto the first standard"
+	)
+
+
+## The bug's own signature: a chart with no pieces must not answer "none here"
+## while the crown's pieces stand on the other chart (issue #670).
+func test_a_press_reaches_squadrons_that_stand_on_the_other_chart() -> void:
+	_boot_both_charts()
+	var play: PlaySession = screen.play
+	_strip_own_fleets(play, FactionCatalog.OLD_WORLD)
+	screen.hud.fleet_status_pressed.emit()
+	assert_eq(play.region_index, FactionCatalog.NEW_WORLD, "the press crosses to where the hulls are")
+	var ship: Ship = play.ship_layer.selected()
+	assert_not_null(ship, "and selects the squadron it found")
+	assert_eq(ship.faction, play.player_faction)
+
+
+## An empty press names the whole crown, not the chart on screen (issue #670).
+func test_an_empty_press_names_a_crown_with_no_pieces_anywhere() -> void:
+	var play := PlaySession.new()
+	var hud := StubHud.new()
+	var ships := ShipLayer.new()
+	var armies := ArmyLayer.new()
+	add_child(hud)
+	add_child(ships)
+	add_child(armies)
+	play.hud = hud
+	play.ship_layer = ships
+	play.army_layer = armies
+	MapPlayFocus.focus_next(play, MapPlayFocus.KIND_FLEET)
+	assert_eq(hud.toasts.size(), 1, "a bare crown is told once")
+	assert_true(hud.toasts[0].contains("crown's service"), hud.toasts[0])
+	MapPlayFocus.focus_next(play, MapPlayFocus.KIND_ARMY)
+	assert_eq(hud.toasts.size(), 2, "and the troops plaque answers the same way")
+	assert_true(hud.toasts[1].contains("crown's service"), hud.toasts[1])
+
+
 # --- fixtures ---------------------------------------------------------------
 
 
@@ -1008,6 +1109,85 @@ func _fleets() -> MapRegionTable:
 	new.append(patrol)
 	table.set_region(FactionCatalog.NEW_WORLD, new)
 	return table
+
+
+## Boots the far chart once so both region tables hold the crown's rosters, then
+## returns the view to the Old World with nothing selected. The shared world has
+## no crown seat on the far chart, so a case hands it one (the fixture restores
+## ownership before the next case) — otherwise there is nothing to cross for.
+func _boot_both_charts() -> void:
+	var play: PlaySession = screen.play
+	var far: int = FactionCatalog.NEW_WORLD
+	var seat: ProvinceState = play.world.region(far).provinces[0]
+	seat.owner = play.player_faction
+	seat.capital = true
+	screen.load_region(far)
+	screen.load_region(FactionCatalog.OLD_WORLD)
+	play.ship_layer.deselect()
+	play.army_layer.deselect()
+
+
+func _own_fleet_ids(play: PlaySession, region: int) -> Array[int]:
+	var ids: Array[int] = []
+	for raw: Variant in play.ship_layer.regions.value(region, []):
+		var fleet := raw as FleetState
+		if fleet != null and fleet.owner == play.player_faction:
+			ids.append(fleet.id)
+	return ids
+
+
+func _own_army_ids(play: PlaySession, region: int) -> Array[int]:
+	var ids: Array[int] = []
+	for raw: Variant in play.army_layer.regions.value(region, []):
+		var army := raw as ArmyState
+		if army != null and army.owner == play.player_faction and not army.is_embarked():
+			ids.append(army.id)
+	return ids
+
+
+## A field army on the far chart, so the troops plaque has a piece to cross for.
+## Home Armies muster only for a region's own crowns, and no Great Power is one
+## there, so the case raises its own standard (the fixture restores the rosters).
+func _raise_army_on_the_far_chart(play: PlaySession) -> void:
+	var far: int = FactionCatalog.NEW_WORLD
+	var province: int = MapModel.NO_ID
+	for row: ProvinceState in play.world.region(far).provinces:
+		if row.owner == play.player_faction:
+			province = row.id
+			break
+	assert_true(province >= 0, "the crown holds ground on the far chart")
+	var muster := ArmyMuster.new()
+	muster.next_army = play.army_layer.next_army
+	muster.next_regiment = play.army_layer.next_regiment
+	var army: ArmyState = muster.mint(play.player_faction, province, false, ["peasant_levies"])
+	play.army_layer.next_army = muster.next_army
+	play.army_layer.next_regiment = muster.next_regiment
+	var stored: Array = play.army_layer.regions.value(far, [])
+	stored.append(army)
+	play.army_layer.regions.set_region(far, stored)
+
+
+func _strip_own_fleets(play: PlaySession, region: int) -> void:
+	var kept: Array = []
+	for raw: Variant in play.ship_layer.regions.value(region, []):
+		var fleet := raw as FleetState
+		if fleet != null and fleet.owner != play.player_faction:
+			kept.append(fleet)
+	play.ship_layer.regions.set_region(region, kept)
+
+
+## A piece's place in the cycle: fleet and army ids restart on each chart, so the
+## region has to travel with the id (issue #670).
+func _piece_key(region: int, id: int) -> String:
+	return "%d:%d" % [region, id]
+
+
+func _unique(keys: Array[String]) -> Array[String]:
+	var seen: Array[String] = []
+	for key: String in keys:
+		if not seen.has(key):
+			seen.append(key)
+	return seen
 
 
 func _army_of(table: MapRegionTable, id: int) -> ArmyState:

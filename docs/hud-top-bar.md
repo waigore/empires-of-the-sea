@@ -19,7 +19,7 @@ only if it answers a question the player asks every turn or acts on the map
 | Estates seal | What are my works doing? Opens the estates ledger. |
 | Gazette seal | What happened last turn? Opens the news and its archive. |
 | Treasury plaque | Can I afford this? Net income beside the count. |
-| Ships / Troops plaques | Where are my pieces? Selects the next own squadron or army. |
+| Ships / Troops plaques | Where are my pieces? Selects the next own squadron or army, crossing charts. |
 | Civilians plaque | Where is my crew? Opens the whole-empire roster (`C`). |
 | End turn | The turn's one gold door, closing the row. |
 
