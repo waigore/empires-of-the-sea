@@ -62,9 +62,10 @@ const REVOKE_UTILITY_COST: int = 15
 const BREAK_MIN_DESIRE: int = 60
 const BREAK_UTILITY_COST: int = 20
 ## A pact the court means to march on is broken first: the war ban lifts at the
-## next turn, so the break costs less resolve than the alliance it may carry
+## next turn, so the break costs less resolve than the alliance it may carry —
+## but it still pays the cascade it inflicts, so the price is a real one
 ## (wiki: diplomacy § Breaking a pact; issue #752).
-const BREAK_NAP_UTILITY_COST: int = 10
+const BREAK_NAP_UTILITY_COST: int = 35
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
 ## the turn trace can print. `context` carries the planner read model:
@@ -140,7 +141,9 @@ static func candidates(
 		_subsidy(config, state, faction, target, desire, improve, min_improve, saving),
 		_boycott(state, faction, target, record.score, improve),
 		_break_alliance(state, faction, target, record, desire),
-		_break_nap(state, faction, target, record, desire),
+		_break_nap(
+			config, state, world, ai_state, turn, faction, target, record, desire, context
+		),
 	]
 
 
@@ -276,16 +279,61 @@ static func _break_alliance(
 
 ## The pact the court means to march on is broken first: the war ban lifts at
 ## the next turn, and a formal alliance rides the break at the alliance price
-## (wiki: diplomacy § Breaking a pact; issue #752).
+## (wiki: diplomacy § Breaking a pact; issue #752). The break is only worth the
+## price it pays when the war could actually follow: the pair off its war
+## cooldown, no envoy chain with a claim on the target (a declaration would
+## clear what the court has paid for), and a footing that opens the front
+## (issues #724, #752).
 static func _break_nap(
-	state: DiplomacyState, faction: int, target: int,
-	record: DiplomacyRelation, desire: int
+	config: AiConfig,
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	turn: int,
+	faction: int,
+	target: int,
+	record: DiplomacyRelation,
+	desire: int,
+	context: Dictionary
 ) -> Dictionary:
 	if record == null or not DiplomacyRules.has_pact(state, faction, target):
 		return _blocked("no non-aggression pact stands", KIND_BREAK_NAP)
 	if desire < BREAK_MIN_DESIRE:
 		return _blocked("the pact still serves", KIND_BREAK_NAP)
+	if ai_state.war_on_cooldown(
+		faction, target, turn, config.parameter("diplomacy.war_cooldown_turns")
+	):
+		return _blocked("the pair is on its war cooldown", KIND_BREAK_NAP)
+	# A pact break to open a new front while the court is already fighting is
+	# how crowns drown: the ban stands until this court is at peace elsewhere
+	# (wiki: diplomacy § Breaking a pact; issue #752).
+	for other: DiplomacyRelation in state.relations_of(faction):
+		if other.at_war:
+			return _blocked("the court is at war on another front", KIND_BREAK_NAP)
+	var colony: Dictionary = AiTribeColony.ambition(
+		state, world, context.get("charts", null), faction, target,
+		int((context.get("treasury", {}) as Dictionary).get(faction, 0)),
+		(context.get("tech", {}) as Dictionary).get(faction, {})
+	)
+	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
+		return _blocked("an envoy chain has a claim on that court", KIND_BREAK_NAP)
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
+		and not _outmatches(faction, target, context)
+	):
+		return _blocked("overstretched: no third front", KIND_BREAK_NAP)
 	return _offer(KIND_BREAK_NAP, target, desire - BREAK_NAP_UTILITY_COST)
+
+
+## Whether this court is the stronger of the pair on the published power score —
+## the same read the planner's war gate applies (DR-20261114-11).
+static func _outmatches(faction: int, target: int, context: Dictionary) -> bool:
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(faction) or not powers.has(target):
+		return true
+	return int(powers[faction]) > int(powers[target])
 
 
 static func _offer(kind: String, target: int, utility: int) -> Dictionary:

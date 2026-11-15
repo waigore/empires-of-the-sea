@@ -74,12 +74,6 @@ static func best(
 		else 0
 	)
 	if not next.is_empty():
-		# A court already marching on this target does not sign away the war ban
-		# it would have to break; the chain keeps its worth when the court wants
-		# the steps for land or deeds (issue #752).
-		if next == DiplomacyCatalog.STAGE_NAP and not chain_matters \
-				and 100 - improve >= config.parameter("diplomacy.war_declare_min_desire"):
-			return _blocked("war is intended; the pact can wait", AiDiplomacyOffers.KIND_OVERTURE)
 		var absorb: Dictionary = _absorption(
 			config, world, target, next, context
 		)
@@ -172,6 +166,7 @@ static func _absorption(
 		"read": true,
 		"accept": DiplomacyRules.accepts_join_empire(world, config.faction, target, power),
 	}
+
 
 
 ## The pact rung's worth as a peace lock against a peer the court does not mean
