@@ -40,6 +40,10 @@ var floor: int = 0
 var boost: Dictionary = {}
 var hospitals: Array[int] = []
 var leader: String = ""
+## The crown's best town in any province: the presence test the second-stage
+## rows' works gate reads, so the plan and the phase agree on what may run
+## (wiki: production-recipes § Town-works gates; DR-20261116-04).
+var town_level: int = 0
 
 
 ## Opens one court's turn: its ledger, its opening civilians and its overseas
@@ -54,6 +58,7 @@ static func open(
 	court.kind = AiControl.court_kind(play, faction)
 	court.economy = play.ai.economy_for(faction)
 	court.config = AiBind.config(court.kind, faction, play.map_seed)
+	court.town_level = TownIndustry.best_level(play.world, faction)
 	MapPlayCivilianAi.seed(play, faction)
 	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
 	return court
@@ -86,7 +91,7 @@ func plan_turn() -> void:
 	production = (
 		{"assignments": []}
 		if hull_chest > 0 and String(income["goal"]) == AiIncome.GOAL_EARN
-		else AiBind.production_orders(kind, config, economy)
+		else AiBind.production_orders(kind, config, economy, town_level)
 	)
 	floor = int(income["reserve"])
 	research = _plan_research()
@@ -99,7 +104,7 @@ func plan_turn() -> void:
 	# plans are applied once the phase has resolved.
 	var projected: Dictionary = EconomyTurn.project(
 		economy, market, overseas["extraction"] as Dictionary, ships,
-		army_food, boost, hospitals, leader
+		army_food, boost, hospitals, leader, town_level
 	)
 	# A court on `earn` still works its own land: extraction draws on the
 	# cash floor, everything else waits for the muster (issue #489).
@@ -121,7 +126,7 @@ func apply_turn() -> Dictionary:
 	# The shared market clears once, after every court has staged its orders.
 	var resolved: Dictionary = EconomyTurn.resolve(
 		economy, market, overseas["extraction"] as Dictionary, ships, army_food,
-		false, boost, hospitals, leader
+		false, boost, hospitals, leader, town_level
 	)
 	# A rival's wards eat in the same pass as the crown's: whole staffs, seat
 	# first, and the flags they set are what its next rest tick reads

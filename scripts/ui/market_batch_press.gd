@@ -41,13 +41,15 @@ static func build(
 
 ## Adds the press under `row` when the rules allow more than one unit, and
 ## returns it — null when a single press is the whole order, so a row that can
-## only carry one ton reads exactly as it did before (REQ-P1-07).
+## only carry one ton reads exactly as it did before (REQ-P1-07). `total` is the
+## whole order's ducats as the clearing will charge them (one rounding for the
+## deal, never a sum of per-unit roundings).
 static func attach(
-	row: Control, side: String, units: int, commodity: String, unit: int,
+	row: Control, side: String, units: int, commodity: String, total: int,
 	compact: bool, on_press: Callable
 ) -> Button:
 	if units <= 1:
 		return null
-	var button := build(side, units, commodity, units * maxi(unit, 0), compact, on_press)
+	var button := build(side, units, commodity, total, compact, on_press)
 	row.add_child(button)
 	return button
