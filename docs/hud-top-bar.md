@@ -26,11 +26,16 @@ only if it answers a question the player asks every turn or acts on the map
 ## Map surface
 
 Idle, the chart carries only navigation and readability: zoom, minimap, lens
-key. Estates, the Gazette and every other non-navigation door live on the bar.
-Opened plates — estates, Gazette, battle plates, sheets, dossiers — drag by
-their grip or header, so the fleet or province underneath can be read without
-closing them; a closed plate returns to its layout place. A new button or
-overlay over the chart must earn that cost (`REQ-P1-07`).
+key. Every bar door — ledger, college, court, muster, estates, the Gazette and
+the crew roster — opens a **full-screen modal**: its own layer above the pause
+menu, a wash that takes the pointer, safe-area margins, and back or Close
+setting it aside. Nothing behind it answers a press, so the pause seal is parked
+too.
+
+Selection dossiers (province, fleet, army) stay docked side sheets: they
+describe a thing on the chart, so the chart stays beside them; they slide in and
+drag by their own chrome. A new button or overlay over the chart must earn that
+cost (`REQ-P1-07`).
 
 ## Geometry
 

@@ -62,7 +62,7 @@ var preset_world: WorldMap = null
 @onready var army_layer: ArmyLayer = $World/ArmyLayer
 @onready var camera: MapCamera = $World/MapCamera
 @onready var hud: GameHud = $HUD/HudRoot
-@onready var improvements: ImprovementPanel = $HUD/Improvements
+@onready var improvements: ImprovementPanel = $EstatesLayer/Improvements
 @onready var game_menu: GameMenu = $GameMenu
 @onready var fade: ColorRect = $FadeLayer/Fade
 

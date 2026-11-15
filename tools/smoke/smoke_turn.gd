@@ -79,7 +79,7 @@ static func _gazette(run, screen: MapScreen, turn_before: int) -> void:
 	run.check(screen.play.gazette != null, "the gazette keeps its watchlist")
 	run.check(screen.play.gazette.has_sheet(turn_before), "the resolved turn is filed")
 	if not Gazette.is_empty(screen.play.gazette.sheet_for(turn_before)):
-		run.check(screen.hud.gazette_plate.is_shown(), "news opens the soft plate")
+		run.check(screen.hud.gazette_plate.is_shown(), "news opens the crown's sheet")
 		screen.hud.gazette_plate.dismiss()
 		run.check(not screen.hud.gazette_plate.is_shown(), "one press sets the sheet aside")
 	run.check(screen.play.ai_trace.size() == 5, "rival AI courts took their turn")
