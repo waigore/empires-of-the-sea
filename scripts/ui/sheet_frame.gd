@@ -82,9 +82,19 @@ func refresh() -> void:
 	pass
 
 
-## The compact/narrow profile, once per fit. A subclass scales its own titles
-## and repaints rows that fix their size at construction.
+## The compact/narrow profile, once per fit: the masthead's own title step, the
+## crest a phone drops and the standing lines it trades for rows. A subclass
+## scales its own titles and repaints rows that fix their size at construction;
+## it never repeats this head (REQ-P1-07, RUB-P3-01).
 func _apply_profile(compact: bool, narrow: bool) -> void:
+	if _title != null:
+		_title.add_theme_font_size_override(
+			"font_size", 20 if narrow else (22 if compact else title_pixels)
+		)
+	if _crest != null:
+		_crest.visible = not narrow
+	if _subtitle != null:
+		_subtitle.visible = not compact
 	if _close != null:
 		_close.custom_minimum_size.x = 64.0 if narrow else 92.0
 	if _hint != null:

@@ -82,7 +82,7 @@ suites = [
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
   "test_spycraft_rules.gd",
@@ -252,8 +252,7 @@ suites = [
 # catch-alls past the tier-1 5 min budget.
 [domains.muster]
 suites = [
-  "test_force_ledger_rules.gd",
-  "test_province_ledger.gd",
+  "test_ledgers.gd",
   "test_command_ledger.gd",
   "test_town_ledger.gd",
   "test_map_screen_crown_orders.gd",
@@ -266,7 +265,7 @@ suites = [
 # them) never ride a reading change.
 [domains.eyes]
 suites = [
-  "test_spy_ledger.gd",
+  "test_ledgers.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -573,7 +572,7 @@ match = "scripts/map/map_play_provinces.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_province_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The crown's command ledger (DR-20261115-11): the projection, its row and
@@ -629,7 +628,7 @@ match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
 [[rules]]
-match = "tests/test_spy_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "eyes"
 
 [[rules]]
@@ -641,7 +640,7 @@ match = "scripts/map/map_play_force_ledger.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_force_ledger_*.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The cartouche seal, the Android back chain and the HUD build/bind that mount
@@ -747,7 +746,7 @@ suites = [
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
 ]
 
 # The one full-screen sheet frame: the civilian roster, the muster roll and the
@@ -756,7 +755,7 @@ suites = [
 [domains.sheet]
 suites = [
   "test_court_ui_parts.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
   "test_panel_parts_rules.gd",
@@ -772,9 +771,8 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_diplomacy_rules.gd",
-  "test_resource_lens.gd",
   "test_civilian_turn_rules.gd",
 ]
 
@@ -785,7 +783,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_defence_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 # The defence reading's projection; first match wins, so it is named before the
@@ -795,7 +793,7 @@ match = "scripts/rules/defence_survey.gd*"
 domain = "crown_road"
 
 [[rules]]
-match = "tests/test_defence_*.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "crown_road"
 
 # Shared lens kit: activation, tap resolution and slip packing every reading
@@ -804,9 +802,7 @@ domain = "crown_road"
 [domains.lens_kit]
 suites = [
   "test_map_view_rules.gd",
-  "test_defence_lens.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [[rules]]
@@ -844,7 +840,7 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -866,7 +862,7 @@ suites = [
 # map + ui fan-out blowing the tier-1 5 min budget.
 [domains.resource_ink]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -875,7 +871,7 @@ suites = [
 # tone can never drift away from the minimap that draws the same table (#456).
 [domains.palette]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_map_canvas.gd",
   "test_map_view_rules.gd",
@@ -937,7 +933,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_main.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
@@ -955,7 +951,7 @@ suites = [
   "test_campaign_end.gd",
   "test_campaign_intro.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
   "test_victory_screen.gd",
@@ -974,13 +970,11 @@ suites = [
   "test_world_setup.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
   "test_court_ui_parts.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [domains.misc]
@@ -1390,9 +1384,52 @@ suites = [
   "test_ai_rules.gd",
 ]
 
+# Folded micro-suites still appear as deletions in the PR diff. Map those names
+# to the four survivors before the catch-all globs (diplomacy_*, fleet_*,
+# resource_*, …) so tier 1 re-runs the theme boot, not the whole fan-out.
+[domains.fold_survivors]
+suites = [
+  "test_map_lenses.gd",
+  "test_ledgers.gd",
+  "test_naval_rules.gd",
+  "test_world_setup.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "impact_map"
+
+[[rules]]
+match = "tests/test_resource_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_diplomacy_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_defence_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_force_ledger_rules.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_province_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_spy_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_fleet_passes.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_game_setup.gd*"
+domain = "fold_survivors"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -1418,7 +1455,7 @@ match = "scripts/ui/improvement_row.gd*"
 domain = "resource_ink"
 
 [[rules]]
-match = "tests/test_resource_lens.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "resource_ink"
 
 [[rules]]
@@ -2001,6 +2038,12 @@ domain = "map"
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
 
+# The crown's own fog pass is the same glue: a fog change must not pull the
+# whole map domain past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_fog_turn.gd*"
+domain = "fog"
+
 [[rules]]
 match = "scripts/map/map_generator.gd"
 domain = "world"
@@ -2367,6 +2410,12 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
+domain = "fog"
+
+# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
+# § Spy timer expiry), so it travels with the fog domain.
+[[rules]]
+match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
@@ -2882,10 +2931,6 @@ domain = "map"
 [[rules]]
 match = "tests/test_world_*.gd"
 domain = "map"
-
-[[rules]]
-match = "tests/test_game_setup.gd"
-domain = "menu"
 
 [[rules]]
 match = "tests/test_land_battle_rules.gd*"

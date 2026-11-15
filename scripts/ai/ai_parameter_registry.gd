@@ -211,109 +211,13 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 10000,
 		"default": 500,
 	},
-	{
-		"key": "civilian.max_civilians",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 20,
-		"default": 6,
-	},
-	{
-		"key": "civilian.need_target",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 200,
-		"default": 20,
-	},
-	{
-		"key": "civilian.improvement_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 40,
-	},
-	{
-		"key": "civilian.prospect_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 60,
-	},
-	{
-		"key": "civilian.merchant_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 75,
-	},
-	{
-		"key": "civilian.road_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 50,
-	},
-	{
-		"key": "civilian.port_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 45,
-	},
-	{
-		"key": "civilian.fort_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 30,
-	},
-	{
-		"key": "civilian.spy_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 70,
-	},
-	{
-		"key": "civilian.town_road_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 55,
-	},
-	{
-		"key": "civilian.hospital_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 30,
-	},
-	{
-		"key": "civilian.town_upgrade_weight",
-		"category": "civilian",
-		"type": TYPE_INT,
-		"min": 0,
-		"max": 1000,
-		"default": 45,
-	},
 ]
 
 static var _by_key: Dictionary = {}
 
 
 ## Every knob in catalog order: this module's entries, then the market, army,
-## cargo, posture, victory and ledger groups.
+## cargo, posture, victory, ledger and civilian groups.
 static func entries() -> Array[Dictionary]:
 	var all: Array[Dictionary] = []
 	all.append_array(PARAMETERS)
@@ -325,6 +229,7 @@ static func entries() -> Array[Dictionary]:
 	all.append_array(AiParameterPosture.PARAMETERS)
 	all.append_array(AiParameterVictory.PARAMETERS)
 	all.append_array(AiParameterLedger.PARAMETERS)
+	all.append_array(AiParameterCivilian.PARAMETERS)
 	return all
 
 

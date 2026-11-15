@@ -76,15 +76,6 @@ func _towns_door() -> Control:
 	return door
 
 
-func _apply_profile(compact: bool, narrow: bool) -> void:
-	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
-
-
 func _on_profile_changed() -> void:
 	if visible and not _snapshot.is_empty():
 		_apply_filter()

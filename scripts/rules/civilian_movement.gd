@@ -106,6 +106,27 @@ static func held_provinces(
 	return result
 
 
+## Provinces where this crown keeps a Spy, so the fog pass can count the charted
+## grace a departed Spy leaves behind (wiki: fog-and-exploration § Spy timer
+## expiry). Own provinces are left out: a timer is never started for them.
+static func spy_provinces(
+	model: MapModel, units: Array[CivilianState], owner: int
+) -> Array:
+	var result: Array = []
+	if model == null:
+		return result
+	for unit: CivilianState in units:
+		if unit == null or unit.owner != owner or unit.type_id != SpyRules.TYPE:
+			continue
+		var province: int = model.province_at(unit.tile.x, unit.tile.y)
+		if province == MapModel.NO_ID or result.has(province):
+			continue
+		if model.province_owner(province) == owner:
+			continue
+		result.append(province)
+	return result
+
+
 static func _adjacent(a: Vector2i, b: Vector2i) -> bool:
 	return absi(a.x - b.x) + absi(a.y - b.y) == 1
 
