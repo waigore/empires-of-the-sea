@@ -14,6 +14,10 @@ extends RefCounted
 ## pieces has no room for another run this phase, so the plan asks for none and
 ## spends that labour on the rows the phase will actually start (wiki:
 ## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+## And it holds for the town's works: the second-stage rows (garments, rum) wait
+## on a town at their level, so a court whose best town is too young is offered
+## none — the same presence test the phase and the crown's ledger read (wiki:
+## production-recipes § Town-works gates; DR-20261116-04; REQ-P2-03).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 ## Outputs that unblock civilian work and industry; they win ties over purely
@@ -24,9 +28,12 @@ const BUILD_INPUTS: Array[String] = [
 
 
 ## Production assignments for the next Production phase plus the scored
-## candidates that explain them (wiki: turn-trace-interpretation).
+## candidates that explain them (wiki: turn-trace-interpretation). `town_level`
+## is the crown's best town in any province: the presence test the second-stage
+## rows' works gate reads, so the plan never offers a run the phase refuses
+## (wiki: production-recipes § Town-works gates; DR-20261116-04).
 static func production_orders(
-	config: AiConfig, economy: PlayerEconomy
+	config: AiConfig, economy: PlayerEconomy, town_level: int = 0
 ) -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var assignments: Array[Dictionary] = []
@@ -45,7 +52,7 @@ static func production_orders(
 	# same reading `ProductionRecipes.plan` will cap the runs with.
 	var bench: Dictionary = _bench_room(economy)
 	for recipe_id: String in ProductionRecipes.available_ids_for(
-		economy.tech_unlocked, economy.workers
+		economy.tech_unlocked, economy.workers, town_level
 	):
 		var output: String = ProductionRecipes.output(recipe_id)
 		var deficit: int = maxi(
