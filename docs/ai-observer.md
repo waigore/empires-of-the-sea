@@ -71,7 +71,8 @@ with count, crowns and window proving a court exercised it, and a
 `never`/`gated` reading when none did. `army.muster` and `navy.launch` also
 report how often their aim was ranked and funded, so a rule asked for and never
 paid for reads as starved, not absent. A **major** rule left never-exercised
-fails the run: an under-use gap surfaces by scan, not a forensic run (#605).
+fails a `--ai=full` run (a bench run only prints it): an under-use gap surfaces
+by scan, not a forensic run (#605).
 
 ## Scope
 

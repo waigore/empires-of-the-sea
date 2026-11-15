@@ -229,9 +229,13 @@ func _report(seeds: PackedStringArray) -> void:
 
 ## The shipped-rule checklist, then a failure per major rule the campaign never
 ## exercised: an under-use gap fails the harness by scan instead of waiting for
-## a forensic run (issue #605).
+## a forensic run (issue #605). Only the full-AI observer is gated: a bench run
+## mixes random and mainline crowns that issue no planner orders, so its zeros
+## say nothing about this tree's coverage.
 func _report_coverage() -> void:
 	print(AiCoverage.report(_coverage))
+	if _ai_mode != AiControl.FULL:
+		return
 	for rule: String in AiCoverage.missing_major(_coverage):
 		_fail("coverage: %s was never exercised in %d run(s)" % [rule, _appearances])
 
