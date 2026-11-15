@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:6cc4c31cbf540b740f21dab3e559615f9366fd36a02d59565fbd4366d3b2e4ad",
-  "submission_git": "feat/binding-nap-alliance@f0cbf52",
+  "submission_hash": "sha256:f2b2e43667e2889c6be0b5d8386bf97351877aac43fe2647da6038bc972e470c",
+  "submission_git": "fix/deed-nudge-recede@7dac21cc",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:55e93581d579eaa029e98c4fbc2a3d42a0d060c25d4b8c385f1a1d8ddfffc853",
+    "ai_surface_hash": "sha256:617fd897f0f37cc9e7db29251a0c64258dc32b00752e1dd3f8504c78e6e93c6c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T15:32:55Z",
+  "timestamp": "2026-11-15T15:44:46Z",
   "report_version": 1,
-  "signature": "hmac-sha256:22ecd3fb1a9fa31c79b42f5b1f369fb8dbb1f8f160f029173273c4738fad2d5a"
+  "signature": "hmac-sha256:eb84db94bca8bfbe9b0edebb0b8b3657125922c547ebfee7fe17ae8608a7a843"
 }

@@ -1834,6 +1834,10 @@ match = "scripts/ai/ai_diplomacy_offers.gd*"
 domain = "ai_colony"
 
 [[rules]]
+match = "scripts/ai/ai_diplomacy_treaties.gd*"
+domain = "ai_colony"
+
+[[rules]]
 match = "scripts/ai/ai_objectives_plan.gd*"
 domain = "ai_colony"
 
