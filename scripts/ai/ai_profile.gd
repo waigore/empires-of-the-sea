@@ -21,7 +21,7 @@ const BLESSED: Dictionary = {
 		"diplomacy.war_declare_min_desire": 65,
 		"economy.reserve_target": 30,
 		"civilian.improvement_weight": 60,
-		"civilian.max_civilians": 7,
+		"civilian.work_per_staff": 8,
 	},
 }
 

@@ -15,7 +15,9 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 1,
 		"max": 60,
-		"default": 10,
+		# A war chest that has not closed for one more turn re-routes so income
+		# can lead before provinces fall (issue #603; ai-bench seed 1500). Was 10.
+		"default": 1,
 	},
 	{
 		"key": "ledger.blocked_turns",
