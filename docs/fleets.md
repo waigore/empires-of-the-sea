@@ -12,7 +12,8 @@ Movement, cargo, fog, battles; stations, raids:
 
 - Sea zone or port, never both; one roster/region.
 - **One move / turn:** S↔S; undock; dock at an owned port; a warp crosses.
-- A new zone reveals water + **coastal ring**; fog decays.
+- A new zone reveals water + **coastal ring** (a captured port's sort-out
+  charts too); fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
 - **Named hulls** (`ShipNames`): period, unique per squadron, kept through save
@@ -39,8 +40,8 @@ Movement, cargo, fog, battles; stations, raids:
 
 Raids sink one merchant hull (DR-20261111-17).
 
-**The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull
-(class, stats, holds, station); **Visit** frames her squadron.
+**The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull;
+**Visit** frames her squadron.
 
 ## Architecture
 
