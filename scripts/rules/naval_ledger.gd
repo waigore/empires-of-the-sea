@@ -183,7 +183,7 @@ static func _squadron(model: MapModel, fleet: FleetState, region: int) -> Dictio
 		"heading": "%s  ·  %s" % [
 			FactionCatalog.region_label(region).to_upper(), _squadron_title(fleet).to_upper()
 		],
-		"place": _fleet_place(model, fleet),
+		"place": LedgerRows.fleet_place(model, fleet),
 		"station": _fleet_station(fleet),
 		"hulls": fleet.ship_count(),
 		"holds": TradeCargo.fleet_holds(fleet),
@@ -215,7 +215,7 @@ static func _hull_row(
 		"region_label": String(group["region_label"]),
 		"fleet": fleet.id,
 		"fleet_title": String(group["title"]),
-		"place": _fleet_place(model, fleet),
+		"place": LedgerRows.fleet_place(model, fleet),
 		"line": NavalStrength.hull_line(type_id),
 		"state": _hull_state(type_id, role),
 		"holds": int(ShipStats.entry(type_id).get("cargo", 0)),
@@ -232,16 +232,6 @@ static func _hull_state(type_id: String, role: String) -> String:
 	if role == READING_WARSHIP:
 		return "No holds — she fights in the line"
 	return "%d hold%s for the world market" % [cargo, "" if cargo == 1 else "s"]
-
-
-## Where the squadron sails. The hull's orders are the squadron's, so every row
-## of hers reads the same place.
-static func _fleet_place(model: MapModel, fleet: FleetState) -> String:
-	if fleet.is_in_port():
-		var port: String = model.province_name(fleet.province)
-		return ("In port at %s" % port) if not port.is_empty() else "In port"
-	var zone: String = model.sea_zone_name(fleet.sea_zone)
-	return ("At sea — %s" % zone) if not zone.is_empty() else "At sea"
 
 
 static func _fleet_station(fleet: FleetState) -> String:

@@ -147,3 +147,15 @@ static func stored_fleets(
 		if fleet != null and fleet.owner == faction:
 			fleets.append(fleet)
 	return fleets
+
+
+## Where one squadron stands, as both the muster roll and the navy sheet read
+## her: "In port at Lisbon", "At sea — Western Approaches". One wording, so the
+## two sheets can never name the same berth differently, and the chart owns the
+## names it prints.
+static func fleet_place(model: MapModel, fleet: FleetState) -> String:
+	if fleet.is_in_port():
+		var port: String = model.province_name(fleet.province)
+		return ("In port at %s" % port) if not port.is_empty() else "In port"
+	var zone: String = model.sea_zone_name(fleet.sea_zone)
+	return ("At sea — %s" % zone) if not zone.is_empty() else "At sea"

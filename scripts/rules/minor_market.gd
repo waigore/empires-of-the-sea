@@ -74,7 +74,7 @@ static func unit_price(
 		return 0
 	var percent: int = MarketRules.subsidy_percent(market, buyer, seller)
 	var step: float = MarketRules.subsidy_step(
-		percent, _is_minor(buyer), seller >= 0 and _is_minor(seller), true
+		percent, MarketRules.is_minor(buyer), seller >= 0 and MarketRules.is_minor(seller), true
 	)
 	return MarketRules.deal_unit(market, commodity, buyer, step, true)
 
@@ -91,13 +91,6 @@ static func ask_for_reader(
 	var commodity: String = String(row.get("commodity", ""))
 	var live: int = unit_price(market, commodity, buyer, int(row.get("faction", -1)))
 	return live if live > 0 else stored
-
-
-static func _is_minor(faction: int) -> bool:
-	if faction < 0:
-		return false
-	var kind: int = FactionCatalog.type_of(faction)
-	return kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE
 
 
 ## One auto-offer per Minor/Tribe estate, purchased deeds included, plus one per

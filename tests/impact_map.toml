@@ -2347,6 +2347,21 @@ domain = "army"
 match = "scripts/rules/military_parity.gd"
 domain = "ai"
 
+# Presentation catalogs and the shared purse formatter. Declared before the
+# civilian_*/diplomacy_*/ship_*/regiment_* globs so a MoneyText extract does not
+# steal *_catalog → misc and pull the screen/lens suites past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/money_text.gd*"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/civilian_catalog.gd*"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/diplomacy_catalog.gd*"
+domain = "misc"
+
 [[rules]]
 match = "scripts/rules/civilian_*.gd*"
 domain = "civilian"
