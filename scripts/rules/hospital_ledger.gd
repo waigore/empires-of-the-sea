@@ -162,21 +162,24 @@ static func level_text(level: int) -> String:
 
 
 ## The rule a crown pays by, printed on the sheet rather than hidden in a hover
-## (wiki: combat § Regiment condition; DR-20261112-04).
+## (wiki: combat § Regiment condition; DR-20261112-04). An unfed ward keeps its
+## walls and loses its nurses, so the note says what it still heals rather than
+## claiming it heals nothing.
 static func rule_note() -> String:
 	var top: int = HospitalRules.MAX_LEVEL
 	return (
 		"A ward sets the tempo an army recovers at — rest %d%% at a field ward and "
 		+ "%d%% at a general one, and the wear a defeat leaves cut to %d%% and "
 		+ "%d%%. Its staff eats %d food a turn per level; a ward the larder cannot "
-		+ "cover goes unfed and heals nothing that turn, so the ration is part of "
-		+ "the wall."
+		+ "cover goes unfed — its walls still shelter the wounded, but its nurses "
+		+ "are lost and the province rests at the field's %d%%."
 	) % [
 		roundi(HospitalRules.rest_share(1) * 100.0),
 		roundi(HospitalRules.rest_share(top) * 100.0),
 		roundi(HospitalRules.triage_scale(1) * 100.0),
 		roundi(HospitalRules.triage_scale(top) * 100.0),
 		HospitalRules.RATION_PER_LEVEL,
+		roundi(RegimentCondition.REST_SHARE * 100.0),
 	]
 
 
@@ -197,9 +200,15 @@ static func _row(
 	var level: int = HospitalRules.clamp_level(province.hospital_level)
 	var next: int = HospitalRules.next_level(level)
 	var staffed: bool = province.hospital_staffed
-	var refusal: String = CivilianWorkPlan.hospital_refusal(level, tech_unlocked, stockpile)
 	var crew: CivilianState = _crew(units, province.owner, site)
-	var state: String = _state(level, crew, refusal, units, province.owner, site)
+	var hand: CivilianState = ImprovementOrders.nearest_engineer(units, province.owner, site)
+	var refusal: String = CivilianWorkPlan.hospital_refusal(level, tech_unlocked, stockpile)
+	if refusal.is_empty():
+		# The ward shares the town tile with the town and the wall, so another
+		# crew already at work there is the order's own refusal, not a press
+		# (wiki: civilian-units § Per-player tile exclusivity).
+		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, site)
+	var state: String = _state(level, crew, refusal, hand)
 	var cost_text: String = CivilianWorkPlan.cost_text(HospitalRules.cost(next))
 	return {
 		"id": province.id,
@@ -219,20 +228,15 @@ static func _row(
 		"state": state,
 		"crew": String(crew.display_name()) if crew != null else "",
 		"remaining": crew.remaining_turns() if crew != null else 0,
-		"note": _note(state, level, next, cost_text, refusal, crew),
+		"note": _note(state, level, next, cost_text, refusal, crew, staffed),
 	}
 
 
 ## What the next step waits on, worst first: a finished ward, a crew already at
-## work, the study or the stores the order needs, a free Engineer, else the
-## order is open.
+## work, the study, the stores or the busy tile the order needs, a free
+## Engineer, else the order is open.
 static func _state(
-	level: int,
-	crew: CivilianState,
-	refusal: String,
-	units: Array[CivilianState],
-	owner: int,
-	site: Vector2i
+	level: int, crew: CivilianState, refusal: String, hand: CivilianState
 ) -> String:
 	if level >= HospitalRules.MAX_LEVEL:
 		return STATE_RAISED
@@ -240,7 +244,7 @@ static func _state(
 		return STATE_AT_WORK
 	if not refusal.is_empty():
 		return STATE_LOCKED
-	if ImprovementOrders.nearest_engineer(units, owner, site) == null:
+	if hand == null:
 		return STATE_NO_ENGINEER
 	return STATE_READY
 
@@ -265,10 +269,19 @@ static func _note(
 	next: int,
 	cost_text: String,
 	refusal: String,
-	crew: CivilianState
+	crew: CivilianState,
+	staffed: bool
 ) -> String:
 	match state:
 		STATE_RAISED:
+			if not staffed:
+				# A ward that went unfed keeps its walls and loses its nurses:
+				# the province rests at the field's share, not the ward's
+				# (wiki: combat § Regiment condition; DR-20261112-04).
+				return "Fully warded — rest %d%% this turn, the staff went unfed; wear %d%%." % [
+					roundi(RegimentCondition.REST_SHARE * 100.0),
+					roundi(HospitalRules.triage_scale(level) * 100.0),
+				]
 			return "Fully warded — rest %d%%, wear %d%%, staff %d food a turn." % [
 				roundi(HospitalRules.rest_share(level) * 100.0),
 				roundi(HospitalRules.triage_scale(level) * 100.0),

@@ -1943,6 +1943,36 @@ func test_a_town_with_no_idle_crew_waits_on_a_builder() -> void:
 	assert_true(String(home["note"]).contains("No idle Builder"), "the row names the wait")
 
 
+## The town tile is shared with the wall and the ward, and the crew rule keeps
+## one Builder, Engineer or Merchant a tile: a Raise offered while an Engineer
+## already works the town would be refused, so the row names the busy tile
+## instead (wiki: civilian-units § Per-player tile exclusivity; DR-20261115-12 —
+## "a row that cannot be raised carries no press").
+func test_a_crew_already_on_the_town_tile_closes_the_press() -> void:
+	var engineer: CivilianState = CivilianState.create(2, 0, "engineer", TOWN_TILE)
+	engineer.start_work("build_fort", TOWN_TILE, 1, TOWN_TILE, {"fort_level": 1})
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", Vector2i(0, 0))
+	var units: Array[CivilianState] = [builder, engineer]
+	var regions: Array[Dictionary] = _town_regions(units)
+	var home: Dictionary = _row(TownLedger.snapshot(regions, 0), FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), TownLedger.STATE_LOCKED, "the order would refuse the tile")
+	# The row speaks the order's own words, so the promise and the refusal match.
+	var order: Dictionary = ImprovementOrders.upgrade_town(
+		regions[0]["model"] as MapModel, units, LandWorks.new(),
+		{"lumber": 9, "castIron": 9}, VisibilityModel.new(), 0, TOWN_TILE,
+		{"national_bureaucracy": true}
+	)
+	assert_false(bool(order.get("ok", true)), "the order refuses the busy tile")
+	assert_eq(String(home["note"]), String(order.get("message", "")), "one wording")
+	assert_eq(
+		int(TownLedger.filter_counts(
+			TownLedger.snapshot(regions, 0), LedgerRows.REGION_ALL
+		)[TownLedger.FILTER_READY]),
+		0,
+		"a busy town is never counted as ready"
+	)
+
+
 func test_a_crew_already_at_work_is_read_from_its_own_record() -> void:
 	var builder: CivilianState = CivilianState.create(1, 0, "builder", TOWN_TILE)
 	builder.start_work("upgrade_town", TOWN_TILE, 2, TOWN_TILE, {"town_level": 2})

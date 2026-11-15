@@ -87,6 +87,56 @@ func test_a_shore_with_no_idle_crew_waits_on_an_engineer() -> void:
 	assert_true(String(home["note"]).contains("No idle Engineer"), "the row names the wait")
 
 
+## The ward shares the town tile with the town and the wall, and the crew rule
+## keeps one Builder, Engineer or Merchant a tile: a Raise offered while another
+## crew already works the site would be refused, so the row names the busy tile
+## instead (wiki: civilian-units § Per-player tile exclusivity; DR-20261116-02 —
+## "no row offers a ward the order would refuse").
+func test_a_crew_already_on_the_town_tile_closes_the_press() -> void:
+	var builder: CivilianState = CivilianState.create(2, 0, "builder", TOWN_TILE)
+	builder.start_work("upgrade_town", TOWN_TILE, 2, TOWN_TILE, {"town_level": 2})
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", Vector2i(0, 0))
+	var units: Array[CivilianState] = [engineer, builder]
+	var regions: Array[Dictionary] = _regions(units)
+	var home: Dictionary = _row(HospitalLedger.snapshot(regions, 0), FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_LOCKED, "the order would refuse the tile")
+	# The row speaks the order's own words, so the promise and the refusal match.
+	var order: Dictionary = ImprovementOrders.build_hospital(
+		regions[0]["model"] as MapModel, units, LandWorks.new(),
+		{"lumber": 9, "fabric": 9}, VisibilityModel.new(), 0, 0, {},
+		{"organised_regiments": true}
+	)
+	assert_false(bool(order.get("ok", true)), "the order refuses the busy tile")
+	assert_eq(String(home["note"]), String(order.get("message", "")), "one wording")
+	assert_eq(
+		int(HospitalLedger.filter_counts(
+			HospitalLedger.snapshot(regions, 0), LedgerRows.REGION_ALL
+		)[HospitalLedger.FILTER_READY]),
+		0,
+		"a busy shore is never counted as ready"
+	)
+
+
+## A finished ward that went unfed keeps its walls and loses its nurses: the note
+## must not claim the ward's own rest share (wiki: combat § Regiment condition;
+## DR-20261112-04).
+func test_a_finished_ward_that_went_unfed_names_the_field_rest() -> void:
+	var regions: Array[Dictionary] = _regions(_engineers(), _wide_tech())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[0].hospital_level = HospitalRules.MAX_LEVEL
+	home.provinces[0].hospital_staffed = false
+	var row: Dictionary = _row(HospitalLedger.snapshot(regions, 0), FactionCatalog.OLD_WORLD)
+	assert_eq(String(row["state"]), HospitalLedger.STATE_RAISED, "nothing is left to raise")
+	assert_true(String(row["line"]).contains("unstaffed"), "the line names the hunger")
+	assert_true(String(row["note"]).contains("rest 25%"), "the note names the rest it gets")
+	assert_false(String(row["note"]).contains("55%"), "never the ward's own share")
+	assert_eq(
+		HospitalRules.rest_share_at(home, 0),
+		RegimentCondition.REST_SHARE,
+		"and that is the share the province actually rests at"
+	)
+
+
 func test_an_engineer_already_at_work_is_read_from_its_own_record() -> void:
 	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", TOWN_TILE)
 	engineer.start_work("build_hospital", TOWN_TILE, 2, TOWN_TILE, {"hospital_level": 1})
@@ -206,6 +256,11 @@ func test_the_rule_note_states_what_a_ward_buys() -> void:
 	assert_true(note.contains("55%"), "the general ward's rest is printed")
 	assert_true(note.contains("2 food a turn per level"), "the ration is printed")
 	assert_true(note.contains("unfed"), "and what a hungry ward costs")
+	# An unfed ward keeps its walls and loses its nurses: it rests at the field's
+	# share, so the note must not claim it heals nothing (wiki: combat
+	# § Regiment condition; DR-20261112-04).
+	assert_true(note.contains("rests at the field's 25%"), "the share it still gets")
+	assert_false(note.contains("heals nothing"), "never the old claim")
 
 
 # --- the sheet --------------------------------------------------------------
