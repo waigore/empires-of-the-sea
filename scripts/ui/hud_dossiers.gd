@@ -18,10 +18,15 @@ static func build(hud: GameHud) -> void:
 	_eyes(hud)
 	ArmyHud.build(hud)
 	_command(hud)
+	_towns(hud)
 	# The army dossier's command door opens the crown's commanders: the dossier
 	# is where a crown asks who leads, and the pool is the whole of it
 	# (DR-20261115-11).
 	hud._army_panel.command_pressed.connect(func() -> void: hud.command_pressed.emit())
+	# The realm ledger's towns door opens the crown's towns: the realm prints
+	# each province's level, and the towns sheet is the step that raises it
+	# (DR-20261115-12).
+	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
 
 
 static func _province(hud: GameHud) -> void:
@@ -148,3 +153,16 @@ static func _command(hud: GameHud) -> void:
 	hud.command_ledger = CommandLedgerPanel.new()
 	layer.add_child(hud.command_ledger)
 	hud.command_pressed.connect(hud.command_ledger.toggle)
+
+
+## The towns ledger is the same sibling sheet: its own canvas layer above the
+## pause menu, opened by the realm ledger's towns door or the B key
+## (DR-20261115-12).
+static func _towns(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "TownLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.towns_ledger = TownLedgerPanel.new()
+	layer.add_child(hud.towns_ledger)
+	hud.towns_pressed.connect(hud.towns_ledger.toggle)

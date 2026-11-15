@@ -52,6 +52,10 @@ signal spy_ledger_pressed
 ## medals each wears and the study that raises the cap (REQ-P5-01, REQ-P5-03;
 ## DR-20261115-11).
 signal command_pressed
+## The realm ledger's towns door opens the crown's towns — every town it holds,
+## the level it stands at and the step the Builder would take next
+## (REQ-P5-01, REQ-P5-04; DR-20261115-12).
+signal towns_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -108,6 +112,9 @@ var spy_ledger: SpyLedgerPanel = null
 ## The crown's commanders: the pool, its medals and the road to the next
 ## (DR-20261115-11).
 var command_ledger: CommandLedgerPanel = null
+## The crown's towns: every town it holds and the step the Builder would take
+## next (DR-20261115-12).
+var towns_ledger: TownLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
