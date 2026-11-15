@@ -234,6 +234,34 @@ static func deal_total_for(
 	return deal_total(market, commodity, quantity, buyer if is_buy else seller, step, is_buy)
 
 
+## The most units a purse can pay for at the deal's own whole-deal rounding: the
+## debt is `round(Q x P x rate)` once, so the per-unit charge cannot say whether
+## one more ton fits. Monotone in quantity, so the search is exact
+## (wiki: world-market § Treasury budget for bids — the resolver-side clamp never
+## produces a negative-treasury state; § Subsidy price adjustment).
+static func payable_units(
+	market: WorldMarket,
+	commodity: String,
+	wanted: int,
+	buyer: int,
+	seller: int,
+	subsidy_percent: int,
+	treasury: int
+) -> int:
+	var low: int = 0
+	var high: int = maxi(wanted, 0)
+	while low < high:
+		var probe: int = int(ceili(float(low + high) / 2.0))
+		var total: int = deal_total_for(
+			market, commodity, probe, buyer, seller, subsidy_percent, true
+		)
+		if total <= treasury:
+			low = probe
+		else:
+			high = probe - 1
+	return low
+
+
 static func _yes() -> Dictionary:
 	return {"ok": true, "reason": "", "code": ""}
 
