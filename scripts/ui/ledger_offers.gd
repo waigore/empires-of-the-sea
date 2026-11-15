@@ -27,12 +27,21 @@ var _good_filter: String = MarketOffersHead.ALL_GOODS
 var _offer_sort: String = MarketOffersHead.SORT_SELLER
 var _offers_head: MarketOffersHead = null
 var _offers_box: VBoxContainer = null
+## The single Bid press of every drawn row, in display order: a batch press
+## sits beside it and never in this list, so a reader that asks for the rows
+## gets one press each (REQ-P3-02).
+var _bids: Array[Button] = []
 ## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
 var _compact: bool = false
 ## Live market + viewing crown: the row re-reads the ask against terms that may
 ## have moved after the book was published (REQ-P5-05).
 var _market: WorldMarket = null
 var _viewer: int = FactionCatalog.PLAYER_FACTION
+## The batch reading the page shares: the purse the auction may spend and the
+## holds free after the staged bids (REQ-P5-04).
+var _order_ctx: Dictionary = {}
+## Batch presses keyed by offer id, for tests and tooling (REQ-P3-02).
+var _batches: Dictionary = {}
 
 
 func _init() -> void:
@@ -49,13 +58,16 @@ func fill(
 	cargo: Dictionary,
 	compact: bool = false,
 	market: WorldMarket = null,
-	viewer: int = FactionCatalog.PLAYER_FACTION
+	viewer: int = FactionCatalog.PLAYER_FACTION,
+	order_ctx: Dictionary = {}
 ) -> void:
 	_offers = offers
 	_cargo = cargo
 	_compact = compact
 	_market = market
 	_viewer = viewer
+	_order_ctx = order_ctx
+	_batches.clear()
 	_offers_head = null
 	_offers_box = null
 	UiRowBuilder.clear(self)
@@ -94,6 +106,8 @@ func _render_offers() -> void:
 	if _offers_box == null:
 		return
 	UiRowBuilder.clear(_offers_box)
+	_bids.clear()
+	_batches.clear()
 	var rows: Array[Dictionary] = visible_offers()
 	if rows.is_empty():
 		var none := UiRowBuilder.label("No offers match this filter.", 12, Palette.TEXT_DIM)
@@ -132,14 +146,9 @@ func offer_filters() -> Dictionary:
 
 
 ## The Bid buttons the rows are drawing, in display order, for tests and the
-## mobile layout audit (REQ-P3-02).
+## mobile layout audit (REQ-P3-02). A batch press is not one of them.
 func offer_buttons() -> Array[Button]:
-	var out: Array[Button] = []
-	if _offers_box == null:
-		return out
-	for node: Node in _offers_box.find_children("*", "Button", true, false):
-		out.append(node as Button)
-	return out
+	return _bids
 
 
 ## Thumb-sized chips on a phone viewport (REQ-P5-07).
@@ -197,4 +206,27 @@ func _offer_row(offer: Dictionary) -> Control:
 	var row_id: String = String(offer.get("id", ""))
 	buy.pressed.connect(func() -> void: offer_requested.emit(row_id, 1))
 	row.add_child(buy)
-	return row
+	_bids.append(buy)
+	# The seller's whole row in one press when the purse and holds allow it: a
+	# court buying a turn's ration never taps Bid ten times (REQ-P5-04). The
+	# single press stays, so a batch is never forced.
+	var units: int = MarketBatch.offer_row_units(_market, _viewer, offer, _order_ctx)
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 2)
+	block.add_child(row)
+	var press := MarketBatchPress.attach(
+		block, "Bid", units, commodity, ask, _compact,
+		func() -> void: offer_requested.emit(row_id, units)
+	)
+	if press == null:
+		block.remove_child(row)
+		block.free()
+		return row
+	_batches[row_id] = press
+	return block
+
+
+## Batch presses keyed by offer id; tests and tooling read this instead of
+## walking the plate's children (REQ-P3-02).
+func batch_buttons() -> Dictionary:
+	return _batches

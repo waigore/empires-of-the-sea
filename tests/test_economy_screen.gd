@@ -1292,3 +1292,38 @@ func _collect_offer_chips(node: Node, out: Array[Button]) -> void:
 		out.append(node)
 	for child: Node in node.get_children():
 		_collect_offer_chips(child, out)
+
+
+## One press files the whole order the rules accept, so a court buying a turn's
+## ration never taps Bid ten times (wiki: world-market § Trade orders;
+## REQ-P5-04, REQ-P5-05).
+func test_the_market_row_files_its_batch_in_one_press() -> void:
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("bid:grain"), "a grain bid batches")
+	var press: Button = batches["bid:grain"] as Button
+	var units: int = int(press.text.split("×")[1].split(" ")[0])
+	assert_gt(units, 1, "a batch is more than the single press")
+	assert_true(press.text.contains("ducats"), "the press names the whole order's ducats")
+	assert_gte(press.custom_minimum_size.y, 38.0, "the press is a row-height target")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), units,
+		"one press staged the whole order",
+	)
+
+
+## The Minor/Tribe row batches the seller's whole row, and a row with one ton
+## left keeps its single press alone (REQ-P5-04, REQ-P1-07).
+func test_the_minor_book_row_files_the_sellers_left_in_one_press() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("7:timber"), "two tons left batch")
+	assert_false(batches.has("7:grain"), "one ton left is the single press")
+	var press: Button = batches["7:timber"] as Button
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
+		"the seller's whole row is one order",
+	)

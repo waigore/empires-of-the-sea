@@ -2719,6 +2719,21 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_offers.gd*"
 domain = "economy_ui"
 
+# The market sheet's batch press (wiki: world-market § Trade orders — one order
+# carries a positive integer quantity; REQ-P5-04): the label, the whole order's
+# ducats and the press. It rides the economy_ui suites with the two pages that
+# mount it, never the scripts/ui/** menu catch-all.
+[[rules]]
+match = "scripts/ui/market_batch_press.gd*"
+domain = "economy_ui"
+
+# One commodity row of the market tab (medallion, holding, price, the two
+# presses and the batch press under them). It rides the economy_ui suites with
+# the page that mounts it, never the scripts/ui/** menu catch-all.
+[[rules]]
+match = "scripts/ui/market_row.gd*"
+domain = "economy_ui"
+
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
