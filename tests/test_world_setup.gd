@@ -643,7 +643,7 @@ func _advanced_after_each() -> void:
 func test_presets_match_the_published_tiers() -> void:
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS50), 50)
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS100), 100)
-	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 20000)
+	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["apprentices"]), 4)
 	assert_eq(AdvancedStart.regiments(AdvancedStart.TURNS50), 6)
@@ -1171,6 +1171,56 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 		assert_true(port.x >= 0, "coastal province %s has no port" % province.name)
 		assert_true(gen_model.is_land(port.x, port.y))
 		assert_true(MapGeo.is_coastal_tile(gen_model, port.x, port.y))
+
+
+## The published placement rate: a resource on three land tiles in ten, every
+## forest cell carrying one whatever the share says, and the open ground filled
+## after the guarantee rather than by a fixed one to three tiles a province
+## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
+## DR-20261115-16, #676). Measured on the game's own seed and chart size.
+func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
+	var world_map: WorldMap = MapGenerator.new().generate_world(1500, 128, 84)
+	for model: MapModel in world_map.regions:
+		var land: int = 0
+		var carrying: int = 0
+		var forests: int = 0
+		var bare_forests: int = 0
+		var open_carrying: int = 0
+		for y in model.height:
+			for x in model.width:
+				if not model.is_land(x, y):
+					continue
+				land += 1
+				var terrain: int = model.terrain_at(x, y)
+				var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
+					or terrain == MapModel.Terrain.SCRUB_FOREST
+				var carries: bool = model.resource_at(x, y) != MapModel.NO_ID
+				if carries:
+					carrying += 1
+					if not forest:
+						open_carrying += 1
+				if forest:
+					forests += 1
+					if not carries:
+						bare_forests += 1
+		var share: float = float(carrying) / float(maxi(land, 1))
+		assert_true(share >= 0.28 and share <= 0.33,
+			"region %d carries %.3f of its %d land tiles" % [model.region_id, share, land])
+		assert_true(forests > 0)
+		# A town tile is levelled to plains before this reading, so every cell
+		# still forest must carry its guaranteed row.
+		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
+		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
+
+
+## The published multi-region cap: at most 30% of placed rows are "both", and a
+## tile offering a region-exclusive row takes it once the cap is reached (wiki:
+## resource-terrain-region-rules § Multi-region resource cap).
+func test_the_multi_region_cap_binds_where_a_choice_exists() -> void:
+	assert_true(ResourceSeeder.both_allowed(0, 0), "the first row is always free")
+	assert_true(ResourceSeeder.both_allowed(2, 8), "20% both still leaves room")
+	assert_false(ResourceSeeder.both_allowed(3, 7), "30% both is the cap")
+	assert_false(ResourceSeeder.both_allowed(9, 1), "a both-heavy plot stays barred")
 
 
 func test_resources_sit_on_allowed_terrain() -> void:

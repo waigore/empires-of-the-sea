@@ -2461,6 +2461,12 @@ domain = "economy"
 match = "scripts/rules/world_market.gd"
 domain = "economy"
 
+# The cargo afloat the raid pass reads: economy prices it, the fleet suites raid
+# it (wiki: ships-and-naval § Trade and Transport Interception).
+[[rules]]
+match = "scripts/rules/market_cargo.gd*"
+domain = "economy"
+
 [[rules]]
 match = "scripts/rules/research_*.gd"
 domain = "research"

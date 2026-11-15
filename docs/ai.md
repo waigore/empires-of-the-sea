@@ -69,7 +69,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 
 ## Deferred (REQ-P2-02)
 
-Rival purse / starved economy — [`deferred.md`](deferred.md).
+None of its own; ranked gaps: [`deferred.md`](deferred.md).
 
 ## Architecture & tests
 
