@@ -81,7 +81,7 @@ store, every appetite, the striking tier.
 
 ## Deferred (REQ-P2-02)
 
-Building-gated recipes; slower rows past the four
+The rival's appetite for the second-stage rows
 ([`deferred.md`](deferred.md)).
 
 ## Architecture

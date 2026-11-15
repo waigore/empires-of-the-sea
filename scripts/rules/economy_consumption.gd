@@ -133,6 +133,10 @@ class Pass:
 			"hospital_demand": hospital_demand,
 			"hospital_fed": hospital_fed,
 			"hospital_hungry": hospital_fed < hospital_demand,
+			# The staffs' demands one per ward, in the order the phase feeds
+			# them: a reader that only has the sum cannot tell a larder that
+			# covers a small ward from one that covers none (DR-20261112-04).
+			"hospital_demands": hospital_demands.duplicate(),
 			"fed_workers": fed_workers,
 			"strikers": strikers(),
 			"fed_counts": fed_counts,
