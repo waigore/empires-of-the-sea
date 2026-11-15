@@ -27,8 +27,8 @@ door sits on the reading that raises the question
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
 The chip names what the step waits on; the note is the step. The sheet states
-the rule a crown pays by: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns,
-and the last gun falls even when an assault is repelled.
+the rule: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns, and the last gun
+falls even when an assault is repelled.
 
 ## Filters
 

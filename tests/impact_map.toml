@@ -1617,6 +1617,29 @@ suites = [
   "test_generated_world_rules.gd",
 ]
 
+# One-suite themes for the twelve folds in this PR — named before test_ai_*,
+# test_campaign_*, test_naval_* and the test_* catch-alls so a deletion re-runs
+# only the boot that absorbed it (docs/testing.md tier-1 5 min budget).
+[domains.fold_court]
+suites = [
+  "test_diplomacy_rules.gd",
+]
+
+[domains.fold_menu]
+suites = [
+  "test_menu_flow.gd",
+]
+
+[domains.fold_market]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
+[domains.fold_panel]
+suites = [
+  "test_panel_parts_rules.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "impact_map"
@@ -1652,6 +1675,54 @@ domain = "fold_survivors"
 [[rules]]
 match = "tests/test_game_setup.gd*"
 domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_ai_coverage.gd*"
+domain = "impact_map"
+
+[[rules]]
+match = "tests/test_ai_economy_rules.gd*"
+domain = "impact_map"
+
+[[rules]]
+match = "tests/test_town_ledger.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "tests/test_wall_ledger.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "tests/test_naval_ledger.gd*"
+domain = "navy"
+
+[[rules]]
+match = "tests/test_spycraft_rules.gd*"
+domain = "fold_court"
+
+[[rules]]
+match = "tests/test_consent_ladder.gd*"
+domain = "fold_court"
+
+[[rules]]
+match = "tests/test_naming_rules.gd*"
+domain = "naming"
+
+[[rules]]
+match = "tests/test_tables_rules.gd*"
+domain = "world"
+
+[[rules]]
+match = "tests/test_market_budget.gd*"
+domain = "fold_market"
+
+[[rules]]
+match = "tests/test_yarn_plates_rules.gd*"
+domain = "fold_panel"
+
+[[rules]]
+match = "tests/test_campaign_intro.gd*"
+domain = "fold_menu"
 
 # The province dossier's estate block and the road works it dispatches (issue
 # #671): the sheet, its rows, the route the Build road control plans and the
