@@ -162,12 +162,12 @@ func resolve_turn() -> Dictionary:
 	# so a regiment mustered now never fights in its own turn.
 	# The hands that land eat this turn's larder but labour the **next**
 	# Production phase: a Build/work recruit never supplies same-turn labour
-	# (wiki: workers-and-population § Phase placement), so their tier is read
-	# before the queue drains and withheld from this phase's labour.
-	var leaving: Array[int] = []
-	if economy != null:
-		leaving = economy.recruits.arriving_by_tier()
+	# (wiki: workers-and-population § Phase placement). The arrivals are read
+	# from Build/work's own records, after the queue has drained: an order the
+	# turn cannot keep never lands, and a hand that never landed must not take
+	# an idle worker's labour with it.
 	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
+	var leaving: Array[int] = MapPlayRecruits.arriving_tiers(musters)
 	var before: int = economy.treasury
 	var plan: Dictionary = readings.overseas_plan()
 	var world: WorldMap = ship_layer.world if ship_layer != null else null
