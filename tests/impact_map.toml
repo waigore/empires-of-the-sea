@@ -138,6 +138,22 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# The shared widget kit every sheet's prose, captions and rows come from (issue
+# #693): a size-flag change here collapses or widens text on all nine HUD sheets
+# at once, so the suites that mount them follow — plus the two that build its
+# widgets directly and the plate that prints its serif wrap.
+[domains.row_builder]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+  "test_court_ui_parts.gd",
+  "test_market_economy_rules.gd",
+  "test_quick_battle_overlay.gd",
+]
+
 [domains.ledger_shell]
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
@@ -2856,7 +2872,7 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/ui_row_builder.gd*"
-domain = "ui"
+domain = "row_builder"
 
 # Shared theme: canvas mounts call build(); menu catch-all is too wide.
 [[rules]]
