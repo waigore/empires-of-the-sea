@@ -23,10 +23,6 @@ func _init() -> void:
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
-
-
 func refresh() -> void:
 	if play == null or play.world == null or play.civilian_layer == null:
 		return

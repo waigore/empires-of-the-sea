@@ -16,11 +16,6 @@ extends LedgerSheet
 var _batch: RaiseBatchPress = null
 
 
-## Binds the session the sheet reads; every raise sheet takes it the same way.
-func bind(p_session: PlaySession) -> void:
-	play = p_session
-
-
 ## Re-reads both charts for the player's crown and repaints the view.
 func refresh() -> void:
 	if play == null or play.world == null:

@@ -27,10 +27,6 @@ func _init() -> void:
 	toggle_action = InputActions.PROVINCE_LEDGER
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
-
-
 ## Re-reads both charts for the player's crown and repaints the view.
 func refresh() -> void:
 	if play == null or play.world == null:
