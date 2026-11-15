@@ -1500,6 +1500,35 @@ domain = "fold_survivors"
 match = "tests/test_game_setup.gd*"
 domain = "fold_survivors"
 
+# The province dossier's estate block and the road works it dispatches (issue
+# #671): the sheet, its rows, the route the Build road control plans and the
+# suite that proves it. The panel's own suites prove the geometry and the
+# content, so a dossier change never pulls the prospect fan-out (ten suites)
+# past the tier-1 budget. Named before the resource_ink / prospect / ui rules
+# below (first match wins).
+[domains.province_sheet]
+suites = [
+  "test_panel_parts_rules.gd",
+  "test_mobile_layout.gd",
+  "test_road_works_rules.gd",
+]
+
+[[rules]]
+match = "scripts/ui/province_panel.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/rules/road_works.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "tests/test_road_works_rules.gd*"
+domain = "province_sheet"
+
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
 # the lens and the panel parts suites instead of the whole reading fan-out.

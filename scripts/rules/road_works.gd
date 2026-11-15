@@ -1,0 +1,194 @@
+class_name RoadWorks
+extends RefCounted
+## The crown's road works (wiki: capital-and-connectivity § Connectivity,
+## civilian-units § Work Order Summary): the shortest owned-land route that
+## brings a tile beside the crown network, and the Engineer dispatch that lays
+## its first tile. Pure rules — the province dossier reads `plan` and emits the
+## intent, CivilianWork gates and charges the order (REQ-P2-03, REQ-P3-03).
+##
+## The route is the same BFS the crown-road reading draws, so the dossier's
+## Build road control and the lens's "n road tiles to lay" can never disagree
+## (REQ-P3-02).
+
+const NEIGHBORS: Array[Vector2i] = [
+	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
+]
+const ENGINEER: String = "engineer"
+const ROAD: String = "build_road"
+
+
+## Tiles the crown must road before `target` stands beside the crown network:
+## the BFS path over owned land minus the network tile it starts from and the
+## target tile itself (an estate extracts as soon as it stands beside the
+## road). Empty when no owned-land route exists. `network` is
+## [method LandConnectivity.resolve]'s `network`.
+static func route(
+	model: MapModel, owner: int, network: Dictionary, target: Vector2i
+) -> Array[Vector2i]:
+	var route_tiles: Array[Vector2i] = [] as Array[Vector2i]
+	if model == null or target.x < 0 or network.is_empty():
+		return route_tiles
+	var target_index: int = model.index_of(target.x, target.y)
+	var parent: Dictionary = {}
+	var seen: Dictionary = {}
+	var queue: Array[Vector2i] = []
+	for raw: Variant in network.keys():
+		var index: int = int(raw)
+		seen[index] = true
+		parent[index] = -1
+		queue.append(_tile_of(model, index))
+	var head: int = 0
+	while head < queue.size():
+		var tile: Vector2i = queue[head]
+		head += 1
+		var index: int = model.index_of(tile.x, tile.y)
+		if index == target_index:
+			break
+		for offset: Vector2i in NEIGHBORS:
+			var next: Vector2i = tile + offset
+			if not model.in_bounds(next.x, next.y):
+				continue
+			if not model.is_land(next.x, next.y):
+				continue
+			if model.owner_at(next.x, next.y) != owner:
+				continue
+			var next_index: int = model.index_of(next.x, next.y)
+			if seen.has(next_index):
+				continue
+			seen[next_index] = true
+			parent[next_index] = index
+			queue.append(next)
+	if not seen.has(target_index) or int(parent.get(target_index, -1)) < 0:
+		return route_tiles
+	# Walk back from the target to the network, then keep only the tiles between
+	# them: the network tile is already roaded and the target extracts as soon
+	# as it stands beside the road, so neither is laid.
+	var chain: Array[Vector2i] = [] as Array[Vector2i]
+	var index: int = target_index
+	while index >= 0:
+		chain.append(_tile_of(model, index))
+		index = int(parent.get(index, -1))
+	chain.reverse()
+	for i in range(1, chain.size() - 1):
+		route_tiles.append(chain[i])
+	return route_tiles
+
+
+## What the dossier reads for one estate: whether it needs a road at all, how
+## many tiles the route still takes, and whether an idle Engineer can take the
+## order. `resolved` may be handed in so a whole province costs one
+## [method LandConnectivity.resolve] (the dossier's own reading).
+static func plan(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	owner: int,
+	capital_tile: Vector2i,
+	tile: Vector2i,
+	resolved: Dictionary = {}
+) -> Dictionary:
+	var plan_out: Dictionary = {
+		"needed": false,
+		"gap": 0,
+		"route": [] as Array[Vector2i],
+		"engineer": false,
+		"reason": "",
+	}
+	if model == null or works == null or owner < 0 or tile.x < 0:
+		return plan_out
+	if model.owner_at(tile.x, tile.y) != owner:
+		return plan_out
+	# A bare estate is the Build control's business; only a developed tile has
+	# yield to lose to a missing road (wiki: extraction-and-improvements).
+	if works.improvement_at(model, tile) <= 0:
+		return plan_out
+	var live: Dictionary = resolved
+	if live.is_empty():
+		live = LandConnectivity.resolve(model, works, owner, capital_tile)
+	if (live.get("tiles", {}) as Dictionary).has(model.index_of(tile.x, tile.y)):
+		return plan_out
+	var route_tiles: Array[Vector2i] = route(
+		model, owner, live.get("network", {}) as Dictionary, tile
+	)
+	plan_out["needed"] = true
+	plan_out["gap"] = route_tiles.size()
+	plan_out["route"] = route_tiles
+	plan_out["engineer"] = not idle_engineers(units, owner).is_empty()
+	if route_tiles.is_empty():
+		plan_out["reason"] = "No owned-land route to the crown."
+	elif not bool(plan_out["engineer"]):
+		plan_out["reason"] = "No idle Engineer musters — train one at the capital."
+	return plan_out
+
+
+## Dispatch the nearest idle Engineer onto the first tile of the route.
+## Returns {ok, message}. Every gate and cost stays in CivilianWork.
+static func dispatch(
+	model: MapModel,
+	units: Array[CivilianState],
+	works: LandWorks,
+	stockpile: Dictionary,
+	visibility: VisibilityModel,
+	owner: int,
+	capital_tile: Vector2i,
+	tile: Vector2i,
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var plan_out: Dictionary = plan(model, works, units, owner, capital_tile, tile)
+	if not bool(plan_out["needed"]):
+		return {"ok": false, "message": "This estate already reaches the crown."}
+	var route_tiles: Array[Vector2i] = plan_out["route"]
+	if route_tiles.is_empty() or not bool(plan_out["engineer"]):
+		return {"ok": false, "message": String(plan_out["reason"])}
+	var engineer: CivilianState = nearest_engineer(units, owner, route_tiles[0])
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, ROAD, works, units, stockpile, visibility,
+		route_tiles[0], {}, tech_unlocked
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": String(result.get("reason", ""))}
+	var estate: String = ImprovementCatalog.display_name(
+		model.resource_at(tile.x, tile.y), works.improvement_at(model, tile)
+	)
+	var left: int = route_tiles.size() - 1
+	if left <= 0:
+		return {
+			"ok": true,
+			"message": "%s lays the last road tile to %s — linked next turn." % [
+				engineer.display_name(), estate
+			],
+		}
+	return {
+		"ok": true,
+		"message": "%s lays the first of %d road tiles to %s." % [
+			engineer.display_name(), route_tiles.size(), estate
+		],
+	}
+
+
+static func idle_engineers(units: Array[CivilianState], owner: int) -> Array[CivilianState]:
+	var result: Array[CivilianState] = [] as Array[CivilianState]
+	for unit: CivilianState in units:
+		if unit != null and unit.owner == owner and unit.type_id == ENGINEER and unit.is_idle():
+			result.append(unit)
+	return result
+
+
+## Closest idle Engineer by Manhattan distance; ties break on unit id, exactly
+## as the estates ledger's Builder dispatch does.
+static func nearest_engineer(
+	units: Array[CivilianState], owner: int, tile: Vector2i
+) -> CivilianState:
+	var best: CivilianState = null
+	var best_distance: int = 1 << 30
+	for unit: CivilianState in idle_engineers(units, owner):
+		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
+		if distance < best_distance or (distance == best_distance and unit.id < best.id):
+			best = unit
+			best_distance = distance
+	return best
+
+
+static func _tile_of(model: MapModel, index: int) -> Vector2i:
+	var y: int = int(float(index) / float(model.width))
+	return Vector2i(index - y * model.width, y)
