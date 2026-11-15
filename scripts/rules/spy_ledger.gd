@@ -41,7 +41,7 @@ static func snapshot(
 		var model: MapModel = world.region(region)
 		if model == null:
 			continue
-		var units: Array = _stored(regions, region)
+		var units: Array = LedgerRows.stored_rows(regions, region)
 		for raw: Variant in units:
 			var unit := raw as CivilianState
 			if unit == null or unit.owner != faction or not SpyRules.is_spy(unit):
@@ -262,15 +262,6 @@ static func _empty(
 	result["courts"] = courts
 	result["screen"] = screen
 	return result
-
-
-static func _stored(table: MapRegionTable, region: int) -> Array:
-	if table == null:
-		return []
-	var stored: Variant = table.value(region, [])
-	if stored is Array:
-		return stored
-	return []
 
 
 ## Shadowed spies first (the crown reads its gains), then the screen, the

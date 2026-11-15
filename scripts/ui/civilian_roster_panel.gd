@@ -9,7 +9,7 @@ extends SheetFrame
 var _head: CivilianRosterHead = null
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _region: String = CivilianRoster.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
 var _snapshot: Dictionary = {}
@@ -123,9 +123,9 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 
 func _subtitle_text(shown: int) -> String:
 	var scope: String = "in both worlds"
-	if _region == CivilianRoster.REGION_OLD:
+	if _region == LedgerRows.REGION_OLD:
 		scope = "in the Old World"
-	elif _region == CivilianRoster.REGION_NEW:
+	elif _region == LedgerRows.REGION_NEW:
 		scope = "in the New World"
 	var craft: String = ""
 	if not _type.is_empty():
