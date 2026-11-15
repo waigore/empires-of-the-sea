@@ -95,6 +95,7 @@ func test_arming_waits_for_the_turn_to_close() -> void:
 	assert_false(MapPlayAuto.active(play), "arming does not seize the turn in flight")
 	_play_turn(play)
 	assert_true(play.auto_active, "the AI takes the seat at the turn's close")
+	assert_true(MapPlayAuto.blocks_orders(play), "and the court is read-only from then on")
 
 
 func test_disarming_returns_the_court_at_the_turn_boundary() -> void:
@@ -236,15 +237,22 @@ func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:
 	assert_not_null(play.auto_book, "and the next tick presses the seat's turn")
 
 
-# --- the turn's seal ---------------------------------------------------------
+# --- read-only while it runs -------------------------------------------------
 
 
-func test_the_end_turn_seal_does_not_drive_play() -> void:
+func test_the_chart_stays_readable_but_raises_no_order() -> void:
 	var play: PlaySession = _seat_the_ai()
-	var before: int = play.turn
-	MapPlayTurn.end_turn(play)
-	assert_eq(play.turn, before, "the court's press is ignored while the AI holds the seat")
-	assert_null(play.auto_book, "and it does not open a turn of its own")
+	var army: ArmyState = _own_army(play)
+	if army == null:
+		return
+	var marker: ArmyMarker = play.army_layer.marker_for(army)
+	if marker != null:
+		MapPlayInput.on_tapped(play, marker.position)
+		assert_eq(play.army_layer.selected_army, army, "a marker still opens its dossier")
+	var tile: Vector2i = _land_tile(play.model, army)
+	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+	assert_false(army.moved, "a tap on the chart raises no march")
+	assert_true(play.economy.orders.seat_held_elsewhere(), "the ledger is gated too")
 
 
 # --- no interruptions --------------------------------------------------------
