@@ -1,6 +1,6 @@
 # Improvements and estates
 
-Per-tile improvements, towns and the estates ledger.
+Per-tile improvements, towns, the estates ledger.
 **Pillars:** P1, P2, P3, P5.
 
 **Wiki:** [extraction-and-improvements](https://github.com/waigore/empires-of-the-sea/wiki/extraction-and-improvements),
@@ -10,49 +10,51 @@ Per-tile improvements, towns and the estates ledger.
 ## Setup post-pass
 
 `WorldBootstrap` seeds capital ports, harbour roads, a town per province,
-level-4 Great Power towns and four L1 grain farms.
+level-4 Great Power towns, four grain farms.
 
 ## Implemented
 
-- **Named improvements** follow the resource: Timber → Lumber camp, minerals →
+- **Named improvements** by resource: Timber → Lumber camp, minerals →
   Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
   Furs → Fur post.
-- **Levels 1–4.** Builder raises one level for 1/4/8/16 lumber + cast iron over
-  target-level turns. Minerals need Prospect first (DR-20261111-26); above-cap
-  orders refused.
-- **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile per
-  turn. Until surveyed, no icon, estate, lens row or AI plan names the mineral;
-  empty ground may find nothing. A Builder may mine the find at once.
-- **Terrain caps:** scrub timber at 1; hardwood follows tech.
-- **Path transport:** bottleneck of the best road/rail/port route to the
-  capital; beside-network tiles take it; several routes use the highest.
+- **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
+  over target-level turns; minerals need Prospect first (DR-20261111-26),
+  above-cap orders refused.
+- **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile a
+  turn; until surveyed no icon, estate, lens row or AI plan names it. A Builder
+  may mine it at once.
+- **Terrain caps:** scrub timber 1, hardwood follows tech.
+- **Path transport:** the best road/rail/port route's bottleneck;
+  beside-network tiles take it, several routes the highest.
 - **Init town roads:** every owned Old World town to its crown; New World towns
-  wait for built roads.
+  wait.
 - **Town rule:** estates 4-adjacent to a province town extract; capital
-  provinces cap at town development; a non-capital port town caps tiles that
-  reach the crown through it. An estate on (or beside) a crown road ignores the
-  town cap.
-- **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy).
-  Level 2 or 4 adds town manufacturing ([economy.md](economy.md)).
+  provinces cap at town development; a non-capital port town caps tiles
+  reaching the crown through it; a crown-road estate ignores the cap.
+- **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy);
+  level 2 or 4 adds manufactures ([economy.md](economy.md)).
 - **Cross-map assign.** Builder may target another owned tile; materials paid
   at assign, lost on cancel.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
-  connected, prospected improvements yield; purchased enclaves pay their buyer.
-- **Survey lens** (lens seal): one column per resource type, emblem and
-  `built/linked/held` badge, the Explorer's mark and prospectable tiles;
-  roads solid when linked, dashed cut (#698).
-- **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
-  cut; cut provinces show the road tiles to lay, count and route.
+  connected, prospected estates yield; purchased enclaves pay their buyer.
+- **Lenses.** Survey (lens seal): a column per resource, emblem and
+  `built/linked/held` badge, the Explorer's mark, prospectable tiles; roads
+  solid when linked, dashed cut (#698). Crown road (`R`): gold / amber /
+  crimson for crown, town-only, or cut; cut provinces show the tiles to lay
+  and their count.
 - **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
   Map, caps, nearest idle Builder; cut-off estates name the gap.
+- **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
+  estate the view prints, in its order, arming then filing; the walk stops at
+  the first refusal and leaves one receipt. The `Ready` chip is that view.
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
-  a cut-off estate carries **Build road**; Upgrade Town waits for tech.
+  a cut-off estate carries **Build road**.
 
 ## Deferred (REQ-P2-02)
 
 None. A deed raises a Minor/Tribe town (`MinorTownGrowth`, DR-20261112-01);
-ranked gaps: [`deferred.md`](deferred.md).
+gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
@@ -71,9 +73,9 @@ ranked gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/extraction.gd` | end-turn extraction |
 | `scripts/ui/improvement_*.gd`, `province_*.gd` | ledger, rows, dossier |
 
-Rules stay node-free (`REQ-P3-03`); panels read rows and emit intents.
+Rules stay node-free (`REQ-P3-03`); panels read rows, emit intents.
 
 ## Tests
 
 `test_civilian_turn_rules`, `test_economy_rules`, `test_map_screen`,
-`test_map_view_rules`, `test_panel_parts_rules`.
+`test_map_view_rules`, `test_panel_parts_rules`, `test_ledgers`.

@@ -143,3 +143,9 @@ static func _connect_improvements(play: PlaySession, improvements: ImprovementPa
 	improvements.focus_pressed.connect(
 		func(tile: Vector2i) -> void: MapPlayImprovements.on_action(play, "focus", tile)
 	)
+	improvements.raise_all_pressed.connect(
+		func(tiles: Array) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
+			MapPlayImprovements.raise_all(play, tiles)
+	)

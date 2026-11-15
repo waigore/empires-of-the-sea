@@ -925,6 +925,17 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 	assert_gt(actions, 0, "estate rows expose their actions")
 	for button: Button in estates.filter_buttons().values():
 		_tappable(button, "estate filter %s" % button.text)
+	# The one press under the chips is a thumb target too, and it stays inside
+	# the card's edge (REQ-P5-04, REQ-P5-07; DR-20261116-06).
+	if estates._batch != null and estates._batch.visible:
+		_tappable(estates._batch, "estate batch press")
+		var press_rect: Rect2 = estates._batch.get_global_rect()
+		var card: Rect2 = estates._panel.get_global_rect()
+		assert_true(
+			press_rect.position.x >= card.position.x - 0.5
+			and press_rect.end.x <= card.end.x + 0.5,
+			"the estates press stays inside the card edge: %s in %s" % [press_rect, card]
+		)
 
 
 ## --- compact sheets ---------------------------------------------------------

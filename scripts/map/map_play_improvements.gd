@@ -31,6 +31,42 @@ static func on_action(play: PlaySession, action: String, tile: Vector2i) -> void
 	_receipt(play, result)
 
 
+## The estates sheet's one press: every ready estate the view prints, in its
+## order, through the same Build order a row's press files — the nearest idle
+## Builder, the published price and every gate stay in ImprovementOrders
+## (REQ-P2-03, REQ-P5-04; DR-20261116-06). The walk stops at the first refusal,
+## because that refusal is the rules' answer for the realm, and the court reads
+## one receipt instead of a lane of thirty lines (REQ-P5-05, REQ-P5-06).
+static func raise_all(play: PlaySession, tiles: Array) -> void:
+	if play == null or play.model == null:
+		return
+	var targets: Array[Dictionary] = []
+	for raw: Variant in tiles:
+		var tile: Vector2i = raw
+		targets.append({
+			"region": play.region_index,
+			"id": play.model.index_of(tile.x, tile.y),
+			"tile": tile,
+		})
+	var receipt: Dictionary = RaiseLedger.file_batch(
+		targets,
+		func(target: Dictionary) -> Dictionary: return _build(play, target["tile"])
+	)
+	play.improvements.refresh()
+	play.civilian_layer.sync()
+	play.hud.toast(RaiseLedger.batch_receipt(receipt, "estates"))
+
+
+## One estate's Build order, worded by the rules and printed by nobody: the
+## batch's receipt is the one line the court reads.
+static func _build(play: PlaySession, tile: Vector2i) -> Dictionary:
+	return ImprovementOrders.build(
+		play.model, play.civilian_layer.units, play.land_works, play.stockpile(),
+		play.visibility, play.player_faction, tile, play.tech_caps(),
+		play.tech_unlocked()
+	)
+
+
 ## The province's crown link for the dossier: live road tiles, whether its town
 ## reaches the capital, and how far the gap still is (LandConnectivity owns the
 ## rule; the panel only prints it).
